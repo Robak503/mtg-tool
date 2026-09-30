@@ -55,6 +55,7 @@ import {
   unattachEquipment,
 } from "./gameState.js";
 import { deterministicRng, advanceRngSeed, deathLookbackLinks } from "./gameState.js"; // RG-7 (2026-09-05) — the seeded random-discard pick at payment
+import { withoutImpulseStamps } from "./gameState.js"; // shelf D3 — a card cast out of exile leaves its impulse permission behind (CR 400.7)
 
 /** RG-7 — pitch ONE card at random from `playerId`'s hand (never `excludeId`) with the game's seeded rng, advancing the seed
  *  (the shuffle discipline — a replay reproduces the pick). Throws when nothing can be pitched (the offer gated on a hand). */
@@ -317,8 +318,20 @@ export function castDuringMainPhaseNow(state, playerId) {
 function applyCastSpell(state, action) {
   // CMD-CAST: a commander is cast FROM the command zone (action.fromZone === "command"); default "hand".
   const fromZone = action.fromZone || "hand";
-  const card = (state.players[action.playerId]?.[fromZone] || []).find(c => c.id === action.cardId) || null;
-  if (!card) throw new DispatcherError(`Card ${action.cardId} not in ${fromZone}`, "CARD_NOT_IN_ZONE");
+  // ANOTHER PLAYER'S CARD (shelf D3, Ragavan — CR 601.3): an exile cast naming `fromPlayerId` takes the card out of
+  // its OWNER's exile. Only a card stamped for THIS caster this turn qualifies; anything else is refused here, never
+  // cast. The owner rides onto the stack object (below) so the card goes home — the graveyard, the counter
+  // destination, and the permanent's `owner` stamp all read it.
+  const zoneOwner = (fromZone === "exile" && action.fromPlayerId && action.fromPlayerId !== action.playerId) ? action.fromPlayerId : action.playerId;
+  const zoneCard = (state.players[zoneOwner]?.[fromZone] || []).find(c => c.id === action.cardId) || null;
+  if (!zoneCard) throw new DispatcherError(`Card ${action.cardId} not in ${fromZone}`, "CARD_NOT_IN_ZONE");
+  if (zoneOwner !== action.playerId && !(zoneCard._impulse && zoneCard._impulseFor === action.playerId && zoneCard._impulseTurn === state.turn)) {
+    throw new DispatcherError(`${action.playerId} has no permission to cast ${zoneCard.name} from ${zoneOwner}'s exile`, "NO_CAST_PERMISSION");
+  }
+  // CR 400.7 — the card that leaves exile is a new object: the impulse permission belonged to its stay in exile and
+  // stays behind. A permanent or graveyard card still carrying "castable this turn" would be offered again the moment
+  // it was exiled a second time that turn.
+  const card = fromZone === "exile" ? withoutImpulseStamps(zoneCard) : zoneCard;
 
   // ADVENTURE (CR 715): when casting an Adventure card's FACE (`action.faceCard` — the adventure
   // instant/sorcery half from hand, or the creature half from adventure-exile), every cast-as-this-card
@@ -702,8 +715,10 @@ function applyCastSpell(state, action) {
   // 3. Move the card out of its source zone (hand, or the command zone for CMD-CAST). We splice
   // manually because the stack is shared (top-level state), not per-player.
   const player = working.players[action.playerId];
-  const srcIndex = player[fromZone].findIndex(c => c.id === action.cardId);
-  const nextSrc = [...player[fromZone].slice(0, srcIndex), ...player[fromZone].slice(srcIndex + 1)];
+  // Ragavan's card leaves its OWNER's exile (zoneOwner above); every other cast splices the caster's own zone.
+  const srcList = working.players[zoneOwner][fromZone];
+  const srcIndex = srcList.findIndex(c => c.id === action.cardId);
+  const nextSrc = [...srcList.slice(0, srcIndex), ...srcList.slice(srcIndex + 1)];
 
   // 4. Build a plain-data, SERIALIZABLE payload (Phase-7 PR-3) — no closure.
   // An instant/sorcery resolves via the P2.2 effect-program interpreter (an
@@ -812,7 +827,8 @@ function applyCastSpell(state, action) {
       // object, so finishSpellResolution (resolution/fizzle/resume) and counterSpellById (counter) all divert
       // it to exile. Without this the card would return to the graveyard → the flashback offer would re-fire
       // (an infinite-recast false positive — the cardinal forbidden bug for this mechanic).
-      params.spellToGraveyard = { playerId: action.playerId, card, ...(action.flashbackCast ? { exile: true } : {}) };
+      // The disposition is the OWNER's graveyard (CR 608.2n) — the caster's for every cast but another player's card.
+      params.spellToGraveyard = { playerId: zoneOwner, card, ...(action.flashbackCast ? { exile: true } : {}) };
     }
     payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params };
   } else if (isPermanentSpell(castCard)) {
@@ -874,7 +890,11 @@ function applyCastSpell(state, action) {
   });
   // Stamped AFTER construction, exactly as the make-uncounterable atom marks a spell already on the stack —
   // createStackObject builds a fixed shape and would drop an extra field passed through it.
-  const stackObject = (shieldNext || paidUncounterable) ? { ...builtSpell, uncounterable: true } : builtSpell; // + CAP-CAVERN: paid with "can't be countered" mana
+  const shieldedSpell = (shieldNext || paidUncounterable) ? { ...builtSpell, uncounterable: true } : builtSpell; // + CAP-CAVERN: paid with "can't be countered" mana
+  // ANOTHER PLAYER'S CARD (shelf D3): the spell's owner, when it isn't its controller. Stamped on the stack OBJECT
+  // (not the payload) so a copy — built fresh by createStackObject — never inherits it (CR 707.10: the copier owns
+  // the copy). counterSpellById sends a countered card here; the permanent resolvers stamp it on what enters.
+  const stackObject = zoneOwner !== action.playerId ? { ...shieldedSpell, owner: zoneOwner } : shieldedSpell;
 
   // CMD-CAST: a cast FROM the command zone bumps the commander's cast count → the {2} tax grows on each
   // recast (CR 903.8 counts casts from the zone, so the cast counts even if it's later countered).
@@ -885,9 +905,10 @@ function applyCastSpell(state, action) {
     ...working2,
     players: {
       ...working2.players,
+      ...(zoneOwner !== action.playerId ? { [zoneOwner]: { ...working2.players[zoneOwner], [fromZone]: nextSrc } } : {}),
       [action.playerId]: {
         ...player, // W1: `player` re-reads `working` AFTER commitPaymentPlan, so it already carries the deducted pool
-        [fromZone]: nextSrc,
+        ...(zoneOwner === action.playerId ? { [fromZone]: nextSrc } : {}),
         ...bumpCount,
         ...(shieldNext ? { nextSpellUncounterable: false } : {}),
       },

@@ -388,6 +388,19 @@ export function addEmblem(state, { playerId, oracle }) {
  * ability waiting to resolve. The engine pushes these on, resolves the
  * top, and pops.
  */
+/**
+ * The impulse-permission stamps an exiled card carries ("you may play / cast that card …" — the CR 601.3 permission): the window
+ * (`_impulse`, `_impulseTurn`, `_impulseExtended`, `_impulseOwner`) and, for another player's card, who holds it (`_impulseFor`).
+ * They describe the card's stay in exile and nothing else, so they come off whenever that stay ends — the end-of-turn
+ * lapse (gameEngine's cleanup) and the cast out of exile (CR 400.7: the object that leaves is a new object). One list,
+ * so the two sites cannot drift. A card with no stamp is returned as is.
+ */
+export function withoutImpulseStamps(card) {
+  if (!card || !card._impulse) return card;
+  const { _impulse: _i, _impulseTurn: _t, _impulseExtended: _e, _impulseOwner: _o, _impulseFor: _f, ...rest } = card;
+  return rest;
+}
+
 export function createStackObject({ id, kind, source, controller, targets = [], cost = null, payload = {} }) {
   const validKinds = new Set(["spell", "triggered-ability", "activated-ability"]);
   if (!validKinds.has(kind)) throw new Error(`createStackObject: invalid kind "${kind}"`);

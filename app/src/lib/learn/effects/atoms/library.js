@@ -1066,6 +1066,7 @@ export function applyImpulseExileAtom(state, atom, ctx) {
   const controller = ctx.controller;
   const player = state.players?.[controller];
   if (!player) return state; // controller eliminated mid-resolution → clean no-op (CR 800.4a)
+  if (atom?.who === "damagedPlayer") return impulseExileFromDamagedPlayer(state, atom, ctx);
   const lib = player.library || [];
   if (lib.length === 0) {
     // Empty library — nothing to exile. A clean logged no-op (never fabricated).
@@ -1117,6 +1118,34 @@ export function applyImpulseExileAtom(state, atom, ctx) {
   const isLandCardType = (c) => /\bLand\b/.test(String(c?.type_line || c?.type || ""));
   const withStamp = { ...next, _impulseExiledTypes: { land: taken.some(isLandCardType), nonland: taken.some((c) => !isLandCardType(c)) } };
   return logEvent(withStamp, { kind: "spell-effect", effect: "impulse-exile", controller, exiled: taken.map((c) => c.name).join(", ") || null });
+}
+
+/**
+ * ANOTHER PLAYER'S LIBRARY, CAST ONLY (shelf D3, Ragavan) — "exile the top card of that player's library. Until
+ * end of turn, you may cast that card." The top card of the DAMAGED player's library (ctx.damagedPlayerId, the
+ * combat-damage referent) goes to exile and stays theirs: it sits in its OWNER's exile, which is where every
+ * engine exile read looks for a player's cards (enterCardFromZone, the detain link, the cleanup sweep). Who may
+ * cast it rides the card as `_impulseFor` (the trigger's controller); legalChoices.actionsPlayImpulseFromExile
+ * offers it to that player alone and never to the owner, and the dispatcher splices it out of the owner's exile.
+ * The printed verb is CAST, and the offer builds casts only, so a land exiled this way stays in exile. The window
+ * is this turn's (`_impulseTurn`), lapsing at cleanup like every plain impulse stamp. An absent or eliminated
+ * referent, or an empty library, exiles nothing (a logged no-op, never the caster's own card).
+ */
+function impulseExileFromDamagedPlayer(state, atom, ctx) {
+  const controller = ctx.controller;
+  const ownerId = ctx.damagedPlayerId;
+  const owner = ownerId ? state.players?.[ownerId] : null;
+  const top = owner ? (owner.library || [])[0] : null;
+  if (!top) return logEvent(state, { kind: "spell-effect", effect: "impulse-exile", controller, from: ownerId ?? null, exiled: null });
+  const stamped = { ...top, _impulse: true, _impulseTurn: state.turn, _impulseFor: controller };
+  const next = {
+    ...state,
+    players: {
+      ...state.players,
+      [ownerId]: { ...owner, library: owner.library.slice(1), exile: [...(owner.exile || []), stamped] },
+    },
+  };
+  return logEvent(next, { kind: "spell-effect", effect: "impulse-exile", controller, from: ownerId, exiled: top.name || null });
 }
 
 /**

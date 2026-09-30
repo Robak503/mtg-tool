@@ -287,6 +287,12 @@ export function splitClauses(oracle) {
           && /^you may have it deal damage equal to its power to target creature$/i.test(prev))
       || (/^(?:until the end of your next turn, you may play|you may play (?:that card|it|them|those cards|cards exiled this way) until (?:the end of your next turn|your next end step))/i.test(sentence) // + "until your next end step" (Inti, 2026-09-05)
           && /^exile the top (?:card|two cards|three cards|four cards|five cards) of your library$/i.test(prev))
+      // RAGAVAN (shelf D3, 2026-09-30) — "…exile the top card of that player's library. Until end of turn, you may cast
+      // that card." The permission is the exiled card's only referent; split, it orphans and the exile half parses
+      // alone as nothing. The lead is usually the second half of an " and " split ("create a Treasure token and exile
+      // …"), which is exactly what `prev` holds here. Both halves anchored — only this exact pair reassembles.
+      || (/^until end of turn, you may cast that card$/i.test(sentence)
+          && /^exile the top card of that player's library$/i.test(prev))
       // CZ-COMMANDER-VISIT (Hellkite Courser, 2026-08-14) — the three-sentence ETB is ONE instruction
       // (fetch + haste + the delayed return); both continuations fold onto their exact leads, so this can
       // only ever reassemble the one shape the cz arm claims (the anchored-fold discipline above).

@@ -520,6 +520,16 @@ export function matchImpulseExilePlay(oracle) {
   // The plural referent is printed as "them" OR "those cards" — both are the same set (the just-exiled
   // cards), so both map to the identical atom. "those cards" is the DOMINANT printed form (6 carriers vs 3),
   // which is why the first pass flipped nothing until it was admitted.
+  // ANOTHER PLAYER'S LIBRARY, CAST ONLY (shelf D3, Ragavan, 2026-09-30) — "exile the top card of that player's
+  // library. Until end of turn, you may cast that card." "That player" is the combat-damage referent (the damaged
+  // player — the atom's who:"damagedPlayer", which triggerRouting / coverage gate to combat-damage events). The card
+  // stays OWNED by that player (it sits in their exile; applyImpulseExileAtom stamps who may cast it) and the verb is
+  // CAST, not play: another player's card is only ever offered as a cast, so a land exiled this way stays in exile.
+  // One exact shape — no count, no any-color-mana rider, no longer window, no "play" — so every other "that player's
+  // library" impulse keeps parking.
+  if (s === "exile the top card of that player's library. until end of turn, you may cast that card") {
+    return { atom: { op: "impulse-exile", targetType: null, who: "damagedPlayer" } };
+  }
   const m = s.match(/^exile the top (card|two cards|three cards|four cards|five cards) of your library\. (?:you may play (?:that card|it|them|those cards)(?: this turn| until end of turn)|until end of turn, you may play (?:that card|it|them|those cards))$/);
   if (m) {
     const word = m[1] === "card" ? "one" : m[1].split(" ")[0];

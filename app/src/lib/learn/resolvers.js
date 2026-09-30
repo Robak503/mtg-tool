@@ -319,6 +319,10 @@ export function enterPermanent(state, card, controller, opts = {}) {
     // exile it."' stamped on the SPELL's stack payload rides here onto the permanent (the castFromZone
     // pattern exactly). Read by the dies path: the card exiles from the graveyard after death processing.
     ...(opts.grantDiesExile ? { grantDiesExile: true } : {}),
+    // ANOTHER PLAYER'S CARD (shelf D3, Ragavan): a spell cast from its owner's exile enters under the caster's control
+    // and stays its owner's — the same `owner` stamp enterCardFromZone writes, which every leave-the-battlefield move
+    // already reads to send the card home (gameState.moveCardToZone). Absent ⇒ owner === controller.
+    ...(opts.owner && opts.owner !== controller ? { owner: opts.owner } : {}),
   };
   // A planeswalker enters with its starting loyalty as loyalty counters (CR 306.5b). Stored under
   // the generic counters map (`counters.loyalty`) so the 0-loyalty SBA + loyalty costs read it the
@@ -750,7 +754,7 @@ export function applyAdventureExile(state, { playerId, card }) {
 export function resolveCloneChoice(state, chosenPermId) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "clone-search") return state;
-  const { cloneCard, controller, riders = [], optional, scope, printedCard } = pc.resume || {}; // printedCard: V1 slice 3 (Glasspool Mimic's real two-face card)
+  const { cloneCard, controller, riders = [], optional, scope, printedCard, owner } = pc.resume || {}; // printedCard: V1 slice 3 (Glasspool Mimic's real two-face card); owner: shelf D3 (a clone cast from its owner's exile)
   let next = clearPendingChoice(state);
   if (!cloneCard || !controller) return next;
 
@@ -802,10 +806,10 @@ export function resolveCloneChoice(state, chosenPermId) {
     // to enterPermanent so it's applied AS the permanent enters (before the lethal SBA + before ETB triggers
     // see it), exactly like every other enters-with-counter replacement. A non-matching condition adds nothing.
     const extraCounter = resolveCloneEntersCounter(riders, copied);
-    next = enterPermanent(next, copied, controller, { printedCard: printedCard || cloneCard, extraCounter });
+    next = enterPermanent(next, copied, controller, { printedCard: printedCard || cloneCard, extraCounter, ...(owner ? { owner } : {}) });
   } else {
     // Declined, or the target is gone/illegal — the clone enters as itself (a 0/0).
-    next = enterPermanent(next, cloneCard, controller, printedCard ? { printedCard } : {});
+    next = enterPermanent(next, cloneCard, controller, { ...(printedCard ? { printedCard } : {}), ...(owner ? { owner } : {}) });
   }
   // A clone that copied nothing is a 0/0 and dies immediately (CR 704.5f) — run the lethal SBA
   // (the copy case finds nothing lethal, so this is a no-op for it).
@@ -880,15 +884,15 @@ export const RESOLVERS = Object.freeze({
           candidates,
           sourceName: card?.name || null,
           optional: spec.optional,
-          resume: { cloneCard: card, controller, riders: spec.riders, optional: spec.optional, scope: spec.scope, ...(printedCard ? { printedCard } : {}) },
+          resume: { cloneCard: card, controller, riders: spec.riders, optional: spec.optional, scope: spec.scope, ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) },
         });
       }
       // No creature to copy: the clone enters as itself (a 0/0) and dies (CR 704.5f).
-      const entered = enterPermanent(state, card, controller, printedCard ? { printedCard } : {});
+      const entered = enterPermanent(state, card, controller, { ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) });
       const lethal = destroyLethalCreatures(entered);
       return checkDiesTriggers(lethal.state, lethal.dead);
     }
-    return enterPermanent(state, card, controller, { xValue, kicked, wasCast: true, castFromZone, castDuringMainPhase: !!castDuringMainPhase, colorsSpent, grantDiesExile, castForNoMana: manaSpent === false, evoked: !!evoked, ...(printedCard ? { printedCard } : {}) });
+    return enterPermanent(state, card, controller, { xValue, kicked, wasCast: true, castFromZone, castDuringMainPhase: !!castDuringMainPhase, colorsSpent, grantDiesExile, castForNoMana: manaSpent === false, evoked: !!evoked, ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) }); // owner: shelf D3 — a spell cast from its owner's exile (the stack object's stamp)
   },
 
   // Aura spell resolving (CR 303.4f): the Aura enters the battlefield attached to the
@@ -905,9 +909,9 @@ export const RESOLVERS = Object.freeze({
     // UNATTACHED to any permanent, with `enchantedPlayerId` stamped for the enchanted-player referents.
     if (enchantsPlayer) {
       if (!state.players?.[targetId]) {
-        return logEvent(finishSpellResolution(state, { playerId: controller, card }), { kind: "spell-fizzle", source: card?.name, reason: "enchanted player gone", controller });
+        return logEvent(finishSpellResolution(state, { playerId: obj.owner || controller, card }), { kind: "spell-fizzle", source: card?.name, reason: "enchanted player gone", controller });
       }
-      return enterPermanent(state, card, controller, { enchantedPlayerId: targetId, ...(printedCard ? { printedCard } : {}) });
+      return enterPermanent(state, card, controller, { enchantedPlayerId: targetId, ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) });
     }
     const tgt = findPermanent(state, targetId);
     const tgtType = String(tgt?.permanent?.card?.type || tgt?.permanent?.card?.type_line || "");
@@ -946,7 +950,7 @@ export const RESOLVERS = Object.freeze({
       // an unattached Aura — it isn't put onto the battlefield at all → owner's graveyard. Same fizzle as
       // a printed Aura (the spell never resolves into a permanent), so no special case is needed here.
       // GY-2 (CR 608.3b): the fizzled Aura CARD reaches its owner's graveyard (it used to vanish).
-      return logEvent(finishSpellResolution(state, { playerId: controller, card }), { kind: "spell-fizzle", source: card?.name, reason: "aura target illegal", controller });
+      return logEvent(finishSpellResolution(state, { playerId: obj.owner || controller, card }), { kind: "spell-fizzle", source: card?.name, reason: "aura target illegal", controller }); // obj.owner: shelf D3 — a fizzled Aura cast from its owner's exile goes to THEIR graveyard
     }
     // BESTOW: thread `bestowed` so enterPermanent flags the permanent (layer-4 Creature-type removal while
     // attached + the falls-off SBA exemption). A printed Aura passes bestowed=undefined → identical path.
@@ -954,7 +958,7 @@ export const RESOLVERS = Object.freeze({
     // its own "When this Aura enters, if it was kicked, …" trigger fires (Bubble Snare taps the host).
     // wasCast + castDuringMainPhase (Sentinel's Mark, 2026-09-05): an Aura spell resolving IS a cast (CR 303.4f) — stamp it like
     // the permanent resolver does, so the Aura's own ETB look-backs can read how and when it arrived.
-    return enterPermanent(state, card, controller, { attachTo: targetId, bestowed, wasCast: true, ...(castDuringMainPhase ? { castDuringMainPhase: true } : {}), ...(kicked ? { kicked: true } : {}), ...(printedCard ? { printedCard } : {}) });
+    return enterPermanent(state, card, controller, { attachTo: targetId, bestowed, wasCast: true, ...(castDuringMainPhase ? { castDuringMainPhase: true } : {}), ...(kicked ? { kicked: true } : {}), ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) });
   },
 
   // P2.1: a recognized-but-unparseable instant/sorcery. No longer a silent

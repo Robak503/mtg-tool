@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Ragavan, Nimble Pilferer** — when it connects, you get the Treasure and can cast the card it exiles from your opponent's library that turn; the card stays theirs and goes back to their graveyard
 - **Nesting Grounds** — move a counter from one of your permanents onto another permanent
 - **Avengers Tower, Director Nick Fury, Courageous Outrider, Kolaghan Warmonger, Commune with Dinosaurs and two more** —
   "look at the top cards … reveal a Hero (Human, Dragon, Dinosaur …) card" now plays; the printed capital used to park

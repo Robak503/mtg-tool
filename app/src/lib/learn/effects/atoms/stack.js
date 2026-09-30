@@ -97,8 +97,9 @@ export function counterFilterMatches(card, filter, atom = null) {
 // of into its owner's graveyard" rider). Default "graveyard"; "exile" (Deny Existence), "hand" (Remand —
 // returned to its owner's hand), "library-top" (Memory Lapse — put on top of its owner's library). Append for
 // graveyard/exile/hand; PREPEND for library-top (index 0 = the TOP of the library, where drawCards slices from).
-// A countered cast spell's controller IS its owner (the engine only models normal casts), so the controller is
-// the correct zone owner here — matching CR's "its owner's <zone>".
+// The zone is its OWNER's (CR's "its owner's <zone>"): the spell's controller, except for a card cast out of another
+// player's exile (shelf D3, Ragavan), whose stack object carries that player as `owner` — counterSpellById passes
+// the owner's player record here.
 function placeCounteredCard(player, card, dest) {
   switch (dest) {
     case "exile":        return { ...player, exile: [...(player.exile || []), card] };
@@ -130,7 +131,10 @@ export function counterSpellById(state, spellId, { via = null, exileInstead = fa
   const controller = targetObj.controller;
   const isSpell = targetObj.kind === "spell"; // an ability is not a card → no zone change on counter
   const newStack = [...state.stack.slice(0, idx), ...state.stack.slice(idx + 1)];
-  const player = state.players[controller];
+  // The card goes to its OWNER's zone: the controller's, unless the spell was cast out of another player's exile
+  // (shelf D3 — the stack object's `owner` stamp). An owner who has left the game takes nothing back (CR 800.4a).
+  const ownerId = targetObj.owner || controller;
+  const player = state.players[ownerId];
   // FLASHBACK (CR 702.34a): a spell cast for its flashback cost is exiled — not graveyard'd — when it leaves the
   // stack for ANY reason, including a counter. The `exile:true` rider on the cast's spellToGraveyard disposition
   // rides the stack object's payload, so a countered flashback spell diverts to exile here (else it would return
@@ -141,13 +145,13 @@ export function counterSpellById(state, spellId, { via = null, exileInstead = fa
     ...state,
     stack: newStack,
     players: (isSpell && player)
-      ? { ...state.players, [controller]: placeCounteredCard(player, card, dest) }
+      ? { ...state.players, [ownerId]: placeCounteredCard(player, card, dest) }
       : state.players,
   };
   // GY-EVENT (SHELF S7): a countered SPELL whose disposition is the default graveyard enters it from the
   // stack (CR 701.6a). A redirected disposition (exile / hand / library-top) never touches a graveyard.
   if (isSpell && player && dest === "graveyard" && card) {
-    next = recordGraveyardEvents(next, [{ dir: "enter", card, gyOwner: controller, zone: "stack" }]);
+    next = recordGraveyardEvents(next, [{ dir: "enter", card, gyOwner: ownerId, zone: "stack" }]);
   }
   // Log the destination (`dest`) for any non-graveyard zone; keep the legacy `exiled:true` flag for the exile
   // case so existing log assertions stay green (back-compat with CNT-EXILE-INSTEAD's original log shape).

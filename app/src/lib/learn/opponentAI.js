@@ -188,8 +188,13 @@ function scoreCastTier(action, card, archetype, hint = null) {
  * Resolve a card by ID from the AI player's castable zones. Used to look up
  * full card data (oracle, type, mana) from the action's cardId.
  */
-function cardFromHand(state, playerId, cardId) {
+function cardFromHand(state, playerId, cardId, fromPlayerId = null) {
   const player = state.players[playerId];
+  // ANOTHER PLAYER'S CARD (shelf D3, Ragavan): the action names the owner whose exile holds it — and only a card
+  // stamped castable by THIS player is ever resolved there.
+  if (fromPlayerId && fromPlayerId !== playerId) {
+    return state.players[fromPlayerId]?.exile?.find(c => c.id === cardId && c._impulseFor === playerId) || null;
+  }
   // CMD-CAST: a commander cast action (fromZone:"command") references a card in the command zone, not
   // the hand — check both so the AI can actually cast its commander (CR 903.8), not sit on it all game.
   // EXILE: cascade / discover free-cast candidates, plotted cards, and adventure creature-halves cast
@@ -758,7 +763,7 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     // ADVENTURE: an adventure action projects the half actually being cast as `faceCard`
     // (creature half from hand/exile, or the Adventure spell half) — score THAT face, not
     // the combined card, so the pick reflects what will really resolve.
-    const card = actions[0].faceCard || cardFromHand(state, aiPlayerId, cardId);
+    const card = actions[0].faceCard || cardFromHand(state, aiPlayerId, cardId, actions[0].fromPlayerId);
     if (!card) continue; // card vanished
     // PLAY-HINTS (default-off — docs/orchestration/PLAY-HINTS-LEDGER.md): pol.playHints threads the
     // ledger map (or `true` for pure derivation). lookupPlayHint is TOTAL — ledger entry first, derived

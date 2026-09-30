@@ -51,6 +51,7 @@ import {
   findPermanent,
 } from "./gameState.js";
 import { phaseInAndExpireShield, expireNameCastLocks } from "./gameState.js"; // TEFERI'S PROTECTION - phase in + shield expiry at the active player's untap; B4 — the name cast locks expire there too
+import { withoutImpulseStamps } from "./gameState.js"; // the impulse lapse at cleanup strips the same stamp list the cast out of exile does
 import { permanentValue, policyEvalEnabledFor } from "./boardEval.js"; // QUARTET PHASE 1 slice 3 — the shared evaluator (leaf-importing module, cycle-free)
 import { setPendingCleanupDiscardChoice } from "./pendingChoice.js";
 import { skipsDrawStep } from "./effects/textNormalize.js"; // SKIP YOUR DRAW STEP (RG-4, 2026-09-05) — a leaf reader, controller-scoped
@@ -176,11 +177,9 @@ function clearImpulsePlayPermissions(state) {
       ? (c._impulseOwner === state.activePlayer && c._impulseTurn < state.turn)
       : c._impulseTurn <= state.turn);
     if (!exile.some(expired)) continue;
-    const cleaned = exile.map((c) => {
-      if (!expired(c)) return c;
-      const { _impulse: _drop, _impulseTurn: _dropTurn, _impulseExtended: _dropExt, _impulseOwner: _dropOwner, ...rest } = c;
-      return rest;
-    });
+    // Every stamp comes off together (gameState.withoutImpulseStamps — the list the cast out of exile uses too),
+    // including who held the permission (`_impulseFor`, Ragavan's another-player impulse).
+    const cleaned = exile.map((c) => (expired(c) ? withoutImpulseStamps(c) : c));
     players = players || { ...state.players };
     players[pid] = { ...player, exile: cleaned };
   }

@@ -3227,11 +3227,23 @@ function actionsPlayImpulseFromExile(state, playerId) {
   // this-turn equality. The two conditions are deliberately different: the extended window spans turns the
   // turn counter cannot express, so its lifetime is owned by the cleanup rule, not re-derived here — if both
   // sites tried to compute it, they would drift.
-  const impulsed = (player.exile || []).filter(c => c && c._impulse && (c._impulseExtended || c._impulseTurn === state.turn));
-  if (impulsed.length === 0) return [];
+  // A card stamped `_impulseFor` is another player's card to cast (Ragavan exiled it from this player's library) and
+  // is offered only through the scan below, to the player it names — the owner never gets the permission.
+  const impulsed = (player.exile || []).filter(c => c && c._impulse && !c._impulseFor && (c._impulseExtended || c._impulseTurn === state.turn));
+  const actions = [];
+  // ANOTHER PLAYER'S CARD (shelf D3, Ragavan — CR 601.3): a card sitting in its OWNER's exile, stamped
+  // `_impulseFor` this player this turn, is castable by this player at full cost. Casts only — the printed verb is
+  // "cast", and the cast builder never offers a land; the action names the owner as `fromPlayerId` so the dispatcher
+  // splices it out of their exile and the owner rides through to the stack, the battlefield, and the graveyard it
+  // goes home to.
+  for (const [pid, other] of Object.entries(state.players)) {
+    if (pid === playerId) continue;
+    const foreign = (other.exile || []).filter(c => c && c._impulse && c._impulseFor === playerId && c._impulseTurn === state.turn);
+    if (foreign.length) actions.push(...castActionsFromZone(state, playerId, foreign, "exile", null, false).map((a) => ({ ...a, fromPlayerId: pid })));
+  }
+  if (impulsed.length === 0) return actions;
   const nonlands = impulsed.filter(c => !isLand(c));
   const lands = impulsed.filter(c => isLand(c));
-  const actions = [];
   // NONLANDS — cast at full cost from exile (freeCast=false), same builder as a hand cast (timing/cost/X/targets).
   actions.push(...castActionsFromZone(state, playerId, nonlands, "exile", null, false));
   // LANDS — play from exile if a land drop is available at sorcery speed (the same gates the hand play-land uses).

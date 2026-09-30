@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **414 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **415 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,41 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D3: cast a card from another player's exile — **Ragavan, Nimble Pilferer** (cdh + Shalai) · **+1** · corpus 14,998 (43.8%) / 34,245
+> Suite **1647 files / 17,010 tests** green (1 skipped); lint 0; decks 89% (2,653 → **2,655** / 2,998 — cdh 88 → 89, Shalai and Hallar 87 → 88). CI GREEN on D2 (run 36740556472). Flip-diff **+1, zero LOST, zero RETIERED** (tier
+> snapshots at 55465d4f → the change). **Mutants 30/30 killed on assertions** (restore byte-identical).
+> · **The card:** Ragavan sat in two shelf lists, parked on "create a Treasure token and exile the top card of that player's
+>   library. Until end of turn, you may cast that card." — the runbook sized it L (H4, 2026-09-04: "nothing in the engine casts
+>   an OPPONENT'S card"). Not theft by the standing rule (nothing takes or exchanges control of a permanent).
+> · **What already existed:** the foreign-owner seam on PERMANENTS (`perm.owner`, stamped by enterCardFromZone for a reanimated
+>   opponent's card; moveCardToZone sends it home on leaving; Homeward Path reads it). What did not: a cast out of another
+>   player's zone, an owner on the stack, and an owner on a cast permanent.
+> · **Build:** parse — an anchored splitClauses fold (the permission onto the exile half of the " and " split) + one exact arm in
+>   matchImpulseExilePlay → impulse-exile who "damagedPlayer" (the existing referent gates keep it to combat damage). Resolver —
+>   the damaged player's top card into THEIR exile stamped `_impulseFor` (who may cast it) this turn; no referent / empty
+>   library → nothing, never your own card. Offer — other players' exile scanned for cards stamped for you this turn, casts
+>   only (the builder never offers a land), `fromPlayerId` naming the owner; the owner's own offer skips a stamped card.
+>   Dispatcher — spliced out of the owner's exile, an unstamped card refused (NO_CAST_PERMISSION), the owner stamped on the
+>   stack OBJECT (a copy, built fresh, never inherits it — CR 707.10: the copier owns the copy). Home: an instant resolves into
+>   its owner's graveyard (CR 608.2n), a countered card goes to its owner (CR 701.6a — counterSpellById's "controller IS its
+>   owner" invariant retired), and the permanent / Aura / player-Aura / clone resolvers stamp the owner on what enters.
+>   opponentAI.cardFromHand reads the owner's exile through the action (the pilot would have skipped the cast).
+> · **CR 400.7 fix riding along:** the impulse stamps now come off a card as it leaves exile (gameState.withoutImpulseStamps,
+>   one list shared with the cleanup lapse). The own-library impulse path had the same hole: a card cast from impulse exile
+>   and exiled again that turn was castable again. Witnessed for both paths.
+> · **Citation audit (my own draft):** I first cited CR 118.10 for the permission, copying the existing impulse comments —
+>   118.10 is "each payment of a cost applies to only one spell". The permission is CR 601.3. The pre-existing CR 118.10 /
+>   CR 608.2m citations are corrected in their own docs commit next (each checked by context — 608.2n is the graveyard put).
+> · **Runtime:** `WITNESS ragavanPilfer {"aiLife":38,"treasures":1,"inAiExile":true,"userMayCast":true,"aiMayCast":false}`
+>   through resolveCombatDamage and the real trigger · cast with the Treasure → your control, their card, dies into THEIR
+>   graveyard (a bystander card in their exile untouched) · an instant → their graveyard · countered → home · an Aura (and its
+>   fizzle), a Curse cast onto a third seat (and its fizzle when that seat leaves), a Clone (chosen, declined, nothing to copy)
+>   all keep the owner · a land stays in exile · the window closes at cleanup; a stale stamp grants nothing · re-exiled the
+>   same turn, not castable again (and for your own impulse card) · an unstamped cast refused · the AI pilot casts the card
+>   its Ragavan exiled · no referent exiles nothing. Witness `app/src/lib/learn/ragavanOpponentImpulse.test.js` (21).
+> · **Mutants 30/30:** the parse arm and the fold · the damaged-player branch · the stamp · the owner's own offer admitting it · the foreign scan, its turn check, the owner on the action · the dispatcher's zone read, permission check, CR 400.7 strip, splice, owner's-exile write, disposition, stack owner · enterPermanent's stamp and each resolver threading it (permanent, clone resume / copy / decline / nothing-to-copy, player-Aura enter + fizzle, Aura enter + fizzle) · the counter destination · the shared strip list · the cleanup lapse · both AI lookup halves..
+> · **Next:** the citation fix, then Ascend (Jurassic Ramp ×2 + Otharri), Mjölnir (Captain America), Talon Gates (cdh + Otharri).
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D2: move a counter — Nesting Grounds takes **Mothman Cometh to 91%** · **+1** · corpus 14,997 (43.8%) / 34,245
 > Suite **1646 files / 16,989 tests** green (1 skipped); lint 0; decks 88% (2,652 → **2,653** / 2,998 — Mothman Cometh 89.8 → 91). CI GREEN on D1 (run 36738445056). Flip-diff **+1, zero LOST, zero RETIERED** (tier snapshots at
