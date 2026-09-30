@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Choose what to sacrifice** — Iron Man, Titan of Innovation, Ironclad Revolutionary and Benthic Criminologists let you pick which artifact to sacrifice (or decline); Iron Man fetches an artifact one mana value higher
 - **Pod tutors** — Birthing Pod, Prime Speaker Vannifar, Oswald Fiddlebender and Repurposing Bay trade a sacrificed permanent for a card exactly one mana value higher
 - **More damage doublers** — Raphael, the Muscle, Mjölnir, Hammer of Thor (with its Equip worthy), Absorbing Man and Titania, Fiendish Duo and Calamity Bearer
 - **Hydroelectric Specimen** — flash it in and pull an instant or sorcery's single target onto it

@@ -2011,7 +2011,11 @@ export function TemptingOfferPanel({ decision, onChoose }) {
  */
 export function OptionalSacPanel({ decision, onChoose }) {
   const subtype = decision.subtype || "permanent";
+  const article = /^[aeiou]/i.test(subtype) ? "an" : "a";
   const available = decision.available !== false;
+  // CHOSEN (shelf D13 — Iron Man's "a noncreature artifact"): the permanent is not interchangeable, so the panel lists
+  // each candidate; picking one submits { sac: true, victimId }.
+  const candidates = Array.isArray(decision.candidates) ? decision.candidates : null;
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async (sac) => {
@@ -2035,37 +2039,57 @@ export function OptionalSacPanel({ decision, onChoose }) {
         }}
       >
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
-          💀 You may sacrifice a {subtype}
+          💀 You may sacrifice {article} {subtype}
           {decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
-          You may sacrifice a {subtype}. If you do, the effect resolves.
+          You may sacrifice {article} {subtype}. If you do, the effect resolves.
           {!available && (
             <span style={{ color: "var(--ley-gold)" }}>
               {" "}
-              You don’t control a {subtype} to sacrifice.
+              You don’t control {article} {subtype} to sacrifice.
             </span>
           )}
         </div>
       </div>
-      <div style={{ display: "flex", gap: 8 }}>
-        <button
-          className="btn btn-primary btn-sm"
-          style={{ flex: 1 }}
-          onClick={() => submit(true)}
-          disabled={submitting || !available}
-        >
-          Sacrifice a {subtype}
-        </button>
-        <button
-          className="btn btn-ghost btn-sm"
-          style={{ flex: 1 }}
-          onClick={() => submit(false)}
-          disabled={submitting}
-        >
-          Decline
-        </button>
-      </div>
+      {candidates && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {candidates.map((c) => (
+            <button
+              key={c.id}
+              className="btn btn-primary btn-sm"
+              onClick={() => submit({ sac: true, victimId: c.id })}
+              disabled={submitting}
+            >
+              Sacrifice {c.name || "this permanent"}
+              {Number.isFinite(c.manaValue) ? ` (mana value ${c.manaValue})` : ""}
+            </button>
+          ))}
+          <button className="btn btn-ghost btn-sm" onClick={() => submit(false)} disabled={submitting}>
+            Decline
+          </button>
+        </div>
+      )}
+      {!candidates && (
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            className="btn btn-primary btn-sm"
+            style={{ flex: 1 }}
+            onClick={() => submit(true)}
+            disabled={submitting || !available}
+          >
+            Sacrifice {article} {subtype}
+          </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ flex: 1 }}
+            onClick={() => submit(false)}
+            disabled={submitting}
+          >
+            Decline
+          </button>
+        </div>
+      )}
     </div>
   );
 }

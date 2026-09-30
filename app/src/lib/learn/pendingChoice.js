@@ -662,7 +662,7 @@ export function setPendingOptionalLifePaymentChoice(state, { controller, permane
  * run by resolveOptionalSacChoice ONLY if the controller sacrifices (sacrificeCreatureEffect never fabricates a
  * sacrifice). The continuation rides on `pendingChoice.resume` (attached by runProgram). FIFO: one choice at a time.
  */
-export function setPendingOptionalSacBySubtypeChoice(state, { controller, subtype, available, effectAtoms = [], sourceName = null }) {
+export function setPendingOptionalSacBySubtypeChoice(state, { controller, subtype, available, effectAtoms = [], sourceName = null, candidates = null }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "optional-sac-payment-pending", controller, subtype, available, sourceName });
   return {
@@ -674,6 +674,9 @@ export function setPendingOptionalSacBySubtypeChoice(state, { controller, subtyp
       available: !!available,
       effectAtoms,
       sourceName,
+      // CHOSEN (shelf D13): the non-fungible form lists what may be sacrificed — `{ id, name, manaValue, token }` — and
+      // the settle takes the chosen id. The value-token form carries none and keeps its any-one-of-them settle.
+      ...(Array.isArray(candidates) ? { candidates } : {}),
     },
   };
 }

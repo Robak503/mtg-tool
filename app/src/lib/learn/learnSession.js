@@ -892,8 +892,9 @@ function settleSylvanLibraryChoice(state, pay) {
 // none available — sacrificeCreatureEffect never fabricates a sac), then resumes — which may itself set ANOTHER
 // choice, so guard pendingChoice before flushing — then finalizeStackResolution flushes any triggers the sac /
 // payoff enqueued (CR 603.3). Mirrors settleOptionalManaPaymentChoice.
-function settleOptionalSacChoice(state, doSac) {
-  const next = resolveOptionalSacChoice(state, doSac);
+function settleOptionalSacChoice(state, value) {
+  // `value`: true/false for the value-token form; the chosen candidate's id (or false) for the chosen form (shelf D13).
+  const next = resolveOptionalSacChoice(state, !!value, typeof value === "string" ? value : null);
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
@@ -2242,7 +2243,11 @@ export function advanceUntilDecision(
           seat: choiceSeat,
           pilot,
           recordDecision,
-          buildOffered: () => pendingYesNoActions(pc),
+          // CHOSEN (shelf D13): one offered action per candidate (value = its id) plus the decline — every one maps to a
+          // real permanent the settler accepts, like the edict-mode fan-out. The value-token form stays yes/no.
+          buildOffered: () => (Array.isArray(pc.candidates)
+            ? [...pc.candidates.map((c) => ({ kind: "pending-choice", choiceKind: pc.kind, value: c.id })), { kind: "pending-choice", choiceKind: pc.kind, value: false }]
+            : pendingYesNoActions(pc)),
           fallbackAction: {
             kind: "pending-choice",
             choiceKind: pc.kind,
@@ -3338,7 +3343,8 @@ export function applyOptionalSacChoice(session, choice, opts = {}) {
   if (!pc || pc.kind !== "optional-sac-payment") {
     return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
-  const sac = choice?.sac === true || choice === true;
+  // CHOSEN (shelf D13): the panel names the permanent — `{ sac: true, victimId }`. The value-token form sends a bare yes.
+  const sac = typeof choice?.victimId === "string" ? choice.victimId : (choice?.sac === true || choice === true);
   let newState;
   try {
     newState = settleOptionalSacChoice(session.state, sac);
@@ -3354,7 +3360,7 @@ export function applyOptionalSacChoice(session, choice, opts = {}) {
     phase: session.state.phase,
     step: session.state.step,
     actor: "user",
-    action: { kind: "optional-sac-payment-choice", sacrificed: sac },
+    action: { kind: "optional-sac-payment-choice", sacrificed: !!sac, ...(typeof sac === "string" ? { victimId: sac } : {}) },
     auto: false,
     reasoning: "user-chose-optional-sac-payment",
   };

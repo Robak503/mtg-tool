@@ -1607,6 +1607,13 @@ export function autoPickOptionalManaPayment(state, pc) {
  */
 export function autoPickOptionalSac(state, pc) {
   if (!state.players?.[pc?.controller]) return false;
+  // CHOSEN (shelf D13): returns the candidate's id, or false. Only a TOKEN is given up on autopilot (Iron Man's fresh
+  // Treasure is the play the card is built around); a real card is kept, because weighing it against the payoff is a
+  // pilot's decision, not a default.
+  if (Array.isArray(pc?.candidates)) {
+    const token = pc.candidates.find((c) => c.token); // battlefield order — deterministic
+    return token ? token.id : false;
+  }
   return !!pc?.available; // sac iff a matching permanent exists (you can't sacrifice what you don't control)
 }
 
@@ -1728,16 +1735,26 @@ function runOptionalPaymentBranch(state, atoms, pc, paid) {
  * choice chains its resume onto ours (mirrors resolveOptionalManaPaymentChoice). Eliminated-controller guard
  * (the pause can outlive the SBA that removes them, CR 800.4a). Logged either way.
  */
-export function resolveOptionalSacChoice(state, doSac) {
+export function resolveOptionalSacChoice(state, doSac, victimId = null) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "optional-sac-payment") return state;
   let next = clearPendingChoice(state);
   const player = next.players?.[pc.controller];
   if (!player) return next; // controller eliminated mid-pause → bail, no resume
   // Re-scan the board NOW (CR 603.6e) — a matching permanent may have left during the pause.
-  const victim = doSac ? (player.battlefield || []).find((p) => controllerSacSubtypeMatch(p, pc.subtype)) : null;
+  // CHOSEN (shelf D13): the named candidate, if it was offered and is still on the battlefield — a yes without a named
+  // candidate sacrifices nothing (the choice of WHICH is the controller's; nothing picks it for them). The value-token
+  // form keeps its any-one-of-them read.
+  const victim = !doSac ? null
+    : Array.isArray(pc.candidates)
+      ? (victimId && pc.candidates.some((c) => c.id === victimId) ? (player.battlefield || []).find((p) => p.id === victimId) ?? null : null)
+      : (player.battlefield || []).find((p) => controllerSacSubtypeMatch(p, pc.subtype));
   let sacrificed = false;
+  let sacrificedLki = null;
   if (victim) {
+    // Its last-known values (CR 608.2h), measured before it goes — the payoff reads them ("…1 plus the sacrificed
+    // artifact's mana value"), the same shape the dispatcher freezes for a sacrifice COST.
+    sacrificedLki = { manaValue: Math.max(0, victim.card?.cmc ?? 0), power: Math.max(0, creaturePower(victim, next) ?? 0), toughness: Math.max(0, creatureToughness(victim, next) ?? 0) };
     next = sacrificeCreatureEffect(next, pc.controller, victim.id); // pitch it + fire dies/TRIG-SACRIFICE watchers
     sacrificed = true;
   }
@@ -1749,7 +1766,7 @@ export function resolveOptionalSacChoice(state, doSac) {
     const r = pc.resume || {};
     const atoms = pc.effectAtoms || [];
     for (let i = 0; i < atoms.length; i++) {
-      const ctx = { ...(r.context || {}), controller: pc.controller, targets: pc.targets || [], cardName: r.cardName ?? pc.sourceName ?? null, xValue: r.xValue ?? null, sourceId: r.sourceId ?? null };
+      const ctx = { ...(r.context || {}), ...(sacrificedLki ? { sacrificedForCost: sacrificedLki } : {}), controller: pc.controller, targets: pc.targets || [], cardName: r.cardName ?? pc.sourceName ?? null, xValue: r.xValue ?? null, sourceId: r.sourceId ?? null };
       const after = resolveAtom(next, atoms[i], ctx);
       if (after == null) {
         return markPendingArbiter(next, { source: { name: pc.sourceName }, payload: { params: r } }, `optional-sac-payment payoff atom "${atoms[i]?.op}" had no resolver`);

@@ -115,8 +115,8 @@ describe("the tutor itself", () => {
     expect({ candidates: candidateNames(out), onBattlefield: settled.players.user.battlefield.length, libraryIntact: settled.players.user.library.length })
       .toEqual({ candidates: [], onBattlefield: 0, libraryIntact: 5 });
   });
-  it("the tiers: the four Pod engines read native; Iron Man waits for its reflexive sacrifice (D13)", () => {
+  it("the tiers: the four Pod engines read native; Iron Man joins them once its reflexive sacrifice lets the player choose (D13)", () => {
     expect([BIRTHING_POD, VANNIFAR, OSWALD, REPURPOSING_BAY, IRON_MAN].map((x) => classifyCard(x)))
-      .toEqual(["native-activated", "native-activated", "native-activated", "native-activated", "body-only"]);
+      .toEqual(["native-activated", "native-activated", "native-activated", "native-activated", "native-trigger"]);
   });
 });

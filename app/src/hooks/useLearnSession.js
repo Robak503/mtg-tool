@@ -37,6 +37,15 @@ const INITIAL_STATE = {
   error: null,
 };
 
+/**
+ * The /api/learn/choose payload for a reflexive-sacrifice answer. The value-token form answers a bare boolean; the
+ * CHOSEN form (shelf D13 — Iron Man's "a noncreature artifact") answers `{ sac: true, victimId }`, and the id must reach
+ * the settler, which sacrifices nothing on a yes that names no candidate. Pure, so it is tested without React.
+ */
+export function optionalSacChoicePayload(sac) {
+  return { kind: "optional-sac-payment", sac: sac === true || sac?.sac === true, ...(typeof sac?.victimId === "string" ? { victimId: sac.victimId } : {}) };
+}
+
 export default function useLearnSession() {
   const [state, setState] = useState(INITIAL_STATE);
   const inFlightRef = useRef(false);
@@ -760,7 +769,7 @@ export default function useLearnSession() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             sessionId: state.sessionId,
-            choice: { kind: "optional-sac-payment", sac: sac === true },
+            choice: optionalSacChoicePayload(sac),
           }),
         });
         const data = await response.json().catch(() => ({}));

@@ -1275,6 +1275,22 @@ export function controllerSacSubtypeMatch(perm, subtype) {
 function applyOptionalSacPayment(state, atom, ctx) {
   if (state.pendingChoice) return state; // FIFO — one choice at a time (belt-and-braces; setter re-guards)
   const player = state.players?.[ctx.controller];
+  // CHOSEN (shelf D13 — Iron Man's "a noncreature artifact"): a card-type filter, read off each permanent's CURRENT types
+  // (an animated artifact is not noncreature). The pause lists every candidate so the controller picks which one.
+  if (atom.sacFilter) {
+    const candidates = (player?.battlefield || []).filter((p) => {
+      const types = permanentTypes(state, p.id)?.types || [];
+      return atom.sacFilter.types.every((t) => types.includes(t)) && !(atom.sacFilter.notTypes || []).some((t) => types.includes(t));
+    }).map((p) => ({ id: p.id, name: p.card?.name ?? null, manaValue: Math.max(0, p.card?.cmc ?? 0), token: !!p.card?.token }));
+    return setPendingOptionalSacBySubtypeChoice(state, {
+      controller: ctx.controller,
+      subtype: atom.subtype,
+      available: candidates.length > 0,
+      candidates,
+      effectAtoms: atom.effectAtoms || [],
+      sourceName: ctx.cardName || null,
+    });
+  }
   const available = !!(player?.battlefield || []).some((p) => controllerSacSubtypeMatch(p, atom.subtype));
   return setPendingOptionalSacBySubtypeChoice(state, {
     controller: ctx.controller,

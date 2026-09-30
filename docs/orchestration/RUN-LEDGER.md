@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **425 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **426 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,26 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D13: the reflexive CHOSEN sacrifice — **Captain America 89 → 90** (Iron Man) · **+3** · corpus 15,072 / 34,245
+> Suite **1,658 files / 17,134 tests** green (1 skipped); lint 0; decks 2,674 / 2,998. CI GREEN on D12 (run 36770424179). Flip-diff **+3, zero LOST,
+> zero RETIERED** (tier snapshots at f3b5fc96 → the change). **Mutants 18/19 killed on assertions; the survivor removed** (restore byte-identical).
+> · **First-run red (planted, graduated):** D12's podTutor pin asserted Iron Man waits for D13 — it now reads native-trigger; re-run 23/23.
+> · **Why:** Iron Man's "…then you may sacrifice a noncreature artifact. If you do, search … 1 plus the sacrificed artifact's mana
+>   value …" — which artifact is the PLAYER's choice (CR 603.7c) and sets the fetched value; the value-token lane auto-picks.
+> · **Build (full stack):** parser `matchOptionalChosenSac` ("[<lead>, then] you may sacrifice <an artifact phrase>. If you do, …";
+>   vocabulary = the artifact forms only — "a creature" / "another creature" (28 cards) wait for a pilot policy that can weigh a body)
+>   · the pause lists candidates (current types) · the settle sacrifices the NAMED one (unnamed / non-candidate → nothing) and hands
+>   its LKI to the payoff (ctx.sacrificedForCost — D12's channel) · auto-pick = a token only · the pilot is offered one action per
+>   candidate + decline · the human's { sac, victimId } → settler, logged · OptionalSacPanel lists candidates (+ "an artifact") ·
+>   useLearnSession posts the id via the pure `optionalSacChoicePayload`.
+> · **Mutation note:** the "Otherwise" half of the payoff guard SURVIVED — a payoff with an else-branch never parses HIGH, so the
+>   half was dead; removed. The second-"if you do" half is load-bearing (killed).
+> · **Runtime:** `WITNESS ironManChoice {"kind":"optional-sac-payment","candidates":["Mind Stone","Sol Ring","Treasure"],"treasureIsToken":true}`
+>   · Sol Ring → Fellwar Stone (tapped) · the Treasure → Wayfarer's Bauble · decline / unnamed / non-candidate → nothing · pilot
+>   offered [ring, tr, false] and its pick goes · AI keeps Sol Ring · Ironclad Revolutionary counters + drain · the panel + the
+>   hook payload. Witnesses `app/src/lib/learn/chosenReflexiveSac.test.js` (11), `app/src/components/mtg/optionalSacChosenPanel.test.jsx` (4).
+> · **Next:** Wolverine 88 · Kinnan 87 · the 86s.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D12: the Pod tutor — Birthing Pod, Vannifar, Oswald, Repurposing Bay · **+4** (no deck slot: the prerequisite for Iron Man) · corpus 15,069 (44.0%) / 34,245
 > Suite **1656 files / 17,119 tests** green (1 skipped); lint 0; decks 2,673 / 2,998 (unchanged). CI GREEN on D11 (run 36768762249). Flip-diff **+4, zero

@@ -1822,6 +1822,50 @@ function matchOptionalSacBySubtype(oracle, cardType) {
 }
 
 /**
+ * ===== REFLEXIVE CHOSEN SACRIFICE (CR 603.7c — shelf D13, 2026-09-30) ===== "[<lead>, then] you may sacrifice <a card-type
+ * phrase>. If you do, <payoff>." The value-token lane above auto-picks because a Treasure is a Treasure; a card-type
+ * phrase is NOT fungible — WHICH artifact is sacrificed is the controller's choice and can change the payoff (Iron Man,
+ * Titan of Innovation: "…search your library for an artifact card with mana value equal to 1 plus the sacrificed
+ * artifact's mana value…"). So the pause carries the CANDIDATES, the settle sacrifices the chosen one, and its
+ * last-known values ride to the payoff as ctx.sacrificedForCost (CR 608.2h) — the channel the Pod tutor reads.
+ *
+ * ⛔ The phrase vocabulary is deliberately small — the artifact forms. "Another creature" (19 corpus cards) and "a
+ * creature" (9) parse the same way but sacrifice a BODY, and the self-play auto-pick below declines non-token fodder; they
+ * wait for a pilot policy that can weigh a creature against its payoff. The lead clause (Iron Man's "create a Treasure
+ * token") must parse HIGH and targetless — it runs before the pause and nothing threads a target through it. Every
+ * payoff guard of the value-token lane applies unchanged.
+ */
+const CHOSEN_SAC_FILTERS = {
+  "noncreature artifact": { types: ["Artifact"], notTypes: ["Creature"] },
+  "artifact": { types: ["Artifact"] },
+};
+function matchOptionalChosenSac(oracle, cardType) {
+  const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
+  const m = s.match(/^(?:(.+?),? then )?you may sacrifice an? ([a-z ]+?)\.\s*if you do,?\s+(.+)$/i);
+  if (!m) return null;
+  const [, leadText, phrase, payoffText] = m;
+  const filter = CHOSEN_SAC_FILTERS[phrase.toLowerCase()];
+  if (!filter) return null;
+  // A SECOND "if you do" (a nested optional payment) is out of scope. (An "Otherwise, …" else-branch needs no guard here:
+  // it never parses HIGH as part of the payoff — mutation-measured.)
+  if (/\bif you do\b/i.test(payoffText)) return null;
+  const payoff = parseEffectClauseImpl(payoffText, cardType, { hasX: false });
+  if (!payoff || programConfidence(payoff) !== "high" || payoff.structure === "modal" || payoff.xSpell) return null;
+  const inner = payoff.atoms || [];
+  if (inner.length === 0 || !inner.every((a) => KNOWN.has(a.op))) return null;
+  if (programNeedsChosenTarget(payoff)) return null;
+  if (inner.slice(0, -1).some((a) => PAUSING_ATOM_OPS.has(a.op))) return null;
+  let lead = [];
+  if (leadText) {
+    const leadProgram = parseEffectClauseImpl(leadText, cardType, { hasX: false });
+    if (!leadProgram || programConfidence(leadProgram) !== "high" || leadProgram.structure === "modal" || leadProgram.xSpell) return null;
+    if (programNeedsChosenTarget(leadProgram) || !(leadProgram.atoms || []).every((a) => KNOWN.has(a.op))) return null;
+    lead = leadProgram.atoms;
+  }
+  return { atoms: [...lead, { op: "optional-sac-payment", subtype: phrase.toLowerCase(), sacFilter: filter, effectAtoms: inner, targetType: null }] };
+}
+
+/**
  * ===== OPTIONAL DRAW-THEN-DISCARD (reverse Looter, CR 603.7c-shaped) ===== "You may draw a card. If you do,
  * discard a card." (Riddlesmith, Murder of Crows, Skyswimmer Koi) — a net-neutral optional loot. Structurally an
  * optional-payment with NO cost: pause on the "may draw" yes/no; on YES run the [draw, discard] sequence (the
@@ -3228,6 +3272,11 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   const osp = matchOptionalSacBySubtype(oracle, cardType);
   if (osp && KNOWN.has(osp.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [osp.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== REFLEXIVE CHOSEN SACRIFICE (shelf D13) ===== the non-fungible twin — see matchOptionalChosenSac.
+  const ocs = matchOptionalChosenSac(oracle, cardType);
+  if (ocs && ocs.atoms.every((a) => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: ocs.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== OPTIONAL DRAW-THEN-DISCARD ===== "you may draw a card. If you do, discard a card." → ONE
   // optional-draw-discard atom (resolver runs [draw, discard] only on yes; the discard's which-card pause chains
