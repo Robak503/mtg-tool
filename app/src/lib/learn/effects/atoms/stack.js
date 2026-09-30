@@ -1235,6 +1235,24 @@ function applyTaxedLoseLife(state, atom, ctx) {
   });
 }
 
+// TAXED EDICT (the 09-06 plan's stage ③, 2026-09-30 — the Rishadan pirates: "each opponent sacrifices a permanent of their
+// choice unless they pay {N}"): the taxed-payment pause aimed at the OPPONENT, with the parsed edict riding the choice as
+// the decline payoff (resolveTaxedPaymentChoice runs it for exactly that payer). The engine seats two players, so "each
+// opponent" is one payer; a vanished opponent is a logged no-op.
+function applyTaxedEdict(state, atom, ctx) {
+  if (state.pendingChoice) return state; // FIFO — one choice at a time
+  const payer = opponentsOf(state, ctx.controller).find((pid) => state.players?.[pid]);
+  if (!payer || !atom.edict) return logEvent(state, { kind: "spell-effect", effect: "taxed-edict", payer: null, controller: ctx.controller });
+  return setPendingTaxedPaymentChoice(state, {
+    payer,
+    beneficiary: ctx.controller,
+    cost: atom.cost,
+    sourceName: ctx.cardName || null,
+    declinePayoff: "edict",
+    declineEdict: atom.edict,
+  });
+}
+
 // SHELF-85 N6 (2026-09-04) — LOSE LIFE UNLESS DISCARD (Painful Quandary "Whenever an opponent casts a spell, that player
 // loses 5 life unless they discard a card"): the optional-discard-payment pause aimed at the referent seat, with a
 // decline penalty of `amount` life (declineLoseLife). `available` counts the referent's non-token hand; an empty hand
@@ -2029,6 +2047,7 @@ export const stackResolvers = {
   "echo": applyEcho, // ECHO (EC-1, CR 702.30) — the one-time first-upkeep pay-or-sacrifice (echoDone-stamped)
   "taxed-draw": applyTaxedDraw, // OPPONENT-PAYS-TO-DENY (CR 603.7c) — "you may draw a card unless that player pays {N}" (Rhystic Study)
   "taxed-lose-life": applyTaxedLoseLife, // SHELF-85 N7 — "that player loses N life unless they pay {M}" (Phyrexian Tyranny)
+  "taxed-edict": applyTaxedEdict, // stage ③ (2026-09-30) — "each opponent sacrifices a permanent of their choice unless they pay {N}" (the Rishadan pirates)
   "lose-life-unless-discard": applyLoseLifeUnlessDiscard, // SHELF-85 N6 — "that player loses N life unless they discard a card" (Painful Quandary)
   "taxed-treasure": applyTaxedTreasure, // OPPONENT-PAYS-TO-DENY (CR 603.7c) — "an opponent draws → that player may pay {N}, else you create a Treasure" (Smothering Tithe)
   "source-power-fanout": applySourcePowerFanout, // SOURCE-POWER-FANOUT (Chandra's Ignition) — chosen creature deals its power to each other creature + each opponent

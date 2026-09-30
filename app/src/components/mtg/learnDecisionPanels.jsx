@@ -773,17 +773,27 @@ export function SacUnlessPayPanel({ decision, onChoose }) {
 }
 
 /** TAXED-PAYMENT (Rhystic Study class) — YOU are the payer; declining gives the caster the payoff. */
+// What a declined tax costs YOU (the payer) when the payoff lands on you — named per pool, "a permanent" when unknown.
+const TAXED_EDICT_VICTIM = { permanent: "a permanent", creature: "a creature", land: "a land", artifact: "an artifact", enchantment: "an enchantment" };
+
 export function TaxedPaymentPanel({ decision, onChoose }) {
   const costLabel = wardCostLabel(decision);
-  const payoff = decision.declinePayoff === "draw" ? "draws a card" : "gets the effect";
   const who = decision.beneficiary === "user" ? "You" : "Its controller";
+  // The decline, named truthfully per payoff (2026-09-30): "loseLife" and "edict" land on YOU, the payer — the old
+  // catch-all "its controller gets the effect" read as the opposite for Phyrexian Tyranny and the Rishadan pirates.
+  const payoff =
+    decision.declinePayoff === "draw" ? `${who.toLowerCase()} draws a card`
+      : decision.declinePayoff === "treasure" ? `${who.toLowerCase()} creates a Treasure token`
+        : decision.declinePayoff === "loseLife" ? `you lose ${decision.declineAmount} life`
+          : decision.declinePayoff === "edict" ? `you sacrifice ${TAXED_EDICT_VICTIM[decision.declineEdict?.what] || "a permanent"} of your choice`
+            : `${who.toLowerCase()} gets the effect`;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
       <ChoiceBanner
         icon="💰"
         title={`${costLabel}?${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}
       >
-        Unless you {costLabel.toLowerCase()}, {who.toLowerCase()} {payoff}.
+        Unless you {costLabel.toLowerCase()}, {payoff}.
       </ChoiceBanner>
       <YesNoChoice
         yesLabel={costLabel}

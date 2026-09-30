@@ -19,8 +19,10 @@
 > §3, the residue loop): ③ · 1 the Glasskites' "counter that spell or ability" (+3 → corpus 14,781; suite 1592 / 16,507;
 > census row ① Spara's Adjudicators banked) · ③ · 2 "can't be countered" asked at resolution on every counter path — the
 > CR 701.6a false positive ③ · 1 exposed (Kira, the cast-trigger counters, ward / Diffusion, a counterspell meeting a
-> grant in response; riders still fire per the rulings; ±0; suite 1593 / 16,522). **Next:** the census from row ③ (the
-> RUN-LEDGER's ③ · 1 entry lists the verdicts so far).
+> grant in response; riders still fire per the rulings; ±0; suite 1593 / 16,522) · ③ · 3 the Rishadan pirates' taxed edict
+> (+3 → corpus 14,784; suite 1594 / 16,533). **Next:** census row ④, the colour-filtered self-bounce family ("return a
+> <colour> creature you control to its owner's hand", ETB + upkeep forms, ~16 sole) — the RUN-LEDGER's ③ entries carry
+> the verdicts so far.
 > **State (measured 2026-09-29 at 5df810d2, Opus 5.5 seat):** suite **1585 files / 16,429 tests** green (1 skipped; 172 s;
 > `VITEST_TIMEOUT_MS=900000 npm test`) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30 decks, **88%** aggregate
 > (2,650 / 2,998), **13 at ≥90** (Mothman by rounding: 88/98 = 89.8%), Atraxa **74** the floor · nothing held:

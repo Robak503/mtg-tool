@@ -933,7 +933,8 @@ function settleSacUnlessPayChoice(state, pay) {
 }
 
 // OPPONENT-PAYS-TO-DENY (taxed-payment) — settle "you may draw a card unless that player pays {N}." Payer pays+affords
-// → beneficiary draws nothing; else beneficiary draws. Neither branch pauses further, so flush the stack.
+// → beneficiary draws nothing; else the decline payoff. Only the EDICT payoff (the Rishadan pirates, 2026-09-30) can pause
+// again — the payer's sacrifice pick among 2+ permanents, which carries the trigger's resume — so flush only when clear.
 function settleTaxedPaymentChoice(state, pay) {
   const next = resolveTaxedPaymentChoice(state, pay);
   return next.pendingChoice ? next : finalizeStackResolution(next);

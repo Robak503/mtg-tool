@@ -5,14 +5,43 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **358 commits**, corpus
-> 38.6% → **43.2% (14,781)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **359 commits**, corpus
+> 38.6% → **43.2% (14,784)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 3: the Rishadan pirates' TAXED EDICT · **+3** · corpus 14,784 (43.2%) / 34,245
+> Suite **1594 files / 16,533 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,650 / 2,998). Flip-diff **+3, zero LOST, zero retiered** (tier snapshots at c04a5a9f → the
+> change). **Mutants 11/11 killed** (restore byte-identical; none by a reference or syntax error).
+> · **Census row ③** (rank order below the Glasskites; the "tap or untap" and "basic land type of your choice" rows between
+>   them are the plan's banked choice classes): "When this creature enters, each opponent sacrifices a permanent of their
+>   choice unless they pay {N}." — Rishadan Cutpurse {1}, Footpad {2}, Brigand {3}.
+> · **Both halves existed; the composition did not.** The edict parsed HIGH on its own (its parser comment even named "the
+>   Rishadan pirates"), and the taxed-payment pause is Rhystic Study's / Smothering Tithe's / Phyrexian Tyranny's.
+>   `matchTaxedEdict` (templateMatchers) delegates the edict clause to `sacrificeEdictClauseParser` — one pool vocabulary —
+>   and wraps it as op `taxed-edict`; `applyTaxedEdict` raises the taxed-payment choice for the OPPONENT with a new decline
+>   payoff `edict` carrying the parsed atom; `resolveTaxedPaymentChoice` runs it for exactly the payer (by target, never
+>   another seat), and a sacrifice pick that pauses carries the trigger's resume (the chain fires it once, when it settles).
+> · **The AI keeps its mana when it has nothing to lose** (autoPickTaxedPayment: nothing in the edict's pool → decline).
+> · **UI truth:** TaxedPaymentPanel names the decline per payoff — "you lose N life" (Phyrexian Tyranny's panel read "its
+>   controller gets the effect", the opposite of what happens), "you sacrifice a permanent of your choice" (the pirates);
+>   draw / Treasure unchanged.
+> · **Runtime:** `WITNESS taxedEdictForced {"aiBoard":0,"aiGraveyard":["Grizzly Bears"]}` · `WITNESS taxedEdictPick
+>   {"kept":["Island"],"sacrificed":["Grizzly Bears"]}` (a human payer picks); paying keeps the board; the carry contract
+>   driven directly (no printed card puts an atom after a taxed edict — the matcher is whole-oracle — so a lost carry
+>   would be invisible at the card level).
+> · **A redundant guard removed rather than kept unkillable:** the matcher's `who === "eachOpponent"` check duplicated the
+>   regex's "each opponent" anchor, so neither could be seen to fail alone; the anchor stays, pinned by the each-player test.
+> · **Mutants 11/11:** the parser wiring · the payer anchor widened to each player · an {X} tax admitted · the controller
+>   taxed · the decline running no edict · the edict aimed at the beneficiary · the resume carry dropped · the AI paying with
+>   nothing to lose · the panel's edict and life lines · the choice dropping the edict. Witness
+>   `app/src/lib/learn/taxedEdict.test.js` (9) + two panel pins in PendingChoicePanels.test.jsx.
+> · **Next:** census row ④ — the colour-filtered self-bounce family ("return a <colour> [or <colour>] creature you control
+>   to its owner's hand"; ETB and upkeep forms; ~16 sole-blocked carriers).
 
 > ## 🔧 2026-09-30 — 09-06 PLAN STAGE ③ · 2: "can't be countered" asked AT RESOLUTION on every counter path (a CR 701.6a false positive) · ±0 · corpus 14,781
 > Suite **1593 files / 16,522 tests** green (1 skipped); lint 0; corpus unchanged 14,781 / 34,245, decks 88%. Flip-diff **0 / 0 / 0** (a runtime fix — tier snapshots at 12985d1a → the

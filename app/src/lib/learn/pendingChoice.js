@@ -771,7 +771,7 @@ export function setPendingSacUnlessPayChoice(state, { controller, cost, sourceId
  * pay/decline to the payer's seat with NO special driver logic. `beneficiary` (the trigger's controller) draws when
  * the payer declines / can't afford. FIFO.
  */
-export function setPendingTaxedPaymentChoice(state, { payer, beneficiary, cost, sourceName = null, declinePayoff = "draw", declineAmount = null }) {
+export function setPendingTaxedPaymentChoice(state, { payer, beneficiary, cost, sourceName = null, declinePayoff = "draw", declineAmount = null, declineEdict = null }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "taxed-payment-pending", payer, beneficiary, amount: wardCostHeadline(cost), sourceName, declinePayoff, ...(declineAmount != null && { declineAmount }) });
   return {
@@ -781,7 +781,9 @@ export function setPendingTaxedPaymentChoice(state, { payer, beneficiary, cost, 
     // on it. Defaults to "draw" so every existing taxed-draw caller is byte-for-byte unchanged.
     // N7 (2026-09-04): "loseLife" — the decline lands on the PAYER as `declineAmount` life loss (Phyrexian Tyranny
     // "loses 2 life unless they pay {2}"); the beneficiary gets nothing.
-    pendingChoice: { kind: "taxed-payment", controller: payer, payer, beneficiary, cost, sourceName, declinePayoff, ...(declineAmount != null && { declineAmount }) },
+    // 2026-09-30: "edict" — the decline lands on the PAYER as the parsed edict atom `declineEdict` (the Rishadan pirates:
+    // "each opponent sacrifices a permanent of their choice unless they pay {1}"); the beneficiary gets nothing.
+    pendingChoice: { kind: "taxed-payment", controller: payer, payer, beneficiary, cost, sourceName, declinePayoff, ...(declineAmount != null && { declineAmount }), ...(declineEdict && { declineEdict }) },
   };
 }
 

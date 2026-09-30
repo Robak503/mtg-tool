@@ -151,6 +151,26 @@ describe("TaxedPaymentPanel", () => {
     expect(out).toContain("draws a card");
     expect(out).toContain("Decline");
   });
+
+  // 2026-09-30: a decline that lands on YOU is named as such. The old catch-all read "its controller gets the effect" —
+  // the opposite of what Phyrexian Tyranny and the Rishadan pirates do.
+  it("Phyrexian Tyranny: the decline costs YOU the life, and says so", () => {
+    const out = render(<TaxedPaymentPanel
+      decision={{ kind: "taxed-payment", cost: MANA_2, beneficiary: "ai", declinePayoff: "loseLife", declineAmount: 2, sourceName: "Phyrexian Tyranny" }}
+      onChoose={() => {}}
+    />);
+    expect(out).toContain("you lose 2 life");
+    expect(out).not.toContain("gets the effect");
+  });
+
+  it("the Rishadan pirates: the decline is YOUR sacrifice of a permanent", () => {
+    const out = render(<TaxedPaymentPanel
+      decision={{ kind: "taxed-payment", cost: MANA_2, beneficiary: "ai", declinePayoff: "edict", declineEdict: { op: "sacrifice", who: "eachOpponent", what: "permanent" }, sourceName: "Rishadan Footpad" }}
+      onChoose={() => {}}
+    />);
+    expect(out).toContain("you sacrifice a permanent of your choice");
+    expect(out).not.toContain("gets the effect");
+  });
 });
 
 describe("EdictModePanel", () => {

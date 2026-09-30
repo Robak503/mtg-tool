@@ -132,6 +132,7 @@ const PAUSING_OPS_LIST = [
   "taxed-draw", // stack.js applyTaxedDraw → setPendingTaxedPaymentChoice (opponent pays or you draw — Rhystic Study)
   "taxed-treasure", // stack.js applyTaxedTreasure → setPendingTaxedPaymentChoice (opponent pays or you create a Treasure — Smothering Tithe)
   "taxed-lose-life", // stack.js applyTaxedLoseLife → setPendingTaxedPaymentChoice (the referent player pays or loses N — Phyrexian Tyranny; SHELF-85 N7)
+  "taxed-edict", // stack.js applyTaxedEdict → setPendingTaxedPaymentChoice (the opponent pays or sacrifices — the Rishadan pirates; stage ③ 2026-09-30)
   "lose-life-unless-discard", // stack.js applyLoseLifeUnlessDiscard → setPendingOptionalDiscardPaymentChoice (the referent player discards or loses N — Painful Quandary; SHELF-85 N6)
   "iterated-edict", // iteratedEdict.js applyIteratedEdict → advanceEdictChain → setPendingEdictModeChoice (Torment of Hailfire)
   "connive", // connive.js applyConnive → setPendingDiscardChoice (the chosen discard; the counter settles in resolveDiscardChoice)

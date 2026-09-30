@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Rishadan Cutpurse, Rishadan Footpad, Rishadan Brigand** — when one enters, each opponent pays {1} / {2} / {3}
+  or sacrifices a permanent of their choice. The pay-or-else prompt now says plainly what declining costs you
+  (Phyrexian Tyranny's used to read as if the other player got the effect)
 - **Shimmering Glasskite, Jetting Glasskite, Glyph Keeper** — the first spell or ability to target one of them each turn is
   countered (a spell that can't be countered still resolves)
 - **Your party counts** — Shatterskull Minotaur, Journey to Oblivion, Sea Gate Colossus, Deadly Alliance and Spoils of

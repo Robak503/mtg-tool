@@ -27,6 +27,7 @@ import { CR_CREATURE_TYPES } from "./creatureTypes.js"; // the closed creature-s
 import { parseTutorFilter, parseCountSource, parseGrantedKeywords, SMALL_NUM } from "./parseHelpers.js";
 import { parseControllerRider } from "./spanMatchers.js"; // sibling leaf (slice 4) — the controller-rider fold matchExileXControllerRider reuses
 import { fightClauseParser } from "./atoms/combat.js";
+import { sacrificeEdictClauseParser } from "./atoms/removal.js"; // TAXED EDICT (the Rishadan pirates) delegates its edict clause — removal.js's closure reaches no parser module (checked 2026-09-30)
 import { spellConditionParseable } from "../interveningIf.js";
 
 /**
@@ -811,6 +812,26 @@ export function matchPeerIntoTheAbyss(oracle) {
   const s = String(oracle || "").trim().replace(/\s+/g, " ");
   if (!/^target player draws cards equal to half the number of cards in their library and loses half their life\. round up each time\.?$/i.test(s)) return null;
   return { atom: { op: "draw-half-library-lose-half-life", targetType: "player", roundUp: true } };
+}
+
+/**
+ * TAXED EDICT (the 09-06 plan's stage ③, 2026-09-30 — the Rishadan pirates: Cutpurse / Footpad / Brigand, "When this
+ * creature enters, each opponent sacrifices a permanent of their choice unless they pay {1}."): the EXISTING edict
+ * ("each opponent sacrifices a permanent of their choice" — delegated to sacrificeEdictClauseParser, so its pool vocabulary
+ * is exactly the plain edict's) wrapped in the EXISTING taxed-payment pause (Rhystic Study / Phyrexian Tyranny) with a new
+ * decline payoff: the payer sacrifices. Each-opponent edicts only (the payer is the opponent); fixed pips only.
+ */
+export function matchTaxedEdict(oracle) {
+  const s = String(oracle || "").trim().replace(/\.$/, "");
+  const m = s.match(/^(each opponent sacrifices an? [a-z ]+? of their choice) unless they pay (\{[^}]+\}(?:\{[^}]+\})*)$/i);
+  if (!m) return null;
+  // The "each opponent" anchor above is the whole payer gate (an "each player" edict would tax the controller too — pinned).
+  const edict = sacrificeEdictClauseParser(m[1]);
+  if (!edict) return null;
+  const pips = (m[2].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
+  const mana = pips.length ? parseFixedManaPips(pips) : null;
+  if (!mana) return null;
+  return { atom: { op: "taxed-edict", cost: { kind: "mana", mana }, edict, targetType: null } };
 }
 
 export function matchTaxedLoseLife(oracle) {

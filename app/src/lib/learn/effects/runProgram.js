@@ -2055,6 +2055,11 @@ export function resolveSacUnlessPayChoice(state, pay) {
 export function autoPickTaxedPayment(state, pc) {
   const player = state.players?.[pc?.payer];
   if (!player) return false; // payer gone → can't pay → beneficiary draws
+  // TAXED EDICT (2026-09-30): with nothing in the edict's pool to lose, declining costs nothing — keep the mana.
+  if (pc.declinePayoff === "edict") {
+    const what = pc.declineEdict?.what || "creature";
+    if (!(player.battlefield || []).some((p) => sacrificePoolMatch(what, p.card))) return false;
+  }
   return canAfford(player.manaPool, manaSources(state, pc.payer), pc.cost?.mana || {});
 }
 
@@ -2079,7 +2084,16 @@ export function resolveTaxedPaymentChoice(state, pay) {
     paid = r.paid;
   }
   next = logEvent(next, { kind: "spell-effect", effect: "taxed-payment", payer: pc.payer, beneficiary: pc.beneficiary, paid, declinePayoff: pc.declinePayoff || "draw", sourceName: pc.sourceName || null });
-  if (!paid && pc.declinePayoff === "loseLife") {
+  if (!paid && pc.declinePayoff === "edict") {
+    // TAXED EDICT (2026-09-30 — the Rishadan pirates) — the decline lands on the PAYER: they sacrifice through the SAME
+    // edict a plain "each opponent sacrifices …" runs (the parsed atom rides the choice), aimed at exactly this payer by
+    // target, so it never reaches another seat. The pick can pause (a human payer chooses among 2+ permanents); the
+    // trigger's resume rides onto that pick, and the sacrifice chain fires it once the chain settles (never twice).
+    if (next.players?.[pc.payer] && pc.declineEdict) {
+      next = resolveAtom(next, { ...pc.declineEdict, who: undefined }, { controller: pc.beneficiary, cardName: pc.sourceName || null, targets: [{ type: "player", id: pc.payer }] });
+      if (next.pendingChoice) return pc.resume ? { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } } : next;
+    }
+  } else if (!paid && pc.declinePayoff === "loseLife") {
     // N7 (Phyrexian Tyranny) — the decline lands on the PAYER: they lose `declineAmount` (CR 119.4 via loseLife, so
     // life-loss watchers fire). The beneficiary gets nothing. A vanished payer loses nothing.
     if (next.players?.[pc.payer] && pc.declineAmount > 0) next = loseLife(next, { playerId: pc.payer, amount: pc.declineAmount });
