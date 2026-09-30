@@ -5,14 +5,39 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **369 commits**, corpus
-> 38.6% → **43.3% (14,845)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **370 commits**, corpus
+> 38.6% → **43.4% (14,852)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 13: "target creature blocks this creature this turn if able" · **+7** · corpus 14,852 (43.4%) / 34,245
+> Suite **1605 files / 16,647 tests** green (1 skipped); lint 0. Flip-diff **+7, zero LOST, zero retiered** (tier snapshots at 74c63a70 → the
+> change). **Mutants 8/8 killed on assertions** (restore byte-identical).
+> · **Census row ⑬:** Trumpeting Armodon, Matsu-Tribe Decoy, Tangle Angler, Rampant Elephant, Burning-Tree Bloodscale, Maraleaf
+>   Rider (a Food as the cost), Lurking Arynx (formidable) — every one activated for real. Vortex Elemental and Torchling stay
+>   parked on other abilities.
+> · **Build — the requirement twin of the pairwise "can't block this creature" (CR 509.1c).** The clause arm → op
+>   `must-block-source`; the atom grants the same source-keyed endOfTurn layer-6 keyword (`mustBlockSource:<sourceId>`) — both
+>   atoms now share one body, `grantSourcePairKeyword`; the target intent is enemy-side. `opponentAI.pickBlockers` seeds the
+>   forced pair FIRST whenever it is a legal block. Same house bar as LURE and MUST-ATTACK: the AI seat complies; the human seat
+>   is never hard-gated.
+> · **Menace, by the rule rather than a skip.** The first draft skipped a menace attacker, and its mutant SURVIVED: the engine
+>   never offers a lone blocker against menace, so that pin couldn't reach the skip. CR 509.1c asks for the most requirements
+>   obeyed without breaking a restriction, so the forced blocker now brings the fewest helpers that make the block legal —
+>   smallest power, then id, the MUST-BE-BLOCKED recruiting order — and nothing is seeded when the block can't be completed (a
+>   helper bound by its own requirement elsewhere). Both cases are pinned; the unkillable skip is gone.
+> · **Runtime:** unforced, the AI's Grizzly Bears don't chump a 3/3 (the vacuity control) · `WITNESS forcedBlock ["b→arm"]` after
+>   the {1}{G} activation · with Craw Wurm also attacking (its id sorting first), the Bears still block the Armodon · menace:
+>   Bears + Llanowar Elves (not the Wurm), none unforced, none when the Elves are bound elsewhere · the four other carriers each
+>   grant the requirement · Lurking Arynx only at total power 8+ · Maraleaf Rider pays with a Food and isn't offered without one.
+> · **Mutants 8/8:** the clause arm · the seeding dead · forced toward ANY attacker (red on the reordered pin) · no helper
+>   recruited · the completeness guard removed · helpers largest-first · the grant not source-keyed · the intent flipped. Witness
+>   `app/src/lib/learn/mustBlockSource.test.js` (10).
+> · **Next:** the census below row ⑬.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 12: "cast this spell only if you've cast another spell this turn" · **+3** · corpus 14,845 (43.3%) / 34,245
 > Suite **1604 files / 16,637 tests** green (1 skipped); lint 0. Flip-diff **+3, zero LOST, zero retiered** (tier snapshots at 988b43bb → the

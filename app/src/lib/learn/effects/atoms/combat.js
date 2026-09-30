@@ -897,6 +897,16 @@ export function applyCantBlock(state, atom, ctx) {
 // (`cantBlockSource:<sourceId>`): canBlockAttacker refuses the pair (this blocker, that attacker) and nothing else.
 // No source (a spell / a context without one) → nothing granted — the target keeps every block it had (FN-safe).
 export function applyCantBlockSource(state, atom, ctx) {
+  return grantSourcePairKeyword(state, atom, ctx, "cantBlockSource", "cant-block-source");
+}
+// PAIRWISE MUST-BLOCK (the 09-06 plan's stage ③ · 13, 2026-09-30) — the requirement twin (CR 509.1c): "Target creature blocks
+// this creature this turn if able." The same source-keyed endOfTurn grant (`mustBlockSource:<sourceId>`); opponentAI.pickBlockers
+// force-assigns exactly that pair when it is a legal block. No source → nothing granted (FN-safe), as above.
+export function applyMustBlockSource(state, atom, ctx) {
+  return grantSourcePairKeyword(state, atom, ctx, "mustBlockSource", "must-block-source");
+}
+// The shared body of the two pairwise grants: an endOfTurn layer-6 keyword `<prefix>:<sourceId>` on each targeted creature.
+function grantSourcePairKeyword(state, atom, ctx, prefix, effect) {
   if (!ctx.sourceId || !findPermanent(state, ctx.sourceId)) return state;
   const targets = atomTargets(state, atom, ctx);
   let next = state;
@@ -905,12 +915,12 @@ export function applyCantBlockSource(state, atom, ctx) {
   for (const target of targets) {
     if (target.type !== "creature" || !findPermanent(next, target.id)) continue;
     next = addContinuousEffect(next, {
-      layer: 6, op: { layerOp: "addKeyword", keyword: `cantBlockSource:${ctx.sourceId}` },
+      layer: 6, op: { layerOp: "addKeyword", keyword: `${prefix}:${ctx.sourceId}` },
       affects: { mode: "fixed", permanentIds: [target.id] },
       duration: dur, source: src,
     }).state;
   }
-  return logEvent(next, { kind: "spell-effect", effect: "cant-block-source", source: ctx.sourceId, targets: targets.map((t) => t.id) });
+  return logEvent(next, { kind: "spell-effect", effect, source: ctx.sourceId, targets: targets.map((t) => t.id) });
 }
 
 /**
@@ -1676,6 +1686,11 @@ export function combatKeywordClauseParser(clause) {
   // (`cantBlockSource:<id>`), read pairwise by canBlockAttacker against the attacker being blocked. Source-scoped by
   // construction (the resolver grants nothing without ctx.sourceId), so a spell printing it could never over-restrict.
   if (/^target creature can't block this creature this turn$/.test(t)) return { op: "cant-block-source", targetType: "creature" };
+  // PAIRWISE MUST-BLOCK (the 09-06 plan's stage ③ · 13, 2026-09-30 — "{1}{G}: Target creature blocks this creature this turn if
+  // able": Trumpeting Armodon, Matsu-Tribe Decoy, Tangle Angler, Rampant Elephant, Maraleaf Rider …): the requirement twin of
+  // the line above (CR 509.1c), the same source-keyed endOfTurn grant (`mustBlockSource:<id>`). Enforced at opponentAI's block
+  // plan, the LURE / MUST-ATTACK house bar: the AI seat complies; the human seat is never hard-gated. Whole clause anchored.
+  if (/^target creature blocks this creature this turn if able$/.test(t)) return { op: "must-block-source", targetType: "creature" };
   // ⭐ PROTECTION-FROM-A-COLOUR grant (CR 702.16) — "Target creature gains protection from black until end
   // of turn." (Obsidian Acolyte, Crimson Acolyte) and the SELF form "This creature gains protection from red
   // …" (Keeper of Kookus).
@@ -3026,6 +3041,7 @@ export const combatResolvers = {
   "untap-remove-from-combat": applyUntapRemoveFromCombat, // GUSTCLOAK ESCAPE (GC-1, CR 506.4/510.1c-d) — untap the trigger source + remove it from combat (flag + attacker-record drop; blockers stay in combat, deal nothing)
   "cant-block": applyCantBlock,
   "cant-block-source": applyCantBlockSource, // PAIRWISE CANT-BLOCK (④-BA) — "target creature can't block THIS creature this turn"
+  "must-block-source": applyMustBlockSource, // PAIRWISE MUST-BLOCK (③ · 13) — "target creature blocks THIS creature this turn if able"
   "goad": applyGoad, // GOAD (CR 701.38, ④-AI) — mustAttack + goaded until the goader's next turn; the goader on the source
   "detain": applyDetain, // DETAIN (CR 701.29, ④-AZ) — cantAttack + cantBlock + activatedAbilitiesLocked until the detainer's next turn
   "become-color": applyBecomeColor,            // COLOUR CHANGE (CR 105.1) — setColor had only the animate writer

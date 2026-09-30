@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Trumpeting Armodon, Matsu-Tribe Decoy, Tangle Angler, Rampant Elephant, Burning-Tree Bloodscale, Maraleaf Rider,
+  Lurking Arynx** — "target creature blocks this creature this turn if able": the AI opponent now blocks as required (with a
+  second creature against menace when it has one)
 - **Illusory Angel, Skyshroud Condor, Hewed Stone Retainers** — castable once you've cast another spell this turn,
   and not before
 - **Insatiable Skittermaw, Kavaron Skywarden, Interceptor Mechan, Voidforged Titan, Elegy Acolyte, Decode

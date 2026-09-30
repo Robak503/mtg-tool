@@ -1006,6 +1006,32 @@ function pickBlockers(blockerActions, state, aiPlayerId, pol = {}) {
   const plan = [];
   const usedBlockers = new Set();
   const blockedAttackers = new Set();
+  // PAIRWISE MUST-BLOCK (the 09-06 plan's stage ③ · 13, 2026-09-30 — "Target creature blocks this creature this turn if able":
+  // Trumpeting Armodon, Matsu-Tribe Decoy, Tangle Angler …): a requirement on ONE blocker toward ONE attacker (CR 509.1c), the
+  // endOfTurn `mustBlockSource:<attackerId>` keyword the atom grants. Seeded FIRST, whenever that exact pair is among the LEGAL
+  // block actions (byAttacker is pre-filtered through canBlockAttacker, so "if able" already excludes every restriction). CR
+  // 509.1c asks for the most requirements obeyed without breaking a restriction, so a menace / ≥N attacker takes the forced
+  // blocker(s) PLUS the fewest others that make the block legal — the smallest power, then id, the MUST-BE-BLOCKED recruiting
+  // order below; with too few left, the block can't be completed and nothing is seeded. Same house bar as LURE and MUST-ATTACK
+  // below: the AI seat complies; the human seat is never hard-gated.
+  for (const attId of [...byAttacker.keys()].sort(byId)) {
+    const offered = (byAttacker.get(attId) || []).filter((action) => !usedBlockers.has(action.permanentId));
+    const forced = offered.filter((action) => permanentHasKeyword(state, action.permanentId, `mustBlockSource:${attId}`));
+    if (!forced.length) continue;
+    const need = minBlockersFor(state, attId);
+    const helpers = offered.filter((action) => !forced.includes(action))
+      .map((action) => ({ action, stats: blockerStats.get(action.permanentId) }))
+      .filter((c) => c.stats)
+      .sort((x, y) => (x.stats.power - y.stats.power) || byId(x.stats.id, y.stats.id))
+      .slice(0, Math.max(0, need - forced.length))
+      .map((c) => c.action);
+    if (forced.length + helpers.length < need) continue;
+    for (const action of [...forced, ...helpers]) {
+      plan.push(action);
+      usedBlockers.add(action.permanentId);
+    }
+    blockedAttackers.add(attId);
+  }
   // LURE (BLITZ LU-1, CR 509.1c — "All creatures able to block this creature do so": Taunting Elf /
   // Prized Unicorn / Elvish Bard / Breaker of Armies / Noxious Toad kin): a BLOCK REQUIREMENT, enforced
   // at the AI block plan exactly like MUST-ATTACK (CR 508.1a) is at pickAttackPlan — the versioned house

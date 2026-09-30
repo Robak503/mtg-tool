@@ -182,6 +182,7 @@ export function atomTargetIntent(atom) {
       // purpose: narrowing enumeration to own-side would be a false negative on a legal target.
       return "own";
     case "cant-block-source": // PAIRWISE CANT-BLOCK (④-BA) — the same offensive intent, scoped to the source
+    case "must-block-source": // PAIRWISE MUST-BLOCK (③ · 13) — you force an OPPONENT's creature to block your attacker
     case "cant-block":
       // CANT-BLOCK — "target creature can't block this turn" disables an OPPONENT's blocker so your
       // attacker connects (offensive). The trigger-flush chooser picks an opponent's creature; you'd never
