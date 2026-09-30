@@ -98,7 +98,7 @@ import { shuffleControllerLibrary } from "./effects/atoms/library.js"; // seeded
 import { drainDelayedTriggers } from "./effects/atoms/delayedTrigger.js"; // CR 603.7 scheduler drain (leaf atom module — imports only gameState, no cycle)
 import { rankBottomCandidates } from "./mulliganPolicy.js"; // London bottom-N picker (leaf module, no cycle)
 import { evaluateInterveningIf, interveningIfParseable } from "./interveningIf.js";
-import { registerGroupTriggeredBodyValidator, MODELLED_MAX_HAND_RE } from "./staticAbilityParser.js";
+import { registerGroupTriggeredBodyValidator, MODELLED_MAX_HAND_RE, lostManaBecomesColorless } from "./staticAbilityParser.js";
 import { isModeledGroupTriggeredBody, combatDamageReferentSatisfied } from "./triggerRouting.js";
 import { registerGrantTriggeredBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant body gate
 
@@ -217,16 +217,17 @@ function resetPriorityLoop(state) {
 
 /**
  * Empty every player's mana pool, EXCEPT colors a "doesn't empty" effect
- * preserves for that player (Omnath keeps green, Kruphix keeps all — wired
- * via cardEffects in PR 10.5; default keeps nothing). Per CR 500.4 mana
- * empties as each step and phase ends; this is the one helper all the
- * emptying checkpoints route through, so the preservation hook is honored
- * everywhere.
+ * preserves for that player (Omnath keeps green — wired via cardEffects in
+ * PR 10.5; default keeps nothing). Per CR 500.4 mana empties as each step and
+ * phase ends; this is the one helper all the emptying checkpoints route
+ * through, so the preservation hook is honored everywhere. Under Horizon
+ * Stone / Kruphix the mana a player would lose stays, as colorless.
  */
 export function emptyManaPools(state) {
   const nextPlayers = {};
   for (const pid of Object.keys(state.players)) {
     const keep = manaDoesNotEmpty(state, pid);
+    const toColorless = lostManaTurnsColorless(state, pid);
     const pool = state.players[pid].manaPool;
     // MANA-HOLD — the SECOND, bounded preservation: mana printed as outliving the step that made it
     // ("This mana lasts until end of combat"). Unlike the card-name registry above (Omnath keeps green,
@@ -245,15 +246,43 @@ export function emptyManaPools(state) {
     const holdTurn = state.players[pid].manaHoldTurn || {};
     const newPool = {};
     for (const c of MANA_COLORS) newPool[c] = (keep.includes(c) || holdTurn[c]) ? pool[c] || 0 : Math.min(pool[c] || 0, hold[c] || 0);
+    // LOST MANA BECOMES COLORLESS (stage ③ · 20 — Horizon Stone, Kruphix: "If you would lose unspent mana, that mana becomes
+    // colorless instead."): a replacement on exactly the mana this drain would take. Whatever the keeps and holds above leave
+    // behind stays in the pool as {C}; kept mana was never lost, so Omnath's green stays green.
+    if (toColorless) {
+      let lost = 0;
+      for (const c of MANA_COLORS) lost += (pool[c] || 0) - newPool[c];
+      newPool.C += lost;
+    }
     // POOL-RESTRICTED SUB-POOL (QUARTET Phase 4 — Klauth): tagged entries empty with the pool UNLESS
     // they carry the printed until-end-of-turn hold ("you don't lose this mana as steps and phases
     // end") — those survive every step/phase end and are dropped at CLEANUP (finishCleanupActions).
+    // Under Horizon Stone / Kruphix an entry that would be dropped stays instead, colorless, with its
+    // restriction (both cards' rulings: "those restrictions or riders remain associated with that mana").
     const rm = state.players[pid].restrictedMana;
-    const keptEntries = Array.isArray(rm) ? rm.filter((e) => e.holdUntilEndOfTurn) : rm;
+    const keptEntries = !Array.isArray(rm) ? rm
+      : toColorless ? rm.map((e) => (e.holdUntilEndOfTurn ? e : colorlessManaEntry(e)))
+      : rm.filter((e) => e.holdUntilEndOfTurn);
     nextPlayers[pid] = { ...state.players[pid], manaPool: newPool,
       ...(keptEntries !== rm ? { restrictedMana: keptEntries } : {}) };
   }
   return { ...state, players: nextPlayers };
+}
+
+// Does a permanent this player controls print "If you would lose unspent mana, that mana becomes colorless instead."?
+// Battlefields are keyed by controller, a phased-out permanent is spliced out of `battlefield`, and a face-down permanent's
+// `card` is its 2/2 stand-in (CR 708.2), so this array is exactly the permanents whose static applies.
+function lostManaTurnsColorless(state, playerId) {
+  return (state.players?.[playerId]?.battlefield || []).some((perm) => lostManaBecomesColorless(perm?.card));
+}
+
+// A restricted entry's mana, turned colorless: the same amount, the same restriction, and no until-end-of-turn hold — the
+// Horizon Stone / Kruphix static keeps it now, and asks again at every drain.
+function colorlessManaEntry(entry) {
+  const total = MANA_COLORS.reduce((n, c) => n + (entry.pool?.[c] || 0), 0);
+  const out = { ...entry, pool: { W: 0, U: 0, B: 0, R: 0, G: 0, C: total } };
+  delete out.holdUntilEndOfTurn;
+  return out;
 }
 
 // ─── Step advancement ────────────────────────────────────────────────────────
@@ -857,14 +886,17 @@ export function finishCleanupActions(state) {
   next = emptyManaPools(next);
   // POOL-RESTRICTED SUB-POOL (QUARTET Phase 4 — Klauth): the until-end-of-turn HELD entries survived
   // every step-end drain above; the turn ends HERE, so every entry drops (CR 514.2 + the printed
-  // "until end of turn" bound on the hold itself).
+  // "until end of turn" bound on the hold itself) — unless Horizon Stone / Kruphix turns the mana the
+  // player would lose colorless instead (stage ③ · 20): then each entry stays, colorless, restriction kept.
   {
     const cleared = {};
     let touched = false;
     for (const pid of Object.keys(next.players)) {
       const p = next.players[pid];
-      if (Array.isArray(p.restrictedMana) && p.restrictedMana.length) { cleared[pid] = { ...p, restrictedMana: [] }; touched = true; }
-      else cleared[pid] = p;
+      if (Array.isArray(p.restrictedMana) && p.restrictedMana.length) {
+        cleared[pid] = { ...p, restrictedMana: lostManaTurnsColorless(next, pid) ? p.restrictedMana.map(colorlessManaEntry) : [] };
+        touched = true;
+      } else cleared[pid] = p;
     }
     if (touched) next = { ...next, players: cleared };
   }

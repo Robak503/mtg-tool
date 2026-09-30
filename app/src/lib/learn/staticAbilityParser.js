@@ -2937,6 +2937,17 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
+  // ── LOST MANA BECOMES COLORLESS (the 09-06 plan's stage ③ · 20, 2026-09-30 — Horizon Stone, Kruphix, God of Horizons: "If you
+  // would lose unspent mana, that mana becomes colorless instead.") ────────────────────────────────────────────────────────────
+  // A replacement effect (CR 614.1a) on the controller's CR 500.4 mana loss, and a coverage MARKER here. The enforcement is
+  // gameEngine.emptyManaPools, the single step/phase-end drain: the mana this player would lose stays, as {C}, and a restricted
+  // entry keeps its restriction (both cards' rulings). The colorless line only: "that mana becomes black/red instead" (Omnath,
+  // Locus of All; Ozai) could put two differently coloured conversions under one player, whose CR 616.1 order is a choice.
+  if (/^if you would lose unspent mana, that mana becomes colorless instead$/.test(c)) {
+    out.push({ lostManaBecomesColorless: true });
+    return;
+  }
+
   // ── ATTACK TAX (CR 508.1g — Propaganda / Ghostly Prison / Windborn Muse) ────────────────────────────
   // "Creatures can't attack you unless their controller pays {N} for each creature they control that's
   // attacking you." A coverage MARKER only (no `affects`/`op`, so the layer engine ignores it — the
@@ -6609,6 +6620,12 @@ export function exilesOpponentCreaturesOnDeath(card) {
  *  asks it of the losing player's permanents for a damage loss. */
 export function lifeFloorOf(card) {
   return parseStaticAbilities(card).find((d) => Number.isInteger(d?.lifeFloor)) || null;
+}
+
+/** Does this card carry "If you would lose unspent mana, that mana becomes colorless instead." (Horizon Stone, Kruphix, God of
+ *  Horizons)? The SAME parse the classifier reads; gameEngine.emptyManaPools asks it of the permanents each player controls. */
+export function lostManaBecomesColorless(card) {
+  return parseStaticAbilities(card).some((d) => d?.lostManaBecomesColorless === true);
 }
 
 /**

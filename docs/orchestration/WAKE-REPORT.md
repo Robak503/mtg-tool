@@ -41,7 +41,8 @@
 > (+5 → corpus 14,864; Omnath 94 → 95; suite 1607 / 16,668) · ③ · 17 "sacrifice it unless it escaped" — Phlage, Uro (+2 → corpus
 > 14,866; suite 1608 / 16,673) · ③ · 18 "exile it instead" at every death site — destroy and sacrifice now ask too;
 > Stone of Erech, Misery's Shadow (+2 → corpus 14,868; suite 1609 / 16,683) · ③ · 19 Blood Seeker, Suture Priest — the entering opponent's creature's controller
-> loses the life (+2 → corpus 14,870; suite 1610 / 16,688). **Next:** the census below row ⑲ — the RUN-LEDGER's ③ entries carry the verdicts so far.
+> loses the life (+2 → corpus 14,870; suite 1610 / 16,688) · ③ · 20 Horizon Stone, Kruphix — lost mana stays, as colorless;
+> the name-keyed keep-every-colour approximation retired (+2 → corpus 14,872; suite 1611 / 16,700). **Next:** the census below row ⑳ — the RUN-LEDGER's ③ entries carry the verdicts so far.
 > **State (measured 2026-09-29 at 5df810d2, Opus 5.5 seat):** suite **1585 files / 16,429 tests** green (1 skipped; 172 s;
 > `VITEST_TIMEOUT_MS=900000 npm test`) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30 decks, **88%** aggregate
 > (2,650 / 2,998), **13 at ≥90** (Mothman by rounding: 88/98 = 89.8%), Atraxa **74** the floor · nothing held:

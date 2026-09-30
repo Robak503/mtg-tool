@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Horizon Stone, Kruphix, God of Horizons** — mana you would lose as a step ends stays in your pool, as colorless
 - **Blood Seeker, Suture Priest** — when an opponent's creature enters, you may have that player lose 1 life
 - **Stone of Erech, Misery's Shadow** — an opponent's creature that would die is exiled instead
 - **Phlage, Titan of Fire's Fury, Uro, Titan of Nature's Wrath** — cast from your hand, they do their enter trigger and
@@ -338,6 +339,8 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **Horizon Stone and Kruphix no longer keep your floating mana's colours** — games kept the mana with its colours;
+  both cards turn it colorless, and restricted mana keeps its restriction
 - **"Exile it instead" now holds when the creature is destroyed or sacrificed** — Lava Coil's rider and Incendiary Oracle /
   Kumano's Pupils only exiled a creature that died to damage; destroyed or sacrificed, it went to the graveyard
 - **Mistform creatures lose the old creature type** — Lord of the Unreal (and any Illusion lord) kept pumping a Mistform

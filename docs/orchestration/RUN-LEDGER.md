@@ -5,14 +5,43 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **376 commits**, corpus
-> 38.6% → **43.4% (14,870)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **377 commits**, corpus
+> 38.6% → **43.4% (14,872)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 20: "if you would lose unspent mana, that mana becomes colorless instead" — Horizon Stone, Kruphix · **+2** · corpus 14,872 (43.4%) / 34,245
+> Suite **1611 files / 16,700 tests** green (1 skipped); lint 0. Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at 6be7df53 → the
+> change). **Mutants 10/10 killed on assertions** (restore byte-identical).
+> · **Census verdicts below row ⑲:** Blood Moon / Magus of the Moon — banked earlier (a mana-model change). Then **census row ⑳:**
+>   Horizon Stone, Kruphix, God of Horizons.
+> · **A wrong runtime, not only a missing parse.** Both cards sat in cardEffects' name-keyed registry as "keeps every colour" —
+>   Kruphix's entry quoted a line the card never printed, and Horizon Stone's called itself an approximation. The classifier
+>   never credited either, but a game with one on the battlefield carried COLOURED mana across steps: more than the printed
+>   card, the forbidden direction. Both entries are retired.
+> · **Build:** staticAbilityParser reads the exact line (`lostManaBecomesColorless`), and gameEngine.emptyManaPools — the single
+>   CR 500.4 drain — keeps exactly the mana the player would lose, as {C}. What Omnath's green retention and the mana holds
+>   keep is never lost, so it keeps its colour. A restricted entry (the QUARTET sub-pool) stays with its restriction and turns
+>   colorless — both cards' bundled rulings — at a step end, and at cleanup, where its until-end-of-turn hold is dropped (the
+>   static keeps it from then on). Controller-scoped: battlefields are keyed by controller, a phased-out permanent is spliced
+>   out, and a face-down stand-in carries no line.
+> · **Scope:** the colorless line only. "That mana becomes black / red instead" (Omnath, Locus of All; Ozai) could put two
+>   differently coloured conversions under one player, and their CR 616.1 order is a choice — pinned as residue.
+> · **Runtime:** floating {R}{R}{G} empties with no Stone (the vacuity control) · `WITNESS stoneDrain {…"C":3}` · the carried
+>   {C}{C} casts Mind Stone in the second main phase, and without the Stone there is no cast · the {C} survives cleanup into the
+>   next turn · Kruphix does the same while the AI's pool still empties · with Omnath the green stays green · the Stone gone,
+>   the next drain loses the mana (the ruling) · a creature-only entry turns {C}{C} and still casts Myr Sire but not Mind Stone ·
+>   an until-end-of-turn hold is untouched at a step end and turns colorless at cleanup instead of dropping.
+> · **Mutants 10/10:** the arm pushing nothing · the arm broadened to any colour word · the drain never asking · the retired
+>   approximation (every colour kept) · the kept green converted too · a restricted entry dropped · its restriction stripped ·
+>   the cleanup dropping entries regardless · any player's Stone converting every pool · the hold flag kept. Witness
+>   `app/src/lib/learn/lostManaBecomesColorless.test.js` (12).
+> · **A stale pin GRADUATED with a note:** cardEffects.test.js's "Kruphix keeps every color" now pins the printed conversion.
+> · **Next:** the census below row ⑳.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 19: "whenever a creature an opponent controls enters, you may have that player lose 1 life" · **+2** · corpus 14,870 (43.4%) / 34,245
 > Suite **1610 files / 16,688 tests** green (1 skipped); lint 0. Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at b7c95da7 → the

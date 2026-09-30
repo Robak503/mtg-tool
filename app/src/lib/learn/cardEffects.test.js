@@ -72,13 +72,16 @@ describe("mana doesn't empty", () => {
     expect(after.players.user.manaPool.U).toBe(0);
   });
 
-  it("Kruphix keeps every color", () => {
-    const kruphix = perm("Kruphix, God of Horizons", "k1", "user", { power: 4, toughness: 7, type: "Legendary Creature — God" });
+  // GRADUATED (the 09-06 plan's stage ③ · 20, 2026-09-30): this pinned "Kruphix keeps every color", a name-keyed registry
+  // entry. The card never did that — it prints "If you would lose unspent mana, that mana becomes colorless instead." — so
+  // the entry is retired, the line is read from the Oracle, and the kept mana is colorless. The same total, no colours;
+  // lostManaBecomesColorless.test.js holds the full witness.
+  it("GRADUATED — Kruphix keeps the mana, as colorless (its printed line, not a name)", () => {
+    const kruphix = perm("Kruphix, God of Horizons", "k1", "user", { power: 4, toughness: 7, type: "Legendary Enchantment Creature — God" });
+    kruphix.card.oracle = "Indestructible\nAs long as your devotion to green and blue is less than seven, Kruphix isn't a creature.\nYou have no maximum hand size.\nIf you would lose unspent mana, that mana becomes colorless instead.";
     const state = stateWith({ userBf: [kruphix], userPool: { G: 3, U: 2, B: 1 } });
     const after = emptyManaPools(state);
-    expect(after.players.user.manaPool.G).toBe(3);
-    expect(after.players.user.manaPool.U).toBe(2);
-    expect(after.players.user.manaPool.B).toBe(1);
+    expect(after.players.user.manaPool).toMatchObject({ G: 0, U: 0, B: 0, C: 6 });
   });
 });
 

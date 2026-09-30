@@ -14,7 +14,8 @@
  *
  * PR 10.2 ships the hooks over an EMPTY registry (default behavior unchanged:
  * all mana empties). PR 10.5 populated REGISTRY with Omnath/Kruphix/Horizon
- * Stone/Upwelling. Phase-7 PR-11/PR-12 moved the STATIC P/T half (Omnath's
+ * Stone/Upwelling (Kruphix and Horizon Stone retired at stage ③ · 20 — their
+ * printed colorless conversion is Oracle-parsed now). Phase-7 PR-11/PR-12 moved the STATIC P/T half (Omnath's
  * +1/+1 per unspent green) into the CR 613 layer engine (layers.js
  * STATIC_REGISTRY → layer-7c ptModifyDynamic); the old `staticPTModifier` hook
  * is deleted. This module now owns ONLY mana-emptying behavior.
@@ -42,18 +43,10 @@ const REGISTRY = {
     manaDoesNotEmpty: ["G"],
   },
 
-  // "You don't lose unspent mana as steps and phases end." (Controller only —
-  // matches the per-controller hook. Kruphix's other abilities aren't modeled.)
-  "Kruphix, God of Horizons": {
-    manaDoesNotEmpty: ["W", "U", "B", "R", "G", "C"],
-  },
-
-  // "If unused mana would empty from your mana pool, that mana becomes
-  // colorless instead." v1 approximates by PRESERVING the mana (same total
-  // available); the color→colorless conversion is a future refinement.
-  "Horizon Stone": {
-    manaDoesNotEmpty: ["W", "U", "B", "R", "G", "C"],
-  },
+  // RETIRED (the 09-06 plan's stage ③ · 20, 2026-09-30) — Kruphix, God of Horizons and Horizon Stone kept
+  // EVERY colour here. Neither card ever did: both print "If you would lose unspent mana, that mana becomes
+  // colorless instead." The line is parsed from the Oracle now (staticAbilityParser's
+  // lostManaBecomesColorless) and gameEngine.emptyManaPools turns the lost mana into {C}.
 
   // NOTE — Upwelling ("Mana doesn't empty from players' mana pools…") is a
   // SYMMETRIC effect (helps every player), which the per-controller hook
