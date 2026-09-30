@@ -1292,6 +1292,7 @@ export const counterResolvers = {
   "double-all-counters": applyDoubleAllCounters, // SHELF-85 V8 (Arcade Cabinet) — every kind on the chosen creature, doubled
   "add-counter": applyAddCounter,
   "transfer-counters": applyTransferCounters, // slice 37 — the dying object's LKI counter bag onto a chosen creature
+  "move-counter": applyMoveCounter, // shelf D2 (Nesting Grounds) — one counter from a permanent you control onto a second target permanent (CR 122.5)
   "endure": applyEndure, // ENDURE N (CR 701.63 — BLITZ KW-1) — modal keyword action: N +1/+1 counters on the source, or an N/N white Spirit token when the source has left
   "evolve-counter-self": applyEvolveCounterSelf, // KW-EVOLVE (CR 702.100) — self +1/+1 via the standard path, then the evolves watchers
   "renown": applyRenown, // KW-RENOWN (CR 702.111) — latching flag + N +1/+1 counters via the standard addCounter chokepoint (the monstrosity template)
@@ -1354,4 +1355,54 @@ export function applyTransferCounters(state, atom, ctx) {
     }
   }
   return logEvent(next, { kind: "spell-effect", effect: "transfer-counters", moved, controller: ctx.controller });
+}
+
+// ─── MOVE A COUNTER (shelf deck work, D2, 2026-09-30 — Nesting Grounds, for Mothman Cometh) ─────────────────────────────
+/**
+ * "Move a counter from target permanent you control onto a second target permanent." CR 122.5: to move a counter is to remove
+ * it from the first object and put it onto the second; if either half isn't possible (the same object, no counter on the
+ * first), nothing moves. Two chosen targets on the fight-pair shape (targeting.expandAtoms enumerates the pair and keeps the
+ * two distinct): the PRIMARY is the destination (role "onto", any permanent), the SECONDARY the source (role "from", a
+ * permanent you control that carries a counter — narrower than printed, never wider: moving from a counterless permanent is
+ * a legal activation that moves nothing, so leaving it out only drops a wasted activation).
+ */
+export function moveCounterClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/\.$/, "").trim();
+  return /^move a counter from target permanent you control onto a second target permanent$/.test(t)
+    ? { op: "move-counter", targetType: "permanent", restrictions: [], role: "onto",
+      secondaryTargetType: "permanent", secondaryRestrictions: [{ kind: "controller", who: "you" }, { kind: "hasCounter" }], secondaryRole: "from" }
+    : null;
+}
+
+/**
+ * WHICH counter is the mover's choice — any kind the source carries. House policy, deterministic (the riotPicksHaste discipline
+ * for a choice the engine settles itself): onto a permanent the mover controls, a +1/+1 counter when the source has one; onto
+ * another player's, a -1/-1 counter when it has one; otherwise the kind the source carries most of (ties by name). Every branch
+ * is a legal move. The counter leaves through removeCounter and lands through addCounter — the standard put path, so doublers
+ * compose — and a +1/+1 landing on a creature fires the counters-placed watchers, as applyAddCounter does.
+ */
+export function applyMoveCounter(state, atom, ctx) {
+  const targets = ctx.targets || [];
+  const ontoT = targets.find((t) => t?.role === "onto");
+  const fromT = targets.find((t) => t?.role === "from");
+  const src = fromT ? findPermanent(state, fromT.id) : null;
+  const dst = ontoT ? findPermanent(state, ontoT.id) : null;
+  const none = () => logEvent(state, { kind: "spell-effect", effect: "move-counter", moved: 0, controller: ctx.controller });
+  if (!src || !dst || src.permanent.id === dst.permanent.id) return none(); // CR 122.5 — a half is impossible
+  const kinds = Object.entries(src.permanent.counters || {}).filter(([, n]) => Number(n) > 0);
+  if (!kinds.length) return none();                                        // CR 122.5 — nothing to take
+  const has = (k) => kinds.some(([kind]) => kind === k);
+  const ours = dst.controller === ctx.controller;
+  const kind = ours && has("+1/+1") ? "+1/+1"
+    : !ours && has("-1/-1") ? "-1/-1"
+      : kinds.slice().sort((a, b) => (Number(b[1]) - Number(a[1])) || a[0].localeCompare(b[0]))[0][0];
+  let next = removeCounter(state, { permanentId: src.permanent.id, type: kind, amount: 1 });
+  const dstIsCreature = permanentIsCreature(next, dst.permanent.id);
+  const placed = kind === "+1/+1" && dstIsCreature ? applyCounterDoubling(next, dst.controller, "+1/+1", 1, dst.permanent.id) : 0;
+  next = addCounter(next, { permanentId: dst.permanent.id, type: kind, amount: 1 });
+  // No lethal check here: a creature a move leaves at 0 toughness dies to the state-based actions checked after the ability
+  // resolves (CR 704.3), which the stack's resolution already runs (the kill is pinned in nestingGroundsMove.test.js).
+  next = logEvent(next, { kind: "spell-effect", effect: "move-counter", moved: 1, counterType: kind, from: src.permanent.id, onto: dst.permanent.id, controller: ctx.controller });
+  if (placed > 0) next = checkCounterPlacedTriggers(next, { placingPlayerId: ctx.controller, placedOnYours: ours ? placed : 0, placedOnAny: placed });
+  return next;
 }

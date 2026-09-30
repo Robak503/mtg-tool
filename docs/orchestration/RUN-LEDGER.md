@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **413 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **414 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,35 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D2: move a counter — Nesting Grounds takes **Mothman Cometh to 91%** · **+1** · corpus 14,997 (43.8%) / 34,245
+> Suite **1646 files / 16,989 tests** green (1 skipped); lint 0; decks 88% (2,652 → **2,653** / 2,998 — Mothman Cometh 89.8 → 91). CI GREEN on D1 (run 36738445056). Flip-diff **+1, zero LOST, zero RETIERED** (tier snapshots at
+> fff4cd17 → the change). **Mutants 8/8 killed on assertions** (restore byte-identical).
+> · **The card:** Mothman Cometh sat at 89.8% (88 / 98) and needed one; Nesting Grounds' "{1}, {T}: Move a counter from target
+>   permanent you control onto a second target permanent. Activate only as a sorcery." was its whole blocker, and no move-a-
+>   counter atom existed. (Diamond City's "Move a shield counter from this land …" is a different shape — its own source, an
+>   activation condition — and stays parked.)
+> · **Build:** `counters.moveCounterClauseParser` + `applyMoveCounter` (CR 122.5 — remove from the first object, put onto the
+>   second; if either half is impossible, nothing moves) on the fight-pair two-target shape: the destination is the primary
+>   (role "onto", any permanent), the source the secondary (role "from", a permanent you control carrying a counter — the
+>   existing ④-AC `hasCounter` restriction with no counter type; narrower than printed, never wider). ⚠️ My first draft ADDED a
+>   second `hasCounter` branch ahead of that one; lint's no-dupe-else-if caught the shadowing before any suite ran — it would
+>   have inverted the negated form ("with no counters on them", Damning Verdict). Removed. Which counter is the mover's
+>   choice; the house policy is deterministic — a +1/+1 onto your own permanent, a -1/-1 onto another player's, else the kind
+>   the source carries most of. The move runs removeCounter → addCounter (the standard put path) and fires the
+>   counters-placed watchers when a +1/+1 lands on a creature; a creature a move leaves at 0 toughness dies to the SBA after
+>   resolution (CR 704.3) — the explicit mid-resolution lethal check I first wrote SURVIVED its mutant for exactly that
+>   reason and was removed.
+> · **Runtime:** `WITNESS nestingGroundsMove {"from":1,"onto":1,"groundsTapped":true}` through the real activation · the
+>   offered sources are only permanents you control with a counter, the destinations anyone's · onto an opponent's creature
+>   the -1/-1 goes (not the more numerous oil), and a second one kills their 1/2 · onto your own the +1/+1 goes · a moved
+>   +1/+1 fires Terrasymbiosis, a moved oil counter doesn't · not offered on the opponent's turn · the counter gone by
+>   resolution: nothing moves, logged as a clean no-op (no resolve error).
+> · **Mutants 8/8:** the arm never matching · the roles swapped · the source pool not narrowed (parser, and the restriction
+>   kind) · each side of the house policy · no placed-counter watchers · CR 122.5's nothing-to-take guard removed. Witness
+>   `app/src/lib/learn/nestingGroundsMove.test.js` (8).
+> · **Next:** Ragavan (cdh + Shalai), Ascend (Jurassic Ramp ×2 + Otharri), Mjölnir (Captain America), Talon Gates (cdh +
+>   Otharri).
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D1: tribal digs read the printed capital — Avengers Tower takes **Hulk Smash to 90%** · **+7** · corpus 14,996 (43.8%) / 34,245
 > Suite **1645 files / 16,981 tests** green (1 skipped); lint 0; decks 88% (2,651 → **2,652** / 2,998 — Hulk Smash 89 → 90). CI GREEN on ③ · 53 (run 36735818862). Flip-diff **+7, zero LOST, zero RETIERED** (tier snapshots at
