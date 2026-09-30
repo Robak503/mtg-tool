@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Clear the Mind, Reminisce, Learn from the Past, Blessed Respite, Thran Foundry, Cranial Archive** — target player
+  shuffles their graveyard into their library
 - **Griffnaut Tracker, Arashin Sunshield, Qutrub Forayer, Digsite Conservator, Famished Ghoul, Shred Memory** — exile up
   to two (or four) cards from a single graveyard; the enters triggers aim at an opponent's graveyard
 - **Empyrial Storm, Hatut Zeraze Strike Force** — copied once for each time you've cast your commander from the command

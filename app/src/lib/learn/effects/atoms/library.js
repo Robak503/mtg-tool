@@ -1697,7 +1697,10 @@ export function applyShuffle(state, atom, ctx) {
  * records the controller + how many cards moved, never the card identities.
  */
 export function applyShuffleGraveyardIntoLibrary(state, atom, ctx) {
-  const controller = ctx.controller;
+  // TARGETED (stage ③ · 51 — "Target player shuffles their graveyard into their library"): the chosen player's graveyard and
+  // library; `controller` names the player acted on below. No player target left → no such player → the `!player` return
+  // below does nothing (never the caster's graveyard by default).
+  const controller = atom?.targetType === "player" ? ((ctx.targets || []).find((t) => t?.type === "player")?.id ?? null) : ctx.controller;
   if (atom?.condX && (ctx.xValue ?? 0) < atom.condX.min) {
     return logEvent(state, { kind: "spell-effect", effect: "shuffle-graveyard-into-library", controller, moved: 0 });
   }
@@ -1826,6 +1829,11 @@ export function libraryKeywordClauseParser(clause) {
   // as a plain clause. The Eldrazi titans reach it through their graveyard trigger's owner rewrite (triggers.js). Only the
   // controller's own graveyard: "each player shuffles …" and "shuffle this artifact and your graveyard …" stay unmatched.
   if (/^shuffle your graveyard into your library$/.test(t)) return { op: "shuffle-graveyard-into-library", targetType: null };
+  // + TARGET PLAYER (stage ③ · 51 — Clear the Mind, Reminisce, Learn from the Past, Thran Foundry, Cranial Archive): the same
+  // atom on the chosen player's graveyard and library. Cast and activation paths choose the player; as a trigger its side
+  // is unprovable (shuffling your own graveyard back vs an opponent's away), so atomTargetIntent's default "ambiguous" parks
+  // any triggered carrier.
+  if (/^target player shuffles their graveyard into their library$/.test(t)) return { op: "shuffle-graveyard-into-library", targetType: "player" };
   let m = t.match(/^scry (\d+)$/);
   if (m) return { op: "scry", amount: parseInt(m[1], 10), targetType: null };
   m = t.match(/^surveil (\d+)$/);

@@ -64,8 +64,10 @@ describe("classification — the whole cycle flips", () => {
   });
 
   it("an equipment with an UNMODELED extra ability still parks (residue gate intact)", () => {
+    // The unmodeled example was "{T}: Target player shuffles their graveyard into their library." until the 09-06 plan's
+    // stage ③ · 51 modeled that clause; venturing stays unmodeled (no dungeon subsystem), so the gate is still tested.
     expect(classifyCard(eq("Fake3", [
-      "Equipped creature gets +1/+1.", ATTACH("G"), "{T}: Target player shuffles their graveyard into their library.", "Equip {1}",
+      "Equipped creature gets +1/+1.", ATTACH("G"), "{T}: Venture into the dungeon.", "Equip {1}",
     ]))).not.toMatch(/^native/);
   });
 });

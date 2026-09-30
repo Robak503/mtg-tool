@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **408 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **409 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,30 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 51: "Target player shuffles their graveyard into their library" — Clear the Mind and six more · **+7** · corpus 14,984 (43.8%) / 34,245
+> Suite **1642 files / 16,963 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI GREEN on ③ · 50 (run 36730538457). Flip-diff **+7, zero LOST, zero RETIERED** (tier snapshots at
+> 9ac3eda4 → the change: Clear the Mind, Reminisce, Learn from the Past, Blessed Respite, Clear, the Mind, Thran Foundry,
+> Cranial Archive). **Mutants 3/3 killed on assertions** (restore byte-identical).
+> · **The row (census rank 73):** the untargeted "shuffle your graveyard into your library" already ran (Feldon's Cane,
+>   Archangel's Light, the Eldrazi titans); the TARGETED form had no parser arm. Primal Command and Quest for Ancient Secrets
+>   stay parked on their other text.
+> · **Build:** a `libraryKeywordClauseParser` arm → the same `shuffle-graveyard-into-library` atom with targetType "player";
+>   `applyShuffleGraveyardIntoLibrary` acts on the CHOSEN player's graveyard and library (no player target → no such player
+>   → nothing; never the caster's by default). The cast and activation paths choose the player; as a trigger the side is
+>   unprovable (refill your own library vs clear an opponent's graveyard), so atomTargetIntent's default "ambiguous" parks
+>   any triggered carrier.
+> · **Runtime:** `WITNESS targetedGraveyardShuffle` — Reminisce offered at both players; aimed at the opponent their
+>   graveyard goes into their library and the caster's stays · aimed at the caster, their own refills · Clear the Mind also
+>   draws · Thran Foundry's real activation exiles itself as the cost and shuffles the chosen graveyard in · no player target:
+>   the caster's graveyard is untouched.
+> · **Mutants 3/3:** the arm never matching · the atom ignoring the target · a missing target falling back to the caster.
+>   Witness `app/src/lib/learn/targetedGraveyardShuffle.test.js` (7).
+> · **Graduated (the first gate run caught both, 2 red):** attachActivatedAbility.test.js used "{T}: Target player shuffles
+>   their graveyard into their library." as its example of an UNMODELED extra ability — it now uses "{T}: Venture into the
+>   dungeon." (still unmodeled), so the residue gate stays tested; and ③ · 46's own spellCommanderLine.test.js had Clear, the
+>   Mind parked on this very clause — it now reads native.
+> · **Next:** census rank 74 — "When this creature enters, venture into the dungeon" (likely bank: no dungeon subsystem).
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 50: "exile up to N target cards from a single graveyard" at any N — Griffnaut Tracker and five more · **+6** · corpus 14,977 (43.7%) / 34,245
 > Suite **1641 files / 16,956 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI GREEN on ③ · 48 (run 36727607746) and ③ · 49 (run 36729054390), each pushed after the previous run concluded. Flip-diff **+6, zero LOST, zero RETIERED** (tier snapshots at

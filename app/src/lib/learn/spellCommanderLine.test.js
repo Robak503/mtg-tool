@@ -53,8 +53,8 @@ describe("the line and the carriers", () => {
     expect([RANSACK, RAMPANT].map((c) => isNativeTier(classifyCard(c)))).toEqual([true, true]);
     expect(stripCostOnlyKeywordLines(RAMPANT.oracle)).toBe("Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.");
   });
-  it("the siblings still park on their OWN lines (Lava, Axe's self-named damage; Clear, the Mind's graveyard shuffle)", () => {
-    expect([LAVA_AXE, CLEAR].map((c) => isNativeTier(classifyCard(c)))).toEqual([false, false]);
+  it("the siblings park on their OWN lines, never this one — Lava, Axe on its self-named damage; Clear, the Mind reads native once its graveyard shuffle landed (stage ③ · 51)", () => {
+    expect([LAVA_AXE, CLEAR].map((c) => isNativeTier(classifyCard(c)))).toEqual([false, true]);
   });
   it("only the bare keyword line goes — a line that merely mentions the phrase stays", () => {
     const text = "Spell commander spells you cast cost {1} less to cast.";
