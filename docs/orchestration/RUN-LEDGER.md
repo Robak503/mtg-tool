@@ -5,14 +5,40 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ②. [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **352 commits**, corpus
-> 38.6% → **43.1% (14,772)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **354 commits**, corpus
+> 38.6% → **43.1% (14,774)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ② · 1: the TAP-A-CREATURE alternative cost · **+2** · corpus 14,774 (43.1%) / 34,245
+> Suite **1590 files / 16,486 tests** green (1 skipped); lint 0. Flip-diff **+2, zero LOST** (tier snapshots at 12a119e0 →
+> the change). **Mutants 10/10 killed** (restore byte-identical).
+> · "If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost." Probed:
+>   FIVE carriers (the plan named two) — Ramosian Rally, Angelic Favor, Orim's Cure, Lashknife, Sivvi's Valor. Built
+>   runtime-first: `legalChoices` offers one payment per UNTAPPED creature you control (layer-aware `permanentIsCreature`;
+>   a summoning-sick creature IS legal — CR 302.6, verified in cr_current.json: it bars only the creature's own {T}
+>   abilities and its attacking), label "tap <name>"; the dispatcher fails fast on a missing / tapped / non-creature
+>   choice and taps through `tapPermanent`; then `castModifiers` strips the sentence (kind `tapCreature`, the existing
+>   `controlLand:Plains` condition).
+> · **Flips:** Ramosian Rally, Orim's Cure (arbiter-spell → native-spell). **Orim's Cure was UNPLANNED — its runtime is
+>   pinned end to end:** cast by tapping one bear, shielding the other; a real 5-damage hit loses 4 (`WITNESS tapAltCure
+>   {"tappedToPay":true,"unpreventedOf5":1}`). Rally: `{"b1":3,"b2":3}`. The AI never takes the tap alt for these
+>   (non-interaction → human-only, the dominance filter's safe false-negative) — pinned.
+> · **A fixture trap, caught and recorded:** a hand-built permanent literal taps fine but NEVER raises its own
+>   becomes-tapped trigger (the trigger system reads the fields `createPermanent` stamps) — the Wanderbrine Preacher pin
+>   read "no trigger" until the witness switched to engine-shaped permanents. The engine path was never wrong: a bare
+>   `tapPermanent` + `flushTriggers` on the literal fixture fails the same way (probe).
+> · **Parked with verdicts:** Angelic Favor on TWO lines (combat-only timing + the end-step-exiled Angel token — dropping
+>   either alone does not flip it); Sivvi's Valor on its damage redirect; **Lashknife's ONLY blocker is the tap line**
+>   (without it: native-aura) — the Aura path never runs `extractAltCost`; it needs a permanent-spell alt-cost offer
+>   first (runtime before classifier). Next: stage ② · 2, the party-count cost reducer.
+> · **Mutants:** the classifier strip · the offer kind · tapped creatures offered · summoning-sick refused · the Plains
+>   condition ignored · a raw tapped write instead of `tapPermanent` (the Preacher pin) · the dispatcher accepting a
+>   tapped creature · never tapping · the label · the missing-choice guard — each turned a named test red.
 
 > ## 🔧 2026-09-30 — RELEASE-READINESS R4 + R5 + R6 · the release gate sharded · sync-spellbook honest · `[0.160.0]` cut · the ledger repaired · the logs rotated · docs QoL
 > No app code changed (the last green suite, 1589 / 16,475 at 76f65fab, still covers it); lint 0.

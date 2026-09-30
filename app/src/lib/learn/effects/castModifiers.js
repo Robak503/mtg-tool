@@ -295,7 +295,7 @@ export function extractAdditionalCosts(oracle) {
 // Maneuver — the "free if you control a commander" cycle); pitch/sac/return kinds + other conditions land next.
 // Anchored to a whole sentence at oracle start or after a newline; the condition capture forbids commas /
 // periods / newlines so it can never span into the effect body.
-export const SUPPORTED_ALT_COST_KINDS = new Set(["free", "payLifeExilePitch", "exileColorCard", "sacrificeCreature", "payLife", "returnLandsToHand", "fixedMana"]); // + fixedMana (RG-8, 2026-09-05): its strip is the whole sentence; the offer lane emits the pip cost-variant (legalChoices), so a spell reading HIGH with it IS castable both ways
+export const SUPPORTED_ALT_COST_KINDS = new Set(["free", "payLifeExilePitch", "exileColorCard", "sacrificeCreature", "payLife", "returnLandsToHand", "fixedMana", "tapCreature"]); // + fixedMana (RG-8, 2026-09-05): its strip is the whole sentence; the offer lane emits the pip cost-variant (legalChoices), so a spell reading HIGH with it IS castable both ways
 
 // Map a captured "if <cond>," phrase → a condition enum (a STRING — inert metadata today, since the alt-cost is
 // recorded but not yet OFFERED; the future cast-path offer will evaluate it). An UNRECOGNIZED condition → null,
@@ -344,6 +344,11 @@ const ALT_COST_MATCHERS = [
   // PAYLIFE — "[if <cond>, ]you may pay N life rather than pay this spell's mana cost." (Snuff Out — controlLand Swamp).
   { re: /(?:^|\n)\s*(?:if ([^,.\n]+), )?you may pay (\d+) life rather than pay this spell's mana cost\.\s*/i,
     build: (m) => { const c = parseAltCostCondition(m[1]); return c && { kind: "payLife", amount: Number(m[2]), condition: c }; } },
+  // TAP-A-CREATURE — "If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana
+  // cost." (the Mercadian Masques Plains cycle — Ramosian Rally, Angelic Favor, Orim's Cure, Lashknife, Sivvi's Valor; 2026-09-30).
+  // The condition rides parseAltCostCondition (→ controlLand:Plains); legalChoices offers one payment per untapped creature.
+  { re: /(?:^|\n)\s*(?:if ([^,.\n]+), )?you may tap an untapped creature you control rather than pay this spell's mana cost\.\s*/i,
+    build: (m) => { const c = parseAltCostCondition(m[1]); return c && { kind: "tapCreature", condition: c }; } },
   // RETURN-LANDS — "you may return two <Subtype>s you control to their owner's hand rather than pay this spell's mana cost." (Gush).
   { re: /(?:^|\n)\s*you may return (two|three) (\w+)s you control to their owner's hand rather than pay this spell's mana cost\.\s*/i,
     build: (m) => ({ kind: "returnLandsToHand", count: m[1] === "two" ? 2 : 3, subtype: m[2][0].toUpperCase() + m[2].slice(1), condition: "always" }) },

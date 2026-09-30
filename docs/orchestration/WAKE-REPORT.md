@@ -12,8 +12,10 @@
 > **Runnable next:** [RELEASE-READINESS-PLAN-2026-09-29.md](RELEASE-READINESS-PLAN-2026-09-29.md) (Colton's go,
 > 2026-09-29) — R1 ✅ data freshness · R2 ✅ engine build stamp · R3 ✅ batch 19 (curated 486 → 491) · R4 ✅ release
 > gate sharded + sync-spellbook honest · R5 ✅ `[0.160.0]` cut · R6 ✅ docs QoL (ledger repaired, logs rotated) —
-> suite 1589 / 16,475. Next: **R7 — on/after 2026-10-02** (re-dispatch sync-spellbook, merge PR #466, tag v0.161.0,
-> verify); meanwhile the 09-06 plan's stage ② slices ride the same tag. Then [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ② — the tap-a-creature
+> PR #466 merged (d71ce96a). Next: **R7 — on/after 2026-10-02** (re-dispatch sync-spellbook, tag v0.161.0, verify);
+> meanwhile the 09-06 plan's stage ② slices ride the same tag — **② · 1 LANDED 2026-09-30** (the tap-a-creature alt
+> cost: Ramosian Rally + Orim's Cure native, +2 → corpus 14,774; suite 1590 / 16,486); next **② · 2, the party-count
+> cost reducer**. Then [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ② — the tap-a-creature
 > alternative cost (Ramosian Rally, Angelic Favor; M-small), then the party-count cost reducer (S/M).
 > **State (measured 2026-09-29 at 5df810d2, Opus 5.5 seat):** suite **1585 files / 16,429 tests** green (1 skipped; 172 s;
 > `VITEST_TIMEOUT_MS=900000 npm test`) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30 decks, **88%** aggregate

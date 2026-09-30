@@ -832,7 +832,7 @@ function counterSpellTargetFilter(card) {
 // SUPPORTED_ALT_COST_KINDS (that set gates which STRIPS are coverage-vetted; this set gates which payments
 // the cast path knows how to ENFORCE). Growing this set never moves any card's tier (offering is
 // runtime-only); the parser stays untouched so the program fingerprint can't drift.
-const OFFERED_ALT_COST_KINDS = new Set(["free", "payLife", "payLifeExilePitch", "exileColorCard", "sacrificeCreature", "returnLandsToHand"]);
+const OFFERED_ALT_COST_KINDS = new Set(["free", "payLife", "payLifeExilePitch", "exileColorCard", "sacrificeCreature", "returnLandsToHand", "tapCreature"]);
 
 // Cheap oracle pre-screen so the offer layer never adds a parseEffectProgram call for a non-carrier
 // (castActionsFromZone otherwise parses programs only past the affordability gate). Curly apostrophes are
@@ -921,6 +921,14 @@ function enumerateAltPayments(state, playerId, card, alt) {
       const chosen = lands.slice(0, alt.count);
       return [{ returnLandIds: chosen.map((l) => l.id), returnLandNames: chosen.map((l) => l.card?.name ?? null) }];
     }
+    case "tapCreature":
+      // "you may tap an untapped creature you control rather than pay this spell's mana cost" (the Mercadian
+      // Plains cycle — Ramosian Rally, Orim's Cure …). One payment per UNTAPPED creature you control, judged
+      // layer-aware (an animated land counts). A summoning-sick creature IS a legal payment: CR 302.6 bars only
+      // the creature's OWN {T}/{Q} abilities and its attacking — never a cost another spell asks for.
+      return (player.battlefield || [])
+        .filter((p) => !p.tapped && permanentIsCreature(state, p.id))
+        .map((p) => ({ tapCreatureId: p.id, tapCreatureName: p.card?.name ?? null }));
     default:
       return []; // un-offered kind — computeAltCastSpec already gated, defensive
   }
@@ -933,6 +941,7 @@ function altCastName(alt, pay) {
   if (pay.exilePitchId) bits.push(`exile ${pay.exilePitchName ?? "a card"} from hand`);
   if (pay.sacId) bits.push(`sacrifice ${pay.sacName ?? "a creature"}`);
   if (pay.returnLandIds) bits.push(`return ${pay.returnLandIds.length} ${alt.subtype ?? "land"}s to hand`);
+  if (pay.tapCreatureId) bits.push(`tap ${pay.tapCreatureName ?? "a creature"}`);
   return bits.join(", ");
 }
 

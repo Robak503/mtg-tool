@@ -88,6 +88,12 @@ activate abilities of colorless Eldrazi."). Sized **M**: a colour predicate on B
    creature IS legal — CR 302.6 restricts only its own {T} abilities); the dispatcher's altCost branch taps it; add the kind to
    `OFFERED_ALT_COST_KINDS` and `SUPPORTED_ALT_COST_KINDS`; `altCastName`. Angelic Favor also prints "Cast this spell only
    during combat" — check `castTimingAllows` handles it or leave Favor parked on that line. Sized **M-small**.
+   ✅ **LANDED 2026-09-30** — five carriers in the oracle, not two: **Ramosian Rally + Orim's Cure → native-spell** (flip-diff
+   +2 / 0 lost; Orim's Cure unplanned, its runtime pinned end to end — a real 5-damage hit loses 4). Parked with verdicts:
+   Angelic Favor on TWO lines (the combat-only timing AND the end-step-exiled Angel token — dropping either alone does not
+   flip it); Sivvi's Valor on its damage redirect; **Lashknife's ONLY blocker is the tap line** (without it: native-aura) —
+   the Aura path never runs `extractAltCost`, so it needs a permanent-spell alt-cost offer first (runtime before
+   classifier). Witness `app/src/lib/learn/tapCreatureAltCost.test.js`; mutants 10/10.
 2. **The party-count cost reducer** — "This spell costs {1} less to cast for each creature in your party" (Shatterskull
    Minotaur, Journey to Oblivion — 3 sole + 5 co). Needs a `party` count kind (up to one each of Cleric / Rogue / Warrior /
    Wizard among creatures you control — CR 700.8): add it as ONE helper beside `layers.domainCount` and route BOTH count

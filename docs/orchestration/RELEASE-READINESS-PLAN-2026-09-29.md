@@ -115,7 +115,7 @@ gotchas #20–#23 (worktree footing · `$'` in String.replace · the MSIX instal
 
 ## §7 R7 — the release
 
-Merge PR #466 (Omnath's docs, green). **Before the tag:** re-dispatch `sync-spellbook` (`gh workflow run
+~~Merge PR #466~~ — done 2026-09-30 (squash, d71ce96a). **Before the tag:** re-dispatch `sync-spellbook` (`gh workflow run
 sync-spellbook.yml --ref master`) so the per-card flag crawl resumes from its cached offset (it stopped at 10,100 on
 2026-09-30 — Spellbook's rate limit) and the release restores a fuller fallback. On/after **2026-10-02**: fresh `git fetch`, green master run, CHANGELOG
 `[Unreleased]` → `[0.161.0] - <date>`, `git tag v0.161.0 -a -m "Release v0.161.0"` + push; watch the release run

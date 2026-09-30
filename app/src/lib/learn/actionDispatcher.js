@@ -665,6 +665,18 @@ function applyCastSpell(state, action) {
         working = moveCardToZone(working, { playerId: action.playerId, fromZone: "battlefield", toZone: "hand", cardId: lid });
         working = checkLeavesTriggers(working);
       }
+    } else if (alt.kind === "tapCreature") {
+      // "you may tap an untapped creature you control rather than pay this spell's mana cost" (the Mercadian Plains
+      // cycle). Tapped as the cost (CR 601.2h); a summoning-sick creature is legal (CR 302.6 bars only its own {T}
+      // abilities and attacking). tapPermanent records the becomes-tapped event, so a "whenever this creature
+      // becomes tapped" watcher fires exactly as for any other cost-payment tap.
+      if (!alt.tapCreatureId) throw new DispatcherError("Alt-cost cast requires a creature to tap but none was chosen", "ALTCOST_UNPAID");
+      const tapee = working.players[action.playerId]?.battlefield.find((p) => p.id === alt.tapCreatureId);
+      if (!tapee) throw new DispatcherError(`Alt-cost tap creature ${alt.tapCreatureId} not on battlefield`, "PERM_NOT_FOUND");
+      if (tapee.tapped || !permanentIsCreature(working, alt.tapCreatureId)) {
+        throw new DispatcherError(`Alt-cost tap creature ${alt.tapCreatureId} is not an untapped creature`, "ALTCOST_UNPAID");
+      }
+      working = tapPermanent(working, alt.tapCreatureId);
     } else {
       throw new DispatcherError(`Unsupported alt cost kind: ${alt.kind}`, "ALTCOST_UNSUPPORTED");
     }
