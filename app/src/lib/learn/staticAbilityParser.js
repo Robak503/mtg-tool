@@ -2505,6 +2505,24 @@ function parseClause(clause, out, selfName, selfType) {
   // GRAVEYARD-ONLY CAST ZONE (residue grind RG-3, 2026-09-05 — Patrician Geist / Gravebreaker Lamia "Spells you cast from
   // your graveyard cost {1} less to cast"): the single-zone printing of the same zone-keyed reducer. The list is exactly
   // ["graveyard"] — never castFromNotHand, which would also discount an exile or library-top cast the card does not name.
+  // ALL SPELLS (stage ③ · 53 — Stone Calendar, The Immortal Sun: "Spells you cast cost {1} less to cast."): the unfiltered
+  // reducer — every spell its controller casts, generic mana only, floored at {0} at the cast site like every reducer
+  // (CR 601.2f; the mana value is untouched, CR 202.3). "You cast" only: the symmetric "Spells cost {1} less to cast." (Helm of
+  // Awakening) reaches every player's spells, which the caster-only reducer collection can't express — it stays residue.
+  const crAllM = c.match(/^spells you cast cost \{(\d+)\} less to cast$/);
+  if (crAllM) {
+    out.push({ costReduction: { allSpells: true, amount: parseInt(crAllM[1], 10) } });
+    return;
+  }
+  // THE SECOND SPELL EACH TURN (stage ③ · 53 — Highspire Bell-Ringer: "The second spell you cast each turn costs {1} less to
+  // cast."): an ordinal reducer — it applies only while the caster has cast exactly one spell this turn (spellsCastThisTurn,
+  // bumped at the cast chokepoint and reset for every seat at untap), so the next cast is their second. The count includes
+  // spells cast before the reducer arrived, as the ordinal reads.
+  const crNthM = c.match(/^the second spell you cast each turn costs \{(\d+)\} less to cast$/);
+  if (crNthM) {
+    out.push({ costReduction: { nthSpellThisTurn: 2, amount: parseInt(crNthM[1], 10) } });
+    return;
+  }
   const crGyM = c.match(/^spells you cast from your graveyard cost \{(\d+)\} less to cast$/);
   if (crGyM) {
     out.push({ costReduction: { castFromZones: ["graveyard"], amount: parseInt(crGyM[1], 10) } });
@@ -5210,7 +5228,7 @@ function spellHasChosenType(spellCard, chosenType) {
  * spell that merely NAMES the subtype (e.g. "Beast Within") never does. Generic-only and floored by the caller
  * at the cast site (CR 601.2f); the mana value is never touched (CR 202.3). Pure; 0 when nothing applies.
  */
-export function costReductionForSpell(reducers, spellCard, fromZone = "hand") {
+export function costReductionForSpell(reducers, spellCard, fromZone = "hand", castContext = null) {
   if (!reducers?.length || !spellCard) return 0;
   const typeLine = String(spellCard?.type || spellCard?.type_line || "").toLowerCase();
   const spellName = spellCard?.name;
@@ -5219,6 +5237,18 @@ export function costReductionForSpell(reducers, spellCard, fromZone = "hand") {
   for (const r of reducers) {
     // EMINENCE "OTHER <subtype> spells": never reduce the source card's own cast (The Ur-Dragon casting itself).
     if (r.excludeSelf && r.sourceName && spellName && r.sourceName === spellName) continue;
+    // ALL SPELLS (stage ③ · 53 — Stone Calendar): no filter to test.
+    if (r.allSpells) {
+      total += r.amount || 0;
+      continue;
+    }
+    // THE Nth SPELL EACH TURN (stage ③ · 53 — Highspire Bell-Ringer): only when this cast would be the caster's Nth this turn.
+    // FAIL-CLOSED: a call site that doesn't pass the count gets no discount (a missing count must never read as "second").
+    if (r.nthSpellThisTurn) {
+      if (!Number.isInteger(castContext?.spellsCastThisTurn) || castContext.spellsCastThisTurn + 1 !== r.nthSpellThisTurn) continue;
+      total += r.amount || 0;
+      continue;
+    }
     // CAST-ZONE REDUCER (SHELF-85 K9 — Savvy Trader): applies iff the cast lane is offering from somewhere other than
     // the hand. The default "hand" keeps every caller that never passed a zone byte-identical.
     if (r.castFromNotHand) {

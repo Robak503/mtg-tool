@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Stone Calendar, Highspire Bell-Ringer, Uthros Psionicist** — your spells cost less (Highspire and Uthros: only your
+  second spell each turn)
 - **Wizened Snitches, Field of Dreams** — players play with the top card of their libraries revealed
 - **Clear the Mind, Reminisce, Learn from the Past, Blessed Respite, Thran Foundry, Cranial Archive** — target player
   shuffles their graveyard into their library

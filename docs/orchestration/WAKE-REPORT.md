@@ -76,8 +76,9 @@
 > Empyrial Storm, Hatut Zeraze Strike Force — the commander-storm copy (+2 → corpus 14,971; suite 1640 / 16,949) · ③ · 50
 > Griffnaut Tracker and five more — up to N cards from a single graveyard (+6 → corpus 14,977; suite 1641 / 16,956) · ③ · 51
 > Clear the Mind and six more — target player shuffles their graveyard into their library (+7 → corpus 14,984; suite 1642 / 16,963) · rank 74
-> (venture) banked · ③ · 52 Wizened Snitches, Field of Dreams — the symmetric top-card reveal, inert (+2 → corpus 14,986; suite 1643 / 16,966).
-> **Next:** census rank 76 — the RUN-LEDGER's ③ entries carry the verdicts so far.
+> (venture) banked · ③ · 52 Wizened Snitches, Field of Dreams — the symmetric top-card reveal, inert (+2 → corpus 14,986; suite 1643 / 16,966) · ③ · 53
+> Stone Calendar, Highspire Bell-Ringer, Uthros Psionicist — the all-spells and second-spell reducers (+3 → corpus 14,989; suite 1644 / 16,975).
+> **The residue loop STOPS here — Colton (09-30): "Do my decks."** Next: the shelf decks' unplayed cards, until the v0.161.0 tag on/after 10-02. (Superseded next-row pointer: census rank 76 — the RUN-LEDGER's ③ entries carry the verdicts so far.
 > **State (measured 2026-09-29 at 5df810d2, Opus 5.5 seat):** suite **1585 files / 16,429 tests** green (1 skipped; 172 s;
 > `VITEST_TIMEOUT_MS=900000 npm test`) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30 decks, **88%** aggregate
 > (2,650 / 2,998), **13 at ≥90** (Mothman by rounding: 88/98 = 89.8%), Atraxa **74** the floor · nothing held:

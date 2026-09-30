@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **410 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **412 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,31 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 53: "Spells you cast cost {1} less" + "The second spell you cast each turn costs {N} less" — Stone Calendar, Highspire Bell-Ringer, Uthros Psionicist · **+3** · the LAST residue-loop slice (Colton: decks first) · corpus 14,989 (43.8%) / 34,245
+> Suite **1644 files / 16,975 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI GREEN on ③ · 51 (run 36732333163) and on ③ · 52 + the CR 702.30a citation fix (run 36733703566). Flip-diff **+3, zero LOST, zero RETIERED** (tier snapshots at
+> 362da3d5 → the change: exactly the three planned). **Mutants 6/6 killed on assertions** (restore byte-identical).
+> · **The rows (census ranks 76 + 77, one reducer family):** the static cost-reduction family needed a word before "spells"
+>   (a subtype, a colour, a card type), so the bare form never parsed; and no reducer knew its spell's ordinal.
+> · **Build:** `{ costReduction: { allSpells: true } }` for the bare "Spells you cast cost {N} less" ("you cast" only — the
+>   symmetric Helm of Awakening reaches every player's spells, which the caster-only reducer collection can't express, so it
+>   stays parked); `{ costReduction: { nthSpellThisTurn: 2 } }` for "The second spell you cast each turn costs {N} less" —
+>   `costReductionForSpell` takes a cast context and applies it only when the caster has cast exactly one spell this turn
+>   (`spellsCastThisTurn`, bumped at the cast chokepoint, reset for every seat at untap), FAIL-CLOSED without the count; both
+>   call sites in `castActionsFromZone` pass it. Generic only, floored at {0}; the mana value untouched (CR 601.2f / 202.3).
+> · **Runtime:** `WITNESS allSpellsReducer {"withCalendar":{"generic":3,"R":1,"cmc":5},"without":null}` — Lava Axe through
+>   the real offer with Stone Calendar out; the dispatcher spends exactly four; two Calendars stack; Shock still costs {R};
+>   an opponent's Calendar discounts nothing · `WITNESS secondSpellReducer {"first":null,"second":3,"third":null}` with
+>   Highspire Bell-Ringer out · no count → no discount.
+> · **Mutants 6/6:** each arm never matching (×2) · the all-spells matcher skipped (credited, not played) · the ordinal off
+>   by one · fail-open without the count · the cast offer passing no count. Witness
+>   `app/src/lib/learn/allSpellsReducer.test.js` (9).
+> · **⚠️ The loop ran past its own threshold, and the pivot (Colton, 09-30):** §3 of the 09-06 plan takes only rows with ≥3
+>   sole blockers; census-2 runs out of those at rank 29, and every row from ③ · 42 on was a 2-sole row — below the plan's
+>   line, unflagged (my miss). The deck aggregate sat at 88% (2,651 / 2,998) through all of it. Colton's order: **"Do my
+>   decks"** — the residue loop stops here; the shelf decks' unplayed cards come next, until the v0.161.0 tag on/after 10-02.
+> · **Next:** the shelf-deck residue — group the non-native deck slots by blocking line, deck-weighted, and take the class
+>   that unparks the most slots.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 52: "Players play with the top card of their libraries revealed" — Wizened Snitches, Field of Dreams · **+2** · rank 74 banked · corpus 14,986 (43.8%) / 34,245
 > Suite **1643 files / 16,966 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI: ③ · 51's run 36732333163 concluded before this push. Flip-diff **+2, zero LOST, zero RETIERED** (tier snapshots at
