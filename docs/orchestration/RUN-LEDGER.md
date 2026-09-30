@@ -5,14 +5,42 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **362 commits**, corpus
-> 38.6% → **43.2% (14,810)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **363 commits**, corpus
+> 38.6% → **43.3% (14,817)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 6: sacrifice LANDS (or a creature) rather than pay — Fireblast and six more · **+7** · corpus 14,817 (43.3%) / 34,245
+> Suite **1598 files / 16,569 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,650 / 2,998). CI green on the two
+> commits before it (run 36671363402 — 9440d097, which also covers c5d63bfd, whose own run concurrency cancelled). Flip-diff **+7, zero LOST, zero retiered, no unplanned gain** (tier snapshots at
+> 9440d097 → the change). **Mutants 12/12 killed** (restore byte-identical).
+> · **Census row ⑥:** "[If it's your turn, ]you may sacrifice a Mountain / two Mountains rather than pay this spell's mana
+>   cost" — Thunderclap, Crash, Mine Collapse, Fireblast, Mogg Alarm, Pulverize — plus Dark Triumph's "If you control a
+>   Swamp, you may sacrifice a creature …". Predicted +7, measured +7.
+> · **Machinery:** the alternative-cost lane (the Flare cycle's creature sacrifice, Gush's return-lands, ② · 1's tap).
+>   A new kind `sacrificeLands` whose offer is ONE canonical land set on Gush's documented reasoning — same-subtype lands
+>   are near-fungible and a TAPPED land is strictly cheaper to give up, so tapped first, id-ascending, never C(n,k)
+>   near-identical payments; lands whose leave trigger the engine can't fire are excluded. The Flare arm's colourless
+>   sibling ("a creature", color:null) with the shared condition parser; "If it's your turn" joins the condition
+>   vocabulary beside "it's not your turn". The dispatcher re-derives the COUNT and SUBTYPE from the card's own printed
+>   alternative cost (the action carries only the payment) and fails fast on a short payment or a wrong land.
+> · **Runtime:** `WITNESS fireblastAlt {"sacrificed":["p-m2","p-m1"],"left":["p-m3"],"aiLifeLost":4}` (three Mountains, one
+>   tapped: ONE payment per target, the tapped one first) · one Mountain is not enough · Thunderclap on a single Mountain ·
+>   Mine Collapse offered on your turn only · Dark Triumph opened by a Swamp, one payment per creature (creatures are not
+>   fungible), closed without one · malformed payments throw.
+> · **⏸ BANKED — a design question, not a gap:** Delraich ("sacrifice three black creatures") and Hand of Emrakul ("four
+>   Eldrazi Spawn"). Creatures are not fungible, so "sacrifice N creatures" is the same fork the ledger banked for "tap N
+>   untapped creatures": enumerate every combination (faithful, explosive — C(10,3) = 120 casts) or auto-pick one set
+>   (bounded, but it takes a real choice away from the player). Parked until that is decided; Hand of Emrakul's identical
+>   Spawn tokens may be the case that argues for a canonical set.
+> · **Mutants 12/12:** the matcher · the kind unsupported · the kind unoffered · the canonical order · the count gate · the
+>   yourTurn gate · the condition phrase · the colourless offer · the colourless matcher · the dispatcher's count check ·
+>   its subtype check · the lands never sacrificed. Witness `app/src/lib/learn/sacrificeLandsAltCost.test.js` (9).
+> · **Next:** census row ⑦ — Minotaur Explorer / Pillaging Horde's "sacrifice it unless you discard a card at random".
 
 > ## 🔧 2026-09-30 — the trigger target chooser no longer SWALLOWS a corrupted seat (a hidden-error + friendly-fire hazard) · ±0
 > Suite **1597 files / 16,560 tests** green (1 skipped); lint 0; no tier or corpus change (a runtime guard) — and no existing

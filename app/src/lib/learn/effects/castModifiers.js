@@ -295,7 +295,7 @@ export function extractAdditionalCosts(oracle) {
 // Maneuver — the "free if you control a commander" cycle); pitch/sac/return kinds + other conditions land next.
 // Anchored to a whole sentence at oracle start or after a newline; the condition capture forbids commas /
 // periods / newlines so it can never span into the effect body.
-export const SUPPORTED_ALT_COST_KINDS = new Set(["free", "payLifeExilePitch", "exileColorCard", "sacrificeCreature", "payLife", "returnLandsToHand", "fixedMana", "tapCreature"]); // + fixedMana (RG-8, 2026-09-05): its strip is the whole sentence; the offer lane emits the pip cost-variant (legalChoices), so a spell reading HIGH with it IS castable both ways
+export const SUPPORTED_ALT_COST_KINDS = new Set(["free", "payLifeExilePitch", "exileColorCard", "sacrificeCreature", "payLife", "returnLandsToHand", "fixedMana", "tapCreature", "sacrificeLands"]); // + fixedMana (RG-8, 2026-09-05): its strip is the whole sentence; the offer lane emits the pip cost-variant (legalChoices), so a spell reading HIGH with it IS castable both ways
 
 // Map a captured "if <cond>," phrase → a condition enum (a STRING — inert metadata today, since the alt-cost is
 // recorded but not yet OFFERED; the future cast-path offer will evaluate it). An UNRECOGNIZED condition → null,
@@ -305,6 +305,7 @@ function parseAltCostCondition(phrase) {
   const p = phrase.trim().toLowerCase();
   if (p === "you control a commander") return "controlCommander";
   if (p === "it's not your turn") return "notYourTurn";
+  if (p === "it's your turn") return "yourTurn"; // Mine Collapse (2026-09-30) — the mirror of the above
   if (p === "an opponent controls a forest and you control an island") return "submergeGate"; // Submerge
   const land = p.match(/^you control an? (\w+)$/);
   if (land) {
@@ -349,6 +350,22 @@ const ALT_COST_MATCHERS = [
   // The condition rides parseAltCostCondition (→ controlLand:Plains); legalChoices offers one payment per untapped creature.
   { re: /(?:^|\n)\s*(?:if ([^,.\n]+), )?you may tap an untapped creature you control rather than pay this spell's mana cost\.\s*/i,
     build: (m) => { const c = parseAltCostCondition(m[1]); return c && { kind: "tapCreature", condition: c }; } },
+  // SAC-A-CREATURE, colourless — "[If you control a Swamp, ]you may sacrifice a creature rather than pay this spell's mana cost."
+  // (Dark Triumph, Mind Swords — 2026-09-30). The Flare arm above needs a colour word; this is its unfiltered sibling, with the
+  // shared condition parser. Same kind and dispatcher branch — the offer reads color:null as "any creature".
+  { re: /(?:^|\n)\s*(?:if ([^,.\n]+), )?you may sacrifice a creature rather than pay this spell's mana cost\.\s*/i,
+    build: (m) => { const c = parseAltCostCondition(m[1]); return c && { kind: "sacrificeCreature", nontoken: false, color: null, condition: c }; } },
+  // SAC-LANDS — "[If it's your turn, ]you may sacrifice a Mountain / two Mountains rather than pay this spell's mana cost."
+  // (Thunderclap, Crash, Mine Collapse, Fireblast, Mogg Alarm, Pulverize — 2026-09-30). Basic land types only (the subtype a
+  // land's type line carries); the offer pays with ONE canonical set, like Gush's return-lands below.
+  { re: /(?:^|\n)\s*(?:if ([^,.\n]+), )?you may sacrifice (a|an|two|three) (mountains?|islands?|swamps?|forests?|plains) rather than pay this spell's mana cost\.\s*/i,
+    build: (m) => {
+      const c = parseAltCostCondition(m[1]);
+      const count = { a: 1, an: 1, two: 2, three: 3 }[m[2].toLowerCase()];
+      const w = m[3].toLowerCase();
+      const subtype = w === "plains" ? "Plains" : w.replace(/s$/, "").replace(/^./, (x) => x.toUpperCase());
+      return c && { kind: "sacrificeLands", count, subtype, condition: c };
+    } },
   // RETURN-LANDS — "you may return two <Subtype>s you control to their owner's hand rather than pay this spell's mana cost." (Gush).
   { re: /(?:^|\n)\s*you may return (two|three) (\w+)s you control to their owner's hand rather than pay this spell's mana cost\.\s*/i,
     build: (m) => ({ kind: "returnLandsToHand", count: m[1] === "two" ? 2 : 3, subtype: m[2][0].toUpperCase() + m[2].slice(1), condition: "always" }) },

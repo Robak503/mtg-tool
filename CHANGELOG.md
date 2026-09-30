@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Fireblast, Thunderclap, Crash, Mine Collapse, Mogg Alarm, Pulverize, Dark Triumph** — cast them by sacrificing
+  Mountains (or, for Dark Triumph, a creature while you control a Swamp) instead of paying mana. Your tapped Mountains
+  go first; Mine Collapse's option is there only on your own turn
 - **"Exile up to one target card from a graveyard" works everywhere it's printed** — Soul-Guide Gryff, Ambush Wolf,
   Crossroads Candleguide, Mechanical Mobster (and it connives), Wreck Remover, Startled Relic Sloth, Ascendant
   Dustspeaker, Restless Cottage's attack, Heritage Reclamation, Rise of Extus, and Jack-o'-Lantern's sacrifice ability.

@@ -832,7 +832,7 @@ function counterSpellTargetFilter(card) {
 // SUPPORTED_ALT_COST_KINDS (that set gates which STRIPS are coverage-vetted; this set gates which payments
 // the cast path knows how to ENFORCE). Growing this set never moves any card's tier (offering is
 // runtime-only); the parser stays untouched so the program fingerprint can't drift.
-const OFFERED_ALT_COST_KINDS = new Set(["free", "payLife", "payLifeExilePitch", "exileColorCard", "sacrificeCreature", "returnLandsToHand", "tapCreature"]);
+const OFFERED_ALT_COST_KINDS = new Set(["free", "payLife", "payLifeExilePitch", "exileColorCard", "sacrificeCreature", "returnLandsToHand", "tapCreature", "sacrificeLands"]);
 
 // Cheap oracle pre-screen so the offer layer never adds a parseEffectProgram call for a non-carrier
 // (castActionsFromZone otherwise parses programs only past the affordability gate). Curly apostrophes are
@@ -853,6 +853,7 @@ function altCostConditionHolds(state, playerId, condition) {
     return (state.players[playerId]?.battlefield || []).some((p) => p.card?.isCommander === true);
   }
   if (condition === "notYourTurn") return state.activePlayer !== playerId;
+  if (condition === "yourTurn") return state.activePlayer === playerId; // Mine Collapse "If it's your turn, …" (2026-09-30)
   if (condition === "submergeGate") {
     // Submerge: "an opponent controls a Forest and you control an Island" — type-line subtypes, live board.
     const hasSubtype = (p, re) => { const t = typeLineOf(p.card); return t.includes("Land") && re.test(t); };
@@ -896,12 +897,13 @@ function enumerateAltPayments(state, playerId, card, alt) {
     case "exileColorCard":
       return altPitchCandidates(player, card, alt.color).map((h) => ({ exilePitchId: h.id, exilePitchName: h.name ?? null }));
     case "sacrificeCreature": {
-      const letter = ALT_COST_COLOR_LETTER[alt.color];
-      if (!letter) return [];
+      // color:null is the unfiltered "a creature" form (Dark Triumph, 2026-09-30); a colour word that isn't a colour → nothing.
+      const letter = alt.color == null ? null : ALT_COST_COLOR_LETTER[alt.color];
+      if (alt.color != null && !letter) return [];
       return (player.battlefield || [])
         .filter((v) => sacTypeMatches(v.card, "creature")
           && (!alt.nontoken || !v.card?.token)
-          && colorsOf(v.card).includes(letter)
+          && (letter == null || colorsOf(v.card).includes(letter))
           // A victim whose OWN leave-trigger the dies path can't fire is excluded (mirror the
           // additional-cost sacrifice filter) so we never partially apply a payment.
           && !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""))
@@ -920,6 +922,20 @@ function enumerateAltPayments(state, playerId, card, alt) {
       if (lands.length < alt.count) return [];
       const chosen = lands.slice(0, alt.count);
       return [{ returnLandIds: chosen.map((l) => l.id), returnLandNames: chosen.map((l) => l.card?.name ?? null) }];
+    }
+    case "sacrificeLands": {
+      // "you may sacrifice a Mountain / two Mountains rather than pay this spell's mana cost" (Thunderclap, Crash, Mine Collapse,
+      // Fireblast, Mogg Alarm, Pulverize — 2026-09-30). ONE canonical land set, on Gush's reasoning above: same-subtype lands
+      // are near-fungible and a TAPPED land is strictly cheaper to give up, so tapped first, then untapped, id-ascending
+      // tiebreak — never C(n,k) near-identical payments. Lands whose own leave trigger the engine can't fire are excluded
+      // (the same sacrificeDropsTrigger gate the creature sacrifice uses), so a payment is never partially applied.
+      const re = new RegExp(`\\b${alt.subtype}\\b`, "i");
+      const lands = (player.battlefield || [])
+        .filter((p) => { const t = typeLineOf(p.card); return t.includes("Land") && re.test(t) && !sacrificeDropsTrigger(p.card?.oracle || p.card?.oracle_text || ""); })
+        .sort((a, b) => (Number(!!b.tapped) - Number(!!a.tapped)) || String(a.id).localeCompare(String(b.id)));
+      if (lands.length < alt.count) return [];
+      const chosen = lands.slice(0, alt.count);
+      return [{ sacLandIds: chosen.map((l) => l.id), sacLandNames: chosen.map((l) => l.card?.name ?? null) }];
     }
     case "tapCreature":
       // "you may tap an untapped creature you control rather than pay this spell's mana cost" (the Mercadian
@@ -942,6 +958,7 @@ function altCastName(alt, pay) {
   if (pay.sacId) bits.push(`sacrifice ${pay.sacName ?? "a creature"}`);
   if (pay.returnLandIds) bits.push(`return ${pay.returnLandIds.length} ${alt.subtype ?? "land"}s to hand`);
   if (pay.tapCreatureId) bits.push(`tap ${pay.tapCreatureName ?? "a creature"}`);
+  if (pay.sacLandIds) bits.push(`sacrifice ${pay.sacLandIds.length} ${alt.subtype ?? "land"}${pay.sacLandIds.length === 1 || alt.subtype === "Plains" ? "" : "s"}`);
   return bits.join(", ");
 }
 

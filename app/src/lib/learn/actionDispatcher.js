@@ -94,7 +94,7 @@ import { applyKiraTargetCounter } from "./kiraTargetCounter.js";
 import { entersWithFadeCounters } from "./fading.js";
 import { applyXCastTokenTriggers } from "./xCastToken.js";
 import { applyElseLandFromHand } from "./effects/atoms/freeCast.js"; // KELLAN else-arm: decline the free cast → the optional land put (CR 601.2b "If you don't, …")
-import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMANENT — a permanent's cost lives beside its (null) program
+import { extractAdditionalCosts, extractAltCost } from "./effects/castModifiers.js"; // AC-PERMANENT — a permanent's cost lives beside its (null) program; + extractAltCost: the sacrifice-lands payment is checked against the PRINTED count/subtype
 
 export class DispatcherError extends Error {
   constructor(message, code) {
@@ -677,6 +677,24 @@ function applyCastSpell(state, action) {
         throw new DispatcherError(`Alt-cost tap creature ${alt.tapCreatureId} is not an untapped creature`, "ALTCOST_UNPAID");
       }
       working = tapPermanent(working, alt.tapCreatureId);
+    } else if (alt.kind === "sacrificeLands") {
+      // "you may sacrifice a Mountain / two Mountains rather than pay this spell's mana cost" (2026-09-30). Each chosen land is
+      // sacrificed as the cost (CR 601.2h) through the same cost path the creature sacrifice uses, so its leave events fire.
+      // The COUNT and SUBTYPE are re-derived from the card's own printed alternative cost — the action carries only the
+      // payment — so a malformed action can neither shortchange the cost nor pay it with the wrong land.
+      const printed = extractAltCost(String(castCard?.oracle || castCard?.oracle_text || "")).altCost;
+      if (printed?.kind !== "sacrificeLands") throw new DispatcherError(`${castCard?.name} prints no sacrifice-lands alternative cost`, "ALTCOST_UNPAID");
+      if (!Array.isArray(alt.sacLandIds) || alt.sacLandIds.length !== printed.count) {
+        throw new DispatcherError(`Alt-cost cast requires ${printed.count} ${printed.subtype} to sacrifice, got ${alt.sacLandIds?.length ?? 0}`, "ALTCOST_UNPAID");
+      }
+      const subRe = new RegExp(`\\b${printed.subtype}\\b`, "i");
+      for (const lid of alt.sacLandIds) {
+        const land = working.players[action.playerId]?.battlefield.find((p) => p.id === lid);
+        if (!land) throw new DispatcherError(`Alt-cost sacrifice land ${lid} not on battlefield`, "PERM_NOT_FOUND");
+        const tl = String(land.card?.type || land.card?.type_line || "");
+        if (!/\bLand\b/.test(tl) || !subRe.test(tl)) throw new DispatcherError(`Alt-cost sacrifice ${lid} is not a ${printed.subtype}`, "ALTCOST_UNPAID");
+        working = sacrificePermanentForCost(working, action.playerId, land);
+      }
     } else {
       throw new DispatcherError(`Unsupported alt cost kind: ${alt.kind}`, "ALTCOST_UNSUPPORTED");
     }
