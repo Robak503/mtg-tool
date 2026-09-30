@@ -44,8 +44,10 @@ const SAC_COST_POWER_RE = /^sacrifice (?:a|an) creature with power (\d+) or grea
 const SAC_COST_COLOR_RE = /^sacrifice (?:a|an) (white|blue|black|red|green) creature$/i;
 const SAC_COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
 // One canonicalization for BOTH exec sites below (parseOneAdditionalCost and extractAdditionalCosts had
-// duplicate inline ternaries; two copies of a growing map is how they drift).
-const SAC_TYPE_CANON = {
+// duplicate inline ternaries; two copies of a growing map is how they drift). EXPORTED since the 09-06 plan's stage ③ · 27
+// (2026-09-30): the activated-ability cost grammar (abilities.js) kept its own copy and it had drifted — it never learned
+// "artifact or creature" / "creature or artifact", so Dockside Chef and Bartolomé del Presidio parked. It reads this map now.
+export const SAC_TYPE_CANON = {
   "artifact or creature": "artifactOrCreature", "creature or artifact": "artifactOrCreature",
   "creature or enchantment": "creatureOrEnchantment",
   "creature or planeswalker": "creatureOrPlaneswalker",

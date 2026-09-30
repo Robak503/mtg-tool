@@ -48,7 +48,8 @@
 > Static Snare — the attacking-creature discount (+3 → corpus 14,877; suite 1614 / 16,718) · ③ · 24 Murderous
 > Rider, Fell Horseman — dies to the bottom of the library (+2 → corpus 14,879; suite 1615 / 16,724) · ③ · 25 Hellrider,
 > Scorch Spitter, Rakdos Roustabout — damage to the player or planeswalker it's attacking (+3 → corpus 14,882; suite 1616 / 16,733) · ③ · 26 Raid
-> Bombardment, Cavalcade of Calamity — the power-capped attacker (+2 → corpus 14,884; suite 1617 / 16,740). **Next:** the census below row ㉕ — the RUN-LEDGER's ③ entries carry the verdicts so far.
+> Bombardment, Cavalcade of Calamity — the power-capped attacker (+2 → corpus 14,884; suite 1617 / 16,740) · ③ · 27 "Sacrifice
+> [another] artifact or creature" on the activated lane — a drifted union map, eighteen carriers (+18 → corpus 14,902; suite 1618 / 16,766). **Next:** census rank 42, protection from two colours — the RUN-LEDGER's ③ entries carry the verdicts so far.
 > **State (measured 2026-09-29 at 5df810d2, Opus 5.5 seat):** suite **1585 files / 16,429 tests** green (1 skipped; 172 s;
 > `VITEST_TIMEOUT_MS=900000 npm test`) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30 decks, **88%** aggregate
 > (2,650 / 2,998), **13 at ≥90** (Mothman by rounding: 88/98 = 89.8%), Atraxa **74** the floor · nothing held:

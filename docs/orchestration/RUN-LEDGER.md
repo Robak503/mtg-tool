@@ -5,14 +5,44 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **383 commits**, corpus
-> 38.6% → **43.5% (14,884)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **384 commits**, corpus
+> 38.6% → **43.5% (14,902)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 27: "Sacrifice [another] artifact or creature" as an ACTIVATED cost — Umbral Collar Zealot, Bartolomé del Presidio, Dockside Chef, Baron Bertram Graywater … · **+18** · corpus 14,902 (43.5%) / 34,245
+> Suite **1618 files / 16,766 tests** green (1 skipped); lint 0. Flip-diff **+18, zero LOST, zero retiered** (tier snapshots at 7c86424b → the
+> change). **Mutants 4/4 killed on assertions** (restore byte-identical).
+> · **Census verdicts (ranks of the re-run census, now cited by rank):** rank 46 — Crystal Barricade (#2102) / Tajic's "Prevent all
+>   noncombat damage that would be dealt to other creatures you control" — **BANKED behind a finding**: every creature damage mark
+>   ends in gameState.markCombatDamage, but combat.js's fight / one-sided-bite / self-power paths call it DIRECTLY — no source,
+>   no prevention, no damage replacement, no lifelink or infect — so a group noncombat wall could not be honest while a fight
+>   skips every wall. Filed as its own task (route fight and bite damage through the damage pipeline). Ranks 47–48 are this slice.
+> · **A correction:** at ③ · 24 the census went from rank 41 (Ancient Stone Idol) to ranks 43–44 (Clearcutter banked, Murderous
+>   Rider) and rank 42 — "protection from black and from red" (Auriok Champion #3626, Mystic Crusader) — got no verdict. It is
+>   next.
+> · **Build — a drifted copy, not a missing mechanic.** The cast lane has read the union since Deadly Dispute (castModifiers'
+>   SAC_TYPE_CANON → `artifactOrCreature`, evaluated by legalChoices.sacTypeMatches). The activated lane kept its OWN copy of the
+>   union map and never learned either ordering — the drift sacUnionCost.test.js's one-evaluator contract warns about. The
+>   activated lane now imports castModifiers' map (castModifiers imports only parseHelpers, no cycle) and its regex takes both
+>   orderings.
+> · **Planned four, eighteen moved:** Dockside Chef (#3135), Kingpin's Enforcers, Bartolomé del Presidio (#1740), Hammerhead + fourteen
+>   unplanned carriers of the same cost — Umbral Collar Zealot (#1498), Baron Bertram Graywater (#4221), Old Flitterfang, Stormclaw
+>   Rager, Acolyte of Aclazotz, Ahriman, Dreg Recycler, Cutthroat Centurion, Defiant Salvager, Laurine, Makeshift Munitions,
+>   Thraxodemon, Vito's Inquisitor, Warehouse Thief. **Each run for real** (a generated sweep over the bundled oracle): offered,
+>   paid with a real victim, resolved with no error — the off-union Swamp never offered, the source its own victim exactly when
+>   the wording allows ("an", not "another", on an artifact or creature — Makeshift Munitions, an enchantment, never).
+> · **Runtime:** Bartolomé beside only a Swamp — nothing offered (the vacuity control) · `WITNESS bartolomeVictims ["bb","tr"]` —
+>   the Treasure and the Bears, never the Swamp, never itself · sacrificing the Treasure leaves a +1/+1 counter on Bartolomé ·
+>   Hammerhead's short name reads the same · Dockside Chef draws off {1}{B} and a Treasure and may sacrifice itself · Kingpin's
+>   Enforcers without its {2}{B} is not offered.
+> · **Mutants 4/4:** the union alternatives removed · no canonical key (the raw phrase reaches the evaluator) · "another" ignored ·
+>   the evaluator admitting any permanent (red on the Swamp). Witness `app/src/lib/learn/sacArtifactOrCreature.test.js` (26).
+> · **Next:** census rank 42 — "protection from black and from red".
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 26: "whenever a creature you control with power 2 or less attacks" — Raid Bombardment, Cavalcade of Calamity · **+2** · corpus 14,884 (43.5%) / 34,245
 > Suite **1617 files / 16,740 tests** green (1 skipped); lint 0. Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at 55702212 → the

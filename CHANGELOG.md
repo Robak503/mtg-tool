@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Eighteen "sacrifice an artifact or creature" abilities** — Umbral Collar Zealot, Bartolomé del Presidio, Dockside Chef,
+  Baron Bertram Graywater, Old Flitterfang, Kingpin's Enforcers and more
 - **Raid Bombardment, Cavalcade of Calamity** — your small attackers (by their current power) each deal 1 to what they
   attack
 - **Hellrider, Scorch Spitter, Rakdos Roustabout** — damage to the player or planeswalker the creature is attacking

@@ -28,6 +28,7 @@ import { parseLeveler, isLevelerFrame } from "../leveler.js";
 import { activationConditionParseable } from "../interveningIf.js";
 import { selfNormalizeOracle } from "../staticAbilityParser.js"; // leaf-importing module — cycle-safe; the shared self-name grammar
 import { CAST_ONLY_AFTER_ANOTHER_SPELL_PATTERN } from "./textNormalize.js"; // a zero-import leaf — the cast restriction's one pattern, shared with the classifier's strip
+import { SAC_TYPE_CANON } from "./castModifiers.js"; // the ONE sacrifice-union map both cost grammars read (castModifiers imports only parseHelpers — no cycle)
 
 /** Strip reminder text (parens) but PRESERVE newlines so per-ability line splitting works. */
 function stripReminder(text) {
@@ -591,11 +592,14 @@ export function parseAbilityCost(costStr, card = null) {
     }
     // SHELF-85 V8 (2026-09-04 — Arcade Cabinet "{2}, {T}, Sacrifice a token: …"): `token` joins the sacrifice-other
     // types — any token permanent you control (legalChoices' sacTypeMatches reads the victim's token flag).
-    const sacOtherM = /^sacrifice (a|an|another) (nontoken )?(creature or enchantment|creature or planeswalker|creature or land|creature|permanent|artifact|enchantment|land|token)$/i.exec(item);
+    // + "artifact or creature" / "creature or artifact" (the 09-06 plan's stage ③ · 27, 2026-09-30 — Dockside Chef, Kingpin's
+    // Enforcers; Bartolomé del Presidio and Hammerhead's "Sacrifice another creature or artifact"): the union the cast lane has
+    // read since Deadly Dispute. The canonical key comes from castModifiers' SAC_TYPE_CANON — this lane's own copy of the map
+    // had drifted, the failure the one-evaluator contract in sacUnionCost.test.js warns about.
+    const sacOtherM = /^sacrifice (a|an|another) (nontoken )?(artifact or creature|creature or artifact|creature or enchantment|creature or planeswalker|creature or land|creature|permanent|artifact|enchantment|land|token)$/i.exec(item);
     if (sacOtherM) {
-      const SAC_UNION_CANON = { "creature or enchantment": "creatureOrEnchantment", "creature or planeswalker": "creatureOrPlaneswalker", "creature or land": "creatureOrLand" };
       const rawType = sacOtherM[3].toLowerCase();
-      sacOther = { type: SAC_UNION_CANON[rawType] || rawType, another: /^another$/i.test(sacOtherM[1]),
+      sacOther = { type: SAC_TYPE_CANON[rawType] || rawType, another: /^another$/i.test(sacOtherM[1]),
         ...(sacOtherM[2] ? { nontoken: true } : {}) };
       continue;
     }
