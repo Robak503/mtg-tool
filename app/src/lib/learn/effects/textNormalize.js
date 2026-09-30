@@ -415,6 +415,26 @@ export function fixedManaAltCostOf(card) {
   const m = FIXED_MANA_ALT_COST_RE.exec(String(card?.oracle || card?.oracle_text || ""));
   return m ? m[1].toUpperCase() : null;
 }
+// ── ELESH NORN, MOTHER OF MACHINES (shelf D20): "Permanents entering don't cause abilities of permanents your opponents control
+// to trigger." Torpor Orb's sibling, scoped the other way: ANY permanent entering still raises its enters events, but no
+// ability of a PERMANENT controlled by an opponent of a carrier's controller triggers from one — their own enters abilities and
+// their watchers alike. Emblems and graveyard-functioning cards are not permanents and are untouched. A live scan (the carrier
+// leaving lifts it), run with the carrier already on the battlefield, so its own entrance counts (CR 603.10 — the continuous
+// effects that exist immediately after the event decide what triggers).
+export const OPP_ENTERS_DONT_TRIGGER_RE = /(?:^|[\n.;])\s*permanents entering don't cause abilities of permanents your opponents control to trigger\s*(?:\.|$)/i;
+export function oppEntersDontTriggerOf(card) {
+  const o = String(card?.oracle || card?.oracle_text || "");
+  return o.includes("opponents control to trigger") && OPP_ENTERS_DONT_TRIGGER_RE.test(o.replace(/[’]/g, "'"));
+}
+/** ONE battlefield scan per enters event → a predicate: are `pid`'s PERMANENTS' abilities silenced — does another player
+ *  control a carrier? (The dispatchers run on every land drop, so the scan is not repeated per watcher or per player.) */
+export function entersSilencer(state) {
+  const carriers = [];
+  for (const [pid, pl] of Object.entries(state?.players || {})) {
+    if ((pl?.battlefield || []).some((perm) => oppEntersDontTriggerOf(perm.card))) carriers.push(pid);
+  }
+  return (pid) => carriers.some((c) => c !== pid);
+}
 export function creatureEntersSuppressed(state, enteredPerm) {
   // Only a CREATURE entering is silenced — read off the printed front-face type line at entry (an artifact, an enchantment,
   // a land entering still triggers everything). An animated-later permanent entered as whatever it was printed as.

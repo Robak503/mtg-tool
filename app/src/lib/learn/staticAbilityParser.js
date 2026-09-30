@@ -3372,6 +3372,14 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ entersDontTrigger: true });
     return;
   }
+  // ── ELESH NORN, MOTHER OF MACHINES (shelf D20): the opponent-scoped sibling — "Permanents entering don't cause abilities of
+  // permanents your opponents control to trigger." Same marker contract: the runtime reads the SAME sentence through
+  // effects/textNormalize.entersSilencer at the three enters-event dispatchers (checkEnterTriggers /
+  // checkLandfallTriggers / checkPermanentEntersTriggers).
+  if (/^permanents entering don't cause abilities of permanents your opponents control to trigger$/.test(c)) {
+    out.push({ oppEntersDontTrigger: true });
+    return;
+  }
   // ── SKIP YOUR DRAW STEP (residue grind RG-4, 2026-09-05 — Wild Wasteland / Taigam / Null Profusion / Recycle): CR 614.10.
   // The marker credits the line; the turn engine reads the SAME sentence through effects/textNormalize.skipsDrawStep for the
   // active player at its draw-step case. Exact line only — a variant leaves residue → body-only (a safe FN).

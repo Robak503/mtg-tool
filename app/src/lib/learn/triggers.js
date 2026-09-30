@@ -29,7 +29,7 @@ import { grantedTriggeredQuotedFor, permanentHasKeyword, permanentPower, permane
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 import { applyLifeGainReplacement } from "./replacementEffects.js"; // LIFE-GAIN replacement (CR 614.1) — read by checkLifegainTriggers so a trigger sees the life ACTUALLY gained. replacementEffects imports nothing at all, so this edge is one-way and cycle-free.
 import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
-import { ABILITY_WORD_LABEL_RE, creatureEntersSuppressed } from "./effects/textNormalize.js"; // + TORPOR ORB (RG-2, 2026-09-05): the enters-event suppression reader // CR 207.2c label list — the SINGLE copy, shared with the spell path (textNormalize is a zero-import leaf, so no cycle)
+import { ABILITY_WORD_LABEL_RE, creatureEntersSuppressed, entersSilencer } from "./effects/textNormalize.js"; // + entersSilencer (shelf D20 — Elesh Norn's opponent-scoped enters silence) // + TORPOR ORB (RG-2, 2026-09-05): the enters-event suppression reader // CR 207.2c label list — the SINGLE copy, shared with the spell path (textNormalize is a zero-import leaf, so no cycle)
 import { CR_CREATURE_TYPES } from "./effects/targeting.js"; // BC-1: closed creature-subtype vocabulary for the NEGATED-SUBTYPE batch filter (read ONLY inside parseBatchSubjectFilter — a function — so the triggers→targeting→spellEffects→triggers cycle stays init-safe: CR_CREATURE_TYPES is never referenced at module-init time)
 
 function oracleOf(card) {
@@ -1627,6 +1627,20 @@ function classifyCondition(condRaw, cardName, cardType) {
     if (singularDies) {
       const inner = classifyCondition(`${singularDies} dies`, cardName, cardType);
       if (inner && inner.event === "dies" && inner.scope !== "self") return { ...inner, event: "diesBatch" };
+    }
+  }
+  // BATCHED LEAVES (shelf D20 — Dour Port-Mage "whenever one or more other creatures you control leave the battlefield without
+  // dying"; Aang, Airbending Master's self-inclusive "one or more creatures you control"; Sally Sparrow's plain form). The
+  // diesBatch shape exactly: the plural subject is singularized and handed back to the singular leaves arm, so it admits only
+  // the subjects that arm enforces, and the EVENT is rewritten to `permanentLeavesBatch` — fired ONCE per watcher per leave
+  // batch by its own pass in checkLeavesTriggers (CR 603.2c), never by the per-event loop. "without dying" rides as a flag only
+  // that pass reads: a graveyard exit is a death (CR 700.4) and doesn't count toward the batch.
+  {
+    const batchLeaves = c.match(/^one or more (.+) leave the battlefield( without dying)?$/);
+    const singularLeaves = batchLeaves ? singularizeBatchSubject(batchLeaves[1]) : null;
+    if (singularLeaves) {
+      const inner = classifyCondition(`${singularLeaves} leaves the battlefield`, cardName, cardType);
+      if (inner && inner.event === "permanentLeaves") return { ...inner, event: "permanentLeavesBatch", ...(batchLeaves[2] ? { withoutDying: true } : {}) };
     }
   }
   // ===== GY-EVENT conditions (Syr Konrad / Bloodchief Ascension — SHELF S7) ===== card-scoped graveyard
@@ -5491,6 +5505,7 @@ export function detectTriggers(card) {
         tapLockThatCreature: cls.tapLockThatCreature, // SELF combat-damage-to-CREATURE tap-and-lock (Kashi-Tribe family) — "tap that creature and it doesn't untap…". ⚠️ Unlisted here = dropped = the rewrite below never fires, the clause stays an unbindable "tap that creature and…" → LOW, and the card silently parks while the detector looks correct.
         exileThatCreature: cls.exileThatCreature, // SELF combat-damage-to-CREATURE exile (CAP4 — Kaldra Compleat's granted trigger). Same ⚠️ as its twins: unlisted = dropped = the rewrite never fires.
         oncePerBatch: cls.oncePerBatch,        // ONCE-PER-BATCH enter watcher (Satoru, BI-5) — deduped against the unflushed pending triggers
+        withoutDying: cls.withoutDying,        // BATCHED LEAVES only (shelf D20 — Dour Port-Mage): a graveyard exit doesn't count. ⚠️ Unlisted here = dropped = every exit counts, deaths included
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
         legendaryFilter: cls.legendaryFilter, // H6 (Yoshimaru) — "another legendary permanent/creature enters": scopeMatches gates on the supertype
         legendaryCreatureOnly: cls.legendaryCreatureOnly, // H6 — the creature form of the above
@@ -6853,6 +6868,14 @@ function triggerSourcesOf(state, pid) {
   return [...(p.battlefield || []), ...(p.emblems || []).map((e) => emblemAsSource(e, pid))];
 }
 
+/** The sources an ENTERS event reaches for `pid` (shelf D20 — Elesh Norn): every source, or — while an opponent's carrier
+ *  silences this player (effects/textNormalize.entersSilencer) — only the emblems, which are not permanents. The one rule the
+ *  three enters dispatchers share (checkEnterTriggers / checkLandfallTriggers / checkPermanentEntersTriggers). */
+function entersWatchersOf(state, pid, silenced) {
+  const all = triggerSourcesOf(state, pid);
+  return silenced(pid) ? all.filter((w) => w.isEmblem) : all;
+}
+
 /**
  * Enqueue dies triggers for a batch of creatures that just died (CR 603.6c).
  * `dead` is destroyLethalCreatures' return — [{ id, controller, name, card }],
@@ -6888,8 +6911,11 @@ export function checkEnterTriggers(state, enteredPerm) {
   // into params.xValue, so a "create half X Food tokens, rounded up" ETB resolves at the real X. Undefined for
   // a non-X entry → the {} spread adds nothing → every existing ETB trigger is byte-identical.
   const etbSelfContext = enteredPerm.xValue > 0 ? { xValue: enteredPerm.xValue } : {};
+  // ELESH NORN (shelf D20): an opponent's carrier silences this player's PERMANENTS' abilities — the entering permanent's own
+  // enters abilities and every watcher; emblems (not permanents) and the graveyard scan below still fire.
+  const silenced = entersSilencer(s);
   for (const pid of Object.keys(s.players)) {
-    for (const watcher of triggerSourcesOf(s, pid)) {
+    for (const watcher of entersWatchersOf(s, pid, silenced)) {
       const selfCtx = watcher.id === enteredPerm.id ? etbSelfContext : {};
       // A GY-FUNCTIONING descriptor is excluded from the BATTLEFIELD fire: its own text says it works from
       // the graveyard (CR 603.3d), so a Dragon Fangs already on the battlefield must not re-return itself.
@@ -6951,8 +6977,9 @@ export function checkEnterTriggers(state, enteredPerm) {
 export function checkLandfallTriggers(state, enteredLand, { played = false } = {}) {
   if (!enteredLand) return state;
   let fired = [];
+  const silenced = entersSilencer(state); // ELESH NORN (shelf D20) — a land entering is a permanent entering
   for (const pid of Object.keys(state.players)) {
-    for (const watcher of triggerSourcesOf(state, pid)) {
+    for (const watcher of entersWatchersOf(state, pid, silenced)) {
       // A GY-FUNCTIONING landfall descriptor (Bloodghast) never fires from the battlefield —
       // the Radroach/milled discipline: the flag routes the two scans off one detectTriggers cache.
       // CITY OF TRAITORS (KT-5): a `playedOnly` descriptor needs the play-land path's marker (fails closed on the effect
@@ -6998,8 +7025,9 @@ export function checkPermanentEntersTriggers(state, enteredPerm) {
   if (!enteredPerm) return state;
   if (creatureEntersSuppressed(state, enteredPerm)) return state; // TORPOR ORB (CR 603.2) — the permanentEnters event too
   let fired = [];
+  const silenced = entersSilencer(state); // ELESH NORN (shelf D20)
   for (const pid of Object.keys(state.players)) {
-    for (const watcher of triggerSourcesOf(state, pid)) {
+    for (const watcher of entersWatchersOf(state, pid, silenced)) {
       fired = fired.concat(triggersForEvent(state, { event: "permanentEnters", sourcePermanent: watcher, triggeringPermanent: enteredPerm }));
     }
   }
@@ -7374,6 +7402,24 @@ export function checkLeavesTriggers(state) {
     for (const pid of Object.keys(cleared.players)) {
       for (const watcher of triggerSourcesOf(cleared, pid)) {
         fired = fired.concat(triggersForEvent(cleared, { event: "permanentLeaves", sourcePermanent: watcher, triggeringPermanent: lookBack, triggeringContext: leaveCtx }));
+      }
+    }
+  }
+  // BATCHED LEAVES (shelf D20 — Dour Port-Mage) — a `permanentLeavesBatch` watcher fires ONCE per batch however many members
+  // match (CR 603.2c), through this pass alone (the diesBatch shape: the per-event loop above never sees the event name). The
+  // leaving permanents are sources too — a leaves-the-battlefield ability looks back in time (CR 603.10a), so a watcher that
+  // left in the same batch still saw the others go. A card flickered back already sits on the battlefield as a NEW object
+  // (CR 400.7) that never saw this batch leave, so its look-back is the one source for it: a battlefield watcher whose card
+  // left in the batch is skipped. "without dying" skips the graveyard exits (CR 700.4).
+  const batch = events.filter((e) => e?.card).map((e) => ({ id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard }));
+  const leftCardIds = new Set(batch.map((b) => b.card.id).filter(Boolean));
+  for (const pid of Object.keys(cleared.players)) {
+    const onBattlefield = triggerSourcesOf(cleared, pid).filter((w) => !leftCardIds.has(w.card?.id)); // an emblem has no card id: always kept
+    for (const src of [...onBattlefield, ...batch.filter((b) => b.controller === pid)]) {
+      for (const lookBack of batch) {
+        const hits = triggersForEvent(cleared, { event: "permanentLeavesBatch", sourcePermanent: src, triggeringPermanent: lookBack,
+          descriptorFilter: (d) => !(d.withoutDying && lookBack.leftToGraveyard) });
+        if (hits.length) { fired = fired.concat(hits); break; } // ONCE per watcher per batch — CR 603.2c
       }
     }
   }

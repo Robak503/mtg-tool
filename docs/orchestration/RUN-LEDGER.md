@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **432 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **433 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,28 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D20: ELESH NORN'S ENTERS SILENCE + THE BATCHED LEAVES EVENT — Brago Blink 86 → 88 · **+3** · corpus 15,101 / 34,245
+> Suite **1,669 files / 17,231 tests** green (1 skipped); lint 0; decks 2,693 / 2,998. CI GREEN on D19 (run 36790490021). Flip-diff **+3, zero LOST,
+> zero RETIERED** (tier snapshots at d858a3f0 → the change: Elesh Norn body-only → native-static, Dour Port-Mage and Sally Sparrow body-only → native-mixed). **Mutants 18/18** (restore byte-identical).
+> · **Why:** Brago Blink (86) needs four; its single-line blockers with machinery to extend were Elesh Norn (Torpor Orb's reader)
+>   and Dour Port-Mage (the diesBatch shape). Brago, King Eternal (the commander's any-number flicker) is the next slice.
+> · **Build — Elesh Norn:** "Permanents entering don't cause abilities of permanents your opponents control to trigger" — one
+>   textNormalize reader (a live scan, one per enters event: the landfall path runs on every land drop) + a classifier marker;
+>   the three enters dispatchers share one `entersWatchersOf` rule: while an opponent's carrier is out, only a player's emblems
+>   (not permanents) are reached. Any permanent entering counts; her own entrance counts (CR 603.10). Her first line (your enters
+>   triggers trigger twice) was already modeled.
+> · **Build — batched leaves:** "whenever one or more [other] creatures you control leave the battlefield [without dying]" —
+>   singularized onto the singular leaves arm (so only its subjects are admitted), rewritten to `permanentLeavesBatch`, fired ONCE
+>   per watcher per batch by its own pass (CR 603.2c); "without dying" skips graveyard exits (CR 700.4). The leavers are sources
+>   too (CR 603.10a — Evacuation bouncing Port-Mage with the others still draws one).
+> · **Caught before commit (CR 400.7):** a flickered card returns as a NEW permanent id, so the returned Port-Mage also "saw" the
+>   leave it wasn't there for — Ghostly Flicker on Port-Mage + a Bear drew two. A battlefield watcher whose card left in the batch
+>   is now skipped (its look-back is its one source); the witness pins one draw. Two dead guards were removed before the mutation run.
+> · **Runtime:** `WITNESS nornEnters {"theirs":0,"yours":2}` · `nornLandfall {"lynxPumped":false,"emblemAsked":true,"emblemDrew":1}` ·
+>   `portMageBatch {"drawn":1,"portMageInHand":true}` · `portMageFlicker {"drawn":1}`. Witnesses
+>   `app/src/lib/learn/eleshNornMotherOfMachines.test.js` (7) · `leavesBatch.test.js` (6).
+> · **Next:** Brago, King Eternal (Brago Blink's last big one) · Shorikai / Teval (each needs 4).
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D19: A REMOVE-A-COUNTER PAYMENT + THE CHOSEN-TYPE TRIGGER DOUBLER — Believe it! 88 → 90 · **+2** · corpus 15,098 / 34,245
 > Suite **1,667 files / 17,218 tests** green (1 skipped); lint 0; decks 2,691 / 2,998. CI GREEN on D18 (run 36788596908). Flip-diff **+2, zero LOST,

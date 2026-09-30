@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Elesh Norn, Mother of Machines** — permanents entering no longer trigger abilities of permanents your opponents control (their enters abilities, watchers and landfall stay quiet; emblems still work)
+- **Dour Port-Mage** and **Sally Sparrow** — "whenever one or more other creatures you control leave the battlefield" triggers once per batch; Port-Mage counts only creatures that leave without dying
 - **Ingenious Prodigy** — at your upkeep, while it has a +1/+1 counter, you may remove one to draw a card (the same "remove a counter. If you do" choice now works wherever a card's text is otherwise supported)
 - **Roaming Throne** — triggered abilities of your other creatures of the chosen type trigger an additional time
 - **Veil of Summer** — draws when an opponent has cast a blue or black spell this turn, makes your spells uncounterable for the rest of the turn (including ones already on the stack), and gives you and your permanents hexproof from blue and black until end of turn
