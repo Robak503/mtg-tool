@@ -32,7 +32,7 @@ export const runtime = "nodejs";
 import fs from "node:fs/promises";
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { dataPath, appRoot } from "../../../lib/server/paths";
+import { dataPath, dataPathSource, appRoot } from "../../../lib/server/paths";
 import { invalidateCachesFor } from "../../../lib/server/syncCacheInvalidation";
 
 const SCRIPTS = {
@@ -158,6 +158,9 @@ export async function GET() {
       key: ds.key,
       label: ds.label,
       present: stat !== null,
+      // Which copy reads resolve to: "bundle" (the app's shipped snapshot — newer than the last sync)
+      // or "appdata" (the writable copy an in-app sync wrote). See paths.js REFERENCE DATA FRESHNESS.
+      source: dataPathSource(...ds.file),
       sizeBytes: stat?.size ?? 0,
       syncedAt: timestamp,
       ageDays,

@@ -28,7 +28,7 @@
  */
 
 import path from "node:path";
-import { existsSync, readFileSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 
 function detectAppRoot() {
   const envOverride = process.env.MTG_APP_ROOT;
@@ -100,6 +100,134 @@ export function appPath(...parts) {
   return path.join(detectAppRoot(), ...parts);
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+   REFERENCE DATA FRESHNESS (2026-09-29). An in-app sync writes a copy of the
+   reference data into appRoot/data, and until this rule that copy won every
+   read forever — so each newer bundle an app update brought was shadowed
+   (found live: the v0.160.0 app on the build box read its 2026-07-19 sync for
+   72 days). Now, for the reference GROUPS below only, a bundled copy whose
+   group stamp is STRICTLY newer than the synced copy's is read instead. A
+   group decides as one unit (an index never mixes with another generation's
+   bulk). Ties, missing stamps, and every file outside these groups — user
+   data such as price history, play hints, caches, logs — keep the writable
+   copy. Writes are unaffected: every sync script writes appRoot/data itself.
+   ────────────────────────────────────────────────────────────────────────── */
+
+const REFERENCE_GROUPS = [
+  {
+    key: "scryfall-bulk",
+    owns: (p) => p.length >= 2 && p[0] === "scryfall-bulk",
+    stamp: ["scryfall-bulk", "manifest.json"],
+    field: "generatedAt",
+  },
+  {
+    key: "spellbook",
+    owns: (p) => p.length === 1 && /^spellbook-(combos|index|cards|meta)\.local\.json$/.test(p[0]),
+    stamp: ["spellbook-meta.local.json"],
+    field: "syncedAt",
+  },
+  {
+    key: "edhrec-salt",
+    owns: (p) => p.length === 1 && /^edhrec-salt(-meta)?\.local\.json$/.test(p[0]),
+    stamp: ["edhrec-salt-meta.local.json"],
+    field: "syncedAt",
+  },
+  {
+    key: "cardkingdom-prices",
+    owns: (p) => p.length === 1 && p[0] === "cardkingdom-prices.json",
+    stamp: ["cardkingdom-prices.json"],
+    field: "generatedAt",
+  },
+  {
+    // A bare JSON array — no embedded stamp; the file's mtime is its build time
+    // (the same source /api/sync-data reports for it).
+    key: "rules-index",
+    owns: (p) => p.length === 1 && p[0] === "rules-index.json",
+    stamp: ["rules-index.json"],
+    field: null,
+  },
+];
+
+// Every group's stamp field sits at the top of its file — the head is enough.
+const STAMP_HEAD_BYTES = 8192;
+const STAMP_RES = {
+  generatedAt: /"generatedAt"\s*:\s*"([^"]+)"/,
+  syncedAt: /"syncedAt"\s*:\s*"([^"]+)"/,
+};
+// Stamp cache keyed by file, invalidated by the file's own (mtime, size) — a
+// sync that rewrites a stamp file is picked up on the next read.
+const stampCache = new Map();
+const announcedBundleWins = new Set();
+
+/** "a/b.json" and ("a", "b.json") name the same file — compare the segments. */
+function segmentsOf(parts) {
+  return parts.flatMap((p) => String(p).split(/[\\/]+/)).filter(Boolean);
+}
+
+/**
+ * The group stamp of one copy, in epoch ms: the embedded ISO timestamp when the
+ * field is present and parses, else the stamp file's mtime. null = the stamp
+ * file doesn't exist (or can't be read — reported, and treated as unprovable).
+ */
+function readStampMs(file, field) {
+  let st;
+  try {
+    st = statSync(file);
+  } catch (e) {
+    if (e.code === "ENOENT") return null;
+    console.warn(`[paths] cannot stat reference stamp ${file}: ${e.message} — keeping the synced copy`);
+    return null;
+  }
+  const hit = stampCache.get(file);
+  if (hit && hit.mtimeMs === st.mtimeMs && hit.size === st.size) return hit.ms;
+
+  let ms = null;
+  if (field) {
+    let head = "";
+    try {
+      const fd = openSync(file, "r");
+      try {
+        const buf = Buffer.alloc(Math.min(STAMP_HEAD_BYTES, st.size));
+        const n = readSync(fd, buf, 0, buf.length, 0);
+        head = buf.toString("utf8", 0, n);
+      } finally {
+        closeSync(fd);
+      }
+    } catch (e) {
+      console.warn(`[paths] cannot read reference stamp ${file}: ${e.message} — using its mtime`);
+    }
+    const m = head.match(STAMP_RES[field]);
+    const t = m ? Date.parse(m[1]) : NaN;
+    if (Number.isFinite(t)) ms = t;
+  }
+  if (ms === null) ms = st.mtimeMs;
+  stampCache.set(file, { mtimeMs: st.mtimeMs, size: st.size, ms });
+  return ms;
+}
+
+/**
+ * True when `segs` belongs to a reference group AND the bundle's group stamp is
+ * strictly newer than the synced copy's. Anything unprovable → false (the synced
+ * copy keeps winning, exactly as before this rule existed).
+ */
+function bundleIsNewer(segs, dataRoot, refDir) {
+  const group = REFERENCE_GROUPS.find((g) => g.owns(segs));
+  if (!group) return false;
+  const liveMs = readStampMs(path.join(dataRoot, ...group.stamp), group.field);
+  if (liveMs === null) return false;
+  const bundledMs = readStampMs(path.join(refDir, ...group.stamp), group.field);
+  if (bundledMs === null) return false;
+  if (!(bundledMs > liveMs)) return false;
+  if (!announcedBundleWins.has(group.key)) {
+    announcedBundleWins.add(group.key);
+    console.info(
+      `[paths] reference data "${group.key}": the bundled copy (${new Date(bundledMs).toISOString()}) is newer ` +
+        `than the synced copy (${new Date(liveMs).toISOString()}) — reading the bundle until the next sync.`,
+    );
+  }
+  return true;
+}
+
 /**
  * Resolve a path inside the data directory.
  *
@@ -111,21 +239,34 @@ export function appPath(...parts) {
  *     formats) the caller can let dataPath fall back to the bundled
  *     MTG_REFERENCE_DIR if the file isn't in appRoot/data yet.
  *
- * The fallback only triggers when the appRoot copy is missing AND a
- * file with the same relative path exists under MTG_REFERENCE_DIR.
- * That means an in-app data refresh that writes to appRoot/data
- * transparently takes precedence going forward — no need to delete
- * the bundled snapshot. In dev (no MTG_REFERENCE_DIR), behavior is
- * unchanged: it always returns the appRoot/data path.
+ * The fallback triggers when the appRoot copy is missing AND a file with
+ * the same relative path exists under MTG_REFERENCE_DIR — or, for the
+ * REFERENCE_GROUPS above, when both copies exist and the bundled group is
+ * strictly newer (an app update brought fresher data than the last sync).
+ * An in-app sync that writes to appRoot/data takes precedence again from
+ * then on, because its stamp is newer. In dev (no MTG_REFERENCE_DIR),
+ * behavior is unchanged: it always returns the appRoot/data path.
  */
 export function dataPath(...parts) {
-  const live = path.join(detectAppRoot(), "data", ...parts);
+  const dataRoot = path.join(detectAppRoot(), "data");
+  const live = path.join(dataRoot, ...parts);
   const refDir = detectReferenceDir();
-  if (refDir && !existsSync(live)) {
-    const bundled = path.join(refDir, ...parts);
-    if (existsSync(bundled)) return bundled;
-  }
+  if (!refDir) return live;
+  const bundled = path.join(refDir, ...parts);
+  if (!existsSync(live)) return existsSync(bundled) ? bundled : live;
+  if (existsSync(bundled) && bundleIsNewer(segmentsOf(parts), dataRoot, refDir)) return bundled;
   return live;
+}
+
+/**
+ * Which copy dataPath(...parts) reads: "bundle" (the read-only MTG_REFERENCE_DIR
+ * snapshot) or "appdata" (the writable data root). /api/sync-data reports it so
+ * the Updates panel — and a debugging seat — can see which copy is live.
+ */
+export function dataPathSource(...parts) {
+  const refDir = detectReferenceDir();
+  if (!refDir) return "appdata";
+  return dataPath(...parts) === path.join(refDir, ...parts) ? "bundle" : "appdata";
 }
 
 /* ──────────────────────────────────────────────────────────────────────────

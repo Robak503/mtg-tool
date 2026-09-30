@@ -189,14 +189,25 @@ Resolution order for `dataPath()`:
 1. Look in `appRoot()/data/<rel>` first (the writable user dir)
 2. If file is missing AND `MTG_REFERENCE_DIR` is set AND the bundle
    has it → return the bundled path
-3. Otherwise return the writable path (so writes go to the right
+3. If BOTH copies exist and the file belongs to a **reference group**
+   (`scryfall-bulk/*`, the Spellbook four, the EDHREC salt pair,
+   `cardkingdom-prices.json`, `rules-index.json`) whose bundled group
+   stamp is STRICTLY newer than the synced copy's → return the bundled
+   path (an app update brought fresher data than the last sync)
+4. Otherwise return the writable path (so writes go to the right
    place even if the file doesn't exist yet)
 
 This is why bundled reference data doesn't need to be copied into
 AppData at first launch — it's read directly from the resources dir
 until a sync writes a fresher copy. In-app syncs write to the
-writable location, which transparently takes precedence going
-forward.
+writable location, which takes precedence until an app update ships
+a newer bundle (rule 3, added 2026-09-29 — before it, one sync
+shadowed every later bundle forever). A group decides as one unit by
+its stamp (`manifest.json` `generatedAt`, the meta files' `syncedAt`,
+Card Kingdom's own `generatedAt`, the rules index's mtime); ties and
+unreadable stamps keep the synced copy; user data (price history,
+play hints, caches, logs) is never shadowed. `dataPathSource()` says
+which copy a read resolves to, and `/api/sync-data` reports it.
 
 For `mtgJudgePath()` and `mtgEnginePath()` the lookup uses
 `MTG_JUDGE_DIR` / `MTG_ENGINE_DIR` env vars, falling back to dev-tree

@@ -5,6 +5,9 @@
  */
 
 import { describe, expect, it, beforeEach, vi } from "vitest";
+import fs from "node:fs/promises";
+import path from "node:path";
+import os from "node:os";
 
 // Intercept child_process.spawn so the derived-index chain (B3) can be exercised without
 // running the real sync scripts. Each fake process reports the basename it was asked to run and
@@ -109,6 +112,44 @@ describe("/api/sync-data", () => {
       expect(typeof ds.key).toBe("string");
       expect(typeof ds.label).toBe("string");
       expect(typeof ds.present).toBe("boolean");
+      expect(["bundle", "appdata"]).toContain(ds.source);
+    }
+  });
+
+  it("GET reports which copy each dataset reads — a newer bundle reads as source: bundle, with the bundle's date", async () => {
+    // The 2026-09-29 shadowing bug, at the route: a synced rules-index from 07-19 must not hide the bundle's
+    // 08-16 one, and a Spellbook synced AFTER the bundle was built must keep winning.
+    const appRootDir = await fs.mkdtemp(path.join(os.tmpdir(), "syncdata-approot-"));
+    const refDir = await fs.mkdtemp(path.join(os.tmpdir(), "syncdata-refdir-"));
+    const saved = { app: process.env.MTG_APP_ROOT, ref: process.env.MTG_REFERENCE_DIR };
+    const put = async (file, content, mtimeIso) => {
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      await fs.writeFile(file, content);
+      const t = new Date(mtimeIso);
+      await fs.utimes(file, t, t);
+    };
+    try {
+      process.env.MTG_APP_ROOT = appRootDir;
+      process.env.MTG_REFERENCE_DIR = refDir;
+      await put(path.join(appRootDir, "data", "rules-index.json"), "[]", "2026-07-19T03:06:44.000Z");
+      await put(path.join(refDir, "rules-index.json"), "[]", "2026-08-16T10:54:00.000Z");
+      await put(path.join(appRootDir, "data", "spellbook-meta.local.json"), JSON.stringify({ syncedAt: "2026-08-20T00:00:00.000Z" }), "2026-08-20T00:00:00.000Z");
+      await put(path.join(refDir, "spellbook-meta.local.json"), JSON.stringify({ syncedAt: "2026-08-16T10:57:00.000Z" }), "2026-08-16T10:57:00.000Z");
+
+      const mod = await import("./route.js");
+      const body = await (await mod.GET(new Request("http://localhost/api/sync-data"))).json();
+      const byKey = Object.fromEntries(body.datasets.map((d) => [d.key, d]));
+      expect(byKey["rules-index"].source).toBe("bundle");
+      expect(byKey["rules-index"].syncedAt).toBe("2026-08-16T10:54:00.000Z");
+      expect(byKey.spellbook.source).toBe("appdata");
+      expect(byKey.spellbook.syncedAt).toBe("2026-08-20T00:00:00.000Z");
+    } finally {
+      if (saved.app === undefined) delete process.env.MTG_APP_ROOT;
+      else process.env.MTG_APP_ROOT = saved.app;
+      if (saved.ref === undefined) delete process.env.MTG_REFERENCE_DIR;
+      else process.env.MTG_REFERENCE_DIR = saved.ref;
+      await fs.rm(appRootDir, { recursive: true, force: true });
+      await fs.rm(refDir, { recursive: true, force: true });
     }
   });
 

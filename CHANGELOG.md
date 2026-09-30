@@ -289,6 +289,11 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **App updates now bring fresh card data** — once you had synced data in the Updates panel, the app kept
+  reading that sync forever and ignored the newer card data every later update shipped (one install was
+  still on its July snapshot in late September, missing every set since). Now the newer of the two wins:
+  an update's data replaces an older sync, and a sync you run after an update still replaces the update's.
+  Your own data — decks, collection price history, play notes — is never touched.
 - **Control Auras with a bonus now grant it** — Spirit Away, Yavimaya's Embrace and Corrupted Conscience
   stole the creature but never gave it the +2/+2, flying, trample or infect; they do now. The AI also
   casts control Auras on the biggest enemy creature instead of holding them.
