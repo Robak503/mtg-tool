@@ -111,7 +111,8 @@ tag" rule (RELEASE.md, CLAUDE.md §1.6); CLAUDE.md §3.4 matches the workflows; 
 bannered (the 09-06 plan §4 repointed at its real tail); the 09-06 plan's trap list = the union with SHELF-85's; the
 playbooks' `npx vitest run` → the CI wrapper and the laptop `MAIN` path → the install root; SHELF-85 bannered CLOSED;
 gotchas #20–#23 (worktree footing · `$'` in String.replace · the MSIX install mirror · new reference datasets). Parked
-(§9): the repo-root `tier-snapshot.json` tracked file (a `--out`-less run overwrites it) — NICE, not release-relevant.
+(§9): the repo-root `tier-snapshot.json` tracked file (a `--out`-less run overwrites it) — NICE, not release-relevant
+(done 2026-09-30 — see §9).
 
 ## §7 R7 — the release
 
@@ -138,8 +139,10 @@ reducer) → ③ → ④. ✅ Stage ② MET 2026-09-30 (+2, +4 — both riding v
   noreply address going forward is Colton's call.
 - Codex read "keep everything private" as repo visibility on 2026-09-05 — reuse that phrasing only with "the mtg-tool
   repo stays public".
-- (NICE, builder) the repo-root `tier-snapshot.json` is tracked (1.1 MB); `scripts/tier-snapshot.mjs` without `--out` from
-  the repo root overwrites it — untrack + ignore it, or make `--out` required.
+- ~~(NICE, builder) the repo-root `tier-snapshot.json` is tracked (1.1 MB); `scripts/tier-snapshot.mjs` without `--out` from
+  the repo root overwrites it — untrack + ignore it, or make `--out` required.~~ Done 2026-09-30, both halves: the two
+  stale tracked snapshots (repo root and `app/`) are removed, and the script now requires `--out=<file>` or
+  `--diff=<before>,<after>` and exits 2 on anything else, before it writes.
 - (SHOULD, builder) the release's strict bundle guard (`prepare-tauri-resources.cjs`) checks that Spellbook files EXIST,
   not that the crawl completed — a rate-limited crawl ships partial card flags on a green run. Check the meta file /
   counts instead.

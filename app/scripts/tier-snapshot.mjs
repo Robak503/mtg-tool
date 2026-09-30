@@ -27,10 +27,17 @@ import fs from "node:fs";
 import { allCards, publicCard } from "../src/lib/server/cardIndex.js";
 import { classifyCard, isNativeTier } from "../src/lib/learn/coverage.js";
 
-const argv = Object.fromEntries(process.argv.slice(2).map((a) => {
-  const m = a.match(/^--([^=]+)(?:=(.*))?$/);
-  return m ? [m[1], m[2] ?? true] : [a, true];
-}));
+// FAIL FAST (2026-09-30). "--out after.json" — a space where the "=" belongs — used to parse as a bare flag plus a stray
+// argument, and the run fell through to a default output path, silently overwriting a TRACKED snapshot. Every flag now
+// takes its value after "=", a snapshot must name its --out, and anything else stops the run before it writes.
+const USAGE = "usage: node scripts/tier-snapshot.mjs --out=<file>   |   node scripts/tier-snapshot.mjs --diff=<before>,<after>";
+const argv = {};
+for (const a of process.argv.slice(2)) {
+  const m = a.match(/^--(out|diff)=(.+)$/);
+  if (!m || m[1] in argv) { console.error(`tier-snapshot: unexpected argument ${JSON.stringify(a)}\n${USAGE}`); process.exit(2); }
+  argv[m[1]] = m[2];
+}
+if (!argv.out === !argv.diff || (argv.diff && argv.diff.split(",").length !== 2)) { console.error(USAGE); process.exit(2); }
 
 function isRealCard(c) {
   const t = c.type || c.type_line || "";
@@ -78,6 +85,6 @@ for (const raw of allCards()) {
   n++;
 }
 const payload = { generatedAtMs: Date.now() - t0, cards: n, tiers };
-const out = typeof argv.out === "string" ? argv.out : "tier-snapshot.json";
+const out = argv.out;
 fs.writeFileSync(out, JSON.stringify(payload));
 console.log(`snapshot: ${n} cards → ${out} (${Math.round((Date.now() - t0) / 1000)}s)`);
