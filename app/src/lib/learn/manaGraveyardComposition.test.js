@@ -6,6 +6,11 @@
  * parse, and the mana tier's residue gate sank the whole card — the activated composition had already admitted the
  * same zone argument (census slice 56). Same predicate now, both gates. Jack-o'-Lantern stays parked: its graveyard
  * line IS a mana ability, which no lane produces from the graveyard. Real oracle fixtures (bundled Scryfall snapshot).
+ * ⚠️ CORRECTED 2026-09-30: until then the pin held for the wrong reason. The GY-2 graveyard-exile lane DID accept Jack's
+ * mana line — credited native-activated on its own, and OFFERED at runtime: pay {1}, exile the card, and no mana arrived.
+ * Jack stayed parked only because its OTHER line ("exile up to one target card from a graveyard") was unparsed too; when
+ * that line was built, the whole card read native. parseGraveyardExileAbility now refuses a mana program (CR 605.1a /
+ * 605.3b), so the reason in the sentence above is true, and the broken activation is no longer offered.
  */
 
 import { beforeEach, describe, expect, it } from "vitest";

@@ -197,6 +197,13 @@ export function parseGraveyardExileAbility(card) {
     const program = parseEffectClause(normalizeSelfName(eff, card), "Instant");
     if (!program || programConfidence(program) !== "high") return null;
     if (program.modal || program.xSpell) return null;                    // v1 — the plain shape only
+    // ⛔ A MANA ABILITY is not this lane's (2026-09-30 — Jack-o'-Lantern's "{1}, Exile this card from your graveyard: Add one
+    // mana of any color."). It IS a mana ability (CR 605.1a: no target, adds mana, not loyalty), and a mana ability never
+    // goes on the stack (CR 605.3b) — but this lane puts its activation ON the stack and resolves the program there, where
+    // the add-mana atom produced nothing: probed, the {1} was paid and the card exiled into an empty pool. No lane makes
+    // mana from the graveyard, so the line parks — offer, dispatcher and classifier together, since all three read this
+    // parse. (Found when the up-to-one graveyard-exile slice unparked Jack's OTHER line and the whole card read native.)
+    if ((program.atoms || []).some((a) => a.op === "add-mana")) return null;
     // GY-3 (④-T, 2026-09-03 night): a TARGETED program is admitted now — the graveyard lane expands its targets
     // through expandCastChoices (the same helper every battlefield activation uses) and the dispatcher threads
     // them onto the stack object, so "{2}, Exile this card from your graveyard: Exile target card from a

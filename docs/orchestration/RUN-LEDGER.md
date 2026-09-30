@@ -5,14 +5,57 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **360 commits**, corpus
-> 38.6% → **43.2% (14,800)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **361 commits**, corpus
+> 38.6% → **43.2% (14,810)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 5: "exile UP TO ONE target card from a graveyard" · **+10** (3 planned, 7 unplanned — every one run for real) + a pre-existing FALSE POSITIVE found and closed · corpus 14,810 (43.2%) / 34,245
+> Suite **1596 files / 16,557 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,650 / 2,998). Flip-diff **+10, zero LOST, zero retiered** (tier snapshots at 61230f37 → the
+> change). **Mutants 6/6 killed** (restore byte-identical).
+> · **⛔ THE FALSE POSITIVE (found by this slice's first full suite).** The first flip-diff read +11 — Jack-o'-Lantern too —
+>   and manaGraveyardComposition.test.js's pin ("Jack stays parked: its graveyard line IS a mana ability, which no lane
+>   produces from the graveyard") went red. Probed: the pin had held for the WRONG reason. The GY-2 graveyard-exile lane
+>   (parseGraveyardExileAbility — the one parse the offer, dispatcher and classifier share) DID accept "{1}, Exile this card
+>   from your graveyard: Add one mana of any color": credited native-activated on its own, and OFFERED at runtime — {1}
+>   paid, the card exiled, the pool empty. Jack was parked only because its other line was unparsed too. The lane now
+>   refuses a mana program (CR 605.1a: it IS a mana ability; CR 605.3b: mana abilities never use the stack, and this lane
+>   resolves on the stack), so Jack parks for the reason its pin states and the broken activation is no longer offered.
+>   Jack is the only corpus card with a graveyard mana line. The pin's header is corrected; the upToOneCreature pin
+>   ("exile up to one target creature card from a graveyard" stays unparsed until its lane's own slice) GRADUATED — that
+>   slice is this one.
+> · **Census row ⑤** (below the banked bloodrush row): "When this creature enters, exile up to one target card from a
+>   graveyard." — Soul-Guide Gryff, Ambush Wolf, Crossroads Candleguide (planned +3; Diregraf Scavenger stays on its
+>   "if a creature card was exiled this way" drain).
+> · **TWO pieces, and the census could see only one.** The clause parsed LOW (the graveyard-exile anchor had no "up to
+>   one" — now it stamps the up-to-N subset marker this op already carries for Decompose / Skullsnatcher). But the
+>   MANDATORY form on an ETB was parked too: exile-from-graveyard over "a graveyard" reports an AMBIGUOUS intent, so the
+>   flush chooser couldn't promise a side. The up-to-one form IS side-provable, on the Endurance rationale already in
+>   atomTargetIntent — graveyard hate aimed at an opponent never harms the controller, and "up to one" hands the chooser
+>   the empty pick, so it is never forced onto its own graveyard. The mandatory form stays ambiguous (pinned). As with
+>   every targeted trigger, the α1 chooser picks for both seats.
+> · **Planned runtime:** `WITNESS gyExileEnemy {"aiExile":["Grizzly Bears"],"userGraveyard":["Island"]}` · `WITNESS
+>   gyExileEmptyPick {"userGraveyard":["Island"],"resolverTargets":[]}` (the NATIVE resolver ran on the empty pick — not
+>   an Arbiter no-op).
+> · **SEVEN UNPLANNED GAINS — the same clause in other contexts, each path run for real** (the scope probe had searched
+>   only the ETB wording): Mechanical Mobster (`WITNESS mobsterConnive {"aiExile":["Grizzly Bears"],"discarded":["Shock"],
+>   "mobsterCounters":1}`), Startled Relic Sloth (beginning of combat — hits the opponent, never you), Ascendant
+>   Dustspeaker (the Sloth's path), Wreck Remover (ETB + 1 life), Restless Cottage (`WITNESS cottageAttack {"aiExile":
+>   ["Grizzly Bears"],"food":1}`), Heritage Reclamation (mode 3: exile + draw), Rise of Extus (`WITNESS riseOfExtus
+>   {"aiExile":["Grizzly Bears","Shock"],"learnPause":"optional-discard-payment"}` — the zero-card second target offered
+>   too). Jack-o'-Lantern's sacrifice activation runs too (offered with AND without a target; exile + draw + sacrificed), but
+>   the CARD stays parked on its graveyard mana line — see the false positive above.
+> · **Mutants 6/6:** the anchor's "up to one" group · the zero-or-one stamp · the enemy intent · the intent loosened to the
+>   mandatory form · the intent flipped to own (7 red, the runtime pins among them) · the graveyard lane accepting a mana
+>   program again (3 red — Jack's original pin among them). Witness `app/src/lib/learn/graveyardExileUpToOne.test.js` (15).
+> · **Seen in passing, not touched:** gameEngine.chooseTriggerTargets wraps `opponentsOf` in a silent
+>   `catch { return undefined; }` — a swallowed error in the chooser (CLAUDE.md §1.2). Out of this slice's scope; queued.
+> · **Next:** census row ⑥ — Fireblast / Mogg Alarm's "you may sacrifice N Mountains rather than pay this spell's mana
+>   cost" (the alt-cost lane ② · 1 extended).
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 4: the COLOUR-FILTERED self-bounce · **+16** · corpus 14,800 (43.2%) / 34,245
 > Suite **1595 files / 16,542 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,650 / 2,998 — none of the 16 is on the shelf). Flip-diff **+16, zero LOST, zero retiered** (tier snapshots at a63b5219 → the

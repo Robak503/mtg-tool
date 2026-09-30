@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"Exile up to one target card from a graveyard" works everywhere it's printed** — Soul-Guide Gryff, Ambush Wolf,
+  Crossroads Candleguide, Mechanical Mobster (and it connives), Wreck Remover, Startled Relic Sloth, Ascendant
+  Dustspeaker, Restless Cottage's attack, Heritage Reclamation, Rise of Extus, and Jack-o'-Lantern's sacrifice ability.
+  A trigger aims at an opponent's graveyard, and takes nothing rather than one of your own cards
 - **The colour bounce-back creatures** — Horned Kavu, Shivan Wurm, Silver Drake, Steel Leaf Paladin, Fleetfoot Panther,
   Sparkcaster, Marsh Crocodile, Lava Zombie, Cavern Harpy and Razing Snidd as they enter; Skull Collector, Stampeding
   Serow, Stampeding Wildebeests, Trusted Advisor, Eiganjo Free-Riders and Oni of Wild Places each upkeep — return a
@@ -304,6 +308,8 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **Jack-o'-Lantern's graveyard mana ability is no longer offered** — it charged {1} and exiled the card, and no mana
+  arrived. The engine doesn't make mana from the graveyard yet, so the ability is left to the rules assistant
 - **"Can't be countered" now holds against every counter** — Kira, Great Glass-Spinner, the cast-trigger
   counters (Vexing Bauble, Lunar Force), ward and Diffusion Sliver used to counter a spell that can't be
   countered, and a counterspell still countered a spell made uncounterable in response (Vexing Shusher).

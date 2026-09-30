@@ -47,9 +47,12 @@ describe("the parse", () => {
       .toMatchObject({ op: "tap", restrictions: [{ kind: "controller", who: "defendingPlayer" }], minTargets: 0, maxTargets: 1 });
     expect(parseEffectClause("Tap up to two target creatures.", "Instant").atoms[0]).toMatchObject({ op: "tap", minTargets: 0, maxTargets: 2 });
     // ⛔ the marker lands ONLY on a creature-targeting atom: "up to one target creature CARD from a graveyard" matches the
-    // same words but reduces to a graveyardCard atom — that lane's zero-or-one is its own slice (its expander unverified
-    // here), so it stays parked rather than credited on a guess
-    expect(parseEffectClause("Exile up to one target creature card from a graveyard.", "Instant")?.atoms || []).toEqual([]);
+    // same words but reduces to a graveyardCard atom — that lane's zero-or-one is its own slice.
+    // ⭐ GRADUATED 2026-09-30: that slice exists now. The atom comes from the GRAVEYARD lane's own arm (zones.js — the
+    // up-to-N marker exile-from-graveyard already carried for Decompose / Skullsnatcher), its expander driven end to end in
+    // graveyardExileUpToOne.test.js — not from this creature peel, whose guard still refuses any graveyardCard atom.
+    expect(parseEffectClause("Exile up to one target creature card from a graveyard.", "Instant").atoms).toEqual([
+      { op: "exile-from-graveyard", targetType: "graveyardCard", cardFilter: "creature", anyGraveyard: true, minTargets: 0, maxTargets: 1 }]);
   });
 
   it("the tiers", () => {

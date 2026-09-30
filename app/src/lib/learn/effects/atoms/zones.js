@@ -1052,14 +1052,19 @@ export function graveyardReturnClauseParser(clause) {
     const cardFilter = parseGraveyardFilter(gxPlayM[1]);
     if (cardFilter) return { op: "exile-from-graveyard", targetType: "graveyardCard", cardFilter, playableWhileExiled: true };
   }
-  const gxM = /^exile target (.*?)cards? from (a|your|an opponent's) graveyard$/.exec(t);
+  // + "UP TO ONE" (the 09-06 plan's stage ③, 2026-09-30 — Crossroads Candleguide, Ambush Wolf, Soul-Guide Gryff: "exile up
+  // to one target card from a graveyard"): CR 601.2c lets the controller choose zero. The SAME atom with the up-to-N subset
+  // marker this lane already carries for "up to three … from a single graveyard" and "up to two … from that player's
+  // graveyard" below — targeting.expandAtoms offers [t] or [], and the trigger flush takes the first all-correct-side pick.
+  const gxM = /^exile (up to one )?target (.*?)cards? from (a|your|an opponent's) graveyard$/.exec(t);
   if (gxM) {
-    const cardFilter = parseGraveyardFilter(gxM[1]);
+    const cardFilter = parseGraveyardFilter(gxM[2]);
     if (cardFilter) {
-      const zone = gxM[2];
+      const zone = gxM[3];
       return { op: "exile-from-graveyard", targetType: "graveyardCard", cardFilter,
         ...(zone === "a" && { anyGraveyard: true }),
-        ...(zone === "an opponent's" && { opponentGraveyard: true }) };
+        ...(zone === "an opponent's" && { opponentGraveyard: true }),
+        ...(gxM[1] && { minTargets: 0, maxTargets: 1 }) };
     }
   }
   // GY-EXILE-UP-TO-THREE (BLITZ GX-1 — Decompose / Rapid Decay / Scarab Feast): "exile up to three target

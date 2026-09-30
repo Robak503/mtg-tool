@@ -316,6 +316,12 @@ export function atomTargetIntent(atom) {
       // "from a graveyard" (anyGraveyard) can't promise a side → ambiguous → Arbiter (a SAFE false-negative);
       // a caster-only form is own. Cast path (Coffin Purge / Cremate) is unaffected — it enumerates + picks
       // interactively / by AI.
+      // ⭐ EXCEPT "UP TO ONE target card from a graveyard" (the 09-06 plan's stage ③, 2026-09-30 — Crossroads Candleguide,
+      // Ambush Wolf, Soul-Guide Gryff), on the ENDURANCE rationale above: graveyard hate aimed at an OPPONENT is the play and
+      // never harms the controller, and "up to one" hands the chooser the empty pick when no opponent's graveyard holds a
+      // card — so it is never forced onto its own graveyard. The MANDATORY form stays ambiguous: with only its own cards
+      // legal it would have to take one (CR 601.2c / 603.3d). Like every targeted trigger, the α1 chooser picks for both seats.
+      if (atom.anyGraveyard && atom.minTargets === 0 && atom.maxTargets === 1) return "enemy";
       return (atom.opponentGraveyard || atom.damagedPlayerGraveyard) ? "enemy" : atom.anyGraveyard ? "ambiguous" : "own";
     case "self-attach":
       // ETB-EQUIP-ATTACH — the Equipment attaches to "target creature YOU CONTROL", so the trigger-flush
