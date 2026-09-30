@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **396 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **397 commits**, corpus
 > 38.6% → **43.6% (14,943)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,33 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 39: "you may pay {N}. If you do, <targeted payoff>" offered targets wider than printed — 13 native carriers · **+0** (a false positive closed) · corpus 14,943 (43.6%) / 34,245
+> Suite **1630 files / 16,864 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 38 (run 36712437805).
+> Flip-diff **zero — GAINED 0, LOST 0, RETIERED 0** (tier snapshots at d8f08f98 → the change; a targeting-only fix).
+> **Mutant 1/1 killed on assertions** (restore byte-identical).
+> · **Found scoping census rank 61:** Teneb, the Harvester's reanimate trigger found no target with a creature card in the
+>   opponent's graveyard. The optional-mana-payment wrapper carries only its payoff's `targetType` (so the trigger locks the
+>   target at flush, CR 603.3d); `targeting.atomTargetSpec` read the rest of the spec off the WRAPPER, so every other targeting
+>   field of the payoff was DROPPED — the unlisted-field trap. A probe of every wrapper with a chosen target measured 13 NATIVE
+>   carriers enumerating wider than printed: Carrion Thrash, Eternal Taskmaster, Genesis, Veinwitch Coven (any card in your
+>   graveyard, not a creature card); Consul's Shieldguard, Eddytrail Hawk, Smelted Chargebug (any creature, not "another
+>   attacking"); Gryffwing Cavalry (not "attacking without flying"); Haazda Snare Squad, Quiet Contemplation (not "an
+>   opponent controls" — the enemy intent partly masked it); Conduit Goblin (itself, not "another"); Jubilant Mascot (one
+>   target including itself, not "up to two other"). An illegal target is the forbidden direction.
+> · **Fix:** `targeting.targetingAtomOf` — `expandAtoms` enumerates a wrapper from its payoff's chosen-target atom (the parser
+>   admits exactly one chosen target type per wrapper); the wrapper's atomIndex stays on the targets (the settler hands them
+>   to the payoff) and its intent already delegated the same way. optionalPaymentTargetedPayoff.test.js pinned the thread, the
+>   intent and the resolution — never the pool, which is how this hid.
+> · **Runtime (pools from expandCastChoices, the flush's own call, source threaded):** Veinwitch Coven offers the Bears, never
+>   the Plains or the Bolt beside it · Consul's Shieldguard only the other attacker · Conduit Goblin never itself or an
+>   opponent's · `WITNESS mascotChoices ["","a","a+b","b"]` — Jubilant Mascot's up-to-two, never the Mascot ·
+>   `WITNESS veinwitchPays {"locked":["gb"],"hand":["Grizzly Bears"],"graveyard":["Plains"]}` — end to end through the real
+>   lifegain trigger, the flush, the payment.
+> · **Mutant 1/1:** the delegation removed (the pre-fix enumeration) — all five witnesses red, the older optional-payment
+>   files green both ways (seen-to-fail). Picking the payoff's first atom regardless of type is unkillable (these payoffs'
+>   atoms share one type) and is not counted. Witness `app/src/lib/learn/optionalPaymentTargeting.test.js` (5).
+> · **Next:** ③ · 40 — census rank 61, the any-graveyard reanimate intent (Debtors' Knell; Teneb rides it once this lands).
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 38: "exile another target permanent. Return that card … at the beginning of the next end step" — Flickerwisp, Glimmerpoint Stag · **+2** · corpus 14,943 (43.6%) / 34,245
 > Suite **1629 files / 16,859 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 36 (run 36709490823) and ③ · 37 (run 36711047058). Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at

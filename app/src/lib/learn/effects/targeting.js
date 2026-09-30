@@ -288,13 +288,29 @@ function secondaryAtomTargets(state, controllerId, atom, atomIndex, sourceColors
  *   - `null`   when a targeting atom has ZERO legal targets (spell uncastable)
  *   - otherwise an array of flat, atomIndex-tagged target arrays.
  */
+/**
+ * The atom a chosen target is ENUMERATED from. For an optional-mana-payment wrapper ("you may pay {N}. If you do, <payoff>")
+ * that is its payoff's chosen-target atom: the wrapper carries only the payoff's `targetType` (so the trigger enumerates and
+ * locks its target at flush, CR 603.3d), and reading the rest of the spec off the WRAPPER dropped every other targeting
+ * field — a graveyard payoff's cardFilter and graveyard scope, a creature payoff's restrictions ("another target attacking
+ * creature"), excludeSource, a multi-count. Measured 2026-09-30 (the 09-06 plan's stage ③ · 39): 13 native carriers were
+ * offering targets wider than printed — Veinwitch Coven any card in your graveyard, Consul's Shieldguard any creature,
+ * Jubilant Mascot one target including itself. The parser admits EXACTLY ONE chosen target type per wrapper, so the
+ * payoff's first atom of that type is the one. The wrapper's atomIndex stays on the targets (the settler hands them to the
+ * payoff) and its intent already delegates the same way (programQueries.atomTargetIntent). Every other atom is itself.
+ */
+function targetingAtomOf(atom) {
+  if (atom?.op !== "optional-mana-payment" || !atom.targetType) return atom;
+  return (atom.effectAtoms || []).find((a) => a?.targetType === atom.targetType) || atom;
+}
+
 function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) {
   const perAtom = [];
   // atomIndexes that carry a two-target pair (FIGHT-PAIR / DAMAGE-TARGET-POWER) — the fighter + target of
   // ONE such atom must be DISTINCT creatures (CR 701.12 / "another target creature"); enforced post-combine.
   const pairAtomIdx = [];
   for (let i = 0; i < atoms.length; i++) {
-    const atom = atoms[i];
+    const atom = targetingAtomOf(atoms[i]);
     const tagged = atomTargets(state, controllerId, atom, i, sourceColors, ctx);
     if (tagged === null) continue;            // non-targeted atom
     // GS-1 DEPENDENT TWO-DIMENSIONAL TARGET (CR 601.2c — "target player shuffles up to N target cards from

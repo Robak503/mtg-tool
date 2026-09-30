@@ -363,6 +363,9 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **"You may pay … If you do, <target>" aims only where the card says** — Veinwitch Coven could return any card from
+  your graveyard, Consul's Shieldguard and Conduit Goblin could pick creatures the card excludes, Jubilant Mascot could
+  pick itself; thirteen cards in all now offer exactly their printed targets
 - **An Equipment that is also a creature stays put** — a crewed Rover Blades could be attached by its own Equip or moved
   by Codsworth, Handy Helper; the rules forbid it unless the Equipment has reconfigure (Lizard Blades still moves)
 - **Codsworth, Handy Helper moves an Aura only where it could enchant** — a Wild Growth could leave its land for a
