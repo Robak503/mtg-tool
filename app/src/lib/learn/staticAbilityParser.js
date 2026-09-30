@@ -3090,7 +3090,11 @@ function parseClause(clause, out, selfName, selfType) {
   // claimed-native no-op — there is no effect being dropped. The PLAY/CAST permissions that usually
   // accompany it are separate lines with their own markers and their own runtime enforcement, so this
   // credits the information half only and never the permission half.
+  // + the SYMMETRIC form (stage ③ · 52 — Wizened Snitches, Field of Dreams): "Players play with the top card of their libraries
+  // revealed." — every player's top card public instead of one; the same information class, the same perfect-information
+  // argument, and no game state touched.
   if (/^play with the top card of your library revealed$/.test(c)
+    || /^players play with the top card of their libraries revealed$/.test(c)
     || /^you may look at the top card of your library any time$/.test(c)) { out.push({ inertInfo: true }); return; }
 
   // ETB CHOSEN-TYPE CHOOSER (CR 614.12) — "As this <permanent> enters, choose a creature type." A genuine

@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **409 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **410 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,20 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 52: "Players play with the top card of their libraries revealed" — Wizened Snitches, Field of Dreams · **+2** · rank 74 banked · corpus 14,986 (43.8%) / 34,245
+> Suite **1643 files / 16,966 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI: ③ · 51's run 36732333163 concluded before this push. Flip-diff **+2, zero LOST, zero RETIERED** (tier snapshots at
+> a160ecac → the change: exactly the two planned). **Mutants 2/2 killed on assertions** (restore byte-identical).
+> · **Rank 74 banked — venture into the dungeon (CR 309.1 / 701.49):** no dungeon subsystem exists (the dungeon cards, room
+>   abilities, completing a dungeon, the initiative). Machinery, not a row; the venture carriers stay parked.
+> · **The row (census rank 75):** the SYMMETRIC form of "Play with the top card of your library revealed", which is already
+>   credited inert — revealing a card is information, it changes no game state, and the sim is perfect-information. Lantern
+>   of Insight and Yet Another Aether Vortex stay parked on their other lines.
+> · **Build:** the same `{ inertInfo }` marker, whole-clause anchored (staticAbilityParser's top-card information arm).
+> · **Runtime:** `WITNESS sharedTopCardRevealed` — the offer with and without Field of Dreams on the battlefield is identical.
+> · **Mutants 2/2:** the symmetric form not recognized · the whole-clause anchor dropped (a conditional reveal would
+>   credit). Witness `app/src/lib/learn/sharedTopCardRevealed.test.js` (3).
+> · **Next:** census rank 76 — "Spells you cast cost {C} less to cast" (Stone Calendar): a bare, unfiltered reducer.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 51: "Target player shuffles their graveyard into their library" — Clear the Mind and six more · **+7** · corpus 14,984 (43.8%) / 34,245
 > Suite **1642 files / 16,963 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI GREEN on ③ · 50 (run 36730538457). Flip-diff **+7, zero LOST, zero RETIERED** (tier snapshots at
