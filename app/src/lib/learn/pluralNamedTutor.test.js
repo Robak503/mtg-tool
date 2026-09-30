@@ -7,12 +7,13 @@
  * the RAMP-MULTI lands tutor uses. The plural self-named shape simply had no matcher, so four cards parked
  * on a clause whose every component was already built.
  *
- * ⛔ THE COUNT MUST BE A PRINTED LITERAL, and "ANY NUMBER OF cards named ~" is refused for that reason
- * (Legion Conquistador, Gathering Throng, Battalion Foot Soldier — 3 more cards, deliberately left parked).
- * `remaining` is a hard cap, so admitting that wording means INVENTING a bound. Four is the obvious guess
- * and it is a fabricated number: it silently under-fetches exactly the decks the wording exists for
- * (Relentless Rats / Persistent Petitioners print "a deck can have any number of cards named ~"). The CREED
- * has no room for a magnitude the card doesn't print. They wait for a wire that can express "all".
+ * ⛔ NEVER AN INVENTED COUNT. "ANY NUMBER OF cards named ~" (Legion Conquistador, Gathering Throng, Battalion Foot
+ * Soldier) was refused here while `remaining` could only be a literal: four is the obvious guess, and it silently
+ * under-fetches exactly the decks the wording exists for (Relentless Rats / Persistent Petitioners print "a deck can
+ * have any number of cards named ~"). GRADUATED 2026-09-30 (the 09-06 plan's stage ③ · 15): the atom now carries
+ * `anyNumber`, and the resolver sets the cap to the matching cards the library actually holds at resolution — the wire
+ * that can express "all". The pin below flipped from "stays parked" to that, and a five-copy drive proves the count is
+ * the library's, not a guess.
  *
  * ⓘ The count is read with NUM_WORD rather than SMALL_NUM — the wider map was already imported here, and
  * reaching for the narrower one crashed the module on a missing import. Worth a line because the failure
@@ -40,6 +41,7 @@ const LEGION_CONQUISTADOR = { id: "c-lc", name: "Legion Conquistador", type: "Cr
   oracle: "When this creature enters, you may search your library for any number of cards named Legion Conquistador, reveal them, put them into your hand, then shuffle." };
 
 const CLAUSE = "you may search your library for up to three cards named Squadron Hawk, reveal them, put them into your hand, then shuffle.";
+const ANY_CLAUSE = "you may search your library for any number of cards named Legion Conquistador, reveal them, put them into your hand, then shuffle.";
 
 describe("the plural shape parses with its printed count", () => {
   it("⭐ a tutor atom carrying remaining:3 and an exact name filter", () => {
@@ -54,9 +56,49 @@ describe("the plural shape parses with its printed count", () => {
     expect(classifyCard(SQUADRON_HAWK)).toBe("native-trigger");
   });
 
-  it("⛔ 'any number of' stays parked — the bound is not printed, so it cannot be invented", () => {
-    expect(parseEffectClause("you may search your library for any number of cards named Legion Conquistador, reveal them, put them into your hand, then shuffle.", "Creature").atoms).toEqual([]);
-    expect(classifyCard(LEGION_CONQUISTADOR)).toBe("body-only");
+  it("⭐ 'any number of' (GRADUATED from 'stays parked', 2026-09-30) — no literal is invented: the atom says anyNumber", () => {
+    expect(parseEffectClause(ANY_CLAUSE, "Creature").atoms).toEqual([{ op: "tutor", filter: { name: "legion conquistador" },
+      filterLabel: "card named legion conquistador", destination: "hand", sourceZones: ["library"], anyNumber: true, targetType: null, optional: true }]);
+    expect(classifyCard(LEGION_CONQUISTADOR)).toBe("native-trigger");
+    for (const name of ["Gathering Throng", "Battalion Foot Soldier"]) {
+      expect(classifyCard({ ...LEGION_CONQUISTADOR, name, oracle: LEGION_CONQUISTADOR.oracle.replace(/Legion Conquistador/g, name) }), name).toBe("native-trigger");
+    }
+  });
+});
+
+describe("⭐ ANY NUMBER — the cap is the library's: five Conquistadors, five picks, the Plains stays", () => {
+  it("⭐ five sequential picks, each offering only the Conquistadors left — then the pause ENDS", () => {
+    const g = createGameState({ userDeck: [], aiDeck: [] });
+    const library = [
+      ...["lc1", "lc2", "lc3"].map((id) => ({ id, name: "Legion Conquistador", type: "Creature — Vampire Soldier", oracle: "" })),
+      { id: "plains", name: "Plains", type: "Basic Land — Plains", oracle: "" },
+      ...["lc4", "lc5"].map((id) => ({ id, name: "Legion Conquistador", type: "Creature — Vampire Soldier", oracle: "" })),
+    ];
+    let s = runEffectProgram({ ...g, players: { ...g.players, user: { ...g.players.user, hand: [], library } } }, { source: { name: "Legion Conquistador" },
+      payload: { params: { program: { version: 1, structure: "sequence", atoms: parseEffectClause(ANY_CLAUSE, "Creature").atoms }, controller: "user", targets: [] } } });
+    expect(s.pendingChoice?.kind).toBe("optional-effect");
+    s = resolveOptionalChoice(s, true);
+    const offered = [];
+    for (const pick of ["lc1", "lc2", "lc3", "lc4", "lc5"]) {
+      offered.push((s.pendingChoice?.candidates || []).length);
+      s = resolveTutorChoice(s, pick);
+    }
+    console.log("  WITNESS", JSON.stringify({ offered, hand: s.players.user.hand.length, library: s.players.user.library.map((c) => c.id) }));
+    expect(offered).toEqual([5, 4, 3, 2, 1]);
+    expect(s.players.user.hand.map((c) => c.id).sort()).toEqual(["lc1", "lc2", "lc3", "lc4", "lc5"]);
+    expect(s.players.user.library.map((c) => c.id)).toEqual(["plains"]);
+    expect(s.pendingChoice).toBeFalsy();
+  });
+
+  it("⭐ any number includes FEWER: declining after two picks ends the search with three left behind", () => {
+    const g = createGameState({ userDeck: [], aiDeck: [] });
+    const library = ["lc1", "lc2", "lc3", "lc4", "lc5"].map((id) => ({ id, name: "Legion Conquistador", type: "Creature — Vampire Soldier", oracle: "" }));
+    let s = runEffectProgram({ ...g, players: { ...g.players, user: { ...g.players.user, hand: [], library } } }, { source: { name: "Legion Conquistador" },
+      payload: { params: { program: { version: 1, structure: "sequence", atoms: parseEffectClause(ANY_CLAUSE, "Creature").atoms }, controller: "user", targets: [] } } });
+    s = resolveOptionalChoice(s, true);
+    s = resolveTutorChoice(resolveTutorChoice(s, "lc1"), "lc2");
+    s = resolveTutorChoice(s, null);
+    expect([s.players.user.hand.length, s.players.user.library.length, !!s.pendingChoice]).toEqual([2, 3, false]);
   });
 });
 

@@ -330,8 +330,9 @@ export function applyTutor(state, atom, ctx) {
     // RAMP-MULTI — "up to two": fetch up to `remaining` matching lands (resolveTutorChoice chains the rest).
     // RAMP-MULTI-X — `countFor` resolves the fetch cardinality (computed above as dynCount; a 0 short-circuits
     // to the no-op return before this point, so here dynCount is ≥1). A static `remaining` wins when present;
-    // otherwise the dynamic count; otherwise the default 1.
-    remaining: (dynCount ?? (atom.remaining ?? 1)) + extraCount, // + TITHE's conditional extra pick (0 for every other tutor)
+    // otherwise the dynamic count; otherwise the default 1. ANY NUMBER (③ · 15 — Legion Conquistador): the cap is every
+    // matching card this search can see, the candidates just gathered.
+    remaining: (dynCount ?? (atom.anyNumber ? candidates.length : (atom.remaining ?? 1))) + extraCount, // + TITHE's conditional extra pick (0 for every other tutor)
     // RAMP-SPLIT (Cultivate / Kodama's Reach) — an ordered per-fetch destination sequence; setPendingTutorChoice
     // derives this pick's destination from its head and carries the tail to the next chained fetch.
     destinations: Array.isArray(atom.destinations) ? atom.destinations : null,
@@ -2300,23 +2301,25 @@ export function tutorClauseParser(clause, ctx = {}) {
   // Sentinel, Howling Wolf). The singular `tnm` arm below with a COUNT: the multi-fetch wire already exists
   // — `remaining` is what resolveTutorChoice chains on, the same field the RAMP-MULTI lands tutor uses — so
   // this is a cardinality on a proven path, not a new fetch mode.
-  // ⛔ THE COUNT MUST BE A PRINTED LITERAL. "ANY NUMBER OF cards named ~" (Legion Conquistador, Gathering
-  // Throng, Battalion Foot Soldier) is deliberately NOT matched: `remaining` is a hard cap, so admitting it
-  // would mean inventing a bound. Picking 4 would be a fabricated number and would silently UNDER-fetch a
-  // deck built to abuse it (Relentless Rats / Persistent Petitioners explicitly allow more), and the CREED
-  // has no room for a magnitude the card doesn't print. Those three park until the wire can express "all".
-  const tnmMulti = t.match(/^search your library for up to (\w+) cards named (.+?),? reveal them,? put them into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  // ⛔ NEVER AN INVENTED COUNT. `remaining` is a hard cap, so "ANY NUMBER OF cards named ~" (Legion Conquistador, Gathering
+  // Throng, Battalion Foot Soldier) must not be given a literal: picking 4 would silently UNDER-fetch a deck built to abuse
+  // it (Relentless Rats / Persistent Petitioners explicitly allow more). It carries `anyNumber` instead (the 09-06 plan's
+  // stage ③ · 15, 2026-09-30), and the tutor resolver sets the cap to the number of matching cards the library actually
+  // holds at resolution — read from the state, never a guess. Infinity was not an option: state is serialized, and
+  // JSON writes Infinity as null.
+  const tnmMulti = t.match(/^search your library for (?:up to (\w+)|any number of) cards named (.+?),? reveal them,? put them into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (tnmMulti) {
-    const n = NUM_WORD[tnmMulti[1]] ?? (/^\d+$/.test(tnmMulti[1]) ? parseInt(tnmMulti[1], 10) : NaN);
+    const anyNumber = tnmMulti[1] == null;
+    const n = anyNumber ? null : (NUM_WORD[tnmMulti[1]] ?? (/^\d+$/.test(tnmMulti[1]) ? parseInt(tnmMulti[1], 10) : NaN));
     const namedM = tnmMulti[2].trim();
-    if (!Number.isInteger(n) || n < 1 || !namedM || / or /i.test(namedM)) return null;
+    if ((!anyNumber && (!Number.isInteger(n) || n < 1)) || !namedM || / or /i.test(namedM)) return null;
     return {
       op: "tutor",
       filter: { name: namedM },
       filterLabel: `card named ${namedM}`,
       destination: "hand",
       sourceZones: ["library"],
-      remaining: n,
+      ...(anyNumber ? { anyNumber: true } : { remaining: n }),
       targetType: null,
     };
   }

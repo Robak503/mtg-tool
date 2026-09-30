@@ -5,14 +5,32 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **371 commits**, corpus
-> 38.6% → **43.4% (14,856)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **372 commits**, corpus
+> 38.6% → **43.4% (14,859)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 15: "search your library for ANY NUMBER of cards named ~" · **+3** · corpus 14,859 (43.4%) / 34,245
+> Suite **1606 files / 16,655 tests** green (1 skipped); lint 0. Flip-diff **+3, zero LOST, zero retiered** (tier snapshots at 58ea483f → the
+> change). **Mutants 4/4 killed on assertions** (restore byte-identical).
+> · **Census row ⑮:** Legion Conquistador, Gathering Throng, Battalion Foot Soldier — the Squadron Hawk shape ("up to three
+>   cards named ~", native since 2026-08-05) with an unbounded count.
+> · **Parked on purpose until now, and the reason still stands.** The plural named tutor refused "any number" because its
+>   `remaining` cap could only be a literal, and four — the obvious guess — silently under-fetches the Relentless Rats / Persistent
+>   Petitioners decks the wording exists for. **Build — the wire that can say "all":** the atom carries `anyNumber`, and the
+>   tutor resolver sets the cap to the matching candidates the library holds at resolution (read from the state, never
+>   guessed; `Infinity` was out because state is serialized and JSON writes it as null). The old "stays parked" pin is
+>   GRADUATED in place with a note.
+> · **Runtime:** `WITNESS {"offered":[5,4,3,2,1],"hand":5,"library":["plains"]}` — five Conquistadors (one more than the
+>   guess would have allowed), each pick offering only the ones left, the Plains untouched · "any number" includes fewer:
+>   declining after two picks leaves three · Squadron Hawk still stops at three (its witness unchanged).
+> · **Mutants 4/4:** the "any number of" alternation removed · the cap as one pick · **the cap as the old guess, 4 (red on
+>   the five-copy drive)** · the flag never set. Witness `app/src/lib/learn/pluralNamedTutor.test.js` (5).
+> · **Next:** the census below row ⑮.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 14: the Clockwork cycle — "remove a +1/+1 counter from it at end of combat" · **+4** · corpus 14,856 (43.4%) / 34,245
 > Suite **1606 files / 16,653 tests** green (1 skipped); lint 0. Flip-diff **+4, zero LOST, zero retiered** (tier snapshots at 2e81ea43 → the

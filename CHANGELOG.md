@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Legion Conquistador, Gathering Throng, Battalion Foot Soldier** — the enters trigger finds every copy you choose, as
+  many as the library holds
 - **Clockwork Beetle, Clockwork Condor, Clockwork Vorrac, Clockwork Dragon** — after attacking or blocking they lose a
   +1/+1 counter at end of combat, once their damage is dealt; a Clockwork left at 0/0 dies
 - **Trumpeting Armodon, Matsu-Tribe Decoy, Tangle Angler, Rampant Elephant, Burning-Tree Bloodscale, Maraleaf Rider,
