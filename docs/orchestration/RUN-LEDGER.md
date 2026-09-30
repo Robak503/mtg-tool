@@ -5,14 +5,48 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **393 commits**, corpus
-> 38.6% → **43.6% (14,929)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **394 commits**, corpus
+> 38.6% → **43.6% (14,935)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 36: "destroy target nonartifact, nonblack creature" — Shriekmaw, Bone Shredder, Nekrataal, Terror, Expunge, Feast or Famine · **+6** · corpus 14,935 (43.6%) / 34,245
+> Suite **1627 files / 16,840 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 34 + the snapshot chore (run 36707094963).
+> Flip-diff **+6, zero LOST, zero retiered** (tier snapshots at bace5fc4 → the change). **Mutants 5/5 killed on assertions**
+> (restore byte-identical).
+> · **Census rank 56 — ⏸ BANKED (machinery, not a residue row):** Aether Hub / Servant of the Conduit, "{T}, Pay {E}: Add one
+>   mana of any color". manaModel strips energy-gated mana on purpose — the planner can't spend energy, so crediting it would
+>   mint phantom mana every turn (Solar Transformer is native through its free {T}: Add {C} alone). Needs: an energy-costed
+>   product (payEnergy); a SHARED-pool budget in planPayment — energy is one player pool across every source, unlike the
+>   storage lands' own counters (the removesCounters two-pass is the precedent: pass A without energy sources, pass B with at
+>   most player.energy of them, preferring a source with no other product); commitManaTap spending it; and a UX answer
+>   before the human's auto-pay spends energy the player may be saving.
+> · **Census rank 57** (Shriekmaw #1546, Bone Shredder #9090): both restrictions were modeled one at a time (Doom Blade's
+>   colorNeg, "nonartifact creature"'s typeNeg) and the shared grammar parsed the pair cleanly — but its `cleanedOracle` kept the
+>   list COMMA between "target" and the noun once both were stripped, and the fold's isCleanClause refuses any comma. The fix
+>   collapses only that span (`target[\s,]+creature`); a comma after the noun still stands and still refuses.
+> · **A false positive closed before it could open:** the colour- and type-negation arms recorded only the FIRST negation
+>   while their strip removed every one. Unreachable while a comma list parked the card; reachable the moment the list folds —
+>   "nonwhite, nonblack" (Seize the Soul) would have read as nonwhite alone and offered a black creature. Both arms now
+>   record every negation.
+> · **Unplanned flips, both run for real:** Expunge and Feast or Famine print the same clause with Terror's "It can't be
+>   regenerated." rider (MTG-001's cannotRegenerate, CR 701.19c — why Terror and Nekrataal flipped with it too).
+> · **Runtime:** Terror offered on the Bears only (never the black Walking Corpse, never the artifact Ornithopter) ·
+>   `WITNESS shriekmawEtb {"ai":["Ornithopter","Walking Corpse"],"graveyard":["Grizzly Bears"]}` (the real ETB through the
+>   stack) · with only the Corpse and the Thopter about, the trigger destroys nothing · Bone Shredder the same ·
+>   `WITNESS nonwhiteNonblackPool ["bears"]` (Savannah Lions and the Corpse both refused) ·
+>   `WITNESS expungeCast {"ai":["Ornithopter","Walking Corpse"],"graveyard":["Grizzly Bears"]}` (through a regeneration shield) ·
+>   `WITNESS feastOrFamineOffers {"destroyTargets":["bears"],"zombieMode":true}` · `WITNESS regenRider
+>   {"shriekmaw":{"alive":true,"tapped":true,"shields":0},"nekrataal":{"alive":false,…}}` — against the same shielded Bears,
+>   Shriekmaw's destroy is regenerated and Nekrataal's is not.
+> · **Mutants 5/5:** the collapse removed · widened to every comma · no longer consuming the comma · only the first colour
+>   negation recorded · only the first type negation recorded. Witness `app/src/lib/learn/nonartifactNonblack.test.js` (10).
+> · **Next:** census rank 58 — Pentad Prism / Gemstone Array ("Remove a charge counter from this artifact: Add one mana of any
+>   color").
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 35: "Enchanted creature can't be the target of spells or abilities your opponents control" — Canopy Cover, Shielding Plax · **+2** · corpus 14,929 (43.6%) / 34,245
 > Suite **1626 files / 16,830 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at

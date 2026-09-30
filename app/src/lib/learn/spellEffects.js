@@ -458,8 +458,11 @@ export function parseCreatureTargetRestrictions(card, { allowPlaneswalkerUnion =
   // β-1 — color negation ("nonblack/nonwhite/nonblue/nonred/nongreen creature" — Doom Blade, Ultimate
   // Price): the target's COLORS (CR 105) must NOT include that color (a colorless creature satisfies any).
   const COLOR_WORD = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
-  const cm = t.match(/\bnon(white|blue|black|red|green)\b/);
-  if (cm) { restrictions.push({ kind: "colorNeg", color: COLOR_WORD[cm[1]] }); t = t.replace(/\bnon(?:white|blue|black|red|green)\b/g, " "); }
+  // EVERY negation is recorded (the 09-06 plan's stage ③ · 36): "nonwhite, nonblack creature" (Seize the Soul) is NOT white
+  // AND NOT black. Recording only the first while the strip below removes them all would drop "nonblack" and offer a black
+  // creature — an illegal target. Unreachable while a comma list parked the card; reachable once the list comma folds.
+  for (const cmm of t.matchAll(/\bnon(white|blue|black|red|green)\b/g)) restrictions.push({ kind: "colorNeg", color: COLOR_WORD[cmm[1]] });
+  t = t.replace(/\bnon(?:white|blue|black|red|green)\b/g, " ");
 
   // COLOR-POS (CR 105.2) — the POSITIVE mirror of colorNeg: "destroy target BLUE permanent" (Red
   // Elemental Blast), "counter target BLUE spell", "target MULTICOLORED permanent" (Null Elemental
@@ -489,8 +492,9 @@ export function parseCreatureTargetRestrictions(card, { allowPlaneswalkerUnion =
 
   // β-1 — type negation ("nonartifact/nonenchantment/nonland creature" — Go for the Throat): the target's
   // type line must NOT contain that card type.
-  const ntm = t.match(/\bnon(artifact|enchantment|land)\b/);
-  if (ntm) { restrictions.push({ kind: "typeNeg", type: ntm[1] }); t = t.replace(/\bnon(?:artifact|enchantment|land)\b/g, " "); }
+  // Every type negation too, for the same reason as the colour negations above (stage ③ · 36).
+  for (const ntm of t.matchAll(/\bnon(artifact|enchantment|land)\b/g)) restrictions.push({ kind: "typeNeg", type: ntm[1] });
+  t = t.replace(/\bnon(?:artifact|enchantment|land)\b/g, " ");
 
   // ⭐⭐ CT-1 (2026-08-06) — POSITIVE card type ("target ARTIFACT creature" — Chandler, Molten Frame, Hearth
   // Charm; "target ENCHANTMENT creature" — Leonin Iconoclast). The `cardType` kind and its front-face,
@@ -584,6 +588,12 @@ export function parseCreatureTargetRestrictions(card, { allowPlaneswalkerUnion =
   // the clause (riders, other markers) without tripping on a restriction we model.
   let cleanedOracle = oracle;
   for (const re of MODELED_RESTRICTION_RES) cleanedOracle = cleanedOracle.replace(re, " ");
+  // LIST COMMA (the 09-06 plan's stage ③ · 36, 2026-09-30 — Shriekmaw, Bone Shredder: "destroy target nonartifact, nonblack
+  // creature"). Two modeled qualifiers printed as a comma list leave the comma standing between "target" and the noun once
+  // both are stripped, and the fold's isCleanClause refuses any comma — so the card parked with both restrictions already
+  // parsed. Collapse ONLY that span (nothing but whitespace and commas left between "target" and "creature"); a comma
+  // anywhere else — a rider, a second clause — still refuses. The negation arms above record EVERY negation in the list.
+  cleanedOracle = cleanedOracle.replace(/\btarget[\s,]+creature\b/g, "target creature");
   // ⚠️ UP-1 DELIBERATELY DOES NOT STRIP THE UNION NOUN FROM `cleanedOracle`, and the reason is worth
   // keeping because a confident guess got it wrong first. The original version did strip it here, with a
   // comment claiming the fold's second gate `isCleanClause(cleanedOracle)` would otherwise refuse the
