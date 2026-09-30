@@ -33,7 +33,9 @@
 > 14,832; suite 1601 / 16,605) · ③ · 10 the life floor — Ali from Cairo, Sustaining Spirit, Fortune Thief, Worship: damage
 > stops at 1, the damage still counted in full, per the printed rulings (+4 → corpus 14,836; suite 1602 / 16,619) · ③ · 11
 > the void condition — a turn stamp at the battlefield exit; five end-step triggers and Decode Transmissions (+6 → corpus
-> 14,842; suite 1603 / 16,631). **Next:** census row ⑫ — the RUN-LEDGER's ③ entries carry the verdicts so far.
+> 14,842; suite 1603 / 16,631) · ③ · 12 "cast this spell only if you've cast another spell this turn" — Illusory Angel,
+> Skyshroud Condor, Hewed Stone Retainers (+3 → corpus 14,845; suite 1604 / 16,637). **Next:** census row ⑬ — the
+> RUN-LEDGER's ③ entries carry the verdicts so far.
 > **State (measured 2026-09-29 at 5df810d2, Opus 5.5 seat):** suite **1585 files / 16,429 tests** green (1 skipped; 172 s;
 > `VITEST_TIMEOUT_MS=900000 npm test`) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30 decks, **88%** aggregate
 > (2,650 / 2,998), **13 at ≥90** (Mothman by rounding: 88/98 = 89.8%), Atraxa **74** the floor · nothing held:

@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Illusory Angel, Skyshroud Condor, Hewed Stone Retainers** — castable once you've cast another spell this turn,
+  and not before
 - **Insatiable Skittermaw, Kavaron Skywarden, Interceptor Mechan, Voidforged Titan, Elegy Acolyte, Decode
   Transmissions** — Void works: the end-step bonus (or Decode Transmissions' better mode) applies on any turn a nonland
   permanent left the battlefield, anyone's, a token included

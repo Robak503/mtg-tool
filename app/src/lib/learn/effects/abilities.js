@@ -27,6 +27,7 @@ import { parseLeveler, isLevelerFrame } from "../leveler.js";
 // gameState.js (which does NOT import this module), so this edge is acyclic.
 import { activationConditionParseable } from "../interveningIf.js";
 import { selfNormalizeOracle } from "../staticAbilityParser.js"; // leaf-importing module — cycle-safe; the shared self-name grammar
+import { CAST_ONLY_AFTER_ANOTHER_SPELL_PATTERN } from "./textNormalize.js"; // a zero-import leaf — the cast restriction's one pattern, shared with the classifier's strip
 
 /** Strip reminder text (parens) but PRESERVE newlines so per-ability line splitting works. */
 function stripReminder(text) {
@@ -750,6 +751,16 @@ const CAST_ONLY_WHEN_ATTACKED_RE =
 /** Does this card carry the declare-attackers-and-attacked cast restriction? */
 export function castOnlyWhenAttacked(card) {
   return CAST_ONLY_WHEN_ATTACKED_RE.test(String(card?.oracle ?? card?.oracle_text ?? ""));
+}
+/**
+ * CAST-RESTRICTION (the 09-06 plan's stage ③ · 12, 2026-09-30 — Illusory Angel, Skyshroud Condor, Hewed Stone Retainers):
+ * "Cast this spell only if you've cast another spell this turn." The same kind of gate as the one above, enforced in
+ * legalChoices' cast loop off the caster's spellsCastThisTurn (bumped at the cast chokepoint, reset at untap). The pattern
+ * is textNormalize's, shared with the classifier's strip, so the two cannot drift.
+ */
+const CAST_ONLY_AFTER_ANOTHER_SPELL_RE = new RegExp(CAST_ONLY_AFTER_ANOTHER_SPELL_PATTERN, "im");
+export function castOnlyAfterAnotherSpell(card) {
+  return CAST_ONLY_AFTER_ANOTHER_SPELL_RE.test(String(card?.oracle ?? card?.oracle_text ?? ""));
 }
 /**
  * Is `playerId` in the window that restriction names — the declare-attackers step, with at least one

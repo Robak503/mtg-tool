@@ -29,7 +29,7 @@
  */
 
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
-import { stripFlashPermissionLine } from "./effects/textNormalize.js"; // self-flash permission — shared with the spell path so metric and parser read ONE regex
+import { stripFlashPermissionLine, stripCastOnlyAfterAnotherSpellLine } from "./effects/textNormalize.js"; // self-flash permission — shared with the spell path so metric and parser read ONE regex; + the cast-only-after-another-spell restriction (its pattern is the legalChoices gate's)
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMANENT — the metric gates on the SAME vetting the runtime charges on
 import { detectTriggers, stripTriggerAbilityLabel, foldTwoTriggerDetain, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, partnerWithName, hasDethrone, hasTraining, firebendingKeywordValue, soulshiftKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues, startYourEnginesKeywordCount, scanTriggerSentences, stripTriggerSentences } from "./triggers.js"; // scan/stripTriggerSentences: THE shared quote-aware extraction (Codex fix #4) — shaped count + every residue strip must use it or shaped===detected snaps
@@ -699,9 +699,13 @@ export function isKeywordOnly(oracle, name) {
   // the 14 carriers are Auras/enchantments (Spider Climb, Mystic Veil, Soar, Timely Ward, Mystical Tether...)
   // and never reach parseEffectProgram at all. One regex, two callers, so they cannot drift apart. See the
   // note on FLASH_PERMISSION_LINE in textNormalize.js for the runtime evidence that it is vacuous here.
-  const deLined = stripDiscardCostAbilityLine(stripCounterShieldLine(stripFlashPermissionLine(
+  //
+  // CAST ONLY AFTER ANOTHER SPELL (stage ③ · 12 — Illusory Angel, Skyshroud Condor, Hewed Stone Retainers) - stripped here
+  // because every carrier is a creature, which never reaches the spell parser; enforced at legalChoices' cast-offer
+  // chokepoint off the same pattern (textNormalize), so the strip credits only a restriction the runtime imposes.
+  const deLined = stripDiscardCostAbilityLine(stripCounterShieldLine(stripFlashPermissionLine(stripCastOnlyAfterAnotherSpellLine(
     stripShuffleInsteadLine(stripPartnerWithLine(String(oracle || "").replace(ESCAPE_LINE, " ").replace(ESCAPE_WITH_COUNTERS, " ").replace(TURNED_FACE_UP, " "))),
-  )), { name });
+  ))), { name });
   let t = stripReminder(deLined).toLowerCase().replace(/[’']/g, "'");
   // MULTI-INSTANCE CASCADE (CR 702.85) — "Cascade, cascade[, …]" is now MODELED (detectTriggers emits N cascade
   // triggers, each an independent dig; see cascadeInstanceCount). After stripReminder it splits into N covered

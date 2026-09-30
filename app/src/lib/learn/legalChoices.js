@@ -84,7 +84,7 @@ function castTimingAllows(state, playerId, card) {
 }
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { counterClauseParser } from "./effects/atoms/stack.js";
-import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, castOnlyWhenAttacked, hasBeenAttackedThisStep, parseCyclingCost, parseCyclingLifeCost, parseDiscardCostAbility, parsePlotCost, parseCrewCost, crewPowerBonus, isModeledGroupActivatedBody, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, castOnlyWhenAttacked, castOnlyAfterAnotherSpell, hasBeenAttackedThisStep, parseCyclingCost, parseCyclingLifeCost, parseDiscardCostAbility, parsePlotCost, parseCrewCost, crewPowerBonus, isModeledGroupActivatedBody, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
 // PLOT (CR 702.171): the runtime offers a card the plot special action ONLY when its NON-plot text is
 // fully native — i.e. classifyCard (which strips the plot line internally) returns a native tier. Reusing
 // the metric's OWN authority means the runtime and the coverage metric can never disagree about which plot
@@ -1195,6 +1195,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // restriction credited as modeled would hand the engine a combat trick playable at any time, which is a
     // materially stronger card than the printed one.
     if (castOnlyWhenAttacked(card) && !hasBeenAttackedThisStep(state, playerId)) continue;
+    // CAST ONLY AFTER ANOTHER SPELL (stage ③ · 12 — Illusory Angel, Skyshroud Condor, Hewed Stone Retainers): "Cast this spell
+    // only if you've cast another spell this turn." Refused until the caster's spellsCastThisTurn (this turn's casts, bumped at
+    // the cast chokepoint) is at least one — the same enforcement-then-credit basis as the restriction above (CR 601.3).
+    if (castOnlyAfterAnotherSpell(card) && !((player.spellsCastThisTurn || 0) >= 1)) continue;
     // ⭐ TARGET-CONDITIONAL REDUCTION (NOT OF THIS WORLD — POD-SIM THREE · KT-9b, 2026-09-05): the printed {7} may fall
     // to {0} depending on the TARGET chosen, so an unaffordable printed cost is not the last word — let the card
     // through on its BEST-CASE cost and settle per chosen target below (each choice re-checks affordability).

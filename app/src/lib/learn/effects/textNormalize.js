@@ -288,6 +288,17 @@ const SHUFFLE_INSTEAD_OF_GY_LINE =
   /(?:^|[\n.;])[ \t]*if [^\n]* would be put into a graveyard from anywhere,[^\n]*instead[ \t]*\.?[ \t]*$/gim;
 const CAST_ONLY_DECLARE_ATTACKERS_LINE =
   /(?:^|[\n.;])[ \t]*cast this spell only during the declare attackers step and only if you(?:'|’)ve been attacked this step[ \t]*\.?[ \t]*$/gim;
+// CAST ONLY AFTER ANOTHER SPELL (the 09-06 plan's stage ③ · 12, 2026-09-30 — Illusory Angel, Skyshroud Condor, Hewed Stone
+// Retainers): "Cast this spell only if you've cast another spell this turn." A cast restriction (CR 601.3) on the same basis
+// as the declare-attackers one above: REALLY ENFORCED at legalChoices' cast-offer chokepoint (spellsCastThisTurn ≥ 1), so
+// this strip only stops the printed line from parking the body. ONE pattern for the detector
+// (effects/abilities.castOnlyAfterAnotherSpell) and the strip, so the gate and the metric cannot drift. The whole sentence
+// is anchored: another count ("two or more spells") is a different restriction and stays residue.
+export const CAST_ONLY_AFTER_ANOTHER_SPELL_PATTERN = "^[ \\t]*cast this spell only if you(?:'|’)ve cast another spell this turn\\.?[ \\t]*$";
+/** Drop the "cast this spell only if you've cast another spell this turn" line — see the note above. */
+export function stripCastOnlyAfterAnotherSpellLine(text) {
+  return String(text || "").replace(new RegExp(CAST_ONLY_AFTER_ANOTHER_SPELL_PATTERN, "gim"), " ");
+}
 export function stripCastKeywordLines(text) {
   return String(text || "")
     // FLASHBACK RIDER GUARD (hollow closed 2026-09-05, surfaced by Visions of Dominance's flip): CAST_KEYWORD_LINE strips a

@@ -5,14 +5,36 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **368 commits**, corpus
-> 38.6% → **43.3% (14,842)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **369 commits**, corpus
+> 38.6% → **43.3% (14,845)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 12: "cast this spell only if you've cast another spell this turn" · **+3** · corpus 14,845 (43.3%) / 34,245
+> Suite **1604 files / 16,637 tests** green (1 skipped); lint 0. Flip-diff **+3, zero LOST, zero retiered** (tier snapshots at 988b43bb → the
+> change). **Mutants 5/5 killed** (restore byte-identical) — see the LOADFAIL note below.
+> · **Census row ⑫:** Illusory Angel, Skyshroud Condor, Hewed Stone Retainers — each sole-blocked by the sentence.
+> · **Build — the declare-attackers restriction's twin (CR 601.3).** ONE pattern in textNormalize
+>   (`CAST_ONLY_AFTER_ANOTHER_SPELL_PATTERN`, a zero-import leaf) feeds the detector (`abilities.castOnlyAfterAnotherSpell`)
+>   and the strip; legalChoices' single cast-offer chokepoint refuses the card until the caster's `spellsCastThisTurn` (bumped
+>   at the cast chokepoint, reset at untap) is at least 1; `coverage.isKeywordOnly` strips the sentence, because every carrier
+>   is a creature that never reaches the spell parser. The whole sentence is anchored: "two or more spells" stays residue.
+> · **Runtime:** the same Angel without the sentence is offered on a quiet turn (the vacuity control) · none of the three is
+>   offered before a spell has been cast · `WITNESS angelAfterOpt offeredBefore=false · offeredAfter=true · onBattlefield=true`
+>   (cast Opt for real, then the Angel is offered and resolves) · a spell cast earlier this turn opens the gate for all three.
+> · **Mutants 5/5:** the gate removed · the gate needing two spells · the classifier strip removed · the pattern accepting
+>   another count (red on the synthetic "two or more" guard) · the detector dead. Witness
+>   `app/src/lib/learn/castOnlyAfterAnotherSpell.test.js` (6).
+> · **LOADFAIL is not a kill (a mutation-runner fix).** The strip mutant's first form was a syntax error; the scratch runner
+>   counted `failed || fileFails` and printed "KILLED — 0 red". Rewritten as an identity call it goes red on the classification
+>   pin. The runner now prints LOADFAIL and counts assertion reds only; ③ · 8's five mutants were re-run under it and all five
+>   still go red on assertions (③ · 9–⑪ had shown at least one assertion red per mutant). Banked in the hollow-gate law.
+> · **Next:** census row ⑬ — "{2}: target creature blocks this creature this turn if able" (Trumpeting Armodon,
+>   Matsu-Tribe Decoy).
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 11: the void condition — "if a nonland permanent left the battlefield this turn or a spell was warped this turn" · **+6** · corpus 14,842 (43.3%) / 34,245
 > Suite **1603 files / 16,631 tests** green (1 skipped); lint 0. Flip-diff **+6, zero LOST, zero retiered** (tier snapshots at 571a6cb8 → the
