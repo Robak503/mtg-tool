@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **415 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **416 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,19 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 📚 2026-09-30 — CITATION AUDIT (docs only): the rules the comments mean + a CR citation checker
+> Suite **1647 files / 17,010 tests** green (1 skipped); lint 0. Comments only — no behavior change.
+> · **Found while building Ragavan:** the impulse code cited CR 118.10 ("each payment of a cost applies to only one spell")
+>   for the play permission. Corrected by what each comment claims — 601.3 cast permission, 305.2 land half, 611.2a stated
+>   duration, 514.2 cleanup lapse, 608.2c "this way", 119.3 life lost past 0 (21) · 500.2 → 611.2a for "your next end
+>   step" (2) · 608.2m → **608.2n** for the graveyard put (29 + ENGINE-SCAFFOLD; 608.2m is "still resolves fully") · rebound
+>   702.88c/d/e → 702.88a (8; d and e do not exist) · "701.x" placeholders → 701.16 / 701.47 / 701.57 (7). The CR skips
+>   subrule letters l and o by design (608.2k → 608.2m) — checked across the whole file, not a data gap.
+> · **New tool:** `app/scripts/check-cr-citations.cjs` — every "CR nnn.n[x]" citation in app/src must name a rule that
+>   exists in the bundled CR (exit 1 otherwise). 7,789 citations; **118 still name no rule** (25 numbers — 701.19e ×22,
+>   505.5b ×13, 602.5i ×9, 715.3e ×8, 701.32d ×8, 203.4c ×8, …). Queued as its own slice (a task chip); the checker becomes
+>   a lint gate once they read 0. It cannot catch a real rule cited for the wrong thing — that half stays judgment.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D3: cast a card from another player's exile — **Ragavan, Nimble Pilferer** (cdh + Shalai) · **+1** · corpus 14,998 (43.8%) / 34,245
 > Suite **1647 files / 17,010 tests** green (1 skipped); lint 0; decks 89% (2,653 → **2,655** / 2,998 — cdh 88 → 89, Shalai and Hallar 87 → 88). CI GREEN on D2 (run 36740556472). Flip-diff **+1, zero LOST, zero RETIERED** (tier

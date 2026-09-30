@@ -1,14 +1,14 @@
 /**
  * REBOUND (CR 702.88) — a trailing `Rebound` keyword line changes an instant/sorcery's resolution
  * DISPOSITION: "If you cast this spell from your hand, EXILE it as it resolves" (702.88a), replacing the
- * default CR 608.2m graveyard put, and grants a delayed OPTIONAL upkeep recast (702.88c/d).
+ * default CR 608.2n graveyard put, and grants a delayed OPTIONAL upkeep recast (702.88a).
  *
  * Modeled FAITHFULLY (stripReboundLine + program.selfExile), NOT as a text-strip:
  *   (1) EXILE-ON-RESOLUTION — the body is peeled off, and the HIGH program is stamped `selfExile`, so
  *       runEffectProgram's GY-1 exiles the spell (reuses Finale of Revelation's proven selfExile disposition).
  *       Letting the card hit the graveyard would be a forbidden FP (it changes every graveyard read).
- *   (2) DECLINE-THE-RECAST — the delayed upkeep recast is OPTIONAL (702.88d "you MAY cast"); the engine never
- *       offers it, which is the CR-legal line where the controller DECLINES (702.88e — the card stays in exile
+ *   (2) DECLINE-THE-RECAST — the delayed upkeep recast is OPTIONAL (702.88a "you MAY cast"); the engine never
+ *       offers it, which is the CR-legal line where the controller DECLINES (702.88a sends it nowhere else — the card stays in exile
  *       for the rest of the game). Declining FABRICATES NOTHING; the only wrong-play risk (exile vs GY) is exact.
  *
  * YOUR CARD: Quantum Misalignment — {4}{U} Sorcery: "Create a token that's a copy of target creature you

@@ -296,7 +296,7 @@ describe("resolution — the chosen card moves graveyard -> hand", () => {
     });
     s = cast(s, "c-raise", "u-bear");
     expect(s.players.user.hand.some((c) => c.id === "u-bear")).toBe(true);          // returned to hand
-    expect(s.players.user.graveyard.map((c) => c.id)).toEqual(["u-elf", "c-raise"]); // the other stays + the resolved spell (CR 608.2m)
+    expect(s.players.user.graveyard.map((c) => c.id)).toEqual(["u-elf", "c-raise"]); // the other stays + the resolved spell (CR 608.2n)
     expect(s.players.ai.graveyard.map((c) => c.id)).toEqual(["a-bear"]);            // opponent untouched
   });
 
@@ -304,7 +304,7 @@ describe("resolution — the chosen card moves graveyard -> hand", () => {
     let s = boardState({ userGy: [gyLand("u-forest", "Forest")], hand: [REGROWTH] });
     s = cast(s, "c-regrowth", "u-forest");
     expect(s.players.user.hand.some((c) => c.id === "u-forest")).toBe(true);
-    expect(s.players.user.graveyard.map((c) => c.id)).toEqual(["c-regrowth"]); // Regrowth itself lands in GY (CR 608.2m)
+    expect(s.players.user.graveyard.map((c) => c.id)).toEqual(["c-regrowth"]); // Regrowth itself lands in GY (CR 608.2n)
   });
 
   it("a target that already left the graveyard is a clean no-op (CR 608.2b), not a throw", () => {

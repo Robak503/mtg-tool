@@ -152,7 +152,7 @@ function applyPlayLand(state, action) {
   if (player.landsPlayedThisTurn >= landDropAllowance(state, action.playerId)) {
     throw new DispatcherError("Already played a land this turn", "LAND_PER_TURN");
   }
-  // IMPULSE-EXILE (CR 118.10): a land impulse-exiled this turn is played FROM EXILE (action.fromZone === "exile"),
+  // IMPULSE-EXILE (CR 305.2): a land impulse-exiled this turn is played FROM EXILE (action.fromZone === "exile"),
   // not from hand — the same land-drop rules apply, only the source zone differs. PLAY-FROM-TOP (Future Sight,
   // CR 118.6): a land played from the TOP of the library (action.fromZone === "library"). Default "hand" keeps
   // every existing play-land call byte-identical. The card is found in whichever zone the action names.
@@ -815,7 +815,7 @@ function applyCastSpell(state, action) {
     if (action.adventureCast) {
       params.adventureExile = { playerId: action.playerId, card };
     } else if (/\b(?:Instant|Sorcery)\b/.test(String(castCard?.type || castCard?.type_line || "").split(" // ")[0])) {
-      // GY-1 (CR 608.2m): a natively-resolved instant/sorcery goes to its owner's GRAVEYARD as the
+      // GY-1 (CR 608.2n): a natively-resolved instant/sorcery goes to its owner's GRAVEYARD as the
       // final resolution step — previously the card just vanished off the stack (every GY-count
       // consumer under-read). The disposition rides the payload; runEffectProgram applies it at its
       // two program-completion points (after ALL atoms — a spell never counts ITSELF in its graveyard).

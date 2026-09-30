@@ -1,7 +1,7 @@
 /**
  * Integration tests for KWACT-INVEST — the "Investigate" keyword action.
  *
- * "Investigate" (and "Investigate N times") is an alias for "create [N] Clue token(s)" (CR 701.x), wired to
+ * "Investigate" (and "Investigate N times") is an alias for "create [N] Clue token(s)" (CR 701.16), wired to
  * the shipped TOK-2 create-named-token(clue) atom (a real artifact with "{2}, Sacrifice: Draw a card"). The
  * parser change is first-person only — a 3rd-person "<subject> investigates" stays on the Arbiter so a Clue
  * is never minted for the wrong player.

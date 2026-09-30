@@ -724,7 +724,7 @@ export function applyAnimistAwakening(state, atom, ctx) {
 }
 
 /**
- * ===== DISCOVER ===== (LCI keyword, CR 701.x) — "Discover N/X": exile cards from the TOP of the
+ * ===== DISCOVER ===== (LCI keyword, CR 701.57) — "Discover N/X": exile cards from the TOP of the
  * controller's library until a NONLAND card with mana value <= N is exiled (or the library runs out). The
  * found card is parked in `state.pendingDiscover` for the controller's CAST-IT-FREE-or-PUT-IN-HAND decision
  * (resolved at the ACTION layer: legalChoices offers a free-cast action — reusing the cast machinery so
@@ -1041,7 +1041,7 @@ export function applyRevealTopToHand(state, atom, ctx) {
 }
 
 /**
- * ===== IMPULSE-EXILE-AND-PLAY ===== (CR 701.x "play" + CR 118.10 permission) — "Exile the top card of your
+ * ===== IMPULSE-EXILE-AND-PLAY ===== (the CR 601.3 cast / CR 305.2 land-play permission) — "Exile the top card of your
  * library. You may play that card this turn." (Professional Face-Breaker's sac-Treasure activated ability;
  * Light Up the Stage / Chandra's impulse-draw family). The top card of the CONTROLLER's library is moved to
  * their exile FACE-UP and stamped `_impulse: true` + `_impulseTurn: state.turn`. The play PERMISSION is then
@@ -1083,7 +1083,7 @@ export function applyImpulseExileAtom(state, atom, ctx) {
   // cleanup clears the flags at end of turn — so the same monotonic turn counter gates the window (no per-turn
   // reset flag to wire). Mirrors PLOT's `_plotted` stamp on the exiled copy.
   //
-  // EXTENDED WINDOW (CR 118.10) — "…until the end of your NEXT turn". Expressed as an OWNER + the stamp
+  // EXTENDED WINDOW (CR 611.2a) — "…until the end of your NEXT turn". Expressed as an OWNER + the stamp
   // turn, never as arithmetic on the turn counter: `state.turn` counts PLAYER turns, so "your next turn" is
   // roughly `turn + 4` in a four-player game and `turn + 1` only in a duel. gameEngine's cleanup closes the
   // window when a turn ENDS that (a) belongs to `_impulseOwner` and (b) started after the stamp — which is
@@ -1837,7 +1837,7 @@ export function exploreClauseParser(clause) {
 
 /**
  * Library keyword-action clause parsers (migrated from parseExtendedAtom, seam batch 6 / Wave A1):
- *   - discover N (LCI, CR 701.x) — exile-top-until-nonland-MV≤N, cast free / to hand (applyDiscoverAtom +
+ *   - discover N (LCI, CR 701.57) — exile-top-until-nonland-MV≤N, cast free / to hand (applyDiscoverAtom +
  *     the action-layer cast-free/to-hand decision). FIXED numeric N only.
  *   - discover X = "that creature's toughness" (Pantlaza) — X read at resolution from ctx.triggeringPermanentId.
  *   - standalone "[then] shuffle [your library]" (CR 103.2) — shuffles the controller's library.

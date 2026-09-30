@@ -58,7 +58,7 @@ export function matchDiesGainDrawByPower(oracle) {
 /**
  * ===== DRAIN-X (Exsanguinate / Gray Merchant-style life swing) ===== "Each opponent loses X life. You gain
  * life equal to the life lost this way." — the SECOND sentence's amount is the SUM of life actually lost by
- * the first (CR 118.10 — "this way"), so the top-level sentence split would shatter it into ["each opponent
+ * the first (CR 608.2c — "this way"), so the top-level sentence split would shatter it into ["each opponent
  * loses X life" (→ lose-life eachOpponent), "you gain life equal to the life lost this way" (an UNMODELED
  * referent)], silently dropping the linked lifegain — a forbidden partial. Collapse the whole compound up
  * front to ONE `drain-each-opponent` atom: the resolver loses X (= ctx.xValue, an {X} spell) from each
@@ -536,13 +536,13 @@ export function matchImpulseExilePlay(oracle) {
     const count = NUM[word] || 1;
     return { atom: { op: "impulse-exile", targetType: null, ...(count > 1 ? { count } : {}) } };
   }
-  // EXTENDED WINDOW (CR 118.10) — "…until the end of your NEXT turn" (Light Up the Stage #1211, Reckless
+  // EXTENDED WINDOW (CR 611.2a) — "…until the end of your NEXT turn" (Light Up the Stage #1211, Reckless
   // Impulse, Wrenn's Resolve, Inspired Tinkering — 22 carriers). A CONTROLLER-SCOPED two-turn window, which
   // is why it needed its own flag rather than a bigger number: `state.turn` counts PLAYER turns, so "your
   // next turn" is not `turn + 1` in multiplayer. The expiry is decided at cleanup by the OWNER + stamp turn
   // (see applyImpulseExileAtom), never by arithmetic on the turn counter.
   // NEXT-END-STEP WINDOW (SHELF-85 · Otharri O10 Inti, 2026-09-05 — "You may play that card until your next end step.";
-  // Opera Love Song / Now THIS Is Aether Racing / Haste Magic / Dragonhawk print the plural). CR 500.2 / 118.10: "your next
+  // Opera Love Song / Now THIS Is Aether Racing / Haste Magic / Dragonhawk print the plural). CR 611.2a: "your next
   // end step" is THIS turn's end step when the permission is granted on your own turn before it, and the end step of
   // your NEXT turn otherwise (an opponent's turn, or your own end step). The resolver decides which at resolution —
   // the flag value "nextEndStep" (not `true`) tells it to.
@@ -597,7 +597,7 @@ export function matchMassDestroyTreasurePerNontoken(oracle) {
  * ===== WINDFALL (max-discarded wheel) ===== "Each player discards their hand, then draws cards equal to the
  * greatest number of cards a player discarded this way." (Windfall, Whispering Madness' base body). A ONE-
  * sentence discard-then-draw where the draw count is the GREATEST number any player discarded — a back-
- * reference to the discard step that just resolved (CR 118.10 "this way"). The plain WHEEL rewrite (§the
+ * reference to the discard step that just resolved (CR 608.2c "this way"). The plain WHEEL rewrite (§the
  * splitClauses fold above) only handles a FIXED "draws N cards" tail; this variable "greatest discarded" count
  * has no standalone count source, so the ", then" split would orphan it → low. Collapse the whole compound up
  * front to TWO atoms in fixed order:

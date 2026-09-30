@@ -1451,7 +1451,7 @@ function parseEffectProgramInner(card) {
   // REBOUND DISPOSITION (CR 702.88) — peel a trailing `Rebound` keyword line up front so the BODY parses
   // through the normal pipeline, and stamp the resulting HIGH program `selfExile` (runEffectProgram's GY-1 then
   // exiles the spell instead of the graveyard — the real state divergence; the optional upkeep recast is
-  // faithfully DECLINED, CR 702.88e). No rebound printing carries a self-shuffle sentence, so the two strips
+  // faithfully DECLINED, CR 702.88a). No rebound printing carries a self-shuffle sentence, so the two strips
   // never overlap (rebound is peeled AFTER shuffle so a hypothetical both-lines card keeps working). A card
   // without the line yields `oracle === shuffleBody` and `rebound === false` — byte-identical to prior behavior.
   const { body: reboundBody, rebound } = stripReboundLine(shuffleBody);

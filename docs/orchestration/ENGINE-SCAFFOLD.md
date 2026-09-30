@@ -467,7 +467,7 @@ be proven by driving a card on a board — a green fingerprint means the gates c
 
 Other live seams (documented, mostly benign, listed so you don't rediscover them):
 the `land` tier is unconditional (§2.1); resolved instants/sorceries now reach their
-owner's graveyard (CR 608.2m — fixed in the overhaul pass; Arbiter-routed spells still
+owner's graveyard (CR 608.2n — fixed in the overhaul pass; Arbiter-routed spells still
 vanish, the Arbiter owns their disposition); commander damage
 is keyed by a per-seat commanderInstanceId stamped at seat build (mirror collapse FIXED in the
 overhaul pass; the tax never collapsed — it lives per-player); the modal combat-referent

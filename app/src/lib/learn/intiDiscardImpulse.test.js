@@ -2,7 +2,7 @@
  * INTI, SENESCHAL OF THE SUN — the second line · SHELF-85 · Otharri O10 (2026-09-05). "Whenever you discard one or more
  * cards, exile the top card of your library. You may play that card until your next end step." Two seams: the BATCHED
  * discard event (one firing per discard event however many cards, CR 603.2d — a once-per-batch descriptor, deduped
- * within a call and against the unflushed pending batch), and the NEXT-END-STEP play window (CR 500.2 / 118.10): on
+ * within a call and against the unflushed pending batch), and the NEXT-END-STEP play window (CR 611.2a): on
  * the controller's own turn before the end step it is THIS turn's end step (the plain this-turn stamp), on any other
  * turn or during their own end step it is their NEXT turn's (the extended owner-turn stamp) — decided at resolution.
  * Inti's first line (the reflexive discard → counter + trample) was already native.

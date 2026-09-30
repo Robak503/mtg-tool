@@ -457,7 +457,7 @@ export function stripDevoidLine(oracle) {
 /**
  * ===== SELF-SHUFFLE DISPOSITION ===== (Green Sun's Zenith + the whole Sun's Zenith / Beacon family) — a spell
  * whose LAST sentence is "Shuffle <this> into its owner's library." shuffles ITSELF into its owner's library on
- * resolution INSTEAD of going to the graveyard (a printed replacement of CR 608.2m — the exact mechanical mirror
+ * resolution INSTEAD of going to the graveyard (a printed replacement of CR 608.2n — the exact mechanical mirror
  * of Finale of Revelation's "Exile <this>." selfExile). The subject is the card's OWN name (the corpus prints
  * this template ONLY as a self-tuck: exactly the five "Sun's Zenith" + five "Beacon" instants/sorceries — every
  * "shuffle it/that card into its owner's library" that names something ELSE is a triggered/replacement/activated
@@ -486,7 +486,7 @@ export function stripSelfShuffleIntoLibrary(card, oracle) {
 
 /**
  * ===== SELF-EXILE DISPOSITION ===== — a spell whose LAST sentence is "Exile <this>." exiles ITSELF on
- * resolution instead of going to the graveyard (CR 608.2m replaced). Temporal Mastery / Temporal Trespass /
+ * resolution instead of going to the graveyard (CR 608.2n replaced). Temporal Mastery / Temporal Trespass /
  * Part the Waterveil / Alrund's Epiphany / Time Reversal / Treasured Find / Flood of Recollection.
  *
  * ⭐ THE MIRROR THAT WAS NEVER WRITTEN, and the shuffle strip above names it: its own comment calls this "the
@@ -519,8 +519,8 @@ export function stripSelfExileSentence(card, oracle) {
  * ===== REBOUND DISPOSITION ===== (CR 702.88) — a spell with keyword `Rebound` on its LAST line. Rebound is
  * NOT a vacuous cast-keyword (it is DELIBERATELY excluded from CAST_KEYWORD_LINE): it changes the spell's
  * resolution disposition — "If you cast this spell from your hand, EXILE it as it resolves" (CR 702.88a),
- * replacing the default CR 608.2m graveyard put. It ALSO grants a delayed triggered ability at the
- * controller's next upkeep offering an OPTIONAL recast from exile (CR 702.88c/d).
+ * replacing the default CR 608.2n graveyard put. It ALSO grants a delayed triggered ability at the
+ * controller's next upkeep offering an OPTIONAL recast from exile (CR 702.88a).
  *
  * We model rebound FAITHFULLY by two moves and NOT a text-strip:
  *   (1) EXILE-ON-RESOLUTION — the body is peeled off and the produced HIGH program is stamped `selfExile`, so
@@ -528,9 +528,9 @@ export function stripSelfExileSentence(card, oracle) {
  *       that a naive strip would violate (letting the card hit the graveyard — a forbidden FP that changes
  *       every "cards in graveyard" / graveyard-recursion read). It reuses the EXACT selfExile disposition that
  *       Finale of Revelation's "Exile <this>." already threads (finishSpellResolution, { selfExile }).
- *   (2) DECLINE-THE-RECAST — the delayed upkeep recast is OPTIONAL (CR 702.88d "you MAY cast"). We do not set
+ *   (2) DECLINE-THE-RECAST — the delayed upkeep recast is OPTIONAL (CR 702.88a "you MAY cast"). We do not set
  *       up the delayed ability; the engine simply never offers it, which is EXACTLY the CR-legal line where the
- *       controller DECLINES to recast (CR 702.88e — a declined rebound card stays in exile for the rest of the
+ *       controller DECLINES to recast (CR 702.88a sends it nowhere else — a declined rebound card stays in exile for the rest of the
  *       game). The resulting state (card permanently in exile, never recast) is a real reachable state, and —
  *       critically — declining FABRICATES NOTHING (the FP direction): we never conjure a free spell. Not
  *       offering the free recast is a SAFE false-negative on the UPSIDE; the mandatory exile disposition (the

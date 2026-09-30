@@ -160,13 +160,13 @@ describe("resolution — peek top N, keep one (→ hand), the rest to bottom / g
     const after = castAndAutoResolve(s, "db");
     expect(after.players.user.hand.map((c) => c.id)).toEqual(["L2"]);                  // highest-mv kept
     expect(after.players.user.library.map((c) => c.id)).toEqual(["L4", "L1", "L3"]);   // L4 surfaces; L1,L3 to bottom
-    expect(after.players.user.graveyard.map((c) => c.id)).toEqual(["db"]);             // just the resolved spell (CR 608.2m)
+    expect(after.players.user.graveyard.map((c) => c.id)).toEqual(["db"]);             // just the resolved spell (CR 608.2n)
   });
   it("rest→graveyard: the unkept looked-at cards go to the graveyard", () => {
     const s = state({ hand: [DIG_GY], library: lib(["L1", 1], ["L2", 7], ["L3", 3], ["L4", 2]) });
     const after = castAndAutoResolve(s, "dg");
     expect(after.players.user.hand.map((c) => c.id)).toEqual(["L2"]);
-    expect(after.players.user.graveyard.map((c) => c.id)).toEqual(["L1", "L3", "dg"]); // dug rest + the resolved spell (CR 608.2m)
+    expect(after.players.user.graveyard.map((c) => c.id)).toEqual(["L1", "L3", "dg"]); // dug rest + the resolved spell (CR 608.2n)
     expect(after.players.user.library.map((c) => c.id)).toEqual(["L4"]);
   });
   it("a 'then draw' rider resumes after the keep", () => {
@@ -222,7 +222,7 @@ describe("driver — the human gets a pick-one picker; the AI / Expert auto-keep
     const paused = resolveTopOfStack(dispatchAction(s, cast));
     const picked = applyImpulseDigChoice(sess(paused), { cardId: "L1" }); // human keeps the cheap card, not the auto-best
     expect(picked.session.state.players.user.hand.map((c) => c.id)).toEqual(["L1"]);
-    expect(picked.session.state.players.user.graveyard.map((c) => c.id).sort()).toEqual(["L2", "L3", "dg"]); // + the resolved spell (CR 608.2m)
+    expect(picked.session.state.players.user.graveyard.map((c) => c.id).sort()).toEqual(["L2", "L3", "dg"]); // + the resolved spell (CR 608.2n)
     const illegal = applyImpulseDigChoice(sess(paused), { cardId: "not-a-candidate" });
     expect(illegal.decision.kind).toBe("impulse-dig"); // re-surfaced, not a crash
   });

@@ -1,5 +1,5 @@
 /**
- * GY-1/GY-2 (CR 608.2m / 608.3b) — overhaul pass: a natively-resolved instant/sorcery reaches its
+ * GY-1/GY-2 (CR 608.2n / 608.3b) — overhaul pass: a natively-resolved instant/sorcery reaches its
  * owner's GRAVEYARD as the final step of resolution (it used to vanish off the stack — every
  * GY-count consumer under-read, and Regrowth could never return a resolved spell). Storm copies
  * cease to exist instead (CR 707.10a — the anti-duplicate guard strips the disposition at clone);
@@ -31,7 +31,7 @@ function resolveAll(s) {
   return s;
 }
 
-describe("GY-1 — the resolved spell reaches its owner's graveyard (CR 608.2m)", () => {
+describe("GY-1 — the resolved spell reaches its owner's graveyard (CR 608.2n)", () => {
   it("a plain burn instant resolves, then lands in the caster's graveyard exactly once", () => {
     let s = withUser(mainState(), { hand: [BOLT], battlefield: [mountain("m1")] });
     const cast = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").find((a) => a.cardId === "c-bolt" && a.targets?.some((t) => t.id === "ai"));

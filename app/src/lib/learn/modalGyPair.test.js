@@ -137,7 +137,7 @@ describe("MG-1 enumeration — only real shared-creature-type pairs are offered 
 });
 
 describe("MG-1 runtime — the cast path resolves both modes faithfully", () => {
-  it("mode 2: both chosen Zombies land in hand; the Bear and the spell stay in the graveyard (CR 608.2m)", () => {
+  it("mode 2: both chosen Zombies land in hand; the Bear and the spell stay in the graveyard (CR 608.2n)", () => {
     let s = boardState({
       userGy: [gyCard("z1", "Walking Corpse", "Creature — Zombie"), gyCard("z2", "Gravecrawler-ish", "Creature — Zombie"), gyCard("b1", "Grizzly Bears", "Creature — Bear")],
       hand: [RETURN_FROM_EXTINCTION],

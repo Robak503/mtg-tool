@@ -4,7 +4,7 @@
  * "Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded
  * this way." (Windfall; the base body of Whispering Madness). The NOVEL part is the draw magnitude: a value
  * generated MID-RESOLUTION — the GREATEST number of cards any player discarded during the discard step this
- * spell just ran (CR 118.10 "this way"). It's threaded from the discard atom (which stamps
+ * spell just ran (CR 608.2c "this way"). It's threaded from the discard atom (which stamps
  * state.maxDiscardedThisWay, mirroring Yuriko's reveal-top-to-hand → state.revealedCardMV) into a
  * draw who:eachPlayer atom that reads it via amountCount:{kind:"maxDiscardedThisWay"} (countForSpec).
  *

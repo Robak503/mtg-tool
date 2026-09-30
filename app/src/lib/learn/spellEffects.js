@@ -819,7 +819,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
         // a deliberate NO-OP, not an exclude-everything: on the ACTIVATED path (Corpse Hauler —
         // targets are chosen BEFORE the sacrifice cost is paid, CR 601.2b/601.2g) and the ETB half
         // of an enters-or-leaves trigger, the source is still ON the battlefield, and a resolving
-        // spell's own card is not yet in any graveyard (CR 608.2m) — in every real path the source
+        // spell's own card is not yet in any graveyard (CR 608.2n) — in every real path the source
         // card cannot be in this pool, so there is nothing to exclude. (A hard-exclude here was
         // caught in the flip audit: it credited Corpse Hauler while making its ability unable to
         // ever have a legal target — the runtime-invisible FP class.)

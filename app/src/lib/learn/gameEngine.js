@@ -153,7 +153,7 @@ function grantsPriority(step) {
 }
 
 /**
- * IMPULSE-EXILE cleanup (CR 118.10 / 514.2) — the "you may play that card this turn" permission granted by an
+ * IMPULSE-EXILE cleanup (CR 514.2) — the "you may play that card this turn" permission granted by an
  * `impulse-exile` atom LAPSES at end of turn. Strip the `_impulse` / `_impulseTurn` markers off every exiled
  * card whose stamp is from a turn that has now ended, so legalChoices.actionsPlayImpulseFromExile no longer
  * offers it: the card stays inert in exile (CR-correct — the window closed; the card is NOT put anywhere else).
@@ -166,7 +166,7 @@ function clearImpulsePlayPermissions(state) {
   let players = null;
   for (const [pid, player] of Object.entries(state.players)) {
     const exile = player.exile || [];
-    // EXTENDED WINDOW (CR 118.10 — "until the end of your NEXT turn"): the stamp survives its own turn and
+    // EXTENDED WINDOW (CR 611.2a — "until the end of your NEXT turn"): the stamp survives its own turn and
     // lapses only when a turn ENDS that belongs to its OWNER and began after the stamp. This runs in the
     // cleanup step BEFORE the turn advance, so `state.activePlayer` is the player whose turn is ending —
     // which is what makes the owner comparison meaningful. Correct for both castings:
@@ -901,7 +901,7 @@ export function finishCleanupActions(state) {
   }
   next = clearCombatDamage(next); // combat damage wears off at end of turn
   next = clearWolverineTurnFlags(next); // WOLVERINE clause 2: reset the per-turn dealt-damage flag (CR 514.2)
-  next = clearImpulsePlayPermissions(next); // IMPULSE-EXILE (CR 118.10): the "play that card this turn" permission lapses
+  next = clearImpulsePlayPermissions(next); // IMPULSE-EXILE (CR 514.2): the "play that card this turn" permission lapses
   // "Until end of turn" continuous effects wear off here (CR 514.2) — pump
   // (Giant Growth etc.) registered as endOfTurn-duration layer effects expire.
   next = expireContinuousEffects(next, { atCleanupOfTurn: next.turn });

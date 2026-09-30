@@ -52,7 +52,7 @@ function castAndResolve(state, cardId) {
 
 const gyCard = (id, name, type) => ({ id, name, type, mana: "{1}" });
 const bfNames = (s, pid = "user") => (s.players[pid].battlefield || []).map((p) => p.card?.name ?? p.name).sort();
-/** Graveyard contents EXCLUDING the spell that just resolved — CR 608.2m puts it there as the last step of
+/** Graveyard contents EXCLUDING the spell that just resolved — CR 608.2n puts it there as the last step of
  *  its own resolution, so it is expected company and would otherwise mask what the effect actually left. */
 const gyNamesExcept = (s, spellName) => (s.players.user.graveyard || []).map((c) => c.name).filter((n) => n !== spellName).sort();
 

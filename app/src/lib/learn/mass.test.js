@@ -110,7 +110,7 @@ describe("resolution — wipes hit every creature on every battlefield", () => {
     });
     s = castWipe(s, "c-exile");
     expect(s.players.user.battlefield.length + s.players.ai.battlefield.length).toBe(0);
-    // Creatures exiled, none died — the only graveyard card is the resolved wipe itself (CR 608.2m).
+    // Creatures exiled, none died — the only graveyard card is the resolved wipe itself (CR 608.2n).
     expect(s.players.user.graveyard.map((c) => c.name)).toEqual(["Cleansing"]);
     expect(s.players.ai.graveyard).toHaveLength(0);
     expect(s.players.user.exile.some(c => c.name === "A")).toBe(true);

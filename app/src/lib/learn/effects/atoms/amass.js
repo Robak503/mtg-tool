@@ -1,5 +1,5 @@
 /**
- * effects/atoms/amass.js — AMASS (CR 701.x) atom + its clause parser.
+ * effects/atoms/amass.js — AMASS (CR 701.47) atom + its clause parser.
  *
  * AMASS N <Subtype> (CR 701.47): "If you control an Army, put N +1/+1 counters on it and it becomes
  * the named subtype too. Otherwise, create a 0/0 black <Subtype> Army creature token, then put N +1/+1

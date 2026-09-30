@@ -3102,7 +3102,7 @@ function actionsCastSuspendReadyFromExile(state, playerId) {
 }
 
 /**
- * IMPULSE-EXILE step 2 — PLAY a card impulse-exiled THIS TURN, at FULL COST (CR 118.10 permission — "you may
+ * IMPULSE-EXILE step 2 — PLAY a card impulse-exiled THIS TURN, at FULL COST (CR 601.3 permission — "you may
  * play that card this turn"). The `impulse-exile` atom stamped `_impulse: true` + `_impulseTurn` when it exiled
  * the top card; here we offer to play it FROM EXILE this turn only (the turn stamp gates it, exactly like PLOT's
  * `_plottedTurn`, and gameEngine's cleanup clears the flags at end of turn). "Play" = cast a NONLAND normally
@@ -3222,7 +3222,7 @@ function actionsActivateGraveyardExile(state, playerId) {
 
 function actionsPlayImpulseFromExile(state, playerId) {
   const player = state.players[playerId];
-  // EXTENDED WINDOW (CR 118.10 — "until the end of your NEXT turn"): an extended stamp stays playable until
+  // EXTENDED WINDOW (CR 611.2a — "until the end of your NEXT turn"): an extended stamp stays playable until
   // gameEngine's cleanup REMOVES it, so its presence IS the permission. A plain stamp keeps the strict
   // this-turn equality. The two conditions are deliberately different: the extended window spans turns the
   // turn counter cannot express, so its lifetime is owned by the cleanup rule, not re-derived here — if both
@@ -4053,7 +4053,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsCastPlottedFromExile(state, playerId)); // PLOT step 2 (CR 702.171b): cast a plotted card free
     actions.push(...actionsSuspendFromHand(state, playerId)); // KW-SUSPEND step 1 (CR 702.62a): exile the no-cost trio with time counters
     actions.push(...actionsCastSuspendReadyFromExile(state, playerId)); // KW-SUSPEND step 2 (CR 702.62e): cast free at zero counters
-    actions.push(...actionsPlayImpulseFromExile(state, playerId)); // IMPULSE-EXILE step 2 (CR 118.10): play an impulse-exiled card THIS TURN at full cost (nonland cast / land play from exile)
+    actions.push(...actionsPlayImpulseFromExile(state, playerId)); // IMPULSE-EXILE step 2 (CR 601.3 / 305.2): play an impulse-exiled card THIS TURN at full cost (nonland cast / land play from exile)
     actions.push(...actionsPlayFromTopOfLibrary(state, playerId)); // PLAY-FROM-TOP (Future Sight, CR 118.6): cast/play the top library card while the permission static is active
     actions.push(...actionsCastMilledFromGraveyard(state, playerId)); // MILLED-GY CAST (Raul): once per your turn, cast a nonland milled this turn from your graveyard
     actions.push(...actionsCastDragonCreatureFromGraveyard(state, playerId)); // DRAGON-GY CAST (Rivaz): once per your turn, cast a Dragon creature spell from your graveyard

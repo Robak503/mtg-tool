@@ -97,7 +97,7 @@ function programAtoms(program, chosenMode) {
 }
 
 /**
- * GY-1 (CR 608.2m): as the FINAL step of a natively-resolved instant/sorcery, put the spell card
+ * GY-1 (CR 608.2n): as the FINAL step of a natively-resolved instant/sorcery, put the spell card
  * into its owner's graveyard. `disposition` = { playerId, card } threaded from applyCastSpell via
  * the payload (and via pendingChoice.resume across suspensions). Guards: no disposition -> no-op;
  * a token/copy card ceases to exist instead (CR 707.10a); an eliminated owner (CR 800.4a) -> no-op.
@@ -112,7 +112,7 @@ export function finishSpellResolution(state, disposition, { selfExile = false, s
   const player = state.players?.[playerId];
   if (!player) return state;
   // SELF-EXILE (Finale of Revelation "Exile <this>.") — the resolving spell exiles ITSELF instead of the default
-  // graveyard disposition (CR 608.2m is replaced by the printed "Exile ~"). The card is ZONELESS here (it left
+  // graveyard disposition (CR 608.2n is replaced by the printed "Exile ~"). The card is ZONELESS here (it left
   // its zone at cast), so this is a direct append to the exile zone (a token/copy already returned above — it
   // ceases to exist, never exiled). Everything else about GY-1 (no disposition → no-op; eliminated owner → no-op)
   // is identical.
@@ -129,7 +129,7 @@ export function finishSpellResolution(state, disposition, { selfExile = false, s
   }
   // SELF-SHUFFLE (Green Sun's Zenith + the Sun's Zenith / Beacon family "Shuffle <this> into its owner's
   // library.") — the resolving spell shuffles ITSELF into its OWNER's library instead of the graveyard (CR
-  // 608.2m replaced by the printed "Shuffle ~ into its owner's library"). The ZONELESS card is appended to the
+  // 608.2n replaced by the printed "Shuffle ~ into its owner's library"). The ZONELESS card is appended to the
   // owner's library, then the library is shuffled deterministically (the same threaded-seed shuffle every other
   // library shuffle uses — serialize-stable, CR 701.19e). A token/copy already returned above (ceases to exist,
   // never shuffled in). Everything else about GY-1 (no disposition / eliminated owner → no-op) is identical.
@@ -145,7 +145,7 @@ export function finishSpellResolution(state, disposition, { selfExile = false, s
     ...state,
     players: { ...state.players, [playerId]: { ...player, graveyard: [...(player.graveyard || []), card] } },
   };
-  // GY-EVENT (SHELF S7): the resolved spell card enters its owner's graveyard from the stack (CR 608.2m).
+  // GY-EVENT (SHELF S7): the resolved spell card enters its owner's graveyard from the stack (CR 608.2n).
   next = recordGraveyardEvents(next, [{ dir: "enter", card, gyOwner: playerId, zone: "stack" }]);
   return logEvent(next, { kind: "spell-to-graveyard", playerId, cardName: card.name || null });
 }
@@ -306,7 +306,7 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
     }
   }
   // GY-1: program complete — every atom ran; the spell card reaches its owner's graveyard NOW
-  // (after the last atom, before finalizeStackResolution's trigger flush — CR 608.2m). A `selfExile` program
+  // (after the last atom, before finalizeStackResolution's trigger flush — CR 608.2n). A `selfExile` program
   // (Finale of Revelation "Exile <this>.") exiles the spell instead of the graveyard.
   return finishSpellResolution(next, params.spellToGraveyard, { selfExile: !!program?.selfExile, selfShuffle: !!program?.selfShuffle });
 }

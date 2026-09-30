@@ -137,9 +137,9 @@ describe("mill spell resolution", () => {
   const cast = (s, id) => { const a = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").find((x) => x.cardId === id); return resolveTopOfStack(dispatchAction(s, a)); };
   it("you mill 3 → top 3 to your graveyard; each opponent mills 2 → opponent only", () => {
     let s = cast(bs([MILL3], lib("A", "B", "C", "D")), "c-m");
-    expect(s.players.user.graveyard.map((c) => c.id)).toEqual(["a", "b", "c", "c-m"]); // milled 3 + the resolved spell (CR 608.2m)
+    expect(s.players.user.graveyard.map((c) => c.id)).toEqual(["a", "b", "c", "c-m"]); // milled 3 + the resolved spell (CR 608.2n)
     s = cast(bs([MILLOPP], lib("U1"), lib("X", "Y", "Z")), "c-mo");
     expect(s.players.ai.graveyard.map((c) => c.id)).toEqual(["x", "y"]);
-    expect(s.players.user.graveyard.map((c) => c.id)).toEqual(["c-mo"]); // the caster binned only the resolved spell (CR 608.2m)
+    expect(s.players.user.graveyard.map((c) => c.id)).toEqual(["c-mo"]); // the caster binned only the resolved spell (CR 608.2n)
   });
 });

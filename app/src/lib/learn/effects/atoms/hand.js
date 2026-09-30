@@ -214,7 +214,7 @@ export function applyDiscard(state, atom, ctx) {
     return pitchRandomDiscard(state, { discarders, amount, sourceName: ctx.cardName || null });
   }
   // WINDFALL (record-max) — "then draws cards equal to the GREATEST number of cards a player discarded this way"
-  // (CR 118.10): a following draw atom reads state.maxDiscardedThisWay via amountCount:{kind:"maxDiscardedThisWay"}.
+  // (CR 608.2c): a following draw atom reads state.maxDiscardedThisWay via amountCount:{kind:"maxDiscardedThisWay"}.
   // This whole-hand discard (atom.all) pitches EVERY player's entire non-token hand with NO choice (advance-
   // DiscardChain's forced-inline branch — remaining = Infinity — never pauses), so each discarder's discarded
   // count IS its current non-token hand size, known deterministically HERE before the pitch. Stamp the greatest

@@ -1,5 +1,5 @@
 /**
- * scopedTuck.test.js — the TARGET-RESTRICTED tuck (CR 701.x zone change): "put target creature YOU CONTROL /
+ * scopedTuck.test.js — the TARGET-RESTRICTED tuck (a plain zone change — no keyword action): "put target creature YOU CONTROL /
  * target ATTACKING OR BLOCKING creature on top of its owner's library." Nightscape Apprentice, Sunscape
  * Apprentice, Civic Guildmage, Shadow Guildmage; Warrant // Warden, Whisk Away, Aethertow, Azorius Charm.
  *

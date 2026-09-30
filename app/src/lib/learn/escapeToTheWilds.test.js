@@ -3,7 +3,7 @@
  * "Exile the top five cards of your library. You may play cards exiled this way until the end of
  * your next turn.\nYou may play an additional land this turn."
  *
- * ⭐ A REFERENT widening, not a new machine. The extended-window impulse (CR 118.10, owner+stamp
+ * ⭐ A REFERENT widening, not a new machine. The extended-window impulse (CR 611.2a, owner+stamp
  * expiry) was built for "them / those cards" referents (impulseExtendedWindow.test.js, 11 witnesses);
  * Escape prints the FOURTH referent form — "cards exiled this way" — which is the same just-exiled
  * set. Two regexes name the referents and BOTH had to widen (unlisted-=-dropped, instance by rote):

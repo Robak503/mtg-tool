@@ -1452,7 +1452,7 @@ describe("parseEffectProgram — KWSTRIP-1 (vacuous cast-keyword line strip)", (
   it("REBOUND is now modeled faithfully (CR 702.88) — the body parses HIGH and the program is stamped selfExile", () => {
     // Rebound is NOT a text-strip: the body parses on its own merits AND the program is stamped `selfExile`
     // so the spell exiles itself on resolution (not the graveyard — the real state divergence; the optional
-    // upkeep recast is faithfully DECLINED, CR 702.88e). See effects/rebound.test.js for the runtime proof.
+    // upkeep recast is faithfully DECLINED, CR 702.88a). See effects/rebound.test.js for the runtime proof.
     const reb = parseEffectProgram(I("Target creature gets +1/+0 until end of turn.\nRebound"));
     expect(programConfidence(reb)).toBe("high");
     expect(reb.selfExile).toBe(true);
@@ -1796,7 +1796,7 @@ describe("parseEffectClause — self keyword-grant (ACT-KW-GRANT)", () => {
 });
 
 // ===== KWACT-INVEST — "Investigate" keyword action → create-named-token(clue) =====
-// "Investigate" = create a Clue token (CR 701.x); "Investigate N times" = N Clues. Aliased to the shipped
+// "Investigate" = create a Clue token (CR 701.16); "Investigate N times" = N Clues. Aliased to the shipped
 // TOK-2 create-named-token(clue) atom. FIRST-PERSON ONLY — a 3rd-person "<subject> investigates" or a
 // variable "Investigate X times" is NOT modeled → LOW (never a Clue minted for the wrong player / unknown count).
 describe("parseEffectProgram — Investigate keyword action (KWACT-INVEST)", () => {

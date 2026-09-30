@@ -882,7 +882,7 @@ export function countForSpec(state, ctx, spec) {
       .reduce((s, p) => s + Math.max(0, p.card?.cmc || 0), 0));
   }
   // ===== MAX-DISCARDED-THIS-WAY (Windfall) ===== the GREATEST number of cards any player discarded during the
-  // whole-hand discard the SAME spell just resolved (CR 118.10 "this way"). The discard atom (applyDiscard, on
+  // whole-hand discard the SAME spell just resolved (CR 608.2c "this way"). The discard atom (applyDiscard, on
   // the recordMaxDiscarded form) stamps state.maxDiscardedThisWay IMMEDIATELY before this draw atom resolves,
   // mirroring roll-d20 / reveal-top-to-hand. The parser emits the discard + draw atoms TOGETHER in fixed order
   // (matchWindfallMaxDiscard), so the value is always freshly written before this read (never stale). An ABSENT

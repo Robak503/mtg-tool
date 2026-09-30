@@ -87,7 +87,7 @@ describe("runtime — Rite of Flame", () => {
   it("with no Rite in any graveyard: {R}{R}; with one in yours and one in an opponent's: {R}{R} + {R}{R}", () => {
     let s = mainState({ userHand: [RITE], userPool: { R: 1 } });
     s = resolveTopOfStack(dispatchAction(s, castOf(s, "rof")));
-    // the Rite itself is in the graveyard AS it resolves? No — CR 608.2m: a resolving spell goes to the graveyard as the LAST
+    // the Rite itself is in the graveyard AS it resolves? No — CR 608.2n: a resolving spell goes to the graveyard as the LAST
     // step, after its effects; the count at resolution does not include itself.
     expect(pool(s).R).toBe(2);
     let t = mainState({ userHand: [RITE], userPool: { R: 1 }, userGy: [RITE_GY("g1")], aiGy: [RITE_GY("g2"), BOLT] });
