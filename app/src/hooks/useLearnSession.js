@@ -46,6 +46,14 @@ export function optionalSacChoicePayload(sac) {
   return { kind: "optional-sac-payment", sac: sac === true || sac?.sac === true, ...(typeof sac?.victimId === "string" ? { victimId: sac.victimId } : {}) };
 }
 
+/**
+ * The /api/learn/choose payload for a change-the-target answer (shelf D14 — Misdirection): the picked candidate's id. The
+ * `kind` echo lets the server drop a stale submit that lands on a different pause (WI-5). Pure, so it is tested without React.
+ */
+export function changeTargetChoicePayload(targetId) {
+  return { kind: "change-target", targetId: typeof targetId === "string" ? targetId : null };
+}
+
 export default function useLearnSession() {
   const [state, setState] = useState(INITIAL_STATE);
   const inFlightRef = useRef(false);
@@ -770,6 +778,56 @@ export default function useLearnSession() {
           body: JSON.stringify({
             sessionId: state.sessionId,
             choice: optionalSacChoicePayload(sac),
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
+        return null;
+      } finally {
+        inFlightRef.current = false;
+      }
+    },
+    [state.sessionId],
+  );
+
+  // CHANGE THE TARGET (shelf D14, CR 115.7a) — answer "where does the redirected spell's target go?" with the picked
+  // candidate's id. Mandatory: there is no decline. Mirrors applyOptionalSacChoice.
+  const applyChangeTargetChoice = useCallback(
+    async (targetId) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
+
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: changeTargetChoicePayload(targetId),
           }),
         });
         const data = await response.json().catch(() => ({}));
@@ -1722,6 +1780,7 @@ export default function useLearnSession() {
     applyTaintedPactChoice,
     applyTemptingOfferChoice,
     applyOptionalSacChoice,
+    applyChangeTargetChoice,
     applyCommanderReturnChoice,
     mulligan,
     reset,

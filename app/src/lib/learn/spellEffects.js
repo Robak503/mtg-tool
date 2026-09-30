@@ -730,6 +730,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     for (const obj of state.stack || []) {
       if (!kinds.has(obj.kind)) continue;
       if (effect.targetsFilter && !spellTargetsMatchFilter(state, obj, effect.targetsFilter, controllerId)) continue; // NOT OF THIS WORLD (KT-9b): "ability that targets a permanent you control" — an ability's recorded targets are read the same way a spell's are
+      if (effect.singleTargetOnly && (obj.targets || []).length !== 1) continue; // "…ability with a single target" (shelf D14 — Bolt Bend): CR 115.9a, counted as for a spell
       out.push({ type: "stackAbility", id: obj.id, controller: obj.controller, name: obj.source?.name ? `${obj.source.name}'s ability` : "ability" });
     }
   };

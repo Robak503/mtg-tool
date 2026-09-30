@@ -16,6 +16,7 @@
 import { useEffect, useState } from "react";
 
 import { fetchArbiterTrace } from "../../lib/arbiterUtils";
+import { seatLabel } from "../../lib/learn/seatLabels.js";
 import { sectionLabelStyle } from "./learnViewStyles.js";
 
 /**
@@ -2961,6 +2962,56 @@ export function MulliganPanel({ decision, onKeep, onShip, onBottom, busy = false
             )}
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A change-target candidate as the player reads it: a player by seat ("You", "Opponent 1"); a permanent or spell by name,
+ * with whose it is.
+ */
+export function changeTargetLabel(c) {
+  if (c?.type === "player") return seatLabel(c.id);
+  const whose = c?.controller ? ` (${c.controller === "user" ? "yours" : seatLabel(c.controller)})` : "";
+  return `${c?.name || "that"}${whose}`;
+}
+
+/**
+ * CHANGE THE TARGET (shelf D14 — Misdirection and kin, CR 115.7a): pick where the redirected spell or ability's one target goes.
+ * There is no decline — the change is mandatory whenever another legal target exists (the engine never pauses when none does).
+ */
+export function ChangeTargetPanel({ decision, onChoose }) {
+  const [submitting, setSubmitting] = useState(false);
+  const submit = async (targetId) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onChoose?.(targetId);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  const spell = decision.spellName || "that spell";
+  const from = decision.from ? changeTargetLabel(decision.from) : null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <ChoiceBanner icon="↪️" title={`Change the target of ${spell}${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}>
+        {from ? `It targets ${from}. ` : ""}Choose its new target; the target must change.
+      </ChoiceBanner>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
+        {(decision.candidates || []).map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            className="ley-glass"
+            style={{ textAlign: "left", padding: "10px 14px", cursor: "pointer" }}
+            onClick={() => submit(c.id)}
+            disabled={submitting}
+          >
+            <strong>{changeTargetLabel(c)}</strong>
+          </button>
+        ))}
       </div>
     </div>
   );

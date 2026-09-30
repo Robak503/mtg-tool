@@ -1683,6 +1683,9 @@ export function combatKeywordClauseParser(clause) {
     if (eb) return { op: "cant-be-blocked", target: "self", targetType: null, exceptByKeyword: eb[1].charAt(0).toUpperCase() + eb[1].slice(1) };
   }
   if (/^target creature can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature" };
+  // "One or two target creatures can't block this turn" (shelf D14 — Untimely Malfunction's third mode): the same grant on each
+  // chosen creature (applyCantBlock loops them); CR 601.2c — at least one target, at most two.
+  if (/^one or two target creatures can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature", minTargets: 1, maxTargets: 2 };
   // PAIRWISE CANT-BLOCK (④-BA, 2026-09-04 — "{R}: Target creature can't block THIS CREATURE this turn": Spin Engine,
   // Screeching Griffin, Duct Crawler, Kozilek's Pathfinder, Burning-Tree Bloodscale, Shrewd Hatchling; Fearsome Temper's
   // granted copy): the target may still block OTHER attackers — a layer-6 endOfTurn keyword grant keyed to the SOURCE's id

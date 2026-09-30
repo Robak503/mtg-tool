@@ -54,6 +54,7 @@ import {
   TaintedPactPanel,
   TemptingOfferPanel,
   OptionalSacPanel,
+  ChangeTargetPanel,
   SacrificeChoicePanel,
   DiscardChoicePanel,
   HandToLibraryTopPanel,
@@ -754,6 +755,7 @@ export default function LearnView({
               onTaintedPactChoose={session.applyTaintedPactChoice}
               onTemptingOfferChoose={session.applyTemptingOfferChoice}
               onOptionalSacChoose={session.applyOptionalSacChoice}
+              onChangeTargetChoose={session.applyChangeTargetChoice}
               onCommanderReturnChoose={session.applyCommanderReturnChoice}
             />
           </main>
@@ -1010,6 +1012,12 @@ export default function LearnView({
       {session.board && decision?.kind === "optional-sac-payment" && (
         <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
           <OptionalSacPanel decision={decision} onChoose={session.applyOptionalSacChoice} />
+        </div>
+      )}
+      {/* CHANGE THE TARGET (shelf D14 — Misdirection, CR 115.7a) — pick the redirected spell's new target; no decline. */}
+      {session.board && decision?.kind === "change-target" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <ChangeTargetPanel decision={decision} onChoose={session.applyChangeTargetChoice} />
         </div>
       )}
       {/* Engine OR transport error as a floating banner over the board (never drops
@@ -1434,6 +1442,7 @@ function DecisionPrompt({
   onTaintedPactChoose,
   onTemptingOfferChoose,
   onOptionalSacChoose,
+  onChangeTargetChoose,
   onCommanderReturnChoose,
 }) {
   if (!decision) {
@@ -1534,6 +1543,9 @@ function DecisionPrompt({
   }
   if (decision.kind === "optional-sac-payment") {
     return <OptionalSacPanel decision={decision} onChoose={onOptionalSacChoose} />;
+  }
+  if (decision.kind === "change-target") {
+    return <ChangeTargetPanel decision={decision} onChoose={onChangeTargetChoose} />;
   }
   if (decision.kind === "commander-return") {
     return <CommanderReturnPanel decision={decision} onChoose={onCommanderReturnChoose} />;

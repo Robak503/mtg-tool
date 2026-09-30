@@ -1735,9 +1735,15 @@ describe("parseEffectProgram — printed alt-cost strip (free / pitch / exile / 
     const swat = parseEffectProgram(I("If you control a commander, you may cast this spell without paying its mana cost.\nYou may choose new targets for target spell or ability."));
     expect(programConfidence(swat)).toBe("high");
     expect(swat.atoms).toEqual([{ op: "retarget", targetType: "spellOrStackAbility", optional: true }]);
-    // Misdirection — exile-pitch, but 'change the target' (a DIFFERENT wording + a single-target filter —
-    // NOT the retarget arm, which is anchored on 'choose new targets for target spell or ability') stays low.
-    expect(programConfidence(parseEffectProgram(I("You may exile a blue card from your hand rather than pay this spell's mana cost.\nChange the target of target spell with a single target.")))).toBe("low");
+    // GRADUATED 2026-09-30 (shelf D14, changeTarget.test.js): Misdirection's "change the target of target spell with a single
+    // target" is its own CHANGE-TARGET atom (CR 115.7a — mandatory, unlike retarget's "choose new targets"), so the
+    // exile-pitch strip now leaves a HIGH body.
+    const mis = parseEffectProgram(I("You may exile a blue card from your hand rather than pay this spell's mana cost.\nChange the target of target spell with a single target."));
+    expect(programConfidence(mis)).toBe("high");
+    expect({ altCost: mis.altCost, atoms: mis.atoms }).toEqual({
+      altCost: { kind: "exileColorCard", color: "blue", condition: "always" },
+      atoms: [{ op: "change-target", targetType: "spell", singleTargetOnly: true, notCounter: true }],
+    });
   });
   it("MUST DROP TO LOW: an un-modeled alt-cost SHAPE / CONDITION is NOT stripped (the sentence keeps the card LOW)", () => {
     // Foil — a COMPOUND discard cost (discard an Island AND another card), not a modeled shape → not stripped.

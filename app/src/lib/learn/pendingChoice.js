@@ -53,6 +53,7 @@ export const PENDING_CHOICE_KINDS = [
   "edict-mode",
   "cleanup-discard",
   "each-player-may", // K9 (Step Between Worlds) — a per-seat yes/no, raised seat by seat; the effect applies to the seats that said yes
+  "change-target", // shelf D14 (Misdirection) — the redirector picks which other legal target a single-target spell or ability moves to
 ];
 
 /**
@@ -678,6 +679,22 @@ export function setPendingOptionalSacBySubtypeChoice(state, { controller, subtyp
       // the settle takes the chosen id. The value-token form carries none and keeps its any-one-of-them settle.
       ...(Array.isArray(candidates) ? { candidates } : {}),
     },
+  };
+}
+
+/**
+ * ===== CHANGE THE TARGET (shelf D14, CR 115.7a) ===== — suspend while the redirector (`controller`) picks which other legal
+ * target a single-target spell or ability moves to (Misdirection and kin). There is no decline: the target stays only when
+ * there is NO other legal target, which never pauses. `stackObjectId` is the redirected object; `candidates` are the target
+ * objects changeTargetAlternatives built (plain JSON — the settler writes the picked one back as-is); `from` names the current
+ * target and `spellName` the object, for the panel. The continuation rides on `pendingChoice.resume` (attached by runProgram).
+ */
+export function setPendingChangeTargetChoice(state, { controller, stackObjectId, spellName = null, from = null, candidates, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "change-target-pending", controller, stackObjectId, count: candidates.length, sourceName });
+  return {
+    ...next,
+    pendingChoice: { kind: "change-target", controller, stackObjectId, spellName, from, candidates, sourceName },
   };
 }
 

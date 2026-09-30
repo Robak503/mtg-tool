@@ -5,12 +5,12 @@
 
 import { applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js"; // the SHARED creature-restriction grammar — massFilteredDamageClauseParser's general arm delegates its recipient phrase to it (no new module edge: applyDamageEffect already came from here)
 import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe, commanderCastsFromCommandZone } from "../../gameState.js";
-import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingOptionalExileSelfChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice } from "../../pendingChoice.js";
+import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingOptionalExileSelfChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice, setPendingChangeTargetChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
 import { permanentIsCreature, permanentTypes, equipmentBarredAsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
 import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
-import { expandCastChoices } from "../targeting.js"; // STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
+import { expandCastChoices, changeTargetAlternatives } from "../targeting.js"; // + CHANGE THE TARGET (shelf D14) — the other legal targets for a stack object's one target; STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // COPY-A-CREATURE-SPELL (Double Major, CR 707.2): the chosen creature spell's copiable card. cloneCopy is a pure leaf (imports only gameState) — cycle-safe.
 import { checkCopyTriggers } from "../../triggers.js"; // MAGECRAFT COPY HALF (BLITZ MC-1, CR 707.10): fire "cast or copy" watchers at the copy-creation site. Cycle-safe — triggers.js's import closure (targeting→spellEffects→triggers, layers, keywords, saga, triggerScheduler) never reaches atoms/stack.js, so this edge adds no cycle; checkCopyTriggers is called only at runtime.
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // MANA DRAIN: schedule the delayed {C} payout on the CR 603.7 queue (leaf module — imports only gameState, cycle-free)
@@ -682,12 +682,23 @@ export function counterClauseParser(clause) {
   // reference in the CNT-TARGETS-WHAT arm safe.)
   if (/^counter target activated ability$/.test(t)) return { op: "counter-ability", targetType: "stackAbility", abilityKinds: ["activated-ability"] };
   if (/^counter target triggered ability$/.test(t)) return { op: "counter-ability", targetType: "stackAbility", abilityKinds: ["triggered-ability"] };
-  // ⭐ RETARGET (CR 115.7) — "[you may] choose new targets for target spell or ability" (Deflecting Swat;
-  // Bolt Bend / Ricochet Trap word it the same after their cost lines peel). The target is the full stack
-  // union (spell OR activated/triggered ability — targetType "spellOrStackAbility"); the RESOLVER re-picks
-  // the targeted object's own targets off the live board. `optional` records the printed "may": CR 115.7d —
-  // the player may leave any number of targets unchanged, which is the resolver's decline path.
+  // ⭐ RETARGET (CR 115.7) — "[you may] choose new targets for target spell or ability" (Deflecting Swat). The target is the
+  // full stack union (spell OR activated/triggered ability — targetType "spellOrStackAbility"); the RESOLVER re-picks the
+  // targeted object's own targets off the live board. `optional` records the printed "may": CR 115.7d — the player may leave
+  // any number of targets unchanged, which is the resolver's decline path. (Bolt Bend and Ricochet Trap print "change the
+  // target of …", the CHANGE-THE-TARGET arm below — not this wording.)
   if (/^(?:you may )?choose new targets for target spell or ability$/.test(t)) return { op: "retarget", targetType: "spellOrStackAbility", optional: true };
+  // ⭐ CHANGE THE TARGET (CR 115.7a — shelf D14): "change the target of target spell [or ability] with a single target"
+  // (Misdirection, Deflection, Shunt, Swerve, Ricochet Trap; Bolt Bend, Redirect Lightning, Untimely Malfunction's mode). Not a
+  // "may": the one target moves to ANOTHER legal target when there is one, and stays when there is none. "With a single target"
+  // counts the targets chosen as the object was put on the stack (CR 115.9a); changing a target is not countering, so an
+  // uncounterable spell stays a legal target.
+  const changeTarget = t.match(/^change the target of target (spell|spell or ability) with a single target$/);
+  if (changeTarget) {
+    return changeTarget[1] === "spell"
+      ? { op: "change-target", targetType: "spell", singleTargetOnly: true, notCounter: true }
+      : { op: "change-target", targetType: "spellOrStackAbility", singleTargetOnly: true };
+  }
   // ⭐ REDIRECT TO THIS CREATURE (CR 115.7a — shelf D10, Hydroelectric Specimen): "[you may] change the target of target instant
   // or sorcery spell with a single target to this creature". "With a single target" counts the targets chosen as the spell was
   // put on the stack (CR 115.9a); changing a target is not countering it, so an uncounterable spell stays a legal target. The
@@ -2002,7 +2013,9 @@ function applyRetarget(state, atom, ctx) {
     // A kicked spell keeps the kicked cast's targets (CR 601.2c — its alternative targets exist only because it was kicked).
     try { combos = expandCastChoices(next, obj.controller, program, [], { kicked: params.kicked === true }) || []; } catch { combos = []; }
     if (params.chosenMode != null) combos = combos.filter((c) => c.chosenMode === params.chosenMode);
-    const deflected = combos.find((c) => (c.targets || []).length > 0 && !(c.targets || []).some(isMine));
+    // The object is on the stack while it is re-enumerated, so a spell-targeting spell would be offered ITSELF — an illegal
+    // target for itself (CR 115.5). (Shelf D14: a Counterspell aimed at your spell was deflected onto the Counterspell.)
+    const deflected = combos.find((c) => (c.targets || []).length > 0 && !(c.targets || []).some(isMine) && !(c.targets || []).some((x) => x.id === obj.id));
     if (!deflected) {
       next = logEvent(next, { kind: "spell-effect", effect: "retarget-decline", targetId: t.id, cardName: obj.source?.name || null, reason: "no-safe-combo" });
       continue;
@@ -2066,6 +2079,59 @@ function applyRedirectToSource(state, atom, ctx) {
     ],
   };
   return logEvent(next, { kind: "spell-effect", effect: "redirect", targetId: obj.id, cardName: obj.source?.name || null, controller: ctx?.controller, from: orig.name || orig.id, to: moved[0].name || moved[0].id });
+}
+
+/**
+ * ⭐ CHANGE THE TARGET (shelf D14, 2026-09-30 — Misdirection, Deflection, Shunt, Swerve, Ricochet Trap; Bolt Bend and Redirect
+ * Lightning take a spell OR ability): "change the target of target spell [or ability] with a single target." CR 115.7a: the target
+ * can be changed only to ANOTHER legal target, and stays when there is none — even if it is illegal by then. Unlike "choose new
+ * targets" (applyRetarget, CR 115.7d) the change is not optional.
+ *
+ * The alternatives are changeTargetAlternatives' (the targeted object's side, slot, kick and mode; never the current target,
+ * never the object itself — CR 115.5). None → unchanged, logged with why. One → it moves there. Several → the redirector
+ * chooses: a `change-target` pause (a human's panel, a pilot's offered actions, or runProgram.autoPickChangeTarget).
+ */
+function applyChangeTarget(state, atom, ctx) {
+  const t = (ctx?.targets || []).find((x) => x?.type === "spell" || x?.type === "stackAbility");
+  const obj = t ? (state.stack || []).find((o) => o.id === t.id) : null;
+  const unchanged = (reason) => logEvent(state, { kind: "spell-effect", effect: "change-target-unchanged", reason, targetId: t?.id ?? null, controller: ctx?.controller });
+  if (!obj) return unchanged("gone");
+  const alternatives = changeTargetAlternatives(state, obj);
+  if (alternatives == null) return unchanged(!obj.payload?.params?.program ? "no-program" : "not-single-target");
+  if (alternatives.length === 0) return unchanged("no-other-legal-target");
+  if (alternatives.length === 1) return moveStackTarget(state, obj.id, alternatives[0], ctx?.controller);
+  const from = obj.payload.params.targets[0];
+  return setPendingChangeTargetChoice(state, {
+    controller: ctx?.controller,
+    stackObjectId: obj.id,
+    spellName: obj.source?.name || null,
+    from: { id: from.id, name: from.name || from.id, type: from.type, ...(from.controller ? { controller: from.controller } : {}) },
+    candidates: alternatives,
+    sourceName: ctx?.cardName || null,
+  });
+}
+
+/**
+ * Move a single-target stack object's one target to `target` (a target object as the enumerator built it — its atomIndex and
+ * role ride along). The object's own targets and its payload's are rewritten together, as applyRetarget does, so the CR 608.2b
+ * check and the resolution read the same target. An object already off the stack changes nothing, logged.
+ */
+export function moveStackTarget(state, objId, target, controller) {
+  const idx = (state.stack || []).findIndex((o) => o.id === objId);
+  if (idx === -1) return logEvent(state, { kind: "spell-effect", effect: "change-target-unchanged", reason: "gone", targetId: objId, controller });
+  const obj = state.stack[idx];
+  const params = obj.payload?.params || {};
+  const from = (params.targets || [])[0];
+  const moved = [target];
+  const next = {
+    ...state,
+    stack: [
+      ...state.stack.slice(0, idx),
+      { ...obj, ...(Array.isArray(obj.targets) ? { targets: moved } : {}), payload: { ...obj.payload, params: { ...params, targets: moved } } },
+      ...state.stack.slice(idx + 1),
+    ],
+  };
+  return logEvent(next, { kind: "spell-effect", effect: "change-target", targetId: obj.id, cardName: obj.source?.name || null, controller, from: from?.name || from?.id || null, to: target.name || target.id });
 }
 
 /**
@@ -2164,6 +2230,7 @@ export const stackResolvers = {
   "counter-targeting-object": applyCounterTargetingObject, // stage ③ (the Glasskites) — counter the spell/ability whose target choice fired the trigger (ctx.targetingStackObjectId)
   retarget: applyRetarget, // ⭐ RETARGET (Deflecting Swat, CR 115.7) — re-pick a stack object's own targets off the live board; decline = keep (CR 115.7d)
   "redirect-to-source": applyRedirectToSource, // ⭐ REDIRECT (Hydroelectric Specimen, CR 115.7a) — a single-target spell's target moves to the source, or stays
+  "change-target": applyChangeTarget, // ⭐ CHANGE THE TARGET (Misdirection, CR 115.7a) — a single-target spell or ability's target moves to another legal one (chosen), or stays
   "grant-dies-exile-to-cast-spell": applyGrantDiesExileToCastSpell, // RIVAZ RIDER — stamp the triggering cast spell; the permanent it becomes exiles on death
   "bounce-spell-or-permanent": applyBounceSpellOrPermanent, // VENSER — the STACK∪BATTLEFIELD union bounce ("return target spell or permanent to its owner's hand")
   "copy-spell": applyCopySpell, // STORM (CR 702.40) — copy the storm spell N times (N = spells cast before it this turn)

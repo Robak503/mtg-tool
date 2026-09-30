@@ -36,6 +36,7 @@ import { manaProduction } from "./manaModel.js";
 import { attackerMinBlockers, canBlockAttacker, lureFilterOf, mustBeBlockedIfAble, mustAttackUnlessOf, controllerMeetsBoardPredicate } from "./combatEvasion.js";
 import { programContainsCounter, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog, atomTargetIntent, programConfidence } from "./effects/parser.js";
 import { parseAuraBonus } from "./staticAbilityParser.js";
+import { changeTargetAlternatives, atomForStackTarget } from "./effects/targeting.js"; // CHANGE THE TARGET (shelf D14) — where a redirect could send an opponent's spell; the redirected slot's atom
 
 // ─── Play-policy flags (the A/B probe seam) ──────────────────────────────────
 
@@ -380,6 +381,36 @@ function pickCounterCast(state, aiPlayerId, actions) {
     // keep the standard ≥3 threat bar.
     const minCost = a.altCost && a.altCost.kind !== "free" ? 5 : COUNTER_THREAT_MIN_COST;
     if (cost < minCost) continue;                       // below the threat bar → not worth the counter
+    if (!best || cost > best.cost || (cost === best.cost && String(t.id) < String(best.targetId))) {
+      best = { action: a, cost, targetId: t.id };
+    }
+  }
+  return best?.action || null;
+}
+
+/**
+ * CHANGE THE TARGET (shelf D14 — Misdirection, Deflection, Bolt Bend, Redirect Lightning …): a pure change-target spell is cast
+ * only at an OPPONENT's single-target spell or ability that is aimed at this seat or something it controls, whose effect HARMS
+ * its target (atomTargetIntent "enemy" — removal, burn, a counterspell on our spell), and which the resolution can move onto an
+ * opponent's side (changeTargetAlternatives offers a candidate this seat doesn't control; the resolution's auto-pick takes that
+ * side for an "enemy" slot). Otherwise hold: the card's use is saving our stuff, and a redirect that can't is a card for nothing.
+ * Among qualifying objects, the costliest (the biggest threat), id tiebreak — deterministic.
+ */
+function pickChangeTargetCast(state, aiPlayerId, actions) {
+  const enemies = new Set(opponentsOf(state, aiPlayerId));
+  const sideOf = (t) => (t?.type === "player" ? t.id : t?.controller);
+  let best = null;
+  for (const a of actions) {
+    if ((a.targets?.length || 0) !== 1) continue;
+    const t = a.targets[0];
+    const obj = (state.stack || []).find((o) => o.id === t?.id);
+    if (!obj || !enemies.has(obj.controller)) continue;           // an opponent's spell or ability only
+    const orig = obj.payload?.params?.targets?.[0];
+    if (!orig || sideOf(orig) !== aiPlayerId) continue;            // aimed at this seat or its stuff
+    if (atomTargetIntent(atomForStackTarget(obj, orig)) !== "enemy") continue; // and it hurts what it hits
+    const alternatives = changeTargetAlternatives(state, obj);
+    if (!alternatives || !alternatives.some((x) => enemies.has(sideOf(x)))) continue; // somewhere on their side to send it
+    const cost = castCostTotal(obj.cost);
     if (!best || cost > best.cost || (cost === best.cost && String(t.id) < String(best.targetId))) {
       best = { action: a, cost, targetId: t.id };
     }
@@ -796,6 +827,16 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
       const counterPick = pickCounterCast(state, aiPlayerId, actions);
       if (!counterPick) continue; // no on-side threatening target → keep holding
       scored.push({ action: counterPick, score: scoreCastAction(actions[0], card, archetype, hint, state, aiPlayerId), cmc: actions[0].cmc || 0 });
+      continue;
+    }
+    // CHANGE THE TARGET (shelf D14): a pure change-target spell fires only as a redirect of an opponent's harmful spell or
+    // ability aimed at this seat's stuff (pickChangeTargetCast); otherwise it is held, as every unscorable targeted spell is.
+    // (A modal carrier — Untimely Malfunction — keeps the generic path's hold for now.)
+    const ctAtoms = actions[0].program?.atoms || [];
+    if (ctAtoms.length && ctAtoms.every((a) => a.op === "change-target")) {
+      const redirectPick = pickChangeTargetCast(state, aiPlayerId, actions);
+      if (!redirectPick) continue;
+      scored.push({ action: redirectPick, score: scoreCastAction(actions[0], card, archetype, hint, state, aiPlayerId), cmc: actions[0].cmc || 0 });
       continue;
     }
     // W7c (AI-F4) — BOARD WIPES: cast a held symmetric wipe when the AI is CLEARLY behind on

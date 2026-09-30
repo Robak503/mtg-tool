@@ -212,7 +212,9 @@ function atomTargetSpec(atom) {
   // (uncounterable spells drop out, CR 701.6a), and `targetsFilter` MUST be threaded (unlisted = dropped = a counter
   // that hits any stack object, an FP).
   if (tt === "spellOrStackAbility" && atom.op === "counter-spell-or-ability") return { kind: "counter-spell-or-ability", targetType: tt, targetsFilter: atom.targetsFilter };
-  if (tt === "spellOrStackAbility") return { kind: "retarget", targetType: tt, notCounter: true };
+  // CHANGE THE TARGET (shelf D14 — Bolt Bend, Redirect Lightning): "…spell or ability WITH A SINGLE TARGET" narrows the union to
+  // objects with exactly one chosen target (CR 115.9a). Unlisted here = dropped = every spell and ability offered.
+  if (tt === "spellOrStackAbility") return { kind: "retarget", targetType: tt, notCounter: true, ...(atom.singleTargetOnly && { singleTargetOnly: true }) };
   // COPY TARGET ABILITY (SHELF-85 V6 — Peter Parker's Camera / Strionic Resonator): a stack ABILITY the activator
   // controls, of the printed kind(s). `abilityKinds` MUST be threaded explicitly (the generic tail drops unknown
   // atom fields — the unlisted-=-dropped trap); without it the enumerator would offer an activated ability to a
@@ -564,6 +566,56 @@ export function expandCastChoices(state, controllerId, program, sourceColors = [
   const combos = expandAtoms(state, controllerId, program.atoms || [], sourceColors, ctx);
   if (combos === null) return [];
   return combos.map(targets => ({ targets }));
+}
+
+/**
+ * CHANGE THE TARGET (CR 115.7a — shelf D14): the other legal targets for a stack object's ONE target, i.e. where a "change the
+ * target of target spell [or ability] with a single target" effect may move it. Enumerated from the object's controller's side
+ * (hexproof, protection and "can't be the target" are the spell's problem, not the redirector's), in the same slot (atomIndex /
+ * role), with the object's own kick and mode (CR 115.8 — a mode is never re-chosen). The current target is not "another" target,
+ * and an object on the stack is never a legal target for itself (CR 115.5).
+ * Returns null when the object can't be re-enumerated (no effect program, or not exactly one recorded target), else the
+ * alternatives — possibly none.
+ */
+export function changeTargetAlternatives(state, obj) {
+  const params = obj?.payload?.params;
+  const originals = Array.isArray(params?.targets) ? params.targets : [];
+  if (!params?.program || originals.length !== 1) return null;
+  const orig = originals[0];
+  let combos = expandCastChoices(state, obj.controller, params.program, [], { kicked: params.kicked === true });
+  if (params.chosenMode != null) combos = combos.filter((c) => JSON.stringify(c.chosenMode) === JSON.stringify(params.chosenMode));
+  const out = [];
+  for (const c of combos) {
+    const ts = c.targets || [];
+    if (ts.length !== 1) continue;
+    const t = ts[0];
+    // The same slot: with two optional slots a lone target could otherwise land in the other one and run the other atom.
+    // A single-atom spell cast through the legacy path records no atomIndex; its one slot is the only one there is.
+    // (No role check: roles belong to two-target atoms, whose first role is always required, so a single-target object
+    // never has a different role to move into.)
+    if (orig.atomIndex != null && t.atomIndex !== orig.atomIndex) continue;
+    if (t.id === orig.id || t.id === obj.id) continue;
+    if (out.some((x) => x.id === t.id)) continue;
+    out.push(t);
+  }
+  return out;
+}
+
+/**
+ * The atom a stack object's recorded target belongs to: its chosen mode's atoms (concatenated in the order expandCastChoices
+ * tags them), or the sequence. A target with no atomIndex (the legacy single-atom path) belongs to the first atom that takes a
+ * chosen target. Null when the object carries no program.
+ */
+export function atomForStackTarget(obj, target) {
+  const params = obj?.payload?.params;
+  const program = params?.program;
+  if (!program) return null;
+  const modes = program.modal?.modes || [];
+  const atoms = program.structure !== "modal" ? (program.atoms || [])
+    : Array.isArray(params.chosenMode) ? params.chosenMode.flatMap((k) => modes[k]?.atoms || [])
+      : (modes[params.chosenMode]?.atoms || []);
+  if (target?.atomIndex != null) return atoms[target.atomIndex] ?? null;
+  return atoms.find((a) => a?.targetType && !isNonChosenTargetType(a.targetType)) ?? null;
 }
 
 // Test-only handles (repo convention) — pins the bounded-enumeration prefix identity + the OOM guard.

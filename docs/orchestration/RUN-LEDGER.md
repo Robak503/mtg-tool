@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **426 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **427 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,28 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D14: CHANGE THE TARGET (CR 115.7a) — Kinnan 87 → 88, Believe it! 86 → 87, Killer Turts 85 → 88 · **+7** · corpus 15,079 / 34,245
+> Suite **1,660 files / 17,165 tests** green (1 skipped); lint 0; decks 2,679 / 2,998. CI GREEN on D13 (run 36773209495). Flip-diff **+7, zero LOST,
+> zero RETIERED** (tier snapshots at 4735df65 → the change). **Mutants 40/42 killed on assertions; the 2 survivors were dead and are removed** (restore byte-identical).
+> · **Why:** the three pod-sim decks (Killer Turts, Kinnan, Believe it!) carry five redirect spells the engine refused: "Change the target
+>   of target spell [or ability] with a single target" — mandatory (115.7a), unlike Deflecting Swat's optional "choose new targets" (115.7d).
+> · **Build:** `change-target` atom (spell form = single-target + not-a-counter; "or ability" form — the single-target filter now reaches
+>   abilities too) · `changeTargetAlternatives` (targeting.js: the object's side, slot, kick and mode — 115.8; never the current target,
+>   never itself — 115.5) · none → stays, logged · one → moves · several → a NEW `change-target` pause: ChangeTargetPanel (no decline),
+>   pilot one-action-per-candidate, autopilot by the redirected slot's intent (harm → not ours; help → ours); the settle takes only an
+>   OFFERED candidate that is STILL legal · AI arm: cast only at an opponent's harmful single-target object aimed at its stuff that can go
+>   to an opponent's side, costliest first · Untimely Malfunction's "one or two target creatures can't block" · seatLabels.js leaf.
+> · **⚠️ LATENT FP CLOSED (CR 115.5):** Deflecting Swat re-enumerated a spell's targets with the spell still on the stack, so a Counterspell
+>   aimed at your spell could be deflected onto ITSELF. Now declines (`swatNeverItself`).
+> · **Honest limits:** Bolt Bend pays full price (its "{3} less if you control a creature with power 4 or greater" is the documented
+>   unmodeled-self-reduction policy — castModifiers.stripSelfCostReduction). Ricochet Trap parked on its blue-spell trap cost. The AI holds
+>   the modal Untimely Malfunction (generic hold). FOLLOW-UP QUEUED: 119 corpus cards print "costs {N} less to cast if <condition>" —
+>   70 already native at full price; a shared-condition reducer (interveningIf) would make them correct.
+> · **Runtime:** `WITNESS misdirectionChoice {"offered":["ai","bear","user"],"moved":["bear"],"bearDead":true,"giantAlive":true}` ·
+>   `counterspellNeverItself {"withBolt":→Lightning Bolt, "alone":no-other-legal-target}` · `aiRedirects {"card":"Misdirection","target":"Lightning Bolt"}`.
+>   Witnesses `app/src/lib/learn/changeTarget.test.js` (27), `app/src/components/mtg/changeTargetPanel.test.jsx` (3).
+> · **Next:** Wolverine 88 (power-doubling cluster / Multiversal Passage) · Believe it! · the 86s.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D13: the reflexive CHOSEN sacrifice — **Captain America 89 → 90** (Iron Man) · **+3** · corpus 15,072 / 34,245
 > Suite **1,658 files / 17,134 tests** green (1 skipped); lint 0; decks 2,674 / 2,998. CI GREEN on D12 (run 36770424179). Flip-diff **+3, zero LOST,

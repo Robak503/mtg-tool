@@ -46,6 +46,7 @@ import {
   setPendingEdictModeChoice,
   setPendingCommanderReturnChoice,
   setPendingCleanupDiscardChoice,
+  setPendingChangeTargetChoice,
 } from "./pendingChoice.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
 
@@ -122,6 +123,9 @@ const FIXTURES = {
   // autopick returns null, nothing discards, the excess recomputes to 0, and the deferred 514.2
   // cleanup tail runs (settleCleanupDiscardChoice → finishCleanupActions) → pendingChoice cleared.
   "cleanup-discard": (s) => setPendingCleanupDiscardChoice(s, { controller: "ai", candidates: [], count: 1 }),
+  // CHANGE THE TARGET (shelf D14) — the redirected object is gone and nothing was offered: the autopick returns null, the
+  // settle changes nothing (logged "gone"), and the choice clears in one tick.
+  "change-target": (s) => setPendingChangeTargetChoice(s, { controller: "ai", stackObjectId: "gone", candidates: [] }),
 };
 
 describe("PENDING_CHOICE_KINDS is exhaustive against the FIXTURES map (this test file itself)", () => {

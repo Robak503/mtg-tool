@@ -121,6 +121,7 @@ const PAUSING_OPS_LIST = [
   "counter", // stack.js applyCounter (soft counter / unlessPay) → setPendingSoftCounterChoice
   "optional-mana-payment", // stack.js applyOptionalManaPayment → setPendingOptionalManaPaymentChoice
   "optional-sac-payment", // stack.js applyOptionalSacPayment → setPendingOptionalSacBySubtypeChoice
+  "change-target", // stack.js applyChangeTarget → setPendingChangeTargetChoice (shelf D14 — pauses only on 2+ other legal targets)
   "optional-draw-discard", // stack.js applyOptionalDrawDiscard → setPendingOptionalDrawDiscardChoice
   "optional-discard-payment", // stack.js applyOptionalDiscardPayment → setPendingOptionalDiscardPaymentChoice (the cost-discard pause; payoff is non-pausing)
   "optional-exile-self-payment", // stack.js applyOptionalExileSelfPayment → setPendingOptionalExileSelfChoice (Undead Butler — the dies self-exile cost pause)

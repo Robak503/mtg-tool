@@ -30,7 +30,9 @@ import { updatePermanentSafe } from "../gameState.js"; // IMPRINT (CR 207.2c): t
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, gainLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
 import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard, policyEvalEnabledFor } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
-import { programConfidence } from "./parser.js";
+import { programConfidence, atomTargetIntent } from "./parser.js"; // + atomTargetIntent — the change-target auto-pick reads the redirected slot's side (shelf D14)
+import { moveStackTarget } from "./atoms/stack.js"; // CHANGE THE TARGET (shelf D14) — the settle writes the pick back; runProgram already reaches atoms/stack.js through parser → effectAtoms, so no new cycle
+import { changeTargetAlternatives, atomForStackTarget } from "./targeting.js"; // CHANGE THE TARGET — the settle re-derives the alternatives; the auto-pick finds the redirected slot's atom
 import { checkDiscardTriggers, checkDiesTriggers, checkLibrarySearchTriggers, checkLifegainTriggers } from "../triggers.js"; // + checkLifegainTriggers — Kwain's per-drawer life (2026-09-05)
 import { applyDrawEffect } from "../spellEffects.js"; // Kwain (2026-09-05) — the trigger-threading draw for the each-player-may DRAW fold // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event; checkDiesTriggers — the move-from-self settle's lethal sweep (W1)
 import { isLandCard } from "./atoms/shared.js"; // SAC-UNLESS-RETURN-LAND — shared.js is a strict leaf, so this edge is DAG-safe
@@ -1615,6 +1617,41 @@ export function autoPickOptionalSac(state, pc) {
     return token ? token.id : false;
   }
   return !!pc?.available; // sac iff a matching permanent exists (you can't sacrifice what you don't control)
+}
+
+/**
+ * ===== CHANGE THE TARGET (shelf D14, CR 115.7a) ===== — settle the redirector's pick: the redirected object's one target moves
+ * to the named candidate, then the suspended program resumes (or the spell finishes). The pick must be one of the offered
+ * candidates AND still one of the object's legal alternatives now (re-derived; nothing should move while paused, but a stale
+ * or malformed pick never moves a target — it stays, logged with why).
+ */
+export function resolveChangeTargetChoice(state, targetId) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "change-target") return state;
+  let next = clearPendingChoice(state);
+  const obj = (next.stack || []).find((o) => o.id === pc.stackObjectId);
+  const offered = (pc.candidates || []).some((c) => c.id === targetId);
+  const pick = obj && offered ? (changeTargetAlternatives(next, obj) || []).find((c) => c.id === targetId) ?? null : null;
+  next = pick
+    ? moveStackTarget(next, obj.id, pick, pc.controller)
+    : logEvent(next, { kind: "spell-effect", effect: "change-target-unchanged", reason: !obj ? "gone" : "no-valid-pick", targetId: pc.stackObjectId, controller: pc.controller });
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * ===== CHANGE THE TARGET ===== — the autopilot's pick (an AI seat, or a pilot with no decision). The redirected slot's intent
+ * decides the side: a HARMFUL effect ("enemy" — removal, burn, a counterspell) goes to a candidate that is not the redirector's
+ * own, a BENEFICIAL one ("own" — a pump) to one that is. The first such candidate in enumeration order (deterministic); with
+ * none on the wanted side the change is still mandatory (CR 115.7a), so the first candidate. Null when nothing was offered.
+ */
+export function autoPickChangeTarget(state, pc) {
+  const cands = pc?.candidates || [];
+  if (!cands.length) return null;
+  const obj = (state.stack || []).find((o) => o.id === pc.stackObjectId);
+  const intent = obj ? atomTargetIntent(atomForStackTarget(obj, obj.payload?.params?.targets?.[0])) : null;
+  const mine = (c) => (c.type === "player" ? c.id : c.controller) === pc.controller;
+  const wanted = intent === "own" ? cands.filter(mine) : cands.filter((c) => !mine(c));
+  return (wanted[0] ?? cands[0]).id;
 }
 
 /**

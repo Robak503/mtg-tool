@@ -61,6 +61,7 @@ const PENDING_WIRE_FIELDS = [
   "remaining",
   "victim",
   "restTo",
+  "from", // change-target (shelf D14) — the redirected object's current target, { id, name, type, controller }, for the panel's "from" line
 ];
 
 /**

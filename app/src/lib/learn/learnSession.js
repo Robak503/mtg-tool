@@ -94,6 +94,8 @@ import {
   resolveOptionalLifePaymentChoice,
   autoPickOptionalSac,
   resolveOptionalSacChoice,
+  autoPickChangeTarget,
+  resolveChangeTargetChoice,
   autoPickOptionalDrawDiscard,
   resolveOptionalDrawDiscardChoice,
   autoPickOptionalDiscard,
@@ -895,6 +897,14 @@ function settleSylvanLibraryChoice(state, pay) {
 function settleOptionalSacChoice(state, value) {
   // `value`: true/false for the value-token form; the chosen candidate's id (or false) for the chosen form (shelf D13).
   const next = resolveOptionalSacChoice(state, !!value, typeof value === "string" ? value : null);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+// CHANGE THE TARGET (shelf D14, CR 115.7a) — settle the redirector's pick (`value` = the candidate's id): the redirected object's
+// target moves, the suspended program resumes — which may set another choice, so guard before flushing — then
+// finalizeStackResolution flushes what the resolution enqueued. Mirrors settleOptionalSacChoice.
+function settleChangeTargetChoice(state, value) {
+  const next = resolveChangeTargetChoice(state, typeof value === "string" ? value : null);
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
@@ -2257,6 +2267,29 @@ export function advanceUntilDecision(
         current = { ...current, state: settleOptionalSacChoice(current.state, picked.value) };
         continue;
       }
+      // ===== CHANGE THE TARGET ===== (shelf D14, CR 115.7a — Misdirection and kin). pc.controller is the redirector: a human
+      // pauses on the panel; a pilot is offered one action per candidate (no decline — the change is mandatory); an AI takes
+      // autoPickChangeTarget (the redirected slot's intent picks the side).
+      if (pc.kind === "change-target") {
+        if (pause) {
+          return { session: current, decision: { kind: "change-target", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
+          buildOffered: () => (pc.candidates || []).map((c) => ({ kind: "pending-choice", choiceKind: pc.kind, value: c.id })),
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            value: autoPickChangeTarget(current.state, pc),
+          },
+        });
+        current = { ...current, state: settleChangeTargetChoice(current.state, picked.value) };
+        continue;
+      }
       if (pc.kind === "optional-draw-discard") {
         if (pause) {
           return { session: current, decision: { kind: "optional-draw-discard", ...pc } };
@@ -3371,6 +3404,46 @@ export function applyOptionalSacChoice(session, choice, opts = {}) {
 }
 
 /**
+ * ===== CHANGE THE TARGET ===== (shelf D14, CR 115.7a) — the player named where the redirected spell or ability's target goes
+ * (`choice.targetId`, one of the pause's candidates). resolveChangeTargetChoice moves it — a pick that isn't a live candidate
+ * moves nothing — then the program resumes and the session re-derives. A double-submit (nothing pending) re-derives. Mirrors
+ * applyOptionalSacChoice.
+ */
+export function applyChangeTargetChoice(session, choice, opts = {}) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "change-target") {
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
+  }
+  const targetId = typeof choice?.targetId === "string" ? choice.targetId : null;
+  let newState;
+  try {
+    newState = settleChangeTargetChoice(session.state, targetId);
+  } catch (error) {
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "change-target-choice", stackObjectId: pc.stackObjectId, targetId },
+    auto: false,
+    reasoning: "user-chose-change-target",
+  };
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
+}
+
+/**
  * ===== OPTIONAL DRAW-THEN-DISCARD ===== — the player chose to draw (and then discard) or not, for a "you may
  * draw a card. If you do, discard a card." `choice.draw` is the yes/no. resolveOptionalDrawDiscardChoice runs the
  * [draw, discard] on yes (or nothing on decline), then resumes + re-derives. Mirrors applyOptionalSacChoice.
@@ -4263,6 +4336,7 @@ export function applyPendingChoice(session, choice, opts = {}) {
   if (kind === "tainted-pact") return applyTaintedPactChoice(session, choice, opts); // BI-2
   if (kind === "tempting-offer") return applyTemptingOfferChoice(session, choice, opts); // Tempt with Discovery — the asked opponent's answer
   if (kind === "optional-sac-payment") return applyOptionalSacChoice(session, choice, opts);
+  if (kind === "change-target") return applyChangeTargetChoice(session, choice, opts); // shelf D14 (Misdirection)
   if (kind === "optional-draw-discard")
     return applyOptionalDrawDiscardChoice(session, choice, opts);
   if (kind === "optional-discard-payment")
