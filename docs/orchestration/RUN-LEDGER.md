@@ -5,14 +5,37 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **398 commits**, corpus
-> 38.6% → **43.6% (14,945)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **399 commits**, corpus
+> 38.6% → **43.7% (14,953)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 41: "this creature gets +X/+N until end of turn, where X is <count>" — Rubblebelt Rioters, Orcish Siegemaster and six more · **+8** · corpus 14,953 (43.7%) / 34,245
+> Suite **1632 files / 16,880 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 40 (run 36714937690, which anchors ③ · 39 — its own run was cancelled by concurrency, not red). Flip-diff **+8, zero LOST, zero retiered** (tier snapshots at
+> 3fb0e468 → the change). **Mutants 6/6 killed on assertions** (restore byte-identical).
+> · **Census rank 62** (Orcish Siegemaster #4730, Rubblebelt Rioters #17746): the subtype-target "where x is" pump existed
+>   (Magma Sliver's grant); the SELF form had only the symmetric "for each" arm. A combat.js self arm reuses the pump applier's
+>   counted lane — ptDeltaCount, ptDeltaCountSlot for the one scaling stat, the count read on the pre-pump board at resolution
+>   (CR 608.2h). The same arm flipped six more self carriers: Vile Deacon, Imaryll (attack triggers), Hellkite Igniter,
+>   Sokenzan Spellblade, Kitsune Loreweaver, Graverobber Spider (activated, their self-name normalized).
+> · **⚠️ A false positive caught by the flip-diff before any gate:** the first draft took `(this creature|it)` and flipped
+>   Angelic Exaltation and Team Avatar — "Whenever a creature you control attacks alone, IT gets +X/+X …", where "it" is the
+>   TRIGGERING creature; the arm would have pumped the source. Fixed at the right layer: the arm takes "this creature" only,
+>   and the detector names a SELF trigger's "it" (triggers.js `SELF_PUMP_X_IT_RE`, gated on scope "self" exactly like
+>   SELF_PUMP_IT_RE). Those two stay parked (a safe FN — the triggering-creature form is its own slice).
+> · **Runtime:** `WITNESS rioters {"before":"0/4","after":"5/4"}` — beside a 5-power Giant, through checkAttackTriggers and the
+>   stack · Orcish Siegemaster alone +0/+0 (the vacuity control), beside a Bear +2/+0 · Vile Deacon counts every Cleric on the
+>   battlefield, the opponent's too · Imaryll counts OTHER Elves you control, not itself or an opponent's · Angelic
+>   Exaltation's lone attacker untouched · `WITNESS loreweaver {"before":"2/1","after":"2/4"}` — the toughness slot, through the
+>   real activation · Hellkite Igniter +2/+0 for two artifacts · Sokenzan Spellblade +1/+0 for one card in hand · Graverobber
+>   Spider counts creature cards in the graveyard, not the Forest.
+> · **Mutants 6/6:** the arm removed · a bare "it" read as the source (the first draft) · the detector's rewrite not gated on
+>   scope · the rewrite removed · the scaling slot ignored · the slot inverted. Witness `app/src/lib/learn/selfCountedPump.test.js` (10).
+> · **Next:** census rank 63.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 40: "put target creature card from a graveyard onto the battlefield under your control" on a trigger — Debtors' Knell, Teneb, the Harvester · **+2** · corpus 14,945 (43.6%) / 34,245
 > Suite **1631 files / 16,870 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at

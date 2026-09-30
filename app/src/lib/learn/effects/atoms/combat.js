@@ -2394,6 +2394,26 @@ export function pumpClauseParser(clause) {
       ...(slot ? { ptDeltaCountSlot: slot } : {}),
     } : null;
   }
+  // SELF "+X/+N … WHERE X IS <count>" (the 09-06 plan's stage ③ · 41, 2026-09-30 — Rubblebelt Rioters, Orcish Siegemaster:
+  // "Whenever this creature attacks, it gets +X/+0 until end of turn, where X is the greatest power among creatures you
+  // control"). The self twin of the subtype-target arm's "where x is" form above: the X pip scales off the count at
+  // resolution (CR 608.2h — countForSpec on the pre-pump board), a fixed pip keeps its printed value, and
+  // ptDeltaCountSlot names the scaling stat when only one does. The count through parseCountSource; an unmodeled count
+  // falls through (never an early null, so the lifegain-amount arm above keeps its clause) → low → Arbiter.
+  // ⛔ "this creature" ONLY, never a bare "it": in a NON-self trigger ("Whenever a creature you control attacks alone, it gets
+  // +X/+X …" — Angelic Exaltation, Team Avatar) "it" is the TRIGGERING creature, and reading it as the source would pump the
+  // wrong object. The detector names a SELF trigger's "it" (triggers.js SELF_PUMP_X_IT_RE, self-scope gated); an activated
+  // ability's self-name arrives normalized.
+  m = t.match(/^this creature gets (\+x|\+\d+)\/(\+x|\+\d+) until end of turn, where x is (?:the )?(.+)$/);
+  if (m) {
+    const pIsX = m[1] === "+x", tIsX = m[2] === "+x";
+    const countSpec = (pIsX || tIsX) ? parseCountSource(m[3].replace(/^number of /, ""), { allowBattlefield: true }) : null;
+    if (countSpec) {
+      const slot = pIsX && tIsX ? null : (pIsX ? "p" : "t");
+      return { op: "pump", target: "self", ptDeltaCount: countSpec, ...(slot ? { ptDeltaCountSlot: slot } : {}),
+        ptDelta: { p: pIsX ? 0 : parseInt(m[1], 10), t: tIsX ? 0 : parseInt(m[2], 10) } };
+    }
+  }
   m = t.match(/^this creature gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (m) return { op: "pump", target: "self", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
   m = t.match(/^this creature gets ([+-]\d+)\/([+-]\d+) and gains (.+) until end of turn$/);

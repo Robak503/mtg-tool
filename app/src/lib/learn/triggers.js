@@ -3478,6 +3478,10 @@ export function exaltedKeywordCount(oracle) {
 // GIVES the parser the chance to model it — never asserts coverage. A pump-grant ("and gains KW") form has no
 // "for each" tail in printed text, so the optional tail rides the pure ±P/±P branch only.
 const SELF_PUMP_IT_RE = /^it (?:gets [+-]\d+\/[+-]\d+(?: and gains .+?)?|gains .+?) until end of turn(?: for each .+)?$/i;
+// + the counted form (the 09-06 plan's stage ③ · 41 — Rubblebelt Rioters, Vile Deacon, Imaryll: "Whenever this creature
+// attacks, it gets +X/+0 until end of turn, where X is …"). Same self-scope gate as SELF_PUMP_IT_RE below: a NON-self
+// trigger's "it" (Angelic Exaltation's lone attacker) is the triggering creature and is left unnamed → a safe FN.
+const SELF_PUMP_X_IT_RE = /^it gets (?:\+x|\+\d+)\/(?:\+x|\+\d+) until end of turn, where x is .+$/i;
 
 // THAT-CREATURE PUMP (BLITZ TR-2 — Agents of S.H.I.E.L.D. "Whenever a creature you control attacks alone,
 // THAT CREATURE gets +1/+1 until end of turn"): the NON-self pronoun-subject pump with "that creature"
@@ -4772,7 +4776,7 @@ export function detectTriggers(card) {
       if (cls.event === "dies" && cls.scope === "self") {
         effectClause = effectClause.replace(/^put it on the bottom of its owner's library$/i, "put this creature on the bottom of its owner's library");
       }
-      if (cls.scope === "self" && SELF_PUMP_IT_RE.test(effectClause)) {
+      if (cls.scope === "self" && (SELF_PUMP_IT_RE.test(effectClause) || SELF_PUMP_X_IT_RE.test(effectClause))) {
         effectClause = effectClause.replace(/^it /i, "this creature ");
       }
       if (cls.scope === "self" && SELF_COUNTER_IT_RE.test(effectClause)) {

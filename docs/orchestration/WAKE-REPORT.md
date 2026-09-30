@@ -64,7 +64,8 @@
 > ③ · 38 Flickerwisp, Glimmerpoint Stag — the delayed-return blink on the permanent pool (+2 → corpus 14,943;
 > suite 1629 / 16,859) · ③ · 39 the optional-payment wrapper offered targets wider than printed on 13 native cards — closed
 > (+0; suite 1630 / 16,864) · ③ · 40 Debtors' Knell, Teneb — a reanimate from ANY graveyard reads intent "any" (+2 → corpus
-> 14,945; suite 1631 / 16,870); the Virtues filed as their own task. **Next:** census rank 62 — the RUN-LEDGER's ③ entries carry the verdicts so far.
+> 14,945; suite 1631 / 16,870); the Virtues filed as their own task · ③ · 41 Rubblebelt Rioters and seven more — the self
+> counted pump (+8 → corpus 14,953; suite 1632 / 16,880). **Next:** census rank 63 — the RUN-LEDGER's ③ entries carry the verdicts so far.
 > **State (measured 2026-09-29 at 5df810d2, Opus 5.5 seat):** suite **1585 files / 16,429 tests** green (1 skipped; 172 s;
 > `VITEST_TIMEOUT_MS=900000 npm test`) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30 decks, **88%** aggregate
 > (2,650 / 2,998), **13 at ≥90** (Mothman by rounding: 88/98 = 89.8%), Atraxa **74** the floor · nothing held:

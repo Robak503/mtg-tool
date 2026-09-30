@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Rubblebelt Rioters, Orcish Siegemaster, Vile Deacon, Imaryll, Hellkite Igniter, Sokenzan Spellblade, Kitsune
+  Loreweaver, Graverobber Spider** — "gets +X/+0 (or +X/+X, +0/+X) where X is …" now counts, on attack or on activation
 - **Debtors' Knell, Teneb, the Harvester** — bring a creature back from any graveyard under your control
 - **Flickerwisp, Glimmerpoint Stag** — exile another permanent that comes back at the next end step (a land returns
   untapped; a token doesn't return)
