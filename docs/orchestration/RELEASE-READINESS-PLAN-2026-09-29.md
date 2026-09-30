@@ -84,7 +84,10 @@ cache save on `always()`). Then run `sync-spellbook` once by hand to rebuild its
 2026-08-16` heading at the tag boundary (`git log v0.159.0..v0.160.0` decides which entries shipped), and leave
 everything after it in `[Unreleased]` for 0.161.0.
 
-**DONE R5:** `[0.160.0]` exists; `[Unreleased]` holds only post-v0.160.0 work.
+**DONE R5:** `[0.160.0]` exists; `[Unreleased]` holds only post-v0.160.0 work. ✅ **MET 2026-09-30** — the tag-time
+`[Unreleased]` (a lone `### Fixed`, 31 bullets) sat contiguously at the bottom of today's; moved verbatim under
+`## [0.160.0] - 2026-08-16` by a verified script (no line lost or duplicated; the diff is +4 lines); 304 bullets stay
+in `[Unreleased]` for 0.161.0.
 
 ## §6 R6 — docs QoL (the 2026-09-29 audit backlog)
 
