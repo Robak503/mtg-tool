@@ -39,6 +39,8 @@ export function wardCostLabel(decision) {
   // payment, and now the Minotaur Explorer family's sacrifice-unless) and energy (the optional-payment lane's {E} costs).
   if (cost?.kind === "discard-random") return (cost.count || 1) === 1 ? "Discard a card at random" : `Discard ${cost.count} cards at random`;
   if (cost?.kind === "energy") return `Pay ${"{E}".repeat(Math.max(1, cost.amount || 0))}`;
+  // REMOVE-A-COUNTER (shelf D19 — Ingenious Prodigy's optional payment): the counters come off the source.
+  if (cost?.kind === "remove-counter") return (cost.count || 1) === 1 ? `Remove a ${cost.counterType} counter` : `Remove ${cost.count} ${cost.counterType} counters`;
   if (cost?.kind === "sacrifice") {
     const t = cost.type || "permanent";
     return (cost.count || 1) === 1 ? `Sacrifice ${/^[aeiou]/i.test(t) ? "an" : "a"} ${t}` : `Sacrifice ${cost.count === 2 ? "two" : cost.count} ${t}s`;

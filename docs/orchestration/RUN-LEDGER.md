@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **431 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **432 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,26 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D19: A REMOVE-A-COUNTER PAYMENT + THE CHOSEN-TYPE TRIGGER DOUBLER — Believe it! 88 → 90 · **+2** · corpus 15,098 / 34,245
+> Suite **1,667 files / 17,218 tests** green (1 skipped); lint 0; decks 2,691 / 2,998. CI GREEN on D18 (run 36788596908). Flip-diff **+2, zero LOST,
+> zero RETIERED** (tier snapshots at e24cbe61 → the change: Roaming Throne body-only → native-static, Ingenious Prodigy body-only → native-trigger). **Mutants 19/19** (restore byte-identical).
+> · **Why:** Believe it! (88) needed two; after D18 every remaining single-line blocker on the shelf is a one-off, so the pick is
+>   the two whose machinery already existed: the optional-payment lane and the source-scoped trigger multiplier.
+> · **Build — Ingenious Prodigy:** interveningIf's source-counter threshold reads the P/T spellings ("+1/+1" / "-1/-1" are the map
+>   keys) · a `remove-counter` cost kind on the optional-mana-payment lane ("you may remove <N> <kind> counter(s) from it / this
+>   <noun>. If you do, <payoff>"): the counters come off the SOURCE all-or-nothing, the payoff runs only when they did, the AI
+>   pays if able through the same predicate the settle uses, the panel names the counter. Time / fade / loyalty stay refused.
+>   "it" = the source on every corpus carrier (13 cards censused; all five "from it" forms are self-subject triggers).
+> · **Build — Roaming Throne:** the multiplier family reads "it triggers an additional time" and a subject term off the static's
+>   own permanent — the creature type it chose as it entered (perm.chosenType), layer-aware, changelings included (CR 702.73a);
+>   "another" keeps the Throne's own abilities out though it is that type too.
+> · **Payment carriers that parse now but stay parked (another line blocks):** Sun Droplet and Living Artifact ("whenever you're
+>   dealt damage, put that many … counters"), Nazar ("whenever you gain life, put a feeding counter"), Purestrain Genestealer.
+> · **Runtime:** `WITNESS prodigyPays {"counters":1,"hand":1}` (after paying off 2) · `nazarAllOrNothing` short (2 of 3 feeding):
+>   no pick, nothing removed, no draw; full: 0 left, drew 3, life 37 · `roamingThrone {"visionary":2,"omens":1,"cohortTokens":2}`.
+>   Witnesses `app/src/lib/learn/ingeniousProdigy.test.js` (7) · `roamingThrone.test.js` (5) · the label in `PendingChoicePanels.test.jsx`.
+> · **Next:** the 86s (Teval, Brago, Shorikai — each needs 4) · We Say Thee Nay! · the choose-two bite template.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D18: VEIL OF SUMMER (can't-be-countered this turn · hexproof from colours) — Kinnan 89 → 90, Killer Turts 89 → 90 · **+1** · corpus 15,096 / 34,245
 > Suite **1,665 files / 17,204 tests** green (1 skipped); lint 0; decks 2,689 / 2,998. CI GREEN on D17 (run 36785819963). Flip-diff **+1, zero LOST,

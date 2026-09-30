@@ -716,7 +716,8 @@ const CTRL_GAINED_LIFE_N_RE = new RegExp(`^you(?:['’]ve| have)? gained ${NUM_R
 // (ctx.sourcePermanentId, threaded by makePendingTrigger), re-evaluated at flush AND resolution. The
 // source gone from the battlefield → null (can't confirm → FN-safe drop, the engine convention for a
 // vanished source). Anchored; the counter type is a bare word matched against the counters map key.
-const SOURCE_COUNTER_THRESHOLD_RE = new RegExp(`^this (?:enchantment|artifact|creature|permanent) has ${NUM_RE} or more ([a-z]+) counters on it$`);
+// + the P/T spellings (shelf D19 — Ingenious Prodigy's "one or more +1/+1 counters"): "+1/+1" / "-1/-1" ARE the map keys.
+const SOURCE_COUNTER_THRESHOLD_RE = new RegExp(`^this (?:enchantment|artifact|creature|permanent) has ${NUM_RE} or more (\\+1/\\+1|-1/-1|[a-z]+) counters on it$`);
 // SOURCE-HAS-ANY-COUNTERS (The Ozolith, W2 — CR 603.4): the threshold-less, kind-less sibling — "this
 // permanent has counters on it" (the rewriteSelfNameInterveningIf-normalized form of "<Name> has counters
 // on it"). Same live source read + FN-safe drops, true iff ANY counter kind sits at ≥1.

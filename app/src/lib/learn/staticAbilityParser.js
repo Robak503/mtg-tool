@@ -1963,6 +1963,12 @@ const SRC_MULT_CARDTYPES = new Set(["creature", "artifact", "enchantment", "land
  */
 function parseSourceTriggerMultiplierSubject(subject, _selfName) {
   const s = String(subject || "").trim();
+  // "another creature you control of the chosen type" (Roaming Throne, shelf D19): the creature type named as the static's
+  // own permanent entered (perm.chosenType, CR 614.12), read LIVE off that permanent at the count, changelings included
+  // (CR 702.73a — the shared chosen-type predicate). "another" excludes the static's own permanent, which is that type too.
+  if (/^another creature you control of the chosen type$/.test(s)) {
+    return { kind: "typedUnion", terms: [{ cardType: "creature", chosenTypeOfSource: true, excludeSelf: true }] };
+  }
   // Every supported shape is controller-qualified ("… you control"). A subject WITHOUT it would scope to
   // every player's permanents — no printed carrier does that, and inventing the scope would over-fire.
   const m = s.match(/^(.+?) you control$/);
@@ -2187,7 +2193,8 @@ function parseClause(clause, out, selfName, selfType) {
   // creature you control with power 2 or less") and Echoes of Eternity's spell-inclusive colorless scope
   // are both unclaimed on purpose: doubling the wrong permanent's triggers is a forbidden FP, and it is
   // invisible to any P/T-shaped gate.
-  const srcMultM = c.match(/^if a triggered ability of (.+?) triggers, that ability triggers an additional time$/);
+  // + "…, IT triggers an additional time" (Roaming Throne, shelf D19) — the same instruction worded with the pronoun.
+  const srcMultM = c.match(/^if a triggered ability of (.+?) triggers, (?:that ability|it) triggers an additional time$/);
   if (srcMultM) {
     const filter = parseSourceTriggerMultiplierSubject(srcMultM[1], selfName);
     if (filter) {

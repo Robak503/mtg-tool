@@ -1594,8 +1594,19 @@ export function autoPickOptionalManaPayment(state, pc) {
   // settle's cost arm gates on, so auto-pick and settle cannot disagree — the Masticore lesson). Untapping
   // your own creature for one random card is the pay-if-able default; a hand-value refinement is future.
   if (cost?.kind === "discard-random") return (player.hand || []).filter((c) => !c.token).length >= (cost.count || 1);
+  // REMOVE-A-COUNTER (shelf D19, Ingenious Prodigy) — pay iff the source still carries enough of that counter, the SAME
+  // predicate the settle's cost arm gates on. The modeled payoffs (draw, gain life, fetch a land) are the reason the
+  // counters exist on these cards, so pay-if-able is the default.
+  if (cost?.kind === "remove-counter") return sourceHasCountersToRemove(state, pc);
   if (cost?.kind !== "mana") return false; // only the modeled mana / energy forms pay
   return canAfford(player.manaPool, manaSources(state, pc.controller), cost.mana || {});
+}
+
+/** REMOVE-A-COUNTER cost (shelf D19): the source (the paused program's sourceId) still has `count` of the counter. A source
+ *  that left the battlefield has none (getCounter reads 0), so nothing is removed and the payoff never runs. */
+function sourceHasCountersToRemove(state, pc) {
+  const id = pc?.resume?.sourceId;
+  return !!id && getCounter(state, id, pc.cost.counterType) >= (pc.cost.count || 1);
 }
 
 /**
@@ -1703,6 +1714,13 @@ export function resolveOptionalManaPaymentChoice(state, pay) {
     const nontoken = (next.players[pc.controller]?.hand || []).filter((c) => !c.token);
     if (nontoken.length >= (pc.cost.count || 1)) {
       next = pitchRandomDiscard(next, { discarders: [pc.controller], amount: pc.cost.count || 1, sourceName: pc.sourceName || null });
+      paid = true;
+    }
+  } else if (canPay && pay && pc.cost?.kind === "remove-counter") {
+    // REMOVE-A-COUNTER (shelf D19 — Ingenious Prodigy): all the named counters come off the source, or none do and the
+    // payoff never runs ("if you do") — a source that left, or lost them in response, pays nothing.
+    if (sourceHasCountersToRemove(next, pc)) {
+      next = removeCounter(next, { permanentId: pc.resume.sourceId, type: pc.cost.counterType, amount: pc.cost.count || 1 });
       paid = true;
     }
   }

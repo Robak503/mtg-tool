@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Ingenious Prodigy** — at your upkeep, while it has a +1/+1 counter, you may remove one to draw a card (the same "remove a counter. If you do" choice now works wherever a card's text is otherwise supported)
+- **Roaming Throne** — triggered abilities of your other creatures of the chosen type trigger an additional time
 - **Veil of Summer** — draws when an opponent has cast a blue or black spell this turn, makes your spells uncounterable for the rest of the turn (including ones already on the stack), and gives you and your permanents hexproof from blue and black until end of turn
 - **Traps** — Ricochet, Mindbreak, Pitfall, Needlebite, Runeflare, Ravenous, Lethargy and Slingbow Trap (and Admiral's Order) offer their cheap alternative cost exactly when its condition is met this turn; Mindbreak Trap exiles any number of spells, even ones that can't be countered
 - **Teamwork** — HULK SMASH!, Go Nuts!, Widow's Bite, Murdock's Crusade, Crossover Collaboration, Cruel Alliance and Helicarrier Strike can be cast with teamwork: the game taps the creatures that pay it (naming them on the button) and the spell gets its upgrade — both modes for the "choose both" spells

@@ -36,6 +36,10 @@ describe("wardCostLabel — no cost kind falls to the numeric lie", () => {
   it("a random discard names itself (Apathy's optional payment and the sacrifice-unless share it)", () => {
     expect(wardCostLabel({ cost: { kind: "discard-random", count: 1 } })).toBe("Discard a card at random");
   });
+  it("a counter removal names the counter (shelf D19 — Ingenious Prodigy's one, Nazar's three)", () => {
+    expect(wardCostLabel({ cost: { kind: "remove-counter", counterType: "+1/+1", count: 1 } })).toBe("Remove a +1/+1 counter");
+    expect(wardCostLabel({ cost: { kind: "remove-counter", counterType: "feeding", count: 3 } })).toBe("Remove 3 feeding counters");
+  });
 });
 
 /** Strip tags so assertions read against visible text, not markup. */

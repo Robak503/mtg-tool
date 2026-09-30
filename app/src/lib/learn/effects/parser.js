@@ -1711,24 +1711,40 @@ function matchOptionalManaPayment(oracle, cardType) {
   // mana pips, optionally with a LIFE RIDER (Ripples of Undeath "pay {1} and 3 life", 2026-08-15): the
   // rider becomes cost.life, charged by the settler beside payManaCost. Absent → byte-identical.
   const m = s.match(/^you may pay\s+(\{[^}]+\}(?:\{[^}]+\})*)( and (\d+) life)?\.\s*if you do,?\s+(.+)$/i);
-  if (!m) return null;
-  const costLife = m[2] ? parseInt(m[3], 10) : 0;
-  m.splice(2, 2); // drop the life groups so every existing index below reads unchanged
-  const pips = (m[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
-  if (!pips.length) return null;
-  // ENERGY variant (CR 122.1e) — "you may pay {E}{E}. If you do, <effect>" (Hexgold Slith, Thriving Rats,
-  // Aetherstorm Roc). All pips are {E}; the cost is a count of energy the settler spends (hasEnergy/spendEnergy),
-  // NOT mana. The optional-effect suspend + payoff gates below are cost-agnostic — only the cost shape differs.
+  // REMOVE-A-COUNTER cost (shelf D19 — Ingenious Prodigy "you may remove a +1/+1 counter from it. If you do, draw a card";
+  // Sun Droplet, Living Artifact, Purestrain Genestealer): the counters come off the SOURCE. "it" is the source on every
+  // corpus carrier (each is a self-subject trigger — "whenever this creature attacks / at the beginning of your upkeep, if
+  // this creature has …"), the same reading the bare remove-named-counter-self clause makes. Fading / time / loyalty
+  // counters belong to their own subsystems and stay refused (the RESERVED-KIND guard beside that clause). Magmasaur's
+  // "If you don't, sacrifice …" is not this shape: the connective wants whitespace after "do", and the payoff gates below
+  // would refuse its "n't, …" tail regardless.
+  const rc = m ? null : s.match(/^you may remove (a|an|one|two|three|four|five) (\+1\/\+1|-1\/-1|[a-z]+) counters? from (?:it|this (?:creature|permanent|artifact|enchantment|aura))\.\s*if you do,?\s+(.+)$/i);
+  if (!m && !rc) return null;
   let cost;
-  if (pips.every((p) => /^e$/i.test(p))) {
-    if (costLife) return null; // an energy+life compound has no printed carrier — refuse, never guess
-    cost = { kind: "energy", amount: pips.length };
+  let rawPayoff;
+  if (rc) {
+    const counterType = rc[2].toLowerCase();
+    if (["time", "fade", "loyalty"].includes(counterType)) return null;
+    cost = { kind: "remove-counter", counterType, count: SMALL_NUM[rc[1].toLowerCase()] };
+    rawPayoff = rc[3].trim();
   } else {
-    const mana = parseFixedManaPips(pips);
-    if (!mana) return null;                                          // {X} / unknown symbol → unmodeled cost
-    cost = { kind: "mana", mana, ...(costLife ? { life: costLife } : {}) };
+    const costLife = m[2] ? parseInt(m[3], 10) : 0;
+    m.splice(2, 2); // drop the life groups so every existing index below reads unchanged
+    const pips = (m[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
+    if (!pips.length) return null;
+    // ENERGY variant (CR 122.1e) — "you may pay {E}{E}. If you do, <effect>" (Hexgold Slith, Thriving Rats,
+    // Aetherstorm Roc). All pips are {E}; the cost is a count of energy the settler spends (hasEnergy/spendEnergy),
+    // NOT mana. The optional-effect suspend + payoff gates below are cost-agnostic — only the cost shape differs.
+    if (pips.every((p) => /^e$/i.test(p))) {
+      if (costLife) return null; // an energy+life compound has no printed carrier — refuse, never guess
+      cost = { kind: "energy", amount: pips.length };
+    } else {
+      const mana = parseFixedManaPips(pips);
+      if (!mana) return null;                                          // {X} / unknown symbol → unmodeled cost
+      cost = { kind: "mana", mana, ...(costLife ? { life: costLife } : {}) };
+    }
+    rawPayoff = m[2].trim();
   }
-  const rawPayoff = m[2].trim();
   if (/\bif you do\b/i.test(rawPayoff)) return null;                 // a SECOND "if you do" — not modeled
   // SELF-PRONOUN (the Thriving cycle, census slice 40) — "…you may pay {E}{E}. If you do, IT gains first
   // strike / put a +1/+1 counter on IT." On these cards the sentence introduces no other object, so "it" is

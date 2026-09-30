@@ -2318,6 +2318,8 @@ function sourceMultiplierFilterMatches(state, filter, subject, staticPerm) {
     if (term.supertype && !new RegExp(`\\b${term.supertype}\\b`).test(line)) return false;
     if (term.cardType && !lowerTypes.includes(term.cardType)) return false;
     if (term.subtype && !lowerSubs.includes(term.subtype)) return false;
+    // "of the chosen type" (Roaming Throne, shelf D19): the static's own permanent's chosen type — none chosen, none match.
+    if (term.chosenTypeOfSource && !permHasChosenTypeLayer(subject.card, staticPerm.chosenType, state, subject.id)) return false;
     return true;
   });
 }
