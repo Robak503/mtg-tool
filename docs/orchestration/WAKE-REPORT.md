@@ -80,6 +80,7 @@
 > Stone Calendar, Highspire Bell-Ringer, Uthros Psionicist — the all-spells and second-spell reducers (+3 → corpus 14,989; suite 1644 / 16,975).
 > **The residue loop STOPS here — Colton (09-30): "Do my decks."** Next: the shelf decks' unplayed cards, until the v0.161.0 tag on/after 10-02.
 > **SHELF DECKS · D1** tribal digs read the printed capital — Avengers Tower takes Hulk Smash to 90% (+7 → corpus 14,996; suite 1645 / 16,981). Tool: `app/scripts/shelf-residue-map.mjs`.
+> **SHELF DECKS · D12** the Pod tutor — Birthing Pod, Vannifar, Oswald, Repurposing Bay; a sacrificed permanent's value frozen on its ability (+4 → corpus 15,069 (44.0%); suite 1656 / 17,119).
 > **SHELF DECKS · D11** five more damage-doubler scopes — Captain America 88 → 89 · Halfshell 84 → 85; Goblin Goliath's activated doubler no longer runs as a static (+5 → corpus 15,065 (44.0%); suite 1655 / 17,111).
 > **SHELF DECKS · D10** change a spell's target to this creature — Captain America 87 → 88 · Kinnan 86 → 87 · Believe it! 85 → 86 (Hydroelectric Specimen; corpus 15,060 (44.0%); suite 1654 / 17,100).
 > **SHELF DECKS · D9** committing a crime (CR 700.13) — Otharri 89 → 90 (+13 → corpus 15,059 (44.0%); suite 1653 / 17,089).

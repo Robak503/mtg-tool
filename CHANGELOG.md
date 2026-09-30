@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Pod tutors** — Birthing Pod, Prime Speaker Vannifar, Oswald Fiddlebender and Repurposing Bay trade a sacrificed permanent for a card exactly one mana value higher
 - **More damage doublers** — Raphael, the Muscle, Mjölnir, Hammer of Thor (with its Equip worthy), Absorbing Man and Titania, Fiendish Duo and Calamity Bearer
 - **Hydroelectric Specimen** — flash it in and pull an instant or sorcery's single target onto it
 - **Crime** — targeting an opponent, anything they control, or a card in their graveyard is a crime; Patrolling Peacemaker, Raven of Fell Omens, Marauding Sphinx, Magda, Blood Hustler, Slickshot Vault-Buster, Omenport Vigilante and six more now play
@@ -397,6 +398,7 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **"The sacrificed creature's …" abilities** (Altar of Dementia and friends) use the creature they actually sacrificed, even when another sacrifice happens in response
 - **Goblin Goliath** no longer doubles your damage just by being on the battlefield — only its activated ability does that
 - **Burst Lightning and other "deals more instead" kicker spells** — a cast no longer targets a second thing it doesn't affect (which could sacrifice a Phantasmal creature or make the AI hit its own creature)
 - **Teferi's Protection** — an equipped creature now comes back still equipped, and an opponent's Aura on your creature phases out with it instead of being destroyed

@@ -1554,6 +1554,11 @@ function applyActivateAbility(state, action) {
     // division, so surviving the resume is not optional here.
     // Only this cost sets it, so every other ability keeps its prior params shape byte-for-byte.
     if (unattachedEquipmentMv != null) params.context = { ...(params.context || {}), unattachedEquipmentMv };
+    // THE SACRIFICED PERMANENT'S LKI, FROZEN ON THIS ABILITY (shelf D12 — the Pod family; Altar of Dementia's mill). The
+    // stamp above (`sacrificedForCost`) is one shared channel on STATE, so a sacrifice-cost ability activated in response
+    // overwrote it and this ability resolved reading THAT permanent's numbers. The copy rides params.context, the same
+    // channel as unattachedEquipmentMv, and countForSpec / applyTutor read it before the shared one.
+    if (action.sacCreatureId && working.sacrificedForCost) params.context = { ...(params.context || {}), sacrificedForCost: working.sacrificedForCost };
     payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params };
   }
 

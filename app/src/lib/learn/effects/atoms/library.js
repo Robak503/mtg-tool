@@ -261,9 +261,16 @@ export function applyTutor(state, atom, ctx) {
   // cardinal CREED guarantee that the cap is never silently dropped. The resolved filter (with a concrete
   // `mv:{max}`) is used for BOTH the candidate pre-filter AND threaded into the pendingChoice so the auto-pick's
   // defensive re-gate and any chained pick keep the same cap.
+  // bfp (shelf D12, the Pod family) — "mana value equal to 1 plus the sacrificed permanent's": the EXACT value from the
+  // sacrificed permanent's last-known mana value. The ability's own frozen copy (ctx.sacrificedForCost, set as its cost
+  // was paid) wins over the shared state channel, which a later sacrifice could have overwritten. No value → an exact
+  // value no card has, so nothing is fetched (never an uncapped search).
+  const sacMv = (ctx?.sacrificedForCost ?? state.sacrificedForCost)?.manaValue;
   const effFilter = atom.filter?.mvCapX
     ? { ...atom.filter, mv: { max: Math.max(0, ctx.xValue ?? 0) } }
-    : atom.filter;
+    : atom.filter?.mvFromSacrificedPlus != null
+      ? { ...atom.filter, mv: { exact: Number.isFinite(sacMv) ? sacMv + atom.filter.mvFromSacrificedPlus : -1 } }
+      : atom.filter;
   // RAMP-MULTI-X — resolve the dynamic fetch cardinality (Traverse the Outlands / Boundless Realms) ONCE from
   // the board source. Math.max(0, …) clamps an empty/zero board to 0 (never a fabricated count). When the count
   // is 0 ("search for up to 0 cards" — e.g. Traverse with no creatures), the search fetches NOTHING: a logged
@@ -2228,6 +2235,25 @@ export function tutorClauseParser(clause, ctx = {}) {
   // a color) fails the allowlist → null → LOW → Arbiter (Guardian Sunmare, Woodland Bellower park). Only
   // "or less" is admitted — an exact-N / "or greater" battlefield fetch falls through (none in corpus).
   // Ordered before tm for documentation only (tm's anchor requires "into your hand" — disjoint).
+  // bfp — SEARCH→BATTLEFIELD, MV = 1 + THE SACRIFICED PERMANENT'S (shelf D12 — the Pod family: Birthing Pod, Prime Speaker
+  // Vannifar, Oswald Fiddlebender, Repurposing Bay; Iron Man's reflexive "if you do"): "search your library for a creature /
+  // an artifact card with mana value equal to 1 plus the sacrificed creature's / artifact's mana value, put it onto the
+  // battlefield[ tapped], then shuffle." The value is EXACT (the matcher's mv.exact), resolved in applyTutor from the
+  // sacrificed permanent's last-known mana value (CR 608.2h) — the one frozen on this ability as its cost was paid. The
+  // phrase runs the same allowlist as bfn; no sacrificed value on hand → nothing matches (never an uncapped fetch).
+  const bfp = t.match(/^search your library for an? ([a-z][a-z ]*?) cards? with mana value equal to 1 plus the sacrificed (?:creature|artifact|enchantment|permanent)'s mana value,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  if (bfp) {
+    const base = parseTutorFilter(bfp[1]);
+    if (!base) return null; // unmodeled filter word → LOW → Arbiter
+    return {
+      op: "tutor",
+      filter: { ...base, mvFromSacrificedPlus: 1 },
+      filterLabel: `${bfp[1]} card with mana value equal to 1 plus the sacrificed permanent's`,
+      destination: "battlefield",
+      entersTapped: !!bfp[2],
+      targetType: null,
+    };
+  }
   const bfn = t.match(/^search your library for an? ([a-z][a-z ]*?) cards? with mana value (\d+) or less,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (bfn) {
     let phrase = bfn[1];

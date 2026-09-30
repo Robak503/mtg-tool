@@ -803,9 +803,12 @@ export function countForSpec(state, ctx, spec) {
   // actionDispatcher (the only moment it is still on the battlefield) and read here off the same inter-atom
   // state channel revealedCardMV uses. An ABSENT stamp — a spell with no sacrifice cost, or the count-of-N
   // form which has no singular referent — reads 0: a clean no-op, never a fabricated magnitude (CR 107.3).
-  if (spec.kind === "sacrificedPower") return Math.max(0, state?.sacrificedForCost?.power || 0);
-  if (spec.kind === "sacrificedToughness") return Math.max(0, state?.sacrificedForCost?.toughness || 0);
-  if (spec.kind === "sacrificedManaValue") return Math.max(0, state?.sacrificedForCost?.manaValue || 0);
+  // The copy frozen on the ability as its cost was paid (ctx.sacrificedForCost — shelf D12) wins over the shared state
+  // channel, which a sacrifice-cost ability activated in response can overwrite before this one resolves.
+  const sacrificed = ctx?.sacrificedForCost ?? state?.sacrificedForCost;
+  if (spec.kind === "sacrificedPower") return Math.max(0, sacrificed?.power || 0);
+  if (spec.kind === "sacrificedToughness") return Math.max(0, sacrificed?.toughness || 0);
+  if (spec.kind === "sacrificedManaValue") return Math.max(0, sacrificed?.manaValue || 0);
   // EXILED-FOR-COST MANA VALUE (K8 — Ellie and Alan "Discover X, where X is the mana value of the exiled card"): the
   // graveyard card exiled as this activation's cost, stamped by the dispatcher at payment; absent → 0.
   if (spec.kind === "exiledForCostManaValue") return Math.max(0, state?.exiledForCost?.manaValue || 0);

@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **424 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **425 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,22 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D12: the Pod tutor — Birthing Pod, Vannifar, Oswald, Repurposing Bay · **+4** (no deck slot: the prerequisite for Iron Man) · corpus 15,069 (44.0%) / 34,245
+> Suite **1656 files / 17,119 tests** green (1 skipped); lint 0; decks 2,673 / 2,998 (unchanged). CI GREEN on D11 (run 36768762249). Flip-diff **+4, zero
+> LOST, zero RETIERED** (tier snapshots at b5570285 → the change). **Mutants 7/7 killed on assertions** (restore byte-identical).
+> · **Why a slice with no deck move:** Captain America's closest slot is Iron Man, whose line is a reflexive "you may sacrifice a
+>   noncreature artifact. If you do, search … mana value equal to 1 plus the sacrificed artifact's …". The tutor half is the Pod
+>   family's (20 corpus cards blocked by a "1 plus" line); the reflexive sacrifice is a real CHOICE (which artifact sets the value)
+>   the existing value-token lane auto-picks — so it is D13, with the choice honoured.
+> · **Build:** library.js bfp arm → filter.mvFromSacrificedPlus, resolved in applyTutor to an EXACT mana value from the sacrificed
+>   permanent's LKI (CR 608.2h); no value → nothing matches. ⚠️ **The sacrificed LKI is now frozen on the ability**
+>   (params.context.sacrificedForCost): the shared state channel was overwritten by any sacrifice-cost ability activated in
+>   response, so the first ability resolved with the second's numbers — Altar of Dementia's mill included.
+> · **Runtime:** `WITNESS birthingPod {"candidates":["Centaur Courser"],"fetched":true,"bearGone":true}` · Vannifar never sacrifices
+>   itself · Oswald / Bay: Sol Ring → Mind Stone · `WITNESS podFrozenSacrifice {"shared":4,"candidates":["Centaur Courser"],"milled":3}`
+>   · two stacked Altars mill 3 then 2 · Iron Man's tapped clause · no value → no fetch. Witness `app/src/lib/learn/podTutor.test.js` (8).
+> · **Next:** D13 — Iron Man's reflexive, CHOSEN sacrifice (Captain America 89 → 90).
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D11: five more damage-doubler scopes (CR 614) — **Captain America 88 → 89 · Halfshell 84 → 85** · **+5** · corpus 15,065 (44.0%) / 34,245
 > Suite **1655 files / 17,111 tests** green (1 skipped); lint 0; decks 2,670 → **2,673** / 2,998. CI GREEN on D10 (run 36765780624). Flip-diff **+5,
