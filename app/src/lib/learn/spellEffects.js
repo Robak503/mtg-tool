@@ -637,6 +637,12 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceC
   // SOURCE's controller's — the Aura's controller, who may have enchanted another player's creature (CR 109.5).
   for (const sh of permanentTargetShields(state, perm.id)) {
     if (sh.opponentsOnly && casterId === (sh.sourceController ?? controllerOfPerm)) continue;
+    // HEXPROOF FROM <colours> (CR 702.11d/f — Veil of Summer, shelf D18): refuses a source of any named colour. A path that
+    // threads no colours can't be told apart from a named-colour source, so it is refused too — an under-offer, as above.
+    if (sh.colors) {
+      if (!sourceColors.length || sh.colors.some((c) => sourceColors.includes(c))) return false;
+      continue;
+    }
     if (sh.notColor == null || !sourceColors.includes(sh.notColor)) return false;
   }
   return true;
@@ -651,8 +657,13 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceC
  * · HEXPROOF (CR 702.11d): opponent-scoped — the player may still target themself (Leyline of Sanctity).
  * · PROTECTION FROM EVERYTHING (Teferi's Protection, CR 702.16b): nothing another player controls may target them.
  */
-export function playerTargetableBy(state, playerId, controllerId) {
+export function playerTargetableBy(state, playerId, controllerId, sourceColors = []) {
   if (playerHasShroud(state, playerId)) return false;
+  // · HEXPROOF FROM <colours> until end of turn (CR 702.11c/d — Veil of Summer, shelf D18): an opponent's source of a named
+  //   colour can't target the player; a source whose colours weren't threaded can't be told apart, so it's refused too.
+  const hf = state?.players?.[playerId]?.hexproofFrom;
+  if (hf && hf.turn === state.turn && playerId !== controllerId
+    && (!sourceColors.length || (hf.colors || []).some((c) => sourceColors.includes(c)))) return false;
   return playerId === controllerId || (!playerHasHexproof(state, playerId) && !playerProtectedFromEverything(state, playerId));
 }
 
@@ -851,7 +862,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // aiming your own effects at yourself). That is why the check is skipped when pid === controllerId.
   // TEFERI'S PROTECTION — protection from everything (CR 702.16b): the shielded player can't be the target of
   // anything another player controls; their own spells and abilities may still target them.
-  const targetablePlayer = (pid) => playerTargetableBy(state, pid, controllerId);
+  const targetablePlayer = (pid) => playerTargetableBy(state, pid, controllerId, sourceColors); // + the source's colours (shelf D18 — hexproof from colours)
   const addOpponents = () => {
     for (const pid of Object.keys(state.players)) {
       if (pid === controllerId) continue;

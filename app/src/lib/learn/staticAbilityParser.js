@@ -5617,6 +5617,8 @@ export function uncounterableCoversSpell(uncounterablePlayers, playerId, typeLin
 export function stackSpellIsUncounterable(state, obj, pre = null) {
   if (/can't be countered/i.test(String(obj?.source?.oracle || obj?.source?.oracle_text || ""))) return true;
   if (obj?.uncounterable) return true;
+  // VEIL OF SUMMER (shelf D18): "Spells you control can't be countered this turn" — the controller's turn stamp.
+  if (state?.players?.[obj?.controller]?.spellsUncounterableTurn != null && state.players[obj.controller].spellsUncounterableTurn === state.turn) return true;
   const subs = pre?.uncounterableSubs ?? uncounterableSubtypesOnBattlefield(
     Object.values(state?.players || {}).flatMap((p) => (p?.battlefield || []).map((perm) => perm?.card).filter(Boolean)),
   );

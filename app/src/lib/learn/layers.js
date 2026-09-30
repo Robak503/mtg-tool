@@ -2387,7 +2387,7 @@ export function assignsCombatDamageWithToughness(state, permanentId) {
  * enforced there and nowhere else.
  */
 /**
- * ④-V — the TARGET SHIELDS on a permanent, as [{ notColor, opponentsOnly, sourceController }]: the PRINTED self form
+ * ④-V — the TARGET SHIELDS on a permanent, as [{ notColor, colors?, opponentsOnly, sourceController }]: the PRINTED self form
  * ("can't be the target of nongreen spells … or abilities from nongreen sources …" — Thrun, Gaea's Revenge; affects
  * "self", source = this permanent) and, since the 09-06 plan's stage ③ · 35, the GRANTED form an attachment fixes to its
  * host ("Enchanted creature can't be the target of spells or abilities your opponents control." — Canopy Cover, Shielding
@@ -2395,6 +2395,8 @@ export function assignsCombatDamageWithToughness(state, permanentId) {
  * `sourceController` is who "your opponents" belong to — the source's controller, which for an Aura on another player's
  * creature is NOT the creature's controller. Read by spellEffects.canBeTargetedBy — the single targetability seam — beside
  * shroud / hexproof / protection. Empty for every other permanent (byte-identical targeting).
+ * + (shelf D18) the RESOLVED form: Veil of Summer's "hexproof from <colours>" — `colors` names the refused source colours, the
+ * set is fixed as the spell resolves (CR 611.2c), and with no source permanent the "opponents" are the shielded permanent's.
  */
 export function permanentTargetShields(state, permanentId) {
   if (!permanentId) return [];
@@ -2405,7 +2407,10 @@ export function permanentTargetShields(state, permanentId) {
     const granted = e.affects?.mode === "fixed" && (e.affects.permanentIds || []).includes(permanentId);
     if (!self && !granted) continue;
     const sourceController = e.source?.permanentId ? findPerm(state, e.source.permanentId)?.controller ?? null : null;
-    out.push({ notColor: e.op.notColor ?? null, opponentsOnly: !!e.op.opponentsOnly, sourceController });
+    // + `colors` (shelf D18 — Veil of Summer's "hexproof from <colours>"), set only when the op names them so every other shield
+    // reads byte-identical: a resolved spell's grant has no source permanent, so sourceController stays null and the shield's
+    // "opponents" are the shielded permanent's current controller's (CR 109.5).
+    out.push({ notColor: e.op.notColor ?? null, ...(e.op.colors ? { colors: e.op.colors } : {}), opponentsOnly: !!e.op.opponentsOnly, sourceController });
   }
   return out;
 }

@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Veil of Summer** — draws when an opponent has cast a blue or black spell this turn, makes your spells uncounterable for the rest of the turn (including ones already on the stack), and gives you and your permanents hexproof from blue and black until end of turn
 - **Traps** — Ricochet, Mindbreak, Pitfall, Needlebite, Runeflare, Ravenous, Lethargy and Slingbow Trap (and Admiral's Order) offer their cheap alternative cost exactly when its condition is met this turn; Mindbreak Trap exiles any number of spells, even ones that can't be countered
 - **Teamwork** — HULK SMASH!, Go Nuts!, Widow's Bite, Murdock's Crusade, Crossover Collaboration, Cruel Alliance and Helicarrier Strike can be cast with teamwork: the game taps the creatures that pay it (naming them on the button) and the spell gets its upgrade — both modes for the "choose both" spells
 - **Wolverine, Claws Out** — each Mutant you attack with doubles its power, and Wolverine can assign his combat damage as though he weren't blocked

@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **430 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **431 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,30 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D18: VEIL OF SUMMER (can't-be-countered this turn · hexproof from colours) — Kinnan 89 → 90, Killer Turts 89 → 90 · **+1** · corpus 15,096 / 34,245
+> Suite **1,665 files / 17,204 tests** green (1 skipped); lint 0; decks 2,689 / 2,998. CI GREEN on D17 (run 36785819963). Flip-diff **+1, zero LOST,
+> zero RETIERED** (tier snapshots at a4486716 → the change). **Mutants 28/28** (restore byte-identical).
+> · **Why:** Veil of Summer sits in Kinnan and Killer Turts, both one card short of 90. Its three sentences reuse D17's colour
+>   ledger and two seams that already existed (the uncounterable predicate, the target-shield layer op).
+> · **Build:** interveningIf — "an opponent has cast a blue or black spell this turn" ("has", and either of two colours) · stack.js —
+>   "spells you control can't be countered this turn" = a turn stamp on the controller, read by stackSpellIsUncounterable (spells
+>   on the stack now and cast later) · "you and permanents you control gain hexproof from <c> [and from <c>] until end of turn" = a
+>   turn-stamped player record (playerTargetableBy) + an end-of-turn layer-6 targetShield{colors} on the permanents it controls as it
+>   resolves (CR 611.2c) · splitClauses keeps the hexproof sentence whole · enumerateTargets threads the source's colours to players.
+> · **Caught before commit (CR 109.5 / 702.11d):** the first build named Veil's caster as the shield's "you" (the Canopy Cover
+>   pattern). Hexproof from X is a keyword on the permanent — its opponents are the permanent's CURRENT controller's — so a Giant
+>   stolen after Veil must refuse its old controller's blue spells. Witnessed with Act of Treason; the pre-fix code is mutant V12.
+> · **Fail-closed paths:** triggers and activated abilities thread no source colours, so the shield refuses them outright (an
+>   under-offer, CREED-safe): their Man-o'-War can't take the Giant; their Ravenous Rats' trigger has no target (CR 603.3d).
+>   The Enchant-player Aura offer likewise passes none — Fraying Sanity (blue, the only native player-Aura) is refused either way,
+>   so threading the Aura's colours changed nothing observable and was dropped as dead code.
+> · **Found, pre-existing (banked):** Man-o'-War alone never bounces itself — a mandatory ETB whose only legal target is its own
+>   source is skipped silently (no trigger, no log), with or without Veil, either seat.
+> · **Runtime:** `WITNESS veilShields {"unsummon":[],"mindRot":["ai"],"bolt":["ai","giant","user"],"frayingSanity":["ai"]}` ·
+>   `veilStolen {"stolen":true,"yours":[],"theirs":["giant"]}` · `veilUncounterable {"onStack":0,"castLater":0,"nextTurn":1}`.
+>   Witness `app/src/lib/learn/veilOfSummer.test.js` (8).
+> · **Next:** Believe it! (88) · the 86s (Teval, Brago, Shorikai) · We Say Thee Nay! · the choose-two bite template.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D17: THE TRAP CYCLE (through the shared condition reader) — Kinnan 88 → 89, Killer Turts 88 → 89, Believe it! 87 → 88 · **the shelf crosses 90%** · **+9** · corpus 15,095 / 34,245
 > Suite **1,664 files / 17,195 tests** green (1 skipped); lint 0; decks 2,685 / 2,998. CI GREEN on D16 (run 36783162820). Flip-diff **+9, zero LOST,

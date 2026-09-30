@@ -7,7 +7,7 @@ import { applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellE
 import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe, commanderCastsFromCommandZone } from "../../gameState.js";
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingOptionalExileSelfChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice, setPendingChangeTargetChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
-import { permanentIsCreature, permanentTypes, equipmentBarredAsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
+import { permanentIsCreature, permanentTypes, equipmentBarredAsCreature, addContinuousEffect } from "../../layers.js"; // + addContinuousEffect (shelf D18 — Veil of Summer's end-of-turn target shields) // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
 import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
 import { expandCastChoices, changeTargetAlternatives } from "../targeting.js"; // + CHANGE THE TARGET (shelf D14) — the other legal targets for a stack object's one target; STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
@@ -697,6 +697,16 @@ export function counterClauseParser(clause) {
   // its owner's exile. A zone change, not a counter (CR 701.6a names countering), so an uncounterable spell is a legal target
   // and is exiled too (notCounter). The "any number" count is the phase-out arm's (0 to the unbounded cap, largest first).
   if (/^exile any number of target spells$/.test(t)) return { op: "exile-spell", targetType: "spell", notCounter: true, minTargets: 0, maxTargets: 99, anyNumber: true };
+  // VEIL OF SUMMER (shelf D18): "Spells you control can't be countered this turn." — every spell the controller controls,
+  // those on the stack now and those cast later this turn; the uncounterable predicate reads the turn stamp.
+  if (/^spells you control can't be countered this turn$/.test(t)) return { op: "spells-uncounterable-this-turn", targetType: null };
+  // VEIL OF SUMMER (shelf D18): "You and permanents you control gain hexproof from blue and from black until end of turn." —
+  // hexproof from a colour (CR 702.11d — can't be the target of that colour's spells or abilities an OPPONENT controls) for
+  // the controller and for each permanent they control as it resolves (the set is locked then, CR 611.2c).
+  {
+    const hf = t.match(/^you and permanents you control gain hexproof from (white|blue|black|red|green)(?: and from (white|blue|black|red|green))? until end of turn$/);
+    if (hf) return { op: "hexproof-from-colors", colors: [hf[1], hf[2]].filter(Boolean).map((w) => ({ white: "W", blue: "U", black: "B", red: "R", green: "G" })[w]), targetType: null };
+  }
   const changeTarget = t.match(/^change the target of target (spell|spell or ability) with a single target$/);
   if (changeTarget) {
     return changeTarget[1] === "spell"
@@ -1973,6 +1983,43 @@ function applyExileSpell(state, atom, ctx) {
   return next;
 }
 
+/**
+ * VEIL OF SUMMER (shelf D18) — "Spells you control can't be countered this turn." A turn stamp on the controller; the one
+ * uncounterable predicate every counter path reads (staticAbilityParser.stackSpellIsUncounterable) honours it for any spell
+ * that controller controls while the stamp is this turn's — spells already on the stack and spells cast later alike.
+ */
+function applySpellsUncounterableThisTurn(state, atom, ctx) {
+  const me = ctx?.controller;
+  if (!me || !state.players?.[me]) return state;
+  const next = { ...state, players: { ...state.players, [me]: { ...state.players[me], spellsUncounterableTurn: state.turn } } };
+  return logEvent(next, { kind: "spell-effect", effect: "spells-uncounterable-this-turn", controller: me });
+}
+
+/**
+ * VEIL OF SUMMER (shelf D18) — "You and permanents you control gain hexproof from <colours> until end of turn." The player's
+ * half is a turn-stamped record read by the player-targeting seam (spellEffects.playerTargetableBy); each permanent the
+ * controller controls as this resolves gets an end-of-turn target shield against those colours from opponents
+ * (layers.permanentTargetShields → spellEffects.canBeTargetedBy). The shield is a granted keyword, so its "your opponents"
+ * are the opponents of the permanent's CURRENT controller (CR 109.5, 702.11d): the shield names no controller of its own, and
+ * a permanent stolen later this turn is shielded against its new controller's opponents — Veil's caster among them.
+ */
+function applyHexproofFromColors(state, atom, ctx) {
+  const me = ctx?.controller;
+  if (!me || !state.players?.[me]) return state;
+  const colors = atom.colors || [];
+  let next = { ...state, players: { ...state.players, [me]: { ...state.players[me], hexproofFrom: { turn: state.turn, colors } } } };
+  const ids = (next.players[me].battlefield || []).map((p) => p.id);
+  if (ids.length) {
+    next = addContinuousEffect(next, {
+      layer: 6, op: { layerOp: "targetShield", colors, opponentsOnly: true },
+      affects: { mode: "fixed", permanentIds: ids },
+      duration: { kind: "endOfTurn", turn: next.turn },
+      source: { kind: "resolution", permanentId: null, cardName: ctx?.cardName || null },
+    }).state;
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "hexproof-from-colors", controller: me, colors, permanents: ids.length });
+}
+
 function applyBounceSpellOrPermanent(state, atom, ctx) {
   let next = state;
   for (const t of ctx.targets || []) {
@@ -2250,6 +2297,8 @@ export const stackResolvers = {
   "change-target": applyChangeTarget, // ⭐ CHANGE THE TARGET (Misdirection, CR 115.7a) — a single-target spell or ability's target moves to another legal one (chosen), or stays
   "grant-dies-exile-to-cast-spell": applyGrantDiesExileToCastSpell, // RIVAZ RIDER — stamp the triggering cast spell; the permanent it becomes exiles on death
   "exile-spell": applyExileSpell, // EXILE TARGET SPELLS (Mindbreak Trap, shelf D17) — each chosen spell to its owner's exile; not a counter
+  "spells-uncounterable-this-turn": applySpellsUncounterableThisTurn, // VEIL OF SUMMER (shelf D18) — the controller's spells can't be countered this turn
+  "hexproof-from-colors": applyHexproofFromColors, // VEIL OF SUMMER (shelf D18) — you and your permanents gain hexproof from colours until end of turn
   "bounce-spell-or-permanent": applyBounceSpellOrPermanent, // VENSER — the STACK∪BATTLEFIELD union bounce ("return target spell or permanent to its owner's hand")
   "copy-spell": applyCopySpell, // STORM (CR 702.40) — copy the storm spell N times (N = spells cast before it this turn)
   "copy-creature-spell": applyCopyCreatureSpell, // COPY-A-CREATURE-SPELL (Double Major, CR 707.10) — a token copy of a chosen own creature spell

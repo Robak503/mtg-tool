@@ -634,7 +634,8 @@ const OPP_DEALT_DAMAGE_RE = /^an opponent was dealt damage this turn$/;
 //   "N or more creatures are attacking" / "exactly one creature is attacking" / "a <color> creature [with flying] is
 //     attacking" (Lethargy, Pitfall, Slingbow, Nemesis) — the declared attackers still on the battlefield, colours and
 //     flying read layer-aware. Outside combat nothing is attacking.
-const OPP_CAST_COLOR_RE = /^an opponent cast an? (white|blue|black|red|green) spell this turn$/;
+// + "has cast" and a two-color "a blue or black spell" (shelf D18 — Veil of Summer): either color satisfies it.
+const OPP_CAST_COLOR_RE = /^an opponent (?:has )?cast an? (white|blue|black|red|green)(?: or (white|blue|black|red|green))? spell this turn$/;
 const OPP_CAST_N_RE = new RegExp(`^an opponent cast ${NUM_RE} or more spells this turn$`);
 const OPP_DREW_N_RE = new RegExp(`^an opponent drew ${NUM_RE} or more cards this turn$`);
 const OPP_GAINED_LIFE_RE = /^an opponent gained life this turn$/;
@@ -972,7 +973,7 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   {
     const opp = (read) => opponentIds(state, controllerId).some((pid) => read(state.players[pid] || {}));
     let t = c.match(OPP_CAST_COLOR_RE);
-    if (t) return opp((p) => (p.spellColorsCastThisTurn || []).includes(TRAP_COLOR_LETTER[t[1]]));
+    if (t) return opp((p) => [t[1], t[2]].filter(Boolean).some((w) => (p.spellColorsCastThisTurn || []).includes(TRAP_COLOR_LETTER[w])));
     t = c.match(OPP_CAST_N_RE);
     if (t) { const n = parseCount(t[1]); return n == null ? null : opp((p) => (p.spellsCastThisTurn || 0) >= n); }
     t = c.match(OPP_DREW_N_RE);
