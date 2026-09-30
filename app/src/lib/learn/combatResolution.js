@@ -101,7 +101,7 @@ function drainEndOfCombatEffects(state) {
   if (queue.length === 0) return state;
   let next = { ...state, endOfCombatEffects: [] };
   for (const e of queue) {
-    if (e?.op !== "destroy" && e?.op !== "sacrifice" && e?.op !== "bounce") continue; // unknown entry kinds never fire (FN-safe)
+    if (e?.op !== "destroy" && e?.op !== "sacrifice" && e?.op !== "bounce" && e?.op !== "remove-counter") continue; // unknown entry kinds never fire (FN-safe)
     if (e.turn !== next.turn) continue;                // STALE (an earlier turn's leftover) → dropped, never fired
     const lk = findPermanent(next, e.permanentId);
     if (!lk) continue;                                 // already dead / gone → nothing to destroy
@@ -117,6 +117,17 @@ function drainEndOfCombatEffects(state) {
     if (e.op === "bounce") {
       next = logEvent(next, { kind: "end-of-combat-bounce", turn: next.turn, target: e.permanentId, cardName: lk.permanent.card?.name, source: e.sourceCardName || null });
       next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "hand", cardId: e.permanentId });
+      continue;
+    }
+    // ③ · 14 — the Clockwork cycle's delayed counter removal ("remove a +1/+1 counter from it at end of combat"): through the
+    // counter chokepoint, then the lethal check and its dies look-back — the pair combat damage runs above — so a Clockwork
+    // left at 0/0 dies before anyone gets priority (CR 704.5f). No counter left → removeCounter changes nothing.
+    if (e.op === "remove-counter") {
+      const type = e.counterType || "+1/+1";
+      next = logEvent(next, { kind: "end-of-combat-remove-counter", turn: next.turn, target: e.permanentId, counterType: type, cardName: lk.permanent.card?.name, source: e.sourceCardName || null });
+      next = removeCounter(next, { permanentId: e.permanentId, type, amount: 1 });
+      const lethal = destroyLethalCreatures(next);
+      next = lethal.dead.length ? checkDiesTriggers(lethal.state, lethal.dead) : lethal.state;
       continue;
     }
     next = logEvent(next, { kind: "end-of-combat-destroy", turn: next.turn, target: e.permanentId, cardName: lk.permanent.card?.name, source: e.sourceCardName || null });

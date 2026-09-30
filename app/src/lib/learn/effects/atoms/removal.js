@@ -723,6 +723,11 @@ export function destroyExileClauseParser(clause) {
   if (/^return the triggering creature to its owner's hand at end of combat$/.test(t)) return { op: "bounce-at-end-of-combat", target: "thatCreature" };
   const seoc = t.match(/^(sacrifice|return) (?:it|this creature)( to its owner's hand)? at end of combat$/);
   if (seoc && (seoc[1] === "sacrifice") === !seoc[2]) return { op: "self-at-end-of-combat", action: seoc[1] === "sacrifice" ? "sacrifice" : "bounce", target: "self", targetType: null };
+  // REMOVE A COUNTER AT END OF COMBAT (the 09-06 plan's stage ③ · 14, 2026-09-30 — the Clockwork cycle: "Whenever this creature
+  // attacks or blocks, remove a +1/+1 counter from it at end of combat." — Clockwork Dragon, Condor, Beetle, Vorrac): the ④-AX
+  // self shape with a third action on the same turn-stamped queue and end-of-combat drain. The drain removes the counter and
+  // then runs the lethal check, so a Clockwork left at 0/0 dies before anyone gets priority (CR 704.5f).
+  if (/^remove a \+1\/\+1 counter from (?:it|this creature) at end of combat$/.test(t)) return { op: "self-at-end-of-combat", action: "remove-counter", counterType: "+1/+1", target: "self", targetType: null };
   // DETAIN (BLITZ DT-1, CR 610.3 — the Banishing Light / Banisher Priest / Oblivion-Ring-modern frame):
   // "exile <target …> until this <enchantment|creature|artifact|permanent> leaves the battlefield." The
   // TARGET vocabulary is delegated to THIS parser recursively (strip the until-tail, parse the bare exile) so
@@ -1168,7 +1173,9 @@ function applyDestroyAtEndOfCombat(state, atom, ctx) {
 function applySelfAtEndOfCombat(state, atom, ctx) {
   const id = ctx.sourceId;
   if (!id || !findPermanent(state, id)) return state;
-  const entry = { op: atom.action === "bounce" ? "bounce" : "sacrifice", permanentId: id, turn: state.turn, sourceCardName: ctx.cardName || null };
+  const entry = atom.action === "remove-counter"
+    ? { op: "remove-counter", counterType: atom.counterType, permanentId: id, turn: state.turn, sourceCardName: ctx.cardName || null }
+    : { op: atom.action === "bounce" ? "bounce" : "sacrifice", permanentId: id, turn: state.turn, sourceCardName: ctx.cardName || null };
   const next = { ...state, endOfCombatEffects: [...(state.endOfCombatEffects || []), entry] };
   return logEvent(next, { kind: "spell-effect", effect: `${entry.op}-at-end-of-combat-enqueued`, target: id, source: ctx.cardName || null });
 }

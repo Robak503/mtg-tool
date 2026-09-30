@@ -5,14 +5,39 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **370 commits**, corpus
-> 38.6% → **43.4% (14,852)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **371 commits**, corpus
+> 38.6% → **43.4% (14,856)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 14: the Clockwork cycle — "remove a +1/+1 counter from it at end of combat" · **+4** · corpus 14,856 (43.4%) / 34,245
+> Suite **1606 files / 16,653 tests** green (1 skipped); lint 0. Flip-diff **+4, zero LOST, zero retiered** (tier snapshots at 2e81ea43 → the
+> change). **Mutants 5/5 killed on assertions** (restore byte-identical).
+> · **The census, re-run (2026-09-30 ~06:55Z, against 2e81ea43):** 19,449 non-native · 10,560 sole-blocker cards; the built
+>   rows gone. The defect reports read first, per the runbook: every bug signature left is a single card with its own root
+>   cause (the "sacrifice an artifact" one sole-blocks Reshape, not Tinker — the example list mixes carriers). The top
+>   ranked row with existing machinery was this one.
+> · **Census row ⑭:** Clockwork Beetle, Condor, Vorrac, Dragon — "Whenever this creature attacks or blocks, remove a +1/+1
+>   counter from it at end of combat."
+> · **Build — a third action on the ④-AX self end-of-combat queue** (Mardu Blazebringer's sacrifice, Windscouter's return).
+>   The clause → `self-at-end-of-combat` action `remove-counter`; the resolver enqueues a turn-stamped entry; the
+>   end-of-combat drain removes the counter through `removeCounter` and then runs the lethal check with its dies look-back
+>   (the pair combat damage already runs), so a Clockwork left at 0/0 dies before anyone gets priority (CR 704.5f). A
+>   "no counter left → skip" guard was dropped before commit: `removeCounter` already changes nothing at zero, so no test
+>   could ever tell it was there.
+> · **Runtime (each through checkAttackTriggers / checkBlockTriggers → the stack → resolveCombatDamage):** `WITNESS beetleAttack
+>   damage 2 · counters 2 → 1` (the counter waits for end of combat) · a Beetle on its last counter hits for 1, then dies at
+>   0/0 · the Dragon 6 → 5 · the Condor blocking a 1/1 ends on 2 · **blocking Gray Ogre it takes 2, shrinks to 2/2 at end of
+>   combat with the damage still marked, and dies (CR 704.5g)** — the test first expected it to survive; the engine was right.
+> · **Mutants 5/5:** the clause arm · the drain ignoring the entry · no lethal check after the removal · the counter off at
+>   once instead of at end of combat · two counters. (The at-once mutant's first form called a helper removal.js doesn't
+>   import, so some of its reds were errors; rewritten as plain state edits, its reds are assertions.) Witness
+>   `app/src/lib/learn/clockworkEndOfCombat.test.js` (6).
+> · **Next:** the census below row ⑭.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 13: "target creature blocks this creature this turn if able" · **+7** · corpus 14,852 (43.4%) / 34,245
 > Suite **1605 files / 16,647 tests** green (1 skipped); lint 0. Flip-diff **+7, zero LOST, zero retiered** (tier snapshots at 74c63a70 → the

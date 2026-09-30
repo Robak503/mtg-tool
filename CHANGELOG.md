@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Clockwork Beetle, Clockwork Condor, Clockwork Vorrac, Clockwork Dragon** — after attacking or blocking they lose a
+  +1/+1 counter at end of combat, once their damage is dealt; a Clockwork left at 0/0 dies
 - **Trumpeting Armodon, Matsu-Tribe Decoy, Tangle Angler, Rampant Elephant, Burning-Tree Bloodscale, Maraleaf Rider,
   Lurking Arynx** — "target creature blocks this creature this turn if able": the AI opponent now blocks as required (with a
   second creature against menace when it has one)
