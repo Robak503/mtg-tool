@@ -194,7 +194,7 @@ export function controllerCreatureTargets(state, controller, opts = {}) {
 // id regardless of card type). This is ENGINE-CORRECT (it always returns a valid own permanent, exactly as the
 // card reads); the choice is a deterministic sensible default, never an opponent's permanent, never a no-op
 // when a legal permanent exists.
-export function worstOwnBounceTarget(state, controller, { creatureOnly = false, landOnly = false, excludeSource = false, sourceId = null } = {}) {
+export function worstOwnBounceTarget(state, controller, { creatureOnly = false, landOnly = false, excludeSource = false, sourceId = null, restrictions = null } = {}) {
   const bf = state.players?.[controller]?.battlefield || [];
   // KAROO (LB-1, 2026-08-06) — `landOnly` is the mirror of `creatureOnly`, for "return a LAND you control to
   // its owner's hand" (Selesnya Sanctuary and the whole Ravnica bounce-land cycle, plus Tazeem Raptor's
@@ -205,8 +205,11 @@ export function worstOwnBounceTarget(state, controller, { creatureOnly = false, 
   // first-in-order tie-break means an EARLIER tapped land wins, so it only self-bounces when it is the sole
   // tapped land — which is a real line, not a bug. Modelling a printed permission away would be the CREED
   // violation here, in the direction of refusing something the card allows.
+  // COLOUR-FILTERED (2026-09-30 — Horned Kavu's "a red or green creature you control"): the printed filter as the SHARED
+  // restriction satisfier reads it (colorAny: layer-aware, fail-closed), so the pick can never return an off-colour creature.
   const cands = bf.filter((p) => (!creatureOnly || isCreatureCard(p.card)) && (!landOnly || isLandCard(p.card))
-    && !(excludeSource && p.id === sourceId));
+    && !(excludeSource && p.id === sourceId)
+    && (!restrictions?.length || creatureSatisfiesRestrictions(state, p, controller, controller, restrictions, null)));
   if (cands.length === 0) return [];
   const rank = (p) => (isLandCard(p.card) ? 0 : 2) + (p.tapped ? 0 : 1); // tapped-land 0 · untapped-land 1 · tapped-nonland 2 · untapped-nonland 3
   let best = cands[0], bestRank = rank(best);
@@ -378,7 +381,7 @@ export const atomTargets = (state, atom, ctx) => {
   // target philosophy; fewer than two creatures → buff whatever's there (a clean partial, never fabricated).
   if (atom.scope === "upToTwoYouControl") return controllerCreatureTargets(state, ctx.controller).slice(0, 2);
   // SELF-BOUNCE forced own-choice — "return a[nother] permanent|creature you control" (Kor Skyfisher family).
-  if (atom.scope === "oneYouControlWorst") return worstOwnBounceTarget(state, ctx.controller, { creatureOnly: atom.creatureOnly, landOnly: atom.landOnly, excludeSource: atom.excludeSource, sourceId: ctx.sourceId });
+  if (atom.scope === "oneYouControlWorst") return worstOwnBounceTarget(state, ctx.controller, { creatureOnly: atom.creatureOnly, landOnly: atom.landOnly, excludeSource: atom.excludeSource, sourceId: ctx.sourceId, restrictions: atom.restrictions });
   if (atom.scope === "eachOpponentCreature") return opponentCreatureTargets(state, ctx.controller);
   // COMBAT-TEAM-PUMP — every ATTACKING / BLOCKING creature right now (Trumpet Blast "attacking creatures
   // get +1/+0", Hold the Line "blocking creatures get +0/+5"). The set is locked at resolution (CR 611.2c);

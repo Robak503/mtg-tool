@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **The colour bounce-back creatures** — Horned Kavu, Shivan Wurm, Silver Drake, Steel Leaf Paladin, Fleetfoot Panther,
+  Sparkcaster, Marsh Crocodile, Lava Zombie, Cavern Harpy and Razing Snidd as they enter; Skull Collector, Stampeding
+  Serow, Stampeding Wildebeests, Trusted Advisor, Eiganjo Free-Riders and Oni of Wild Places each upkeep — return a
+  creature of the named colour you control to your hand (the card itself, when it's the only one)
 - **Rishadan Cutpurse, Rishadan Footpad, Rishadan Brigand** — when one enters, each opponent pays {1} / {2} / {3}
   or sacrifices a permanent of their choice. The pay-or-else prompt now says plainly what declining costs you
   (Phyrexian Tyranny's used to read as if the other player got the effect)

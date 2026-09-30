@@ -1373,6 +1373,19 @@ export function bounceClauseParser(clause) {
       ...(selfB[2] === "land" ? { landOnly: true } : {}),
       ...(selfB[1] === "another" ? { excludeSource: true } : {}) };
   }
+  // ⭐ COLOUR-FILTERED SELF-BOUNCE (the 09-06 plan's stage ③, 2026-09-30) — "return a <colour>[ or <colour>] creature you
+  // control to its owner's hand": Horned Kavu, Shivan Wurm, Silver Drake, Steel Leaf Paladin, Fleetfoot Panther … on the
+  // ETB; Skull Collector, Stampeding Wildebeests, Trusted Advisor, Oni of Wild Places … on the upkeep. The SAME forced
+  // own-choice bounce as above; the colour rides as the shared satisfier's `colorAny` restriction (CR 105.2 — a creature is
+  // red when red is AMONG its colours, so a red-white creature qualifies; layer-aware and fail-closed in
+  // creatureRestrictions.js), which worstOwnBounceTarget applies to its pool. The source qualifies when it has the colour —
+  // these cards do not print "another". A third colour, a noun other than "creature", or any rider fails the anchor.
+  const colB = t.match(/^return a (white|blue|black|red|green)(?: or (white|blue|black|red|green))? creature you control to its owner's hand$/);
+  if (colB) {
+    const LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+    return { op: "bounce", scope: "oneYouControlWorst", creatureOnly: true,
+      restrictions: [{ kind: "colorAny", colors: [LETTER[colB[1]], ...(colB[2] ? [LETTER[colB[2]]] : [])] }] };
+  }
   // "return up to one [other] target permanent|creature you control to its owner's hand" (Stickytongue Sentinel
   // / Exosuit Savior / Mischievous Pup ETB). The SAME worst-pick self-bounce, but "up to one" makes it OPTIONAL
   // (the controller may bounce ZERO — atom.optional pauses for a real yes/no at runProgram.js), and "other"

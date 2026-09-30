@@ -5,14 +5,38 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **359 commits**, corpus
-> 38.6% → **43.2% (14,784)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **360 commits**, corpus
+> 38.6% → **43.2% (14,800)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 4: the COLOUR-FILTERED self-bounce · **+16** · corpus 14,800 (43.2%) / 34,245
+> Suite **1595 files / 16,542 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,650 / 2,998 — none of the 16 is on the shelf). Flip-diff **+16, zero LOST, zero retiered** (tier snapshots at a63b5219 → the
+> change). **Mutants 6/6 killed** (restore byte-identical).
+> · **Census row ④:** "return a <colour>[ or <colour>] creature you control to its owner's hand" — 20 carriers, 16
+>   sole-blocked, predicted +16 before building and measured +16: on the ETB Horned Kavu, Shivan Wurm, Silver Drake, Steel
+>   Leaf Paladin, Fleetfoot Panther, Sparkcaster, Marsh Crocodile, Lava Zombie, Cavern Harpy, Razing Snidd; on the upkeep
+>   Skull Collector, Stampeding Serow, Stampeding Wildebeests, Trusted Advisor, Eiganjo Free-Riders, Oni of Wild Places.
+> · **The bounce was machinery** (scope `oneYouControlWorst` + `worstOwnBounceTarget` — Kor Skyfisher, Roaring Primadox,
+>   the Karoos); only the colour was missing. It rides as the shared satisfier's `colorAny` restriction (CR 105.2 — red when
+>   red is AMONG its colours; layer-aware and fail-closed, Deathmark's evaluator), applied to the pick's pool. The parser
+>   arm sits beside the uncoloured one in zones.js; the runtime change is the pool filter.
+> · **Runtime:** `WITNESS colourBounceSelf {"board":["Coral Merfolk"],"hand":["Horned Kavu"]}` (beside a blue creature the
+>   Kavu returns ITSELF — these cards print no "another") · `WITNESS colourBounceUpkeep {"board":["Coral Merfolk"],"hand":
+>   ["Skull Collector"]}` · a red-white Boros Recruit counts as red · no creature of the colour → a clean no-op. Vacuity
+>   control: without the colour, the least-bad pick is the blue Merfolk.
+> · **Parked on a second line:** Doomsday Specter (the hand-look discard), Sawtooth Loon (draw two, put two on the bottom),
+>   Veil of Secrecy (splice onto Arcane), Escape Detection (freerunning).
+> · **ⓘ For the play AI:** a card of this family returns ITSELF when it is the only creature of its colour, and the AI will
+>   still cast it (a mana-wasting line, not a rules error) — a policy question for Omnath's lane, noted in COMMS.
+> · **Mutants 6/6:** the arm · the pick never receiving the colour · the pool ignoring it · the second colour dropped · the
+>   noun anchor loosened · the colour-count anchor loosened. Witness `app/src/lib/learn/colourFilteredSelfBounce.test.js` (9).
+> · **Next:** the census below row ④ — bloodrush is banked; then Crossroads Candleguide / Ambush Wolf's "exile up to N
+>   target card from a graveyard" ETB, then Fireblast / Mogg Alarm's "sacrifice N Mountains rather than pay" alt cost.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 3: the Rishadan pirates' TAXED EDICT · **+3** · corpus 14,784 (43.2%) / 34,245
 > Suite **1594 files / 16,533 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,650 / 2,998). Flip-diff **+3, zero LOST, zero retiered** (tier snapshots at c04a5a9f → the
