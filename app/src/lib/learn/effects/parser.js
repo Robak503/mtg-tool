@@ -76,7 +76,7 @@ import { grantUntilEotClauseParser } from "./atoms/grantUntilEot.js"; // UNTIL-E
 import { becomeCopyClauseParser } from "./atoms/becomeCopy.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
-import { parseKickerCost } from "../kicker.js"; // KICKED-SPELL-EFFECT — a clean single-mana Kicker cost (no multikicker / and-or / {X}); kicker.js → parseHelpers.js → keywords.js is acyclic (parser already imports parseHelpers)
+import { parseKickerCost, parseTeamworkCost } from "../kicker.js"; // + TEAMWORK (shelf D16) — the same optional cost paid by tapping creatures; KICKED-SPELL-EFFECT — a clean single-mana Kicker cost (no multikicker / and-or / {X}); kicker.js → parseHelpers.js → keywords.js is acyclic (parser already imports parseHelpers)
 import { spellConditionParseable, activationConditionParseable, evaluateInterveningIf, interveningIfParseable } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the spell-side shape gate (a board condition a resolving spell can read); interveningIfParseable joins 2026-08-14 for the DAMAGE-RIDER trigger sentinel (a per-object condition only trigger context can read); interveningIf → gameState is a leaf edge, no cycle (parser is not imported by either)
 import { poisonClauseParser, playerInvestigateClauseParser } from "./atoms/life.js"; // POISON (CR 122) — "<who> gets N poison counters"
 
@@ -1013,7 +1013,13 @@ function parseModal(cardType, oracle, hasX = false) {
   // discipline). The flag rides program.modal; targeting.expandCastChoices gates the size-2 combos on the
   // live board at enumeration (= cast) time, so the metric and the cast offer can't drift. Anchored to the
   // EXACT printed lead — any other conditional-modal wording stays un-matched → low → Arbiter (CREED).
-  const cb = stripped.match(/^choose one\.\s*if you control a commander as you cast this spell, you may choose both instead\.\s*/i);
+  const cbc = stripped.match(/^choose one\.\s*if you control a commander as you cast this spell, you may choose both instead\.\s*/i);
+  // CONDITIONAL-BOTH ON TEAMWORK (shelf D16 — Go Nuts!, Murdock's Crusade, Widow's Bite, HULK SMASH!): "Teamwork N (…) Choose
+  // one. If this spell was cast using teamwork, choose both instead." BOTH modes, exactly, when the teamwork cost was paid —
+  // not "may" — and one otherwise. The flag rides program.modal; targeting.expandCastChoices sizes the combos off the cast's
+  // own kicked flag (the teamwork cast is the kicked one), so the metric and the offer read the same fact.
+  const cbt = cbc ? null : stripped.match(/^teamwork \d+\s+choose one\.\s*if this spell was cast using teamwork, choose both instead\.\s*/i);
+  const cb = cbc || cbt;
   // REPEATABLE MODES (CR 700.2d — the Confluence cycle: Mystic #1431, Fiery #1561, Eldrazi, Verdant, …;
   // also Planewide Celebration and Unite the Coalition). EXACT printed lead: "Choose <N>. You may choose the
   // same mode more than once." Kept as its OWN anchored regex rather than widening MODAL_RE, so every
@@ -1038,7 +1044,8 @@ function parseModal(cardType, oracle, hasX = false) {
   const tail = (cb || rep || mem) ? "" : (m[2] || "").toLowerCase();
   const orBoth = tail === " or both";
   const orMore = tail === " or more"; // "choose one or more" → MODAL-N (any non-empty subset, CR 700.2)
-  const conditionalBothCommander = !!cb;
+  const conditionalBothCommander = !!cbc;
+  const conditionalBothKicked = !!cbt;
   const rest = stripped.slice((cb || rep || mem || m)[0].length).trim();
   // "one or more" modes ARE bullet-separated in every printed case; the " or "-fallback split (used only
   // for un-bulleted two-mode charms) would wrongly shred a "one or more" mode's effect text, so require
@@ -1064,7 +1071,7 @@ function parseModal(cardType, oracle, hasX = false) {
   // for "one or more"; else 1. (Resolved after parts is known so "one or more" can size to the mode count.)
   const chooseCount = repeatable ? REP_COUNT[rep[1].toLowerCase()]
     : orMore ? parts.length
-      : (orBoth || conditionalBothCommander || (m && m[1].toLowerCase() === "two")) ? 2 : 1;
+      : (orBoth || conditionalBothCommander || conditionalBothKicked || (m && m[1].toLowerCase() === "two")) ? 2 : 1;
   const upTo = orBoth || conditionalBothCommander; // "one or both" / conditional-both → pick 1 or 2 (of exactly 2)
   const atLeastOne = orMore; // "one or more" → pick any 1..N subset
 
@@ -1092,8 +1099,8 @@ function parseModal(cardType, oracle, hasX = false) {
   // mechanic: Unite the Coalition chooses FIVE from four modes precisely because a mode may be re-chosen
   // (CR 700.2d). Applying the guard here would reject the cards this branch exists to model.
   if (!repeatable && chooseCount > modes.length) return { chooseCount, upTo, atLeastOne, modes: null };
-  if ((orBoth || conditionalBothCommander) && modes.length !== 2) return { chooseCount, upTo, atLeastOne, modes: null };
-  return { chooseCount, upTo, atLeastOne, ...(conditionalBothCommander && { conditionalBothCommander: true }), ...(repeatable && { repeatable: true }), ...(modeMemoryPerTurn && { modeMemoryPerTurn: true }), modes };
+  if ((orBoth || conditionalBothCommander || conditionalBothKicked) && modes.length !== 2) return { chooseCount, upTo, atLeastOne, modes: null };
+  return { chooseCount, upTo, atLeastOne, ...(conditionalBothCommander && { conditionalBothCommander: true }), ...(conditionalBothKicked && { conditionalBothKicked: true }), ...(repeatable && { repeatable: true }), ...(modeMemoryPerTurn && { modeMemoryPerTurn: true }), modes };
 }
 
 // The up-front multi-sentence SPAN matchers (δ-1 hand disruption · the removal/counter rider folds ·
@@ -1136,7 +1143,10 @@ function matchKickedSpellEffect(card, cardType, oracle) {
   // Gate 1 — a clean single mana Kicker cost (the kicker.js source of truth: rejects multikicker, "and/or",
   // {X}, a non-mana "Kicker—Sacrifice…" cost). A non-mana / scaling kicker isn't foldable here.
   const kickerCost = parseKickerCost({ oracle, oracle_text: oracle });
-  if (!kickerCost) return null;
+  // TEAMWORK (shelf D16): the same optional additional cost, paid by tapping creatures (kicker.js parseTeamworkCost) — its
+  // "if this spell was cast using teamwork" is this matcher's "if this spell was kicked", and every gate below applies as is.
+  const teamwork = kickerCost ? null : parseTeamworkCost({ oracle, oracle_text: oracle });
+  if (!kickerCost && teamwork == null) return null;
 
   // Normalize a printed self-name to "this spell" so "If <CardName> was kicked, …" also matches (mirrors
   // entersWithKickedCounters). Reminder text is stripped so the regex sees a clean body.
@@ -1146,6 +1156,7 @@ function matchKickedSpellEffect(card, cardType, oracle) {
     const esc = nm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     t = t.replace(new RegExp(`\\b${esc}\\b`, "g"), "this spell");
   }
+  if (teamwork != null) t = t.replace(/\bcast using teamwork\b/gi, "kicked");
 
   // Gate 2 — exactly ONE "If this spell was kicked, <effect>." sentence, and extract it. Anchored to the
   // "this spell was kicked," lead (a generic "it was kicked" is ambiguous about the subject → not matched
@@ -1201,8 +1212,7 @@ function matchKickedSpellEffect(card, cardType, oracle) {
   // name-normalized, reminder-stripped, whitespace-COLLAPSED text (so the kicker keyword sits inline with the
   // body on one line) — strip just the "Kicker {pips}" token (not a line) so the base effect survives, then
   // re-parse. The {pips}+ matches a clean mana kicker (parseKickerCost already vetted it above).
-  const base = t
-    .replace(/\bkicker\s+(?:\{[^}]+\})+\s*/i, " ")          // drop the "Kicker {cost}" keyword + pips
+  const base = dropOptionalCostKeyword(t)                  // drop the "Kicker {cost}" / "Teamwork N" keyword
     .replace(KICKED_SENTENCE_RE, " ")                       // drop the kicked sentence
     .replace(/\s+/g, " ")
     .trim();
@@ -1244,9 +1254,13 @@ function baseProgramFor(t, card, cardType) {
 }
 
 /** The kicked-rider matcher's BASE text: the "Kicker {cost}" keyword and the kicked sentence removed. */
+// The optional-additional-cost keyword at the head of a kicked body: "Kicker {cost}" (its pips), or "Teamwork N" (shelf D16).
+function dropOptionalCostKeyword(t) {
+  return t.replace(/\bkicker\s+(?:\{[^}]+\})+\s*/i, " ").replace(/\bteamwork\s+\d+\s*/i, " ");
+}
+
 function kickedBaseText(t) {
-  return t
-    .replace(/\bkicker\s+(?:\{[^}]+\})+\s*/i, " ")
+  return dropOptionalCostKeyword(t)
     .replace(/if this spell was kicked,\s*[^.;]+(?:[.;]|$)/i, " ")
     .replace(/\s+/g, " ")
     .trim();

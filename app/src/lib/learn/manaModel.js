@@ -2114,6 +2114,12 @@ export function castPaymentSources(state, action) {
     const sacCountSet = new Set(action.sacCountIds);
     sources = sources.filter((s) => !(s.sacrifices && sacCountSet.has(s.permanentId)));
   }
+  // · TEAMWORK (shelf D16): a creature tapped to pay teamwork can't also tap for mana to pay the spell — the emerge
+  //   double-spend guard, for the teamwork tap set the cast carries.
+  if (action.teamworkTapIds?.length) {
+    const tw = new Set(action.teamworkTapIds);
+    sources = sources.filter((s) => !tw.has(s.permanentId));
+  }
   return sourcesExcludingOneShotVictim(sources, action.sacCreatureId);
 }
 

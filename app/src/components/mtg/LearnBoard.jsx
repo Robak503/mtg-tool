@@ -73,7 +73,9 @@ function progressionLabel(step, stackLen, passOption) {
 export function actionLabel(o) {
   if (!o || !o.kind) return "—";
   switch (o.kind) {
-    case "cast-spell": return `Cast ${o.name}${o.targetName ? ` → ${o.targetName}` : ""}`;
+    // A kicked / teamwork variant says so (shelf D16 — "teamwork: tap Grizzly Bears"); without it the plain and the paid cast
+    // read identically, and the teamwork one taps creatures the player never saw named.
+    case "cast-spell": return `Cast ${o.name}${o.targetName ? ` → ${o.targetName}` : ""}${o.kicked && o.kickedName ? ` (${o.kickedName})` : ""}`;
     case "play-land": return `Play ${o.name}`;
     case "declare-attacker": return `Attack ${o.targetName || o.defenderName || BOARD_SEAT_LABELS[o.defenderId] || ""} with ${o.name}`.trim();
     case "declare-blocker": return `Block ${o.attackerName || "attacker"} with ${o.name}`;

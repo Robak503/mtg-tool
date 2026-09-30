@@ -56,6 +56,7 @@ import {
 } from "./gameState.js";
 import { deterministicRng, advanceRngSeed, deathLookbackLinks } from "./gameState.js"; // RG-7 (2026-09-05) — the seeded random-discard pick at payment
 import { withoutImpulseStamps } from "./gameState.js"; // shelf D3 — a card cast out of exile leaves its impulse permission behind (CR 400.7)
+import { parseTeamworkCost } from "./kicker.js"; // TEAMWORK (shelf D16) — the N a kicked teamwork cast must tap; kicker.js imports only leaves (parseHelpers, keywords)
 
 /** RG-7 — pitch ONE card at random from `playerId`'s hand (never `excludeId`) with the game's seeded rng, advancing the seed
  *  (the shuffle discipline — a replay reproduces the pick). Throws when nothing can be pitched (the offer gated on a hand). */
@@ -424,6 +425,28 @@ function applyCastSpell(state, action) {
   // ⛔ ZERO IS THE TRUE ANSWER TODAY, NOT A PLACEHOLDER: legalChoices never offers a multikicked cast
   // (parseKickerCost refuses multikicker), so every cast the engine can make really was kicked zero times.
   working = { ...working, timesKickedForCast: Number(action.kickCount) > 0 ? Number(action.kickCount) : (action.kicked ? 1 : 0) };
+
+  // 2a'. TEAMWORK (shelf D16 — the printed reminder: "As an additional cost to cast this spell, you may tap any number of
+  // creatures you control with total power N or more"). A kicked cast of a teamwork card PAYS it here: the offered tap set is
+  // re-checked live — untapped creatures the caster controls, total power ≥ N (negative power counts 0) — and tapped (each a
+  // real becomes-tapped event). The mana plan above already left them out (castPaymentSources). A kicked teamwork cast
+  // without a valid set throws: the upgrade is never cast for free.
+  const teamworkN = action.kicked ? parseTeamworkCost(castCard) : null;
+  if (teamworkN != null) {
+    const ids = Array.isArray(action.teamworkTapIds) ? action.teamworkTapIds : [];
+    if (!ids.length || new Set(ids).size !== ids.length) throw new DispatcherError("Teamwork names no creatures to tap", "TEAMWORK_SHORT");
+    let power = 0;
+    for (const id of ids) {
+      const c = findPermanent(working, id);
+      if (!c || c.controller !== action.playerId || c.permanent.tapped || !permanentIsCreature(working, id)) {
+        throw new DispatcherError(`Teamwork member ${id} is not a live untapped creature you control`, "BAD_TARGET");
+      }
+      power += Math.max(0, creaturePower(c.permanent, working));
+    }
+    if (power < teamworkN) throw new DispatcherError(`Teamwork total power ${power} < ${teamworkN}`, "TEAMWORK_SHORT");
+    for (const id of ids) working = tapPermanent(working, id);
+    working = logEvent(working, { kind: "teamwork", playerId: action.playerId, cardName: castCard?.name || null, tapped: ids });
+  }
 
   // 2b. Pay any ADDITIONAL COSTS (CR 601.2f) — paid at cast, before the spell finishes going on the stack.
   // The parser attaches the cost(s) to `program.additionalCosts` and legalChoices.actionsCastSpell freezes

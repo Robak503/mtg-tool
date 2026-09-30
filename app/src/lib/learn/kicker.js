@@ -69,6 +69,17 @@ function normalizeSelf(oracle, name) {
   return t;
 }
 
+// TEAMWORK N (shelf D16 — the Marvel teamwork spells: Go Nuts!, HULK SMASH!, Helicarrier Strike …). The printed reminder:
+// "As an additional cost to cast this spell, you may tap any number of creatures you control with total power N or more."
+// (the keyword postdates the bundled Comprehensive Rules, so the reminder is the definition). An OPTIONAL additional cost
+// exactly like kicker — "If this spell was cast using teamwork, …" is its "if this spell was kicked" — paid by tapping
+// creatures instead of mana. A clean "Teamwork N" line, reminder stripped, nothing else on it; N the total power.
+const TEAMWORK_LINE_RE = /^teamwork\s+(\d+)\s*$/im;
+export function parseTeamworkCost(card) {
+  const m = TEAMWORK_LINE_RE.exec(stripReminder(card?.oracle || card?.oracle_text || ""));
+  return m ? Number(m[1]) : null;
+}
+
 // A clean single-Kicker line: "Kicker {cost}" at the start of a line, the cost one-or-more mana pips, and
 // NOTHING else on the line after the reminder strip (so "Kicker {2} and/or {R}" / "Multikicker {1}" / a
 // "Kicker {X}" all fail). The {X}/{Y}/{Z} guard keeps a variable kicker (whose magnitude the cost path

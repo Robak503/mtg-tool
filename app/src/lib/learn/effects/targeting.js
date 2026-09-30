@@ -541,6 +541,9 @@ export function expandCastChoices(state, controllerId, program, sourceColors = [
       && !(state.players?.[controllerId]?.battlefield || []).some((p) => p.card?.isCommander === true)) {
       sizes = sizes.filter((s) => s <= 1);
     }
+    // CONDITIONAL-BOTH ON TEAMWORK (shelf D16 — "If this spell was cast using teamwork, choose both instead"): the teamwork
+    // cast is the kicked one (ctx.kicked) and chooses BOTH modes, exactly; the plain cast chooses one.
+    if (program.modal?.conditionalBothKicked) sizes = [ctx?.kicked === true ? 2 : 1];
     const out = [];
     for (const size of sizes) {
       // MAX_CAST_EXPANSIONS here is a pure DoS backstop on the mode-combination count: no real card's mode

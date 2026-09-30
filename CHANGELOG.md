@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Teamwork** — HULK SMASH!, Go Nuts!, Widow's Bite, Murdock's Crusade, Crossover Collaboration, Cruel Alliance and Helicarrier Strike can be cast with teamwork: the game taps the creatures that pay it (naming them on the button) and the spell gets its upgrade — both modes for the "choose both" spells
 - **Wolverine, Claws Out** — each Mutant you attack with doubles its power, and Wolverine can assign his combat damage as though he weren't blocked
 - **Redirect spells** — Misdirection, Deflection, Shunt, Swerve, Bolt Bend, Redirect Lightning and Untimely Malfunction change the target of a single-target spell or ability; when there's more than one place it could go, you choose. The AI uses them to pull your removal off its creatures
 - **Choose what to sacrifice** — Iron Man, Titan of Innovation, Ironclad Revolutionary and Benthic Criminologists let you pick which artifact to sacrifice (or decline); Iron Man fetches an artifact one mana value higher

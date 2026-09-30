@@ -92,7 +92,7 @@ import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDrops
 // (verified — metric-only, zero runtime consumers), so this import introduces no cycle.
 import { classifyCard, isNativeTier, isNativeBestow, isKeywordOnly, isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
 import { cycleSelfTriggersModeled } from "./triggerRouting.js"; // shelf D6 — the cycling offer and the classifier read the same vouch
-import { parseKickerCounterCreature, parseKickerEtbCreature, parseKickerCost } from "./kicker.js"; // KICKER (CR 702.33) — emit a normal + a kicked cast (kicker mana folded into the cost) when the kicker is affordable; ETB-trigger payoff variant (creatures) + kicked-SPELL-effect (instants/sorceries) too
+import { parseKickerCounterCreature, parseKickerEtbCreature, parseKickerCost, parseTeamworkCost } from "./kicker.js"; // + TEAMWORK (shelf D16) // KICKER (CR 702.33) — emit a normal + a kicked cast (kicker mana folded into the cost) when the kicker is affordable; ETB-trigger payoff variant (creatures) + kicked-SPELL-effect (instants/sorceries) too
 import { registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant activated-body gate
 import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — emit a normal hard-cast + an emerge cast per legal sacrifice victim (cost reduced by the victim's MV)
 
@@ -1241,8 +1241,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // whether it's affordable on TOP of the base; the multi-atom emission below offers {kicked:false} casts and
     // (when affordable) {kicked:true} casts. A free-cast (Discover) pays nothing, so the kicker is never paid (only
     // the normal cast offered — the base still resolves; a SAFE limitation).
-    const kickedSpell = isHigh && (program.atoms || []).some((a) => a.kickedOnly);
+    // + TEAMWORK's "choose both instead" modal (shelf D16): its kicked cast is the both-modes one.
+    const kickedSpell = isHigh && ((program.atoms || []).some((a) => a.kickedOnly) || !!program.modal?.conditionalBothKicked);
     let kickedSpellCost = null, kickedSpellCmc = null, kickedSpellAffordable = false;
+    let teamworkTap = null; // TEAMWORK (shelf D16): the creatures the kicked cast taps instead of paying kicker mana
     if (kickedSpell && !freeCast) {
       const kStr = parseKickerCost(card); // clean single mana cost (kicker.js gate); the program only carries kickedOnly atoms when this is non-null
       if (kStr) {
@@ -1250,6 +1252,16 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         kickedSpellCost = mergeManaCost(cost, kCost);       // base (already taxed/reduced) + the kicker pips
         kickedSpellCmc = printedCmc + totalCmc(kCost);      // CR 202.3b — mana value counts the kicker paid
         kickedSpellAffordable = canAfford(player.manaPool, manaSources(state, playerId), kickedSpellCost);
+      } else {
+        // TEAMWORK N — no extra mana: tap creatures with total power ≥ N (the printed reminder). The same mana cost, paid
+        // WITHOUT the tapped creatures (manaModel.castPaymentSources drops them, exactly as the dispatcher will).
+        const n = parseTeamworkCost(card);
+        teamworkTap = n != null ? teamworkTapSet(state, playerId, n) : null;
+        if (teamworkTap) {
+          kickedSpellCost = cost;
+          kickedSpellCmc = printedCmc;
+          kickedSpellAffordable = canAfford(player.manaPool, castPaymentSources(state, { playerId, teamworkTapIds: teamworkTap.ids }), cost);
+        }
       }
     }
 
@@ -1629,7 +1641,12 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // The KICKED cast — kicker pips folded into the cost — when affordable on top of the base, with the kicked
         // cast's own targets; kicked:true → runEffectProgram runs the kickedOnly atoms and skips the nonKickedOnly ones.
         if (k < kickedChoices.length) {
-          actions.push({ ...commonFor(kickedChoices[k]), cost: kickedSpellCost, cmc: kickedSpellCmc, kicked: true, kickedName: "kicked" });
+          actions.push({
+            ...commonFor(kickedChoices[k]), cost: kickedSpellCost, cmc: kickedSpellCmc, kicked: true,
+            ...(teamworkTap
+              ? { kickedName: `teamwork: tap ${teamworkTap.names.join(", ")}`, teamworkTapIds: teamworkTap.ids, teamworkFree: teamworkTap.free }
+              : { kickedName: "kicked" }),
+          });
         }
       }
       continue;
@@ -2144,6 +2161,38 @@ function grantedActivatedForHost(state, hostPerm) {
  * A Vehicle that is ALREADY a creature (crewed, or animated some other way) is skipped — re-crewing is legal
  * by CR but useless here (the type is already on), so the offer stays clean. Total own power < N → no offer.
  */
+/**
+ * TEAMWORK (shelf D16) — the creatures a teamwork cast taps: untapped creatures the caster controls with total power ≥ N (the
+ * printed reminder "you may tap any number of creatures you control with total power N or more"; negative power counts 0).
+ * Picked by crew's deterministic house policy (actionsCrewVehicle below): summoning-sick creatures first, power descending —
+ * they can't attack this turn anyway — then the rest by power ascending, keeping the big attackers, stopping at ≥ N. Tapping
+ * them is a cost of the spell, not a {T} ability of theirs, so summoning sickness doesn't bar them (CR 302.6). `free` marks an
+ * all-sick set (the AI's take-it signal, crew's allSick). Null when the board can't reach N.
+ */
+function teamworkTapSet(state, playerId, n) {
+  const own = (state.players[playerId]?.battlefield || []).filter((p) => !p.tapped && permanentIsCreature(state, p.id));
+  const sick = (p) => p.summoningSick && !permanentHasKeyword(state, p.id, "Haste");
+  const pool = [
+    ...own.filter(sick).sort((a, b) => creaturePower(b, state) - creaturePower(a, state)),
+    ...own.filter((p) => !sick(p)).sort((a, b) => creaturePower(a, state) - creaturePower(b, state)),
+  ];
+  let tap = [];
+  let power = 0;
+  const pw = (c) => Math.max(0, creaturePower(c, state));
+  for (const c of pool) {
+    if (power >= n) break;
+    tap.push(c);
+    power += pw(c);
+  }
+  if (power < n) return null;
+  // Then untap what the total doesn't need, the last-added first (the biggest attacker the fill reached): the greedy fill
+  // over-taps — power 1 then 2 against Teamwork 2 would tap both when the 2 alone pays.
+  for (let i = tap.length - 1; i >= 0; i--) {
+    if (power - pw(tap[i]) >= n) { power -= pw(tap[i]); tap = tap.filter((_, j) => j !== i); }
+  }
+  return { ids: tap.map((c) => c.id), names: tap.map((c) => c.card?.name || c.id), free: tap.every(sick) };
+}
+
 function actionsCrewVehicle(state, playerId) {
   if (state.activePlayer !== playerId) return [];
   if (state.priorityHolder !== playerId) return [];

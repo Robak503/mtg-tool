@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **428 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **429 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,24 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D16: TEAMWORK — **Wolverine 89 → 90** (HULK SMASH!) · **+7** · corpus 15,086 / 34,245
+> Suite **1,663 files / 17,184 tests** green (1 skipped); lint 0; decks 2,681 / 2,998. CI GREEN on D15 (run 36780691171). Flip-diff **+7, zero LOST,
+> zero RETIERED** (tier snapshots at eaa3d07e → the change). **Mutants 21/21 killed on assertions** (restore byte-identical).
+> · **What:** Teamwork N = kicker paid by tapping creatures with total power ≥ N (the printed reminder is the definition — the keyword
+>   postdates the bundled CR; no rule number cited). "If this spell was cast using teamwork" reads as "kicked" inside the kicked-spell
+>   matcher; "Choose one. If … cast using teamwork, choose both instead." = a modal flagged `conditionalBothKicked` (teamwork cast = BOTH).
+> · **Cost path:** the kicked variant carries its tap set — crew's policy (sick first, then smallest) + a PRUNE pass (crew's greedy fill
+>   over-taps: 1+2 against N=2) — offered only if the mana is payable WITHOUT those creatures (castPaymentSources, the emerge guard);
+>   the dispatcher re-checks live + taps (real becomes-tapped events); short/stale/missing/doubled → throws. AI: teamwork only when the
+>   tapped set is all summoning-sick. actionLabel names kicked/teamwork variants.
+> · **Found in passing (queued as a chip):** the Academy's primary cast flow picks the FIRST option matching a clicked target, and the
+>   fallback labels didn't name variants — a human could not reliably choose a kicked / teamwork / X / other-mode cast. Also noted: the
+>   kicker cast's `cmc` cites "CR 202.3b" for counting kicker mana — mana value is the mana COST (202.3); the field only feeds AI ranking.
+> · **Runtime:** `WITNESS hulkOffer {"plainModes":["[0]","[1]"],"teamModes":["[0,1]"],"teamTaps":["bear,giant"]}` · `hulkTeamwork
+>   {"tappedAtCast":{"giant":true,"bear":true},"ringGone":true,"theirBearDead":true}`. Witnesses `app/src/lib/learn/teamwork.test.js` (13),
+>   `app/src/components/mtg/castVariantLabel.test.jsx` (1).
+> · **Next:** We Say Thee Nay!'s trailing "instead if" (Captain America) · the choose-two bite template (8 cards) · Believe it! · the 86s.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D15: Wolverine, Claws Out — **Wolverine 88 → 89** · +1 / −1 (an over-fire closed) · corpus 15,079 / 34,245
 > Suite **1,661 files / 17,170 tests** green (1 skipped); lint 0; decks 2,680 / 2,998. CI GREEN on D14 (run 36778635313). Flip-diff **+1 (Wolverine, Claws Out),

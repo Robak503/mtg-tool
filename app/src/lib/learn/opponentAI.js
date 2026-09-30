@@ -787,9 +787,12 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
   for (const [cardId, groupActions] of byCard) {
     // ALT-COST variant discipline (see filterAltCastVariants): free twins replace their normal casts, paid
     // alts survive only as interaction-of-last-resort. policy "v1" = the legacy never-pay arm (probe).
-    const actions = pol.altCost === "v1"
+    // TEAMWORK (shelf D16): tapping creatures is a real cost — they can't attack, or block on the next turn — so the AI pays
+    // teamwork only when every creature it taps is summoning-sick (crew's take-it signal, `teamworkFree`); any other teamwork
+    // variant is dropped here, before every chooser below, and the card is cast plain.
+    const actions = (pol.altCost === "v1"
       ? groupActions.filter((a) => !a.altCost)
-      : filterAltCastVariants(state, aiPlayerId, groupActions);
+      : filterAltCastVariants(state, aiPlayerId, groupActions)).filter((a) => !a.teamworkTapIds || a.teamworkFree);
     if (actions.length === 0) continue; // every variant filtered (e.g. an imprudent alt-only paid cast) → hold
     // ADVENTURE: an adventure action projects the half actually being cast as `faceCard`
     // (creature half from hand/exile, or the Adventure spell half) — score THAT face, not
