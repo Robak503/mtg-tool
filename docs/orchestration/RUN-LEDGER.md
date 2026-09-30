@@ -5,14 +5,41 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **384 commits**, corpus
-> 38.6% → **43.5% (14,902)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **385 commits**, corpus
+> 38.6% → **43.5% (14,913)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 28: "Protection from black and from red" — both Akromas, Mirran Crusader, Auriok Champion … · **+11** · and a runtime protection bug on 7 cards · corpus 14,913 (43.5%) / 34,245
+> Suite **1619 files / 16,774 tests** green (1 skipped); lint 0. Flip-diff **+11, zero LOST, zero retiered** (tier snapshots at 1cb7f918 → the
+> change). **Mutants 4/4 killed on assertions** (restore byte-identical).
+> · **Census rank 42** (the rank skipped at ③ · 24): the runtime enforced both colours all along — protection.parseProtectionColors
+>   splits "and from", and layers.permanentProtectionColors feeds the three sites (blocking, targeting, combat damage). Only the METRIC
+>   was wrong: coverage.isKeywordOnly splits clauses on " and ", so the line became "protection from black" + a bare "from red" no
+>   keyword credits — a sibling asymmetry (the same card with ONE colour classified native). **Build:** the colour list is joined
+>   into one clause before the split — colour words only, the words the runtime reader enforces; a non-colour quality after "and
+>   from" (Baneslayer's Demons, Greensleeves' Wizards) still splits and parks. A replacer function (the $-expansion gotcha).
+> · **The witness caught a runtime bug the metric fix would have hidden.** Mystic Crusader's protection set was EMPTY at runtime:
+>   the reader skips an "as long as" protection by testing its sentence, and the sentence ended at the next PERIOD only — a keyword
+>   line prints none, so the sentence ran into the threshold line's "As long as …" and the unconditional protection was dropped.
+>   Crediting the card native on the metric fix alone would have been a false positive. **Fixed at the reader**
+>   (`protectionSentence`, shared by the colour and class readers): the sentence ends at a line break too. Seven cards had lost
+>   printed protection this way — Blood Baron of Vizkopa, Spirit of the Night, Mystic Crusader, Mystic Enforcer, Nantuko
+>   Blightcutter, Ivory Guardians, Beasts of Bogardan (found by sweeping the corpus for exactly that boundary difference).
+> · **Gained (each read for real):** Akroma, Angel of Wrath, Akroma, Angel of Fury, Sphinx of the Steel Wind, Mirran Crusader,
+>   Phyrexian Crusader, Paladin en-Vec, Auriok Champion, Mystic Crusader, Stillmoon Cavalier, Great Sable Stag, Sabertooth Nishoba.
+> · **Runtime:** `WITNESS pairProtection` — all eleven read exactly their two printed colours at the reader the three sites consult ·
+>   an attacking Auriok Champion can't be blocked by Walking Corpse or Gray Ogre, can by Grizzly Bears (Savannah Lions, the
+>   unprotected control, by all three) · Lightning Bolt can't target it but can target the Lions; Giant Growth can target both ·
+>   blocking Gray Ogre it takes nothing, the Lions take the damage · `WITNESS lineBreakProtection` — the six others keep their printed
+>   protection · Etched Champion, Mystic Familiar and Pristine Angel (same-sentence conditions) are still not printed protection.
+> · **Mutants 4/4:** the metric join removed · the join admitting any quality · the sentence end back to period-only · the
+>   conditional skip dropped. Witness `app/src/lib/learn/protectionTwoColours.test.js` (8).
+> · **Next:** census rank 49 — Nevinyrral's Disk / Magus of the Disk.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 27: "Sacrifice [another] artifact or creature" as an ACTIVATED cost — Umbral Collar Zealot, Bartolomé del Presidio, Dockside Chef, Baron Bertram Graywater … · **+18** · corpus 14,902 (43.5%) / 34,245
 > Suite **1618 files / 16,766 tests** green (1 skipped); lint 0. Flip-diff **+18, zero LOST, zero retiered** (tier snapshots at 7c86424b → the

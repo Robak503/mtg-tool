@@ -722,6 +722,13 @@ export function isKeywordOnly(oracle, name) {
     if (shortN && shortN !== n) t = t.replace(new RegExp(`\\b${shortN}\\b`, "g"), "this creature");
   }
   if (!t.trim()) return true; // vanilla
+  // PROTECTION FROM TWO OR MORE COLOURS (the 09-06 plan's stage ③ · 28, 2026-09-30 — Auriok Champion, Mystic Crusader, Sanctifier
+  // en-Vec: "Protection from black and from red"): the " and " split below shredded the list into "protection from black" plus a
+  // bare "from red" no keyword credits, so the card parked while the runtime enforced BOTH colours all along
+  // (protection.parseProtectionColors splits "and from"). The list is joined into one clause first — COLOUR WORDS ONLY, exactly
+  // the words that reader enforces; any other quality after "and from" (Baneslayer's Demons, Greensleeves' Wizards) still splits
+  // and parks. A replacer function, never a replacement string (the $-expansion hazard in gotchas).
+  t = t.replace(/\bprotection from (?:white|blue|black|red|green)(?: and from (?:white|blue|black|red|green))+\b/g, (list) => list.replace(/ and from /g, " "));
   // Split on SENTENCE boundaries (. ! ?) too — not just , ; \n and. Otherwise a trailing non-keyword
   // sentence glued on by a strip ("flying  scry 1.") is swallowed whole by `startsWith("flying ")`
   // and mis-credited as keyword-only. Splitting on the period forces "scry 1" to stand alone and fail.

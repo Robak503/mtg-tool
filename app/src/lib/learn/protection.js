@@ -33,6 +33,17 @@ const ALL_COLORS = ["W", "U", "B", "R", "G"];
  * "protection from all colors" / "each color" (→ all five). Any non-color quality yields nothing for
  * that clause (it stays unenforced — a safe false-negative). Returns an empty Set when there's none.
  */
+// The sentence a "protection from" match sits in, bounded by the previous and the next "." OR line break. A keyword line prints
+// no period ("Protection from black and from red" above Mystic Crusader's threshold line), and a period-only end ran the sentence
+// into the NEXT line, whose "As long as …" then dropped an unconditional protection at runtime (the 09-06 plan's stage ③ · 28,
+// 2026-09-30 — Blood Baron of Vizkopa, Spirit of the Night, Mystic Crusader, Mystic Enforcer, Nantuko Blightcutter, Ivory
+// Guardians, Beasts of Bogardan). Shared by the colour and class readers so the two cannot disagree on a boundary.
+function protectionSentence(oracle, index) {
+  const start = Math.max(oracle.lastIndexOf(".", index), oracle.lastIndexOf("\n", index)) + 1;
+  const ends = [oracle.indexOf(".", index), oracle.indexOf("\n", index)].filter((i) => i >= 0);
+  return oracle.slice(start, ends.length ? Math.min(...ends) : oracle.length).toLowerCase();
+}
+
 export function parseProtectionColors(card) {
   const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
   const set = new Set();
@@ -46,17 +57,15 @@ export function parseProtectionColors(card) {
     //  - CONDITIONAL ("… protection from X as long as <metalcraft/threshold/…>") — Etched Champion etc.
     const before = oracle.slice(Math.max(0, m.index - 16), m.index).toLowerCase();
     if (/\bgains?\s+$/.test(before)) continue;
-    const periodIdx = oracle.indexOf(".", m.index);
     // GATED-PROTECTION FIX (2026-08-12): the conditional test must see the WHOLE sentence, not just the
     // text from the match onward — a LEADING conditional ("As long as there are seven or more cards in
     // your graveyard, this creature … has protection from black" — Mystic Familiar; "As long as this
     // creature is untapped, it has protection from …" — Pristine Angel) was slipping through and being
     // read as UNCONDITIONAL printed protection: a live FP at the targeting/blocking/damage sites even
     // while the condition was false. The trailing form (Etched Champion "… as long as <metalcraft>")
-    // stays caught — it is inside the same sentence slice.
-    const sentStart = Math.max(oracle.lastIndexOf(".", m.index), oracle.lastIndexOf("\n", m.index)) + 1;
-    const sentence = oracle.slice(sentStart, periodIdx >= 0 ? periodIdx : oracle.length).toLowerCase();
-    if (/\bas long as\b/.test(sentence)) continue;
+    // stays caught — it is inside the same sentence slice. The sentence ENDS at a line break too
+    // (protectionSentence — stage ③ · 28).
+    if (/\bas long as\b/.test(protectionSentence(oracle, m.index))) continue;
     const tail = m[1].toLowerCase().trim();
     if (/^all colors\b/.test(tail) || /^each color\b/.test(tail)) {
       for (const c of ALL_COLORS) set.add(c);
@@ -87,10 +96,7 @@ export function parseProtectionClasses(card) {
   for (const m of oracle.matchAll(/protection from ([^.;,()\n]+)/gi)) {
     const before = oracle.slice(Math.max(0, m.index - 16), m.index).toLowerCase();
     if (/\bgains?\s+$/.test(before)) continue;
-    const periodIdx = oracle.indexOf(".", m.index);
-    const sentStart = Math.max(oracle.lastIndexOf(".", m.index), oracle.lastIndexOf("\n", m.index)) + 1;
-    const sentence = oracle.slice(sentStart, periodIdx >= 0 ? periodIdx : oracle.length).toLowerCase();
-    if (/\bas long as\b/.test(sentence)) continue;
+    if (/\bas long as\b/.test(protectionSentence(oracle, m.index))) continue;
     if (m[1].toLowerCase().trim() === "creatures") set.add("creatures");
   }
   return set;
