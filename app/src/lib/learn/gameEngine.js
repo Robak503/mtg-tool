@@ -1590,12 +1590,11 @@ export function chooseTriggerTargets(candidates, info) {
   const controller = info?.trigger?.controller;
   const program = info?.program;
   if (!state || !controller || !candidates?.length) return undefined;
-  let enemies;
-  try {
-    enemies = new Set(opponentsOf(state, controller));
-  } catch {
-    return undefined;
-  }
+  // A corrupted controller seat THROWS here (opponentsOf → assertPlayer), exactly as it does at every other call site —
+  // deliberately not caught (2026-09-30). The old silent catch returned undefined, which buildTriggerStack reads as "no
+  // preference" and answers with firstLegalChoice: a removal trigger could first-legal the controller's OWN permanent — the
+  // friendly fire this chooser exists to prevent — behind a swallowed error (CLAUDE.md §1.2).
+  const enemies = new Set(opponentsOf(state, controller));
   const sideOf = (t) => {
     if (t.type === "player") return t.id;
     if (t.type === "spell") return (state.stack || []).find((o) => o.id === t.id)?.controller;

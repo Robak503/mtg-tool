@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **361 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **362 commits**, corpus
 > 38.6% → **43.2% (14,810)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,19 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-09-30 — the trigger target chooser no longer SWALLOWS a corrupted seat (a hidden-error + friendly-fire hazard) · ±0
+> Suite **1597 files / 16,560 tests** green (1 skipped); lint 0; no tier or corpus change (a runtime guard) — and no existing
+> test leaned on the swallowed error.
+> · Queued by ③ · 5's audit ("seen in passing, not touched"): `gameEngine.chooseTriggerTargets` wrapped `opponentsOf` in
+>   `catch { return undefined; }`. buildTriggerStack reads an undefined pick as "no preference" and falls back to
+>   `firstLegalChoice` — so a trigger whose controller id was corrupted took its FIRST legal target whatever side it sat
+>   on (a removal trigger could hit its controller's own creature), and the error that explained it was thrown away
+>   (CLAUDE.md §1.2). `opponentsOf` throws on an invalid seat at every other call site; the chooser now lets it.
+> · Witness `app/src/lib/learn/triggerChooserInvalidSeat.test.js` (3): the control (a valid seat aims at the opponent's
+>   creature with the friendly one listed first) · an invalid seat THROWS · the documented soft answers (no state / no
+>   controller / no candidates → undefined; no safe side → NO_SAFE_TARGET) are untouched. Seen to fail: against HEAD's
+>   gameEngine.js the invalid-seat test is red (it returned undefined); restored by file copy.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 5: "exile UP TO ONE target card from a graveyard" · **+10** (3 planned, 7 unplanned — every one run for real) + a pre-existing FALSE POSITIVE found and closed · corpus 14,810 (43.2%) / 34,245
 > Suite **1596 files / 16,557 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,650 / 2,998). Flip-diff **+10, zero LOST, zero retiered** (tier snapshots at 61230f37 → the
@@ -53,7 +66,8 @@
 >   mandatory form · the intent flipped to own (7 red, the runtime pins among them) · the graveyard lane accepting a mana
 >   program again (3 red — Jack's original pin among them). Witness `app/src/lib/learn/graveyardExileUpToOne.test.js` (15).
 > · **Seen in passing, not touched:** gameEngine.chooseTriggerTargets wraps `opponentsOf` in a silent
->   `catch { return undefined; }` — a swallowed error in the chooser (CLAUDE.md §1.2). Out of this slice's scope; queued.
+>   `catch { return undefined; }` — a swallowed error in the chooser (CLAUDE.md §1.2). Out of this slice's scope; queued
+>   → FIXED in the next commit (the 🔧 entry above).
 > · **Next:** census row ⑥ — Fireblast / Mogg Alarm's "you may sacrifice N Mountains rather than pay this spell's mana
 >   cost" (the alt-cost lane ② · 1 extended).
 
