@@ -17,6 +17,7 @@ import {
   deleteSave,
 } from "./learnSaveStore.js";
 import { checksumOf } from "./learnSaveSchema.js";
+import { engineBuild } from "../learn/engineBuild.js";
 
 let tmpDir, originalCwd;
 beforeEach(() => {
@@ -54,6 +55,9 @@ describe("learnSaveStore", () => {
     expect(res.ok).toBe(true);
     expect(res.saveDoc.serializable).toBe(true);
     expect(res.saveDoc.session).toEqual(s);
+    // The engine BUILD stamp (release-readiness R2) — was npm_package_version: a stale "0.150.0" under npm,
+    // and null in the packaged exe.
+    expect(res.saveDoc.engineVersion).toBe(engineBuild());
   });
 
   it("lists saves with denormalized index entries", async () => {

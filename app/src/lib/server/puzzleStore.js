@@ -24,9 +24,9 @@ import {
   migrate,
 } from "./learnSaveSchema.js";
 import { normalizePuzzleGoal } from "../learn/puzzleGoal.js";
+import { engineBuild } from "../learn/engineBuild.js";
 
 const MAX_PUZZLES = 100;
-const ENGINE_VERSION = process.env.npm_package_version || null;
 
 function puzzlesFile() {
   return profilePath("puzzles.json");
@@ -69,7 +69,7 @@ export function puzzleFromSession(session, { goal, label } = {}) {
     id: `puz_${Date.now().toString(36)}_${session?.id ? String(session.id).slice(-4) : "x"}`,
     kind: "learn-puzzle",
     schemaVersion: CURRENT_SCHEMA_VERSION,
-    engineVersion: ENGINE_VERSION,
+    engineVersion: engineBuild(), // the build stamp (engineBuild.js) — npm_package_version was null in the exe
     createdAt: new Date().toISOString(),
     goal: normalizePuzzleGoal(goal),
     label: typeof label === "string" && label.trim() ? label.trim().slice(0, 120) : null,

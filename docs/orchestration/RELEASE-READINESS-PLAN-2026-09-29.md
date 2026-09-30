@@ -53,7 +53,10 @@ Squirrel Girl baseline must not record 10k games under a meaningless version. Bu
 the engine build (e.g. the version plus the git commit when running from a checkout; the packaged exe keeps its
 CI-stamped version). Find every consumer of the stamp first (grind records, self-play shards, Omnath's harness).
 
-**DONE R2:** local records carry a build-identifying stamp; consumers checked; tests; COMMS note to Omnath.
+**DONE R2:** local records carry a build-identifying stamp; consumers checked; tests; COMMS note to Omnath. ✅ **MET
+2026-09-29** — `app/src/lib/learn/engineBuild.js` (git describe → `0.160.0+343.g916dfa71[.dirty]`; the exe keeps its
+tag version); suite 1588 files / 16,461 tests, lint 0, mutants 9/9 killed (RUN-LEDGER R2 entry). Omnath's own
+`pilots/_env.mjs engineVersion()` still reads package.json — his lane; the COMMS note says how to switch.
 
 ## §3 R3 — Omnath's batch 19 into `card-play-hints.json`
 

@@ -31,7 +31,10 @@ const { loadAllProfileDecks, toRunnerDeck } = await import(u("src/lib/server/sel
 const { loadPilotBuilder } = await import(u("src/lib/server/pilotLoader.js"));
 const { runSelfPlayGame, engineSeatsForMode } = await import(u("src/lib/learn/selfPlayRunner.js"));
 
-const engineVersion = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8")).version;
+// The engine BUILD stamp (git describe) — the canary replays only games THIS build recorded; package.json's
+// never-bumped version made every build look alike. See src/lib/learn/engineBuild.js.
+const { engineBuild } = await import(u("src/lib/learn/engineBuild.js"));
+const engineVersion = engineBuild();
 const sampleN = Number(argv.sample) || 20;
 
 // ── collect current-engine headers + the dedupe guard over ALL headers ──

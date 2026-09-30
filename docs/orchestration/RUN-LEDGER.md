@@ -5,13 +5,40 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ②. [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **342 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **344 commits**, corpus
 > 38.6% → **43.1% (14,772)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > ⚠️ **Read the first ~150 lines only.** Lines ~7,254–23,322 of this file are a byte-identical duplicate of lines
 > ~23,327–39,395. Commit 26645a2a (2026-08-06) added 16,079 lines and deleted none (16,105 → 32,184); the line where the
 > copy begins is cut exactly at `'\.md` — consistent with a scripted `String.replace` whose replacement held `$'`. Repair
 > is queued. Every grep over the whole file double-counts until then.
+
+> ## 🔧 2026-09-29 — RELEASE-READINESS R2 · an honest engine build stamp (`engineBuild.js`) · corpus unchanged 14,772 (43.1%)
+> Suite **1588 files / 16,461 tests** green (1 skipped); lint 0. **Mutants 9/9 killed** (restore byte-identical).
+> · The bug: every writer stamped `app/package.json`'s version — which the repo never bumps (release.yml stamps the tag
+>   on the runner only) — so every local grind / self-play record since mid-August said "0.150.0" whatever engine made
+>   it. Consumers compare the stamp for EQUALITY (`replay-canary.mjs` replays only same-stamp games; Omnath's
+>   `pilots/ab-compare.mjs` warns "ENGINE changed" only when stamps differ) or GROUP by it (gameLogStore's per-version
+>   cut — "the only way to see a fix move win rates"): all three were blind. `grindLoop.js` also hid a failed read
+>   behind a silent `catch { "unknown" }`; learn saves and puzzles used `npm_package_version` (null in the exe).
+> · The stamp: `git describe --tags --long --always --dirty --abbrev=8 --match v*.*.*` → semver with build metadata —
+>   `0.160.0` exactly on a clean release tag (what that tag's exe carries), `0.160.0+343.g916dfa71` past it, `.dirty`
+>   for uncommitted changes, `<pkg>+g<sha>` with no tag reachable (a shallow CI clone), `<pkg>+nogit` if git fails
+>   (loud, never a fake release stamp). The packaged exe skips git and stamps package.json (CI-stamped with the tag).
+>   git runs from the MODULE's directory, so a harness outside the repo (Omnath's pilots, cwd = the vault) still
+>   describes the engine tree it loaded. The MAJOR.MINOR.PATCH prefix survives Omnath's semver gates
+>   (export-training / ingest-grind-store parse with `parseInt`) — contract-tested.
+> · Wired: `grindLoop.js` (the silent catch deleted — a failed stamp now rejects the loop into `state.error`),
+>   `scripts/grind-pool.mjs`, `scripts/self-play.mjs`, `scripts/replay-canary.mjs`, `learnSaveStore.js`,
+>   `puzzleStore.js`. Live: `0.160.0+343.g916dfa71.dirty` from `app/` AND from `%TEMP%` (the foreign-cwd case).
+> · **Pins:** `engineBuild.test.js` (17 — every describe shape, the packaged / git-failure / unparsed paths, the consumer
+>   parser contract, the real checkout from a foreign cwd), `grindLoopStamp.test.js` (one fake game through the REAL
+>   loop — the header carries the stamp), the learn-save + puzzle round-trips. Seen to fail first: the grind header
+>   read "0.150.0"; both stores read "0.150.0" (npm_package_version under `npm test`).
+> · **Mutants:** a clean tag still gets a build id · the dirty flag dropped · the packaged exe runs git · a git failure
+>   stamps the bare version · an unreadable package.json swallowed · git describes the cwd's repo · the grind header
+>   ignores the stamp · both stores back on npm_package_version — each turned a named test red. The three CLI scripts
+>   have no test harness: `node --check` + review + the shared helper's tests.
 
 > ## 🔧 2026-09-29 — RELEASE-READINESS R1 · reference data freshness (`paths.js`): a newer bundle outranks an older synced copy · corpus unchanged 14,772 (43.1%)
 > Suite **1586 files / 16,443 tests** green (1 skipped); lint 0. **Mutants 8/8 killed** (restore byte-identical).

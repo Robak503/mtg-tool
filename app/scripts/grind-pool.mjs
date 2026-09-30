@@ -34,7 +34,9 @@ const maxHours = Number(argv["max-hours"]) || 12;
 const totalGames = argv.games ? Number(argv.games) : null;
 const baseSeed = argv["base-seed"] != null ? Number(argv["base-seed"]) >>> 0 : (Date.now() & 0xffffffff) >>> 0;
 const mode = argv.mode === "standard" ? "standard" : "commander";
-const engineVersion = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8")).version;
+// The engine BUILD stamp (git describe), not package.json's never-bumped version — see src/lib/learn/engineBuild.js.
+const { engineBuild } = await import(pathToFileURL(path.join(process.cwd(), "src/lib/learn/engineBuild.js")).href);
+const engineVersion = engineBuild();
 
 const stats = { games: 0, trusted: 0, stuck: 0, rejected: 0, bytes: 0, start: Date.now() };
 let stopping = false;

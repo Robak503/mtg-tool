@@ -14,6 +14,7 @@ import { createLearnSession, advanceUntilDecision } from "../learn/learnSession.
 import { boardSnapshot } from "../learn/boardSnapshot.js";
 import { tableSnapshot } from "../learn/tableSnapshot.js";
 import { puzzleFromSession } from "./puzzleStore.js";
+import { engineBuild } from "../learn/engineBuild.js";
 import { verifyChecksum } from "./learnSaveSchema.js";
 
 function forest(i) {
@@ -48,6 +49,7 @@ describe("puzzleFromSession — snapshot fidelity (P9 load path)", () => {
     expect(built.doc.label).toBe("Find lethal");
     expect(typeof built.doc.startTurn).toBe("number");
     expect(verifyChecksum(built.doc)).toBe(true); // session ↔ checksum agree
+    expect(built.doc.engineVersion).toBe(engineBuild()); // the build stamp (release-readiness R2), not npm_package_version
   });
 
   it("round-trips through JSON and re-derives the SAME board (serialize → resume → same board)", () => {

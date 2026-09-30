@@ -63,6 +63,7 @@ import { appRoot } from "../src/lib/server/paths.js";
 import { loadAllProfileDecks, toRunnerDeck } from "../src/lib/server/selfPlayDecks.js";
 import { runSelfPlayBatch, resolveBaseSeed, summarizeSeatOutcomes, engineSeatsForMode } from "../src/lib/learn/selfPlayRunner.js";
 import { aggregateBreakages, formatBreakageTxt } from "../src/lib/learn/breakageReport.js";
+import { engineBuild } from "../src/lib/learn/engineBuild.js";
 
 function parseArgs(argv) {
   const args = { mode: "commander", ids: null, out: null, max: null, gamesPer: 1, timePressure: true, exportTrajectories: null, seed: null, mulligan: true, rotateSeats: false, podShuffle: false, pilot: null };
@@ -234,7 +235,7 @@ async function main() {
     // seed with debug on (no per-row reasoning stored). seed is already in `meta.seed` + top-level `baseSeed`;
     // add engineVersion (the app version that produced the game) + a {seat:{playbook,temperament}} identity map
     // (batch-constant; the pilot is seat-keyed even under --rotate-seats). Empty pilots map ⇒ default autopilot.
-    const engineVersion = JSON.parse(await fs.readFile(new URL("../package.json", import.meta.url), "utf8")).version;
+    const engineVersion = engineBuild(); // the build stamp (git describe) — package.json's version is never bumped in-repo
     const pilotHeader = Object.fromEntries(
       Object.entries(pilots).map(([s, p]) => [s, { playbook: p?.playbook ?? null, temperament: p?.temperament ?? null }]),
     );

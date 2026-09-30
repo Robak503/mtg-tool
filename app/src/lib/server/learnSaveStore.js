@@ -15,6 +15,7 @@ import path from "node:path";
 import { profilePath } from "./paths.js";
 import { sanitiseId } from "./sanitiseId.js";
 import { atomicWriteJson, readJsonSafe } from "./atomicJson.js";
+import { engineBuild } from "../learn/engineBuild.js";
 import {
   CURRENT_SCHEMA_VERSION,
   checksumOf,
@@ -26,7 +27,6 @@ import {
 
 const SAVES_DIR = () => profilePath("learn-sessions");
 const INDEX_FILE = () => path.join(SAVES_DIR(), "index.json");
-const ENGINE_VERSION = process.env.npm_package_version || null;
 
 function envNumber(name, fallback) {
   const raw = process.env[name];
@@ -80,7 +80,7 @@ export async function autosaveSession(session) {
   const ser = isSerializable(session);
   const saveDoc = {
     schemaVersion: CURRENT_SCHEMA_VERSION,
-    engineVersion: ENGINE_VERSION,
+    engineVersion: engineBuild(), // the build stamp (engineBuild.js) — npm_package_version was null in the exe
     kind: "learn-session-save",
     savedAt: new Date().toISOString(),
     sessionId: session.id,
