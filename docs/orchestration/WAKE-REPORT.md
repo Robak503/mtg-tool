@@ -7,6 +7,52 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🌅 2026-09-29 — **RESUMED after the month-long pause · state re-verified · CI GREEN again (repo PUBLIC, stays public)** — runnable: the 09-06 plan's stage ②
+
+> **Runnable next:** [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ② — the tap-a-creature alternative
+> cost (Ramosian Rally, Angelic Favor; M-small), then the party-count cost reducer (S/M). Stage ① is MET. (Cindy has
+> recommended a release-readiness pass to Colton first — the ⏸ block below; if he says go, it runs before stage ②.)
+> **State (measured 2026-09-29 at 5df810d2, Opus 5.5 seat):** suite **1585 files / 16,429 tests** green (1 skipped; 172 s;
+> `VITEST_TIMEOUT_MS=900000 npm test`) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30 decks, **88%** aggregate
+> (2,650 / 2,998), **13 at ≥90** (Mothman by rounding: 88/98 = 89.8%), Atraxa **74** the floor · nothing held:
+> origin/master = 5df810d2.
+> **CI:** the repo is PUBLIC and stays public (Colton, 2026-09-29). PR #466's run (docs-only on top of 5df810d2) went GREEN
+> 2026-09-30T00:37Z, both shards, 11 real steps each — master's code passes CI by proxy; master HEAD's own checks stay the
+> 09-05 billing-refused reds until the next push. **Posture:** push each slice to master on full local gates, then check
+> that run (the jobs' `steps` length, not the run-level conclusion); a billing-annotation death is a one-line report, then
+> continue. Every "hold pushes / never flip visibility / N commits held" line below this block is history.
+> **Model policy:** orchestrator Opus 5.5 @ xhigh; workers `model: "sonnet"` (Sonnet 5.5); judgment workers
+> `model: "opus"` — [MASTER-GUIDE.md](MASTER-GUIDE.md) §2. A seat states its model first and stops if it isn't Opus 5.5.
+> **Fresh-worktree footing:** `npm ci` → `npm run build:rules-index` → `VITEST_TIMEOUT_MS=900000 npm test` →
+> `npm run lint` ([RESIDUE-GRIND-RUNBOOK.md](RESIDUE-GRIND-RUNBOOK.md) §1).
+
+### ⏸ Waiting on Colton (none of it blocks stage ②)
+
+> - **Release readiness (recommended 2026-09-29).** A release is owed: 340 commits, ~+1,500 corpus cards since v0.160.0.
+>   Found at boot: (1) installed copies keep reading their FIRST synced reference data forever — `dataPath()`
+>   (`app/src/lib/server/paths.js`) returns the writable AppData copy whenever one exists, so every newer bundle is
+>   shadowed: the box's v0.160.0 app reports all seven datasets synced 2026-07-19 (72 days, STALE) while v0.160.0's CI
+>   downloaded oracle_cards fresh on 08-16 (38,626 records vs the 07-18 copy's 38,254); (2) `engineVersion()`
+>   (`app/src/lib/learn/grindLoop.js:38`) stamps every local grind/self-play record "0.150.0" — the committed
+>   package.json version, which release.yml bumps on the runner only; (3) CHANGELOG has no `[0.160.0]` section;
+>   (4) release.yml's test gate is unsharded under a 900 s wall (~10.5 min expected on the 4-CPU public runner);
+>   (5) `sync-spellbook.yml` sets `continue-on-error: true` on the whole job, so a job that never ran reports the run
+>   green (last real sync 08-30); (6) Reality Fracture (fra / frc) releases 2026-10-02.
+> - **GitHub settings only Colton can change:** secret scanning + push protection (off; free on public repos) ·
+>   private vulnerability reporting (off, yet SECURITY.md sends reporters there) · optional rulesets: block force-push
+>   and deletion on master and on `v*` tags (no required PRs — the push-per-slice rhythm stays).
+> - **Privacy note:** all 3,752 commits (every ref) carry a non-noreply author or committer address — public now.
+>   Only a history rewrite removes them; going forward, the GitHub noreply address is the fix — Colton's call.
+> - **Omnath's open builder asks (COMMS):** merge batch 19 into `card-play-hints.json` (5 new + 10 REFRESH notes — the
+>   08-16 merge was a one-off parser; a committed merge tool is owed) · PR #466 (docs-only, green, mergeable) ·
+>   [Q-SG1..4].
+> - **Runbook QA backlog (2026-09-29 audit, three read-only auditors):** RUN-LEDGER lines ~7,254–23,322 duplicate
+>   ~23,327–39,395 byte-for-byte (commit 26645a2a) · WAKE-REPORT / RUN-LEDGER rotation not followed (544 KB / 3.3 MB) ·
+>   the repo SessionStart hook anchors on the wrong `## LOG` string (it prints the COMMS rules and truncates the newest
+>   entry) · SHELF-85 in-flight markers on finished rows · the quartet plan's Phase 2 premise is stale (the decision
+>   trajectory already exists; the 64-game read was delivered 08-15) · RELEASE.md / CLAUDE.md still show `v0.2.0` tag
+>   examples · the gstack skills CLAUDE.md names are not installed on the box.
+
 ## 🏁 2026-09-06 (~05:00Z) — **BANKED · FRESH HANDOFF** — Colton: "safe pause and bank everything, then a new hand off so the next cindy grind command can start fresh"
 
 > **Boot the next seat from `docs/orchestration/OVERNIGHT-PLAN-2026-09-06.md`** (the 09-02 plan is CLOSED and redirects there). Its stages, in order: ① the quartet's Phase 4 step 3 last class — colour words in a spend restriction (Shrine of the Forsaken Gods, Eldrazi Temple; M) · ② the two scoped residue rows with existing machinery — the tap-a-creature alternative cost (Ramosian Rally, Angelic Favor; M-small) and the party-count cost reducer (S/M) · ③ the residue loop (census; the banked classes are listed so nobody re-scopes them) · ④ the quartet's open phases (Phase 2, the decision log).

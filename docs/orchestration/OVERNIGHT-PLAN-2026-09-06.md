@@ -1,4 +1,11 @@
-# OVERNIGHT PLAN — 2026-09-06 (the fresh handoff Colton asked for; the cron boots a NEW seat from THIS file)
+# OVERNIGHT PLAN — 2026-09-06 (the fresh handoff Colton asked for; a NEW seat boots from THIS file)
+
+> **RESUMED 2026-09-29 — verified by the booting seat (read this before the 09-06 text below).** Everything the
+> "Banked state" paragraph calls held was pushed 2026-09-05: origin/master = **5df810d2**, nothing held. Re-measured at
+> 5df810d2: suite **1585 files / 16,429 tests** green (1 skipped) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30
+> decks, 88% aggregate, 13 at ≥90, Atraxa 74 the floor. The repo is PUBLIC and stays public; CI executes again (PR
+> #466's run green 2026-09-30T00:37Z). Stage ① is MET; **stage ② is next**. The "09-06" stamps in this file are
+> mislabelled — by git the bank commit (e134b616) is 2026-09-05 18:43Z. No cron runs this plan any more.
 
 > **THE ORDER (Colton, 2026-09-06 ~05:00Z, verbatim intent):** "after current work safe pause and bank everything then
 > create a new hand off so the next cindy grind command can start fresh and keep working."
@@ -14,7 +21,7 @@ commits held on `claude/cindy-grind-1482df`** since 78ca923d, none pushed — CI
 6–7 s with zero steps). The worktree is CLEAN at this handoff.
 
 **Read next, in this order:** `docs/orchestration/WAKE-REPORT.md` (the live anchor — its top block is this handoff) ·
-`docs/orchestration/RUN-LEDGER.md` (every slice of the last 30 hours, newest first) · `docs/orchestration/RESIDUE-GRIND-RUNBOOK.md`
+`docs/orchestration/RUN-LEDGER.md` (every slice, newest first — read its first ~150 lines only; the file is ~39k lines) · `docs/orchestration/RESIDUE-GRIND-RUNBOOK.md`
 (the census method) · `docs/orchestration/SUBSYSTEM-QUARTET-PLAN.md` (Phase 4 step 3's status ledger).
 
 ---
@@ -27,7 +34,7 @@ RUNTIME of an unplanned gain, not just its tier: the domain slice's Aura classif
 — the flip-diff's runtime probe caught it) → a witness file (`WITNESS` console rows; `--disable-console-intercept`) → mutants
 SEEN to fail (assert the match applied; a survivor is documented, deleted, or gets its missing test — never ignored) → lint +
 the FULL suite (gate on the fail count, never on grep's exit) → RUN-LEDGER + CHANGELOG + WAKE-REPORT (+ the shelf runbook /
-quartet ledger when they apply) → measure the deck → commit by explicit path → push ONLY when `gh run list` shows a green run.**
+quartet ledger when they apply) → measure the deck → commit by explicit path → push to master → check the run (CI posture below).**
 
 The nine traps are law: no regex escapes through scripted rewrites (Edit, never a bash heredoc — `grep -c $'\b'` must be 0);
 encode-before-write / temp-then-rename; never edit app-tree source while a suite runs (hold new witnesses as `.hold` in the
@@ -35,8 +42,12 @@ scratchpad and `mv` them in after); one gate run at a time (never mutants beside
 app API; stamp the real date; THE CREED — false-negative SAFE, false-positive FORBIDDEN; a park = a §6 entry + a terse COMMS line
 anchored on the exact `## LOG (newest first)` line + `node C:/Projects/omnath-vault/omnath-tools/sync-brain.cjs`.
 
-**CI posture (Colton's standing rule):** never flip repo visibility, never add collaborators. Hold pushes; commit locally on
-the full gates; push the whole stack on the first green run ([Q-CI2] in COMMS).
+**CI posture (Colton's standing rule, REVISED 2026-09-29):** the repo is PUBLIC and STAYS public — never set it private,
+never add collaborators. Push each slice to master as soon as its full local gates pass (`git push origin HEAD:master` after
+`git merge --ff-only origin/master`), then CHECK THAT RUN (`gh run list --branch master --limit 3`; a run's job `steps`
+length, not the run-level conclusion — a billing-refused job reports zero steps). If a run dies in seconds with the
+billing annotation ("recent account payments have failed…"), report it in one line and keep going. The 09-05 "hold pushes;
+push the whole stack on the first green run" posture is RETIRED.
 
 ---
 
@@ -64,7 +75,7 @@ activate abilities of colorless Eldrazi."). Sized **M**: a colour predicate on B
 
 ---
 
-## §2 STAGE ② — the two scoped residue rows with existing machinery (RESIDUE-GRIND-RUNBOOK §3 verdicts already written)
+## §2 STAGE ② — the two scoped residue rows with existing machinery (scoped in the WAKE-REPORT's census blocks, commit 8e2d9598)
 
 1. **The tap-a-creature alternative cost** — "If you control a Plains, you may tap an untapped creature you control rather than
    pay this spell's mana cost." (Ramosian Rally, Angelic Favor — 3 sole). The alt lane's condition parser already reads "you
@@ -115,7 +126,8 @@ As §0. The scratchpad scripts of the last run (`docs-*.py`, `mutate-*.py`, `pro
 in every RUN-LEDGER entry (witness → mutants → suite → docs → commit).
 
 ## §6 PARKED / NEEDS COLTON (carried from the 09-02 plan's §6 — read that section; nothing here is new)
-- **CI BLOCKED (billing; repo PRIVATE)** — Colton's call: GitHub Billing, or visibility. 111 commits wait on the first green run.
+- ~~**CI BLOCKED (billing; repo PRIVATE)**~~ — RESOLVED 2026-09-29: the stack was pushed 2026-09-05 (head 5df810d2); the
+  repo is PUBLIC and stays public; a PR run executed real steps again at 2026-09-30T00:28Z. See the §0 CI posture.
 - **Theft veto (standing):** Bringer of the Red Dawn, Oko's −5, Gilded Drake, Eriette's Tempting Apple and every gain-control
   effect stay parked on purpose — never trained.
 - **Omnath's queue:** the SHELF-85 hand-off ([Q-SHELF-85-OMNATH] + [Q-SHELF-85-OMNATH-A]) is posted; the ✍ notes are Omnath's.

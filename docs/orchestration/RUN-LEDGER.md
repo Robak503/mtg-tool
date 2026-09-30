@@ -1,7 +1,16 @@
 # RUN-LEDGER — live resume anchor for the long build run
 
-> **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
-> successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
+> **The live plan is the file the WAKE-REPORT's top block names** — as of 2026-09-29
+> [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md), stage ②. [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
+> (fallback §B/§D only).
+>
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **340 commits**, corpus
+> 38.6% → **43.1% (14,772)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+>
+> ⚠️ **Read the first ~150 lines only.** Lines ~7,254–23,322 of this file are a byte-identical duplicate of lines
+> ~23,327–39,395. Commit 26645a2a (2026-08-06) added 16,079 lines and deleted none (16,105 → 32,184); the line where the
+> copy begins is cut exactly at `'\.md` — consistent with a scripted `String.replace` whose replacement held `$'`. Repair
+> is queued. Every grep over the whole file double-counts until then.
 
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-5: CITY OF TRAITORS — landfall learns "played" · **+1** · corpus 14,435 (42.2%) / 34,245
 > Suite **1484 files / 16,089 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **7/7 killed.**

@@ -3,8 +3,8 @@
 **Purpose:** raise native corpus coverage by building UNBUILT SUBSYSTEMS ranked by real payoff,
 instead of hand-hunting individual cards. Written 2026-07-24 after a full overnight+morning shift
 proved the method (6 shipped slices, ~25 flips, 5 distinct bug classes caught and catalogued).
-**Any model seat (Sonnet / Opus / Fable) following this verbatim should land near-identical
-results** — every judgment call this method needs is either encoded as a rule below or explicitly
+**Any model seat (Opus 5.5 / Sonnet 5.5 — policy: MASTER-GUIDE §2) following this verbatim should
+land near-identical results** — every judgment call this method needs is either encoded as a rule below or explicitly
 marked as a STOP-AND-VERIFY.
 
 Read [ENGINE-SCAFFOLD.md](ENGINE-SCAFFOLD.md) once per session before touching the engine.
@@ -60,11 +60,14 @@ one class the fingerprints structurally cannot see.
 
 ```bash
 cd <worktree>/app
-npm ci                      # fresh worktree only
-npx vitest run              # must be green — record the file/test counts EXACTLY (they go in commit messages; miscounting them has happened twice)
-npm run lint                # must be 0
+npm ci                               # fresh worktree only — and never through a junction: if `cmd //c dir /AL .` lists node_modules as <JUNCTION>, skip this
+npm run build:rules-index            # fresh worktree only — app/data/rules-index.json is a gitignored build artifact (~5 s, local); without it 4 tests in api/rules-retrieval/route.test.js go red
+VITEST_TIMEOUT_MS=900000 npm test    # the wrapper CI runs (hang wall + Windows orphan-worker teardown), CI's 15-min wall; NEVER with MTG_APP_ROOT. Must be green — record the file/test counts EXACTLY (they go in commit messages; miscounting them has happened twice)
+npm run lint                         # must be 0 (eslint . --max-warnings 0 — the CI command)
 ```
 
+(Bash-tool syntax. In PowerShell: `$env:VITEST_TIMEOUT_MS=900000; npm test`.) A desktop-created worktree gets the
+oracle + rulings snapshots through the main tree's `.worktreeinclude`; the rules index it must build itself.
 If the suite is red at baseline, STOP — fix or escalate before any coverage work.
 **Contention caveat:** if a self-play grind pool or other CPU-heavy background job is running,
 expect 10-20 spurious timeout failures on a full-suite run. A red full run under load proves

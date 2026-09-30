@@ -1,5 +1,10 @@
 # NEXT QUEUE — the successor to roadmap v2
 
+> **2026-09-29 — THIS QUEUE IS SPENT; it is not the live plan.** Section A is shipped or refused (A0b, A0, A1, A3
+> shipped; A2's full decomposition refused solo; §C needs Colton). The LIVE plan is the file the WAKE-REPORT's top
+> block names — as of 2026-09-29 [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md), stage ②. Use §B/§D
+> here only as fallback filler when that plan is exhausted.
+
 > **Why this file exists.** Roadmap v2's six waves are effectively cleared (2, 3-item-8, 4 and most of 5
 > landed 2026-07-27/28). Colton's standing order is a 5-hour minimum run, 8-hour stretch, no check-ins —
 > and the thing that would end that run early is not stamina, it is **running out of queue**. This is the
@@ -181,7 +186,7 @@ two copies of a mechanism drift. Unify when B1b lands, with both test files as t
 > ```
 > AURA -> graveyard | host.attachments = []      AURA -> hand    | host.attachments = []
 > AURA -> exile     | host.attachments = []      AURA -> library | host.attachments = []
-> HOST -> graveyard | aura falls off (CR 704.5n) ✓
+> HOST -> graveyard | aura falls off (CR 704.5m) ✓
 > ```
 > **And the exact shape B1 needs already has a working precedent sitting in that function:** the SOULBOND
 > teardown clears a partner's back-reference on exit, for the same reason and at the same point.
@@ -350,6 +355,7 @@ grep for the marker afterwards. Re-measure rather than infer when two numbers di
 anything over ~10 cards. CI green on master before tagging. **When a diagnosis and the runtime disagree,
 the runtime wins** — and correct the written diagnosis in place rather than quietly rewriting it.
 
-Sweep `memory/COMMS.md` at every boundary. Post ABOVE the first `### ` header — there is a legacy
-`## LOG (newest first)` string ~670 lines down and anchoring on it buries the entry where Omnath never
-reads it. Verify with `grep -n "^### " memory/COMMS.md | head -3`.
+Sweep `COMMS.md` (in the vault: `C:\Projects\omnath-vault\memory\COMMS.md`) at every boundary. Anchor on
+the exact `## LOG (newest first)` line — the file was repaired to a single stack on 2026-08-30 and its own
+header now makes that line the only anchor; the newest entry goes directly below it. Verify with
+`grep -n "^### " C:/Projects/omnath-vault/memory/COMMS.md | head -3`.

@@ -26,20 +26,23 @@ If you find a mission prompt (`FABLE5-*-PROMPT.md`, `memory/orders/*fable5*`) it
 lives in **[UPGRADE-BACKLOG.md](UPGRADE-BACKLOG.md)** (the ranked feature/upgrade queue) and
 `memory/orders/` files whose banners say they are LIVE.
 
-Everything below is written to be executed by non-Fable sessions — the default assumption is
-an **Opus-class orchestrator with Sonnet-class workers** (§2).
+Everything below is written to be executed by non-Fable sessions — the default is an
+**Opus 5.5 orchestrator with Sonnet 5.5 workers** (§2).
 
 ## §1 Boot table — what to read, by work type
 
 Every session, regardless of type: `git fetch origin master` + `git log origin/master
---oneline -10` · read [WAKE-REPORT.md](WAKE-REPORT.md) (the live resume anchor) · check
-`memory/COMMS.md` top (lock? open ❓ questions?) + `memory/CONTINUITY.md` top · **run the
-gate green BEFORE changing anything** so any later failure is attributable to you.
+--oneline -10` · read [WAKE-REPORT.md](WAKE-REPORT.md) (the live resume anchor — its top
+block names the LIVE PLAN) · check `memory/COMMS.md` top (lock? open ❓ questions?) +
+`memory/CONTINUITY.md` top · **run the gate green BEFORE changing anything** so any later
+failure is attributable to you. (`memory/` = `C:\Projects\omnath-vault\memory`, the /cindy
+`<MEMDIR>`; only the main checkout has a `memory/` junction — from a worktree, read the vault
+path directly.)
 
 | Work type | Read, in order | Law / gate |
 |---|---|---|
-| Engine / coverage / rules | ENGINE-SCAFFOLD.md (§ how-to-add-a-mechanic) → OVERHAUL-PLAYBOOK.md §2–3 → `memory/orders/clyde-grind-relaunch.md` | CREED + full fingerprint battery at the §3 proof level |
-| **Corpus coverage grind (census-driven — THE standing method as of 2026-07-24)** | [RESIDUE-GRIND-RUNBOOK.md](RESIDUE-GRIND-RUNBOOK.md) — complete, model-agnostic, self-contained (5 laws · census → scope → build → verify → record · failure-mode table) | deletion-probe census ranks the queue; sole-blocker audit + tier-fingerprint both directions per slice |
+| Engine / coverage / rules | ENGINE-SCAFFOLD.md (§ how-to-add-a-mechanic) → OVERHAUL-PLAYBOOK.md §2–3 → the LIVE PLAN (the file WAKE-REPORT's top block names; 2026-09-29: [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md)) | CREED + full fingerprint battery at the §3 proof level |
+| **Corpus coverage grind (census-driven — THE standing method as of 2026-07-24)** | [RESIDUE-GRIND-RUNBOOK.md](RESIDUE-GRIND-RUNBOOK.md) — complete, model-agnostic, self-contained (6 laws · census → scope → build → verify → record · failure-mode table) | deletion-probe census ranks the queue; sole-blocker audit + tier-fingerprint both directions per slice |
 | Harness / AI / runner / pilots | OVERHAUL-PLAYBOOK.md first → PLAY-HARNESS-OVERHAUL-PLAYBOOK.md (anchor lineage, A/B probe, census, r11 loop) | trajectory-hash discipline + per-slice A/B evidence |
 | UI / components / styling | PROJECT-SCAFFOLD.md §2.2 → ui-overhaul-log.md §0 (the method) → the hidden `/styleguide` route | LEYLINE law: tokens only, `.btn` system, engine fence proven (tier fp 0-diff + trajectory hash holds) |
 | New kiosk area / surface | docs/HOW-TO-ADD-AN-AREA.md | registry-driven; a new door is ~3 small edits |
@@ -64,18 +67,24 @@ worked example of why this rule exists.
 
 ## §2 Model + orchestration policy (canonical — supersedes every scattered copy)
 
-- **Orchestrator (the main chat)**: the strongest model available — Fable 5 if usage
-  remains, otherwise **Opus (current generation) at `xhigh` effort**. `max` effort is a
+- **Orchestrator (the main chat)**: **Opus 5.5 at `xhigh` effort** (named explicitly
+  2026-09-29 on Colton's order; this line used to read "Fable 5 if usage remains, otherwise
+  Opus (current generation)" — Opus 5.5 is that current generation). `max` effort is a
   scalpel, not a default: reserve it for the single hardest judgment calls (a CREED-critical
   seam design, a gnarly integration conflict); it burns budget fast and rarely beats xhigh
   on routine work.
-- **Workers (Agent/Workflow subagents)**: `model: "sonnet"` for mechanical work (bulk edits
-  to a spec, test transcription, formatting sweeps, inventory reads). **Escalate to
-  `model: "opus"` for judgment-heavy work**: adversarial skeptics, recon/design agents,
-  CREED-heavy review, synthesis. **Always pass `model` explicitly** — omission silently
-  inherits the session model and spends orchestrator-class tokens on worker-class jobs.
+- **Model check at boot**: a seat's first line states the model it is actually running as.
+  If it is not Opus 5.5, it stops and asks Colton to switch the model picker before doing
+  anything else (a seat cannot switch its own model mid-session).
+- **Workers (Agent/Workflow subagents)**: `model: "sonnet"` (Sonnet 5.5) for mechanical work
+  (bulk edits to a spec, test transcription, formatting sweeps, inventory reads). **Escalate
+  to `model: "opus"` (Opus 5.5) for judgment-heavy work**: adversarial skeptics, recon/design
+  agents, CREED-heavy review, synthesis. **Always pass `model` explicitly** — omission
+  silently inherits the session model and spends orchestrator-class tokens on worker-class
+  jobs.
 - **Substitution rule for the playbooks**: wherever a playbook or historical prompt says
-  `model: "fable"`, read `model: "opus"`.
+  `model: "fable"`, read `model: "opus"` (Opus 5.5). Older model names in dated records
+  (Opus 4.x, Sonnet 4.x, Fable 5) are history — leave them as written.
 - **Effort**: workers default to the session effort; drop to `low`/`medium` for mechanical
   lanes, raise only the verify/judge stages.
 
@@ -86,7 +95,7 @@ own history:
 |---|---|---|
 | Adversarial re-verification of inherited work | **YES** — the single highest-value pattern | 8 skeptics caught a live CREED regression in day-old "verified" v0.84.0 work |
 | Wide read-only scans / audits / inventories | **YES** | 31-agent harness scan → 62 findings, 0 refuted; 9-reader UI inventory; 6-surveyor creative review (2026-07-04) |
-| Independent-perspective design/creative review | **YES** (fable/opus workers) | the UPGRADE-BACKLOG came from exactly this |
+| Independent-perspective design/creative review | **YES** (opus workers) | the UPGRADE-BACKLOG came from exactly this |
 | File-disjoint build lanes | Yes, **≤2 lanes**, exclusive file-ownership lists | every overhaul pass; >2 lanes hits API rate limits and gets workflows killed |
 | Serial CREED-heavy engine edits, integration, small features | **NO — solo xhigh beats N shallow contexts** | dispatcher/mana/zone work stayed in the orchestrator's hands in every pass |
 
@@ -106,7 +115,9 @@ evidence. ff-only, never force-push.
 each learned the hard way):
 
 1. The full gate at the right proof level (OVERHAUL-PLAYBOOK §3 / PLAY-HARNESS §3): suite
-   (`npx vitest run` from `app/`, **never** with `MTG_APP_ROOT`) + lint (`--max-warnings 0`)
+   (`VITEST_TIMEOUT_MS=900000 npm test` from `app/` — the wrapper CI runs, not bare
+   `npx vitest run`; **never** with `MTG_APP_ROOT`; a fresh worktree first runs
+   `npm run build:rules-index`) + lint (`npm run lint`, `--max-warnings 0`)
    + the fingerprint battery the change class demands. The suite alone misses every FP class
    the passes fixed.
 2. **Scripts always get `MTG_APP_ROOT`; vitest never does.** Anchors are only comparable
@@ -165,12 +176,12 @@ witness — what did this touch?"*
 
 | Number | Source of truth |
 |---|---|
-| Suite count | `cd app && npx vitest run` (no MTG_APP_ROOT); current anchor lives in WAKE-REPORT (7,681 @ v0.88.0) |
-| Corpus native % | `MTG_APP_ROOT=<main>/app node scripts/measure-coverage.mjs` (recipe + caveats in the grind order); last 8,645 @ v0.85.0 |
-| Shipped version / state | CHANGELOG.md + `git tag` — never a doc's prose |
-| Behavior anchors | WAKE-REPORT's current trajectory hash (**`ab524e20…`** as of 2026-07-04; the v0.88.0 `a2a03ba8` no longer reproduces — benign DECK-DATA drift, engine byte-identical v0.88→master per `git diff`) + tier-fp baseline |
-| Deck lists / census | AppData `profiles/<prof>/decks.local.json` (Colton `prof_a981996c…`, Joe `prof_b1412fcc…`) — never the memory `deck_*.md` files |
-| Parked work | WAKE-REPORT ⚠️ section (current pass) + the ledger pointers in §6 |
+| Suite count | `cd app && npm test` (no MTG_APP_ROOT); the current anchor is the WAKE-REPORT top block |
+| Corpus native % | `MTG_APP_ROOT="C:/Users/colto/AppData/Roaming/com.colton.mtg-tool" node scripts/measure-coverage.mjs` (the install root — see RESIDUE-GRIND-RUNBOOK §2); the current number is the WAKE-REPORT top block |
+| Shipped version / state | CHANGELOG.md + `git tag` — never a doc's prose (the committed `app/package.json` version is NOT the shipped one: release.yml stamps the tag's version on the runner only) |
+| Behavior anchors | the latest trajectory-hash lineage entry in WAKE-REPORT (search `3fe82499` — the rows-v2 re-lineage from `ab524e20…`); re-verify it reproduces before relying on it (no reproduction after the 2026-08-01 profile split is recorded) + tier-fp baseline |
+| Deck lists / census | AppData `profiles/<prof>/decks.local.json` — read `data/profiles.json` + `deck-owners.json` for the live ids, never hard-code them (2026-09-29: Colton `prof_bdb11b3e…`, Joe `prof_98486bf2…`, Omnath `prof_50410046…`); never the memory `deck_*.md` files |
+| Parked work | the live plan's §6 (2026-09-29: OVERNIGHT-PLAN-2026-09-06 §6) + the ledger pointers in §6 |
 
 ## §4 Orchestration safety card (Windows + worktrees — each line cost real time)
 
@@ -197,6 +208,13 @@ witness — what did this touch?"*
 
 ## §5 Doc registry (the master-guide section — every method/handoff doc, tagged)
 
+**LIVE** (read at every boot, in this order): [WAKE-REPORT.md](WAKE-REPORT.md) top block → the
+plan it names (2026-09-29: [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md)) →
+[RUN-LEDGER.md](RUN-LEDGER.md) (first ~150 lines only) → [RESIDUE-GRIND-RUNBOOK.md](RESIDUE-GRIND-RUNBOOK.md)
+(the census method) · [SUBSYSTEM-QUARTET-PLAN.md](SUBSYSTEM-QUARTET-PLAN.md) (the quartet's status
+ledger) · [SHELF-85-RUNBOOK.md](SHELF-85-RUNBOOK.md) (§0–§3 only; Cindy's lane closed 2026-09-05) ·
+[NEXT-QUEUE.md](NEXT-QUEUE.md) (spent 2026-08-02 — §B/§D fallback only).
+
 **CANONICAL** (current law; update in the same PR that changes what they describe):
 
 | Doc | What it is |
@@ -211,7 +229,7 @@ witness — what did this touch?"*
 | [ui-overhaul-log.md](ui-overhaul-log.md) §0 | the UI method (LEYLINE law); §1+ = frozen wave records |
 | [seam-migration-map.md](seam-migration-map.md) | live plan for the bounded parser→atoms migration (re-grep line numbers per batch) |
 | ../gotchas.md · ../agents.md · ../HOW-TO-ADD-AN-AREA.md · ../../RELEASE.md · CLAUDE.md | hazards · in-app personas · kiosk extension · release flow · the law |
-| memory-side: OMNATH-SCAFFOLD.md · OMNATH-OVERHAUL-PLAYBOOK.md · orders/clyde-grind-relaunch.md | Omnath system map · memory-side method · the standing grind order |
+| memory-side: OMNATH-SCAFFOLD.md · OMNATH-OVERHAUL-PLAYBOOK.md | Omnath system map · memory-side method |
 
 **ROTATING**: [WAKE-REPORT.md](WAKE-REPORT.md) — overwritten per pass. **The rotation
 rule (now written down):** before overwriting, carry still-open parked items forward into
@@ -226,11 +244,13 @@ omnath-tools/session-logs/.
 FABLE5-CONSOLIDATION-PROMPT · SESSION-HANDOFF · STATUS.md · task-board · worker-prompts ·
 coverage-run · agents/{clyde,omnath,cindy,hans,walt,iris}.md · ../HANDOFF.md ·
 ../project-status.md · ../master-plan.md · ../HANDOFF-NEW-ACCOUNT.md · the ../coverage-*
-family · ../../TODOS.md · ../../ROADMAP.md · memory/orders/*fable5* + orders/archive/.
+family · ../../TODOS.md · ../../ROADMAP.md · memory/orders/*fable5* + orders/archive/ (incl.
+every `*grind-relaunch*` order — archived, never obey one).
 
 ## §6 Parked ledger (everything waiting, with owners)
 
-- **Current pass parks**: WAKE-REPORT ⚠️ section — always the freshest list.
+- **Current pass parks**: the live plan's §6 (2026-09-29: OVERNIGHT-PLAN-2026-09-06 §6) — always
+  the freshest list.
 - **Engine/harness parks with analysis**: play-harness-overhaul-log §parked (decision.seat
   MINOR · SD-8 façade split · HB-9/HB-11 · ENG-FLAG-2 · fail-closed Spellbook guard ·
   detectArchetype memo) + WAKE-REPORT v0.86.0 section in git history.
@@ -244,14 +264,19 @@ family · ../../TODOS.md · ../../ROADMAP.md · memory/orders/*fable5* + orders/
   (Escape-to-close, powerRank serialization, alias sweep, offered-X-subset, AI alt-cost
   completion, U-F4 color tags, earthbend-return).
 
-## §7 What's next (as of 2026-07-04)
+## §7 What's next (as of 2026-09-29)
 
-1. **The Vault overhaul** — the flagship order, ready to fire:
-   `memory/orders/vault-overhaul.md` (kiosk IA + collector features; UI-battery gated).
-2. **UPGRADE-BACKLOG.md** — waves Q (quick wins) → V (vault) → P (proving grounds) → K
-   (knowledge/data) → E (engine promotions), each item self-contained.
-3. **The grind** — resumes per `memory/orders/clyde-grind-relaunch.md` (v2, refreshed
-   2026-07-04) whenever no feature wave holds the lock.
+1. **The live plan** — the file WAKE-REPORT's top block names (2026-09-29:
+   [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md)), first stage whose DONE line
+   is unmet: stage ② (the tap-a-creature alternative cost, then the party-count reducer) → ③ the
+   residue loop → ④ the quartet's open phase.
+2. **A release is owed** — 340 commits (~+1,500 corpus cards) since v0.160.0 (2026-08-16); see
+   ../../RELEASE.md and the batch rule in CLAUDE.md §7.2. The CHANGELOG `[0.160.0]` heading was
+   never cut (that release's batch still sits in `[Unreleased]`) — cut it before promoting the next.
+3. **UPGRADE-BACKLOG.md** — features, when no plan stage holds the seat.
+
+*(The 2026-07-04 list — the Vault overhaul, then the grind per `clyde-grind-relaunch.md` — is
+shipped / archived.)*
 
 *Written by the final Fable 5 session. The engine will keep moving — the shapes in these
 docs are the durable part. When a fact here and the code disagree, the code wins; fix the

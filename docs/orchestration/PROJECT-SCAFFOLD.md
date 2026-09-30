@@ -271,9 +271,10 @@ The project runs on **one owner chat per role**, never a second standing session
 in isolated git worktrees with `node_modules` junctioned from the main tree) to
 build/verify in parallel, then integrates their branches ff-only. One chat = one
 owner, *not* "work without tools" — the sub-agents are how you scale. The
-**MODEL SPLIT** (decided 2026-07-01): the orchestrator runs Opus 4.8 @ xhigh
+**MODEL SPLIT** (decided 2026-07-01 on Opus 4.8; names current as of 2026-09-29 —
+canonical in [MASTER-GUIDE.md](MASTER-GUIDE.md) §2): the orchestrator runs Opus 5.5 @ xhigh
 (judgment: CREED, integration, releases); background build/verify workers spawn
-with `model: "sonnet"` (the flip-diff + gate verify every worker regardless of
+with `model: "sonnet"` (Sonnet 5.5) (the flip-diff + gate verify every worker regardless of
 tier, so Sonnet is the correct cheaper default). Omitting `model` silently
 inherits the orchestrator's tier — always pass it. (This consolidation pass was the
 one-time exception: Fable 5 for the scan + scaffolds.)
@@ -295,10 +296,11 @@ landed where intended AND `git -C <main-tree> status` is clean.
 1. `git fetch origin && git log origin/master -5` — ground on the live head.
 2. Read `docs/orchestration/WAKE-REPORT.md` — the resume anchor.
 3. Skim `CHANGELOG.md` for the current version + recent waves.
-4. For engine work: [ENGINE-SCAFFOLD.md](ENGINE-SCAFFOLD.md) + `memory/orders/clyde-grind-relaunch.md`.
+4. For engine work: [ENGINE-SCAFFOLD.md](ENGINE-SCAFFOLD.md) + the live plan the WAKE-REPORT top block names + [RESIDUE-GRIND-RUNBOOK.md](RESIDUE-GRIND-RUNBOOK.md). (Every `*grind-relaunch*` order is archived — never obey one.)
 5. For build/shell/release work: `docs/gotchas.md` + [RELEASE.md](../../RELEASE.md) + §3 above.
-6. Set up a worktree, junction `node_modules`, and verify the gate is green
-   *before* you change anything (so a later failure is attributable to you).
+6. Set up a worktree (`npm ci` in `app/` — not a junction; then `npm run build:rules-index`) and
+   verify the gate is green (RESIDUE-GRIND-RUNBOOK §1) *before* you change anything (so a later
+   failure is attributable to you).
 
 ---
 
