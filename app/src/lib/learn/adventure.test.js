@@ -54,6 +54,12 @@ const MURDEROUS = {
   id: "mur1", name: "Murderous Rider // Swift End", type: "Creature — Zombie Knight // Instant — Adventure", mana: "{1}{B}{B} // {1}{B}{B}",
   oracle: "Murderous Rider - Creature — Zombie Knight {1}{B}{B}\nLifelink\nWhen this creature dies, put it on the bottom of its owner's library.\n//\nSwift End - Instant — Adventure {1}{B}{B}\nDestroy target creature or planeswalker. You lose 2 life. (Then exile this card. You may cast the creature later from exile.)",
 };
+// Lovestruck Beast // Heart's Desire — the CREATURE-half guard since Murderous Rider went native (stage ③ · 24): the adventure
+// half (a 1/1 Human token) is modeled, the creature's "can't attack unless you control a 1/1 creature" is not → body-only.
+const LOVESTRUCK = {
+  id: "love1", name: "Lovestruck Beast // Heart's Desire", type: "Creature — Beast Noble // Sorcery — Adventure", mana: "{2}{G} // {G}",
+  oracle: "Lovestruck Beast - Creature — Beast Noble {2}{G}\nThis creature can't attack unless you control a 1/1 creature.\n//\nHeart's Desire - Sorcery — Adventure {G}\nCreate a 1/1 white Human creature token. (Then exile this card. You may cast the creature later from exile.)",
+};
 // Picklock Prankster // Free the Fae — CREATURE half is modeled (keyword-only: flying, vigilance), but the
 // ADVENTURE half's follow-up ("put an instant, sorcery, or Faerie card from among the milled cards into your
 // hand") is unmodeled → whole card body-only (the OTHER-half anti-FP pin). (Merfolk Secretkeeper held this
@@ -92,8 +98,13 @@ describe("ADVENTURE — the metric (classifyCard: a clean card flips native-mixe
   it("CREED: Bonecrusher (BOTH halves unmodeled) stays body-only", () => {
     expect(classifyCard(BONECRUSHER)).toBe("body-only");
   });
-  it("CREED: Murderous Rider (CREATURE half unmodeled, adventure modeled) stays body-only", () => {
-    expect(classifyCard(MURDEROUS)).toBe("body-only");
+  // GRADUATED (the 09-06 plan's stage ③ · 24, 2026-09-30): Murderous Rider's creature-half dies trigger ("put it on the bottom
+  // of its owner's library") is modeled now (murderousRiderBottom.test.js), so the card is native. The guard this pin carried —
+  // an unmodeled CREATURE half parks the card even when the adventure half is modeled — moves to Lovestruck Beast, whose
+  // "can't attack unless you control a 1/1 creature" is unmodeled while Heart's Desire's 1/1 Human token is.
+  it("GRADUATED — Murderous Rider is native now; the CREATURE-half guard is Lovestruck Beast's", () => {
+    expect(classifyCard(MURDEROUS)).toMatch(/^native-/);
+    expect(classifyCard(LOVESTRUCK)).toBe("body-only");
   });
   it("CREED: Picklock Prankster (ADVENTURE half unmodeled, creature modeled) stays body-only", () => {
     expect(classifyCard(PICKLOCK)).toBe("body-only");

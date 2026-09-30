@@ -5,14 +5,39 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **380 commits**, corpus
-> 38.6% → **43.4% (14,877)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **381 commits**, corpus
+> 38.6% → **43.4% (14,879)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 24: "when this creature dies, put it on the bottom of its owner's library" — Murderous Rider, Fell Horseman · **+2** · corpus 14,879 (43.4%) / 34,245
+> Suite **1615 files / 16,724 tests** green (1 skipped); lint 0. Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at f386bc9d → the
+> change). **Mutants 5/5 killed on assertions** (restore byte-identical).
+> · **Census verdicts below row ㉒ (probed):** Goblin Clearcutter / Orcish Lumberjack ("{T}, Sacrifice a Forest: Add three mana in
+>   any combination of {R} and/or {G}") — **BANKED**: the production is expressible ({colors:[R,G], amount:3}, per-pip), but
+>   "Sacrifice a Forest" is a mana-ability cost the payment planner would have to thread against its own Forest taps — the classic
+>   Lumberjack line taps the Forest for {G} first and then sacrifices it, so a commit that picks a Forest the same plan still means
+>   to tap leaves the plan unpayable mid-commit. SG-3's creature sacrifice (Ashnod's Altar) is the nearest machinery. Then
+>   **census row ㉔:** Murderous Rider (EDHREC #1620), Fell Horseman.
+> · **Build:** the dies-trigger self-tuck the "shuffle it into its owner's library" op already resolves (Angel of Fury, Worldspine
+>   Wurm) — the card is found in its owner's graveyard — with `toBottom`: a plain library append (index 0 is the top), no shuffle.
+>   detectTriggers names the SELF dies trigger's "it" ("this creature"), gated to that event and scope; the arm takes only
+>   "this creature". A bare "it" elsewhere is another object — The Cauldron of Eternity's and Zask's dying creature, Neera's
+>   spell — and stays unparsed: an ungated arm would tuck the SOURCE, a false positive. Pinned.
+> · **Runtime (the Rider cast from hand, then lethal damage):** Grizzly Bears dies and stays in the graveyard (the vacuity
+>   control) · `WITNESS riderToBottom {"graveyard":0,"bottom":"Murderous Rider // Swift End","above":6}` — under the six library
+>   cards, their order untouched (off the battlefield it is the whole adventure card again) · Fell Horseman the same · the card
+>   exiled out of the graveyard before the trigger resolves moves nothing (CR 608.2b).
+> · **Mutants 5/5:** the rewrite removed · the self-dies gate dropped (red on the Cauldron pin) · the arm taking a bare "it" ·
+>   the graveyard path shuffling anyway · the arm dropping toBottom. Witness `app/src/lib/learn/murderousRiderBottom.test.js` (6).
+> · **A stale pin GRADUATED with a note:** adventure.test.js pinned Murderous Rider body-only as the "creature half unmodeled,
+>   adventure half modeled" guard; that guard moves to Lovestruck Beast (its "can't attack unless you control a 1/1 creature"
+>   is unmodeled, Heart's Desire's 1/1 Human token is), found by probing every adventure card for that shape.
+> · **Next:** the census below row ㉔ — Raid Bombardment, Crystal Barricade, Bartolomé / Hammerhead's sacrifice costs.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 23: "this spell costs {1} less to cast for each attacking creature [you control]" — Ancient Stone Idol, Static Snare, Embercleave · **+3** · corpus 14,877 (43.4%) / 34,245
 > Suite **1614 files / 16,718 tests** green (1 skipped); lint 0. Flip-diff **+3, zero LOST, zero retiered** (tier snapshots at 3e914b43 → the

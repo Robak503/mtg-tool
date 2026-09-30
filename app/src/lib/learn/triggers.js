@@ -4750,6 +4750,13 @@ export function detectTriggers(card) {
       if (cls.event === "etb" && cls.scope === "creatureOpponentControls") {
         effectClause = effectClause.replace(/^you may have that player lose (\d+) life$/i, (_, n) => `you may have the triggering permanent's controller lose ${n} life`);
       }
+      // SELF TO THE BOTTOM (the 09-06 plan's stage ③ · 24, 2026-09-30 — Murderous Rider, Fell Horseman: "When this creature
+      // dies, put it on the bottom of its owner's library."): in a SELF dies trigger "it" is the dying creature, so the clause
+      // is named ("this creature") for the self-tuck arm, which never takes a bare "it". Any other trigger's "it" is another
+      // object — The Cauldron of Eternity's and Zask's dying creature, Neera's spell — and stays unparsed (a safe FN).
+      if (cls.event === "dies" && cls.scope === "self") {
+        effectClause = effectClause.replace(/^put it on the bottom of its owner's library$/i, "put this creature on the bottom of its owner's library");
+      }
       if (cls.scope === "self" && SELF_PUMP_IT_RE.test(effectClause)) {
         effectClause = effectClause.replace(/^it /i, "this creature ");
       }

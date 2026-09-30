@@ -148,12 +148,14 @@ export function applyShuffleSelfIntoLibrary(state, atom, ctx) {
     const cardId = ctx?.sourceCardId || (selfTriggered ? ctx?.triggeringCardId : null) || null;
     for (const pid of Object.keys(state.players || {})) {
       if (cardId && (state.players[pid].graveyard || []).some((c) => c.id === cardId)) {
+        // The move appends: the card lands on the BOTTOM. A shuffle (the default) mixes it in; `toBottom` (Murderous Rider)
+        // leaves it there.
         let next = moveCardToZone(state, { playerId: pid, fromZone: "graveyard", toZone: "library", cardId });
-        next = shuffleSeededLibrary(next, pid);
-        return logEvent(next, { kind: "spell-effect", effect: "shuffle-self-into-library", controller: ctx.controller, cardId, owner: pid, from: "graveyard" });
+        if (!atom?.toBottom) next = shuffleSeededLibrary(next, pid);
+        return logEvent(next, { kind: "spell-effect", effect: atom?.toBottom ? "self-to-library-bottom" : "shuffle-self-into-library", controller: ctx.controller, cardId, owner: pid, from: "graveyard" });
       }
     }
-    return logEvent(state, { kind: "spell-effect", effect: "shuffle-self-into-library", controller: ctx.controller, cardId: null, reason: "source-gone" });
+    return logEvent(state, { kind: "spell-effect", effect: atom?.toBottom ? "self-to-library-bottom" : "shuffle-self-into-library", controller: ctx.controller, cardId: null, reason: "source-gone" });
   }
   const owner = lk.permanent.owner || lk.controller;
   let next;
@@ -166,8 +168,8 @@ export function applyShuffleSelfIntoLibrary(state, atom, ctx) {
       [lk.controller]: { ...state.players[lk.controller], battlefield: (state.players[lk.controller].battlefield || []).filter((p) => p.id !== lk.permanent.id) } } };
     next = { ...next, players: { ...next.players, [owner]: { ...next.players[owner], library: [...(next.players[owner]?.library || []), card] } } };
   }
-  next = shuffleSeededLibrary(next, owner);
-  return logEvent(next, { kind: "spell-effect", effect: "shuffle-self-into-library", controller: ctx.controller, cardId: lk.permanent.card?.id || null, owner });
+  if (!atom?.toBottom) next = shuffleSeededLibrary(next, owner);
+  return logEvent(next, { kind: "spell-effect", effect: atom?.toBottom ? "self-to-library-bottom" : "shuffle-self-into-library", controller: ctx.controller, cardId: lk.permanent.card?.id || null, owner });
 }
 
 /**
@@ -1047,6 +1049,11 @@ export function graveyardReturnClauseParser(clause) {
   // battlefield, its owner shuffles it into their library."; Inferno Hellion): the same op — the resolver already finds a
   // source that has left for the graveyard (the self-triggered look-back) and moves it graveyard → library, then shuffles.
   if (/^(?:shuffle (?:this creature|this permanent|it) into its owner's library|its owner shuffles (?:it|this card) into their library)$/.test(t)) return { op: "shuffle-self-into-library", targetType: null };
+  // SELF TO THE BOTTOM (the 09-06 plan's stage ③ · 24, 2026-09-30 — Murderous Rider, Fell Horseman: "When this creature dies,
+  // put it on the bottom of its owner's library."): the same self-tuck, `toBottom` — the card goes to the BOTTOM of its owner's
+  // library (a plain library append; index 0 is the top) and nothing is shuffled. "this creature" ONLY: detectTriggers names
+  // the dies trigger's "it", and a bare "it" elsewhere is another object (The Cauldron of Eternity, Zask, Neera).
+  if (/^put this creature on the bottom of its owner's library$/.test(t)) return { op: "shuffle-self-into-library", toBottom: true, targetType: null };
   const gxPlayM = /^exile target (.*?)cards? from your graveyard and you may play (?:it|that card) for as long as it remains exiled$/.exec(t);
   if (gxPlayM) {
     const cardFilter = parseGraveyardFilter(gxPlayM[1]);

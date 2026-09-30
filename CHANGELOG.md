@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Murderous Rider, Fell Horseman** — when the creature dies, it goes to the bottom of its owner's library
 - **Embercleave, Ancient Stone Idol, Static Snare** — cost {1} less for each attacking creature (Embercleave: each
   of yours); flash them in mid-combat
 - **Fiend Hunter, Leonin Relic-Warder** — you may exile the target until the creature leaves the battlefield
