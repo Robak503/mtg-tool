@@ -22,7 +22,7 @@ commits held on `claude/cindy-grind-1482df`** since 78ca923d, none pushed — CI
 6–7 s with zero steps). The worktree is CLEAN at this handoff.
 
 **Read next, in this order:** `docs/orchestration/WAKE-REPORT.md` (the live anchor — its top block is this handoff) ·
-`docs/orchestration/RUN-LEDGER.md` (every slice, newest first — read its first ~150 lines only; the file is ~39k lines) · `docs/orchestration/RESIDUE-GRIND-RUNBOOK.md`
+`docs/orchestration/RUN-LEDGER.md` (every slice, newest first — read its first ~150 lines; entries through 2026-09-04 are archived) · `docs/orchestration/RESIDUE-GRIND-RUNBOOK.md`
 (the census method) · `docs/orchestration/SUBSYSTEM-QUARTET-PLAN.md` (Phase 4 step 3's status ledger).
 
 ---
@@ -37,11 +37,14 @@ SEEN to fail (assert the match applied; a survivor is documented, deleted, or ge
 the FULL suite (gate on the fail count, never on grep's exit) → RUN-LEDGER + CHANGELOG + WAKE-REPORT (+ the shelf runbook /
 quartet ledger when they apply) → measure the deck → commit by explicit path → push to master → check the run (CI posture below).**
 
-The nine traps are law: no regex escapes through scripted rewrites (Edit, never a bash heredoc — `grep -c $'\b'` must be 0);
-encode-before-write / temp-then-rename; never edit app-tree source while a suite runs (hold new witnesses as `.hold` in the
-scratchpad and `mv` them in after); one gate run at a time (never mutants beside a snapshot or a suite); deck writes only via the
-app API; stamp the real date; THE CREED — false-negative SAFE, false-positive FORBIDDEN; a park = a §6 entry + a terse COMMS line
-anchored on the exact `## LOG (newest first)` line + `node C:/Projects/omnath-vault/omnath-tools/sync-brain.cjs`.
+The traps are law (this plan's list united with SHELF-85's, 2026-09-29): no regex escapes through scripted rewrites (Edit,
+never a bash heredoc — `grep -c $'\b'` must be 0); a scripted `String.replace` takes a replacer FUNCTION, never a string (`$'`
+expands to "the rest of the file" — docs/gotchas.md #21); encode-before-write / temp-then-rename; never edit app-tree source while
+a suite runs (hold new witnesses as `.hold` in the scratchpad and `mv` them in after); one gate run at a time (never mutants beside a
+snapshot or a suite); a surviving mutant is never ignored; deck writes only via the app API; stamp the real date; never
+`git stash` (the stack is shared across worktrees — a WIP commit instead); the Write tool overwrites silently — glob the name
+first; THE CREED — false-negative SAFE, false-positive FORBIDDEN; a park = a §6 entry + a terse COMMS line anchored on the
+exact `## LOG (newest first)` line + `node C:/Projects/omnath-vault/omnath-tools/sync-brain.cjs`.
 
 **CI posture (Colton's standing rule, REVISED 2026-09-29):** the repo is PUBLIC and STAYS public — never set it private,
 never add collaborators. Push each slice to master as soon as its full local gates pass (`git push origin HEAD:master` after
@@ -114,9 +117,11 @@ scoped-not-shipped in a row → the vein is dry → §4.
 
 `docs/orchestration/SUBSYSTEM-QUARTET-PLAN.md`: Phase 1 is built + gated (the flag flip awaits a policy that earns it — the
 08-15 A/B lost 21–26); Phase 2's decision log has its spine and one diagnostic verdict; Phase 3 is complete; Phase 4 closes with
-§1 above. The next open work there is **Phase 2 — the decision log**, whose read on the 64 divergent A/B games is what the
-Phase 1 tuner needs. Boot from that plan's own build list; interleave card-slices when a shelf deck's residue is dominated by a
-class it unparks. Alternatively the SHELF-85 hand-off's L rows are all still Omnath's for nuance notes — Cindy does not
+§1 above. The next open work there is **Phase 2's tail — evalScores on pending rows** (Phase 2 was RESHAPED 2026-08-15: the
+decision trajectory already existed, so it shipped as the hidden-info pin + the first-divergence diagnostic, whose read on the
+64 divergent A/B games landed that day — 62 forked on a cast-spell decision). Do NOT build the new `decisionLog` channel the
+plan's original Phase 2 text describes (bannered 2026-09-29). Read that plan's status ledger first; interleave card-slices
+when a shelf deck's residue is dominated by a class it unparks. Alternatively the SHELF-85 hand-off's L rows are all still Omnath's for nuance notes — Cindy does not
 re-open them without a new order.
 
 ---
@@ -135,4 +140,4 @@ in every RUN-LEDGER entry (witness → mutants → suite → docs → commit).
 
 ## §7 WHAT THE MORNING REPORT MUST CONTAIN
 The WAKE-REPORT's top block (this handoff), the shelf table at its end state, the slice count and corpus number, the CI
-posture, and the COMMS tags posted. All of it is already written for the 2026-09-06 05:00Z state; the next seat only appends.
+posture, and the COMMS tags posted. All of it is already written for the 2026-09-06 05:00Z state; the next seat adds its entries on top and rotates per MASTER-GUIDE §5.

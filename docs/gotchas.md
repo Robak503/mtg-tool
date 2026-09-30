@@ -61,7 +61,8 @@ pipeline or the Rust shell.
 
 13. **Private repo blocks unauthenticated GitHub release downloads**.
     For auto-update to work without per-user token UX, the repo must
-    be public (it currently is).
+    be public — and it stays public (Colton's standing order,
+    2026-09-29): a private repo 404s `latest.json` for every install.
 
 14. **YAML em-dashes in workflow comments tripped GitHub's parser**
     — the workflow ran with empty jobs in 0 seconds, no error
@@ -114,6 +115,30 @@ pipeline or the Rust shell.
     failures); (c) after ANY Edit/Write, verify the file landed in YOUR worktree
     and `git -C <main-tree> status` is clean (the Edit-misroute env bug).
     Full recipes: docs/orchestration/OVERHAUL-PLAYBOOK.md §2/§4.
+
+20. **A fresh worktree needs `npm run build:rules-index` before `npm test`.**
+    `app/data/rules-index.json` is a gitignored build artifact (~5 s, local); without it four tests in
+    `api/rules-retrieval/route.test.js` answer 500. CI builds it as a step; a desktop-created worktree
+    gets only the oracle + rulings snapshots (the main tree's `.worktreeinclude`). Run the suite through
+    the wrapper with CI's wall: `VITEST_TIMEOUT_MS=900000 npm test`.
+
+21. **`String.replace` with a replacement STRING expands `$'`, `` $` ``, `$&`, `$1`.** A scripted docs edit
+    whose replacement held `grep -v '\.md$'` (commit 26645a2a, 2026-08-06) had `$'` expanded to "the rest
+    of the file" — RUN-LEDGER.md grew a 16,069-line duplicate of its own tail (repaired 2026-09-30). Pass a
+    replacer FUNCTION (`s.replace(from, () => to)`) or use `split(from).join(to)`.
+
+22. **A Claude Desktop session can see the MSIX mirror of the install, not the install.** Claude Desktop is
+    MSIX-packaged; `%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Local\MTG Tool\` holds a stale copy
+    (v0.147.0, 2026-07-18) that shadows `%LOCALAPPDATA%\MTG Tool\` for reads from a session — the exe's
+    version info and bundle dates read there are WRONG. Ask the running app instead: `launch.log`
+    ("server payload version = … | shell = …") and `GET /api/sync-data`. (Writes to
+    `%APPDATA%\com.colton.mtg-tool\data\` reach the real disk — the Roaming mirror holds no such folder;
+    probe-verified 2026-09-30. Re-probe before trusting a write there.)
+
+23. **A new reference dataset must join `REFERENCE_GROUPS` in `paths.js`.** `dataPath()` reads a bundled
+    reference copy over an older synced one only for the groups listed there (Scryfall bulk, Spellbook,
+    EDHREC salt, Card Kingdom, the rules index — with each group's stamp file). A dataset left off the list
+    goes back to the pre-2026-09-29 behaviour: the first in-app sync shadows every later bundle forever.
 
 ---
 

@@ -232,12 +232,18 @@ ledger) · [SHELF-85-RUNBOOK.md](SHELF-85-RUNBOOK.md) (§0–§3 only; Cindy's l
 | ../gotchas.md · ../agents.md · ../HOW-TO-ADD-AN-AREA.md · ../../RELEASE.md · CLAUDE.md | hazards · in-app personas · kiosk extension · release flow · the law |
 | memory-side: OMNATH-SCAFFOLD.md · OMNATH-OVERHAUL-PLAYBOOK.md | Omnath system map · memory-side method |
 
-**ROTATING**: [WAKE-REPORT.md](WAKE-REPORT.md) — overwritten per pass. **The rotation
-rule (now written down):** before overwriting, carry still-open parked items forward into
-the new report OR move them to the pass log's §parked; prior versions live in git history.
+**ROTATING**: [WAKE-REPORT.md](WAKE-REPORT.md) and [RUN-LEDGER.md](RUN-LEDGER.md) — new
+entries go on top. **The rotation rule (revised 2026-09-30):** at a handoff (or once a file
+passes ~1,000 lines), move every entry older than the latest working session, verbatim and in
+order, into `archive/<FILE>-<from>-to-<to>.md` (a FROZEN RECORD with a header), leave a footer
+pointer in the live file, and carry any still-open parked item forward into the live top block
+first. Archives so far: WAKE-REPORT through 2026-07-09 and 2026-07-09 → 2026-09-04; RUN-LEDGER
+through 2026-09-04 (rotated 2026-09-30 — WAKE 5,539 → 671 lines, RUN-LEDGER 39,479 → 2,201
+after the duplicate repair).
 MORNING-BRIEF.md is a one-shot artifact of the v0.85.0 overnight loop (bannered historical).
 
-**RECORDS** (frozen evidence — never edit, always link): overhaul-evidence.md ·
+**RECORDS** (frozen evidence — never edit, always link): `archive/` (rotated WAKE-REPORT /
+RUN-LEDGER entries) · overhaul-evidence.md ·
 play-harness-overhaul-log.md · ui-overhaul-log.md wave entries · session logs in
 omnath-tools/session-logs/.
 

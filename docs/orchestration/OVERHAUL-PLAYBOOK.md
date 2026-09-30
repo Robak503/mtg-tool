@@ -44,18 +44,19 @@ re-run.
 
 ## 2. The verification recipes (copy-paste)
 
-All from `app/` of your worktree. `MAIN=C:\Users\colto\Documents\Claude\Projects\MTG-TOOL`.
+All from `app/` of your worktree. `ROOT="C:/Users/colto/AppData/Roaming/com.colton.mtg-tool"` (the installed app's data root: profiles + the synced oracle index — scripts take it; vitest never does). The main checkout is `C:/Projects/mtg-tool` (the laptop-era `MAIN=…/Documents/Claude/Projects/MTG-TOOL` is retired, 2026-09-29).
 
 ```bash
 # THE GATE (every wave, no exceptions). NO MTG_APP_ROOT on vitest (it redirects paths.js
 # and fabricates ~176 filesystem failures). Expect "Tests N passed" ≥ the current anchor.
-npx vitest run
+# A fresh worktree first runs `npm run build:rules-index` (docs/gotchas.md #20).
+VITEST_TIMEOUT_MS=900000 npm test  # the wrapper CI runs (hang wall + Windows orphan teardown), not bare vitest
 npm run lint                       # eslint --max-warnings 0 — CI's real gate
 
 # FINGERPRINT DUMPS (baseline BEFORE the change, candidate AFTER; diff must be explained):
-MTG_APP_ROOT="$MAIN/app" node scripts/tier-fingerprint.mjs    > tier.tsv     # ~10s, 34k rows
-MTG_APP_ROOT="$MAIN/app" node scripts/program-fingerprint.mjs > program.tsv  # ~7s
-MTG_APP_ROOT="$MAIN/app" node scripts/runtime-fingerprint.mjs > runtime.tsv  # ~1s
+MTG_APP_ROOT="$ROOT" node scripts/tier-fingerprint.mjs    > tier.tsv     # ~10s, 34k rows
+MTG_APP_ROOT="$ROOT" node scripts/program-fingerprint.mjs > program.tsv  # ~7s
+MTG_APP_ROOT="$ROOT" node scripts/runtime-fingerprint.mjs > runtime.tsv  # ~1s
 
 # The flip-diff (CREED gate) — LOST must be 0 or every line a NAMED, audited FP removal;
 # GAINED must be 0 in a no-coverage-growth pass:
@@ -67,20 +68,20 @@ comm -13 base.txt cand.txt   # GAINED
 # TRAJECTORY HASH (the overhaul's new runtime-behavior fingerprint): 3 seeded real pod games,
 # every decision hashed. Byte-identical across a refactor == the engine made the SAME decisions
 # on real games. Probe script (copy-paste) = PLAY-HARNESS-OVERHAUL-PLAYBOOK.md §2.1. The spec: load the
-# Tier-1 pod decks via loadAllProfileDecks (MTG_APP_ROOT=$MAIN/app), runSelfPlayBatch
+# Tier-1 pod decks via loadAllProfileDecks (MTG_APP_ROOT=$ROOT), runSelfPlayBatch
 # {mode:"commander", gamesPer:3, timePressure:true, recordDecisions:true}, sha256 over
 # JSON({result,turns,winnerSeat}) + every trajectory row. RUN IT TWICE (must be reproducible)
 # both BEFORE and AFTER. A behavior-CHANGING wave re-anchors the hash — record old/new + why.
 
 # PERF (evidence-first, same machine, uncontended):
-MTG_APP_ROOT="$MAIN/app" node scripts/self-play.mjs \
+MTG_APP_ROOT="$ROOT" node scripts/self-play.mjs \
   --ids=colton-sliver-hivelord,colton-koma-cosmos-serpent,colton-zaxara-the-exemplary,joe-the-ur-dragon \
   --games-per=3 --out=/tmp/pod.txt          # the standard Tier-1 pod batch; time it
 node --cpu-prof --cpu-prof-dir=prof scripts/self-play.mjs --ids=... --games-per=3 ...
 # then aggregate self-time by function from the .cpuprofile (samples×timeDeltas per node).
 
 # PLAY QUALITY (AI-policy changes — trajectory hash is the WRONG gate there):
-MTG_APP_ROOT="$MAIN/app" node scripts/play-quality-probe.mjs --help   # seeded A/B, old vs new policy
+MTG_APP_ROOT="$ROOT" node scripts/play-quality-probe.mjs --help   # seeded A/B, old vs new policy
 
 # DETERMINISM: two fresh-process tier-fingerprint runs must be byte-identical (sha256).
 ```
@@ -127,7 +128,7 @@ the trajectory hash. Use the whole battery.
   MISS. The robust pattern: **Write the patch script to a file with the Write tool, then
   `node script.cjs`** (no shell mangling). Escaped-unicode source (`“`) vs literal smart
   quotes is the same trap. After ANY edit: verify it landed in YOUR tree and
-  `git -C $MAIN status` is clean (the Edit-misroute env bug).
+  `git -C C:/Projects/mtg-tool status` is clean (the Edit-misroute env bug).
 - **Park, don't force.** Anything needing Colton's judgment or a bigger design (the
   spend-restricted-LANDS mana class, resolver-entry unification W6, the narrated log feed N3)
   goes to WAKE-REPORT with a written analysis, never a half-fix.

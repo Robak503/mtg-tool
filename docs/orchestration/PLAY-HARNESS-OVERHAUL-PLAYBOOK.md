@@ -36,7 +36,7 @@ from a §2 command anyone can re-run.
 
 ## 2. The harness verification recipes (copy-paste)
 
-Setup for all of them. `MAIN=C:\Users\colto\Documents\Claude\Projects\MTG-TOOL`.
+Setup for all of them. `ROOT="C:/Users/colto/AppData/Roaming/com.colton.mtg-tool"` (the installed app's data root: profiles + the synced oracle index — scripts take it; vitest never does). The main checkout is `C:/Projects/mtg-tool` (the laptop-era `MAIN=…/Documents/Claude/Projects/MTG-TOOL` is retired, 2026-09-29).
 Same two iron env rules as the engine playbook: **vitest NEVER sees `MTG_APP_ROOT`**
 (it redirects `paths.js` and fabricates ~176 filesystem failures); **every script below
 ALWAYS gets one**, pointed at a data root with `profiles/` +
@@ -117,10 +117,10 @@ offered legal set — a policy arm can never inject an illegal action.
 
 ```bash
 # Default grid: 60 mirror standard 1v1 games, NEW (shipping default) vs OLD (all-legacy):
-MTG_APP_ROOT="$MAIN/app" node app/scripts/play-quality-probe.mjs
+MTG_APP_ROOT="$ROOT" node app/scripts/play-quality-probe.mjs
 
 # Isolate ONE work item (per-slice evidence — do this for every slice you ship):
-MTG_APP_ROOT="$MAIN/app" node app/scripts/play-quality-probe.mjs --legacy=wipe
+MTG_APP_ROOT="$ROOT" node app/scripts/play-quality-probe.mjs --legacy=wipe
 # --legacy accepts any opponentAI.POLICY_KEYS entry or "all" (the default). The key list
 # is DERIVED from the one exported POLICY_KEYS array (AI-F11) — a new subsystem is
 # covered by --legacy=all automatically; a hand-copied list is the bug that fix removed.
@@ -142,7 +142,7 @@ The standard Tier-1 pod batch doubles as a behavior census: the report's breakag
 section (mined from the honest `state.log` signals) plus greppable behavior counts.
 
 ```bash
-MTG_APP_ROOT="$MAIN/app" node app/scripts/self-play.mjs \
+MTG_APP_ROOT="$ROOT" node app/scripts/self-play.mjs \
   --ids=colton-sliver-hivelord,colton-koma-cosmos-serpent,colton-zaxara-the-exemplary,joe-the-ur-dragon \
   --games-per=3 --out=<scratch>/pod.txt
 ```

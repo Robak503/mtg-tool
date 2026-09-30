@@ -485,7 +485,8 @@ Three mechanisms, run from `app/`. **Never claim a change is safe without them.*
 ```bash
 # from app/ — CRITICAL: do NOT set MTG_APP_ROOT (it redirects paths.js and causes
 # ~176 filesystem-test failures that are NOT real). Read "Tests N passed".
-npx vitest run          # expect the full suite green (6,500+ cases)
+VITEST_TIMEOUT_MS=900000 npm test   # the CI wrapper; expect the full suite green (current anchor: WAKE-REPORT top block)
+                                    # a fresh worktree first: npm run build:rules-index (docs/gotchas.md #20)
 npm run lint            # eslint --max-warnings 0
 ```
 

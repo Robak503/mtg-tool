@@ -12,7 +12,8 @@
 ## Standing rules for this track
 
 - **The same slice discipline as the card grind** — probe → build → flip-diff → witnesses with
-  seen-to-fail controls → per-process mutations → lint+tests by bare exit → ledger → CI-green → push.
+  seen-to-fail controls → per-process mutations → lint+tests by bare exit → ledger → push → check that CI run
+  (revised 2026-09-29: push each slice on its local gates, then check the run — the "CI-green before push" hold is retired).
   A subsystem slice earns a RUN-LEDGER entry exactly like a card slice.
 - **Default-off until gated.** Behavior-changing layers (1 especially) ship behind a flag, exactly like
   cardPlayHints did; the flag flips only when the phase gate passes.
@@ -42,6 +43,14 @@ first-commander, always-take-the-may, enemy-side-first targets). Rules-correct, 
 majority over ≥100 seeded games, with ZERO illegal-action regressions (the suite stays green both ways).
 
 ## Phase 2 — the decision log (learning)
+
+> ⚠️ **RESHAPED 2026-08-15 — do NOT build the channel described below.** Its premise ("the sim logs events,
+> not decisions") was stale: the rows-v3 decision trajectory already exists (selfPlayRunner recordDecisions;
+> decidePendingChoice records the pending-window decisions). Phase 2 was built lean instead: ① the
+> hidden-info contract pin (decisionLogHiddenInfo.test) and ② the first-divergence diagnostic
+> (eval-gate --diagnose), whose verdict landed 2026-08-15 (62 of 64 divergent games forked on a cast-spell
+> decision). **The open tail is evalScores on pending rows.** Source: the status ledger's 2026-08-15 entries
+> below. (Bannered 2026-09-29 after the runbook audit.)
 
 **Problem:** the sim logs *events*, not *decisions*; the decision-quality law (grade the CHOICE given
 visible state, never the outcome) has nothing to grade.

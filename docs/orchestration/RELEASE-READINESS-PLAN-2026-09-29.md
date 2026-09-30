@@ -77,6 +77,11 @@ reports the run green — move it to the sync step and end with a step that fail
 cache save on `always()`). Then run `sync-spellbook` once by hand to rebuild its fallback cache.
 
 **DONE R4:** both workflow changes pushed and exercised (a green ci run; one manual sync-spellbook run that executes).
+✅ **MET 2026-09-30** (db6f08b1, pushed with e29c5412). The manual sync-spellbook run (36659346685) executed every step:
+the combos bulk completed (**112,543 variants**, up from 108,046 on 08-30), the per-card flag crawl hit Spellbook's
+rate limit (`HTTP 429 after 10 retries … offset=10100` — gotchas #17), the partial progress was cached, and the run went
+**RED** — the fix working: the old job-level continue-on-error would have reported it green. The release's sharded gate
+runs for real only at the tag (R7). All workflow YAML is ASCII-clean (gotchas #14).
 
 ## §5 R5 — CHANGELOG
 
@@ -98,11 +103,21 @@ hook's COMMS anchor (`indexOf('## LOG')` matches the backticked mention on COMMS
 `\n## LOG (newest first)`); CLAUDE.md's gstack skill references → the skills this box has; the quartet plan's Phase 2
 premise (the decision trajectory already exists). One commit per file family.
 
-**DONE R6:** each item landed or parked with a reason under §9.
+**DONE R6:** each item landed or parked with a reason under §9. ✅ **MET 2026-09-30** — landed: the RUN-LEDGER duplicate
+repaired (e29c5412; proven on 26645a2a itself); WAKE-REPORT + RUN-LEDGER rotated into `archive/` (5,539 → 671 and
+23,409 → 2,201 live lines; KT-5 moved below KT-4b); the `v0.2.0` tag examples → v0.161.0 with the "one above the newest
+tag" rule (RELEASE.md, CLAUDE.md §1.6); CLAUDE.md §3.4 matches the workflows; the SessionStart hook anchors on the real
+`## LOG (newest first)` line; a gstack-availability note in CLAUDE.md's skill routing; the quartet plan's stale Phase 2
+bannered (the 09-06 plan §4 repointed at its real tail); the 09-06 plan's trap list = the union with SHELF-85's; the
+playbooks' `npx vitest run` → the CI wrapper and the laptop `MAIN` path → the install root; SHELF-85 bannered CLOSED;
+gotchas #20–#23 (worktree footing · `$'` in String.replace · the MSIX install mirror · new reference datasets). Parked
+(§9): the repo-root `tier-snapshot.json` tracked file (a `--out`-less run overwrites it) — NICE, not release-relevant.
 
 ## §7 R7 — the release
 
-Merge PR #466 (Omnath's docs, green). On/after **2026-10-02**: fresh `git fetch`, green master run, CHANGELOG
+Merge PR #466 (Omnath's docs, green). **Before the tag:** re-dispatch `sync-spellbook` (`gh workflow run
+sync-spellbook.yml --ref master`) so the per-card flag crawl resumes from its cached offset (it stopped at 10,100 on
+2026-09-30 — Spellbook's rate limit) and the release restores a fuller fallback. On/after **2026-10-02**: fresh `git fetch`, green master run, CHANGELOG
 `[Unreleased]` → `[0.161.0] - <date>`, `git tag v0.161.0 -a -m "Release v0.161.0"` + push; watch the release run
 (its own Scryfall/EDHREC/Spellbook sync); verify `latest.json` BY CONTENT (version 0.161.0, signature present); then
 the acceptance for R1: once the box's app updates, `GET http://127.0.0.1:3000/api/sync-data` shows `source: "bundle"`
@@ -123,3 +138,8 @@ reducer) → ③ → ④.
   noreply address going forward is Colton's call.
 - Codex read "keep everything private" as repo visibility on 2026-09-05 — reuse that phrasing only with "the mtg-tool
   repo stays public".
+- (NICE, builder) the repo-root `tier-snapshot.json` is tracked (1.1 MB); `scripts/tier-snapshot.mjs` without `--out` from
+  the repo root overwrites it — untrack + ignore it, or make `--out` required.
+- (SHOULD, builder) the release's strict bundle guard (`prepare-tauri-resources.cjs`) checks that Spellbook files EXIST,
+  not that the crawl completed — a rate-limited crawl ships partial card flags on a green run. Check the meta file /
+  counts instead.

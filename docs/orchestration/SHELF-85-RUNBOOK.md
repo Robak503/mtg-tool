@@ -1,5 +1,10 @@
 # THE SHELF-85 RUNBOOK — every shelf deck to ≥85% native, then the hard wins, then the Omnath list
 
+> **2026-09-29 — CLOSED for the builder lane (Phase 4 posted 2026-09-05; the cron that booted from it was deleted).** Read
+> it as a record; the live plan is whatever the WAKE-REPORT top block names. Its CI lines ("confirm CI green … BEFORE the
+> next push", "hold pushes") are retired: push each slice on its local gates, then check that run. Rows still carrying an
+> in-flight marker (V1, S17) are finished or parked — the §5/§7 logs are the truth.
+
 > **Standing order (Colton, 2026-09-04 06:20Z):** bring EVERY shelf deck — the test shelf, Joe's and Colton's — to at
 > least 85% native coverage; after that, sweep for any hard wins still doable and take them; then hand Omnath a final
 > list of everything that stays parked. This file is the durable plan: a cron or loop boots from it, picks the next

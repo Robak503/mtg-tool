@@ -121,8 +121,10 @@ The release workflow at `.github/workflows/release.yml` triggers on
 `v*` tag push. To cut a new release:
 
 ```powershell
-git tag v0.2.0 -a -m "Release v0.2.0"
-git push origin v0.2.0
+# the next tag is ONE ABOVE `git tag --sort=-v:refname | Select-Object -First 1` — never lower
+# (an older version marked "latest" stalls every installed copy's updater)
+git tag v0.161.0 -a -m "Release v0.161.0"
+git push origin v0.161.0
 ```
 
 CI does the rest — full data sync, build, sign, publish, all
@@ -287,29 +289,35 @@ release flow locally; CI is the authoritative source for releases.**
 
 ### 3.4 CI release flow
 
-`.github/workflows/release.yml` triggers on `v*` tag push. Steps:
+`.github/workflows/release.yml` triggers on `v*` tag push (a branch
+dispatch skips). Two jobs:
 
-1. Checkout, Rust toolchain, Node 22, npm ci
-2. Cache `app/data/` from previous run (`refdata-` key prefix)
-3. Sync Scryfall bulk (oracle, default, artwork, rulings) — ~10 min
-4. Build slim oracle index — ~10 sec
-5. Build rules retrieval index — ~5 sec
-6. Sync EDHREC salt — ~1 min
-7. `npm run tauri:build:release` with secrets injected
-8. Build `latest.json` manifest with version + sig + URL
-9. Publish GitHub Release with `.exe` + `.exe.sig` + `latest.json`
+1. **`test`** — the release's gate, two shards exactly like `ci.yml`:
+   npm ci, build the rules index, lint, sharded `npm test` (~10 min).
+2. **`build`** (waits on `test`; the only job with `contents: write`):
+   Rust toolchain + a restore-only cargo cache, npm ci, stamp the tag's
+   version into `tauri.conf.json` + `package.json` on the runner,
+   restore the `refdata-` cache (restore-only: a starting point /
+   fallback), then sync reference data FRESH — Scryfall bulk (well
+   under a minute), the oracle + printings indexes, the starter price
+   seed (best-effort), the rules index (post-sync), EDHREC salt, Card
+   Kingdom prices (best-effort), Commander Spellbook (bounded to 12
+   min, resumable; the strict bundle guard fails the build rather than
+   ship a gutted snapshot) — then `npm run tauri:build:release` with
+   the signing secrets, `latest.json`, and the GitHub Release
+   (`.exe` + `.exe.sig` + `latest.json`, retried on a transient
+   failure).
 
-Total ~20-30 min per release. Subsequent releases reuse the data
-cache so most sync steps short-circuit.
+Total ~30 min. Nothing short-circuits: every release re-syncs its
+reference data.
 
-**Commander Spellbook lives in its own workflow**:
-`.github/workflows/sync-spellbook.yml` runs weekly on Sunday at
-03:00 UTC (plus `workflow_dispatch` for "refresh now"). It restores
-the same `refdata-` cache, syncs Spellbook (which is resumable and
-rate-limit-tolerant), and saves the cache back. The release
-workflow picks up whatever Spellbook snapshot is freshest. Spellbook
-flakiness can no longer delay or interrupt a release, and a release
-pause doesn't starve the bundled combo snapshot.
+**The weekly Spellbook workflow**: `.github/workflows/sync-spellbook.yml`
+runs Sunday 03:00 UTC (plus `workflow_dispatch`). It keeps the
+`refdata-` cache alive as the release's fallback (caches expire after
+7 days unused). Its sync step may fail without losing progress (the
+partial state is cached), but since 2026-09-29 the RUN goes red when
+the sync failed — it used to report every run green, including runs
+that never started.
 
 ### 3.5 Signing keys
 
@@ -544,6 +552,17 @@ Now go.
 *Instruction set version: 2.0 (Tauri .exe era — 2026-05-28)*
 
 ## Skill routing
+
+> **Availability (checked 2026-09-29):** the gstack skills named below and
+> elsewhere in this file (/office-hours, /plan-*, /autoplan, /investigate,
+> /qa, /review, /design-*, /ship, /land-and-deploy, /context-save|restore,
+> /cso, /codex, /document-release) and the `gbrain` CLI are NOT installed
+> on the Omnath build box. There, use the built-ins: `/code-review` for
+> /review, `/security-review` for /cso, `/simplify` for cleanup, `/run` +
+> the browser pane for /qa; where /investigate is named, root-cause by
+> hand (reproduce, one hypothesis at a time — §1.5's two-failures rule
+> still holds); "ship" = the push-per-slice flow (§7.2 + RELEASE.md). The
+> routing below applies where gstack is installed.
 
 When the user's request matches an available skill, invoke it via the
 Skill tool. When in doubt, invoke the skill.

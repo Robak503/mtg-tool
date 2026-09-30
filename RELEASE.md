@@ -6,8 +6,10 @@ copies of the app pick up via auto-update.
 ## TL;DR
 
 ```powershell
-# Bump version + push tag
-$next = "v0.2.0"
+# The next tag is ONE ABOVE the newest release tag — never lower: an older version marked
+# "latest" stalls every installed copy's updater.
+git fetch --tags; git tag --sort=-v:refname | Select-Object -First 1   # e.g. v0.160.0 -> next is v0.161.0
+$next = "v0.161.0"
 git tag $next -a -m "Release $next"
 git push origin $next
 
@@ -63,16 +65,15 @@ but everything else does — fine for iterating UI.
    the packaged app (2026-08-02, fixed in v0.150.1). Bumping it is a one-line
    change; the script re-downloads and SHA-verifies automatically.
 1. Make sure `master` is green and you're on it: `git switch master && git pull`
-2. Bump the `version` field in `app/src-tauri/tauri.conf.json` (or
-   leave it alone — the tag drives the release name; the embedded
-   version only matters for `current.version` comparisons in the
-   updater)
-3. Tag and push:
+2. Leave the committed versions alone: release.yml's "Sync version to tag" step writes the tag's version
+   into `app/src-tauri/tauri.conf.json` and `app/package.json` on the runner (the embedded version is
+   what the updater compares). Do move CHANGELOG.md's `[Unreleased]` to `[x.y.z] - <date>` first.
+3. Tag and push — the next tag is one above `git tag --sort=-v:refname | Select-Object -First 1`:
    ```powershell
-   git tag v0.2.0 -a -m "Release v0.2.0"
-   git push origin v0.2.0
+   git tag v0.161.0 -a -m "Release v0.161.0"
+   git push origin v0.161.0
    ```
-4. Wait for CI (~15 min for the LZMA on the 1.2 GB bundle)
+4. Wait for CI (~30 min: the two-shard test gate ~10, then the build + reference-data sync ~20)
 5. Verify the release page lists the `.exe`, `.exe.sig`, and `latest.json`
 6. Open MTG Tool, click "⟳ Updates" in the header, click "Check for updates"
 7. The "Download & install" button appears; click it; app restarts on
