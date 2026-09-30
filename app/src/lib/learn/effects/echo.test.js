@@ -6,7 +6,7 @@
  * "your upkeep" descriptor whose sentinel effectClause ("echo {cost}") the parser maps to the single `echo`
  * pausing atom. At fire time: the FIRST of the controller's upkeeps stamps echoDone and suspends on the
  * SHARED sac-unless-pay pay-or-sacrifice choice (fixed printed cost — no scaling); every LATER upkeep is a
- * clean no-op (the stamp is exactly CR 702.30c's single payment for a permanent under one controller).
+ * clean no-op (the stamp is exactly CR 702.30a's single payment for a permanent under one controller).
  * CREED: {X}/hybrid echo costs are rejected (SAFE FN — the shared payer treats mana as fixed pips).
  */
 import { describe, it, expect, beforeEach } from "vitest";
@@ -69,7 +69,7 @@ describe("echo — the one-time pay-or-sacrifice", () => {
     expect(sacked.players.user.battlefield).toHaveLength(0);
     expect(sacked.players.user.graveyard.map((c) => c.id)).toContain("c-src");
   });
-  it("LATER upkeeps (echoDone already stamped): a clean no-op — no choice, no sacrifice (CR 702.30c)", () => {
+  it("LATER upkeeps (echoDone already stamped): a clean no-op — no choice, no sacrifice (CR 702.30a)", () => {
     const after = runAtom(stateWith({ mana: {} , echoDone: true }), ECHO_ATOM);
     expect(after.pendingChoice).toBeFalsy();
     expect(after.players.user.battlefield.map((p) => p.id)).toEqual(["src"]);

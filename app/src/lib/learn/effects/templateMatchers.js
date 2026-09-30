@@ -760,7 +760,7 @@ export function matchCumulativeUpkeep(oracle) {
  * reminder parens, the cumulative-upkeep precedent). Maps to the single `echo` pausing atom: the resolver
  * fires the pay-or-sacrifice ONCE (the permanent's echoDone flag replaces the came-under-control-since
  * intervening-if — for a permanent that stays under one controller, "first of your upkeeps since it entered"
- * ⟺ "echoDone not yet stamped", exactly CR 702.30c's one-payment semantics) and every later upkeep no-ops.
+ * ⟺ "echoDone not yet stamped", exactly CR 702.30a's one-payment semantics) and every later upkeep no-ops.
  * A hybrid cost DOES pay faithfully here (no per-counter scaling — the fixed printed cost), but the shared
  * sac-unless-pay payer treats mana as fixed pips, so keep the SAME pure-cost gate as cumulative upkeep:
  * {X}/snow/hybrid → null → LOW → the whole card stays body-only (a SAFE FN). Only recognizes the sentinel

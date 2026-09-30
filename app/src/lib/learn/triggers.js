@@ -5710,7 +5710,7 @@ export function detectTriggers(card) {
   // ECHO (BLITZ EC-1, CR 702.30) — KEYWORD→TRIGGER synthesis, the cumulative-upkeep precedent exactly. "Echo
   // {cost}"'s triggered ability lives entirely in reminder parens. Synthesize the "your upkeep" descriptor with
   // the "echo {cost}" sentinel (parser.matchEcho → the `echo` pausing atom: a ONE-TIME pay-or-sacrifice at the
-  // first of your upkeeps after it entered, echoDone-stamped so later upkeeps no-op — CR 702.30c's single
+  // first of your upkeeps after it entered, echoDone-stamped so later upkeeps no-op — CR 702.30a's single
   // payment). LINE-anchored (the printed keyword line, never a mid-sentence "echo" word); the brace cost is
   // captured verbatim — an {X}/hybrid cost is rejected by the parser matcher (→ LOW → body-only, a SAFE FN).
   const echoKw = oracle.replace(/\([^)]*\)/g, " ").match(/(?:^|[\n.;])\s*echo\s+(\{[^}]+\}(?:\{[^}]+\})*)/i);

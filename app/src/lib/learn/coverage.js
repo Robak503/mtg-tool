@@ -159,7 +159,7 @@ export const COVERED_KEYWORDS = [
   // ECHO (BLITZ EC-1, CR 702.30) — ENFORCED: the keyword's triggered ability is synthesized in detectTriggers
   // (a "your upkeep" descriptor whose sentinel effectClause parses to the `echo` atom) and fired by
   // checkStepTriggers — the FIRST of the controller's upkeeps after it entered suspends on the shared
-  // pay-or-sacrifice choice (echoDone-stamped, so later upkeeps no-op — CR 702.30c's single payment).
+  // pay-or-sacrifice choice (echoDone-stamped, so later upkeeps no-op — CR 702.30a's single payment).
   // "echo {cost}" matches via the startsWith check exactly like cumulative upkeep; only the pure-mana cost
   // shape flips (matchEcho rejects {X}/hybrid → LOW → body-only, a SAFE FN).
   "echo",

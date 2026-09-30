@@ -1488,7 +1488,7 @@ function applyUpkeepSacUnlessPay(state, atom, ctx) {
 // findPermanent returns null → no counter, no pending choice, the trigger fizzles (CR 603.4-adjacent).
 // ECHO (BLITZ EC-1, CR 702.30) — the ONE-TIME pay-or-sacrifice: at the FIRST of the controller's upkeeps
 // after the permanent entered, pay the printed echo cost or sacrifice it; every later upkeep is a clean
-// no-op (the echoDone stamp — for a permanent that stays under one controller this is exactly CR 702.30c's
+// no-op (the echoDone stamp — for a permanent that stays under one controller this is exactly CR 702.30a's
 // "came under your control since your most recent upkeep" single payment). Reuses the SHARED sac-unless-pay
 // pending choice (the same resolve/settle/auto-pick chain cumulative upkeep inherits), fixed printed cost —
 // no scaling. A stale/absent sourceId (the permanent left before the trigger resolved) is a clean no-op.
@@ -1497,7 +1497,7 @@ function applyEcho(state, atom, ctx) {
   const sourceId = ctx.sourceId ?? null;
   const lk = sourceId ? findPermanent(state, sourceId) : null;
   if (!lk) return state;
-  if (lk.permanent.echoDone) return state; // the single echo payment already happened (CR 702.30c)
+  if (lk.permanent.echoDone) return state; // the single echo payment already happened (CR 702.30a)
   let next = updatePermanentSafe(state, sourceId, (p) => ({ ...p, echoDone: true }));
   next = logEvent(next, { kind: "spell-effect", effect: "echo", controller: ctx.controller, sourceName: ctx.cardName || null });
   return setPendingSacUnlessPayChoice(next, {
