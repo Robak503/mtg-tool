@@ -6,11 +6,64 @@ on:
       - 'v*'
   workflow_dispatch:
 
+# Least privilege: read by default; only the build job (which publishes the release) gets contents: write.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+  # THE RELEASE'S TEST GATE, sharded exactly like ci.yml (2026-09-29, release-readiness R4). It used to be one
+  # unsharded `npm test` step inside the build job under the same 900 s wall: v0.160.0 needed 9m41s for 14,816
+  # tests on a 4-CPU runner, the suite has grown ~11% since, and on a 2-CPU runner (what ci.yml hit on
+  # 2026-09-03) one job cannot finish inside the wall at all. The build waits on both shards.
+  test:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    if: github.ref_type == 'tag'
+    strategy:
+      fail-fast: true
+      matrix:
+        shard: [1, 2]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install npm deps
+        working-directory: app
+        run: npm ci
+
+      # The rules-retrieval route test drives the real rulesRetrieval.js engine, so data/rules-index.json must
+      # exist before the suite runs (the v0.149.1 release failed on exactly this). Built from the checked-in CR.
+      - name: Build rules index
+        working-directory: app
+        run: npm run build:rules-index
+
+      - name: Lint
+        working-directory: app
+        run: npm run lint
+
+      - name: Runner facts
+        run: node -e "const os=require('os');console.log('cpus',os.cpus().length,'availableParallelism',os.availableParallelism(),'totalmem',Math.round(os.totalmem()/1e9)+'GB','model',(os.cpus()[0]||{}).model)"
+
+      - name: Run tests
+        working-directory: app
+        # The wrapper's wall catches a HUNG run; it is not a speed budget (see ci.yml).
+        env:
+          VITEST_TIMEOUT_MS: "900000"
+        run: npm test -- --shard=${{ matrix.shard }}/2 --maxWorkers=2
+
   build:
+    needs: test
+    permissions:
+      contents: write
     # Pinned, not windows-latest, so a signed release can't have its build
     # environment shift mid-flight. GitHub is redirecting windows-latest to
     # windows-2025-vs2026 by 2026-06-15; windows-2025 is the same image that
@@ -27,6 +80,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          # No step pushes with git; the publish action takes its own token. Not persisting the write token in
+          # .git/config keeps it away from npm install scripts and build scripts (least privilege).
+          persist-credentials: false
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -57,27 +114,9 @@ jobs:
         working-directory: app
         run: npm ci
 
-      # The rules-retrieval ROUTE test drives the real rulesRetrieval.js engine (B1 phase 2 consolidation,
-      # 2026-07-23) rather than reading the CR JSON directly, so it needs data/rules-index.json to EXIST
-      # before the suite runs. ci.yml was fixed for this; release.yml was not, and its own index step sits
-      # ~70 lines below, AFTER the test gate — so the gate ran against a missing index and the route
-      # answered 500. That is what failed the v0.149.1 release. Building it here, before the gate, mirrors
-      # ci.yml exactly so the two pipelines agree about what "green" means.
-      #
-      # The later "Build rules retrieval index" step STAYS: this one runs off the checked-in CR data purely
-      # to satisfy the tests, while that one runs after the reference-data sync and may rebuild from fresher
-      # CR JSON. It is idempotent, and the shipped bundle must use the post-sync build, not this one.
-      - name: Build rules retrieval index (the test gate needs it — see ci.yml)
-        working-directory: app
-        run: npm run build:rules-index
-
-      - name: Run tests (gate the release on a green suite)
-        working-directory: app
-        # See ci.yml: the wrapper's 5-minute default wall was killing HEALTHY runs once the suite grew
-        # past ~300s on this runner. It exists to catch a hang, not to time the suite.
-        env:
-          VITEST_TIMEOUT_MS: "900000"
-        run: npm test
+      # The test gate is the `test` job above (two shards, like ci.yml); this job only starts once both are
+      # green. The "Build rules retrieval index" step further down (after the reference-data sync) is the one
+      # whose output ships in the bundle.
 
       - name: Sync version to tag (tauri.conf.json + package.json)
         shell: pwsh

@@ -11,17 +11,19 @@ name: sync-spellbook
 #   path other than waiting for the next release attempt.
 #
 #   Decoupling the data refresh from the release lets each one fail
-#   independently: a flaky Spellbook never delays a release, and a
-#   release cadence pause never starves the bundled snapshot. The
-#   sync-spellbook job is also `continue-on-error` so partial progress
-#   (the script is resumable from disk) gets persisted to the cache
-#   either way and picks up where it left off next week.
+#   independently. The SYNC STEP is `continue-on-error` so partial
+#   progress (the script is resumable from disk) is saved to the cache
+#   either way and picks up where it left off next week — but the RUN
+#   still goes red when the sync failed (the last step), so a failure
+#   is visible. (2026-09-29: the job used to carry continue-on-error
+#   itself, which reported every run green — including four September
+#   runs whose job was refused by billing and never ran a step.)
 #
 # How releases consume the data:
-#   Both this workflow and release.yml share the `refdata-` cache
-#   prefix. When release.yml restores `restore-keys: refdata-`, it
-#   picks up whatever most-recently-saved cache exists -which after
-#   a successful run here will include the freshest Spellbook files.
+#   release.yml syncs Spellbook itself at every tag (bounded,
+#   resumable) and restores the `refdata-` cache this workflow saves
+#   only as its starting point / fallback. The cache expires after 7
+#   days unused, so this weekly run is what keeps a fallback alive.
 #
 # Triggers:
 #   - Weekly cron (Sunday 03:00 UTC, off-peak) -keeps the cache warm
@@ -34,9 +36,11 @@ on:
     - cron: '0 3 * * 0'
   workflow_dispatch:
 
+# actions/cache saves through the runner's own runtime token — no workflow-token scope is needed for it,
+# so the job gets read-only contents and nothing else (least privilege; `actions: write` was dropped
+# 2026-09-29 — it only let a job running `npm ci` cancel or dispatch workflows).
 permissions:
   contents: read
-  actions: write   # needed to update the actions cache
 
 jobs:
   sync:
@@ -45,11 +49,6 @@ jobs:
     # ~68 releases shipped with zero combos. Same OS as release.yml = restorable snapshot.
     runs-on: windows-2025
     timeout-minutes: 90
-    # The Spellbook script handles 429s by sleeping + retrying, but a
-    # long enough block can still abort the run. continue-on-error
-    # means "the script's already persisted progress to disk -save
-    # the cache anyway so next run resumes from there."
-    continue-on-error: true
 
     steps:
       - name: Checkout
@@ -79,12 +78,15 @@ jobs:
             refdata-
 
       - name: Sync Commander Spellbook combos
+        id: sync
         working-directory: app
         # --delay-ms 1500 keeps us comfortably under Spellbook's
         # observed rate-limit threshold. The script is resumable, so
         # even if this step aborts mid-page-range, the partial state
         # written to disk + the cache save below means next week's
-        # run picks up where this one stopped.
+        # run picks up where this one stopped. continue-on-error keeps
+        # the cache save running; the final step still fails the run.
+        continue-on-error: true
         run: node scripts/sync-spellbook.cjs --delay-ms 1500
 
       - name: Save reference data cache
@@ -99,10 +101,18 @@ jobs:
       - name: Summary
         if: always()
         shell: bash
+        # The meta file alone proves nothing — the cache restore supplies last week's copy — so the
+        # message follows the SYNC STEP's own outcome.
         run: |
-          if [ -f app/data/spellbook-meta.local.json ]; then
-            echo "::notice::Spellbook snapshot updated"
-            cat app/data/spellbook-meta.local.json
+          if [ "${{ steps.sync.outcome }}" = "success" ]; then
+            echo "::notice::Spellbook snapshot synced this run"
           else
-            echo "::warning::No spellbook-meta.local.json -snapshot may be empty"
+            echo "::error::Spellbook sync did not complete (outcome: ${{ steps.sync.outcome }}) — partial progress was saved to the cache; next run resumes"
           fi
+          if [ -f app/data/spellbook-meta.local.json ]; then cat app/data/spellbook-meta.local.json; fi
+
+      - name: Fail the run when the sync failed
+        # Runs after the cache save, so the resumable progress is kept AND the run goes red.
+        if: steps.sync.outcome == 'failure'
+        shell: bash
+        run: exit 1
