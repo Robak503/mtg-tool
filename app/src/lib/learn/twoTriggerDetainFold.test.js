@@ -25,7 +25,8 @@
  *
  * ⛔ ALL-OR-NOTHING, AND BOTH HALVES MUST MATCH. A lone enters-exile is a PERMANENT exile; folding it would
  * silently hand the card back. A lone leaves-return has nothing to fold onto. An OPTIONAL exile
- * ("you may exile" — Fiend Hunter) is deliberately excluded and stays parked. All pinned.
+ * ("you may exile" — Fiend Hunter) was excluded here until 2026-09-30 (stage ③ · 21); it folds now, keeping
+ * its "you may" — see the graduated pin below. All pinned.
  *
  * Mutation-checked (2026-08-04, each grep-verified as applied AND verified on the case under test): the
  * leaves-clause left in place instead of spliced out -> the exactly-one-trigger pin goes red (two triggers,
@@ -88,9 +89,20 @@ describe("⛔ all-or-nothing — a half-match is never folded", () => {
     expect(foldTwoTriggerDetain(lone, { type: "Enchantment" })).toBe(lone);
   });
 
-  it("⛔ an OPTIONAL exile is excluded and stays untouched (Fiend Hunter)", () => {
+  // GRADUATED (the 09-06 plan's stage ③ · 21, 2026-09-30): this pinned "an OPTIONAL exile is excluded", on the claim
+  // that "you may" makes it a different effect. The bundled rulings name the two ways the two-trigger printing differs
+  // from the one-sentence frame — the source leaving before its enters-trigger resolves (Oblivion Ring 2007-10-01, Leonin
+  // Relic-Warder 2011-06-01, Fiend Hunter 2018-12-07) — and they hold for the MANDATORY carriers this fold already claims;
+  // none turns on the "you may". It rides into the folded sentence; fiendHunterOptionalDetain.test.js runs both answers.
+  it("GRADUATED — an OPTIONAL exile folds too, keeping its \"you may\" (Fiend Hunter)", () => {
     const opt = "When this creature enters, you may exile another target creature.\nWhen this creature leaves the battlefield, return that card to the battlefield under its owner's control.";
-    expect(foldTwoTriggerDetain(opt, { type: "Creature — Human" })).toBe(opt);
+    expect(foldTwoTriggerDetain(opt, { type: "Creature — Human" }))
+      .toBe("When this creature enters, you may exile another target creature until this creature leaves the battlefield.");
+  });
+
+  it("a LONE optional enters-exile is still a permanent exile — never folded", () => {
+    const lone = "When this creature enters, you may exile another target creature.";
+    expect(foldTwoTriggerDetain(lone, { type: "Creature — Human" })).toBe(lone);
   });
 
   it("⛔ the MODERN one-sentence form is left exactly as printed (no double-fold)", () => {

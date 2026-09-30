@@ -62,10 +62,12 @@ describe("parse + classify", () => {
     // leaves-clause is spliced out because THIS file's mechanism already synthesizes that return (keeping it
     // would return the card twice). See twoTriggerDetainFold.test.js.
     expect(classifyCard(OBLIVION_RING)).toBe("native-trigger");
-    // …and the CREED guard this line carried still stands, on a pair that genuinely must not fold: an
-    // OPTIONAL exile ("you may") is a different effect and is deliberately excluded.
+    // GRADUATED 2026-09-30 (the 09-06 plan's stage ③ · 21): this line pinned Fiend Hunter body-only, calling an OPTIONAL
+    // exile "a different effect". The rulings that separate the two-trigger printing from this frame hold for the
+    // mandatory carriers already folded, and none turns on the "you may" — so the pair folds, keeping it. The guard's job
+    // (no double return) is the fold's exactly-one-trigger pin; fiendHunterOptionalDetain.test.js runs both answers.
     expect(classifyCard({ id: "c-fh", name: "Fiend Hunter", type: "Creature — Human Cleric", mana: "{1}{W}{W}",
-      power: 1, toughness: 3, oracle: "When this creature enters, you may exile another target creature.\nWhen this creature leaves the battlefield, return that card to the battlefield under its owner's control." })).toBe("body-only");
+      power: 1, toughness: 3, oracle: "When this creature enters, you may exile another target creature.\nWhen this creature leaves the battlefield, return that card to the battlefield under its owner's control." })).toBe("native-trigger");
     // NOTE (zone-option family, 2026-07-24): embalm is now a credited GY zone-option
     // (coverage.js reGyZoneOptionCost), so Angel of Sanctions' O-Ring-frame exile trigger — modeled
     // by THIS file's slice all along — is the whole remaining card. The park reason was embalm alone.

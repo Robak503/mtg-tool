@@ -4266,6 +4266,13 @@ export function compoundTriggerCount(oracle) {
  * enters-exile and a matching leaves-return; either alone is left completely untouched (a lone
  * enters-exile is a permanent exile — folding it would silently hand the card back). The leaves-clause must
  * be the bare return with no rider, so a conditional or transformed return never folds.
+ *
+ * THE FOLD'S ENVELOPE, spelled out by the bundled rulings (Oblivion Ring 2007-10-01, Leonin Relic-Warder
+ * 2011-06-01, Fiend Hunter 2018-12-07): the two-trigger printing exiles FOREVER when the source leaves before
+ * its enters-trigger resolves (the leaves-trigger resolves first and returns nothing), where the one-sentence
+ * frame exiles nothing (CR 610.3b) — the engine under-delivers there. An OPTIONAL exile ("you may exile" —
+ * Fiend Hunter, Leonin Relic-Warder) folds too (the 09-06 plan's stage ③ · 21, 2026-09-30): the "you may"
+ * rides into the folded sentence, a declined exile links nothing, and neither corner depends on it.
  */
 export function foldTwoTriggerDetain(oracle, card) {
   const text = String(oracle || "");
@@ -4275,7 +4282,7 @@ export function foldTwoTriggerDetain(oracle, card) {
   const leaveIdx = lines.findIndex((l) => /^when [^.]*leaves the battlefield, return (?:that|the exiled) card to the battlefield(?: under (?:its|their) owner'?s? control)?\.?$/i.test(l.trim()));
   if (enterIdx < 0 || leaveIdx < 0 || enterIdx === leaveIdx) return text;
   const enter = lines[enterIdx].trim().replace(/\.$/, "");
-  if (/\buntil\b/i.test(enter) || /\byou may\b/i.test(enter)) return text; // already the modern form / an optional exile — leave it alone
+  if (/\buntil\b/i.test(enter)) return text; // already the modern form — leave it alone
   // The source's own noun, so the rewritten tail matches the detain parser's alternation exactly.
   const typeLine = String(card?.type || card?.type_line || "");
   const noun = /\bEnchantment\b/i.test(typeLine) ? "enchantment"

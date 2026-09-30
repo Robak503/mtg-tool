@@ -5,14 +5,40 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **377 commits**, corpus
-> 38.6% → **43.4% (14,872)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **378 commits**, corpus
+> 38.6% → **43.4% (14,874)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 21: the OPTIONAL two-trigger detain folds — Fiend Hunter, Leonin Relic-Warder · **+2** · corpus 14,874 (43.4%) / 34,245
+> Suite **1612 files / 16,705 tests** green (1 skipped); lint 0. Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at e1c46d76 → the
+> change). **Mutants 3/3 killed on assertions** (restore byte-identical).
+> · **Census row ㉑** (the Wormfang Crab / Turtle row — its examples list carriers, not the blocked cards): "When this creature
+>   leaves the battlefield, return the exiled card …" sole-blocks exactly Fiend Hunter and Leonin Relic-Warder, the two carriers
+>   whose enters-exile is OPTIONAL. The four mandatory carriers (Faceless Butcher, Petravark, Slithery Stalker, Faceless
+>   Devourer) were already native through triggers.foldTwoTriggerDetain (2026-08-05), which folds the older two-trigger
+>   printing onto the one-sentence "until this creature leaves the battlefield" frame (CR 610.3).
+> · **A guard lifted, on the rulings.** The fold refused a "you may" exile as "a different effect", with no ruling cited, and two
+>   pins held it. The bundled rulings name how the two-trigger printing differs from the frame — the source leaving before its
+>   enters-trigger resolves exiles the card forever (Oblivion Ring 2007-10-01, Leonin Relic-Warder 2011-06-01, Fiend Hunter
+>   2018-12-07), where the frame exiles nothing (CR 610.3b), an under-delivery — and that holds for the MANDATORY carriers the
+>   fold already claimed. None of it turns on the "you may".
+> · **Build:** one refusal removed; the "you may" rides into the folded sentence, so the existing optional wrapper and the
+>   detain link do the rest (Angel of Sanctions already ran that modern optional form). Both pins GRADUATED in place with notes:
+>   twoTriggerDetainFold.test.js (the optional pair folds, keeping its "you may"; a new pin keeps a LONE optional exile
+>   unfolded — still a permanent exile) and detainExile.test.js (Fiend Hunter native-trigger; the no-double-return guard is the
+>   fold's exactly-one-trigger pin).
+> · **Runtime (each through the trigger flush → the stack):** `WITNESS fiendHunterLoop {"aiBattlefield":["Grizzly Bears"],
+>   "aiExile":[]}` — accepted, the AI's Bears are exiled and linked, and come back to the AI when Fiend Hunter dies · declined,
+>   nothing is exiled or linked and Fiend Hunter leaving returns nothing · Leonin Relic-Warder exiles the AI's Mind Stone and,
+>   bounced to hand, hands it back.
+> · **Mutants 3/3:** the refusal restored · the leaves-clause kept (a second return) · the "you may" dropped by the fold (red on
+>   the declined run). Witness `app/src/lib/learn/fiendHunterOptionalDetain.test.js` (4).
+> · **Next:** the census below row ㉑.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 20: "if you would lose unspent mana, that mana becomes colorless instead" — Horizon Stone, Kruphix · **+2** · corpus 14,872 (43.4%) / 34,245
 > Suite **1611 files / 16,700 tests** green (1 skipped); lint 0. Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at 6be7df53 → the

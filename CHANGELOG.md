@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Fiend Hunter, Leonin Relic-Warder** — you may exile the target until the creature leaves the battlefield
 - **Horizon Stone, Kruphix, God of Horizons** — mana you would lose as a step ends stays in your pool, as colorless
 - **Blood Seeker, Suture Priest** — when an opponent's creature enters, you may have that player lose 1 life
 - **Stone of Erech, Misery's Shadow** — an opponent's creature that would die is exiled instead
