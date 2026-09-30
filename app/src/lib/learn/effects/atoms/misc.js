@@ -3,7 +3,7 @@
  */
 
 import { applyDrawEffect } from "../../spellEffects.js";
-import { logEvent, addEmblem, addMana, holdMana, opponentsOf, grantFlashThisTurn, grantTeferiShield, phaseOutAllPermanents, loseLife } from "../../gameState.js"; // + TEFERI'S PROTECTION (CAP, 2026-09-03); loseLife — N11 Peer into the Abyss
+import { logEvent, addEmblem, addMana, holdMana, opponentsOf, grantFlashThisTurn, grantTeferiShield, phaseOutAllPermanents, phaseOutPermanents, loseLife } from "../../gameState.js"; // + TEFERI'S PROTECTION (CAP, 2026-09-03); loseLife — N11 Peer into the Abyss
 import { parseFlashCastFilter } from "../../staticAbilityParser.js"; // the STATIC grant's own filter parser — reused so the turn-scoped twin cannot drift from it
 import { setPendingDivideChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, isCreatureCard, countForSpec } from "./shared.js";
@@ -938,7 +938,34 @@ export function applyPlayerProtectionEverything(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "player-protection-everything", controller });
 }
 
+/**
+ * ===== PHASE OUT (shelf D7, 2026-09-30 — CR 702.26) ===== the targeted forms: "Target creature phases out." (its "Up to one
+ * target …" form — Talon Gates of Madara — reaches it through the parser's generic up-to-one handling), "Target creature you don't control phases out." (Teferi, Master of
+ * Time's −3), "Any number of target nonland permanents you control phase out." (Clever Concealment). Each target phases
+ * out through gameState.phaseOutPermanents — its Auras and Equipment go with it (CR 702.26g), and all of it returns during
+ * its controller's next untap step, as it left (CR 702.26c: no enter, no ETB). Exact sentences only; the kicked "each
+ * creature target player controls phases out instead" (Galadriel's Dismissal) is not one of them.
+ */
+const PHASE_OUT_ANY_NUMBER = 99; // the "any number" cap — removal.js's MULTI_COUNT_UNBOUNDED convention
+export function phaseOutClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/\.$/, "").trim();
+  if (t === "target creature phases out") return { op: "phase-out", targetType: "creature" };
+  if (t === "target creature you don't control phases out") return { op: "phase-out", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }] };
+  if (t === "any number of target nonland permanents you control phase out") {
+    return { op: "phase-out", targetType: "nonlandPermanent", restrictions: [{ kind: "controller", who: "you" }], minTargets: 0, maxTargets: PHASE_OUT_ANY_NUMBER, anyNumber: true };
+  }
+  return null;
+}
+export function applyPhaseOut(state, atom, ctx) {
+  // A nonland-permanent pick arrives type:"permanent", a creature pick type:"creature"; anything no longer on a
+  // battlefield phases nothing (CR 608.2b).
+  const ids = (ctx.targets || []).filter((t) => (t?.type === "creature" || t?.type === "permanent") && findPermanent(state, t.id)).map((t) => t.id);
+  const next = ids.length ? phaseOutPermanents(state, ids) : state;
+  return logEvent(next, { kind: "spell-effect", effect: "phase-out", controller: ctx.controller, targets: ids });
+}
+
 export const miscResolvers = {
+  "phase-out": applyPhaseOut, // shelf D7 — targeted phasing (attachments ride along, CR 702.26g)
   "player-protection-everything": applyPlayerProtectionEverything, // THE ONE RING — protection from everything until your next turn (no life lock)
   "teferi-protection": applyTeferiProtection, // CAP — life lock + protection from everything + phase out all, until your next turn
   "add-restricted-mana": applyAddRestrictedMana, // Klauth — the pool-restricted sub-pool's first minter

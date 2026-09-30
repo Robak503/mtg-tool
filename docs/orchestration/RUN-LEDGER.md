@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **419 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **420 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,31 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D7: targeted phasing — Clever Concealment (**Shalai 88 → 89**, **Otharri 86 → 87**) · **+3** · corpus 15,037 (43.9%) / 34,245
+> Suite **1651 files / 17,058 tests** green (1 skipped); lint 0; decks 89% (2,659 → **2,661** / 2,998). CI GREEN on D6 (run 36754585131). Flip-diff **+3,
+> zero LOST, zero RETIERED** (tier snapshots at 72727ece → the change). **Mutants 12/12 killed on assertions** (restore byte-identical).
+> · **Why phasing:** a mechanism census over the shelf's blocked slots put phasing in 8 slots across 5 decks (Galadriel's
+>   Dismissal ×3, Clever Concealment ×2, Talon Gates ×2, Teferi, Master of Time) — the only recurring mechanism among the
+>   closest decks' blockers (the Ring, crime, Station, the Pod tutor were one slot each).
+> · **Build:** `gameState.phaseOutPermanents` — each target spliced into its controller's phasedOut, everything attached
+>   riding INDIRECTLY (CR 702.26g) as `phasedWith` on the target's record, so an opponent's Aura on your creature returns
+>   with it at ITS controller's untap, attached, under its own controller. Phase-in keeps both links for a host returning in
+>   the same batch, restores riders to their own controllers, and drops a departed controller's rider (CR 800.4a). Atoms:
+>   "target creature phases out" (+ the generic up-to-one), "…you don't control…", "any number of target nonland
+>   permanents you control phase out".
+> · ⚠️ **Teferi's Protection on the same primitive — two shipped gaps closed:** an equipped creature came back ONE-WAY
+>   (the Equipment read attachedTo:null while the creature listed it), and an opponent's Aura on a phasing creature was
+>   left on a vanished host for the SBA to bin.
+> · **Runtime:** `WITNESS cleverConcealment {"targeted":["b","blade"],"phasedOut":["b","blade"],"pacifismGone":true,
+>   "stillOutOnTheirUntap":["b","blade"],"back":{"bear":["blade","pac"],"blade":"b","pac":"b"}}` · only your own nonland
+>   permanents offered · a real wrath misses a phased-out Bear · Vodalian Illusionist + Brokers Confluence (both unpredicted
+>   gains, both witnessed) · a departed rider · Teferi's both-links and Aura-rides-along. Witness
+>   `app/src/lib/learn/phasingTargeted.test.js` (10). The engine's post-dispatch AUDIT caught a bad fixture of mine (a
+>   Pacifism left on a removed Bear) — fixed the fixture, not the audit.
+> · **Mutants 12/12** (+1 removed: an explicit "up to one" arm survived — the generic up-to-one handling already reaches
+>   the bare arm). Also dropped before commit: a `phase-out` target-intent case with no consumer yet (no trigger card flips).
+> · **Next:** Shalai needs 1 (Galadriel's Dismissal's kicked target swap, Boromir, Skrelv) · Wolverine 88 · Captain America 87.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D6: "When you cycle this card" — Agonasaur Rex takes **Jurassic Ramp to 90%** · **+13** · corpus 15,034 (43.9%) / 34,245
 > Suite **1650 files / 17,048 tests** green (1 skipped); lint 0; decks 89% (2,658 → **2,659** / 2,998). CI GREEN on D5 (run 36751156199). Flip-diff **+13,

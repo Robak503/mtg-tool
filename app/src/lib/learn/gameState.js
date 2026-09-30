@@ -1817,19 +1817,58 @@ export function grantTeferiShield(state, playerId, { lifeLocked = true } = {}) {
 }
 export function phaseOutAllPermanents(state, playerId) {
   assertPlayer(playerId);
-  const player = state.players[playerId];
-  const leaving = player.battlefield || [];
+  const leaving = state.players[playerId].battlefield || [];
   if (leaving.length === 0) return state;
-  const leavingIds = new Set(leaving.map((p) => p.id));
-  // Unhook our attached permanents from hosts that are NOT phasing out with them.
-  let next = state;
-  const players = { ...next.players };
-  for (const pid of Object.keys(players)) {
-    players[pid] = { ...players[pid], battlefield: (players[pid].battlefield || []).map((h) => (h.attachments?.some((a) => leavingIds.has(a)) ? { ...h, attachments: h.attachments.filter((a) => !leavingIds.has(a)) } : h)) };
+  // Every permanent the player controls phases out DIRECTLY; phaseOutPermanents adds the indirect riders (another
+  // player's Aura on one of them — shelf D7; before, that Aura stayed behind on a vanished host and the SBA binned it).
+  return phaseOutPermanents(state, leaving.map((p) => p.id), { playerId });
+}
+
+/**
+ * TARGETED PHASE-OUT (shelf D7, 2026-09-30 — CR 702.26): phase out each permanent in `directIds` and, INDIRECTLY,
+ * everything attached to it — CR 702.26g: an Aura, Equipment or Fortification attached to a permanent that phases out
+ * phases out with it, whoever controls it, and phases in with it. Each DIRECT permanent is spliced into its controller's
+ * `phasedOut` carrying its indirect attachments as `phasedWith` ([{ controller, permanent }], links intact), so an
+ * opponent's Aura on your creature comes back with your creature at YOUR untap, still attached. A direct permanent that
+ * is itself attached to a host that stays is unhooked from that host (phaseInAndExpireShield re-hooks it if the host is
+ * still there, else it returns unattached for the SBA). Ids not on any battlefield are ignored.
+ */
+export function phaseOutPermanents(state, directIds, { playerId = null } = {}) {
+  const where = new Map();
+  for (const [pid, p] of Object.entries(state.players || {})) for (const perm of p.battlefield || []) where.set(perm.id, { pid, perm });
+  const direct = [...new Set(directIds)].filter((id) => where.has(id));
+  if (direct.length === 0) return state;
+  const directSet = new Set(direct);
+  // Each direct permanent's indirect tree — everything attached to it, transitively (an Aura on an Equipment on it) —
+  // minus anything that is itself phasing out directly (it travels on its own record).
+  const riders = new Map(); // directId -> [{ controller, permanent }]
+  const moving = new Set(direct);
+  for (const id of direct) {
+    const tree = [];
+    const queue = [id];
+    while (queue.length) {
+      const host = queue.shift();
+      for (const [aid, { pid, perm }] of where) {
+        if (perm.attachedTo !== host || directSet.has(aid) || moving.has(aid)) continue;
+        moving.add(aid);
+        tree.push({ controller: pid, permanent: perm });
+        queue.push(aid);
+      }
+    }
+    riders.set(id, tree);
   }
-  players[playerId] = { ...players[playerId], battlefield: [], phasedOut: [...(player.phasedOut || []), ...leaving] };
-  next = { ...next, players };
-  return logEvent(next, { kind: "phase-out", playerId, count: leaving.length, permanentIds: leaving.map((p) => p.id) });
+  const players = { ...state.players };
+  for (const pid of Object.keys(players)) {
+    const bf = players[pid].battlefield || [];
+    // Leave the battlefield; a host that STAYS drops its links to anything leaving (a direct attachment on it).
+    players[pid] = { ...players[pid], battlefield: bf.filter((p) => !moving.has(p.id)).map((h) => (h.attachments?.some((a) => moving.has(a)) ? { ...h, attachments: h.attachments.filter((a) => !moving.has(a)) } : h)) };
+  }
+  for (const id of direct) {
+    const { pid, perm } = where.get(id);
+    const phased = riders.get(id).length ? { ...perm, phasedWith: riders.get(id) } : perm;
+    players[pid] = { ...players[pid], phasedOut: [...(players[pid].phasedOut || []), phased] };
+  }
+  return logEvent({ ...state, players }, { kind: "phase-out", ...(playerId ? { playerId } : {}), count: direct.length, permanentIds: direct });
 }
 /**
  * NAME CAST LOCK (SHELF-85 B4, 2026-09-04 — Reflector Mage "that creature's owner can't cast spells with the same name
@@ -1860,17 +1899,30 @@ export function phaseInAndExpireShield(state, playerId) {
   const players = { ...state.players };
   // Re-hook each returning attachment onto its host if the host is still on a battlefield; else it comes back unattached.
   const findHost = (id) => { for (const pid of Object.keys(players)) { const h = (players[pid].battlefield || []).find((p) => p.id === id); if (h) return { pid, h }; } return null; };
+  // ⛔ A HOST RETURNING IN THIS SAME BATCH keeps both links as they left (shelf D7): the lookup above searches battlefields,
+  // where the host is not yet, so Teferi's Protection used to return an equipped creature still listing its Equipment
+  // while the Equipment read attachedTo:null — a one-way link.
+  const returningIds = new Set(returning.map((p) => p.id));
   const back = [];
   for (const perm of returning) {
-    if (perm.attachedTo) {
-      const host = findHost(perm.attachedTo);
+    const { phasedWith, ...kept } = perm;
+    // A rider whose controller has left the game left with them (CR 800.4a): it doesn't come back, and the host drops it.
+    const gone = new Set((phasedWith || []).filter((r) => !players[r.controller]).map((r) => r.permanent.id));
+    const self = gone.size && kept.attachments ? { ...kept, attachments: kept.attachments.filter((a) => !gone.has(a)) } : kept;
+    if (self.attachedTo && !returningIds.has(self.attachedTo)) {
+      const host = findHost(self.attachedTo);
       if (host) {
-        players[host.pid] = { ...players[host.pid], battlefield: players[host.pid].battlefield.map((h) => (h.id === host.h.id ? { ...h, attachments: [...(h.attachments || []), perm.id] } : h)) };
-        back.push(perm);
+        players[host.pid] = { ...players[host.pid], battlefield: players[host.pid].battlefield.map((h) => (h.id === host.h.id ? { ...h, attachments: [...(h.attachments || []), self.id] } : h)) };
+        back.push(self);
       } else {
-        back.push({ ...perm, attachedTo: null });
+        back.push({ ...self, attachedTo: null });
       }
-    } else back.push(perm);
+    } else back.push(self);
+    // CR 702.26g — what phased out INDIRECTLY with it phases in with it, each under its own controller, still attached.
+    for (const { controller, permanent } of phasedWith || []) {
+      if (gone.has(permanent.id)) continue;
+      players[controller] = { ...players[controller], battlefield: [...(players[controller].battlefield || []), permanent] };
+    }
   }
   const { teferiShield, ...rest } = players[playerId]; // eslint-disable-line no-unused-vars
   players[playerId] = { ...rest, battlefield: [...(rest.battlefield || []), ...back], phasedOut: [] };
