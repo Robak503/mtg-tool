@@ -315,6 +315,10 @@ export function enterPermanent(state, card, controller, opts = {}) {
     // entirely with generic-eating colourless mana spends ZERO colours, and `0` is the CORRECT answer —
     // a truthy check would drop the stamp and leave the rider reading "unknown" instead of "none".
     ...(opts.colorsSpent != null ? { colorsSpent: opts.colorsSpent } : {}),
+    // SPENT PIPS (shelf D4) — the per-colour tally of the mana spent to cast it ({W,U,B,R,G,C}, off the dispatcher's payment
+    // plan), read by "if {R}{R} was spent to cast it". Absent when the permanent wasn't cast, or was cast for an
+    // alternative cost whose mana the engine doesn't tally.
+    ...(opts.manaSpentByColor ? { manaSpentByColor: opts.manaSpentByColor } : {}),
     // GRANTED DIES-EXILE (RIVAZ, 2026-08-15) — the cast-trigger grant 'it gains "When this creature dies,
     // exile it."' stamped on the SPELL's stack payload rides here onto the permanent (the castFromZone
     // pattern exactly). Read by the dies path: the card exiles from the graveyard after death processing.
@@ -860,7 +864,7 @@ export const RESOLVERS = Object.freeze({
   [RESOLVER_KEYS.PERMANENT_ETB]: (state, obj) => {
     // `printedCard` (V1 slice 3): the REAL two-face card behind a modal-DFC FACE cast — stamped on the entering permanent
     // so every zone move restores the whole card (moveCardToZone reads printedCard; the clone precedent).
-    const { card, controller, xValue, kicked, castFromZone, colorsSpent, grantDiesExile, printedCard, manaSpent, evoked, castDuringMainPhase } = obj.payload?.params || {}; // + manaSpent (Satoru, BI-5) + evoked (Solitude) + castDuringMainPhase (Sentinel's Mark)
+    const { card, controller, xValue, kicked, castFromZone, colorsSpent, grantDiesExile, printedCard, manaSpent, evoked, castDuringMainPhase, manaSpentByColor } = obj.payload?.params || {}; // + manaSpent (Satoru, BI-5) + evoked (Solitude) + castDuringMainPhase (Sentinel's Mark) + manaSpentByColor (shelf D4)
     if (!card || !controller) return resolveManual(state, obj);
     // Clone (CR 707.9): the permanent enters AS A COPY of a creature chosen as it enters. Suspend
     // on a resolution-time choice (the player picks which creature; Expert/AI auto-pick) — the
@@ -892,7 +896,7 @@ export const RESOLVERS = Object.freeze({
       const lethal = destroyLethalCreatures(entered);
       return checkDiesTriggers(lethal.state, lethal.dead);
     }
-    return enterPermanent(state, card, controller, { xValue, kicked, wasCast: true, castFromZone, castDuringMainPhase: !!castDuringMainPhase, colorsSpent, grantDiesExile, castForNoMana: manaSpent === false, evoked: !!evoked, ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) }); // owner: shelf D3 — a spell cast from its owner's exile (the stack object's stamp)
+    return enterPermanent(state, card, controller, { xValue, kicked, wasCast: true, castFromZone, castDuringMainPhase: !!castDuringMainPhase, colorsSpent, grantDiesExile, castForNoMana: manaSpent === false, evoked: !!evoked, ...(manaSpentByColor ? { manaSpentByColor } : {}), ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) }); // owner: shelf D3 — a spell cast from its owner's exile (the stack object's stamp)
   },
 
   // Aura spell resolving (CR 303.4f): the Aura enters the battlefield attached to the

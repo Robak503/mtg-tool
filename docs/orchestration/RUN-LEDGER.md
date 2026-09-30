@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **416 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **417 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,26 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D4: "if {R}{R} was spent to cast it" — Vibrance takes **cdh to 90%** + the hybrid ETB family · **+9** · corpus 15,007 (43.8%) / 34,245
+> Suite **1648 files / 17,022 tests** green (1 skipped); lint 0; decks 89% (2,655 → **2,656** / 2,998 — cdh 89 → **90**). CI GREEN on D3 (run 36744277824) and the
+> citation audit (run 36745606604). Flip-diff **+9, zero LOST, zero RETIERED** (tier snapshots at 3caabc2e → the change). **Mutants 11/11
+> killed on assertions** (restore byte-identical).
+> · **The card:** cdh needed one; Vibrance's two ETBs ("if {R}{R} was spent to cast it, … 3 damage" / "if {G}{G} … a land to hand,
+>   2 life") both parsed — only the condition was missing. Chosen over Talon Gates (cdh + Otharri): a targeted phase-out has to
+>   carry the target's Auras/Equipment and re-hook them, and the existing phase-in re-hooks an attachment BEFORE its host is
+>   back (a one-way link) — a subsystem slice of its own, noted for later.
+> · **Build:** the payment plan's per-colour spend ({W,U,B,R,G,C}), captured beside colorsSpent / manaSpent / manaSpentAmount off
+>   the SAME plan, threaded on the permanent spell and stamped `manaSpentByColor` (a free cast: zero; an untallied alternative
+>   cost: absent). interveningIf reads "<pips> was spent to cast it" off the entering permanent — every pip covered, generic
+>   included, {C} never a colour; not cast → false; untallied → null. Self-ETB form only (the spell form + Adamant park).
+> · **Runtime:** `WITNESS vibranceSpent {"spent":{"R":3,"G":2},"aiLife":37,"landToHand":true,"userLife":42}` through the real
+>   cast · five Mountains → only the red trigger · one Mountain + four Forests → only the green · Gruul Scrapper's haste when a
+>   Mountain paid part of its {3} · Steamcore Weird's 2 only when red paid · a free cast records zero, both refused · uncast
+>   (reanimated) → both detected and refused by their conditions. Witness `app/src/lib/learn/spentPipsEtb.test.js` (12).
+> · **Mutants 11/11** (+1 removed): the twelfth — a probe tally for parseability — SURVIVED: not-cast already reads a definite
+>   false, so the probe needed nothing. Removed.
+> · **Next:** Shalai (88, needs 2) · Wolverine (88, needs 2) · Captain America / Jurassic Ramp (87, need 3) — Ascend next.
 
 > ## 📚 2026-09-30 — CITATION AUDIT (docs only): the rules the comments mean + a CR citation checker
 > Suite **1647 files / 17,010 tests** green (1 skipped); lint 0. Comments only — no behavior change.

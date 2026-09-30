@@ -473,6 +473,8 @@ const CONTROL_SUBTYPE_ALLOW = new Set([
 // (the trigger is dropped / does nothing); a missing entering permanent → null (can't confirm → FN-safe, never
 // fail-open). This closes the kicker entry in the DEFERRED list (cast-decision flags) for the ETB-trigger shape.
 const KICKED_ETB_RE = /^it was kicked$/;
+// "{R}{R} was spent to cast it" (lowercased by the evaluator) — the self-ETB spent-pips shape (shelf D4).
+const SPENT_PIPS_ETB_RE = /^((?:\{[wubrg]\})+) was spent to cast it$/;
 
 // ===== X-VALUE THRESHOLD (CR 608.2h — the {X} locked at resolution) ===========================
 // "x is N or more" / "x is N or greater" — the intervening-if on a Ravenous creature's synthesized ETB
@@ -1035,6 +1037,27 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     const entering = board.find((p) => p.id === triggeringId);
     if (!entering) return null;      // entering permanent already gone → can't confirm (FN-safe)
     return entering.wasKicked === true; // a normal (un-kicked) cast leaves wasKicked unset → false (CR 603.4 drop)
+  }
+
+  // SPENT PIPS (shelf D4, 2026-09-30 — Vibrance, and the hybrid "was spent" ETB cycle: Gruul Scrapper, Steamcore Weird,
+  // Catharsis, Deceit …) — "{R}{R} was spent to cast it": every pip is a colour that at least that much mana of was spent
+  // ("{W}{U}" = at least one white AND one blue). Read off the entering permanent's `manaSpentByColor` (the dispatcher's
+  // payment plan, stamped by resolvers.enterPermanent), keyed on ctx.triggeringPermanentId like the kicked shape above. A
+  // permanent that wasn't cast spent nothing to cast it → false; one cast for an alternative cost the engine doesn't tally
+  // → null, never a guess.
+  {
+    const pips = c.match(SPENT_PIPS_ETB_RE);
+    if (pips) {
+      const triggeringId = context?.triggeringPermanentId;
+      if (!triggeringId) return null;
+      const entering = controllerBoard(state, controllerId).find((p) => p.id === triggeringId);
+      if (!entering) return null;
+      const spent = entering.manaSpentByColor;
+      if (!spent) return entering.wasCast === true ? null : false;
+      const need = {};
+      for (const [, col] of pips[1].matchAll(/\{([wubrg])\}/g)) need[col.toUpperCase()] = (need[col.toUpperCase()] || 0) + 1;
+      return Object.entries(need).every(([col, n]) => (Number(spent[col]) || 0) >= n);
+    }
   }
 
   // CAST-vs-PUT ETB (CR 603.2) — "if you cast it": the ETB fires ONLY when the permanent got here by being

@@ -80,6 +80,7 @@
 > Stone Calendar, Highspire Bell-Ringer, Uthros Psionicist — the all-spells and second-spell reducers (+3 → corpus 14,989; suite 1644 / 16,975).
 > **The residue loop STOPS here — Colton (09-30): "Do my decks."** Next: the shelf decks' unplayed cards, until the v0.161.0 tag on/after 10-02.
 > **SHELF DECKS · D1** tribal digs read the printed capital — Avengers Tower takes Hulk Smash to 90% (+7 → corpus 14,996; suite 1645 / 16,981). Tool: `app/scripts/shelf-residue-map.mjs`.
+> **SHELF DECKS · D4** "if {R}{R} was spent to cast it" — Vibrance takes cdh to 90% (+9 → corpus 15,007; suite 1648 / 17,022).
 > **CITATION AUDIT** (docs) — 118.10 / 608.2m / 702.88d-e / 701.x corrected by context; `app/scripts/check-cr-citations.cjs` added (118 citations still name no rule — queued).
 > **SHELF DECKS · D3** cast a card from another player's exile — Ragavan (cdh + Shalai) (+1 → corpus 14,998; suite 1647 / 17,010).
 > **SHELF DECKS · D2** move a counter — Nesting Grounds takes Mothman Cometh to 91% (+1 → corpus 14,997; suite 1646 / 16,989). (Superseded next-row pointer: census rank 76 — the RUN-LEDGER's ③ entries carry the verdicts so far.

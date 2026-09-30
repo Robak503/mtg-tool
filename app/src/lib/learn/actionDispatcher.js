@@ -368,11 +368,15 @@ function applyCastSpell(state, action) {
   // number where the engine knows (a paid plan: the plan's own total; a free cast: 0), null where it does not (an
   // alternative cost). Read off the SAME plan as `manaSpent`, so the two can never disagree.
   let manaSpentAmount = null;
+  // SPENT PIPS (shelf D4, 2026-09-30 — "When this creature enters, if {R}{R} was spent to cast it, …": Vibrance and the
+  // hybrid "was spent" cycle): the plan's per-colour tally, {W,U,B,R,G,C}, off the SAME plan as the three above. A free
+  // cast spent none (all zero); an alternative cost stays null — unknown, so the condition never fires on a guess.
+  let manaSpentByColor = null;
   let paidUncounterable = false; // CAP-CAVERN: the plan spent mana printed "…and that spell can't be countered" (Cavern of Souls)
   let spentRiders = []; // SHELF-85 V11 (Path of Ancestry): taps whose mana carries a "when that mana is spent" rider
   if (action.freeCast || action.altCost) {
     working = state;
-    if (action.freeCast) { manaSpent = false; manaSpentAmount = 0; }
+    if (action.freeCast) { manaSpent = false; manaSpentAmount = 0; manaSpentByColor = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 }; }
   } else {
     // Plan payment from the current pool PLUS untapped mana sources. planPayment
     // is pool-first, so a pre-filled pool pays with zero taps (preserving the
@@ -401,6 +405,7 @@ function applyCastSpell(state, action) {
     // SG-13: read off the SAME plan — a {0} spell (or a cost reduced to nothing) spent no mana at all.
     manaSpent = Object.values(plan.spend || {}).some((n) => (n || 0) > 0);
     manaSpentAmount = Object.values(plan.spend || {}).reduce((acc, n) => acc + (Number(n) || 0), 0); // ④-Z — the same plan
+    manaSpentByColor = Object.fromEntries(["W", "U", "B", "R", "G", "C"].map((c) => [c, Number(plan.spend?.[c]) || 0])); // shelf D4 — the same plan
     // CAP-CAVERN (CR 106.6 / Cavern of Souls): mana whose restriction carries `uncounterableIfSpent` was spent on
     // THIS spell — off the SAME plan (a tap, or a tagged pool entry priced by the plan). Stamped below with the
     // mark the counter-target enumeration honours.
@@ -859,6 +864,7 @@ function applyCastSpell(state, action) {
     // any other way never reaches this line and stays unstamped.
     params.colorsSpent = colorsSpent;
     params.manaSpent = manaSpent; // SATORU (BI-5): whether ANY mana was spent — a free / alt-cost cast stamps `castForNoMana`
+    if (manaSpentByColor) params.manaSpentByColor = manaSpentByColor; // shelf D4: "if {R}{R} was spent to cast it" reads it off the permanent
     params.evoked = !!(action.altCost && action.altCost.evoke); // EVOKE (Solitude): the entering permanent sacrifices itself after its ETB
     payload = { resolver: RESOLVER_KEYS.PERMANENT_ETB, params };
   } else {
