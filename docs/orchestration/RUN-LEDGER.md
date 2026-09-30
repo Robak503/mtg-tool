@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **400 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **401 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,31 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 43: host-dies triggers fired only on lethal damage — every death site now carries the look-back links · **+0** (a hollow credit closed) · corpus 14,958 (43.7%) / 34,245
+> Suite **1634 files / 16,895 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). Flip-diff **zero — GAINED 0, LOST 0,
+> RETIERED 0** (tier snapshots at 0bb3f344 → the change; runtime only). **Mutants 7/7 killed on assertions** (restore
+> byte-identical).
+> · **Found building ③ · 42, measured:** Elephant Guide made its token when its host died to lethal damage (1) and NONE when
+>   a destroy spell killed it (0). A dying creature's look-back (CR 603.10a) must carry the attachments that were on it — the
+>   host-dies watcher is matched by that list, since the attachment's own `attachedTo` is already cleared — and who damaged it
+>   this turn. The SBA look-back (destroyLethalCreatures) and the legend rule carried both; `spellEffects.applyDestroyEffect`,
+>   the sacrifice atom (removal.sacrificeCreatureEffect), the activation-cost sacrifice (actionDispatcher), the
+>   sac-a-creature mana cost (manaModel.commitManaTap) and the fading sacrifice carried NEITHER. So every "When enchanted /
+>   equipped creature dies" trigger and every "dealt damage by ~ this turn dies" payoff missed removal and sacrifice in a
+>   real game while the metric credited them — a hollow credit, the runtime FN kind.
+> · **Fix:** `gameState.deathLookbackLinks(perm)` — `{ attachments, damagedBy }`, captured before the exit — is the one reader
+>   all seven death sites now spread (the two that had it inline included, so the shape can't drift again).
+> · **Runtime (each path through its own real entry point):** `WITNESS destroyFiresHostDies {"bearGone":true,"elephants":1}` — a
+>   real Murder cast at the enchanted Bear · an unenchanted Bear destroyed makes none (the vacuity control — the host gate
+>   still holds) · Sengir Vampire's damagedBy counter on a destroy · Viscera Seer's real activation sacrificing the host ·
+>   the sacrifice atom · Ashnod's Altar's mana commit · Skyshroud Behemoth sacrificed to fading at upkeep — each fires Elephant
+>   Guide.
+> · **Mutants 7/7:** the helper emptied · the SBA look-back without its links · then each repaired site without them — destroy,
+>   the sacrifice atom, the mana cost, the activation cost, fading — each killed by its own path's witness. (The legend rule's
+>   links only changed shape, so its mutant isn't counted.) Witness `app/src/lib/learn/deathLookbackParity.test.js` (7).
+> · **Next:** census rank 65 — Sphinx of New Prahv / Boreal Elemental ("Spells your opponents cast that target this creature
+>   cost {C} more to cast").
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 42: "When enchanted creature dies, return that card to the battlefield under your control" — Fool's Demise, Shade's Form and three more · **+5** · corpus 14,958 (43.7%) / 34,245
 > Suite **1633 files / 16,888 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 41 (run 36716328319). Flip-diff **+5, zero LOST,

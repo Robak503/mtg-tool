@@ -49,7 +49,7 @@ import {
 } from "./gameState.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, stackSpellIsUncounterable } from "./staticAbilityParser.js";
-import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
+import { playerProtectedFromEverything, deathLookbackLinks } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
 import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, permanentTargetShields } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam
 import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
@@ -1322,7 +1322,7 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
       // stamp, the damage-source and opponent-creature statics), of the pre-move state. An exiled creature never died, so its
       // look-back carries exileInstead and the dies triggers skip it — the flag destroyLethalCreatures sets.
       exileInstead = diesExiledInstead(next, lk.permanent);
-      dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card, power: Number.isFinite(pw) ? pw : null, basePower: Number.isFinite(bpw) ? bpw : null, counters: { ...(lk.permanent.counters || {}) }, diesExileAfter: !!lk.permanent.grantDiesExile, exileInstead });
+      dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card, ...deathLookbackLinks(lk.permanent), /* ③ · 43 */ power: Number.isFinite(pw) ? pw : null, basePower: Number.isFinite(bpw) ? bpw : null, counters: { ...(lk.permanent.counters || {}) }, diesExileAfter: !!lk.permanent.grantDiesExile, exileInstead });
     } else if (isPlaneswalker(lk.permanent.card)) {
       // A destroyed planeswalker "dies" (CR 700.4); capture its look-back (no power — the only modeled
       // PW-death watcher is Cruel Celebrant's flat creature-or-planeswalker drain).

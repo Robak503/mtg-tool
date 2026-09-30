@@ -2261,6 +2261,19 @@ export function clearCombatDamage(state) {
  * Shared by combat damage and direct-damage spells so the lethality rule lives in one
  * place. Returns `{ state, dead }`.
  */
+/**
+ * The LINKS a dying creature's look-back carries (CR 603.10a): the attachments that were on it (the Auras and Equipment whose
+ * "When enchanted/equipped creature dies" triggers must still find it after the detach — checkDiesTriggers matches the
+ * watcher by this list, since the attachment's own `attachedTo` is already cleared) and who damaged it this turn (the "dealt
+ * damage by ~ this turn dies" payoffs). Captured BEFORE the battlefield exit. ONE reader for every death site (the 09-06 plan's
+ * stage ③ · 43, 2026-09-30): the SBA look-back and the legend rule carried both, but the destroy effect and the hand-built
+ * sacrifice / cost / fading look-backs carried neither — so a host killed by a destroy spell or sacrificed never fired its
+ * Aura's host-dies trigger (Elephant Guide made its token on lethal damage and none on a destroy, measured).
+ */
+export function deathLookbackLinks(perm) {
+  return { attachments: [...(perm?.attachments || [])], damagedBy: [...(perm?.damagedBy || [])] };
+}
+
 export function destroyLethalCreatures(state, deathtouched = new Set(), cause = "sba") {
   const dead = [];
   const regenerated = []; // REGEN (CR 701.19) — creatures whose destruction a regen shield replaces this SBA
@@ -2291,12 +2304,11 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
       id: perm.id,
       name: perm.card?.name || "creature",
       card: perm.card,
-      attachments: [...(perm.attachments || [])],
       // DAMAGED-BY LOOK-BACK: who dealt damage to this creature this turn, snapshotted while the permanent
       // still exists. checkDiesTriggers runs AFTER the battlefield exit, so without carrying it here the
       // "whenever a creature dealt damage by ~ this turn dies" payoff could never see it - the same
       // look-back shape CR 603.6 requires of any leaves-the-battlefield trigger.
-      damagedBy: [...(perm.damagedBy || [])],
+      ...deathLookbackLinks(perm), // attachments + damagedBy — the one reader every death site shares (③ · 43)
       power: Number.isFinite(pw) ? pw : null,
       basePower: Number.isFinite(bpw) ? bpw : null,
       // KW-UNDYING (CR 702.92a + 603.6e): snapshot the dying permanent's counters BEFORE the move loop —
@@ -2420,12 +2432,7 @@ export function applyLegendRule(state) {
             id: perm.id,
             name: perm.card?.name || "creature",
             card: perm.card,
-            attachments: [...(perm.attachments || [])],
-      // DAMAGED-BY LOOK-BACK: who dealt damage to this creature this turn, snapshotted while the permanent
-      // still exists. checkDiesTriggers runs AFTER the battlefield exit, so without carrying it here the
-      // "whenever a creature dealt damage by ~ this turn dies" payoff could never see it - the same
-      // look-back shape CR 603.6 requires of any leaves-the-battlefield trigger.
-      damagedBy: [...(perm.damagedBy || [])],
+            ...deathLookbackLinks(perm), // attachments + damagedBy (CR 603.10a) — the one reader every death site shares (③ · 43)
             power: Number.isFinite(pw) ? pw : null,
             basePower: Number.isFinite(bpw) ? bpw : null,
             counters: { ...(perm.counters || {}) },

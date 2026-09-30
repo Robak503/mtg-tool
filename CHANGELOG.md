@@ -368,6 +368,9 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **"When enchanted creature dies" fires however it dies** — Elephant Guide and every Aura or Equipment like it only
+  triggered when its creature died to damage; destroy spells, sacrifices and fading now count too (and so do "dealt damage
+  by this creature this turn" payoffs like Sengir Vampire's)
 - **"You may pay … If you do, <target>" aims only where the card says** — Veinwitch Coven could return any card from
   your graveyard, Consul's Shieldguard and Conduit Goblin could pick creatures the card excludes, Jubilant Mascot could
   pick itself; thirteen cards in all now offer exactly their printed targets

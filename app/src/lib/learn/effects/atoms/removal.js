@@ -6,7 +6,7 @@
  */
 
 import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js";
-import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, creatureBasePower, diesExiledInstead } from "../../gameState.js";
+import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, creatureBasePower, diesExiledInstead, deathLookbackLinks } from "../../gameState.js";
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // ④-BD — the counter rider's delayed "may draw up to N" (Arcane Denial); delayedTrigger imports only gameState (cycle-safe)
 import { checkDiesTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../../triggers.js";
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
@@ -255,7 +255,7 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
   let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: exileInstead ? "exile" : "graveyard", cardId: permId });
   if (exileInstead) next = logEvent(next, { kind: "creature-exiled-instead", turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
   if (isCreatureCard(lk.permanent.card)) {
-    next = checkDiesTriggers(next, [{ controller: playerId, id: permId, name: lk.permanent.card?.name || "creature", card: lk.permanent.card, power: Number.isFinite(sacPower) ? sacPower : null, basePower: Number.isFinite(sacBasePower) ? sacBasePower : null, counters: { ...(lk.permanent.counters || {}) }, exileInstead }]);
+    next = checkDiesTriggers(next, [{ controller: playerId, id: permId, name: lk.permanent.card?.name || "creature", card: lk.permanent.card, ...deathLookbackLinks(lk.permanent), /* ③ · 43 */ power: Number.isFinite(sacPower) ? sacPower : null, basePower: Number.isFinite(sacBasePower) ? sacBasePower : null, counters: { ...(lk.permanent.counters || {}) }, exileInstead }]);
   }
   // TRIG-SACRIFICE: fire "Whenever you sacrifice a <permanent|creature|artifact>" for the sacrificing
   // player. The perm has left the battlefield, so its type rides on the lookBack card (sacScopeMatches reads it).

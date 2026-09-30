@@ -54,7 +54,7 @@ import {
   findPermanent,
   unattachEquipment,
 } from "./gameState.js";
-import { deterministicRng, advanceRngSeed } from "./gameState.js"; // RG-7 (2026-09-05) — the seeded random-discard pick at payment
+import { deterministicRng, advanceRngSeed, deathLookbackLinks } from "./gameState.js"; // RG-7 (2026-09-05) — the seeded random-discard pick at payment
 
 /** RG-7 — pitch ONE card at random from `playerId`'s hand (never `excludeId`) with the game's seeded rng, advancing the seed
  *  (the shuffle discipline — a replay reproduces the pick). Throws when nothing can be pitched (the offer gated on a hand). */
@@ -1134,7 +1134,7 @@ function sacrificePermanentForCost(state, playerId, permObj) {
   const sfcBpw = creatureBasePower(permObj, state);
   let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: permObj.id });
   if (/Creature/.test(typeLine)) {
-    next = checkDiesTriggers(next, [{ controller: playerId, id: permObj.id, name: permObj.card?.name || "creature", card: permObj.card, counters: { ...(permObj.counters || {}) }, power: Number.isFinite(sfcPw) ? sfcPw : null, basePower: Number.isFinite(sfcBpw) ? sfcBpw : null, diesExileAfter: !!permObj.grantDiesExile }]);
+    next = checkDiesTriggers(next, [{ controller: playerId, id: permObj.id, name: permObj.card?.name || "creature", card: permObj.card, ...deathLookbackLinks(permObj), /* ③ · 43 */ counters: { ...(permObj.counters || {}) }, power: Number.isFinite(sfcPw) ? sfcPw : null, basePower: Number.isFinite(sfcBpw) ? sfcBpw : null, diesExileAfter: !!permObj.grantDiesExile }]);
   } else {
     // LEAVE-DRAIN (CR 603.3b): a NON-creature cost sacrifice (Blood/Clue/artifact) has no dies path —
     // drain its leave event now so permanentLeaves watchers stack above the ability (the creature

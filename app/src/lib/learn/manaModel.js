@@ -30,7 +30,7 @@
  * legalChoices, and layers imports none of these modules so that edge is acyclic too.
  */
 
-import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, creaturePower, removeCounter, setDoesNotUntapNext } from "./gameState.js"; // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
+import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, creaturePower, removeCounter, setDoesNotUntapNext, deathLookbackLinks } from "./gameState.js"; // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
 import { checkSacrificeTriggers, checkLeavesTriggers, checkDiesTriggers, checkTapForManaTriggers } from "./triggers.js"; // + ④-D: "tapped for mana" watchers fire at the one tap commit // SG-3: a sacrificed-creature mana cost dies through the chokepoint // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
 import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow, colorsOf } from "./layers.js";
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // QUARTET Phase 4 step 3 (2026-09-06): the closed CR creature-type vocabulary for spend restrictions ("only to cast a Ninja or Turtle spell") — a zero-import leaf
@@ -2470,7 +2470,7 @@ export function commitManaTap(state, playerId, tap) {
     if (victim) {
       const pw = creaturePower(victim, next);
       next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: victim.id });
-      next = checkDiesTriggers(next, [{ controller: playerId, id: victim.id, name: victim.card?.name || "creature", card: victim.card, counters: { ...(victim.counters || {}) }, power: Number.isFinite(pw) ? pw : null, basePower: Number.isFinite(pw) ? pw : null, diesExileAfter: !!victim.grantDiesExile }]);
+      next = checkDiesTriggers(next, [{ controller: playerId, id: victim.id, name: victim.card?.name || "creature", card: victim.card, ...deathLookbackLinks(victim), /* ③ · 43 */ counters: { ...(victim.counters || {}) }, power: Number.isFinite(pw) ? pw : null, basePower: Number.isFinite(pw) ? pw : null, diesExileAfter: !!victim.grantDiesExile }]);
       next = logEvent(next, { kind: "mana", event: "sacrifice-creature-cost", permanentId: tap.permanentId, playerId, victimId: victim.id, victimName: victim.card?.name });
     } else {
       next = logEvent(next, { kind: "mana", event: "sacrifice-creature-cost-unpaid", permanentId: tap.permanentId, playerId });
