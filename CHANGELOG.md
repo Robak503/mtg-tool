@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Phlage, Titan of Fire's Fury, Uro, Titan of Nature's Wrath** — cast from your hand, they do their enter trigger and
+  are sacrificed, as printed (escape casting isn't offered yet)
 - **Kozilek, Butcher of Truth, Ulamog, the Infinite Gyre, Worldspine Wurm** — put into a graveyard from anywhere (milled,
   discarded, killed), they trigger: the titans shuffle their owner's graveyard into their library, the Wurm shuffles itself back
 - **Feldon's Cane, Archangel's Light** — "shuffle your graveyard into your library"

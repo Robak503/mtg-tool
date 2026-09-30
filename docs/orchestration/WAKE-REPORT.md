@@ -38,7 +38,8 @@
 > creature this turn if able" — seven carriers; menace handled by CR 509.1c's maximize rule (+7 → corpus 14,852; suite
 > 1605 / 16,647) · ③ · 14 the Clockwork cycle's end-of-combat counter (+4 → corpus 14,856; suite 1606 / 16,653) · ③ · 15 "any number of cards named ~" —
 > the cap is what the library holds (+3 → corpus 14,859; suite 1606 / 16,655) · ③ · 16 "when ~ is put into a graveyard from anywhere" — Kozilek, Ulamog and three unplanned
-> (+5 → corpus 14,864; Omnath 94 → 95; suite 1607 / 16,668). **Next:** the census below row ⑯ — the RUN-LEDGER's ③ entries carry the verdicts so far.
+> (+5 → corpus 14,864; Omnath 94 → 95; suite 1607 / 16,668) · ③ · 17 "sacrifice it unless it escaped" — Phlage, Uro (+2 → corpus
+> 14,866; suite 1608 / 16,673). **Next:** the census below row ⑰ — the RUN-LEDGER's ③ entries carry the verdicts so far.
 > **State (measured 2026-09-29 at 5df810d2, Opus 5.5 seat):** suite **1585 files / 16,429 tests** green (1 skipped; 172 s;
 > `VITEST_TIMEOUT_MS=900000 npm test`) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30 decks, **88%** aggregate
 > (2,650 / 2,998), **13 at ≥90** (Mothman by rounding: 88/98 = 89.8%), Atraxa **74** the floor · nothing held:

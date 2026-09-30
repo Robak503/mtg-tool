@@ -5,14 +5,30 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **373 commits**, corpus
-> 38.6% → **43.4% (14,864)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **374 commits**, corpus
+> 38.6% → **43.4% (14,866)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 17: "sacrifice it unless it escaped" — Phlage, Uro · **+2** · corpus 14,866 (43.4%) / 34,245
+> Suite **1608 files / 16,673 tests** green (1 skipped); lint 0. Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at e5f78f95 → the
+> change). **Mutants 4/4 killed on assertions** (restore byte-identical).
+> · **Census row ⑰** (a 2-sole row, chosen for its cards): Phlage, Titan of Fire's Fury and Uro, Titan of Nature's Wrath. Kroxa
+>   carries the line but parks on its discard/lose-life payoff.
+> · **Build:** the existing self-sacrifice atom with an `unlessEscaped` flag; `applySacrifice` skips a permanent that carries
+>   `escaped`. **The engine never offers an escape cast** (coverage's ESCAPE_LINE note), so today no permanent carries it and a
+>   titan cast from the hand is always sacrificed after its "enters or attacks" trigger does its work — exactly the printed
+>   outcome, not an approximation. The flag is the contract a future escape cast must stamp, and a pin holds it.
+> · **Runtime (each cast for real):** `WITNESS phlageCast {"phlageInGraveyard":true,"onBattlefield":false,"lifeGained":3,
+>   "aiDamage":3}` · Uro gains 3, draws, and is sacrificed · a Phlage carrying `escaped` stays on the battlefield and still deals
+>   its 3.
+> · **Mutants 4/4:** the arm removed · the flag never set · the resolver ignoring it · inverted (sacrificed only when escaped —
+>   red on both casts). Witness `app/src/lib/learn/sacrificeUnlessEscaped.test.js` (5).
+> · **Next:** the census below row ⑰.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 16: "when ~ is put into a graveyard from anywhere" — the Eldrazi titans · **+5** (3 unplanned, each run for real) · corpus 14,864 (43.4%) / 34,245 · **Omnath, Locus of Mana 94 → 95 (Kozilek)**
 > Suite **1607 files / 16,668 tests** green (1 skipped); lint 0; decks 88% (2,651 / 2,998 — Kozilek is in Colton's Omnath

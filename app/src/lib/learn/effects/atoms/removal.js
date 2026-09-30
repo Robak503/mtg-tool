@@ -385,7 +385,13 @@ function applySacrifice(state, atom, ctx) {
   // target:"self" with ctx.sourceId: the source permanent sacrifices itself. Uses
   // sacrificeCreatureEffect directly (bypasses the edict chooser chain — the victim is fixed).
   // No-op if ctx.sourceId is absent or the permanent already left the battlefield (stale source).
-  if (atom.target === "self") return sacrificeCreatureEffect(state, ctx.controller, ctx.sourceId);
+  if (atom.target === "self") {
+    // ③ · 17 — "sacrifice it unless it escaped": an escaped titan stays (see the clause arm's note on the flag).
+    if (atom.unlessEscaped && findPermanent(state, ctx.sourceId)?.permanent?.escaped) {
+      return logEvent(state, { kind: "spell-effect", effect: "sacrifice", controller: ctx.controller, sacrificed: null, reason: "escaped" });
+    }
+    return sacrificeCreatureEffect(state, ctx.controller, ctx.sourceId);
+  }
   // TRIG-PRONOUN-IT — "sacrifice the triggering creature" (the non-self pronoun referent, CR 608.2c): the
   // permanent that CAUSED the trigger, threaded flat as ctx.triggeringPermanentId by the trigger flush.
   // Bypasses the edict chooser chain (the victim is fixed). The detectTriggers sentinel rewrite (gated to
@@ -474,6 +480,11 @@ export function sacrificeEdictClauseParser(clause) {
   // The noun allowlist is the corpus's printed set of "sacrifice this X" self-references — a bare permanent type,
   // never a filtered / conjoined sacrifice, so no wrong-victim FP (CREED).
   if (/^sacrifice this (creature|permanent|token|land|artifact|enchantment|aura|equipment|vehicle)$/.test(t)) return { op: "sacrifice", target: "self" };
+  // SACRIFICE UNLESS IT ESCAPED (the 09-06 plan's stage ③ · 17, 2026-09-30 — the Theros titans: "When Phlage enters, sacrifice it
+  // unless it escaped." Phlage, Uro): the self-sacrifice above, skipped for a permanent that carries `escaped`. The engine
+  // never offers an escape cast (coverage's ESCAPE_LINE note), so today no permanent carries it and a hand-cast titan is
+  // always sacrificed — exactly the printed outcome; the flag is the contract a future escape cast must stamp.
+  if (/^sacrifice (?:it|this creature) unless it escaped$/.test(t)) return { op: "sacrifice", target: "self", unlessEscaped: true };
   if (/^sacrifice the triggering creature$/.test(t)) return { op: "sacrifice", target: "thatCreature" };
   // CONTROLLER EDICT (BLITZ EC-1c — Inevitable End's granted "At the beginning of your upkeep, sacrifice a
   // creature."; the bare imperative subject is the ability's controller, CR 109.5 — "you"): the
