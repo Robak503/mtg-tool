@@ -160,8 +160,11 @@ describe("RETURN-A-LAND cost (γ1g) — parseAbilityCost", () => {
   it("a COUNT variant ('Return two lands') stays unmodeled → null (CREED safe FN)", () => {
     expect(parseAbilityCost("{2}, Return two lands you control to their owners' hands")).toBeNull();
   });
-  it("a SUBTYPE variant ('Return a Forest') stays unmodeled → null (CREED safe FN)", () => {
-    expect(parseAbilityCost("Return a Forest you control to its owner's hand")).toBeNull();
+  // GRADUATED (the 09-06 plan's stage ③ · 31, 2026-09-30): this pinned "Return a Forest" as unmodeled → null. It is modeled now —
+  // the cost carries the basic land type and legalChoices' victim filter enforces it word-bounded on the type line (Quirion Ranger,
+  // Scryb Ranger — quirionRanger.test.js runs the Forest-only payment). The pin keeps its job as the subtype contract.
+  it("GRADUATED — a SUBTYPE variant ('Return a Forest') carries the subtype the victim filter enforces", () => {
+    expect(parseAbilityCost("Return a Forest you control to its owner's hand")?.returnLand).toEqual({ another: false, subtype: "Forest" });
   });
 });
 

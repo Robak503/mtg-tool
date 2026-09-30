@@ -5,14 +5,33 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **387 commits**, corpus
-> 38.6% → **43.6% (14,921)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **388 commits**, corpus
+> 38.6% → **43.6% (14,923)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 31: "Return a Forest you control to its owner's hand: Untap target creature" — Quirion Ranger, Scryb Ranger · **+2** · corpus 14,923 (43.6%) / 34,245
+> Suite **1622 files / 16,795 tests** green (1 skipped); lint 0. Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at ffddadc2 → the
+> change). **Mutants 3/3 killed on assertions** (restore byte-identical).
+> · **Census rank 51** (Quirion Ranger #2258, Scryb Ranger #5322): the return-a-land cost (Oboro's "Return a land you control to its
+>   owner's hand") refused a subtyped land by its whole-item anchor, so both Rangers parked while their untap and once-each-turn
+>   limit were modeled.
+> · **Build:** the cost carries a basic land type (Forest / Island / Swamp / Mountain / Plains), and legalChoices' return-land victim
+>   filter reads it word-bounded on the type line — the sacrifice-a-Swamp costs' idiom: a dual printed with the type qualifies, a
+>   land without it never does.
+> · **Runtime (each offered by legalActionsForPlayer and paid for real):** beside only an Island — nothing offered (the vacuity
+>   control) · `WITNESS quirionVictims ["bp","fo"]` — the Forest and Breeding Pool pay, the Island never · returning the Forest
+>   untaps a tapped Llanowar Elves and puts the Forest in hand · once each turn: with a second Forest out, not offered again ·
+>   Scryb Ranger pays the same way.
+> · **Mutants 3/3:** the subtype arm removed · the subtype never recorded · the victim filter ignoring it. Witness
+>   `app/src/lib/learn/quirionRanger.test.js` (6).
+> · **A stale pin GRADUATED with a note** (the first full suite was red on exactly this): untapTargetLand.test.js pinned "Return a
+>   Forest" as unmodeled → null (the CREED's safe FN of its day). It now pins the subtype contract the victim filter enforces.
+> · **Next:** census rank 52 — Brave the Sands / High Ground (a creature blocking an additional creature — multi-block).
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 30: "Whenever a creature you control becomes blocked, …" — Grazilaxx, Cunning Evasion, Somberwald Alpha, Unstoppable Ash, Close Quarters · **+5** · corpus 14,921 (43.6%) / 34,245
 > Suite **1621 files / 16,789 tests** green (1 skipped); lint 0. Flip-diff **+5, zero LOST, zero retiered** (tier snapshots at a3fa08b7 → the

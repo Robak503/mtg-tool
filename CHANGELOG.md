@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Quirion Ranger, Scryb Ranger** — return a Forest you control to untap a creature, once each turn
 - **"Whenever a creature you control becomes blocked"** — Grazilaxx, Illithid Scholar, Cunning Evasion, Somberwald Alpha,
   Unstoppable Ash, Close Quarters
 - **Nevinyrral's Disk, Akroma's Vengeance, Magus of the Disk** — destroy all artifacts, creatures, and enchantments

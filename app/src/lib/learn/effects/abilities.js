@@ -490,7 +490,11 @@ export function parseAbilityCost(costStr, card = null) {
     // paying the cost). Whole-item anchored ($) so a COUNT ("return two lands"), a subtype filter ("return a
     // Forest"), or a "to their owner's hand" plural variant doesn't match → deferred, keeping the all-or-nothing
     // gate (a safe false-negative → Arbiter).
-    if (/^return a land you control to its owner's hand$/i.test(item)) { returnLand = { another: false }; continue; }
+    // + a BASIC LAND TYPE (the 09-06 plan's stage ③ · 31, 2026-09-30 — Quirion Ranger, Scryb Ranger: "Return a Forest you control
+    // to its owner's hand: Untap target creature."): the same cost with a subtype legalChoices' victim filter reads (a word-bounded
+    // type-line match, like the sacrifice-a-Swamp costs) — a dual carrying the type qualifies, a land without it never does.
+    const rlM = /^return (?:a land|(?:a|an) (forest|island|swamp|mountain|plains)) you control to its owner's hand$/i.exec(item);
+    if (rlM) { returnLand = { another: false, ...(rlM[1] ? { subtype: rlM[1][0].toUpperCase() + rlM[1].slice(1).toLowerCase() } : {}) }; continue; }
     // γ1i — UNATTACH-AN-EQUIPMENT cost (SHELF CAP14, CR 701.3c — Captain America, First Avenger:
     // "{3}, Unattach an Equipment from Captain America: …"): a CHOICE cost — the player picks WHICH
     // Equipment attached to the SOURCE to remove. The parser only records the shape; legalChoices expands

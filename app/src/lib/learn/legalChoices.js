@@ -2602,6 +2602,8 @@ function actionsActivateAbility(state, playerId) {
         const selfExcluded = ab.returnLand.another;
         returnLandVictims = player.battlefield.filter((v) =>
           isLand(v.card) &&
+          // stage ③ · 31 — "Return a Forest you control" (Quirion Ranger): the subtype, word-bounded on the type line.
+          (!ab.returnLand.subtype || new RegExp(`\\b${ab.returnLand.subtype}\\b`, "i").test(typeLineOf(v.card))) &&
           !(selfExcluded && v.id === perm.id) &&
           !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""),
         );
