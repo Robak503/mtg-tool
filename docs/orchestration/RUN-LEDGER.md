@@ -5,14 +5,46 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **366 commits**, corpus
-> 38.6% → **43.3% (14,832)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **367 commits**, corpus
+> 38.6% → **43.3% (14,836)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 10: the life floor — "damage that would reduce your life total to less than 1 reduces it to 1 instead" · **+4** · corpus 14,836 (43.3%) / 34,245
+> Suite **1602 files / 16,619 tests** green (1 skipped); lint 0. Flip-diff **+4, zero LOST, zero retiered** (tier snapshots at 253172a5 → the
+> change). **Mutants 10/10 killed** (restore byte-identical).
+> · **Census row ⑩:** Ali from Cairo, Sustaining Spirit, Fortune Thief, and Worship's "If you control a creature, …" — each
+>   sole-blocked by the line. No machinery existed (all eight carriers were parked, Worship included). Elderscale Wurm ("as long
+>   as you have 7 or more life … less than 7"), Angel of Grace, Angel's Grace and Serra's emblem stay where they were.
+> · **Build — a replacement at the one life-loss chokepoint.** The static parser emits a coverage marker (`lifeFloor`, plus
+>   `ifControlCreature` for Worship) read by `lifeFloorOf`; `gameState.loseLife` asks `lifeFloorFor` of the loser's own battlefield
+>   (battlefields are keyed by controller) for a DAMAGE loss only — the existing `combatDamage` discriminator, which both damage
+>   callers pass and nothing else does. The damage stays whole (CR 120.3a): `damageTakenThisTurn` keeps it, and lifelink and
+>   commander damage are tallied by the callers from the damage dealt. What changes is the life LOST, and that is what
+>   `lifeLostThisTurn`, the life-loss watcher and the speed bump now see (identical to before for every unfloored loss). A
+>   `life-floor` event is logged when it bites. Worship's creature is asked at that moment through the layer-aware creature
+>   read; a face-down permanent's card is its 2/2 stand-in, so a face-down Fortune Thief sets no floor (CR 708.2).
+> · **Settled by the printed rulings (bundled rulings.json), not by instinct — and one first draft was wrong.** The floor
+>   applies only to damage (a drain or a pay-life cost goes below 1), and it gives a player already at 0 or less no help at all
+>   (Sustaining Spirit: "Does not affect damage if you are already at zero or negative life. You still take it all."). My first
+>   formula held a total already below 1 where it was; the ruling says the damage lands in full, and the pin now says so. Ali's
+>   ruling — a floor that dies in the same damage event still applies — holds because combat deals player damage before the
+>   lethal-damage check.
+> · **Runtime:** `WITNESS aliBolt life 1 · damage 3 · lost 2` (Lightning Bolt at 3 life; the vacuity control goes to 0) · Craw
+>   Wurm into 2 life → 1 · `WITNESS lifelinkIntoFloor ai 1 · user 22` (Vampire Nighthawk's lifelink gains the full 2) · Ali blocks
+>   and dies in the same step → 1 · `WITNESS exquisiteBloodSeesLoss ai 1 · user 22` (it gains the 2 lost, not the 3 dealt) · no
+>   speed at 1 life · Worship with Grizzly Bears → 1, alone → 0 · the user's Ali doesn't save the AI · face-down Fortune Thief →
+>   0, face up → 1 · a non-damage loss → −1 · at 0 life → −2.
+> · **Documented under-application:** a pain land's "deals 1 damage to you" reaches loseLife unmarked (no `combatDamage`), so
+>   it is not floored. Marking it would also move the win-con attribution and bloodthirst's damage ledger — its own slice.
+> · **Mutants 10/10:** the arm dead · Worship's condition unparsed · the creature condition unchecked · every loss floored ·
+>   the floor helping a player below 1 · the ledger counting damage · any player's floor protecting you · a face-down reading its
+>   real card · the watcher seeing the damage · the speed bump on no loss. Witness `app/src/lib/learn/lifeFloor.test.js` (14).
+> · **Next:** census row ⑪ — the "void —" end-step trigger (Insatiable Skittermaw, Kavaron Skywarden).
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 9: "as long as equipped creature is a Human, it gets an additional +N/+N" — and its family · **+8** (5 unplanned, each run for real) · corpus 14,832 (43.3%) / 34,245 · + a Mistform type-read FP closed
 > Suite **1601 files / 16,605 tests** green (1 skipped); lint 0. Flip-diff **+8, zero LOST, zero retiered** (tier snapshots at dfa7336d → the

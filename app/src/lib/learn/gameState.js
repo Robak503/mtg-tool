@@ -31,7 +31,7 @@ import { permanentPower, permanentToughness, permanentBasePower, permanentHasKey
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
 import { applyCounterDoubling, millMultiplier, playerCounterAdditive, applyLifeGainReplacement, drawMultiplier } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
-import { auraHasTotemArmor, othersEnterWithCounters, exilesCreaturesItDamaged } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.116) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
+import { auraHasTotemArmor, othersEnterWithCounters, exilesCreaturesItDamaged, lifeFloorOf } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.116) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
 import { applyControlAuraAttach, revertControlAura } from "./controlAura.js"; // CR 613.1b control Auras — a ZERO-IMPORT leaf, so this lowest-layer module can call it without a cycle
 import { moveControl } from "./controlMove.js"; // THE one control move, shared by the control Auras and the gain-control atom; controlMove imports nothing, so this stays acyclic
 
@@ -1865,11 +1865,24 @@ export function loseLife(state, { playerId, amount, combatDamage }) {
   // is the killing blow (newLife <= 0) and it came from damage, so removePlayerFromGame can split the
   // "damage" win-con into combat / burn. Stamping only on the lethal blow means it can never go stale (a
   // player at <=0 is removed by the very next SBA) and a drain/pay-life finish never mislabels as either.
+  //
+  // LIFE FLOOR (the 09-06 plan's stage ③ · 10, 2026-09-30 — Ali from Cairo, Sustaining Spirit, Fortune Thief, Worship):
+  // "Damage that would reduce your life total to less than 1 reduces it to 1 instead." A replacement on the life total
+  // (CR 614.1a) for DAMAGE only — the `combatDamage` discriminator below — so a drain, a pay-life cost or "lose N life"
+  // still goes below 1, as printed. The damage itself is unchanged (CR 120.3a): damageTakenThisTurn keeps the full amount,
+  // and lifelink and commander damage are tallied by the callers from the damage dealt. What the floor changes is the life
+  // actually LOST, and that is what lifeLostThisTurn, the speed bump and the life-loss watcher see. A total already below
+  // the floor gets no help at all (the printed rulings: "Does not affect damage if you are already at zero or negative
+  // life. You still take it all."). Known under-application: a pain land's "deals 1 damage to you" reaches here unmarked,
+  // so it is not floored.
+  const floor = combatDamage !== undefined && amount > 0 ? lifeFloorFor(state, playerId) : null;
+  const lifeBefore = state.players[playerId].life;
+  const newLife = floor == null || lifeBefore < floor ? lifeBefore - amount : Math.max(lifeBefore - amount, floor);
+  const lost = lifeBefore - newLife;
   let next = withPlayer(state, playerId, p => {
-    const newLife = p.life - amount;
     return {
       ...p, life: newLife,
-      ...(amount > 0 && { lifeLostThisTurn: (p.lifeLostThisTurn || 0) + amount }),
+      ...(lost > 0 && { lifeLostThisTurn: (p.lifeLostThisTurn || 0) + lost }),
       // DAMAGE-TAKEN-THIS-TURN (CR 119.3 vs 120.3 — the DAMAGE-only ledger, added 2026-07-25 for
       // bloodthirst). Deliberately NOT the same thing as lifeLostThisTurn: a drain, a pay-life cost or a
       // "each player loses 1 life" effect all lose life WITHOUT damage, and bloodthirst's "if an opponent
@@ -1890,13 +1903,30 @@ export function loseLife(state, { playerId, amount, combatDamage }) {
   // mandatory, untargeted, and nothing in the engine responds to it; noted in
   // startYourEngines.test.js as the deliberate simplification.
   const active = next.activePlayer;
-  if (amount > 0 && active && active !== playerId && next.players[active]) {
+  if (lost > 0 && active && active !== playerId && next.players[active]) {
     const ap = next.players[active];
     if ((ap.speed || 0) >= 1 && (ap.speed || 0) < 4 && !ap.speedIncreasedThisTurn) {
       next = withPlayer(next, active, (p) => ({ ...p, speed: (p.speed || 0) + 1, speedIncreasedThisTurn: true }));
     }
   }
-  return _lifeLossWatcher && amount > 0 ? _lifeLossWatcher(next, { playerId, amount }) : next;
+  if (lost < amount) next = logEvent(next, { kind: "life-floor", playerId, damage: amount, lifeLost: lost, floor });
+  return _lifeLossWatcher && lost > 0 ? _lifeLossWatcher(next, { playerId, amount: lost }) : next;
+}
+
+// LIFE FLOOR reader (stage ③ · 10): the highest floor any permanent the player controls sets — battlefields are keyed by
+// controller (controlMove splices between them), so "your life total" is exactly this array — or null. Worship's "If you
+// control a creature" is asked now, of the layer-aware creature read (an animated land counts, a bestowed Aura does not).
+// A face-down permanent's `card` is its 2/2 stand-in, so a face-down Fortune Thief sets no floor (CR 708.2).
+function lifeFloorFor(state, playerId) {
+  const bf = state.players?.[playerId]?.battlefield || [];
+  let floor = null;
+  for (const perm of bf) {
+    const f = lifeFloorOf(perm.card);
+    if (!f) continue;
+    if (f.ifControlCreature && !bf.some((p) => permanentIsCreature(state, p.id))) continue;
+    floor = floor == null ? f.lifeFloor : Math.max(floor, f.lifeFloor);
+  }
+  return floor;
 }
 
 export function gainLife(state, { playerId, amount }) {

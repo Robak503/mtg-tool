@@ -2915,6 +2915,19 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
+  // ── LIFE FLOOR (the 09-06 plan's stage ③ · 10, 2026-09-30 — Ali from Cairo, Sustaining Spirit, Fortune Thief: "Damage that
+  // would reduce your life total to less than 1 reduces it to 1 instead."; Worship: "If you control a creature, …") ──────────
+  // A replacement effect (CR 614.1a) on the CONTROLLER's life total, and a coverage MARKER here (no affects/op, so the layer
+  // engine ignores it). The enforcement is gameState.loseLife, the single life-loss chokepoint, which asks lifeFloorOf of the
+  // loser's permanents for a DAMAGE loss only: the damage is still dealt in full (CR 120.3a — lifelink, "dealt damage"
+  // watchers and commander damage are untouched) and only the life total stops at 1. Exact lines only: another floor or
+  // another condition (Elderscale Wurm's "as long as you have 7 or more life") stays residue.
+  const floorM = c.match(/^(if you control a creature, )?damage that would reduce your life total to less than 1 reduces it to 1 instead$/);
+  if (floorM) {
+    out.push({ lifeFloor: 1, ...(floorM[1] ? { ifControlCreature: true } : {}) });
+    return;
+  }
+
   // ── ATTACK TAX (CR 508.1g — Propaganda / Ghostly Prison / Windborn Muse) ────────────────────────────
   // "Creatures can't attack you unless their controller pays {N} for each creature they control that's
   // attacking you." A coverage MARKER only (no `affects`/`op`, so the layer engine ignores it — the
@@ -6573,6 +6586,13 @@ function isTotemArmorClause(clause) {
  *  source in a dying creature's damagedBy list. */
 export function exilesCreaturesItDamaged(card) {
   return parseStaticAbilities(card).some((d) => d?.exileDamagedOnDeath === true);
+}
+
+/** The LIFE FLOOR this card's static sets for its controller — { lifeFloor: 1, ifControlCreature? } (Ali from Cairo, Sustaining
+ *  Spirit, Fortune Thief; Worship's creature condition) — or null. The SAME parse the classifier reads; gameState.loseLife
+ *  asks it of the losing player's permanents for a damage loss. */
+export function lifeFloorOf(card) {
+  return parseStaticAbilities(card).find((d) => Number.isInteger(d?.lifeFloor)) || null;
 }
 
 /**

@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Ali from Cairo, Sustaining Spirit, Fortune Thief, Worship** — damage can't take their controller below 1 life
+  (Worship: while you control a creature). The damage still counts in full for lifelink; losing or paying life still can
 - **True-Faith Censer, Silver-Inlaid Dagger, Heavy Mattock, Sharpened Pitchfork, Butcher's Cleaver, Bladed Bracers, Hope
   Against Hope, Equestrian Skill** — the extra bonus for a Human host (Bladed Bracers: a Human or an Angel) now applies, and only
   while the creature it's attached to is that type. A Changeling counts as every creature type
