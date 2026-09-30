@@ -66,11 +66,13 @@ describe("GC-1 parser + classify — the escape clause parses to ONE optional se
       "Creature — Human Knight"))).toBe("native-trigger");
   });
   it("FN guards: the group / opponent-choice / targeted / coin-flip variants stay parked", () => {
-    // Gustcloak Savior — "Whenever a creature YOU CONTROL becomes blocked, you may untap THAT creature…":
-    // a GROUP watcher scope checkBlockTriggers has no fire path for (it only detects triggers on the blocked
-    // attacker itself) — no descriptor, body-only (a safe FN; park documented in the lane report).
+    // Gustcloak Savior — "Whenever a creature YOU CONTROL becomes blocked, you may untap THAT creature…".
+    // GRADUATED (the 09-06 plan's stage ③ · 30, 2026-09-30): this pinned "no descriptor", because checkBlockTriggers
+    // had no fire path for a GROUP watcher. It has one now (the watcher fan-out — cunningEvasion.test.js), so the
+    // subject IS detected; the card still parks on its PAYOFF — untapping and removing the TRIGGERING creature from
+    // combat is not modeled (the escape atom is self-only). The body-only guard is the one that still matters.
     const savior = cr("Gustcloak Savior", "Flying\nWhenever a creature you control becomes blocked, you may untap that creature and remove it from combat.", "Creature — Bird Soldier");
-    expect(detectTriggers(savior).filter((d) => d.event === "becomesBlocked")).toEqual([]);
+    expect(detectTriggers(savior).filter((d) => d.event === "becomesBlocked").map((d) => d.scope)).toEqual(["creatureYouControl"]);
     expect(classifyCard(savior)).toBe("body-only");
     // Shakedown Heavy — the DEFENDING PLAYER's choice compound ("defending player may have you draw a card.
     // If they do, untap this creature and remove it from combat.") is not a leading "you may" optional.

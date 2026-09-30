@@ -2555,6 +2555,11 @@ function classifyCondition(condRaw, cardName, cardType) {
     // by one or more X creatures" — rampage; an unenforceable per-blocker restriction) does NOT end on the
     // bare phrase and/or also names "blocks" → stays UNDETECTED → Arbiter (SAFE FN), mirroring bare-blocks.
     if (selfRef && /\bbecomes blocked\s*$/.test(c.trim()) && !/\bblocks\b/.test(c)) return { event: "becomesBlocked", scope: "self", whose: "any" };
+    // A CREATURE YOU CONTROL BECOMES BLOCKED (the 09-06 plan's stage ③ · 30, 2026-09-30 — Cunning Evasion, Grazilaxx, Illithid
+    // Scholar): the watcher form. checkBlockTriggers fans the event out to the blocked attacker's controller's OTHER permanents,
+    // the attacker as the triggering permanent (checkAttackTriggers' "other watchers" loop); the attacker's own copy rides the
+    // per-attacker fire. The bare subject only — a qualified one ("a Knight you control …") stays undetected (Arbiter, safe FN).
+    if (/^a creature you control becomes blocked$/.test(c.trim())) return { event: "becomesBlocked", scope: "creatureYouControl", whose: "any" };
     return null;
   }
   // ⭐ BLOCKS-A-CREATURE (CR 509.1a) — "Whenever this creature blocks A CREATURE, …" (Wall of Frost,
@@ -4876,6 +4881,12 @@ export function detectTriggers(card) {
         // (target:"thatCreature" + countFor triggeringCreaturePower — X read live at resolution,
         // CR 608.2h). Whole-clause anchored; a rider → unrewritten → LOW → Arbiter.
         effectClause = "put x +1/+1 counters on the triggering creature, where x is its power";
+      } else if (cls.event === "becomesBlocked" && cls.scope === "creatureYouControl" && /^(?:you may )?return it to its owner's hand$/i.test(effectClause)) {
+        // (the 09-06 plan's stage ③ · 30, 2026-09-30 — Cunning Evasion, Grazilaxx: "Whenever a creature you control becomes blocked,
+        // you may return it to its owner's hand"): "it" is the BLOCKED creature — the triggering permanent checkBlockTriggers'
+        // watcher fan-out threads — never the watcher. Rewritten to the sentinel bounceClauseParser's thatCreature arm reads; the
+        // "you may" stays. Event- and scope-gated, whole-clause anchored.
+        effectClause = effectClause.replace(/return it to its owner's hand$/i, "return the triggering creature to its owner's hand");
       } else if (cls.event === "blocksCreature" && /^return that creature to its owner's hand at end of combat$/i.test(effectClause)) {
         // ④-BB (2026-09-04 — Wall of Tears / Aether Membrane): the SAME blocked-attacker referent as the untap-lock branch
         // directly below, rewritten to the sentinel removal.js's bounce-at-end-of-combat arm reads (target:"thatCreature" →
@@ -7615,6 +7626,14 @@ export function checkBlockTriggers(state) {
     // the player or planeswalker it's attacking"): without the marker a planeswalker attack would hit its controller instead.
     const context = attackerRec?.defender ? { defenderId: attackerRec.defender, ...(attackerRec.defenderPlaneswalkerId ? { defenderPlaneswalkerId: attackerRec.defenderPlaneswalkerId } : {}) } : {};
     fired = fired.concat(triggersForEvent(state, { event: "becomesBlocked", sourcePermanent: lk.permanent, triggeringPermanent: lk.permanent, triggeringContext: context }));
+    // WATCHERS (the 09-06 plan's stage ③ · 30 — Cunning Evasion, Grazilaxx: "Whenever a creature you control becomes blocked, …"):
+    // the blocked attacker's controller's OTHER permanents hear the same event, the attacker as the triggering permanent —
+    // checkAttackTriggers' "other watchers" loop. The attacker's own copy fired just above. Scope-filtered to creatureYouControl,
+    // so no other descriptor gains a second fire site.
+    for (const watcher of triggerSourcesOf(state, lk.controller)) {
+      if (watcher.id === lk.permanent.id) continue;
+      fired = fired.concat(triggersForEvent(state, { event: "becomesBlocked", sourcePermanent: watcher, triggeringPermanent: lk.permanent, triggeringContext: context, scopeFilter: (s) => s === "creatureYouControl" }));
+    }
   }
   // BECOMES-BLOCKED-BY-A-CREATURE (BLITZ CT-1, CR 509.3d) — the "by a creature" wording triggers ONCE
   // FOR EACH creature that blocks (a double-block = two triggers = the self-pump twice), so this loop is

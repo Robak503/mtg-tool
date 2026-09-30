@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"Whenever a creature you control becomes blocked"** — Grazilaxx, Illithid Scholar, Cunning Evasion, Somberwald Alpha,
+  Unstoppable Ash, Close Quarters
 - **Nevinyrral's Disk, Akroma's Vengeance, Magus of the Disk** — destroy all artifacts, creatures, and enchantments
 - **Protection from two colours** — Akroma, Angel of Wrath, Akroma, Angel of Fury, Mirran Crusader, Sphinx of the Steel
   Wind, Auriok Champion and six more

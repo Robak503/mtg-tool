@@ -5,14 +5,42 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **386 commits**, corpus
-> 38.6% → **43.6% (14,916)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **387 commits**, corpus
+> 38.6% → **43.6% (14,921)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 30: "Whenever a creature you control becomes blocked, …" — Grazilaxx, Cunning Evasion, Somberwald Alpha, Unstoppable Ash, Close Quarters · **+5** · corpus 14,921 (43.6%) / 34,245
+> Suite **1621 files / 16,789 tests** green (1 skipped); lint 0. Flip-diff **+5, zero LOST, zero retiered** (tier snapshots at a3fa08b7 → the
+> change). **Mutants 6/6 killed on assertions** (restore byte-identical).
+> · **Census rank 50** (Grazilaxx, Illithid Scholar #1903; Cunning Evasion): three pieces, each missing. (1) The watcher SUBJECT —
+>   "a creature you control becomes blocked" → becomesBlocked / creatureYouControl. (2) The FAN-OUT — checkBlockTriggers fired
+>   becomes-blocked only on the blocked creature's OWN triggers, so a watcher never heard it; the attacker's controller's other
+>   permanents do now (checkAttackTriggers' "other watchers" loop), the attacker as the triggering permanent. (3) The payoff's
+>   "it" is the BLOCKED creature, never the watcher — rewritten, event- and scope-gated, to the triggering-creature bounce the
+>   bounce parser already reads; the "you may" stays.
+> · **Two more reasons the runtime witness exists:** with the subject and the rewrite in, both cards classified native BEFORE the
+>   fan-out existed — Cunning Evasion could never have fired (mutant E2: the fan-out removed, the metric still says native; only
+>   the runtime rows go red). And the fan-out's creatureYouControl scope filter cannot be exercised by any corpus card (no other
+>   becomes-blocked scope exists) — kept as the safe narrowing, NOT counted as mutation-checked.
+> · **Planned two, five moved:** Grazilaxx and Cunning Evasion + three unplanned carriers of the same subject whose payoffs already
+>   parsed — Somberwald Alpha (+1/+1), Unstoppable Ash (+0/+5), Close Quarters (1 damage to any target). Each run for real.
+> · **Runtime (through checkBlockTriggers → the stack):** a blocked Bear with no Cunning Evasion stays (the vacuity control) ·
+>   `WITNESS evasionBounce {"bears":"hand","evasion":"battlefield"}` · declining keeps the Bear in combat · of two attacking
+>   Bears only the blocked one goes home · Grazilaxx blocked returns itself, one trigger not two · the AI's blocked attacker never
+>   reaches the user's Cunning Evasion · Somberwald Alpha pumps the blocked Bear to 3/3 (the Alpha stays 3/2) · Unstoppable Ash
+>   makes it 2/7 · Close Quarters puts 1 damage on the AI's side.
+> · **Mutants 6/6:** the subject removed · the fan-out removed · the fan-out visiting the attacker itself (a double fire) · the
+>   rewrite removed · "it" bound to the watcher · the "you may" dropped. Witness `app/src/lib/learn/cunningEvasion.test.js` (10).
+> · **A stale pin GRADUATED with a note** (the first full suite was red on exactly this): gustcloakEscape.test.js pinned Gustcloak
+>   Savior's group watcher as UNDETECTED because "checkBlockTriggers has no fire path" for it. It has one now, so the subject is
+>   detected; the card still parks on its payoff (untapping and removing the TRIGGERING creature from combat is not modeled — the
+>   escape atom is self-only), and that body-only guard stays.
+> · **Next:** census rank 51 — Quirion Ranger / Scryb Ranger.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 29: "Destroy all artifacts, creatures, and enchantments" — Nevinyrral's Disk, Akroma's Vengeance, Magus of the Disk · **+3** · corpus 14,916 (43.6%) / 34,245
 > Suite **1620 files / 16,779 tests** green (1 skipped); lint 0. Flip-diff **+3, zero LOST, zero retiered** (tier snapshots at a2c540dc → the
