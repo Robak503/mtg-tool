@@ -50,6 +50,11 @@
  *      exact GAIN mirror of the lifeLostThisTurn reads below.
  *   "an opponent lost life this turn" (Lion Vulture, Savage Gorger, Bloodtithe Collector, Arrogant Outlaw —
  *      BLITZ IF-1) — the ≥1 case of the OPP-LOST-LIFE lifeLostThisTurn ledger (bare form, no number word).
+ *   the TRAP CONDITIONS (shelf D17 — the Zendikar Trap cycle): "an opponent cast a <color> spell / N or more spells
+ *      this turn", "an opponent drew N or more cards this turn", "an opponent gained life this turn", "an opponent had
+ *      N or more cards put into their graveyard from anywhere this turn" — opponent existentials over the per-seat
+ *      ledgers — and the live combat: "N or more creatures are attacking", "exactly one creature is attacking", "a
+ *      <color> creature [with flying] is attacking" (see THE TRAP CONDITIONS below).
  *   "you're the monarch" (Throne Warden, Garrulous Sycophant, Skyline Despot, Faramir Steward of Gondor —
  *      BLITZ IF-1) — the controller holds the monarch designation now (CR 725.1); a live state.monarchId read
  *      (the same field manaModel's Regal Behemoth mana-augment gate reads).
@@ -64,13 +69,13 @@
  *      chose at ETB), keyed on ctx.triggeringPermanentId exactly like the kicked flag.
  * DEFERRED to the Arbiter (stay LOW): color/multicolored permanents, other power comparisons ("power N or
  * less", toughness), OTHER turn-event history (a NON-creature died, "a permanent left the battlefield this
- * turn", the compound "you gained AND lost life this turn", the 2HG "your team gained life this turn", the
- * opponent-scoped "an opponent gained life this turn"), subtype-scoped death counts ("a Zubera died"), the
+ * turn", the compound "you gained AND lost life this turn", the 2HG "your team gained life this turn"),
+ * subtype-scoped death counts ("a Zubera died"), the
  * OTHER cast-decision flags (bargain), the remaining state flags (city's blessing, initiative — no live
  * tracking) — each a future increment.
  */
 
-import { creaturePower, creatureToughness } from "./gameState.js"; // layer-aware P/T readers (counters + anthems) — one-way edge, no cycle
+import { creaturePower, creatureToughness, findPermanent } from "./gameState.js"; // layer-aware P/T readers (counters + anthems) — one-way edge, no cycle; + findPermanent (shelf D17 — attackers still on the battlefield)
 // Layer-aware KEYWORD + COLOR readers for the "you control a <filter>" family (CR 613 — a granted keyword and
 // an effect-changed color are real characteristics). One-way edge: layers.js imports gameState / keywords /
 // staticAbilityParser / protection, none of which reach interveningIf.js, so this adds no cycle. Verified with
@@ -616,6 +621,32 @@ const OPP_LOST_LIFE_ANY_RE = /^an opponent lost life this turn$/;
 // damage callers pass and no non-damage loss does. Absent tally = 0 = false (fail-closed).
 const OPP_DEALT_DAMAGE_RE = /^an opponent was dealt damage this turn$/;
 
+// ===== THE TRAP CONDITIONS (shelf D17, 2026-09-30 — the Zendikar Trap cycle's "If <condition>, you may pay <cost> rather than
+// pay this spell's mana cost") ===== each an existential over the condition controller's OPPONENTS read off a per-seat,
+// per-turn ledger reset for every seat at untap — the opponent twins this header's DEFERRED list names — or a live read of
+// the current combat. Boolean always (an absent tally is zero), so the spell probe reads each as parseable:
+//   "an opponent cast a <color> spell this turn" (Ricochet Trap) — spellColorsCastThisTurn, stamped at the cast chokepoint;
+//   "an opponent cast N or more spells this turn" (Mindbreak Trap) — spellsCastThisTurn;
+//   "an opponent drew N or more cards this turn" (Runeflare Trap) — cardsDrawnThisTurn;
+//   "an opponent gained life this turn" (Needlebite Trap) — lifeGainedThisTurn;
+//   "an opponent had N or more cards put into their graveyard from anywhere this turn" (Ravenous Trap) — gyEnteredThisTurn,
+//     which counts CARDS only (tokens are filtered at its chokepoint);
+//   "N or more creatures are attacking" / "exactly one creature is attacking" / "a <color> creature [with flying] is
+//     attacking" (Lethargy, Pitfall, Slingbow, Nemesis) — the declared attackers still on the battlefield, colours and
+//     flying read layer-aware. Outside combat nothing is attacking.
+const OPP_CAST_COLOR_RE = /^an opponent cast an? (white|blue|black|red|green) spell this turn$/;
+const OPP_CAST_N_RE = new RegExp(`^an opponent cast ${NUM_RE} or more spells this turn$`);
+const OPP_DREW_N_RE = new RegExp(`^an opponent drew ${NUM_RE} or more cards this turn$`);
+const OPP_GAINED_LIFE_RE = /^an opponent gained life this turn$/;
+const OPP_GY_N_RE = new RegExp(`^an opponent had ${NUM_RE} or more cards put into their graveyard from anywhere this turn$`);
+const ATTACKING_N_RE = new RegExp(`^${NUM_RE} or more creatures are attacking$`);
+const ATTACKING_ONE_RE = /^exactly one creature is attacking$/;
+const ATTACKING_COLOR_RE = /^an? (white|blue|black|red|green) creature( with flying)? is attacking$/;
+const TRAP_COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+function attackersOnBattlefield(state) {
+  return (state?.combat?.attackers || []).filter((a) => findPermanent(state, a.permanentId));
+}
+
 // ===== EXCESS-DAMAGE (Rith, Liberated Primeval — CR 120.4a, 2026-08-15) ======================
 // "a creature or planeswalker an opponent controlled was dealt excess damage this turn" — reads the
 // excessDamageThisTurn ledger stamped at the gameState.markCombatDamage chokepoint (every creature-damage
@@ -936,6 +967,27 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   // any life this turn). Distinct anchor from the "N or more" form; both read lifeLostThisTurn identically.
   if (OPP_LOST_LIFE_ANY_RE.test(c)) {
     return opponentIds(state, controllerId).some((pid) => (state.players[pid]?.lifeLostThisTurn || 0) >= 1);
+  }
+  // THE TRAP CONDITIONS (shelf D17) — see the regex block: opponent existentials over per-turn ledgers, and the live combat.
+  {
+    const opp = (read) => opponentIds(state, controllerId).some((pid) => read(state.players[pid] || {}));
+    let t = c.match(OPP_CAST_COLOR_RE);
+    if (t) return opp((p) => (p.spellColorsCastThisTurn || []).includes(TRAP_COLOR_LETTER[t[1]]));
+    t = c.match(OPP_CAST_N_RE);
+    if (t) { const n = parseCount(t[1]); return n == null ? null : opp((p) => (p.spellsCastThisTurn || 0) >= n); }
+    t = c.match(OPP_DREW_N_RE);
+    if (t) { const n = parseCount(t[1]); return n == null ? null : opp((p) => (p.cardsDrawnThisTurn || 0) >= n); }
+    if (OPP_GAINED_LIFE_RE.test(c)) return opp((p) => (p.lifeGainedThisTurn || 0) >= 1);
+    t = c.match(OPP_GY_N_RE);
+    if (t) { const n = parseCount(t[1]); return n == null ? null : opp((p) => (p.gyEnteredThisTurn || 0) >= n); }
+    t = c.match(ATTACKING_N_RE);
+    if (t) { const n = parseCount(t[1]); return n == null ? null : attackersOnBattlefield(state).length >= n; }
+    if (ATTACKING_ONE_RE.test(c)) return attackersOnBattlefield(state).length === 1;
+    t = c.match(ATTACKING_COLOR_RE);
+    if (t) {
+      return attackersOnBattlefield(state).some((a) => (permanentColors(state, a.permanentId) || []).includes(TRAP_COLOR_LETTER[t[1]])
+        && (!t[2] || permanentHasKeyword(state, a.permanentId, "Flying")));
+    }
   }
   // OPPONENT-DEALT-DAMAGE (KW-BLOODTHIRST) — the DAMAGE-only sibling of the life-loss read above.
   if (OPP_DEALT_DAMAGE_RE.test(c)) {

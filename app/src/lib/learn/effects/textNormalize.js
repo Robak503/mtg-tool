@@ -400,6 +400,17 @@ export function grantsWubrgAltCost(state, playerId) {
 // RG-5 built for Fist of Suns (the ordinary payment path pays the pips; never the altCost branch, which pays no mana); the
 // classifier's permanent lane covers the sentence as modelled residue; castModifiers strips it for a spell's program parse.
 export const FIXED_MANA_ALT_COST_RE = /(?:^|\n)\s*you may pay ((?:\{[WUBRG]\})+) rather than pay this spell's mana cost\.?\s*(?:\n|$)/i;
+// THE TRAP FORM (shelf D17 — the Zendikar Trap cycle): "If <condition>, you may pay <cost> rather than pay this spell's mana
+// cost." The same cost-variant, offered only while the condition holds — read by the shared interveningIf reader at the
+// cast site, and stripped for the program parse (castModifiers) only when that reader can parse it, so the two agree. The
+// cost may carry generic pips ({0} — Mindbreak Trap; {1}{G} — Baloth Cage Trap). Returns { pips, condition } or null.
+export const CONDITIONAL_FIXED_MANA_ALT_COST_RE = /(?:^|\n)\s*if ([^,.\n]+), you may pay ((?:\{(?:[WUBRG]|\d+)\})+) rather than pay this spell's mana cost\.?\s*(?:\n|$)/i;
+export function conditionalFixedManaAltCostOf(card) {
+  // The CR 207.2c label comes off first ("Raid — If you attacked this turn, you may pay {U} …" — Admiral's Order), exactly as
+  // the program parse strips it, so the offer reads the sentence the strip credited.
+  const m = CONDITIONAL_FIXED_MANA_ALT_COST_RE.exec(stripAbilityWordLabel(String(card?.oracle || card?.oracle_text || "")));
+  return m ? { pips: m[2].toUpperCase(), condition: m[1].trim().toLowerCase() } : null;
+}
 export function fixedManaAltCostOf(card) {
   const m = FIXED_MANA_ALT_COST_RE.exec(String(card?.oracle || card?.oracle_text || ""));
   return m ? m[1].toUpperCase() : null;

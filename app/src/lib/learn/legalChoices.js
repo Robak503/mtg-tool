@@ -35,7 +35,7 @@ import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: reso
 import { hasKeyword } from "./keywords.js";
 import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor, crewCostWithOverrides } from "./layers.js";
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
-import { grantsWubrgAltCost, fixedManaAltCostOf } from "./effects/textNormalize.js"; // FIST OF SUNS (RG-5) — the board-granted WUBRG alternative cost; + RG-8 — the spell's OWN fixed-mana alternative cost (the Bringers); leaf readers
+import { grantsWubrgAltCost, fixedManaAltCostOf, conditionalFixedManaAltCostOf } from "./effects/textNormalize.js"; // + the trap form (shelf D17) // FIST OF SUNS (RG-5) — the board-granted WUBRG alternative cost; + RG-8 — the spell's OWN fixed-mana alternative cost (the Bringers); leaf readers
 import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksFor, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund (+ the Phyrexian life lane, Norn's Annex)
@@ -1170,7 +1170,11 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // under an alternative cost — a different, unmodeled line), payable right now.
     // RG-8 (2026-09-05 — the Bringers): the card's OWN "You may pay <pips> rather than pay this spell's mana cost" is the
     // same cost-variant; the card's own pips take precedence over a Fist of Suns grant (for the Bringers they coincide).
-    const ownPips = (!freeCast && fromZone === "hand") ? fixedManaAltCostOf(card) : null;
+    // + THE TRAP FORM (shelf D17 — "If <condition>, you may pay <cost> rather than …"): the conditional twin, offered only while
+    // its condition holds — read by the shared interveningIf reader (an unreadable condition is null → never offered).
+    const unconditionalPips = (!freeCast && fromZone === "hand") ? fixedManaAltCostOf(card) : null;
+    const trapAlt = (!freeCast && fromZone === "hand" && !unconditionalPips) ? conditionalFixedManaAltCostOf(card) : null;
+    const ownPips = unconditionalPips || (trapAlt && evaluateInterveningIf(state, trapAlt.condition, playerId) === true ? trapAlt.pips : null);
     const fixedAltCost = ownPips ? parseManaCost(ownPips) : (wubrgAlt ? WUBRG_COST : null);
     const wubrgAffordable = !!fixedAltCost && !freeCast && fromZone === "hand" && !cost.hasX
       && canAfford(player.manaPool, manaSources(state, playerId), fixedAltCost, spendContext);

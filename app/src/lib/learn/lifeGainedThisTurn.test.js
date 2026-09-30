@@ -127,7 +127,10 @@ describe("evaluateInterveningIf — you('ve) gained [N or more] life this turn (
   it("OUT-OF-SCOPE cousins fall through to null (Arbiter, never fail-open)", () => {
     const s = withGain({ lifeGainedThisTurn: 9 });
     expect(evaluateInterveningIf(s, "your team gained life this turn", "user")).toBe(null);        // 2HG team scope
-    expect(evaluateInterveningIf(s, "an opponent gained life this turn", "user")).toBe(null);      // opponent existential
+    // GRADUATED 2026-09-30 (shelf D17, traps.test.js — Needlebite Trap): the opponent existential is modeled now — it reads
+    // the OPPONENTS' ledger, so your own gain here doesn't satisfy it, and an opponent's does.
+    expect(evaluateInterveningIf(s, "an opponent gained life this turn", "user")).toBe(false);
+    expect(evaluateInterveningIf({ ...s, players: { ...s.players, ai: { ...s.players.ai, lifeGainedThisTurn: 2 } } }, "an opponent gained life this turn", "user")).toBe(true);
     expect(evaluateInterveningIf(s, "you gained and lost life this turn", "user")).toBe(null);     // compound (Lunar Convocation #2)
     expect(evaluateInterveningIf(s, "you gained 3 or fewer life this turn", "user")).toBe(null);   // wrong comparator direction
   });
@@ -138,7 +141,7 @@ describe("evaluateInterveningIf — you('ve) gained [N or more] life this turn (
     expect(interveningIfParseable("you gained 3 or more life this turn")).toBe(true);
     expect(interveningIfParseable("you've gained 4 or more life this turn")).toBe(true);
     expect(interveningIfParseable("your team gained life this turn")).toBe(false);
-    expect(interveningIfParseable("an opponent gained life this turn")).toBe(false);
+    expect(interveningIfParseable("an opponent gained life this turn")).toBe(true); // GRADUATED (shelf D17) — the opponent existential
     expect(interveningIfParseable("you gained and lost life this turn")).toBe(false);
   });
 });

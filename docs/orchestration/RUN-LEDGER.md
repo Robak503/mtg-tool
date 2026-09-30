@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **429 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **430 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,25 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D17: THE TRAP CYCLE (through the shared condition reader) — Kinnan 88 → 89, Killer Turts 88 → 89, Believe it! 87 → 88 · **the shelf crosses 90%** · **+9** · corpus 15,095 / 34,245
+> Suite **1,664 files / 17,195 tests** green (1 skipped); lint 0; decks 2,685 / 2,998. CI GREEN on D16 (run 36783162820). Flip-diff **+9, zero LOST,
+> zero RETIERED** (tier snapshots at 706f70d1 → the change). **Mutants 20/20 killed on assertions** (restore byte-identical).
+> · **Why:** 19 Traps print "If <condition>, you may pay <cost> rather than pay this spell's mana cost"; 13 already had HIGH bodies and
+>   were held out only by their conditions — the opponent twins interveningIf's own header had DEFERRED. The shared reader is the
+>   mechanism (one gate for metric + runtime), which also lays the ground for the banked conditional self-cost reducer (119 cards).
+> · **Build:** interveningIf — opponent cast a <color> spell / N+ spells, drew N+ cards, gained life, had N+ cards hit the graveyard
+>   (cards only); N+ / exactly one creature attacking, a <color> creature [with flying] attacking (attackers still on the battlefield) ·
+>   recordSpellCast records colors (the dispatcher threads colorsOf) · the conditional fixed-mana alt cost (one textNormalize regex; the
+>   strip gated by spellConditionParseable, the offer by evaluateInterveningIf; {0}/{1}{G} pips; ability-word label read through) ·
+>   Mindbreak's "exile any number of target spells" (the Venser stack move → exile; not a counter).
+> · **Unaimed gain, verified:** Admiral's Order ("Raid — If you attacked this turn, you may pay {U} …") — the classifier stripped the
+>   label, the runtime reader didn't, so the {U} would never have been offered: the reader now strips it too (witnessed).
+> · **Parked with reasons:** Refraction (red instant/sorcery), Cobra (destruction attribution), Inferno (damage sources), Archive (no
+>   search ledger), Baloth Cage / Whiplash / Permafrost (an entry turn can't tell whose control it entered under — an FP trap).
+> · **Runtime:** `WITNESS ricochetTrap {"offeredOnRed":0,"offeredOnBlue":1,"cost":1,"giantHome":true,"bearBounced":true}` ·
+>   `mindbreakTrap {"afterOne":0,"cost":0,"rendExiled":true,"giantAlive":true}`. Witness `app/src/lib/learn/traps.test.js` (11).
+> · **Next:** Veil of Summer (Kinnan + Killer Turts → both 90; reuses the color ledger) · We Say Thee Nay! · the choose-two bite template.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D16: TEAMWORK — **Wolverine 89 → 90** (HULK SMASH!) · **+7** · corpus 15,086 / 34,245
 > Suite **1,663 files / 17,184 tests** green (1 skipped); lint 0; decks 2,681 / 2,998. CI GREEN on D15 (run 36780691171). Flip-diff **+7, zero LOST,

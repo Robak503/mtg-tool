@@ -959,7 +959,7 @@ function applyCastSpell(state, action) {
   // opponent casts a … spell" watchers trigger and go on the stack ABOVE it (flush here,
   // not at a later checkpoint, so they resolve BEFORE the spell — correct order, and the
   // right thing for any future referential effect).
-  next = recordSpellCast(next, { playerId: action.playerId, spellCard: castCard }); // TRIG-CAST2: count this cast BEFORE firing, so "your second spell each turn" sees the running total
+  next = recordSpellCast(next, { playerId: action.playerId, spellCard: castCard, colors: colorsOf(castCard) }); // + the spell's colors (shelf D17 — the trap conditions); TRIG-CAST2: count this cast BEFORE firing, so "your second spell each turn" sees the running total
   // SHELF-85 V11 (2026-09-04 — Path of Ancestry): mana with a "when that mana is spent to cast a creature spell that
   // shares a creature type with your commander, scry 1" rider was spent on THIS cast (read off the same plan the commit
   // deducted). A qualifying spell — a creature sharing a printed creature type with one of the caster's commanders

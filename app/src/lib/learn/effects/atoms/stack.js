@@ -693,6 +693,10 @@ export function counterClauseParser(clause) {
   // "may": the one target moves to ANOTHER legal target when there is one, and stays when there is none. "With a single target"
   // counts the targets chosen as the object was put on the stack (CR 115.9a); changing a target is not countering, so an
   // uncounterable spell stays a legal target.
+  // EXILE TARGET SPELLS (shelf D17 — Mindbreak Trap "Exile any number of target spells."): each chosen spell leaves the stack for
+  // its owner's exile. A zone change, not a counter (CR 701.6a names countering), so an uncounterable spell is a legal target
+  // and is exiled too (notCounter). The "any number" count is the phase-out arm's (0 to the unbounded cap, largest first).
+  if (/^exile any number of target spells$/.test(t)) return { op: "exile-spell", targetType: "spell", notCounter: true, minTargets: 0, maxTargets: 99, anyNumber: true };
   const changeTarget = t.match(/^change the target of target (spell|spell or ability) with a single target$/);
   if (changeTarget) {
     return changeTarget[1] === "spell"
@@ -1956,6 +1960,19 @@ function applyCopyCreatureSpell(state, atom, ctx) {
  * such event). A BATTLEFIELD target routes through applyZoneMove → hand (the ordinary bounce). A target
  * in neither place fizzled (left the zone before resolution) — a clean no-op per target (CR 608.2b).
  */
+/**
+ * EXILE TARGET SPELLS (shelf D17 — Mindbreak Trap): each chosen spell still on the stack goes to its owner's exile — the Venser
+ * stack move below with exile as the destination, labeled via:"exile-spell" (not a counter, so no uncounterable check). A spell
+ * already gone is a clean no-op per target (CR 608.2b).
+ */
+function applyExileSpell(state, atom, ctx) {
+  let next = state;
+  for (const t of ctx.targets || []) {
+    if ((next.stack || []).some((o) => o.id === t.id && o.kind === "spell")) next = counterSpellById(next, t.id, { via: "exile-spell", counterDest: "exile" });
+  }
+  return next;
+}
+
 function applyBounceSpellOrPermanent(state, atom, ctx) {
   let next = state;
   for (const t of ctx.targets || []) {
@@ -2232,6 +2249,7 @@ export const stackResolvers = {
   "redirect-to-source": applyRedirectToSource, // ⭐ REDIRECT (Hydroelectric Specimen, CR 115.7a) — a single-target spell's target moves to the source, or stays
   "change-target": applyChangeTarget, // ⭐ CHANGE THE TARGET (Misdirection, CR 115.7a) — a single-target spell or ability's target moves to another legal one (chosen), or stays
   "grant-dies-exile-to-cast-spell": applyGrantDiesExileToCastSpell, // RIVAZ RIDER — stamp the triggering cast spell; the permanent it becomes exiles on death
+  "exile-spell": applyExileSpell, // EXILE TARGET SPELLS (Mindbreak Trap, shelf D17) — each chosen spell to its owner's exile; not a counter
   "bounce-spell-or-permanent": applyBounceSpellOrPermanent, // VENSER — the STACK∪BATTLEFIELD union bounce ("return target spell or permanent to its owner's hand")
   "copy-spell": applyCopySpell, // STORM (CR 702.40) — copy the storm spell N times (N = spells cast before it this turn)
   "copy-creature-spell": applyCopyCreatureSpell, // COPY-A-CREATURE-SPELL (Double Major, CR 707.10) — a token copy of a chosen own creature spell

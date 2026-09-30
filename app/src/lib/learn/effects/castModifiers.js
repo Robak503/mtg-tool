@@ -24,6 +24,8 @@
  * vetted-kind vocabulary and its extractors stay in one file.
  */
 import { SMALL_NUM, NUM_WORD } from "./parseHelpers.js";
+import { spellConditionParseable } from "../interveningIf.js"; // THE TRAP FORM (shelf D17) — the shared condition gate, as parser.js / splitClauses.js import it
+import { CONDITIONAL_FIXED_MANA_ALT_COST_RE } from "./textNormalize.js"; // THE TRAP FORM — one sentence for the strip and the offer
 
 const ADDITIONAL_COST_RE = /\bas an additional cost to cast this spell,\s*([^.]+)\.\s*/i;
 // ADDCOST-1 sac victims — single types PLUS the "artifact or creature" UNION (Deadly Dispute, Deadly
@@ -323,6 +325,13 @@ function parseAltCostCondition(phrase) {
 // builds non-null wins. Only the FREE kind waives mana entirely (a future offer reuses action.freeCast); the
 // pitch/sac/return kinds pay their own printed cost. All are recorded as metadata only for now (§ extractAltCost).
 const ALT_COST_MATCHERS = [
+  // THE TRAP FORM (shelf D17): "If <condition>, you may pay <cost> rather than pay this spell's mana cost." The same fixed-mana
+  // cost-variant, offered only while the condition holds (legalChoices reads it through evaluateInterveningIf). Stripped here
+  // ONLY when the shared reader can parse the condition (spellConditionParseable — the metric⇄runtime gate the conditional
+  // spell riders use), so a trap whose condition the engine can't read keeps the sentence and stays LOW. The cost may carry
+  // generic pips ({0}, {1}{G}). The regex is textNormalize's, so the strip and the offer read one sentence.
+  { re: CONDITIONAL_FIXED_MANA_ALT_COST_RE,
+    build: (m) => (spellConditionParseable(m[1].trim().toLowerCase()) ? { kind: "fixedMana", pips: m[2].toUpperCase(), condition: `if:${m[1].trim().toLowerCase()}` } : null) },
   // FIXED-MANA (RG-8, 2026-09-05 — the Bringers): the sentence is stripped for the program parse; the cast lane offers the pip
   // variant through legalChoices (a cost-variant action, never the altCost branch — the kind is not in OFFERED_ALT_COST_KINDS).
   { re: /(?:^|\n)\s*you may pay ((?:\{[WUBRG]\})+) rather than pay this spell's mana cost\.\s*/i,

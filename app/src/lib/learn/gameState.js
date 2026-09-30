@@ -2608,7 +2608,7 @@ export function resetCardsDrawnAllPlayers(state) {
  * turn" reads the running count and fires when it reaches 2. Each cast is one spell (CR 601 — spells are
  * cast one at a time), so the count passes through 2 exactly once per turn.
  */
-export function recordSpellCast(state, { playerId, spellCard = null }) {
+export function recordSpellCast(state, { playerId, spellCard = null, colors = null }) {
   assertPlayer(playerId);
   // FIRST-<KIND>-SPELL-EACH-TURN (CR 603.2 — Esper Sentinel, Shadow in the Warp, The Queen of Dale):
   // "whenever an opponent casts their FIRST NONCREATURE spell each turn" needs a per-player count of
@@ -2628,6 +2628,10 @@ export function recordSpellCast(state, { playerId, spellCard = null }) {
     spellsCastThisTurn: (p.spellsCastThisTurn || 0) + 1,
     ...(isNoncreature ? { noncreatureSpellsCastThisTurn: (p.noncreatureSpellsCastThisTurn || 0) + 1 } : {}),
     ...(isInstantOrSorcery ? { instantSorcerySpellsCastThisTurn: (p.instantSorcerySpellsCastThisTurn || 0) + 1 } : {}),
+    // TRAP CONDITIONS (shelf D17 — Ricochet Trap "if an opponent cast a blue spell this turn"): the colors this seat's spells
+    // had this turn. The cast site threads layers.colorsOf(castCard) (gameState can't read layers); an unthreaded caller
+    // records none, so a color condition under-reads, never over.
+    ...(Array.isArray(colors) && colors.length ? { spellColorsCastThisTurn: [...new Set([...(p.spellColorsCastThisTurn || []), ...colors])] } : {}),
   }));
 }
 
@@ -2661,7 +2665,7 @@ export function resetSpellsCastAllPlayers(state) {
     // its turn would let the player cast at instant speed forever — an engine strictly MORE PERMISSIVE
     // than the card, the forbidden direction. One reset site for per-turn player state means a new turn
     // cannot half-clear it.
-    players[id] = { ...state.players[id], spellsCastThisTurn: 0, noncreatureSpellsCastThisTurn: 0, instantSorcerySpellsCastThisTurn: 0, flashGrantsThisTurn: [], nextSpellUncounterable: false };
+    players[id] = { ...state.players[id], spellsCastThisTurn: 0, noncreatureSpellsCastThisTurn: 0, instantSorcerySpellsCastThisTurn: 0, spellColorsCastThisTurn: [], flashGrantsThisTurn: [], nextSpellUncounterable: false };
   }
   return { ...state, players };
 }
