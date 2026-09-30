@@ -330,7 +330,10 @@ export function atomTargetIntent(atom) {
       // never harms the controller, and "up to one" hands the chooser the empty pick when no opponent's graveyard holds a
       // card — so it is never forced onto its own graveyard. The MANDATORY form stays ambiguous: with only its own cards
       // legal it would have to take one (CR 601.2c / 603.3d). Like every targeted trigger, the α1 chooser picks for both seats.
-      if (atom.anyGraveyard && atom.minTargets === 0 && atom.maxTargets === 1) return "enemy";
+      // + "UP TO N target cards from a SINGLE graveyard" (stage ③ · 50 — Griffnaut Tracker, Arashin Sunshield): the same
+      // rationale — optional ("up to"), so the chooser is never forced onto its own graveyard, and the single-graveyard subset
+      // constraint (targeting.expandAtoms) keeps every pick inside one opponent's graveyard.
+      if (atom.anyGraveyard && atom.minTargets === 0 && (atom.maxTargets === 1 || atom.singleGraveyard)) return "enemy";
       return (atom.opponentGraveyard || atom.damagedPlayerGraveyard) ? "enemy" : atom.anyGraveyard ? "ambiguous" : "own";
     case "self-attach":
       // ETB-EQUIP-ATTACH — the Equipment attaches to "target creature YOU CONTROL", so the trigger-flush

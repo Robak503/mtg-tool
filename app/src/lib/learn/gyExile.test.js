@@ -40,7 +40,11 @@ describe("gy-exile — recognition + coverage", () => {
     // Scarab Feast line above did before its machinery landed. The FILTERED whole-zone wordings
     // ("exile all creature cards from all graveyards") are still refused, and that refusal is pinned
     // in the new file — so the over-apply this line guarded against remains unreachable.)
-    expect(programConfidence(parseEffectProgram(S("Two Probe", "Exile up to two target cards from a single graveyard.")))).toBe("low"); // only the printed three-count is anchored
+    // ("Exile up to TWO target cards from a single graveyard." GRADUATED in the 09-06 plan's stage ③ · 50 — the arm now takes
+    // the printed count, and the up-to-two / up-to-four forms are pinned with their runtime in singleGraveyardExile.test.js.
+    // Like the lines above, it marked the arm's scope, not a hazard: the subset machinery never cared about N.) The near-miss
+    // that remains is a count the arm does NOT anchor — a variable X:
+    expect(programConfidence(parseEffectProgram(S("X Probe", "Exile up to X target cards from a single graveyard.")))).toBe("low");
     // ⚠️ THE TYPE-FILTER ROW GRADUATED 2026-08-06 (GX-2). It read "type filter — not bare card", which was
     // true of the PARSER and never of the machinery: the exile-from-graveyard atom, applyExileFromGraveyard
     // and the shared cardFilter vocabulary all predate it, and cardMatchesGraveyardFilter enforces the

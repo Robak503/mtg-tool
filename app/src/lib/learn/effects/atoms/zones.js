@@ -1078,8 +1078,13 @@ export function graveyardReturnClauseParser(clause) {
   // cards from a single graveyard." The up-to-N subset machinery + the singleGraveyard SUBSET constraint
   // (targeting.expandAtoms filters to subsets whose cards share ONE owner — the totalMvX pattern), so a
   // mixed-graveyard pick is never offered (CR 601.2c — the chosen set must satisfy the restriction).
-  if (/^exile up to three target cards from a single graveyard$/.test(t)) {
-    return { op: "exile-from-graveyard", targetType: "graveyardCard", anyGraveyard: true, cardFilter: "any", maxTargets: 3, minTargets: 0, singleGraveyard: true };
+  // + ANY COUNT (the 09-06 plan's stage ③ · 50, 2026-09-30 — "up to two" Griffnaut Tracker / Arashin Sunshield / Famished
+  // Ghoul, "up to four" Shred Memory / Digsite Conservator): the arm read only "three" while the subset machinery never
+  // cared about N. Same atom, maxTargets = the printed count.
+  const gxuM = t.match(/^exile up to (one|two|three|four|five|\d+) target cards? from a single graveyard$/);
+  if (gxuM) {
+    const n = { one: 1, two: 2, three: 3, four: 4, five: 5 }[gxuM[1]] ?? parseInt(gxuM[1], 10);
+    if (n > 0) return { op: "exile-from-graveyard", targetType: "graveyardCard", anyGraveyard: true, cardFilter: "any", maxTargets: n, minTargets: 0, singleGraveyard: true };
   }
   // GY-EXILE-OPPONENT — "exile target card from an opponent's graveyard" (Disposal Mummy, Leonin of the Lost
   // Pride, Disruptor Wanderglyph). Opponent-scoped (opponentGraveyard → enumerate only opponents' graveyards),

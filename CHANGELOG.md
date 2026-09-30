@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Griffnaut Tracker, Arashin Sunshield, Qutrub Forayer, Digsite Conservator, Famished Ghoul, Shred Memory** — exile up
+  to two (or four) cards from a single graveyard; the enters triggers aim at an opponent's graveyard
 - **Empyrial Storm, Hatut Zeraze Strike Force** — copied once for each time you've cast your commander from the command
   zone this game
 - **Ivory Mask, True Believer** — you have shroud: no spell or ability can target you, yours included

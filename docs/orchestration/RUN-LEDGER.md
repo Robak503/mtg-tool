@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **407 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **408 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,29 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 50: "exile up to N target cards from a single graveyard" at any N — Griffnaut Tracker and five more · **+6** · corpus 14,977 (43.7%) / 34,245
+> Suite **1641 files / 16,956 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI GREEN on ③ · 48 (run 36727607746) and ③ · 49 (run 36729054390), each pushed after the previous run concluded. Flip-diff **+6, zero LOST, zero RETIERED** (tier snapshots at
+> 23942bb9 → the change: Arashin Sunshield, Shred Memory, Famished Ghoul, Qutrub Forayer, Griffnaut Tracker, Digsite
+> Conservator). **Mutants 4/4 killed on assertions** (restore byte-identical).
+> · **The row (census rank 72):** the zones arm read only "up to THREE target cards from a single graveyard" (Decompose,
+>   Rapid Decay, Scarab Feast) while the subset machinery never cared about N; and the ETB-trigger form had no provable side.
+>   Gravegouger (its leaves-return), Unlicensed Hearse and Soul-Shackled Zombie stay parked on their other lines.
+> · **Build:** the arm takes the printed count (one … five, or digits); `programQueries.atomTargetIntent` extends the "up to
+>   ONE target card from a graveyard" rationale to "up to N … from a SINGLE graveyard": optional hate, so the flush chooser
+>   aims it at an opponent and takes the empty pick when none has a card — never forced onto its own graveyard — and the
+>   single-graveyard subset constraint keeps every pick inside one graveyard (CR 601.2c).
+> · **Runtime:** `WITNESS singleGraveyardExile {"user":2,"ai":1}` — Griffnaut Tracker cast through the real offer: two of the
+>   opponent's three cards exiled, the caster's two untouched · only the caster's graveyard holds cards → the empty pick ·
+>   a four-seat table with a card in each of two opponents' graveyards → exactly one exiled (one graveyard per pick) ·
+>   Shred Memory's real offer: every pick from one graveyard, four at most · Famished Ghoul's real activation exiles two.
+> · **Mutants 4/4:** the arm reading only "three" · the ETB form not enemy-side · the printed count ignored · the
+>   single-graveyard constraint dropped. Witness `app/src/lib/learn/singleGraveyardExile.test.js` (7).
+> · **Graduated (the first gate run caught it, 1 red):** gyExile.test.js pinned "Exile up to two target cards from a single
+>   graveyard." LOW — "only the printed three-count is anchored", a scope marker like that file's graduated Scarab Feast
+>   line, not a hazard. It now pins a count the arm does NOT anchor ("up to X") as the near-miss that stays LOW.
+> · **Next:** census rank 73 — "Target player shuffles their graveyard into their library" (Clear the Mind, Reminisce,
+>   Learn from the Past).
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 49: "copy it for each time you've cast your commander from the command zone this game" — Empyrial Storm, Hatut Zeraze Strike Force · **+2** · corpus 14,971 (43.7%) / 34,245
 > Suite **1640 files / 16,949 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI: ③ · 47's run 36726167184 GREEN (anchors ③ · 45–47, whose own runs were cancelled); pushed after ③ · 48's run 36727607746 concluded. Flip-diff **+2, zero LOST, zero RETIERED** (tier snapshots at
