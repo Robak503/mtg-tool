@@ -549,6 +549,19 @@ function gateMet(state, perm, gate) {
     if ((perm.card?.keywords || []).some((k) => String(k).toLowerCase() === kw)) return true;
     return new RegExp("(^|\\n)" + kw.replace(/ /g, "\\s+") + "\\b", "i").test(String(perm.card?.oracle || ""));
   }
+  // HOST-HAS-SUBTYPE gate (the 09-06 plan's stage ③ · 9, 2026-09-30 — "As long as equipped creature is a Human, it gets an
+  // additional +1/+0"; Bladed Bracers' "a Human or an Angel"): open while the HOST (`perm`) is any of the named creature types.
+  // The same two reads matchesSelector's subtype filter makes — Changeling (CR 702.73a, every creature type) and
+  // effectiveTypeIdentity (printed subtypes plus fixed layer-4 changes: a Mistform activation that made it a Human, and the
+  // next one that made it something else) — so a tribal lord and this gate cannot disagree about what a creature is. That read is recursion-free (no derive), which is
+  // what lets permanentHasKeyword evaluate the keyword form outside the derive and the layer-7 applier evaluate the P/T form
+  // inside it. A type added by a SELF or dynamic layer-4 effect (Metallic Mimic's chosen type) is not in that read: a
+  // documented under-read, the safe direction — the host goes without the bonus.
+  if (gate.kind === "hostHasSubtype") {
+    if (hasKeyword(perm.card, "changeling")) return true;
+    const { subtypes } = effectiveTypeIdentity(perm, state);
+    return (gate.subtypes || []).some((s) => subtypes.includes(String(s).toLowerCase()));
+  }
   if (gate.kind === "auraEnteredThisTurn") {
     for (const pid of Object.keys(state?.players || {})) {
       const src = (state.players[pid]?.battlefield || []).find(p => p.id === gate.sourcePermanentId);
@@ -974,7 +987,7 @@ export function collectContinuousEffects(state) {
 // LAYER-AWARE types + subtypes for a candidate WITHOUT recursing into deriveCharacteristics: the printed
 // card types / subtypes UNIONED with those ADDED by FIXED-mode layer-4 type-changing effects that target this
 // permanent (an animate — Vihaan's Treasure → "Construct Assassin artifact CREATURE", a man-land becoming an
-// "Elemental"). Reading ONLY `mode:"fixed"` effects keeps this recursion-free (a fixed affect names
+// "Elemental"), less the creature types a Mistform-style "becomes the creature type of your choice" replaces. Reading ONLY `mode:"fixed"` effects keeps this recursion-free (a fixed affect names
 // permanentIds directly — no selector match needed), so an anthem's cardTypes:["Creature"] / subtypes gate
 // (matchesSelector) can honor an animated permanent's GRANTED Creature type + subtype (CR 613's
 // layer-4-before-layer-6 dependency) without the deriveCharacteristics→collect→matchesSelector cycle a full
@@ -1037,6 +1050,15 @@ function effectiveTypeIdentity(candidate, state) {
       continue;
     }
     if (e.affects?.mode !== "fixed" || !e.affects.permanentIds?.includes(candidate.id)) continue;
+    // SET-CREATURE-SUBTYPES (the Mistform cycle, 2026-09-30): the derive's replacement, mirrored — drop the creature types
+    // the effect replaces (CR 205.1a) before its choice is added below. This read only ever ADDED, so a tribal lord kept
+    // matching the type a creature had just stopped being (Lord of the Unreal kept pumping a Mistform Dreamer that had
+    // become a Human), and so did the host-subtype gate. The board lists these in the order they were created, so a later
+    // choice replaces an earlier one (CR 613.7).
+    if (e.op?.layerOp === "setCreatureSubtypes") {
+      const gone = new Set((e.op.replaces || []).map((st) => String(st).toLowerCase()));
+      for (let i = subtypes.length - 1; i >= 0; i--) if (gone.has(subtypes[i])) subtypes.splice(i, 1);
+    }
     for (const t of e.op?.types || []) if (!types.includes(t)) types.push(t);
     for (const st of e.op?.subtypes || []) subtypes.push(String(st).toLowerCase());
   }
@@ -1705,10 +1727,11 @@ function applyTypeColorLayers(perm, l4, l5, state) {
     // choice" REPLACES the permanent's creature types rather than adding to them, which is the whole
     // difference between Mistform Dreamer and Mistform Sliver's "in addition to its other types".
     //
-    // ⛔ ONLY THE CREATURE SUBTYPES ARE REPLACED. The op carries the printed creature subtypes it is
-    // superseding (`replaces`, snapshotted at resolution from the card's own type line) and deletes exactly
-    // those — never the whole `subtypes` set, which can also hold artifact/land/enchantment subtypes
-    // (Equipment, Vehicle, a Sliver's land half) that a creature-type change has no business touching.
+    // ⛔ ONLY THE CREATURE SUBTYPES ARE REPLACED. The op carries the creature subtypes it is superseding
+    // (`replaces`, snapshotted at resolution from the permanent's CURRENT creature types, so an earlier
+    // choice is superseded too) and deletes exactly those — never the whole `subtypes` set, which can also
+    // hold artifact/land/enchantment subtypes (Equipment, Vehicle, a Sliver's land half) that a creature-type
+    // change has no business touching.
     // Anything a LATER-timestamped layer-4 effect added is left alone, so this cannot silently undo a
     // subsequent change; the l4 list is already in application order.
     if (e.op?.layerOp === "setCreatureSubtypes") {

@@ -27,8 +27,10 @@
 > 1598 / 16,569; Delraich / Hand of Emrakul BANKED on the "sacrifice N creatures" design question) · ③ · 7 "sacrifice it unless you discard a
 > card at random" (+3 → corpus 14,820; suite 1599 / 16,580; two "Pay {0}" prompt labels fixed) · ③ · 8
 > "…dealt damage by this creature … would die, exile it instead", asked at the moment of death (+4 → corpus 14,824; suite
-> 1600 / 16,589). **Next:** census row ⑨, the Human-equipped bonus (True-Faith Censer, Silver-Inlaid Dagger) — the RUN-LEDGER's ③
-> entries carry the verdicts so far.
+> 1600 / 16,589) · ③ · 9 "as long as equipped creature is a Human, it gets an additional …" and its family — three
+> Equipment planned, five more unplanned and each run for real; a pre-existing Mistform type-read FP (an Illusion lord kept
+> pumping a Dreamer that had become another type) closed in the same slice, because the gate reads that type (+8 → corpus
+> 14,832; suite 1601 / 16,605). **Next:** census row ⑩ — the RUN-LEDGER's ③ entries carry the verdicts so far.
 > **State (measured 2026-09-29 at 5df810d2, Opus 5.5 seat):** suite **1585 files / 16,429 tests** green (1 skipped; 172 s;
 > `VITEST_TIMEOUT_MS=900000 npm test`) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30 decks, **88%** aggregate
 > (2,650 / 2,998), **13 at ≥90** (Mothman by rounding: 88/98 = 89.8%), Atraxa **74** the floor · nothing held:

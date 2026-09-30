@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **True-Faith Censer, Silver-Inlaid Dagger, Heavy Mattock, Sharpened Pitchfork, Butcher's Cleaver, Bladed Bracers, Hope
+  Against Hope, Equestrian Skill** — the extra bonus for a Human host (Bladed Bracers: a Human or an Angel) now applies, and only
+  while the creature it's attached to is that type. A Changeling counts as every creature type
 - **Incendiary Oracle, Kumano's Pupils, Frostwielder, Kumano, Master Yamabushi** — a creature one of them dealt damage to
   this turn is exiled instead of dying, as long as the card that dealt the damage is still on the battlefield
 - **Minotaur Explorer, Pillaging Horde, Balduvian Horde** — when one enters, discard a card at random or sacrifice it
@@ -314,6 +317,9 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **Mistform creatures lose the old creature type** — Lord of the Unreal (and any Illusion lord) kept pumping a Mistform
+  Dreamer after it became another type, and a second activation in one turn kept the first choice as well. A new choice
+  now replaces the creature's current creature types, and nothing else
 - **Payment prompts name the cost** — Apathy's "discard a card at random" and the energy costs read "Pay {0}"; they now
   say "Discard a card at random" and "Pay {E}"
 - **Jack-o'-Lantern's graveyard mana ability is no longer offered** — it charged {1} and exiled the card, and no mana

@@ -5,14 +5,58 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **365 commits**, corpus
-> 38.6% → **43.3% (14,824)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **366 commits**, corpus
+> 38.6% → **43.3% (14,832)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 9: "as long as equipped creature is a Human, it gets an additional +N/+N" — and its family · **+8** (5 unplanned, each run for real) · corpus 14,832 (43.3%) / 34,245 · + a Mistform type-read FP closed
+> Suite **1601 files / 16,605 tests** green (1 skipped); lint 0. Flip-diff **+8, zero LOST, zero retiered** (tier snapshots at dfa7336d → the
+> change; the Mistform fix alone is ±0). **Mutants 12/12 killed** (restore byte-identical).
+> · **Census row ⑨:** True-Faith Censer, Silver-Inlaid Dagger, Heavy Mattock (planned +3) + **the same condition on five more,
+>   unplanned: Sharpened Pitchfork ("… it gets +1/+1"), Butcher's Cleaver ("… it has lifelink"), Bladed Bracers ("… is a Human
+>   or an Angel, it has vigilance") and the Aura twins Hope Against Hope / Equestrian Skill ("As long as enchanted creature is a
+>   Human, it has first strike / trample")** — every one of the eight driven on a board in the witness.
+> · **Build — a fourth attached-bonus condition kind, `hostHasSubtype`.** The parser arm (parseAttachedBonus, both subjects) strips
+>   the condition, runs the rest through the existing attached-clause parser, and gates what comes back: P/T swaps to the gated
+>   twin `ptModifyGated` (a gate stamped on plain `ptModify` is ignored — the bonus would reach every host), a keyword takes the
+>   gate directly, anything else refuses the whole bonus. Every named word must be a CR creature type (the closed
+>   `CR_CREATURE_TYPES` vocabulary), so "is legendary", "is attacking" and the colour conditions stay residue. "An additional"
+>   is only the printed contrast with the unconditional line above it. The Aura residue check vouches the line the way it
+>   vouches the other gated shapes (a non-empty all-or-nothing bonus).
+> · **The read — one for both halves, and never the derive.** `layers.gateMet` reads the HOST through Changeling (CR 702.73a) +
+>   `effectiveTypeIdentity` — the recursion-free, layer-aware type read a tribal lord's subtype filter already makes. The P/T form
+>   is evaluated inside the derive (the layer-7 applier) and the keyword form outside it (`permanentHasKeyword`) and inside it
+>   (the keyword set); a derive-based read would re-enter from the first and fork from the second. `WITNESS mistformBecomesHuman
+>   3/2 → 4/2 (Human)`: a Mistform Dreamer wearing the Censer activates its own {1}, becomes a Human, and the bonus follows.
+>   Why the shared read can be trusted: every native type-REPLACING effect is a self-only Mistform/Proteus ability on a
+>   non-Human, and all twelve "loses all abilities and is a … creature" transformations (Frogify, Kenrith's Transformation, Oko
+>   …) are parked — so no modeled effect strips Human from a printed Human. One way remained to strip an ADDED Human, and it is
+>   the fix below. Documented under-read: a type added by a SELF or dynamic layer-4 effect (Metallic Mimic's chosen type) isn't
+>   in that read — the host goes without the bonus.
+> · **Runtime:** `WITNESS censerOnHuman 4/2 · onBear 3/3` (the vacuity control) · Dagger 5/1 vs 4/2 · Mattock 4/3 vs 3/3 ·
+>   Pitchfork 3/2 vs 2/2 (first strike either way) · a Changeling gets it · Cleaver lifelink on the Human only (both readers
+>   agree) · Bracers vigilance on a Human AND an Angel, not a Bear · the Auras' first strike / trample on a Human only.
+> · **FIXED IN THE SLICE — the Mistform type read (a pre-existing FP, and one this gate would have inherited).** Two halves:
+>   ① `effectiveTypeIdentity` only ever ADDED a Mistform choice and never removed the creature type it `replaces`, so an
+>   Illusion lord kept pumping a Dreamer that had become something else — `WITNESS lordStopsAtHuman 3/2 hexproof → 2/1 no
+>   hexproof` (Lord of the Unreal, native-static, live before this); it now mirrors the derive's replacement. ② The atom
+>   snapshotted `replaces` from the PRINTED line, so a second activation left the first choice standing in BOTH reads (CR 613.7:
+>   the later choice is applied after, and replaces the creature types — CR 205.1a); it now snapshots the derive's CURRENT
+>   creature types, filtered to CR creature types so an artifact/land subtype is never replaced (the old printed read would have
+>   replaced one). `WITNESS secondChoice Human 4/2 → Bear 3/2` — the Censer's Human bonus leaves when the Dreamer, with two Bears
+>   now on the board, becomes a Bear. **I first logged this as not reachable by the gate; it was, through exactly that second
+>   activation — which is why it was fixed here rather than queued.** ±0 tiers (flip-diff of the fix alone: 0 / 0 / 0).
+> · **Mutants 12/12:** the arm dead · the vocabulary check dropped (red on the synthetic "is a Food" guard) · the gate stamped on
+>   plain ptModify · the gate always open · Changeling ignored · printed-only read (red on the Mistform runs) · the Aura vouch
+>   removed · only the first named type (red on the Angel) · "an additional" not stripped · the shared read never removes what a
+>   choice replaces · a choice replaces only the printed types · the creature-type filter dropped (red on a synthetic "Artifact
+>   Creature — Food Illusion" losing Food). Witness `app/src/lib/learn/hostSubtypeAttachedBonus.test.js` (16).
+> · **Next:** census row ⑩.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 8: "if a creature dealt damage by this creature this turn would die, exile it instead" · **+4** (1 unplanned, run for real) · corpus 14,824 (43.3%) / 34,245
 > Suite **1600 files / 16,589 tests** green (1 skipped); lint 0. Flip-diff **+4, zero LOST, zero retiered** (tier snapshots at 91e5e3dd → the

@@ -6227,6 +6227,34 @@ export function parseAttachedBonus(card, subjectOverride) {
       saw = true;
       continue;
     }
+    // HOST-HAS-SUBTYPE (the 09-06 plan's stage ③ · 9, 2026-09-30) — "As long as equipped creature is a Human, it gets an
+    // additional +1/+0." (True-Faith Censer, Silver-Inlaid Dagger, Heavy Mattock), "… it gets +1/+1." (Sharpened Pitchfork),
+    // "… it has lifelink." (Butcher's Cleaver), "… is a Human or an Angel, it has vigilance." (Bladed Bracers) and the Aura
+    // twins "As long as enchanted creature is a Human, it has first strike / trample." (Hope Against Hope, Equestrian Skill).
+    // The fourth condition kind: layers.gateMet reads the HOST's creature types. Every named word must be a CR creature type
+    // (the closed vocabulary), so "is attacking", "is legendary" and the colour conditions never reach this arm and stay
+    // residue. "An additional" is only the printed contrast with the unconditional line above it: the gated bonus is the same
+    // +N/+M. As in the during-your-turn arm below, P/T swaps to the gated twin (a gate stamped on ptModify is ignored, so the
+    // bonus would reach every host) and a keyword takes the gate directly; any other inner shape refuses the whole bonus.
+    const typeM = noun === "creature"
+      ? c.match(new RegExp(`^as long as ${subject} creature is an? ([a-z]+)(?: or an? ([a-z]+))?, it ((?:gets|has) .+)$`))
+      : null;
+    if (typeM && CR_CREATURE_TYPES.has(typeM[1]) && (!typeM[2] || CR_CREATURE_TYPES.has(typeM[2]))) {
+      const inner = parseAttachedClause(`${subject} creature ${typeM[3].replace(/^gets an additional /, "gets ")}`, subject, noun);
+      const subtypes = typeM[2] ? [typeM[1], typeM[2]] : [typeM[1]];
+      const gateable = inner && inner.length && inner.every((d) =>
+        (d?.layer === 6 && d?.op?.layerOp === "addKeyword" && !d.op.gate)
+        || (d?.layer === 7 && d?.op?.layerOp === "ptModify"));
+      if (!gateable) { if (slot) slot[slotKey] = []; return []; }
+      for (const d of inner) {
+        const gate = { kind: "hostHasSubtype", subtypes: [...subtypes] };
+        out.push(d.op.layerOp === "ptModify"
+          ? { ...d, op: { layerOp: "ptModifyGated", power: d.op.power, toughness: d.op.toughness, gate } }
+          : { ...d, op: { ...d.op, gate } });
+      }
+      saw = true;
+      continue;
+    }
     const dtAttached = /^during your turn, /i.test(c) ? c.replace(/^during your turn,\s*/i, "") : null;
     if (dtAttached && dtAttached.startsWith(`${subject} ${noun}`)) {
       const inner = parseAttachedClause(dtAttached, subject, noun);
@@ -6846,7 +6874,9 @@ function auraTouchClausesAllModeled(card) {
     if (!touchesAttachedCreature(c, "enchanted", noun)) continue; // non-touch residue → auraResidueClauses catches it
     // CONDITIONAL ATTACHED BONUS (Face of Divinity / Shardmage's Rescue, 2026-09-05): the two gated shapes parseAttachedBonus
     // owns. The whole-card parse is all-or-nothing, so a non-empty bonus VOUCHES for this clause having parsed under its gate.
-    if ((/^as long as another aura is attached to enchanted creature, it has /.test(c) || /^as long as this aura entered this turn, enchanted creature has /.test(c) || /^as long as enchanted creature has (?:vigilance|flying|first strike|trample|lifelink|deathtouch|reach|menace|haste), it (?:has|assigns) /.test(c))
+    // The host-subtype shape (Hope Against Hope, Equestrian Skill — stage ③ · 9) is vouched the same way.
+    if ((/^as long as another aura is attached to enchanted creature, it has /.test(c) || /^as long as this aura entered this turn, enchanted creature has /.test(c) || /^as long as enchanted creature has (?:vigilance|flying|first strike|trample|lifelink|deathtouch|reach|menace|haste), it (?:has|assigns) /.test(c)
+      || /^as long as enchanted creature is an? [a-z]+(?: or an? [a-z]+)?, it (?:gets|has) /.test(c))
       && parseAttachedBonus(card, "enchanted").length) continue;
     if (!(c.startsWith(`enchanted ${noun}`) && parseAttachedClause(c, "enchanted", noun))) return false;
   }

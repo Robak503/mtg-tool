@@ -10,6 +10,7 @@ import { checkDiesTriggers, checkUntapTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
 import { autoPickCreatureType, autoPickProtectionColor } from "../../choicePolicy.js"; // BECOME-CREATURE-TYPE (CR 614.12) + PROTECTION-COLOR (vein #3, Mother/Giver) — the shared auto-choice policies; choicePolicy.js imports NOTHING, which is the only shape an atom can share with resolvers (resolvers -> runProgram -> effectAtoms -> here)
 import { NON_CHOSEN_TARGET_TYPES } from "../../targetTypes.js"; // MASS-TAP — targetTypes.js is a zero-import leaf (cycle-safe)
+import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // BECOME-CREATURE-TYPE's `replaces` filter — the closed creature-type vocabulary, a zero-import leaf (cycle-safe)
 import { SMALL_NUM, NUM_WORD, parseCountSource, parseGrantedKeywords, COUNT_SUBTYPE, TARGET_SUBTYPES } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../../keywords.js"; // GROUP-KEYWORD-GRANT vocab (keywords.js is a zero-import leaf — cycle-safe)
 import { evaluateInterveningIf } from "../../interveningIf.js"; // INSTEAD-AMOUNT (BLITZ INST-1) — the shared board-condition readers for a condition-gated ptUpgrade; interveningIf → gameState is a leaf edge (no cycle)
@@ -193,10 +194,10 @@ export function applyUntapLands(state, atom, ctx) {
  * reader that already asks the layer engine for a type line — tribal anthems, subtype-scoped pumps, the
  * chosen-type gates, changeling checks — sees the change without any of them knowing this atom exists.
  *
- * ⛔ REPLACES rather than ADDS. The op carries `replaces`: the source's PRINTED creature subtypes,
- * snapshotted here at resolution, which the layer pass deletes before adding the chosen one. Snapshotting
- * at resolution (not at derive time) is what keeps the effect a fixed, timestamped thing per CR 613.1d
- * instead of something that re-reads a type line the effect itself is changing.
+ * ⛔ REPLACES rather than ADDS. The op carries `replaces`: the source's creature subtypes AS THEY STAND at
+ * resolution, which the layer pass deletes before adding the chosen one. Snapshotting at resolution (not at
+ * derive time) is what keeps the effect a fixed, timestamped thing per CR 613.1d instead of something that
+ * re-reads a type line the effect itself is changing.
  *
  * The type is auto-picked by the SHARED policy (choicePolicy.autoPickCreatureType), the same function the
  * ETB choosers use — one policy, so the engine cannot pick two different types on one board. Note the ETB
@@ -211,11 +212,13 @@ export function applyBecomeCreatureType(state, atom, ctx) {
   // choose Illusion and replace Illusion with Illusion — a legal activation that does nothing).
   const chosen = autoPickCreatureType(state, lk.permanent.controller, { excludePermanentId: lk.permanent.id });
   if (!chosen) return state;
-  const printed = String(lk.permanent.card?.type || lk.permanent.card?.type_line || "");
-  const dash = printed.indexOf("—");
-  const replaces = /Creature/.test(printed) && dash !== -1
-    ? printed.slice(dash + 1).trim().split(/\s+/).filter(Boolean)
-    : [];
+  // THE CREATURE TYPES IT HAS NOW, not the printed line (2026-09-30). A second activation this turn is applied after the
+  // first (CR 613.7) and replaces the existing creature types (CR 205.1a) — the first CHOICE included. Snapshotting only
+  // the printed line left the earlier choice standing: a Dreamer made a Human and then a Bear stayed a Human too. The
+  // derive's subtypes are filtered to CR creature types, so an artifact or land subtype (the same CR 205.1a set rule) is
+  // never replaced.
+  const replaces = (permanentTypes(state, lk.permanent.id).subtypes || [])
+    .filter((st) => CR_CREATURE_TYPES.has(String(st).toLowerCase()));
   const next = addContinuousEffect(state, {
     layer: 4,
     op: { layerOp: "setCreatureSubtypes", subtypes: [chosen], replaces },
