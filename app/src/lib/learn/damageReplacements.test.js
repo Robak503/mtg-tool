@@ -521,8 +521,15 @@ describe("classifyDamageReplacementBody — Twinflame Tyrant (the general double
   });
 
   it("CREED: a doubler-body with an EXTRA unmodeled trigger stays body-only (residue guard)", () => {
-    const card = { ...twinflame("user").card, oracle: TWINFLAME_ORACLE + "\nWhenever this creature dies, each opponent loses 3 life." };
+    // RE-POINTED (shelf D11): this pin's trigger was "Whenever this creature dies, each opponent loses 3 life." — a MODELED
+    // trigger (native-trigger on its own). It parked only because this seam refused ANY trigger. With composition, a
+    // modeled remainder composes (next test); the guard's real subject — an UNMODELED extra trigger — keeps the card parked.
+    const card = { ...twinflame("user").card, oracle: TWINFLAME_ORACLE + "\nWhenever this creature dies, each player shuffles their hand into their library." };
     expect(classifyCard(card)).toBe("body-only");
+  });
+  it("⭐ GRADUATED (shelf D11): a doubler-body beside a MODELED trigger composes — native-mixed", () => {
+    const card = { ...twinflame("user").card, oracle: TWINFLAME_ORACLE + "\nWhenever this creature dies, each opponent loses 3 life." };
+    expect(classifyCard(card)).toBe("native-mixed");
   });
 
   it("CREED: a doubler-body with an EXTRA unmodeled activated ability stays body-only (residue guard)", () => {

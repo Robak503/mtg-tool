@@ -2243,7 +2243,9 @@ export function permanentEquipmentCovered(card) {
   // (CR 702.6c) — the two modeled qualities are "commander" (equipQuality:"commander", legalChoices restricts
   // to a commander you control) and "legendary creature" (equipQuality:"legendary", restricted to a Legendary
   // target — Excalibur, Sword of Eden). Any OTHER "Equip <quality> …" stays residue → body-only (never over-claimed).
-  const modeledEquipLine = /^equip(?:\s+commander|\s+legendary\s+creature)?\s*(?:[—–-])?\s*(?:\{[^}]+\})+$/i;
+  // (+ "worthy", shelf D11 — Mjölnir: parseActivatedAbilities admits it only beside its printed definition, and the
+  // all-abilities gate above already required that parse to be modeled.)
+  const modeledEquipLine = /^equip(?:\s+commander|\s+legendary\s+creature|\s+worthy)?\s*(?:[—–-])?\s*(?:\{[^}]+\})+$/i;
   // ATTACH-AS-A-PLAIN-ACTIVATED-ABILITY (CR 701.3 — the Cranial Plating / Horned Helm cycle): the same attach
   // effect as Equip, printed as "{cost}: Attach this Equipment to target creature you control." parseActivated-
   // Abilities returns it as isEquipAbility, so the all-abilities gate above ALREADY required it to be modeled;
@@ -4707,13 +4709,21 @@ function classifyDamageReplacementBody(card) {
   // Strip the modeled replacement sentence(s); nothing trigger/activated-shaped may remain (would be dropped — FP).
   const stripped = stripDamageReplacementClauses(oracle, card);
   const strippedCard = { ...card, oracle: stripped };
-  if (detectTriggers(strippedCard).length > 0) return null;          // a trigger remains → Arbiter (CREED)
-  if (parseActivatedAbilities(strippedCard).length > 0) return null; // an activated ability remains → Arbiter
-  // Residue must be keywords only — OR statics the static-cover checker models in full (SHELF-85 H11, Uncivil Unrest:
-  // the counter-gated doubler beside "Nontoken creatures you control have riot", a credited riot grant). Any other
-  // static/text residue → Arbiter.
-  if (!isKeywordOnly(stripped, card?.name) && !staticAbilitiesCoverCard(strippedCard, (c) => isKeywordOnly(c, card?.name))) return null;
-  return "native-static";                                            // damage-replacement static + keyword/modeled-static body
+  // Residue keywords only — OR statics the static-cover checker models in full (SHELF-85 H11, Uncivil Unrest: the
+  // counter-gated doubler beside "Nontoken creatures you control have riot", a credited riot grant) — and no trigger or
+  // activated ability left over: the plain doubler body.
+  const keywordBody = detectTriggers(strippedCard).length === 0 && parseActivatedAbilities(strippedCard).length === 0
+    && (isKeywordOnly(stripped, card?.name) || staticAbilitiesCoverCard(strippedCard, (c) => isKeywordOnly(c, card?.name)));
+  if (keywordBody) return "native-static";                           // damage-replacement static + keyword/modeled-static body
+  // ⭐ COMPOSE (shelf D11 — Raphael's enters trigger, Mjölnir's enters trigger / equip / discard ability): the doubler
+  // beside other text that is ITSELF fully modeled. The doubler is read off the battlefield at every damage finalization
+  // whatever the card's tier, so it asks nothing of the rest of the card; the remainder is judged on its own, exactly as
+  // the tap-mana augment composes (Regal Behemoth). Bounded: the stripped card carries no doubler, so this classifier
+  // returns null for it. An unmodeled remainder classifies non-native and the card stays parked.
+  // ⛔ If a parse anchor ever outgrows its strip anchor, the stripped card would still carry the doubler and this would
+  // recurse without end — so a strip that didn't clear it refuses instead (the card parks; a safe miss).
+  if (parseDamageReplacements(strippedCard).length) return null;
+  return isNativeTier(classifyCard(strippedCard)) ? "native-mixed" : null;
 }
 registerCoverageClassifier((card) => classifyDamageReplacementBody(card));
 

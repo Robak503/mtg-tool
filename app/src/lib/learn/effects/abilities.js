@@ -1241,6 +1241,20 @@ export function parseActivatedAbilities(card) {
       });
       continue;
     }
+    // "Equip worthy {cost}" (Mjölnir, Hammer of Thor — shelf D11). The quality is defined by the card's own reminder,
+    // so the line matches only when the printed definition is exactly the one legalChoices enforces: "A creature is
+    // worthy if it's a legendary non-Villain that's red and/or white." Any other "worthy" stays unmodeled.
+    const ewm = !line.includes(":") && line.match(/^equip\s+worthy\s*(?:[—–-])?\s*((?:\{[^}]+\})+)$/i);
+    if (ewm && /\(A creature is worthy if it's a legendary non-Villain that's red and\/or white\.\)/.test(rawOracle)) {
+      const cost = parseAbilityCost(ewm[1]);
+      out.push({
+        index: index++, raw: line, costStr: line, effectClause: "",
+        manaPips: cost?.manaPips ?? null, tapSelf: false, costModeled: !!cost,
+        isManaEffect: false, program: null, modeled: !!cost, needsTarget: true, isEquipAbility: true,
+        equipQuality: "worthy",
+      });
+      continue;
+    }
     // ATTACH-AS-A-PLAIN-ACTIVATED-ABILITY (CR 701.3 — Cranial Plating / Horned Helm / Sparring Collar /
     // Healer's Headdress / Neurok Stealthsuit, one Mirrodin cycle). Mechanically identical to Equip, but
     // printed as an ordinary "{cost}: <effect>" line instead of the keyword, so the three colon-less Equip

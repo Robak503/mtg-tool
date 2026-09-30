@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **423 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **424 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,32 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D11: five more damage-doubler scopes (CR 614) — **Captain America 88 → 89 · Halfshell 84 → 85** · **+5** · corpus 15,065 (44.0%) / 34,245
+> Suite **1655 files / 17,111 tests** green (1 skipped); lint 0; decks 2,670 → **2,673** / 2,998. CI GREEN on D10 (run 36765780624). Flip-diff **+5,
+> zero LOST, zero RETIERED** (tier snapshots at ae5c227f → the change). **Mutants 19/19 killed on assertions** (restore byte-identical).
+> · **Why:** the residue map's rows for Halfshell (Raphael, k=1) and Captain America (Mjölnir, k=2) were doublers; a census found
+>   40 non-native doubler cards, the doubling line the SOLE blocker on 16.
+> · **Build:** damageReplacements.js — any-counter creatures you control (Raphael), creature sources you control (Absorbing Man
+>   and Titania), a <Subtype> source you control (Calamity Bearer), damage to an opponent (Fiendish Duo), the equipped creature
+>   (Mjölnir, read live off the Equipment). coverage: COMPOSE — a doubler beside fully-modeled text reads native-mixed (the Regal
+>   Behemoth pattern); a strip that fails to clear the doubler refuses rather than recurse. Mjölnir's "Equip worthy" = its
+>   reminder's definition (legendary non-Villain, red and/or white), parsed only beside that exact definition.
+> · ⚠️ **SHIPPED FP CLOSED — Goblin Goliath:** its ACTIVATED "{3}{R}, {T}: If a source you control would deal damage to an
+>   opponent this turn, it deals double…" was read as a STATIC (the parser scanned the whole oracle) — every source its
+>   controller controls dealt double from the moment it entered, activated or not. Found because composition credited the card
+>   native on the first flip-diff. Doublers now parse from static lines only; Goliath is the only corpus card the filter changes.
+> · **Pin re-pointed:** damageReplacements.test.js's residue guard held a MODELED dies trigger (parked only by the blanket
+>   no-trigger refusal) — now a genuinely unmodeled trigger; the old one is the composition graduation.
+> · **Left out on purpose:** The Sound of Drums (the enchanted-creature form) — an Aura's tier gates its own cast lane
+>   (grantAuraCastHostType), so crediting it through the generic compose would read native and never be castable.
+> · **Runtime:** `WITNESS raphael {"oilCounter":4,"plusCounter":6,"noCounter":2}` · Absorbing Man doubles creature combat, not an
+>   artifact's ability · Calamity Bearer: Giant 6, Bear 2 · Fiendish Duo: opponent 4, you 3, a creature 1 · Mjölnir: equipped 4
+>   + other 2, unattached 2 · Equip worthy offered to the red and white legends only (not a green legend, a red Villain, a red
+>   non-legend) · `WITNESS goliath {"parsed":[],"loss":2}` · synthetic pins: a trigger-effect doubler, a foreign "worthy".
+>   Witness `app/src/lib/learn/damageDoublerScopes.test.js` (10).
+> · **Next:** Captain America (Uthros = station — parked: the land tier already credits its 12+ mana line with no counters, so
+>   station needs the N+ gates enforced first) · Wolverine 88 · Kinnan 87.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D10: change a spell's target to this creature (CR 115.7a) — **Captain America 87 → 88 · Kinnan 86 → 87 · Believe it! 85 → 86** · **+1 card, 4 slots** (also Test Rashmi, above the bar) · corpus 15,060 (44.0%) / 34,245
 > Suite **1654 files / 17,100 tests** green (1 skipped); lint 0; decks 2,666 → **2,670** / 2,998. CI GREEN on D9 (run 36763785097). Flip-diff **+1,

@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **More damage doublers** — Raphael, the Muscle, Mjölnir, Hammer of Thor (with its Equip worthy), Absorbing Man and Titania, Fiendish Duo and Calamity Bearer
 - **Hydroelectric Specimen** — flash it in and pull an instant or sorcery's single target onto it
 - **Crime** — targeting an opponent, anything they control, or a card in their graveyard is a crime; Patrolling Peacemaker, Raven of Fell Omens, Marauding Sphinx, Magda, Blood Hustler, Slickshot Vault-Buster, Omenport Vigilante and six more now play
 - **Kicked spells that change their target** — Galadriel's Dismissal (a creature, or every creature a player controls when kicked), Bloodchief's Thirst, Tear Asunder, Highly Illogical, Divine Resilience and Probe; plus Field Research, Wild Onslaught and Bold Defense
@@ -396,6 +397,7 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **Goblin Goliath** no longer doubles your damage just by being on the battlefield — only its activated ability does that
 - **Burst Lightning and other "deals more instead" kicker spells** — a cast no longer targets a second thing it doesn't affect (which could sacrifice a Phantasmal creature or make the AI hit its own creature)
 - **Teferi's Protection** — an equipped creature now comes back still equipped, and an opponent's Aura on your creature phases out with it instead of being destroyed
 - **Seven-Tail Mentor, Grafted Growth, Light the Way, Perilous Snare** — their +1/+1 counter on a creature or Vehicle now actually lands

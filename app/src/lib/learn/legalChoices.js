@@ -2539,6 +2539,13 @@ function actionsActivateAbility(state, playerId) {
           // (a plain "Equip {5}" on the same card still enumerates it).
           if (ab.equipQuality === "commander" && !t.card?.isCommander) continue;
           if (ab.equipQuality === "legendary" && !/\blegendary\b/i.test(t.card?.type || "")) continue;
+          // "worthy" (Mjölnir, shelf D11 — its reminder): "a legendary non-Villain that's red and/or white", read off the
+          // target's current characteristics (layer-aware types and colors).
+          if (ab.equipQuality === "worthy") {
+            const { types = [], subtypes = [] } = permanentTypes(state, t.id) || {};
+            const colors = permanentColors(state, t.id) || [];
+            if (!types.includes("Legendary") || subtypes.includes("Villain") || !(colors.includes("R") || colors.includes("W"))) continue;
+          }
           // KW-UNTARGET: Equip is a TARGETED ability (CR 702.6e), so it obeys targetability — a Shroud
           // creature (CR 702.18a) can't be targeted even by its controller. Route through the shared
           // guard (hexproof never blocks here, since Equip only targets your OWN creatures — CR 702.11b).

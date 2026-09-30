@@ -60,7 +60,16 @@
  *   - "If a source would deal damage to you/it…"    → target-side (affected player)
  */
 export function parseDamageReplacements(card) {
-  const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
+  // ⚠️ STATIC LINES ONLY (shelf D11, 2026-09-30). A replacement sentence is a static ability of the permanent only on its
+  // own line. As the EFFECT of an activated ability ("{3}{R}, {T}: If a source you control would deal damage to an
+  // opponent this turn, it deals double that damage to that player instead." — Goblin Goliath) or of a trigger, it is a
+  // one-shot that applies when it resolves, for its stated duration — never merely because the permanent is on the
+  // battlefield. This scan used to read the whole oracle, so Goliath doubled every source its controller controls from
+  // the moment it entered, activated or not (measured: the only card in the corpus the line filter changes). Reminder
+  // text is ignored for the colon check — a keyword's reminder may hold one.
+  const oracle = String(card?.oracle ?? card?.oracle_text ?? "").split("\n")
+    .filter((ln) => !/:\s/.test(ln.replace(/\([^)]*\)/g, "")) && !/^\s*(?:when|whenever|at)\b/i.test(ln))
+    .join("\n");
   if (!oracle) return [];
   const name = String(card?.name ?? "");
   const shortName = name.split(",")[0].trim(); // "Wolverine, Best There Is" → "Wolverine"
@@ -148,6 +157,39 @@ export function parseDamageReplacements(card) {
   if (/if this creature would deal combat damage to a player,? it deals double that damage/i.test(oracle)) {
     out.push({ op: { op: "multiply", factor: 2 }, scope: { side: "source", self: true, combatOnly: true, targetPlayerOnly: true } });
   }
+  // ===== SHELF D11 (2026-09-30) — five more printed scopes on the same consult =====
+  // ANY-COUNTER creatures you control (Raphael, the Muscle): "Double all damage that creatures you control with counters
+  // on them would deal." Any kind of counter, read live off the source at damage time (a creature that loses its last
+  // counter deals single damage).
+  if (/double all damage that creatures you control with counters on them would deal/i.test(oracle)) {
+    out.push({ op: { op: "multiply", factor: 2 }, scope: { side: "source", controller: "you", sourceIsCreature: true, sourceHasCounter: "any" } });
+  }
+  // CREATURE SOURCES you control (Absorbing Man and Titania): "Double all damage that creature sources you control would
+  // deal." — the Gratuitous Violence scope in "double all damage" words.
+  if (/double all damage that creature sources you control would deal/i.test(oracle)) {
+    out.push({ op: { op: "multiply", factor: 2 }, scope: { side: "source", controller: "you", sourceIsCreature: true } });
+  }
+  // SUBTYPE SOURCES you control (Calamity Bearer): "If a Giant source you control would deal damage to a permanent or
+  // player, it deals double that damage to that permanent or player instead." The capitalised noun is the subtype, read
+  // off the live source permanent — a subtyped SPELL (a Kindred instant) is not on the battlefield and is not doubled
+  // (a safe miss).
+  const subtypeSource = oracle.match(/[Ii]f an? ([A-Z][a-z]+) source you control would deal damage to a permanent or player, it deals double that damage to that permanent or player instead/);
+  if (subtypeSource) {
+    out.push({ op: { op: "multiply", factor: 2 }, scope: { side: "source", controller: "you", sourceSubtype: subtypeSource[1].toLowerCase() } });
+  }
+  // TO AN OPPONENT (Fiendish Duo): "If a source would deal damage to an opponent, it deals double that damage to that
+  // player instead." Target-side, players only: the affected player is not the replacement's controller.
+  if (/if a source would deal damage to an opponent, it deals double that damage to that player instead/i.test(oracle)) {
+    out.push({ op: { op: "multiply", factor: 2 }, scope: { side: "target", affectedOpponent: true } });
+  }
+  // THE HOST (Mjölnir, Hammer of Thor: "Double all damage equipped creature would deal."): the source must be the
+  // permanent this Equipment is attached to — read live, so it follows a re-equip and stops the moment it's unattached.
+  // (The Sound of Drums' enchanted-creature form is not credited here: an Aura's tier gates its own cast lane —
+  // coverage.grantAuraCastHostType — so it needs the Aura block's own composition, a separate slice.)
+  if (/double all damage equipped creature would deal/i.test(oracle)) {
+    out.push({ op: { op: "multiply", factor: 2 }, scope: { side: "source", hostOfSelf: true } });
+  }
+
   // TEMPLE ALTISAUR (2026-08-14) — the SUBTYPE-SCOPED PARTIAL prevention: "If a source would deal
   // damage to another <Subtype> you control, prevent all but N of that damage." Target-side with a
   // live subtype filter + the CR 109.5 "another" self-exclusion; the op is the module's
@@ -210,6 +252,12 @@ export function stripDamageReplacementClauses(oracle, card) {
   t = t.replace(/if a source would deal damage to another [A-Z][a-z]+ you control, prevent all but (?:\d+|one) of that damage\.?/i, " ");
   // CM-1 SELF combat-to-player double (Charging Tuskodon), whole sentence.
   t = t.replace(/if this creature would deal combat damage to a player[^.]*\.?/i, " ");
+  // SHELF D11 — the five new scopes, whole sentences (mirroring their parse anchors exactly).
+  t = t.replace(/double all damage that creatures you control with counters on them would deal\.?/i, " ");
+  t = t.replace(/double all damage that creature sources you control would deal\.?/i, " ");
+  t = t.replace(/[Ii]f an? [A-Z][a-z]+ source you control would deal damage to a permanent or player, it deals double that damage to that permanent or player instead\.?/, " ");
+  t = t.replace(/if a source would deal damage to an opponent, it deals double that damage to that player instead\.?/i, " ");
+  t = t.replace(/double all damage equipped creature would deal\.?/i, " ");
   return t;
 }
 
@@ -306,11 +354,28 @@ export function buildSourceFilter(entry, _state) {
         return false;
       };
     }
+    // TO AN OPPONENT (Fiendish Duo, shelf D11): a player other than the replacement's controller is being dealt to.
+    // Players only — "to an opponent" names no permanent.
+    if (scope.affectedOpponent) {
+      return (event) => event?.targetKind === "player" && event.targetId != null && event.targetId !== entry.permanentController;
+    }
     // Affected-player scoped: the replacement's controller is the player being dealt to.
     return (event) => event?.targetKind === "player"
       && event?.targetId === entry.permanentController;
   }
   // Source-side (default).
+  // THE HOST (shelf D11 — Mjölnir's "equipped creature"): the source must be the permanent this Equipment is attached to,
+  // read live off the Equipment (a pure battlefield scan, like the branches below).
+  if (scope.hostOfSelf) {
+    return (event) => {
+      if (event?.sourceId == null) return false;
+      for (const pid of Object.keys(_state?.players || {})) {
+        const self = (_state.players[pid].battlefield || []).find((p) => p.id === entry.permanentId);
+        if (self) return self.attachedTo != null && self.attachedTo === event.sourceId;
+      }
+      return false;
+    };
+  }
   if (scope.self) {
     // This-permanent-only (Wolverine / Charging Tuskodon): the damage source must BE this permanent. CM-1 adds
     // two OPTIONAL gates — combatOnly (event.isCombat) and targetPlayerOnly (targetKind==="player") — so a self
@@ -359,8 +424,24 @@ export function buildSourceFilter(entry, _state) {
         if (!src) return false;
         const type = String(src.card?.type_line ?? src.card?.type ?? "").toLowerCase();
         if (!/\bcreature\b/.test(type)) return false;
-        if (scope.sourceHasCounter && !((src.counters?.[scope.sourceHasCounter] || 0) > 0)) return false; // Uncivil Unrest's gate
+        // Uncivil Unrest's +1/+1 gate; "any" (Raphael, shelf D11) = at least one counter of any kind.
+        if (scope.sourceHasCounter === "any" && !Object.values(src.counters || {}).some((n) => Number(n) > 0)) return false;
+        if (scope.sourceHasCounter && scope.sourceHasCounter !== "any" && !((src.counters?.[scope.sourceHasCounter] || 0) > 0)) return false;
         return true;
+      };
+    }
+    if (scope.sourceSubtype) {
+      // SUBTYPE SOURCES you control (Calamity Bearer, shelf D11): the live source permanent carries the subtype
+      // (word-bounded type-line read, like Temple Altisaur's target-side check). A source off the battlefield — a spell —
+      // can't be read, so it isn't doubled.
+      return (event) => {
+        if (event?.sourceController == null || event.sourceController !== entry.permanentController) return false;
+        if (event.sourceId == null) return false;
+        for (const pid of Object.keys(_state?.players || {})) {
+          const src = (_state.players[pid].battlefield || []).find((p) => p.id === event.sourceId);
+          if (src) return new RegExp(`\\b${scope.sourceSubtype}\\b`).test(String(src.card?.type_line ?? src.card?.type ?? "").toLowerCase());
+        }
+        return false;
       };
     }
     return (event) => event?.sourceController != null
