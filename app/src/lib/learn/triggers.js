@@ -762,6 +762,17 @@ function splitTriggerSentence(inner) {
   if (/\bcasts?\b/i.test(condition) && /\bcounter that spell\b/i.test(rest)) {
     rest = rest.replace(/\bcounter that spell\b/gi, "counter the cast spell");
   }
+  // COUNTER-THE-TARGETING-OBJECT (the 09-06 plan's stage ③, 2026-09-30 — Shimmering Glasskite, Jetting Glasskite, Glyph
+  // Keeper): on the SELF becomes-target trigger, "counter that spell or ability" is the stack object whose target choice
+  // fired it (CR 603.2; the trigger resolves above it, CR 603.3b). Rewritten HERE, like the cast referent above, to a
+  // phrase no card prints ("counter the targeting spell or ability") — the only form the stack parser's targeting-
+  // referent counter accepts. EXACT on both halves: the bare self condition (with or without the once-per-turn window
+  // the dispatch strips next), and the WHOLE effect sentence — a pay rider ("… unless its controller pays {2}",
+  // Diffusion Sliver's lane) or an opponent-only condition never rewrites, so neither can be read as this hard counter.
+  if (/^this creature becomes the target of a spell or ability(?: for the first time each turn)?$/i.test(condition)
+      && /^counter that spell or ability\.?$/i.test(rest)) {
+    rest = "counter the targeting spell or ability";
+  }
   return { condition, effectClause: rest, interveningIf };
 }
 
@@ -7757,7 +7768,9 @@ export function checkBecomesTargetTriggers(state, stackObj) {
       event: "becomesTarget",
       sourcePermanent: lk.permanent,
       triggeringPermanent: lk.permanent,
-      triggeringContext: {},
+      // The TARGETING object's stack id — the referent of the payoff "counter that spell or ability" (the Glasskites,
+      // 2026-09-30; atoms/stack.js applyCounterTargetingObject). Plain data; every other payoff ignores it.
+      triggeringContext: { targetingStackObjectId: stackObj?.id ?? null },
     }).filter((tr) => !tr?.descriptor?.targeterIsController
       || (!!targeter && targeter === lk.permanent.controller)));
     // K9 (Fblthp "becomes the target of a SPELL"): the spell-only sibling of becomesTarget — fired here, at the one

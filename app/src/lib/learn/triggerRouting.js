@@ -110,6 +110,11 @@ export function combatDamageReferentSatisfied(program, event) {
     if ((a?.who === "discardingPlayer" || a?.targetType === "discardingPlayer") && event !== "discarded") return false;
     // DEALER-BRANCH (Marcus, SHELF S7): the branch reads the combat-damage DEALER — cdmg events only.
     if (a?.op === "draw-or-counter-triggering" && !DAMAGED_PLAYER_EVENTS.has(event)) return false;
+    // TARGETING-OBJECT (the Glasskites, 2026-09-30): "counter that spell or ability" reads the stack object whose target
+    // choice fired the trigger — ctx.targetingStackObjectId, set ONLY by checkBecomesTargetTriggers' self becomesTarget
+    // event. Anywhere else the referent is unset and the counter would silently do nothing (a dropped payoff credited
+    // native — a forbidden FP). The splitter only writes the phrase for that event; this is the belt on top of it.
+    if (a?.op === "counter-targeting-object" && event !== "becomesTarget") return false;
     // UNTAPPED-CONTROLLER (Mesmeric Orb, SHELF S6): the mill's referent is the just-untapped permanent's
     // controller — set ONLY by checkUntapTriggers' untapped event.
     if (a?.who === "untappedController" && event !== "untapped") return false;
@@ -209,5 +214,15 @@ export function triggerRoutesNatively(d) {
  */
 export function isModeledGroupTriggeredBody(quoted) {
   const dets = detectTriggers({ name: "GroupGranted", type: "Creature", oracle: String(quoted || "") });
+  // ⛔ KIRA OWNS THE GRANTED "counter that spell or ability" (2026-09-30). Since the Glasskites' printed trigger routes
+  // natively, Kira, Great Glass-Spinner's quoted body does too — and emitting it as a group grant would DOUBLE-model
+  // Kira: kiraTargetCounter.js already counters at the four target-choice chokepoints, so every targeting would also
+  // stack a second, fizzling trigger (an extra priority round in every such game). Kira's module is also the more
+  // faithful of the two for a GRANT: its per-creature flag records every targeting, so a creature targeted before the
+  // grant arrived is not "fresh" later that turn, while the generic once-per-turn latch only starts counting once the
+  // granted trigger exists. So a quoted body that resolves to that counter is declined here — exactly the state before
+  // the Glasskite slice, for every quoted grant of it (a narrower "Sliver creatures you control have …" stays the safe FN
+  // it was). The PRINTED Glasskites never pass through this gate.
+  if (dets.some((d) => /^counter the targeting spell or ability\.?$/i.test(String(d.effectClause || "").trim()))) return false;
   return dets.length > 0 && dets.every(triggerRoutesNatively);
 }

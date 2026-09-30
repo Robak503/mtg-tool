@@ -15,7 +15,7 @@ import { snapshotCopiedCard } from "../../cloneCopy.js"; // COPY-A-CREATURE-SPEL
 import { checkCopyTriggers } from "../../triggers.js"; // MAGECRAFT COPY HALF (BLITZ MC-1, CR 707.10): fire "cast or copy" watchers at the copy-creation site. Cycle-safe — triggers.js's import closure (targeting→spellEffects→triggers, layers, keywords, saga, triggerScheduler) never reaches atoms/stack.js, so this edge adds no cycle; checkCopyTriggers is called only at runtime.
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // MANA DRAIN: schedule the delayed {C} payout on the CR 603.7 queue (leaf module — imports only gameState, cycle-free)
 import { applyZoneMove } from "./zones.js"; // VENSER: the permanent half of the spell-or-permanent bounce. Layering {tokens,library,zones} <- removal <- stack sanctions this edge (zones' closure never reaches stack)
-import { auraEnchantHostSpec } from "../../staticAbilityParser.js"; // ATTACH-ON-ENTER AURAS (Shielded by Faith): the Aura's own Enchant line, honoured at the move (counters.js / zones.js already import this module — cycle-safe)
+import { auraEnchantHostSpec, stackSpellIsUncounterable } from "../../staticAbilityParser.js"; // ATTACH-ON-ENTER AURAS (Shielded by Faith): the Aura's own Enchant line, honoured at the move (counters.js / zones.js already import this module — cycle-safe); + the shared CR 701.6a predicate for the untargeted counter (the Glasskites)
 import { creatureSatisfiesRestrictions } from "../../creatureRestrictions.js"; // the shared restriction satisfier (leaf), for the Enchant line's "you control"
 import { evaluateInterveningIf } from "../../interveningIf.js"; // FEROCIOUS HARD-COUNTER (Stubborn Denial): the resolution-time condition read. interveningIf imports only gameState — leaf edge, cycle-free.
 
@@ -584,6 +584,11 @@ export function counterClauseParser(clause) {
   // produced only for a cast-event condition; a spell's own "counter that spell (instead)" never reaches it
   // (Stubborn Denial's ferocious rider keeps its whole-sentence parse — pinned by that card's test).
   if (t === "counter the cast spell") return { op: "counter-cast-spell", targetType: null };
+  // COUNTER-THE-TARGETING-OBJECT (stage ③, 2026-09-30 — the Glasskites' "…becomes the target of a spell or ability for
+  // the first time each turn, counter that spell or ability."): the referent is the stack object whose target choice
+  // fired the SELF becomes-target trigger (ctx.targetingStackObjectId), never a chosen target. The phrase is the trigger
+  // SPLITTER's rewrite ("counter the targeting spell or ability" — printed on no card), made only for that exact sentence.
+  if (t === "counter the targeting spell or ability") return { op: "counter-targeting-object", targetType: null };
   // STIFLE-CLASS (CR 701.6a) — countering an ABILITY on the stack, not a spell (Stifle, Trickbind, Bind,
   // Sublime Epiphany #1709). A separate op because the counter applier is spell-shaped throughout: it looks
   // up `o.kind === "spell"`, re-checks a spellFilter against a CARD, and routes the countered object to a
@@ -1917,6 +1922,27 @@ function applyCounterCastSpell(state, atom, ctx) {
 }
 
 /**
+ * COUNTER-THE-TARGETING-OBJECT (stage ③, 2026-09-30 — Shimmering Glasskite, Jetting Glasskite, Glyph Keeper: "Whenever
+ * this creature becomes the target of a spell or ability for the first time each turn, counter that spell or ability."):
+ * counter the spell OR ability whose target choice fired this trigger — ctx.targetingStackObjectId, threaded by
+ * checkBecomesTargetTriggers at all four target-choice sites. The trigger was flushed above that object, so it resolves
+ * first (CR 603.3b). An object already off the stack (resolved, or countered by something else — a Kira beside the
+ * Glasskite counters synchronously) is a logged no-op (CR 608.2b), never a guess at another object. A SPELL that can't
+ * be countered stays on the stack (CR 701.6a) — the same exclusions the counter-target enumeration applies, read through
+ * the one shared predicate. An ability is never uncounterable here (no corpus ability says so), and counterSpellById
+ * removes it with no zone change (CR 701.6a).
+ */
+function applyCounterTargetingObject(state, atom, ctx) {
+  const objId = ctx?.targetingStackObjectId ?? null;
+  const obj = objId ? (state.stack || []).find((o) => o.id === objId) : null;
+  if (!obj) return logEvent(state, { kind: "spell-effect", effect: "counter-fizzle", targetId: objId, controller: ctx?.controller });
+  if (obj.kind === "spell" && stackSpellIsUncounterable(state, obj)) {
+    return logEvent(state, { kind: "spell-effect", effect: "counter-uncounterable", targetId: objId, cardName: obj.source?.name || null, controller: ctx?.controller });
+  }
+  return counterSpellById(state, objId, { via: ctx?.cardName || null });
+}
+
+/**
  * COPY-ACTIVATED-ABILITY (CAP-BRACERS, 2026-09-03 — CR 707.10): copy the activated ability whose activation fired this
  * trigger. The referent is the trigger context's activatedStackObjectId; the copy is the same stack object under a
  * fresh id, stamped isCopy, controlled by the original's controller, with the original's targets ("you may choose
@@ -1954,6 +1980,7 @@ export const stackResolvers = {
   "copy-ability": applyCopyTargetAbility, // SHELF-85 V6 (Peter Parker's Camera / Strionic Resonator) — copy the CHOSEN stack ability you control
   "copy-activated-ability": applyCopyActivatedAbility, // CAP-BRACERS (Illusionist's Bracers) — copy the ACTIVATED ability the trigger fired on (ctx.activatedStackObjectId)
   "counter-cast-spell": applyCounterCastSpell, // SG-13 (Vexing Bauble) — counter the CAST spell the trigger fired on (ctx.castStackObjectId)
+  "counter-targeting-object": applyCounterTargetingObject, // stage ③ (the Glasskites) — counter the spell/ability whose target choice fired the trigger (ctx.targetingStackObjectId)
   retarget: applyRetarget, // ⭐ RETARGET (Deflecting Swat, CR 115.7) — re-pick a stack object's own targets off the live board; decline = keep (CR 115.7d)
   "grant-dies-exile-to-cast-spell": applyGrantDiesExileToCastSpell, // RIVAZ RIDER — stamp the triggering cast spell; the permanent it becomes exiles on death
   "bounce-spell-or-permanent": applyBounceSpellOrPermanent, // VENSER — the STACK∪BATTLEFIELD union bounce ("return target spell or permanent to its owner's hand")

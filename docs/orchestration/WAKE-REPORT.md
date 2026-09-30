@@ -15,9 +15,11 @@
 > PR #466 merged (d71ce96a). Next: **R7 — on/after 2026-10-02** (re-dispatch sync-spellbook, tag v0.161.0, verify);
 > meanwhile the 09-06 plan's slices ride the same tag — **stage ② MET 2026-09-30**: ② · 1 the tap-a-creature alt cost
 > (Ramosian Rally + Orim's Cure, +2) and ② · 2 the party count (Shatterskull Minotaur, Journey to Oblivion, Sea Gate
-> Colossus, Ravager's Mace, +4) → corpus 14,778 / 34,245 (43.2%); suite 1591 / 16,496; decks unchanged (88%). Next:
-> [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) **stage ③, the residue loop** (§3 — re-run the census,
-> take the first ≥3-sole row below its banked list that has existing machinery; six scoped-not-shipped in a row → §4).
+> Colossus, Ravager's Mace, +4) → corpus 14,778. **Stage ③ live** ([OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md)
+> §3, the residue loop): ③ · 1 the Glasskites' "counter that spell or ability" (+3 → corpus 14,781; suite 1592 / 16,507;
+> census row ① Spara's Adjudicators banked). **Next:** the CR 701.6a false positive that slice exposed — Kira's
+> synchronous counter and Vexing Bauble's counter-cast-spell still counter an uncounterable spell (fix through the new
+> `stackSpellIsUncounterable`); then the census below row ② (RUN-LEDGER's top entry lists the verdicts so far).
 > **State (measured 2026-09-29 at 5df810d2, Opus 5.5 seat):** suite **1585 files / 16,429 tests** green (1 skipped; 172 s;
 > `VITEST_TIMEOUT_MS=900000 npm test`) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30 decks, **88%** aggregate
 > (2,650 / 2,998), **13 at ≥90** (Mothman by rounding: 88/98 = 89.8%), Atraxa **74** the floor · nothing held:

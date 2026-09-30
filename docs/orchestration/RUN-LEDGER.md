@@ -5,14 +5,58 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **355 commits**, corpus
-> 38.6% → **43.2% (14,778)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **357 commits**, corpus
+> 38.6% → **43.2% (14,781)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 1: the Glasskites' "counter that spell or ability" (a bug-signature row) · **+3** · corpus 14,781 (43.2%) / 34,245
+> Suite **1592 files / 16,507 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,650 / 2,998). Flip-diff **+3, zero LOST, zero retiered** (tier snapshots at b2952a0f → the
+> change). **Mutants 14/14 killed** across 11 test files (restore byte-identical).
+> · **The census, re-run for stage ③ (2026-09-30 ~03:35Z):** 34,245 scanned · 19,523 non-native · 10,622 sole-blocker cards.
+>   The top fifteen rows are the 09-06 plan §3's banked classes. Scope verdicts below them, in rank order:
+>   ① "{2}, Exile this card from your hand: Target land gains "{T}: Add …" until this card is cast from exile. You may cast
+>   this card for as long as it remains exiled." (Spara's Adjudicators, Rakish Revelers, Masked Bandits, Shattered Seraph,
+>   Glamorous Outlaw — 5 carriers, 3 sole) — **BANKED**: an ability activated from the HAND (the bloodrush/channel
+>   exclusion), a cast-from-exile permission, and a duration keyed to ANOTHER object's cast — new zone behavior.
+>   ② the Glasskites — **BUILT** (below).
+> · **A bug signature, not a missing mechanic.** Kira, Great Glass-Spinner GRANTS this exact trigger and was native
+>   (kiraTargetCounter.js — a synchronous counter at the four target-choice chokepoints); the three cards that PRINT it
+>   parked on it as their sole blocker. The condition was machinery already (the self becomesTarget event at all four
+>   sites + the once-per-turn latch — Angelic Cub); only the payoff was unparsed, because "that spell or ability" is the
+>   object whose TARGET CHOICE fired the trigger. Built as the SG-13 (Vexing Bauble) twin: the splitter rewrites the exact
+>   sentence to "counter the targeting spell or ability" (no card prints it); `counterClauseParser` → op
+>   `counter-targeting-object`; `checkBecomesTargetTriggers` threads `targetingStackObjectId`; a routing gate keeps the op
+>   on `becomesTarget`.
+> · **CR 701.6a on an UNTARGETED counter.** Uncounterability was enforced only where a counterspell's targets are
+>   enumerated; a counter that names no target never passed through it. The four exclusions (on-card text · a resolved
+>   grant's mark · a subtype static · a controller static) moved into ONE predicate, `stackSpellIsUncounterable`
+>   (staticAbilityParser.js), read by the enumeration AND the new atom. `WITNESS glasskiteUncounterable
+>   {"shockStayed":true,"damage":2}` (Chimil's controller Shocks a Glasskite: the trigger resolves, Shock lands).
+> · **Caught before commit — a Kira double-model.** The first probe re-tiered Kira native-trigger → native-static: once
+>   the printed trigger parsed, Kira's QUOTED body did too, and the group-grant gate emitted it — a second, stack-based
+>   counter beside the module's synchronous one (an extra fizzling trigger and priority round per targeting).
+>   `isModeledGroupTriggeredBody` now declines that body; Kira keeps its module (its per-creature flag is also the more
+>   faithful "first time each turn" for a grant that arrives mid-turn). Pinned at the runtime: a Shock at a creature
+>   under Kira stacks nothing; Kira beside a Glasskite → the Glasskite's trigger fizzles cleanly, Shock moved once.
+> · **Runtime:** `WITNESS glasskiteSpell {"first":{"countered":true,"damage":0},"secondDamage":2}` — the second Shock that
+>   turn resolves (the latch); a Prodigal Sorcerer ping is countered off the stack (no zone), its {T} still paid.
+> · **Mutants 14/14:** the rewrite · each splitter anchor (synthetic guards — no printed card separates them: every corpus
+>   "counter that spell or ability" with a rider also has an opponent-only condition) · the parser arm · the registry
+>   entry · the context thread · the uncounterable check · the routing gate · the Kira decline (red in
+>   kiraTargetCounter.test.js too) · the enumeration's predicate call · each of the predicate's four exclusions (each red in
+>   its own pre-existing test file). Witness `app/src/lib/learn/glasskiteTargetCounter.test.js`.
+> · **Next — ③ · 2, a CR 701.6a false positive the predicate makes cheap (scoped, read-only):** four counter paths call
+>   `counterSpellById` without asking, AT RESOLUTION, whether the spell can be countered: Kira's synchronous counter; the
+>   cast-trigger counter (Chalice of the Void, Void Mirror, Nullstone Gargoyle, Lavinia, Lunar Force, Hesitation, Vexing
+>   Bauble, Jace's emblem — a Chalice on 2 would counter an Abrupt Decay); the soft-counter decline (ward, Diffusion
+>   Sliver, "unless its controller pays"); and a TARGETED counter whose target was granted uncounterability in response
+>   (Vexing Shusher — grantUncounterable.test.js pins enumeration only). One resolution-time check through
+>   `stackSpellIsUncounterable`; Venser's bounce keeps the raw primitive (it is not a counter). Then the census from row ③.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ② · 2: the PARTY count (a cost reducer and a layer-7c bonus) · **+4** · corpus 14,778 (43.2%) / 34,245 — **stage ② MET**
 > Suite **1591 files / 16,496 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,650 / 2,998). Flip-diff **+4, zero LOST, zero retiered** (tier snapshots at 19d8ba0a → the

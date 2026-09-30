@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Shimmering Glasskite, Jetting Glasskite, Glyph Keeper** — the first spell or ability to target one of them each turn is
+  countered (a spell that can't be countered still resolves)
 - **Your party counts** — Shatterskull Minotaur, Journey to Oblivion, Sea Gate Colossus, Deadly Alliance and Spoils of
   Adventure cost {1} less for each creature in your party (a Cleric, a Rogue, a Warrior and a Wizard — a creature with
   several of those types fills just one spot, counted the way that helps you most), and Ravager's Mace gives the equipped

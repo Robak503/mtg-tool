@@ -47,7 +47,7 @@ import {
   addPoison,
 } from "./gameState.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
-import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, uncounterableCoversSpell } from "./staticAbilityParser.js";
+import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, stackSpellIsUncounterable } from "./staticAbilityParser.js";
 import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
 import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, permanentTargetShields } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam
 import { protectionApplies } from "./protection.js";
@@ -733,28 +733,13 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       // `notCounter` — the BOUNCE lane's flag (Venser's "return target spell…"): like copy and grant,
       // returning a spell to hand is not countering it, so the CR 701.6a exclusions don't narrow its pool.
       if (!effect.copyNotCounter && !effect.grantNotCounter && !effect.notCounter) {
-        if (/can't be countered/i.test(String(obj.source?.oracle || obj.source?.oracle_text || ""))) continue;
-        // GRANTED uncounterability (Vexing Shusher's "{R/G}: Target spell can't be countered") -- the one
-        // path that cannot be re-derived from the board, so it rides the stack object as a mark set at
-        // resolution. This is the gap the comment at the top of this block named for as long as it existed.
-        if (obj.uncounterable) continue;
-        // CANT-BE-COUNTERED (Root Sliver): a board static "<Subtype> spells can't be countered" protects any
-        // stack spell whose type line carries that subtype (word-bounded, like the cost-reduction match — every
-        // card's type line starts with its type, and a subtype follows the em-dash). Off-type spells unaffected.
-        if (uncounterableSubs.size) {
-          const typeLine = String(obj.source?.type || obj.source?.type_line || "").toLowerCase();
-          let protectedSpell = false;
-          for (const sub of uncounterableSubs) {
-            if (new RegExp(`\\b${sub.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(typeLine)) { protectedSpell = true; break; }
-          }
-          if (protectedSpell) continue;
-        }
-        // CANT-BE-COUNTERED (Chimil, controller scope): a spell cast by a player who controls a "spells you
-        // control can't be countered" static is never a legal counter target.
-        // TYPE-FILTERED (Prowling Serpopard "CREATURE spells you control can't be countered") — the
-        // coverage is per spell now, not per player: reading it as per-player would protect every spell
-        // the controller casts, which is Chimil rather than the Serpopard.
-        if (uncounterableCoversSpell(uncounterablePlayers, obj.controller, obj.source?.type || obj.source?.type_line, obj.source)) continue; // + the card, for a COLOUR-scoped static (SG-14, Allosaurus Shepherd)
+        // The four CR 701.6a exclusions — the on-card "can't be countered"; a resolved GRANT's mark (Vexing Shusher's
+        // "{R/G}: Target spell can't be countered", the one path that cannot be re-derived from the board); a subtype
+        // static (Root Sliver); a controller static, whole (Chimil) or filtered by type (Prowling Serpopard) or colour
+        // (Allosaurus Shepherd) — live in ONE predicate since 2026-09-30, shared with the counters that name no target
+        // (the becomes-target payoff "counter that spell or ability"), so the two paths cannot drift. The two board
+        // reads stay hoisted above, once per enumeration.
+        if (stackSpellIsUncounterable(state, obj, { uncounterableSubs, uncounterablePlayers })) continue;
       }
       // COPY-TARGET-OWN (Double Major — "copy target creature spell YOU CONTROL"): only the controller's own
       // stack spells are legal. effect.spellController:"you" (set by the copy atom's target spec) enforces it at

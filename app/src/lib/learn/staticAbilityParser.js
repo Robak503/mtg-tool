@@ -5462,6 +5462,36 @@ export function uncounterableCoversSpell(uncounterablePlayers, playerId, typeLin
 }
 
 /**
+ * CAN'T-BE-COUNTERED — the ONE per-spell answer (CR 701.6a; "can't be countered" is a continuous effect that stops the
+ * counter action — CR 701.6 has no subrule of its own for it). A stack SPELL is uncounterable when:
+ *   1. its own text says so — on-card and immutable. Conservative: a conditional "if X is 5 or more, this spell can't
+ *      be countered" (Banefire) reads uncounterable at ANY X, which only ever withholds a counter (the safe side);
+ *   2. a resolved grant marked it (`obj.uncounterable` — Vexing Shusher, Mistrise Village, Cavern of Souls' mana);
+ *   3. a board static protects its subtype ("Sliver spells can't be countered" — Root Sliver; word-bounded on the type
+ *      line, where every subtype follows the em-dash);
+ *   4. its controller's static covers it (Chimil; the type-filtered Prowling Serpopard; the colour-filtered
+ *      Allosaurus Shepherd — uncounterableCoversSpell).
+ * Shared by the counter-TARGET enumeration (spellEffects.enumerateTargets passes its two board reads, hoisted once per
+ * enumeration, as `pre`) and the counters that name NO target (the becomes-target payoff "counter that spell or
+ * ability" — atoms/stack.js), so the two paths cannot drift. Pure.
+ */
+export function stackSpellIsUncounterable(state, obj, pre = null) {
+  if (/can't be countered/i.test(String(obj?.source?.oracle || obj?.source?.oracle_text || ""))) return true;
+  if (obj?.uncounterable) return true;
+  const subs = pre?.uncounterableSubs ?? uncounterableSubtypesOnBattlefield(
+    Object.values(state?.players || {}).flatMap((p) => (p?.battlefield || []).map((perm) => perm?.card).filter(Boolean)),
+  );
+  if (subs.size) {
+    const typeLine = String(obj?.source?.type || obj?.source?.type_line || "").toLowerCase();
+    for (const sub of subs) {
+      if (new RegExp(`\\b${sub.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(typeLine)) return true;
+    }
+  }
+  const players = pre?.uncounterablePlayers ?? uncounterablePlayersOnBattlefield(state);
+  return uncounterableCoversSpell(players, obj?.controller, obj?.source?.type || obj?.source?.type_line, obj?.source);
+}
+
+/**
  * PLAY-FROM-TOP-OF-LIBRARY — the play-permission a player currently has (Future Sight's { playFromTop } marker),
  * or null. Read from a battlefield permanent the player controls (a bare, non-attach-gated permission — the
  * filtered/attach-gated variants aren't emitted by the parser). Consumed by legalChoices.actionsPlayFromTopOf-
