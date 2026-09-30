@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **404 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **405 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,29 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 47: "enters with a divinity counter on it if you cast it from your hand" — Myojin of Life's Web, Myojin of Infinite Rage · **+2** · corpus 14,967 (43.7%) / 34,245
+> Suite **1638 files / 16,936 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI: ③ · 45's run was cancelled by concurrency (anchored by ③ · 46's); ③ · 46's run 36724907580 in flight at this entry. Flip-diff **+2, zero LOST, zero RETIERED** (tier snapshots at
+> 4fcb0b2d → the change: exactly the two planned). **Mutants 6/6 killed on assertions** (restore byte-identical).
+> · **The row (census rank 69):** an enters-with-counter replacement (CR 614.1c + 122.6a) gated on HOW the permanent
+>   arrived. The counter's readers were modeled already ("has indestructible as long as it has a divinity counter"; "Remove
+>   a divinity counter from ~: …") — the enter line alone parked Life's Web and Infinite Rage. Night's Reach, Seeing Winds
+>   and Cleansing Fire stay parked on their own ability lines; Neon Dynasty's "… an indestructible counter …" Myojin now
+>   clear this line too and park on their remove-counter abilities; Patched Plaything's -1/-1 form is not this reader's.
+> · **Build:** `staticAbilityParser.entersWithCastFromHandCounters` — whole-sentence anchored on exactly "if you cast it from
+>   your hand", one bare counter word, never a reserved kind; `resolvers.enterPermanent` places it only when `castFromZone`
+>   is "hand" (stamped by the cast resolvers only — a reanimated, put-in or command-zone-cast Myojin enters bare, CR 614.1c);
+>   coverage strips the line only for an honest kind (isHonestEnterCounterKind); `divinity` joins the inert enter-counter
+>   kinds (CR 122.1).
+> · **Runtime:** `WITNESS myojinCastFromHand {"divinity":1,"indestructible":true}` — Myojin of Infinite Rage cast through the
+>   real offer and stack · its real activation spends the counter: indestructible gone, every land destroyed · Myojin of
+>   Towering Might's indestructible counter rides the same reader · put onto the battlefield / cast from the command zone or
+>   a graveyard: no counter, not indestructible.
+> · **Mutants 6/6:** the reader never matching · the resolver ignoring the zone · the resolver never placing · the
+>   honest-kind gate removed (killed by a SYNTHETIC finality-counter fixture — every printed carrier's kind is honest) ·
+>   divinity not inert · the coverage strip removed. Witness `app/src/lib/learn/myojinDivinity.test.js` (8).
+> · **Next:** census rank 70 — "You have shroud." (Ivory Mask, True Believer): a player-shroud op on the player-hexproof
+>   seam, absolute rather than opponent-scoped.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 46: "Spell commander" — Ransack, the Lab; Rampant, Growth · **+2** · corpus 14,965 (43.7%) / 34,245
 > Suite **1637 files / 16,928 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI: ③ · 45's run 36723799210 in flight at this entry. Flip-diff **+2, zero LOST, zero RETIERED** (tier snapshots at

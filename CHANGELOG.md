@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Myojin of Life's Web, Myojin of Infinite Rage** — cast from your hand, they enter with a divinity counter (and are
+  indestructible until you spend it); any other way in, they enter without one
 - **Ransack, the Lab, Rampant, Growth** — the "Spell commander" sorceries play from hand
 - **Gallowbraid, Morinfen** — cumulative upkeep paid in life: 1 more life each upkeep, or the creature is sacrificed
 - **Sphinx of New Prahv, Boreal Elemental, Syr Elenora, the Discerning** — spells your opponents cast that target them

@@ -896,6 +896,10 @@ const _INERT_ENTER_COUNTER_KINDS = new Set([
   // readers are the printed "{T}, Remove a <kind> counter: Add … If there are no <kind> counters on this
   // land, sacrifice it" mana abilities, which are modeled (ablation: only the enters line parked them).
   "depletion", "mining",
+  // Stage ③ · 47 (the Kamigawa Myojin): "divinity" — inert by CR 122.1; its only readers are the printed "has
+  // indestructible as long as it has a divinity counter on it" and "Remove a divinity counter from ~: …", both
+  // modeled (ablation: the enters line alone parked Myojin of Life's Web and Myojin of Infinite Rage).
+  "divinity",
 ]);
 // CR 122.1b legal keyword-counter kinds ∩ runtime-enforced (see keywords.js GRANTABLE_STATIC_KEYWORDS +
 // permanentHasKeyword). Two-word kinds ("first strike", "double strike") are reachable only via the CHOICE
@@ -907,6 +911,28 @@ export const ENFORCED_KEYWORD_COUNTER_KINDS = new Set([
   "flying", "first strike", "double strike", "deathtouch", "haste", "hexproof", "indestructible",
   "lifelink", "menace", "reach", "shadow", "trample", "vigilance",
 ]);
+/**
+ * ENTERS-WITH-COUNTERS IF CAST FROM HAND (stage ③ · 47 — the Kamigawa Myojin: "~ enters with a divinity counter on it if you
+ * cast it from your hand"; Neon Dynasty's "… an indestructible counter …"). CR 614.1c + 122.6a — a replacement gated on HOW
+ * the permanent arrived: only the spell cast from its owner's hand brings the counter. Returns { type, n } | null.
+ * WHOLE-SENTENCE anchored on exactly that condition (any other "if" belongs to entersWithConditionalCounters or parks), one
+ * bare counter word (a ±1/+1 form — Patched Plaything — never matches), never a reserved kind. The resolver adds it when
+ * enterPermanent's `castFromZone` is "hand" (stamped by the cast resolvers only, so a reanimated, blinked, put-in or
+ * command-zone-cast permanent enters bare); the coverage strip credits it only for an honest kind. Leaf.
+ */
+export function entersWithCastFromHandCounters(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
+    const m = sentence.trim().match(/^[^.]*?\benters (?:the battlefield )?with (a|an|one|two|three|four|five|\d+) ([a-z]+) counters? on (?:it|him|her) if you cast it from your hand\.?$/i);
+    if (!m) continue;
+    const kind = m[2].toLowerCase();
+    if (_RESERVED_ENTER_COUNTER_KINDS.has(kind)) return null;
+    const n = _ENTER_NUM[m[1].toLowerCase()] ?? (parseInt(m[1], 10) || 0);
+    return n > 0 ? { type: kind, n } : null;
+  }
+  return null;
+}
+
 export function isHonestEnterCounterKind(kind) {
   const k = String(kind || "").toLowerCase();
   return _INERT_ENTER_COUNTER_KINDS.has(k) || k === "shield" || k === "stun" || ENFORCED_KEYWORD_COUNTER_KINDS.has(k);
