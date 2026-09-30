@@ -5,14 +5,42 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **381 commits**, corpus
-> 38.6% → **43.4% (14,879)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **382 commits**, corpus
+> 38.6% → **43.5% (14,882)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 25: "… deals 1 damage to the player or planeswalker it's attacking" — Hellrider, Scorch Spitter, Rakdos Roustabout · **+3** · corpus 14,882 (43.5%) / 34,245
+> Suite **1616 files / 16,733 tests** green (1 skipped); lint 0. Flip-diff **+3, zero LOST, zero retiered** (tier snapshots at daec1e93 → the
+> change). **Mutants 6/6 killed on assertions** (restore byte-identical).
+> · **Found under census row ㉕** (Raid Bombardment, Cavalcade of Calamity — "Whenever a creature you control with power 2 or less
+>   attacks, this enchantment deals 1 damage to the player or planeswalker that creature is attacking"): the PAYOFF was unbuilt
+>   everywhere it is printed, not only there. Built first for the three carriers that need nothing else; the row itself — the
+>   power-filtered attack subject — is ③ · 26.
+> · **Build:** stack.js reads "… deals N damage to the player or planeswalker it's attacking" as the defending-player arm's twin
+>   that also reaches a PLANESWALKER: targetType `attackedDefender`, resolved to ctx.defenderPlaneswalkerId (the attacked
+>   planeswalker, and nothing if it has left — never its controller instead) or else ctx.defenderId; who:"defendingPlayer" rides
+>   the DEFENDING_PLAYER_EVENTS routing gate. checkBlockTriggers threaded only the player for becomes-blocked / attacks-unblocked,
+>   so a blocked Rakdos Roustabout attacking a planeswalker would have hit its controller — both contexts carry the planeswalker
+>   marker now, as the declare-attackers context always did.
+> · **The witness caught a hollow credit before commit — the documented drift trap, a third time.** The first run classified all
+>   three native while the flush logged `trigger-removed-no-target` and dealt nothing: a new referent targetType must be
+>   registered in targetTypes' NON_CHOSEN set, exactly as `discardingPlayer`'s note warns. Registered; and mutant H5 shows the
+>   classifier still credits native with the registration removed — the metric cannot see this trap. A corpus-level guard is
+>   filed as follow-up work.
+> · **Runtime (through checkAttackTriggers / checkBlockTriggers → the stack):** two Bears attack with no Hellrider — nothing (the
+>   vacuity control) · `WITNESS hellriderSwing {"aiLife":-3,"jaceLoyalty":0}` — Hellrider and two Bears, three triggers · a Bear
+>   attacking Jace Beleren under Hellrider takes a loyalty counter off Jace and leaves the AI's life alone · Jace gone before the
+>   trigger resolves: nothing dealt · Scorch Spitter deals its 1 · Rakdos Roustabout blocked deals 1 to the AI, and to Jace when
+>   it is attacking Jace · unblocked, nothing.
+> · **Mutants 6/6:** the arm removed · who dropped (red on the routing pin) · the planeswalker ignored · a gone planeswalker
+>   falling back to its controller · the non-chosen registration removed · the becomes-blocked context without the planeswalker.
+>   Witness `app/src/lib/learn/attackedDefenderDamage.test.js` (9).
+> · **Next:** ③ · 26 — row ㉕ itself: Raid Bombardment / Cavalcade's power-filtered attack subject.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 24: "when this creature dies, put it on the bottom of its owner's library" — Murderous Rider, Fell Horseman · **+2** · corpus 14,879 (43.4%) / 34,245
 > Suite **1615 files / 16,724 tests** green (1 skipped); lint 0. Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at f386bc9d → the

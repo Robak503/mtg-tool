@@ -938,6 +938,14 @@ export function massFilteredDamageClauseParser(clause) {
   // every other event, where the referent would be unset and the clause would silently drop.
   const dfd = t.match(/^(?:this creature|this permanent|this artifact|this enchantment|this equipment|it) deals (\d+) damage to defending player$/);
   if (dfd) return { op: "deal-damage", amount: parseInt(dfd[1], 10), targetType: "defendingPlayer", who: "defendingPlayer" };
+  // ⭐ THE PLAYER OR PLANESWALKER IT'S ATTACKING (the 09-06 plan's stage ③ · 25, 2026-09-30 — Hellrider "Whenever a creature you
+  // control attacks, this creature deals 1 damage to the player or planeswalker it's attacking"; Scorch Spitter; Rakdos
+  // Roustabout's becomes-blocked form): the defending-player twin that also reaches a PLANESWALKER — the attacker's declared
+  // defender, threaded per attacker as ctx.defenderId, plus ctx.defenderPlaneswalkerId when the attack is on a planeswalker. "it"
+  // is the attacking creature whatever deals the damage (Hellrider deals it; the creature attacking is the trigger's). Printed
+  // oracle, no sentinel; who:"defendingPlayer" rides the same DEFENDING_PLAYER_EVENTS routing gate.
+  const atd = t.match(/^(?:this creature|this permanent|this artifact|this enchantment|it) deals (\d+) damage to the player or planeswalker it's attacking$/);
+  if (atd) return { op: "deal-damage", amount: parseInt(atd[1], 10), targetType: "attackedDefender", who: "defendingPlayer" };
   return null;
 }
 
@@ -2111,7 +2119,13 @@ export const stackResolvers = {
               // no-op; the referent gate keeps the atom off those events anyway).
               : atom.targetType === "discardingPlayer"
                 ? (ctx.discardingPlayerId && state.players?.[ctx.discardingPlayerId] ? [{ type: "player", id: ctx.discardingPlayerId }] : [])
-                : ctx.targets;
+                // THE PLAYER OR PLANESWALKER IT'S ATTACKING (stage ③ · 25): the attacked planeswalker when the attack was on
+                // one — nothing if it has left the battlefield, never its controller instead — else the defending player.
+                : atom.targetType === "attackedDefender"
+                  ? (ctx.defenderPlaneswalkerId
+                    ? (findPermanent(state, ctx.defenderPlaneswalkerId) ? [{ type: "planeswalker", id: ctx.defenderPlaneswalkerId }] : [])
+                    : (ctx.defenderId && state.players?.[ctx.defenderId] ? [{ type: "player", id: ctx.defenderId }] : []))
+                  : ctx.targets;
     // defendingPlayer/damagedPlayer/thatCreature/you/upkeepPlayer resolve via `targets`, not the special targetType
     // switch in applyDamageEffect — pass a bare targetType so each takes the per-target hitPlayer/hitCreature path.
     const targetType = atom.target === "thatCreature" ? "creature"
@@ -2121,7 +2135,8 @@ export const stackResolvers = {
       // per-target path. It stays because that is correctness by ACCIDENT: the moment the switch grows a
       // case for an unknown type, or its default changes, Megrim would silently deal 0. Declared beside its
       // siblings, this arm is correct by construction instead.
-      : (atom.targetType === "defendingPlayer" || atom.targetType === "damagedPlayer" || atom.targetType === "discardingPlayer") ? "player" : atom.targetType;
+      : (atom.targetType === "defendingPlayer" || atom.targetType === "damagedPlayer" || atom.targetType === "discardingPlayer") ? "player"
+      : atom.targetType === "attackedDefender" ? "playerOrPlaneswalker" : atom.targetType;
     let next = applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType, amountPerOpponent: atom.amountPerOpponent ?? null, targets, source: { id: ctx.sourceId }, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie });
     // LACCOLITH RIDER (④-AU — "If you do, this creature assigns no combat damage this turn"): the optional damage was
     // taken (a declined "may" never reaches this resolver), so the SOURCE is stamped for the current turn; the combat

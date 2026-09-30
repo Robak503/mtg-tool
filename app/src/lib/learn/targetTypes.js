@@ -78,6 +78,10 @@ export const NON_WIPE_MASS_SCOPES = new Set([
   //                               `trigger-removed-no-target` and dealt nothing while classifyCard said
   //                               native-trigger — the SAME drift trap eachOpponentCreature documents four
   //                               lines up, hit again the first time a new referent targetType was added.
+  "attackedDefender",           // THE PLAYER OR PLANESWALKER IT'S ATTACKING (stage ③ · 25 — Hellrider, Scorch
+  //                               Spitter, Rakdos Roustabout): ctx.defenderPlaneswalkerId, else ctx.defenderId.
+  //                               NOT a chosen target. The same trap a third time, caught by the runtime witness
+  //                               before commit: classified native while the flush logged trigger-removed-no-target.
 ]);
 
 export const NON_CHOSEN_TARGET_TYPES = new Set([...MASS_WIPE_SCOPES, ...NON_WIPE_MASS_SCOPES]);

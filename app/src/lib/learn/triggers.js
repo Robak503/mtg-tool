@@ -7571,7 +7571,9 @@ export function checkBlockTriggers(state) {
     if (!att?.permanentId || blockedAttackers.has(att.permanentId)) continue;
     const lk = findPermanent(state, att.permanentId);
     if (!lk) continue;
-    const context = att.defender ? { defenderId: att.defender } : {};
+    // + the attacked planeswalker (stage ③ · 25): the same pw marker the declare-attackers context carries, so "the player or
+    // planeswalker it's attacking" reaches the planeswalker here too.
+    const context = att.defender ? { defenderId: att.defender, ...(att.defenderPlaneswalkerId ? { defenderPlaneswalkerId: att.defenderPlaneswalkerId } : {}) } : {};
     fired = fired.concat(triggersForEvent(state, { event: "attacksUnblocked", sourcePermanent: lk.permanent, triggeringPermanent: lk.permanent, triggeringContext: context }));
   }
   if (!blockers.length) return fired.length ? { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] } : state;
@@ -7595,7 +7597,9 @@ export function checkBlockTriggers(state) {
     // the same field). Absent (a synthetic combat with no attacker record) → applyLoseLife's defendingPlayer
     // branch is a clean no-op, never a fabricated/wrong loss. Non-afflict becomes-blocked effects ignore it.
     const attackerRec = (state.combat?.attackers || []).find((a) => a?.permanentId === b.attackerId);
-    const context = attackerRec?.defender ? { defenderId: attackerRec.defender } : {};
+    // + the attacked planeswalker (stage ③ · 25 — Rakdos Roustabout "Whenever this creature becomes blocked, it deals 1 damage to
+    // the player or planeswalker it's attacking"): without the marker a planeswalker attack would hit its controller instead.
+    const context = attackerRec?.defender ? { defenderId: attackerRec.defender, ...(attackerRec.defenderPlaneswalkerId ? { defenderPlaneswalkerId: attackerRec.defenderPlaneswalkerId } : {}) } : {};
     fired = fired.concat(triggersForEvent(state, { event: "becomesBlocked", sourcePermanent: lk.permanent, triggeringPermanent: lk.permanent, triggeringContext: context }));
   }
   // BECOMES-BLOCKED-BY-A-CREATURE (BLITZ CT-1, CR 509.3d) — the "by a creature" wording triggers ONCE
