@@ -5,14 +5,37 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **363 commits**, corpus
-> 38.6% → **43.3% (14,817)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **364 commits**, corpus
+> 38.6% → **43.3% (14,820)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 7: "sacrifice it unless you discard a card AT RANDOM" · **+3** · corpus 14,820 (43.3%) / 34,245 · + two "Pay {0}" UI lies fixed
+> Suite **1599 files / 16,580 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,650 / 2,998). Flip-diff **+3, zero LOST, zero retiered** (tier snapshots at 3ce27bfe → the
+> change). **Mutants 6/6 killed** (restore byte-identical).
+> · **Census row ⑦:** "When this creature enters, sacrifice it unless you discard a card at random." — Minotaur Explorer,
+>   Pillaging Horde, Balduvian Horde. Predicted +3, measured +3.
+> · **Both halves were machinery:** the sac-unless-pay pause (echo, cumulative upkeep, the Masticore cycle's "unless you
+>   discard a card") and the random-discard cost kind Apathy's optional payment settles through the seeded
+>   pitchRandomDiscard (CR 701.9b). Three arms, each one a lesson a past slice paid for: the matcher's "( at random)?"; the
+>   SETTLE's own discard-random branch (a real random discard; an empty hand pays nothing → sacrificed); and the AUTO-PICK's
+>   own branch — without it the kind falls through to canAfford(…, {}), which is TRUE for an empty mana cost, so the AI
+>   would say "pay" with an empty hand (the Masticore lesson written into autoPickSacUnlessPay).
+> · **Two UI lies found while scoping, fixed:** the shared wardCostLabel had no arm for `discard-random` or `energy`, so
+>   both fell to its numeric fallback and read "Pay {0}" — Apathy's optional-payment prompt and every energy-cost prompt
+>   (the function's own comment: "Never let a new cost kind fall to the numeric fallback: it renders a lie."). Now
+>   "Discard a card at random" and "Pay {E}…".
+> · **Runtime:** `WITNESS explorerPaid {"onBoard":true,"hand":2,"discarded":["A"]}` · decline → sacrificed, hand untouched ·
+>   an empty hand → the AI declines and even a "pay" sacrifices · the pick is seeded (same state → same card).
+> · **Mutants 6/6:** "at random" unrecognized · read as a chosen discard · the settle's arm · the auto-pick's arm · the
+>   random-discard label · the energy label. Witness `app/src/lib/learn/sacUnlessDiscardRandom.test.js` (8) + three pins in
+>   PendingChoicePanels.test.jsx.
+> · **Next:** census row ⑧ — Incendiary Oracle / Kumano's Pupils' "if a creature dealt damage by this creature this turn
+>   would die, exile it instead".
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 6: sacrifice LANDS (or a creature) rather than pay — Fireblast and six more · **+7** · corpus 14,817 (43.3%) / 34,245
 > Suite **1598 files / 16,569 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,650 / 2,998). CI green on the two

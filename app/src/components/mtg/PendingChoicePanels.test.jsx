@@ -24,8 +24,19 @@ import {
   EdictModePanel,
   CleanupDiscardPanel,
 } from "./LearnView.jsx";
+import { wardCostLabel } from "./learnDecisionPanels.jsx";
 
 const MANA_2 = { kind: "mana", mana: { generic: 2, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } };
+
+// 2026-09-30 — the shared cost label: every modeled cost kind names itself; none falls to the numeric "Pay {0}".
+describe("wardCostLabel — no cost kind falls to the numeric lie", () => {
+  it("energy reads its {E} symbols (the optional-payment lane)", () => {
+    expect(wardCostLabel({ cost: { kind: "energy", amount: 2 } })).toBe("Pay {E}{E}");
+  });
+  it("a random discard names itself (Apathy's optional payment and the sacrifice-unless share it)", () => {
+    expect(wardCostLabel({ cost: { kind: "discard-random", count: 1 } })).toBe("Discard a card at random");
+  });
+});
 
 /** Strip tags so assertions read against visible text, not markup. */
 function text(markup) {
@@ -112,6 +123,12 @@ describe("SacUnlessPayPanel — the inverted-polarity one", () => {
     const out = render(<SacUnlessPayPanel decision={decision} onChoose={() => {}} />);
     expect(out).toContain("{2}");
     expect(out).toContain("keep it");
+  });
+
+  it("⛔ a random-discard cost reads 'Discard a card at random', never the numeric-fallback 'Pay {0}' (2026-09-30)", () => {
+    const out = render(<SacUnlessPayPanel decision={{ kind: "sac-unless-pay", cost: { kind: "discard-random", count: 1 }, sourceName: "Minotaur Explorer" }} onChoose={() => {}} />);
+    expect(out).toContain("Discard a card at random");
+    expect(out).not.toContain("Pay {0}");
   });
 
   // NON-MANA cost kinds (2026-08-12) — the discard kind shipped 08-07 with its engine arms but WITHOUT a

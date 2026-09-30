@@ -660,10 +660,14 @@ export function matchUpkeepSacUnlessPay(oracle) {
   // discard a card": Masticore, Razormane, Argentum, Molten-Tail; Coral Net's Aura form). Same pausing
   // atom, a DIFFERENT cost kind — the settle path is already discriminated on `cost.kind`, so the discard
   // arm rides the machinery mana built. Fixed N=1 only; "discard two cards" has no carrier and stays parked.
-  const d = s.match(/^sacrifice this(?:\s+([a-z]+))?\s+unless you discard a card$/i);
+  // + AT RANDOM (the 09-06 plan's stage ③, 2026-09-30 — Minotaur Explorer, Pillaging Horde, Balduvian Horde: "When this
+  // creature enters, sacrifice it unless you discard a card at random."): the SAME pausing atom with the random-discard cost
+  // kind Apathy's optional payment already settles (seeded pitchRandomDiscard, CR 701.9b) — the settle and the auto-pick
+  // each carry their own discard-random arm.
+  const d = s.match(/^sacrifice this(?:\s+([a-z]+))?\s+unless you discard a card( at random)?$/i);
   if (d) {
     if (d[1] && !SAC_UNLESS_PAY_NOUNS.has(d[1].toLowerCase())) return null; // unrecognized noun → safe FN
-    return { atom: { op: "sac-unless-pay", cost: { kind: "discard", count: 1 }, targetType: null } };
+    return { atom: { op: "sac-unless-pay", cost: d[2] ? { kind: "discard-random", count: 1 } : { kind: "discard", count: 1 }, targetType: null } };
   }
   // SAC-UNLESS-SACRIFICE (2026-08-12) — the cost is sacrificing ANOTHER permanent of a printed type: Bog
   // Elemental ("a land"), Cosmic Larva ("two lands"), Endless Wurm ("an enchantment"). Only the three

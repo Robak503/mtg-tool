@@ -34,6 +34,10 @@ export function wardCostLabel(decision) {
   // NOT this label, so the human panel read "Pay {0}" for Masticore. Never let a new cost kind fall to the
   // numeric fallback: it renders a lie.
   if (cost?.kind === "discard") return (cost.count || 1) === 1 ? "Discard a card" : `Discard ${cost.count} cards`;
+  // 2026-09-30 — two more kinds that fell to the numeric fallback and read "Pay {0}": the random discard (Apathy's optional
+  // payment, and now the Minotaur Explorer family's sacrifice-unless) and energy (the optional-payment lane's {E} costs).
+  if (cost?.kind === "discard-random") return (cost.count || 1) === 1 ? "Discard a card at random" : `Discard ${cost.count} cards at random`;
+  if (cost?.kind === "energy") return `Pay ${"{E}".repeat(Math.max(1, cost.amount || 0))}`;
   if (cost?.kind === "sacrifice") {
     const t = cost.type || "permanent";
     return (cost.count || 1) === 1 ? `Sacrifice ${/^[aeiou]/i.test(t) ? "an" : "a"} ${t}` : `Sacrifice ${cost.count === 2 ? "two" : cost.count} ${t}s`;

@@ -24,8 +24,9 @@
 > 1595 / 16,542) · ③ · 5 "exile up to one target card from a graveyard" (+10, 7 of them unplanned and each run for real;
 > Jack-o'-Lantern's graveyard mana line exposed as a pre-existing false positive and closed → corpus 14,810; suite 1596 / 16,557) · the trigger target chooser surfaces a corrupted seat (no longer
 > swallowed) · ③ · 6 sacrifice lands (or a creature) rather than pay — Fireblast and six more (+7 → corpus 14,817 · 43.3%; suite
-> 1598 / 16,569; Delraich / Hand of Emrakul BANKED on the "sacrifice N creatures" design question). **Next:** census row ⑦,
-> Minotaur Explorer's "sacrifice it unless you discard a card at random" (the RUN-LEDGER's ③ entries carry the verdicts so far).
+> 1598 / 16,569; Delraich / Hand of Emrakul BANKED on the "sacrifice N creatures" design question) · ③ · 7 "sacrifice it unless you discard a
+> card at random" (+3 → corpus 14,820; suite 1599 / 16,580; two "Pay {0}" prompt labels fixed). **Next:** census row ⑧,
+> Incendiary Oracle's "…would die, exile it instead" (the RUN-LEDGER's ③ entries carry the verdicts so far).
 > **State (measured 2026-09-29 at 5df810d2, Opus 5.5 seat):** suite **1585 files / 16,429 tests** green (1 skipped; 172 s;
 > `VITEST_TIMEOUT_MS=900000 npm test`) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30 decks, **88%** aggregate
 > (2,650 / 2,998), **13 at ≥90** (Mothman by rounding: 88/98 = 89.8%), Atraxa **74** the floor · nothing held:

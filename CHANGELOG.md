@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Minotaur Explorer, Pillaging Horde, Balduvian Horde** — when one enters, discard a card at random or sacrifice it
 - **Fireblast, Thunderclap, Crash, Mine Collapse, Mogg Alarm, Pulverize, Dark Triumph** — cast them by sacrificing
   Mountains (or, for Dark Triumph, a creature while you control a Swamp) instead of paying mana. Your tapped Mountains
   go first; Mine Collapse's option is there only on your own turn
@@ -311,6 +312,8 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **Payment prompts name the cost** — Apathy's "discard a card at random" and the energy costs read "Pay {0}"; they now
+  say "Discard a card at random" and "Pay {E}"
 - **Jack-o'-Lantern's graveyard mana ability is no longer offered** — it charged {1} and exiled the card, and no mana
   arrived. The engine doesn't make mana from the graveyard yet, so the ability is left to the rules assistant
 - **"Can't be countered" now holds against every counter** — Kira, Great Glass-Spinner, the cast-trigger

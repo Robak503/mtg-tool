@@ -1811,6 +1811,9 @@ export function autoPickSacUnlessPay(state, pc) {
   // full hand. An auto-pick and a settle that disagree about payability is the same offer/payment split
   // the cast lane guards against, one layer down.
   if (pc.cost?.kind === "discard") return (player.hand || []).length >= (pc.cost.count || 1);
+  // AT RANDOM (2026-09-30) — the same warning applies: without this arm the kind falls through to canAfford(…, {}) and
+  // says "pay" on an EMPTY hand. Pay iff a non-token card is in hand — the settle's own before-check.
+  if (pc.cost?.kind === "discard-random") return (player.hand || []).filter((c) => !c.token).length >= (pc.cost.count || 1);
   // SAC-UNLESS-SACRIFICE (2026-08-12) — pay iff enough pool-matching permanents are on the controller's
   // battlefield (same predicate the settle uses, so offer and payment cannot disagree about payability).
   if (pc.cost?.kind === "sacrifice") {
@@ -2008,6 +2011,16 @@ export function resolveSacUnlessPayChoice(state, pay) {
       const cid = hand[0].id;
       next = moveCardToZone(next, { playerId: pc.controller, fromZone: "hand", toZone: "graveyard", cardId: cid });
       next = checkDiscardTriggers(next, pc.controller, 1);
+      paid = true;
+    }
+  } else if (pay && pc.cost?.kind === "discard-random") {
+    // SAC-UNLESS-DISCARD-AT-RANDOM (2026-09-30 — Minotaur Explorer / Pillaging Horde / Balduvian Horde): a REAL random
+    // discard through the SEEDED pitchRandomDiscard, exactly as Apathy's optional payment settles the same cost kind —
+    // CR 701.9b picks the card, discard watchers fire, serialize-stable. An empty (non-token) hand pays nothing, `paid`
+    // stays false, and the source is sacrificed — the printed outcome.
+    const nontoken = (next.players[pc.controller]?.hand || []).filter((c) => !c.token);
+    if (nontoken.length >= (pc.cost.count || 1)) {
+      next = pitchRandomDiscard(next, { discarders: [pc.controller], amount: pc.cost.count || 1, sourceName: pc.sourceName || null });
       paid = true;
     }
   } else if (pay && pc.cost?.kind === "sacrifice") {
