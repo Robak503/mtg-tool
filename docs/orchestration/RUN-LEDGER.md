@@ -5,14 +5,41 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **392 commits**, corpus
-> 38.6% → **43.6% (14,927)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **393 commits**, corpus
+> 38.6% → **43.6% (14,929)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 35: "Enchanted creature can't be the target of spells or abilities your opponents control" — Canopy Cover, Shielding Plax · **+2** · corpus 14,929 (43.6%) / 34,245
+> Suite **1626 files / 16,830 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at
+> d1a5429b → the change). **Mutants 8/8 killed on assertions** (restore byte-identical).
+> · **Census rank 55** (Canopy Cover #4192, Shielding Plax #8121): hexproof's targeting rule in all but name (CR 702.11b) and
+>   NOT the keyword, so nothing that reads or pierces hexproof touches it. Both cards' other lines were already credited (the
+>   ④-W except-by, the aura-own ETB draw); this line was the sole blocker (the census probe).
+> · **Machinery:** the ④-V inert `targetShield` op (Thrun's printed shield) had only the SELF form. The granted form is a
+>   `parseAttachedClauseCore` arm emitting it with no colour exception, fixed to the host by the attached-bonus path;
+>   `layers.permanentTargetShields` now reads host-FIXED shields too (a granted shield never shields its source — the Aura stays
+>   targetable) and returns the SOURCE's controller; `canBeTargetedBy` tests "your opponents" against it, because an Aura may
+>   enchant another player's creature (CR 109.5). The shield rides the seam hexproof rides — enforced exactly where hexproof is.
+> · **Runtime (targets from legalActionsForPlayer's cast and activate offers):** with no Aura the opponent's Murder and Prodigal
+>   Sorcerer reach both Bears (the vacuity control) · `WITNESS canopyCoverSeam {"murder":["b2","ps"],"ping":["b2"],"disenchant":["cover"]}`
+>   — the spell and the ability both miss the enchanted Bear; Disenchant still reaches the Aura · the controller's own Giant
+>   Growth reaches it · `WITNESS canopyCoverOtherSide {"aiGrowth":false,"userMurder":true}` — the user's Canopy Cover on the
+>   AI's Ogre stops the AI targeting its own creature while the user still can · Shielding Plax the same · and the card's
+>   other line, now that it is native: `WITNESS canopyCoverBlocks {"covered":{"ground":false,"drake":true,"spider":true},…}`
+>   — only a flier or a reach creature blocks the enchanted Bear; the bare one is blockable by all three.
+> · **Mutants 8/8:** the arm removed · the arm shielding against everyone · the granted read removed · a granted shield on every
+>   permanent · the self read without its mode check (shields the Aura itself) · "your opponents" read off the creature's
+>   controller at the seam · a colourless shield refusing nothing · the source controller taken from the shielded permanent.
+>   Witness `app/src/lib/learn/canopyCover.test.js` (9).
+> · **A pin GRADUATED with a note:** thrunTargetShield.test.js pinned the exact shield shape; it now carries `sourceController`
+>   (Thrun's own controller). prowlersHelm.test.js's deliberately tier-agnostic Canopy Cover pin holds unchanged.
+> · **Next:** census rank 56 — Aether Hub / Servant of the Conduit ("{T}, Pay {E}: Add one mana of any color"; Solar
+>   Transformer is already native).
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 34: the attaches the rules forbid do nothing — the Equip lane (CR 301.5c) and Codsworth's Aura half (CR 701.3a) · **+0** (runtime) · corpus 14,927 (43.6%) / 34,245
 > Suite **1625 files / 16,821 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 33 (run 36705415601).

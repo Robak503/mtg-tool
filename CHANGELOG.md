@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Canopy Cover, Shielding Plax** — your opponents' spells and abilities can't target the enchanted creature
 - **Brass Squire, Auriok Windwalker** — tap to move one of your Equipment onto one of your creatures
 - **High Ground, Brave the Sands** — each of your creatures can block one more attacker, and they stack
 - **Quirion Ranger, Scryb Ranger** — return a Forest you control to untap a creature, once each turn

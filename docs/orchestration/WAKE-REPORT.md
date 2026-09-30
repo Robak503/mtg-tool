@@ -57,7 +57,8 @@
 > Ground, Brave the Sands — the team multi-block, cumulative (+2 → corpus 14,925; suite 1623 / 16,802). Rank 53 ("Sacrifice two artifacts") banked on ③ · 6's
 > non-fungible fork. ③ · 33 Brass Squire, Auriok Windwalker — the Equipment attach-pair, plus CR 301.5c at its resolver (+2 →
 > corpus 14,927; suite 1624 / 16,813) · ③ · 34 the attaches the rules forbid do nothing — the Equip lane's CR 301.5c,
-> Codsworth's Aura Enchant line (+0, runtime; suite 1625 / 16,821). **Next:** census rank 55 — the RUN-LEDGER's ③ entries carry the verdicts so far.
+> Codsworth's Aura Enchant line (+0, runtime; suite 1625 / 16,821) · ③ · 35 Canopy Cover, Shielding Plax — the granted target
+> shield (+2 → corpus 14,929; suite 1626 / 16,830). **Next:** census rank 56 — the RUN-LEDGER's ③ entries carry the verdicts so far.
 > **State (measured 2026-09-29 at 5df810d2, Opus 5.5 seat):** suite **1585 files / 16,429 tests** green (1 skipped; 172 s;
 > `VITEST_TIMEOUT_MS=900000 npm test`) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30 decks, **88%** aggregate
 > (2,650 / 2,998), **13 at ≥90** (Mothman by rounding: 88/98 = 89.8%), Atraxa **74** the floor · nothing held:

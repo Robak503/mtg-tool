@@ -2381,9 +2381,13 @@ export function assignsCombatDamageWithToughness(state, permanentId) {
  * enforced there and nowhere else.
  */
 /**
- * ④-V — the printed TARGET SHIELDS on a permanent ("can't be the target of nongreen spells … or abilities from nongreen
- * sources …" — Thrun, Gaea's Revenge): every inert `targetShield` op whose SOURCE is this permanent, as
- * [{ notColor, opponentsOnly }]. Read by spellEffects.canBeTargetedBy — the single targetability seam — beside
+ * ④-V — the TARGET SHIELDS on a permanent, as [{ notColor, opponentsOnly, sourceController }]: the PRINTED self form
+ * ("can't be the target of nongreen spells … or abilities from nongreen sources …" — Thrun, Gaea's Revenge; affects
+ * "self", source = this permanent) and, since the 09-06 plan's stage ③ · 35, the GRANTED form an attachment fixes to its
+ * host ("Enchanted creature can't be the target of spells or abilities your opponents control." — Canopy Cover, Shielding
+ * Plax; notColor null = every source). A granted shield never shields its source: the Aura itself stays targetable.
+ * `sourceController` is who "your opponents" belong to — the source's controller, which for an Aura on another player's
+ * creature is NOT the creature's controller. Read by spellEffects.canBeTargetedBy — the single targetability seam — beside
  * shroud / hexproof / protection. Empty for every other permanent (byte-identical targeting).
  */
 export function permanentTargetShields(state, permanentId) {
@@ -2391,8 +2395,11 @@ export function permanentTargetShields(state, permanentId) {
   const out = [];
   for (const e of collectContinuousEffects(state)) {
     if (e.op?.layerOp !== "targetShield") continue;
-    if (e.source?.permanentId !== permanentId) continue;
-    out.push({ notColor: e.op.notColor, opponentsOnly: !!e.op.opponentsOnly });
+    const self = e.affects?.mode === "self" && e.source?.permanentId === permanentId;
+    const granted = e.affects?.mode === "fixed" && (e.affects.permanentIds || []).includes(permanentId);
+    if (!self && !granted) continue;
+    const sourceController = e.source?.permanentId ? findPerm(state, e.source.permanentId)?.controller ?? null : null;
+    out.push({ notColor: e.op.notColor ?? null, opponentsOnly: !!e.op.opponentsOnly, sourceController });
   }
   return out;
 }

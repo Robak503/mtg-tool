@@ -5759,6 +5759,15 @@ function parseAttachedClauseCore(c, subject, noun = "creature") {
     return [{ layer: 6, op: { layerOp: "addKeyword", keyword: "assignsCombatDamageAsUnblocked" }, duration: { kind: "permanent" } }];
   }
 
+  // TARGET SHIELD, GRANTED (the 09-06 plan's stage ③ · 35, 2026-09-30 — Canopy Cover, Shielding Plax: "Enchanted creature can't
+  // be the target of spells or abilities your opponents control."). Hexproof's targeting rule in all but name (CR 702.11b) and
+  // NOT the keyword, so nothing that reads or pierces hexproof touches it: the ④-V inert `targetShield` op (Thrun's printed
+  // shield) with no colour exception, fixed to the host by the attached-bonus path. "Your opponents" are the controller of the
+  // attachment, which layers.permanentTargetShields reads off the effect's source. Whole-clause anchored ($) — a spells-only or
+  // everyone form is a different card and stays residue.
+  if (/^can't be the target of spells or abilities your opponents control\.?$/.test(rest)) {
+    return [{ layer: 6, op: { layerOp: "targetShield", notColor: null, opponentsOnly: true }, duration: { kind: "permanent" } }];
+  }
   // PACIFISM CLASS (BLITZ PA-1): "can't attack or block" / "can't attack" / "can't block" — layer-6
   // grants of the cantAttack/cantBlock pseudo-keywords, permanent for as long as the attachment holds
   // (the layer engine scopes attached bonuses to the host). Block-side enforcement is the SAME

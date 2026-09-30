@@ -622,9 +622,12 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceC
   // A path that does not thread `sourceColors` (triggers / abilities) is refused outright — an under-offer, never an
   // illegal targeting (a colourless spell and an untracked path both read as []; both are refused, both correctly
   // or safely). Read layer-aware off the same continuous-effects board as every other keyword.
+  // + the GRANTED form (stage ③ · 35 — Canopy Cover: "Enchanted creature can't be the target of spells or abilities your
+  // opponents control"): no colour exception (notColor null refuses every source), and "your opponents" are the SHIELD
+  // SOURCE's controller's — the Aura's controller, who may have enchanted another player's creature (CR 109.5).
   for (const sh of permanentTargetShields(state, perm.id)) {
-    if (sh.opponentsOnly && casterId === controllerOfPerm) continue;
-    if (!sourceColors.includes(sh.notColor)) return false;
+    if (sh.opponentsOnly && casterId === (sh.sourceController ?? controllerOfPerm)) continue;
+    if (sh.notColor == null || !sourceColors.includes(sh.notColor)) return false;
   }
   return true;
 }

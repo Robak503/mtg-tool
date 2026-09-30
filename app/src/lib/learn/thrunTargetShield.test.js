@@ -38,7 +38,8 @@ describe("the parse + the tiers", () => {
     expect(classifyCard(THRUN)).toMatch(/^native/);
     expect(classifyCard(GAEAS_REVENGE)).toMatch(/^native/);
     const s = board();
-    expect(permanentTargetShields(s, "thrun")).toEqual([{ notColor: "G", opponentsOnly: true }]);
+    // + sourceController since stage ③ · 35 (the granted form needs to know whose opponents; for Thrun it is his own controller)
+    expect(permanentTargetShields(s, "thrun")).toEqual([{ notColor: "G", opponentsOnly: true, sourceController: "user" }]);
     expect(permanentTargetShields(s, "bear")).toEqual([]);
   });
   it("⛔ a one-sided or mismatched print is a different card and parks", () => {
