@@ -4878,6 +4878,15 @@ export function detectTriggers(card) {
         // phrase that ONLY the selfReturnClauseParser models → the self-return atom (graveyard → owner's hand).
         // Gated on cls.selfReturnKind (set ONLY by the two narrow detectors), so no other trigger is touched.
         effectClause = `[self-return:${cls.selfReturnKind}] ${effectClause}`;
+      } else if (cls.event === "dies" && cls.scope === "equippedCreature" && /^return that card to the battlefield under your control$/i.test(effectClause)) {
+        // ENCHANTED CREATURE DIES → BACK UNDER YOUR CONTROL (the 09-06 plan's stage ③ · 42, 2026-09-30 — Fool's Demise, Shade's
+        // Form: "When enchanted creature dies, return that card to the battlefield under your control"). "That card" is the
+        // DEAD host (CR 608.2c), now in its owner's graveyard; the dies look-back threads its card id (ctx.triggeringCardId),
+        // and "your" is the attachment's controller — the trigger's. The dies + attached gate keeps the marker off every live
+        // event and every spell (the [dies-return-bf] discipline above); the whole-clause anchor keeps a rider out → LOW →
+        // Arbiter. The AURA HOST DIES detector's note — an effect naming the dead creature fails to parse — stays true for every
+        // other such effect.
+        effectClause = "[attached-dies-return-bf:yours] return that card to the battlefield under your control";
       } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && /^put x \+1\/\+1 counters on it, where x is its power$/i.test(effectClause)) {
         // POWER-SCALED triggering-creature counters (Railway Brawler — "Whenever another creature you
         // control enters, put X +1/+1 counters on IT, where X is ITS power"): both pronouns are the

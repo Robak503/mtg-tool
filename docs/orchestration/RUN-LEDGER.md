@@ -5,14 +5,45 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **399 commits**, corpus
-> 38.6% → **43.7% (14,953)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **400 commits**, corpus
+> 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 42: "When enchanted creature dies, return that card to the battlefield under your control" — Fool's Demise, Shade's Form and three more · **+5** · corpus 14,958 (43.7%) / 34,245
+> Suite **1633 files / 16,888 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 41 (run 36716328319). Flip-diff **+5, zero LOST,
+> zero retiered** (tier snapshots at 897babc8 → the change). **Mutants 5/5 killed on assertions** (restore byte-identical).
+> · **Census rank 63 — ⏸ BANKED (machinery):** the Licids (Nurturing / Leeching Licid — "this creature loses this ability and
+>   becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {C} to end this effect"): a
+>   creature-to-Aura self-transform with an ongoing end-cost.
+> · **Census rank 64** (Shade's Form #15370, Fool's Demise #13610): the AURA HOST DIES detector fired these, but "that card"
+>   names the DEAD host and no atom could bind it — the detector's own note: an effect naming the dead creature "simply fails to
+>   parse". The dies look-back already threads the dead card's id (ctx.triggeringCardId): a dies + attached-gated sentinel
+>   (`[attached-dies-return-bf:yours]`, triggers.js — the [dies-return-bf] discipline) hands the clause to
+>   `selfReturn.applyAttachedDiesReturnYours`, which takes the card from whichever graveyard HOLDS it (its owner's — a stolen
+>   host's is not its controller's) onto the battlefield under the ATTACHMENT controller's control ("your", CR 603.3a), owner
+>   stamped. Tokens never return (CR 111.7); a card gone is a logged no-op (CR 608.2b). The same line flipped False Demise,
+>   Minion's Return, Unhallowed Pact (unplanned — the identical trigger; each run for real).
+> · **Runtime (the engine's own death path — lethal damage → destroyLethalCreatures → checkDiesTriggers — then the stack):**
+>   `WITNESS foolsDemiseSteal {"userBattlefield":["Hill Giant"],"aiBattlefield":[],"aiGraveyard":[],"owner":"ai","userHand":["Fool's
+>   Demise"]}` — your Fool's Demise on the AI's Giant: it comes back to YOU, and the Aura returns to your hand · Shade's Form
+>   on your own Bear · a STOLEN host dies into its owner's graveyard and still comes back to you · `WITNESS unplannedCarriers`
+>   (all three) · a token never returns · a gone card is a no-op · vacuity controls: Demonic Vigor's "…to its owner's hand"
+>   and a synthetic ATTACKS-trigger phrasing stay parked.
+> · **A pin GRADUATED with a note:** auraHostDiesTrigger.test.js said "if this ever goes native, the referent has been bound
+>   somewhere and needs its own proof" — it is, and foolsDemise.test.js is the proof; the guard moves to the unbound owner's-hand
+>   form.
+> · **Mutants 5/5:** the rewrite removed · not dies-gated · returned under the OWNER's control · only the dead creature's
+>   controller's graveyard searched · the parser arm removed. Witness `app/src/lib/learn/foolsDemise.test.js` (8).
+> · **⚠️ Found on the way — ③ · 43 next:** a host killed by a DESTROY effect never fires host-dies Aura triggers — Elephant
+>   Guide made a token on SBA death (1) and none on a destroy (0), measured. `spellEffects.applyDestroyEffect` and the
+>   hand-built sacrifice / cost look-backs omit the `attachments` (and `damagedBy`) the SBA look-back carries, so
+>   checkDiesTriggers can't find the Aura. A hollow credit on every "When enchanted creature dies" Aura (and "equipped creature
+>   dies" returns, and "dealt damage by ~ this turn" payoffs) against removal.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 41: "this creature gets +X/+N until end of turn, where X is <count>" — Rubblebelt Rioters, Orcish Siegemaster and six more · **+8** · corpus 14,953 (43.7%) / 34,245
 > Suite **1632 files / 16,880 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 40 (run 36714937690, which anchors ③ · 39 — its own run was cancelled by concurrency, not red). Flip-diff **+8, zero LOST, zero retiered** (tier snapshots at
@@ -35,7 +66,7 @@
 >   Spider counts creature cards in the graveyard, not the Forest.
 > · **Mutants 6/6:** the arm removed · a bare "it" read as the source (the first draft) · the detector's rewrite not gated on
 >   scope · the rewrite removed · the scaling slot ignored · the slot inverted. Witness `app/src/lib/learn/selfCountedPump.test.js` (10).
-> · **Next:** census rank 63.
+> · **Next:** census rank 63 (see ③ · 42).
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 40: "put target creature card from a graveyard onto the battlefield under your control" on a trigger — Debtors' Knell, Teneb, the Harvester · **+2** · corpus 14,945 (43.6%) / 34,245
 > Suite **1631 files / 16,870 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at

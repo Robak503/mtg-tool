@@ -65,7 +65,9 @@
 > suite 1629 / 16,859) · ③ · 39 the optional-payment wrapper offered targets wider than printed on 13 native cards — closed
 > (+0; suite 1630 / 16,864) · ③ · 40 Debtors' Knell, Teneb — a reanimate from ANY graveyard reads intent "any" (+2 → corpus
 > 14,945; suite 1631 / 16,870); the Virtues filed as their own task · ③ · 41 Rubblebelt Rioters and seven more — the self
-> counted pump (+8 → corpus 14,953; suite 1632 / 16,880). **Next:** census rank 63 — the RUN-LEDGER's ③ entries carry the verdicts so far.
+> counted pump (+8 → corpus 14,953; suite 1632 / 16,880) · rank 63 (the Licids) banked · ③ · 42 Fool's
+> Demise and four more — the enchanted creature's dies-return, bound (+5 → corpus 14,958; suite 1633 / 16,888). **Next:** ③ · 43, the
+> destroy path's missing attachments look-back (host-dies Auras never fire on removal) — then census rank 65 — the RUN-LEDGER's ③ entries carry the verdicts so far.
 > **State (measured 2026-09-29 at 5df810d2, Opus 5.5 seat):** suite **1585 files / 16,429 tests** green (1 skipped; 172 s;
 > `VITEST_TIMEOUT_MS=900000 npm test`) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30 decks, **88%** aggregate
 > (2,650 / 2,998), **13 at ≥90** (Mothman by rounding: 88/98 = 89.8%), Atraxa **74** the floor · nothing held:

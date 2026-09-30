@@ -140,6 +140,11 @@ export function selfReturnClauseParser(clause) {
   if (/^\[self-return-bf:enchantment\] return it to the battlefield under its owner's control as an enchantment$/i.test(t)) {
     return { op: "self-return-bf-enchantment" };
   }
+  // ENCHANTED CREATURE DIES → BACK UNDER YOUR CONTROL (stage ③ · 42 — Fool's Demise, Shade's Form): the marker
+  // triggers.detectTriggers writes only on a dies / equippedCreature descriptor. Anchored ^…$.
+  if (/^\[attached-dies-return-bf:yours\] return that card to the battlefield under your control$/i.test(t)) {
+    return { op: "attached-dies-return-bf" };
+  }
   // KW-UNDYING (CR 702.92a) — the kind-tagged sentinel triggers.detectTriggers synthesizes from the printed
   // "Undying" keyword line (undyingKeywordCount). The intervening-if half ("if it had no +1/+1 counters on
   // it") rides the DESCRIPTOR, enforced by interveningIf.js at flush + resolution — this atom is only the
@@ -436,7 +441,29 @@ export function applyDiesReturnBattlefield(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "dies-return-bf", returned: didEnter, controller: owner });
 }
 
+/**
+ * applyAttachedDiesReturnYours — ENCHANTED CREATURE DIES → BACK UNDER YOUR CONTROL (the 09-06 plan's stage ③ · 42 — Fool's
+ * Demise, Shade's Form). The dead host's card (ctx.triggeringCardId) comes back from the graveyard that HOLDS it — its
+ * owner's, which for a stolen host is not ctx.triggeringController's, so every graveyard is searched by id — onto the
+ * battlefield under the TRIGGER controller's control (the attachment's controller: "your", fixed when it triggered, CR
+ * 603.3a). A cross-player entry stamps the owner (enterCardFromZone), so the card still goes home when it later leaves.
+ * Fail-safes: CR 111.7 token → never returns; CR 608.2b card gone → a logged no-op.
+ */
+export function applyAttachedDiesReturnYours(state, atom, ctx) {
+  const cardId = ctx.triggeringCardId;
+  const controller = ctx.controller;
+  if (!cardId || !controller || !state.players?.[controller]) return state;
+  if (ctx.triggeringCardIsToken) {
+    return logEvent(state, { kind: "spell-effect", effect: "attached-dies-return-bf", returned: false, reason: "token", controller });
+  }
+  const holder = Object.keys(state.players).find((pid) => (state.players[pid].graveyard || []).some((c) => c.id === cardId));
+  if (!holder) return logEvent(state, { kind: "spell-effect", effect: "attached-dies-return-bf", returned: false, controller });
+  const { state: entered, entered: didEnter } = enterCardFromZone(state, { playerId: controller, cardId, fromZone: "graveyard", fromPlayerId: holder });
+  return logEvent(entered, { kind: "spell-effect", effect: "attached-dies-return-bf", returned: didEnter, controller });
+}
+
 export const selfReturnResolvers = {
+  "attached-dies-return-bf": applyAttachedDiesReturnYours, // ③ · 42 — Fool's Demise / Shade's Form
   "self-return": applySelfReturn,
   "self-return-bf-enchantment": applySelfReturnBattlefieldEnchantment,
   "undying-return": applyUndyingReturn,

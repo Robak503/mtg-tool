@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Fool's Demise, Shade's Form, False Demise, Minion's Return, Unhallowed Pact** — when the enchanted creature dies,
+  it comes back under your control (even an opponent's creature)
 - **Rubblebelt Rioters, Orcish Siegemaster, Vile Deacon, Imaryll, Hellkite Igniter, Sokenzan Spellblade, Kitsune
   Loreweaver, Graverobber Spider** — "gets +X/+0 (or +X/+X, +0/+X) where X is …" now counts, on attack or on activation
 - **Debtors' Knell, Teneb, the Harvester** — bring a creature back from any graveyard under your control

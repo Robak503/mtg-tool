@@ -150,11 +150,13 @@ describe("classification", () => {
     expect(classifyCard(aura(BEQUEATHAL))).toMatch(/^native/);
   });
 
-  it("CREED — an effect that NAMES THE DEAD CARD stays parked, closing the referent hazard", () => {
-    // "return that card…" must bind the dead host's graveyard card. Nothing here does that binding, and the
-    // effect simply fails to parse — so the card parks rather than returning the wrong object. If this ever
-    // goes native, the referent has been bound somewhere and needs its own proof.
-    expect(classifyCard(aura("Enchant creature\nWhen enchanted creature dies, return that card to the battlefield under your control."))).not.toMatch(/^native/);
+  it("CREED — an effect that NAMES THE DEAD CARD stays parked unless its referent is bound and proven", () => {
+    // "return that card…" must bind the dead host's graveyard card. GRADUATED 2026-09-30 (the 09-06 plan's stage ③ · 42): the
+    // battlefield-under-your-control form is bound now — a dies + attached sentinel hands it to an atom reading the look-back's
+    // ctx.triggeringCardId — and has its own proof (foolsDemise.test.js: Fool's Demise, Shade's Form). Every OTHER dead-card
+    // referent is still unbound and still parks rather than returning the wrong object.
+    expect(classifyCard(aura("Enchant creature\nWhen enchanted creature dies, return that card to the battlefield under your control."))).toMatch(/^native/);
+    expect(classifyCard(aura("Enchant creature\nWhen enchanted creature dies, return that card to its owner's hand."))).not.toMatch(/^native/);
   });
 
   it("CREED — an unmodeled sibling clause still parks the whole card", () => {
