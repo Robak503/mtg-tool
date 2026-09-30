@@ -297,6 +297,12 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **"Can't be countered" now holds against every counter** — Kira, Great Glass-Spinner, the cast-trigger
+  counters (Vexing Bauble, Lunar Force), ward and Diffusion Sliver used to counter a spell that can't be
+  countered, and a counterspell still countered a spell made uncounterable in response (Vexing Shusher).
+  Now the spell stays. Whatever else the counterspell does still happens — Swan Song's Bird, An Offer You
+  Can't Refuse's Treasures, Mana Drain's mana — and ward no longer asks you to pay for a counter that can't
+  happen
 - **App updates now bring fresh card data** — once you had synced data in the Updates panel, the app kept
   reading that sync forever and ignored the newer card data every later update shipped (one install was
   still on its July snapshot in late September, missing every set since). Now the newer of the two wins:

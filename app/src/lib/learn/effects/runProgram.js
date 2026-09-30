@@ -28,7 +28,7 @@ import { taintedPactStep, wheelOnePlayer } from "./atoms/library.js"; // K9 (Ste
 import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice, setPendingTemptingOfferChoice } from "../pendingChoice.js"; // + TEMPTING OFFER (Tempt with Discovery) // + SG-15b: the Sylvan Library per-card pause is chained by its own settler
 import { updatePermanentSafe } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, gainLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
 import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard, policyEvalEnabledFor } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
 import { programConfidence } from "./parser.js";
 import { checkDiscardTriggers, checkDiesTriggers, checkLibrarySearchTriggers, checkLifegainTriggers } from "../triggers.js"; // + checkLifegainTriggers — Kwain's per-drawer life (2026-09-05)
@@ -1414,7 +1414,7 @@ export function autoPickSoftCounterPay(state, pc) {
 /**
  * ===== SOFT-CNT ===== — settle a soft counter's pay-or-be-countered decision: if `pay` AND the targeted
  * spell's controller can afford {N}, charge the mana (payGenericMana — taps their sources) and the spell
- * SURVIVES; otherwise COUNTER it (counterSpellById, the shared hard-counter path). Then RESUME the caster's
+ * SURVIVES; otherwise COUNTER it (counterIfCounterable, the shared resolution-time counter). Then RESUME the caster's
  * program. Guards: a spell that left the stack mid-pause is a logged fizzle; a controller eliminated mid-
  * pause can't pay → countered (CR 800.4a); a `pay` the controller can't actually afford falls through to the
  * counter (payGenericMana returns paid:false, state unchanged — never fabricated mana).
@@ -1457,7 +1457,9 @@ export function resolveSoftCounterChoice(state, pay) {
   } else {
     // CS-1: a soft counter with a zone redirect (Syncopate / No More Lies) exiles on the decline —
     // pc.counterDest rides the choice from applyCounter so the redirect survives the suspend.
-    next = counterSpellById(next, pc.spellId, { via: "soft-counter", counterDest: pc.counterDest || null });
+    // CR 701.6a at resolution (2026-09-30): a spell that can't be countered stays, whoever raised the choice (ward,
+    // Diffusion Sliver, a soft counterspell) — counterIfCounterable, the entry every counter path takes.
+    next = counterIfCounterable(next, pc.spellId, { via: "soft-counter", counterDest: pc.counterDest || null });
   }
   return resumeAfterChoice(next, pc);
 }

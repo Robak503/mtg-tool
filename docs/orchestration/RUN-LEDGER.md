@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **357 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **358 commits**, corpus
 > 38.6% → **43.2% (14,781)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,36 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-09-30 — 09-06 PLAN STAGE ③ · 2: "can't be countered" asked AT RESOLUTION on every counter path (a CR 701.6a false positive) · ±0 · corpus 14,781
+> Suite **1593 files / 16,522 tests** green (1 skipped); lint 0; corpus unchanged 14,781 / 34,245, decks 88%. Flip-diff **0 / 0 / 0** (a runtime fix — tier snapshots at 12985d1a → the
+> change). **Mutants 11/11 killed** (restore byte-identical; none killed by a ReferenceError).
+> · **The false positive.** Uncounterability was enforced in ONE place — the counter-TARGET enumeration, when a
+>   counterspell is cast. Four paths never passed through it and countered a spell that can't be countered: Kira's
+>   synchronous counter; the cast-trigger counter (`counter-cast-spell` — Vexing Bauble, Lunar Force, Hesitation, Jace's
+>   emblem); the soft-counter DECLINE (ward, Diffusion Sliver); and a TARGETED counter meeting a spell made uncounterable
+>   after it was cast (Vexing Shusher's grant in response — grantUncounterable.test.js pinned enumeration only).
+> · **The fix: one resolution-time entry.** `counterIfCounterable` (atoms/stack.js) asks `stackSpellIsUncounterable`
+>   (③ · 1's shared predicate) and only then calls the raw `counterSpellById`; Kira, the cast-trigger counter, the
+>   Glasskite counter and the soft-counter decline all take it. Venser's bounce keeps the raw primitive (it is not a
+>   counter) — pinned.
+> · **The riders still happen — per the bundled rulings, read before building:** Swan Song (2013-09-15) "its controller
+>   will get a Bird token"; Mana Drain (2020-11-10) "if the target is legal but not countered … you do add mana"; An Offer
+>   You Can't Refuse (2022-04-29) the Treasures; Vexing Shusher (2020-08-07) "any additional effects … will still happen".
+>   So `applyCounter` skips only the zone move when the target is legal but uncounterable; the controller rider and Mana
+>   Drain's delayed {C} still fire. `WITNESS uncounterableSwanSong {"shockStayed":true,"aiBirds":1}` ·
+>   `WITNESS uncounterableManaDrain {"shockStayed":true,"scheduled":1}`.
+> · **No payment asked for nothing:** a soft counterspell (Mana Leak), ward and Diffusion Sliver raise no pay prompt
+>   against an uncounterable spell — the trigger could counter nothing, so the only rational answer is not to pay, and
+>   asking let the AI spend mana for nothing. Logged `counter-uncounterable` like every other path.
+>   `WITNESS uncounterableBauble {"controlCountered":true,"withChimilResolved":true}`.
+> · **Every positive case has a vacuity control beside it** (the same board without the protection, where the counter
+>   lands). The decline check is a belt — every prompt path skips an uncounterable spell first, so play cannot reach it —
+>   and is driven directly (a declined payment never counters a marked spell). Mutants: the entry's question · the
+>   targeted counter's question · the soft prompt · the riders dropped with the counter · the cast-trigger / targeting-
+>   object / decline / Kira sites back on the raw primitive · the ward and Diffusion prompts · Venser treated as a counter.
+>   Witness `app/src/lib/learn/counterUncounterableAtResolution.test.js` (15).
+> · **Next:** the census from row ③ (the ③ · 1 entry below lists the verdicts so far).
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 1: the Glasskites' "counter that spell or ability" (a bug-signature row) · **+3** · corpus 14,781 (43.2%) / 34,245
 > Suite **1592 files / 16,507 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,650 / 2,998). Flip-diff **+3, zero LOST, zero retiered** (tier snapshots at b2952a0f → the

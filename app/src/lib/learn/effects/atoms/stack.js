@@ -154,6 +154,23 @@ export function counterSpellById(state, spellId, { via = null, exileInstead = fa
   return logEvent(next, { kind: "spell-effect", effect: "counter", targetId: spellId, cardName: card?.name, controller, ...(dest !== "graveyard" && { dest }), ...(dest === "exile" && { exiled: true }), ...(via && { via }) });
 }
 
+/**
+ * COUNTER, ASKING CR 701.6a AT RESOLUTION — the entry every COUNTER path takes (2026-09-30). counterSpellById is the
+ * raw stack-removal primitive; this asks first whether a SPELL can be countered at all (stackSpellIsUncounterable —
+ * the same predicate the counter-target enumeration reads). The enumeration alone was never enough: a counter that
+ * names no target never passes through it (Kira; the cast-trigger counters — Vexing Bauble, Lunar Force; the ward and
+ * group-ward soft-counter decline), and a targeted counter can meet a spell made uncounterable AFTER it was targeted
+ * (Vexing Shusher's grant in response). An uncounterable spell stays on the stack and the counter is a logged no-op.
+ * An ABILITY is never uncounterable here. Venser's bounce is not a counter and keeps the raw primitive.
+ */
+export function counterIfCounterable(state, objId, opts = {}) {
+  const obj = (state.stack || []).find((o) => o.id === objId);
+  if (obj?.kind === "spell" && stackSpellIsUncounterable(state, obj)) {
+    return logEvent(state, { kind: "spell-effect", effect: "counter-uncounterable", targetId: objId, cardName: obj.source?.name || null, controller: obj.controller, ...(opts.via && { via: opts.via }) });
+  }
+  return counterSpellById(state, objId, opts);
+}
+
 function applyCounter(state, atom, ctx) {
   let next = state;
   for (const t of ctx.targets || []) {
@@ -184,7 +201,19 @@ function applyCounter(state, atom, ctx) {
     // printed BASE behavior — the soft counter — never a fabricated upgrade.
     const hardUpgrade = atom.hardIfCondition
       && evaluateInterveningIf(next, atom.hardIfCondition, ctx.controller, { sourcePermanentId: ctx.sourceId }) === true;
-    if ((atom.unlessPay != null || atom.unlessPayX || atom.unlessPayCount) && !hardUpgrade && !next.pendingChoice) {
+    // CAN'T BE COUNTERED, ASKED AT RESOLUTION (CR 701.6a; 2026-09-30). The enumeration kept uncounterable spells off
+    // the target list when this counter was CAST, but a spell can become uncounterable after it was targeted (Vexing
+    // Shusher's grant in response; a Chimil or Root Sliver arriving meanwhile). The target is still LEGAL, so only the
+    // counter itself fails — per the rulings on Swan Song, Mana Drain and An Offer You Can't Refuse, and Vexing
+    // Shusher's own ("any additional effects of the countering spell or ability will still happen"). A soft counter
+    // asks for no payment (there is nothing it could buy); the hard counter's riders below still happen.
+    const uncounterableNow = stackSpellIsUncounterable(next, targetObj);
+    const softCounter = (atom.unlessPay != null || atom.unlessPayX || atom.unlessPayCount) && !hardUpgrade;
+    if (softCounter && uncounterableNow) {
+      next = logEvent(next, { kind: "spell-effect", effect: "counter-uncounterable", targetId: t.id, cardName: card?.name || null, controller: targetObj.controller });
+      continue;
+    }
+    if (softCounter && !next.pendingChoice) {
       // SOFT-CNT-COUNT — "pays {N} for each <count source>" (Rakshasa's Disdain {1}/GY card, Override
       // {1}/artifact, Oppressive Will {1}/hand card): the tax is per × a board/zone count resolved HERE via
       // the shared countForSpec (the same primitive the deal-damage-by-count path uses). An unmodeled count
@@ -206,21 +235,25 @@ function applyCounter(state, atom, ctx) {
     // SOFT-COUNTER-RIDER — capture the COUNTERED spell's controller, counter it (CNT-ZONE-REDIRECT routes it to
     // exile / its owner's hand / top of its owner's library instead of the graveyard — Deny Existence / Remand /
     // Memory Lapse), then apply the rider to THAT player (An Offer's Treasures / Swan Song's Bird / Dream
-    // Fracture's draw go to whoever's spell was countered, not the caster). The rider only fires when the counter
-    // actually happens (a fizzle above skips it).
+    // Fracture's draw go to whoever's spell was countered, not the caster). The rider fires whenever the target is
+    // still LEGAL — countered, or uncounterable and left on the stack (the Swan Song / An Offer rulings: its
+    // controller still gets the Bird / the Treasures); a fizzle above skips it.
     const riderController = targetObj.controller;
     // MANA DRAIN — the countered spell's MV, read BEFORE counterSpellById moves it off the stack.
     // CR 202.3b: on the stack an {X} cost counts the chosen X, which rides payload.params.xValue
     // (absent on non-X casts → +0); card.cmc counts X as 0, so the sum is the stack MV.
     const counteredMv = Math.floor(card?.cmc ?? card?.mana_value ?? 0) + Math.max(0, targetObj.payload?.params?.xValue || 0);
-    next = counterSpellById(next, t.id, { exileInstead: !!atom.exileInstead, counterDest: atom.counterDest || null });
+    next = uncounterableNow
+      ? logEvent(next, { kind: "spell-effect", effect: "counter-uncounterable", targetId: t.id, cardName: card?.name || null, controller: targetObj.controller })
+      : counterSpellById(next, t.id, { exileInstead: !!atom.exileInstead, counterDest: atom.counterDest || null });
     if (atom.controllerRider && next.players?.[riderController]) {
       next = applyControllerRider(next, atom.controllerRider, { controller: riderController, power: 0 }, ctx);
     }
     // MANA DRAIN (CR 603.7d) — schedule the {C} payout for the CASTER's next main phase, the clause
     // rewritten CONCRETE with the MV locked here (the sentinel discipline — the fired trigger parses
     // on the ordinary ritual-mana arm, no dead "that spell" referent). MV 0 schedules nothing — an
-    // empty add is not a firing. Runs only after a REAL counter (a fizzle above `continue`d away).
+    // empty add is not a firing. Runs whenever the target was LEGAL — a real counter, or an uncounterable spell
+    // left on the stack (the Mana Drain ruling: "you do add mana"); a fizzle above `continue`d away.
     if (atom.delayedManaFromMv && counteredMv > 0 && next.players?.[ctx.controller]) {
       next = applyScheduleDelayed(next, { delayedClause: "add " + "{c}".repeat(counteredMv), fireStep: "main", fireScope: "yours" }, ctx);
     }
@@ -1918,7 +1951,8 @@ function applyCounterCastSpell(state, atom, ctx) {
   // CR 603.4's second check (the intervening-if re-evaluated at resolution) is the trigger resolver's job
   // (EFFECT_PROGRAM re-evaluates the bound condition); an UNCONFIRMED (null) condition never reaches this
   // atom natively — the flush routes it to a manual resolution, so an unknown payment never counters.
-  return counterSpellById(state, spellId, { via: ctx?.cardName || null });
+  // A spell that can't be countered stays (CR 701.6a — counterIfCounterable; 2026-09-30).
+  return counterIfCounterable(state, spellId, { via: ctx?.cardName || null });
 }
 
 /**
@@ -1928,18 +1962,14 @@ function applyCounterCastSpell(state, atom, ctx) {
  * checkBecomesTargetTriggers at all four target-choice sites. The trigger was flushed above that object, so it resolves
  * first (CR 603.3b). An object already off the stack (resolved, or countered by something else — a Kira beside the
  * Glasskite counters synchronously) is a logged no-op (CR 608.2b), never a guess at another object. A SPELL that can't
- * be countered stays on the stack (CR 701.6a) — the same exclusions the counter-target enumeration applies, read through
- * the one shared predicate. An ability is never uncounterable here (no corpus ability says so), and counterSpellById
- * removes it with no zone change (CR 701.6a).
+ * be countered stays on the stack (CR 701.6a — counterIfCounterable, the resolution-time entry every counter path takes).
+ * An ability is never uncounterable here, and counterSpellById removes it with no zone change (CR 701.6a).
  */
 function applyCounterTargetingObject(state, atom, ctx) {
   const objId = ctx?.targetingStackObjectId ?? null;
   const obj = objId ? (state.stack || []).find((o) => o.id === objId) : null;
   if (!obj) return logEvent(state, { kind: "spell-effect", effect: "counter-fizzle", targetId: objId, controller: ctx?.controller });
-  if (obj.kind === "spell" && stackSpellIsUncounterable(state, obj)) {
-    return logEvent(state, { kind: "spell-effect", effect: "counter-uncounterable", targetId: objId, cardName: obj.source?.name || null, controller: ctx?.controller });
-  }
-  return counterSpellById(state, objId, { via: ctx?.cardName || null });
+  return counterIfCounterable(state, objId, { via: ctx?.cardName || null });
 }
 
 /**

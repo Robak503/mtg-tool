@@ -8,8 +8,9 @@
  *
  *   1. HARD counter — there is NO "unless its controller pays" escape. So instead of the soft-counter
  *      pay-or-be-countered pending-choice groupWard/ward raise, this counters the stack object OUTRIGHT via the
- *      shared hard-counter path (counterSpellById — the SAME primitive a printed counterspell / ward-decline
- *      uses; it removes a spell to its owner's graveyard and an ability off the stack with no zone change).
+ *      shared counter entry (counterIfCounterable — the SAME path a printed counterspell / ward-decline takes; it
+ *      removes a spell to its owner's graveyard and an ability off the stack with no zone change, and since
+ *      2026-09-30 leaves a spell that can't be countered where it is, CR 701.6a).
  *   2. NO opponent restriction — Kira fires for ANY spell or ability that targets your creature, INCLUDING
  *      your own (CR 603.2 makes no controller distinction; unlike ward/Diffusion which are opponent-only). So a
  *      player pinging / pumping their OWN Kira-protected creature the first time each turn gets that spell
@@ -42,7 +43,7 @@
 
 import { findPermanent } from "./gameState.js";
 import { permanentIsCreature } from "./layers.js";
-import { counterSpellById } from "./effects/atoms/stack.js";
+import { counterIfCounterable } from "./effects/atoms/stack.js";
 
 // The canonical Kira grant sentence → true/false. Reminder text (CR 207.2) is parenthetical and stripped; the
 // match is lowercased. ANCHORED to a WORD-START "Creatures you control have" (the leading (?<![A-Za-z] )
@@ -74,7 +75,7 @@ function controlsKira(state, playerId) {
  *     is honest even for creatures whose controller has no Kira).
  *   - If AT LEAST ONE targeted creature (a) is controlled by a player who controls a Kira source AND (b) had NOT
  *     yet become a target this turn (its pre-existing flag was falsy), COUNTER the whole stack object
- *     (counterSpellById) — the first such trigger counters it, the rest fizzle (CR 603.3b).
+ *     (counterIfCounterable) — the first such trigger counters it, the rest fizzle (CR 603.3b).
  * The flag is read from the pre-existing permanent state (before this call sets it), so a single object targeting
  * two fresh Kira creatures still counters (both were fresh). A no-op when the object targets no creature or no
  * targeted creature is Kira-eligible-and-fresh. Pure — returns a new state, never mutates.
@@ -124,7 +125,10 @@ export function applyKiraTargetCounter(state, stackObj) {
   }
 
   if (shouldCounter) {
-    next = counterSpellById(next, stackObj.id, { via: "kira" });
+    // CR 701.6a (2026-09-30): a spell that can't be countered (on-card text, a grant's mark, Root Sliver, Chimil) stays
+    // — counterIfCounterable, the resolution-time entry every counter path takes. The targeted creatures were still
+    // marked above: they did become targets this turn.
+    next = counterIfCounterable(next, stackObj.id, { via: "kira" });
   }
   return next;
 }

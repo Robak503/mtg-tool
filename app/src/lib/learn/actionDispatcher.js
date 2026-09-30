@@ -77,7 +77,7 @@ import { parseEffectProgram, parseEffectClause, programConfidence } from "./effe
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only — strip before the cast-effect parse so the runtime resolves the body natively (matches the classifier; fixes a classifier↔runtime pendingArbiter mismatch)
 import { RESOLVER_KEYS, isPermanentSpell, autoPickManaColor, choosesCreatureTypeOnEnter } from "./resolvers.js"; // LANDS-12: the ONE color auto-pick both enter sites stamp with; + CAP-CAVERN: the chosen-type chooser for a land drop
 import { autoPickCreatureType } from "./choicePolicy.js"; // CAP-CAVERN: the SAME auto-pick resolvers.enterPermanent stamps, for a land played from hand
-import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTapped, impositionEntersTapped, auraEnchantHostSpec, entersWithNamedCounters, choosesColorOnEnter } from "./staticAbilityParser.js";
+import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTapped, impositionEntersTapped, auraEnchantHostSpec, entersWithNamedCounters, choosesColorOnEnter, stackSpellIsUncounterable } from "./staticAbilityParser.js";
 import { applyCounterDoubling } from "./replacementEffects.js"; // LANDS-9: the same doubling seam resolvers.enterPermanent uses for enters-with counters
 // ORDEAL (BLITZ OC-1): the Theros Ordeal cast lane — the SAME gate legalChoices offers on and the metric
 // awards (single source of truth, no drift). Acyclic: coverage.js never imports actionDispatcher.js.
@@ -961,8 +961,15 @@ function applyCastSpell(state, action) {
   // SAME dispatch. It's real defense against a hand-built/malformed state (a test fixture, a future
   // caller invoking applyCastSpell directly with a pre-existing pendingChoice) rather than a live gap in
   // driver-run play. Documented rather than silently relied upon (§6-style).
+  // CR 701.6a (2026-09-30): a spell that CAN'T BE COUNTERED raises no ward / Diffusion payment. The trigger would
+  // counter nothing, so the only rational answer is not to pay — and asking would let the AI (or a player) spend
+  // mana for nothing. Logged as the counter entry logs it (counter-uncounterable). The same predicate the counter
+  // entry reads, so a Cavern of Souls / Mistrise Village mark on this stack object counts.
+  const cantBeCountered = stackSpellIsUncounterable(next, stackObject);
   const wardTax = wardTaxForSpell(next, stackObject);
-  if (wardTax) {
+  if (wardTax && cantBeCountered) {
+    next = logEvent(next, { kind: "spell-effect", effect: "counter-uncounterable", targetId: stkId, cardName: card.name, controller: action.playerId, via: wardTax.wardName });
+  } else if (wardTax) {
     next = setPendingSoftCounterChoice(next, {
       controller: action.playerId,
       cost: wardTax.cost, // KW-WARD-PR2: structured cost (mana | life); settle pays it by kind
@@ -979,7 +986,9 @@ function applyCastSpell(state, action) {
   // the SAME call) — the FN is real, just rare (both a printed ward AND a controlled Diffusion Sliver
   // simultaneously targeted by one spell).
   const diffusionTax = groupWardTaxForSpell(next, stackObject);
-  if (diffusionTax) {
+  if (diffusionTax && cantBeCountered) {
+    next = logEvent(next, { kind: "spell-effect", effect: "counter-uncounterable", targetId: stkId, cardName: card.name, controller: action.playerId, via: diffusionTax.wardName });
+  } else if (diffusionTax) {
     next = setPendingSoftCounterChoice(next, {
       controller: action.playerId,
       cost: diffusionTax.cost,

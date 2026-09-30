@@ -51,7 +51,7 @@ export { enterCardFromZone } from "./atoms/zones.js";
 export { sacrificeCreatureEffect, advanceSacrificeChain, sacrificePoolMatch } from "./atoms/removal.js";
 export { applyProliferate } from "./atoms/counters.js";
 export { applyEarthbend } from "./atoms/combat.js";
-export { counterSpellById, controllerSacSubtypeMatch } from "./atoms/stack.js";
+export { counterSpellById, counterIfCounterable, controllerSacSubtypeMatch } from "./atoms/stack.js";
 export { tutorManaValue, cardMatchesTutorFilter, shuffleControllerLibrary, bottomLibraryCardsByIds } from "./atoms/library.js";
 export { advanceDiscardChain, advanceHandToLibraryTopChain, pitchRandomDiscard } from "./atoms/hand.js";
 export { applyConniveCounter } from "./atoms/connive.js"; // CONNIVE (CR 701.50a) — the settle-side nonland→counter step (runProgram.resolveDiscardChoice)
