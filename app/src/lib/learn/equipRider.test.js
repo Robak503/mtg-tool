@@ -152,7 +152,9 @@ describe("GAP-2 — attach-to-self atom", () => {
     // "to that creature" (Kemba — the entering Cat, not the source) and "to target creature you control"
     // (Brass Squire — a chosen creature) must NOT model as attach-to-self.
     expect(high("attach up to one target Equipment you control to that creature")).toBe(false);
-    expect(high("attach target Equipment you control to target creature you control")).toBe(false);
+    // Brass Squire's clause parses since stage ③ · 33 (2026-09-30) — as the TWO-target attach-pair (brassSquire.test.js),
+    // never as attach-to-self, which is what this pin guards.
+    expect(parseEffectClause("attach target Equipment you control to target creature you control", "Instant").atoms.map((a) => a.op)).toEqual(["attach-pair"]);
   });
   it("enumerateTargets(equipmentYouControl) offers only the controller's own Equipment", () => {
     let s = createGameState({ userDeck: [], aiDeck: [] });

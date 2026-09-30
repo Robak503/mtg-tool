@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Brass Squire, Auriok Windwalker** — tap to move one of your Equipment onto one of your creatures
 - **High Ground, Brave the Sands** — each of your creatures can block one more attacker, and they stack
 - **Quirion Ranger, Scryb Ranger** — return a Forest you control to untap a creature, once each turn
 - **"Whenever a creature you control becomes blocked"** — Grazilaxx, Illithid Scholar, Cunning Evasion, Somberwald Alpha,
@@ -355,6 +356,8 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **An Equipment that is also a creature stays put** — Codsworth, Handy Helper could move a crewed Rover Blades onto
+  a creature; the rules forbid it unless the Equipment has reconfigure (Lizard Blades still moves)
 - **Printed protection no longer vanishes because of a later line** — Blood Baron of Vizkopa, Spirit of the Night and five
   more lost their protection when a following line said "as long as"
 - **Flash works** — creatures and other permanents with Flash can be cast any time you could cast an instant; they

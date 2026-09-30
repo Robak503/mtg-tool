@@ -5,14 +5,43 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **389 commits**, corpus
-> 38.6% → **43.6% (14,925)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **390 commits**, corpus
+> 38.6% → **43.6% (14,927)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 33: "{T}: Attach target Equipment you control to target creature you control" — Brass Squire, Auriok Windwalker · **+2** · corpus 14,927 (43.6%) / 34,245
+> Suite **1624 files / 16,813 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 31 (run 36702493662) and ③ · 32 (run
+> 36703642239). Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at 3254800f → the change). **Mutants 7/7 killed on
+> assertions** (restore byte-identical).
+> · **Census rank 54** (Brass Squire #2616, Auriok Windwalker): the two-target attach existed for Codsworth, Handy Helper's
+>   "Aura or Equipment" form (the attach-pair atom, SHELF CAP16). This is the same atom on the narrower pool —
+>   `equipmentYouControl`, Captain America's — so an Aura is NOT a legal attachment; the host slot (a creature you control) is
+>   unchanged.
+> · **A hole both forms shared, closed:** CR 301.5c — "An Equipment that's also a creature can't equip a creature unless that
+>   Equipment has reconfigure" — and an attach that can't happen leaves it where it is (CR 701.3b). The resolver never checked:
+>   a crewed Rover Blades (an artifact creature until end of turn) would have been moved. `layers.equipmentBarredAsCreature`
+>   reads it RIGHT NOW (layer-aware); `layers.hasReconfigure` is now the one reconfigure read the layer-4 half shares.
+> · **Runtime (offers from legalActionsForPlayer; the crew is the real crew action; resolution through dispatch + the stack):**
+>   `WITNESS brassSquireOffers ["bs->bear","bs->sq"]` — Bonesplitter onto either creature, the Aura beside it never offered ·
+>   an opponent's Equipment and creature never chosen · no Equipment → no offer; a summoning-sick Squire can't pay {T} · Auriok
+>   Windwalker the same past its Flying line · Bonesplitter moves and the Bear hits for 4 ·
+>   `WITNESS roverBladesCrewed {"attachedTo":null,"bearAttachments":[],"bearDoubleStrike":false,"attachLogged":false}` (the
+>   same Rover Blades uncrewed moves — the vacuity control) · Lizard Blades (reconfigure) is offered for the Bear and the Squire,
+>   never itself (CR 301.5c), moves, and stops being a creature (CR 702.151b) · Codsworth's form refuses the crewed Blades too.
+> · **Mutants 7/7:** the arm removed · the arm on Codsworth's Aura-or-Equipment pool · the host slot unrestricted · the guard
+>   removed · the reconfigure exception dropped · the guard reading the PRINTED type line instead of the layers · the shared
+>   reconfigure read losing its multiline flag. (Flipping the atom's `distinct` flag is unkillable by construction — the
+>   enumerator enforces distinctness for every two-target atom — and is not counted.) Witness
+>   `app/src/lib/learn/brassSquire.test.js` (11).
+> · **A stale pin GRADUATED with a note:** equipRider.test.js pinned Brass Squire's clause LOW to prove it never modeled as
+>   attach-to-self; it now asserts the clause parses as attach-pair — the same guard, stated positively.
+> · **Next:** census rank 55 — Canopy Cover / Shielding Plax ("Enchanted creature can't be the target of spells or abilities
+>   your opponents control").
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 32: "Each creature you control can block an additional creature each combat" — Brave the Sands, High Ground · **+2** · corpus 14,925 (43.6%) / 34,245
 > Suite **1623 files / 16,802 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at 1e2fe493 → the

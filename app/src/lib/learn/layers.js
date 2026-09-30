@@ -872,7 +872,7 @@ export function staticEffectsOf(state, permanent) {
     // is set, so unattaching makes it a creature again with no extra bookkeeping (CR 702.151c).
     // Read off the printed oracle rather than a stamped flag: unlike bestow (a cast-time choice the flag
     // records) reconfigure is a property of the CARD, so there is nothing to stamp and nothing to lose.
-    if (/^reconfigure\b/im.test(String(card?.oracle ?? card?.oracle_text ?? ""))) {
+    if (hasReconfigure(card)) {
       partials.push({
         layer: 4,
         op: { layerOp: "removeCardType", removeType: "Creature" },
@@ -2030,6 +2030,25 @@ export function crewCostWithOverrides(state, permanentId, printed) {
 
 export function permanentIsCreature(state, permanentId) {
   return permanentTypes(state, permanentId).types.includes("Creature");
+}
+
+/** RECONFIGURE (CR 702.151) is a property of the printed CARD, read off its oracle — one read shared by the layer-4 half
+ * (an attached reconfigure Equipment is not a creature) and the CR 301.5c exception below. */
+export function hasReconfigure(card) {
+  return /^reconfigure\b/im.test(String(card?.oracle ?? card?.oracle_text ?? ""));
+}
+
+/**
+ * CR 301.5c — "An Equipment that's also a creature can't equip a creature unless that Equipment has reconfigure." True when
+ * this permanent is, RIGHT NOW (layer-aware), an Equipment AND a creature without reconfigure: a crewed Equipment Vehicle
+ * (Rover Blades is an artifact creature until end of turn), an animated Equipment. An effect that tries to attach it to a
+ * creature does nothing, and it stays where it is (CR 701.3b). Read at resolution by the attach-pair atom (Brass Squire,
+ * Codsworth — the 09-06 plan's stage ③ · 33). A permanent that isn't on the battlefield answers false: its departure is
+ * the caller's own no-op.
+ */
+export function equipmentBarredAsCreature(state, permanentId) {
+  const { types, subtypes } = permanentTypes(state, permanentId);
+  return subtypes.includes("Equipment") && types.includes("Creature") && !hasReconfigure(findPerm(state, permanentId)?.card);
 }
 
 /**

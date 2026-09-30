@@ -7,7 +7,7 @@ import { applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellE
 import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe } from "../../gameState.js";
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingOptionalExileSelfChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
-import { permanentIsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW
+import { permanentIsCreature, equipmentBarredAsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33)
 import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
 import { expandCastChoices } from "../targeting.js"; // STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
@@ -358,6 +358,9 @@ function applyAttachPair(state, atom, ctx) {
   let hostT = ts.find((t) => t?.role === "host");
   if (!attachT && !hostT) { attachT = ts[0]; hostT = ts[1]; }   // untagged → positional (attachment, then host)
   if (!attachT?.id || !hostT?.id || attachT.id === hostT.id) return state;
+  // CR 301.5c — an Equipment that is a creature RIGHT NOW and has no reconfigure (a crewed Rover Blades) can't equip a creature,
+  // so the attach does nothing and it stays where it is (CR 701.3b). Stage ③ · 33, with the Equipment-only form below.
+  if (equipmentBarredAsCreature(state, attachT.id)) return state;
   const next = attachPermanent(state, { equipId: attachT.id, targetId: hostT.id });
   if (next === state) return state;                              // nothing moved → don't log an attach
   return logEvent(next, { kind: "spell-effect", effect: "attach-pair", equipId: attachT.id, targetId: hostT.id, controller: ctx.controller });
@@ -411,6 +414,17 @@ export function attachClauseParser(clause) {
     return {
       op: "attach-pair",
       targetType: "auraOrEquipmentYouControl", restrictions: [], role: "attachment",
+      secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "host",
+      distinct: true,
+    };
+  }
+  // + the EQUIPMENT-only form (the 09-06 plan's stage ③ · 33, 2026-09-30 — Brass Squire, Auriok Windwalker: "{T}: Attach
+  // target Equipment you control to target creature you control."). The same atom on the narrower pool: an Aura is NOT a
+  // legal attachment here (equipmentYouControl, Captain America's pool); the host slot is unchanged.
+  if (/^attach target equipment you control to target creature you control$/.test(t)) {
+    return {
+      op: "attach-pair",
+      targetType: "equipmentYouControl", restrictions: [], role: "attachment",
       secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "host",
       distinct: true,
     };
