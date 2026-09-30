@@ -309,7 +309,21 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
   // atomIndexes that carry a two-target pair (FIGHT-PAIR / DAMAGE-TARGET-POWER) — the fighter + target of
   // ONE such atom must be DISTINCT creatures (CR 701.12 / "another target creature"); enforced post-combine.
   const pairAtomIdx = [];
+  // ⭐ A KICKED SPELL'S TARGETS DEPEND ON THE KICK (CR 601.2c — "a spell may require some targets only if an alternative
+  // or additional cost (such as a kicker cost) … was chosen for it … Similarly, a spell may require alternative targets
+  // only if an alternative or additional cost was chosen for it"; CR 702.33g). An atom that will not run in this cast
+  // gets no target: a `kickedOnly` atom on an unkicked cast, a `nonKickedOnly` atom on a kicked one. `ctx.kicked` is the
+  // cast being enumerated, and its default is the one runEffectProgram resolves with — unkicked — so enumeration and
+  // resolution always read the same flag. Skipping keeps `i`, so every target still carries its atom's own index.
+  //
+  // Before this, both halves of a replacement were enumerated for every cast: Burst Lightning ("deals 2 damage to any
+  // target. If this spell was kicked, it deals 4 damage instead") offered a cartesian of two independent picks, so every
+  // cast TARGETED two things while dealing damage to one — the dead pick still saw "becomes the target" triggers (a
+  // Phantasmal Bear was sacrificed by a spell aimed at a player), and the AI chose its kicked cast by the first pick
+  // while the damage went to the second.
+  const kicked = ctx?.kicked === true;
   for (let i = 0; i < atoms.length; i++) {
+    if ((atoms[i]?.kickedOnly && !kicked) || (atoms[i]?.nonKickedOnly && kicked)) continue;
     const atom = targetingAtomOf(atoms[i]);
     const tagged = atomTargets(state, controllerId, atom, i, sourceColors, ctx);
     if (tagged === null) continue;            // non-targeted atom
@@ -484,6 +498,8 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
  * threaded from an ATTACKS trigger so a who:"defendingPlayer" controller restriction ("… defending player
  * controls", Kogla) enumerates ONLY the specific attacked player's permanents. Absent on spell / non-attack
  * paths (the restriction only arises off an attacks trigger, so those never see it → empty pool, drop).
+ * `ctx.kicked` (a spell cast, or a copy or retarget of one) says which cast is being enumerated — see expandAtoms:
+ * a kicked spell's atoms that won't run in that cast take no target. Unset means unkicked, as at resolution.
  */
 export function expandCastChoices(state, controllerId, program, sourceColors = [], ctx = null) {
   if (!program) return [];

@@ -127,8 +127,13 @@ describe("⛔ CREED — everything that is not a pure magnitude swap still refus
     refuses("Fake Bolt", "Kicker {4}\nFake Bolt deals 2 damage to any target. If this spell was kicked, it deals 4 damage to each creature instead.");
   });
 
-  it("⛔ an op outside the supported set still refuses (draw)", () => {
-    refuses("Field Research", "Kicker {2}{U}\nDraw two cards. If this spell was kicked, draw three cards instead.", "Sorcery");
+  it("⭐ RE-POINTED (shelf D8) — draw is still outside the CLONE's op set; Field Research graduated through the whole replacement", () => {
+    // This pinned Field Research as refused because draw is not a magnitude op here. It still isn't — the card now
+    // lands through matchKickedWholeReplacement, which PARSES the complete clause "draw three cards" instead of
+    // cloning the base. (The whole replacement needs a complete clause; this file's elliptical tails never are one.)
+    const fieldResearch = { name: "Field Research", type: "Sorcery", mana: "{2}{U}", oracle: "Kicker {2}{U}\nDraw two cards. If this spell was kicked, draw three cards instead." };
+    expect(classifyCard(fieldResearch)).toBe("native-spell");
+    expect(atomsOf(fieldResearch).map((a) => [a.op, a.amount, !!a.nonKickedOnly, !!a.kickedOnly])).toEqual([["draw", 2, true, false], ["draw", 3, false, true]]);
   });
 
   it("⛔ a MULTI-ATOM base has no single magnitude to replace", () => {

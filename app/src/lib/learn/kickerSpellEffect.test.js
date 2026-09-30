@@ -12,9 +12,10 @@
  * base-atom resolution PAUSE (a scry/tutor), because `kicked` rides the resume.
  *
  * CREED-critical: a NOT-kicked cast fires the BASE ONLY (the kicked atoms are never resolved — no fabricated
- * effect); a kicked cast fires base + the kicked tail exactly once; and every DEFERRED shape (a "instead"
- * replacement / a back-reference scaler / an {X} or "and/or" or non-mana kicker / a kicked-only chosen target)
- * stays a single LOW program → arbiter-spell, never a fabricated native credit.
+ * effect); a kicked cast fires base + the kicked tail exactly once; and every DEFERRED shape (an "instead"
+ * replacement that is neither a magnitude swap nor a whole clause / a back-reference scaler / an {X} or "and/or" or
+ * non-mana kicker / an "another target" tail) stays a single LOW program → arbiter-spell, never a fabricated native
+ * credit. (The kicked-only chosen target graduated in shelf D8 — see kickedTargetVariants.test.js.)
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
@@ -90,11 +91,17 @@ describe("KICKED-SPELL-EFFECT CREED anti-FP — deferred shapes stay arbiter-spe
     expect(parseEffectProgram(burst).atoms.map((a) => [a.amount, !!a.nonKickedOnly, !!a.kickedOnly]))
       .toEqual([[2, true, false], [4, false, true]]);
 
-    // ⛔ THE BOUNDARY IS THE OP SET, NOT THE SHAPE. Field Research ("draw two cards … draw three cards
-    // instead") is the identical magnitude-replacement shape on an op this arm does not cover, and it still
-    // refuses. Kept deliberately as the marker: widening the op set is the next graduation and should MOVE
-    // this line rather than weaken it.
-    expect(classifyCard({ name: "Field Research", type: "Sorcery", mana: "{2}{U}", oracle: "Kicker {2}{U}\nDraw two cards. If this spell was kicked, draw three cards instead." })).toBe("arbiter-spell");
+    // ⭐ MOVED (shelf D8), as this marker asked. Field Research ("draw two cards … draw three cards instead") was
+    // the magnitude shape on an op the clone arm does not cover. It graduated through the WHOLE replacement
+    // instead: "draw three cards" is a complete clause, so it is PARSED on its own rather than cloned — the base
+    // stamped nonKickedOnly, the clause kickedOnly.
+    const fieldResearch = { name: "Field Research", type: "Sorcery", mana: "{2}{U}", oracle: "Kicker {2}{U}\nDraw two cards. If this spell was kicked, draw three cards instead." };
+    expect(classifyCard(fieldResearch)).toBe("native-spell");
+    expect(parseEffectProgram(fieldResearch).atoms.map((a) => [a.op, a.amount, !!a.nonKickedOnly, !!a.kickedOnly]))
+      .toEqual([["draw", 2, true, false], ["draw", 3, false, true]]);
+    // ⛔ The marker's new home: a replacement over a TWO-sentence base still refuses — nothing says which sentence
+    // "instead" replaces (the clone arm needs one atom; the whole replacement needs one sentence).
+    expect(classifyCard({ name: "Fake Two Sentences", type: "Sorcery", mana: "{2}{U}", oracle: "Kicker {2}\nDraw a card. Scry 1. If this spell was kicked, draw two cards instead." })).toBe("arbiter-spell");
   });
 
   it("⛔ a replacement carrying an EXTRA RIDER still refuses — the lossy-tail direction", () => {
@@ -113,15 +120,22 @@ describe("KICKED-SPELL-EFFECT CREED anti-FP — deferred shapes stay arbiter-spe
     expect(classifyCard({ name: "Bog Down", type: "Sorcery", mana: "{2}{B}", oracle: "Kicker—Sacrifice two lands.\nTarget player discards two cards. If this spell was kicked, that player discards three cards instead." })).toBe("arbiter-spell");
   });
   it("an UNMODELED kicked effect drops the WHOLE card to arbiter-spell (base modeled, kicked tail not)", () => {
-    // base "Draw a card" is HIGH, but the kicked tail "exile target player's graveyard" parses LOW → whole card LOW.
-    expect(classifyCard({ name: "Fake Kicker", type: "Sorcery", mana: "{1}{U}", oracle: "Kicker {2}\nDraw a card. If this spell was kicked, exile target player's graveyard." })).toBe("arbiter-spell");
+    // base "Draw a card" is HIGH, but the kicked tail parses LOW → whole card LOW.
+    // RE-POINTED (shelf D8): the old tail, "exile target player's graveyard", has parsed HIGH for a while — this pin
+    // was held by the kicked-only-TARGET gate, not by an unmodeled tail. That gate graduated (the kicked cast now
+    // chooses its own target), so the pin takes a tail that is genuinely unmodeled.
+    expect(classifyCard({ name: "Fake Kicker", type: "Sorcery", mana: "{1}{U}", oracle: "Kicker {2}\nDraw a card. If this spell was kicked, each player shuffles their hand into their library." })).toBe("arbiter-spell");
   });
   it("an UNMODELED base drops the whole card to arbiter-spell even if the kicked tail is modeled", () => {
     expect(classifyCard({ name: "Fake Base", type: "Sorcery", mana: "{1}{U}", oracle: "Kicker {2}\nUntap all Forests you control. If this spell was kicked, draw a card." })).toBe("arbiter-spell");
   });
-  it("a kicked clause whose effect needs its OWN chosen target is deferred (FN-safe)", () => {
-    // "destroy target creature" as the kicked tail would need a kicked-only target the shared enumeration can't bind.
-    expect(classifyCard({ name: "Fake Kicked Target", type: "Sorcery", mana: "{1}{B}", oracle: "Kicker {2}\nDraw a card. If this spell was kicked, destroy target creature." })).toBe("arbiter-spell");
+  it("⭐ GRADUATED (shelf D8) — a kicked clause with its OWN chosen target; 'another target' still defers", () => {
+    // This pinned the kicked-only target as deferred: "a kicked-only target the shared enumeration can't bind". Casts
+    // are enumerated per kick now (CR 702.33g — the target is chosen only if the spell was kicked), so the capability
+    // pin graduates and is RE-POINTED. The runtime split is witnessed on Probe in kickedTargetVariants.test.js.
+    expect(classifyCard({ name: "Fake Kicked Target", type: "Sorcery", mana: "{1}{B}", oracle: "Kicker {2}\nDraw a card. If this spell was kicked, destroy target creature." })).toBe("native-spell");
+    // ⛔ "another target" must differ from the base's target, and nothing enforces distinctness ACROSS atoms.
+    expect(classifyCard({ name: "Fake Another", type: "Sorcery", mana: "{1}{B}", oracle: "Kicker {2}\nReturn target creature to its owner's hand. If this spell was kicked, destroy another target creature." })).toBe("arbiter-spell");
   });
   it("a kicked clause printed FIRST (not a suffix) is deferred — reordering could mis-resolve a count-reading base (Fires of Victory)", () => {
     // base damage "equal to the number of cards in your hand" reads a count the kicked draw mutates; running

@@ -1976,7 +1976,8 @@ function applyRetarget(state, atom, ctx) {
       continue;
     }
     let combos;
-    try { combos = expandCastChoices(next, obj.controller, program) || []; } catch { combos = []; }
+    // A kicked spell keeps the kicked cast's targets (CR 601.2c — its alternative targets exist only because it was kicked).
+    try { combos = expandCastChoices(next, obj.controller, program, [], { kicked: params.kicked === true }) || []; } catch { combos = []; }
     if (params.chosenMode != null) combos = combos.filter((c) => c.chosenMode === params.chosenMode);
     const deflected = combos.find((c) => (c.targets || []).length > 0 && !(c.targets || []).some(isMine));
     if (!deflected) {

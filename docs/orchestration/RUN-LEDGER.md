@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **420 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **421 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,41 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D8: a kicked spell's targets depend on the kick — **Shalai 89 → 90** · Otharri 87 → 89 · Light-Paws 82 → 83 · **+9** · corpus 15,046 (43.9%) / 34,245
+> Suite **1652 files / 17,077 tests** green (1 skipped); lint 0; decks 2,661 → **2,665** / 2,998. CI GREEN on D7 (run 36757020205). Flip-diff **+9,
+> zero LOST, zero RETIERED** (tier snapshots at 9e633df8 → the change). **Mutants 20/20 killed on assertions** (restore byte-identical).
+> · **Why:** Galadriel's Dismissal (×3 decks) swaps its TARGET when kicked — a creature unkicked, a player kicked — and the
+>   cast enumerator offered one target set for both casts. A census of kicker spells whose kicked clause carries its own
+>   target found 14 corpus cards, 4 shelf slots (Galadriel's ×3, Divine Resilience) — a first count of 5 read Veyran's "Gitaxian Probe" as Probe.
+> · **Build:** `targeting.expandAtoms` reads `ctx.kicked` — an atom that won't run in the cast being offered takes no target
+>   (CR 601.2c "alternative targets", CR 702.33g). Default = unkicked, the same default runEffectProgram resolves with.
+>   legalChoices enumerates the two casts separately (interleaved, so additive kickers keep their exact offer order);
+>   Deflecting Swat's retarget passes the spell's own kick. Parser: `matchKickedWholeReplacement` — "<one sentence>. If
+>   kicked, instead <a complete clause>" → base `nonKickedOnly` + the clause's own atoms `kickedOnly`; guards: one-sentence
+>   base, no back-reference (it/its/that/those/another/chosen), clause HIGH. Gate 4 (kicked-only target) GRADUATED;
+>   "another target" still refuses (no cross-atom distinctness). Phase-out: "each creature target player controls phases
+>   out" (Contagion Engine's `eachCreatureOfTargetPlayer` expansion). The counted-subject peel agrees the verb across
+>   "you control" (Divine Resilience's kicked clause).
+> · ⚠️ **A SHIPPED FP CLOSED — Burst Lightning's magnitude pair:** both atoms carried their own target, so every cast was a
+>   cartesian of two independent picks (50 casts where 10 are real). The unused pick still TARGETED: a Phantasmal Bear
+>   was sacrificed by a Burst Lightning aimed at a player; the AI chose its kicked cast by the first pick while the 4
+>   damage went to the second (its own creature, in enumeration order). Seven shipped cards had it (census): Burst
+>   Lightning, Shivan Fire, Roil Eruption, Firebending Lesson, Might of Murasa, Explosive Growth, Gift of Growth.
+> · **Runtime:** `WITNESS burstLightningCasts` 10 casts, one target each (atom 0 unkicked, atom 1 kicked) · Phantasmal Bear
+>   lives (control: aimed at it, it's sacrificed) · the AI's kicked cast kills the enemy Bear, its own lives ·
+>   `WITNESS galadrielsDismissalKicked {"theirsOut":["a1","a2"],"theirBoard":[],"mine":["u1"],"back":["a1","a2"]}` · no
+>   creature → only the kicked cast · Deflecting Swat re-aims a kicked Dismissal at the other PLAYER · Bloodchief's Thirst /
+>   Tear Asunder / Highly Illogical offer each half only its own targets · Divine Resilience's two creatures survive a real
+>   wrath · Field Research 2 or 3 (never 5) · Wild Onslaught 1 or 2 counters · Bold Defense +1/+1 or +2/+2 first strike ·
+>   Probe's kicked target discards two. Witness `app/src/lib/learn/kickedTargetVariants.test.js` (19).
+> · **Pins re-pointed (5, all graduations):** Field Research (×2 files — the marker MOVED to a two-sentence base, as it
+>   asked); the kicked-only target; Galadriel's parked pin (D7); and "Fake Kicker" — its tail had parsed HIGH for a while,
+>   it was held by the Gate-4 refusal, not the unmodeled tail it claimed. Now pins a genuinely LOW tail.
+> · **Dropped before commit (unwitnessed):** the storm-copy kick thread (no storm spell has kicker), and in the matcher a
+>   double-"instead" guard, a structural referent guard and an additional-cost guard (parseEffectClause never sets one);
+>   in the peel, "an opponent controls" and the qualifier-plus-"each" form (no card needed them — flip-diff unchanged).
+> · **Next:** Otharri 89 (Patrolling Peacemaker — CRIME: 29 corpus cards, the crime line is the SOLE blocker on 18) · Wolverine 88 · Captain America 87.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D7: targeted phasing — Clever Concealment (**Shalai 88 → 89**, **Otharri 86 → 87**) · **+3** · corpus 15,037 (43.9%) / 34,245
 > Suite **1651 files / 17,058 tests** green (1 skipped); lint 0; decks 89% (2,659 → **2,661** / 2,998). CI GREEN on D6 (run 36754585131). Flip-diff **+3,

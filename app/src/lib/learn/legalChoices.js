@@ -1232,14 +1232,15 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     const isHigh = program && programConfidence(program) === "high";
 
     // ===== KICKED-SPELL-EFFECT (CR 702.33e) ===== a HIGH instant/sorcery program carrying a `kickedOnly` atom
-    // (the "If this spell was kicked, <extra>" additive payoff, parseEffectProgram) can be cast NORMALLY or
-    // KICKED. The kicked atoms are TARGETLESS (the parser gate guarantees it), so the per-atom target combos are
-    // IDENTICAL for both casts — the kicked variant just folds the kicker pips into the cost and stamps
-    // `kicked:true`. The dispatcher threads `kicked` onto the EFFECT_PROGRAM payload; runEffectProgram runs the
-    // kickedOnly atoms only on the kicked cast. We compute the kicker cost here (parseKickerCost = the kicker.js
-    // source of truth) + whether it's affordable on TOP of the base; the multi-atom emission below crosses each
-    // target combo with {kicked:false} and (when affordable) {kicked:true}. A free-cast (Discover) pays nothing,
-    // so the kicker is never paid (only the normal cast offered — the base still resolves; a SAFE limitation).
+    // (the "If this spell was kicked, <extra>" payoff, parseEffectProgram — additive, or a replacement whose base
+    // atoms are stamped `nonKickedOnly`) can be cast NORMALLY or KICKED. The kicked variant folds the kicker pips
+    // into the cost and stamps `kicked:true`; its targets are enumerated for the kicked cast on its own (CR 601.2c —
+    // a kicked-only target, or an "instead" clause's alternative target, is chosen only when kicked). The
+    // dispatcher threads `kicked` onto the EFFECT_PROGRAM payload; runEffectProgram runs the kickedOnly atoms only
+    // on the kicked cast. We compute the kicker cost here (parseKickerCost = the kicker.js source of truth) +
+    // whether it's affordable on TOP of the base; the multi-atom emission below offers {kicked:false} casts and
+    // (when affordable) {kicked:true} casts. A free-cast (Discover) pays nothing, so the kicker is never paid (only
+    // the normal cast offered — the base still resolves; a SAFE limitation).
     const kickedSpell = isHigh && (program.atoms || []).some((a) => a.kickedOnly);
     let kickedSpellCost = null, kickedSpellCmc = null, kickedSpellAffordable = false;
     if (kickedSpell && !freeCast) {
@@ -1577,19 +1578,28 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     const isMultiOrModal = isHigh
       && (program.structure === "modal" || (program.atoms?.length || 0) > 1);
     if (isMultiOrModal || isExtendedTargeted) {
+      // ⭐ A KICKED SPELL'S TWO CASTS ARE ENUMERATED SEPARATELY (CR 601.2c, CR 702.33g). Each offers targets only for the
+      // atoms that run in it (targeting.expandAtoms reads ctx.kicked): Galadriel's Dismissal targets a creature unkicked
+      // and a PLAYER kicked; Probe targets nobody unkicked and a player kicked. For an additive payoff with no target of
+      // its own the two lists are identical, and the interleave below keeps the order the casts were always offered in
+      // (normal, kicked, normal, kicked …).
       const choices = expandCastChoices(state, playerId, program, colorsOf(card));
-      if (choices.length === 0) continue; // no legal cast (a required target is missing)
-      for (const ch of choices) {
-        const common = {
-          ...base,
-          targets: ch.targets,
-          chosenMode: ch.chosenMode ?? null,
-          needsTargets: ch.targets.length > 0,
-          targetName: ch.targets.map(t => t.name).filter(Boolean).join(", ") || undefined,
-          modeName: ch.label || undefined,
-        };
-        // KICKED-SPELL-EFFECT: the NORMAL cast (kicked atoms skipped at resolution). For a kicked-spell, stamp
-        // kicked:false explicitly so the dispatcher/AI distinguish it from the kicked variant.
+      const kickedChoices = kickedSpell && kickedSpellAffordable
+        ? expandCastChoices(state, playerId, program, colorsOf(card), { kicked: true })
+        : [];
+      if (choices.length === 0 && kickedChoices.length === 0) continue; // no legal cast (a required target is missing)
+      const commonFor = (ch) => ({
+        ...base,
+        targets: ch.targets,
+        chosenMode: ch.chosenMode ?? null,
+        needsTargets: ch.targets.length > 0,
+        targetName: ch.targets.map(t => t.name).filter(Boolean).join(", ") || undefined,
+        modeName: ch.label || undefined,
+      });
+      // KICKED-SPELL-EFFECT: the NORMAL cast (kicked atoms skipped at resolution). For a kicked-spell, stamp
+      // kicked:false explicitly so the dispatcher/AI distinguish it from the kicked variant. Null = not offered.
+      const normalCast = (ch) => {
+        const common = commonFor(ch);
         // ⭐ STRIVE (CR 702.106 — ④-AS, 2026-09-04): "this spell costs {N} more to cast for each target beyond the first"
         // rides the program as `strivePerTarget` (parseEffectProgram peels and stamps it). Each chosen subset pays the base
         // cost plus N × (targets − 1), and a subset the player cannot fund is simply not offered — the printed card's
@@ -1601,21 +1611,25 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         if (program.targetConditionalReduction) {
           const hit = targetConditionalReductionHits(state, playerId, ch.targets, program.targetConditionalReduction);
           const tcrCost = hit ? { ...base.cost, generic: Math.max(0, (base.cost.generic || 0) - program.targetConditionalReduction.amount) } : base.cost;
-          if (!freeCast && !canAfford(player.manaPool, manaSources(state, playerId), tcrCost, spendContext)) continue;
+          if (!freeCast && !canAfford(player.manaPool, manaSources(state, playerId), tcrCost, spendContext)) return null;
           striven = { ...common, cost: tcrCost };
         }
         if (program.strivePerTarget && ch.targets.length > 1) {
           const per = parseManaCost(program.strivePerTarget);
           let cost = base.cost;
           for (let i = 1; i < ch.targets.length; i++) cost = mergeManaCost(cost, per);
-          if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
+          if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) return null;
           striven = { ...common, cost, cmc: totalCmc(cost) };
         }
-        actions.push(kickedSpell ? { ...striven, kicked: false } : striven);
-        // The KICKED cast — kicker pips folded into the cost — when affordable on top of the base. Same target
-        // combo (the kicked atoms are targetless), kicked:true → runEffectProgram runs the kickedOnly tail.
-        if (kickedSpell && kickedSpellAffordable) {
-          actions.push({ ...common, cost: kickedSpellCost, cmc: kickedSpellCmc, kicked: true, kickedName: "kicked" });
+        return kickedSpell ? { ...striven, kicked: false } : striven;
+      };
+      for (let k = 0; k < Math.max(choices.length, kickedChoices.length); k++) {
+        const normal = k < choices.length ? normalCast(choices[k]) : null;
+        if (normal) actions.push(normal);
+        // The KICKED cast — kicker pips folded into the cost — when affordable on top of the base, with the kicked
+        // cast's own targets; kicked:true → runEffectProgram runs the kickedOnly atoms and skips the nonKickedOnly ones.
+        if (k < kickedChoices.length) {
+          actions.push({ ...commonFor(kickedChoices[k]), cost: kickedSpellCost, cmc: kickedSpellCmc, kicked: true, kickedName: "kicked" });
         }
       }
       continue;

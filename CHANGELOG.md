@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Kicked spells that change their target** — Galadriel's Dismissal (a creature, or every creature a player controls when kicked), Bloodchief's Thirst, Tear Asunder, Highly Illogical, Divine Resilience and Probe; plus Field Research, Wild Onslaught and Bold Defense
 - **Targeted phasing** — Clever Concealment, Vodalian Illusionist and Brokers Confluence can phase permanents out; Auras and Equipment go with them and come back attached
 - **"When you cycle this card" triggers** — Agonasaur Rex, Krosan Tusker, Titanoth Rex, Splendor Mare, the Sojourners and more can now be cycled, and their trigger resolves before you draw
 - **Ascend and the city's blessing** — control ten or more permanents with an Ascend card out and you get the blessing for the rest of the game; Arch of Orazca, Wayward Swordtooth, Skymarcher Aspirant, Dusk Charger and ten more now play
@@ -393,6 +394,7 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **Burst Lightning and other "deals more instead" kicker spells** — a cast no longer targets a second thing it doesn't affect (which could sacrifice a Phantasmal creature or make the AI hit its own creature)
 - **Teferi's Protection** — an equipped creature now comes back still equipped, and an opponent's Aura on your creature phases out with it instead of being destroyed
 - **Seven-Tail Mentor, Grafted Growth, Light the Way, Perilous Snare** — their +1/+1 counter on a creature or Vehicle now actually lands
 - **Temur Elevator** now costs you 1 life when you tap it without the city's blessing

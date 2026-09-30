@@ -53,9 +53,12 @@ const links = (s) => {
 };
 
 describe("the cards", () => {
-  it("⭐ Clever Concealment reads native; Galadriel's Dismissal (a kicked target swap) and Talon Gates' hand ability still park", () => {
+  it("⭐ Clever Concealment reads native; Galadriel's Dismissal graduated with the kicked target swap (shelf D8)", () => {
+    // RE-POINTED (D8): this pinned Galadriel's Dismissal as parked because its kicked "each creature target player
+    // controls phases out instead" swaps the TARGET, which the shared cast enumeration could not express. Casts are
+    // enumerated per kick now — kickedTargetVariants.test.js witnesses the creature/player split at runtime.
     expect(classifyCard(CLEVER_CONCEALMENT)).toBe("native-spell");
-    expect(classifyCard(GALADRIELS_DISMISSAL)).toBe("arbiter-spell");
+    expect(classifyCard(GALADRIELS_DISMISSAL)).toBe("native-spell");
   });
   it("the four printed forms parse; a phase-out with a rider does not", () => {
     for (const c of ["Target creature phases out", "Up to one target creature phases out", "Target creature you don't control phases out", "Any number of target nonland permanents you control phase out"]) {

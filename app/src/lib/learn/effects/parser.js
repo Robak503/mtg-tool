@@ -544,8 +544,11 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
   // by MAX_CAST_EXPANSIONS). The Strive COST rides the cast lane off program.strivePerTarget (parseEffectProgram).
   const upToN = /\bup to (two|three|four) (target creatures)\b/i.exec(s) || /\b(any number of) (target creatures)\b/i.exec(s);
   if (upToN) {
+    // "you control" may sit between the noun and the verb ("any number of target creatures YOU CONTROL gain
+    // indestructible" — Divine Resilience kicked, shelf D8); the verb agrees back across it, and the qualifier stays in
+    // the reduced clause for the arm to read as a restriction.
     const reduced = s.replace(upToN[0], "target creature")
-      .replace(/\btarget creature (gain|get|become|lose|have)\b/i, (_m, v) => `target creature ${v}s`)
+      .replace(/\btarget creature ((?:you control )?)(gain|get|become|lose|have)\b/i, (_m, ctl, v) => `target creature ${ctl}${v}s`)
       .replace(/\btarget creature each (gains?|gets?)\b/i, (_m, v) => `target creature ${v.endsWith("s") ? v : v + "s"}`)
       .replace(/\b(gets? [+-]\d+\/[+-]\d+) and (gain|get)\b/i, (_m, head, v) => `${head} and ${v}s`); // "… each get +2/+0 and gain trample" → "gets … and gains trample"
     const innerN = parseClauseToAtom(cardType, reduced, hasX, sourceScoped);
@@ -1187,6 +1190,10 @@ function matchKickedSpellEffect(card, cardType, oracle) {
   // "and if it would die" — Scorching Lava) falls through to the refusal below, unchanged.
   const replacement = matchKickedMagnitudeReplacement(baseProgramFor(t, card, cardType), kickedEffect);
   if (replacement) return replacement;
+  // ⭐ THE WHOLE REPLACEMENT — "instead <a complete clause>" (Bloodchief's Thirst, Tear Asunder, Highly Illogical,
+  // Galadriel's Dismissal, Divine Resilience). See matchKickedWholeReplacement for its guards.
+  const swap = matchKickedWholeReplacement(t, card, cardType, kickedEffect);
+  if (swap) return swap;
   if (/\b(?:instead|rather than)\b/i.test(kickedEffect)) return null;
   if (/\b(?:that creature|those creatures|that player|that spell|that permanent|that card|that damage|it deals|an additional)\b/i.test(kickedEffect)) return null;
 
@@ -1207,11 +1214,16 @@ function matchKickedSpellEffect(card, cardType, oracle) {
   const kickedProgram = parseEffectClause(kickedEffect, cardType, { hasX: false });
   if (!kickedProgram || programConfidence(kickedProgram) !== "high" || kickedProgram.structure === "modal" || kickedProgram.xSpell) return null;
 
-  // Gate 4 — the kicked atoms must be TARGETLESS (no chosen target). The cast path enumerates a single
-  // target set shared by the normal + kicked casts; a kicked-only chosen target would need conditional
-  // enumeration we don't model. (Also: an `optional`/`oncePerTurn` kicked atom or a kicked additional-cost
-  // is out of scope — keep the kicked tail a plain additive sequence.)
-  if (programNeedsChosenTarget(kickedProgram)) return null;
+  // Gate 4 — ⭐ A KICKED-ONLY CHOSEN TARGET GRADUATED (Probe "If this spell was kicked, target player discards two
+  // cards"). This gate read "the kicked atoms must be TARGETLESS … a kicked-only chosen target would need conditional
+  // enumeration we don't model". Casts are enumerated per variant now (targeting.expandAtoms reads ctx.kicked), so the
+  // target is chosen only on the kicked cast — CR 702.33g: "the spell's controller chooses those targets only if that
+  // spell was kicked. Otherwise, the spell is cast as if it did not have those targets."
+  // ⛔ "ANOTHER target" still refuses (Jilt, Urborg Repossession): it must differ from the base's target, and nothing
+  // enforces distinctness ACROSS atoms — an offered cast could aim both at one object.
+  // (Also: an `optional`/`oncePerTurn` kicked atom or a kicked additional-cost is out of scope — keep the kicked tail
+  // a plain additive sequence.)
+  if (/\banother\b/i.test(kickedEffect)) return null;
   if (Array.isArray(kickedProgram.additionalCosts) && kickedProgram.additionalCosts.length) return null;
   if (kickedProgram.atoms.some((a) => a.optional)) return null;
 
@@ -1224,15 +1236,58 @@ function matchKickedSpellEffect(card, cardType, oracle) {
  * it BEFORE the additive path builds it. Same three transforms as the additive path, in the same order.
  */
 function baseProgramFor(t, card, cardType) {
-  const base = t
-    .replace(/\bkicker\s+(?:\{[^}]+\})+\s*/i, " ")
-    .replace(/if this spell was kicked,\s*[^.;]+(?:[.;]|$)/i, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const base = kickedBaseText(t);
   if (!base) return null;
   const p = parseEffectClause(base, cardType, { hasX: false });
   if (!p || programConfidence(p) !== "high" || p.structure === "modal" || p.xSpell) return null;
   return p;
+}
+
+/** The kicked-rider matcher's BASE text: the "Kicker {cost}" keyword and the kicked sentence removed. */
+function kickedBaseText(t) {
+  return t
+    .replace(/\bkicker\s+(?:\{[^}]+\})+\s*/i, " ")
+    .replace(/if this spell was kicked,\s*[^.;]+(?:[.;]|$)/i, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * KICKED WHOLE REPLACEMENT — "<base sentence>. If this spell was kicked, instead <complete clause>." (or "<complete
+ * clause> instead") → the base atoms stamped `nonKickedOnly`, the clause's own atoms stamped `kickedOnly`. Exactly one
+ * side resolves on any cast (runEffectProgram), and each cast is offered only its own side's targets
+ * (targeting.expandAtoms) — CR 601.2c: "a spell may require alternative targets only if an alternative or additional
+ * cost was chosen for it." Bloodchief's Thirst ("…with mana value 2 or less. If this spell was kicked, instead destroy
+ * target creature or planeswalker"), Tear Asunder, Highly Illogical, Galadriel's Dismissal (a PLAYER target when
+ * kicked), Divine Resilience (any number of targets when kicked).
+ *
+ * The magnitude matcher above CLONES the base because its tail is elliptical ("it deals 4 damage instead" names no
+ * recipient). This one is its complement: the tail restates a whole effect, so it is parsed on its own, and every
+ * guard exists to keep it whole:
+ *   · the base is ONE sentence, so "instead" replaces all of it — with two, nothing says which one it replaces;
+ *   · the clause refers back to nothing ("it", "its", "that creature", "those", "another", "chosen"). A back-reference
+ *     would bind to a base target the kicked cast never chose, and the kicked mode would silently under-deliver. The
+ *     net is deliberately wide: "it deals 4 damage to each creature" parses HIGH on its own, and it stays refused
+ *     because its "it" cannot be told apart from one that means the base's target;
+ *   · the clause parses HIGH (the base's own checks live in baseProgramFor).
+ * Anything else returns null and the caller's "instead" refusal stands.
+ */
+function matchKickedWholeReplacement(t, card, cardType, kickedEffect) {
+  const tail = String(kickedEffect).trim();
+  const clause = (/^instead\s+(.+)$/i.exec(tail) || /^(.+?)\s+instead$/i.exec(tail))?.[1]?.trim();
+  if (!clause) return null;
+  if (/\b(?:it|its|they|them|that|those|another|chosen)\b/i.test(clause)) return null;
+  if (/[.;]/.test(kickedBaseText(t).replace(/[.\s]+$/, ""))) return null;
+  const baseProgram = baseProgramFor(t, card, cardType);
+  if (!baseProgram) return null;
+  const kickedProgram = parseEffectClause(clause, cardType, { hasX: false });
+  if (!kickedProgram || programConfidence(kickedProgram) !== "high") return null;
+  return {
+    atoms: [
+      ...baseProgram.atoms.map((a) => ({ ...a, nonKickedOnly: true })),
+      ...kickedProgram.atoms.map((a) => ({ ...a, kickedOnly: true })),
+    ],
+  };
 }
 
 /**

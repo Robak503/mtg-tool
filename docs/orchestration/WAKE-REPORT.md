@@ -80,6 +80,7 @@
 > Stone Calendar, Highspire Bell-Ringer, Uthros Psionicist — the all-spells and second-spell reducers (+3 → corpus 14,989; suite 1644 / 16,975).
 > **The residue loop STOPS here — Colton (09-30): "Do my decks."** Next: the shelf decks' unplayed cards, until the v0.161.0 tag on/after 10-02.
 > **SHELF DECKS · D1** tribal digs read the printed capital — Avengers Tower takes Hulk Smash to 90% (+7 → corpus 14,996; suite 1645 / 16,981). Tool: `app/scripts/shelf-residue-map.mjs`.
+> **SHELF DECKS · D8** a kicked spell's targets depend on the kick — Galadriel's Dismissal takes Shalai to 90; Burst Lightning's double target closed (+9 → corpus 15,046 (43.9%); suite 1652 / 17,077).
 > **SHELF DECKS · D7** targeted phasing — Clever Concealment (Shalai 89, Otharri 87); Teferi's Protection keeps its attachments (+3 → corpus 15,037; suite 1651 / 17,058).
 > **SHELF DECKS · D6** "When you cycle this card" — Agonasaur Rex takes Jurassic Ramp to 90%; creature-or-Vehicle counters now land (a shipped FP) (+13 → corpus 15,034; suite 1650 / 17,048).
 > **SHELF DECKS · D5** Ascend and the city's blessing — Jurassic Ramp 87 → 89; two hidden FPs closed (Radiant Destiny parks, Temur Elevator's life loss enforced) (+14 → corpus 15,021; suite 1649 / 17,038).
