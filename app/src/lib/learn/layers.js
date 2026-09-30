@@ -2420,6 +2420,21 @@ export function playerHasHexproof(state, playerId) {
 }
 
 /**
+ * PLAYER SHROUD (CR 702.18, stage ③ · 48 — "You have shroud.": Ivory Mask, True Believer) — the playerHexproof op's
+ * absolute sibling: a player with shroud can't be the target of ANY spell or ability, their own included. Same inert
+ * layer-6 op pattern; the grant follows the source permanent's CONTROLLER. Read by spellEffects.playerTargetableBy.
+ */
+export function playerHasShroud(state, playerId) {
+  if (!playerId || !state?.players?.[playerId]) return false;
+  for (const e of collectContinuousEffects(state)) {
+    if (e.op?.layerOp !== "playerShroud") continue;
+    const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
+    if (src?.controller === playerId) return true;
+  }
+  return false;
+}
+
+/**
  * ⭐ CAN'T-GAIN-LIFE (CR 614 prevention): "Players can't gain life." (Rampaging Ferocidon, Forsaken Wastes,
  * Havoc Festival, Sunspine Lynx, Everlasting Torment, Giant Cindermaw …) and its opponent-scoped twin
  * "Your opponents can't gain life." (Archfiend of Despair, Quakebringer, Gríma Wormtongue, Knight of Dusk's

@@ -2353,6 +2353,14 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ layer: 6, op: { layerOp: "playerHexproof" }, affects: { mode: "self" }, duration: { kind: "permanent" } });
     return;
   }
+  // ⭐ PLAYER SHROUD (CR 702.18, stage ③ · 48 — Ivory Mask, True Believer): "You have shroud." The same inert-op shape as
+  // playerHexproof above; its one reader, layers.playerHasShroud, feeds the single player-targetability predicate
+  // (spellEffects.playerTargetableBy). ABSOLUTE, unlike hexproof: the player can't target themself either. Whole-clause
+  // anchored — a conditional or partial grant stays residue.
+  if (/^you have shroud$/.test(c)) {
+    out.push({ layer: 6, op: { layerOp: "playerShroud" }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+    return;
+  }
   // ⭐ CAN'T-GAIN-LIFE (CR 614 prevention) — the second player-scoped static, same inert-op shape.
   // ⛔ THE SYMMETRIC FORM IS SYMMETRIC ON PURPOSE. "Players can't gain life" stops the CONTROLLER too
   // (Rampaging Ferocidon, Forsaken Wastes, Havoc Festival); reading it as opponents-only would hand its

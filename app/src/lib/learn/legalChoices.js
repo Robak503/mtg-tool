@@ -39,7 +39,7 @@ import { grantsWubrgAltCost, fixedManaAltCostOf } from "./effects/textNormalize.
 import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksFor, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund (+ the Phyrexian life lane, Norn's Annex)
-import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
+import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy, playerTargetableBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence, parseEffectClause, programNeedsChosenTarget } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
 import { expandCastChoices } from "./effects/targeting.js";
@@ -1701,6 +1701,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     if (isPlayerAuraCard(card) && classifyCard(card) === "native-aura") {
       for (const pid of Object.keys(state.players || {})) {
         if (!state.players[pid]) continue;
+        // An Aura spell TARGETS what it will enchant (CR 303.4a), so a player the caster may not target is not offered —
+        // shroud, hexproof, protection from everything (spellEffects.playerTargetableBy, the enumeration's own predicate;
+        // stage ③ · 48 — this offer listed every living player before).
+        if (!playerTargetableBy(state, pid, playerId)) continue;
         actions.push({ ...base, targets: [{ type: "player", id: pid }], targetName: pid, needsTargets: true, isAuraSpell: true, enchantsPlayer: true });
       }
       continue;

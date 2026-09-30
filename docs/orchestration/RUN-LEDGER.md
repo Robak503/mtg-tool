@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **405 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **406 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,31 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 48: "You have shroud." — Ivory Mask, True Believer · **+2** · and the Curse offer that targeted protected players · corpus 14,969 (43.7%) / 34,245
+> Suite **1639 files / 16,943 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI: ③ · 46's run cancelled by concurrency too; this slice was pushed only after ③ · 47's run 36726167184 concluded. Flip-diff **+2, zero LOST, zero RETIERED** (tier snapshots at
+> 5c211071 → the change: exactly the two planned). **Mutants 6/6 killed on assertions** (restore byte-identical).
+> · **The row (census rank 70):** player shroud (CR 702.18) — ABSOLUTE, unlike hexproof (CR 702.11d, opponents only): the
+>   player can't target themself either. SOLE-blocks Ivory Mask and True Believer; Form of the Squirrel and Solitary
+>   Confinement stay parked on their other lines.
+> · **Build:** `playerShroud` — player hexproof's inert layer-6 op shape; `layers.playerHasShroud` (follows the source's
+>   controller); `spellEffects.playerTargetableBy(state, playerId, controllerId)` is now THE player-targetability predicate
+>   (shroud absolute · hexproof opponent-scoped · Teferi's protection from everything), read by target enumeration.
+> · **Found scoping it — a targeting false positive:** the "Enchant player" Aura offer (Fraying Sanity and the Curses,
+>   legalChoices) listed EVERY living player with no targetability check at all, so a Curse could be cast at an opponent
+>   behind Leyline of Sanctity or Teferi's Protection. An Aura spell targets (CR 303.4a); the offer now reads the same
+>   predicate.
+> · **Runtime:** `WITNESS playerShroud` — with True Believer nobody targets the user, the user included; with Leyline the
+>   user still targets themself · lifts when it leaves; follows the controller · a real Ancestral Recall can't aim at its
+>   shrouded caster, a real Lava Spike can't aim at the Ivory Mask player · `WITNESS curseOffer
+>   {"leyline":["ai"],"trueBeliever":["ai"],"teferi":["ai"]}` against the vacuity control (nothing protecting: both players).
+> · **Mutants 6/6:** the parser arm · the reader never finding the op · shroud made opponent-scoped · the Curse offer
+>   skipping the predicate · the grant ignoring its controller · the enumeration keeping its old closure. Witness
+>   `app/src/lib/learn/playerShroud.test.js` (7).
+> · **CI discipline (learned today):** ③ · 42, 45 and 46's runs were each cancelled by the next push — slices landed faster
+>   than a run finishes (~20 min), so from here a slice is pushed only after the previous run completes.
+> · **Next:** census rank 71 — "When you cast this spell, copy it for each time you've cast your commander from the command
+>   zone this game." (Empyrial Storm, Hatut Zeraze Strike Force) on the storm copy atom.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 47: "enters with a divinity counter on it if you cast it from your hand" — Myojin of Life's Web, Myojin of Infinite Rage · **+2** · corpus 14,967 (43.7%) / 34,245
 > Suite **1638 files / 16,936 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI: ③ · 45's run was cancelled by concurrency (anchored by ③ · 46's); ③ · 46's run 36724907580 in flight at this entry. Flip-diff **+2, zero LOST, zero RETIERED** (tier snapshots at

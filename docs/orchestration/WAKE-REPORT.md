@@ -71,8 +71,9 @@
 > mana tax; free casts now owe target taxes too (+3 → corpus 14,961; suite 1635 / 16,914) · rank 66
 > (waterbend) banked · ③ · 45 Gallowbraid, Morinfen — cumulative upkeep paid in life (+2 → corpus 14,963; suite 1636 / 16,923) · ③ · 46
 > Ransack, the Lab, Rampant, Growth — the "Spell commander" line (+2 → corpus 14,965; suite 1637 / 16,928) · ③ · 47
-> Myojin of Life's Web, Myojin of Infinite Rage — the divinity counter, cast from hand only (+2 → corpus 14,967; suite 1638 / 16,936).
-> **Next:** census rank 70 — the RUN-LEDGER's ③ entries carry the verdicts so far.
+> Myojin of Life's Web, Myojin of Infinite Rage — the divinity counter, cast from hand only (+2 → corpus 14,967; suite 1638 / 16,936) · ③ · 48
+> Ivory Mask, True Believer — player shroud; Curses no longer target protected players (+2 → corpus 14,969; suite 1639 / 16,943).
+> **Next:** census rank 71 — the RUN-LEDGER's ③ entries carry the verdicts so far.
 > **State (measured 2026-09-29 at 5df810d2, Opus 5.5 seat):** suite **1585 files / 16,429 tests** green (1 skipped; 172 s;
 > `VITEST_TIMEOUT_MS=900000 npm test`) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30 decks, **88%** aggregate
 > (2,650 / 2,998), **13 at ≥90** (Mothman by rounding: 88/98 = 89.8%), Atraxa **74** the floor · nothing held:

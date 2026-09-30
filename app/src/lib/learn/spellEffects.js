@@ -50,7 +50,7 @@ import {
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, stackSpellIsUncounterable } from "./staticAbilityParser.js";
 import { playerProtectedFromEverything, deathLookbackLinks } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
-import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, permanentTargetShields } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam
+import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam
 import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
@@ -645,6 +645,18 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceC
 // ─── Target enumeration ───────────────────────────────────────────────────────
 
 /**
+ * May `controllerId`'s spell or ability target the player `playerId`? The ONE player-targetability predicate — target
+ * enumeration below and the "Enchant player" Aura offer in legalChoices both read it, so the two can't disagree.
+ * · SHROUD (CR 702.18, stage ③ · 48): absolute — nobody may target the player, the player included.
+ * · HEXPROOF (CR 702.11d): opponent-scoped — the player may still target themself (Leyline of Sanctity).
+ * · PROTECTION FROM EVERYTHING (Teferi's Protection, CR 702.16b): nothing another player controls may target them.
+ */
+export function playerTargetableBy(state, playerId, controllerId) {
+  if (playerHasShroud(state, playerId)) return false;
+  return playerId === controllerId || (!playerHasHexproof(state, playerId) && !playerProtectedFromEverything(state, playerId));
+}
+
+/**
  * Legal targets for a targeted effect, as `{ type, id, controller?, name }`.
  * Empty for non-targeted effects (draw, each-opponent, each-creature).
  *
@@ -835,7 +847,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // aiming your own effects at yourself). That is why the check is skipped when pid === controllerId.
   // TEFERI'S PROTECTION — protection from everything (CR 702.16b): the shielded player can't be the target of
   // anything another player controls; their own spells and abilities may still target them.
-  const targetablePlayer = (pid) => pid === controllerId || (!playerHasHexproof(state, pid) && !playerProtectedFromEverything(state, pid));
+  const targetablePlayer = (pid) => playerTargetableBy(state, pid, controllerId);
   const addOpponents = () => {
     for (const pid of Object.keys(state.players)) {
       if (pid === controllerId) continue;

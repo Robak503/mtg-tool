@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Ivory Mask, True Believer** — you have shroud: no spell or ability can target you, yours included
 - **Myojin of Life's Web, Myojin of Infinite Rage** — cast from your hand, they enter with a divinity counter (and are
   indestructible until you spend it); any other way in, they enter without one
 - **Ransack, the Lab, Rampant, Growth** — the "Spell commander" sorceries play from hand
@@ -374,6 +375,8 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **Curses respect a protected player** — Fraying Sanity and the other "Enchant player" Auras can no longer be cast
+  at a player with hexproof (Leyline of Sanctity), shroud or Teferi's Protection
 - **Terror of the Peaks' life tax applies to free casts** — a spell cast for free (cascade, discover, "cast without
   paying its mana cost") that targets it now costs the 3 life too
 - **"When enchanted creature dies" fires however it dies** — Elephant Guide and every Aura or Equipment like it only
