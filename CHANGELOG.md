@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Ransack, the Lab, Rampant, Growth** — the "Spell commander" sorceries play from hand
 - **Gallowbraid, Morinfen** — cumulative upkeep paid in life: 1 more life each upkeep, or the creature is sacrificed
 - **Sphinx of New Prahv, Boreal Elemental, Syr Elenora, the Discerning** — spells your opponents cast that target them
   cost {2} more

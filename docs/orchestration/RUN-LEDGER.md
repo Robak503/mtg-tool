@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **403 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **404 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,25 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 46: "Spell commander" — Ransack, the Lab; Rampant, Growth · **+2** · corpus 14,965 (43.7%) / 34,245
+> Suite **1637 files / 16,928 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI: ③ · 45's run 36723799210 in flight at this entry. Flip-diff **+2, zero LOST, zero RETIERED** (tier snapshots at
+> 0f5b1117 → the change: exactly the two planned). **Mutants 2/2 killed on assertions** (restore byte-identical).
+> · **The row (census rank 68):** "Spell commander (This card can be your commander. In Limited, it can partner like other
+>   monocolored legends.)" — five playtest sorceries, none Commander-legal. The line is a deck-construction permission: it
+>   grants no ability and changes nothing about the spell cast from hand, the only way the engine plays them
+>   (buildableCommanders never offers a sorcery as a commander). SOLE-blocks Ransack, the Lab and Rampant, Growth; Lava, Axe
+>   (its self-named damage line), Clear, the Mind (the graveyard shuffle, rank 73) and Gather, the Townsfolk (fateful hour)
+>   stay parked on their own lines.
+> · **Build:** `parseHelpers.stripCostOnlyKeywordLines` drops the BARE keyword line (after the reminder, exactly "spell
+>   commander" — the cascade/storm precedent), on the one path the classifier and the cast program both read.
+> · **Runtime (the real offer, the stack and the AI's picks):** `WITNESS spellCommanderRampant
+>   {"forest":true,"tapped":true,"library":["Grizzly Bears"],"inGrave":true}` · Ransack, the Lab: one of the top three to hand,
+>   two to the graveyard, the fourth stays · a line that merely mentions the phrase keeps its text.
+> · **Mutants 2/2:** the line not stripped · the bare-line anchor loosened to a prefix. Witness
+>   `app/src/lib/learn/spellCommanderLine.test.js` (5).
+> · **Next:** census rank 69 — the Kamigawa Myojin ("enters with a divinity counter on it if you cast it from your hand";
+>   Life's Web and Infinite Rage are blocked by that line alone).
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 45: "Cumulative upkeep—Pay N life" — Gallowbraid, Morinfen · **+2** · corpus 14,963 (43.7%) / 34,245
 > Suite **1636 files / 16,923 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 44 (run 36722032962). Flip-diff **+2, zero LOST, zero RETIERED** (tier snapshots at

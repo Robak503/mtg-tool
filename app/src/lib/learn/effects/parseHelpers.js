@@ -119,6 +119,14 @@ const CASCADE_LINE = (t) => t.replace(/\([^)]*\)/g, "").trim().toLowerCase() ===
 // line must be exactly "storm"; none of the five have such a line.
 const STORM_LINE = (t) => t.replace(/\([^)]*\)/g, "").trim().toLowerCase() === "storm";
 
+// SPELL COMMANDER (stage ③ · 46 — Ransack, the Lab; Rampant, Growth; the five playtest sorceries that print it): "Spell
+// commander (This card can be your commander. In Limited, it can partner like other monocolored legends.)" is a DECK-
+// CONSTRUCTION permission and nothing else — it grants no ability and changes nothing about the spell cast from hand,
+// which is the only way the engine plays these cards (buildableCommanders never offers a sorcery as a commander, and
+// none of the five is Commander-legal). The BARE keyword line only: after removing the reminder the line must be
+// exactly "spell commander", so a card that mentions the phrase any other way keeps its text.
+const SPELL_COMMANDER_LINE = (t) => t.replace(/\([^)]*\)/g, "").trim().toLowerCase() === "spell commander";
+
 export function stripCostOnlyKeywordLines(oracle) {
   const raw = String(oracle || "");
   // A becomes-plotted trigger means plot is not cost-only on this card — leave every line alone.
@@ -130,6 +138,7 @@ export function stripCostOnlyKeywordLines(oracle) {
     if (plotIsCostOnly && PLOT_COST_LINE.test(t)) return false;
     if (CASCADE_LINE(t)) return false;
     if (STORM_LINE(t)) return false;
+    if (SPELL_COMMANDER_LINE(t)) return false;
     return true;
   });
   return kept.length === lines.length ? raw : kept.join("\n").trim();
