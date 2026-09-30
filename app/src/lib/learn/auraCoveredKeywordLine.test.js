@@ -9,14 +9,14 @@
  * isNativeOwnActivatedAura's residue walk allowed only the Enchant line and activated-ability lines, so
  * an Aura carrying a printed keyword line fell out no matter how modeled its actual abilities were.
  *
- * ⛔ THIS PROPAGATES AN EXISTING POLICY; IT DOES NOT MAKE ONE. And the policy is worth stating plainly
- * because it is NOT free: the runtime does not enforce flash timing at all — legalChoices.isSorcerySpeed
- * says so in its own comment ("Flash check is a v1.5 add — for now any non-instant defaults to sorcery"),
- * so a flash permanent is castable only at sorcery speed. That is strictly WEAKER than printed, which is
- * why the project treats it as a safe false negative and lists flash among COVERED_KEYWORDS. Every
- * keyword-only card already rides on exactly that call. This lane now rides on it too, rather than
- * disagreeing with it. An UNCOVERED keyword line still fails isKeywordOnly and still parks the card —
- * pinned below, because that is the whole boundary.
+ * ⛔ THIS PROPAGATES AN EXISTING POLICY; IT DOES NOT MAKE ONE. When this was written the policy was NOT
+ * free: the runtime did not enforce flash timing at all (legalChoices.isSorcerySpeed: "Flash check is a
+ * v1.5 add — for now any non-instant defaults to sorcery"), so a flash permanent was castable only at
+ * sorcery speed — strictly WEAKER than printed, a safe false negative, and flash sat among
+ * COVERED_KEYWORDS on that basis. The 09-06 plan's stage ③ · 22 (2026-09-30) made isSorcerySpeed honour
+ * the card's own Flash, so the covered line is now enforced as printed (flashTiming.test.js). This lane
+ * rides on the same call every keyword-only card does. An UNCOVERED keyword line still fails
+ * isKeywordOnly and still parks the card — pinned below, because that is the whole boundary.
  *
  * Mutation-checked (2026-08-04, verified applied): the isKeywordOnly allowance removed -> both flip pins
  * go red; the allowance widened to `continue` unconditionally -> the uncovered-keyword park goes red.

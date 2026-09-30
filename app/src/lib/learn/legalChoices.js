@@ -423,9 +423,12 @@ function leastValuableCardCmp(a, b) {
 }
 function isSorcerySpeed(card) {
   const type = typeLineOf(card);
-  // Sorcery-speed = anything that ISN'T Instant and isn't "flash" tagged.
-  // Flash check is a v1.5 add — for now any non-instant defaults to sorcery.
-  return !type.includes("Instant");
+  // Sorcery-speed = anything that ISN'T an Instant and doesn't have FLASH (CR 702.8a — "You may cast this spell any time you
+  // could cast an instant"). The card's OWN keyword, read by the oracle-aware hasKeyword (the Scryfall keywords array, else
+  // the line-anchored scan — the two agree on every one of the corpus's 613 Flash cards, checked 2026-09-30); a GRANTED flash
+  // is the separate flash-cast-permission path in the cast builder. Until the 09-06 plan's stage ③ · 22 (2026-09-30) this
+  // read the type line alone, so a Flash permanent was castable only at sorcery speed — strictly weaker than printed.
+  return !type.includes("Instant") && !hasKeyword(card, "Flash");
 }
 // hasKeyword is imported from keywords.js (oracle-aware) — a local copy here
 // previously shadowed it (keyword-array-only, oracle-blind), so Haste / Flying
@@ -1085,7 +1088,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // FLASH-CAST-PERMISSION (CR 601.3e): a sorcery-speed card the player has flash permission for (Yeva → a
     // green creature; Vedalken Orrery → any spell) may be cast whenever the player has priority (instant
     // speed). Checked only when the card ISN'T already instant-speed (a real Instant / a Flash card reads
-    // instant-speed via isSorcerySpeed already) and only against this player's own statics — so it never
+    // instant-speed via isSorcerySpeed — true since stage ③ · 22) and only against this player's own statics — so it never
     // widens an opponent's timing. A false match is impossible: the spec was validated to a modeled filter
     // upstream (else it's null and never emitted), so this only offers a cast the rules genuinely permit.
     const hasFlashPermission = flashSpecs.length > 0 && flashSpecs.some((spec) => spellMatchesFlashFilter(spec, card));

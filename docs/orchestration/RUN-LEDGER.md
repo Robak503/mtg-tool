@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **378 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **379 commits**, corpus
 > 38.6% → **43.4% (14,874)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,34 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 22: FLASH honoured at cast timing — 613 Flash cards, a documented under-delivery closed · runtime fix (+0) · corpus 14,874 (43.4%) / 34,245
+> Suite **1613 files / 16,711 tests** green (1 skipped); lint 0. Flip-diff **0 / 0 / 0** — the classifier already credited Flash (tier snapshots
+> at bd17fc92 → the change). **Mutants 3/3 killed on assertions** (restore byte-identical).
+> · **Found while scoping census row ㉒** (Ancient Stone Idol, Static Snare, Embercleave — "costs {1} less to cast for each
+>   attacking creature [you control]"): all three have Flash, and a probe showed a Flash creature is never offered outside the
+>   caster's main phase — Ambush Viper was not castable in the AI's end step while Shock was. legalChoices.isSorcerySpeed read
+>   the TYPE LINE alone ("Flash check is a v1.5 add — for now any non-instant defaults to sorcery"), and the cast builder's
+>   comment claimed "a Flash card reads instant-speed via isSorcerySpeed already" — it did not. coverage.js documented the gap
+>   ("strictly WEAKER than printed") while COVERED_KEYWORDS credited Flash anyway. With sorcery-speed casting nothing is ever
+>   attacking, so row ㉒'s discount could never apply: crediting it first would have been a hollow credit.
+> · **Build:** isSorcerySpeed also asks the card's own Flash, through the oracle-aware hasKeyword. The Scryfall keywords array and
+>   the line-anchored scan agree on every one of the corpus's 613 Flash cards (0 disagreements), so no conditional or granted
+>   flash text is read as the keyword. A GRANTED flash (Yeva, Vedalken Orrery) stays the separate flash-cast-permission path.
+>   The stale comments in legalChoices, coverage.js and auraCoveredKeywordLine.test.js are updated.
+> · **Runtime:** the AI's end step is a real instant window — Shock is offered and Grizzly Bears is not (the vacuity control) ·
+>   `WITNESS flashViper {"turnOf":"ai","viperOnUserBattlefield":true,"handLeft":0}` — cast and resolved in the AI's end step ·
+>   offered while the AI's attackers are declared (the ambush) · the AI's own Viper is offered to the AI in the user's end step ·
+>   the user's main phase is unchanged.
+> · **A test name GRADUATED:** sentinelsMark.test.js said the offer never cast the Aura outside its main-phase window ("Flash goes
+>   unused"), so the Addendum's false branch was pinned at the reader only. It now runs through a REAL cast too:
+>   `WITNESS sentinelsMarkFlashed` — flashed in during the user's combat or the AI's main phase, the host gets vigilance and no
+>   lifelink.
+> · **Mutants 3/3:** the Flash check removed (the old read) · every card read as instant-speed (red on the Bears control and
+>   Yeva's pins) · the wrong keyword (Flashback). Witness `app/src/lib/learn/flashTiming.test.js` (5).
+> · **For the play AI (Omnath's lane):** pickAction weighs casts uniformly and leaves timing to the offer side, so from this
+>   commit the AI casts its Flash cards in the opponent's turn as well — trajectories from decks with Flash cards shift.
+> · **Next:** ③ · 23 — census row ㉒ itself, now reachable.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 21: the OPTIONAL two-trigger detain folds — Fiend Hunter, Leonin Relic-Warder · **+2** · corpus 14,874 (43.4%) / 34,245
 > Suite **1612 files / 16,705 tests** green (1 skipped); lint 0. Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at e1c46d76 → the

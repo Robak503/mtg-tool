@@ -2708,11 +2708,12 @@ function isNativeOwnActivatedAura(card) {
     // (Flash + Deathtouch) is native-body. Same drift as the strips fixed earlier today — one lane
     // accepts a line, another calls it leftover text.
     //
-    // ⛔ THIS PROPAGATES AN EXISTING POLICY, IT DOES NOT MAKE ONE. Whether flash-as-covered is right
-    // (the runtime does NOT enforce flash timing — legalChoices.isSorcerySpeed says so in its own
-    // comment, and a flash permanent is castable only at sorcery speed, i.e. strictly WEAKER than
-    // printed) is settled elsewhere, by COVERED_KEYWORDS, and is the same call every keyword-only card
-    // already rides on. An UNCOVERED keyword line still fails isKeywordOnly and still parks the card.
+    // ⛔ THIS PROPAGATES AN EXISTING POLICY, IT DOES NOT MAKE ONE. Whether flash-as-covered is right is
+    // settled elsewhere, by COVERED_KEYWORDS, and is the same call every keyword-only card already rides
+    // on. (When this note was written the runtime did NOT enforce flash timing — a flash permanent was
+    // castable only at sorcery speed, strictly WEAKER than printed. The 09-06 plan's stage ③ · 22
+    // (2026-09-30) made legalChoices.isSorcerySpeed honour the card's own Flash.) An UNCOVERED keyword
+    // line still fails isKeywordOnly and still parks the card.
     if (isKeywordOnly(t, card?.name)) continue;
     // An activated-ability line: "{cost}: effect." with a colon (mirrors parseActivatedAbilities' detection).
     if (/^[^:]*\{[^}]+\}[^:]*:/.test(t)) { sawActivated++; continue; }

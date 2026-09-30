@@ -340,6 +340,8 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **Flash works** — creatures and other permanents with Flash can be cast any time you could cast an instant; they
+  used to wait for your main phase
 - **Horizon Stone and Kruphix no longer keep your floating mana's colours** — games kept the mana with its colours;
   both cards turn it colorless, and restricted mana keeps its restriction
 - **"Exile it instead" now holds when the creature is destroyed or sacrificed** — Lava Coil's rider and Incendiary Oracle /

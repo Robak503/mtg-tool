@@ -57,7 +57,10 @@ describe("RUNTIME — the stamp and the look-back", () => {
     console.log("  WITNESS sentinelsMarkMain", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
     expect(row).toEqual({ stamp: true, wasCast: true, power: 3, toughness: 4, vigilance: true, lifelink: true });
   });
-  it("the stamp's reader: your own main phase reads true; your combat and the opponent's main phase read false (the offer never casts an Aura outside its main-phase window — Flash goes unused — so the false branch is pinned at the reader, never faked through a cast)", () => {
+  // GRADUATED (the 09-06 plan's stage ③ · 22, 2026-09-30): this test's name said the offer never cast the Aura outside its
+  // main-phase window ("Flash goes unused"), so the false branch could only be pinned at the reader. Flash is honoured now —
+  // the next test runs the false branch through a REAL cast; the reader pin stays.
+  it("the stamp's reader: your own main phase reads true; your combat and the opponent's main phase read false", () => {
     const base = createGameState({ userDeck: [], aiDeck: [] });
     const row = {
       ownMain: castDuringMainPhaseNow({ ...base, activePlayer: "user", phase: "precombat-main" }, "user"),
@@ -67,5 +70,11 @@ describe("RUNTIME — the stamp and the look-back", () => {
     };
     console.log("  WITNESS sentinelsMarkReader", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
     expect(row).toEqual({ ownMain: true, ownPostMain: true, ownCombat: false, theirMain: false });
+  });
+  it("⭐ with Flash honoured, the false branch runs through a REAL cast: flashed in during your combat or the opponent's main phase, the host gets vigilance and no lifelink", () => {
+    const flashed = { stamp: null, wasCast: true, power: 3, toughness: 4, vigilance: true, lifelink: false }; // no main-phase stamp is written
+    const row = { ownCombat: castIn("combat", "declare-attackers"), theirMain: castIn("precombat-main", "main", "ai") };
+    console.log("  WITNESS sentinelsMarkFlashed", JSON.stringify(row));
+    expect(row).toEqual({ ownCombat: flashed, theirMain: flashed });
   });
 });
