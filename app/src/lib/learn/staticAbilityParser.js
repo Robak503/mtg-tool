@@ -2715,6 +2715,19 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ targetLifeTax: { amount: parseInt(tltM[1], 10) } });
     return;
   }
+  // TARGET-MANA-TAX (stage ③ · 44 — Sphinx of New Prahv, Boreal Elemental, Syr Elenora; the mana twin of the
+  // life tax above): "Spells your opponents cast that target this creature cost {N} more to cast." The same
+  // mandatory cast cost (CR 601.2f) through the same choke — legalChoices.applyTargetTaxes folds the {N} into
+  // the cast's cost when its chosen targets include the taxed permanent and drops a cast the caster can't fund;
+  // the dispatcher then pays `action.cost` like any cast. Whole-clause anchored on "this creature" (a legend's
+  // short name is rewritten upstream). The reduction form, "Spells you cast that target this creature cost {N}
+  // less" (Elderwood Scion), would have to reopen casts the offer already skipped as unaffordable, so it stays
+  // residue.
+  const tmtM = c.match(/^spells your opponents cast that target this creature cost \{(\d+)\} more to cast$/);
+  if (tmtM) {
+    out.push({ targetManaTax: { amount: parseInt(tmtM[1], 10) } });
+    return;
+  }
   // POWER-UP-ONLY variant (Hulk, Gamma Goliath — "Power-up abilities of OTHER creatures you control cost
   // {3} less to activate.", 2026-08-14): the same marker family, gated at the apply site to abilities the
   // parser stamped `powerUp` (the label arm in effects/abilities.js) AND to a DIFFERENT permanent than the

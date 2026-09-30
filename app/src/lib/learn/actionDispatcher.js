@@ -69,7 +69,7 @@ function pitchRandomHandCard(working, playerId, excludeId, kind) {
 }
 import { tutorManaValue } from "./effects/atoms/library.js"; // γ1i (CAP14) — the shared MV reader the tutor / free-cast paths use, so "mana value" means ONE thing engine-wide
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
-import { manaSources, planPayment, sourcesExcludingOneShotVictim, commitPaymentPlan, commitManaTap, payManaCost } from "./manaModel.js";
+import { manaSources, planPayment, sourcesExcludingOneShotVictim, castPaymentSources, commitPaymentPlan, commitManaTap, payManaCost } from "./manaModel.js";
 import { conditionalEntersTapped, paysLifeOrEntersTapped, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>" + the shockland pay-life clause (a leaf over interveningIf; cycle-free)
 import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT dispatch hook (audit.js imports only the delayed-trigger leaf, cycle-free)
 import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — the payment half; legalChoices holds the restriction half (+ the Phyrexian life lane, Norn's Annex)
@@ -365,26 +365,11 @@ function applyCastSpell(state, action) {
     // is pool-first, so a pre-filled pool pays with zero taps (preserving the
     // old behavior + tests); otherwise we auto-tap lands/rocks/dorks to cover.
     const pool = state.players[action.playerId].manaPool;
-    // EMERGE (CR 702.97): the creature being SACRIFICED to emerge can't ALSO tap for mana to pay the reduced
-    // cost — exclude it from the sources (the γ1 double-spend guard, matching legalChoices' affordability
-    // check and the activated-ability sac path). Plain casts (no emerge) keep every source.
-    // W3 (two-sites invariant): an additional-cost sacrifice victim that is a ONE-SHOT mana source
-    // (Treasure/Gold/Spawn) is likewise excluded — planPayment must never crack the very permanent the
-    // cost sacrifice below re-finds (PERM_NOT_FOUND on an offered action). Emerge keeps its stricter
-    // always-exclude (documented conservative FN); a repeatable victim still taps first legally.
-    let castBaseSources = action.emerge && action.sacCreatureId
-      ? manaSources(state, action.playerId).filter((s) => s.permanentId !== action.sacCreatureId)
-      : manaSources(state, action.playerId);
-    // AC-1 (count-of-N sacrifice, CR 601.2f): none of the N frozen `sacCountIds` victims that are ONE-SHOT mana
-    // sources (Treasure/Gold/Spawn) may ALSO be cracked to pay the mana — planPayment must never spend a
-    // permanent the additional-cost loop below re-finds to sacrifice (PERM_NOT_FOUND on an offered action).
-    // Mirrors legalChoices' per-N affordability filter + the activated-ability sacCountExcluded path. No
-    // sacCountIds (every N=1 / non-sac cast) → the original sources array, byte-identical.
-    if (action.sacCountIds?.length) {
-      const sacCountSet = new Set(action.sacCountIds);
-      castBaseSources = castBaseSources.filter((s) => !(s.sacrifices && sacCountSet.has(s.permanentId)));
-    }
-    const castSources = sourcesExcludingOneShotVictim(castBaseSources, action.sacCreatureId);
+    // The sources this payment may draw on — EMERGE's sacrificed creature, the AC-1 count-of-N one-shot victims
+    // and the W3 one-shot victim excluded (manaModel.castPaymentSources, which documents each). Shared with the
+    // target-tax re-check in legalChoices (stage ③ · 44), so a cast offered at its taxed cost reads these same
+    // sources.
+    const castSources = castPaymentSources(state, action);
     // SPEND-RESTRICTED (CR 106.6): tell the planner what this payment is FOR, so a source printed
     // "Spend this mana only to cast a creature spell" is offered here and nowhere else. Must MATCH the
     // affordability context in legalChoices exactly — an offer the payment then refuses is a MANA_SHORT

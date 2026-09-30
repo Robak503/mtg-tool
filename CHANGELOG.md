@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Sphinx of New Prahv, Boreal Elemental, Syr Elenora, the Discerning** — spells your opponents cast that target them
+  cost {2} more
 - **Fool's Demise, Shade's Form, False Demise, Minion's Return, Unhallowed Pact** — when the enchanted creature dies,
   it comes back under your control (even an opponent's creature)
 - **Rubblebelt Rioters, Orcish Siegemaster, Vile Deacon, Imaryll, Hellkite Igniter, Sokenzan Spellblade, Kitsune
@@ -368,6 +370,8 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **Terror of the Peaks' life tax applies to free casts** — a spell cast for free (cascade, discover, "cast without
+  paying its mana cost") that targets it now costs the 3 life too
 - **"When enchanted creature dies" fires however it dies** — Elephant Guide and every Aura or Equipment like it only
   triggered when its creature died to damage; destroy spells, sacrifices and fading now count too (and so do "dealt damage
   by this creature this turn" payoffs like Sengir Vampire's)

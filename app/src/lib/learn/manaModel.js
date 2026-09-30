@@ -2081,6 +2081,30 @@ export function sourcesExcludingOneShotVictim(sources, victimId) {
   return sources.filter((s) => !(s.sacrifices && s.permanentId === victimId));
 }
 
+/**
+ * The mana sources a CAST's payment may draw on — the dispatcher's own derivation, shared with the target-tax
+ * re-check in legalChoices (stage ③ · 44) so a cast offered at its taxed cost and the payment that follows read
+ * the same sources.
+ * · EMERGE (CR 702.97): the creature sacrificed to emerge can't ALSO tap for mana to pay the reduced cost (the γ1
+ *   double-spend guard, matching the offer's affordability check and the activated-ability sac path). Emerge keeps
+ *   this stricter always-exclude (a documented conservative FN); plain casts keep every source.
+ * · AC-1 (count-of-N sacrifice, CR 601.2f): none of the N frozen `sacCountIds` victims that are ONE-SHOT sources
+ *   (Treasure/Gold/Spawn) may also be cracked — the additional-cost loop re-finds each one to sacrifice.
+ * · W3 (two-sites invariant): the single chosen victim, if a one-shot source, likewise (PERM_NOT_FOUND on an
+ *   offered action otherwise); a repeatable victim still taps first, legally.
+ * No emerge and no victims → every source, the same array manaSources returns.
+ */
+export function castPaymentSources(state, action) {
+  let sources = action.emerge && action.sacCreatureId
+    ? manaSources(state, action.playerId).filter((s) => s.permanentId !== action.sacCreatureId)
+    : manaSources(state, action.playerId);
+  if (action.sacCountIds?.length) {
+    const sacCountSet = new Set(action.sacCountIds);
+    sources = sources.filter((s) => !(s.sacrifices && sacCountSet.has(s.permanentId)));
+  }
+  return sourcesExcludingOneShotVictim(sources, action.sacCreatureId);
+}
+
 // ─── Payment planning ──────────────────────────────────────────────────────────
 
 /**

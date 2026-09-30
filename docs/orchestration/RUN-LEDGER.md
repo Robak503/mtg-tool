@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **401 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **402 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,37 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 44: "Spells your opponents cast that target this creature cost {2} more to cast" — Sphinx of New Prahv, Boreal Elemental, Syr Elenora · **+3** · corpus 14,961 (43.7%) / 34,245
+> Suite **1635 files / 16,914 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 43 (run 36719353919 — it also anchors ③ · 42,
+> whose run was cancelled by concurrency with test (1) green). Flip-diff **+3, zero LOST, zero RETIERED** (tier snapshots at
+> 5efb9ee0 → the change: exactly the three planned). **Mutants 12/12 killed on assertions** (restore byte-identical).
+> · **The row (census rank 65):** the mana twin of Terror of the Peaks' life tax — a MANDATORY cast cost (CR 601.2f), not ward.
+>   SOLE-blocks Sphinx of New Prahv, Boreal Elemental and (short-name form) Syr Elenora; Icefall Regent, Pursued Whale,
+>   Elderwood Scion and Charix stay parked on other lines (Elderwood's "Spells you cast … cost {2} less" would have to
+>   reopen casts the offer already skipped as unaffordable — left as residue).
+> · **Build:** a `targetManaTax` static arm beside `targetLifeTax`; legalChoices' post-filter becomes `applyTargetTaxes` — the
+>   {N} folds into the cast's generic cost (mana value untouched, CR 202.3) and the cast is dropped when the taxed total can't
+>   be funded from the sources the payment reads. Those sources are now ONE reader, `manaModel.castPaymentSources` (the
+>   dispatcher's EMERGE / AC-1 / W3 exclusions, moved unchanged), so the offer and the payment can't disagree. A free or
+>   alternative-cost cast pays no mana on the engine's side while CR 601.2f still adds the tax, so one aimed at a mana-taxed
+>   permanent isn't offered (FN-safe). Target ids are de-duplicated: a spell pays each taxer once, however many of its targets
+>   name it.
+> · **Found building it — a hollow tax:** the three free-cast windows (a pending free cast, cascade, discover) returned BEFORE
+>   the tax filter, so a free Murder at Terror of the Peaks paid no life. All three now pass through the choke; each keeps
+>   its decline, so a drop never strands a window.
+> · **Runtime:** `WITNESS targetManaTaxOffer` — Murder at the Sphinx offered at generic 3 (1 + the tax), mana value 3; at the
+>   Bear the printed cost · `WITNESS targetManaTaxPaid {"sphinxTapped":5,"bearTapped":3,"sphinxGone":true}` · three Swamps:
+>   the Sphinx cast is not offered, the Bear cast is · the caster's own Sphinx doesn't tax them · a Boreal beside the Sphinx adds
+>   nothing to Murder at the Sphinx · Pacifism at the Sphinx needs {3}{W} (an Aura spell targets) · Syr Elenora's short-name
+>   clause taxes · Snuff Out's pay-4-life cast isn't offered at the Sphinx · Bone Splinters sacrificing the Eldrazi Spawn can't
+>   also crack it for the tax · free cast / cascade / discover at the Sphinx not offered even with {2} open ·
+>   `WITNESS freeCastLifeTax {"stamped":3,"lifeAfter":37}` · castPaymentSources' three exclusions pinned directly.
+> · **Mutants 12/12:** the arm never matches · the tax not folded in · the unfundable drop removed · the free/alt drop removed
+>   · each window skipping the choke (×3) · the caster's own taxer taxing them · every taxer's tax on any taxed target ·
+>   castPaymentSources keeping the W3 / emerge / AC-1 victims (×3 — none was pinned before the move; now each is).
+>   Witness `app/src/lib/learn/targetManaTax.test.js` (19).
+> · **Next:** census rank 66 — waterbend ("As an additional cost to cast this spell, waterbend {C}").
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 43: host-dies triggers fired only on lethal damage — every death site now carries the look-back links · **+0** (a hollow credit closed) · corpus 14,958 (43.7%) / 34,245
 > Suite **1634 files / 16,895 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). Flip-diff **zero — GAINED 0, LOST 0,

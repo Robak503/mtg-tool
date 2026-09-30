@@ -30,7 +30,7 @@
  */
 
 import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower, nameCastLocked } from "./gameState.js"; // B4: the Reflector Mage name cast lock
-import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapManaAugment, applyAuraManaGrantSupplement, sourcesExcludingOneShotVictim } from "./manaModel.js";
+import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapManaAugment, applyAuraManaGrantSupplement, sourcesExcludingOneShotVictim, castPaymentSources } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor, crewCostWithOverrides } from "./layers.js";
@@ -3972,21 +3972,23 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   // player acts, and ONLY to resolve it (it's made mid-resolution, CR — no one else gets to act). Return
   // exactly the two discover actions for the controller; an empty list for everyone else.
   if (state.pendingDiscover) {
-    return state.pendingDiscover.controller === playerId ? actionsDiscoverDecision(state, playerId) : [];
+    return state.pendingDiscover.controller === playerId ? applyTargetTaxes(state, playerId, actionsDiscoverDecision(state, playerId)) : [];
   }
   // FREE-CAST (CR 601.2b) — a pending free-cast decision short-circuits normal priority IDENTICALLY to
   // discover: the casting choice is made mid-resolution (no one else acts), so return ONLY the free-cast /
   // decline actions for the controller; an empty list for everyone else. (Both pendings are FIFO — the
   // free-cast atom is the last atom of its program, so a discover and a free-cast never coexist.)
+  // All three windows pass through the target taxes (applyTargetTaxes, stage ③ · 44): a free cast aimed at a
+  // taxed permanent still owes the tax (CR 601.2f). Each window keeps its decline, so a drop never strands it.
   if (state.pendingFreeCast) {
-    return state.pendingFreeCast.controller === playerId ? actionsFreeCastDecision(state, playerId) : [];
+    return state.pendingFreeCast.controller === playerId ? applyTargetTaxes(state, playerId, actionsFreeCastDecision(state, playerId)) : [];
   }
   // CASCADE (CR 702.85) — a pending cascade decision short-circuits normal priority IDENTICALLY to discover /
   // free-cast: the cast-it-free / decline choice is made mid-resolution (no one else acts), so return ONLY the
   // cascade actions for the controller; an empty list for everyone else. All three pendings are FIFO — each
   // parking atom is the last atom of its program — so a cascade never coexists with a discover or a free-cast.
   if (state.pendingCascade) {
-    return state.pendingCascade.controller === playerId ? actionsCascadeDecision(state, playerId) : [];
+    return state.pendingCascade.controller === playerId ? applyTargetTaxes(state, playerId, actionsCascadeDecision(state, playerId)) : [];
   }
   // Default the declared-attackers list from live combat state, so the
   // session driver gets blocker candidates without threading it explicitly.
@@ -4098,36 +4100,61 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   actions.push(...actionsDeclareAttacker(state, playerId));
   actions.push(...actionsDeclareBlocker(state, playerId, attackerIds));
 
-  return applyTargetLifeTaxes(state, playerId, actions);
+  return applyTargetTaxes(state, playerId, actions);
 }
 
-// TARGET-LIFE-TAX post-filter (Terror of the Peaks, 2026-08-14 — "Spells your opponents cast that target
-// this creature cost an additional 3 life to cast."): ONE choke over the assembled list instead of edits
-// at the seven cast-push sites. A cast-spell action whose chosen targets include a taxed permanent on an
-// OPPONENT'S battlefield is stamped `targetLifeTax` (the dispatcher pays it as a cost), and DROPPED
-// outright when the caster's life can't cover it (CR 119.4 — a cost you can't pay makes the cast
-// illegal, never a cast-then-die). Spells only — the printed tax names "Spells", so abilities pass
-// untouched. The common case (no taxed permanent on the board) returns the list unchanged.
-function applyTargetLifeTaxes(state, playerId, actions) {
-  let taxed = null;
+// TARGET TAXES — ONE choke over the assembled list instead of edits at the cast-push sites. Two statics feed
+// it, both "Spells your opponents cast that target this creature cost …", a MANDATORY cast cost (CR 601.2f),
+// never ward's pay-or-be-countered:
+//   · the LIFE tax (Terror of the Peaks, 2026-08-14 — "an additional 3 life"): the action is stamped
+//     `targetLifeTax` (the dispatcher pays it with the other cost items) and DROPPED when the caster's life
+//     can't cover it (CR 119.4 — a cost you can't pay makes the cast illegal, never a cast-then-die);
+//   · the MANA tax (stage ③ · 44 — Sphinx of New Prahv, Boreal Elemental, Syr Elenora — "{2} more"): folded
+//     into the action's generic `cost` (the mana value is untouched, CR 202.3), which the dispatcher pays like
+//     any cast's, and the cast DROPPED when the taxed total can't be funded from the very sources and spend
+//     context the payment will use (manaModel.castPaymentSources). A free or alternative-cost cast pays no
+//     mana on the engine's side, while CR 601.2f still adds the tax — so one aimed at a mana-taxed permanent
+//     is not offered (FN-safe).
+// Taxed permanents are read off each OPPONENT's battlefield (the array a permanent sits in IS its controller —
+// controlMove.js). A spell pays each taxing permanent's tax once however many of its targets name it — the
+// tax is on the spell ("spells … that target this creature") — so target ids are de-duplicated. Spells only:
+// the printed taxes name "Spells", so abilities pass untouched. The free-cast windows (discover / cascade /
+// a pending free cast) run through here too; each keeps its decline. No taxed permanent → the list unchanged.
+function applyTargetTaxes(state, playerId, actions) {
+  let lifeTaxed = null, manaTaxed = null;
   for (const [pid, pl] of Object.entries(state.players || {})) {
     if (pid === playerId) continue; // the taxer's controller is not their own opponent
     for (const perm of pl?.battlefield || []) {
       for (const d of parseStaticAbilities(perm.card)) {
-        if (d.targetLifeTax) { (taxed ||= new Map()).set(perm.id, (taxed.get(perm.id) || 0) + d.targetLifeTax.amount); }
+        if (d.targetLifeTax) (lifeTaxed ||= new Map()).set(perm.id, (lifeTaxed.get(perm.id) || 0) + d.targetLifeTax.amount);
+        if (d.targetManaTax) (manaTaxed ||= new Map()).set(perm.id, (manaTaxed.get(perm.id) || 0) + d.targetManaTax.amount);
       }
     }
   }
-  if (!taxed) return actions;
-  const life = state.players[playerId]?.life ?? 0;
+  if (!lifeTaxed && !manaTaxed) return actions;
+  const player = state.players[playerId];
+  const life = player?.life ?? 0;
   const out = [];
   for (const a of actions) {
     if (a.kind !== "cast-spell" || !a.targets?.length) { out.push(a); continue; }
-    let tax = 0;
-    for (const t of a.targets) if (t?.id && taxed.has(t.id)) tax += taxed.get(t.id);
-    if (!tax) { out.push(a); continue; }
-    if (life < tax) continue; // can't pay the added life → this cast is not offered
-    out.push({ ...a, targetLifeTax: tax });
+    let lifeTax = 0, manaTax = 0;
+    for (const id of new Set(a.targets.map((t) => t?.id).filter(Boolean))) {
+      lifeTax += lifeTaxed?.get(id) || 0;
+      manaTax += manaTaxed?.get(id) || 0;
+    }
+    if (!lifeTax && !manaTax) { out.push(a); continue; }
+    if (life < lifeTax) continue; // can't pay the added life → this cast is not offered
+    let taxed = lifeTax ? { ...a, targetLifeTax: lifeTax } : a;
+    if (manaTax) {
+      if (a.freeCast || a.altCost) continue; // these paths pay no mana, so the tax can't be charged → no offer
+      const cost = { ...a.cost, generic: (a.cost?.generic || 0) + manaTax };
+      const fromZone = a.fromZone || "hand";
+      const castCard = a.faceCard || (player?.[fromZone] || []).find((c) => c.id === a.cardId) || null; // the dispatcher's castCard
+      const spendContext = { castCard, isCommander: fromZone === "command", restrictedEntries: player?.restrictedMana || [] };
+      if (!canAfford(player.manaPool, castPaymentSources(state, a), cost, spendContext)) continue;
+      taxed = { ...taxed, cost, targetManaTax: manaTax };
+    }
+    out.push(taxed);
   }
   return out;
 }
