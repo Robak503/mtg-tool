@@ -63,6 +63,7 @@
  */
 import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature } from "./layers.js";
 import { findPermanent, creaturePower } from "./gameState.js";
+import { hasCitysBlessing } from "./ascend.js"; // shelf D5 — "can't attack or block unless you have the city's blessing"
 import { hasKeyword } from "./keywords.js";
 import { parseGroupBlockRestriction, attachedPreventionOf } from "./staticAbilityParser.js";
 
@@ -875,7 +876,7 @@ export function isSelfCantBlock(card) { return reCantBlock.test(selfOracle(card)
  * ⛔ WHOLE-CLAUSE ANCHORED and LAND-ONLY: the gate the corpus prints on this shape is a land count. Any other
  * "unless …" tail fails the anchor → null → the clause stays residue → the card parks (CREED, FN-safe).
  */
-const reSelfCantAtkBlk = /(?:^|[\n.;])\s*this (?:creature|token) can't (attack or block|attack|block)(?: unless you control (one|two|three|four|five|six|seven|eight|nine|ten|\d+) or more lands)?\s*(?:\.|$)/i;
+const reSelfCantAtkBlk = /(?:^|[\n.;])\s*this (?:creature|token) can't (attack or block|attack|block)(?: unless you control (one|two|three|four|five|six|seven|eight|nine|ten|\d+) or more lands| unless (you have the city['’]s blessing))?\s*(?:\.|$)/i;
 const LAND_NUMWORD = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
 export function selfCantAttackBlockGate(card) {
   const m = reSelfCantAtkBlk.exec(selfOracle(card));
@@ -884,13 +885,15 @@ export function selfCantAttackBlockGate(card) {
   // anchor's `(?:\.|$)` tail already excludes them (the word "alone" follows), so they can never land here.
   const what = m[1].toLowerCase();
   const minLands = m[2] ? (LAND_NUMWORD[m[2].toLowerCase()] ?? parseInt(m[2], 10)) : 0;
-  return { attack: what !== "block", block: what !== "attack", minLands };
+  // THE CITY'S BLESSING window (shelf D5 — Wayward Swordtooth): restricted until the controller has the designation.
+  return { attack: what !== "block", block: what !== "attack", minLands, ...(m[3] ? { needsBlessing: true } : {}) };
 }
 
 /** True iff this permanent may NOT be declared as an attacker right now (the gate's land window is read LIVE). */
 export function selfCantAttackNow(state, perm) {
   const g = selfCantAttackBlockGate(perm?.card);
   if (!g || !g.attack) return false;
+  if (g.needsBlessing) return !hasCitysBlessing(state, perm.controller); // restricted until the controller has it (CR 702.131)
   if (!g.minLands) return true;                                   // unconditional
   const bf = state?.players?.[perm.controller]?.battlefield || [];
   const lands = bf.filter((p) => (permanentTypes(state, p.id)?.types || []).some((t) => String(t).toLowerCase() === "land")).length;
@@ -901,6 +904,7 @@ export function selfCantAttackNow(state, perm) {
 export function selfCantBlockNow(state, perm) {
   const g = selfCantAttackBlockGate(perm?.card);
   if (!g || !g.block) return false;
+  if (g.needsBlessing) return !hasCitysBlessing(state, perm.controller);
   if (!g.minLands) return true;
   const bf = state?.players?.[perm.controller]?.battlefield || [];
   const lands = bf.filter((p) => (permanentTypes(state, p.id)?.types || []).some((t) => String(t).toLowerCase() === "land")).length;

@@ -491,6 +491,10 @@ function gateMet(state, perm, gate) {
   // open exactly while the permanent's CONTROLLER is the active player. Re-evaluated every derive
   // pass like every other gate, so the buff flips precisely at the turn boundary (CR 611.2c).
   if (gate.kind === "yourTurn") return state?.activePlayer === perm.controller;
+  // THE CITY'S BLESSING gate (shelf D5, CR 702.131): open once the gate subject's controller has the designation
+  // (ascend.grantCitysBlessings). Read as the plain player flag, not through ascend.js — gameState imports this module,
+  // and ascend imports gameState.
+  if (gate.kind === "citysBlessing") return state?.players?.[perm.controller]?.citysBlessing === true;
   // EQUIPPED gate: any Equipment on the battlefield is attached to this permanent (CR 301.5b).
   if (gate.kind === "isEquipped") {
     for (const pid of Object.keys(state?.players || {})) {

@@ -186,7 +186,7 @@ describe("GA-1 — FN guards", () => {
     expect(specs[0].op).toMatchObject({ layerOp: "ptModifyGated", gate: { countSpec: { kind: "permanentsYouControl", subtype: "Plains" }, atLeast: 1, gateOn: "source" } });
     // A condition with NO exact evaluator still parks the whole clause (CREED fail-closed).
     const unevaluable = { id: "g2", name: "T", type: "Enchantment", mana: "{1}{W}",
-      oracle: "White creatures get +1/+1 as long as you have the city's blessing." };
+      oracle: "White creatures get +1/+1 as long as you have the initiative." }; // (the city's blessing graduated in shelf D5)
     expect(classifyCard(unevaluable)).toBe("body-only");
     expect(parseStaticAbilities(unevaluable).filter(s => s.affects?.mode === "dynamic")).toHaveLength(0);
   });

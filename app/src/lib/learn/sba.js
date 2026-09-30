@@ -42,6 +42,7 @@ import {
 } from "./gameState.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkLeavesTriggers, checkStateTriggers } from "./triggers.js";
 import { permanentIsCreature } from "./layers.js";
+import { grantCitysBlessings } from "./ascend.js"; // shelf D5 — Ascend (CR 702.131b) at the same cadence
 
 const MAX_PASSES = 10;
 
@@ -155,6 +156,9 @@ export function checkAllStateBasedActions(state) {
   // Drain any leave events queued by non-death exits this sweep produced (aura falls-off / legend-rule
   // non-creature moves when no dies-pass ran to drain them). No-op on an empty queue.
   if ((cur.pendingLeaveEvents || []).length > 0) cur = checkLeavesTriggers(cur);
+  // ASCEND (CR 702.131b, shelf D5) — "any time you control ten or more permanents": checked on the settled board, before
+  // the state triggers below so a trigger conditioned on the city's blessing sees it the moment it is granted.
+  cur = grantCitysBlessings(cur);
   // STATE TRIGGERS (CR 603.8) — checked at the same cadence as state-based actions, AFTER the fixpoint so
   // they see the settled board (a creature that just died can't also state-trigger). checkStateTriggers
   // carries its own arm/disarm latch, so calling this at every priority checkpoint enqueues a trigger only

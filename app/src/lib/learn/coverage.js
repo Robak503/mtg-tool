@@ -741,6 +741,9 @@ export function isKeywordOnly(oracle, name) {
   const clauses = t.split(/[,;.!?\n]|\band\b(?!\/or\b)/).map((c) => c.trim()).filter(Boolean);
   return clauses.every((c) =>
     COVERED_KEYWORDS.some((k) => c === k || c === `${k}.` || c.startsWith(`${k} `)) ||
+    // ASCEND (shelf D5, CR 702.131b) — the permanent's static is enforced by ascend.grantCitysBlessings at the SBA
+    // cadence. EXACT, not the list's startsWith: "ascend magiccon chicago" (an Un-card's attendance clause) is not Ascend.
+    c === "ascend" ||
     isEnforcedEvasionClause(c) ||
     reCyclingCost.test(c) ||
     reCyclingLifeCost.test(c) ||
@@ -4308,16 +4311,21 @@ function classifyChosenTypeFlatAnthem(card) {
   // keyword-only. Strip per-clause (anchored ^) so an "Other …"/COUNT anthem clause is NOT consumed → residue.
   if (detectTriggers(card).length > 0) return null;
   if (parseActivatedAbilities(card).length > 0) return null;
+  // ⛔ STRIP THE CLAUSE, NOT THE LINE (shelf D5, 2026-09-30). Both clause regexes are unanchored at the end, and this
+  // used to drop any line that merely CONTAINED the chooser or STARTED with the anthem — every sentence after it on
+  // the same line went with it, unread. Radiant Destiny's "Creatures you control of the chosen type get +1/+1. As long
+  // as you have the city's blessing, they also have vigilance." was credited whole while the vigilance did nothing (it
+  // surfaced the moment its Ascend line became creditable). Now the modeled clause is cut out and whatever else the
+  // line prints stays residue.
   const residue = oracle
     .split(/\n+/)
-    .filter((line) => {
+    .map((line) => {
       const t = line.trim();
-      if (!t) return false;
-      if (CHOSEN_TYPE_CHOOSER_RE.test(t)) return false;        // drop the ETB chooser line
-      if (CT_FLAT_ANTHEM_CLAUSE_RE.test(t)) return false;       // drop the flat chosen-type anthem line
-      if (CT_SELF_TYPE_ADD_LINE_RE.test(t)) return false;       // drop the layer-4 self type-add (Adaptive Automaton)
-      return true;                                              // anything else is residue
+      if (!t || CT_SELF_TYPE_ADD_LINE_RE.test(t)) return "";    // the layer-4 self type-add (Adaptive Automaton) — line-anchored
+      return t.replace(CHOSEN_TYPE_CHOOSER_RE, "").trim()      // the ETB chooser clause
+        .replace(CT_FLAT_ANTHEM_CLAUSE_RE, "").trim();          // the flat chosen-type anthem clause
     })
+    .filter(Boolean)                                            // anything left is residue
     .join(" ")
     // ⚠️ PERIODS PRESERVED — see the sibling note below. Stripping them let a leading "Changeling" swallow
     // Morophon's entire unmodeled {W}{U}{B}{R}{G} cost-reduction rider, crediting the card native-static

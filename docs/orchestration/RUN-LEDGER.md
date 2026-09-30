@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **417 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **418 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,32 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D5: Ascend and the city's blessing — Arch of Orazca + Wayward Swordtooth (**Jurassic Ramp 87 → 89**) · **+14** · corpus 15,021 (43.9%) / 34,245
+> Suite **1649 files / 17,038 tests** green (1 skipped); lint 0; decks 89% (2,656 → **2,658** / 2,998). CI GREEN on D4 (run 36747426857). Flip-diff **+14,
+> zero LOST, zero RETIERED** (tier snapshots at 4c661393 → the change). **Mutants 17/17 killed on assertions** (restore byte-identical).
+> · **Build:** `ascend.js` — CR 702.131b's grant at the SBA cadence (after the fixpoint, before state triggers): ten or more
+>   permanents AND a permanent with the printed Ascend line (not the Un-card's "Ascend MagicCon …"); phased-out permanents
+>   uncounted; never removed (702.131c). Readers: interveningIf "you have the city's blessing" (trigger conditions, the
+>   "Activate only if" rider, spell conditions); the self can't-attack-or-block gate's blessing window; a per-source
+>   `citysBlessing` as-long-as gate kind read live in layers. Spell Ascend (702.131a) not modeled — those spells park.
+> · ⚠️ **Two false positives the Ascend line was hiding — both closed before anything flipped:** (1) the chosen-type flat-
+>   anthem lane dropped any line that STARTED with the anthem, later sentences unread — Radiant Destiny's gated vigilance
+>   would have flipped doing nothing. Now it cuts only the modeled clauses; Radiant Destiny parks; LOST 0 (nothing shipped
+>   leaned on it). (2) Temur Elevator's mana line dropped "If you don't have the city's blessing, you lose 1 life" — a
+>   painless tri-land. ENFORCED (the FP policy): the loss rides the painland fields, exempted once the controller is blessed.
+>   The general land-tier gap (a mana line's trailing rider unread) is the already-tracked "credits mana lines the runtime
+>   never offers" item; a census of 113 such lines is in the scratchpad, most riders carried on extra source records.
+> · **Graduated pins (6 files):** the city's blessing was THE example of an unevaluable condition in coverage /
+>   extraLandDrops / globalCreatureAnthem / staticAbilities / interveningIf / selfAsLongAsGates — each guard now stands on
+>   "you have the initiative" (probed unread by both the gate parser and the evaluator), with a positive twin where it was a card.
+> · **Runtime:** `WITNESS citysBlessing {"before":false,"after":true,"logged":true}` · not at nine, not without Ascend, not
+>   from an opponent's, not for the Un-card, kept under ten, granted once · a real land drop as the tenth · Arch's draw and
+>   Orazca Relic's sacrifice only with it · Swordtooth attacks and blocks only with it · flying / +2/+2 / Saprolings / other
+>   artifact creatures / double strike only with it, never from an opponent's · Temur Elevator's life per tap until blessed ·
+>   Deadeye Brawler's draw on a real connection. Witness `app/src/lib/learn/ascendCitysBlessing.test.js` (16).
+> · **Next:** Jurassic Ramp needs 1 more (k=1: Ravenous Tyrannosaurus / Wrathful Raptors / Agonasaur Rex) · Shalai 88 ·
+>   Wolverine 88 · Captain America 87.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D4: "if {R}{R} was spent to cast it" — Vibrance takes **cdh to 90%** + the hybrid ETB family · **+9** · corpus 15,007 (43.8%) / 34,245
 > Suite **1648 files / 17,022 tests** green (1 skipped); lint 0; decks 89% (2,655 → **2,656** / 2,998 — cdh 89 → **90**). CI GREEN on D3 (run 36744277824) and the

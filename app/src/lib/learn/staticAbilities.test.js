@@ -453,7 +453,7 @@ describe("anti-fabrication guards (CLAUDE.md §1.2)", () => {
       expect(s.op.gate).toMatchObject({ countSpec: { kind: "permanentsYouControl", subtype: "Forest" }, atLeast: 1, gateOn: "source" });
     }
     // A condition with NO exact evaluator still emits NOTHING (CREED: fail closed, whole clause parks).
-    expect(parseStaticAbilities(card("Conditional", "Other creatures you control get +2/+2 as long as you have the city's blessing.", "Enchantment"))).toEqual([]);
+    expect(parseStaticAbilities(card("Conditional", "Other creatures you control get +2/+2 as long as you have the initiative.", "Enchantment"))).toEqual([]); // (the city's blessing graduated in shelf D5)
   });
 
   // ── Triggered / activated / ETB abilities are NOT static continuous effects ──

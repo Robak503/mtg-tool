@@ -524,7 +524,8 @@ describe("CA-2 — a guard that GRADUATED: monstrous is modelled now", () => {
 
 describe("CA-2 — FN guards: unevaluable conditions / unconsumed riders emit NOTHING", () => {
   const parked = [
-    ["Skymarcher Aspirant (city's blessing — subgame state unmodeled)", SKYMARCHER_ASPIRANT],
+    // Skymarcher Aspirant GRADUATED (shelf D5, 2026-09-30 — the city's blessing is modeled; ascendCitysBlessing.test.js).
+    ["a flying-as-long-as twin on the initiative (a designation still unmodeled)", { ...SKYMARCHER_ASPIRANT, id: "sma-i", name: "Initiative Aspirant", oracle: "This creature has flying as long as you have the initiative." }],
     ["Iymrith ('ward {4}' is not a grantable keyword)", IYMRITH],
     ["Slippery Scoundrel (city's blessing + a can't-be-blocked rider)", SLIPPERY_SCOUNDREL],
     ["Havi ('historic cards' — a defined characteristic no type-line test evaluates)", HAVI],

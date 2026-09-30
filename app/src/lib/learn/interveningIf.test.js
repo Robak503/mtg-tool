@@ -89,7 +89,9 @@ describe("evaluateInterveningIf — strict null for unmodeled conditions (CREED)
     // NOTE: "you('ve) gained [N or more] life this turn" is now MODELED (LIFE-GAINED, BLITZ LG-1) — its own block below.
     expect(evaluateInterveningIf(withBoard([]), "your team gained life this turn", "user")).toBe(null); // 2HG team-scoped gain — out of vocabulary → Arbiter
     expect(evaluateInterveningIf(withBoard([]), "a Zubera died this turn", "user")).toBe(null); // subtype-scoped death stays Arbiter (CREED)
-    expect(evaluateInterveningIf(withBoard([]), "you have the city's blessing", "user")).toBe(null); // no ascend/blessing tracking → Arbiter
+    // NOTE: "you have the city's blessing" is now MODELED (Ascend, shelf D5) — a definite answer, false on this board.
+    expect(evaluateInterveningIf(withBoard([]), "you have the city's blessing", "user")).toBe(false);
+    expect(evaluateInterveningIf(withBoard([]), "you have the initiative", "user")).toBe(null); // no initiative tracking → Arbiter
     // POWER near-misses stay null (only "power N or greater/more" is modeled — CREED)
     expect(evaluateInterveningIf(withBoard([]), "you control a creature with power 4 or less", "user")).toBe(null);
     expect(evaluateInterveningIf(withBoard([]), "you control a creature with toughness 4 or greater", "user")).toBe(null);

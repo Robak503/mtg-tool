@@ -1629,6 +1629,9 @@ function parseAsLongAsGate(condText) {
   // Turn-phase (the DT-1/ST-2 yourTurn evaluator, new phrasing): "as long as it's your turn" (Faithful
   // Pikemaster / Maarika). "Your" = the gate subject's controller → per-source in a group clause.
   if (/^it(?:'s| is) your turn$/.test(t)) return { kind: "yourTurn", gateOn: "source" };
+  // THE CITY'S BLESSING (shelf D5, CR 702.131 — Skymarcher Aspirant, Dusk Charger, Tendershoot Dryad …): "you" is the
+  // SOURCE's controller, so per-source in a group clause; the designation is read live (ascend.js grants it).
+  if (/^you have the city['’]s blessing$/.test(t)) return { kind: "citysBlessing", gateOn: "source" };
   // Combat state (the notAttacking mirror): Adanto Vanguard / Kitesail Corsair / Kor Scythemaster.
   if (/^this creature is attacking$/.test(t)) return { kind: "attacking", gateOn: "source" };
   if (/^it(?:'s| is) attacking$/.test(t)) return { kind: "attacking" };

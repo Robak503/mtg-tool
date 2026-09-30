@@ -77,6 +77,7 @@ import { creaturePower, creatureToughness } from "./gameState.js"; // layer-awar
 // `node --input-type=module -e "import './src/lib/learn/legalChoices.js'"` per the RUN-LEDGER's mandate — a
 // green suite is NOT evidence the module graph still loads (vitest resolves in a different order than node).
 import { permanentHasKeyword, permanentColors } from "./layers.js";
+import { hasCitysBlessing } from "./ascend.js"; // shelf D5 — the city's blessing designation (ascend.js imports only gameState)
 
 // ─── cardinal vocabulary ────────────────────────────────────────────────────────
 const NUM_WORD = {
@@ -755,6 +756,10 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     if (typeof context?.manaSpent !== "boolean") return null;
     return context.manaSpent === false;
   }
+  // ===== THE CITY'S BLESSING (shelf D5, 2026-09-30 — CR 702.131) ===== "if you have the city's blessing" (a trigger's
+  // intervening-if; the "Activate only if …" rider on Arch of Orazca; a spell's condition). A player designation, set by
+  // ascend.grantCitysBlessings and never cleared — always a definite answer.
+  if (/^you have the city['’]s blessing$/.test(c)) return hasCitysBlessing(state, controllerId);
   // ===== MANA-SPENT AMOUNT (④-Z, 2026-09-03 — the Opus cycle: Thunderdrum Soloist, Tackle Artist, Spectacular
   // Skywhale …) ===== "N or more mana was spent to cast that spell" and its complement "fewer than N mana was spent
   // to cast that spell" (the base half of an "… instead" pair). Reads the cast context's `manaSpentAmount` (threaded

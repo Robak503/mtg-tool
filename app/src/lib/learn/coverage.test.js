@@ -244,7 +244,9 @@ describe("classifyCard — tiers", () => {
     // trigger (condition unevaluated). CA-1 TIGHTENED: the Forest-count conditional now models
     // as a live gate and flips; the guard is re-pointed at a condition that still has none.
     expect(classifyCard(C("Enchantment", "Creatures you control get +2/+2 as long as you control a Forest."))).toBe("native-static");
-    expect(classifyCard(C("Enchantment", "Creatures you control get +2/+2 as long as you have the city's blessing."))).toBe("body-only");
+    // GRADUATED (shelf D5, 2026-09-30): the city's blessing is modeled now (ascend.js), so the guard moves to the initiative.
+    expect(classifyCard(C("Enchantment", "Creatures you control get +2/+2 as long as you have the city's blessing."))).toBe("native-static");
+    expect(classifyCard(C("Enchantment", "Creatures you control get +2/+2 as long as you have the initiative."))).toBe("body-only");
     expect(classifyCard(C("Creature — Knight", "When this enters, draw a card. {2}, {T}: Draw a card."))).toBe("body-only"); // extra activated text
     // Intervening-if (CR 603.4) is NOT routed by the engine, so it must NOT count native.
     expect(classifyCard(C("Creature — Cleric", "When this creature enters, if you control another creature, draw a card."))).toBe("body-only");
@@ -395,8 +397,8 @@ describe("coverageSummary", () => {
     C("Creature — Wizard", "When this enters, draw a card.", { qty: 2 }), // native-trigger (P2.8)
     C("Enchantment", "Creatures you control get +1/+1.", { qty: 1 }),     // native-static (P2.10)
     // CA-1: the Forest-count conditional moved to native (live gate); the body-only slot is held by a
-    // conditional whose condition still has NO exact evaluator (city's blessing — deliberately parked).
-    C("Enchantment", "Creatures you control get +2/+2 as long as you have the city's blessing.", { qty: 1 }), // body-only (unevaluable conditional static)
+    // conditional whose condition still has NO exact evaluator (the initiative — deliberately parked; the city's blessing graduated in shelf D5).
+    C("Enchantment", "Creatures you control get +2/+2 as long as you have the initiative.", { qty: 1 }), // body-only (unevaluable conditional static)
     C("Sorcery", "Target player mills half their library.", { qty: 1 }), // arbiter-spell (bare half-library mill, no rounding — deliberately unmatched)
   ];
   it("counts tiers weighted by qty and computes native %", () => {

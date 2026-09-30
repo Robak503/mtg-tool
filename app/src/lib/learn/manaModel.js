@@ -440,6 +440,18 @@ function parseAddClause(oracle, card) {
       const col = pain1[1].toUpperCase();
       return { colors: [col], amount: 1, painColors: [col], painAmount: parseInt(pain1[2], 10) };
     }
+    // ⭐ BLESSING-GATED PAIN (shelf D5, 2026-09-30 — Temur Elevator: "Ascend\n{T}: Add {G}, {U}, or {R}. If you don't
+    // have the city's blessing, you lose 1 life."). Its first Add clause parsed and the life loss was DROPPED — a
+    // painless tri-land, the forbidden direction, hidden only because the Ascend line kept the card parked. Now the
+    // loss rides the painland fields with `painUnlessCitysBlessing`, and manaSources leaves the pain off once the
+    // controller has the city's blessing (the one condition this reads — any other "If you don't …" stays unmatched).
+    const blessingPain = String(oracle || "").trim().match(
+      /^(?:Ascend(?: \([^)\n]*\))?\n)?\{T\}: Add \{([WUBRG])\}, \{([WUBRG])\}, or \{([WUBRG])\}\. If you don't have the city['’]s blessing, you lose (\d+) life\.$/i,
+    );
+    if (blessingPain) {
+      const cols = [blessingPain[1], blessingPain[2], blessingPain[3]].map((c) => c.toUpperCase());
+      return { colors: cols, amount: 1, painColors: cols, painAmount: parseInt(blessingPain[4], 10), painUnlessCitysBlessing: true };
+    }
   }
   // The no-quantity form ("Add mana of any color") — keep the original FN-safe amount:1.
   if (/add\b[^.]*\bmana of any(?: one)? color/i.test(oracle)) {
@@ -2035,7 +2047,7 @@ export function manaSources(state, playerId) {
     // SG-3 — a sacrifice-a-creature source needs ANOTHER creature to feed it (never the source itself, never
     // offered on an empty board): no victim → no source (CR 601.2h — the cost cannot be paid).
     if (prod.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || "")))) continue;
-    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}) });
+    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors && !(prod.painUnlessCitysBlessing && player.citysBlessing === true) ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}) /* shelf D5 — Temur Elevator: no loss once the controller has the city's blessing */, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}) });
     // STAGE ④-3 — EXTRA MANA LINES: a second, complete "{T}: Add …" line the main product does not cover (a
     // gated colour line — Tainted Isle / the Verges / Gathering Place; a free "{T}: Add {C}" beside a painful
     // any-colour line — Grand Coliseum; a "{T}, Sacrifice this land: Add …" ritual line). Each is its own

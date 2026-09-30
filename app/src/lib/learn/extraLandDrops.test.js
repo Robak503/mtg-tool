@@ -93,7 +93,10 @@ describe("EXTRA-LAND-DROPS — classifyCard", () => {
   });
   it("rider / symmetric / one-shot cards stay non-native (CREED all-or-nothing)", () => {
     expect(classifyCard(DRYAD)).toBe("body-only");           // type-changing static rider
-    expect(classifyCard(WAYWARD)).toBe("body-only");         // ascend + can't-attack rider
+    // Wayward Swordtooth GRADUATED (shelf D5, 2026-09-30): Ascend and its can't-attack-or-block-unless-blessed window are
+    // modeled now (ascendCitysBlessing.test.js). The rider guard keeps its shape on a designation still unmodeled.
+    expect(classifyCard(WAYWARD)).toBe("native-static");
+    expect(classifyCard({ ...WAYWARD, id: "c-way-i", oracle: "You may play an additional land on each of your turns.\nThis creature can't attack or block unless you have the initiative." })).toBe("body-only");
     // SYMMETRIC ("each player …") + their own riders → never native.
     expect(classifyCard(RITES)).toBe("body-only");
     expect(classifyCard(GHIRAPUR)).toBe("body-only");
