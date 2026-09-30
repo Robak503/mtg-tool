@@ -31,6 +31,7 @@ export const MASS_WIPE_SCOPES = new Set([
   "eachEnchantment",            // MASS-NC — "destroy all enchantments"
   "eachLand",                   // MASS-NC — "destroy all lands"
   "eachArtifactOrEnchantment",  // MASS-NC — "destroy all artifacts and enchantments"
+  "eachArtifactCreatureOrEnchantment", // stage ③ · 29 — "destroy all artifacts, creatures, and enchantments" (Nevinyrral's Disk)
 ]);
 
 /** Non-chosen scopes that are NOT AI-held wipes — player scopes, context-bound players, and

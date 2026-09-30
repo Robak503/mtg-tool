@@ -1033,9 +1033,13 @@ export function destroyExileClauseParser(clause) {
   // untouched, and the exile op already handles a mass (non-chosen) target set — the eachCreature exile above is
   // the proof, and the runtime test in massExileByType.test.js pins the artifact/enchantment/land arms directly
   // rather than trusting that symmetry.
-  const m = t.match(/^(destroy|exile) all (artifacts and enchantments|artifacts|enchantments|lands)$/);
+  // + THE TRIPLE (the 09-06 plan's stage ③ · 29, 2026-09-30 — Nevinyrral's Disk, Magus of the Disk, Akroma's Vengeance: "Destroy all
+  // artifacts, creatures, and enchantments"): its own scope, eachArtifactCreatureOrEnchantment, wired through every site a wipe
+  // scope needs (splitClauses keeps the sentence whole; atomTargets; MASS_WIPE_SCOPES; the creature-wipe query).
+  const m = t.match(/^(destroy|exile) all (artifacts, creatures, and enchantments|artifacts and enchantments|artifacts|enchantments|lands)$/);
   if (m) {
-    const TT = { "artifacts": "eachArtifact", "enchantments": "eachEnchantment", "lands": "eachLand", "artifacts and enchantments": "eachArtifactOrEnchantment" };
+    const TT = { "artifacts": "eachArtifact", "enchantments": "eachEnchantment", "lands": "eachLand", "artifacts and enchantments": "eachArtifactOrEnchantment",
+      "artifacts, creatures, and enchantments": "eachArtifactCreatureOrEnchantment" };
     return { op: m[1] === "destroy" ? "destroy" : "exile", targetType: TT[m[2]] };
   }
   // MASS-LAND-SUBTYPE — "destroy all Islands|Swamps|Mountains|Plains|Forests" (Boil, Tsunami, Acid Rain,

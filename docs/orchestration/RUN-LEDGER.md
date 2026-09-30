@@ -5,14 +5,33 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **385 commits**, corpus
-> 38.6% → **43.5% (14,913)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **386 commits**, corpus
+> 38.6% → **43.6% (14,916)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 29: "Destroy all artifacts, creatures, and enchantments" — Nevinyrral's Disk, Akroma's Vengeance, Magus of the Disk · **+3** · corpus 14,916 (43.6%) / 34,245
+> Suite **1620 files / 16,779 tests** green (1 skipped); lint 0. Flip-diff **+3, zero LOST, zero retiered** (tier snapshots at a2c540dc → the
+> change). **Mutants 5/5 killed on assertions** — one per wiring site (restore byte-identical).
+> · **Census rank 49** (Nevinyrral's Disk #1926; Akroma's Vengeance #6281 and Magus of the Disk carry the same clause; Nevinyrral,
+>   Urborg Tyrant parks on its hexproof-from line and reflexive payoff). The mass-destroy family had the pair "artifacts and
+>   enchantments" but not the triple — the clause parsed low.
+> · **Build — one scope, every site a wipe scope needs:** `eachArtifactCreatureOrEnchantment` in the removal parse; the clause
+>   splitter's anchored keep-whole (the comma and the " and " both join types inside one target); atomTargets (+ the load-time
+>   handled set) — the LAYER-AWARE creature set the Wrath path uses, plus every artifact and enchantment by type line like the
+>   pair, each permanent once; MASS_WIPE_SCOPES, so the AI holds it like any wipe; and the creature-wipe query, so the AI's
+>   "cast a held wipe when clearly behind" heuristic can unlock it (it answers a creature board).
+> · **Runtime (on one mixed board — each kind the wipe must hit and each it must miss):** the board as dealt (the vacuity
+>   control) · `WITNESS diskWipe ["Darksteel Ingot","Forest","Jace Beleren"]` — the Disk, activated for {1}, destroys itself,
+>   Mind Stone, Glorious Anthem, Grizzly Bears and the Dryad Arbor land creature; the basic land, the planeswalker and the
+>   indestructible Ingot stay · Akroma's Vengeance cast from hand leaves the same three.
+> · **Mutants 5/5:** the triple removed from the parse · the splitter's keep-whole removed · the creature half dropped · not an
+>   AI-held wipe · not a creature wipe to the AI. Witness `app/src/lib/learn/massTripleWipe.test.js` (5).
+> · **Next:** census rank 50 — Cunning Evasion / Grazilaxx ("whenever a creature you control becomes blocked, you may return it").
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 28: "Protection from black and from red" — both Akromas, Mirran Crusader, Auriok Champion … · **+11** · and a runtime protection bug on 7 cards · corpus 14,913 (43.5%) / 34,245
 > Suite **1619 files / 16,774 tests** green (1 skipped); lint 0. Flip-diff **+11, zero LOST, zero retiered** (tier snapshots at 1cb7f918 → the

@@ -555,6 +555,8 @@ export function programContainsCreatureMassRemoval(program) {
     : (program.atoms || []);
   return atoms.some(a =>
     a.op === "mass-destroy-treasure-per-nontoken" ||
+    // the TRIPLE wipe (stage ③ · 29 — Nevinyrral's Disk, Akroma's Vengeance) answers a creature board too
+    (a.targetType === "eachArtifactCreatureOrEnchantment" && (a.op === "destroy" || a.op === "exile")) ||
     (a.targetType === "eachCreature" && (
       a.op === "destroy" || a.op === "exile" ||
       (a.op === "pump" && (a.amountX || (a.ptDelta?.p ?? 0) < 0 || (a.ptDelta?.t ?? 0) < 0))

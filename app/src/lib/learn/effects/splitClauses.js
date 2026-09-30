@@ -677,6 +677,9 @@ export function splitClauses(oracle) {
     // one mass-destroy target, not a top-level effect boundary. Keep the whole sentence so the recognizer
     // binds the combined eachArtifactOrEnchantment scope. Anchored to the exact bare form.
     if (/^destroy all artifacts and enchantments$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // + the TRIPLE (stage ③ · 29 — Nevinyrral's Disk, Akroma's Vengeance): the comma AND the " and " both join types inside one
+    // mass-destroy target. Same anchored keep-whole.
+    if (/^destroy all artifacts, creatures, and enchantments$/i.test(sentence)) { clauses.push(sentence); continue; }
     // MASS-BOUNCE-EXCEPT (Whelming Wave) — "return all creatures to their owners' hands except for Krakens,
     // Leviathans, Octopuses, and Serpents": the trailing " and " joins the LAST creature SUBTYPE in the
     // exclusion list, INTERNAL to one mass-bounce target, NOT a top-level effect boundary. Keep the whole

@@ -258,6 +258,7 @@ export function opponentCreatureTargets(state, controller, opts = {}) {
  */
 const ATOM_TARGETS_MASS_HANDLED = new Set([
   "eachCreature", "eachArtifact", "eachEnchantment", "eachLand", "eachArtifactOrEnchantment",
+  "eachArtifactCreatureOrEnchantment",
   "eachOpponentCreature",
 ]);
 for (const tt of MASS_WIPE_SCOPES) {
@@ -278,6 +279,14 @@ export const atomTargets = (state, atom, ctx) => {
     ? (c) => isLandCard(c) && new RegExp(`\\b${atom.landSubtype}\\b`, "i").test(typeLineStr(c)) // MASS-LAND-SUBTYPE (Boil "destroy all Islands")
     : isLandCard);
   if (atom.targetType === "eachArtifactOrEnchantment") return massPermanentTargets(state, (c) => isArtifactCard(c) || isEnchantmentCard(c));
+  // THE TRIPLE (stage ③ · 29 — Nevinyrral's Disk, Akroma's Vengeance): the layer-aware creature set the Wrath path uses (an
+  // animated land counts), plus every artifact and enchantment by type line like the pair above — each permanent ONCE (an
+  // artifact creature is in both halves; its creature descriptor wins).
+  if (atom.targetType === "eachArtifactCreatureOrEnchantment") {
+    const creatures = massCreatureTargets(state);
+    const seen = new Set(creatures.map((t) => t.id));
+    return [...creatures, ...massPermanentTargets(state, (c) => isArtifactCard(c) || isEnchantmentCard(c)).filter((t) => !seen.has(t.id))];
+  }
   // MASS-OPPONENT-BOUNCE (Scourge of Fleets) — "each creature your opponents control[ with toughness X or less]"
   // gathered AT RESOLUTION (CR 611.2c — the set is fixed as the one-shot begins). The optional toughness bound X
   // is a board COUNT (atom.toughnessAtMostCount, e.g. "the number of Islands you control") resolved here via
