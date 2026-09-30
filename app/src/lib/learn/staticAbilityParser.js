@@ -1632,6 +1632,9 @@ function parseAsLongAsGate(condText) {
   // THE CITY'S BLESSING (shelf D5, CR 702.131 — Skymarcher Aspirant, Dusk Charger, Tendershoot Dryad …): "you" is the
   // SOURCE's controller, so per-source in a group clause; the designation is read live (ascend.js grants it).
   if (/^you have the city['’]s blessing$/.test(t)) return { kind: "citysBlessing", gateOn: "source" };
+  // CRIME THIS TURN (shelf D9, CR 700.13 — Slickshot Vault-Buster, Omenport Vigilante): "you" is the SOURCE's controller;
+  // the flag is stamped by triggers.checkCrimeTriggers and cleared with the per-turn tallies.
+  if (/^you['’]ve committed a crime this turn$/.test(t)) return { kind: "crimeThisTurn", gateOn: "source" };
   // Combat state (the notAttacking mirror): Adanto Vanguard / Kitesail Corsair / Kor Scythemaster.
   if (/^this creature is attacking$/.test(t)) return { kind: "attacking", gateOn: "source" };
   if (/^it(?:'s| is) attacking$/.test(t)) return { kind: "attacking" };

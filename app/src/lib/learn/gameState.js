@@ -2712,6 +2712,9 @@ export function resetCreatureDeathsAllPlayers(state) {
     // same cadence as its sibling ledgers. `speed` itself PERSISTS — it is a player property, not a
     // this-turn tally.
     players[id] = { ...state.players[id], creaturesDiedThisTurn: 0, lifeLostThisTurn: 0, lifeGainedThisTurn: 0, gyEnteredThisTurn: 0, descendedThisTurn: 0, damageTakenThisTurn: 0, speedIncreasedThisTurn: false, sacrificedThisTurn: [] }; // + sacrificedThisTurn (Elanor, 2026-09-05)
+    // CRIME (CR 700.13, shelf D9) — "you've committed a crime this turn" clears on the same cadence. Written only when set, so
+    // a game without a crime keeps the player objects it always had.
+    if (players[id].crimeCommittedThisTurn) players[id] = { ...players[id], crimeCommittedThisTurn: false };
   }
   return { ...state, players };
 }

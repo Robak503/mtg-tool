@@ -66,6 +66,7 @@ import {
   checkLeavesTriggers,
   checkMilledTriggers,
   checkBecomesTargetTriggers,
+  checkCrimeTriggers, // CRIME (CR 700.13, shelf D9) — a triggered ability that targets an opponent's side reaching the stack
   checkUntapTriggers,
   checkTapTriggers, checkCounterTriggers,
   checkGraveyardEventTriggers,
@@ -1807,6 +1808,11 @@ export function flushTriggers(state, { chooseTargets } = {}) {
   // when no new triggered ability targeted a becomes-target permanent — the common case, byte-identical to before.
   for (const so of newStackObjects) {
     out = checkBecomesTargetTriggers(out, so);
+    // CRIME (CR 700.13): putting a triggered ability on the stack that targets an opponent's side is a crime by its
+    // controller. Its watchers join the recursion below. No crime watcher in the corpus targets an opponent's side
+    // itself, and the ones whose payoff could feed a crime print "This ability triggers only once each turn", so the
+    // recursion still terminates.
+    out = checkCrimeTriggers(out, so);
     // KIRA (kiraTargetCounter.js): this 4th target-choice site also raises Kira's hard counter — a TRIGGERED
     // ability targeting an eligible-and-fresh Kira-protected creature is countered outright (CR 603.2 — "a
     // spell or ability" includes a triggered ability). No-op when no Kira source is in play. counterSpellById

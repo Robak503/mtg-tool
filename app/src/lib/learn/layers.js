@@ -495,6 +495,8 @@ function gateMet(state, perm, gate) {
   // (ascend.grantCitysBlessings). Read as the plain player flag, not through ascend.js — gameState imports this module,
   // and ascend imports gameState.
   if (gate.kind === "citysBlessing") return state?.players?.[perm.controller]?.citysBlessing === true;
+  // CRIME THIS TURN gate (shelf D9, CR 700.13): open while the gate subject's controller has committed a crime this turn.
+  if (gate.kind === "crimeThisTurn") return state?.players?.[perm.controller]?.crimeCommittedThisTurn === true;
   // EQUIPPED gate: any Equipment on the battlefield is attached to this permanent (CR 301.5b).
   if (gate.kind === "isEquipped") {
     for (const pid of Object.keys(state?.players || {})) {

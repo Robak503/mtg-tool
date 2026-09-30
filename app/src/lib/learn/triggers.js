@@ -1385,6 +1385,9 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^a card leaves your graveyard during your turn$/.test(c)) {
     return { event: "gyLeave", scope: "gyWatcher", whose: "any", gyCardType: null, gyOwnerScope: "you", duringYourTurn: true };
   }
+  // CRIME "during your turn" (Overzealous Muscle, shelf D9 — CR 700.13): admitted above the blanket during-reject like the
+  // two arms above; checkCrimeTriggers gates it on the watcher's controller being the active player.
+  if (/^you commit a crime during your turn$/.test(c)) return { event: "crime", scope: "you", whose: "you", duringYourTurn: true };
 
   // ATTACKS-WHILE (2026-08-14 — Pugnacious Hammerskull "Whenever this creature attacks while you don't
   // control another Dinosaur, …"): the while-part is a FIRE-TIME-ONLY event condition — part of the
@@ -2241,6 +2244,12 @@ function classifyCondition(condRaw, cardName, cardType) {
   // no-pause tutor path and the tutor-pause settle — never by the shuffle chokepoint (plain shuffles, wheels and scry
   // shuffles are not searches). Bare opponent form only; a rider → UNDETECTED.
   if (/^an opponent searches (?:their|his or her) library$/.test(c)) return { event: "librarySearch", scope: "opponent", whose: "any" };
+  // ===== CRIME (CR 700.13 — shelf D9, 2026-09-30) ===== "Whenever you commit a crime" (Marauding Sphinx, Magda, Blood
+  // Hustler, Raven of Fell Omens …) and "Whenever an opponent commits a crime" (Patrolling Peacemaker); the "during your
+  // turn" form sits above the blanket during-reject. checkCrimeTriggers detects the crime at the four target-choice sites
+  // and gates `whose` against the criminal. Bare forms only; a rider → UNDETECTED.
+  if (/^you commit a crime$/.test(c)) return { event: "crime", scope: "you", whose: "you" };
+  if (/^an opponent commits a crime$/.test(c)) return { event: "crime", scope: "you", whose: "opponent" };
   // ===== TAPPED FOR MANA (CORPUS ④-D, 2026-09-03 night — CR 605.3 / 603.2) ===== "Whenever you tap this creature for
   // mana, …" (Zhur-Taa Druid — scope self: the tapped permanent IS the watcher) / "Whenever you tap a land for mana"
   // (a land-filtered watcher, whose:"you") / "Whenever an opponent taps a land for mana" (Vorinclex — whose:"opponent").
@@ -7928,6 +7937,51 @@ export function checkBecomesTargetTriggers(state, stackObj) {
   }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * CRIME (CR 700.13 — shelf D9, 2026-09-30): "A player commits a crime as that player casts a spell, activates an ability,
+ * or puts a triggered ability on the stack and that spell or ability targets at least one opponent; at least one
+ * permanent, spell, or ability an opponent controls; and/or at least one card in an opponent's graveyard."
+ *
+ * Called at the same four target-choice sites as checkBecomesTargetTriggers (the spell cast, the activated and loyalty
+ * abilities, a triggered ability reaching the stack), with that stack object — its controller is the criminal, its
+ * chosen targets the evidence. A permanent's side is its controller NOW, as the targets are chosen; a stack target's is
+ * its stack object's controller; a graveyard card's is the graveyard's holder (stamped on the target at enumeration).
+ *
+ * A crime stamps `crimeCommittedThisTurn` on the criminal (cleared with the other per-turn tallies) and queues every
+ * crime watcher whose `whose` names the criminal: "you" = the watcher's controller, "opponent" = one of theirs; the
+ * "during your turn" form also needs the watcher's controller to be the active player. Pure — appends to pendingTriggers.
+ */
+export function checkCrimeTriggers(state, stackObj) {
+  const criminal = stackObj?.controller;
+  const targets = stackObj?.targets || [];
+  if (!criminal || !targets.length || !state.players?.[criminal]) return state;
+  const opponents = new Set(opponentsOf(state, criminal));
+  const sideOf = (t) => {
+    if (t?.type === "player") return t.id;
+    if (t?.type === "spell" || t?.type === "stackAbility") return (state.stack || []).find((o) => o.id === t.id)?.controller;
+    if (t?.type === "graveyardCard") return t.controller;
+    return findPermanent(state, t?.id)?.permanent?.controller;
+  };
+  if (!targets.some((t) => opponents.has(sideOf(t)))) return state;
+  let next = { ...state, players: { ...state.players, [criminal]: { ...state.players[criminal], crimeCommittedThisTurn: true } } };
+  next = logEvent(next, { kind: "crime", playerId: criminal, stackObjectId: stackObj.id ?? null });
+  let fired = [];
+  for (const pid of Object.keys(next.players)) {
+    for (const watcher of triggerSourcesOf(next, pid)) {
+      const raw = triggersForEvent(next, { event: "crime", sourcePermanent: watcher, triggeringPermanent: watcher, triggeringContext: { criminalId: criminal } });
+      fired = fired.concat(raw.filter((t) => {
+        const d = t?.descriptor || t;
+        if (d?.duringYourTurn && next.activePlayer !== watcher.controller) return false;
+        if (d?.whose === "you") return criminal === watcher.controller;
+        if (d?.whose === "opponent") return opponentsOf(next, watcher.controller).includes(criminal);
+        return false;
+      }));
+    }
+  }
+  if (!fired.length) return next;
+  return { ...next, pendingTriggers: [...(next.pendingTriggers || []), ...fired] };
 }
 
 /**

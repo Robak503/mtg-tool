@@ -23,8 +23,8 @@
  * stay UNDETECTED; a broad artifact-PiG fires on an ARTIFACT dying not a creature; the historic filter
  * admits artifact/legendary/Saga and rejects a vanilla spell; the multicolored filter admits ≥2 colors
  * and rejects mono/colorless. FN guards: Spine of Ish Sah's bare self-return parks, Disciple of the
- * Vault's targeted-optional drain parks, "commit a crime" parks (no crime event — CR 700.13 is a
- * cross-cutting cast/activate marker, out of a trigger-scope slice). Whole-card law throughout.
+ * Vault's targeted-optional drain parks. ("Commit a crime" parked here too until shelf D9 built the crime event — CR
+ * 700.13 — at the four target-choice sites; its pin below is re-pointed.) Whole-card law throughout.
  *
  * Real oracle fixtures (bundled Scryfall, verified 2026-07-17); every flip audited by name in the TR-3
  * flip-diff (44 GAINED, LOST=0). CR cites verified against knowledge/mtg-judge/data/cr/cr_current.json.
@@ -244,10 +244,13 @@ describe("TR-3 broad artifact-PiG — 'an artifact is put into a graveyard from 
   });
 });
 
-// ─── 4. Form 4 PARK — 'commit a crime' has no engine event (CR 700.13) ────────────
-describe("TR-3 crime PARK — 'whenever you commit a crime' stays UNDETECTED → Arbiter", () => {
-  it("Magda, the Hoardmaster parks (no crime marker exists; CR 700.13 is a cross-cutting cast/activate event)", () => {
-    expect(detectTriggers(MAGDA).filter((t) => /crime/i.test(String(t.event)))).toHaveLength(0);
-    expect(classifyCard(MAGDA)).toBe("body-only");
+// ─── 4. Form 4 — 'commit a crime' (CR 700.13), GRADUATED in shelf D9 ────────────────────
+// RE-POINTED: this pinned Magda as parked because "no crime marker exists" — a capability pin. D9 built the event
+// (triggers.checkCrimeTriggers at the four target-choice sites, the per-turn flag, the watchers); the runtime is
+// witnessed in crime.test.js. What stays pinned here is the detection shape.
+describe("TR-3 crime — 'whenever you commit a crime' is detected (graduated, shelf D9)", () => {
+  it("Magda, the Hoardmaster detects a crime watcher on its controller's crimes and reads native", () => {
+    expect(detectTriggers(MAGDA).filter((t) => t.event === "crime").map((t) => [t.scope, t.whose])).toEqual([["you", "you"]]);
+    expect(classifyCard(MAGDA)).toBe("native-mixed");
   });
 });

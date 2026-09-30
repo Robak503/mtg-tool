@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **421 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **422 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,30 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D9: committing a crime (CR 700.13) — **Otharri 89 → 90** · **+13** · corpus 15,059 (44.0%) / 34,245
+> Suite **1653 files / 17,089 tests** green (1 skipped); lint 0; decks 2,665 → **2,666** / 2,998. CI GREEN on D8 (run 36761118885). Flip-diff **+13,
+> zero LOST, zero RETIERED** (tier snapshots at 8f96e01d → the change). **Mutants 20/20 killed on assertions** (restore byte-identical).
+> · **Why crime:** Otharri's cheapest line was Patrolling Peacemaker's "Whenever an opponent commits a crime"; the census found 29
+>   crime cards, the crime line the SOLE blocker on 18 — a mechanic, not a card.
+> · **Build:** `triggers.checkCrimeTriggers` at the four target-choice sites checkBecomesTargetTriggers already had (cast,
+>   activation, loyalty — actionDispatcher; a trigger reaching the stack — the flush), which are exactly CR 700.13's three
+>   moments. Side of a target: a player itself; a permanent its controller now; a spell/ability its stack object's
+>   controller; a graveyard card its holder. `crimeCommittedThisTurn` (cleared at untap, written only when set); watchers
+>   "you commit a crime" / "…during your turn" (above the blanket during-reject) / "an opponent commits a crime"; the
+>   static gate "as long as you've committed a crime this turn" and the intervening-if "if you've …".
+> · **Runtime:** `WITNESS crimeByTarget` — their creature / their face = crime (Raven drains), your creature / yourself =
+>   none · Cremate at their graveyard = crime, yours = none · Cancel on their spell = crime, yours = none · Blood Hustler's
+>   activated drain = crime, its own watcher adds ONE counter across two activations · Ob Nixilis −3 = crime ·
+>   `WITNESS crimeByTrigger` Chupacabra's ETB = crime, the opponent's Peacemaker proliferates 2 → 3 · whose gates both
+>   ways · Overzealous Muscle only on its controller's turn · Vault-Buster 1/4 → 3/4 → 1/4 at the next untap. Witness
+>   `app/src/lib/learn/crime.test.js` (12). A first fixture of mine let Chupacabra's ETB pick the Peacemaker itself —
+>   fixed the board order, not the engine. Pin re-pointed: triggerScopesR2's TR-3 "crime PARK" ("no crime marker
+>   exists") now pins the detected watcher — a graduation.
+> · **Parked with reasons:** Servant of the Stinger (the "you may sacrifice … If you do, search" payoff), Take for a Ride
+>   ("has flash as long as …" — no conditional-flash model), Kaervek / Lazav / Forsaken Miner (copy-and-cast, a
+>   graveyard exile choice, a graveyard-functioning watcher), Rattleback Apothecary ("your choice of menace or lifelink").
+> · **Next:** Wolverine 88 · Captain America 87 · Otharri's remaining tail.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D8: a kicked spell's targets depend on the kick — **Shalai 89 → 90** · Otharri 87 → 89 · Light-Paws 82 → 83 · **+9** · corpus 15,046 (43.9%) / 34,245
 > Suite **1652 files / 17,077 tests** green (1 skipped); lint 0; decks 2,661 → **2,665** / 2,998. CI GREEN on D7 (run 36757020205). Flip-diff **+9,

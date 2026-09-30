@@ -760,6 +760,9 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   // intervening-if; the "Activate only if …" rider on Arch of Orazca; a spell's condition). A player designation, set by
   // ascend.grantCitysBlessings and never cleared — always a definite answer.
   if (/^you have the city['’]s blessing$/.test(c)) return hasCitysBlessing(state, controllerId);
+  // ===== CRIME THIS TURN (shelf D9, 2026-09-30 — CR 700.13) ===== "if you've committed a crime this turn" (Servant of the
+  // Stinger). The per-turn flag triggers.checkCrimeTriggers stamps; unset reads false, a definite answer.
+  if (/^you['’]ve committed a crime this turn$/.test(c)) return state?.players?.[controllerId]?.crimeCommittedThisTurn === true;
   // ===== MANA-SPENT AMOUNT (④-Z, 2026-09-03 — the Opus cycle: Thunderdrum Soloist, Tackle Artist, Spectacular
   // Skywhale …) ===== "N or more mana was spent to cast that spell" and its complement "fewer than N mana was spent
   // to cast that spell" (the base half of an "… instead" pair). Reads the cast context's `manaSpentAmount` (threaded

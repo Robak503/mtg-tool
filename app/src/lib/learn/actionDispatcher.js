@@ -87,7 +87,7 @@ import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./le
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf, crewCostWithOverrides, permanentColors } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions
 import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch; S8 — the Pilot's crew boost
-import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers, checkBecomesCrewedTriggers, checkCycleSelfTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers; S7 — becomes-crewed
+import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers, checkBecomesCrewedTriggers, checkCycleSelfTriggers, checkCrimeTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers; S7 — becomes-crewed; D9 — crime (CR 700.13)
 import { setPendingSoftCounterChoice, setPendingOptionalLifePaymentChoice } from "./pendingChoice.js"; // setPendingOptionalLifePaymentChoice — the shockland pause (LANDS-TIER slice 2), raised from the play-land path
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
 import { groupWardTaxForSpell, groupWardTaxForStackObject } from "./groupWard.js";
@@ -974,6 +974,7 @@ function applyCastSpell(state, action) {
   // ANY caster's spell (no controller distinction, CR 603.2 — a Giant Growth on your OWN Phantasmal Bear
   // sacrifices it too), unlike ward/Heroic. A no-op when no targeted permanent carries the trigger.
   next = checkBecomesTargetTriggers(next, stackObject);
+  next = checkCrimeTriggers(next, stackObject); // CRIME (CR 700.13) — the same target-choice moment; queued for the same flush
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   // ZAXARA X-CAST: casting a spell with {X} → each of the caster's "cast a spell with {X} → make a token
   // with X +1/+1 counters" permanents makes its Hydra token (a real X/X). The general trigger compiler
@@ -1608,6 +1609,7 @@ function applyActivateAbility(state, action) {
   // the ability so it resolves first (CR 603.3b). Fires regardless of who activated (a player pinging their own
   // Phantasmal Bear sacrifices it). No-op when no targeted permanent carries the trigger.
   next = checkBecomesTargetTriggers(next, stackObject);
+  next = checkCrimeTriggers(next, stackObject); // CRIME (CR 700.13) — the same target-choice moment; queued for the same flush
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   // KW-WARD-PR2 (CR 702.21a): ward triggers on a spell OR an ABILITY an opponent controls — so an
   // opponent's activated/triggered ability targeting a single ward permanent raises the same pay-or-be-
@@ -1825,6 +1827,7 @@ function applyActivateLoyalty(state, action) {
   // when the loyalty ability targets nothing / no targeted permanent carries the trigger. Placed BEFORE the
   // zero-loyalty SBA sweep so the sac trigger sits atop the loyalty ability regardless of the walker's fate.
   next = checkBecomesTargetTriggers(next, stackObject);
+  next = checkCrimeTriggers(next, stackObject); // CRIME (CR 700.13) — the same target-choice moment; queued for the same flush
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   // KIRA (kiraTargetCounter.js): a loyalty ability IS an activated ability (CR 606.1), so "a spell or ability"
   // covers it — a loyalty ability targeting an eligible-and-fresh Kira-protected creature is countered outright.
