@@ -11,8 +11,10 @@ if (parts.length !== 2 || !/\bHuman\b/i.test(parts[1])) {
 }
 console.log("sanity gate OK:", JSON.stringify(parts));
 
-const CANDIDATES = ["human", "soldier", "zombie", "angel", "beast", "spirit", "warrior", "knight",
-  "cleric", "rogue", "druid", "shaman", "pirate", "dwarf", "cat", "bird", "snake", "giant"];
+// Candidates from the command line (`node scripts/probe-subtype-collision.cjs hero spacecraft`), else the TF-1 list.
+const CANDIDATES = process.argv.slice(2).length ? process.argv.slice(2).map((w) => w.toLowerCase())
+  : ["human", "soldier", "zombie", "angel", "beast", "spirit", "warrior", "knight",
+    "cleric", "rogue", "druid", "shaman", "pirate", "dwarf", "cat", "bird", "snake", "giant"];
 console.log("\nCOLLISION CHECK — the word must appear ONLY on the subtype side of the em dash:");
 for (const w of CANDIDATES) {
   const re = new RegExp("\\b" + w + "\\b", "i");

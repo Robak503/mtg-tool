@@ -571,6 +571,11 @@ const TUTOR_FILTER_WORDS = new Set([
   // all-zero rule caught it; the probe now lives in a file with a sanity gate that fails loudly if a known
   // type line stops splitting.
   "human", "soldier", "zombie", "angel", "warrior", "cleric", "pirate", "giant",
+  // HERO (shelf deck work, 2026-09-30 — Avengers Tower's "reveal a Hero card", Director Nick Fury). (a) carriers: both.
+  // (b) collisions: 21 by scripts/probe-subtype-collision.cjs, EVERY one a Theros "Hero's Path" challenge card (sets
+  // thp1–thp3: The Harvester [Hero], Lash of the Tyrant [Hero Artifact — Equipment] …) — a non-traditional card type,
+  // legal nowhere and never in a library (the Vanguard / Scheme class), so `\bhero\b` cannot mis-match a card in play.
+  "hero",
 ]);
 // ===== RAMP-TYPED ===== the five basic LAND TYPES (CR 305.6). A tutor-filter group naming any of
 // these is GUARANTEED to fetch a LAND — verified against the bundled corpus: ZERO non-land cards
@@ -600,7 +605,10 @@ export function parseTutorFilter(phrase) {
   // or Mountain" → 4 groups (RAMP-TYPED's typed-basic union, Farseek). The ", or " separator is tried
   // BEFORE a bare ", " so the final Oxford-comma item isn't left with a stray leading "or". Backward-
   // compatible: phrases with no comma ("basic land", "instant or sorcery") split exactly as before.
-  let rest = String(phrase).trim();
+  // CASE (shelf deck work, 2026-09-30): the vocabulary is lowercase, and three raw-oracle matchers (the look-and-reveal
+  // dig, the reveal-to-graveyard dig, look-at-the-top-card-take) hand in the printed capital — "a Dragon card" — so every
+  // curated SUBTYPE was refused there while the lowercase clause paths accepted it. Case never carries meaning here.
+  let rest = String(phrase).trim().toLowerCase();
 
   // ===== COLOR-QUALIFIED (Natural Order #1594, Summoner's Pact #3114, Magus of the Order) ==============
   // "a GREEN creature card". The color gate (`filter.colors`) already exists in cardMatchesTutorFilter —

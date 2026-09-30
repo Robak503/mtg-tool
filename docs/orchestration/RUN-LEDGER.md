@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **412 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **413 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,37 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D1: tribal digs read the printed capital — Avengers Tower takes **Hulk Smash to 90%** · **+7** · corpus 14,996 (43.8%) / 34,245
+> Suite **1645 files / 16,981 tests** green (1 skipped); lint 0; decks 88% (2,651 → **2,652** / 2,998 — Hulk Smash 89 → 90). CI GREEN on ③ · 53 (run 36735818862). Flip-diff **+7, zero LOST, zero RETIERED** (tier snapshots at
+> 23e17ccc → the change: Avengers Tower, Director Nick Fury, Courageous Outrider, Kolaghan Warmonger, Commune with Dinosaurs,
+> Boromir, Gondor's Hope, Staunch Crewmate). **Mutants 2/2 killed on assertions** (restore byte-identical).
+> · **The pivot (Colton, 09-30): "Do my decks"** — and "make or change any tools you want". New dev tool
+>   `app/scripts/shelf-residue-map.mjs`: for every blocked card on the sub-90 shelf, the SMALLEST set of oracle lines whose
+>   removal makes it classify native (k = 1…3, the census's deletion probe extended), aggregated in DECK SLOTS — shapes
+>   alone and in pairs, and per deck. First read: 18 decks under 90%, 259 blocked slots (k=1 78 · k=2 35 · k=3 8 · deep
+>   138), 80 slots to put every deck at the bar; the only multi-deck shapes are single cards (Gemstone Caverns — a pre-game
+>   seam, excluded; Hydroelectric Specimen; Ragavan; Urza's Saga; Mjölnir; Talon Gates) plus Ascend (three cards). The shelf
+>   is card-by-card: closest to the bar first. `scripts/probe-subtype-collision.cjs` now takes its candidate words as
+>   arguments.
+> · **The bug (found probing Hulk Smash's one missing card):** `parseTutorFilter`'s vocabulary is lowercase, and three
+>   raw-oracle matchers (the look-and-reveal dig, the reveal-to-graveyard dig, look-at-the-top-card-take) passed the PRINTED
+>   capital — "a Dragon card" — so every curated creature subtype (Dragon, Human, Dinosaur …) was refused there while the
+>   lowercase clause paths accepted the same word. Their comments still say "tribal → Arbiter", written before TUT-1 / TF-1
+>   curated tribal words: the refusal had become an accident of case. The filter now lowercases its phrase.
+> · **"hero" curated** under the list's own criteria: carriers (Avengers Tower, Director Nick Fury); collisions 21, EVERY
+>   one a Theros "Hero's Path" challenge card (thp1–thp3 — a non-traditional card type, legal nowhere, never in a library).
+> · **Runtime:** `WITNESS tribalDig` — Avengers Tower's real activation over [Grizzly Bears, Captain America, Forest]: only
+>   the Hero is offered, it goes to hand, the rest to the bottom · no Hero in the top three: nothing can be taken ·
+>   "Spacecraft" (uncurated) still parks.
+> · **Mutants 2/2:** the filter left case-sensitive · "hero" not curated. Witness `app/src/lib/learn/tribalDigFilter.test.js`
+>   (5).
+> · **Graduated (the first gate run caught both, 2 red):** avengersTower.test.js held the Tower at land-partial "on its tutor
+>   line" — the line this slice models; it reads land now. impulseDig.test.js kept a Dinosaur dig LOW as its "tribal-filter"
+>   row — written before TUT-1 curated Dinosaur; it is pinned HIGH now (+1 test), and an UNCURATED subtype ("a Beast card")
+>   holds the tribal boundary in its place.
+> · **Next:** Mothman (89.8%, needs 1), then the multi-deck cards — Ragavan (cdh + Shalai), Ascend (Jurassic Ramp ×2 +
+>   Otharri), Mjölnir (Captain America; Hulk's second), Talon Gates (cdh + Otharri).
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 53: "Spells you cast cost {1} less" + "The second spell you cast each turn costs {N} less" — Stone Calendar, Highspire Bell-Ringer, Uthros Psionicist · **+3** · the LAST residue-loop slice (Colton: decks first) · corpus 14,989 (43.8%) / 34,245
 > Suite **1644 files / 16,975 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI GREEN on ③ · 51 (run 36732333163) and on ③ · 52 + the CR 702.30a citation fix (run 36733703566). Flip-diff **+3, zero LOST, zero RETIERED** (tier snapshots at

@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Avengers Tower, Director Nick Fury, Courageous Outrider, Kolaghan Warmonger, Commune with Dinosaurs and two more** —
+  "look at the top cards … reveal a Hero (Human, Dragon, Dinosaur …) card" now plays; the printed capital used to park
+  every tribal version
 - **Stone Calendar, Highspire Bell-Ringer, Uthros Psionicist** — your spells cost less (Highspire and Uthros: only your
   second spell each turn)
 - **Wizened Snitches, Field of Dreams** — players play with the top card of their libraries revealed

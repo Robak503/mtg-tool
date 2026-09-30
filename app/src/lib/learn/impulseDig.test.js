@@ -63,10 +63,19 @@ describe("parser — the dig template is HIGH with amount + restTo; other shapes
   it("a 3-way split / multi-keep / tribal-filter / reveal-not-look / X variant stays low → Arbiter", () => {
     const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle }))).toBe("low");
     low("Look at the top three cards of your library. Put one of them into your hand, one on top of your library, and one on the bottom of your library."); // Telling Time — 3-way
-    low("Look at the top five cards of your library. You may reveal a Dinosaur card from among them and put it into your hand. Put the rest on the bottom of your library in a random order."); // Commune with Dinosaurs — TRIBAL filter (unlisted word) → Arbiter
+    // (The TRIBAL row GRADUATED 2026-09-30 — shelf deck work, D1: "Dinosaur" was curated into the tutor vocabulary by TUT-1,
+    // and only the printed capital kept the dig from reading it; the filter now lowercases. Pinned HIGH in the next test, with
+    // its runtime in tribalDigFilter.test.js. The tribal boundary that remains is an UNCURATED subtype:)
+    low("Look at the top five cards of your library. You may reveal a Beast card from among them and put it into your hand. Put the rest on the bottom of your library in a random order."); // uncurated subtypeL filter (unlisted word) → Arbiter
     low("Look at the top three cards of your library. You may reveal any number of artifact cards from among them and put the revealed cards into your hand. Put the rest on the bottom of your library."); // Forging the Anchor — OPEN-ENDED multi-keep ("any number" / "the revealed cards") is still unmodeled
     low("Reveal the top three cards of your library. Put one of them into your hand and the rest into your graveyard."); // reveal, not look
     low("Look at the top X cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order."); // variable X count
+  });
+
+  it("⭐ GRADUATED 2026-09-30 — a CURATED tribal filter is modeled once the printed capital is read", () => {
+    const p = parseEffectProgram({ type: SORCERY, oracle: "Look at the top five cards of your library. You may reveal a Dinosaur card from among them and put it into your hand. Put the rest on the bottom of your library in a random order." });
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms[0]).toMatchObject({ op: "impulse-dig", amount: 5, restTo: "bottom", filter: { groups: [["dinosaur"]] } });
   });
 
   // ⛔ PIN INVERTED 2026-08-01 — "Put TWO of them into your hand" used to sit in the `low` list directly

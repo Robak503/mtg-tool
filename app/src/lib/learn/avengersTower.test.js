@@ -7,7 +7,9 @@
  * ACTIVATING source's type line at payment (every activation site now passes activatingTypeLine). A cast spend needs a matching
  * spell; an ability spend needs a matching source; anything else is refused (never dead-then-laundered mana).
  *
- * Avengers Tower itself stays land-partial: its "{4}, {T}: look at the top three, reveal a Hero card" line is its own blocker.
+ * Avengers Tower itself stayed land-partial here: its "{4}, {T}: look at the top three, reveal a Hero card" line was its own
+ * blocker. It reads "land" since 2026-09-30 (shelf deck work, D1 — the tutor filter reads the printed capital and "hero" is
+ * curated); that dig's runtime is pinned in tribalDigFilter.test.js.
  *
  * Mutation-checked: see the run ledger (docs-q4b).
  */
@@ -34,14 +36,14 @@ function board() {
 }
 
 describe("the parser and the classifier", () => {
-  it("the tail is recorded beside the cast types (both spellings); the Tea Shop reads land, the Tower stays land-partial on its tutor line", () => {
+  it("the tail is recorded beside the cast types (both spellings); the Tea Shop reads land, and so does the Tower now that its Hero dig parses", () => {
     const t = parseSpendRestriction(TOWER.oracle), j = parseSpendRestriction(TEA_SHOP.oracle);
     const row = { tower: { castTypes: t?.castTypes ?? null, abilityOf: t?.abilityOf ?? null }, tea: { castTypes: j?.castTypes ?? null, abilityOf: j?.abilityOf ?? null }, teaTier: classifyCard(TEA_SHOP), towerTier: classifyCard(TOWER) };
     console.log("  WITNESS abilityTail", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
     expect(row.tower).toEqual({ castTypes: ["hero"], abilityOf: ["hero"] });
     expect(row.tea).toEqual({ castTypes: ["ally"], abilityOf: ["ally"] });
     expect(row.teaTier).toBe("land");
-    expect(row.towerTier).toBe("land-partial");
+    expect(row.towerTier).toBe("land");
   });
 });
 
