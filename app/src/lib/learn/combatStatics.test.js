@@ -96,8 +96,10 @@ describe("CS-1 recognition — real oracle, whole-card law", () => {
     expect(isKeywordOnly("{2}: This creature can block an additional creature this turn.", "Luminous Guardian")).toBe(false);
     // conditional rider (monarch gate)
     expect(isKeywordOnly("This creature can block an additional creature each combat as long as you're the monarch.", "Entourage of Trest")).toBe(false);
-    // team static — the [SAP] lane, not this slice
-    expect(isKeywordOnly("Each creature you control can block an additional creature each combat.", "High Ground")).toBe(false);
+    // team static — GRADUATED (the 09-06 plan's stage ③ · 32, 2026-09-30): this pinned High Ground's team line as parked (the
+    // [SAP] lane, not this slice). It is enforced now — maxBlocksFor adds one block per team static at the same declare-blockers
+    // offer (highGround.test.js) — so the line is credited; the activated and monarch-gated variants above and below stay parked.
+    expect(isKeywordOnly("Each creature you control can block an additional creature each combat.", "High Ground")).toBe(true);
     // activated must-be-blocked
     expect(isKeywordOnly("{2}{G}: This creature must be blocked this turn if able.", "Loathsome Catoblepas")).toBe(false);
     // filtered must-be-blocked (Equipment grant scope)

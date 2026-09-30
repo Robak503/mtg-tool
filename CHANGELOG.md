@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **High Ground, Brave the Sands** — each of your creatures can block one more attacker, and they stack
 - **Quirion Ranger, Scryb Ranger** — return a Forest you control to untap a creature, once each turn
 - **"Whenever a creature you control becomes blocked"** — Grazilaxx, Illithid Scholar, Cunning Evasion, Somberwald Alpha,
   Unstoppable Ash, Close Quarters

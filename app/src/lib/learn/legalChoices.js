@@ -37,7 +37,7 @@ import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTyp
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
 import { grantsWubrgAltCost, fixedManaAltCostOf } from "./effects/textNormalize.js"; // FIST OF SUNS (RG-5) — the board-granted WUBRG alternative cost; + RG-8 — the spell's OWN fixed-mana alternative cost (the Bringers); leaf readers
 import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
-import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksOf, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
+import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksFor, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund (+ the Phyrexian life lane, Norn's Annex)
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence, parseEffectClause, programNeedsChosenTarget } from "./effects/parser.js";
@@ -3795,7 +3795,9 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
 
   // MULTI-BLOCK (BLITZ CS-1, CR 509.1a): a creature may block ONE attacker by default; a printed
   // "can block an additional creature each combat" (max 2 — Selesnya Sagittars class) or "can block
-  // any number of creatures" (∞ — Palace Guard class) raises its cap (maxBlocksOf). A blocker below
+  // any number of creatures" (∞ — Palace Guard class) raises its cap, and each "EACH creature you control
+  // can block an additional creature" static its controller has adds one more — cumulative (maxBlocksFor;
+  // High Ground / Brave the Sands, stage ③ · 32). A blocker below
   // its cap stays offerable against OTHER attackers (never the same attacker twice — the pair filter
   // in eligibleByAttacker below); at cap it is excluded exactly like the old assigned-set rule
   // (maxBlocks 1 ⇔ the previous `!assigned.has(p.id)` filter, byte-identical for normal creatures).
@@ -3817,7 +3819,7 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
     // Layer-aware (WALT-ANIMATE): an animated permanent can be declared as a blocker.
     .filter(p => permanentIsCreature(state, p.id))
     .filter(p => !p.tapped)
-    .filter(p => (blocksDeclaredBy[p.id] || 0) < maxBlocksOf(p.card))
+    .filter(p => (blocksDeclaredBy[p.id] || 0) < maxBlocksFor(state, p, playerId)) // + the team statics (High Ground — stage ③ · 32)
     // CANT-BLOCK-ALONE (BLITZ SM-2 + CB-1, CR 509.1a — Mogg Flunkies / Craven Hulk): offered as a blocker
     // only once ANOTHER blocker is already declared this combat (sequential declaration — the exact mirror of
     // the attack gate). cantBlockAlone matches BOTH the bare "can't block alone" and the combined form — the

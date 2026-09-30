@@ -649,6 +649,24 @@ export function maxBlocksOf(card) {
   return 1;
 }
 
+// + the TEAM form (the 09-06 plan's stage ③ · 32, 2026-09-30 — High Ground, Brave the Sands: "Each creature you control can block an
+// additional creature each combat."). CUMULATIVE — with the self form and with itself (both cards' rulings: "If you have a creature
+// that can already block an additional creature, now it can block three creatures"; two Brave the Sands → three), so each instance a
+// player controls adds one block to each of that player's creatures. ONE core pattern for the runtime reader and the classifier
+// mirror (isEnforcedEvasionClause), per the lockstep law above; a conditional or activated team grant fails the anchor → safe FN.
+const CORE_TEAM_BLOCK_ADDITIONAL = "each creature you control can block an additional creature each combat";
+const reTeamBlockAdditional = new RegExp(`(?:^|[\\n.;])\\s*${CORE_TEAM_BLOCK_ADDITIONAL}\\s*(?:\\.|$)`, "i");
+const reClauseTeamBlockAdditional = new RegExp(`^${CORE_TEAM_BLOCK_ADDITIONAL}$`);
+/** How many "each creature you control can block an additional creature" statics this player controls (each adds one block). */
+export function teamBlockAdditionalCount(state, playerId) {
+  return (state?.players?.[playerId]?.battlefield || []).filter((p) => reTeamBlockAdditional.test(String(p.card?.oracle ?? p.card?.oracle_text ?? ""))).length;
+}
+/** The max number of attackers this permanent may block this combat: its own printed cap plus one per team static its controller has. */
+export function maxBlocksFor(state, perm, controller) {
+  const base = maxBlocksOf(perm.card);
+  return base === Infinity ? Infinity : base + teamBlockAdditionalCount(state, controller);
+}
+
 // MUST-BE-BLOCKED (CR 509.1c — a block REQUIREMENT: "effects that say a creature must block, or that it
 // must block if some condition is met"): "This creature must be blocked if able." (Riveteers Decoy /
 // Goblin Fire Fiend / Gaea's Protector class). Enforced at the AI block plan (opponentAI.pickBlockers
@@ -1022,6 +1040,8 @@ export function isEnforcedEvasionClause(clause) {
   // the SAME core strings as the runtime reader's, so credit == enforcement.
   if (reClauseMaxBlocksAdditional.test(c)) return true;
   if (reClauseMaxBlocksAny.test(c)) return true;
+  // + the TEAM form (stage ③ · 32 — High Ground, Brave the Sands): enforced at the same offer through maxBlocksFor.
+  if (reClauseTeamBlockAdditional.test(c)) return true;
   // MUST-BE-BLOCKED (BLITZ CS-1, CR 509.1c) — "must be blocked if able". Enforced at the AI block plan
   // (opponentAI.pickBlockers seeds a minimum legal block before the value heuristic — the LU-1 lure
   // seam, the MUST-ATTACK house bar). Same shared core as mustBeBlockedIfAble.

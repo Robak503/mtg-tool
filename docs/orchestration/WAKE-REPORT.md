@@ -53,7 +53,9 @@
 > from two colours (+11) and a runtime protection bug on 7 cards (→ corpus 14,913; suite 1619 / 16,774) · ③ · 29 Nevinyrral's
 > Disk, Akroma's Vengeance — the triple wipe (+3 → corpus 14,916; suite 1620 / 16,779) · ③ · 30 "a creature
 > you control becomes blocked" — Grazilaxx, Cunning Evasion + three (+5 → corpus 14,921; suite 1621 / 16,789) · ③ · 31 Quirion
-> Ranger, Scryb Ranger — the Forest-typed return cost (+2 → corpus 14,923; suite 1622 / 16,795). **Next:** census rank 52 — the RUN-LEDGER's ③ entries carry the verdicts so far.
+> Ranger, Scryb Ranger — the Forest-typed return cost (+2 → corpus 14,923; suite 1622 / 16,795) · ③ · 32 High
+> Ground, Brave the Sands — the team multi-block, cumulative (+2 → corpus 14,925; suite 1623 / 16,802). Rank 53 ("Sacrifice two artifacts") banked on ③ · 6's
+> non-fungible fork. **Next:** census rank 54 — the RUN-LEDGER's ③ entries carry the verdicts so far.
 > **State (measured 2026-09-29 at 5df810d2, Opus 5.5 seat):** suite **1585 files / 16,429 tests** green (1 skipped; 172 s;
 > `VITEST_TIMEOUT_MS=900000 npm test`) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30 decks, **88%** aggregate
 > (2,650 / 2,998), **13 at ≥90** (Mothman by rounding: 88/98 = 89.8%), Atraxa **74** the floor · nothing held:

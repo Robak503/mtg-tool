@@ -5,14 +5,40 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **388 commits**, corpus
-> 38.6% → **43.6% (14,923)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **389 commits**, corpus
+> 38.6% → **43.6% (14,925)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 32: "Each creature you control can block an additional creature each combat" — Brave the Sands, High Ground · **+2** · corpus 14,925 (43.6%) / 34,245
+> Suite **1623 files / 16,802 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at 1e2fe493 → the
+> change). **Mutants 5/5 killed on assertions** (restore byte-identical).
+> · **Census rank 52** (Brave the Sands #1792, High Ground): multi-block existed for the SELF static (Selesnya Sagittars / Palace
+>   Guard — combatEvasion.maxBlocksOf, capped at the declare-blockers offer, damage divided at resolution per CR 510.1d); the TEAM
+>   static was listed in that file as a known safe FN.
+> · **Build:** the team form is CUMULATIVE — both cards' bundled rulings ("If you have a creature that can already block an additional
+>   creature, now it can block three creatures"; two Brave the Sands → three) — so `combatEvasion.maxBlocksFor(state, perm,
+>   controller)` adds one block per team static the blocker's controller has (an unlimited cap stays unlimited), and the offer reads
+>   it. One core pattern feeds the runtime reader and the classifier mirror (isEnforcedEvasionClause), per the file's lockstep law.
+> · **Runtime (blocks offered by legalActionsForPlayer; damage resolved for real):** a Hill Giant already blocking is offered
+>   nothing more (the vacuity control) · `WITNESS highGroundOffers {"afterOne":["g::a2","g::a3"],"afterTwo":[]}` — re-offered
+>   against the other two attackers, never the same one, and stops at two · two High Grounds → a third block; Selesnya Sagittars
+>   under one → a third · Brave the Sands adds the same; Palace Guard stays unlimited · High Ground on the ATTACKER's side raises
+>   nothing · at resolution the Giant blocking two Bears deals 2 + 1 and takes 4.
+> · **Mutants 5/5:** the classifier mirror removed · the cap ignoring the team statics · every player's statics counted · not
+>   cumulative · the offer asking for nobody's statics. (Adding the team count to an unlimited cap is unkillable by construction —
+>   Infinity + n — and is not counted.) Witness `app/src/lib/learn/highGround.test.js` (7).
+> · **A stale pin GRADUATED with a note:** combatStatics.test.js pinned High Ground's team line as parked ("the [SAP] lane, not this
+>   slice"); it is credited now. The activated this-turn and monarch-gated variants beside it stay parked.
+> · **Census rank 53 — ⏸ BANKED:** Scion of Opulence / Hedron Detonator, "Sacrifice two artifacts". Artifacts are not fungible,
+>   so it is ③ · 6's fork (enumerate every pair, or auto-pick one set) — Colton's call, and Shorikai's identical cost is parked
+>   on the same reasoning (🅿 CHOICE-EVAL).
+> · **Next:** census rank 54 — Brass Squire / Auriok Windwalker ("Attach target Equipment you control to target creature you
+>   control").
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 31: "Return a Forest you control to its owner's hand: Untap target creature" — Quirion Ranger, Scryb Ranger · **+2** · corpus 14,923 (43.6%) / 34,245
 > Suite **1622 files / 16,795 tests** green (1 skipped); lint 0. Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at ffddadc2 → the
