@@ -29,7 +29,7 @@ import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate, cloneWidenedCopiable } from "./cloneCopy.js"; // + cloneWidenedCopiable (KN-2)
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { othersEnterWithCounters, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, sunburstCounterKind, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, choosesColorOnEnter, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
-import { addContinuousEffect, permanentPower, permanentToughness } from "./layers.js"; // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); acyclic (layers imports only ptPrimitive/keywords/staticAbilityParser/protection, none of which reach resolvers)
+import { addContinuousEffect, permanentPower, permanentToughness, equipmentBarredAsCreature } from "./layers.js"; // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); acyclic (layers imports only ptPrimitive/keywords/staticAbilityParser/protection, none of which reach resolvers)
 import { conditionalEntersTapped, paysLifeOrEntersTapped, autoPickOptionalLifePayment, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>"; a leaf over interveningIf (interveningIf → layers → staticAbilityParser, none reach resolvers) — acyclic
 import { autoPickCreatureType } from "./choicePolicy.js"; // CR 614.12 auto-choice policy — a zero-import LEAF, shared with the effect atoms (which cannot import resolvers: resolvers → runProgram → effectAtoms). One copy, so an ETB choice and an activated choice can never diverge on the same board.
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
@@ -1018,6 +1018,13 @@ export const RESOLVERS = Object.freeze({
     // activator's, and the target a creature (the printed "Enchant creature").
     if (!src || !tgt || src.controller !== controller || (!aura && tgt.controller !== controller) || !/Creature/.test(tgtType)) {
       return resolveManual(state, obj);
+    }
+    // CR 301.5c — an Equipment that is a creature RIGHT NOW and has no reconfigure (a crewed Rover Blades paying its own
+    // Equip) can't equip a creature: the ability does nothing and the Equipment stays where it is (CR 701.3b). Logged as
+    // refused, never as an "attach" — the log narrator reads that kind as one. Reconfigure (Lizard Blades) is the exception.
+    // The 09-06 plan's stage ③ · 34, the attach-pair's guard (③ · 33) on the Equip lane.
+    if (!aura && equipmentBarredAsCreature(state, sourceId)) {
+      return logEvent(state, { kind: "attach-refused", rule: "CR 301.5c", source: src.permanent.card?.name, target: tgt.permanent.card?.name, controller });
     }
     return logEvent(attachPermanent(state, { equipId: sourceId, targetId }), {
       kind: "attach", source: src.permanent.card?.name, target: tgt.permanent.card?.name, controller,

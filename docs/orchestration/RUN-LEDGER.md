@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **390 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **392 commits**, corpus
 > 38.6% → **43.6% (14,927)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,40 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 34: the attaches the rules forbid do nothing — the Equip lane (CR 301.5c) and Codsworth's Aura half (CR 701.3a) · **+0** (runtime) · corpus 14,927 (43.6%) / 34,245
+> Suite **1625 files / 16,821 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 33 (run 36705415601).
+> Flip-diff **zero — GAINED 0, LOST 0, RETIERED 0** (tier snapshots at 0245a38c → the change; a runtime-only slice).
+> **Mutants 10/10 killed on assertions** (restore byte-identical).
+> · **Not a census row — two holes found scoping ③ · 33.** ③ · 33 put CR 301.5c on the attach-pair resolver; two sites still
+>   attached what the rules forbid (an attach that can't happen leaves the attachment where it is, CR 701.3b):
+>   1. **The Equip lane** (`resolvers` ATTACH): a crewed Rover Blades paying its own Equip {4} was attached. Now refused via
+>      the same `layers.equipmentBarredAsCreature`, and logged as `attach-refused` — never as `attach`, which the log narrator
+>      renders as "X attaches to Y". Reconfigure (Lizard Blades) is the exception, as printed.
+>   2. **Codsworth's Aura half** (the attach-pair atom): any Aura moved onto any of your creatures — a Wild Growth ("Enchant
+>      land") could leave its Forest for a Bear. `auraMayEnchantCreature` reads the Aura's own Enchant line: creature subjects
+>      with their restrictions (the shared satisfier), the creature unions, "permanent", and "artifact" / "land" / "nonland
+>      permanent" against the host's live types. Everything else refuses (a Curse, a basic land type, an unread restriction) —
+>      a safe miss. Shielded by Faith's attach-on-enter move now reads the same helper (one invariant, one reader); its
+>      "Enchant creature you control" pin (attachOnEnterAura.test.js) holds.
+> · **Runtime:** the uncrewed Rover Blades' Equip attaches (the vacuity control) ·
+>   `WITNESS crewedRoverEquip {"attachedTo":null,"bearAttachments":[],"attachLogged":false,"refusal":"CR 301.5c"}` (the real
+>   crew action, then the real Equip through the stack) · Lizard Blades reconfigures and stops being a creature · Pacifism moves
+>   through Codsworth's real offer · Wild Growth is offered for the Bear, resolves, and stays on its Forest; onto Dryad Arbor it
+>   moves · `WITNESS attachLegalityMatrix` — Ice Over → Bear ✓ · Stasis Cocoon → Bear ✗, → Codsworth (an artifact creature) ✓ ·
+>   Suppression Bonds → Bear ✓, → Dryad Arbor ✗ · Indestructibility → Bear ✓ · Utopia Sprawl → Bear ✗ · a refused move logs no
+>   attach-pair · the documented safe miss: Utopia Sprawl onto Dryad Arbor (a Forest) is refused too.
+> · **Mutants 10/10:** the Equip guard removed · the refusal logged as an attach · the attach-pair's Aura check removed ·
+>   "Enchant land" admitting any creature · the land branch removed · the creature unions not admitted · "Enchant artifact"
+>   ignoring the host · "nonland permanent" ignoring a land host · the "permanent" branch removed · the creature subject's
+>   restrictions ignored (killed by attachOnEnterAura's Bound Faith pin — the shared reader). Witness
+>   `app/src/lib/learn/attachLegality.test.js` (8).
+> · **Rode along (23af8b71, `fix(scripts)`):** `tier-snapshot.mjs --out after.json` — a space where the `=` belongs — fell
+>   through to the default path and silently overwrote the TRACKED `app/tier-snapshot.json` (caught mid-③ · 33, restored from
+>   HEAD). The script now requires `--out=<file>` or `--diff=<before>,<after>` and exits 2 on anything else before it writes;
+>   the two stale tracked snapshots are removed (the release-readiness plan's parked §9 item, done).
+> · **Next:** census rank 55 — Canopy Cover / Shielding Plax ("Enchanted creature can't be the target of spells or abilities
+>   your opponents control").
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 33: "{T}: Attach target Equipment you control to target creature you control" — Brass Squire, Auriok Windwalker · **+2** · corpus 14,927 (43.6%) / 34,245
 > Suite **1624 files / 16,813 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 31 (run 36702493662) and ③ · 32 (run
