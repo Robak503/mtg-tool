@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Wolverine, Claws Out** — each Mutant you attack with doubles its power, and Wolverine can assign his combat damage as though he weren't blocked
 - **Redirect spells** — Misdirection, Deflection, Shunt, Swerve, Bolt Bend, Redirect Lightning and Untimely Malfunction change the target of a single-target spell or ability; when there's more than one place it could go, you choose. The AI uses them to pull your removal off its creatures
 - **Choose what to sacrifice** — Iron Man, Titan of Innovation, Ironclad Revolutionary and Benthic Criminologists let you pick which artifact to sacrifice (or decline); Iron Man fetches an artifact one mana value higher
 - **Pod tutors** — Birthing Pod, Prime Speaker Vannifar, Oswald Fiddlebender and Repurposing Bay trade a sacrificed permanent for a card exactly one mana value higher
@@ -400,6 +401,7 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **"Whenever this creature attacks a battle"** no longer fires on every attack (Thrashing Frontliner pumped when it attacked a player); battles can't be attacked yet, so these cards wait for that
 - **Deflecting Swat** no longer turns a Counterspell aimed at your spell onto the Counterspell itself — with nowhere legal to send it, it leaves the target alone
 - **"The sacrificed creature's …" abilities** (Altar of Dementia and friends) use the creature they actually sacrificed, even when another sacrifice happens in response
 - **Goblin Goliath** no longer doubles your damage just by being on the battlefield — only its activated ability does that

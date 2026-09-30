@@ -80,6 +80,7 @@
 > Stone Calendar, Highspire Bell-Ringer, Uthros Psionicist — the all-spells and second-spell reducers (+3 → corpus 14,989; suite 1644 / 16,975).
 > **The residue loop STOPS here — Colton (09-30): "Do my decks."** Next: the shelf decks' unplayed cards, until the v0.161.0 tag on/after 10-02.
 > **SHELF DECKS · D1** tribal digs read the printed capital — Avengers Tower takes Hulk Smash to 90% (+7 → corpus 14,996; suite 1645 / 16,981). Tool: `app/scripts/shelf-residue-map.mjs`.
+> **SHELF DECKS · D15** Wolverine, Claws Out — Wolverine 88 → 89 (corpus 15,079; suite 1,661 / 17,170); the "attacks a battle" over-fire closed (Thrashing Frontliner).
 > **SHELF DECKS · D14** change the target (Misdirection and kin) — Kinnan 87 → 88, Believe it! 86 → 87, Killer Turts 85 → 88 (+7 → corpus 15,079; suite 1,660 / 17,165); Deflecting Swat's self-target FP closed.
 > **SHELF DECKS · D13** the reflexive chosen sacrifice — Iron Man takes Captain America to 90 (+3 → corpus 15,072; suite 1,658 / 17,134).
 > **SHELF DECKS · D12** the Pod tutor — Birthing Pod, Vannifar, Oswald, Repurposing Bay; a sacrificed permanent's value frozen on its ability (+4 → corpus 15,069 (44.0%); suite 1656 / 17,119).

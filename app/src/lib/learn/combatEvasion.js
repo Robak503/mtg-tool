@@ -851,8 +851,11 @@ export function cantBlockAlone(card) {
  * "You may have this creature assign its combat damage as though it weren't blocked." Enforced in
  * combatResolution: a blocked attacker with this line assigns its FULL power to the defending player
  * (the deterministic take of the printed MAY — always legal, and the entire point of the card); its
- * blockers still deal back normally. */
-const reAssignUnblocked = /(?:^|[\n.;])\s*you may have this creature assign its combat damage as though it weren't blocked\s*(?:\.|$)/i;
+ * blockers still deal back normally.
+ * The Marvel legends print gendered self-pronouns (shelf D15 — Wolverine, Claws Out: "You may have Wolverine assign his combat
+ * damage as though he weren't blocked"); the name is already "this creature" here, and his/her · he/she are its own pronouns
+ * (the CONNIVE precedent in triggers.js). */
+const reAssignUnblocked = /(?:^|[\n.;])\s*you may have this creature assign (?:its|his|her) combat damage as though (?:it|he|she) weren't blocked\s*(?:\.|$)/i;
 export function mayAssignAsUnblocked(card) {
   return reAssignUnblocked.test(selfOracle(card));
 }
@@ -1069,7 +1072,7 @@ export function isEnforcedEvasionClause(clause) {
   if (/^(?:this (?:creature|token) |it )?can't (?:attack alone|block alone|attack or block alone)$/.test(c)) return true;
   // ASSIGN-AS-UNBLOCKED (BLITZ TE-1) — enforced in combatResolution (the blocked attacker assigns its
   // full power to the defending player), so a Thorn Elemental body is honestly native.
-  if (/^you may have this creature assign its combat damage as though it weren't blocked$/.test(c)) return true;
+  if (/^you may have this creature assign (?:its|his|her) combat damage as though (?:it|he|she) weren't blocked$/.test(c)) return true; // + the gendered self-pronouns (shelf D15)
   // GROUP-EVASION (Shifting Sliver): "<subtype>s can't be blocked except by <same subtype>s" — enforced
   // in canBlockAttacker. Credit only the SYMMETRIC tribal form (parseGroupBlockRestriction returns non-null).
   // The single-subtype board-wide clause arrives here WHOLE (no comma → isKeywordOnly's splitter leaves it

@@ -2489,6 +2489,11 @@ export function pumpClauseParser(clause) {
     return { op: "pump", target: "self", doublePt: "pt" };
   if (/^double this creature's power until end of turn$/.test(t))
     return { op: "pump", target: "self", doublePt: "p" };
+  // The TRIGGERING creature's own stat (shelf D15 — Wolverine, Claws Out: "Whenever a Mutant you control attacks, double its
+  // power until end of turn"): triggers.js rewrites a non-self watcher's "double its …" to this sentinel, the same
+  // triggering-permanent referent (CR 608.2c) the "the triggering creature gets …" arms above bind.
+  if (/^double the triggering creature's power until end of turn$/.test(t))
+    return { op: "pump", target: "thatCreature", doublePt: "p" };
   return null;
 }
 

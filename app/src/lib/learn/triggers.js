@@ -2470,6 +2470,11 @@ function classifyCondition(condRaw, cardName, cardType) {
         return { event: "attacks", scope: "self", whose: "any", withCompany: true, ...(kind === "creature" ? {} : { companySubtype: kind.charAt(0).toUpperCase() + kind.slice(1) }) };
       }
     }
+    // ATTACKS A BATTLE (shelf D15, 2026-09-30 — Thrashing Frontliner, War-Trained Slasher: "Whenever this creature attacks a
+    // battle, …"). The engine offers no battle as an attack target (declare-attackers enumerates players and planeswalkers), so
+    // the trigger can never rightly fire — and read by the self arm below as a plain attack, it fired on EVERY attack (a shipped
+    // over-fire: Thrashing Frontliner's +1/+1 on each swing at a player). Parked (null → Arbiter) until battles can be attacked.
+    if (/\battacks a battle$/.test(c)) return null;
     if (selfRef) return { event: "attacks", scope: "self", whose: "any" };
     // ANCHORED bare form (was a non-anchored substring test — any "a creature you control <restriction>
     // attacks" matched it and silently DROPPED the restriction: a latent over-fire the moment such a card's
@@ -3761,6 +3766,10 @@ const ETB_ENTERING_PRONOUN_RE = /(?:put (?:a|an|one|two|three|four|five|\d+) [+-
 // rewritten and stays LOW → Arbiter (CREED — sentinel gate). The pump/return shapes reuse the SELF regexes
 // (same clause text under a different scope gate); only "sacrifice it" needs its own anchor.
 const NONSELF_SAC_REF_RE = /^sacrifice it$/i;
+// DOUBLE ITS POWER (shelf D15) — "double its power until end of turn", whole-clause. In a non-self watcher "its" is the
+// triggering creature (the rewrite below names it for the doubling arm). The self form has no modeled carrier yet (War-Trained
+// Slasher's is an "attacks a battle" trigger, parked), so it isn't rewritten.
+const DOUBLE_ITS_RE = /^double its power until end of turn$/i;
 
 // EXPLORE (CR 701.44) — "it explores" / "it explores, then it explores again". "it" is the SOURCE for a
 // SELF trigger (Merfolk Branchwalker's ETB, Emperor's Vanguard's combat-damage) and the TRIGGERING creature
@@ -4971,6 +4980,11 @@ export function detectTriggers(card) {
         // target:"thatCreature". Same scope gate + whole-clause anchor as COUNTERS-ON-EVENT (a spell
         // anaphor never reaches here; a rider stays LOW). The parser re-gates the keyword set.
         effectClause = effectClause.replace(/^it /i, "the triggering creature ");
+      } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && DOUBLE_ITS_RE.test(effectClause)) {
+        // DOUBLE ITS POWER (shelf D15 — Wolverine, Claws Out "Whenever a Mutant you control attacks, double its power until
+        // end of turn"): the possessive twin of TRIG-PRONOUN-IT — "its" is the TRIGGERING creature (CR 608.2c). Same scope
+        // gate + whole-clause anchor; the sentinel binds target:"thatCreature" in the doubling arm.
+        effectClause = effectClause.replace(/^double its /i, "double the triggering creature's ");
       } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && THAT_CREATURE_PUMP_RE.test(effectClause)) {
         // THAT-CREATURE PUMP (BLITZ TR-2): the same non-self pump with the "that creature" subject
         // (Agents of S.H.I.E.L.D. — "Whenever a creature you control attacks alone, that creature gets

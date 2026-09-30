@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **427 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **428 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,21 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D15: Wolverine, Claws Out — **Wolverine 88 → 89** · +1 / −1 (an over-fire closed) · corpus 15,079 / 34,245
+> Suite **1,661 files / 17,170 tests** green (1 skipped); lint 0; decks 2,680 / 2,998. CI GREEN on D14 (run 36778635313). Flip-diff **+1 (Wolverine, Claws Out),
+> −1 (Thrashing Frontliner — understood: the over-fire below), zero RETIERED** (tier snapshots at db658eca → the change). **Mutants 8/8** (restore byte-identical).
+> · **Build:** the Thorn reader + classifier credit take gendered self-pronouns ("assign HIS combat damage as though HE weren't blocked" —
+>   the connive precedent) · a non-self attack watcher's "double its power" → the triggering-creature sentinel → pump target:"thatCreature",
+>   doublePt:"p" (CR 608.2c + 701.10). The self "double its power" form and the "and toughness" twin were trimmed — no modeled carrier.
+> · **⚠️ SHIPPED OVER-FIRE CLOSED:** "Whenever this creature attacks a battle, …" hit the classifier's self-attack arm (it keys on ANY
+>   "this"), dropping the battle tail → Thrashing Frontliner's +1/+1 fired on every swing at a player. The engine has no battle to attack
+>   (declare-attackers offers players + planeswalkers), so the clause PARKS. Found by runtime-checking War-Trained Slasher's gain (the
+>   3rd instance of reference_blocker_credit_unmasks_fps — runtime-verify EVERY gained card). The "a player" tail stays as it was: its three
+>   native carriers (the Backgrounds) are guarded by their intervening-if's planeswalker FN-drop (SC-1).
+> · **Runtime:** `WITNESS wolverineDoubles {"triggers":2,"wolverine":[4,5],"mutant":6,"bear":2}` · blocked by a 0/9 Wall: 4 to the player,
+>   0 to the Wall · `frontlinerNoOverfire {"tier":"body-only","triggers":0,"power":2,"toughness":2}`. Witness `app/src/lib/learn/wolverineClawsOut.test.js` (5).
+> · **Next:** Teamwork (17 cards — HULK SMASH! for Wolverine's 90, We Say Thee Nay! for Captain America) · the choose-two bite template (8).
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D14: CHANGE THE TARGET (CR 115.7a) — Kinnan 87 → 88, Believe it! 86 → 87, Killer Turts 85 → 88 · **+7** · corpus 15,079 / 34,245
 > Suite **1,660 files / 17,165 tests** green (1 skipped); lint 0; decks 2,679 / 2,998. CI GREEN on D13 (run 36773209495). Flip-diff **+7, zero LOST,
