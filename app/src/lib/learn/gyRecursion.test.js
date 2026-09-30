@@ -221,10 +221,12 @@ describe("REANIMATE-FROM-ANY — \"put target creature card from a / an opponent
     low("Put target creature card from your graveyard onto the battlefield under your control.");                                                       // "your graveyard" + this phrasing is NOT a modeled own-gy shape (the modeled own form is "return … to the battlefield")
   });
 
-  it("CREED: a reanimate-from-ANY TRIGGER routes to the Arbiter (ambiguous side — a safe FN), unlike own-gy reanimate", () => {
-    // The any/opponent-graveyard scope can't promise the trigger-flush chooser a provably-correct side, so a
-    // permanent with such a trigger stays arbiter-trigger (never a confident mis-target). Own-gy reanimate is unchanged (native).
-    expect(classifyCard({ type: "Creature — Demon", name: "AnyReanimator", oracle: "When this creature enters, put target creature card from a graveyard onto the battlefield under your control." })).not.toBe("native-trigger");
+  it("CREED: a reanimate-from-an-OPPONENT's-graveyard TRIGGER routes to the Arbiter (ambiguous side — a safe FN); from ANY graveyard and from your own are native", () => {
+    // GRADUATED 2026-09-30 (the 09-06 plan's stage ③ · 39, anyGraveyardReanimate.test.js): from ANY graveyard, under your
+    // control, every pick helps the controller — intent "any", nothing to prove — so that trigger is native now. The
+    // opponent's-graveyard scope keeps the old "ambiguous" answer and stays off native; own-gy reanimate is unchanged.
+    expect(classifyCard({ type: "Creature — Demon", name: "AnyReanimator", oracle: "When this creature enters, put target creature card from a graveyard onto the battlefield under your control." })).toBe("native-trigger");
+    expect(classifyCard({ type: "Creature — Demon", name: "OppReanimator", oracle: "When this creature enters, put target creature card from an opponent's graveyard onto the battlefield under your control." })).not.toBe("native-trigger");
     expect(classifyCard({ type: "Creature — Cleric", name: "OwnReanimator", oracle: "When this creature enters, return target creature card from your graveyard to the battlefield." })).toBe("native-trigger");
   });
 });

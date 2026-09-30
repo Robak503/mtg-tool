@@ -305,7 +305,15 @@ export function atomTargetIntent(atom) {
       // player is always an opponent of the attacker's controller (CR 506.2a) → "enemy" (the same rationale
       // as the SB-1 damagedPlayerGraveyard exile below), so the saboteur trigger routes natively.
       if (atom.damagedPlayerGraveyard) return "enemy";
-      return (atom.anyGraveyard || atom.opponentGraveyard) ? "ambiguous" : "own";
+      // + ANY GRAVEYARD, UNDER YOUR CONTROL (the 09-06 plan's stage ③ · 39, 2026-09-30 — Debtors' Knell, Virtue of Persistence:
+      //   "At the beginning of your upkeep, put target creature card from a graveyard onto the battlefield under your control").
+      //   Every reanimate atom that sets anyGraveyard is an "under your control" print (atoms/zones + templateMatchers — checked),
+      //   so the card helps its CONTROLLER whichever graveyard it leaves: there is no side to prove, and "any" says so. The
+      //   flush chooser's side filter lets it through (only enemy / own / ambiguous are filtered), the resolvability gates
+      //   refuse only "ambiguous", and opponentAI's loyalty guard reads it as unsafe (a safe skip). Which card is BEST is the
+      //   policy evaluator's job, not a rules question. "From an opponent's graveyard" keeps its old answer below.
+      if (atom.anyGraveyard) return "any";
+      return atom.opponentGraveyard ? "ambiguous" : "own";
     case "exile-from-graveyard":
       // OPPONENT's-graveyard exile ("exile target card from an opponent's graveyard" — Disposal Mummy, Leonin
       // of the Lost Pride, Disruptor Wanderglyph) is unambiguously ENEMY-side (the only candidates are cards in

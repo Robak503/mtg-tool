@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Debtors' Knell, Teneb, the Harvester** — bring a creature back from any graveyard under your control
 - **Flickerwisp, Glimmerpoint Stag** — exile another permanent that comes back at the next end step (a land returns
   untapped; a token doesn't return)
 - **Pentad Prism, Gemstone Array, Crystalline Crawler, Morselhoarder, Workhorse, Druids' Repository** — remove a

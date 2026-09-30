@@ -103,9 +103,11 @@ describe("SB-2 parser — damaged-player reanimate atom", () => {
   it("intent: enemy-side (the pool holds only the damaged opponent's cards — CR 506.2a)", () => {
     const atom = parseEffectClause(THEFT, "Instant").atoms[0];
     expect(atomTargetIntent(atom)).toBe("enemy");
-    // The pre-existing cross-graveyard reanimates stay ambiguous (unchanged — the Ashen Powder discipline).
+    // The opponent's-graveyard reanimate stays ambiguous (unchanged — the Ashen Powder discipline).
     expect(atomTargetIntent({ op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", opponentGraveyard: true })).toBe("ambiguous");
-    expect(atomTargetIntent({ op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", anyGraveyard: true })).toBe("ambiguous");
+    // From ANY graveyard under your control reads "any" since the 09-06 plan's stage ③ · 39 (2026-09-30): every pick helps the
+    // controller, so there is no side to prove (anyGraveyardReanimate.test.js).
+    expect(atomTargetIntent({ op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", anyGraveyard: true })).toBe("any");
   });
 
   it("FN guards: REAL corpus near-miss variants stay LOW (exact anchors)", () => {

@@ -5,14 +5,44 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **397 commits**, corpus
-> 38.6% → **43.6% (14,943)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **398 commits**, corpus
+> 38.6% → **43.6% (14,945)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 40: "put target creature card from a graveyard onto the battlefield under your control" on a trigger — Debtors' Knell, Teneb, the Harvester · **+2** · corpus 14,945 (43.6%) / 34,245
+> Suite **1631 files / 16,870 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at
+> c868ee63 → the change). **Mutants 4/4 killed on assertions** (restore byte-identical).
+> · **Census rank 61** (Debtors' Knell #7587; Virtue of Persistence #1886 — see below): the clause parsed HIGH all along; the
+>   TRIGGER parked because `atomTargetIntent` called a reanimate from ANY graveyard "ambiguous" — the one-value intent model
+>   couldn't prove a side for the flush chooser. There is no side to prove: every reanimate atom that sets anyGraveyard is an
+>   "under your control" print (atoms/zones + templateMatchers — checked), so every legal pick helps its controller. The
+>   intent is now **"any"**: the chooser's side filter lets it through (it filters only enemy / own / ambiguous), the
+>   resolvability gates refuse only "ambiguous", opponentAI's loyalty guard reads it as unsafe (a safe skip). "From an
+>   opponent's graveyard" keeps "ambiguous". Which card is BEST is the policy evaluator's question, not a rules one.
+> · **Teneb flipped with it (planned — it is why ③ · 39 exists):** its "you may pay {2}{B}. If you do, put target creature card
+>   from a graveyard …" rides the optional-payment wrapper, whose intent delegates to the payoff; its target pool needed ③ · 39.
+> · **Runtime:** `WITNESS knellCrossGraveyard {"step":"upkeep","userBattlefield":["Debtors' Knell","Grizzly Bears"],"aiGraveyard":[],
+>   "owner":"ai"}` — through the real step path (runStepActions(advanceStep(…)) into the upkeep) and the stack, the opponent's
+>   Bears enters under your control with its owner stamped · from your own graveyard the same · vacuity controls: empty
+>   graveyards and a Plains-only graveyard bring nothing · `WITNESS tenebPays {"aiLife":34,"paid":{"bf":["Grizzly Bears",…],
+>   "pool":0},"declined":{…"aiGraveyard":["Grizzly Bears"]}}` — real combat damage, the trigger, pay {2}{B} and the Bears is
+>   yours; decline and it stays put.
+> · **Pins graduated with notes:** saboteurReanimate.test.js (any-graveyard intent "ambiguous" → "any"); gyRecursion.test.js
+>   ("a reanimate-from-ANY trigger routes to the Arbiter" → it is native now, and the guard moves to the opponent's-graveyard
+>   form, still off native).
+> · **Mutants 4/4:** the arm removed · read as own-side · read as enemy-side · the opponent's graveyard swallowed into "any".
+>   Witness `app/src/lib/learn/anyGraveyardReanimate.test.js` (6).
+> · **⏸ Virtue of Persistence stays parked — a different blocker, filed as its own task:** the Adventure lane models only a
+>   CREATURE half (adventure.parseAdventureCard), so all five Virtues (EDHREC #1886–#3904) fall to the spell classifier. The
+>   census's line-deletion probe misreports them — deleting the enchantment's line flips them "native-spell" through the
+>   spell path, which is not a fix. Task chip: "Model enchantment Adventures (the Virtue cycle)".
+> · **Next:** census rank 62 — Rubblebelt Rioters / Orcish Siegemaster ("Whenever this creature attacks, it gets +X/+0 until end
+>   of turn, where X is the greatest power among creatures you control").
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 39: "you may pay {N}. If you do, <targeted payoff>" offered targets wider than printed — 13 native carriers · **+0** (a false positive closed) · corpus 14,943 (43.6%) / 34,245
 > Suite **1630 files / 16,864 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 38 (run 36712437805).
