@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Blood Seeker, Suture Priest** — when an opponent's creature enters, you may have that player lose 1 life
 - **Stone of Erech, Misery's Shadow** — an opponent's creature that would die is exiled instead
 - **Phlage, Titan of Fire's Fury, Uro, Titan of Nature's Wrath** — cast from your hand, they do their enter trigger and
   are sacrificed, as printed (escape casting isn't offered yet)

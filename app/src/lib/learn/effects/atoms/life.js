@@ -438,6 +438,10 @@ export function lifeClauseParser(clause) {
   // where no triggering permanent exists and the clause would silently no-op.
   m = t.match(/^the triggering permanent's controller loses (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "triggeringPermanentController", targetType: null };
+  // The CAUSATIVE form of the same referent (③ · 19 — Blood Seeker / Suture Priest's "you may have that player lose 1 life",
+  // rewritten by detectTriggers; the optional wrapper strips the "you may"). Same atom, same sentinel gate.
+  m = t.match(/^have the triggering permanent's controller lose (\d+) life$/);
+  if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "triggeringPermanentController", targetType: null };
   return null;
 }
 

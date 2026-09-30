@@ -4735,6 +4735,14 @@ export function detectTriggers(card) {
       if ((cls.event === "etb" || cls.event === "dies" || cls.event === "attacks") && cls.scope !== "self") {
         effectClause = effectClause.replace(/^its controller\b/i, "the triggering permanent's controller");
       }
+      // OPPONENT'S-ENTERING-CREATURE DRAIN (the 09-06 plan's stage ③ · 19, 2026-09-30 — Blood Seeker, Suture Priest: "Whenever a
+      // creature an opponent controls enters, you may have that player lose 1 life."): "that player" is the entering creature's
+      // controller — the triggering permanent's, already bound in makePendingTrigger's context. The same sentinel as the
+      // its-controller rewrite above, gated to this one event and scope and anchored to the whole printed clause; the "you may"
+      // stays a real choice.
+      if (cls.event === "etb" && cls.scope === "creatureOpponentControls") {
+        effectClause = effectClause.replace(/^you may have that player lose (\d+) life$/i, (_, n) => `you may have the triggering permanent's controller lose ${n} life`);
+      }
       if (cls.scope === "self" && SELF_PUMP_IT_RE.test(effectClause)) {
         effectClause = effectClause.replace(/^it /i, "this creature ");
       }

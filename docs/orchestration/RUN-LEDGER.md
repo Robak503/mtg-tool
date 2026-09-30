@@ -5,14 +5,34 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **375 commits**, corpus
-> 38.6% → **43.4% (14,868)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **376 commits**, corpus
+> 38.6% → **43.4% (14,870)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 19: "whenever a creature an opponent controls enters, you may have that player lose 1 life" · **+2** · corpus 14,870 (43.4%) / 34,245
+> Suite **1610 files / 16,688 tests** green (1 skipped); lint 0. Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at b7c95da7 → the
+> change). **Mutants 4/4 killed on assertions** (restore byte-identical).
+> · **Census row ⑲:** Blood Seeker, Suture Priest. The trigger was already detected (an ETB watcher scoped
+>   creatureOpponentControls); its payoff never parsed, because "that player" — the entering creature's controller — had no
+>   referent.
+> · **Build:** detectTriggers rewrites "you may have that player lose N life", gated to that event and scope and anchored to the
+>   whole clause, to the "triggering permanent's controller" sentinel the its-controller payoffs already use (bound in
+>   makePendingTrigger's context); a life arm reads the causative "have … lose N life". The optional wrapper keeps the "you may"
+>   a real choice.
+> · **An honest note on the gate:** no corpus card can reach it ungated — every event that names a player (upkeep, graveyard,
+>   cast, draw, damage) binds its own "that player" before this rewrite runs; a synthetic cast-drain probe proved it. The gate
+>   is kept narrow as the safe direction, and it is NOT counted as mutation-checked.
+> · **Runtime (each through checkEnterTriggers → the stack):** the user's own Bears entering fire nothing (the vacuity control) ·
+>   `WITNESS seekerDrain {"user":0,"ai":-1}` when the AI's Bears enter · declining the "you may" leaves the AI's life alone ·
+>   Suture Priest gains 1 off the user's creature and drains 1 off the AI's · the AI's Blood Seeker costs the user 1.
+> · **Mutants 4/4:** the rewrite removed · the causative arm removed · the wrong referent (the Seeker's own controller) · the
+>   "you may" dropped. Witness `app/src/lib/learn/opponentCreatureEntersDrain.test.js` (6).
+> · **Next:** the census below row ⑲.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 18: "exile it instead" at EVERY death site + the opponent-creature static · **+2** · corpus 14,868 (43.4%) / 34,245
 > Suite **1609 files / 16,683 tests** green (1 skipped); lint 0. Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at 54c620e8 → the
