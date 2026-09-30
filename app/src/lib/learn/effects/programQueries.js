@@ -378,6 +378,11 @@ export function atomTargetIntent(atom) {
       // Man-o'-War logic with a wider pool). Enumeration stays legal-wide (own permanents and own
       // spells remain legal picks for a human); intent narrows only the auto-chooser's side.
       return "enemy";
+    case "redirect-to-source":
+      // REDIRECT (Hydroelectric Specimen, shelf D10): the trigger targets a SPELL to pull its single target onto the source —
+      // an opponent's removal off your better creature, an opponent's pump onto yours. Aiming it at your own spell only
+      // takes your own effect away from where you pointed it, so the chooser looks at opponents' spells.
+      return "enemy";
     case "transfer-counters":
       // COUNTER-TRANSFER (census slice 37) — "put its counters on target creature you control": the printed
       // subject is already restricted to your own creatures, and moving a dead creature's counters onto one

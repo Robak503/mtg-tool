@@ -238,6 +238,11 @@ function atomTargetSpec(atom) {
     // for the same reason: a grant targets a spell without trying to counter it, so an already-
     // uncounterable spell is still a legal (if pointless) target. Only the grant atom sets it.
     ...(atom.grantNotCounter && { grantNotCounter: true }),
+    // REDIRECT (shelf D10, Hydroelectric Specimen): changing a target is not countering (notCounter), and "with a single
+    // target" narrows the pool to spells with exactly one chosen target (CR 115.9a). Unlisted here = dropped = offered
+    // every instant or sorcery, the uncounterable ones excluded — both wrong.
+    ...(atom.notCounter && { notCounter: true }),
+    ...(atom.singleTargetOnly && { singleTargetOnly: true }),
   };
   // Graveyard recursion: a graveyard-card target carries the cardFilter (creature/any) so
   // enumerateTargets surfaces only the matching graveyard cards. anyGraveyard (Reanimate / Hymn of

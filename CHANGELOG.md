@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Hydroelectric Specimen** — flash it in and pull an instant or sorcery's single target onto it
 - **Crime** — targeting an opponent, anything they control, or a card in their graveyard is a crime; Patrolling Peacemaker, Raven of Fell Omens, Marauding Sphinx, Magda, Blood Hustler, Slickshot Vault-Buster, Omenport Vigilante and six more now play
 - **Kicked spells that change their target** — Galadriel's Dismissal (a creature, or every creature a player controls when kicked), Bloodchief's Thirst, Tear Asunder, Highly Illogical, Divine Resilience and Probe; plus Field Research, Wild Onslaught and Bold Defense
 - **Targeted phasing** — Clever Concealment, Vodalian Illusionist and Brokers Confluence can phase permanents out; Auras and Equipment go with them and come back attached

@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **422 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **423 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,26 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D10: change a spell's target to this creature (CR 115.7a) — **Captain America 87 → 88 · Kinnan 86 → 87 · Believe it! 85 → 86** · **+1 card, 4 slots** (also Test Rashmi, above the bar) · corpus 15,060 (44.0%) / 34,245
+> Suite **1654 files / 17,100 tests** green (1 skipped); lint 0; decks 2,666 → **2,670** / 2,998. CI GREEN on D9 (run 36763785097). Flip-diff **+1,
+> zero LOST, zero RETIERED** (tier snapshots at 4a1f0836 → the change). **Mutants 15/15 killed on assertions** (restore byte-identical).
+> · **Why:** the residue map, regenerated after D9 (12 decks under the bar, 185 blocked slots, 65 needed), ranked Hydroelectric
+>   Specimen's ETB first — one line, three decks (Gemstone Caverns tied it and stays parked: a pre-game seam).
+> · **Build:** `redirect-to-source` (atoms/stack) — targets an instant or sorcery with exactly one chosen target (CR 115.9a);
+>   `notCounter` (changing a target is not countering) + a new `singleTargetOnly` threaded through the spell spec and enforced
+>   in the stack enumerator. `applyRedirectToSource`: moves the target only when the source is a legal target for the SAME
+>   slot, from the spell controller's side, with the spell's kick and mode (CR 115.8); else unchanged, reason logged
+>   (CR 115.7a). Intent "enemy".
+> · **Found while witnessing:** a single-atom spell cast through the legacy path records no atomIndex on its target — the
+>   first slot check refused to move Lightning Bolt. Fixed (the slot is compared only when recorded).
+> · **Runtime:** `WITNESS specimenRedirect` — flashed in against the AI's Bolt at your Hill Giant: the Specimen takes 3 and
+>   lives, the Giant lives, and targeting the AI's spell is a crime · a kicked Burst Lightning moves in slot 1 · an
+>   uncounterable Bolt still redirects · Shatter stays on the Sol Ring · Abrade's artifact mode stays, creature mode moves ·
+>   a two-slot spell moves in its own slot (synthetic shape, labeled) · Specimen gone → unchanged · Prey Upon (two targets)
+>   and Pacifism (an Aura) never offered · a program-less spell logged, no throw. Witness
+>   `app/src/lib/learn/redirectToSource.test.js` (11).
+> · **Next:** Wolverine 88 · Captain America 88 · Kinnan 87 — the residue map's next rows.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D9: committing a crime (CR 700.13) — **Otharri 89 → 90** · **+13** · corpus 15,059 (44.0%) / 34,245
 > Suite **1653 files / 17,089 tests** green (1 skipped); lint 0; decks 2,665 → **2,666** / 2,998. CI GREEN on D8 (run 36761118885). Flip-diff **+13,

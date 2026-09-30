@@ -782,6 +782,9 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       // stack object rather than just its card. Enforced here at enumeration so a non-matching spell is never
       // offered — a targeting restriction belongs at the choice, not at resolution (CR 601.2c + CREED).
       if (effect.targetsFilter && !spellTargetsMatchFilter(state, obj, effect.targetsFilter, controllerId)) continue;
+      // "…spell WITH A SINGLE TARGET" (Hydroelectric Specimen, shelf D10): CR 115.9a counts the target instances chosen as
+      // the spell was put on the stack — the recorded targets, not how many are still legal.
+      if (effect.singleTargetOnly && (obj.targets || []).length !== 1) continue;
       // `controller` rides for the that-player projection ("Counter target spell unless ITS
       // CONTROLLER pays {1}. THAT PLAYER discards…" — Frightful Delusion): by discard time the
       // spell may have left the stack, so the projection reads the object recorded at cast.

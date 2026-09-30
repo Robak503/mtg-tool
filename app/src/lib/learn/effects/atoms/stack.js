@@ -688,6 +688,13 @@ export function counterClauseParser(clause) {
   // the targeted object's own targets off the live board. `optional` records the printed "may": CR 115.7d —
   // the player may leave any number of targets unchanged, which is the resolver's decline path.
   if (/^(?:you may )?choose new targets for target spell or ability$/.test(t)) return { op: "retarget", targetType: "spellOrStackAbility", optional: true };
+  // ⭐ REDIRECT TO THIS CREATURE (CR 115.7a — shelf D10, Hydroelectric Specimen): "[you may] change the target of target instant
+  // or sorcery spell with a single target to this creature". "With a single target" counts the targets chosen as the spell was
+  // put on the stack (CR 115.9a); changing a target is not countering it, so an uncounterable spell stays a legal target. The
+  // resolver moves that one target to the source when the source is a legal target for it, and leaves it unchanged otherwise.
+  if (/^(?:you may )?change the target of target instant or sorcery spell with a single target to this creature$/.test(t)) {
+    return { op: "redirect-to-source", targetType: "spell", spellFilter: "instantSorcery", singleTargetOnly: true, notCounter: true, optional: true };
+  }
   // RIVAZ RIDER (2026-08-15) — the cast-trigger payoff 'it gains "When this creature dies, exile it."'
   // where "it" is the CAST SPELL (the trigger's castStackObjectId, threaded by checkCastTriggers). The
   // resolver stamps the spell's stack payload; PERMANENT_ETB carries the stamp onto the permanent, and the
@@ -2002,6 +2009,50 @@ function applyRetarget(state, atom, ctx) {
 }
 
 /**
+ * ⭐ REDIRECT TO THIS CREATURE (shelf D10, 2026-09-30 — Hydroelectric Specimen): "you may change the target of target instant
+ * or sorcery spell with a single target to this creature." CR 115.7a: "each target can be changed only to another legal
+ * target. If a target can't be changed to another legal target, the original target is unchanged."
+ *
+ * Legality is judged for the TARGETED SPELL, from its controller's side (hexproof, protection and "can't be the target" are
+ * the spell's problem, not the redirector's), in the same target slot (atomIndex / role), with the spell's own kick and mode
+ * (CR 115.8 — a mode is never re-chosen). The source must still be on the battlefield. Anything else logs why and changes
+ * nothing. Both the stack object's targets and its payload's are rewritten, as applyRetarget does, so the CR 608.2b check and
+ * the resolution read the same target.
+ */
+function applyRedirectToSource(state, atom, ctx) {
+  const t = (ctx?.targets || []).find((x) => x?.type === "spell");
+  const idx = t ? (state.stack || []).findIndex((o) => o.id === t.id && o.kind === "spell") : -1;
+  const sourceId = ctx?.sourceId ?? null;
+  const unchanged = (reason) => logEvent(state, { kind: "spell-effect", effect: "redirect-unchanged", reason, targetId: t?.id ?? null, controller: ctx?.controller });
+  if (idx === -1) return unchanged("spell-gone");
+  if (!sourceId || !findPermanent(state, sourceId)?.permanent) return unchanged("source-gone");
+  const obj = state.stack[idx];
+  const params = obj.payload?.params;
+  const originals = Array.isArray(params?.targets) ? params.targets : [];
+  // (The count can't have changed since the trigger chose this spell — CR 115.9a fixes it when the spell was put on the
+  // stack — so the second half is the invariant stated, not a live branch.)
+  if (!params?.program || originals.length !== 1) return unchanged(!params?.program ? "no-program" : "not-single-target");
+  const orig = originals[0];
+  let combos = expandCastChoices(state, obj.controller, params.program, [], { kicked: params.kicked === true });
+  if (params.chosenMode != null) combos = combos.filter((c) => JSON.stringify(c.chosenMode) === JSON.stringify(params.chosenMode));
+  // The same slot: a multi-atom spell records each target's atomIndex (and a two-target atom its role); a single-atom spell
+  // cast through the legacy path records neither, and its one slot is the only one there is.
+  const moved = combos.map((c) => c.targets || [])
+    .find((ts) => ts.length === 1 && ts[0].id === sourceId
+      && (orig.atomIndex == null || ts[0].atomIndex === orig.atomIndex) && (ts[0].role ?? null) === (orig.role ?? null));
+  if (!moved) return unchanged("source-not-a-legal-target");
+  const next = {
+    ...state,
+    stack: [
+      ...state.stack.slice(0, idx),
+      { ...obj, ...(Array.isArray(obj.targets) ? { targets: moved } : {}), payload: { ...obj.payload, params: { ...params, targets: moved } } },
+      ...state.stack.slice(idx + 1),
+    ],
+  };
+  return logEvent(next, { kind: "spell-effect", effect: "redirect", targetId: obj.id, cardName: obj.source?.name || null, controller: ctx?.controller, from: orig.name || orig.id, to: moved[0].name || moved[0].id });
+}
+
+/**
  * RIVAZ RIDER — 'it gains "When this creature dies, exile it."' applied to the TRIGGERING CAST SPELL.
  * The grant is recorded on the spell's stack payload (params.grantDiesExile); PERMANENT_ETB threads it
  * onto the permanent exactly like castFromZone, and checkDiesTriggers exiles the card from the graveyard
@@ -2096,6 +2147,7 @@ export const stackResolvers = {
   "counter-cast-spell": applyCounterCastSpell, // SG-13 (Vexing Bauble) — counter the CAST spell the trigger fired on (ctx.castStackObjectId)
   "counter-targeting-object": applyCounterTargetingObject, // stage ③ (the Glasskites) — counter the spell/ability whose target choice fired the trigger (ctx.targetingStackObjectId)
   retarget: applyRetarget, // ⭐ RETARGET (Deflecting Swat, CR 115.7) — re-pick a stack object's own targets off the live board; decline = keep (CR 115.7d)
+  "redirect-to-source": applyRedirectToSource, // ⭐ REDIRECT (Hydroelectric Specimen, CR 115.7a) — a single-target spell's target moves to the source, or stays
   "grant-dies-exile-to-cast-spell": applyGrantDiesExileToCastSpell, // RIVAZ RIDER — stamp the triggering cast spell; the permanent it becomes exiles on death
   "bounce-spell-or-permanent": applyBounceSpellOrPermanent, // VENSER — the STACK∪BATTLEFIELD union bounce ("return target spell or permanent to its owner's hand")
   "copy-spell": applyCopySpell, // STORM (CR 702.40) — copy the storm spell N times (N = spells cast before it this turn)
