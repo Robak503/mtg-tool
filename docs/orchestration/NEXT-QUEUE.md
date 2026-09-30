@@ -11,8 +11,8 @@
 > and the thing that would end that run early is not stamina, it is **running out of queue**. This is the
 > queue. It is sequenced so the risky work happens while sharp and the mechanical work is available late.
 >
-> Read with [RUN-LEDGER.md](RUN-LEDGER.md) (what is in flight right now) and the triage ledger (banked
-> engine findings with their traps named).
+> Read with [RUN-LEDGER.md](RUN-LEDGER.md) (what is in flight right now, and — since 2026-08 — the triage record:
+> banked engine findings with their traps named; `TRIAGE-LEDGER-2026-07-23.md` is the frozen Phase-1A deck ledger).
 
 ## THE SEQUENCING LAW FOR A LONG RUN
 

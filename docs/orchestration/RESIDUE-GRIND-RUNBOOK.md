@@ -132,7 +132,8 @@ Take the top un-attempted cluster. Then, IN ORDER:
 4. **Grep for the mechanism by CONCEPT, not just by phrase:** the event name you'd invent, the
    field name you'd invent, related CR numbers, sibling cards you know are handled. Check
    `registerTriggerDetector` / `registerCoverageClassifier` registries explicitly.
-5. **Write the one-line scope verdict** into the triage ledger BEFORE building: what exists, what's
+5. **Write the one-line scope verdict** into the triage record — the RUN-LEDGER (since 2026-08 its entries carry
+   every scope verdict and bank; `TRIAGE-LEDGER-2026-07-23.md` is the frozen Phase-1A deck ledger) — BEFORE building: what exists, what's
    missing, expected flip count and names. If the missing piece is a new INTERACTIVE choice, a new
    zone behavior, or a new value-threading path between objects — it is not a quick slice; bank it
    precisely and take the next cluster instead. Two candidates in a row needing "real new
@@ -197,9 +198,9 @@ Take the top un-attempted cluster. Then, IN ORDER:
   which cards flip and which correctly do NOT (with each one's distinct residue), the fingerprint
   result ("34,210 cards, exactly N changed, zero collateral"), suite/lint state, and any bug the
   gates caught before commit. Conventional Commits, straight prose, no voice.
-- **Update the triage ledger** (docs/orchestration/TRIAGE-LEDGER-*.md): mark BUILT with the commit
-  hash; correct any earlier scope claims the build disproved — corrections are first-class entries,
-  not embarrassments.
+- **Update the triage record** — the RUN-LEDGER entry (not `TRIAGE-LEDGER-2026-07-23.md`, frozen since
+  2026-07-27): mark BUILT with the commit hash; correct any earlier scope claims the build disproved —
+  corrections are first-class entries, not embarrassments.
 - **WAKE-REPORT addendum** per meaningful slice: what shipped, what the gates caught, running flip
   count. Verify every number against actual command output before writing it (two typo incidents).
 - Memory-side (CONTINUITY/COMMS) at natural checkpoints, newest-on-top.
