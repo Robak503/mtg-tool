@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **406 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **407 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,28 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 49: "copy it for each time you've cast your commander from the command zone this game" — Empyrial Storm, Hatut Zeraze Strike Force · **+2** · corpus 14,971 (43.7%) / 34,245
+> Suite **1640 files / 16,949 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI: ③ · 47's run 36726167184 GREEN (anchors ③ · 45–47, whose own runs were cancelled); pushed after ③ · 48's run 36727607746 concluded. Flip-diff **+2, zero LOST, zero RETIERED** (tier snapshots at
+> 145c5684 → the change: exactly the two planned). **Mutants 6/6 killed on assertions** (restore byte-identical).
+> · **The row (census rank 71):** the Commander 2018/2019 storm cycle's PRINTED self-cast trigger — already detected as a
+>   selfCast descriptor, but no parser read its clause, and the spell body carried the trigger sentence. SOLE-blocks Empyrial
+>   Storm and Hatut Zeraze Strike Force; Skull Storm and Genesis Storm stay parked on their bodies.
+> · **Build (storm's machinery, end to end):** detectTriggers marks the printed descriptor a storm copy with
+>   `stormCountSource: "commanderCasts"`; the cast path threads it beside storm's snapshot; `copySpellClauseParser` reads
+>   the clause; the copy atom counts `gameState.commanderCastsFromCommandZone` (the per-commander tally the cast chokepoint
+>   bumps, CR 903.8 — partners summed) LIVE as the trigger resolves; `stripStormKeywordLine` peels the sentence from the
+>   spell's body; coverage's storm branch takes these spells too (trigger must route, body must stand alone). A creature
+>   spell's copies become tokens (CR 707.10f) through the existing permanent-spell branch.
+> · **Runtime:** `WITNESS commanderStorm {"twice":3,"never":1}` — Empyrial Storm through the real cast with the commander
+>   cast twice vs never · partners cast once each → two copies · a commander cast in response (the tally bumped before the
+>   trigger resolves) adds a copy · Hatut with one command-zone cast: the card and one TOKEN copy.
+> · **Mutants 6/6:** the parser arm · the descriptor not marked · the count source not threaded · the atom ignoring the
+>   source · only the first commander counted · the trigger line left in the body. (The storm-branch condition's
+>   extension is defense in depth — equivalent for every printed carrier, whose trigger routes — so no kill is claimed
+>   for it.) Witness `app/src/lib/learn/commanderStorm.test.js` (6).
+> · **Next:** census rank 72 — "When this creature enters, exile up to N target cards from a single graveyard" (Arashin
+>   Sunshield, Gravegouger …).
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 48: "You have shroud." — Ivory Mask, True Believer · **+2** · and the Curse offer that targeted protected players · corpus 14,969 (43.7%) / 34,245
 > Suite **1639 files / 16,943 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI: ③ · 46's run cancelled by concurrency too; this slice was pushed only after ③ · 47's run 36726167184 concluded. Flip-diff **+2, zero LOST, zero RETIERED** (tier snapshots at

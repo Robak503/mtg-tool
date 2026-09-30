@@ -1787,6 +1787,12 @@ export function registerLifeLossWatcher(fn) { _lifeLossWatcher = fn; }
 export function playerProtectedFromEverything(state, playerId) {
   return !!state?.players?.[playerId]?.teferiShield?.protection;
 }
+/** How many times `playerId` has cast their commander(s) from the command zone this game — the sum of the per-commander
+ *  commanderCastCount the cast chokepoint bumps (CR 903.8; both partners count). Read by the commander-storm copy
+ *  ("copy it for each time you've cast your commander from the command zone this game", stage ③ · 49). */
+export function commanderCastsFromCommandZone(state, playerId) {
+  return Object.values(state?.players?.[playerId]?.commanderCastCount || {}).reduce((sum, n) => sum + (Number(n) || 0), 0);
+}
 export function playerLifeLocked(state, playerId) {
   return !!state?.players?.[playerId]?.teferiShield?.lifeLocked;
 }

@@ -4320,6 +4320,9 @@ export function foldTwoTriggerDetain(oracle, card) {
  */
 export const CUMULATIVE_UPKEEP_LIFE_RE = /(?:^|\n)[ \t]*cumulative upkeep[ \t]*[—–-][ \t]*pay (\d+) life\.?[ \t]*(?=\n|$)/i;
 
+/** COMMANDER STORM (stage ③ · 49): the printed self-cast trigger's effect clause, whole. */
+const COMMANDER_STORM_CLAUSE_RE = /^copy it for each time you['’]ve cast your commander from the command zone this game\.?$/i;
+
 export function detectTriggers(card) {
   if (!card || typeof card !== "object") return [];
   if (_detectCache.has(card)) return _detectCache.get(card);
@@ -6116,6 +6119,16 @@ export function detectTriggers(card) {
       effect: null, effectClause: "copy this spell for each spell cast before it this turn",
       optional: false, sourceText: "Storm",
     });
+  }
+  // COMMANDER STORM (stage ③ · 49 — Empyrial Storm, Hatut Zeraze Strike Force): the PRINTED "When you cast this spell, copy it
+  // for each time you've cast your commander from the command zone this game." is detected above as an ordinary selfCast
+  // descriptor. Marked here as a storm copy so the cast path snapshots the spell for the copy atom, with
+  // stormCountSource "commanderCasts" so the atom counts the caster's command-zone casts as it resolves.
+  for (const d of out) {
+    if (d.event === "selfCast" && !d.stormCopy && COMMANDER_STORM_CLAUSE_RE.test(String(d.effectClause || ""))) {
+      d.stormCopy = true;
+      d.stormCountSource = "commanderCasts";
+    }
   }
   // CASCADE (CR 702.85) — KEYWORD→TRIGGER synthesis, the STORM precedent exactly. "Cascade" is a keyword whose
   // triggered ability lives in REMINDER parens ("(When you cast this spell, exile cards from the top of your
@@ -9449,7 +9462,7 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
   const cascadeSpellMv = cascadingSpellManaValue(spellCard);
   for (const d of detectTriggers(spellCard).filter((x) => x.event === "selfCast")) {
     const extra = d.stormCopy
-      ? { stormCount, stormSourcePayload: stormStackObj?.payload || null, stormSourceCard: { name: spellCard.name, type: typeStr(spellCard) } }
+      ? { stormCount, stormSourcePayload: stormStackObj?.payload || null, stormSourceCard: { name: spellCard.name, type: typeStr(spellCard) }, ...(d.stormCountSource ? { stormCountSource: d.stormCountSource } : {}) }
       : d.cascade
       ? { cascadeSpellMv }
       : {};

@@ -4,7 +4,7 @@
  */
 
 import { applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js"; // the SHARED creature-restriction grammar — massFilteredDamageClauseParser's general arm delegates its recipient phrase to it (no new module edge: applyDamageEffect already came from here)
-import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe } from "../../gameState.js";
+import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe, commanderCastsFromCommandZone } from "../../gameState.js";
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingOptionalExileSelfChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
 import { permanentIsCreature, permanentTypes, equipmentBarredAsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
@@ -1087,6 +1087,12 @@ export function copySpellClauseParser(clause) {
   if (t === "copy this spell for each spell cast before it this turn") {
     return { op: "copy-spell", stormCopy: true };
   }
+  // COMMANDER STORM (stage ③ · 49 — Empyrial Storm, Hatut Zeraze Strike Force): the PRINTED self-cast trigger. The same
+  // copy atom; its count is the caster's command-zone casts, which detectTriggers marks (stormCountSource) and
+  // applyCopySpell reads LIVE as the trigger resolves.
+  if (t === "copy it for each time you've cast your commander from the command zone this game") {
+    return { op: "copy-spell", stormCopy: true };
+  }
   return null;
 }
 
@@ -1609,7 +1615,10 @@ function copyAtomIntent(atom) {
  * `?? 0` (NOT `|| 0`) reads the count so a genuine 0 is honored, never coerced.
  */
 function applyCopySpell(state, atom, ctx) {
-  const n = Math.max(0, ctx?.stormCount ?? 0);
+  // COMMANDER STORM (stage ③ · 49): "for each time you've cast your commander from the command zone this game" is counted
+  // as the trigger RESOLVES, off the live tally — a commander cast in response counts. Storm's own count stays the
+  // cast-time snapshot (spells cast before it this turn can't change).
+  const n = Math.max(0, ctx?.stormCountSource === "commanderCasts" ? commanderCastsFromCommandZone(state, ctx.controller) : (ctx?.stormCount ?? 0));
   const sourcePayload = ctx?.stormSourcePayload;
   if (n <= 0 || !sourcePayload) {
     return logEvent(state, { kind: "spell-effect", effect: "storm-copy", count: 0, controller: ctx?.controller });

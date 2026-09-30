@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Empyrial Storm, Hatut Zeraze Strike Force** — copied once for each time you've cast your commander from the command
+  zone this game
 - **Ivory Mask, True Believer** — you have shroud: no spell or ability can target you, yours included
 - **Myojin of Life's Web, Myojin of Infinite Rage** — cast from your hand, they enter with a divinity counter (and are
   indestructible until you spend it); any other way in, they enter without one

@@ -425,9 +425,14 @@ export function stripGiftPromise(oracle) {
 // (actionDispatcher.applyCastSpell) and the coverage classifier (spellIsNative) BOTH parse through here, so they
 // agree on the body; the storm trigger fires separately (checkCastTriggers) and copies the spell.
 export function stripStormKeywordLine(oracle) {
-  return /\bcopy it for each spell cast before it this turn\b/i.test(String(oracle || ""))
+  const text = /\bcopy it for each spell cast before it this turn\b/i.test(String(oracle || ""))
     ? String(oracle).replace(/(?:^|\n)[^\n]*\bcopy it for each spell cast before it this turn\b[^\n]*(?=\n|$)/i, "\n")
     : oracle;
+  // COMMANDER STORM (stage ③ · 49 — Empyrial Storm): the PRINTED "When you cast this spell, copy it for each time you've cast
+  // your commander from the command zone this game." is the same kind of line — a self-cast TRIGGER (detectTriggers marks it
+  // a storm copy; the copy atom counts command-zone casts), never part of the spell's resolution. The WHOLE sentence only.
+  // coverage's storm branch credits such a spell only when that trigger routes natively.
+  return String(text || "").replace(/(?:^|\n)[ \t]*when you cast this spell, copy it for each time you['’]ve cast your commander from the command zone this game\.?[ \t]*(?=\n|$)/i, "\n");
 }
 
 // DEVOID (CR 702.114, BLITZ DV-1) — strip the whole "Devoid (This card has no color.)" KEYWORD line before

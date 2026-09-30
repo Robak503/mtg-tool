@@ -1193,7 +1193,10 @@ export function spellIsNative(card) {
   // targeted bodies below. Anchored on the keyword's reminder signature so a card merely NAMED "…Storm" without
   // the keyword is untouched. Checked FIRST so the body gate is storm-aware. CREED: an unmodeled body → not
   // native (the whole card stays Arbiter, never a partial).
-  if (/\bcopy it for each spell cast before it this turn\b/i.test(String(card.oracle || ""))) {
+  // COMMANDER STORM (stage ③ · 49 — Empyrial Storm) takes this branch too: the printed "copy it for each time you've cast
+  // your commander from the command zone this game" trigger is a storm copy (detectTriggers marks it; parseEffectProgram
+  // strips its line), so the same gates apply — the trigger must route natively and the body must stand on its own.
+  if (/\bcopy it for each spell cast before it this turn\b/i.test(String(card.oracle || "")) || /\bcopy it for each time you['’]ve cast your commander from the command zone this game\b/i.test(String(card.oracle || ""))) {
     const stormTrigs = detectTriggers(card).filter((d) => d.stormCopy);
     if (!stormTrigs.length || !stormTrigs.every(triggerRoutesNatively)) return false; // copy mechanism not modeled → Arbiter
     // parseEffectProgram strips the Storm keyword line, so this is the spell's BODY program (the same one the
