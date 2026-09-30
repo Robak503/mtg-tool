@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"const fs=require('fs');const cands=['C:/Users/colto/.claude/projects/C--Users-colto-Documents-Claude-Projects-MTG-TOOL/memory/COMMS.md','C:/Users/colto/.claude/projects/C--Projects-mtg-tool/memory/COMMS.md','C:/Projects/omnath-vault/memory/COMMS.md'];let t='';for(const p of cands){try{const x=fs.readFileSync(p,'utf8');if(x){t=x;break}}catch(e){}}const i=t.indexOf('## LOG');const body=(i>=0?t.slice(i):t).slice(0,3500);process.stdout.write(JSON.stringify({hookSpecificOutput:{hookEventName:'SessionStart',additionalContext:'Omnath COMMS — newest entries (reconcile against any open requests to keep up):  '+(body||'(COMMS.md not found or empty)')}}))\"",
+            "command": "node -e \"const fs=require('fs');const cands=['C:/Users/colto/.claude/projects/C--Users-colto-Documents-Claude-Projects-MTG-TOOL/memory/COMMS.md','C:/Users/colto/.claude/projects/C--Projects-mtg-tool/memory/COMMS.md','C:/Projects/omnath-vault/memory/COMMS.md'];let t='';for(const p of cands){try{const x=fs.readFileSync(p,'utf8');if(x){t=x;break}}catch(e){}}const i=t.indexOf(String.fromCharCode(10)+'## LOG (newest first)');const body=(i>=0?t.slice(i):t).slice(0,3500);process.stdout.write(JSON.stringify({hookSpecificOutput:{hookEventName:'SessionStart',additionalContext:'Omnath COMMS — newest entries (reconcile against any open requests to keep up):  '+(body||'(COMMS.md not found or empty)')}}))\"",
             "timeout": 10,
             "statusMessage": "Checking Omnath COMMS"
           }
