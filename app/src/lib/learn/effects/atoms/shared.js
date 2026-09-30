@@ -848,6 +848,15 @@ export function countForSpec(state, ctx, spec) {
   // power of attacking creatures": the LAYER-AWARE power sum over the declared attackers (an anthem'd
   // board adds more — the same powerAtLeast discipline). Fired at declaration (checkAttackTriggers), so
   // every attacker is live; a since-removed id simply reads 0 through the findPermanent miss.
+  // ATTACKING CREATURES (the 09-06 plan's stage ③ · 22, 2026-09-30 — the cast discounts of Ancient Stone Idol, Static Snare and
+  // Embercleave): the creatures attacking right now — state.combat.attackers, each still on the battlefield and not removed
+  // from combat (CR 506.4); `youControl` keeps the counting player's own. Outside combat the list is empty: the full cost.
+  if (spec.kind === "attackingCreatures") {
+    return (state.combat?.attackers || []).filter((a) => {
+      const lk = findPermanent(state, a.permanentId);
+      return lk && !lk.permanent.removedFromCombat && (!spec.youControl || lk.controller === ctx?.controller);
+    }).length;
+  }
   if (spec.kind === "totalAttackingPower") {
     return Math.max(0, (state.combat?.attackers || []).reduce((sum, a) => {
       const lk = findPermanent(state, a.permanentId);

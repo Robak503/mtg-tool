@@ -1262,6 +1262,12 @@ export function selfCostReductionMetric(card) {
     // and stays parked, pinned.
     const fe = s.match(/^this spell costs \{(\d+)\} less to cast for each (.+)$/);
     if (fe) {
+      // ATTACKING CREATURES (the 09-06 plan's stage ③ · 22, 2026-09-30 — Ancient Stone Idol, Static Snare: "… for each attacking
+      // creature"; Embercleave: "… for each attacking creature you control"): the creatures attacking right now, read at the
+      // cast off the combat's attackers (countForSpec "attackingCreatures"). Handled HERE rather than in parseSelfCountSource,
+      // which the P/T lane shares and whose board evaluator has no attacking count.
+      const atk = fe[2].match(/^attacking creatures?( you control)?$/);
+      if (atk) return { kind: "perEachCount", per: Number(fe[1]), countSpec: { kind: "attackingCreatures", ...(atk[1] ? { youControl: true } : {}) } };
       const feSpec = parseSelfCountSource(fe[2]);
       return feSpec ? { kind: "perEachCount", per: Number(fe[1]), countSpec: feSpec } : null;
     }

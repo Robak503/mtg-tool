@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Embercleave, Ancient Stone Idol, Static Snare** — cost {1} less for each attacking creature (Embercleave: each
+  of yours); flash them in mid-combat
 - **Fiend Hunter, Leonin Relic-Warder** — you may exile the target until the creature leaves the battlefield
 - **Horizon Stone, Kruphix, God of Horizons** — mana you would lose as a step ends stays in your pool, as colorless
 - **Blood Seeker, Suture Priest** — when an opponent's creature enters, you may have that player lose 1 life

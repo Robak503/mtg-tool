@@ -5,14 +5,39 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **379 commits**, corpus
-> 38.6% → **43.4% (14,874)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **380 commits**, corpus
+> 38.6% → **43.4% (14,877)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 23: "this spell costs {1} less to cast for each attacking creature [you control]" — Ancient Stone Idol, Static Snare, Embercleave · **+3** · corpus 14,877 (43.4%) / 34,245
+> Suite **1614 files / 16,718 tests** green (1 skipped); lint 0. Flip-diff **+3, zero LOST, zero retiered** (tier snapshots at 3e914b43 → the
+> change). **Mutants 5/5 killed on assertions** (restore byte-identical).
+> · **Census row ㉒** (probed, not read off the examples column): "… for each attacking creature" sole-blocks Ancient Stone Idol
+>   and Static Snare (Stone Idol Trap parks on its token line), and its sibling "… for each attacking creature you control"
+>   sole-blocks Embercleave (EDHREC #1324). All three have Flash — which is why ③ · 22 came first: at sorcery speed nothing is
+>   ever attacking, and this discount could never apply.
+> · **Build:** the per-each self cost reduction (Karador's frame) reads the attacking count in its own arm — not in
+>   parseSelfCountSource, which the P/T lane shares and whose board evaluator has no attacking count — and countForSpec
+>   "attackingCreatures" counts the combat's live attackers: each still on the battlefield and not removed from combat
+>   (CR 506.4); `youControl` keeps the caster's own for Embercleave. Outside combat the list is empty — the full cost.
+>   legalChoices prices the cast off it when the action is offered, so the action carries the discounted cost it pays.
+> · **Runtime (each offered by legalActionsForPlayer and paid for real):** no combat — seven floating cannot cast the {10} Idol
+>   (the vacuity control) · `WITNESS idolWithThreeAttackers {"onBattlefield":true,"floatingLeft":0}` — the AI attacks with three,
+>   the Idol costs {7} and takes exactly seven · two attackers leave it at {8} · an attacker removed from combat, or no longer on
+>   the battlefield, is not counted · Static Snare against four attackers is cast for one white and exiles an attacking Bear ·
+>   Embercleave costs {1}{R}{R} in the user's own three-creature attack and full price in the AI's.
+> · **Mutants 5/5:** the arm removed · "you control" dropped at the parse · "you control" ignored by the count · a creature
+>   removed from combat counted · an attacker off the battlefield counted. Witness
+>   `app/src/lib/learn/attackingCreatureCostReduction.test.js` (7).
+> · **Left for later:** Believe in the Cleave prints the name form ("<name> costs {1} less …"), which the self-cost reader
+>   doesn't take — a separate normalization.
+> · **Next:** the census below row ㉒ — Goblin Clearcutter / Orcish Lumberjack (multi-product mana, likely banked), then Murderous
+>   Rider's dies-to-the-bottom.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 22: FLASH honoured at cast timing — 613 Flash cards, a documented under-delivery closed · runtime fix (+0) · corpus 14,874 (43.4%) / 34,245
 > Suite **1613 files / 16,711 tests** green (1 skipped); lint 0. Flip-diff **0 / 0 / 0** — the classifier already credited Flash (tier snapshots
