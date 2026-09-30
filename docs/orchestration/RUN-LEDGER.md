@@ -5,14 +5,56 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **394 commits**, corpus
-> 38.6% → **43.6% (14,935)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **395 commits**, corpus
+> 38.6% → **43.6% (14,941)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 37: "Remove a <K> counter from this <noun>: Add …" with no {T} — Pentad Prism and five more · **+6** · corpus 14,941 (43.6%) / 34,245
+> Suite **1628 files / 16,852 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 35 (run 36708158494). Flip-diff **+6, zero LOST,
+> zero retiered** (tier snapshots at e64cba01 → the change). **Mutants 10/10 killed on assertions** (restore byte-identical).
+> · **Census rank 58** (Pentad Prism #4255, Gemstone Array #13425) and the rest of the vein the line sole-blocks: Crystalline
+>   Crawler, Morselhoarder, Workhorse, Druids' Repository. The mana model refused every remove-a-counter mana cost ("not a free,
+>   tapless, repeatable source" — reading it minted phantom mana) and coverage stripped the line "until a counter-cost mana
+>   subsystem lands". It lands for the no-{T} form.
+> · **Machinery (manaModel):** each activation pays ONE counter for ONE mana (colour chosen per activation), so the permanent
+>   is as many one-mana sources as it has counters. manaProduction returns a `removesCounters.mode: "each"` product (whole-line
+>   anchored, the card's only Add line); manaSources expands it to one record per counter (`repeatable`, `noTap`), usable
+>   tapped and summoning-sick (no {T}, CR 302.6) and never multiplied (not tapped for mana); the planner's sibling rule —
+>   a permanent's other lines share one {T} and exclude each other — exempts repeatable pairs; the commit removes the counter
+>   and does not tap (so no tapped-for-mana watcher fires). The direct `tap-for-mana` action skips it (it would add the mana
+>   without paying the counter). Coverage relaxes its strip in lockstep: a counter-cost line survives only when manaProduction
+>   models it this way, read on the line itself.
+> · **Riders still park (vacuity controls):** Mana Bloom ("Activate only once each turn"), Mana Cache ("Any player may
+>   activate…"), Cryptic Trilobite (a spend restriction). The {T}-costed form (Sphere of the Suns, the Vivid lands) is untouched.
+> · **Runtime:** `WITNESS carrierRecords` — every carrier, two counters of its own kind → two records of its own colours ·
+>   Pentad Prism with none → nothing · a TAPPED Crystalline Crawler and a summoning-sick Workhorse still offer theirs ·
+>   `WITNESS prismPaysTwo {"taps":["U","W"],"charge":0,"tapped":false,…}` — {W}{U} from one Prism, two colours, both
+>   counters gone, the Prism untapped (one counter can't: the vacuity control) · a Plains pays {W} first and the Prism keeps
+>   its counter · Workhorse pays {1} and shrinks to 3; Morselhoarder pays {R} and GROWS to 5 · Mana Reflection doesn't double
+>   it · `WITNESS prismCast {"onStack":["Grizzly Bears"],"charge":0,"tapped":false}` — the real cast offered and paid from the
+>   Prism alone · no direct tap-for-mana action.
+> · **Mutants 10/10:** the manaProduction arm removed · one record carrying every counter · the planner's repeatable exemption
+>   removed · the commit tapping anyway · a record removing no counter · a tapped permanent offering nothing · the direct-tap
+>   skip removed · coverage stripping the line again · noTap not threaded onto the plan's taps · the avail record dropping
+>   `repeatable` (the unlisted-field trap). A too-loose coverage relaxation is unkillable through the native-mana tier —
+>   `manaProduction(card)` is a conjunct there — and is not counted. Witness `app/src/lib/learn/counterRemovalNoTapMana.test.js` (12).
+> · **⚠️ A near-miss, caught before any gate:** the witness was first Written to `counterRemovalMana.test.js` — ④-4's
+>   storage-land witness already had that name, and the Write replaced it. Caught by the Write result ("updated", not
+>   "created") and `git status` (` M`, not `??`); restored with `git checkout`, moved to a fresh name, and the mutants re-run
+>   with BOTH files. The memory rule already said to glob first; it now names those two signals as stop-the-line.
+> · **A comment graduated:** converge.test.js noted Crystalline Crawler "still parks" on this line; it now says when it flipped.
+> · **Census rank 59 — ⏸ BANKED (machinery):** Thor, Guardian of Midgard / Virtue of Courage ("Whenever a source you control
+>   deals noncombat damage to an opponent, you may exile that many cards …"). No noncombat-damage trigger event exists:
+>   gameState.loseLife knows damage is noncombat (`combatDamage: false` from the burn/ability atom) but not the SOURCE's
+>   controller, and a pain land reaches it unmarked. Needs an event queue carrying {source controller, damaged player,
+>   amount} from every noncombat damage site, the trigger subject, and "that many" threaded into the impulse exile.
+> · **Next:** census rank 60 — Flickerwisp / Glimmerpoint Stag ("exile another target permanent. Return that card … at the
+>   beginning of the next end step").
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 36: "destroy target nonartifact, nonblack creature" — Shriekmaw, Bone Shredder, Nekrataal, Terror, Expunge, Feast or Famine · **+6** · corpus 14,935 (43.6%) / 34,245
 > Suite **1627 files / 16,840 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 34 + the snapshot chore (run 36707094963).

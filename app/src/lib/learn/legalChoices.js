@@ -2044,6 +2044,11 @@ function actionsTapForMana(state, playerId) {
       prod = applyAuraManaGrantSupplement(state, perm, prod);   // AURA-MANA-GRANT supplement — mirrors manaSources (two-sites invariant)
     }
     if (!prod) continue;
+    // STAGE ③ · 37 — a no-{T} remove-a-counter source (Pentad Prism) is paid through the planner: manaSources gives it one
+    // record per counter and the commit removes the counter. This direct TAP action would add the mana without removing a
+    // counter and tap a permanent whose cost has no {T}, so it isn't offered here — a safe under-offer of manual floating,
+    // never free mana.
+    if (prod.removesCounters?.mode === "each") continue;
     // Granted Haste counts here too (a lord that hastes your mana dorks). Layer-aware sickness (NV-1,
     // CR 302.6): a MASS-ANIMATED land played this turn is a summoning-sick creature — its {T} mana
     // ability is off until its controller's next turn (summoningSickNow; printed creatures read their

@@ -1108,8 +1108,13 @@ function stripEnergyGatedManaLines(oracle) {
 // excludes isManaEffect abilities from the stack path, so such a line is DEAD at runtime and must not
 // credit native-mana (the exact energy-gate precedent above; a counter-free mana line on the same card
 // survives the strip). When a counter-cost mana subsystem lands in manaProduction, relax this with it.
-function stripCounterCostManaLines(oracle) {
-  return String(oracle || "").replace(/[^.\n]*\bremove (?:a|an|one|two|three|\d+|x) [a-z+\-/0-9]+ counters?[^.\n:]*:\s*add\b[^.\n]*\.?/gi, " ");
+// ⭐ RELAXED IN LOCKSTEP (the 09-06 plan's stage ③ · 37, 2026-09-30): it landed for the no-{T} "Remove a <K> counter from
+// this <noun>: Add …" form (manaProduction's `removesCounters.mode === "each"` — one mana source per counter, the counter
+// removed at commit). A line survives the strip ONLY when manaProduction models it that way, read on the line itself, so
+// the metric credits exactly what the runtime pays for; every other counter-cost mana line is still stripped.
+function stripCounterCostManaLines(oracle, typeLine = "") {
+  return String(oracle || "").replace(/[^.\n]*\bremove (?:a|an|one|two|three|\d+|x) [a-z+\-/0-9]+ counters?[^.\n:]*:\s*add\b[^.\n]*\.?/gi,
+    (line) => (manaProduction({ name: "", type: typeLine, oracle: line.trim() })?.removesCounters?.mode === "each" ? line : " "));
 }
 
 export function hasManaAbility(oracle, typeLine) {
@@ -1121,7 +1126,7 @@ export function hasManaAbility(oracle, typeLine) {
   // (stripNonSelfQuotedGrants — the Cryptolith Rite phantom-granter fix, mirrored from manaProduction so
   // the metric and the runtime mana model agree). Callers that can't supply a type line get the
   // conservative strip — an under-count, never an over-claim.
-  const t = stripCounterCostManaLines(stripEnergyGatedManaLines(stripNonSelfQuotedGrants(stripCreatedTokenAbilities(stripReminder(oracle)), typeLine)));
+  const t = stripCounterCostManaLines(stripEnergyGatedManaLines(stripNonSelfQuotedGrants(stripCreatedTokenAbilities(stripReminder(oracle)), typeLine)), typeLine);
   return /\badd \{[wubrgcx]/i.test(t) ||
     /\badd (one|two|three|four|five|that much|an amount|\{)/i.test(t);
 }

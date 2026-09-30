@@ -18,9 +18,10 @@
  * else. It is authorised by the SAME helper the resolver reads, so a card can never be credited for a
  * sentence the runtime won't honour.
  *
- * ⓘ Crystalline Crawler and Wildgrowth Archaic carry the identical line and still park — on their OTHER
+ * ⓘ Crystalline Crawler and Wildgrowth Archaic carry the identical line and parked — on their OTHER
  * abilities (a mana-producing counter removal; a cast-trigger that adds counters to other creatures).
- * Pinned so they aren't misread as misses here.
+ * Pinned so they aren't misread as misses here. Crystalline Crawler is native since the 09-06 plan's stage
+ * ③ · 37 (2026-09-30), when the no-{T} remove-a-counter mana source landed (counterRemovalMana.test.js).
  *
  * Mutation-checked (2026-08-05, each grep-verified as applied AND verified on the case under test): `per`
  * forced to 1 -> Glinting Creeper enters with half its counters; the resolver arm removed -> the witness

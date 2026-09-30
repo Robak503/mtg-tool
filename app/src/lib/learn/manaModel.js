@@ -1490,6 +1490,21 @@ function manaProductionImpl(card) {
     const dnu = oracleForAdd.trim().match(/^\{T\}: Add \{([WUBRGC])\} or \{([WUBRGC])\}\. This land doesn't untap during your next untap step\.$/i);
     if (dnu) return { colors: [dnu[1].toUpperCase(), dnu[2].toUpperCase()], amount: 1, requiresTap: true, doesNotUntapNext: true };
   }
+  // ===== REMOVE-A-COUNTER MANA, NO {T} (the 09-06 plan's stage ③ · 37, 2026-09-30 — CR 605.1a / 602.2b) ===== "Remove a
+  // <K> counter from this <artifact|creature|enchantment>: Add {C}." / "…: Add one mana of any color." (Pentad Prism, Gemstone
+  // Array, Crystalline Crawler, Morselhoarder, Workhorse, Druids' Repository). No tap: each activation pays ONE counter for ONE
+  // mana (its colour chosen per activation), so the permanent is as many one-mana sources as it has counters — manaSources
+  // expands it (`repeatable` records the planner lets coexist, `noTap` so the commit never taps), and the commit removes one
+  // counter per record. Usable tapped and summoning-sick (no {T}), never multiplied (not "tapped for mana"). Whole-line anchored
+  // and only as the card's ONLY Add line: a rider fails the anchor and parks (Mana Bloom's "Activate only once each turn",
+  // Mana Cache's "Any player may activate…", Cryptic Trilobite's spend restriction).
+  {
+    const rcm = oracleForAdd.match(/^Remove an? (charge|\+1\/\+1|-1\/-1) counter from this (?:artifact|creature|enchantment): Add (\{C\}|one mana of any color)\.?$/im);
+    const otherAddLine = rcm && /\bAdd\b/.test(oracleForAdd.replace(rcm[0], ""));
+    if (rcm && !otherAddLine) {
+      return { colors: rcm[2] === "{C}" ? ["C"] : ["W", "U", "B", "R", "G"], amount: 1, requiresTap: false, removesCounters: { type: rcm[1], mode: "each" } };
+    }
+  }
   const fromOracle = parseAddClause(oracleForAdd, card);
   // A NON-LAND activated mana ability must also be PAYABLE by the sim as a standing source. An ability whose
   // only cost is a CONSUMABLE/non-repeatable resource the sim can't spend — a non-self sacrifice (Utopia Mycon
@@ -1779,7 +1794,9 @@ export function manaSources(state, playerId) {
   const artLocked = artifactActivationsLocked(state);
   const sources = [];
   for (const perm of player.battlefield) {
-    if (perm.tapped) continue;
+    // A no-{T} remove-a-counter source (stage ③ · 37) is still a source while TAPPED — its cost never taps (Crystalline
+    // Crawler taps to add its own counter, then spends them). manaProduction is memoized per card, so this read is free.
+    if (perm.tapped && manaProduction(perm.card)?.removesCounters?.mode !== "each") continue;
     // ACTIVATED-LOCK (BLITZ AU-2, CR 605.1a): a mana ability IS an activated ability, so a permanent under the
     // layer-6 "activatedAbilitiesLocked" grant (an Arrest-class Aura, or Koma mode 1) is NOT a mana source —
     // the mana-path twin of the stack-ability gate in legalChoices. Board-rare (only that grant sets it), so
@@ -1787,6 +1804,17 @@ export function manaSources(state, playerId) {
     if (permanentHasKeyword(state, perm.id, "activatedAbilitiesLocked")) continue; // AU-2
     if (artLocked && permanentTypes(state, perm.id).types.includes("Artifact")) continue; // NR-1
     let prod = manaProduction(perm.card);
+    // REMOVE-A-COUNTER, NO {T} (stage ③ · 37): one one-mana record per counter on it right now. `repeatable` lets the planner
+    // spend several (a permanent's OTHER lines are one {T} and exclude each other; these are separate activations), `noTap`
+    // keeps the commit from tapping it, and each record removes exactly one counter. Summoning sickness doesn't apply (no {T},
+    // CR 302.6) and a mana multiplier doesn't either (not tapped for mana), so this runs before both.
+    if (prod?.removesCounters?.mode === "each") {
+      const n = perm.counters?.[prod.removesCounters.type] || 0;
+      for (let i = 0; i < n; i++) {
+        sources.push({ permanentId: perm.id, colors: prod.colors, amount: 1, removesCounters: { type: prod.removesCounters.type, count: 1 }, repeatable: true, noTap: true });
+      }
+      continue;
+    }
     // ⭐ GRANTED BASIC LAND TYPE (④-BE, CR 305.6 — Urborg / Yavimaya / Blanket of Night): a land whose EFFECTIVE subtypes
     // include a basic type it does not print has that type's INTRINSIC mana ability, "{T}: Add <colour>". Merged into the
     // land's own one-mana tap source (so it stays ONE tap for one mana, just with more colour choices), or synthesized when
@@ -2184,6 +2212,8 @@ function planPaymentOnce(pool, sources, cost, spendContext = null) {
       fromHand: !!s.fromHand, // SG-6 — the source is a HAND card; the committer exiles it instead of tapping
       removesCounters: s.removesCounters || null, // STAGE ④-4 — the counters this tap removes (the commit removes exactly these)
       doesNotUntapNext: !!s.doesNotUntapNext, // STAGE ④-5 — the tapped land skips its controller's next untap step
+      repeatable: !!s.repeatable, // STAGE ③ · 37 — one of several separate activations of a no-{T} remove-a-counter source
+      noTap: !!s.noTap,           // STAGE ③ · 37 — the commit doesn't tap it (its cost is the counter)
       used: false,
     }))
     .filter(s => s.amount > 0)
@@ -2225,7 +2255,9 @@ function planPaymentOnce(pool, sources, cost, spendContext = null) {
     s.used = true;
     // STAGE ④-3: a permanent's OTHER mana-line records are the same {T} — one tap, one line (CR 605.3a). Mark
     // every sibling record of this permanent used so the planner can never tap it twice through two lines.
-    for (const o of avail) if (o !== s && o.permanentId === s.permanentId && !o.fromHand && !s.fromHand) o.used = true;
+    // + STAGE ③ · 37: records that are each their own ACTIVATION (a no-{T} remove-a-counter source — one record per counter)
+    // don't exclude one another; nothing here is a shared {T}.
+    for (const o of avail) if (o !== s && o.permanentId === s.permanentId && !o.fromHand && !s.fromHand && !(o.repeatable && s.repeatable)) o.used = true;
     // Components: the primary land mana (one chosen color from s.colors) + each bonus entry.
     const components = [{ colors: s.colors, amount: s.amount, primary: true }, ...s.bonus.map(b => ({ colors: b.colors, amount: b.amount, primary: false, sameAsProduced: !!b.sameAsProduced }))];
     let primaryColor = null;
@@ -2260,7 +2292,7 @@ function planPaymentOnce(pool, sources, cost, spendContext = null) {
     // PAINLAND: stamp the life cost ONLY when the chosen colour is one of the painful ones — a tap for
     // the free {C} half costs nothing, exactly as printed.
     const painHit = s.painColors && s.painColors.includes(primaryColor) ? s.painAmount : 0;
-    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(s.doesNotUntapNext && { doesNotUntapNext: true }), ...(s.restriction?.uncounterableIfSpent && { uncounterableIfSpent: true }), ...(s.spentRider && { spentRider: s.spentRider }), /* SHELF-85 V11 (Path of Ancestry): the "when that mana is spent" rider rides the tap to the cast site */ ...(bonusPicks.length && { bonus: bonusPicks }) }); // + CAP-CAVERN: the cast site reads uncounterableIfSpent off the taps
+    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(s.noTap && { noTap: true }), /* ③ · 37 */ ...(s.doesNotUntapNext && { doesNotUntapNext: true }), ...(s.restriction?.uncounterableIfSpent && { uncounterableIfSpent: true }), ...(s.spentRider && { spentRider: s.spentRider }), /* SHELF-85 V11 (Path of Ancestry): the "when that mana is spent" rider rides the tap to the cast site */ ...(bonusPicks.length && { bonus: bonusPicks }) }); // + CAP-CAVERN: the cast site reads uncounterableIfSpent off the taps
     return wantColor && assigned ? wantColor : primaryColor;
   };
 
@@ -2474,6 +2506,9 @@ export function commitManaTap(state, playerId, tap) {
     next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId });
     if (sacPerm) next = checkSacrificeTriggers(next, playerId, { id: sacPerm.id, controller: playerId, card: sacPerm.card });
     next = checkLeavesTriggers(next);
+  } else if (tap.noTap) {
+    // STAGE ③ · 37 — a no-{T} remove-a-counter source (Pentad Prism): the counter above WAS the whole cost. Nothing taps, and
+    // it was not "tapped for mana" (CR 605.3), so no tapped-for-mana watcher fires either.
   } else {
     next = tapPermanent(next, tap.permanentId);
     // STAGE ④-5 — the doesn't-untap rider: the land tapped through this line skips its controller's next untap

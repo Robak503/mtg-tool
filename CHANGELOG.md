@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Pentad Prism, Gemstone Array, Crystalline Crawler, Morselhoarder, Workhorse, Druids' Repository** — remove a
+  counter for a mana, as many times as there are counters, without tapping
 - **Shriekmaw, Bone Shredder, Nekrataal, Terror, Expunge, Feast or Famine** — "destroy target nonartifact, nonblack
   creature" now plays; the regeneration riders hold
 - **Canopy Cover, Shielding Plax** — your opponents' spells and abilities can't target the enchanted creature
