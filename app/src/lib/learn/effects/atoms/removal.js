@@ -6,7 +6,7 @@
  */
 
 import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js";
-import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, creatureBasePower } from "../../gameState.js";
+import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, creatureBasePower, diesExiledInstead } from "../../gameState.js";
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // ④-BD — the counter rider's delayed "may draw up to N" (Arcane Denial); delayedTrigger imports only gameState (cycle-safe)
 import { checkDiesTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../../triggers.js";
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
@@ -248,9 +248,14 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
   // Goldvein/Lifeblood/Feral-Ghoul still feeds its "equal to its power" dies-trigger the real on-board power.
   const sacPower = isCreatureCard(lk.permanent.card) ? creaturePower(lk.permanent, state) : null;
   const sacBasePower = isCreatureCard(lk.permanent.card) ? creatureBasePower(lk.permanent, state) : null;
-  let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: permId });
+  // DIES → EXILE INSTEAD (③ · 18, CR 614) — the sacrifice site asks the same predicate as every other death site. The creature
+  // is still SACRIFICED (the sacrifice triggers below fire), but it is exiled rather than put into the graveyard, so it never
+  // died: its look-back carries exileInstead and the dies triggers skip it.
+  const exileInstead = isCreatureCard(lk.permanent.card) && diesExiledInstead(state, lk.permanent);
+  let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: exileInstead ? "exile" : "graveyard", cardId: permId });
+  if (exileInstead) next = logEvent(next, { kind: "creature-exiled-instead", turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
   if (isCreatureCard(lk.permanent.card)) {
-    next = checkDiesTriggers(next, [{ controller: playerId, id: permId, name: lk.permanent.card?.name || "creature", card: lk.permanent.card, power: Number.isFinite(sacPower) ? sacPower : null, basePower: Number.isFinite(sacBasePower) ? sacBasePower : null, counters: { ...(lk.permanent.counters || {}) } }]);
+    next = checkDiesTriggers(next, [{ controller: playerId, id: permId, name: lk.permanent.card?.name || "creature", card: lk.permanent.card, power: Number.isFinite(sacPower) ? sacPower : null, basePower: Number.isFinite(sacBasePower) ? sacBasePower : null, counters: { ...(lk.permanent.counters || {}) }, exileInstead }]);
   }
   // TRIG-SACRIFICE: fire "Whenever you sacrifice a <permanent|creature|artifact>" for the sacrificing
   // player. The perm has left the battlefield, so its type rides on the lookBack card (sacScopeMatches reads it).

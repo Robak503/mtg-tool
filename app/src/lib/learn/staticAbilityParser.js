@@ -2906,12 +2906,21 @@ function parseClause(clause, out, selfName, selfType) {
   // "If a creature dealt damage by this creature this turn would die, exile it instead." A replacement from a STATIC ability
   // (CR 614), so it applies only while the source is on the battlefield: the death path (gameState) asks AT THE MOMENT OF
   // DEATH whether a permanent in the dying creature's damagedBy list is on the battlefield carrying this — never a stamp at
-  // damage time, which would outlive the source. It rides the same two death sites as Lava Coil's rider (lethal damage and
-  // the legend rule) and the damagedBy record (combat pairs + "deals N damage" effects; a fight records no source); a
-  // creature damaged by the source and then destroyed or sacrificed that turn goes to the graveyard — the rider's
-  // documented under-application, the safe side.
+  // damage time, which would outlive the source. Since ③ · 18 it rides every death site (lethal damage, the legend rule,
+  // destroy, sacrifice — gameState.diesExiledInstead) and the damagedBy record (combat pairs + "deals N damage" effects); a
+  // fight records no damage source, the one remaining under-application (the safe side).
   if (/^if a creature dealt damage by this creature this turn would die, exile it instead$/.test(c)) {
     out.push({ exileDamagedOnDeath: true });
+    return;
+  }
+
+  // ── EXILE AN OPPONENT'S DYING CREATURE (the 09-06 plan's stage ③ · 18, 2026-09-30 — Stone of Erech, Misery's Shadow: "If a
+  // creature an opponent controls would die, exile it instead.") ─────────────────────────────────────────────────────────────
+  // The same replacement family (CR 614), scoped by controller: it applies to a creature controlled by an OPPONENT of this
+  // permanent's controller, while this permanent is on the battlefield. gameState.diesExiledInstead asks it — with Lava Coil's
+  // stamp and the damage-source static above — at every death site: lethal damage, the legend rule, destroy and sacrifice.
+  if (/^if a creature an opponent controls would die, exile it instead$/.test(c)) {
+    out.push({ exileOpponentCreaturesOnDeath: true });
     return;
   }
 
@@ -6586,6 +6595,13 @@ function isTotemArmorClause(clause) {
  *  source in a dying creature's damagedBy list. */
 export function exilesCreaturesItDamaged(card) {
   return parseStaticAbilities(card).some((d) => d?.exileDamagedOnDeath === true);
+}
+
+/** Does this card carry "If a creature an opponent controls would die, exile it instead." (Stone of Erech, Misery's Shadow)?
+ *  The SAME parse the classifier reads; gameState.diesExiledInstead asks it of every permanent an opponent of the dying
+ *  creature's controller controls. */
+export function exilesOpponentCreaturesOnDeath(card) {
+  return parseStaticAbilities(card).some((d) => d?.exileOpponentCreaturesOnDeath === true);
 }
 
 /** The LIFE FLOOR this card's static sets for its controller — { lifeFloor: 1, ifControlCreature? } (Ali from Cairo, Sustaining

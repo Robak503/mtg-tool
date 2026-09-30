@@ -5,14 +5,38 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **374 commits**, corpus
-> 38.6% → **43.4% (14,866)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **375 commits**, corpus
+> 38.6% → **43.4% (14,868)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 18: "exile it instead" at EVERY death site + the opponent-creature static · **+2** · corpus 14,868 (43.4%) / 34,245
+> Suite **1609 files / 16,683 tests** green (1 skipped); lint 0. Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at 54c620e8 → the
+> change). **Mutants 9/9 killed on assertions** (restore byte-identical).
+> · **Census row ⑱:** "If a creature an opponent controls would die, exile it instead." — Stone of Erech, Misery's Shadow (Vren,
+>   Gisa, Liesa, Nemata, Corpseweaver Prodigy, Garruk, Veiled Butcher carry it and park on other gaps).
+> · **The real fix is the death sites, not the card.** Exile-instead was asked at only TWO of the four places a creature dies —
+>   lethal damage / 0 toughness and the legend rule — so Lava Coil's rider and ③ · 8's damage-source static silently failed
+>   when the creature was DESTROYED or SACRIFICED instead (③ · 8 shipped that as a documented under-application). **Build:** one
+>   predicate, `gameState.diesExiledInstead(state, perm)` — Lava Coil's this-turn stamp, the damage-source static, and the new
+>   opponent-creature static (`exileOpponentCreaturesOnDeath`, scoped to a creature controlled by an OPPONENT of the static's
+>   controller) — asked of the pre-removal state by all four sites: destroyLethalCreatures, applyLegendRule,
+>   spellEffects.applyDestroyEffect, removal.sacrificeCreatureEffect. An exiled creature never died (CR 614): its look-back
+>   carries exileInstead, so dies triggers stay quiet; a sacrificed-and-exiled creature was still sacrificed (sacrifice
+>   triggers fire). ③ · 8's under-application note is retired; a fight recording no damage source is the one left.
+> · **Runtime:** Murder on the AI's Grizzly Bears — graveyard with no replacement (the vacuity control), `WITNESS stoneMurder
+>   exile` under the user's Stone of Erech, graveyard for the user's OWN Bears · Doomed Traveler exiled by Murder under Misery's
+>   Shadow makes no Spirit (the unreplaced run does) · Lava Coil's stamp and Kumano's Pupils' damage now hold at the destroy
+>   site · a sacrifice, a Lightning Bolt kill and the legend rule each exile under the static.
+> · **Mutants 9/9:** the static arm · the opponent scope dropped (red on the user's own Bears) · the destroy site never asking ·
+>   the destroy site's look-back saying it died (red on Doomed Traveler's Spirit) · the sacrifice site never asking · the
+>   lethal and legend sites reverted to the old two sources · the predicate dropping Lava Coil's stamp · dropping the damage
+>   source. Witness `app/src/lib/learn/diesExiledInstead.test.js` (10), with exileWhatItDamaged and damageExileReplacement.
+> · **Next:** the census below row ⑱.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 17: "sacrifice it unless it escaped" — Phlage, Uro · **+2** · corpus 14,866 (43.4%) / 34,245
 > Suite **1608 files / 16,673 tests** green (1 skipped); lint 0. Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at e5f78f95 → the

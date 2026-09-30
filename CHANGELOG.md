@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Stone of Erech, Misery's Shadow** — an opponent's creature that would die is exiled instead
 - **Phlage, Titan of Fire's Fury, Uro, Titan of Nature's Wrath** — cast from your hand, they do their enter trigger and
   are sacrificed, as printed (escape casting isn't offered yet)
 - **Kozilek, Butcher of Truth, Ulamog, the Infinite Gyre, Worldspine Wurm** — put into a graveyard from anywhere (milled,
@@ -336,6 +337,8 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **"Exile it instead" now holds when the creature is destroyed or sacrificed** — Lava Coil's rider and Incendiary Oracle /
+  Kumano's Pupils only exiled a creature that died to damage; destroyed or sacrificed, it went to the graveyard
 - **Mistform creatures lose the old creature type** — Lord of the Unreal (and any Illusion lord) kept pumping a Mistform
   Dreamer after it became another type, and a second activation in one turn kept the first choice as well. A new choice
   now replaces the creature's current creature types, and nothing else

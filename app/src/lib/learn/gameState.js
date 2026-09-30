@@ -31,7 +31,7 @@ import { permanentPower, permanentToughness, permanentBasePower, permanentHasKey
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
 import { applyCounterDoubling, millMultiplier, playerCounterAdditive, applyLifeGainReplacement, drawMultiplier } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
-import { auraHasTotemArmor, othersEnterWithCounters, exilesCreaturesItDamaged, lifeFloorOf } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.116) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
+import { auraHasTotemArmor, othersEnterWithCounters, exilesCreaturesItDamaged, exilesOpponentCreaturesOnDeath, lifeFloorOf } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.116) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
 import { applyControlAuraAttach, revertControlAura } from "./controlAura.js"; // CR 613.1b control Auras — a ZERO-IMPORT leaf, so this lowest-layer module can call it without a cycle
 import { moveControl } from "./controlMove.js"; // THE one control move, shared by the control Auras and the gain-control atom; controlMove imports nothing, so this stays acyclic
 
@@ -2156,6 +2156,30 @@ function damagedByExilingSource(state, perm) {
   return false;
 }
 
+// OPPONENT-CREATURE EXILE (the 09-06 plan's stage ③ · 18 — Stone of Erech, Misery's Shadow): is a permanent carrying "If a
+// creature an opponent controls would die, exile it instead." controlled by an OPPONENT of the dying creature's controller?
+// Battlefields are keyed by controller, so each seat's array is what that seat controls.
+function opponentCreatureExiler(state, perm) {
+  for (const pid of Object.keys(state.players || {})) {
+    if (!opponentsOf(state, pid).includes(perm.controller)) continue;
+    if ((state.players[pid].battlefield || []).some((p) => p.card && exilesOpponentCreaturesOnDeath(p.card))) return true;
+  }
+  return false;
+}
+
+/**
+ * DIES → EXILE INSTEAD (CR 614, the 09-06 plan's stage ③ · 18, 2026-09-30) — would this creature be exiled rather than put into
+ * a graveyard if it died now? ONE predicate every death site asks of the pre-removal state: lethal damage and 0 toughness
+ * (destroyLethalCreatures), the legend rule (applyLegendRule), destroy (spellEffects.applyDestroyEffect) and sacrifice
+ * (removal.sacrificeCreatureEffect). Its three sources: Lava Coil's this-turn stamp (exileIfDiesTurn), the damage-source
+ * static (Incendiary Oracle), and the opponent-creature static (Stone of Erech). Before this, only the first two sites asked,
+ * so a creature under any of those replacements that was destroyed or sacrificed still went to the graveyard.
+ */
+export function diesExiledInstead(state, perm) {
+  if (!perm) return false;
+  return perm.exileIfDiesTurn === state.turn || damagedByExilingSource(state, perm) || opponentCreatureExiler(state, perm);
+}
+
 /**
  * THREATEN REVERT (CR 514.2) — send home every creature taken by an "until end of turn" control change.
  *
@@ -2281,7 +2305,7 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
       // EXILE-IF-DIES (subsystem 3): a creature flagged "if it would die this turn, exile it instead" goes
       // to EXILE instead of the graveyard — but ONLY this turn (the flag stores the turn it applies to, so
       // it self-expires; a stale flag from a prior turn is ignored).
-      exileInstead: perm.exileIfDiesTurn === state.turn || damagedByExilingSource(state, perm),
+      exileInstead: diesExiledInstead(state, perm),
       // GRANTED DIES-EXILE (RIVAZ): the durable TRIGGER cousin of exileInstead — the death happens (dies
       // triggers + tally), then checkDiesTriggers exiles the card from the graveyard.
       diesExileAfter: !!perm.grantDiesExile,
@@ -2407,7 +2431,7 @@ export function applyLegendRule(state) {
             counters: { ...(perm.counters || {}) },
             // EXILE-IF-DIES: "if it would die this turn, exile it instead" applies to ANY death,
             // legend-rule included (CR 700.4 — this IS a death).
-            exileInstead: perm.exileIfDiesTurn === state.turn || damagedByExilingSource(state, perm),
+            exileInstead: diesExiledInstead(state, perm),
             // GRANTED DIES-EXILE (RIVAZ): same carry as the markDead site — a legend-rule death still exiles.
             diesExileAfter: !!perm.grantDiesExile,
       // SHUFFLE-INSTEAD (CR 614) - the same "it never actually died" flag as exileInstead directly above.

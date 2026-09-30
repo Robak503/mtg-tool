@@ -9,8 +9,9 @@
  * damagedBy is on the battlefield carrying the static. Deliberately NOT a stamp at damage time: a stamp would still exile
  * after the source had left the battlefield, which the pin below forbids.
  *
- * Documented under-application (the safe side, shared with Lava Coil's rider): a creature damaged by the source and then
- * destroyed or sacrificed that turn goes to the graveyard; a fight records no damage source.
+ * Documented under-application (the safe side): a fight records no damage source. (Until ③ · 18 a creature damaged by the
+ * source and then DESTROYED or SACRIFICED that turn also went to the graveyard — only lethal damage and the legend rule asked;
+ * every death site asks now, pinned in diesExiledInstead.test.js.)
  *
  * Real oracle fixtures (bundled Scryfall, probed 2026-09-30).
  */
