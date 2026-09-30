@@ -13,10 +13,10 @@ name: sync-spellbook
 #   Decoupling the data refresh from the release lets each one fail
 #   independently. The SYNC STEP is `continue-on-error` so partial
 #   progress (the script is resumable from disk) is saved to the cache
-#   either way and picks up where it left off next week — but the RUN
+#   either way and picks up where it left off next week - but the RUN
 #   still goes red when the sync failed (the last step), so a failure
 #   is visible. (2026-09-29: the job used to carry continue-on-error
-#   itself, which reported every run green — including four September
+#   itself, which reported every run green - including four September
 #   runs whose job was refused by billing and never ran a step.)
 #
 # How releases consume the data:
@@ -36,16 +36,16 @@ on:
     - cron: '0 3 * * 0'
   workflow_dispatch:
 
-# actions/cache saves through the runner's own runtime token — no workflow-token scope is needed for it,
+# actions/cache saves through the runner's own runtime token - no workflow-token scope is needed for it,
 # so the job gets read-only contents and nothing else (least privilege; `actions: write` was dropped
-# 2026-09-29 — it only let a job running `npm ci` cancel or dispatch workflows).
+# 2026-09-29 - it only let a job running `npm ci` cancel or dispatch workflows).
 permissions:
   contents: read
 
 jobs:
   sync:
     # windows-2025, NOT ubuntu: actions/cache computes an OS-scoped version, so a cache saved from
-    # ubuntu is INVISIBLE to the windows release runner — that mismatch (plus quota eviction) is how
+    # ubuntu is INVISIBLE to the windows release runner - that mismatch (plus quota eviction) is how
     # ~68 releases shipped with zero combos. Same OS as release.yml = restorable snapshot.
     runs-on: windows-2025
     timeout-minutes: 90
@@ -101,13 +101,13 @@ jobs:
       - name: Summary
         if: always()
         shell: bash
-        # The meta file alone proves nothing — the cache restore supplies last week's copy — so the
+        # The meta file alone proves nothing - the cache restore supplies last week's copy - so the
         # message follows the SYNC STEP's own outcome.
         run: |
           if [ "${{ steps.sync.outcome }}" = "success" ]; then
             echo "::notice::Spellbook snapshot synced this run"
           else
-            echo "::error::Spellbook sync did not complete (outcome: ${{ steps.sync.outcome }}) — partial progress was saved to the cache; next run resumes"
+            echo "::error::Spellbook sync did not complete (outcome: ${{ steps.sync.outcome }}) - partial progress was saved to the cache; next run resumes"
           fi
           if [ -f app/data/spellbook-meta.local.json ]; then cat app/data/spellbook-meta.local.json; fi
 

@@ -90,7 +90,7 @@ jobs:
 
       # RESTORE-ONLY (was actions/cache@v5, restore+save). A tag-scoped save is
       # unreadable by any future tag run, so every release used to write ~700 MB
-      # of dead cargo cache that nothing could ever restore — churning the repo's
+      # of dead cargo cache that nothing could ever restore - churning the repo's
       # 10 GB quota and evicting the master-scoped caches (npm, weekly Spellbook)
       # that ARE useful. Restore what a master build (rust.yml) warmed; never save.
       - name: Restore cargo cache
@@ -125,7 +125,7 @@ jobs:
         # "0.1.0", the installed .exe reports 0.1.0 forever and the
         # auto-updater thinks every release is "newer than installed."
         # Rewrite the file from the tag name before building.
-        # ALSO sync app/package.json — the running server reads it for
+        # ALSO sync app/package.json - the running server reads it for
         # engineVersion() (stamped onto every grind/self-play record), so
         # a stale package.json mis-attributes all recorded data to an old
         # version. npm version (not a JSON round-trip) preserves formatting
@@ -186,7 +186,7 @@ jobs:
         working-directory: app
         run: node scripts/sync-edhrec-salt.cjs
 
-      # Card Kingdom fallback prices — fills printings TCGPlayer (Scryfall)
+      # Card Kingdom fallback prices - fills printings TCGPlayer (Scryfall)
       # can't price so the Vault never shows a nil value. Best-effort: a
       # Card Kingdom hiccup must not fail the release (the cache holds the
       # prior snapshot, and the in-app sync can refresh later).
@@ -196,9 +196,9 @@ jobs:
         run: node scripts/sync-cardkingdom-prices.cjs
 
       # Commander Spellbook combos. The claim that "the refdata- cache holds the
-      # weekly snapshot" was FALSE in practice — the weekly workflow saves from
+      # weekly snapshot" was FALSE in practice - the weekly workflow saves from
       # ubuntu under a master scope, which a windows tag-run restore can't read
-      # (cross-OS cache-version + branch-scope mismatch) — so ~68 releases shipped
+      # (cross-OS cache-version + branch-scope mismatch) - so ~68 releases shipped
       # with ZERO combos. Sync fresh here, bounded + resumable so a rate-limit
       # can't stall the release. continue-on-error: if Spellbook is down AND the
       # restore above brought nothing, the strict bundle guard (prepare-tauri-
@@ -251,11 +251,11 @@ jobs:
           Copy-Item $exeFile.FullName -Destination 'MTG-Tool-Setup.exe'
           Copy-Item $sigFile.FullName -Destination 'MTG-Tool-Setup.exe.sig'
 
-      # PUBLISH — retried, because this one API call can throw away a ~25-minute
+      # PUBLISH - retried, because this one API call can throw away a ~25-minute
       # signed build. Seen twice on 2026-07-19 (v0.148.0): every build step green,
       # then "No server is currently available to service your request" during a
       # GitHub API/Actions partial outage. The artifacts are NOT uploaded as
-      # workflow artifacts, so a failure here means rebuilding from scratch —
+      # workflow artifacts, so a failure here means rebuilding from scratch -
       # two spaced retries are far cheaper than that.
       - name: Create GitHub Release
         id: publish
@@ -302,7 +302,7 @@ jobs:
           Write-Host "Retry 1 failed. Waiting 240s before the final attempt."
           Start-Sleep -Seconds 240
 
-      # Final attempt — NOT continue-on-error: if this one fails the release
+      # Final attempt - NOT continue-on-error: if this one fails the release
       # genuinely could not be published and the run must go red.
       - name: Create GitHub Release (final attempt)
         if: steps.publish.outcome == 'failure' && steps.publish_retry1.outcome == 'failure'

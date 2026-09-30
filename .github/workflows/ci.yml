@@ -25,7 +25,7 @@ jobs:
     # 2026-09-03: the windows-2025 runner now exposes 2 CPUs / 9 GB (the "Runner facts" step below proved it),
     # where the green runs earlier that day had four. vitest sizes its pool at CPUs-1, so the whole suite ran
     # on ONE worker and could not finish inside the 900 s wall. Two shards, each on both cores, keep every job
-    # well inside the wall WITHOUT raising it — the wall stays a hang detector, not a speed budget.
+    # well inside the wall WITHOUT raising it - the wall stays a hang detector, not a speed budget.
     strategy:
       fail-fast: false
       matrix:
@@ -60,7 +60,7 @@ jobs:
 
       - name: Runner facts
         # 2026-09-03: four consecutive runs (incl. a control re-run of a previously GREEN commit) hit the 900 s
-        # wall with a single-worker signature — per-file durations equal to green, zero parallelism. vitest sizes
+        # wall with a single-worker signature - per-file durations equal to green, zero parallelism. vitest sizes
         # its pool from availableParallelism()-1, so a runner exposing 2 CPUs runs the suite on ONE worker and
         # can never finish inside the wall. Print the facts before the tests so a red run says WHY, not just THAT.
         run: node -e "const os=require('os');console.log('cpus',os.cpus().length,'availableParallelism',os.availableParallelism(),'totalmem',Math.round(os.totalmem()/1e9)+'GB','model',(os.cpus()[0]||{}).model)"
@@ -70,7 +70,7 @@ jobs:
         # The wrapper's wall exists to kill a HUNG run (a leaked handle once deadlocked a run for ~5
         # hours), not to enforce a speed budget. Its 5-minute default was calibrated when the suite was
         # far smaller; by 2026-07-18 the suite legitimately took 296-302s on this runner (~76s locally),
-        # so the wall started killing HEALTHY runs — four red builds in a row, and one green that
+        # so the wall started killing HEALTHY runs - four red builds in a row, and one green that
         # squeaked in at 299s. A wall that fails good runs is worse than none, because it trains everyone
         # to ignore red. 15 minutes still catches a real hang (which is unbounded) with honest headroom.
         env:
