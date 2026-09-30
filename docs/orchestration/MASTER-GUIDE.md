@@ -41,7 +41,7 @@ path directly.)
 
 | Work type | Read, in order | Law / gate |
 |---|---|---|
-| Engine / coverage / rules | ENGINE-SCAFFOLD.md (§ how-to-add-a-mechanic) → OVERHAUL-PLAYBOOK.md §2–3 → the LIVE PLAN (the file WAKE-REPORT's top block names; 2026-09-29: [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md)) | CREED + full fingerprint battery at the §3 proof level |
+| Engine / coverage / rules | ENGINE-SCAFFOLD.md (§ how-to-add-a-mechanic) → OVERHAUL-PLAYBOOK.md §2–3 → the LIVE PLAN (the file WAKE-REPORT's top block names; 2026-09-29: [RELEASE-READINESS-PLAN-2026-09-29.md](RELEASE-READINESS-PLAN-2026-09-29.md), then [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md)) | CREED + full fingerprint battery at the §3 proof level |
 | **Corpus coverage grind (census-driven — THE standing method as of 2026-07-24)** | [RESIDUE-GRIND-RUNBOOK.md](RESIDUE-GRIND-RUNBOOK.md) — complete, model-agnostic, self-contained (6 laws · census → scope → build → verify → record · failure-mode table) | deletion-probe census ranks the queue; sole-blocker audit + tier-fingerprint both directions per slice |
 | Harness / AI / runner / pilots | OVERHAUL-PLAYBOOK.md first → PLAY-HARNESS-OVERHAUL-PLAYBOOK.md (anchor lineage, A/B probe, census, r11 loop) | trajectory-hash discipline + per-slice A/B evidence |
 | UI / components / styling | PROJECT-SCAFFOLD.md §2.2 → ui-overhaul-log.md §0 (the method) → the hidden `/styleguide` route | LEYLINE law: tokens only, `.btn` system, engine fence proven (tier fp 0-diff + trajectory hash holds) |
@@ -181,7 +181,7 @@ witness — what did this touch?"*
 | Shipped version / state | CHANGELOG.md + `git tag` — never a doc's prose (the committed `app/package.json` version is NOT the shipped one: release.yml stamps the tag's version on the runner only) |
 | Behavior anchors | the latest trajectory-hash lineage entry in WAKE-REPORT (search `3fe82499` — the rows-v2 re-lineage from `ab524e20…`); re-verify it reproduces before relying on it (no reproduction after the 2026-08-01 profile split is recorded) + tier-fp baseline |
 | Deck lists / census | AppData `profiles/<prof>/decks.local.json` — read `data/profiles.json` + `deck-owners.json` for the live ids, never hard-code them (2026-09-29: Colton `prof_bdb11b3e…`, Joe `prof_98486bf2…`, Omnath `prof_50410046…`); never the memory `deck_*.md` files |
-| Parked work | the live plan's §6 (2026-09-29: OVERNIGHT-PLAN-2026-09-06 §6) + the ledger pointers in §6 |
+| Parked work | the live plan's parked section (2026-09-29: RELEASE-READINESS-PLAN §9 + OVERNIGHT-PLAN-2026-09-06 §6) + the ledger pointers in §6 |
 
 ## §4 Orchestration safety card (Windows + worktrees — each line cost real time)
 
@@ -209,7 +209,8 @@ witness — what did this touch?"*
 ## §5 Doc registry (the master-guide section — every method/handoff doc, tagged)
 
 **LIVE** (read at every boot, in this order): [WAKE-REPORT.md](WAKE-REPORT.md) top block → the
-plan it names (2026-09-29: [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md)) →
+plan it names (2026-09-29: [RELEASE-READINESS-PLAN-2026-09-29.md](RELEASE-READINESS-PLAN-2026-09-29.md), then
+[OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md)) →
 [RUN-LEDGER.md](RUN-LEDGER.md) (first ~150 lines only) → [RESIDUE-GRIND-RUNBOOK.md](RESIDUE-GRIND-RUNBOOK.md)
 (the census method) · [SUBSYSTEM-QUARTET-PLAN.md](SUBSYSTEM-QUARTET-PLAN.md) (the quartet's status
 ledger) · [SHELF-85-RUNBOOK.md](SHELF-85-RUNBOOK.md) (§0–§3 only; Cindy's lane closed 2026-09-05) ·
@@ -249,8 +250,8 @@ every `*grind-relaunch*` order — archived, never obey one).
 
 ## §6 Parked ledger (everything waiting, with owners)
 
-- **Current pass parks**: the live plan's §6 (2026-09-29: OVERNIGHT-PLAN-2026-09-06 §6) — always
-  the freshest list.
+- **Current pass parks**: the live plan's parked section (2026-09-29: RELEASE-READINESS-PLAN §9 +
+  OVERNIGHT-PLAN-2026-09-06 §6) — always the freshest list.
 - **Engine/harness parks with analysis**: play-harness-overhaul-log §parked (decision.seat
   MINOR · SD-8 façade split · HB-9/HB-11 · ENG-FLAG-2 · fail-closed Spellbook guard ·
   detectArchetype memo) + WAKE-REPORT v0.86.0 section in git history.
@@ -266,13 +267,12 @@ every `*grind-relaunch*` order — archived, never obey one).
 
 ## §7 What's next (as of 2026-09-29)
 
-1. **The live plan** — the file WAKE-REPORT's top block names (2026-09-29:
-   [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md)), first stage whose DONE line
-   is unmet: stage ② (the tap-a-creature alternative cost, then the party-count reducer) → ③ the
+1. **The release-readiness pass → v0.161.0** — [RELEASE-READINESS-PLAN-2026-09-29.md](RELEASE-READINESS-PLAN-2026-09-29.md)
+   (Colton's go, 2026-09-29): a release is owed (340+ commits, ~+1,500 corpus cards since v0.160.0); the
+   tag waits for Reality Fracture's release (2026-10-02).
+2. **Then the 09-06 plan** — [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md), first stage whose
+   DONE line is unmet: stage ② (the tap-a-creature alternative cost, then the party-count reducer) → ③ the
    residue loop → ④ the quartet's open phase.
-2. **A release is owed** — 340 commits (~+1,500 corpus cards) since v0.160.0 (2026-08-16); see
-   ../../RELEASE.md and the batch rule in CLAUDE.md §7.2. The CHANGELOG `[0.160.0]` heading was
-   never cut (that release's batch still sits in `[Unreleased]`) — cut it before promoting the next.
 3. **UPGRADE-BACKLOG.md** — features, when no plan stage holds the seat.
 
 *(The 2026-07-04 list — the Vault overhaul, then the grind per `clyde-grind-relaunch.md` — is

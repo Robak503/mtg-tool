@@ -4,7 +4,8 @@
 > "Banked state" paragraph calls held was pushed 2026-09-05: origin/master = **5df810d2**, nothing held. Re-measured at
 > 5df810d2: suite **1585 files / 16,429 tests** green (1 skipped) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30
 > decks, 88% aggregate, 13 at ≥90, Atraxa 74 the floor. The repo is PUBLIC and stays public; CI executes again (PR
-> #466's run green 2026-09-30T00:37Z). Stage ① is MET; **stage ② is next**. The "09-06" stamps in this file are
+> #466's run green 2026-09-30T00:37Z). Stage ① is MET; **stage ② is next** — after the release-readiness pass Colton approved
+> the same day ([RELEASE-READINESS-PLAN-2026-09-29.md](RELEASE-READINESS-PLAN-2026-09-29.md)). The "09-06" stamps in this file are
 > mislabelled — by git the bank commit (e134b616) is 2026-09-05 18:43Z. No cron runs this plan any more.
 
 > **THE ORDER (Colton, 2026-09-06 ~05:00Z, verbatim intent):** "after current work safe pause and bank everything then

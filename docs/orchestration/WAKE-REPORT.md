@@ -9,9 +9,11 @@
 
 ## 🌅 2026-09-29 — **RESUMED after the month-long pause · state re-verified · CI GREEN again (repo PUBLIC, stays public)** — runnable: the 09-06 plan's stage ②
 
-> **Runnable next:** [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ② — the tap-a-creature alternative
-> cost (Ramosian Rally, Angelic Favor; M-small), then the party-count cost reducer (S/M). Stage ① is MET. (Cindy has
-> recommended a release-readiness pass to Colton first — the ⏸ block below; if he says go, it runs before stage ②.)
+> **Runnable next:** [RELEASE-READINESS-PLAN-2026-09-29.md](RELEASE-READINESS-PLAN-2026-09-29.md) (Colton's go,
+> 2026-09-29) — R1 ✅ MET (reference data freshness, suite 1586 / 16,443); next **R2** (an honest engine version stamp)
+> → R3 (Omnath's batch 19) → R4 (release pipeline) → R5 (CHANGELOG) → R6 (docs QoL) → R7 (tag v0.161.0 on/after
+> 2026-10-02). Then [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ② — the tap-a-creature
+> alternative cost (Ramosian Rally, Angelic Favor; M-small), then the party-count cost reducer (S/M).
 > **State (measured 2026-09-29 at 5df810d2, Opus 5.5 seat):** suite **1585 files / 16,429 tests** green (1 skipped; 172 s;
 > `VITEST_TIMEOUT_MS=900000 npm test`) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30 decks, **88%** aggregate
 > (2,650 / 2,998), **13 at ≥90** (Mothman by rounding: 88/98 = 89.8%), Atraxa **74** the floor · nothing held:
@@ -26,9 +28,10 @@
 > **Fresh-worktree footing:** `npm ci` → `npm run build:rules-index` → `VITEST_TIMEOUT_MS=900000 npm test` →
 > `npm run lint` ([RESIDUE-GRIND-RUNBOOK.md](RESIDUE-GRIND-RUNBOOK.md) §1).
 
-### ⏸ Waiting on Colton (none of it blocks stage ②)
+### ⏸ Waiting on Colton (none of it blocks the live plan)
 
-> - **Release readiness (recommended 2026-09-29).** A release is owed: 340 commits, ~+1,500 corpus cards since v0.160.0.
+> - **Release readiness — APPROVED 2026-09-29; it is now the live plan above.** The boot findings that shaped it:
+>   a release is owed: 340 commits, ~+1,500 corpus cards since v0.160.0.
 >   Found at boot: (1) installed copies keep reading their FIRST synced reference data forever — `dataPath()`
 >   (`app/src/lib/server/paths.js`) returns the writable AppData copy whenever one exists, so every newer bundle is
 >   shadowed: the box's v0.160.0 app reports all seven datasets synced 2026-07-19 (72 days, STALE) while v0.160.0's CI

@@ -2,7 +2,8 @@
 
 > **2026-09-29 — THIS QUEUE IS SPENT; it is not the live plan.** Section A is shipped or refused (A0b, A0, A1, A3
 > shipped; A2's full decomposition refused solo; §C needs Colton). The LIVE plan is the file the WAKE-REPORT's top
-> block names — as of 2026-09-29 [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md), stage ②. Use §B/§D
+> block names — as of 2026-09-29 [RELEASE-READINESS-PLAN-2026-09-29.md](RELEASE-READINESS-PLAN-2026-09-29.md), then
+> [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ②. Use §B/§D
 > here only as fallback filler when that plan is exhausted.
 
 > **Why this file exists.** Roadmap v2's six waves are effectively cleared (2, 3-item-8, 4 and most of 5
