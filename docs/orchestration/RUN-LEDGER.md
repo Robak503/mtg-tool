@@ -5,14 +5,39 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **367 commits**, corpus
-> 38.6% → **43.3% (14,836)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **368 commits**, corpus
+> 38.6% → **43.3% (14,842)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 11: the void condition — "if a nonland permanent left the battlefield this turn or a spell was warped this turn" · **+6** · corpus 14,842 (43.3%) / 34,245
+> Suite **1603 files / 16,631 tests** green (1 skipped); lint 0. Flip-diff **+6, zero LOST, zero retiered** (tier snapshots at 571a6cb8 → the
+> change). **Mutants 7/7 killed** (restore byte-identical).
+> · **Census row ⑪:** Insatiable Skittermaw, Kavaron Skywarden, Interceptor Mechan (+1/+1 counter at end step), Voidforged Titan
+>   (draw and lose 1), Elegy Acolyte (a 2/2 Robot) and Decode Transmissions (the spell's "instead") — every one run for real.
+>   Not flipped, each with its own gap: Hylderblade (attach at end step), Plasma Bolt / Tragic Trajectory / Hymn of the Faller
+>   ("instead" shapes the spell lane doesn't parse), Roving Actuator (copy-cast), Axavar (heist), Chorale, Alpharael.
+> · **The condition had no reader** — Temporal Intervention was native only because its void cost reduction is ignored (it pays
+>   full price: the under-application side). **Build:** a GLOBAL turn stamp, `nonlandLeftBattlefieldTurn`, written at the top
+>   of `gameState.moveCardToZone` — the one battlefield exit — before any replacement, so a shuffle-instead or a blink still
+>   records it; any player's permanent, a token included; land-ness read layer-aware as the permanent last existed. An
+>   interveningIf arm compares it to the live turn (no reset). The warp half is exactly false, not an under-read: the engine never
+>   offers a warp cast. "Void —" was already a stripped ability word, so the triggers and the spell's rider parsed once the
+>   condition could be read.
+> · **Runtime:** the tracker — nothing gone → false (the vacuity control) · a creature leaving → true · a LAND leaving → false · an
+>   opponent's artifact bounced → true · a token dying → true · a creature made a land by a fixed layer-4 add → false · next turn
+>   → false. The cards — `WITNESS voidCounters [1,1,1]` after Grizzly Bears leave (none on a quiet turn) · Voidforged Titan draws
+>   and loses 1 only when it holds · Elegy Acolyte's 2/2 Robot (none on a quiet turn) · `WITNESS decodeInstead hand 2 · lives
+>   [40,38,38,38]` (the quiet cast: you lose the 2).
+> · **Mutants 7/7:** the stamp dead · a land counting · a printed-type land read (red on the layer-4 pin) · tokens excluded · the
+>   turn ignored · the reader removed · controller-scoped (red on the opponent's artifact). Witness
+>   `app/src/lib/learn/voidCondition.test.js` (12).
+> · **Next:** census row ⑫ — "cast this spell only if you've cast another spell this turn" (Illusory Angel, Hewed Stone
+>   Retainers).
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 10: the life floor — "damage that would reduce your life total to less than 1 reduces it to 1 instead" · **+4** · corpus 14,836 (43.3%) / 34,245
 > Suite **1602 files / 16,619 tests** green (1 skipped); lint 0. Flip-diff **+4, zero LOST, zero retiered** (tier snapshots at 253172a5 → the

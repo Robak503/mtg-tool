@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Insatiable Skittermaw, Kavaron Skywarden, Interceptor Mechan, Voidforged Titan, Elegy Acolyte, Decode
+  Transmissions** — Void works: the end-step bonus (or Decode Transmissions' better mode) applies on any turn a nonland
+  permanent left the battlefield, anyone's, a token included
 - **Ali from Cairo, Sustaining Spirit, Fortune Thief, Worship** — damage can't take their controller below 1 life
   (Worship: while you control a creature). The damage still counts in full for lifelink; losing or paying life still can
 - **True-Faith Censer, Silver-Inlaid Dagger, Heavy Mattock, Sharpened Pitchfork, Butcher's Cleaver, Bladed Bracers, Hope

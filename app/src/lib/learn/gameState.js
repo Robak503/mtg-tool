@@ -723,6 +723,17 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
   assertZone(fromZone);
   assertZone(toZone);
 
+  // NONLAND-LEFT-THE-BATTLEFIELD-THIS-TURN (the 09-06 plan's stage ③ · 11, 2026-09-30 — the Edge of Eternities void condition,
+  // "if a nonland permanent left the battlefield this turn or a spell was warped this turn"): a GLOBAL turn stamp — any
+  // player's permanent, a token included — written at this one battlefield exit BEFORE any replacement below, so a
+  // shuffle-instead or a blink still records that the permanent left. Land-ness is read as the permanent last existed
+  // (layer-aware: an animated land is still a land, a face-down 2/2 is not). The reader (interveningIf) compares the stamp
+  // to the live turn, so it needs no reset.
+  if (fromZone === "battlefield") {
+    const leaving = state.players[playerId]?.battlefield?.find((p) => p.id === cardId);
+    if (leaving && !permanentTypes(state, leaving.id).types.includes("Land")) state = { ...state, nonlandLeftBattlefieldTurn: state.turn };
+  }
+
   // CR 614 replacement, applied BEFORE the move so the graveyard is never touched (see the note above).
   // Recursing with toZone "library" reuses every bit of this function's owner-routing and unwrapping rather
   // than duplicating it; the guard on toZone prevents any further recursion.

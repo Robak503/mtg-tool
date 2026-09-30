@@ -1594,6 +1594,14 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     const stamp = state.players[controllerId]?.creatureCardToGraveyardTurn;
     return stamp != null && stamp === state.turn;
   }
+  // VOID (the 09-06 plan's stage ③ · 11, 2026-09-30 — Edge of Eternities: Insatiable Skittermaw, Kavaron Skywarden, Voidforged
+  // Titan …): "a nonland permanent left the battlefield this turn or a spell was warped this turn". A LOOK-BACK over every
+  // seat, answered from the global turn stamp gameState.moveCardToZone writes at the battlefield exit (any player's nonland
+  // permanent, a token included). The warp half is exactly false here, not an under-read: the engine never offers a warp
+  // cast (coverage's WARP note), so no spell is ever warped.
+  if (c === "a nonland permanent left the battlefield this turn or a spell was warped this turn") {
+    return state.nonlandLeftBattlefieldTurn != null && state.nonlandLeftBattlefieldTurn === state.turn;
+  }
 
   // ===== TWO-TYPE CONJUNCTION (2026-08-12 — Flow State "there is an instant card and a sorcery card in
   // your graveyard") ===== BOTH singular type checks must hold, each through the SAME word-anchored
