@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Incendiary Oracle, Kumano's Pupils, Frostwielder, Kumano, Master Yamabushi** — a creature one of them dealt damage to
+  this turn is exiled instead of dying, as long as the card that dealt the damage is still on the battlefield
 - **Minotaur Explorer, Pillaging Horde, Balduvian Horde** — when one enters, discard a card at random or sacrifice it
 - **Fireblast, Thunderclap, Crash, Mine Collapse, Mogg Alarm, Pulverize, Dark Triumph** — cast them by sacrificing
   Mountains (or, for Dark Triumph, a creature while you control a Swamp) instead of paying mana. Your tapped Mountains

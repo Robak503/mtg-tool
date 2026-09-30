@@ -2902,6 +2902,19 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
+  // ── EXILE WHAT IT DAMAGED (the 09-06 plan's stage ③, 2026-09-30 — Incendiary Oracle, Kumano's Pupils, Frostwielder) ──
+  // "If a creature dealt damage by this creature this turn would die, exile it instead." A replacement from a STATIC ability
+  // (CR 614), so it applies only while the source is on the battlefield: the death path (gameState) asks AT THE MOMENT OF
+  // DEATH whether a permanent in the dying creature's damagedBy list is on the battlefield carrying this — never a stamp at
+  // damage time, which would outlive the source. It rides the same two death sites as Lava Coil's rider (lethal damage and
+  // the legend rule) and the damagedBy record (combat pairs + "deals N damage" effects; a fight records no source); a
+  // creature damaged by the source and then destroyed or sacrificed that turn goes to the graveyard — the rider's
+  // documented under-application, the safe side.
+  if (/^if a creature dealt damage by this creature this turn would die, exile it instead$/.test(c)) {
+    out.push({ exileDamagedOnDeath: true });
+    return;
+  }
+
   // ── ATTACK TAX (CR 508.1g — Propaganda / Ghostly Prison / Windborn Muse) ────────────────────────────
   // "Creatures can't attack you unless their controller pays {N} for each creature they control that's
   // attacking you." A coverage MARKER only (no `affects`/`op`, so the layer engine ignores it — the
@@ -6525,6 +6538,13 @@ function isSelfPigReturnClause(clause) {
 const TOTEM_ARMOR_CLAUSE_RE = /^(?:umbra|totem) armor$/i;
 function isTotemArmorClause(clause) {
   return TOTEM_ARMOR_CLAUSE_RE.test(String(clause || "").trim());
+}
+
+/** Does this card carry "If a creature dealt damage by this creature this turn would die, exile it instead." (Incendiary
+ *  Oracle / Kumano's Pupils / Frostwielder)? The SAME parse the classifier reads; gameState's death path asks it of each
+ *  source in a dying creature's damagedBy list. */
+export function exilesCreaturesItDamaged(card) {
+  return parseStaticAbilities(card).some((d) => d?.exileDamagedOnDeath === true);
 }
 
 /**

@@ -5,14 +5,40 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **364 commits**, corpus
-> 38.6% → **43.3% (14,820)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **365 commits**, corpus
+> 38.6% → **43.3% (14,824)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 8: "if a creature dealt damage by this creature this turn would die, exile it instead" · **+4** (1 unplanned, run for real) · corpus 14,824 (43.3%) / 34,245
+> Suite **1600 files / 16,589 tests** green (1 skipped); lint 0. Flip-diff **+4, zero LOST, zero retiered** (tier snapshots at 91e5e3dd → the
+> change). **Mutants 5/5 killed** (restore byte-identical).
+> · **Census row ⑧:** Incendiary Oracle, Kumano's Pupils, Frostwielder (planned +3) + **Kumano, Master Yamabushi (unplanned —
+>   its static names itself, "dealt damage by Kumano", and the parser's self-name normalization reads it; its runtime is pinned:
+>   `WITNESS kumanoPing {"exile":true,…}`)**.
+> · **Machinery:** the per-permanent `damagedBy` record (combat pairs via recordDamageSource; "deals N damage" effects) and
+>   the death-to-exile path Lava Coil's `exileIfDiesTurn` stamp rides (the lethal-damage and legend-rule death sites).
+> · **Asked at DEATH, not stamped at damage — the whole correctness of it.** The line is a replacement from a STATIC ability
+>   (CR 614), so it applies only while its source is on the battlefield. A stamp at damage time would still exile after the
+>   source left; instead `gameState.damagedByExilingSource` asks, of the pre-removal state at the moment of death, whether a
+>   permanent in the dying creature's damagedBy is on the battlefield carrying the static (a source dying in the same event
+>   is still there immediately before). The static parser emits `exileDamagedOnDeath`; `exilesCreaturesItDamaged` reads the
+>   same parse for the classifier and the death path.
+> · **Runtime:** `WITNESS frostwielderPing {"exile":true,…}` (a plain pinger's control goes to the graveyard) · `WITNESS
+>   pupilsCombat {"exile":true,…}` (a blocker, through resolveCombatDamage) · the SAME damaged creature exiled while the source
+>   is present and put in the GRAVEYARD once it has left · the legend-rule death site asks too (CR 700.4) · a creature the
+>   source never damaged dies normally.
+> · **Documented under-application (the safe side, shared with Lava Coil's rider):** only the lethal-damage and legend-rule
+>   death sites honor death-to-exile, so a creature damaged by the source and then destroyed or sacrificed that turn goes to
+>   the graveyard; a fight records no damage source.
+> · **Mutants 5/5:** the static arm · the lethal-damage site · the legend-rule site · a stamp's semantics (the source need
+>   not be present — red on the "has left" pin) · the detector dead. Witness `app/src/lib/learn/exileWhatItDamaged.test.js` (8).
+> · **Next:** census row ⑨ — True-Faith Censer / Silver-Inlaid Dagger's "as long as equipped creature is a Human, it gets an
+>   additional +N/+N".
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 7: "sacrifice it unless you discard a card AT RANDOM" · **+3** · corpus 14,820 (43.3%) / 34,245 · + two "Pay {0}" UI lies fixed
 > Suite **1599 files / 16,580 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,650 / 2,998). Flip-diff **+3, zero LOST, zero retiered** (tier snapshots at 3ce27bfe → the

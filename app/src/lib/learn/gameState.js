@@ -31,7 +31,7 @@ import { permanentPower, permanentToughness, permanentBasePower, permanentHasKey
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
 import { applyCounterDoubling, millMultiplier, playerCounterAdditive, applyLifeGainReplacement, drawMultiplier } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
-import { auraHasTotemArmor, othersEnterWithCounters } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.116) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
+import { auraHasTotemArmor, othersEnterWithCounters, exilesCreaturesItDamaged } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.116) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
 import { applyControlAuraAttach, revertControlAura } from "./controlAura.js"; // CR 613.1b control Auras — a ZERO-IMPORT leaf, so this lowest-layer module can call it without a cycle
 import { moveControl } from "./controlMove.js"; // THE one control move, shared by the control Auras and the gain-control atom; controlMove imports nothing, so this stays acyclic
 
@@ -2102,6 +2102,19 @@ export function markExileIfDies(state, { permanentId, turn }) {
   return updatePermanent(state, permanentId, p => ({ ...p, exileIfDiesTurn: turn }));
 }
 
+// EXILE WHAT IT DAMAGED (2026-09-30 — Incendiary Oracle, Kumano's Pupils, Frostwielder: "If a creature dealt damage by this
+// creature this turn would die, exile it instead."). The static's replacement applies only while its source is on the
+// battlefield (CR 614), so it is asked HERE, at the moment of death, of the pre-removal state: a source dying in the same
+// event is still on the battlefield immediately before and counts; one that left earlier this turn does not (a stamp at
+// damage time would wrongly outlive it). damagedBy holds permanent ids and clears at cleanup, which is "this turn".
+function damagedByExilingSource(state, perm) {
+  for (const srcId of perm.damagedBy || []) {
+    const lk = findPermanent(state, srcId);
+    if (lk?.permanent?.card && exilesCreaturesItDamaged(lk.permanent.card)) return true;
+  }
+  return false;
+}
+
 /**
  * THREATEN REVERT (CR 514.2) — send home every creature taken by an "until end of turn" control change.
  *
@@ -2227,7 +2240,7 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
       // EXILE-IF-DIES (subsystem 3): a creature flagged "if it would die this turn, exile it instead" goes
       // to EXILE instead of the graveyard — but ONLY this turn (the flag stores the turn it applies to, so
       // it self-expires; a stale flag from a prior turn is ignored).
-      exileInstead: perm.exileIfDiesTurn === state.turn,
+      exileInstead: perm.exileIfDiesTurn === state.turn || damagedByExilingSource(state, perm),
       // GRANTED DIES-EXILE (RIVAZ): the durable TRIGGER cousin of exileInstead — the death happens (dies
       // triggers + tally), then checkDiesTriggers exiles the card from the graveyard.
       diesExileAfter: !!perm.grantDiesExile,
@@ -2353,7 +2366,7 @@ export function applyLegendRule(state) {
             counters: { ...(perm.counters || {}) },
             // EXILE-IF-DIES: "if it would die this turn, exile it instead" applies to ANY death,
             // legend-rule included (CR 700.4 — this IS a death).
-            exileInstead: perm.exileIfDiesTurn === state.turn,
+            exileInstead: perm.exileIfDiesTurn === state.turn || damagedByExilingSource(state, perm),
             // GRANTED DIES-EXILE (RIVAZ): same carry as the markDead site — a legend-rule death still exiles.
             diesExileAfter: !!perm.grantDiesExile,
       // SHUFFLE-INSTEAD (CR 614) - the same "it never actually died" flag as exileInstead directly above.
