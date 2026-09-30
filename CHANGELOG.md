@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Raid Bombardment, Cavalcade of Calamity** — your small attackers (by their current power) each deal 1 to what they
+  attack
 - **Hellrider, Scorch Spitter, Rakdos Roustabout** — damage to the player or planeswalker the creature is attacking
 - **Murderous Rider, Fell Horseman** — when the creature dies, it goes to the bottom of its owner's library
 - **Embercleave, Ancient Stone Idol, Static Snare** — cost {1} less for each attacking creature (Embercleave: each

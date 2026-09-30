@@ -5,14 +5,34 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **382 commits**, corpus
-> 38.6% → **43.5% (14,882)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **383 commits**, corpus
+> 38.6% → **43.5% (14,884)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 26: "whenever a creature you control with power 2 or less attacks" — Raid Bombardment, Cavalcade of Calamity · **+2** · corpus 14,884 (43.5%) / 34,245
+> Suite **1617 files / 16,740 tests** green (1 skipped); lint 0. Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at 55702212 → the
+> change). **Mutants 5/5 killed on assertions** (restore byte-identical).
+> · **Census row ㉕ itself** (Raid Bombardment EDHREC #3390, Cavalcade of Calamity): ③ · 25 built the payoff; this is the subject.
+> · **Build:** `attackMaxPower` — the attack twin of Welcoming Vampire's etbMaxPower, read at DECLARATION off the attacker's
+>   CURRENT power (layers.permanentPower: a pumped creature stops qualifying, a shrunk one starts), where the enters gate reads
+>   the printed card. Listed in the descriptor assembly (unlisted = fires for every attacker); gated in scopeMatches, failing
+>   closed without state. The payoff arm takes the watcher's wording "… that creature is attacking" — the triggering attacker's
+>   declared defender, from the same per-attacker context.
+> · **The placement trap, a third time:** the first draft of the subject arm sat beside the bare "a creature you control
+>   attacks" arm, below triggers' blanket "with …" reject, and was never reached (detectTriggers returned []). Moved above the
+>   reject, beside the mana-value-floor ETB arm, whose note records the same lesson.
+> · **Runtime (through checkAttackTriggers → the stack):** a 3/3 attacking alone — nothing (the vacuity control) ·
+>   `WITNESS raidTwoOfThree {"aiLifeLost":2}` — two 2/2s and a 3/3 attack, the 3/3 doesn't count · a 2/2 with a +1/+1 counter
+>   doesn't trigger it and a 3/3 with a -1/-1 counter does · Cavalcade: a 1/1 triggers, a 2/2 doesn't · a 2/2 attacking Jace
+>   Beleren takes a loyalty counter off Jace · the AI's small attackers don't trigger the user's Raid Bombardment.
+> · **Mutants 5/5:** the arm removed · the cap unlisted in the assembly · the gate reading the PRINTED power · the gate off by
+>   one · the payoff's "that creature is attacking" form removed. Witness `app/src/lib/learn/raidBombardment.test.js` (7).
+> · **Next:** the census below row ㉕ — Crystal Barricade / Tajic, Bartolomé / Hammerhead, Kingpin's Enforcers / Dockside Chef.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 25: "… deals 1 damage to the player or planeswalker it's attacking" — Hellrider, Scorch Spitter, Rakdos Roustabout · **+3** · corpus 14,882 (43.5%) / 34,245
 > Suite **1616 files / 16,733 tests** green (1 skipped); lint 0. Flip-diff **+3, zero LOST, zero retiered** (tier snapshots at daec1e93 → the

@@ -1313,6 +1313,16 @@ function classifyCondition(condRaw, cardName, cardType) {
     const etbMvM = c.match(/^a creature with mana value (\d+) or greater enters$/);
     if (etbMvM) return { event: "etb", scope: "eachCreature", whose: "any", etbMinMv: parseInt(etbMvM[1], 10) };
   }
+  // POWER-CAPPED ATTACKER (the 09-06 plan's stage ③ · 26, 2026-09-30 — Raid Bombardment "Whenever a creature you control with power
+  // 2 or less attacks"; Cavalcade of Calamity "… power 1 or less"): the attack twin of Welcoming Vampire's etbMaxPower, but read at
+  // DECLARATION off the attacker's CURRENT power (layers.permanentPower — a pumped creature stops qualifying, a shrunk one starts),
+  // not the printed power the enters gate reads. Carved out HERE, above the blanket "with …" reject, for the reason the two notes
+  // above record: its first draft sat beside the bare attack arm below and was never reached. LISTED in the descriptor assembly;
+  // enforced in scopeMatches.
+  {
+    const apm = c.match(/^a creature you control with power (\d+) or less attacks$/);
+    if (apm) return { event: "attacks", scope: "creatureYouControl", whose: "any", attackMaxPower: parseInt(apm[1], 10) };
+  }
   // ATTACK-COUNT (Military Intelligence — "Whenever you attack with N or more creatures, …"). Placed ABOVE
   // the qualifier guard below, and the ORDER is the whole point: that guard rejects ANY condition containing
   // "with", so this form was never reached no matter how it was anchored. The battalion twin (further down,
@@ -5421,6 +5431,7 @@ export function detectTriggers(card) {
         legendaryCreatureOnly: cls.legendaryCreatureOnly, // H6 — the creature form of the above
         targeterIsController: cls.targeterIsController, // VALIANT becomesTarget only — "…a spell or ability YOU CONTROL"; checkBecomesTargetTriggers drops the trigger when the targeting stack object's controller isn't the targeted permanent's. ⚠️ Unlisted here = dropped = fires off an OPPONENT'S removal spell too, an over-fire, with the trigger looking correctly detected the whole time.
         requiresCounter: cls.requiresCounter, // COUNTER-PREDICATE dies/attacks scope only (BLITZ CNT-1 — "with a +1/+1 counter on it") — scopeMatches gate reads the triggering creature's live counter bag
+        attackMaxPower: cls.attackMaxPower, // POWER-CAPPED ATTACKER (Raid Bombardment, stage ③ · 26) — scopeMatches reads the attacker's current power. ⚠️ Unlisted here = dropped = fires for EVERY attacker.
         requiresModified: cls.requiresModified, // MODIFIED-PREDICATE combatDamageToPlayer (Kodama, W3 — CR 700.9) — scopeMatches gate via layers.isModifiedPermanent. ⚠️ Unlisted here = dropped = fires on EVERY connecting creature — the over-fire direction, with the detector looking correct.
         requiresDamagedBySource: cls.requiresDamagedBySource, // DEALT-DAMAGE-BY-ME dies scope only (Sengir Vampire) — scopeMatches gate reads the dead creature's damagedBy look-back. ⚠️ Unlisted here = dropped = the trigger fires on EVERY creature death anywhere, the widest possible over-fire, while still looking correctly detected.
         counterType: cls.counterType,         // COUNTERS-PUT-ON (CR 122.6) — the counter KIND the watcher listens for; checkCounterTriggers fires only on a matching placement
@@ -6174,6 +6185,9 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   // Load-bearing: without this the trigger fires for ANY entering creature — a confident wrong fire on every
   // big creature, and invisible in the tier because the card would still classify native.
   if (descriptor.etbMaxPower != null && !(Number(triggeringPermanent?.card?.power ?? 0) <= descriptor.etbMaxPower)) return false;
+  // POWER-CAPPED ATTACKER (stage ③ · 26 — Raid Bombardment, Cavalcade of Calamity): the attacker's CURRENT, layer-aware power at
+  // declaration — unlike the enters gate above, which reads the printed card as it enters. No state or no attacker → no fire.
+  if (descriptor.attackMaxPower != null && !(state && triggeringPermanent?.id && permanentPower(state, triggeringPermanent.id) <= descriptor.attackMaxPower)) return false;
   if (descriptor.etbMaxMv != null && !((triggeringPermanent?.card?.cmc ?? 0) <= descriptor.etbMaxMv)) return false;
   // The MIRROR of the cap directly above — "a creature with mana value N OR GREATER enters" (the Dragon
   // Fangs cycle). ⚠️ THE `?? 0` DEFAULT FLIPS MEANING BETWEEN THE TWO: on the cap it is safe (an unknown MV

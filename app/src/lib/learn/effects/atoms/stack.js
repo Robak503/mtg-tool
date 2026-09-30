@@ -944,7 +944,9 @@ export function massFilteredDamageClauseParser(clause) {
   // defender, threaded per attacker as ctx.defenderId, plus ctx.defenderPlaneswalkerId when the attack is on a planeswalker. "it"
   // is the attacking creature whatever deals the damage (Hellrider deals it; the creature attacking is the trigger's). Printed
   // oracle, no sentinel; who:"defendingPlayer" rides the same DEFENDING_PLAYER_EVENTS routing gate.
-  const atd = t.match(/^(?:this creature|this permanent|this artifact|this enchantment|it) deals (\d+) damage to the player or planeswalker it's attacking$/);
+  // + "… that creature is attacking" (stage ③ · 26 — Raid Bombardment, Cavalcade of Calamity): the watcher's wording for the same
+  // referent — the triggering attacker's declared defender, carried in the same per-attacker context.
+  const atd = t.match(/^(?:this creature|this permanent|this artifact|this enchantment|it) deals (\d+) damage to the player or planeswalker (?:it's|that creature is) attacking$/);
   if (atd) return { op: "deal-damage", amount: parseInt(atd[1], 10), targetType: "attackedDefender", who: "defendingPlayer" };
   return null;
 }
