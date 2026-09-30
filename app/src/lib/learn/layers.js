@@ -416,11 +416,47 @@ export function domainCount(state, playerId) {
   return types.size;
 }
 
+/** PARTY (CR 700.8 — the Zendikar Rising cycle's "for each creature in your party", 2026-09-30): up to one each of a Cleric, a
+ *  Rogue, a Warrior and a Wizard creature `playerId` controls — 0..4. A creature carrying several of those types fills only ONE
+ *  slot, counted the way that gives the HIGHEST result (CR 700.8b), so this is a maximum matching of the four roles onto the
+ *  creatures, never a per-type tally: a Cleric-Rogue plus a plain Cleric is a party of 2 whichever order they are read in.
+ *  PRINTED reads, like domainCount: the front-face type line's "Creature" and subtypes, plus Changeling (CR 702.73a). A type
+ *  GRANTED by an effect (Maskwood Nexus, an animated land, Veteran Adventurer's own "is also a Cleric, Rogue, Warrior, and
+ *  Wizard") is not counted — a documented under-read, the safe direction. It cannot be layer-aware: the count feeds a layer-7c
+ *  bonus (Ravager's Mace — "+1/+0 for each creature in your party"), so deriving characteristics here re-enters the layer
+ *  system forever (a stack overflow the Mace witness caught). ONE helper for both count evaluators (this file's and
+ *  effects/atoms/shared.js's), the domainCount discipline. */
+const PARTY_ROLES = ["Cleric", "Rogue", "Warrior", "Wizard"];
+export function partyCount(state, playerId) {
+  const members = [];
+  for (const perm of state?.players?.[playerId]?.battlefield || []) {
+    const front = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0];
+    if (!/\bCreature\b/.test(front)) continue;
+    // permHasChosenTypeLayer WITHOUT state: the printed subtype match or Changeling — no layer derivation.
+    const roles = PARTY_ROLES.filter((r) => permHasChosenTypeLayer({ ...perm.card, type: front }, r));
+    if (roles.length) members.push(roles);
+  }
+  const holder = new Map(); // role -> index of the member filling it
+  const place = (mi, seen) => {
+    for (const r of members[mi]) {
+      if (seen.has(r)) continue;
+      seen.add(r);
+      if (!holder.has(r) || place(holder.get(r), seen)) { holder.set(r, mi); return true; }
+    }
+    return false;
+  };
+  let filled = 0;
+  for (let mi = 0; mi < members.length && filled < PARTY_ROLES.length; mi++) if (place(mi, new Set())) filled++;
+  return filled;
+}
+
 function countForSpec(state, perm, spec) {
   if (!spec) return 0;
   switch (spec.kind) {
     case "domain":
       return domainCount(state, perm?.controller);
+    case "party":
+      return partyCount(state, perm?.controller);
     case "cardsInHand":
       return (state?.players?.[perm?.controller]?.hand || []).length;
     case "lifeTotal":

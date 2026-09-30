@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Your party counts** — Shatterskull Minotaur, Journey to Oblivion, Sea Gate Colossus, Deadly Alliance and Spoils of
+  Adventure cost {1} less for each creature in your party (a Cleric, a Rogue, a Warrior and a Wizard — a creature with
+  several of those types fills just one spot, counted the way that helps you most), and Ravager's Mace gives the equipped
+  creature +1/+0 for each creature in your party, plus menace
 - **Ramosian Rally, Orim's Cure** — if you control a Plains, cast them by tapping an untapped creature you control
   instead of paying mana (a creature that just came in counts)
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal

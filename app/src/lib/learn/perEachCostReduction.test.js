@@ -11,8 +11,9 @@
  * admits already carries its own exactness argument, and the evaluator this metric reaches — countForSpec —
  * is the SAME dispatcher already imported at this call site for greatestPowerYouControl, and the same one
  * the layer-7c P/T lane reads. So the cost path and the P/T path cannot disagree about what a count source
- * means. An unmodeled source returns null and the card parks: "for each creature in your PARTY" has no
- * evaluator, so Shatterskull Minotaur and Coveted Prize are untouched. Pinned.
+ * means. An unmodeled source returns null and the card parks. Pinned — on "each Cave you control and each
+ * Cave card in your graveyard" (Gargantuan Leech) since 2026-09-30, when the party count graduated
+ * (layers.partyCount, CR 700.8; partyCount.test.js) and Shatterskull Minotaur started paying the real price.
  *
  * ⛔ AFFINITY IS NOT AFFECTED, AND THAT WAS THE THING TO CHECK BEFORE BUILDING. Myr Enforcer, Broodstar,
  * Furnace Dragon and ~30 others print exactly this sentence — inside REMINDER TEXT for the affinity keyword.
@@ -32,6 +33,11 @@
  *
  * Mutation-checked (2026-08-04, grep-verified as applied): the per-each branch removed -> every cost pin red
  * while the affinity and party guards stay green (they assert absence, and absence is the unfixed state).
+ * Mutation-checked (2026-09-30, the party graduation; 9 mutants, each run against this file and
+ * partyCount.test.js separately): the party phrase unparsed -> the graduated parse pin red here (and 5 red
+ * there). "Any creature fills every role" -> red ONLY here, on the four-Bears guard — partyCount.test.js
+ * does not see that mutant, so the guard is load-bearing. The evaluator-side mutants (either countForSpec
+ * case dropped, greedy/distinct tallies, noncreatures or opponents counted) are red only in partyCount.test.js.
  *
  * Real oracle fixtures (bundled Scryfall, probed 2026-08-04).
  */
@@ -48,8 +54,13 @@ const KARADOR = { id: "kar1", name: "Karador, Ghost Chieftain", type: "Legendary
   power: 3, toughness: 4, oracle: "This spell costs {1} less to cast for each creature card in your graveyard.\nOnce during each of your turns, you may cast a creature spell from your graveyard." };
 const MYR_ENFORCER = { id: "myr1", name: "Myr Enforcer", type: "Artifact Creature — Myr", mana: "{7}", power: 4, toughness: 4,
   oracle: "Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)" };
-const SHATTERSKULL = { id: "sk1", name: "Shatterskull Minotaur", type: "Creature — Minotaur Warrior", mana: "{5}{R}", power: 5, toughness: 4,
+// Real oracle (bundled Scryfall; the mana cost corrected 2026-09-30 — this fixture had "{5}{R}", the printed card is {4}{R}{R}).
+const SHATTERSKULL = { id: "sk1", name: "Shatterskull Minotaur", type: "Creature — Minotaur Warrior", mana: "{4}{R}{R}", power: 5, toughness: 4,
   oracle: "This spell costs {1} less to cast for each creature in your party. (Your party consists of up to one each of Cleric, Rogue, Warrior, and Wizard.)\nHaste" };
+// The still-UNMODELED count source this file's negative guard now stands on (real oracle, probed 2026-09-30): a compound count
+// over the battlefield AND the graveyard.
+const GARGANTUAN_LEECH = { id: "gl1", name: "Gargantuan Leech", type: "Creature — Leech", mana: "{7}{B}", power: 5, toughness: 5,
+  oracle: "This spell costs {1} less to cast for each Cave you control and each Cave card in your graveyard.\nLifelink" };
 
 const bear = (id, controller = "user") => ({ id, card: { name: `Bear${id}`, type: "Creature — Bear", power: 2, toughness: 2, oracle: "" },
   controller, tapped: false, summoningSick: false, counters: {}, damageMarked: 0, attachments: [], attachedTo: null });
@@ -79,8 +90,13 @@ describe("the metric now carries a per-unit and a count", () => {
     expect(selfCostReductionMetric(MYR_ENFORCER)).toBeNull();
   });
 
-  it("⛔ an unmodeled count source (party) yields nothing and the card is untouched", () => {
-    expect(selfCostReductionMetric(SHATTERSKULL)).toBeNull();
+  it("⛔ an unmodeled count source (Caves on the battlefield AND in the graveyard) yields nothing and the card is untouched", () => {
+    expect(selfCostReductionMetric(GARGANTUAN_LEECH)).toBeNull();
+  });
+
+  it("⭐ GRADUATED 2026-09-30 — the party count is modeled now (layers.partyCount, CR 700.8/700.8b; witnessed end to end in partyCount.test.js)", () => {
+    // This guard's old subject. It stood on party while party was unmodeled; the negative above keeps guarding the same law.
+    expect(selfCostReductionMetric(SHATTERSKULL)).toEqual({ kind: "perEachCount", per: 1, countSpec: { kind: "party" } });
   });
 });
 
@@ -110,7 +126,10 @@ describe("⭐ LAW 6 — driven at a real cast, through legalActionsForPlayer", (
     expect(castOf(BLASPHEMOUS_ACT, { mine: 2, theirs: 3 }).cost.generic).toBe(3);
   });
 
-  it("⛔ a party carrier is offered at full price (no evaluator, no discount)", () => {
-    expect(castOf(SHATTERSKULL, { mine: 4 }).cost.generic).toBe(5);
+  it("⛔ GRADUATED 2026-09-30 — four Bears are NO party: the carrier still pays its printed {4}{R}{R} (generic 4)", () => {
+    // Before the party count existed this guard read "no evaluator, no discount" (and a mistyped {5}{R} fixture made the
+    // number 5). The evaluator exists now (partyCount.test.js pins the real discounts); what stays true — and guarded here —
+    // is that creatures with no Cleric / Rogue / Warrior / Wizard type never discount a party carrier.
+    expect(castOf(SHATTERSKULL, { mine: 4 }).cost.generic).toBe(4);
   });
 });

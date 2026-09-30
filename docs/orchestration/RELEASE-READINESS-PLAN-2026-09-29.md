@@ -128,7 +128,7 @@ with the release's dates, not 2026-07-19.
 ## §8 THEN
 
 [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ② (tap-a-creature alt cost, then the party-count
-reducer) → ③ → ④.
+reducer) → ③ → ④. ✅ Stage ② MET 2026-09-30 (+2, +4 — both riding v0.161.0); stage ③, the residue loop, is live until R7.
 
 ## §9 PARKED / NEEDS COLTON
 

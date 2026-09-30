@@ -2,17 +2,45 @@
 
 > **The live plan is the file the WAKE-REPORT's top block names** — as of 2026-09-29
 > [RELEASE-READINESS-PLAN-2026-09-29.md](RELEASE-READINESS-PLAN-2026-09-29.md) (Colton's go), then
-> [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ②. [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
+> [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **354 commits**, corpus
-> 38.6% → **43.1% (14,774)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **355 commits**, corpus
+> 38.6% → **43.2% (14,778)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ② · 2: the PARTY count (a cost reducer and a layer-7c bonus) · **+4** · corpus 14,778 (43.2%) / 34,245 — **stage ② MET**
+> Suite **1591 files / 16,496 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,650 / 2,998). Flip-diff **+4, zero LOST, zero retiered** (tier snapshots at 19d8ba0a → the
+> change). **Mutants 9/9 killed**, each run against BOTH test files separately (restore byte-identical).
+> · "This spell costs {1} less to cast for each creature in your party" — ten carriers of the sentence. Built as ONE helper
+>   beside `domainCount`: `layers.partyCount` = a MAXIMUM MATCHING of Cleric / Rogue / Warrior / Wizard onto the creatures
+>   you control (CR 700.8 / 700.8b, verified in cr_current.json: a creature with several of those types fills ONE slot,
+>   counted for the highest result — a per-type tally and a greedy first-fit are both wrong; both were mutated, both caught).
+>   BOTH count evaluators route through it (`layers.countForSpec` case `party` + `atoms/shared.js`); `parseSelfCountSource`
+>   reads "creature(s) in your party" → `{ kind: "party" }`.
+> · **Printed reads + Changeling, not layer-aware reads — a caught recursion:** the layer-aware read re-entered the layer
+>   system through Ravager's Mace's OWN party bonus (layer 7c → the party count → the P/T layers → …) and blew the stack;
+>   the witness caught it (`RangeError`) and the count now reads printed type lines, the `domainCount` precedent.
+> · **Flips:** Shatterskull Minotaur (→ native-body), Journey to Oblivion (→ native-trigger), Sea Gate Colossus
+>   (→ native-body), **Ravager's Mace (→ native-equipment) — UNPLANNED, its runtime pinned:** `WITNESS partyMace
+>   {"party":3,"power":4,"menace":true}`. The discount at a real cast: `WITNESS partyCastShatterskull {"party4":{"generic":0,
+>   "R":2},"party2":{"generic":2,"R":2},"party0":{"generic":4,"R":2}}`. Deadly Alliance / Spoils of Adventure were native
+>   already but cast at FULL price — the discount applies now.
+> · **A park guard graduated:** perEachCostReduction.test.js's "an unmodeled count source (party) yields nothing" stood on
+>   party; it now stands on Gargantuan Leech (Caves on the battlefield AND in the graveyard — still unmodeled), with a
+>   positive party pin beside it. The same file's Shatterskull fixture carried a mistyped `{5}{R}` since 08-04 (printed
+>   `{4}{R}{R}`, bundled oracle) — corrected; its four-Bears guard (non-party creatures never discount) re-pinned at generic 4.
+>   **That guard is load-bearing:** mutant P9 ("any creature fills every role") is red ONLY there — partyCount.test.js does
+>   not see it.
+> · **Parked with verdicts:** Coveted Prize (the full-party free cast), Thwart the Grave (the filtered second target),
+>   Zagras, Veteran Adventurer (its own "is also a Cleric …" line), Tazri. Witness `app/src/lib/learn/partyCount.test.js`.
+> · **Stage ② MET** (+2 and +4; every unplanned gain's runtime pinned). Next: **stage ③, the residue loop** (the 09-06 plan
+>   §3 — re-run the census, take the first ≥3-sole row below the banked list with existing machinery).
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ② · 1: the TAP-A-CREATURE alternative cost · **+2** · corpus 14,774 (43.1%) / 34,245
 > Suite **1590 files / 16,486 tests** green (1 skipped); lint 0. Flip-diff **+2, zero LOST** (tier snapshots at 12a119e0 →

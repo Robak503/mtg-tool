@@ -98,8 +98,19 @@ activate abilities of colorless Eldrazi."). Sized **M**: a colour predicate on B
    Minotaur, Journey to Oblivion — 3 sole + 5 co). Needs a `party` count kind (up to one each of Cleric / Rogue / Warrior /
    Wizard among creatures you control — CR 700.8): add it as ONE helper beside `layers.domainCount` and route BOTH count
    evaluators through it (the domain slice's lesson). Sized **S/M**.
+   ✅ **LANDED 2026-09-30** — ten carriers of the sentence. `layers.partyCount` = a MAXIMUM MATCHING of the four roles onto
+   creatures (CR 700.8b: a multi-type creature fills ONE slot, counted for the highest result — a per-type tally and a greedy
+   first-fit are both wrong, and both were mutated and caught), off PRINTED type lines + Changeling (a layer-aware read
+   re-entered the layer system through Ravager's Mace's own party bonus — a stack overflow the witness caught). Flip-diff +4
+   / 0 lost: Shatterskull Minotaur, Journey to Oblivion, Sea Gate Colossus, and Ravager's Mace (unplanned — its runtime
+   pinned: party 3 → +3/+0 and menace). Deadly Alliance / Spoils of Adventure were native but cast at full price — the
+   discount now applies. Parked: Coveted Prize (full-party free cast), Thwart the Grave (the filtered second target), Zagras,
+   Veteran Adventurer (its own "is also a Cleric …" line), Tazri. Witness `app/src/lib/learn/partyCount.test.js`; mutants 9/9
+   (each against both test files — "any creature fills every role" is caught only by perEachCostReduction.test.js's
+   four-Bears guard, whose old "party is unmodeled" negative graduated onto Gargantuan Leech's compound Cave count).
 
-**DONE ②:** each carrier witnessed end to end; flip-diffs audited whole-card.
+**DONE ②:** each carrier witnessed end to end; flip-diffs audited whole-card. ✅ **MET 2026-09-30** — both items landed
+(+2 and +4; every unplanned gain's runtime pinned). Next: stage ③, the residue loop.
 
 ---
 

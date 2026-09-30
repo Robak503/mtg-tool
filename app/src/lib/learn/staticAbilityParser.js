@@ -407,6 +407,10 @@ function parseSelfCountSource(phrase) {
   // front-face type lines (countForSpec "domain"). A basic type GRANTED by Urborg / Yavimaya is not counted — a documented
   // under-read, the safe direction.
   if (/^basic land types? among lands you control$/.test(p)) return { kind: "domain" };
+  // PARTY (the 09-06 plan's stage ② · 2, 2026-09-30 — Shatterskull Minotaur, Deadly Alliance, Journey to Oblivion … "This spell
+  // costs {1} less to cast for each creature in your party"): CR 700.8 — up to one each Cleric / Rogue / Warrior / Wizard you
+  // control, 0..4, a multi-type creature filling ONE slot the way that maximises the count (700.8b). countForSpec "party".
+  if (/^creatures? in your party$/.test(p)) return { kind: "party" };
   if ((m = p.match(/^(creatures?|artifacts?|lands?|enchantments?) you control$/))) return { kind: "permanentsYouControl", cardType: SELF_COUNT_CARDTYPE[m[1]] };
   if ((m = p.match(/^(plains|islands?|swamps?|mountains?|forests?) you control$/))) return { kind: "permanentsYouControl", subtype: SELF_COUNT_BASIC[m[1]] };
   // NON-BASIC SUBTYPE you control — "+1/+1 for each Equipment you control" (Swordsman's Steel, Improvised

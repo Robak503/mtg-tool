@@ -8,7 +8,7 @@
 
 import { findPermanent, creaturePower, creatureToughness, opponentsOf } from "../../gameState.js";
 import { MASS_WIPE_SCOPES } from "../../targetTypes.js"; // leaf module (pure strings) — no cycle; feeds the atomTargets drift guard below
-import { permanentIsCreature, domainCount } from "../../layers.js"; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import)
+import { permanentIsCreature, domainCount, partyCount } from "../../layers.js"; // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import)
 import { creatureSatisfiesRestrictions } from "../../creatureRestrictions.js"; // the SHARED 16-kind restriction satisfier (leaf: gameState + layers + keywords only — every one of those edges already exists above, so no cycle)
 import { evaluateInterveningIf } from "../../interveningIf.js"; // INSTEAD-AMOUNT (BLITZ INST-1) — the shared board-condition readers for a condition-gated amountUpgrade; interveningIf → gameState is a leaf edge (gameState imports neither shared.js nor interveningIf), so no cycle
 
@@ -905,6 +905,9 @@ export function countForSpec(state, ctx, spec) {
   // DOMAIN (2026-09-06 — Stratadon's self cost reduction): the number of DISTINCT basic land types among the controller's
   // lands, off the front-face type line (CR 712.4a). Granted basic types are not counted — a documented under-read.
   if (spec.kind === "domain") return domainCount(state, ctx?.controller);
+  // PARTY (2026-09-30 — the Zendikar Rising cycle's "for each creature in your party"): CR 700.8's up-to-one-each Cleric /
+  // Rogue / Warrior / Wizard, maximised per 700.8b — the SAME helper layers.js's twin calls.
+  if (spec.kind === "party") return partyCount(state, ctx?.controller);
   if (spec.kind === "permanentsYouControl") {
     // POWER-QUALIFIED ("creatures you control with power N or greater" — The Boulder): a power threshold is
     // LAYER-AWARE (counters + anthems count), so it's applied here against creaturePower read at resolution
