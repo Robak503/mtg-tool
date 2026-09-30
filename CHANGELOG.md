@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Flickerwisp, Glimmerpoint Stag** — exile another permanent that comes back at the next end step (a land returns
+  untapped; a token doesn't return)
 - **Pentad Prism, Gemstone Array, Crystalline Crawler, Morselhoarder, Workhorse, Druids' Repository** — remove a
   counter for a mana, as many times as there are counters, without tapping
 - **Shriekmaw, Bone Shredder, Nekrataal, Terror, Expunge, Feast or Famine** — "destroy target nonartifact, nonblack

@@ -5,14 +5,38 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **395 commits**, corpus
-> 38.6% → **43.6% (14,941)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **396 commits**, corpus
+> 38.6% → **43.6% (14,943)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 38: "exile another target permanent. Return that card … at the beginning of the next end step" — Flickerwisp, Glimmerpoint Stag · **+2** · corpus 14,943 (43.6%) / 34,245
+> Suite **1629 files / 16,859 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 36 (run 36709490823) and ③ · 37 (run 36711047058). Flip-diff **+2, zero LOST, zero retiered** (tier snapshots at
+> c96d1790 → the change). **Mutants 4/4 killed on assertions** (restore byte-identical).
+> · **Census rank 60** (Flickerwisp #2202, Glimmerpoint Stag #17374): the delayed-return blink existed for "exile target
+>   creature" (Otherworldly Journey, Turn to Mist — the applier exiles now and schedules a `[blink-return …]` sentinel on the
+>   CR 603.7 delayed queue). This is the same applier on the PERMANENT pool: any permanent but the source ("another", CR 109.5
+>   — the fail-closed `notSource` restriction the detain lane uses) and NEVER an Aura — a returning Aura's owner chooses what
+>   it enchants (CR 303.4f) and the return path has no attach step, so an Aura is not offered (the detain lane's documented
+>   narrow FN), never an Aura come back unattached to die.
+> · **Runtime (the ETB through enterPermanent → flush → stack; the return through `runStepActions(advanceStep(…))`, the game
+>   loop's own end-step drain):** `WITNESS flickerwispPool ["bears","plains","stone"]` — every permanent but Flickerwisp and
+>   the Pacifism on the Bears (its host stays in) · `WITNESS flickerwispRoundTrip {"exiled":{…"aiExile":["Mind Stone"],
+>   "scheduled":1},"returned":{"onAiBattlefield":true,"newObject":true,"aiExile":[]}}` — an opponent's Mind Stone chosen as
+>   the target returns under its OWNER's control as a new object (CR 400.7) · a tapped Plains of your own returns UNTAPPED
+>   (the land trick) · a token flickered ceases to exist and nothing returns (CR 111.7).
+> · **Chooser side, pinned:** `atomTargetIntent("delayed-blink")` is "own", so the flush chooser never auto-picks an
+>   opponent's permanent for the blink — offered only one, the trigger routes to the Arbiter no-op (FN-safe). Printed-legal
+>   opponent targets stay reachable through a human's choice and the applier (witnessed above). Play-quality note, not a rules
+>   gap: an own-side pick can be a token, which dies — a candidate for the policy evaluator.
+> · **Mutants 4/4:** the arm removed · "another" dropped (the source offered) · the Aura exclusion dropped · the pool
+>   narrowed to creatures. Witness `app/src/lib/learn/flickerwisp.test.js` (7).
+> · **Next:** census rank 61 — Debtors' Knell / Virtue of Persistence ("At the beginning of your upkeep, put target creature
+>   card from a graveyard onto the battlefield under your control").
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 37: "Remove a <K> counter from this <noun>: Add …" with no {T} — Pentad Prism and five more · **+6** · corpus 14,941 (43.6%) / 34,245
 > Suite **1628 files / 16,852 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 35 (run 36708158494). Flip-diff **+6, zero LOST,

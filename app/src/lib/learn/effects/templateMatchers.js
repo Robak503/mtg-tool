@@ -1216,6 +1216,15 @@ export function matchDelayedBlink(oracle) {
   if (/^exile target creature\. return (?:that card|the exiled card) to the battlefield under its owner's control at the beginning of the next end step$/.test(t)) {
     return { atoms: [{ op: "delayed-blink", targetType: "creature", withCounter: false }] };
   }
+  // ANOTHER TARGET PERMANENT (the 09-06 plan's stage ③ · 38, 2026-09-30 — Flickerwisp, Glimmerpoint Stag: "When this creature
+  // enters, exile another target permanent. Return that card …"). The same applier on the permanent pool: any permanent but
+  // its source ("another", CR 109.5 — the fail-closed notSource restriction the detain lane uses), and NOT an Aura: a returning
+  // Aura's owner chooses what it enchants (CR 303.4f) and the return path has no attach step, so an Aura is never offered —
+  // the detain lane's documented narrow FN, never an Aura come back unattached. Tokens cease to exist in exile (CR 111.7) and
+  // their return no-ops; lands and planeswalkers return through the shared enter path (loyalty stamped).
+  if (/^exile another target permanent\. return (?:that card|the exiled card) to the battlefield under its owner's control at the beginning of the next end step$/.test(t)) {
+    return { atoms: [{ op: "delayed-blink", targetType: "permanent", restrictions: [{ kind: "notSource" }, { kind: "typeNeg", type: "aura" }], withCounter: false }] };
+  }
   // MASS "any number of target creatures you control" (Eerie Interlude): the whole chosen set is exiled and
   // EACH returns at the next end step. applyDelayedBlink already loops ctx.targets (one [blink-return] sentinel
   // per card), so this is a targeting widen only — maxTargets 999 / minTargets 0 / anyNumber (the same fill the
