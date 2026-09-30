@@ -1520,7 +1520,8 @@ function applyCumulativeUpkeep(state, atom, ctx) {
   next = logEvent(next, { kind: "spell-effect", effect: "cumulative-upkeep", controller: ctx.controller, ageCounters: ageCount, sourceName: ctx.cardName || null });
   return setPendingSacUnlessPayChoice(next, {
     controller: ctx.controller,
-    cost: { kind: "mana", mana: scaled },
+    // PAY N LIFE (stage ③ · 45): N life per age counter, the same { kind: "life", life } shape ward's life cost uses.
+    cost: atom.cost?.kind === "life" ? { kind: "life", life: (atom.cost.life || 0) * ageCount } : { kind: "mana", mana: scaled },
     sourceId,
     sourceName: ctx.cardName || null,
   });

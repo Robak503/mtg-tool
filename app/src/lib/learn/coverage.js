@@ -32,7 +32,7 @@ import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsC
 import { stripFlashPermissionLine, stripCastOnlyAfterAnotherSpellLine } from "./effects/textNormalize.js"; // self-flash permission — shared with the spell path so metric and parser read ONE regex; + the cast-only-after-another-spell restriction (its pattern is the legalChoices gate's)
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMANENT — the metric gates on the SAME vetting the runtime charges on
-import { detectTriggers, stripTriggerAbilityLabel, foldTwoTriggerDetain, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, partnerWithName, hasDethrone, hasTraining, firebendingKeywordValue, soulshiftKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues, startYourEnginesKeywordCount, scanTriggerSentences, stripTriggerSentences } from "./triggers.js"; // scan/stripTriggerSentences: THE shared quote-aware extraction (Codex fix #4) — shaped count + every residue strip must use it or shaped===detected snaps
+import { detectTriggers, CUMULATIVE_UPKEEP_LIFE_RE, stripTriggerAbilityLabel, foldTwoTriggerDetain, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, partnerWithName, hasDethrone, hasTraining, firebendingKeywordValue, soulshiftKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues, startYourEnginesKeywordCount, scanTriggerSentences, stripTriggerSentences } from "./triggers.js"; // scan/stripTriggerSentences: THE shared quote-aware extraction (Codex fix #4) — shaped count + every residue strip must use it or shaped===detected snaps
 import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND no-cost credit — the same gate the runtime offers through (fading→triggers→… is already a loaded edge; no cycle)
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler, parseDiscardCostAbility } from "./effects/abilities.js";
@@ -745,6 +745,7 @@ export function isKeywordOnly(oracle, name) {
     reCyclingCost.test(c) ||
     reCyclingLifeCost.test(c) ||
     reWardLifeCost.test(c) ||
+    reCumulativeUpkeepLifeCost.test(c) ||
     reMorphCost.test(c) ||
     reSneakCost.test(c) ||
     reDashCost.test(c) ||
@@ -1078,6 +1079,12 @@ const reCyclingLifeCost = /^cycling\s*[—–-]\s*pay \d+ life$/;
 // body-only (a SAFE false-negative, never a mis-resolved tax). The caller still validates all OTHER text
 // all-or-nothing, so a ward-pay-life card with an unmodeled ability keeps that residue and stays body-only.
 const reWardLifeCost = /^ward\s*[—-]\s*pay \d+ life$/;
+// CUMULATIVE UPKEEP — PAY N LIFE (stage ③ · 45 — Gallowbraid, Morinfen): the em-dash keyword clause the "cumulative
+// upkeep " startsWith credit can't reach (no space after "upkeep"). Credited only because the SAME line synthesizes the
+// upkeep trigger (triggers.CUMULATIVE_UPKEEP_LIFE_RE → matchCumulativeUpkeep's life cost → the shared pay-or-sacrifice
+// choice, settled through loseLife under CR 119.4), and allTriggerSentencesModeled still requires that trigger to route.
+// A clause inside a quoted grant starts with the grant's own words, so it never matches here.
+const reCumulativeUpkeepLifeCost = /^cumulative upkeep\s*[—–-]\s*pay \d+ life$/;
 
 /**
  * True when a permanent's tap produces mana — the mana system taps rocks/dorks
@@ -1348,7 +1355,8 @@ function allTriggerSentencesModeled(card, oracle) {
   // triggered ability lives entirely in stripped reminder text, so it never counts as a shaped sentence.
   // detectTriggers synthesizes a "your upkeep" descriptor from the keyword; bump the shaped count by 1 so
   // shaped === detected holds. Keyed on the bare keyword surviving in the reminder-stripped text.
-  const cumUpkeepShaped = /\bcumulative upkeep\s+\{/i.test(stripReminder(oracle)) ? 1 : 0;
+  // The life form ("Cumulative upkeep—Pay N life.", stage ③ · 45) is read by the same line regex the synthesis uses.
+  const cumUpkeepShaped = (/\bcumulative upkeep\s+\{/i.test(stripReminder(oracle)) || CUMULATIVE_UPKEEP_LIFE_RE.test(stripReminder(oracle))) ? 1 : 0;
   // ECHO (BLITZ EC-1, CR 702.30) — the same reminder-parens keyword synthesis; bump the shaped count by 1
   // so shaped === detected holds (line-anchored, matching the detectTriggers synthesis exactly).
   const echoShaped = /(?:^|[\n.;])\s*echo\s+\{/i.test(stripReminder(oracle)) ? 1 : 0;

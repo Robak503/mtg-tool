@@ -1824,6 +1824,10 @@ export function autoPickSacUnlessPay(state, pc) {
   if (pc.cost?.kind === "return-land") {
     return (player.battlefield || []).some((p) => returnLandPoolMatch(pc.cost, p));
   }
+  // PAY N LIFE (stage ③ · 45) — the same warning: without this arm a life cost falls through to canAfford(…, {}) and
+  // says "pay" at any life total. Pay only while the payment leaves at least 10 life — the floor opponentAI already
+  // holds a life-paid alternative cost to — so a growing cumulative upkeep never pays the controller toward zero.
+  if (pc.cost?.kind === "life") return (player.life ?? 0) - (pc.cost.life || 0) >= 10;
   return canAfford(player.manaPool, manaSources(state, pc.controller), pc.cost?.mana || {});
 }
 
@@ -1999,6 +2003,13 @@ export function resolveSacUnlessPayChoice(state, pay) {
   let paid = false;
   if (pay && pc.cost?.kind === "mana") {
     const r = payManaCost(next, pc.controller, pc.cost.mana || {});
+    next = r.state;
+    paid = r.paid;
+  } else if (pay && pc.cost?.kind === "life") {
+    // PAY N LIFE (stage ③ · 45 — cumulative upkeep's life form, Gallowbraid): the ward life settle's rule — payable
+    // only when the life total is at least the amount (CR 119.4), paid through loseLife (paying life IS losing it, so
+    // life-loss watchers see it). A short total pays nothing, `paid` stays false, and the source is sacrificed.
+    const r = settleSoftCounterCost(next, pc.controller, pc.cost);
     next = r.state;
     paid = r.paid;
   } else if (pay && pc.cost?.kind === "discard") {

@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **402 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **403 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,33 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 45: "Cumulative upkeep—Pay N life" — Gallowbraid, Morinfen · **+2** · corpus 14,963 (43.7%) / 34,245
+> Suite **1636 files / 16,923 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 44 (run 36722032962). Flip-diff **+2, zero LOST, zero RETIERED** (tier snapshots at
+> f25c0c16 → the change: exactly the two planned). **Mutants 10/10 killed on assertions** (restore byte-identical).
+> · **The row (census rank 67):** the em-dash, life-cost form of cumulative upkeep (CR 702.24a). The mana form was modeled
+>   end to end (the synthesized upkeep trigger → the `cumulative-upkeep` atom → the shared pay-or-sacrifice choice); the life
+>   form reached none of it — the synthesis read only a brace cost, and the keyword-only credit wants a space after "upkeep".
+>   SOLE-blocks Gallowbraid and Morinfen; Inner Sanctum, Glacial Chasm and Dystopia stay parked on other lines, Decomposition's
+>   QUOTED grant and Infernal Darkness's mixed "{B} and 1 life" are deliberately not read.
+> · **Build:** `triggers.CUMULATIVE_UPKEEP_LIFE_RE` — the printed keyword LINE, one definition for the synthesis and coverage's
+>   shaped-sentence bump — synthesizes the sentinel "cumulative upkeep pay N life"; matchCumulativeUpkeep maps it to the atom's
+>   `{ kind: "life", life }` cost (ward's life shape), the atom scales it by the age counters, and the settle pays it through
+>   the ward life settle (CR 119.4: only when the life total covers it; through loseLife). The AI's pick pays only while the
+>   payment leaves 10 life — opponentAI's floor for a life-paid alternative cost — so a growing upkeep never pays it toward
+>   zero. Coverage: `reCumulativeUpkeepLifeCost` beside `reWardLifeCost`.
+> · **Runtime (the real upkeep — advanceStep + the step's actions):** `WITNESS cumulativeUpkeepLife` — 1 life owed, 39, then 2
+>   owed, 37; two age counters; Gallowbraid stays · declined: sacrificed, no life paid · at 1 life owing 2: sacrificed, life
+>   untouched · exactly enough life pays (to 0) · the AI pays 1 at 40, refuses 2 at 11, pays 2 at 12.
+> · **Mutants 10/10:** the synthesis never matching · the matcher's life arm · no escalation · the settle paying nothing · the
+>   CR 119.4 gate bypassed · the AI's life arm · the AI floor off by one · the keyword-only credit · the shaped-sentence bump
+>   (killed by a SYNTHETIC fixture — no printed card pairs the life form with an otherwise-modeled trigger today) · the line
+>   anchor (Decomposition's quoted grant would synthesize its own trigger). Witness
+>   `app/src/lib/learn/cumulativeUpkeepLife.test.js` (9).
+> · **Banked:** rank 66 waterbend (CR 701.67a–b — "for each generic mana in that cost, you may tap an untapped artifact or
+>   creature you control rather than pay that mana"): a tap-to-pay channel limited to the waterbend portion; convoke (702.51)
+>   and improvise would share it, and none exists.
+> · **Next:** census rank 68 — "spell commander" (Ransack, the Lab / Clear, the Mind / Gather, the Townsfolk / Lava, Axe).
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 44: "Spells your opponents cast that target this creature cost {2} more to cast" — Sphinx of New Prahv, Boreal Elemental, Syr Elenora · **+3** · corpus 14,961 (43.7%) / 34,245
 > Suite **1635 files / 16,914 tests** green (1 skipped); lint 0; decks unchanged (88%, 2,651 / 2,998). CI green on ③ · 43 (run 36719353919 — it also anchors ③ · 42,

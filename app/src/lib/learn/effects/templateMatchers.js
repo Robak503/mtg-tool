@@ -739,6 +739,10 @@ export function matchUpkeepSacUnlessPay(oracle) {
  */
 export function matchCumulativeUpkeep(oracle) {
   const s = stripReminder(oracle).trim().replace(/\.$/, "");
+  // PAY N LIFE (stage ③ · 45 — Gallowbraid, Morinfen): the sentinel detectTriggers synthesizes off "Cumulative
+  // upkeep—Pay N life." A life cost scales exactly (N per age counter) and is paid all-or-nothing (CR 702.24a).
+  const lifeM = s.match(/^cumulative upkeep pay (\d+) life$/i);
+  if (lifeM) return { atom: { op: "cumulative-upkeep", cost: { kind: "life", life: parseInt(lifeM[1], 10) }, targetType: null } };
   const m = s.match(/^cumulative upkeep\s+(\{[^}]+\}(?:\{[^}]+\})*)$/i);
   if (!m) return null;
   const pips = (m[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));

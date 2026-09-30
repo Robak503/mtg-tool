@@ -4313,6 +4313,13 @@ export function foldTwoTriggerDetain(oracle, card) {
   return folded.join("\n");
 }
 
+/**
+ * CUMULATIVE UPKEEP — PAY N LIFE (CR 702.24a, stage ③ · 45): the printed keyword LINE "Cumulative upkeep—Pay N life."
+ * over reminder-stripped text (newlines kept); group 1 = N. One definition for the two readers that must agree —
+ * detectTriggers' synthesis and coverage's shaped-sentence bump — so shaped === detected can't drift.
+ */
+export const CUMULATIVE_UPKEEP_LIFE_RE = /(?:^|\n)[ \t]*cumulative upkeep[ \t]*[—–-][ \t]*pay (\d+) life\.?[ \t]*(?=\n|$)/i;
+
 export function detectTriggers(card) {
   if (!card || typeof card !== "object") return [];
   if (_detectCache.has(card)) return _detectCache.get(card);
@@ -5682,6 +5689,19 @@ export function detectTriggers(card) {
       event: "upkeep", scope: "you", whose: "yours",
       effect: null, effectClause: `cumulative upkeep ${cumUpkeep[1]}`,
       optional: false, sourceText: `Cumulative upkeep ${cumUpkeep[1]}`,
+    });
+  }
+  // CUMULATIVE UPKEEP — PAY N LIFE (stage ③ · 45 — Gallowbraid, Morinfen): the em-dash form "Cumulative upkeep—Pay N
+  // life." Same synthesis, sentinel "cumulative upkeep pay N life", which matchCumulativeUpkeep maps to the atom's life
+  // cost. Matched only on the printed keyword LINE (CUMULATIVE_UPKEEP_LIFE_RE), so a quoted grant ("Enchanted creature
+  // has "Cumulative upkeep—Pay 1 life."" — Decomposition) never becomes the Aura's own trigger, and a mixed cost ("Pay
+  // {B} and 1 life" — Infernal Darkness) never matches.
+  const cumUpkeepLife = !cumUpkeep && oracle.replace(/\([^)]*\)/g, " ").match(CUMULATIVE_UPKEEP_LIFE_RE);
+  if (cumUpkeepLife) {
+    out.push({
+      event: "upkeep", scope: "you", whose: "yours",
+      effect: null, effectClause: `cumulative upkeep pay ${cumUpkeepLife[1]} life`,
+      optional: false, sourceText: `Cumulative upkeep—Pay ${cumUpkeepLife[1]} life`,
     });
   }
   // ECHO (BLITZ EC-1, CR 702.30) — KEYWORD→TRIGGER synthesis, the cumulative-upkeep precedent exactly. "Echo
