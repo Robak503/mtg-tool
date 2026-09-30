@@ -1618,6 +1618,19 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^a creature card is put into a graveyard from anywhere other than the battlefield$/.test(c)) {
     return { event: "gyEnter", scope: "gyWatcher", whose: "any", gyCardType: "Creature", gyOwnerScope: "any", excludeFromBattlefield: true };
   }
+  // SELF GRAVEYARD ARRIVAL (the 09-06 plan's stage ③ · 16, 2026-09-30 — the Eldrazi titans: "When Kozilek is put into a
+  // graveyard from anywhere, its owner shuffles their graveyard into their library."): the card's OWN arrival in a graveyard,
+  // from ANY zone — battlefield, stack, library, hand. It triggers from the graveyard it lands in, so it is fired by
+  // checkGraveyardEventTriggers off the moved card itself (controlled by its owner, CR 113.8), never by a battlefield watcher.
+  // The subject must be the card itself — "this creature/card", its name, or its legendary short name ("Kozilek"), resolved
+  // exactly as the becomes-monstrous self arm resolves it; any other subject falls through undetected.
+  const gySelf = c.match(/^(.+?) is put into a graveyard from anywhere$/);
+  if (gySelf) {
+    const subj = gySelf[1].trim();
+    const isSelfSubj = subj === "this creature" || subj === "this card" || (nameL && subj === nameL)
+      || (shortName && subj === shortName) || (firstWord && subj === firstWord);
+    if (isSelfSubj) return { event: "gyEnterSelf", scope: "self" };
+  }
   // Konrad clause 3: a creature card leaving YOUR graveyard (cast out / reanimated / shuffled in / exiled).
   if (/^a creature card leaves your graveyard$/.test(c)) {
     return { event: "gyLeave", scope: "gyWatcher", whose: "any", gyCardType: "Creature", gyOwnerScope: "you" };
@@ -4565,6 +4578,12 @@ export function detectTriggers(card) {
       // The triggering-power sentinel precedent, event-gated exactly.
       if (cls.event === "gyEnter") {
         effectClause = effectClause.replace(/\bthat player\b/gi, "the graveyard's owner");
+      }
+      // SELF GRAVEYARD ARRIVAL (③ · 16 — the Eldrazi titans): the trigger is controlled by the card's OWNER (CR 113.8 — it
+      // triggers from the owner's graveyard), so "its owner shuffles their graveyard into their library" is the controller's
+      // own shuffle — rewritten to the plain clause the shuffle-graveyard atom reads. Event-gated like the sentinel above.
+      if (cls.event === "gyEnterSelf") {
+        effectClause = effectClause.replace(/^its owner shuffles their graveyard into their library$/i, "shuffle your graveyard into your library");
       }
       // UPKEEP-PLAYER REFERENT (BLITZ TR-2 — CR 603.2b + 503.1a): on an "each player's upkeep" trigger,
       // "that player" is the player WHOSE UPKEEP IT IS (ctx.upkeepPlayerId = the active player, threaded by
@@ -8850,6 +8869,20 @@ export function checkGraveyardEventTriggers(state) {
             gyCardId: ev.card?.id, gyCardName: ev.card?.name, gyOwnerId: ev.gyOwner, gyZone: ev.zone, gyDir: ev.dir,
           }));
         }
+      }
+    }
+    // SELF GRAVEYARD ARRIVAL (the 09-06 plan's stage ③ · 16 — the Eldrazi titans' "when ~ is put into a graveyard from
+    // anywhere"): the MOVED card's own trigger, whatever zone it came from. It triggers from the graveyard it just entered, so
+    // the source is that card, controlled by its owner (CR 113.8) — the emblem-style source shape, since it is no permanent.
+    // It is also its own TRIGGERING object, the self-dies convention: that is how a payoff naming "it" (Worldspine Wurm's
+    // "shuffle it into its owner's library") finds the card in the graveyard — passing no triggering object left the
+    // Wurm's tuck with no referent, a native credit that never moved the card (caught by its run-for-real audit).
+    if (ev.dir === "enter") {
+      const self = { id: ev.card?.id, controller: ev.gyOwner, card: ev.card };
+      for (const d of detectTriggers(ev.card).filter((x) => x.event === "gyEnterSelf")) {
+        fired.push(makePendingTrigger(d, self, self, {
+          gyCardId: ev.card?.id, gyCardName: ev.card?.name, gyOwnerId: ev.gyOwner, gyZone: ev.zone, gyDir: ev.dir,
+        }));
       }
     }
   }

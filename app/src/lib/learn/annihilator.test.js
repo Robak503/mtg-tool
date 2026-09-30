@@ -217,9 +217,13 @@ describe("Annihilator — coverage flip (CREED: whole card modeled → native; a
   it("classifyCard: real printed reminder text does not block the flip", () => {
     expect(classifyCard({ name: "Reminded", type: "Creature — Eldrazi", mana: "{8}", oracle: `Annihilator 2 ${ANN_REMINDER}` })).toBe("native-trigger");
   });
-  it("CREED PARK: Kozilek-style (cast trigger + GY-shuffle trigger) stays body-only — the extra triggers are unmodeled", () => {
+  // GRADUATED 2026-09-30 (the 09-06 plan's stage ③ · 16): this pin said "stays body-only" while Kozilek's graveyard-shuffle
+  // trigger was unmodeled. ③ · 16 modeled it (the gyEnterSelf event; runtime in eldraziGraveyardShuffle.test.js), so the
+  // whole card is now native. The PARK intent — an unmodeled second ability keeps an annihilator card off native — is still
+  // pinned by the Pathrazer and Ulamog-style cases around it.
+  it("GRADUATED: Kozilek (cast trigger + annihilator + GY-shuffle trigger) is native now that the GY-shuffle is modeled", () => {
     const kozilek = "When you cast this spell, draw four cards.\nAnnihilator 4\nWhen Kozilek is put into a graveyard from anywhere, its owner shuffles their graveyard into their library.";
-    expect(classifyCard({ name: "Kozilek, Butcher of Truth", type: "Legendary Creature — Eldrazi", mana: "{10}", oracle: kozilek })).toBe("body-only");
+    expect(classifyCard({ name: "Kozilek, Butcher of Truth", type: "Legendary Creature — Eldrazi", mana: "{10}", oracle: kozilek })).toBe("native-trigger");
   });
   it("CREED PARK: Ulamog-style (cast trigger 'exile two target permanents') stays body-only", () => {
     const ulamog = "When you cast this spell, exile two target permanents.\nAnnihilator 4\nUlamog is indestructible.";

@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Kozilek, Butcher of Truth, Ulamog, the Infinite Gyre, Worldspine Wurm** — put into a graveyard from anywhere (milled,
+  discarded, killed), they trigger: the titans shuffle their owner's graveyard into their library, the Wurm shuffles itself back
+- **Feldon's Cane, Archangel's Light** — "shuffle your graveyard into your library"
 - **Legion Conquistador, Gathering Throng, Battalion Foot Soldier** — the enters trigger finds every copy you choose, as
   many as the library holds
 - **Clockwork Beetle, Clockwork Condor, Clockwork Vorrac, Clockwork Dragon** — after attacking or blocking they lose a

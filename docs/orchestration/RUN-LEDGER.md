@@ -5,14 +5,51 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **372 commits**, corpus
-> 38.6% → **43.4% (14,859)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **373 commits**, corpus
+> 38.6% → **43.4% (14,864)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 16: "when ~ is put into a graveyard from anywhere" — the Eldrazi titans · **+5** (3 unplanned, each run for real) · corpus 14,864 (43.4%) / 34,245 · **Omnath, Locus of Mana 94 → 95 (Kozilek)**
+> Suite **1607 files / 16,668 tests** green (1 skipped); lint 0; decks 88% (2,651 / 2,998 — Kozilek is in Colton's Omnath
+> list). Flip-diff **+5, zero LOST, zero retiered** (tier snapshots at cddfbe9f → the
+> change). **Mutants 7/7 killed on assertions** (restore byte-identical).
+> · **Census verdicts below row ⑮ (the re-run list):** "becomes the colour of your choice" (Rainbow Crow, Wild Mongrel, Tidal
+>   Visionary …) — **BANKED**, a choice class like the plan's "tap or untap" / "basic land type of your choice" rows: it needs
+>   a human colour picker and an AI policy, and inventing a colour is not an option. Then this 2-sole row, chosen for its cards.
+> · **Census row ⑯:** Kozilek, Butcher of Truth and Ulamog, the Infinite Gyre (planned; Emrakul carries the line but parks on
+>   another gap) + **three unplanned, each run for real:** Worldspine Wurm ("… shuffle it into its owner's library"), Feldon's
+>   Cane ("{T}, Exile this artifact: Shuffle your graveyard into your library."), Archangel's Light (2 life per card, then the
+>   shuffle).
+> · **Build — a SELF graveyard-arrival event, from any zone.** `triggers.js` detects "<self> is put into a graveyard from
+>   anywhere" as `gyEnterSelf`, the subject resolved against "this creature/card", the full name, the legendary short name
+>   ("Kozilek") and the first word — the becomes-monstrous self arm's resolution; any other subject stays undetected.
+>   `checkGraveyardEventTriggers` (the per-card graveyard-event queue every graveyard write already records) fires the MOVED
+>   card's own trigger, sourced from the card in the graveyard and controlled by its OWNER (CR 113.8). The payoff: "its owner
+>   shuffles their graveyard into their library" is rewritten (event-gated) to "shuffle your graveyard into your library", now a
+>   plain clause for the existing shuffle-graveyard atom (until today reachable only from Finale of Revelation's template).
+> · **The audit caught a hollow credit before commit.** Worldspine Wurm flipped native through the same event, but its payoff —
+>   "shuffle IT into its owner's library" — never moved the card: the self-fire passed no triggering object, so the self-tuck
+>   resolver had no referent. The fire now names the card as its own triggering object (the self-dies convention the resolver
+>   already reads), and the pre-fix form is a pinned mutant.
+> · **Runtime:** `WITNESS milledKozilek {"graveyard":0,"library":6,"kozilekIn":"library"}` · discarded and dies, the same · a
+>   Kozilek stolen from the AI dies into the AI's graveyard and the AI's graveyard shuffles (the user's stays) · another card
+>   hitting the graveyard shuffles nothing · Ulamog milled · Grizzly Bears milled (the vacuity control) keeps the graveyard ·
+>   `WITNESS worldspineDies tokens 3 · inLibrary true · graveyard ["Old Card 0"]` (both its triggers; only the Wurm goes back) ·
+>   Feldon's Cane activated · Archangel's Light gains 6 for three cards, then shuffles.
+> · **Mutants 7/7:** the self arm removed · any subject read as self · the self-fire dead · no triggering object (the pre-audit
+>   form — red on both Worldspine runs) · controlled by the active player instead of the owner · the owner rewrite removed · the
+>   plain clause removed. Witness `app/src/lib/learn/eldraziGraveyardShuffle.test.js` (14).
+> · **Documented under-application:** a token never records a graveyard event (a token is not a card, CR 111.1), so a token
+>   copy of a titan doesn't trigger it.
+> · **Two stale pins GRADUATED with a note** (the first full suite was red on exactly these two): annihilator.test.js's
+>   "Kozilek-style stays body-only" (the park intent is still pinned by Pathrazer and the Ulamog-style case) and
+>   selfCastTrigger.test.js's parked Kozilek entry (Jeskai Baller keeps that pin's intent).
+> · **Next:** the census below row ⑯.
 
 > ## 🎯 2026-09-30 — 09-06 PLAN STAGE ③ · 15: "search your library for ANY NUMBER of cards named ~" · **+3** · corpus 14,859 (43.4%) / 34,245
 > Suite **1606 files / 16,655 tests** green (1 skipped); lint 0. Flip-diff **+3, zero LOST, zero retiered** (tier snapshots at 58ea483f → the

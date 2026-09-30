@@ -104,11 +104,9 @@ describe("SELF-CAST — PARKED: a self-cast card with an unmodeled sibling claus
       name: "Jeskai Baller", type: "Creature — Human Athlete", mana: "{2}{W}", power: 2, toughness: 2,
       oracle: "When you cast this spell, create a 1/1 white Athlete creature token.\nRebound (If you cast this spell from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast this card from exile without paying its mana cost.)",
     },
-    // Annihilator (CR 702.85) + the second "put into a graveyard" trigger — both unmodeled.
-    "Kozilek, Butcher of Truth (Annihilator + GY-shuffle trigger unmodeled)": {
-      name: "Kozilek, Butcher of Truth", type: "Legendary Creature — Eldrazi", mana: "{10}", power: 12, toughness: 12,
-      oracle: "When you cast this spell, draw four cards.\nAnnihilator 4 (Whenever this creature attacks, defending player sacrifices four permanents of their choice.)\nWhen Kozilek is put into a graveyard from anywhere, its owner shuffles their graveyard into their library.",
-    },
+    // (Kozilek, Butcher of Truth USED to park here on its "put into a graveyard from anywhere" shuffle trigger; the 09-06
+    // plan's stage ③ · 16 (2026-09-30) modeled it — the native flip and every origin's runtime are covered in
+    // eldraziGraveyardShuffle.test.js. Jeskai Baller keeps this pin's intent: a self-cast card with an unmodeled sibling.)
   };
   for (const [label, card] of Object.entries(parked)) {
     it(`${label} stays body-only`, () => {

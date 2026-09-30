@@ -1821,6 +1821,11 @@ export function libraryKeywordClauseParser(clause) {
   // K8 (Ellie and Alan): X = the mana value of the card exiled as the cost — read off the dispatcher's exiledForCost stamp.
   if (/^discover x, where x is the mana value of the exiled card$/.test(t)) return { op: "discover", amountCount: { kind: "exiledForCostManaValue" }, targetType: null };
   if (/^(?:then |and )?shuffle(?: your library)?$/.test(t)) return { op: "shuffle", targetType: null };
+  // SHUFFLE YOUR GRAVEYARD INTO YOUR LIBRARY (the 09-06 plan's stage ③ · 16, 2026-09-30) — the existing
+  // applyShuffleGraveyardIntoLibrary (Finale of Revelation's X ≥ 10 branch, until now reachable only from that template)
+  // as a plain clause. The Eldrazi titans reach it through their graveyard trigger's owner rewrite (triggers.js). Only the
+  // controller's own graveyard: "each player shuffles …" and "shuffle this artifact and your graveyard …" stay unmatched.
+  if (/^shuffle your graveyard into your library$/.test(t)) return { op: "shuffle-graveyard-into-library", targetType: null };
   let m = t.match(/^scry (\d+)$/);
   if (m) return { op: "scry", amount: parseInt(m[1], 10), targetType: null };
   m = t.match(/^surveil (\d+)$/);
