@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **28 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,189)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **29 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,198)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,29 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 13: Gray Merchant of Asphodel (EDHREC #242) — the drain family past the X spell · **+9** · corpus 15,198
+> Suite **17,531** green (1 skipped); lint 0; decks unchanged (2,733 / 2,998). CI GREEN on P·12 (run 36896398394). Flip-diff **+9, zero
+> LOST, zero RETIERED** (tier snapshots at 607f4275 → the change: Gray Merchant, Kokusho, Malakir Bloodwitch, Agent of Masks,
+> Subversion, Tormented Hero body-only → native-trigger; Scholar of Athreos → native-activated; Servant of Tymaret → native-mixed;
+> Blood Tithe arbiter-spell → native-spell — each full oracle audited). Top 1,000 **842** (needs +58); top 2,500 **1,663**.
+> **Mutants 10/10** (restore byte-identical).
+> · **One matcher, three amounts:** `matchDrainEachOpponent` (templateMatchers) collapses "Each opponent loses … life. You gain
+>   life equal to the life lost this way." into the one drain-each-opponent atom Exsanguinate already used — a printed N, "X,
+>   where X is your devotion to <color>" (CR 700.5) or "life equal to the number of <count>" (parseCountSource; an unmodeled
+>   source leaves the whole compound low). Not X-gated, never an X spell: the devotion X is defined by its own clause.
+> · **The resolver:** the amount is read ONCE before any life moves (CR 608.2h — Gray Merchant gone by resolution counts
+>   nothing), every opponent loses it, and the gain is the life each opponent ACTUALLY lost, off their total (CR 119.3 — past 0
+>   still counts).
+> · **Fixed on the way:** the drain gained the full amount for an opponent whose life total can't change (Teferi's
+>   Protection's lock) — Exsanguinate included. It now gains only what was lost.
+> · **Known, not changed:** subtype counts (Malakir Bloodwitch's Vampires, and every "for each <type>" count) ignore
+>   changelings (CR 702.73a) — systemic in countMatches, flagged as its own task.
+> · **Runtime:** `WITNESS grayMerchant {"lives":{"user":58,"ai1":34,"ai2":34,"ai3":34},"merchant":true}` (devotion 6: its
+>   own two pips, Phyrexian Arena's two, Vault Skirge's Phyrexian pip, Deathrite Shaman's hybrid pip; a four-seat pod). Kokusho
+>   dies: 5 each, +15; Malakir Bloodwitch with a Nighthawk: 2 each; Scholar's activation and Blood Tithe (one cast, no X).
+>   Witness `app/src/lib/learn/grayMerchant.test.js` (11).
+> · **Next:** #246 Malakir Rebirth (the worklist head at 842).
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 12: Animate Dead (EDHREC #224) — an Aura that enchants a creature card in a graveyard · **+1** · corpus 15,189
 > Suite **17,520** green (1 skipped); lint 0; decks 2,732 → **2,733** / 2,998 (Teval 91). CI GREEN on P·11 (run 36894263773). Flip-diff

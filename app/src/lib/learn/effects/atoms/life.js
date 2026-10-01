@@ -458,16 +458,23 @@ export function lifeClauseParser(clause) {
  * present to lose). Computed from the loss applied (X per living opponent), so an eliminated/missing opponent
  * contributes nothing (a clean count, never fabricated). Fires each opponent's life-loss path (loseLife) and
  * the controller's lifegain triggers on the total. X=0 (cast for free / X chosen 0) drains nothing and gains
- * nothing (CR 107.3). The amount comes ONLY from amountX → ctx.xValue (the matcher is X-gated); no fixed form.
+ * nothing (CR 107.3).
+ *
+ * The amount (P·13 — Gray Merchant of Asphodel) is resolveScaledAmount's: amountX → ctx.xValue (Exsanguinate),
+ * a printed amount (Kokusho), or an amountCount read ONCE before any life moves (CR 608.2h — Gray Merchant's
+ * devotion to black, Malakir Bloodwitch's Vampires), so every opponent loses the same number. The gain is the life
+ * each opponent ACTUALLY lost, measured off their total: an opponent whose life total can't change (loseLife's lock)
+ * lost none and contributes none.
  */
 export function applyDrainEachOpponent(state, atom, ctx) {
   let next = state;
-  const per = Math.max(0, atom.amountX ? (ctx.xValue || 0) : (atom.amount || 0));
+  const per = Math.max(0, resolveScaledAmount(state, atom, ctx) || 0);
   let lost = 0;
   for (const opp of opponentsOf(next, ctx.controller)) {
     if (!next.players[opp]) continue;
+    const before = next.players[opp].life;
     next = loseLife(next, { playerId: opp, amount: per });
-    lost += per; // CR 119.3 — life lost is the full amount, even past 0
+    lost += Math.max(0, before - next.players[opp].life); // CR 119.3 — the full amount, even past 0
   }
   if (lost > 0) {
     next = gainLife(next, { playerId: ctx.controller, amount: lost });

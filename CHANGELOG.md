@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Gray Merchant of Asphodel, Kokusho, Malakir Bloodwitch and six more** — each opponent loses life (a printed amount, your devotion to black, or the number of Vampires you control) and you gain the life lost
 - **Animate Dead** — return a creature card from any graveyard under your control, -1/-0; it is sacrificed if Animate Dead leaves
 - **Idol of Oblivion and Bennie Bracks, Zoologist** — draw a card if you created a token this turn
 - **Hideaway** — Mosswort Bridge, Windbrisk Heights and Clive's Hideaway hide a card as they enter and cast it free once their condition is met
@@ -33,6 +34,7 @@ summarizes the notable changes.
 - **One with the Multiverse, Zaffai and the Tempests, Vision, Spectral Synthezoid and Omniscience** — cast a spell without paying its mana cost (once each turn, or freely with Omniscience), at the normal time for that spell
 
 ### Fixed
+- Exsanguinate and the other each-opponent drains gained life for an opponent whose life total couldn't change; you now gain only the life actually lost
 - Gemstone Caverns tapped for any color without a luck counter; it makes {C} until it has one
 - Signets, the {1} filter lands (Darkwater Catacombs and kin), Cabal Coffers, Chromatic Star and every other mana ability with a mana cost now pay that cost — they used to tap for free, so a lone Signet could pay for spells
 - Tapping a karoo land or a Signet by hand adds both of its colors, not two of one

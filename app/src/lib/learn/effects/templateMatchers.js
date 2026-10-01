@@ -74,6 +74,33 @@ export function matchDrainEachOpponentX(oracle) {
 }
 
 /**
+ * ===== DRAIN (fixed N / devotion / board count) ===== the non-X twins of DRAIN-X above (the play-weighted program,
+ * P·13 — Gray Merchant of Asphodel, EDHREC #242). The same two sentences, the same ONE drain-each-opponent atom; only
+ * the per-opponent amount differs:
+ *   "Each opponent loses N life. …" (Kokusho, Agent of Masks, Blood Tithe) → the printed N;
+ *   "Each opponent loses X life, where X is your devotion to black. …" (Gray Merchant, CR 700.5) → the devotion count;
+ *   "Each opponent loses life equal to the number of <count>. …" (Malakir Bloodwitch) → the parseCountSource count.
+ * A count is read ONCE as the effect applies (CR 608.2h), so every opponent loses the same amount. An unmodeled
+ * count source (parseCountSource → null) leaves the whole compound unmatched → low → Arbiter. Not X-gated: the
+ * devotion form's "X" is defined by its own "where" clause, never by a cost (xSpell stays false). Returns { atom }.
+ */
+const DRAIN_TAIL = "\\. you gain life equal to the life lost this way\\.?$";
+const DRAIN_DEVOTION_COLOR = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+export function matchDrainEachOpponent(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ");
+  let m = s.match(new RegExp(`^each opponent loses (\\d+) life${DRAIN_TAIL}`));
+  if (m) return { atom: { op: "drain-each-opponent", amount: parseInt(m[1], 10), targetType: null } };
+  m = s.match(new RegExp(`^each opponent loses x life, where x is your devotion to (white|blue|black|red|green)${DRAIN_TAIL}`));
+  if (m) return { atom: { op: "drain-each-opponent", amountCount: { kind: "devotion", color: DRAIN_DEVOTION_COLOR[m[1]], per: 1 }, targetType: null } };
+  m = s.match(new RegExp(`^each opponent loses life equal to the number of ([^.]+)${DRAIN_TAIL}`));
+  if (m) {
+    const src = parseCountSource(m[1]);
+    return src ? { atom: { op: "drain-each-opponent", amountCount: { ...src, per: 1 }, targetType: null } } : null;
+  }
+  return null;
+}
+
+/**
  * ===== ITERATED-EDICT (Torment of Hailfire, CR 118.9) ===== "Repeat the following process X times. Each
  * opponent loses 3 life unless that player sacrifices a nonland permanent of their choice or discards a
  * card." — an {X}-times-repeated, per-opponent, THREE-mode edict where EACH opponent chooses their own way
