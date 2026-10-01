@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **438 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **439 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,36 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D26: THE KIKI FAMILY — A TOKEN COPY GONE AT THE NEXT END STEP — Halfshell heroes 89 → 90 · **+5** · corpus 15,129 / 34,245
+> Suite **1,675 files / 17,291 tests** green (1 skipped); lint 0; decks 2,700 / 2,998 — **25 of 30 at ≥90**. CI GREEN on D25 (run 36802507179). Flip-diff
+> **+5, zero LOST, zero RETIERED** (tier snapshots at 74b116a5 → the change: Tempestra, Dame of Games, Kiki-Jiki, Mirror Breaker, Orthion, Hero of Lavabrink, The Fire Crystal, Stormsplitter). **Mutants 21/21** on the final code (restore byte-identical).
+> · **Build:** tokenCopy.js — the target-copy anchor reads "ANOTHER target" (notSource), "target NONLEGENDARY creature" (the
+>   supertype restriction gains `negate`), ", except it has haste" (copiable haste, CR 707.9b) and Orthion's "create five tokens that
+>   are copies of". tokens.js — the copy stamps the ids it made on EVERY call (empty when it made none, so a follow-on "it" can never
+>   read an older effect's tokens); "It gains haste." (folded onto the copy by the parser) is a lasting layer-6 grant on exactly
+>   those tokens (no duration stated → CR 611.2a). removal.js — "Sacrifice/Exile it|them at the beginning of the next end step"
+>   bakes the minted ids into a [minted-leave] sentinel on the delayed queue (CR 603.7); a sacrifice takes only a token you still
+>   control (CR 701.21a), an exile takes it regardless, one already gone is left alone (CR 603.7c). parser.js — the delayed half
+>   binds to the copy only directly after it, with the pronoun agreeing ("it" one token, "them" several).
+> · **Two pins updated, their concern kept:** token-copy.test.js asserted ", except it has haste" → null because the bare "it has"
+>   form usually travels with stat/type riders. The Jolly Balloon Man's real rider text stays pinned null; the exact bare-haste form
+>   (Kiki-Jiki) is pinned as the copiable addKeyword rider — Irenicus's proven path.
+> · **Latent defect closed before it could flip anything:** "Create a token that's a copy of target creature you control. It gains
+>   haste until end of turn." parsed HIGH with the haste bound to the copy's TARGET — the original creature, not the token. No card
+>   was native through it (census: 18 carriers, none native), but this slice's anchor widening would have reached some. A referent
+>   after a token copy is now refused at assembly; the minted-token folds are the modeled forms.
+> · **Hollow-gate catch:** the engine logs a crashing resolver as `stack-resolve-error` instead of throwing, so the first witness
+>   passed over a deleted null guard (mutant R3). The settle helpers now throw on one (this file, D25's and D24's — 34 witnesses
+>   re-run clean). A dead guard was removed (the modal copy of the referent check: modes parse through the same assembly).
+> · **Runtime:** `WITNESS tempestra {"offered":["isamaru"],"token":"Isamaru, Hound of Konda","legendary":false,"haste":true,"bothLegendsStay":true,"ringSacrificed":true,"tokenAfterEnd":false,"isamaruAfterEnd":true}`
+>   (another creature you control only; the legend copy isn't legendary so both stay; haste; Sol Ring paid; sacrificed at the end
+>   step). Kiki-Jiki offers only a nonlegendary creature you control; with Parallel Lives "it" is both tokens, both sacrificed; a
+>   token another player controls is kept (and still hasty next turn, CR 611.2a); Orthion's five; The Fire Crystal; Stormsplitter's
+>   copy EXILED, not sacrificed. Witness `app/src/lib/learn/kikiFamilyTokenCopy.test.js` (12).
+> · **Found in passing (chip task_4cf7d58e):** the auto-payer spends floating COLORED mana on generic costs before colorless
+>   (manaModel's pool drain runs W,U,B,R,G,C) — a {2}{R} from {R:3,C:2} left only colorless.
+> · **Next:** the 86s — Shorikai Vehicles and Teval (need 4 each); Kellan 85 (5); Light-Paws 83 (7); Atraxa 74 (16).
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D25: "WHEN THAT CREATURE DIES THIS TURN" — THE DIES WATCH (CR 603.7) — Halfshell heroes 88 → 89 · **+7** · corpus 15,124 / 34,245
 > Suite **1,674 files / 17,279 tests** green (1 skipped); lint 0; decks 2,699 / 2,998. CI GREEN on D24 (run 36799659291). Flip-diff **+7, zero LOST,

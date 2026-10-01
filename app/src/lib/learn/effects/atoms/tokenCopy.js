@@ -64,7 +64,13 @@ const ADDABLE_CARD_TYPES = new Set(["artifact", "enchantment"]);
 // copy's characteristics — a subtype feeds the live subtype-ETB/attacks/dies scopes). targetType "creature"
 // + the you-control restriction so the cast path / enumerateTargets offers ONLY the controller's own
 // creatures (never an opponent's, which would be illegal).
-const TOKEN_COPY_TARGET_RE = /^create a token that(?:'s| is) a copy of target creature you control(, except it isn't legendary)?$/;
+// THE KIKI FAMILY (shelf D26 — Kiki-Jiki, Tempestra, Orthion, The Fire Crystal) widens the same anchor: "ANOTHER target"
+// (the source can't copy itself — notSource), "target NONLEGENDARY creature" (a negated supertype restriction), ", except it
+// has haste" (the copy's own haste, part of its copiable values, CR 707.9b — the same addKeyword rider as the "the token
+// has" form), and the counted plural "create five tokens that are copies of …" (Orthion). Their "It gains haste." and
+// "Sacrifice it at the beginning of the next end step." are the parser's minted-token folds, not this anchor's.
+const TOKEN_COPY_TARGET_RE = /^create (?:a token that(?:'s| is) a copy|(two|three|four|five) tokens that are copies) of (another )?target (nonlegendary )?creature you control(?:, except it (isn't legendary|has haste))?$/;
+const COPY_COUNT = { two: 2, three: 3, four: 4, five: 5 };
 // FLASH PHOTOGRAPHY (POD-SIM THREE · KN-3, 2026-09-05): "Create a token that's a copy of target permanent." — any permanent, any
 // controller. An Aura or a Saga is never a legal target here (an Aura token needs an attach choice the token path does not
 // raise — CR 303.4f; a Saga token needs its lore counter — CR 714.2): a narrower target pool is a false negative, a token
@@ -144,7 +150,11 @@ export function tokenCopyParser(clause) {
   }
   const tm = t.match(TOKEN_COPY_TARGET_RE);
   if (tm) {
-    return { op: "create-token-copy", copySource: "target", count: 1, targetType: "creature", restrictions: [{ kind: "controller", who: "you" }], ...(tm[1] ? { notLegendary: true } : {}) };
+    const restrictions = [{ kind: "controller", who: "you" }];
+    if (tm[2]) restrictions.push({ kind: "notSource" });
+    if (tm[3]) restrictions.push({ kind: "supertype", value: "legendary", negate: true });
+    return { op: "create-token-copy", copySource: "target", count: tm[1] ? COPY_COUNT[tm[1]] : 1, targetType: "creature", restrictions,
+      ...(tm[4] === "isn't legendary" ? { notLegendary: true } : {}), ...(tm[4] === "has haste" ? { grantKeywords: ["haste"] } : {}) };
   }
   // TOKEN-COPY-UPTOONE-MVX (Here Comes a New Hero!) — an {X}-bound OPTIONAL (up-to-one) target copy capped at
   // MV≤X. optionalTarget → the cast may take 0 or 1 target (expandAtoms offers a decline); the manaValue/valueX

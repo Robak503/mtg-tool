@@ -1209,7 +1209,44 @@ function applyBounceAtEndOfCombat(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "bounce-at-end-of-combat-enqueued", target: id, source: ctx.cardName || null });
 }
 
+/**
+ * "SACRIFICE IT / EXILE IT AT THE BEGINNING OF THE NEXT END STEP" after a token copy (shelf D26 — Kiki-Jiki, Tempestra, Orthion,
+ * The Fire Crystal; CR 603.7): "it" is the token the copy just made — every token it made, a doubler's extras included. The
+ * ids come off the copy's own stamp (applyCreateTokenCopy stamps every call, empty when it made nothing, so this never reads
+ * an older effect's tokens) and are baked into a `[minted-leave <fate> <ids>]` sentinel on the delayed queue. The parser
+ * emits this atom only directly after the copy that made them.
+ */
+export function applyScheduleMintedLeave(state, atom, ctx) {
+  const ids = (state._lastMintedTokenIds || []).filter((id) => findPermanent(state, id));
+  if (!ids.length) return logEvent(state, { kind: "spell-effect", effect: "schedule-minted-leave", fate: atom.fate, tokens: [] });
+  return applyScheduleDelayed(state, { delayedClause: `[minted-leave ${atom.fate} ${ids.join(",")}]`, fireStep: atom.fireStep, fireScope: atom.fireScope }, ctx);
+}
+
+/** The sentinel's parser — case-preserving on the ids, like the other delayed sentinels. */
+export function mintedLeaveClauseParser(clause) {
+  const m = String(clause || "").trim().match(/^\[minted-leave (sacrifice|exile) (\S+)\]$/i);
+  return m ? { op: "minted-leave", fate: m[1].toLowerCase(), tokenIds: m[2].split(",") } : null;
+}
+
+/**
+ * The delayed half: each token still on the battlefield leaves. A SACRIFICE takes only a token the delayed ability's
+ * controller still controls (CR 701.21a — a player can't sacrifice what they don't control); an EXILE takes it whoever
+ * controls it. One already gone is left alone (CR 603.7c).
+ */
+export function applyMintedLeave(state, atom, ctx) {
+  let next = state;
+  for (const id of atom.tokenIds || []) {
+    const lk = findPermanent(next, id);
+    if (!lk) continue;
+    if (atom.fate === "exile") next = applyZoneMove(next, { op: "exile" }, { ...ctx, targets: [{ type: "permanent", id }] }, "exile");
+    else if (lk.controller === ctx.controller) next = sacrificeCreatureEffect(next, ctx.controller, id);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "minted-leave", fate: atom.fate, controller: ctx.controller });
+}
+
 export const removalResolvers = {
+  "schedule-minted-leave": applyScheduleMintedLeave, // shelf D26 — "Sacrifice it at the beginning of the next end step" after a token copy
+  "minted-leave": applyMintedLeave,                   // its sentinel — the minted tokens leave (sacrifice: only those you still control)
   "bounce-at-end-of-combat": applyBounceAtEndOfCombat, // ④-BB — "return that creature to its owner's hand at end of combat" (Wall of Tears)
   "self-at-end-of-combat": applySelfAtEndOfCombat, // ④-AX — "sacrifice it / return it to its owner's hand at end of combat" (the attacks-or-blocks self class)
   "champion": applyChampion, // ===== CHAMPION (CR 702.71a) ===== exile ANOTHER own nontoken creature of the named type, linked to the source via the shared detain resolver (so the return is the one already proven); sacrifice the source when no legal offering exists

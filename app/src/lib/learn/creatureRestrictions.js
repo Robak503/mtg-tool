@@ -256,8 +256,10 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // (legendary / basic / snow / world) appears verbatim in the type line, so a word-bounded case-insensitive
       // front-face test matches exactly the creatures carrying it. Front-face only (CR 712.4a) so a DFC's
       // back-face supertype can't wrongly qualify. Fail-closed on a missing type line (safe false-negative).
+      // `negate` is "target NONLEGENDARY creature you control" (Kiki-Jiki — shelf D26): every creature WITHOUT it.
       const stl = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0];
-      if (!new RegExp(`\\b${r.value}\\b`, "i").test(stl)) return false;
+      const has = new RegExp(`\\b${r.value}\\b`, "i").test(stl);
+      if (r.negate ? has : !has) return false;
     } else {
       // ⛔⛔ FAIL CLOSED ON AN UNKNOWN KIND (CD-1 hardening, 2026-08-05). This chain used to end without an
       // else, so a restriction whose kind had no branch was SILENTLY SATISFIED — the pool opened and the

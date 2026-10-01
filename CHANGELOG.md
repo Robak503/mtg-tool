@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Kiki-Jiki, Mirror Breaker, Tempestra, Dame of Games, Orthion, Hero of Lavabrink and The Fire Crystal** — copy a creature you control as a hasty token that is sacrificed at the beginning of the next end step
+- **Stormsplitter** — each instant or sorcery you cast makes a copy of it, exiled at the next end step
 - **Together Forever** — {1}: choose a creature with a counter on it; if it dies this turn, it returns to its owner's hand
 - **"When that creature dies this turn, …"** — Blessed Defiance, Make Your Mark, Otherworldly Outburst, Scarblade's Malice, Felonious Rage and Grim Javelineer now pay off when the creature they touched dies that turn
 - **Foot Chopper** — when the equipped creature connects you may sacrifice it to draw cards equal to its power
@@ -417,6 +419,7 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **"It gains haste" after a token copy** now means the token, not the creature it copied
 - **Delayed "when that creature dies this turn" text** is no longer read as a printed trigger — Together Forever and Sandals of Abdallah lost a phantom "when this dies" trigger, and Grim Javelineer's attack trigger keeps its second half
 - **Flicker triggers** (Displacer Kitten, Teleportation Circle, Conjurer's Closet and the like) now flicker the permanent worth flickering instead of whichever came first; Displacer Kitten no longer flickers an Aura, which came back enchanting nothing
 - **"Whenever this creature attacks a battle"** no longer fires on every attack (Thrashing Frontliner pumped when it attacked a player); battles can't be attacked yet, so these cards wait for that

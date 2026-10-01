@@ -42,7 +42,14 @@ function table({ user = [], ai = [], hand = [], mana = {} } = {}) {
 const P = (id, c, controller = "user", extra = {}) => ({ ...createPermanent({ id, card: { ...c, id: `c-${id}` }, controller, summoningSick: false }), ...extra });
 function act(s, pick) { const a = legalActionsForPlayer(s, "user").find(pick); if (!a) throw new Error("no action"); return dispatchAction(s, a); }
 /** Resolve the stack, putting any triggers that fire onto it, until a choice or quiet. */
-const settle = (s) => { let n = s, g = 0; while ((n.stack?.length || n.pendingTriggers?.length) && !n.pendingChoice && g++ < 30) n = n.stack?.length ? resolveTopOfStack(n) : flushTriggers(n, { chooseTargets: chooseTriggerTargets }); return n; };
+const settle = (s) => {
+  let n = s, g = 0;
+  while ((n.stack?.length || n.pendingTriggers?.length) && !n.pendingChoice && g++ < 30) n = n.stack?.length ? resolveTopOfStack(n) : flushTriggers(n, { chooseTargets: chooseTriggerTargets });
+  // The engine logs a crashing resolver as a stack-resolve-error rather than throwing — fail loudly instead of passing over one.
+  const crash = (n.log || []).find((e) => e.kind === "stack-resolve-error");
+  if (crash) throw new Error(`a resolver crashed: ${crash.error}`);
+  return n;
+};
 const cast = (s, id, target) => settle(act(s, (a) => a.kind === "cast-spell" && a.cardId === id && a.targets?.[0]?.id === target));
 const tokensOf = (s, pid) => s.players[pid].battlefield.filter((p) => p.card?.token).map((p) => `${p.card.power}/${p.card.toughness}`);
 const watches = (s) => (s.delayedTriggers || []).filter((r) => r.watchDies).length;

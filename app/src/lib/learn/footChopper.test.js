@@ -39,7 +39,13 @@ function connect(s, wearer) {
   let n = flushTriggers(checkCombatDamageTriggers(s, [{ kind: "combat-damage-player", attackerId: wearer, attackingPlayer: "user", defender: "ai", amount: 3 }]), { chooseTargets: chooseTriggerTargets });
   let g = 0;
   while (n.stack?.length && !n.pendingChoice && g++ < 10) n = resolveTopOfStack(n);
-  return n;
+  return noCrash(n);
+}
+/** The engine logs a crashing resolver as a stack-resolve-error rather than throwing — fail loudly instead of passing over one. */
+function noCrash(s) {
+  const crash = (s.log || []).find((e) => e.kind === "stack-resolve-error");
+  if (crash) throw new Error(`a resolver crashed: ${crash.error}`);
+  return s;
 }
 const drawn = (s) => 4 - s.players.user.library.length;
 
@@ -59,13 +65,13 @@ describe("⭐ in play", () => {
   it("⭐ the Hill Giant wearing it connects: the one candidate is the Giant (not the Bear beside it); sacrificed, three cards", () => {
     const s = connect(board("giant", GIANT, [perm("bear", BEAR)]), "giant");
     const candidates = (s.pendingChoice?.candidates || []).map((c) => c.id);
-    const after = resolveOptionalSacChoice(s, true, "giant");
+    const after = noCrash(resolveOptionalSacChoice(s, true, "giant"));
     const row = { kind: s.pendingChoice?.kind, candidates, drew: drawn(after), giantGone: !findPermanent(after, "giant"), bearStays: !!findPermanent(after, "bear") };
     console.log(`WITNESS footChopper ${JSON.stringify(row)}`);
     expect(row).toEqual({ kind: "optional-sac-payment", candidates: ["giant"], drew: 3, giantGone: true, bearStays: true });
   });
   it("declined, nothing happens", () => {
-    const after = resolveOptionalSacChoice(connect(board("giant", GIANT), "giant"), false);
+    const after = noCrash(resolveOptionalSacChoice(connect(board("giant", GIANT), "giant"), false));
     expect({ drew: drawn(after), giantStays: !!findPermanent(after, "giant") }).toEqual({ drew: 0, giantStays: true });
   });
   it("the wearer gone before resolution: no candidate, nothing to sacrifice, no cards", () => {
@@ -73,7 +79,7 @@ describe("⭐ in play", () => {
     s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: s.players.user.battlefield.filter((p) => p.id !== "giant") } } };
     let g = 0;
     while (s.stack?.length && !s.pendingChoice && g++ < 10) s = resolveTopOfStack(s);
-    const after = s.pendingChoice ? resolveOptionalSacChoice(s, true, "giant") : s;
+    const after = noCrash(s.pendingChoice ? resolveOptionalSacChoice(s, true, "giant") : s);
     expect({ candidates: (s.pendingChoice?.candidates || []).length, drew: drawn(after) }).toEqual({ candidates: 0, drew: 0 });
   });
   it("the autopilot gives up only a token: its own Ninja yes, the Hill Giant no", () => {
@@ -108,7 +114,7 @@ function selfSac(card, others = []) {
   s = resolveOptionalSacChoice(s, true, "me");
   let g2 = 0;
   while ((s.stack?.length || s.pendingTriggers?.length) && !s.pendingChoice && g2++ < 10) s = s.stack?.length ? resolveTopOfStack(s) : flushTriggers(s, { chooseTargets: chooseTriggerTargets });
-  return s;
+  return noCrash(s);
 }
 
 describe("the unaimed gains, in play", () => {

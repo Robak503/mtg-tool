@@ -53,7 +53,7 @@ import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { createNamedTokenClauseParser, createTokenClauseParser, attachSourceToLastTokenClauseParser, mobilizeClauseParser, mobilizeSacClauseParser } from "./atoms/tokens.js";
 import { monarchClauseParser } from "./atoms/monarch.js"; // MONARCH (CR 725)
-import { sacrificeEdictClauseParser, destroyExileClauseParser, ordealThresholdSacClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding) + OC-1 (Ordeal threshold-sac sentinel)
+import { sacrificeEdictClauseParser, destroyExileClauseParser, ordealThresholdSacClauseParser, mintedLeaveClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding) + OC-1 (Ordeal threshold-sac sentinel)
 import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP — "Sacrifice a land." controller self-sac (Roiling Regrowth / Cycle of Renewal)
 import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTROY-TOKEN-RIDER — Pongify / Rapid Hybridization (destroy creature + can't-regen + that controller makes a token)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser, seekClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
@@ -344,6 +344,9 @@ function referentBindingOk(atoms) {
   }
   return true;
 }
+
+// MINTED-TOKEN HASTE (shelf D26) — "It gains haste." / "They gain haste." right after a token copy (folded onto the copy).
+const MINTED_HASTE_RE = /^(?:it|that token|the token|they|those tokens) gains? haste\.?$/i;
 
 // ATTACH-LAST-TOKEN sequence (Cori-Steel Cutter, W9): the attach atom reads the _lastMintedTokenIds stamp
 // only a create-token atom writes — so it is honest ONLY when a create-token PRECEDES it in the same
@@ -2654,6 +2657,19 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   if (spring) return makeProgram({ confidence: "high", atoms: [spring.atom], xSpell: false, unparsedTail: null });
   const dly = matchDelayedTrigger(oracle);
   if (dly) {
+    // MINTED-TOKEN LEAVE (shelf D26 — Kiki-Jiki, Tempestra, Orthion, The Fire Crystal: "Create a token that's a copy of ….
+    // Sacrifice it at the beginning of the next end step."): "it" / "them" is what the copy just made — nothing the parser
+    // can name — so the delayed half binds to the minted tokens (removal.applyScheduleMintedLeave). Only directly after a
+    // token copy, with the pronoun agreeing ("it" one token, "them" several); anything else falls through.
+    const ml = String(dly.delayedClause).match(/^(sacrifice|exile) (it|that token|the token|them|those tokens)$/i);
+    if (ml && dly.immediateClause) {
+      const imm = parseEffectClause(dly.immediateClause, "Instant");
+      const last = imm.atoms?.[imm.atoms.length - 1];
+      const plural = /^(?:them|those tokens)$/i.test(ml[2]);
+      if (programConfidence(imm) === "high" && last?.op === "create-token-copy" && plural === (last.count || 1) > 1) {
+        return makeProgram({ confidence: "high", atoms: [...imm.atoms, { op: "schedule-minted-leave", fate: ml[1].toLowerCase(), fireStep: dly.fireStep, fireScope: dly.fireScope, targetType: null }], xSpell: false, unparsedTail: null });
+      }
+    }
     const inner = parseEffectClause(dly.delayedClause, "Instant");
     if (programConfidence(inner) === "high") {
       const scheduleAtom = {
@@ -3502,6 +3518,10 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
         prev.exileIfWouldDie = true;
         continue;
       }
+      // MINTED-TOKEN HASTE (shelf D26 — Tempestra, Orthion: "Create a token that's a copy of … It gains haste."): "it" is the
+      // token the copy made, so the grant folds onto that copy as gainsHaste — a lasting layer-6 Haste on exactly the minted
+      // tokens (applyCreateTokenCopy), not the copiable "except it has haste" (CR 707.9b).
+      if (prev?.op === "create-token-copy" && MINTED_HASTE_RE.test(clause)) { prev.gainsHaste = true; continue; }
       allParsed = false; break;
     }
     // REFERENT BINDING (CR 608.2) — "It gains flying until end of turn" acts on whatever the PREVIOUS
@@ -3512,6 +3532,10 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
     // The antecedent is the nearest preceding atom that OWNS targets, not literally the last one — a
     // referent CHAIN ("Untap that creature. It gains haste…") all names the same permanent. Same walk as
     // referentBindingOk and runProgram.referentSourceIndex; see the note on referentSourceIndex above.
+    // ⛔ NEVER ACROSS A TOKEN COPY (shelf D26): "Create a token that's a copy of target creature you control. It gains haste
+    // until end of turn." — "it" is the TOKEN the copy made, not the creature it copied, so binding to the copy's target would
+    // act on the original. Refused; the minted-token folds (gainsHaste, the end-step leave) are the modeled forms.
+    if (atom.bindPreviousTargets && atoms[referentSourceIndex(atoms, atoms.length)]?.op === "create-token-copy") { allParsed = false; break; }
     if (atom.bindPreviousTargets && !atoms[referentSourceIndex(atoms, atoms.length)]?.targetType) {
       // No chosen targets to bind to — but the antecedent may be an UNFILTERED mass atom, in which case
       // the referent rewrites into the equivalent mass atom (see rebindToMassAntecedent). A filtered or
@@ -3721,6 +3745,7 @@ function chooseTargetClauseParser(clause) {
 registerClauseParser(diesWatchClauseParser);
 registerClauseParser(chooseTargetClauseParser);
 registerClauseParser(diedCardToHandClauseParser); // its "return that card to its owner's hand" sentinel
+registerClauseParser(mintedLeaveClauseParser); // shelf D26 — the [minted-leave] sentinel the token copy's end-step sacrifice fires
 // SELF-LTB (Wave 4) — the self-return trigger detector rides the SAME parser.js wiring point as the clause
 // parsers (parser.js imports both registerTriggerDetector and detectTriggers), so it's installed before any
 // classification can read the WeakMap cache. Detects the Aura self-PiG-return + equipped-creature-dies-return

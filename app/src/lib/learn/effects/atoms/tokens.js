@@ -6,6 +6,7 @@ import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintI
 import { tokenMultiplier, tokenAdditive, tokenExtraKinds, tokenOneOfEachPasses, applyCounterDoubling } from "../../replacementEffects.js"; // + tokenOneOfEachPasses — Academy Manufactor (Bumble F4) // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter; Xorn additive Treasure bonus
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
+import { addContinuousEffect } from "../../layers.js"; // MINTED-TOKEN HASTE (shelf D26) — "It gains haste." after a token copy is a lasting layer-6 grant (layers imports no atoms — cycle-free)
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec, halveAmount } from "./shared.js";
 import { SMALL_NUM, NUM_WORD, parseCountSource, parseTokenManaAbility, parseTokenTriggeredAbility, parseTokenStaticAbility, parseTokenKeywords, BASIC_LAND_SUBTYPES } from "../parseHelpers.js"; // seam batch 18/19: shared parse helpers (leaf, cycle-free) for create-named-token + create-token clause parsers
 
@@ -573,8 +574,10 @@ export function applyCreateTokenCopy(state, atom, ctx) {
   const sourcePerm = resolveCopySource(next, atom, ctx);
   // CR 111.12 — no copy source (nonexistent / already left) ⇒ no token is created. A clean no-op, never a
   // fabricated body. (Logged so a self-play trace shows the gated miss rather than a silent nothing.)
+  // The MINTED stamp is cleared too (shelf D26): a following "it" (the end-step sacrifice) must find THIS call's tokens —
+  // none — never an older effect's.
   if (!sourcePerm?.card) {
-    return logEvent(next, { kind: "spell-effect", effect: "create-token-copy", copySource: atom.copySource, count: 0, controller: ctx.controller });
+    return logEvent({ ...next, _lastMintedTokenIds: [] }, { kind: "spell-effect", effect: "create-token-copy", copySource: atom.copySource, count: 0, controller: ctx.controller });
   }
   // CR 707.2 — the copiable card (printed values, fresh object, NO counters/auras/continuous effects,
   // isCommander stripped). cloneCard is undefined: snapshotCopiedCard reads `cloneCard?.id` for the id, so
@@ -619,6 +622,15 @@ export function applyCreateTokenCopy(state, atom, ctx) {
     if (atom.entersAttacking) entered = { ...entered, attacking: true };
     next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, entered] } } };
     mintedIds.push(minted.id);
+  }
+  // MINTED-TOKEN REFERENT (shelf D26 — Kiki-Jiki, Tempestra): "It gains haste. Sacrifice it at the beginning of the next end
+  // step." — "it" is every token this call made (a doubler's extras included). Stamped for the end-step sacrifice that
+  // follows (removal.applyScheduleMintedLeave). "It gains haste" with no duration is a layer-6 grant that lasts (CR 611.2a) — NOT part
+  // of the copy's copiable values, unlike "except it has haste" (CR 707.9b).
+  next = { ...next, _lastMintedTokenIds: [...mintedIds] };
+  if (atom.gainsHaste && mintedIds.length) {
+    next = addContinuousEffect(next, { layer: 6, op: { layerOp: "addKeyword", keyword: "Haste" }, affects: { mode: "fixed", permanentIds: [...mintedIds] },
+      duration: { kind: "permanent" }, source: { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null } }).state;
   }
   // ETB (CR 603.6a) — each minted copy fires its own + every watcher's enter triggers (Soul Warden /
   // subtype-ETB / artifact-ETB). The copy is token:true, so a nontoken-gated watcher (Miirym) is a no-op

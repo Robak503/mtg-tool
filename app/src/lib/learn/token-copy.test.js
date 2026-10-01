@@ -79,10 +79,12 @@ describe("tokenCopyParser — exact anchors only", () => {
   it("FORBIDDEN: a TARGET source (Thousand-Faced Shadow) → null", () => {
     expect(tokenCopyParser("create a token that's a copy of another target attacking creature")).toBeNull();
   });
-  it("FORBIDDEN: 'another' / counted / filtered copy → null", () => {
+  it("FORBIDDEN: a counted copy of 'it', a stat/type-rider copy, an unrestricted target → null", () => {
     expect(tokenCopyParser("create two tokens that are copies of it")).toBeNull();
-    // a TARGET-source copy with a stat/characteristic-change rider is still deferred (it would change the copy):
-    expect(tokenCopyParser("create a token that's a copy of target creature you control, except it has haste")).toBeNull();
+    // a TARGET-source copy with a stat/characteristic-change rider is still deferred (it would change the copy) — The Jolly
+    // Balloon Man's real text. (The BARE ", except it has haste" is Kiki-Jiki's copiable haste — accepted since shelf D26,
+    // pinned in the keyword-rider block below.)
+    expect(tokenCopyParser("create a token that's a copy of another target creature you control, except it's a 1/1 red balloon creature in addition to its other colors and types and it has flying and haste")).toBeNull();
     // an UNRESTRICTED target ("target creature", no "you control") is not matched — only the you-control form is:
     expect(tokenCopyParser("create a token that's a copy of target creature")).toBeNull();
   });
@@ -132,8 +134,11 @@ describe("tokenCopyParser — TARGET source + keyword-grant rider (Irenicus's Vi
     expect(tokenCopyParser("create a token that's a copy of target creature you control, except the token has flying and ninjutsu")).toBeNull(); // ninjutsu not layer-grantable
     expect(tokenCopyParser("create a token that's a copy of target creature you control, except the token has hexproof")).toBeNull();           // hexproof not in the combat set
   });
-  it("CREED: the bare 'it has <kw>' subject (paired with stat/type riders we don't model) stays null", () => {
-    expect(tokenCopyParser("create a token that's a copy of target creature you control, except it has haste")).toBeNull();
+  it("CREED: 'it has <kw>' paired with a stat/type rider stays null; the bare ', except it has haste' is copiable haste (Kiki-Jiki — shelf D26)", () => {
+    expect(tokenCopyParser("create a token that's a copy of target creature you control, except it has haste and it's a 1/1")).toBeNull();
+    expect(tokenCopyParser("create a token that's a copy of target creature you control, except it has flying")).toBeNull(); // only haste is the printed bare form
+    expect(tokenCopyParser("create a token that's a copy of target creature you control, except it has haste"))
+      .toEqual({ op: "create-token-copy", copySource: "target", count: 1, targetType: "creature", restrictions: [{ kind: "controller", who: "you" }], grantKeywords: ["haste"] });
   });
   it("the full card parses HIGH and classifies native-spell", () => {
     const C = { type: "Sorcery", mana: "{3}{U}", name: "Irenicus's Vile Duplication", oracle: "Create a token that's a copy of target creature you control, except the token has flying and it isn't legendary." };
