@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Katsumasa, the Animator** — animates a noncreature artifact you control into a flier (a Vehicle keeps its printed size, anything else is 1/1), and feeds +1/+1 counters to up to three noncreature artifacts each upkeep
 - **Mu Yanling, Wind Rider, Aeronaut Admiral and Wish Good Luck** — the 3/2 crew-1 Vehicle token, and "Vehicles you control have flying" (crewed or not)
 - **The Indomitable and Gravecrawler** — castable from your graveyard while their condition holds (three tapped Pirates and/or Vehicles; a Zombie)
 - **Tend the Sprigs** — makes its Treefolk when you control seven or more lands and/or Treefolk

@@ -72,6 +72,16 @@ export function splitClauses(oracle) {
       /(counter target spell)\.\s+(at the beginning of your next main phase, add an amount of \{c\} equal to that spell's mana value)/gi,
       "$1, $2",
     )
+    // VEHICLE-OR-BASE-P/T ANIMATE FOLD (shelf D33 — Katsumasa, the Animator: "Until end of turn, target noncreature
+    // artifact you control becomes an artifact creature and gains flying. If it's not a Vehicle, it has base power and
+    // toughness 1/1 until end of turn."). The second sentence sizes the SAME target, and only when it is not a Vehicle
+    // (a Vehicle that becomes a creature has its printed power and toughness, CR 301.7b). Split apart, neither half
+    // parses: the animate names no P/T and the rider's "it" has no antecedent. Fold the period to a comma so the pair
+    // stays ONE clause; the animate arm (atoms/combat.js) matches the folded form exactly. Katsumasa is the only carrier.
+    .replace(
+      /(becomes an artifact creature and gains [a-z ,]+?)\.\s+(if it[’']s not a vehicle, it has base power and toughness \d+\/\d+ until end of turn)/gi,
+      "$1, $2",
+    )
     // ===== WALT-ANIMATE ===== strip the vacuous "it's/that's still a land" reminder. A land that
     // "becomes a creature" is additive BY DEFAULT (it stays a land — that's why it still taps; 0
     // non-additive land-animates in the corpus), so this clause never changes resolution. Stripping it
@@ -629,6 +639,8 @@ export function splitClauses(oracle) {
     // DIES WATCH (shelf D25 — CR 603.7): "When that creature dies this turn, <payoff>" is ONE delayed ability; its payoff
     // is re-parsed whole by the watch's clause parser, so nothing inside it ("a 2/2 black and green Elf") is a boundary.
     if (/^when that creature dies this turn, .+$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // VEHICLE-OR-BASE-P/T ANIMATE (shelf D33): the folded Katsumasa sentence — its " and gains" is internal to the one animate.
+    if (/^until end of turn, target noncreature artifact you control becomes an artifact creature and gains [a-z ,]+?, if it[’']s not a vehicle, it has base power and toughness \d+\/\d+ until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // ===== WALT-ANIMATE ===== "[Until end of turn,] target land becomes a N/N [subtype] creature [with
     // KW[ and KW]] [until end of turn]" — the " and " inside a multi-keyword rider ("with reach and haste")
     // is INTERNAL to the one animate instruction, not a top-level boundary. Keep the whole sentence so

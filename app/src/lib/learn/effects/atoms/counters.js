@@ -688,6 +688,12 @@ export function addCounterClauseParser(clause) {
   // auto-pick above, which predates the multi-count infra. A `you control` suffix narrows enumeration to own creatures.
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each of up to (two|three|four|five) target creatures( you control)?$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: m[4] ? "creatureYouControl" : "creature", maxTargets: SMALL_NUM[m[3]], minTargets: 0 };
+  // SHELF D33 (Katsumasa, the Animator — "At the beginning of your upkeep, put a +1/+1 counter on each of up to three target
+  // noncreature artifacts."): the same multi-count atom over the layer-aware noncreatureArtifact pool, any controller as
+  // printed. The counter sits on the artifact and counts once it is a creature (CR 122.1a — Katsumasa's own animate);
+  // applyAddCounter places on a permanent target, and the creature-only watchers skip it while it is not one.
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on each of up to (two|three|four|five) target noncreature artifacts$/);
+  if (m) return { op: "add-counter", counterType: "+1/+1", amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "noncreatureArtifact", maxTargets: SMALL_NUM[m[2]], minTargets: 0 };
   // SUPPORT N (CR 701.41 — BLITZ ETB-1) — the keyword action "Support N". Its reminder ("Put a +1/+1 counter
   // on each of up to N other target creatures") is parenthetical, stripped before clause parsing, so
   // detectTriggers / the splitter hands us the BARE "support N". Model it as the SAME chosen-target multi-count

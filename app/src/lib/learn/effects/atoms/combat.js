@@ -444,6 +444,9 @@ export function applyAnimateEffect(state, atom, ctx) {
   // "artifact creature" (Mishra's Factory). Additive: the Land type is never stripped (still a land).
   const animateTypes = ["Creature", ...(atom.cardTypes || [])];
   for (const target of targets) {
+    // SHELF D33 — ptUnlessVehicle (Katsumasa): "If it's not a Vehicle, it has base power and toughness 1/1" is read on the
+    // target's live subtypes at resolution; a Vehicle keeps its printed power and toughness (CR 301.7b).
+    const keepPrintedPt = atom.keepPrintedPt || (atom.ptUnlessVehicle && permanentTypes(next, target.id).subtypes.includes("Vehicle"));
     next = addContinuousEffect(next, {
       layer: 4,
       op: { types: animateTypes, subtypes: atom.subtypes || [] },
@@ -462,7 +465,7 @@ export function applyAnimateEffect(state, atom, ctx) {
     }
     // S6 — keepPrintedPt: a Vehicle animated by Peacewalker Colossus keeps its printed P/T (crew's own convention); a
     // 7b set here would read 0/0 and the lethal SBA below would bin it.
-    if (!atom.keepPrintedPt) {
+    if (!keepPrintedPt) {
       next = addContinuousEffect(next, {
         layer: 7, sublayer: "7b",
         op: { layerOp: "ptSet", power: atom.power || 0, toughness: atom.toughness || 0 },
@@ -2664,6 +2667,17 @@ export function animateClauseParser(clause) {
   if (anmArt) {
     if (!anmArt[1] && !anmArt[4]) return null;
     return { op: "animate", targetType: "noncreatureArtifact", restrictions: [{ kind: "controller", who: "you" }], power: parseInt(anmArt[2], 10), toughness: parseInt(anmArt[3], 10), subtypes: [], cardTypes: ["Artifact"], grantKeywords: [], duration: "endOfTurn" };
+  }
+  // SHELF D33 (Katsumasa, the Animator — "Until end of turn, target noncreature artifact you control becomes an artifact
+  // creature and gains flying. If it's not a Vehicle, it has base power and toughness 1/1 until end of turn.", folded to
+  // one clause by splitClauses): the same target with no P/T in the becomes-phrase. A Vehicle keeps its printed power and
+  // toughness (CR 301.7b); anything else takes the rider's base P/T (layer 7b, CR 613.4b). ptUnlessVehicle carries that
+  // to resolution, where the target's live subtypes decide it. An ungrantable keyword parks the clause.
+  const anmArtKw = t.match(/^until end of turn, target noncreature artifact you control becomes an artifact creature and gains ([a-z ,]+?), if it's not a vehicle, it has base power and toughness (\d+)\/(\d+) until end of turn$/);
+  if (anmArtKw) {
+    const grantKeywords = parseGrantedKeywords(anmArtKw[1]);
+    if (!grantKeywords) return null;
+    return { op: "animate", targetType: "noncreatureArtifact", restrictions: [{ kind: "controller", who: "you" }], power: parseInt(anmArtKw[2], 10), toughness: parseInt(anmArtKw[3], 10), ptUnlessVehicle: true, subtypes: [], cardTypes: ["Artifact"], grantKeywords, duration: "endOfTurn" };
   }
   // SHELF-85 S6 (2026-09-04 — Peacewalker Colossus "{1}{W}: Another target Vehicle you control becomes an artifact creature
   // until end of turn"): crew's twin on a CHOSEN Vehicle — the same layer-4 Creature grant the crew dispatch applies, with

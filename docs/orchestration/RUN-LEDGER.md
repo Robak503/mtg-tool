@@ -5,14 +5,29 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **445 commits**, corpus
-> 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **446 commits**, corpus
+> 38.6% → **44.2% (15,144)** — roughly +1,700 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D33: KATSUMASA, THE ANIMATOR — A VEHICLE KEEPS ITS SIZE, ANYTHING ELSE IS 1/1 — Shorikai Vehicles 89 → 90 — **27 of 30 at ≥90** · **+1** · corpus 15,144 / 34,245
+> Suite **1,682 files / 17,333 tests** green (1 skipped); lint 0; decks 2,708 / 2,998. CI GREEN on D32 (run 36812307458). Flip-diff **+1, zero LOST,
+> zero RETIERED** (tier snapshots at 20fdca19 → the change: Katsumasa, the Animator). **Mutants 9/9** on the final code (restore byte-identical).
+> · **The fold** (splitClauses.js): "…becomes an artifact creature and gains flying. If it's not a Vehicle, it has base power and
+>   toughness 1/1 until end of turn." sizes ONE target, so the period folds to a comma (the Mana Drain precedent) and a keep-whole
+>   guard keeps the folded sentence's " and gains" internal. Split apart, neither half parsed (no size; a rider with no antecedent).
+> · **ptUnlessVehicle** (atoms/combat.js): the animate's layer-7b base P/T set is skipped when the target's live subtypes include
+>   Vehicle at resolution — a Vehicle that becomes a creature has its printed power and toughness (CR 301.7b); anything else is 1/1.
+> · **The upkeep counters** (atoms/counters.js): "put a +1/+1 counter on each of up to three target noncreature artifacts" rides the
+>   multi-count add-counter atom over the layer-aware noncreatureArtifact pool (any controller, as printed; the +1/+1 own-intent
+>   chooser feeds only yours). The counter waits on the artifact and counts once it is a creature (CR 122.1a).
+> · **Runtime:** `WITNESS katsumasa {"waiting":{"counters":1,"creature":false},"opponentCounters":0,"creature":true,"size":[2,2],"flying":true}`
+>   · Untethered Express animates at its printed 4/4 with flying and trample. Witness `app/src/lib/learn/katsumasaAnimator.test.js` (8).
+> · **Next:** Kellan 85 (5), Light-Paws 83 (7), Atraxa 74 (16).
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D32: MU YANLING — THE VEHICLE TOKEN AND "VEHICLES YOU CONTROL HAVE FLYING" — Shorikai Vehicles 88 → 89 · **+3** · corpus 15,143 / 34,245
 > Suite **1,681 files / 17,325 tests** green (1 skipped); lint 0; decks 2,707 / 2,998. CI GREEN on D31 (run 36810770575). Flip-diff **+3, zero LOST,
