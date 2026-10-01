@@ -80,6 +80,7 @@
 > Stone Calendar, Highspire Bell-Ringer, Uthros Psionicist — the all-spells and second-spell reducers (+3 → corpus 14,989; suite 1644 / 16,975).
 > **The residue loop STOPS here — Colton (09-30): "Do my decks."** Next: the shelf decks' unplayed cards, until the v0.161.0 tag on/after 10-02.
 > **SHELF DECKS · D1** tribal digs read the printed capital — Avengers Tower takes Hulk Smash to 90% (+7 → corpus 14,996; suite 1645 / 16,981). Tool: `app/scripts/shelf-residue-map.mjs`.
+> **SHELF DECKS · D25** "When that creature dies this turn" — the dies watch (CR 603.7) — Halfshell heroes 88 → 89 (+7 → corpus 15,124; suite 1,674 / 17,279).
 > **SHELF DECKS · D24** Foot Chopper — "you may sacrifice it. If you do", the one-candidate sacrifice — Halfshell heroes 87 → 88 (+4 → corpus 15,117; suite 1,673 / 17,266).
 > **SHELF DECKS · D23** Bebop — "draw X cards, where X is" + the optional-draw "if you do" — Halfshell heroes 86 → 87 (+5 → corpus 15,113; suite 1,672 / 17,257).
 > **SHELF DECKS · D22** Heroes in a Half Shell — the batch subject list + "each of those creatures" — Halfshell heroes 85 → 86 (+2 → corpus 15,108; suite 1,671 / 17,248).

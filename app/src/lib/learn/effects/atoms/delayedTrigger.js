@@ -32,7 +32,7 @@
  * Pure — every function returns new state; records are plain JSON so a mid-game save round-trips.
  */
 
-import { logEvent } from "../../gameState.js";
+import { logEvent, findPermanent, moveCardToZone } from "../../gameState.js";
 
 /** Steps a delayed trigger can be scheduled for. Kept in lockstep with gameEngine's drain call sites. */
 export const DELAYED_FIRE_STEPS = Object.freeze(["upkeep", "end", "main", "cleanup"]);
@@ -85,6 +85,8 @@ export function drainDelayedTriggers(state, step, activePlayer) {
   const keep = [];
   const fired = [];
   for (const rec of queue) {
+    // A DIES WATCH (below) is keyed on an event, never a step: it stays while its turn lasts and lapses after (CR 603.7b).
+    if (rec.watchDies) { if (rec.createdTurn === (state.turn || 0)) keep.push(rec); continue; }
     const stepMatches = rec.fireStep === step;
     // SHELF-85 V12 — "that turn's end step" (Final Fortune): fires ONLY on a turn advanceStep stamped as the controller's
     // extra turn. The casting turn is never stamped, so the loss cannot land on the turn the spell resolved; an
@@ -100,32 +102,129 @@ export function drainDelayedTriggers(state, step, activePlayer) {
     // Matched → it ceases to exist either way; it only FIRES if its controller is still in the game.
     if (!state.players?.[rec.controller]) continue;
     if (rec.repeatThisTurn) keep.push(rec); // … except the repeating kind, which stays for the next matching step this turn
-    fired.push({
-      event: "delayed",
-      source: { permanentId: rec.sourcePermanentId, cardId: rec.sourceCardId, name: rec.sourceName },
-      controller: rec.controller,
-      descriptor: {
-        event: "delayed",
-        scope: "you",
-        whose: "any",
-        effectClause: rec.effectClause,
-        optional: false,
-        interveningIf: null,
-        effectHasX: false,
-      },
-      context: { sourcePermanentId: rec.sourcePermanentId, delayedTriggerId: rec.id },
-      targets: [],
-      optional: false,
-      payload: {
-        resolver: "manual",
-        params: { controller: rec.controller, targets: [], context: {}, sourcePermanentId: rec.sourcePermanentId },
-      },
-    });
+    fired.push(firedFromRecord(rec));
   }
   if (fired.length === 0 && keep.length === queue.length) return { state, fired: [] };
   return { state: { ...state, delayedTriggers: keep }, fired };
 }
 
+/** A record that fires becomes a pending trigger shaped exactly like a printed one, so the normal flush resolves it. */
+function firedFromRecord(rec) {
+  return {
+    event: "delayed",
+    source: { permanentId: rec.sourcePermanentId, cardId: rec.sourceCardId, name: rec.sourceName },
+    controller: rec.controller,
+    descriptor: {
+      event: "delayed",
+      scope: "you",
+      whose: "any",
+      effectClause: rec.effectClause,
+      optional: false,
+      interveningIf: null,
+      effectHasX: false,
+    },
+    context: { sourcePermanentId: rec.sourcePermanentId, delayedTriggerId: rec.id },
+    targets: [],
+    optional: false,
+    payload: {
+      resolver: "manual",
+      params: { controller: rec.controller, targets: [], context: {}, sourcePermanentId: rec.sourcePermanentId },
+    },
+  };
+}
+
+/**
+ * "WHEN THAT CREATURE DIES THIS TURN, <payoff>" (shelf D25 — Together Forever; CR 603.7) — the EVENT-keyed sibling of the
+ * step-keyed record above. The resolving spell or ability watches ONE permanent: the creature its previous atom targeted
+ * (the referent binding, CR 608.2). If that permanent dies this turn (CR 700.4), the payoff triggers. Keyed on the
+ * PERMANENT id, so a creature that left the battlefield before the watch existed can never fire it (CR 603.7a), and one
+ * that blinked or was bounced and recast is a new object that never does (CR 400.7). The watch lapses with its turn
+ * (its stated duration, CR 603.7b). Its controller is the controller of the spell or ability that made it (CR 603.7d/e).
+ *
+ * The payoff rides as `effectClause`, exactly like a scheduled ability. "Return that card to its owner's hand" is the one
+ * payoff that names the dead creature, so it is baked into a `[died-card-to-hand <cardId>]` sentinel here, while the card
+ * is still known.
+ */
+export function applyWatchDiesThisTurn(state, atom, ctx) {
+  const controller = ctx.controller;
+  let next = state;
+  for (const t of ctx.targets || []) {
+    const lk = t?.id ? findPermanent(next, t.id) : null;
+    if (!lk) continue; // gone already — it can never die as this object now (CR 603.7a)
+    const perm = lk.permanent;
+    const clause = atom.payoffKind === "diedCardToHand" ? `[died-card-to-hand ${perm.card?.id}]` : String(atom.delayedClause || "").trim();
+    const queue = next.delayedTriggers || [];
+    const record = {
+      id: `dly-${queue.length + 1}-${next.turn || 0}`,
+      controller,
+      watchDies: perm.id,
+      effectClause: clause,
+      sourceName: ctx.cardName || null,
+      sourceCardId: ctx.sourceCardId || null,
+      sourcePermanentId: ctx.sourceId || null,
+      createdTurn: next.turn || 0,
+    };
+    next = logEvent({ ...next, delayedTriggers: [...queue, record] }, { kind: "spell-effect", effect: "watch-dies-this-turn", controller, watched: perm.id });
+  }
+  return next;
+}
+
+/**
+ * A batch of deaths fires the watches on them (called from triggers.checkDiesTriggers — the single death chokepoint — with
+ * the entries that really DIED; exiled-instead and shuffled-instead never did, CR 700.4). A matched watch fires once and
+ * is removed; a watch from an earlier turn has lapsed and is dropped; one whose controller has left the game is dropped
+ * without firing (CR 800.4a). Returns `{ state, fired }` — the caller pushes `fired`, as with the drain above.
+ */
+export function fireDiesWatches(state, dead) {
+  const queue = state.delayedTriggers || [];
+  if (!dead?.length || !queue.some((r) => r.watchDies)) return { state, fired: [] };
+  const died = new Set(dead.map((d) => d?.id).filter(Boolean));
+  const keep = [];
+  const fired = [];
+  for (const rec of queue) {
+    if (!rec.watchDies) { keep.push(rec); continue; }
+    if (rec.createdTurn !== (state.turn || 0)) continue;
+    if (!died.has(rec.watchDies)) { keep.push(rec); continue; }
+    if (!state.players?.[rec.controller]) continue;
+    fired.push(firedFromRecord(rec));
+  }
+  if (fired.length === 0 && keep.length === queue.length) return { state, fired: [] };
+  return { state: { ...state, delayedTriggers: keep }, fired };
+}
+
+/** The sentinel's parser — case-preserving on the card id, like the blink-return sentinel's. */
+export function diedCardToHandClauseParser(clause) {
+  const m = String(clause || "").trim().match(/^\[died-card-to-hand (\S+)\]$/i);
+  return m ? { op: "died-card-to-hand", cardId: m[1] } : null;
+}
+
+/**
+ * "Return that card to its owner's hand": the dead creature's card, found in the graveyard it went to (CR 400.7e — a
+ * zone-change trigger finds the new object in a public zone). That graveyard is its owner's (CR 404.1), so the owner's
+ * hand is the same player's. No longer there (exiled, already returned) → nothing (CR 603.7c). A token is never there to
+ * find: moveCardToZone drops a token as it leaves the battlefield (CR 111.7), so it never comes back (CR 111.8).
+ */
+export function applyDiedCardToHand(state, atom, ctx) {
+  for (const pid of Object.keys(state.players || {})) {
+    const card = (state.players[pid].graveyard || []).find((c) => c.id === atom.cardId);
+    if (!card) continue;
+    const next = moveCardToZone(state, { playerId: pid, fromZone: "graveyard", toZone: "hand", cardId: atom.cardId });
+    return logEvent(next, { kind: "spell-effect", effect: "died-card-to-hand", returned: card.name || null, controller: ctx.controller });
+  }
+  return logEvent(state, { kind: "spell-effect", effect: "died-card-to-hand", returned: null, controller: ctx.controller });
+}
+
+/**
+ * "Choose target creature …" — the choice is the whole effect: it names the object a following referent ("that creature")
+ * acts on. The parser admits it only directly before a referent atom (parser.chooseTargetBoundOk).
+ */
+export function applyChooseTarget(state, atom, ctx) {
+  return logEvent(state, { kind: "spell-effect", effect: "choose-target", controller: ctx.controller, targets: (ctx.targets || []).map((t) => t.id) });
+}
+
 export const delayedTriggerResolvers = Object.freeze({
   "schedule-delayed": applyScheduleDelayed,
+  "watch-dies-this-turn": applyWatchDiesThisTurn, // shelf D25 — the event-keyed watch
+  "died-card-to-hand": applyDiedCardToHand,       // its "return that card to its owner's hand" sentinel
+  "choose-target": applyChooseTarget,             // "Choose target creature …" — the antecedent the watch binds to
 });

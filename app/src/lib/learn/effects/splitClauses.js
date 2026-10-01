@@ -626,6 +626,9 @@ export function splitClauses(oracle) {
     // `parseClauseToAtom` then peels the "you may" wrapper before matching. Anchored to $ so
     // "…token and draw a card" (ending "card") still splits at " and " — only the bare form is protected.
     if (/^(?:you may )?create\b.*\bcreature tokens?$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // DIES WATCH (shelf D25 — CR 603.7): "When that creature dies this turn, <payoff>" is ONE delayed ability; its payoff
+    // is re-parsed whole by the watch's clause parser, so nothing inside it ("a 2/2 black and green Elf") is a boundary.
+    if (/^when that creature dies this turn, .+$/i.test(sentence)) { clauses.push(sentence); continue; }
     // ===== WALT-ANIMATE ===== "[Until end of turn,] target land becomes a N/N [subtype] creature [with
     // KW[ and KW]] [until end of turn]" — the " and " inside a multi-keyword rider ("with reach and haste")
     // is INTERNAL to the one animate instruction, not a top-level boundary. Keep the whole sentence so

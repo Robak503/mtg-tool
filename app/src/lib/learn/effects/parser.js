@@ -79,6 +79,7 @@ import { detectTriggers, registerTriggerDetector } from "../triggers.js";
 import { parseKickerCost, parseTeamworkCost } from "../kicker.js"; // + TEAMWORK (shelf D16) — the same optional cost paid by tapping creatures; KICKED-SPELL-EFFECT — a clean single-mana Kicker cost (no multikicker / and-or / {X}); kicker.js → parseHelpers.js → keywords.js is acyclic (parser already imports parseHelpers)
 import { spellConditionParseable, activationConditionParseable, evaluateInterveningIf, interveningIfParseable } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the spell-side shape gate (a board condition a resolving spell can read); interveningIfParseable joins 2026-08-14 for the DAMAGE-RIDER trigger sentinel (a per-object condition only trigger context can read); interveningIf → gameState is a leaf edge, no cycle (parser is not imported by either)
 import { poisonClauseParser, playerInvestigateClauseParser } from "./atoms/life.js"; // POISON (CR 122) — "<who> gets N poison counters"
+import { diedCardToHandClauseParser } from "./atoms/delayedTrigger.js"; // DIES WATCH (shelf D25) — the [died-card-to-hand] sentinel "when that creature dies this turn, return that card to its owner's hand" fires
 
 /**
  * The atom ops the interpreter can resolve natively — DERIVED from the resolver
@@ -323,6 +324,13 @@ function referentSourceIndex(atoms, i) {
   let j = i - 1;
   while (j >= 0 && atoms[j]?.bindPreviousTargets) j -= 1;
   return j;
+}
+
+// CHOOSE-TARGET (shelf D25 — Together Forever's "Choose target creature with a counter on it. When that creature dies this
+// turn, …"): a chosen target means something only when a referent acts on it, so the next atom must bind to it. Without
+// one the choice resolves to nothing at all — a card that would classify native and quietly do nothing.
+function chooseTargetBoundOk(atoms) {
+  return atoms.every((a, i) => a?.op !== "choose-target" || atoms[i + 1]?.bindPreviousTargets);
 }
 
 function referentBindingOk(atoms) {
@@ -3458,7 +3466,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // parses fully (all-or-nothing across modes).
   const modal = parseModal(cardType, oracle, hasX);
   if (modal) {
-    if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms) && attachLastTokenSequenceOk(mode.atoms) && referentBindingOk(mode.atoms))) {
+    if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms) && attachLastTokenSequenceOk(mode.atoms) && referentBindingOk(mode.atoms) && chooseTargetBoundOk(mode.atoms))) {
       const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX || a.countX || a.targetCountX || a.ptX || a.filter?.mvCapX || a.mvCapX));
       return makeProgram({ confidence: "high", structure: "modal", atoms: [], modal, xSpell, unparsedTail: null });
     }
@@ -3553,7 +3561,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // ambiguity blocked. (α2 review — tightened from "any optional in a multi-atom program drops".) Shared with
   // the collapsed-template path via `optionalsFormSuffix` so both HIGH paths enforce the same invariant.
   const optionalScopeOk = optionalsFormSuffix(atoms);
-  if (allParsed && atoms.length > 0 && optionalScopeOk && atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(atoms) && diceRollSequenceOk(atoms) && revealTopSequenceOk(atoms) && attachLastTokenSequenceOk(atoms)) {
+  if (allParsed && atoms.length > 0 && optionalScopeOk && atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(atoms) && diceRollSequenceOk(atoms) && revealTopSequenceOk(atoms) && attachLastTokenSequenceOk(atoms) && chooseTargetBoundOk(atoms)) {
     // Drop a redundant `shuffle` atom that immediately follows a `tutor` (the tutor
     // already shuffles after its search, CR 701.19e) — some cards template the shuffle as
     // its own sentence, which would otherwise shuffle twice. P3.2 review cleanup.
@@ -3634,10 +3642,11 @@ export function programConfidence(program) {
   if (program.structure === "modal") {
     const modes = program.modal?.modes;
     if (!Array.isArray(modes) || modes.length < 2) return "low";
-    return modes.every(mode => Array.isArray(mode.atoms) && mode.atoms.length > 0 && mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms) && attachLastTokenSequenceOk(mode.atoms) && referentBindingOk(mode.atoms))
+    return modes.every(mode => Array.isArray(mode.atoms) && mode.atoms.length > 0 && mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms) && attachLastTokenSequenceOk(mode.atoms) && referentBindingOk(mode.atoms) && chooseTargetBoundOk(mode.atoms))
       ? "high" : "low";
   }
   if (!Array.isArray(program.atoms) || program.atoms.length === 0) return "low";
+  if (!chooseTargetBoundOk(program.atoms)) return "low";
   // DISCOVER must be the LAST atom: its cast-free/to-hand decision resolves at the ACTION layer AFTER the
   // effect program finishes, so any atom AFTER a discover would wrongly run before the decision (a reorder).
   // No printed card needs discover-not-last today; this guards the invariant as the vocabulary widens.
@@ -3683,6 +3692,35 @@ registerClauseParser(earthbendReturnClauseParser); // EARTHBEND-RETURN (CR 603.7
 registerClauseParser(detainReturnClauseParser); // DETAIN-RETURN (DT-1, CR 610.3a) — the [detain-return] marker checkLeavesTriggers synthesizes when a detainer leaves
 registerClauseParser(czClauseParser); // CZ-COMMANDER-VISIT (Hellkite Courser) — the three-sentence fetch+haste+delayed-return + the [cz-return] sentinel
 registerClauseParser(blinkReturnClauseParser); // DELAYED-BLINK (Otherworldly Journey / Long Road Home) — the [blink-return] sentinel the delayed half re-enters from exile with
+// ===== "WHEN THAT CREATURE DIES THIS TURN, <payoff>" (shelf D25 — Together Forever; CR 603.7) =====
+// A delayed trigger the resolving spell or ability creates on the creature its previous clause targeted: the watch atom
+// binds to that target (bindPreviousTargets — "that creature", CR 608.2). The payoff is the delayed ability's whole
+// effect, re-parsed here, and must parse HIGH, choose no target of its own, and name nothing: "it", "its controller",
+// "this artifact" each mean an object the payoff would have to find again. The one such payoff modeled is "return that
+// card to its owner's hand" — the watch bakes the dead creature's card into a sentinel. Anything else stays LOW.
+const DIES_WATCH_REFERENT_RE = /\b(?:it|its|they|them|their|this|that|those|the creature)\b/i;
+function diesWatchClauseParser(clause) {
+  const m = String(clause || "").trim().replace(/[’]/g, "'").match(/^when that creature dies this turn, (.+?)\.?$/i);
+  if (!m) return null;
+  const payoff = m[1].trim();
+  const watch = { op: "watch-dies-this-turn", bindPreviousTargets: true, targetType: null };
+  if (/^return that card to its owner's hand$/i.test(payoff)) return { ...watch, payoffKind: "diedCardToHand" };
+  if (DIES_WATCH_REFERENT_RE.test(payoff)) return null;
+  const inner = parseEffectClause(payoff, "Instant");
+  // (A modal payoff is refused too — measured inert: its bullets split before this clause, so none reaches here; the
+  // refusal stays because a modal program keeps its atoms in modes, where the no-target check cannot see them.)
+  if (programConfidence(inner) !== "high" || inner.structure === "modal" || inner.atoms.some((a) => a.targetType)) return null;
+  return { ...watch, delayedClause: payoff };
+}
+// "CHOOSE TARGET CREATURE" (shelf D25) — the antecedent of that following "that creature"; the choice is the whole effect.
+// The creature-target peel in parseClauseToAtom adds a printed qualifier ("with a counter on it"); chooseTargetBoundOk
+// admits the atom only directly before a referent.
+function chooseTargetClauseParser(clause) {
+  return /^choose target creature$/i.test(String(clause || "").trim()) ? { op: "choose-target", targetType: "creature" } : null;
+}
+registerClauseParser(diesWatchClauseParser);
+registerClauseParser(chooseTargetClauseParser);
+registerClauseParser(diedCardToHandClauseParser); // its "return that card to its owner's hand" sentinel
 // SELF-LTB (Wave 4) — the self-return trigger detector rides the SAME parser.js wiring point as the clause
 // parsers (parser.js imports both registerTriggerDetector and detectTriggers), so it's installed before any
 // classification can read the WeakMap cache. Detects the Aura self-PiG-return + equipped-creature-dies-return

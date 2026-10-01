@@ -31,6 +31,7 @@ import { applyLifeGainReplacement } from "./replacementEffects.js"; // LIFE-GAIN
 import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
 import { ABILITY_WORD_LABEL_RE, creatureEntersSuppressed, entersSilencer } from "./effects/textNormalize.js"; // + entersSilencer (shelf D20 — Elesh Norn's opponent-scoped enters silence) // + TORPOR ORB (RG-2, 2026-09-05): the enters-event suppression reader // CR 207.2c label list — the SINGLE copy, shared with the spell path (textNormalize is a zero-import leaf, so no cycle)
 import { CR_CREATURE_TYPES } from "./effects/targeting.js"; // BC-1: closed creature-subtype vocabulary for the NEGATED-SUBTYPE batch filter (read ONLY inside parseBatchSubjectFilter — a function — so the triggers→targeting→spellEffects→triggers cycle stays init-safe: CR_CREATURE_TYPES is never referenced at module-init time)
+import { fireDiesWatches } from "./effects/atoms/delayedTrigger.js"; // DIES WATCH (shelf D25, CR 603.7) — "when that creature dies this turn" fires off the death chokepoint (a gameState-only leaf, no cycle)
 
 function oracleOf(card) {
   return String(card?.oracle || card?.oracle_text || "");
@@ -413,7 +414,10 @@ export function scanTriggerSentences(text) {
     if (ch === " " || ch === "\t") { i++; continue; } // whitespace preserves the boundary state
     if (atBoundary && !quote && paren === 0) {
       const m = /^(When(?:ever)?|At)\b\s+/i.exec(s.slice(i));
-      if (m) {
+      // ⛔ "When that creature dies this turn, …" never BEGINS an ability: it is a delayed trigger the sentence before it
+      // creates (CR 603.7 — "that word won't usually begin the ability"), so it is part of that ability's text. Read as a
+      // printed trigger it became a phantom self-dies trigger on Together Forever and Sandals of Abdallah (shelf D25).
+      if (m && !/^when that creature dies this turn\b/i.test(s.slice(i))) {
         // Scan to the terminating '.' at depth 0 (quotes and parens both nest the depth) — OR to a
         // closing quote directly after a period (Magic templating puts the sentence's final period
         // INSIDE the quotes: `…token with "…deals 1 damage to each opponent."` has NO depth-0 period
@@ -4609,6 +4613,10 @@ export function detectTriggers(card) {
         // "may". Checked BEFORE isFollowupSentence (which would otherwise break the loop on the "When"-led
         // sentence and silently drop the reflexive — the latent FP this closes).
         if (/^when you do(?:\s+this|\s+so)?\b/i.test(s)) { effectClause += `. ${s}`; continue; }
+        // DIES WATCH (shelf D25 — Grim Javelineer's "… target attacking creature gets +1/+0 until end of turn. When that
+        // creature dies this turn, surveil 1."): the delayed trigger the effect creates (CR 603.7) — part of THIS ability.
+        // Folded raw like the reflexive above; the parser's watch gate decides (an unmodeled payoff → LOW → Arbiter).
+        if (/^when that creature dies this turn\b/i.test(s)) { effectClause += `. ${s}`; continue; }
         if (!isFollowupSentence(s)) break;
         effectClause += `. ${s}`;
       }
@@ -7240,6 +7248,13 @@ export function checkDiesTriggers(state, dead) {
     }
     return out;
   };
+  // DIES WATCHES (shelf D25 — CR 603.7): "When that creature dies this turn, …" — the delayed triggers watching these
+  // creatures fire off the same death list, from the entries that really died (exiled or shuffled instead never did,
+  // CR 700.4). Not multiplied, like the batch watchers below: a Teysa doubling a watch made by a PERMANENT's ability
+  // (CR 603.7e makes that permanent its source) is the under-fire, the safe direction; a spell's watch has no permanent
+  // source to double.
+  const watches = fireDiesWatches(state2, dead.filter((d) => !d?.exileInstead && !d?.shuffledInstead));
+  if (watches.fired.length) state2 = { ...watches.state, pendingTriggers: [...(watches.state.pendingTriggers || []), ...watches.fired] };
   if (!fired.length) return exileGrantedDead(checkDiesBatchTriggers(state2, dead));
   // DIES-TRIGGER MULTIPLIER (Teysa Karlov): every fire here is caused by a CREATURE dying (event "dies",
   // triggeringPermanent a dead creature) → each qualifying ability triggers an additional time per multiplier

@@ -1566,10 +1566,13 @@ describe("programConfidence — pure shape function", () => {
     expect(programConfidence({ atoms: [] })).toBe("low");
     expect(programConfidence({ atoms: [{ op: "draw" }] })).toBe("high");
     expect(programConfidence({ atoms: [{ op: "draw" }, { op: "counter-spell" }] })).toBe("low"); // one unknown → low
-    // Every known op alone is HIGH — EXCEPT roll-d20, whose sequence gate (now enforced inside
-    // programConfidence, overhaul hardening) demands a diceResult payoff follow it: a trailing roll
-    // with an unmodeled outcome is exactly the dropped-clause FP the gate exists to stop.
-    KNOWN_ATOM_OPS.filter((op) => op !== "roll-d20").forEach((op) => expect(programConfidence({ atoms: [{ op }] })).toBe("high"));
+    // Every known op alone is HIGH — EXCEPT the two whose sequence gates (enforced inside programConfidence)
+    // demand a partner: roll-d20 needs a diceResult payoff after it (a trailing roll with an unmodeled outcome
+    // is exactly the dropped-clause FP the gate exists to stop), and choose-target needs a referent after it
+    // (shelf D25 — a choice nothing acts on resolves to nothing).
+    KNOWN_ATOM_OPS.filter((op) => op !== "roll-d20" && op !== "choose-target").forEach((op) => expect(programConfidence({ atoms: [{ op }] })).toBe("high"));
+    expect(programConfidence({ atoms: [{ op: "choose-target" }] })).toBe("low");
+    expect(programConfidence({ atoms: [{ op: "choose-target" }, { op: "watch-dies-this-turn", bindPreviousTargets: true }] })).toBe("high");
   });
 
   it("enforces the dice-roll and reveal-top SEQUENCE invariants (collapsed()-bypass hardening)", () => {

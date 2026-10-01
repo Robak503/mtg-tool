@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **437 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **438 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,32 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D25: "WHEN THAT CREATURE DIES THIS TURN" — THE DIES WATCH (CR 603.7) — Halfshell heroes 88 → 89 · **+7** · corpus 15,124 / 34,245
+> Suite **1,674 files / 17,279 tests** green (1 skipped); lint 0; decks 2,699 / 2,998. CI GREEN on D24 (run 36799659291). Flip-diff **+7, zero LOST,
+> zero RETIERED** (tier snapshots at 60374ca1 → the change: Together Forever, Blessed Defiance, Make Your Mark, Otherworldly Outburst, Scarblade's Malice, Felonious Rage, Grim Javelineer). **Mutants 21/21** on the final code (restore byte-identical).
+> · **Build — the event-keyed delayed trigger:** delayedTrigger.js — watch-dies-this-turn records a watch on the permanent the
+>   previous clause targeted (bindPreviousTargets, CR 608.2); fireDiesWatches fires it from checkDiesTriggers, the one death
+>   chokepoint, when THAT permanent dies this turn — never one exiled or shuffled instead (CR 700.4), never a new object (CR
+>   400.7), never a watch made after the death (CR 603.7a), never after its turn (the step drain lapses it, CR 603.7b), never
+>   for a departed controller (CR 800.4a). choose-target is "Choose target creature …", the antecedent; the
+>   [died-card-to-hand] sentinel finds the card in its owner's graveyard (CR 400.7e / 404.1). parser.js — the payoff must
+>   parse HIGH, choose no target, and name nothing; a chosen target is admitted only directly before a referent. splitClauses
+>   keeps the watch sentence whole. audit.js — a watch names the permanent it watches instead of a step.
+> · **Pre-existing defect fixed:** the shared trigger-sentence scanner anchored "When that creature dies this turn" mid-line as a
+>   PRINTED trigger. Together Forever and Sandals of Abdallah each carried a phantom self-dies trigger; Grim Javelineer's
+>   trigger lost its delayed half. A delayed trigger never begins an ability (CR 603.7): the scanner skips it, and a trigger
+>   folds it into its own effect like the reflexive "When you do". Measured: those three cards only (flip-diff).
+> · **Two guards found dead by mutation:** a token check (the engine never puts a token in a graveyard, CR 111.7 — removed);
+>   the referent fence survived until "create a token that's a copy of it" was found parsing HIGH alone — a fired watch has
+>   no triggering creature to copy, so the fence is all that stops a native claim that creates nothing; now its witness.
+> · **Runtime:** `WITNESS togetherForever {"offered":["aiBearC","bearC"],"watches":1,"died":true,"backInHand":true,"watchesAfter":0}`
+>   (only creatures with a counter offered; the chosen Bear, bolted, back in its owner's hand). Each gain in play: Blessed
+>   Defiance (1/1 Spirit), Otherworldly Outburst (3/2), Scarblade's Malice (2/2), Felonious Rage (2/2) — each on your Bear,
+>   bolted; Make Your Mark on the OPPONENT's Bear → the 3/2 Spirit is yours (CR 603.7d); Grim Javelineer's pumped attacker
+>   bolted → surveil 1. Witness `app/src/lib/learn/diesThisTurnWatch.test.js` (13).
+> · **Next:** Halfshell 89 needs 1 — Tempestra (a Kiki-style copy) · Dimension X Pizzasaur (reflexive destroy over a counters
+>   count) · Everything Pizza · Coin of Mastery · Vigor · Shredder, Shadow Master · then Shorikai / Teval (86).
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D24: FOOT CHOPPER — "YOU MAY SACRIFICE IT. IF YOU DO" — THE ONE-CANDIDATE SACRIFICE — Halfshell heroes 87 → 88 · **+4** · corpus 15,117 / 34,245
 > Suite **1,673 files / 17,266 tests** green (1 skipped); lint 0; decks 2,698 / 2,998. CI GREEN on D23 (run 36798122388). Flip-diff **+4, zero LOST,

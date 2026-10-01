@@ -22,8 +22,8 @@
  *   4. LIFE + MANA POOLS numeric (pools also ≥ 0).
  *   5. BATTLEFIELD SHAPE: every permanent has an id and a card.
  *   6. STACK SHAPE: every stack object has an id and a controller.
- *   7. DELAYED RECORDS: every delayedTriggers record has a fireStep from the known vocabulary and a
- *      non-empty effectClause.
+ *   7. DELAYED RECORDS: every delayedTriggers record has a fireStep from the known vocabulary (a dies
+ *      watch instead names the permanent it watches) and a non-empty effectClause.
  */
 
 import { DELAYED_FIRE_STEPS } from "./effects/atoms/delayedTrigger.js"; // the one shared step vocabulary
@@ -99,7 +99,9 @@ export function auditState(state) {
 
   // 7. DELAYED RECORDS
   for (const rec of state.delayedTriggers || []) {
-    if (!DELAYED_FIRE_STEPS.includes(rec?.fireStep)) v.push(`delayed ${rec?.id}: bad fireStep "${rec?.fireStep}"`);
+    // A DIES WATCH (shelf D25) is keyed on the permanent it watches, not a step.
+    if (rec && "watchDies" in rec) { if (typeof rec.watchDies !== "string" || !rec.watchDies) v.push(`delayed ${rec.id}: bad watchDies "${rec.watchDies}"`); }
+    else if (!DELAYED_FIRE_STEPS.includes(rec?.fireStep)) v.push(`delayed ${rec?.id}: bad fireStep "${rec?.fireStep}"`);
     if (!String(rec?.effectClause || "").trim()) v.push(`delayed ${rec?.id}: empty effectClause`);
   }
   return v;
