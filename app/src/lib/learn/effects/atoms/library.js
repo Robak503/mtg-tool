@@ -250,9 +250,12 @@ export function applyTutor(state, atom, ctx) {
   // MULTI-ZONE (bfxg — Finale's "library and/or graveyard") — `sourceZones` is the UNION of zones the search
   // draws from; each candidate is tagged with the zone it lives in so resolveTutorChoice enters it from the
   // right zone. A single `sourceZone` is the degenerate 1-element case; when `sourceZones` is present it wins.
+  // + "libraryTop" (shelf D37 — Eladamri): ONLY the top card of the library, revealed rather than searched, so it is kept
+  // distinct from "library" all the way to the settle (no shuffle, no library-search trigger).
   const sourceZones = Array.isArray(atom.sourceZones) && atom.sourceZones.length
-    ? atom.sourceZones.map((z) => (z === "hand" ? "hand" : z === "graveyard" ? "graveyard" : "library"))
+    ? atom.sourceZones.map((z) => (z === "hand" ? "hand" : z === "graveyard" ? "graveyard" : z === "libraryTop" ? "libraryTop" : "library"))
     : null;
+  const zoneCards = (zone) => (zone === "libraryTop" ? (player.library || []).slice(0, 1) : (player[zone] || []));
   const sourceZone = atom.sourceZone === "hand" ? "hand" : "library";
   // SEARCH→BATTLEFIELD MV-CAPPED-BY-X (bfx) — a `mvCapX` filter resolves its MV cap from the CHOSEN X at
   // resolution (Wargate / Nature's Rhythm "mana value X or less", X bound at cast per CR 601.2b / 202.3b).
@@ -296,10 +299,11 @@ export function applyTutor(state, atom, ctx) {
   // Gather candidates. MULTI-ZONE (bfxg) — pull from every source zone, tagging each with its zone so the
   // resolver moves the chosen card from the correct place. Single-zone tutors keep the original untagged shape
   // (the resolver falls back to `pc.sourceZone` when a candidate carries no `zone`), so no existing card drifts.
+  // The top card moves from the library like any library card, so its candidate carries zone "library".
   const candidates = sourceZones
-    ? sourceZones.flatMap((zone) => (player[zone] || [])
+    ? sourceZones.flatMap((zone) => zoneCards(zone)
         .filter((c) => cardMatchesTutorFilter(c, effFilter))
-        .map((c) => ({ id: c.id, name: c.name, zone })))
+        .map((c) => ({ id: c.id, name: c.name, zone: zone === "libraryTop" ? "library" : zone })))
     : (player[sourceZone] || [])
         .filter((c) => cardMatchesTutorFilter(c, effFilter))
         .map((c) => ({ id: c.id, name: c.name }));
@@ -353,7 +357,12 @@ export function applyTutor(state, atom, ctx) {
     // CHOSEN to search, the find requirement is the filter's alone, which is exactly what this
     // predicate encodes. (The design sketch also keyed on filterLabel, but the unfiltered tutor
     // atom carries filterLabel "card" — using it would re-open the very hole being closed.)
-    mayFailToFind: Boolean(atom.optional || effFilter),
+    // REVEAL CHOICE (shelf D37 — Eladamri): the player picks which card to reveal, and only a revealed creature is put.
+    // Revealing a noncreature is the decline, so it exists only when the revealable pool holds a noncreature; with nothing
+    // but creatures to reveal, one of them is put.
+    mayFailToFind: atom.revealChoice
+      ? (sourceZones || []).flatMap(zoneCards).some((c) => !cardMatchesTutorFilter(c, effFilter))
+      : Boolean(atom.optional || effFilter),
   });
 }
 

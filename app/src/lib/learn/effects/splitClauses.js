@@ -82,6 +82,14 @@ export function splitClauses(oracle) {
       /(becomes an artifact creature and gains [a-z ,]+?)\.\s+(if it[’']s not a vehicle, it has base power and toughness \d+\/\d+ until end of turn)/gi,
       "$1, $2",
     )
+    // REVEAL-THEN-PUT FOLD (shelf D37 — Eladamri, Korvecdal: "Reveal a card from your hand or the top card of your library.
+    // If you reveal a creature card this way, put it onto the battlefield."). The second sentence acts on the card the first
+    // revealed; split apart, the reveal is a no-op and the put has no antecedent. Fold the period to a comma so the pair is
+    // ONE clause; the tutor arm (atoms/putFromHand.js) matches the folded form exactly. Eladamri is the only carrier.
+    .replace(
+      /(reveal a card from your hand or the top card of your library)\.\s+(if you reveal a creature card this way, put it onto the battlefield)/gi,
+      "$1, $2",
+    )
     // ===== WALT-ANIMATE ===== strip the vacuous "it's/that's still a land" reminder. A land that
     // "becomes a creature" is additive BY DEFAULT (it stays a land — that's why it still taps; 0
     // non-additive land-animates in the corpus), so this clause never changes resolution. Stripping it

@@ -163,7 +163,7 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
       // moves the chosen card FROM that candidate's zone; `sourceZone` above is then only the shuffle-decision
       // fallback. Null on every single-zone tutor (the original path). Plain JSON (serialize-safe).
       sourceZones: Array.isArray(sourceZones) && sourceZones.length
-        ? sourceZones.map((z) => (z === "hand" ? "hand" : z === "graveyard" ? "graveyard" : "library"))
+        ? sourceZones.map((z) => (z === "hand" ? "hand" : z === "graveyard" ? "graveyard" : z === "libraryTop" ? "libraryTop" : "library")) // + libraryTop (shelf D37): revealed, never shuffled
         : null,
       // RAMP-1 — where the chosen card goes: "hand" (P3.2 tutor) or "battlefield" (+ entersTapped, ramp). For
       // RAMP-SPLIT these reflect the CURRENT pick (the head of the destinations sequence).

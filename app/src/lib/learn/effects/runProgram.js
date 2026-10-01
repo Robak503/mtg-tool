@@ -330,7 +330,8 @@ export function autoPickTutorCandidate(state, pendingChoice) {
     ? pendingChoice.sourceZones
     : [pendingChoice.sourceZone === "hand" ? "hand" : "library"];
   const byId = new Map();
-  for (const z of zones) for (const c of (player[z] || [])) byId.set(c.id, c);
+  // + libraryTop (shelf D37 — Eladamri): only the top card of the library is in that pseudo-zone.
+  for (const z of zones) for (const c of (z === "libraryTop" ? (player.library || []).slice(0, 1) : (player[z] || []))) byId.set(c.id, c);
   // WAVE-2b TUTOR — DEFENSIVELY re-apply the structured filter (type groups + MV cap — Spellseeker MV<=2,
   // Trophy Mage MV=3). Candidates are already filtered upstream by applyTutor, so this is a belt-and-braces
   // guard that the auto-pick can never select an off-filter card even if a future caller skips pre-filtering.

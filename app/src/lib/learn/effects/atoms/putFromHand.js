@@ -133,6 +133,16 @@ function parsePutFilter(phrase) {
  */
 export function putFromHandClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").trim();
+  // SHELF D37 (Eladamri, Korvecdal — "Reveal a card from your hand or the top card of your library. If you reveal a creature
+  // card this way, put it onto the battlefield.", folded to one clause by splitClauses): the same hand → battlefield put, with
+  // the library's TOP card as a second source — a reveal, not a search, so applyTutor's "libraryTop" pseudo-zone never
+  // shuffles. revealChoice: revealing a noncreature puts nothing, so the put may be skipped only when the hand or the top
+  // card holds a noncreature to reveal; when every revealable card is a creature, one must be put (applyTutor derives
+  // mayFailToFind from the pool).
+  if (/^reveal a card from your hand or the top card of your library, if you reveal a creature card this way, put it onto the battlefield\.?$/.test(t)) {
+    return { op: "tutor", sourceZones: ["hand", "libraryTop"], filter: { ...TYPE_FILTER.creature }, filterLabel: "creature card from your hand or the top of your library",
+      destination: "battlefield", entersTapped: false, revealChoice: true, targetType: null };
+  }
   // Single / counted / unbounded put — ONE anchored matcher. Capture groups:
   //   [1] quantity: "a"/"an"/"one".. OR "up to <word>" OR "any number of"
   //   [2] filter phrase (optional color + type), e.g. "green creature", "creature", "permanent"

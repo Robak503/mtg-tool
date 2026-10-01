@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **5 commits**, corpus **44.2% (15,145)** at the tag → **44.2% (15,150)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **6 commits**, corpus **44.2% (15,145)** at the tag → **44.2% (15,151)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,24 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D37: ELADAMRI, KORVECDAL — REVEAL FROM HAND OR THE LIBRARY TOP, PUT A CREATURE ONTO THE BATTLEFIELD — Kellan of the West 88 → 89 · **+1** · corpus 15,151 / 34,245
+> Suite **1,687 files / 17,363 tests** green (1 skipped); lint 0; decks 2,712 / 2,998. CI GREEN on D36 (run 36823605870). Flip-diff **+1, zero LOST,
+> zero RETIERED** (tier snapshots at 402f9747 → the change: Eladamri, Korvecdal). **Mutants 9/9** on the final code (restore byte-identical).
+> · **The fold** (splitClauses.js): "Reveal a card from your hand or the top card of your library. If you reveal a creature card this
+>   way, put it onto the battlefield." → one clause; putFromHand.js reads it as the hand → battlefield tutor with `sourceZones:
+>   ["hand", "libraryTop"]` and `revealChoice`. Eladamri's cost (tap two untapped creatures) and "Activate only during your turn" were
+>   already modeled.
+> · **The `libraryTop` pseudo-zone** (applyTutor, setPendingTutorChoice, autoPickTutorCandidate): ONLY the top card of the library,
+>   revealed rather than searched — its candidate moves as a library card, and the settle's shuffle test (`sourceZones` holds
+>   "library") never fires, so the rest of the library keeps its order and no library-search trigger runs.
+> · **revealChoice:** revealing a noncreature puts nothing, so the put may be declined only when the hand or the top card holds a
+>   noncreature to reveal; with nothing but creatures to reveal, one must be put (`mayFailToFind` false — a null pick is refused).
+> · **Runtime:** `WITNESS eladamri {"tapped":["B1","B2","EL"],"candidates":["handBear@hand","topAngel@library"],"mayDecline":true,"entered":true,"library":["l2","l3","l4","l5","l6"]}`
+>   · a creature second from the top is never a candidate · all-creature reveal: the decline is refused and the auto-pick takes the
+>   best · not offered on an opponent's turn. Witness `app/src/lib/learn/eladamriKorvecdal.test.js` (6).
+> · **Next:** Kellan 89 needs 1 — Fblthp, Lost on the Range or Bonny Pall, Clearcutter (two lines each), or Transcendent Dragon
+>   (casting a card you don't own from another player's exile — a new capability). Then Light-Paws 83 (needs 7).
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D36: SAKASHIMA'S PROTEGE — A COPY OF ANY PERMANENT THAT ENTERED THIS TURN — Kellan of the West 87 → 88 · **+1** · corpus 15,150 / 34,245
 > Suite **1,686 files / 17,357 tests** green (1 skipped); lint 0; decks 2,711 / 2,998. CI GREEN on D35 (run 36821724279). Flip-diff **+1, zero LOST,
