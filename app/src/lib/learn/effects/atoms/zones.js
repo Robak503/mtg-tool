@@ -1340,6 +1340,12 @@ export function bounceClauseParser(clause) {
   if (/^return target spell or nonland permanent an opponent controls to its owner's hand$/.test(t)) {
     return { op: "bounce-spell-or-permanent", targetType: "spellOrPermanent", notCounter: true, spellController: "opponent", restrictions: [{ kind: "typeNeg", type: "land" }, { kind: "controller", who: "opponent" }] };
   }
+  // HULLBREAKER HORROR (the play-weighted program, P·18): "return target spell you don't control to its owner's hand" — the
+  // Venser bounce's stack half alone ("spell", never a permanent), narrowed to a spell another player controls (every other
+  // player is an opponent here). Not a counter (CR 701.6a), so an uncounterable spell is still a legal target.
+  if (/^return target spell you don't control to its owner's hand$/.test(t)) {
+    return { op: "bounce-spell-or-permanent", targetType: "spell", notCounter: true, spellController: "opponent" };
+  }
   // NAME-LOCK BOUNCE (SHELF-85 B4, 2026-09-04 — Reflector Mage): the splitter's sentinel for "… to its owner's hand.
   // That creature's owner can't cast spells with the same name as that creature until your next turn." The bounce is
   // the plain opponent-scoped creature bounce; the rider records a per-player NAME cast lock (gameState.nameCastLocks)

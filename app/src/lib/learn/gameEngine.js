@@ -1547,7 +1547,9 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       // No mode resolves to a provably-correct-side target (every mode is targeted + mis-sideable) → Arbiter
       // no-op rather than risk friendly fire (false-negative SAFE). A non-targeted mode would be a safe
       // candidate, so this only happens when no safe mode exists at all.
-      if (picked === NO_SAFE_TARGET) return { payload: { resolver: "manual" }, targets: [] };
+      // CHOOSE UP TO ONE (play-weighted P·18 — Hullbreaker Horror): "none" is a legal choice, and it is the right one when every
+      // candidate would hit your own side — no mode is chosen, so the ability is removed from the stack (CR 603.3c).
+      if (picked === NO_SAFE_TARGET) return program.modal?.allowNone ? null : { payload: { resolver: "manual" }, targets: [] };
       const choice =
         typeof picked === "number" && candidates[picked]
           ? candidates[picked]

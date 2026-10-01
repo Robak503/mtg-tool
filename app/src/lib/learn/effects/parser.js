@@ -1051,17 +1051,22 @@ function parseModal(cardType, oracle, hasX = false) {
   // Its OWN anchored regex (the repeatable-lead discipline) so every existing modal is byte-identical.
   // (+ the PERIOD form — Lita, Little Orphan Amphibian, SHELF-85 · Halfshell Q5: the lead ends in "." with the bullets on the next lines.)
   const mem = (cb || rep) ? null : stripped.match(/^choose one that hasn't been chosen this turn\s*(?:[—–-]|\.)\s*/i);
-  const m = (cb || rep || mem) ? null : stripped.match(MODAL_RE);
-  if (!cb && !rep && !mem && !m) return null;
+  // CHOOSE UP TO ONE (play-weighted P·18 — Hullbreaker Horror: "Whenever you cast a spell, choose up to one —"): one mode or
+  // none (CR 700.2). Its OWN anchored regex (the repeatable-lead discipline) so every existing modal is byte-identical; the
+  // modal carries `allowNone`, and a trigger whose chooser finds no safe mode chooses none — removed from the stack (CR 603.3c).
+  const upToOneLead = (cb || rep || mem) ? null : stripped.match(/^choose up to one\s*[—–-]\s*/i);
+  const m = (cb || rep || mem || upToOneLead) ? null : stripped.match(MODAL_RE);
+  if (!cb && !rep && !mem && !upToOneLead && !m) return null;
   const REP_COUNT = { three: 3, four: 4, five: 5 };
   const repeatable = !!rep;
   const modeMemoryPerTurn = !!mem;
-  const tail = (cb || rep || mem) ? "" : (m[2] || "").toLowerCase();
+  const tail = (cb || rep || mem || upToOneLead) ? "" : (m[2] || "").toLowerCase();
   const orBoth = tail === " or both";
   const orMore = tail === " or more"; // "choose one or more" → MODAL-N (any non-empty subset, CR 700.2)
   const conditionalBothCommander = !!cbc;
   const conditionalBothKicked = !!cbt;
-  const rest = stripped.slice((cb || rep || mem || m)[0].length).trim();
+  const allowNone = !!upToOneLead;
+  const rest = stripped.slice((cb || rep || mem || upToOneLead || m)[0].length).trim();
   // "one or more" modes ARE bullet-separated in every printed case; the " or "-fallback split (used only
   // for un-bulleted two-mode charms) would wrongly shred a "one or more" mode's effect text, so require
   // bullets for the MODAL-N form (a non-bulleted "one or more" → null → low, an FN-safe park).
@@ -1115,7 +1120,7 @@ function parseModal(cardType, oracle, hasX = false) {
   // (CR 700.2d). Applying the guard here would reject the cards this branch exists to model.
   if (!repeatable && chooseCount > modes.length) return { chooseCount, upTo, atLeastOne, modes: null };
   if ((orBoth || conditionalBothCommander || conditionalBothKicked) && modes.length !== 2) return { chooseCount, upTo, atLeastOne, modes: null };
-  return { chooseCount, upTo, atLeastOne, ...(conditionalBothCommander && { conditionalBothCommander: true }), ...(conditionalBothKicked && { conditionalBothKicked: true }), ...(repeatable && { repeatable: true }), ...(modeMemoryPerTurn && { modeMemoryPerTurn: true }), modes };
+  return { chooseCount, upTo, atLeastOne, ...(conditionalBothCommander && { conditionalBothCommander: true }), ...(conditionalBothKicked && { conditionalBothKicked: true }), ...(repeatable && { repeatable: true }), ...(modeMemoryPerTurn && { modeMemoryPerTurn: true }), ...(allowNone && { allowNone: true }), modes };
 }
 
 // The up-front multi-sentence SPAN matchers (δ-1 hand disruption · the removal/counter rider folds ·

@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **33 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,216)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **34 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,220)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,25 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 18: Hullbreaker Horror (EDHREC #269) — "choose up to one" and the spell-only bounce · **+4** · corpus 15,220
+> Suite **17,579** green (1 skipped); lint 0; decks 2,738 → **2,739** / 2,998 (Kinnan 92). CI GREEN on P·17 (run 36909086278). Flip-diff
+> **+4, zero LOST, zero RETIERED** (tier snapshots at 099bdd66 → the change; each full oracle audited): Hullbreaker Horror →
+> native-mixed; Dreamshackle Geist (and its Alchemy twin), Sawblade Slinger → native-trigger. Top 1,000 **849** (needs +51); top
+> 2,500 **1,671**. **Mutants 6/6** (restore byte-identical).
+> · **"Choose up to one —"** (parseModal): its own anchored lead (every existing modal byte-identical), carried as
+>   `allowNone`. A modal trigger's chooser aims each mode at the enemy side; with `allowNone`, finding no safe candidate means
+>   choosing NO mode — the ability is removed from the stack (CR 603.3c) instead of going to the Arbiter, and never bounces
+>   your own permanent.
+> · **The spell-only bounce:** "return target spell you don't control to its owner's hand" — Venser's stack half alone
+>   (targetType "spell"), narrowed to another player's spell (`spellController`), not a counter (`notCounter`, CR 701.6a) so
+>   an uncounterable spell is still a legal target. The enumeration's own refusal of your spell is witnessed directly — the
+>   trigger's chooser would have hidden its absence.
+> · **Runtime:** `WITNESS hullbreakerHorror {"stack":["Dark Ritual"],"aiHand":["Divination"],"ogre":true}` — the opponent's
+>   Divination returned to their hand when the Ritual was cast; with no spell their nonland permanent goes; with nothing of
+>   theirs the trigger is removed and Hullbreaker stays; Carnage Tyrant on the stack is bounced. Witness
+>   `app/src/lib/learn/hullbreakerHorror.test.js` (7).
+> · **Next:** #273 Reality Shift.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 17: Bolas's Citadel (EDHREC #263) — pay life from the top, and "Sacrifice N <class>" costs · **+15** · corpus 15,216
 > Suite **17,572** green (1 skipped); lint 0; decks 2,735 → **2,738** / 2,998 (Vihaan 96, Shorikai Vehicles 92, Thrun Voltron 92). CI

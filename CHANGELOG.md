@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Hullbreaker Horror, Dreamshackle Geist and Sawblade Slinger** — "choose up to one" modes: the ability can choose none, and Hullbreaker returns an opponent's spell or nonland permanent to its owner's hand
 - **Bolas's Citadel** — cast spells from the top of your library by paying life equal to their mana value; tap and sacrifice ten nonland permanents to make each opponent lose 10 life
 - **"Sacrifice two artifacts"-style costs** — Sai, Master Thopterist, Mondrak, Zopandrel, Breya, Time Sieve and nine more: the least valuable permanents of the class are sacrificed, and the action names them
 - **Etali, Primal Storm** — when it attacks, exile the top card of each player's library and cast any number of the spells among them for free, opponents' cards included
