@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **39 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,228)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **40 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,233)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,25 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 24: Anger (EDHREC #349) and the Incarnations — statics that work from a graveyard · **+5** · corpus 15,233
+> Suite **17,639** green (1 skipped); lint 0; decks **2,740** / 2,998 unchanged. CI GREEN on P·23 (run 36925379460).
+> Flip-diff **+5, −0, zero RETIERED** (tier snapshots at 103f20f5 → the change): Anger, Wonder, Brawn, Filth, Valor →
+> native-static. Top 1,000 **857** (+2 — Wonder #821 with Anger; needs +43); top 2,500 **1,681** (+3 with Brawn #1876).
+> **Mutants 8/8** (restore byte-identical).
+> · **The seam:** "As long as this card is in your graveyard and <condition>, <effect>" functions only from a graveyard
+>   (CR 113.6b). The ONE clause reader (staticAbilityParser.parseClause — so the runtime and the classifier read the same
+>   thing) peels the graveyard clause, parses the rest as the gated anthem it already read ("as long as you control a
+>   Mountain, creatures you control have haste"), and tags it `zone:"graveyard"`. layers.staticEffectsOf drops it on the
+>   battlefield; the new layers.graveyardEffectsOf collects it from each graveyard.
+> · **Whose "you":** a card in a graveyard has no controller, so "you" is its owner (CR 109.5). The effect's source is
+>   `{ kind: "graveyard", controller: owner }`, read by the selector (as an emblem's is) and by the source gate (the "you
+>   control a Mountain" count runs on the owner's board). An ordinary anthem in a graveyard still does nothing (witnessed).
+> · **Residue:** the gate's board count reads printed type lines (layer-internal, recursion-free by design), so a Dryad
+>   player's granted Mountain doesn't open Anger's gate — an under-read, the safe direction; it's in the type-line audit task.
+> · **Runtime:** with Anger in your graveyard and a Mountain out, a creature that entered this turn is offered as an
+>   attacker; Anger on the battlefield grants nothing. Witness `app/src/lib/learn/incarnations.test.js` (7).
+> · **Next:** #359 Dawn's Truce.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 23: Sevinne's Reclamation (EDHREC #339) — cast from a graveyard, and the self-copy · **+1** · corpus 15,228
 > Suite **17,632** green (1 skipped); lint 0; decks **2,740** / 2,998 unchanged. CI GREEN on P·22 (run 36922846707).

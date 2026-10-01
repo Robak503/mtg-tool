@@ -746,6 +746,9 @@ function gateMet(state, perm, gate) {
 // state. Absent gateOn keeps the pre-existing self-subject semantics for every prior gate — no behavior change.
 function gatePermForEffect(state, effect, affectedPerm) {
   if (effect?.op?.gate?.gateOn === "source") {
+    // A GRAVEYARD source (P·24 — Anger's "you control a Mountain") has no permanent: the gate reads against its owner's
+    // board (CR 109.5) through a controller-only subject (the board-count gates read nothing else off it).
+    if (effect.source?.kind === "graveyard") return { controller: effect.source.controller };
     return (effect.source?.permanentId && findPerm(state, effect.source.permanentId)) || null;
   }
   return affectedPerm;
@@ -818,7 +821,9 @@ export function staticEffectsOf(state, permanent) {
   if (!card) return [];
   const partials = [
     ...(STATIC_REGISTRY[card.name] || []),
-    ...parseStaticAbilities(card),
+    // A graveyard static (P·24 — "as long as this card is in your graveyard …") does nothing on the battlefield (CR 113.6b);
+    // graveyardEffectsOf collects it from the graveyard instead.
+    ...parseStaticAbilities(card).filter((p) => p.zone !== "graveyard"),
   ];
   // SELF CHOSEN-TYPE ADD (CR 205.1b, layer 4) — "This creature is the chosen type in addition to its other
   // types." The parser can only leave a MARKER, because the subtype added is this permanent's own stored
@@ -963,6 +968,24 @@ export function emblemEffectsOf(emblem, controller) {
 }
 
 /**
+ * The continuous effects a CARD IN A GRAVEYARD generates (the play-weighted program, P·24 — the Incarnations: "As long as
+ * this card is in your graveyard and you control a Mountain, creatures you control have haste"; CR 113.6b — an ability that
+ * says it functions from a zone functions only there). Only the statics the parser tagged `zone:"graveyard"`; a card in a
+ * graveyard has no controller, so its "you" is its OWNER (CR 109.5) — `source.controller`, which effectAffects (the "you
+ * control" selector) and gatePermForEffect (the "you control a Mountain" gate) read, as they read an emblem's. The static
+ * parse is memoized per card, so a graveyard card costs one lookup per collection.
+ */
+export function graveyardEffectsOf(card, owner) {
+  return parseStaticAbilities(card).filter((p) => p.zone === "graveyard").map((p) => ({
+    ...p,
+    sublayer: p.sublayer ?? null,
+    isCDA: !!p.isCDA,
+    timestamp: Number.isFinite(card.timestamp) ? card.timestamp : 0,
+    source: { kind: "graveyard", controller: owner, cardId: card.id, cardName: card.name || null },
+  }));
+}
+
+/**
  * Every continuous effect applicable to ANY permanent right now: each
  * permanent's synthesized static-ability effects + the stored resolution effects
  * (state.continuousEffects, e.g. pump-until-EOT). Counters are NOT collected here
@@ -984,6 +1007,11 @@ export function collectContinuousEffects(state) {
   for (const pid of Object.keys(state.players || {})) {
     for (const emblem of state.players[pid].emblems || []) {
       const fx = emblemEffectsOf(emblem, pid);
+      if (fx.length) effects.push(...fx);
+    }
+    // P·24 — the graveyard statics (the Incarnations), scoped to the card's owner.
+    for (const card of state.players[pid].graveyard || []) {
+      const fx = graveyardEffectsOf(card, pid);
       if (fx.length) effects.push(...fx);
     }
   }
@@ -1358,6 +1386,8 @@ function effectAffects(effect, candidate, state) {
       // An EMBLEM source has no battlefield permanent (and can't leave), so it's never dropped; its
       // "you control" scope resolves against the emblem's controller (PW-5).
       if (effect.source?.kind === "emblem") sourcePerm = { controller: effect.source.controller };
+      // A GRAVEYARD source (P·24) is a card, not a permanent; its "you control" resolves against its owner (CR 109.5).
+      if (effect.source?.kind === "graveyard") sourcePerm = { controller: effect.source.controller };
       return matchesSelector(affects.selector, candidate, sourcePerm, state);
     }
     default:

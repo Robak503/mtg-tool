@@ -2026,6 +2026,19 @@ function termFor(word, excludeSelf) {
 }
 
 function parseClause(clause, out, selfName, selfType) {
+  // ⭐ GRAVEYARD STATIC (the play-weighted program, P·24 — the Incarnations: Anger, Wonder, Brawn, Filth, Valor; CR 113.6b):
+  // "As long as this card is in your graveyard and <condition>, <effect>" functions only while the card is in a graveyard.
+  // The rest parses as the ordinary static "as long as <condition>, <effect>", and every descriptor it yields is tagged
+  // `zone:"graveyard"` — layers.staticEffectsOf drops those on the battlefield, layers.graveyardEffectsOf collects them from
+  // the graveyard. Here, in the one clause reader, so the runtime (parseStaticAbilities) and the classifier
+  // (staticAbilitiesCoverCard) read the same thing. Nothing parsed → nothing tagged: the clause stays residue.
+  const gyz = String(clause).match(/^as long as this card is in your graveyard and (.+?), (.+)$/i);
+  if (gyz) {
+    const inner = [];
+    parseClause(`as long as ${gyz[1]}, ${gyz[2]}`, inner, selfName, selfType);
+    for (const d of inner) out.push({ ...d, zone: "graveyard" });
+    return;
+  }
   // ⭐ CREW-NUMBER GRANT (SHELF-85 S17, 2026-09-04 — Kotori, Pilot Prodigy "Vehicles you control have crew 2", CR 702.122):
   // a layer-6 ability grant, not a keyword: the Vehicle gains a SECOND crew ability with number N, so its cheapest crew
   // is min(printed, N). Rides the SAME dynamic selector the tribal anthems use (Artifact + Vehicle subtype, your

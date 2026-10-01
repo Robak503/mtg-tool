@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Anger, Wonder, Brawn, Filth and Valor** — while in your graveyard, with the matching basic land type under your control, your creatures have haste, flying, trample, swampwalk or first strike
 - **Sevinne's Reclamation** — cast with flashback, you may copy it, and the copy returns a different permanent card
 - **Mana Geyser, Battle Hymn, Songs of the Damned, Brightstone Ritual, Inner Fire and Dragon's Desire** — add one mana for each thing counted (tapped lands your opponents control, creatures you control, creature cards in your graveyard, Goblins, cards in your hand, your opponents' artifacts)
 - **Black Market, Altar of Shadows and Giant-Man, Gargantuan Genius** — at the beginning of your first main phase, add mana for each charge counter (Giant-Man: each creature you control with power 4 or greater)
