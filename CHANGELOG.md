@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.162.0] - 2026-10-01
+
 ### Added
 - **Cabal Ritual and Thermal Blast** — threshold: with seven or more cards in your graveyard, Cabal Ritual adds five black instead of three and Thermal Blast deals 5 damage instead of 3
 - **Selvala, Heart of the Wilds** — whenever another creature enters, its controller may draw a card if its power is greater than every other creature's
