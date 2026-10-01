@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Sakashima's Protege** — enters as a copy of any permanent that entered this turn (its Flash and Cascade work as printed)
 - **One with the Multiverse, Zaffai and the Tempests, Vision, Spectral Synthezoid and Omniscience** — cast a spell without paying its mana cost (once each turn, or freely with Omniscience), at the normal time for that spell
 
 ## [0.161.0] - 2026-09-30

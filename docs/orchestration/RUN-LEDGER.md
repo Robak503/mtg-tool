@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **3 commits**, corpus **44.2% (15,145)** at the tag → **44.2% (15,149)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **5 commits**, corpus **44.2% (15,145)** at the tag → **44.2% (15,150)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,29 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D36: SAKASHIMA'S PROTEGE — A COPY OF ANY PERMANENT THAT ENTERED THIS TURN — Kellan of the West 87 → 88 · **+1** · corpus 15,150 / 34,245
+> Suite **1,686 files / 17,357 tests** green (1 skipped); lint 0; decks 2,711 / 2,998. CI GREEN on D35 (run 36821724279). Flip-diff **+1, zero LOST,
+> zero RETIERED** (tier snapshots at 7a91dd7f → the change: Sakashima's Protege). **Mutants 6/6** on the final code (restore byte-identical).
+> · **The scope** (cloneCopy.js): "any permanent that entered this turn" → `anyPermanentEnteredThisTurn` — the widened nonland pool
+>   (never a land, an Aura or a Saga: the narrower-is-safe pool Clever Impersonator uses) narrowed to permanents whose `enteredOnTurn`
+>   stamp is this turn, any controller. One helper, `enteredThisTurnCopiable`, serves the enumerator AND the resolution-time re-check
+>   (resolvers.resolveCloneChoice, CR 707.9c), so the two cannot drift.
+> · **Cascade** joins Flash in the clone parser's consumed leading keywords: the cast path keeps running it (CR 702.85a), and the
+>   witness proves it — flashed in on the opponent's turn, the cascade found the Bolt under an Island before the copy pause.
+> · **Runtime:** `WITNESS sakashimasProtege {"cascadeFound":"bolt","pause":"clone-search","pool":["ANGEL","SOL"],"became":"Serra Angel","size":[4,4]}`
+>   · the pool includes a Bear the engine stamped on its own entry this turn · a pick from outside the pool enters as itself.
+>   Witness `app/src/lib/learn/sakashimasProtege.test.js` (5).
+> · **Next:** Kellan 88 needs 2 — Eladamri (the tutor seam's zone union plus a library-TOP pseudo-zone: a reveal, so no shuffle;
+>   must-put when every option is a creature), then Transcendent Dragon (needs casting a card you don't own from another player's
+>   exile — a new capability) or Fblthp / Bonny Pall (two lines each). Then Light-Paws 83 (7).
+
+> ## 🔧 2026-09-30 — sync-spellbook: the card crawl resumes by oracleId (1e5e0975)
+> Spellbook leaves `id` null on every card in no combo, and the script keyed identity on `id` (the reload's de-duplication, the
+> resume offset, the progress line and the meta count), so every run restarted near offset 3,100. Now `cardKey` = oracleId, else the
+> normalized name. A `fresh` dispatch input passes --fresh once, to refill the null-id cards below offset 3,100 that every earlier
+> reload dropped. Witness `app/scripts/syncSpellbookExit.test.js` (3; the stub serves four null ids in five; the second run resumes
+> at offset 200 and ends with 300); mutants 3/3. **Fresh run 36822661299 (dispatched with fresh=true): offsets 0 → 9,900 with 9,900 unique cards saved — one per row, as the identity now counts — then the 429; green with the warning. The next run resumes at 9,900.**
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D35: CAST IT WITHOUT PAYING ITS MANA COST — One with the Multiverse, Zaffai, Vision, Omniscience — Kellan of the West 86 → 87 · **+4** · corpus 15,149 / 34,245
 > Suite **1,685 files / 17,351 tests** green (1 skipped); lint 0; decks 2,710 / 2,998. CI GREEN on D34 (run 36815067747). Flip-diff **+4, zero LOST,

@@ -26,7 +26,7 @@ import { parseSagaChapters } from "./saga.js"; // SAGA (CR 714 — Vault 12, SHE
 import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js";
 import { evaluateInterveningIf } from "./interveningIf.js";
-import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate, cloneWidenedCopiable } from "./cloneCopy.js"; // + cloneWidenedCopiable (KN-2)
+import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate, cloneWidenedCopiable, enteredThisTurnCopiable } from "./cloneCopy.js"; // + cloneWidenedCopiable (KN-2) + enteredThisTurnCopiable (shelf D36)
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { othersEnterWithCounters, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, sunburstCounterKind, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithCastFromHandCounters, choosesColorOnEnter, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
 import { addContinuousEffect, permanentPower, permanentToughness, equipmentBarredAsCreature } from "./layers.js"; // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); acyclic (layers imports only ptPrimitive/keywords/staticAbilityParser/protection, none of which reach resolvers)
@@ -783,6 +783,7 @@ export function resolveCloneChoice(state, chosenPermId) {
     if (scope === "anyEquipment") return /Artifact/.test(tl) && /\bEquipment\b/.test(tl);
     if (scope === "anyArtifact") return /Artifact/.test(tl);
     if (scope === "anyEnchantment" || scope === "anyNonlandPermanent") return cloneWidenedCopiable(c.permanent.card, scope); // KN-2
+    if (scope === "anyPermanentEnteredThisTurn") return enteredThisTurnCopiable(next, c.permanent); // shelf D36 (Sakashima's Protege)
     if (scope === "opponentCreature") return /Creature/.test(tl) && c.permanent.controller !== controller; // KN-3 (Imposter Mech): never your own
     return /Creature/.test(tl) || (scope === "youControlCreatureOrPw" && /Planeswalker/.test(tl)) || (scope === "anyArtifactOrCreature" && /Artifact/.test(tl));
   };

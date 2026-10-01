@@ -352,7 +352,7 @@ export function parseCloneSpec(card) {
   // artifact/Equipment scopes are runtime-safe; enchantment / nonland-permanent scopes are NOT modeled yet →
   // they don't match here → PARK (Copy Enchantment, Clever Impersonator stay Arbiter, a safe false-negative).
   const m = t.match(
-    /^(?:you may have (?:~|this (?:creature|artifact|equipment|enchantment|vehicle)) enter|(?:~|this (?:creature|artifact|equipment|enchantment|vehicle)) enters?)(?: the battlefield)? as a copy of (any creature on the battlefield|any artifact or creature on the battlefield|any artifact on the battlefield|any equipment on the battlefield|any nonland permanent on the battlefield|any enchantment on the battlefield|a creature an opponent controls|a creature you control|another creature you control|a creature or planeswalker you control)( with mana value less than or equal to the amount of mana spent to cast this creature)?(?:, except (.+?))?\.?$/,
+    /^(?:you may have (?:~|this (?:creature|artifact|equipment|enchantment|vehicle)) enter|(?:~|this (?:creature|artifact|equipment|enchantment|vehicle)) enters?)(?: the battlefield)? as a copy of (any creature on the battlefield|any artifact or creature on the battlefield|any artifact on the battlefield|any equipment on the battlefield|any nonland permanent on the battlefield|any enchantment on the battlefield|any permanent that entered this turn|a creature an opponent controls|a creature you control|another creature you control|a creature or planeswalker you control)( with mana value less than or equal to the amount of mana spent to cast this creature)?(?:, except (.+?))?\.?$/,
   );
   if (!m) return null;
 
@@ -396,6 +396,8 @@ export function parseCloneSpec(card) {
                 // IMPOSTER MECH (KN-3): "a creature an opponent controls" — creatures only, never your own.
                 : m[1] === "a creature an opponent controls" ? "opponentCreature"
                 : m[1] === "any enchantment on the battlefield" ? "anyEnchantment"
+                // shelf D36 (Sakashima's Protege): the widened nonland pool narrowed to what entered this turn.
+                : m[1] === "any permanent that entered this turn" ? "anyPermanentEnteredThisTurn"
                   : "any",
     mvLimit: !!m[2],
     riders,
@@ -467,7 +469,9 @@ function stripLeadingKeywords(t) {
   // Impostor) is consumed in THIS clone-shape view only — the card keeps its Flash for the cast path. Until now the
   // classifier credited these through a keyword-stripped retry while the RUNTIME gate read the raw text and never
   // raised the copy pause (a hollow native); one shared view closes that.
-  const kws = [...RIDER_KEYWORDS, "flash"].sort((a, b) => b.length - a.length);
+  // + "cascade" (shelf D36 — Sakashima's Protege): a cast trigger (CR 702.85a) the cast path runs on its own, exactly as
+  // the Flash line keeps its cast-timing job; consumed here for the copy-clause shape only.
+  const kws = [...RIDER_KEYWORDS, "flash", "cascade"].sort((a, b) => b.length - a.length);
   let changed = true;
   while (changed) {
     changed = false;
@@ -555,11 +559,14 @@ export function cloneCandidates(state, controller, scope, mvCap = null) {
   const equipmentOnly = scope === "anyEquipment";
   const nonlandAny = scope === "anyNonlandPermanent"; // KN-2 (Clever Impersonator)
   const enchantmentOnly = scope === "anyEnchantment"; // KN-2 (Copy Enchantment)
+  const enteredThisTurn = scope === "anyPermanentEnteredThisTurn"; // shelf D36 (Sakashima's Protege)
   for (const pid of Object.keys(state.players)) {
     if (youControlOnly && pid !== controller) continue;
     if (opponentOnly && pid === controller) continue;
     for (const perm of state.players[pid].battlefield) {
-      const copiable = (nonlandAny || enchantmentOnly)
+      const copiable = enteredThisTurn
+        ? enteredThisTurnCopiable(state, perm)
+        : (nonlandAny || enchantmentOnly)
         ? cloneWidenedCopiable(perm.card, scope)
         : (artifactOnly || equipmentOnly)
         ? (isArtifactCard(perm.card) && (!equipmentOnly || /\bEquipment\b/i.test(typeLine(perm.card))))
@@ -583,6 +590,14 @@ export function cloneWidenedCopiable(card, scope) {
   if (scope === "anyEnchantment") return /\bEnchantment\b/.test(tl);
   if (scope === "anyNonlandPermanent") return /\b(Creature|Artifact|Enchantment|Planeswalker|Battle)\b/.test(tl);
   return false;
+}
+
+/** shelf D36 — "any permanent that entered this turn" (Sakashima's Protege): the widened nonland copiability (never a land,
+ * an Aura or a Saga — the same narrower-is-safe pool as Clever Impersonator) AND the permanent's enteredOnTurn stamp on the
+ * current turn (every enter path writes it; an unstamped permanent never qualifies). Shared by the enumerator and the
+ * resolution-time re-check so the two cannot drift. */
+export function enteredThisTurnCopiable(state, perm) {
+  return cloneWidenedCopiable(perm?.card, "anyNonlandPermanent") && (perm?.enteredOnTurn ?? -1) === state.turn;
 }
 
 function addSubtypeToLine(line, subtype) {
