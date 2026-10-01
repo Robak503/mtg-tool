@@ -585,7 +585,7 @@ function parseCdaCountSource(phrase) {
  * a real permanent that taps the granted ability, so a {T} cost is correct; a non-{T} mana grant is rare and
  * left unmodeled. Pure; no engine import (manaModel reads this spec, not vice-versa, so no cycle).
  */
-function parseGrantedManaSpec(quoted) {
+export function parseGrantedManaSpec(quoted) { // exported for the self-grant atom (play-weighted P·4 — Urza's Saga's chapter I)
   const q = String(quoted || "");
   // Must be a "<cost>: Add … " ability — left-of-colon cost, right-of-colon "Add" effect.
   const ci = q.indexOf(":");

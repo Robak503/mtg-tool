@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **18 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,176)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **19 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,177)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,34 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 4: Urza's Saga (EDHREC #120) — the Saga self-grant, the printed-mana-cost tutor, Saga lands on the land drop · **+1** · corpus 15,177
+> Suite **17,450** green (1 skipped); lint 0; decks 2,720 → **2,725** / 2,998 (cdh 93, Earth Bent 92, Squirrel Girl 92, Captain
+> America 91, Wolverine 91). CI GREEN on P·3 (run 36876128527). Flip-diff **+1, zero LOST, zero RETIERED** (tier snapshots at
+> 9b9df1b9 → the change: Urza's Saga land-partial → land). Top 1,000 **832** (needs +68). **Mutants 14/14** (restore
+> byte-identical).
+> · **The self-grant:** chapter I (the Saga gains "{T}: Add {C}.") and chapter II (the Construct ability) parse as one
+>   `self-grant` atom — a mana spec (parseGrantedManaSpec, now exported) or an activated body the grant validator vouches —
+>   resolved through the layer-6 addAbility vehicle with a fixed id and NO duration: it lasts as long as the object does
+>   (CR 611.2a, 400.7). Only "this Saga" — any other subject parks.
+> · **The tutor:** chapter III's "artifact card with mana cost {0} or {1}" is a `manaCostIn` filter on the PRINTED cost
+>   (CR 202.1): an artifact land (no mana cost) and Chalice of the Void ({X}{X}) have mana value 0 and are not offered.
+> · **The land:** a Saga land's whole text is its chapter list, so the land gate asks the Saga gate
+>   (`sagaChaptersRouteNatively`: every trigger a chapter, one per chapter, each routing natively). The land drop now runs
+>   Saga entry — the sagaFinal stamp, the lore counter through addCounter (CR 714.3a), the crossed chapter on the stack.
+> · **Fixed on the way (2):** ① the land drop pre-doubled a land's named entry counters and then handed them to addCounter,
+>   which doubles again — Vivid Marsh entered with 8 charge counters under Doubling Season, now 4 (CR 122.6). ② manaProduction
+>   read a Saga's chapter text as its own mana (CR 714.2b — a chapter is a triggered ability), so Urza's Saga tapped for {C}
+>   the turn it landed; that leak hid mutant U6 until a runtime test caught it. Chapter lines are dropped and the re-parse
+>   blanks the type line — load-bearing: kept, the land fallback reads the lore reminder's "add". Over every Saga in the
+>   bundled oracle four reads change, all phantoms removed (Urza's Saga, Song of Freyalise, Huatli, Poet of Unity,
+>   Welcome to . . .), none gained; tiers unchanged.
+> · **Runtime:** `WITNESS urzasSaga {"offered":["sol","thopter"],"solOnBattlefield":true,"sagaGone":true,"sagaInGraveyard":true}`
+>   — played as the land drop, chapter I pays for Sol Ring, chapter II makes a Construct ({2}, {T}), chapter III offers only
+>   the printed {0}/{1} artifacts and the Saga is sacrificed; under Doubling Season it lands with two lore and fires I and II
+>   at once; a countered chapter I leaves it no mana. Witness `app/src/lib/learn/urzasSaga.test.js` (8) +
+>   `landEntersWithCounters.test.js` (+1).
+> · **Next:** #128 Victimize (the worklist head at 832).
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 3: the Construct token ("This token gets +1/+1 for each artifact you control") — the prerequisite for #120 Urza's Saga and #802 Urza, Lord High Artificer · **+1** (Digsite Engineer) · corpus 15,176
 > Suite **1,698 files / 17,441 tests** green (1 skipped); lint 0; decks unchanged (2,720 / 2,998). CI GREEN on P·2 (run 36874266190). Flip-diff **+1,

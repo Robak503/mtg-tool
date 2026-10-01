@@ -126,6 +126,13 @@ export function cardMatchesTutorFilter(card, filter) {
     if (typeof filter.mv.max === "number" && mv > filter.mv.max) return false;
     if (typeof filter.mv.exact === "number" && mv !== filter.mv.exact) return false;
   }
+  // PRINTED MANA COST (play-weighted P·4 — Urza's Saga's "an artifact card with mana cost {0} or {1}"): the printed cost
+  // itself (CR 202.1), never its mana value — a card with no mana cost (an artifact land), an {X} cost or a Phyrexian pip is
+  // not "{0}" or "{1}". Front face only, the face a library card's characteristics come from.
+  if (Array.isArray(filter.manaCostIn)) {
+    const cost = String(card?.mana ?? card?.mana_cost ?? "").split(" // ")[0].trim();
+    if (!filter.manaCostIn.includes(cost)) return false;
+  }
   // PRINTED-STAT gate (B5 — "a creature card with toughness 2 or less" / "power 2 or less"): the card's printed
   // power/toughness (CR 208.1). A non-numeric stat ("*", or a card with none) is unpriced → never a candidate.
   for (const statKey of ["toughness", "power"]) {
@@ -2534,6 +2541,12 @@ export function tutorClauseParser(clause, ctx = {}) {
   // every card carrying this shape behind a cost was invisible to it. ⭐ A ZERO IS A MEASUREMENT, AND A
   // MEASUREMENT NEEDS ITS POSITIVE CONTROL: I never checked that the probe could see a card it should have
   // seen. The tier diff was the only thing standing between that hollow zero and a shipped regression.
+  // URZA'S SAGA (play-weighted P·4 — chapter III: "Search your library for an artifact card with mana cost {0} or {1}, put it
+  // onto the battlefield, then shuffle."): an artifact enters un-cast through enterCardFromZone like any fetched permanent (an
+  // Equipment enters unattached), and `manaCostIn` compares the PRINTED cost (cardMatchesTutorFilter). Its only printing.
+  if (/^search your library for an artifact card with mana cost \{0\} or \{1\}, put it onto the battlefield, then shuffle\.?$/.test(t)) {
+    return { op: "tutor", filter: { groups: [["artifact"]], manaCostIn: ["{0}", "{1}"] }, filterLabel: "artifact card with mana cost {0} or {1}", destination: "battlefield", entersTapped: false, targetType: null };
+  }
   const bfm = t.match(/^search your library for an? ([a-z][a-z ,]*?) cards?,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (bfm) {
     const phrase = bfm[1];

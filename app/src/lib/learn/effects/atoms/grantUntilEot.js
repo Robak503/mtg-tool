@@ -41,6 +41,7 @@ import { addContinuousEffect } from "../../layers.js";
 import { atomTargets } from "./shared.js";
 import { applyPumpEffect } from "./combat.js";
 import { parseGrantedKeywords } from "../parseHelpers.js"; // a leaf (proven cycle-free — combat.js imports it)
+import { parseGrantedManaSpec } from "../../staticAbilityParser.js"; // the self-grant's mana body (staticAbilityParser imports only leaves; zones.js and counters.js import it too)
 
 // ── Injected body validators (the registerGroupTriggeredBodyValidator pattern — no load cycle) ──────────
 let grantTriggeredBodyValidator = null;
@@ -69,6 +70,17 @@ function validatedGrantKind(quoted) {
  * Both straight and curly quotes accepted (Scryfall prints straight; belt-and-suspenders).
  */
 export function grantUntilEotClauseParser(clause) {
+  // SELF-GRANT, NO DURATION (play-weighted P·4 — Urza's Saga's chapters: 'This Saga gains "{T}: Add {C}."' and 'This Saga
+  // gains "{2}, {T}: Create a 0/0 … Construct …"'). A resolving ability's effect with no stated duration lasts until the end of
+  // the game (CR 611.2a); on a fixed id it ends with the object anyway (CR 400.7). So it is this module's fixed-ids addAbility
+  // vehicle with no expiry, on the SOURCE. A mana body is stored as its parsed spec (the group mana grants' parser); any other
+  // body must pass the same activated validator as every grant here. Urza's Saga is the only card printing "This Saga gains".
+  const sg = String(clause || "").trim().match(/^this saga gains ["“](.+)["”]\.?$/i);
+  if (sg) {
+    const spec = parseGrantedManaSpec(sg[1]);
+    if (spec) return { op: "self-grant", grantKind: "mana", spec, targetType: null };
+    return grantActivatedBodyValidator && grantActivatedBodyValidator(sg[1]) ? { op: "self-grant", grantKind: "activated", quoted: sg[1], targetType: null } : null;
+  }
   // A TRAILING duration (shelf D28 — Subterfuge: 'target creature gains flying and "<body>" until end of turn') is the same
   // grant as the leading "Until end of turn, …" form every shape below anchors on, so it moves to the front. Only a duration
   // OUTSIDE the quote moves (the closing quote sits right before it) — a body that itself says "until end of turn" never does.
@@ -166,6 +178,27 @@ export function applyGrantUntilEot(state, atom, ctx) {
   return logEvent(s2, { kind: "spell-effect", effect: "grant-until-eot", granted: ids.length, grantKind: atom.grantKind, controller: ctx.controller });
 }
 
+/**
+ * SELF-GRANT (play-weighted P·4 — Urza's Saga): the SOURCE permanent gains the parsed ability for as long as it stays — one
+ * fixed-ids layer-6 addAbility effect with no duration (the expiry sweep keeps an effect without one). The existing collectors
+ * light it up: grantedManaSpecsFor offers the mana ability, grantedActivatedQuotedFor the activated one, both bound to the
+ * source. A source already gone grants nothing (CR 608.2b-style — there is no object left to gain it).
+ */
+export function applySelfGrant(state, atom, ctx) {
+  if (!ctx.sourceId || !findPermanent(state, ctx.sourceId)) {
+    return logEvent(state, { kind: "spell-effect", effect: "self-grant", granted: 0, controller: ctx.controller });
+  }
+  const grant = atom.grantKind === "mana" ? { kind: "mana", spec: atom.spec } : { kind: "activated", quoted: atom.quoted };
+  const next = addContinuousEffect(state, {
+    layer: 6,
+    op: { layerOp: "addAbility", grant },
+    affects: { mode: "fixed", permanentIds: [ctx.sourceId] },
+    source: { kind: "resolution", permanentId: ctx.sourceId, cardName: ctx.cardName || null },
+  }).state;
+  return logEvent(next, { kind: "spell-effect", effect: "self-grant", granted: 1, grantKind: atom.grantKind, controller: ctx.controller });
+}
+
 export const grantUntilEotResolvers = {
   "grant-until-eot": applyGrantUntilEot,
+  "self-grant": applySelfGrant, // play-weighted P·4 — Urza's Saga's chapter grants
 };

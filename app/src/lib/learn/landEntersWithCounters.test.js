@@ -66,6 +66,19 @@ describe("play-land path — the counters are placed, the tapped state honoured"
     expect(p.tapped).toBe(true);
     expect(p.counters?.depletion).toBe(2);
   });
+
+  // FIXED 2026-10-01 (play-weighted P·4): the play-land path doubled the printed count itself AND handed it to addCounter,
+  // which applies the controller's doublers again — Vivid Marsh entered with 8 charge counters under Doubling Season.
+  it("under Doubling Season, Vivid Marsh enters with four charge counters — doubled once (CR 122.6)", () => {
+    const g = twoSeat();
+    const season = { id: "DS", card: { id: "c-ds", name: "Doubling Season", type: "Enchantment",
+      oracle: "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead." },
+      controller: "user", tapped: false, summoningSick: false, counters: {}, damageMarked: 0, attachments: [], attachedTo: null };
+    const st = { ...g, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0,
+      players: { ...g.players, user: { ...g.players.user, hand: [{ ...VIVID_MARSH, id: "L" }], battlefield: [season], landsPlayedThisTurn: 0 } } };
+    const out = dispatchAction(st, { kind: "play-land", playerId: "user", cardId: "L" });
+    expect(out.players.user.battlefield.find((x) => x.card?.name === "Vivid Marsh")?.counters?.charge).toBe(4);
+  });
 });
 
 describe("tutor site — the same reader, the same counters", () => {

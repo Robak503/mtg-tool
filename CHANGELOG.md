@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Urza's Saga** — plays as your land drop: taps for {C} after chapter I, makes Constructs after chapter II, and fetches an artifact with mana cost {0} or {1} at chapter III
 - **Digsite Engineer** — pay {2} when you cast an artifact spell to create a Construct that grows with your artifacts
 - **Feed the Swarm** — destroy a creature or enchantment an opponent controls; you lose life equal to its mana value
 - **Myriad Landscape** — sacrifice it to fetch up to two basic lands that share a land type
@@ -23,6 +24,10 @@ summarizes the notable changes.
 - **Eladamri, Korvecdal** — tap it and two creatures to reveal a creature from your hand or the top of your library and put it onto the battlefield
 - **Sakashima's Protege** — enters as a copy of any permanent that entered this turn (its Flash and Cascade work as printed)
 - **One with the Multiverse, Zaffai and the Tempests, Vision, Spectral Synthezoid and Omniscience** — cast a spell without paying its mana cost (once each turn, or freely with Omniscience), at the normal time for that spell
+
+### Fixed
+- Lands that enter with counters (the Vivid lands, the depletion lands, Gemstone Mine) got four times their counters under Doubling Season instead of twice
+- Song of Freyalise, Huatli, Poet of Unity and Welcome to . . . no longer tap for mana themselves (the mana in a Saga's chapter text was read as the card's own ability)
 
 ## [0.161.0] - 2026-09-30
 

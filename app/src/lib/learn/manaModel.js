@@ -1016,6 +1016,24 @@ export function manaProduction(card) {
   if (!card) return null;
   if (typeof card === "object") {
     if (_prodMemo.has(card)) return _prodMemo.get(card);
+    // SAGA CHAPTER LINES (play-weighted P·4 — Urza's Saga, "I — This Saga gains \"{T}: Add {C}.\""): a chapter is a TRIGGERED
+    // ability (CR 714.2b), and a quoted "{T}: Add …" inside one is an ability the Saga GAINS when that chapter resolves (the
+    // self-grant, offered off the board by grantedManaSpecsFor) — never one it has from the start. The Add matcher below
+    // reads "Add" anywhere, so it tapped Urza's Saga for {C} the moment it landed, chapter I still on the stack. A Saga's
+    // chapter lines are dropped before the parse; the memo stays keyed on the real card.
+    // The re-parse also runs with the type line BLANKED, and that is load-bearing, not only the recursion stop: the land
+    // fallback credits {C} to any land whose text says "add" (a basic's reminder text is its real ability), so with the type
+    // kept Urza's Saga still made {C} off its own reminder ("add a lore counter"), and a transform DFC whose back face is a
+    // land (Welcome to . . . // Jurassic Park — the engine plays the front face only) made {C} off the back face's text.
+    // Measured over every Saga in the bundled oracle: four reads change, all four phantoms removed — Urza's Saga, Song of
+    // Freyalise (the enchantment itself tapped for any color), Huatli, Poet of Unity (her back face's chapter II read as
+    // her own) and Welcome to . . . ; none gained.
+    if (/\bSaga\b/.test(String(card.type ?? card.type_line ?? ""))) {
+      const kept = String(card.oracle ?? card.oracle_text ?? "").split("\n").filter((l) => !/^\s*[IV]+(?:\s*,\s*[IV]+)*\s*—/.test(l)).join("\n");
+      const result = manaProduction({ ...card, oracle: kept, oracle_text: kept, type: "", type_line: "" });
+      _prodMemo.set(card, result);
+      return result;
+    }
     // KW-ENGINES "Max speed —" split (CR 702.179): the generic Add matcher below reads "Add" ANYWHERE
     // in the oracle, so a "Max speed — {T}: Add {R}{R}." line was offered UNGATED — free double-red at
     // speed zero, measured live (Endrider Catalyzer). Split per line, the condition-gate discipline:

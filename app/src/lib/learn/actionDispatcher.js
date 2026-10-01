@@ -80,7 +80,6 @@ import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOK
 import { RESOLVER_KEYS, isPermanentSpell, autoPickManaColor, choosesCreatureTypeOnEnter } from "./resolvers.js"; // LANDS-12: the ONE color auto-pick both enter sites stamp with; + CAP-CAVERN: the chosen-type chooser for a land drop
 import { autoPickCreatureType } from "./choicePolicy.js"; // CAP-CAVERN: the SAME auto-pick resolvers.enterPermanent stamps, for a land played from hand
 import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTapped, impositionEntersTapped, auraEnchantHostSpec, entersWithNamedCounters, choosesColorOnEnter, stackSpellIsUncounterable } from "./staticAbilityParser.js";
-import { applyCounterDoubling } from "./replacementEffects.js"; // LANDS-9: the same doubling seam resolvers.enterPermanent uses for enters-with counters
 // ORDEAL (BLITZ OC-1): the Theros Ordeal cast lane — the SAME gate legalChoices offers on and the metric
 // awards (single source of truth, no drift). Acyclic: coverage.js never imports actionDispatcher.js.
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
@@ -88,7 +87,8 @@ import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./le
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf, crewCostWithOverrides, permanentColors } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions
 import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch; S8 — the Pilot's crew boost
-import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers, checkBecomesCrewedTriggers, checkCycleSelfTriggers, checkCrimeTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers; S7 — becomes-crewed; D9 — crime (CR 700.13)
+import { parseSagaChapters } from "./saga.js"; // SAGA LAND (play-weighted P·4 — Urza's Saga): the land drop gives a Saga its entry lore counter too (a pure leaf)
+import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers, checkBecomesCrewedTriggers, checkCycleSelfTriggers, checkCrimeTriggers, checkSagaChapterTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers; S7 — becomes-crewed; D9 — crime (CR 700.13)
 import { setPendingSoftCounterChoice, setPendingOptionalLifePaymentChoice } from "./pendingChoice.js"; // setPendingOptionalLifePaymentChoice — the shockland pause (LANDS-TIER slice 2), raised from the play-land path
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
 import { groupWardTaxForSpell, groupWardTaxForStackObject } from "./groupWard.js";
@@ -240,7 +240,9 @@ function applyPlayLand(state, action) {
   if (namedLandCtr && namedLandCtr.n > 0) {
     const bf = next.players[action.playerId].battlefield;
     const entered = bf[bf.length - 1];
-    if (entered) next = addCounter(next, { permanentId: entered.id, type: namedLandCtr.type, amount: applyCounterDoubling(next, action.playerId, namedLandCtr.type, namedLandCtr.n) });
+    // The PRINTED count: addCounter applies the controller's counter doublers itself (CR 616 — gameState.addCounter), so
+    // doubling it here first doubled it twice under Doubling Season (a Vivid land got 8 charge counters, not 4).
+    if (entered) next = addCounter(next, { permanentId: entered.id, type: namedLandCtr.type, amount: namedLandCtr.n });
   }
   // LANDS-TIER slice 12 (2026-09-03) — a LAND that "chooses a color as it enters" (the Thriving lands, the
   // Gates, Night Market …): stamp the durable `chosenColor` the tutor site (resolvers.enterPermanent) already
@@ -254,6 +256,21 @@ function applyPlayLand(state, action) {
     if (entered) {
       const picked = autoPickManaColor(next, action.playerId, landCC.exclude);
       next = updatePermanentSafe(next, entered.id, (p) => ({ ...p, chosenColor: picked }));
+    }
+  }
+  // SAGA LAND (play-weighted P·4 — Urza's Saga, CR 714.3a: "This Saga enters with a lore counter on it."): the land drop gives
+  // a Saga the entry the PERMANENT_ETB resolver gives every other Saga (resolvers.enterPermanent) — `sagaFinal` stamped (the
+  // draw-step lore hook and the finished-Saga sweep key on it), one lore counter (addCounter applies the doublers — under
+  // Doubling Season it enters with two, CR 122.6), and every chapter that count crossed fired. Only a fully-parsed Saga
+  // stamps (parseSagaChapters is all-or-nothing), as there.
+  const sagaParse = parseSagaChapters(card);
+  if (sagaParse) {
+    const bf = next.players[action.playerId].battlefield;
+    const entered = bf[bf.length - 1];
+    if (entered) {
+      next = updatePermanentSafe(next, entered.id, (p) => ({ ...p, sagaFinal: sagaParse.final }));
+      next = addCounter(next, { permanentId: entered.id, type: "lore", amount: 1 });
+      next = checkSagaChapterTriggers(next, entered.id, 0, findPermanent(next, entered.id)?.permanent?.counters?.lore || 0);
     }
   }
   next = {

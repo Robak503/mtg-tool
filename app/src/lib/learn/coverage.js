@@ -1830,11 +1830,27 @@ export function permanentTriggersCovered(card) {
  * FN-safe by construction: every lane is a positive vouch by the runtime's own recognizer; unrecognized
  * text always demotes. Never strips unsupported abilities to inflate the count (the review's explicit ban).
  */
+/** SAGA (CR 714): the chapter list parses all-or-nothing (parseSagaChapters — any residue line, gap or unknown numeral ⇒ null),
+ *  detectTriggers synthesized exactly one descriptor per chapter, and every chapter's effect routes natively (the SAME gate the
+ *  runtime flush uses). One check for a Saga of any type — the land gate asks it too. */
+function sagaChaptersRouteNatively(card) {
+  const parsed = parseSagaChapters(card);
+  if (!parsed) return false;
+  const descs = detectTriggers(card);
+  const chapterDescs = descs.filter((d) => d.event === "sagaChapter");
+  return descs.length === chapterDescs.length
+    && chapterDescs.length === parsed.chapters.length
+    && chapterDescs.every((d) => triggerRoutesNatively(d));
+}
+
 function landFullyCovered(card) {
   const type = String(card?.type || card?.type_line || "");
   const raw = String(card?.oracle ?? card?.oracle_text ?? "");
   if (!stripReminder(raw).trim()) return true;
   if (/\bBasic\b/i.test(type)) return true;
+  // A SAGA LAND (play-weighted P·4 — Urza's Saga, "Enchantment Land — Urza's Saga"): its whole text is its chapter list, so the
+  // Saga gate decides — played as a land it enters with its lore counter and fires chapter I like any Saga (CR 714.3a).
+  if (isSagaCard(card)) return sagaChaptersRouteNatively(card);
   if (!allTriggerSentencesModeled(card, raw)) return false;
   const isManaLine = (txt) => /\badd\b/i.test(txt) && !!manaProduction({ name: card?.name, type, oracle: txt });
   const isGraveyardAbility = (txt) => {
@@ -3267,17 +3283,7 @@ export function classifyCard(card) {
   // shared gate the runtime flush uses, so the metric can't claim a chapter the engine would drop).
   // Checked BEFORE the Aura block (a Saga is an enchantment; a Saga that is ALSO an Aura stays in this
   // gate's all-or-nothing hands, never half-read as a plain Aura). Any failure ⇒ body-only (Arbiter).
-  if (isSagaCard(card)) {
-    const parsed = parseSagaChapters(card);
-    if (!parsed) return "body-only";
-    const descs = detectTriggers(card);
-    const chapterDescs = descs.filter((d) => d.event === "sagaChapter");
-    return descs.length === chapterDescs.length
-      && chapterDescs.length === parsed.chapters.length
-      && chapterDescs.every((d) => triggerRoutesNatively(d))
-      ? "native-trigger"
-      : "body-only";
-  }
+  if (isSagaCard(card)) return sagaChaptersRouteNatively(card) ? "native-trigger" : "body-only";
   if (isAuraCard(card)) {
     if (isNativeManaAura(card)) return "native-mana-aura";
     // GRANTED-MANA-ABILITY (creature OR land host): "Enchanted creature/land has \"{T}: Add …\"" (Multani's
