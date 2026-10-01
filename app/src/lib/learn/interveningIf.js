@@ -1934,6 +1934,10 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   // flavour, not a narrowing). The negation reads the same flag: an unstamped seat has not attacked, which is
   // exactly what "didn't attack" means at any point before their declare-attackers step.
   if (/^you attacked with a creature this turn$/.test(c)) return state?.players?.[controllerId]?.attackedThisTurn === true;
+  // CREATED A TOKEN THIS TURN (play-weighted P·11 — Idol of Oblivion's "Activate only if you created a token this turn", Bennie
+  // Bracks' end-step intervening-if): the per-turn flag the mint chokepoint stamps (tokens.fireTokenEnterTriggers — real tokens
+  // only) and the untap reset clears. An unstamped seat created none.
+  if (/^you created a token this turn$/.test(c)) return state?.players?.[controllerId]?.createdTokenThisTurn === true;
   if (/^you (?:didn't|did not) attack(?: with a creature)? this turn$/.test(c)) return state?.players?.[controllerId]?.attackedThisTurn !== true;
   if (/^you haven't attacked this turn$/.test(c)) return state?.players?.[controllerId]?.attackedThisTurn !== true;
 

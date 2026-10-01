@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **26 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,186)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **27 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,188)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,24 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 11: Idol of Oblivion (EDHREC #196) — "you created a token this turn" · **+2** (Bennie Bracks, Zoologist) · corpus 15,188
+> Suite **17,511** green (1 skipped); lint 0; decks unchanged (2,732 / 2,998). CI GREEN on P·10 (run 36892670498). Flip-diff **+2, zero
+> LOST, zero RETIERED** (tier snapshots at 42b12981 → the change: Idol of Oblivion body-only → native-activated, Bennie Bracks
+> body-only → native-trigger). Top 1,000 **840** — 84% (needs +60). **Mutants 5/5** (restore byte-identical).
+> · **The flag:** the mint chokepoint every token source funnels through (`tokens.fireTokenEnterTriggers`) stamps the creator's
+>   per-turn `createdTokenThisTurn` for a REAL token only — a manifested card rides the same chokepoint and is not one
+>   (CR 701.34); the untap reset (`resetSpellsCastAllPlayers`) clears it with the other per-turn counters; the shared condition
+>   reader answers "you created a token this turn", so Idol's activation gate and Bennie's end-step intervening-if read the
+>   same flag (the parseable checks pick the reader up by probing it).
+> · **Two pins graduated:** the first suite run went red on two BOUNDARY-MARKER pins that used "you created a token this
+>   turn" as their stand-in for an untracked condition (conditionTurnEventReaders' still-parks list, conditionDisjunction's
+>   unreadable half). Re-pointed per their own discipline, not deleted: the still-parks pin now asserts the condition reads;
+>   the disjunction's stand-in moved to "you put a counter on a creature this turn", still on the still-parks list.
+> · **Runtime:** `WITNESS idolOfOblivion {"before":false,"flag":true,"offered":true,"drew":1}` — no token: no draw; a Treasure
+>   made: the draw is offered and draws; manifest dread: flag unset; the turn's reset: cleared. Witness
+>   `app/src/lib/learn/idolOfOblivion.test.js` (5).
+> · **Next:** #224 Animate Dead (the worklist head at 840).
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 10: HIDEAWAY (CR 702.75) — Mosswort Bridge (EDHREC #194) · **+3** (Windbrisk Heights #656, Clive's Hideaway) · corpus 15,186
 > Suite **17,506** green (1 skipped); lint 0; decks 2,730 → **2,732** / 2,998 (Shorikai Vehicles 91, Jurassic Ramp 91). CI GREEN on

@@ -62,6 +62,18 @@ export function tokenTypeLine(descriptor) {
 // when no tokenChange watcher exists — the overwhelming common case), so it can never over-fire.
 export function fireTokenEnterTriggers(state, mintedIds) {
   let next = state;
+  // CREATED A TOKEN THIS TURN (play-weighted P·11 — Idol of Oblivion, Bennie Bracks): every mint site funnels its fresh tokens
+  // through here, so this is where the creator's per-turn flag is stamped (reset with the other per-turn counters at untap,
+  // gameState.resetSpellsCastAllPlayers). The creator is the token's controller. Only a REAL token sets it — a manifested
+  // card rides this same chokepoint and is not one (CR 701.34). The batch's replacement extras (Took, Manufactor) below are
+  // part of the same event; a flag needs only one token.
+  for (const id of mintedIds || []) {
+    const hit = findPermanent(next, id);
+    if (hit?.permanent?.card?.token !== true || !next.players?.[hit.controller]) continue;
+    if (next.players[hit.controller].createdTokenThisTurn !== true) {
+      next = { ...next, players: { ...next.players, [hit.controller]: { ...next.players[hit.controller], createdTokenThisTurn: true } } };
+    }
+  }
   // ===== TOKEN-EXTRA-KIND (SG-10, 2026-09-03 — Peregrin Took, CR 614.1) ===== every mint site funnels its
   // freshly created tokens through here, so this is the ONE place a "those tokens plus an additional Food
   // token" replacement applies — once per creation EVENT (not per token), under the tokens' creator (the

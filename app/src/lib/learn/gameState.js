@@ -2686,7 +2686,7 @@ export function resetSpellsCastAllPlayers(state) {
     // its turn would let the player cast at instant speed forever — an engine strictly MORE PERMISSIVE
     // than the card, the forbidden direction. One reset site for per-turn player state means a new turn
     // cannot half-clear it.
-    players[id] = { ...state.players[id], spellsCastThisTurn: 0, noncreatureSpellsCastThisTurn: 0, instantSorcerySpellsCastThisTurn: 0, spellColorsCastThisTurn: [], flashGrantsThisTurn: [], nextSpellUncounterable: false };
+    players[id] = { ...state.players[id], spellsCastThisTurn: 0, noncreatureSpellsCastThisTurn: 0, instantSorcerySpellsCastThisTurn: 0, spellColorsCastThisTurn: [], flashGrantsThisTurn: [], nextSpellUncounterable: false, createdTokenThisTurn: false }; // + P·11 — "you created a token this turn"
   }
   return { ...state, players };
 }

@@ -91,11 +91,13 @@ describe("⛔⭐ THE DELIBERATE REFUSAL — a ZONE-qualified cast is not readabl
     // descendedThisTurn tally stamped at the graveyard-entry chokepoint. Re-pointed rather than deleted,
     // per the pin discipline: a BOUNDARY-MARKER pin records "not tracked yet", so when the tracking lands
     // the pin becomes the assertion that it did. Deleting it would erase the boundary instead of moving it.
-    for (const c of ["you created a token this turn",
-      "you put a counter on a creature this turn", "you've discarded a card this turn"]) {
+    // ✅ "you created a token this turn" GRADUATED too (2026-10-01, play-weighted P·11 — Idol of Oblivion): a
+    // createdTokenThisTurn flag stamped at the token mint chokepoint, real tokens only. Re-pointed below.
+    for (const c of ["you put a counter on a creature this turn", "you've discarded a card this turn"]) {
       expect(activationConditionParseable(c), c).toBe(false);
     }
     expect(activationConditionParseable("you descended this turn")).toBe(true);
+    expect(activationConditionParseable("you created a token this turn")).toBe(true);
   });
 });
 
