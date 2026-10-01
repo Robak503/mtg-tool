@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **7 commits**, corpus **44.2% (15,145)** at the tag → **44.2% (15,152)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **8 commits**, corpus **44.2% (15,145)** at the tag → **44.2% (15,153)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,21 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D39: EIGANJO CASTLE — PREVENT THE NEXT 2 DAMAGE TO TARGET LEGENDARY CREATURE — Light-Paws Voltron 83 → 84 · **+1** · corpus 15,153 / 34,245
+> Suite **1,689 files / 17,373 tests** green (1 skipped); lint 0; decks 2,714 / 2,998 (the aggregate reads 91% now). CI GREEN on D38 (run 36825867218).
+> Flip-diff **+1, zero LOST, zero RETIERED** (tier snapshots at ed13fdff → the change: Eiganjo Castle). **Mutants 4/4** on the final
+> code (restore byte-identical).
+> · **The arm** (atoms/combat.js): the chosen-creature prevention shield (CR 615.7) — already modeled for "target creature" and
+>   "target artifact creature" — gains the supertype-narrowed sibling (legendary, CR 205.4a) on the restriction the enumerator
+>   already enforces. Eiganjo Castle goes land-partial → land.
+> · **Runtime:** `WITNESS eiganjoCastle {"castleTapped":true,"isamaruAlive":true,"damage":1}` — the shield turns a Lightning Bolt on
+>   Isamaru into 1 damage (the control: the same Bolt kills him); offered on both players' legendary creatures, never the Bears.
+>   Witness `app/src/lib/learn/eiganjoCastle.test.js` (5).
+> · **Banked, not built:** Kitsune Healer's "Prevent ALL damage that would be dealt to target legendary creature this turn" — the
+>   "prevent all … target creature" shape is unmodeled for any target; a corpus vein, not a shelf slot.
+> · **Next:** Light-Paws 84 needs 6 — Celestial Mantle, Mantle of the Ancients, With Great Power . . . (one line each), Pearl-Ear
+>   (two), then two from the deep pile.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D38: FBLTHP, LOST ON THE RANGE — PLOT FROM THE TOP OF THE LIBRARY — Kellan of the West 89 → 90 — **28 of 30 at ≥90** · **+1** · corpus 15,152 / 34,245
 > Suite **1,688 files / 17,368 tests** green (1 skipped); lint 0; decks 2,713 / 2,998. CI GREEN on D37 (run 36824797329). Flip-diff **+1, zero LOST,

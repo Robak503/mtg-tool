@@ -1826,6 +1826,11 @@ export function combatKeywordClauseParser(clause) {
   if (pvRedir) return { op: "prevent-next-damage", amount: NUM_WORD[pvRedir[1]] ?? parseInt(pvRedir[1], 10), target: "self", redirect: true, targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
   const pvType = t.match(/^prevent the next (\d+|one|two|three|four|five|six|seven|eight|nine|ten) damage that would be dealt to target (artifact) creature this turn$/);
   if (pvType) return { op: "prevent-next-damage", amount: NUM_WORD[pvType[1]] ?? parseInt(pvType[1], 10), targetType: "creature", restrictions: [{ kind: "cardType", type: pvType[2] }] };
+  // shelf D39 (Eiganjo Castle — "{W}, {T}: Prevent the next 2 damage that would be dealt to target legendary creature this
+  // turn."): the same chosen-creature shield (CR 615.7) narrowed by the supertype restriction (legendary, CR 205.4a), which
+  // the enumerator already enforces — any creature without it is never offered.
+  const pvLegend = t.match(/^prevent the next (\d+|one|two|three|four|five|six|seven|eight|nine|ten) damage that would be dealt to target legendary creature this turn$/);
+  if (pvLegend) return { op: "prevent-next-damage", amount: NUM_WORD[pvLegend[1]] ?? parseInt(pvLegend[1], 10), targetType: "creature", restrictions: [{ kind: "supertype", value: "legendary" }] };
   // PLAYERS-ONLY FOG (BLITZ FOG-1b — Defend the Hearth / Commencement of Festivities): "prevent all
   // combat damage that would be dealt to players this turn". Rides the incumbent "fog" op (misc.applyFog
   // owns the family — so programContainsFog + the AI-F5 fog hold policy cover this form automatically)
