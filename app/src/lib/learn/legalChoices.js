@@ -1134,10 +1134,11 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // B4 (Reflector Mage — CR 611.2b): a NAME cast lock on this player refuses the named spell until the setter's next turn.
     if (nameCastLocked(state, playerId, card?.name)) continue;
     // S11 (Permission Denied — "your opponents can't cast noncreature spells this turn"): a turn-stamped cast-type lock on
-    // this seat refuses every non-creature card while the stamp's turn is the current one (self-expiring).
+    // this seat refuses every non-creature card while the stamp's turn is the current one (self-expiring). + P·31 (Silence —
+    // "your opponents can't cast spells this turn"): the `all` lock refuses every card.
     {
       const lock = state.castLocksThisTurn?.[playerId];
-      if (lock && lock.turn === state.turn && lock.noncreature && !/\bCreature\b/i.test(String(card?.type || card?.type_line || "").split(" // ")[0])) continue;
+      if (lock && lock.turn === state.turn && (lock.all || (lock.noncreature && !/\bCreature\b/i.test(String(card?.type || card?.type_line || "").split(" // ")[0])))) continue;
       // KT-3 (Irencrag Feat): the controller's own "only N more spells this turn" — spells cast since the stamp vs the allowance
       if (lock && lock.turn === state.turn && lock.spellLimit
           && ((state.players[playerId]?.spellsCastThisTurn || 0) - lock.spellLimit.spellsCastAtLock) >= lock.spellLimit.more) continue;

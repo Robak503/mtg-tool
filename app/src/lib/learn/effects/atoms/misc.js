@@ -129,7 +129,9 @@ function applySelfCastLimitTurn(state, atom, ctx) {
 
 function applyOpponentsCastLockTurn(state, atom, ctx) {
   const locks = { ...(state.castLocksThisTurn || {}) };
-  for (const pid of opponentsOf(state, ctx.controller)) locks[pid] = { turn: state.turn, [atom.filter]: true };
+  // P·31 — MERGED into a lock the seat already carries THIS turn (its own Irencrag Feat limit, another lock's filter): a
+  // replaced lock dropped it, and a dropped limit lets the seat cast spells the printed text forbids.
+  for (const pid of opponentsOf(state, ctx.controller)) locks[pid] = { ...(locks[pid]?.turn === state.turn ? locks[pid] : {}), turn: state.turn, [atom.filter]: true };
   return logEvent({ ...state, castLocksThisTurn: locks }, { kind: "spell-effect", effect: "opponents-cast-lock-turn", filter: atom.filter, controller: ctx.controller, turn: state.turn });
 }
 
@@ -260,8 +262,12 @@ export function miscClauseParser(clause) {
   if (/^prevent all combat damage that would be dealt this turn$/.test(t)) return { op: "fog", targetType: null };
   // SHELF-85 S11 (2026-09-04 — Permission Denied): "Your opponents can't cast noncreature spells this turn." — a
   // turn-stamped cast-type lock on every opponent (applyOpponentsCastLockTurn); the cast loop refuses non-creature cards
-  // for a locked seat while the turn matches. Only the printed filter word; "spells" (all) or "creature spells" park.
-  if (/^your opponents can't cast noncreature spells this turn$/.test(t)) return { op: "opponents-cast-lock-turn", filter: "noncreature", targetType: null };
+  // for a locked seat while the turn matches. + P·31 (Silence): "Your opponents can't cast spells this turn." — the same lock
+  // on EVERY spell (filter "all"). "Creature spells" still parks.
+  {
+    const lk = t.match(/^your opponents can't cast (noncreature )?spells this turn$/);
+    if (lk) return { op: "opponents-cast-lock-turn", filter: lk[1] ? "noncreature" : "all", targetType: null };
+  }
   // EXTRA-TURN (BLITZ XT-1, CR 500.7 — Time Walk / Temporal Manipulation / Capture of Jingzhou / Time
   // Warp): "Take an extra turn after this one." The resolver pushes the CONTROLLER onto state.extraTurns;
   // gameEngine.advanceStep's end-of-turn branch POPS the stack (most-recently-created first, CR 500.7)

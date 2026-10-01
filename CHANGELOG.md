@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Silence** — your opponents can't cast spells this turn
 - **Helm of the Host and Followed Footsteps** — each turn, a token copy of the equipped (or enchanted) creature; Helm's copy isn't legendary and has haste
 - **Underworld Breach** — each nonland card in your graveyard can be cast from there by paying its mana cost and exiling three other cards from your graveyard; an escaped instant or sorcery goes back to the graveyard, and an escaped Uro or Phlage stays on the battlefield
 - **Dauthi Voidwalker** — a card that would be put into an opponent's graveyard is exiled with a void counter instead; sacrifice it to play one of those cards this turn without paying its mana cost
@@ -54,6 +55,7 @@ summarizes the notable changes.
 - **One with the Multiverse, Zaffai and the Tempests, Vision, Spectral Synthezoid and Omniscience** — cast a spell without paying its mana cost (once each turn, or freely with Omniscience), at the normal time for that spell
 
 ### Fixed
+- A second "can't cast" effect on a player in the same turn (Ranger-Captain of Eos, Permission Denied) erased that player's own Irencrag Feat limit, so they could cast more spells than it allows; both now hold
 - The graveyard-exile pick from Relic of Progenitus, Scrabbling Claws, Graveyard Shovel and Merrow Bonegnawer was headed "Take a card?"; it now asks the player to exile a card from their graveyard
 - A permanent that became a copy of another (Thespian's Stage) kept tapping for its own printed mana; it now has only the copy's mana abilities
 - Copying an instant or sorcery (Reverberate, Twincast, Flare of Duplication) put a second copy of the original card into its owner's graveyard when the copy resolved

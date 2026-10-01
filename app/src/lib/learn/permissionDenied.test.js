@@ -46,9 +46,11 @@ describe("parse", () => {
     expect(programConfidence(r)).toBe("high");
     expect(r.atoms).toEqual([{ op: "counter", spellFilter: "noncreature", targetType: "spell" }, { op: "opponents-cast-lock-turn", filter: "noncreature", targetType: null }]);
   });
-  it("seen-to-fail: an unfiltered or creature-filtered lock parks", () => {
-    expect(parseEffectClause("Your opponents can't cast spells this turn.", "Instant").atoms).toEqual([]);
+  it("seen-to-fail: a creature-filtered lock parks", () => {
     expect(parseEffectClause("Your opponents can't cast creature spells this turn.", "Instant").atoms).toEqual([]);
+  });
+  it("GRADUATED — the unfiltered lock is Silence's (P·31, the `all` filter; silence.test.js runs it)", () => {
+    expect(parseEffectClause("Your opponents can't cast spells this turn.", "Instant").atoms).toEqual([{ op: "opponents-cast-lock-turn", filter: "all", targetType: null }]);
   });
 });
 

@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **46 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,242)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **47 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,243)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,22 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 31: Silence (EDHREC #412) — your opponents can't cast spells this turn · **+1** · corpus 15,243
+> Suite **17,700** green (1 skipped); lint 0; decks **2,745** / 2,998 unchanged. CI GREEN on P·30 (run 36939207926).
+> Flip-diff **+1, −0, zero RETIERED** (tier snapshots at de0c998c → the change): Silence → native-spell. Top 1,000 **863**
+> (needs +37); top 2,500 **1,688**. **Mutants 5/5** (restore byte-identical).
+> · Permission Denied's turn-stamped cast lock (SHELF-85 S11, effects/atoms/misc.js) with the filter `all`: the shared cast
+>   builder, the one source of every cast action (hand, graveyard, exile, command zone, free casts), refuses every card for a
+>   locked seat this turn; the stamp self-expires with the turn. The controller is untouched; nothing but casting is locked.
+> · **Fix (pre-existing):** the lock REPLACED a seat's existing same-turn lock, so an opponent's own Irencrag Feat limit ("only one
+>   more spell this turn") vanished the moment Ranger-Captain of Eos or Permission Denied locked them, and they could cast past it.
+>   It merges into a same-turn lock now; a lock from an earlier turn is spent and never merges.
+> · **Re-pointed pin (1):** permissionDenied.test.js — its seen-to-fail "an unfiltered lock parks" graduated (pinned as Silence's
+>   `all` filter); the creature-filtered lock still parks.
+> · Still out: Mandate of Peace (its "cast only during combat" and "end the combat phase" lines).
+>   Witness `app/src/lib/learn/silence.test.js` (3).
+> · **Next:** #438 Selvala, Heart of the Wilds.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 30: Helm of the Host (EDHREC #396) and Followed Footsteps — a token copy of the creature it's attached to · **+2** · corpus 15,242
 > Suite **17,696** green (1 skipped); lint 0; decks **2,745** / 2,998 unchanged. CI GREEN on P·29 (run 36937845077).
