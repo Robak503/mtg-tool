@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **23 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,180)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **24 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,181)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,25 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 8: Gemstone Caverns (EDHREC #179) — its any-colour tap was a phantom; the pre-game line under CR 103.6 · **+1** · corpus 15,181
+> Suite **17,492** green (1 skipped); lint 0; decks 2,725 → **2,730** / 2,998 (cdh 94, Squirrel Girl 93, Believe it! 91, Kinnan
+> 91, Killer Turts 91). CI GREEN on P·7 (run 36888032921). Flip-diff **+1, zero LOST, zero RETIERED** (tier snapshots at e2b4319e → the
+> change: Gemstone Caverns land-partial → land). Top 1,000 **836** (needs +64). **Mutants 4/4** on the final code (restore
+> byte-identical).
+> · **The phantom (probed live):** "{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any
+>   color." — the any-colour arm read "add one mana of any color" off the rider, so every Caverns tapped for any colour with
+>   no luck counter anywhere. The counter-gated "instead" sentence is now dropped before the parse (read as its base, the
+>   documented under-read of the other "instead" forms): the land makes {C}. The corpus prints this rider once.
+> · **The pre-game line:** "If this card is in your opening hand and you're not the starting player, you may begin the game
+>   with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand." is the
+>   CR 103.6 pre-game action the Leylines carry — never offered, pre-stripped by coverage under the same policy (the land is
+>   played from hand as printed). So no luck counter is ever placed and the upgrade is unreachable, not merely unmodeled;
+>   nothing it would unlock is credited. Whole-sentence anchored — another rider after "If you do," keeps the card partial.
+> · **Runtime:** `WITNESS gemstoneCaverns {"tier":"land","product":{"colors":["C"],"amount":1,"requiresTap":true},"green":false,"generic":true,"colorless":true}`.
+>   Witness `app/src/lib/learn/gemstoneCaverns.test.js` (2).
+> · **Lint caught one on the way:** a useless `\/` escape in the rider regex (fixed; the harness re-ran on the final code).
+> · **Next:** #182 Tireless Provisioner (the worklist head at 836).
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 7: Three Tree City (EDHREC #178) — the costed chosen-type mana line, funded by the free-activation fix · **+1** · corpus 15,180
 > Suite **17,490** green (1 skipped); lint 0; decks unchanged (2,725 / 2,998). CI GREEN on the fix (run 36886525213). Flip-diff **+1,

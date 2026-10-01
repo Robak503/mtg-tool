@@ -973,6 +973,7 @@ function honestMultiLineMain(card, result) {
   return { ...plainProd, ...(result.activationCondition && /activate only if/i.test(plain) ? { activationCondition: result.activationCondition } : {}) };
 }
 const _extraMemo = new WeakMap();
+const COUNTER_GATED_INSTEAD_RE = /\s*If [^.]+? has an? [a-z+/0-9-]+ counter on it, instead add [^.]+\./gi; // P·8 — Gemstone Caverns' luck-counter rider
 const CHOSEN_TYPE_COUNT_MANA_LINE_RE = /^((?:\{[^}]+\}, )*)\{T\}: Choose a color\. Add an amount of mana of that color equal to the number of creatures you control of the chosen type\.$/i;
 /** A double-faced / split card's bundled oracle carries BOTH faces ("Name - Type" headers, a "//" line between).
  *  Only the FRONT face is on the battlefield as this permanent (a Pathway's back-face colour must never be
@@ -1097,6 +1098,21 @@ export function manaProduction(card) {
       const result = manaProduction({ ...card, oracle: kept, oracle_text: kept, type: "", type_line: "" });
       _prodMemo.set(card, result);
       return result;
+    }
+    // COUNTER-GATED "INSTEAD" (play-weighted P·8 — Gemstone Caverns: "{T}: Add {C}. If Gemstone Caverns has a luck counter on it,
+    // instead add one mana of any color."): the upgrade holds only while the permanent carries that counter, but the any-colour
+    // arm below read "add one mana of any color" off the rider with no counter anywhere — every Caverns tapped for any colour
+    // (probed live). The rider is read as its BASE, the documented under-read the other "instead" forms carry: the sentence is
+    // dropped before the parse, so the line makes {C}. Nothing in the engine places a luck counter (the Caverns' pre-game
+    // action is never offered — coverage's CR 103.6 pre-strip), so the upgrade is unreachable, not merely unmodeled.
+    {
+      const o = String(card.oracle ?? card.oracle_text ?? "");
+      const kept = o.replace(COUNTER_GATED_INSTEAD_RE, "");
+      if (kept !== o) {
+        const result = manaProduction({ ...card, oracle: kept, oracle_text: kept });
+        _prodMemo.set(card, result);
+        return result;
+      }
     }
     // KW-ENGINES "Max speed —" split (CR 702.179): the generic Add matcher below reads "Add" ANYWHERE
     // in the oracle, so a "Max speed — {T}: Add {R}{R}." line was offered UNGATED — free double-red at

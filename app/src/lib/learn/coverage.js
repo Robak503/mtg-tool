@@ -3068,6 +3068,16 @@ export function classifyCard(card) {
       oracle: String(card.oracle).replace(/If this card is in your opening hand, you may begin the game with it on the battlefield\.?\s*/i, "").trim(),
     };
   }
+  // + P·8 (Gemstone Caverns): the same CR 103.6 pre-game action in its other printed form — gated on not being the starting
+  // player, putting the land in with a luck counter, exiling a card from hand. Never offered, so the land is played from hand
+  // as printed, and the luck-counter mana rider reads as its base {C} (manaModel's counter-gated "instead" drop) — nothing the
+  // counter would unlock is credited. Whole-sentence anchored: another rider after "If you do," keeps the line.
+  if (/\bbegin the game with [^.]+ on the battlefield with a luck counter on it\b/i.test(card?.oracle || "")) {
+    card = {
+      ...card,
+      oracle: String(card.oracle).replace(/If this card is in your opening hand and you['’]re not the starting player, you may begin the game with [^.]+ on the battlefield with a luck counter on it\. If you do, exile a card from your hand\.\s*/i, "").trim(),
+    };
+  }
   // SUSPEND pre-strip (CR 702.62), gated on the card HAVING A PRINTED MANA COST. Suspend is an optional
   // alternative way to start casting a card — "Rather than cast this card from your hand, pay {cost} and
   // exile it with N time counters". For a card with a real mana cost the HARD CAST resolves byte-identically,

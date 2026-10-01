@@ -29,6 +29,7 @@ summarizes the notable changes.
 - **One with the Multiverse, Zaffai and the Tempests, Vision, Spectral Synthezoid and Omniscience** — cast a spell without paying its mana cost (once each turn, or freely with Omniscience), at the normal time for that spell
 
 ### Fixed
+- Gemstone Caverns tapped for any color without a luck counter; it makes {C} until it has one
 - Signets, the {1} filter lands (Darkwater Catacombs and kin), Cabal Coffers, Chromatic Star and every other mana ability with a mana cost now pay that cost — they used to tap for free, so a lone Signet could pay for spells
 - Tapping a karoo land or a Signet by hand adds both of its colors, not two of one
 - Commander's Plate gave your commander protection from all five colors (its own included) once the commander was cast; it now protects from exactly the colors outside your commander's color identity
