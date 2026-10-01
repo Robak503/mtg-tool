@@ -25,6 +25,7 @@
  * callers (API route, UI) can render them precisely.
  */
 
+import { isGraveyardReanimateAura } from "./animateDeadGate.js"; // P·12 — Animate Dead
 import {
   createStackObject,
   moveCardToZone,
@@ -784,6 +785,11 @@ function applyCastSpell(state, action) {
     // leaves). The enchanted-creature bonus is the SAME parseAuraBonus descriptor layers already applies.
     const targetId = targets[0]?.id;
     payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId, bestowed: true } };
+  } else if (isGraveyardReanimateAura(castCard)) {
+    // ANIMATE DEAD (play-weighted P·12): the target is a creature CARD in a graveyard (its owner rides the target); AURA_ETB's
+    // graveyard branch re-checks it is still there (CR 608.2b) and enters the Aura stamped with it.
+    const t0 = targets[0];
+    payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, enchantsGraveyardCard: t0 ? { cardId: t0.id, ownerId: t0.controller } : null } };
   } else if (isNativeAura(castCard) || isNativeOrdealAura(castCard)) {
     // Aura (CR 303.4f): resolve via the AURA_ETB resolver — enter the battlefield attached
     // to the targeted creature. The target id is the battlefield permanent chosen at cast.

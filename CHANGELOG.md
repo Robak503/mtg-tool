@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Animate Dead** — return a creature card from any graveyard under your control, -1/-0; it is sacrificed if Animate Dead leaves
 - **Idol of Oblivion and Bennie Bracks, Zoologist** — draw a card if you created a token this turn
 - **Hideaway** — Mosswort Bridge, Windbrisk Heights and Clive's Hideaway hide a card as they enter and cast it free once their condition is met
 - **Tireless Provisioner and Ant-Man's Army** — create a Food or a Treasure token (the autopilot takes the Treasure)

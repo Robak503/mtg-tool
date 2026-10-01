@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **27 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,188)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **28 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,189)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,30 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 12: Animate Dead (EDHREC #224) — an Aura that enchants a creature card in a graveyard · **+1** · corpus 15,189
+> Suite **17,520** green (1 skipped); lint 0; decks 2,732 → **2,733** / 2,998 (Teval 91). CI GREEN on P·11 (run 36894263773). Flip-diff
+> **+1, zero LOST, zero RETIERED** (tier snapshots at ea6f411c → the change: Animate Dead body-only → native-aura). Top 1,000
+> **841** (needs +59). **Mutants 12/12** (restore byte-identical).
+> · **One gate:** `animateDeadGate.js` (a zero-import leaf) matches the EXACT printed text (Dance of the Dead shares the frame but
+>   enters tapped and adds a doesn't-untap static and an upkeep payment — out). The cast offer, the dispatcher payload, the
+>   AURA_ETB branch, both synthesized triggers and the coverage tier all read it, so the metric and the runtime can't drift.
+> · **The lane:** the Aura spell TARGETS a creature card in ANY graveyard (CR 303.4a — the reanimate enumerator's anyGraveyard
+>   pool, each target carrying its owner); resolving, a card still there (CR 608.2b — else the spell fizzles) lets the Aura
+>   enter attached to no permanent, stamped `enchantedGraveyardCard`. Its ETB (effects/atoms/animateDead.js) checks the Aura is
+>   still on the battlefield (CR 603.4), returns the card under the Aura's controller and attaches, stamping the creature
+>   `animatedBy`; a card gone by then leaves the Aura attached to nothing → its owner's graveyard (CR 704.5m — the SBA sweep
+>   reads only attached Auras, so the resolver does it). Its leave trigger finds the creature it animated — that creature's
+>   controller sacrifices it; a creature already gone is a clean no-op.
+> · **Found on the way (2):** the ETB sentinel first carried " and " — the clause splitter cut it, it parsed low and the trigger
+>   routed to the Arbiter (Hideaway's comma lesson, one word over: sentinels stay free of commas AND conjunctions). And the
+>   attached-bonus parse is all-or-nothing over the whole oracle, so the trigger sentences hid the -1/-0: the layer engine
+>   reads this card through its attached view ("Enchant creature" + the bonus — what the card says it becomes).
+> · **Runtime:** `WITNESS animateDead {"wurm":true,"attached":true,"linked":true,"size":[5,4],"stamp":null}`; an opponent's
+>   creature returns under your control; the card leaving first fizzles the spell (the Aura never enters); the Aura removed in
+>   response to its trigger returns nothing; the Aura destroyed: the creature is sacrificed to its owner's graveyard; the
+>   creature dying first: the Aura falls off, nothing more. Witness `app/src/lib/learn/animateDead.test.js` (9).
+> · **Next:** #242 Gray Merchant of Asphodel (the worklist head at 841).
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 11: Idol of Oblivion (EDHREC #196) — "you created a token this turn" · **+2** (Bennie Bracks, Zoologist) · corpus 15,188
 > Suite **17,511** green (1 skipped); lint 0; decks unchanged (2,732 / 2,998). CI GREEN on P·10 (run 36892670498). Flip-diff **+2, zero

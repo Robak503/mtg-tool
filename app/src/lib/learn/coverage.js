@@ -28,6 +28,7 @@
  * parsers the runtime uses so the metric stays honest.
  */
 
+import { isGraveyardReanimateAura } from "./animateDeadGate.js"; // P·12 — Animate Dead
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { stripFlashPermissionLine, stripCastOnlyAfterAnotherSpellLine } from "./effects/textNormalize.js"; // self-flash permission — shared with the spell path so metric and parser read ONE regex; + the cast-only-after-another-spell restriction (its pattern is the legalChoices gate's)
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
@@ -3302,6 +3303,9 @@ export function classifyCard(card) {
   // gate's all-or-nothing hands, never half-read as a plain Aura). Any failure ⇒ body-only (Arbiter).
   if (isSagaCard(card)) return sagaChaptersRouteNatively(card) ? "native-trigger" : "body-only";
   if (isAuraCard(card)) {
+    // ANIMATE DEAD (play-weighted P·12): the reanimation Aura's whole text is its gate (animateDeadGate) — the cast offer
+    // (graveyard creature targets), the AURA_ETB graveyard branch and both synthesized triggers read the same predicate.
+    if (isGraveyardReanimateAura(card)) return "native-aura";
     if (isNativeManaAura(card)) return "native-mana-aura";
     // GRANTED-MANA-ABILITY (creature OR land host): "Enchanted creature/land has \"{T}: Add …\"" (Multani's
     // Harmony; Settlement / Sheltered Aerie) — the host gains a clean tap-for-mana source through the existing

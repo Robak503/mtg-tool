@@ -117,7 +117,8 @@ import { evaluateInterveningIf } from "./interveningIf.js"; // CR 602.5d "Activa
 import { extractAdditionalCosts, extractAltCost } from "./effects/castModifiers.js"; // AC-PERMANENT — see permanentAdditionalCosts below; + extractAltCost (EVOKE on a permanent, Solitude)
 import { isPermanentSpell } from "./resolvers.js";
 import { commanderColorIdentityOf } from "./commanderIdentity.js";
-import { hideawayPlayOfferable } from "./effects/atoms/hideaway.js"; // P·10 — the linked free play is offered only when it can do something // P·6 — War Room's life cost (CR 903.4; a zero-import leaf)
+import { hideawayPlayOfferable } from "./effects/atoms/hideaway.js";
+import { isGraveyardReanimateAura } from "./animateDeadGate.js"; // P·12 — Animate Dead // P·10 — the linked free play is offered only when it can do something // P·6 — War Room's life cost (CR 903.4; a zero-import leaf)
 import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND — the one gate offer/dispatch/classifier all read
 
 /**
@@ -1693,6 +1694,13 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // sacrifice" payoff) is a fully-modeled trigger-only creature Aura — same cast shape (enter + attach
     // via AURA_ETB; the triggers fire off the attached linkage), gated on the SAME isNativeOrdealAura the
     // metric awards, so the offer and the native-trigger claim can't drift.
+    // ANIMATE DEAD (play-weighted P·12, CR 303.4a): "Enchant creature card in a graveyard" — the Aura spell TARGETS a creature
+    // card in ANY graveyard (the reanimate enumerator's anyGraveyard pool; each target carries its owner). None → can't cast.
+    if (isGraveyardReanimateAura(card)) {
+      const targets = enumerateTargets(state, playerId, { targetType: "graveyardCard", cardFilter: "creature", anyGraveyard: true }, colorsOf(card));
+      for (const t of targets) actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true, enchantsGraveyardCard: true });
+      continue;
+    }
     if (isNativeAura(card) || isNativeOrdealAura(card)) {
       // KW-PROTECTION (CR 702.16b): the Aura spell's colors gate targeting — a protection-from-[color]
       // creature can't be the Aura's target if the Aura is that color (also its 702.16c enchant immunity).

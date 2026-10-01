@@ -36,6 +36,7 @@ import {
 } from "./ptPrimitive.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { parseStaticAbilities, parseAttachedBonus, parseAuraGrantedManaAbility, parseSoulbondBond } from "./staticAbilityParser.js";
+import { isGraveyardReanimateAura, animateDeadBonusView } from "./animateDeadGate.js"; // P·12 — Animate Dead's -1/-0 (a zero-import leaf)
 import { commanderColorIdentityOf } from "./commanderIdentity.js"; // CR 903.4 — the shared read (stamp + command zone); a zero-import leaf
 import { parseProtectionColors, parseProtectionClasses } from "./protection.js"; // B7: the "creatures" source-class quality rides the same layer-6 addProtection op (`classes`)
 
@@ -851,7 +852,9 @@ export function staticEffectsOf(state, permanent) {
     // stops applying (a plain Bear under an aura read its printed power, unbuffed). If this is ever worth
     // fixing, it needs a SHALLOW host-type read off state.continuousEffects (crew stores a layer-4 type add
     // scoped to the vehicle — see actionDispatcher.applyCrewVehicle), never the derive.
-    for (const e of parseAttachedBonus(card)) {
+    // + P·12 (Animate Dead): the reanimation Aura's bonus is read off its attached view — its trigger sentences sink the
+    // all-or-nothing parse of the full text (animateDeadGate.animateDeadBonusView).
+    for (const e of parseAttachedBonus(isGraveyardReanimateAura(card) ? animateDeadBonusView(card) : card)) {
       // SOURCE-AWARE GATES (Face of Divinity / Shardmage's Rescue, 2026-09-05): the attached-bonus parse is per CARD, so a
       // gate that must know WHICH Aura it rides (to exclude itself, to read its own entry turn) is stamped with the
       // permanent id here, where the bonus is fixed to its host. Every other bonus passes through unchanged.

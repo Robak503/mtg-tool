@@ -15,6 +15,7 @@
  * triggersForEvent + enqueueTrigger land in PR-6..8.
  */
 
+import { isGraveyardReanimateAura, animateDeadDescriptors } from "./animateDeadGate.js"; // P·12 — Animate Dead (a zero-import leaf)
 import {
   opponentsOf,
   findPermanent,
@@ -4404,6 +4405,14 @@ const COMMANDER_STORM_CLAUSE_RE = /^copy it for each time you['’]ve cast your 
 export function detectTriggers(card) {
   if (!card || typeof card !== "object") return [];
   if (_detectCache.has(card)) return _detectCache.get(card);
+  // ANIMATE DEAD (play-weighted P·12): the reanimation Aura's two printed triggers carry an enchant rewrite and a "that
+  // creature" referent no generic parse reads, so the card's descriptors come whole from its gate (two printed When-sentences,
+  // two descriptors — the shaped/detected counts agree).
+  if (isGraveyardReanimateAura(card)) {
+    const ad = animateDeadDescriptors();
+    _detectCache.set(card, ad);
+    return ad;
+  }
   // Strip the leading "Landfall —" ability-word label (CR 207.2c — flavor, no rules meaning) so the trigger
   // regex below, which anchors "Whenever" at a line/sentence boundary, sees the bare "Whenever a land you
   // control enters …". Without this, "Landfall — Whenever …" puts "Whenever" mid-line and never matches.

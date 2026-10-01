@@ -35,7 +35,8 @@ import { selfReturnResolvers } from "./atoms/selfReturn.js";
 import { winGameResolvers } from "./atoms/winGame.js";
 import { rollResolvers } from "./atoms/roll.js";
 import { freeCastResolvers } from "./atoms/freeCast.js";
-import { hideawayResolvers } from "./atoms/hideaway.js"; // P·10 — HIDEAWAY (CR 702.75): the look-and-hide ETB and the linked free play
+import { hideawayResolvers } from "./atoms/hideaway.js";
+import { animateDeadResolvers } from "./atoms/animateDead.js"; // P·12 — Animate Dead: the return-and-attach ETB and the leave sacrifice // P·10 — HIDEAWAY (CR 702.75): the look-and-hide ETB and the linked free play
 import { iteratedEdictResolvers } from "./atoms/iteratedEdict.js";
 import { delayedTriggerResolvers } from "./atoms/delayedTrigger.js";
 import { controlResolvers } from "./atoms/control.js";
@@ -78,6 +79,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...selfReturnResolvers, // self-return (Wave 4 SELF-LTB) — Rancor PiG-return + Sword-of-the-Realms equipped-dies-return
   ...winGameResolvers, // win-game (UPKEEP-WIN, CR 104.2a) — "you win the game" / "target player loses the game"
   ...rollResolvers,    // roll-d20 (DICE-ROLL, CR 726) — Ancient Dragons roll → result-scaled token/draw payoff
+  ...animateDeadResolvers, // animate-dead-return + animate-dead-sacrifice (the reanimation Aura's two triggers)
   ...hideawayResolvers, // hideaway + hideaway-play (CR 702.75) — the impulse-dig hide, then the discover-lane free cast of the linked card
   ...freeCastResolvers, // free-cast (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle); park for the action-layer cast-free/decline decision
   ...iteratedEdictResolvers, // iterated-edict (Torment of Hailfire, CR 118.9) — X × per-opponent (lose 3 / sac nonland / discard) pausing edict chain

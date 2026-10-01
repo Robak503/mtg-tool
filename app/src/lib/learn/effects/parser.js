@@ -48,7 +48,8 @@ import { selfReturnClauseParser, selfReturnTriggerDetector } from "./atoms/selfR
 import { startEnginesClauseParser } from "./atoms/speed.js";
 import { winGameClauseParser } from "./atoms/winGame.js";
 import { rollDieClauseParser, resultScaledPayoffClauseParser } from "./atoms/roll.js"; // DICE-ROLL (CR 726) — roll a d20 + result-scaled token/draw payoff (Ancient Dragons)
-import { hideawayClauseParser } from "./atoms/hideaway.js"; // P·10 — HIDEAWAY (CR 702.75): the synthesized look-and-hide + "play the exiled card … if <condition>"
+import { hideawayClauseParser } from "./atoms/hideaway.js";
+import { animateDeadClauseParser } from "./atoms/animateDead.js"; // P·12 — Animate Dead's two synthesized sentinels // P·10 — HIDEAWAY (CR 702.75): the synthesized look-and-hide + "play the exiled card … if <condition>"
 import { freeCastClauseParser } from "./atoms/freeCast.js"; // FREE-CAST (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle)
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
@@ -4030,6 +4031,7 @@ registerClauseParser(putFromHandClauseParser);
 // multi-cast "any number of spells" stays low → Arbiter. Whole-clause anchored — matches no earlier parser.
 registerClauseParser(freeCastClauseParser);
 registerClauseParser(hideawayClauseParser);
+registerClauseParser(animateDeadClauseParser);
 // GAIN-CONTROL (CR 613.1b layer-2 / 702.10c) — "Gain control of target creature." / "Gain control of target <Subtype>."
 // (Sliver Overlord). INDEFINITE (non-reverting) control change only — the "(This effect lasts indefinitely.)"
 // reminder is pre-stripped; a duration word ("until end of turn"), a controller/self-exclusion restriction, or

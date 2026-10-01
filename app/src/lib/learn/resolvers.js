@@ -279,6 +279,9 @@ export function enterPermanent(state, card, controller, opts = {}) {
     // attachments machinery is untouched — no host permanent). Read by the enchanted-player effect
     // referents and swept to the graveyard by the elimination pass when that player leaves the game.
     ...(opts.enchantedPlayerId ? { enchantedPlayerId: opts.enchantedPlayerId } : {}),
+    // ANIMATE DEAD (play-weighted P·12, CR 303.4): the graveyard card a reanimation Aura enchants as it enters — { cardId,
+    // ownerId }. Read and cleared by its ETB (effects/atoms/animateDead.js).
+    ...(opts.enchantedGraveyardCard ? { enchantedGraveyardCard: opts.enchantedGraveyardCard } : {}),
     // KICKER (CR 702.33b/e): stamp the was-kicked flag DURABLY on the permanent when this cast paid the kicker
     // (opts.kicked, threaded from the kicked cast). Mirrors how `xValue` / `chosenType` persist — a plain
     // boolean that serializes via the JSON pass-through. Read back by the "it was kicked" intervening-if
@@ -906,12 +909,22 @@ export const RESOLVERS = Object.freeze({
   // resolve — it's put into its owner's graveyard by game rules (CR 608.3b) and never
   // enters (logged, never fabricated). The targetId is a battlefield permanent id.
   [RESOLVER_KEYS.AURA_ETB]: (state, obj) => {
-    const { card, controller, targetId, bestowed, enchantsPlayer, hostType, kicked, printedCard, castDuringMainPhase } = obj.payload?.params || {}; // printedCard: V1 slice 3 (a modal-DFC Aura front — Glasswing Grace); castDuringMainPhase: Sentinel's Mark's Addendum look-back
+    const { card, controller, targetId, bestowed, enchantsPlayer, enchantsGraveyardCard, hostType, kicked, printedCard, castDuringMainPhase } = obj.payload?.params || {}; // printedCard: V1 slice 3 (a modal-DFC Aura front — Glasswing Grace); castDuringMainPhase: Sentinel's Mark's Addendum look-back
     if (!card || !controller) return resolveManual(state, obj);
     // PLAYER-AURA (Fraying Sanity / the Curse class — SHELF S7, CR 303.4): the target is a PLAYER.
     // Re-check at resolution (CR 608.2b — the player may have been eliminated); gone → the Aura card
     // reaches its owner's graveyard (CR 608.3b, the same fizzle as a vanished creature target). Enters
     // UNATTACHED to any permanent, with `enchantedPlayerId` stamped for the enchanted-player referents.
+    // ANIMATE DEAD (play-weighted P·12): the target is a creature CARD in a graveyard. Still there (CR 608.2b) → the Aura enters
+    // attached to no permanent, stamped with it; its ETB returns the card and attaches. Gone → the spell fizzles (CR 608.3b).
+    if (enchantsGraveyardCard) {
+      const link = enchantsGraveyardCard;
+      const still = (state.players?.[link.ownerId]?.graveyard || []).some((c) => c.id === link.cardId);
+      if (!still) {
+        return logEvent(finishSpellResolution(state, { playerId: obj.owner || controller, card }), { kind: "spell-fizzle", source: card?.name, reason: "enchanted card left the graveyard", controller });
+      }
+      return enterPermanent(state, card, controller, { enchantedGraveyardCard: { cardId: link.cardId, ownerId: link.ownerId }, wasCast: true, ...(obj.owner ? { owner: obj.owner } : {}) });
+    }
     if (enchantsPlayer) {
       if (!state.players?.[targetId]) {
         return logEvent(finishSpellResolution(state, { playerId: obj.owner || controller, card }), { kind: "spell-fizzle", source: card?.name, reason: "enchanted player gone", controller });
