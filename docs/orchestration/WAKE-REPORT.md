@@ -80,6 +80,7 @@
 > Stone Calendar, Highspire Bell-Ringer, Uthros Psionicist — the all-spells and second-spell reducers (+3 → corpus 14,989; suite 1644 / 16,975).
 > **The residue loop STOPS here — Colton (09-30): "Do my decks."** Next: the shelf decks' unplayed cards, until the v0.161.0 tag on/after 10-02.
 > **SHELF DECKS · D1** tribal digs read the printed capital — Avengers Tower takes Hulk Smash to 90% (+7 → corpus 14,996; suite 1645 / 16,981). Tool: `app/scripts/shelf-residue-map.mjs`.
+> **SHELF DECKS · D34** The Reality Chip — play from the top while attached; reconfigure no longer targets itself — Kellan of the West 85 → 86 (+1 → corpus 15,145; suite 1,683 / 17,338).
 > **SHELF DECKS · D33** Katsumasa, the Animator — a Vehicle keeps its printed size, anything else is 1/1 — Shorikai Vehicles 89 → 90 — **27 of 30 at ≥90** (+1 → corpus 15,144; suite 1,682 / 17,333).
 > **SHELF DECKS · D32** Mu Yanling — the Vehicle token and "Vehicles you control have flying" — Shorikai Vehicles 88 → 89 (+3 → corpus 15,143; suite 1,681 / 17,325).
 > **SHELF DECKS · D31** "you may cast this card from your graveyard as long as …" — Shorikai Vehicles 87 → 88 (+3 → corpus 15,140; suite 1,680 / 17,321).

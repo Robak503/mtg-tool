@@ -60,7 +60,7 @@ function sweepAttachmentLegality(state) {
       if (!isAura && !isEquipment) continue; // an attachment shape we don't model — leave it alone (CREED)
       const host = findPermanent(next, perm.attachedTo);
       if (isEquipment) {
-        // CR 704.5m — attached to an illegal permanent (or nothing) → becomes unattached, stays on
+        // CR 704.5n — attached to an illegal permanent (or nothing) → becomes unattached, stays on
         // the battlefield. Layer-aware creature-ness: an expired man-land animation is the live case.
         const hostIsLegal = host?.permanent && permanentIsCreature(next, host.permanent.id);
         if (!hostIsLegal) {
@@ -73,7 +73,7 @@ function sweepAttachmentLegality(state) {
         }
         continue;
       }
-      // Aura (CR 704.5n): legality follows the Aura's OWN printed "Enchant <X>" line — the honest
+      // Aura (CR 704.5m): legality follows the Aura's OWN printed "Enchant <X>" line — the honest
       // per-card source (the AURA_ETB creature/land dichotomy under-describes the granted-activated
       // lane: Squirrel Nest legally enchants a land). Only the three requirements the engine can
       // check faithfully are enforced: "Enchant creature" → layer-aware creature-ness (so an Aura on

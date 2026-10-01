@@ -2584,6 +2584,10 @@ function actionsActivateAbility(state, playerId) {
           : player.battlefield.map((t) => ({ t, pid: playerId }));
         for (const { t, pid: tPid } of pool) {
           if (!isCreature(t.card)) continue;
+          // An Equipment can't equip itself (CR 301.5c); reconfigure attaches to ANOTHER creature (CR 702.151a). A reconfigure
+          // Equipment is a creature while unattached, so without this it offered itself (shelf D34): the attach paid its cost
+          // and the state-based action unattached it at once.
+          if (t.id === perm.id) continue;
           if (ab.isAuraAttach && t.id === perm.attachedTo) continue; // already its host — moving it there is no move
           // EQUIP-[QUALITY] (CR 702.6c): a restricted equip ("Equip commander {3}" / "Equip legendary
           // creature {2}") may target only a creature you control that has the stated quality. Two qualities

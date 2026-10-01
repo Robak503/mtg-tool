@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **The Reality Chip** — while it is attached to a creature, you may play lands and cast spells from the top of your library
 - **Katsumasa, the Animator** — animates a noncreature artifact you control into a flier (a Vehicle keeps its printed size, anything else is 1/1), and feeds +1/+1 counters to up to three noncreature artifacts each upkeep
 - **Mu Yanling, Wind Rider, Aeronaut Admiral and Wish Good Luck** — the 3/2 crew-1 Vehicle token, and "Vehicles you control have flying" (crewed or not)
 - **The Indomitable and Gravecrawler** — castable from your graveyard while their condition holds (three tapped Pirates and/or Vehicles; a Zombie)
@@ -429,6 +430,7 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **Reconfigure** no longer offers an Equipment as its own target — the attach paid its cost and fell straight off
 - **"Becomes a copy of another target nonlegendary attacking creature"** now offers only what the card allows — never itself, a legend, or a creature that isn't attacking
 - **"It gains haste" after a token copy** now means the token, not the creature it copied
 - **Delayed "when that creature dies this turn" text** is no longer read as a printed trigger — Together Forever and Sandals of Abdallah lost a phantom "when this dies" trigger, and Grim Javelineer's attack trigger keeps its second half

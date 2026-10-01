@@ -5,14 +5,32 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **446 commits**, corpus
-> 38.6% → **44.2% (15,144)** — roughly +1,700 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **447 commits**, corpus
+> 38.6% → **44.2% (15,145)** — roughly +1,700 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D34: THE REALITY CHIP — PLAY FROM THE TOP WHILE ATTACHED · ⚠️ RECONFIGURE NO LONGER TARGETS ITSELF — Kellan of the West 85 → 86 · **+1** · corpus 15,145 / 34,245
+> Suite **1,683 files / 17,338 tests** green (1 skipped); lint 0; decks 2,709 / 2,998. CI GREEN on D33 (run 36813454252). Flip-diff **+1, zero LOST,
+> zero RETIERED** (tier snapshots at 96657d56 → the change: The Reality Chip). **Mutants 6/6** on the final code (restore byte-identical).
+> · **The permission** (staticAbilityParser.js): "As long as The Reality Chip is attached to a creature, you may play lands and cast
+>   spells from the top of your library" is Future Sight's playFromTop marker with attachedGated; playFromTopPermission re-reads the
+>   source's attachedTo at every offer (the Conqueror's Flail split). An Equipment on a non-creature is unattached by SBA (CR 704.5n).
+> · **The Equipment residue loop** (coverage.js) also asks the static grammar about a clause in its self-normalized form — it reads
+>   raw clauses, where the card's own name was unknown text (the runtime parser always saw "this creature").
+> · ⚠️ **Found on the way — reconfigure offered the Equipment as its own target** (legalChoices.js): an Equipment can't equip itself
+>   (CR 301.5c) and reconfigure attaches to ANOTHER creature (CR 702.151a). The self-attach paid its cost and SBA unattached it at once.
+>   Every reconfigure card had it (a reconfigure Equipment is a creature while unattached, so it sat in its own pool).
+> · **sba.js citations corrected:** the Equipment unattach is CR 704.5n and an Aura to the graveyard is 704.5m — the two comments had
+>   them swapped (behavior unchanged).
+> · **Runtime:** `WITNESS realityChip {"attached":{"attachedTo":"BEAR","creature":false,"offers":["cast-spell:div"]},"afterCast":{"hand":["w0","w1"],"graveyard":["div"],"offers":["play-land:isl"]},"islandOnBattlefield":true,"libraryTop":"w2"}`
+>   · the Bear leaves → SBA unattaches the Chip → no offer. Witness `app/src/lib/learn/realityChip.test.js` (5).
+> · **Next:** Kellan 86 needs 4 — One with the Multiverse, Eladamri, Sakashima's Protege, Transcendent Dragon, then Fblthp / Bonny Pall.
+>   **Colton (09-30): Transcendent Dragon is in.** The theft ban is a deck THEME; a single card in a non-theft deck is fine.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D33: KATSUMASA, THE ANIMATOR — A VEHICLE KEEPS ITS SIZE, ANYTHING ELSE IS 1/1 — Shorikai Vehicles 89 → 90 — **27 of 30 at ≥90** · **+1** · corpus 15,144 / 34,245
 > Suite **1,682 files / 17,333 tests** green (1 skipped); lint 0; decks 2,708 / 2,998. CI GREEN on D32 (run 36812307458). Flip-diff **+1, zero LOST,

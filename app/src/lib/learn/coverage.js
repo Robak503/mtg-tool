@@ -2297,6 +2297,11 @@ export function permanentEquipmentCovered(card) {
     // (clauseProducesStatic would refuse it anyway — parseClause has no trigger grammar). Only-loosens:
     // a clause the grammar doesn't emit for stays residue → body-only.
     if (clauseProducesStatic(c)) continue;
+    // SHELF D34 (The Reality Chip): a static that names the card itself ("As long as The Reality Chip is attached to a
+    // creature, …") reaches the shared grammar in its self-normalized form, exactly as parseStaticAbilities hands it over
+    // at runtime. This loop reads raw clauses, where the name would otherwise be unknown text.
+    const selfC = selfNormalizeOracle(clause, card?.name, card?.type || card?.type_line).toLowerCase().replace(/[’']/g, "'").trim();
+    if (selfC !== c && clauseProducesStatic(selfC)) continue;
     return false; // residue the engine doesn't model → body-only
   }
   return true;

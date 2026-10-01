@@ -3168,6 +3168,14 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ playFromTop: { lands: true, spellFilter: "any" } });
     return;
   }
+  // SHELF D34 (The Reality Chip — "As long as The Reality Chip is attached to a creature, you may play lands and cast spells
+  // from the top of your library."): the same permission, live only while the source is attached. playFromTopPermission
+  // re-reads the source's attachedTo at every offer (the Conqueror's Flail split); an Equipment on a non-creature is
+  // unattached by the state-based action (CR 704.5n), so attached is attached to a creature whenever the player can act.
+  if (/^as long as this creature is attached to a creature, you may play lands and cast spells from the top of your library$/.test(c)) {
+    out.push({ playFromTop: { lands: true, spellFilter: "any", attachedGated: true } });
+    return;
+  }
   // ⭐ FILTERED CAST-FROM-TOP (SHELF-85 K9, 2026-09-04 — Mystic Forge "You may cast artifact spells and colorless spells
   // from the top of your library"): no land permission, and a spell filter of type words plus the special word
   // "colorless" (castFromTopFilterAllows tests it as the card's colours, not its type line). Enforced at the offer by the
@@ -5728,6 +5736,7 @@ export function playFromTopPermission(state, playerId) {
     if (!perm?.card) continue;
     for (const d of parseStaticAbilities(perm.card)) {
       if (!d.playFromTop) continue;
+      if (d.playFromTop.attachedGated && !perm.attachedTo) continue; // The Reality Chip grants nothing while unattached
       // A DYNAMIC chosen-type filter resolves HERE, where the granting permanent is in hand: its word list is
       // whatever that permanent chose on entry (Realmwalker #607). Unchosen → the granter permits no spells at
       // all, rather than permitting everything — the safe direction, and never a guessed type.
