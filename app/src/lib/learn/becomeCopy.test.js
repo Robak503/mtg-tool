@@ -46,7 +46,8 @@ describe("parsing", () => {
   });
 
   it("⛔ an unlisted target NOUN parks — never a guessed target class", () => {
-    expect(atomOf("~ becomes a copy of target land until end of turn")).toBeNull();
+    // ("target land" was this pin's example until shelf D29 listed it for Thespian's Stage; an enchantment is still unlisted.)
+    expect(atomOf("~ becomes a copy of target enchantment until end of turn")).toBeNull();
   });
 
   it("⛔ a NON-SELF subject does not ride this atom", () => {

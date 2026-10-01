@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **441 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **442 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,26 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D29: THE LASTING COPY THAT KEEPS "THIS ABILITY" — THESPIAN'S STAGE — Teval 89 → 90 · **+3** · corpus 15,135 / 34,245
+> Suite **1,678 files / 17,309 tests** green (1 skipped); lint 0; decks 2,704 / 2,998 — **26 of 30 at ≥90**. CI GREEN on D28 (run 36807292743). Flip-diff
+> **+3, zero LOST, zero RETIERED** (tier snapshots at e38bdb7e → the change: Thespian's Stage, Mizzium Transreliquat, Shameless Charlatan). **Mutants 11/11** on the final code (restore byte-identical).
+> · **Build (becomeCopy.js):** the seam read only "… until end of turn"; with no stated duration the copy now LASTS (CR 611.2a).
+>   "except it has this ability" keeps the source's printed line on the copy — the retainOwnAbilities rider Sakashima uses — so
+>   it can copy again; read ONLY here, never in the shared clone vocabulary (an entering clone printing it would otherwise parse
+>   it as a silent no-op); no such line on the source → no copy at all. Subjects "this land" / "this artifact", nouns
+>   "target land" / "target artifact".
+> · **Pre-existing defect fixed:** the noun map FLATTENED its qualifiers — "another target nonlegendary attacking creature"
+>   (Tilonalli's Skinshifter) read as a bare creature target, offering the source itself, legends and non-attackers. Each
+>   qualifier is now the restriction the shared satisfier enforces (notSource · the D26 supertype negate · combat attacking).
+> · **Unaimed gain verified:** Shameless Charlatan ("Commander creatures you own have '{2}{U}: This creature becomes a copy of
+>   another target creature.'") — the commander copies another creature, never itself, the copy lasts, and it stays a commander
+>   that still has the grant (CR 903.3 — the commander gate reads the printed card, not the copied values).
+> · **Runtime:** `WITNESS thespianStage {"offered":["forest","island","stage"],"now":"Forest","keeps":true,"lostPrintedC":true,"nextTurn":"Forest","offeredLater":true,"again":"Island"}`
+>   — it becomes a Forest that keeps its copy ability and loses its printed {C}, is still a Forest a turn later, and becomes an
+>   Island. Mizzium Transreliquat: the {3} copy ends at cleanup; the {1}{U}{R} copy lasts and keeps only that ability. Witness
+>   `app/src/lib/learn/thespianStageCopy.test.js` (6). becomeCopy.test.js's unlisted-noun pin now names an enchantment (land is listed).
+> · **Next:** Shorikai 86 (4 — Emry · The Indomitable · Mu Yanling · Katsumasa); Kellan 85 (5); Light-Paws 83 (7); Atraxa 74 (16).
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D28: SUBTERFUGE — THE TRAILING "UNTIL END OF TURN" QUOTED GRANT — Teval 88 → 89 · **+1** · corpus 15,132 / 34,245
 > Suite **1,677 files / 17,303 tests** green (1 skipped); lint 0; decks 2,703 / 2,998. CI GREEN on D27 (run 36806314528). Flip-diff **+1, zero LOST,

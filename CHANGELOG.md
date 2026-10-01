@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Thespian's Stage and Mizzium Transreliquat** — become a lasting copy of a land or artifact while keeping the ability that did it
+- **Shameless Charlatan** — your commander can become a copy of another creature, and keeps the ability to do it again
 - **Subterfuge** — when it enters, one of your creatures gains flying and draws a card per combat damage it deals to a player this turn
 - **Overlord of the Balemurk** — when it enters or attacks it mills four, then you may return a non-Avatar creature or a planeswalker card to your hand
 - **Colossal Grave-Reaver** — when creature cards are milled from your library, one of them is put onto the battlefield (you choose which)
@@ -422,6 +424,7 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **"Becomes a copy of another target nonlegendary attacking creature"** now offers only what the card allows — never itself, a legend, or a creature that isn't attacking
 - **"It gains haste" after a token copy** now means the token, not the creature it copied
 - **Delayed "when that creature dies this turn" text** is no longer read as a printed trigger — Together Forever and Sandals of Abdallah lost a phantom "when this dies" trigger, and Grim Javelineer's attack trigger keeps its second half
 - **Flicker triggers** (Displacer Kitten, Teleportation Circle, Conjurer's Closet and the like) now flicker the permanent worth flickering instead of whichever came first; Displacer Kitten no longer flickers an Aura, which came back enchanting nothing

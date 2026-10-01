@@ -28,17 +28,23 @@ import { addContinuousEffect } from "../../layers.js";
 import { parseCloneRider, snapshotCopiedCard } from "../../cloneCopy.js";
 import { atomTargets } from "./shared.js";
 
-// The target nouns this shape accepts, mapped to the engine's targetType vocabulary. Restricted to nouns the
-// enumerator already offers, so a parsed atom can always be given a legal target.
-const TARGET_NOUNS = {
-  "another target creature": "creature",
-  "another target nonlegendary creature": "creature",
-  "another target attacking creature": "creature",
-  "another target nonlegendary attacking creature": "creature",
-  "another target permanent": "permanent",
-  "target creature": "creature",
-  "target permanent": "permanent",
-};
+// The target nouns this shape accepts: "[another] target [nonlegendary] [attacking] <creature|permanent|land|artifact>",
+// mapped to the engine's targetType vocabulary (nouns the enumerator already offers) PLUS each qualifier as the restriction
+// the shared satisfier enforces. ⛔ The qualifiers used to be flattened away (shelf D29 found it): "another target
+// nonlegendary attacking creature" read as a bare creature target, so the source itself, a legend and a creature not
+// attacking were all offered — illegal targets the printed card forbids. Land / artifact are shelf D29's (Thespian's Stage,
+// Mizzium Transreliquat); the qualifiers ride only on the creature / permanent nouns they were printed with.
+const TARGET_NOUN_RE = /^(another )?target (nonlegendary )?(attacking )?(creature|permanent|land|artifact)$/;
+function parseTargetNoun(noun) {
+  const m = noun.match(TARGET_NOUN_RE);
+  if (!m || ((m[2] || m[3]) && m[4] !== "creature")) return null;
+  const restrictions = [
+    ...(m[1] ? [{ kind: "notSource" }] : []),
+    ...(m[2] ? [{ kind: "supertype", value: "legendary", negate: true }] : []),
+    ...(m[3] ? [{ kind: "combat", value: "attacking" }] : []),
+  ];
+  return { targetType: m[4], ...(restrictions.length ? { restrictions } : {}) };
+}
 
 /**
  * PURE clause parser. Anchored ^…$ on the whole clause so a trailing rider outside the "except" tail fails
@@ -50,22 +56,28 @@ const TARGET_NOUNS = {
  */
 export function becomeCopyClauseParser(clause) {
   const t = String(clause || "").trim().toLowerCase().replace(/\.$/, "");
-  const m = t.match(/^(?:you may have )?(?:~|this creature|it) becomes? a copy of ([a-z ]+?) until end of turn(?:, except (.+))?$/);
+  // LASTING (shelf D29 — Thespian's Stage, Mizzium Transreliquat): with no "until end of turn" the copy has no stated
+  // duration, so it lasts (CR 611.2a) — for as long as the permanent does. The subject may be "this land" / "this artifact".
+  const m = t.match(/^(?:you may have )?(?:~|this creature|this land|this artifact|it) becomes? a copy of ([a-z ]+?)( until end of turn)?(?:, except (.+))?$/);
   if (!m) return null;
-  const targetType = TARGET_NOUNS[m[1].trim()];
-  if (!targetType) return null; // an unlisted noun → LOW → Arbiter (never a guessed target class)
+  const noun = parseTargetNoun(m[1].trim());
+  if (!noun) return null; // an unlisted noun → LOW → Arbiter (never a guessed target class)
 
   // ⛔ ALL-OR-NOTHING RIDERS (CR 707.9a). Every "except …" sub-clause must parse to a modelled atom or the
   // whole clause parks — a copy applied with a rider silently dropped is a body the card never printed.
   let riders = [];
-  if (m[2]) {
-    for (const s of m[2].split(/,\s*and\s+|,\s+|\s+and\s+/).map((x) => x.trim()).filter(Boolean)) {
+  if (m[3]) {
+    for (const s of m[3].split(/,\s*and\s+|,\s+|\s+and\s+/).map((x) => x.trim()).filter(Boolean)) {
+      // "EXCEPT IT HAS THIS ABILITY" (shelf D29): the copy keeps the very ability that made it — a marker the resolver fills
+      // with the source's printed line. Read HERE, never in the shared clone vocabulary: an entering clone printing it would
+      // otherwise parse it as a silent no-op.
+      if (/^it has this ability$/.test(s)) { riders.push({ kind: "hasThisAbility" }); continue; }
       const atom = parseCloneRider(s);
       if (!atom) return null;
       riders.push(atom);
     }
   }
-  return { op: "become-copy", targetType, riders, optional: /^you may have\b/.test(t) };
+  return { op: "become-copy", ...noun, riders, optional: /^you may have\b/.test(t), ...(m[2] ? {} : { lasting: true }) };
 }
 
 /**
@@ -92,13 +104,24 @@ export function applyBecomeCopy(state, atom, ctx) {
   const lookup = findPermanent(state, target.id);
   // The copying card is the SOURCE's own card — that is what a name rider's `~` resolves against.
   const selfCard = findPermanent(state, sourceId)?.permanent?.card || null;
-  const copiableCard = snapshotCopiedCard(lookup.permanent, selfCard, atom.riders || []);
+  // "EXCEPT IT HAS THIS ABILITY" (shelf D29): the ability is the source's printed line that says so — the one resolving now
+  // (every carrier prints exactly one). It rides as the same retainOwnAbilities rider Sakashima's "it has ~'s other abilities"
+  // uses, so the copy carries it as a printed instance and can copy again. No such line → no copy at all, never a copy that
+  // silently lost the ability (CREED).
+  let riders = atom.riders || [];
+  if (riders.some((r) => r.kind === "hasThisAbility")) {
+    const line = String(selfCard?.oracle || selfCard?.oracle_text || "").split("\n").find((l) => /except it has this ability/i.test(l));
+    if (!line) return logEvent(state, { kind: "spell-effect", effect: "become-copy", copied: 0, reason: "no printed ability to keep", controller: ctx.controller });
+    riders = riders.map((r) => (r.kind === "hasThisAbility" ? { kind: "retainOwnAbilities", oracle: line.trim() } : r));
+  }
+  const copiableCard = snapshotCopiedCard(lookup.permanent, selfCard, riders);
   const { state: s2 } = addContinuousEffect(state, {
     layer: 1,
     op: "copy",
     copiableCard,
     affects: { mode: "self", permanentId: sourceId },
-    duration: { kind: "endOfTurn", turn: state.turn },
+    // LASTING (shelf D29): no stated duration → for as long as the permanent is on the battlefield (CR 611.2a).
+    duration: atom.lasting ? { kind: "permanent" } : { kind: "endOfTurn", turn: state.turn },
     source: { kind: "resolution", permanentId: sourceId, cardName: ctx.cardName || null },
   });
   return logEvent(s2, {
