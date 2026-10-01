@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **9 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,154)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **10 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,155)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,25 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-10-01 — SHELF DECKS · D41: MANTLE OF THE ANCIENTS — AURAS AND EQUIPMENT RETURN ATTACHED — Light-Paws Voltron 85 → 86 · **+1** · corpus 15,155 / 34,245 (44.3%)
+> Suite **1,691 files / 17,387 tests** green (1 skipped); lint 0; decks 2,716 / 2,998. CI GREEN on D40 (run 36827909736). Flip-diff **+1, zero LOST,
+> zero RETIERED** (tier snapshots at 17436c26 → the change: Mantle of the Ancients body-only → native-aura). **Mutants 10/10** on the final code (restore byte-identical).
+> · **The atom** (atoms/zones.js `return-attached-from-graveyard`): the chosen Aura and Equipment cards still in your graveyard
+>   (CR 608.2b) enter attached to the Mantle's host. An Aura whose own Enchant line can't take that host stays behind (CR 303.4i);
+>   nothing enters onto a host with protection from one of its colours (CR 702.16c/d); Equipment enters first, so a returning
+>   Sword's protection keeps a same-colour Aura in the graveyard instead of wrongly attached (the engine's sweep does not apply
+>   CR 702.16c). No host (the Mantle gone before its trigger resolves) → nothing returns.
+> · **One reader, moved:** `auraMayEnchantCreature` left atoms/stack.js VERBATIM for a new leaf, `learn/auraHost.js` — stack.js
+>   imports zones.js, so zones.js could not import it back. Attach-to-triggering, attach-pair and the Mantle now share it.
+> · **The hollow gate caught one:** with Wild Growth alone, dropping the Enchant-line check SURVIVED — the sweep kills an
+>   "Enchant land" Aura on a Bear right after it enters, so the end state matched. Stasis Cocoon ("Enchant artifact", which the
+>   sweep leaves alone) now pins the check.
+> · **Runtime:** `WITNESS mantleOfTheAncients {"attached":["Bonesplitter","Mantle of the Ancients","Rancor"],"graveyard":["bear2","cocoon","growth"],"size":[9,5],"trample":true}`
+>   · Mirran Crusader keeps Rancor and Bloodthorn Flail off (6/4 with Bonesplitter) · a returning Sword of Feast and Famine keeps
+>   Rancor in the graveyard (6/6, protection from black and green) · an exiled target stays exiled · no Mantle, no return. Witness
+>   `app/src/lib/learn/mantleOfTheAncients.test.js` (8).
+> · **Next:** Light-Paws 86 needs 4 — With Great Power . . . (one line), Pearl-Ear (two), then two from the deep pile.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D40: CELESTIAL MANTLE — DOUBLE ITS CONTROLLER'S LIFE TOTAL — Light-Paws Voltron 84 → 85 · **+1** · corpus 15,154 / 34,245 (44.3%)
 > Suite **1,690 files / 17,379 tests** green (1 skipped); lint 0; decks 2,715 / 2,998. CI GREEN on D39 (run 36826874295). Flip-diff **+1, zero LOST,

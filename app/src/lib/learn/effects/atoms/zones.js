@@ -3,7 +3,7 @@
  * reanimate). Also hosts the shared enterCardFromZone helper (reanimation + library ramp).
  */
 
-import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf, shuffleSeededLibrary, planeswalkerEntryLoyalty, deterministicRng, advanceRngSeed } from "../../gameState.js"; // deterministicRng / advanceRngSeed — ENDURANCE's "in a random order" (seeded, never Math.random) // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
+import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf, shuffleSeededLibrary, planeswalkerEntryLoyalty, deterministicRng, advanceRngSeed, attachPermanent } from "../../gameState.js"; // deterministicRng / advanceRngSeed — ENDURANCE's "in a random order" (seeded, never Math.random) // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
 import { impositionEntersTapped } from "../../staticAbilityParser.js"; // KM-1 (CR 614.1c) — Kismet taxes non-cast entries too (leaf-safe: staticAbilityParser imports only keywords.js)
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
@@ -13,6 +13,9 @@ import { SMALL_NUM, parseCountSource } from "../parseHelpers.js"; // MULTI-COUNT
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // SUBTYPE RETURN (Atzocan Seer) — the closed CR subtype vocabulary (a zero-import leaf, cycle-free)
 import { shuffleControllerLibrary } from "./library.js";
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // the CR 603.7 queue (a sibling leaf)
+import { colorsOf, permanentProtectionColors } from "../../layers.js"; // shelf D41 — the host's live protection colours vs a returning card's colours (CR 702.16c/d)
+import { protectionApplies } from "../../protection.js"; // shelf D41 — the shared colour-protection test (an import-free leaf)
+import { auraMayEnchantCreature } from "../../auraHost.js"; // shelf D41 — the shared Enchant-line reader (a leaf; stack.js reads it too)
 // CZ-COMMANDER-VISIT cross-layer doors — INJECTED, never imported: a static resolvers.js/layers.js
 // import from this atoms leaf TDZ-crashed 56 suites (zones sits under effectAtoms → parser, and
 // resolvers.js reaches back through that chain). The integrators register at their own load
@@ -684,6 +687,13 @@ export function graveyardReturnClauseParser(clause) {
     if (ctr[3] === "your hand") return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter, fromBattlefieldThisTurnOnly: true, ...count };
     if (cardFilter !== "creature" && !isPermanentReanimateFilter(cardFilter)) return null;
     return { op: "reanimate", targetType: "graveyardCard", cardFilter: cardFilter === "creature" ? "creature" : { typeFilter: cardFilter }, fromBattlefieldThisTurnOnly: true, ...(ctr[4] ? { entersTapped: true } : {}), ...count };
+  }
+  // shelf D41 (Mantle of the Ancients — "When this Aura enters, return any number of target Aura and/or Equipment cards from
+  // your graveyard to the battlefield attached to enchanted creature."): a targeted pick of any number (CR 601.2c — the subset
+  // machinery, largest first) of Aura and Equipment cards in your graveyard, each entering attached to the SOURCE Aura's host.
+  if (/^return any number of target aura and\/or equipment cards from your graveyard to the battlefield attached to enchanted creature$/.test(t)) {
+    return { op: "return-attached-from-graveyard", targetType: "graveyardCard", cardFilter: { anyOf: [{ subtype: "Aura" }, { subtype: "Equipment" }] },
+      minTargets: 0, maxTargets: 99, anyNumber: true };
   }
   const multiM = /^return up to (one|two|three|four|five) target (.*?)cards? from your graveyard to your hand$/.exec(t);
   if (multiM) {
@@ -1945,7 +1955,40 @@ export function applyGyCastPermission(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "gy-cast-permission", granted: card.name, controller: me });
 }
 
+/**
+ * RETURN ATTACHED FROM GRAVEYARD (shelf D41 — Mantle of the Ancients): the chosen Aura and Equipment cards still in the
+ * controller's graveyard (a card that has left it is not returned — CR 608.2b) enter the battlefield attached to the SOURCE
+ * Aura's host, "enchanted creature".
+ *   · An Aura enters only if its own Enchant line admits that host (the shared auraMayEnchantCreature reader); one that can't
+ *     legally enchant it stays in the graveyard (CR 303.4i). Wild Growth ("Enchant land") stays behind.
+ *   · Nothing enters onto a host with protection from one of its colours (CR 702.16c/d). The rules would let such an Equipment
+ *     enter and then become unattached; leaving it in the graveyard is an under-delivery the CREED permits.
+ *   · Equipment enters before Auras. The cards really enter together, and an Aura that lands under a returning Sword's
+ *     protection is put into the graveyard at once (CR 702.16c), a state-based action the engine's sweep does not apply.
+ *     Reading each Aura against the host the Equipment left behind keeps that Aura in the graveyard rather than wrongly
+ *     attached.
+ *   · With no host (the Mantle left the battlefield before its trigger resolved) nothing returns — an under-delivery.
+ */
+function applyReturnAttachedFromGraveyard(state, atom, ctx) {
+  const owner = ctx.controller;
+  const hostId = (ctx.sourceId && findPermanent(state, ctx.sourceId)?.permanent?.attachedTo) || null;
+  if (!hostId) return logEvent(state, { kind: "spell-effect", effect: "return-attached-from-graveyard", returned: [], why: "no enchanted creature", controller: owner });
+  const isAura = (card) => /\bAura\b/.test(String(card.type || card.type_line || ""));
+  const picked = (ctx.targets || []).map((t) => state.players[owner].graveyard.find((c) => c.id === t.id)).filter(Boolean);
+  let next = state;
+  const returned = [];
+  for (const card of [...picked.filter((c) => !isAura(c)), ...picked.filter(isAura)]) {
+    if (protectionApplies(permanentProtectionColors(next, hostId), colorsOf(card))) continue; // CR 702.16c/d
+    if (isAura(card) && !auraMayEnchantCreature(next, card, findPermanent(next, hostId), owner)) continue; // CR 303.4i
+    const r = enterCardFromZone(next, { playerId: owner, cardId: card.id, fromZone: "graveyard" });
+    next = attachPermanent(r.state, { equipId: r.permanentId, targetId: hostId });
+    returned.push(card.id);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "return-attached-from-graveyard", returned, host: hostId, controller: owner });
+}
+
 export const zoneResolvers = {
+  "return-attached-from-graveyard": applyReturnAttachedFromGraveyard, // shelf D41 — Mantle of the Ancients
   "gy-cast-permission": applyGyCastPermission, // shelf D30 — Emry's "you may cast that card this turn" (a permission by card id)
   "gy-batch-to-battlefield": applyGyBatchToBattlefield, // shelf D27 — Colossal Grave-Reaver's "put one of them onto the battlefield"
   "grant-flashback": applyGrantFlashback, // ④-G (Snapcaster Mage) — a graveyard instant/sorcery gains flashback = its mana cost until end of turn

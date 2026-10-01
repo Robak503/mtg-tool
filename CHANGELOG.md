@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Mantle of the Ancients** — when it enters, returns any number of Aura and Equipment cards from your graveyard attached to the enchanted creature
 - **Celestial Mantle** — when the enchanted creature deals combat damage to a player, its controller's life total doubles
 - **Eiganjo Castle** — {W}, {T}: prevent the next 2 damage to a target legendary creature this turn
 - **Fblthp, Lost on the Range** — plot the top card of your library for its mana cost, then cast it free on a later turn

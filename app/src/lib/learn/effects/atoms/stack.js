@@ -15,8 +15,8 @@ import { snapshotCopiedCard } from "../../cloneCopy.js"; // COPY-A-CREATURE-SPEL
 import { checkCopyTriggers } from "../../triggers.js"; // MAGECRAFT COPY HALF (BLITZ MC-1, CR 707.10): fire "cast or copy" watchers at the copy-creation site. Cycle-safe — triggers.js's import closure (targeting→spellEffects→triggers, layers, keywords, saga, triggerScheduler) never reaches atoms/stack.js, so this edge adds no cycle; checkCopyTriggers is called only at runtime.
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // MANA DRAIN: schedule the delayed {C} payout on the CR 603.7 queue (leaf module — imports only gameState, cycle-free)
 import { applyZoneMove } from "./zones.js"; // VENSER: the permanent half of the spell-or-permanent bounce. Layering {tokens,library,zones} <- removal <- stack sanctions this edge (zones' closure never reaches stack)
-import { auraEnchantHostSpec, auraEnchantSubject, stackSpellIsUncounterable } from "../../staticAbilityParser.js"; // ATTACH-ON-ENTER AURAS (Shielded by Faith): the Aura's own Enchant line, honoured at the move (counters.js / zones.js already import this module — cycle-safe); + the shared CR 701.6a predicate for the untargeted counter (the Glasskites)
-import { creatureSatisfiesRestrictions } from "../../creatureRestrictions.js"; // the shared restriction satisfier (leaf), for the Enchant line's "you control"
+import { stackSpellIsUncounterable } from "../../staticAbilityParser.js"; // the shared CR 701.6a predicate for the untargeted counter (the Glasskites)
+import { auraMayEnchantCreature } from "../../auraHost.js"; // ATTACH-ON-ENTER AURAS (Shielded by Faith): the Aura's own Enchant line, honoured at the move — the shared reader (a leaf; zones.js reads it too)
 import { evaluateInterveningIf } from "../../interveningIf.js"; // FEROCIOUS HARD-COUNTER (Stubborn Denial): the resolution-time condition read. interveningIf imports only gameState — leaf edge, cycle-free.
 
 /**
@@ -339,7 +339,7 @@ function applyAttachToSelf(state, atom, ctx) {
  * ATTACH-SOURCE-TO-TRIGGERING (Shielded by Faith / Brilliant Wings, 2026-09-05) — move the SOURCE Aura onto the creature
  * whose entering fired the trigger. Read at resolution (CR 608.2): the source must still be on the battlefield, the
  * creature too (and be a creature right now — CR 613), and the creature must satisfy the Aura's OWN Enchant line
- * (auraMayEnchantCreature below — CR 303.4: an "Enchant creature you control" Aura never lands on an opponent's creature
+ * (auraMayEnchantCreature, the shared reader in auraHost.js — CR 303.4: an "Enchant creature you control" Aura never lands on an opponent's creature
  * even when its any-creature trigger fired on it). A departed source or newcomer is a clean no-op (CR 608.2b). Logged.
  */
 function applyAttachSourceToTriggering(state, atom, ctx) {
@@ -350,32 +350,6 @@ function applyAttachSourceToTriggering(state, atom, ctx) {
   if (!auraMayEnchantCreature(state, src.permanent.card, tgt, ctx.controller)) return state;
   const next = attachPermanent(state, { equipId: src.permanent.id, targetId: tgt.permanent.id });
   return logEvent(next, { kind: "spell-effect", effect: "aura-attach-to-triggering", auraId: src.permanent.id, targetId: tgt.permanent.id, controller: ctx.controller });
-}
-
-/**
- * Can this Aura legally be attached to this CREATURE right now? Its own Enchant line decides — an Aura can't be attached to
- * an object it couldn't enchant, and an effect that tries leaves it where it is (CR 303.4a / 701.3a-b). The creature subjects
- * and their restrictions go through the shared satisfier; the unions that include creatures admit any creature; "permanent"
- * admits anything; "artifact", "land" and "nonland permanent" read the host's types RIGHT NOW (layer-aware — Codsworth is an
- * artifact creature, Dryad Arbor a land one). Every other Enchant line — a player (a Curse), a basic land type, a restriction
- * the engine can't read — refuses: a safe miss, never a guessed attach. One reader for every resolver that moves an Aura onto
- * a creature (attach-source-to-triggering, attach-pair — stage ③ · 34).
- */
-const CREATURE_UNION_HOSTS = new Set(["creatureOrArtifact", "creatureOrVehicle", "creatureOrPlaneswalker", "artifactCreatureOrPlaneswalker"]);
-function auraMayEnchantCreature(state, auraCard, host, controller) {
-  const subject = auraEnchantSubject(auraCard);
-  if (subject === "permanent") return true;
-  const { types } = permanentTypes(state, host.permanent.id);
-  if (subject === "land") return types.includes("Land");
-  const spec = auraEnchantHostSpec(auraCard);
-  if (!spec) return false;
-  if (spec.targetType === "creature") {
-    return !(spec.restrictions || []).length || creatureSatisfiesRestrictions(state, host.permanent, host.controller, controller, spec.restrictions);
-  }
-  if (CREATURE_UNION_HOSTS.has(spec.targetType)) return true;
-  if (spec.targetType === "artifact") return types.includes("Artifact");
-  if (spec.targetType === "nonlandPermanent") return !types.includes("Land");
-  return false;
 }
 
 function applyAttachPair(state, atom, ctx) {

@@ -298,6 +298,10 @@ export function atomTargetIntent(atom) {
       // TRIGGER (Nantuko Tracer / Vessel of Endless Rest ETBs) routes to the Arbiter (a SAFE FN) —
       // exactly the reanimate / exile-from-graveyard discipline below. Activated/cast paths unaffected.
       return (atom.anyGraveyard || atom.opponentGraveyard) ? "ambiguous" : "own";
+    case "return-attached-from-graveyard":
+      // shelf D41 (Mantle of the Ancients) — Auras and Equipment from the controller's OWN graveyard, attached to its own
+      // Aura's host: own-side, the same as the bare return-from-graveyard above.
+      return "own";
     case "optional-exile-self-payment":
       // OPTIONAL-EXILE-SELF (Undead Butler): the wrapper's lifted targetType is its PAYOFF's — a
       // return-from-graveyard over the caster's OWN graveyard (the parser only ever lifts a
