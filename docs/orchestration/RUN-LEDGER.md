@@ -5,14 +5,26 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **448 commits**, corpus
-> 38.6% → **44.2% (15,145)** — roughly +1,700 cards. A release is owed. Update this line when a slice lands or a tag cuts.
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
+> **1 commit**, corpus **44.2% (15,145)** at the tag. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
 > had inserted a byte-identical 16,069-line copy of this file's tail mid-line — a scripted `String.replace` whose
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🚀 2026-09-30 — v0.161.0 RELEASED · 449 commits since v0.160.0 · corpus 38.6% → 44.2% (15,145) · shelf 27 of 30 at ≥90
+> Colton moved the tag up from 10-02: Reality Fracture's whole card base was already on Scryfall (fra 461 cards, frc 103), so a
+> release built now bundles it. Steps (RELEASE.md + RELEASE-READINESS §7): the Node pin checked (v22.23.2; v22 is LTS to
+> 2027-04; v22.23.3 is a non-security patch) · sync-spellbook re-dispatched (run 36816095158: the per-card crawl 10,100 →
+> 12,900, then Spellbook's 429; progress cached; red by design) · `[Unreleased]` → `[0.161.0] - 2026-09-30` (502e133f; CI
+> 36816204422 green) · `git tag v0.161.0` on 502e133f + push · release run 36817109773 green (test ×2 + build) · published
+> 05:26Z, marked Latest · `latest.json` verified BY CONTENT at the updater endpoint (0.161.0, 420-char signature, the
+> v0.161.0 installer URL) · the bundle: fresh Scryfall (38,705 oracle records), Spellbook combos 112.8 MB + cards 6.0 MB +
+> index 7.8 MB, EDHREC salt, the rules index; the strict guard passed. ⏸ Last acceptance waits on the box's app update:
+> `/api/sync-data` must report the bundle (before: every dataset 2026-07-19, 74 days, stale).
 
 > ## 📜 2026-09-30 — POLICY: THE THEFT HARD-PARK IS LIFTED FOR CARDS (Colton)
 > Colton, during the "Do my decks" pause: remove the hard park on theft cards; he simply won't submit theft decks, so nothing

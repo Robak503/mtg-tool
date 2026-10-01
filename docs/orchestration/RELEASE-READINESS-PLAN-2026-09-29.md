@@ -124,7 +124,7 @@ sync-spellbook.yml --ref master`) so the per-card flag crawl resumes from its ca
 the acceptance for R1: once the box's app updates, `GET http://127.0.0.1:3000/api/sync-data` shows `source: "bundle"`
 with the release's dates, not 2026-07-19.
 
-**DONE R7:** v0.161.0 published and verified; the box app reads the fresh bundle.
+**DONE R7:** v0.161.0 published and verified; the box app reads the fresh bundle. ✅ **Published 2026-10-01T05:26Z and verified** (release run 36817109773; `latest.json` checked by content; moved up from 10-02 by Colton, Reality Fracture already on Scryfall). ⏸ The box acceptance waits on Colton's app update.
 
 ## §8 THEN
 

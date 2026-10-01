@@ -123,8 +123,8 @@ The release workflow at `.github/workflows/release.yml` triggers on
 ```powershell
 # the next tag is ONE ABOVE `git tag --sort=-v:refname | Select-Object -First 1` — never lower
 # (an older version marked "latest" stalls every installed copy's updater)
-git tag v0.161.0 -a -m "Release v0.161.0"
-git push origin v0.161.0
+git tag v0.162.0 -a -m "Release v0.162.0"
+git push origin v0.162.0
 ```
 
 CI does the rest — full data sync, build, sign, publish, all

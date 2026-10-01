@@ -8,8 +8,8 @@ copies of the app pick up via auto-update.
 ```powershell
 # The next tag is ONE ABOVE the newest release tag — never lower: an older version marked
 # "latest" stalls every installed copy's updater.
-git fetch --tags; git tag --sort=-v:refname | Select-Object -First 1   # e.g. v0.160.0 -> next is v0.161.0
-$next = "v0.161.0"
+git fetch --tags; git tag --sort=-v:refname | Select-Object -First 1   # e.g. v0.161.0 -> next is v0.162.0
+$next = "v0.162.0"
 git tag $next -a -m "Release $next"
 git push origin $next
 
@@ -70,8 +70,8 @@ but everything else does — fine for iterating UI.
    what the updater compares). Do move CHANGELOG.md's `[Unreleased]` to `[x.y.z] - <date>` first.
 3. Tag and push — the next tag is one above `git tag --sort=-v:refname | Select-Object -First 1`:
    ```powershell
-   git tag v0.161.0 -a -m "Release v0.161.0"
-   git push origin v0.161.0
+   git tag v0.162.0 -a -m "Release v0.162.0"
+   git push origin v0.162.0
    ```
 4. Wait for CI (~30 min: the two-shard test gate ~10, then the build + reference-data sync ~20)
 5. Verify the release page lists the `.exe`, `.exe.sig`, and `latest.json`

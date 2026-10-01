@@ -7,6 +7,27 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🚀 2026-09-30 — **v0.161.0 RELEASED** (published 2026-10-01T05:26Z) — runnable: the shelf (Kellan 86, Light-Paws 83)
+
+> **Runnable next:** Kellan of the West 86 → 90 (needs 4) — One with the Multiverse (a once-per-turn free cast from hand
+> or the top of the library: the Raul / Rivaz once-latch plus a free cast that keeps normal timing), Transcendent Dragon
+> (unparked 09-30), Eladamri, Sakashima's Protege; spares Fblthp, Bonny Pall. Then Light-Paws 83 (needs 7). Atraxa is
+> DEFERRED (Colton 09-30: planeswalkers last, as their own program). Shelf 27 of 30 at ≥90; corpus 15,145 (44.2%). After
+> the shelf: the 09-06 plan's stage ③ → ④. Also queued: sync-spellbook should end yellow, not red, when Spellbook
+> rate-limits a run that saved progress (Colton asked how to stop the failure emails).
+> **The release:** tagged on 502e133f (the `[0.161.0]` CHANGELOG cut), moved up from 10-02 by Colton because Reality
+> Fracture's whole card base was already on Scryfall (fra 461 cards, frc 103). Release run 36817109773 green (two test
+> shards + build); assets: the installer twice with its `.sig` each, and `latest.json`; `latest.json` verified BY CONTENT at
+> the updater endpoint (version 0.161.0, a 420-character signature, the v0.161.0 installer URL); marked Latest. The bundle:
+> a fresh Scryfall sync (38,705 oracle records; the box's July copy has 38,254), Spellbook combos 112.8 MB + cards 6.0 MB
+> + index 7.8 MB, EDHREC salt, the rules index; the strict bundle guard passed. Pre-tag, sync-spellbook was re-dispatched:
+> its per-card crawl advanced 10,100 → 12,900 before Spellbook's rate limit (progress cached; that run is red by design).
+
+### ⏸ Waiting on Colton — R7's last acceptance
+
+> Once the box's app updates to 0.161.0, `GET http://127.0.0.1:3000/api/sync-data` must report the bundle with the
+> release's dates. Before the update (2026-10-01T05:3xZ) every dataset read 2026-07-19 — 74 days, stale.
+
 ## 🌅 2026-09-29 — **RESUMED after the month-long pause · state re-verified · CI GREEN again (repo PUBLIC, stays public)** — runnable: the 09-06 plan's stage ③
 
 > **Runnable next:** [RELEASE-READINESS-PLAN-2026-09-29.md](RELEASE-READINESS-PLAN-2026-09-29.md) (Colton's go,
