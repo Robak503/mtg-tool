@@ -821,12 +821,13 @@ export function setPendingTaxedPaymentChoice(state, { payer, beneficiary, cost, 
  * Choice carries it forward across the chain). Only flagged when a REAL choice exists (≥2 modes); a life-only
  * opponent is the forced inline loss with no pause. FIFO (guarded).
  */
-export function setPendingEdictModeChoice(state, { controller, modes, sac = [], disc = [], queue = null, sourceName = null }) {
+export function setPendingEdictModeChoice(state, { controller, modes, sac = [], disc = [], queue = null, sourceName = null, spec = null }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "edict-mode-pending", controller, modes, sourceName });
   return {
     ...next,
-    pendingChoice: { kind: "edict-mode", controller, modes, sac, disc, queue, sourceName },
+    // P·20 — the chain's spec (Braids: 2 life, the caster draws, a shares-a-card-type pool) rides the pause so the settler applies it.
+    pendingChoice: { kind: "edict-mode", controller, modes, sac, disc, queue, sourceName, ...(spec ? { spec } : {}) },
   };
 }
 

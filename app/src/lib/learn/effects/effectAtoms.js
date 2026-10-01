@@ -84,7 +84,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...castFromAmongResolvers, // exile-top-each-cast-any (P·16) — parks pendingCastFromAmong for the action layer
   ...hideawayResolvers, // hideaway + hideaway-play (CR 702.75) — the impulse-dig hide, then the discover-lane free cast of the linked card
   ...freeCastResolvers, // free-cast (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle); park for the action-layer cast-free/decline decision
-  ...iteratedEdictResolvers, // iterated-edict (Torment of Hailfire, CR 118.9) — X × per-opponent (lose 3 / sac nonland / discard) pausing edict chain
+  ...iteratedEdictResolvers, // iterated-edict (Torment of Hailfire, CR 118.9) — X × per-opponent (lose 3 / sac nonland / discard) pausing edict chain; edict-shares-type (Braids, Arisen Nightmare)
   ...delayedTriggerResolvers, // schedule-delayed (CR 603.7) — queue an ability for a future step; gameEngine drains it into pendingTriggers at step entry
   conditional: applyConditional, // CONDITIONAL REPLACEMENT (CR 608.2) — "<base>. If <cond>, <alt> instead." Defined below; recurses through resolveAtom, so it lives in the barrel.
   ...controlResolvers, // gain-control (CR 613.1b layer-2 / 702.10c) — indefinite control-change of a target creature/subtype (Sliver Overlord "Gain control of target Sliver")
@@ -142,6 +142,7 @@ const PAUSING_OPS_LIST = [
   "taxed-edict", // stack.js applyTaxedEdict → setPendingTaxedPaymentChoice (the opponent pays or sacrifices — the Rishadan pirates; stage ③ 2026-09-30)
   "lose-life-unless-discard", // stack.js applyLoseLifeUnlessDiscard → setPendingOptionalDiscardPaymentChoice (the referent player discards or loses N — Painful Quandary; SHELF-85 N6)
   "iterated-edict", // iteratedEdict.js applyIteratedEdict → advanceEdictChain → setPendingEdictModeChoice (Torment of Hailfire)
+  "edict-shares-type", // iteratedEdict.js applyEdictSharesType → advanceEdictChain → setPendingEdictModeChoice (Braids, Arisen Nightmare — P·20)
   "connive", // connive.js applyConnive → setPendingDiscardChoice (the chosen discard; the counter settles in resolveDiscardChoice)
   "conditional", // the barrel's applyConditional — an INNER branch atom can itself pause (Flow State's impulse-dig); the parser arms admit a pauser only in a branch's LAST slot (2026-08-12)
 ];

@@ -15,6 +15,7 @@ import { applyCreateToken, applyCreateNamedToken } from "./tokens.js";
 import { applyTutor, millOnePlayer } from "./library.js";
 import { applyZoneMove, applyExileUntilLeaves } from "./zones.js";
 import { manifestTopOf } from "./manifest.js"; // P·19 — Reality Shift's controller rider (manifest imports only gameState, triggers, tokens)
+import { permanentTypes } from "../../layers.js"; // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h)
 import { NAMED_TOKENS } from "./tokens.js"; // NAMED-TOKEN sacrifice pool — same registry the mint side uses, so a pool can never name a token the engine cannot create
 
 // MULTI-COUNT "any number of target" upper bound (CR 601.2c) — the count is unbounded on the card, so use a
@@ -251,6 +252,9 @@ export function applyChampion(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "champion", controller, championed: victim.id, subtype: atom.subtype || null });
 }
 
+// The card types (CR 205.2a), as the type line prints them.
+const CR_CARD_TYPES = new Set(["Artifact", "Battle", "Conspiracy", "Creature", "Dungeon", "Enchantment", "Instant", "Kindred", "Land", "Phenomenon", "Plane", "Planeswalker", "Scheme", "Sorcery", "Vanguard"]);
+
 export function sacrificeCreatureEffect(state, playerId, permId) {
   const lk = findPermanent(state, permId);
   if (!lk) return logEvent(state, { kind: "spell-effect", effect: "sacrifice", controller: playerId, sacrificed: null });
@@ -258,6 +262,10 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
   // still on the battlefield there), BEFORE the moveCardToZone below — CR 603.6e — so a SACRIFICED
   // Goldvein/Lifeblood/Feral-Ghoul still feeds its "equal to its power" dies-trigger the real on-board power.
   const sacPower = isCreatureCard(lk.permanent.card) ? creaturePower(lk.permanent, state) : null;
+  // P·20 (Braids — "a permanent … that shares a card type with it"): the card types it had as it LEFT, layer-aware (an animated
+  // land is a creature too), read from the original state and carried on the sacrifice log for the payoff to read (CR 608.2h).
+  // The derived type list also holds the supertypes (Legendary, Basic, Snow), which are not card types (CR 205.4a) — dropped.
+  const sacTypes = permanentTypes(state, permId).types.filter((ty) => CR_CARD_TYPES.has(ty));
   const sacBasePower = isCreatureCard(lk.permanent.card) ? creatureBasePower(lk.permanent, state) : null;
   // DIES → EXILE INSTEAD (③ · 18, CR 614) — the sacrifice site asks the same predicate as every other death site. The creature
   // is still SACRIFICED (the sacrifice triggers below fire), but it is exiled rather than put into the graveyard, so it never
@@ -271,7 +279,7 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
   // TRIG-SACRIFICE: fire "Whenever you sacrifice a <permanent|creature|artifact>" for the sacrificing
   // player. The perm has left the battlefield, so its type rides on the lookBack card (sacScopeMatches reads it).
   next = checkSacrificeTriggers(next, playerId, { id: permId, controller: playerId, card: lk.permanent.card });
-  return logEvent(next, { kind: "spell-effect", effect: "sacrifice", controller: playerId, sacrificed: permId, cardName: lk.permanent.card?.name });
+  return logEvent(next, { kind: "spell-effect", effect: "sacrifice", controller: playerId, sacrificed: permId, cardName: lk.permanent.card?.name, cardTypes: sacTypes });
 }
 
 /**
@@ -283,7 +291,7 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
  * creature-land for a "land" edict. An unknown `what` falls back to the creature pool (defensive — the parser
  * only ever emits the five known values, so this is never reached at runtime). Pure type-line read (leaf).
  */
-const SACRIFICE_POOLS = new Set(["creature", "permanent", "land", "artifact", "enchantment", "artifactOrEnchantment", "artifactCreatureOrLand", "nonbasicLand", "nontokenCreature", "creatureToken", "planeswalker", "creatureOrPlaneswalker"]);
+const SACRIFICE_POOLS = new Set(["creature", "permanent", "land", "artifact", "enchantment", "artifactOrEnchantment", "artifactCreatureOrLand", "nonbattlePermanent", "nonbasicLand", "nontokenCreature", "creatureToken", "planeswalker", "creatureOrPlaneswalker"]);
 // NAMED-TOKEN pool (CR 701.16) — "Sacrifice a Food token." The generic nouns above have always worked; the
 // named-token nouns had no pool, so the clause produced no atom at all. Carried as a `token:<name>` string
 // rather than one enum entry per kind, validated against NAMED_TOKENS — the SAME registry the mint side
@@ -328,6 +336,10 @@ export function sacrificePoolMatch(what, card) {
     // BLITZ TR-2 — "an artifact, creature, or land" (Braids, Cabal Minion): the three-way type union over
     // the same word-anchored predicates (a multi-typed permanent qualifies via any of its types).
     case "artifactCreatureOrLand": return isArtifactCard(card) || isCreatureCard(card) || isLandCard(card);
+    // P·20 — "an artifact, creature, enchantment, land, or planeswalker" (Braids, Arisen Nightmare): the five-way union — every
+    // permanent type but battle, over the same word-anchored predicates.
+    case "nonbattlePermanent": return isArtifactCard(card) || isCreatureCard(card) || isEnchantmentCard(card) || isLandCard(card)
+      || /\bPlaneswalker\b/i.test(card?.type || card?.type_line || "");
     // BLITZ TR-2 — "a nonbasic land" (Destructive Flow): a land WITHOUT the Basic supertype (CR 205.4c —
     // "Basic" is printed in the type line's supertype slot, so the word-anchored test is exact; a
     // creature-land is a legal pick iff nonbasic, matching the printed pool).

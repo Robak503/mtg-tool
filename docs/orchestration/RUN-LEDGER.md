@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **35 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,215)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **36 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,216)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,29 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 20: Braids, Arisen Nightmare (EDHREC #291) — the shares-a-card-type edict · **+1** · corpus 15,216
+> Suite **17,609** green (1 skipped); lint 0; decks **2,740** / 2,998 unchanged. CI GREEN on P·19 (run 36914337640).
+> Flip-diff **+1, −0, zero RETIERED** (tier snapshots at 103f2554 → the change): Braids, Arisen Nightmare → native-trigger. Top
+> 1,000 **851** (needs +49); top 2,500 **1,673**. **Mutants 31/31** (restore byte-identical).
+> · **The model:** two atoms — the controller's OPTIONAL sacrifice from a new five-type pool (`nonbattlePermanent`: artifact,
+>   creature, enchantment, land, planeswalker; never a battle), then `edict-shares-type`, gated `ifSacrificed`. The payoff is
+>   Torment of Hailfire's edict chain with a spec: each opponent may sacrifice a permanent sharing a card type with the
+>   sacrificed one, or loses 2 while Braids' controller draws; no discard mode. With no spec the chain is Torment's, unchanged.
+> · **Card types as it left (CR 608.2h):** the sacrifice log now carries the sacrificed permanent's card types, read layer-aware
+>   before it moves (an animated land leaves as a Land Creature) and filtered to the CR 205.2a card types — the derived type list
+>   also holds supertypes, and a sacrificed Legendary Creature must not let an opponent answer with a Legendary Enchantment (CR
+>   205.4a). Each opponent's pool reads its permanents' live types the same way.
+> · **The settle gap it closed:** no optional sacrifice had ever preceded an `ifSacrificed` atom, so a taken "you may sacrifice"
+>   that went inline (a sole candidate) had no way to report it — only a paused pick (resolveSacrificeChoice) did.
+>   resolveOptionalChoice now reads the predicate runEffectProgram uses (`realSacrificeIn`, one shared read; its no-victim
+>   exclusion had no witness anywhere, Victimize included — it has one now).
+> · **AI:** opponents keep Torment's rule against the printed 2 (they sacrifice only at 2 life or less); an AI Braids always takes
+>   the sacrifice (the legacy optional default) and gives up its least valuable permanent. The edict picker shows the spec
+>   ("Lose 2 life — its controller draws a card"; the shares-a-type pool) and the optional prompt names the sacrifice.
+> · **Runtime:** `WITNESS braidsPod` — ai1 kept its Bear and lost 2, ai2 (nothing to share) was forced to lose 2, ai3 sacrificed;
+>   Braids' controller drew 2. Witness `app/src/lib/learn/braidsArisenNightmare.test.js` (18).
+> · **Next:** #295 Dryad of the Ilysian Grove.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 19: Reality Shift (EDHREC #273) — a manifest can be turned face up · **+5 / −10** · corpus 15,215
 > Suite **17,591** green (1 skipped); lint 0; decks 2,739 → **2,740** / 2,998 (Did you say Dragons? 92). CI GREEN on P·18 (run 36910711803).

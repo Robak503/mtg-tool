@@ -152,6 +152,10 @@ export function finishSpellResolution(state, disposition, { selfExile = false, s
   return logEvent(next, { kind: "spell-to-graveyard", playerId, cardName: card.name || null });
 }
 
+// "IF YOU DO" after a sacrifice (CR 608.2c): did these log entries record a sacrifice with a real victim? A no-victim entry (a
+// stale pick, an escaped self-sacrifice) is not one. The one read shared by runEffectProgram's loop and resolveOptionalChoice.
+const realSacrificeIn = (entries) => entries.some((e) => e.effect === "sacrifice" && e.sacrificed != null);
+
 export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacrificed = false } = {}) {
   const params = stackObject?.payload?.params || {};
   const { program, controller, targets = [], xValue = null, sourceId = null, context = {}, kicked = false } = params;
@@ -206,10 +210,11 @@ export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacri
   // "SACRIFICE … IF YOU DO" (play-weighted P·5 — Victimize, CR 608.2c): an `ifSacrificed` atom runs only when the atom right
   // before it ACTUALLY sacrificed something — the controller may control nothing to sacrifice. Read off what happened (a
   // sacrifice event with a real victim, logged by that atom's own resolution), never predicted from the board. A program
-  // resumed straight onto the gated atom arrives with the settler's answer: resolveSacrificeChoice passes prevSacrificed;
-  // every other settler's resume leaves it false, so the gated atom is skipped (a dropped payoff, never a fabricated one —
-  // CREED). The one producer (templateMatchers.matchSacThenReturnChosen) puts it right after the CONTROLLER's own sacrifice,
-  // which is what makes "you" in "if you do" the sacrificer here; a new producer must keep that shape.
+  // resumed straight onto the gated atom arrives with the settler's answer: resolveSacrificeChoice passes prevSacrificed, and
+  // so does resolveOptionalChoice for a taken optional sacrifice that went inline (P·20); every other settler's resume leaves
+  // it false, so the gated atom is skipped (a dropped payoff, never a fabricated one — CREED). Both producers
+  // (templateMatchers.matchSacThenReturnChosen, atoms/iteratedEdict.matchBraidsPunisher) put it right after the CONTROLLER's
+  // own sacrifice, which is what makes "you" in "if you do" the sacrificer here; a new producer must keep that shape.
   let sacrificedByPrev = prevSacrificed === true;
   for (let i = startIndex; i < atoms.length; i++) {
     const atom = atoms[i];
@@ -306,7 +311,7 @@ export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacri
       return markPendingArbiter(next, stackObject, `effect-program (no resolver for atom "${atom?.op}")`);
     }
     next = after;
-    sacrificedByPrev = (next.log || []).slice(logLenBefore).some((e) => e.effect === "sacrifice" && e.sacrificed != null);
+    sacrificedByPrev = realSacrificeIn((next.log || []).slice(logLenBefore));
     // An atom set a resolution-time CHOICE (tutor search) — suspend the program and
     // record where to resume. The driver settles the choice, then resolveTutorChoice
     // re-enters at nextAtomIndex.
@@ -1221,7 +1226,7 @@ export function autoPickEdictMode(state, pc) {
     if (!perms.length) return null;
     return [...perms].sort((a, b) => a.mv - b.mv || cmp(String(a.c.name || ""), String(b.c.name || "")) || cmp(String(a.c.id || ""), String(b.c.id || "")))[0].c.id;
   };
-  const lifeLow = (player.life ?? 0) <= EDICT_LIFE_LOSS;
+  const lifeLow = (player.life ?? 0) <= (pc.spec?.lifeLoss ?? EDICT_LIFE_LOSS); // P·20 — the spec's life amount (Braids: 2)
   if (lifeLow) {
     const cardId = pc.modes.includes("discard") ? cheapestCard() : null;
     if (cardId) return { mode: "discard", cardId };
@@ -1247,13 +1252,13 @@ export function resolveEdictModeChoice(state, choice) {
   let next = clearPendingChoice(state);
   if (next.players?.[pc.controller]) {
     const mode = pc.modes.includes(choice?.mode) ? choice.mode : "life";
-    next = applyEdictMode(next, { playerId: pc.controller, mode, permId: choice?.permId ?? null, cardId: choice?.cardId ?? null, sac: pc.sac || [] });
+    next = applyEdictMode(next, { playerId: pc.controller, mode, permId: choice?.permId ?? null, cardId: choice?.cardId ?? null, sac: pc.sac || [], spec: pc.spec });
   } else {
     next = logEvent(next, { kind: "spell-effect", effect: "iterated-edict-skip", controller: pc.controller });
   }
   // Advance the chain — drop the settled head, then continue (the next opponent / round).
   const queue = (pc.queue || []).slice(1);
-  const r = advanceEdictChain(next, { queue, sourceName: pc.sourceName });
+  const r = advanceEdictChain(next, { queue, sourceName: pc.sourceName, spec: pc.spec });
   if (r.pendingChoice) {
     // The chain re-paused (the next decision owes a real choice). Carry the original caster-resume forward
     // so the program resumes once the whole chain settles (advanceEdictChain never sets a resume itself).
@@ -1379,27 +1384,32 @@ export function resolveOptionalChoice(state, doIt) {
   const atom = programAtoms(r.program, r.chosenMode)[i];
   if (doIt) {
     const ctx = { ...(r.context || {}), controller: r.controller, targets: targetsForAtom(r.targets, i), cardName: r.cardName, xValue: r.xValue, sourceId: r.sourceId };
+    const logLenBefore = next.log?.length ?? 0;
     const after = resolveAtom(next, { ...atom, optional: false }, ctx);
     if (after == null) return markPendingArbiter(next, { source: { name: r.cardName }, payload: { params: r } }, `optional atom "${atom?.op}" had no resolver`);
+    // "YOU MAY SACRIFICE … IF YOU DO" (P·20 — Braids, Arisen Nightmare): a taken optional sacrifice that went inline (a sole
+    // candidate) answers the `ifSacrificed` atom after it, read off the log by the same predicate runEffectProgram uses. A sacrifice
+    // that paused for a pick answers through resolveSacrificeChoice instead (the resume chained below).
+    const sacrificed = realSacrificeIn((after.log || []).slice(logLenBefore));
     next = logEvent(after, { kind: "spell-effect", effect: "optional", controller: r.controller, op: atom?.op, taken: true });
     // The optional atom may ITSELF set a choice ("you may scry 2") — chain its resume to ours.
     if (next.pendingChoice && !next.pendingChoice.resume) {
       return { ...next, pendingChoice: { ...next.pendingChoice, resume: { ...r, nextAtomIndex: i + 1 } } };
     }
+    return resumeAfterChoice(next, { resume: { ...r, nextAtomIndex: i + 1 } }, { prevSacrificed: sacrificed });
   } else {
     next = logEvent(next, { kind: "spell-effect", effect: "optional", controller: r.controller, op: atom?.op, taken: false });
     // ===== OPTIONAL-PRIMARY REFLEXIVE (CR 603.7) ===== the optional was DECLINED, so any immediately-following
     // `reflexiveGate` atoms (the "When you do, <reflexive>" payoff) must NOT fire — per CR 603.7 the reflexive
     // ability doesn't even trigger when the primary action didn't happen (Generous Plunderer: a declined "may
     // create a Treasure" makes NO opponent Treasure). Skip the contiguous run of reflexiveGate atoms so the
-    // program resumes AFTER them. (On the TAKEN branch above we fall through to nextAtomIndex = i+1, so the
+    // program resumes AFTER them. (The TAKEN branch above resumes at nextAtomIndex = i+1, so the
     // gated atoms run normally.)
     const progAtoms = programAtoms(r.program, r.chosenMode);
     let skipTo = i + 1;
     while (progAtoms[skipTo] && progAtoms[skipTo].reflexiveGate) skipTo += 1;
     return resumeAfterChoice(next, { resume: { ...r, nextAtomIndex: skipTo } });
   }
-  return resumeAfterChoice(next, { resume: { ...r, nextAtomIndex: i + 1 } });
 }
 
 /**

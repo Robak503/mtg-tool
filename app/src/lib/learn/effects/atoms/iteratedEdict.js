@@ -31,6 +31,8 @@
  */
 
 import { logEvent, opponentsOf, moveCardToZone } from "../../gameState.js";
+import { applyDrawEffect } from "../../spellEffects.js"; // P·20 — the single draw path (draw watchers fire), as the draw atom uses
+import { permanentTypes } from "../../layers.js"; // P·20 — "shares a card type with it" reads each candidate's live card types
 import { checkDiscardTriggers } from "../../triggers.js"; // TRIG-DISCARD (CR 701.9a) — an edict discard is a discard
 import { setPendingEdictModeChoice } from "../../pendingChoice.js";
 import { sacrificeCreatureEffect } from "./removal.js";
@@ -59,27 +61,42 @@ export function discardPool(state, playerId) {
  * the candidate pools so the picker / auto-pick / settler all read the SAME legality (never a fabricated
  * or illegal option). "life" is always present (CR 119.4 — you can always lose life, even below 0).
  */
-export function edictLegalModes(state, playerId) {
-  const sac = nonlandSacPool(state, playerId);
-  const disc = discardPool(state, playerId);
+export function edictLegalModes(state, playerId, spec = null) {
+  // P·20 (Braids, Arisen Nightmare): a SPEC narrows the chain — `sacTypes` makes the sacrifice pool "a permanent that shares a
+  // card type with it" (any of the listed card types, read live), and `allowDiscard: false` drops the discard mode. No spec →
+  // Torment of Hailfire's nonland pool and discard mode, byte-identical.
+  const sac = spec?.sacTypes ? sharesTypeSacPool(state, playerId, spec.sacTypes) : nonlandSacPool(state, playerId);
+  const disc = spec?.allowDiscard === false ? [] : discardPool(state, playerId);
   const modes = ["life"];
   if (sac.length) modes.push("sacrifice");
   if (disc.length) modes.push("discard");
   return { modes, sac, disc };
 }
 
-/** Amount of life the edict drains on the "life" branch. Torment is a fixed 3 (CR-printed). */
+/** Amount of life the edict drains on the "life" branch. Torment is a fixed 3 (CR-printed); a spec may print another. */
 export const EDICT_LIFE_LOSS = 3;
+
+/** P·20 — the permanents `playerId` controls sharing at least one card type with `types` (layer-aware), as `{ id, name }`. */
+export function sharesTypeSacPool(state, playerId, types) {
+  const want = new Set(types || []);
+  return (state.players?.[playerId]?.battlefield || [])
+    .filter((p) => permanentTypes(state, p.id).types.some((ty) => want.has(ty)))
+    .map((p) => ({ id: p.id, name: p.card?.name }));
+}
 
 /**
  * Resolve the "life" branch inline (the opponent chose — or was forced — to lose life). Non-targeted loss
  * for the affected opponent; loseLife lets the total go below 0 (CR 118.2) with the SBA firing on the next
  * driver tick, identical to every other life-loss path. Logged for decision-log parity.
  */
-export function edictLoseLife(state, playerId) {
+export function edictLoseLife(state, playerId, spec = null) {
   if (!state.players?.[playerId]) return state;
-  const next = loseLife(state, { playerId, amount: EDICT_LIFE_LOSS });
-  return logEvent(next, { kind: "spell-effect", effect: "iterated-edict-life", controller: playerId, amount: EDICT_LIFE_LOSS });
+  const amount = spec?.lifeLoss ?? EDICT_LIFE_LOSS;
+  let next = loseLife(state, { playerId, amount });
+  next = logEvent(next, { kind: "spell-effect", effect: "iterated-edict-life", controller: playerId, amount });
+  // P·20 (Braids): "…that player loses 2 life AND YOU DRAW A CARD" — the spec's beneficiary draws on every life branch.
+  if (spec?.drawFor && next.players?.[spec.drawFor]) next = applyDrawEffect(next, { controller: spec.drawFor, amount: spec.drawCount });
+  return next;
 }
 
 /**
@@ -90,21 +107,21 @@ export function edictLoseLife(state, playerId) {
  * atom's first entry) and runProgram.resolveEdictModeChoice (each subsequent decision), so ONE
  * implementation drives both the inline and interactive paths.
  */
-export function advanceEdictChain(state, { queue, sourceName = null }) {
+export function advanceEdictChain(state, { queue, sourceName = null, spec = null }) {
   let next = state;
   let q = queue || [];
   while (q.length) {
     const head = q[0];
     if (!next.players?.[head.playerId]) { q = q.slice(1); continue; } // opponent left the game (CR 800.4a)
-    const { modes, sac, disc } = edictLegalModes(next, head.playerId);
+    const { modes, sac, disc } = edictLegalModes(next, head.playerId, spec);
     if (modes.length === 1) {
       // Only "life" is legal (no nonland permanent, empty hand) — forced loss, no decision, no pause.
-      next = edictLoseLife(next, head.playerId);
+      next = edictLoseLife(next, head.playerId, spec);
       q = q.slice(1);
       continue;
     }
-    // A real choice (≥2 modes): pause for THIS opponent's mode pick, carrying the rest of the queue.
-    return setPendingEdictModeChoice(next, { controller: head.playerId, modes, sac, disc, queue: q, sourceName });
+    // A real choice (≥2 modes): pause for THIS opponent's mode pick, carrying the rest of the queue (and the spec).
+    return setPendingEdictModeChoice(next, { controller: head.playerId, modes, sac, disc, queue: q, sourceName, spec });
   }
   return next;
 }
@@ -134,12 +151,12 @@ export function applyIteratedEdict(state, atom, ctx) {
  * sacrificeCreatureEffect (fires dies + sacrifice triggers for ANY permanent) and moveCardToZone (hand →
  * graveyard) so the sac/discard are byte-identical to the shared edict/discard paths. Returns the new state.
  */
-export function applyEdictMode(state, { playerId, mode, permId = null, cardId = null, sac = [] }) {
+export function applyEdictMode(state, { playerId, mode, permId = null, cardId = null, sac = [], spec = null }) {
   if (!state.players?.[playerId]) return state;
   if (mode === "sacrifice") {
     const legal = permId && sac.some((c) => c.id === permId);
     if (legal) return sacrificeCreatureEffect(state, playerId, permId);
-    return edictLoseLife(state, playerId); // stale/illegal pick → the mandatory life loss still happens
+    return edictLoseLife(state, playerId, spec); // stale/illegal pick → the mandatory life loss still happens
   }
   if (mode === "discard") {
     const inHand = cardId && (state.players[playerId].hand || []).some((c) => c.id === cardId);
@@ -147,11 +164,43 @@ export function applyEdictMode(state, { playerId, mode, permId = null, cardId = 
       const next = moveCardToZone(state, { playerId, fromZone: "hand", toZone: "graveyard", cardId });
       return checkDiscardTriggers(logEvent(next, { kind: "spell-effect", effect: "iterated-edict-discard", controller: playerId, discarded: 1 }), playerId, 1);
     }
-    return edictLoseLife(state, playerId);
+    return edictLoseLife(state, playerId, spec);
   }
-  return edictLoseLife(state, playerId); // "life" (and any unknown mode — defensive → the always-legal loss)
+  return edictLoseLife(state, playerId, spec); // "life" (and any unknown mode — defensive → the always-legal loss)
+}
+
+/**
+ * BRAIDS, ARISEN NIGHTMARE (the play-weighted program, P·20 — EDHREC #291):
+ *   "At the beginning of your end step, you may sacrifice an artifact, creature, enchantment, land, or planeswalker. If you do,
+ *    each opponent may sacrifice a permanent of their choice that shares a card type with it. For each opponent who doesn't,
+ *    that player loses 2 life and you draw a card."
+ * The whole effect, read as two atoms: the controller's OPTIONAL sacrifice from the five-type pool, then this edict — gated
+ * `ifSacrificed`, so it runs only when that sacrifice happened. Each opponent faces the chain's choice with a spec: the pool is
+ * their permanents sharing a card type with the sacrificed one (its types as it left — the sacrifice log carries them, CR
+ * 608.2h), the "life" branch loses the printed N and the caster draws, and there is no discard mode. An opponent with nothing
+ * that shares a type has only the life branch (forced). Returns { atoms } | null.
+ */
+export function matchBraidsPunisher(oracle) {
+  const s = String(oracle || "").toLowerCase();
+  const m = s.match(/^you may sacrifice an artifact, creature, enchantment, land, or planeswalker\. if you do, each opponent may sacrifice a permanent of their choice that shares a card type with it\. for each opponent who doesn't, that player loses (\d+) life and you draw a card\.?$/);
+  if (!m) return null;
+  return { atoms: [
+    { op: "sacrifice", who: "controller", what: "nonbattlePermanent", optional: true },
+    { op: "edict-shares-type", ifSacrificed: true, lifeLoss: parseInt(m[1], 10), casterDraws: 1, targetType: null },
+  ] };
+}
+
+export function applyEdictSharesType(state, atom, ctx) {
+  const last = [...(state.log || [])].reverse().find((e) => e.effect === "sacrifice" && e.controller === ctx.controller && e.sacrificed != null);
+  const types = last?.cardTypes || [];
+  if (!types.length) return state; // no typed sacrifice to share with — nothing for the opponents to answer
+  const spec = { lifeLoss: atom.lifeLoss, drawFor: ctx.controller, drawCount: atom.casterDraws, sacTypes: types, allowDiscard: false };
+  const queue = opponentsOf(state, ctx.controller).filter((pid) => state.players?.[pid]).map((pid) => ({ playerId: pid }));
+  const logged = logEvent(state, { kind: "spell-effect", effect: "edict-shares-type", controller: ctx.controller, types, opponents: queue.length });
+  return advanceEdictChain(logged, { queue, sourceName: ctx.cardName || null, spec });
 }
 
 export const iteratedEdictResolvers = {
   "iterated-edict": applyIteratedEdict, // Torment of Hailfire — X × per-opponent (lose 3 / sac nonland / discard) edict chain
+  "edict-shares-type": applyEdictSharesType, // P·20 — Braids, Arisen Nightmare: sac a shared-type permanent, or lose N and the caster draws
 };

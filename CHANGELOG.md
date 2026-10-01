@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Braids, Arisen Nightmare** — at your end step you may sacrifice an artifact, creature, enchantment, land or planeswalker; each opponent then sacrifices a permanent that shares a card type with it, or loses 2 life while you draw a card
 - **Turning a manifest face up** — a face-down manifested creature card can be turned face up any time you have priority by paying its mana cost; manifest dread creatures can flip too
 - **Reality Shift, Soul Summons, Sultai Emissary, Soul-Strike Technique and Qarsi High Priest** — manifest the top card of a library
 - **Hullbreaker Horror, Dreamshackle Geist and Sawblade Slinger** — "choose up to one" modes: the ability can choose none, and Hullbreaker returns an opponent's spell or nonland permanent to its owner's hand

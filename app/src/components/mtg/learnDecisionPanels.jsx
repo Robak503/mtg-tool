@@ -830,11 +830,18 @@ export function EdictModePanel({ decision, onChoose }) {
   const pool =
     mode === "sacrifice" ? decision.sac || [] : mode === "discard" ? decision.disc || [] : [];
   const needsTarget = pool.length > 0;
+  // A spec (Braids, Arisen Nightmare) prints its own terms: the life amount, a draw for the
+  // source's controller, and a shares-a-card-type sacrifice pool.
+  const spec = decision.spec || null;
   const label = (m) =>
     m === "life"
-      ? "Lose life"
+      ? spec
+        ? `Lose ${spec.lifeLoss} life${spec.drawFor ? " — its controller draws a card" : ""}`
+        : "Lose life"
       : m === "sacrifice"
-        ? "Sacrifice a nonland permanent"
+        ? spec?.sacTypes
+          ? `Sacrifice a permanent sharing a card type (${spec.sacTypes.join(", ")})`
+          : "Sacrifice a nonland permanent"
         : m === "discard"
           ? "Discard a card"
           : m;
@@ -2396,6 +2403,7 @@ export function OptionalChoicePanel({ decision, onChoose }) {
       surveil: "surveil",
       "return-from-graveyard": "return the card",
       counter: "counter the spell",
+      sacrifice: "sacrifice a permanent",
     }[decision?.effectOp] || "apply this effect";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

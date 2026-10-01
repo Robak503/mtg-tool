@@ -2423,7 +2423,8 @@ export function advanceUntilDecision(
       // / discard a card). pc.controller is the AFFECTED OPPONENT (the chooser, CR 118.9), so `pause` already
       // pauses a human opponent and auto-picks for an AI. A human picks the exact mode + permanent/card; the AI
       // auto-decides (autoPickEdictMode). The chain re-sets the next opponent/round after this settles, so the
-      // loop sequences the whole X × opponents queue.
+      // loop sequences the whole X × opponents queue. Braids, Arisen Nightmare rides the same chain with a `spec` (lose 2 and
+      // the caster draws / sacrifice a permanent sharing a card type, no discard) that the pc carries to the picker and settler.
       if (pc.kind === "edict-mode") {
         if (pause) {
           return { session: current, decision: { kind: "edict-mode", ...pc } };

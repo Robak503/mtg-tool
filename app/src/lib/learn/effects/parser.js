@@ -50,6 +50,7 @@ import { winGameClauseParser } from "./atoms/winGame.js";
 import { rollDieClauseParser, resultScaledPayoffClauseParser } from "./atoms/roll.js"; // DICE-ROLL (CR 726) — roll a d20 + result-scaled token/draw payoff (Ancient Dragons)
 import { hideawayClauseParser } from "./atoms/hideaway.js";
 import { matchExileTopEachCastAny } from "./atoms/castFromAmong.js"; // P·16 — Etali, Primal Storm's whole effect (its "then" and comma would split it)
+import { matchBraidsPunisher } from "./atoms/iteratedEdict.js"; // P·20 — Braids, Arisen Nightmare's whole effect (its "if you do" and "for each opponent who doesn't" span sentences)
 import { animateDeadClauseParser } from "./atoms/animateDead.js"; // P·12 — Animate Dead's two synthesized sentinels // P·10 — HIDEAWAY (CR 702.75): the synthesized look-and-hide + "play the exiled card … if <condition>"
 import { freeCastClauseParser } from "./atoms/freeCast.js"; // FREE-CAST (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle)
 import { counterClausesParser } from "./atoms/counterClauses.js";
@@ -2764,6 +2765,15 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   const etc = matchExileTopEachCastAny(oracle);
   if (etc && KNOWN.has(etc.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [etc.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== SHARES-A-CARD-TYPE EDICT (Braids, Arisen Nightmare) ===== "you may sacrifice an artifact, creature, enchantment, land, or
+  // planeswalker. If you do, each opponent may sacrifice a permanent of their choice that shares a card type with it. For each
+  // opponent who doesn't, that player loses 2 life and you draw a card." → the optional controller sacrifice + the gated
+  // edict-shares-type chain (see effects/atoms/iteratedEdict.js). Collapsed up front: the payoff reads the sacrificed
+  // permanent across a sentence boundary and its "who doesn't" is each opponent's own choice.
+  const bp = matchBraidsPunisher(oracle);
+  if (bp && bp.atoms.every((a) => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: bp.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== ITERATED-EDICT (Torment of Hailfire) ===== "Repeat the following process X times. Each opponent loses
   // 3 life unless that player sacrifices a nonland permanent of their choice or discards a card." → ONE
