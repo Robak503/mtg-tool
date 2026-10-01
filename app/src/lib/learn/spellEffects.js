@@ -667,9 +667,10 @@ export function playerTargetableBy(state, playerId, controllerId, sourceColors =
   if (playerHasShroud(state, playerId)) return false;
   // · HEXPROOF FROM <colours> until end of turn (CR 702.11c/d — Veil of Summer, shelf D18): an opponent's source of a named
   //   colour can't target the player; a source whose colours weren't threaded can't be told apart, so it's refused too.
+  //   + P·25 (Dawn's Truce): `colors: null` is plain hexproof until end of turn — every opponent source is refused.
   const hf = state?.players?.[playerId]?.hexproofFrom;
   if (hf && hf.turn === state.turn && playerId !== controllerId
-    && (!sourceColors.length || (hf.colors || []).some((c) => sourceColors.includes(c)))) return false;
+    && (hf.colors === null || !sourceColors.length || hf.colors.some((c) => sourceColors.includes(c)))) return false;
   return playerId === controllerId || (!playerHasHexproof(state, playerId) && !playerProtectedFromEverything(state, playerId));
 }
 

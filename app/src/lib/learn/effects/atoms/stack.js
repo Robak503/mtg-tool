@@ -681,6 +681,10 @@ export function counterClauseParser(clause) {
   {
     const hf = t.match(/^you and permanents you control gain hexproof from (white|blue|black|red|green)(?: and from (white|blue|black|red|green))? until end of turn$/);
     if (hf) return { op: "hexproof-from-colors", colors: [hf[1], hf[2]].filter(Boolean).map((w) => ({ white: "W", blue: "U", black: "B", red: "R", green: "G" })[w]), targetType: null };
+    // P·25 (Dawn's Truce #359, Lazotep Plating): the PLAIN form — hexproof from every opponent source (CR 702.11c/d) for the
+    // controller and each permanent they control as it resolves. The same op with `colors: null` ("from every colour, and
+    // colourless too").
+    if (/^you and permanents you control gain hexproof until end of turn$/.test(t)) return { op: "hexproof-from-colors", colors: null, targetType: null };
   }
   const changeTarget = t.match(/^change the target of target (spell|spell or ability) with a single target$/);
   if (changeTarget) {
@@ -2034,12 +2038,15 @@ function applySpellsUncounterableThisTurn(state, atom, ctx) {
 function applyHexproofFromColors(state, atom, ctx) {
   const me = ctx?.controller;
   if (!me || !state.players?.[me]) return state;
-  const colors = atom.colors || [];
+  // `colors: null` (P·25 — Dawn's Truce) is plain hexproof: every opponent source, whatever its colours. The player stamp keeps
+  // the null (spellEffects.playerTargetableBy reads it as "every source"); on the permanents' shield a null list is the Canopy
+  // Cover form that refuses every opponent source.
+  const colors = atom.colors ?? null;
   let next = { ...state, players: { ...state.players, [me]: { ...state.players[me], hexproofFrom: { turn: state.turn, colors } } } };
   const ids = (next.players[me].battlefield || []).map((p) => p.id);
   if (ids.length) {
     next = addContinuousEffect(next, {
-      layer: 6, op: { layerOp: "targetShield", colors, opponentsOnly: true },
+      layer: 6, op: { layerOp: "targetShield", colors, opponentsOnly: true }, // a null list reads as no colour exception (permanentTargetShields)
       affects: { mode: "fixed", permanentIds: ids },
       duration: { kind: "endOfTurn", turn: next.turn },
       source: { kind: "resolution", permanentId: null, cardName: ctx?.cardName || null },

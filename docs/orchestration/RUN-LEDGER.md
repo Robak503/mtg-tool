@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **40 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,233)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **41 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,235)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,22 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 25: Dawn's Truce (EDHREC #359) — you and your permanents gain hexproof · **+2** · corpus 15,235
+> Suite **17,643** green (1 skipped); lint 0; decks **2,740** / 2,998 unchanged. CI GREEN on P·24 (run 36926934945).
+> Flip-diff **+2, −0, zero RETIERED** (tier snapshots at 8ec5e0c7 → the change): Dawn's Truce, Lazotep Plating → native-spell.
+> Top 1,000 **858** (needs +42); top 2,500 **1,682**. **Mutants 5/5** (restore byte-identical).
+> · **The form:** Veil of Summer's "hexproof from <colours>" machinery with a null colour list — plain hexproof (CR
+>   702.11c/d): a player stamp for the turn and a target shield fixed to the permanents the controller has as it resolves
+>   (CR 611.2c), both refusing EVERY opponent source, colourless included. The controller may still target their own.
+>   splitClauses keeps the plain sentence whole, as it already kept Veil's.
+> · **The gift:** an optional additional cost the engine never pays (castModifiers.stripGiftPromise), so "if the gift was
+>   promised, … indestructible" never applies — the un-promised spell is the whole real mode.
+> · Still out: Surge of Salvation (its colour-sourced damage prevention), Earthshape / Blossoming Calm ("You gain hexproof"
+>   alone, and until your next turn).
+> · **Runtime:** `WITNESS dawnsTruce` — after it resolves, a red or colourless opponent source can't target you or your Bear;
+>   you still can; the opponent's side is untouched. Witness `app/src/lib/learn/dawnsTruce.test.js` (4).
+> · **Next:** #362 Shifting Woodland.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 24: Anger (EDHREC #349) and the Incarnations — statics that work from a graveyard · **+5** · corpus 15,233
 > Suite **17,639** green (1 skipped); lint 0; decks **2,740** / 2,998 unchanged. CI GREEN on P·23 (run 36925379460).

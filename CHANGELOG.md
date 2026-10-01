@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Dawn's Truce and Lazotep Plating** — you and permanents you control gain hexproof until end of turn
 - **Anger, Wonder, Brawn, Filth and Valor** — while in your graveyard, with the matching basic land type under your control, your creatures have haste, flying, trample, swampwalk or first strike
 - **Sevinne's Reclamation** — cast with flashback, you may copy it, and the copy returns a different permanent card
 - **Mana Geyser, Battle Hymn, Songs of the Damned, Brightstone Ritual, Inner Fire and Dragon's Desire** — add one mana for each thing counted (tapped lands your opponents control, creatures you control, creature cards in your graveyard, Goblins, cards in your hand, your opponents' artifacts)

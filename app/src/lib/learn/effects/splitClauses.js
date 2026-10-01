@@ -605,7 +605,8 @@ export function splitClauses(oracle) {
     if (/^double (?:the power and toughness of each creature you control|this creature's power and toughness) until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // HEXPROOF FROM COLOURS (shelf D18 — Veil of Summer): "you and permanents you control gain hexproof from <colour> and from
     // <colour> until end of turn" — both " and "s are internal to the one grant (the subject pair, and CR 702.11f's shorthand).
-    if (/^you and permanents you control gain hexproof from (?:white|blue|black|red|green)(?: and from (?:white|blue|black|red|green))? until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // + P·25 (Dawn's Truce, Lazotep Plating): the PLAIN form — "you and permanents you control gain hexproof until end of turn".
+    if (/^you and permanents you control gain hexproof(?: from (?:white|blue|black|red|green)(?: and from (?:white|blue|black|red|green))?)? until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // SELF pump + keyword grant ("This creature gets +1/+0 and gains trample until end of turn" / "This
     // creature gains flying and vigilance until end of turn") — the " and " is INTERNAL to the one
     // self-grant instruction (CR 113.7 "this creature" = the source), NOT a top-level effect boundary.
