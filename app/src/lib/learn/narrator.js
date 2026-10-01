@@ -350,6 +350,14 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
       return `Decline the free cast.`;
     }
 
+    case "cast-from-among-done": {
+      // CAST FROM AMONG (Etali, Primal Storm): stop casting from among the exiled cards; the rest stay in exile.
+      if (difficulty === "beginner") {
+        return `Stop casting. You may cast any number of the exiled spells for free; the ones you don't cast stay in exile.`;
+      }
+      return `Done casting from among the exiled cards.`;
+    }
+
     case "cascade-decline": {
       // CASCADE (CR 702.85a): decline the free cast off the top of the exiled cards — it goes to the
       // bottom of your library instead.

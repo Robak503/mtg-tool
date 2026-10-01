@@ -667,6 +667,24 @@ function actionsCascadeDecision(state, playerId) {
   return [...castActionsFromZone(state, playerId, [card], "exile", null, true), decline];
 }
 
+// CAST FROM AMONG (P·16 — Etali, Primal Storm; CR 608.2g) — "you may cast any number of spells from among those cards
+// without paying their mana costs", parked in state.pendingCastFromAmong by effects/atoms/castFromAmong.js. Offer a free cast
+// of each candidate still in its OWNER's exile (another player's card carries `fromPlayerId`, the dispatcher's cross-owner
+// exile cast), each marked `castFromAmong`, plus "done". A candidate that left exile is dropped — never a phantom cast.
+function actionsCastFromAmongDecision(state, playerId) {
+  const pc = state.pendingCastFromAmong;
+  if (!pc || pc.controller !== playerId) return [];
+  const casts = [];
+  for (const { cardId, ownerId } of pc.candidates || []) {
+    const card = (state.players[ownerId]?.exile || []).find((c) => c.id === cardId);
+    if (!card) continue;
+    for (const a of castActionsFromZone(state, playerId, [card], "exile", null, true)) {
+      casts.push({ ...a, castFromAmong: true, ...(ownerId !== playerId ? { fromPlayerId: ownerId } : {}) });
+    }
+  }
+  return [...casts, { kind: "cast-from-among-done", playerId }];
+}
+
 // CMD-CAST (CR 903.8) — a player may cast a commander they own FROM the command zone; it costs an
 // additional {2} for each PREVIOUS time they've cast it from the command zone this game (the "commander
 // tax"). This mirrors hand-casting EXACTLY (same timing / affordability / target / X / modal / additional
@@ -4251,6 +4269,10 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   // parking atom is the last atom of its program — so a cascade never coexists with a discover or a free-cast.
   if (state.pendingCascade) {
     return state.pendingCascade.controller === playerId ? applyTargetTaxes(state, playerId, actionsCascadeDecision(state, playerId)) : [];
+  }
+  // CAST FROM AMONG (P·16 — Etali): the same mid-resolution short-circuit — only the controller's free casts and "done".
+  if (state.pendingCastFromAmong) {
+    return state.pendingCastFromAmong.controller === playerId ? applyTargetTaxes(state, playerId, actionsCastFromAmongDecision(state, playerId)) : [];
   }
   // Default the declared-attackers list from live combat state, so the
   // session driver gets blocker candidates without threading it explicitly.

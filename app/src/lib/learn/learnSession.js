@@ -2591,7 +2591,7 @@ export function advanceUntilDecision(
       // window and the game wedges (a timePressure drain would then mint a fake W/L from a
       // wedged game). If the offered set carries the window's safe non-cast resolution
       // (decline / to-hand), dispatch THAT instead: it clears the flag and play proceeds.
-      const declineKinds = new Set(["free-cast-decline", "cascade-decline", "discover-to-hand"]);
+      const declineKinds = new Set(["free-cast-decline", "cascade-decline", "discover-to-hand", "cast-from-among-done"]); // + P·16 Etali's cast-from-among window
       const fallback = actions.find((a) => declineKinds.has(a.kind)) || {
         kind: "pass-priority",
         playerId: actor,

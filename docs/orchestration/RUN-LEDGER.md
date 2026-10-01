@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **31 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,200)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **32 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,201)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,30 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 16: Etali, Primal Storm (EDHREC #260) — cast any number of spells from among the exiled cards · **+1** · corpus 15,201
+> Suite **17,559** green (1 skipped); lint 0; decks 2,734 → **2,735** / 2,998 (Jurassic Ramp 92). CI GREEN on P·15 (run 36903666148).
+> Flip-diff **+1, zero LOST, zero RETIERED** (tier snapshots at cad5bc81 → the change: Etali, Primal Storm body-only →
+> native-trigger). Top 1,000 **845** (needs +55); top 2,500 **1,666**. **Mutants 16/16** (restore byte-identical).
+> · **A new decision, the free-cast windows' shape:** `effects/atoms/castFromAmong.js` exiles the top card of each player's
+>   library and parks `pendingCastFromAmong` { controller, candidates: [{cardId, ownerId}] } (lands never become candidates).
+>   legalChoices offers a free cast of each candidate still in its OWNER's exile (another player's card carries
+>   `fromPlayerId`), plus "done", and short-circuits priority for everyone else; each cast takes its card off the list and
+>   re-offers the rest ("any number"), the last cast or "done" closes it. A spell cast this way goes on the stack while the
+>   ability finishes resolving (CR 608.2g); another player's card goes home (CR 400.3) — the permanent stays theirs to own,
+>   the spell goes to their graveyard. The atom parks a decision, so programConfidence holds it to the program's last.
+> · **The permission:** the dispatcher's cross-owner exile cast (Ragavan's impulse stamp) gains its second key — a
+>   candidate of the caster's OWN open decision, the exact card and owner, nothing else; after "done" a leftover card
+>   is refused. The AI casts what pickCastAction likes and takes "done"; its card lookup learned the same permission
+>   (it could not see another player's candidate). The session's stuck-window fallback and the narrator know "done".
+> · **Runtime:** `WITNESS etaliPrimalStorm {"exiled":{"user":["Llanowar Elves"],"ai1":["Divination"],"ai2":["Forest"],
+>   "ai3":["Grizzly Bears"]},"offered":[["top-ai1","ai1",true],["top-ai3","ai3",true],["top-user",null,true]],"done":true}`
+>   (a four-seat pod; the Forest is never offered). Witness `app/src/lib/learn/etaliPrimalStorm.test.js` (10).
+> · **The family it opens:** Etali, Primal Conqueror #779, Villainous Wealth #2338, Kefka, Kotis, Fevered Suspicion share
+>   the decision; each needs its own exile step.
+> · **Next:** #263 Bolas's Citadel — its "pay life equal to its mana value rather than pay its mana cost" rider is dropped
+>   by the static parser today, so a Citadel in play lets you cast from the top paying MANA (a runtime FP on a body-only
+>   card); the slice models the alternative cost and the sacrifice-ten ability.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 15: Everflowing Chalice (EDHREC #251) — multikicker, offered for the first time · **+1** · corpus 15,200
 > Suite **17,549** green (1 skipped); lint 0; decks 2,733 → **2,734** / 2,998 (Otharri 91). CI GREEN on P·14 (run 36899998342). Flip-diff

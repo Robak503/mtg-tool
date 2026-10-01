@@ -49,6 +49,7 @@ import { startEnginesClauseParser } from "./atoms/speed.js";
 import { winGameClauseParser } from "./atoms/winGame.js";
 import { rollDieClauseParser, resultScaledPayoffClauseParser } from "./atoms/roll.js"; // DICE-ROLL (CR 726) — roll a d20 + result-scaled token/draw payoff (Ancient Dragons)
 import { hideawayClauseParser } from "./atoms/hideaway.js";
+import { matchExileTopEachCastAny } from "./atoms/castFromAmong.js"; // P·16 — Etali, Primal Storm's whole effect (its "then" and comma would split it)
 import { animateDeadClauseParser } from "./atoms/animateDead.js"; // P·12 — Animate Dead's two synthesized sentinels // P·10 — HIDEAWAY (CR 702.75): the synthesized look-and-hide + "play the exiled card … if <condition>"
 import { freeCastClauseParser } from "./atoms/freeCast.js"; // FREE-CAST (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle)
 import { counterClausesParser } from "./atoms/counterClauses.js";
@@ -2752,6 +2753,13 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   if (clg && clg.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: clg.atoms, xSpell: false, unparsedTail: null });
   }
+  // ===== CAST ANY NUMBER FROM AMONG (Etali, Primal Storm) ===== "exile the top card of each player's library, then you may
+  // cast any number of spells from among those cards without paying their mana costs" → ONE atom that exiles and parks the
+  // cast decision (see effects/atoms/castFromAmong.js).
+  const etc = matchExileTopEachCastAny(oracle);
+  if (etc && KNOWN.has(etc.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [etc.atom], xSpell: false, unparsedTail: null });
+  }
   // ===== ITERATED-EDICT (Torment of Hailfire) ===== "Repeat the following process X times. Each opponent loses
   // 3 life unless that player sacrifices a nonland permanent of their choice or discards a card." → ONE
   // iterated-edict atom (X × per-opponent lose-3 / sac-nonland / discard, each opponent's own choice, resolved
@@ -3737,6 +3745,9 @@ export function programConfidence(program) {
   // belt-and-braces guard as the vocabulary widens.
   const ci = program.atoms.findIndex(a => a.op === "cascade");
   if (ci !== -1 && ci !== program.atoms.length - 1) return "low";
+  // CAST FROM AMONG (P·16 — Etali) parks the same kind of action-layer decision, so it is LAST for the same reason.
+  const cfa = program.atoms.findIndex(a => a.op === "exile-top-each-cast-any");
+  if (cfa !== -1 && cfa !== program.atoms.length - 1) return "low";
   if (fightAtomMisplaced(program.atoms)) return "low";
   // SEQUENCE GATES (overhaul hardening): dice-roll and reveal-top payoffs must follow their setup atom.
   // These lived only at the two ASSEMBLY sites, so a program built through collapsed() / the reflexive

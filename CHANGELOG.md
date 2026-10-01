@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Etali, Primal Storm** — when it attacks, exile the top card of each player's library and cast any number of the spells among them for free, opponents' cards included
 - **Multikicker** — Everflowing Chalice, Gnarlid Pack, Wolfbriar Elemental, Lightkeeper of Emeria and the other multikicker cards the engine plays can be kicked any number of times; Everflowing Chalice enters with a charge counter per kick and taps for {C} per counter
 - **Malakir Rebirth** — choose a creature and lose 2 life; until end of turn, when it dies it returns to the battlefield tapped
 - **Gray Merchant of Asphodel, Kokusho, Malakir Bloodwitch and six more** — each opponent loses life (a printed amount, your devotion to black, or the number of Vampires you control) and you gain the life lost

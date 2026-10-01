@@ -344,7 +344,11 @@ function applyCastSpell(state, action) {
   const zoneOwner = (fromZone === "exile" && action.fromPlayerId && action.fromPlayerId !== action.playerId) ? action.fromPlayerId : action.playerId;
   const zoneCard = (state.players[zoneOwner]?.[fromZone] || []).find(c => c.id === action.cardId) || null;
   if (!zoneCard) throw new DispatcherError(`Card ${action.cardId} not in ${fromZone}`, "CARD_NOT_IN_ZONE");
-  if (zoneOwner !== action.playerId && !(zoneCard._impulse && zoneCard._impulseFor === action.playerId && zoneCard._impulseTurn === state.turn)) {
+  // CAST FROM AMONG (P·16 — Etali): a candidate of the caster's own open decision is the other permission to cast from
+  // another player's exile — the exact card and owner the decision parked, nothing else.
+  const castFromAmongPermits = !!action.castFromAmong && state.pendingCastFromAmong?.controller === action.playerId
+    && (state.pendingCastFromAmong.candidates || []).some((c) => c.cardId === action.cardId && c.ownerId === zoneOwner);
+  if (zoneOwner !== action.playerId && !castFromAmongPermits && !(zoneCard._impulse && zoneCard._impulseFor === action.playerId && zoneCard._impulseTurn === state.turn)) {
     throw new DispatcherError(`${action.playerId} has no permission to cast ${zoneCard.name} from ${zoneOwner}'s exile`, "NO_CAST_PERMISSION");
   }
   // CR 400.7 — the card that leaves exile is a new object: the impulse permission belonged to its stay in exile and
@@ -2107,6 +2111,14 @@ function applyCastSpellMaybeDiscover(state, action) {
     const { pendingCascade: _drop, ...rest } = next;
     return rest;
   }
+  // CAST FROM AMONG (P·16 — Etali): the cast card comes off the list and the decision stays open for the rest ("any
+  // number"); the last one closes it. Only the decision's own casts carry `castFromAmong`.
+  if (state.pendingCastFromAmong && action.castFromAmong) {
+    const pc = state.pendingCastFromAmong;
+    const candidates = (pc.candidates || []).filter((c) => c.cardId !== action.cardId);
+    const { pendingCastFromAmong: _drop, ...rest } = next;
+    return candidates.length ? { ...rest, pendingCastFromAmong: { ...pc, candidates } } : rest;
+  }
   // MILLED-GY CAST (Raul, Trouble Shooter — "Once during each of your turns…"): a cast offered by
   // actionsCastMilledFromGraveyard carries the permission SOURCE's id; latch it in
   // onceTriggersFiredThisTurn (per source, cleared at the untap step like every once-latch) so the
@@ -2151,6 +2163,11 @@ function applyFreeCastDecline(state, action) {
   // pure upside; applyTutor's hand-source pick, the Growth-Spiral machinery). No land in hand → clean no-op.
   if (elseLand) next = applyElseLandFromHand(next, action.playerId);
   return next;
+}
+// CAST FROM AMONG (P·16 — Etali, Primal Storm): "done" — the controller casts no more of the candidates; the rest stay exiled.
+function applyCastFromAmongDone(state, action) {
+  const { pendingCastFromAmong: _drop, ...rest } = state;
+  return logEvent(rest, { kind: "cast-from-among-done", playerId: action.playerId });
 }
 // DISCOVER — put the parked (exiled) found card into the controller's hand; clear the pending decision.
 function applyDiscoverToHand(state, action) {
@@ -2268,6 +2285,7 @@ const HANDLERS = {
   "discover-to-hand": applyDiscoverToHand,   // DISCOVER: take the found card instead of casting it free
   "free-cast-decline": applyFreeCastDecline, // FREE-CAST (CR 601.2b): decline the optional "you may cast …"
   "cascade-decline": applyCascadeDecline,    // CASCADE (CR 702.85a): decline the free cast → found card to the bottom of the library
+  "cast-from-among-done": applyCastFromAmongDone, // CAST FROM AMONG (P·16 — Etali): stop casting; the rest stay exiled
 };
 
 /**

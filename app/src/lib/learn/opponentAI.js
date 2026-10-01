@@ -192,9 +192,12 @@ function scoreCastTier(action, card, archetype, hint = null) {
 function cardFromHand(state, playerId, cardId, fromPlayerId = null) {
   const player = state.players[playerId];
   // ANOTHER PLAYER'S CARD (shelf D3, Ragavan): the action names the owner whose exile holds it — and only a card
-  // stamped castable by THIS player is ever resolved there.
+  // stamped castable by THIS player is ever resolved there. CAST FROM AMONG (P·16 — Etali): or a candidate of this
+  // player's own open decision, the same permission the dispatcher checks.
   if (fromPlayerId && fromPlayerId !== playerId) {
-    return state.players[fromPlayerId]?.exile?.find(c => c.id === cardId && c._impulseFor === playerId) || null;
+    const pc = state.pendingCastFromAmong;
+    const amongMine = pc?.controller === playerId && (pc.candidates || []).some((c) => c.cardId === cardId && c.ownerId === fromPlayerId);
+    return state.players[fromPlayerId]?.exile?.find(c => c.id === cardId && (c._impulseFor === playerId || amongMine)) || null;
   }
   // CMD-CAST: a commander cast action (fromZone:"command") references a card in the command zone, not
   // the hand — check both so the AI can actually cast its commander (CR 903.8), not sit on it all game.
@@ -1456,6 +1459,15 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
     const castOpts = filterActions(actions, "cast-spell");
     const pick = castOpts.length ? pickCastAction(state, aiPlayerId, castOpts, archetype, pol) : null;
     return pick || actions.find(a => a.kind === "cascade-decline") || actions[0] || null;
+  }
+
+  // CAST FROM AMONG (P·16 — Etali, Primal Storm): the same window, "any number" — cast the candidate pickCastAction likes
+  // best; the decision re-offers the rest after each cast, so the AI keeps casting until nothing scores, then takes "done".
+  // Never returns null (no pass mid-resolution; "done" clears the window).
+  if (state.pendingCastFromAmong && state.pendingCastFromAmong.controller === aiPlayerId) {
+    const castOpts = filterActions(actions, "cast-spell");
+    const pick = castOpts.length ? pickCastAction(state, aiPlayerId, castOpts, archetype, pol) : null;
+    return pick || actions.find(a => a.kind === "cast-from-among-done") || actions[0] || null;
   }
 
   // FREE-CAST (CR 601.2b) — a pending free-cast decision short-circuits everything (legalChoices offers ONLY
