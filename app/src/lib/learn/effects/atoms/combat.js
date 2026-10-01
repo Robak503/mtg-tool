@@ -1417,6 +1417,9 @@ export function combatKeywordClauseParser(clause) {
       return { op: "tap", targetType: "creature", restrictions: stunM[2] ? [{ kind: "controller", who: "opponent" }] : [], stunCounter };
     }
   }
+  // THASSA, DEEP-DWELLING (shelf D21) — "Tap another target creature.": the untap arm's `another` — the notSource restriction,
+  // so the ability's own permanent is never offered.
+  if (/^tap another target creature\.?$/.test(t)) return { op: "tap", targetType: "creature", restrictions: [{ kind: "notSource" }] };
   const tapM = t.match(/^tap target creature(?:\s+(an opponent controls|defending player controls|you don't control|you control|with power (\d+) or less|with power (\d+) or (?:greater|more)|with toughness (\d+) or less|with mana value (\d+) or (?:greater|more)|without flying|with flying))?\.?$/);
   if (tapM) {
     const qual = tapM[1];

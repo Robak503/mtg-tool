@@ -72,6 +72,7 @@ import {
   checkGraveyardEventTriggers,
   checkSagaChapterTriggers,
   checkSacrificeTriggers,
+  detectTriggers, // FLICKER TARGETS (shelf D21) — does a permanent carry an enters ability worth re-firing?
 } from "./triggers.js";
 import { checkAllStateBasedActions } from "./sba.js";
 import { expireContinuousEffects, maxHandSizeFor, sourceTriggerMultiplierCount } from "./layers.js";
@@ -1617,6 +1618,47 @@ function buildTriggerStack(state, trigger, chooseTargets) {
  * via enumeration; this additionally fixes UNRESTRICTED harmful triggers that first-legal could aim at
  * a friendly. A spell target carries no controller field, so its side is resolved from state.stack.)
  */
+/**
+ * FLICKER TARGETS (shelf D21) — the trigger chooser's pick when a program's one targeted atom is a blink. Each candidate
+ * permanent scores what flickering it gains (it returns as a new object, CR 400.7): its enters abilities fire again (+3), it
+ * returns untapped (+1), attachments on it fall off — an opponent's (+3) or its controller's own (−2) — an attached Equipment
+ * comes off its creature (−2), and counters go: −1/−1 (+1 each), +1/+1 (−1 each). A token that leaves is gone for good
+ * (CR 111.8) and is never chosen. (A commander is fine: it is back on the battlefield before the CR 903.9a state-based action
+ * could send it to the command zone.) "Up to" / "any number"
+ * flicker only what gains (possibly nothing); a mandatory single target takes the best on offer. The expander orders subsets
+ * MAXIMAL-first (targeting.expandAtoms), so for "any number" the first candidate already holds every legal target: the
+ * gaining subset is filtered out of it, whatever the 64-option cap dropped from the middle sizes. Null when the program isn't
+ * a lone blink.
+ */
+function pickFlickerCandidate(state, controller, safe, program) {
+  // (A modal program's top-level atoms are empty — its modes carry them — so it never reaches the flicker pick.)
+  const targeted = (program?.atoms || []).filter((a) => a?.targetType);
+  if (targeted.length !== 1 || targeted[0].op !== "blink") return null;
+  const gain = (t) => {
+    const p = findPermanent(state, t.id).permanent; // an enumerated target is on the battlefield by construction
+    if (p.card?.token || p.token) return -Infinity;
+    let g = detectTriggers(p.card).some((d) => d.event === "etb" && d.scope === "self") ? 3 : 0;
+    if (p.tapped) g += 1;
+    if (p.attachedTo) g -= 2;
+    g += (p.counters?.["-1/-1"] || 0) - (p.counters?.["+1/+1"] || 0);
+    for (const id of p.attachments || []) {
+      const a = findPermanent(state, id);
+      if (a) g += a.controller === controller ? -2 : 3;
+    }
+    return g;
+  };
+  const size = (c) => (c.targets || []).length;
+  const empty = safe.find((c) => size(c) === 0) || null;
+  if (targeted[0].anyNumber) {
+    const full = safe[0]; // maximal-first: every legal target
+    return { ...full, targets: (full.targets || []).filter((t) => gain(t) > 0) };
+  }
+  const total = (c) => (c.targets || []).reduce((s, t) => s + gain(t), 0);
+  const best = safe.filter((c) => size(c) > 0).reduce((a, c) => (a == null || total(c) > total(a) ? c : a), null);
+  // A mandatory target (no empty choice — Conjurer's Closet) takes the best even at no gain; an optional one only a gain.
+  return best && (!empty || total(best) > 0) ? best : empty;
+}
+
 export function chooseTriggerTargets(candidates, info) {
   const state = info?.state;
   const controller = info?.trigger?.controller;
@@ -1669,6 +1711,12 @@ export function chooseTriggerTargets(candidates, info) {
   // THE CREED). Flag absent ⇒ first-correct-side, byte-identical.
   const safe = candidates.filter((c) => (c.targets || []).every(targetOk(atomsFor(c))));
   if (!safe.length) return NO_SAFE_TARGET;
+  // FLICKER (shelf D21 — Brago, King Eternal; Thassa, Deep-Dwelling; Displacer Kitten; Teleportation Circle): a blink's targets
+  // are its controller's own permanents and WHICH is the whole decision. The expander orders subsets maximal-first, so the
+  // first correct-side candidate was whatever permanent came first ("up to one") or every permanent you control, tokens
+  // included ("any number" — Brago). The flicker gain decides instead.
+  const flicker = pickFlickerCandidate(state, controller, safe, program);
+  if (flicker) return flicker;
   if (!policyEvalEnabledFor(state, controller)) return safe[0];
   const candValue = (c) => (c.targets || []).reduce((s, t) => {
     if (t.type === "player" || t.type === "spell") return s;

@@ -42,8 +42,9 @@ describe("the carrier and the shape", () => {
     expect(classifyCard(KITTEN)).toBe("native-trigger");
     const p = parseEffectClause(CLAUSE, "Instant");
     expect(p.confidence).toBe("high");
+    // + no Auras (shelf D21): a returned Aura must choose what it enchants (CR 303.4f), which the shared return doesn't yet.
     expect(p.atoms[0]).toMatchObject({ op: "blink", targetType: "nonlandPermanent",
-      restrictions: [{ kind: "controller", who: "you" }], returnTo: "owner", maxTargets: 1, minTargets: 0 });
+      restrictions: [{ kind: "controller", who: "you" }, { kind: "typeNeg", type: "aura" }], returnTo: "owner", maxTargets: 1, minTargets: 0 });
     expect(atomTargetIntent(p.atoms[0])).toBe("own");
   });
 });

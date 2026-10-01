@@ -878,7 +878,9 @@ export function splitClauses(oracle) {
     }
     // ARTIFACT-OR-CREATURE (SHELF-85 B6, Teleportation Circle "up to one target artifact or creature you control"; the
     // mandatory single form on Escape Protocol / Against All Odds) joined 2026-09-04 — the same severed-exile hazard.
-    if (/^(?:you may )?exile (?:target creature|(?:up to one )?target artifact or creature|up to one target nonland permanent|up to two target creatures|two target artifacts, creatures, and\/or lands) you control, then return (?:that card|it|those cards) to the battlefield under (?:your|its owner's|their owner's) control\.?$/i.test(sentence)) {
+    // + Thassa, Deep-Dwelling's "up to one OTHER target creature" and Brago, King Eternal's "any number of target nonland
+    // permanents" (shelf D21) — the severed first halves would exile and never return.
+    if (/^(?:you may )?exile (?:target creature|(?:up to one )?target artifact or creature|up to one target nonland permanent|up to two target creatures|two target artifacts, creatures, and\/or lands|up to one other target creature|any number of target nonland permanents) you control, then return (?:that card|it|those cards) to the battlefield under (?:your|its owner's|their owner's) control\.?$/i.test(sentence)) {
       clauses.push(sentence);
       continue;
     }

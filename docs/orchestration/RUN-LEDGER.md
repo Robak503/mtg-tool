@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **433 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **434 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,32 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D21: BRAGO, KING ETERNAL + THASSA + THE FLICKER TARGET POLICY — Brago Blink 88 → 90 · **+5** · corpus 15,106 / 34,245
+> Suite **1,670 files / 17,242 tests** green (1 skipped); lint 0; decks 2,695 / 2,998. CI GREEN on D20 (run 36792346016). Flip-diff **+5, zero LOST,
+> zero RETIERED** (tier snapshots at ca904c36 → the change: Thassa, Brago, Photon, Marshal of Zhalfir, Legion Guildmage). **Mutants 23/23** (restore byte-identical).
+> · **Why:** Brago Blink (88) needed two: its commander and Thassa, whose two lines were both near misses.
+> · **Build:** zones.js — Brago's "exile any number of target nonland permanents you control, then return those cards … under their
+>   owner's control" (phase-out's any-number bound on the blink atom) and Thassa's "up to one OTHER target creature you control"
+>   (notSource); splitClauses keeps both sentences whole · combat.js — "Tap another target creature" (notSource) · gameEngine —
+>   `pickFlickerCandidate`: a lone blink's targets are ranked by what flickering gains (enters ability +3, untap +1, an opponent's
+>   attachment +3, −1/−1 counters +1; +1/+1 counters, your own attachments and an attached Equipment weigh against; a token never).
+>   "Up to" / "any number" flicker only what gains; a mandatory target (Conjurer's Closet) takes the best on offer; "any number"
+>   builds the gaining subset from the full legal set (the 64-option enumeration keeps only the largest subsets).
+> · **Behaviour change (existing native cards):** the chooser took the first correct-side candidate and the expander orders subsets
+>   maximal-first — Displacer Kitten / Teleportation Circle flickered whatever came first, and Brago would have flickered every
+>   permanent, tokens included. They now flicker what gains (witnessed on the Circle). Worth Omnath's eye: trajectories will differ.
+> · **Found and fenced (chip task_149886ba):** a flickered or reanimated AURA returns attached to nothing and stays (CR 303.4f / 704.5m
+>   not implemented for non-cast entries) — Displacer Kitten could already do this. Kitten and Brago no longer offer Auras (an
+>   under-offer) until a returned Aura can choose its host; the chip lists the exclusions to lift.
+> · **Runtime:** `WITNESS bragoFlicker {"targets":["Brago, King Eternal","Elvish Visionary","Grizzly Bears","Hill Giant"],"drew":1,"tokenKept":true,
+>   "plainKept":true,"bragoUntapped":true,"pacifismHolds":false}`. Witness `app/src/lib/learn/flickerTargets.test.js` (11) — every board built so
+>   the factor under test decides its outcome (the first draft had five that couldn't; caught in review before the mutation run).
+> · **Mutation:** 23/24 — the survivor (a largest-candidate search) was already the first candidate under the expander's maximal-first
+>   sort; it became safe[0], and that is what corrected the account of the old behaviour above. The 23 re-killed on the final code.
+> · **Unaimed gains, verified in play:** Photon, Lady of Light (her attack flicker), Marshal of Zhalfir and Legion Guildmage ("tap
+>   another target creature") — the same two arms; each witnessed (Photon flickers the Visionary, never herself; neither taps itself).
+> · **Next:** Shorikai / Teval (86 — each needs 4) · Kellan / Halfshell (85) · the Aura chip unlocks Brago's Aura re-aims.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D20: ELESH NORN'S ENTERS SILENCE + THE BATCHED LEAVES EVENT — Brago Blink 86 → 88 · **+3** · corpus 15,101 / 34,245
 > Suite **1,669 files / 17,231 tests** green (1 skipped); lint 0; decks 2,693 / 2,998. CI GREEN on D19 (run 36790490021). Flip-diff **+3, zero LOST,

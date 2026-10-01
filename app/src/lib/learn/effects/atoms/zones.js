@@ -1002,8 +1002,22 @@ export function graveyardReturnClauseParser(clause) {
   // family's FIRST TRIGGER-side carrier (a cast trigger — Displace/Flicker are spells), which is why
   // atomTargetIntent gained its "blink" → own case in the same slice. maxTargets 1 + minTargets 0 rides
   // the same subset path as up-to-two (the [t]-or-[] expansion).
+  // + NO AURAS (shelf D21): a returned Aura must choose what it enchants (CR 303.4f) and the shared return (enterCardFromZone)
+  // doesn't yet — it came back attached to nothing — so an Aura is not offered until that lands (an under-offer, never a
+  // wrong resolution). The same exclusion rides Brago's any-number arm below.
   const blink1M = t.match(/^exile up to one target nonland permanent you control, then return that card to the battlefield under (your|its owner's) control$/);
-  if (blink1M) return { op: "blink", targetType: "nonlandPermanent", restrictions: [{ kind: "controller", who: "you" }], returnTo: blink1M[1] === "your" ? "controller" : "owner", maxTargets: 1, minTargets: 0 };
+  if (blink1M) return { op: "blink", targetType: "nonlandPermanent", restrictions: [{ kind: "controller", who: "you" }, { kind: "typeNeg", type: "aura" }], returnTo: blink1M[1] === "your" ? "controller" : "owner", maxTargets: 1, minTargets: 0 };
+  // THASSA, DEEP-DWELLING (shelf D21) — "exile up to one OTHER target creature you control, then return that card to the
+  // battlefield under your control": the up-to-one creature form plus notSource (Thassa, a creature once your devotion to blue
+  // reaches five, never flickers herself).
+  const blinkOtherM = t.match(/^exile up to one other target creature you control, then return that card to the battlefield under (your|its owner's) control$/);
+  if (blinkOtherM) return { op: "blink", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }, { kind: "notSource" }], returnTo: blinkOtherM[1] === "your" ? "controller" : "owner", maxTargets: 1, minTargets: 0 };
+  // BRAGO, KING ETERNAL (shelf D21) — "exile any number of target nonland permanents you control, then return those cards to
+  // the battlefield under their owner's control": phase-out's any-number bound (0..99, anyNumber — the expander keeps the
+  // largest subsets and seeds the empty one), Auras excluded as above. Which permanents is the trigger chooser's call
+  // (gameEngine.chooseTriggerTargets — the flicker gain).
+  const blinkAnyM = t.match(/^exile any number of target nonland permanents you control, then return those cards to the battlefield under (your|their owner's) control$/);
+  if (blinkAnyM) return { op: "blink", targetType: "nonlandPermanent", restrictions: [{ kind: "controller", who: "you" }, { kind: "typeNeg", type: "aura" }], returnTo: blinkAnyM[1] === "your" ? "controller" : "owner", minTargets: 0, maxTargets: 99, anyNumber: true };
   // TELEPORTATION CIRCLE (SHELF-85 B6, 2026-09-04) — "exile up to one target artifact or creature you control, then
   // return that card to the battlefield under its owner's control" (the end-step blink; Escape Protocol / Against
   // All Odds print the mandatory single form): the own-side ARTIFACT-OR-CREATURE union, enumerated in spellEffects

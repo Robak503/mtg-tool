@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Brago, King Eternal** — when Brago deals combat damage to a player, flicker any number of your nonland permanents: the ones worth it (creatures with enters abilities, tapped permanents, creatures an opponent's Aura holds), never tokens
+- **Thassa, Deep-Dwelling** — flickers another creature you control at your end step, and taps another target creature
 - **Elesh Norn, Mother of Machines** — permanents entering no longer trigger abilities of permanents your opponents control (their enters abilities, watchers and landfall stay quiet; emblems still work)
 - **Dour Port-Mage** and **Sally Sparrow** — "whenever one or more other creatures you control leave the battlefield" triggers once per batch; Port-Mage counts only creatures that leave without dying
 - **Ingenious Prodigy** — at your upkeep, while it has a +1/+1 counter, you may remove one to draw a card (the same "remove a counter. If you do" choice now works wherever a card's text is otherwise supported)
@@ -408,6 +410,7 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **Flicker triggers** (Displacer Kitten, Teleportation Circle, Conjurer's Closet and the like) now flicker the permanent worth flickering instead of whichever came first; Displacer Kitten no longer flickers an Aura, which came back enchanting nothing
 - **"Whenever this creature attacks a battle"** no longer fires on every attack (Thrashing Frontliner pumped when it attacked a player); battles can't be attacked yet, so these cards wait for that
 - **Deflecting Swat** no longer turns a Counterspell aimed at your spell onto the Counterspell itself — with nowhere legal to send it, it leaves the target alone
 - **"The sacrificed creature's …" abilities** (Altar of Dementia and friends) use the creature they actually sacrificed, even when another sacrifice happens in response
