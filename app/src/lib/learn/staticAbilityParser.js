@@ -3186,6 +3186,11 @@ function parseClause(clause, out, selfName, selfType) {
   // be dealt to you is dealt to this creature instead."). A coverage MARKER: the runtime reads the printed line itself
   // (damageRedirect.playerDamageRedirectTarget) at both damage funnels, so nothing consumes this descriptor.
   if (playerDamageRedirectLine(c) === "this") { out.push({ redirectsPlayerDamageToSelf: true }); return; }
+  // UMBRA ARMOR FOR THE AURAS ON YOUR PERMANENTS (shelf D43, CR 702.89a — Umbra Mystic: "Auras attached to permanents you
+  // control have umbra armor."). A MARKER: gameState.totemArmorAuraFor asks grantsUmbraArmorToAuras of the HOST's controller's
+  // permanents at both destruction sites, so any Aura on a permanent that player controls — whoever controls the Aura —
+  // is destroyed instead.
+  if (/^auras attached to permanents you control have umbra armor$/.test(c)) { out.push({ grantsUmbraArmorToAttachedAuras: true }); return; }
   if (/^the top card of your library has plot$/.test(c)) { out.push({ topCardHasPlot: true }); return; }
   if (/^the plot cost is equal to its mana cost$/.test(c)) { out.push({ plotCostIsManaCost: true }); return; }
   if (/^you may plot nonland cards from the top of your library$/.test(c)) { out.push({ plotNonlandFromTop: true }); return; }
@@ -6793,7 +6798,7 @@ function isSelfPigReturnClause(clause) {
   return SELF_PIG_RETURN_CLAUSE_RE.test(String(clause || "").trim());
 }
 
-// TOTEM ARMOR (CR 702.116 — "Umbra armor" is the older functional-reminder name; both are the SAME ability).
+// TOTEM ARMOR (CR 702.89 — "umbra armor" is the current name; older cards printed "totem armor", 702.89b; the SAME ability).
 // "If enchanted creature would be destroyed, instead remove all damage from it and destroy this Aura." A
 // destruction-REPLACEMENT effect on the Aura (CR 614): the NEXT time the enchanted permanent would be
 // destroyed, the Aura is destroyed instead and all damage is removed from the creature (it survives). Modeled
@@ -6805,6 +6810,13 @@ function isSelfPigReturnClause(clause) {
 const TOTEM_ARMOR_CLAUSE_RE = /^(?:umbra|totem) armor$/i;
 function isTotemArmorClause(clause) {
   return TOTEM_ARMOR_CLAUSE_RE.test(String(clause || "").trim());
+}
+
+/** Does this card give umbra armor to the Auras attached to its controller's permanents ("Auras attached to permanents you
+ *  control have umbra armor." — Umbra Mystic, shelf D43)? The SAME parse the classifier reads; gameState.totemArmorAuraFor asks
+ *  it of the host's controller's permanents. */
+export function grantsUmbraArmorToAuras(card) {
+  return parseStaticAbilities(card).some((d) => d?.grantsUmbraArmorToAttachedAuras === true);
 }
 
 /** Does this card carry "If a creature dealt damage by this creature this turn would die, exile it instead." (Incendiary
@@ -6835,7 +6847,7 @@ export function lostManaBecomesColorless(card) {
 }
 
 /**
- * Does this Aura (or token-Aura) carry TOTEM ARMOR / Umbra armor (CR 702.116)? The single source of truth
+ * Does this Aura (or token-Aura) carry TOTEM ARMOR / Umbra armor (CR 702.89)? The single source of truth
  * shared by the coverage classifier (crediting the keyword line as modeled) AND the two runtime destruction
  * sites (which consume the Aura instead of destroying the creature). Detected from the Aura's own oracle text
  * so no per-permanent flag needs stamping at attach time. Pure; card-based; false for a non-Aura.

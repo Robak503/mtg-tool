@@ -94,7 +94,7 @@ function toxicValue(card) {
  * combat would be a forbidden FP, a dropped one is FN-safe. The queue empties on every drain either
  * way, so nothing survives past its combat. Destroys run through the SHARED applyDestroyEffect, so
  * indestructible (CR 702.12b), shield counters (CR 122.1c), regeneration (CR 701.19), totem armor
- * (CR 702.116) and dies-triggers behave exactly like any other destroy; an entry whose creature
+ * (CR 702.89) and dies-triggers behave exactly like any other destroy; an entry whose creature
  * already left (died to combat damage) is a clean skip.
  */
 function drainEndOfCombatEffects(state) {

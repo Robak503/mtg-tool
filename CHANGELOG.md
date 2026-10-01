@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Umbra Mystic** — Auras attached to permanents you control have umbra armor
 - **With Great Power . . ., Pariah, Pariah's Shield, Empyrial Archangel, Protector of the Crown** — damage that would be dealt to you is dealt to the enchanted, equipped or named creature instead
 - **Mantle of the Ancients** — when it enters, returns any number of Aura and Equipment cards from your graveyard attached to the enchanted creature
 - **Celestial Mantle** — when the enchanted creature deals combat damage to a player, its controller's life total doubles

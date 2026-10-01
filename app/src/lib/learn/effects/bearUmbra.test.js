@@ -1,5 +1,5 @@
 /**
- * bearUmbra.test.js — TOTEM ARMOR (CR 702.116) + COMBINED aura grant-trigger + UNTAP-ALL-LANDS.
+ * bearUmbra.test.js — TOTEM ARMOR (CR 702.89) + COMBINED aura grant-trigger + UNTAP-ALL-LANDS.
  *
  * Bear Umbra: "Enchant creature | Enchanted creature gets +2/+2 and has \"Whenever this creature attacks,
  * untap all lands you control.\" | Umbra armor (If enchanted creature would be destroyed, instead remove all

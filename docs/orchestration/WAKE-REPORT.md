@@ -7,11 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## 🚀 2026-09-30 — **v0.161.0 RELEASED** (published 2026-10-01T05:26Z) — runnable: the shelf (Light-Paws 88; Kellan reached 90)
+## 🚀 2026-09-30 — **v0.161.0 RELEASED** (published 2026-10-01T05:26Z) — runnable: the shelf (Light-Paws 89; Kellan reached 90)
 
-> **Runnable next:** Light-Paws Voltron 88 → 90 (needs 2) — Pearl-Ear, Imperial Advisor (two lines), then one from the deep
+> **Runnable next:** Light-Paws Voltron 89 → 90 (needs 1) — Pearl-Ear, Imperial Advisor (two lines) or one from the deep
 > pile (the commander itself is deep). Atraxa is DEFERRED (Colton 09-30: planeswalkers last, as their own program). Shelf **28 of 30 at ≥90**
-> (Kellan reached 90 in D38); corpus 15,160 (44.3%). After the shelf: the 09-06 plan's stage ③ → ④.
+> (Kellan reached 90 in D38); corpus 15,161 (44.3%). After the shelf: the 09-06 plan's stage ③ → ④.
 > **The release:** tagged on 502e133f (the `[0.161.0]` CHANGELOG cut), moved up from 10-02 by Colton because Reality
 > Fracture's whole card base was already on Scryfall (fra 461 cards, frc 103). Release run 36817109773 green (two test
 > shards + build); assets: the installer twice with its `.sig` each, and `latest.json`; `latest.json` verified BY CONTENT at
@@ -98,6 +98,7 @@
 > Stone Calendar, Highspire Bell-Ringer, Uthros Psionicist — the all-spells and second-spell reducers (+3 → corpus 14,989; suite 1644 / 16,975).
 > **The residue loop STOPS here — Colton (09-30): "Do my decks."** Next: the shelf decks' unplayed cards, until the v0.161.0 tag on/after 10-02.
 > **SHELF DECKS · D1** tribal digs read the printed capital — Avengers Tower takes Hulk Smash to 90% (+7 → corpus 14,996; suite 1645 / 16,981). Tool: `app/scripts/shelf-residue-map.mjs`.
+> **SHELF DECKS · D43** Umbra Mystic — umbra armor for the Auras on your permanents — Light-Paws Voltron 88 → 89 (+1 → corpus 15,161; suite 1,693 / 17,412).
 > **SHELF DECKS · D42** Damage to you is dealt to a creature instead — Light-Paws Voltron 86 → 88 (+5 → corpus 15,160; suite 1,692 / 17,405).
 > **SHELF DECKS · D41** Mantle of the Ancients — Auras and Equipment return attached — Light-Paws Voltron 85 → 86 (+1 → corpus 15,155; suite 1,691 / 17,387).
 > **SHELF DECKS · D40** Celestial Mantle — double its controller's life total — Light-Paws Voltron 84 → 85 (+1 → corpus 15,154; suite 1,690 / 17,379).

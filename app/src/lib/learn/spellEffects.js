@@ -1330,7 +1330,7 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
       prevented.push(t.id);
       continue;
     }
-    // CR 702.116 — TOTEM ARMOR (Umbra armor): if the permanent being destroyed carries a totem-armor Aura, the
+    // CR 702.89 — TOTEM ARMOR (Umbra armor): if the permanent being destroyed carries a totem-armor Aura, the
     // Aura is destroyed INSTEAD, all damage is cleared, and the permanent survives (fires no dies-trigger — it
     // never left). Checked LAST among the replacements (after indestructible/shield/regen, which don't sacrifice
     // the Aura). A "can't be regenerated" rider does NOT bypass totem armor — that rider is specific to the
