@@ -32,6 +32,9 @@ describe("MUST_STAY_HIGH — clean mana sources keep the native-mana tier", () =
     ["Mind Stone", "Artifact", "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.", "mana + a modeled sac-to-draw activated ability"],
     ["Commander's Sphere", "Artifact", "{T}: Add one mana of any color in your commander's color identity.\nSacrifice this artifact: Draw a card.", "mana + modeled sacrifice rider"],
     ["Mana Vault", "Artifact", "This artifact doesn't untap during your untap step.\nAt the beginning of your upkeep, you may pay {4}. If you do, untap this artifact.\nAt the beginning of your draw step, if this artifact is tapped, it deals 1 damage to you.\n{T}: Add {C}{C}{C}.", "graduated 2026-07-30 — a self-untap lock, its pay-to-untap escape and a draw-step self-damage trigger, all three modeled"],
+    ["Selvala, Heart of the Wilds", "Legendary Creature — Elf Scout",
+      "Whenever another creature enters, its controller may draw a card if its power is greater than each other creature's power.\n{G}, {T}: Add X mana in any combination of colors, where X is the greatest power among creatures you control.",
+      "graduated 2026-10-01 (P·32) — the power-comparison draw trigger is modeled beside its variable-X add"],
   ];
 
   for (const [name, type, oracle, why] of CASES) {
@@ -49,6 +52,9 @@ describe("MUST_STAY_HIGH — clean mana sources keep the native-mana tier", () =
 // The guard this block exists for is untouched: seven cards with genuinely unmodeled residue remain, still
 // spread across the distinct residue shapes. A pin graduates when its stated reason is closed — it is never
 // deleted for going green.
+// BOUNDARY-MARKER GRADUATED 2026-10-01 (P·32) — SELVALA, HEART OF THE WILDS moved up to MUST_STAY_HIGH: its
+// power-comparison draw trigger is modeled (the entering creature's controller decides; selvala.test.js runs it). Its
+// shape — a trigger beside a variable-X add — keeps a live fixture here in Helga, Skittish Seer, still parked.
 describe("MUST_NOT_OVER-CLAIM — a mana ability plus UNMODELED residue stays parked", () => {
   // Every card here taps for mana, so ONLY the residue gate keeps it honest. If one of these ever reports
   // native-mana, the runtime is ignoring the rest of the card while the metric counts it fully modeled.
@@ -59,9 +65,9 @@ describe("MUST_NOT_OVER-CLAIM — a mana ability plus UNMODELED residue stays pa
     ["Black Market", "Enchantment",
       "Whenever a creature dies, put a charge counter on this enchantment.\nAt the beginning of your first main phase, add {B} for each charge counter on this enchantment.",
       "counter accumulation feeding a scaled phase-triggered add"],
-    ["Selvala, Heart of the Wilds", "Legendary Creature — Elf Scout",
-      "Whenever another creature enters, its controller may draw a card if its power is greater than each other creature's power.\n{G}, {T}: Add X mana in any combination of colors, where X is the greatest power among creatures you control.",
-      "power-comparison draw trigger alongside a variable-X add"],
+    ["Helga, Skittish Seer", "Legendary Creature — Frog Druid",
+      "Whenever you cast a creature spell with mana value 4 or greater, you draw a card, gain 1 life, and put a +1/+1 counter on Helga.\n{T}: Add X mana of any one color, where X is Helga's power. Spend this mana only to cast creature spells with mana value 4 or greater or creature spells with {X} in their mana costs.",
+      "a cast trigger beside a spend-restricted variable-X add (Selvala's shape, still parked)"],
     ["Rishkar, Peema Renegade", "Legendary Creature — Elf Druid",
       "When Rishkar enters, put a +1/+1 counter on each of up to two target creatures.\nEach creature you control with a counter on it has \"{T}: Add {G}.\"",
       "GRANTS the mana ability to other creatures — it has none itself"],

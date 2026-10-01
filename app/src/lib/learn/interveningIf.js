@@ -81,7 +81,7 @@ import { creaturePower, creatureToughness, findPermanent } from "./gameState.js"
 // staticAbilityParser / protection, none of which reach interveningIf.js, so this adds no cycle. Verified with
 // `node --input-type=module -e "import './src/lib/learn/legalChoices.js'"` per the RUN-LEDGER's mandate — a
 // green suite is NOT evidence the module graph still loads (vitest resolves in a different order than node).
-import { permanentHasKeyword, permanentColors, permanentTypes } from "./layers.js";
+import { permanentHasKeyword, permanentColors, permanentTypes, permanentIsCreature } from "./layers.js"; // + permanentIsCreature (P·32 — Selvala: every OTHER creature, layer-aware)
 import { hasCitysBlessing } from "./ascend.js"; // shelf D5 — the city's blessing designation (ascend.js imports only gameState)
 
 // ─── cardinal vocabulary ────────────────────────────────────────────────────────
@@ -606,6 +606,13 @@ const SAME_NAME_ETB_RE = /^it doesn't have the same name as another creature you
 // vanished-referent convention).
 const EVOLVE_COMPARE_RE = /^that creature has greater power or toughness than this creature$/;
 
+// ===== STRICTLY THE GREATEST POWER (the play-weighted program, P·32 — Selvala, Heart of the Wilds: "its controller may draw a
+// card if its power is greater than each other creature's power") ===== the ENTERING creature (ctx.triggeringPermanentId) has a
+// layer-aware power greater than that of every OTHER creature on the battlefield, each player's — strictly: a tie is not greater.
+// Read as the instruction resolves (CR 608.2). The entering creature gone → null (can't confirm → FN-safe drop, the
+// vanished-referent convention).
+const POWER_GREATEST_STRICT_RE = /^its power is greater than each other creature's power$/;
+
 // ===== OPPONENT-LOST-LIFE (Bloodchief Ascension trigger 1 — SHELF S7) ========================
 // "an opponent lost N or more life this turn" — read the per-seat lifeLostThisTurn ledger (stamped at the
 // gameState.loseLife chokepoint, reset for all seats at untap). An absent tally IS zero (fail-closed: the
@@ -965,6 +972,19 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     if (!entering || !source) return null;     // a referent left the battlefield → can't confirm (FN-safe)
     return creaturePower(entering, state) > creaturePower(source, state)
       || creatureToughness(entering, state) > creatureToughness(source, state);
+  }
+
+  // STRICTLY THE GREATEST POWER (P·32 — Selvala) — the entering creature vs every other creature on every battlefield.
+  if (POWER_GREATEST_STRICT_RE.test(c)) {
+    const entering = context?.triggeringPermanentId ? findPermanent(state, context.triggeringPermanentId)?.permanent : null;
+    if (!entering) return null; // it left the battlefield → can't confirm (FN-safe)
+    const power = creaturePower(entering, state);
+    for (const pid of Object.keys(state.players)) {
+      for (const p of state.players[pid].battlefield) {
+        if (p.id !== entering.id && permanentIsCreature(state, p.id) && creaturePower(p, state) >= power) return false;
+      }
+    }
+    return true;
   }
 
   // OPPONENT-LOST-LIFE (Bloodchief Ascension) — the per-seat lifeLostThisTurn ledger; absent = 0 (fail-closed).

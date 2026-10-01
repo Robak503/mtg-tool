@@ -274,9 +274,13 @@ export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacri
       // No legal player target → skip the atom outright rather than fall back to the controller: asking the
       // caster a question the card addressed to someone else would let them take an effect that was never
       // theirs to take.
+      // + P·32 (Selvala, Heart of the Wilds — "its controller may draw a card"): the ENTERING creature's controller decides — the
+      // same override, read off the trigger context; that player gone → skipped, never the ability's controller.
       const decider = atom.optionalDeciderIsTarget
         ? (targetsForAtom(targets, i).find((tg) => tg.type === "player" && next.players?.[tg.id])?.id ?? null)
-        : controller;
+        : atom.optionalDecider === "triggeringPermanentController"
+          ? (next.players?.[context?.triggeringPermanentController] ? context.triggeringPermanentController : null)
+          : controller;
       if (decider == null) continue;
       return {
         ...next,

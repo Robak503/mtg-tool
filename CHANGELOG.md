@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Selvala, Heart of the Wilds** — whenever another creature enters, its controller may draw a card if its power is greater than every other creature's
 - **Silence** — your opponents can't cast spells this turn
 - **Helm of the Host and Followed Footsteps** — each turn, a token copy of the equipped (or enchanted) creature; Helm's copy isn't legendary and has haste
 - **Underworld Breach** — each nonland card in your graveyard can be cast from there by paying its mana cost and exiling three other cards from your graveyard; an escaped instant or sorcery goes back to the graveyard, and an escaped Uro or Phlage stays on the battlefield

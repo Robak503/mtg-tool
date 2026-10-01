@@ -612,6 +612,13 @@ export function drawEachPlayerClauseParser(clause) {
   // ⛔ The default draw branch draws for the ABILITY's controller — the wrong seat here by construction,
   // since Fate Foretold is usually YOUR aura on an OPPONENT'S creature, so falling through would hand you
   // the card the card gives them.
+  // P·32 (Selvala, Heart of the Wilds — "Whenever another creature enters, its controller may draw a card if its power is greater
+  // than each other creature's power."): the entering creature's controller draws, and the "may" is THEIRS (optionalDecider —
+  // runProgram asks that player, not the ability's controller), only when the condition holds as it resolves (CR 608.2: the "if"
+  // sits inside the effect, so it is no intervening if; read off the triggering permanent by interveningIf).
+  if (/^the triggering permanent's controller may draw a card if its power is greater than each other creature's power$/.test(t)) {
+    return { op: "draw", amount: 1, who: "triggeringPermanentController", optional: true, optionalDecider: "triggeringPermanentController", condition: "its power is greater than each other creature's power", targetType: null };
+  }
   m = t.match(/^the triggering permanent's controller draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "triggeringPermanentController", targetType: null };
   m = t.match(/^the upkeep player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) (?:additional )?cards?$/);

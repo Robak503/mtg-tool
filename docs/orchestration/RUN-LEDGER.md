@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **47 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,243)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **48 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,244)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,21 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 32: Selvala, Heart of the Wilds (EDHREC #438) — its controller may draw if its power is the greatest · **+1** · corpus 15,244
+> Suite **17,709** green (1 skipped); lint 0; decks 2,745 → **2,746** / 2,998 (Omnath, Locus of Mana 95 → 96). CI GREEN on P·31
+> (run 36940430893). Flip-diff **+1, −0, zero RETIERED** (tier snapshots at bcba99f8 → the change): Selvala → native-mana. Top 1,000
+> **864** (needs +36); top 2,500 **1,689**. **Mutants 10/10** (restore byte-identical).
+> · The trigger's effect ("the triggering permanent's controller may draw a card if its power is greater than each other creature's
+>   power") is one anchored arm (effects/atoms/misc.js): a draw for the ENTERING creature's controller (Fate Foretold's referent),
+>   optional, with the "may" THAT player's (`optionalDecider`, beside Partner-with's override in runProgram; a decider who left
+>   the game skips it, never the ability's controller), gated on a resolution-time condition (CR 608.2; the "if" sits inside the
+>   effect). interveningIf reads it off the entering creature: layer-aware power strictly greater than every other CREATURE on every
+>   battlefield (a tie is not greater; an uncrewed Vehicle doesn't count; a creature that left first can't be confirmed, FN-safe).
+> · **Re-pointed pin (1):** manaTierPins.test.js — Selvala graduated from MUST_NOT_OVER-CLAIM to MUST_STAY_HIGH; Helga, Skittish
+>   Seer keeps the trigger-beside-a-variable-X-add shape parked there.
+>   Witness `app/src/lib/learn/selvala.test.js` (8).
+> · **Next:** #453 Cabal Ritual.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 31: Silence (EDHREC #412) — your opponents can't cast spells this turn · **+1** · corpus 15,243
 > Suite **17,700** green (1 skipped); lint 0; decks **2,745** / 2,998 unchanged. CI GREEN on P·30 (run 36939207926).
