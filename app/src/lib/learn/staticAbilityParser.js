@@ -3049,6 +3049,19 @@ function parseClause(clause, out, selfName, selfType) {
   // The same replacement family (CR 614), scoped by controller: it applies to a creature controlled by an OPPONENT of this
   // permanent's controller, while this permanent is on the battlefield. gameState.diesExiledInstead asks it — with Lava Coil's
   // stamp and the damage-source static above — at every death site: lethal damage, the legend rule, destroy and sacrifice.
+  // ── A GRAVEYARD-BOUND CARD IS EXILED INSTEAD (the play-weighted program, P·27 — Rest in Peace, Leyline of the Void,
+  // Necrodominance, Festival of Embers, Forbidden Crypt, Yawgmoth's Agenda; CR 614.1a) ── "If a card [or token] would be put
+  // into <a | your | an opponent's> graveyard from anywhere, exile it instead." Whose graveyard is the card's OWNER's (CR
+  // 400.3); "your" / "an opponent's" are relative to this permanent's controller; a token is only caught by "card or token"
+  // (a token is not a card, CR 111.1). gameState applies it at every graveyard write (moveCardToZone and the direct writes)
+  // and at every death site through diesExiledInstead — a creature exiled instead never died (CR 700.4).
+  {
+    const gx = c.match(/^if a card( or token)? would be put into (a|your|an opponent's) graveyard from anywhere, exile (?:it|that card) instead$/);
+    if (gx) {
+      out.push({ graveyardExile: { scope: gx[2] === "a" ? "any" : gx[2] === "your" ? "yours" : "opponents", tokens: !!gx[1] } });
+      return;
+    }
+  }
   if (/^if a creature an opponent controls would die, exile it instead$/.test(c)) {
     out.push({ exileOpponentCreaturesOnDeath: true });
     return;
@@ -6895,6 +6908,13 @@ export function exilesCreaturesItDamaged(card) {
  *  creature's controller controls. */
 export function exilesOpponentCreaturesOnDeath(card) {
   return parseStaticAbilities(card).some((d) => d?.exileOpponentCreaturesOnDeath === true);
+}
+
+/** P·27 — the "If a card [or token] would be put into <whose> graveyard from anywhere, exile it instead." replacement this card
+ *  carries, as { scope: "any"|"yours"|"opponents", tokens }, or null (Rest in Peace, Leyline of the Void, Necrodominance…). The
+ *  SAME parse the classifier reads; gameState.graveyardExiledFor asks it of every permanent on the battlefield. */
+export function graveyardExileSpecOf(card) {
+  return parseStaticAbilities(card).find((d) => d?.graveyardExile)?.graveyardExile ?? null;
 }
 
 /** The LIFE FLOOR this card's static sets for its controller — { lifeFloor: 1, ifControlCreature? } (Ali from Cairo, Sustaining

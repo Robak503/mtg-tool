@@ -26,7 +26,7 @@
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { taintedPactStep, wheelOnePlayer } from "./atoms/library.js"; // K9 (Step Between Worlds) — the per-player fold the each-player-may settler applies to the yes-seats
 import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice, setPendingTemptingOfferChoice } from "../pendingChoice.js"; // + TEMPTING OFFER (Tempt with Discovery) // + SG-15b: the Sylvan Library per-card pause is chained by its own settler
-import { updatePermanentSafe } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
+import { updatePermanentSafe, graveyardExiledFor } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, gainLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
 import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard, policyEvalEnabledFor } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
@@ -142,6 +142,13 @@ export function finishSpellResolution(state, disposition, { selfExile = false, s
     };
     const shuffled = shuffleControllerLibrary(withCard, playerId);
     return logEvent(shuffled, { kind: "spell-to-library-shuffled", playerId, cardName: card.name || null });
+  }
+  // P·27 — EXILE INSTEAD (CR 614.1a — Rest in Peace and kin): the resolved card bound for its owner's graveyard is exiled
+  // instead, and never enters the graveyard (no event). After the self-shuffle above: a spell that shuffles itself away was never
+  // going to a graveyard.
+  if (graveyardExiledFor(state, card, playerId)) {
+    const exiled = { ...state, players: { ...state.players, [playerId]: { ...player, exile: [...(player.exile || []), card] } } };
+    return logEvent(exiled, { kind: "spell-to-exile", playerId, cardName: card.name || null, instead: "graveyard" });
   }
   let next = {
     ...state,

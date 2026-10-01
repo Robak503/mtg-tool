@@ -4,7 +4,7 @@
  */
 
 import { applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js"; // the SHARED creature-restriction grammar — massFilteredDamageClauseParser's general arm delegates its recipient phrase to it (no new module edge: applyDamageEffect already came from here)
-import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe, commanderCastsFromCommandZone } from "../../gameState.js";
+import { graveyardExiledFor, logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe, commanderCastsFromCommandZone } from "../../gameState.js";
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingOptionalExileSelfChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice, setPendingChangeTargetChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
 import { permanentIsCreature, permanentTypes, equipmentBarredAsCreature, addContinuousEffect } from "../../layers.js"; // + addContinuousEffect (shelf D18 — Veil of Summer's end-of-turn target shields) // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
@@ -141,7 +141,9 @@ export function counterSpellById(state, spellId, { via = null, exileInstead = fa
   // rides the stack object's payload, so a countered flashback spell diverts to exile here (else it would return
   // to the graveyard and the flashback offer would re-fire — the infinite-recast FP).
   const flashbackExile = !!targetObj.payload?.params?.spellToGraveyard?.exile;
-  const dest = counterDest || (exileInstead ? "exile" : (flashbackExile ? "exile" : "graveyard")); // exileInstead → counterDest:"exile" alias
+  let dest = counterDest || (exileInstead ? "exile" : (flashbackExile ? "exile" : "graveyard")); // exileInstead → counterDest:"exile" alias
+  // P·27 — a countered spell bound for a graveyard the exile-instead replacement covers is exiled instead (CR 614.1a).
+  if (dest === "graveyard" && isSpell && graveyardExiledFor(state, card, ownerId)) dest = "exile";
   let next = {
     ...state,
     stack: newStack,

@@ -31,7 +31,7 @@ import { permanentPower, permanentToughness, permanentBasePower, permanentHasKey
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
 import { applyCounterDoubling, millMultiplier, playerCounterAdditive, applyLifeGainReplacement, drawMultiplier } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
-import { auraHasTotemArmor, grantsUmbraArmorToAuras, isAuraCard, othersEnterWithCounters, exilesCreaturesItDamaged, exilesOpponentCreaturesOnDeath, lifeFloorOf } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.89; + the Umbra Mystic grant, shelf D43) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
+import { auraHasTotemArmor, grantsUmbraArmorToAuras, isAuraCard, othersEnterWithCounters, exilesCreaturesItDamaged, exilesOpponentCreaturesOnDeath, lifeFloorOf, graveyardExileSpecOf } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.89; + the Umbra Mystic grant, shelf D43) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
 import { applyControlAuraAttach, revertControlAura } from "./controlAura.js"; // CR 613.1b control Auras — a ZERO-IMPORT leaf, so this lowest-layer module can call it without a cycle
 import { colorIdentityOfCards } from "./commanderIdentity.js"; // CR 903.4a — the seat's commander color identity, stamped at game start (a zero-import leaf)
 import { moveControl } from "./controlMove.js"; // THE one control move, shared by the control Auras and the gain-control atom; controlMove imports nothing, so this stays acyclic
@@ -710,6 +710,35 @@ const SHUFFLE_INSTEAD_OF_GY_RE =
 export function shufflesIntoLibraryInsteadOfGraveyard(card) {
   return SHUFFLE_INSTEAD_OF_GY_RE.test(String(card?.oracle ?? card?.oracle_text ?? ""));
 }
+/**
+ * GRAVEYARD → EXILE INSTEAD (the play-weighted program, P·27 — Rest in Peace, Leyline of the Void, Necrodominance, Festival of
+ * Embers, Forbidden Crypt, Yawgmoth's Agenda; CR 614.1a): is a card bound for `ownerId`'s graveyard exiled instead? Yes when a
+ * permanent on the battlefield carries the replacement and its scope covers that graveyard — "a graveyard" (any owner), "your"
+ * (the owner is that permanent's controller), "an opponent's" (the owner is an opponent of its controller). A token only for
+ * "card or token" (a token is not a card, CR 111.1). Battlefields are keyed by controller, so each seat's array is what it controls.
+ */
+export function graveyardExiledFor(state, card, ownerId) {
+  if (!card || !ownerId) return false;
+  for (const pid of Object.keys(state.players || {})) {
+    for (const p of state.players[pid].battlefield || []) {
+      const spec = p.card && graveyardExileSpecOf(p.card);
+      if (!spec || (card.token && !spec.tokens)) continue;
+      if (spec.scope === "any" || (spec.scope === "yours" ? ownerId === pid : opponentsOf(state, pid).includes(ownerId))) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * P·27 — split cards bound for `ownerId`'s graveyard into those that get there and those the exile-instead replacement sends to
+ * exile (CR 614.1a). The DIRECT graveyard writes — surveil, a graveyard-disposing dig, mill, a resolved or countered spell — put
+ * `toGraveyard` there (recording only its events) and `toExile` into the owner's exile; moveCardToZone does the same for one card.
+ */
+export function splitGraveyardBound(state, ownerId, cards) {
+  const toExile = cards.filter((c) => graveyardExiledFor(state, c, ownerId));
+  return { toGraveyard: cards.filter((c) => !toExile.includes(c)), toExile };
+}
+
 /** The card object a pending move would actually move, without mutating anything (for the check above). */
 function peekMovingCard(state, playerId, fromZone, cardId) {
   const list = state.players?.[playerId]?.[fromZone];
@@ -772,6 +801,14 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
         && state.players[playerId]?.battlefield?.find((p) => p.id === cardId)?.owner) || playerId;
       const shuffled = shuffleSeededLibrary(tucked, state.players[ownerPid] ? ownerPid : playerId);
       return logEvent(shuffled, { kind: "shuffle-instead-of-graveyard", playerId: ownerPid, cardName: moving?.name || null });
+    }
+    // P·27 — EXILE INSTEAD (CR 614.1a — Rest in Peace, Leyline of the Void, …): applied before the move, like the shuffle above,
+    // so the graveyard is never touched and no graveyard event or creature-card stamp below records a card that never got
+    // there. The graveyard it would have gone to is the OWNER's (CR 400.3).
+    const gyOwnerFor = (fromZone === "battlefield" && state.players[playerId]?.battlefield?.find((p) => p.id === cardId)?.owner) || playerId;
+    if (moving && graveyardExiledFor(state, moving, gyOwnerFor)) {
+      const exiled = moveCardToZone(state, { playerId, fromZone, toZone: "exile", cardId });
+      return logEvent(exiled, { kind: "exiled-instead-of-graveyard", playerId: gyOwnerFor, cardName: moving.name || null });
     }
     // CREATURE-CARD-TO-GRAVEYARD-THIS-TURN (SHELF-85 · Halfshell Q3 Raphael, Fiendish Savior, 2026-09-05 — "if a creature card
     // was put into your graveyard from anywhere this turn"; Macabre Reconstruction, Cloakwood Hermit): a per-PLAYER turn
@@ -1044,10 +1081,10 @@ export function applyScrySurveil(state, { playerId, n, keepIdsOrdered, mode }) {
       if (byId.has(id) && !seen.has(id)) { kept.push(byId.get(id)); seen.add(id); }
     }
     const moved = top.filter(c => !seen.has(c.id)); // not kept → bottom (scry) / graveyard (surveil)
-    if (mode === "surveil") surveilled = moved;
-    return mode === "surveil"
-      ? { ...player, library: [...kept, ...rest], graveyard: [...player.graveyard, ...moved] }
-      : { ...player, library: [...kept, ...rest, ...moved] };
+    if (mode !== "surveil") return { ...player, library: [...kept, ...rest, ...moved] };
+    const { toGraveyard, toExile } = splitGraveyardBound(state, playerId, moved); // P·27 — exile instead (CR 614.1a)
+    surveilled = toGraveyard;
+    return { ...player, library: [...kept, ...rest], graveyard: [...player.graveyard, ...toGraveyard], exile: [...(player.exile || []), ...toExile] };
   });
   return recordGraveyardEvents(next, surveilled.map((card) => ({ dir: "enter", card, gyOwner: playerId, zone: "library" })));
 }
@@ -1083,11 +1120,12 @@ export function applyImpulseDig(state, { playerId, n, chosenId, chosenIds, restT
       for (let i = others.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [others[i], others[j]] = [others[j], others[i]]; }
     }
     const hand = chosen.length ? [...player.hand, ...chosen] : player.hand;
-    if (restTo === "graveyard") discarded = others;
+    const split = restTo === "graveyard" ? splitGraveyardBound(state, playerId, others) : null; // P·27 — exile instead (CR 614.1a)
+    if (split) discarded = split.toGraveyard;
     // K7 (Make Your Own Luck "Put the rest into your hand"): a HAND rest — the non-chosen looked-at cards join the hand.
     if (restTo === "hand") return { ...player, hand: [...hand, ...others], library: [...rest] };
-    return restTo === "graveyard"
-      ? { ...player, hand, library: [...rest], graveyard: [...player.graveyard, ...others] }
+    return split
+      ? { ...player, hand, library: [...rest], graveyard: [...player.graveyard, ...split.toGraveyard], exile: [...(player.exile || []), ...split.toExile] }
       : { ...player, hand, library: [...rest, ...others] };
   });
   return recordGraveyardEvents(next, discarded.map((card) => ({ dir: "enter", card, gyOwner: playerId, zone: "library" })));
@@ -1106,11 +1144,13 @@ export function millCards(state, { playerId, count }) {
   if (n === 0) return state;
   const milled = lib.slice(0, n);
   const milledIds = milled.map((c) => c.id);
+  // P·27 — a milled card the exile-instead replacement catches is exiled (CR 614.1a); it is still a milled card (CR 701.17c).
+  const { toGraveyard, toExile } = splitGraveyardBound(state, playerId, milled);
   let next = withPlayer(state, playerId, player => ({
-    ...player, library: player.library.slice(n), graveyard: [...player.graveyard, ...player.library.slice(0, n)],
+    ...player, library: player.library.slice(n), graveyard: [...player.graveyard, ...toGraveyard], exile: [...(player.exile || []), ...toExile],
   }));
-  // GY-EVENT (SHELF S7): every milled card enters its owner's graveyard from the library.
-  next = recordGraveyardEvents(next, milled.map((card) => ({ dir: "enter", card, gyOwner: playerId, zone: "library" })));
+  // GY-EVENT (SHELF S7): every milled card that reached it enters its owner's graveyard from the library.
+  next = recordGraveyardEvents(next, toGraveyard.map((card) => ({ dir: "enter", card, gyOwner: playerId, zone: "library" })));
   // MILLED-THIS-TURN ledger (Tato Farmer "…that was milled this turn"; the Raul cast-permission class):
   // every milled card id → the turn it was milled, stamped HERE at the single mill primitive (the
   // mill-effect path AND the radiation mill both flow through millCards, so the ledger can't miss a
@@ -2269,7 +2309,9 @@ function opponentCreatureExiler(state, perm) {
  */
 export function diesExiledInstead(state, perm) {
   if (!perm) return false;
-  return perm.exileIfDiesTurn === state.turn || damagedByExilingSource(state, perm) || opponentCreatureExiler(state, perm);
+  return perm.exileIfDiesTurn === state.turn || damagedByExilingSource(state, perm) || opponentCreatureExiler(state, perm)
+    // P·27 — the graveyard-bound card is exiled instead (Rest in Peace, Leyline of the Void, …), so the creature never dies.
+    || graveyardExiledFor(state, (perm.faceDown && perm.faceUpCard) ? perm.faceUpCard : (perm.printedCard || perm.card), perm.owner || perm.controller);
 }
 
 /**

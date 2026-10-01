@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **42 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,236)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **43 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,238)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,30 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 27: Rest in Peace (EDHREC #2288) and Leyline of the Void — a graveyard-bound card is exiled instead · **+2** · corpus 15,238
+> Suite **17,664** green (1 skipped); lint 0; decks **2,744** / 2,998 unchanged. CI GREEN on P·26 (run 36929800272).
+> Flip-diff **+2, −0, zero RETIERED** (tier snapshots at c3f5bddf → the change): Rest in Peace → native-mixed, Leyline of the
+> Void → native-static. Top 1,000 **859** (unchanged — this is the system #384 Dauthi Voidwalker needs, next); top 2,500
+> **1,684**. **Mutants 15/15** (restore byte-identical).
+> · **The replacement (CR 614.1a):** "If a card [or token] would be put into <a | your | an opponent's> graveyard from anywhere,
+>   exile it instead." One marker in the static parser (the classifier and the runtime read the same thing) and one board
+>   reader, gameState.graveyardExiledFor: the card's OWNER's graveyard (CR 400.3), "your" / "an opponent's" relative to the
+>   replacement's controller, a token only for "card or token" (CR 111.1).
+> · **Every road into a graveyard honours it** — the reason this is a system, not a card: moveCardToZone (discard, a destroyed
+>   artifact, the bulk of the moves; applied before the move, beside Darksteel Colossus's shuffle-instead, so no graveyard
+>   event or creature-card stamp records a card that never arrived), a resolved spell (after the self-shuffle — Green Sun's
+>   Zenith still shuffles), a countered spell, mill (still a milled card, CR 701.17c), surveil, a graveyard-disposing dig, and
+>   every death site through diesExiledInstead: a creature exiled instead never died (CR 700.4) — no dies trigger, no death
+>   tally — and neither did a planeswalker (its watchers read where the card went).
+> · **Witnessed per road** (13 tests): destroy, lethal damage, sacrifice, an artifact, a discard, a resolved and a countered
+>   spell, mill, surveil, a dig, a token creature, a planeswalker and a token planeswalker; Leyline's opponents-only and
+>   cards-only scope; a stolen artifact going to its OWNER's graveyard; "your graveyard" on a synthetic card.
+> · **Re-pointed pin (1):** leylineOpeningHand.test.js — Leyline of the Void was the "opening-hand strip doesn't hide an
+>   unmodeled static" example; it graduated, and the guard now holds on Leyline of the Guildpact's all-colours static.
+> · Still out: Necrodominance, Festival of Embers, Forbidden Crypt, Yawgmoth's Agenda (their other lines); Yawgmoth's Will and
+>   Gaea's Will (the this-turn spell form). Witness `app/src/lib/learn/restInPeace.test.js` (13).
+> · **Next:** #384 Dauthi Voidwalker (the void-counter form of this replacement, and its sacrifice ability).
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 26: Shifting Woodland (EDHREC #362) — a copy of a graveyard card, and a copy's mana · **+1** · corpus 15,236
 > Suite **17,651** green (1 skipped); lint 0; decks 2,740 → **2,744** / 2,998 (92%: cdh 95, Squirrel Girl 94, Earth Bent 93,

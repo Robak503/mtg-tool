@@ -24,6 +24,7 @@ import {
   registerLifeLossWatcher, // LIFE-LOSS-ON-EVENT (SHELF M3) — the loseLife chokepoint's registry seam
   logEvent, // GRANTED DIES-EXILE (Rivaz) — the graveyard→exile move logs at the dies chokepoint
   recordSacrificeThisTurn, // SACRIFICED-THIS-TURN (Elanor Gardner, 2026-09-05) — stamped at the sacrifice chokepoint below
+  graveyardExiledFor, // P·27 — a planeswalker exiled instead (Rest in Peace and kin) never died
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { grantedTriggeredQuotedFor, permanentHasKeyword, permanentPower, permanentBasePower, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, colorsOf, isModifiedPermanent } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition
@@ -7388,11 +7389,20 @@ export function checkDiesBatchTriggers(state, dead) {
  * dispatches independent. No dyingPower ctx (a planeswalker has no power → an amount-scaled payoff would read
  * 0, but the only modeled watcher is the flat each-opponent drain). Pure — appends to pendingTriggers.
  */
+// P·27 — was this planeswalker exiled INSTEAD of being put into a graveyard (CR 614.1a — Rest in Peace and kin)? Then it never
+// died (CR 700.4). Read off where its card went: right after the death event an exiled-instead card sits in an exile zone; a token,
+// which no zone keeps, is read off the replacement itself.
+function walkerExiledInstead(state, d) {
+  for (const p of Object.values(state.players || {})) if ((p.exile || []).some((c) => c.id === d.card.id)) return true;
+  return !!d.card.token && graveyardExiledFor(state, d.card, d.controller);
+}
+
 export function checkPlaneswalkerDiesTriggers(state, deadPw) {
   if (!deadPw || !deadPw.length) return state;
   let fired = [];
   for (const d of deadPw) {
     if (!d?.card) continue;
+    if (walkerExiledInstead(state, d)) continue;
     const lookBack = { id: d.id, controller: d.controller, card: d.card };
     // self ("when this planeswalker dies") + every surviving watcher ("a creature or planeswalker you control dies")
     fired = fired.concat(triggersForEvent(state, { event: "dies", sourcePermanent: lookBack, triggeringPermanent: lookBack }));

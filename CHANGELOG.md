@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Rest in Peace and Leyline of the Void** — a card (for Rest in Peace, a card or token) that would be put into a graveyard is exiled instead; a creature or planeswalker exiled this way never dies
 - **Shifting Woodland** — with delirium, it becomes a copy of a permanent card in your graveyard until end of turn
 - **Dawn's Truce and Lazotep Plating** — you and permanents you control gain hexproof until end of turn
 - **Anger, Wonder, Brawn, Filth and Valor** — while in your graveyard, with the matching basic land type under your control, your creatures have haste, flying, trample, swampwalk or first strike

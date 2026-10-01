@@ -21,7 +21,7 @@
 > **The shape (measured 10-01):** no veins left — of the 852 top-2,500 misses, 430 are one line away and those lines are
 > 429 distinct shapes. The top 500 are 92.6% covered; #501–1,000 73%; #2,001–2,500 48%. Mostly one card per slice: a
 > program of weeks, not a sprint.
-> **Progress:** PLAY-WEIGHTED · 1–26 (Myriad Landscape #28, Feed the Swarm #89, Urza's Saga #120, Victimize #128, War Room
+> **Progress:** PLAY-WEIGHTED · 1–27 (Myriad Landscape #28, Feed the Swarm #89, Urza's Saga #120, Victimize #128, War Room
 > #140, Three Tree City #178, Gemstone Caverns #179, Tireless Provisioner #182, Hideaway — Mosswort Bridge #194 +2, Idol of
 > Oblivion #196, Animate Dead #224, Gray Merchant of Asphodel #242 +9, Malakir Rebirth #246, Everflowing Chalice #251 (multikicker),
 > Etali, Primal Storm #260 (cast any number from among), Bolas's Citadel #263 +15 (Sacrifice N <class> costs), Hullbreaker Horror
@@ -30,7 +30,8 @@
 > readers now see granted types), Mana Geyser #304 +9 ("add {C} for each <count>"; Black Market #659 with it), Sevinne's
 > Reclamation #339 (cast from a graveyard; the self-copy), Anger #349 +5 (the Incarnations — graveyard statics; Wonder #821
 > with it), Dawn's Truce #359 +2 (you and your permanents gain hexproof), Shifting Woodland #362 (copy a graveyard card; a
-> copy's mana); · 3 the Construct token, the Saga's prerequisite) → top 1,000 at **859 / 1,000** (needs +41).
+> copy's mana), the graveyard-exile replacement +2 (Rest in Peace, Leyline of the Void — the system Dauthi needs); · 3 the
+> Construct token, the Saga's prerequisite) → top 1,000 at **859 / 1,000** (needs +41).
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
 

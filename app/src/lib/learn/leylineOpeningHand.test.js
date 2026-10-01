@@ -33,13 +33,21 @@ describe("LEYLINE-OPENING-HAND-STRIP — the pre-game line no longer drags a mod
     expect(isNativeTier(classifyCard(card))).toBe(true);
   });
 
-  it("CREED guard: Leyline of the Void STAYS non-native — the strip removes only the opening-hand line, not the unmodeled graveyard-replacement static", () => {
-    const card = C(
+  it("CREED guard: the strip removes only the opening-hand line — Leyline of the Guildpact STAYS non-native on its unmodeled all-colours static", () => {
+    // Leyline of the Void GRADUATED (play-weighted P·27, 2026-10-01): its graveyard-replacement static is modeled now
+    // (restInPeace.test.js), so it is native. The guard keeps its shape on a Leyline whose other static is still unmodeled.
+    const guildpact = C(
+      "Leyline of the Guildpact",
+      "If this card is in your opening hand, you may begin the game with it on the battlefield.\nEach nonland permanent you control is all colors.\nLands you control are every basic land type in addition to their other types.",
+      "Enchantment",
+    );
+    const voidLeyline = C(
       "Leyline of the Void",
       "If this card is in your opening hand, you may begin the game with it on the battlefield.\nIf a card would be put into an opponent's graveyard from anywhere, exile it instead.",
       "Enchantment",
     );
-    expect(isNativeTier(classifyCard(card))).toBe(false);
+    expect(isNativeTier(classifyCard(guildpact))).toBe(false);
+    expect(isNativeTier(classifyCard(voidLeyline))).toBe(true);
   });
 
   it("a card WITHOUT the opening-hand line is untouched (the strip is gated)", () => {
