@@ -221,6 +221,9 @@ function parseManaMetric(tail, card) {
       }
       return null; // a referent to another object — never read the source's counters for it
     }
+    // The CHARGE-counter twin (play-weighted P·15 — Everflowing Chalice: "{T}: Add {C} for each charge counter on this
+    // artifact"). The same self-reference gate: only "this artifact" — any other subject is another object's counters.
+    if (/^charge counter on this artifact$/.test(t)) return { kind: "selfCounters", counter: "charge" };
   }
   if (/^this creature's power$/.test(t)) return { kind: "selfPower" };
   m = t.match(/^(.+)'s power$/);

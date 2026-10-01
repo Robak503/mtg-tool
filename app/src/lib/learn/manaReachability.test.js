@@ -27,9 +27,15 @@ describe("cards the engine CANNOT tap are no longer tiered native-mana", () => {
     expect(classifyCard(card({ name: "Goblin Clearcutter", type: "Creature — Goblin", mana: "{2}{R}", power: 3, toughness: 3,
       oracle: "{T}, Sacrifice a Forest: Add three mana in any combination of {R} and/or {G}." }))).not.toBe("native-mana");
   });
-  it("a DYNAMIC amount", () => {
+  it("a DYNAMIC amount the model can't read — GRADUATED 2026-10-01 (play-weighted P·15): the charge-counter count is read now", () => {
+    // Everflowing Chalice was this pin's example: its "{C} for each charge counter on this artifact" had no reader. The mana
+    // metric reads the source's own charge counters now (selfCounters charge — everflowingChalice.test.js taps it for {C}{C}),
+    // so it is asserted positively; the refusal lives on in a dynamic amount that still has no reader — one mana of a CHOSEN
+    // color per counter (Astral Cornucopia), which no metric arm models.
     expect(classifyCard(card({ name: "Everflowing Chalice", type: "Artifact", mana: "{0}",
-      oracle: "{T}: Add {C} for each charge counter on this artifact." }))).not.toBe("native-mana");
+      oracle: "{T}: Add {C} for each charge counter on this artifact." }))).toBe("native-mana");
+    expect(classifyCard(card({ name: "Astral Cornucopia", type: "Artifact", mana: "{X}{X}{X}",
+      oracle: "{T}: Choose a color. Add one mana of that color for each charge counter on this artifact." }))).not.toBe("native-mana");
   });
   it("a COLOUR chosen as the permanent entered — GRADUATED 2026-09-03 (LANDS-12): the choice is stamped at entry and the mana model reads it back; a mana line with NO choice on the card still refuses", () => {
     // Coldsteel Heart is reachable now: enterPermanent stamps `chosenColor` (the most-needed casting color)
@@ -89,7 +95,7 @@ describe("the gate mirrors the runtime rather than guessing", () => {
   it("every card it now refuses is one manaProduction refuses", () => {
     for (const o of [
       { name: "Goblin Clearcutter", type: "Creature — Goblin", oracle: "{T}, Sacrifice a Forest: Add three mana in any combination of {R} and/or {G}." },
-      { name: "Everflowing Chalice", type: "Artifact", oracle: "{T}: Add {C} for each charge counter on this artifact." },
+      { name: "Astral Cornucopia", type: "Artifact", oracle: "{T}: Choose a color. Add one mana of that color for each charge counter on this artifact." }, // P·15: Everflowing Chalice's line is read now (see above)
       { name: "Probe Unchosen", type: "Artifact", oracle: "{T}: Add one mana of the chosen color." }, // LANDS-12: the chosen-color leg needs the printed choice; Coldsteel Heart (which prints it) is accepted now
     ]) expect(manaProduction(o)).toBeFalsy();
   });

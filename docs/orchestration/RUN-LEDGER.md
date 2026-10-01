@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **30 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,199)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **31 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,200)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,37 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 15: Everflowing Chalice (EDHREC #251) — multikicker, offered for the first time · **+1** · corpus 15,200
+> Suite **17,549** green (1 skipped); lint 0; decks 2,733 → **2,734** / 2,998 (Otharri 91). CI GREEN on P·14 (run 36899998342). Flip-diff
+> **+1, zero LOST, zero RETIERED** (tier snapshots at e51dd016 → the change: Everflowing Chalice body-only → native-mana). Top 1,000
+> **844** (needs +56); top 2,500 **1,665**. **Mutants 19/19** (restore byte-identical).
+> · **The offer (CR 702.33c/d):** `parseMultikickerCost` (kicker.js) reads a clean "Multikicker {cost}" line; legalChoices offers one
+>   cast per affordable kick count (0, 1, 2, … the pips folded in once per kick, capped at 20) for a NATIVE multikicker
+>   permanent only — a kick is never paid for text the engine doesn't play (Marshal's Anthem, body-only, gets the plain cast).
+>   A free cast is offered no kicks (single kicker's limitation). The AI pays for every kick it can.
+> · **The count rides the object:** the cast's `kickCount` → PERMANENT_ETB `params.timesKicked` → `perm.timesKicked`; the
+>   enters-with counters read the cast's own count, a multikicker permanent's ETB self context carries it (Wolfbriar's Wolves
+>   even if it is destroyed, and a spell cast, in response — CR 608.2h). The state-wide `timesKickedForCast` stamp is GONE: a
+>   spell cast in response overwrote it before the permanent resolved (latent while multikicker was never offered).
+> · **Chalice's two lines:** `entersWithCountersPerKick` (staticAbilityParser) — "enters with a charge counter on it for each
+>   time it was kicked", placed per kick, credited only for an honest counter kind; and the mana metric's charge-counter twin
+>   ("{T}: Add {C} for each charge counter on this artifact" → selfCounters charge).
+> · **Found on the way (3):** (1) multikicker was cited as CR 702.33h across eight files — that is Sticker kicker; it is 702.33c/d.
+>   (2) The new reader first shared a name with kicker.js's single-kicker reader; resolvers imported both, which vitest's
+>   transform tolerated and real ESM rejects — renamed before it shipped (module loads now run under Node ESM). (3) The
+>   native-mana tier's residue gate never reads static or replacement sentences (a mana source with "…and you lose the game"
+>   on its enters line still tiers native-mana) — a pre-existing over-claim, flagged as its own task.
+> · **Re-pointed pins:** kicker.test.js ("the offer side is untouched" → the single-kicker reader still refuses multikicker,
+>   parseMultikickerCost owns it), multikickerCount.test.js (the count now read off the permanent), entersWithMetricCounters,
+>   manaReachability.test.js (Chalice was its unreadable dynamic amount — graduated; Astral Cornucopia's chosen-color charge
+>   line holds the refusal). Shrine of Boundless Growth's sacrifice line now parses too (still body-only); the planner drops
+>   zero-amount sources, so it is only ever sacrificed for real mana.
+> · **Runtime:** `WITNESS everflowingChalice {"counters":{"charge":2},"timesKicked":2,"taps":1,"pool":2}`; Gnarlid Pack kicked
+>   twice is a 4/4 with a spell cast in response; Wolfbriar kicked twice makes two Wolves after being destroyed in response;
+>   Lightkeeper kicked three times gains 6. Witness `app/src/lib/learn/everflowingChalice.test.js` (12).
+> · **Next:** #260 Etali, Primal Storm — "cast any number of spells from among those cards" from every player's exile: a new
+>   decision (the cascade/discover/free-cast shape, any number, the owner's exile).
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 14: Malakir Rebirth (EDHREC #246) — choose a creature, lose 2 life, it comes back when it dies · **+1** · corpus 15,199
 > Suite **17,537** green (1 skipped); lint 0; decks unchanged (2,733 / 2,998). CI GREEN on P·13 (run 36898554551). Flip-diff **+1, zero

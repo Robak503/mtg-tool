@@ -28,7 +28,7 @@ import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js
 import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate, cloneWidenedCopiable, enteredThisTurnCopiable } from "./cloneCopy.js"; // + cloneWidenedCopiable (KN-2) + enteredThisTurnCopiable (shelf D36)
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
-import { othersEnterWithCounters, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, sunburstCounterKind, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithCastFromHandCounters, choosesColorOnEnter, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
+import { othersEnterWithCounters, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, sunburstCounterKind, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithCountersPerKick, entersWithCastFromHandCounters, choosesColorOnEnter, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
 import { addContinuousEffect, permanentPower, permanentToughness, equipmentBarredAsCreature } from "./layers.js"; // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); acyclic (layers imports only ptPrimitive/keywords/staticAbilityParser/protection, none of which reach resolvers)
 import { conditionalEntersTapped, paysLifeOrEntersTapped, autoPickOptionalLifePayment, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>"; a leaf over interveningIf (interveningIf → layers → staticAbilityParser, none reach resolvers) — acyclic
 import { autoPickCreatureType } from "./choicePolicy.js"; // CR 614.12 auto-choice policy — a zero-import LEAF, shared with the effect atoms (which cannot import resolvers: resolvers → runProgram → effectAtoms). One copy, so an ETB choice and an activated choice can never diverge on the same board.
@@ -290,6 +290,10 @@ export function enterPermanent(state, card, controller, opts = {}) {
     // the resolution re-check (CR 603.4). The enters-with-+1/+1-counters kicked payoff still reads opts.kicked
     // directly below — this flag is the ADDITIONAL hook the trigger/spell pipelines need. A normal cast omits it.
     ...(opts.kicked ? { wasKicked: true } : {}),
+    // MULTIKICKER (CR 702.33c/d, P·15): how many times the cast was kicked, durable on the permanent — the count its
+    // own payoffs read (countForSpec's timesKicked kind: an ETB's "for each time it was kicked", via the trigger's
+    // self context). A permanent that wasn't cast, or was cast unkicked, omits it (read as 0).
+    ...(opts.timesKicked > 0 ? { timesKicked: opts.timesKicked } : {}),
     // CAST-vs-PUT (CR 603.2) — stamp HOW this permanent arrived, for the "if you cast it" intervening-if
     // (Tiamat, Zacama, Primal Calamity). Set ONLY by the two CAST resolvers (PERMANENT_ETB / AURA_ETB);
     // every other entry route — reanimation, put-onto-the-battlefield, blink, a token copy — leaves it
@@ -465,6 +469,12 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // would double it, CR 616). No lethal-SBA concern — a named non-P/T counter never changes toughness.
   const namedCtr = entersWithNamedCounters(card);
   if (namedCtr && namedCtr.n > 0) perm.counters = { ...perm.counters, [namedCtr.type]: (perm.counters[namedCtr.type] || 0) + applyCounterDoubling(state, controller, namedCtr.type, namedCtr.n) };
+  // ENTERS WITH A NAMED COUNTER PER KICK (P·15 — Everflowing Chalice: "This artifact enters with a charge counter on it for each
+  // time it was kicked"; CR 614.1c + 122.6a + 702.33c): per × the kicks this cast paid (opts.timesKicked, threaded from the
+  // cast — 0 for a permanent that wasn't cast kicked). The same doubling route as the fixed-N write above.
+  const perKickCtr = entersWithCountersPerKick(card);
+  const kicks = Math.max(0, Number(opts.timesKicked) || 0);
+  if (perKickCtr && kicks > 0) perm.counters = { ...perm.counters, [perKickCtr.type]: (perm.counters[perKickCtr.type] || 0) + applyCounterDoubling(state, controller, perKickCtr.type, perKickCtr.per * kicks) };
   // ENTERS-WITH-CONDITIONAL-COUNTERS (BLITZ EW-1; CR 614.1c + 122.6a) — "~ enters with N +1/+1 counters on it
   // if <condition>" (Morbid — Gravetiller Wurm; Raid — War-Name Aspirant; Ferocious — Frontier Mastodon…).
   // The condition is evaluated HERE against the PRE-entry `state` (CR 614.1c — a replacement's condition is
@@ -510,7 +520,8 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // A 0-metric leaves a 0/0 that correctly dies to the lethal-toughness SBA (no fabricated floor).
   const metricCtr = entersWithMetricCounters(card);
   if (metricCtr) {
-    const ctx = { controller, sourceId: permId };
+    // timesKicked: THIS cast's kick count (P·15) — never the state-wide stamp a spell cast in response would have overwritten.
+    const ctx = { controller, sourceId: permId, timesKicked: Math.max(0, Number(opts.timesKicked) || 0) };
     const raw = metricCtr.fixed + metricCtr.perUnit * countForSpec(state, ctx, metricCtr.metric);
     if (raw > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", raw) };
   }
@@ -868,7 +879,7 @@ export const RESOLVERS = Object.freeze({
   [RESOLVER_KEYS.PERMANENT_ETB]: (state, obj) => {
     // `printedCard` (V1 slice 3): the REAL two-face card behind a modal-DFC FACE cast — stamped on the entering permanent
     // so every zone move restores the whole card (moveCardToZone reads printedCard; the clone precedent).
-    const { card, controller, xValue, kicked, castFromZone, colorsSpent, grantDiesExile, printedCard, manaSpent, evoked, castDuringMainPhase, manaSpentByColor } = obj.payload?.params || {}; // + manaSpent (Satoru, BI-5) + evoked (Solitude) + castDuringMainPhase (Sentinel's Mark) + manaSpentByColor (shelf D4)
+    const { card, controller, xValue, kicked, timesKicked, castFromZone, colorsSpent, grantDiesExile, printedCard, manaSpent, evoked, castDuringMainPhase, manaSpentByColor } = obj.payload?.params || {}; // + manaSpent (Satoru, BI-5) + evoked (Solitude) + castDuringMainPhase (Sentinel's Mark) + manaSpentByColor (shelf D4)
     if (!card || !controller) return resolveManual(state, obj);
     // Clone (CR 707.9): the permanent enters AS A COPY of a creature chosen as it enters. Suspend
     // on a resolution-time choice (the player picks which creature; Expert/AI auto-pick) — the
@@ -900,7 +911,7 @@ export const RESOLVERS = Object.freeze({
       const lethal = destroyLethalCreatures(entered);
       return checkDiesTriggers(lethal.state, lethal.dead);
     }
-    return enterPermanent(state, card, controller, { xValue, kicked, wasCast: true, castFromZone, castDuringMainPhase: !!castDuringMainPhase, colorsSpent, grantDiesExile, castForNoMana: manaSpent === false, evoked: !!evoked, ...(manaSpentByColor ? { manaSpentByColor } : {}), ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) }); // owner: shelf D3 — a spell cast from its owner's exile (the stack object's stamp)
+    return enterPermanent(state, card, controller, { xValue, kicked, timesKicked, wasCast: true, castFromZone, castDuringMainPhase: !!castDuringMainPhase, colorsSpent, grantDiesExile, castForNoMana: manaSpent === false, evoked: !!evoked, ...(manaSpentByColor ? { manaSpentByColor } : {}), ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) }); // owner: shelf D3 — a spell cast from its owner's exile (the stack object's stamp)
   },
 
   // Aura spell resolving (CR 303.4f): the Aura enters the battlefield attached to the

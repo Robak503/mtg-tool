@@ -92,7 +92,7 @@ import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDrops
 // (verified — metric-only, zero runtime consumers), so this import introduces no cycle.
 import { classifyCard, isNativeTier, isNativeBestow, isKeywordOnly, isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
 import { cycleSelfTriggersModeled } from "./triggerRouting.js"; // shelf D6 — the cycling offer and the classifier read the same vouch
-import { parseKickerCounterCreature, parseKickerEtbCreature, parseKickerCost, parseTeamworkCost } from "./kicker.js"; // + TEAMWORK (shelf D16) // KICKER (CR 702.33) — emit a normal + a kicked cast (kicker mana folded into the cost) when the kicker is affordable; ETB-trigger payoff variant (creatures) + kicked-SPELL-effect (instants/sorceries) too
+import { parseKickerCounterCreature, parseKickerEtbCreature, parseKickerCost, parseMultikickerCost, parseTeamworkCost } from "./kicker.js"; // + TEAMWORK (shelf D16) // KICKER (CR 702.33) — emit a normal + a kicked cast (kicker mana folded into the cost) when the kicker is affordable; ETB-trigger payoff variant (creatures) + kicked-SPELL-effect (instants/sorceries) too
 import { registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant activated-body gate
 import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — emit a normal hard-cast + an emerge cast per legal sacrifice victim (cost reduced by the victim's MV)
 
@@ -1016,6 +1016,10 @@ function applyColoredPipReduction(cost, costReducers, card) {
 }
 
 // below). When false (every normal hand/command cast) behavior is byte-identical.
+// MULTIKICKER (P·15): the most kick counts one cast offers. A bound on the action list, not a rule — past it the caster
+// simply can't choose a larger count (a narrower option set, never a wrong one).
+const MULTIKICK_OFFER_CAP = 20;
+
 function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast = false) {
   const player = state.players[playerId];
   const actions = [];
@@ -1868,6 +1872,30 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // EtbCreature re-classifies the kicker-line-stripped body native (the same gate coverage uses), so the
     // runtime offers the kick EXACTLY when the metric credits it. Checked alongside the counter variant (the
     // two gates are mutually exclusive — the ETB gate rejects the counters shape — so at most one matches).
+    // MULTIKICKER (CR 702.33c/d — the play-weighted program, P·15: Everflowing Chalice). "You may pay an additional [cost] any
+    // number of times as you cast this spell": one cast per kick count the caster can afford — 0, then 1, 2, … with the
+    // multikicker pips folded into `cost` once per kick, stopping at the first count the mana can't pay. `kickCount` rides
+    // the cast to the permanent (actionDispatcher → PERMANENT_ETB → perm.timesKicked), where the payoffs read it: the
+    // enters-with counters, an ETB's "for each time it was kicked". Offered only for a card whose classification is native —
+    // every line, the payoff included, modeled — so a kick is never paid for text the engine doesn't play. A permanent
+    // without cast targets (the shape every native multikicker card has; an Aura returned above). A free cast pays no kicker
+    // (the same limitation as single kicker below). `cmc` grows with each kick — the AI's mana-spent heuristic, as for the
+    // kicked casts below; the card's mana value never changes (CR 202.3 — kicker is an additional cost, not mana cost).
+    const multikickPips = parseMultikickerCost(card);
+    if (multikickPips && isNativeTier(classifyCard(card))) {
+      actions.push({ ...base, targets: [], needsTargets: false, kicked: false, kickCount: 0 });
+      if (!freeCast) {
+        const unit = parseManaCost(multikickPips);
+        let folded = cost;
+        for (let k = 1; k <= MULTIKICK_OFFER_CAP; k++) {
+          folded = mergeManaCost(folded, unit);
+          if (!canAfford(player.manaPool, manaSources(state, playerId), folded, spendContext)) break;
+          actions.push({ ...base, cost: folded, cmc: printedCmc + k * totalCmc(unit), targets: [], needsTargets: false,
+            kicked: true, kickCount: k, kickedName: `kicked ×${k}` });
+        }
+      }
+      continue;
+    }
     const counterKicker = parseKickerCounterCreature(card, isKeywordOnly);
     const etbKicker = !counterKicker ? parseKickerEtbCreature(card, classifyCard, isNativeTier) : null;
     const kickerSpec = counterKicker || etbKicker;

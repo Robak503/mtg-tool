@@ -29,7 +29,7 @@
  *   a strictly-bigger creature with the identical body is always the higher-value play here).
  *
  * EXPLICITLY DEFERRED (stay body-only → Arbiter, never a fabricated credit):
- *   - Multikicker (CR 702.33h — "pay any number of times") and "Kicker {a} and/or {b}" (two kickers).
+ *   - "Kicker {a} and/or {b}" (two kickers). (Multikicker, CR 702.33c, is offered since P·15 — parseMultikickerCost below.)
  *   - Any kicked payoff that is NOT the enters-with-N-+1/+1-counters replacement (an ETB trigger
  *     "When this creature enters, if it was kicked, destroy target …"; a kicked SPELL effect like
  *     "If this spell was kicked, draw two cards"). Those need the trigger / spell-effect pipelines to
@@ -93,7 +93,7 @@ const KICKER_LINE_RE = /^kicker\s+((?:\{[^}]+\})+)\s*$/im;
  */
 export function parseKickerCost(card) {
   const oracle = stripReminder(card?.oracle || card?.oracle_text || "");
-  if (/\bmultikicker\b/i.test(oracle)) return null;            // CR 702.33h — pay any number of times (deferred)
+  if (/\bmultikicker\b/i.test(oracle)) return null;            // CR 702.33c — pay any number of times: parseMultikickerCost owns it
   const m = KICKER_LINE_RE.exec(oracle);
   if (!m) return null;
   const pips = m[1];
@@ -102,6 +102,19 @@ export function parseKickerCost(card) {
   // {X}/{Y}/{Z} kicker pip is a magnitude the affordable-cost enumeration can't bound → defer.
   if (/\{[XYZ]\}/i.test(pips)) return null;
   return pips;
+}
+
+/**
+ * MULTIKICKER (CR 702.33c/d — the play-weighted program, P·15: Everflowing Chalice) — "Multikicker [cost]" means "You may pay
+ * an additional [cost] any number of times as you cast this spell"; the spell is kicked once per payment. The raw pip string
+ * of a clean "Multikicker {cost}" line, or null (no card prints a variable {X} multikicker). legalChoices
+ * offers one cast per affordable kick count for a NATIVE permanent card; the count rides the cast to the permanent
+ * (timesKicked), where its payoffs read it. Leaf — pure text.
+ */
+const MULTIKICKER_LINE_RE = /^multikicker\s+((?:\{[^}]+\})+)\s*$/im;
+export function parseMultikickerCost(card) {
+  const m = MULTIKICKER_LINE_RE.exec(stripReminder(card?.oracle || card?.oracle_text || ""));
+  return m ? m[1] : null;
 }
 
 /**

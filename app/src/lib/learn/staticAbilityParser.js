@@ -867,6 +867,24 @@ export function entersWithNamedCounters(card) {
   return null;
 }
 
+/**
+ * ENTERS WITH A NAMED COUNTER PER KICK (the play-weighted program, P·15 — Everflowing Chalice; CR 614.1c + 122.6a + 702.33c):
+ * "This artifact enters with a charge counter on it for each time it was kicked." Returns { type, per } | null — `per` counters
+ * of `type` for each kick the cast paid (the resolver multiplies by the permanent's timesKicked). One bare counter word, so the
+ * +1/+1 form ("a +1/+1 counter … for each time it was kicked" — Skitter of Lizards) never matches: that one is
+ * entersWithMetricCounters' timesKicked metric. Whole-sentence anchored. The coverage strip credits it only for an honest kind
+ * (isHonestEnterCounterKind — the named counters' gate). Leaf.
+ */
+export function entersWithCountersPerKick(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
+    const m = sentence.trim().match(/^[^.]*?\benters (?:the battlefield )?with (a|an|one|two|three) ([a-z]+) counters? on (?:it|him|her) for each time it was kicked\.?$/i);
+    if (!m) continue;
+    return { type: m[2].toLowerCase(), per: _ENTER_NUM[m[1].toLowerCase()] };
+  }
+  return null;
+}
+
 // ─── ENTER-COUNTER KIND HONESTY (BLITZ EW-1) — which named counter kinds may the COVERAGE strip credit? ────
 // The resolver places ANY single-word named counter (honest state either way), but the TIER claim ("this card
 // plays correctly natively") additionally requires the counter's SEMANTICS to be honored by the runtime:
@@ -1142,15 +1160,12 @@ function parseMetricCountSource(phrase) {
   if ((m = p.match(/^(plains|islands?|swamps?|mountains?|forests?) you control$/))) {
     return { kind: "permanentsYouControl", subtype: SELF_COUNT_BASIC[m[1]], excludeSelf };
   }
-  // ⭐ MULTIKICKER COUNT (CR 702.33h) — "…enters with a +1/+1 counter on it FOR EACH TIME IT WAS KICKED"
+  // ⭐ MULTIKICKER COUNT (CR 702.33c/d) — "…enters with a +1/+1 counter on it FOR EACH TIME IT WAS KICKED"
   // (Skitter of Lizards, Quag Vampires, Enclave Elite, Gnarlid Pack, Apex Hawks). Not a board metric like its
-  // neighbours but a CAST-TIME one, stamped on state by the dispatcher and read back by countForSpec's
-  // `timesKicked` kind — the same channel the colours-spent and sacrificed-* referents use.
-  // ⛔ IT READS ZERO TODAY AND THAT IS THE TRUE ANSWER, not a placeholder: legalChoices never offers a
-  // multikicked cast (parseKickerCost refuses multikicker, CR 702.33h), so every cast the engine can make
-  // really was kicked zero times, and Skitter of Lizards hard-cast for {R} is a 1/1 haste with no counters —
-  // exactly as printed. Modelled as a COUNT rather than stripped so it goes live automatically if
-  // multikicker is ever offered.
+  // neighbours but a CAST-TIME one, read back by countForSpec's `timesKicked` kind. The resolver hands it THIS
+  // cast's kick count (ctx.timesKicked, threaded from the cast to the entering permanent), never the state-wide
+  // stamp a spell cast in response would have overwritten. It read zero on every cast until P·15 (2026-10-01)
+  // began offering multikicked casts; modelled as a count rather than stripped, it went live with no edit here.
   if (/^times? it was kicked$/.test(p)) return { kind: "timesKicked", excludeSelf };
   return null;
 }

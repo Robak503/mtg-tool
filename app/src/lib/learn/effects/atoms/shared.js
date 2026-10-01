@@ -823,11 +823,13 @@ export function countForSpec(state, ctx, spec) {
   // is deducted immediately after) and read here off the SAME inter-atom state channel the sacrificed-*
   // kinds directly above use. An ABSENT stamp reads 0: a clean no-op, never a fabricated magnitude.
   if (spec.kind === "colorsSpentThisSpell") return Math.max(0, state?.colorsSpentForCast || 0);
-  // ⭐ MULTIKICKER COUNT (CR 702.33h) — how many times the spell's kicker was paid, stamped at cast on the
-  // same channel. Reads 0 today because legalChoices never offers a multikicked cast (parseKickerCost
-  // refuses multikicker), and 0 is the CORRECT answer for every cast the engine can make. Live the moment
-  // multikicker is offered, with no change here.
-  if (spec.kind === "timesKicked") return Math.max(0, state?.timesKickedForCast || 0);
+  // ⭐ MULTIKICKER COUNT (CR 702.33c/d) — how many times the spell's kicker was paid. Offered since P·15 (legalChoices,
+  // parseMultikickerCost). The count is bound to the OBJECT and handed to its reader in ctx.timesKicked: the entering
+  // permanent's enters-with replacement (resolvers), a multikicker permanent's ETB self context (triggers — carried even
+  // if it has left by resolution, CR 608.2h). Never a state-wide stamp: a spell cast in response would overwrite it.
+  // A reader with no count of its own reads 0. (No multikicker SPELL is offered a kick yet; when one is, its count rides
+  // the spell's own resolution context the same way.)
+  if (spec.kind === "timesKicked") return Math.max(0, Number(ctx?.timesKicked) || 0);
   // ⭐ COUNTERS ON THE SOURCE (CR 603.6e) — "for each +1/+1 counter on it".
   // ⛔⛔ THE LOOK-BACK IS TRIED FIRST, AND THE ORDER IS THE WHOLE CORRECTNESS PROPERTY. On a dies / leaves
   // trigger the permanent is already gone, so the live board reads 0 — a silent under-count that looks like

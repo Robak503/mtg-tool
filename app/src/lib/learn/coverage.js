@@ -37,7 +37,7 @@ import { detectTriggers, CUMULATIVE_UPKEEP_LIFE_RE, stripTriggerAbilityLabel, fo
 import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND no-cost credit — the same gate the runtime offers through (fading→triggers→… is already a loaded edge; no cycle)
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler, parseDiscardCostAbility } from "./effects/abilities.js";
-import { playerDamageRedirectLine, othersEnterWithCounters, staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithCastFromHandCounters, entersWithChoiceCounters, isHonestEnterCounterKind, choosesColorOnEnter, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, registerAuraOwnTriggerValidator, registerAttachedExceptByValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, attachedNoUntapOf, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
+import { playerDamageRedirectLine, othersEnterWithCounters, staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithCountersPerKick, entersWithConditionalCounters, entersWithCastFromHandCounters, entersWithChoiceCounters, isHonestEnterCounterKind, choosesColorOnEnter, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, registerAuraOwnTriggerValidator, registerAttachedExceptByValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, attachedNoUntapOf, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
 import { spellConditionParseable, interveningIfParseable } from "./interveningIf.js"; // EW-1 — the metric⇄runtime shared gate for a conditional enters-with counter (the resolver evaluates the SAME vocabulary via evaluateInterveningIf); acyclic (interveningIf imports only gameState)
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
@@ -3578,9 +3578,15 @@ export function classifyCard(card) {
   const handEnterOracle = handEnterCtr && isHonestEnterCounterKind(handEnterCtr.type)
     ? condEnterOracle.replace(/[^.\n]*\benters (?:the battlefield )?with (?:a|an|one|two|three|four|five|\d+) [a-z]+ counters? on (?:it|him|her) if you cast it from your hand\.?/i, " ")
     : condEnterOracle;
-  const choiceEnterOracle = entersWithChoiceCounters(card)
-    ? handEnterOracle.replace(/[^.\n]*\benters with your choice of [^.\n]*\.?/i, " ")
+  // A NAMED COUNTER PER KICK (play-weighted P·15 — Everflowing Chalice, multikicker): stripped only when entersWithCountersPerKick
+  // (the reader the resolver places them with) confirms the whole sentence, and only for an honest kind — the named counters' gate.
+  const kickEnterCtr = entersWithCountersPerKick(card);
+  const kickEnterOracle = kickEnterCtr && isHonestEnterCounterKind(kickEnterCtr.type)
+    ? handEnterOracle.replace(/[^.\n]*\benters (?:the battlefield )?with (?:a|an|one|two|three) [a-z]+ counters? on (?:it|him|her) for each time it was kicked\.?/i, " ")
     : handEnterOracle;
+  const choiceEnterOracle = entersWithChoiceCounters(card)
+    ? kickEnterOracle.replace(/[^.\n]*\benters with your choice of [^.\n]*\.?/i, " ")
+    : kickEnterOracle;
   // OTHERS-ENTER-WITH (SHELF-85 H8 — Arwen / Renata / Bramblewood Paragon): stripped ONLY when the reader the resolver
   // honours (othersEnterWithCounters) confirms the whole line — the same single-source-of-truth gate as every branch above.
   const ewOracle = othersEnterWithCounters(card)

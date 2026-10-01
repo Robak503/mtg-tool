@@ -72,10 +72,10 @@ describe("ETB-XCOUNTERS-FROM-METRIC — parser (serializable spec, mutually excl
   });
 
   it("⭐ 'for each time it was kicked' is now MODELED — the refusal above was EARNED, 2026-08-05", () => {
-    // CR 702.33h. The count is stamped at cast and read back by countForSpec's `timesKicked` kind. It reads
-    // ZERO today because legalChoices never offers a multikicked cast — and zero is the correct answer for
-    // every cast the engine can make, which is exactly why it is a count rather than a fabrication.
-    // multikickerCount.test.js drives both the zero case and a non-zero stamp end to end.
+    // CR 702.33c/d. The count rides the cast to the entering permanent and is read back by countForSpec's
+    // `timesKicked` kind. It read zero until P·15 (2026-10-01) began offering multikicked casts — a count rather
+    // than a fabrication, so it went live with no edit. multikickerCount.test.js and everflowingChalice.test.js
+    // drive it end to end.
     expect(entersWithMetricCounters({ oracle: "This creature enters with a +1/+1 counter on it for each time it was kicked." }))
       .toMatchObject({ perUnit: 1, metric: { kind: "timesKicked" } });
   });

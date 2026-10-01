@@ -1,19 +1,18 @@
 /**
- * multikickerCount.test.js — "for each time it was kicked" (CR 702.33h): Skitter of Lizards, Quag Vampires,
+ * multikickerCount.test.js — "for each time it was kicked" (CR 702.33c/d): Skitter of Lizards, Quag Vampires,
  * Enclave Elite, Gnarlid Pack, Apex Hawks (enters-with counters) and Wolfbriar Elemental, Lightkeeper of
  * Emeria (ETB payoffs).
  *
- * ⛔⛔ READ THIS BEFORE THE COUNT: **IT IS ZERO TODAY, AND ZERO IS THE CORRECT ANSWER.** `parseKickerCost`
- * refuses multikicker (CR 702.33h, deferred), so legalChoices never offers a multikicked cast — every cast
- * the engine can make really was kicked zero times. Skitter of Lizards hard-cast for {R} is a 1/1 haste with
- * no counters, exactly as printed. The cards were parked on a rider that, once modelled, contributes nothing
- * to the plays available; they now play correctly rather than not at all.
+ * GRADUATED (P·15, 2026-10-01): until then legalChoices never offered a multikicked cast, every cast really
+ * was kicked zero times, and this file pinned zero as the correct answer. The offer exists now
+ * (parseMultikickerCost) — everflowingChalice.test.js drives it end to end through legalChoices. The pins
+ * below still hold at the dispatcher: an unkicked cast is zero, and a supplied kick count is the count.
  *
  * ⭐ MODELLED AS A COUNT SOURCE RATHER THAN STRIPPED, and that is the whole design choice. A strip would say
  * "this text does not exist" and would have to be revisited the day multikicker is offered. A count says
  * "the answer is however many times it was kicked", computes the true value for every available cast, and
- * goes live with no further edit. **The second runtime pin below proves it is a real count and not a
- * dressed-up zero** — stamp a non-zero kick count and the counters follow.
+ * went live with no further edit when the offer shipped. **The second runtime pin below proves it is a real
+ * count and not a dressed-up zero** — supply a non-zero kick count and the counters follow.
  *
  * ⓘ The Multikicker LINE itself was already accepted as a covered cost keyword (verified: the keyword plus a
  * vanilla body reads native today), so this rider was the only thing parking these cards.
@@ -63,7 +62,8 @@ describe("⭐⭐ LAW 6 — zero on a real cast, and LIVE when the count isn't ze
     const cast = dispatchAction(start, { kind: "cast-spell", playerId: "user", cardId: SKITTER.id, name: SKITTER.name, cost: parseManaCost("{R}"), cmc: 1 });
     const resolved = resolveTopOfStack(cast);
     const s = resolved.state || resolved;
-    return { perm: (s.players.user.battlefield || []).find((p) => p.card?.id === SKITTER.id), stamp: cast.timesKickedForCast };
+    const perm = (s.players.user.battlefield || []).find((p) => p.card?.id === SKITTER.id);
+    return { perm, stamp: perm?.timesKicked ?? 0 }; // the permanent's own count (P·15 — no state-wide stamp)
   }
 
   it("⭐⭐ a normal cast: stamped ZERO, enters with no counters — the printed 1/1 haste", () => {
@@ -74,9 +74,8 @@ describe("⭐⭐ LAW 6 — zero on a real cast, and LIVE when the count isn't ze
   });
 
   it("⭐⭐ IT IS A REAL COUNT, NOT A DRESSED-UP ZERO — a non-zero stamp produces counters", () => {
-    // The engine cannot yet PRODUCE a non-zero kick count (multikicker isn't offered), so the stamp is
-    // supplied directly here. That is the honest way to prove the reader is live: if this row ever stops
-    // matching, the "goes live automatically when multikicker ships" claim in the header is false.
+    // The kick count is supplied on the action directly — the dispatcher-level half of the proof. Since P·15
+    // legalChoices produces such actions itself (everflowingChalice.test.js drives that end to end).
     const g = createGameState({ userDeck: [], aiDeck: [] });
     const start = { ...g, players: { ...g.players,
       user: { ...g.players.user, hand: [SKITTER], manaPool: { W: 0, U: 0, B: 0, R: 1, G: 0, C: 0 } } } };
@@ -84,7 +83,7 @@ describe("⭐⭐ LAW 6 — zero on a real cast, and LIVE when the count isn't ze
     const resolved = resolveTopOfStack(cast);
     const s = resolved.state || resolved;
     const perm = (s.players.user.battlefield || []).find((p) => p.card?.id === SKITTER.id);
-    const row = { stamp: cast.timesKickedForCast, counters: perm?.counters?.["+1/+1"] ?? 0 };
+    const row = { stamp: perm?.timesKicked ?? 0, counters: perm?.counters?.["+1/+1"] ?? 0 };
     console.log("  WITNESS multikicker/kicked", JSON.stringify(row));
     expect(row).toEqual({ stamp: 3, counters: 3 });
   });

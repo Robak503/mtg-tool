@@ -438,11 +438,8 @@ function applyCastSpell(state, action) {
   // gets its own copy through params below; a spell has no permanent to stamp, which is why both exist.
   // ⛔ STAMPED EVEN WHEN ZERO — an alt/free cast spends no mana, and 0 is the right answer, not "unknown".
   working = { ...working, colorsSpentForCast: colorsSpent };
-  // ⭐ MULTIKICKER COUNT (CR 702.33h) — the same inter-atom channel. `action.kickCount` is honoured when a
-  // caller supplies one; otherwise a kicked cast is one kick and an unkicked cast is zero.
-  // ⛔ ZERO IS THE TRUE ANSWER TODAY, NOT A PLACEHOLDER: legalChoices never offers a multikicked cast
-  // (parseKickerCost refuses multikicker), so every cast the engine can make really was kicked zero times.
-  working = { ...working, timesKickedForCast: Number(action.kickCount) > 0 ? Number(action.kickCount) : (action.kicked ? 1 : 0) };
+  // (MULTIKICKER's count is NOT stamped here: a state-wide stamp is overwritten by any spell cast in response. Since P·15
+  // it rides the permanent spell's own params — params.timesKicked below — to the permanent that reads it.)
 
   // 2a'. TEAMWORK (shelf D16 — the printed reminder: "As an additional cost to cast this spell, you may tap any number of
   // creatures you control with total power N or more"). A kicked cast of a teamwork card PAYS it here: the offered tap set is
@@ -892,6 +889,10 @@ function applyCastSpell(state, action) {
     // mana was already folded into action.cost and paid by the mana plan above — this only records that it
     // was paid. Omitted (undefined) on a normal cast, so the base body enters with no extra counters.
     if (action.kicked) params.kicked = true;
+    // MULTIKICKER (CR 702.33c/d, P·15): how many times this cast was kicked rides to the PERMANENT — never a state-wide
+    // stamp, which a spell cast in response would overwrite before this one resolves. The resolver stamps it on the
+    // permanent (perm.timesKicked) and hands it to the enters-with counters; the ETB self context carries it from there.
+    if (Number(action.kickCount) > 0) params.timesKicked = Number(action.kickCount);
     // CAST-FROM-ZONE (CR 601.2 / 400.7): record WHICH zone this spell was cast from so an
     // "if you cast it from your hand" ETB rider can read it (resolvers.enterPermanent stamps it onto the
     // permanent beside wasCast). Same `action.fromZone || "hand"` default the cast-trigger thread above

@@ -33,6 +33,7 @@ import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.j
 import { ABILITY_WORD_LABEL_RE, creatureEntersSuppressed, entersSilencer } from "./effects/textNormalize.js"; // + entersSilencer (shelf D20 — Elesh Norn's opponent-scoped enters silence) // + TORPOR ORB (RG-2, 2026-09-05): the enters-event suppression reader // CR 207.2c label list — the SINGLE copy, shared with the spell path (textNormalize is a zero-import leaf, so no cycle)
 import { CR_CREATURE_TYPES } from "./effects/targeting.js"; // BC-1: closed creature-subtype vocabulary for the NEGATED-SUBTYPE batch filter (read ONLY inside parseBatchSubjectFilter — a function — so the triggers→targeting→spellEffects→triggers cycle stays init-safe: CR_CREATURE_TYPES is never referenced at module-init time)
 import { fireDiesWatches } from "./effects/atoms/delayedTrigger.js"; // DIES WATCH (shelf D25, CR 603.7) — "when that creature dies this turn" fires off the death chokepoint (a gameState-only leaf, no cycle)
+import { parseMultikickerCost } from "./kicker.js"; // MULTIKICKER (P·15) — a multikicker permanent carries its kick count into its ETB self context (kicker.js imports only leaves)
 
 function oracleOf(card) {
   return String(card?.oracle || card?.oracle_text || "");
@@ -6982,7 +6983,13 @@ export function checkEnterTriggers(state, enteredPerm) {
   // enters" watcher's effect must NOT read the entering creature's X). buildTriggerStack reads context.xValue
   // into params.xValue, so a "create half X Food tokens, rounded up" ETB resolves at the real X. Undefined for
   // a non-X entry → the {} spread adds nothing → every existing ETB trigger is byte-identical.
-  const etbSelfContext = enteredPerm.xValue > 0 ? { xValue: enteredPerm.xValue } : {};
+  // MULTIKICKER (P·15): a multikicker permanent's kick count (0 included) rides the same self context — Wolfbriar Elemental's
+  // "a Wolf for each time it was kicked" reads it at resolution even if the Elemental has left by then (CR 608.2h — its last
+  // known information) and even if a spell cast in response overwrote the state-wide cast stamp. Any other card adds nothing.
+  const etbSelfContext = {
+    ...(enteredPerm.xValue > 0 ? { xValue: enteredPerm.xValue } : {}),
+    ...(parseMultikickerCost(enteredPerm.card) ? { timesKicked: enteredPerm.timesKicked || 0 } : {}),
+  };
   // ELESH NORN (shelf D20): an opponent's carrier silences this player's PERMANENTS' abilities — the entering permanent's own
   // enters abilities and every watcher; emblems (not permanents) and the graveyard scan below still fire.
   const silenced = entersSilencer(s);

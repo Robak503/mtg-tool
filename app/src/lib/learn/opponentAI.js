@@ -913,7 +913,10 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     if (kickedActions.length && kickedActions.every(a => !(a.targets?.length))) {
       // TARGETLESS kicked group — kicker CREATURES (counter + ETB variants always emit targets:[]) and
       // untargeted kicked-spell-effects: no aiming to get wrong, take the kicked cast (legacy behavior).
-      scored.push({ action: kickedActions[0], score: scoreCastAction(kickedActions[0], card, archetype, hint, state, aiPlayerId), cmc: kickedActions[0].cmc || 0 });
+      // MULTIKICKER (P·15): one kicked cast per affordable kick count — take the most kicks, since each adds to the
+      // payoff (a counter, a token, 2 life). A single kicker has one kicked cast, so this is that cast.
+      const kickPick = kickedActions.reduce((best, a) => ((a.kickCount || 1) > (best.kickCount || 1) ? a : best), kickedActions[0]);
+      scored.push({ action: kickPick, score: scoreCastAction(kickPick, card, archetype, hint, state, aiPlayerId), cmc: kickPick.cmc || 0 });
       continue;
     }
     if (kickedActions.length) {
