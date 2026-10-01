@@ -684,6 +684,7 @@ export function resolveImpulseDigChoice(state, cardId) {
       controller: pc.controller, candidates: remaining, restTo: pc.restTo,
       sourceName: pc.sourceName, keep, chosenIds: picked, lookedAt,
       chosenTo: pc.chosenTo, restOrder: pc.restOrder, // ④-C — the riders ride every re-raise
+      ...(pc.sourceId != null ? { sourceId: pc.sourceId } : {}),
     });
   }
   // CORPUS ④-C (Kinnan) — a BATTLEFIELD pick enters from the library FIRST (enterCardFromZone: ETBs fire, the
@@ -708,6 +709,21 @@ export function resolveImpulseDigChoice(state, cardId) {
     next = { ...next, players: { ...next.players, [pc.controller]: { ...pl, library: (pl.library || []).filter((c) => !picked.includes(c.id)), exile: [...(pl.exile || []), ...moving] } } };
     if (moving[0]) next = { ...next, pendingDiscover: { controller: pc.controller, cardId: moving[0].id, mv: null, declineTo: "exile" } };
     toBottom = Math.max(0, lookedAt - picked.length);
+    keptIds = [];
+  }
+  // HIDEAWAY (P·10, CR 702.75a — "exile one of them face down"): the pick leaves the library for exile stamped `_hideawayOf`
+  // and the source permanent is stamped `hideawayCardId` — the link its "play the exiled card" ability reads. Exiling one is
+  // MANDATORY, so a pick that names no candidate exiles the first looked-at card. The rest bottom in a random order below.
+  if (pc.chosenTo === "hideawayExile") {
+    const hideId = picked[0] ?? (pc.candidates || [])[0]?.id ?? null;
+    const pl = next.players[pc.controller];
+    const hidden = hideId ? (pl.library || []).find((c) => c.id === hideId) : null;
+    if (hidden) {
+      next = { ...next, players: { ...next.players, [pc.controller]: { ...pl, library: pl.library.filter((c) => c.id !== hideId), exile: [...(pl.exile || []), { ...hidden, _hideawayOf: pc.sourceId ?? null }] } } };
+      if (pc.sourceId != null && findPermanent(next, pc.sourceId)) next = updatePermanentSafe(next, pc.sourceId, (p) => ({ ...p, hideawayCardId: hideId }));
+      next = logEvent(next, { kind: "spell-effect", effect: "hideaway-exile", controller: pc.controller, sourceId: pc.sourceId ?? null });
+    }
+    toBottom = Math.max(0, lookedAt - (hidden ? 1 : 0));
     keptIds = [];
   }
   if (pc.chosenTo === "plotExile" && picked.length) {

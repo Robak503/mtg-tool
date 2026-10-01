@@ -15,15 +15,15 @@
 > 65.9% → +602 from today). **Then reassess with Colton.**
 > **Runnable next:** `MTG_APP_ROOT=… node scripts/measure-coverage.mjs --played=1000` (from `app/`, ~1 min) lists the
 > uncovered cards in rank order, each with the line(s) that alone hold it back. Take the HIGHEST-RANKED miss the CREED can
-> build (next: #194 Mosswort Bridge). A card that needs Colton's call is skipped with its reason in the ledger, never
+> build (next: #196 Idol of Oblivion). A card that needs Colton's call is skipped with its reason in the ledger, never
 > built: planeswalkers stay their own program (09-30), theft-THEMED decks stay off (single theft cards are fine). Full
 > per-slice gates as ever; each ledger entry records the worklist header (covered N / 1,000).
 > **The shape (measured 10-01):** no veins left — of the 852 top-2,500 misses, 430 are one line away and those lines are
 > 429 distinct shapes. The top 500 are 92.6% covered; #501–1,000 73%; #2,001–2,500 48%. Mostly one card per slice: a
 > program of weeks, not a sprint.
-> **Progress:** PLAY-WEIGHTED · 1–9 (Myriad Landscape #28, Feed the Swarm #89, Urza's Saga #120, Victimize #128, War Room
-> #140, Three Tree City #178, Gemstone Caverns #179, Tireless Provisioner #182; · 3 the Construct token, the Saga's
-> prerequisite) → top 1,000 at **837 / 1,000** (needs +63).
+> **Progress:** PLAY-WEIGHTED · 1–10 (Myriad Landscape #28, Feed the Swarm #89, Urza's Saga #120, Victimize #128, War Room
+> #140, Three Tree City #178, Gemstone Caverns #179, Tireless Provisioner #182, Hideaway — Mosswort Bridge #194 +2; · 3 the
+> Construct token, the Saga's prerequisite) → top 1,000 at **839 / 1,000** (needs +61).
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
 

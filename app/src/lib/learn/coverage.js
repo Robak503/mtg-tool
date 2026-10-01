@@ -32,7 +32,7 @@ import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsC
 import { stripFlashPermissionLine, stripCastOnlyAfterAnotherSpellLine } from "./effects/textNormalize.js"; // self-flash permission — shared with the spell path so metric and parser read ONE regex; + the cast-only-after-another-spell restriction (its pattern is the legalChoices gate's)
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMANENT — the metric gates on the SAME vetting the runtime charges on
-import { detectTriggers, CUMULATIVE_UPKEEP_LIFE_RE, stripTriggerAbilityLabel, foldTwoTriggerDetain, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, partnerWithName, hasDethrone, hasTraining, firebendingKeywordValue, soulshiftKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues, startYourEnginesKeywordCount, scanTriggerSentences, stripTriggerSentences } from "./triggers.js"; // scan/stripTriggerSentences: THE shared quote-aware extraction (Codex fix #4) — shaped count + every residue strip must use it or shaped===detected snaps
+import { detectTriggers, CUMULATIVE_UPKEEP_LIFE_RE, stripTriggerAbilityLabel, foldTwoTriggerDetain, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, hideawayKeywordValue, mobilizeKeywordValue, backupKeywordValue, partnerWithName, hasDethrone, hasTraining, firebendingKeywordValue, soulshiftKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues, startYourEnginesKeywordCount, scanTriggerSentences, stripTriggerSentences } from "./triggers.js"; // scan/stripTriggerSentences: THE shared quote-aware extraction (Codex fix #4) — shaped count + every residue strip must use it or shaped===detected snaps
 import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND no-cost credit — the same gate the runtime offers through (fading→triggers→… is already a loaded edge; no cycle)
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler, parseDiscardCostAbility } from "./effects/abilities.js";
@@ -1438,6 +1438,8 @@ function allTriggerSentencesModeled(card, oracle) {
   // none); the printed line is a keyword, never a When/Whenever/At sentence, so bump by the SAME
   // structural recognizer detectTriggers uses (a grant contributes 0 to both counts).
   const enginesShaped = startYourEnginesKeywordCount(oracle);
+  // KW-HIDEAWAY (P·10) — the same reminder-text keyword synthesis; one descriptor for exactly one printed "Hideaway N".
+  const hideawayShaped = hideawayKeywordValue(oracle) > 0 ? 1 : 0;
   // KW-INGEST (CR 702.114a) — the keyword synthesizes ONE combat-damage descriptor in detectTriggers, and
   // its printed line is a KEYWORD rather than a When/Whenever sentence, so TRIGGER_SENTENCE_RE counts zero
   // for it. The shaped count must be bumped to keep `shaped === detected` — exactly what bushido, afflict
@@ -1450,7 +1452,7 @@ function allTriggerSentencesModeled(card, oracle) {
   const championShaped = /\bchampion an? [a-z]/i.test(stripReminder(oracle)) ? 1 : 0;
   const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
     + (/(?<!\bhave\s)(?<!\bhas\s)\bafflict \d/i.test(stripReminder(oracle)) ? 1 : 0)
-    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + renownShaped + mobilizeShaped + backupShaped + partnerWithShaped + dethroneShaped + trainingShaped + firebendingShaped + soulshiftShaped + flankingShaped + persistShaped + battleCryShaped + afterlifeShaped + mentorShaped + modularShaped + enginesShaped + ingestShaped + championShaped;
+    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + renownShaped + mobilizeShaped + backupShaped + partnerWithShaped + dethroneShaped + trainingShaped + firebendingShaped + soulshiftShaped + flankingShaped + persistShaped + battleCryShaped + afterlifeShaped + mentorShaped + modularShaped + enginesShaped + ingestShaped + championShaped + hideawayShaped;
   // COMPOUND TRIGGER (CR 603.1): "When A and whenever B, <effect>" is counted as ONE shaped sentence by TRIGGER_SENTENCE_RE
   // (only the leading When is anchored), but detectTriggers splits it into TWO independent triggers. Bump the shaped
   // count by the number of compounds so `shaped === detected` holds for a successfully-split compound; if a half is
@@ -1922,6 +1924,9 @@ function landFullyCovered(card) {
     // + P·7 (Three Tree City): the chooser may name the card itself ("As Three Tree City enters, …" — CR 201.5, a card's name in
     // its own text means that object); the exact full name reads as "this land". The runtime chooser regex already accepts it.
     if (chooseTypeLineRe && chooseTypeLineRe.test(card?.name ? line.split(card.name).join("this land") : line)) continue; // CAP-CAVERN
+    // + P·10 (Mosswort Bridge): the "Hideaway N" keyword line — its ability is the synthesized ETB descriptor, which the
+    // trigger gate above (allTriggerSentencesModeled) already required to route natively; the line is the keyword alone.
+    if (hideawayKeywordValue(raw) > 0 && /^hideaway \d+$/i.test(line)) continue;
     if (grantsBasicType && eachLandLineRe.test(line)) continue; // ④-BE — the all-lands basic-type grant, enforced in manaSources
     if (selfNonbasicTypes && /^this land is every nonbasic land type\.?$/i.test(line)) continue; // K8 — Planar Nexus, the self layer-4 add (effectiveTypeIdentity reads it)
     if (isManaLine(line)) continue;

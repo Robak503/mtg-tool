@@ -48,6 +48,7 @@ import { selfReturnClauseParser, selfReturnTriggerDetector } from "./atoms/selfR
 import { startEnginesClauseParser } from "./atoms/speed.js";
 import { winGameClauseParser } from "./atoms/winGame.js";
 import { rollDieClauseParser, resultScaledPayoffClauseParser } from "./atoms/roll.js"; // DICE-ROLL (CR 726) — roll a d20 + result-scaled token/draw payoff (Ancient Dragons)
+import { hideawayClauseParser } from "./atoms/hideaway.js"; // P·10 — HIDEAWAY (CR 702.75): the synthesized look-and-hide + "play the exiled card … if <condition>"
 import { freeCastClauseParser } from "./atoms/freeCast.js"; // FREE-CAST (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle)
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
@@ -741,7 +742,8 @@ function parseClauseToAtomCore(cardType, clause, hasX = false, sourceScoped = fa
     // MOVE-COUNTERS-FROM-SELF (Forgotten Ancient, W1) — the FOURTH member: the printed "any number" already
     // makes ZERO a legal distribution (the pause's anyNumber waiver), so the "may" IS the picker's zero row.
     // Stamping `optional` would double-prompt (a yes/no before a choice that can itself decline).
-    return (inner.op === "free-cast" || inner.op === "play-extra-land-this-turn" || inner.op === "grant-flash-this-turn" || inner.op === "move-counters-from-self")
+    // HIDEAWAY-PLAY (P·10) — the FIFTH member: "you may play the exiled card …" parks the discover decision, whose decline IS the may.
+    return (inner.op === "free-cast" || inner.op === "play-extra-land-this-turn" || inner.op === "grant-flash-this-turn" || inner.op === "move-counters-from-self" || inner.op === "hideaway-play")
       ? inner : { ...inner, optional: true };
   }
 
@@ -3712,6 +3714,9 @@ export function programConfidence(program) {
   // before the decision. Every Expertise-cycle card prints it last (lead effect, then the free-cast tail).
   const fi = program.atoms.findIndex(a => a.op === "free-cast");
   if (fi !== -1 && fi !== program.atoms.length - 1) return "low";
+  // HIDEAWAY-PLAY (P·10) parks the same discover decision, so it is LAST for the same reason.
+  const hi = program.atoms.findIndex(a => a.op === "hideaway-play");
+  if (hi !== -1 && hi !== program.atoms.length - 1) return "low";
   // CASCADE (CR 702.85) must likewise be the LAST atom: its cast-free/decline decision resolves at the ACTION
   // layer AFTER the program finishes (mirrors discover / free-cast), so any atom after it would wrongly run
   // before the decision. The synthesized cascade trigger program is the lone `cascade` atom, so this is a
@@ -4024,6 +4029,7 @@ registerClauseParser(putFromHandClauseParser);
 // cast-free/decline decision, mirroring discover). Fixed-MV-cap forms only; a variable/relational cap or a
 // multi-cast "any number of spells" stays low → Arbiter. Whole-clause anchored — matches no earlier parser.
 registerClauseParser(freeCastClauseParser);
+registerClauseParser(hideawayClauseParser);
 // GAIN-CONTROL (CR 613.1b layer-2 / 702.10c) — "Gain control of target creature." / "Gain control of target <Subtype>."
 // (Sliver Overlord). INDEFINITE (non-reverting) control change only — the "(This effect lasts indefinitely.)"
 // reminder is pre-stripped; a duration word ("until end of turn"), a controller/self-exclusion restriction, or

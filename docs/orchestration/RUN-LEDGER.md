@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **25 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,183)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **26 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,186)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,34 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 10: HIDEAWAY (CR 702.75) — Mosswort Bridge (EDHREC #194) · **+3** (Windbrisk Heights #656, Clive's Hideaway) · corpus 15,186
+> Suite **17,506** green (1 skipped); lint 0; decks 2,730 → **2,732** / 2,998 (Shorikai Vehicles 91, Jurassic Ramp 91). CI GREEN on
+> P·9 (run 36891093953). Flip-diff **+3, zero LOST, zero RETIERED** (tier snapshots at 543269ed → the change: Mosswort Bridge,
+> Windbrisk Heights, Clive's Hideaway land-partial → land). Top 1,000 **839** (needs +61). **Mutants 15/15** (restore
+> byte-identical).
+> · **The keyword:** "Hideaway N" is all reminder text, so detectTriggers synthesizes its ETB from the keyword line (the
+>   renown / mobilize idiom) for EXACTLY ONE printed instance (Evercoat Ursine's two would need two links); coverage bumps
+>   the shaped count to match and the land gate admits the bare keyword line. The sentinel is comma-free — a first draft
+>   carried the reminder wording and the clause splitter cut it at ", then".
+> · **The hide:** `effects/atoms/hideaway.js` opens the impulse-dig pause with a new HIDEAWAY destination: the pick is exiled
+>   stamped `_hideawayOf` and the land is stamped `hideawayCardId` (the CR 607.2a link — a land that changed zones is a new
+>   object, unlinked); the rest go to the bottom at random; exiling one is mandatory, so a pick naming no candidate hides
+>   the first. Not named `faceDown`: that field means a morph / manifest body to the engine.
+> · **The linked play:** "you may play the exiled card without paying its mana cost if <condition>" — the parser's
+>   conditional rider takes the trailing "if" (runEffectProgram checks it as the ability resolves, CR 608.2c), and the atom
+>   parks a hidden NONLAND card behind the discover decision with a leave-exiled decline (The Key to the Vault's lane). A
+>   hidden LAND is not offered — playing it would be a land play no lane grants yet (a safe under-offer). The ability is
+>   offered only while a hidden nonland card waits and the condition holds, so the autopilot never pays to resolve nothing.
+> · **Why +3:** Windbrisk Heights' "you attacked with three or more creatures this turn" and Clive's Hideaway's "you control
+>   four or more legendary creatures" ride the same rider onto readers that already exist (Minas Tirith's attacked count, a
+>   legendary-creature count) — checked live: true at three attackers / four legends, false at two / three. Spinerock Knoll
+>   (#755) stays partial: "an opponent was dealt 7 or more damage this turn" has no reader.
+> · **Runtime:** `WITNESS hideawayLook {"looked":["l-wurm","l-bears","l-forest","l-giant"],"exiled":[["l-wurm",true]],"linked":"l-wurm","top":["l-f2","l-f3"],"bottom":["l-bears","l-forest","l-giant"]}`
+>   and `WITNESS hideawayPlay {"parked":{"controller":"user","cardId":"x-hidden","mv":null,"declineTo":"exile"},"fromExile":"exile","wurmsOnBattlefield":3,"exile":0}`;
+>   nine power: not offered; a Wurm leaving in response: nothing parked; a hidden land: refused at the offer and at the
+>   resolver. Witness `app/src/lib/learn/mosswortBridge.test.js` (11).
+> · **Next:** #196 Idol of Oblivion (the worklist head at 839).
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 9: Tireless Provisioner (EDHREC #182) — "create a Food token or a Treasure token" · **+2** (Ant-Man's Army) · corpus 15,183
 > Suite **17,495** green (1 skipped); lint 0; decks unchanged (2,730 / 2,998). CI GREEN on P·8 (run 36889592660). Flip-diff **+2, zero

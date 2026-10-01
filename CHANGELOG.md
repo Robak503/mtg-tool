@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Hideaway** — Mosswort Bridge, Windbrisk Heights and Clive's Hideaway hide a card as they enter and cast it free once their condition is met
 - **Tireless Provisioner and Ant-Man's Army** — create a Food or a Treasure token (the autopilot takes the Treasure)
 - **Three Tree City** — {2}, {T}: add mana of one color equal to the number of creatures you control of the chosen type
 - **War Room** — {3}, {T}, pay life equal to the number of colors in your commanders' color identity: draw a card

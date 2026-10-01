@@ -116,7 +116,8 @@ import { isModalDfc, mdfcLandFaces, mdfcFaceCards } from "./modalDfc.js"; // MOD
 import { evaluateInterveningIf } from "./interveningIf.js"; // CR 602.5d "Activate only if <cond>" — the offer gate reads the SAME vocabulary as the trigger + spell lanes
 import { extractAdditionalCosts, extractAltCost } from "./effects/castModifiers.js"; // AC-PERMANENT — see permanentAdditionalCosts below; + extractAltCost (EVOKE on a permanent, Solitude)
 import { isPermanentSpell } from "./resolvers.js";
-import { commanderColorIdentityOf } from "./commanderIdentity.js"; // P·6 — War Room's life cost (CR 903.4; a zero-import leaf)
+import { commanderColorIdentityOf } from "./commanderIdentity.js";
+import { hideawayPlayOfferable } from "./effects/atoms/hideaway.js"; // P·10 — the linked free play is offered only when it can do something // P·6 — War Room's life cost (CR 903.4; a zero-import leaf)
 import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND — the one gate offer/dispatch/classifier all read
 
 /**
@@ -2329,6 +2330,9 @@ function actionsActivateAbility(state, playerId) {
       // WAR ROOM (play-weighted P·6): "Pay life equal to the number of colors in your commanders' color identity" is sized
       // here, as the ability is activated, and folded into payLife — so the affordability gate (CR 119.4) and every action
       // built below carry the real amount. No commander: the cost is unpayable and the ability is not offered (CR 903.4f).
+      // HIDEAWAY (P·10): "play the exiled card … if <condition>" is offered only while a hidden nonland card waits and the condition
+      // holds — activated otherwise it resolves to nothing (an under-offer, never an over-claim; the resolver re-checks both).
+      if (ab.program?.atoms?.[0]?.op === "hideaway-play" && !hideawayPlayOfferable(state, perm, ab.program.atoms[0], playerId)) continue;
       if (ab.payLifeCommanderColors) {
         const identity = commanderColorIdentityOf(state, playerId);
         if (!identity) continue;

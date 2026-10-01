@@ -3213,6 +3213,24 @@ export function renownKeywordValue(oracle) {
 }
 
 /**
+ * HIDEAWAY N (CR 702.75; play-weighted P·10 — Mosswort Bridge): the whole ability is reminder text, so it is synthesized from the
+ * keyword line like renown / mobilize. Returns N for EXACTLY ONE printed "Hideaway N" segment, else 0 — a card printing two
+ * (Evercoat Ursine) links two exiled cards to one permanent, which the single `hideawayCardId` link can't hold, so it stays
+ * unsynthesized (0 to both the detected and the shaped counts). A granted hideaway never matches the self-anchored segment.
+ */
+export function hideawayKeywordValue(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  const found = [];
+  for (const line of stripped.split("\n")) {
+    for (const seg of line.split(",")) {
+      const m = seg.trim().toLowerCase().match(/^hideaway (\d+)$/);
+      if (m) found.push(parseInt(m[1], 10));
+    }
+  }
+  return found.length === 1 ? found[0] : 0;
+}
+
+/**
  * MOBILIZE N (CR 702.174) — "Whenever this creature attacks, create N tapped and attacking 1/1 red Warrior
  * creature tokens. Sacrifice them at the beginning of the next end step." Like renown, the whole ability
  * lives in reminder parens (and one printing omits the reminder entirely — "Mobilize 1" bare), so the
@@ -6065,6 +6083,21 @@ export function detectTriggers(card) {
         effectClause: `put ${backupN} +1/+1 counters on this creature`,
         interveningIf: null,
         optional: false, sourceText: `Backup ${backupN}`,
+      });
+    }
+  }
+  // KW-HIDEAWAY (CR 702.75a; play-weighted P·10) — "When this permanent enters, look at the top N cards of your library. Exile
+  // one of them face down and put the rest on the bottom of your library in a random order." Synthesized from the keyword like
+  // backup above, with a kind-tagged sentinel only effects/atoms/hideaway.js reads (no printed sentence routes into it).
+  {
+    const hideawayN = hideawayKeywordValue(oracle);
+    if (hideawayN > 0) {
+      out.push({
+        event: "etb", scope: "self", whose: "any",
+        effect: null,
+        effectClause: `[hideaway] hide one of the top ${hideawayN} cards of your library`,
+        interveningIf: null,
+        optional: false, sourceText: `Hideaway ${hideawayN}`,
       });
     }
   }

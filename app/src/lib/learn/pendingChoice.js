@@ -306,7 +306,7 @@ export function setPendingImprintChoice(state, { controller, candidates, sourceI
  * tutor/scry, `runProgram` records the suspended-program continuation onto `pendingChoice.resume` when
  * it detects the pause. FIFO: one choice at a time.
  */
-export function setPendingImpulseDigChoice(state, { controller, candidates, restTo, sourceName = null, keep = 1, chosenIds = [], lookedAt = null, chosenTo = "hand", restOrder = null }) {
+export function setPendingImpulseDigChoice(state, { controller, candidates, restTo, sourceName = null, keep = 1, chosenIds = [], lookedAt = null, chosenTo = "hand", restOrder = null, sourceId = null }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "impulse-dig-pending", controller, count: candidates.length, restTo, sourceName, keep });
   return {
@@ -327,8 +327,9 @@ export function setPendingImpulseDigChoice(state, { controller, candidates, rest
       // CORPUS ④-C (Kinnan): where the pick goes ("hand" | "battlefield") and how the rest are bottomed (null = printed
       // order | "random" = a seeded shuffle). Threaded explicitly — an unlisted field is a silent drop.
       // K7 (Make Your Own Luck): "plotExile" — the pick leaves for exile carrying the plot stamp (runProgram settles it).
-      chosenTo: chosenTo === "battlefield" ? "battlefield" : chosenTo === "plotExile" ? "plotExile" : chosenTo === "freeCastExile" ? "freeCastExile" : chosenTo === "top" ? "top" : "hand", // + "top" (Thassa's Oracle, KN-1): the pick STAYS on top
+      chosenTo: chosenTo === "battlefield" ? "battlefield" : chosenTo === "plotExile" ? "plotExile" : chosenTo === "freeCastExile" ? "freeCastExile" : chosenTo === "top" ? "top" : chosenTo === "hideawayExile" ? "hideawayExile" : "hand", // + "top" (Thassa's Oracle, KN-1): the pick STAYS on top
       restOrder: restOrder === "random" ? "random" : null,
+      ...(sourceId != null ? { sourceId } : {}), // P·10 — HIDEAWAY links the hidden card to this permanent
     },
   };
 }
