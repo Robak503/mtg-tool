@@ -378,6 +378,11 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
   if (allowScopes && (m = p.match(/^(creatures?|lands?|artifacts?|enchantments?) your opponents control$/))) {
     return withExclude({ kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]], who: "opponents" });
   }
+  // TAPPED + OPPONENT-SCOPED (the play-weighted program, P·22 — Mana Geyser "for each tapped land your opponents control"):
+  // the opponents sum with the tappedOnly qualifier the controller-scoped arm below already carries, read live at resolution.
+  if (allowScopes && (m = p.match(/^tapped (creatures?|lands?|artifacts?|enchantments?) your opponents control$/))) {
+    return withExclude({ kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]], who: "opponents", tappedOnly: true });
+  }
   // ===== TREASURE-MAKER ===== TARGET-CONTROLLED "<creatures|lands|artifacts|enchantments> that player controls"
   // — the player just dealt combat damage ("create a Treasure token for each artifact that player controls",
   // Cavern-Hoard Dragon). who:"target" → countForSpec reads the spell target or, on a combat-damage trigger,

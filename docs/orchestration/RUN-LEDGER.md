@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **37 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,218)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **38 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,227)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,26 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 22: Mana Geyser (EDHREC #304) — the ritual per count · **+9** · corpus 15,227
+> Suite **17,621** green (1 skipped); lint 0; decks **2,740** / 2,998 unchanged. CI GREEN on P·21 (run 36921436640).
+> Flip-diff **+9, −0, zero RETIERED** (tier snapshots at 774cc747 → the change): Mana Geyser, Battle Hymn, Songs of the Damned,
+> Brightstone Ritual, Inner Fire, Dragon's Desire → native-spell; Black Market, Giant-Man, Gargantuan Genius → native-trigger;
+> Altar of Shadows → native-mixed. Top 1,000 **854** (+2 — Black Market #659 rode along; needs +46); top 2,500 **1,677** (+3 with
+> Battle Hymn #1654). **Mutants 7/7** (restore byte-identical).
+> · **The arm:** "add {C} for each <count>" reads ANY count the shared count-source parser reads (opponent scopes and
+>   battlefield-wide counts included), counted at resolution (CR 608.2h) through the manaPerCount path Rite of Flame already
+>   used. A count keyed on a player the atom never targets ("that player", "they") is refused — with no target it would
+>   count nothing. Every flip was read: the three first-main-phase triggers are the same clause (Black Market and Altar of
+>   Shadows count their own charge counters; Giant-Man counts creatures with power 4 or greater, layer-aware).
+> · **New count:** "tapped <type> your opponents control" — the opponents sum now honours the tapped qualifier the
+>   controller-scoped count already had.
+> · Still out: Rousing Refrain (its keep-the-mana rider and suspend), Dragonrage ("attacking creature you control" is not a
+>   count yet), Mana Flair (an artist choice).
+> · **Runtime:** `WITNESS ritualFamily` — Battle Hymn 3 (three creatures), Songs of the Damned 2, Brightstone Ritual 3 (Goblins
+>   on both sides), Inner Fire 4, Dragon's Desire 2; Mana Geyser counts the 3 tapped of an opponent's 5 lands, and sums a pod.
+>   Witness `app/src/lib/learn/ritualPerCount.test.js` (6).
+> · **Next:** #339 Sevinne's Reclamation.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 21: Dryad of the Ilysian Grove (EDHREC #295) — every basic land type · **+2** · corpus 15,218
 > Suite **17,615** green (1 skipped); lint 0; decks **2,740** / 2,998 unchanged. CI GREEN on P·20 (run 36919125569).

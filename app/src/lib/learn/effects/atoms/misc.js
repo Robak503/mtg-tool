@@ -432,6 +432,15 @@ export function miscClauseParser(clause) {
   }
   const ritPer = t.match(/^add \{([wubrgc])\} for each card named (.+?) in each graveyard$/);
   if (ritPer) return { op: "add-mana", manaPerCount: ritPer[1].toUpperCase(), countSpec: { kind: "cardsNamedInAllGraveyards", name: ritPer[2].trim() }, targetType: null };
+  // RITUAL PER COUNT (the play-weighted program, P·22 — Mana Geyser "add {R} for each tapped land your opponents control";
+  // Battle Hymn, Songs of the Damned, Brightstone Ritual, Inner Fire, Dragon's Desire): one colour × any count the SHARED
+  // count-source parser reads, counted at resolution (CR 608.2h) by the same manaPerCount path Rite of Flame uses. A count
+  // keyed on a player this atom never targets ("that player", "they") is refused: with no target it would count nothing.
+  const ritEach = t.match(/^add \{([wubrgc])\} for each (.+)$/);
+  if (ritEach) {
+    const countSpec = parseCountSource(ritEach[2], { allowScopes: true, allowBattlefield: true });
+    if (countSpec && (!countSpec.who || countSpec.who === "opponents")) return { op: "add-mana", manaPerCount: ritEach[1].toUpperCase(), countSpec, targetType: null };
+  }
   const oneMore = t.match(/^you can cast only (one|two|three) more spells? this turn$/);
   if (oneMore) return { op: "self-cast-limit-turn", moreSpells: { one: 1, two: 2, three: 3 }[oneMore[1]], targetType: null };
   const rit = t.match(/^add ((?:\{[wubrgc]\})+)$/);

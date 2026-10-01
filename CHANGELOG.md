@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Mana Geyser, Battle Hymn, Songs of the Damned, Brightstone Ritual, Inner Fire and Dragon's Desire** — add one mana for each thing counted (tapped lands your opponents control, creatures you control, creature cards in your graveyard, Goblins, cards in your hand, your opponents' artifacts)
+- **Black Market, Altar of Shadows and Giant-Man, Gargantuan Genius** — at the beginning of your first main phase, add mana for each charge counter (Giant-Man: each creature you control with power 4 or greater)
 - **Dryad of the Ilysian Grove and Prismatic Omen** — lands you control are every basic land type, so each of them taps for any color
 - **Braids, Arisen Nightmare** — at your end step you may sacrifice an artifact, creature, enchantment, land or planeswalker; each opponent then sacrifices a permanent that shares a card type with it, or loses 2 life while you draw a card
 - **Turning a manifest face up** — a face-down manifested creature card can be turned face up any time you have priority by paying its mana cost; manifest dread creatures can flip too

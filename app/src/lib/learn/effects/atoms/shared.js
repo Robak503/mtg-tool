@@ -646,7 +646,8 @@ export function countForSpec(state, ctx, spec) {
     for (const oppId of opponentsOf(state, ctx.controller)) {
       const opp = state?.players?.[oppId];
       if (!opp) continue;
-      if (spec.kind === "permanentsYouControl") total += (opp.battlefield || []).filter((perm) => countMatches(perm.card, spec)).length;
+      // P·22 — the tapped qualifier rides the opponents sum too (Mana Geyser "tapped land your opponents control").
+      if (spec.kind === "permanentsYouControl") total += (opp.battlefield || []).filter((perm) => countMatches(perm.card, spec) && (!spec.tappedOnly || !!perm.tapped)).length;
     }
     return total;
   }
