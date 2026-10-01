@@ -290,6 +290,7 @@ export function enterPermanent(state, card, controller, opts = {}) {
     ...(opts.castDuringMainPhase ? { castDuringMainPhase: true } : {}),
     ...(opts.castForNoMana ? { castForNoMana: true } : {}), // SATORU (BI-5): cast, but for no mana (free / pitch / alt cost)
     ...(opts.evoked ? { evoked: true } : {}), // EVOKE (Solitude): its evoke cost was paid — the sacrifice trigger is queued as it enters
+    ...(opts.escaped ? { escaped: true } : {}), // ESCAPE (P·29, CR 702.138b): cast with escape — "sacrifice it unless it escaped" reads it
     // CAST-FROM-ZONE (CR 601.2 / 400.7) — WHICH zone this permanent's spell was cast from, for the
     // "if you cast it from your hand" ETB rider (Furnace Dragon, Reiver Demon, Angel of the Dire Hour,
     // Wakening Sun's Avatar, Coal Stoker). A per-PERMANENT fact about HOW the object arrived, so it lives
@@ -756,7 +757,7 @@ export function applyAdventureExile(state, { playerId, card }) {
 export function resolveCloneChoice(state, chosenPermId) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "clone-search") return state;
-  const { cloneCard, controller, riders = [], optional, scope, printedCard, owner } = pc.resume || {}; // printedCard: V1 slice 3 (Glasspool Mimic's real two-face card); owner: shelf D3 (a clone cast from its owner's exile)
+  const { cloneCard, controller, riders = [], optional, scope, printedCard, owner, escaped } = pc.resume || {}; // printedCard: V1 slice 3 (Glasspool Mimic's real two-face card); owner: shelf D3 (a clone cast from its owner's exile)
   let next = clearPendingChoice(state);
   if (!cloneCard || !controller) return next;
 
@@ -809,7 +810,7 @@ export function resolveCloneChoice(state, chosenPermId) {
     // to enterPermanent so it's applied AS the permanent enters (before the lethal SBA + before ETB triggers
     // see it), exactly like every other enters-with-counter replacement. A non-matching condition adds nothing.
     const extraCounter = resolveCloneEntersCounter(riders, copied);
-    next = enterPermanent(next, copied, controller, { printedCard: printedCard || cloneCard, extraCounter, ...(owner ? { owner } : {}) });
+    next = enterPermanent(next, copied, controller, { printedCard: printedCard || cloneCard, extraCounter, ...(owner ? { owner } : {}), ...(escaped ? { escaped: true } : {}) });
   } else {
     // Declined, or the target is gone/illegal — the clone enters as itself (a 0/0).
     next = enterPermanent(next, cloneCard, controller, { ...(printedCard ? { printedCard } : {}), ...(owner ? { owner } : {}) });
@@ -863,7 +864,7 @@ export const RESOLVERS = Object.freeze({
   [RESOLVER_KEYS.PERMANENT_ETB]: (state, obj) => {
     // `printedCard` (V1 slice 3): the REAL two-face card behind a modal-DFC FACE cast — stamped on the entering permanent
     // so every zone move restores the whole card (moveCardToZone reads printedCard; the clone precedent).
-    const { card, controller, xValue, kicked, timesKicked, castFromZone, colorsSpent, grantDiesExile, printedCard, manaSpent, evoked, castDuringMainPhase, manaSpentByColor } = obj.payload?.params || {}; // + manaSpent (Satoru, BI-5) + evoked (Solitude) + castDuringMainPhase (Sentinel's Mark) + manaSpentByColor (shelf D4)
+    const { card, controller, xValue, kicked, timesKicked, castFromZone, colorsSpent, grantDiesExile, printedCard, manaSpent, evoked, castDuringMainPhase, manaSpentByColor, escaped } = obj.payload?.params || {}; // + manaSpent (Satoru, BI-5) + evoked (Solitude) + castDuringMainPhase (Sentinel's Mark) + manaSpentByColor (shelf D4)
     if (!card || !controller) return resolveManual(state, obj);
     // Clone (CR 707.9): the permanent enters AS A COPY of a creature chosen as it enters. Suspend
     // on a resolution-time choice (the player picks which creature; Expert/AI auto-pick) — the
@@ -887,7 +888,7 @@ export const RESOLVERS = Object.freeze({
           candidates,
           sourceName: card?.name || null,
           optional: spec.optional,
-          resume: { cloneCard: card, controller, riders: spec.riders, optional: spec.optional, scope: spec.scope, ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) },
+          resume: { cloneCard: card, controller, riders: spec.riders, optional: spec.optional, scope: spec.scope, ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}), ...(escaped ? { escaped: true } : {}) },
         });
       }
       // No creature to copy: the clone enters as itself (a 0/0) and dies (CR 704.5f).
@@ -895,7 +896,7 @@ export const RESOLVERS = Object.freeze({
       const lethal = destroyLethalCreatures(entered);
       return checkDiesTriggers(lethal.state, lethal.dead);
     }
-    return enterPermanent(state, card, controller, { xValue, kicked, timesKicked, wasCast: true, castFromZone, castDuringMainPhase: !!castDuringMainPhase, colorsSpent, grantDiesExile, castForNoMana: manaSpent === false, evoked: !!evoked, ...(manaSpentByColor ? { manaSpentByColor } : {}), ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) }); // owner: shelf D3 — a spell cast from its owner's exile (the stack object's stamp)
+    return enterPermanent(state, card, controller, { xValue, kicked, timesKicked, wasCast: true, castFromZone, castDuringMainPhase: !!castDuringMainPhase, colorsSpent, grantDiesExile, castForNoMana: manaSpent === false, evoked: !!evoked, escaped: !!escaped, ...(manaSpentByColor ? { manaSpentByColor } : {}), ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) }); // owner: shelf D3 — a spell cast from its owner's exile (the stack object's stamp)
   },
 
   // Aura spell resolving (CR 303.4f): the Aura enters the battlefield attached to the

@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Underworld Breach** — each nonland card in your graveyard can be cast from there by paying its mana cost and exiling three other cards from your graveyard; an escaped instant or sorcery goes back to the graveyard, and an escaped Uro or Phlage stays on the battlefield
 - **Dauthi Voidwalker** — a card that would be put into an opponent's graveyard is exiled with a void counter instead; sacrifice it to play one of those cards this turn without paying its mana cost
 - **Rest in Peace and Leyline of the Void** — a card (for Rest in Peace, a card or token) that would be put into a graveyard is exiled instead; a creature or planeswalker exiled this way never dies
 - **Shifting Woodland** — with delirium, it becomes a copy of a permanent card in your graveyard until end of turn

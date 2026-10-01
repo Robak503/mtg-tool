@@ -510,9 +510,9 @@ export function sacrificeEdictClauseParser(clause) {
   // never a filtered / conjoined sacrifice, so no wrong-victim FP (CREED).
   if (/^sacrifice this (creature|permanent|token|land|artifact|enchantment|aura|equipment|vehicle)$/.test(t)) return { op: "sacrifice", target: "self" };
   // SACRIFICE UNLESS IT ESCAPED (the 09-06 plan's stage ③ · 17, 2026-09-30 — the Theros titans: "When Phlage enters, sacrifice it
-  // unless it escaped." Phlage, Uro): the self-sacrifice above, skipped for a permanent that carries `escaped`. The engine
-  // never offers an escape cast (coverage's ESCAPE_LINE note), so today no permanent carries it and a hand-cast titan is
-  // always sacrificed — exactly the printed outcome; the flag is the contract a future escape cast must stamp.
+  // unless it escaped." Phlage, Uro): the self-sacrifice above, skipped for a permanent that carries `escaped`. A card's PRINTED
+  // escape is never offered (coverage's ESCAPE_LINE note), so a hand-cast titan is always sacrificed — exactly the printed outcome;
+  // a GRANTED escape cast (P·29 — Underworld Breach) stamps the flag (the dispatcher's params.escaped → enterPermanent).
   if (/^sacrifice (?:it|this creature) unless it escaped$/.test(t)) return { op: "sacrifice", target: "self", unlessEscaped: true };
   if (/^sacrifice the triggering creature$/.test(t)) return { op: "sacrifice", target: "thatCreature" };
   // CONTROLLER EDICT (BLITZ EC-1c — Inevitable End's granted "At the beginning of your upkeep, sacrifice a

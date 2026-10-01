@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **44 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,239)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **45 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,240)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,29 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 29: Underworld Breach (EDHREC #388) — escape, granted · **+1** · corpus 15,240
+> Suite **17,691** green (1 skipped); lint 0; decks **2,745** / 2,998 unchanged. CI GREEN on P·28 (run 36935325362).
+> Flip-diff **+1, −0, zero RETIERED** (tier snapshots at 97918e7c → the change): Underworld Breach → native-mixed. Top 1,000
+> **861** (needs +39); top 2,500 **1,686**. **Mutants 24/24** (restore byte-identical).
+> · **The grant (CR 702.138a):** "Each nonland card in your graveyard has escape. The escape cost is equal to the card's mana cost
+>   plus exile three other cards from your graveyard." Two markers paired on one permanent (the Citadel pattern), read by
+>   staticAbilityParser.escapeGrantsFor; The Master of Keys' enchantment form parses too (its ETB still parks it).
+> · **The cast:** legalChoices.actionsCastEscapeFromGraveyard runs each covered graveyard card through the shared builder from the
+>   graveyard: its mana cost (every reduction and tax), its additional costs, its normal timing. Escape is an alternative cost, so
+>   the builder's bestow and emerge casts of the card are dropped (CR 601.2b); a costless card stays unpayable (CR 118.6, the
+>   builder's own gate). The three exiled cards are frozen at the offer by the least-valuable policy every count-of-N cost uses,
+>   never a card the spell targets, and named on the action and its label ("escape: exile …"); the dispatcher exiles them as the
+>   cost and refuses a stale offer.
+> · **Where it goes:** an escaped instant or sorcery goes back to the graveyard (escape, unlike flashback, does not exile it), so it
+>   can escape again; an escaped permanent carries `escaped` (CR 702.138b), the flag the Theros titans' "sacrifice it unless it
+>   escaped" has read since stage ③ · 17, through the cast resolver and a Clone's copy. Uro, escaped through Breach, stays.
+> · Not offered (safe FNs): a card's own PRINTED escape (coverage's ESCAPE_LINE strip stands); a card with an "escapes with" rider
+>   (CR 702.138c/d, unmodelled, 12 cards); split, adventure and modal DFC cards (the builder casts their faces from the hand only).
+>   The exiled three are the policy's pick; a human cannot choose another three (an under-offer).
+> · Re-pointed header: sacrificeUnlessEscaped.test.js (its "future escape cast" arrived). Witness
+>   `app/src/lib/learn/underworldBreach.test.js` (11) + castVariantLabel.test.jsx (the label).
+> · **Next:** #396 Helm of the Host.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 28: Dauthi Voidwalker (EDHREC #384) — the void-counter exile and its free play · **+1** · corpus 15,239
 > Suite **17,679** green (1 skipped); lint 0; decks **2,745** / 2,998 (Nekusar Wheels 90 → 91). CI GREEN on P·27 (run 36932054130).

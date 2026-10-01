@@ -75,7 +75,8 @@ export function actionLabel(o) {
   switch (o.kind) {
     // A kicked / teamwork variant says so (shelf D16 — "teamwork: tap Grizzly Bears"); without it the plain and the paid cast
     // read identically, and the teamwork one taps creatures the player never saw named.
-    case "cast-spell": return `Cast ${o.name}${o.targetName ? ` → ${o.targetName}` : ""}${o.kicked && o.kickedName ? ` (${o.kickedName})` : ""}`;
+    // An escape cast names the three graveyard cards it exiles (P·29 — Underworld Breach) — a cost the player never saw otherwise.
+    case "cast-spell": return `Cast ${o.name}${o.targetName ? ` → ${o.targetName}` : ""}${o.kicked && o.kickedName ? ` (${o.kickedName})` : ""}${o.escapeName ? ` (${o.escapeName})` : ""}`;
     case "play-land": return `Play ${o.name}`;
     case "declare-attacker": return `Attack ${o.targetName || o.defenderName || BOARD_SEAT_LABELS[o.defenderId] || ""} with ${o.name}`.trim();
     case "declare-blocker": return `Block ${o.attackerName || "attacker"} with ${o.name}`;

@@ -522,6 +522,16 @@ function applyCastSpell(state, action) {
   // life tax for the CHOSEN targets and refused any cast the caster couldn't pay — so charging here can
   // never drive life negative. A board-imposed cost (CR 601.2f), paid with the other cost items.
   if (action.targetLifeTax) working = loseLife(working, { playerId: action.playerId, amount: action.targetLifeTax });
+  // ESCAPE, GRANTED (P·29 — Underworld Breach, CR 702.138a): the escape cost's "exile three other cards from your graveyard",
+  // frozen on the action by legalChoices. Each must still be in the caster's graveyard: an escape paid short is never cast.
+  if (action.escapeCast) {
+    for (const gid of action.escapeCast.exileIds) {
+      if (!working.players[action.playerId].graveyard.some((c) => c.id === gid)) {
+        throw new DispatcherError(`Escape-cost card ${gid} not in graveyard`, "CARD_NOT_IN_GRAVEYARD");
+      }
+      working = moveCardToZone(working, { playerId: action.playerId, fromZone: "graveyard", toZone: "exile", cardId: gid });
+    }
+  }
   for (const ac of chosenSpec || programCosts) {
     if (ac.kind === "sacrifice" && (ac.count ?? 1) > 1) {
       // AC-1 (count-of-N, CR 701.21a) — sacrifice EACH of the N frozen victims (battlefield→graveyard + dies
@@ -921,6 +931,7 @@ function applyCastSpell(state, action) {
     params.manaSpent = manaSpent; // SATORU (BI-5): whether ANY mana was spent — a free / alt-cost cast stamps `castForNoMana`
     if (manaSpentByColor) params.manaSpentByColor = manaSpentByColor; // shelf D4: "if {R}{R} was spent to cast it" reads it off the permanent
     params.evoked = !!(action.altCost && action.altCost.evoke); // EVOKE (Solitude): the entering permanent sacrifices itself after its ETB
+    if (action.escapeCast) params.escaped = true; // ESCAPE (P·29, CR 702.138b): the permanent escaped — "sacrifice it unless it escaped" (Uro) reads it
     payload = { resolver: RESOLVER_KEYS.PERMANENT_ETB, params };
   } else {
     payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: castCard.name, reason: "instant-or-sorcery (no recognized effect)" } };

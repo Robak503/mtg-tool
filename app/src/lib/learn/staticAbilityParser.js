@@ -3063,6 +3063,21 @@ function parseClause(clause, out, selfName, selfType) {
       return;
     }
   }
+  // GRANTED ESCAPE (the play-weighted program, P·29 — Underworld Breach; The Master of Keys' enchantment form; CR 702.138a):
+  // "Each nonland card in your graveyard has escape. The escape cost is equal to the card's mana cost plus exile three other
+  // cards from your graveyard." Two sentences, two markers (the Citadel pair): the grant names which cards, the cost sentence
+  // says what escape costs. escapeGrantsFor pairs them on one permanent, so a grant without its cost sentence grants nothing.
+  {
+    const eg = c.match(/^each (nonland|enchantment) card in your graveyard has escape$/);
+    if (eg) {
+      out.push({ grantEscape: { filter: eg[1] } });
+      return;
+    }
+    if (/^the escape cost is equal to the card's mana cost plus exile three other cards from your graveyard$/.test(c)) {
+      out.push({ grantEscapeCost: { exileCount: 3 } });
+      return;
+    }
+  }
   if (/^if a creature an opponent controls would die, exile it instead$/.test(c)) {
     out.push({ exileOpponentCreaturesOnDeath: true });
     return;
@@ -6916,6 +6931,20 @@ export function exilesOpponentCreaturesOnDeath(card) {
  *  SAME parse the classifier reads; gameState.graveyardExiledFor asks it of every permanent on the battlefield. */
 export function graveyardExileSpecOf(card) {
   return parseStaticAbilities(card).find((d) => d?.graveyardExile)?.graveyardExile ?? null;
+}
+
+/** P·29 — the escape grants `playerId` controls (Underworld Breach: "Each nonland card in your graveyard has escape. The escape
+ *  cost is equal to the card's mana cost plus exile three other cards from your graveyard."): one `{ filter, exileCount }` per
+ *  permanent printing BOTH sentences (the grant alone grants nothing). legalChoices offers the escape casts from it. */
+export function escapeGrantsFor(state, playerId) {
+  const grants = [];
+  for (const perm of state.players[playerId].battlefield) {
+    const statics = parseStaticAbilities(perm.card);
+    const cost = statics.find((d) => d.grantEscapeCost)?.grantEscapeCost;
+    if (!cost) continue;
+    for (const d of statics) if (d.grantEscape) grants.push({ filter: d.grantEscape.filter, exileCount: cost.exileCount });
+  }
+  return grants;
 }
 
 /** The LIFE FLOOR this card's static sets for its controller — { lifeFloor: 1, ifControlCreature? } (Ali from Cairo, Sustaining

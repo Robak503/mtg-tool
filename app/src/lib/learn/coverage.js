@@ -550,6 +550,8 @@ const ESCAPE_LINE = /^[ \t]*escape\s*[—–-][^\n]*$/gim;
 // either. I checked the precondition independently for all twelve carriers of THIS line: every one has a
 // printed mana cost ({G} … {3}{R}{R}) and a printed escape line, so each is fully playable by its ordinary
 // cast with this rider inert. Same reasoning, separately evidenced.
+// + P·29: the one escape the runtime DOES offer is a GRANTED one (Underworld Breach — legalChoices
+// actionsCastEscapeFromGraveyard), and it is never offered for a card carrying this rider, so the rider still never applies.
 // ⛔ SENTENCE-SCOPED, NOT LINE-SCOPED, and Polukranos is exactly why: its line reads "Polukranos enters with
 // six +1/+1 counters on it. It escapes with twelve +1/+1 counters on it instead." The first sentence is a
 // REAL enters-with rider that fires on a normal cast. A line strip would delete it and credit the card for a
@@ -702,7 +704,8 @@ export function isKeywordOnly(oracle, name) {
   // elsewhere. The LINE is the only safe unit, and line structure exists only at this point.
   //
   // Vacuous for the from-hand cast on the same basis flashback carries: escape is a GRAVEYARD re-cast window
-  // ("You may cast this card from your graveyard by paying [cost]"), the runtime never offers it, and every
+  // ("You may cast this card from your graveyard by paying [cost]"), the runtime never offers it (P·29: only a GRANTED escape —
+  // Underworld Breach's own cost — is offered, never the card's printed one), and every
   // carrier has a real printed mana cost — VERIFIED, not assumed: Nethergoyf {B}, Sentinel's Eyes {W},
   // Escape Velocity {R}, Mogis's Favor {B}, Bloodbraid Challenger {3}{R}{G}, Lunar Hatchling {4}{G}{U}.
   //

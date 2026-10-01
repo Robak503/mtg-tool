@@ -19,4 +19,9 @@ describe("actionLabel — cast variants", () => {
       kicked: "Cast Burst Lightning → Hill Giant (kicked)",
     });
   });
+
+  it("an escape cast names the three graveyard cards it exiles (P·29 — Underworld Breach)", () => {
+    expect(actionLabel({ kind: "cast-spell", name: "Lightning Bolt", targetName: "Grizzly Bears", escapeName: "escape: exile Forest, Island, Swamp" }))
+      .toBe("Cast Lightning Bolt → Grizzly Bears (escape: exile Forest, Island, Swamp)");
+  });
 });

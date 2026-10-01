@@ -108,7 +108,7 @@ registerGrantActivatedBodyValidator(isModeledGroupActivatedBody);
 // with coverage.js's identical registration; see registerLevelerCardValidator in staticAbilityParser.js.
 registerLevelerCardValidator(modeledLeveler);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, auraEnchantHostSpec, playFromTopPermission, castFromTopFilterAllows, parseStaticAbilities } from "./staticAbilityParser.js";
+import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, auraEnchantHostSpec, playFromTopPermission, castFromTopFilterAllows, parseStaticAbilities, escapeGrantsFor } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR 709) — cast either half; pure shape module
@@ -3583,6 +3583,43 @@ function actionsCastFlashbackFromGraveyard(state, playerId) {
 }
 
 /**
+ * ESCAPE, GRANTED (the play-weighted program, P·29 — Underworld Breach: "Each nonland card in your graveyard has escape. The escape
+ * cost is equal to the card's mana cost plus exile three other cards from your graveyard."; The Master of Keys' enchantment form;
+ * CR 702.138a). While the player controls a grant, each matching card in their graveyard may be cast from there for its mana cost
+ * plus exiling three OTHER cards from that graveyard, through the SHARED builder (fromZone "graveyard") like every graveyard lane.
+ * Escape is an alternative cost (CR 118.9), so the builder's other alternative casts of the card — emerge, bestow — are dropped (never
+ * two, CR 601.2b); its additional costs (kicker, a sacrifice) still apply, and it keeps its normal timing.
+ *  • No mana cost → the escape cost is unpayable (CR 118.6) → not offered (the builder refuses any non-free cast of a costless card).
+ *  • The three are frozen at the offer by the least-valuable policy every count-of-N cost uses (leastValuableCardCmp), never a card
+ *    the spell targets, and the action names them (`escapeName`). Other choices are under-offered — the safe direction.
+ *  • A card whose own text says what happens when it ESCAPES ("escapes with …", CR 702.138c/d) is not offered: those riders are not
+ *    modelled. "Sacrifice it unless it escaped" (Uro, Kroxa, Phlage) is — the cast stamps `escaped` on the permanent.
+ * An escaped instant or sorcery goes to its owner's graveyard as it leaves the stack (not exile — unlike flashback), so it can escape
+ * again while the graveyard lasts.
+ */
+function actionsCastEscapeFromGraveyard(state, playerId) {
+  const grants = escapeGrantsFor(state, playerId);
+  if (!grants.length) return [];
+  const gy = state.players[playerId].graveyard;
+  const actions = [];
+  for (const card of gy) {
+    // "nonland" covers every card the builder can cast (it never casts a land); "enchantment" — The Master of Keys.
+    const grant = grants.find((g) => g.filter === "nonland" || typeLineOf(card).includes("Enchantment"));
+    if (!grant) continue;
+    if (/\bescapes with\b/i.test(String(card.oracle || card.oracle_text || ""))) continue;
+    const others = gy.filter((c) => c.id !== card.id);
+    for (const a of castActionsFromZone(state, playerId, [card], "graveyard", null, false)) {
+      if (a.emerge || a.bestow) continue;
+      const targeted = new Set(a.targets.map((t) => t.id));
+      const exiled = others.filter((c) => !targeted.has(c.id)).sort(leastValuableCardCmp).slice(0, grant.exileCount);
+      if (exiled.length < grant.exileCount) continue;
+      actions.push({ ...a, escapeCast: { exileIds: exiled.map((c) => c.id) }, escapeName: `escape: exile ${exiled.map((c) => c.name).join(", ")}` });
+    }
+  }
+  return actions;
+}
+
+/**
  * GRAVEYARD CAST PERMISSION (shelf D30 — Emry, Lurker of the Loch: "Choose target artifact card in your graveyard. You may cast
  * that card this turn."): each card in THIS player's graveyard holding a permission for THIS turn (state.gyCastPermissions — keyed by card id,
  * ended by any graveyard event for the card, CR 400.7) is castable from the graveyard through the SHARED builder, so its full
@@ -4385,6 +4422,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsCastSelfFromGraveyard(state, playerId)); // shelf D31 — "you may cast this card from your graveyard as long as …" (The Indomitable)
     actions.push(...actionsCastDragonCreatureFromGraveyard(state, playerId)); // DRAGON-GY CAST (Rivaz): once per your turn, cast a Dragon creature spell from your graveyard
     actions.push(...actionsCastFlashbackFromGraveyard(state, playerId)); // FLASHBACK (CR 702.34a): cast from graveyard for the flashback cost, then exile it
+    actions.push(...actionsCastEscapeFromGraveyard(state, playerId)); // ESCAPE, GRANTED (CR 702.138a, P·29 — Underworld Breach): mana cost + exile three other graveyard cards
     actions.push(...actionsActivateGraveyardRecursion(state, playerId)); // GY-1 (CR 602.2): "Return this card from your graveyard …" activated from the graveyard
     actions.push(...actionsActivateGraveyardExile(state, playerId)); // GY-2 (CR 602.2): "<mana>, Exile this card from your graveyard: <effect>"
     actions.push(...actionsCastSplitFromHand(state, playerId)); // SPLIT CARDS (CR 709.4): cast either half from hand

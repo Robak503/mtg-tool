@@ -3,10 +3,10 @@
  * Titan of Nature's Wrath — the 09-06 plan's stage ③, census row ⑰, 2026-09-30. Kroxa carries the line but parks on another
  * gap.)
  *
- * The existing self-sacrifice atom with an `unlessEscaped` flag: the resolver skips a permanent that carries `escaped`. The
- * engine never offers an escape cast (coverage's ESCAPE_LINE note), so today no permanent carries it and a titan cast from
- * the hand is always sacrificed — after its "enters or attacks" trigger does its work, exactly as printed. The flag is the
- * contract a future escape cast must stamp; the last pin holds that half.
+ * The existing self-sacrifice atom with an `unlessEscaped` flag: the resolver skips a permanent that carries `escaped`. A card's
+ * PRINTED escape is never offered (coverage's ESCAPE_LINE note), so a titan cast from the hand is always sacrificed — after its
+ * "enters or attacks" trigger does its work, exactly as printed. A GRANTED escape cast (Underworld Breach, P·29) stamps the flag:
+ * the last pin holds the flag's half, and underworldBreach.test.js casts an escaped Uro for real.
  *
  * Real oracle fixtures (bundled Scryfall, probed 2026-09-30); each cast run for real (legal action → dispatch → the stack).
  */
@@ -69,7 +69,7 @@ describe("RUNTIME — cast from the hand, the titan does its work and goes to th
   });
 });
 
-describe("the escaped flag — the contract a future escape cast must stamp", () => {
+describe("the escaped flag — what an escape cast stamps (P·29: underworldBreach.test.js casts one)", () => {
   it("⛔ a Phlage that carries `escaped` stays on the battlefield when its enters trigger resolves (its damage still lands)", () => {
     const escapedPhlage = { ...createPermanent({ id: "phl-perm", card: PHLAGE, controller: "user", summoningSick: false }), escaped: true };
     const s0 = game([], {}, [escapedPhlage]);
