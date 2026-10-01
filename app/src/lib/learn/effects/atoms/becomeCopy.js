@@ -36,6 +36,9 @@ import { atomTargets } from "./shared.js";
 // Mizzium Transreliquat); the qualifiers ride only on the creature / permanent nouns they were printed with.
 const TARGET_NOUN_RE = /^(another )?target (nonlegendary )?(attacking )?(creature|permanent|land|artifact)$/;
 function parseTargetNoun(noun) {
+  // P·26 (Shifting Woodland): "target permanent card in your graveyard" — a CARD, the graveyard target the reanimate family uses
+  // (the controller's own graveyard, any permanent card type). applyBecomeCopy copies the card itself.
+  if (noun === "target permanent card in your graveyard") return { targetType: "graveyardCard", cardFilter: "permanent" };
   const m = noun.match(TARGET_NOUN_RE);
   if (!m || ((m[2] || m[3]) && m[4] !== "creature")) return null;
   const restrictions = [
@@ -97,11 +100,20 @@ export function applyBecomeCopy(state, atom, ctx) {
   if (!sourceId || !findPermanent(state, sourceId)) {
     return logEvent(state, { kind: "spell-effect", effect: "become-copy", copied: 0, reason: "no source", controller: ctx.controller });
   }
-  const target = (atomTargets(state, atom, ctx) || []).find((t) => t?.id && findPermanent(state, t.id));
-  if (!target) {
+  const targets = atomTargets(state, atom, ctx) || [];
+  // P·26 — a graveyard CARD target (Shifting Woodland) copies the card itself, which must still be in that graveyard as the
+  // ability resolves (CR 608.2b). Every other noun is a permanent on the battlefield.
+  let copiedFrom;
+  if (atom.targetType === "graveyardCard") {
+    const card = targets.map((t) => (state.players?.[t?.controller]?.graveyard || []).find((c) => c.id === t?.id)).find(Boolean);
+    copiedFrom = card ? { card } : null;
+  } else {
+    const target = targets.find((t) => t?.id && findPermanent(state, t.id));
+    copiedFrom = target ? findPermanent(state, target.id).permanent : null;
+  }
+  if (!copiedFrom) {
     return logEvent(state, { kind: "spell-effect", effect: "become-copy", copied: 0, reason: "no legal target", controller: ctx.controller });
   }
-  const lookup = findPermanent(state, target.id);
   // The copying card is the SOURCE's own card — that is what a name rider's `~` resolves against.
   const selfCard = findPermanent(state, sourceId)?.permanent?.card || null;
   // "EXCEPT IT HAS THIS ABILITY" (shelf D29): the ability is the source's printed line that says so — the one resolving now
@@ -114,7 +126,7 @@ export function applyBecomeCopy(state, atom, ctx) {
     if (!line) return logEvent(state, { kind: "spell-effect", effect: "become-copy", copied: 0, reason: "no printed ability to keep", controller: ctx.controller });
     riders = riders.map((r) => (r.kind === "hasThisAbility" ? { kind: "retainOwnAbilities", oracle: line.trim() } : r));
   }
-  const copiableCard = snapshotCopiedCard(lookup.permanent, selfCard, riders);
+  const copiableCard = snapshotCopiedCard(copiedFrom, selfCard, riders);
   const { state: s2 } = addContinuousEffect(state, {
     layer: 1,
     op: "copy",

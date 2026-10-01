@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **41 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,235)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **42 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,236)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,26 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 26: Shifting Woodland (EDHREC #362) — a copy of a graveyard card, and a copy's mana · **+1** · corpus 15,236
+> Suite **17,651** green (1 skipped); lint 0; decks 2,740 → **2,744** / 2,998 (92%: cdh 95, Squirrel Girl 94, Earth Bent 93,
+> Shalai and Hallar Test 91). CI GREEN on P·25 (run 36928376606).
+> Flip-diff **+1, −0, zero RETIERED** (tier snapshots at aa304340 → the change): Shifting Woodland land-partial → land. Top 1,000
+> **859** (needs +41); top 2,500 **1,683**. **Mutants 7/7** (restore byte-identical).
+> · **The copy:** the become-copy seam took only permanents on the battlefield; "target permanent card in your graveyard" is
+>   now a target noun (the reanimate family's graveyard target), and the resolver copies the card itself — gone from that
+>   graveyard before it resolves → nothing (CR 608.2b). The delirium gate was already readable.
+> · **The bug it surfaced (live since Thespian's Stage shipped):** manaSources read every permanent's PRINTED card, so a
+>   permanent that BECAME a copy kept its printed mana — a Stage that became a Forest tapped for {C} or {G}, one that became
+>   a Bear still tapped for {C}. It now reads the copy (CR 707.2, 613.1a) through deriveCharacteristics, which owns which copy
+>   wins; the tapped-source check reads it too (a tapped Crawler that became a Forest is a tapped Forest).
+> · **The one read that stays printed, on purpose:** the summoning-sickness choice. A printed creature trusts its stamped flag;
+>   everything else goes through the layer-aware summoningSickNow, which is what sees a land played this turn that became a
+>   creature copy (Woodland as Llanowar Elves can't tap that turn — CR 302.6). Reading the copy there let it tap; the
+>   witness caught it before it shipped.
+> · **Runtime:** `WITNESS shiftingWoodland` — Woodland becomes a 6/4 Craw Wurm that taps for nothing, and is a Forest-tapping
+>   land again next turn. Witness `app/src/lib/learn/shiftingWoodland.test.js` (8).
+> · **Next:** #384 Dauthi Voidwalker.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 25: Dawn's Truce (EDHREC #359) — you and your permanents gain hexproof · **+2** · corpus 15,235
 > Suite **17,643** green (1 skipped); lint 0; decks **2,740** / 2,998 unchanged. CI GREEN on P·24 (run 36926934945).

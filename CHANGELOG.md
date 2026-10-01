@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Shifting Woodland** — with delirium, it becomes a copy of a permanent card in your graveyard until end of turn
 - **Dawn's Truce and Lazotep Plating** — you and permanents you control gain hexproof until end of turn
 - **Anger, Wonder, Brawn, Filth and Valor** — while in your graveyard, with the matching basic land type under your control, your creatures have haste, flying, trample, swampwalk or first strike
 - **Sevinne's Reclamation** — cast with flashback, you may copy it, and the copy returns a different permanent card
@@ -49,6 +50,7 @@ summarizes the notable changes.
 - **One with the Multiverse, Zaffai and the Tempests, Vision, Spectral Synthezoid and Omniscience** — cast a spell without paying its mana cost (once each turn, or freely with Omniscience), at the normal time for that spell
 
 ### Fixed
+- A permanent that became a copy of another (Thespian's Stage) kept tapping for its own printed mana; it now has only the copy's mana abilities
 - Copying an instant or sorcery (Reverberate, Twincast, Flare of Duplication) put a second copy of the original card into its owner's graveyard when the copy resolved
 - Landwalk and land-type conditions ignored land types granted by an effect (Urborg, Tomb of Yawgmoth; Yavimaya, Cradle of Growth): a swampwalker or forestwalker could be blocked by a player whose lands had gained that type, and "When you control no Swamps, sacrifice this creature" could fire while such a land was out
 - Bolas's Citadel let the top card of your library be cast by paying its mana cost; it now costs life equal to the spell's mana value, as printed

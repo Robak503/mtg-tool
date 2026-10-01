@@ -32,7 +32,7 @@
 
 import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, creaturePower, removeCounter, setDoesNotUntapNext, deathLookbackLinks } from "./gameState.js"; // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
 import { checkSacrificeTriggers, checkLeavesTriggers, checkDiesTriggers, checkTapForManaTriggers } from "./triggers.js"; // + ④-D: "tapped for mana" watchers fire at the one tap commit // SG-3: a sacrificed-creature mana cost dies through the chokepoint // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
-import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow, colorsOf } from "./layers.js";
+import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow, colorsOf, deriveCharacteristics } from "./layers.js";
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // QUARTET Phase 4 step 3 (2026-09-06): the closed CR creature-type vocabulary for spend restrictions ("only to cast a Ninja or Turtle spell") — a zero-import leaf
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { parseAuraLandManaBonus, parseGlobalTapManaAugment, artifactActivationsLocked, abilitiesAsThoughHasteFor } from "./staticAbilityParser.js"; // + SG-18: haste-for-abilities at the mana-source sick gate // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only); NR-1: the artifact-activation lock
@@ -1885,6 +1885,13 @@ function grantedBasicTypeColors(state, perm) {
   return [...new Set(out)];
 }
 
+// LAYER-1 COPY (the play-weighted program, P·26 — Shifting Woodland; Thespian's Stage, Mizzium Transreliquat): a permanent that
+// BECAME a copy (CR 707.2, 613.1a) has the copied card's mana abilities and never its printed ones — a Stage that became a Forest
+// taps for {G} only, and one that became a Bear taps for nothing. layers.deriveCharacteristics owns which copy wins (CR 613.7b).
+function manaCardOf(state, perm) {
+  return deriveCharacteristics(state, perm.id)?.copiableValues || perm.card;
+}
+
 export function manaSources(state, playerId) {
   const player = state?.players?.[playerId];
   if (!player) return [];
@@ -1909,14 +1916,15 @@ export function manaSources(state, playerId) {
   for (const perm of player.battlefield) {
     // A no-{T} remove-a-counter source (stage ③ · 37) is still a source while TAPPED — its cost never taps (Crystalline
     // Crawler taps to add its own counter, then spends them). manaProduction is memoized per card, so this read is free.
-    if (perm.tapped && manaProduction(perm.card)?.removesCounters?.mode !== "each") continue;
+    const card = manaCardOf(state, perm); // P·26 — a permanent that BECAME a copy taps for the copy's mana, not its printed mana
+    if (perm.tapped && manaProduction(card)?.removesCounters?.mode !== "each") continue;
     // ACTIVATED-LOCK (BLITZ AU-2, CR 605.1a): a mana ability IS an activated ability, so a permanent under the
     // layer-6 "activatedAbilitiesLocked" grant (an Arrest-class Aura, or Koma mode 1) is NOT a mana source —
     // the mana-path twin of the stack-ability gate in legalChoices. Board-rare (only that grant sets it), so
     // this is a no-op for the common case; mirrors the NR-1 artifact-lock skip just below.
     if (permanentHasKeyword(state, perm.id, "activatedAbilitiesLocked")) continue; // AU-2
     if (artLocked && permanentTypes(state, perm.id).types.includes("Artifact")) continue; // NR-1
-    let prod = manaProduction(perm.card);
+    let prod = manaProduction(card);
     // REMOVE-A-COUNTER, NO {T} (stage ③ · 37): one one-mana record per counter on it right now. `repeatable` lets the planner
     // spend several (a permanent's OTHER lines are one {T} and exclude each other; these are separate activations), `noTap`
     // keeps the commit from tapping it, and each record removes exactly one counter. Summoning sickness doesn't apply (no {T},
@@ -1988,6 +1996,8 @@ export function manaSources(state, playerId) {
     // counted affordable and never tapped. (Before the speed subsystem existed this line was offered
     // UNGATED — free {R}{R} at speed zero, measured live on Endrider Catalyzer.)
     if (prod.requiresMaxSpeed && (player.speed || 0) < 4) continue;
+    // The PRINTED card, deliberately (not the copy): it picks which sickness read applies — a printed creature's stamped flag,
+    // or the layer-aware summoningSickNow for everything else, which is the read that sees a land that became a creature copy.
     const isCreature = /Creature/.test(typeLineOf(perm.card));
     // GRANTED Haste counts (read through the layer engine), not just printed — a mana dork
     // enchanted/anthemed with Haste can tap the turn it enters. Falls back to the printed
