@@ -979,6 +979,58 @@ const _extraMemo = new WeakMap();
 function frontFaceOracle(card) {
   return oracleOf(card).split(/\n\/\/\n/)[0];
 }
+
+/**
+ * THE ACTIVATION COST of a card's main mana ability (the free-activation fix, 2026-10-01): the MANA part of the cost printed
+ * before the colon of the line the main product comes from — the Signets' "{1}, {T}: Add {U}{B}.", the {1} filter lands,
+ * Cabal Coffers' "{2}, {T}: …", Selvala's "{G}, {T}: …". null when that product comes from a line with no mana in its cost
+ * (a plain "{T}: Add …" — the common case), or when the card makes no mana.
+ *
+ * ⛔ Before this existed the planner tapped these for FREE: the parse reads the "Add" clause and nothing read the "{1}," in
+ * front of it — a lone Dimir Signet paid {U}{B} with no other mana on the board, and a Signet plus an Island cast a
+ * three-mana spell (both probed live). The planner now funds the activation from OTHER mana before the source produces
+ * (planPaymentOnce), the commit charges it, and the explicit tap charges it to the pool.
+ *
+ * Which line: a main product that some no-mana-cost "Add" line makes on its own is that line's, and free. Otherwise it is a
+ * mana-costed line's — the first whose own product matches, else the first costed line (charging a cost the product might
+ * not carry is the safe direction). A pip this reader can't price ({X}, Phyrexian, snow, {2/W}) gives { unpayable: true }:
+ * the source is never funded and never offered (FN-safe).
+ */
+const _actCostMemo = new WeakMap();
+const productKey = (p) => JSON.stringify([[...(p?.colors || [])].sort(), p?.amount ?? null, p?.amountSpec ?? null, p?.fixed ?? null, !!p?.sacrifices]);
+function parseActivationManaCost(costPart) {
+  const cost = { generic: 0, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] };
+  let any = false;
+  for (const m of String(costPart).matchAll(/\{([^}]+)\}/g)) {
+    const pip = m[1].trim().toUpperCase();
+    if (pip === "T" || pip === "Q" || pip === "E") continue;
+    any = true;
+    if (/^\d+$/.test(pip)) { cost.generic += parseInt(pip, 10); continue; }
+    if (/^[WUBRGC]$/.test(pip)) { cost[pip] += 1; continue; }
+    const h = /^([WUBRG])\/([WUBRG])$/.exec(pip);
+    if (h) { cost.hybrid.push([h[1], h[2]]); continue; }
+    return { unpayable: true };
+  }
+  return any ? cost : null;
+}
+export function manaActivationCost(card) {
+  if (!card || typeof card !== "object") return null;
+  if (_actCostMemo.has(card)) return _actCostMemo.get(card);
+  let out = null;
+  const main = manaProduction(card);
+  if (main) {
+    const priced = frontFaceOracle(card).split(/\n+/).map((l) => l.trim()).filter((l) => /^[^:]+:.*\bAdd\b/i.test(l))
+      .map((l) => ({ l, cost: parseActivationManaCost(l.slice(0, l.indexOf(":"))) }));
+    const key = productKey(main);
+    const lineKey = (l) => productKey(manaProduction({ ...card, oracle: l, oracle_text: l }));
+    const costed = priced.filter((x) => x.cost !== null);
+    if (costed.length && !priced.some((x) => x.cost === null && lineKey(x.l) === key)) {
+      out = (costed.find((x) => lineKey(x.l) === key) || costed[0]).cost;
+    }
+  }
+  _actCostMemo.set(card, out);
+  return out;
+}
 export function extraManaLineProducts(card, mainProd) {
   if (!card || typeof card !== "object") return [];
   if (_extraMemo.has(card)) return _extraMemo.get(card);
@@ -2040,6 +2092,10 @@ export function manaSources(state, playerId) {
       if (landTypes.size) prod = { ...prod, colors: [...landTypes] };
       else dropMain = true; // no land makes a type
     }
+    // THE FREE-ACTIVATION FIX: the main record carries the mana cost of the line it comes from (null for a plain {T} line);
+    // the planner funds it before the source produces. A cost the reader can't price drops the main record (FN-safe).
+    const mainActivationCost = manaActivationCost(perm.card);
+    if (mainActivationCost?.unpayable) dropMain = true;
     const fixed = dynFixed || (prod.fixed ? Object.fromEntries(Object.entries(prod.fixed).map(([c, n]) => [c, n * scale])) : null);
     // A bundle's TOTAL is its own tally — for the printed karoo family this equals `amount` exactly (two
     // symbols × the multiplier), and for the board-derived VIVID form it is the live color count, replacing
@@ -2065,7 +2121,7 @@ export function manaSources(state, playerId) {
     // SG-3 — a sacrifice-a-creature source needs ANOTHER creature to feed it (never the source itself, never
     // offered on an empty board): no victim → no source (CR 601.2h — the cost cannot be paid).
     if (prod.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || "")))) continue;
-    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors && !(prod.painUnlessCitysBlessing && player.citysBlessing === true) ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}) /* shelf D5 — Temur Elevator: no loss once the controller has the city's blessing */, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}) });
+    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors && !(prod.painUnlessCitysBlessing && player.citysBlessing === true) ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}) /* shelf D5 — Temur Elevator: no loss once the controller has the city's blessing */, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}) });
     // STAGE ④-3 — EXTRA MANA LINES: a second, complete "{T}: Add …" line the main product does not cover (a
     // gated colour line — Tainted Isle / the Verges / Gathering Place; a free "{T}: Add {C}" beside a painful
     // any-colour line — Grand Coliseum; a "{T}, Sacrifice this land: Add …" ritual line). Each is its own
@@ -2190,7 +2246,89 @@ export function planPayment(pool, sources, cost, spendContext = null) {
   return planPaymentOnce(pool, ordered, cost, spendContext);
 }
 
+/**
+ * MANA-COSTED SOURCES (the free-activation fix, 2026-10-01) — a source carrying `activationCost` (a Signet's {1}, a filter
+ * land's, Cabal Coffers' {2}) produces only after that cost is paid (CR 602.2b — the costs come first; CR 605.3b — a mana
+ * ability resolves as it is activated), and never out of its own output. So:
+ *   1. the cost is first tried WITHOUT any costed source — nothing to fund, the common case, exactly the old plan;
+ *   2. otherwise the costed sources are activated one at a time, in board order, each FUNDED by the core planner from the
+ *      pool, the uncosted sources still untapped and the mana earlier activations made (two Signets chain off one land) —
+ *      never from itself — and its output joins the pool; after each activation the whole cost is tried again.
+ * The funding rides the plan as `activationSpend`, deducted by commitPaymentPlan beside `spend` and kept OUT of `spend`,
+ * which every reader treats as mana spent on the spell (converge, sunburst, the mana-spent riders). The activated source's
+ * tap record is built by the core itself (activatedSourceTap), so its riders ride exactly as on any other tap — and the
+ * core's own filters decide what can be tapped with no spend context: a spend-restricted source is refused, since its
+ * output would join the pool unrestricted (the laundering the core's full-consumption filter prevents) — a safe
+ * under-offer. The order is deterministic; a cleverer one could pay a few more costs (FN-safe), never one the board can't.
+ */
+function addTapMana(pool, tap) {
+  const next = { ...pool };
+  if (tap.fixed) for (const [c, n] of Object.entries(tap.fixed)) next[c] = (next[c] || 0) + n;
+  else next[tap.color] = (next[tap.color] || 0) + (tap.amount ?? 1);
+  for (const b of tap.bonus || []) next[b.color] = (next[b.color] || 0) + b.amount;
+  return next;
+}
+/** The tap record of an activated costed source, built by the core from the source alone (an empty pool, one pip of the colour
+ *  the cost still needs most) — so every rider rides as on any tap; null when the core won't tap it with no spend context. */
+function activatedSourceTap(s, cost, curPool) {
+  const colors = (s.colors || []).filter((c) => COLOR_SET.has(c));
+  const want = colors.find((c) => (cost?.[c] || 0) > (curPool[c] || 0)) || colors[0];
+  return want ? planPaymentCore(null, [s], { [want]: 1 }, null)?.taps?.[0] ?? null : null;
+}
+/**
+ * Pay a mana-costed source's activation out of the FLOATING POOL alone — the explicit tap (a manual mana ability: no auto-tap
+ * of other sources here, the player floats first): coloured pips, then hybrid, then generic (colourless first). Returns the
+ * pool after the payment, or null when it can't be paid (or the cost can't be priced). Pure.
+ */
+export function payActivationFromPool(pool, cost) {
+  if (!cost || cost.unpayable) return null;
+  const p = {};
+  for (const c of MANA_COLORS) p[c] = pool?.[c] || 0;
+  for (const c of ["W", "U", "B", "R", "G", "C"]) {
+    if ((cost[c] || 0) > p[c]) return null;
+    p[c] -= cost[c] || 0;
+  }
+  for (const opts of cost.hybrid || []) {
+    const c = opts.find((o) => p[o] > 0);
+    if (!c) return null;
+    p[c] -= 1;
+  }
+  let g = cost.generic || 0;
+  for (const c of ["C", "W", "U", "B", "R", "G"]) { const take = Math.min(p[c], g); p[c] -= take; g -= take; }
+  return g > 0 ? null : p;
+}
 function planPaymentOnce(pool, sources, cost, spendContext = null) {
+  const all = sources || [];
+  if (!all.some((s) => s?.activationCost)) return planPaymentCore(pool, all, cost, spendContext);
+  const free = all.filter((s) => !s?.activationCost);
+  const direct = planPaymentCore(pool, free, cost, spendContext);
+  if (direct || !cost) return direct;
+  let curPool = {};
+  for (const c of MANA_COLORS) curPool[c] = pool?.[c] || 0;
+  let remaining = free;
+  const preTaps = [];
+  const activationSpend = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+  const spent = new Set();
+  for (const s of all) {
+    if (!s?.activationCost || spent.has(s.permanentId)) continue; // (an unpriceable cost never reaches here — manaSources drops that record)
+    if (!activatedSourceTap(s, cost, curPool)) continue; // the core won't tap it (restricted / produces nothing) — don't fund it
+    const fund = planPaymentCore(curPool, remaining.filter((r) => r.permanentId !== s.permanentId), s.activationCost, null);
+    if (!fund) continue;
+    for (const tap of fund.taps) curPool = addTapMana(curPool, tap);
+    for (const c of MANA_COLORS) { curPool[c] -= fund.spend[c] || 0; activationSpend[c] += fund.spend[c] || 0; }
+    const tap = activatedSourceTap(s, cost, curPool);
+    curPool = addTapMana(curPool, tap);
+    preTaps.push(...fund.taps, tap);
+    const gone = new Set([s.permanentId, ...fund.taps.map((x) => x.permanentId)]);
+    for (const id of gone) spent.add(id);
+    remaining = remaining.filter((r) => !gone.has(r.permanentId));
+    const rest = planPaymentCore(curPool, remaining, cost, spendContext);
+    if (rest) return { ...rest, taps: [...preTaps, ...rest.taps], activationSpend };
+  }
+  return null;
+}
+
+function planPaymentCore(pool, sources, cost, spendContext = null) {
   const spend = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
   if (!cost) return { taps: [], spend };
 
@@ -2597,7 +2735,8 @@ export function commitPaymentPlan(state, playerId, plan) {
   for (const tap of plan?.taps || []) next = commitManaTap(next, playerId, tap);
   const topped = next.players[playerId].manaPool;
   const nextPool = {};
-  for (const col of Object.keys(topped)) nextPool[col] = (topped[col] || 0) - (plan?.spend?.[col] || 0);
+  // + activationSpend (the free-activation fix): what funded a mana-costed source — paid out of the pool, never counted as spent on the spell.
+  for (const col of Object.keys(topped)) nextPool[col] = (topped[col] || 0) - (plan?.spend?.[col] || 0) - (plan?.activationSpend?.[col] || 0);
   // POOL-RESTRICTED SUB-POOL (QUARTET Phase 4): deduct the planner's entrySpends from the EXACT tagged
   // entries it priced (indices into player.restrictedMana at plan time); an emptied entry is dropped.
   // The remainder stays tagged — a partial spend can never launder restricted mana into the open pool.

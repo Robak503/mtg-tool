@@ -23,6 +23,8 @@
 > program of weeks, not a sprint.
 > **Progress:** PLAY-WEIGHTED · 1–6 (Myriad Landscape #28, Feed the Swarm #89, Urza's Saga #120, Victimize #128, War Room
 > #140; · 3 the Construct token, the Saga's prerequisite) → top 1,000 at **834 / 1,000** (needs +66).
+> **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
+> before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
 
 ## 🏁 2026-10-01 — **THE SHELF IS DONE: 29 of 30 decks at ≥90** (Atraxa deferred) · stage ③ closed — stage ④ parked behind the play-weighted program (above)
 

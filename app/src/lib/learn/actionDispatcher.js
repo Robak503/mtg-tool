@@ -71,7 +71,7 @@ function pitchRandomHandCard(working, playerId, excludeId, kind) {
 }
 import { tutorManaValue } from "./effects/atoms/library.js"; // γ1i (CAP14) — the shared MV reader the tutor / free-cast paths use, so "mana value" means ONE thing engine-wide
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
-import { manaSources, planPayment, sourcesExcludingOneShotVictim, castPaymentSources, commitPaymentPlan, commitManaTap, payManaCost } from "./manaModel.js";
+import { manaSources, planPayment, sourcesExcludingOneShotVictim, castPaymentSources, commitPaymentPlan, commitManaTap, payManaCost, manaActivationCost, payActivationFromPool } from "./manaModel.js";
 import { conditionalEntersTapped, paysLifeOrEntersTapped, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>" + the shockland pay-life clause (a leaf over interveningIf; cycle-free)
 import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT dispatch hook (audit.js imports only the delayed-trigger leaf, cycle-free)
 import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — the payment half; legalChoices holds the restriction half (+ the Phyrexian life lane, Norn's Annex)
@@ -1101,13 +1101,23 @@ function applyTapForMana(state, action) {
   if (!perm) throw new DispatcherError(`Permanent ${action.permanentId} not on battlefield`, "PERM_NOT_FOUND");
   if (perm.tapped) throw new DispatcherError("Mana source is already tapped", "ALREADY_TAPPED");
 
+  // THE FREE-ACTIVATION FIX: a mana-costed ability's activation is paid from the floating pool FIRST (CR 602.2b), read off the
+  // card itself (never trusted from the action); a pool that can't pay it is a hard error, never free mana.
+  const activationCost = manaActivationCost(perm.card);
+  let paidState = state;
+  if (activationCost) {
+    const pool = payActivationFromPool(player.manaPool, activationCost);
+    if (!pool) throw new DispatcherError("Cannot pay the mana ability's activation cost from the mana pool", "MANA_SHORT");
+    paidState = { ...state, players: { ...state.players, [action.playerId]: { ...player, manaPool: pool } } };
+  }
+
   // W1: commit through the ONE shared tap implementation (manaModel.commitManaTap) — add the mana (plus
   // any inline boost-Aura bonus, CR 605.1b), then TAP a repeatable source or SACRIFICE a one-shot
   // Treasure/Gold (action.sacrifices, set by legalChoices.actionsTapForMana; the crack fires sacrifice
   // watchers, CR 701.21, and drains its leave event at cost time, CR 603.3b — no stack push here, so the
   // trigger waits in pendingTriggers for the next priority flush, CR 603.3a). The action carries the same
   // { color, amount, bonus, sacrifices, permanentId } shape a payment-plan tap does.
-  let next = commitManaTap(state, action.playerId, action);
+  let next = commitManaTap(paidState, action.playerId, action);
   next = logEvent(next, {
     kind: "tap-for-mana",
     playerId: action.playerId,

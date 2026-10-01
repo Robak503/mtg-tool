@@ -30,7 +30,7 @@
  */
 
 import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower, nameCastLocked } from "./gameState.js"; // B4: the Reflector Mage name cast lock
-import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapManaAugment, applyAuraManaGrantSupplement, sourcesExcludingOneShotVictim, castPaymentSources } from "./manaModel.js";
+import { canAfford, manaSources, manaProduction, manaActivationCost, payActivationFromPool, landAuraManaBonus, globalTapManaAugment, applyAuraManaGrantSupplement, sourcesExcludingOneShotVictim, castPaymentSources } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor, crewCostWithOverrides } from "./layers.js";
@@ -2102,6 +2102,10 @@ function actionsTapForMana(state, playerId) {
       ? Math.max(0, countForSpec(state, { controller: playerId, source: perm }, prod.amountSpec))
       : prod.amount;
     if (amount <= 0) continue;
+    // THE FREE-ACTIVATION FIX: a mana-costed ability (a Signet's "{1}, {T}: …") is offered only when the floating pool can pay
+    // its activation — applyTapForMana charges it; a cost the reader can't price is never offered.
+    const activationCost = manaActivationCost(perm.card);
+    if (activationCost && !payActivationFromPool(player.manaPool, activationCost)) continue;
     // AURA-LAND-MANA-BOOST: a land carrying a mana-boost Aura yields extra mana INLINE when it taps
     // (the Aura is NOT tapped). landAuraManaBonus is the SAME helper manaSources/planPayment use, so
     // the explicit tap and the auto-pay planner can't drift (the CREED two-sites invariant). Each
@@ -2110,6 +2114,15 @@ function actionsTapForMana(state, playerId) {
     // GLOBAL-TAP-AUGMENT mirrors manaSources (the two-sites invariant): a controller-owned "Whenever you
     // tap a <land|creature> for mana, add …" permanent adds extra fixed-color mana inline on this tap.
     const bonusSources = [...landAuraManaBonus(state, perm), ...globalTapManaAugment(state, playerId, perm)];
+    // A FIXED BUNDLE (a karoo's "{T}: Add {G}{U}", a Signet's {U}{B}) makes its colours all at once — ONE action carrying the
+    // tally, which commitManaTap adds exactly. Offered per colour it made {G}{G} or {U}{U}, mana the card never makes.
+    if (prod.fixed && Object.keys(prod.fixed).length > 1) {
+      const first = Object.keys(prod.fixed)[0];
+      const bonus = bonusSources.map(b => ({ color: b.sameAsProduced ? first : b.colors[0], amount: b.amount }));
+      actions.push({ kind: "tap-for-mana", playerId, permanentId: perm.id, color: first, amount, fixed: { ...prod.fixed }, sacrifices: !!prod.sacrifices,
+        ...(bonus.length ? { bonus } : {}), ...(activationCost ? { activationCost } : {}), name: perm.card.name });
+      continue;
+    }
     for (const color of prod.colors) {
       // MANA FLARE (MF-1): a sameAsProduced bonus's color IS this action's chosen production color ("one
       // mana of any type that land produced" — resolved per action, so tapping a dual for W carries a +1 W
@@ -2123,6 +2136,7 @@ function actionsTapForMana(state, playerId) {
         amount,
         sacrifices: !!prod.sacrifices,   // one-shot Treasure/Gold — applyTapForMana sacrifices it (TOK-2)
         ...(bonus.length ? { bonus } : {}),
+        ...(activationCost ? { activationCost } : {}),
         name: perm.card.name,
       });
     }

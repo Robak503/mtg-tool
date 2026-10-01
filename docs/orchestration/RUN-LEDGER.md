@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **21 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,179)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **22 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,179)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,33 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🛠️ 2026-10-01 — FIX: mana abilities with a mana cost pay it (Signets, the {1} filter lands, Cabal Coffers, Chromatic Star) — found scoping #178 · corpus unchanged 15,179
+> Suite **17,482** green (1 skipped); lint 0; decks unchanged. CI GREEN on P·6 (run 36883521016). Flip-diff **0 / 0 / 0** (a runtime
+> fix — no tier moves). **Mutants 15/15** (restore byte-identical).
+> · **The bug (probed live):** the mana parse reads the "Add" clause and nothing read the "{1}," in front of it, so every mana
+>   ability with a mana cost tapped for FREE. A lone Dimir Signet paid {U}{B} with no other mana on the board; a Signet and an
+>   Island cast Divination ({2}{U}) — and the commit tapped both and charged nothing. A corpus census found ~100 cards whose
+>   runtime product comes from a costed line: all ten Signets, the {1} filter lands, Cabal Coffers, Selvala, Chromatic Star,
+>   the Eggs and the Devotees among them. Every sim with one of them ran on phantom mana (CREED: the forbidden direction).
+> · **The fix:** `manaActivationCost` reads the mana part of the cost on the line the main product comes from (a product a
+>   plain line makes is free; an unpriceable pip drops the record). manaSources carries it; the planner first pays WITHOUT any
+>   costed source (the old plan, byte-identical), then activates them one at a time, each funded from the pool, the uncosted
+>   sources and earlier activations' mana — never from itself, never by its own permanent's other record — before its output
+>   joins the pool (CR 602.2b, 605.3b; two Signets chain off one Island into exactly three mana). The funding rides the plan
+>   as `activationSpend`, charged by the commit and kept out of `spend` (converge, sunburst and the mana-spent riders read
+>   `spend` as mana spent on the spell). The activated tap record is built by the core itself, so a spend-restricted costed
+>   source is refused (Cormela's instant-and-sorcery mana never funds a creature — no laundering).
+> · **The explicit tap:** a costed source is offered only when the floating pool can pay it, and the dispatcher charges the
+>   pool (a forged tap throws). Found on the way: a fixed bundle was offered per colour — a karoo or a Signet tapped by hand
+>   made {U}{U} or {B}{B}; it is one action carrying {U}{B} now.
+> · **Runtime:** `WITNESS loneSignet []` and `WITNESS karooTap [{"color":"U","amount":2,"fixed":{"U":1,"B":1}}]`; Signet +
+>   Island pays {U}{B} and leaves the pool empty; Coffers with three Swamps makes four black, not six; Chromatic Star needs an
+>   Island to crack. Witness `app/src/lib/learn/manaCostedSources.test.js` (14).
+> · **Noticed, not changed:** Evendo / Uthros read their station-gated "12+" line as the main product (the gate is ignored);
+>   it now costs its {G}/{U} instead of being free — still not the printed plain tap. Crypt of Agadeem's main record is a
+>   land-fallback {C}. Both recorded for the land-tier honesty work.
+> · **Next:** #178 Three Tree City — its {2},{T} chosen-type line is exactly the costed mana ability this fix can now fund.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 6: War Room (EDHREC #140) — a life cost sized by your commanders' color identity; the identity read fixed (Commander's Plate) · **+1** · corpus 15,179
 > Suite **17,468** green (1 skipped); lint 0; decks unchanged (2,725 / 2,998). CI GREEN on P·5 (run 36881715229). Flip-diff **+1,
