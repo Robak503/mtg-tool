@@ -81,11 +81,11 @@ describe("⭐ RUNTIME (law 6) — the plot flow completes for an AURA, exile to 
     const cast = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").find((a) => a.cardId === "c-dr");
     expect(cast).toBeTruthy();
     expect(cast.isAuraSpell).toBe(true);            // an Aura spell, not a bare permanent push
-    expect(cast.freeCast).toBe(true);               // cast without paying its mana cost (CR 702.171b)
+    expect(cast.freeCast).toBe(true);               // cast without paying its mana cost (CR 702.170d)
     expect(cast.targets?.[0]?.name).toBe("Bear");   // with a legal host
   });
 
-  it("⛔ it is NOT castable from exile on the SAME turn it was plotted (CR 702.171b)", () => {
+  it("⛔ it is NOT castable from exile on the SAME turn it was plotted (CR 702.170d)", () => {
     let s = board(1);
     s = dispatchAction(s, filterActions(legalActionsForPlayer(s, "user"), "plot").find((a) => a.cardId === "c-dr"));
     expect(filterActions(legalActionsForPlayer(s, "user"), "cast-spell").find((a) => a.cardId === "c-dr")).toBeUndefined();

@@ -3176,6 +3176,15 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ playFromTop: { lands: true, spellFilter: "any", attachedGated: true } });
     return;
   }
+  // PLOT FROM THE TOP OF THE LIBRARY (shelf D38 — Fblthp, Lost on the Range: "The top card of your library has plot. The
+  // plot cost is equal to its mana cost." + "You may plot nonland cards from the top of your library."). CR 702.170f: an
+  // effect may let a plot ability function outside the hand, and the card is exiled from that zone. Three MARKERS, read
+  // together by plotFromLibraryTopGranted: legalChoices offers the top nonland card the plot special action for its mana
+  // cost only when one permanent carries all three. The classifier credits each sentence on its own; that is honest only
+  // because Fblthp is the sole card printing any of them (census 2026-09-30) — a card printing one alone must not reuse these.
+  if (/^the top card of your library has plot$/.test(c)) { out.push({ topCardHasPlot: true }); return; }
+  if (/^the plot cost is equal to its mana cost$/.test(c)) { out.push({ plotCostIsManaCost: true }); return; }
+  if (/^you may plot nonland cards from the top of your library$/.test(c)) { out.push({ plotNonlandFromTop: true }); return; }
   // FREE-CAST PERMISSIONS (shelf D35 — One with the Multiverse "Once during each of your turns, you may cast a spell from your
   // hand or the top of your library without paying its mana cost."; Zaffai and the Tempests and Vision, Spectral Synthezoid
   // print it with a spell filter; Omniscience prints it without the once). Casting without paying the mana cost is an
@@ -5767,6 +5776,20 @@ export function playFromTopPermission(state, playerId) {
     }
   }
   return merged;
+}
+
+/**
+ * PLOT FROM THE TOP OF THE LIBRARY (shelf D38 — Fblthp, Lost on the Range; CR 702.170f) — true when the player controls a
+ * permanent carrying ALL THREE of Fblthp's markers (the top card has plot; its plot cost is its mana cost; nonland cards may
+ * be plotted from the top). Read live off the battlefield, so the permission ends the moment the source leaves.
+ */
+export function plotFromLibraryTopGranted(state, playerId) {
+  for (const perm of state?.players?.[playerId]?.battlefield || []) {
+    if (!perm?.card) continue;
+    const ds = parseStaticAbilities(perm.card);
+    if (ds.some((d) => d.topCardHasPlot) && ds.some((d) => d.plotCostIsManaCost) && ds.some((d) => d.plotNonlandFromTop)) return true;
+  }
+  return false;
 }
 
 /**

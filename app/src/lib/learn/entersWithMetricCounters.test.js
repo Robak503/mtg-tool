@@ -122,7 +122,7 @@ describe("ETB-XCOUNTERS-FROM-METRIC — coverage: a card whose only ability is t
     expect(classifyCard({ type: "Creature — Beast", name: "Test Beast", mana: "{4}{G}",
       oracle: "This creature enters with a +1/+1 counter on it for each Forest you control." })).toBe("native-body");
   });
-  it("Sheriff (metric + MODELED Plot, CR 702.171) classifies native-body — plot is its only other clause", () => {
+  it("Sheriff (metric + MODELED Plot, CR 702.170) classifies native-body — plot is its only other clause", () => {
     // Plot is now a modeled special action (plot.test.js): classifyCard strips the "Plot {cost}" line, and a
     // card whose only remaining text is the modeled metric-counter clause is native-body. (Pre-plot this was
     // body-only — the whole-card gate held it because plot was unmodeled.)

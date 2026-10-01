@@ -1267,7 +1267,7 @@ export function spellIsNative(card) {
     }
     return true;
   }
-  // PLOT (CR 702.171): an instant/sorcery can carry a "Plot {cost}" alternate-cast line. It's a modeled
+  // PLOT (CR 702.170): an instant/sorcery can carry a "Plot {cost}" alternate-cast line. It's a modeled
   // special action (exile at sorcery speed for the plot cost, cast FREE later), and a plotted spell resolves
   // through the SAME cast path — so the spell is native iff its actual EFFECT is native. Strip the plot line
   // (when parsePlotCost confirms a clean modeled cost) before parsing, so the bare "Plot {cost}" residue
@@ -3429,7 +3429,7 @@ export function classifyCard(card) {
   // X-pip count (xPipCount >= 1). xPipCount is still read because a card with NO {X} pip but the enters-with-X
   // text (none in the real corpus) must not be credited — the X must be a real cost pip the player pays.
   const xPipCount = (String(card?.mana || card?.mana_cost || "").match(/\{[XYZ]\}/gi) || []).length;
-  // PLOT (CR 702.171): "Plot {cost}" is a modeled alternate cast-timing special action (the runtime
+  // PLOT (CR 702.170): "Plot {cost}" is a modeled alternate cast-timing special action (the runtime
   // exiles the card at sorcery speed for the plot cost, then casts it FREE from exile on a later turn —
   // legalChoices.actionsPlotFromHand / actionsCastPlottedFromExile). A plotted card resolves through the
   // SAME applyCastSpell path a hand-cast uses, so the card is native iff its NON-plot text is native.

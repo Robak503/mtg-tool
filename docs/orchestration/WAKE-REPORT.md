@@ -7,12 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## 🚀 2026-09-30 — **v0.161.0 RELEASED** (published 2026-10-01T05:26Z) — runnable: the shelf (Kellan 89, Light-Paws 83)
+## 🚀 2026-09-30 — **v0.161.0 RELEASED** (published 2026-10-01T05:26Z) — runnable: the shelf (Light-Paws 83; Kellan reached 90)
 
-> **Runnable next:** Kellan of the West 89 → 90 (needs 1) — Fblthp, Lost on the Range or Bonny Pall, Clearcutter (two lines
-> each), or Transcendent Dragon (casting a card you don't own from another player's exile is a new capability). Then
-> Light-Paws 83 (needs 7). Atraxa is DEFERRED (Colton 09-30: planeswalkers last, as their own program). Shelf 27 of 30 at
-> ≥90; corpus 15,151 (44.2%). After the shelf: the 09-06 plan's stage ③ → ④.
+> **Runnable next:** Light-Paws Voltron 83 → 90 (needs 7) — Celestial Mantle, Eiganjo Castle, Mantle of the Ancients, With
+> Great Power . . . (one line each), Pearl-Ear, Imperial Advisor (two), then two from the deep pile. Regenerate the residue
+> map first. Atraxa is DEFERRED (Colton 09-30: planeswalkers last, as their own program). Shelf **28 of 30 at ≥90**
+> (Kellan reached 90 in D38); corpus 15,152 (44.2%). After the shelf: the 09-06 plan's stage ③ → ④.
 > **The release:** tagged on 502e133f (the `[0.161.0]` CHANGELOG cut), moved up from 10-02 by Colton because Reality
 > Fracture's whole card base was already on Scryfall (fra 461 cards, frc 103). Release run 36817109773 green (two test
 > shards + build); assets: the installer twice with its `.sig` each, and `latest.json`; `latest.json` verified BY CONTENT at
@@ -99,6 +99,7 @@
 > Stone Calendar, Highspire Bell-Ringer, Uthros Psionicist — the all-spells and second-spell reducers (+3 → corpus 14,989; suite 1644 / 16,975).
 > **The residue loop STOPS here — Colton (09-30): "Do my decks."** Next: the shelf decks' unplayed cards, until the v0.161.0 tag on/after 10-02.
 > **SHELF DECKS · D1** tribal digs read the printed capital — Avengers Tower takes Hulk Smash to 90% (+7 → corpus 14,996; suite 1645 / 16,981). Tool: `app/scripts/shelf-residue-map.mjs`.
+> **SHELF DECKS · D38** Fblthp, Lost on the Range — plot from the top of the library — Kellan of the West 89 → 90 — **28 of 30 at ≥90** (+1 → corpus 15,152; suite 1,688 / 17,368).
 > **SHELF DECKS · D37** Eladamri, Korvecdal — reveal from hand or the library top, put a creature onto the battlefield — Kellan of the West 88 → 89 (+1 → corpus 15,151; suite 1,687 / 17,363).
 > **SHELF DECKS · D36** Sakashima's Protege — a copy of any permanent that entered this turn — Kellan of the West 87 → 88 (+1 → corpus 15,150; suite 1,686 / 17,357).
 > **SHELF DECKS · D35** cast it without paying its mana cost — One with the Multiverse, Zaffai, Vision, Omniscience — Kellan of the West 86 → 87 (+4 → corpus 15,149; suite 1,685 / 17,351).

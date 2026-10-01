@@ -2148,19 +2148,23 @@ function applyCascadeDecline(state, action) {
   return logEvent(rest, { kind: "cascade-decline", playerId: action.playerId });
 }
 
-// PLOT (CR 702.171a) — the plot SPECIAL ACTION: pay the plot mana cost, then exile the card FACE-UP from
+// PLOT (CR 702.170a) — the plot SPECIAL ACTION: pay the plot mana cost, then exile the card FACE-UP from
 // hand ("plotted"). A special action does NOT use the stack (CR 116.2g) and does NOT pass priority. The
 // plotted card is stamped `_plotted` + `_plottedTurn` (the turn it was plotted) so legalChoices won't offer
-// it for a free cast until a LATER turn (CR 702.171b). No discard/sacrifice — the card exiles ITSELF as the
+// it for a free cast until a LATER turn (CR 702.170d). No discard/sacrifice — the card exiles ITSELF as the
 // action's effect (legalChoices only offered this for a plotPlayable card, so the card it becomes when later
 // cast is fully modeled — no unmodeled text is silently parked in exile).
 function applyPlot(state, action) {
   const player = state.players[action.playerId];
   if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
-  const card = player.hand.find(c => c.id === action.cardId);
-  if (!card) throw new DispatcherError(`Plot card ${action.cardId} not in hand`, "CARD_NOT_IN_HAND");
+  // shelf D38 (Fblthp, CR 702.170f): a plot from the library is exiled from the library — and only its TOP card qualifies.
+  const fromZone = action.fromZone === "library" ? "library" : "hand";
+  const card = fromZone === "library"
+    ? ((player.library || [])[0]?.id === action.cardId ? player.library[0] : null)
+    : player.hand.find(c => c.id === action.cardId);
+  if (!card) throw new DispatcherError(`Plot card ${action.cardId} not in ${fromZone === "library" ? "the top of the library" : "hand"}`, "CARD_NOT_IN_HAND");
 
-  // Pay the plot MANA cost (CR 702.171a — the plot cost is paid as the special action is taken).
+  // Pay the plot MANA cost (CR 702.170a — the plot cost is paid as the special action is taken).
   const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the plot cost", "MANA_SHORT");
   let working = commitPaymentPlan(state, action.playerId, plan);
@@ -2169,7 +2173,7 @@ function applyPlot(state, action) {
   // stamp is what enforces "not the turn it was plotted" — legalChoices.actionsCastPlottedFromExile compares
   // `_plottedTurn !== state.turn`, so the same monotonic turn counter gates the delayed cast (no per-turn
   // reset flag to wire). moveCardToZone carries the same card object, so we re-find it in exile and flag it.
-  working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "exile", cardId: action.cardId });
+  working = moveCardToZone(working, { playerId: action.playerId, fromZone, toZone: "exile", cardId: action.cardId });
   const exile = working.players[action.playerId].exile;
   const idx = exile.findIndex(c => c.id === action.cardId);
   const flaggedExile = [...exile];
@@ -2222,7 +2226,7 @@ const HANDLERS = {
   "crew-vehicle": applyCrewVehicle, // CREW (VH-1, CR 702.121c): tap creatures totaling power ≥ N → the Vehicle animates until EOT
   "cycle": applyCycle, // KW-CYCLING: discard a hand card to draw
   "discard-ability": applyDiscardAbility, // "<mana>, Discard this card: <effect>" — cycling generalized
-  "plot": applyPlot,   // PLOT (CR 702.171a): exile a hand card face-up for the plot cost (special action)
+  "plot": applyPlot,   // PLOT (CR 702.170a): exile a hand card face-up for the plot cost (special action)
   "activate-loyalty": applyActivateLoyalty,
   "declare-attacker": applyDeclareAttacker,
   "declare-blocker": applyDeclareBlocker,

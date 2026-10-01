@@ -670,7 +670,7 @@ export function resolveImpulseDigChoice(state, cardId) {
     keptIds = [];
   }
   // K7 (Make Your Own Luck "it becomes plotted"): the pick leaves the library for EXILE carrying the plot stamp the plot
-  // special action writes (`_plotted` + `_plottedTurn`, CR 702.171b — castable free on a LATER turn), then the rest are
+  // special action writes (`_plotted` + `_plottedTurn`, CR 702.170d — castable free on a LATER turn), then the rest are
   // disposed of by `restTo` (hand, for this card) exactly as any other dig.
   // K8 (The Key to the Vault "you may cast the exiled card without paying its mana cost"): the pick leaves the library for
   // exile and is parked behind the DISCOVER decision with a leave-exiled decline — the free cast is offered as the ability

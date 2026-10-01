@@ -1,7 +1,7 @@
 /**
- * plot.test.js — PLOT (CR 702.171). "Plot {cost}" is a SPECIAL ACTION: any time you could cast a sorcery
+ * plot.test.js — PLOT (CR 702.170). "Plot {cost}" is a SPECIAL ACTION: any time you could cast a sorcery
  * you may pay the plot cost and exile the card face-up from your hand ("plotted"). On a LATER turn you may
- * cast it from exile WITHOUT paying its mana cost (CR 702.171b), as a sorcery, once per card (it leaves
+ * cast it from exile WITHOUT paying its mana cost (CR 702.170d), as a sorcery, once per card (it leaves
  * exile when cast).
  *
  * Infra reuse: plot step 1 is modeled like cycling (a from-hand action that pays a mana cost + moves the
@@ -105,7 +105,7 @@ describe("PLOT step 1 — the special action (exile from hand for the plot cost)
     expect(filterActions(legalActionsForPlayer(broke, "user"), "plot")).toHaveLength(0);
   });
 
-  it("is NOT offered at instant speed (opponent's turn) — plot is sorcery-speed (CR 702.171a)", () => {
+  it("is NOT offered at instant speed (opponent's turn) — plot is sorcery-speed (CR 702.170a)", () => {
     let state = plotState({ hand: [SHERIFF], lands: [plains("p1"), plains("p2")] });
     state = { ...state, activePlayer: "ai", priorityHolder: "user" }; // user has priority but it's the AI's turn
     expect(filterActions(legalActionsForPlayer(state, "user"), "plot")).toHaveLength(0);
@@ -128,7 +128,7 @@ describe("PLOT step 1 — the special action (exile from hand for the plot cost)
   });
 });
 
-describe("PLOT step 2 — casting a plotted card free from exile (CR 702.171b)", () => {
+describe("PLOT step 2 — casting a plotted card free from exile (CR 702.170d)", () => {
   // Plot Sheriff on turn 3, return to a clean board, advance to turn 5.
   function plottedThenLaterTurn() {
     let state = plotState({ hand: [SHERIFF], lands: [plains("p1"), plains("p2")], turn: 3 });
@@ -136,7 +136,7 @@ describe("PLOT step 2 — casting a plotted card free from exile (CR 702.171b)",
     return untapAll({ ...state, turn: 5 });
   }
 
-  it("does NOT offer a free cast on the SAME turn the card was plotted (CR 702.171b)", () => {
+  it("does NOT offer a free cast on the SAME turn the card was plotted (CR 702.170d)", () => {
     let state = plotState({ hand: [SHERIFF], lands: [plains("p1"), plains("p2")], turn: 3 });
     state = dispatchAction(state, filterActions(legalActionsForPlayer(state, "user"), "plot")[0]);
     const fromExile = filterActions(legalActionsForPlayer(untapAll(state), "user"), "cast-spell").filter(a => a.fromZone === "exile");
@@ -148,7 +148,7 @@ describe("PLOT step 2 — casting a plotted card free from exile (CR 702.171b)",
     const fromExile = filterActions(legalActionsForPlayer(state, "user"), "cast-spell").filter(a => a.fromZone === "exile");
     expect(fromExile).toHaveLength(1);
     expect(fromExile[0].freeCast).toBe(true);
-    expect(fromExile[0].cost).toMatchObject({ generic: 0 }); // CR 702.171b — without paying its mana cost
+    expect(fromExile[0].cost).toMatchObject({ generic: 0 }); // CR 702.170d — without paying its mana cost
   });
 
   it("the free cast pays NO mana, leaves exile onto the stack, and resolves onto the battlefield with its counters", () => {

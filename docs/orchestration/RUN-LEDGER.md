@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **6 commits**, corpus **44.2% (15,145)** at the tag → **44.2% (15,151)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **7 commits**, corpus **44.2% (15,145)** at the tag → **44.2% (15,152)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,26 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D38: FBLTHP, LOST ON THE RANGE — PLOT FROM THE TOP OF THE LIBRARY — Kellan of the West 89 → 90 — **28 of 30 at ≥90** · **+1** · corpus 15,152 / 34,245
+> Suite **1,688 files / 17,368 tests** green (1 skipped); lint 0; decks 2,713 / 2,998. CI GREEN on D37 (run 36824797329). Flip-diff **+1, zero LOST,
+> zero RETIERED** (tier snapshots at 9ed58e1c → the change: Fblthp, Lost on the Range). **Mutants 9/9** on the final code (restore byte-identical).
+> · **The markers** (staticAbilityParser.js): "The top card of your library has plot" / "The plot cost is equal to its mana cost" /
+>   "You may plot nonland cards from the top of your library" → topCardHasPlot / plotCostIsManaCost / plotNonlandFromTop.
+>   plotFromLibraryTopGranted needs all three on one permanent; the classifier credits each sentence on its own, which is honest
+>   only because Fblthp is the sole card printing any of them.
+> · **The offer** (legalChoices.actionsPlotFromLibraryTop, CR 702.170f): the top card, at the plot special action's own timing
+>   (CR 702.170a — main phase, empty stack), for its printed mana cost. A costless card has an unpayable plot cost (CR 118.6) — which
+>   is also what keeps a land out ("nonland") — and an {X} cost is not offered. The dispatcher (applyPlot) exiles it from the
+>   library and refuses any card below the top; the plotted card casts free on a later turn through the existing lane (CR 702.170d).
+> · ⚠️ **Plot citations corrected:** 29 comments cited CR 702.171 / 702.171a / 702.171b for Plot — in the bundled CR, 702.171 is
+>   SADDLE; Plot is 702.170 (a = the special action, d = the free cast from exile, f = plotting outside the hand). The checker only
+>   asks that a number exists, so a wrong-but-real rule passed. One comment also claimed a rule forbids plotting lands; none does.
+> · **Runtime:** `WITNESS fblthp {"offer":[{"card":"top","from":"library","cost":"2+U1"}],"plotted":{"plotted":true,"turn":5},"library":["w0","w1","w2","w3"],"poolU":0,"sameTurn":[],"nextTurn":["top"],"drew":2,"graveyard":["top"]}`
+>   · not offered for a land, without Fblthp, off-turn, for an {X} or costless card · the permission sentence alone grants nothing.
+>   Witness `app/src/lib/learn/fblthpLostOnTheRange.test.js` (5).
+> · **Next:** Light-Paws 83 needs 7 — Celestial Mantle, Eiganjo Castle, Mantle of the Ancients, With Great Power . . . (one line
+>   each), Pearl-Ear (two), then two from the deep pile. Atraxa stays deferred.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D37: ELADAMRI, KORVECDAL — REVEAL FROM HAND OR THE LIBRARY TOP, PUT A CREATURE ONTO THE BATTLEFIELD — Kellan of the West 88 → 89 · **+1** · corpus 15,151 / 34,245
 > Suite **1,687 files / 17,363 tests** green (1 skipped); lint 0; decks 2,712 / 2,998. CI GREEN on D36 (run 36823605870). Flip-diff **+1, zero LOST,

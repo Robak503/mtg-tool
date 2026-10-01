@@ -36,7 +36,7 @@ import { hasKeyword } from "./keywords.js";
 import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor, crewCostWithOverrides } from "./layers.js";
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
 import { grantsWubrgAltCost, fixedManaAltCostOf, conditionalFixedManaAltCostOf } from "./effects/textNormalize.js"; // + the trap form (shelf D17) // FIST OF SUNS (RG-5) — the board-granted WUBRG alternative cost; + RG-8 — the spell's OWN fixed-mana alternative cost (the Bringers); leaf readers
-import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
+import { collectCostReducers, playLandFromGraveyardPermission, plotFromLibraryTopGranted, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksFor, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund (+ the Phyrexian life lane, Norn's Annex)
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy, playerTargetableBy } from "./spellEffects.js";
@@ -85,7 +85,7 @@ function castTimingAllows(state, playerId, card) {
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { counterClauseParser } from "./effects/atoms/stack.js";
 import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, castOnlyWhenAttacked, castOnlyAfterAnotherSpell, hasBeenAttackedThisStep, parseCyclingCost, parseCyclingLifeCost, parseDiscardCostAbility, parsePlotCost, parseCrewCost, crewPowerBonus, isModeledGroupActivatedBody, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
-// PLOT (CR 702.171): the runtime offers a card the plot special action ONLY when its NON-plot text is
+// PLOT (CR 702.170): the runtime offers a card the plot special action ONLY when its NON-plot text is
 // fully native — i.e. classifyCard (which strips the plot line internally) returns a native tier. Reusing
 // the metric's OWN authority means the runtime and the coverage metric can never disagree about which plot
 // cards flip natively (no duplicated native-determination to drift). coverage.js does NOT import legalChoices
@@ -3085,11 +3085,12 @@ function actionsDiscardAbilityFromHand(state, playerId) {
 }
 
 /**
- * PLOT (CR 702.171) — `plotPlayable` is the runtime CREED gate: a card may use the plot special action
+ * PLOT (CR 702.170) — `plotPlayable` is the runtime CREED gate: a card may use the plot special action
  * (and later be cast free from exile) ONLY when (a) it has a clean modeled plot cost (parsePlotCost) AND
  * (b) its NON-plot text is fully native — classifyCard strips the plot line internally, so a native tier
- * means every remaining clause is modeled. Lands can't be plotted (CR 702.171a — nonland only); classifyCard
- * returns the native "land" tier for them, so they're excluded explicitly. A partially-modeled plot card
+ * means every remaining clause is modeled. Lands are excluded explicitly — no rule forbids a land with plot (no land
+ * prints it), but classifyCard returns the native "land" tier for any land, which this gate must not read as "its
+ * other text is modeled". A partially-modeled plot card
  * (intervening-if ETB, unmodeled spell, plot-granting body) fails this gate → never offered plot, never
  * silently dropping its unmodeled text — it routes to the Arbiter as a normal hand card (whole-card CREED).
  */
@@ -3101,12 +3102,12 @@ function plotPlayable(card) {
 }
 
 /**
- * PLOT step 1 — the plot SPECIAL ACTION (CR 702.171a): any time you could cast a sorcery you may pay the
+ * PLOT step 1 — the plot SPECIAL ACTION (CR 702.170a): any time you could cast a sorcery you may pay the
  * plot cost and exile the card face-up from your hand. Offer one `plot` action per plotPlayable hand card
  * whose plot cost the player can afford. Sorcery-speed + own-main + empty-stack + priority (canCastSorcerySpeed,
  * matching "Plot only as a sorcery"). An X plot cost would need the X-choice expansion (none in the corpus) →
  * skipped (safe under-offer). The dispatcher (applyPlot) pays the cost and moves hand → exile, stamping the
- * plotted card with the turn it was plotted so it can't be cast the SAME turn (CR 702.171b).
+ * plotted card with the turn it was plotted so it can't be cast the SAME turn (CR 702.170d).
  */
 function actionsPlotFromHand(state, playerId) {
   if (!canCastSorcerySpeed(state, playerId)) return [];
@@ -3127,13 +3128,36 @@ function actionsPlotFromHand(state, playerId) {
 }
 
 /**
- * PLOT step 2 — cast a PLOTTED card from exile for FREE (CR 702.171b): on a turn AFTER the one it was
+ * PLOT FROM THE TOP OF THE LIBRARY (shelf D38 — Fblthp, Lost on the Range; CR 702.170f): while the player controls Fblthp,
+ * the top card of their library has plot with a plot cost equal to its mana cost, and a nonland one may be plotted from
+ * there — the same special action as from hand (sorcery timing, CR 702.170a), exiling the card from the library. A card
+ * with no mana cost has an unpayable plot cost (CR 118.6) and an {X} cost would need the X choice, so neither is offered —
+ * and a land has no mana cost, so that same test is what keeps Fblthp's "nonland" (a land is never offered).
+ * Plotting does not need the plotted card's text to be modeled: the plot is Fblthp's ability, and the later free cast from
+ * exile (actionsCastPlottedFromExile) treats the card like any other cast.
+ */
+function actionsPlotFromLibraryTop(state, playerId) {
+  if (!canCastSorcerySpeed(state, playerId)) return [];
+  if (!plotFromLibraryTopGranted(state, playerId)) return [];
+  const player = state.players[playerId];
+  const top = (player.library || [])[0];
+  if (!top) return [];
+  const printed = String(manaCostOf(top) || "").trim();
+  if (!printed) return [];
+  const cost = parseManaCost(printed);
+  if (cost.hasX) return [];
+  if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) return [];
+  return [{ kind: "plot", playerId, cardId: top.id, name: top.name, cost, cmc: totalCmc(cost), fromZone: "library" }];
+}
+
+/**
+ * PLOT step 2 — cast a PLOTTED card from exile for FREE (CR 702.170d): on a turn AFTER the one it was
  * plotted, you may cast it as a sorcery without paying its mana cost. Reuses the shared cast builder with
  * fromZone "exile" + freeCast=true (the EXACT machinery DISCOVER uses to free-cast from exile — same
  * target/mode/additional-cost enumeration, same applyCastSpell resolution), so a plotted creature enters
  * via PERMANENT_ETB and a plotted spell resolves through the effect-program interpreter, identically to a
  * hand-cast. GATES (CREED): only a card stamped `_plotted` whose `_plottedTurn !== state.turn` (NOT this
- * turn — CR 702.171b), and ONLY at sorcery speed (freeCast bypasses the builder's timing gate, so it's
+ * turn — CR 702.170d), and ONLY at sorcery speed (freeCast bypasses the builder's timing gate, so it's
  * enforced here — "cast it as a sorcery"). Once per turn per card is enforced naturally: the card leaves
  * exile onto the stack when cast, so it can't be cast again.
  */
@@ -4203,7 +4227,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   if (!cantCast) {
     actions.push(...actionsCastSpell(state, playerId));
     actions.push(...actionsCastCommander(state, playerId)); // CMD-CAST: cast from the command zone (CR 903.8)
-    actions.push(...actionsCastPlottedFromExile(state, playerId)); // PLOT step 2 (CR 702.171b): cast a plotted card free
+    actions.push(...actionsCastPlottedFromExile(state, playerId)); // PLOT step 2 (CR 702.170d): cast a plotted card free
     actions.push(...actionsSuspendFromHand(state, playerId)); // KW-SUSPEND step 1 (CR 702.62a): exile the no-cost trio with time counters
     actions.push(...actionsCastSuspendReadyFromExile(state, playerId)); // KW-SUSPEND step 2 (CR 702.62e): cast free at zero counters
     actions.push(...actionsPlayImpulseFromExile(state, playerId)); // IMPULSE-EXILE step 2 (CR 601.3 / 305.2): play an impulse-exiled card THIS TURN at full cost (nonland cast / land play from exile)
@@ -4254,7 +4278,8 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     }
   }
   actions.push(...actionsCompanion(state, playerId));     // CMD-COMPANION: {3} → put the companion into hand (not a cast)
-  actions.push(...actionsPlotFromHand(state, playerId));  // PLOT step 1 (CR 702.171a): exile from hand for the plot cost — a SPECIAL action, not casting
+  actions.push(...actionsPlotFromHand(state, playerId));  // PLOT step 1 (CR 702.170a): exile from hand for the plot cost — a SPECIAL action, not casting
+  actions.push(...actionsPlotFromLibraryTop(state, playerId)); // shelf D38 (Fblthp, CR 702.170f): the same special action for the library's top card
   // MANA ABILITIES stay legal under split second (CR 702.19a exempts them by name).
   actions.push(...actionsTapForMana(state, playerId));
   actions.push(...actionsDoubleManaPool(state, playerId)); // DOUBLE-MANA-POOL (Doubling Cube): a no-stack mana ability that doubles the pool

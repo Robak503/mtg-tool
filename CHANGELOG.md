@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Fblthp, Lost on the Range** — plot the top card of your library for its mana cost, then cast it free on a later turn
 - **Eladamri, Korvecdal** — tap it and two creatures to reveal a creature from your hand or the top of your library and put it onto the battlefield
 - **Sakashima's Protege** — enters as a copy of any permanent that entered this turn (its Flash and Cascade work as printed)
 - **One with the Multiverse, Zaffai and the Tempests, Vision, Spectral Synthezoid and Omniscience** — cast a spell without paying its mana cost (once each turn, or freely with Omniscience), at the normal time for that spell

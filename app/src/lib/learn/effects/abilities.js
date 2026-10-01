@@ -977,9 +977,9 @@ export function parseCyclingLifeCost(card) {
 }
 
 /**
- * PLOT (CR 702.171) — "Plot {cost}" is a special action: any time you could cast a sorcery you may pay
+ * PLOT (CR 702.170) — "Plot {cost}" is a special action: any time you could cast a sorcery you may pay
  * the plot cost and exile the card face-up from your hand ("plotted"); on a LATER turn you may cast it
- * from exile WITHOUT paying its mana cost (CR 702.171b). Returns the plot mana-cost STRING the caller
+ * from exile WITHOUT paying its mana cost (CR 702.170d). Returns the plot mana-cost STRING the caller
  * feeds to parseManaCost, or null when plot isn't a clean modeled action for this card.
  *
  * GATES (a false-negative is SAFE; a fabricated/partial plot is FORBIDDEN — CLAUDE.md §1.2):

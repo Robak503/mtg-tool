@@ -5,7 +5,7 @@
  *    plotted. Put the rest into your hand."
  *
  * The impulse-dig pause with a PLOT destination and a HAND rest: the pick leaves the library for exile carrying the plot
- * stamp the plot special action writes (`_plotted` + `_plottedTurn`, CR 702.171b — castable free on a LATER turn), the
+ * stamp the plot special action writes (`_plotted` + `_plottedTurn`, CR 702.170d — castable free on a LATER turn), the
  * rest join the hand; declining sends all three to hand. The pool is nonland only, a local type-line test (the
  * tutor-filter vocabulary refuses "nonland" on purpose).
  *
@@ -73,7 +73,7 @@ describe("runtime", () => {
     const free = legalActionsForPlayer(later, "user").find((a) => a.kind === "cast-spell" && a.cardId === "c-bear");
     expect(free).toBeTruthy();
     expect(free.fromZone).toBe("exile");
-    expect(legalActionsForPlayer(s, "user").some((a) => a.kind === "cast-spell" && a.cardId === "c-bear")).toBe(false); // not THIS turn (CR 702.171b)
+    expect(legalActionsForPlayer(s, "user").some((a) => a.kind === "cast-spell" && a.cardId === "c-bear")).toBe(false); // not THIS turn (CR 702.170d)
   });
   it("declining sends all three to hand; an all-land top never pauses and goes straight to hand", () => {
     let s = castLuck(board([BEAR, ISLAND_CARD, BOLT]));
