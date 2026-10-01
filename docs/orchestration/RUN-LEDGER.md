@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **19 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,177)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **20 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,178)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,30 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 5: Victimize (EDHREC #128) — sacrifice, then return the chosen; the "if you do" gate on a sacrifice · **+1** · corpus 15,178
+> Suite **17,459** green (1 skipped); lint 0; decks unchanged (2,725 / 2,998). CI GREEN on P·4 (run 36879475841). Flip-diff **+1,
+> zero LOST, zero RETIERED** (tier snapshots at 5c241e61 → the change: Victimize arbiter-spell → native-spell). Top 1,000
+> **833** (needs +67). **Mutants 12/13** (restore byte-identical; the survivor is equivalent, below).
+> · **The template:** the three sentences are one instruction — the targets are a mandatory pair chosen at cast (CR 601.2c,
+>   115.3), the sacrifice and the return follow in written order (CR 608.2c); split, "the chosen cards" has no referent.
+>   `matchSacThenReturnChosen` collapses the card to the controller's sacrifice (the existing edict chain: forced with one
+>   creature, the sacrifice choice with two or more, nothing with none) and the paired reanimate, tapped. The corpus prints
+>   the shape once.
+> · **The gate:** the reanimate carries `ifSacrificed`; runEffectProgram runs it only when the atom before it logged a
+>   sacrifice with a real victim during its own resolution — read off what happened, never predicted. When the sacrifice
+>   paused for a choice, resolveSacrificeChoice hands its answer (did the pick really go) to the resume; any other settler's
+>   resume skips the gated atom (a dropped payoff, never a fabricated one). Three conditions the first draft carried (the
+>   previous atom's op and subject, the caster check) were implied by the one producer and no test could see them fail —
+>   removed under the hollow-gate law; the producer's shape is documented at the gate instead.
+> · **Equivalent mutant:** "the inline read counts any log line" survives — an empty sacrifice pool logs nothing today. The
+>   predicate names the sacrifice event rather than counting lines, so a future no-op log cannot flip the gate.
+> · **Runtime:** `WITNESS victimize {"pending":null,"battlefield":["Craw Wurm (tapped)","Hill Giant (tapped)"],"graveyard":["Grizzly Bears","Victimize"]}`
+>   and `WITNESS victimizeNoSac {"battlefield":[],"graveyard":["Craw Wurm","Hill Giant","Victimize"]}` — one creature: it is
+>   sacrificed and both chosen cards return tapped; none: nothing returns; two: the choice, and the picked one goes; a pick that
+>   sacrifices nothing returns nothing; one chosen card gone: the other still returns (CR 608.2b); both gone: the spell does
+>   not resolve and nothing is sacrificed. Witness `app/src/lib/learn/victimize.test.js` (9).
+> · **Next:** #140 War Room (the worklist head at 833).
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 4: Urza's Saga (EDHREC #120) — the Saga self-grant, the printed-mana-cost tutor, Saga lands on the land drop · **+1** · corpus 15,177
 > Suite **17,450** green (1 skipped); lint 0; decks 2,720 → **2,725** / 2,998 (cdh 93, Earth Bent 92, Squirrel Girl 92, Captain

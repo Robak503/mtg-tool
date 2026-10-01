@@ -145,6 +145,24 @@ export function matchReanimateDrain(oracle) {
   ] };
 }
 
+// SACRIFICE, THEN RETURN THE CHOSEN (the play-weighted program, P·5 — Victimize, EDHREC #128): "Choose two target creature
+// cards in your graveyard. Sacrifice a creature. If you do, return the chosen cards to the battlefield tapped." Three
+// sentences, one instruction: the targets are chosen as the spell is cast (CR 601.2c — exactly two, a mandatory pair, never
+// the same card twice, CR 115.3), the sacrifice and the return happen in written order as it resolves (CR 608.2c). Split,
+// the lead reads as nothing and "the chosen cards" is an orphan, so the whole card is collapsed up front to two atoms: the
+// controller's sacrifice (the existing edict chain — a forced pick with one creature, the sacrifice choice with two or more,
+// nothing with none) and the paired reanimate, which carries `ifSacrificed` and runs only when that sacrifice actually
+// happened (runProgram's gate). One target gone by then: the other still returns (CR 608.2b); both gone: the spell does
+// not resolve and nothing is sacrificed (the fizzle gate). Whole-string anchored; the corpus prints this shape once.
+export function matchSacThenReturnChosen(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  if (!/^choose two target creature cards in your graveyard\. sacrifice a creature\. if you do, return the chosen cards to the battlefield tapped$/.test(s)) return null;
+  return { atoms: [
+    { op: "sacrifice", who: "controller", what: "creature" },
+    { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", minTargets: 2, maxTargets: 2, entersTapped: true, ifSacrificed: true },
+  ] };
+}
+
 /**
  * ===== DRAIN-BY-COUNT (BLITZ FE-1, CR 107.3b + 119.3) ===== the count-scaled "deal-and-gain" drain family:
  * "<source> deals X damage to <target> and you gain X life, where X is [equal to] the number of <count source>."

@@ -152,7 +152,7 @@ export function finishSpellResolution(state, disposition, { selfExile = false, s
   return logEvent(next, { kind: "spell-to-graveyard", playerId, cardName: card.name || null });
 }
 
-export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
+export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacrificed = false } = {}) {
   const params = stackObject?.payload?.params || {};
   const { program, controller, targets = [], xValue = null, sourceId = null, context = {}, kicked = false } = params;
 
@@ -203,8 +203,19 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
       return finishSpellResolution(fizzled, params.spellToGraveyard);
     }
   }
+  // "SACRIFICE … IF YOU DO" (play-weighted P·5 — Victimize, CR 608.2c): an `ifSacrificed` atom runs only when the atom right
+  // before it ACTUALLY sacrificed something — the controller may control nothing to sacrifice. Read off what happened (a
+  // sacrifice event with a real victim, logged by that atom's own resolution), never predicted from the board. A program
+  // resumed straight onto the gated atom arrives with the settler's answer: resolveSacrificeChoice passes prevSacrificed;
+  // every other settler's resume leaves it false, so the gated atom is skipped (a dropped payoff, never a fabricated one —
+  // CREED). The one producer (templateMatchers.matchSacThenReturnChosen) puts it right after the CONTROLLER's own sacrifice,
+  // which is what makes "you" in "if you do" the sacrificer here; a new producer must keep that shape.
+  let sacrificedByPrev = prevSacrificed === true;
   for (let i = startIndex; i < atoms.length; i++) {
     const atom = atoms[i];
+    const prevDidSacrifice = sacrificedByPrev;
+    sacrificedByPrev = false;
+    if (atom.ifSacrificed && !prevDidSacrifice) continue;
     // CONDITIONAL SPELL RIDER (BLITZ CD-1, CR 608.2) — a `condition`-gated rider ("If you control a Wizard,
     // draw a card") applies ONLY when the board condition holds AS this instruction resolves (CR 608.2, in
     // written order — so `next`, the state after earlier atoms, is the correct read). Reuses the intervening-if
@@ -286,6 +297,7 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
       atomTargets = atomTargets.map((t) => { const pid = t?.owner || t?.controller; return pid ? { type: "player", id: pid } : null; }).filter(Boolean);
     }
     const ctx = { ...context, controller, targets: atomTargets, cardName, xValue, sourceId };
+    const logLenBefore = next.log?.length ?? 0;
     const after = resolveAtom(next, atom, ctx);
     if (after == null) {
       // Belt-and-braces: an atom with no resolver. programConfidence should have
@@ -294,6 +306,7 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
       return markPendingArbiter(next, stackObject, `effect-program (no resolver for atom "${atom?.op}")`);
     }
     next = after;
+    sacrificedByPrev = (next.log || []).slice(logLenBefore).some((e) => e.effect === "sacrifice" && e.sacrificed != null);
     // An atom set a resolution-time CHOICE (tutor search) — suspend the program and
     // record where to resume. The driver settles the choice, then resolveTutorChoice
     // re-enters at nextAtomIndex.
@@ -854,10 +867,12 @@ export function resolveSacrificeChoice(state, permId) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "sacrifice-choice") return state;
   let next = clearPendingChoice(state);
+  let sacrificed = false; // the pick really went — the answer an `ifSacrificed` atom right after this sacrifice reads on resume
   if (next.players?.[pc.controller]) {
     const isCandidate = (pc.candidates || []).some((c) => c.id === permId);
     if (isCandidate && findPermanent(next, permId)) {
       next = sacrificeCreatureEffect(next, pc.controller, permId);
+      sacrificed = true;
     } else {
       next = logEvent(next, { kind: "spell-effect", effect: "sacrifice", controller: pc.controller, sacrificed: null });
     }
@@ -876,10 +891,10 @@ export function resolveSacrificeChoice(state, permId) {
       ? r
       : { ...r, pendingChoice: { ...r.pendingChoice, resume: pc.resume } };
   }
-  // Chain done → resume the caster's suspended program (its riders).
+  // Chain done → resume the caster's suspended program (its riders), with whether this pick really sacrificed.
   const casterId = pc.resume?.controller;
   if (casterId && !r.players?.[casterId]) return r; // caster eliminated mid-pause → no resume
-  return resumeAfterChoice(r, pc);
+  return resumeAfterChoice(r, pc, { prevSacrificed: sacrificed });
 }
 
 /**
@@ -2225,14 +2240,14 @@ export function resolveTaxedPaymentChoice(state, pay) {
  * scry/surveil + optional paths): re-enter the program at the recorded `nextAtomIndex` so the atoms
  * AFTER the choice run (e.g. the "draw a card" in "Scry 1, then draw a card").
  */
-function resumeAfterChoice(state, pc) {
+function resumeAfterChoice(state, pc, { prevSacrificed = false } = {}) {
   const r = pc.resume;
   if (r?.program && Array.isArray(programAtoms(r.program, r.chosenMode)) && r.nextAtomIndex < programAtoms(r.program, r.chosenMode).length) {
     const obj = {
       source: { name: r.cardName ?? pc.sourceName ?? null },
       payload: { params: { program: r.program, controller: r.controller, targets: r.targets, xValue: r.xValue, sourceId: r.sourceId, context: r.context, kicked: r.kicked ?? false, chosenMode: r.chosenMode, spellToGraveyard: r.spellToGraveyard ?? null } },
     };
-    return runEffectProgram(state, obj, { startIndex: r.nextAtomIndex });
+    return runEffectProgram(state, obj, { startIndex: r.nextAtomIndex, prevSacrificed });
   }
   // GY-1 terminal: no atoms remain after the settle — the re-entered program can't finish the spell,
   // so finish it here (the two completion points are mutually exclusive per settle: exactly one fires).

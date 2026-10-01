@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Victimize** — sacrifice a creature to return two creature cards from your graveyard to the battlefield tapped
 - **Urza's Saga** — plays as your land drop: taps for {C} after chapter I, makes Constructs after chapter II, and fetches an artifact with mana cost {0} or {1} at chapter III
 - **Digsite Engineer** — pay {2} when you cast an artifact spell to create a Construct that grows with your artifacts
 - **Feed the Swarm** — destroy a creature or enchantment an opponent controls; you lose life equal to its mana value
