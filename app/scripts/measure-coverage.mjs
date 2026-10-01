@@ -3,6 +3,10 @@
  *
  *   npm run coverage            # CORPUS-wide native % (the primary headline) + every saved deck
  *   npm run coverage -- <name>  # only decks whose name includes <name> (skips the corpus pass)
+ *   npm run coverage -- --played=1000
+ *                               # the PLAY-WEIGHTED WORKLIST: the top-N most-played cards (edhrec_rank) that are not
+ *                               # covered, in rank order, each with the lines that alone hold it back (the
+ *                               # play-weighted program, Colton 2026-10-01: top 1,000 to 90%, then top 2,500, then reassess)
  *
  * Enriches each card via the engine's own card index, classifies it with the
  * shared `coverage.js` module (the SAME logic the runtime uses to decide
@@ -19,7 +23,11 @@ import path from "node:path";
 import { lookupCard, publicCard, allCards } from "../src/lib/server/cardIndex.js";
 import { coverageSummary, classifyCard, isNativeTier, mechanismBucket, ALL_TIERS } from "../src/lib/learn/coverage.js";
 
-const filter = (process.argv[2] || "").toLowerCase();
+const args = process.argv.slice(2);
+const filter = (args.find((a) => !a.startsWith("--")) || "").toLowerCase();
+const playedArg = args.find((a) => a.startsWith("--played"));
+const playedTop = playedArg ? Number(playedArg.split("=")[1]) : null;
+if (playedArg && !(Number.isInteger(playedTop) && playedTop > 0)) throw new Error(`--played needs a positive count (got "${playedArg}")`);
 // Mirrors the MTG_APP_ROOT-with-cwd-fallback convention every sync script uses (sync-edhrec-salt.cjs,
 // sync-scryfall-bulk.cjs, ...): allCards()/lookupCard() below already resolve through cardIndex.js,
 // which DOES respect MTG_APP_ROOT, so the corpus-wide pass worked regardless — but this bare
@@ -39,6 +47,9 @@ function isRealCard(c) {
   if (!t) return false;
   return !/\b(Token|Emblem|Scheme|Plane|Phenomenon|Vanguard|Dungeon|Conspiracy|Sticker|Attraction|Card)\b/.test(t);
 }
+
+// PLAY-COVERED — the play-weighted blocks' one definition: a native tier, or a plain land (lands run trivially).
+const playCovered = (t) => isNativeTier(t) || t === "land";
 
 // ---- CORPUS-WIDE native coverage: the PRIMARY headline (skipped when a deck filter is given) ----
 function reportCorpus() {
@@ -61,7 +72,7 @@ function reportCorpus() {
       gap[b] = (gap[b] || 0) + 1;
       (gapExamples[b] = gapExamples[b] || new Set()).add(c.name);
     }
-    if (Number.isInteger(raw.edhrec_rank)) ranked.push({ rank: raw.edhrec_rank, covered: isNativeTier(t) || t === "land" });
+    if (Number.isInteger(raw.edhrec_rank)) ranked.push({ rank: raw.edhrec_rank, covered: playCovered(t) });
   }
   const pct = total ? Math.round((native / total) * 1000) / 10 : 0;
   console.log("=== CORPUS-WIDE NATIVE COVERAGE (the north-star metric) ===");
@@ -129,6 +140,48 @@ function enrich(dk) {
     cards.push({ type: c.type, oracle: c.oracle, mana: c.mana, name: c.name, loyalty: c.loyalty, power: c.power, toughness: c.toughness, keywords: c.keywords, layout: c.layout, qty: entry.qty || 1 });
   }
   return cards;
+}
+
+// ---- PLAY-WEIGHTED WORKLIST (--played=N): the top-N most-played cards that are NOT covered, in rank order ----
+// The same card set and the same covered test as the play-weighted block above (isRealCard, an edhrec_rank, playCovered),
+// so its header always equals that block's line for N. Each uncovered card gets a sole-blocker probe — re-classify with each
+// oracle line removed; a line whose removal makes the card covered holds it back alone — and the lines are printed as
+// written. A one-line card prints its line as the blocker; a card no single deletion covers prints "multi-line" with its
+// oracle. Rank order IS the program's selection rule.
+function reportPlayedWorklist(top) {
+  const ranked = [];
+  for (const raw of allCards()) {
+    if (!Number.isInteger(raw.edhrec_rank)) continue;
+    let c;
+    try { c = publicCard(raw); } catch { continue; }
+    if (!isRealCard(c)) continue;
+    ranked.push({ rank: raw.edhrec_rank, card: c });
+  }
+  ranked.sort((a, b) => a.rank - b.rank);
+  const band = ranked.slice(0, top);
+  const misses = [];
+  for (const { rank, card } of band) {
+    const t = classifyCard(card);
+    if (playCovered(t)) continue;
+    const lines = String(card.oracle || "").split("\n").filter((l) => l.trim());
+    const sole = lines.filter((_, i) => playCovered(classifyCard({ ...card, oracle: lines.filter((__, j) => j !== i).join("\n") })));
+    misses.push({ rank, name: card.name, type: card.type, tier: t, sole, lines });
+  }
+  const covered = band.length - misses.length;
+  const pct = band.length ? Math.round((covered / band.length) * 1000) / 10 : 0;
+  console.log(`=== PLAY-WEIGHTED WORKLIST — top ${top} most-played (edhrec_rank), uncovered in rank order ===`);
+  console.log(`  covered ${covered}/${band.length} (${pct}%) · to 90%: +${Math.max(0, Math.ceil(band.length * 0.9) - covered)}`);
+  for (const m of misses) {
+    console.log(`  #${String(m.rank).padEnd(6)} ${m.name} [${m.tier}] ${String(m.type).split(" // ")[0]}`);
+    if (m.sole.length) for (const l of m.sole) console.log(`           sole: ${l}`);
+    else if (m.lines.length === 1) console.log(`           blocker: ${m.lines[0]}`); // a one-line card: the line is the whole blocker
+    else console.log(`           multi-line: ${m.lines.join(" / ").slice(0, 300)}`);
+  }
+}
+
+if (playedTop) {
+  reportPlayedWorklist(playedTop);
+  process.exit(0);
 }
 
 // Corpus headline first (the north star). A deck filter narrows to specific decks, so skip it.

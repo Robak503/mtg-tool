@@ -7,9 +7,24 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## 🏁 2026-10-01 — **THE SHELF IS DONE: 29 of 30 decks at ≥90** (Atraxa deferred) · stage ③ closed — runnable: the 09-06 plan's stage ④
+## 🎯 2026-10-01 — **THE PLAY-WEIGHTED PROGRAM** (Colton's order) — runnable: the top-1,000 worklist, in rank order
 
-> **Runnable next:** [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) §4 — the Quartet's open phases
+> **Colton, 10-01:** "So 1k then 2.5k then we re assess from there." The steering metric is now PLAY-WEIGHTED coverage —
+> the most-played Commander cards by edhrec_rank, covered = a native tier or a plain land — not the corpus total.
+> **Phase 1: the top 1,000 to 90%** (829 / 1,000 today, 82.9% → +71). **Phase 2: the top 2,500 to 90%** (1,648 / 2,500,
+> 65.9% → +602 from today). **Then reassess with Colton.**
+> **Runnable next:** `MTG_APP_ROOT=… node scripts/measure-coverage.mjs --played=1000` (from `app/`, ~1 min) lists the
+> uncovered cards in rank order, each with the line(s) that alone hold it back. Take the HIGHEST-RANKED miss the CREED can
+> build (#28 Myriad Landscape first). A card that needs Colton's call is skipped with its reason in the ledger, never
+> built: planeswalkers stay their own program (09-30), theft-THEMED decks stay off (single theft cards are fine). Full
+> per-slice gates as ever; each ledger entry records the worklist header (covered N / 1,000).
+> **The shape (measured 10-01):** no veins left — of the 852 top-2,500 misses, 430 are one line away and those lines are
+> 429 distinct shapes. The top 500 are 92.6% covered; #501–1,000 73%; #2,001–2,500 48%. Mostly one card per slice: a
+> program of weeks, not a sprint.
+
+## 🏁 2026-10-01 — **THE SHELF IS DONE: 29 of 30 decks at ≥90** (Atraxa deferred) · stage ③ closed — stage ④ parked behind the play-weighted program (above)
+
+> **Stage ④ — parked behind the play-weighted program:** [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) §4 — the Quartet's open phases
 > ([SUBSYSTEM-QUARTET-PLAN.md](SUBSYSTEM-QUARTET-PLAN.md); read its status ledger first): Phase 2's tail, evalScores on
 > pending rows — and do NOT build the bannered `decisionLog` channel. A change of kind from card slices (CR-level engine work
 > → decision-quality work), so it waits on Colton's nod per CLAUDE.md §7.2. Atraxa (74) stays DEFERRED (Colton 09-30:

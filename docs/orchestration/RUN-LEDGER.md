@@ -15,6 +15,20 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🎯 2026-10-01 — THE PLAY-WEIGHTED PROGRAM (Colton: "So 1k then 2.5k then we re assess from there") — the worklist tool
+> The steering metric moves from the corpus total to PLAY-WEIGHTED coverage (the most-played cards by edhrec_rank; covered =
+> a native tier or a plain land — measure-coverage's existing play-weighted block). Phase 1: the top 1,000 to 90% (829 →
+> 900, +71). Phase 2: the top 2,500 to 90% (1,648 → 2,250, +602). Then reassess with Colton. Stage ④ waits behind it.
+> · **The tool:** `node scripts/measure-coverage.mjs --played=N` prints the top-N's uncovered cards in rank order with each
+>   one's sole-blocker lines (re-classified with each line removed), from the SAME card set and covered test as the
+>   play-weighted block (one `playCovered` definition in the file), so its header equals that block's line for N.
+> · **The shape (measured):** of the 852 top-2,500 misses — 559 body-only, 193 arbiter-spell, 72 land-partial, 28 walkers —
+>   430 are one line away, and those lines are 429 distinct shapes (only "station" repeats). By rank: #1–500 92.6% covered,
+>   #501–1,000 73.2%, #1,001–1,500 62.2%, #1,501–2,000 53.4%, #2,001–2,500 48.2%. No veins: the program is mostly one
+>   card per slice.
+> · **Selection rule:** the highest-ranked uncovered card the CREED can build; walkers stay their own program (Colton
+>   09-30), skipped with the reason recorded.
+
 > ## 🎯 2026-10-01 — 09-06 PLAN STAGE ③ · 54: "Bloodrush — {cost}, Discard this card: …" — the from-hand combat window — Rubblebelt Maaka and ten more · **+11** · corpus 15,173 (44.3%) / 34,245 · **STAGE ③ CLOSED**
 > Suite **1,695 files / 17,428 tests** green (1 skipped); lint 0; decks unchanged (2,720 / 2,998 — a corpus slice; the shelf is done). CI GREEN on D44
 > (run 36834537604). Flip-diff **+11, zero LOST, zero RETIERED** (tier snapshots at 304d705f → the change: Rubblebelt Maaka, Viashino Shanktail, Skinbrand Goblin, Scab-Clan Charger, Scorchwalker, Skarrg Goliath, Wrecking Ogre, Zhur-Taa Swine, Wasteland Viper, Ghor-Clan Rampager, Slaughterhorn body-only → native-body).
