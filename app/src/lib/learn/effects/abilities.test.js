@@ -51,10 +51,13 @@ describe("parseActivatedAbilities — cost parsing (mana + {T} allowlist)", () =
     expect(one("{T}, Sacrifice an artifact: Draw a card.")[0].sacOther).toMatchObject({ type: "artifact", another: false });
     expect(one("Sacrifice a permanent: Draw a card.")[0].sacOther).toMatchObject({ type: "permanent" });
   });
-  it("does NOT model a multi-sacrifice cost (count > 1 — deferred)", () => {
+  it("models a multi-sacrifice cost of a class — GRADUATED (play-weighted P·17, SAC-N-CLASS); a count of a non-fungible subtype stays deferred", () => {
+    // This pin said "does NOT model a multi-sacrifice cost (count > 1 — deferred)". A count of a distinguishable class is
+    // modeled now (the least valuable N are frozen on the action — bolasCitadel.test.js), so it is asserted positively; the
+    // deferral that remains — a count of a non-fungible subtype ("two Goblins") — holds the refusal.
     const [a] = one("{1}, Sacrifice two creatures: Draw a card.");
-    expect(a.modeled).toBe(false);
-    expect(a.sacOther).toBe(null);
+    expect({ modeled: a.modeled, sacOther: a.sacOther, sacCount: a.sacCount }).toEqual({ modeled: true, sacOther: null, sacCount: { type: "creature", count: 2 } });
+    expect(one("{1}, Sacrifice two Goblins: Draw a card.")[0].modeled).toBe(false);
   });
   it("models a Discard-a-card cost (γ1h, BLITZ DC-1 — the picker arrived: one offer per distinct hand card)", () => {
     const [a] = one("{T}, Discard a card: Draw a card.");

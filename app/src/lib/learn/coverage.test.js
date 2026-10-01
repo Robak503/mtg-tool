@@ -269,7 +269,9 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Artifact", "Sacrifice another creature: Draw a card."))).toBe("native-activated");
     // Still body-only: a MULTI-sacrifice cost (count > 1 — deferred), an UNFILTERED tutor (the choice
     // is the point), or an activated ability sitting next to an UNMODELED trigger (composite → safe).
-    expect(classifyCard(C("Creature — Wizard", "{1}, Sacrifice two creatures: Draw a card."))).toBe("body-only");
+    // GRADUATED (play-weighted P·17, SAC-N-CLASS): a count of a class is modeled now; a count of a non-fungible subtype is not.
+    expect(classifyCard(C("Creature — Wizard", "{1}, Sacrifice two creatures: Draw a card."))).toBe("native-activated");
+    expect(classifyCard(C("Creature — Wizard", "{1}, Sacrifice two Goblins: Draw a card."))).toBe("body-only");
     expect(classifyCard(C("Artifact", "{2}, {T}: Search your library for a card, then shuffle."))).toBe("body-only");
     expect(classifyCard(C("Creature — Human", "{T}: This creature deals 1 damage to any target.\nWhenever this creature deals damage, you may untap it."))).toBe("body-only");
   });

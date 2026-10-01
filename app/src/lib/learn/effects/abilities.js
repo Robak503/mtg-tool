@@ -630,12 +630,26 @@ export function parseAbilityCost(costStr, card = null) {
     // Scoped DELIBERATELY to the fungible value-token subtypes (Treasure/Clue/Food/Gold/Blood/Map/Powerstone/
     // Incubator) — those are interchangeable tokens, so paying N of them is a NO-DECISION cost (any N satisfy
     // it identically, CR 701.16); the runtime auto-picks N matching permanents. A COUNT-sac of a DISTINGUISHABLE
-    // class ("two artifacts", "two creatures", "two other artifacts and/or creatures") is a REAL choice (which
-    // value permanents to give up) the auto-pick can't make faithfully — those stay UNMODELED → Arbiter (a safe
-    // false-negative, never a mis-paid cost). type:"permanent" + the subtype filter reuses sacTypeMatches exactly
+    // class ("two artifacts", "two creatures", "two other artifacts and/or creatures") is a real choice of which
+    // permanents to give up — modeled since P·17 by SAC-N-CLASS above, which ranks the victims least-valuable first
+    // (the spell-side AC-1 policy) and names them on the action. type:"permanent" + the subtype filter reuses sacTypeMatches exactly
     // like the single-subtype branch; count is the parsed integer the legalChoices victim-gather and the
     // dispatcher payment both read. Word-numbers two–five and digits 2–5 only (a higher fixed count is rare and
     // still routes to the Arbiter). Singular/plural tolerated on the subtype noun ("Foods"/"Food").
+    // SAC-N-CLASS (the play-weighted program, P·17 — Bolas's Citadel "Sacrifice ten nonland permanents", Sai "Sacrifice two
+    // artifacts", Priest of Forgotten Gods "Sacrifice two other creatures"): a COUNT of a distinguishable class. The
+    // victims are frozen at the offer by the SAME least-valuable policy the spell-side count-sacrifice (AC-1 — Bankrupt in
+    // Blood) already uses, one action per payable combination of the rest of the cost, named on the action so the player
+    // sees what goes. "other" excludes the source; without it the source is a legal victim like any other. A class word
+    // the matcher below doesn't name → falls through → unmodeled (deferred).
+    const sacClassM = /^[Ss]acrifice (two|three|four|five|six|seven|eight|nine|ten) (other )?(creatures|artifacts|enchantments|lands|permanents|nonland permanents|artifacts and\/or creatures)$/.exec(item);
+    if (sacClassM) {
+      const count = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 }[sacClassM[1]];
+      const type = { creatures: "creature", artifacts: "artifact", enchantments: "enchantment", lands: "land", permanents: "permanent",
+        "nonland permanents": "nonlandPermanent", "artifacts and/or creatures": "artifactOrCreature" }[sacClassM[3]];
+      sacCount = { type, count, ...(sacClassM[2] ? { other: true } : {}) };
+      continue;
+    }
     const sacNM = /^[Ss]acrifice (two|three|four|five|2|3|4|5) ([A-Z][a-z]+?)s?$/.exec(item);
     if (sacNM) {
       const FUNGIBLE = new Set(["treasure", "clue", "food", "gold", "blood", "map", "powerstone", "incubator"]);

@@ -397,6 +397,8 @@ function sacTypeMatches(card, type, subtype = null) {
     type === "creatureOrEnchantment" ? (t.includes("Creature") || t.includes("Enchantment")) :
     type === "creatureOrPlaneswalker" ? (t.includes("Creature") || t.includes("Planeswalker")) :
     type === "creatureOrLand" ? (t.includes("Creature") || t.includes("Land")) :
+    // SAC-N-CLASS (P·17 — Bolas's Citadel "Sacrifice ten nonland permanents"): any permanent that isn't a land.
+    type === "nonlandPermanent" ? !t.includes("Land") :
     false;
   if (!baseOk) return false;
   if (!subtype) return true;
@@ -2598,9 +2600,13 @@ function actionsActivateAbility(state, playerId) {
       if (ab.sacCount) {
         sacCountPool = player.battlefield.filter((v) =>
           sacTypeMatches(v.card, ab.sacCount.type, ab.sacCount.subtype || null) &&
+          !(ab.sacCount.other && v.id === perm.id) && // SAC-N-CLASS (P·17): "two OTHER creatures" never takes the source
           !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""),
         );
         if (sacCountPool.length < ab.sacCount.count) continue; // can't pay the sac → not offered
+        // SAC-N-CLASS (P·17): a distinguishable class (no fungible subtype) gives up its least valuable members first —
+        // the spell-side count-sacrifice's ranking (AC-1), so the frozen victims below are the ones a player would pick.
+        if (!ab.sacCount.subtype) sacCountPool = [...sacCountPool].sort(policyEvalEnabledFor(state, playerId) ? evalLeastValuableCmp(state) : leastValuablePermanentCmp);
       }
       // LANDS-4 — "Exile N [<type>] cards from your graveyard" (Mines of Moria, Grim Lavamancer, Graveyard
       // Marshal): the victims come from the controller's OWN graveyard, typed through the same
@@ -2973,8 +2979,12 @@ function actionsActivateAbility(state, playerId) {
             chosenMode: ch.chosenMode ?? null,
             needsTargets: ch.targets.length > 0,
             targetName: ch.targets.map((t) => t.name).filter(Boolean).join(", ") || undefined,
+            // SAC-N-CLASS (P·17): a class sacrifice has no subtype to pluralize — name the frozen victims instead, so the
+            // player sees exactly what goes (the spell-side count-sacrifice's sacName does the same).
             abilityText: ab.sacCount
-              ? `Sacrifice ${ab.sacCount.count} ${ab.sacCount.subtype}s: ${ab.effectClause}`
+              ? (ab.sacCount.subtype
+                ? `Sacrifice ${ab.sacCount.count} ${ab.sacCount.subtype}s: ${ab.effectClause}`
+                : `Sacrifice ${sacCountPool.filter((v) => (sacCountIds || []).includes(v.id)).map((v) => v.card?.name).join(", ")}: ${ab.effectClause}`)
               : ab.tapCreature && tapVictim ? `Tap ${tapVictim.card?.name}: ${ab.effectClause}`
               : ab.returnLand && returnLandVictim ? `Return ${returnLandVictim.card?.name}: ${ab.effectClause}`
               : ab.unattachEquipment && unattachVictim ? `Unattach ${unattachVictim.card?.name}: ${ab.effectClause}`
@@ -3668,8 +3678,22 @@ function actionsPlayFromTopOfLibrary(state, playerId) {
     // card's type line here. This check is the ENFORCEMENT half of the credited static — without it a
     // filtered permission would offer ANY top card, which is a bigger card than the one printed and exactly
     // the false positive the lands-only gate below already exists to prevent.
-    if (!castFromTopFilterAllows(perm.spellFilter, top)) return actions;
-    actions.push(...castActionsFromZone(state, playerId, [top], "library", null, false));
+    if (castFromTopFilterAllows(perm.spellFilter, top)) actions.push(...castActionsFromZone(state, playerId, [top], "library", null, false));
+    // BOLAS'S CITADEL (P·17 — CR 118.9): the LIFE-COST permission — pay life equal to the spell's mana value rather than its
+    // mana cost. Built as a no-mana cast (so X is 0, CR 107.3b, and no other alternative cost stacks, CR 118.9a) and carried
+    // as an altCost the dispatcher pays; a mana value of 0 pays nothing (and a card with no mana cost may still be cast,
+    // CR 118.6a). The free-cast builder skips the casting-timing check, so the permission's own timing is enforced here: a
+    // spell cast this way follows its normal timing. Life is paid only if the total covers it (CR 119.4).
+    if (perm.lifeSpellFilter && castFromTopFilterAllows(perm.lifeSpellFilter, top)
+        && (isSorcerySpeed(top) ? canCastSorcerySpeed(state, playerId) : canCastInstantSpeed(state, playerId))) {
+      const mv = Math.max(0, Number(top.cmc) || 0);
+      if ((player.life ?? 0) >= mv) {
+        for (const a of castActionsFromZone(state, playerId, [top], "library", null, true)) {
+          const { freeCast: _paidInLife, ...cast } = a;
+          actions.push({ ...cast, altCost: mv > 0 ? { kind: "payLife", payLife: mv } : { kind: "free" }, lifeCostFromTop: true });
+        }
+      }
+    }
   } else if (perm.lands && canCastSorcerySpeed(state, playerId) && player.landsPlayedThisTurn < landDropAllowance(state, playerId)) {
     // LAND — play from the library top if the permission grants lands and a land drop is available.
     actions.push({ kind: "play-land", playerId, cardId: top.id, name: top.name, fromZone: "library" });

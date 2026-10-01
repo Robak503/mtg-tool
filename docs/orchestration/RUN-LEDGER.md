@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **32 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,201)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **33 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,216)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,35 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 17: Bolas's Citadel (EDHREC #263) — pay life from the top, and "Sacrifice N <class>" costs · **+15** · corpus 15,216
+> Suite **17,572** green (1 skipped); lint 0; decks 2,735 → **2,738** / 2,998 (Vihaan 96, Shorikai Vehicles 92, Thrun Voltron 92). CI
+> GREEN on P·16 (run 36905650413). Flip-diff **+15, zero LOST, zero RETIERED** (tier snapshots at ca807be9 → the change; each full oracle
+> audited): Bolas's Citadel, Sai, Master Thopterist, Mondrak, Glory Dominus, Zopandrel, Breya, Turntimber Sower, Scion of Opulence,
+> Hedron Detonator → native-mixed; Time Sieve, Whisper, Krark-Clan Engineers, Keldon Arsonist, Eater of Hope, Keskit, Tooth and
+> Claw → native-activated. Top 1,000 **848** (needs +52; Citadel #263, Mondrak #422, Sai #813); top 2,500 **1,670**. **Mutants 16/16**.
+> · **FIXED — a runtime false positive on a body-only card:** the static parser read Citadel's "You may play lands and cast
+>   spells from the top of your library" and dropped the next sentence, "If you cast a spell this way, pay life equal to its mana
+>   value rather than pay its mana cost" — so a Citadel in play let the top card be cast paying MANA. The rider is a marker now
+>   (`playFromTopPaysLife`); playFromTopPermission pairs it with the permission on the same card and makes that card's spell
+>   grant a life-cost one (`lifeSpellFilter`) — its lands are unchanged, and beside Future Sight both ways are offered.
+> · **The life-cost cast (CR 118.9):** built as a no-mana cast (X is 0 — CR 107.3b; no second alternative cost — 118.9a) carried
+>   as an `altCost` the dispatcher pays; mana value 0 pays nothing (and a card with no mana cost is still castable, 118.6a); the
+>   spell keeps its normal timing (the free-cast builder skips that check, so it's enforced at the offer); life is paid only if
+>   the total covers it (119.4). The AI casts from the top for life behind the existing 10-life floor.
+> · **SAC-N-CLASS:** "Sacrifice <two…ten> [other] <creatures | artifacts | enchantments | lands | permanents | nonland
+>   permanents | artifacts and/or creatures>" activation costs parse now (abilities.js). The victims are frozen at the offer by
+>   the spell-side count-sacrifice's least-valuable ranking (AC-1, Bankrupt in Blood — a precedent the activated side had
+>   refused), a targeted permanent is never a victim, "other" keeps the source out, and the action names what it sacrifices.
+> · **Re-pointed pins (the deferral graduated):** sacCountActivated.test.js (three parse pins and Mondrak / the synthetic
+>   "Sacrifice two artifacts" permanent), abilities.test.js, coverage.test.js, doublePt.test.js (Zopandrel) — each asserts
+>   the new behaviour, and a count of a non-fungible SUBTYPE ("two Goblins") holds the refusal that remains.
+> · **Found on the way (2):** the AI's card lookup never searched the library, so it had never cast from the top via ANY
+>   permission (Future Sight, Mystic Forge) — fixed. And a class sacrifice's action text read "Sacrifice 2 undefineds".
+> · **Runtime:** `WITNESS bolasCitadel {"offered":[{"alt":{"kind":"payLife","payLife":2},"free":false,"mana":0}],"life":38,
+>   "pool":2,"bears":1}` — Grizzly Bears cast off the top for 2 life with the mana pool untouched. Breya sacrificing herself still
+>   deals her 3 (last-known information, probed). Witness `app/src/lib/learn/bolasCitadel.test.js` (12).
+> · **Next:** #269 Hullbreaker Horror.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 16: Etali, Primal Storm (EDHREC #260) — cast any number of spells from among the exiled cards · **+1** · corpus 15,201
 > Suite **17,559** green (1 skipped); lint 0; decks 2,734 → **2,735** / 2,998 (Jurassic Ramp 92). CI GREEN on P·15 (run 36903666148).

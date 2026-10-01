@@ -3188,6 +3188,14 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ playFromTop: { lands: true, spellFilter: "any" } });
     return;
   }
+  // BOLAS'S CITADEL (the play-weighted program, P·17 — CR 118.9): "If you cast a spell this way, pay life equal to its mana
+  // value rather than pay its mana cost." The alternative cost of the play-from-top permission printed just before it. A
+  // MARKER: playFromTopPermission reads the pair off the same card and makes that card's spell permission a life-cost one —
+  // never a mana one (before this marker the rider was dropped and the permission alone let a spell be cast paying mana).
+  if (/^if you cast a spell this way, pay life equal to its mana value rather than pay its mana cost$/.test(c)) {
+    out.push({ playFromTopPaysLife: true });
+    return;
+  }
   // SHELF D34 (The Reality Chip — "As long as The Reality Chip is attached to a creature, you may play lands and cast spells
   // from the top of your library."): the same permission, live only while the source is attached. playFromTopPermission
   // re-reads the source's attachedTo at every offer (the Conqueror's Flail split); an Equipment on a non-creature is
@@ -5796,7 +5804,11 @@ export function playFromTopPermission(state, playerId) {
   let merged = null;
   for (const perm of state?.players?.[playerId]?.battlefield || []) {
     if (!perm?.card) continue;
-    for (const d of parseStaticAbilities(perm.card)) {
+    const statics = parseStaticAbilities(perm.card);
+    // BOLAS'S CITADEL (P·17): a card that also prints "pay life equal to its mana value rather than pay its mana cost" grants
+    // its spells as LIFE-COST casts only (`lifeSpellFilter`), never mana ones; its land permission is unchanged.
+    const paysLife = statics.some((d) => d.playFromTopPaysLife);
+    for (const d of statics) {
       if (!d.playFromTop) continue;
       if (d.playFromTop.attachedGated && !perm.attachedTo) continue; // The Reality Chip grants nothing while unattached
       // A DYNAMIC chosen-type filter resolves HERE, where the granting permanent is in hand: its word list is
@@ -5804,9 +5816,13 @@ export function playFromTopPermission(state, playerId) {
       // all, rather than permitting everything — the safe direction, and never a guessed type.
       const raw = d.playFromTop.spellFilter;
       const resolved = raw?.chosenTypeOfSource ? (perm.chosenType ? [perm.chosenType] : null) : raw;
-      const grant = { lands: d.playFromTop.lands, spellFilter: resolved };
+      const grant = paysLife
+        ? { lands: d.playFromTop.lands, spellFilter: null, lifeSpellFilter: resolved }
+        : { lands: d.playFromTop.lands, spellFilter: resolved };
+      const lifeSpellFilter = merged ? mergeSpellFilters(merged.lifeSpellFilter, grant.lifeSpellFilter) : grant.lifeSpellFilter;
       merged = merged
-        ? { lands: merged.lands || grant.lands, spellFilter: mergeSpellFilters(merged.spellFilter, grant.spellFilter) }
+        ? { lands: merged.lands || grant.lands, spellFilter: mergeSpellFilters(merged.spellFilter, grant.spellFilter),
+          ...(lifeSpellFilter ? { lifeSpellFilter } : {}) }
         : grant;
     }
   }

@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Bolas's Citadel** — cast spells from the top of your library by paying life equal to their mana value; tap and sacrifice ten nonland permanents to make each opponent lose 10 life
+- **"Sacrifice two artifacts"-style costs** — Sai, Master Thopterist, Mondrak, Zopandrel, Breya, Time Sieve and nine more: the least valuable permanents of the class are sacrificed, and the action names them
 - **Etali, Primal Storm** — when it attacks, exile the top card of each player's library and cast any number of the spells among them for free, opponents' cards included
 - **Multikicker** — Everflowing Chalice, Gnarlid Pack, Wolfbriar Elemental, Lightkeeper of Emeria and the other multikicker cards the engine plays can be kicked any number of times; Everflowing Chalice enters with a charge counter per kick and taps for {C} per counter
 - **Malakir Rebirth** — choose a creature and lose 2 life; until end of turn, when it dies it returns to the battlefield tapped
@@ -37,6 +39,8 @@ summarizes the notable changes.
 - **One with the Multiverse, Zaffai and the Tempests, Vision, Spectral Synthezoid and Omniscience** — cast a spell without paying its mana cost (once each turn, or freely with Omniscience), at the normal time for that spell
 
 ### Fixed
+- Bolas's Citadel let the top card of your library be cast by paying its mana cost; it now costs life equal to the spell's mana value, as printed
+- The AI never cast spells from the top of its library (Future Sight, Mystic Forge and the like); it does now
 - Exsanguinate and the other each-opponent drains gained life for an opponent whose life total couldn't change; you now gain only the life actually lost
 - Gemstone Caverns tapped for any color without a luck counter; it makes {C} until it has one
 - Signets, the {1} filter lands (Darkwater Catacombs and kin), Cabal Coffers, Chromatic Star and every other mana ability with a mana cost now pay that cost — they used to tap for free, so a lone Signet could pay for spells

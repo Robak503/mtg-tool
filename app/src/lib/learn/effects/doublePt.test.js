@@ -17,7 +17,7 @@
  * GAINED = {Unnatural Growth, Reckless Amplimancer, Tifa Lockhart}, LOST = 0.
  *
  * CREED false-negatives (stay non-native — an unmodeled sibling ability / undetected trigger / unhandled
- * referent, never a wrong partial): Zopandrel (its {G/P} indestructible-counter sac ability is unmodeled),
+ * referent, never a wrong partial): Zopandrel (graduated P·17 — its sac-two-other-creatures ability is modeled now),
  * World War Hulk (Saga chapter III — a targeted double + trample rider), Grunn (attacks-alone trigger
  * undetected), Junk Jet ("equipped creature's" referent unmodeled), Exponential Growth ("X times").
  */
@@ -52,7 +52,9 @@ describe("double-P/T — classification", () => {
     expect(classifyCard(TIFA)).toBe("native-trigger"); // name→self possessive rewrite
   });
   it("CREED: cards with an unmodeled sibling ability / undetected trigger / unhandled referent stay non-native", () => {
-    expect(classifyCard(ZOPANDREL)).not.toMatch(/^native/);        // {G/P} sac→indestructible-counter unmodeled
+    // GRADUATED (play-weighted P·17): Zopandrel's sibling — "{G/P}{G/P}, Sacrifice two other creatures: Put an indestructible
+    // counter on Zopandrel" — is modeled now (SAC-N-CLASS), so the whole card is; the rest still park on their own text.
+    expect(classifyCard(ZOPANDREL)).toBe("native-mixed");
     expect(classifyCard(JUNK_JET)).not.toMatch(/^native/);         // "equipped creature's" referent unmodeled
     expect(classifyCard(EXPONENTIAL_GROWTH)).not.toMatch(/^native/); // "X times"
   });

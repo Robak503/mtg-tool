@@ -72,15 +72,20 @@ describe("SAC-N-SUBTYPE — cost parsing (γ1d)", () => {
     expect(parseAbilityCost("Sacrifice 5 Treasures").sacCount).toMatchObject({ subtype: "treasure", count: 5 });
   });
 
-  // CREED — distinguishable / out-of-range count sacs stay UNMODELED (null)
-  it("'Sacrifice two artifacts' (distinguishable class) → null (real choice, deferred)", () => {
-    expect(parseAbilityCost("Sacrifice two artifacts")).toBeNull();
+  // GRADUATED (play-weighted P·17, SAC-N-CLASS): a count of a distinguishable CLASS was a deferred real choice; it is modeled now
+  // — the least valuable N are frozen on the action (bolasCitadel.test.js drives it). These three asserted null; they assert
+  // the parse. The deferral that remains — a count of a non-fungible SUBTYPE — keeps the refusal below.
+  it("'Sacrifice two artifacts' (distinguishable class) → sacCount(artifact, 2)", () => {
+    expect(parseAbilityCost("Sacrifice two artifacts").sacCount).toEqual({ type: "artifact", count: 2 });
   });
-  it("'Sacrifice two creatures' → null", () => {
-    expect(parseAbilityCost("Sacrifice two creatures")).toBeNull();
+  it("'Sacrifice two creatures' → sacCount(creature, 2)", () => {
+    expect(parseAbilityCost("Sacrifice two creatures").sacCount).toEqual({ type: "creature", count: 2 });
   });
-  it("'Sacrifice two other artifacts and/or creatures' (Mondrak) → null", () => {
-    expect(parseAbilityCost("Sacrifice two other artifacts and/or creatures")).toBeNull();
+  it("'Sacrifice two other artifacts and/or creatures' (Mondrak) → sacCount(artifactOrCreature, 2, other)", () => {
+    expect(parseAbilityCost("Sacrifice two other artifacts and/or creatures").sacCount).toEqual({ type: "artifactOrCreature", count: 2, other: true });
+  });
+  it("'Sacrifice two Goblins' (a non-fungible subtype count) → null (still deferred)", () => {
+    expect(parseAbilityCost("Sacrifice two Goblins")).toBeNull();
   });
   it("'Sacrifice six Treasures' (count out of range) → null", () => {
     expect(parseAbilityCost("Sacrifice six Treasures")).toBeNull();
@@ -150,14 +155,16 @@ describe("SAC-N-SUBTYPE — CREED: unmodeled cards STAY body-only (no over-claim
       oracle: "First strike, haste\nWhenever Kellogg attacks, create a Treasure token.\nSacrifice five Treasures: Gain control of target creature for as long as you control Kellogg. Activate only as a sorcery.",
     })).toBe("body-only");
   });
-  it("Mondrak, Glory Dominus — '…Sacrifice two other artifacts and/or creatures…' (compound class) stays body-only", () => {
+  it("Mondrak, Glory Dominus — '…Sacrifice two other artifacts and/or creatures…' (compound class) — GRADUATED P·17: native-mixed", () => {
     expect(classifyCard({
       name: "Mondrak, Glory Dominus", type: "Legendary Creature — Phyrexian Horror", mana: "{2}{W}{W}",
       oracle: "If one or more tokens would be created under your control, twice that many of those tokens are created instead.\n{1}{W/P}{W/P}, Sacrifice two other artifacts and/or creatures: Put an indestructible counter on Mondrak.",
-    })).toBe("body-only");
+    })).toBe("native-mixed");
   });
-  it("a 'Sacrifice two artifacts: Draw a card.' permanent (distinguishable class) stays body-only", () => {
+  it("a 'Sacrifice two artifacts: Draw a card.' permanent (distinguishable class) — GRADUATED P·17: native-activated; two Goblins stays body-only", () => {
     expect(classifyCard({ name: "T", type: "Creature — Wizard", mana: "{2}{B}", oracle: "{1}, Sacrifice two artifacts: Draw a card." }))
+      .toBe("native-activated");
+    expect(classifyCard({ name: "T", type: "Creature — Wizard", mana: "{2}{B}", oracle: "{1}, Sacrifice two Goblins: Draw a card." }))
       .toBe("body-only");
   });
 });

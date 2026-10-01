@@ -204,9 +204,12 @@ function cardFromHand(state, playerId, cardId, fromPlayerId = null) {
   // EXILE: cascade / discover free-cast candidates, plotted cards, and adventure creature-halves cast
   // from exile all carry fromZone:"exile" — without this lookup every such action was silently dropped
   // (`if (!card) continue`), so cascade ALWAYS declined and plotted cards were never cast.
+  // LIBRARY (P·17 — Bolas's Citadel, and every play-from-top permission: Future Sight, Mystic Forge): a cast offered off the
+  // top of the library (fromZone:"library") was dropped here the same way, so the AI never cast from the top at all.
   return player?.hand.find(c => c.id === cardId)
     || player?.command?.find(c => c.id === cardId)
     || player?.exile?.find(c => c.id === cardId)
+    || player?.library?.find(c => c.id === cardId)
     || null;
 }
 
@@ -467,7 +470,9 @@ function filterAltCastVariants(state, aiPlayerId, actions) {
     const alt = a.altCost;
     if (!alt || alt.kind === "free") continue;
     if (normalKeys.has(altVariantKey(a))) continue;            // the affordable normal cast wins
-    if (!interaction) continue;                                // non-interaction paid alt → human-only
+    // BOLAS'S CITADEL (P·17): paying life for the top card IS the card — not a pitch spell's emergency mode — so a
+    // life-cost cast from the top survives without being interaction, behind the same life floor below.
+    if (!interaction && !a.lifeCostFromTop) continue;          // non-interaction paid alt → human-only
     if (alt.payLife && life - alt.payLife < 10) continue;      // life prudence floor
     const mv = altPaymentMv(state, aiPlayerId, alt);
     const k = altVariantKey(a);
