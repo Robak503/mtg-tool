@@ -198,14 +198,25 @@ function comboStartOffset(existingCombos) {
   return Math.max(0, Math.floor(existingCombos.length / PAGE_SIZE) * PAGE_SIZE);
 }
 
+// A crawled card's IDENTITY. Spellbook assigns `id` only to cards that appear in a combo; every other card comes back with
+// `id: null` (81 of 100 on the page at offset 9,000, 2026-09-30). Keyed on `id`, a reload kept ONE null-id card, the resume
+// offset fell back to the id'd count (3,183), and every run re-crawled from offset 3,100 until the rate limit — the crawl
+// could never finish. Every card carries an oracleId and a name, so those are the key.
+function cardKey(card) {
+  return card.oracleId || normalizeName(card.name);
+}
+
+function uniqueCardCount(cards) {
+  return new Set(
+    Object.values(cards || {})
+      .filter(card => card && typeof card === "object")
+      .map(cardKey)
+  ).size;
+}
+
 function cardStartOffset(existingCards) {
   if (FRESH) return 0;
-  const count = new Set(
-    Object.values(existingCards || {})
-      .filter(card => card && typeof card === "object")
-      .map(card => card.id)
-  ).size;
-  return Math.max(0, Math.floor(count / PAGE_SIZE) * PAGE_SIZE);
+  return Math.max(0, Math.floor(uniqueCardCount(existingCards) / PAGE_SIZE) * PAGE_SIZE);
 }
 
 function buildIndex(variants) {
@@ -222,10 +233,10 @@ function buildIndex(variants) {
 
 function normalizeCardMap(rawCards) {
   const cards = {};
-  const seenIds = new Set();
+  const seen = new Set();
   for (const card of Object.values(rawCards || {})) {
-    if (!card || typeof card !== "object" || seenIds.has(card.id)) continue;
-    seenIds.add(card.id);
+    if (!card || typeof card !== "object" || seen.has(cardKey(card))) continue;
+    seen.add(cardKey(card));
     cards[card.name] = card;
     cards[normalizeName(card.name)] = card;
   }
@@ -392,7 +403,7 @@ async function downloadCards() {
     await writeJson(CARDS_FILE, cards);
     cardPagesSavedThisRun += 1;
 
-    const displayCount = new Set(Object.values(cards).map(card => card.id)).size;
+    const displayCount = uniqueCardCount(cards);
     const elapsed = ((Date.now() - started) / 1000).toFixed(1);
     process.stdout.write(
       `\r  ${displayCount.toLocaleString()} cards saved; last page ${results.length} at offset ${offset.toLocaleString()} (${elapsed}s)   `
@@ -410,16 +421,11 @@ async function downloadCards() {
 async function writeMeta(bulkInfo = null) {
   const combos = await readJson(COMBOS_FILE, []);
   const cards = await readJson(CARDS_FILE, {});
-  const uniqueCardIds = new Set(
-    Object.values(cards || {})
-      .filter(card => card && typeof card === "object")
-      .map(card => card.id)
-  );
 
   const meta = {
     syncedAt: new Date().toISOString(),
     variants: Array.isArray(combos) ? combos.length : 0,
-    cards: uniqueCardIds.size,
+    cards: uniqueCardCount(cards),
     // Additive keys only (getSpellbookMeta consumers read syncedAt/variants/cards).
     source: bulkInfo ? BULK_URL : BASE_URL,
     pageSize: PAGE_SIZE,

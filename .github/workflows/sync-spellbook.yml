@@ -42,6 +42,11 @@ on:
     # Daily 03:00 UTC (was weekly on Sunday; see Triggers above).
     - cron: '0 3 * * *'
   workflow_dispatch:
+    inputs:
+      fresh:
+        description: "Re-crawl the per-card flags from offset 0 (--fresh), e.g. to rebuild a cache with holes"
+        type: boolean
+        default: false
 
 # actions/cache saves through the runner's own runtime token - no workflow-token scope is needed for it,
 # so the job gets read-only contents and nothing else (least privilege; `actions: write` was dropped
@@ -99,7 +104,9 @@ jobs:
         shell: bash
         run: |
           set +e
-          node scripts/sync-spellbook.cjs --delay-ms 1500
+          FRESH_FLAG=""
+          if [ "${{ inputs.fresh }}" = "true" ]; then FRESH_FLAG="--fresh"; fi
+          node scripts/sync-spellbook.cjs --delay-ms 1500 $FRESH_FLAG
           code=$?
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           exit $code
