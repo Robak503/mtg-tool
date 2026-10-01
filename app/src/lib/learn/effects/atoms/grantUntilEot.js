@@ -69,7 +69,14 @@ function validatedGrantKind(quoted) {
  * Both straight and curly quotes accepted (Scryfall prints straight; belt-and-suspenders).
  */
 export function grantUntilEotClauseParser(clause) {
-  const t = String(clause || "").trim();
+  // A TRAILING duration (shelf D28 — Subterfuge: 'target creature gains flying and "<body>" until end of turn') is the same
+  // grant as the leading "Until end of turn, …" form every shape below anchors on, so it moves to the front. Only a duration
+  // OUTSIDE the quote moves (the closing quote sits right before it) — a body that itself says "until end of turn" never does.
+  // Mid-sentence the quoted body also lost its own period to the outer sentence; it is restored, as the leading form prints it
+  // (the body validators read it as a whole ability, and the trigger-sentence scanner needs its terminator).
+  const raw = String(clause || "").trim();
+  const trail = raw.match(/^(target creature\b.*?)(["”]) until end of turn\.?$/i);
+  const t = trail ? `until end of turn, ${trail[1].replace(/([^.])$/, "$1.")}${trail[2]}` : raw;
   // (A) pump + grant — ONE chosen target shared by both halves.
   let m = t.match(/^until end of turn, target creature gets ([+-]\d+)\/([+-]\d+) and gains ["“](.+)["”]\.?$/i);
   if (m) {

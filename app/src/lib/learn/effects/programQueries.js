@@ -221,6 +221,12 @@ export function atomTargetIntent(atom) {
       return "enemy";
     case "pump":
       return (atom.ptDelta && ((atom.ptDelta.p || 0) < 0 || (atom.ptDelta.t || 0) < 0)) ? "enemy" : "own";
+    case "grant-until-eot":
+      // UNTIL-EOT QUOTED GRANT on a TRIGGER (shelf D28 — Subterfuge's ETB: 'target creature gains flying and "Whenever this
+      // creature deals combat damage to a player, draw that many cards" until end of turn'). The quoted ability becomes the
+      // RECIPIENT's own, so its controller is who it serves, and every body the grant admits is validated against the group-
+      // grant vocabulary (keyword grants and their payoffs) — a benefit; a shrinking pump half would be the enemy side.
+      return (atom.ptDelta && ((atom.ptDelta.p || 0) < 0 || (atom.ptDelta.t || 0) < 0)) ? "enemy" : "own";
     case "source-power-fanout":
       // SOURCE-POWER-FANOUT (Chandra's Ignition) — the CHOSEN target is "creature YOU CONTROL" (the damage
       // source); the harmful fan-out hits OTHER creatures + opponents automatically. So the chosen target is

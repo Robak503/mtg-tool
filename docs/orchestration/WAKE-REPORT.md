@@ -80,6 +80,7 @@
 > Stone Calendar, Highspire Bell-Ringer, Uthros Psionicist — the all-spells and second-spell reducers (+3 → corpus 14,989; suite 1644 / 16,975).
 > **The residue loop STOPS here — Colton (09-30): "Do my decks."** Next: the shelf decks' unplayed cards, until the v0.161.0 tag on/after 10-02.
 > **SHELF DECKS · D1** tribal digs read the printed capital — Avengers Tower takes Hulk Smash to 90% (+7 → corpus 14,996; suite 1645 / 16,981). Tool: `app/scripts/shelf-residue-map.mjs`.
+> **SHELF DECKS · D28** Subterfuge — the trailing "until end of turn" quoted grant — Teval 88 → 89 (+1 → corpus 15,132; suite 1,677 / 17,303).
 > **SHELF DECKS · D27** Teval's mill payoffs — Overlord of the Balemurk + Colossal Grave-Reaver — Teval 86 → 88 (+2 → corpus 15,131; suite 1,676 / 17,299).
 > **SHELF DECKS · D26** the Kiki family — a token copy gone at the next end step — Halfshell heroes 89 → 90 — **25 of 30 at ≥90** (+5 → corpus 15,129; suite 1,675 / 17,291).
 > **SHELF DECKS · D25** "When that creature dies this turn" — the dies watch (CR 603.7) — Halfshell heroes 88 → 89 (+7 → corpus 15,124; suite 1,674 / 17,279).

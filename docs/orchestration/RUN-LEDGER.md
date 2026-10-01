@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **440 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **441 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,24 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D28: SUBTERFUGE — THE TRAILING "UNTIL END OF TURN" QUOTED GRANT — Teval 88 → 89 · **+1** · corpus 15,132 / 34,245
+> Suite **1,677 files / 17,303 tests** green (1 skipped); lint 0; decks 2,703 / 2,998. CI GREEN on D27 (run 36806314528). Flip-diff **+1, zero LOST,
+> zero RETIERED** (tier snapshots at 64c8b5e4 → the change: Subterfuge). **Mutants 5/5** on the final code (restore byte-identical).
+> · **Build:** grantUntilEot.js — TG-1's shapes anchored only the LEADING "Until end of turn, target creature gains …"; the trailing
+>   'target creature gains flying and "<body>" until end of turn' is the same grant, so it moves to the front, and the quoted body
+>   gets back the period it lost to the outer sentence (the body validators read a whole ability; the trigger-sentence scanner
+>   needs its terminator — that missing period, not the grammar, was what kept it LOW). Only a duration OUTSIDE the quote moves.
+>   programQueries.js — atomTargetIntent "grant-until-eot" → own (the quoted ability becomes the recipient's own; every body
+>   the grant admits is validated against the group-grant vocabulary — a benefit), enemy for a shrinking pump half. It had no
+>   case, so the trigger chooser read "ambiguous" and the ETB could never route; spells never consulted it. Flip-diff: only
+>   Subterfuge moved. The unwitnessed "creatures you control" trailing subject was removed before the mutation run.
+> · **Runtime:** `WITNESS subterfuge {"granted":1,"aiBearFlies":false,"drew":3,"flyingAfterCleanup":false,"who":"sub"}` — the
+>   own-side chooser gave the grant to Subterfuge itself (3 power over the Bear's 2), which connected for 3 and drew 3; the
+>   opponent's creature never got it; your other creature connecting draws nothing; gone at cleanup. Witness
+>   `app/src/lib/learn/subterfuge.test.js` (4).
+> · **Next:** Teval 89 needs 1 — Thespian's Stage via "becomes a copy of …, except it has this ability" (15 carriers, none
+>   native: Cryptoplasm, Protean Thaumaturge, Artisan of Forms, Mizzium Transreliquat …); Shorikai 86 (4); Kellan 85 (5).
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D27: TEVAL'S MILL PAYOFFS — OVERLORD OF THE BALEMURK + COLOSSAL GRAVE-REAVER — Teval 86 → 88 · **+2** · corpus 15,131 / 34,245
 > Suite **1,676 files / 17,299 tests** green (1 skipped); lint 0; decks 2,702 / 2,998. CI GREEN on D26 (run 36804903468). Flip-diff **+2, zero LOST,
