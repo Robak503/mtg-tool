@@ -3041,9 +3041,14 @@ export function reduceDiscardAbilityCost(state, playerId, cost, reduction) {
 }
 
 function actionsDiscardAbilityFromHand(state, playerId) {
-  if (state.activePlayer !== playerId) return [];
   if (state.priorityHolder !== playerId) return [];
-  if (state.step !== "main") return [];
+  // THE COMBAT WINDOW, FROM HAND (residue census 2026-10-01 — bloodrush: "{R}, Discard this card: Target attacking creature
+  // gets +3/+3 until end of turn"). The ④-AE window of actionsActivateAbility, for the same reason: an ability that targets a
+  // creature BY COMBAT ROLE has no target in a main phase, so its only honest window is a combat step, where EITHER player
+  // holding priority may activate it (CR 602.2 — instant speed). Every other discard ability keeps the own-main-phase
+  // window byte-for-byte; the per-ability gate is below, once the program is read.
+  const mainWindow = state.activePlayer === playerId && state.step === "main";
+  if (!mainWindow && !COMBAT_WINDOW_STEPS.has(state.step)) return [];
   const player = state.players[playerId];
   const actions = [];
   for (const card of player.hand) {
@@ -3068,6 +3073,7 @@ function actionsDiscardAbilityFromHand(state, playerId) {
     // moment the parser gains partial results (atoms present, confidence low). Do not read it as the gate.
     if (!program || programConfidence(program) !== "high") continue;
     if (!(program.atoms || []).length) continue;
+    if (!mainWindow && !abilityTargetsCombatRole({ program })) continue; // a combat step admits combat-role targeting only
     // TARGETED LANE (2026-08-14 — Trumpeting Carnosaur, Steel Wrecking Ball): a chosen-target program
     // expands one action per legal target combo, exactly like the cast path (expandCastChoices with the
     // card's colors for KW-PROTECTION, CR 702.16b). ZERO combos → no action (a target requirement with

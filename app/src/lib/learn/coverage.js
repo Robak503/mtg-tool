@@ -655,7 +655,8 @@ function discardCostAbilityModeled(card) {
  *  the general path's strip below and the land path's admission (landFullyCovered) so the two cannot drift. */
 // T8 (2026-09-04): a "Transmute {cost}" keyword line is the same from-hand ability (CR 702.53a), admitted iff
 // parseDiscardCostAbility read it and its search program is HIGH — the identical predicate the offer site uses.
-const DISCARD_ABILITY_LINE_RE = /^(?:(?:channel\s*[—–-]\s*)?(?:\{[^}]+\})+, Discard this card: |transmute\s+(?:\{[^}]+\})+(?:\s*\([^)]*\))?\s*$)/i;
+// The bloodrush label (an ability word, CR 207.2c) reads like Channel's — parseDiscardCostAbility accepts both.
+const DISCARD_ABILITY_LINE_RE = /^(?:(?:(?:channel|bloodrush)\s*[—–-]\s*)?(?:\{[^}]+\})+, Discard this card: |transmute\s+(?:\{[^}]+\})+(?:\s*\([^)]*\))?\s*$)/i;
 /** Drop the whole "<mana>, Discard this card: <effect>" LINE when the engine really offers it. */
 function stripDiscardCostAbilityLine(oracle, card) {
   const ab = discardCostAbilityModeled({ ...(card || {}), oracle });

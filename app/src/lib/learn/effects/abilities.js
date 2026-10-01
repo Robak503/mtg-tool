@@ -943,7 +943,10 @@ export function parseDiscardCostAbility(card) {
     // activated ability of a card in hand; LANDS-TIER slice 5, Otawara / the NEO legendary lands): the
     // keyword prefix is exactly that equivalence, so the line reads as the same from-hand ability with a
     // `channel` flag. Nothing else about the lane changes.
-    const m = line.trim().match(/^(channel\s*[—–-]\s*)?((?:\{[^}]+\})+), Discard this card: (.+)$/i);
+    // BLOODRUSH (residue census, 2026-10-01 — Rubblebelt Maaka, Ghor-Clan Rampager …): an ability word (CR 207.2c) labelling
+    // the same from-hand ability ("Bloodrush — {R}, Discard this card: Target attacking creature gets +3/+3 until end of
+    // turn."). The label has no rules meaning, so the line reads exactly as the unlabelled form.
+    const m = line.trim().match(/^((?:channel|bloodrush)\s*[—–-]\s*)?((?:\{[^}]+\})+), Discard this card: (.+)$/i);
     if (!m) continue;
     let effectText = m[3].trim();
     // THE LEGENDARY-COUNT RIDER (the five NEO channel lands): "This ability costs {1} less to activate for
@@ -958,7 +961,7 @@ export function parseDiscardCostAbility(card) {
       effectText = rider[1].trim();
       reduction = { perLegendaryCreature: 1 };
     }
-    return { cost: m[2], effectText, channel: !!m[1], reduction };
+    return { cost: m[2], effectText, channel: /^channel/i.test(m[1] || ""), reduction };
   }
   return null;
 }

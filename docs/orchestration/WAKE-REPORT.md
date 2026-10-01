@@ -7,14 +7,17 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## 🏁 2026-10-01 — **THE SHELF IS DONE: 29 of 30 decks at ≥90** (Atraxa deferred) — runnable: the 09-06 plan's stage ③
+## 🏁 2026-10-01 — **THE SHELF IS DONE: 29 of 30 decks at ≥90** (Atraxa deferred) · stage ③ closed — runnable: the 09-06 plan's stage ④
 
-> **Runnable next:** [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) §3 — re-run the residue census
-> (`MTG_APP_ROOT=… node scripts/build-residue-census.mjs --out=<scratch>/residue-census.json --top=40`, ~100 s, from `app/`)
-> and take the first ≥3-sole row below the banked list that has
-> existing machinery; six scoped-not-shipped in a row means the vein is dry → §4 (the Quartet's Phase 2 tail, evalScores on
-> pending rows). Atraxa (74) stays DEFERRED (Colton 09-30: planeswalkers last, as their own program). Release cadence: the
-> batch since v0.161.0 is 13 commits / +17 corpus — no tag until ~100 cards or a user-facing fix.
+> **Runnable next:** [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) §4 — the Quartet's open phases
+> ([SUBSYSTEM-QUARTET-PLAN.md](SUBSYSTEM-QUARTET-PLAN.md); read its status ledger first): Phase 2's tail, evalScores on
+> pending rows — and do NOT build the bannered `decisionLog` channel. A change of kind from card slices (CR-level engine work
+> → decision-quality work), so it waits on Colton's nod per CLAUDE.md §7.2. Atraxa (74) stays DEFERRED (Colton 09-30:
+> planeswalkers last, as their own program). Release cadence: the batch since v0.161.0 is 14 commits / +28 corpus — no tag
+> until ~100 cards or a user-facing fix.
+> **Stage ③ closed (10-01):** the fresh census's ≥3-sole rows are all banked but two — ③ · 54 shipped bloodrush (+11 →
+> corpus 15,173; suite 1,695 / 17,428), and splice (3 sole) has no machinery (a reveal-from-hand cost that adds text to
+> the spell) → banked. Every row below is 2-sole, under §3's line.
 > **The run that finished it (D35–D44, 09-30 → 10-01):** Kellan reached 90 (D38); Light-Paws 83 → 90 (D39–D44: Eiganjo
 > Castle, Celestial Mantle, Mantle of the Ancients, the damage redirect, Umbra Mystic, Pearl-Ear). Every deck row: 29 at
 > 90–100, Atraxa 74; aggregate 2,720 / 2,998 (90.7%); corpus 15,162 (44.3%).

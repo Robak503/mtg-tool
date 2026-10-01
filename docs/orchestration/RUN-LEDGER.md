@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **13 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,162)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **14 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,173)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,30 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — 09-06 PLAN STAGE ③ · 54: "Bloodrush — {cost}, Discard this card: …" — the from-hand combat window — Rubblebelt Maaka and ten more · **+11** · corpus 15,173 (44.3%) / 34,245 · **STAGE ③ CLOSED**
+> Suite **1,695 files / 17,428 tests** green (1 skipped); lint 0; decks unchanged (2,720 / 2,998 — a corpus slice; the shelf is done). CI GREEN on D44
+> (run 36834537604). Flip-diff **+11, zero LOST, zero RETIERED** (tier snapshots at 304d705f → the change: Rubblebelt Maaka, Viashino Shanktail, Skinbrand Goblin, Scab-Clan Charger, Scorchwalker, Skarrg Goliath, Wrecking Ogre, Zhur-Taa Swine, Wasteland Viper, Ghor-Clan Rampager, Slaughterhorn body-only → native-body).
+> **Mutants 8/8** on the final code (restore byte-identical).
+> · **The row (fresh census, 10-01, 3 sole):** "bloodrush — {C}, discard this card: target attacking creature gets +N/+N until
+>   end of turn". Bloodrush is an ability word (CR 207.2c), so the line is the ordinary from-hand discard ability; the parser
+>   took only the Channel label. Its target exists only in combat, and the from-hand lane offered only in its controller's
+>   main phase — crediting the label alone would have repeated ④-AE's hollow credit (a pool that can never be non-empty).
+> · **Build:** parseDiscardCostAbility (and coverage's line strip) read the bloodrush label like Channel's;
+>   actionsDiscardAbilityFromHand gets ④-AE's combat window — in a combat step, EITHER player holding priority may activate a
+>   from-hand ability whose program targets a creature by combat role (CR 602.2); every other discard ability keeps the
+>   own-main-phase window byte-for-byte. The rule-based AI never picks discard-ability actions, so its play is unchanged.
+> · **Runtime:** `WITNESS bloodrush {"targets":["ATT"],"graveyard":["Rubblebelt Maaka"],"size":[5,5]}` · Ghor-Clan
+>   Rampager adds +4/+4 and trample · the defender may bloodrush the AI's attacker · Trumpeting Carnosaur's non-combat-role
+>   discard ability stays main-phase-only (yours) · Maaka ON the battlefield offers nothing (the line is not an ability of the
+>   permanent) · no priority, no offer. Witness `app/src/lib/learn/bloodrush.test.js` (8). Parked on their own rows: Rubblehulk
+>   (+X/+X), Pyrewild Shaman (a second line).
+> · **A pin graduated:** crAbilityWords.test.js held Maaka at not-native as its proof that bloodrush is never a battlefield
+>   activation. It now reads native-body through the from-hand lane, and the pin states the real point: the label stays on the
+>   line, and the permanent's own ability parse never models it.
+> · **🏁 STAGE ③ CLOSED:** the fresh census's ≥3-sole rows are all banked (§3's list) but two — this one, and SPLICE (3 sole:
+>   "splice onto instant or sorcery {C}{C}" — a reveal-from-hand cost that adds the spliced text to the spell; no machinery →
+>   banked). Every row below is 2-sole, under §3's line (the line the loop overran before 09-30). Next: §4, the Quartet.
 
 > ## 🏁 2026-10-01 — SHELF DECKS · D44: PEARL-EAR — AFFINITY FOR AURAS + THE MODIFIED-TARGET DRAW — Light-Paws Voltron 89 → 90 · **+1** · corpus 15,162 / 34,245 (44.3%) · **THE SHELF IS DONE: 29 of 30 at ≥90**
 > Suite **1,694 files / 17,420 tests** green (1 skipped); lint 0; decks 2,720 / 2,998. CI GREEN on D43 (run 36833275503). Flip-diff **+1, zero LOST,

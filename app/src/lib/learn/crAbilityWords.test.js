@@ -14,6 +14,7 @@
 import { describe, expect, it } from "vitest";
 import { classifyCard } from "./coverage.js";
 import { stripAbilityWordLabel } from "./effects/textNormalize.js";
+import { parseActivatedAbilities } from "./effects/abilities.js";
 
 const UNIFIED_FRONT = { id: "h-uf", name: "Unified Front", type: "Sorcery", mana: "{3}{W}", cmc: 4, keywords: [],
   oracle: "Converge — Create a 1/1 white Kor Ally creature token for each color of mana spent to cast this spell." };
@@ -44,7 +45,11 @@ describe("the shared label strip", () => {
     expect(classifyCard(UNIFIED_FRONT)).toBe("native-spell");
     expect(classifyCard(INFUSE)).toBe("native-spell");
     expect(classifyCard(ANIMIST)).toBe("native-spell");        // unchanged — its own arm reads the spell-mastery label
-    expect(classifyCard(MAAKA)).not.toMatch(/^native/);        // bloodrush: a from-hand ability, never a battlefield activation
+    // NOTE (2026-10-01, stage ③ · 54): Maaka GRADUATED — the FROM-HAND discard lane reads the bloodrush label like Channel's and
+    // offers it in combat (bloodrush.test.js holds the runtime pins). The point of this line still stands: never a battlefield
+    // activation — the label stays on the line (pinned above) and the permanent's own ability parse never models it.
+    expect(classifyCard(MAAKA)).toBe("native-body");
+    expect(parseActivatedAbilities(MAAKA).map((a) => a.modeled)).toEqual([false]);
     expect(classifyCard(DISMISSAL)).not.toMatch(/^native/);    // spell mastery left out → parked as before
   });
 });

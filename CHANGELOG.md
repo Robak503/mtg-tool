@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Bloodrush** — Rubblebelt Maaka, Ghor-Clan Rampager and nine more: discard one from your hand during combat to pump an attacking creature
 - **Pearl-Ear, Imperial Advisor** — enchantment spells you cast have affinity for Auras, and casting an Aura at a modified permanent you control draws a card
 - **Umbra Mystic** — Auras attached to permanents you control have umbra armor
 - **With Great Power . . ., Pariah, Pariah's Shield, Empyrial Archangel, Protector of the Crown** — damage that would be dealt to you is dealt to the enchanted, equipped or named creature instead
