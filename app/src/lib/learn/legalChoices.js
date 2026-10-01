@@ -90,7 +90,7 @@ import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDrops
 // the metric's OWN authority means the runtime and the coverage metric can never disagree about which plot
 // cards flip natively (no duplicated native-determination to drift). coverage.js does NOT import legalChoices
 // (verified — metric-only, zero runtime consumers), so this import introduces no cycle.
-import { classifyCard, isNativeTier, isNativeBestow, isKeywordOnly, isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
+import { classifyCard, isNativeTier, isNativeBestow, isKeywordOnly, isNativeOrdealAura, grantAuraCastHostType, hasSelfTurnedFaceUpTrigger } from "./coverage.js";
 import { cycleSelfTriggersModeled } from "./triggerRouting.js"; // shelf D6 — the cycling offer and the classifier read the same vouch
 import { parseKickerCounterCreature, parseKickerEtbCreature, parseKickerCost, parseMultikickerCost, parseTeamworkCost } from "./kicker.js"; // + TEAMWORK (shelf D16) // KICKER (CR 702.33) — emit a normal + a kicked cast (kicker mana folded into the cost) when the kicker is affordable; ETB-trigger payoff variant (creatures) + kicked-SPELL-effect (instants/sorceries) too
 import { registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant activated-body gate
@@ -3206,6 +3206,34 @@ function plotPlayable(card) {
  * skipped (safe under-offer). The dispatcher (applyPlot) pays the cost and moves hand → exile, stamping the
  * plotted card with the turn it was plotted so it can't be cast the SAME turn (CR 702.170d).
  */
+/**
+ * TURN A MANIFEST FACE UP (CR 701.40b — the play-weighted program, P·19): "Any time you have priority, you may turn a manifested
+ * permanent you control face up" — a special action (no stack, CR 116.2b) for a face-down permanent whose card is a CREATURE
+ * card, paying that card's mana cost. An instant or sorcery card stays face down (701.40g); a card with no mana cost can't pay
+ * one (118.6); an {X} cost is not offered (a safe under-offer — no corpus manifest needs it). The action names the card for
+ * its controller only — the actions are per player, so the face-down identity never reaches an opponent's list.
+ */
+function actionsTurnManifestFaceUp(state, playerId) {
+  if (state.priorityHolder !== playerId) return [];
+  const player = state.players[playerId];
+  const actions = [];
+  for (const perm of player?.battlefield || []) {
+    const real = perm.faceDown ? perm.faceUpCard : null;
+    if (!real || !/\bCreature\b/.test(String(real.type || real.type_line || "").split(" // ")[0])) continue;
+    // WITHHELD for a card whose own text triggers on its flip ("When this creature is turned face up, …" — the morph and
+    // disguise payoffs): the engine doesn't fire that trigger, and the coverage strip credits it as unreachable on exactly
+    // this withholding (coverage.hasSelfTurnedFaceUpTrigger — one pattern). A narrower option set, never a wrong flip.
+    if (hasSelfTurnedFaceUpTrigger(real)) continue;
+    const pips = manaCostOf(real);
+    if (!String(pips || "").trim()) continue;
+    const cost = parseManaCost(pips);
+    if (cost.hasX) continue;
+    if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
+    actions.push({ kind: "turn-face-up", playerId, permanentId: perm.id, name: real.name, cost, cmc: totalCmc(cost) });
+  }
+  return actions;
+}
+
 function actionsPlotFromHand(state, playerId) {
   if (!canCastSorcerySpeed(state, playerId)) return [];
   const player = state.players[playerId];
@@ -4395,6 +4423,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   actions.push(...actionsCompanion(state, playerId));     // CMD-COMPANION: {3} → put the companion into hand (not a cast)
   actions.push(...actionsPlotFromHand(state, playerId));  // PLOT step 1 (CR 702.170a): exile from hand for the plot cost — a SPECIAL action, not casting
   actions.push(...actionsPlotFromLibraryTop(state, playerId)); // shelf D38 (Fblthp, CR 702.170f): the same special action for the library's top card
+  actions.push(...actionsTurnManifestFaceUp(state, playerId)); // P·19 (CR 701.40b): turn a manifested creature card face up — a special action
   // MANA ABILITIES stay legal under split second (CR 702.19a exempts them by name).
   actions.push(...actionsTapForMana(state, playerId));
   actions.push(...actionsDoubleManaPool(state, playerId)); // DOUBLE-MANA-POOL (Doubling Cube): a no-stack mana ability that doubles the pool

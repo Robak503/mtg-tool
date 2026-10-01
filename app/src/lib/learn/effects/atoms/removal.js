@@ -14,6 +14,7 @@ import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandC
 import { applyCreateToken, applyCreateNamedToken } from "./tokens.js";
 import { applyTutor, millOnePlayer } from "./library.js";
 import { applyZoneMove, applyExileUntilLeaves } from "./zones.js";
+import { manifestTopOf } from "./manifest.js"; // P·19 — Reality Shift's controller rider (manifest imports only gameState, triggers, tokens)
 import { NAMED_TOKENS } from "./tokens.js"; // NAMED-TOKEN sacrifice pool — same registry the mint side uses, so a pool can never name a token the engine cannot create
 
 // MULTI-COUNT "any number of target" upper bound (CR 601.2c) — the count is unbounded on the card, so use a
@@ -96,6 +97,8 @@ export function applyDamageRider(state, rider, cap, ctx) {
 
 /** Apply a single RIDER-REMOVAL controller-rider to the captured target-controller `cap`. */
 export function applyControllerRider(state, rider, cap, ctx) {
+  // REALITY SHIFT (P·19): the exiled creature's controller manifests the top card of their library (CR 701.40a).
+  if (rider.kind === "manifestTop") return manifestTopOf(state, cap.controller);
   if (rider.kind === "gainLifePower") {
     let next = gainLife(state, { playerId: cap.controller, amount: cap.power });
     if (cap.power > 0) next = checkLifegainTriggers(next, cap.controller, cap.power);

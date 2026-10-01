@@ -571,9 +571,9 @@ const ESCAPE_WITH_COUNTERS = /(?:^|(?<=\.)\s*)(?:this creature|this permanent|it
 //
 // ⛔ RE-VERIFIED, NOT INHERITED (vacuity is not transitive — the escape-rider slice's rule):
 //   · legalChoices has NO morph/face-down cast lane (grep: zero hits).
-//   · There is no turn-face-up action ANYWHERE in the runtime. Face-down permanents DO exist — manifest
-//     creates them — but manifest.js states its own limit: "that turn-up is NOT modeled here", so a
-//     manifested card plays as a vanilla 2/2 until it leaves. Nothing flips, ever.
+//   · (Superseded 2026-10-01, P·19 — see the NARROWED note below: a manifest CAN now be turned face up, so only a card's
+//     OWN flip trigger stays vacuous.) There was no turn-face-up action anywhere in the runtime; manifest.js said "that
+//     turn-up is NOT modeled here", so a manifested card played as a vanilla 2/2 until it left.
 //   · Every carrier is playable by its normal route: all have a printed mana cost except Branch of
 //     Vitu-Ghazi, which is a LAND (played, not cast) and already reads `land` tier.
 //
@@ -585,7 +585,19 @@ const ESCAPE_WITH_COUNTERS = /(?:^|(?<=\.)\s*)(?:this creature|this permanent|it
 // ⛔ THE COMPOUND "enters OR is turned face up" (Gadget Technician, Crowd-Control Warden, Ponyback Brigade)
 // is EXCLUDED — it routes as a normal ETB and DOES fire on the face-up hard cast. Stripping it would delete
 // a working trigger, the exact failure the Polukranos sentence-scope note records.
-const TURNED_FACE_UP = /(?:^|(?<=\.)\s*|(?<=\n))[ \t]*(?:when|whenever|as)\s+(?![^.\n]*\benters?\b)[^.\n]{0,80}?\bis turned face up\b[^.\n]*\.?/gi;
+// ⛔⛔ NARROWED TO THE CARD'S OWN FLIP (the play-weighted program, P·19, 2026-10-01). Since P·19 something DOES flip: a
+// MANIFESTED creature card can be turned face up for its mana cost (CR 701.40b — legalChoices.actionsTurnManifestFaceUp).
+// So the vacuity above now holds only for a SELF trigger ("When THIS creature/equipment/aura/land is turned face up"), and
+// only because the turn-up is WITHHELD for a manifested card whose own text carries one (hasSelfTurnedFaceUpTrigger, the same
+// pattern) — the morph flip stays unreachable and the hard-cast body still plays correctly. A WATCHER of other permanents'
+// flips ("Whenever a permanent you control is turned face up" — Trail of Mystery, Secret Plans, Deathmist Raptor; "this
+// creature or another creature you control") is REACHABLE now and is no longer stripped: it stays residue until modeled.
+const TURNED_FACE_UP_SELF_SRC = "(?:when|whenever|as)\\s+this (?:creature|permanent|equipment|aura|land|artifact|enchantment)\\s+is turned face up\\b[^.\\n]*\\.?";
+const TURNED_FACE_UP = new RegExp(`(?:^|(?<=\\.)\\s*|(?<=\\n))[ \\t]*${TURNED_FACE_UP_SELF_SRC}`, "gi");
+/** Does this card's own text carry a trigger on ITS OWN flip ("When this creature is turned face up, …")? (P·19) */
+export function hasSelfTurnedFaceUpTrigger(card) {
+  return new RegExp(TURNED_FACE_UP_SELF_SRC, "i").test(String(card?.oracle || card?.oracle_text || ""));
+}
 // KW-PARTNER-WITH (CR 702.124j) — drop the whole "Partner with <name>" LINE before the clause split below.
 // A LINE strip, not a clause credit, and that is the point: partner names routinely contain commas ("Trynn,
 // Champion of Freedom" — 28 of the 54 corpus lines), and isKeywordOnly splits its text on commas, so a clause

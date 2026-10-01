@@ -96,7 +96,8 @@ describe("AI-F2 — unresolvable LOW-confidence spells are HELD (they'd vanish v
   const cases = [
     // Teferi's Protection sat here until 2026-09-03 (CAP-TP): it is HIGH-confidence native now (player shield +
     // phasing), so the "unresolvable" hold no longer applies to it — the row is retired, not weakened.
-    { card: REALITY_SHIFT, mana: { U: 1, C: 1 } },
+    // Reality Shift sat here until 2026-10-01 (play-weighted P·19): it is native now (the exile + the controller's manifest,
+    // with the turn-face-up special action) — its row is retired and re-pointed below: the AI casts it at the enemy creature.
     { card: EMBER_ISLAND_PRODUCTION, mana: { U: 2, C: 3 } },
   ];
   for (const { card, mana } of cases) {
@@ -110,6 +111,18 @@ describe("AI-F2 — unresolvable LOW-confidence spells are HELD (they'd vanish v
       expect(legacy).toMatchObject({ kind: "cast-spell", cardId: "c1" }); // A/B probe's OLD side still casts
     });
   }
+});
+
+describe("AI-F2 — a graduated row (play-weighted P·19)", () => {
+  it("Reality Shift is offered TARGETED now, and the vanishing-cast hold no longer decides it (default and legacy agree)", () => {
+    // The row's subject was AI-F2's hold of a spell that would vanish; native now, the cast is a real targeted removal and
+    // the unresolvable policy no longer distinguishes it. Whether to trade an exile for the opponent's manifested 2/2 is the
+    // ordinary removal judgment — here it holds under both policies (a 2/2 for a 2/2 is no gain).
+    const s = aiMainState({ hand: [{ ...REALITY_SHIFT, id: "c1" }], mana: { U: 1, C: 1 }, oppBoard: [enemyBear()] });
+    const offered = legalActionsForPlayer(s, "ai").filter((a) => a.kind === "cast-spell" && a.cardId === "c1");
+    expect({ targets: offered.map((a) => a.targets?.[0]?.id), same: aiPick(s)?.kind === aiPick(s, { policy: { unresolvable: "v1" } })?.kind })
+      .toEqual({ targets: ["theirs1"], same: true });
+  });
 });
 
 describe("AI-F11 — POLICY_KEYS is the probe's single source of truth", () => {

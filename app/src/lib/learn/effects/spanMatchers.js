@@ -190,6 +190,10 @@ export function parseControllerRider(t) {
     if (m[2] !== undefined) rider.youGain = parseInt(m[2], 10);
     return rider;
   }
+  // REALITY SHIFT (the play-weighted program, P·19 — "Exile target creature. Its controller manifests the top card of their
+  // library."): the captured controller manifests (CR 701.40a — face down as a 2/2; turned face up for its mana cost if it's
+  // a creature card, CR 701.40b, the special action the engine offers that player).
+  if (/^manifests the top card of their library$/.test(t)) return { kind: "manifestTop" };
   return null; // an unmodeled controller rider → low → Arbiter
 }
 /**

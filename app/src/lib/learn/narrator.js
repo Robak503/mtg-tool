@@ -319,6 +319,16 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
       return `Cycle [[${name}]] for ${costString}.`;
     }
 
+    case "turn-face-up": {
+      // MANIFEST (CR 701.40b): a special action (no stack) — pay the face-down card's mana cost and turn it face up.
+      const name = action.name || "the card";
+      const costString = formatCost(action.cost);
+      if (difficulty === "beginner") {
+        return `Turn your face-down 2/2 face up for ${costString}: it becomes [[${name}]]. A manifested creature card can be turned face up any time you have priority by paying its mana cost — a special action that doesn't use the stack, and it isn't entering the battlefield, so its enters abilities don't trigger.`;
+      }
+      return `Turn [[${name}]] face up for ${costString}.`;
+    }
+
     case "plot": {
       // PLOT (CR 702.170a-b): a special action (no stack) — exile this card from hand and pay its plot
       // cost now; next turn you may cast it from exile without paying its mana cost.

@@ -142,7 +142,9 @@ describe("classification — the MV-filtered removal staples flip native-spell; 
     expect(classifyCard(S("Anguished Unmaking", "Exile target nonland permanent. You lose 3 life.", "Instant", "{1}{W}{B}"))).toBe("native-spell");
   });
   it("anti-FP — the unmodeled-rider / MV-X / converge cards stay on the Arbiter (whole-card CREED)", () => {
-    expect(classifyCard(S("Reality Shift", "Exile target creature. Its controller manifests the top card of their library.", "Instant", "{1}{U}"))).toBe("arbiter-spell");
+    // GRADUATED (play-weighted P·19, 2026-10-01): Reality Shift's manifest rider is modeled now (the controller-rider manifest +
+    // the turn-face-up special action — realityShift.test.js), so it is asserted positively; the two below hold the refusal.
+    expect(classifyCard(S("Reality Shift", "Exile target creature. Its controller manifests the top card of their library.", "Instant", "{1}{U}"))).toBe("native-spell");
     expect(classifyCard(S("Prismatic Ending", "Exile target nonland permanent if its mana value is less than or equal to the number of colors of mana spent to cast this spell.", "Sorcery", "{W}"))).toBe("arbiter-spell");
     expect(classifyCard(S("March of Otherworldly Light", "Exile target artifact, creature, or enchantment with mana value X or less.", "Instant", "{X}{W}"))).toBe("arbiter-spell");
   });

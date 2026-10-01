@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **34 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,220)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **35 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,215)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,36 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 19: Reality Shift (EDHREC #273) — a manifest can be turned face up · **+5 / −10** · corpus 15,215
+> Suite **17,591** green (1 skipped); lint 0; decks 2,739 → **2,740** / 2,998 (Did you say Dragons? 92). CI GREEN on P·18 (run 36910711803).
+> Flip-diff **+5, −10 (every LOST understood, below), zero RETIERED** (tier snapshots at 40554e9b → the change): Reality Shift, Soul
+> Summons → native-spell; Sultai Emissary, Soul-Strike Technique → native-trigger; Qarsi High Priest → native-activated. Top 1,000
+> **850** (needs +50); top 2,500 **1,672** — no lost card ranks inside either. **Mutants 17/17** (restore byte-identical).
+> · **Why Reality Shift needed more than a rider:** it manifests for the OPPONENT. With no way to turn a manifest face up their
+>   creature card would stay a 2/2 forever — a stronger card than printed, the forbidden direction. So the slice builds the
+>   CR 701.40b special action: any time its controller has priority, a manifested CREATURE card turns face up for its mana
+>   cost (`turn-face-up` — legalChoices.actionsTurnManifestFaceUp, actionDispatcher.applyTurnFaceUp): the same permanent,
+>   counters/damage/effects kept and nothing entering (CR 708.8); an instant or sorcery stays down (701.40g); no mana cost is
+>   unpayable (118.6); the lethal check runs after. The AI flips one bigger than the 2/2 on its main phase. Manifest dread
+>   played as a vanilla 2/2 until now — it can flip too.
+> · **The rider:** "Its controller manifests the top card of their library" is a removal controller-rider (the Path to Exile
+>   capture); "Manifest the top card of your library" (Soul Summons, Sultai Emissary, Qarsi High Priest) parses too.
+> · **LOST 10, all honest:** coverage's TURNED_FACE_UP strip credited every "…is turned face up" trigger as unreachable because
+>   nothing ever flipped. Something does now. The strip is narrowed to a card's OWN flip trigger ("When this creature is turned
+>   face up" — still unreachable, because the turn-up is WITHHELD for a manifested card carrying one: one pattern,
+>   `hasSelfTurnedFaceUpTrigger`, shared by the strip and the offer). WATCHERS of other permanents' flips are reachable and
+>   unmodeled, so they are residue: Deathmist Raptor, Aven Farseer, Bonethorn Valesk, Aphetto Runecaster, Salt Road Ambushers,
+>   Pine Walker, Experiment Twelve, Sumala Sentry, Pyrotechnic Performer, Unblinking Bleb → body-only (Mastery of the Unseen and
+>   Trail of Mystery stay there too). Modeling the watcher event is flagged as its own task.
+> · **Re-pointed pins (2):** opponentAI.castDiscipline.test.js — Reality Shift was AI-F2's "unresolvable, hold it" example;
+>   native now, its row is retired (the Teferi's Protection precedent) and re-pointed: offered targeted, the policies agree.
+>   mvFilteredRemoval.test.js — it was an "unmodeled rider" refusal; asserted native now, Prismatic Ending and March of
+>   Otherworldly Light hold the refusal.
+> · **Runtime:** `WITNESS realityShift {"exiled":["Grizzly Bears"],"faceDown":{"name":"","size":[2,2],"real":"Craw Wurm"},
+>   "library":0}`; turned up for {4}{G}{G} the manifest is Craw Wurm 7/5 with its +1/+1 counter kept; a damaged 2/2 turned into
+>   a 1/1 dies. Witness `app/src/lib/learn/realityShift.test.js` (12).
+> · **Next:** #291 Braids, Arisen Nightmare.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 18: Hullbreaker Horror (EDHREC #269) — "choose up to one" and the spell-only bounce · **+4** · corpus 15,220
 > Suite **17,579** green (1 skipped); lint 0; decks 2,738 → **2,739** / 2,998 (Kinnan 92). CI GREEN on P·17 (run 36909086278). Flip-diff

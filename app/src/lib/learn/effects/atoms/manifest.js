@@ -3,8 +3,9 @@
  *
  * MANIFEST DREAD (CR 701.62a): look at the top TWO cards of the controller's library, put ONE onto the
  * battlefield FACE DOWN as a 2/2 colorless nameless creature with no abilities, and put the OTHER into the
- * controller's graveyard. (A face-down manifest can be turned face up for its mana cost if it's a creature
- * card — that turn-up is NOT modeled here; the manifest plays as a vanilla 2/2 until it leaves.)
+ * controller's graveyard. A face-down manifest can be turned face up for its mana cost if it's a creature card (CR
+ * 701.40b — a special action, modeled since the play-weighted P·19: legalChoices.actionsTurnManifestFaceUp offers it, the
+ * dispatcher's applyTurnFaceUp pays and turns it up).
  *
  * THE FACE-DOWN PERMANENT (CR 708.2): its `card` snapshot is the nameless 2/2 — name "", power 2, toughness 2,
  * type "Creature", keywords []  and NO subtypes — so every reader (combat, SBA, ETB scope, lords) sees a plain
@@ -111,16 +112,36 @@ export function applyManifestDread(state, atom, ctx) {
 }
 
 /**
+ * MANIFEST (CR 701.40a — the play-weighted program, P·19): `playerId` manifests the top card of their own library. An empty
+ * library manifests nothing (a logged no-op). Shared by "Manifest the top card of your library" (Soul Summons) and Reality
+ * Shift's "Its controller manifests the top card of their library" (the removal controller-rider). Hidden-info safe, like
+ * manifest dread: the log never names the card.
+ */
+export function manifestTopOf(state, playerId) {
+  const top = state.players?.[playerId]?.library?.[0];
+  if (!top) return logEvent(state, { kind: "spell-effect", effect: "manifest", controller: playerId, manifested: false });
+  return logEvent(manifestCard(state, playerId, top), { kind: "spell-effect", effect: "manifest", controller: playerId, manifested: true });
+}
+
+export function applyManifestTop(state, atom, ctx) {
+  return state.players?.[ctx.controller] ? manifestTopOf(state, ctx.controller) : state;
+}
+
+/**
  * PURE clause parser for "manifest dread" (the integrator wires registerClauseParser at parser.js-bottom; do
  * NOT self-register from this atoms module — circular-import hazard). The caller has already stripped reminder
  * text + collapsed whitespace, so an exact "manifest dread" is all that needs matching. Anchored ^…$ so a
  * longer clause that merely CONTAINS the phrase ("…then manifest dread twice") never mis-parses → it stays low
- * → Arbiter (CREED). Returns the atom or null.
+ * → Arbiter (CREED). Returns the atom or null. P·19 adds the plain "manifest the top card of your library".
  */
 export function manifestClauseParser(clause) {
-  return /^manifest dread$/i.test(String(clause || "").trim()) ? { op: "manifest-dread" } : null;
+  const t = String(clause || "").trim();
+  if (/^manifest dread$/i.test(t)) return { op: "manifest-dread" };
+  if (/^manifest the top card of your library$/i.test(t)) return { op: "manifest-top" };
+  return null;
 }
 
 export const manifestResolvers = {
   "manifest-dread": applyManifestDread,
+  "manifest-top": applyManifestTop, // P·19 — Soul Summons
 };

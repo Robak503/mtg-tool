@@ -1564,6 +1564,17 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
     if (crews.length > 0) return crews[0];
   }
 
+  // MANIFEST (P·19, CR 701.40b) — turn a face-down creature card face up on its own main phase, after lands, casts and
+  // abilities: only one whose real card is bigger than the vanilla 2/2 it is now (power + toughness over 4), biggest first.
+  if (state.activePlayer === aiPlayerId && /main/i.test(String(state.phase || ""))) {
+    const sizeOf = (a) => {
+      const real = (state.players[aiPlayerId]?.battlefield || []).find((p) => p.id === a.permanentId)?.faceUpCard;
+      return (Number(real?.power) || 0) + (Number(real?.toughness) || 0);
+    };
+    const turnUps = filterActions(actions, "turn-face-up").filter((a) => sizeOf(a) > 4);
+    if (turnUps.length) return turnUps.reduce((best, a) => (sizeOf(a) > sizeOf(best) ? a : best), turnUps[0]);
+  }
+
   // No active-window action — pass priority. (The engine's combat
   // step pickers below handle declare-attackers/blockers as batch
   // decisions, not via pickAction.)

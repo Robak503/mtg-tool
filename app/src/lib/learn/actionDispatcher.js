@@ -2205,6 +2205,33 @@ function applyCascadeDecline(state, action) {
 // it for a free cast until a LATER turn (CR 702.170d). No discard/sacrifice — the card exiles ITSELF as the
 // action's effect (legalChoices only offered this for a plotPlayable card, so the card it becomes when later
 // cast is fully modeled — no unmodeled text is silently parked in exile).
+/**
+ * TURN A MANIFEST FACE UP (CR 701.40b — the play-weighted program, P·19): pay the card's mana cost and turn the face-down
+ * permanent face up — the SAME permanent (CR 708.8: counters, damage, attachments and effects already applied stay; it has
+ * not entered, so nothing that cares about entering triggers). A special action: no stack, the actor keeps priority. Its
+ * new toughness may be lethal with the damage it carries, so the state-based check runs after.
+ */
+function applyTurnFaceUp(state, action) {
+  const lk = findPermanent(state, action.permanentId);
+  const real = lk?.permanent?.faceDown ? lk.permanent.faceUpCard : null;
+  if (!real || lk.controller !== action.playerId) throw new DispatcherError(`No face-down manifest ${action.permanentId} under ${action.playerId}'s control`, "PERM_NOT_FOUND");
+  if (!/\bCreature\b/.test(String(real.type || real.type_line || "").split(" // ")[0])) {
+    throw new DispatcherError(`${real.name} is not a creature card — a manifested noncreature card stays face down (CR 701.40g)`, "ILLEGAL_ACTION");
+  }
+  const player = state.players[action.playerId];
+  const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
+  if (!plan) throw new DispatcherError("Cannot pay the turn-face-up cost", "MANA_SHORT");
+  let working = commitPaymentPlan(state, action.playerId, plan);
+  working = updatePermanentSafe(working, action.permanentId, (p) => {
+    const { faceDown: _fd, faceUpCard: _fu, ...rest } = p;
+    return { ...rest, card: real };
+  });
+  working = logEvent(working, { kind: "turn-face-up", playerId: action.playerId, permanentId: action.permanentId, cardName: real.name });
+  const lethal = destroyLethalCreatures(working);
+  working = checkDiesTriggers(lethal.state, lethal.dead);
+  return { ...working, priorityHolder: action.playerId, consecutivePasses: 0 };
+}
+
 function applyPlot(state, action) {
   const player = state.players[action.playerId];
   if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
@@ -2278,6 +2305,7 @@ const HANDLERS = {
   "cycle": applyCycle, // KW-CYCLING: discard a hand card to draw
   "discard-ability": applyDiscardAbility, // "<mana>, Discard this card: <effect>" — cycling generalized
   "plot": applyPlot,   // PLOT (CR 702.170a): exile a hand card face-up for the plot cost (special action)
+  "turn-face-up": applyTurnFaceUp, // P·19 (CR 701.40b): pay a manifested creature card's mana cost and turn it face up (special action)
   "activate-loyalty": applyActivateLoyalty,
   "declare-attacker": applyDeclareAttacker,
   "declare-blocker": applyDeclareBlocker,
