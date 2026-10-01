@@ -81,7 +81,7 @@ import { creaturePower, creatureToughness, findPermanent } from "./gameState.js"
 // staticAbilityParser / protection, none of which reach interveningIf.js, so this adds no cycle. Verified with
 // `node --input-type=module -e "import './src/lib/learn/legalChoices.js'"` per the RUN-LEDGER's mandate — a
 // green suite is NOT evidence the module graph still loads (vitest resolves in a different order than node).
-import { permanentHasKeyword, permanentColors } from "./layers.js";
+import { permanentHasKeyword, permanentColors, permanentTypes } from "./layers.js";
 import { hasCitysBlessing } from "./ascend.js"; // shelf D5 — the city's blessing designation (ascend.js imports only gameState)
 
 // ─── cardinal vocabulary ────────────────────────────────────────────────────────
@@ -190,8 +190,12 @@ function permMatchesFilter(perm, filter, state) {
   // lands, i.e. fire an ability whose condition is false. A single word keeps its exact prior behaviour
   // (a one-element array reduces to the same single test under either quantifier).
   const words = Array.isArray(filter.word) ? filter.word : [filter.word];
-  // type/subtype containment: whole-word, Title-cased singular ("creatures" → \bCreature\b)
-  const hit = (w) => new RegExp(`\\b${w}\\b`, "i").test(typeStr(perm.card));
+  // type/subtype containment: whole-word, Title-cased singular ("creatures" → \bCreature\b). A SUBTYPE a continuous effect
+  // granted counts too (CR 613.1d, 205.1b — Urborg's Swamp, Dryad of the Ilysian Grove's every basic land type), read off the
+  // layer engine: a Dryad player with only Forests does control an Island, so "When you control no Islands, sacrifice this
+  // creature" must not fire. The printed line still answers everything it always did.
+  const hit = (w) => new RegExp(`\\b${w}\\b`, "i").test(typeStr(perm.card))
+    || permanentTypes(state, perm.id).subtypes.includes(w);
   return filter.allWords ? words.every(hit) : words.some(hit);
 }
 

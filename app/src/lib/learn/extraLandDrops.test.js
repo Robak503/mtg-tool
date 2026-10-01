@@ -92,7 +92,11 @@ describe("EXTRA-LAND-DROPS — classifyCard", () => {
     expect(extraLandDropsOf(ORACLE_MUL_DAYA)).toBe(1);
   });
   it("rider / symmetric / one-shot cards stay non-native (CREED all-or-nothing)", () => {
-    expect(classifyCard(DRYAD)).toBe("body-only");           // type-changing static rider
+    // Dryad of the Ilysian Grove GRADUATED (play-weighted P·21, 2026-10-01): "lands you control are every basic land type" is
+    // modeled now (dryadOfTheIlysianGrove.test.js). The rider guard keeps its shape on a type-changing rider still unmodeled —
+    // the single-type controller-scoped cousin.
+    expect(classifyCard(DRYAD)).toBe("native-static");
+    expect(classifyCard({ ...DRYAD, id: "c-dryad-s", oracle: "You may play an additional land on each of your turns.\nLands you control are Swamps in addition to their other land types." })).toBe("body-only");
     // Wayward Swordtooth GRADUATED (shelf D5, 2026-09-30): Ascend and its can't-attack-or-block-unless-blessed window are
     // modeled now (ascendCitysBlessing.test.js). The rider guard keeps its shape on a designation still unmodeled.
     expect(classifyCard(WAYWARD)).toBe("native-static");

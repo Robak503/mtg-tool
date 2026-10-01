@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Dryad of the Ilysian Grove and Prismatic Omen** — lands you control are every basic land type, so each of them taps for any color
 - **Braids, Arisen Nightmare** — at your end step you may sacrifice an artifact, creature, enchantment, land or planeswalker; each opponent then sacrifices a permanent that shares a card type with it, or loses 2 life while you draw a card
 - **Turning a manifest face up** — a face-down manifested creature card can be turned face up any time you have priority by paying its mana cost; manifest dread creatures can flip too
 - **Reality Shift, Soul Summons, Sultai Emissary, Soul-Strike Technique and Qarsi High Priest** — manifest the top card of a library
@@ -43,6 +44,7 @@ summarizes the notable changes.
 - **One with the Multiverse, Zaffai and the Tempests, Vision, Spectral Synthezoid and Omniscience** — cast a spell without paying its mana cost (once each turn, or freely with Omniscience), at the normal time for that spell
 
 ### Fixed
+- Landwalk and land-type conditions ignored land types granted by an effect (Urborg, Tomb of Yawgmoth; Yavimaya, Cradle of Growth): a swampwalker or forestwalker could be blocked by a player whose lands had gained that type, and "When you control no Swamps, sacrifice this creature" could fire while such a land was out
 - Bolas's Citadel let the top card of your library be cast by paying its mana cost; it now costs life equal to the spell's mana value, as printed
 - The AI never cast spells from the top of its library (Future Sight, Mystic Forge and the like); it does now
 - Exsanguinate and the other each-opponent drains gained life for an opponent whose life total couldn't change; you now gain only the life actually lost

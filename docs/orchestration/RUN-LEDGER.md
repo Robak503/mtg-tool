@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **36 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,216)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **37 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,218)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,31 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 21: Dryad of the Ilysian Grove (EDHREC #295) — every basic land type · **+2** · corpus 15,218
+> Suite **17,615** green (1 skipped); lint 0; decks **2,740** / 2,998 unchanged. CI GREEN on P·20 (run 36919125569).
+> Flip-diff **+2, −0, zero RETIERED** (tier snapshots at 513db9fc → the change): Dryad of the Ilysian Grove, Prismatic Omen →
+> native-static. Top 1,000 **852** (needs +48); top 2,500 **1,674**. **Mutants 8/8** (restore byte-identical).
+> · **The static:** "Lands you control are every basic land type in addition to their other types" is the controller-scoped,
+>   all-five cousin of Urborg's each-land arm — a layer-4 add of Plains, Island, Swamp, Mountain and Forest on each land its
+>   controller controls (CR 305.6, 205.1b). The intrinsic mana rides the existing manaModel delivery: two Forests cast {U}{U}
+>   while the Dryad is out, one tap still makes one mana, and an opponent's lands are untouched.
+> · **The bug it surfaced (live since Urborg shipped):** the land-type readers matched the PRINTED type line, so a granted
+>   type was invisible to them. Landwalk (CR 702.14c) let a defender whose lands had become Islands block an islandwalker
+>   (an illegal block); "can't attack unless defending player controls an Island" refused a legal attack; and "When you
+>   control no Islands, sacrifice this creature" (11 native carriers — Sea Serpent, Dandân, Barbarian Outcast, Gorilla
+>   Pack…) would sacrifice a creature whose controller does control one. combatEvasion.defenderControlsLandType and
+>   interveningIf.permMatchesFilter now read the derived subtypes beside the printed line (which still answers "snow land").
+>   One-way edge: interveningIf → layers; layers.js never evaluates conditions, so no derive recursion.
+> · **Residue, flagged as its own task:** the card-type half of the condition filter (an animated land as a creature), the
+>   non-<type> target restrictions, and the layer-internal counts (printed by design — a derive inside a derive would
+>   recurse; those under-count, the safe direction).
+> · Leyline of the Guildpact prints the same line; its "each nonland permanent you control is all colors" still holds it back.
+> · **Re-pointed pin (1):** extraLandDrops.test.js — Dryad was the "type-changing rider stays non-native" example; it
+>   graduated, and the boundary now sits on the single-type cousin ("Lands you control are Swamps…"), still unmodeled.
+> · **Runtime:** `WITNESS dryadMana` — a Dryad player's Forest is all five types and taps for WUBRG; Blast Zone taps for {C} or any
+>   colour; the opponent's Mountain stays a Mountain. Witness `app/src/lib/learn/dryadOfTheIlysianGrove.test.js` (6).
+> · **Next:** #304 Mana Geyser.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 20: Braids, Arisen Nightmare (EDHREC #291) — the shares-a-card-type edict · **+1** · corpus 15,216
 > Suite **17,609** green (1 skipped); lint 0; decks **2,740** / 2,998 unchanged. CI GREEN on P·19 (run 36914337640).

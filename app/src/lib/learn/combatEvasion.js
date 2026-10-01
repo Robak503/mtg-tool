@@ -1092,7 +1092,12 @@ function permColorSet(state, id) {
 function defenderControlsLandType(state, defenderId, subtype) {
   const bf = state.players?.[defenderId]?.battlefield || [];
   const re = new RegExp(`\\b${subtype}\\b`, "i");
-  return bf.some((p) => re.test(String(p?.card?.type || p?.card?.type_line || "")));
+  // A land type a continuous effect GRANTED counts too (CR 702.14c "a land with the specified land type"; 205.1b) — Urborg's
+  // Swamp, Dryad of the Ilysian Grove's every basic type — so the derived subtypes are read beside the printed line (which
+  // still answers the supertype form, "snow land").
+  const want = String(subtype).toLowerCase();
+  return bf.some((p) => re.test(String(p?.card?.type || p?.card?.type_line || ""))
+    || permanentTypes(state, p.id).subtypes.some((s) => String(s).toLowerCase() === want));
 }
 
 // Does the BLOCKER satisfy one vetted EVASION-EXCEPT arm (parseExceptBlockerFilters)? Layer-aware on every

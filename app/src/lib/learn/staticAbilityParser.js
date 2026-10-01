@@ -3499,12 +3499,21 @@ function parseClause(clause, out, selfName, selfType) {
   // Night; CR 305.6 + 205.1b): a layer-4 subtype ADD on EVERY land on the battlefield, both seats (the printed subject is
   // "each land", so no controllerScope — the same all-lands dynamic selector the Kormus-class line below uses). The
   // subtype carries its INTRINSIC mana ability (CR 305.6), which manaModel.manaSources delivers layer-aware: a land whose
-  // effective subtypes gained a basic type taps for that colour too. Anchored whole-clause; the colour-carrying and
-  // controller-scoped cousins ("Lands you control are Swamps…") stay out until their own seams exist (safe FN).
+  // effective subtypes gained a basic type taps for that colour too. Anchored whole-clause; the colour-carrying and the
+  // single-type controller-scoped cousins ("Lands you control are Swamps…") stay out until their own seams exist (safe FN) —
+  // the all-five controller-scoped line has its own arm just below (P·21, Dryad of the Ilysian Grove).
   const eachLandM = c.match(/^each land is an? (plains|island|swamp|mountain|forest) in addition to its other land types$/);
   if (eachLandM) {
     const Sub = eachLandM[1][0].toUpperCase() + eachLandM[1].slice(1);
     out.push({ layer: 4, op: { subtypes: [Sub] }, affects: { mode: "dynamic", selector: { cardTypes: ["Land"] } }, duration: { kind: "permanent" } });
+    return;
+  }
+  // ⭐ LANDS YOU CONTROL ARE EVERY BASIC LAND TYPE (the play-weighted program, P·21 — Dryad of the Ilysian Grove, Prismatic
+  // Omen; CR 305.6 + 205.1b): the controller-scoped, all-five cousin of the each-land arm above — a layer-4 add of the five
+  // basic land types on each land its controller controls (an opponent's lands are untouched). Each type carries its
+  // intrinsic mana ability through the same manaModel delivery, so every such land also taps for any colour.
+  if (/^lands you control are every basic land type in addition to their other types$/.test(c)) {
+    out.push({ layer: 4, op: { subtypes: ["Plains", "Island", "Swamp", "Mountain", "Forest"] }, affects: { mode: "dynamic", selector: { cardTypes: ["Land"], controllerScope: "you" } }, duration: { kind: "permanent" } });
     return;
   }
   // ⭐ THIS LAND IS EVERY NONBASIC LAND TYPE (SHELF-85 K8, 2026-09-04 — Planar Nexus; CR 205.3i lists the nonbasic land
