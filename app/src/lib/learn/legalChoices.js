@@ -3494,6 +3494,53 @@ function actionsCastDragonCreatureFromGraveyard(state, playerId) {
     .map((a) => ({ ...a, dragonGyCastSourceId: source.id }));
 }
 
+/**
+ * FREE-CAST PERMISSIONS (shelf D35 — One with the Multiverse: "Once during each of your turns, you may cast a spell from your
+ * hand or the top of your library without paying its mana cost"; Zaffai and the Tempests and Vision, Spectral Synthezoid with
+ * a spell filter; Omniscience with no once). CR 118.9: the cast pays an alternative cost of nothing; additional costs still
+ * apply. Offered through the SHARED builder's freeCast mode — but that mode exists for casts made DURING a resolution
+ * (cascade, discover) and skips the timing gate, while these are ordinary casts, so each card is first held to the timing a
+ * paid cast of it would need (an instant at instant speed, everything else at sorcery speed). A once-per-your-turn source
+ * offers only on its controller's turn and latches per source (`${id}_freeCastOnce` — set by the dispatcher on the cast,
+ * cleared at the untap step, the Raul / Rivaz latch). An unlimited grant covers a card before a once-grant would spend its
+ * latch on it, and a card is offered free at most once.
+ */
+function freeCastFilterAllows(filter, card) {
+  const tl = String(card?.type || card?.type_line || "").split(" // ")[0];
+  if (filter === "any") return true;
+  if (filter === "instantOrSorcery") return /\bInstant\b|\bSorcery\b/.test(tl);
+  if (filter === "noncreatureOrRobot") return !/\bCreature\b/.test(tl) || /\bRobot\b/.test(tl);
+  return false;
+}
+function actionsCastFreeByPermission(state, playerId) {
+  const player = state.players[playerId];
+  const grants = [];
+  for (const perm of player.battlefield || []) {
+    for (const d of parseStaticAbilities(perm.card)) {
+      const fp = d.freeCastPermission;
+      if (!fp) continue;
+      if (fp.oncePerYourTurn && (state.activePlayer !== playerId || state.onceTriggersFiredThisTurn?.[`${perm.id}_freeCastOnce`])) continue;
+      grants.push({ ...fp, sourceId: perm.id });
+    }
+  }
+  if (!grants.length) return [];
+  grants.sort((a, b) => Number(a.oncePerYourTurn) - Number(b.oncePerYourTurn));
+  const timingOk = (card) => (isSorcerySpeed(card) ? canCastSorcerySpeed(state, playerId) : canCastInstantSpeed(state, playerId));
+  const top = (player.library || [])[0];
+  const offered = new Set();
+  const actions = [];
+  for (const g of grants) {
+    const pick = (cards) => cards.filter((c) => c && !offered.has(c.id) && freeCastFilterAllows(g.filter, c) && timingOk(c)); // (the builder drops lands)
+    const fromHand = pick(player.hand || []);
+    const fromTop = g.fromTop && top ? pick([top]) : [];
+    for (const c of [...fromHand, ...fromTop]) offered.add(c.id);
+    const latch = g.oncePerYourTurn ? { freeCastOnceSourceId: g.sourceId } : {};
+    for (const a of castActionsFromZone(state, playerId, fromHand, "hand", null, true)) actions.push({ ...a, ...latch });
+    for (const a of castActionsFromZone(state, playerId, fromTop, "library", null, true)) actions.push({ ...a, ...latch });
+  }
+  return actions;
+}
+
 function actionsPlayFromTopOfLibrary(state, playerId) {
   const perm = playFromTopPermission(state, playerId);
   if (!perm) return [];
@@ -4161,6 +4208,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsCastSuspendReadyFromExile(state, playerId)); // KW-SUSPEND step 2 (CR 702.62e): cast free at zero counters
     actions.push(...actionsPlayImpulseFromExile(state, playerId)); // IMPULSE-EXILE step 2 (CR 601.3 / 305.2): play an impulse-exiled card THIS TURN at full cost (nonland cast / land play from exile)
     actions.push(...actionsPlayFromTopOfLibrary(state, playerId)); // PLAY-FROM-TOP (Future Sight, CR 118.6): cast/play the top library card while the permission static is active
+    actions.push(...actionsCastFreeByPermission(state, playerId)); // shelf D35 — cast without paying the mana cost (One with the Multiverse, Zaffai, Vision, Omniscience)
     actions.push(...actionsCastMilledFromGraveyard(state, playerId)); // MILLED-GY CAST (Raul): once per your turn, cast a nonland milled this turn from your graveyard
     actions.push(...actionsCastPermittedFromGraveyard(state, playerId)); // shelf D30 — a "you may cast that card this turn" permission (Emry)
     actions.push(...actionsCastSelfFromGraveyard(state, playerId)); // shelf D31 — "you may cast this card from your graveyard as long as …" (The Indomitable)

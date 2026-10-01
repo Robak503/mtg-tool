@@ -2091,6 +2091,13 @@ function applyCastSpellMaybeDiscover(state, action) {
       onceTriggersFiredThisTurn: { ...(next.onceTriggersFiredThisTurn || {}), [`${action.dragonGyCastSourceId}_dragonGyCast`]: true },
     };
   }
+  // FREE CAST ONCE PER TURN (shelf D35 — One with the Multiverse, Zaffai, Vision): the same per-source once-latch, cleared at untap.
+  if (action.freeCastOnceSourceId) {
+    return {
+      ...next,
+      onceTriggersFiredThisTurn: { ...(next.onceTriggersFiredThisTurn || {}), [`${action.freeCastOnceSourceId}_freeCastOnce`]: true },
+    };
+  }
   return next;
 }
 

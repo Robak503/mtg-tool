@@ -7,14 +7,13 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## 🚀 2026-09-30 — **v0.161.0 RELEASED** (published 2026-10-01T05:26Z) — runnable: the shelf (Kellan 86, Light-Paws 83)
+## 🚀 2026-09-30 — **v0.161.0 RELEASED** (published 2026-10-01T05:26Z) — runnable: the shelf (Kellan 87, Light-Paws 83)
 
-> **Runnable next:** Kellan of the West 86 → 90 (needs 4) — One with the Multiverse (a once-per-turn free cast from hand
-> or the top of the library: the Raul / Rivaz once-latch plus a free cast that keeps normal timing), Transcendent Dragon
-> (unparked 09-30), Eladamri, Sakashima's Protege; spares Fblthp, Bonny Pall. Then Light-Paws 83 (needs 7). Atraxa is
-> DEFERRED (Colton 09-30: planeswalkers last, as their own program). Shelf 27 of 30 at ≥90; corpus 15,145 (44.2%). After
-> the shelf: the 09-06 plan's stage ③ → ④. Also queued: sync-spellbook should end yellow, not red, when Spellbook
-> rate-limits a run that saved progress (Colton asked how to stop the failure emails).
+> **Runnable next:** Kellan of the West 87 → 90 (needs 3) — Transcendent Dragon (unparked 09-30: ETB "if you cast it",
+> counter, exile, then cast it free — the D35 free-cast builder mode is the cast half), Eladamri, Sakashima's Protege; spares
+> Fblthp, Bonny Pall. Then Light-Paws 83 (needs 7). Atraxa is DEFERRED (Colton 09-30: planeswalkers last, as their own
+> program). Shelf 27 of 30 at ≥90; corpus 15,149 (44.2%). After the shelf: the 09-06 plan's stage ③ → ④. In flight:
+> the sync-spellbook resume fix (Spellbook's null `id`s — see the RUN-LEDGER 🔧 entry), then one fresh crawl.
 > **The release:** tagged on 502e133f (the `[0.161.0]` CHANGELOG cut), moved up from 10-02 by Colton because Reality
 > Fracture's whole card base was already on Scryfall (fra 461 cards, frc 103). Release run 36817109773 green (two test
 > shards + build); assets: the installer twice with its `.sig` each, and `latest.json`; `latest.json` verified BY CONTENT at
@@ -101,6 +100,7 @@
 > Stone Calendar, Highspire Bell-Ringer, Uthros Psionicist — the all-spells and second-spell reducers (+3 → corpus 14,989; suite 1644 / 16,975).
 > **The residue loop STOPS here — Colton (09-30): "Do my decks."** Next: the shelf decks' unplayed cards, until the v0.161.0 tag on/after 10-02.
 > **SHELF DECKS · D1** tribal digs read the printed capital — Avengers Tower takes Hulk Smash to 90% (+7 → corpus 14,996; suite 1645 / 16,981). Tool: `app/scripts/shelf-residue-map.mjs`.
+> **SHELF DECKS · D35** cast it without paying its mana cost — One with the Multiverse, Zaffai, Vision, Omniscience — Kellan of the West 86 → 87 (+4 → corpus 15,149; suite 1,685 / 17,351).
 > **SHELF DECKS · D34** The Reality Chip — play from the top while attached; reconfigure no longer targets itself — Kellan of the West 85 → 86 (+1 → corpus 15,145; suite 1,683 / 17,338).
 > **SHELF DECKS · D33** Katsumasa, the Animator — a Vehicle keeps its printed size, anything else is 1/1 — Shorikai Vehicles 89 → 90 — **27 of 30 at ≥90** (+1 → corpus 15,144; suite 1,682 / 17,333).
 > **SHELF DECKS · D32** Mu Yanling — the Vehicle token and "Vehicles you control have flying" — Shorikai Vehicles 88 → 89 (+3 → corpus 15,143; suite 1,681 / 17,325).

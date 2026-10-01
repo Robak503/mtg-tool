@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **1 commit**, corpus **44.2% (15,145)** at the tag. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **3 commits**, corpus **44.2% (15,145)** at the tag → **44.2% (15,149)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,31 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D35: CAST IT WITHOUT PAYING ITS MANA COST — One with the Multiverse, Zaffai, Vision, Omniscience — Kellan of the West 86 → 87 · **+4** · corpus 15,149 / 34,245
+> Suite **1,685 files / 17,351 tests** green (1 skipped); lint 0; decks 2,710 / 2,998. CI GREEN on D34 (run 36815067747). Flip-diff **+4, zero LOST,
+> zero RETIERED** (tier snapshots at 387b9a0f → the change: One with the Multiverse, Vision, Spectral Synthezoid, Zaffai and the Tempests, Omniscience). **Mutants 11/11** on the final code (restore byte-identical).
+> · **The permission** (staticAbilityParser.js): `{ freeCastPermission: { oncePerYourTurn, fromTop, filter } }` — "Once during each of
+>   your turns, you may cast a spell from your hand[ or the top of your library] without paying its mana cost" with the filters
+>   "a spell" / "an instant or sorcery spell" / "a noncreature or Robot spell", and Omniscience's unlimited "You may cast spells from
+>   your hand without paying their mana costs." Any other filter parks. CR 118.9: an alternative cost of nothing.
+> · **The offer** (legalChoices.actionsCastFreeByPermission): the shared builder's freeCast mode skips timing (it was built for casts
+>   made during a resolution — cascade, discover), so each card is first held to the timing a paid cast would need. A once-source
+>   offers only on its controller's turn and latches per source (`${id}_freeCastOnce`, set by the dispatcher, cleared at untap — the
+>   Raul / Rivaz latch). An unlimited grant covers a card first, and a card is offered free once, never once per grant.
+> · **Runtime:** `WITNESS oneWithTheMultiverse {"before":{"hand":["bears","div"],"library":["bolt"]},"hand":["bears","bolt","w0"],"graveyard":["div"],"latched":true,"after":{}}`
+>   · the untap step clears the latch · nothing on an opponent's turn · in combat only the instant · Zaffai / Vision filters · two
+>   once-sources give two free casts · Omniscience: no once, an instant free off-turn. Witness `app/src/lib/learn/freeCastPermission.test.js` (11).
+> · **Next:** Kellan 87 needs 3 — Transcendent Dragon, Eladamri, Sakashima's Protege (spares Fblthp, Bonny Pall); then Light-Paws 83 (7).
+
+> ## 🔧 2026-09-30 — sync-spellbook: a rate-limited crawl that saved progress ends green with a warning (9a9005db)
+> Colton asked how to stop the "All jobs have failed" emails. The script exits 75 when a 429 stops a card crawl that saved pages this
+> run (1 otherwise); the workflow warns on 75 and fails on everything else; daily schedule. Witness `app/scripts/syncSpellbookExit.test.js`
+> (2; mutants 2/2). **Live run 36820617700: green with the warning, no email** (CI 36820600290 green).
+> ⚠️ **The live run exposed the real reason the crawl never finishes:** Spellbook returns `id: null` for every card that is in no combo
+> (81 of 100 on the page at offset 9,000), and the resume logic counted and de-duplicated by `id` — so each reload kept ONE null-id card,
+> the crawl restarted near offset 3,100, and the saved count read 3,183 from offset 3,100 to 12,700. Fix in the next commit: key the
+> card identity on oracleId (name as the fallback), plus a dispatch input for one fresh crawl to fill the hole the old reloads left.
 
 > ## 🚀 2026-09-30 — v0.161.0 RELEASED · 449 commits since v0.160.0 · corpus 38.6% → 44.2% (15,145) · shelf 27 of 30 at ≥90
 > Colton moved the tag up from 10-02: Reality Fracture's whole card base was already on Scryfall (fra 461 cards, frc 103), so a

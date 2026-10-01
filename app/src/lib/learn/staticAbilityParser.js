@@ -3176,6 +3176,24 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ playFromTop: { lands: true, spellFilter: "any", attachedGated: true } });
     return;
   }
+  // FREE-CAST PERMISSIONS (shelf D35 — One with the Multiverse "Once during each of your turns, you may cast a spell from your
+  // hand or the top of your library without paying its mana cost."; Zaffai and the Tempests and Vision, Spectral Synthezoid
+  // print it with a spell filter; Omniscience prints it without the once). Casting without paying the mana cost is an
+  // alternative cost (CR 118.9); additional costs still apply. A coverage + enforcement MARKER: legalChoices'
+  // actionsCastFreeByPermission offers the casts (at normal timing) and latches a once-per-your-turn source per source.
+  // Only these three filters are read; any other filter parks the line.
+  {
+    const FREE_CAST_FILTER = { "a spell": "any", "an instant or sorcery spell": "instantOrSorcery", "a noncreature or robot spell": "noncreatureOrRobot" };
+    const once = c.match(/^once during each of your turns, you may cast (a spell|an instant or sorcery spell|a noncreature or robot spell) from your hand( or the top of your library)? without paying its mana cost$/);
+    if (once) {
+      out.push({ freeCastPermission: { oncePerYourTurn: true, fromTop: !!once[2], filter: FREE_CAST_FILTER[once[1]] } });
+      return;
+    }
+    if (/^you may cast spells from your hand without paying their mana costs$/.test(c)) {
+      out.push({ freeCastPermission: { oncePerYourTurn: false, fromTop: false, filter: "any" } });
+      return;
+    }
+  }
   // ⭐ FILTERED CAST-FROM-TOP (SHELF-85 K9, 2026-09-04 — Mystic Forge "You may cast artifact spells and colorless spells
   // from the top of your library"): no land permission, and a spell filter of type words plus the special word
   // "colorless" (castFromTopFilterAllows tests it as the card's colours, not its type line). Enforced at the offer by the
