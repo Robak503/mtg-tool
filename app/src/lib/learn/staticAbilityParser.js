@@ -3485,6 +3485,17 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
+  // ── SELF GRAVEYARD CAST (shelf D31 — The Indomitable, Gravecrawler; CR 113.6b + 601.3): "You may cast this card from your
+  // graveyard as long as <condition>." An ability that works FROM the graveyard: a coverage MARKER enforced by legalChoices'
+  // actionsCastSelfFromGraveyard, which offers the card from its owner's graveyard while the condition holds as the cast
+  // begins. The condition is the SHARED reader's — asked here whether it can read it (injected: see
+  // registerSelfGraveyardCastConditionReader) and there whether it holds. An unreadable condition parks the line.
+  const sgM = c.match(/^you may cast this card from your graveyard as long as (.+)$/);
+  if (sgM && selfGraveyardCastConditionReader?.(sgM[1])) {
+    out.push({ castSelfFromGraveyard: true, condition: sgM[1] });
+    return;
+  }
+
   // ── COUNTER-GATED GROUP WARD (Cathedral Acolyte — SHELF S7, CR 702.21): "Each creature you control
   // with a counter on it has ward {N}." A layer-6 addWard grant over the ANY-counter dynamic selector
   // (requiresAnyCounter — any kind, re-read per query so a counter arriving/leaving moves a creature in or
@@ -5067,6 +5078,12 @@ function parseLieutenantStatic(clause) {
   }
   return out;
 }
+
+// SELF GRAVEYARD CAST (shelf D31) — the condition reader is INJECTED: interveningIf imports layers, which imports this module,
+// so importing the reader here would be a cycle. coverage.js registers interveningIfParseable at load (legalChoices imports
+// coverage, so the runtime has it too). Unregistered → the marker is never emitted: fail closed, never open.
+let selfGraveyardCastConditionReader = null;
+export function registerSelfGraveyardCastConditionReader(fn) { selfGraveyardCastConditionReader = typeof fn === "function" ? fn : null; }
 
 export function parseStaticAbilities(card) {
   const slot = _cardSlot(card);

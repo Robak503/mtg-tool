@@ -3439,6 +3439,18 @@ function actionsCastPermittedFromGraveyard(state, playerId) {
   return eligible.length ? castActionsFromZone(state, playerId, eligible, "graveyard", null, false) : [];
 }
 
+/**
+ * SELF GRAVEYARD CAST (shelf D31 — The Indomitable: "You may cast this card from your graveyard as long as you control three or
+ * more tapped Pirates and/or Vehicles"; Gravecrawler): an ability that works from the graveyard (CR 113.6b). Each such card in
+ * the player's graveyard is offered through the SHARED builder (full cost, timing) while its condition holds now — read by the
+ * same evaluator every condition lane uses (CR 601.3: the permission must apply as the cast begins).
+ */
+function actionsCastSelfFromGraveyard(state, playerId) {
+  const eligible = (state.players[playerId]?.graveyard || []).filter((c) =>
+    c && parseStaticAbilities(c).some((d) => d.castSelfFromGraveyard && evaluateInterveningIf(state, d.condition, playerId) === true));
+  return eligible.length ? castActionsFromZone(state, playerId, eligible, "graveyard", null, false) : [];
+}
+
 function actionsCastMilledFromGraveyard(state, playerId) {
   const player = state.players[playerId];
   if (state.activePlayer !== playerId) return []; // "during each of YOUR turns"
@@ -4147,6 +4159,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsPlayFromTopOfLibrary(state, playerId)); // PLAY-FROM-TOP (Future Sight, CR 118.6): cast/play the top library card while the permission static is active
     actions.push(...actionsCastMilledFromGraveyard(state, playerId)); // MILLED-GY CAST (Raul): once per your turn, cast a nonland milled this turn from your graveyard
     actions.push(...actionsCastPermittedFromGraveyard(state, playerId)); // shelf D30 — a "you may cast that card this turn" permission (Emry)
+    actions.push(...actionsCastSelfFromGraveyard(state, playerId)); // shelf D31 — "you may cast this card from your graveyard as long as …" (The Indomitable)
     actions.push(...actionsCastDragonCreatureFromGraveyard(state, playerId)); // DRAGON-GY CAST (Rivaz): once per your turn, cast a Dragon creature spell from your graveyard
     actions.push(...actionsCastFlashbackFromGraveyard(state, playerId)); // FLASHBACK (CR 702.34a): cast from graveyard for the flashback cost, then exile it
     actions.push(...actionsActivateGraveyardRecursion(state, playerId)); // GY-1 (CR 602.2): "Return this card from your graveyard …" activated from the graveyard

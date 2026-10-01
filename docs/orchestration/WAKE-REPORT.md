@@ -80,6 +80,7 @@
 > Stone Calendar, Highspire Bell-Ringer, Uthros Psionicist — the all-spells and second-spell reducers (+3 → corpus 14,989; suite 1644 / 16,975).
 > **The residue loop STOPS here — Colton (09-30): "Do my decks."** Next: the shelf decks' unplayed cards, until the v0.161.0 tag on/after 10-02.
 > **SHELF DECKS · D1** tribal digs read the printed capital — Avengers Tower takes Hulk Smash to 90% (+7 → corpus 14,996; suite 1645 / 16,981). Tool: `app/scripts/shelf-residue-map.mjs`.
+> **SHELF DECKS · D31** "you may cast this card from your graveyard as long as …" — Shorikai Vehicles 87 → 88 (+3 → corpus 15,140; suite 1,680 / 17,321).
 > **SHELF DECKS · D30** "you may cast that card this turn" — the graveyard cast permission — Shorikai Vehicles 86 → 87 (+2 → corpus 15,137; suite 1,679 / 17,316).
 > **SHELF DECKS · D29** the lasting copy that keeps "this ability" — Thespian's Stage — Teval 89 → 90 — **26 of 30 at ≥90** (+3 → corpus 15,135; suite 1,678 / 17,309).
 > **SHELF DECKS · D28** Subterfuge — the trailing "until end of turn" quoted grant — Teval 88 → 89 (+1 → corpus 15,132; suite 1,677 / 17,303).

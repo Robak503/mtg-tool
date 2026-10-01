@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **443 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **444 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,28 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D31: "YOU MAY CAST THIS CARD FROM YOUR GRAVEYARD AS LONG AS …" — Shorikai Vehicles 87 → 88 · **+3** · corpus 15,140 / 34,245
+> Suite **1,680 files / 17,321 tests** green (1 skipped); lint 0; decks 2,706 / 2,998. CI GREEN on D30 (run 36809982128). Flip-diff **+3, zero LOST,
+> zero RETIERED** (tier snapshots at 8d74472c → the change: The Indomitable, Gravecrawler, Tend the Sprigs). **Mutants 7/7** on the final code (restore byte-identical).
+> · **Build:** an ability that works FROM the graveyard (CR 113.6b) — staticAbilityParser emits a castSelfFromGraveyard marker
+>   carrying its condition; legalChoices offers the card from its owner's graveyard through the shared builder while the
+>   condition holds as the cast begins (CR 601.3), read by evaluateInterveningIf. The static parser asks the SAME reader whether
+>   it can read the condition — INJECTED (registerSelfGraveyardCastConditionReader, registered by coverage.js), because
+>   interveningIf → layers → staticAbilityParser makes a direct import a cycle; unregistered fails closed. The reader's type
+>   union now reads "and/or" (The Indomitable's "three or more tapped Pirates and/or Vehicles": either or both counts once).
+> · **Unaimed gain verified:** Tend the Sprigs — the "and/or" union made its "seven or more lands and/or Treefolk" readable;
+>   in play the fetched land makes seven → a 3/4 Treefolk, five Forests and a Treefolk make seven too, five alone → none.
+> · **Process slip caught and corrected:** I edited interveningIf.js (this slice) while D30's full suite was still running,
+>   so that run tested a tree D30 would not commit. The edit was set aside as a patch, D30 re-ran on its exact tree (identical
+>   1,679 / 17,316) before commit, and the patch was re-applied here. Also caught: a test fixture's oracle I had first written
+>   from memory (Marang River Prowler) was replaced with the bundled text before use.
+> · **Runtime:** `WITNESS indomitable {"withThree":["indom"],"withTwo":[],"resolved":true,"leftGraveyard":true}` (one of the
+>   three untapped → not offered) · `WITNESS tendTheSprigs {"sixLands":1,"fiveAndTreefolk":1,"fiveAlone":0}` · Gravecrawler
+>   castable with a Zombie, not without · Marang River Prowler ("a black or green permanent" — unreadable) stays parked.
+>   Witness `app/src/lib/learn/selfGraveyardCast.test.js` (5).
+> · **Next:** Shorikai 88 needs 2 (Mu Yanling · Katsumasa · Windbrisk Heights — each two lines); Kellan 85 (5); Light-Paws 83 (7);
+>   Atraxa 74 (16).
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D30: "YOU MAY CAST THAT CARD THIS TURN" — THE GRAVEYARD CAST PERMISSION — Shorikai Vehicles 86 → 87 · **+2** · corpus 15,137 / 34,245
 > Suite **1,679 files / 17,316 tests** green (1 skipped); lint 0; decks 2,705 / 2,998. CI GREEN on D29 (run 36808430702). Flip-diff **+2, zero LOST,

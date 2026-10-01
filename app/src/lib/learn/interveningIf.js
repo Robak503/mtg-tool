@@ -321,8 +321,9 @@ function parseFilter(phrase) {
   // TYPE UNION — "artifact or enchantment" (Sanctum Weaver / Hall of Heliod's Generosity class). BOTH sides
   // must be clean single-word TYPE filters with no state/rider of their own, so the union is exactly the two
   // type-line words and nothing is silently dropped. A union involving "permanent"/"token" (whose match isn't
-  // a type-line word) or any qualified side → null → Arbiter.
-  const um = p.match(/^([a-z]+) or (?:an? )?([a-z]+)$/);
+  // a type-line word) or any qualified side → null → Arbiter. "<A> and/or <B>" is the same union (shelf D31 — The
+  // Indomitable's "three or more tapped Pirates and/or Vehicles": a permanent that is either, or both, counts once).
+  const um = p.match(/^([a-z]+) (?:or|and\/or) (?:an? )?([a-z]+)$/);
   if (um) {
     const a = parseFilter(um[1]), b = parseFilter(um[2]);
     if (a && b && a.kind === "type" && b.kind === "type" && !a.state && !b.state && !a.powerAtLeast && !b.powerAtLeast

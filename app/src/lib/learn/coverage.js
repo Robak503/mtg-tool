@@ -37,7 +37,7 @@ import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND no-cost credit �
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler, parseDiscardCostAbility } from "./effects/abilities.js";
 import { othersEnterWithCounters, staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithCastFromHandCounters, entersWithChoiceCounters, isHonestEnterCounterKind, choosesColorOnEnter, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, registerAuraOwnTriggerValidator, registerAttachedExceptByValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, attachedNoUntapOf, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
-import { spellConditionParseable } from "./interveningIf.js"; // EW-1 — the metric⇄runtime shared gate for a conditional enters-with counter (the resolver evaluates the SAME vocabulary via evaluateInterveningIf); acyclic (interveningIf imports only gameState)
+import { spellConditionParseable, interveningIfParseable } from "./interveningIf.js"; // EW-1 — the metric⇄runtime shared gate for a conditional enters-with counter (the resolver evaluates the SAME vocabulary via evaluateInterveningIf); acyclic (interveningIf imports only gameState)
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker, shufflesIntoLibraryInsteadOfGraveyard } from "./gameState.js";
@@ -86,7 +86,10 @@ import { isSeedbornUntap } from "./seedbornUntap.js"; // SEEDBORN-UNTAP — runt
 import { isMurkfiendUntap } from "./murkfiendUntap.js"; // MURKFIEND-UNTAP — runtime hook lives in gameEngine (applyMurkfiendUntap)
 import { parseTypeFilteredUntap } from "./typeFilteredUntap.js"; // TYPE-FILTERED UNTAP — runtime hook lives in gameEngine (applyTypeFilteredUntap)
 import { groupNoUntapFiltersOf, GROUP_NO_UNTAP_SENTENCE_RE } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1) — runtime enforced in gameState.untapAll (groupPreventsUntap)
-import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the eminence cost-reduction marker (Ur-Dragon classifier)
+import { parseStaticAbilities, registerSelfGraveyardCastConditionReader } from "./staticAbilityParser.js"; // for the eminence cost-reduction marker (Ur-Dragon classifier)
+// SELF GRAVEYARD CAST (shelf D31): the static parser asks the SHARED condition reader whether it can read "as long as <cond>" —
+// injected here, where interveningIf is already imported, because importing it there would be a cycle.
+registerSelfGraveyardCastConditionReader(interveningIfParseable);
 import { parseGlobalTapManaAugment, stripGlobalTapManaAugment } from "./staticAbilityParser.js"; // GLOBAL-TAP-AUGMENT: "Whenever you tap a <land|creature> for mana, add …" permanent
 import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR 715) — split the creature/adventure halves; pure shape module (no back-import, acyclic)
 import { parseSplitCard, splitFaceViews } from "./splitCard.js"; // SPLIT CARDS (CR 709) — the two-spell-halves shape module; pure leaf, acyclic

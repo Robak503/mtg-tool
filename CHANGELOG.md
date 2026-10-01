@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **The Indomitable and Gravecrawler** — castable from your graveyard while their condition holds (three tapped Pirates and/or Vehicles; a Zombie)
+- **Tend the Sprigs** — makes its Treefolk when you control seven or more lands and/or Treefolk
 - **Emry, Lurker of the Loch and Silas Renn, Seeker Adept** — choose an artifact card in your graveyard; you may cast it this turn
 - **Thespian's Stage and Mizzium Transreliquat** — become a lasting copy of a land or artifact while keeping the ability that did it
 - **Shameless Charlatan** — your commander can become a copy of another creature, and keeps the ability to do it again
