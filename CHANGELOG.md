@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Digsite Engineer** — pay {2} when you cast an artifact spell to create a Construct that grows with your artifacts
 - **Feed the Swarm** — destroy a creature or enchantment an opponent controls; you lose life equal to its mana value
 - **Myriad Landscape** — sacrifice it to fetch up to two basic lands that share a land type
 - **Bloodrush** — Rubblebelt Maaka, Ghor-Clan Rampager and nine more: discard one from your hand during combat to pump an attacking creature

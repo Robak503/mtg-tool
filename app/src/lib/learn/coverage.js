@@ -1696,7 +1696,10 @@ export function permanentTriggersCovered(card) {
     // keyword-only (Lifecrafter's Bestiary, Inheritance, Mind's Eye, Horizon/Origin/Panic Spellbomb, Urza's
     // Miter, Symmetry Matrix, Pedantic Learning). Anchored to the "if you do" lead so it can only consume a true
     // optional-payment tail — FN-safe (the HIGH gate above already vouched the whole trigger effect is modeled).
-    .replace(/\bif you do,?[ \t]+[^.\n]*\.?[ \t]*/gi, " ")
+    // QUOTE-AWARE (play-weighted P·3 — Digsite Engineer's "If you do, create a 0/0 … token with \"This token gets +1/+1 …\""):
+    // a quoted span is consumed whole, so the period INSIDE a token's quoted ability no longer ends the match early and
+    // leaves its closing quote behind as residue. The match still ends at the first period outside quotes.
+    .replace(/\bif you do,?[ \t]+(?:[^.\n"“”]|["“][^"“”\n]*["”])*\.?[ \t]*/gi, " ")
     // OPPONENT-PAYS-TO-DENY (taxed-treasure, Smothering Tithe) — "that player may pay {N}. If the player doesn't,
     // you create a Treasure token." is ONE trigger effect: detectTriggers appends the "If the player doesn't, …"
     // sentence to the effectClause, and the whole thing parses HIGH in allTriggerSentencesModeled above (proven

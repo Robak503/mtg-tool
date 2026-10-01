@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **17 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,175)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **18 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,176)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,28 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 3: the Construct token ("This token gets +1/+1 for each artifact you control") — the prerequisite for #120 Urza's Saga and #802 Urza, Lord High Artificer · **+1** (Digsite Engineer) · corpus 15,176
+> Suite **1,698 files / 17,441 tests** green (1 skipped); lint 0; decks unchanged (2,720 / 2,998). CI GREEN on P·2 (run 36874266190). Flip-diff **+1,
+> zero LOST, zero RETIERED** (tier snapshots at a28a1733 → the change: Digsite Engineer body-only → native-trigger). Top 1,000
+> unchanged (831) — this slice exists for Urza's Saga. **Mutants 5/6** on the final code (restore byte-identical; the
+> survivor is equivalent, below).
+> · **The token:** parseTokenStaticAbility reads "This token gets +1/+1 for each artifact you control" (every gaining
+>   printing says "token") and mints it as the creature form the static parser already reads — a layer 7c self bonus
+>   counting its controller's artifacts (CR 613.4c). The zero-toughness token refusal gains its one exception: a 0/0 whose
+>   static is exactly this one AND whose description is an artifact (it counts itself, so it is never below 1/1). A 0/0
+>   Plant with the same static still parks.
+> · **The residue strip:** coverage's "If you do, …" tail strip stopped at the first period — including the one INSIDE a
+>   token's quoted ability — and left the closing quote as residue, parking every card whose "If you do" tail creates a
+>   token with a quoted ability. It now consumes a quoted span whole and still ends at the first period outside quotes.
+> · **The equivalent mutant:** letting that strip run to the end of the line SURVIVED — because detectTriggers folds the rest
+>   of a trigger's line into its effect clause, which the HIGH gate vouches (or refuses) before the strip ever runs. The
+>   fence (a real unmodeled sentence after the tail) parks the card on that gate.
+> · **Runtime:** `WITNESS constructToken {"constructs":1,"types":["Artifact","Creature","Token"],"size":[2,2]}` — cast
+>   Ornithopter with Digsite Engineer out, pay {2}: the Construct enters, and once Ornithopter lands it counts both
+>   artifacts; declining makes none. Witness `app/src/lib/learn/constructToken.test.js` (4).
+> · **Next:** #120 Urza's Saga — its chapters' "This Saga gains …" (a self-grant through the existing layer-6 addAbility
+>   vehicle, no duration) and the "artifact card with mana cost {0} or {1}" tutor.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 2: Feed the Swarm (EDHREC #89) — "You lose life equal to that permanent's mana value." · top 1,000 **830 → 831** · **+1** · corpus 15,175
 > Suite **1,697 files / 17,437 tests** green (1 skipped); lint 0; decks unchanged (2,720 / 2,998). CI GREEN on P·1 (run 36872725502).

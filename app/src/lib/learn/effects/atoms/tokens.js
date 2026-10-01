@@ -977,7 +977,13 @@ function createTokenClauseParserCore(clause) {
     m.splice(2, 1); // drop the tapped group so every existing index below reads unchanged
     const power = parseInt(m[2], 10);
     const toughness = parseInt(m[3], 10);
-    if (toughness < 1) return null;  // 0-toughness token dies to the lethal SBA → incomplete capture → Arbiter
+    // A 0-toughness token dies to the lethal SBA → incomplete capture → Arbiter — UNLESS its own static keeps it alive: the
+    // Construct (play-weighted P·3) "gets +1/+1 for each artifact you control" and is an artifact itself, so it is never
+    // smaller than 1/1 once it exists.
+    const selfSizing = m[6] !== undefined && /^["“']/.test(m[6].trim())
+      && parseTokenStaticAbility(m[6]) === "This creature gets +1/+1 for each artifact you control."
+      && /\bartifact\b/.test(m[4]);
+    if (toughness < 1 && !selfSizing) return null;
     // LAND-CREATURE-TOKEN (CR 305.6): admit a "land" descriptor ONLY with exactly one basic-land subtype whose
     // intrinsic {T}: Add <color> ability is minted onto the token; otherwise its intrinsic mana would be
     // dropped/ambiguous → null → Arbiter (Saproling land / bare Dryad land stay parked — CREED).

@@ -21,7 +21,8 @@
 > **The shape (measured 10-01):** no veins left — of the 852 top-2,500 misses, 430 are one line away and those lines are
 > 429 distinct shapes. The top 500 are 92.6% covered; #501–1,000 73%; #2,001–2,500 48%. Mostly one card per slice: a
 > program of weeks, not a sprint.
-> **Progress:** PLAY-WEIGHTED · 1–2 (Myriad Landscape #28, Feed the Swarm #89) → top 1,000 at **831 / 1,000** (needs +69).
+> **Progress:** PLAY-WEIGHTED · 1–3 (Myriad Landscape #28, Feed the Swarm #89; · 3 the Construct token, Urza's Saga's
+> prerequisite) → top 1,000 at **831 / 1,000** (needs +69).
 
 ## 🏁 2026-10-01 — **THE SHELF IS DONE: 29 of 30 decks at ≥90** (Atraxa deferred) · stage ③ closed — stage ④ parked behind the play-weighted program (above)
 

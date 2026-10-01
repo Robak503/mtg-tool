@@ -804,5 +804,11 @@ export function parseTokenStaticAbility(quotedWithQuotes) {
     .replace(/^["“'](.*)["”']$/s, "$1")
     .trim().replace(/\.\s*$/, "");
   const m = inner.match(/^this (?:token|creature) crews vehicles as though its power were (\d+) greater$/i);
-  return m ? `This creature crews Vehicles as though its power were ${m[1]} greater.` : null;
+  if (m) return `This creature crews Vehicles as though its power were ${m[1]} greater.`;
+  // THE CONSTRUCT (play-weighted P·3 — Urza's Saga, Simulacrum Synthesizer, Digsite Engineer, Urza, Lord High Artificer: a
+  // "0/0 colorless Construct artifact creature token with 'This token gets +1/+1 for each artifact you control.'"). The
+  // static parser reads the creature form as a self P/T bonus counting the artifacts its controller controls — the token
+  // itself among them (CR 613.4c, layer 7c).
+  if (/^this token gets \+1\/\+1 for each artifact you control$/i.test(inner)) return "This creature gets +1/+1 for each artifact you control.";
+  return null;
 }
