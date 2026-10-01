@@ -52,6 +52,7 @@ import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, 
 import { playerProtectedFromEverything, deathLookbackLinks } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
 import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam
 import { protectionApplies } from "./protection.js";
+import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — damage to a player dealt to a creature instead (CR 614.9)
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 import { selfDamagePrevention, attachedDamagePrevention, counterShieldPrevention, attachedPreventPutCounters } from "./combatEvasion.js"; // FOG-1/AP-1 — the printed self + attached prevent-all walls (leaf-safe: combatEvasion never imports this module)
@@ -1395,6 +1396,16 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   // only at the combat funnel. Read once — the source is constant for the whole effect.
   const sourceBySilenced = source?.id ? attachedDamagePrevention(next, source.id).by === "all" : false;
   const hitPlayer = (s, pid, override = null) => {
+    // DAMAGE REDIRECT (shelf D42, CR 614.9 — With Great Power . . ., Pariah, Empyrial Archangel): damage that would be dealt to
+    // this player is dealt to the creature their redirect names instead — an ordinary hit on that creature (its own walls,
+    // shields and doublers; the source's infect/wither; the lethal pass and dealt-damage watchers). Applied FIRST, a legal
+    // CR 616.1 order (the affected player picks which replacement applies). Never onto a creature with any protection: this
+    // funnel doesn't thread a spell's colours, so a prevention CR 702.16e owes can't be told apart — the damage stays with
+    // the player, an under-delivery.
+    const redirectTo = playerDamageRedirectTarget(s, pid);
+    if (redirectTo && !permanentProtectionColors(s, redirectTo).size && !permanentProtectionClasses(s, redirectTo).size) {
+      return hitCreature(s, redirectTo, override ?? amount);
+    }
     // DAMAGE-REPLACEMENT: double the magnitude per target. Infect still REPLACES life loss with poison —
     // the doubled magnitude becomes that many poison counters (CR 614 doubles the amount; CR 702.90a changes
     // the form). 120.8: only deal if >0 after doubling. `override` = a PER-PLAYER amount (Molten Psyche reads each
@@ -1420,8 +1431,8 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   // if a future effect hits one creature twice in a call. Reflects the Wave-5a doubler (dmgConsult ran).
   const dealtToCreature = {};
   let sourceDealtTotal = 0; // SL-1 — the SOURCE's total dealt this resolution (players + creatures + walkers)
-  const hitCreature = (s, permId) => {
-    let dealt = dmgConsult(amount, "creature", permId);
+  const hitCreature = (s, permId, raw = amount) => { // `raw` — a redirected player hit's own amount (shelf D42)
+    let dealt = dmgConsult(raw, "creature", permId);
     if (dealt <= 0) return s;
     // CR 122.1c — a SHIELD COUNTER PREVENTS all damage this event would deal to the creature and removes one
     // shield counter. The damage is prevented, so it is NOT marked, feeds NO enrage/dealtDamage tally (CR 120.8 —

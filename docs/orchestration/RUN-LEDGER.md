@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **10 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,155)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **11 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,160)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,31 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-10-01 — SHELF DECKS · D42: DAMAGE TO YOU IS DEALT TO A CREATURE INSTEAD — Light-Paws Voltron 86 → 88 · **+5** · corpus 15,160 / 34,245 (44.3%)
+> Suite **1,692 files / 17,405 tests** green (1 skipped); lint 0; decks 2,718 / 2,998. CI GREEN on D41 (run 36829379830). Flip-diff **+5, zero LOST,
+> zero RETIERED** (tier snapshots at bec07f14 → the change: With Great Power . . . and Pariah body-only → native-aura; Pariah's Shield → native-equipment; Empyrial Archangel → native-static; Protector of the Crown → native-mixed). **Mutants 20/20** on the final code (restore byte-identical).
+> · **One line, three gates:** "All damage that would be dealt to you is dealt to enchanted / equipped / this creature instead."
+>   (CR 614.9). staticAbilityParser.playerDamageRedirectLine is the one recognizer — the Aura gates (the bonus walker skip, the
+>   touch walk, the modeled-payload check: Pariah's whole payload), the Equipment gate (a line strip, like the except-by line)
+>   and a coverage marker for the creature form all read it. A filter (Veteran Bodyguard), a condition or a wider scope
+>   (Palisade Giant) never matches.
+> · **The runtime** (new leaf `learn/damageRedirect.js`): the first redirect on the player's battlefield names the creature;
+>   it must be a creature on the battlefield right now (CR 614.9). Non-combat (`hitPlayer`): an ordinary hit on that creature,
+>   with a per-opponent amount (Molten Psyche) carried — but never onto a creature with ANY protection, since the spell's colours
+>   aren't threaded there (the player takes it: an under-delivery). Combat (`spillToDefender`): the deal an attacker makes to a
+>   blocker — protection, Maze of Ith's stamp, a shield counter, the creature-side consult, deathtouch, infect/wither, the
+>   dealt-by record — and NO combat-damage-player event, so no commander damage, no monarch steal, no player-damage trigger.
+>   Applied first, a legal CR 616.1 order. Wolverine's dealt-to-a-creature arm is not set (an under-delivery, unwitnessed).
+> · **Caught in review:** the first Pariah's Shield witness used Empyrial Archangel as the host — whose OWN redirect sends the
+>   Bolt to the same place, so the Shield proved nothing. Re-hosted on a Bear.
+> · **A negative graduated:** flashAuraAndCondUnblock.test.js kept Pariah's line as its REAL unmodeled clause; the probe is now
+>   positive, and the negative is Benevolent Blessing (a printed Flash Aura; chosen-colour protection is still unmodeled).
+> · **Runtime:** `WITNESS playerDamageRedirect {"userLife":40,"hostDamage":2}` · Scroll Thief (a commander) draws nothing and
+>   deals no commander damage · Typhoid Rats kills the 4/4 · Glistener Elf: a -1/-1 counter, no poison · Sengir Vampire grows ·
+>   Mirran Crusader, a shield counter, a Maze stamp and a prevention shield each stop it · Pariah on an OPPONENT's Bear kills it.
+>   Witness `app/src/lib/learn/playerDamageRedirect.test.js` (18).
+> · **Next:** Light-Paws 88 needs 2 — Pearl-Ear (two lines), then one from the deep pile.
 
 > ## 🃏 2026-10-01 — SHELF DECKS · D41: MANTLE OF THE ANCIENTS — AURAS AND EQUIPMENT RETURN ATTACHED — Light-Paws Voltron 85 → 86 · **+1** · corpus 15,155 / 34,245 (44.3%)
 > Suite **1,691 files / 17,387 tests** green (1 skipped); lint 0; decks 2,716 / 2,998. CI GREEN on D40 (run 36827909736). Flip-diff **+1, zero LOST,

@@ -35,11 +35,15 @@ describe("FA-1 — flash auras", () => {
     // pins), so it is now the POSITIVE half here…
     expect(classifyCard({ id: "ig", name: "Illusory Gains", type: "Enchantment — Aura", mana: "{2}{U}{U}",
       oracle: "Flash\nEnchant creature\nYou control enchanted creature.\nWhenever a creature enters, attach this Aura to that creature." })).toMatch(/^native/);
-    // …and the "unmodeled clause still parks" half keeps a REAL unmodeled subject: a damage-REDIRECTION aura
-    // ("All damage that would be dealt to you is dealt to enchanted creature instead" — Pariah's line, no
-    // redirection-to-permanent replacement exists). Swapped in deliberately so the negative can't rot into a tautology.
+    // NOTE (2026-10-01): the Pariah flash probe GRADUATED too — its damage redirect is modeled (shelf D42;
+    // playerDamageRedirect.test.js holds the runtime pins), so it joins the positive half…
     expect(classifyCard({ id: "par", name: "Pariah (flash probe)", type: "Enchantment — Aura", mana: "{2}{W}",
-      oracle: "Flash\nEnchant creature\nAll damage that would be dealt to you is dealt to enchanted creature instead." })).toBe("body-only");
+      oracle: "Flash\nEnchant creature\nAll damage that would be dealt to you is dealt to enchanted creature instead." })).toBe("native-aura");
+    // …and the "unmodeled clause still parks" half keeps a REAL unmodeled subject: Benevolent Blessing, a printed Flash
+    // Aura whose chosen-colour protection (with its keep-your-own-attachments rider) has no model. Swapped in
+    // deliberately so the negative can't rot into a tautology.
+    expect(classifyCard({ id: "bb", name: "Benevolent Blessing", type: "Enchantment — Aura", mana: "{1}{W}",
+      oracle: "Flash\nEnchant creature\nAs this Aura enters, choose a color.\nEnchanted creature has protection from the chosen color. This effect doesn't remove Auras and Equipment you control that are already attached to it." })).toBe("body-only");
   });
 });
 

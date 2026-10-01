@@ -55,6 +55,7 @@ import {
 import { permanentHasKeyword, permanentColors, permanentProtectionColors, permanentProtectionClasses, assignsCombatDamageWithToughness } from "./layers.js";
 import { applyDestroyEffect } from "./spellEffects.js"; // DG-1 — the shared destroy primitive (indestructible/shield/regen/totem + dies-triggers); spellEffects never imports this module (cycle-safe)
 import { protectionApplies } from "./protection.js";
+import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — combat damage to a player dealt to a creature instead (CR 614.9)
 import { selfDamagePrevention, selfDamagePreventionBy, attachedDamagePrevention, mayAssignAsUnblocked, attackerMinBlockers, counterShieldPrevention, attachedPreventPutCounters, selfPreventPutCounters } from "./combatEvasion.js";
 import { boardHasDamageReplacement, consultDamageAmount, combatDamageUnpreventable } from "./damageReplacements.js"; // + SG-11 (Frenzied Baloth): "Combat damage can't be prevented."
 import { playerProtectedFromEverything, moveCardToZone } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player takes no combat damage; moveCardToZone — ④-AX end-of-combat self-bounce
@@ -497,6 +498,22 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
         return 0;
       }
       const defender = att.defender;
+      // DAMAGE REDIRECT (shelf D42, CR 614.9 — With Great Power . . ., Pariah, Empyrial Archangel): combat damage that would be
+      // dealt to the defender is dealt to the creature their redirect names instead — the deal an attacker makes to a blocker
+      // (protection, Maze of Ith's stamp, a shield counter, the creature-side walls and doublers, deathtouch and infect/wither,
+      // the dealt-by record). Wolverine's dealt-to-a-creature arm is not set — an under-delivery. No player is dealt damage, so
+      // no combat-damage-player event: no commander damage, no monarch steal, no "deals combat damage to a player" trigger.
+      // Applied first, a legal CR 616.1 order. Lifelink still counts it.
+      const redirectTo = defender && state.players[defender] ? playerDamageRedirectTarget(state, defender) : null;
+      if (redirectTo) {
+        if (protectionPrevents(redirectTo, attackerColors)) return 0;
+        if (findPermanent(state, redirectTo).permanent.takesNoCombatDamageTurn === state.turn) return 0;
+        if (shieldPrevents(redirectTo)) { shieldConsumed.add(redirectTo); return 0; }
+        const amount = consultCombat(rawAmount, lookup.permanent, "creature", redirectTo);
+        addDmg(redirectTo, amount, deathtouch, attackerMinus);
+        recordCreatureDamage(lookup.permanent, redirectTo, amount);
+        return amount;
+      }
       if (defender && state.players[defender]) {
         // DAMAGE-REPLACEMENT (CR 614): finalize the player-damage amount BEFORE the infect/toxic split and
         // BEFORE the combat-damage-player event (so 903.10a commander damage accrues the DOUBLED amount —

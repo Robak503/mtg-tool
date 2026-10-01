@@ -3182,6 +3182,10 @@ function parseClause(clause, out, selfName, selfType) {
   // together by plotFromLibraryTopGranted: legalChoices offers the top nonland card the plot special action for its mana
   // cost only when one permanent carries all three. The classifier credits each sentence on its own; that is honest only
   // because Fblthp is the sole card printing any of them (census 2026-09-30) — a card printing one alone must not reuse these.
+  // DAMAGE REDIRECT TO THIS CREATURE (shelf D42, CR 614.9 — Empyrial Archangel, Protector of the Crown: "All damage that would
+  // be dealt to you is dealt to this creature instead."). A coverage MARKER: the runtime reads the printed line itself
+  // (damageRedirect.playerDamageRedirectTarget) at both damage funnels, so nothing consumes this descriptor.
+  if (playerDamageRedirectLine(c) === "this") { out.push({ redirectsPlayerDamageToSelf: true }); return; }
   if (/^the top card of your library has plot$/.test(c)) { out.push({ topCardHasPlot: true }); return; }
   if (/^the plot cost is equal to its mana cost$/.test(c)) { out.push({ plotCostIsManaCost: true }); return; }
   if (/^you may plot nonland cards from the top of your library$/.test(c)) { out.push({ plotNonlandFromTop: true }); return; }
@@ -6390,6 +6394,9 @@ export function parseAttachedBonus(card, subjectOverride) {
     // PZ-1: the attached tap-lock line is enforced in gameState.untapAll, not as a layer bonus — skip it
     // (the AP-1 wall-skip pattern) so a compound aura keeps its other half.
     if (subject === "enchanted" && ATT_NO_UNTAP_CLAUSE_RE.test(c.trim())) continue;
+    // shelf D42: the damage redirect onto the host (CR 614.9) is enforced at the damage funnels, not as a layer bonus — skip
+    // it the same way, so With Great Power . . . keeps its +2/+2-per-attachment half.
+    if (playerDamageRedirectLine(c) === subject) continue;
     // ④-W: a GRANTED except-by evasion ("Equipped creature can't be blocked except by Walls") is enforced by the
     // block gate off the attachment, not by a layer op — skip it so a sibling P/T bonus survives (the tap-lock
     // and control-line skips' shape). Unregistered validator → it still poisons the parse (safe FN).
@@ -6870,6 +6877,26 @@ const reAttPrevToAll = /(?:^|[\n.;])\s*prevent all damage that would be dealt to
 const reAttPrevByCombat = /(?:^|[\n.;])\s*prevent all combat damage that would be dealt by enchanted creature\s*(?:\.|$)/i;
 const reAttPrevByAll = /(?:^|[\n.;])\s*prevent all damage that would be dealt by enchanted creature\s*(?:\.|$)/i;
 const ATT_PREV_CLAUSE_RE = /^prevent all (?:combat )?damage that would be dealt (?:to(?: and dealt by)?|by) enchanted creature\.?$/i;
+// DAMAGE REDIRECT TO A CREATURE (shelf D42, CR 614.9 — With Great Power . . ., Pariah, Pariah's Shield, Empyrial Archangel,
+// Protector of the Crown): "All damage that would be dealt to you is dealt to enchanted creature instead.", and the "equipped
+// creature" / "this creature" forms. Enforced at both damage funnels (damageRedirect.playerDamageRedirectTarget, read by
+// spellEffects.applyDamageEffect and combatResolution's spill to the defender) — one reader for the metric's gates and the
+// runtime. A source filter ("… by unblocked creatures"), a condition ("As long as …") or a wider scope ("you and other
+// permanents you control") never matches: residue, a safe FN.
+const PLAYER_DAMAGE_REDIRECT_RE = /^all damage that would be dealt to you is dealt to (enchanted|equipped|this) creature instead\.?$/i;
+/** The recipient one printed line's redirect names — "enchanted" | "equipped" | "this" — or null. */
+export function playerDamageRedirectLine(line) {
+  const m = PLAYER_DAMAGE_REDIRECT_RE.exec(String(line || "").trim());
+  return m ? m[1].toLowerCase() : null;
+}
+/** The recipient a CARD's redirect line names, or null. */
+export function playerDamageRedirectOf(card) {
+  for (const line of String(card?.oracle ?? card?.oracle_text ?? "").split("\n")) {
+    const who = playerDamageRedirectLine(line);
+    if (who) return who;
+  }
+  return null;
+}
 // PARALYZE-CLASS attached tap-lock (BLITZ PZ-1 — Waterknot / Bonds of Quicksilver): "Enchanted
 // creature doesn't untap during its controller's untap step." Enforced continuously in
 // gameState.untapAll (the attachment read); admitted here so the aura gates treat the line as a
@@ -7060,7 +7087,9 @@ export function isNativeAura(card) {
   // the PZ-1 lock, or (SL-1) a modeled AURA-OWN TRIGGER (Spirit Link / Vampiric Link — a trigger-ONLY aura
   // whose whole body is the admitted own-watcher is fully modeled: enter + attach + the trigger fires).
   if (!parseAuraBonus(card).length && !prev.to && !prev.by && !attachedNoUntapOf(card)
-    && !auraHasModeledOwnTrigger(card) && !auraGrantsControl(card) && !auraGrantsExceptBy(card)) return false;
+    && !auraHasModeledOwnTrigger(card) && !auraGrantsControl(card) && !auraGrantsExceptBy(card)
+    && playerDamageRedirectOf(card) !== "enchanted") return false; // shelf D42 — Pariah's whole payload is the redirect
+
   if (!auraTouchClausesAllModeled(card)) return false;       // PZ-1 hardening — see below
   return auraResidueClauses(card).length === 0;
 }
@@ -7116,6 +7145,7 @@ function auraTouchClausesAllModeled(card) {
     if (/^(?:when|whenever|at)\b/.test(c)) continue;          // trigger lines gate in auraResidueClauses
     if (ATT_PREV_CLAUSE_RE.test(c)) continue;                 // AP-1 wall — enforced at the damage paths
     if (ATT_NO_UNTAP_CLAUSE_RE.test(c)) continue;             // PZ-1 tap-lock — enforced in untapAll
+    if (playerDamageRedirectLine(c) === "enchanted") continue; // shelf D42 redirect — enforced at the damage funnels
     if (isTotemArmorClause(c)) continue;                      // totem armor — enforced at destruction
     if (AURA_CONTROL_CLAUSE_RE.test(c)) continue;             // CONTROL AURA — enforced in controlAura.js
     if (_attachedExceptByValidator && _attachedExceptByValidator({ oracle: clause })) continue; // ④-W except-by — enforced at the block gate
