@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **38 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,227)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **39 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,228)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,29 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 23: Sevinne's Reclamation (EDHREC #339) — cast from a graveyard, and the self-copy · **+1** · corpus 15,228
+> Suite **17,632** green (1 skipped); lint 0; decks **2,740** / 2,998 unchanged. CI GREEN on P·22 (run 36922846707).
+> Flip-diff **+1, −0, zero RETIERED** (tier snapshots at 7f6cfccf → the change): Sevinne's Reclamation → native-spell. Top 1,000
+> **855** (needs +45); top 2,500 **1,678**. **Mutants 16/16** (restore byte-identical).
+> · **The seam (a 14-card family):** "if this spell was cast from a graveyard" is a cast-time fact. applyCastSpell stamps
+>   `params.context.castFromGraveyard` on a graveyard cast (it rides every resume), and the condition reader answers it
+>   definitely — an unstamped spell was cast from elsewhere, or is a copy. The rest of the family waits on its own halves
+>   (the Increasing cycle's "… instead" behind reminder text, Ruthless Negotiation's exile-from-hand).
+> · **The copy:** an optional `copy-self-spell` gated on that read puts ONE copy of the resolving spell on the stack. Its
+>   program is the reanimate (a copy is never cast, so its own copy sentence could never fire — CR 707.10), and it re-picks
+>   its target off the live board through the storm copies' picker (now a shared helper). With no other legal card it keeps
+>   the original's target, which fizzles (CR 608.2b). Magecraft sees it. The copy's target is picked for the player, as storm
+>   copies' are.
+> · **Copies are never cast — and the bug that surfaced:** every copy site now clones through `spellCopyPayload`, which
+>   strips the cast-time facts. The instant/sorcery copy (Reverberate, Twincast, Flare of Duplication) kept the original's
+>   graveyard disposition, so a resolved copy put a SECOND object with the original card's id into the graveyard. Fixed,
+>   and witnessed with a cast Lightning Bolt.
+> · **Infrastructure:** RESOLVER_KEYS moved to a zero-import leaf (`resolverKeys.js`, re-exported by resolvers.js) so an atom
+>   can build a fresh effect-program payload without the resolvers → runProgram → effectAtoms cycle.
+> · **Runtime:** `WITNESS sevinneFlashback` — flashback returns Sol Ring, the copy is offered, and taken it returns Grizzly
+>   Bears; Craw Wurm (MV 6) is never a target; Sevinne's is exiled. Witness `app/src/lib/learn/sevinnesReclamation.test.js` (11).
+> · **Next:** #349 Anger.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 22: Mana Geyser (EDHREC #304) — the ritual per count · **+9** · corpus 15,227
 > Suite **17,621** green (1 skipped); lint 0; decks **2,740** / 2,998 unchanged. CI GREEN on P·21 (run 36921436640).

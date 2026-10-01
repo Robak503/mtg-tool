@@ -18,6 +18,7 @@ import { applyZoneMove } from "./zones.js"; // VENSER: the permanent half of the
 import { stackSpellIsUncounterable } from "../../staticAbilityParser.js"; // the shared CR 701.6a predicate for the untargeted counter (the Glasskites)
 import { auraMayEnchantCreature } from "../../auraHost.js"; // ATTACH-ON-ENTER AURAS (Shielded by Faith): the Aura's own Enchant line, honoured at the move — the shared reader (a leaf; zones.js reads it too)
 import { evaluateInterveningIf } from "../../interveningIf.js"; // FEROCIOUS HARD-COUNTER (Stubborn Denial): the resolution-time condition read. interveningIf imports only gameState — leaf edge, cycle-free.
+import { RESOLVER_KEYS } from "../../resolverKeys.js"; // P·23 — the self-copy builds a fresh effect-program payload (a zero-import leaf; resolvers.js re-exports it)
 
 /**
  * P3.1 counter (CR 701.6a) — counter the target spell(s) on the stack. The targeted
@@ -1624,6 +1625,74 @@ function copyAtomIntent(atom) {
 }
 
 /**
+ * A COPY of a spell's resolution payload (CR 707.10) — the one clone every copy site uses. Deep, so the copy resolves
+ * independently of the original (the resolver mutates params as it runs), and stripped of the ORIGINAL's cast-time
+ * facts: a copy is not a card and was never cast (CR 707.10a). So it has no zone disposition — a resolved copy must never
+ * put another object with the original card's id into a graveyard (the instant/sorcery copy did, until P·23) — and "if
+ * this spell was cast from a graveyard" reads false for it.
+ */
+export function spellCopyPayload(payload) {
+  const cloned = JSON.parse(JSON.stringify(payload)); // every spell payload carries params (the dispatcher builds them all)
+  delete cloned.params.spellToGraveyard;
+  if (cloned.params.context) delete cloned.params.context.castFromGraveyard;
+  return cloned;
+}
+
+/**
+ * STORM-COPY-TARGET (CR 707.10c) — a fresh legal target combo for ONE copy of a spell whose body is `bodyProgram`, picked
+ * off the LIVE state `s`: prefer all-enemy-side (per copyAtomIntent), else first legal, else the original spell's targets
+ * (the CR 707.10c default). Shared by the storm copies and the self-copy (P·23).
+ * Whether ANY atom in the body takes a chosen target drives the re-enumeration: a targeting atom OR carried original targets
+ * both signal a targeted spell; a non-targeted body (no targeting atom, no original targets) gets empty targets
+ * (byte-identical to the pre-targeted STORM behavior for Empty the Warrens / Chatterstorm / Weather the Storm). Returns null
+ * when the body needs a target but none is legal (the copy is removed, CR 608.2b).
+ */
+function freshCopyTargets(s, controller, bodyProgram, originalTargets) {
+  const bodyHasChosenTarget = (bodyProgram?.atoms || []).some((a) => !!a.targetType) || originalTargets.length > 0;
+  if (!bodyHasChosenTarget) return [];
+  let combos;
+  try { combos = expandCastChoices(s, controller, bodyProgram) || []; } catch { combos = []; }
+  if (combos.length === 0) {
+    // No fresh legal target. CR 707.10c default = keep the original targets — but only if they're STILL legal-
+    // shaped (present). If the original is also empty the copy has no target → remove it (null).
+    return originalTargets.length > 0 ? originalTargets : null;
+  }
+  const sideOk = (combo) => (combo.targets || []).every((t) => {
+    const intent = copyAtomIntent((bodyProgram.atoms || [])[t.atomIndex]);
+    if (intent === "enemy") { const side = copyTargetSide(s, t); return side != null && side !== controller; }
+    if (intent === "own") return copyTargetSide(s, t) === controller;
+    return true; // null intent (non-side-constrained atom) — any legal target is fine
+  });
+  const chosen = combos.find(sideOk) || combos[0];
+  return chosen?.targets || [];
+}
+
+/**
+ * ===== SELF-COPY (the play-weighted program, P·23 — Sevinne's Reclamation) ===== "you may copy this spell and may choose a
+ * new target for the copy": the resolving spell puts ONE copy of itself on the stack (CR 707.10), above anything below it.
+ * The copy's program is `atom.body` — the effect the parser bound. The printed copy also carries the copy sentence, but a
+ * copy is never cast, so "if this spell was cast from a graveyard" reads false for it (CR 707.10): leaving the sentence out
+ * is the same program. The copy re-picks its one target off the live board (CR 707.10c) with the storm copies' picker —
+ * the original's target has already resolved — and with none legal it keeps the original's, which then fizzles (CR
+ * 608.2b). A copy is not a card (`isCopy`/`token`): no disposition, no graveyard (CR 707.10a). Magecraft's "cast or copy"
+ * watchers see it through checkCopyTriggers, like every copy site.
+ */
+function applyCopySelfSpell(state, atom, ctx) {
+  const bodyProgram = { version: 1, source: "parser", confidence: "high", structure: "sequence", atoms: atom.body || [], modal: null, xSpell: false, unparsedTail: null };
+  const targets = freshCopyTargets(state, ctx.controller, bodyProgram, ctx.targets || []);
+  if (targets === null) {
+    return logEvent(state, { kind: "spell-effect", effect: "self-copy-removed", controller: ctx.controller, cardName: ctx.cardName, reason: "no legal target" });
+  }
+  const { id, state: s2 } = mintId(state, "stk");
+  const sourceCard = { name: ctx.cardName, type: atom.spellType, token: true, isCopy: true };
+  const payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program: bodyProgram, controller: ctx.controller, targets } };
+  const copyObj = createStackObject({ id, kind: "spell", source: sourceCard, controller: ctx.controller, targets, payload });
+  let next = { ...s2, stack: [...s2.stack, { ...copyObj, isCopy: true }] };
+  next = checkCopyTriggers(next, { copiedSpellCard: sourceCard, controllerId: ctx.controller });
+  return logEvent(next, { kind: "spell-effect", effect: "self-copy", controller: ctx.controller, cardName: ctx.cardName, targets: targets.map((t) => t.id) });
+}
+
+/**
  * ===== STORM (CR 702.40) ===== — "Storm (When you cast this spell, copy it for each spell cast before it this
  * turn.)". The Storm keyword's triggered ability (synthesized in triggers.detectTriggers as a selfCast trigger,
  * since the real trigger lives in stripped reminder text — the BUSHIDO/RAMPAGE keyword→trigger precedent) copies
@@ -1669,32 +1738,7 @@ function applyCopySpell(state, atom, ctx) {
   // (resolver:"effect-program" with a chosen-target atom) re-picks per copy; everything else keeps empty targets.
   const bodyProgram = sourcePayload?.params?.program || null;
   const originalTargets = sourcePayload?.params?.targets || [];
-  // Whether ANY atom in the body takes a chosen target (drives the per-copy re-enumeration). We re-enumerate when
-  // the body has a targeting atom OR carried original targets — both signal a targeted spell; a non-targeted body
-  // (no targeting atom, no original targets) skips straight to the clone with empty targets (byte-identical to
-  // the pre-targeted STORM behavior for Empty the Warrens / Chatterstorm / Weather the Storm).
-  const bodyHasChosenTarget = (bodyProgram?.atoms || []).some((a) => !!a.targetType) || originalTargets.length > 0;
-  // STORM-COPY-TARGET — pick a fresh legal target combo for one copy off the LIVE state `s`. Prefer all-enemy-side
-  // (per copyAtomIntent), else first legal, else the original spell's targets (CR 707.10c default). Returns null
-  // when the body needs a target but none is legal (the copy is removed, CR 608.2b).
-  const pickCopyTargets = (s) => {
-    if (!bodyHasChosenTarget) return [];
-    let combos;
-    try { combos = expandCastChoices(s, ctx.controller, bodyProgram) || []; } catch { combos = []; }
-    if (combos.length === 0) {
-      // No fresh legal target. CR 707.10c default = keep the original targets — but only if they're STILL legal-
-      // shaped (present). If the original is also empty the copy has no target → remove it (null).
-      return originalTargets.length > 0 ? originalTargets : null;
-    }
-    const sideOk = (combo) => (combo.targets || []).every((t) => {
-      const intent = copyAtomIntent((bodyProgram.atoms || [])[t.atomIndex]);
-      if (intent === "enemy") { const side = copyTargetSide(s, t); return side != null && side !== ctx.controller; }
-      if (intent === "own") return copyTargetSide(s, t) === ctx.controller;
-      return true; // null intent (non-side-constrained atom) — any legal target is fine
-    });
-    const chosen = combos.find(sideOk) || combos[0];
-    return chosen?.targets || [];
-  };
+  const pickCopyTargets = (s) => freshCopyTargets(s, ctx.controller, bodyProgram, originalTargets);
   // ===== STORM ON A PERMANENT SPELL (CR 707.10f) ===== "Some effects copy a permanent spell. As that copy
   // resolves, it ceases being a copy of a spell and becomes a TOKEN permanent." Stormscale Scion, Aeve, and the
   // storm Auras resolve through PERMANENT_ETB (`params.card`), not through an EFFECT_PROGRAM body, so the
@@ -1719,10 +1763,9 @@ function applyCopySpell(state, atom, ctx) {
       const { id, state: s2 } = mintId(next, "stk");
       next = s2;
       const copyCard = { ...snapshotCopiedCard({ card: permanentCard }, undefined, []), token: true, id: `tok-${id}` };
-      const clonedPayload = JSON.parse(JSON.stringify(sourcePayload));
+      const clonedPayload = spellCopyPayload(sourcePayload); // a copy ceases to exist; only the ORIGINAL has a disposition
       clonedPayload.params.card = copyCard;
       clonedPayload.params.controller = ctx.controller; // you control the copy (CR 707.10)
-      delete clonedPayload.params.spellToGraveyard;     // a copy ceases to exist; only the ORIGINAL has a disposition
       const copyObj = createStackObject({
         id, kind: "spell", source: { ...copyCard, token: true, isCopy: true },
         controller: ctx.controller, targets: [], payload: clonedPayload,
@@ -1752,13 +1795,10 @@ function applyCopySpell(state, atom, ctx) {
     next = s2;
     // Clone the frozen payload so the copy resolves the SAME program independently of the original, then OVERWRITE
     // params.targets with this copy's freshly-chosen targets (CR 707.10c) so the interpreter binds them per clause.
-    const clonedPayload = JSON.parse(JSON.stringify(sourcePayload));
-    if (clonedPayload?.params) {
-      clonedPayload.params.targets = copyTargets;
-      // GY-1 anti-duplicate guard (CR 707.10a): a COPY ceases to exist on resolution — it must never
-      // append another card object (same id!) to the graveyard. Only the ORIGINAL keeps its disposition.
-      delete clonedPayload.params.spellToGraveyard;
-    }
+    // GY-1 anti-duplicate guard (CR 707.10a) rides spellCopyPayload: a COPY ceases to exist on resolution — it must never
+    // append another card object (same id!) to the graveyard. Only the ORIGINAL keeps its disposition.
+    const clonedPayload = spellCopyPayload(sourcePayload);
+    if (clonedPayload.params) clonedPayload.params.targets = copyTargets;
     const copyObj = createStackObject({
       id,
       kind: "spell",
@@ -1886,7 +1926,7 @@ function applyCopyInstantOrSorcery(state, atom, ctx) {
     return logEvent(state, { kind: "spell-effect", effect: "copy-instant-or-sorcery", controller: ctx.controller, count: 0, cardName: targetObj.source?.name });
   }
   const { id, state: s2 } = mintId(state, "stk");
-  const clonedPayload = JSON.parse(JSON.stringify(targetObj.payload));
+  const clonedPayload = spellCopyPayload(targetObj.payload); // no disposition: the copy never puts the original's card in a graveyard
   if (clonedPayload.params) clonedPayload.params.controller = ctx.controller; // you control the copy (CR 707.10)
   const copyObj = createStackObject({
     id,
@@ -1928,7 +1968,7 @@ function applyCopyCreatureSpell(state, atom, ctx) {
   // Clone the original's PERMANENT_ETB payload so the copy enters the SAME way (preserving xValue/kicked — CR
   // 707.10b copies the value of X), then overwrite params.card with the token snapshot (a fresh per-copy id so
   // two copies never share one). The copy carries no printed-card disposition (it's a token, not a card).
-  const clonedPayload = JSON.parse(JSON.stringify(sourcePayload));
+  const clonedPayload = spellCopyPayload(sourcePayload);
   copyCard = { ...copyCard, id: `tok-${id}` };
   clonedPayload.params.card = copyCard;
   clonedPayload.params.controller = ctx.controller; // you control the copy (CR 707.10)
@@ -2289,6 +2329,7 @@ export const stackResolvers = {
   "hexproof-from-colors": applyHexproofFromColors, // VEIL OF SUMMER (shelf D18) — you and your permanents gain hexproof from colours until end of turn
   "bounce-spell-or-permanent": applyBounceSpellOrPermanent, // VENSER — the STACK∪BATTLEFIELD union bounce ("return target spell or permanent to its owner's hand")
   "copy-spell": applyCopySpell, // STORM (CR 702.40) — copy the storm spell N times (N = spells cast before it this turn)
+  "copy-self-spell": applyCopySelfSpell, // P·23 — Sevinne's Reclamation: one copy of the resolving spell, its target re-picked (CR 707.10c)
   "copy-creature-spell": applyCopyCreatureSpell, // COPY-A-CREATURE-SPELL (Double Major, CR 707.10) — a token copy of a chosen own creature spell
   "copy-instant-or-sorcery": applyCopyInstantOrSorcery, // COPY AN INSTANT/SORCERY (Reverberate, CR 707.10) — clones the resolving payload; the copy is no card and goes to no zone
   "cdmg-mass-to-damaged-player": applyCdmgMassToDamagedPlayer, // CDMG-MASS-TO-DAMAGED-PLAYER (Balefire Dragon) — deal the combat-damage amount to each creature the damaged player controls

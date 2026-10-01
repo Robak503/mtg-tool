@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Sevinne's Reclamation** — cast with flashback, you may copy it, and the copy returns a different permanent card
 - **Mana Geyser, Battle Hymn, Songs of the Damned, Brightstone Ritual, Inner Fire and Dragon's Desire** — add one mana for each thing counted (tapped lands your opponents control, creatures you control, creature cards in your graveyard, Goblins, cards in your hand, your opponents' artifacts)
 - **Black Market, Altar of Shadows and Giant-Man, Gargantuan Genius** — at the beginning of your first main phase, add mana for each charge counter (Giant-Man: each creature you control with power 4 or greater)
 - **Dryad of the Ilysian Grove and Prismatic Omen** — lands you control are every basic land type, so each of them taps for any color
@@ -46,6 +47,7 @@ summarizes the notable changes.
 - **One with the Multiverse, Zaffai and the Tempests, Vision, Spectral Synthezoid and Omniscience** — cast a spell without paying its mana cost (once each turn, or freely with Omniscience), at the normal time for that spell
 
 ### Fixed
+- Copying an instant or sorcery (Reverberate, Twincast, Flare of Duplication) put a second copy of the original card into its owner's graveyard when the copy resolved
 - Landwalk and land-type conditions ignored land types granted by an effect (Urborg, Tomb of Yawgmoth; Yavimaya, Cradle of Growth): a swampwalker or forestwalker could be blocked by a player whose lands had gained that type, and "When you control no Swamps, sacrifice this creature" could fire while such a land was out
 - Bolas's Citadel let the top card of your library be cast by paying its mana cost; it now costs life equal to the spell's mana value, as printed
 - The AI never cast spells from the top of its library (Future Sight, Mystic Forge and the like); it does now

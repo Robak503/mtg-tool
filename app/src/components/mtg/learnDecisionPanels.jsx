@@ -2404,6 +2404,7 @@ export function OptionalChoicePanel({ decision, onChoose }) {
       "return-from-graveyard": "return the card",
       counter: "counter the spell",
       sacrifice: "sacrifice a permanent",
+      "copy-self-spell": "copy this spell (the copy picks a new target)",
     }[decision?.effectOp] || "apply this effect";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

@@ -856,6 +856,10 @@ function applyCastSpell(state, action) {
     const params = { program, controller: action.playerId, targets, cardId: card.id };
     if (action.chosenMode != null) params.chosenMode = action.chosenMode;
     if (action.xValue != null) params.xValue = action.xValue;
+    // CAST FROM A GRAVEYARD (the play-weighted program, P·23 — "If this spell was cast from a graveyard, …", CR 601.2a): a
+    // cast-time fact the resolving spell reads through its context, which rides every resume. A copy is never cast (CR
+    // 707.10), so stack.spellCopyPayload strips it from every copy.
+    if (fromZone === "graveyard") params.context = { castFromGraveyard: true };
     // KICKED-SPELL-EFFECT (CR 702.33e): a kicked cast threads the was-kicked flag so runEffectProgram runs the
     // `kickedOnly` atoms (the "If this spell was kicked, <extra>" payoff). A normal cast leaves it unset and the
     // kicked atoms are skipped (base-only). The kicker mana is already folded into action.cost by legalChoices.

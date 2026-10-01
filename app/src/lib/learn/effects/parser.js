@@ -2775,6 +2775,19 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   if (bp && bp.atoms.every((a) => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: bp.atoms, xSpell: false, unparsedTail: null });
   }
+  // ===== SELF-COPY WHEN CAST FROM A GRAVEYARD (the play-weighted program, P·23 — Sevinne's Reclamation) ===== "<effect>. If
+  // this spell was cast from a graveyard, you may copy this spell and may choose a new target for the copy." → <effect>'s
+  // atom, then an OPTIONAL copy-self-spell gated on the cast-from-a-graveyard read (interveningIf). The copy carries <effect>
+  // as its own body — a copy is never cast, so its own copy sentence could never fire (CR 707.10) — and re-picks its ONE
+  // target ("a new target", singular), so <effect> must be exactly one chosen-target atom; anything else stays LOW.
+  const scm = oracle.trim().match(/^(.+?)\.\s+if this spell was cast from a graveyard, you may copy this spell and may choose a new target for the copy\.?$/is);
+  if (scm) {
+    const body = parseEffectClauseImpl(scm[1].trim(), cardType, { hasX });
+    const one = body && programConfidence(body) === "high" && body.structure !== "modal" && body.atoms.length === 1 ? body.atoms[0] : null;
+    if (one && typeof one.targetType === "string" && !isNonChosenTargetType(one.targetType)) {
+      return makeProgram({ confidence: "high", atoms: [one, { op: "copy-self-spell", optional: true, condition: "this spell was cast from a graveyard", body: [one], spellType: cardType, targetType: null }], xSpell: false, unparsedTail: null });
+    }
+  }
   // ===== ITERATED-EDICT (Torment of Hailfire) ===== "Repeat the following process X times. Each opponent loses
   // 3 life unless that player sacrifices a nonland permanent of their choice or discards a card." → ONE
   // iterated-edict atom (X × per-opponent lose-3 / sac-nonland / discard, each opponent's own choice, resolved

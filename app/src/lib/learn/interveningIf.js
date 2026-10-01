@@ -794,6 +794,11 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     if (typeof context?.manaSpent !== "boolean") return null;
     return context.manaSpent === false;
   }
+  // ===== CAST FROM A GRAVEYARD (the play-weighted program, P·23 — "If this spell was cast from a graveyard, …": Sevinne's
+  // Reclamation, the Increasing cycle, Secrets of the Key) ===== the resolving spell's own cast-time stamp
+  // (actionDispatcher.applyCastSpell writes context.castFromGraveyard for a graveyard cast). A definite answer either way:
+  // a spell cast from any other zone carries no stamp, and a copy was never cast (stack.spellCopyPayload strips it).
+  if (c === "this spell was cast from a graveyard") return context?.castFromGraveyard === true;
   // ===== THE CITY'S BLESSING (shelf D5, 2026-09-30 — CR 702.131) ===== "if you have the city's blessing" (a trigger's
   // intervening-if; the "Activate only if …" rider on Arch of Orazca; a spell's condition). A player designation, set by
   // ascend.grantCitysBlessings and never cleared — always a definite answer.
