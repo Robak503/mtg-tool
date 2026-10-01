@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Bebop, Skull & Crossbones** — when Bebop connects you may draw a card per counter on him, losing that much life only if you do
+- **"Draw X cards, where X is …"** — Liliana's Standard Bearer, Brilliant Spectrum, Surrakar Spellblade and Barrin's Codex now draw their count
 - **Heroes in a Half Shell** — when your Mutants, Ninjas and Turtles connect, each of the ones that dealt damage gets a +1/+1 counter and you draw a card
 - **Brago, King Eternal** — when Brago deals combat damage to a player, flicker any number of your nonland permanents: the ones worth it (creatures with enters abilities, tapped permanents, creatures an opponent's Aura holds), never tokens
 - **Thassa, Deep-Dwelling** — flickers another creature you control at your end step, and taps another target creature

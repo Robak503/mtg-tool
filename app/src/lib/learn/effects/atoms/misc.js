@@ -670,6 +670,12 @@ export function drawForEachClauseParser(clause) {
     const src = parseCountSource(mfe[1]);
     return src ? { op: "draw", amountCount: { ...src, per: 1 }, targetType: null } : null;
   }
+  // "draw X cards, where X is the number of <src>" (shelf D23 — Bebop, Skull & Crossbones): the same count, worded with X.
+  mfe = t.match(/^(?:you )?draw x cards, where x is the number of (.+)$/);
+  if (mfe) {
+    const src = parseCountSource(mfe[1]);
+    return src ? { op: "draw", amountCount: { ...src, per: 1 }, targetType: null } : null;
+  }
   return null;
 }
 

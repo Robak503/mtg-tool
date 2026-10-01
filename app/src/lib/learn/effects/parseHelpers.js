@@ -332,6 +332,11 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
   // 2026-09-05): "that creature" is the spell's previous target, never the source — the emitting arm stamps
   // bindPreviousTargets so the count reads the bound slice at resolution (countForSpec plusCountersOnTarget).
   if (/^\+1\/\+1 counters? on that creature$/.test(p)) return { kind: "plusCountersOnTarget" };
+  // ALL KINDS on the source (shelf D23 — Bebop, Skull & Crossbones "the number of counters on Bebop", the self-name rewritten
+  // to "this creature"): every counter of every kind, summed — countForSpec's countersOnSource with no counterType (the
+  // Warden of the Grove form). An absent source reads 0. ⛔ NOT "on it": in a spell "it" is the previous TARGET, not a source
+  // (Flay Essence's "counters on it" — the exiled creature — read 0; casterGainLifeRider.test.js pins it LOW).
+  if (/^counters on this creature$/.test(p)) return { kind: "countersOnSource" };
   // NAMED-COUNTERS-ON-SOURCE (THE ONE RING, SG-17, 2026-09-03): "for each burden counter on this creature/artifact/…"
   // — the source's own bag of a NAMED counter kind, read live at resolution (CR 608.2h) through the same
   // ctx.sourceId the +1/+1 form uses. The kind word is any lowercase counter name; the ±1/±1 spellings never

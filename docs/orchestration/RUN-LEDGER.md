@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **435 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **436 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,27 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D23: BEBOP — "DRAW X CARDS, WHERE X IS" + THE OPTIONAL-DRAW "IF YOU DO" — Halfshell heroes 86 → 87 · **+5** · corpus 15,113 / 34,245
+> Suite **1,672 files / 17,257 tests** green (1 skipped); lint 0; decks 2,697 / 2,998. CI GREEN on D22 (run 36796287644). Flip-diff **+5, zero LOST,
+> zero RETIERED** (tier snapshots at 8a144ce6 → the change: Bebop, Liliana's Standard Bearer, Brilliant Spectrum, Surrakar Spellblade, Barrin's Codex). **Mutants 11/11** on the final code (restore byte-identical).
+> · **Build:** misc.js — "draw X cards, where X is the number of <count>" (the "draw cards equal to" count, worded with X) · parseHelpers —
+>   "counters on this creature" = every counter of every kind (countForSpec's all-kinds countersOnSource) · parser.js —
+>   matchOptionalDrawIfYouDo: "you may draw <X>. If you do, you lose X life" → [optional draw, reflexiveGate lose-life] binding the
+>   SAME count; only a draw leads it (it always happens once chosen, CR 121.3) · triggers.js — the self-name ("counters on Bebop")
+>   rewritten to the source inside this exact grammar.
+> · **Two false gains caught before commit (the CREED's runtime-verify-every-gain rule):** the first build flipped FLAY ESSENCE ("You
+>   gain life equal to the number of counters on it" — "it" is the exiled target, but the new count read it as the source: 0 life; an
+>   existing pin in casterGainLifeRider.test.js went red) and CAMARADERIE ("You gain X life and draw X cards, where X is …" — split on
+>   " and ", the gain read the spell's cost X: 0 life). Fences: the all-kinds count admits only "this creature"; splitClauses keeps one
+>   X across conjuncts whole. Herald of Ilharg (correct, via "counters on it") went out with the first fence — an accepted FN.
+> · **Checked, not a bug:** Barrin's Codex (and seven native cards that sacrifice themselves, then count their own counters) — the
+>   engine already reads the sacrificed source's last-known counters (CR 608.2h); witnessed (three page counters → three cards).
+> · **Runtime:** `WITNESS bebopTakes {"asked":"optional-effect","drew":3,"lost":3}` (two +1/+1 and a shield counter); declined, nothing.
+>   Each unaimed gain verified in play: Liliana's Standard Bearer (two of your deaths, not theirs → two), Brilliant Spectrum (three
+>   colours → three), Surrakar Spellblade (two charge → two), Barrin's Codex (three page → three). Witness
+>   `app/src/lib/learn/bebopDrawIfYouDo.test.js` (9).
+> · **Next:** Halfshell 87 needs 3 — Foot Chopper · Together Forever · Everything Pizza · Dimension X Pizzasaur · Shorikai / Teval (86).
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D22: HEROES IN A HALF SHELL (the Halfshell commander) — Halfshell heroes 85 → 86 · **+2** · corpus 15,108 / 34,245
 > Suite **1,671 files / 17,248 tests** green (1 skipped); lint 0; decks 2,696 / 2,998. CI GREEN on D21 (run 36794886793). Flip-diff **+2, zero LOST,

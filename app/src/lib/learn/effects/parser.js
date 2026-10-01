@@ -2033,6 +2033,26 @@ function matchReflexiveTrigger(oracle, cardType, hasX) {
  *    2nd reflexive) and carries NO optional atom of its own (the gate is the only conditionality).
  *  - Every atom KNOWN. Anchored to a SINGLE "when you do". Returns { atoms } or null.
  */
+/**
+ * OPTIONAL DRAW, "IF YOU DO" (shelf D23 — Bebop, Skull & Crossbones: "you may draw X cards, where X is the number of counters
+ * on Bebop. If you do, you lose X life"). The reflexiveGate shape above, for an "if you do" — admitted ONLY when the primary
+ * is a lone optional DRAW: the one primary that always happens once chosen (CR 121.3 — a player may choose to draw even from
+ * an empty library). A primary that can fail after it's chosen (a sacrifice, a discard, a payment) keeps its own payment lane,
+ * which checks the cost was really paid. The payoff is the bound "you lose X life" — the SAME count the draw reads; anything
+ * else stays LOW → Arbiter. Returns { atoms } or null.
+ */
+function matchOptionalDrawIfYouDo(oracle, cardType, hasX) {
+  const s = stripReminder(oracle).trim().replace(/\.$/, "");
+  // The leading "you may draw" IS the draw-only gate (the primary then parses as one optional draw atom or not at all).
+  const m = s.match(/^(you may draw .+?)\.\s+if you do,?\s+(.+)$/i);
+  if (!m || !/^you lose x life$/i.test(m[2].trim())) return null;
+  const pa = parseEffectClauseImpl(m[1], cardType, { hasX })?.atoms || [];
+  // One atom carrying a count — the X the loss binds. A LOW or modal primary has no top-level atoms; a fixed "draw a card"
+  // has no X to bind; a compound primary (none parses HIGH today) would drop its tail here, so it is refused too.
+  if (pa.length !== 1 || !pa[0].amountCount) return null;
+  return { atoms: [pa[0], { op: "lose-life", who: "controller", amountCount: pa[0].amountCount, targetType: null, reflexiveGate: true }] };
+}
+
 function matchOptionalReflexiveTrigger(oracle, cardType, hasX) {
   const s = stripReminder(oracle).trim();
   const m = s.match(/^(.+?\S)\.\s+when you do(?:\s+this|\s+so)?\s*,?\s+(.+?)\.?$/i);
@@ -3203,6 +3223,11 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   const orfx = matchOptionalReflexiveTrigger(oracle, cardType, hasX);
   if (orfx) {
     return makeProgram({ confidence: "high", atoms: orfx.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== OPTIONAL DRAW, "IF YOU DO" (shelf D23 — Bebop) ===== see matchOptionalDrawIfYouDo.
+  const odiyd = matchOptionalDrawIfYouDo(oracle, cardType, hasX);
+  if (odiyd) {
+    return makeProgram({ confidence: "high", atoms: odiyd.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== OPTIONAL-EXILE-SELF REFLEXIVE (Undead Butler, CR 603.7) ===== "You may exile it. When you do,
   // <payoff>." — the DIES-trigger shape where "it" is the dead source card, now in its owner's graveyard.

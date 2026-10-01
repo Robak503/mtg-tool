@@ -262,6 +262,11 @@ export function splitClauses(oracle) {
   // Purely ADDITIVE: `."` + whitespace is not a boundary today, so this can only ever ADD a split point.
   for (let sentence of normalized.split(/(?:\.\s+|;\s*|(?<=\.")\s+)/)) {
     sentence = sentence.replace(/\.\s*$/, "").trim();
+    // ⛔ ONE X ACROSS CONJUNCTS (shelf D23 — Camaraderie "You gain X life and draw X cards, where X is the number of creatures you
+    // control"): the trailing "where X is" defines the X of EVERY conjunct, but split on " and " the first half reads alone as
+    // the spell's COST X ("you gain x life" → amountX), which a card with no {X} resolves as 0 — a gain of nothing. Kept whole,
+    // the sentence parses only through a matcher that binds X across both halves (none yet), so it stays on the Arbiter.
+    if (/\bx\b[^,]*\band\b[^,]*\bx\b[^,]*,\s*where x is /i.test(sentence)) { clauses.push(sentence); continue; }
     // ⭐ TWO-SENTENCE FOLD (2026-08-01) — re-join a sentence pair whose MATCHER spans both sentences.
     //
     // THE BUG THIS FIXES, stated exactly because it is counter-intuitive: matchOptionalDiscardPayment and

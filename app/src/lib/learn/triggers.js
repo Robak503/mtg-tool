@@ -3897,6 +3897,11 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
     // trailing name never matches (CREED). The parser re-gates the rewritten form.
     const lm = eff.match(new RegExp(`^(you lose \\d+ life for each [a-z]+ counters? on )${esc}$`, "i"));
     if (lm) return `${lm[1]}this creature`;
+    // COUNTER-SCALED DRAW ON SELF-NAME (shelf D23 — Bebop, Skull & Crossbones: "you may draw X cards, where X is the number of
+    // counters on Bebop. If you do, you lose X life"): the name is the count's referent mid-clause. Rewritten ONLY inside
+    // this exact whole-clause grammar; the parser re-gates the rewritten form (matchOptionalDrawIfYouDo).
+    const dm = eff.match(new RegExp(`^(you may draw x cards, where x is the number of counters on )${esc}(\\. if you do, you lose x life)$`, "i"));
+    if (dm) return `${dm[1]}this creature${dm[2]}`;
     // POSSESSIVE self-name (Tifa Lockhart — Landfall "double <Name>'s power until end of turn"): the card
     // names ITSELF in a mid-clause possessive. Rewrite "<Name>'s" → "this creature's" ONLY inside the exact
     // double-own-P/T grammar (whole-clause anchored on "double … power[ and toughness] until end of turn"),
