@@ -15,14 +15,14 @@
 > 65.9% → +602 from today). **Then reassess with Colton.**
 > **Runnable next:** `MTG_APP_ROOT=… node scripts/measure-coverage.mjs --played=1000` (from `app/`, ~1 min) lists the
 > uncovered cards in rank order, each with the line(s) that alone hold it back. Take the HIGHEST-RANKED miss the CREED can
-> build (next: #140 War Room). A card that needs Colton's call is skipped with its reason in the ledger, never
+> build (next: #178 Three Tree City). A card that needs Colton's call is skipped with its reason in the ledger, never
 > built: planeswalkers stay their own program (09-30), theft-THEMED decks stay off (single theft cards are fine). Full
 > per-slice gates as ever; each ledger entry records the worklist header (covered N / 1,000).
 > **The shape (measured 10-01):** no veins left — of the 852 top-2,500 misses, 430 are one line away and those lines are
 > 429 distinct shapes. The top 500 are 92.6% covered; #501–1,000 73%; #2,001–2,500 48%. Mostly one card per slice: a
 > program of weeks, not a sprint.
-> **Progress:** PLAY-WEIGHTED · 1–5 (Myriad Landscape #28, Feed the Swarm #89, Urza's Saga #120, Victimize #128; · 3 the
-> Construct token, the Saga's prerequisite) → top 1,000 at **833 / 1,000** (needs +67).
+> **Progress:** PLAY-WEIGHTED · 1–6 (Myriad Landscape #28, Feed the Swarm #89, Urza's Saga #120, Victimize #128, War Room
+> #140; · 3 the Construct token, the Saga's prerequisite) → top 1,000 at **834 / 1,000** (needs +66).
 
 ## 🏁 2026-10-01 — **THE SHELF IS DONE: 29 of 30 decks at ≥90** (Atraxa deferred) · stage ③ closed — stage ④ parked behind the play-weighted program (above)
 

@@ -442,6 +442,7 @@ export function parseAbilityCost(costStr, card = null) {
   let discardCardFilter = null; // γ1h-TYPED — "Discard a creature card" (Tortured Existence)
   let discardRandom = false;    // RG-7 (2026-09-05) — "Discard a card at random": no choice; the dispatcher picks with the seeded rng
   let exileGyCount = null;      // LANDS-4 — "Exile N [<type>] cards from your graveyard" (Mines of Moria, Grim Lavamancer)
+  let payLifeCommanderColors = false; // play-weighted P·6 — War Room's life cost, sized at activation (legalChoices)
   for (const item of items) {
     if (/^\{t\}$/i.test(item)) { tapSelf = true; continue; }
     // γ1h — DISCARD-A-CARD cost (BLITZ DC-1 — Rummaging Goblin "{T}, Discard a card: Draw a card."; the
@@ -510,6 +511,10 @@ export function parseAbilityCost(costStr, card = null) {
     //   "Sacrifice this[ …]"  → sacrifice the SOURCE permanent (no "which one?" choice).
     const lifeM = /^pay (\d+) life$/i.exec(item);
     if (lifeM) { payLife += parseInt(lifeM[1], 10); continue; }
+    // "Pay life equal to the number of colors in your commanders' color identity" (War Room, play-weighted P·6): a life cost
+    // whose amount is read as the ability is activated — legalChoices sizes it off commanderColorIdentityOf and refuses it
+    // with no commander (CR 903.4f: a cost that refers to that quality is unpayable). The flag rides only when present.
+    if (/^pay life equal to the number of colors in your commanders['’] color identity$/i.test(item)) { payLifeCommanderColors = true; continue; }
     // γ1e — "Pay {E}…" (energy, CR 122.1e): a NO-CHOICE numeric resource cost, one per {E} pip. legalChoices
     // gates the activation on player.energy >= payEnergy; actionDispatcher deducts it via spendEnergy at activate
     // time (CREED — never activate without paying). The energy GAIN side is modeled (add-energy, Slice A).
@@ -689,7 +694,7 @@ export function parseAbilityCost(costStr, card = null) {
     if (!pips.every(pipIsMana)) return null;                      // {X}{X}/{Q}/{E}/… → unmodeled ({S} IS mana, SN-1)
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
-  return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, unattachEquipment, discardCard, discardCardFilter, discardRandom, costX, exileGyCount };
+  return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, unattachEquipment, discardCard, discardCardFilter, discardRandom, costX, exileGyCount, ...(payLifeCommanderColors ? { payLifeCommanderColors } : {}) };
 }
 
 /** True when an ability's EFFECT is a mana ability ("Add …") — those use the no-stack path. */
@@ -1476,6 +1481,7 @@ export function parseActivatedAbilities(card) {
       manaPips: cost?.manaPips ?? null,
       tapSelf: cost?.tapSelf ?? false,
       payLife: cost?.payLife ?? 0,     // γ1 — "Pay N life" cost item (the runtime deducts it)
+      ...(cost?.payLifeCommanderColors ? { payLifeCommanderColors: true } : {}), // P·6 — War Room: + the commander identity's color count, sized at activation
       payEnergy: cost?.payEnergy ?? 0, // γ1e — "Pay {E}…" energy cost (legalChoices gates on player.energy; dispatcher spends it)
       sacSelf: cost?.sacSelf ?? false, // γ1 — "Sacrifice this" cost item (the runtime sacs the source)
       sacOther: cost?.sacOther ?? null, // γ1b — "Sacrifice a/another <type>": legalChoices picks the victim

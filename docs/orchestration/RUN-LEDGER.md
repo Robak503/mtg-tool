@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **20 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,178)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **21 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,179)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,32 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 6: War Room (EDHREC #140) — a life cost sized by your commanders' color identity; the identity read fixed (Commander's Plate) · **+1** · corpus 15,179
+> Suite **17,468** green (1 skipped); lint 0; decks unchanged (2,725 / 2,998). CI GREEN on P·5 (run 36881715229). Flip-diff **+1,
+> zero LOST, zero RETIERED** (tier snapshots at c2b5fa10 → the change: War Room land-partial → land). Top 1,000 **834**
+> (needs +66). **Mutants 12/12** on the final code (restore byte-identical; the first run's survivor was a fixture mask,
+> below).
+> · **The read:** `commanderIdentity.js` (a zero-import leaf) answers "your commander's color identity" one way: the
+>   identity stamped on the seat at game start (`createPlayerState → commanderIdentity`, the union over its commanders —
+>   CR 903.4a, it never changes) plus the command zone (hand-built states, older saves). `null` = no commander (CR 903.4f).
+> · **The bug it fixed:** layers read the command zone ALONE, so once the commander was cast the identity read empty —
+>   Commander's Plate on a cast mono-green commander gave protection from all five colors, green included (probed through a
+>   real cast: `BGRUW`; now `BRUW`). And with no commander at all the Plate gave all five; CR 903.4f says that part does
+>   nothing — now it does nothing.
+> · **The cost:** "Pay life equal to the number of colors in your commanders' color identity" parses as a flagged life
+>   cost; legalChoices sizes it once per ability, before the CR 119.4 gate and every action built from it, and refuses it
+>   with no commander (CR 903.4f — a cost referring to the quality is unpayable). The flag rides only when present, so every
+>   other ability object is byte-identical.
+> · **The fixture mask:** the partners case first read a fresh game, both partners still in the command zone — the zone read
+>   covered for a stamp that kept only the first commander (W2 survived). The test now casts both partners, so the stamp
+>   alone answers.
+> · **Runtime:** `WITNESS warRoom {"payLife":2,"lifePaid":2,"drew":1,"warRoomTapped":true}` (an Azorius commander already
+>   cast) and `WITNESS platedCommander ["B","R","U","W"]`; no commander: not offered; 1 life vs a two-color identity: not
+>   offered, exactly 2: offered; a colorless commander: zero life. Witness `app/src/lib/learn/warRoom.test.js` (9).
+> · **Noticed, not changed:** Command Tower and Arcane Signet are modeled as any color, not limited to the identity — equal
+>   for a deck's own costs, wrong for an off-identity spell and for a game without a commander (CR 903.4f). A follow-up.
+> · **Next:** #178 Three Tree City (the worklist head at 834).
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 5: Victimize (EDHREC #128) — sacrifice, then return the chosen; the "if you do" gate on a sacrifice · **+1** · corpus 15,178
 > Suite **17,459** green (1 skipped); lint 0; decks unchanged (2,725 / 2,998). CI GREEN on P·4 (run 36879475841). Flip-diff **+1,

@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **War Room** — {3}, {T}, pay life equal to the number of colors in your commanders' color identity: draw a card
 - **Victimize** — sacrifice a creature to return two creature cards from your graveyard to the battlefield tapped
 - **Urza's Saga** — plays as your land drop: taps for {C} after chapter I, makes Constructs after chapter II, and fetches an artifact with mana cost {0} or {1} at chapter III
 - **Digsite Engineer** — pay {2} when you cast an artifact spell to create a Construct that grows with your artifacts
@@ -27,6 +28,7 @@ summarizes the notable changes.
 - **One with the Multiverse, Zaffai and the Tempests, Vision, Spectral Synthezoid and Omniscience** — cast a spell without paying its mana cost (once each turn, or freely with Omniscience), at the normal time for that spell
 
 ### Fixed
+- Commander's Plate gave your commander protection from all five colors (its own included) once the commander was cast; it now protects from exactly the colors outside your commander's color identity
 - Lands that enter with counters (the Vivid lands, the depletion lands, Gemstone Mine) got four times their counters under Doubling Season instead of twice
 - Song of Freyalise, Huatli, Poet of Unity and Welcome to . . . no longer tap for mana themselves (the mana in a Saga's chapter text was read as the card's own ability)
 

@@ -116,6 +116,7 @@ import { isModalDfc, mdfcLandFaces, mdfcFaceCards } from "./modalDfc.js"; // MOD
 import { evaluateInterveningIf } from "./interveningIf.js"; // CR 602.5d "Activate only if <cond>" — the offer gate reads the SAME vocabulary as the trigger + spell lanes
 import { extractAdditionalCosts, extractAltCost } from "./effects/castModifiers.js"; // AC-PERMANENT — see permanentAdditionalCosts below; + extractAltCost (EVOKE on a permanent, Solitude)
 import { isPermanentSpell } from "./resolvers.js";
+import { commanderColorIdentityOf } from "./commanderIdentity.js"; // P·6 — War Room's life cost (CR 903.4; a zero-import leaf)
 import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND — the one gate offer/dispatch/classifier all read
 
 /**
@@ -2309,8 +2310,16 @@ function actionsActivateAbility(state, playerId) {
     // one of the five enumeration sites that had it, and that asymmetry was the bug — see the predicate's
     // note. Left as a pointer rather than a duplicate check so there stays exactly ONE source of truth.
     const isCreaturePerm = isCreature(perm.card);
-    for (const ab of abilities) {
+    for (let ab of abilities) {
       if (!ab.modeled) continue;
+      // WAR ROOM (play-weighted P·6): "Pay life equal to the number of colors in your commanders' color identity" is sized
+      // here, as the ability is activated, and folded into payLife — so the affordability gate (CR 119.4) and every action
+      // built below carry the real amount. No commander: the cost is unpayable and the ability is not offered (CR 903.4f).
+      if (ab.payLifeCommanderColors) {
+        const identity = commanderColorIdentityOf(state, playerId);
+        if (!identity) continue;
+        ab = { ...ab, payLife: (ab.payLife || 0) + identity.length };
+      }
       // ④-AE: the combat window is for combat-role abilities ONLY; V6: the stack window for stack-ability copiers ONLY.
       if (!mainWindow && !(combatWindow && abilityTargetsCombatRole(ab)) && !(stackWindow && abilityTargetsStackAbility(ab))) continue;
       // PER-TURN ACTIVATION LIMIT (BLITZ ONCE-1, generalized to a count): an ability already activated its
