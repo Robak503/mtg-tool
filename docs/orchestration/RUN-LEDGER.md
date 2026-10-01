@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **48 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,244)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **49 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,246)** (+101: the batch is due). The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,20 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 33: Cabal Ritual (EDHREC #453) and Thermal Blast — the Threshold upgrade · **+2** · corpus 15,246
+> Suite **17,714** green (1 skipped); lint 0; decks **2,746** / 2,998 unchanged. CI GREEN on P·32 (run 36941773639).
+> Flip-diff **+2, −0, zero RETIERED** (tier snapshots at 3a739412 → the change): Cabal Ritual, Thermal Blast → native-spell.
+> Top 1,000 **865** (needs +35); top 2,500 **1,690**. **Mutants 7/7** (restore byte-identical).
+> · The instead-upgrade family (templateMatchers.matchInsteadAmountUpgrade) takes the THRESHOLD word: its canonical condition,
+>   "there are seven or more cards in your graveyard", is read correctly now (interveningIf's untyped graveyard count, Cephalid
+>   Coliseum's — YOUR graveyard, every card; checked on boards at six and seven). The family's note that Threshold was unreadable
+>   was stale and is corrected; Descend stays out. Thermal Blast rides the existing burn family with it.
+> · New ADD-MANA family: "Add <pips>. <word> — Add <pips> instead if <cond>" is two add-mana atoms on the same condition, the
+>   base negated, so exactly one adds as the spell resolves (CR 608.2). The Ritual is on the stack as it resolves, so it never
+>   counts toward its own threshold. A word over the wrong condition still parks (synthetic seen-to-fail).
+>   Witness `app/src/lib/learn/cabalRitual.test.js` (5).
+> · **Next:** cut v0.162.0 (the batch crossed 100), then #474 Living Death.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 32: Selvala, Heart of the Wilds (EDHREC #438) — its controller may draw if its power is the greatest · **+1** · corpus 15,244
 > Suite **17,709** green (1 skipped); lint 0; decks 2,745 → **2,746** / 2,998 (Omnath, Locus of Mana 95 → 96). CI GREEN on P·31

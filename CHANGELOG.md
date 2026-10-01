@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Cabal Ritual and Thermal Blast** — threshold: with seven or more cards in your graveyard, Cabal Ritual adds five black instead of three and Thermal Blast deals 5 damage instead of 3
 - **Selvala, Heart of the Wilds** — whenever another creature enters, its controller may draw a card if its power is greater than every other creature's
 - **Silence** — your opponents can't cast spells this turn
 - **Helm of the Host and Followed Footsteps** — each turn, a token copy of the equipped (or enchanted) creature; Helm's copy isn't legendary and has haste

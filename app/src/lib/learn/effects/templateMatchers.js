@@ -1373,10 +1373,11 @@ export function matchMetalcraftDamage(oracle) {
 //
 // The condition is gated on a CURATED ability-word → canonical-condition map AND spellConditionParseable: the
 // ability word is a designer LABEL, but the real guard is that the printed condition equals its word's exact,
-// reader-verified board query. This is what keeps the graveyard-count mis-reader out — Threshold ("seven or
-// more cards in your graveyard": no type word → unparseable) and Descend ("N or more permanent cards …": the
-// `\bPermanent\b` type-line scan reads 0 forever, a mis-reader) are NOT in the map, so Cabal Ritual / Join the
-// Dead / Kirtar's Wrath PARK (whole-card law). Both amounts are fixed numerals; a reworded upgrade (Arrow
+// reader-verified board query. This is what keeps the graveyard-count mis-reader out — Descend ("N or more
+// permanent cards …": the `\bPermanent\b` type-line scan reads 0 forever, a mis-reader) is NOT in the map, so Join
+// the Dead PARKS (whole-card law). Threshold ("seven or more cards in your graveyard") joined it on P·33, once the
+// untyped graveyard count it names was read correctly (Cabal Ritual — the add-mana family below); Kirtar's Wrath's
+// leading "If … instead" form still parks. Both amounts are fixed numerals; a reworded upgrade (Arrow
 // Storm's added "damage can't be prevented"), an X amount (Crater's Claws "X plus 2"), a non-self-name burn, or
 // the leading-"If … instead" form all fail the exact anchors → low → Arbiter (CREED).
 const INSTEAD_ABILITY_WORD_CONDITION = {
@@ -1385,6 +1386,9 @@ const INSTEAD_ABILITY_WORD_CONDITION = {
   hellbent: "you have no cards in hand",
   raid: "you attacked this turn",
   ferocious: "you control a creature with power 4 or greater",
+  // + P·33 (Cabal Ritual): the untyped graveyard count is read (interveningIf's "<N> or more cards in your graveyard" arm, Cephalid
+  // Coliseum's) — YOUR graveyard only, every card counted; checked on boards at six (false) and seven (true).
+  threshold: "there are seven or more cards in your graveyard",
 };
 // Accept a printed condition ONLY when it is the ability word's exact canonical query (CLOSED vocabulary) AND
 // the resolver can actually read it (spellConditionParseable — the metric⇄runtime shared gate); else null → park.
@@ -1443,6 +1447,23 @@ export function matchInsteadAmountUpgrade(oracle) {
     const cond = insteadCondition(m[3], m[6]);
     if (!cond) return null;
     return { atoms: [{ op: "pump", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) }, targetType: "creature", duration: "endOfTurn", ptUpgrade: { condition: cond, ptDelta: { p: parseInt(m[4], 10), t: parseInt(m[5], 10) } } }] };
+  }
+  // Family 5 — ADD-MANA (P·33 — Cabal Ritual: "Add {B}{B}{B}. Threshold — Add {B}{B}{B}{B}{B} instead if there are seven or more
+  // cards in your graveyard."): two add-mana atoms on the same condition, the base one negated — runProgram's atom gate reads both
+  // against the same board as the spell resolves (CR 608.2; adding mana can't change a graveyard count), so exactly one adds.
+  m = t.match(/^add ((?:\{[wubrgc]\})+)\. ([a-z][a-z ]*?) — add ((?:\{[wubrgc]\})+) instead if (.+)$/);
+  if (m) {
+    const cond = insteadCondition(m[2], m[4]);
+    if (!cond) return null;
+    const pips = (s) => {
+      const mana = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+      for (const sym of s.match(/\{([wubrgc])\}/g)) mana[sym[1].toUpperCase()]++;
+      return mana;
+    };
+    return { atoms: [
+      { op: "add-mana", mana: pips(m[1]), targetType: null, condition: cond, conditionNegate: true },
+      { op: "add-mana", mana: pips(m[3]), targetType: null, condition: cond },
+    ] };
   }
   return null;
 }
