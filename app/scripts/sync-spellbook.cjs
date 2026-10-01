@@ -53,6 +53,11 @@ const PAGE_SIZE = numberArg("--page-size", 100);
 const DELAY_MS = numberArg("--delay-ms", CARDS_ONLY ? 1000 : 750);
 const RETRY_LIMIT = numberArg("--retries", 10);
 const REQUEST_TIMEOUT_MS = numberArg("--request-timeout-ms", 15000);
+// EXIT 75 (EX_TEMPFAIL, "try again later"): Spellbook's rate limit stopped a card crawl that had already saved pages THIS
+// run. The progress is on disk and the next run resumes from it, so sync-spellbook.yml reports a warning rather than a
+// failure. Any other error, or a 429 before a single page landed, still exits 1 — a stalled crawl must stay red.
+const EXIT_RATE_LIMITED_WITH_PROGRESS = 75;
+let cardPagesSavedThisRun = 0;
 
 function numberArg(flag, fallback) {
   const index = args.indexOf(flag);
@@ -385,6 +390,7 @@ async function downloadCards() {
     }
 
     await writeJson(CARDS_FILE, cards);
+    cardPagesSavedThisRun += 1;
 
     const displayCount = new Set(Object.values(cards).map(card => card.id)).size;
     const elapsed = ((Date.now() - started) / 1000).toFixed(1);
@@ -458,5 +464,10 @@ async function main() {
 
 main().catch(err => {
   console.error("\nSync failed:", err.message);
+  const rateLimited = /^HTTP 429 after \d+ retries/.test(err.message);
+  if (rateLimited && cardPagesSavedThisRun > 0) {
+    console.error(`  Rate-limited after saving ${cardPagesSavedThisRun} page(s) this run; the next run resumes from the saved offset.`);
+    process.exit(EXIT_RATE_LIMITED_WITH_PROGRESS);
+  }
   process.exit(1);
 });

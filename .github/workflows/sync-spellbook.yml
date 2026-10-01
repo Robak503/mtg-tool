@@ -18,6 +18,11 @@ name: sync-spellbook
 #   is visible. (2026-09-29: the job used to carry continue-on-error
 #   itself, which reported every run green - including four September
 #   runs whose job was refused by billing and never ran a step.)
+#   One exception (2026-09-30, Colton asked to stop the failure emails):
+#   when Spellbook's rate limit stops a card crawl that already saved
+#   pages this run, the script exits 75 and the run ends green with a
+#   warning - the progress is cached and the next run resumes. A 429
+#   before any page lands, or any other error, still turns the run red.
 #
 # How releases consume the data:
 #   release.yml syncs Spellbook itself at every tag (bounded,
@@ -26,14 +31,16 @@ name: sync-spellbook
 #   days unused, so this weekly run is what keeps a fallback alive.
 #
 # Triggers:
-#   - Weekly cron (Sunday 03:00 UTC, off-peak) -keeps the cache warm
-#     within GitHub Actions' 7-day default TTL.
+#   - Daily cron (03:00 UTC, off-peak) -keeps the cache warm within
+#     GitHub Actions' 7-day default TTL. Daily since 2026-09-30 so the
+#     rate-limited per-card crawl (about 2,800 cards a run) finishes in
+#     days, not weeks; once it is complete a run only fetches new cards.
 #   - workflow_dispatch -manual button for "refresh now."
 
 on:
   schedule:
-    # Sunday 03:00 UTC. Spellbook combos shift slowly; weekly is plenty.
-    - cron: '0 3 * * 0'
+    # Daily 03:00 UTC (was weekly on Sunday; see Triggers above).
+    - cron: '0 3 * * *'
   workflow_dispatch:
 
 # actions/cache saves through the runner's own runtime token - no workflow-token scope is needed for it,
@@ -86,8 +93,16 @@ jobs:
         # written to disk + the cache save below means next week's
         # run picks up where this one stopped. continue-on-error keeps
         # the cache save running; the final step still fails the run.
+        # The exit code is recorded so the last steps can tell exit 75
+        # (rate-limited after saving progress) from a real failure.
         continue-on-error: true
-        run: node scripts/sync-spellbook.cjs --delay-ms 1500
+        shell: bash
+        run: |
+          set +e
+          node scripts/sync-spellbook.cjs --delay-ms 1500
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit $code
 
       - name: Save reference data cache
         # Always save, even if the sync errored out -the on-disk
@@ -106,13 +121,16 @@ jobs:
         run: |
           if [ "${{ steps.sync.outcome }}" = "success" ]; then
             echo "::notice::Spellbook snapshot synced this run"
+          elif [ "${{ steps.sync.outputs.exit_code }}" = "75" ]; then
+            echo "::warning::Spellbook rate-limited the card crawl after it saved progress this run - the progress is cached and the next run resumes"
           else
             echo "::error::Spellbook sync did not complete (outcome: ${{ steps.sync.outcome }}) - partial progress was saved to the cache; next run resumes"
           fi
           if [ -f app/data/spellbook-meta.local.json ]; then cat app/data/spellbook-meta.local.json; fi
 
       - name: Fail the run when the sync failed
-        # Runs after the cache save, so the resumable progress is kept AND the run goes red.
-        if: steps.sync.outcome == 'failure'
+        # Runs after the cache save, so the resumable progress is kept AND the run goes red. Exit 75 (a crawl
+        # the rate limit stopped after it saved progress) is the one failure that only warns.
+        if: steps.sync.outcome == 'failure' && steps.sync.outputs.exit_code != '75'
         shell: bash
         run: exit 1
