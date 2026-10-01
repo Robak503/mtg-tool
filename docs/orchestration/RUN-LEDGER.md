@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **16 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,174)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **17 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,175)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,22 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 2: Feed the Swarm (EDHREC #89) — "You lose life equal to that permanent's mana value." · top 1,000 **830 → 831** · **+1** · corpus 15,175
+> Suite **1,697 files / 17,437 tests** green (1 skipped); lint 0; decks unchanged (2,720 / 2,998). CI GREEN on P·1 (run 36872725502).
+> Flip-diff **+1, zero LOST, zero RETIERED** (tier snapshots at 6a9623f9 → the change: Feed the Swarm arbiter-spell →
+> native-spell). **Mutants 4/4** on the final code (restore byte-identical).
+> · **The build:** the losing twin of "You gain life equal to its mana value" (Divine Offering) — the removal+caster-rider
+>   matcher reads Feed the Swarm's exact sentence (its only printing) as `controllerRider: { kind: "casterLoseLife", metric:
+>   "mv" }`, and applyControllerRider makes the caster lose that much (life loss, CR 119.3 — not damage), from the mana value
+>   captured before the permanent left. Like its family it resolves when the destroy fails (an indestructible target).
+> · **Runtime:** `WITNESS feedTheSwarm {"bearAlive":false,"aiGraveyard":["Grizzly Bears"],"userLife":38}` · the AI's Pacifism
+>   goes and you lose 2 · Darksteel Myr (power 0, mana value 3) survives and you still lose 3. Witness
+>   `app/src/lib/learn/feedTheSwarm.test.js` (5).
+> · **Fixture note:** the capture reads the printed mana value off the card's `cmc`, which the card index carries; the first
+>   run's hand-built cards had none and lost 0. Fixtures carry `cmc` and `colors` like the index does.
+> · **Next:** #120 Urza's Saga — three pieces: a permanent self-grant of a quoted ability ("This Saga gains …"), the
+>   Construct token with "This token gets +1/+1 for each artifact you control", and the "mana cost {0} or {1}" tutor.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 1: Myriad Landscape (EDHREC #28) — "up to two basic land cards that share a land type" · top 1,000 **829 → 830** · **+1** · corpus 15,174
 > Suite **1,696 files / 17,432 tests** green (1 skipped); lint 0; decks unchanged (2,720 / 2,998). CI GREEN on the worklist commit (run 36870986732).

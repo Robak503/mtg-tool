@@ -220,8 +220,13 @@ export function parseControllerRider(t) {
  * than needing the same hole found twice.
  */
 export function matchRemovalCasterGainLife(oracle, parseLead = null) {
-  const m = stripReminder(oracle).trim().replace(/[’]/g, "'")
-    .match(/^((?:exile|destroy) target .+?)\.\s+you gain life equal to (?:its|that creature's) (toughness|mana value)\.?$/i);
+  const text = stripReminder(oracle).trim().replace(/[’]/g, "'");
+  const g = text.match(/^((?:exile|destroy) target .+?)\.\s+you gain life equal to (?:its|that creature's) (toughness|mana value)\.?$/i);
+  // THE LOSING TWIN (play-weighted #89 — Feed the Swarm: "Destroy target creature or enchantment an opponent controls. You lose
+  // life equal to that permanent's mana value."): the same capture, and the CASTER loses (life loss, CR 119.3 — not damage).
+  // Its only printing, so only its exact referent and metric are read.
+  const l = text.match(/^((?:exile|destroy) target .+?)\.\s+you lose life equal to that permanent's (mana value)\.?$/i);
+  const m = g || l;
   if (!m) return null;
   let lead = destroyExileClauseParser(m[1].trim());
   if (!lead && parseLead) {
@@ -230,7 +235,7 @@ export function matchRemovalCasterGainLife(oracle, parseLead = null) {
   }
   if (!lead || (lead.op !== "exile" && lead.op !== "destroy")) return null;
   const metric = /mana value/i.test(m[2]) ? "mv" : "toughness";
-  return { atom: { ...lead, controllerRider: { kind: "casterGainLife", metric } }, rest: "" };
+  return { atom: { ...lead, controllerRider: { kind: g ? "casterGainLife" : "casterLoseLife", metric } }, rest: "" };
 }
 
 export function matchRemovalControllerRider(oracle, parseLead = null) {

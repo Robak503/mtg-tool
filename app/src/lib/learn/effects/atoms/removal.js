@@ -131,6 +131,14 @@ export function applyControllerRider(state, rider, cap, ctx) {
     if (amount > 0) next = checkLifegainTriggers(next, caster, amount);
     return logEvent(next, { kind: "spell-effect", effect: "rider-gain-life", controller: caster, amount });
   }
+  if (rider.kind === "casterLoseLife") {
+    // FEED THE SWARM (play-weighted #89) — "You lose life equal to that permanent's mana value.": the CASTER loses (life loss,
+    // CR 119.3 — not damage), scaled by the metric captured from the permanent BEFORE it left. Like every rider here it
+    // resolves even when the destroy failed (an indestructible target still has its mana value).
+    const amount = Math.max(0, cap[rider.metric] ?? 0);
+    const next = loseLife(state, { playerId: ctx.controller, amount });
+    return logEvent(next, { kind: "spell-effect", effect: "rider-lose-life", controller: ctx.controller, amount });
+  }
   if (rider.kind === "loseLife") {
     // ⭐ "Its controller loses N life." — scoped to the CAPTURED controller (the permanent's / spell's
     // controller as of BEFORE the removal resolved, which is why `cap` is captured up front: after a destroy

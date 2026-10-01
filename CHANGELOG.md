@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Feed the Swarm** — destroy a creature or enchantment an opponent controls; you lose life equal to its mana value
 - **Myriad Landscape** — sacrifice it to fetch up to two basic lands that share a land type
 - **Bloodrush** — Rubblebelt Maaka, Ghor-Clan Rampager and nine more: discard one from your hand during combat to pump an attacking creature
 - **Pearl-Ear, Imperial Advisor** — enchantment spells you cast have affinity for Auras, and casting an Aura at a modified permanent you control draws a card
