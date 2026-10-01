@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **14 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,173)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **16 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,174)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,21 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 1: Myriad Landscape (EDHREC #28) — "up to two basic land cards that share a land type" · top 1,000 **829 → 830** · **+1** · corpus 15,174
+> Suite **1,696 files / 17,432 tests** green (1 skipped); lint 0; decks unchanged (2,720 / 2,998). CI GREEN on the worklist commit (run 36870986732).
+> Flip-diff **+1, zero LOST, zero RETIERED** (tier snapshots at 6820140a → the change: Myriad Landscape land-partial → land).
+> **Mutants 6/6** on the final code (restore byte-identical).
+> · **The build:** the up-to-N land fetch (`mf`) reads the rider "that share a land type" on its LAND arm only, stamped as
+>   `filter.shareLandType` (the creature arm refuses it); resolveTutorChoice's chained pick keeps only the candidates sharing
+>   a land type with the card just fetched, read off the cards themselves (candidates carry only id/name; CR 205.3i — a
+>   land's subtypes are its land types). Myriad is the only card printing the rider, so the second pick is the whole rule.
+> · **Runtime:** `WITNESS myriadLandscape {"offered":["f2","snow"],"fetched":[{"id":"f1","tapped":true},{"id":"snow","tapped":true}],…}`
+>   — Forest first offers only Forest and Snow-Covered Forest; an Island with no partner, or Wastes (no land type), ends the
+>   search at one land. Witness `app/src/lib/learn/myriadLandscape.test.js` (4).
+> · **The survivor that wasn't:** shifting the regex's tapped capture first SURVIVED — my run lacked a rider-less tapped
+>   fetch. parser.test.js already pins Nissa's Renewal entering tapped through this arm; with it in the run, killed.
+> · **Next:** the worklist's top line — #89 Feed the Swarm (destroy, then lose life equal to that permanent's mana value).
 
 > ## 🎯 2026-10-01 — THE PLAY-WEIGHTED PROGRAM (Colton: "So 1k then 2.5k then we re assess from there") — the worklist tool
 > The steering metric moves from the corpus total to PLAY-WEIGHTED coverage (the most-played cards by edhrec_rank; covered =

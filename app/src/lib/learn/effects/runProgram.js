@@ -354,6 +354,13 @@ export function autoPickTutorCandidate(state, pendingChoice) {
  * then RESUME the suspended program from where it paused. Hidden-info safe — the log
  * records the controller + found-ness, never the fetched card's name.
  */
+/** The subtypes on a card's front-face type line ("Basic Land — Forest" → ["Forest"]); [] for none or no card. */
+function frontSubtypes(card) {
+  const front = String(card?.type || card?.type_line || "").split(" // ")[0];
+  const dash = front.indexOf("—");
+  return dash < 0 ? [] : front.slice(dash + 1).trim().split(/\s+/).filter(Boolean);
+}
+
 export function resolveTutorChoice(state, cardId) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "tutor-search") return state;
@@ -457,8 +464,15 @@ export function resolveTutorChoice(state, cardId) {
     // ignoring the rider would pass every realistic test and still be a search wider than the card allows
     // the moment a non-singleton library exists. Enforced, not reasoned around.
     const fetchedName = String((pc.candidates || []).find((c) => c.id === cardId)?.name || "").toLowerCase();
+    // SHARE A LAND TYPE (play-weighted #28 — Myriad Landscape: "up to two basic land cards that share a land type", the only
+    // card printing the rider): the second pick keeps only the candidates sharing a land type with the card just fetched. A
+    // card's land types are the subtypes on its front face (CR 205.3i). Candidates carry only id/name, so each one's type
+    // line is read off its card, still in the searched zone.
+    const fetchedTypes = pc.filter?.shareLandType ? frontSubtypes(chosenCardObj) : null;
+    const searchedCard = (id) => (next.players[pc.controller]?.[sourceZone] || []).find((c) => c.id === id);
     const rest = (pc.candidates || []).filter((c) => c.id !== cardId
-      && !(pc.filter?.distinctNames && fetchedName && String(c.name || "").toLowerCase() === fetchedName));
+      && !(pc.filter?.distinctNames && fetchedName && String(c.name || "").toLowerCase() === fetchedName)
+      && !(fetchedTypes && !frontSubtypes(searchedCard(c.id)).some((lt) => fetchedTypes.includes(lt))));
     next = setPendingTutorChoice(next, {
       controller: pc.controller, candidates: rest, sourceName: pc.sourceName, filterLabel: pc.filterLabel,
       filter: pc.filter, // WAVE-2b — carry the structured filter so chained picks keep the auto-pick gate

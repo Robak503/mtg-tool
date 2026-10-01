@@ -2577,11 +2577,15 @@ export function tutorClauseParser(clause, ctx = {}) {
   // That is the safe direction by this run's own rule (an under-delivery, never an over-delivery). It is a
   // choice-FIDELITY gap, categorically unlike a dropped effect, and no unread "mandatory" flag is stamped —
   // a field nothing enforces would just be the captured-but-unread trap in another costume.
-  const mf = t.match(/^search your library for (?:up to )?(two|three|four|five) ([a-z][a-z ,]*?) cards,? put (?:them|those cards) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  // SHARE A LAND TYPE (play-weighted #28 — Myriad Landscape: "up to two basic land cards that share a land type"): an
+  // optional rider, admitted on the LAND arm only, stamped as `filter.shareLandType`; resolveTutorChoice's chained pick
+  // keeps only the candidates sharing a land type with every card fetched so far.
+  const mf = t.match(/^search your library for (?:up to )?(two|three|four|five) ([a-z][a-z ,]*?) cards( that share a land type)?,? put (?:them|those cards) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (mf) {
     const phrase = mf[2];
     const count = UP_TO_N_WORD[mf[1]];
     const filter = parseTutorFilter(phrase);
+    const shareLandType = !!mf[3];
     const guaranteedLand = (g) => g.includes("land") || g.some((w) => BASIC_LAND_SUBTYPES.has(w));
     const someBasic = filter && filter.groups.some((g) => g.includes("basic"));
     const allBasic = filter && filter.groups.every((g) => g.includes("basic"));
@@ -2593,7 +2597,8 @@ export function tutorClauseParser(clause, ctx = {}) {
       (filter.groups.length > 0 && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic))
     );
     if (admitted) {
-      return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!mf[3], remaining: count, targetType: null };
+      return { op: "tutor", filter: shareLandType ? { ...filter, shareLandType: true } : filter, filterLabel: `${phrase} card${shareLandType ? " (sharing a land type)" : ""}`,
+        destination: "battlefield", entersTapped: !!mf[4], remaining: count, targetType: null };
     }
     // MULTI-FETCH-CREATURES-TO-BATTLEFIELD (Defense of the Heart) — an up-to-N fetch of PLAIN "creature" cards
     // straight onto the battlefield. Faithful: cardMatchesTutorFilter selects exactly the caster's creature
@@ -2602,8 +2607,8 @@ export function tutorClauseParser(clause, ctx = {}) {
     // filter (one group `["creature"]`, no MV cap / subtype / union / tapped rider) — the corpus's only such
     // card — so no filtered / typed / non-creature multi-fetch can slip through (a wrong-cheat FP would be
     // forbidden, CREED). A subtyped or unioned creature fetch (none in the corpus) still falls through → Arbiter.
-    if (filter && filter.groups.length === 1 && filter.groups[0].length === 1 && filter.groups[0][0] === "creature") {
-      return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!mf[3], remaining: count, targetType: null };
+    if (!shareLandType && filter && filter.groups.length === 1 && filter.groups[0].length === 1 && filter.groups[0][0] === "creature") {
+      return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!mf[4], remaining: count, targetType: null };
     }
     return null; // a non-land / non-plain-creature / unmodeled-filter / ambiguous-basic multi-fetch → low → Arbiter
   }
