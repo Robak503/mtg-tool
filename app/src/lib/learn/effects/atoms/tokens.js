@@ -544,7 +544,8 @@ function resolveCopySource(state, atom, ctx) {
     if (ctx.triggeringCard && !ctx.triggeringCard.token) return { card: ctx.triggeringCard };
     return null;
   }
-  // ATTACHED (Springheart Nantuko) — the creature this permanent is ATTACHED TO. A bestowed Aura's own
+  // ATTACHED (Springheart Nantuko; + P·30 Helm of the Host's "equipped creature", Followed Footsteps' "enchanted creature") — the
+  // creature this permanent is ATTACHED TO. A bestowed Aura's own
   // `attachedTo` is the referent for its "create a token that's a copy of THAT creature": "that creature" is
   // the one named by the payment condition ("if this permanent is attached to a creature you control"), never
   // the source itself. Read LIVE at resolution — if the host left in response, there is nothing to copy and

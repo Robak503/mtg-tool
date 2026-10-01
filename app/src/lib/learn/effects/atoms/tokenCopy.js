@@ -40,7 +40,9 @@
 // Anchored: "create a token that's a copy of {this creature | it}" + an OPTIONAL ", except the token
 // isn't legendary" tail and nothing else. Apostrophes normalized to straight by the caller. "that's"
 // is the contraction-stripped form; the full "that is a copy" is also accepted.
-const TOKEN_COPY_RE = /^create a token that(?:'s| is) a copy of (this creature|it)(, except the token isn't legendary)?$/;
+// + P·30 (Helm of the Host — "a copy of EQUIPPED creature, except the token isn't legendary"; Followed Footsteps — "a copy of
+// ENCHANTED creature"): the creature the source is attached to, the "attached" referent Springheart Nantuko already reads.
+const TOKEN_COPY_RE = /^create a token that(?:'s| is) a copy of (this creature|it|equipped creature|enchanted creature)(, except the token isn't legendary)?$/;
 // TOKEN-COPY + ADD-CARD-TYPE rider (Vaultborn Tyrant — "create a token that's a copy of it, except it's an
 // artifact in addition to its other types"; also Ochre Jelly's self form). CR 707.9a — the copy gains the
 // named CARD TYPE (a supertype-position add, LEFT of the "—"), so the minted token genuinely IS that type
@@ -122,7 +124,7 @@ export function tokenCopyParser(clause) {
   const t = String(clause).toLowerCase().replace(/[’]/g, "'").trim();
   const m = t.match(TOKEN_COPY_RE);
   if (m) {
-    const copySource = m[1] === "this creature" ? "self" : "triggering";
+    const copySource = m[1] === "this creature" ? "self" : m[1] === "it" ? "triggering" : "attached";
     // ⭐ "except the token isn't legendary" is a REAL type-line modification (CR 707.9a), not a no-op.
     // ⛔⛔ THIS TAIL USED TO BE SWALLOWED AND DROPPED, justified as "the legend rule is unenforced". sba.js
     // implements CR 704.5j now, so a LEGENDARY token copy of a legendary permanent dies to the rule the

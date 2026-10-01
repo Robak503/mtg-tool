@@ -231,12 +231,19 @@ describe("AU-3 CREED — false-negative-SAFE parks stay on the Arbiter", () => {
     expect(classifyCard(c)).toBe("native-trigger");
   });
 
-  it("an unrouted effect still parks the whole card (Followed Footsteps: copy-token of enchanted creature)", () => {
-    // The park guarantee this describes is real and must keep a live fixture. "create a token that's a copy of
-    // enchanted creature" has no route, so the whole card stays body-only — a SAFE false-negative.
-    const c = { name: "Followed Footsteps", type: "Enchantment — Aura", mana: "{3}{U}", oracle: "Enchant creature\nAt the beginning of your upkeep, create a token that's a copy of enchanted creature." };
-    expect(detectTriggers(c).every(triggerRoutesNatively)).toBe(false);
+  it("an unrouted effect still parks the whole card (Endless Evil: a copy of enchanted creature, except the token is 1/1)", () => {
+    // The park guarantee this describes is real and must keep a live fixture. Followed Footsteps held it until P·30 (its plain
+    // copy of the enchanted creature routes now — the GRADUATED pin below); Endless Evil's "except the token is 1/1" rider has
+    // no route, so its upkeep trigger parks and the whole card stays body-only — a SAFE false-negative.
+    const c = { name: "Endless Evil", type: "Enchantment — Aura", mana: "{2}{U}", oracle: "Enchant creature you control\nAt the beginning of your upkeep, create a token that's a copy of enchanted creature, except the token is 1/1.\nWhen enchanted creature dies, if that creature was a Horror, return this card to its owner's hand." };
+    expect(triggerRoutesNatively(detectTriggers(c).find((t) => t.event === "upkeep"))).toBe(false);
     expect(classifyCard(c)).toBe("body-only");
+  });
+
+  it("GRADUATED — Followed Footsteps' copy of the enchanted creature routes (P·30: the attached referent)", () => {
+    const c = { name: "Followed Footsteps", type: "Enchantment — Aura", mana: "{3}{U}{U}", oracle: "Enchant creature\nAt the beginning of your upkeep, create a token that's a copy of enchanted creature." };
+    expect(detectTriggers(c).every(triggerRoutesNatively)).toBe(true);
+    expect(classifyCard(c)).toBe("native-trigger");
   });
 
   it("GRADUATED — the aura-own DIES trigger IS now detected (Bequeathal)", () => {

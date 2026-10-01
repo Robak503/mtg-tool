@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **45 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,240)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **46 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,242)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,22 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 30: Helm of the Host (EDHREC #396) and Followed Footsteps — a token copy of the creature it's attached to · **+2** · corpus 15,242
+> Suite **17,696** green (1 skipped); lint 0; decks **2,745** / 2,998 unchanged. CI GREEN on P·29 (run 36937845077).
+> Flip-diff **+2, −0, zero RETIERED** (tier snapshots at 7b32a760 → the change): Helm of the Host → native-mixed, Followed
+> Footsteps → native-trigger. Top 1,000 **862** (needs +38); top 2,500 **1,687**. **Mutants 8/8** (restore byte-identical).
+> · The token-copy anchor (effects/atoms/tokenCopy.js) reads "a copy of EQUIPPED creature" and "a copy of ENCHANTED creature" as
+>   the creature the source is attached to: the `attached` referent Springheart Nantuko's copy already reads, live at resolution, so
+>   an unattached Helm makes nothing (CR 111.12). Helm's ", except the token isn't legendary" rides the existing strip (CR 707.9b),
+>   so the copy of a legend survives the legend rule (CR 704.5j); "That token gains haste" is the existing minted-token haste fold
+>   (a lasting grant, CR 611.2a), so the copy attacks the turn it is made (CR 702.10b).
+> · Witnessed from the engine's own step machine (advanceStep → runStepActions): the beginning of combat on your turn (Helm),
+>   not on an opponent's; your upkeep (Followed Footsteps). Still out: Endless Evil (its "except the token is 1/1" rider).
+> · **Re-pointed pin (1):** auraOwnTriggered.test.js — Followed Footsteps was the "an unrouted effect still parks the whole
+>   card" fixture; it graduated (pinned as such), and Endless Evil's upkeep copy holds the park guarantee.
+>   Witness `app/src/lib/learn/helmOfTheHost.test.js` (4).
+> · **Next:** #412 Silence.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 29: Underworld Breach (EDHREC #388) — escape, granted · **+1** · corpus 15,240
 > Suite **17,691** green (1 skipped); lint 0; decks **2,745** / 2,998 unchanged. CI GREEN on P·28 (run 36935325362).
