@@ -37,6 +37,7 @@ import { rollResolvers } from "./atoms/roll.js";
 import { freeCastResolvers } from "./atoms/freeCast.js";
 import { hideawayResolvers } from "./atoms/hideaway.js";
 import { castFromAmongResolvers } from "./atoms/castFromAmong.js"; // P·16 — Etali, Primal Storm: exile the top of each library, cast any number of them free
+import { voidPlayResolvers } from "./atoms/voidPlay.js"; // P·28 — Dauthi Voidwalker's free play of a void-countered card
 import { animateDeadResolvers } from "./atoms/animateDead.js"; // P·12 — Animate Dead: the return-and-attach ETB and the leave sacrifice // P·10 — HIDEAWAY (CR 702.75): the look-and-hide ETB and the linked free play
 import { iteratedEdictResolvers } from "./atoms/iteratedEdict.js";
 import { delayedTriggerResolvers } from "./atoms/delayedTrigger.js";
@@ -81,6 +82,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...winGameResolvers, // win-game (UPKEEP-WIN, CR 104.2a) — "you win the game" / "target player loses the game"
   ...rollResolvers,    // roll-d20 (DICE-ROLL, CR 726) — Ancient Dragons roll → result-scaled token/draw payoff
   ...animateDeadResolvers, // animate-dead-return + animate-dead-sacrifice (the reanimation Aura's two triggers)
+  ...voidPlayResolvers, // void-play-grant (P·28) — choose an opponent's void-countered exiled card; play it this turn free
   ...castFromAmongResolvers, // exile-top-each-cast-any (P·16) — parks pendingCastFromAmong for the action layer
   ...hideawayResolvers, // hideaway + hideaway-play (CR 702.75) — the impulse-dig hide, then the discover-lane free cast of the linked card
   ...freeCastResolvers, // free-cast (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle); park for the action-layer cast-free/decline decision
@@ -142,6 +144,7 @@ const PAUSING_OPS_LIST = [
   "taxed-edict", // stack.js applyTaxedEdict → setPendingTaxedPaymentChoice (the opponent pays or sacrifices — the Rishadan pirates; stage ③ 2026-09-30)
   "lose-life-unless-discard", // stack.js applyLoseLifeUnlessDiscard → setPendingOptionalDiscardPaymentChoice (the referent player discards or loses N — Painful Quandary; SHELF-85 N6)
   "iterated-edict", // iteratedEdict.js applyIteratedEdict → advanceEdictChain → setPendingEdictModeChoice (Torment of Hailfire)
+  "void-play-grant", // voidPlay.js applyVoidPlayGrant → setPendingMilledPickChoice (toZone "playFree" — Dauthi Voidwalker, P·28)
   "edict-shares-type", // iteratedEdict.js applyEdictSharesType → advanceEdictChain → setPendingEdictModeChoice (Braids, Arisen Nightmare — P·20)
   "connive", // connive.js applyConnive → setPendingDiscardChoice (the chosen discard; the counter settles in resolveDiscardChoice)
   "conditional", // the barrel's applyConditional — an INNER branch atom can itself pause (Flow State's impulse-dig); the parser arms admit a pauser only in a branch's LAST slot (2026-08-12)

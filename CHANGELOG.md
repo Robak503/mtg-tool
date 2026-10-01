@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Dauthi Voidwalker** — a card that would be put into an opponent's graveyard is exiled with a void counter instead; sacrifice it to play one of those cards this turn without paying its mana cost
 - **Rest in Peace and Leyline of the Void** — a card (for Rest in Peace, a card or token) that would be put into a graveyard is exiled instead; a creature or planeswalker exiled this way never dies
 - **Shifting Woodland** — with delirium, it becomes a copy of a permanent card in your graveyard until end of turn
 - **Dawn's Truce and Lazotep Plating** — you and permanents you control gain hexproof until end of turn
@@ -51,6 +52,7 @@ summarizes the notable changes.
 - **One with the Multiverse, Zaffai and the Tempests, Vision, Spectral Synthezoid and Omniscience** — cast a spell without paying its mana cost (once each turn, or freely with Omniscience), at the normal time for that spell
 
 ### Fixed
+- The graveyard-exile pick from Relic of Progenitus, Scrabbling Claws, Graveyard Shovel and Merrow Bonegnawer was headed "Take a card?"; it now asks the player to exile a card from their graveyard
 - A permanent that became a copy of another (Thespian's Stage) kept tapping for its own printed mana; it now has only the copy's mana abilities
 - Copying an instant or sorcery (Reverberate, Twincast, Flare of Duplication) put a second copy of the original card into its owner's graveyard when the copy resolved
 - Landwalk and land-type conditions ignored land types granted by an effect (Urborg, Tomb of Yawgmoth; Yavimaya, Cradle of Growth): a swampwalker or forestwalker could be blocked by a player whose lands had gained that type, and "When you control no Swamps, sacrifice this creature" could fire while such a land was out

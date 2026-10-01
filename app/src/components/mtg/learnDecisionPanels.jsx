@@ -701,17 +701,23 @@ export function OptionalDiscardPaymentPanel({ decision, onChoose }) {
 
 /** MILLED-PICK (Ripples / Six) — pick one of the just-milled cards to take from your graveyard to your hand. */
 export function MilledPickPanel({ decision, onChoose }) {
+  // Dauthi Voidwalker's pick (toZone "playFree"): a void-countered card an opponent owns, to play this turn for free.
+  const playFree = decision.toZone === "playFree";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
       <ChoiceBanner
-        icon={decision.toZone === "exile" ? "🕳️" : "🃏"}
+        icon={decision.toZone === "exile" ? "🕳️" : playFree ? "✨" : "🃏"}
         title={decision.toZone === "exile"
           ? `Exile a card from your graveyard${decision.sourceName ? ` — ${decision.sourceName}` : ""}`
-          : `Take a card?${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}
+          : playFree
+            ? `Play a card free${decision.sourceName ? ` — ${decision.sourceName}` : ""}`
+            : `Take a card?${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}
       >
         {decision.toZone === "exile"
           ? "Their effect makes you exile one card from your graveyard. Choose which."
-          : "Put one of these just-milled cards into your hand."}
+          : playFree
+            ? "Choose an exiled card an opponent owns with a void counter on it. You may play it this turn without paying its mana cost."
+            : "Put one of these just-milled cards into your hand."}
       </ChoiceBanner>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
         {(decision.candidates || []).map((c) => (

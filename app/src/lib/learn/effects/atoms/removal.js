@@ -6,7 +6,7 @@
  */
 
 import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js";
-import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, creatureBasePower, diesExiledInstead, deathLookbackLinks } from "../../gameState.js";
+import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, creatureBasePower, diesExiledInstead, deathExiledInstead, deathLookbackLinks } from "../../gameState.js";
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // ④-BD — the counter rider's delayed "may draw up to N" (Arcane Denial); delayedTrigger imports only gameState (cycle-safe)
 import { checkDiesTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../../triggers.js";
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
@@ -271,7 +271,8 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
   // is still SACRIFICED (the sacrifice triggers below fire), but it is exiled rather than put into the graveyard, so it never
   // died: its look-back carries exileInstead and the dies triggers skip it.
   const exileInstead = isCreatureCard(lk.permanent.card) && diesExiledInstead(state, lk.permanent);
-  let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: exileInstead ? "exile" : "graveyard", cardId: permId });
+  // P·28 — the destination is the death-specific exile only; a graveyard replacement (Rest in Peace, Dauthi) redirects inside moveCardToZone.
+  let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: isCreatureCard(lk.permanent.card) && deathExiledInstead(state, lk.permanent) ? "exile" : "graveyard", cardId: permId });
   if (exileInstead) next = logEvent(next, { kind: "creature-exiled-instead", turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
   if (isCreatureCard(lk.permanent.card)) {
     next = checkDiesTriggers(next, [{ controller: playerId, id: permId, name: lk.permanent.card?.name || "creature", card: lk.permanent.card, ...deathLookbackLinks(lk.permanent), /* ③ · 43 */ power: Number.isFinite(sacPower) ? sacPower : null, basePower: Number.isFinite(sacBasePower) ? sacBasePower : null, counters: { ...(lk.permanent.counters || {}) }, exileInstead }]);

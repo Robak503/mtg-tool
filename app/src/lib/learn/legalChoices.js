@@ -3468,7 +3468,11 @@ function actionsPlayImpulseFromExile(state, playerId) {
   for (const [pid, other] of Object.entries(state.players)) {
     if (pid === playerId) continue;
     const foreign = (other.exile || []).filter(c => c && c._impulse && c._impulseFor === playerId && c._impulseTurn === state.turn);
-    if (foreign.length) actions.push(...castActionsFromZone(state, playerId, foreign, "exile", null, false).map((a) => ({ ...a, fromPlayerId: pid })));
+    // + P·28 (Dauthi Voidwalker): a card stamped `_impulseFree` is cast without paying its mana cost.
+    const paid = foreign.filter((c) => !c._impulseFree);
+    const free = foreign.filter((c) => c._impulseFree);
+    if (paid.length) actions.push(...castActionsFromZone(state, playerId, paid, "exile", null, false).map((a) => ({ ...a, fromPlayerId: pid })));
+    if (free.length) actions.push(...castActionsFromZone(state, playerId, free, "exile", null, true).map((a) => ({ ...a, fromPlayerId: pid })));
   }
   if (impulsed.length === 0) return actions;
   const nonlands = impulsed.filter(c => !isLand(c));

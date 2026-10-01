@@ -3055,10 +3055,11 @@ function parseClause(clause, out, selfName, selfType) {
   // 400.3); "your" / "an opponent's" are relative to this permanent's controller; a token is only caught by "card or token"
   // (a token is not a card, CR 111.1). gameState applies it at every graveyard write (moveCardToZone and the direct writes)
   // and at every death site through diesExiledInstead — a creature exiled instead never died (CR 700.4).
+  // + P·28 (Dauthi Voidwalker): "… instead exile it WITH A VOID COUNTER ON IT" — the same replacement, its exiled card marked.
   {
-    const gx = c.match(/^if a card( or token)? would be put into (a|your|an opponent's) graveyard from anywhere, exile (?:it|that card) instead$/);
+    const gx = c.match(/^if a card( or token)? would be put into (a|your|an opponent's) graveyard from anywhere, (exile (?:it|that card) instead|instead exile it with a void counter on it)$/);
     if (gx) {
-      out.push({ graveyardExile: { scope: gx[2] === "a" ? "any" : gx[2] === "your" ? "yours" : "opponents", tokens: !!gx[1] } });
+      out.push({ graveyardExile: { scope: gx[2] === "a" ? "any" : gx[2] === "your" ? "yours" : "opponents", tokens: !!gx[1], ...(gx[3].startsWith("instead") ? { voidCounter: true } : {}) } });
       return;
     }
   }

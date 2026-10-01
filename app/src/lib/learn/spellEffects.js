@@ -22,6 +22,7 @@ import {
   drawCards,
   moveCardToZone,
   diesExiledInstead, // ③ · 18 — DIES → EXILE INSTEAD at the destroy site (the one predicate every death site asks)
+  deathExiledInstead, // P·28 — the destroy site's DESTINATION (a graveyard replacement redirects inside moveCardToZone)
   findPermanent,
   markCombatDamage,
   recordDamageSource,
@@ -1346,6 +1347,7 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
     // CREATURE going to the graveyard "dies" (CR 700.4), so only creatures feed the dies-trigger
     // look-back (captured BEFORE the move, CR 603.10a); destroying a land/artifact fires no dies.
     let exileInstead = false;
+    let exileTo = false; // P·28 — the destination (death-specific exile only)
     if (isCreature(lk.permanent.card)) {
       // DIES-TRIGGER-RESOURCE-PAYOFFS: capture the dying creature's layer-aware POWER here (CR 603.6e),
       // BEFORE the moveCardToZone below removes it from the battlefield, so a destroy-spell kill still feeds
@@ -1356,13 +1358,15 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
       // stamp, the damage-source and opponent-creature statics), of the pre-move state. An exiled creature never died, so its
       // look-back carries exileInstead and the dies triggers skip it — the flag destroyLethalCreatures sets.
       exileInstead = diesExiledInstead(next, lk.permanent);
+      exileTo = deathExiledInstead(next, lk.permanent);
       dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card, ...deathLookbackLinks(lk.permanent), /* ③ · 43 */ power: Number.isFinite(pw) ? pw : null, basePower: Number.isFinite(bpw) ? bpw : null, counters: { ...(lk.permanent.counters || {}) }, diesExileAfter: !!lk.permanent.grantDiesExile, exileInstead });
     } else if (isPlaneswalker(lk.permanent.card)) {
       // A destroyed planeswalker "dies" (CR 700.4); capture its look-back (no power — the only modeled
       // PW-death watcher is Cruel Celebrant's flat creature-or-planeswalker drain).
       deadPw.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card });
     }
-    next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: exileInstead ? "exile" : "graveyard", cardId: t.id });
+    // P·28 — the destination is the death-specific exile only; a graveyard replacement (Rest in Peace, Dauthi) redirects inside moveCardToZone.
+    next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: exileTo ? "exile" : "graveyard", cardId: t.id });
     if (exileInstead) next = logEvent(next, { kind: "creature-exiled-instead", turn: next.turn, cardName: lk.permanent.card?.name, controller: lk.controller, via: "destroy" });
   }
   next = checkDiesTriggers(next, dead);

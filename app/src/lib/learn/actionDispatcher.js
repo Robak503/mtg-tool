@@ -56,7 +56,7 @@ import {
   unattachEquipment,
 } from "./gameState.js";
 import { deterministicRng, advanceRngSeed, deathLookbackLinks } from "./gameState.js"; // RG-7 (2026-09-05) — the seeded random-discard pick at payment
-import { withoutImpulseStamps } from "./gameState.js"; // shelf D3 — a card cast out of exile leaves its impulse permission behind (CR 400.7)
+import { withoutImpulseStamps, withoutVoidCounter } from "./gameState.js"; // shelf D3 — a card cast out of exile leaves its impulse permission behind (CR 400.7)
 import { parseTeamworkCost } from "./kicker.js"; // TEAMWORK (shelf D16) — the N a kicked teamwork cast must tap; kicker.js imports only leaves (parseHelpers, keywords)
 
 /** RG-7 — pitch ONE card at random from `playerId`'s hand (never `excludeId`) with the game's seeded rng, advancing the seed
@@ -354,7 +354,7 @@ function applyCastSpell(state, action) {
   // CR 400.7 — the card that leaves exile is a new object: the impulse permission belonged to its stay in exile and
   // stays behind. A permanent or graveyard card still carrying "castable this turn" would be offered again the moment
   // it was exiled a second time that turn.
-  const card = fromZone === "exile" ? withoutImpulseStamps(zoneCard) : zoneCard;
+  const card = fromZone === "exile" ? withoutVoidCounter(withoutImpulseStamps(zoneCard)) : zoneCard; // + P·28: a void counter stays in exile (CR 400.7)
 
   // ADVENTURE (CR 715): when casting an Adventure card's FACE (`action.faceCard` — the adventure
   // instant/sorcery half from hand, or the creature half from adventure-exile), every cast-as-this-card

@@ -396,9 +396,16 @@ export function addEmblem(state, { playerId, oracle }) {
  * lapse (gameEngine's cleanup) and the cast out of exile (CR 400.7: the object that leaves is a new object). One list,
  * so the two sites cannot drift. A card with no stamp is returned as is.
  */
+/** P·28 — the card without its void counter (CR 400.7: it left exile). */
+export function withoutVoidCounter(card) {
+  if (!card || !card._voidCounter) return card;
+  const { _voidCounter: _v, ...rest } = card;
+  return rest;
+}
+
 export function withoutImpulseStamps(card) {
   if (!card || !card._impulse) return card;
-  const { _impulse: _i, _impulseTurn: _t, _impulseExtended: _e, _impulseOwner: _o, _impulseFor: _f, ...rest } = card;
+  const { _impulse: _i, _impulseTurn: _t, _impulseExtended: _e, _impulseOwner: _o, _impulseFor: _f, _impulseFree: _fr, ...rest } = card; // + P·28 _impulseFree (Dauthi's free play)
   return rest;
 }
 
@@ -717,16 +724,30 @@ export function shufflesIntoLibraryInsteadOfGraveyard(card) {
  * (the owner is that permanent's controller), "an opponent's" (the owner is an opponent of its controller). A token only for
  * "card or token" (a token is not a card, CR 111.1). Battlefields are keyed by controller, so each seat's array is what it controls.
  */
-export function graveyardExiledFor(state, card, ownerId) {
-  if (!card || !ownerId) return false;
+export function graveyardExileFor(state, card, ownerId) {
+  if (!card || !ownerId) return null;
+  let voided = null;
   for (const pid of Object.keys(state.players || {})) {
     for (const p of state.players[pid].battlefield || []) {
       const spec = p.card && graveyardExileSpecOf(p.card);
       if (!spec || (card.token && !spec.tokens)) continue;
-      if (spec.scope === "any" || (spec.scope === "yours" ? ownerId === pid : opponentsOf(state, pid).includes(ownerId))) return true;
+      if (!(spec.scope === "any" || (spec.scope === "yours" ? ownerId === pid : opponentsOf(state, pid).includes(ownerId)))) continue;
+      // P·28 — CR 616.1: with several applying, the card's owner picks which. A plain exile (Rest in Peace) leaves no void
+      // counter for Dauthi Voidwalker to find, so that is the pick whenever one applies.
+      if (!spec.voidCounter) return { voidCounter: false };
+      voided = { voidCounter: true };
     }
   }
-  return false;
+  return voided;
+}
+export function graveyardExiledFor(state, card, ownerId) {
+  return !!graveyardExileFor(state, card, ownerId);
+}
+
+/** P·28 — put a void counter on `cardId` in `ownerId`'s exile (Dauthi Voidwalker's replacement; the redirect just put it there). */
+function stampVoidCounter(state, ownerId, cardId) {
+  const p = state.players[ownerId];
+  return { ...state, players: { ...state.players, [ownerId]: { ...p, exile: p.exile.map((c) => (c.id === cardId ? { ...c, _voidCounter: true } : c)) } } };
 }
 
 /**
@@ -735,8 +756,12 @@ export function graveyardExiledFor(state, card, ownerId) {
  * `toGraveyard` there (recording only its events) and `toExile` into the owner's exile; moveCardToZone does the same for one card.
  */
 export function splitGraveyardBound(state, ownerId, cards) {
-  const toExile = cards.filter((c) => graveyardExiledFor(state, c, ownerId));
-  return { toGraveyard: cards.filter((c) => !toExile.includes(c)), toExile };
+  const verdicts = cards.map((c) => graveyardExileFor(state, c, ownerId));
+  return {
+    toGraveyard: cards.filter((_, i) => !verdicts[i]),
+    // P·28 — a card Dauthi Voidwalker's replacement exiles carries its void counter into exile.
+    toExile: cards.flatMap((c, i) => (verdicts[i] ? [verdicts[i].voidCounter ? { ...c, _voidCounter: true } : c] : [])),
+  };
 }
 
 /** The card object a pending move would actually move, without mutating anything (for the check above). */
@@ -806,8 +831,10 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
     // so the graveyard is never touched and no graveyard event or creature-card stamp below records a card that never got
     // there. The graveyard it would have gone to is the OWNER's (CR 400.3).
     const gyOwnerFor = (fromZone === "battlefield" && state.players[playerId]?.battlefield?.find((p) => p.id === cardId)?.owner) || playerId;
-    if (moving && graveyardExiledFor(state, moving, gyOwnerFor)) {
-      const exiled = moveCardToZone(state, { playerId, fromZone, toZone: "exile", cardId });
+    const exileVerdict = moving ? graveyardExileFor(state, moving, gyOwnerFor) : null;
+    if (exileVerdict) {
+      let exiled = moveCardToZone(state, { playerId, fromZone, toZone: "exile", cardId });
+      if (exileVerdict.voidCounter) exiled = stampVoidCounter(exiled, gyOwnerFor, moving.id); // P·28 — Dauthi Voidwalker
       return logEvent(exiled, { kind: "exiled-instead-of-graveyard", playerId: gyOwnerFor, cardName: moving.name || null });
     }
     // CREATURE-CARD-TO-GRAVEYARD-THIS-TURN (SHELF-85 · Halfshell Q3 Raphael, Fiendish Savior, 2026-09-05 — "if a creature card
@@ -909,6 +936,9 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
     const { _returnHandled: _drop, ...rest } = card;
     card = rest;
   }
+  // P·28 — a void counter is ON the card in exile (Dauthi Voidwalker); a card that leaves exile is a new object without it
+  // (CR 400.7), so a later exile for any other reason can never read as void-countered.
+  if (fromZone === "exile" && card._voidCounter) card = withoutVoidCounter(card);
   const nextSource = [...sourceList.slice(0, index), ...sourceList.slice(index + 1)];
   // GY-EVENT (SHELF S7): a card leaving/entering a graveyard through the generic single-card move —
   // graveyard→hand (Raise Dead), graveyard→library (Reclaim), graveyard→exile, graveyard→command
@@ -2307,9 +2337,17 @@ function opponentCreatureExiler(state, perm) {
  * static (Incendiary Oracle), and the opponent-creature static (Stone of Erech). Before this, only the first two sites asked,
  * so a creature under any of those replacements that was destroyed or sacrificed still went to the graveyard.
  */
+/** P·28 — the DEATH-SPECIFIC exile replacements ("if it would die, exile it instead": Lava Coil's stamp, the damage-source and
+ *  Stone of Erech statics). These send a dying creature straight to exile. A graveyard-bound card's exile-instead (Rest in Peace,
+ *  Dauthi Voidwalker) is applied by moveCardToZone's own redirect instead — the one place that puts Dauthi's void counter on it —
+ *  so a death site moves to the graveyard unless this says otherwise. */
+export function deathExiledInstead(state, perm) {
+  return perm.exileIfDiesTurn === state.turn || damagedByExilingSource(state, perm) || opponentCreatureExiler(state, perm);
+}
+
 export function diesExiledInstead(state, perm) {
   if (!perm) return false;
-  return perm.exileIfDiesTurn === state.turn || damagedByExilingSource(state, perm) || opponentCreatureExiler(state, perm)
+  return deathExiledInstead(state, perm)
     // P·27 — the graveyard-bound card is exiled instead (Rest in Peace, Leyline of the Void, …), so the creature never dies.
     || graveyardExiledFor(state, (perm.faceDown && perm.faceUpCard) ? perm.faceUpCard : (perm.printedCard || perm.card), perm.owner || perm.controller);
 }
@@ -2452,6 +2490,7 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
       // to EXILE instead of the graveyard — but ONLY this turn (the flag stores the turn it applies to, so
       // it self-expires; a stale flag from a prior turn is ignored).
       exileInstead: diesExiledInstead(state, perm),
+      exileTo: deathExiledInstead(state, perm), // P·28 — where it goes; a graveyard replacement redirects inside moveCardToZone
       // GRANTED DIES-EXILE (RIVAZ): the durable TRIGGER cousin of exileInstead — the death happens (dies
       // triggers + tally), then checkDiesTriggers exiles the card from the graveyard.
       diesExileAfter: !!perm.grantDiesExile,
@@ -2505,7 +2544,7 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
   for (const d of dead) {
     // EXILE-IF-DIES (subsystem 3): the death-replacement reroutes a flagged creature to exile (CR 614 — a
     // replacement effect; "exile it instead" of the graveyard). All other deaths go to the graveyard.
-    const toZone = d.exileInstead ? "exile" : "graveyard";
+    const toZone = d.exileTo ? "exile" : "graveyard";
     next = moveCardToZone(next, { playerId: d.controller, fromZone: "battlefield", toZone, cardId: d.id });
     // N4: log every death at this single chokepoint (combat AND non-combat — a -X/-X wipe, a 0/0 token,
     // a direct-damage spell) so the board-visible "a creature just died" event is never silent. `cause`
@@ -2573,6 +2612,7 @@ export function applyLegendRule(state) {
             // EXILE-IF-DIES: "if it would die this turn, exile it instead" applies to ANY death,
             // legend-rule included (CR 700.4 — this IS a death).
             exileInstead: diesExiledInstead(state, perm),
+            exileTo: deathExiledInstead(state, perm), // P·28 — where it goes (see destroyLethalCreatures)
             // GRANTED DIES-EXILE (RIVAZ): same carry as the markDead site — a legend-rule death still exiles.
             diesExileAfter: !!perm.grantDiesExile,
       // SHUFFLE-INSTEAD (CR 614) - the same "it never actually died" flag as exileInstead directly above.
@@ -2590,7 +2630,7 @@ export function applyLegendRule(state) {
   }
   let next = state;
   for (const d of dead) {
-    next = moveCardToZone(next, { playerId: d.controller, fromZone: "battlefield", toZone: d.exileInstead ? "exile" : "graveyard", cardId: d.id });
+    next = moveCardToZone(next, { playerId: d.controller, fromZone: "battlefield", toZone: d.exileTo ? "exile" : "graveyard", cardId: d.id });
     next = logEvent(next, { kind: d.exileInstead ? "creature-exiled-instead" : "creature-dies", turn: next.turn, cardName: d.name, controller: d.controller, cause: "legend-rule" });
   }
   for (const m of moves) {

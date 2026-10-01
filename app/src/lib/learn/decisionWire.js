@@ -62,6 +62,7 @@ const PENDING_WIRE_FIELDS = [
   "victim",
   "restTo",
   "from", // change-target (shelf D14) — the redirected object's current target, { id, name, type, controller }, for the panel's "from" line
+  "toZone", // milled-pick — MilledPickPanel's banner switch ("exile": exile from your graveyard; "playFree": Dauthi Voidwalker's free play, P·28)
 ];
 
 /**

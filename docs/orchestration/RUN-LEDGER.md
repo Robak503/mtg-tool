@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **43 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,238)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **44 commits**, corpus **44.2% (15,145)** at the tag → **44.5% (15,239)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,32 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 28: Dauthi Voidwalker (EDHREC #384) — the void-counter exile and its free play · **+1** · corpus 15,239
+> Suite **17,679** green (1 skipped); lint 0; decks **2,745** / 2,998 (Nekusar Wheels 90 → 91). CI GREEN on P·27 (run 36932054130).
+> Flip-diff **+1, −0, zero RETIERED** (tier snapshots at 5afef949 → the change): Dauthi Voidwalker → native-mixed. Top 1,000
+> **860** (needs +40); top 2,500 **1,685**. **Mutants 46/46** (restore byte-identical).
+> · **The replacement, void-counter form:** "If a card would be put into an opponent's graveyard from anywhere, instead exile it
+>   with a void counter on it" is P·27's marker with `voidCounter`, and every road P·27 built stamps the counter: moveCardToZone's
+>   redirect, a resolved spell, a countered spell, mill / surveil / a dig, and every death site. With a plain exile also applying
+>   (Rest in Peace, or a death-specific one like Lava Coil's) the owner picks the plain one (CR 616.1): no counter.
+> · **Death sites, destination split:** destroy, lethal damage, sacrifice and the legend rule take their DESTINATION from the
+>   death-specific exiles only (gameState.deathExiledInstead — Lava Coil's stamp, the damage-source and Stone of Erech statics). A
+>   graveyard-bound card's exile-instead happens in moveCardToZone's redirect, the one place that puts the counter on (for a stolen
+>   creature, in its OWNER's exile). Whether it died still reads both (diesExiledInstead).
+> · **The counter is on the card in exile:** a card leaving exile (any move, or a cast from exile) loses it (CR 400.7).
+> · **The ability:** one atom, void-play-grant. The candidates are void-countered cards your opponents own; one is granted
+>   directly, two or more pause through the milled-pick (toZone "playFree"; nonlands first, then highest mana value, which is the
+>   autopilot's pick). The grant is Ragavan's cross-player exile stamp plus `_impulseFree`, for this turn; the exile lane offers such
+>   a card free and ONLY free (the permission is to play it without paying its mana cost). The settler re-validates the pick
+>   (CR 608.2b); a chooser who left the game gets nothing, and a departed owner's card falls through (CR 800.4a).
+> · **UI fix (pre-existing):** the milled-pick's `toZone` never crossed the wire (decisionWire's whitelist), so the "Exile a card
+>   from your graveyard" heading (Relic of Progenitus, Scrabbling Claws, Graveyard Shovel, Merrow Bonegnawer) always read "Take a
+>   card?". Whitelisted; the free-play heading rides the same field.
+> · Residue: a chosen LAND is not offered (the cross-player lane casts only; an under-offer, FN). Noted, not fixed (pre-existing):
+>   the death-site logs misreport a creature that shuffles into its library instead (the narrator and the combat-trade analysis
+>   read them; the dies triggers do not). Witness `app/src/lib/learn/dauthiVoidwalker.test.js` (15).
+> · **Next:** #388 Underworld Breach.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 27: Rest in Peace (EDHREC #2288) and Leyline of the Void — a graveyard-bound card is exiled instead · **+2** · corpus 15,238
 > Suite **17,664** green (1 skipped); lint 0; decks **2,744** / 2,998 unchanged. CI GREEN on P·26 (run 36929800272).

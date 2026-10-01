@@ -26,7 +26,7 @@
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { taintedPactStep, wheelOnePlayer } from "./atoms/library.js"; // K9 (Step Between Worlds) — the per-player fold the each-player-may settler applies to the yes-seats
 import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice, setPendingTemptingOfferChoice } from "../pendingChoice.js"; // + TEMPTING OFFER (Tempt with Discovery) // + SG-15b: the Sylvan Library per-card pause is chained by its own settler
-import { updatePermanentSafe, graveyardExiledFor } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
+import { updatePermanentSafe, graveyardExileFor } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, gainLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
 import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard, policyEvalEnabledFor } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
@@ -36,6 +36,7 @@ import { changeTargetAlternatives, atomForStackTarget } from "./targeting.js"; /
 import { checkDiscardTriggers, checkDiesTriggers, checkLibrarySearchTriggers, checkLifegainTriggers } from "../triggers.js"; // + checkLifegainTriggers — Kwain's per-drawer life (2026-09-05)
 import { applyDrawEffect } from "../spellEffects.js"; // Kwain (2026-09-05) — the trigger-threading draw for the each-player-may DRAW fold // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event; checkDiesTriggers — the move-from-self settle's lethal sweep (W1)
 import { isLandCard } from "./atoms/shared.js"; // SAC-UNLESS-RETURN-LAND — shared.js is a strict leaf, so this edge is DAG-safe
+import { grantVoidPlay } from "./atoms/voidPlay.js"; // P·28 — the playFree milled-pick settles into Dauthi Voidwalker's grant (voidPlay imports gameState + pendingChoice only)
 
 // SAC-UNLESS-RETURN-LAND (2026-08-12) — the ONE pool predicate for a return-a-land upkeep cost
 // (Waterspout Djinn "an untapped Island", Living Tsunami "a land"), used by BOTH autoPickSacUnlessPay
@@ -146,8 +147,10 @@ export function finishSpellResolution(state, disposition, { selfExile = false, s
   // P·27 — EXILE INSTEAD (CR 614.1a — Rest in Peace and kin): the resolved card bound for its owner's graveyard is exiled
   // instead, and never enters the graveyard (no event). After the self-shuffle above: a spell that shuffles itself away was never
   // going to a graveyard.
-  if (graveyardExiledFor(state, card, playerId)) {
-    const exiled = { ...state, players: { ...state.players, [playerId]: { ...player, exile: [...(player.exile || []), card] } } };
+  const exileVerdict = graveyardExileFor(state, card, playerId);
+  if (exileVerdict) {
+    const placed = exileVerdict.voidCounter ? { ...card, _voidCounter: true } : card; // P·28 — Dauthi Voidwalker's void counter
+    const exiled = { ...state, players: { ...state.players, [playerId]: { ...player, exile: [...(player.exile || []), placed] } } };
     return logEvent(exiled, { kind: "spell-to-exile", playerId, cardName: card.name || null, instead: "graveyard" });
   }
   let next = {
@@ -2060,6 +2063,18 @@ export function resolveMilledPickChoice(state, cardId) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "milled-pick") return state;
   let next = clearPendingChoice(state);
+  // P·28 — DAUTHI VOIDWALKER's pick (toZone "playFree"): the candidates are void-countered cards in their OWNERS' exiles (each
+  // candidate names its owner). Re-validated against the live exile (CR 608.2b — gone, or no longer void-countered → the next
+  // still-valid candidate, the autopilot's own order); the pick gets the free play-this-turn permission.
+  if (pc.toZone === "playFree") {
+    if (!next.players[pc.controller]) return next; // the chooser left the game mid-pause: its ability is gone (CR 800.4a)
+    // An owner who left the game took their exile with them (CR 800.4a), so their cards are no longer candidates.
+    const live = (c) => next.players[c.owner]?.exile.some((e) => e.id === c.id && e._voidCounter);
+    const valid = pc.candidates.filter(live);
+    const pick = valid.find((c) => c.id === cardId) || valid[0] || null;
+    next = pick ? grantVoidPlay(next, pc.controller, pick.owner, pick.id) : logEvent(next, { kind: "spell-effect", effect: "void-play-grant", controller: pc.controller, granted: null });
+    return resumeAfterChoice(next, pc);
+  }
   // T7 (2026-09-04): `owner` — the seat whose graveyard holds the candidates and whose hand receives the pick — is the
   // chooser unless the pause says otherwise (Tasigur: the OPPONENT chooses, the controller receives).
   const owner = pc.owner || pc.controller;

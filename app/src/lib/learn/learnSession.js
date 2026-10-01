@@ -2346,7 +2346,8 @@ export function advanceUntilDecision(
           pilot,
           recordDecision,
           // T7: a pause with an `owner` other than the chooser is an opponent's-choice pick (Tasigur) — the chooser GIVES.
-          buildOffered: () => (pc.candidates || []).map((c) => ({ kind: "pending-choice", choiceKind: pc.kind, value: c.id, label: pc.owner && pc.owner !== pc.controller ? `Give ${c.name}` : `Take ${c.name}` })),
+          // + P·28: the playFree pick (Dauthi Voidwalker) plays the card free this turn.
+          buildOffered: () => (pc.candidates || []).map((c) => ({ kind: "pending-choice", choiceKind: pc.kind, value: c.id, label: pc.toZone === "playFree" ? `Play ${c.name} free this turn` : pc.owner && pc.owner !== pc.controller ? `Give ${c.name}` : `Take ${c.name}` })),
           fallbackAction: {
             kind: "pending-choice",
             choiceKind: pc.kind,
