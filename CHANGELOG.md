@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Emry, Lurker of the Loch and Silas Renn, Seeker Adept** — choose an artifact card in your graveyard; you may cast it this turn
 - **Thespian's Stage and Mizzium Transreliquat** — become a lasting copy of a land or artifact while keeping the ability that did it
 - **Shameless Charlatan** — your commander can become a copy of another creature, and keeps the ability to do it again
 - **Subterfuge** — when it enters, one of your creatures gains flying and draws a card per combat damage it deals to a player this turn

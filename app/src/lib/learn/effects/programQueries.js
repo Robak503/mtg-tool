@@ -221,6 +221,10 @@ export function atomTargetIntent(atom) {
       return "enemy";
     case "pump":
       return (atom.ptDelta && ((atom.ptDelta.p || 0) < 0 || (atom.ptDelta.t || 0) < 0)) ? "enemy" : "own";
+    case "gy-cast-permission":
+      // GRAVEYARD CAST PERMISSION (shelf D30 — Silas Renn, Heiko Yamazaki): the target is a card in the controller's OWN graveyard
+      // that they may then cast — own-side, like return-from-graveyard.
+      return "own";
     case "grant-until-eot":
       // UNTIL-EOT QUOTED GRANT on a TRIGGER (shelf D28 — Subterfuge's ETB: 'target creature gains flying and "Whenever this
       // creature deals combat damage to a player, draw that many cards" until end of turn'). The quoted ability becomes the

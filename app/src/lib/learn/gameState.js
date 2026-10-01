@@ -1223,7 +1223,15 @@ export function recordGraveyardEvents(state, events) {
       ...(isPermanentCard ? { descendedThisTurn: (players[e.gyOwner].descendedThisTurn || 0) + 1 } : {}),
     } };
   }
-  return { ...state, players, pendingGraveyardEvents: [...(state.pendingGraveyardEvents || []), ...evs] };
+  // GRAVEYARD CAST PERMISSION (shelf D30 — Emry's "You may cast that card this turn"): ANY event for a card ends its
+  // permission — leaving the graveyard (cast, returned, exiled) or arriving anew is a new object (CR 400.7), so a card cast
+  // this way and back in the graveyard is never castable again on the same permission.
+  let gyCastPermissions = state.gyCastPermissions;
+  if (gyCastPermissions && evs.some((e) => gyCastPermissions[e.card.id])) {
+    gyCastPermissions = { ...gyCastPermissions };
+    for (const e of evs) delete gyCastPermissions[e.card.id];
+  }
+  return { ...state, players, pendingGraveyardEvents: [...(state.pendingGraveyardEvents || []), ...evs], ...(gyCastPermissions !== state.gyCastPermissions ? { gyCastPermissions } : {}) };
 }
 
 /**

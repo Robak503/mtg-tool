@@ -1913,7 +1913,40 @@ export function applyGyBatchToBattlefield(state, atom, ctx) {
   return setPendingMilledPickChoice(state, { controller: me, candidates: candidates.map((c) => ({ id: c.id, name: c.name, type: c.type || c.type_line || "" })), sourceName: ctx.cardName || null, toZone: "battlefield" });
 }
 
+/**
+ * "YOU MAY CAST THAT CARD THIS TURN" (shelf D30 — Emry, Lurker of the Loch; Silas Renn; Heiko / Norika Yamazaki — CR 601.3: a
+ * permission to cast a card from a zone it could not otherwise be cast from). Two printed forms, one atom:
+ *   "You may cast target <filter> card from your graveyard this turn."
+ *   "Choose target <filter> card in your graveyard. You may cast that card this turn."
+ * Matched on the WHOLE effect (the second form spans two sentences), so any rider after it ("If that spell would be put into
+ * your graveyard, exile it instead") leaves the clause LOW. The filter is parseGraveyardFilter's vocabulary.
+ */
+export function matchGyCastPermission(oracle) {
+  const t = String(oracle || "").trim().toLowerCase().replace(/[’]/g, "'").replace(/\s*\([^)]*\)\s*$/, "").replace(/\.$/, "");
+  const m = t.match(/^you may cast target (.+?) card from your graveyard this turn$/) || t.match(/^choose target (.+?) card in your graveyard\. you may cast that card this turn$/);
+  if (!m) return null;
+  const cardFilter = parseGraveyardFilter(m[1].trim());
+  return cardFilter ? { op: "gy-cast-permission", targetType: "graveyardCard", cardFilter } : null;
+}
+/**
+ * The permission is recorded in state.gyCastPermissions by CARD ID — never on the card — and ANY graveyard event for that card
+ * ends it (gameState.recordGraveyardEvents: cast, returned, exiled, or a fresh arrival is a new object, CR 400.7), so a card
+ * cast this way and back in the graveyard is never castable again. legalChoices offers the cast at full cost through the
+ * shared graveyard cast builder ("you still pay its costs; timing rules still apply"). A target that left grants nothing
+ * (CR 608.2b). Both printed forms say "your graveyard", so the permission belongs to that graveyard's owner.
+ */
+export function applyGyCastPermission(state, atom, ctx) {
+  const me = ctx.controller;
+  const t = (ctx.targets || []).find((x) => x?.type === "graveyardCard");
+  const card = t ? (state.players?.[me]?.graveyard || []).find((c) => c.id === t.id) : null;
+  // (Measured inert: the stack re-checks the target and fizzles the ability first, CR 608.2b — kept so a missing card can never crash.)
+  if (!card) return logEvent(state, { kind: "spell-effect", effect: "gy-cast-permission", granted: null, controller: me });
+  const next = { ...state, gyCastPermissions: { ...(state.gyCastPermissions || {}), [card.id]: { turn: state.turn || 0 } } };
+  return logEvent(next, { kind: "spell-effect", effect: "gy-cast-permission", granted: card.name, controller: me });
+}
+
 export const zoneResolvers = {
+  "gy-cast-permission": applyGyCastPermission, // shelf D30 — Emry's "you may cast that card this turn" (a permission by card id)
   "gy-batch-to-battlefield": applyGyBatchToBattlefield, // shelf D27 — Colossal Grave-Reaver's "put one of them onto the battlefield"
   "grant-flashback": applyGrantFlashback, // ④-G (Snapcaster Mage) — a graveyard instant/sorcery gains flashback = its mana cost until end of turn
   "cz-commander-visit": applyCzCommanderVisit, // Hellkite Courser — the CZ fetch + haste + delayed return

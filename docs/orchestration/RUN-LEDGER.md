@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **442 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **443 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,26 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D30: "YOU MAY CAST THAT CARD THIS TURN" — THE GRAVEYARD CAST PERMISSION — Shorikai Vehicles 86 → 87 · **+2** · corpus 15,137 / 34,245
+> Suite **1,679 files / 17,316 tests** green (1 skipped); lint 0; decks 2,705 / 2,998. CI GREEN on D29 (run 36808430702). Flip-diff **+2, zero LOST,
+> zero RETIERED** (tier snapshots at 22fb7e87 → the change: Emry, Lurker of the Loch, Silas Renn, Seeker Adept). **Mutants 8/8** on the final code (restore byte-identical).
+> · **Build:** zones.js — "You may cast target <filter> card from your graveyard this turn" and "Choose target <filter> card in your
+>   graveyard. You may cast that card this turn" are ONE atom (matched whole — a rider after it stays LOW). The permission lives in
+>   state.gyCastPermissions by CARD ID, never on the card, and gameState.recordGraveyardEvents — the single graveyard-event
+>   chokepoint — ends it on ANY event for that card (cast, returned, exiled, or a fresh arrival is a new object, CR 400.7), so an
+>   instant cast this way and back in the graveyard is never recast on the same permission. legalChoices offers the cast through
+>   the shared graveyard builder (full cost, targets, timing — CR 601.3), this turn only. atomTargetIntent "gy-cast-permission"
+>   → own (Silas Renn's combat-damage trigger).
+> · **Mutation found three soft spots:** a next-turn test passed vacuously (the mana pool empties between phases — refilled, now it
+>   kills the turn mutant); an !isLand filter was redundant (the builder never casts a land — removed); the target-left guard is
+>   measured inert (the stack fizzles the ability first, CR 608.2b — kept against a crash, documented).
+> · **Runtime:** `WITNESS emry {"targets":["stone","thopter"],"before":[],"offered":["stone"],"onField":true,"stillInGraveyard":false}` —
+>   only artifact cards targeted; only the chosen one castable; it resolves. Cast, sacrificed and back the same turn: not castable
+>   again. An artifact LAND is a legal target but is never cast. Gone by the next turn. Silas Renn connects → the artifact card
+>   in your graveyard is castable. Witness `app/src/lib/learn/graveyardCastPermission.test.js` (7).
+> · **Next:** Shorikai 87 needs 3 (The Indomitable · Mu Yanling · Katsumasa · Windbrisk Heights); Kellan 85 (5); Light-Paws 83 (7);
+>   Atraxa 74 (16).
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D29: THE LASTING COPY THAT KEEPS "THIS ABILITY" — THESPIAN'S STAGE — Teval 89 → 90 · **+3** · corpus 15,135 / 34,245
 > Suite **1,678 files / 17,309 tests** green (1 skipped); lint 0; decks 2,704 / 2,998 — **26 of 30 at ≥90**. CI GREEN on D28 (run 36807292743). Flip-diff
