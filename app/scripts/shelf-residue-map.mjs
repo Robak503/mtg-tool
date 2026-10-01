@@ -20,9 +20,9 @@
  *   3. PER DECK — every deck under the bar: its need, and each blocked card with its smallest blocking set.
  *
  * ⚠️ HONESTY BOUNDS (the one-line-away tool's, restated): the probe measures the CLASSIFIER, not the effort — a shape is a
- * sized lead, not a promise, and dropping a line changes a card's meaning. It does not know the standing exclusions (THEFT —
- * never trained; pre-game / hidden-information seams; the CREED refusals — SHELF-85-RUNBOOK §1.2): those rows still read
- * here and are still not built. Cards with more than 12 lines, or no minimal set up to k = 3, report as DEEP. Local-only dev
+ * sized lead, not a promise, and dropping a line changes a card's meaning. It does not know the standing exclusions (pre-game /
+ * hidden-information seams; the CREED refusals — SHELF-85-RUNBOOK §1.2): those rows still read here and are still not built.
+ * (Theft is no longer one: Colton lifted it for single cards on 2026-09-30; only theft-themed decks stay off the shelf.) Cards with more than 12 lines, or no minimal set up to k = 3, report as DEEP. Local-only dev
  * tool (reads the deck store under MTG_APP_ROOT); not in CI.
  */
 import fs from "node:fs";

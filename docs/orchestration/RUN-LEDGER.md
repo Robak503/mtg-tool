@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **447 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **448 commits**, corpus
 > 38.6% → **44.2% (15,145)** — roughly +1,700 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,22 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 📜 2026-09-30 — POLICY: THE THEFT HARD-PARK IS LIFTED FOR CARDS (Colton)
+> Colton, during the "Do my decks" pause: remove the hard park on theft cards; he simply won't submit theft decks, so nothing
+> gets gated card by card (his examples: Gilded Drake, Eriette's Tempting Apple, Transcendent Dragon). The 2026-08-15 veto now
+> reads as it was first worded: no theft-THEMED deck goes on the shelf as training data. Control-changing and cast-their-card
+> effects are ordinary cards, built when their deck or vein comes up — Gilded Drake (Kinnan), Eriette's Tempting Apple (Bumble
+> Flower), Commandeer (Believe it!), Kellogg, Nautiloid Ship (Shorikai), Transcendent Dragon and Mind's Dilation (Kellan), Oko's
+> −5 and Bringer of the Red Dawn. Updated: SHELF-85-RUNBOOK §1.2 + its ⛔ THEFT rows (now open), SHELF-85-OMNATH-HANDOFF, the
+> OVERNIGHT-PLAN-2026-09-06 standing line, and the shelf-residue-map exclusions note. Dated plans and archived entries keep their
+> original wording as history. No engine code gated theft — the control-change guards (controlAura, the revert sweep) are
+> correctness guards and stay.
+> **Same pause — planeswalkers last; Atraxa deferred (Colton).** Walkers become their own program at the end (the corpus has
+> 318: 24 native, 162 already playing through their modeled abilities with the rest sent to the Arbiter, 132 wholly Arbiter;
+> 34 sit one ultimate from native). Atraxa's role on the test bench was the walkers, so she waits at 74 and the shelf does not
+> build toward 90 there; a walker on a future test deck is taken case by case. The shelf target is now Kellan (86, needs 4)
+> and Light-Paws (83, needs 7). Recorded in SHELF-85-RUNBOOK §5.9.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D34: THE REALITY CHIP — PLAY FROM THE TOP WHILE ATTACHED · ⚠️ RECONFIGURE NO LONGER TARGETS ITSELF — Kellan of the West 85 → 86 · **+1** · corpus 15,145 / 34,245
 > Suite **1,683 files / 17,338 tests** green (1 skipped); lint 0; decks 2,709 / 2,998. CI GREEN on D33 (run 36813454252). Flip-diff **+1, zero LOST,

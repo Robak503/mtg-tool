@@ -151,8 +151,8 @@ in every RUN-LEDGER entry (witness → mutants → suite → docs → commit).
 ## §6 PARKED / NEEDS COLTON (carried from the 09-02 plan's §6 — read that section; nothing here is new)
 - ~~**CI BLOCKED (billing; repo PRIVATE)**~~ — RESOLVED 2026-09-29: the stack was pushed 2026-09-05 (head 5df810d2); the
   repo is PUBLIC and stays public; a PR run executed real steps again at 2026-09-30T00:28Z. See the §0 CI posture.
-- **Theft veto (standing):** Bringer of the Red Dawn, Oko's −5, Gilded Drake, Eriette's Tempting Apple and every gain-control
-  effect stay parked on purpose — never trained.
+- ~~**Theft veto (standing)**~~ — **LIFTED for cards (Colton, 2026-09-30):** Bringer of the Red Dawn, Oko's −5, Gilded Drake,
+  Eriette's Tempting Apple and every other gain-control effect are ordinary cards now. Only theft-themed DECKS stay off the shelf.
 - **Omnath's queue:** the SHELF-85 hand-off ([Q-SHELF-85-OMNATH] + [Q-SHELF-85-OMNATH-A]) is posted; the ✍ notes are Omnath's.
 
 ## §7 WHAT THE MORNING REPORT MUST CONTAIN

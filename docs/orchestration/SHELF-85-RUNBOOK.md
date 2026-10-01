@@ -95,8 +95,11 @@ most unbuildable-class residue (§5 marks it).
 
 ### 1.2 Standing exclusions (never build these; they go straight to the Omnath list)
 
-- **Theft is never trained** (Colton, 2026-08-15): any card that takes or exchanges control stays parked ON PURPOSE —
-  Gilded Drake (Kinnan), Eriette's Tempting Apple (Bumble Flower), Commandeer (Believe it!), Kellogg. Mark ⛔ THEFT.
+- ~~**Theft is never trained**~~ — **LIFTED for cards (Colton, 2026-09-30):** "I just won't submit theft decks", so no single
+  card is gated for theft. Control-changing and cast-their-card effects (Gilded Drake, Eriette's Tempting Apple, Commandeer,
+  Kellogg, Nautiloid Ship, Transcendent Dragon, Mind's Dilation, Oko's −5) are ordinary cards now, built when their deck or
+  vein comes up. What stands is the 2026-08-15 deck veto: no theft-THEMED deck goes on the shelf. The ⛔ THEFT rows below
+  are re-marked open.
 - **cEDH decks grind LAST** (Colton, 2026-08-15): Believe it! and Kinnan are the final two Phase 2 decks. Their §5
   sections are sized so the order is honest, not so they are skipped.
 - **Pre-game and hidden-information effects** (Gemstone Caverns' opening-hand clause, Doomsday's pile, Tainted Pact /
@@ -396,10 +399,14 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | F4 | Academy Manufactor | Clue/Food/Treasure → one of each | S | a token-minting replacement (the Donatello class shares the seam) | ✅ (+1 — `tokenOneOfEach` on the doubler profile (the Took extra-Food seam); at the mint chokepoint each Clue/Food/Treasure in the batch spawns the two missing kinds raw in the same event, one pass per Manufactor the creator controls (two → three of each, the printed ruling); NOT multiplied by a token doubler — with Anointed Procession one Food is two of each in either replacement order; pinned: one Manufactor 1/1/1, a Soldier untouched, the opponent's Manufactor inert, two Manufactors 3/3/3, doubler 2/2/2) |
 | F5 | Study the Classics ✅ · Treebeard (sized UP 2026-09-05: a subtype-union target pool + "halfling" in the allowlist + a lifegain that-many-on-TARGET sentinel — three seams, ~1 card; the bare subtype-target vein is 24 uses corpus-wide) · Wave Goodbye ✅ · Secret Rendezvous ✅ · Riot Control ✅ · Kwain ✅ | counters/lifegain/mass bounce/draw shapes | S each | Wave Goodbye = mass bounce with a no-counter filter | ⬜ |
 | F6 | Heaped Harvest ✅ (+2 — the compound head's second half "when you sacrifice it" + the self-sac cost guard exemption; Carrot Cake rode along) · Elanor Gardner ✅ · Lembas ✅ · Sam, Loyal Attendant ✅ · Samwise Gamgee ✅ · Samwise the Stouthearted (sized UP — the ETB is native since Continue?; "Then the Ring tempts you" is an unmodelled mechanic) · Hot Soup ✅ · Field-Tested Frying Pan · Night of the Sweets' Revenge ✅ · Feasting Hobbit ✅ · Campsite Cuisine (sized UP — the head is an unmodelled union scope AND the attack line is an optional X-sacrifice reflexive) · Shoreline Looter ✅ · Archway of Innovation · Continue? ✅ | | S–M | the Food family: "when you sacrifice it" (S), "if you sacrificed a Food this turn" (S), devour Food (M), improvise grant (M) | ⬜ |
-| F7 | Eriette's Tempting Apple | gain control | ⛔ THEFT | | ⛔ |
+| F7 | Eriette's Tempting Apple | gain control | open — the theft park was lifted 2026-09-30 | | ⬜ |
 | F8 | COMPOSITE | Innkeeper's Talent · Killer Service (sized L — the "number of opponents you have" token count is an unmodelled source AND the end step is an optional pay+sacrifice reflexive) · Long River's Pull ✅ (gift) · Mechanized Production · Peerless Recycling ✅ (gift) · Wear Down ✅ (gift) · Wedding Ring · Tamiyo, Field Researcher | size on approach | | ⬜ |
 
 ### 5.9 Atraxa Superfriends — 64% · needs 21 · planeswalker deck
+
+> 📜 **DEFERRED (Colton, 2026-09-30):** Atraxa waits. Planeswalkers go last, as their own program, and Atraxa's role on the
+> test bench was the walkers, so the shelf does not build toward 90 here. A walker on a future test deck is taken case by case.
+> Atraxa stood at 74 when this was decided.
 
 > ⛔ **ATRAXA CEILING at 74 (2026-09-05, 11 to the bar):** every remaining row sizes L — Interplanar Beacon (the cast filter's planeswalker denylist + a two-colour paid production), Ashiok (a static forbidding opponents' searches), Kiora (an until-your-next-turn shield expiry + a source-side "dealt by" prevention), and the A5 loyalty-vocabulary sweep. Phase 3 material; the §5 order moved on to Halfshell.
 
@@ -460,7 +467,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | I3 | Thassa's Oracle | ETB: look at top X (devotion), win if library ≤ X | M | devotion count + a look/win atom (the win-game family exists with strict evaluators) | ⬜ |
 | I4 | Transmute Artifact · Moonsilver Key · Treasure Vault · Cephalid Coliseum · The Mycosynth Gardens · Nezahal | | M / S / S / M / L / M | | ⬜ |
 | I5 | Copy Enchantment · Clever Impersonator · Imposter Mech | clone lane | L | one clone slice pays all three | ⬜ |
-| I6 | Gilded Drake | exchange control | ⛔ THEFT | | ⛔ |
+| I6 | Gilded Drake | exchange control | open — the theft park was lifted 2026-09-30 | | ⬜ |
 | I7 | Gemstone Caverns | pregame | 🅿 PREGAME | | 🅿 |
 | I8 | Chain of Vapor · Veil of Summer · The Unagi of Kyoshi Island | | 🅿 / M / M | | ⬜ |
 | I9 | COMPOSITE | Tezzeret the Seeker · Mindbreak Trap · Flash Photography · Wan Shi Tong · Misdirection · Endurance · Hullbreaker Horror | size on approach | | ⬜ |
@@ -473,7 +480,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | E2 | Orcish Bowmasters | | V4 | | ✅ |
 | E3 | Thassa's Oracle | | I3 | | ⬜ |
 | E4 | Thousand-Faced Shadow · Moon-Circuit Hacker · Shizo · Ingenious Prodigy · Nanogene Conversion · Roaming Throne · Satoru | | M / S / S / M / L / L / M | Roaming Throne = the extra-trigger family (Panharmonicon class — L) | ⬜ |
-| E5 | Commandeer | gain control of target spell | ⛔ THEFT | | ⛔ |
+| E5 | Commandeer | gain control of target spell | open — the theft park was lifted 2026-09-30 | | ⬜ |
 | E6 | Gemstone Caverns · Doomsday · Tainted Pact · Demonic Consultation · Lim-Dûl's Vault | pregame / hidden-information piles | 🅿 PREGAME / CEILING | | 🅿 |
 | E7 | COMPOSITE | Misdirection · Mindbreak Trap · Subtlety · Flare of Malice · Contagion · Kaito · Force of Despair · Emrakul, the Promised End | size on approach | evoke/pitch alt costs are one composition rule | ⬜ |
 

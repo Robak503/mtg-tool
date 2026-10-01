@@ -118,7 +118,7 @@
 | Archway of Innovation | land-partial | composite — more than one line blocks it (see the deck's §5 rows) | L / composite (Phase 3 stop rule) |
 | Campsite Cuisine | body-only | composite — more than one line blocks it (see the deck's §5 rows) | L / composite (Phase 3 stop rule) |
 | Dusk // Dawn | arbiter-spell | composite — more than one line blocks it (see the deck's §5 rows) | L / composite (Phase 3 stop rule) |
-| Eriette's Tempting Apple | body-only | When Eriette's Tempting Apple enters, gain control of target creature until end of turn. Untap that creature. | ⛔ THEFT (Colton's veto) |
+| Eriette's Tempting Apple | body-only | When Eriette's Tempting Apple enters, gain control of target creature until end of turn. Untap that creature. | open — the theft park was lifted 2026-09-30 |
 | Innkeeper's Talent | body-only | composite — more than one line blocks it (see the deck's §5 rows) | L / composite (Phase 3 stop rule) |
 | Killer Service | body-only | composite — more than one line blocks it (see the deck's §5 rows) | L / composite (Phase 3 stop rule) |
 | Mechanized Production | body-only | composite — more than one line blocks it (see the deck's §5 rows) | L / composite (Phase 3 stop rule) |
@@ -259,7 +259,7 @@
 | Transmute Artifact | arbiter-spell | composite — more than one line blocks it (see the deck's §5 rows) | L / composite (Phase 3 stop rule) |
 | Tezzeret the Seeker | arbiter-pw | composite — more than one line blocks it (see the deck's §5 rows) | L / composite (Phase 3 stop rule) |
 | Veil of Summer | arbiter-spell | composite — more than one line blocks it (see the deck's §5 rows) | L / composite (Phase 3 stop rule) |
-| Gilded Drake | body-only | When this creature enters, exchange control of this creature and up to one target creature an opponent control | ⛔ THEFT (Colton's veto) |
+| Gilded Drake | body-only | When this creature enters, exchange control of this creature and up to one target creature an opponent control | open — the theft park was lifted 2026-09-30 |
 | Chain of Vapor | arbiter-spell | composite — more than one line blocks it (see the deck's §5 rows) | L / composite (Phase 3 stop rule) |
 | Nezahal, Primal Tide | body-only | Discard three cards: Exile Nezahal. Return it to the battlefield tapped under its owner's control at the begin | L / composite (Phase 3 stop rule) |
 | Mindbreak Trap | arbiter-spell | composite — more than one line blocks it (see the deck's §5 rows) | L / composite (Phase 3 stop rule) |
@@ -338,7 +338,7 @@
 | Nanogene Conversion | arbiter-spell | composite — more than one line blocks it (see the deck's §5 rows) | L / composite (Phase 3 stop rule) |
 | Roaming Throne | body-only | If a triggered ability of another creature you control of the chosen type triggers, it triggers an additional | L / composite (Phase 3 stop rule) |
 | Mindbreak Trap | arbiter-spell | composite — more than one line blocks it (see the deck's §5 rows) | L / composite (Phase 3 stop rule) |
-| Commandeer | arbiter-spell | composite — more than one line blocks it (see the deck's §5 rows) | ⛔ THEFT (Colton's veto) |
+| Commandeer | arbiter-spell | composite — more than one line blocks it (see the deck's §5 rows) | open — the theft park was lifted 2026-09-30 |
 | Subtlety | body-only | When this creature enters, choose up to one target creature spell or planeswalker spell. Its owner puts it on | L / composite (Phase 3 stop rule) |
 | Hydroelectric Specimen // Hydroelectric Laboratory | land-partial | composite — more than one line blocks it (see the deck's §5 rows) | L / composite (Phase 3 stop rule) |
 | Kaito, Bane of Nightmares | arbiter-pw | composite — more than one line blocks it (see the deck's §5 rows) | L / composite (Phase 3 stop rule) |
