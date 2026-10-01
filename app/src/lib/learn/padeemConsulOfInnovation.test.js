@@ -92,9 +92,9 @@ describe("runtime — the greatest artifact", () => {
 });
 
 describe("classifier", () => {
-  it("Padeem is native-mixed; Leonin Abunas native-static; Aeronaut Admiral stays parked", () => {
+  it("Padeem is native-mixed; Leonin Abunas native-static; Aeronaut Admiral native-static (shelf D32's Vehicle selector)", () => {
     expect(classifyCard(PADEEM)).toBe("native-mixed");
     expect(classifyCard(ABUNAS)).toBe("native-static");
-    expect(classifyCard({ id: "c-aa", name: "Aeronaut Admiral", type: "Creature — Human Pilot", keywords: ["Flying"], power: 3, toughness: 1, oracle: "Flying\nVehicles you control have flying." })).toBe("body-only");
+    expect(classifyCard({ id: "c-aa", name: "Aeronaut Admiral", type: "Creature — Human Pilot", keywords: ["Flying"], power: 3, toughness: 1, oracle: "Flying\nVehicles you control have flying." })).toBe("native-static");
   });
 });

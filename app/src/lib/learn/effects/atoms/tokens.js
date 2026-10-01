@@ -165,7 +165,8 @@ export function applyCreateToken(state, atom, ctx) {
     ? (ctx.targets?.find((t) => t.type === "player")?.id ?? null)
     : ctx.controller;
   if (tokenCreatorId == null || !state.players?.[tokenCreatorId]) return logEvent(state, { kind: "spell-effect", effect: "create-token", count: 0, controller: ctx.controller, noCreator: true });
-  const { type, name: derivedName } = tokenTypeLine(atom.descriptor);
+  // An explicit type line (shelf D32 — the noncreature Vehicle token) wins over the creature-token derivation.
+  const { type, name: derivedName } = atom.tokenType ? { type: atom.tokenType, name: "Token" } : tokenTypeLine(atom.descriptor);
   // NAMED-TOKEN (CR 111.4): a parsed "named X" suffix (atom.name) overrides the subtype-derived name (Koma's
   // Coil, not "Serpent"). Cosmetic to the rules — the subtype on the type line still drives every interaction.
   const name = atom.name || derivedName;
@@ -960,6 +961,15 @@ function createTokenClauseParserCore(clause) {
   {
     const ar = t.match(/^(create .+?)( that are (tapped and )?attacking)$/);
     if (ar) { attackingRider = { tapped: !!ar[3] }; t = ar[1]; }
+  }
+  // VEHICLE TOKEN (shelf D32 — Mu Yanling, Wind Rider; Chandra, Spark Hunter; Wish Good Luck; Spaghetti Junction: "create a 3/2
+  // colorless Vehicle artifact token with crew 1"): an ARTIFACT, not a creature — it has its printed P/T only while crewed into
+  // one (CR 301.7a, 702.122a). Minted with its explicit type line and its Crew line as oracle, so the crew action reads it like
+  // a printed Vehicle; its name is its subtype (CR 111.4).
+  const veh = !attackingRider && t.match(/^create (a|an|one|two|three) (\d+)\/(\d+) colorless vehicle artifact tokens? with crew (\d+)$/);
+  if (veh) {
+    return { op: "create-token", count: { a: 1, an: 1, one: 1, two: 2, three: 3 }[veh[1]], power: parseInt(veh[2], 10), toughness: parseInt(veh[3], 10),
+      descriptor: "colorless vehicle artifact", tokenType: "Token Artifact — Vehicle", name: "Vehicle", tokenOracle: `Crew ${veh[4]}`, keywords: [], targetType: null };
   }
   const m = t.match(/^create (a|an|one|two|three|four|five|\d+) (tapped )?(\d+)\/(\d+) ([a-z/ ]+?) creature tokens?(?: named ([a-z' ]+?))?(?: with (.+))?$/);
   if (m) {

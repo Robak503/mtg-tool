@@ -2024,6 +2024,19 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ layer: 6, op: { layerOp: "crewOverride", crew: Number(crewGrant[1]) }, affects: { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Artifact"], subtypes: ["Vehicle"] } }, duration: { kind: "permanent" } });
     return;
   }
+  // ⭐ VEHICLE KEYWORD GRANT (shelf D32 — Mu Yanling, Wind Rider / Aeronaut Admiral "Vehicles you control have flying"; Fearless
+  // Swashbuckler's haste): the SAME Artifact + Vehicle selector as the crew grant above, so every Vehicle you control has it,
+  // crewed or not — it bites once the Vehicle is crewed into a creature. NON_CREATURE_SUBTYPES excluded this line because the
+  // tribal anthem's selector is CREATURE-restricted and reached no Vehicle at all (the Aeronaut Admiral FP); this selector
+  // reaches them all. Only grantable keywords — any other word leaves the line unparsed.
+  const vehKw = String(clause || "").match(/^vehicles you control have ([a-z ,]+?)\.?$/i);
+  if (vehKw) {
+    const segs = vehKw[1].split(/,\s*(?:and\s+)?|\s+and\s+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+    if (segs.length && segs.every((s) => GRANTABLE_KEYWORDS.has(s))) {
+      for (const s of segs) out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: canonicalKeyword(s) }, affects: { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Artifact"], subtypes: ["Vehicle"] } }, duration: { kind: "permanent" } });
+      return;
+    }
+  }
   // ⭐ NONCREATURE-PERMANENT TARGET SHIELD (SHELF-85 S17, 2026-09-04 — Padeem "Artifacts you control have hexproof"): the
   // anthem lanes below are CREATURE-restricted by design (a keyword granted to a noncreature permanent is usually
   // meaningless — Aeronaut Admiral's flying), so this line produced nothing and the card parked. Hexproof and shroud are

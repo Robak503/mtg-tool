@@ -72,8 +72,8 @@ describe("runtime — the crew number", () => {
 });
 
 describe("classifier", () => {
-  it("Kotori is native-mixed; the Aeronaut Admiral keyword grant stays parked", () => {
+  it("Kotori is native-mixed; the Aeronaut Admiral keyword grant rides the same Vehicle selector (shelf D32)", () => {
     expect(classifyCard(KOTORI)).toBe("native-mixed");
-    expect(classifyCard({ id: "c-aa", name: "Aeronaut Admiral", type: "Creature — Human Pilot", keywords: ["Flying"], power: 3, toughness: 1, oracle: "Flying\nVehicles you control have flying." })).toBe("body-only");
+    expect(classifyCard({ id: "c-aa", name: "Aeronaut Admiral", type: "Creature — Human Pilot", keywords: ["Flying"], power: 3, toughness: 1, oracle: "Flying\nVehicles you control have flying." })).toBe("native-static");
   });
 });

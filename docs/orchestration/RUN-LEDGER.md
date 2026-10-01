@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **444 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **445 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,25 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D32: MU YANLING — THE VEHICLE TOKEN AND "VEHICLES YOU CONTROL HAVE FLYING" — Shorikai Vehicles 88 → 89 · **+3** · corpus 15,143 / 34,245
+> Suite **1,681 files / 17,325 tests** green (1 skipped); lint 0; decks 2,707 / 2,998. CI GREEN on D31 (run 36810770575). Flip-diff **+3, zero LOST,
+> zero RETIERED** (tier snapshots at 4d33ea7f → the change: Mu Yanling, Wind Rider, Aeronaut Admiral, Wish Good Luck). **Mutants 8/8** on the final code (restore byte-identical).
+> · **Vehicle token** (tokens.js): "create a 3/2 colorless Vehicle artifact token with crew 1" mints an ARTIFACT, not a creature —
+>   it has its printed P/T only while crewed (CR 301.7a, 702.122a) — with an explicit "Token Artifact — Vehicle" type line (an
+>   atom tokenType that wins over the creature-token derivation) and its Crew line as oracle, so the crew offer reads it like a
+>   printed Vehicle; its name is its subtype (CR 111.4). An attacking rider is refused, never dropped (pinned on the clause
+>   parser directly — the splitter cuts "tapped and attacking" before a full parse could deliver it).
+> · **Vehicle keyword grant** (staticAbilityParser.js): "Vehicles you control have <keyword>" rides the SAME Artifact + Vehicle
+>   selector as Kotori's crew grant, so every Vehicle you control has it, crewed or not. NON_CREATURE_SUBTYPES had excluded the
+>   line because the tribal selector is creature-restricted and reached no Vehicle (the Aeronaut Admiral false positive); that
+>   premise is gone with this selector, so Aeronaut Admiral flips too — verified: your Vehicle flies, the opponent's does not.
+> · **Four pins updated, their jobs kept:** groupGrant / kotoriPilotProdigy / padeemConsulOfInnovation / multiSubtypeListAnthem
+>   pinned "Aeronaut Admiral stays parked" on the premise "crew unmodeled; the creature selector reaches no Vehicle". Food /
+>   Treasure / Equipment / Clue grants still drop (pinned), the tribal guard's pin now uses "Foods", and Vehicles pin the new selector.
+> · **Runtime:** `WITNESS muYanling {"type":"Token Artifact — Vehicle","name":"Vehicle","creature":false,"flies":true,"crewOffered":1,"crewedCreature":true,"pt":[3,2],"crewedFlies":true}`
+>   · Wish Good Luck: a Food, a tapped Treasure and the crew-1 Vehicle. Witness `app/src/lib/learn/vehicleTokenAndGrant.test.js` (5).
+> · **Next:** Shorikai 89 needs 1 (Katsumasa · Windbrisk Heights — two lines each); Kellan 85 (5); Light-Paws 83 (7); Atraxa 74 (16).
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D31: "YOU MAY CAST THIS CARD FROM YOUR GRAVEYARD AS LONG AS …" — Shorikai Vehicles 87 → 88 · **+3** · corpus 15,140 / 34,245
 > Suite **1,680 files / 17,321 tests** green (1 skipped); lint 0; decks 2,706 / 2,998. CI GREEN on D30 (run 36809982128). Flip-diff **+3, zero LOST,

@@ -177,9 +177,11 @@ describe("the one-word sibling is untouched", () => {
     expect(st.affects.selector.subtypes).toEqual(["Zombie"]);
   });
 
-  it("⛔ and the one-word NON-creature guard still parks Aeronaut Admiral's clause", () => {
+  it("⛔ and the one-word NON-creature guard still parks a non-creature subtype's clause", () => {
+    // (This pinned Aeronaut Admiral's "Vehicles" until shelf D32 gave Vehicles their own Artifact + Vehicle selector;
+    // a Food is still never a creature, so the tribal guard is what parks it.)
     const card = { name: "X", type: "Creature — Human", mana: "{2}", power: 2, toughness: 2,
-      oracle: "Vehicles you control have flying." };
+      oracle: "Foods you control have flying." };
     expect(isNativeTier(classifyCard(card))).toBe(false);
   });
 });
