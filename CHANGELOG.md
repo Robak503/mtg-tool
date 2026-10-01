@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Overlord of the Balemurk** — when it enters or attacks it mills four, then you may return a non-Avatar creature or a planeswalker card to your hand
+- **Colossal Grave-Reaver** — when creature cards are milled from your library, one of them is put onto the battlefield (you choose which)
 - **Kiki-Jiki, Mirror Breaker, Tempestra, Dame of Games, Orthion, Hero of Lavabrink and The Fire Crystal** — copy a creature you control as a hasty token that is sacrificed at the beginning of the next end step
 - **Stormsplitter** — each instant or sorcery you cast makes a copy of it, exiled at the next end step
 - **Together Forever** — {1}: choose a creature with a counter on it; if it dies this turn, it returns to its owner's hand

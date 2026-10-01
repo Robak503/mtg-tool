@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **439 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **440 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,27 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D27: TEVAL'S MILL PAYOFFS — OVERLORD OF THE BALEMURK + COLOSSAL GRAVE-REAVER — Teval 86 → 88 · **+2** · corpus 15,131 / 34,245
+> Suite **1,676 files / 17,299 tests** green (1 skipped); lint 0; decks 2,702 / 2,998. CI GREEN on D26 (run 36804903468). Flip-diff **+2, zero LOST,
+> zero RETIERED** (tier snapshots at 78615341 → the change: Overlord of the Balemurk, Colossal Grave-Reaver). **Mutants 14/14** on the final code (restore byte-identical).
+> · **Overlord of the Balemurk** — Grapple with the Past's "mill N, then you may return a <filter> card" already parsed; zones.js now
+>   reads a UNION OF CARD PHRASES ("a non-Avatar creature card or a planeswalker card") — each a permanent card type, optionally
+>   "non-<creature type>" from the closed CR list — into a structured { anyOf: [{ cardType, notSubtype? }] } filter;
+>   spellEffects.cardMatchesGraveyardFilter reads anyOf + notSubtype (the shared chokepoint the panel and the AI pick use).
+>   A plain two-phrase union still prints the old "a|b" token. An unknown word fails closed: a filter naming no real type would
+>   match nothing — a native claim that does nothing (pinned; mutant Z3 survived until that witness existed).
+> · **Colossal Grave-Reaver** — Sidisi's batch event ("one or more creature cards are put into your graveyard from your
+>   library") already fired; the batch pass now stamps EVERY matching card (ctx.gyBatchCardIds, not only the first), and
+>   "put one of them onto the battlefield" picks among those still in the graveyard (CR 400.7e) — none → nothing, one → it enters,
+>   several → the milled-pick pause's battlefield destination, most valuable first for the AI. The referent is refused off the
+>   gyEnterBatch event (triggerRouting) and on a spell (coverage).
+> · **Runtime:** `WITNESS overlordBalemurk {"asked":"optional-effect","milled":["Ajani Goldmane","Forest","Grizzly Bears","Overlord of the Balemurk"],"offered":["Ajani Goldmane","Grizzly Bears"],"hand":["Ajani Goldmane"]}`
+>   (never the Avatar, never the land) · `WITNESS graveReaver {"kind":"milled-pick","toZone":"battlefield","offered":["Hill Giant","Grizzly Bears"],"onField":["Colossal Grave-Reaver","Hill Giant"],"graveyard":["Forest","Grizzly Bears"]}`.
+>   One creature milled enters with no question; none milled, no trigger; one gone from the graveyard before resolution is no
+>   longer a candidate. Witness `app/src/lib/learn/tevalMillPayoffs.test.js` (8).
+> · **Next:** Teval 88 needs 2 (Subterfuge · Thespian's Stage · Ardyn · Six); Shorikai 86 needs 4 (Emry · The Indomitable · Mu Yanling ·
+>   Katsumasa); Kellan 85 (5); Light-Paws 83 (7); Atraxa 74 (16).
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D26: THE KIKI FAMILY — A TOKEN COPY GONE AT THE NEXT END STEP — Halfshell heroes 89 → 90 · **+5** · corpus 15,129 / 34,245
 > Suite **1,675 files / 17,291 tests** green (1 skipped); lint 0; decks 2,700 / 2,998 — **25 of 30 at ≥90**. CI GREEN on D25 (run 36802507179). Flip-diff

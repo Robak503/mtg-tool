@@ -585,6 +585,28 @@ function isPermanentReanimateFilter(typeFilter) {
  * import). Registered via registerClauseParser in parser.js.
  */
 /**
+ * A UNION OF CARD PHRASES (shelf D27 — Overlord of the Balemurk: "return a non-Avatar creature card or a planeswalker card
+ * from your graveyard to your hand"): "<phrase> card or a <phrase>", each phrase a basic card type or "non-<Subtype> <type>"
+ * (the subtype from the closed CR creature-type list, and the type a permanent card type, so an unknown word fails closed —
+ * a filter naming no real type would match nothing, a native claim that does nothing). A negated member makes a structured
+ * { anyOf: [{ cardType, notSubtype? }, …] } filter (spellEffects.cardMatchesGraveyardFilter); without one it is the plain
+ * "a|b" union token the single-phrase form already prints. Anything else → null (the clause stays LOW).
+ */
+function cardPhraseUnionFilter(phrase) {
+  const parts = String(phrase).split(/ card or (?:a|an) /);
+  if (parts.length !== 2) return null;
+  const members = parts.map((p) => {
+    const n = p.trim().match(/^non-([a-z]+) ([a-z]+)$/);
+    const type = n ? n[2] : p.trim();
+    if (!PERMANENT_GY_TYPES.has(type)) return null;
+    if (!n) return { cardType: type };
+    return CR_CREATURE_TYPES.has(n[1]) ? { cardType: type, notSubtype: n[1] } : null; // a creature type, on any card type (Kindred carries them too)
+  });
+  if (members.some((x) => !x)) return null;
+  return members.some((x) => x.notSubtype) ? { anyOf: members } : members.map((x) => x.cardType).sort().join("|");
+}
+
+/**
  * ④-AA (2026-09-03 night) — the NON-targeted single return: "Return a <filter> card from your graveyard to your hand."
  * (the Ice Age / Coldsnap cantrip riders, Takenuma's channel, the Gravedigger-without-target class). No target is
  * chosen at cast (CR 601.2c does not apply — the card is chosen AS THE EFFECT RESOLVES, CR 608.2), so it rides the
@@ -600,7 +622,7 @@ export function graveyardReturnPickClauseParser(clause) {
   // made by an opponent instead of the controller (CR 608.2c — a choice the effect assigns to another player).
   const m = /^return (?:a|an) (.*?)cards?( of an opponent's choice)? from your graveyard to your hand$/.exec(t);
   if (!m) return null;
-  const cardFilter = parseGraveyardFilter(m[1].trim());
+  const cardFilter = parseGraveyardFilter(m[1].trim()) || cardPhraseUnionFilter(m[1].trim());
   if (!cardFilter) return null;
   return { op: "return-from-graveyard-pick", cardFilter, targetType: null, ...(m[2] && { chooser: "opponent" }) };
 }
@@ -1865,7 +1887,34 @@ function applyOwnerTuckRevealPut(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "owner-tuck-reveal-put", targets: targets.map((t) => t.id), revealed });
 }
 
+/**
+ * "PUT ONE OF THEM ONTO THE BATTLEFIELD" (shelf D27 — Colossal Grave-Reaver: "Whenever one or more creature cards are put into
+ * your graveyard from your library, put one of them onto the battlefield."): "them" is the batch the trigger named — the
+ * batch pass stamps every matching card as ctx.gyBatchCardIds. The ones still in the controller's graveyard are the choice
+ * (CR 400.7e finds them there; one gone since is no longer a candidate, CR 603.7c's rule for a changed zone). None → nothing;
+ * one → it enters; several → the controller picks on the milled-pick pause (toZone "battlefield" enters it, ETBs and all),
+ * most valuable first for the AI's default pick. Mandatory: the printed "put" has no "may". Only the batch event supplies
+ * the referent — triggerRouting refuses it elsewhere, coverage refuses it on a spell.
+ */
+export function gyBatchToBattlefieldClauseParser(clause) {
+  return /^put one of them onto the battlefield$/i.test(String(clause || "").trim()) ? { op: "gy-batch-to-battlefield", targetType: null } : null;
+}
+export function applyGyBatchToBattlefield(state, atom, ctx) {
+  const me = ctx.controller;
+  const ids = new Set(ctx.gyBatchCardIds || []);
+  const mv = (c) => Number(c.cmc ?? c.mana_value ?? 0) || 0;
+  const candidates = (state.players?.[me]?.graveyard || []).filter((c) => ids.has(c.id))
+    .sort((a, b) => mv(b) - mv(a) || String(a.name).localeCompare(String(b.name)));
+  if (!candidates.length) return logEvent(state, { kind: "spell-effect", effect: "gy-batch-to-battlefield", picked: null, controller: me });
+  if (candidates.length === 1) {
+    const r = enterCardFromZone(state, { playerId: me, cardId: candidates[0].id, fromZone: "graveyard" });
+    return logEvent(r.state, { kind: "spell-effect", effect: "gy-batch-to-battlefield", picked: candidates[0].name, controller: me });
+  }
+  return setPendingMilledPickChoice(state, { controller: me, candidates: candidates.map((c) => ({ id: c.id, name: c.name, type: c.type || c.type_line || "" })), sourceName: ctx.cardName || null, toZone: "battlefield" });
+}
+
 export const zoneResolvers = {
+  "gy-batch-to-battlefield": applyGyBatchToBattlefield, // shelf D27 — Colossal Grave-Reaver's "put one of them onto the battlefield"
   "grant-flashback": applyGrantFlashback, // ④-G (Snapcaster Mage) — a graveyard instant/sorcery gains flashback = its mana cost until end of turn
   "cz-commander-visit": applyCzCommanderVisit, // Hellkite Courser — the CZ fetch + haste + delayed return
   "cz-commander-to-hand": applyCzCommanderToHand, // ④-X Command Beacon — the commander leaves the command zone for the hand

@@ -9160,15 +9160,19 @@ export function checkGraveyardEventTriggers(state) {
     for (const pid of Object.keys(cleared.players)) {
       for (const watcher of triggerSourcesOf(cleared, pid)) {
         for (const d of detectTriggers(watcher.card).filter((x) => x.event === evName)) {
-          const hit = dirEvents.find((ev) => {
+          const hits = dirEvents.filter((ev) => {
             if (d.gyCardType && !new RegExp(`\\b(?:${d.gyCardType})\\b`).test(frontFaceType(ev.card))) return false; // grouped — a "|"-union (Dredger's "Artifact|Creature") tests ANY listed type; single words unchanged
             if (d.gyOwnerScope === "you" && ev.gyOwner !== watcher.controller) return false;
             if (d.gyFromZone && ev.zone !== d.gyFromZone) return false;
             return true;
           });
+          const hit = hits[0];
           if (!hit) continue;   // nothing in this batch matched — no fire (never a fabricated trigger)
+          // gyBatchCardIds (shelf D27 — Colossal Grave-Reaver's "put one of them onto the battlefield"): EVERY card of the
+          // batch the trigger names, so a payoff about "them" can choose among all of them, not only the first.
           fired.push(makePendingTrigger(d, watcher, null, {
             gyCardId: hit.card?.id, gyCardName: hit.card?.name, gyOwnerId: hit.gyOwner, gyZone: hit.zone, gyDir: hit.dir,
+            gyBatchCardIds: hits.map((ev) => ev.card?.id).filter(Boolean),
           }));
         }
       }

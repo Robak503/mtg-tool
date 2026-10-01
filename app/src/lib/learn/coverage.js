@@ -57,6 +57,7 @@ function atomCarriesEventReferent(a) {
   if (REFERENT_WHOS.has(a?.who)) return true;
   if (a?.scope === "batchDealers") return true; // "each of those creatures" (shelf D22) — only a batch combat-damage trigger names them
   if (a?.sacTriggering) return true; // "sacrifice it" (shelf D24) — only a triggering creature can be "it"
+  if (a?.op === "gy-batch-to-battlefield") return true; // "put one of them" (shelf D27) — only a graveyard-enter batch names them
   return (a?.restrictions || []).some((r) => REFERENT_WHOS.has(r?.who));
 }
 import { registerGrantTriggeredBodyValidator, registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant body gates

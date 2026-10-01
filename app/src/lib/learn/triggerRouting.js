@@ -77,6 +77,8 @@ export function combatDamageReferentSatisfied(program, event) {
     // "SACRIFICE IT" (shelf D24 — Foot Chopper): "it" is the creature that dealt the combat damage — the per-creature
     // combat-damage event's triggering permanent. No other event is admitted (a safe false negative where "it" means more).
     if (a?.sacTriggering && event !== "combatDamageToPlayer") return false;
+    // "PUT ONE OF THEM ONTO THE BATTLEFIELD" (shelf D27 — Colossal Grave-Reaver): "them" is the graveyard-enter batch only.
+    if (a?.op === "gy-batch-to-battlefield" && event !== "gyEnterBatch") return false;
     if (a?.who === "damagedPlayer" && !DAMAGED_PLAYER_EVENTS.has(event)) return false;
     if (a?.countContext === "combatDamageAmount" && !COMBAT_DAMAGE_AMOUNT_EVENTS.has(event)) return false;
     if (a?.who === "defendingPlayer" && !DEFENDING_PLAYER_EVENTS.has(event)) return false;

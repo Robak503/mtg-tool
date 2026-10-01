@@ -69,7 +69,7 @@ import { adaptIgnoreCountersClauseParser } from "./atoms/counters.js"; // Bioman
 import { conniveClauseParser } from "./atoms/connive.js"; // CONNIVE (BLITZ EK-1, CR 701.50a) — draw 1 → chosen discard → +1/+1 if nonland
 import { suspectClauseParser } from "./atoms/suspect.js"; // SUSPECT (BLITZ EK-1, CR 701.60) — the suspected designation (menace + can't block)
 import { grantUncounterableClauseParser, nextSpellUncounterableClauseParser, attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser, copyCreatureSpellClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell) + COPY-A-CREATURE-SPELL (Double Major)
-import { tuckClauseParser, graveyardReturnClauseParser, graveyardReturnPickClauseParser, bounceClauseParser, earthbendReturnClauseParser, detainReturnClauseParser, czClauseParser, blinkReturnClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce) + EARTHBEND-RETURN (CR 603.7 delayed trigger) + DETAIN-RETURN (DT-1) + CZ-COMMANDER-VISIT (Hellkite Courser) + DELAYED-BLINK (Otherworldly Journey)
+import { tuckClauseParser, graveyardReturnClauseParser, graveyardReturnPickClauseParser, bounceClauseParser, earthbendReturnClauseParser, detainReturnClauseParser, czClauseParser, blinkReturnClauseParser, gyBatchToBattlefieldClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce) + EARTHBEND-RETURN (CR 603.7 delayed trigger) + DETAIN-RETURN (DT-1) + CZ-COMMANDER-VISIT (Hellkite Courser) + DELAYED-BLINK (Otherworldly Journey)
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
 import { gainControlClauseParser, regainOwnedCreaturesClauseParser } from "./atoms/control.js"; // GAIN-CONTROL (+ SG-12 Homeward Path's mass "each player gains control of all creatures they own") — indefinite control-change of a target creature/subtype (Sliver Overlord)
 import { grantUntilEotClauseParser } from "./atoms/grantUntilEot.js"; // UNTIL-EOT QUOTED GRANT (TG-1) — Feign Death / Showstopper family
@@ -3745,7 +3745,8 @@ function chooseTargetClauseParser(clause) {
 registerClauseParser(diesWatchClauseParser);
 registerClauseParser(chooseTargetClauseParser);
 registerClauseParser(diedCardToHandClauseParser); // its "return that card to its owner's hand" sentinel
-registerClauseParser(mintedLeaveClauseParser); // shelf D26 — the [minted-leave] sentinel the token copy's end-step sacrifice fires
+registerClauseParser(mintedLeaveClauseParser);
+registerClauseParser(gyBatchToBattlefieldClauseParser); // shelf D27 — Colossal Grave-Reaver's "put one of them onto the battlefield" (the batch referent) // shelf D26 — the [minted-leave] sentinel the token copy's end-step sacrifice fires
 // SELF-LTB (Wave 4) — the self-return trigger detector rides the SAME parser.js wiring point as the clause
 // parsers (parser.js imports both registerTriggerDetector and detectTriggers), so it's installed before any
 // classification can read the WeakMap cache. Detects the Aura self-PiG-return + equipped-creature-dies-return

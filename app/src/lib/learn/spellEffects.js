@@ -127,10 +127,15 @@ export function cardMatchesGraveyardFilter(card, cardFilter) {
   // gates use — CR 202.3, an absent cost reads 0). Object filters and string tokens share this ONE
   // chokepoint, so cast-time enumeration and the trigger-flush chooser can't drift.
   if (typeof cardFilter === "object") {
+    // A UNION of structured members (shelf D27 — Overlord of the Balemurk's "a non-Avatar creature card or a planeswalker
+    // card"): the card matches when ANY member does.
+    if (Array.isArray(cardFilter.anyOf)) return cardFilter.anyOf.some((f) => cardMatchesGraveyardFilter(card, f));
     if (cardFilter.subtype) {
       const re = new RegExp(`\\b${String(cardFilter.subtype).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
       if (!re.test(front)) return false;
     }
+    // NEGATED SUBTYPE ("non-Avatar creature" — shelf D27): the same front-face, word-bounded read as the subtype gate above.
+    if (cardFilter.notSubtype && new RegExp(`\\b${String(cardFilter.notSubtype).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(front)) return false;
     // BASE CARD-TYPE gate (BLITZ PW-1 — the reanimate-MV filter {cardType:"creature", mvMax:N}): front-face
     // type-line containment (CR 712.8a, same front-face read as the string-token branch below). An unknown
     // cardType word can never pass → the card is rejected (never a mis-scoped return; whole-or-nothing).
