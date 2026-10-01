@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Heroes in a Half Shell** — when your Mutants, Ninjas and Turtles connect, each of the ones that dealt damage gets a +1/+1 counter and you draw a card
 - **Brago, King Eternal** — when Brago deals combat damage to a player, flicker any number of your nonland permanents: the ones worth it (creatures with enters abilities, tapped permanents, creatures an opponent's Aura holds), never tokens
 - **Thassa, Deep-Dwelling** — flickers another creature you control at your end step, and taps another target creature
 - **Elesh Norn, Mother of Machines** — permanents entering no longer trigger abilities of permanents your opponents control (their enters abilities, watchers and landfall stay quiet; emblems still work)

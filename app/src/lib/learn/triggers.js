@@ -174,7 +174,9 @@ const OUTLAW_SUBTYPE_LIST = ["Assassin", "Mercenary", "Pirate", "Rogue", "Warloc
  * token-ness in the batch gate), or any unrecognized phrase. Pure; case-insensitive on the leading qualifier.
  */
 function parseBatchSubjectFilter(subjectRaw) {
-  const s = String(subjectRaw || "").trim().toLowerCase();
+  // A comma / "and/or" LIST is a union (shelf D22 — Heroes in a Half Shell's "Mutants, Ninjas, and/or Turtles"): normalized to
+  // the " or " separator the list path below already reads, so it shapes and validates exactly as "Ninja or Rogue" does.
+  const s = String(subjectRaw || "").trim().toLowerCase().replace(/,\s*(?:and\/or|and|or)\s+/g, " or ").replace(/,\s+/g, " or ").replace(/\s+and\/or\s+/g, " or ");
   // ARTIFACT / ENCHANTMENT creature batches (type-line containment, like the artifactYouControl ETB scope).
   if (s === "artifact creatures") return { batchArtifact: true };
   if (s === "enchantment creatures") return { batchEnchantment: true };
@@ -692,7 +694,9 @@ function splitTriggerSentence(inner) {
   // "dealt" (ENRAGE / DAMAGE-RECEIVED: "this creature is dealt damage") is a CONDITION verb — without it
   // the advance-past-name-commas loop would skip the real "…is dealt damage," boundary and swallow the
   // first effect sentence into the condition. (Distinct from "deals" — that's the SOURCE-side event.)
-  const hasEventVerb = (s) => /\b(?:enters?|dies|attacks?|blocks|deals|dealt|casts?|sacrifice[sd]?|gain(?:s)? life|draws? (?:a|your)|beginning|milled|mills)\b/.test(s);
+  const hasEventVerb = (s) => /\b(?:enters?|dies|attacks?|blocks|deals?|dealt|casts?|sacrifice[sd]?|gain(?:s)? life|draws? (?:a|your)|beginning|milled|mills)\b/.test(s);
+  // ^ + `deals?` (shelf D22 — Heroes in a Half Shell): the plural "one or more Mutants, Ninjas, and/or Turtles you control DEAL
+  //   combat damage" — a subject LIST puts commas before the verb, and without the plural the split stopped inside the list.
   // ^ `enters?` / `attacks?` — the PLURAL / base forms "…creatures you control enter" (a batched subject — Satoru, BI-5) and
   //   "Whenever you attack, draw a card, then discard a card." (Temmet, Boosted Sloop — O6) are event verbs too; without
   //   them the first comma was passed over and the split landed at the NEXT comma — the intervening-if read as a cast
@@ -8367,7 +8371,10 @@ export function checkBatchCombatDamageTriggers(state, playerEvents) {
       const descriptorFilter = (d) => !d.perDefender && connecting.some((perm) => batchDealerMatches(d, perm, state));
       const ctx = { batchController: pid, damagedPlayerId: defenderId, combatDamageAmount: total };
       for (const watcher of triggerSourcesOf(state, pid)) {
-        fired = fired.concat(triggersForEvent(state, { event: "combatDamageBatch", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: ctx, descriptorFilter }));
+        // "EACH OF THOSE CREATURES" (shelf D22 — Heroes in a Half Shell): each trigger carries the dealers ITS OWN subject
+        // names (a Mutant/Ninja/Turtle batch counts only those), read by the batchDealers scope at resolution.
+        const hitsHere = triggersForEvent(state, { event: "combatDamageBatch", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: ctx, descriptorFilter });
+        fired = fired.concat(hitsHere.map((t) => ({ ...t, context: { ...(t.context || {}), batchDealerIds: connecting.filter((perm) => batchDealerMatches(t.descriptor, perm, state)).map((perm) => perm.id) } })));
       }
     }
   }
@@ -8400,7 +8407,9 @@ export function checkBatchCombatDamageTriggers(state, playerEvents) {
       }
       for (const [kw, total] of classTotals) {
         const descriptorFilter = (d) => d.perDefender === true && d.batchKeyword === kw;
-        const ctx = { batchController: pid, damagedPlayerId: defenderId, combatDamageAmount: total };
+        // + the dealers with this keyword — "each of those creatures" (shelf D22) reads the same set its total sums.
+        const batchDealerIds = dealerHits.filter((h) => permanentHasKeyword(state, h.perm.id, kw)).map((h) => h.perm.id);
+        const ctx = { batchController: pid, damagedPlayerId: defenderId, combatDamageAmount: total, batchDealerIds };
         for (const watcher of triggerSourcesOf(state, pid)) {
           fired = fired.concat(triggersForEvent(state, { event: "combatDamageBatch", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: ctx, descriptorFilter }));
         }

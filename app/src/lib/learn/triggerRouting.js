@@ -72,6 +72,8 @@ export function programCombatReferentAtoms(program) {
 
 export function combatDamageReferentSatisfied(program, event) {
   for (const a of programCombatReferentAtoms(program)) {
+    // "EACH OF THOSE CREATURES" (shelf D22): the batch dealers are stamped ONLY by the batch combat-damage dispatcher.
+    if (a?.scope === "batchDealers" && event !== "combatDamageBatch") return false;
     if (a?.who === "damagedPlayer" && !DAMAGED_PLAYER_EVENTS.has(event)) return false;
     if (a?.countContext === "combatDamageAmount" && !COMBAT_DAMAGE_AMOUNT_EVENTS.has(event)) return false;
     if (a?.who === "defendingPlayer" && !DEFENDING_PLAYER_EVENTS.has(event)) return false;

@@ -80,6 +80,7 @@
 > Stone Calendar, Highspire Bell-Ringer, Uthros Psionicist — the all-spells and second-spell reducers (+3 → corpus 14,989; suite 1644 / 16,975).
 > **The residue loop STOPS here — Colton (09-30): "Do my decks."** Next: the shelf decks' unplayed cards, until the v0.161.0 tag on/after 10-02.
 > **SHELF DECKS · D1** tribal digs read the printed capital — Avengers Tower takes Hulk Smash to 90% (+7 → corpus 14,996; suite 1645 / 16,981). Tool: `app/scripts/shelf-residue-map.mjs`.
+> **SHELF DECKS · D22** Heroes in a Half Shell — the batch subject list + "each of those creatures" — Halfshell heroes 85 → 86 (+2 → corpus 15,108; suite 1,671 / 17,248).
 > **SHELF DECKS · D21** Brago, King Eternal + Thassa + the flicker target policy — Brago Blink 88 → 90 (+5 → corpus 15,106; suite 1,670 / 17,242).
 > **SHELF DECKS · D20** Elesh Norn's enters silence + the batched leaves event (Dour Port-Mage, Sally Sparrow) — Brago Blink 86 → 88 (+3 → corpus 15,101; suite 1,669 / 17,231).
 > **SHELF DECKS · D19** Ingenious Prodigy's remove-a-counter payment + Roaming Throne's chosen-type doubler — Believe it! 88 → 90 (+2 → corpus 15,098; suite 1,667 / 17,218).

@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **434 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **435 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,23 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D22: HEROES IN A HALF SHELL (the Halfshell commander) — Halfshell heroes 85 → 86 · **+2** · corpus 15,108 / 34,245
+> Suite **1,671 files / 17,248 tests** green (1 skipped); lint 0; decks 2,696 / 2,998. CI GREEN on D21 (run 36794886793). Flip-diff **+2, zero LOST,
+> zero RETIERED** (tier snapshots at 18dcc58e → the change: Heroes in a Half Shell and Vulture, Feathered Fiend, both body-only → native-trigger). **Mutants 11/11** (restore byte-identical).
+> · **Why:** Halfshell heroes (85, needs 5) has the shelf's densest single-line tail (9); its commander first — in every game.
+> · **Build:** triggers.js — the batch combat-damage subject LIST (commas / "and/or" = a union, normalized onto the " or " list the
+>   subtype batch reads) · the trigger split's event-verb test learns the plural "deal" (a subject list puts commas before the verb;
+>   the split stopped inside it — the enters?/attacks? precedent) · checkBatchCombatDamageTriggers stamps each trigger with the dealers
+>   ITS OWN subject names (both passes) · counters.js — "put N ±1/±1 counters on each of those creatures" (scope batchDealers) ·
+>   shared.js — the scope reads them, skipping any that left (CR 400.7) · the referent gates: triggerRouting refuses it off
+>   combatDamageBatch, coverage's spell fence refuses it on a spell.
+> · **Runtime:** `WITNESS heroesBatch {"triggers":1,"heroes":1,"turtle":1,"bear":0,"drew":1}` · an Incurable Ogre (Mutant) alone fires it,
+>   a Bear alone doesn't · `vultureBatch {"d1":1,"d2":1,"bear":0,"drew":1}` — Vulture, Feathered Fiend, the flip-diff's unaimed gain (the
+>   WITH-KEYWORD batch + the same payoff) is the real carrier of the per-defender pass's stamping. Witness
+>   `app/src/lib/learn/heroesInAHalfShell.test.js` (6; one synthetic spell pins the spell fence — no printed spell parses to it).
+> · **Next:** Halfshell's other k=1s (Bebop's draw-X-lose-X · Foot Chopper's sac-for-power · Together Forever's dies-return · Everything
+>   Pizza's five-part ability · Dimension X Pizzasaur's reflexive destroy) · Shorikai / Teval (86).
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D21: BRAGO, KING ETERNAL + THASSA + THE FLICKER TARGET POLICY — Brago Blink 88 → 90 · **+5** · corpus 15,106 / 34,245
 > Suite **1,670 files / 17,242 tests** green (1 skipped); lint 0; decks 2,695 / 2,998. CI GREEN on D20 (run 36792346016). Flip-diff **+5, zero LOST,

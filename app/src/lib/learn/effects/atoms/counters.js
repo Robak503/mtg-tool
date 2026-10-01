@@ -778,6 +778,11 @@ export function addCounterClauseParser(clause) {
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureYouControl", optionalTarget: true };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each creature you control$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl" };
+  // "… on EACH OF THOSE CREATURES" (shelf D22 — Heroes in a Half Shell): the creatures a batch combat-damage trigger names —
+  // the dealers checkBatchCombatDamageTriggers stamps as ctx.batchDealerIds. Only that event supplies them, so the referent
+  // gates (triggerRouting.combatDamageReferentSatisfied; coverage's spell fence) refuse this atom anywhere else.
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each of those creatures$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "batchDealers" };
   // EACH-CREATURE-TARGET-PLAYER-CONTROLS (Contagion Engine's ETB — SHELF S7): "put N ±1/±1 counters on each
   // creature target player controls". The CHOSEN target is a PLAYER (targetType "player" rides the existing
   // player-target enumeration — CR 115.1; any player, self included, is a legal choice); the recipients are

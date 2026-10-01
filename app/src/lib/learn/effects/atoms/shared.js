@@ -328,6 +328,12 @@ export const atomTargets = (state, atom, ctx) => {
     return sameNameCreatureTargets(state, nm);
   }
   if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller, { excludeSource: atom.excludeSource, sourceId: ctx.sourceId, subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate, legendaryOnly: atom.legendaryOnly });
+  // "EACH OF THOSE CREATURES" (shelf D22 — Heroes in a Half Shell): the dealers the batch combat-damage trigger named
+  // (ctx.batchDealerIds, stamped by checkBatchCombatDamageTriggers) — those still on the battlefield as it resolves; one
+  // that has left gets nothing (CR 400.7 — wherever it went, it is a new object, not one of "those creatures").
+  if (atom.scope === "batchDealers") {
+    return (ctx.batchDealerIds || []).map((id) => findPermanent(state, id)).filter(Boolean).map((lk) => ({ type: "creature", id: lk.permanent.id, controller: lk.controller }));
+  }
   // EACH-CREATURE-TARGET-PLAYER-CONTROLS (Contagion Engine — "put a -1/-1 counter on each creature target
   // player controls"): the CHOSEN target is a PLAYER (it rides ctx.targets via the shared player-target
   // enumeration); the effect's recipients are every creature THAT player controls, gathered AT RESOLUTION
