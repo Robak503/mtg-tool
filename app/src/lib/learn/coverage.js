@@ -1919,7 +1919,9 @@ function landFullyCovered(card) {
     if (revealLineRe && revealLineRe.test(line)) continue;
     if (namedCtrLineRe && namedCtrLineRe.test(line)) continue;
     if (chooseColorLineRe && chooseColorLineRe.test(line)) continue;
-    if (chooseTypeLineRe && chooseTypeLineRe.test(line)) continue; // CAP-CAVERN
+    // + P·7 (Three Tree City): the chooser may name the card itself ("As Three Tree City enters, …" — CR 201.5, a card's name in
+    // its own text means that object); the exact full name reads as "this land". The runtime chooser regex already accepts it.
+    if (chooseTypeLineRe && chooseTypeLineRe.test(card?.name ? line.split(card.name).join("this land") : line)) continue; // CAP-CAVERN
     if (grantsBasicType && eachLandLineRe.test(line)) continue; // ④-BE — the all-lands basic-type grant, enforced in manaSources
     if (selfNonbasicTypes && /^this land is every nonbasic land type\.?$/i.test(line)) continue; // K8 — Planar Nexus, the self layer-4 add (effectiveTypeIdentity reads it)
     if (isManaLine(line)) continue;

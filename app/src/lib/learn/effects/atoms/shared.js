@@ -966,6 +966,15 @@ export function countForSpec(state, ctx, spec) {
   // creature subtype present, of the controller's permanents of that subtype (changelings count for all). See
   // chosenTypePermanentsCount. Deterministic + optimal, so never an over/under-count.
   if (spec.kind === "chosenTypePermanents") return chosenTypePermanentsCount(player);
+  // ===== THE SOURCE'S OWN CHOSEN TYPE (play-weighted P·7 — Three Tree City: "… equal to the number of creatures you control of
+  // the chosen type") ===== the type THIS permanent chose as it entered (CR 614.12 — stamped `chosenType`, read off ctx.source),
+  // not a best type picked now: the controller's creatures of that type, a changeling creature counting for every type
+  // (CR 702.73a). No stamp → 0, never a guessed type.
+  if (spec.kind === "creaturesOfSourceChosenType") {
+    const type = ctx?.source?.chosenType;
+    if (!type) return 0;
+    return (player.battlefield || []).filter((p) => (cardIsChangeling(p.card) ? /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || "")) : permanentSubtypes(p.card).includes(type))).length;
+  }
   // ===== FOR-EACH ===== cards in the controller's graveyard (raw card objects), optionally one card type.
   if (spec.kind === "cardsInGraveyard") return (player.graveyard || []).filter((c) => (spec.cardType ? countMatches(c, spec) : true)).length;
   // ===== EXPERIENCE ===== the controller's experience counter total (Toph, Command Beacon, etc.)

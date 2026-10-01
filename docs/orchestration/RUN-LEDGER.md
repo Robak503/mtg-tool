@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **22 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,179)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **23 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,180)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,25 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 7: Three Tree City (EDHREC #178) — the costed chosen-type mana line, funded by the free-activation fix · **+1** · corpus 15,180
+> Suite **17,490** green (1 skipped); lint 0; decks unchanged (2,725 / 2,998). CI GREEN on the fix (run 36886525213). Flip-diff **+1,
+> zero LOST, zero RETIERED** (tier snapshots at 9c6659ed → the change: Three Tree City land-partial → land). Top 1,000
+> **835** (needs +65). **Mutants 9/9** (restore byte-identical).
+> · **The line:** "{2}, {T}: Choose a color. Add an amount of mana of that color equal to the number of creatures you control of
+>   the chosen type." rides as an extra mana record — any one colour, sized live by a new countForSpec kind
+>   (`creaturesOfSourceChosenType`: the creatures of the type THIS land chose as it entered, CR 614.12; a changeling creature
+>   counts for every type, CR 702.73a; no stamp → 0, never a guessed type), behind its {2}, which the planner funds from
+>   other mana first (the free-activation fix — it never pays its own {2}). manaSources' extra records now resolve a count
+>   and carry an activation cost. The cost prefix admits mana pips only, so a non-mana cost item is never dropped.
+> · **The chooser:** the land gate reads the card's own name in "As Three Tree City enters, choose a creature type." (CR
+>   201.5); the runtime chooser regex already accepted it and stamps chosenType on the land drop.
+> · **Honest now:** before this slice the costed line was credited off a land-fallback {C} (`isManaLine` admits any land
+>   line with "add") and never offered — the land-tier gap. Nykthos is the same case, still open (credited, never offered).
+> · **Runtime:** `WITNESS threeTreeCity {"castable":true,"tapped":["f1","f2","ttc"],"pool":{}}` — Elf chosen, five Elves:
+>   two Forests pay the {2}, it makes five blue, Tidings ({3}{U}{U}) resolves off a green board; five Goblins: nothing; no
+>   other mana: nothing; four Elves and a Changeling Outcast: five. Witness `app/src/lib/learn/threeTreeCity.test.js` (8).
+> · **Next:** #179 Gemstone Caverns (the worklist head at 835).
 
 > ## 🛠️ 2026-10-01 — FIX: mana abilities with a mana cost pay it (Signets, the {1} filter lands, Cabal Coffers, Chromatic Star) — found scoping #178 · corpus unchanged 15,179
 > Suite **17,482** green (1 skipped); lint 0; decks unchanged. CI GREEN on P·6 (run 36883521016). Flip-diff **0 / 0 / 0** (a runtime

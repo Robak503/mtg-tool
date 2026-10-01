@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Three Tree City** — {2}, {T}: add mana of one color equal to the number of creatures you control of the chosen type
 - **War Room** — {3}, {T}, pay life equal to the number of colors in your commanders' color identity: draw a card
 - **Victimize** — sacrifice a creature to return two creature cards from your graveyard to the battlefield tapped
 - **Urza's Saga** — plays as your land drop: taps for {C} after chapter I, makes Constructs after chapter II, and fetches an artifact with mana cost {0} or {1} at chapter III

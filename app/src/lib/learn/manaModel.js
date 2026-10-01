@@ -973,6 +973,7 @@ function honestMultiLineMain(card, result) {
   return { ...plainProd, ...(result.activationCondition && /activate only if/i.test(plain) ? { activationCondition: result.activationCondition } : {}) };
 }
 const _extraMemo = new WeakMap();
+const CHOSEN_TYPE_COUNT_MANA_LINE_RE = /^((?:\{[^}]+\}, )*)\{T\}: Choose a color\. Add an amount of mana of that color equal to the number of creatures you control of the chosen type\.$/i;
 /** A double-faced / split card's bundled oracle carries BOTH faces ("Name - Type" headers, a "//" line between).
  *  Only the FRONT face is on the battlefield as this permanent (a Pathway's back-face colour must never be
  *  offered on the front); the back face is its own object when it is played. */
@@ -1041,6 +1042,17 @@ export function extraManaLineProducts(card, mainProd) {
   // "{T}: Add {C}." beside an any-colour line the merge chose — the free colourless tap the census counted).
   const out = [];
   for (const line of lines) {
+    // THREE TREE CITY (play-weighted P·7): "{2}, {T}: Choose a color. Add an amount of mana of that color equal to the number of
+    // creatures you control of the chosen type." — any ONE colour, sized by the creatures of the type THIS permanent chose as
+    // it entered (CR 614.12; manaSources resolves the count off the permanent's stamped chosenType), behind a mana cost the
+    // planner funds before the line produces (activationCost — the free-activation fix). The cost prefix admits mana pips
+    // only, so a non-mana cost item can never be dropped on the way in.
+    const ctc = CHOSEN_TYPE_COUNT_MANA_LINE_RE.exec(line);
+    if (ctc) {
+      const activationCost = parseActivationManaCost(ctc[1]);
+      if (!activationCost?.unpayable) out.push({ colors: ["W", "U", "B", "R", "G"], amount: 0, amountSpec: { kind: "creaturesOfSourceChosenType" }, ...(activationCost ? { activationCost } : {}), extraLine: line });
+      continue;
+    }
     if (!EXTRA_MANA_LINE_RE.test(line)) continue;
     const prod = manaProduction({ ...card, oracle: line, oracle_text: line });
     if (!prod || !prod.colors?.length) continue;
@@ -2133,14 +2145,16 @@ export function manaSources(state, playerId) {
       // STAGE ④-4: a counter-removal line's amount is the permanent's LIVE counters (plus one for the Battery form).
       const crCount = extra.removesCounters ? (perm.counters?.[extra.removesCounters.type] || 0) : 0;
       const exAmount = extra.removesCounters ? ((extra.removesCounters.mode === "plusOne" ? 1 : 0) + crCount) * manaMult
-        : exFixed ? Object.values(exFixed).reduce((a, b) => a + b, 0) : (extra.amount ?? 1) * manaMult;
+        : exFixed ? Object.values(exFixed).reduce((a, b) => a + b, 0)
+        : extra.amountSpec ? Math.max(0, countForSpec(state, { controller: playerId, source: perm }, extra.amountSpec)) * manaMult // P·7 — a count read live (Three Tree City)
+        : (extra.amount ?? 1) * manaMult;
       if (exAmount <= 0) continue;
       // V2 (2026-09-04 — Starting Town "{T}, Pay 1 life: Add one mana of any color" beside a free "{T}: Add {C}"): a
       // pay-life extra line carries its life cost onto the record (the planner and commitPaymentPlan already honour
       // `payLife` on a source — the painland/City-of-Brass lane) and is gated exactly like the main product: no life,
       // no source. Without both halves the any-colour tap would be free — the forbidden direction.
       if (extra.payLife != null && !((player.life ?? 0) > extra.payLife)) continue;
-      sources.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.payLife != null ? { payLife: extra.payLife } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: crCount } } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
+      sources.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.activationCost ? { activationCost: extra.activationCost } : {}), ...(extra.payLife != null ? { payLife: extra.payLife } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: crCount } } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
     }
   }
   // SG-6 — EXILE-FROM-HAND sources (Elvish / Simian Spirit Guide): a mana ability of a card in HAND. Offered
