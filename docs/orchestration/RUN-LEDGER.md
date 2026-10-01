@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **24 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,181)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **25 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,183)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,26 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 9: Tireless Provisioner (EDHREC #182) — "create a Food token or a Treasure token" · **+2** (Ant-Man's Army) · corpus 15,183
+> Suite **17,495** green (1 skipped); lint 0; decks unchanged (2,730 / 2,998). CI GREEN on P·8 (run 36889592660). Flip-diff **+2, zero
+> LOST, zero RETIERED** (tier snapshots at ec9e0ec7 → the change: Tireless Provisioner and Ant-Man's Army body-only →
+> native-trigger). Top 1,000 **837** (needs +63). **Mutants 3/4** (restore byte-identical; the survivor is equivalent, below).
+> · **The clause:** the controller makes one of the two (CR 608.2d). `matchNamedTokenChoice` reads exactly "create a/an
+>   <Word> token or a/an <Word> token" (two different words); the parser builds each half with itself and requires HIGH, and
+>   wraps them as a choose-one of the two single-token modes, so the existing mode machinery offers and resolves it. On a
+>   trigger the mode is picked as it goes on the stack — earlier than the printed choice, so never an advantage. Mode order
+>   is the house pick for the auto-chooser: Treasure leads when it is one of the two, otherwise the printed order.
+> · **Guards measured, not assumed:** the first draft also required each half to be exactly one named-token atom. Probed over
+>   43 token words, every HIGH "Create a <Word> token" is exactly that, so the restriction could never fail a test and
+>   guarded nothing (a HIGH half of any other token would be modeled just as honestly) — removed. The HIGH gate stays: it
+>   is the engine's low-runs-nothing contract. Its mutant survives as EQUIVALENT — no single-word token clause parses low
+>   with atoms today.
+> · **Noticed, not changed:** trigger modes are auto-picked for every seat, the human's included (the flush chooser); a
+>   human never chooses Provisioner's token. Pre-existing — the modal-trigger UI is its own piece of work.
+> · **Runtime:** `WITNESS tirelessProvisioner ["Treasure"]` — a Forest played with Provisioner out. Witness
+>   `app/src/lib/learn/tirelessProvisioner.test.js` (3).
+> · **Next:** #194 Mosswort Bridge (the worklist head at 837).
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 8: Gemstone Caverns (EDHREC #179) — its any-colour tap was a phantom; the pre-game line under CR 103.6 · **+1** · corpus 15,181
 > Suite **17,492** green (1 skipped); lint 0; decks 2,725 → **2,730** / 2,998 (cdh 94, Squirrel Girl 93, Believe it! 91, Kinnan

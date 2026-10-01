@@ -145,6 +145,16 @@ export function matchReanimateDrain(oracle) {
   ] };
 }
 
+// A CHOICE OF NAMED TOKENS (the play-weighted program, P·9 — Tireless Provisioner, EDHREC #182; Ant-Man's Army: "create a Food
+// token or a Treasure token"): the controller makes one of the two (CR 608.2d — the choice is made as the effect happens). Returns
+// the two token words for the parser to build into a choose-one of single-token modes, or null. Whole-clause anchored on exactly
+// "create a/an <Word> token or a/an <Word> token" — a count, a second clause or a rider leaves residue → no match → low.
+export function matchNamedTokenChoice(oracle) {
+  const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  const m = /^create an? ([A-Za-z]+) token or an? ([A-Za-z]+) token$/i.exec(s);
+  return m && m[1].toLowerCase() !== m[2].toLowerCase() ? [m[1], m[2]] : null;
+}
+
 // SACRIFICE, THEN RETURN THE CHOSEN (the play-weighted program, P·5 — Victimize, EDHREC #128): "Choose two target creature
 // cards in your graveyard. Sacrifice a creature. If you do, return the chosen cards to the battlefield tapped." Three
 // sentences, one instruction: the targets are chosen as the spell is cast (CR 601.2c — exactly two, a mandatory pair, never

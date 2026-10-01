@@ -35,7 +35,7 @@ import { splitClauses } from "./splitClauses.js"; // oracle → clause[] sentenc
 import { programNeedsChosenTarget } from "./programQueries.js"; // program-shape query leaf (slice 3) — imported for the assembly-time call sites; the full family is re-exported at the bottom of this file
 import { matchImprint, matchHandDisruption, matchRemovalControllerRider, matchRemovalCasterGainLife, matchRemovalDamageRider, matchCounterControllerRider, matchCounterExileInstead, matchCounterZoneRedirect, matchImpulseDig, matchReorderTop, matchDigLandToBattlefield, matchLookTopTake, matchChooseTypeDraw, matchChosenTypeRevealToHand, matchFixedTypeRevealToHand, matchDelayedTrigger } from "./spanMatchers.js"; // up-front multi-sentence span matchers (slice 4) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below (parseControllerRider now consumed by templateMatchers.js directly)
 import { extractAdditionalCosts, extractAltCost, stripSelfCostReduction, stripGiftPromise, stripStormKeywordLine, stripDevoidLine, stripSelfShuffleIntoLibrary, stripSelfExileSentence, stripReboundLine, SUPPORTED_ADDITIONAL_COST_KINDS, SUPPORTED_ALT_COST_KINDS } from "./castModifiers.js"; // cast-cost extraction + disposition strips (slice 5) — zero-import leaf; the SUPPORTED_* kind sets feed programConfidence's LOW-until-vetted cost gates
-import { matchChaosWarp, matchDiesGainDrawByPower, matchDrainEachOpponentX, matchIteratedEdict, matchRevealTopDrainByMv, matchReanimateDrain, matchSacThenReturnChosen, matchDrainByCount, matchFinaleOfRevelation, matchGenesisWave, matchRevealThatManyPutFiltered, matchAnimistAwakening, matchOpenTheWay, matchExileXControllerRider, matchRevealTopConditional, matchImpulseExilePlay, matchMassDestroyTreasurePerNontoken, matchWindfallMaxDiscard, parseFixedManaPips, matchUpkeepSacUnlessPay, matchCumulativeUpkeep, matchEcho, matchDiscardHandDrawSame, matchTaxedDraw, matchTaxedLoseLife, matchTaxedEdict, matchLoseLifeUnlessDiscard, matchPeerIntoTheAbyss, matchTaxedTreasure, matchPumpThenFight, matchUntapThenPump, matchTwoTargetPump, matchDamagePowerTrampleExcess, matchCounterIfLegendaryThenFight, matchDrawOrCounterTriggering, matchRadOrProliferate, matchTimetwisterWheel, matchWindsOfChange, matchBlinkSubtypeCounter, matchDelayedBlink, matchRadTargetOrTreasure, matchFreeCastOrLand, matchGyOwnerDrain, matchDoubleOrResetCounters, matchMetalcraftDamage, matchInsteadAmountUpgrade, matchSelfHitDamage, matchCounterThenGrant, matchSpringheartLandfall, matchSwordHearthAndHome, matchRevealTopCastIfLesser, matchEachPlayerMayWheel, matchEachPlayerMayDraw, matchDemonicConsultation, matchTaintedPact } from "./templateMatchers.js"; // collapsed-template whole-oracle matchers (slice 6) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below
+import { matchChaosWarp, matchDiesGainDrawByPower, matchDrainEachOpponentX, matchIteratedEdict, matchRevealTopDrainByMv, matchReanimateDrain, matchSacThenReturnChosen, matchNamedTokenChoice, matchDrainByCount, matchFinaleOfRevelation, matchGenesisWave, matchRevealThatManyPutFiltered, matchAnimistAwakening, matchOpenTheWay, matchExileXControllerRider, matchRevealTopConditional, matchImpulseExilePlay, matchMassDestroyTreasurePerNontoken, matchWindfallMaxDiscard, parseFixedManaPips, matchUpkeepSacUnlessPay, matchCumulativeUpkeep, matchEcho, matchDiscardHandDrawSame, matchTaxedDraw, matchTaxedLoseLife, matchTaxedEdict, matchLoseLifeUnlessDiscard, matchPeerIntoTheAbyss, matchTaxedTreasure, matchPumpThenFight, matchUntapThenPump, matchTwoTargetPump, matchDamagePowerTrampleExcess, matchCounterIfLegendaryThenFight, matchDrawOrCounterTriggering, matchRadOrProliferate, matchTimetwisterWheel, matchWindsOfChange, matchBlinkSubtypeCounter, matchDelayedBlink, matchRadTargetOrTreasure, matchFreeCastOrLand, matchGyOwnerDrain, matchDoubleOrResetCounters, matchMetalcraftDamage, matchInsteadAmountUpgrade, matchSelfHitDamage, matchCounterThenGrant, matchSpringheartLandfall, matchSwordHearthAndHome, matchRevealTopCastIfLesser, matchEachPlayerMayWheel, matchEachPlayerMayDraw, matchDemonicConsultation, matchTaintedPact } from "./templateMatchers.js"; // collapsed-template whole-oracle matchers (slice 6) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below
 // WAVE 1 — clause parsers for the new-module atoms. Imported here (not self-registered from the atoms
 // module) because effects/atoms/*.js must NOT import parser.js: parser.js → effectAtoms.js → atoms/*.js is
 // a one-way edge, and an atoms-module importing parser.js back would TDZ-crash at load (registerClauseParser
@@ -3489,6 +3489,26 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   const czr = matchCounterZoneRedirect(oracle);
   if (czr) return collapsed(czr);
 
+  // ===== A CHOICE OF NAMED TOKENS (P·9 — Tireless Provisioner: "create a Food token or a Treasure token") ===== built as a
+  // choose-one of the two single-token modes, so the existing mode machinery offers and resolves it. Each half is parsed by
+  // THIS parser and must come back HIGH (the token registry decides what a "<Word> token" makes — today only the named
+  // tokens parse; any other word stays low), else the clause stays low. On a trigger the mode is picked as it goes on the stack — earlier than the
+  // printed resolution-time choice (CR 608.2d), so never an advantage, only less information. Mode ORDER is the house pick
+  // for the auto-chooser (it takes the first safe mode): Treasure leads when it is one of the two — mana now over a later
+  // 3 life or a clue — otherwise the printed order.
+  const tokenChoice = matchNamedTokenChoice(oracle);
+  if (tokenChoice) {
+    const modes = tokenChoice.map((word) => {
+      const label = `Create a ${word} token`;
+      const p = parseEffectClauseImpl(label, cardType, { hasX: false });
+      const atoms = p && programConfidence(p) === "high" && p.structure !== "modal" ? p.atoms || [] : [];
+      return atoms.length ? { label, atoms } : null;
+    });
+    if (modes.every(Boolean)) {
+      const ordered = modes.some((m) => m.atoms[0].token === "treasure") ? [...modes].sort((a, b) => (b.atoms[0].token === "treasure") - (a.atoms[0].token === "treasure")) : modes;
+      return makeProgram({ confidence: "high", structure: "modal", atoms: [], modal: { chooseCount: 1, upTo: false, atLeastOne: false, modes: ordered }, xSpell: false, unparsedTail: null });
+    }
+  }
   // Modal "Choose one —": each mode is its own sub-program. HIGH iff every mode
   // parses fully (all-or-nothing across modes).
   const modal = parseModal(cardType, oracle, hasX);
