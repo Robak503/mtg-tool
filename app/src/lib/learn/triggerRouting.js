@@ -74,6 +74,9 @@ export function combatDamageReferentSatisfied(program, event) {
   for (const a of programCombatReferentAtoms(program)) {
     // "EACH OF THOSE CREATURES" (shelf D22): the batch dealers are stamped ONLY by the batch combat-damage dispatcher.
     if (a?.scope === "batchDealers" && event !== "combatDamageBatch") return false;
+    // "SACRIFICE IT" (shelf D24 — Foot Chopper): "it" is the creature that dealt the combat damage — the per-creature
+    // combat-damage event's triggering permanent. No other event is admitted (a safe false negative where "it" means more).
+    if (a?.sacTriggering && event !== "combatDamageToPlayer") return false;
     if (a?.who === "damagedPlayer" && !DAMAGED_PLAYER_EVENTS.has(event)) return false;
     if (a?.countContext === "combatDamageAmount" && !COMBAT_DAMAGE_AMOUNT_EVENTS.has(event)) return false;
     if (a?.who === "defendingPlayer" && !DEFENDING_PLAYER_EVENTS.has(event)) return false;

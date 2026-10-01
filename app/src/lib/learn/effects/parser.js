@@ -1871,11 +1871,16 @@ const CHOSEN_SAC_FILTERS = {
 };
 function matchOptionalChosenSac(oracle, cardType) {
   const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
-  const m = s.match(/^(?:(.+?),? then )?you may sacrifice an? ([a-z ]+?)\.\s*if you do,?\s+(.+)$/i);
-  if (!m) return null;
-  const [, leadText, phrase, payoffText] = m;
-  const filter = CHOSEN_SAC_FILTERS[phrase.toLowerCase()];
-  if (!filter) return null;
+  // "you may sacrifice IT. If you do, …" (shelf D24 — Foot Chopper: "Whenever equipped creature deals combat damage to a
+  // player, you may sacrifice it. If you do, draw cards equal to its power"): "it" is the TRIGGERING creature, the pause's one
+  // candidate; the payoff's "its power / toughness / mana value" is the sacrificed creature's, off the settle's snapshot.
+  const itM = s.match(/^you may sacrifice it\.\s*if you do,?\s+(.+)$/i);
+  const m = itM ? null : s.match(/^(?:(.+?),? then )?you may sacrifice an? ([a-z ]+?)\.\s*if you do,?\s+(.+)$/i);
+  if (!itM && !m) return null;
+  const [, leadText, phrase] = m || [];
+  const payoffText = itM ? itM[1].replace(/\bits (power|toughness|mana value)\b/gi, "the sacrificed creature's $1") : m[3];
+  const filter = itM ? null : CHOSEN_SAC_FILTERS[phrase.toLowerCase()];
+  if (!itM && !filter) return null;
   // A SECOND "if you do" (a nested optional payment) is out of scope. (An "Otherwise, …" else-branch needs no guard here:
   // it never parses HIGH as part of the payoff — mutation-measured.)
   if (/\bif you do\b/i.test(payoffText)) return null;
@@ -1892,7 +1897,10 @@ function matchOptionalChosenSac(oracle, cardType) {
     if (programNeedsChosenTarget(leadProgram) || !(leadProgram.atoms || []).every((a) => KNOWN.has(a.op))) return null;
     lead = leadProgram.atoms;
   }
-  return { atoms: [...lead, { op: "optional-sac-payment", subtype: phrase.toLowerCase(), sacFilter: filter, effectAtoms: inner, targetType: null }] };
+  const sac = itM
+    ? { op: "optional-sac-payment", subtype: "creature", sacTriggering: true, effectAtoms: inner, targetType: null }
+    : { op: "optional-sac-payment", subtype: phrase.toLowerCase(), sacFilter: filter, effectAtoms: inner, targetType: null };
+  return { atoms: [...lead, sac] };
 }
 
 /**

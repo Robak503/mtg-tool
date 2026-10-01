@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **436 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **437 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,25 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D24: FOOT CHOPPER — "YOU MAY SACRIFICE IT. IF YOU DO" — THE ONE-CANDIDATE SACRIFICE — Halfshell heroes 87 → 88 · **+4** · corpus 15,117 / 34,245
+> Suite **1,673 files / 17,266 tests** green (1 skipped); lint 0; decks 2,698 / 2,998. CI GREEN on D23 (run 36798122388). Flip-diff **+4, zero LOST,
+> zero RETIERED** (tier snapshots at 7f31c348 → the change: Foot Chopper, Impaler Shrike, Haunted Cadaver, Cacophony Scamp). **Mutants 7/7** on the final code (restore byte-identical).
+> · **Build:** parser.js — matchOptionalChosenSac (shelf D13's chosen sacrifice) reads "you may sacrifice IT. If you do, …": "it" is
+>   the triggering creature, and the payoff's "its power / toughness / mana value" is the sacrificed creature's (the settle's
+>   last-known snapshot, CR 608.2h) · stack.js — the pause's ONE candidate is the triggering permanent while its controller still
+>   controls it (CR 701.21a); gone or stolen, nothing can be sacrificed and the payoff never runs · triggerRouting.js — the trigger
+>   gate admits "sacrifice it" only on the per-creature combat-damage event (a safe false negative where "it" means more) ·
+>   coverage.js — the spell fence refuses it on a spell (no triggering creature). The autopilot gives up only a token.
+> · **Witness tightened before commit (hollow-gate law):** the headline test claimed "the candidate is the Giant, not the Bear beside
+>   it" while the board listed the Giant first — a take-the-first-permanent bug passed it (only the wearer-gone test killed that
+>   mutant). The Bear now comes first; the headline witness kills it by itself.
+> · **Runtime:** `WITNESS footChopper {"kind":"optional-sac-payment","candidates":["giant"],"drew":3,"giantGone":true,"bearStays":true}`;
+>   declined, nothing. Each unaimed gain verified in play: Impaler Shrike (sacrificed → three cards), Haunted Cadaver (sacrificed →
+>   the player it hit is asked to discard three), Cacophony Scamp (sacrificed → proliferate grows a Bear's +1/+1 counter, then its
+>   own dies trigger deals its power). Witness `app/src/lib/learn/footChopper.test.js` (9).
+> · **Next:** Halfshell 88 needs 2 — Together Forever · Everything Pizza · Dimension X Pizzasaur · Coin of Mastery · Vigor · Shredder,
+>   Shadow Master · then Shorikai / Teval (86).
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D23: BEBOP — "DRAW X CARDS, WHERE X IS" + THE OPTIONAL-DRAW "IF YOU DO" — Halfshell heroes 86 → 87 · **+5** · corpus 15,113 / 34,245
 > Suite **1,672 files / 17,257 tests** green (1 skipped); lint 0; decks 2,697 / 2,998. CI GREEN on D22 (run 36796287644). Flip-diff **+5, zero LOST,
