@@ -2890,6 +2890,13 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^you cast a spell that targets this creature$/.test(c))
     return { event: "heroic", scope: "self", whose: "you" };
 
+  // PEARL-EAR, IMPERIAL ADVISOR (shelf D44) — "Whenever you cast an Aura spell that targets a modified permanent you control".
+  // A cast trigger whose filter reads the cast spell's CHOSEN TARGETS (CR 700.9 — modified: a counter, an Equipment, or an
+  // Aura its controller controls); checkCastTriggers resolves it beside the chosen-type filter. Anchored: any other spell
+  // type or target description stays undetected.
+  if (/^you cast an aura spell that targets a modified permanent you control$/.test(c))
+    return { event: "cast", scope: "castWatcher", whose: "you", spellFilter: { kind: "auraTargetsYourModified" } };
+
   // MAGECRAFT (CR 207.2c ability word — no individual 702 keyword entry) — "Whenever you cast or copy an
   // instant or sorcery spell, <effect>". Routes to the existing cast event + instantSorcery filter; the CAST
   // half fires for free via checkCastTriggers (event:"cast" whose:"you" spellFilter:"instantSorcery"). The
@@ -9502,6 +9509,14 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
         if (d.spellFilter && d.spellFilter.kind === "chosenType") {
           if (!permHasChosenType(spellCard, watcher.chosenType)) continue;
           if (d.spellFilter.creatureOnly && !spellMatchesFilter("creature", spellCard)) continue;
+        } else if (d.spellFilter && d.spellFilter.kind === "auraTargetsYourModified") {
+          // PEARL-EAR (shelf D44): an AURA spell with a chosen target that is a modified permanent the watcher's controller
+          // controls (CR 700.9), read at cast time — the Aura is still on the stack, so its own attachment never counts.
+          if (!/\bAura\b/.test(typeStr(spellCard))) continue;
+          if (!targets.some((t) => {
+            const lk = t?.id ? findPermanent(state, t.id) : null;
+            return !!lk && lk.controller === watcher.controller && isModifiedPermanent(state, lk.permanent);
+          })) continue;
         } else if (!spellMatchesFilter(d.spellFilter, spellCard)) {
           continue;
         }

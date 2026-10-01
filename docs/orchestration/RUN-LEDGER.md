@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **12 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,161)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **13 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,162)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,25 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🏁 2026-10-01 — SHELF DECKS · D44: PEARL-EAR — AFFINITY FOR AURAS + THE MODIFIED-TARGET DRAW — Light-Paws Voltron 89 → 90 · **+1** · corpus 15,162 / 34,245 (44.3%) · **THE SHELF IS DONE: 29 of 30 at ≥90**
+> Suite **1,694 files / 17,420 tests** green (1 skipped); lint 0; decks 2,720 / 2,998. CI GREEN on D43 (run 36833275503). Flip-diff **+1, zero LOST,
+> zero RETIERED** (tier snapshots at 3f6dbb15 → the change: Pearl-Ear, Imperial Advisor body-only → native-mixed). **Mutants 8/8** on the final code (restore byte-identical).
+> · **Affinity for Auras, granted** (CR 702.41a): "Enchantment spells you cast have affinity for Auras." is an enchantment
+>   reducer whose amount `collectCostReducers` stamps from the battlefield the cast lane hands it — the caster's own — so the
+>   count is the caster's Auras at cost determination (CR 601.2f); an opponent's Aura on your creature doesn't count. Generic
+>   only, like every reducer.
+> · **The cast trigger** (CR 700.9): "Whenever you cast an Aura spell that targets a modified permanent you control" — a new
+>   spell filter checkCastTriggers resolves beside the chosen-type one, reading the cast-time targets with the existing
+>   isModifiedPermanent (a counter, an Equipment, or an Aura its controller controls). Anchored: another spell type or target
+>   description stays unread.
+> · **Runtime:** `WITNESS pearlEar {"withTwoW":true,"withOneW":false}` — With Great Power . . . costs {1}{W} under two Auras
+>   · two AI-controlled Pacifisms on your creatures don't count · Glory Seeker isn't reduced · Rancor at a countered or an
+>   equipped Bear draws; at an unmodified Bear, at the AI's countered Bear, or Giant Growth at yours, nothing. Witness
+>   `app/src/lib/learn/pearlEar.test.js` (8).
+> · **🏁 STAGE BOUNDARY — the shelf (Colton's "Do my decks", 09-30):** 29 of 30 decks read ≥90; Atraxa 74 is DEFERRED
+>   (planeswalkers last, as their own program). Light-Paws went 83 → 90 across D39–D44 — through the very rows the 09-05
+>   ceiling call sized L. Aggregate 2,720 / 2,998 (90.7%). Next: the 09-06 plan's stage ③ (the residue census), then ④.
 
 > ## 🃏 2026-10-01 — SHELF DECKS · D43: UMBRA MYSTIC — UMBRA ARMOR FOR THE AURAS ON YOUR PERMANENTS — Light-Paws Voltron 88 → 89 · **+1** · corpus 15,161 / 34,245 (44.3%)
 > Suite **1,693 files / 17,412 tests** green (1 skipped); lint 0; decks 2,719 / 2,998. CI GREEN on D42 (run 36831959942). Flip-diff **+1, zero LOST,

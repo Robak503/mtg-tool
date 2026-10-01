@@ -2566,6 +2566,11 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ costReduction: { notCardType: crNegM[1], amount: parseInt(crNegM[2], 10) } });
     return;
   }
+  // AFFINITY FOR AURAS, GRANTED (shelf D44 — Pearl-Ear, Imperial Advisor: "Enchantment spells you cast have affinity for
+  // Auras.", CR 702.41a: {1} less for each Aura you control). An enchantment-spell reducer whose amount is the caster's Aura
+  // count, stamped by collectCostReducers from the battlefield the cast lane hands it — the caster's own — at cost
+  // determination (CR 601.2f). Generic only, floored at the cast site like every reducer.
+  if (/^enchantment spells you cast have affinity for auras$/.test(c)) { out.push({ costReduction: { subtype: "enchantment", perAuraYouControl: true } }); return; }
   const crM = c.match(/^([a-z]+) spells (?:you cast )?cost \{(\d+)\} less to cast$/);
   if (crM) {
     const word = crM[1];
@@ -5288,6 +5293,12 @@ export function collectCostReducers(permanents, { commandZone = false } = {}) {
     for (const d of parseStaticAbilities(card)) {
       if (!d.costReduction) continue;
       if (commandZone && !d.costReduction.fromCommandZone) continue; // only eminence reaches from the command zone
+      // AFFINITY FOR AURAS (shelf D44 — Pearl-Ear): {1} less for each Aura the caster controls. The cast lane passes the
+      // caster's own battlefield here, so the count is read at cost determination (CR 601.2f).
+      if (d.costReduction.perAuraYouControl) {
+        reducers.push({ ...d.costReduction, amount: (permanents || []).filter((p) => isAuraCard(p?.card || p)).length });
+        continue;
+      }
       // Stamp the source's chosenType onto a chosen-type reducer so costReductionForSpell can match the spell's
       // type line against it. A chosen-type reducer whose source has NO chosenType (never resolved its ETB
       // chooser) is INERT — keep it (the match guard returns 0), never fabricate a type.

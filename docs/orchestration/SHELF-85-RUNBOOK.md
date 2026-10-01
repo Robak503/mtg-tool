@@ -52,6 +52,10 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 **The bar is per deck, not aggregate.** A slot is "native" only when the runtime actually plays the card
 (the CREED — false-negative safe, false-positive forbidden). Nothing is credited that the engine cannot play.
 
+> **🏁 THE 90 RUN (2026-09-30 → 10-01, Colton's "Do my decks"):** 29 of 30 decks read ≥90 — every row of §1 but Atraxa (74,
+> DEFERRED: planeswalkers last, as their own program). Aggregate 2,720 / 2,998 (90.7%); corpus 15,162. Light-Paws' 09-05
+> ceiling call (§5.12) was built through: D39–D44 took it 83 → 90. Slices D1–D44 are in RUN-LEDGER.md.
+
 > **🏁 PHASE 3 CLOSED · PHASE 4 POSTED (2026-09-05).** 13 decks at the bar, 14 at 85–89 with only L / 🅿 / composite rows (the §4.3 stop rule), 3 ceilings called. The Omnath hand-off list: `docs/orchestration/SHELF-85-OMNATH-HANDOFF.md` — COMMS **[Q-SHELF-85-OMNATH]** (the three ceiling decks went earlier as [Q-SHELF-85-OMNATH-A]). Cindy's lane on this runbook is done; the table below is its end state. Next: the overnight plan's stage list is exhausted on this seat (§1–§3 met; §4-END routed to SHELF-85, now done through Phase 4) — boot the corpus roadmap (`memory/orders/cindy-corpus-roadmap.md`, the BLEND ladder) unless Colton's next order lands; re-probe §6 parks that the subtype-noun peel may have unparked; and push the held stack the moment `gh run list` shows a green run
 
 ### 1.1 Live table (update in place after every slice; measured 2026-09-04 06:15Z)
@@ -447,6 +451,8 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 
 ### 5.12 Light-Paws Voltron — 61% · needs 24 · Aura deck
 
+> ✅ **SUPERSEDED 2026-10-01 — Light-Paws reached 90** (D39–D44: Eiganjo Castle, Celestial Mantle, Mantle of the Ancients, With
+> Great Power . . . and Pariah via the damage redirect, Umbra Mystic, Pearl-Ear). The call below is kept as written.
 > ⛔ **LIGHT-PAWS CEILING at 81 (2026-09-05, 4 to the bar):** every remaining row sizes L — Light-Paws, Emperor's Voice (a conditional Aura tutor onto the battlefield attached, with a name filter), With Great Power (a per-attachment pump + damage redirection), Umbra Mystic (a group umbra-armor grant), Celestial Mantle (double a life total), Mantle of the Ancients (reattach any number), Angelic Destiny (an Aura-own dies-return trigger beside a subtype-adding bonus), Darksteel Mutation / Swift Reconfiguration (base-P/T + type-set Auras), Pariah / Spectra Ward / Benevolent Blessing / Reverent Mantra / Restoration Magic / Galadriel's Dismissal / Trouble in Pairs. Phase 3 material.
 
 | Row | Card | Blocker | Size | Note | Status |

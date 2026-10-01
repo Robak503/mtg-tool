@@ -7,11 +7,21 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## 🚀 2026-09-30 — **v0.161.0 RELEASED** (published 2026-10-01T05:26Z) — runnable: the shelf (Light-Paws 89; Kellan reached 90)
+## 🏁 2026-10-01 — **THE SHELF IS DONE: 29 of 30 decks at ≥90** (Atraxa deferred) — runnable: the 09-06 plan's stage ③
 
-> **Runnable next:** Light-Paws Voltron 89 → 90 (needs 1) — Pearl-Ear, Imperial Advisor (two lines) or one from the deep
-> pile (the commander itself is deep). Atraxa is DEFERRED (Colton 09-30: planeswalkers last, as their own program). Shelf **28 of 30 at ≥90**
-> (Kellan reached 90 in D38); corpus 15,161 (44.3%). After the shelf: the 09-06 plan's stage ③ → ④.
+> **Runnable next:** [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) §3 — re-run the residue census
+> (`MTG_APP_ROOT=… node scripts/build-residue-census.mjs --out=<scratch>/residue-census.json --top=40`, ~100 s, from `app/`)
+> and take the first ≥3-sole row below the banked list that has
+> existing machinery; six scoped-not-shipped in a row means the vein is dry → §4 (the Quartet's Phase 2 tail, evalScores on
+> pending rows). Atraxa (74) stays DEFERRED (Colton 09-30: planeswalkers last, as their own program). Release cadence: the
+> batch since v0.161.0 is 13 commits / +17 corpus — no tag until ~100 cards or a user-facing fix.
+> **The run that finished it (D35–D44, 09-30 → 10-01):** Kellan reached 90 (D38); Light-Paws 83 → 90 (D39–D44: Eiganjo
+> Castle, Celestial Mantle, Mantle of the Ancients, the damage redirect, Umbra Mystic, Pearl-Ear). Every deck row: 29 at
+> 90–100, Atraxa 74; aggregate 2,720 / 2,998 (90.7%); corpus 15,162 (44.3%).
+
+## 🚀 2026-09-30 — **v0.161.0 RELEASED** (published 2026-10-01T05:26Z) — the shelf it fed finished 10-01 (above)
+
+> **The shelf** closed 10-01 with D44 (the section above carries its numbers and the next runnable work).
 > **The release:** tagged on 502e133f (the `[0.161.0]` CHANGELOG cut), moved up from 10-02 by Colton because Reality
 > Fracture's whole card base was already on Scryfall (fra 461 cards, frc 103). Release run 36817109773 green (two test
 > shards + build); assets: the installer twice with its `.sig` each, and `latest.json`; `latest.json` verified BY CONTENT at
@@ -98,6 +108,7 @@
 > Stone Calendar, Highspire Bell-Ringer, Uthros Psionicist — the all-spells and second-spell reducers (+3 → corpus 14,989; suite 1644 / 16,975).
 > **The residue loop STOPS here — Colton (09-30): "Do my decks."** Next: the shelf decks' unplayed cards, until the v0.161.0 tag on/after 10-02.
 > **SHELF DECKS · D1** tribal digs read the printed capital — Avengers Tower takes Hulk Smash to 90% (+7 → corpus 14,996; suite 1645 / 16,981). Tool: `app/scripts/shelf-residue-map.mjs`.
+> **SHELF DECKS · D44** Pearl-Ear — affinity for Auras + the modified-target draw — Light-Paws Voltron 89 → 90 (+1 → corpus 15,162; suite 1,694 / 17,420). **The shelf is done: 29 of 30 at ≥90.**
 > **SHELF DECKS · D43** Umbra Mystic — umbra armor for the Auras on your permanents — Light-Paws Voltron 88 → 89 (+1 → corpus 15,161; suite 1,693 / 17,412).
 > **SHELF DECKS · D42** Damage to you is dealt to a creature instead — Light-Paws Voltron 86 → 88 (+5 → corpus 15,160; suite 1,692 / 17,405).
 > **SHELF DECKS · D41** Mantle of the Ancients — Auras and Equipment return attached — Light-Paws Voltron 85 → 86 (+1 → corpus 15,155; suite 1,691 / 17,387).
