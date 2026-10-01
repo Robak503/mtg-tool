@@ -74,7 +74,7 @@ import { grantUncounterableClauseParser, nextSpellUncounterableClauseParser, att
 import { tuckClauseParser, graveyardReturnClauseParser, graveyardReturnPickClauseParser, bounceClauseParser, earthbendReturnClauseParser, detainReturnClauseParser, czClauseParser, blinkReturnClauseParser, gyBatchToBattlefieldClauseParser, matchGyCastPermission } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce) + EARTHBEND-RETURN (CR 603.7 delayed trigger) + DETAIN-RETURN (DT-1) + CZ-COMMANDER-VISIT (Hellkite Courser) + DELAYED-BLINK (Otherworldly Journey)
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
 import { gainControlClauseParser, regainOwnedCreaturesClauseParser } from "./atoms/control.js"; // GAIN-CONTROL (+ SG-12 Homeward Path's mass "each player gains control of all creatures they own") — indefinite control-change of a target creature/subtype (Sliver Overlord)
-import { grantUntilEotClauseParser } from "./atoms/grantUntilEot.js"; // UNTIL-EOT QUOTED GRANT (TG-1) — Feign Death / Showstopper family
+import { grantUntilEotClauseParser, matchChooseLoseLifeGrant } from "./atoms/grantUntilEot.js"; // UNTIL-EOT QUOTED GRANT (TG-1) — Feign Death / Showstopper family; + Malakir Rebirth's choose-lose-grant (P·14)
 import { becomeCopyClauseParser } from "./atoms/becomeCopy.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
@@ -2745,6 +2745,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   const drn = matchDrainEachOpponent(oracle);
   if (drn && KNOWN.has(drn.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [drn.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== CHOOSE, LOSE LIFE, GRANT (Malakir Rebirth) ===== "Choose target creature. You lose N life. Until end of turn, that
+  // creature gains "<body>"." → the life loss, then the until-EOT grant on the chosen target (see matchChooseLoseLifeGrant).
+  const clg = matchChooseLoseLifeGrant(oracle);
+  if (clg && clg.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: clg.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== ITERATED-EDICT (Torment of Hailfire) ===== "Repeat the following process X times. Each opponent loses
   // 3 life unless that player sacrifices a nonland permanent of their choice or discards a card." → ONE

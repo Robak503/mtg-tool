@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **29 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,198)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **30 commits**, corpus **44.2% (15,145)** at the tag → **44.4% (15,199)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,21 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 14: Malakir Rebirth (EDHREC #246) — choose a creature, lose 2 life, it comes back when it dies · **+1** · corpus 15,199
+> Suite **17,537** green (1 skipped); lint 0; decks unchanged (2,733 / 2,998). CI GREEN on P·13 (run 36898554551). Flip-diff **+1, zero
+> LOST, zero RETIERED** (tier snapshots at 4e13568b → the change: Malakir Rebirth // Malakir Mire land-partial → native-spell).
+> Top 1,000 **843** (needs +57); top 2,500 **1,664**. **Mutants 6/6** (restore byte-identical).
+> · **The frame:** "Choose target creature. You lose 2 life. Until end of turn, that creature gains '<body>'." — the splitter
+>   cut it into three sentences and left "that creature" two atoms from its antecedent with an untargeted life loss between (the
+>   referent walk binds only to the atom just before it). `matchChooseLoseLifeGrant` (effects/atoms/grantUntilEot.js) reads it
+>   whole, in printed order: the controller's life loss, then the Feign Death family's until-EOT grant ON the chosen target,
+>   its body passing the same validator as every grant. The only card printing the frame.
+> · **Runtime:** `WITNESS malakirRebirth {"life":38,"bears":[{"id":"perm-4","tapped":true}],"yard":["Malakir Rebirth // Malakir
+>   Mire"]}` — cast as the MDFC's instant face; the creature dies and returns tapped as a new object. An opponent's creature
+>   returns under ITS OWNER's control; the target gone before resolution fizzles the spell whole (CR 608.2b — no life lost); the
+>   grant ends at cleanup. Witness `app/src/lib/learn/malakirRebirth.test.js` (6).
+> · **Next:** #251 Everflowing Chalice — needs multikicker offered (CR 702.33c/d), which the engine has never done.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 13: Gray Merchant of Asphodel (EDHREC #242) — the drain family past the X spell · **+9** · corpus 15,198
 > Suite **17,531** green (1 skipped); lint 0; decks unchanged (2,733 / 2,998). CI GREEN on P·12 (run 36896398394). Flip-diff **+9, zero

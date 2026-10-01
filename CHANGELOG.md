@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Malakir Rebirth** — choose a creature and lose 2 life; until end of turn, when it dies it returns to the battlefield tapped
 - **Gray Merchant of Asphodel, Kokusho, Malakir Bloodwitch and six more** — each opponent loses life (a printed amount, your devotion to black, or the number of Vampires you control) and you gain the life lost
 - **Animate Dead** — return a creature card from any graveyard under your control, -1/-0; it is sacrificed if Animate Dead leaves
 - **Idol of Oblivion and Bennie Bracks, Zoologist** — draw a card if you created a token this turn

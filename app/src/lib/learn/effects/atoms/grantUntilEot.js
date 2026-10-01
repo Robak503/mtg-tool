@@ -135,6 +135,25 @@ export function grantUntilEotClauseParser(clause) {
 }
 
 /**
+ * CHOOSE, LOSE LIFE, GRANT (the play-weighted program, P·14 — Malakir Rebirth, EDHREC #246): 'Choose target creature. You
+ * lose 2 life. Until end of turn, that creature gains "<body>".' Three sentences the splitter would cut apart, leaving "that
+ * creature" two atoms from its antecedent with an untargeted life loss between (the referent walk binds only to the atom
+ * just before it). Read whole instead, in printed order: the controller's life loss, then shape B's grant ON the chosen
+ * target — "that creature" IS the target the first sentence chose, so the grant carries it. The body passes the same
+ * validator as every grant here (an unmodeled body → null → LOW). One target: gone at resolution, the spell fizzles whole
+ * and no life is lost (CR 608.2b). Called on the whole oracle by parser.js before the sentence split. Returns { atoms }.
+ */
+export function matchChooseLoseLifeGrant(oracle) {
+  const m = String(oracle || "").trim().match(/^choose target creature\. you lose (\d+) life\. until end of turn, that creature gains ["“](.+)["”]\.?$/i);
+  if (!m) return null;
+  const kind = validatedGrantKind(m[2]);
+  return kind ? { atoms: [
+    { op: "lose-life", amount: parseInt(m[1], 10), who: "controller", targetType: null },
+    { op: "grant-until-eot", targetType: "creature", grantKind: kind, quoted: m[2] },
+  ] } : null;
+}
+
+/**
  * applyGrantUntilEot — resolve the grant (and shape A's pump) onto the affected set.
  *
  * The pump half delegates to applyPumpEffect with a synthetic pump atom over the SAME ctx (same chosen
