@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.161.0] - 2026-09-30
+
 ### Added
 - **The Reality Chip** — while it is attached to a creature, you may play lands and cast spells from the top of your library
 - **Katsumasa, the Animator** — animates a noncreature artifact you control into a flier (a Vehicle keeps its printed size, anything else is 1/1), and feeds +1/+1 counters to up to three noncreature artifacts each upkeep
