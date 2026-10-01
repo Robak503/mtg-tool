@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.161.0** (tagged 2026-09-30, published 2026-10-01T05:26Z):
-> **8 commits**, corpus **44.2% (15,145)** at the tag → **44.2% (15,153)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **9 commits**, corpus **44.2% (15,145)** at the tag → **44.3% (15,154)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,24 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D40: CELESTIAL MANTLE — DOUBLE ITS CONTROLLER'S LIFE TOTAL — Light-Paws Voltron 84 → 85 · **+1** · corpus 15,154 / 34,245 (44.3%)
+> Suite **1,690 files / 17,379 tests** green (1 skipped); lint 0; decks 2,715 / 2,998. CI GREEN on D39 (run 36826874295). Flip-diff **+1, zero LOST,
+> zero RETIERED** (tier snapshots at 8181194f → the change: Celestial Mantle). **Mutants 6/7 (the survivor equivalent)** on the final code (restore byte-identical).
+> · **The atom** (atoms/life.js `double-life`, CR 701.10d): the player gains or loses the amount that makes their total twice what it
+>   was — a positive total GAINS (lifegain triggers fire, CR 119.3), a negative one LOSES, zero changes nothing. An absent referent
+>   is a no-op, never the ability's controller.
+> · **The referent** (triggers.js): "its controller" is the ENCHANTED creature's. detectTriggers rewrites the whole clause to the
+>   triggering-permanent sentinel for an attached combat-damage trigger, and checkCombatDamageTriggers binds the attacker as the
+>   triggering permanent — so a Mantle on an opponent's creature doubles THEIR life.
+> · **Left unread on purpose:** "double your life total" (Enduring Angel, A Good Thing) and "double target player's life total"
+>   (Beacon of Immortality) — each of those cards parks on other text, so no witness could prove the arm; it waits for one.
+> · **Runtime:** `WITNESS celestialMantle {"userLife":74,"aiLife":40,"yourPridemate":1,"theirPridemate":0}` · on the opponent's
+>   creature their 21 becomes 42 · under Platinum Angel −5 becomes −10 with no lifegain · 0 stays 0. Witness
+>   `app/src/lib/learn/celestialMantle.test.js` (6). The one surviving mutant (a zero total "gaining" 0) is equivalent: a zero
+>   gain is already a no-op that fires no trigger.
+> · **Next:** Light-Paws 85 needs 5 — Mantle of the Ancients, With Great Power . . . (one line each), Pearl-Ear (two), then two
+>   from the deep pile.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D39: EIGANJO CASTLE — PREVENT THE NEXT 2 DAMAGE TO TARGET LEGENDARY CREATURE — Light-Paws Voltron 83 → 84 · **+1** · corpus 15,153 / 34,245
 > Suite **1,689 files / 17,373 tests** green (1 skipped); lint 0; decks 2,714 / 2,998 (the aggregate reads 91% now). CI GREEN on D38 (run 36825867218).

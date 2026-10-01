@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Celestial Mantle** — when the enchanted creature deals combat damage to a player, its controller's life total doubles
 - **Eiganjo Castle** — {W}, {T}: prevent the next 2 damage to a target legendary creature this turn
 - **Fblthp, Lost on the Range** — plot the top card of your library for its mana cost, then cast it free on a later turn
 - **Eladamri, Korvecdal** — tap it and two creatures to reveal a creature from your hand or the top of your library and put it onto the battlefield

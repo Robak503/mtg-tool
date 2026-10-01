@@ -259,6 +259,11 @@ export function applyLoseLife(state, atom, ctx) {
  */
 export function lifeClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // DOUBLE A LIFE TOTAL (shelf D40, CR 701.10d — applyDoubleLife): the sentinel detectTriggers writes for Celestial Mantle's
+  // "its controller" (an attached combat-damage trigger). "double your life total" (Enduring Angel, A Good Thing) and "double
+  // target player's life total" (Beacon of Immortality) are left unread until a card that needs them can witness them —
+  // each of those parks on other text today.
+  if (/^double the triggering permanent's controller's life total$/.test(t)) return { op: "double-life", who: "triggeringPermanentController", targetType: null };
   // ===== SOURCE-STAT (DYNAMIC-COUNT keystone) ===== "you gain life equal to the triggering creature's
   // toughness/power" — the amount is the TRIGGERING (entering) creature's layer-aware toughness/power at
   // resolution (Verdant Sun's Avatar "Whenever this creature or another creature you control enters, you gain
@@ -493,7 +498,29 @@ export function applyGyOwnerDrain(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "gy-owner-drain", controller: ctx.controller, target: pid, lose: atom.lose || 0, gain: atom.gain || 0 });
 }
 
+/**
+ * DOUBLE A LIFE TOTAL (shelf D40, CR 701.10d — "the player gains or loses an amount of life such that their new life total is
+ * twice its current value"). Celestial Mantle's "double its controller's life total" names the ENCHANTED creature's controller
+ * (the triggering permanent's, through the detectTriggers sentinel) — the only referent parsed today. A positive total GAINS
+ * (so that player's lifegain triggers fire, CR 119.3, and any gain replacement applies), a negative one LOSES, zero changes
+ * nothing. An absent referent is a clean no-op, never the ability's controller by default.
+ */
+function applyDoubleLife(state, atom, ctx) {
+  const pid = atom.who === "triggeringPermanentController" ? ctx.triggeringPermanentController : null;
+  if (!pid || !state.players[pid]) return logEvent(state, { kind: "spell-effect", effect: "double-life-noop", controller: ctx.controller });
+  const life = state.players[pid].life;
+  let next = state;
+  if (life > 0) {
+    next = gainLife(next, { playerId: pid, amount: life });
+    next = checkLifegainTriggers(next, pid, life);
+  } else if (life < 0) {
+    next = loseLife(next, { playerId: pid, amount: -life });
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "double-life", player: pid, from: life });
+}
+
 export const lifeResolvers = {
+  "double-life": applyDoubleLife, // shelf D40 (Celestial Mantle) — CR 701.10d
   "gain-life": applyGainLife,
   "lose-life": applyLoseLife,
   "add-poison": applyAddPoison,   // POISON (CR 122) — the parse+resolve pair for a track that already existed

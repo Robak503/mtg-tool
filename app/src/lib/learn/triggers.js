@@ -4828,6 +4828,12 @@ export function detectTriggers(card) {
       if ((cls.event === "etb" || cls.event === "dies" || cls.event === "attacks") && cls.scope !== "self") {
         effectClause = effectClause.replace(/^its controller\b/i, "the triggering permanent's controller");
       }
+      // shelf D40 (Celestial Mantle — "Whenever enchanted creature deals combat damage to a player, double its controller's life
+      // total."): "its controller" is the ENCHANTED creature's, which an attached combat-damage trigger binds as the triggering
+      // permanent (checkCombatDamageTriggers passes the attacker). Anchored to the whole printed clause, like the drain below.
+      if (cls.event === "combatDamageToPlayer" && cls.scope === "equippedCreature") {
+        effectClause = effectClause.replace(/^double its controller's life total$/i, "double the triggering permanent's controller's life total");
+      }
       // OPPONENT'S-ENTERING-CREATURE DRAIN (the 09-06 plan's stage ③ · 19, 2026-09-30 — Blood Seeker, Suture Priest: "Whenever a
       // creature an opponent controls enters, you may have that player lose 1 life."): "that player" is the entering creature's
       // controller — the triggering permanent's, already bound in makePendingTrigger's context. The same sentinel as the
