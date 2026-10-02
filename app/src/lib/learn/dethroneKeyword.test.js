@@ -29,7 +29,7 @@ import { classifyCard } from "./coverage.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { advanceStep, runStepActions, resolveTopOfStack } from "./gameEngine.js";
+import { nextStep, resolveTopOfStack } from "./gameEngine.js";
 
 const REMINDER = "Dethrone (Whenever this creature attacks the player with the most life or tied for most life, put a +1/+1 counter on it.)";
 const MARCHESA = { name: "Marchesa's Emissary", type: "Creature — Human Rogue", mana: "{3}{B}", power: 2, toughness: 3, keywords: [], oracle: REMINDER };
@@ -110,7 +110,9 @@ describe("RUNTIME — the counter is really placed", () => {
     };
     const atk = legalActionsForPlayer(st, "user").find((a) => a.kind === "declare-attacker" && a.permanentId === "m" && a.defenderId === "ai1");
     st = dispatchAction(st, atk);
-    st = runStepActions(advanceStep(st));
+    // RE-POINTED (the attack-trigger timing fix, CR 508.1m / 508.2): the engine's step advance closes the attacker declaration
+    // and stacks the attack trigger inside the declare attackers step; a raw advanceStep walk no longer fires it.
+    st = nextStep(st);
     let g = 0; while (st.stack.length && g++ < 10) st = resolveTopOfStack(st);
     const perm = st.players.user.battlefield.find((p) => p.id === "m");
     return perm?.counters?.["+1/+1"] || 0;

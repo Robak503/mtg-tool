@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **35 commits**, corpus **44.5% (15,246)** at the tag → **44.7% (15,463)** — +165 of that is the 10-02 card-data refresh (new
+> **36 commits**, corpus **44.5% (15,246)** at the tag → **44.7% (15,463)** — +165 of that is the 10-02 card-data refresh (new
 > cards, not engine work); engine gains since the tag: **+52**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,25 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: attack triggers resolve in the declare attackers step, before blockers are declared (CR 508.1m, 509.1); a removed attacker leaves combat (CR 506.4) · **±0**
+> Flip-diff **0 / 0 / 0**. **Mutants 38/38** on the integrated tree, restore byte-identical. Built by a fan-out builder (rebased onto
+> master before its gates); re-verified on the integrated tree. 13 existing tests re-pointed to the corrected timing (none deleted).
+> · ⚑ The engine fired attack triggers — and the Ur-Dragon and annihilator hooks — at the ENTRY of declare-blockers, and nothing
+>   stopped the defender from declaring blocks with them still on the stack: a creature a pending "can't block" trigger forbids
+>   could block, and an attack trigger's tokens arrived after blocks. Now the attack declaration closes at the first action that
+>   isn't declaring an attacker; the triggers trigger then (CR 508.1m) and go on the stack (117.5), and the step HOLDS with the
+>   active player's priority until the stack is empty and everyone passes (508.2) — blockers are declared only after (509.1). No
+>   attacker can be declared after the close. CR 508.8 reads the recorded declaration count, so a declared attacker removed during
+>   the step no longer skips the blockers and damage steps.
+> · ⚑ CR 506.4: an attacker that leaves the battlefield, changes controller or regenerates loses its combat record (the defender
+>   was offered blocks against a destroyed attacker); a removed blocker keeps its records, so the attacker it blocked stays
+>   blocked (509.1h, 510.1c); "blocking creatures get …" and "target blocking creature" share one check. New `combatRemoval.js`.
+>   Witness `attackTriggerTiming.test.js` (26 — 22 fail on the old engine). A wrong-content citation fixed in passing (annihilator's
+>   sacrifice: CR 701.16 → 701.21a).
+> · ⚠️ Found, not fixed (queued): in declare blockers the active player gets priority before any block is declared (CR 509.1); block
+>   triggers fire when LEAVING declare-blockers; the first-strike damage step always exists; 506.4's "stops being a creature" isn't
+>   swept; wrong-content citations (removal.js "CR 701.16" for sacrifice; "CR 603.3c" for trigger targets in flushTriggers).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 56: Plaguecrafter (EDHREC #639), Ruinous Ultimatum (#651), Dramatic Reversal (#666) · **+6** · corpus 15,463
 > Flip-diff **+6, −0, zero RETIERED**: Plaguecrafter, Demon's Disciple, Paradox Engine, Unstoppable Plan → native-trigger; Ruinous

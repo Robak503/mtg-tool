@@ -29,7 +29,7 @@ import { parseEffectClause, programConfidence } from "./effects/parser.js";
 import { parseActivatedAbilities } from "./effects/abilities.js";
 import { expandCastChoices } from "./effects/targeting.js";
 import { classifyCard } from "./coverage.js";
-import { runStepActions, resolveTopOfStack } from "./gameEngine.js";
+import { passPriority, resolveTopOfStack } from "./gameEngine.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -162,10 +162,12 @@ describe("runtime: Kogla's attacks trigger destroys the DEFENDING player's artif
     );
     const enemyEnch = permObj({ id: "c-e", name: "Enemy Aura", type: "Enchantment", type_line: "Enchantment" }, "ai", "perm-e");
     const state = placePerms(
-      stateWith({ phase: "combat", step: "declare-blockers", combat: { attackers: [{ permanentId: "perm-k", attackingPlayer: "user", defender: "ai" }], blockers: [] } }),
+      stateWith({ phase: "combat", step: "declare-attackers", combat: { attackers: [{ permanentId: "perm-k", attackingPlayer: "user", defender: "ai" }], blockers: [] } }),
       [kogla, enemyEnch],
     );
-    const out = runStepActions(state);
+    // RE-POINTED (the attack-trigger timing fix, CR 508.1m / 508.2): the attack trigger fires when the declaration closes — the
+    // active player's first pass of the declare attackers step — not at the declare-blockers step entry.
+    const out = passPriority(state);
     const trig = triggerOnStack(out);
     expect(trig).toBeTruthy();
     expect(trig.payload.resolver).toBe("effect-program");

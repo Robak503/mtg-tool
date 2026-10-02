@@ -17,7 +17,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { parseUrDragonAttackTrigger, applyUrDragonAttackTriggers } from "./urDragonAttack.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
-import { runStepActions, resolveTopOfStack } from "./gameEngine.js";
+import { passPriority, resolveTopOfStack } from "./gameEngine.js";
 import { classifyCard } from "./coverage.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -192,28 +192,33 @@ describe("applyUrDragonAttackTriggers — multi-watcher / multiplayer", () => {
   });
 });
 
-describe("Ur-Dragon attack trigger — end-to-end through the engine (runStepActions @ declare-blockers)", () => {
+// RE-POINTED (the attack-trigger timing fix, CR 508.1m / 508.2): the hook used to fire at the declare-blockers step entry
+// (runStepActions); it fires when the attacker declaration closes — the active player's first pass of the declare attackers
+// step (gameEngine.closeAttackDeclaration) — so the draw and the put-onto-the-battlefield happen before any block.
+describe("Ur-Dragon attack trigger — end-to-end through the engine (the attack declaration closing in the declare attackers step)", () => {
   const resolveAll = (s) => { let st = s, g = 0; while ((st.stack || []).length && g++ < 30) st = resolveTopOfStack(st); return st; };
+  const atDeclareAttackers = (opts) => ({ ...st(opts), step: "declare-attackers", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0, stack: [] });
 
-  it("at the declare-blockers transition: draws per attacking Dragon AND fires the cheated permanent's ETB", () => {
+  it("at the declaration close: draws per attacking Dragon AND fires the cheated permanent's ETB", () => {
     // Cheat in a creature whose own ETB draws a card — proves the entry fires ETB triggers (603.6a) that
     // then flush + resolve through the real engine path, not just a silent zone move.
     const etbCreature = { id: "etb5", name: "ETB Drawer", type: "Creature — Bird", power: 2, toughness: 2, oracle: "When this creature enters the battlefield, draw a card.", cmc: 5 };
-    const s = st({
+    const s = atDeclareAttackers({
       userBf: [urDragon(), dragon("d1")],
       attackers: [atk("d1")],
       userLib: [etbCreature, { id: "etbdraw", name: "FromETB", type: "Instant", oracle: "", cmc: 1 }],
       userHand: [],
     });
-    let out = runStepActions(s);           // checkAttackTriggers + the Ur-Dragon hook + flush (enqueues ETB)
+    let out = passPriority(s);             // the first pass closes the declaration: checkAttackTriggers + the Ur-Dragon hook + flush (enqueues ETB)
+    expect(out.step).toBe("declare-attackers");
     out = resolveAll(out);                 // resolve the cheated creature's ETB off the stack
     expect(onBf(out, "user", "ETB Drawer")).toBe(true);                       // drew it (1 attacking Dragon) then cheated it in
     expect(out.players.user.hand.some((c) => c.id === "etbdraw")).toBe(true); // its ETB "draw a card" actually resolved
   });
 
-  it("no Dragons attacking → the engine step is a clean no-op for this trigger", () => {
-    const s = st({ userBf: [urDragon(), goblin("g1")], attackers: [atk("g1")], userLib: instants(3), userHand: [perm("p1", 4)] });
-    const out = runStepActions(s);
+  it("no Dragons attacking → the declaration close is a clean no-op for this trigger", () => {
+    const s = atDeclareAttackers({ userBf: [urDragon(), goblin("g1")], attackers: [atk("g1")], userLib: instants(3), userHand: [perm("p1", 4)] });
+    const out = passPriority(s);
     expect(out.players.user.hand.some((c) => c.id === "p1")).toBe(true); // permanent NOT cheated
     expect(out.players.user.hand.filter((c) => c.type === "Instant")).toHaveLength(0); // nothing drawn
   });

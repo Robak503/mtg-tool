@@ -22,6 +22,7 @@
  */
 import { creaturePower, creatureToughness, findPermanent } from "./gameState.js";
 import { permanentColors, permanentColorsIfKnown, permanentHasKeyword, isModifiedPermanent, permIsEveryCreatureType, permanentHasCardType } from "./layers.js";
+import { isBlockingCreature } from "./combatRemoval.js"; // CR 506.4 — the one "is it a blocking creature" read (a zero-import leaf, no cycle)
 
 export /** Does a creature permanent (controlled by `pid`) satisfy a restriction set, from `casterId`'s view? */
 function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions, ctx = null) {
@@ -133,7 +134,9 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       if (r.op === "<" && !(creaturePower(perm, state) < srcPw)) return false;
     } else if (r.kind === "combat") {
       const atk = (state.combat?.attackers || []).some((a) => a.permanentId === perm.id);
-      const blk = (state.combat?.blockers || []).some((b) => b.blockerId === perm.id);
+      // A blocker removed from combat (CR 506.4) keeps its block records — the attacker stays blocked, CR 509.1h — but is
+      // no longer a blocking creature; isBlockingCreature reads the removedFromCombat stamp it carries (combatRemoval.js).
+      const blk = isBlockingCreature(state, perm);
       // ⛔ FAIL-CLOSED ON AN UNRECOGNISED VALUE (BS-1, 2026-08-06). The three checks below are each guarded
       // by their own value, so a value outside the set matched NONE of them and fell straight through as
       // SATISFIED — an unknown combat qualifier silently offered the ENTIRE board. Found by a mutation, not

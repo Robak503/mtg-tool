@@ -35,6 +35,8 @@ summarizes the notable changes.
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
 
 ### Fixed
+- Attack triggers ("whenever this attacks …", annihilator, mobilize, the Ur-Dragon) now resolve before blockers are declared, so a creature an attack trigger says can't block really can't, and tokens an attack trigger makes exist before blocks
+- A creature removed from combat (destroyed, bounced, stolen, regenerated) after attacking can no longer be blocked, and the combat steps no longer get skipped when the only declared attacker died
 - Class enchantments' level 2 and level 3 triggered abilities no longer work while the Class is still level 1
 - A plotted or suspended card that was cast from exile, and later exiled again (Swords to Plowshares), could be cast for free a second time; it no longer can
 - A commander an opponent steals keeps its owner's Backgrounds ("Commander creatures you own have …") and no longer gains the thief's

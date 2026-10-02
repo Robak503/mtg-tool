@@ -4094,6 +4094,10 @@ function actionsDeclareAttacker(state, playerId) {
   // hard — the caller passes the step intent. We check explicitly.
   if (state.activePlayer !== playerId) return [];
   if (state.step !== "declare-attackers") return [];
+  // CR 508.1 — attackers are declared ONCE, as the step's turn-based action. The declaration closes at the first action of
+  // the step that is not an attacker declaration (gameEngine.closeAttackDeclaration records combat.declaredAttackerCount
+  // there); no creature is declared after it — not once the attack triggers are on the stack, not after a spell resolves.
+  if (state.combat?.declaredAttackerCount != null) return [];
 
   // Creatures already attacking this combat can't be re-declared. Tapping on
   // attack already excludes most, but a Vigilance attacker stays untapped —

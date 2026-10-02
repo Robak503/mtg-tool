@@ -5216,7 +5216,7 @@ function classifySplit(card) {
 
 // ─── KW-ANNIHILATOR (CR 702.86a) — the Eldrazi forced-mass-sacrifice attack keyword ─────────────────────────
 // "Annihilator N" = "Whenever this creature attacks, defending player sacrifices N permanents."  ENFORCED at
-// runtime by applyAnnihilatorTriggers (annihilator.js → wired into gameEngine at the declare-blockers step):
+// runtime by applyAnnihilatorTriggers (annihilator.js → gameEngine.closeAttackDeclaration, in the declare attackers step):
 // each attacking annihilator obligates its defending player to sacrifice N permanents of their choice, driven
 // through the SHIPPED edict sacrifice chain (a human defender picks; an AI auto-sacs its weakest). So a creature
 // whose ENTIRE remaining body is otherwise modeled plays its whole card natively the instant it attacks.

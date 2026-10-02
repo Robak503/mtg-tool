@@ -34,7 +34,7 @@ import { triggerRoutesNatively } from "./triggerRouting.js";
 import { parseEffectClause, programConfidence } from "./effects/parser.js";
 import { runEffectProgram, resolveOptionalChoice } from "./effects/runProgram.js";
 import { resolveAtom } from "./effects/effectAtoms.js";
-import { runStepActions, resolveTopOfStack } from "./gameEngine.js";
+import { passPriority, resolveTopOfStack } from "./gameEngine.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -229,7 +229,7 @@ describe("Generous Plunderer — attacks damage (runtime)", () => {
     const art2 = createPermanent({ id: "a2", card: { id: "c2", name: "Signet", type: "Artifact" }, controller: "ai" });
     const art3 = createPermanent({ id: "a3", card: { id: "c3", name: "Mind Stone", type: "Artifact" }, controller: "ai" });
     let s = {
-      ...s0, phase: "combat", step: "declare-blockers", activePlayer: "user", priorityHolder: "user",
+      ...s0, phase: "combat", step: "declare-attackers", activePlayer: "user", priorityHolder: "user",
       combat: { attackers: [{ permanentId: "perm-gp", attackingPlayer: "user", defender: "ai" }], blockers: [] },
       players: {
         ...s0.players,
@@ -237,7 +237,9 @@ describe("Generous Plunderer — attacks damage (runtime)", () => {
         ai: { ...s0.players.ai, battlefield: [art1, art2, art3], life: 40 },
       },
     };
-    const out = runStepActions(s);
+    // RE-POINTED (the attack-trigger timing fix, CR 508.1m / 508.2): the attack trigger fires when the declaration closes — the
+    // active player's first pass of the declare attackers step — not at the declare-blockers step entry.
+    const out = passPriority(s);
     const trig = (out.stack || []).find((o) => o.kind === "triggered-ability");
     expect(trig).toBeTruthy();
     expect(trig.payload.params.context.defenderId).toBe("ai");

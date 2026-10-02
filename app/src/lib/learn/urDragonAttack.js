@@ -22,9 +22,9 @@
  * for the batch, drawing a card per attacking Dragon); 121.1 (drawing a card); 603.6a (the cheated
  * permanent ENTERS, so its ETB triggers fire); 704.5f (a 0/0 entering dies to the toughness SBA).
  *
- * Self-contained + pure (returns a new state). Fired at the declare-blockers transition alongside
- * checkAttackTriggers, so the cardDrawn / ETB sub-triggers it ENQUEUES flush in the same priority-grant
- * pass (gameEngine line 302). ADDITIVE only — no core-death surgery.
+ * Self-contained + pure (returns a new state). Fired when the attack declaration closes in the declare attackers
+ * step (gameEngine.closeAttackDeclaration), alongside checkAttackTriggers, so the cardDrawn / ETB sub-triggers it
+ * ENQUEUES flush in the same priority-grant pass — before any block. ADDITIVE only — no core-death surgery.
  */
 import { drawCards, findPermanent, destroyLethalCreatures } from "./gameState.js";
 import { checkCardDrawnTriggers, checkDiesTriggers } from "./triggers.js";
@@ -104,7 +104,7 @@ function cheatPermanentFromHand(state, pid, handIdx) {
 }
 
 /**
- * At the declare-blockers transition (the full attacker batch is in state.combat.attackers), each Ur-Dragon-
+ * When the attack declaration closes (the full attacker batch is in state.combat.attackers), each Ur-Dragon-
  * style watcher its controller has on the battlefield draws one card per attacking creature of its captured
  * subtype, THEN (the drawn cards are now in hand and eligible) may put the best permanent from hand onto the
  * battlefield. Fires once per watcher (a batch "one or more … attack" trigger, NOT once per attacker). A

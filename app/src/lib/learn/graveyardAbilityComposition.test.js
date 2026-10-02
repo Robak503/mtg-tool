@@ -27,7 +27,7 @@ import { classifyCard } from "./coverage.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { advanceStep, runStepActions, resolveTopOfStack } from "./gameEngine.js";
+import { nextStep, resolveTopOfStack } from "./gameEngine.js";
 
 const CR = { type: "Creature — Skeleton Pest", mana: "{B}{G}", power: 1, toughness: 1, keywords: [] };
 const TRIG = "Whenever this creature attacks, you gain 1 life.";
@@ -81,7 +81,9 @@ describe("RUNTIME — both halves really run, each in its own zone", () => {
       players: { ...s.players, user: { ...s.players.user, battlefield: [p, ...lands(4)], manaPool: { W: 9, U: 9, B: 9, R: 9, G: 9, C: 9 } } } };
     const before = st.players.user.life;
     st = dispatchAction(st, legalActionsForPlayer(st, "user").find((a) => a.kind === "declare-attacker" && a.permanentId === "tp"));
-    st = runStepActions(advanceStep(st));
+    // RE-POINTED (the attack-trigger timing fix, CR 508.1m / 508.2): the engine's step advance closes the attacker declaration
+    // and stacks the attack trigger inside the declare attackers step; a raw advanceStep walk no longer fires it.
+    st = nextStep(st);
     let g = 0; while (st.stack.length && g++ < 10) st = resolveTopOfStack(st);
     expect(st.players.user.life - before).toBe(1);
   });

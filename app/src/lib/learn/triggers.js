@@ -7740,8 +7740,9 @@ export function checkAttackTriggers(state) {
     // as `declaredAttackers` — each attacker with the player or planeswalker it was declared attacking (CR 508.1b) — so
     // Mangara's intervening-if counts "those creatures" at flush AND on resolution (CR 603.4) from the creatures that were
     // declared, never from whatever is attacking by then. This read is the declared batch: the engine enqueues attack
-    // triggers here, at the declare-blockers step entry, and every creature put onto the battlefield attacking joins combat
-    // from an attack trigger that resolves after this point, so none is in it (CR 508.4 — such a creature never "attacked").
+    // triggers here, when the attack declaration closes in the declare attackers step (gameEngine.closeAttackDeclaration),
+    // and every creature put onto the battlefield attacking joins combat from an attack trigger that resolves after this
+    // point, so none is in it (CR 508.4 — such a creature never "attacked").
     // Trouble in Pairs' count is the creatures declared attacking the watcher's controller AS A PLAYER (a planeswalker
     // attack carries defenderPlaneswalkerId and is not an attack on its controller, CR 508.3e).
     const declaredAttackers = attackers.map((a) => ({ permanentId: a.permanentId, defender: a.defender, ...(a.defenderPlaneswalkerId ? { defenderPlaneswalkerId: a.defenderPlaneswalkerId } : {}) }));

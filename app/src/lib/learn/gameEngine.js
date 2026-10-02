@@ -454,7 +454,11 @@ export function advanceStep(state) {
     // priority windows there). Leaving declare-attackers with an empty attacker set jumps straight
     // to end-of-combat. Besides matching the real turn shape, this stops every non-attacking turn
     // from burning two empty priority laps across the whole table.
-    if (state.step === "declare-attackers" && (state.combat?.attackers || []).length === 0) {
+    // "If no creatures are DECLARED as attackers or put onto the battlefield attacking" — a creature that was declared
+    // and then removed from combat during the step (destroyed, stolen, phased out, regenerated — CR 506.4 drops its
+    // record) still keeps the steps: the count the declaration recorded when it closed (closeAttackDeclaration) is read
+    // beside the live records, which hold any creature put onto the battlefield attacking.
+    if (state.step === "declare-attackers" && (state.combat?.attackers || []).length === 0 && !(state.combat?.declaredAttackerCount > 0)) {
       const eoc = TURN_SEQUENCE.findIndex((e) => e.step === "end-of-combat");
       if (eoc !== -1) next = TURN_SEQUENCE[eoc];
     }
@@ -765,9 +769,9 @@ export function runStepActions(state) {
       break;
   }
 
-  // Step-boundary triggers (CR 603.2b) and attack triggers (CR 508.3). Attack
-  // triggers fire at the declare-blockers step, when the full attacker batch is
-  // in state.combat.attackers. Enqueued here, then flushed onto the stack below.
+  // Step-boundary triggers (CR 603.2b), enqueued here, then flushed onto the stack below. Attack triggers are NOT
+  // fired at a step entry: they fire when the attack declaration closes, inside the declare attackers step
+  // (closeAttackDeclaration, CR 508.1m / 508.2), and resolve before the declare blockers step begins.
   // KW-FADING / KW-VANISHING (CR 702.32a / 702.63a): at the active player's upkeep, remove a fade/time
   // counter from each of their fading/vanishing permanents and sacrifice per the rule — BEFORE the upkeep
   // triggers flush, so a vanishing permanent's dies-trigger sits correctly in the queue.
@@ -826,28 +830,9 @@ export function runStepActions(state) {
     next = checkStepTriggers(next, "secondMain");
   if (next.step === "main" && (next.phase === "precombat-main" || next.phase === "postcombat-main"))
     next = checkStepTriggers(next, "anyMain"); // CARPET OF FLOWERS (KT-10a): "each of your main phases" — every main, extra ones included
-  if (next.step === "declare-blockers") {
-    next = checkAttackTriggers(next);
-    // NOTE (subsystem 2): block / becomes-blocked / bushido / rampage triggers do NOT fire here — at the
-    // declare-blockers STEP ENTRY combat.blockers is still empty (blocks are declared DURING the step). They
-    // fire in nextStep when LEAVING declare-blockers (blockers fully declared) so they resolve before damage.
-    // The Ur-Dragon variable-count attack trigger (a targeted #319-style hook the compiler can't reach):
-    // resolves draw-that-many + may-cheat-a-permanent synchronously, enqueuing its cardDrawn/ETB sub-triggers
-    // for the same flush below. Fired AFTER checkAttackTriggers so its draw lands after the normal attack-
-    // trigger enqueue, and its own sub-triggers ride the line-302 flush.
-    next = applyUrDragonAttackTriggers(next);
-    // (The Wise Mothman's rad hook is GONE — SHELF C1's "enters or attacks" disjunction split binds the
-    // trigger generically through detectTriggers, so the attack half now rides checkAttackTriggers like
-    // any printed attack trigger. Keeping the hook would double-fire the rad — the coordination note
-    // mothmanRad.js carried from day one.)
-    // KW-ANNIHILATOR (CR 702.86a): "Whenever this creature attacks, defending player sacrifices N permanents."
-    // A #319-style combat hook reusing the SHIPPED edict sacrifice chain — each attacking annihilator obligates
-    // its defending player to sacrifice N permanents of their choice (pooled into one FIFO-safe chain). The
-    // human defender gets a real picker via the learnSession sacrifice-choice loop; an AI auto-sacs its weakest.
-    // May set state.pendingChoice (a human pick), which the session driver settles before combat advances.
-    // No-op when no annihilator is attacking. See annihilator.js for the multi-attacker FIFO rationale.
-    next = applyAnnihilatorTriggers(next);
-  }
+  // (The declare-blockers entry fires nothing of its own. Its block / becomes-blocked / bushido / rampage triggers fire in
+  // nextStep when LEAVING the step — blocks are declared DURING it — and the attack triggers and hooks have already
+  // resolved in the declare attackers step: closeAttackDeclaration.)
 
   if (grantsPriority(next.step)) {
     next = grantPriority(next);
@@ -1011,12 +996,78 @@ export function settleCleanupDiscardChoice(state, cardId) {
   return finishCleanupActions(next);
 }
 
+// ─── The attack declaration (CR 508.1, 508.2) ────────────────────────────────
+
+/**
+ * Is the declare attackers step's attack declaration still open — no action other than declaring an attacker taken in
+ * the step yet? The declaration is recorded closed by combat.declaredAttackerCount (set by closeAttackDeclaration and
+ * dropped with the rest of combat at the end of combat and the beginning of the next).
+ */
+export function attackDeclarationOpen(state) {
+  return state.step === "declare-attackers" && state.combat?.declaredAttackerCount == null;
+}
+
+/**
+ * ATTACK DECLARATION CLOSE (CR 508.1, 508.1m, 508.2, 117.5). The engine takes the active player's attacker declaration one
+ * declare-attacker action at a time; in the rules it is ONE turn-based action, after which the abilities that triggered on
+ * attackers being declared go on the stack and the active player gets priority — all inside the declare attackers step,
+ * before the declare blockers step (whose first act is the defending player's block declaration, CR 509.1) can begin.
+ * So the declaration closes at the first action of the step that is not an attacker declaration: the first pass
+ * (passPriority), a spell or an ability (actionDispatcher.dispatchAction), or a forced advance (nextStep). Here:
+ *   · the size of the declaration is recorded (combat.declaredAttackerCount) — it marks the declaration closed (no attacker
+ *     is offered after it, legalChoices) and keeps the declare blockers and combat damage steps when every declared
+ *     attacker has been removed from combat before the step ends (CR 508.8, advanceStep);
+ *   · the attack triggers are enqueued from the declared batch (checkAttackTriggers), and the two attack hooks the trigger
+ *     compiler cannot reach resolve: The Ur-Dragon's draw and put-onto-the-battlefield, and annihilator's sacrifice (an
+ *     attack trigger too, CR 702.86a) — before any block, so a defender never blocks with a permanent it is about to
+ *     sacrifice;
+ *   · everything pending goes on the stack (CR 603.3), targets chosen as it does (CR 603.3d).
+ * Returns { state, held, resolved }: `resolved` — a hook changed the board (or raised the defender's sacrifice choice);
+ * `held` — that, or something went on the stack. When held, the active player receives priority in the declare attackers
+ * step (CR 508.2) and the step ends only after the stack is empty and every player passes in succession (CR 500.2), so
+ * every attack trigger resolves before blockers are declared. When nothing happened, the board is exactly as the active
+ * player last saw it, and the action that closed the declaration stands.
+ * The creatures a resolving attack trigger puts onto the battlefield attacking were never declared and trigger nothing
+ * (CR 508.3a, 508.4): checkAttackTriggers runs once, here, against the declared batch.
+ */
+export function closeAttackDeclaration(state) {
+  const declared = (state.combat?.attackers || []).length;
+  const recorded = { ...state, combat: { ...state.combat, declaredAttackerCount: declared } };
+  const triggered = checkAttackTriggers(recorded);
+  // The Ur-Dragon variable-count attack trigger (a targeted #319-style hook the compiler can't reach): resolves
+  // draw-that-many + may-put-a-permanent synchronously, enqueuing its cardDrawn / ETB sub-triggers for the flush below.
+  // Fired AFTER checkAttackTriggers so its draw lands after the printed attack triggers' enqueue.
+  // (The Wise Mothman's rad hook is GONE — SHELF C1's "enters or attacks" disjunction split binds the trigger generically
+  // through detectTriggers, so the attack half rides checkAttackTriggers like any printed attack trigger. Keeping the
+  // hook would double-fire the rad — the coordination note mothmanRad.js carried from day one.)
+  let s = applyUrDragonAttackTriggers(triggered);
+  // KW-ANNIHILATOR (CR 702.86a): "Whenever this creature attacks, defending player sacrifices N permanents." A #319-style
+  // combat hook reusing the SHIPPED edict sacrifice chain — each attacking annihilator obligates its defending player to
+  // sacrifice N permanents of their choice (pooled into one FIFO-safe chain). The human defender gets a real picker via
+  // the learnSession sacrifice-choice loop; an AI auto-sacs its weakest. May set state.pendingChoice, which the session
+  // driver settles before anything else happens. No-op when no annihilator is attacking (annihilator.js).
+  s = applyAnnihilatorTriggers(s);
+  const resolved = s !== triggered;
+  s = flushTriggers(s, { chooseTargets: chooseTriggerTargets });
+  const stacked = (s.stack?.length || 0) > (state.stack?.length || 0);
+  return { state: s, held: stacked || resolved, resolved };
+}
+
 /**
  * Advance one step and apply its automatic actions. The common
  * combination. Returns a fresh state at the new step with all
  * automatic effects applied + priority granted if applicable.
  */
 export function nextStep(state) {
+  // ATTACK DECLARATION (CR 508.2) — a forced advance out of an open declaration (the session's no-priority path; a caller
+  // stepping the engine directly) closes it first, exactly as the active player's pass does in passPriority. If anything
+  // triggered or resolved, HOLD in the declare attackers step with the active player's priority, the BLOCK TRIGGERS shape
+  // below; otherwise advance.
+  if (attackDeclarationOpen(state)) {
+    const closed = closeAttackDeclaration(state);
+    if (closed.held) return { ...closed.state, priorityHolder: closed.state.activePlayer, consecutivePasses: 0 };
+    return runStepActions(advanceStep(closed.state));
+  }
   // BLOCK TRIGGERS (subsystem 2, CR 509.4): when LEAVING declare-blockers, blocks are now fully declared
   // (combat.blockers populated by applyDeclareBlocker). Fire block / becomes-blocked / bushido / rampage
   // triggers and flush them onto the stack BEFORE advancing — so they resolve (with priority) ahead of
@@ -1053,31 +1104,41 @@ export function passPriority(state) {
   if (!state.priorityHolder) {
     throw new Error("passPriority called when no player holds priority");
   }
-  const passes = (state.consecutivePasses || 0) + 1;
-  const newHolder = nextInTurnOrder(state, state.priorityHolder);
+  // ATTACK DECLARATION (CR 508.1, 508.2): the first pass of the declare attackers step ends the active player's attacker
+  // declaration. The attack triggers fire and go on the stack; if anything triggered or resolved, the active player gets
+  // priority in the declare attackers step (the pass is spent closing the declaration) and the step holds until the
+  // stack is empty and every player passes. If nothing did, the board is as the passing player saw it and the pass stands.
+  let current = state;
+  if (attackDeclarationOpen(state)) {
+    const closed = closeAttackDeclaration(state);
+    if (closed.held) return { ...closed.state, priorityHolder: closed.state.activePlayer, consecutivePasses: 0 };
+    current = closed.state;
+  }
+  const passes = (current.consecutivePasses || 0) + 1;
+  const newHolder = nextInTurnOrder(current, current.priorityHolder);
 
   // A step ends / the stack resolves only once every player has passed
   // in succession (CR 117.4 / 405.5). Standard = 2 seats; Commander = 4.
   // Any action taken resets consecutivePasses to 0, so this counts a
   // full lap of the table with no one acting.
-  const playerCount = Object.keys(state.players).length;
+  const playerCount = Object.keys(current.players).length;
   if (passes >= playerCount) {
     // Every player passed in succession.
-    if (state.stack.length === 0) {
+    if (current.stack.length === 0) {
       // CR 514.3a — a cleanup step that granted priority ends into ANOTHER cleanup step (the hand-size check, the 514.2
       // tail and the trigger check all run again), never straight into the next turn.
-      if (state.step === "cleanup") return runStepActions({ ...state, priorityHolder: null, consecutivePasses: 0 });
+      if (current.step === "cleanup") return runStepActions({ ...current, priorityHolder: null, consecutivePasses: 0 });
       // Empty stack — step ends. Advance to the next step + apply
       // its automatic actions.
-      return nextStep({ ...state, priorityHolder: null, consecutivePasses: 0 });
+      return nextStep({ ...current, priorityHolder: null, consecutivePasses: 0 });
     }
     // Non-empty stack — top resolves. resolveTopOfStack also resets
     // priority back to the active player.
-    return resolveTopOfStack({ ...state, consecutivePasses: 0 });
+    return resolveTopOfStack({ ...current, consecutivePasses: 0 });
   }
 
   return {
-    ...state,
+    ...current,
     priorityHolder: newHolder,
     consecutivePasses: passes,
   };

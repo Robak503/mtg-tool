@@ -18,15 +18,15 @@
  * white (and Endless Foot Assault's Ninjas black), read from the descriptor at the mint as for every create-token arm
  * (tokenColors.test.js); while every create-token mint was colorless, Honor of the Pure pumped Adeline but not her tokens.
  *
- * Engine timing note: the engine fires attack triggers at the declare-blockers step entry (gameEngine.runStepActions), with no
- * block declared yet, and blocks accumulate one action at a time through that step — so the tokens are blockable once the
- * trigger resolves (the witness declares its blocks after it does), the outcome of the trigger resolving in the declare attackers
- * step.
+ * Engine timing note (RE-POINTED with the attack-trigger timing fix, CR 508.1m / 508.2): the attack triggers fire when the
+ * attacker declaration closes — the active player's first pass of the declare attackers step — and resolve in that step, so
+ * the tokens exist, tapped and attacking, before the declare blockers step begins (attackTriggerTiming.test.js).
  *
  * Real oracle fixtures (bundled Scryfall via cardIndex.publicCard, generated 2026-10-01; the trailing comment is the tier at
  * generation). Every runtime case runs through the engine's own entry points: legalActionsForPlayer + dispatchAction declare
- * attackers and blockers, passPriority walks the table (the declare-blockers entry fires the attack triggers, a full lap of passes
- * resolves the top of the stack, an empty-stack lap advances the step), and the combat damage step deals the damage.
+ * attackers and blockers, passPriority walks the table (the first pass closes the declaration and stacks the attack triggers, a
+ * full lap of passes resolves the top of the stack, an empty-stack lap advances the step), and the combat damage step deals the
+ * damage.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -78,10 +78,12 @@ function table({ seats = 4, boards = {}, gone = null, active = "user" } = {}) {
 }
 
 /**
- * Declare each [attackerId, defenderId, planeswalkerId?] through the offered actions, then pass priority around the table to the
- * declare-blockers step entry (where the engine fires the attack triggers and puts them on the stack — `fired` lists their
- * sources), and keep passing until the stack is empty. Returns the state still inside the declare-blockers step. A two-seat
- * game offers the attack without a defenderId (the dispatcher fills the lone opponent).
+ * Declare each [attackerId, defenderId, planeswalkerId?] through the offered actions, then pass: the first pass closes the
+ * declaration and puts the attack triggers on the stack in the declare attackers step (`fired` lists their sources), and the
+ * passes that follow resolve them there; the declare-blockers step begins once the stack is empty. Returns the state at the
+ * declare-blockers step entry. A two-seat game offers the attack without a defenderId (the dispatcher fills the lone opponent).
+ * RE-POINTED (the attack-trigger timing fix, CR 508.1m / 508.2): the triggers used to be read off the stack at the
+ * declare-blockers entry, where they fired.
  */
 function attack(s, picks) {
   const attacker = s.activePlayer;
@@ -91,10 +93,10 @@ function attack(s, picks) {
     if (!action) throw new Error(`no declare-attacker action offered for ${id} → ${def}${pw ? `/${pw}` : ""}`);
     s = dispatchAction(s, action);
   }
-  let g = 0;
-  while (s.step === "declare-attackers" && g++ < 20) s = passPriority(s);
+  s = passPriority(s);
   const fired = s.stack.map((o) => o.source?.name);
-  while (s.stack.length && g++ < 80) s = passPriority(s);
+  let g = 0;
+  while (s.step === "declare-attackers" && g++ < 80) s = passPriority(s);
   return { s, fired };
 }
 /** Pass priority to the end of combat (combat damage is dealt on the way); combat.attackers is cleared there. */

@@ -35,13 +35,21 @@
  * controller before the first theft, which for an unstamped permanent is its owner — is the owner to write
  * on its next move, home or to another thief.
  *
- * ⛔ ZERO IMPORTS. `controlAura.js` calls this and is itself called from `gameState.js`, the lowest layer —
- * any import here would risk a cycle back into that. Pure data in, pure data out; no closures, so a game
- * serialized mid-resolution restores byte-identical.
+ * ⛔ REMOVED FROM COMBAT (CR 506.4 — "A permanent is removed from combat … if its controller changes"). A creature
+ * that changes hands mid-combat stops attacking or blocking. An attacker loses its state.combat.attackers record (no
+ * block is offered against it, it deals no combat damage, and its new controller may block with it if it is untapped);
+ * a blocker keeps its block records — the attacker it blocked remains blocked, CR 509.1h — and is stamped
+ * `removedFromCombat`, which combat damage and every "blocking creature" read honor (combatRemoval.js).
+ *
+ * ⛔ ONE IMPORT, AND IT IS A ZERO-IMPORT LEAF. `controlAura.js` calls this and is itself called from `gameState.js`,
+ * the lowest layer — any other import here would risk a cycle back into that. combatRemoval.js imports nothing, so
+ * the graph stays acyclic. Pure data in, pure data out; no closures, so a game serialized mid-resolution restores
+ * byte-identical.
  *
  * Callers keep what is THEIRS: the gain-control atom keeps its own event log and soulbond teardown, the
  * Aura path keeps its control-stash fields. Only the move itself is shared.
  */
+import { withoutAttackerRecord, hasBlockerRecord } from "./combatRemoval.js";
 
 /**
  * Move `permId` to `toController`'s battlefield. Returns the state unchanged when the permanent cannot be
@@ -64,15 +72,18 @@ export function moveControl(state, permId, toController, extra = {}) {
   if (!perm) return state;
   // OWNER (CR 110.2 / 400.3 — see the header): the existing stamp, else (a pre-stamp save) the stashed original controller,
   // else the seat it is leaving. Last, so `extra` can't replace it.
-  const moved = { ...perm, controller: toController, summoningSick: true, ...extra, owner: perm.owner ?? perm.controlOriginal ?? from };
-  return {
+  // A BLOCKER is stamped out of combat (CR 506.4, see the header); its block records stay.
+  const blocking = hasBlockerRecord(state, permId) ? { removedFromCombat: true } : {};
+  const moved = { ...perm, controller: toController, summoningSick: true, ...blocking, ...extra, owner: perm.owner ?? perm.controlOriginal ?? from };
+  // An ATTACKER's record leaves state.combat.attackers (CR 506.4, see the header).
+  return withoutAttackerRecord({
     ...state,
     players: {
       ...players,
       [from]: { ...fromPlayer, battlefield: fromPlayer.battlefield.filter((p) => p.id !== permId) },
       [toController]: { ...toPlayer, battlefield: [...toPlayer.battlefield, moved] },
     },
-  };
+  }, permId);
 }
 
 /** Which player currently controls `permId`? null when it is not on any battlefield. Shared so callers

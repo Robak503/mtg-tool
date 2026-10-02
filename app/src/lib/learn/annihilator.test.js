@@ -2,8 +2,8 @@
  * annihilator.test.js — KW-ANNIHILATOR (CR 702.86a): "Whenever this creature attacks, defending player
  * sacrifices N permanents."  The Eldrazi forced-mass-sacrifice attack keyword.
  *
- * A #319-style combat hook (annihilator.js) fired at the declare-blockers transition alongside
- * checkAttackTriggers, reusing the SHIPPED edict sacrifice chain (advanceSacrificeChain): each attacking
+ * A #319-style combat hook (annihilator.js) fired when the attack declaration closes, in the declare attackers step,
+ * alongside checkAttackTriggers, reusing the SHIPPED edict sacrifice chain (advanceSacrificeChain): each attacking
  * annihilator obligates its defending player to sacrifice N permanents of their choice. Engine-first — the
  * defender must ACTUALLY lose N permanents at runtime (forced when ≤1 per pick, a real choice when ≥2: a
  * human picks via the learnSession sacrifice-choice loop, the AI auto-sacs its least-valuable), or the card
@@ -17,7 +17,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { parseAnnihilator, applyAnnihilatorTriggers } from "./annihilator.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
-import { runStepActions, resolveTopOfStack } from "./gameEngine.js";
+import { passPriority, resolveTopOfStack } from "./gameEngine.js";
 import { autoPickSacrificeCandidate, resolveSacrificeChoice } from "./effects/runProgram.js";
 import { classifyCard } from "./coverage.js";
 
@@ -174,10 +174,16 @@ describe("applyAnnihilatorTriggers — the defender sacrifices N permanents (run
   });
 });
 
-describe("Annihilator — end-to-end through the engine (runStepActions @ declare-blockers)", () => {
-  it("at the declare-blockers transition: the defender's sacrifice chain is set up, then resolves to lose N", () => {
-    let s = st({ userBf: [annCreature("e", 2)], aiBf: [land("La"), dork("db", 3), dork("dc", 1)], attackers: [atk("e")] });
-    s = runStepActions(s);                                                   // fires checkAttackTriggers + the annihilator hook
+// RE-POINTED (the attack-trigger timing fix, CR 508.1m / 508.2 / 702.86a): the hook used to fire at the declare-blockers step
+// entry (runStepActions); it fires when the attacker declaration closes — the active player's first pass of the declare
+// attackers step (gameEngine.closeAttackDeclaration) — so the defender sacrifices before any block is declared.
+describe("Annihilator — end-to-end through the engine (the attack declaration closing in the declare attackers step)", () => {
+  const atDeclareAttackers = (opts) => ({ ...st(opts), step: "declare-attackers", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0, stack: [] });
+
+  it("at the declaration close: the defender's sacrifice chain is set up, then resolves to lose N", () => {
+    let s = atDeclareAttackers({ userBf: [annCreature("e", 2)], aiBf: [land("La"), dork("db", 3), dork("dc", 1)], attackers: [atk("e")] });
+    s = passPriority(s);                                                     // the first pass closes the declaration: checkAttackTriggers + the annihilator hook
+    expect(s.step).toBe("declare-attackers");                                // …inside the declare attackers step
     expect(s.pendingChoice?.kind).toBe("sacrifice-choice");                  // a real ≥2 choice was set up
     s = drainAISacChain(s);                                                  // the driver auto-resolves the AI defender's picks
     expect(s.players.ai.battlefield).toHaveLength(1);                        // sacrificed 2 of 3
@@ -192,9 +198,9 @@ describe("Annihilator — end-to-end through the engine (runStepActions @ declar
       card: { id: "c-dy", name: "Blood Artist Lite", type: "Creature — Vampire", power: 0, toughness: 1, cmc: 1, oracle: "When this creature dies, each opponent loses 1 life." },
       controller: "ai",
     });
-    let s = st({ userBf: [annCreature("e", 1)], aiBf: [dyer], attackers: [atk("e")] });
+    let s = atDeclareAttackers({ userBf: [annCreature("e", 1)], aiBf: [dyer], attackers: [atk("e")] });
     const userLifeBefore = s.players.user.life;
-    s = runStepActions(s);                                                   // ann1, 1 permanent → FORCED sac of the dyer
+    s = passPriority(s);                                                     // ann1, 1 permanent → FORCED sac of the dyer at the declaration close
     // Forced single sac happened inline (no pause); resolve any enqueued death trigger off the stack.
     let g = 0;
     while ((s.stack || []).length && g++ < 20) s = resolveTopOfStack(s);

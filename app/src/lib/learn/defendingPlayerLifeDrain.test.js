@@ -20,7 +20,7 @@ import { detectTriggers, checkAttackTriggers } from "./triggers.js";
 import { triggerRoutesNatively } from "./triggerRouting.js";
 import { parseEffectClause, programConfidence } from "./effects/parser.js";
 import { classifyCard, spellIsNative } from "./coverage.js";
-import { runStepActions, resolveTopOfStack } from "./gameEngine.js";
+import { passPriority, resolveTopOfStack } from "./gameEngine.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -134,10 +134,12 @@ describe("runtime: attacking fires the defendingPlayer drain on the RIGHT player
   it("declare attack → resolve → the DEFENDING player (not the attacker) loses 2 life", () => {
     const skimmer = permObj(creature("Skimmer", "Whenever Skimmer attacks, defending player loses 2 life.", { id: "card-s" }), "user", "perm-s", { tapped: true });
     const state = placePerms(
-      stateWith({ phase: "combat", step: "declare-blockers", activePlayer: "user", combat: { attackers: [{ permanentId: "perm-s", attackingPlayer: "user", defender: "ai" }], blockers: [] } }),
+      stateWith({ phase: "combat", step: "declare-attackers", activePlayer: "user", combat: { attackers: [{ permanentId: "perm-s", attackingPlayer: "user", defender: "ai" }], blockers: [] } }),
       [skimmer],
     );
-    const out = runStepActions(state);
+    // RE-POINTED (the attack-trigger timing fix, CR 508.1m / 508.2): the attack trigger fires when the declaration closes — the
+    // active player's first pass of the declare attackers step — not at the declare-blockers step entry.
+    const out = passPriority(state);
     const trig = triggerOnStack(out);
     expect(trig).toBeTruthy();
     expect(trig.payload.resolver).toBe("effect-program");
@@ -154,10 +156,10 @@ describe("runtime: attacking fires the defendingPlayer drain on the RIGHT player
   it("compound: defender loses 1 AND the attacker's controller gains 1", () => {
     const assassin = permObj(creature("Assassin", "Whenever Assassin attacks, defending player loses 1 life and you gain 1 life.", { id: "card-a" }), "user", "perm-a", { tapped: true });
     const state = placePerms(
-      stateWith({ phase: "combat", step: "declare-blockers", activePlayer: "user", combat: { attackers: [{ permanentId: "perm-a", attackingPlayer: "user", defender: "ai" }], blockers: [] } }),
+      stateWith({ phase: "combat", step: "declare-attackers", activePlayer: "user", combat: { attackers: [{ permanentId: "perm-a", attackingPlayer: "user", defender: "ai" }], blockers: [] } }),
       [assassin],
     );
-    const out = runStepActions(state);
+    const out = passPriority(state); // RE-POINTED: the declaration closes at the active player's first pass (see above)
     const trig = triggerOnStack(out);
     expect(trig).toBeTruthy();
     const ops = trig.payload.params.program.atoms.map((a) => a.op);

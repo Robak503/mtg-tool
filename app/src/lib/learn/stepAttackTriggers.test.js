@@ -1,14 +1,15 @@
 /**
  * Tests for step + attack triggers (Phase-7 PR-8).
  *
- * checkStepTriggers (CR 603.2b, "your upkeep" gated by whose) and
- * checkAttackTriggers (CR 508.3, full attacker batch) wired into runStepActions,
- * which flushes them onto the stack at the priority-grant checkpoint.
+ * checkStepTriggers (CR 603.2b, "your upkeep" gated by whose) wired into runStepActions, and
+ * checkAttackTriggers (CR 508.3, full attacker batch) wired into the attack declaration's close
+ * (passPriority / nextStep / dispatchAction in the declare attackers step); each flushes its triggers
+ * onto the stack at the priority-grant checkpoint.
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { checkStepTriggers, checkAttackTriggers, detectTriggers } from "./triggers.js";
-import { runStepActions, resolveTopOfStack } from "./gameEngine.js";
+import { passPriority, runStepActions, resolveTopOfStack } from "./gameEngine.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
 import { classifyCard } from "./coverage.js";
 
@@ -89,13 +90,17 @@ describe("wired into runStepActions", () => {
     expect(triggerOnStack(runStepActions(state))).toBeFalsy();
   });
 
-  it("the declare-blockers step flushes an attack trigger from the declared batch", () => {
+  // RE-POINTED (the attack-trigger timing fix, CR 508.1m / 508.2): attack triggers no longer fire at the declare-blockers step
+  // entry. They fire when the attacker declaration closes — the active player's first pass of the declare attackers step — and
+  // the step holds for them with the active player's priority (attackTriggerTiming.test.js).
+  it("the attack declaration closing (the first pass of the declare attackers step) flushes an attack trigger from the declared batch", () => {
     const raider = permObj(creature("Raider", "Whenever Raider attacks, you gain 1 life.", { id: "card-r" }), "user", "perm-r", { tapped: true });
     const state = placePerms(
-      stateWith({ phase: "combat", step: "declare-blockers", activePlayer: "user", combat: { attackers: [{ permanentId: "perm-r", attackingPlayer: "user", defender: "ai" }], blockers: [] } }),
+      stateWith({ phase: "combat", step: "declare-attackers", activePlayer: "user", combat: { attackers: [{ permanentId: "perm-r", attackingPlayer: "user", defender: "ai" }], blockers: [] } }),
       [raider],
     );
-    const out = runStepActions(state);
+    const out = passPriority(state);
+    expect({ step: out.step, holder: out.priorityHolder }).toEqual({ step: "declare-attackers", holder: "user" });
     const trig = triggerOnStack(out);
     expect(trig).toBeTruthy();
     expect(trig.payload.resolver).toBe("effect-program");

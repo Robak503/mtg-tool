@@ -71,7 +71,7 @@ function pitchRandomHandCard(working, playerId, excludeId, kind) {
   return checkDiscardTriggers(next, playerId, [pick.id]);
 }
 import { tutorManaValue } from "./effects/atoms/library.js"; // γ1i (CAP14) — the shared MV reader the tutor / free-cast paths use, so "mana value" means ONE thing engine-wide
-import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
+import { passPriority, flushTriggers, chooseTriggerTargets, attackDeclarationOpen, closeAttackDeclaration } from "./gameEngine.js";
 import { manaSources, planPayment, sourcesExcludingOneShotVictim, castPaymentSources, commitPaymentPlan, commitManaTap, payManaCost, manaActivationCost, payActivationFromPool } from "./manaModel.js";
 import { conditionalEntersTapped, paysLifeOrEntersTapped, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>" + the shockland pay-life clause (a leaf over interveningIf; cycle-free)
 import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT dispatch hook (audit.js imports only the delayed-trigger leaf, cycle-free)
@@ -2410,7 +2410,21 @@ export function dispatchAction(state, action) {
   if (!handler) {
     throw new DispatcherError(`Unknown action kind: ${action.kind}`, "BAD_ACTION");
   }
-  const next = handler(state, action);
+  // ATTACK DECLARATION (CR 508.1, 508.2): in the declare attackers step, any action other than declaring an attacker ends
+  // the declaration FIRST (a pass ends it inside passPriority). Its attack triggers go on the stack before the action is
+  // taken, so a spell the active player casts in the step lands above them — the only order the rules allow, since the
+  // triggers are put on the stack before anyone receives priority (CR 117.5). When an attack hook resolved instead (a
+  // sacrifice, a draw, a permanent put onto the battlefield), the board the action was chosen on is gone: the action is
+  // not taken, and the active player decides again with priority (CR 508.2).
+  let next;
+  if (action.kind !== "declare-attacker" && action.kind !== "pass-priority" && attackDeclarationOpen(state)) {
+    const closed = closeAttackDeclaration(state);
+    next = closed.resolved
+      ? { ...closed.state, priorityHolder: closed.state.activePlayer, consecutivePasses: 0 }
+      : handler(closed.state, action);
+  } else {
+    next = handler(state, action);
+  }
   // QUARTET PHASE 3 — the invariant auditor (MTG_AUDIT=1, off by default per the plan's staging: the
   // always-on-in-tests flip waits for the backfill). A violation after an action is engine corruption
   // at its FIRST observable moment — throw the diagnosis, never let it propagate silently.

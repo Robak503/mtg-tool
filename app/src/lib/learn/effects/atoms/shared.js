@@ -11,6 +11,7 @@ import { MASS_WIPE_SCOPES } from "../../targetTypes.js"; // leaf module (pure st
 import { permanentIsCreature, permanentHasCardType, domainCount, partyCount, permIsEveryCreatureType, deriveCharacteristics } from "../../layers.js"; // + permanentHasCardType (#651): the layer-aware, face-up land read of the opponents' nonland set // + deriveCharacteristics (#587): a permanent's copiable values + layer-4 types for the nonland mana-value set // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import)
 import { creatureSatisfiesRestrictions } from "../../creatureRestrictions.js"; // the SHARED 16-kind restriction satisfier (leaf: gameState + layers + keywords only — every one of those edges already exists above, so no cycle)
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // P·39 — every creature type answers for a CREATURE type only (CR 205.3d); a zero-import leaf
+import { isBlockingCreature } from "../../combatRemoval.js"; // CR 506.4 — the one "is it a blocking creature" read (a zero-import leaf)
 import { evaluateInterveningIf } from "../../interveningIf.js"; // INSTEAD-AMOUNT (BLITZ INST-1) — the shared board-condition readers for a condition-gated amountUpgrade; interveningIf → gameState is a leaf edge (gameState imports neither shared.js nor interveningIf), so no cycle
 
 export const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
@@ -460,7 +461,10 @@ export const atomTargets = (state, atom, ctx) => {
       .filter((t) => (state.combat?.attackers || []).some((a) => a.permanentId === t.id))
       .filter((t) => !(atom.excludeSource && ctx?.sourceId && t.id === ctx.sourceId));
   }
-  if (atom.scope === "blockingCreatures") return massCreatureTargets(state).filter((t) => (state.combat?.blockers || []).some((b) => b.blockerId === t.id));
+  // A blocker REMOVED from combat (CR 506.4 — its controller changed, it regenerated) keeps its block records, so the
+  // attacker it blocked stays blocked (CR 509.1h), but it is no longer a blocking creature: isBlockingCreature reads the
+  // removedFromCombat stamp it carries (combatRemoval.js — the one "is it blocking" read).
+  if (atom.scope === "blockingCreatures") return massCreatureTargets(state).filter((t) => isBlockingCreature(state, findPermanent(state, t.id)?.permanent));
   if (atom.target === "self") return selfTargets(state, ctx);
   if (atom.target === "thatCreature") return triggeringTargets(state, ctx);
   // PERMANENT-WIDE triggering referent (Amulet of Vigor's "untap IT" on an entering land) — see

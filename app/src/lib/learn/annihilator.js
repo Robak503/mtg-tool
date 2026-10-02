@@ -3,13 +3,14 @@
  *
  *   "Annihilator N" = "Whenever this creature attacks, defending player sacrifices N permanents."
  *
- * The defending player CHOOSES which N permanents to give up (CR 701.16 — a sacrifice; the sacrificing
+ * The defending player CHOOSES which N permanents to give up (CR 701.21a — a sacrifice; the sacrificing
  * player picks). This is the Eldrazi keyword (Ulamog/Kozilek/the legacy Eldrazi titans + the cheaper
  * Annihilator 1/2 bodies); the attack trigger has no "draw"/"deal"/etc. payoff — it is purely the forced
  * mass sacrifice, so it can't ride the generic trigger compiler (parseTriggerEffect has no
  * "defending player sacrifices N permanents" atom, and the count is keyword-derived). A targeted #319-style
- * runtime hook, fired synchronously at the declare-blockers transition alongside checkAttackTriggers /
- * applyUrDragonAttackTriggers — the same combat-trigger seam, reusing the SHIPPED edict sacrifice chain.
+ * runtime hook, fired synchronously when the attack declaration closes in the declare attackers step
+ * (gameEngine.closeAttackDeclaration) alongside checkAttackTriggers / applyUrDragonAttackTriggers — the same
+ * combat-trigger seam, reusing the SHIPPED edict sacrifice chain. The defender sacrifices before any block.
  *
  * WHY REUSE advanceSacrificeChain (effects/atoms/removal.js) RATHER THAN A NEW EFFECT:
  *   The edict chain already models EXACTLY "player(s) each sacrifice a permanent of their choice" — the
@@ -32,8 +33,8 @@
  *
  * CR: 702.86a (annihilator triggers on attack; the defending player sacrifices N permanents of their choice);
  * 702.86b (multiple instances trigger separately — summed per attacker here); 508.3a (an attack trigger fires
- * when attackers are declared — the full batch is in state.combat.attackers at declare-blockers); 701.16 (the
- * sacrificing player chooses what to sacrifice).
+ * when attackers are declared — the full batch is in state.combat.attackers when the declaration closes); 701.21a
+ * (sacrifice — the sacrificing player chooses what to sacrifice).
  *
  * Pure: regex + board reads; returns a new state (possibly carrying state.pendingChoice for a human picker).
  */
@@ -65,7 +66,7 @@ export function parseAnnihilator(card) {
 }
 
 /**
- * At the declare-blockers transition (the full attacker batch is in state.combat.attackers), each attacking
+ * When the attack declaration closes (the full attacker batch is in state.combat.attackers), each attacking
  * creature with "Annihilator N" obligates ITS defending player to sacrifice N permanents of their choice.
  * Pools every attacker's obligation into one sacrifice chain (FIFO-safe — see the module header) and walks it
  * once: a defender with ≤1 permanent per pending pick has it forced; with ≥2 a real choice pauses for a human
@@ -90,7 +91,7 @@ export function applyAnnihilatorTriggers(state) {
     sources.push(perm?.card?.name || "creature");
     // The defending player sacrifices N permanents of their choice — N queue entries (one permanent apiece),
     // each with the any-permanent pool. advanceSacrificeChain re-reads the board per pick, so N entries for
-    // the same defender sacrifice N distinct permanents one at a time (CR 701.16 — their choice each time).
+    // the same defender sacrifice N distinct permanents one at a time (CR 701.21a — their choice each time).
     for (let i = 0; i < spec.n; i++) queue.push({ playerId: defender, what: "permanent" });
   }
   if (!queue.length) return state;

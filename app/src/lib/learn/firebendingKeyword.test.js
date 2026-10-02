@@ -26,7 +26,7 @@ import { classifyCard } from "./coverage.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { advanceStep, runStepActions, resolveTopOfStack, emptyManaPools } from "./gameEngine.js";
+import { advanceStep, nextStep, runStepActions, resolveTopOfStack, emptyManaPools } from "./gameEngine.js";
 
 const REM = (n) => `Firebending ${n} (Whenever this creature attacks, add ${"{R}".repeat(n)}. This mana lasts until end of combat.)`;
 const SAGE = { name: "Fire Sages", type: "Creature — Human Cleric", mana: "{1}{R}", power: 2, toughness: 2, keywords: [], oracle: REM(1) };
@@ -91,8 +91,11 @@ describe("RUNTIME — the mana is really added, really survives combat, and real
       players: { ...s.players, user: { ...s.players.user, battlefield: [p] } } };
     const atk = legalActionsForPlayer(st, "user").find((a) => a.kind === "declare-attacker" && a.permanentId === "f");
     st = dispatchAction(st, atk);
-    // Attack triggers fire at DECLARE-BLOCKERS step entry, not on the declare action itself.
-    st = runStepActions(advanceStep(st));
+    // Attack triggers fire when the attacker declaration closes, not on the declare action itself. RE-POINTED (the attack-trigger
+    // timing fix, CR 508.1m / 508.2): the engine's step advance closes the declaration and stacks the trigger INSIDE the declare
+    // attackers step (it used to fire at the declare-blockers step entry), so the red is added there and the hold carries it
+    // across that step's end.
+    st = nextStep(st);
     let g = 0; while (st.stack.length && g++ < 10) st = resolveTopOfStack(st);
     return st;
   }

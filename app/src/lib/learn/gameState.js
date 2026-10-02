@@ -35,6 +35,7 @@ import { auraHasTotemArmor, grantsUmbraArmorToAuras, isAuraCard, othersEnterWith
 import { applyControlAuraAttach, revertControlAura } from "./controlAura.js"; // CR 613.1b control Auras — a ZERO-IMPORT leaf, so this lowest-layer module can call it without a cycle
 import { colorIdentityOfCards } from "./commanderIdentity.js"; // CR 903.4a — the seat's commander color identity, stamped at game start (a zero-import leaf)
 import { moveControl } from "./controlMove.js"; // THE one control move, shared by the control Auras and the gain-control atom; controlMove imports nothing, so this stays acyclic
+import { withoutAttackerRecord } from "./combatRemoval.js"; // CR 506.4 — the one attacker-record drop (a zero-import leaf, so the lowest layer stays acyclic)
 
 // ─── ID generation ────────────────────────────────────────────────────────────
 
@@ -1378,6 +1379,12 @@ function recordLeaveEvent(state, permanent, toGraveyard, toZone = null) {
 export function detachPermanentFromAll(state, permanent, toGy = false, toZone = null) {
   if (!permanent) return state;
   let next = recordLeaveEvent(state, permanent, toGy, toZone);
+  // REMOVED FROM COMBAT (CR 506.4 — "A permanent is removed from combat if it leaves the battlefield"): an attacking creature
+  // that leaves stops being an attacking creature, so its record leaves state.combat.attackers here, at the single
+  // battlefield-exit chokepoint (destroy, sacrifice, bounce, exile, a token ceasing to exist). No block is offered against it
+  // and nothing reads it as attacking. A departing BLOCKER's records stay (combatRemoval.js): the attacker it blocked
+  // remains blocked (CR 509.1h).
+  next = withoutAttackerRecord(next, permanent.id);
   // SOULBOND teardown (BLITZ SL-1, CR 702.95e) — a paired creature LEAVING the battlefield unpairs its partner.
   // Clear the partner's back-reference so its soulbond carrier stops conferring the bond (layers.staticEffectsOf
   // reads soulbondPartner). The leaving permanent's own field departs with it. This is the single battlefield-
@@ -1496,14 +1503,18 @@ export function regeneratePermanent(state, permanentId) {
   const transitions = !!lk && !lk.permanent.tapped;
   // FIRST-TAP-THIS-TURN — mirrored from tapPermanent (this is the one tap site that bypasses it).
   const firstThisTurn = transitions && !lk.permanent.becameTappedThisTurn;
-  const next = updatePermanent(state, permanentId, p => ({
+  // CR 701.19a "If it's an attacking or blocking creature, remove it from combat" (CR 506.4): a regenerated attacker also
+  // loses its attacker record, so no block is offered against it and no "attacking creature" effect reads it. A blocker's
+  // records stay (combatRemoval.js — the attacker remains blocked, CR 509.1h); the removedFromCombat stamp takes it out of
+  // combat damage and out of every "blocking creature" read.
+  const next = withoutAttackerRecord(updatePermanent(state, permanentId, p => ({
     ...p,
     regenShields: Math.max(0, (p.regenShields || 0) - 1),
     damageMarked: 0,
     tapped: true,
     ...(transitions ? { becameTappedThisTurn: true } : {}),
     ...(inCombat ? { removedFromCombat: true } : {}),
-  }));
+  })), permanentId);
   if (!transitions) return next;
   return { ...next, pendingTapEvents: [...(next.pendingTapEvents || []), { id: permanentId, controller: lk.controller, firstThisTurn }] };
 }

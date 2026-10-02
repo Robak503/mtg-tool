@@ -24,8 +24,9 @@
  *
  * Real oracle fixtures (bundled Scryfall via cardIndex.publicCard, generated 2026-10-01; the trailing comment is the tier at
  * generation). Every runtime case runs through the engine's own entry points: legalActionsForPlayer + dispatchAction declare
- * attackers and cast spells, passPriority walks the table (the declare-blockers entry fires the attack triggers, a full lap of
- * passes resolves the top of the stack, an empty-stack lap advances the step), nextStep leaves the priority-less cleanup.
+ * attackers and cast spells, passPriority walks the table (the first pass of the declare attackers step closes the declaration
+ * and fires the attack triggers there, a full lap of passes resolves the top of the stack, an empty-stack lap advances the
+ * step), nextStep leaves the priority-less cleanup.
  * Cases marked SYNTHETIC build a state no natively modeled card reaches in that window today (each guards a false positive the
  * rules forbid); each one is labelled where it stands.
  */
@@ -114,17 +115,18 @@ function priorityTo(s, pid) {
 }
 
 /**
- * Declare each [attackerId, defenderId, planeswalkerId?] for the active player through the offered actions, then pass priority
- * to the declare-blockers step entry, where the engine fires the attack triggers and puts them on the stack. Returns that
- * state (triggers still on the stack) and the names of what went on the stack.
+ * Declare each [attackerId, defenderId, planeswalkerId?] for the active player through the offered actions, then pass once: the
+ * first pass of the declare attackers step closes the declaration, and the engine fires the attack triggers and puts them on
+ * the stack there (CR 508.1m / 508.2). Returns that state (triggers still on the stack, the active player holding priority) and
+ * the names of what went on the stack.
+ * RE-POINTED (the attack-trigger timing fix): the triggers used to be read at the declare-blockers step entry, where they fired.
  */
 function declare(s, picks) {
   const attacker = s.activePlayer;
   for (const [id, def, pw = null] of picks) {
     s = act(s, attacker, (a) => a.kind === "declare-attacker" && a.permanentId === id && (a.defenderId ?? def) === def && (a.defenderPlaneswalkerId ?? null) === pw);
   }
-  let g = 0;
-  while (s.step === "declare-attackers" && g++ < 20) s = passPriority(s);
+  s = passPriority(s);
   return { s, fired: triggersOnStack(s) };
 }
 

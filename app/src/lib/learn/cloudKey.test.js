@@ -23,7 +23,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { finalizeStackResolution, resolveTopOfStack, runStepActions } from "./gameEngine.js";
+import { finalizeStackResolution, passPriority, resolveTopOfStack } from "./gameEngine.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { resolveTutorChoice } from "./effects/runProgram.js";
 import { classifyCard, isKeywordOnly } from "./coverage.js";
@@ -372,12 +372,14 @@ describe("⭐ the choice on every entry — not only when it is cast (CR 614.12a
 
   it("⭐ put onto the battlefield from the hand by The Ur-Dragon's attack trigger: the choice is made, the Key left out of the hand's count", () => {
     const g = createGameState({ userDeck: [], aiDeck: [] });
-    const s0 = { ...g, turn: 5, activePlayer: "user", priorityHolder: "user", phase: "combat", step: "declare-blockers", stack: [], pendingTriggers: [],
+    const s0 = { ...g, turn: 5, activePlayer: "user", priorityHolder: "user", phase: "combat", step: "declare-attackers", stack: [], pendingTriggers: [],
       combat: { attackers: [{ permanentId: "shivan", attackingPlayer: "user", defender: "ai" }], blockers: [] },
       players: { ...g.players, user: { ...g.players.user, battlefield: [P("ur", UR_DRAGON), P("shivan", SHIVAN_DRAGON)], hand: [H("ck", CLOUD_KEY)], library: [H("b", LIGHTNING_BOLT)] },
         ai: { ...g.players.ai, battlefield: [], hand: [], library: [] } } };
     // One Dragon attacked: the Bolt is drawn, then the Key is put in. Counted, the Key would tie Artifact 1 = Instant 1 → Artifact.
-    const s = runStepActions(s0);
+    // RE-POINTED (the attack-trigger timing fix, CR 508.1m / 508.2): the Ur-Dragon hook runs when the attacker declaration closes —
+    // the active player's first pass of the declare attackers step — not at the declare-blockers step entry.
+    const s = passPriority(s0);
     const row = { keys: keysOn(s), hand: s.players.user.hand.map((c) => c.id), errors: errors(s).length };
     console.log("  WITNESS urDragon", JSON.stringify(row));
     expect(row).toEqual({ keys: [{ token: false, chosenCardType: "Instant", chosenType: undefined }], hand: ["b"], errors: 0 });

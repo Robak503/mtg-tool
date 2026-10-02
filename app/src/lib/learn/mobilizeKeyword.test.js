@@ -25,7 +25,7 @@ import { classifyCard } from "./coverage.js";
 import { _resetIdsForTests, createGameState, createPermanent, moveCardToZone } from "./gameState.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { advanceStep, runStepActions, resolveTopOfStack } from "./gameEngine.js";
+import { advanceStep, nextStep, runStepActions, resolveTopOfStack } from "./gameEngine.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -73,8 +73,10 @@ describe("RUNTIME — the tokens are REAL attackers, not inert permanents", () =
       players: { ...s.players, user: { ...s.players.user, battlefield: [z] } } };
     const atk = legalActionsForPlayer(st, "user").find((a) => a.kind === "declare-attacker" && a.permanentId === "z");
     st = dispatchAction(st, atk);
-    // Attack triggers fire at DECLARE-BLOCKERS step entry, not on the declare action itself.
-    st = runStepActions(advanceStep(st));
+    // Attack triggers fire when the attacker declaration closes, not on the declare action itself. RE-POINTED (the attack-trigger
+    // timing fix, CR 508.1m / 508.2): the engine's step advance closes the declaration and stacks the trigger inside the declare
+    // attackers step (it used to fire at the declare-blockers step entry), so the Warriors attack before blocks are declared.
+    st = nextStep(st);
     let g = 0; while (st.stack.length && g++ < 10) st = resolveTopOfStack(st);
     return st;
   }
@@ -133,7 +135,7 @@ describe("ADVERSARIAL — the tokens are independent of their source", () => {
     let s = { ...s0, phase: "combat", step: "declare-attackers", activePlayer: "user", priorityHolder: "user", turn: 5,
       players: { ...s0.players, user: { ...s0.players.user, battlefield: [z] } } };
     s = dispatchAction(s, legalActionsForPlayer(s, "user").find((a) => a.kind === "declare-attacker"));
-    s = runStepActions(advanceStep(s));
+    s = nextStep(s); // RE-POINTED: the declaration closes at the engine's step advance (see attackingBoard)
     let g = 0; while (s.stack.length && g++ < 10) s = resolveTopOfStack(s);
 
     s = moveCardToZone(s, { playerId: "user", fromZone: "battlefield", toZone: "graveyard", cardId: "z" });
