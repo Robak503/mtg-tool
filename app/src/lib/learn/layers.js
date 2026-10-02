@@ -2289,6 +2289,22 @@ export function permanentHasCardType(state, permanentId, cardType) {
   return chars.appliedEffects.some((e) => (e.op?.types || []).includes(want));
 }
 
+/**
+ * MANA VALUE OF A PERMANENT (CR 202.3) — read off the object on the battlefield: the copiable values when a layer-1 copy effect
+ * applies (the mana cost is a copiable value, CR 707.2, 613.1a — a Mizzium Transreliquat that became a copy of Sol Ring has mana
+ * value 1), else the card. `cmc` is Scryfall's mana value: a double-faced card's front face (the face the engine has up, CR
+ * 712.8d), an adventurer's creature card (CR 715.4), {X} counted as 0 (CR 202.3e). No `cmc` reads 0 (CR 202.3a): a token that
+ * isn't a copy has no mana cost (CR 202.1b), nor has a face-down permanent's stand-in (CR 708.2a). `perm` is the permanent object;
+ * one the battlefield no longer holds reads its own card.
+ *
+ * The one reader for "mana value N or less" on the battlefield: the targeted manaValue restriction
+ * (creatureRestrictions.creatureSatisfiesRestrictions — Abrupt Decay, Eliminate, Despark) and the mass set
+ * (effects/atoms/shared.nonlandPermanentsWithManaValueAtMost — Culling Ritual) both ask it.
+ */
+export function permanentManaValue(state, perm) {
+  return (deriveCharacteristics(state, perm?.id).copiableValues || perm?.card)?.cmc ?? 0;
+}
+
 /** RECONFIGURE (CR 702.151) is a property of the printed CARD, read off its oracle — one read shared by the layer-4 half
  * (an attached reconfigure Equipment is not a creature) and the CR 301.5c exception below. */
 export function hasReconfigure(card) {

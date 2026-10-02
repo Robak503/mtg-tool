@@ -21,7 +21,7 @@
  * delegation that follows it.
  */
 import { creaturePower, creatureToughness, findPermanent } from "./gameState.js";
-import { permanentColors, permanentColorsIfKnown, permanentHasKeyword, isModifiedPermanent, permIsEveryCreatureType, permanentHasCardType } from "./layers.js";
+import { permanentColors, permanentColorsIfKnown, permanentHasKeyword, isModifiedPermanent, permIsEveryCreatureType, permanentHasCardType, permanentManaValue } from "./layers.js"; // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
 import { isBlockingCreature } from "./combatRemoval.js"; // CR 506.4 — the one "is it a blocking creature" read (a zero-import leaf, no cycle)
 
 export /** Does a creature permanent (controlled by `pid`) satisfy a restriction set, from `casterId`'s view? */
@@ -227,8 +227,10 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       if (!ok) return false;
     } else if (r.kind === "manaValue") {
       // TAP-TARGET-CREATURE: "with mana value N or greater" (Law-Rune Enforcer). Uses the slim-index
-      // cmc field (mana value as a number); defaults to 0 when absent (safe false-negative for lands/tokens).
-      const mv = perm.card?.cmc ?? 0;
+      // cmc field (mana value as a number); defaults to 0 when absent (a token that isn't a copy, CR 202.1b).
+      // The permanent's own mana value (play-weighted #742, Abrupt Decay): a layer-1 copy has its copiable values' mana value
+      // (CR 707.2) — a printed 3 that became a copy of a 5 is not a "3 or less" target (layers.permanentManaValue).
+      const mv = permanentManaValue(state, perm);
       // MV-CAP-BY-X (Here Comes a New Hero! — "with mana value X or less"): `valueX` resolves the cap from the
       // chosen X (ctx.xValue, bound at cast per CR 202.3b). `?? 0` (not `|| 0`) so an explicit X=0 caps at MV 0
       // (a legal, conservative choice — target only 0-drops), and a missing xValue is treated as 0, NEVER as

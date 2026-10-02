@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Abrupt Decay**, **Chain Reaction**, **Priest of Titania** (and **Wirewood Channeler**)
 - **Plaguecrafter** (and **Demon's Disciple**) — each player sacrifices a creature or planeswalker; each player who can't discards a card
 - **Class enchantments** — gain the next level as a sorcery to add its ability: **Caretaker's Talent**, **Wizard Class**, **Ranger Class**, **Stormchaser's Talent**; also **Esika's Chariot** and **Three Blind Mice** (copy a token you control)
 - **Mangara, the Diplomat** — draws when an opponent attacks you and/or your planeswalkers with two or more creatures; **Trouble in Pairs** — opponents skip their extra turns, and you draw when an opponent attacks you with two or more creatures, draws their second card or casts their second spell each turn; also **Everett K. Ross, Hapless Attaché**
@@ -35,6 +36,7 @@ summarizes the notable changes.
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
 
 ### Fixed
+- "Deals damage to each creature" (Pyroclasm, Chain Reaction) now hits animated lands and no longer hits bestowed Auras or Gods below their devotion; Gaea's Cradle and Elf counts no longer count the back face of a double-faced card
 - A spell or ability whose target became illegal before it resolved (gained protection, hexproof or shroud, changed controller, stopped being a creature) no longer affects that target, and does nothing if all its targets are illegal — protection in response to Swords to Plowshares now works
 - A wrath no longer kills a creature its Umbra (umbra armor) or another protection should save when the protecting Aura happens to be processed first; destruction is now simultaneous
 - A creature that is exiled or shuffled away instead of dying (Progenitus, Rest in Peace) no longer triggers "whenever a creature dies", and a destroyed animated land or crewed Vehicle now does

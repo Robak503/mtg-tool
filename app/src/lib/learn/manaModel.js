@@ -35,6 +35,7 @@ import { checkSacrificeTriggers, checkLeavesTriggers, checkDiesTriggers, checkTa
 import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow, colorsOf, deriveCharacteristics, permIsEveryCreatureType, permanentColors } from "./layers.js";
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // QUARTET Phase 4 step 3 (2026-09-06): the closed CR creature-type vocabulary for spend restrictions ("only to cast a Ninja or Turtle spell") — a zero-import leaf
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
+import { COUNT_SUBTYPE } from "./effects/parseHelpers.js"; // #766 — the curated subtype allowlist for "for each <Subtype> on the battlefield" (parseHelpers imports only keywords.js; staticAbilityParser, imported below, already loads it)
 import { parseAuraLandManaBonus, parseGlobalTapManaAugment, artifactActivationsLocked, abilitiesAsThoughHasteFor } from "./staticAbilityParser.js"; // + SG-18: haste-for-abilities at the mana-source sick gate // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only); NR-1: the artifact-activation lock
 import { manaMultiplier } from "./replacementEffects.js"; // MANA-MULTIPLIER: ×N tap-for-mana replacement (Mana Reflection/Nyxbloom; leaf, no cycle)
 import { evaluateInterveningIf } from "./interveningIf.js"; // CONDITION-GATED mana (CR 602.5) — interveningIf imports ONLY gameState, so this is a one-way edge with no cycle (checked before adding it)
@@ -188,6 +189,19 @@ function parseManaMetric(tail, card) {
     }
     return null;
   }
+
+  // ⭐ ALL-SEATS SUBTYPE COUNT (play-weighted #766 — Priest of Titania "{T}: Add {G} for each Elf on the battlefield"; Wirewood
+  // Channeler "Add X mana of any one color, where X is the number of Elves on the battlefield"; Cloudpost "Add {C} for each Locus
+  // on the battlefield"). "On the battlefield" is every player's battlefield, the source included (the Priest's ruling: it counts
+  // "Priest of Titania itself as well as Elves controlled by other players"): countForSpec's subtypeOnBattlefield, the count
+  // Brightstone Ritual and Magma Sliver already read — each permanent's front-face type line, or, for a creature type, every
+  // creature type (a changeling: layers.permIsEveryCreatureType). Read live as the mana ability resolves, by manaSources (the
+  // planner) and actionsTapForMana (the explicit tap) alike.
+  // THE VOCABULARY GATE: the word must be a COUNT_SUBTYPE entry — the curated, collision-free subtype allowlist parseCountSource
+  // reads, irregular plurals included ("elves" is Elf). Any other word parks the card: a word no type line carries would count
+  // nothing, a source that makes no mana while the card read native.
+  m = t.match(/^(?:number of )?([a-z]+) on the battlefield$/);
+  if (m) return COUNT_SUBTYPE[m[1]] ? { kind: "subtypeOnBattlefield", subtype: COUNT_SUBTYPE[m[1]] } : null;
 
   // "greatest power among (other) creatures you control" → max layer-resolved power.
   m = t.match(/^greatest power among (other )?creatures you control$/);

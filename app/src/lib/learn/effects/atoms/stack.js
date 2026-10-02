@@ -619,10 +619,13 @@ export function dealDamageScaledClauseParser(clause) {
   // allowTarget stays OFF here: every "where X is" card scales by a board/graveyard count, never "that player's
   // hand" (which only appears in the legacy "deals damage to target player equal to…" word order), so a "that
   // player's hand" referent has no anaphoric player on this form and must route to the Arbiter — not silently 0.
+  // + the all-seats creature count (Chain Reaction, play-weighted #708 — "where X is the number of creatures on the battlefield"):
+  // every creature on every battlefield, read once as the spell resolves, before any damage (CR 608.2h; the card's ruling "The
+  // value of X is determined as Chain Reaction resolves"). This arm is the only consumer that admits it.
   const mds3 = t.match(/^.+? deals? x damage to (target creature|any target|target player|target player or planeswalker|target creature or planeswalker|each opponent|each creature),? where x is (?:equal to )?the number of (.+)$/);
   if (mds3) {
     const targetType = TT[mds3[1]];
-    const amountCount = parseCountSource(mds3[2]);
+    const amountCount = parseCountSource(mds3[2], { allowCreaturesOnBattlefield: true });
     return targetType && amountCount ? { op: "deal-damage", targetType, amountCount } : null;
   }
   return null;

@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **38 commits**, corpus **44.5% (15,246)** at the tag → **44.7% (15,463)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+52**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **39 commits**, corpus **44.5% (15,246)** at the tag → **44.7% (15,467)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+56**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,25 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 57: Abrupt Decay (EDHREC #742), Chain Reaction (#708), Priest of Titania (#766) · **+4** · corpus 15,467
+> Flip-diff **+4, −0, zero RETIERED**: Abrupt Decay, Chain Reaction → native-spell; Priest of Titania, Wirewood Channeler → native-mana.
+> Top 1,000 **891**; top 2,500 **1,730**. **Mutants 16/16** on the integrated tree, restore byte-identical. Built by a fan-out builder
+> (rebased onto master before its gates); re-verified on the integrated tree. Two existing pins re-pointed (`coverage.test.js` —
+> Wirewood Channeler moves to MUST_FLIP; `subtypeScaledMana.test.js` — Priest's all-seats count), none deleted.
+> · Abrupt Decay: the mana-value removal arm takes "nonland permanent"; new `layers.permanentManaValue` reads the mana value off the
+>   object (a layer-1 copy has the copied cost, a non-copy token 0) — the manaValue restriction and Culling Ritual's set read it, so a
+>   permanent that became a copy of something bigger is no longer offered. Chain Reaction: a new count kind, creatures on the
+>   battlefield, read once on resolution (CR 608.2h) and admitted only by the damage arm. Priest of Titania: "<subtype> on the
+>   battlefield" is the all-seats subtype count for curated words (changelings count); the planner and the explicit tap both see it.
+> · ⚑ The each-creature damage sweep and the battlefield counts read creature-ness through the layers and the face-up face: an
+>   animated land now takes the damage; a front-face-up Saga, a God below devotion and a bestowed Aura no longer do (Pyroclasm's
+>   behaviour changes accordingly); Invasion of Lorwyn no longer counts as an Elf, Fable no longer as a creature for Gaea's Cradle;
+>   Cloudpost's runtime amount is now its Locus count (it was a flat {C}). Witness `decayChainPriest.test.js` (21).
+> · ⚠️ Found, not fixed (queued): the other mass-damage sweeps (each other creature, creatures and planeswalkers, creatures and
+>   players) still read the printed type; Austere Command's mana-value filter reads the printed cost; the opponents-sum and graveyard
+>   counts read a double-faced card's combined line; `actionsTapForMana` reads the printed card's mana ability while `manaSources`
+>   is copy-aware.
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: a spell or ability re-checks its targets' legality on resolution (CR 608.2b); Aura spells and attach abilities too (CR 608.3b) · **±0**
 > Suite **18,539** green (one run with Abrupt Decay, Chain Reaction and Priest of Titania). Flip-diff **0 / 0 / 0**. **Mutants 43/43** on the

@@ -81,8 +81,12 @@ describe("the parser — the subtype spec", () => {
       .toEqual({ kind: "permanentsYouControl", subtype: "Swamp" });
   });
 
-  it("Priest of Titania stays null — 'on the battlefield' is a different SCOPE, not a subtype gap", () => {
-    expect(manaProduction({ name: "Priest of Titania", type: "Creature — Elf Druid", oracle: "{T}: Add {G} for each Elf on the battlefield." })).toBeNull();
+  it("Priest of Titania reads a different SCOPE — 'on the battlefield' is every player's battlefield, never the 'you control' count", () => {
+    // GRADUATED CAPABILITY PIN (play-weighted #766, 2026-10-02). This pinned null while the all-seats scope was unmodeled; the
+    // scope landed (countForSpec subtypeOnBattlefield — decayChainPriest.test.js drives it on a board), so the pin moves: the
+    // scope must stay DISTINCT from this file's own-board count.
+    expect(manaProduction({ name: "Priest of Titania", type: "Creature — Elf Druid", oracle: "{T}: Add {G} for each Elf on the battlefield." }).amountSpec)
+      .toEqual({ kind: "subtypeOnBattlefield", subtype: "Elf" });
   });
 });
 

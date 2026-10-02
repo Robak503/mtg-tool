@@ -81,11 +81,17 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Creature — Human Warrior", "{T}: Add X mana of any one color, where X is this creature's power.", { name: "Heronblade Elite" }))).toBe("native-mana");
     expect(classifyCard(C("Legendary Creature — Elf Druid", "{T}: Add an amount of {G} equal to Marwyn's power.", { name: "Marwyn, the Nurturer" }))).toBe("native-mana");
   });
+  it("MUST_FLIP: 'where X is the number of <Subtype>s on the battlefield' is native-mana (Wirewood Channeler — see decayChainPriest.test.js)", () => {
+    // GRADUATED CAPABILITY PIN (play-weighted #766, 2026-10-02). Wirewood Channeler sat in MUST_STAY_BODY below while the
+    // all-seats subtype count was unmodeled; manaModel now reads it (countForSpec subtypeOnBattlefield, one colour per tap),
+    // so the pin moves. Its old slot below keeps an all-seats metric the runtime still cannot compute.
+    expect(classifyCard(C("Creature — Elf Druid", "{T}: Add X mana of any one color, where X is the number of Elves on the battlefield.", { name: "Wirewood Channeler" }))).toBe("native-mana");
+  });
   it("MUST_STAY_BODY: an UNMODELED metric (the runtime produces ZERO mana) is NOT native-mana — no over-claim", () => {
-    // "Elves on the battlefield" (a SUBTYPE on the whole battlefield, not "you control"), "creature cards in
-    // your graveyard", "life gained this turn" — manaProduction returns null for each, so the source yields
+    // "creatures on the battlefield" (a card type across every battlefield — the mana metric reads only a curated subtype there),
+    // "creature cards in your graveyard", "life gained this turn" — manaProduction returns null for each, so the source yields
     // no native mana and must stay body-only (a SAFE false-negative).
-    expect(classifyCard(C("Creature — Elf Druid", "{T}: Add X mana of any one color, where X is the number of Elves on the battlefield.", { name: "Wirewood Channeler" }))).not.toBe("native-mana");
+    expect(classifyCard(C("Creature — Elf Druid", "{T}: Add X mana of any one color, where X is the number of creatures on the battlefield.", { name: "Wide Channeler Probe" }))).not.toBe("native-mana");
     expect(classifyCard(C("Creature — Plant Druid", "{T}: Add X mana of any one color, where X is the number of creature cards in your graveyard.", { name: "Deathbloom Ritualist" }))).not.toBe("native-mana");
     // ⛔ a REFERENT to ANOTHER object still parks — reading the source's power there would fabricate an
     // amount belonging to a different permanent.

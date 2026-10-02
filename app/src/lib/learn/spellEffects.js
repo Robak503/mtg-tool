@@ -1578,9 +1578,14 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
       // MASS-FILTERED-DAMAGE: `restrictions` (a hasKeyword flying filter from massFilteredDamageClauseParser)
       // narrows the wiped set — Gale Force hits only flyers, Tremor only non-flyers. An UNrestricted wipe
       // (Pyroclasm, restrictions=[]) passes every creature (creatureSatisfiesRestrictions over [] = true).
+      // EACH CREATURE is every permanent that is a creature right now, read on the board as the damage begins (play-weighted
+      // #708, Chain Reaction): layers.permanentHasCardType — the card types after layer 4 with the face that is up. An animated
+      // land is dealt damage; a bestowed Aura, a God below its devotion and a front-face-up Saga whose back face is a creature
+      // are not (the printed "Creature" substring said the opposite on all four). countForSpec's creaturesOnBattlefield makes
+      // the same read, so Chain Reaction's X and the creatures dealt X are one set.
       for (const pid of Object.keys(next.players)) {
         for (const perm of next.players[pid].battlefield) {
-          if (isCreature(perm.card) && creatureSatisfiesRestrictions(next, perm, pid, controller, restrictions)) next = hitCreature(next, perm.id);
+          if (permanentHasCardType(state, perm.id, "Creature") && creatureSatisfiesRestrictions(next, perm, pid, controller, restrictions)) next = hitCreature(next, perm.id);
         }
       }
     } else if (targetType === "eachOtherCreature") {

@@ -8,7 +8,7 @@
 
 import { findPermanent, creaturePower, creatureToughness, opponentsOf } from "../../gameState.js";
 import { MASS_WIPE_SCOPES } from "../../targetTypes.js"; // leaf module (pure strings) — no cycle; feeds the atomTargets drift guard below
-import { permanentIsCreature, permanentHasCardType, domainCount, partyCount, permIsEveryCreatureType, deriveCharacteristics } from "../../layers.js"; // + permanentHasCardType (#651): the layer-aware, face-up land read of the opponents' nonland set // + deriveCharacteristics (#587): a permanent's copiable values + layer-4 types for the nonland mana-value set // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import)
+import { permanentIsCreature, permanentHasCardType, domainCount, partyCount, permIsEveryCreatureType, deriveCharacteristics, permanentManaValue } from "../../layers.js"; // + permanentHasCardType (#651): the layer-aware, face-up land read of the opponents' nonland set // + deriveCharacteristics (#587): a permanent's copiable values + layer-4 types for the nonland mana-value set // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import) // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
 import { creatureSatisfiesRestrictions } from "../../creatureRestrictions.js"; // the SHARED 16-kind restriction satisfier (leaf: gameState + layers + keywords only — every one of those edges already exists above, so no cycle)
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // P·39 — every creature type answers for a CREATURE type only (CR 205.3d); a zero-import leaf
 import { isBlockingCreature } from "../../combatRemoval.js"; // CR 506.4 — the one "is it a blocking creature" read (a zero-import leaf)
@@ -180,7 +180,8 @@ export function nonlandPermanentsWithManaValueAtMost(state, mvMax) {
       const object = chars.copiableValues || perm.card;
       const line = typeLineStr(object);
       const land = line.includes(" // ") ? /\bLand\b/.test(line.split(" // ")[0]) : chars.types.includes("Land");
-      if (land || (object?.cmc ?? 0) > mvMax) continue;
+      // the mana value through layers.permanentManaValue — the one reader the targeted manaValue restriction asks too (#742)
+      if (land || permanentManaValue(state, perm) > mvMax) continue;
       out.push({ type: "permanent", id: perm.id, controller: pid });
     }
   }
@@ -607,8 +608,15 @@ export function countMatches(card, spec) {
 // P·39 — countMatches for a BATTLEFIELD permanent: its type line, or — for a creature-type subtype ("for each Elf you control",
 // Magma Sliver's Slivers) — every creature type (a changeling, Mirror Entity's activation, an animated Mutavault;
 // layers.permIsEveryCreatureType). A land / artifact subtype never matches by it (CR 205.3d).
+// The FRONT FACE of a " // " permanent (play-weighted #766): a double-faced permanent with its front face up has only that face's
+// characteristics (CR 712.8d), and the engine has every double-faced permanent front face up (it never transforms; a modal face
+// played or cast enters as its own card), while a Room's halves share one type line. The combined "Front // Back" line credited a
+// back face's types: Invasion of Lorwyn (a Battle — Siege) counted as an Elf through Winnowing Forces, and Fable of the
+// Mirror-Breaker (a Saga) as a creature. Only the battlefield read narrows: a split card in a graveyard has the card types of both
+// halves (CR 709.4c), so cardsInGraveyard keeps the combined line.
 function countMatchesPerm(state, perm, spec) {
-  if (countMatches(perm.card, spec)) return true;
+  const line = typeLineStr(perm.card);
+  if (countMatches(line.includes(" // ") ? { type: line.split(" // ")[0] } : perm.card, spec)) return true;
   return !!spec?.subtype && isCreatureTypeWord(spec.subtype) && permIsEveryCreatureType(state, perm.id);
 }
 
@@ -727,6 +735,20 @@ export function countForSpec(state, ctx, spec) {
     for (const pl of Object.values(state?.players || {})) {
       for (const perm of pl.battlefield || []) {
         if (countMatchesPerm(state, perm, spec)) total += 1;
+      }
+    }
+    return total;
+  }
+  // ===== CREATURES ON THE BATTLEFIELD (all seats) ===== "the number of creatures on the battlefield" (Chain Reaction,
+  // play-weighted #708): every permanent on EVERY player's battlefield that is a creature right now — layers.permanentHasCardType,
+  // the card types after layer 4 with the face that is up (an animated land counts; a bestowed Aura, a God below its devotion and
+  // a front-face-up Saga whose back face is a creature do not). The same read the eachCreature damage sweep
+  // (spellEffects.applyDamageEffect) makes, so X and the creatures dealt X are one set. Read once, before any damage (CR 608.2h).
+  if (spec.kind === "creaturesOnBattlefield") {
+    let total = 0;
+    for (const pl of Object.values(state?.players || {})) {
+      for (const perm of pl.battlefield || []) {
+        if (permanentHasCardType(state, perm.id, "Creature")) total += 1;
       }
     }
     return total;

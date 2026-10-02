@@ -263,7 +263,7 @@ export function parseCountSource(phrase, opts = {}) {
   return { ...base, excludeSelf: true };
 }
 
-function baseCountSource(phrase, { allowTarget = false, allowScopes = false, allowBattlefield = false } = {}) {
+function baseCountSource(phrase, { allowTarget = false, allowScopes = false, allowBattlefield = false, allowCreaturesOnBattlefield = false } = {}) {
   const p = String(phrase).trim().replace(/\.\s*$/, "");
   let m;
   // SOURCE POWER (SHELF-85 H5, 2026-09-04 — Krenko, Tin Street Kingpin "create a number of 1/1 red Goblin creature tokens
@@ -366,6 +366,12 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
   if (allowBattlefield && (m = p.match(/^([a-z]+) on the battlefield$/)) && COUNT_SUBTYPE[m[1]]) {
     return withExclude({ kind: "subtypeOnBattlefield", subtype: COUNT_SUBTYPE[m[1]] });
   }
+  // ===== CREATURES ON THE BATTLEFIELD (all seats) ===== "creatures on the battlefield" — every creature on EVERY player's
+  // battlefield (Chain Reaction, play-weighted #708: "…deals X damage to each creature, where X is the number of creatures on the
+  // battlefield"), countForSpec kind "creaturesOnBattlefield", read once as the effect is applied (CR 608.2h). Only reachable via
+  // allowCreaturesOnBattlefield, passed ONLY by the "deals X damage …, where X is" damage arm (effects/atoms/stack.js), so the other
+  // count consumers (gain life, tokens, draw) keep refusing the phrase until a slice witnesses them.
+  if (allowCreaturesOnBattlefield && /^creatures on the battlefield$/.test(p)) return withExclude({ kind: "creaturesOnBattlefield" });
   // ===== TREASURE-MAKER ===== OPPONENT-scoped union "artifacts and enchantments your opponents control"
   // (Dockside Extortionist's X). Curated exact phrase only; countForSpec sums it over every opponent. Checked
   // FIRST so "your opponents control" wins before the controller-scoped "you control" branches.

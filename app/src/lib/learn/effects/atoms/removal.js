@@ -1147,11 +1147,15 @@ export function destroyExileClauseParser(clause) {
   // "creature" here (UNLIKE the unfiltered `rm` above, which excludes it for the legacy parseSpellEffect path —
   // that path models NO restriction, so an MV-filtered bare-creature removal must route through this branch to be
   // enforced). A printed controller restriction ("an opponent controls") would fail the `$` anchor → low → Arbiter
-  // (none in the corpus carry both; ALL-OR-NOTHING, FN-safe). cmc reads the slim-index numeric mana value (CR 202.3).
-  const mvm = t.match(/^(destroy|exile) target (creature or planeswalker|artifact or enchantment|creature|permanent|artifact|enchantment|planeswalker) with mana value (\d+) or (greater|more|less)$/);
+  // (none in the corpus carry both; ALL-OR-NOTHING, FN-safe). The mana value is the target's as it exists on the battlefield
+  // (layers.permanentManaValue, read by the restriction — a layer-1 copy's copiable values, CR 707.2).
+  // NONLAND PERMANENT (play-weighted #742 — Abrupt Decay "Destroy target nonland permanent with mana value 3 or less"): the
+  // nonlandPermanent pool (spellEffects.PERMANENT_PREDICATES — not a land after layer 4, CR 205.2a, 613.1d: an animated land is
+  // still a land) carrying the same manaValue restriction.
+  const mvm = t.match(/^(destroy|exile) target (creature or planeswalker|artifact or enchantment|creature|nonland permanent|permanent|artifact|enchantment|planeswalker) with mana value (\d+) or (greater|more|less)$/);
   if (mvm) {
     const TT = {
-      "creature": "creature", "permanent": "permanent", "artifact": "artifact", "enchantment": "enchantment",
+      "creature": "creature", "permanent": "permanent", "nonland permanent": "nonlandPermanent", "artifact": "artifact", "enchantment": "enchantment",
       "planeswalker": "planeswalker", "creature or planeswalker": "creatureOrPlaneswalker", "artifact or enchantment": "artifactOrEnchantment",
     };
     const op = /^(greater|more)$/.test(mvm[4]) ? ">=" : "<=";
