@@ -68,7 +68,7 @@ function pitchRandomHandCard(working, playerId, excludeId, kind) {
   const pick = pool[Math.floor(deterministicRng(seed)() * pool.length)];
   let next = { ...working, rngSeed: advanceRngSeed(seed) };
   next = moveCardToZone(next, { playerId, fromZone: "hand", toZone: "graveyard", cardId: pick.id });
-  return checkDiscardTriggers(next, playerId, 1);
+  return checkDiscardTriggers(next, playerId, [pick.id]);
 }
 import { tutorManaValue } from "./effects/atoms/library.js"; // γ1i (CAP14) — the shared MV reader the tutor / free-cast paths use, so "mana value" means ONE thing engine-wide
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
@@ -619,7 +619,7 @@ function applyCastSpell(state, action) {
         // discard cost, cycling, and the alt-cost path. Liliana's Caress / Megrim / Raiders' Wake read native
         // and did nothing on the most common discard routes in the game. Every OTHER call site in the
         // codebase already assigned the result, which is what made the omission invisible.
-        working = checkDiscardTriggers(working, action.playerId, 1);
+        working = checkDiscardTriggers(working, action.playerId, [cid]);
       }
     } else if (ac.kind === "discard" && action.discardRandom) {
       working = pitchRandomHandCard(working, action.playerId, action.cardId, "Spell"); // RG-7 — never the spell itself (it is on the stack)
@@ -629,7 +629,7 @@ function applyCastSpell(state, action) {
         throw new DispatcherError(`Discard card ${action.discardCardId} not in hand`, "CARD_NOT_IN_HAND");
       }
       working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.discardCardId });
-      working = checkDiscardTriggers(working, action.playerId, 1);
+      working = checkDiscardTriggers(working, action.playerId, [action.discardCardId]);
     } else if (ac.kind === "exileFromGraveyard" && (ac.count ?? 1) > 1) {
       // ADDCOST-3b (count-of-N) — exile EACH of the N frozen graveyard cards. A short or missing list is an
       // upstream bug: THROW rather than cast having exiled fewer than N (paying N-1 is the cardinal FP).
@@ -1275,7 +1275,7 @@ function applyActivateGyRecursion(state, action) {
     const inHand = (working.players[action.playerId]?.hand || []).some((c) => c.id === did);
     if (!inHand) throw new DispatcherError(`Discard victim ${did} not in hand`, "COST_UNPAYABLE");
     working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: did });
-    working = checkDiscardTriggers(working, action.playerId, 1);
+    working = checkDiscardTriggers(working, action.playerId, [did]);
   }
   // GR-2 — the exile-from-graveyard cost rider. Same re-verification posture as the discard loop above:
   // the victim must still be in the graveyard at dispatch, and it must not be the card being returned.
@@ -1529,7 +1529,7 @@ function applyActivateAbility(state, action) {
       if (!front.includes(word)) throw new DispatcherError(`Discard-cost card ${pitched.name} is not a ${action.discardCardFilter} card`, "ADDCOST_UNPAID");
     }
     working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.discardCardId });
-    working = checkDiscardTriggers(working, action.playerId, 1);
+    working = checkDiscardTriggers(working, action.playerId, [action.discardCardId]);
   }
   // LANDS-4 — "Exile N [<type>] cards from your graveyard" cost (Mines of Moria, Grim Lavamancer). Same
   // re-verification posture as the GR-2 recursion loop and the discard cost above: legalChoices froze
@@ -1780,7 +1780,7 @@ function applyCycle(state, action) {
 
   // Pay the DISCARD part of the cost — the card itself, hand → graveyard.
   working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.cardId });
-  working = checkDiscardTriggers(working, action.playerId, 1);
+  working = checkDiscardTriggers(working, action.playerId, [action.cardId]);
 
   // Put "Draw a card" on the stack — resolves via the EffectProgram interpreter (a draw-1 atom).
   const program = { version: 1, source: "cycling", confidence: "high", structure: "sequence", atoms: [{ op: "draw", amount: 1, targetType: null }], modal: null, xSpell: false, unparsedTail: null };
@@ -1838,7 +1838,7 @@ function applyDiscardAbility(state, action) {
   let working = commitPaymentPlan(state, action.playerId, plan);
 
   working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.cardId });
-  working = checkDiscardTriggers(working, action.playerId, 1);
+  working = checkDiscardTriggers(working, action.playerId, [action.cardId]);
 
   const { id: stkId, state: working2 } = mintId(working, "stk");
   // TARGETED LANE (2026-08-14): the action carries the targets legalChoices froze at activation

@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **18 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,436)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+25**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **19 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,437)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+26**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,19 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 47: Necropotence (EDHREC #519) — face-down exile with a card-bound end-step return · **+1** · corpus 15,437
+> Suite **18,079** green (1 skipped). Flip-diff **+1, −0, zero RETIERED**: Necropotence → native-mixed. Top 1,000 **875**; top 2,500 **1,712**.
+> **Mutants 54/54**, restore byte-identical. Built by a fan-out builder; re-verified on the integrated tree.
+> · "Skip your draw step" was already enforced (CR 614.10). "Whenever you discard a card, exile that card from your graveyard": a
+>   watch on the discarded object, retired by any later graveyard event for it (CR 603.6, 400.7) — only that same object is exiled.
+>   "Pay 1 life: Exile the top card of your library face down. Put that card into your hand at the beginning of your next end
+>   step": one atom — the face-down stamp plus a delayed return bound to that card (CR 406.3, 603.7); leaving exile strips the
+>   stamp, so a card that left is never returned (CR 603.7c). Discard triggers now carry the discarded card's id at every site.
+> · ⚑ Turn-loop changes (legality): the cleanup hand-size discard now fires discard triggers (CR 514.1, 701.9a); a cleanup step that
+>   puts a trigger on the stack grants priority and is followed by another cleanup step (CR 514.3a — triggers used to resolve in the
+>   next turn); a pay-life activation is not offered while the life total can't change (CR 119.8 — Teferi's Protection made
+>   Necropotence and Yawgmoth's Bargain free and unbounded). Witness `necropotence.test.js` (26).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: tokens have the colors their effect gives them (CR 111.3) · **±0**
 > Suite **18,016** green (one run with the Steel Overseer fix). Flip-diff **0 / 0 / 0** (classification reads no token color).

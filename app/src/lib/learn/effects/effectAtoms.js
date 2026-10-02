@@ -42,6 +42,8 @@ import { livingDeathResolvers } from "./atoms/livingDeath.js"; // P·35 — Livi
 import { animateDeadResolvers } from "./atoms/animateDead.js"; // P·12 — Animate Dead: the return-and-attach ETB and the leave sacrifice // P·10 — HIDEAWAY (CR 702.75): the look-and-hide ETB and the linked free play
 import { iteratedEdictResolvers } from "./atoms/iteratedEdict.js";
 import { delayedTriggerResolvers } from "./atoms/delayedTrigger.js";
+import { faceDownExileResolvers } from "./atoms/faceDownExile.js"; // Necropotence — exile the top card face down + its card-bound delayed return
+import { discardedCardExileResolvers } from "./atoms/discardedCardExile.js"; // Necropotence — exile the discarded card from the graveyard (same object only)
 import { controlResolvers } from "./atoms/control.js";
 import { grantUntilEotResolvers } from "./atoms/grantUntilEot.js";
 import { becomeCopyResolvers } from "./atoms/becomeCopy.js";
@@ -90,6 +92,8 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...freeCastResolvers, // free-cast (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle); park for the action-layer cast-free/decline decision
   ...iteratedEdictResolvers, // iterated-edict (Torment of Hailfire, CR 118.9) — X × per-opponent (lose 3 / sac nonland / discard) pausing edict chain; edict-shares-type (Braids, Arisen Nightmare)
   ...delayedTriggerResolvers, // schedule-delayed (CR 603.7) — queue an ability for a future step; gameEngine drains it into pendingTriggers at step entry
+  ...faceDownExileResolvers, // face-down-exile-top + face-down-exile-return (Necropotence, CR 406.3 + 603.7) — exile face down, return that card at your next end step
+  ...discardedCardExileResolvers, // exile-discarded-card (Necropotence, CR 603.6) — the discard trigger's "exile that card from your graveyard"
   conditional: applyConditional, // CONDITIONAL REPLACEMENT (CR 608.2) — "<base>. If <cond>, <alt> instead." Defined below; recurses through resolveAtom, so it lives in the barrel.
   ...controlResolvers, // gain-control (CR 613.1b layer-2 / 702.10c) — indefinite control-change of a target creature/subtype (Sliver Overlord "Gain control of target Sliver")
   ...becomeCopyResolvers, // become-copy (CR 613.1a / 707.9) — a permanent becomes a copy of a chosen target until end of turn

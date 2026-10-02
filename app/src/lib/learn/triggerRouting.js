@@ -115,6 +115,10 @@ export function combatDamageReferentSatisfied(program, event) {
     // other event the referent is unset — and this one fails LOUDLY wrong rather than quietly: the recipient
     // is the controller's OPPONENT, so an unbound "that player loses 2 life" would drain nobody at all.
     if ((a?.who === "discardingPlayer" || a?.targetType === "discardingPlayer") && event !== "discarded") return false;
+    // DISCARDED CARD (Necropotence, CR 603.6): "exile that card from your graveyard" acts on the card the discard just moved —
+    // its id and same-object watch are threaded ONLY by checkDiscardTriggers. The [discarded-card] sentinel is written only on
+    // this event; this pin is the belt on top of it (the gyOwner / castingPlayer pairing).
+    if (a?.op === "exile-discarded-card" && event !== "discarded") return false;
     // DEALER-BRANCH (Marcus, SHELF S7): the branch reads the combat-damage DEALER — cdmg events only.
     if (a?.op === "draw-or-counter-triggering" && !DAMAGED_PLAYER_EVENTS.has(event)) return false;
     // TARGETING-OBJECT (the Glasskites, 2026-09-30): "counter that spell or ability" reads the stack object whose target

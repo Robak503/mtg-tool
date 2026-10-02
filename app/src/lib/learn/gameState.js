@@ -939,6 +939,13 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
   // P·28 — a void counter is ON the card in exile (Dauthi Voidwalker); a card that leaves exile is a new object without it
   // (CR 400.7), so a later exile for any other reason can never read as void-countered.
   if (fromZone === "exile" && card._voidCounter) card = withoutVoidCounter(card);
+  // Necropotence (effects/atoms/faceDownExile.js) — a card exiled face down is turned face up as it leaves exile, and its
+  // delayed return is bound to that one stay (CR 603.7c, CR 400.7): with the stamp gone, the return can never find it again,
+  // even if it comes back to exile.
+  if (fromZone === "exile" && card._faceDownExile) {
+    const { _faceDownExile: _f, ...rest } = card;
+    card = rest;
+  }
   const nextSource = [...sourceList.slice(0, index), ...sourceList.slice(index + 1)];
   // GY-EVENT (SHELF S7): a card leaving/entering a graveyard through the generic single-card move —
   // graveyard→hand (Raise Dead), graveyard→library (Reclaim), graveyard→exile, graveyard→command
@@ -1306,7 +1313,19 @@ export function recordGraveyardEvents(state, events) {
     gyCastPermissions = { ...gyCastPermissions };
     for (const e of evs) delete gyCastPermissions[e.card.id];
   }
-  return { ...state, players, pendingGraveyardEvents: [...(state.pendingGraveyardEvents || []), ...evs], ...(gyCastPermissions !== state.gyCastPermissions ? { gyCastPermissions } : {}) };
+  // DISCARDED-CARD WATCH (Necropotence — effects/atoms/discardedCardExile.js): the same rule for the same reason. A watch
+  // names the object a discard put into the graveyard; ANY later event for that card (it left, or it arrived anew) means
+  // the object the trigger refers to is gone (CR 603.6, CR 400.7), so the watch is retired and the exile finds nothing.
+  let discardExileWatches = state.discardExileWatches;
+  if (discardExileWatches) {
+    const moved = new Set(evs.map((e) => e.card.id));
+    const stale = Object.keys(discardExileWatches).filter((token) => moved.has(discardExileWatches[token].cardId));
+    if (stale.length) {
+      discardExileWatches = { ...discardExileWatches };
+      for (const token of stale) delete discardExileWatches[token];
+    }
+  }
+  return { ...state, players, pendingGraveyardEvents: [...(state.pendingGraveyardEvents || []), ...evs], ...(gyCastPermissions !== state.gyCastPermissions ? { gyCastPermissions } : {}), ...(discardExileWatches !== state.discardExileWatches ? { discardExileWatches } : {}) };
 }
 
 /**

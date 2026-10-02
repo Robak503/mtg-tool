@@ -86,6 +86,8 @@ import { parseKickerCost, parseTeamworkCost } from "../kicker.js"; // + TEAMWORK
 import { spellConditionParseable, activationConditionParseable, evaluateInterveningIf, interveningIfParseable } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the spell-side shape gate (a board condition a resolving spell can read); interveningIfParseable joins 2026-08-14 for the DAMAGE-RIDER trigger sentinel (a per-object condition only trigger context can read); interveningIf → gameState is a leaf edge, no cycle (parser is not imported by either)
 import { poisonClauseParser, playerInvestigateClauseParser } from "./atoms/life.js"; // POISON (CR 122) — "<who> gets N poison counters"
 import { diedCardToHandClauseParser } from "./atoms/delayedTrigger.js"; // DIES WATCH (shelf D25) — the [died-card-to-hand] sentinel "when that creature dies this turn, return that card to its owner's hand" fires
+import { matchExileTopFaceDownToHand, faceDownExileReturnClauseParser } from "./atoms/faceDownExile.js"; // Necropotence — exile the top card face down + its card-bound delayed return
+import { discardedCardExileClauseParser } from "./atoms/discardedCardExile.js"; // Necropotence — the [discarded-card] sentinel detectTriggers writes on a discard trigger
 
 /**
  * The atom ops the interpreter can resolve natively — DERIVED from the resolver
@@ -3005,6 +3007,13 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   if (dbl && dbl.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: dbl.atoms, xSpell: false, unparsedTail: null });
   }
+  // ===== FACE-DOWN EXILE + DELAYED RETURN (Necropotence) ===== "Exile the top card of your library face down. Put that card
+  // into your hand at the beginning of your next end step." → ONE atom that exiles and schedules the return bound to that card
+  // (see atoms/faceDownExile.js; the general delayed matcher above cannot name "that card"). HIGH iff KNOWN.
+  const fdx = matchExileTopFaceDownToHand(oracle);
+  if (fdx && fdx.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: fdx.atoms, xSpell: false, unparsedTail: null });
+  }
   // ===== EXILE-UNTIL-NAMED (POD-SIM THREE · BI-2) ===== Demonic Consultation / Tainted Pact — one atom each (see the
   // template matchers); HIGH iff KNOWN.
   const dcs = matchDemonicConsultation(oracle) || matchTaintedPact(oracle);
@@ -3876,6 +3885,8 @@ function chooseTargetClauseParser(clause) {
 registerClauseParser(diesWatchClauseParser);
 registerClauseParser(chooseTargetClauseParser);
 registerClauseParser(diedCardToHandClauseParser); // its "return that card to its owner's hand" sentinel
+registerClauseParser(faceDownExileReturnClauseParser); // Necropotence — the [face-down-exile-return] sentinel the face-down exile's delayed half fires
+registerClauseParser(discardedCardExileClauseParser); // Necropotence — the [discarded-card] sentinel (the discard trigger's "exile that card from your graveyard")
 registerClauseParser(mintedLeaveClauseParser);
 registerClauseParser(gyBatchToBattlefieldClauseParser); // shelf D27 — Colossal Grave-Reaver's "put one of them onto the battlefield" (the batch referent) // shelf D26 — the [minted-leave] sentinel the token copy's end-step sacrifice fires
 // SELF-LTB (Wave 4) — the self-return trigger detector rides the SAME parser.js wiring point as the clause

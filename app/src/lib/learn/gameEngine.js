@@ -72,6 +72,7 @@ import {
   checkGraveyardEventTriggers,
   checkSagaChapterTriggers,
   checkSacrificeTriggers,
+  checkDiscardTriggers, // CR 514.1 — the cleanup hand-size discard is a discard (CR 701.9a)
   detectTriggers, // FLICKER TARGETS (shelf D21) — does a permanent carry an enters ability worth re-firing?
 } from "./triggers.js";
 import { checkAllStateBasedActions } from "./sba.js";
@@ -144,9 +145,11 @@ function findSequenceIndex(phase, step) {
  *   - untap step
  *   - cleanup step (only if a trigger or instant-speed action happens)
  *
- * In v1 we treat both as auto-pass: no priority granted, no priority
- * holder set. The engine still surfaces them as discrete states so the
- * UI / narrator can show "Untap step — untapping permanents…"
+ * Both are auto-pass by default: no priority granted, no priority holder set.
+ * The engine still surfaces them as discrete states so the UI / narrator can
+ * show "Untap step — untapping permanents…". The one exception is CR 514.3a:
+ * a cleanup step whose flush stacked a trigger grants priority
+ * (openCleanupPriorityWindow) and is followed by another cleanup step.
  */
 const NO_PRIORITY_STEPS = new Set(["untap", "cleanup"]);
 
@@ -212,6 +215,22 @@ function resetPriorityLoop(state) {
     priorityHolder: state.activePlayer,
     consecutivePasses: 0,
   };
+}
+
+/**
+ * CR 514.3a — the cleanup step's one priority exception. Cleanup normally grants no priority (CR 514.3), but when
+ * triggered abilities were put on the stack during it (a cleanup discard's discard watchers, a graveyard-entry watcher, a
+ * dies trigger from the 514.2 expiry SBAs) the active player gets priority, and once the stack is empty and all players
+ * pass in succession ANOTHER cleanup step begins (passPriority) — the triggers resolve in this turn's cleanup, never in
+ * the next turn. A window already open stays open after each resolution, priority returning to the active player (CR
+ * 117.3b). Applied after every cleanup flush (runStepActions, finalizeStackResolution); a no-op in every other step. The
+ * SBA-only case of 514.3a (state-based actions performed with nothing triggered) still grants no priority — an
+ * under-offer of a window, never an action the rules forbid.
+ */
+function openCleanupPriorityWindow(state) {
+  if (state.step !== "cleanup") return state;
+  if ((state.stack || []).length === 0 && !state.priorityHolder) return state;
+  return grantPriority(state);
 }
 
 // ─── Mana emptying (CR 500.4) ──────────────────────────────────────────────────
@@ -823,6 +842,7 @@ export function runStepActions(state) {
   // checkpoint, per CR 603.3a — triggered abilities go on the stack at
   // the next time a player would get priority.
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
+  next = openCleanupPriorityWindow(next); // CR 514.3a — a cleanup step whose flush stacked a trigger grants priority
 
   return next;
 }
@@ -959,6 +979,9 @@ export function settleCleanupDiscardChoice(state, cardId) {
       toZone: "graveyard",
       cardId,
     });
+    // The 514.1 discard IS a discard (CR 701.9a): "whenever you / an opponent discards" watchers trigger on it, and the
+    // triggers go on the stack at the 514.3a check once the discards and the 514.2 tail are done (finalizeStackResolution).
+    next = checkDiscardTriggers(next, pc.controller, [cardId]);
     next = logEvent(next, { kind: "cleanup-discard", controller: pc.controller, turn: next.turn });
   }
   const excess = cleanupDiscardExcess(next, pc.controller);
@@ -1026,6 +1049,9 @@ export function passPriority(state) {
   if (passes >= playerCount) {
     // Every player passed in succession.
     if (state.stack.length === 0) {
+      // CR 514.3a — a cleanup step that granted priority ends into ANOTHER cleanup step (the hand-size check, the 514.2
+      // tail and the trigger check all run again), never straight into the next turn.
+      if (state.step === "cleanup") return runStepActions({ ...state, priorityHolder: null, consecutivePasses: 0 });
       // Empty stack — step ends. Advance to the next step + apply
       // its automatic actions.
       return nextStep({ ...state, priorityHolder: null, consecutivePasses: 0 });
@@ -1143,7 +1169,7 @@ export function finalizeStackResolution(state) {
   if (grantsPriority(next.step)) {
     next = resetPriorityLoop(next);
   }
-  return next;
+  return openCleanupPriorityWindow(next); // CR 514.3a — open (or keep open) the cleanup window while its triggers resolve
 }
 
 /**

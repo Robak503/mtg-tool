@@ -29,7 +29,7 @@
  * no fetch.
  */
 
-import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower, nameCastLocked } from "./gameState.js"; // B4: the Reflector Mage name cast lock
+import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower, nameCastLocked, playerLifeLocked } from "./gameState.js"; // B4: the Reflector Mage name cast lock; playerLifeLocked — CR 119.8, a life total that can't change can't pay life
 import { canAfford, manaSources, manaProduction, manaActivationCost, payActivationFromPool, landAuraManaBonus, globalTapManaAugment, applyAuraManaGrantSupplement, sourcesExcludingOneShotVictim, castPaymentSources } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
@@ -2538,7 +2538,10 @@ function actionsActivateAbility(state, playerId) {
       // γ1 — a "Pay N life" cost needs the life to spend (CR 119.4: you can't pay life you don't
       // have). Paying down to exactly 0 is legal (an SBA loss follows), so only skip a strictly-
       // unaffordable one — never hide a legal play.
-      if (ab.payLife && player.life < ab.payLife) continue;
+      // CR 119.8 — nor while the player's life total can't change (Teferi's Protection's lock): loseLife refuses the loss
+      // there, so offering the ability would hand out a free activation — a repeatable one (Necropotence, Yawgmoth's
+      // Bargain) with no bound at all.
+      if (ab.payLife && (player.life < ab.payLife || playerLifeLocked(state, playerId))) continue;
       // γ1e — a "Pay {E}…" energy cost needs the energy to spend (CR 122.1e); never offer an activation the
       // player can't pay for. Energy defaults to 0 (older states), so a source with energy 0 is correctly gated out.
       if (ab.payEnergy && (player.energy || 0) < ab.payEnergy) continue;

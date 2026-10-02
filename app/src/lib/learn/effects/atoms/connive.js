@@ -87,7 +87,7 @@ export function applyConnive(state, atom, ctx) {
     const c = hand[0];
     next = moveCardToZone(next, { playerId: controller, fromZone: "hand", toZone: "graveyard", cardId: c.id });
     next = logEvent(next, { kind: "spell-effect", effect: "discard", controller, discarded: 1, forced: true });
-    next = checkDiscardTriggers(next, controller, 1);
+    next = checkDiscardTriggers(next, controller, [c.id]);
     if (!isLandCard(c)) next = applyConniveCounter(next, subjectId, controller);
     return next;
   }

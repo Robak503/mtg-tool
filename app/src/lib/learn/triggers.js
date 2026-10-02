@@ -35,6 +35,7 @@ import { ABILITY_WORD_LABEL_RE, creatureEntersSuppressed, entersSilencer } from 
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell's every-creature-type answer (Changeling; its caster's Maskwood Nexus); a leaf (keywords.js only)
 import { CR_CREATURE_TYPES } from "./effects/targeting.js"; // BC-1: closed creature-subtype vocabulary for the NEGATED-SUBTYPE batch filter (read ONLY inside parseBatchSubjectFilter — a function — so the triggers→targeting→spellEffects→triggers cycle stays init-safe: CR_CREATURE_TYPES is never referenced at module-init time)
 import { fireDiesWatches } from "./effects/atoms/delayedTrigger.js"; // DIES WATCH (shelf D25, CR 603.7) — "when that creature dies this turn" fires off the death chokepoint (a gameState-only leaf, no cycle)
+import { DISCARDED_CARD_EXILE_SENTINEL, DISCARDED_CARD_EXILE_PRINTED_RE, openDiscardExileWatch } from "./effects/atoms/discardedCardExile.js"; // Necropotence — the discarded-card referent (a gameState-only leaf, no cycle)
 import { parseMultikickerCost } from "./kicker.js"; // MULTIKICKER (P·15) — a multikicker permanent carries its kick count into its ETB self context (kicker.js imports only leaves)
 
 function oracleOf(card) {
@@ -5229,6 +5230,14 @@ export function detectTriggers(card) {
         // clause (a SPELL anaphor / a non-enters trigger never reaches here), CREED-safe. All-or-nothing: any
         // clause the anchored patterns can't rewrite keeps its raw "it" → the parser fails HIGH → body-only.
         effectClause = rewriteEtbEnteringPronoun(effectClause);
+      } else if (cls.event === "discarded" && DISCARDED_CARD_EXILE_PRINTED_RE.test(effectClause)) {
+        // ===== DISCARDED-CARD SENTINEL (Necropotence — "Whenever you discard a card, exile that card from your graveyard") =====
+        // "That card" is the card the discard just moved to the graveyard — a zone-change referent (CR 603.6) only this event
+        // supplies (checkDiscardTriggers threads its id and opens the same-object watch). The bracketed sentinel is the one
+        // clause atoms/discardedCardExile.js parses, so no printed text can reach that atom off another event, a spell or an
+        // activated ability; triggerRouting pins the atom back to this event. Whole-clause anchored: an optional "you may" or a
+        // rider sentence ("If you do, you may play that card this turn") keeps its raw text and stays parked.
+        effectClause = DISCARDED_CARD_EXILE_SENTINEL;
       } else if (cls.event === "discarded" && /\bthat player\b/i.test(effectClause)) {
         // ===== DISCARDING-PLAYER SENTINEL ===== "Whenever an opponent discards a card, THAT PLAYER loses 2
         // life" (Liliana's Caress, Raiders' Wake, Fell Specter). "That player" is the one who just discarded
@@ -8690,14 +8699,21 @@ export function checkCardDrawnTriggers(state, drawingPlayerId, count = 1, { draw
  *
  * discardingPlayerId is the event-specific ctx key the who:"discardingPlayer" payoff reads; named distinctly
  * (never a generic `player`) so triggerRouting's referent gate can pin it to THIS event.
+ *
+ * `discarded` is the list of the ids of the cards ACTUALLY discarded, in order — every engine discard site passes it — or a
+ * bare count (no card to name). With ids, each fire carries its own card as `discardedCardId` (Necropotence's "exile that
+ * card from your graveyard", CR 603.6); a fire whose effect is that sentinel also opens the same-object watch below.
  */
-export function checkDiscardTriggers(state, discardingPlayerId, count = 1) {
+export function checkDiscardTriggers(state, discardingPlayerId, discarded = 1) {
+  const ids = Array.isArray(discarded) ? discarded : null;
+  const count = ids ? ids.length : discarded;
   if (!discardingPlayerId || !(count > 0) || !state.players?.[discardingPlayerId]) return state;
+  const contextFor = (i) => (ids ? { discardingPlayerId, discardedCardId: ids[i] } : { discardingPlayerId });
   let fired = [];
   for (const oppId of opponentsOf(state, discardingPlayerId)) {
     for (const perm of triggerSourcesOf(state, oppId)) {
       for (let i = 0; i < count; i++) {
-        fired = fired.concat(triggersForEvent(state, { event: "discarded", sourcePermanent: perm, triggeringContext: { discardingPlayerId },
+        fired = fired.concat(triggersForEvent(state, { event: "discarded", sourcePermanent: perm, triggeringContext: contextFor(i),
           scopeFilter: (s) => s === "opponentDiscard" }));
       }
     }
@@ -8710,7 +8726,7 @@ export function checkDiscardTriggers(state, discardingPlayerId, count = 1) {
   // fire off its own controller's discard — two over-fires, in opposite directions, from one omission.
   for (const perm of triggerSourcesOf(state, discardingPlayerId)) {
     for (let i = 0; i < count; i++) {
-      const batch = triggersForEvent(state, { event: "discarded", sourcePermanent: perm, triggeringContext: { discardingPlayerId },
+      const batch = triggersForEvent(state, { event: "discarded", sourcePermanent: perm, triggeringContext: contextFor(i),
         scopeFilter: (s) => s === "youDiscard" });
       // ONCE-PER-BATCH ("one or more cards" — Inti): the first pass carries it, later passes drop it (CR 603.2d).
       fired = fired.concat(i === 0 ? batch : batch.filter((t) => !t?.descriptor?.oncePerBatch));
@@ -8724,7 +8740,19 @@ export function checkDiscardTriggers(state, discardingPlayerId, count = 1) {
   const kept = fired.filter((t) => !t.descriptor?.oncePerBatch
     || !pending.some((q) => q.descriptor?.oncePerBatch && srcOf(q) === srcOf(t) && q.descriptor?.sourceText === t.descriptor?.sourceText));
   if (!kept.length) return state;
-  return { ...state, pendingTriggers: [...pending, ...kept] };
+  // DISCARDED-CARD WATCH (Necropotence): a fire that will exile "that card from your graveyard" names the object the discard
+  // put there. Its watch is retired by recordGraveyardEvents the moment that card moves again (CR 603.6) — which also retires
+  // a second such fire's watch on the same card once the first one exiles it. The token rides the trigger context (the
+  // field buildTriggerStack threads into the resolver's ctx).
+  let next = state;
+  const out = kept.map((t) => {
+    const cardId = t.context?.discardedCardId;
+    if (cardId == null || t.descriptor?.effectClause !== DISCARDED_CARD_EXILE_SENTINEL) return t;
+    const w = openDiscardExileWatch(next, cardId);
+    next = w.state;
+    return { ...t, context: { ...t.context, discardWatch: w.token } };
+  });
+  return { ...next, pendingTriggers: [...pending, ...out] };
 }
 
 /**

@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Necropotence** — skip your draw step; cards you discard are exiled; pay 1 life to exile the top card of your library face down and put it into your hand at your next end step
 - **Valakut Awakening** — put any number of cards from your hand on the bottom of your library, then draw that many plus one
 - **Unbreakable Formation** — your creatures gain indestructible; cast in your main phase, each of them also gets a +1/+1 counter and vigilance (a copy, or a cast during combat, gets only the indestructible)
 - **Champion of Lambholt** — creatures with less power than it can't block creatures you control (checked as blockers are declared, with every pump and counter counted)
@@ -25,6 +26,8 @@ summarizes the notable changes.
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
 
 ### Fixed
+- The cleanup step's hand-size discard now triggers "whenever you discard" abilities, and triggers that happen during cleanup resolve in that turn's cleanup instead of the next turn
+- Paying life to activate an ability is no longer allowed while your life total can't change (Teferi's Protection); Necropotence and Yawgmoth's Bargain activated for free there
 - Tokens are the colors their card says (they were all colorless): protection from a color now stops a token of that color, color anthems pump tokens, and "nonblack"-style removal can target tokens of other colors
 - **Steel Overseer** put its counter on changelings that aren't artifacts (and on creatures made every creature type); it now counters artifact creatures only
 - Modal double-faced spells (Valakut Awakening, Fell the Profane, Birgi …) are their face's colors; they were cast colorless, so "colorless spell" triggers and counters wrongly saw them

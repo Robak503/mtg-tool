@@ -628,7 +628,7 @@ export function resolveHandDiscardChoice(state, cardId) {
   // TRIG-DISCARD across the PAUSE: the discard happens here, at the settle — not when the chain started —
   // so this is where the event fires. Only when a card actually left the hand (a stale settle discards
   // nothing and must fire nothing).
-  if (inHand) next = checkDiscardTriggers(next, pc.victim, 1);
+  if (inHand) next = checkDiscardTriggers(next, pc.victim, [cardId]);
   // The CASTER can be eliminated between the pause and the settle (CR 800.4a) — the riders that resume
   // are THEIRS (Thoughtseize "lose 2 life"), so bail without resuming if they're gone (mirrors the
   // resolveScryChoice / resolveOptionalChoice guard; the victim's discard above already applied). Belt-
@@ -1160,7 +1160,7 @@ export function resolveDiscardChoice(state, cardId) {
       next = moveCardToZone(next, { playerId: discarder, fromZone: "hand", toZone: "graveyard", cardId });
     }
     next = logEvent(next, { kind: "spell-effect", effect: "discard", controller: discarder, discarded: inHand ? 1 : 0 });
-    if (inHand) next = checkDiscardTriggers(next, discarder, 1);   // fires per settled card, across the pause
+    if (inHand) next = checkDiscardTriggers(next, discarder, [cardId]);   // fires per settled card, across the pause
     // CONNIVE rider (BLITZ EK-1, CR 701.50a): a NONLAND card discarded this way puts a +1/+1 counter on
     // the conniving permanent — routed through applyConniveCounter (doublers CR 616 + counters-placed
     // watchers CR 122.6 compose; the permanent having left the battlefield is a clean no-op). A LAND
@@ -2199,7 +2199,7 @@ export function resolveSacUnlessPayChoice(state, pay) {
     if (hand.length >= (pc.cost.count || 1)) {
       const cid = hand[0].id;
       next = moveCardToZone(next, { playerId: pc.controller, fromZone: "hand", toZone: "graveyard", cardId: cid });
-      next = checkDiscardTriggers(next, pc.controller, 1);
+      next = checkDiscardTriggers(next, pc.controller, [cid]);
       paid = true;
     }
   } else if (pay && pc.cost?.kind === "discard-random") {
