@@ -219,15 +219,22 @@ describe("becomes a creature when unattached (CR 702.103e) — the falls-off SBA
   });
 });
 
-describe("cast legality — target gone by resolution → fizzle (no do-nothing permanent)", () => {
-  it("if the creature target is gone at resolution, the bestow spell fizzles and never enters", () => {
+describe("cast legality — target gone by resolution → it resolves as a CREATURE (CR 702.103e, 608.3b)", () => {
+  // RE-POINTED 2026-10-02 (the CR 608.2b re-check slice): this used to pin a fizzle — the spell to the graveyard, never
+  // entering — under a superseded bestow rule. The current rule: "As a bestowed Aura spell begins resolving, if its target is
+  // illegal, it ceases to be bestowed and the effect making it an Aura spell ends. It continues resolving as a creature spell."
+  it("if the creature target is gone at resolution, the bestow spell enters unattached, as a creature — no fizzle", () => {
     const bear = createPermanent({ id: "bear", card: bearCard, controller: "user", summoningSick: false });
     let s = boardState({ user: [bear], hand: [ROLLICKER], pool: { R: 5 } });
     const cast = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").find(a => a.bestow);
     s = dispatchAction(s, cast);
     s = moveCardToZone(s, { playerId: "user", fromZone: "battlefield", toZone: "graveyard", cardId: "bear" });
     s = resolveTopOfStack(s);
-    expect(s.players.user.battlefield.some(p => p.card?.name === "Nyxborn Rollicker")).toBe(false);
-    expect((s.log || []).some(e => e.kind === "spell-fizzle")).toBe(true);
+    const rollicker = s.players.user.battlefield.find(p => p.card?.name === "Nyxborn Rollicker");
+    expect(rollicker).toBeTruthy();
+    expect(rollicker.attachedTo ?? null).toBe(null);
+    expect(permanentIsCreature(s, rollicker.id)).toBe(true);
+    expect(s.players.user.graveyard.some(c => c.name === "Nyxborn Rollicker")).toBe(false);
+    expect((s.log || []).some(e => e.kind === "spell-fizzle")).toBe(false);
   });
 });

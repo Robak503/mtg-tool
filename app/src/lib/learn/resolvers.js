@@ -29,7 +29,8 @@ import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate, cloneWidenedCopiable, enteredThisTurnCopiable } from "./cloneCopy.js"; // + cloneWidenedCopiable (KN-2) + enteredThisTurnCopiable (shelf D36)
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { isNativeManaAura, auraChoosesColorOnEnter, parseSoulbondBond } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) — the Aura spell's host re-check; SOULBOND (BLITZ SL-1) — the modeled bond reader
-import { equipmentBarredAsCreature, permanentHasCardType } from "./layers.js"; // CR 301.5c — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types
+import { equipmentBarredAsCreature, permanentHasCardType, colorsOf, permanentColors } from "./layers.js"; // CR 301.5c — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types; + the colours the CR 608.2b re-checks judge protection against
+import { canBeTargetedBy, playerTargetableBy } from "./spellEffects.js"; // the ONE targetability predicate the Aura / Equip offers read — re-asked as those spells and abilities resolve (CR 608.2b, 608.3b)
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
 // in P2.2 so the effect interpreter can share it without an import cycle).
@@ -459,7 +460,10 @@ export const RESOLVERS = Object.freeze({
       return enterPermanent(state, card, controller, { enchantedGraveyardCard: { cardId: link.cardId, ownerId: link.ownerId }, wasCast: true, ...(obj.owner ? { owner: obj.owner } : {}) });
     }
     if (enchantsPlayer) {
-      if (!state.players?.[targetId]) {
+      // CR 608.3b / 608.2b — still in the game AND still targetable by this Aura spell: the offer's playerTargetableBy (shroud,
+      // hexproof, protection from everything, hexproof from colours), read against the Aura's own colours, which are definite
+      // here — the offer, threading none, refuses every hexproof-from-colours player.
+      if (!state.players?.[targetId] || !playerTargetableBy(state, targetId, controller, colorsOf(card))) {
         return logEvent(finishSpellResolution(state, { playerId: obj.owner || controller, card }), { kind: "spell-fizzle", source: card?.name, reason: "enchanted player gone", controller });
       }
       return enterPermanent(state, card, controller, { enchantedPlayerId: targetId, ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) });
@@ -502,10 +506,15 @@ export const RESOLVERS = Object.freeze({
     const layerArtifactHost = !!tgt && (hostType === "artifact" || hostType === "creatureOrArtifact" || hostType === "artifactCreatureOrPlaneswalker")
       && permanentHasCardType(state, tgt.permanent.id, "Artifact");
     const layerLandBreaksNonland = !!tgt && hostType === "nonlandPermanent" && permanentHasCardType(state, tgt.permanent.id, "Land");
-    if (!tgt || layerLandBreaksNonland || !(requiredType.test(tgtType) || layerArtifactHost)) {
-      // BESTOW (CR 702.103g): a bestow spell whose creature target is gone at resolution doesn't enter as
-      // an unattached Aura — it isn't put onto the battlefield at all → owner's graveyard. Same fizzle as
-      // a printed Aura (the spell never resolves into a permanent), so no special case is needed here.
+    // CR 608.3b / 608.2b — the host must also still be TARGETABLE by this Aura spell: hexproof, shroud, protection from its
+    // colour gained in response make the target illegal (Control Magic on a creature that gained hexproof does not resolve).
+    // The same canBeTargetedBy call, with the same colours, every Aura offer enumerated its hosts through (legalChoices).
+    if (!tgt || layerLandBreaksNonland || !(requiredType.test(tgtType) || layerArtifactHost)
+      || !canBeTargetedBy(state, tgt.permanent, tgt.controller, controller, colorsOf(card))) {
+      // BESTOW (CR 702.103e, 608.3b): a bestowed Aura spell whose target is illegal as it begins resolving — gone, or no
+      // longer targetable — ceases to be bestowed and continues resolving as a CREATURE spell: it enters unattached, a
+      // creature, and never goes to the graveyard. (This branch used to fizzle it, citing a superseded rule.)
+      if (bestowed) return enterPermanent(state, card, controller, { wasCast: true, ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) });
       // GY-2 (CR 608.3b): the fizzled Aura CARD reaches its owner's graveyard (it used to vanish).
       return logEvent(finishSpellResolution(state, { playerId: obj.owner || controller, card }), { kind: "spell-fizzle", source: card?.name, reason: "aura target illegal", controller }); // obj.owner: shelf D3 — a fizzled Aura cast from its owner's exile goes to THEIR graveyard
     }
@@ -558,7 +567,9 @@ export const RESOLVERS = Object.freeze({
         return params.adventureExile ? applyAdventureExile(skipped, params.adventureExile) : skipped;
       }
     }
-    const next = runEffectProgram(state, obj);
+    // recheckTargets — this is the start of the resolution, so the CR 608.2b re-check asks whether each target is still LEGAL
+    // (the predicate that offered it), not just still present (runEffectProgram).
+    const next = runEffectProgram(state, obj, { recheckTargets: true });
     // ADVENTURE (CR 715.3d): the adventure spell's card goes to EXILE (not the graveyard like a normal
     // instant/sorcery), flagged `_onAdventure` so the creature half is castable from exile. We append the FULL
     // card (params.adventureExile.card) to the controller's exile here, after the program ran. The card left
@@ -591,6 +602,12 @@ export const RESOLVERS = Object.freeze({
     // activator's, and the target a creature (the printed "Enchant creature").
     if (!src || !tgt || src.controller !== controller || (!aura && tgt.controller !== controller) || !/Creature/.test(tgtType)) {
       return resolveManual(state, obj);
+    }
+    // CR 608.2b — the target must also still be TARGETABLE by this ability: shroud (even on its own controller's creature),
+    // hexproof for an Aura moved onto another player's creature, protection from the source's colour. The offer's
+    // canBeTargetedBy, read against the source's CURRENT colours (it is on the battlefield, so they are definite).
+    if (!canBeTargetedBy(state, tgt.permanent, tgt.controller, controller, permanentColors(state, sourceId))) {
+      return logEvent(state, { kind: "spell-fizzle", source: src.permanent.card?.name, reason: "all targets illegal (CR 608.2b)", controller }); // the kind runEffectProgram logs for an ability too
     }
     // CR 301.5c — an Equipment that is a creature RIGHT NOW and has no reconfigure (a crewed Rover Blades paying its own
     // Equip) can't equip a creature: the ability does nothing and the Equipment stays where it is (CR 701.3b). Logged as

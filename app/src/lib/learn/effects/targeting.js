@@ -15,7 +15,7 @@
  * Leaf-ish: imports only `spellEffects.enumerateTargets`. No gameState, no runner.
  */
 
-import { enumerateTargets } from "../spellEffects.js";
+import { enumerateTargets, legacyTargetingEffect, resolutionSourceColors } from "../spellEffects.js"; // + the CR 608.2b re-check's two reads (resolutionTargetVerdicts)
 import { isNonChosenTargetType } from "../targetTypes.js";
 import { findPermanent } from "../gameState.js";
 import { cardIsEveryCreatureType } from "../everyCreatureType.js"; // MG-1: every creature type (a changeling, CR 702.73a; P·39b — a Maskwood Nexus creature card) for the shared-creature-type subset gate — a leaf over keywords.js (no cycle)
@@ -277,16 +277,25 @@ function atomTargets(state, controllerId, atom, atomIndex, sourceColors = [], ct
   return enumerateTargets(state, controllerId, spec, sourceColors, ctx).map(t => ({ ...t, atomIndex, ...(atom.role ? { role: atom.role } : {}) }));
 }
 
+/** The spec of a TWO-CHOSEN-TARGET atom's SECONDARY slot (the fighter / dealer / host), or null for a one-slot atom (no
+ * secondaryTargetType — atomTargetSpec's own null). Shared by the offer (secondaryAtomTargets) and the CR 608.2b re-check. */
+function secondaryTargetSpec(atom) {
+  return atomTargetSpec({ op: atom.op, targetType: atom.secondaryTargetType, restrictions: atom.secondaryRestrictions || [] });
+}
+
 /** The SECONDARY target option list for a TWO-CHOSEN-TARGET atom (FIGHT-PAIR / DAMAGE-TARGET-POWER) — the
  * chosen FIGHTER ("target creature you control"), distinct restrictions from the primary (enemy) target.
  * Returns null when the atom has no secondary spec (the single-target case — unchanged). Both option lists
  * carry the SAME atomIndex (one atom) but different `role`, so targetsForAtom routes both to the resolver. */
 function secondaryAtomTargets(state, controllerId, atom, atomIndex, sourceColors = [], ctx = null) {
-  if (!atom?.secondaryTargetType) return null;
-  const spec = atomTargetSpec({ op: atom.op, targetType: atom.secondaryTargetType, restrictions: atom.secondaryRestrictions || [] });
+  const spec = secondaryTargetSpec(atom);
   if (!spec) return null;
   return enumerateTargets(state, controllerId, spec, sourceColors, ctx).map(t => ({ ...t, atomIndex, role: atom.secondaryRole || "fighter" }));
 }
+
+// GS-1 — the graveyard half of a "target player … up to N target cards from their graveyard" atom: every graveyard's cards,
+// narrowed to the chosen player's by construction in expandAtoms. One constant for the offer and the CR 608.2b re-check.
+const GY_FROM_TARGET_PLAYER_SPEC = { targetType: "graveyardCard", cardFilter: "any", anyGraveyard: true };
 
 /**
  * All legal target-combinations for a list of atoms — a capped cartesian product
@@ -347,7 +356,7 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
     // MUST precede the maxTargets subset gate: this atom carries maxTargets for the CARD dimension — the
     // generic branch would wrongly build subsets of PLAYERS from it.
     if (atom.gyFromTargetPlayer) {
-      const gyCards = enumerateTargets(state, controllerId, { targetType: "graveyardCard", cardFilter: "any", anyGraveyard: true }, sourceColors, ctx)
+      const gyCards = enumerateTargets(state, controllerId, GY_FROM_TARGET_PLAYER_SPEC, sourceColors, ctx)
         .map((t) => ({ ...t, atomIndex: i }));
       const options = [];
       for (const p of tagged) {
@@ -619,6 +628,75 @@ export function atomForStackTarget(obj, target) {
       : (modes[params.chosenMode]?.atoms || []);
   if (target?.atomIndex != null) return atoms[target.atomIndex] ?? null;
   return atoms.find((a) => a?.targetType && !isNonChosenTargetType(a.targetType)) ?? null;
+}
+
+// Is the recorded target still in the zone it was in when it was targeted (CR 608.2b — a target that has left it is illegal)?
+// Moved verbatim from runProgram's B4 gate. An unrecognized target shape is never grounds to fizzle (CREED).
+function targetStillInZone(state, t) {
+  if (t.type === "creature" || t.type === "permanent") return !!findPermanent(state, t.id)?.permanent;
+  if (t.type === "player") return !!state.players?.[t.id];
+  if (t.type === "spell") return (state.stack || []).some((o) => o.id === t.id);
+  if (t.type === "stackAbility") return (state.stack || []).some((o) => o.id === t.id); // V6 — a targeted stack ability that already left the stack (copy / Stifle-class)
+  if (t.type === "graveyardCard") {
+    const owners = t.controller ? [t.controller] : Object.keys(state.players || {});
+    return owners.some((pid) => (state.players?.[pid]?.graveyard || []).some((c) => c.id === t.id));
+  }
+  return true;
+}
+
+/**
+ * The slot a recorded target was offered from, as `{ key, spec }`: the spec expandAtoms enumerated it with (a two-target atom's
+ * secondary slot by its role; the graveyard half of a player-and-cards atom), or a null spec when no slot can be rebuilt (no
+ * atom at its index, a non-targeting atom). A target with no atomIndex was recorded by the single-effect cast path, which
+ * enumerates with the source card's legacyTargetingEffect (null for a source with no targeted spell effect).
+ */
+function offeredTargetSlot(obj, t) {
+  if (t.atomIndex == null) return { key: "legacy", spec: legacyTargetingEffect(obj?.source) };
+  const atom = targetingAtomOf(atomForStackTarget(obj, t));
+  if (atom?.gyFromTargetPlayer && t.type === "graveyardCard") return { key: `${t.atomIndex}|gy`, spec: GY_FROM_TARGET_PLAYER_SPEC };
+  if (atom?.secondaryTargetType && t.role === (atom.secondaryRole || "fighter")) return { key: `${t.atomIndex}|2`, spec: secondaryTargetSpec(atom) };
+  return { key: `${t.atomIndex}|1`, spec: atomTargetSpec(atom) };
+}
+
+/**
+ * CR 608.2b — as a spell or ability resolves, which of its recorded targets are still legal? An array parallel to
+ * `payload.params.targets`: true (still legal), false (illegal — it left its zone, or no longer passes the targeting
+ * predicate), or null (not a target shape the engine judges; never grounds to fizzle).
+ *
+ * `legality: false` asks the zone question only — the pre-existing B4 gate, kept byte-identical for every caller but the
+ * resolver. `legality: true` (the EFFECT_PROGRAM resolver) also re-asks the predicate that OFFERED the target: the same
+ * enumerateTargets pool (offeredTargetSlot), from the same controller, with the cast-time context rebuilt from the payload
+ * (the trigger's context, the ability's source as ctx.sourceId, X). Two inputs are read as they are NOW, which is what the
+ * rule asks: the board, and the source's colours (resolutionSourceColors). `ctx.recheck` turns off the offer-side refusals
+ * of what the engine can't judge (spellEffects.enumerateTargets), so every rejection is a definite reading of a rule the
+ * cast-time offer also enforces. A target whose slot can't be rebuilt is judged by its zone alone.
+ */
+export function resolutionTargetVerdicts(state, obj, { legality = false } = {}) {
+  const params = obj?.payload?.params || {};
+  const targets = Array.isArray(params.targets) ? params.targets : [];
+  let ctx = null;
+  let colors = [];
+  const pools = new Map();
+  if (legality) {
+    // The flush enumeration's source (gameEngine.buildTriggerStack: `context.sourceId ?? source.permanentId`; an activation's
+    // params.sourceId), and the cast's X — a trigger's own X already rides its context.
+    const sourceId = params.context?.sourceId ?? params.sourceId;
+    ctx = { ...(params.context || {}), sourceId, ...(params.xValue != null ? { xValue: params.xValue } : {}), recheck: true };
+    colors = resolutionSourceColors(state, obj, sourceId);
+  }
+  // Membership is by id: ids are minted per object (perm-, stk-, a card's own, a seat's), so within one slot's pool an id is
+  // one object — read as a creature or as a planeswalker, a Gideon that stopped being a creature is still that target.
+  const stillLegal = (t) => {
+    const slot = offeredTargetSlot(obj, t);
+    if (!slot.spec) return true;
+    if (!pools.has(slot.key)) pools.set(slot.key, enumerateTargets(state, params.controller, slot.spec, colors, ctx));
+    return pools.get(slot.key).some((x) => x.id === t.id);
+  };
+  return targets.map((t) => {
+    if (!t || typeof t !== "object" || t.id == null || typeof t.type !== "string") return null;
+    if (!targetStillInZone(state, t)) return false;
+    return legality ? stillLegal(t) : true;
+  });
 }
 
 // Test-only handles (repo convention) — pins the bounded-enumeration prefix identity + the OOM guard.

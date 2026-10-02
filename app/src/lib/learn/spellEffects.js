@@ -50,7 +50,7 @@ import {
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, stackSpellIsUncounterable } from "./staticAbilityParser.js";
 import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
-import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentHasCardType } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
+import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentHasCardType, permanentColors, colorsOf } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
 import { protectionApplies } from "./protection.js";
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — damage to a player dealt to a creature instead (CR 614.9)
 import { isNonChosenTargetType } from "./targetTypes.js";
@@ -621,6 +621,20 @@ export function parseCreatureTargetRestrictions(card, { allowPlaneswalkerUnion =
   return { restrictions, clean: t.length === 0, cleanedOracle };
 }
 
+/**
+ * The targeting spec the SINGLE-EFFECT cast path (legalChoices, a spell whose parsed `effect` takes a target) enumerates a
+ * spell's targets with: the effect itself, plus the modeled "target creature" restrictions. Null when the effect takes no
+ * chosen target. ONE derivation, read by the offer and by the CR 608.2b resolution re-check
+ * (effects/targeting.resolutionTargetVerdicts), so a target that path recorded — untagged, it names no atom — is judged at
+ * resolution by the predicate that offered it.
+ */
+export function legacyTargetingEffect(card, effect = parseSpellEffect(card)) {
+  if (!effectNeedsTarget(effect)) return null;
+  if (effect.targetType !== "creature") return effect;
+  const { restrictions } = parseCreatureTargetRestrictions(card);
+  return restrictions.length ? { ...effect, restrictions } : effect;
+}
+
 // creatureSatisfiesRestrictions MOVED 2026-07-30 to ./creatureRestrictions.js (a leaf) so the mass
 // destroy/exile/bounce path in effects/atoms/shared.js can read the SAME grammar. Imported at the top.
 
@@ -629,7 +643,9 @@ export function parseCreatureTargetRestrictions(card, { allowPlaneswalkerUnion =
 // untargetable by the caster's OPPONENTS (the controller may still target their own). Ward is NOT here
 // — it's a TAX the targeter pays (CR 702.21), not an exclusion, so modeling it as untargetable would be
 // a false positive; ward stays an interim-FP until its tax/counter is modeled exactly.
-export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceColors = [], sourceIsCreature = false) {
+// `recheck` — the CR 608.2b resolution re-check (effects/targeting.resolutionTargetVerdicts): the same judgment, except that
+// an EMPTY colour list never refuses a target there (see the colour shields below).
+export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceColors = [], sourceIsCreature = false, recheck = false) {
   if (permanentHasKeyword(state, perm.id, "Shroud")) return false;
   if (permanentHasKeyword(state, perm.id, "Hexproof") && casterId !== controllerOfPerm) return false;
   // SHELF-85 B7 — PROTECTION FROM CREATURES (CR 702.16b): can't be targeted by an ability whose SOURCE is a creature.
@@ -656,13 +672,30 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceC
     if (sh.opponentsOnly && casterId === (sh.sourceController ?? controllerOfPerm)) continue;
     // HEXPROOF FROM <colours> (CR 702.11d/f — Veil of Summer, shelf D18): refuses a source of any named colour. A path that
     // threads no colours can't be told apart from a named-colour source, so it is refused too — an under-offer, as above.
+    // The RE-CHECK (`recheck`) reads an empty list as the source's own reading — a colourless source, or an ability source
+    // that has left the battlefield, whose last known colours (CR 608.2b) the engine does not keep — and a shield that can't
+    // be shown to refuse that source leaves the target legal: an under-offer is safe at the offer, but at resolution the same
+    // refusal would fizzle a legal spell.
     if (sh.colors) {
-      if (!sourceColors.length || sh.colors.some((c) => sourceColors.includes(c))) return false;
+      if (sourceColors.length ? sh.colors.some((c) => sourceColors.includes(c)) : !recheck) return false;
       continue;
     }
-    if (sh.notColor == null || !sourceColors.includes(sh.notColor)) return false;
+    if (sh.notColor == null || (sourceColors.length ? !sourceColors.includes(sh.notColor) : !recheck)) return false;
   }
   return true;
+}
+
+/**
+ * CR 608.2b — the colours a resolving spell's or ability's SOURCE has for the re-check's protection and colour-shield
+ * judgments (CR 702.16b, 702.11d): a spell's own, read off its card exactly as the cast offer reads them (colorsOf); an
+ * ability's, its source permanent's CURRENT colours (layer 5). An ability whose source has left the battlefield is judged
+ * by last known information (CR 608.2b) the engine does not keep, so it reads no colour (the layer engine derives a missing
+ * permanent as colourless) — and an empty list never makes a target illegal at the re-check (canBeTargetedBy /
+ * playerTargetableBy).
+ */
+export function resolutionSourceColors(state, stackObject, sourceId) {
+  if (stackObject?.kind === "spell") return colorsOf(stackObject.source);
+  return permanentColors(state, sourceId);
 }
 
 // ─── Target enumeration ───────────────────────────────────────────────────────
@@ -673,15 +706,17 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceC
  * · SHROUD (CR 702.18, stage ③ · 48): absolute — nobody may target the player, the player included.
  * · HEXPROOF (CR 702.11d): opponent-scoped — the player may still target themself (Leyline of Sanctity).
  * · PROTECTION FROM EVERYTHING (Teferi's Protection, CR 702.16b): nothing another player controls may target them.
+ * `recheck` — the CR 608.2b resolution re-check: an empty colour list never refuses there (canBeTargetedBy's colour shields).
  */
-export function playerTargetableBy(state, playerId, controllerId, sourceColors = []) {
+export function playerTargetableBy(state, playerId, controllerId, sourceColors = [], recheck = false) {
   if (playerHasShroud(state, playerId)) return false;
   // · HEXPROOF FROM <colours> until end of turn (CR 702.11c/d — Veil of Summer, shelf D18): an opponent's source of a named
-  //   colour can't target the player; a source whose colours weren't threaded can't be told apart, so it's refused too.
+  //   colour can't target the player; a source whose colours weren't threaded can't be told apart, so it's refused too —
+  //   except at the re-check, where the empty list is the source's own reading (colourless, or unkept last-known colours).
   //   + P·25 (Dawn's Truce): `colors: null` is plain hexproof until end of turn — every opponent source is refused.
   const hf = state?.players?.[playerId]?.hexproofFrom;
   if (hf && hf.turn === state.turn && playerId !== controllerId
-    && (hf.colors === null || !sourceColors.length || hf.colors.some((c) => sourceColors.includes(c)))) return false;
+    && (hf.colors === null || (sourceColors.length ? hf.colors.some((c) => sourceColors.includes(c)) : !recheck))) return false;
   return playerId === controllerId || (!playerHasHexproof(state, playerId) && !playerProtectedFromEverything(state, playerId));
 }
 
@@ -693,6 +728,12 @@ export function playerTargetableBy(state, playerId, controllerId, sourceColors =
  * and AI are only offered LEGAL creature targets — e.g. "destroy target creature
  * an opponent controls" no longer surfaces the caster's own creatures. No
  * restrictions → every creature, as before.
+ *
+ * CR 608.2b RE-CHECK (`ctx.recheck`): the resolution-time question "is this recorded target still legal?" is asked of the
+ * SAME pools (effects/targeting.resolutionTargetVerdicts). The offer side refuses a few targets it can't judge, which is a
+ * safe under-offer there and an over-fizzle at resolution, so under `recheck` only those refusals are off: an empty colour
+ * list (canBeTargetedBy / playerTargetableBy), a spell that can't be countered (addStackSpells), and a lesser-power
+ * comparison against a source that has left the battlefield (creatureRestrictions powerVsSource).
  */
 export function enumerateTargets(state, controllerId, effect, sourceColors = [], ctx = null) {
   if (!effectNeedsTarget(effect)) return [];
@@ -700,6 +741,8 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // B7 — the source's creature-ness for "protection from creatures" (CR 702.16b), read layer-aware off the ability's
   // source permanent when the flush threads one (ctx.sourceId); absent → false (see canBeTargetedBy).
   const sourceIsCreature = !!(ctx?.sourceId && permanentIsCreature(state, ctx.sourceId));
+  const recheck = ctx?.recheck === true;
+  const targetable = (perm, pid) => canBeTargetedBy(state, perm, pid, controllerId, sourceColors, sourceIsCreature, recheck);
   const out = [];
   const addCreatures = () => {
     for (const pid of Object.keys(state.players)) {
@@ -715,7 +758,11 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
         // land, a crewed Vehicle) is a legal "target creature" right now. The printed-card check alone made
         // it UNTARGETABLE while combat happily let it attack — an invulnerable attacker, and the asymmetry
         // favours its controller, so it is not the safe direction a normal under-offer would be.
-        if ((isCreature(perm.card) || permanentIsCreature(state, perm.id)) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors, sourceIsCreature) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx)) {
+        // ONLY the layer-aware read (CR 608.2b re-check, 2026-10-02): the printed card used to be ORed in, which admitted a
+        // printed creature that is not one right now — a God below its devotion (CR 700.5), a bestowed Aura (an Aura
+        // enchantment, CR 702.103b) — as "target creature", and kept a creature that STOPPED being one a legal target at
+        // resolution.
+        if (permanentIsCreature(state, perm.id) && targetable(perm, pid) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx)) {
           out.push({ type: "creature", id: perm.id, controller: pid, owner: perm.owner || pid, name: perm.card?.name });
         }
       }
@@ -788,7 +835,10 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       // targets. Every counter atom leaves both flags undefined -> the counter path is byte-identical.
       // `notCounter` — the BOUNCE lane's flag (Venser's "return target spell…"): like copy and grant,
       // returning a spell to hand is not countering it, so the CR 701.6a exclusions don't narrow its pool.
-      if (!effect.copyNotCounter && !effect.grantNotCounter && !effect.notCounter) {
+      // `recheck` (CR 608.2b): a spell that can't be countered is still a legal target for a counter — the exclusion only spares
+      // the offer a pointless cast — so a counter whose target became uncounterable in response still resolves (its counter
+      // does nothing, counterSpellById, and the rest of the spell — Dismiss's draw — happens).
+      if (!effect.copyNotCounter && !effect.grantNotCounter && !effect.notCounter && !recheck) {
         // The four CR 701.6a exclusions — the on-card "can't be countered"; a resolved GRANT's mark (Vexing Shusher's
         // "{R/G}: Target spell can't be countered", the one path that cannot be re-derived from the board); a subtype
         // static (Root Sliver); a controller static, whole (Chimil) or filtered by type (Prowling Serpopard) or colour
@@ -880,7 +930,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // aiming your own effects at yourself). That is why the check is skipped when pid === controllerId.
   // TEFERI'S PROTECTION — protection from everything (CR 702.16b): the shielded player can't be the target of
   // anything another player controls; their own spells and abilities may still target them.
-  const targetablePlayer = (pid) => playerTargetableBy(state, pid, controllerId, sourceColors); // + the source's colours (shelf D18 — hexproof from colours)
+  const targetablePlayer = (pid) => playerTargetableBy(state, pid, controllerId, sourceColors, recheck); // + the source's colours (shelf D18 — hexproof from colours)
   const addOpponents = () => {
     for (const pid of Object.keys(state.players)) {
       if (pid === controllerId) continue;
@@ -996,7 +1046,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
         // `has` (THIRD, #511): the card-type read — the printed word, or a type a layer-4 effect added (CR 613.1d). A DFC never
         // gets here (skipped above), so the printed line is the face that is up.
         const has = (T) => new RegExp(`\\b${T}\\b`).test(tl) || permanentHasCardType(state, perm.id, T);
-        if (pred(tl, perm, has) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors, sourceIsCreature)) {
+        if (pred(tl, perm, has) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && targetable(perm, pid)) {
           // `owner` rides the enumerated object for the same reason `controller` does (see the
           // its-controller projection note in atoms/combat.js): "…to its owner's hand. Then THAT
           // PLAYER discards" must project the OWNER after the permanent has already left the
@@ -1026,7 +1076,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
         const artifactOrEnchantment = /\bArtifact\b|\bEnchantment\b/.test(tl) || permanentHasCardType(state, perm.id, "Artifact");
         const flyingCreature = /\bCreature\b/.test(tl) && permanentHasKeyword(state, perm.id, "flying");
         if (!artifactOrEnchantment && !flyingCreature) continue;
-        if (creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors, sourceIsCreature)) {
+        if (creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && targetable(perm, pid)) {
           out.push({ type: "permanent", id: perm.id, controller: pid, owner: perm.owner || pid, name: perm.card?.name });
         }
       }
@@ -1042,7 +1092,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   const addPlaneswalkers = () => {
     for (const pid of Object.keys(state.players)) {
       for (const perm of state.players[pid].battlefield) {
-        if (perm.counters?.loyalty != null && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors, sourceIsCreature)) {
+        if (perm.counters?.loyalty != null && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && targetable(perm, pid)) {
           out.push({ type: "planeswalker", id: perm.id, controller: pid, owner: perm.owner || pid, name: perm.card?.name });
         }
       }
@@ -1059,7 +1109,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       // set and this permanent IS the source, skip it so the chooser never offers the source as a target. A
       // missing ctx.sourceId simply doesn't exclude (the plain form is unaffected — excludeSource is unset).
       if (effect.excludeSource && ctx?.sourceId && perm.id === ctx.sourceId) continue;
-      if (isCreature(perm.card) && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors, sourceIsCreature)) {
+      if (isCreature(perm.card) && targetable(perm, controllerId)) {
         out.push({ type: "creature", id: perm.id, controller: controllerId, name: perm.card?.name });
       }
     }
@@ -1071,7 +1121,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   else if (effect.targetType === "equipmentYouControl") {
     for (const perm of state.players[controllerId]?.battlefield || []) {
       if (/\bEquipment\b/.test(String(perm.card?.type || perm.card?.type_line || ""))
-          && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors, sourceIsCreature)) {
+          && targetable(perm, controllerId)) {
         out.push({ type: "permanent", id: perm.id, controller: controllerId, name: perm.card?.name });
       }
     }
@@ -1085,7 +1135,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     for (const perm of state.players[controllerId]?.battlefield || []) {
       const tl = String(perm.card?.type || perm.card?.type_line || "");
       if ((/\bEquipment\b/.test(tl) || /\bAura\b/.test(tl))
-          && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors, sourceIsCreature)) {
+          && targetable(perm, controllerId)) {
         out.push({ type: "permanent", id: perm.id, controller: controllerId, name: perm.card?.name });
       }
     }
@@ -1097,7 +1147,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     for (const perm of state.players[controllerId]?.battlefield || []) {
       const tl = String(perm.card?.type || perm.card?.type_line || "");
       if ((/\bArtifact\b/.test(tl) || isCreature(perm.card) || /\bLand\b/.test(tl))
-          && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors, sourceIsCreature)) {
+          && targetable(perm, controllerId)) {
         out.push({ type: "creature", id: perm.id, controller: controllerId, name: perm.card?.name });
       }
     }
@@ -1108,7 +1158,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     for (const perm of state.players[controllerId]?.battlefield || []) {
       const tl = String(perm.card?.type || perm.card?.type_line || "");
       if ((/\bArtifact\b/.test(tl) || isCreature(perm.card))
-          && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors, sourceIsCreature)) {
+          && targetable(perm, controllerId)) {
         out.push({ type: "creature", id: perm.id, controller: controllerId, name: perm.card?.name });
       }
     }

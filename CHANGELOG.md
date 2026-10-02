@@ -35,6 +35,7 @@ summarizes the notable changes.
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
 
 ### Fixed
+- A spell or ability whose target became illegal before it resolved (gained protection, hexproof or shroud, changed controller, stopped being a creature) no longer affects that target, and does nothing if all its targets are illegal — protection in response to Swords to Plowshares now works
 - A wrath no longer kills a creature its Umbra (umbra armor) or another protection should save when the protecting Aura happens to be processed first; destruction is now simultaneous
 - A creature that is exiled or shuffled away instead of dying (Progenitus, Rest in Peace) no longer triggers "whenever a creature dies", and a destroyed animated land or crewed Vehicle now does
 - Attack triggers ("whenever this attacks …", annihilator, mobilize, the Ur-Dragon) now resolve before blockers are declared, so a creature an attack trigger says can't block really can't, and tokens an attack trigger makes exist before blocks

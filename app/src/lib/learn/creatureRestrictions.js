@@ -129,7 +129,13 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // excludes the source itself (its power is never < its own), so a mentor attacking alone finds no target.
       if (!ctx?.sourceId) return false;
       const srcLk = findPermanent(state, ctx.sourceId);
-      if (!srcLk) return false;
+      // CR 608.2b — at RESOLUTION (`ctx.recheck`, spellEffects.enumerateTargets) a source that has left the battlefield is
+      // judged by its last known power, which the engine does not keep: the comparison can't be read, so it never makes
+      // the target illegal there. The offer keeps the fail-closed refusal.
+      if (!srcLk) {
+        if (ctx.recheck === true) continue;
+        return false;
+      }
       const srcPw = creaturePower(srcLk.permanent, state);
       if (r.op === "<" && !(creaturePower(perm, state) < srcPw)) return false;
     } else if (r.kind === "combat") {

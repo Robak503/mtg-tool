@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **37 commits**, corpus **44.5% (15,246)** at the tag → **44.7% (15,463)** — +165 of that is the 10-02 card-data refresh (new
+> **38 commits**, corpus **44.5% (15,246)** at the tag → **44.7% (15,463)** — +165 of that is the 10-02 card-data refresh (new
 > cards, not engine work); engine gains since the tag: **+52**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,25 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: a spell or ability re-checks its targets' legality on resolution (CR 608.2b); Aura spells and attach abilities too (CR 608.3b) · **±0**
+> Suite **18,539** green (one run with Abrupt Decay, Chain Reaction and Priest of Titania). Flip-diff **0 / 0 / 0**. **Mutants 43/43** on the
+> integrated tree, restore byte-identical. Built by a fan-out builder (rebased onto master before its gates); re-verified on the
+> integrated tree. One existing test re-pointed (`bestow.test.js` — a bestowed Aura spell whose target is gone now resolves as a
+> creature, CR 702.103e).
+> · ⚑ Resolution re-checked only that a target still EXISTED: a target that gained protection, hexproof or shroud in response, changed
+>   controller, or stopped matching its restriction was affected anyway — Swords to Plowshares still exiled a creature that gained
+>   protection from white. Now every target is re-checked at the effect program's entry with the SAME predicate that offered it
+>   (enumerateTargets' pool for that atom slot, the cast-time context and X, the source's colours as they are now); an illegal
+>   target is dropped (no part of the effect touches it, "its controller gains life" included) and the rest resolve; all illegal
+>   fizzles. Activated and triggered abilities too (Prodigal Sorcerer, Chupacabra). Aura spells re-ask targetability with their own
+>   colours; attach abilities with the source's. Refusals the engine can't actually judge are switched off during the re-check (an
+>   unknown colour list, "can't be countered", a departed mentor) so a legal spell is never over-fizzled. "Target creature" reads
+>   creature-ness through the layers only (a God below devotion five was targetable). Witness `resolutionTargetLegality.test.js` (50).
+> · ⚠️ Found, not fixed (queued): the legacy cast path offers wrong targets for 11 single-atom spells (Fry without its colour
+>   restriction, Smother / Easy Prey without the mana-value cap — the re-check judges them by the same legacy spec); triggered and
+>   loyalty abilities pick targets with no source colours; redirect alternatives ignore the spell's colours; protection from
+>   colourless (Giver of Runes) is never enforced for targeting; a silent try/catch in `atoms/stack.freshCopyTargets`.
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: a destroy event reads its replacements against the board as the event began; one destruction ladder, one death look-back · **±0**
 > Flip-diff **0 / 0 / 0**. **Mutants 46/46** on the integrated tree, restore byte-identical. Built by a fan-out builder (rebased onto

@@ -32,7 +32,7 @@ import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutor
 import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard, policyEvalEnabledFor } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
 import { programConfidence, atomTargetIntent } from "./parser.js"; // + atomTargetIntent — the change-target auto-pick reads the redirected slot's side (shelf D14)
 import { moveStackTarget } from "./atoms/stack.js"; // CHANGE THE TARGET (shelf D14) — the settle writes the pick back; runProgram already reaches atoms/stack.js through parser → effectAtoms, so no new cycle
-import { changeTargetAlternatives, atomForStackTarget } from "./targeting.js"; // CHANGE THE TARGET — the settle re-derives the alternatives; the auto-pick finds the redirected slot's atom
+import { changeTargetAlternatives, atomForStackTarget, resolutionTargetVerdicts } from "./targeting.js"; // CHANGE THE TARGET — the settle re-derives the alternatives; the auto-pick finds the redirected slot's atom; + the CR 608.2b target re-check
 import { checkDiscardTriggers, checkDiesTriggers, checkLibrarySearchTriggers, checkLifegainTriggers } from "../triggers.js"; // + checkLifegainTriggers — Kwain's per-drawer life (2026-09-05)
 import { applyDrawEffect } from "../spellEffects.js"; // Kwain (2026-09-05) — the trigger-threading draw for the each-player-may DRAW fold // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event; checkDiesTriggers — the move-from-self settle's lethal sweep (W1)
 import { isLandCard } from "./atoms/shared.js"; // SAC-UNLESS-RETURN-LAND — shared.js is a strict leaf, so this edge is DAG-safe
@@ -166,9 +166,12 @@ export function finishSpellResolution(state, disposition, { selfExile = false, s
 // stale pick, an escaped self-sacrifice) is not one. The one read shared by runEffectProgram's loop and resolveOptionalChoice.
 const realSacrificeIn = (entries) => entries.some((e) => e.effect === "sacrifice" && e.sacrificed != null);
 
-export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacrificed = false } = {}) {
+export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacrificed = false, recheckTargets = false } = {}) {
   const params = stackObject?.payload?.params || {};
-  const { program, controller, targets = [], xValue = null, sourceId = null, context = {}, kicked = false } = params;
+  const { program, controller, targets: recordedTargets = [], xValue = null, sourceId = null, context = {}, kicked = false } = params;
+  // The targets the atoms act on: the recorded ones, less any the CR 608.2b re-check below finds illegal. Every resume record
+  // carries THIS list, so the judgment is made once, as the rule makes it, at the start of resolution.
+  let targets = recordedTargets;
 
   // Low confidence (or absent program) → ZERO atoms, route to the Arbiter seam.
   if (programConfidence(program) === "low") {
@@ -189,32 +192,29 @@ export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacri
   }
   const cardName = stackObject?.source?.name || null;
   // CR 608.2b (CR-remediation B4) — if EVERY target the spell/ability had when it was put on the
-  // stack is now ABSENT, it doesn't resolve at all: no atom runs. Before this gate, only the
+  // stack is now ILLEGAL, it doesn't resolve at all: no atom runs. Before this gate, only the
   // per-atom missing-target no-op existed, so a trailing NON-targeted rider ("Destroy target
   // creature. You gain 2 life.") still executed on a fully-fizzled spell — a wrong play. Checked at
-  // ENTRY only (startIndex 0; a resumed program already began resolving legally). Existence-based:
-  // the target left its zone (battlefield / stack / that graveyard) or the game. A target that still
-  // EXISTS but is now untargetable (gained protection/hexproof) keeps today's per-atom handling —
-  // under-enforcing the fizzle is the safe direction; over-fizzling a legal spell is not (CREED).
-  // Per the rule, SOME targets still present ⇒ the spell resolves and does as much as it can.
-  if (startIndex === 0 && targets.length > 0) {
-    const checkable = targets.filter((t) => t && typeof t === "object" && t.id != null && typeof t.type === "string");
-    const stillPresent = (t) => {
-      if (t.type === "creature" || t.type === "permanent") return !!findPermanent(state, t.id)?.permanent;
-      if (t.type === "player") return !!state.players?.[t.id];
-      if (t.type === "spell") return (state.stack || []).some((o) => o.id === t.id);
-      if (t.type === "stackAbility") return (state.stack || []).some((o) => o.id === t.id); // V6 — a targeted stack ability that already left the stack (copy / Stifle-class)
-      if (t.type === "graveyardCard") {
-        const owners = t.controller ? [t.controller] : Object.keys(state.players || {});
-        return owners.some((pid) => (state.players?.[pid]?.graveyard || []).some((c) => c.id === t.id));
-      }
-      return true; // an unrecognized target shape is never grounds to fizzle (CREED)
-    };
-    if (checkable.length > 0 && !checkable.some(stillPresent)) {
+  // ENTRY only (startIndex 0; a resumed program already began resolving legally).
+  // `recheckTargets` (the EFFECT_PROGRAM resolver — the one real start of a resolution): a target is
+  // also illegal when the predicate that offered it refuses it now (targeting.resolutionTargetVerdicts
+  // — protection or hexproof gained in response, a control change, a creature that stopped being one),
+  // and an illegal target is NOT AFFECTED: it is dropped from the list every atom reads, so no atom
+  // touches it and a part of the effect that needs information about it ("its controller gains life")
+  // finds none and doesn't happen. Every other entry (a test, a settler's synthetic sub-program that
+  // starts at atom 0 mid-resolution) keeps the zone-only gate and the full list, byte-identical.
+  // Per the rule, SOME targets still legal ⇒ the spell resolves and does as much as it can.
+  if (startIndex === 0 && recordedTargets.length > 0) {
+    const verdicts = resolutionTargetVerdicts(state, stackObject, { legality: recheckTargets });
+    if (verdicts.some((v) => v !== null) && !verdicts.includes(true)) {
       const fizzled = logEvent(state, { kind: "spell-fizzle", source: cardName, reason: "all targets illegal (CR 608.2b)", controller });
       // The fizzled card reaches its owner's graveyard (CR 608.2b) — printed self-exile/self-shuffle
       // dispositions are resolution effects and a fizzled spell never resolves, so they do NOT apply.
       return finishSpellResolution(fizzled, params.spellToGraveyard);
+    }
+    if (recheckTargets && verdicts.includes(false)) {
+      targets = recordedTargets.filter((_, k) => verdicts[k] !== false);
+      next = logEvent(next, { kind: "targets-illegal", source: cardName, targetIds: recordedTargets.filter((_, k) => verdicts[k] === false).map((t) => t.id), reason: "CR 608.2b", controller });
     }
   }
   // "SACRIFICE … IF YOU DO" (play-weighted P·5 — Victimize, CR 608.2c): an `ifSacrificed` atom runs only when the atom right

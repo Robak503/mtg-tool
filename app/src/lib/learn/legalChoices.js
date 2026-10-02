@@ -41,7 +41,7 @@ import { grantsWubrgAltCost, fixedManaAltCostOf, conditionalFixedManaAltCostOf }
 import { collectCostReducers, playLandFromGraveyardPermission, plotFromLibraryTopGranted, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksFor, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund (+ the Phyrexian life lane, Norn's Annex)
-import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy, playerTargetableBy } from "./spellEffects.js";
+import { parseSpellEffect, enumerateTargets, effectNeedsTarget, legacyTargetingEffect, canBeTargetedBy, playerTargetableBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence, parseEffectClause, programNeedsChosenTarget } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
 import { expandCastChoices } from "./effects/targeting.js";
@@ -2035,12 +2035,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // Targeted spell: one cast action per legal target (the action-expansion
       // pattern, same as multi-defender combat). No legal target → can't cast.
       // P2.4: thread target restrictions (controller/tapped/power) so a restricted
-      // removal only surfaces the creatures it can legally hit.
-      let targetingEffect = effect;
-      if (effect.targetType === "creature") {
-        const { restrictions } = parseCreatureTargetRestrictions(card);
-        if (restrictions.length) targetingEffect = { ...effect, restrictions };
-      }
+      // removal only surfaces the creatures it can legally hit. The spec is spellEffects.legacyTargetingEffect — the
+      // one the CR 608.2b resolution re-check judges these (untagged) targets with.
+      const targetingEffect = legacyTargetingEffect(card, effect);
       // KW-PROTECTION (CR 702.16b): the spell's colors gate targeting — a creature with protection from
       // a color the spell is can't be targeted by it (removal/burn immunity), even by its own controller.
       const targets = enumerateTargets(state, playerId, targetingEffect, colorsOf(card));
