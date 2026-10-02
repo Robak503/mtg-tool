@@ -6,16 +6,16 @@
  */
 
 import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js";
-import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, creatureBasePower, diesExiledInstead, deathExiledInstead, deathLookbackLinks } from "../../gameState.js";
+import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, creatureBasePower, diesExiledInstead, deathExiledInstead, deathLookbackLinks, shufflesIntoLibraryInsteadOfGraveyard } from "../../gameState.js"; // + shufflesIntoLibraryInsteadOfGraveyard (#582): Saw in Half's "dies this way" verdict
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // ④-BD — the counter rider's delayed "may draw up to N" (Arcane Denial); delayedTrigger imports only gameState (cycle-safe)
 import { checkDiesTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../../triggers.js";
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
 import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandCard, massCreatureTargets } from "./shared.js";
-import { applyCreateToken, applyCreateNamedToken } from "./tokens.js";
+import { applyCreateToken, applyCreateNamedToken, applyCreateTokenCopy } from "./tokens.js"; // + applyCreateTokenCopy (#582): Saw in Half's copies ride the shared token-copy minter
 import { applyTutor, millOnePlayer } from "./library.js";
 import { applyZoneMove, applyExileUntilLeaves } from "./zones.js";
 import { manifestTopOf } from "./manifest.js"; // P·19 — Reality Shift's controller rider (manifest imports only gameState, triggers, tokens)
-import { permanentTypes, permIsEveryCreatureType, permanentIsCreature } from "../../layers.js"; // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentIsCreature (#509): the N-count edict's layer-aware pool
+import { permanentTypes, permIsEveryCreatureType, permanentIsCreature, deriveCharacteristics } from "../../layers.js"; // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentIsCreature (#509): the N-count edict's layer-aware pool // + deriveCharacteristics (#582): the destroyed creature's copiable values (a layer-1 copy result)
 import { NAMED_TOKENS } from "./tokens.js"; // NAMED-TOKEN sacrifice pool — same registry the mint side uses, so a pool can never name a token the engine cannot create
 import { NUM_WORD } from "../parseHelpers.js"; // #509 — the N-count edict's spelled cardinal (parseHelpers is a leaf: keywords.js only)
 
@@ -187,6 +187,59 @@ export function applyControllerRider(state, rider, cap, ctx) {
     return logEvent(next, { kind: "spell-effect", effect: "rider-mill", controller: cap.controller, amount: n });
   }
   return state;
+}
+
+/**
+ * ===== DESTROY-DIES-COPY ===== (Saw in Half, play-weighted #582) "Destroy target creature. If that creature dies this way, its
+ * controller creates two tokens that are copies of that creature, except their power is half that creature's power and their
+ * toughness is half that creature's toughness. Round up each time." (parsed by atoms/destroyDiesCopy.js).
+ *
+ * Everything the second sentence reads is captured BEFORE the destroy, while the creature is still on the battlefield — once it
+ * is in a graveyard only its last known information is left (CR 608.2h):
+ *   - its CONTROLLER: "its controller creates" is the player who controlled it, never the spell's caster;
+ *   - its COPIABLE VALUES (CR 707.2): the layer engine's copy result when a layer-1 copy effect applies to it (a creature that
+ *     became a copy of something is copied as that thing — the 2025-09-19 ruling), else its card (a clone that entered as a copy
+ *     already carries the copied card; a token carries what its creating effect defined). Counters, Auras, pumps and tapped
+ *     status are not copiable values, so a snapshot of the card leaves them behind (the ruling);
+ *   - its POWER and TOUGHNESS as it last existed on the battlefield, counters, anthems and pumps included (the ruling), halved
+ *     and rounded up (CR 107.1a). A negative power halves to a negative value: this effect sets the tokens' power, the CR
+ *     107.1b exception to using zero;
+ *   - whether a REPLACEMENT would keep it out of the graveyard: diesExiledInstead, the predicate every death site asks (a death
+ *     or graveyard exile — Lava Coil's stamp, Rest in Peace), and a shuffle-instead replacement among the abilities it had on
+ *     the battlefield (its copiable values — Darksteel Colossus's own).
+ * The destroy is the shared applyDestroyEffect. The creature DIED THIS WAY (CR 700.4, 701.8a) only if it left the battlefield
+ * (indestructible CR 702.12b, a shield counter CR 122.1c, regeneration CR 701.19a and umbra armor CR 702.89a keep it there)
+ * and no replacement sent it elsewhere (the ruling). Only then does its controller create the copies, through the shared
+ * token-copy minter: that player's token doubler applies, the copies' own enter triggers fire, and the half P/T is part of the
+ * copy effect (CR 707.9b), so a characteristic-defining P/T ability of the copied creature is not copied (CR 707.9d — the setPT
+ * copy rider).
+ */
+export function applyDestroyDiesCopy(state, atom, ctx) {
+  const targets = atomTargets(state, atom, ctx);
+  const half = (n) => Math.ceil(n / 2);
+  const captures = [];
+  for (const t of targets) {
+    const lk = findPermanent(state, t.id);
+    if (!lk) continue; // already gone from the battlefield: nothing is destroyed, nothing dies this way
+    const perm = lk.permanent;
+    const copiable = deriveCharacteristics(state, perm.id).copiableValues || perm.card;
+    captures.push({
+      id: perm.id,
+      controller: lk.controller,
+      copiable,
+      power: half(creaturePower(perm, state)),
+      toughness: half(creatureToughness(perm, state)),
+      redirected: diesExiledInstead(state, perm) || shufflesIntoLibraryInsteadOfGraveyard(copiable),
+    });
+  }
+  let next = applyDestroyEffect(state, { controller: ctx.controller, targets });
+  for (const cap of captures) {
+    if (findPermanent(next, cap.id) || cap.redirected) continue; // not destroyed, or destroyed into exile / a library: no tokens
+    next = applyCreateTokenCopy(next,
+      { op: "create-token-copy", copySource: "lki", lkiCard: cap.copiable, count: atom.diesCopyRider.count, setPt: { power: cap.power, toughness: cap.toughness }, targetType: null },
+      { ...ctx, controller: cap.controller });
+  }
+  return next;
 }
 
 /**
@@ -1371,9 +1424,11 @@ export const removalResolvers = {
   "mass-destroy-treasure-per-nontoken": applyMassDestroyTreasurePerNontoken, // BLOOD-MONEY — destroy all creatures + a tapped Treasure per nontoken creature destroyed
   "destroy-at-end-of-combat": applyDestroyAtEndOfCombat, // BASILISK TOUCH (DG-1, CR 511) — enqueue a turn-stamped delayed destroy; combatResolution drains it
   "destroy": (state, atom, ctx) =>
-    (atom.controllerRider || atom.damageRider)
-      ? applyRemovalWithRider(state, atom, ctx) // RIDER-REMOVAL — Beast Within / Generous Gift / Assassin's Trophy / Smash to Smithereens / Molten Rain
-      : applyDestroyEffect(state, { controller: ctx.controller, targets: atomTargets(state, atom, ctx), cannotRegenerate: atom.cannotRegenerate }), // MTG-001 — honor the "can't be regenerated" rider
+    atom.diesCopyRider
+      ? applyDestroyDiesCopy(state, atom, ctx) // DESTROY-DIES-COPY — Saw in Half (the copies only if it died this way)
+      : (atom.controllerRider || atom.damageRider)
+        ? applyRemovalWithRider(state, atom, ctx) // RIDER-REMOVAL — Beast Within / Generous Gift / Assassin's Trophy / Smash to Smithereens / Molten Rain
+        : applyDestroyEffect(state, { controller: ctx.controller, targets: atomTargets(state, atom, ctx), cannotRegenerate: atom.cannotRegenerate }), // MTG-001 — honor the "can't be regenerated" rider
   "exile": (state, atom, ctx) =>
     atom.controllerRider
       ? applyRemovalWithRider(state, atom, ctx) // RIDER-REMOVAL — Path to Exile / Swords to Plowshares

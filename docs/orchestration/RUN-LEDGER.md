@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **24 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,442)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+31**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **25 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,443)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+32**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,18 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 51: Saw in Half (EDHREC #582) — the dies-this-way token copies · **+1** · corpus 15,443
+> Flip-diff **+1, −0, zero RETIERED**: Saw in Half → native-spell. Top 1,000 **879**; top 2,500 **1,716**. **Mutants 33/33**, restore
+> byte-identical. Built by a fan-out builder; re-verified on the integrated tree.
+> · The creature's copiable values, controller and layer-aware power/toughness are captured before the destroy; the two copies
+>   (half power, half toughness, rounded up — set as part of the copy effect) are made only if it actually died this way:
+>   indestructible, regeneration, Rest in Peace's exile and a shuffle-instead all mean no copies (CR 700.4, the card's bundled
+>   rulings). The set-P/T rider now stamps that the original's P/T-defining ability is not copied (CR 707.9d) — which also keeps
+>   Quicksilver Gargantuan copying Tarmogoyf at 7/7. Witness `sawInHalf.test.js` (30).
+> · ⚠️ Found, not fixed (queued): a Wrath on Progenitus fires dies triggers for a death that didn't happen; a target that gains
+>   hexproof or protection in response is still destroyed (CR 608.2b re-checks existence only) — both fixes in flight; no token
+>   mint path stamps enteredOnTurn / timestamp; Impossible Man's copy names itself "this creature".
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 50: Cloud Key (EDHREC #608) — the as-enters card-type choice · **+1** · corpus 15,442
 > Flip-diff **+1, −0, zero RETIERED**: Cloud Key → native-static. Top 1,000 **878**; top 2,500 **1,715**. **Mutants 37/37** on the integrated

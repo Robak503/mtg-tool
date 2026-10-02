@@ -861,7 +861,11 @@ export function staticEffectsOf(state, permanent) {
     ...(STATIC_REGISTRY[card.name] || []),
     // A graveyard static (P·24 — "as long as this card is in your graveyard …") does nothing on the battlefield (CR 113.6b);
     // graveyardEffectsOf collects it from the graveyard instead.
-    ...parseStaticAbilities(card).filter((p) => p.zone !== "graveyard"),
+    // A copy whose power and toughness were PROVIDED by its copy effect (cloneCopy's setPT rider stamps ptCdaNotCopied —
+    // Quicksilver Gargantuan's "except it's 7/7", Saw in Half's halved copies) did not copy a P/T characteristic-defining
+    // ability (CR 707.9d), so the CDA its copied text still carries emits nothing. Every isCDA descriptor the parser emits is
+    // a layer-7a P/T CDA.
+    ...parseStaticAbilities(card).filter((p) => p.zone !== "graveyard" && !(card.ptCdaNotCopied && p.isCDA)),
   ];
   // SELF CHOSEN-TYPE ADD (CR 205.1b, layer 4) — "This creature is the chosen type in addition to its other
   // types." The parser can only leave a MARKER, because the subtype added is this permanent's own stored

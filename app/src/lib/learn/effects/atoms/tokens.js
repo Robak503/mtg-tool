@@ -532,6 +532,8 @@ export function applyCreateNamedToken(state, atom, ctx) {
  *                    nontoken Dragon's entry; the Wave-3b dies-payoff threading convention).
  *   - "target"     → a copy of a chosen creature (ctx.targets[0]); only used when the atom carries a
  *                    chosen-target targetType (so legalChoices / the cast path picks it).
+ *   - "lki"        → the copiable card a resolver captured (atom.lkiCard) before its own effect moved the
+ *                    creature off the battlefield (Saw in Half — removal.applyDestroyDiesCopy; never parsed).
  * No copy source resolvable (e.g. a "self" copy on a spell with no source permanent, or a triggering
  * source already gone) → ZERO tokens (CR 111.12 — a token that's a copy of a nonexistent object is not
  * created), never a fabricated body.
@@ -596,6 +598,11 @@ function resolveCopySource(state, atom, ctx) {
     const t = (ctx.targets || []).find((x) => x?.type === "creature") || (ctx.targets || [])[0];
     return t?.id ? findPermanent(state, t.id)?.permanent : null;
   }
+  // LAST KNOWN INFORMATION (Saw in Half, #582 — CR 608.2h): the copiable card a resolver captured from a creature BEFORE its
+  // own effect moved it off the battlefield (removal.applyDestroyDiesCopy). Never emitted by a parser: only that resolver builds
+  // this atom, with the card it captured. A token source is copied too — CR 111.12's no-token rule does not apply to an effect
+  // that uses last known information, and the ruling copies a token as its creating effect defined it.
+  if (atom.copySource === "lki") return { card: atom.lkiCard };
   // POPULATE (CR 701.32a) — "Create a token that's a copy of a creature token you control." The source is
   // CHOSEN by the controller from their own creature TOKENS, and it is not a target (populate never uses
   // the word), so nothing is chosen at cast time and the pick happens here at resolution.
@@ -654,6 +661,10 @@ export function applyCreateTokenCopy(state, atom, ctx) {
   // of a legendary permanent that KEPT "Legendary" dies to that rule the instant it enters — which for
   // Miirym (a token copy of every legendary Dragon you cast) meant the card did nothing at all.
   if (atom.notLegendary) copyRiders.push({ kind: "stripLegendary" });
+  // CR 707.9b — a SET-P/T exception ("except their power is half that creature's power…" — Saw in Half, #582; the resolver
+  // computes the values): the same setPT rider a clone's "except it's 7/7" uses, so the values become the copy's copiable
+  // power and toughness and a characteristic-defining P/T ability of the source is not copied (CR 707.9d).
+  if (atom.setPt) copyRiders.push({ kind: "setPT", power: atom.setPt.power, toughness: atom.setPt.toughness });
   const copiable = snapshotCopiedCard(sourcePerm, undefined, copyRiders);
   // Wave-3a token doubler (CR 616): a token-copy is still "a token created", so a doubler multiplies it.
   // Computed once (the minted copy is token:true, never itself a doubler).

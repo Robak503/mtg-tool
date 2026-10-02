@@ -663,7 +663,11 @@ export function snapshotCopiedCard(sourcePerm, cloneCard, riders = []) {
       const add = r.keywords.filter((k) => !have.includes(k));
       card = { ...card, keywords: [...(Array.isArray(card.keywords) ? card.keywords : []), ...add] };
     } else if (r.kind === "setPT") {
-      card = { ...card, power: r.power, toughness: r.toughness };
+      // CR 707.9d — a copy effect that PROVIDES the power and toughness does not copy a characteristic-defining ability that
+      // defines them (Tarmogoyf's "power is equal to …"). The CDA's text rides along in the oracle, so the copy is marked and
+      // layers.staticEffectsOf drops the CDA descriptors (layer 7a) a marked card's own text would otherwise emit, leaving these
+      // values as the copy's base P/T. The mark is part of the card, so a copy of this copy keeps the same values (CR 707.9b).
+      card = { ...card, power: r.power, toughness: r.toughness, ptCdaNotCopied: true };
     } else if (r.kind === "becomeVehicle") { // KN-3 (Imposter Mech)
       card = { ...card, type: "Artifact — Vehicle" };
       if (card.type_line) card.type_line = "Artifact — Vehicle";

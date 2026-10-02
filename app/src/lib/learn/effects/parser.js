@@ -62,6 +62,7 @@ import { monarchClauseParser } from "./atoms/monarch.js"; // MONARCH (CR 725)
 import { sacrificeEdictClauseParser, destroyExileClauseParser, ordealThresholdSacClauseParser, mintedLeaveClauseParser, matchSacrificeAnotherForPower } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding) + OC-1 (Ordeal threshold-sac sentinel)
 import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP — "Sacrifice a land." controller self-sac (Roiling Regrowth / Cycle of Renewal)
 import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTROY-TOKEN-RIDER — Pongify / Rapid Hybridization (destroy creature + can't-regen + that controller makes a token)
+import { parseDestroyDiesCopy } from "./atoms/destroyDiesCopy.js"; // DESTROY-DIES-COPY — Saw in Half (destroy creature; if it died this way, its controller makes two half-P/T token copies)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser, seekClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
 import { parseTokenKeywords, parseGrantedKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); parseGrantedKeywords (COUNTER-THEN-GRANT + the SAVAGE ORDER fetched-grants fold); SMALL_NUM for MULTI-COUNT damage count words; parseCountSource for FE-1 DRAIN-BY-COUNT fused matcher
@@ -3554,6 +3555,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // matcher misses; anything else falls through to matchRemovalControllerRider unchanged).
   const dtr = parseDestroyTokenRider(oracle);
   if (dtr) return collapsed({ atom: dtr, rest: "" });
+  // DESTROY-DIES-COPY — "Destroy target creature. If that creature dies this way, its controller creates two tokens that are
+  // copies of that creature, except their power is half … Round up each time." (Saw in Half). The same one-destroy-atom
+  // shape, with a rider CONDITIONAL on the death (atoms/destroyDiesCopy.js; resolved by removal.applyDestroyDiesCopy). Its
+  // exact anchor is disjoint from the Pongify matcher above and the "its controller <rider>" fold below.
+  const ddc = parseDestroyDiesCopy(oracle);
+  if (ddc) return collapsed({ atom: ddc, rest: "" });
   // RIDER-REMOVAL — "Exile/Destroy target X. Its controller <rider>." parses to ONE removal atom carrying
   // a `controllerRider` (resolved to the target's controller). The two sentences span the clause splitter,
   // so it's matched up front like the other collapsed templates.
