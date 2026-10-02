@@ -15,8 +15,9 @@ import { applyCreateToken, applyCreateNamedToken } from "./tokens.js";
 import { applyTutor, millOnePlayer } from "./library.js";
 import { applyZoneMove, applyExileUntilLeaves } from "./zones.js";
 import { manifestTopOf } from "./manifest.js"; // P·19 — Reality Shift's controller rider (manifest imports only gameState, triggers, tokens)
-import { permanentTypes, permIsEveryCreatureType } from "../../layers.js"; // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool
+import { permanentTypes, permIsEveryCreatureType, permanentIsCreature } from "../../layers.js"; // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentIsCreature (#509): the N-count edict's layer-aware pool
 import { NAMED_TOKENS } from "./tokens.js"; // NAMED-TOKEN sacrifice pool — same registry the mint side uses, so a pool can never name a token the engine cannot create
+import { NUM_WORD } from "../parseHelpers.js"; // #509 — the N-count edict's spelled cardinal (parseHelpers is a leaf: keywords.js only)
 
 // MULTI-COUNT "any number of target" upper bound (CR 601.2c) — the count is unbounded on the card, so use a
 // sentinel large enough that targeting.targetSubsets always clamps it to the ACTUAL eligible-target count
@@ -448,6 +449,37 @@ export function advanceSacrificeChain(state, { queue, sourceName = null }) {
 }
 
 /**
+ * ===== N-COUNT EDICT ===== (play-weighted #509 — Blasphemous Edict "Each player sacrifices thirteen creatures of their choice.";
+ * Barter in Blood) — every sacrificer CHOOSES first and the creatures go TOGETHER at the end: CR 101.4, the active player chooses,
+ * then each other player in turn order, "then the actions happen simultaneously". `queue` is the sacrificers still to choose, head
+ * first, each `{ playerId, count }`; `chosen` is the creatures already chosen (every player's) as `{ playerId, permId }`. The head:
+ *   - owes nothing more → the next sacrificer;
+ *   - controls no more unchosen creatures than they still owe → all of them are chosen, there is nothing to decide (CR 609.3 —
+ *     "sacrifices thirteen" with eight sacrifices the eight);
+ *   - otherwise a REAL choice among their OWN unchosen creatures (CR 701.21a): pause for that player, carrying the queue and the
+ *     chosen list (pendingChoice.batch); runProgram.resolveSacrificeChoice locks the pick in and re-enters here.
+ * The pool is read LAYER-AWARE (permanentIsCreature — an animated land is a creature the edict takes). Nothing leaves until every
+ * player has chosen; sacrificeCreaturesTogether then moves the whole set as ONE event, so every dies trigger sees each creature
+ * that went (CR 603.10a). A sacrificer no longer in the game (CR 800.4a) controls nothing and is passed over.
+ */
+export function advanceCreatureBatchSacrifice(state, { queue, chosen, sourceName = null }) {
+  let q = queue;
+  let picked = chosen;
+  while (q.length) {
+    const { playerId, count } = q[0];
+    const owed = count - picked.filter((v) => v.playerId === playerId).length;
+    const taken = new Set(picked.map((v) => v.permId));
+    const pool = (state.players[playerId]?.battlefield || []).filter((p) => !taken.has(p.id) && permanentIsCreature(state, p.id));
+    if (owed > 0 && pool.length > owed) {
+      return setPendingSacrificeChoice(state, { controller: playerId, candidates: pool.map((p) => ({ id: p.id, name: p.card?.name })), queue: q, sourceName, batch: picked });
+    }
+    if (owed > 0) picked = [...picked, ...pool.map((p) => ({ playerId, permId: p.id }))];
+    q = q.slice(1);
+  }
+  return sacrificeCreaturesTogether(state, picked);
+}
+
+/**
  * EDICTS — sacrifice-as-an-effect, resolved through the chain above. The SACRIFICING player chooses which
  * permanent (CR 701.16/701.21), never the caster. `atom.who` selects the sacrificers:
  *   - "target" (default, #214) — the player(s) targeted at cast (Diabolic Edict / Cruel Edict / Geth's Verdict).
@@ -515,6 +547,15 @@ function applySacrifice(state, atom, ctx) {
   }
   if (sacrificers.length === 0) {
     return logEvent(state, { kind: "spell-effect", effect: "sacrifice", who: atom.who || "target", sacrificers: 0 });
+  }
+  // N-COUNT EDICT (#509 — Blasphemous Edict, Barter in Blood): `count` creatures apiece, chosen in APNAP order (the active player,
+  // then turn order — CR 101.4) and sacrificed together (advanceCreatureBatchSacrifice). The one-at-a-time chain below is the
+  // one-permanent form only.
+  if (atom.count) {
+    const order = state.turnOrder;
+    const ap = order.indexOf(state.activePlayer);
+    const apnap = [...order.slice(ap), ...order.slice(0, ap)].filter((pid) => sacrificers.includes(pid));
+    return advanceCreatureBatchSacrifice(state, { queue: apnap.map((playerId) => ({ playerId, count: atom.count })), chosen: [], sourceName: ctx.cardName });
   }
   // Thread `atom.what` onto each queue head so advanceSacrificeChain builds the right victim pool, and a re-entry
   // from resolveSacrificeChoice (queue.slice(1)) preserves it per-sacrificer. The known pools pass through
@@ -621,6 +662,12 @@ export function sacrificeEdictClauseParser(clause) {
   if (m) return { op: "sacrifice", targetType: m[1] === "opponent" ? "opponent" : "player", what: EDICT_POOL[m[2]] };
   m = t.match(new RegExp(`^each player sacrifices a ${EDICT_NOUN}${CHOICE}$`));
   if (m) return { op: "sacrifice", who: "eachPlayer", what: EDICT_POOL[m[1]] };
+  // N-COUNT EACH-PLAYER EDICT (play-weighted #509 — Blasphemous Edict "Each player sacrifices thirteen creatures of their choice.";
+  // Barter in Blood "…two creatures…"): every player gives up N creatures of their own choice — all of them when they control
+  // fewer (CR 609.3) — in ONE simultaneous sacrifice (applySacrifice → advanceCreatureBatchSacrifice). A spelled cardinal
+  // two..twenty over the bare creature noun only: a typed / filtered / "X" / "that many" victim set fails the anchor → Arbiter.
+  m = t.match(new RegExp(`^each player sacrifices (two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty) creatures${CHOICE}$`));
+  if (m) return { op: "sacrifice", who: "eachPlayer", what: "creature", count: NUM_WORD[m[1]] };
   m = t.match(new RegExp(`^each (?:opponent|other player) sacrifices a ${EDICT_NOUN}${CHOICE}$`));
   if (m) return { op: "sacrifice", who: "eachOpponent", what: EDICT_POOL[m[1]] };
   // FLARE OF MALICE (POD-SIM THREE · BI-4, 2026-09-05): "Each opponent sacrifices a creature or planeswalker with the greatest

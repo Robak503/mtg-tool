@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Blasphemous Edict, Barter in Blood, Tergrid's Shadow, Taste of Death, Rankle's Prank and Abyssal Gorestalker** — "each player sacrifices N creatures" works: each player chooses their own, in turn order, and they are all sacrificed at once; Blasphemous Edict costs {B} while thirteen or more creatures are on the battlefield
+- **Planar Collapse** — at the beginning of your upkeep, if there are four or more creatures on the battlefield, it is sacrificed and destroys all creatures
 - **Rise of the Dark Realms** and **Liliana Vess** — "put all creature cards from all graveyards onto the battlefield under your control" works: they enter together under your control, and each still goes to its owner's graveyard when it dies
 - **Adeline, Resplendent Cathar** — whenever you attack, a 1/1 white Human enters tapped and attacking each opponent
 - **Massacre Wurm** — whenever a creature an opponent controls dies, that player loses 2 life, including the creatures its own -2/-2 kills
@@ -20,6 +22,7 @@ summarizes the notable changes.
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
 
 ### Fixed
+- Alternative costs (the Bringers' {W}{U}{B}{R}{G}, Fist of Suns, the Traps' conditional costs) now pay cost increases such as Thalia, Guardian of Thraben's; they were offered without the tax
 - A creature returned from a graveyard (Tormod, Syr Konrad) no longer triggers for its own return or for the cards returned with it
 - Endless Foot Assault's Ninja tokens are black (they were colorless)
 - **Merfolk Wayfinder** and **Elder Pine of Jukai** now put the Island cards / land cards they reveal into your hand (they took none), and a changeling is no longer taken as an Island card

@@ -85,7 +85,8 @@ describe("parser — the edict family is HIGH; the atom targets a PLAYER (victim
     low(GETHS);                                                                  // Geth's Verdict — the TARGET loses life (deferred)
     // ED-2 boundary: each-player/each-opponent are modeled for "a creature"/"a permanent"/the TYPED pools
     // (land/artifact/enchantment/artifact-or-enchantment). A count / unmodeled union stays LOW.
-    low("Each player sacrifices two creatures of their choice.");                // a count
+    // (Re-pointed #509: the EACH-PLAYER creature count is modeled now — blasphemousEdict.test.js — so the count pin moved to each opponent.)
+    low("Each opponent sacrifices two creatures of their choice.");              // a count
     low("Each opponent sacrifices a creature or planeswalker of their choice."); // type union incl. planeswalker (Dark Intimations) — NOT a modeled pool
     low("You sacrifice a creature.");                                            // controller "you sacrifice" — bare controller-sac deferred (α2 risk)
   });

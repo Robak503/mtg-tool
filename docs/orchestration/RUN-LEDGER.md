@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **12 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,426)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+15**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **13 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,433)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+22**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,22 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 43: Blasphemous Edict (EDHREC #509) — the N-count each-player edict as one simultaneous sacrifice · **+7** · corpus 15,433
+> Suite **17,941** green (1 skipped); lint 0; decks **2,746** / 2,998 unchanged. Flip-diff **+7, −0, zero RETIERED**: Blasphemous Edict, Barter in
+> Blood, Taste of Death, Tergrid's Shadow, Rankle's Prank → native-spell; Abyssal Gorestalker, Planar Collapse → native-trigger. Top 1,000
+> **871**; top 2,500 **1,708**. **Mutants 30/30**, restore byte-identical. Built by a fan-out builder; re-verified on the integrated tree.
+> · "Each player sacrifices <two..twenty> creatures [of their choice]": each player CHOOSES their own creatures in APNAP order (CR
+>   101.4; each pick logged as made, 101.4b), a player with no more than they owe loses them all (CR 609.3), and nothing leaves until
+>   the last choice — then one simultaneous sacrifice (sacrificeCreaturesTogether, the Living Death batch), so a Blood Artist sees
+>   every death (CR 603.10a). The pool is layer-aware (an animated Mutavault is taken).
+> · The trailing-condition alternative cost ("You may pay {B} rather than pay this spell's mana cost if there are thirteen or more
+>   creatures on the battlefield") rides the trap form's reader and offer; the new global creature count reads every battlefield
+>   layer-aware.
+> · ⚑ Legality fix on the way (CR 118.9d): a fixed-mana alternative cost now pays the spell's static cost increases — the Bringers'
+>   {W}{U}{B}{R}{G}, Fist of Suns and the Traps were offered untaxed under Thalia (cheaper than legal). Four pins that used "each
+>   player sacrifices two creatures" as an unmodeled example re-pointed to the still-unmodeled each-opponent form.
+>   Witness `blasphemousEdict.test.js` (23).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 42: Rise of the Dark Realms (EDHREC #492) — every graveyard's creature cards enter as one event · **+2** · corpus 15,426
 > Suite **17,918** green (one run for P·40–42). Flip-diff **+2, −0, zero RETIERED**: Rise of the Dark Realms → native-spell, Liliana Vess

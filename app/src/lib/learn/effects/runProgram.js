@@ -28,7 +28,7 @@ import { taintedPactStep, wheelOnePlayer } from "./atoms/library.js"; // K9 (Ste
 import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice, setPendingTemptingOfferChoice } from "../pendingChoice.js"; // + TEMPTING OFFER (Tempt with Discovery) // + SG-15b: the Sylvan Library per-card pause is chained by its own settler
 import { updatePermanentSafe, graveyardExileFor } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, gainLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, advanceCreatureBatchSacrifice, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
 import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard, policyEvalEnabledFor } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
 import { programConfidence, atomTargetIntent } from "./parser.js"; // + atomTargetIntent — the change-target auto-pick reads the redirected slot's side (shelf D14)
 import { moveStackTarget } from "./atoms/stack.js"; // CHANGE THE TARGET (shelf D14) — the settle writes the pick back; runProgram already reaches atoms/stack.js through parser → effectAtoms, so no new cycle
@@ -902,6 +902,9 @@ export function autoPickSacrificeCandidate(state, pendingChoice) {
 export function resolveSacrificeChoice(state, permId) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "sacrifice-choice") return state;
+  // N-COUNT EDICT (#509 — Blasphemous Edict): a pick on that chain is LOCKED IN, not carried out — the creatures go together once
+  // the last player has chosen (removal.advanceCreatureBatchSacrifice, CR 101.4). No "if you do" follows a count edict.
+  if (pc.batch) return settleSacrificeChain(lockInBatchSacrificePick(state, pc, permId), pc, false);
   let next = clearPendingChoice(state);
   let sacrificed = false; // the pick really went — the answer an `ifSacrificed` atom right after this sacrifice reads on resume
   if (next.players?.[pc.controller]) {
@@ -920,17 +923,37 @@ export function resolveSacrificeChoice(state, permId) {
   // Advance the chain — drop the settled head sacrificer, then continue (each-player / each-opponent forms).
   const queue = (pc.queue || []).slice(1);
   const r = advanceSacrificeChain(next, { queue, sourceName: pc.sourceName });
+  return settleSacrificeChain(r, pc, sacrificed);
+}
+
+/**
+ * The shared tail of every sacrifice-chain settle (the one-permanent chain and the N-count chain): `r` is the chain's state after
+ * this pick. Re-paused → carry the original caster-resume forward (neither chain sets a resume itself); done → resume the caster's
+ * suspended program, with whether this pick really sacrificed. A caster eliminated mid-pause (CR 800.4a) gets no resume.
+ */
+function settleSacrificeChain(r, pc, prevSacrificed) {
   if (r.pendingChoice) {
-    // The chain re-paused (the next sacrificer owes a real choice). Carry the original caster-resume forward
-    // so the program resumes once the whole chain settles (advanceSacrificeChain never sets a resume itself).
     return r.pendingChoice.resume || !pc.resume
       ? r
       : { ...r, pendingChoice: { ...r.pendingChoice, resume: pc.resume } };
   }
-  // Chain done → resume the caster's suspended program (its riders), with whether this pick really sacrificed.
   const casterId = pc.resume?.controller;
   if (casterId && !r.players?.[casterId]) return r; // caster eliminated mid-pause → no resume
-  return resumeAfterChoice(r, pc, { prevSacrificed: sacrificed });
+  return resumeAfterChoice(r, pc, { prevSacrificed });
+}
+
+/**
+ * N-COUNT EDICT (#509 — Blasphemous Edict, Barter in Blood): lock in ONE pick and re-enter the chain. The pick is logged as it is
+ * made — a later chooser knows it (CR 101.4b) — and joins `batch`; nothing leaves the battlefield until every player has chosen. A
+ * permanent that was not offered (another player's, a noncreature, one already chosen) is never taken: the chain, re-entered
+ * with the batch unchanged, asks the same player again. A chooser who left the game is passed over by the chain.
+ */
+function lockInBatchSacrificePick(state, pc, permId) {
+  const offered = pc.candidates.some((c) => c.id === permId);
+  let next = clearPendingChoice(state);
+  if (offered) next = logEvent(next, { kind: "sacrifice-chosen", controller: pc.controller, chosen: permId, cardName: pc.candidates.find((c) => c.id === permId).name, sourceName: pc.sourceName });
+  const chosen = offered ? [...pc.batch, { playerId: pc.controller, permId }] : pc.batch;
+  return advanceCreatureBatchSacrifice(next, { queue: pc.queue, chosen, sourceName: pc.sourceName });
 }
 
 /**

@@ -405,11 +405,19 @@ export const FIXED_MANA_ALT_COST_RE = /(?:^|\n)\s*you may pay ((?:\{[WUBRG]\})+)
 // cast site, and stripped for the program parse (castModifiers) only when that reader can parse it, so the two agree. The
 // cost may carry generic pips ({0} — Mindbreak Trap; {1}{G} — Baloth Cage Trap). Returns { pips, condition } or null.
 export const CONDITIONAL_FIXED_MANA_ALT_COST_RE = /(?:^|\n)\s*if ([^,.\n]+), you may pay ((?:\{(?:[WUBRG]|\d+)\})+) rather than pay this spell's mana cost\.?\s*(?:\n|$)/i;
+// THE TRAILING-CONDITION FORM (play-weighted #509 — Blasphemous Edict: "You may pay {B} rather than pay this spell's mana cost if
+// there are thirteen or more creatures on the battlefield."): the trap form with its condition written after the cost. Same
+// reader, same strip gate, same offer. Coloured pips only (the one printed carrier); the condition ends the line. Captures:
+// [1] the pips, [2] the condition.
+export const TRAILING_CONDITIONAL_FIXED_MANA_ALT_COST_RE = /(?:^|\n)\s*you may pay ((?:\{[WUBRG]\})+) rather than pay this spell's mana cost if ([^,.\n]+)\.\s*(?:\n|$)/i;
 export function conditionalFixedManaAltCostOf(card) {
   // The CR 207.2c label comes off first ("Raid — If you attacked this turn, you may pay {U} …" — Admiral's Order), exactly as
   // the program parse strips it, so the offer reads the sentence the strip credited.
-  const m = CONDITIONAL_FIXED_MANA_ALT_COST_RE.exec(stripAbilityWordLabel(String(card?.oracle || card?.oracle_text || "")));
-  return m ? { pips: m[2].toUpperCase(), condition: m[1].trim().toLowerCase() } : null;
+  const text = stripAbilityWordLabel(String(card?.oracle || card?.oracle_text || ""));
+  const m = CONDITIONAL_FIXED_MANA_ALT_COST_RE.exec(text);
+  if (m) return { pips: m[2].toUpperCase(), condition: m[1].trim().toLowerCase() };
+  const t = TRAILING_CONDITIONAL_FIXED_MANA_ALT_COST_RE.exec(text);
+  return t ? { pips: t[1].toUpperCase(), condition: t[2].trim().toLowerCase() } : null;
 }
 export function fixedManaAltCostOf(card) {
   const m = FIXED_MANA_ALT_COST_RE.exec(String(card?.oracle || card?.oracle_text || ""));

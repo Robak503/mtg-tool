@@ -1134,7 +1134,7 @@ const MUST_DROP_TO_LOW = [
   // / the TYPED pools land·artifact·enchantment·artifact-or-enchantment) stays LOW (a count / "nontoken" / a
   // type-union with an unmodeled type / "all" would sacrifice the wrong thing — a forbidden false positive).
   // The bare TYPED pools ARE native now (see edicts.test.js TYPED-EDICT — Tremble / Simplify / Tribute to the Wild).
-  "Each player sacrifices two creatures of their choice.",                      // a count (Barter in Blood / Tergrid's Shadow)
+  "Each opponent sacrifices two creatures of their choice.",                    // a count on the each-opponent form (re-pointed #509: the each-player creature count — Barter in Blood — is modeled, blasphemousEdict.test.js)
   "Each player sacrifices two lands of their choice.",                          // a count on the TYPED land edict (still LOW)
   "Each opponent sacrifices a nontoken artifact of their choice.",              // "nontoken" qualifier — token-status not honored (LOW)
   "Each player sacrifices all permanents they control that are one or more colors.", // "all" (All Is Dust)
@@ -1460,7 +1460,7 @@ describe("parseEffectProgram — KWSTRIP-1 (vacuous cast-keyword line strip)", (
     // FIXTURE SWAPPED: this used the FLICKER body, which the blink slice now models — so it stopped testing
     // anything. Replaced with a body that is genuinely unmodeled (a counted edict, on the MUST_DROP_TO_LOW
     // list above), which keeps the assertion's real intent: rebound-stripping must never fabricate a flip.
-    const unmodeled = parseEffectProgram(I("Each player sacrifices two creatures of their choice.\nRebound"));
+    const unmodeled = parseEffectProgram(I("Each opponent sacrifices two creatures of their choice.\nRebound")); // re-pointed #509 (the each-player count is modeled)
     expect(programConfidence(unmodeled)).toBe("low");
     expect(unmodeled.selfExile).toBeUndefined();
   });

@@ -89,7 +89,7 @@ import { hasCitysBlessing } from "./ascend.js"; // shelf D5 — the city's bless
 // ─── cardinal vocabulary ────────────────────────────────────────────────────────
 const NUM_WORD = {
   a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
-  eleven: 11, twelve: 12, twenty: 20, thirty: 30, forty: 40, fifty: 50,
+  eleven: 11, twelve: 12, thirteen: 13, twenty: 20, thirty: 30, forty: 40, fifty: 50, // + thirteen (Blasphemous Edict, play-weighted #509)
 };
 function parseCount(token) {
   const t = String(token || "").trim().toLowerCase();
@@ -97,7 +97,9 @@ function parseCount(token) {
   if (Object.prototype.hasOwnProperty.call(NUM_WORD, t)) return NUM_WORD[t];
   return null;
 }
-const NUM_RE = "(\\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty)";
+// The cardinal alternation is DERIVED from NUM_WORD (#509), in its key order — the order the hand-written alternation had — so
+// a word the regex matches always has a value: parseCount never returns null for a NUM_RE capture.
+const NUM_RE = `(\\d+|${Object.keys(NUM_WORD).join("|")})`;
 
 function typeStr(card) {
   return String(card?.type || card?.type_line || "");
@@ -2025,6 +2027,20 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     const triggeringId = context?.triggeringPermanentId;
     if (!triggeringId) return null;
     return controllerBoard(state, controllerId).some((p) => p.id !== triggeringId && permMatchesFilter(p, filter, state));
+  }
+
+  // ===== GLOBAL CREATURE COUNT (play-weighted #509 — Blasphemous Edict's "if there are thirteen or more creatures on the
+  // battlefield") ===== "there are N or more creatures on the battlefield": EVERY player's creatures (the battlefield is a shared
+  // zone, CR 400.1), judged LAYER-AWARE through permanentIsCreature — an animated land counts, a creature turned into a
+  // noncreature does not. parseFilter's type-line read is deliberately not used here: it sees the PRINTED type, so it would miss
+  // an animated land and overcount a creature that is no longer one.
+  m = c.match(new RegExp(`^there are ${NUM_RE} or more creatures on the battlefield$`));
+  if (m) {
+    let creatures = 0;
+    for (const pl of Object.values(state.players)) {
+      for (const perm of pl.battlefield) if (permanentIsCreature(state, perm.id)) creatures++;
+    }
+    return creatures >= parseCount(m[1]); // NUM_RE is derived from NUM_WORD, so the count is never null here
   }
 
   // ===== GLOBAL BOARD-EMPTY (CR 603.4 + 400.1 — Pyrohemia / Pestilence / Sarcomancy) ============

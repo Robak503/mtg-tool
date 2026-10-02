@@ -1174,6 +1174,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // Mana value is a card characteristic the commander tax does NOT change (CR 202.3b) — capture it from
     // the PRINTED cost before the tax is folded into `cost` (which becomes the payable amount).
     const printedCmc = totalCmc(cost);
+    let staticTax = 0; // hoisted (#509): the fixed-mana alternative cost below pays the same static tax (CR 118.9d)
     if (freeCast) {
       cost = { generic: 0 }; // waived — the dispatcher pays no mana for a free-cast (additional costs still apply)
     } else {
@@ -1190,7 +1191,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // 202.3). The self-metric reads the casting player's board (creature power / artifact counts / historic MV).
       // STATIC-COST-TAX first (CR 601.2f — cost increases apply before decreases), then the reductions
       // floor the GENERIC at 0. The pips and the mana value are never touched (CR 202.3).
-      const staticTax = costTaxForSpell(costTaxers, card, playerId);
+      staticTax = costTaxForSpell(costTaxers, card, playerId);
       if (staticTax) cost = { ...cost, generic: (cost.generic || 0) + staticTax };
       const reduction = costReductionForSpell(costReducers, card, fromZone, { spellsCastThisTurn: player.spellsCastThisTurn || 0 }, everyType) + selfCostReductionForSpell(state, playerId, card);
       if (reduction) cost = { ...cost, generic: Math.max(0, (cost.generic || 0) - reduction) };
@@ -1214,10 +1215,17 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // same cost-variant; the card's own pips take precedence over a Fist of Suns grant (for the Bringers they coincide).
     // + THE TRAP FORM (shelf D17 — "If <condition>, you may pay <cost> rather than …"): the conditional twin, offered only while
     // its condition holds — read by the shared interveningIf reader (an unreadable condition is null → never offered).
+    // (+ its trailing-condition twin — Blasphemous Edict, #509 — read by the same conditionalFixedManaAltCostOf.) The condition is
+    // read on the board as the cast begins: the alternative cost is chosen and the total cost locked in (CR 601.2b, 601.2f) before
+    // any mana ability is activated to pay it (CR 601.2g).
     const unconditionalPips = (!freeCast && fromZone === "hand") ? fixedManaAltCostOf(card) : null;
     const trapAlt = (!freeCast && fromZone === "hand" && !unconditionalPips) ? conditionalFixedManaAltCostOf(card) : null;
     const ownPips = unconditionalPips || (trapAlt && evaluateInterveningIf(state, trapAlt.condition, playerId) === true ? trapAlt.pips : null);
-    const fixedAltCost = ownPips ? parseManaCost(ownPips) : (wubrgAlt ? WUBRG_COST : null);
+    // CR 118.9d — a cost increase that affects the spell applies to its alternative cost too (Thalia, Guardian of Thraben's
+    // "Noncreature spells cost {1} more"): the pip variant carries the same static tax as the printed cost, so it is never offered
+    // for less than the rules charge. (A reduction is not carried over: the variant may then cost more than it could, never less.)
+    const fixedAltPips = ownPips ? parseManaCost(ownPips) : (wubrgAlt ? WUBRG_COST : null);
+    const fixedAltCost = fixedAltPips ? { ...fixedAltPips, generic: fixedAltPips.generic + staticTax } : null; // parseManaCost always sets `generic`
     const wubrgAffordable = !!fixedAltCost && !freeCast && fromZone === "hand" && !cost.hasX
       && canAfford(player.manaPool, manaSources(state, playerId), fixedAltCost, spendContext);
     if (wubrgAffordable) wubrgSpecs.set(card.id, { baseAffordable: affordable, cost: fixedAltCost, altManaCost: ownPips ? "own" : "wubrg", altName: `pay ${ownPips || "{W}{U}{B}{R}{G}"} rather than its mana cost` });

@@ -25,7 +25,7 @@
  */
 import { SMALL_NUM, NUM_WORD } from "./parseHelpers.js";
 import { spellConditionParseable } from "../interveningIf.js"; // THE TRAP FORM (shelf D17) — the shared condition gate, as parser.js / splitClauses.js import it
-import { CONDITIONAL_FIXED_MANA_ALT_COST_RE } from "./textNormalize.js"; // THE TRAP FORM — one sentence for the strip and the offer
+import { CONDITIONAL_FIXED_MANA_ALT_COST_RE, TRAILING_CONDITIONAL_FIXED_MANA_ALT_COST_RE } from "./textNormalize.js"; // THE TRAP FORM (+ its trailing-condition twin, Blasphemous Edict) — one sentence for the strip and the offer
 
 const ADDITIONAL_COST_RE = /\bas an additional cost to cast this spell,\s*([^.]+)\.\s*/i;
 // ADDCOST-1 sac victims — single types PLUS the "artifact or creature" UNION (Deadly Dispute, Deadly
@@ -332,6 +332,11 @@ const ALT_COST_MATCHERS = [
   // generic pips ({0}, {1}{G}). The regex is textNormalize's, so the strip and the offer read one sentence.
   { re: CONDITIONAL_FIXED_MANA_ALT_COST_RE,
     build: (m) => (spellConditionParseable(m[1].trim().toLowerCase()) ? { kind: "fixedMana", pips: m[2].toUpperCase(), condition: `if:${m[1].trim().toLowerCase()}` } : null) },
+  // THE TRAILING-CONDITION FORM (play-weighted #509 — Blasphemous Edict): "You may pay <pips> rather than pay this spell's mana cost
+  // if <condition>." The trap form with the condition last — the same spellConditionParseable gate, the same offer (legalChoices
+  // reads it through conditionalFixedManaAltCostOf while the condition holds). textNormalize's regex: one sentence for both sides.
+  { re: TRAILING_CONDITIONAL_FIXED_MANA_ALT_COST_RE,
+    build: (m) => (spellConditionParseable(m[2].trim().toLowerCase()) ? { kind: "fixedMana", pips: m[1].toUpperCase(), condition: `if:${m[2].trim().toLowerCase()}` } : null) },
   // FIXED-MANA (RG-8, 2026-09-05 — the Bringers): the sentence is stripped for the program parse; the cast lane offers the pip
   // variant through legalChoices (a cost-variant action, never the altCost branch — the kind is not in OFFERED_ALT_COST_KINDS).
   { re: /(?:^|\n)\s*you may pay ((?:\{[WUBRG]\})+) rather than pay this spell's mana cost\.\s*/i,
