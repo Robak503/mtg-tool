@@ -12,15 +12,16 @@
  * the attacker, any layer-7 effect on either — all of it must count at the moment blockers are declared,
  * because a static that read PRINTED power would let a pumped blocker through (or wrongly stop one).
  *
- * CREED — three printed siblings must NOT be credited, and each is checked below:
- *   - "…can't block CREATURES YOU CONTROL" (Champion of Lambholt) — team-wide, not self-scoped
+ * CREED — three printed siblings must NOT be credited BY THIS GATE, and each is checked below:
+ *   - "…can't block CREATURES YOU CONTROL" (Champion of Lambholt) — team-wide, not self-scoped; it has its own
+ *     enforced team reader (teamPowerBlockGateOf, championOfLambholt.test.js), so it is credited there, never here
  *   - "power less than the NUMBER OF ISLANDS you control" (Kraken of the Straits) — a different quantity
  *   - "power less than OR EQUAL TO" — a different comparison; ≤ is not <
- * All three stay body-only → Arbiter. Uncredited and unenforced together, which is the safe direction.
+ * The last two stay body-only → Arbiter. Uncredited and unenforced together, which is the safe direction.
  */
 import { describe, expect, it } from "vitest";
 
-import { canBlockAttacker, selfPowerBlockGateOf } from "./combatEvasion.js";
+import { canBlockAttacker, selfPowerBlockGateOf, teamPowerBlockGateOf } from "./combatEvasion.js";
 import { classifyCard } from "./coverage.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 
@@ -112,10 +113,14 @@ describe("classification", () => {
     expect(classifyCard(ASSASSIN)).toMatch(/^native/);
   });
 
-  it("CREED — the TEAM-WIDE variant is not credited (Champion of Lambholt)", () => {
+  it("CREED — the TEAM-WIDE variant (Champion of Lambholt) is never read by the SELF gate; it is credited only through its own team reader", () => {
+    // Re-pointed when the team form got its own enforced reader (teamPowerBlockGateOf — championOfLambholt.test.js pins its
+    // runtime). Before that it was uncredited AND unenforced; now it is credited AND enforced, and the self gate still
+    // refuses it — the self gate would protect only the Champion, not every creature its controller controls.
     const champ = { ...WOLF, name: "Champion of Lambholt", oracle: "Creatures with power less than Champion of Lambholt's power can't block creatures you control." };
-    expect(classifyCard(champ)).not.toMatch(/^native/);
     expect(selfPowerBlockGateOf(champ)).toBeNull();
+    expect(teamPowerBlockGateOf(champ)).toBe(true);
+    expect(classifyCard(champ)).toMatch(/^native/);
   });
 
   it("CREED — a different dynamic QUANTITY is not credited (Kraken of the Straits)", () => {

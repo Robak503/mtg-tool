@@ -17,6 +17,9 @@
  *     Fear (702.36b)         — blockable only by artifact and/or black creatures
  *     Intimidate (702.13b)   — blockable only by artifact and/or creatures sharing a color with it
  *     Horsemanship (702.31b) — blockable only by creatures with horsemanship
+ *   board statics (scanned per query):
+ *     team self-power gate (509.1b) — Champion of Lambholt: a creature with less power than the source can't
+ *                              block any creature the source's controller controls
  *   blocker-side:
  *     "can't block"          — may never be declared as a blocker
  *     "can block only creatures with flying" — may block only flying attackers
@@ -61,7 +64,7 @@
  * the Sonorous Howlbonder team static ("Each creature you control with menace can't be blocked except by
  * three or more creatures" — corpus-unique, the Nightkin Ambusher targeted-matcher precedent).
  */
-import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, permIsEveryCreatureType } from "./layers.js";
+import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, permIsEveryCreatureType, deriveCharacteristics } from "./layers.js";
 import { findPermanent, creaturePower } from "./gameState.js";
 import { hasCitysBlessing } from "./ascend.js"; // shelf D5 — "can't attack or block unless you have the city's blessing"
 import { parseGroupBlockRestriction, attachedPreventionOf } from "./staticAbilityParser.js";
@@ -402,11 +405,24 @@ export function hasUnleash(card) { return reUnleash.test(selfOracle(card)); }
 // fixed-N filter (parseExceptBlockerFilters deliberately fails closed on "power" arms).
 //
 // Anchored to the SELF-SUBJECT, WHOLE-BOARD form ending at "it". The corpus siblings that must NOT match:
-//   • "…can't block CREATURES YOU CONTROL"       (Champion of Lambholt — a team-wide grant, not self)
+//   • "…can't block CREATURES YOU CONTROL"       (Champion of Lambholt — the TEAM form; its own reader is
+//                                                  reTeamPowerCantBlock directly below, never this self gate)
 //   • "power less than the NUMBER OF ISLANDS…"   (Kraken of the Straits — a different dynamic quantity)
 //   • "…with power less than OR EQUAL TO…"       (a different comparison; ≤ is not <)
-// All three end up body-only → Arbiter, which is the safe direction.
+// The last two end up body-only → Arbiter, which is the safe direction.
 const reSelfPowerCantBlock = /(?:^|[\n.;])\s*creatures with power (less|greater) than this creature's power can't block it\s*(?:\.|$)/;
+// TEAM SELF-POWER BLOCK GATE (CR 509.1b) — "Creatures with power less than this creature's power can't block creatures
+// you control." (Champion of Lambholt — corpus-UNIQUE, full-corpus sweep 2026-10-01). The same live comparison against
+// the SOURCE's own power as the self gate above, but the protected set is every creature the source's controller controls
+// (the source included), so it is a static on a battlefield permanent, not an attacker's own evasion: canBlockAttacker
+// scans the ATTACKER's controller's battlefield for it (CR 611.3a — the effect is not locked in; it applies to whatever
+// its text indicates at the moment blockers are declared). ONE core string builds the sentence reader
+// (teamPowerBlockGateOf) and the clause mirror (isEnforcedEvasionClause), so credit and enforcement flip together. A
+// "greater than" or "less than or equal to" team variant, a conditional lead-in, or a trailing rider fails the anchors →
+// residue → body-only (safe FN).
+const CORE_TEAM_POWER_CANT_BLOCK = "creatures with power less than this creature's power can't block creatures you control";
+const reTeamPowerCantBlock = new RegExp(`(?:^|[\\n.;])\\s*${CORE_TEAM_POWER_CANT_BLOCK}\\s*(?:\\.|$)`);
+const reClauseTeamPowerCantBlock = new RegExp(`^${CORE_TEAM_POWER_CANT_BLOCK}$`);
 // BLOCK-COUNT CAP (CR 509.1c — the menace-INVERSE) — "This creature can't be blocked by more than one creature."
 // A SET-level restriction on how MANY creatures may block this attacker (at most one), the mirror of menace's ≥2.
 // Enforced at block DECLARATION (legalChoices.legalBlockerActions): once this attacker already has one blocker,
@@ -929,6 +945,13 @@ export function selfPowerBlockGateOf(card) {
   const m = selfOracle(card).match(reSelfPowerCantBlock);
   return m ? m[1] : null;
 }
+/**
+ * TEAM SELF-POWER BLOCK GATE — does this card print Champion of Lambholt's team static? canBlockAttacker asks it of each
+ * permanent's layer-1 card (copy-aware), and isEnforcedEvasionClause mirrors it from the same core string.
+ */
+export function teamPowerBlockGateOf(card) {
+  return reTeamPowerCantBlock.test(selfOracle(card));
+}
 /** BLOCK-COUNT CAP (CR 509.1c) — this attacker "can't be blocked by more than one creature" (menace-inverse). */
 export function isBlockedByAtMostOne(card) { return reBlockedByAtMostOne.test(selfOracle(card)); }
 /** Nightkin Ambusher — unblockable while the DEFENDING player has ≥1 rad counter (corpus-unique). */
@@ -992,8 +1015,13 @@ export function isEnforcedEvasionClause(clause) {
   if (/^(?:this creature |it )?can't block creatures with power \d+ or greater$/.test(c)) return true;
   // SELF-POWER BLOCK GATE (CR 509.1b) — the classifier mirror of selfPowerBlockGateOf; canBlockAttacker
   // enforces the comparison live, so a body whose only non-keyword text is this static is honestly native.
-  // Same wording, same two directions, same "it" ending — the team-wide and ≤ variants stay uncredited.
+  // Same wording, same two directions, same "it" ending — the ≤ variant stays uncredited, and the team-wide form is
+  // credited only by its own line directly below.
   if (/^creatures with power (?:less|greater) than this creature's power can't block it$/.test(c)) return true;
+  // TEAM SELF-POWER BLOCK GATE (CR 509.1b — Champion of Lambholt) — the clause face of teamPowerBlockGateOf (ONE core
+  // string); canBlockAttacker enforces it for every attacker the source's controller controls, against the source's live
+  // power, so a body whose only non-keyword text is this static is honestly native.
+  if (reClauseTeamPowerCantBlock.test(c)) return true;
   // BLOCK-COUNT CAP (CR 509.1c — menace-inverse) — "can't be blocked by more than one creature". Enforced in
   // legalChoices.legalBlockerActions (a 2nd blocker on this attacker is never offered), so a body whose only
   // non-keyword text is this static is honestly native.
@@ -1273,6 +1301,23 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
       const bPow = creaturePower(bLook.permanent, state);
       const aPow = creaturePower(aLook.permanent, state);
       if (powGate === "less" ? bPow < aPow : bPow > aPow) return false;
+    }
+  }
+
+  // TEAM SELF-POWER BLOCK GATE (CR 509.1b — Champion of Lambholt): "Creatures with power less than this creature's power
+  // can't block creatures you control." Every source the ATTACKER's controller controls applies independently (CR 509.1b —
+  // restrictions are cumulative), each against that source's OWN live power: creaturePower on both sides (CR 613 — the
+  // Champion's own +1/+1 counters raise the bar, a pumped blocker can clear it; a negative value compares as itself,
+  // CR 107.1b). The static functions only while its source is on the battlefield (CR 113.6 — a source that left, or phased
+  // out and was spliced off `battlefield`, imposes nothing), and the source's card is read through layer 1
+  // (deriveCharacteristics' copiableValues — the manaModel.manaCardOf read): a permanent that BECAME a copy of the Champion
+  // carries the static (CR 707.2), a Champion that became a copy of something else does not. Only the attacker's own
+  // controller's board is scanned, so another player's attackers and the defender's own Champion never enter into it.
+  {
+    const bPow = creaturePower(bLook.permanent, state);
+    for (const src of state.players?.[aLook.controller]?.battlefield || []) {
+      if (!teamPowerBlockGateOf(deriveCharacteristics(state, src.id).copiableValues || src.card)) continue;
+      if (bPow < creaturePower(src, state)) return false;
     }
   }
 

@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Champion of Lambholt** — creatures with less power than it can't block creatures you control (checked as blockers are declared, with every pump and counter counted)
 - **Blasphemous Edict, Barter in Blood, Tergrid's Shadow, Taste of Death, Rankle's Prank and Abyssal Gorestalker** — "each player sacrifices N creatures" works: each player chooses their own, in turn order, and they are all sacrificed at once; Blasphemous Edict costs {B} while thirteen or more creatures are on the battlefield
 - **Planar Collapse** — at the beginning of your upkeep, if there are four or more creatures on the battlefield, it is sacrificed and destroys all creatures
 - **Rise of the Dark Realms** and **Liliana Vess** — "put all creature cards from all graveyards onto the battlefield under your control" works: they enter together under your control, and each still goes to its owner's graveyard when it dies

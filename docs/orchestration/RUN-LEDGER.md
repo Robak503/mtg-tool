@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **13 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,433)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+22**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **14 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,434)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+23**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,16 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 44: Champion of Lambholt (EDHREC #576) — the team self-power block gate · **+1** · corpus 15,434
+> Suite **17,996** green (one run for P·44–46). Flip-diff **+1, −0, zero RETIERED**: Champion of Lambholt → native-trigger. Top 1,000 **872**;
+> top 2,500 **1,709**. **Mutants 22/22**, restore byte-identical. Built by a fan-out builder; re-verified on the integrated tree.
+> · "Creatures with power less than this creature's power can't block creatures you control." A blocking restriction (CR 509.1b) enforced
+>   in canBlockAttacker — the one function every block path asks (the declare-blockers offer, the AI attack planner and block
+>   chooser): each source the ATTACKER's controller controls applies independently, both powers read live (counters, pumps), the
+>   source read through layer 1 (a Shifting Woodland copying the Champion carries it, CR 707.2). Equal power may block. One core
+>   string builds the reader and the classifier mirror. Witness `championOfLambholt.test.js` (24); `selfPowerBlockGate.test.js`'s
+>   "team form is not credited" pin re-pointed (graduated).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 43: Blasphemous Edict (EDHREC #509) — the N-count each-player edict as one simultaneous sacrifice · **+7** · corpus 15,433
 > Suite **17,941** green (1 skipped); lint 0; decks **2,746** / 2,998 unchanged. Flip-diff **+7, −0, zero RETIERED**: Blasphemous Edict, Barter in
