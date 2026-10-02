@@ -34,9 +34,11 @@
 > exile and its free play), Underworld Breach #388 (escape, granted), Helm of the Host #396 +2 (a copy of the equipped
 > creature), Silence #412 (the all-spells cast lock), Selvala, Heart of the Wilds #438 (the entering creature's controller may
 > draw), Cabal Ritual #453 +2 (the Threshold upgrade; Thermal Blast with it); · 3 the Construct token, the Saga's prerequisite)
-> → top 1,000 at **868 / 1,000** (needs +32) — with Living Death #474 +2 (Living End with it; the one-event batch sacrifice,
+> → top 1,000 at **865 / 1,000** (needs +35 — the 10-02 card-data refresh re-ranked the list: 868 → 865, no card lost) — with Living Death #474 +2 (Living End with it; the one-event batch sacrifice,
 > after the P·34 death look-back fix), Disciple of Freyalise #483 (sacrifice another; payoff by its power), the until-end-of-turn
 > mana hold +3 (Savage Ventmaw), Birgi, God of Storytelling #489 (the spell // spell modal-DFC lane — cast either face).
+> **Data (10-02):** the Scryfall refresh 07-18 → 10-01 (The Hobbit, Reality Fracture): corpus **15,418 / 34,620**, top 2,500 1,701 — the
+> denominator step and the top-1,000 re-ranking are explained in the RUN-LEDGER entry. Run `npm run sync:oracle` between slices.
 > **Fix (10-01, P·34):** a death watcher (Blood Artist, Zulaport Cutthroat, Morbid Opportunist) that died alongside other
 > creatures triggered only for itself — fixed (CR 603.10a look-back). Sims with board wipes under Aristocrats watchers under-counted.
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim

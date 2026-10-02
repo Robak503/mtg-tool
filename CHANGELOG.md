@@ -15,6 +15,7 @@ summarizes the notable changes.
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
 
 ### Fixed
+- **Tato Farmer** keeps its milled-land ability under Scryfall's updated wording ("tapped under your control"); the next card-data update would otherwise have turned it off
 - Blood Artist, Zulaport Cutthroat, Morbid Opportunist and other death watchers triggered only for their own death when they died together with other creatures (a board wipe, a combat trade); they now trigger for each creature that died with them
 
 ## [0.162.0] - 2026-10-01

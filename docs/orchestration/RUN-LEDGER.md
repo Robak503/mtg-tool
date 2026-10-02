@@ -6,7 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **6 commits**, corpus **44.5% (15,246)** at the tag → **44.5% (15,253)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **7 commits**, corpus **44.5% (15,246)** at the tag → **44.5% (15,418)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+7**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +15,27 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 📦 2026-10-02 — CARD DATA: the Scryfall refresh 07-18 → 10-01 (The Hobbit, Reality Fracture) · corpus 15,253 → **15,418** (new cards) · top 1,000 868 → **865** (re-ranking)
+> Suite **17,748** green (1 skipped); lint 0; decks **2,746** / 2,998 unchanged. CI GREEN on P·38 (run 36952367593).
+> Omnath's [Q-ORACLE-SYNC] (Colton's ask), run between slices: P·39 (every creature type) parked as a patch at 76b26368, resumes on this data.
+> · **Synced:** `npm run sync:oracle` (38,254 → 38,697 cards; 79,706 rulings; card-names.json 39,558 → 40,021 names: +710, −247 — 242
+>   Arena-only Alchemy "A-" rebalances Scryfall's oracle export no longer carries, and 5 playtest/plane oddities); `generate:token-names`
+>   (766 → 741: the new sets' tokens in, 51 names Scryfall's token search no longer returns out); the bulk sync into the roaming data root
+>   (oracle_cards, default_cards, unique_artwork, rulings) + `build:oracle-index` (36,068 → 36,462) + `build:printings-index` (106,600).
+>   New sets: HOB 188 · FRA 279 · FRC 83 (Jace, Multiverse Architect resolves). The main checkout's `app/data` oracle + rulings refreshed
+>   byte-identical to the sync (Omnath's lookups read there); its tracked files untouched.
+> · **Flip-diff** (tier snapshots at 76b26368, the 07-18 data → the 10-01 data): **GAINED 0, LOST 0, RETIERED 0**, new-to-index 591 — after
+>   one fix: **Tato Farmer** fell native-mixed → body-only on the new data. Scryfall's 10-01 Oracle reads "onto the battlefield tapped under
+>   your control" (07-18: "under your control tapped"); the matcher takes both orders now (zones.js). Witness `tatoFarmer.test.js` (+1: the
+>   07-18 order parses to the same atom; the fixture carries the real {2}{G} now). **Mutants 2/2.** Without it the next release — every
+>   release re-syncs its data — would have parked the card.
+> · **The denominator step — data, not regression:** corpus **15,418 / 34,620** (44.5% either way) = +204 native among the 591 new cards,
+>   −39 native among the 217 that left (216 A- rebalances · Fear (Not the Alpha One) // Loathing). Top 1,000 **865** (needs +35): the
+>   membership moved with EDHREC's refreshed ranks, no card lost its tier — uncovered and now inside it: Raise the Palisade #888 · The Soul
+>   Stone #912 · Evendo, Waking Haven #925 · Metallic Mimic #961 · Cut a Deal #978 · Approach of the Second Sun #979 · Cyberdrive Awakener #989;
+>   uncovered and now outside it: Chatterfang, Squirrel General · Necromancy · Spellskite · Swarmyard. Top 2,500 **1,701** (was 1,694).
+> · **Next:** P·39 resumes — #490 Maskwood Nexus is still the worklist head.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 38: the spell // spell modal-DFC lane — cast either face (Birgi, God of Storytelling #489) · **+1** · corpus 15,253
 > Suite **17,747** green (1 skipped); lint 0; decks **2,746** / 2,998 unchanged. CI GREEN on P·37 (run 36951109708).

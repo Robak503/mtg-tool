@@ -4,9 +4,10 @@
  *   1. gameState.millCards now stamps EVERY milled card id → the turn it was milled (the single mill
  *      primitive — the mill-effect path AND the radiation mill both flow through it). Readers key on
  *      `=== state.turn`, so stale entries are inert.
- *   2. "Put target land card in a graveyard that was milled this turn onto the battlefield under your
- *      control tapped." → the cross-graveyard reanimate atom + the milledThisTurnOnly enumeration gate +
- *      entersTapped riding enterCardFromZone.
+ *   2. "Put target land card in a graveyard that was milled this turn onto the battlefield tapped under
+ *      your control." → the cross-graveyard reanimate atom + the milledThisTurnOnly enumeration gate +
+ *      entersTapped riding enterCardFromZone. (Scryfall's 2026-10-01 Oracle wording; the 07-18 data read
+ *      "under your control tapped" — both orders parse to the same atom.)
  *   3. The landfall "you may get two rad counters" — the α2 peel produces the subjectless "get two rad
  *      counters", now accepted by radClauseParser (controller-scoped; the idiom only arrives post-peel).
  * CREED FP = offering a land milled LAST turn / never milled, or an untapped entry.
@@ -23,14 +24,15 @@ import { classifyCard } from "./coverage.js";
 
 beforeEach(() => _resetIdsForTests());
 
-// Real oracle text (bundled Scryfall data — never from memory).
+// Real oracle text (bundled Scryfall data, the 2026-10-01 sync — never from memory).
 const TATO_ORACLE =
-  "Landfall — Whenever a land you control enters, you may get two rad counters.\n{T}: Put target land card in a graveyard that was milled this turn onto the battlefield under your control tapped.";
+  "Landfall — Whenever a land you control enters, you may get two rad counters.\n{T}: Put target land card in a graveyard that was milled this turn onto the battlefield tapped under your control.";
 const tatoCard = (id = "tf-card") => ({
-  id, name: "Tato Farmer", type: "Creature — Zombie Mutant Peasant", power: "1", toughness: "4", mana: "{1}{G}", oracle: TATO_ORACLE,
+  id, name: "Tato Farmer", type: "Creature — Zombie Mutant Peasant", power: "1", toughness: "4", mana: "{2}{G}", oracle: TATO_ORACLE,
 });
 
-const REANIMATE_CLAUSE = "put target land card in a graveyard that was milled this turn onto the battlefield under your control tapped";
+const REANIMATE_CLAUSE = "put target land card in a graveyard that was milled this turn onto the battlefield tapped under your control";
+const REANIMATE_CLAUSE_0718 = "put target land card in a graveyard that was milled this turn onto the battlefield under your control tapped"; // the 07-18 Oracle order
 const GY_SPEC = { kind: "return-gy", targetType: "graveyardCard", cardFilter: "land", anyGraveyard: true, milledThisTurnOnly: true };
 
 function baseState(over = {}) {
@@ -48,6 +50,11 @@ describe("parse + routing + classify", () => {
     expect(programConfidence(p)).toBe("high");
     expect(p.atoms).toEqual([{ op: "reanimate", targetType: "graveyardCard", cardFilter: "land", anyGraveyard: true, milledThisTurnOnly: true, entersTapped: true }]);
     expect(classifyCard(tatoCard())).toBe("native-mixed");
+  });
+  it("the 07-18 word order (\"under your control tapped\", still in older bundles) parses to the same atom", () => {
+    const now = parseEffectClause(REANIMATE_CLAUSE, "Instant");
+    const old = parseEffectClause(REANIMATE_CLAUSE_0718, "Instant");
+    expect({ conf: programConfidence(old), atoms: old.atoms }).toEqual({ conf: "high", atoms: now.atoms });
   });
 });
 

@@ -916,8 +916,10 @@ export function graveyardReturnClauseParser(clause) {
   // this turn onto the battlefield under your control tapped". The SAME cross-graveyard reanimate resolver
   // (fromPlayerId routes the removal; entersTapped rides enterCardFromZone), narrowed by the
   // milledThisTurnOnly enumeration gate (the millCards ledger, keyed to the CURRENT turn). Exact `$` anchor
-  // — an untapped / non-land / non-milled variant → low → Arbiter (FN-safe).
-  if (/^put target land card in a graveyard that was milled this turn onto the battlefield under your control tapped$/.test(t)) {
+  // — an untapped / non-land / non-milled variant → low → Arbiter (FN-safe). Both word orders: Scryfall's
+  // 2026-10-01 Oracle reads "onto the battlefield tapped under your control" (the 07-18 data, still in older
+  // bundles, read "under your control tapped") — the same instruction.
+  if (/^put target land card in a graveyard that was milled this turn onto the battlefield (?:under your control tapped|tapped under your control)$/.test(t)) {
     return { op: "reanimate", targetType: "graveyardCard", cardFilter: "land", anyGraveyard: true, milledThisTurnOnly: true, entersTapped: true };
   }
   // GY-TO-TOP — "put target <X> card from your graveyard on top of your library" (Reclaim, Salvage, False
