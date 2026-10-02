@@ -814,6 +814,16 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   // (actionDispatcher.applyCastSpell writes context.castFromGraveyard for a graveyard cast). A definite answer either way:
   // a spell cast from any other zone carries no stamp, and a copy was never cast (stack.spellCopyPayload strips it).
   if (c === "this spell was cast from a graveyard") return context?.castFromGraveyard === true;
+  // ===== CAST DURING YOUR MAIN PHASE, THE SPELL SIDE (play-weighted #564 — Unbreakable Formation's Addendum; "Addendum" is
+  // a CR 207.2c ability word with no rules meaning, so the condition is the printed text after it) ===== the resolving
+  // spell's own cast-time stamp: actionDispatcher.applyCastSpell writes context.castDuringMainPhase as a DEFINITE boolean
+  // on every instant/sorcery program cast (castDuringMainPhaseNow — the caster is the active player and the phase is a main
+  // phase, CR 505.1). Anything without a boolean stamp reads null, never a guess: a copy (never cast, CR 707.10 —
+  // stack.spellCopyPayload strips the stamp), an ability, or an evaluator that does not pass the spell's context through.
+  // The shape probes (spellConditionParseable, conditionIsDecidable, interveningIfParseable) supply no stamp, so they read
+  // null exactly as before this reader existed: the generic conditional lanes cannot admit the phrase. Its one consumer is
+  // the group grant's "those creatures" rider (atoms/combat.applyGrantKeywordsGroup), which hands over the spell's context.
+  if (c === "you cast this spell during your main phase") return typeof context?.castDuringMainPhase === "boolean" ? context.castDuringMainPhase : null;
   // ===== THE CITY'S BLESSING (shelf D5, 2026-09-30 — CR 702.131) ===== "if you have the city's blessing" (a trigger's
   // intervening-if; the "Activate only if …" rider on Arch of Orazca; a spell's condition). A player designation, set by
   // ascend.grantCitysBlessings and never cleared — always a definite answer.

@@ -14,6 +14,7 @@ import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // BECOME-CREATURE-TYPE
 import { SMALL_NUM, NUM_WORD, parseCountSource, parseGrantedKeywords, COUNT_SUBTYPE, TARGET_SUBTYPES } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../../keywords.js"; // GROUP-KEYWORD-GRANT vocab (keywords.js is a zero-import leaf — cycle-safe)
 import { evaluateInterveningIf } from "../../interveningIf.js"; // INSTEAD-AMOUNT (BLITZ INST-1) — the shared board-condition readers for a condition-gated ptUpgrade; interveningIf → gameState is a leaf edge (no cycle)
+import { applyAddCounter } from "./counters.js"; // "THOSE CREATURES" rider (play-weighted #564 — Unbreakable Formation): the counter chokepoint (doubler hook, counters-placed watchers); counters.js never imports combat.js, so the edge is acyclic
 
 /** Tap / untap target creature(s), land(s), OR any permanent (CR 701.26). The CREATURE form is the original
  * (a chosen `type:"creature"` target). UNTAP-LAND (Voyaging Satyr "{T}: Untap target land") targets a LAND;
@@ -1181,7 +1182,22 @@ export function applyGrantKeywordsGroup(state, atom, ctx) {
       duration: dur, source: src,
     }).state;
   }
-  return logEvent(next, { kind: "spell-effect", effect: "grant-keywords-group", controller: ctrl, scope: atom.scope, keywords: atom.grantKeywords, targets: ids });
+  next = logEvent(next, { kind: "spell-effect", effect: "grant-keywords-group", controller: ctrl, scope: atom.scope, keywords: atom.grantKeywords, targets: ids });
+  // "THOSE CREATURES" RIDER (play-weighted #564 — Unbreakable Formation's Addendum: "If you cast this spell during your main
+  // phase, put a +1/+1 counter on each of those creatures and they gain vigilance until end of turn."). The later instruction
+  // acts on the set THIS grant just fixed (CR 611.2c), so it is handed `ids` itself — never a fresh read of "creatures you
+  // control", whose gatherer (controllerCreatureTargets) also takes a printed creature that is not one right now (a bestowed
+  // Aura, an attached reconfigure Equipment) and would put a counter on an object that never gained the keyword. The counter
+  // and the keyword ride applyAddCounter's own rider (Snakeskin Veil's shape: the doubler hook, the counters-placed watchers,
+  // a fixed-set layer-6 grant per creature), after the grant, in printed order (CR 608.2c). The condition is the spell's
+  // cast-time stamp, read through the shared reader with this resolution's context: only a definite true applies it — a
+  // combat cast reads false, a copy reads null (CR 707.10).
+  const rider = atom.thoseCreatures;
+  if (rider && evaluateInterveningIf(next, rider.condition, ctrl, ctx) === true) {
+    next = applyAddCounter(next, { op: "add-counter", counterType: rider.counterType, amount: rider.amount, grantKeywords: rider.grantKeywords },
+      { ...ctx, targets: ids.map((id) => ({ type: "creature", id, controller: ctrl })) });
+  }
+  return next;
 }
 
 /**

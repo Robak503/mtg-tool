@@ -1637,12 +1637,17 @@ function copyAtomIntent(atom) {
  * independently of the original (the resolver mutates params as it runs), and stripped of the ORIGINAL's cast-time
  * facts: a copy is not a card and was never cast (CR 707.10a). So it has no zone disposition — a resolved copy must never
  * put another object with the original card's id into a graveyard (the instant/sorcery copy did, until P·23) — and "if
- * this spell was cast from a graveyard" reads false for it.
+ * this spell was cast from a graveyard" reads false for it. The main-phase cast stamp goes too (play-weighted #564 —
+ * Unbreakable Formation): "if you cast this spell during your main phase" reads null for a copy, so its Addendum never
+ * applies to one.
  */
 export function spellCopyPayload(payload) {
   const cloned = JSON.parse(JSON.stringify(payload)); // every spell payload carries params (the dispatcher builds them all)
   delete cloned.params.spellToGraveyard;
-  if (cloned.params.context) delete cloned.params.context.castFromGraveyard;
+  if (cloned.params.context) {
+    delete cloned.params.context.castFromGraveyard;
+    delete cloned.params.context.castDuringMainPhase;
+  }
   return cloned;
 }
 

@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **14 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,434)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+23**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **15 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,435)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+24**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,17 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 45: Unbreakable Formation (EDHREC #564) — the Addendum as a cast-time stamp · **+1** · corpus 15,435
+> Suite **17,996** green (one run for P·44–46). Flip-diff **+1, −0, zero RETIERED**: Unbreakable Formation → native-spell. Top 1,000 **873**;
+> top 2,500 **1,710**. **Mutants 19/19**, restore byte-identical. Built by a fan-out builder; re-verified on the integrated tree.
+> · Every instant/sorcery cast now carries a definite `castDuringMainPhase` stamp (CR 505.1); a copy strips it (CR 707.10), so its
+>   Addendum never applies. The "you cast this spell during your main phase" reader answers only from that stamp (null otherwise),
+>   so no generic conditional lane can admit the phrase. "Those creatures" is the grant's own fixed set (CR 611.2c) — the rider
+>   never re-reads "creatures you control"; the counter rides the counter chokepoint (Hardened Scales). Witness
+>   `unbreakableFormation.test.js` (14); `groupKeywordGrant.test.js`'s pin graduated (an Addendum with populate still parks).
+> · ⚠️ Found, not fixed here (queued): Plunder the Trollshaws draws one, not two, when cast with flashback (a conditional's
+>   context drops the cast-from-graveyard stamp); "creatures you control" scopes also take a bestowed Aura.
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 44: Champion of Lambholt (EDHREC #576) — the team self-power block gate · **+1** · corpus 15,434
 > Suite **17,996** green (one run for P·44–46). Flip-diff **+1, −0, zero RETIERED**: Champion of Lambholt → native-trigger. Top 1,000 **872**;

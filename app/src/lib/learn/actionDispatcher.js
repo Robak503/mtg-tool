@@ -872,6 +872,12 @@ function applyCastSpell(state, action) {
     // cast-time fact the resolving spell reads through its context, which rides every resume. A copy is never cast (CR
     // 707.10), so stack.spellCopyPayload strips it from every copy.
     if (fromZone === "graveyard") params.context = { castFromGraveyard: true };
+    // CAST DURING YOUR MAIN PHASE (play-weighted #564 — Unbreakable Formation's Addendum, "If you cast this spell during your
+    // main phase, …"): the same cast-time fact the permanent branch below threads, read through the same castDuringMainPhaseNow
+    // (CR 505.1) and stamped as a DEFINITE boolean on every program cast, so the condition reader can tell a combat cast
+    // (false) from an object that was never cast at all (no stamp → null). It rides params.context beside castFromGraveyard;
+    // a copy is never cast (CR 707.10), so stack.spellCopyPayload strips it from every copy.
+    params.context = { ...(params.context || {}), castDuringMainPhase: castDuringMainPhaseNow(state, action.playerId) };
     // KICKED-SPELL-EFFECT (CR 702.33e): a kicked cast threads the was-kicked flag so runEffectProgram runs the
     // `kickedOnly` atoms (the "If this spell was kicked, <extra>" payoff). A normal cast leaves it unset and the
     // kicked atoms are skipped (base-only). The kicker mana is already folded into action.cost by legalChoices.

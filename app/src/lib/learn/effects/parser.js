@@ -2220,6 +2220,25 @@ function matchDrawCounterCreaturesThenGrant(oracle, cardType, hasX) {
   return { atoms: [drawAtom, { ...grantAtom, requiresCounter: "+1/+1" }] };
 }
 
+// UNBREAKABLE FORMATION (play-weighted #564) — "Creatures you control gain <kw> until end of turn. Addendum — If you cast
+// this spell during your main phase, put a +1/+1 counter on each of those creatures and they gain <kw> until end of turn."
+// (the CR 207.2c label is stripped upstream). "Those creatures" are the creatures the FIRST sentence affected, so the
+// Addendum is not a second group atom re-reading "creatures you control": it rides the grant atom as `thoseCreatures` and
+// resolves over the grant's own fixed set (combat.applyGrantKeywordsGroup). Both keyword lists go through the group grant's
+// allowlist (groupGrantClauseParser). The rider carries keywords only — applyAddCounter's grant rider has no protection
+// arm — so a protection tail on the Addendum's list parks the card instead of being dropped. The condition reads the
+// spell's cast-time stamp (interveningIf); the generic condition probes cannot read it, so this whole-oracle anchor is the
+// only lane that admits it.
+function matchGroupGrantThoseCreaturesRider(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").trim();
+  const m = t.match(/^(creatures you control gain .+? until end of turn)\.\s+if you cast this spell during your main phase, put a \+1\/\+1 counter on each of those creatures and they gain (.+?) until end of turn\.?$/);
+  if (!m) return null;
+  const grant = groupGrantClauseParser(m[1]);
+  const rider = groupGrantClauseParser(`creatures you control gain ${m[2]} until end of turn`);
+  if (!grant || !rider || rider.grantProtectionAllColors) return null;
+  return { atoms: [{ ...grant, thoseCreatures: { condition: "you cast this spell during your main phase", counterType: "+1/+1", amount: 1, grantKeywords: rider.grantKeywords } }] };
+}
+
 
 /**
  * EACH-PLAYER LOOT (SG-5, 2026-09-03 — Geier Reach Sanitarium / Lore Broker "Each player draws a card, then
@@ -2733,6 +2752,10 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   if (mpg && mpg.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: mpg.atoms, xSpell: false, unparsedTail: null });
   }
+  // ===== UNBREAKABLE FORMATION ===== a group grant whose Addendum acts on "those creatures" — see
+  // matchGroupGrantThoseCreaturesRider. ONE atom (the grant, carrying its rider) → HIGH.
+  const gtr = matchGroupGrantThoseCreaturesRider(oracle);
+  if (gtr) return makeProgram({ confidence: "high", atoms: gtr.atoms, xSpell: false, unparsedTail: null });
   // ===== WHEEL AND DEAL ===== any number of target opponents each discard their hands, then draw N — see
   // matchWheelTargetOpponents. Two KNOWN atoms (the second bound to the first's players) → HIGH.
   const wto = matchWheelTargetOpponents(oracle, cardType);

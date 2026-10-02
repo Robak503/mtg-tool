@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Unbreakable Formation** — your creatures gain indestructible; cast in your main phase, each of them also gets a +1/+1 counter and vigilance (a copy, or a cast during combat, gets only the indestructible)
 - **Champion of Lambholt** — creatures with less power than it can't block creatures you control (checked as blockers are declared, with every pump and counter counted)
 - **Blasphemous Edict, Barter in Blood, Tergrid's Shadow, Taste of Death, Rankle's Prank and Abyssal Gorestalker** — "each player sacrifices N creatures" works: each player chooses their own, in turn order, and they are all sacrificed at once; Blasphemous Edict costs {B} while thirteen or more creatures are on the battlefield
 - **Planar Collapse** — at the beginning of your upkeep, if there are four or more creatures on the battlefield, it is sacrificed and destroys all creatures

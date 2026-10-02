@@ -144,6 +144,12 @@ describe("group-keyword-grant — CREED: rider/filter variants stay non-native",
     expect(classifyCard(C("Yuan-Ti Scaleshield", "Permanents you control gain hexproof and indestructible until end of turn.\nSeek a creature card if an opponent has cast a spell with mana value 3 or less this turn."))).not.toMatch(/^native/);
   });
   it("an Addendum / populate rider stays non-native", () => {
-    expect(classifyCard(C("Unbreakable Formation", "Creatures you control gain indestructible until end of turn.\nAddendum — If you cast this spell during your main phase, put a +1/+1 counter on each of those creatures and they gain vigilance until end of turn."))).not.toMatch(/^native/);
+    // GRADUATED 2026-10-01 (play-weighted #564) — Unbreakable Formation's own Addendum is modelled now: the spell's cast-time
+    // main-phase stamp gates a "those creatures" rider on the group grant (unbreakableFormation.test.js holds the runtime
+    // witness). The pin's own reason — "rider unmodeled" — no longer holds for that card. Re-pointed rather than deleted; the
+    // live negative follows.
+    expect(classifyCard(C("Unbreakable Formation", "Creatures you control gain indestructible until end of turn.\nAddendum — If you cast this spell during your main phase, put a +1/+1 counter on each of those creatures and they gain vigilance until end of turn."))).toBe("native-spell");
+    // Still parked — an Addendum whose PAYLOAD is unmodelled must drop the whole card, which is the invariant this pin protects.
+    expect(classifyCard(C("Fake Formation", "Creatures you control gain indestructible until end of turn.\nAddendum — If you cast this spell during your main phase, populate."))).not.toMatch(/^native/);
   });
 });
