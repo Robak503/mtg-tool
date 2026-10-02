@@ -56,7 +56,7 @@ import {
   unattachEquipment,
 } from "./gameState.js";
 import { deterministicRng, advanceRngSeed, deathLookbackLinks } from "./gameState.js"; // RG-7 (2026-09-05) — the seeded random-discard pick at payment
-import { withoutImpulseStamps, withoutVoidCounter } from "./gameState.js"; // shelf D3 — a card cast out of exile leaves its impulse permission behind (CR 400.7)
+import { withoutExileStamps } from "./gameState.js"; // shelf D3 — a card cast out of exile leaves every exile-only permission behind (CR 400.7)
 import { parseTeamworkCost } from "./kicker.js"; // TEAMWORK (shelf D16) — the N a kicked teamwork cast must tap; kicker.js imports only leaves (parseHelpers, keywords)
 
 /** RG-7 — pitch ONE card at random from `playerId`'s hand (never `excludeId`) with the game's seeded rng, advancing the seed
@@ -353,13 +353,13 @@ function applyCastSpell(state, action) {
   if (zoneOwner !== action.playerId && !castFromAmongPermits && !(zoneCard._impulse && zoneCard._impulseFor === action.playerId && zoneCard._impulseTurn === state.turn)) {
     throw new DispatcherError(`${action.playerId} has no permission to cast ${zoneCard.name} from ${zoneOwner}'s exile`, "NO_CAST_PERMISSION");
   }
-  // CR 400.7 — the card that leaves exile is a new object: the impulse permission belonged to its stay in exile and
-  // stays behind. A permanent or graveyard card still carrying "castable this turn" would be offered again the moment
-  // it was exiled a second time that turn. So does the adventure-exile permission (`_onAdventure`, CR 715.3d — "for as
-  // long as that card remains exiled"): the adventurer creature cast from there, then countered, returned to a hand, or
-  // gone from the battlefield (its `printedCard` is this card), must never reach exile again still castable.
-  const { _onAdventure: _adventureStay, ...leftExile } = zoneCard;
-  const card = fromZone === "exile" ? withoutVoidCounter(withoutImpulseStamps(leftExile)) : zoneCard; // + P·28: a void counter stays in exile (CR 400.7)
+  // CR 400.7 — the card that leaves exile is a new object: every permission it had for its stay in exile stays behind
+  // (gameState.withoutExileStamps — the one list every exit from exile reads). A permanent or graveyard card still carrying
+  // "castable this turn" would be offered again the moment it was exiled a second time that turn; the adventure-exile
+  // permission (`_onAdventure`, CR 715.3d — "for as long as that card remains exiled") would make an adventurer castable
+  // again; a plotted creature (CR 702.170d) or a suspended permanent (CR 702.62a) exiled again later would be castable for
+  // free again.
+  const card = fromZone === "exile" ? withoutExileStamps(zoneCard) : zoneCard;
 
   // ADVENTURE (CR 715): when casting an Adventure card's FACE (`action.faceCard` — the adventure
   // instant/sorcery half from hand, or the creature half from adventure-exile), every cast-as-this-card

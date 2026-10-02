@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **31 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,451)** — +165 of that is the 10-02 card-data refresh (new
+> **33 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,451)** — +165 of that is the 10-02 card-data refresh (new
 > cards, not engine work); engine gains since the tag: **+40**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,17 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: a card that leaves exile leaves every exile-only stamp behind (CR 400.7) · **±0**
+> Suite **18,467** green (one run with Class levels, the quick trio, and the combat-timing and destroy-ladder fixes). Flip-diff **0 / 0 / 0**. **Mutants 10/10**, restore byte-identical. Built by the integrator
+> between batches (found by the Reprieve builder). 148 related test files (1,946 tests) green before the suite.
+> · ⚑ Exile-only state rides on the card as stamps — plot (CR 702.170d), suspend's counters and readiness (CR 702.62a), the
+>   hideaway link (CR 702.75a), the impulse family, a void counter, Necropotence's face-down marker, the adventure permission
+>   (CR 715.3d) — and only some exits from exile stripped them; a put onto the battlefield stripped none. A plotted Djinn of
+>   Fool's Fall cast from exile carried its plot stamp onto the battlefield, and exiled again by Swords to Plowshares it was
+>   offered as a free cast again; a suspended Lotus Bloom did the same. One list (gameState.withoutExileStamps) now serves
+>   every exit: the cast, the zone chokepoint and the put. Witness `exileStampsLeaveExile.test.js` (5; four fail on the old
+>   engine).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 54: Mangara, the Diplomat (EDHREC #610) + Trouble in Pairs (#626) — the attacks-you-with-two trigger and the extra-turn skip · **+3** · corpus 15,451
 > Flip-diff **+3, −0, zero RETIERED**: Mangara → native-trigger, Trouble in Pairs → native-mixed, Everett K. Ross, Hapless Attaché →

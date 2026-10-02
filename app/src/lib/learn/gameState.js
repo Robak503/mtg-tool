@@ -409,6 +409,23 @@ export function withoutImpulseStamps(card) {
   return rest;
 }
 
+/**
+ * EXILE-ONLY STAMPS (CR 400.7) — what a card carries only for its current stay in exile: the impulse permission family, a
+ * void counter (Dauthi Voidwalker), the face-down exile and its bound return (Necropotence), the adventure permission (CR
+ * 715.3d), plot (CR 702.170d), suspend's time counters and readiness (CR 702.62a), and the hideaway link (CR 702.75a). A card
+ * that leaves exile is a new object without any of them, so it can never return to exile still castable or still linked (a
+ * plotted creature cast, then exiled by Swords to Plowshares, was castable for free again). Every exit from exile reads this
+ * one list: the zone chokepoint (moveCardToZone), a cast from exile (actionDispatcher.applyCastSpell) and a put onto the
+ * battlefield (zones.enterCardFromZone).
+ */
+const EXILE_ONLY_STAMPS = ["_impulse", "_impulseTurn", "_impulseExtended", "_impulseOwner", "_impulseFor", "_impulseFree", "_voidCounter", "_faceDownExile", "_onAdventure", "_plotted", "_plottedTurn", "_suspendCounters", "_suspendReady", "_hideawayOf"];
+export function withoutExileStamps(card) {
+  if (!card || !EXILE_ONLY_STAMPS.some((k) => k in card)) return card;
+  const rest = { ...card };
+  for (const k of EXILE_ONLY_STAMPS) delete rest[k];
+  return rest;
+}
+
 export function createStackObject({ id, kind, source, controller, targets = [], cost = null, payload = {} }) {
   const validKinds = new Set(["spell", "triggered-ability", "activated-ability"]);
   if (!validKinds.has(kind)) throw new Error(`createStackObject: invalid kind "${kind}"`);
@@ -937,16 +954,11 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
     const { _returnHandled: _drop, ...rest } = card;
     card = rest;
   }
-  // P·28 — a void counter is ON the card in exile (Dauthi Voidwalker); a card that leaves exile is a new object without it
-  // (CR 400.7), so a later exile for any other reason can never read as void-countered.
-  if (fromZone === "exile" && card._voidCounter) card = withoutVoidCounter(card);
-  // Necropotence (effects/atoms/faceDownExile.js) — a card exiled face down is turned face up as it leaves exile, and its
-  // delayed return is bound to that one stay (CR 603.7c, CR 400.7): with the stamp gone, the return can never find it again,
-  // even if it comes back to exile.
-  if (fromZone === "exile" && card._faceDownExile) {
-    const { _faceDownExile: _f, ...rest } = card;
-    card = rest;
-  }
+  // A card that leaves exile is a new object (CR 400.7): every exile-only stamp stays behind (withoutExileStamps). Among them
+  // P·28's void counter (Dauthi Voidwalker — a later exile for any other reason never reads as void-countered) and
+  // Necropotence's face-down marker (effects/atoms/faceDownExile.js — the card is turned face up as it leaves, and its delayed
+  // return, bound to that one stay (CR 603.7c), can never find it again even if it comes back to exile).
+  if (fromZone === "exile") card = withoutExileStamps(card);
   const nextSource = [...sourceList.slice(0, index), ...sourceList.slice(index + 1)];
   // GY-EVENT (SHELF S7): a card leaving/entering a graveyard through the generic single-card move —
   // graveyard→hand (Raise Dead), graveyard→library (Reclaim), graveyard→exile, graveyard→command

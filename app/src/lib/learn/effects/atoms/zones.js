@@ -3,7 +3,7 @@
  * reanimate). Also hosts the shared enterCardFromZone helper (reanimation + library ramp).
  */
 
-import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf, shuffleSeededLibrary, deterministicRng, advanceRngSeed, attachPermanent } from "../../gameState.js"; // deterministicRng / advanceRngSeed — ENDURANCE's "in a random order" (seeded, never Math.random) // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
+import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf, shuffleSeededLibrary, deterministicRng, advanceRngSeed, attachPermanent, withoutExileStamps } from "../../gameState.js"; // deterministicRng / advanceRngSeed — ENDURANCE's "in a random order" (seeded, never Math.random) // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
 import { applyEnterReplacements, settleEnterReplacements, sagaEntryChapterTriggers } from "../../enterReplacements.js"; // the entry replacements (CR 614.1c, 614.1d, 614.12) — the ONE reader resolvers.enterPermanent shares; a leaf that reaches neither resolvers.js nor any atom importing this file
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
@@ -309,8 +309,11 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   const owner = state.players[fromPlayerId];
   const controllerPlayer = state.players[playerId];
   if (!owner || !controllerPlayer) return { state, entered: false };
-  const card = (owner[fromZone] || []).find((c) => c.id === cardId);
-  if (!card) return { state, entered: false };
+  const found = (owner[fromZone] || []).find((c) => c.id === cardId);
+  if (!found) return { state, entered: false };
+  // A card put onto the battlefield from exile is a new object (CR 400.7): its exile-only stamps (plot, suspend, hideaway,
+  // impulse, void counter, the face-down and adventure markers) stay behind, as at every other exit from exile.
+  const card = fromZone === "exile" ? withoutExileStamps(found) : found;
   const { id: permId, state: s2 } = mintId(state, "perm");
   const ts = s2.timestampCounter || 0;
   const isCreatureCard = /Creature/.test(String(card?.type || card?.type_line || ""));
