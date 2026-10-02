@@ -3063,6 +3063,13 @@ function parseClause(clause, out, selfName, selfType) {
       return;
     }
   }
+  // BOAST TWICE (the play-weighted program, P·37 — Birgi, God of Storytelling; CR 702.135b): "Creatures you control can boast twice
+  // during each of your turns rather than once." A marker; boastTwiceFor reads it and legalChoices raises boast's once-each-turn
+  // limit to two on its controller's own turns.
+  if (c === "creatures you control can boast twice during each of your turns rather than once") {
+    out.push({ boastTwice: true });
+    return;
+  }
   // GRANTED ESCAPE (the play-weighted program, P·29 — Underworld Breach; The Master of Keys' enchantment form; CR 702.138a):
   // "Each nonland card in your graveyard has escape. The escape cost is equal to the card's mana cost plus exile three other
   // cards from your graveyard." Two sentences, two markers (the Citadel pair): the grant names which cards, the cost sentence
@@ -6931,6 +6938,11 @@ export function exilesOpponentCreaturesOnDeath(card) {
  *  SAME parse the classifier reads; gameState.graveyardExiledFor asks it of every permanent on the battlefield. */
 export function graveyardExileSpecOf(card) {
   return parseStaticAbilities(card).find((d) => d?.graveyardExile)?.graveyardExile ?? null;
+}
+
+/** P·37 — does `playerId` control a permanent letting their creatures boast twice each of their turns (Birgi)? */
+export function boastTwiceFor(state, playerId) {
+  return state.players[playerId].battlefield.some((perm) => parseStaticAbilities(perm.card).some((d) => d.boastTwice));
 }
 
 /** P·29 — the escape grants `playerId` controls (Underworld Breach: "Each nonland card in your graveyard has escape. The escape

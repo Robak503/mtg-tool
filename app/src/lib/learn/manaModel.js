@@ -2793,7 +2793,11 @@ export function commitPaymentPlan(state, playerId, plan) {
       return { ...e, pool: p };
     }).filter((e) => Object.values(e.pool).some((n) => n > 0));
   }
-  return { ...next, players: { ...next.players, [playerId]: { ...next.players[playerId], manaPool: nextPool, ...(restrictedMana !== next.players[playerId].restrictedMana ? { restrictedMana } : {}) } } };
+  // P·37 — the until-end-of-turn hold on "this mana" (Birgi) never exceeds what is left of its color: a payment that spent the held
+  // mana lowers it, so mana added later in the step can't survive the drain on its account.
+  const holdEot = next.players[playerId].manaHoldEot;
+  const clamped = holdEot ? Object.fromEntries(Object.entries(holdEot).map(([c, n]) => [c, Math.min(n, nextPool[c] || 0)])) : holdEot;
+  return { ...next, players: { ...next.players, [playerId]: { ...next.players[playerId], manaPool: nextPool, ...(holdEot ? { manaHoldEot: clamped } : {}), ...(restrictedMana !== next.players[playerId].restrictedMana ? { restrictedMana } : {}) } } };
 }
 
 /**

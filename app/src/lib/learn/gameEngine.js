@@ -245,8 +245,10 @@ export function emptyManaPools(state) {
     // (the printed "until end of turn" bound). Unlike manaHold (a bounded per-color cap, end-of-combat),
     // this is unbounded by design — the printed effect holds ALL unspent mana of the color.
     const holdTurn = state.players[pid].manaHoldTurn || {};
+    // + P·37 — the EXACT until-end-of-turn hold on "this mana" (Birgi; gameState.holdManaUntilEndOfTurn), added to the cap.
+    const holdEot = state.players[pid].manaHoldEot || {};
     const newPool = {};
-    for (const c of MANA_COLORS) newPool[c] = (keep.includes(c) || holdTurn[c]) ? pool[c] || 0 : Math.min(pool[c] || 0, hold[c] || 0);
+    for (const c of MANA_COLORS) newPool[c] = (keep.includes(c) || holdTurn[c]) ? pool[c] || 0 : Math.min(pool[c] || 0, (hold[c] || 0) + (holdEot[c] || 0));
     // LOST MANA BECOMES COLORLESS (stage ③ · 20 — Horizon Stone, Kruphix: "If you would lose unspent mana, that mana becomes
     // colorless instead."): a replacement on exactly the mana this drain would take. Whatever the keeps and holds above leave
     // behind stays in the pool as {C}; kept mana was never lost, so Omnath's green stays green.
@@ -879,7 +881,8 @@ export function finishCleanupActions(state) {
     let touched = false;
     for (const pid of Object.keys(next.players)) {
       const p = next.players[pid];
-      if (p.manaHoldTurn && Object.keys(p.manaHoldTurn).length) { stripped[pid] = { ...p, manaHoldTurn: {} }; touched = true; }
+      // + P·37: the until-end-of-turn hold on "this mana" (Birgi) ends here too.
+      if ((p.manaHoldTurn && Object.keys(p.manaHoldTurn).length) || p.manaHoldEot) { stripped[pid] = { ...p, manaHoldTurn: {}, manaHoldEot: undefined }; touched = true; }
       else stripped[pid] = p;
     }
     if (touched) next = { ...next, players: stripped };

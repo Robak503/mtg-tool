@@ -3,7 +3,7 @@
  */
 
 import { applyDrawEffect } from "../../spellEffects.js";
-import { logEvent, addEmblem, addMana, holdMana, opponentsOf, grantFlashThisTurn, grantTeferiShield, phaseOutAllPermanents, phaseOutPermanents, loseLife } from "../../gameState.js"; // + TEFERI'S PROTECTION (CAP, 2026-09-03); loseLife — N11 Peer into the Abyss
+import { logEvent, addEmblem, addMana, holdMana, holdManaUntilEndOfTurn, opponentsOf, grantFlashThisTurn, grantTeferiShield, phaseOutAllPermanents, phaseOutPermanents, loseLife } from "../../gameState.js"; // + TEFERI'S PROTECTION (CAP, 2026-09-03); loseLife — N11 Peer into the Abyss
 import { parseFlashCastFilter } from "../../staticAbilityParser.js"; // the STATIC grant's own filter parser — reused so the turn-scoped twin cannot drift from it
 import { setPendingDivideChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, isCreatureCard, countForSpec, atomTargets } from "./shared.js";
@@ -477,6 +477,14 @@ export function miscClauseParser(clause) {
   // keeps it folded; splitting would let the add parse alone and mint UNRESTRICTED mana — the laundering
   // FP). One atom: the X add (layer-aware total attacking power) + the @any-spell restriction + the
   // until-end-of-turn hold, minted as a player.restrictedMana entry by applyAddRestrictedMana.
+  // P·37 (Birgi, God of Storytelling): "add {R}. Until end of turn, you don't lose this mana as steps and phases end." — plain mana
+  // (spendable on anything) plus the exact until-end-of-turn hold on it (gameState.holdManaUntilEndOfTurn).
+  const heldAdd = t.match(/^add ((?:\{[wubrgc]\})+)\. until end of turn, you don't lose this mana as steps and phases end$/);
+  if (heldAdd) {
+    const mana = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+    for (const sym of heldAdd[1].match(/\{([wubrgc])\}/g)) mana[sym[1].toUpperCase()]++;
+    return { op: "add-mana", mana, holdUntilEndOfTurn: true, targetType: null };
+  }
   if (/^add x mana in any combination of colors, where x is the total power of attacking creatures\. spend this mana only to cast spells\. until end of turn, you don't lose this mana as steps and phases end$/.test(t)) {
     return { op: "add-restricted-mana", anyCombination: true, amountCount: { kind: "totalAttackingPower" },
       restriction: { castTypes: ["@any-spell"] }, holdUntilEndOfTurn: true, targetType: null };
@@ -814,6 +822,7 @@ export function applyAddMana(state, atom, ctx) {
       // HELD-MANA — raise the survival cap alongside the add, so this mana (and only this much of it) is
       // still there for the rest of combat. Cleared at end-of-combat; see gameEngine.emptyManaPools.
       if (atom.holdUntilEndOfCombat) next = holdMana(next, { playerId: ctx.controller, color, amount: atom.mana[color] });
+      if (atom.holdUntilEndOfTurn) next = holdManaUntilEndOfTurn(next, { playerId: ctx.controller, color, amount: atom.mana[color] }); // P·37 — Birgi
     }
   }
   return logEvent(next, { kind: "spell-effect", effect: "add-mana", controller: ctx.controller, mana: atom.mana });

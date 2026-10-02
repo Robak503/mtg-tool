@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **4 commits**, corpus **44.5% (15,246)** at the tag → **44.5% (15,249)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **5 commits**, corpus **44.5% (15,246)** at the tag → **44.5% (15,252)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,24 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 37: the until-end-of-turn mana hold (Savage Ventmaw +2) and boast twice — Birgi's front · **+3** · corpus 15,252
+> Suite **17,740** green (1 skipped); lint 0; decks **2,746** / 2,998 unchanged. CI GREEN on P·36 (run 36949781868).
+> Flip-diff **+3, −0, zero RETIERED** (tier snapshots at 3274b547 → the change): Savage Ventmaw (#1636), Brazen Collector,
+> Sakura-Tribe Springcaller → native-trigger. Top 1,000 **867** (unchanged — see below); top 2,500 **1,693**. **Mutants 9/9**.
+> · **Aimed at #489 Birgi, God of Storytelling — whose card did NOT flip:** Birgi // Harnfel is a creature // artifact modal DFC,
+>   and the engine casts neither face of one (coverage splits, and the runtime casts, only LAND-back MDFCs). Both of Birgi's
+>   front lines are now modeled and witnessed on the front face's own view, ready for a spell // spell MDFC lane (the next slice).
+> · **"Add <pips>. Until end of turn, you don't lose this mana as steps and phases end."** Plain pool mana (spendable on
+>   anything — a boast cost included) plus an EXACT hold: gameState.holdManaUntilEndOfTurn → emptyManaPools keeps up to it at each
+>   step/phase end; commitPaymentPlan clamps it to what is left of the color after every payment, so once the held mana is spent
+>   a later red can't ride the hold (the firebending cap's documented imprecision does not carry over); cleanup drops it
+>   (CR 514.2). splitClauses keeps the hold sentence with its add. Rejected on the way: Klauth's restricted entry (never
+>   spendable on abilities) and the whole-color hold (keeps other sources' mana).
+> · **Boast twice** (CR 702.135b): a marker + boastTwiceFor; the offer gate's limit is two for a boast while its controller has
+>   it. "During each of your turns" needs no check — a boast is only ever offered on its creature's controller's turn.
+>   Witness `app/src/lib/learn/birgi.test.js` (5).
+> · **Next:** the spell // spell modal-DFC lane (cast either face) — it is what #489 Birgi needs, and the Kaldheim gods with it.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 36: Disciple of Freyalise (EDHREC #483) — sacrifice another, payoff by its power · **+1** · corpus 15,249
 > Suite **17,735** green (1 skipped); lint 0; decks **2,746** / 2,998 unchanged. CI GREEN on P·35 (run 36948836775).

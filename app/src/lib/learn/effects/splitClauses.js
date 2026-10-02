@@ -335,6 +335,10 @@ export function splitClauses(oracle) {
           && /add x mana in any combination of colors, where x is the total power of attacking creatures$/i.test(prev))
       || (/^until end of turn, you don't lose this mana as steps and phases end$/i.test(sentence)
           && /add x mana in any combination of colors.*spend this mana only to cast spells$/i.test(prev))
+      // P·37 (Birgi, God of Storytelling — "add {R}. Until end of turn, you don't lose this mana as steps and phases end."): the same
+      // hold sentence on a plain pip add, kept with it — split, the add would parse alone and the hold would be dropped.
+      || (/^until end of turn, you don't lose this mana as steps and phases end$/i.test(sentence)
+          && /^add (?:\{[wubrgc]\})+$/i.test(prev))
       // SARKHAN FIREBLOOD's +1 (2026-08-15) — the FIXED-amount two-sentence sibling of the Klauth fold
       // right above, for the same laundering-FP reason: "Add two mana in any combination of colors."
       // split from its "Spend this mana only to cast Dragon spells." would parse alone and mint

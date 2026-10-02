@@ -108,7 +108,7 @@ registerGrantActivatedBodyValidator(isModeledGroupActivatedBody);
 // with coverage.js's identical registration; see registerLevelerCardValidator in staticAbilityParser.js.
 registerLevelerCardValidator(modeledLeveler);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, auraEnchantHostSpec, playFromTopPermission, castFromTopFilterAllows, parseStaticAbilities, escapeGrantsFor } from "./staticAbilityParser.js";
+import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, auraEnchantHostSpec, playFromTopPermission, castFromTopFilterAllows, parseStaticAbilities, escapeGrantsFor, boastTwiceFor } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR 709) — cast either half; pure shape module
@@ -2410,7 +2410,10 @@ function actionsActivateAbility(state, playerId) {
         // reading below is what makes the ledger self-expiring — correct for every other carrier, and
         // exactly wrong here: it would re-arm a once-per-GAME ability every upkeep.
         const used = ab.activationLimitScope === "game" ? (rec?.n || 0) : (rec && rec.turn === state.turn ? rec.n : 0);
-        if (used >= ab.activationLimit) continue;
+        // BOAST TWICE (P·37 — Birgi, God of Storytelling): "Creatures you control can boast twice during each of your turns" — a boast
+        // is only ever offered on its controller's own turn (its creature attacked this turn), so "your turns" needs no second check.
+        const limit = ab.boast && boastTwiceFor(state, playerId) ? 2 : ab.activationLimit;
+        if (used >= limit) continue;
       }
       // LEVEL-BAND gate (BLITZ LV-1, CR 711.2a/b): a leveler band's activated ability exists ONLY while
       // the source's level-counter count is inside the band ({LEVEL N1-N2} ⇒ N1 <= level <= N2; the open

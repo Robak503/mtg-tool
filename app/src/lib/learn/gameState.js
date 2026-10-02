@@ -1854,6 +1854,17 @@ export function holdMana(state, { playerId, color, amount = 1 }) {
   }));
 }
 
+/**
+ * P·37 — MANA HELD UNTIL END OF TURN (Birgi, God of Storytelling: "add {R}. Until end of turn, you don't lose THIS mana as steps
+ * and phases end"): the turn-scoped sibling of holdMana — the mana stays in the ordinary pool (spendable on anything), and
+ * `manaHoldEot` raises how much of the color survives each step/phase drain. Unlike holdMana's cap it is EXACT: commitPaymentPlan
+ * clamps it to what is left of the color after every payment, so once the held mana is spent a later Mountain's red can't ride the
+ * hold; finishCleanupActions drops it before the turn's last drain (CR 514.2).
+ */
+export function holdManaUntilEndOfTurn(state, { playerId, color, amount }) {
+  return withPlayer(state, playerId, (p) => ({ ...p, manaHoldEot: { ...(p.manaHoldEot || {}), [color]: ((p.manaHoldEot || {})[color] || 0) + amount } }));
+}
+
 /** Drop every player's mana hold — the end-of-combat expiry point for "lasts until end of combat" mana. */
 export function clearManaHolds(state) {
   const nextPlayers = {};
