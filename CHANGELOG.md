@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Liquimetal Torque**, **Liquimetal Coating**, **Myr Landshaper** and **Argent Mutation** — make a permanent an artifact until end of turn ("nonartifact" removal can no longer target it; artifact removal can)
 - **Culling Ritual** — destroy each nonland permanent with mana value 2 or less; add {B} or {G} for each permanent destroyed this way
 - **Saw in Half** — destroy target creature; if it dies this way, its controller gets two token copies with half its power and toughness, rounded up
 - **Cloud Key** — as it enters, choose artifact, creature, enchantment, instant or sorcery; spells you cast of that type cost {1} less
@@ -31,6 +32,7 @@ summarizes the notable changes.
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
 
 ### Fixed
+- **Crush** and **Bramblecrush** could destroy creatures (they read "noncreature" as "creature"), and **Bedevil** could target only creatures; **Stone by Sunlight** now makes its target an artifact (it was filed as a creature type)
 - "Nonblack"-style removal, protection from a colour, colour-counting cards and colour-paying costs now see a permanent's current colours (after a colour-changing effect such as Cerulean Wisps or Singe), and double-faced permanents have their front face's colours instead of none
 - **Plunder the Trollshaws** cast with flashback now draws two cards; it drew one
 - A copy that sets its own power and toughness no longer keeps the original's power/toughness-defining ability (Quicksilver Gargantuan copying Tarmogoyf stays 7/7)

@@ -64,7 +64,7 @@
  * the Sonorous Howlbonder team static ("Each creature you control with menace can't be blocked except by
  * three or more creatures" — corpus-unique, the Nightkin Ambusher targeted-matcher precedent).
  */
-import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, permIsEveryCreatureType, deriveCharacteristics } from "./layers.js";
+import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, permIsEveryCreatureType, deriveCharacteristics, permanentHasCardType } from "./layers.js";
 import { findPermanent, creaturePower } from "./gameState.js";
 import { hasCitysBlessing } from "./ascend.js"; // shelf D5 — "can't attack or block unless you have the city's blessing"
 import { parseGroupBlockRestriction, attachedPreventionOf } from "./staticAbilityParser.js";
@@ -1235,13 +1235,16 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   if (isRadConditionalUnblockable(aCard) && (state.players?.[defenderId]?.radCounters || 0) > 0) return false;
   // AB-1 — the defender-board type condition (Neurok Spy class): unblockable while the DEFENDING player
   // controls a permanent of the named kind, read live per block-legality query (the landwalk discipline).
+  // A type a layer-4 effect added counts (#511, CR 613.1d): a defender's creature made an artifact by Liquimetal Torque
+  // IS an artifact that player controls, so the block is illegal — reading the printed line alone allowed it.
   {
     const cond = typeConditionalUnblockableOf(aCard);
     if (cond) {
       const bf = state.players?.[defenderId]?.battlefield || [];
-      const met = cond === "artifact" ? bf.some((p) => /\bArtifact\b/i.test(String(p.card?.type || p.card?.type_line || "")))
-        : cond === "enchantment" ? bf.some((p) => /\bEnchantment\b/i.test(String(p.card?.type || p.card?.type_line || "")))
-        : bf.some((p) => /\bLand\b/i.test(String(p.card?.type || p.card?.type_line || "")) && !p.tapped);
+      const has = (p, T) => new RegExp(`\\b${T}\\b`, "i").test(String(p.card?.type || p.card?.type_line || "")) || permanentHasCardType(state, p.id, T);
+      const met = cond === "artifact" ? bf.some((p) => has(p, "Artifact"))
+        : cond === "enchantment" ? bf.some((p) => has(p, "Enchantment"))
+        : bf.some((p) => has(p, "Land") && !p.tapped);
       if (met) return false;
     }
   }

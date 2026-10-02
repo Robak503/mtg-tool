@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **28 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,444)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+33**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **29 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,448)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+37**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,27 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 53: Liquimetal Torque (EDHREC #511) — becomes an artifact in addition to its other types · **+4** · corpus 15,448
+> Flip-diff **+4, −0, zero RETIERED**: Liquimetal Torque → native-mana, Liquimetal Coating → native-activated, Myr Landshaper →
+> native-activated, Argent Mutation → native-spell. Top 1,000 **881**; top 2,500 **1,718**. **Mutants 48/48** on the integrated tree,
+> restore byte-identical. Built by a fan-out builder; re-verified on the integrated tree.
+> · New atom `become-type`: "target … becomes an artifact in addition to its other types until end of turn" adds a layer-4
+>   artifact type that ends at cleanup (CR 613.1d, 514.2); the indefinite form (Memnarch) stays parked. New
+>   `layers.permanentHasCardType` reads a card type after layer 4 (a type an effect removed is gone; a double-faced permanent's
+>   back-face types don't count; a copy reads the copied types). Routed through it: the "nonartifact" target and sweep filters
+>   (Go for the Throat can't take a Torqued creature), "artifact creature" restrictions, the "non<type>" / absence / count /
+>   metalcraft conditions, "can't be blocked while the defender controls an artifact", ten artifact target pools, and the Aura
+>   host check at resolution plus the Aura-falls-off rule (an Enchant-artifact Aura on a Torqued creature falls off at cleanup).
+>   The animated-land reads come along: an animated land is a creature for "you control a creature" and "noncreature".
+> · ⚑ Fixes: Stone by Sunlight's "becomes an artifact" was filed as a creature SUBTYPE (now a card type); the legacy destroy
+>   parse read "noncreature" and "artifact, creature, or planeswalker" as creature targets — Crush destroyed a Grizzly Bears,
+>   Bedevil was offered only creatures (a corpus check of cast vs program targets went 3 mismatches → 0). Witness
+>   `liquimetalTorque.test.js` (41).
+> · ⚠️ Found, not fixed (queued): "protection from artifacts" isn't modeled though Nacatl Savage, the Tel-Jilad creatures,
+>   Yavimaya Scion, Angelic Curator and Needlebug classify native (a hollow claim); the layer engine reads a double-faced card's
+>   whole type line (Sidequest: Play Blitzball reads as an artifact); other "nonland" / "noncreature" readers read the printed
+>   line; the Aura-falls-off rule checks only existence for other host unions; Spire of Industry's any-colour mana never shows up.
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: every battlefield colour reader reads colours after layer 5 (CR 613.1e) · **±0**
 > Flip-diff **0 / 0 / 0**. **Mutants 23/23** on the integrated tree, restore byte-identical. Built by a fan-out builder (queued by the

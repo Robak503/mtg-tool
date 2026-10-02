@@ -2250,6 +2250,38 @@ export function permIsEveryCreatureType(state, permanentId) {
   return hasKeyword(perm.card, "changeling") || deriveCharacteristics(state, permanentId).everyCreatureType;
 }
 
+/**
+ * CARD TYPE AFTER LAYER 4 — does battlefield permanent `permanentId` have the card type `cardType` (CR 205.2a — "artifact",
+ * "Land", any case) right now? Type-changing effects apply in layer 4 (CR 613.1d), and "becomes an artifact in addition to
+ * its other types" keeps every type the permanent had (CR 205.1b), so the answer is the derive's types: a creature Liquimetal
+ * Torque made an artifact is one until the effect ends, an animated Mishra's Factory is an artifact creature, and a type an
+ * effect removed (bestow, a God below its devotion) is gone.
+ *
+ * Read with the FRONT FACE's discipline. A double-faced permanent with its front face up has only that face's
+ * characteristics (CR 712.8d), but the derive takes its card types off the whole "Front // Back" line, so a front face
+ * printed without a subtype also carries the back face's types (Thaumatic Compass // Spires of Orazca is not a land, Sidequest:
+ * Play Blitzball is not an artifact). A type only the back face prints counts here only when a layer-4 effect on the permanent
+ * added it.
+ *
+ * Every battlefield "is it an artifact?" reader outside the layer engine asks this. The counts that run INSIDE the derive (the
+ * layer-7 gates and amounts) read effectiveTypeIdentity's types instead — a derive there would recurse.
+ */
+export function permanentHasCardType(state, permanentId, cardType) {
+  const perm = findPerm(state, permanentId);
+  if (!perm) return false;
+  const word = String(cardType || "");
+  const want = word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  const chars = deriveCharacteristics(state, permanentId);
+  if (!chars.types.includes(want)) return false;
+  // The printed base is the copy's when the permanent became a copy (layer 1 — Impossible Man copying an artifact is one).
+  const base = chars.copiableValues || perm.card;
+  if (cardTypesOf({ type: typeLineOf(base).split(" // ")[0] }).includes(want)) return true;
+  // Not printed on the face that is up: it is the permanent's only when a type add on it lists it — otherwise it is the back
+  // face's type bleeding through the combined line. (The one gated add, Arixmethes' Land, is on a single-faced card, so a closed
+  // gate never meets a bleed here.)
+  return chars.appliedEffects.some((e) => (e.op?.types || []).includes(want));
+}
+
 /** RECONFIGURE (CR 702.151) is a property of the printed CARD, read off its oracle — one read shared by the layer-4 half
  * (an attached reconfigure Equipment is not a creature) and the CR 301.5c exception below. */
 export function hasReconfigure(card) {

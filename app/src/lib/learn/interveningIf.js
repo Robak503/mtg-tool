@@ -81,7 +81,7 @@ import { creaturePower, creatureToughness, findPermanent } from "./gameState.js"
 // staticAbilityParser / protection, none of which reach interveningIf.js, so this adds no cycle. Verified with
 // `node --input-type=module -e "import './src/lib/learn/legalChoices.js'"` per the RUN-LEDGER's mandate — a
 // green suite is NOT evidence the module graph still loads (vitest resolves in a different order than node).
-import { permanentHasKeyword, permanentColors, permanentTypes, permanentIsCreature, permIsEveryCreatureType } from "./layers.js"; // + permanentIsCreature (P·32 — Selvala: every OTHER creature, layer-aware) // + permIsEveryCreatureType (P·39)
+import { permanentHasKeyword, permanentColors, permanentTypes, permanentIsCreature, permIsEveryCreatureType, permanentHasCardType } from "./layers.js"; // + permanentIsCreature (P·32 — Selvala: every OTHER creature, layer-aware) // + permIsEveryCreatureType (P·39) // + permanentHasCardType (#511 — a card type a layer-4 effect added: Liquimetal Torque's artifact)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a graveyard card that is every creature type (Changeling, its owner's Maskwood Nexus) for "there is an Elf card in your graveyard"; a leaf over keywords.js
 import { hasCitysBlessing } from "./ascend.js"; // shelf D5 — the city's blessing designation (ascend.js imports only gameState)
@@ -179,8 +179,12 @@ function permMatchesFilter(perm, filter, state) {
     const face = typeStr(perm.card).split(" // ")[0];
     // P·39 — every creature type (a changeling, Mirror Entity's activation, an animated Mutavault) carries every CREATURE-type
     // word too, so it is never "non-Human" (CR 205.3d keeps it to creature types — "nonland" is untouched).
+    // #511 — and a card type a layer-4 effect added is carried too: a creature Liquimetal Torque made an artifact is not a
+    // "nonartifact creature" (CR 613.1d). layers.permanentHasCardType reads the derive's types (card types and supertypes), so
+    // a subtype word answers no there.
     if (filter.notWords.some((w) => new RegExp(`\\b${w}\\b`, "i").test(face)
-      || (CR_CREATURE_TYPES.has(String(w).toLowerCase()) && permIsEveryCreatureType(state, perm.id)))) return false;
+      || (CR_CREATURE_TYPES.has(String(w).toLowerCase()) && permIsEveryCreatureType(state, perm.id))
+      || permanentHasCardType(state, perm.id, w))) return false;
   }
   if (filter.colorless) {
     // CR 105.2c — colourless is having NO colours at all, so an unresolvable read fails closed the OTHER way
@@ -201,9 +205,12 @@ function permMatchesFilter(perm, filter, state) {
   // granted counts too (CR 613.1d, 205.1b — Urborg's Swamp, Dryad of the Ilysian Grove's every basic land type), read off the
   // layer engine: a Dryad player with only Forests does control an Island, so "When you control no Islands, sacrifice this
   // creature" must not fire. The printed line still answers everything it always did.
+  // A CARD TYPE a continuous effect added counts the same way (#511, CR 613.1d): a creature Liquimetal Torque or Stone by Sunlight
+  // made an artifact is an artifact, so "you control an artifact" holds and "you control no artifacts" does not.
   const hit = (w) => new RegExp(`\\b${w}\\b`, "i").test(typeStr(perm.card))
     || permanentTypes(state, perm.id).subtypes.includes(w)
-    || (CR_CREATURE_TYPES.has(String(w).toLowerCase()) && permIsEveryCreatureType(state, perm.id)); // P·39 — "you control a Goblin": every creature type
+    || (CR_CREATURE_TYPES.has(String(w).toLowerCase()) && permIsEveryCreatureType(state, perm.id)) // P·39 — "you control a Goblin": every creature type
+    || permanentHasCardType(state, perm.id, w);
   return filter.allWords ? words.every(hit) : words.some(hit);
 }
 
@@ -460,10 +467,11 @@ export function controllerMetric(state, controllerId, kind) { // exported 2026-0
   if (!player) return 0;
   if (kind === "life") return player.life || 0;
   if (kind === "cards in hand") return (player.hand || []).length;
-  // a permanent-type count — word-anchored type-line match (singular Title-case), mirroring parseFilter
+  // a permanent-type count — word-anchored type-line match (singular Title-case), mirroring parseFilter; a type a layer-4
+  // effect added counts too (#511 — both sides of "an opponent controls more artifacts than you" see a Torqued creature)
   const word = kind.replace(/s$/, "");
   const re = new RegExp(`\\b${word.charAt(0).toUpperCase() + word.slice(1)}\\b`, "i");
-  return (player.battlefield || []).filter((p) => re.test(typeStr(p.card))).length;
+  return (player.battlefield || []).filter((p) => re.test(typeStr(p.card)) || permanentHasCardType(state, p.id, word)).length;
 }
 
 // ===== CONTROL-ANOTHER-SUBTYPE (CR 603.4 + 113.7 — "another" excludes the trigger source) =================
@@ -1452,11 +1460,12 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     return everyone.some(({ p, pid }) => pid === controllerId && creaturePower(p, state) >= max);
   }
   // GREATEST MANA VALUE AMONG ARTIFACTS (Padeem) — every artifact on the battlefield, any controller; true when one of
-  // the controller's artifacts reaches the maximum (a tie counts, as printed). No artifacts anywhere → false.
+  // the controller's artifacts reaches the maximum (a tie counts, as printed). No artifacts anywhere → false. An artifact by a
+  // layer-4 effect (#511 — a Torqued creature) is one of them, on either side of the comparison.
   if (GREATEST_ARTIFACT_MV_RE.test(c)) {
     const everyone = [];
     for (const pid of Object.keys(state.players || {})) {
-      for (const p of controllerBoard(state, pid)) if (/\bArtifact\b/.test(typeStr(p.card))) everyone.push({ p, pid });
+      for (const p of controllerBoard(state, pid)) if (/\bArtifact\b/.test(typeStr(p.card)) || permanentHasCardType(state, p.id, "Artifact")) everyone.push({ p, pid });
     }
     if (!everyone.length) return false;
     const max = Math.max(...everyone.map(({ p }) => manaValueOfCardLocal(p.card)));

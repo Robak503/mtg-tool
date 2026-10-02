@@ -41,7 +41,7 @@ import {
   updatePermanentSafe,
 } from "./gameState.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkLeavesTriggers, checkStateTriggers } from "./triggers.js";
-import { permanentIsCreature } from "./layers.js";
+import { permanentIsCreature, permanentHasCardType } from "./layers.js";
 import { grantCitysBlessings } from "./ascend.js"; // shelf D5 — Ascend (CR 702.131b) at the same cadence
 
 const MAX_PASSES = 10;
@@ -89,8 +89,22 @@ function sweepAttachmentLegality(state) {
         // printed line. The card would have been credited native, attached correctly, and then destroyed
         // itself on the next SBA pass: a wrong kill, the direction this module's own policy names as the
         // forbidden one. A union subject falls through to host-existence-only, the documented safe branch.
-        const enchantM = String(perm.card?.oracle || perm.card?.oracle_text || "").match(/^Enchant (creature|land|permanent)\b(?!\s+or\b)/im);
-        if (!enchantM) legal = true;
+        const oracle = String(perm.card?.oracle || perm.card?.oracle_text || "");
+        const enchantM = oracle.match(/^Enchant (creature|land|permanent)\b(?!\s+or\b)/im);
+        // THE ARTIFACT SUBJECTS (play-weighted #511): "Enchant artifact" (Stasis Cocoon), "Enchant artifact or creature" (Ice Over,
+        // Coma Veil), "Enchant artifact, creature, or planeswalker" (Planar Disruption) — the exact whole line, read layer-aware
+        // like the creature arm. The cast offers a host that is an artifact only by a layer-4 effect (a creature Liquimetal Torque
+        // made an artifact, a land Liquimetal Coating did), so when that effect ends at cleanup (CR 514.2) the host no longer
+        // matches and the Aura goes (CR 704.5m) — before, the subject was never checked and the lock outlived the artifact.
+        const artifactM = oracle.match(/^Enchant (artifact|artifact or creature|creature or artifact|artifact, creature, or planeswalker)$/im);
+        if (artifactM) {
+          const hid = host.permanent.id;
+          const isArtifact = permanentHasCardType(next, hid, "Artifact");
+          legal = artifactM[1] === "artifact" ? isArtifact
+            : artifactM[1] === "artifact, creature, or planeswalker" ? (isArtifact || permanentIsCreature(next, hid) || permanentHasCardType(next, hid, "Planeswalker"))
+            : (isArtifact || permanentIsCreature(next, hid));
+        }
+        else if (!enchantM) legal = true;
         else if (enchantM[1] === "creature") legal = permanentIsCreature(next, host.permanent.id);
         else if (enchantM[1] === "land") legal = /\bLand\b/.test(String(host.permanent.card?.type || host.permanent.card?.type_line || ""));
         else legal = true; // "Enchant permanent"

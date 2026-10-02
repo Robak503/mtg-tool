@@ -397,6 +397,17 @@ export function applyPumpEffect(state, atom, ctx) {
         duration: dur(), source: src,
       }).state;
     }
+    // CARD-TYPE-ADD rider (play-weighted #511 — Stone by Sunlight "becomes an artifact in addition to its other types"): a
+    // layer-4 TYPE union (CR 613.1d, 205.1b), the op applyAnimateEffect writes for an animation's card types, so every
+    // type reader sees an artifact creature until cleanup (CR 514.2).
+    if (atom.addTypes?.length) {
+      next = addContinuousEffect(next, {
+        layer: 4,
+        op: { types: atom.addTypes },
+        affects: { mode: "fixed", permanentIds: [target.id] },
+        duration: dur(), source: src,
+      }).state;
+    }
     // PUMP-UNTAP — a combat trick that also untaps its target ("…until end of turn. Untap it." — Vines of
     // the Recluse, Acrobatic Leap, ambush tricks). The untap is part of the SAME single-target atom (no
     // second target), so it lands on the pumped creature; a one-shot untap, not a continuous effect.
@@ -969,6 +980,29 @@ export function applyBecomeColor(state, atom, ctx) {
     }
   }
   return logEvent(next, { kind: "spell-effect", effect: "become-color", colors: atom.colors || [], grantKeywords: atom.grantKeywords || [], targets: targets.map((t) => t.id) });
+}
+
+/**
+ * CARD-TYPE ADD (play-weighted #511 — Liquimetal Torque, CR 613.1d / 205.1b) — a layer-4 continuous effect adding
+ * `atom.addTypes` to each chosen permanent until end of turn: the op applyAnimateEffect writes for an animation's card
+ * types, with no Creature and no P/T. Fixed to the chosen permanent at resolution (CR 611.2c), worn off at cleanup
+ * (CR 514.2). A target that left the battlefield gets nothing (CR 608.2b).
+ */
+export function applyBecomeType(state, atom, ctx) {
+  let next = state;
+  const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
+  const dur = { kind: "endOfTurn", turn: next.turn };
+  const changed = [];
+  for (const target of atomTargets(state, atom, ctx)) {
+    if (!findPermanent(next, target.id)) continue;
+    next = addContinuousEffect(next, {
+      layer: 4, op: { types: atom.addTypes },
+      affects: { mode: "fixed", permanentIds: [target.id] },
+      duration: dur, source: src,
+    }).state;
+    changed.push(target.id);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "become-type", types: atom.addTypes, targets: changed });
 }
 
 export function applyGrantProtection(state, atom, ctx) {
@@ -1770,6 +1804,22 @@ export function combatKeywordClauseParser(clause) {
         : { op: "become-color", targetType: "creature", colors: [color] };
     }
   }
+  // ⭐ BECOMES AN ARTIFACT IN ADDITION TO ITS OTHER TYPES (play-weighted #511 — Liquimetal Torque "{T}: Target nonland
+  // permanent becomes an artifact in addition to its other types until end of turn."; Liquimetal Coating and Argent Mutation
+  // "target permanent", Myr Landshaper "target land", Neurok Transmuter "target creature"). A layer-4 card-type ADD (CR 613.1d)
+  // on the chosen permanent: "in addition to its other types" keeps every type and subtype it had (CR 205.1b); the affected
+  // permanent is fixed at resolution (CR 611.2c) and the effect ends at cleanup (CR 514.2). The type readers that ask the
+  // layer engine (layers.permanentHasCardType) then see an artifact — "target artifact" may take it, a "nonartifact"
+  // restriction refuses it, Null Rod locks its activated abilities.
+  // ⛔ ARTIFACT ONLY, UNTIL END OF TURN ONLY — the printed shape of every carrier above. The indefinite form (Memnarch's
+  // "(This effect lasts indefinitely.)" reaches here without the reminder) and any other type word stay unparsed.
+  {
+    const bt = t.match(/^target (nonland permanent|permanent|land|creature) becomes an artifact in addition to its other types until end of turn$/);
+    if (bt) {
+      const targetType = { "nonland permanent": "nonlandPermanent", permanent: "permanent", land: "land", creature: "creature" }[bt[1]];
+      return { op: "become-type", targetType, restrictions: [], addTypes: ["Artifact"] };
+    }
+  }
   {
     const pm = t.match(/^(target creature|this creature) gains protection from (white|blue|black|red|green) until end of turn$/);
     if (pm) {
@@ -1976,10 +2026,16 @@ export function pumpClauseParser(clause) {
   // hexproof." The keyword pump with a layer-4 SUBTYPE-ADD rider (the set-base-pt-team arm's `addSubtype` shape), both
   // until end of turn. Only the ADDITIVE form is admitted — a replacing "becomes a Dragon" would need the
   // setCreatureSubtypes op and parks (CREED). The keywords go through the shared parseGrantedKeywords vocabulary.
+  // The word decides WHICH layer-4 add (play-weighted #511): a CARD TYPE is a type add — Stone by Sunlight's "becomes an
+  // artifact" makes the creature an artifact creature (CR 205.2a), the shape applyAnimateEffect writes — and only a CR 205.3m
+  // creature type is a subtype add. Filing "artifact" as a subtype made the creature an artifact to no rules reader; any
+  // other word parks.
   const bst = t.match(/^(?:until end of turn, )?target creature( you control)? becomes an? ([a-z]+) in addition to its other types and gains (.+?)(?: until end of turn)?$/);
   if (bst) {
     const kws = parseGrantedKeywords(bst[3]);
-    return kws ? { op: "pump", targetType: "creature", restrictions: bst[1] ? [{ kind: "controller", who: "you" }] : [], ptDelta: { p: 0, t: 0 }, grantKeywords: kws, addSubtype: cap(bst[2]) } : null;
+    const typeAdd = bst[2] === "artifact" ? { addTypes: ["Artifact"] }
+      : CR_CREATURE_TYPES.has(bst[2]) ? { addSubtype: cap(bst[2]) } : null;
+    return kws && typeAdd ? { op: "pump", targetType: "creature", restrictions: bst[1] ? [{ kind: "controller", who: "you" }] : [], ptDelta: { p: 0, t: 0 }, grantKeywords: kws, ...typeAdd } : null;
   }
   let pg = t.match(/^target creature gets ([+-]\d+)\/([+-]\d+) and gains (.+) until end of turn$/);
   if (pg) {
@@ -3135,6 +3191,7 @@ export const combatResolvers = {
   "goad": applyGoad, // GOAD (CR 701.38, ④-AI) — mustAttack + goaded until the goader's next turn; the goader on the source
   "detain": applyDetain, // DETAIN (CR 701.29, ④-AZ) — cantAttack + cantBlock + activatedAbilitiesLocked until the detainer's next turn
   "become-color": applyBecomeColor,            // COLOUR CHANGE (CR 105.1) — setColor had only the animate writer
+  "become-type": applyBecomeType,              // CARD-TYPE ADD (CR 613.1d, play-weighted #511 — Liquimetal Torque) — "becomes an artifact in addition to its other types"
   "grant-protection": applyGrantProtection,   // PROTECTION-FROM-A-COLOUR (CR 702.16) — the layer op existed; nothing parsed to it // CANT-BLOCK — "target creature can't block this turn" → layer-6 endOfTurn cantBlock grant
   "cant-be-blocked": applyCantBeBlocked, // CANT-BE-BLOCKED — "target creature can't be blocked this turn" → layer-6 endOfTurn unblockable grant
   "mass-block-lock": applyMassBlockLock, // MASS-BLOCK-LOCK (FT-1) — "creatures [without flying] can't block this turn" → ONE dynamic-selector layer-6 endOfTurn cantBlock rule (CR 611.2c)

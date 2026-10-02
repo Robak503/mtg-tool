@@ -29,7 +29,7 @@ import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate, cloneWidenedCopiable, enteredThisTurnCopiable } from "./cloneCopy.js"; // + cloneWidenedCopiable (KN-2) + enteredThisTurnCopiable (shelf D36)
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { isNativeManaAura, auraChoosesColorOnEnter, parseSoulbondBond } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) — the Aura spell's host re-check; SOULBOND (BLITZ SL-1) — the modeled bond reader
-import { equipmentBarredAsCreature } from "./layers.js"; // CR 301.5c — a creature Equipment can't equip (the Equip resolver's guard)
+import { equipmentBarredAsCreature, permanentHasCardType } from "./layers.js"; // CR 301.5c — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
 // in P2.2 so the effect interpreter can share it without an import cycle).
@@ -496,7 +496,13 @@ export const RESOLVERS = Object.freeze({
     };
     const requiredType = HOST_TYPE_RE[hostType]
       || (isNativeManaAura(card) ? (auraChoosesColorOnEnter(card) ? /Forest/ : /Land/) : /Creature/);
-    if (!tgt || !requiredType.test(tgtType)) {
+    // #511 — the host-type read the cast enumerated with (spellEffects' PERMANENT_PREDICATES `has`): an Artifact a layer-4
+    // effect added satisfies the artifact hosts (a creature Liquimetal Torque made an artifact is a legal "Enchant artifact"
+    // host), and a Land one added breaks "nonland permanent" (CR 613.1d). Offer and re-check read the same characteristics.
+    const layerArtifactHost = !!tgt && (hostType === "artifact" || hostType === "creatureOrArtifact" || hostType === "artifactCreatureOrPlaneswalker")
+      && permanentHasCardType(state, tgt.permanent.id, "Artifact");
+    const layerLandBreaksNonland = !!tgt && hostType === "nonlandPermanent" && permanentHasCardType(state, tgt.permanent.id, "Land");
+    if (!tgt || layerLandBreaksNonland || !(requiredType.test(tgtType) || layerArtifactHost)) {
       // BESTOW (CR 702.103g): a bestow spell whose creature target is gone at resolution doesn't enter as
       // an unattached Aura — it isn't put onto the battlefield at all → owner's graveyard. Same fizzle as
       // a printed Aura (the spell never resolves into a permanent), so no special case is needed here.
