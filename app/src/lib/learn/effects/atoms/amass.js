@@ -88,6 +88,7 @@ export function applyAmass(state, atom, ctx) {
     power: 0,
     toughness: 0,
     token: true,
+    colors: ["B"], // CR 701.47a — "a 0/0 black [subtype] Army creature token" (CR 111.3: the token's color is the one defined)
   };
   let perm = createPermanent({ id: minted.id, card, controller: me });
   // Wave-3 doubler (CR 616): the amass +1/+1 counters bypass addCounter (stamped on the freshly-minted token),

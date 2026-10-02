@@ -12,8 +12,9 @@ import { SMALL_NUM, NUM_WORD, parseCountSource, parseTokenManaAbility, parseToke
 
 /**
  * ===== TOKENS ===== Build a token's type line from its descriptor ("colorless thopter artifact"
- * → "Token Artifact Creature — Thopter"). Colors are dropped (color isn't tracked); supertypes and
- * card types are placed before "Creature"; everything else is a subtype. Returns { type, name }.
+ * → "Token Artifact Creature — Thopter"). Color words are not type-line words and are skipped here (the
+ * token's color is read from the same descriptor by tokenColorsOf); supertypes and card types are placed
+ * before "Creature"; everything else is a subtype. Returns { type, name }.
  */
 export function tokenTypeLine(descriptor) {
   const words = String(descriptor || "").split(/\s+/).filter(Boolean);
@@ -33,16 +34,22 @@ export function tokenTypeLine(descriptor) {
 }
 
 /**
- * TOKEN COLOR (CR 111.3 — a token has exactly the characteristics its creating effect defines, color included): the WUBRG
- * letters of the color words in a token descriptor ("white human" → ["W"], "black ninja" → ["B"]); "colorless", or no color
- * word, → []. A create-token arm that knows its token's color carries this as `atom.colors`, and applyCreateToken stamps it on
- * the minted card, where layers.colorsOf reads it (a white-creature anthem, protection from a color, a nonblack target filter).
- * Carried today by the per-opponent arm (Endless Foot Assault, Adeline); every other arm still mints a colorless token, the
- * long-standing simplification tokenTypeLine's dropped color words reflect.
+ * TOKEN COLOR (CR 111.3 — a token has exactly the characteristics its creating effect defines, color included; CR 613.1 —
+ * those defined values are the token's starting characteristics): the WUBRG letters of the color words in a token
+ * descriptor, in the order the descriptor names them ("white soldier" → ["W"], "red and white spirit" → ["R", "W"]).
+ * "colorless", or no color word, → [] (CR 105.2c). The descriptor is tokenized as tokenTypeLine tokenizes it (whitespace
+ * split, compared lowercased), so the two readers agree on which words are color words. A non-string descriptor (no arm
+ * builds one) reads as colorless rather than throwing.
+ *
+ * Read ONCE, at the mint (applyCreateToken), for every create-token atom whatever arm built it — the parser's arms, the
+ * removal rider (Beast Within), endure's Spirit, the X-cast Hydra, the dice-result tokens — so no arm can mint a token
+ * without its color. The minted card carries the result as `colors`, the array layers.colorsOf reads before the layer-5
+ * color effects apply; an explicit [] (rather than an absent field) lets the printed-color readers that fail closed on a
+ * missing array (the non<color> target restriction) see a colorless token as colorless.
  */
 const TOKEN_COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
 function tokenColorsOf(descriptor) {
-  return descriptor.split(" ").map((w) => TOKEN_COLOR_LETTER[w]).filter(Boolean);
+  return String(descriptor).split(/\s+/).map((w) => TOKEN_COLOR_LETTER[w.toLowerCase()]).filter(Boolean);
 }
 
 /**
@@ -108,7 +115,7 @@ export function fireTokenEnterTriggers(state, mintedIds) {
         for (let i = 0; i < mult; i++) {
           const minted = mintId(next, "tok");
           next = minted.state;
-          const card = { id: `tok-${minted.id}`, name: spec.name, type: spec.type, oracle: spec.oracle, token: true };
+          const card = namedTokenCard(spec, minted.id);
           const perm = createPermanent({ id: minted.id, card, controller: creatorId });
           const player = next.players[creatorId];
           next = { ...next, players: { ...next.players, [creatorId]: { ...player, battlefield: [...player.battlefield, perm] } } };
@@ -147,7 +154,7 @@ export function fireTokenEnterTriggers(state, mintedIds) {
             if (!spec) continue;
             const minted = mintId(next, "tok");
             next = minted.state;
-            const card = { id: `tok-${minted.id}`, name: spec.name, type: spec.type, oracle: spec.oracle, token: true };
+            const card = namedTokenCard(spec, minted.id);
             const perm = createPermanent({ id: minted.id, card, controller: creatorId });
             const player = next.players[creatorId];
             next = { ...next, players: { ...next.players, [creatorId]: { ...player, battlefield: [...player.battlefield, perm] } } };
@@ -245,13 +252,14 @@ export function applyCreateToken(state, atom, ctx) {
     : null;
   const tokPower = dynPt != null ? dynPt : atom.power;
   const tokToughness = dynPt != null ? dynPt : atom.toughness;
+  // COLORS (CR 111.3): the color words of the descriptor the effect printed (tokenColorsOf) — the same descriptor the type
+  // line is built from, so every create-token arm mints its token's color. A colorless token carries an explicit [].
+  const colors = tokenColorsOf(atom.descriptor);
   const mintedIds = [];
   for (let i = 0; i < count; i++) {
     const minted = mintId(next, "tok");
     next = minted.state;
-    // COLORS (CR 111.3): the arm's parsed token color (tokenColorsOf), read by layers.colorsOf; an arm that carries no
-    // `colors` leaves it unset and the token is colorless (no mana cost to derive a color from).
-    const card = { id: `tok-${minted.id}`, name, type, power: tokPower, toughness: tokToughness, oracle, keywords, token: true, colors: atom.colors };
+    const card = { id: `tok-${minted.id}`, name, type, power: tokPower, toughness: tokToughness, oracle, keywords, token: true, colors };
     // TAPPED (Tormod — "create a TAPPED 2/2…"): the same atom.tapped flag the Treasure-maker mints honored.
     let perm = createPermanent({ id: minted.id, card, controller: tokenCreatorId, tapped: !!atom.tapped });
     if (counterN > 0) perm = { ...perm, counters: { ...perm.counters, [ewc.type || "+1/+1"]: (perm.counters?.[ewc.type || "+1/+1"] || 0) + counterN } };
@@ -403,6 +411,18 @@ export const NAMED_TOKENS = {
 };
 
 /**
+ * The card of a minted predefined token (CR 111.10): its NAMED_TOKENS name, type line and ability text, stamped token:true and
+ * COLORLESS — colors [] (CR 105.2c). Every entry in the table is colorless: CR 111.10 defines each predefined artifact token
+ * and each Role as a colorless token, and the bundled token object for every entry carries colors []. A predefined token
+ * that has a color (CR 111.10d's Walker, a 2/2 black Zombie) is not in the table and would need its color carried here
+ * before it could be registered. The ONE builder for all three named-token mint sites (applyCreateNamedToken, and the
+ * replacement extras minted in fireTokenEnterTriggers), so they cannot disagree on what a predefined token is.
+ */
+function namedTokenCard(spec, mintedId) {
+  return { id: `tok-${mintedId}`, name: spec.name, type: spec.type, oracle: spec.oracle, token: true, colors: [] };
+}
+
+/**
  * ===== TOKENS ===== T2 create-named-token (CR 701.7) — put `count` named artifact tokens (Treasure /
  * Clue / Food / Gold) onto the controller's battlefield. Mirrors applyCreateToken's minting (deterministic
  * id, owner = controller, entering untapped) but produces a NON-creature artifact card (no P/T, no keywords,
@@ -477,7 +497,7 @@ export function applyCreateNamedToken(state, atom, ctx) {
   for (let i = 0; i < count; i++) {
     const minted = mintId(next, "tok");
     next = minted.state;
-    const card = { id: `tok-${minted.id}`, name: spec.name, type: spec.type, oracle: spec.oracle, token: true };
+    const card = namedTokenCard(spec, minted.id);
     // ===== TREASURE-MAKER ===== a "tapped" rider (Generous Plunderer's "a tapped Treasure token") enters
     // the token TAPPED, so it's NOT a mana source until it untaps (manaSources skips perm.tapped + the
     // Treasure ability requires {T}). It still ENTERS, so it fires artifact-ETB watchers exactly like an
@@ -939,16 +959,15 @@ function createTokenClauseParserCore(clause) {
   // under-offer of the controller's options, never an illegal attack or a wrong defender. The atom has the Endless Foot
   // Assault atom's shape exactly. The tail is anchored to the printed wording; any other alternative ("…that player
   // controls", a battle) falls through and parks (CREED).
-  // The arm carries its token's COLOR (`colors`, tokenColorsOf — CR 111.3): Adeline's Humans are white and Endless Foot
-  // Assault's Ninjas black, so a white-creature anthem (Honor of the Pure) or protection from a color reads them correctly.
+  // The token's COLOR (Adeline's Humans white, Endless Foot Assault's Ninjas black — CR 111.3) is read from the descriptor at
+  // the mint (applyCreateToken → tokenColorsOf), as for every create-token arm; the atom carries no separate color field.
   const mpo = t.match(/^for each opponent, create (?:a|an|one) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens? that's tapped and attacking that player(?: or a planeswalker they control)?$/);
   if (mpo) {
     const toughness = parseInt(mpo[2], 10);
     if (toughness < 1) return null;
     const landMana = landTokenManaOracle(mpo[3]);
     if (!landMana.ok || landMana.oracle) return null; // a land token minting tapped-and-attacking is unprinted → park (CREED)
-    const descriptor = mpo[3].trim();
-    return { op: "create-token", power: parseInt(mpo[1], 10), toughness, descriptor, colors: tokenColorsOf(descriptor), perOpponent: true, tapped: true, entersAttacking: true, targetType: null };
+    return { op: "create-token", power: parseInt(mpo[1], 10), toughness, descriptor: mpo[3].trim(), perOpponent: true, tapped: true, entersAttacking: true, targetType: null };
   }
   const mta = t.match(/^create (?:a|an|one) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens? that's tapped and attacking for each (.+)$/);
   if (mta) {

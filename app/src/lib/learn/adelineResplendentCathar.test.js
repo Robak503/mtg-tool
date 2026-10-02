@@ -14,9 +14,9 @@
  *
  * The runtime is Endless Foot Assault's: one token per opponent still in the game, each appended to combat.attackers against ITS
  * opponent. The tokens are put onto the battlefield attacking, never declared, so they fire no "whenever a creature attacks"
- * ability (CR 508.3a) and never "attacked" for any effect (CR 508.4). One addition: the arm now carries its token's COLOR
- * (CR 111.3 — `atom.colors`, stamped on the minted card), so the Humans are white (and Endless Foot Assault's Ninjas black);
- * before this every create-token mint was colorless, and Honor of the Pure would have pumped Adeline but not her tokens.
+ * ability (CR 508.3a) and never "attacked" for any effect (CR 508.4). The tokens have their COLOR (CR 111.3): the Humans are
+ * white (and Endless Foot Assault's Ninjas black), read from the descriptor at the mint as for every create-token arm
+ * (tokenColors.test.js); while every create-token mint was colorless, Honor of the Pure pumped Adeline but not her tokens.
  *
  * Engine timing note: the engine fires attack triggers at the declare-blockers step entry (gameEngine.runStepActions), with no
  * block declared yet, and blocks accumulate one action at a time through that step — so the tokens are blockable once the
@@ -118,9 +118,11 @@ describe("parse + classify — every line of the card", () => {
     const row = { triggers: trig.map((t) => ({ event: t.event, interveningIf: t.interveningIf, optional: t.optional })), routes: trig.map(triggerRoutesNatively),
       conf: programConfidence(p), atoms: p.atoms, tier: classifyCard(ADELINE) };
     console.log("  WITNESS adelineParse", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    // RE-POINTED (token colors, CR 111.3): the white comes from the descriptor at the mint (the runtime read below), so the atom
+    // carries no separate `colors` field.
     expect(row).toEqual({
       triggers: [{ event: "youAttack", interveningIf: null, optional: false }], routes: [true], conf: "high",
-      atoms: [{ op: "create-token", power: 1, toughness: 1, descriptor: "white human", colors: ["W"], perOpponent: true, tapped: true, entersAttacking: true, targetType: null }],
+      atoms: [{ op: "create-token", power: 1, toughness: 1, descriptor: "white human", perOpponent: true, tapped: true, entersAttacking: true, targetType: null }],
       tier: "native-mixed",
     });
   });
@@ -132,10 +134,12 @@ describe("parse + classify — every line of the card", () => {
     expect(ADELINE.keywords).toEqual(["Vigilance"]);
   });
 
-  it("Endless Foot Assault's \"…attacking that player\" form still reads to the same arm, now carrying its BLACK color", () => {
+  it("Endless Foot Assault's \"…attacking that player\" form still reads to the same arm, its BLACK descriptor intact", () => {
+    // RE-POINTED (token colors, CR 111.3): the black comes from the descriptor at the mint (the runtime read below), so the atom
+    // carries no separate `colors` field.
     const p = parseEffectClause(detectTriggers(EFA)[0].effectClause, EFA.type);
     expect({ conf: programConfidence(p), atoms: p.atoms, tier: classifyCard(EFA) }).toEqual({ conf: "high",
-      atoms: [{ op: "create-token", power: 1, toughness: 1, descriptor: "black ninja", colors: ["B"], perOpponent: true, tapped: true, entersAttacking: true, targetType: null }],
+      atoms: [{ op: "create-token", power: 1, toughness: 1, descriptor: "black ninja", perOpponent: true, tapped: true, entersAttacking: true, targetType: null }],
       tier: "native-trigger" });
   });
 

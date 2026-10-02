@@ -73,6 +73,7 @@ function createServoTokens(state, controller, n) {
       oracle: "",
       keywords: [],
       token: true,
+      colors: [], // CR 702.123a — "1/1 colorless Servo artifact creature tokens" (CR 111.3: the token's color is the one defined)
     };
     const perm = createPermanent({ id: minted.id, card, controller });
     const player = next.players[controller];

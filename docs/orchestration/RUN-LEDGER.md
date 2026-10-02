@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **17 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,436)** — +165 of that is the 10-02 card-data refresh (new
+> **18 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,436)** — +165 of that is the 10-02 card-data refresh (new
 > cards, not engine work); engine gains since the tag: **+25**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,18 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: tokens have the colors their effect gives them (CR 111.3) · **±0**
+> Suite **18,016** green (one run with the Steel Overseer fix). Flip-diff **0 / 0 / 0** (classification reads no token color).
+> **Mutants 12/12**, restore byte-identical. Built by a fan-out builder (found by the Adeline builder); re-verified on the tree.
+> · ⚑ Every token was minted COLORLESS: the descriptor's color words were dropped. Black Knight (protection from white) could be
+>   blocked by white Soldier tokens; Honor of the Pure pumped no white token; Ascendant Evincar shrank black Zombies as "nonblack";
+>   and the non<color> target restriction, which fails closed on a missing colors array, made EVERY token untargetable by Doom
+>   Blade. Colors are now derived once, at the mint, from the descriptor (tokenColorsOf), for every create-token path; the
+>   predefined tokens (Treasure, Food, Clue …) share one builder that stamps colorless; amass's Army is black (CR 701.47a),
+>   fabricate's Servo colorless; token copies already took the original's colors. Layer-5 color effects still apply on top.
+> · ⚠️ Found, not fixed here (queued): the non<color> restriction and several color counts read PRINTED colors and ignore layer
+>   5 — a creature turned black by an effect is still a legal Doom Blade target. Witness `tokenColors.test.js` (19).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: a card-type team filter is never met by every creature type (Steel Overseer) · **±0**
 > Suite **18,016** green (one run with the token-color fix). Flip-diff **0 / 0 / 0**. **Mutants 2/2**, restore byte-identical.
