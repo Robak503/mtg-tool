@@ -676,6 +676,36 @@ function attackersOnBattlefield(state) {
   return (state?.combat?.attackers || []).filter((a) => findPermanent(state, a.permanentId));
 }
 
+// ===== THOSE ATTACKERS AT YOU (Mangara, the Diplomat — CR 508.1b, 506.4, 603.4) ==============
+// "two or more of those creatures are attacking you and/or planeswalkers you control" — "those creatures" are the attackers
+// the opponent DECLARED (context.declaredAttackers, the snapshot checkAttackTriggers' opponent-attacks pass stamps with the
+// player or planeswalker each was declared attacking, CR 508.1b). The intervening-if is read at flush and again on
+// resolution (CR 603.4), and the card's ruling says how each creature is read on resolution:
+//   · still on the battlefield — its current information: it counts only while it is still attacking. A creature is removed
+//     from combat (CR 506.4) when its combat record is gone (an effect removed it), when it regenerated (the
+//     removedFromCombat flag, CR 701.19a), or when its controller changed — still controlled by the attacking player.
+//   · left the battlefield — its last known information (CR 608.2h): the player or planeswalker it was attacking as it left,
+//     which is what it was declared attacking.
+// A planeswalker attack counts only while that planeswalker is still on the battlefield under your control: one that left
+// or changed control is removed from combat (CR 506.4) and the creature attacks nothing (CR 506.4c). Pure.
+const ATTACKERS_AT_YOU_RE = /^two or more of those creatures are attacking you and\/or planeswalkers you control$/;
+function declaredAttackersAtYou(state, controllerId, context) {
+  const declared = context?.declaredAttackers;
+  if (!Array.isArray(declared)) return null;
+  let n = 0;
+  for (const d of declared) {
+    if (d?.defender !== controllerId) continue;
+    if (d.defenderPlaneswalkerId && findPermanent(state, d.defenderPlaneswalkerId)?.controller !== controllerId) continue;
+    const lk = findPermanent(state, d.permanentId);
+    if (lk) {
+      const inCombat = (state?.combat?.attackers || []).some((a) => a?.permanentId === d.permanentId);
+      if (!inCombat || lk.permanent.removedFromCombat || lk.controller !== context.attackingPlayerId) continue;
+    }
+    n++;
+  }
+  return n;
+}
+
 // ===== EXCESS-DAMAGE (Rith, Liberated Primeval — CR 120.4a, 2026-08-15) ======================
 // "a creature or planeswalker an opponent controlled was dealt excess damage this turn" — reads the
 // excessDamageThisTurn ledger stamped at the gameState.markCombatDamage chokepoint (every creature-damage
@@ -863,6 +893,13 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   if (c === "it isn't a mana ability") {
     if (typeof context?.activatedIsManaAbility !== "boolean") return null;
     return context.activatedIsManaAbility === false;
+  }
+  // ===== THOSE ATTACKERS AT YOU (play-weighted #610 — Mangara, the Diplomat: "Whenever an opponent attacks with creatures, if
+  // two or more of those creatures are attacking you and/or planeswalkers you control, …") ===== reads the declaration the
+  // opponent-attacks pass threads into the context (triggers.checkAttackTriggers); no declaration → null, never a guess.
+  if (ATTACKERS_AT_YOU_RE.test(c)) {
+    const n = declaredAttackersAtYou(state, controllerId, context);
+    return n === null ? null : n >= 2;
   }
 
   // ===== CLASH RESULT (STAGE ④-1, 2026-09-03 — CR 701.22) ===== "you won the clash": the parser's normalized
@@ -2133,7 +2170,9 @@ export function interveningIfParseable(condition) {
   // the probe permanent has no counters → false, still a definite boolean.
   // `triggeringHadCounters` — the HAD-ANY-COUNTERS leave-look-back shape (The Ozolith) returns a boolean
   // here (the runtime stamps it off every leave event's counters snapshot); every other shape ignores it.
-  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringHadNoMinusCounters: true, triggeringHadCounters: true, triggeringPowerDifferedFromBase: true, defenderId: "__probe__", sourceCardId: "__probe_gy__", sourcePermanentId: "__entering__", xValue: 0, manaSpent: true, activatedIsManaAbility: false }) !== null; // activatedIsManaAbility: a definite boolean so the NOT-A-MANA-ABILITY shape (Illusionist's Bracers) probes as readable; the runtime threads false off every stack activation. manaSpent: a definite boolean so the NO-MANA-SPENT shape (Vexing Bauble) probes as readable; the runtime threads the real value off every cast
+  // `declaredAttackers`: an empty declaration so the THOSE-ATTACKERS-AT-YOU shape (Mangara) probes as readable; the runtime
+  // threads the real declaration off checkAttackTriggers' opponent-attacks pass.
+  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringHadNoMinusCounters: true, triggeringHadCounters: true, triggeringPowerDifferedFromBase: true, defenderId: "__probe__", sourceCardId: "__probe_gy__", sourcePermanentId: "__entering__", xValue: 0, manaSpent: true, activatedIsManaAbility: false, declaredAttackers: [] }) !== null; // activatedIsManaAbility: a definite boolean so the NOT-A-MANA-ABILITY shape (Illusionist's Bracers) probes as readable; the runtime threads false off every stack activation. manaSpent: a definite boolean so the NO-MANA-SPENT shape (Vexing Bauble) probes as readable; the runtime threads the real value off every cast
 }
 
 /**

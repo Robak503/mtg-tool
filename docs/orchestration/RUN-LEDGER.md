@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **30 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,448)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+37**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **31 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,451)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+40**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,24 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 54: Mangara, the Diplomat (EDHREC #610) + Trouble in Pairs (#626) — the attacks-you-with-two trigger and the extra-turn skip · **+3** · corpus 15,451
+> Flip-diff **+3, −0, zero RETIERED**: Mangara → native-trigger, Trouble in Pairs → native-mixed, Everett K. Ross, Hapless Attaché →
+> native-mixed (the same attack trigger beside a commander anthem the engine already models). Top 1,000 **883**; top 2,500
+> **1,720**. **Mutants 36/36** on the integrated tree, restore byte-identical. Built by a fan-out builder; re-verified on the integrated tree.
+> · One pass per attack declaration for each player an opponent attacks: Mangara counts the declared attackers at that player
+>   and/or their planeswalkers (an intervening "if", checked again on resolution per its ruling — a creature that left still
+>   counts by what it attacked; one removed from combat, regenerated or stolen doesn't; a planeswalker you no longer control
+>   doesn't); Trouble in Pairs and Everett count creatures attacking the player only (CR 508.3e). Creatures put onto the
+>   battlefield attacking were never declared and never count. The second-card and second-spell halves reuse the existing
+>   per-turn watchers.
+> · ⚑ Extra turns: "If an opponent would begin an extra turn, that player skips that turn instead" — advanceStep is the one
+>   place an extra turn begins; a skipped one is dropped and logged, Final Fortune's lose-at-end-step record dies with the turn it
+>   was bound to (its ruling), and "next upkeep" records wait for the next turn that actually happens. Witness `attackPairs.test.js`
+>   (35, 4-seat).
+> · ⚠️ Found, not fixed (queued): an extra turn cast on ANOTHER player's turn resumes play from the extra turn's taker (Nexus of Fate
+>   on ai1's turn → user, then ai1 again; CR 500.7 says ai2 — confirmed by a probe); extra turns queued by an eliminated player are
+>   never removed; a stolen attacker stays in combat (CR 506.4 — the combat fix in flight covers it).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: "commander creatures you own" scopes by owner, not controller (CR 108.3, 110.2) · **±0**
 > Suite **18,333** green (one run with Mangara and Trouble in Pairs). Flip-diff **0 / 0 / 0**. **Mutants 5/5**, restore byte-identical.

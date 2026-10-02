@@ -382,6 +382,21 @@ export function skipsDrawStep(state, playerId) {
   for (const perm of (state?.players?.[playerId]?.battlefield || [])) if (skipsDrawStepOf(perm.card)) return true;
   return false;
 }
+// ── OPPONENTS' EXTRA TURNS ARE SKIPPED (play-weighted #626 — Trouble in Pairs): "If an opponent would begin an extra turn, that
+// player skips that turn instead." CR 614.10 — a skip is a replacement effect, applied as the extra turn (CR 500.7) would begin,
+// so a carrier that left the battlefield before then skips nothing (the card's ruling). Opponent-scoped: a carrier skips the
+// extra turns of every OTHER player (gameState.opponentsOf — the engine has no teams) and never its own controller's. Read by
+// gameEngine.advanceStep where an extra turn would begin; the marker in parseStaticAbilities credits the line.
+export const SKIP_OPPONENT_EXTRA_TURN_RE = /(?:^|[\n.;])\s*if an opponent would begin an extra turn, that player skips that turn instead\s*(?:\.|$)/i;
+export function skipsOpponentExtraTurnsOf(card) {
+  return SKIP_OPPONENT_EXTRA_TURN_RE.test(String(card?.oracle || card?.oracle_text || ""));
+}
+export function extraTurnSkipped(state, playerId) {
+  for (const [pid, pl] of Object.entries(state?.players || {})) {
+    if (pid !== playerId && (pl?.battlefield || []).some((perm) => skipsOpponentExtraTurnsOf(perm.card))) return true;
+  }
+  return false;
+}
 // ── FIST OF SUNS (residue grind RG-5, 2026-09-05 — Fist of Suns / Jodah, Archmage Eternal): "You may pay {W}{U}{B}{R}{G}
 // rather than pay the mana cost for spells you cast." CR 118.9 — a board-granted ALTERNATIVE cost for every spell the
 // carrier's controller casts. Controller-scoped ("spells YOU cast"). Read by the hand-cast enumeration (legalChoices), which

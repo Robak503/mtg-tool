@@ -3527,6 +3527,13 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ skipDrawStep: true });
     return;
   }
+  // ── OPPONENTS' EXTRA TURNS ARE SKIPPED (play-weighted #626 — Trouble in Pairs): "If an opponent would begin an extra turn, that
+  // player skips that turn instead." CR 614.10. The marker credits the line; the turn engine reads the SAME sentence through
+  // effects/textNormalize.extraTurnSkipped where an extra turn would begin (gameEngine.advanceStep). Exact line only.
+  if (/^if an opponent would begin an extra turn, that player skips that turn instead$/.test(c)) {
+    out.push({ skipOpponentExtraTurns: true });
+    return;
+  }
   // ── FIST OF SUNS (residue grind RG-5, 2026-09-05 — Fist of Suns / Jodah): "You may pay {W}{U}{B}{R}{G} rather than pay the
   // mana cost for spells you cast." CR 118.9. The marker credits the line; the hand-cast enumeration reads the SAME sentence
   // through effects/textNormalize.grantsWubrgAltCost and offers the five-pip variant. Exact line only (a safe FN otherwise).

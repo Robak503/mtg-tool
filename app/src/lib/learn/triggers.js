@@ -1396,6 +1396,18 @@ function classifyCondition(condRaw, cardName, cardType) {
       if (Number.isFinite(n)) return { event: "youAttack", scope: "anyAttack", whose: "any", minAttackers: n };
     }
   }
+  // OPPONENT ATTACKS (play-weighted #610 / #626 — Mangara, the Diplomat; Trouble in Pairs): the DEFENDING side's watcher of
+  // one attack declaration, fired by checkAttackTriggers' opponent-attacks pass ONCE per declaration (CR 603.2c), never per
+  // creature. Each attacking creature attacks exactly one player, planeswalker or battle (CR 508.1b).
+  //   · "an opponent attacks with creatures" — triggers when an opponent of the watcher's controller declares one or more
+  //     attackers, whatever they attack (CR 508.3c). Mangara's intervening-if then counts the ones attacking you and/or your
+  //     planeswalkers (interveningIf.js, against the declaration the pass threads into the context).
+  //   · "an opponent attacks you with two or more creatures" — the count is the creatures declared attacking the watcher's
+  //     controller AS A PLAYER: a creature attacking a planeswalker or battle does not attack its controller (CR 508.3e).
+  // Neither counts a creature put onto the battlefield attacking (CR 508.4 — it never "attacked"). Placed above the blanket
+  // "with" reject below for the Military Intelligence reason. Exact sentences only; any other count or subject stays undetected.
+  if (/^an opponent attacks with creatures$/.test(c)) return { event: "opponentAttacks", scope: "you", whose: "any" };
+  if (/^an opponent attacks you with two or more creatures$/.test(c)) return { event: "opponentAttacks", scope: "you", whose: "any", minAttackingYou: 2 };
   const castWithExempt = /^(?:you|an opponent|a player|each player) casts? an? spell with (?:\{x\} in its mana cost|mana value \d+ or (?:greater|more|less|fewer))$/.test(c);
   // The DURING-EACH-OPPONENT'S-TURN exemption (2026-08-14 — Wavebreak Hippocamp): the blanket qualifier
   // refusal below ate this rider before the castNth arm could see it. Exempted by the EXACT phrase only —
@@ -4308,6 +4320,14 @@ const DISJUNCTION_LTB_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the 
 // as printed — never twice for one event. ANCHORED to the exact printed phrase triple (subject variations
 // stay under the compound-event guard → Arbiter).
 const DISJUNCTION_GY_TRIPLE_SRC = "\\b(When|Whenever)\\s+another creature dies, or a creature card is put into a graveyard from anywhere other than the battlefield, or a creature card leaves your graveyard(,\\s*[^\\n]+)";
+// OPPONENT-PAIRS TRIPLE (Trouble in Pairs, play-weighted #626 — CR 603.2c): "Whenever an opponent attacks you with two or more
+// creatures, draws their second card each turn, or casts their second spell each turn, <effect>" → THREE sentences, one per
+// event, each carrying the whole same-line effect. The three events are DISJOINT (an attack declaration, a draw, a cast), so
+// one event can never satisfy two of them and the split fires exactly as printed — the card's ruling counts up to three
+// separate triggers per opponent per turn. Each half classifies through its own modeled arm (opponentAttacks with
+// minAttackingYou, the opponent drawSecond, the opponent castNth); one unmodeled half under-runs the shaped count and parks
+// the card. ANCHORED to the exact printed phrase triple.
+const DISJUNCTION_OPP_PAIRS_SRC = "\\b(When|Whenever)\\s+an opponent attacks you with two or more creatures, draws their second card each turn, or casts their second spell each turn(,\\s*[^\\n]+)";
 // QUOTE MASK (BLITZ BG-2 — Candlekeep Sage's "Commander creatures you own have \"When this creature
 // enters or leaves the battlefield, draw a card.\""): a QUOTED granted ability is NOT the granter's own
 // trigger — it fires on the RECIPIENT via grantedTriggersForGroup, which re-runs detection on the bare
@@ -4342,7 +4362,9 @@ function splitCompoundTriggerSentences(oracle) {
     .replace(new RegExp(DISJUNCTION_LTB_SRC, "gi"), (_m, _kw, subj, eff) =>
       `Whenever ${subj} enters${eff}\nWhenever ${subj} leaves the battlefield${eff}`)
     .replace(new RegExp(DISJUNCTION_GY_TRIPLE_SRC, "gi"), (_m, _kw, eff) =>
-      `Whenever another creature dies${eff}\nWhenever a creature card is put into a graveyard from anywhere other than the battlefield${eff}\nWhenever a creature card leaves your graveyard${eff}`));
+      `Whenever another creature dies${eff}\nWhenever a creature card is put into a graveyard from anywhere other than the battlefield${eff}\nWhenever a creature card leaves your graveyard${eff}`)
+    .replace(new RegExp(DISJUNCTION_OPP_PAIRS_SRC, "gi"), (_m, _kw, eff) =>
+      `Whenever an opponent attacks you with two or more creatures${eff}\nWhenever an opponent draws their second card each turn${eff}\nWhenever an opponent casts their second spell each turn${eff}`));
 }
 /** Number of compound second-trigger connectives ("…and whenever…" + the "enters or attacks"/"enters or
  *  dies" disjunctions) — each adds ONE extra trigger sentence when split. coverage.js adds this to its
@@ -4362,7 +4384,9 @@ export function compoundTriggerCount(oracle) {
   const ltbDisjunctions = (s.match(new RegExp(DISJUNCTION_LTB_SRC, "gi")) || []).length; // LV-1 "enters or leaves the battlefield"
   // The GY-traffic triple adds TWO extra sentences per match (1 → 3).
   const gyTriples = (s.match(new RegExp(DISJUNCTION_GY_TRIPLE_SRC, "gi")) || []).length;
-  return andJoins + disjunctions + diesDisjunctions + monstrousDisjunctions + blocksDisjunctions + ltbDisjunctions + gyTriples * 2;
+  // The opponent-pairs triple (Trouble in Pairs) likewise adds TWO.
+  const oppPairsTriples = (s.match(new RegExp(DISJUNCTION_OPP_PAIRS_SRC, "gi")) || []).length;
+  return andJoins + disjunctions + diesDisjunctions + monstrousDisjunctions + blocksDisjunctions + ltbDisjunctions + gyTriples * 2 + oppPairsTriples * 2;
 }
 
 /**
@@ -5602,6 +5626,7 @@ export function detectTriggers(card) {
         perDefender: cls.perDefender,         // WITH-KEYWORD BATCH only — fires once per damaged player with that pair's damage total in ctx
         attachedOnly: cls.attachedOnly,       // ATTACHED-ONLY attacks (Reyav) — the triggering attacker must carry ≥1 attachment
         minAttackers: cls.minAttackers,       // BATTALION (CR 702.101a) + "you attack with N or more creatures" — the minimum DECLARED attacker count, gated in checkAttackTriggers' once-per-combat pass. ⚠️ Unlisted here = dropped = the descriptor decays to a bare "whenever you attack" and fires off a SINGLE attacker — an over-fire, and exactly what happened on the first attempt at this slice (the trigger detected as youAttack with minAttackers undefined while looking perfectly correct).
+        minAttackingYou: cls.minAttackingYou, // OPPONENT ATTACKS YOU (Trouble in Pairs) — the minimum count of declared attackers at the watcher's controller as a player, gated in checkAttackTriggers' opponent-attacks pass. ⚠️ Unlisted here = dropped = the descriptor fires on EVERY opponent attack, an over-fire.
         requireSelfAttacking: cls.requireSelfAttacking, // BATTALION only — "THIS CREATURE and at least two others attack", so the source must be among the declared attackers. Unlisted = dropped = a battalion creature sitting at home triggers off three OTHER attackers, strictly better than printed.
         withCompany: cls.withCompany,           // GLIMMER LENS (O6) — "and at least one other creature attack": unlisted = dropped = fires on a lone attacker
         companySubtype: cls.companySubtype,     // PAIRED TACTICIAN — the company must be a <Subtype> (unlisted = dropped = any creature counts)
@@ -7684,6 +7709,24 @@ export function checkAttackTriggers(state) {
           const d = t?.descriptor || t;
           return !(d?.minAttackers != null && attackerCount < d.minAttackers);
         }));
+      }
+    }
+    // OPPONENT-ATTACKS pass (Mangara, the Diplomat; Trouble in Pairs — CR 508.1b / 508.3c / 508.3e): every player the
+    // attacking player is an OPPONENT of watches this one declaration, ONCE (CR 603.2c). The declaration rides the context
+    // as `declaredAttackers` — each attacker with the player or planeswalker it was declared attacking (CR 508.1b) — so
+    // Mangara's intervening-if counts "those creatures" at flush AND on resolution (CR 603.4) from the creatures that were
+    // declared, never from whatever is attacking by then. This read is the declared batch: the engine enqueues attack
+    // triggers here, at the declare-blockers step entry, and every creature put onto the battlefield attacking joins combat
+    // from an attack trigger that resolves after this point, so none is in it (CR 508.4 — such a creature never "attacked").
+    // Trouble in Pairs' count is the creatures declared attacking the watcher's controller AS A PLAYER (a planeswalker
+    // attack carries defenderPlaneswalkerId and is not an attack on its controller, CR 508.3e).
+    const declaredAttackers = attackers.map((a) => ({ permanentId: a.permanentId, defender: a.defender, ...(a.defenderPlaneswalkerId ? { defenderPlaneswalkerId: a.defenderPlaneswalkerId } : {}) }));
+    for (const pid of Object.keys(state.players || {})) {
+      if (!opponentsOf(state, pid).includes(attackingPlayer)) continue; // "an opponent attacks": never the attacking player's own watchers
+      const atYou = declaredAttackers.filter((a) => a.defender === pid && !a.defenderPlaneswalkerId).length;
+      for (const watcher of triggerSourcesOf(state, pid)) {
+        const raw = triggersForEvent(state, { event: "opponentAttacks", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: { attackingPlayerId: attackingPlayer, declaredAttackers } });
+        fired = fired.concat(raw.filter((t) => !(t.descriptor?.minAttackingYou != null && atYou < t.descriptor.minAttackingYou)));
       }
     }
   }

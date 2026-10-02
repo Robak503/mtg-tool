@@ -47,6 +47,12 @@ export function applyScheduleDelayed(state, atom, ctx) {
   const clause = String(atom.delayedClause || "").trim();
   if (!clause) return state; // nothing to schedule — never a fabricated firing
   const queue = state.delayedTriggers || [];
+  // "THAT TURN" IS ONE EXTRA TURN (Final Fortune; Trouble in Pairs, play-weighted #626): the record belongs to the extra turn the
+  // same resolution just created — the newest entry on the extra-turn stack (the program's extra-turn atom runs first). Its
+  // stack position names that entry until it is taken or skipped: entries are pushed and popped only at the top (CR 500.7), so
+  // an entry never moves while it waits. If that turn is skipped (CR 614.10a — anything scheduled for a skipped turn won't
+  // happen), gameEngine.advanceStep drops the record through dropSkippedExtraTurnRecords.
+  const extraTurns = state.extraTurns || [];
   const record = {
     id: `dly-${queue.length + 1}-${state.turn || 0}`,
     controller,
@@ -59,6 +65,7 @@ export function applyScheduleDelayed(state, atom, ctx) {
     sourcePermanentId: ctx.sourceId || null,
     createdTurn: state.turn || 0,
     ...(atom.repeatThisTurn ? { repeatThisTurn: true } : {}), // Full Throttle (KT-7b)
+    ...(atom.fireScope === "thatTurn" ? { extraTurnIndex: extraTurns.length - 1 } : {}),
   };
   const next = { ...state, delayedTriggers: [...queue, record] };
   return logEvent(next, {
@@ -106,6 +113,17 @@ export function drainDelayedTriggers(state, step, activePlayer) {
   }
   if (fired.length === 0 && keep.length === queue.length) return { state, fired: [] };
   return { state: { ...state, delayedTriggers: keep }, fired };
+}
+
+/**
+ * A SKIPPED EXTRA TURN takes its "that turn" records with it (Trouble in Pairs, play-weighted #626 — CR 614.10a: anything
+ * scheduled for a skipped turn won't happen; Final Fortune's ruling: "If you end up skipping the extra turn that is gained, you
+ * do not lose the game."). `index` is the skipped entry's position on the extra-turn stack — the position applyScheduleDelayed
+ * stamped on the records that belong to it. Every other record is kept: one scheduled for "the next" occurrence of a step waits
+ * for the first occurrence that isn't skipped (CR 614.10a). Pure.
+ */
+export function dropSkippedExtraTurnRecords(state, index) {
+  return { ...state, delayedTriggers: (state.delayedTriggers || []).filter((rec) => rec.extraTurnIndex !== index) };
 }
 
 /** A record that fires becomes a pending trigger shaped exactly like a printed one, so the normal flush resolves it. */

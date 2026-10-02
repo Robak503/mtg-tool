@@ -54,7 +54,7 @@ import { phaseInAndExpireShield, expireNameCastLocks } from "./gameState.js"; //
 import { withoutImpulseStamps } from "./gameState.js"; // the impulse lapse at cleanup strips the same stamp list the cast out of exile does
 import { permanentValue, policyEvalEnabledFor } from "./boardEval.js"; // QUARTET PHASE 1 slice 3 — the shared evaluator (leaf-importing module, cycle-free)
 import { setPendingCleanupDiscardChoice } from "./pendingChoice.js";
-import { skipsDrawStep } from "./effects/textNormalize.js"; // SKIP YOUR DRAW STEP (RG-4, 2026-09-05) — a leaf reader, controller-scoped
+import { skipsDrawStep, extraTurnSkipped } from "./effects/textNormalize.js"; // SKIP YOUR DRAW STEP (RG-4, 2026-09-05) — a leaf reader, controller-scoped; + the opponent-scoped extra-turn skip (Trouble in Pairs, #626)
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
@@ -99,7 +99,7 @@ import { applyTypeFilteredUntap } from "./typeFilteredUntap.js";
 import { applyWolverineEndStep, clearWolverineTurnFlags } from "./wolverine.js";
 import { evaluateWinThreshold } from "./effects/atoms/winGame.js";
 import { shuffleControllerLibrary } from "./effects/atoms/library.js"; // seeded opening shuffle (reuses the threaded-rngSeed mulberry32 path; library.js never imports gameEngine → no cycle)
-import { drainDelayedTriggers } from "./effects/atoms/delayedTrigger.js"; // CR 603.7 scheduler drain (leaf atom module — imports only gameState, no cycle)
+import { drainDelayedTriggers, dropSkippedExtraTurnRecords } from "./effects/atoms/delayedTrigger.js"; // CR 603.7 scheduler drain (leaf atom module — imports only gameState, no cycle); + the skipped-extra-turn drop (CR 614.10a)
 import { rankBottomCandidates } from "./mulliganPolicy.js"; // London bottom-N picker (leaf module, no cycle)
 import { evaluateInterveningIf, interveningIfParseable } from "./interveningIf.js";
 import { registerGroupTriggeredBodyValidator, MODELLED_MAX_HAND_RE, lostManaBecomesColorless } from "./staticAbilityParser.js";
@@ -472,11 +472,26 @@ export function advanceStep(state) {
   // of rotating. The extra turn is a full normal turn (turn counter still advances — CR: it IS a turn);
   // once the stack drains, the pop-less branch below rotates from the LAST taker, which lands on the
   // normally-scheduled seat with no extra bookkeeping.
-  const xt = state.extraTurns || [];
+  // SKIPPED EXTRA TURN (play-weighted #626 — Trouble in Pairs, CR 614.10): "If an opponent would begin an extra turn, that player
+  // skips that turn instead." A skip is a replacement effect applied as the turn would begin, and this is the one place an
+  // extra turn begins: while the top entry's taker has an opponent controlling a carrier (textNormalize.extraTurnSkipped, a
+  // live battlefield read — a carrier that left before now skips nothing), the entry is popped untaken, the "that turn"
+  // delayed records stamped with its stack position go with it (CR 614.10a — Final Fortune's ruling: no loss), and the next
+  // queued extra turn is considered in its place. When every queued turn is skipped, the normal rotation below runs from the
+  // player whose turn just ended — the turn that comes next once the skipped ones are gone. The carrier's own controller's
+  // extra turns are untouched.
+  let xt = state.extraTurns || [];
+  let afterSkips = emptied;
+  while (xt.length > 0 && extraTurnSkipped(afterSkips, xt[xt.length - 1].player)) {
+    const skipped = xt[xt.length - 1];
+    afterSkips = dropSkippedExtraTurnRecords(afterSkips, xt.length - 1);
+    xt = xt.slice(0, -1);
+    afterSkips = logEvent({ ...afterSkips, extraTurns: xt }, { kind: "extra-turn-skipped", player: skipped.player });
+  }
   if (xt.length > 0) {
     const taker = xt[xt.length - 1];
     return {
-      ...emptied,
+      ...afterSkips,
       extraTurns: xt.slice(0, -1),
       activePlayer: taker.player,
       extraTurnOf: taker.player, // SHELF-85 V12: THIS turn is an extra turn of that player ("that turn's end step" delayed triggers read it)
@@ -492,7 +507,7 @@ export function advanceStep(state) {
   // End of turn — next player's turn begins at (beginning, untap).
   const nextActive = nextInTurnOrder(state, state.activePlayer);
   return {
-    ...emptied,
+    ...afterSkips,
     activePlayer: nextActive,
     extraTurnOf: null, // SHELF-85 V12: a normal rotation is nobody's extra turn
     turn: state.turn + 1,

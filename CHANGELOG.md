@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Mangara, the Diplomat** — draws when an opponent attacks you and/or your planeswalkers with two or more creatures; **Trouble in Pairs** — opponents skip their extra turns, and you draw when an opponent attacks you with two or more creatures, draws their second card or casts their second spell each turn; also **Everett K. Ross, Hapless Attaché**
 - **Liquimetal Torque**, **Liquimetal Coating**, **Myr Landshaper** and **Argent Mutation** — make a permanent an artifact until end of turn ("nonartifact" removal can no longer target it; artifact removal can)
 - **Culling Ritual** — destroy each nonland permanent with mana value 2 or less; add {B} or {G} for each permanent destroyed this way
 - **Saw in Half** — destroy target creature; if it dies this way, its controller gets two token copies with half its power and toughness, rounded up
