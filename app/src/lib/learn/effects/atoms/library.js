@@ -76,7 +76,7 @@ export function tutorManaValue(card) {
 // LK-1 CHOSEN-TYPE membership (CR 614.12) — is a library card of the type `chosenType`? The word on the FRONT-face type line (a
 // library card has only its front face's characteristics, CR 712.4a), or — for a creature type — every creature type: a changeling
 // (CR 702.73a), or a creature card its owner's Maskwood Nexus covers (P·39b; the caller names state and the holder, the library's
-// player). Mirrors resolvers.cardHasChosenType / triggers.permHasChosenType / layers.permHasChosenTypeLayer (kept local so the atoms
+// player). Mirrors enterReplacements.cardHasChosenType / triggers.permHasChosenType / layers.permHasChosenTypeLayer (kept local so the atoms
 // barrel stays leaf-ish — no back-import of resolvers/triggers). An unset chosenType → false (SAFE no-op).
 // P·39b: the NAMED type is not always a creature type — Merfolk Wayfinder puts "all Island cards" into hand, Elder Pine of Jukai
 // "all land cards" — so every creature type answers for a creature type only (CR 205.3d; a changeling was taken as an Island card),
@@ -1233,12 +1233,14 @@ export function applyGenesisWave(state, atom, ctx) {
   const eligibleIds = new Set(revealed.filter((c) => cardMatchesTutorFilter(c, capFilter, state, controller)).map((c) => c.id));
   // Put EVERY eligible permanent onto the battlefield (the deterministic "put all" resolution of "any number").
   // enterCardFromZone removes the card from the library and enters it under the controller's control, firing
-  // ETB / landfall / permanent-enters — one card at a time so each entry's triggers are enqueued in order.
+  // ETB / landfall / permanent-enters — one card at a time so each entry's triggers are enqueued in order. They are ONE
+  // event, so every card's entry replacements read the board as the put began (`state`, CR 614.12 — the
+  // zones.enterCardsTogether rule): a Doubling Season or a Renata put with the others modifies none of them.
   let next = state;
   let put = 0;
   for (const c of revealed) {
     if (!eligibleIds.has(c.id)) continue;
-    const r = enterCardFromZone(next, { playerId: controller, cardId: c.id, fromZone: "library" });
+    const r = enterCardFromZone(next, { playerId: controller, cardId: c.id, fromZone: "library", replacementState: state });
     if (r.entered) { next = r.state; put += 1; }
   }
   // The REST — every revealed card that wasn't put onto the battlefield — goes to the graveyard. After the

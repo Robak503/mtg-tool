@@ -1916,7 +1916,7 @@ function landFullyCovered(card) {
   const landCC = choosesColorOnEnter(card);
   const chooseColorLineRe = landCC ? /^(?:this land enters tapped\.\s*)?as (?:it|this land) enters, choose a color(?: other than (?:white|blue|black|red|green))?\.?$/i : null;
   // CAP-CAVERN (2026-09-03): "As this land enters, choose a creature type." (Cavern of Souls, Unclaimed Territory) —
-  // admitted through the SAME chooser both enter sites stamp `chosenType` with (resolvers.choosesCreatureTypeOnEnter
+  // admitted through the SAME chooser both enter sites stamp `chosenType` with (enterReplacements.choosesCreatureTypeOnEnter
   // is this exact regex; the play-land drop stamps it too now). The chosen-type mana line itself is admitted by
   // isManaLine — the spend parser reads its restriction and manaSources resolves it per permanent, offering the
   // source to nothing until the type is chosen.
@@ -4299,7 +4299,7 @@ registerCoverageClassifier((card) => {
 //   • the COUNT-ANTHEM static "Creatures you control of the chosen type get +X/+Y for each <name> counter on
 //     this artifact." — the new layer-7c chosen-type dynamic-count (clauseProducesStatic confirms it parses).
 //   • EITHER a Banner ETB-counter replacement ("This artifact enters with a <name> counter on it for each
-//     creature you control of the chosen type." — resolvers.entersWithChosenTypeCounter), OR a Door cast
+//     creature you control of the chosen type." — enterReplacements.entersWithChosenTypeCounter), OR a Door cast
 //     trigger ("Whenever you cast a spell of the chosen type, put a <name> counter on this artifact." — the
 //     chosenType cast detector + the add-named-counter-self atom, which must route HIGH).
 // Returns native-mixed (Door = trigger + static) / native-static (Banner = ETB replacement + static), or null

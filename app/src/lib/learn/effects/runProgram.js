@@ -394,6 +394,20 @@ function frontSubtypes(card) {
   return dash < 0 ? [] : front.slice(dash + 1).trim().split(/\s+/).filter(Boolean);
 }
 
+/**
+ * The board a chained pick of a multi-card search reads its entry replacements against (CR 614.12): the current board without
+ * the permanents the earlier picks of the same search put onto the battlefield. Every card the search puts onto the battlefield
+ * enters in ONE event, so an earlier pick's static (Renata's "each other creature you control enters with an additional +1/+1
+ * counter", Corpsejack Menace's doubling, Squad Captain's count) never modifies a later pick's entry — the zones.enterCardsTogether
+ * rule, for the one event the settler enters a pick at a time. Read-only: the result is never written back.
+ */
+function withoutSearchedPermanents(state, permIds) {
+  const gone = new Set(permIds);
+  const players = {};
+  for (const [pid, p] of Object.entries(state.players)) players[pid] = { ...p, battlefield: (p.battlefield || []).filter((perm) => !gone.has(perm.id)) };
+  return { ...state, players };
+}
+
 export function resolveTutorChoice(state, cardId) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "tutor-search") return state;
@@ -432,10 +446,19 @@ export function resolveTutorChoice(state, cardId) {
   const chosenCardObj = inSource ? (next.players?.[pc.controller]?.[sourceZone] || []).find((c) => c.id === cardId) : null;
   const landPick = !!pc.landToBattlefieldTapped && !!chosenCardObj && /\bLand\b/i.test(String(chosenCardObj.type || chosenCardObj.type_line || ""));
   let topAlreadyShuffled = false;
+  // MULTI-PICK, ONE EVENT (CR 614.12): the permanents the earlier picks of this search already put onto the battlefield; a
+  // chained pick's entry replacements read the board without them (withoutSearchedPermanents above). A tempting offer's bonus
+  // searches are the effect happening AGAIN, once per accepting opponent (Tempt with Discovery's bundled ruling) — separate
+  // events, so a bonus pick reads the board with the earlier bonus lands on it and carries nothing.
+  const oneEvent = !pc.temptingOffer;
+  const searchEnteredIds = oneEvent ? (pc.searchEnteredIds || []) : [];
+  let enteredPermId = null;
   if (inSource) {
     if (destination === "battlefield" || landPick) {
       // RAMP-1 — the fetched card enters the battlefield (tapped per the card), firing ETB triggers.
-      next = enterCardFromZone(next, { playerId: pc.controller, cardId, fromZone: sourceZone, tapped: !!pc.entersTapped || landPick }).state;
+      const r = enterCardFromZone(next, { playerId: pc.controller, cardId, fromZone: sourceZone, tapped: !!pc.entersTapped || landPick, ...(searchEnteredIds.length ? { replacementState: withoutSearchedPermanents(next, searchEnteredIds) } : {}) });
+      next = r.state;
+      enteredPermId = r.permanentId || null;
       // SAVAGE ORDER (2026-08-14) — the fetched-permanent UEOT keyword grants ("It gains indestructible
       // until end of turn"): find the just-entered permanent by its card id (the newest such entry) and
       // attach one layer-6 addKeyword effect per granted keyword, endOfTurn duration (CR 611.2c).
@@ -518,6 +541,7 @@ export function resolveTutorChoice(state, cardId) {
       // (Cultivate: pick 1 -> battlefield tapped, pick 2 -> hand). Null on the uniform single/multi path.
       destinations: Array.isArray(pc.destinations) ? pc.destinations.slice(1) : null,
       temptingOffer: pc.temptingOffer || null, // TEMPTING OFFER — the offer's running state rides every chained bonus search
+      searchEnteredIds: oneEvent && enteredPermId ? [...searchEnteredIds, enteredPermId] : searchEnteredIds, // MULTI-PICK, ONE EVENT (CR 614.12)
     });
     return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
   }

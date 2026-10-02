@@ -1222,7 +1222,7 @@ export function entersWithMetricCounters(card) {
  * "Each other [<Subtype>] creature you control enters with an additional +1/+1 counter on it." (Renata, Called to the
  * Hunt; Bramblewood Paragon's Warrior form) and "… enters with a number of additional +1/+1 counters on it equal to
  * <this creature's | Name's> (power|toughness)." (Arwen, Weaver of Hope — toughness). The reader returns the descriptor
- * the RESOLVER honours as each other creature enters (resolvers.othersEnterWithCountersFor), and coverage strips the
+ * the RESOLVER honours as each other creature enters (enterReplacements.othersEnterWithCountersFor), and coverage strips the
  * sentence only when this same reader confirms it — single source of truth, so a card is never credited for a line the
  * runtime won't apply. Anchored ^…$ per line: Master Biomancer's "… and as a Mutant in addition to its other types"
  * and Metallic Mimic's "of the chosen type" leave residue → unmatched → body-only (CREED).
@@ -2935,7 +2935,7 @@ function parseClause(clause, out, selfName, selfType) {
   // permanent that is ALREADY on the battlefield — after its own entry replacement has been and gone — so the
   // keyword would sit there meaning nothing while the card read native: exactly the "classifies native, does
   // nothing" trap the non-creature-target drift guard was just built for.
-  // The runtime hook is an ENTRY-TIME BATTLEFIELD SCAN instead (resolvers.grantedRiotCount), mirroring
+  // The runtime hook is an ENTRY-TIME BATTLEFIELD SCAN instead (enterReplacements.grantedRiotCount), mirroring
   // applyCounterDoubling — which reads printed doubler text off the battlefield at the moment counters are
   // placed, for the same reason. This marker only tells coverage the clause is modeled; it carries no layer op.
   // ⛔ THIS EXACT CLAUSE ONLY. Spider-Punk's "Other Spiders you control have riot" is subtype-scoped and does
@@ -5403,7 +5403,7 @@ export function collectCostReducers(permanents, { commandZone = false } = {}) {
   return reducers;
 }
 
-// CHOSEN-TYPE membership (CR 614.12, mirrors triggers.permHasChosenType / resolvers.cardHasChosenType — kept
+// CHOSEN-TYPE membership (CR 614.12, mirrors triggers.permHasChosenType / enterReplacements.cardHasChosenType — kept
 // local so this module stays a leaf). A spell carries the chosen type if its type line has that creature
 // subtype (word-bounded). Unset type → false. P·39b: a spell that is every creature type — a changeling (CR 702.73a), or a creature
 // spell under its caster's Maskwood Nexus — is the callers' `every` (everyCreatureType.cardIsEveryCreatureType, the keyword ABILITY:

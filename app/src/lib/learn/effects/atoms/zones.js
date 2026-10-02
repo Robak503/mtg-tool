@@ -3,8 +3,8 @@
  * reanimate). Also hosts the shared enterCardFromZone helper (reanimation + library ramp).
  */
 
-import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf, shuffleSeededLibrary, planeswalkerEntryLoyalty, deterministicRng, advanceRngSeed, attachPermanent } from "../../gameState.js"; // deterministicRng / advanceRngSeed — ENDURANCE's "in a random order" (seeded, never Math.random) // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
-import { impositionEntersTapped } from "../../staticAbilityParser.js"; // KM-1 (CR 614.1c) — Kismet taxes non-cast entries too (leaf-safe: staticAbilityParser imports only keywords.js)
+import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf, shuffleSeededLibrary, deterministicRng, advanceRngSeed, attachPermanent } from "../../gameState.js"; // deterministicRng / advanceRngSeed — ENDURANCE's "in a random order" (seeded, never Math.random) // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
+import { applyEnterReplacements, settleEnterReplacements, sagaEntryChapterTriggers } from "../../enterReplacements.js"; // the entry replacements (CR 614.1c, 614.1d, 614.12) — the ONE reader resolvers.enterPermanent shares; a leaf that reaches neither resolvers.js nor any atom importing this file
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
 import { setPendingMilledPickChoice } from "../../pendingChoice.js"; // ④-P — the target player's graveyard pick rides the milled-pick pause (toZone "exile"); library.js already imports the same module, so no new cycle
@@ -287,22 +287,25 @@ export function applyExileGraveyard(state, atom, ctx) {
  * a rider ("tapped", "under your control", "with a +1/+1 counter") fails the exact anchor → Arbiter.
  */
 /**
- * Enter `cardId` from `fromZone` (graveyard / library) onto `playerId`'s battlefield as a permanent
+ * Enter `cardId` from `fromZone` (graveyard / library / hand / exile) onto `playerId`'s battlefield as a permanent
  * under their control, then fire its ETB triggers (checkEnterTriggers; the resolution finalizer flushes
  * them). MIRRORS resolvers.enterPermanent's setup (deterministic perm id + the CR 613.7e layer timestamp
  * + enteredOnTurn + creature summoning sickness) — it can't call enterPermanent directly because
- * resolvers→runProgram→effectAtoms would cycle. `tapped` enters it tapped (RAMP-1 — Rampant Growth's
- * basic enters tapped). `fromPlayerId` (default `playerId`) is the player whose zone HOLDS the card — for
+ * resolvers→runProgram→effectAtoms would cycle; the ENTRY REPLACEMENTS both share through the leaf
+ * enterReplacements.applyEnterReplacements (below). `tapped` is the EFFECT's own "onto the battlefield tapped"
+ * (RAMP-1 — Rampant Growth's basic enters tapped). `fromPlayerId` (default `playerId`) is the player whose zone HOLDS the card — for
  * "put target creature card from a/an opponent's graveyard onto the battlefield UNDER YOUR CONTROL"
  * (Reanimate / Hymn of Rebirth / Ashen Powder, CR 608) the card lives in another player's graveyard but
  * the permanent enters under the CASTER's control; the card is removed from fromPlayerId's zone and the
  * permanent is added to playerId's battlefield. When fromPlayerId === playerId (the common own-graveyard /
- * own-library case) this is exactly the original single-player move. Returns `{ state, entered }`:
+ * own-library case) this is exactly the original single-player move. `replacementState` is the board the entry
+ * replacements read when the card is one of several entering in ONE event (the board as that event began — enterCardsTogether
+ * and the one-event loops pass it); a single entry reads the board as it entered. Returns `{ state, entered }`:
  * entered:false (state unchanged) when the card isn't in the source zone (CR 608.2b — it left). Shared by
  * reanimation (β-3b, graveyard) and battlefield ramp (RAMP-1, library) so the two enter-a-found-card paths
  * can't drift.
  */
-export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = false, fromPlayerId = playerId, deferEnterTriggers = false }) {
+export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = false, fromPlayerId = playerId, deferEnterTriggers = false, replacementState = null }) {
   const owner = state.players[fromPlayerId];
   const controllerPlayer = state.players[playerId];
   if (!owner || !controllerPlayer) return { state, entered: false };
@@ -311,9 +314,6 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   const { id: permId, state: s2 } = mintId(state, "perm");
   const ts = s2.timestampCounter || 0;
   const isCreatureCard = /Creature/.test(String(card?.type || card?.type_line || ""));
-  // KM-1 (CR 614.1c): an opposing Kismet-class static forces this non-cast entry (reanimate / ramp /
-  // detain-return / earthbend-return) in tapped too — every entry path consults the one reader.
-  const forcedTapped = tapped || impositionEntersTapped(s2, card, playerId);
   // OWNER STAMP (BLITZ SB-2, CR 110.2 / 404.1): a CROSS-PLAYER entry (reanimation out of another player's
   // graveyard — Ashen Powder / Hymn of Rebirth / the Ink-Eyes saboteur theft) creates a permanent whose
   // controller is NOT its owner (the zone holder — a player's graveyard contains only their own cards,
@@ -322,16 +322,22 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   // destroyed object "is put on top of its owner's graveyard"; CR 700.4 — dies = put into a graveyard
   // from the battlefield). The common same-player entry stamps nothing → byte-identical.
   // K9 (Fblthp "if it entered from your library"): the zone this permanent arrived from, for ETB riders that ask.
-  const perm = { ...createPermanent({ id: permId, card, controller: playerId, summoningSick: isCreatureCard, tapped: forcedTapped }), enteredOnTurn: s2.turn, timestamp: ts, enteredFromZone: fromZone, ...(fromPlayerId !== playerId && { owner: fromPlayerId }) };
+  const base = { ...createPermanent({ id: permId, card, controller: playerId, summoningSick: isCreatureCard, tapped }), enteredOnTurn: s2.turn, timestamp: ts, enteredFromZone: fromZone, ...(fromPlayerId !== playerId && { owner: fromPlayerId }) };
+  // THE ENTRY REPLACEMENTS (CR 614.1c, 614.1d, 614.12) — the same reader the cast entry (resolvers.enterPermanent) uses, so a
+  // permanent that wasn't cast enters exactly as its replacement effects say: "enters tapped" (Diregraf Ghoul), "enters with
+  // N +1/+1 counters" (Spike Feeder), the planeswalker's loyalty (CR 306.5b), fading / vanishing / Saga lore, another
+  // permanent's "each other creature you control enters with …" (Renata), riot, the shockland / check-land / reveal-land
+  // taps, the as-enters choices, and an opposing Kismet (KM-1). Only the cast facts are absent (no opts): its {X} is 0
+  // (CR 107.3g, 107.3m), so "enters with X counters" adds none (Walking Ballista, Hangarback Walker), and no kicker,
+  // sunburst or cast-from-hand counter applies. Read against the board as the card enters (s2): it is not on the
+  // battlefield, and it is still in the zone it is leaving — a Golgari Grave-Troll returned from the graveyard counts itself
+  // (its bundled ruling); for one card of a larger event, against the board as that event began (`replacementState`,
+  // CR 614.12): a permanent entering at the same time as Renata gets no counter from her (Renata's bundled ruling).
+  const { perm, settle } = applyEnterReplacements(replacementState || s2, base);
   // Remove the card from its OWNER's source zone (fromPlayerId), then add the new permanent to the
   // CONTROLLER's battlefield (playerId). Build both player updates from s2 so a same-player move (the
   // common case, fromPlayerId === playerId) composes into one object and a cross-player move (reanimation
   // from an opponent's graveyard) updates the two distinct players without clobbering either.
-  // STARTING LOYALTY (CR 306.5b — SHELF-85 · Atraxa A3 Deploy the Gatewatch, 2026-09-05): this non-cast path mirrored
-  // enterPermanent's setup but never stamped a planeswalker's loyalty — a dug / reanimated walker entered with NO
-  // loyalty key, so nothing could attack it and the 0-loyalty SBA could never kill it. The one reader both paths share.
-  const entryLoyalty = planeswalkerEntryLoyalty(s2, playerId, card);
-  if (entryLoyalty != null) perm.counters = { ...perm.counters, loyalty: entryLoyalty };
   const srcZoneList = (s2.players[fromPlayerId][fromZone] || []).filter((c) => c.id !== cardId);
   const ctrlBattlefield = [...s2.players[playerId].battlefield, perm];
   const playersPatch = fromPlayerId === playerId
@@ -352,6 +358,10 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
     next = recordGraveyardEvents(next, [{ dir: "leave", card, gyOwner: fromPlayerId, zone: "battlefield" }]);
   }
   next = logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller: playerId });
+  // The shockland's life payment, the CR 122.6 counter events of the counters it entered with, riot's haste, Fabricate's Servos —
+  // settled now that it is on the battlefield (enterReplacements.settleEnterReplacements, as the cast entry does), before
+  // any enters trigger is checked.
+  next = settleEnterReplacements(next, perm, settle);
   // ONE EVENT, SEVERAL CARDS (enterCardsTogether below, CR 603.6a): that caller places every card of the event first and
   // checks the enters triggers afterwards, so here the new permanent is handed back before any trigger is checked.
   if (deferEnterTriggers) return { state: next, entered: true, permanentId: permId, permanent: perm };
@@ -377,10 +387,13 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
  *    Copper Gnomes, Quicksilver Amulet targets — must trigger artifact-ETB watchers). checkPermanentEntersTriggers
  *    self-gates on the entering permanent's type, so a creature/land entry is a no-op here. Pure addition — it can only
  *    fire correctly-owed triggers that the canonical enter path already fires.
+ *  · SAGA CHAPTERS (CR 714.3a + 714.2b; CR 122.6): a Saga entered with a lore counter (enterReplacements), so the chapter it
+ *    reached triggers — the same call the cast entry makes after its enters triggers.
  */
 function fireEnterTriggers(state, perm) {
   let next = checkEnterTriggers(state, perm);
   next = checkLandfallTriggers(next, perm);
+  next = sagaEntryChapterTriggers(next, perm);
   return checkPermanentEntersTriggers(next, perm);
 }
 
@@ -391,6 +404,10 @@ function fireEnterTriggers(state, perm) {
  * then are the enters triggers checked, once per entered permanent, against the board as it exists immediately after the
  * event (CR 603.10): a watcher among the newcomers (Soul Warden) sees each of the others. Calling enterCardFromZone once per
  * card instead would check each card before the later ones arrive, so an earlier card would go unseen by a later watcher.
+ * The ENTRY REPLACEMENTS go the other way: each card's read the board as the event began (`replacementState`), not the board
+ * with the earlier newcomers already placed — a replacement effect applies only if it already exists (CR 614.12), so a
+ * newcomer's static never modifies another newcomer's entry (Renata gives a creature entering with her no counter; Squad
+ * Captain counts only the creatures already there — both bundled rulings).
  * `entries` are enterCardFromZone's arguments, read off their zones by the caller immediately before (a card no longer in
  * its zone would enter nothing, and the trigger checks pass over the missing permanent).
  */
@@ -398,7 +415,7 @@ function enterCardsTogether(state, entries) {
   let next = state;
   const entered = [];
   for (const entry of entries) {
-    const r = enterCardFromZone(next, { ...entry, deferEnterTriggers: true });
+    const r = enterCardFromZone(next, { ...entry, deferEnterTriggers: true, replacementState: state });
     next = r.state;
     entered.push(r.permanent);
   }
@@ -530,7 +547,9 @@ export function applyMassReanimate(state, atom, ctx) {
   let next = state;
   const entered = [];
   for (const id of ids) {
-    const r = enterCardFromZone(next, { playerId: controller, cardId: id, fromZone: "graveyard", tapped: !!atom.entersTapped });
+    // ONE EVENT: every returned card's entry replacements read the board as the return began (`state`, CR 614.12 — the
+    // enterCardsTogether rule), so a permanent returned with the others modifies none of their entries.
+    const r = enterCardFromZone(next, { playerId: controller, cardId: id, fromZone: "graveyard", tapped: !!atom.entersTapped, replacementState: state });
     next = r.state;
     if (r.entered) entered.push(id);
   }

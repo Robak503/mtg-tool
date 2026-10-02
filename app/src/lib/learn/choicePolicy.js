@@ -2,8 +2,9 @@
  * choicePolicy.js — deterministic auto-choice POLICY for choices this self-play engine has no human to make.
  *
  * WHY A MODULE AND NOT A LOCAL MIRROR. This file exists for exactly one function today, and the codebase's
- * usual answer would be to keep a local copy (resolvers.js says "kept local so resolvers stays leaf-ish"
- * three times over, and that is right for pure FORMATTERS like creatureSubtypesOf). A POLICY is different:
+ * usual answer would be to keep a local copy (enterReplacements.js — the entry replacements, moved out of resolvers.js —
+ * says "kept local so this leaf stays leaf-ish" twice over, and that is right for pure FORMATTERS like
+ * creatureSubtypesOf). A POLICY is different:
  * if "which creature type does the engine pick" is written twice, a future tune to one copy makes the sim
  * choose one type at an ETB and a different one at an activation, on the same board, with every test still
  * green. That is a silent behavioural fork, not a duplicated formatter.
@@ -19,7 +20,7 @@
 
 /**
  * The creature subtypes printed on a card's type line (the words after the "—", CR 205.3a); [] when the card
- * has no subtype dash or is not a creature. Duplicated deliberately from resolvers.js's local copy: it is a
+ * has no subtype dash or is not a creature. Duplicated deliberately from enterReplacements.js's local copy: it is a
  * six-line pure formatter, and importing it here would give this leaf an edge it must not have.
  */
 function printedCreatureSubtypes(card) {

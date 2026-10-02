@@ -110,7 +110,7 @@ export function setPendingCleanupDiscardChoice(state, { controller, candidates, 
  * library). FIFO: one pending choice at a time (the driver settles it before the
  * next atom/spell resolves, so this guard is belt-and-braces).
  */
-export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", sourceZones = null, destinations = null, mayFailToFind = null, fetchedGrants = null, fetchedGrantsUntil = null, landToBattlefieldTapped = false, temptingOffer = null, consultation = false }) {
+export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", sourceZones = null, destinations = null, mayFailToFind = null, fetchedGrants = null, fetchedGrantsUntil = null, landToBattlefieldTapped = false, temptingOffer = null, consultation = false, searchEnteredIds = null }) {
   if (state.pendingChoice) return state;
   // RAMP-SPLIT (Cultivate / Kodama's Reach) — an ORDERED per-fetch destination sequence; its HEAD applies to
   // THIS pick (so the fetch path + picker label read destination/entersTapped unchanged), the tail rides on
@@ -155,6 +155,10 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
       // this FOURTH naming site (the destination comment above warns exactly this: miss one and the path
       // silently under-delivers — the fetched Dino entered WITHOUT its printed indestructible until listed).
       ...(fetchedGrants ? { fetchedGrants, fetchedGrantsUntil: fetchedGrantsUntil || "endOfTurn" } : {}),
+      // MULTI-PICK, ONE EVENT (CR 614.12) — the permanent ids the earlier picks of this search put onto the battlefield, so a
+      // chained pick's entry replacements read the board without them (effects/runProgram.resolveTutorChoice). Present only
+      // on a chained pick after a battlefield entry; plain JSON (serialize-safe).
+      ...(Array.isArray(searchEnteredIds) && searchEnteredIds.length ? { searchEnteredIds } : {}),
       // LAND-FROM-HAND — which zone the chosen card comes FROM: "library" (every search; default + shuffles)
       // or "hand" (Growth Spiral's "put a land from your hand onto the battlefield"; no shuffle).
       sourceZone: sourceZone === "hand" ? "hand" : "library",

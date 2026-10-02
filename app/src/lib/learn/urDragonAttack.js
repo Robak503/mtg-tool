@@ -26,9 +26,10 @@
  * checkAttackTriggers, so the cardDrawn / ETB sub-triggers it ENQUEUES flush in the same priority-grant
  * pass (gameEngine line 302). ADDITIVE only — no core-death surgery.
  */
-import { drawCards, createPermanent, mintId, findPermanent, destroyLethalCreatures, logEvent } from "./gameState.js";
-import { checkCardDrawnTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkDiesTriggers } from "./triggers.js";
+import { drawCards, findPermanent, destroyLethalCreatures } from "./gameState.js";
+import { checkCardDrawnTriggers, checkDiesTriggers } from "./triggers.js";
 import { permIsEveryCreatureType } from "./layers.js"; // P·39 — attacking Dragons: every creature type counts (layers' closure never reaches this file)
+import { enterCardFromZone } from "./effects/atoms/zones.js"; // the one non-cast entry (entry replacements, ETB / landfall / permanent-enters); no module zones.js reaches imports this file
 
 // Anchored to the WHOLE unique templating so none of the 24 other "one or more <X> you control attack"
 // cards (which carry DIFFERENT effects — add mana, gain life, make tokens, goad …) can false-match. The
@@ -88,41 +89,18 @@ function pickPermanentToCheat(hand) {
  * Put the chosen hand card onto pid's battlefield as a permanent (CR: a one-shot "put onto the battlefield"
  * — no cost, no stack), fire its ETB, then run the lethal SBA. Pure.
  *
- * Entry stamping mirrors the canonical enterCardFromZone / enterPermanent exactly: a deterministic mintId,
- * the CR 613.7e layer timestamp (threaded via timestampCounter so two permanents entering this combat sort
- * youngest-last), enteredOnTurn, and PER-TYPE summoning sickness (only a creature is sick — CR 302.6). It
- * does NOT delegate to enterCardFromZone on purpose: that helper fires only checkEnterTriggers, whereas a
- * fresh permanent "put onto the battlefield" must ALSO fire the artifact/enchantment-ETB watchers
- * (checkPermanentEntersTriggers, the token-entry path) — delegating would silently DROP that ETB coverage.
- * CR: 603.6a (the cheated permanent ENTERS → its ETB / others' enters-watchers trigger); 704.5f (a 0/0
- * entering dies to the toughness SBA). A landfall trigger on a cheated LAND is a SAFE under-fire (omitted).
+ * The entry is zones.enterCardFromZone, the one every put-onto-the-battlefield effect shares: the deterministic mintId, the
+ * CR 613.7e layer timestamp, enteredOnTurn, PER-TYPE summoning sickness (CR 302.6), the entry replacements (CR 614.1c, 614.1d,
+ * 614.12 — a cheated Diregraf Ghoul enters tapped, a Spike Feeder with its two +1/+1 counters; the card wasn't cast, so its X
+ * is 0, CR 107.3g), and the ETB / landfall / artifact- and enchantment-enters checks (CR 603.6a). This used to stamp the
+ * permanent itself, which skipped every entry replacement and the landfall check. CR 704.5f: a 0/0 entering dies to the
+ * toughness SBA run here.
  */
 function cheatPermanentFromHand(state, pid, handIdx) {
-  const player = state.players[pid];
-  const card = player.hand[handIdx];
-  const minted = mintId(state, "perm");
-  let next = minted.state;
-  const ts = next.timestampCounter || 0;
-  const isCreatureCard = /creature/i.test(String(card?.type || card?.type_line || ""));
-  const perm = {
-    ...createPermanent({ id: minted.id, card, controller: pid, summoningSick: isCreatureCard }),
-    enteredOnTurn: next.turn,
-    timestamp: ts,
-  };
-  const p = next.players[pid];
-  next = {
-    ...next,
-    timestampCounter: ts + 1,
-    players: {
-      ...next.players,
-      [pid]: { ...p, hand: p.hand.filter((_, i) => i !== handIdx), battlefield: [...p.battlefield, perm] },
-    },
-  };
-  next = logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller: pid });
-  next = checkEnterTriggers(next, perm);
-  next = checkPermanentEntersTriggers(next, perm);
-  const r = destroyLethalCreatures(next);
-  return checkDiesTriggers(r.state, r.dead);
+  const card = state.players[pid].hand[handIdx];
+  const r = enterCardFromZone(state, { playerId: pid, cardId: card.id, fromZone: "hand" });
+  const lethal = destroyLethalCreatures(r.state);
+  return checkDiesTriggers(lethal.state, lethal.dead);
 }
 
 /**

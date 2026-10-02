@@ -37,8 +37,11 @@ export function applyLivingDeath(state, atom, ctx) {
   }
   const victims = players.flatMap((pid) => next.players[pid].battlefield.filter((p) => permanentIsCreature(next, p.id)).map((p) => ({ playerId: pid, permId: p.id })));
   next = sacrificeCreaturesTogether(next, victims);
+  // Every player's cards return in ONE event, so each one's entry replacements read the board as the return began (CR 614.12 —
+  // the zones.enterCardsTogether rule): a returned Renata, Called to the Hunt adds no counter to the creatures returning with it.
+  const replacementState = next;
   for (const pid of players) {
-    for (const id of exiledBy[pid]) next = enterCardFromZone(next, { playerId: pid, cardId: id, fromZone: "exile" }).state;
+    for (const id of exiledBy[pid]) next = enterCardFromZone(next, { playerId: pid, cardId: id, fromZone: "exile", replacementState }).state;
   }
   return logEvent(next, { kind: "spell-effect", effect: "living-death", controller: ctx.controller, returned: exiledBy });
 }

@@ -7,7 +7,8 @@
  * lives beside its parser kin; this one must EVALUATE a board condition, which means importing
  * interveningIf — and interveningIf → layers → staticAbilityParser, so putting the evaluation in
  * staticAbilityParser would close a cycle. This module imports only interveningIf and is imported by the
- * two enter sites (actionDispatcher's play-land path, resolvers.enterPermanent) and by coverage — the same
+ * two enter sites (actionDispatcher's play-land path; enterReplacements, which every other entry — the cast
+ * resolvers.enterPermanent and the non-cast zones.enterCardFromZone — reads) and by coverage — the same
  * shape every other feature leaf here takes (seedbornUntap.js, wolverine.js …).
  *
  * ONE VOCABULARY, TWO CONSUMERS — the CAP12 discipline. The runtime evaluates the condition through
@@ -83,9 +84,10 @@ export function conditionalEntersTapped(state, card, controller, enteringPermId 
  * Unlike the "unless" gate this is a PLAYER CHOICE, not a board read, so the reader only recognises the
  * line; the two enter sites decide HOW the choice is made: the play-land path raises a real pause for a
  * human seat (an AI seat auto-decides through autoPickOptionalLifePayment — pay iff life ≥ 10, a written
- * policy, never a decline-only shortcut), and resolvers.enterPermanent — which runs INSIDE an effect's
- * resolution (a tutored shockland) where a land-entry pause has no resume seam — applies that same policy
- * for every seat and logs it as an auto-decision. That second limit is deliberate and recorded, not hidden.
+ * policy, never a decline-only shortcut), and the shared entry replacements (enterReplacements — the entry a
+ * tutored or put-onto-the-battlefield shockland takes, INSIDE an effect's resolution, where a land-entry pause
+ * has no resume seam) apply that same policy for every seat and log it as an auto-decision; an entry the effect
+ * itself taps pays nothing. That second limit is deliberate and recorded, not hidden.
  *
  * Whole-line anchored: the exact printed sentence and nothing more. A rider or a different subject leaves
  * the line as residue (the card stays partial), never a partial credit.
@@ -146,8 +148,10 @@ export function revealLandTypes(card) {
  * position this engine models; so the reveal is automatic rather than a pause. The hidden-information side
  * is NOT modeled (no opponent ever "sees" the revealed card) — a documented limit, never a fabricated gate.
  *
- * The entering land is never in the hand at either enter site (play-land moved it; a tutor took it from the
- * library), so the scan is exactly the rest of the hand. No printed clause → false (untapped, FN-safe).
+ * The play-land path has already moved the entering land out of the hand; a land PUT from the hand (Growth Spiral) is
+ * still there as its replacement applies (zones.enterCardFromZone reads the board as the land enters), but no
+ * reveal land carries a type it names, so it can never reveal itself — the scan is in effect the rest of the
+ * hand. No printed clause → false (untapped, FN-safe).
  */
 export function revealLandEntersTapped(state, card, controller) {
   const types = revealLandTypes(card);

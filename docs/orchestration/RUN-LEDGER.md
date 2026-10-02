@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **20 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,437)** — +165 of that is the 10-02 card-data refresh (new
+> **21 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,437)** — +165 of that is the 10-02 card-data refresh (new
 > cards, not engine work); engine gains since the tag: **+26**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,23 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: a permanent that wasn't cast still enters as its replacement effects say (CR 614.12) · **±0**
+> Suite **18,099** green. Flip-diff **0 / 0 / 0** (runtime-only). **Mutants 22/22**, restore byte-identical. Built by a fan-out builder;
+> re-verified on the integrated tree (after Necropotence and the owner fix). CR citations unresolved 117 (unchanged).
+> · ⚑ zones.enterCardFromZone — the entry every NON-cast path takes (reanimation, put-from-hand/library, blink returns, Living
+>   Death, Rise of the Dark Realms, undying/persist) — applied only Kismet-style impositions and planeswalker loyalty; the cast
+>   entry (resolvers.enterPermanent) applied every entry replacement. A reanimated Diregraf Ghoul entered untapped; a reanimated
+>   Spike Feeder entered with no counters and died to the next state-based check; a searched-up shockland or check land entered
+>   untapped for free; a put Saga was inert. Root cause: the replacements lived inline in enterPermanent, which the atoms cannot
+>   import (resolvers → runProgram → atoms → zones would cycle). New leaf `enterReplacements.js` (apply + settle, moved verbatim)
+>   serves both entries; only the cast facts differ (a permanent that wasn't cast has X = 0 — CR 107.3g, 107.3m — so Walking Ballista
+>   still enters empty off the stack). One event, several permanents (CR 614.12): Rise, Replenish, Living Death, Genesis Wave
+>   and multi-pick puts read every newcomer's replacements against the board as the event began; a tempting offer's bonus
+>   searches are separate events. An entry the effect itself taps (Farseek) makes no shockland payment. The Ur-Dragon's cheat
+>   now enters through the shared entry (it skipped replacements and landfall). 1,443 corpus cards carry at least one of
+>   these replacements. Witness `nonCastEntryReplacements.test.js` (20 on real cards through real entry points; 11 fail on the
+>   old engine).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: a permanent keeps its owner through control changes (CR 400.3) · **±0**
 > Suite **18,079** green (one run with Necropotence). Flip-diff **0 / 0 / 0**. **Mutants 16/16**, restore byte-identical. Built by a fan-out
