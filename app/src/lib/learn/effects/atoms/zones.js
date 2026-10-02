@@ -305,7 +305,7 @@ export function applyExileGraveyard(state, atom, ctx) {
  * reanimation (β-3b, graveyard) and battlefield ramp (RAMP-1, library) so the two enter-a-found-card paths
  * can't drift.
  */
-export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = false, fromPlayerId = playerId }) {
+export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = false, fromPlayerId = playerId, deferEnterTriggers = false }) {
   const owner = state.players[fromPlayerId];
   const controllerPlayer = state.players[playerId];
   if (!owner || !controllerPlayer) return { state, entered: false };
@@ -355,28 +355,58 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
     next = recordGraveyardEvents(next, [{ dir: "leave", card, gyOwner: fromPlayerId, zone: "battlefield" }]);
   }
   next = logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller: playerId });
-  // ETB fires for any entry; LANDFALL (CR 603 — a triggered ability, ability word CR 207.2c) ALSO fires
-  // when the entering permanent is a LAND — a
-  // RAMP/fetch that puts a land onto the battlefield (Cultivate, Rampant Growth, Kodama's Reach) is a
-  // landfall event, not just an ETB. Without this, landfall payoffs (Lotus Cobra, Tatyova, Rampaging
-  // Baloths) silently miss every ramp-fetched land. checkLandfallTriggers self-gates via isLandPerm, so a
-  // reanimated/fetched CREATURE never fires it — only a land does. (Sibling of the play-land ETB fix.)
-  next = checkEnterTriggers(next, perm);
-  next = checkLandfallTriggers(next, perm);
-  // PERM-ENTERS (artifact-ETB / enchantment-ETB watchers) — enterPermanent (resolvers.js) fires this
-  // immediately after checkEnterTriggers, but this non-cast entry path historically did not, so a
-  // reanimated / ramped / put-from-hand ARTIFACT or ENCHANTMENT silently missed "whenever an artifact
-  // you control enters" (Reckless Fireweaver) / "whenever an enchantment you control enters"
-  // (Constellation) payoffs. PUT-FROM-HAND needs it (an artifact card put from hand — Copper Gnomes,
-  // Quicksilver Amulet targets — must trigger artifact-ETB watchers). checkPermanentEntersTriggers
-  // self-gates on the entering permanent's type, so a creature/land entry is a no-op here. Pure addition —
-  // it can only fire correctly-owed triggers that the canonical enter path already fires.
-  next = checkPermanentEntersTriggers(next, perm);
+  // ONE EVENT, SEVERAL CARDS (enterCardsTogether below, CR 603.6a): that caller places every card of the event first and
+  // checks the enters triggers afterwards, so here the new permanent is handed back before any trigger is checked.
+  if (deferEnterTriggers) return { state: next, entered: true, permanentId: permId, permanent: perm };
   // `permanentId` is returned so a caller that must do something TO the permanent it just created can find
   // it without guessing. The Aura self-return (gy-self-attach-return) needs it to attach the Aura to its
   // named host; scanning the battlefield for a matching card id afterwards would pick the wrong copy when
   // two are in play. Additive — every existing caller destructures only {state, entered}.
-  return { state: next, entered: true, permanentId: permId };
+  return { state: fireEnterTriggers(next, perm), entered: true, permanentId: permId };
+}
+
+/**
+ * The enters-trigger checks for one permanent that entered by a non-cast path — enterCardFromZone's, and each permanent's in
+ * enterCardsTogether — in one place, so the single entry and the batch entry can't drift.
+ *  · ETB fires for any entry; LANDFALL (CR 603 — a triggered ability, ability word CR 207.2c) ALSO fires when the entering
+ *    permanent is a LAND — a RAMP/fetch that puts a land onto the battlefield (Cultivate, Rampant Growth, Kodama's Reach) is
+ *    a landfall event, not just an ETB. Without this, landfall payoffs (Lotus Cobra, Tatyova, Rampaging Baloths) silently
+ *    miss every ramp-fetched land. checkLandfallTriggers self-gates via isLandPerm, so a reanimated/fetched CREATURE never
+ *    fires it — only a land does. (Sibling of the play-land ETB fix.)
+ *  · PERM-ENTERS (artifact-ETB / enchantment-ETB watchers) — enterPermanent (resolvers.js) fires this immediately after
+ *    checkEnterTriggers, but this non-cast entry path historically did not, so a reanimated / ramped / put-from-hand
+ *    ARTIFACT or ENCHANTMENT silently missed "whenever an artifact you control enters" (Reckless Fireweaver) / "whenever an
+ *    enchantment you control enters" (Constellation) payoffs. PUT-FROM-HAND needs it (an artifact card put from hand —
+ *    Copper Gnomes, Quicksilver Amulet targets — must trigger artifact-ETB watchers). checkPermanentEntersTriggers
+ *    self-gates on the entering permanent's type, so a creature/land entry is a no-op here. Pure addition — it can only
+ *    fire correctly-owed triggers that the canonical enter path already fires.
+ */
+function fireEnterTriggers(state, perm) {
+  let next = checkEnterTriggers(state, perm);
+  next = checkLandfallTriggers(next, perm);
+  return checkPermanentEntersTriggers(next, perm);
+}
+
+/**
+ * SEVERAL CARDS PUT ONTO THE BATTLEFIELD BY ONE EVENT (CR 603.6a: "Each time an event puts one or more permanents onto the
+ * battlefield, all permanents on the battlefield (including the newcomers) are checked for any enters-the-battlefield
+ * triggers that match the event"). Every card is placed first (enterCardFromZone, its enters triggers deferred), and only
+ * then are the enters triggers checked, once per entered permanent, against the board as it exists immediately after the
+ * event (CR 603.10): a watcher among the newcomers (Soul Warden) sees each of the others. Calling enterCardFromZone once per
+ * card instead would check each card before the later ones arrive, so an earlier card would go unseen by a later watcher.
+ * `entries` are enterCardFromZone's arguments, read off their zones by the caller immediately before (a card no longer in
+ * its zone would enter nothing, and the trigger checks pass over the missing permanent).
+ */
+function enterCardsTogether(state, entries) {
+  let next = state;
+  const entered = [];
+  for (const entry of entries) {
+    const r = enterCardFromZone(next, { ...entry, deferEnterTriggers: true });
+    next = r.state;
+    entered.push(r.permanent);
+  }
+  for (const perm of entered) next = fireEnterTriggers(next, perm);
+  return next;
 }
 
 // Mana value of a graveyard Card (CR 202.3) — cmc/mana_value when present (Scryfall cards carry cmc), else a
@@ -508,6 +538,28 @@ export function applyMassReanimate(state, atom, ctx) {
     if (r.entered) entered.push(id);
   }
   return logEvent(next, { kind: "spell-effect", effect: "mass-reanimate", controller, targets: entered });
+}
+
+/**
+ * MASS REANIMATE FROM ALL GRAVEYARDS (the play-weighted program, EDHREC #492 — Rise of the Dark Realms; Liliana Vess's −8
+ * prints the same sentence): "Put all creature cards from all graveyards onto the battlefield under your control."
+ *  · EVERY player's graveyard, and every creature card in it, read at resolution (non-targeted: nothing can fizzle, an empty
+ *    graveyard brings nothing). The front face decides (CR 712.8a) through cardMatchesGraveyardFilter, the chokepoint every
+ *    graveyard filter shares: a land, an instant, a Vehicle, a land-fronted double-faced card stays where it is.
+ *  · ONE event (CR 603.6a): enterCardsTogether places all of them before any enters trigger is checked, so a newcomer's
+ *    "whenever another creature enters" sees each of the others.
+ *  · Under the caster's control (CR 110.2a); the owner does not change (CR 110.2 — a permanent's owner is its card's owner).
+ *    enterCardFromZone stamps `owner` on a card taken from another player's graveyard, so the battlefield-exit chokepoint
+ *    (gameState.moveCardToZone) sends it to its OWNER's graveyard, hand or library when it leaves (CR 400.3).
+ *  · Tokens are not cards (CR 111.1), and none waits in a graveyard to be taken: moveCardToZone never lands a token there.
+ */
+function applyMassReanimateAllGraveyards(state, atom, ctx) {
+  const controller = ctx.controller;
+  const entries = Object.keys(state.players).flatMap((pid) => (state.players[pid].graveyard || [])
+    .filter((c) => cardMatchesGraveyardFilter(c, atom.cardFilter))
+    .map((c) => ({ playerId: controller, cardId: c.id, fromZone: "graveyard", fromPlayerId: pid })));
+  const next = enterCardsTogether(state, entries);
+  return logEvent(next, { kind: "spell-effect", effect: "mass-reanimate-all-graveyards", controller, targets: entries.map((e) => e.cardId) });
 }
 
 /**
@@ -896,6 +948,16 @@ export function graveyardReturnClauseParser(clause) {
   // indestructible / proliferate rider fails the exact `$` anchor → low → Arbiter (CREED whole-card).
   if (/^put target creature card from a graveyard onto the battlefield under your control$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", anyGraveyard: true };
   if (/^put target creature card from an opponent's graveyard onto the battlefield under your control$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", opponentGraveyard: true };
+  // MASS REANIMATE FROM ALL GRAVEYARDS (play-weighted, EDHREC #492 — Rise of the Dark Realms; Liliana Vess's −8): "put all
+  // creature cards from all graveyards onto the battlefield under your control". Non-targeted — applyMassReanimateAllGraveyards
+  // reads every graveyard at resolution and enters the cards as one event under the caster's control, owners kept. CREATURE
+  // cards only, the exact anchors: "under their owners' control" (Open the Vaults, Planar Birth — another verb and another
+  // controller), a type other than creature, or a rider in the clause ("tapped") does not match; a rider SENTENCE (Grimoire of
+  // the Dead's "They're black Zombies in addition to their other colors and types.") is its own clause, unmodeled, so that
+  // program stays LOW.
+  if (/^put all creature cards from all graveyards onto the battlefield under your control$/.test(t)) {
+    return { op: "mass-reanimate-all-graveyards", cardFilter: "creature", targetType: null };
+  }
   // DAMAGED-PLAYER REANIMATE (BLITZ SB-2, CR 608.2c "that player" back-reference) — the SABOTEUR graveyard
   // theft "put target creature card from that player's graveyard onto the battlefield under your control"
   // (Ink-Eyes, Servant of Oni; Scion of Darkness — the ONLY corpus carriers of this exact anchored shape;
@@ -2017,6 +2079,7 @@ export const zoneResolvers = {
   "exile-graveyard": applyExileGraveyard,   // WHOLE-ZONE graveyard hate (Bojuka Bog / Farewell / Rakdos Charm)
   "exile-graveyard-pick": applyExileGraveyardPick, // ④-P — the TARGET player picks one of their graveyard cards to exile (Relic of Progenitus)
   "mass-reanimate": applyMassReanimate,     // "return ALL <type> cards from your graveyard to the battlefield[ tapped]"
+  "mass-reanimate-all-graveyards": applyMassReanimateAllGraveyards, // Rise of the Dark Realms — "put all creature cards from all graveyards onto the battlefield under your control" (one event)
   "mass-return-hand": applyMassReturnToHand, // the hand-destination mirror of the above
   "blink": applyBlink,                      // BLINK/FLICKER (CR 400.7) — Cloudshift / Ephemerate / Essence Flux
   "earthbend-return": applyEarthbendReturn, // EARTHBEND-RETURN (CR 603.7) — the animated land's dies/exile delayed return, tapped

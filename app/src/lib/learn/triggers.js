@@ -9241,11 +9241,23 @@ export function checkGraveyardEventTriggers(state) {
   const events = state.pendingGraveyardEvents || [];
   if (!events.length) return state;
   const { pendingGraveyardEvents: _drop, ...cleared } = state;
+  // A WATCHER THAT WAS ITSELF IN A GRAVEYARD DURING THIS DRAIN sees none of its events (play-weighted, EDHREC #492).
+  // The watchers are read off the board AFTER the events, so a permanent whose own card is among them — a reanimated Tormod,
+  // a Syr Konrad that Rise of the Dark Realms returns with the rest — would otherwise answer for a time it was not on the
+  // battlefield. A leave trigger looks back to immediately before its event (CR 603.10a: "abilities that trigger when a card
+  // leaves a graveyard"), an enter trigger reads the objects that exist immediately after it (CR 603.10), and at neither
+  // moment of an event that came before its own arrival, or with it, was that permanent on the battlefield: it was a card in
+  // a graveyard, and its battlefield abilities did not exist. Card ids survive zone changes in this engine, which is how the
+  // watcher's card is found among the events. The drain can't order such a watcher against an event that came after it
+  // arrived within the same drain (a legend-rule death in the same resolution's state-based actions), so it misses that one
+  // too — an under-fire, never a trigger the rules forbid.
+  const inGraveyardThisDrain = new Set(events.map((ev) => ev.card.id));
   let fired = [];
   for (const ev of events) {
     const evEvent = ev.dir === "leave" ? "gyLeave" : "gyEnter";
     for (const pid of Object.keys(cleared.players)) {
       for (const watcher of triggerSourcesOf(cleared, pid)) {
+        if (inGraveyardThisDrain.has(watcher.card?.id)) continue; // not on the battlefield for this drain's events (above)
         for (const d of detectTriggers(watcher.card).filter((x) => x.event === evEvent)) {
           if (d.gyCardType && !new RegExp(`\\b${d.gyCardType}\\b`).test(frontFaceType(ev.card))) continue;
           if (d.gyOwnerScope === "you" && ev.gyOwner !== watcher.controller) continue;
@@ -9294,6 +9306,7 @@ export function checkGraveyardEventTriggers(state) {
     if (!dirEvents.length) continue;
     for (const pid of Object.keys(cleared.players)) {
       for (const watcher of triggerSourcesOf(cleared, pid)) {
+        if (inGraveyardThisDrain.has(watcher.card?.id)) continue; // the same skip as the per-card loop (above)
         for (const d of detectTriggers(watcher.card).filter((x) => x.event === evName)) {
           const hits = dirEvents.filter((ev) => {
             if (d.gyCardType && !new RegExp(`\\b(?:${d.gyCardType})\\b`).test(frontFaceType(ev.card))) return false; // grouped — a "|"-union (Dredger's "Artifact|Creature") tests ANY listed type; single words unchanged

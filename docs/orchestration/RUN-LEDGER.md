@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **11 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,424)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+13**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **12 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,426)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+15**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,21 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 42: Rise of the Dark Realms (EDHREC #492) — every graveyard's creature cards enter as one event · **+2** · corpus 15,426
+> Suite **17,918** green (one run for P·40–42). Flip-diff **+2, −0, zero RETIERED**: Rise of the Dark Realms → native-spell, Liliana Vess
+> → native-planeswalker (her −8 prints the same sentence; her +1 and −2 already parsed). Top 1,000 **870**; top 2,500 **1,707**.
+> **Mutants 21/21**, restore byte-identical. Built by a fan-out builder; re-verified on the integrated tree.
+> · "Put all creature cards from all graveyards onto the battlefield under your control." — a new non-targeted op reads every
+>   graveyard at resolution (front face, CR 712.8a); each card enters under the caster's control and keeps its owner (CR 110.2,
+>   400.3 — the opponent's Bears killed later goes to the opponent's graveyard). ONE event (CR 603.6a): enterCardsTogether places
+>   every card before any enters trigger is checked, so a returning Soul Warden sees the others (enterCardFromZone gained
+>   `deferEnterTriggers`; its three trigger checks moved, unchanged, into fireEnterTriggers).
+> · ⚑ Behavior change on EVERY reanimation path (CR 603.10a): a graveyard watcher whose own card is in the same graveyard-event drain
+>   answers for none of its events — a reanimated Tormod made a Zombie off its own return, a returned Syr Konrad pinged per card. It
+>   only removes triggers. Witness `riseOfTheDarkRealms.test.js` (15).
+> · ⚠️ Found, not fixed here (queued): enterCardFromZone skips a returning card's own entry replacements ("enters tapped",
+>   "enters with counters" — Diregraf Ghoul comes back untapped); a declined commander return can strand after a reanimation.
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 41: Adeline, Resplendent Cathar (EDHREC #493) — the player-or-planeswalker token defender · **+1** · corpus 15,424
 > Suite **17,918** green (one run for P·40–42). Flip-diff **+1, −0, zero RETIERED**: Adeline → native-mixed. Top 1,000 **869**; top 2,500

@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Rise of the Dark Realms** and **Liliana Vess** — "put all creature cards from all graveyards onto the battlefield under your control" works: they enter together under your control, and each still goes to its owner's graveyard when it dies
 - **Adeline, Resplendent Cathar** — whenever you attack, a 1/1 white Human enters tapped and attacking each opponent
 - **Massacre Wurm** — whenever a creature an opponent controls dies, that player loses 2 life, including the creatures its own -2/-2 kills
 - **Maskwood Nexus** — your creatures are every creature type, and so are your creature spells and the creature cards you own in your hand, library, graveyard and command zone: tribal tutors, cost reducers, cast triggers, Cavern of Souls and Path of Ancestry all see them; its {3}, {T} ability makes a 2/2 Shapeshifter
@@ -19,6 +20,7 @@ summarizes the notable changes.
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
 
 ### Fixed
+- A creature returned from a graveyard (Tormod, Syr Konrad) no longer triggers for its own return or for the cards returned with it
 - Endless Foot Assault's Ninja tokens are black (they were colorless)
 - **Merfolk Wayfinder** and **Elder Pine of Jukai** now put the Island cards / land cards they reveal into your hand (they took none), and a changeling is no longer taken as an Island card
 - **Overlord of the Balemurk** could return a changeling as a "non-Avatar creature card"; a changeling is every creature type, so it no longer can
