@@ -284,6 +284,33 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
 }
 
 /**
+ * P·35 — creatures SACRIFICED IN ONE EVENT (Living Death's "each player … sacrifices all creatures they control"; CR 701.21a — the
+ * sacrifices are simultaneous). sacrificeCreatureEffect's per-creature rules, but every look-back is read from the state BEFORE any
+ * of them left (CR 603.10a), all of them move, and only then do the dies triggers fire — ONCE, for the whole batch — so a watcher
+ * sacrificed with the others sees each of them (the departed-watcher look-back, triggers.deadLookBackSources). `victims` is
+ * `[{ playerId, permId }]`; one already gone is skipped.
+ */
+export function sacrificeCreaturesTogether(state, victims) {
+  const batch = victims.map(({ playerId, permId }) => ({ playerId, permId, lk: findPermanent(state, permId) })).filter((v) => v.lk);
+  const dead = [];
+  let next = state;
+  for (const { playerId, permId, lk } of batch) {
+    const creature = isCreatureCard(lk.permanent.card);
+    const exileInstead = creature && diesExiledInstead(state, lk.permanent);
+    next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: creature && deathExiledInstead(state, lk.permanent) ? "exile" : "graveyard", cardId: permId });
+    if (exileInstead) next = logEvent(next, { kind: "creature-exiled-instead", turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
+    if (creature) {
+      const power = creaturePower(lk.permanent, state);
+      const basePower = creatureBasePower(lk.permanent, state);
+      dead.push({ controller: playerId, id: permId, name: lk.permanent.card?.name || "creature", card: lk.permanent.card, ...deathLookbackLinks(lk.permanent), power: Number.isFinite(power) ? power : null, basePower: Number.isFinite(basePower) ? basePower : null, counters: { ...(lk.permanent.counters || {}) }, exileInstead });
+    }
+  }
+  next = checkDiesTriggers(next, dead);
+  for (const { playerId, permId, lk } of batch) next = checkSacrificeTriggers(next, playerId, { id: permId, controller: playerId, card: lk.permanent.card });
+  return logEvent(next, { kind: "spell-effect", effect: "sacrifice-together", sacrificed: batch.map((v) => v.permId) });
+}
+
+/**
  * VICTIM-POOL predicate (CR 701.16) — does card `c` belong to the pool a `what`-typed edict lets a sacrificer
  * give up? "creature" (default / unset, so every legacy creature edict is byte-stable) | "permanent" (any
  * permanent) | the TYPED pools "land"/"artifact"/"enchantment"/"artifactOrEnchantment". The typed pools use the

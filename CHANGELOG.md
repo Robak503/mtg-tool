@@ -8,6 +8,9 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
+
 ### Fixed
 - Blood Artist, Zulaport Cutthroat, Morbid Opportunist and other death watchers triggered only for their own death when they died together with other creatures (a board wipe, a combat trade); they now trigger for each creature that died with them
 

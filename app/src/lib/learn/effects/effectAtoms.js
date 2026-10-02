@@ -38,6 +38,7 @@ import { freeCastResolvers } from "./atoms/freeCast.js";
 import { hideawayResolvers } from "./atoms/hideaway.js";
 import { castFromAmongResolvers } from "./atoms/castFromAmong.js"; // P·16 — Etali, Primal Storm: exile the top of each library, cast any number of them free
 import { voidPlayResolvers } from "./atoms/voidPlay.js"; // P·28 — Dauthi Voidwalker's free play of a void-countered card
+import { livingDeathResolvers } from "./atoms/livingDeath.js"; // P·35 — Living Death / Living End's three-step mass swap
 import { animateDeadResolvers } from "./atoms/animateDead.js"; // P·12 — Animate Dead: the return-and-attach ETB and the leave sacrifice // P·10 — HIDEAWAY (CR 702.75): the look-and-hide ETB and the linked free play
 import { iteratedEdictResolvers } from "./atoms/iteratedEdict.js";
 import { delayedTriggerResolvers } from "./atoms/delayedTrigger.js";
@@ -83,6 +84,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...rollResolvers,    // roll-d20 (DICE-ROLL, CR 726) — Ancient Dragons roll → result-scaled token/draw payoff
   ...animateDeadResolvers, // animate-dead-return + animate-dead-sacrifice (the reanimation Aura's two triggers)
   ...voidPlayResolvers, // void-play-grant (P·28) — choose an opponent's void-countered exiled card; play it this turn free
+  ...livingDeathResolvers, // living-death (P·35) — exile each graveyard's creature cards, sacrifice all creatures together, return the exiled
   ...castFromAmongResolvers, // exile-top-each-cast-any (P·16) — parks pendingCastFromAmong for the action layer
   ...hideawayResolvers, // hideaway + hideaway-play (CR 702.75) — the impulse-dig hide, then the discover-lane free cast of the linked card
   ...freeCastResolvers, // free-cast (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle); park for the action-layer cast-free/decline decision

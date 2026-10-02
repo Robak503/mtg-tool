@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **1 commit**, corpus **44.5% (15,246)** at the tag → **44.5% (15,246)** (a runtime fix). The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **3 commits**, corpus **44.5% (15,246)** at the tag → **44.5% (15,248)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,22 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 35: Living Death (EDHREC #474) and Living End — the one-event batch sacrifice · **+2** · corpus 15,248
+> Suite **17,729** green (1 skipped); lint 0; decks **2,746** / 2,998 unchanged. CI GREEN on P·34 (run 36947742150).
+> Flip-diff **+2, −0, zero RETIERED** (tier snapshots at 0222fcf8 → the change): Living Death, Living End → native-spell.
+> Top 1,000 **866** (needs +34); top 2,500 **1,691**. **Mutants 9/9** (restore byte-identical).
+> · One atom (effects/atoms/livingDeath.js), three ordered steps (CR 608.2c): each player exiles the creature cards in their
+>   graveyard (by the card's front face, CR 712.8a — Westvale Abbey stays) and the ids are kept per player; every creature on the
+>   battlefield (layer-aware — an animated land goes) is sacrificed AS ONE EVENT; each player returns what THEY exiled this way
+>   (zones.enterCardFromZone from exile; ETB triggers fire). A sacrifice, not a destroy (CR 701.21a): indestructible goes too.
+> · New removal.sacrificeCreaturesTogether: sacrificeCreatureEffect's per-creature rules (the death-specific exile destination,
+>   the exiled-instead flag, last-known power), but every look-back is read before any creature leaves, all move, and the dies
+>   triggers fire ONCE for the batch — so Blood Artist sacrificed first still sees each of the others (P·34's look-back); the
+>   sacrifice triggers fire per creature (Dragon Appeasement). With Rest in Peace out the sacrificed creatures are exiled instead
+>   and never come back (they weren't exiled "this way"). Living End is really suspendable (its offer is witnessed).
+>   Witness `app/src/lib/learn/livingDeath.test.js` (9).
+> · **Next:** #483 Disciple of Freyalise.
 
 > ## 🔧 2026-10-01 — P·34 FIX · CR 603.10a: a death watcher that dies with the creatures it watches still triggers for each · corpus 15,246 (runtime only)
 > Suite **17,720** green (1 skipped); lint 0; decks 2,746 / 2,998 unchanged. CI GREEN on the [0.162.0] cut (run 36943811750).

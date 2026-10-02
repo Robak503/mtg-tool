@@ -51,6 +51,7 @@ import { rollDieClauseParser, resultScaledPayoffClauseParser } from "./atoms/rol
 import { hideawayClauseParser } from "./atoms/hideaway.js";
 import { matchExileTopEachCastAny } from "./atoms/castFromAmong.js"; // P·16 — Etali, Primal Storm's whole effect (its "then" and comma would split it)
 import { matchVoidPlayGrant } from "./atoms/voidPlay.js"; // P·28 — Dauthi Voidwalker's two-sentence payoff (its "it" is the chosen card)
+import { matchLivingDeath } from "./atoms/livingDeath.js"; // P·35 — Living Death / Living End's whole effect (its "then"s are one ordered event)
 import { matchBraidsPunisher } from "./atoms/iteratedEdict.js"; // P·20 — Braids, Arisen Nightmare's whole effect (its "if you do" and "for each opponent who doesn't" span sentences)
 import { animateDeadClauseParser } from "./atoms/animateDead.js"; // P·12 — Animate Dead's two synthesized sentinels // P·10 — HIDEAWAY (CR 702.75): the synthesized look-and-hide + "play the exiled card … if <condition>"
 import { freeCastClauseParser } from "./atoms/freeCast.js"; // FREE-CAST (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle)
@@ -2774,6 +2775,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // permanent across a sentence boundary and its "who doesn't" is each opponent's own choice.
   // ===== FREE PLAY OF A VOID-COUNTERED CARD (the play-weighted program, P·28 — Dauthi Voidwalker) ===== the whole two-sentence
   // effect is ONE atom: the second sentence's "it" is the card the first chose (see effects/atoms/voidPlay.js).
+  // ===== LIVING DEATH / LIVING END (the play-weighted program, P·35) ===== one atom: its three "then"s are ordered steps of one
+  // effect, and the last one's "they exiled this way" reads the first (see effects/atoms/livingDeath.js).
+  const ld = matchLivingDeath(oracle);
+  if (ld && KNOWN.has(ld.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [ld.atom], xSpell: false, unparsedTail: null });
+  }
   const vp = matchVoidPlayGrant(oracle);
   if (vp && KNOWN.has(vp.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [vp.atom], xSpell: false, unparsedTail: null });
