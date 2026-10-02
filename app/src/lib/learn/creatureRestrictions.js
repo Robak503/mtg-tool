@@ -21,7 +21,7 @@
  * delegation that follows it.
  */
 import { creaturePower, creatureToughness, findPermanent } from "./gameState.js";
-import { permanentColors, permanentHasKeyword, isModifiedPermanent, permIsEveryCreatureType } from "./layers.js";
+import { permanentColors, permanentColorsIfKnown, permanentHasKeyword, isModifiedPermanent, permIsEveryCreatureType } from "./layers.js";
 
 export /** Does a creature permanent (controlled by `pid`) satisfy a restriction set, from `casterId`'s view? */
 function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions, ctx = null) {
@@ -146,16 +146,18 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       if (r.value === "blocking" && !blk) return false;
       if (r.value === "either" && !(atk || blk)) return false;
     } else if (r.kind === "colorNeg") {
-      // FRONT-face colors (CR 712.4a): a DFC's top-level `colors` is unreliable in the slim index — often
-      // [] even for a colored front face (Graveyard Trespasser is black but enriches top-level []), so read
-      // card_faces[0].colors for a DFC and top-level for a single-face card. FAIL-CLOSED when the colors are
-      // unresolvable (no face data / an absent field): never risk offering a wrong-color creature to
-      // non<color> removal — an illegal target is the cardinal sin, a dropped legal target is safe.
-      const card = perm.card || {};
-      const isDfc = / \/\/ /.test(String(card.type || card.type_line || ""));
-      const colors = isDfc ? card.card_faces?.[0]?.colors : card.colors;
-      if (!Array.isArray(colors)) return false;
-      if (colors.includes(r.color)) return false; // a non<color> target can't be that color
+      // COLOR-NEG (CR 105.2) — "target nonblack creature" (Doom Blade, Armor of Thorns' Enchant line, the
+      // mass sweeps through massCreatureTargets): the creature must not have that color NOW, read LAYER-AWARE
+      // (permanentColors — the derived colors after layer 5, CR 613.1e), the same read as the `color` branch
+      // below. This branch used to read the PRINTED card, so a creature Singe turned black, an animated Hissing
+      // Quagmire ("a 2/2 black and green Elemental creature" — a land's printed colors are none) or a creature
+      // under any other color-changing effect stayed a legal Doom Blade target: an illegal target, the forbidden
+      // direction. A double-faced creature is read with its front face up (CR 712.8d — the derive's seed,
+      // layers.permanentPrintedColors): a black Graveyard Trespasser is excluded, a blue Delver of Secrets is not.
+      // FAIL-CLOSED when the printed colors are unknown (permanentColorsIfKnown → null: a card with no colors
+      // array) — never risk offering a wrong-color creature to non<color> removal; a dropped legal target is safe.
+      const eff = permanentColorsIfKnown(state, perm.id);
+      if (!eff || eff.includes(r.color)) return false; // a non<color> target can't be that color
     } else if (r.kind === "colorAny") {
       // ⭐⭐ COLOUR DISJUNCTION (CD-1, CR 105.2) — "target green or white creature" (Deathmark, Slithery
       // Stalker), "target black or red permanent" (Celestial Purge, Lightwielder Paladin). Every other
@@ -175,8 +177,8 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
     } else if (r.kind === "color" || r.kind === "multicolored") {
       // COLOR-POS (CR 105.2) — read LAYER-AWARE (permanentColors → derived characteristics after layer 5),
       // NOT the printed card. A permanent turned blue by an effect IS a legal "target blue permanent", and a
-      // printed-blue permanent turned white is NOT. Reading the printed colors here (as colorNeg still does)
-      // would offer that white permanent to Red Elemental Blast — an illegal target, the forbidden direction.
+      // printed-blue permanent turned white is NOT. Reading the printed colors here would offer that white
+      // permanent to Red Elemental Blast — an illegal target, the forbidden direction.
       // FAIL-CLOSED when the colors are unresolvable: a dropped legal target is safe, a wrong one never is.
       const eff = permanentColors(state, perm.id);
       const set = eff instanceof Set ? eff : new Set(Array.isArray(eff) ? eff : []);

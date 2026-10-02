@@ -562,8 +562,9 @@ function applyCastSpell(state, action) {
       }
       // COLOR-QUALIFIED cost (Natural Order — "sacrifice a green creature") re-validates the victim's colour
       // at charge time, same as minPower above: the offer already filtered by colour, but a colour-changing
-      // effect in between must not let a wrong-colour victim under-pay the printed cost — THROW.
-      if (ac.color != null && !colorsOf(victim.card).includes(ac.color)) {
+      // effect in between must not let a wrong-colour victim under-pay the printed cost — THROW. Read layer-aware
+      // (permanentColors, CR 613.1e) like the offer: a printed-colour read could never see that change at all.
+      if (ac.color != null && !permanentColors(working, victim.id).includes(ac.color)) {
         throw new DispatcherError(`Sacrifice victim ${action.sacCreatureId} is not the printed colour ${ac.color}`, "ADDCOST_UNPAID");
       }
       // SACRIFICED REFERENT (CR 608.2h + 603.6e last-known-info) — a spell whose effect scales off "the

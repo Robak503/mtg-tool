@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **27 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,444)** — +165 of that is the 10-02 card-data refresh (new
+> **28 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,444)** — +165 of that is the 10-02 card-data refresh (new
 > cards, not engine work); engine gains since the tag: **+33**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,23 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: every battlefield colour reader reads colours after layer 5 (CR 613.1e) · **±0**
+> Flip-diff **0 / 0 / 0**. **Mutants 23/23** on the integrated tree, restore byte-identical. Built by a fan-out builder (queued by the
+> token-colour builder); re-verified on the integrated tree. Witness `derivedColorReaders.test.js` (21 — all 21 fail on the old engine).
+> · ⚑ Legality: the "non<colour>" target filter read PRINTED colours — Doom Blade was offered a creature Singe had turned black and
+>   an animated Hissing Quagmire, and refused a Black Knight Cerulean Wisps had turned blue. An ability's source colours were
+>   printed too — a Prodigal Sorcerer turned red still pinged Kor Firewalker (protection from red). Colour-qualified sacrifice
+>   costs (Natural Order, Flare of Cultivation), colours-among counts and mana (Faeburrow Elder, Plaza of Heroes), the colour
+>   gates (Gearsmith Guardian, the Cohorts) and the AI's protection-colour pick now follow current colours.
+> · ⚑ Double-faced permanents had NO colour: every transform / modal double-faced card on the battlefield read colourless
+>   (Graveyard Trespasser shrank under Ascendant Evincar; a white Brutal Cathar blocked Black Knight). A permanent's starting
+>   colours now come from its face-up front face (CR 712.8d) — checked against Scryfall on all 394 transform and 98 modal cards.
+>   The two counts inside the layer system read a recursion-free twin (boardCountColors) sharing the same applier.
+> · ⚠️ Found, not fixed (queued): off the battlefield a double-faced card is still colourless (cast triggers misfire); triggered
+>   abilities, loyalty abilities, equip and the resolution re-check thread no source colours, so protection never stops them; the
+>   state-based check doesn't re-check "Enchant non<colour>"; Natural Order's search reads printed colours; wrong-content
+>   citations (CR 105.1 for a colour change — it is 105.3; CR 712.4a for the front-face rule — it is 712.8a/d).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: a flashbacked Plunder the Trollshaws draws two (the conditional branch keeps the cast-from-a-graveyard stamp) · **±0**
 > Suite **18,290** green (one run with the layer-5 colour fix and Liquimetal Torque). Flip-diff **0 / 0 / 0**. **Mutants 2/2**, restore

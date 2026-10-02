@@ -155,7 +155,22 @@ export function autoPickTemptingOffer(state, pc) {
   return lands(me) <= lands(offerer);
 }
 
-export function autoPickProtectionColor(state, controller, { orColorless = false } = {}) {
+/**
+ * The printed colors a permanent's card carries — the DEFAULT color read of autoPickProtectionColor below, for a direct call
+ * on a board no color-changing effect touches. This module imports nothing, so it cannot read the layer engine itself.
+ */
+const printedPermanentColors = (perm) => {
+  const card = perm?.card || perm;
+  return Array.isArray(card?.colors) ? card.colors : [];
+};
+
+/**
+ * PROTECTION-COLOR auto-pick (Mother of Runes / Giver of Runes — "the color of your choice"): the most-represented color
+ * among OPPONENTS' nonland permanents, WUBRG tiebreak. `colorsOfPermanent(perm)` reads each permanent's colors; the engine's
+ * caller (the grant-protection atom) passes the layer-aware read (layers.permanentColors — CR 613.1e), so a creature an
+ * effect turned blue is tallied blue. The default is the printed read above.
+ */
+export function autoPickProtectionColor(state, controller, { orColorless = false, colorsOfPermanent = printedPermanentColors } = {}) {
   const tally = { W: 0, U: 0, B: 0, R: 0, G: 0, ...(orColorless ? { C: 0 } : {}) };
   for (const pid of Object.keys(state?.players || {})) {
     if (pid === controller) continue;
@@ -163,7 +178,7 @@ export function autoPickProtectionColor(state, controller, { orColorless = false
       const card = perm.card || perm;
       const type = String(card?.type || card?.type_line || "");
       if (/\bLand\b/.test(type) && !/\bCreature\b/.test(type)) continue;
-      const colors = Array.isArray(card?.colors) ? card.colors : [];
+      const colors = colorsOfPermanent(perm) || [];
       if (colors.length === 0) { if (orColorless) tally.C += 1; continue; }
       for (const c of colors) if (c in tally) tally[c] += 1;
     }

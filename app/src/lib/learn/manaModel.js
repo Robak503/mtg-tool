@@ -32,7 +32,7 @@
 
 import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, creaturePower, removeCounter, setDoesNotUntapNext, deathLookbackLinks } from "./gameState.js"; // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
 import { checkSacrificeTriggers, checkLeavesTriggers, checkDiesTriggers, checkTapForManaTriggers } from "./triggers.js"; // + ④-D: "tapped for mana" watchers fire at the one tap commit // SG-3: a sacrificed-creature mana cost dies through the chokepoint // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
-import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow, colorsOf, deriveCharacteristics, permIsEveryCreatureType } from "./layers.js";
+import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow, colorsOf, deriveCharacteristics, permIsEveryCreatureType, permanentColors } from "./layers.js";
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // QUARTET Phase 4 step 3 (2026-09-06): the closed CR creature-type vocabulary for spend restrictions ("only to cast a Ninja or Turtle spell") — a zero-import leaf
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { parseAuraLandManaBonus, parseGlobalTapManaAugment, artifactActivationsLocked, abilitiesAsThoughHasteFor } from "./staticAbilityParser.js"; // + SG-18: haste-for-abilities at the mana-source sick gate // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only); NR-1: the artifact-activation lock
@@ -2113,15 +2113,19 @@ export function manaSources(state, playerId) {
     // DISTINCT color among the controller's permanents. An empty/colorless board yields no colors, which must
     // stay a produce-nothing source rather than a fabricated mana (CREED); `amount` follows the same tally, so
     // the 0-amount drop below removes it from the payable set exactly like any other zero producer.
+    // Each permanent's colors are its CURRENT ones (permanentColors — CR 613.1e, the front face of a double-faced one, CR
+    // 712.8d): a Faeburrow Elder Cerulean Wisps turned blue makes {U}, not the {G}{W} it prints — a printed read minted mana
+    // of colors no permanent had. manaSources runs outside the layer system, so the full derive is safe to read here.
     const dynFixed = prod.fixedSpec?.kind === "colorsAmongPermanents"
-      ? Object.fromEntries([...new Set((player.battlefield || []).flatMap((p) => colorsOf(p.card)))].map((c) => [c, scale]))
+      ? Object.fromEntries([...new Set((player.battlefield || []).flatMap((p) => permanentColors(state, p.id)))].map((c) => [c, scale]))
       : null;
     // S17 (Plaza of Heroes) — ONE mana of any colour AMONG the controller's legendary permanents: narrow the colour set to
     // the live union of their colours (CR 608.2g); an empty union means no colour can be made → the MAIN record is not
     // offered, but the card's EXTRA lines still are (a `continue` here would take Plaza's honest {C} line with it).
+    // The colours are each legendary permanent's CURRENT ones (permanentColors, CR 613.1e), as in the bundle above.
     let dropMain = false;
     if (prod.colorsAmongSpec?.kind === "legendaryPermanentsYouControl") {
-      const among = [...new Set((player.battlefield || []).filter((p) => /\bLegendary\b/i.test(String(p.card?.type || p.card?.type_line || "").split(" // ")[0])).flatMap((p) => colorsOf(p.card)))].filter((c) => c !== "C");
+      const among = [...new Set((player.battlefield || []).filter((p) => /\bLegendary\b/i.test(String(p.card?.type || p.card?.type_line || "").split(" // ")[0])).flatMap((p) => permanentColors(state, p.id)))].filter((c) => c !== "C");
       if (among.length) prod = { ...prod, colors: among };
       else dropMain = true;
     }

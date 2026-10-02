@@ -932,7 +932,10 @@ function enumerateAltPayments(state, playerId, card, alt) {
       return (player.battlefield || [])
         .filter((v) => sacTypeMatches(v.card, "creature")
           && (!alt.nontoken || !v.card?.token)
-          && (letter == null || colorsOf(v.card).includes(letter))
+          // The victim's CURRENT color (CR 613.1e — layers.permanentColors): Flare of Cultivation's "a nontoken green
+          // creature" is not paid by a Grizzly Bears Cerulean Wisps turned blue, and a front-face-green double-faced
+          // creature (CR 712.8d) does pay it.
+          && (letter == null || permanentColors(state, v.id).includes(letter))
           // A victim whose OWN leave-trigger the dies path can't fire is excluded (mirror the
           // additional-cost sacrifice filter) so we never partially apply a payment.
           && !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""))
@@ -1420,7 +1423,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         const victims = player.battlefield.filter(v =>
           sacTypeMatches(v.card, addCost.sacType) &&
           (addCost.minPower == null || creaturePower(v, state) >= addCost.minPower) &&
-          (addCost.color == null || colorsOf(v.card).includes(addCost.color)) &&   // COLOR-qualified sac (Natural Order)
+          // COLOR-qualified sac (Natural Order): the victim's CURRENT color (CR 613.1e — permanentColors), the same read
+          // the dispatcher re-validates at charge time; a green creature turned blue doesn't pay "sacrifice a green creature".
+          (addCost.color == null || permanentColors(state, v.id).includes(addCost.color)) &&
           !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""));
         if (victims.length === 0) continue;               // no legal victim → unpayable → uncastable
         for (const victim of victims) {
@@ -2589,7 +2594,8 @@ function actionsActivateAbility(state, playerId) {
           if (!canAfford(player.manaPool, xSources, xCost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id) })) break; // monotonic in X → stop at the first shortfall (SG-18: activation spend context)
           // Per-X target enumeration: exactly X distinct legal lands (targetCountX → expandAtoms min=max=X). An X
           // with too few legal lands (fewer than X untappable targets exist) yields no combos → that X is skipped.
-          const combos = expandCastChoices(state, playerId, ab.program, colorsOf(perm.card), { xValue: x });
+          // The SOURCE's colors are the permanent's CURRENT ones (CR 702.16b reads the source; CR 613.1e), as below.
+          const combos = expandCastChoices(state, playerId, ab.program, permanentColors(state, perm.id), { xValue: x });
           for (const ch of combos) {
             actions.push({
               kind: "activate-ability",
@@ -2877,7 +2883,10 @@ function actionsActivateAbility(state, playerId) {
       // Thread the SOURCE permanent id into target enumeration so an "another target …" restriction
       // (notSource — Formidable Speaker's "Untap another target permanent") excludes this very permanent
       // (CR 109.5). Non-"another" abilities ignore sourceId, so this is a no-op for every existing ability.
-      const choices = expandCastChoices(state, playerId, ab.program, colorsOf(perm.card), { sourceId: perm.id });
+      // The source's COLORS are the permanent's current ones (permanentColors, CR 613.1e): protection refuses an ability
+      // from a source with the stated quality (CR 702.16b), and Thrun's shield refuses one from a NONgreen source. A
+      // Prodigal Sorcerer Crimson Wisps turned red can't ping a Kor Firewalker; a Wyluli Wolf turned blue can't reach Thrun.
+      const choices = expandCastChoices(state, playerId, ab.program, permanentColors(state, perm.id), { sourceId: perm.id });
       if (choices.length === 0) continue; // a required target has no legal pick → uncastable
       for (const victim of sacVictims) {
         // W3 (two-sites invariant): exclude a ONE-SHOT mana victim from the sources for THIS victim's

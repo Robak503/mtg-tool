@@ -37,7 +37,7 @@ import {
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type matches only a CREATURE type (CR 205.3d); a zero-import leaf
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a graveyard card that is every creature type (Changeling, its owner's Maskwood Nexus) for the subtype counts; a leaf over keywords.js
-import { parseStaticAbilities, parseAttachedBonus, parseAuraGrantedManaAbility, parseSoulbondBond } from "./staticAbilityParser.js";
+import { parseStaticAbilities, parseAttachedBonus, parseAuraGrantedManaAbility, parseSoulbondBond, colorsOfSpell } from "./staticAbilityParser.js"; // + colorsOfSpell: a double-faced permanent's front-face colours (permanentPrintedColors)
 import { isGraveyardReanimateAura, animateDeadBonusView } from "./animateDeadGate.js"; // P·12 — Animate Dead's -1/-0 (a zero-import leaf)
 import { commanderColorIdentityOf } from "./commanderIdentity.js"; // CR 903.4 — the shared read (stamp + command zone); a zero-import leaf
 import { parseProtectionColors, parseProtectionClasses } from "./protection.js"; // B7: the "creatures" source-class quality rides the same layer-6 addProtection op (`classes`)
@@ -274,19 +274,23 @@ function countSelfSpecOnBoard(state, perm, spec) {
   const player = state?.players?.[perm.controller];
   if (!player) return 0;
   // EQUIP-DYNAMIC-PT: distinct WUBRG colors among the controller's battlefield (Conqueror's Flail
-  // "+1/+1 for each color among permanents you control"). A colorless permanent contributes none.
+  // "+1/+1 for each color among permanents you control"; Faeburrow Elder's own self-count). A colorless permanent
+  // contributes none. Each permanent's colors are its CURRENT ones (CR 613.1e — a creature Cerulean Wisps turned blue
+  // counts blue, not its printed green), read through boardCountColors: the derive's own seed and layer-5 application,
+  // without re-entering deriveCharacteristics (this count runs INSIDE a derive — layer 7c, or a gate — and every
+  // permanent counted, the counting one included, would derive its own count again: a stack overflow).
   if (spec.kind === "colorsAmongPermanents") {
     const cols = new Set();
-    for (const p of player.battlefield || []) for (const c of colorsOf(p.card)) cols.add(c);
+    for (const p of player.battlefield || []) for (const c of boardCountColors(state, p)) cols.add(c);
     return cols.size;
   }
   // COLOR-OR control gate (BLITZ AU-1 — the Runemark cycle "as long as you control a black or green
-  // permanent"): the number of permanents THIS gate subject controls whose (printed) color set includes ANY
-  // of the wanted WUBRG letters. `colorsOf` is the SAME recursion-safe printed reader colorsAmongPermanents
-  // (Conqueror's Flail) already uses for a board-count gate — a layer-aware color read would re-enter
-  // deriveCharacteristics inside this gate eval; a color-CHANGED permanent is the vanishing corner the
-  // precedent accepts (over-counts only under a rare color-REMOVAL, under-counts a color-ADD = FN-safe). Used
-  // only as a presence test (the gate carries atLeast:1), so the exact tally past 1 is immaterial.
+  // permanent"): the number of permanents THIS gate subject controls whose color set includes ANY of the wanted
+  // WUBRG letters — the CURRENT colors (CR 613.1e), through the same recursion-free boardCountColors the
+  // colorsAmongPermanents count above reads (a full derive here would re-enter: two Briarberry Cohorts each gate on
+  // the other's color). A permanent made blue by an effect satisfies "a blue creature"; a printed-blue one made red
+  // no longer does — the printed read used to keep that gate open, a buff the card no longer earns. Used only as a
+  // presence test (the gate carries atLeast:1), so the exact tally past 1 is immaterial.
   // ⭐ TWO OPTIONAL NARROWERS, added for the Cohort / Scarecrow cycles ("as long as you control ANOTHER
   // blue CREATURE" — Briarberry Cohort; "as long as you control a white creature" — Watchwing Scarecrow).
   // Both DEFAULT OFF, so the Runemark callers that predate them are byte-identical: `cardType` narrows the
@@ -302,7 +306,7 @@ function countSelfSpecOnBoard(state, perm, spec) {
     for (const p of player.battlefield || []) {
       if (spec.excludeSelf && p.id === perm.id) continue;
       if (typeRe && !typeRe.test(typeLineOf(p.card))) continue;
-      if (colorsOf(p.card).some((c) => want.has(c))) cn += 1;
+      if (boardCountColors(state, p).some((c) => want.has(c))) cn += 1;
     }
     return cn;
   }
@@ -813,6 +817,86 @@ export function colorsOf(card) {
   if (_isDevoidCard(card)) return [];
   const cost = String(card?.mana || card?.mana_cost || "");
   return COLOR_PIPS.filter(c => cost.includes(`{${c}}`));
+}
+
+/**
+ * A PERMANENT's colors before any layer-5 effect — the values the color layer starts from (CR 613.1: an object's
+ * characteristics begin as the values printed on it, or those its creating effect defined for a token, CR 111.3).
+ *
+ * ⭐ THE FRONT-FACE RULE (CR 712.8d — "While a double-faced permanent has its front face up, it has only the
+ * characteristics of its front face"). The bundled data carries an EMPTY top-level `colors` on every transform and modal
+ * double-faced card (Scryfall keeps those colors on the faces), so colorsOf read a black Graveyard Trespasser as colorless:
+ * Ascendant Evincar shrank it as "nonblack", and an anthem for black creatures skipped it. The engine never turns a
+ * permanent's back face up, so the combined card is read with its front face up:
+ *   · the front face's own `colors` when the card carries its faces (the publicCard shape) — Scryfall's per-face data;
+ *   · else, for a TRANSFORM or MODAL double-faced card (the two layouts whose top-level colors are that placeholder), the
+ *     colors of the front face's mana symbols (CR 202.2), read from the front face's own block, so its own Devoid line
+ *     counts (Drowner of Truth's {G/U} front is colorless, CR 702.114a) and the back face's keywords never do.
+ * Corpus check (2026-10-01, the bundled data, this function as written): equal to Scryfall's front-face colors on all 394
+ * transform and 98 modal double-faced cards in both card shapes, and on every other combined card with empty top-level colors
+ * in the publicCard shape.
+ *
+ * ⛔ NOT THE MANA FALLBACK FOR ANY OTHER LAYOUT. An adventurer, a split or a flip card carries its real colors at the top
+ * level, so an empty array there means colorless — and its `mana` is not the front face's: Lindblum, Industrial Regency (a
+ * Town land with an Adventure) has the empty top-level colors of a land and the {2}{R} of its Adventure half. Those cards,
+ * and every single-faced card, a face view the engine projected (a modal face, an adventurer's creature half) and a stamped
+ * token, are colorsOf, unchanged. (A double-faced TOKEN card from the data, without its faces, still reads colorless — its
+ * color comes from a color indicator, not a mana cost; the engine mints its own tokens with stamped colors instead.)
+ */
+const PLACEHOLDER_COLOR_LAYOUTS = new Set(["transform", "modal_dfc"]);
+export function permanentPrintedColors(card) {
+  if (Array.isArray(card?.colors) && card.colors.length === 0 && / \/\/ /.test(typeLineOf(card))) {
+    const front = Array.isArray(card.card_faces) ? card.card_faces[0] : null;
+    if (Array.isArray(front?.colors)) return front.colors.map(String);
+    if (PLACEHOLDER_COLOR_LAYOUTS.has(String(card.layout || ""))) {
+      return colorsOfSpell({
+        mana: String(front?.mana_cost ?? card.mana ?? card.mana_cost ?? "").split(" // ")[0],
+        oracle: String(card.oracle || card.oracle_text || "").split(/\n\/\/\n/)[0],
+      });
+    }
+  }
+  return colorsOf(card);
+}
+
+/** The color layer (CR 613.1e) applied to a seed: SET replaces every color (CR 105.3), "in addition" ADDs, in timestamp
+ *  order (CR 613.7). ONE applier for both color reads — deriveCharacteristics and boardCountColors — so they cannot drift. */
+function applyColorLayer(seed, l5) {
+  let colors = new Set(seed);
+  for (const e of l5.slice().sort(byTimestamp)) {
+    if (e.op.layerOp === "setColor") colors = new Set(e.op.colors || []);
+    else if (e.op.layerOp === "addColor") for (const c of e.op.colors || []) colors.add(c);
+  }
+  return [...colors];
+}
+
+/** The card a permanent IS after layer 1 (CR 613.1a — copy effects; CR 707.2 — the copiable values they carry): the
+ *  latest copy effect's copiable card by timestamp (CR 613.7), else null. ONE pick for the derive and boardCountColors. */
+function latestCopySource(copyEffects) {
+  return copyEffects.length
+    ? copyEffects.reduce((a, b) => ((b.timestamp ?? 0) >= (a.timestamp ?? 0) ? b : a)).copiableCard
+    : null;
+}
+
+/**
+ * A permanent's CURRENT colors for a board count read INSIDE the layer system (countSelfSpecOnBoard's
+ * colorsAmongPermanents and colorPermanentsYouControl arms). Those counts run inside a derive — a layer-7c buff, a
+ * layer-6/7c gate — and every permanent they read, the counting one included, would re-derive its own count through
+ * permanentColors: a stack overflow (Faeburrow Elder counts itself; two Briarberry Cohorts gate on each other).
+ *
+ * Recursion-free by construction, like effectiveTypeIdentity: only the effects that NAME this permanent (a self or fixed
+ * affect — no selector is evaluated), the same front-face seed (permanentPrintedColors), the same copy pick
+ * (latestCopySource) and the same layer-5 applier (applyColorLayer) deriveCharacteristics uses. Every layer-1 copy effect
+ * (becomeCopy — self) and every layer-5 color effect the engine emits (the become-color and animate atoms — fixed; the
+ * "is all colors" static — self) names its permanent, so this equals permanentColors on every board the engine can build.
+ * A layer-5 effect with a DYNAMIC selector (no emitter exists — "All creatures are black" stays unparsed) would not be
+ * consulted here; the derive would still apply it.
+ */
+function boardCountColors(state, perm) {
+  const board = collectContinuousEffects(state);
+  const names = (e) => (e.affects?.mode === "self" && e.affects.permanentId === perm.id)
+    || (e.affects?.mode === "fixed" && Array.isArray(e.affects.permanentIds) && e.affects.permanentIds.includes(perm.id));
+  const copySource = latestCopySource(board.filter((e) => e.layer === 1 && e.op === "copy" && e.copiableCard && names(e)));
+  return applyColorLayer(permanentPrintedColors(copySource || perm.card), board.filter((e) => e.layer === 5 && names(e)));
 }
 
 // GOD-DEVOTION (CR 700.5) — count the mana-symbol pips of any color in `colors` (a WUBRG-letter array) among
@@ -1740,9 +1824,7 @@ export function deriveCharacteristics(state, permanentId) {
   // name means what it says (well-formed copy effects), and labelled so a later reader does not mistake it
   // for the thing that makes the malformed case safe. That protection is downstream.
   const copyEffects = selfEffectsAll.filter(e => e.layer === 1 && e.op === "copy" && e.copiableCard);
-  const copySource = copyEffects.length
-    ? copyEffects.reduce((a, b) => ((b.timestamp ?? 0) >= (a.timestamp ?? 0) ? b : a)).copiableCard
-    : null;
+  const copySource = latestCopySource(copyEffects); // the same pick boardCountColors makes
   const permBase = copySource ? { ...perm, card: copySource } : perm;
   // Layers 2+ still run; only the layer-1 records are consumed here.
   const selfEffects = copyEffects.length ? selfEffectsAll.filter(e => !(e.layer === 1 && e.op === "copy")) : selfEffectsAll;
@@ -1759,7 +1841,7 @@ export function deriveCharacteristics(state, permanentId) {
       keywords: keywordSet(permBase, []),
       types: cardTypesOf(permBase.card),
       subtypes: subtypesOf(permBase.card),
-      colors: colorsOf(permBase.card),
+      colors: permanentPrintedColors(permBase.card), // the front face of a double-faced permanent (CR 712.8d)
       everyCreatureType: false, // no effect touches it — only a layer-4 effect makes a permanent every creature type
       appliedEffects: [],
       copiableValues: copySource || null,
@@ -1849,12 +1931,9 @@ function applyTypeColorLayers(perm, l4, l5, state) {
     for (const t of e.op.types || []) types.add(t);
     for (const st of e.op.subtypes || []) subtypes.add(st);
   }
-  let colors = new Set(colorsOf(perm.card));
-  for (const e of l5.slice().sort(byTimestamp)) {
-    if (e.op.layerOp === "setColor") colors = new Set(e.op.colors || []);
-    else if (e.op.layerOp === "addColor") for (const c of e.op.colors || []) colors.add(c);
-  }
-  return { types: [...types], subtypes: [...subtypes], colors: [...colors], everyCreatureType: everyCreatureTypeFrom(l4, types.has("Creature")) };
+  // Layer 5 (CR 613.1e) over the front-face seed — the applier boardCountColors shares.
+  const colors = applyColorLayer(permanentPrintedColors(perm.card), l5);
+  return { types: [...types], subtypes: [...subtypes], colors, everyCreatureType: everyCreatureTypeFrom(l4, types.has("Creature")) };
 }
 
 /**
@@ -2105,6 +2184,22 @@ const ALL_WUBRG = ["W", "U", "B", "R", "G"];
 /** Effective colors (after layer 5). */
 export function permanentColors(state, permanentId) {
   return deriveCharacteristics(state, permanentId).colors;
+}
+
+/**
+ * permanentColors, or null when the permanent's PRINTED colors are unknown: the card it is — its layer-1 copy source, else
+ * its own card — carries no `colors` array. Every real card and every minted token carries one (an empty array when it is
+ * colorless); an absent one is a card shape that never had its colors filled in, and the mana-cost fallback colorsOf would
+ * apply there misses a color indicator (Dryad Arbor is green with no mana cost).
+ * For a reader whose wrong direction is reading a color as ABSENT — a non<color> filter, where an unknown card read as
+ * colorless would be offered to Doom Blade — null is the fail-closed answer. A combined double-faced card's empty top-level
+ * array IS known: permanentPrintedColors reads its front face.
+ */
+export function permanentColorsIfKnown(state, permanentId) {
+  const perm = findPerm(state, permanentId);
+  if (!perm) return null;
+  const chars = deriveCharacteristics(state, permanentId);
+  return Array.isArray((chars.copiableValues || perm.card)?.colors) ? chars.colors : null;
 }
 
 /** Effective types/subtypes (after layer 4). */

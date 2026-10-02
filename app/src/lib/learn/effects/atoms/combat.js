@@ -3,7 +3,7 @@
  * regenerate). Hosts applyTapEffect (tap/untap).
  */
 
-import { addContinuousEffect, permanentIsCreature, permanentHasKeyword, permanentTypes, hasAuraAttached, permIsEveryCreatureType } from "../../layers.js"; // permIsEveryCreatureType — P·39, the set-base-pt-team subtype filter (changeling / every creature type) // hasAuraAttached — KARAMETRA'S BLESSING's "enchanted creature" condition // permanentTypes — BLACKSMITH'S SKILL (O9): the "if it's an artifact creature" rider reads the LAYER-4 types (an animated artifact counts)
+import { addContinuousEffect, permanentIsCreature, permanentHasKeyword, permanentTypes, hasAuraAttached, permIsEveryCreatureType, permanentColors } from "../../layers.js"; // permanentColors — the protection-color pick's layer-aware tally (applyGrantProtection) // permIsEveryCreatureType — P·39, the set-base-pt-team subtype filter (changeling / every creature type) // hasAuraAttached — KARAMETRA'S BLESSING's "enchanted creature" condition // permanentTypes — BLACKSMITH'S SKILL (O9): the "if it's an artifact creature" rider reads the LAYER-4 types (an animated artifact counts)
 import { applyDamageEffect } from "../../spellEffects.js"; // TRAMPLE-EXCESS (Ram Through) — the shared player-damage path (removal.js precedent; call-time binding, cycle-safe)
 import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, markCombatDamage, setDoesNotUntapNext, updatePermanentSafe, addPreventionShield, addMana } from "../../gameState.js";
 import { checkDiesTriggers, checkUntapTriggers } from "../../triggers.js";
@@ -977,9 +977,11 @@ export function applyGrantProtection(state, atom, ctx) {
   const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
   const dur = { kind: "endOfTurn", turn: next.turn };
   // OF-YOUR-CHOICE (Mother/Giver, vein #3): the color resolves AT RESOLUTION via the shared
-  // deterministic policy (the autoPickCreatureType convention — board-shaped, never payoff-tuned).
+  // deterministic policy (the autoPickCreatureType convention — board-shaped, never payoff-tuned). The policy tallies
+  // each opponent permanent's CURRENT colors (permanentColors, CR 613.1e): choicePolicy imports nothing, so the
+  // layer-aware read is handed in here.
   const colors = atom.colorChoice
-    ? [autoPickProtectionColor(next, ctx.controller, { orColorless: !!atom.orColorless })]
+    ? [autoPickProtectionColor(next, ctx.controller, { orColorless: !!atom.orColorless, colorsOfPermanent: (p) => permanentColors(next, p.id) })]
     : (atom.colors || []);
   for (const target of targets) {
     if (!findPermanent(next, target.id)) continue;   // target gone → clean no-op, never a fabricated grant
