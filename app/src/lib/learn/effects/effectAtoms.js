@@ -202,7 +202,11 @@ function applyConditional(state, atom, ctx) {
   // creature's damagedBy + subtype); every pre-existing shape ignores the extra field.
   // abilityKey joined 2026-09-04 (SHELF-85 V10): the per-turn resolution ledger's key ("the second time this ability
   // has resolved this turn" — Scythecat Cub); every pre-existing shape ignores the extra field.
-  const verdict = evaluateInterveningIf(state, atom.branchOn, ctx.controller, { sourcePermanentId: ctx.sourceId, triggeringPermanentId: ctx.triggeringPermanentId, abilityKey: ctx.abilityKey });
+  // castFromGraveyard joined 2026-10-02 (Plunder the Trollshaws — "If this spell was cast from a graveyard, draw two cards
+  // instead"): the resolving spell's cast-time stamp, which runProgram spreads into ctx from params.context. The condition
+  // reader answers a definite false without it, so dropping it here sent every flashback cast down the base branch. A copy
+  // carries no stamp (stack.spellCopyPayload strips it — a copy was never cast, CR 707.10).
+  const verdict = evaluateInterveningIf(state, atom.branchOn, ctx.controller, { sourcePermanentId: ctx.sourceId, triggeringPermanentId: ctx.triggeringPermanentId, abilityKey: ctx.abilityKey, castFromGraveyard: ctx.castFromGraveyard });
   if (typeof verdict !== "boolean") return null;
   const branch = (verdict ? atom.ifTrue : atom.ifFalse) || [];
   let next = state;

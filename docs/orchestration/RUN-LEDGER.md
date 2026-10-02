@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **26 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,444)** — +165 of that is the 10-02 card-data refresh (new
+> **27 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,444)** — +165 of that is the 10-02 card-data refresh (new
 > cards, not engine work); engine gains since the tag: **+33**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,16 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: a flashbacked Plunder the Trollshaws draws two (the conditional branch keeps the cast-from-a-graveyard stamp) · **±0**
+> Suite **18,290** green (one run with the layer-5 colour fix and Liquimetal Torque). Flip-diff **0 / 0 / 0**. **Mutants 2/2**, restore
+> byte-identical. Built by the integrator between batches (queued from the 10-02 findings ledger).
+> · The conditional branch node (effectAtoms.applyConditional) built its own condition context and dropped the resolving spell's
+>   castFromGraveyard stamp; the condition reader answers a definite false without it, so the classifier admitted "If this spell
+>   was cast from a graveyard, draw two cards instead" while every flashback cast drew one — a hollow native claim. The branch
+>   now passes the stamp; a copy still carries none (CR 707.10) and draws one. Plunder is the only corpus card on this branch
+>   (a probe over every card naming the condition). Witness `plunderTheTrollshaws.test.js` (4; the flashback and copy cases fail
+>   on the old engine).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 52: Culling Ritual (EDHREC #587) — the mana-value sweep that pays per permanent destroyed · **+1** · corpus 15,444
 > Flip-diff **+1, −0, zero RETIERED**: Culling Ritual → native-spell. Top 1,000 **880**; top 2,500 **1,717**. **Mutants 33/33**, restore

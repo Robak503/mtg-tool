@@ -31,6 +31,7 @@ summarizes the notable changes.
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
 
 ### Fixed
+- **Plunder the Trollshaws** cast with flashback now draws two cards; it drew one
 - A copy that sets its own power and toughness no longer keeps the original's power/toughness-defining ability (Quicksilver Gargantuan copying Tarmogoyf stays 7/7)
 - An attacking creature that phases out is now removed from combat; the defending player could still block it
 - A countered or returned split, modal double-faced or adventure spell now goes to its zone as the whole card; a flashback spell that is countered or bounced is exiled as flashback says (it used to return to hand, castable again); a countered copy of a spell no longer leaves a card behind
