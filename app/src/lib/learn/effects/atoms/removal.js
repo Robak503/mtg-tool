@@ -8,14 +8,14 @@
 import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions, destructionReplacementFor } from "../../spellEffects.js"; // + destructionReplacementFor (#587): the destroy's own replacement ladder, read for "destroyed this way"
 import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, creatureBasePower, diesExiledInstead, deathExiledInstead, deathLookbackLinks, shufflesIntoLibraryInsteadOfGraveyard, addMana } from "../../gameState.js"; // + shufflesIntoLibraryInsteadOfGraveyard (#582): Saw in Half's "dies this way" verdict
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // ④-BD — the counter rider's delayed "may draw up to N" (Arcane Denial); delayedTrigger imports only gameState (cycle-safe)
-import { checkDiesTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../../triggers.js";
+import { checkDiesTriggers, checkLifegainTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers } from "../../triggers.js"; // + checkPlaneswalkerDiesTriggers (#639): a planeswalker sacrificed in a batch dies too (CR 700.4)
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
 import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandCard, massCreatureTargets, nonlandPermanentsWithManaValueAtMost } from "./shared.js";
 import { applyCreateToken, applyCreateNamedToken, applyCreateTokenCopy } from "./tokens.js"; // + applyCreateTokenCopy (#582): Saw in Half's copies ride the shared token-copy minter
 import { applyTutor, millOnePlayer } from "./library.js";
 import { applyZoneMove, applyExileUntilLeaves } from "./zones.js";
 import { manifestTopOf } from "./manifest.js"; // P·19 — Reality Shift's controller rider (manifest imports only gameState, triggers, tokens)
-import { permanentTypes, permIsEveryCreatureType, permanentIsCreature, deriveCharacteristics } from "../../layers.js"; // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentIsCreature (#509): the N-count edict's layer-aware pool // + deriveCharacteristics (#582): the destroyed creature's copiable values (a layer-1 copy result)
+import { permanentTypes, permIsEveryCreatureType, permanentHasCardType, deriveCharacteristics } from "../../layers.js"; // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentHasCardType (#509, #639): the batch edict's layer-aware, face-up pool and a sacrificed planeswalker // + deriveCharacteristics (#582): the destroyed creature's copiable values (a layer-1 copy result)
 import { NAMED_TOKENS } from "./tokens.js"; // NAMED-TOKEN sacrifice pool — same registry the mint side uses, so a pool can never name a token the engine cannot create
 import { NUM_WORD } from "../parseHelpers.js"; // #509 — the N-count edict's spelled cardinal (parseHelpers is a leaf: keywords.js only)
 
@@ -345,13 +345,17 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
  * of them left (CR 603.10a), all of them move, and only then do the dies triggers fire — ONCE, for the whole batch — so a watcher
  * sacrificed with the others sees each of them (the departed-watcher look-back, triggers.deadLookBackSources). `victims` is
  * `[{ playerId, permId }]`; one already gone is skipped.
+ * A planeswalker in the batch (Plaguecrafter's pool, #639) dies too (CR 700.4): it goes to the planeswalker dies dispatch, as a
+ * destroyed one does (spellEffects.applyDestroyEffect) — and only when it is no creature, which the creature dispatch already carries.
  */
 export function sacrificeCreaturesTogether(state, victims) {
   const batch = victims.map(({ playerId, permId }) => ({ playerId, permId, lk: findPermanent(state, permId) })).filter((v) => v.lk);
   const dead = [];
+  const deadPw = [];
   let next = state;
   for (const { playerId, permId, lk } of batch) {
     const creature = isCreatureCard(lk.permanent.card);
+    if (!creature && permanentHasCardType(state, permId, "Planeswalker")) deadPw.push({ id: permId, controller: playerId, name: lk.permanent.card?.name, card: lk.permanent.card });
     const exileInstead = creature && diesExiledInstead(state, lk.permanent);
     next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: creature && deathExiledInstead(state, lk.permanent) ? "exile" : "graveyard", cardId: permId });
     if (exileInstead) next = logEvent(next, { kind: "creature-exiled-instead", turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
@@ -362,6 +366,7 @@ export function sacrificeCreaturesTogether(state, victims) {
     }
   }
   next = checkDiesTriggers(next, dead);
+  next = checkPlaneswalkerDiesTriggers(next, deadPw);
   for (const { playerId, permId, lk } of batch) next = checkSacrificeTriggers(next, playerId, { id: permId, controller: playerId, card: lk.permanent.card });
   return logEvent(next, { kind: "spell-effect", effect: "sacrifice-together", sacrificed: batch.map((v) => v.permId) });
 }
@@ -501,6 +506,15 @@ export function advanceSacrificeChain(state, { queue, sourceName = null }) {
   return next;
 }
 
+/** The permanents `playerId` could give up to a batch edict right now: their creatures, plus their planeswalkers for a
+ *  "creatureOrPlaneswalker" pool (#639). Read through layers.permanentHasCardType — layer-aware (an animated land is a creature) and
+ *  on the face that is up (CR 712.8d: an untransformed Westvale Abbey is a land, never a creature). One read for the chooser's
+ *  candidates and for who can't (applySacrifice's recordUnable). */
+function batchSacrificePool(state, playerId, what) {
+  return (state.players[playerId]?.battlefield || []).filter((p) => permanentHasCardType(state, p.id, "Creature")
+    || (what === "creatureOrPlaneswalker" && permanentHasCardType(state, p.id, "Planeswalker")));
+}
+
 /**
  * ===== N-COUNT EDICT ===== (play-weighted #509 — Blasphemous Edict "Each player sacrifices thirteen creatures of their choice.";
  * Barter in Blood) — every sacrificer CHOOSES first and the creatures go TOGETHER at the end: CR 101.4, the active player chooses,
@@ -511,18 +525,20 @@ export function advanceSacrificeChain(state, { queue, sourceName = null }) {
  *     "sacrifices thirteen" with eight sacrifices the eight);
  *   - otherwise a REAL choice among their OWN unchosen creatures (CR 701.21a): pause for that player, carrying the queue and the
  *     chosen list (pendingChoice.batch); runProgram.resolveSacrificeChoice locks the pick in and re-enters here.
- * The pool is read LAYER-AWARE (permanentIsCreature — an animated land is a creature the edict takes). Nothing leaves until every
+ * The pool is read LAYER-AWARE (batchSacrificePool — an animated land is a creature the edict takes). Nothing leaves until every
  * player has chosen; sacrificeCreaturesTogether then moves the whole set as ONE event, so every dies trigger sees each creature
  * that went (CR 603.10a). A sacrificer no longer in the game (CR 800.4a) controls nothing and is passed over.
+ * A queue entry's `what` widens the pool: "creatureOrPlaneswalker" (play-weighted #639 — Plaguecrafter, count 1) adds the
+ * planeswalkers the sacrificer controls, by the same read. Absent, the pool is creatures.
  */
 export function advanceCreatureBatchSacrifice(state, { queue, chosen, sourceName = null }) {
   let q = queue;
   let picked = chosen;
   while (q.length) {
-    const { playerId, count } = q[0];
+    const { playerId, count, what } = q[0];
     const owed = count - picked.filter((v) => v.playerId === playerId).length;
     const taken = new Set(picked.map((v) => v.permId));
-    const pool = (state.players[playerId]?.battlefield || []).filter((p) => !taken.has(p.id) && permanentIsCreature(state, p.id));
+    const pool = batchSacrificePool(state, playerId, what).filter((p) => !taken.has(p.id));
     if (owed > 0 && pool.length > owed) {
       return setPendingSacrificeChoice(state, { controller: playerId, candidates: pool.map((p) => ({ id: p.id, name: p.card?.name })), queue: q, sourceName, batch: picked });
     }
@@ -608,7 +624,16 @@ function applySacrifice(state, atom, ctx) {
     const order = state.turnOrder;
     const ap = order.indexOf(state.activePlayer);
     const apnap = [...order.slice(ap), ...order.slice(0, ap)].filter((pid) => sacrificers.includes(pid));
-    return advanceCreatureBatchSacrifice(state, { queue: apnap.map((playerId) => ({ playerId, count: atom.count })), chosen: [], sourceName: ctx.cardName });
+    // The creature-or-planeswalker pool (#639 — Plaguecrafter, "each player sacrifices a creature or planeswalker") rides each queue
+    // entry, so a re-entry keeps it; a creature edict's entries carry none and stay as they were.
+    const batchWhat = atom.what === "creatureOrPlaneswalker" ? { what: "creatureOrPlaneswalker" } : {};
+    // "EACH PLAYER WHO CAN'T …" (#639): the players with nothing in the pool, in APNAP order, recorded for the atom right after this
+    // one (hand.applyDiscard's couldNotSacrifice discarders) — read as the sacrifice begins, which is the answer at the end too:
+    // nothing leaves until every player has chosen, and the choosing changes no pool.
+    const recorded = atom.recordUnable
+      ? { ...state, couldNotSacrificeThisWay: apnap.filter((pid) => batchSacrificePool(state, pid, batchWhat.what).length === 0) }
+      : state;
+    return advanceCreatureBatchSacrifice(recorded, { queue: apnap.map((playerId) => ({ playerId, count: atom.count, ...batchWhat })), chosen: [], sourceName: ctx.cardName });
   }
   // Thread `atom.what` onto each queue head so advanceSacrificeChain builds the right victim pool, and a re-entry
   // from resolveSacrificeChoice (queue.slice(1)) preserves it per-sacrificer. The known pools pass through
@@ -721,6 +746,11 @@ export function sacrificeEdictClauseParser(clause) {
   // two..twenty over the bare creature noun only: a typed / filtered / "X" / "that many" victim set fails the anchor → Arbiter.
   m = t.match(new RegExp(`^each player sacrifices (two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty) creatures${CHOICE}$`));
   if (m) return { op: "sacrifice", who: "eachPlayer", what: "creature", count: NUM_WORD[m[1]] };
+  // EACH-PLAYER CREATURE-OR-PLANESWALKER EDICT (play-weighted #639 — Plaguecrafter, Demon's Disciple): one creature or planeswalker
+  // apiece, each player choosing from their own (CR 701.21a) in APNAP order and every chosen permanent sacrificed at once (CR 101.4)
+  // — the N-count chain with a count of one and the widened pool (advanceCreatureBatchSacrifice). A player with neither sacrifices
+  // nothing (CR 609.3).
+  if (new RegExp(`^each player sacrifices a creature or planeswalker${CHOICE}$`).test(t)) return { op: "sacrifice", who: "eachPlayer", what: "creatureOrPlaneswalker", count: 1 };
   m = t.match(new RegExp(`^each (?:opponent|other player) sacrifices a ${EDICT_NOUN}${CHOICE}$`));
   if (m) return { op: "sacrifice", who: "eachOpponent", what: EDICT_POOL[m[1]] };
   // FLARE OF MALICE (POD-SIM THREE · BI-4, 2026-09-05): "Each opponent sacrifices a creature or planeswalker with the greatest
@@ -1246,6 +1276,11 @@ export function destroyExileClauseParser(clause) {
   // dealtDamageThisTurn restriction the enumerator applies to every mass scope. Exactly these two sentences.
   const dyc = t.match(/^destroy each creature you don't control( that was dealt damage this turn)?$/);
   if (dyc) return { op: "destroy", targetType: "eachOpponentCreature", ...(dyc[1] ? { restrictions: [{ kind: "dealtDamageThisTurn", value: true }] } : {}) };
+  // NONLAND PERMANENTS YOUR OPPONENTS CONTROL (play-weighted #651 — Ruinous Ultimatum): the one-sided nonland sweep, its own mass
+  // scope (atomTargets eachOpponentNonlandPermanent — layer-aware, the face that is up). It destroys through applyDestroyEffect like
+  // every destroy, so indestructible, a shield counter, regeneration and umbra armor each keep a permanent exactly as they do from
+  // any destroy. Exactly this sentence: the symmetric "destroy all nonland permanents" and every filtered or exile form stay unparsed.
+  if (/^destroy all nonland permanents your opponents control$/.test(t)) return { op: "destroy", targetType: "eachOpponentNonlandPermanent" };
   const mc = t.match(/^destroy all (non-?)?([a-z]+) creatures$/);
   if (mc) {
     const sub = MASS_CREATURE_SUBTYPES[mc[2]];

@@ -693,6 +693,25 @@ export function matchWindfallMaxDiscard(oracle) {
   ] };
 }
 
+/**
+ * ===== EDICT, THEN "EACH PLAYER WHO CAN'T" DISCARDS ===== (play-weighted #639 — Plaguecrafter) "Each player sacrifices a creature or
+ * planeswalker of their choice. Each player who can't discards a card." The second sentence reads back to the first (CR 608.2c): the
+ * players who had no creature or planeswalker to sacrifice. Two atoms, emitted together and never apart, so the read always has its
+ * record:
+ *   1. the each-player creature-or-planeswalker edict (APNAP choices, one simultaneous sacrifice — CR 101.4) with recordUnable:
+ *      removal.applySacrifice stamps the players whose pool is empty on state.couldNotSacrificeThisWay, in APNAP order;
+ *   2. discard who:"couldNotSacrifice" — each of those players discards a card of their choice (CR 701.9b), in that order.
+ * Anchored on the exact two-sentence shape; any other wording stays on the Arbiter. Returns { atoms }.
+ */
+export function matchEdictUnableDiscard(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  if (!/^each player sacrifices a creature or planeswalker of their choice\. each player who can't discards a card$/.test(s)) return null;
+  return { atoms: [
+    { op: "sacrifice", who: "eachPlayer", what: "creatureOrPlaneswalker", count: 1, recordUnable: true },
+    { op: "discard", who: "couldNotSacrifice", amount: 1, targetType: null },
+  ] };
+}
+
 // ===== OPTIONAL-MANA-PAYMENT (CR 603.7c — the "pay {cost}" reflexive) ===== the single-color/generic mana
 // pips of an optional-pay cost, parsed into the planPayment cost shape — or null if ANY pip isn't a known
 // FIXED mana symbol (digit / single color / {C} / hybrid). {X}/{Y}/{Z} → null (Shanna's "{X}" is unmodeled:

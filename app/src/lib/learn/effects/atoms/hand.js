@@ -172,6 +172,11 @@ export function applyDiscard(state, atom, ctx) {
       .filter((pid) => state.players?.[pid] && !seen.has(pid) && seen.add(pid));
   } else if (atom.who === "eachOpponent") {
     discarders = opponentsOf(state, ctx.controller).filter((pid) => state.players?.[pid]);
+  } else if (atom.who === "couldNotSacrifice") {
+    // "EACH PLAYER WHO CAN'T discards a card" (play-weighted #639 — Plaguecrafter): the players the edict right before this atom
+    // found with nothing to sacrifice, in APNAP order (removal.applySacrifice's recordUnable stamp — the only producer, and the
+    // parser emits this atom only directly after it). One who has left the game since is passed over by the discard chain.
+    discarders = state.couldNotSacrificeThisWay || [];
   } else if (atom.who === "damagedPlayer") {
     // CDMG-DISCARD (Chilling Apparition / Blazing Specter / Dimir Cutpurse) — the player the source just dealt
     // combat damage to (ctx.damagedPlayerId, carried by checkCombatDamageTriggers, the SAME referent the mill /

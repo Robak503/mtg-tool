@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Plaguecrafter** (and **Demon's Disciple**) — each player sacrifices a creature or planeswalker; each player who can't discards a card
 - **Class enchantments** — gain the next level as a sorcery to add its ability: **Caretaker's Talent**, **Wizard Class**, **Ranger Class**, **Stormchaser's Talent**; also **Esika's Chariot** and **Three Blind Mice** (copy a token you control)
 - **Mangara, the Diplomat** — draws when an opponent attacks you and/or your planeswalkers with two or more creatures; **Trouble in Pairs** — opponents skip their extra turns, and you draw when an opponent attacks you with two or more creatures, draws their second card or casts their second spell each turn; also **Everett K. Ross, Hapless Attaché**
 - **Liquimetal Torque**, **Liquimetal Coating**, **Myr Landshaper** and **Argent Mutation** — make a permanent an artifact until end of turn ("nonartifact" removal can no longer target it; artifact removal can)

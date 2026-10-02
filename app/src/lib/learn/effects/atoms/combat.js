@@ -3,7 +3,7 @@
  * regenerate). Hosts applyTapEffect (tap/untap).
  */
 
-import { addContinuousEffect, permanentIsCreature, permanentHasKeyword, permanentTypes, hasAuraAttached, permIsEveryCreatureType, permanentColors } from "../../layers.js"; // permanentColors — the protection-color pick's layer-aware tally (applyGrantProtection) // permIsEveryCreatureType — P·39, the set-base-pt-team subtype filter (changeling / every creature type) // hasAuraAttached — KARAMETRA'S BLESSING's "enchanted creature" condition // permanentTypes — BLACKSMITH'S SKILL (O9): the "if it's an artifact creature" rider reads the LAYER-4 types (an animated artifact counts)
+import { addContinuousEffect, permanentIsCreature, permanentHasCardType, permanentHasKeyword, permanentTypes, hasAuraAttached, permIsEveryCreatureType, permanentColors } from "../../layers.js"; // permanentHasCardType — #666, the nonland untap's layer-aware, face-up land read // permanentColors — the protection-color pick's layer-aware tally (applyGrantProtection) // permIsEveryCreatureType — P·39, the set-base-pt-team subtype filter (changeling / every creature type) // hasAuraAttached — KARAMETRA'S BLESSING's "enchanted creature" condition // permanentTypes — BLACKSMITH'S SKILL (O9): the "if it's an artifact creature" rider reads the LAYER-4 types (an animated artifact counts)
 import { applyDamageEffect } from "../../spellEffects.js"; // TRAMPLE-EXCESS (Ram Through) — the shared player-damage path (removal.js precedent; call-time binding, cycle-safe)
 import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, markCombatDamage, setDoesNotUntapNext, updatePermanentSafe, addPreventionShield, addMana } from "../../gameState.js";
 import { checkDiesTriggers, checkUntapTriggers } from "../../triggers.js";
@@ -176,6 +176,11 @@ export function applyUntapLands(state, atom, ctx) {
       // this turn is untouched; outside any attack this turn the loop unatps nothing (clean no-op).
       if (!perm.attackedThisTurn) continue;
       if (!(/\bcreature\b/i.test(typeLineStr(perm.card)) || permanentIsCreature(state, perm.id))) continue;
+    } else if (atom?.scope === "nonland") {
+      // NONLAND (play-weighted #666 — Dramatic Reversal "Untap all nonland permanents you control."): every permanent the
+      // controller controls that is not a land as it exists right now (layers.permanentHasCardType — layer-aware, read on the face
+      // that is up, CR 712.8d), so an animated land stays tapped and Legion's Landing, an enchantment with a land back face, untaps.
+      if (permanentHasCardType(state, perm.id, "Land")) continue;
     } else if (!/\bland\b/i.test(typeLineStr(perm.card))) continue;
     ids.push(perm.id);
   }
@@ -1714,6 +1719,11 @@ export function combatKeywordClauseParser(clause) {
   // ⛔ "untap all creatures" WITHOUT "you control" is NOT this atom — that is a symmetric untap that also
   // untaps opponents' blockers, which is a different effect and a real downside. It falls through to LOW.
   if (/^(?:you )?untap (?:all|each) creatures? you control$/.test(t)) return { op: "untap-lands", all: true, scope: "creature", targetType: null };
+  // MASS-OWN-NONLAND UNTAP (play-weighted #666 — Dramatic Reversal "Untap all nonland permanents you control."): the same resolver over
+  // the controller's own tapped permanents that are not lands (scope "nonland" — layer-aware). Only the controller's battlefield is
+  // walked, so an opponent's permanent is never reached; "untap all nonland permanents" without "you control" and the each-opponent
+  // forms (Intellectual Offering, Curse of Bounty) stay unparsed.
+  if (/^untap all nonland permanents you control$/.test(t)) return { op: "untap-lands", all: true, scope: "nonland", targetType: null };
   // OVERPOWERING ATTACK / WORLD AT WAR (POD-SIM THREE · KT-7a, 2026-09-05): "untap all creatures you control that attacked this
   // turn" — the creature untap filtered on the per-permanent attackedThisTurn flag (stamped at declare-attacker, cleared at
   // untap). A creature that stayed home this turn is never untapped by it (pinned).

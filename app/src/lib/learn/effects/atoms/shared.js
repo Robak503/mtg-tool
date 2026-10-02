@@ -8,7 +8,7 @@
 
 import { findPermanent, creaturePower, creatureToughness, opponentsOf } from "../../gameState.js";
 import { MASS_WIPE_SCOPES } from "../../targetTypes.js"; // leaf module (pure strings) — no cycle; feeds the atomTargets drift guard below
-import { permanentIsCreature, domainCount, partyCount, permIsEveryCreatureType, deriveCharacteristics } from "../../layers.js"; // + deriveCharacteristics (#587): a permanent's copiable values + layer-4 types for the nonland mana-value set // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import)
+import { permanentIsCreature, permanentHasCardType, domainCount, partyCount, permIsEveryCreatureType, deriveCharacteristics } from "../../layers.js"; // + permanentHasCardType (#651): the layer-aware, face-up land read of the opponents' nonland set // + deriveCharacteristics (#587): a permanent's copiable values + layer-4 types for the nonland mana-value set // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import)
 import { creatureSatisfiesRestrictions } from "../../creatureRestrictions.js"; // the SHARED 16-kind restriction satisfier (leaf: gameState + layers + keywords only — every one of those edges already exists above, so no cycle)
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // P·39 — every creature type answers for a CREATURE type only (CR 205.3d); a zero-import leaf
 import { evaluateInterveningIf } from "../../interveningIf.js"; // INSTEAD-AMOUNT (BLITZ INST-1) — the shared board-condition readers for a condition-gated amountUpgrade; interveningIf → gameState is a leaf edge (gameState imports neither shared.js nor interveningIf), so no cycle
@@ -343,6 +343,16 @@ export const atomTargets = (state, atom, ctx) => {
   // Layer-aware through massCreatureTargets (CR 613), so an animated permanent you control is included.
   if (atom.targetType === "eachCreatureYouControl") {
     return massCreatureTargets(state, {}).filter((t) => t.controller === ctx.controller);
+  }
+  // NONLAND PERMANENTS YOUR OPPONENTS CONTROL (play-weighted #651 — Ruinous Ultimatum "Destroy all nonland permanents your opponents
+  // control."): every permanent an opponent controls that is not a land as it exists right now — layers.permanentHasCardType, the
+  // battlefield card-type reader: layer-aware (an animated land is still a land; Arixmethes is one while it has a slumber counter) and
+  // read on the face that is up (CR 712.8d). Fixed as the effect is applied (CR 608.2h). The controller's own permanents are never in
+  // the set.
+  if (atom.targetType === "eachOpponentNonlandPermanent") {
+    return opponentsOf(state, ctx.controller).flatMap((pid) => (state.players?.[pid]?.battlefield || [])
+      .filter((perm) => !permanentHasCardType(state, perm.id, "Land"))
+      .map((perm) => ({ type: "permanent", id: perm.id, controller: pid })));
   }
   if (atom.targetType === "eachOpponentCreature") {
     const cap = atom.toughnessAtMostCount ? countForSpec(state, ctx, atom.toughnessAtMostCount) : undefined;

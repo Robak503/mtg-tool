@@ -66,6 +66,9 @@ export const NON_WIPE_MASS_SCOPES = new Set([
   "eachCreatureYouControl",     // MASS-OWN-BOARD — "regenerate each creature you control" (Golgari Charm).
   //                               The mirror of eachOpponentCreature. A NON-wipe on purpose: it BUFFS the
   //                               caster's own board, so the AI must not hold it the way it holds a wipe.
+  "eachOpponentNonlandPermanent", // play-weighted #651 — "destroy all nonland permanents your opponents control" (Ruinous
+  //                               Ultimatum). One-sided: the caster's board is never in the set, so the AI need not hold it
+  //                               the way it holds a symmetric wipe. Resolved in atomTargets (shared.js).
   "eachOpponentCreature",       // R1.2 (audit 2026-07-09) — mass bounce over every OPPONENT creature
   //                               (Scourge-of-Fleets class, zones.js). Was emitted but missing here, so
   //                               "needs a chosen target?" checks treated it as targeted and the live

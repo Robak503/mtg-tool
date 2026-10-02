@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **34 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,457)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+46**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **35 commits**, corpus **44.5% (15,246)** at the tag → **44.7% (15,463)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+52**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,24 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 56: Plaguecrafter (EDHREC #639), Ruinous Ultimatum (#651), Dramatic Reversal (#666) · **+6** · corpus 15,463
+> Flip-diff **+6, −0, zero RETIERED**: Plaguecrafter, Demon's Disciple, Paradox Engine, Unstoppable Plan → native-trigger; Ruinous
+> Ultimatum, Dramatic Reversal → native-spell. Top 1,000 **888**; top 2,500 **1,727**. **Mutants 29/29** on the integrated tree,
+> restore byte-identical. Built by a fan-out builder (rebased onto master before its gates); re-verified on the integrated tree.
+> · Plaguecrafter rides Blasphemous Edict's batch edict with a count of one — each player picks a creature or planeswalker in APNAP
+>   order (CR 101.4) and all are sacrificed at once; "each player who can't discards a card" reads the players recorded as having
+>   nothing to sacrifice as the event began. A sacrificed planeswalker that is no creature now reaches the planeswalker dies
+>   dispatch. Ruinous Ultimatum is a one-sided destroy-all through the shared destroy (indestructible, shields, regeneration and
+>   umbra armor apply); Dramatic Reversal (and Paradox Engine, Unstoppable Plan) untap "nonland permanents you control". Every
+>   land / creature / planeswalker read is layer-aware and face-up-face only (CR 712.8d): Legion's Landing is nonland, Westvale
+>   Abbey stays a land and is never offered to an edict (a false-positive fix for Blasphemous Edict and Barter in Blood too), an
+>   animated Mutavault is a creature. Witness `plaguecrafterUltimatumReversal.test.js` (19, 3- and 4-seat).
+> · ⚠️ Found, not fixed (queued): the layer derive reads a double-faced card's whole type line (in flight: the DFC fix);
+>   `spellEffects.isCreature`, `shared.isCreatureCard` and `triggers.isCreaturePerm` read printed types (a battle or a
+>   creature-backed Saga destroyed fires creature-dies watchers); single sacrifices never send a planeswalker to its dies dispatch;
+>   single-creature each-player edicts and each-player discards aren't simultaneous; sacrifice-prevention statics (Sigarda) do
+>   nothing.
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 55: Class levels (CR 716) — Caretaker's Talent (EDHREC #632), Wizard Class (#634) · **+6** · corpus 15,457
 > Suite **18,467** green (one run with the exile-stamp fix, the quick trio, and the combat-timing and destroy-ladder fixes). Flip-diff **+6, −0, zero RETIERED**: Caretaker's Talent, Wizard Class, Ranger Class, Stormchaser's
