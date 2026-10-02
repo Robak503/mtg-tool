@@ -67,6 +67,42 @@ export function mdfcFaceCards(card) {
   ];
 }
 
+/**
+ * P·38 — a SPELL // SPELL modal DFC (neither face a land — Birgi, God of Storytelling // Harnfel, Horn of Bounty and the other
+ * Kaldheim gods): a player casting it chooses which face they cast (CR 712.11b); the combined card is never one object. The
+ * land-back shapes stay parseModalDfc's (above). Returns { front, back } (parseFaceBlock's blocks) | null.
+ */
+export function parseSpellModalDfc(card) {
+  if (!card || String(card.layout || "") !== "modal_dfc") return null;
+  const parts = String(card.oracle || card.oracle_text || "").split(/\n\/\/\n/);
+  if (parts.length !== 2) return null;
+  const front = parseFaceBlock(parts[0]);
+  const back = parseFaceBlock(parts[1]);
+  if (!front || !back || /\bLand\b/i.test(front.typeLine) || /\bLand\b/i.test(back.typeLine)) return null;
+  return { front, back };
+}
+
+// A face's own mana value (CR 202.3): a generic number counts its value, {X} nothing, every other symbol one.
+function faceManaValue(mana) {
+  let mv = 0;
+  for (const [, sym] of String(mana || "").matchAll(/\{([^}]+)\}/g)) mv += /^\d+$/.test(sym) ? Number(sym) : sym === "X" ? 0 : 1;
+  return mv;
+}
+
+/** [frontView, backView] of a spell // spell modal DFC — each its own face under the card's id: the face's name, type, oracle,
+ *  mana and mana value (CR 712.8f — a face on the stack or battlefield has only its own characteristics), and its power and
+ *  toughness off the card's faces when it carries them. */
+export function spellMdfcFaceCards(card) {
+  const parsed = parseSpellModalDfc(card);
+  if (!parsed) return null;
+  const strip = { card_faces: undefined, mana_cost: undefined, type_line: undefined, oracle_text: undefined };
+  return [parsed.front, parsed.back].map((f, i) => ({
+    ...card, ...strip, name: f.name, type: f.typeLine, oracle: f.oracle, mana: f.mana, cmc: faceManaValue(f.mana),
+    ...(card.card_faces ? { power: card.card_faces[i].power ?? null, toughness: card.card_faces[i].toughness ?? null } : {}),
+    faceIndex: i, mdfcOf: card.name,
+  }));
+}
+
 /** The face views a LAND DROP may choose (type line carries Land) — one for a spell//land, two for a Pathway. */
 export function mdfcLandFaces(card) {
   const faces = mdfcFaceCards(card);

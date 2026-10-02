@@ -94,7 +94,7 @@ registerSelfGraveyardCastConditionReader(interveningIfParseable);
 import { parseGlobalTapManaAugment, stripGlobalTapManaAugment } from "./staticAbilityParser.js"; // GLOBAL-TAP-AUGMENT: "Whenever you tap a <land|creature> for mana, add …" permanent
 import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR 715) — split the creature/adventure halves; pure shape module (no back-import, acyclic)
 import { parseSplitCard, splitFaceViews } from "./splitCard.js"; // SPLIT CARDS (CR 709) — the two-spell-halves shape module; pure leaf, acyclic
-import { parseModalDfc, mdfcFaceCards } from "./modalDfc.js"; // MODAL DFC LANDS (CR 712.8, V1) — the face-choice land drop; pure leaf, acyclic
+import { parseModalDfc, mdfcFaceCards, spellMdfcFaceCards } from "./modalDfc.js"; // MODAL DFC LANDS (CR 712.8, V1) — the face-choice land drop; pure leaf, acyclic
 import { parseKickerCounterCreature, parseKickerEtbCreature, stripKickerText } from "./kicker.js"; // KICKER (CR 702.33) — optional cast cost + a was-kicked payoff (enters-with-counters OR a kicked ETB trigger); runtime hooks in legalChoices/actionDispatcher/resolvers. Leaf (no back-import, acyclic).
 import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — alt cast cost (sac a creature/artifact, pay the emerge cost reduced by its MV); runtime hooks in legalChoices/actionDispatcher. Leaf (no back-import, acyclic).
 import { parseTributeCreature } from "./tribute.js"; // TRIBUTE (CR 702.96) — ETB opponent-choice (pay N +1/+1 counters OR the "if tribute wasn't paid" effect); runtime hook in resolvers.enterPermanent. Leaf (no back-import, acyclic).
@@ -3275,6 +3275,16 @@ export function classifyCard(card) {
       const [front, back] = mdfcFaceCards(card);
       const frontTier = classifyCard(front);
       return isNativeTier(frontTier) && landFullyCovered(back) ? frontTier : "land-partial";
+    }
+  }
+  // P·38 — a SPELL // SPELL modal DFC (Birgi, God of Storytelling // Harnfel, Horn of Bounty): castable as either face (CR 712.11b —
+  // legalChoices' cast builder offers each face of one that classifies native). Native iff BOTH faces are native on their own
+  // views — the FRONT's tier then; otherwise it falls through to today's classification.
+  {
+    const faces = spellMdfcFaceCards(card);
+    if (faces) {
+      const [front, back] = faces.map(classifyCard);
+      if (isNativeTier(front) && isNativeTier(back)) return front;
     }
   }
   // ⭐ LANDS ARE GATED NOW (Codex fix #3, 2026-08-30). This used to be an unconditional `return "land"` —

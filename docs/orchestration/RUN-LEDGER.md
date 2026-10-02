@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **5 commits**, corpus **44.5% (15,246)** at the tag → **44.5% (15,252)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **6 commits**, corpus **44.5% (15,246)** at the tag → **44.5% (15,253)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,23 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 38: the spell // spell modal-DFC lane — cast either face (Birgi, God of Storytelling #489) · **+1** · corpus 15,253
+> Suite **17,747** green (1 skipped); lint 0; decks **2,746** / 2,998 unchanged. CI GREEN on P·37 (run 36951109708).
+> Flip-diff **+1, −0, zero RETIERED** (tier snapshots at 78350425 → the change): Birgi, God of Storytelling // Harnfel, Horn of
+> Bounty → native-mixed. Top 1,000 **868** (worklist: covered 868 / 1,000, +32 to 90%); top 2,500 **1,694**. **Mutants 8/8**.
+> · **A modal DFC whose faces are both spells** (no land face — those stay parseModalDfc's land drop): CR 712.11b, the caster
+>   chooses the face; CR 712.8f, on the stack and the battlefield it has only the characteristics of the face that's up.
+>   modalDfc.parseSpellModalDfc / spellMdfcFaceCards project each face under the card's id (name, type, oracle, mana, mana
+>   value, power/toughness). coverage credits the card only when BOTH faces are native on their own views. The shared cast
+>   builder offers each face of a credited card in place of the combined card, so every cast lane that runs through it gets
+>   both (witnessed: the hand, and the command zone with its tax); a face cast as a permanent carries the whole card as
+>   printedCard (the V1 machinery), so the card that leaves the battlefield is the whole card.
+>   Witness `app/src/lib/learn/spellModalDfc.test.js` (7).
+> · **The lane's reach:** 40 spell // spell modal DFCs in the corpus; Birgi is the one with both faces native today. One face
+>   away: Halvar, God of Battle #2379 (its front), Esika, God of the Tree #2509 (The Prismatic Bridge), Valentin, Dean of the
+>   Vein (its front), Blex, Vexing Pest (Search for Blex).
+> · **Next:** the worklist head, #490 Maskwood Nexus.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 37: the until-end-of-turn mana hold (Savage Ventmaw +2) and boast twice — Birgi's front · **+3** · corpus 15,252
 > Suite **17,740** green (1 skipped); lint 0; decks **2,746** / 2,998 unchanged. CI GREEN on P·36 (run 36949781868).

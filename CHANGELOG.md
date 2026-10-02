@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Birgi, God of Storytelling // Harnfel, Horn of Bounty** — cast either face: Birgi (each spell you cast adds {R} that stays in your pool until end of turn; your creatures can boast twice each turn) or Harnfel (discard a card to exile the top two cards of your library; you may play them this turn)
 - **Savage Ventmaw, Brazen Collector and Sakura-Tribe Springcaller** — the mana they add stays in your pool until end of turn instead of emptying between steps
 - **Disciple of Freyalise** — when it enters, you may sacrifice another creature; if you do, you gain life and draw cards equal to that creature's power
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield

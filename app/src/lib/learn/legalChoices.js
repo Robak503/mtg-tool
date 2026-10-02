@@ -112,7 +112,7 @@ import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, 
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR 709) — cast either half; pure shape module
-import { isModalDfc, mdfcLandFaces, mdfcFaceCards } from "./modalDfc.js"; // MODAL DFC (CR 712.8, V1) — the land drop chooses a face; the spell front is cast as a face; pure shape module
+import { isModalDfc, mdfcLandFaces, mdfcFaceCards, parseSpellModalDfc, spellMdfcFaceCards } from "./modalDfc.js"; // MODAL DFC (CR 712.8, V1) — the land drop chooses a face; the spell front is cast as a face; pure shape module
 import { evaluateInterveningIf } from "./interveningIf.js"; // CR 602.5d "Activate only if <cond>" — the offer gate reads the SAME vocabulary as the trigger + spell lanes
 import { extractAdditionalCosts, extractAltCost } from "./effects/castModifiers.js"; // AC-PERMANENT — see permanentAdditionalCosts below; + extractAltCost (EVOKE on a permanent, Solitude)
 import { isPermanentSpell } from "./resolvers.js";
@@ -1112,6 +1112,15 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // back is a land drop. The same CREED reasoning as the split skip above: the mashed two-face oracle would parse to a
     // malformed program.
     if (isModalDfc(card)) continue;
+    // P·38 — a SPELL // SPELL modal DFC (CR 712.11b — the caster chooses the face): offered as each of its faces, never as the
+    // combined card, once it classifies native (both faces modeled — the classifier's own authority); otherwise as before. Every
+    // lane reaches it through here (hand, command zone, graveyard, exile), so a commander cast offers both faces with its tax.
+    if (parseSpellModalDfc(card) && isNativeTier(classifyCard(card))) { // (a face's own oracle has no "//", so a face never re-expands)
+      for (const face of spellMdfcFaceCards(card)) {
+        for (const a of castActionsFromZone(state, playerId, [face], fromZone, taxFn, freeCast)) actions.push({ ...a, faceCard: face });
+      }
+      continue;
+    }
 
     // FLASH-CAST-PERMISSION (CR 601.3e): a sorcery-speed card the player has flash permission for (Yeva → a
     // green creature; Vedalken Orrery → any spell) may be cast whenever the player has priority (instant

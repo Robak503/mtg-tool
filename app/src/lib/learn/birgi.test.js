@@ -9,10 +9,9 @@
  * what is left of the color, so once it is spent a later red can't ride it; cleanup drops it, CR 514.2). Boast twice raises boast's
  * once-each-turn limit (CR 702.135b) to two on its controller's own turns.
  *
- * ⚠ Birgi // Harnfel ITSELF stays body-only: a creature // artifact modal DFC, and the engine casts neither face of one until a
- * spell // spell modal-DFC lane exists (coverage splits only land-back MDFCs). Its front's two lines are modeled and witnessed
- * here on the front face's own view, ready for that lane. The same "you don't lose this mana" sentence is what flipped Savage
- * Ventmaw, Brazen Collector and Sakura-Tribe Springcaller (Ventmaw is witnessed below).
+ * Birgi // Harnfel itself is a creature // artifact modal DFC: the face lines are witnessed here on the front face's own view, and
+ * casting either face (P·38's spell // spell MDFC lane) is witnessed in spellModalDfc.test.js. The same "you don't lose this mana"
+ * sentence is what flipped Savage Ventmaw, Brazen Collector and Sakura-Tribe Springcaller (Ventmaw is witnessed below).
  *
  * Real oracle fixtures (bundled Scryfall, probed 2026-10-01); casts and activations run for real (legal action → dispatch).
  */
