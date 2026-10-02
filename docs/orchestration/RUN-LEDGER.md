@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **16 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,436)** — +165 of that is the 10-02 card-data refresh (new
+> **17 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,436)** — +165 of that is the 10-02 card-data refresh (new
 > cards, not engine work); engine gains since the tag: **+25**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,14 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: a card-type team filter is never met by every creature type (Steel Overseer) · **±0**
+> Suite **18,016** green (one run with the token-color fix). Flip-diff **0 / 0 / 0**. **Mutants 2/2**, restore byte-identical.
+> · P·39a let every creature type satisfy any word of controllerCreatureTargets' subtypeFilter — but that filter also carries
+>   card types ("each artifact / enchantment creature you control" rides it as "Artifact" / "Enchantment"), so a non-artifact
+>   changeling, or a creature made every type by Mirror Entity's effect or Maskwood Nexus, got Steel Overseer's counter. Every
+>   creature type now answers only a creature-type filter (CR 205.3d), as at every other P·39 reader. Found by a read-only
+>   inventory of the engine's artifact-type readers (76 sites — the map for the coming Liquimetal Torque slice).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 46: Valakut Awakening // Valakut Stoneforge (EDHREC #514) — any number to the bottom, draw that many plus one · **+1** · corpus 15,436
 > Suite **17,996** green (one run for P·44–46). Flip-diff **+1, −0, zero RETIERED**: Valakut Awakening → native-spell (was land-partial).

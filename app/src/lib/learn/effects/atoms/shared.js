@@ -181,8 +181,10 @@ export function controllerCreatureTargets(state, controller, opts = {}) {
     .filter((perm) => isCreatureCard(perm.card) || permanentIsCreature(state, perm.id))
     .filter((perm) => !(opts.excludeSource && perm.id === opts.sourceId))
     .filter((perm) => !opts.legendaryOnly || /\bLegendary\b/.test(typeLineStr(perm.card)))  // Hajar's supertype gate
+    // P·39 — every creature type answers a CREATURE-type filter only (CR 205.3d): Steel Overseer's "each artifact creature you
+    // control" (counters.js — the card-type qualifier rides subtypeFilter "Artifact" / "Enchantment") is never met by it.
     .filter((perm) => !subRes || subRes.some((re) => re.test(typeLineStr(perm.card)))
-      || permIsEveryCreatureType(state, perm.id)) // P·39 — every creature type
+      || (subFilters.some(isCreatureTypeWord) && permIsEveryCreatureType(state, perm.id)))
     .filter((perm) => !negRe || !(negRe.test(typeLineStr(perm.card).split(" // ")[0])
       || permIsEveryCreatureType(state, perm.id)))
     .map((perm) => ({ type: "creature", id: perm.id, controller }));

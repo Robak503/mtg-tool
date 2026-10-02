@@ -25,6 +25,7 @@ summarizes the notable changes.
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
 
 ### Fixed
+- **Steel Overseer** put its counter on changelings that aren't artifacts (and on creatures made every creature type); it now counters artifact creatures only
 - Modal double-faced spells (Valakut Awakening, Fell the Profane, Birgi …) are their face's colors; they were cast colorless, so "colorless spell" triggers and counters wrongly saw them
 - Alternative costs (the Bringers' {W}{U}{B}{R}{G}, Fist of Suns, the Traps' conditional costs) now pay cost increases such as Thalia, Guardian of Thraben's; they were offered without the tax
 - A creature returned from a graveyard (Tormod, Syr Konrad) no longer triggers for its own return or for the cards returned with it
