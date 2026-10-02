@@ -649,6 +649,22 @@ export function matchMassDestroyTreasurePerNontoken(oracle) {
 }
 
 /**
+ * ===== CULLING RITUAL (play-weighted #587) ===== "Destroy each nonland permanent with mana value 2 or less. Add {B} or {G}
+ * for each permanent destroyed this way." The second sentence's count is the set the FIRST destroyed — the same
+ * back-reference Blood Money carries, which the sentence split would orphan (the "for each … destroyed this way" half has no
+ * count source of its own). Collapse the whole compound up front to ONE mass-destroy-add-mana-per-destroyed atom: the
+ * resolver destroys the set (shared destroy) and adds one mana of the two printed colors per permanent it actually destroyed.
+ * The atom names no target (targetType null — the set is every battlefield's, nothing is chosen). Anchored ^…$ on the exact
+ * two-sentence shape; any rider leaves residue → no match → low → Arbiter (CREED). Returns { atom }.
+ */
+export function matchMassDestroyManaPerDestroyed(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/\s+/g, " ").replace(/\.$/, "");
+  const m = s.match(/^destroy each nonland permanent with mana value (\d+) or less\. add \{([wubrgc])\} or \{([wubrgc])\} for each permanent destroyed this way$/);
+  if (!m) return null;
+  return { atom: { op: "mass-destroy-add-mana-per-destroyed", mvMax: parseInt(m[1], 10), colors: [m[2].toUpperCase(), m[3].toUpperCase()], targetType: null } };
+}
+
+/**
  * ===== WINDFALL (max-discarded wheel) ===== "Each player discards their hand, then draws cards equal to the
  * greatest number of cards a player discarded this way." (Windfall, Whispering Madness' base body). A ONE-
  * sentence discard-then-draw where the draw count is the GREATEST number any player discarded — a back-

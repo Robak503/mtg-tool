@@ -1298,6 +1298,41 @@ export function applyDrawEffect(state, { controller, amount }) {
   return logEvent(next, { kind: "spell-effect", effect: "draw", controller, amount });
 }
 
+/**
+ * THE DESTRUCTION LADDER — what, if anything, keeps `permanent` on the battlefield when an effect would destroy it, judged
+ * on `state`, in the order applyDestroyEffect applies it. Returns null when the permanent would be destroyed, else
+ * { kind: "indestructible" | "shield" | "regenerate" | "umbraArmor", auraId? }. ONE copy: applyDestroyEffect applies the
+ * answer, and a "destroyed this way" count (Culling Ritual) reads it to know which permanents a destroy really destroys —
+ * so the two cannot disagree about the set.
+ *   - CR 702.12b — an indestructible permanent can't be destroyed. isIndestructible reads the layer engine, so GRANTED
+ *     indestructible (Darksteel Forge's "artifacts you control are indestructible", an Equipment/Aura, an anthem) is
+ *     honored, not just printed. The permanent stays put and fires no dies-trigger (it never left). Exile/sacrifice/
+ *     bounce are NOT destroy and never reach here.
+ *   - CR 122.1c — a SHIELD COUNTER replaces this destruction: remove one shield counter (no tap), the permanent survives
+ *     and fires no dies-trigger (it never left the battlefield). Checked BEFORE regen (both are replacements the
+ *     permanent's controller orders per CR 616; a shield is strictly better — no tap). A "can't be regenerated" rider
+ *     (Wrath/Terminate — cannotRegenerate) does NOT bypass a shield counter: that rider is specific to the regeneration
+ *     replacement (CR 701.19), NOT the shield-counter replacement, so a shielded creature still survives a "can't be
+ *     regenerated" destroy by removing a shield (CR 122.1c).
+ *   - CR 701.19 — a regeneration shield REPLACES this destruction: consume one shield, the permanent survives (clear
+ *     damage + tap) and fires no dies-trigger (it never left the battlefield). Same look as indestructible. MTG-001 — a
+ *     "can't be regenerated" destroy (Wrath of God, Terminate) sets `cannotRegenerate`, which overrides the shield
+ *     (CR 701.19 — the rider prevents the regeneration replacement). It does NOT bypass indestructible (a separate rule,
+ *     CR 702.12b), so the order here is correct.
+ *   - CR 702.89 — TOTEM ARMOR (Umbra armor): if the permanent being destroyed carries a totem-armor Aura, the Aura is
+ *     destroyed INSTEAD, all damage is cleared, and the permanent survives (fires no dies-trigger — it never left).
+ *     Checked LAST among the replacements (after indestructible/shield/regen, which don't sacrifice the Aura). A "can't be
+ *     regenerated" rider does NOT bypass totem armor — that rider is specific to the regeneration replacement
+ *     (CR 701.19), not this one, exactly like the shield-counter carve-out above.
+ */
+export function destructionReplacementFor(state, permanent, cannotRegenerate = false) {
+  if (isIndestructible(permanent, state)) return { kind: "indestructible" };
+  if (hasShieldCounter(permanent)) return { kind: "shield" };
+  if (!cannotRegenerate && (permanent.regenShields || 0) > 0) return { kind: "regenerate" };
+  const auraId = totemArmorAuraFor(state, permanent);
+  return auraId ? { kind: "umbraArmor", auraId } : null;
+}
+
 export function applyDestroyEffect(state, { controller, targets = [], cannotRegenerate = false }) {
   let next = state;
   const dead = [];
@@ -1310,43 +1345,13 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
     if (t.type !== "creature" && t.type !== "permanent" && t.type !== "planeswalker") continue;
     const lk = findPermanent(next, t.id);
     if (!lk) continue;
-    // CR 702.12b — an indestructible permanent can't be destroyed. isIndestructible reads the layer
-    // engine, so GRANTED indestructible (Darksteel Forge's "artifacts you control are indestructible",
-    // an Equipment/Aura, an anthem) is honored, not just printed. The permanent stays put and fires
-    // no dies-trigger (it never left). Exile/sacrifice/bounce are NOT destroy and never reach here.
-    if (isIndestructible(lk.permanent, next)) {
-      prevented.push(t.id);
-      continue;
-    }
-    // CR 122.1c — a SHIELD COUNTER replaces this destruction: remove one shield counter (no tap), the permanent
-    // survives and fires no dies-trigger (it never left the battlefield). Checked BEFORE regen (both are
-    // replacements the permanent's controller orders per CR 616; a shield is strictly better — no tap). A
-    // "can't be regenerated" rider (Wrath/Terminate — cannotRegenerate) does NOT bypass a shield counter: that
-    // rider is specific to the regeneration replacement (CR 701.19), NOT the shield-counter replacement, so a
-    // shielded creature still survives a "can't be regenerated" destroy by removing a shield (CR 122.1c).
-    if (hasShieldCounter(lk.permanent)) {
-      next = consumeShieldCounter(next, t.id);
-      prevented.push(t.id);
-      continue;
-    }
-    // CR 701.19 — a regeneration shield REPLACES this destruction: consume one shield, the permanent survives
-    // (clear damage + tap) and fires no dies-trigger (it never left the battlefield). Same look as indestructible.
-    // MTG-001 — a "can't be regenerated" destroy (Wrath of God, Terminate) sets `cannotRegenerate`, which
-    // overrides the shield (CR 701.19 — the rider prevents the regeneration replacement). It does NOT bypass
-    // indestructible (handled above, a separate replacement CR 702.12b), so the order here is correct.
-    if (!cannotRegenerate && (lk.permanent.regenShields || 0) > 0) {
-      next = regeneratePermanent(next, t.id);
-      prevented.push(t.id);
-      continue;
-    }
-    // CR 702.89 — TOTEM ARMOR (Umbra armor): if the permanent being destroyed carries a totem-armor Aura, the
-    // Aura is destroyed INSTEAD, all damage is cleared, and the permanent survives (fires no dies-trigger — it
-    // never left). Checked LAST among the replacements (after indestructible/shield/regen, which don't sacrifice
-    // the Aura). A "can't be regenerated" rider does NOT bypass totem armor — that rider is specific to the
-    // regeneration replacement (CR 701.19), not this one, exactly like the shield-counter carve-out above.
-    const totemAuraId = totemArmorAuraFor(next, lk.permanent);
-    if (totemAuraId) {
-      next = applyTotemArmor(next, t.id, totemAuraId);
+    // The ladder above (indestructible, shield counter, regeneration shield, umbra armor), applied: the permanent stays
+    // and fires no dies-trigger; a shield counter / regeneration shield is consumed, an umbra-armor Aura is destroyed.
+    const save = destructionReplacementFor(next, lk.permanent, cannotRegenerate);
+    if (save) {
+      if (save.kind === "shield") next = consumeShieldCounter(next, t.id);
+      else if (save.kind === "regenerate") next = regeneratePermanent(next, t.id);
+      else if (save.kind === "umbraArmor") next = applyTotemArmor(next, t.id, save.auraId);
       prevented.push(t.id);
       continue;
     }

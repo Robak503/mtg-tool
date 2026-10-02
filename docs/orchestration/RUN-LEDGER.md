@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **25 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,443)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+32**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **26 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,444)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+33**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,20 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 52: Culling Ritual (EDHREC #587) — the mana-value sweep that pays per permanent destroyed · **+1** · corpus 15,444
+> Flip-diff **+1, −0, zero RETIERED**: Culling Ritual → native-spell. Top 1,000 **880**; top 2,500 **1,717**. **Mutants 33/33**, restore
+> byte-identical. Built by a fan-out builder; re-verified on the integrated tree.
+> · Every nonland permanent on every battlefield with mana value 2 or less, judged on the permanent itself (a copy's copied mana
+>   value; a non-copy token or a face-down permanent is 0; "land" through the layers). "Destroyed this way" reads the destroy's
+>   own replacement ladder as the event began: indestructible, a shield counter, regeneration and umbra armor mean no mana;
+>   exiled-instead still counts (the bundled rulings). The ladder moved out of applyDestroyEffect into the exported
+>   destructionReplacementFor — same order, same predicates. One {B} or {G} per permanent (round-robin, {B} first — a per-mana
+>   choice, CR 608.2d). The AI holds it as a mass wipe. Witness `cullingRitual.test.js` (20).
+> · ⚠️ Found, not fixed (queued): a mass destroy decides each permanent against a partly-destroyed board (a Hyena Umbra processed
+>   first leaves its Grizzly Bears to die — reproduced; fix in flight); type readers read a transforming card's whole
+>   "Front // Back" type line (Search for Azcanta counts as a land); other mana-value readers ignore copy effects; Blood Money's
+>   "can't be regenerated" pass-through is dead.
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 51: Saw in Half (EDHREC #582) — the dies-this-way token copies · **+1** · corpus 15,443
 > Flip-diff **+1, −0, zero RETIERED**: Saw in Half → native-spell. Top 1,000 **879**; top 2,500 **1,716**. **Mutants 33/33**, restore

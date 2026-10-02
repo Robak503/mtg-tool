@@ -8,7 +8,7 @@
 
 import { findPermanent, creaturePower, creatureToughness, opponentsOf } from "../../gameState.js";
 import { MASS_WIPE_SCOPES } from "../../targetTypes.js"; // leaf module (pure strings) — no cycle; feeds the atomTargets drift guard below
-import { permanentIsCreature, domainCount, partyCount, permIsEveryCreatureType } from "../../layers.js"; // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import)
+import { permanentIsCreature, domainCount, partyCount, permIsEveryCreatureType, deriveCharacteristics } from "../../layers.js"; // + deriveCharacteristics (#587): a permanent's copiable values + layer-4 types for the nonland mana-value set // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import)
 import { creatureSatisfiesRestrictions } from "../../creatureRestrictions.js"; // the SHARED 16-kind restriction satisfier (leaf: gameState + layers + keywords only — every one of those edges already exists above, so no cycle)
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // P·39 — every creature type answers for a CREATURE type only (CR 205.3d); a zero-import leaf
 import { evaluateInterveningIf } from "../../interveningIf.js"; // INSTEAD-AMOUNT (BLITZ INST-1) — the shared board-condition readers for a condition-gated amountUpgrade; interveningIf → gameState is a leaf edge (gameState imports neither shared.js nor interveningIf), so no cycle
@@ -147,6 +147,40 @@ export function massPermanentTargets(state, matches) {
   for (const pid of Object.keys(state.players)) {
     for (const perm of state.players[pid].battlefield) {
       if (matches(perm.card)) out.push({ type: "permanent", id: perm.id, controller: pid });
+    }
+  }
+  return out;
+}
+
+/**
+ * "EACH NONLAND PERMANENT WITH MANA VALUE N OR LESS" (Culling Ritual, play-weighted #587) — every permanent on EVERY
+ * battlefield that is not a land and whose mana value is at most `mvMax`, as `{type:"permanent"}` descriptors (the type
+ * applyDestroyEffect accepts; it re-reads creature / planeswalker for the dies look-back). Players-then-battlefield order,
+ * like the other mass sets. Both questions are asked of the OBJECT on the battlefield, not of the printed card:
+ *   - MANA VALUE (CR 202.3) — of the copiable values when a layer-1 copy effect applies (the mana cost is copied,
+ *     CR 707.2, 613.1a), else of the card. `cmc` is Scryfall's mana value: a double-faced card's front face (the face the
+ *     engine puts up, CR 712.8d), an adventurer's creature card (CR 715.4), {X} counted as 0 (CR 202.3e). No `cmc` reads 0
+ *     (CR 202.3a): a token that isn't a copy has no mana cost (CR 202.1b), nor has a face-down permanent's stand-in
+ *     (CR 708.2a) — so both are swept. A split permanent (a Room) reads its combined cost: the engine has no unlocked-half
+ *     designations (CR 709.5), so its value can only read too HIGH, never too low.
+ *   - LAND (CR 205.2a) — the layer-aware card types (a copy's types, layer 4's additions), EXCEPT for a multi-face card:
+ *     the engine never turns a back face up (it has no transform), so a " // " permanent is front face up (CR 712.8d,
+ *     712.14) and that face's printed types are its types. The layer derive reads the whole combined line, and a front
+ *     face printed without subtypes ("Legendary Enchantment // Legendary Land" — Search for Azcanta) picks up the BACK
+ *     face's Land there, which would spare a permanent this sweep destroys. (No effect the engine models adds the Land
+ *     type to a multi-face permanent: the layer effects that can add Land act on a single-faced card itself, Arixmethes'
+ *     gated static, or on Treasures.)
+ */
+export function nonlandPermanentsWithManaValueAtMost(state, mvMax) {
+  const out = [];
+  for (const pid of Object.keys(state.players)) {
+    for (const perm of state.players[pid].battlefield) {
+      const chars = deriveCharacteristics(state, perm.id);
+      const object = chars.copiableValues || perm.card;
+      const line = typeLineStr(object);
+      const land = line.includes(" // ") ? /\bLand\b/.test(line.split(" // ")[0]) : chars.types.includes("Land");
+      if (land || (object?.cmc ?? 0) > mvMax) continue;
+      out.push({ type: "permanent", id: perm.id, controller: pid });
     }
   }
   return out;

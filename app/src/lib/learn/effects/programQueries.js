@@ -574,7 +574,12 @@ export function programContainsMassRemoval(program) {
     : (program.atoms || []);
   // BLOOD-MONEY — mass-destroy-treasure-per-nontoken is a symmetric board wipe too (it destroys all creatures);
   // include it so the AI HOLDS it like Wrath (the Treasure upside doesn't make a blind self-wipe a good play).
-  return atoms.some(a => MASS_WIPE_SCOPES.has(a.targetType) && ["destroy", "exile", "pump", "mass-destroy-treasure-per-nontoken"].includes(a.op));
+  // CULLING RITUAL (#587) — every nonland permanent with mana value N or less, on every battlefield (the caster's mana
+  // rocks and dorks included). It names no targetType (nothing is chosen), so it is held by op; it is NOT a creature wipe
+  // for the behind-on-board unlock below (it never answers a creature costing more than N), so it stays held, like
+  // Armageddon-class mass removal.
+  return atoms.some(a => (MASS_WIPE_SCOPES.has(a.targetType) && ["destroy", "exile", "pump", "mass-destroy-treasure-per-nontoken"].includes(a.op))
+    || a.op === "mass-destroy-add-mana-per-destroyed");
 }
 
 /**

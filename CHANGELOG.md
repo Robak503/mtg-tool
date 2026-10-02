@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Culling Ritual** — destroy each nonland permanent with mana value 2 or less; add {B} or {G} for each permanent destroyed this way
 - **Saw in Half** — destroy target creature; if it dies this way, its controller gets two token copies with half its power and toughness, rounded up
 - **Cloud Key** — as it enters, choose artifact, creature, enchantment, instant or sorcery; spells you cast of that type cost {1} less
 - **Talon Gates of Madara** — pay {4} to put it from your hand onto the battlefield at instant speed (not a land drop); its enters trigger phases out up to one creature

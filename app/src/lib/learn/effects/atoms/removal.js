@@ -5,12 +5,12 @@
  * would create a cycle).
  */
 
-import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js";
-import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, creatureBasePower, diesExiledInstead, deathExiledInstead, deathLookbackLinks, shufflesIntoLibraryInsteadOfGraveyard } from "../../gameState.js"; // + shufflesIntoLibraryInsteadOfGraveyard (#582): Saw in Half's "dies this way" verdict
+import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions, destructionReplacementFor } from "../../spellEffects.js"; // + destructionReplacementFor (#587): the destroy's own replacement ladder, read for "destroyed this way"
+import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, creatureBasePower, diesExiledInstead, deathExiledInstead, deathLookbackLinks, shufflesIntoLibraryInsteadOfGraveyard, addMana } from "../../gameState.js"; // + shufflesIntoLibraryInsteadOfGraveyard (#582): Saw in Half's "dies this way" verdict
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // ④-BD — the counter rider's delayed "may draw up to N" (Arcane Denial); delayedTrigger imports only gameState (cycle-safe)
 import { checkDiesTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../../triggers.js";
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
-import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandCard, massCreatureTargets } from "./shared.js";
+import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandCard, massCreatureTargets, nonlandPermanentsWithManaValueAtMost } from "./shared.js";
 import { applyCreateToken, applyCreateNamedToken, applyCreateTokenCopy } from "./tokens.js"; // + applyCreateTokenCopy (#582): Saw in Half's copies ride the shared token-copy minter
 import { applyTutor, millOnePlayer } from "./library.js";
 import { applyZoneMove, applyExileUntilLeaves } from "./zones.js";
@@ -1342,6 +1342,43 @@ function applyMassDestroyTreasurePerNontoken(state, atom, ctx) {
 }
 
 /**
+ * ===== CULLING RITUAL (play-weighted #587) ===== "Destroy each nonland permanent with mana value 2 or less. Add {B} or {G}
+ * for each permanent destroyed this way." ONE atom (templateMatchers.matchMassDestroyManaPerDestroyed): the second sentence
+ * counts what the first destroyed, a back-reference the sentence split would orphan.
+ *
+ * THE SET is fixed as the effect is applied (CR 608.2h): every nonland permanent on every battlefield with mana value mvMax or
+ * less (shared.nonlandPermanentsWithManaValueAtMost — tokens and face-down permanents at 0, never a land). The spell itself is
+ * on the stack, not the battlefield, so it is never in the set.
+ *
+ * "DESTROYED THIS WAY" (CR 701.8a/b) is read from the board as the destruction begins — the set is destroyed in one
+ * simultaneous event (CR 608.2f) — through applyDestroyEffect's own ladder (spellEffects.destructionReplacementFor): an
+ * indestructible permanent (CR 702.12b), or one that removes a shield counter (CR 122.1c), regenerates (CR 701.8c) or is saved
+ * by umbra armor (CR 702.89a), is NOT destroyed and adds nothing. A permanent that is destroyed but sent somewhere other than
+ * its graveyard by a replacement (Rest in Peace, Leyline of the Void) WAS destroyed and counts (the Oracle rulings on Bane of
+ * Progress and Fumigate). Reading the ladder rather than "which permanents left the battlefield" keeps out an Aura that
+ * survives its own destruction (a shield counter, indestructible) but is moved to the graveyard early because its host was
+ * destroyed before it — that Aura is put there by CR 704.5m, never destroyed. Accepted under-read: an umbra-armor Aura above
+ * the mana-value bound, destroyed in place of its host in the set, is not counted.
+ *
+ * THE MANA goes to the controller's pool (CR 106.4 — it empties as steps and phases end, like any other). Each mana is {B} or
+ * {G}, the controller's choice per mana (CR 608.2d; the card's 2021-04-16 ruling: "You aren't limited to one color"). House
+ * policy, deterministic: round-robin over the printed colors in printed order — the split applyAddRestrictedMana already uses
+ * for "any combination of colors" — so three destroyed add {B}{G}{B}. Every split is a legal choice.
+ */
+function applyMassDestroyAddManaPerDestroyed(state, atom, ctx) {
+  const victims = nonlandPermanentsWithManaValueAtMost(state, atom.mvMax);
+  const destroyed = victims.filter((t) => !destructionReplacementFor(state, findPermanent(state, t.id).permanent, atom.cannotRegenerate)).length;
+  let next = applyDestroyEffect(state, { controller: ctx.controller, targets: victims, cannotRegenerate: atom.cannotRegenerate });
+  const mana = {};
+  for (let i = 0; i < destroyed; i++) {
+    const color = atom.colors[i % atom.colors.length];
+    mana[color] = (mana[color] || 0) + 1;
+  }
+  for (const [color, amount] of Object.entries(mana)) next = addMana(next, { playerId: ctx.controller, color, amount });
+  return logEvent(next, { kind: "spell-effect", effect: "mass-destroy-add-mana-per-destroyed", controller: ctx.controller, destroyed, mana });
+}
+
+/**
  * BASILISK TOUCH enqueue (BLITZ DG-1, CR 511) — the destroy-at-end-of-combat resolver does NOT destroy:
  * it pushes a TURN-STAMPED entry onto state.endOfCombatEffects for the triggering creature (the contact
  * partner — ctx.triggeringPermanentId, the thatCreature referent). combatResolution.drainEndOfCombatEffects
@@ -1422,6 +1459,7 @@ export const removalResolvers = {
   "self-at-end-of-combat": applySelfAtEndOfCombat, // ④-AX — "sacrifice it / return it to its owner's hand at end of combat" (the attacks-or-blocks self class)
   "champion": applyChampion, // ===== CHAMPION (CR 702.71a) ===== exile ANOTHER own nontoken creature of the named type, linked to the source via the shared detain resolver (so the return is the one already proven); sacrifice the source when no legal offering exists
   "mass-destroy-treasure-per-nontoken": applyMassDestroyTreasurePerNontoken, // BLOOD-MONEY — destroy all creatures + a tapped Treasure per nontoken creature destroyed
+  "mass-destroy-add-mana-per-destroyed": applyMassDestroyAddManaPerDestroyed, // CULLING RITUAL (#587) — destroy each nonland permanent with mana value N or less + one {X}-or-{Y} mana per permanent destroyed
   "destroy-at-end-of-combat": applyDestroyAtEndOfCombat, // BASILISK TOUCH (DG-1, CR 511) — enqueue a turn-stamped delayed destroy; combatResolution drains it
   "destroy": (state, atom, ctx) =>
     atom.diesCopyRider
