@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Reprieve** — return target spell to its owner's hand (an uncounterable one too), then draw a card; also **Bilbo's Gambit** (without the gift) and **Spellscorn Coven // Take It Back**
 - **Necropotence** — skip your draw step; cards you discard are exiled; pay 1 life to exile the top card of your library face down and put it into your hand at your next end step
 - **Valakut Awakening** — put any number of cards from your hand on the bottom of your library, then draw that many plus one
 - **Unbreakable Formation** — your creatures gain indestructible; cast in your main phase, each of them also gets a +1/+1 counter and vigilance (a copy, or a cast during combat, gets only the indestructible)
@@ -26,6 +27,8 @@ summarizes the notable changes.
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
 
 ### Fixed
+- A countered or returned split, modal double-faced or adventure spell now goes to its zone as the whole card; a flashback spell that is countered or bounced is exiled as flashback says (it used to return to hand, castable again); a countered copy of a spell no longer leaves a card behind
+- An Adventure that fizzles now goes to the graveyard instead of being exiled on its adventure, and a copy of an Adventure no longer puts an extra card into exile
 - A permanent put onto the battlefield without being cast (reanimated, searched up, blinked, put from your hand) now enters the way its card says: tapped, with its counters, with its choices made, and with others' "enters with" effects applied; it used to enter as if those lines weren't there (a reanimated Spike Feeder died with no counters, a fetched shockland or check land came in untapped for free)
 - A creature you stole (Act of Treason, Control Magic …) now goes to its owner's graveyard, hand, library or exile when it leaves the battlefield, and undying/persist return it under its owner; it used to go to the thief's
 - The cleanup step's hand-size discard now triggers "whenever you discard" abilities, and triggers that happen during cleanup resolve in that turn's cleanup instead of the next turn

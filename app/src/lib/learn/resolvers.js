@@ -562,7 +562,13 @@ export const RESOLVERS = Object.freeze({
     // a pendingChoice and the rest of the atoms run on resume; the exile is applied now regardless. That's safe
     // for the whole clean adventure set — no clean adventure effect targets/references its own card, so the
     // card sitting in exile during the pause changes nothing (verified by the corpus audit).
-    return params?.adventureExile ? applyAdventureExile(next, params.adventureExile) : next;
+    if (!params?.adventureExile) return next;
+    // A FIZZLED Adventure never resolved (CR 608.2b — every target illegal: "removed from the stack and … put into its
+    // owner's graveyard"), and 715.3d replaces only the graveyard "as it resolves" — so the full card goes to its owner's
+    // graveyard and the creature is not castable from exile. The fizzle is read off what this resolution logged (the
+    // interpreter's entry check is the only "spell-fizzle" a program run writes), never predicted from the board.
+    const fizzled = (next.log || []).slice((state.log || []).length).some((e) => e.kind === "spell-fizzle");
+    return fizzled ? finishSpellResolution(next, params.adventureExile) : applyAdventureExile(next, params.adventureExile);
   },
 
   // Equip/Aura attach (CR 701.3): move the equipment onto the target creature. Re-checks

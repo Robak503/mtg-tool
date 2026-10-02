@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **21 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,437)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+26**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **22 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,440)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+29**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,24 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 48: Reprieve (EDHREC #603) — return target spell to its owner's hand · **+3** · corpus 15,440
+> Suite **18,224** green (one run with Talon Gates of Madara, Cloud Key, Saw in Half and Culling Ritual). Flip-diff **+3, −0, zero RETIERED**:
+> Reprieve → native-spell; Bilbo's Gambit → native-spell (the existing gift policy never promises, so its base mode is the whole
+> spell — a documented under-read); Spellscorn Coven // Take It Back → native-mixed. Top 1,000 **876**; top 2,500 **1,713**.
+> **Mutants 13/13**, restore byte-identical. Built by a fan-out builder; re-verified on the integrated tree.
+> · "Return target spell to its owner's hand" parses to the existing stack-only bounce (Hullbreaker's), with no controller limit.
+>   Returning is not countering: an uncounterable spell is still returned; abilities are never targets. The card goes to its
+>   OWNER's hand (CR 400.3) as the whole card: counterSpellById now moves the whole split / modal-DFC / adventure card, never
+>   the cast face's projection.
+> · ⚑ Stack fixes (legality): a COPY of a spell goes to no zone and records no graveyard event (CR 704.5e, 707.10a); flashback's
+>   exile overrides any named destination (CR 702.34a — Remand, Memory Lapse and Venser sent a flashback spell to hand or library,
+>   castable again); a fizzled Adventure goes to its owner's graveyard, not adventure exile (CR 608.2b, 715.3d); a copy of an
+>   Adventure puts no second card into exile (CR 715.3c); a card cast from exile drops its on-an-adventure permission (CR 400.7).
+>   Witness `reprieve.test.js` (26).
+> · ⚠️ Found, not fixed (queued): other exile-permission stamps (plotted, suspend, hideaway) survive a cast from exile; copies of
+>   permanent spells made from a face cast keep the printed card (a duplicate card when the token leaves); a wrong-content
+>   citation (CR 712.4a — meld — for front-face typing in stack.js).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: a permanent that wasn't cast still enters as its replacement effects say (CR 614.12) · **±0**
 > Suite **18,099** green. Flip-diff **0 / 0 / 0** (runtime-only). **Mutants 22/22**, restore byte-identical. Built by a fan-out builder;

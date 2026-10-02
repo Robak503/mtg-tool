@@ -112,9 +112,11 @@ function placeCounteredCard(player, card, dest) {
 
 /**
  * Counter the spell — or ABILITY — with id `spellId` on the stack (CR 701.6a): remove it from the stack,
- * logging the counter (an optional `via` tag, e.g. "soft-counter", records HOW). A SPELL goes to its
- * controller's graveyard by default, or to the zone named by `counterDest` ("exile"/"hand"/"library-top" —
- * the CNT-ZONE-REDIRECT riders: Deny Existence / Remand / Memory Lapse); a countered ACTIVATED/TRIGGERED
+ * logging the counter (an optional `via` tag, e.g. "soft-counter", records HOW). A SPELL's card goes to its
+ * owner's graveyard by default, or to the zone named by `counterDest` ("exile"/"hand"/"library-top" —
+ * the CNT-ZONE-REDIRECT riders: Deny Existence / Remand / Memory Lapse; the not-a-counter moves — Venser's and
+ * Reprieve's hand, Mindbreak Trap's exile — take the same lane); a flashback cast is exiled whatever the zone named, and
+ * a COPY of a spell reaches no zone at all. A countered ACTIVATED/TRIGGERED
  * ABILITY is not a card and goes to no zone — it simply leaves the stack and ceases to exist (CR 701.6a). An
  * object no longer on the stack (left mid-resolution) is a logged fizzle, never an error. Shared by the hard
  * counter (applyCounter) AND the SOFT-CNT pay-decline path (runProgram.resolveSoftCounterChoice — KW-WARD-PR2
@@ -125,10 +127,13 @@ export function counterSpellById(state, spellId, { via = null, exileInstead = fa
   const idx = (state.stack || []).findIndex((o) => o.id === spellId);
   if (idx === -1) return logEvent(state, { kind: "spell-effect", effect: "counter-fizzle", targetId: spellId });
   const targetObj = state.stack[idx];
-  // GY-3 (CR 715.4): a countered ADVENTURE cast puts the FULL combined card into the graveyard, not
-  // the face projection riding as `source` (same id, face-typed). The full card is on the payload
-  // only for adventure casts; every other spell is byte-identical.
-  const card = targetObj.payload?.params?.adventureExile?.card || targetObj.source;
+  const params = targetObj.payload?.params;
+  // THE WHOLE CARD leaves the stack, never the projection a face cast rides as `source` (same id, one face's
+  // characteristics): GY-3 (CR 715.4) — an Adventure's full combined card; a split card's half (CR 709.4 — both halves
+  // in every zone but the stack), a modal DFC's spell face (CR 712.8a) and a flashback cast's cost view — the
+  // disposition's card, the one taken out of its zone; a permanent face (an adventurer's creature, a modal DFC's
+  // permanent front) — `printedCard`. A plain cast's source IS its card, so every other spell is byte-identical.
+  const card = params?.adventureExile?.card || params?.spellToGraveyard?.card || params?.printedCard || targetObj.source;
   const controller = targetObj.controller;
   const isSpell = targetObj.kind === "spell"; // an ability is not a card → no zone change on counter
   const newStack = [...state.stack.slice(0, idx), ...state.stack.slice(idx + 1)];
@@ -136,12 +141,16 @@ export function counterSpellById(state, spellId, { via = null, exileInstead = fa
   // (shelf D3 — the stack object's `owner` stamp). An owner who has left the game takes nothing back (CR 800.4a).
   const ownerId = targetObj.owner || controller;
   const player = state.players[ownerId];
-  // FLASHBACK (CR 702.34a): a spell cast for its flashback cost is exiled — not graveyard'd — when it leaves the
-  // stack for ANY reason, including a counter. The `exile:true` rider on the cast's spellToGraveyard disposition
-  // rides the stack object's payload, so a countered flashback spell diverts to exile here (else it would return
-  // to the graveyard and the flashback offer would re-fire — the infinite-recast FP).
-  const flashbackExile = !!targetObj.payload?.params?.spellToGraveyard?.exile;
-  let dest = counterDest || (exileInstead ? "exile" : (flashbackExile ? "exile" : "graveyard")); // exileInstead → counterDest:"exile" alias
+  // A COPY of a spell is not a card: in any zone but the stack it ceases to exist (CR 704.5e, 707.10a). It leaves the
+  // stack for no zone — countered, returned to a hand or exiled alike — and never enters a graveyard.
+  const placesCard = isSpell && !targetObj.isCopy && !!player;
+  // FLASHBACK (CR 702.34a): "exile this card instead of putting it anywhere else any time it would leave the stack" —
+  // the exile overrides every destination a counter or a bounce names (the graveyard, Remand's and Reprieve's hand,
+  // Memory Lapse's library). The `exile:true` rider on the cast's spellToGraveyard disposition rides the stack
+  // object's payload (else the card would return to the graveyard and the flashback offer would re-fire — the
+  // infinite-recast FP — or reach a hand to be cast again).
+  const flashbackExile = !!params?.spellToGraveyard?.exile;
+  let dest = flashbackExile ? "exile" : (counterDest || (exileInstead ? "exile" : "graveyard")); // exileInstead → counterDest:"exile" alias
   // P·27 — a countered spell bound for a graveyard the exile-instead replacement covers is exiled instead (CR 614.1a).
   const exileVerdict = dest === "graveyard" && isSpell ? graveyardExileFor(state, card, ownerId) : null;
   if (exileVerdict) dest = "exile";
@@ -149,13 +158,13 @@ export function counterSpellById(state, spellId, { via = null, exileInstead = fa
   let next = {
     ...state,
     stack: newStack,
-    players: (isSpell && player)
+    players: placesCard
       ? { ...state.players, [ownerId]: placeCounteredCard(player, placedCard, dest) }
       : state.players,
   };
   // GY-EVENT (SHELF S7): a countered SPELL whose disposition is the default graveyard enters it from the
   // stack (CR 701.6a). A redirected disposition (exile / hand / library-top) never touches a graveyard.
-  if (isSpell && player && dest === "graveyard" && card) {
+  if (placesCard && dest === "graveyard" && card) {
     next = recordGraveyardEvents(next, [{ dir: "enter", card, gyOwner: ownerId, zone: "stack" }]);
   }
   // Log the destination (`dest`) for any non-graveyard zone; keep the legacy `exiled:true` flag for the exile
@@ -1639,11 +1648,14 @@ function copyAtomIntent(atom) {
  * put another object with the original card's id into a graveyard (the instant/sorcery copy did, until P·23) — and "if
  * this spell was cast from a graveyard" reads false for it. The main-phase cast stamp goes too (play-weighted #564 —
  * Unbreakable Formation): "if you cast this spell during your main phase" reads null for a copy, so its Addendum never
- * applies to one.
+ * applies to one. The Adventure's exile is the same kind of disposition: a copy of an Adventure is an Adventure (CR 715.3c)
+ * but no card, so it is never exiled on an adventure (CR 715.3d) — it would put a second object with the original card's id
+ * into exile, its creature castable.
  */
 export function spellCopyPayload(payload) {
   const cloned = JSON.parse(JSON.stringify(payload)); // every spell payload carries params (the dispatcher builds them all)
   delete cloned.params.spellToGraveyard;
+  delete cloned.params.adventureExile;
   if (cloned.params.context) {
     delete cloned.params.context.castFromGraveyard;
     delete cloned.params.context.castDuringMainPhase;
@@ -2010,6 +2022,7 @@ function applyCopyCreatureSpell(state, atom, ctx) {
  * uncounterable spells, and why no countered-watcher exists to mis-fire (verified: triggers.js has no
  * such event). A BATTLEFIELD target routes through applyZoneMove → hand (the ordinary bounce). A target
  * in neither place fizzled (left the zone before resolution) — a clean no-op per target (CR 608.2b).
+ * The spell-only forms ride the same resolver: Hullbreaker Horror's "spell you don't control", Reprieve's "target spell".
  */
 /**
  * EXILE TARGET SPELLS (shelf D17 — Mindbreak Trap): each chosen spell still on the stack goes to its owner's exile — the Venser

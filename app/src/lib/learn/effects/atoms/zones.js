@@ -1428,6 +1428,13 @@ export function bounceClauseParser(clause) {
   if (/^return target spell you don't control to its owner's hand$/.test(t)) {
     return { op: "bounce-spell-or-permanent", targetType: "spell", notCounter: true, spellController: "opponent" };
   }
+  // REPRIEVE (the play-weighted program, #603): "return target spell to its owner's hand" — the same stack half with no
+  // controller scope, so any spell is a legal target, the caster's own included. Never an ability (CR 113.9 — abilities on
+  // the stack aren't spells; the stack-spell pool reads only `kind: "spell"`), and not a counter (CR 701.6a), so an
+  // uncounterable spell is a legal target.
+  if (/^return target spell to its owner's hand$/.test(t)) {
+    return { op: "bounce-spell-or-permanent", targetType: "spell", notCounter: true };
+  }
   // NAME-LOCK BOUNCE (SHELF-85 B4, 2026-09-04 — Reflector Mage): the splitter's sentinel for "… to its owner's hand.
   // That creature's owner can't cast spells with the same name as that creature until your next turn." The bounce is
   // the plain opponent-scoped creature bounce; the rider records a per-player NAME cast lock (gameState.nameCastLocks)
