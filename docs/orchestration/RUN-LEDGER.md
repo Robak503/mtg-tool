@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **23 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,441)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+30**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **24 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,442)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+31**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,21 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 50: Cloud Key (EDHREC #608) — the as-enters card-type choice · **+1** · corpus 15,442
+> Flip-diff **+1, −0, zero RETIERED**: Cloud Key → native-static. Top 1,000 **878**; top 2,500 **1,715**. **Mutants 37/37** on the integrated
+> tree (the builder's 39, its three per-entry-site mutants folded into one: on master every entry reads the shared entry leaf),
+> restore byte-identical. Built by a fan-out builder; re-verified on the integrated tree.
+> · "As this artifact enters, choose artifact, creature, enchantment, instant, or sorcery." stores `chosenCardType` — its own field,
+>   never the creature-type `chosenType` — and is made in the shared entry leaf (`enterReplacements.js`), so every entry chooses:
+>   cast, put, search, reanimation, blink, The Ur-Dragon; a token copy makes its own. The policy picks the type naming the most
+>   cards in hand + library. "Spells you cast of the chosen type cost {1} less" judges the face being cast; a bestowed spell is
+>   an enchantment only. Gathering Stone's identical reducer line, under a creature-type chooser, builds nothing. Witness
+>   `cloudKey.test.js` (27); one `costReductionMetric.test.js` pin re-pointed (it pinned the unmodeled chooser).
+> · Docs: ENGINE-SCAFFOLD §4.5 now documents the entry-replacement leaf (the 10-02 non-cast entry fix).
+> · ⚠️ Found, not fixed (queued): token copies skip their own entry replacements ("enters with" counters, enters tapped, as-enters
+>   choices); the bestow cost lane reads the printed "Enchantment Creature" line for every other reducer and tax (a creature
+>   reducer over-discounts a bestow cast; Thalia's tax misses it).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 49: Talon Gates of Madara (EDHREC #570) — the hand self-put lane · **+1** · corpus 15,441
 > Flip-diff **+1, −0, zero RETIERED**: Talon Gates of Madara → land. Top 1,000 **877**; top 2,500 **1,714**. **Mutants 23/23**, restore

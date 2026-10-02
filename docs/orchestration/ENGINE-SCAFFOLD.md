@@ -304,6 +304,15 @@ ends in `finalizeStackResolution` (flush triggers + drain leave events). There a
 `pendingChoiceKinds.test.js` + `omnathSeam.test.js`; the PLAY-API-CONTRACT list is
 informative, the export is truth).
 
+**Entry replacements** (`enterReplacements.js`, 2026-10-02): `applyEnterReplacements` (enters tapped, the
+counters a permanent enters with, the as-enters choices: chosen creature type, colour, card type) and
+`settleEnterReplacements` (the shockland's life payment, the CR 122.6 counter events, riot's haste, Fabricate's
+Servos) are the ONE reader both entries share: `resolvers.enterPermanent` (a permanent spell resolving; it passes
+the cast facts: X, kicks, colours spent) and `zones.enterCardFromZone` (every put, reanimation, blink return and
+mass return; a permanent that wasn't cast has X = 0). A one-event entry (Living Death, Rise of the Dark Realms,
+Genesis Wave, a multi-pick put) passes `replacementState`, the board as the event began (CR 614.12). A new
+"enters with" / "as this enters" ability goes in this leaf, never at an entry site.
+
 ### 4.6 Layers (`layers.js`, CR 613)
 
 Continuous effects are derived in CR-613 layer order (7a CDA → 7b set → 7c

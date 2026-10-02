@@ -1827,7 +1827,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       if (!freeCast) {
         const staticTax = costTaxForSpell(costTaxers, card, playerId);   // increases before decreases (CR 601.2f)
         if (staticTax) bestowCost = { ...bestowCost, generic: (bestowCost.generic || 0) + staticTax };
-        const reduction = costReductionForSpell(costReducers, card, fromZone, { spellsCastThisTurn: player.spellsCastThisTurn || 0 }, everyType) + selfCostReductionForSpell(state, playerId, card);
+        // `bestowed` (CLOUD KEY): a spell cast bestowed becomes an Aura enchantment (CR 702.103b) — its card type set, the old
+        // ones replaced (CR 205.1a) — so the chosen-card-type reducer reads it as an enchantment spell and no creature spell;
+        // judged on the printed "Enchantment Creature" line, a chosen "creature" would discount the bestow cast too.
+        const reduction = costReductionForSpell(costReducers, card, fromZone, { spellsCastThisTurn: player.spellsCastThisTurn || 0, bestowed: true }, everyType) + selfCostReductionForSpell(state, playerId, card);
         if (reduction) bestowCost = { ...bestowCost, generic: Math.max(0, (bestowCost.generic || 0) - reduction) };
         bestowCost = applyColoredPipReduction(bestowCost, costReducers, card, everyType);
       }

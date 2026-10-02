@@ -91,8 +91,13 @@ describe("CHOSEN-TYPE — parser marker", () => {
     expect(parseStaticAbilities(MOROPHON())).toContainEqual({ costReduction: { chosenType: true, pips: { W: 1, U: 1, B: 1, R: 1, G: 1 } } });
     expect(parseStaticAbilities(MOROPHON()).some((d) => d.costReduction?.amount != null)).toBe(false);
   });
-  it("a CARD-type chooser reducer ('Spells you cast of the chosen type …' — Cloud Key) → NO marker (no 'Creature spells' lead)", () => {
-    expect(parseStaticAbilities({ type: "Artifact", oracle: "As this artifact enters, choose artifact, creature, enchantment, instant, or sorcery.\nSpells you cast of the chosen type cost {1} less to cast." }).some((d) => d.costReduction)).toBe(false);
+  // RE-POINTED (Cloud Key, play-weighted #608): this pinned NO marker while the card-type chooser was unmodeled. Its intent —
+  // a card-type chooser's reducer is never read as a creature-type (`chosenType`) reducer — still holds; the card now carries
+  // its own chosen-CARD-type marker instead (chosenCardType.js; the behavior is witnessed in cloudKey.test.js).
+  it("a CARD-type chooser reducer ('Spells you cast of the chosen type …' — Cloud Key) → NO creature-type marker; its own chosen-card-type marker", () => {
+    const statics = parseStaticAbilities({ type: "Artifact", oracle: "As this artifact enters, choose artifact, creature, enchantment, instant, or sorcery.\nSpells you cast of the chosen type cost {1} less to cast." });
+    expect(statics.some((d) => d.costReduction?.chosenType)).toBe(false);
+    expect(statics).toEqual([{ costReduction: { chosenCardType: true, amount: 1 } }]);
   });
 });
 

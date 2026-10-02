@@ -32,6 +32,7 @@ import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // the closed cr
 // a zero-import leaf this file ALREADY imports — so the edge adds no new module-init ordering (verified with
 // the mandatory `node -e "import './src/lib/learn/legalChoices.js'"` graph check, per the run ledger).
 import { COUNT_SUBTYPE, TARGET_SUBTYPES } from "./effects/parseHelpers.js"; // TARGET_SUBTYPES: othersEnterWithCounters (H8) vets its "<Subtype> creature" word
+import { chosenCardTypeReducer, spellHasChosenCardType } from "./chosenCardType.js"; // CLOUD KEY — the chosen-card-type reducer's reader + spell match (a leaf over the zero-import choicePolicy)
 
 // The closed vocabulary a "cast <X> spells from the top of your library" filter word must belong to. Card
 // types (CR 205.2a) plus every printed creature type; anything else parks the clause. Built LAZILY on first
@@ -2684,8 +2685,9 @@ function parseClause(clause, out, selfName, selfType) {
   // permanent's chosenType at the cast site (the type isn't known at parse time). REQUIRES the "Creature
   // spells" lead — every modeled chosen-type *creature* reducer is creature-typed (Incubator/Herald), and
   // permHasChosenType tests a CREATURE subtype, so a "Spells … of the chosen type" (Cloud Key — CARD-type
-  // chooser, NOT a creature type) must NOT match here (its chooser is unmodeled → it stays body-only, a safe
-  // FN). "you cast" is optional (Incubator omits it; Herald includes it). Anchored ^…$.
+  // chooser, NOT a creature type) must NOT match here: its reducer is emitted at card level beside its own
+  // chooser (parseStaticAbilities, chosenCardType.js). "you cast" is optional (Incubator omits it; Herald
+  // includes it). Anchored ^…$.
   const ctcrM = c.match(/^creature spells (?:you cast )?of the chosen type cost \{(\d+)\} less to cast$/);
   if (ctcrM) {
     out.push({ costReduction: { chosenType: true, amount: parseInt(ctcrM[1], 10) } });
@@ -5269,6 +5271,15 @@ export function parseStaticAbilities(card) {
     if (out.some((d) => d?.costReduction?.chosenType) && !/choose a creature type/i.test(rawOracle)) {
       out = out.filter((d) => !d?.costReduction?.chosenType);
     }
+    // ⭐ CHOSEN CARD TYPE COST-REDUCTION (Cloud Key — "Spells you cast of the chosen type cost {1} less to cast." beside "As this
+    // artifact enters, choose artifact, creature, enchantment, instant, or sorcery."). Emitted HERE, at card level, and never by
+    // parseClause: the reducer line means a card type only beside that chooser (under a creature-type chooser — Gathering Stone
+    // — the same words mean a creature type), and parseClause sees one clause at a time. So the per-clause credit paths
+    // (staticAbilitiesCoverCard, clauseProducesStatic) leave both lines as residue, and only the whole-card classifier in
+    // coverage.js credits the card, through the same chosenCardTypeReducer reader. collectCostReducers pairs the descriptor with
+    // its SOURCE permanent's `chosenCardType` at the cast site (CR 601.2f — generic only, floored at {0}; CR 118.7a).
+    const cctReducer = chosenCardTypeReducer(card);
+    if (cctReducer) out.push({ costReduction: { chosenCardType: true, amount: cctReducer.amount } });
   } else if (rawOracle) {
     // LEVEL UP (BLITZ LV-1, CR 711.2a/b): a WHOLLY-MODELED leveler's band symbols ARE static
     // abilities — "as long as this creature has at least N1 (at most N2) level counters on it, it
@@ -5397,7 +5408,12 @@ export function collectCostReducers(permanents, { commandZone = false } = {}) {
       // Stamp the source's chosenType onto a chosen-type reducer so costReductionForSpell can match the spell's
       // type line against it. A chosen-type reducer whose source has NO chosenType (never resolved its ETB
       // chooser) is INERT — keep it (the match guard returns 0), never fabricate a type.
-      reducers.push(d.costReduction.chosenType ? { ...d.costReduction, sourceChosenType: chosenType } : d.costReduction);
+      // CLOUD KEY: a chosen-CARD-type reducer pairs with the source's own `chosenCardType` instead (never `chosenType`, which
+      // holds a creature type). A source that made no choice — one turned face up, which never entered with the ability —
+      // stamps nothing, and the reducer matches no spell.
+      reducers.push(d.costReduction.chosenType ? { ...d.costReduction, sourceChosenType: chosenType }
+        : d.costReduction.chosenCardType ? { ...d.costReduction, sourceChosenCardType: entry?.chosenCardType }
+          : d.costReduction);
     }
   }
   return reducers;
@@ -5465,6 +5481,14 @@ export function costReductionForSpell(reducers, spellCard, fromZone = "hand", ca
       continue;
     }
     if (r.plot) continue;
+    // CHOSEN CARD TYPE (Cloud Key): the spell has the card type the SOURCE chose as it entered (`sourceChosenCardType`, stamped by
+    // collectCostReducers) — judged on the face being cast, any of a multi-typed spell's card types counting (CR 205.2b), and a
+    // spell cast bestowed as the enchantment it is (castContext.bestowed — CR 702.103b). A source with no choice matches nothing.
+    if (r.chosenCardType) {
+      if (!spellHasChosenCardType(spellCard, r.sourceChosenCardType, { bestowed: !!castContext?.bestowed })) continue;
+      total += r.amount;
+      continue;
+    }
     // ⭐ SUBTYPE UNION (the Banneret cycle — "Goblin spells and Rogue spells you cast cost {1} less"): the
     // spell is reduced if it carries EITHER subtype, and reduced ONCE. Emitting two separate reducers instead
     // would give a Goblin Rogue {2} off a card that says {1} — a cheaper spell than the card allows, which is

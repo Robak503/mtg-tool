@@ -66,6 +66,7 @@ import { isNativeGroupWard } from "./groupWard.js";
 import { isControlAura } from "./controlAura.js"; // the control-Aura delivery check, shared with the runtime attach/revert (controlAura imports only controlMove, a zero-import leaf, so this edge is acyclic)
 import { auraEnchantRestrictions } from "./staticAbilityParser.js"; // the qualified-subject host filter, shared with legalChoices' cast lane so offer + metric read ONE source
 import { isNativeKira } from "./kiraTargetCounter.js";
+import { chosenCardTypeReducer, chosenCardTypeResidue } from "./chosenCardType.js"; // CLOUD KEY — the card-type chooser + its reducer, the reader the cast lane's descriptor comes from (a leaf over the zero-import choicePolicy)
 import { isEnforcedEvasionClause, selfDamagePrevention, selfDamagePreventionBy, counterShieldPrevention, attachedPreventPutCountersOf, selfPreventPutCounters, attachedExceptByOf } from "./combatEvasion.js";
 import { entersTappedUnlessCondition, paysLifeOrEntersTapped, revealLandTypes } from "./landEntersTapped.js"; // LANDS-TIER — the conditional enters-tapped reader BOTH enter sites consult (metric and runtime read one function)
 import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
@@ -4615,8 +4616,8 @@ registerCoverageClassifier((card) => classifySelfCostReduction(card));
 // DIFFERENT mechanic that fails triggerRoutesNatively) and any OTHER trigger keep residue → null (their reducer
 // STILL applies at runtime; only the flip is withheld — a safe FN). A bare reducer (no trigger — Urza's
 // Incubator) is unchanged → native-static. Additive-seam, mechanism-keyed (a future bare twin flips too). The
-// card-type-chooser variants (Cloud Key / Umori / Stenn — "choose a CARD type") are NOT matched (the chooser RE
-// wants a CREATURE type) and stay body-only, since that chooser is unmodeled.
+// card-type-chooser variants are NOT matched here (the chooser RE wants a CREATURE type): Cloud Key's card-type
+// chooser has its own classifier below; Umori / Stenn ("choose a card type …") stay body-only, their chooser unmodeled.
 const CT_COST_REDUCER_RE = /creature spells (?:you cast )?of the chosen type cost \{\d+\} less to cast\.?/i;
 function classifyChosenTypeCostReducer(card) {
   const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
@@ -4654,6 +4655,23 @@ function classifyChosenTypeCostReducer(card) {
   return mixed ? "native-mixed" : "native-static";
 }
 registerCoverageClassifier((card) => classifyChosenTypeCostReducer(card));
+
+// ─── CHOSEN CARD TYPE COST-REDUCTION — Cloud Key (the play-weighted program, #608) ─────────────────────────────────────────
+// "As this artifact enters, choose artifact, creature, enchantment, instant, or sorcery." + "Spells you cast of the chosen type
+// cost {1} less to cast." The CARD-type sibling of the creature-type reducer above, and deliberately not a branch of it: the
+// choice is stored in its own field (chosenCardType.js), so a card type can never be read as a creature type. WHOLE-CARD
+// (CREED) — every line is one of exactly two:
+//   • the chooser — made on every entry (chosenCardTypeOnEnter at each enter site, CR 614.12a) by the documented policy
+//     (choicePolicy.autoPickCardType — always one of the five);
+//   • the reducer — vouched by chosenCardTypeReducer, the SAME reader parseStaticAbilities emits the cast lane's descriptor from,
+//     so the credit and the discount the cast lane applies cannot drift (generic mana only, floored at {0} — CR 601.2f, 118.7a).
+// Both lines are residue to every per-clause path (the reducer is emitted at card level only), so nothing else can credit
+// them; any other line on the card is residue here → null. Returns native-static.
+function classifyChosenCardTypeCostReducer(card) {
+  if (!chosenCardTypeReducer(card)) return null;                 // the chooser AND the reducer, read as the runtime reads them
+  return chosenCardTypeResidue(card).length === 0 ? "native-static" : null;
+}
+registerCoverageClassifier((card) => classifyChosenCardTypeCostReducer(card));
 
 // ─── X-CAST-TOKEN COMMANDER — Zaxara, the Exemplary (Sultai X-spell deck commander) ──────────────────────────
 // "Whenever you cast a spell with {X} in its mana cost, create a 0/0 green Hydra creature token, then put X

@@ -6,6 +6,7 @@ import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintI
 import { tokenMultiplier, tokenAdditive, tokenExtraKinds, tokenOneOfEachPasses, applyCounterDoubling } from "../../replacementEffects.js"; // + tokenOneOfEachPasses — Academy Manufactor (Bumble F4) // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter; Xorn additive Treasure bonus
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
+import { chosenCardTypeOnEnter } from "../../chosenCardType.js"; // CLOUD KEY (CR 707.5 + 614.12a) — a token copy makes the copied "as this enters" card-type choice; a leaf over choicePolicy only
 import { addContinuousEffect } from "../../layers.js"; // MINTED-TOKEN HASTE (shelf D26) — "It gains haste." after a token copy is a lasting layer-6 grant (layers imports no atoms — cycle-free)
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec, halveAmount } from "./shared.js";
 import { SMALL_NUM, NUM_WORD, parseCountSource, parseTokenManaAbility, parseTokenTriggeredAbility, parseTokenStaticAbility, parseTokenKeywords, BASIC_LAND_SUBTYPES } from "../parseHelpers.js"; // seam batch 18/19: shared parse helpers (leaf, cycle-free) for create-named-token + create-token clause parsers
@@ -664,7 +665,10 @@ export function applyCreateTokenCopy(state, atom, ctx) {
     // token:true is the load-bearing non-recurse guard (Miirym's nontoken gate). isCommander already
     // stripped by snapshotCopiedCard. Per-token unique id.
     const card = { ...copiable, id: `tok-${minted.id}`, token: true };
-    const perm = createPermanent({ id: minted.id, card, controller: ctx.controller, tapped: !!atom.entersTapped });
+    // CR 707.5 — a token that's a copy becomes the copy AS it enters, so the copied "as this enters" abilities take effect: a copy
+    // of Cloud Key makes its own card-type choice (CR 614.12a). It never inherits the original's: that choice sets no
+    // characteristic, so it is not a copiable value (CR 707.2).
+    const perm = { ...createPermanent({ id: minted.id, card, controller: ctx.controller, tapped: !!atom.entersTapped }), ...chosenCardTypeOnEnter(next, card, ctx.controller) };
     const player = next.players[ctx.controller];
     let entered = perm;
     // COMBAT-STATE rider (CR 508 — "enters … attacking"): a permanent characteristic of the ENTRY, not the

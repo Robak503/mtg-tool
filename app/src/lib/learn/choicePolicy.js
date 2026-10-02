@@ -79,6 +79,39 @@ export function autoPickCreatureType(state, controller, { excludePermanentId = n
 }
 
 /**
+ * AUTO-PICK a card type for an "as this enters, choose <card types>" choice (CR 614.12a — made before the permanent enters):
+ * Cloud Key's "choose artifact, creature, enchantment, instant, or sorcery", whose payoff discounts spells of the chosen type.
+ *
+ * The policy: the option naming the MOST cards the controller still has to cast — their HAND and LIBRARY, counted together
+ * (the order of the library is never read, only its contents). A card counts once for each option among its card types (an
+ * artifact creature counts for both — CR 205.2b), read off every face of its type line that is not a land (a land, even one
+ * with another card type, is played and never cast — CR 305.9). Ties break in the order `options` lists them; with nothing
+ * to count, the first option. The result is always a member of `options`, and only of `options`.
+ *
+ * `excludeCardId` leaves the entering card itself out of the count: a Cloud Key searched out of the library or put onto the
+ * battlefield from the hand is still in that zone when the choice is made, and it is not a spell still to be cast.
+ *
+ * The same deliberately-dull discipline as autoPickCreatureType above: a count of the deck, never a read of the board's threats.
+ */
+export function autoPickCardType(state, controller, options, { excludeCardId = null } = {}) {
+  const player = state?.players?.[controller];
+  const tally = new Map(options.map((o) => [o, 0]));
+  for (const c of [...(player?.hand || []), ...(player?.library || [])]) {
+    if (excludeCardId != null && c?.id === excludeCardId) continue;
+    const named = new Set();
+    for (const face of String(c?.type || c?.type_line || "").split(" // ")) {
+      if (/\bLand\b/.test(face)) continue;
+      const words = face.split(/\s+/);
+      for (const o of options) if (words.includes(o)) named.add(o);
+    }
+    for (const o of named) tally.set(o, tally.get(o) + 1);
+  }
+  let best = options[0];
+  for (const o of options) if (tally.get(o) > tally.get(best)) best = o; // strict > keeps the earlier option on a tie
+  return best;
+}
+
+/**
  * PROTECTION-COLOR auto-pick (Mother of Runes / Giver of Runes, SHELF-TAIL vein #3 — CR 702.16).
  * "Protection from the color of your choice" wants the color most likely to threaten the protected
  * creature: the MOST-REPRESENTED color among OPPONENTS' nonland permanents (each permanent counts once

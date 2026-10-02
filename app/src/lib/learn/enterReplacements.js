@@ -39,6 +39,7 @@ import { addContinuousEffect, permanentPower, permanentToughness, permIsEveryCre
 import { conditionalEntersTapped, paysLifeOrEntersTapped, autoPickOptionalLifePayment, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>"; a leaf over interveningIf
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — the entering creature is every creature type (Changeling, its controller's Maskwood Nexus) for "each other Elf enters with a counter"; a leaf over keywords.js
 import { autoPickCreatureType } from "./choicePolicy.js"; // CR 614.12 auto-choice policy — a zero-import LEAF, shared with the effect atoms. One copy, so an ETB choice and an activated choice can never diverge on the same board.
+import { chosenCardTypeOnEnter } from "./chosenCardType.js"; // CLOUD KEY (CR 614.12a) — the card-type choice made as a permanent enters; a leaf over choicePolicy only
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
 import { parseFabricate, decideFabricate, applyFabricateServos } from "./fabricate.js"; // KW-FABRICATE — ETB choice: N +1/+1 counters OR N 1/1 Servo tokens
 import { entersWithKickedCounters } from "./kicker.js"; // KICKER (CR 702.33e) — "If this creature was kicked, it enters with N +1/+1 counters"; added only when opts.kicked
@@ -455,6 +456,13 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // model's "one mana of the chosen color" leg (manaSources resolves it against THIS permanent).
   const landCC = choosesColorOnEnter(card);
   if (landCC) perm.chosenColor = autoPickManaColor(state, controller, landCC.exclude);
+  // CHOSEN CARD TYPE (Cloud Key — CR 614.1c + 614.12a): "As this artifact enters, choose artifact, creature, enchantment,
+  // instant, or sorcery." Stored in its OWN field, `chosenCardType`, never in `chosenType` (whose readers take it for a
+  // creature type) — see chosenCardType.js. `state` is pre-entry (on a non-cast entry the card is still in its source zone;
+  // chosenCardTypeOnEnter leaves it out of its own count). Read by the cast lane's chosen-card-type reducer
+  // (staticAbilityParser.collectCostReducers). A card without the chooser gets nothing. Token copies make their own choice
+  // in tokens.js.
+  Object.assign(perm, chosenCardTypeOnEnter(state, card, controller));
   // CHOSEN-TYPE ETB COUNTER (CR 614.1c + 122.6a) — Banner of Kinship enters with a <name> counter for each
   // creature the controller controls of the chosen type. Runs AFTER the chosenType auto-pick above so the
   // metric uses the just-picked type; `state` is pre-entry (the artifact isn't a creature, so it's never

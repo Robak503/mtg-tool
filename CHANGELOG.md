@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Cloud Key** — as it enters, choose artifact, creature, enchantment, instant or sorcery; spells you cast of that type cost {1} less
 - **Talon Gates of Madara** — pay {4} to put it from your hand onto the battlefield at instant speed (not a land drop); its enters trigger phases out up to one creature
 - **Reprieve** — return target spell to its owner's hand (an uncounterable one too), then draw a card; also **Bilbo's Gambit** (without the gift) and **Spellscorn Coven // Take It Back**
 - **Necropotence** — skip your draw step; cards you discard are exiled; pay 1 life to exile the top card of your library face down and put it into your hand at your next end step
