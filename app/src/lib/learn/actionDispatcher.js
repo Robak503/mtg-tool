@@ -89,7 +89,7 @@ import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf, crewCostWithOverrides, permanentColors, permIsEveryCreatureType } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell / command-zone card that is every creature type (Changeling, Maskwood Nexus); a leaf over keywords.js
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39b — every creature type shares a creature type only (CR 205.3d); a zero-import leaf
-import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch; S8 — the Pilot's crew boost
+import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility, parseHandSelfPutAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch; S8 — the Pilot's crew boost; play-weighted #570 — the hand self-put, re-read from the card
 import { parseSagaChapters } from "./saga.js"; // SAGA LAND (play-weighted P·4 — Urza's Saga): the land drop gives a Saga its entry lore counter too (a pure leaf)
 import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers, checkBecomesCrewedTriggers, checkCycleSelfTriggers, checkCrimeTriggers, checkSagaChapterTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers; S7 — becomes-crewed; D9 — crime (CR 700.13)
 import { setPendingSoftCounterChoice, setPendingOptionalLifePaymentChoice } from "./pendingChoice.js"; // setPendingOptionalLifePaymentChoice — the shockland pause (LANDS-TIER slice 2), raised from the play-land path
@@ -1319,6 +1319,45 @@ function applyActivateGyRecursion(state, action) {
 }
 
 /**
+ * HAND SELF-PUT (play-weighted #570 — Talon Gates of Madara, CR 602.2 + 113.6m): activate "{N}: Put this card from your hand
+ * onto the battlefield." FROM THE HAND. The ability is re-read from the card in hand (never trusted off the action), its
+ * generic cost is paid through the same planPayment/commitPaymentPlan every ability uses, and the ability goes ON THE STACK
+ * (kind "activated-ability", the HAND_SELF_PUT resolver), so it can be responded to. The card itself is NOT a cost: it stays
+ * in the hand, revealed (CR 602.2a), until the ability resolves — the resolver looks for it there again. The activator
+ * retains priority (CR 117.3c).
+ */
+function applyActivateHandSelfPut(state, action) {
+  const player = state.players[action.playerId];
+  const card = (player?.hand || []).find((c) => c.id === action.cardId);
+  if (!card) throw new DispatcherError(`Card ${action.cardId} not in hand`, "CARD_NOT_IN_HAND");
+  const ab = parseHandSelfPutAbility(card);
+  if (!ab) throw new DispatcherError("Card has no hand self-put ability", "NO_ABILITY");
+  const cost = parseManaCost(ab.manaPips);
+  const plan = planPayment(player.manaPool, manaSources(state, action.playerId), cost);
+  if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
+  const working = commitPaymentPlan(state, action.playerId, plan);
+  const { id: stkId, state: working2 } = mintId(working, "stk");
+  const stackObject = createStackObject({
+    id: stkId,
+    kind: "activated-ability",
+    source: card,
+    controller: action.playerId,
+    targets: [],
+    cost,
+    payload: { resolver: RESOLVER_KEYS.HAND_SELF_PUT, params: { cardId: card.id, controller: action.playerId } },
+  });
+  const next = logEvent({ ...working2, stack: [...working2.stack, stackObject] }, {
+    kind: "activate-ability",
+    playerId: action.playerId,
+    permanentId: null,
+    cardName: card.name,
+    abilityText: ab.raw,
+    fromZone: "hand",
+  });
+  return { ...next, priorityHolder: action.playerId, consecutivePasses: 0 };
+}
+
+/**
  * CREW (BLITZ VH-1, CR 702.121c) — a special activation with NO stack object in this engine (the tap is
  * the cost; the animation is the effect — modeled as an immediate resolution, the same simplification every
  * no-stack special action here uses). Re-verified live at dispatch (CREED — the action payload is untrusted):
@@ -2336,6 +2375,7 @@ const HANDLERS = {
   "activate-ability": applyActivateAbility,
   "activate-gy-recursion": applyActivateGyRecursion, // GY-1 (CR 602.2): "Return this card from your graveyard …" activated from the graveyard
   "activate-gy-exile": applyActivateGyExile, // GY-2 (CR 602.2): "<mana>, Exile this card from your graveyard: <effect>"
+  "activate-hand-self-put": applyActivateHandSelfPut, // play-weighted #570 (CR 113.6m): "{N}: Put this card from your hand onto the battlefield."
   "crew-vehicle": applyCrewVehicle, // CREW (VH-1, CR 702.121c): tap creatures totaling power ≥ N → the Vehicle animates until EOT
   "cycle": applyCycle, // KW-CYCLING: discard a hand card to draw
   "discard-ability": applyDiscardAbility, // "<mana>, Discard this card: <effect>" — cycling generalized

@@ -286,6 +286,31 @@ export function parseGraveyardSelfRecursion(card) {
 }
 
 /**
+ * HAND SELF-PUT (play-weighted #570 — Talon Gates of Madara, 2026-10-01): the exact line "{N}: Put this card from your hand
+ * onto the battlefield." on a LAND card. An ability whose effect moves the object it is on out of a zone functions only in that
+ * zone (CR 113.6m), so this one is activated from the HAND, any time its owner has priority (CR 117.1b); its resolution PUTS
+ * the land onto the battlefield, which is not playing a land and spends no land drop (CR 305.4). Shared single source: the
+ * hand offer (legalChoices), the dispatcher and the land coverage lane all key off THIS parse, so offer, payment and metric
+ * cannot drift. Narrow on purpose:
+ *  · a GENERIC mana cost only — a {T} or {X} cost has no reading for a card in hand (it is not a permanent there, and no X is
+ *    ever chosen on this lane), so such a line never matches; nor does any other cost item (Urban Retreat's returned
+ *    creature, Zareth San's returned Rogue);
+ *  · the WHOLE line — a rider ("… onto the battlefield tapped", "… tapped and attacking", "Activate only as a sorcery.")
+ *    fails the anchor and the card keeps its residue;
+ *  · a LAND only — the resolution enters the card through the ordinary permanent entry with nothing to attach it to, and an
+ *    Aura put onto the battlefield must be attached as it enters (CR 303.4f), so no other card type is read here.
+ * Returns { manaPips, raw } or null.
+ */
+export function parseHandSelfPutAbility(card) {
+  if (!/\bLand\b/.test(String(card?.type || card?.type_line || ""))) return null;
+  for (const line of String(card?.oracle || card?.oracle_text || "").split("\n")) {
+    const m = /^\{(\d+)\}: Put this card from your hand onto the battlefield\.$/.exec(line.trim());
+    if (m) return { manaPips: `{${m[1]}}`, raw: line.trim() };
+  }
+  return null;
+}
+
+/**
  * Self-name normalization (CR 201.4 — a card referring to itself by name means THIS object). An activated
  * effect like "Regenerate Wolverine." means "Regenerate this permanent" — the engine's effect parser anchors
  * the self-regen / self-pump atoms on "this creature"/"this permanent", so map the card's OWN name (full and

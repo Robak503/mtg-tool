@@ -21,7 +21,7 @@
  */
 
 import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, castsAsPlaneswalker, moveCardToZone, tapPermanent, recordGraveyardEvents, updatePermanentSafe } from "./gameState.js";
-import { queueEvokeSacrifice, checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers } from "./triggers.js";
+import { queueEvokeSacrifice, checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLandfallTriggers } from "./triggers.js";
 import { applyEnterReplacements, settleEnterReplacements, sagaEntryChapterTriggers } from "./enterReplacements.js"; // the entry replacements (CR 614.1c, 614.1d, 614.12) — the ONE reader the cast entry and the non-cast entry (zones.enterCardFromZone) share
 import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js";
@@ -623,6 +623,25 @@ export const RESOLVERS = Object.freeze({
       if (bf.length) next = tapPermanent(next, bf[bf.length - 1].id, { fromEnter: true }); // CR 701.26a: re-enters tapped ≠ "becomes tapped" — suppress the event
     }
     return logEvent(next, { kind: "spell-effect", effect: "gy-self-return", controller, dest: "battlefield", cardName: card.name, tapped: !!tapIt });
+  },
+
+  // HAND SELF-PUT (play-weighted #570 — Talon Gates of Madara, CR 113.6m): the hand-activated "{N}: Put this card from your
+  // hand onto the battlefield." The card stays in its owner's hand while the ability waits on the stack, so it is looked up
+  // there again at resolution — discarded or otherwise moved in response, the ability does nothing (a logged fizzle, never a
+  // fabricated entry). Otherwise the GY_SELF_RETURN shape: splice the card out of the hand, enter it through the SAME
+  // enterPermanent a resolved permanent spell uses (its own enters-tapped / enters-with replacements apply; its enters
+  // triggers fire, CR 603.6a), and — a LAND entering — fire landfall, which enterPermanent leaves to its callers. Not a land
+  // play: landsPlayedThisTurn is untouched (CR 305.4), and a "whenever you play a land" watcher stays quiet.
+  [RESOLVER_KEYS.HAND_SELF_PUT]: (state, obj) => {
+    const { cardId, controller } = obj.payload?.params || {};
+    const player = state.players?.[controller];
+    const card = (player?.hand || []).find((c) => c.id === cardId);
+    if (!card) return logEvent(state, { kind: "spell-effect", effect: "hand-self-put", controller, fizzled: true });
+    let next = { ...state, players: { ...state.players, [controller]: { ...player, hand: player.hand.filter((c) => c.id !== cardId) } } };
+    next = enterPermanent(next, card, controller);
+    const bf = next.players[controller].battlefield;
+    next = checkLandfallTriggers(next, bf[bf.length - 1]);
+    return logEvent(next, { kind: "spell-effect", effect: "hand-self-put", controller, cardName: card.name });
   },
 
   [RESOLVER_KEYS.MANUAL]: resolveManual,

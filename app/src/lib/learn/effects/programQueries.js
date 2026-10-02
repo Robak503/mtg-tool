@@ -499,6 +499,17 @@ export function atomTargetIntent(atom) {
       // The honest route is a distinct attacking-creature targetType the enumerator supports, which is a
       // real build for one rank-22835 card — not the one-liner an earlier ledger note called it.
       return "ambiguous";
+    case "phase-out":
+      // PHASE OUT, OPTIONAL AND UNRESTRICTED (play-weighted #570 — Talon Gates of Madara's "When this land enters, up to one
+      // target creature phases out."): an opponent's creature, the ETB-bounce reading — a blocker or an attacker treated as
+      // though it doesn't exist until its controller's next untap step (CR 702.26b, 502.1) — and the "up to" lets the
+      // chooser take NO target when no opponent has a creature (CR 115.6), so it is never forced onto its own side. The
+      // protective reading (your own creature, in response to removal) is a play the auto-chooser does not make — an
+      // under-read, never a wrong target. A MANDATORY "target creature phases out" stays ambiguous: with only the
+      // controller's creatures legal it would have to take one (CR 603.3d — the exile-from-graveyard discipline above), and
+      // a controller-restricted form (Clever Concealment's "… you control") keeps the side its restriction already fixes
+      // at enumeration.
+      return atom.minTargets === 0 && !(atom.restrictions || []).length ? "enemy" : "ambiguous";
     default:
       return "ambiguous";
   }

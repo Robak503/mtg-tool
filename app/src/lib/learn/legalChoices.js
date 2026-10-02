@@ -86,7 +86,7 @@ function castTimingAllows(state, playerId, card) {
 }
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { counterClauseParser } from "./effects/atoms/stack.js";
-import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, castOnlyWhenAttacked, castOnlyAfterAnotherSpell, hasBeenAttackedThisStep, parseCyclingCost, parseCyclingLifeCost, parseDiscardCostAbility, parsePlotCost, parseCrewCost, crewPowerBonus, isModeledGroupActivatedBody, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, castOnlyWhenAttacked, castOnlyAfterAnotherSpell, hasBeenAttackedThisStep, parseCyclingCost, parseCyclingLifeCost, parseDiscardCostAbility, parsePlotCost, parseCrewCost, crewPowerBonus, isModeledGroupActivatedBody, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler, parseHandSelfPutAbility } from "./effects/abilities.js";
 // PLOT (CR 702.170): the runtime offers a card the plot special action ONLY when its NON-plot text is
 // fully native — i.e. classifyCard (which strips the plot line internally) returns a native tier. Reusing
 // the metric's OWN authority means the runtime and the coverage metric can never disagree about which plot
@@ -3218,6 +3218,29 @@ function actionsDiscardAbilityFromHand(state, playerId) {
 }
 
 /**
+ * HAND SELF-PUT (play-weighted #570 — Talon Gates of Madara): "{N}: Put this card from your hand onto the battlefield." —
+ * an activated ability of a card in HAND (CR 113.6m), offered one action per carrier whose generic cost the player can
+ * afford. Unlike the other from-hand lanes (cycling, the discard abilities — own main phase only, a documented under-offer),
+ * this one is offered WHENEVER the player holds priority (CR 117.1b): the ability's whole use is the instant-speed entry,
+ * and the AI picker never selects this kind, so its play is unchanged. Not a cast (no cast restriction suppresses it) and
+ * not a land play (no land drop is read or spent, CR 305.4) — but it is an activated ability that isn't a mana ability, so
+ * legalActionsForPlayer withholds it under split second (CR 702.61a).
+ */
+function actionsActivateHandSelfPut(state, playerId) {
+  if (state.priorityHolder !== playerId) return [];
+  const player = state.players[playerId];
+  const actions = [];
+  for (const card of player.hand || []) {
+    const ab = parseHandSelfPutAbility(card);
+    if (!ab) continue;
+    const cost = parseManaCost(ab.manaPips);
+    if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
+    actions.push({ kind: "activate-hand-self-put", playerId, cardId: card.id, name: card.name, cost, cmc: totalCmc(cost), abilityText: ab.raw });
+  }
+  return actions;
+}
+
+/**
  * PLOT (CR 702.170) — `plotPlayable` is the runtime CREED gate: a card may use the plot special action
  * (and later be cast free from exile) ONLY when (a) it has a clean modeled plot cost (parsePlotCost) AND
  * (b) its NON-plot text is fully native — classifyCard strips the plot line internally, so a native tier
@@ -4424,7 +4447,9 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   // in combat) — they already cannot activate ANY ability of ANY permanent. Grand Abolisher's lock is thus a
   // strict subset of a restriction the engine already imposes; honoring it needs only the cast suppression
   // here, and both clauses of the card are respected. (`includeActivated` on the descriptor remains the
-  // record of the modeled scope and gates the coverage flip.)
+  // record of the modeled scope and gates the coverage flip.) The hand self-put lane (play-weighted #570) is
+  // offered at any priority window, and that is outside the lock too: it is an ability of a CARD in hand, and
+  // "abilities of artifacts, creatures, or enchantments" names permanents on the battlefield only (CR 109.2).
   // CAST-LIMIT (BLITZ RL-1, CR 604.2 — Rule of Law / Arcane Laboratory / Eidolon of Rhetoric): while ANY
   // battlefield carries the symmetric one-spell-per-turn static, a player who already cast this turn is
   // offered NO cast-family actions (spellsCastThisTurn is stamped at the cast chokepoint and reset at
@@ -4515,6 +4540,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsCrewVehicle(state, playerId)); // CREW (VH-1, CR 702.121c): tap creatures totaling power ≥ N → the Vehicle animates until EOT
     actions.push(...actionsCycleFromHand(state, playerId)); // KW-CYCLING: discard a hand card to draw
     actions.push(...actionsDiscardAbilityFromHand(state, playerId)); // the GENERAL form: "<mana>, Discard this card: <effect>"
+    actions.push(...actionsActivateHandSelfPut(state, playerId)); // play-weighted #570 — "{N}: Put this card from your hand onto the battlefield." (any priority window)
     actions.push(...actionsActivateLoyalty(state, playerId));
   }
 

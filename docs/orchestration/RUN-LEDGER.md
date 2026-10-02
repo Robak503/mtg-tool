@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **22 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,440)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+29**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **23 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,441)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+30**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,20 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 49: Talon Gates of Madara (EDHREC #570) — the hand self-put lane · **+1** · corpus 15,441
+> Flip-diff **+1, −0, zero RETIERED**: Talon Gates of Madara → land. Top 1,000 **877**; top 2,500 **1,714**. **Mutants 23/23**, restore
+> byte-identical. Built by a fan-out builder; re-verified on the integrated tree.
+> · "{4}: Put this card from your hand onto the battlefield.": a new activated-from-hand lane (offer → dispatch → stack → resolve),
+>   offered whenever its owner has priority (instant speed is the card's point) and withheld under split second. It is not a land
+>   play (CR 305.4): the land drop stays available and "whenever you play a land" stays quiet. The card stays in hand while the
+>   ability waits; a card that left the hand in response does nothing. The enters trigger ("up to one target creature phases
+>   out") now has an enemy side when optional and unrestricted; the mandatory and "you control" forms stay parked.
+> · ⚑ Combat fix (legality): an attacker that phases out is removed from combat (CR 506.4) — the defender used to be offered a
+>   block against it. Witness `talonGatesOfMadara.test.js` (22).
+> · ⚠️ Found, not fixed (queued): a DESTROYED attacker also stays in combat with block offers (CR 506.4 — a fix is in flight);
+>   filter lands' "{1}, {T}: Add one mana of any color" yields only {C} at runtime while coverage credits the line (Unknown Shores
+>   and about 20 more); wrong-content citations (split second cited as CR 702.19a, which is trample; channel as CR 702.33a, kicker).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 48: Reprieve (EDHREC #603) — return target spell to its owner's hand · **+3** · corpus 15,440
 > Suite **18,224** green (one run with Talon Gates of Madara, Cloud Key, Saw in Half and Culling Ritual). Flip-diff **+3, −0, zero RETIERED**:

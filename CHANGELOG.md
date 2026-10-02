@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Talon Gates of Madara** — pay {4} to put it from your hand onto the battlefield at instant speed (not a land drop); its enters trigger phases out up to one creature
 - **Reprieve** — return target spell to its owner's hand (an uncounterable one too), then draw a card; also **Bilbo's Gambit** (without the gift) and **Spellscorn Coven // Take It Back**
 - **Necropotence** — skip your draw step; cards you discard are exiled; pay 1 life to exile the top card of your library face down and put it into your hand at your next end step
 - **Valakut Awakening** — put any number of cards from your hand on the bottom of your library, then draw that many plus one
@@ -27,6 +28,7 @@ summarizes the notable changes.
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
 
 ### Fixed
+- An attacking creature that phases out is now removed from combat; the defending player could still block it
 - A countered or returned split, modal double-faced or adventure spell now goes to its zone as the whole card; a flashback spell that is countered or bounced is exiled as flashback says (it used to return to hand, castable again); a countered copy of a spell no longer leaves a card behind
 - An Adventure that fizzles now goes to the graveyard instead of being exiled on its adventure, and a copy of an Adventure no longer puts an extra card into exile
 - A permanent put onto the battlefield without being cast (reanimated, searched up, blinked, put from your hand) now enters the way its card says: tapped, with its counters, with its choices made, and with others' "enters with" effects applied; it used to enter as if those lines weren't there (a reanimated Spike Feeder died with no counters, a fetched shockland or check land came in untapped for free)

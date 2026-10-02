@@ -22,4 +22,5 @@ export const RESOLVER_KEYS = Object.freeze({
   ATTACH: "attach",                     // Equip/Aura attach — sets attachedTo + attachments
   AURA_ETB: "spell.aura",               // an Aura spell resolving: enter + attach to its target
   GY_SELF_RETURN: "gy.self-return",     // GY-1 — "Return this card from your graveyard to your hand / the battlefield [tapped]"
+  HAND_SELF_PUT: "hand.self-put",       // play-weighted #570 — "{N}: Put this card from your hand onto the battlefield." (Talon Gates of Madara)
 });

@@ -36,7 +36,7 @@ import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMA
 import { detectTriggers, CUMULATIVE_UPKEEP_LIFE_RE, stripTriggerAbilityLabel, foldTwoTriggerDetain, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, hideawayKeywordValue, mobilizeKeywordValue, backupKeywordValue, partnerWithName, hasDethrone, hasTraining, firebendingKeywordValue, soulshiftKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues, startYourEnginesKeywordCount, scanTriggerSentences, stripTriggerSentences } from "./triggers.js"; // scan/stripTriggerSentences: THE shared quote-aware extraction (Codex fix #4) — shaped count + every residue strip must use it or shaped===detected snaps
 import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND no-cost credit — the same gate the runtime offers through (fading→triggers→… is already a loaded edge; no cycle)
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
-import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler, parseDiscardCostAbility } from "./effects/abilities.js";
+import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler, parseDiscardCostAbility, parseHandSelfPutAbility } from "./effects/abilities.js";
 import { playerDamageRedirectLine, othersEnterWithCounters, staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithCountersPerKick, entersWithConditionalCounters, entersWithCastFromHandCounters, entersWithChoiceCounters, isHonestEnterCounterKind, choosesColorOnEnter, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, registerAuraOwnTriggerValidator, registerAttachedExceptByValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, attachedNoUntapOf, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
 import { spellConditionParseable, interveningIfParseable } from "./interveningIf.js"; // EW-1 — the metric⇄runtime shared gate for a conditional enters-with counter (the resolver evaluates the SAME vocabulary via evaluateInterveningIf); acyclic (interveningIf imports only gameState)
 import { isCloneCard } from "./cloneCopy.js";
@@ -1842,8 +1842,8 @@ export function permanentTriggersCovered(card) {
  *     that card fully modeled.
  *   · mana lines — manaProduction ON THE SINGLE LINE (the runtime's own parser), so a second, unparsed
  *     ability can never free-ride on the first line's production.
- *   · activated-ability lines — parseActivatedAbilities' own modeled flag / the graveyard-ability lanes
- *     (Fabled Passage's sac-fetch is modeled and stays "land"; Mystifying Maze's exile is not and parks).
+ *   · activated-ability lines — parseActivatedAbilities' own modeled flag / the graveyard-ability lanes / the hand
+ *     self-put (Fabled Passage's sac-fetch is modeled and stays "land"; Mystifying Maze's exile is not and parks).
  *   · anything left must be keyword-only (Cycling on a Triome) — else land-partial.
  * FN-safe by construction: every lane is a positive vouch by the runtime's own recognizer; unrecognized
  * text always demotes. Never strips unsupported abilities to inflate the count (the review's explicit ban).
@@ -1877,8 +1877,12 @@ function landFullyCovered(card) {
   };
   // Every parsed activated ability must be modeled, a graveyard ability, or a mana line the mana model
   // parses (a land's "{T}: Add …" reads as an activated ability here but is owned by the mana model).
+  // + the HAND SELF-PUT line (play-weighted #570 — Talon Gates of Madara: "{4}: Put this card from your hand onto the
+  // battlefield."): an ability of the card in HAND (CR 113.6m), never of the permanent, admitted through the SAME parse the
+  // hand offer, the dispatcher and the HAND_SELF_PUT resolver read — so the metric credits exactly the line the runtime plays.
+  const isHandSelfPut = (txt) => !!parseHandSelfPutAbility({ ...card, oracle: txt });
   const activated = parseActivatedAbilities(card);
-  if (!activated.every((a) => a.modeled || isGraveyardAbility(a.raw) || isManaLine(a.raw))) return false;
+  if (!activated.every((a) => a.modeled || isGraveyardAbility(a.raw) || isManaLine(a.raw) || isHandSelfPut(a.raw))) return false;
   // Residue: strip trigger sentences (the permanent gates' anchored form), then every remaining line must
   // be an admitted lane. Line-granular on purpose — a rider sharing a line with a modeled ability keeps
   // the line unmatched and demotes the card (CREED: never a silent drop).

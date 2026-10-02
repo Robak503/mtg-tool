@@ -1990,7 +1990,15 @@ export function phaseOutPermanents(state, directIds, { playerId = null } = {}) {
     const phased = riders.get(id).length ? { ...perm, phasedWith: riders.get(id) } : perm;
     players[pid] = { ...players[pid], phasedOut: [...(players[pid].phasedOut || []), phased] };
   }
-  return logEvent({ ...state, players }, { kind: "phase-out", ...(playerId ? { playerId } : {}), count: direct.length, permanentIds: direct });
+  // REMOVED FROM COMBAT (CR 702.26b, 506.4 — play-weighted #570, Talon Gates of Madara's instant-speed phase-out): an attacking
+  // creature that phases out stops being an attacking creature, so its record leaves state.combat.attackers — no block is
+  // offered against it, and no former blocker deals damage to it. The applyUntapRemoveFromCombat idiom, minus its
+  // `removedFromCombat` stamp: the permanent is off the battlefield already, and a stamp riding its phased-out record would
+  // outlive the end-of-combat sweep into its next combat. A phased-out BLOCKER's records stay on purpose: the attacker it
+  // blocked remains blocked (CR 509.1h), and the blocker, off the battlefield, neither deals nor is dealt combat damage.
+  const attackers = state.combat?.attackers;
+  const combat = attackers?.some((a) => moving.has(a.permanentId)) ? { combat: { ...state.combat, attackers: attackers.filter((a) => !moving.has(a.permanentId)) } } : {};
+  return logEvent({ ...state, players, ...combat }, { kind: "phase-out", ...(playerId ? { playerId } : {}), count: direct.length, permanentIds: direct });
 }
 /**
  * NAME CAST LOCK (SHELF-85 B4, 2026-09-04 — Reflector Mage "that creature's owner can't cast spells with the same name
