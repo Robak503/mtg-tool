@@ -21,13 +21,17 @@
  * (Zephyr Spirit, Mortus Strider self-dies-recursion, etc.) is left untouched → unmatched here → unchanged.
  *
  * CR notes honored:
- *   - CR 400.3 / 603.6e: "its owner's hand" — the engine has no explicit owner field and uses `controller`
- *     as the owner proxy (mirrors zones.js's bounce). For the Sword case the returned creature's owner is the
- *     DEAD creature's controller from the dies look-back (ctx.triggeringController), not the equipment's.
+ *   - CR 400.3 / 404.1: "its owner's hand" / "under its owner's control" — the dead object's card is in its
+ *     OWNER's graveyard (the battlefield-exit chokepoint, gameState.moveCardToZone, routes it there by the
+ *     permanent's `owner` stamp), and the player whose graveyard holds it IS that owner. So every return in
+ *     this file that names the owner reads the HOLDER (graveyardHolderOf), never the dies look-back's
+ *     controller: the two differ for a stolen creature (controlMove stamps the owner) or a reanimated one
+ *     (enterCardFromZone stamps it), and the look-back controller's graveyard would not contain the card.
  *   - CR 111.7 / 704.5d: a TOKEN ceases to exist and never returns to a hand — guarded via card.token.
- *   - CR 603.10a look-back: the returned object's card id + owner travel on the trigger context
- *     (makePendingTrigger threads triggeringCardId / triggeringController), since the permanent id is stale
- *     once it left the battlefield.
+ *   - CR 603.10a look-back: the returned object's card id travels on the trigger context (makePendingTrigger
+ *     threads triggeringCardId / triggeringController), since the permanent id is stale once it left the
+ *     battlefield. ctx.triggeringController (the controller the object had as it left) is only a liveness
+ *     guard here.
  *
  * CIRCULAR-IMPORT NOTE: imports gameState only (leaf-safe); MUST NOT import effects/parser.js (parser imports
  * the atoms barrel — a back-edge would TDZ-crash at load) and does NOT import triggers.js here. Both registry
@@ -93,6 +97,15 @@ export function selfReturnTriggerDetector(condition, cardName, typeLine, effectC
 }
 
 /**
+ * The player whose graveyard holds `cardId` — the card's OWNER (CR 404.1: a dead object goes to its owner's
+ * graveyard, and the zone chokepoint routes it there), or null when no graveyard holds it (CR 608.2b — it left).
+ * Card ids are unique per physical card, so at most one graveyard can match.
+ */
+function graveyardHolderOf(state, cardId) {
+  return Object.keys(state.players || {}).find((pid) => (state.players[pid]?.graveyard || []).some((c) => c.id === cardId)) ?? null;
+}
+
+/**
  * applySelfReturn — return the TRIGGERING object (its card now in a graveyard) to its OWNER's hand.
  *
  * Uniform across both shapes because the returned object IS the trigger's triggeringPermanent in each:
@@ -100,24 +113,26 @@ export function selfReturnTriggerDetector(condition, cardName, typeLine, effectC
  *     card IS the Aura.
  *   - Equipped-creature-dies: checkDiesTriggers fires with the dead creature as triggeringPermanent, so the
  *     triggering card IS the dead creature.
- * Either way we move ctx.triggeringCardId from ctx.triggeringController's graveyard → that player's hand.
+ * Either way we move ctx.triggeringCardId from the graveyard that holds it (its owner's — see the header) to that
+ * player's hand. For a creature that died under another player's control (stolen) that is not the look-back
+ * controller's graveyard, and "its owner's hand" is not theirs either.
  *
  * Fail-safe (CR 608.2b): if the card already left the graveyard (a later effect grabbed it, or it never landed
  * there), this is a logged no-op — never a throw, never a fabricated card in hand. CR 111.7: a token ceases to
  * exist, so a token is dropped (left in / removed from the graveyard by the SBA), never placed in hand.
  */
 export function applySelfReturn(state, atom, ctx) {
-  const owner = ctx.triggeringController;
+  const lastController = ctx.triggeringController;
   const cardId = ctx.triggeringCardId;
-  if (!owner || !cardId || !state.players?.[owner]) return state;
+  if (!lastController || !cardId || !state.players?.[lastController]) return state;
   // CR 111.7 / 704.5d — a token never returns to a hand (it ceases to exist).
   if (ctx.triggeringCardIsToken) {
-    return logEvent(state, { kind: "spell-effect", effect: "self-return", returned: false, reason: "token", controller: owner });
+    return logEvent(state, { kind: "spell-effect", effect: "self-return", returned: false, reason: "token", controller: lastController });
   }
-  const gy = state.players[owner].graveyard || [];
-  if (!gy.some((c) => c.id === cardId)) {
+  const owner = graveyardHolderOf(state, cardId);
+  if (!owner) {
     // CR 608.2b — the object left the graveyard before this resolved: a logged no-op.
-    return logEvent(state, { kind: "spell-effect", effect: "self-return", returned: false, controller: owner });
+    return logEvent(state, { kind: "spell-effect", effect: "self-return", returned: false, controller: lastController });
   }
   const next = moveCardToZone(state, { playerId: owner, fromZone: "graveyard", toZone: "hand", cardId });
   return logEvent(next, { kind: "spell-effect", effect: "self-return", returned: true, controller: owner });
@@ -145,7 +160,7 @@ export function selfReturnClauseParser(clause) {
   if (/^\[attached-dies-return-bf:yours\] return that card to the battlefield under your control$/i.test(t)) {
     return { op: "attached-dies-return-bf" };
   }
-  // KW-UNDYING (CR 702.92a) — the kind-tagged sentinel triggers.detectTriggers synthesizes from the printed
+  // KW-UNDYING (CR 702.93a) — the kind-tagged sentinel triggers.detectTriggers synthesizes from the printed
   // "Undying" keyword line (undyingKeywordCount). The intervening-if half ("if it had no +1/+1 counters on
   // it") rides the DESCRIPTOR, enforced by interveningIf.js at flush + resolution — this atom is only the
   // return+counter half. Anchored ^…$; the marker never occurs in real oracle text, so a spell can't reach it.
@@ -238,19 +253,21 @@ function stripCreatureFromCard(card) {
 }
 
 export function applySelfReturnBattlefieldEnchantment(state, atom, ctx) {
-  const owner = ctx.triggeringController;
+  const lastController = ctx.triggeringController;
   const cardId = ctx.triggeringCardId;
-  if (!owner || !cardId || !state.players?.[owner]) return state;
+  if (!lastController || !cardId || !state.players?.[lastController]) return state;
   // CR 111.7 / 704.5d — a token never returns (it ceases to exist).
   if (ctx.triggeringCardIsToken) {
-    return logEvent(state, { kind: "spell-effect", effect: "self-return-bf-enchantment", returned: false, reason: "token", controller: owner });
+    return logEvent(state, { kind: "spell-effect", effect: "self-return-bf-enchantment", returned: false, reason: "token", controller: lastController });
+  }
+  // The OWNER is the graveyard that holds the card (see the header) — "under its owner's control".
+  const owner = graveyardHolderOf(state, cardId);
+  if (!owner) {
+    // CR 608.2b — the object left the graveyard before this resolved: a logged no-op.
+    return logEvent(state, { kind: "spell-effect", effect: "self-return-bf-enchantment", returned: false, controller: lastController });
   }
   const gy = state.players[owner].graveyard || [];
   const card = gy.find((c) => c.id === cardId);
-  if (!card) {
-    // CR 608.2b — the object left the graveyard before this resolved: a logged no-op.
-    return logEvent(state, { kind: "spell-effect", effect: "self-return-bf-enchantment", returned: false, controller: owner });
-  }
   // Replace the graveyard copy with the type-stripped (non-creature enchantment) clone, SAME id, so
   // enterCardFromZone (which reads the card from the graveyard by id) enters the transformed object.
   const strippedCard = stripCreatureFromCard(card);
@@ -272,7 +289,7 @@ export function applySelfReturnBattlefieldEnchantment(state, atom, ctx) {
 }
 
 /**
- * applyUndyingReturn — KW-UNDYING (CR 702.92a): return the dead source (its card now in its owner's
+ * applyUndyingReturn — KW-UNDYING (CR 702.93a): return the dead source (its card now in its owner's
  * graveyard) to the battlefield under its owner's control WITH a +1/+1 counter on it.
  *
  * The "if it had no +1/+1 counters on it" intervening-if is enforced UPSTREAM (interveningIf.js reads
@@ -290,16 +307,17 @@ export function applySelfReturnBattlefieldEnchantment(state, atom, ctx) {
  * CR 111.7 — a token ceases to exist and never returns (ctx.triggeringCardIsToken guard).
  */
 export function applyUndyingReturn(state, atom, ctx) {
-  const owner = ctx.triggeringController;
+  const lastController = ctx.triggeringController;
   const cardId = ctx.triggeringCardId;
-  if (!owner || !cardId || !state.players?.[owner]) return state;
+  if (!lastController || !cardId || !state.players?.[lastController]) return state;
   if (ctx.triggeringCardIsToken) {
-    return logEvent(state, { kind: "spell-effect", effect: "undying-return", returned: false, reason: "token", controller: owner });
+    return logEvent(state, { kind: "spell-effect", effect: "undying-return", returned: false, reason: "token", controller: lastController });
   }
-  const gy = state.players[owner].graveyard || [];
-  if (!gy.some((c) => c.id === cardId)) {
+  // CR 702.93a — "under its OWNER's control": the graveyard that holds the card (see the header).
+  const owner = graveyardHolderOf(state, cardId);
+  if (!owner) {
     // CR 608.2b — the object left the graveyard before this resolved: a logged no-op.
-    return logEvent(state, { kind: "spell-effect", effect: "undying-return", returned: false, controller: owner });
+    return logEvent(state, { kind: "spell-effect", effect: "undying-return", returned: false, controller: lastController });
   }
   const { state: entered, entered: didEnter } = enterCardFromZone(state, { playerId: owner, cardId, fromZone: "graveyard" });
   let next = entered;
@@ -387,15 +405,16 @@ export function applyGySelfAttachReturn(state, atom, ctx) {
  * through the same doubling-aware addCounter path — so the loop terminates exactly as printed.
  */
 export function applyPersistReturn(state, atom, ctx) {
-  const owner = ctx.triggeringController;
+  const lastController = ctx.triggeringController;
   const cardId = ctx.triggeringCardId;
-  if (!owner || !cardId || !state.players?.[owner]) return state;
+  if (!lastController || !cardId || !state.players?.[lastController]) return state;
   if (ctx.triggeringCardIsToken) {
-    return logEvent(state, { kind: "spell-effect", effect: "persist-return", returned: false, reason: "token", controller: owner });
+    return logEvent(state, { kind: "spell-effect", effect: "persist-return", returned: false, reason: "token", controller: lastController });
   }
-  const gy = state.players[owner].graveyard || [];
-  if (!gy.some((c) => c.id === cardId)) {
-    return logEvent(state, { kind: "spell-effect", effect: "persist-return", returned: false, controller: owner });
+  // CR 702.79a — "under its OWNER's control": the graveyard that holds the card (see the header).
+  const owner = graveyardHolderOf(state, cardId);
+  if (!owner) {
+    return logEvent(state, { kind: "spell-effect", effect: "persist-return", returned: false, controller: lastController });
   }
   const { state: entered, entered: didEnter } = enterCardFromZone(state, { playerId: owner, cardId, fromZone: "graveyard" });
   let next = entered;
@@ -422,15 +441,16 @@ export function applyPersistReturn(state, atom, ctx) {
  * Fail-safes: CR 608.2b gone-card → logged no-op; CR 111.7 token → never returns.
  */
 export function applyDiesReturnBattlefield(state, atom, ctx) {
-  const owner = ctx.triggeringController;
+  const lastController = ctx.triggeringController;
   const cardId = ctx.triggeringCardId;
-  if (!owner || !cardId || !state.players?.[owner]) return state;
+  if (!lastController || !cardId || !state.players?.[lastController]) return state;
   if (ctx.triggeringCardIsToken) {
-    return logEvent(state, { kind: "spell-effect", effect: "dies-return-bf", returned: false, reason: "token", controller: owner });
+    return logEvent(state, { kind: "spell-effect", effect: "dies-return-bf", returned: false, reason: "token", controller: lastController });
   }
-  const gy = state.players[owner].graveyard || [];
-  if (!gy.some((c) => c.id === cardId)) {
-    return logEvent(state, { kind: "spell-effect", effect: "dies-return-bf", returned: false, controller: owner });
+  // "under its OWNER's control": the graveyard that holds the card (see the header).
+  const owner = graveyardHolderOf(state, cardId);
+  if (!owner) {
+    return logEvent(state, { kind: "spell-effect", effect: "dies-return-bf", returned: false, controller: lastController });
   }
   const { state: entered, entered: didEnter } = enterCardFromZone(state, { playerId: owner, cardId, fromZone: "graveyard", tapped: !!atom.tapped });
   let next = entered;
@@ -456,7 +476,7 @@ export function applyAttachedDiesReturnYours(state, atom, ctx) {
   if (ctx.triggeringCardIsToken) {
     return logEvent(state, { kind: "spell-effect", effect: "attached-dies-return-bf", returned: false, reason: "token", controller });
   }
-  const holder = Object.keys(state.players).find((pid) => (state.players[pid].graveyard || []).some((c) => c.id === cardId));
+  const holder = graveyardHolderOf(state, cardId);
   if (!holder) return logEvent(state, { kind: "spell-effect", effect: "attached-dies-return-bf", returned: false, controller });
   const { state: entered, entered: didEnter } = enterCardFromZone(state, { playerId: controller, cardId, fromZone: "graveyard", fromPlayerId: holder });
   return logEvent(entered, { kind: "spell-effect", effect: "attached-dies-return-bf", returned: didEnter, controller });

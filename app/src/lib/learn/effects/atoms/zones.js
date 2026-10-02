@@ -38,7 +38,8 @@ export function applyZoneMove(state, atom, ctx, toZone, toTop = false, libraryIn
     if (t.type !== "creature" && t.type !== "permanent" && t.type !== "planeswalker") continue;
     const lk = findPermanent(next, t.id);
     if (lk) {
-      // TUCK uses the card's controller as the owner proxy (consistent with bounce's "owner's hand");
+      // The move names the CONTROLLER (whose battlefield holds the permanent); moveCardToZone sends the card to its
+      // OWNER's hand / library / exile by the permanent's `owner` stamp (CR 400.3 — a stolen permanent carries it).
       // toTop prepends to the library (top), else moveCardToZone appends (bottom).
       next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone, cardId: t.id, toTop, libraryIndex });
     }
@@ -160,17 +161,13 @@ export function applyShuffleSelfIntoLibrary(state, atom, ctx) {
     }
     return logEvent(state, { kind: "spell-effect", effect: atom?.toBottom ? "self-to-library-bottom" : "shuffle-self-into-library", controller: ctx.controller, cardId: null, reason: "source-gone" });
   }
-  const owner = lk.permanent.owner || lk.controller;
-  let next;
-  if (owner === lk.controller) {
-    next = moveCardToZone(state, { playerId: lk.controller, fromZone: "battlefield", toZone: "library", cardId: lk.permanent.id });
-  } else {
-    // Stolen: the permanent leaves the CONTROLLER's battlefield and the card joins the OWNER's library (CR 400.3).
-    const card = lk.permanent.card;
-    next = { ...state, players: { ...state.players,
-      [lk.controller]: { ...state.players[lk.controller], battlefield: (state.players[lk.controller].battlefield || []).filter((p) => p.id !== lk.permanent.id) } } };
-    next = { ...next, players: { ...next.players, [owner]: { ...next.players[owner], library: [...(next.players[owner]?.library || []), card] } } };
-  }
+  // The battlefield-exit chokepoint already sends the card to its OWNER's library (CR 400.3 — moveCardToZone routes by the
+  // permanent's `owner` stamp, which a stolen permanent carries from controlMove) and runs the exit itself on the way: what was
+  // attached comes off (an Aura to the graveyard, an Equipment unattached), the leave event queues, a token ceases to exist. The
+  // shuffle hits the library the card actually went to — the same owner test the chokepoint applies (a stamped owner still in
+  // the game, else the controller).
+  const owner = (lk.permanent.owner && state.players[lk.permanent.owner]) ? lk.permanent.owner : lk.controller;
+  let next = moveCardToZone(state, { playerId: lk.controller, fromZone: "battlefield", toZone: "library", cardId: lk.permanent.id });
   if (!atom?.toBottom) next = shuffleSeededLibrary(next, owner);
   return logEvent(next, { kind: "spell-effect", effect: atom?.toBottom ? "self-to-library-bottom" : "shuffle-self-into-library", controller: ctx.controller, cardId: lk.permanent.card?.id || null, owner });
 }
@@ -1720,8 +1717,8 @@ export function applyEarthbendReturn(state, atom, ctx) {
  *   - CR 111.7 — a TOKEN target is exiled (moveCardToZone's token branch vanishes it) but never linked:
  *     nothing returns.
  *   - The target must still be a live battlefield permanent (CR 608.2b) — a vanished target is skipped.
- * The exiled card sits in its CONTROLLER's exile zone (the engine's owner proxy, matching bounce/tuck), and
- * the link's ownerId records that player so the return re-enters it under the same player's control.
+ * The exiled card sits in its OWNER's exile zone (moveCardToZone routes it by the permanent's `owner` stamp), and
+ * the link's ownerId records that player so the return re-enters it under its owner's control.
  */
 export function applyExileUntilLeaves(state, atom, ctx) {
   const srcLk = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;

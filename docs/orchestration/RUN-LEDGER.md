@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **19 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,437)** — +165 of that is the 10-02 card-data refresh (new
+> **20 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,437)** — +165 of that is the 10-02 card-data refresh (new
 > cards, not engine work); engine gains since the tag: **+26**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,20 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: a permanent keeps its owner through control changes (CR 400.3) · **±0**
+> Suite **18,079** green (one run with Necropotence). Flip-diff **0 / 0 / 0**. **Mutants 16/16**, restore byte-identical. Built by a fan-out
+> builder (found by the Massacre Wurm builder); re-verified on the integrated tree. CR citations unresolved 118 → 117.
+> · ⚑ moveControl was the only path that put a permanent on another battlefield without writing `owner`, so a STOLEN permanent
+>   looked like the thief's own: Act of Treason'd / Control Magic'd creatures died into the THIEF's graveyard, bounced to the
+>   thief's hand, were tucked/exiled into the thief's zones, undying/persist returned them under the thief, and a stolen
+>   commander's command-zone return was offered to the thief. moveControl now records the owner (never overwritten by a caller,
+>   kept when control returns); the self-returns (undying, persist, the dies-return grants) find the card in the graveyard that
+>   actually holds it; the Fblthp-style self-shuffle goes through the zone chokepoint. Witness `ownerZoneRouting.test.js` (37 —
+>   31 of them fail on the old engine), steals cast for real, 2- and 4-seat.
+> · ⚠️ Found, not fixed (queued): Background "commander creatures you own have …" reads "own" as "control" (a stolen commander takes
+>   the thief's Backgrounds); a player leaving the game removes permanents they stole; wrong-content citations ("CR 702.92a" for
+>   undying in 11 places — that rule is living weapon; "CR 500.4" for mana emptying in 19).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 47: Necropotence (EDHREC #519) — face-down exile with a card-bound end-step return · **+1** · corpus 15,437
 > Suite **18,079** green (1 skipped). Flip-diff **+1, −0, zero RETIERED**: Necropotence → native-mixed. Top 1,000 **875**; top 2,500 **1,712**.

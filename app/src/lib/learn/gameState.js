@@ -873,7 +873,8 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
 
     const nextSource = [...sourceList.slice(0, index), ...sourceList.slice(index + 1)];
     // OWNER ROUTING (BLITZ SB-2, CR 110.2 / 404.1): a permanent stamped with an `owner` different from the
-    // moving player (a cross-player reanimation — zones.enterCardFromZone stamps it; every other permanent
+    // moving player (a cross-player entry — zones.enterCardFromZone / resolvers.enterPermanent stamp it — or a
+    // control change — controlMove.moveControl stamps it; a permanent that never left its owner's control
     // carries no `owner` field → destPid === playerId, byte-identical) sends its unwrapped CARD to the
     // OWNER's destination zone: dies → its owner's graveyard (CR 404.1 — a destroyed object "is put on top
     // of its owner's graveyard"; CR 700.4 — dies = put into a graveyard from the battlefield), bounce → its

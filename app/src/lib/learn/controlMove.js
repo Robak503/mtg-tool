@@ -11,11 +11,29 @@
  * creature never LEAVES the battlefield when it changes hands, so:
  *   · no dies/LTB trigger fires (a creature that only changed controller has not died);
  *   · its identity survives, so every `attachedTo` back-reference pointing at it stays valid;
- *   · tapped state, counters, marked damage and attachments all ride along untouched (CR 702.10e — gaining
- *     control of a creature does not change control of what is attached to it).
+ *   · tapped state, counters, marked damage and attachments all ride along untouched (CR 303.4e / 301.5d —
+ *     changing control of a creature does not change control of an Aura or Equipment attached to it).
  * The one thing that DOES change besides the controller is summoning sickness: it has not been under the
  * new controller's control since their turn began, so it is sick under them (CR 702.10c) and untaps/clears
  * on their next untap step exactly like a freshly-entered creature.
+ *
+ * ⛔ OWNERSHIP NEVER MOVES. A control change does not change the owner (CR 110.2 — a permanent's owner is
+ * the owner of the card that represents it; a token's owner is the player who created it, CR 111.2). The
+ * engine records ownership sparsely: a permanent carries an `owner` field only when it may differ from the
+ * player whose battlefield holds it (a cross-player entry stamps it — zones.enterCardFromZone,
+ * resolvers.enterPermanent), and an absent field means "owned by the player whose battlefield this is". A
+ * splice into ANOTHER player's battlefield breaks that reading unless the move writes the owner down, so
+ * every move here stamps `owner` — the existing stamp if there is one, else the player it is leaving (who,
+ * by that same convention, is its owner). Without it a stolen permanent that later left the battlefield went
+ * to its CONTROLLER's graveyard, hand or library instead of its owner's (CR 400.3), and Homeward Path, the
+ * owner-control blinks and Chaos Warp all read the thief as the owner. The stamp is written AFTER `extra`
+ * so no caller can overwrite it, and it is kept when control later returns home (owner === controller is
+ * the same fact the absent field encodes, and every reader compares values rather than testing presence).
+ * One fallback sits between the two: a permanent that carries the control stash (`controlOriginal`) but no
+ * stamp can only come from a game saved before the stamp existed (the stash is written in the same move as
+ * the stamp now). It is away from home, so the seat it is leaving is the thief; `controlOriginal` — the
+ * controller before the first theft, which for an unstamped permanent is its owner — is the owner to write
+ * on its next move, home or to another thief.
  *
  * ⛔ ZERO IMPORTS. `controlAura.js` calls this and is itself called from `gameState.js`, the lowest layer —
  * any import here would risk a cycle back into that. Pure data in, pure data out; no closures, so a game
@@ -44,7 +62,9 @@ export function moveControl(state, permId, toController, extra = {}) {
   if (!fromPlayer || !toPlayer) return state;
   const perm = fromPlayer.battlefield.find((p) => p.id === permId);
   if (!perm) return state;
-  const moved = { ...perm, controller: toController, summoningSick: true, ...extra };
+  // OWNER (CR 110.2 / 400.3 — see the header): the existing stamp, else (a pre-stamp save) the stashed original controller,
+  // else the seat it is leaving. Last, so `extra` can't replace it.
+  const moved = { ...perm, controller: toController, summoningSick: true, ...extra, owner: perm.owner ?? perm.controlOriginal ?? from };
   return {
     ...state,
     players: {

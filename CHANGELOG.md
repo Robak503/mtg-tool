@@ -26,6 +26,7 @@ summarizes the notable changes.
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
 
 ### Fixed
+- A creature you stole (Act of Treason, Control Magic …) now goes to its owner's graveyard, hand, library or exile when it leaves the battlefield, and undying/persist return it under its owner; it used to go to the thief's
 - The cleanup step's hand-size discard now triggers "whenever you discard" abilities, and triggers that happen during cleanup resolve in that turn's cleanup instead of the next turn
 - Paying life to activate an ability is no longer allowed while your life total can't change (Teferi's Protection); Necropotence and Yawgmoth's Bargain activated for free there
 - Tokens are the colors their card says (they were all colorless): protection from a color now stops a token of that color, color anthems pump tokens, and "nonblack"-style removal can target tokens of other colors
