@@ -8,6 +8,9 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- Blood Artist, Zulaport Cutthroat, Morbid Opportunist and other death watchers triggered only for their own death when they died together with other creatures (a board wipe, a combat trade); they now trigger for each creature that died with them
+
 ## [0.162.0] - 2026-10-01
 
 ### Added

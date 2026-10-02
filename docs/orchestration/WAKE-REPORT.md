@@ -15,7 +15,7 @@
 > 65.9% → +602 from today). **Then reassess with Colton.**
 > **Runnable next:** `MTG_APP_ROOT=… node scripts/measure-coverage.mjs --played=1000` (from `app/`, ~1 min) lists the
 > uncovered cards in rank order, each with the line(s) that alone hold it back. Take the HIGHEST-RANKED miss the CREED can
-> build (next: #474 Living Death). A card that needs Colton's call is skipped with its reason in the ledger, never
+> build (next: #474 Living Death — its mass sacrifice now rides the P·34 look-back). A card that needs Colton's call is skipped with its reason in the ledger, never
 > built: planeswalkers stay their own program (09-30), theft-THEMED decks stay off (single theft cards are fine). Full
 > per-slice gates as ever; each ledger entry records the worklist header (covered N / 1,000).
 > **The shape (measured 10-01):** no veins left — of the 852 top-2,500 misses, 430 are one line away and those lines are
@@ -35,6 +35,8 @@
 > creature), Silence #412 (the all-spells cast lock), Selvala, Heart of the Wilds #438 (the entering creature's controller may
 > draw), Cabal Ritual #453 +2 (the Threshold upgrade; Thermal Blast with it); · 3 the Construct token, the Saga's prerequisite)
 > → top 1,000 at **865 / 1,000** (needs +35).
+> **Fix (10-01, P·34):** a death watcher (Blood Artist, Zulaport Cutthroat, Morbid Opportunist) that died alongside other
+> creatures triggered only for itself — fixed (CR 603.10a look-back). Sims with board wipes under Aristocrats watchers under-counted.
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
 

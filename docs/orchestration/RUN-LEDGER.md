@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **0 commits**, corpus **44.5% (15,246)** at the tag → **44.5% (15,246)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **1 commit**, corpus **44.5% (15,246)** at the tag → **44.5% (15,246)** (a runtime fix). The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,20 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-01 — P·34 FIX · CR 603.10a: a death watcher that dies with the creatures it watches still triggers for each · corpus 15,246 (runtime only)
+> Suite **17,720** green (1 skipped); lint 0; decks 2,746 / 2,998 unchanged. CI GREEN on the [0.162.0] cut (run 36943811750).
+> Flip-diff **±0** (a runtime fix: nothing's tier changes). **Mutants 4/4** (restore byte-identical).
+> · **Found while scoping Living Death:** Blood Artist dying in the same board wipe (or combat trade) as two Bears drained ONCE —
+>   for its own death — where its ruling (2016-06-08) and CR 603.10a say it triggers for each creature that died with it. Both
+>   dies passes (checkDiesTriggers' singular sweep, checkDiesBatchTriggers) offered battlefield watchers only.
+> · **The fix:** triggers.deadLookBackSources offers the batch's departed creatures as look-back sources (the same shape the self
+>   fire and the orphaned-Aura look-back use), each to every OTHER death in the batch; one still on the battlefield stays the
+>   sweep's (never twice). Witnessed: Day of Judgment with Blood Artist out (three drains), an SBA batch in either order, Zulaport
+>   Cutthroat (your creatures only), Morbid Opportunist's once-a-turn batch draw, a self-only dies trigger not widened.
+> · **Sim-data note:** before this, every board wipe or multi-creature combat death under an Aristocrats watcher under-counted
+>   its triggers. Witness `app/src/lib/learn/deathLookBack.test.js` (6).
+> · **Next:** #474 Living Death (its mass sacrifice rides this look-back).
 
 > ## 🚀 2026-10-01 — v0.162.0 RELEASED · 50 commits since v0.161.0 · corpus 44.2% → 44.5% (15,246) · shelf 29 of 30 at ≥90
 > The play-weighted batch (P·1–P·33, Colton's 10-01 program) crossed the ~100-card line: +101 since v0.161.0. Steps (RELEASE.md):

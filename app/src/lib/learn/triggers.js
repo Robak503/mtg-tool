@@ -7180,6 +7180,7 @@ export function checkDiesTriggers(state, dead) {
   // died this turn" intervening-if) reads the up-to-date count. recordCreatureDeaths excludes exiled-instead /
   // non-creature look-backs (CR 700.4 — only creatures put into a graveyard "died").
   state2 = recordCreatureDeaths(state2, dead);
+  const deadSources = deadLookBackSources(state2, dead); // CR 603.10a — the batch's departed watchers (see the helper)
   let fired = [];
   for (const d of dead) {
     if (!d?.card) continue;
@@ -7265,6 +7266,12 @@ export function checkDiesTriggers(state, dead) {
       for (const watcher of triggerSourcesOf(state2, pid)) {
         fired = fired.concat(triggersForEvent(state2, { event: "dies", sourcePermanent: watcher, triggeringPermanent: lookBack, triggeringContext: diesCtx }));
       }
+    }
+    // ⭐ …and the OTHER creatures that left in this same batch (CR 603.10a — deadLookBackSources): Blood Artist dying in the
+    // wrath that kills its targets still triggers for each of them. Its own death is the self fire above.
+    for (const w of deadSources) {
+      if (w.id === d.id) continue;
+      fired = fired.concat(triggersForEvent(state2, { event: "dies", sourcePermanent: w, triggeringPermanent: lookBack, triggeringContext: diesCtx }));
     }
     // ⭐ …and the Auras that fell off THIS creature as it died (CR 603.10a — see the capture at the top).
     // `scopeMatches`'s equippedCreature branch ALREADY resolves this linkage from the dead creature's
@@ -7359,17 +7366,31 @@ export function checkDiesBatchTriggers(state, dead) {
   const deaths = (dead || []).filter((d) => d?.card && !d.exileInstead);
   if (!deaths.length) return state;
   let fired = [];
-  for (const pid of Object.keys(state.players)) {
-    for (const watcher of triggerSourcesOf(state, pid)) {
-      for (const d of deaths) {
-        const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {} };
-        const hits = triggersForEvent(state, { event: "diesBatch", sourcePermanent: watcher, triggeringPermanent: lookBack });
-        if (hits.length) { fired = fired.concat(hits); break; }  // ONCE per watcher per batch — CR 603.1
-      }
+  // The battlefield's watchers, then the batch's departed ones looking back (CR 603.10a — deadLookBackSources).
+  const watchers = [...Object.keys(state.players).flatMap((pid) => triggerSourcesOf(state, pid)), ...deadLookBackSources(state, dead)];
+  for (const watcher of watchers) {
+    for (const d of deaths) {
+      const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {} };
+      const hits = triggersForEvent(state, { event: "diesBatch", sourcePermanent: watcher, triggeringPermanent: lookBack });
+      if (hits.length) { fired = fired.concat(hits); break; }  // ONCE per watcher per batch — CR 603.1
     }
   }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * DEPARTED WATCHERS LOOK BACK (CR 603.10a) — the creatures that left the battlefield in THIS batch, offered as trigger sources: a
+ * leaves-the-battlefield ability is checked against the game as it stood immediately BEFORE the event, so a watcher that left in the
+ * same event still triggers ("If Blood Artist and one or more other creatures die at the same time, its ability will trigger for
+ * each of those creatures" — its 2016-06-08 ruling). Before this both dies passes offered battlefield sources only, and a Blood
+ * Artist caught in the wrath that killed its targets drained once (its own death) instead of once per creature. The same look-back
+ * shape the self fire and the orphaned Auras use. A creature still on the battlefield is the battlefield sweep's — never twice.
+ */
+function deadLookBackSources(state, dead) {
+  return (dead || [])
+    .filter((w) => w?.card && !findPermanent(state, w.id))
+    .map((w) => ({ id: w.id, controller: w.controller, card: w.card, attachments: w.attachments || [], counters: w.counters || {}, damagedBy: w.damagedBy || [] }));
 }
 
 /**
