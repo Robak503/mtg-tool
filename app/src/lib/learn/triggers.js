@@ -32,6 +32,7 @@ import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714
 import { applyLifeGainReplacement } from "./replacementEffects.js"; // LIFE-GAIN replacement (CR 614.1) — read by checkLifegainTriggers so a trigger sees the life ACTUALLY gained. replacementEffects imports nothing at all, so this edge is one-way and cycle-free.
 import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
 import { ABILITY_WORD_LABEL_RE, creatureEntersSuppressed, entersSilencer } from "./effects/textNormalize.js"; // + entersSilencer (shelf D20 — Elesh Norn's opponent-scoped enters silence) // + TORPOR ORB (RG-2, 2026-09-05): the enters-event suppression reader // CR 207.2c label list — the SINGLE copy, shared with the spell path (textNormalize is a zero-import leaf, so no cycle)
+import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell's every-creature-type answer (Changeling; its caster's Maskwood Nexus); a leaf (keywords.js only)
 import { CR_CREATURE_TYPES } from "./effects/targeting.js"; // BC-1: closed creature-subtype vocabulary for the NEGATED-SUBTYPE batch filter (read ONLY inside parseBatchSubjectFilter — a function — so the triggers→targeting→spellEffects→triggers cycle stays init-safe: CR_CREATURE_TYPES is never referenced at module-init time)
 import { fireDiesWatches } from "./effects/atoms/delayedTrigger.js"; // DIES WATCH (shelf D25, CR 603.7) — "when that creature dies this turn" fires off the death chokepoint (a gameState-only leaf, no cycle)
 import { parseMultikickerCost } from "./kicker.js"; // MULTIKICKER (P·15) — a multikicker permanent carries its kick count into its ETB self context (kicker.js imports only leaves)
@@ -172,10 +173,12 @@ function permMatchesSubtypeFilter(state, perm, filter) {
   return permIsEveryTypeNow(state, perm);
 }
 // P·39 — is this permanent every creature type right now? Live: layer-aware (layers.permIsEveryCreatureType). Departed (a
-// look-back): its printed Changeling only — nothing is left to derive.
+// look-back): its printed Changeling, or (P·39b) a creature card whose last controller still has Maskwood Nexus's grant —
+// everyCreatureType.cardIsEveryCreatureType. Nothing else is left to derive: a fixed effect on it (Mirror Entity's) and a grant
+// that left in the same event go unread — a documented under-read on these positive filters, the safe direction.
 function permIsEveryTypeNow(state, perm) {
   if (!perm?.card) return false;
-  if (!state || !findPermanent(state, perm.id)) return hasKeyword(perm.card, "changeling");
+  if (!state || !findPermanent(state, perm.id)) return cardIsEveryCreatureType(state, perm.card, perm.controller);
   return permIsEveryCreatureType(state, perm.id);
 }
 
@@ -332,9 +335,10 @@ function isPlaneswalkerPerm(perm) {
 // durable type picked at ETB and stored on the watching permanent; an unset/empty chosenType yields false
 // (a SAFE no-op — never an over-fire on an unknown type, CLAUDE.md §1.2). Word-bounded so "Elf" matches
 // "Creature — Elf Warrior" but not a substring; escaped for any regex-special subtype text.
+// P·39b: every creature type (a changeling, CR 702.73a; Mirror Entity's activation; Maskwood Nexus) is each caller's own OR — the
+// live permanent's permIsEveryTypeNow, the cast spell's castEvery — so this reads the printed subtypes alone.
 function permHasChosenType(card, chosenType) {
   if (!chosenType || !card) return false;
-  if (hasKeyword(card, "changeling")) return true;
   const ts = typeStr(card);
   const dash = ts.indexOf("—");
   const subtypes = dash === -1 ? "" : ts.slice(dash + 1);
@@ -9412,24 +9416,28 @@ export function checkMilledTriggers(state, { milledByPlayer, milledCards } = {})
 }
 
 /** Does the cast spell match a cast trigger's modeled spell-type filter? */
-function spellMatchesFilter(filter, spellCard) {
+// `every` (P·39b): the spell is every creature type — Changeling, or a creature spell its controller's Maskwood Nexus reaches
+// (everyCreatureType.cardIsEveryCreatureType, computed once by the caller, who knows the caster). It meets a CREATURE-type word
+// only (CR 205.3d): "an Aura, Equipment, or Vehicle spell" (Sram) never sees it.
+function spellMatchesFilter(filter, spellCard, every = false) {
   const t = typeStr(spellCard);
+  const everyWord = (w) => every && CR_CREATURE_TYPES.has(String(w).toLowerCase());
   // CAST-SUBTYPE — "subtype:Name" → the cast spell's type line carries that subtype (word-bounded so
   // "Elf" doesn't match "Elfin…"; type lines are space/em-dash delimited so a bare \b is exact enough).
   if (typeof filter === "string" && filter.startsWith("subtype:")) {
     const sub = filter.slice(8);
-    return new RegExp(`\\b${sub.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(t);
+    return new RegExp(`\\b${sub.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(t) || everyWord(sub);
   }
   // PARAMETERIZED object filters: typed-list (ANY listed type/subtype on the line, CR 205.2), the X-spell
   // printed-cost test (CR 107.3), and the mana-value threshold (CR 202.3).
   if (filter && typeof filter === "object") {
     switch (filter.kind) {
       case "typed":
-        return filter.words.some((w) => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(t));
+        return filter.words.some((w) => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(t) || everyWord(w));
       // CONJUNCTIVE typed filter (Rivaz "Dragon CREATURE spell") — EVERY listed word must be on the line
       // ("typed" is any-of; using it here would fire on every creature spell, an over-fire).
       case "typedAll":
-        return filter.words.every((w) => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(t));
+        return filter.words.every((w) => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(t) || everyWord(w));
       case "hasX":
         return /\{x\}/i.test(String(spellCard?.mana ?? spellCard?.mana_cost ?? ""));
       case "manaValue": {
@@ -9557,6 +9565,8 @@ export function checkAbilityActivatedTriggers(state, { permanent, activatorId, s
 
 export function checkCastTriggers(state, { spellCard, casterId, targets = [], xValue = null, stackObjectId = null, castFromZone = null, manaSpent = null, manaSpentAmount = null }) {
   if (!spellCard) return state;
+  // P·39b — is the cast spell every creature type (Changeling, or a creature spell its caster's Maskwood Nexus reaches)? Read once.
+  const castEvery = cardIsEveryCreatureType(state, spellCard, casterId);
   // `castingPlayerId` carries the CASTER's seat into every cast-trigger's context (spread into the resolver ctx by
   // runEffectProgram). Load-bearing for OPPONENT-PAYS-TO-DENY (taxed-payment) — the pay-decision belongs to the
   // player who cast, not the watcher's controller. Additive + inert for every existing cast trigger (no other
@@ -9615,7 +9625,7 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
         // to BE a creature spell — a Kindred/Tribal NONCREATURE spell of the chosen type (a changeling
         // instant, an Elf-typed sorcery) fires Door/Chronicle but never Vanquisher's, matching the print.
         if (d.spellFilter && d.spellFilter.kind === "chosenType") {
-          if (!permHasChosenType(spellCard, watcher.chosenType)) continue;
+          if (!permHasChosenType(spellCard, watcher.chosenType) && !(castEvery && watcher.chosenType)) continue; // P·39b — every creature type is the chosen one
           if (d.spellFilter.creatureOnly && !spellMatchesFilter("creature", spellCard)) continue;
         } else if (d.spellFilter && d.spellFilter.kind === "auraTargetsYourModified") {
           // PEARL-EAR (shelf D44): an AURA spell with a chosen target that is a modified permanent the watcher's controller
@@ -9625,7 +9635,7 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
             const lk = t?.id ? findPermanent(state, t.id) : null;
             return !!lk && lk.controller === watcher.controller && isModifiedPermanent(state, lk.permanent);
           })) continue;
-        } else if (!spellMatchesFilter(d.spellFilter, spellCard)) {
+        } else if (!spellMatchesFilter(d.spellFilter, spellCard, castEvery)) {
           continue;
         }
         fired.push(makePendingTrigger(d, watcher, null, context));

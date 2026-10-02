@@ -36,6 +36,7 @@ import {
 } from "./ptPrimitive.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type matches only a CREATURE type (CR 205.3d); a zero-import leaf
+import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a graveyard card that is every creature type (Changeling, its owner's Maskwood Nexus) for the subtype counts; a leaf over keywords.js
 import { parseStaticAbilities, parseAttachedBonus, parseAuraGrantedManaAbility, parseSoulbondBond } from "./staticAbilityParser.js";
 import { isGraveyardReanimateAura, animateDeadBonusView } from "./animateDeadGate.js"; // P·12 — Animate Dead's -1/-0 (a zero-import leaf)
 import { commanderColorIdentityOf } from "./commanderIdentity.js"; // CR 903.4 — the shared read (stamp + command zone); a zero-import leaf
@@ -396,9 +397,15 @@ function countGraveyardSpec(state, perm, spec) {
     // graveyard"): a word-bounded match on the FULL type line (subtypes live RIGHT of the dash, so the
     // head-only split the card-TYPE branches use would never see them). The parser admits only a closed-
     // vocabulary single word (never a supertype/qualifier), so this is a faithful membership test.
+    // P·39b — a card that is every creature type (a changeling; a creature card under its owner's Maskwood Nexus) is a Warrior card;
+    // a land / artifact subtype ("a Desert card") never reaches it (CR 205.3d). Its owner is the graveyard's player.
     if (spec.subtype) {
       const subRe = new RegExp(`\\b${spec.subtype}\\b`, "i");
-      return gy.filter((c) => subRe.test(typeLineOf(c))).length;
+      const every = CR_CREATURE_TYPES.has(String(spec.subtype).toLowerCase());
+      const owned = allGy
+        ? Object.entries(state?.players || {}).flatMap(([pid, pl]) => (pl.graveyard || []).map((c) => [c, pid]))
+        : gy.map((c) => [c, perm?.controller]);
+      return owned.filter(([c, owner]) => subRe.test(typeLineOf(c)) || (every && cardIsEveryCreatureType(state, c, owner))).length;
     }
     if (!spec.cardType) return gy.length; // bare threshold: all cards
     // GATED-GY-EXT: typed count — cardType "Permanent" (Descend 4) or "instantOrSorcery" (Ghitu style).
@@ -1063,6 +1070,8 @@ export function collectContinuousEffects(state) {
 // derive would create. A DYNAMIC-selector layer-4 grant (none ship today) is deliberately NOT consulted here
 // — that would reintroduce the recursion — so it's a SAFE under-read, never an over-match. The `types` are
 // kept original-case (the cardTypes check uses substring inclusion like the printed path); subtypes lowercased.
+// The one dynamic every-creature-type selector the identity read honors — staticAbilityParser's Maskwood Nexus arm, verbatim.
+const YOUR_CREATURES_SELECTOR = JSON.stringify({ cardTypes: ["Creature"], controllerScope: "you" });
 function effectiveTypeIdentity(candidate, state) {
   let types = cardTypesOf(candidate.card);
   const subtypes = subtypesOf(candidate.card).map(s => s.toLowerCase());
@@ -1075,8 +1084,16 @@ function effectiveTypeIdentity(candidate, state) {
   let setTs = -Infinity;
   for (const e of board) {
     if (e.layer !== 4) continue;
-    // A FIXED one (an animation's "with all creature types", Mirror Entity's activation) names its permanents. (No DYNAMIC
-    // every-creature-type effect is emitted yet; one would be skipped here — a safe under-read — while the derive applied it.)
+    // A DYNAMIC grant (P·39b — Maskwood Nexus, "Creatures you control are every creature type") is honored only in its exact
+    // printed shape: creatures, scoped to the controller of the permanent that prints it — a plain controller read off that
+    // permanent, no selector evaluation, so no recursion. Any other selector is skipped here (a safe under-read; the derive
+    // still applies it). The creature half is the final types' check below.
+    if (e.op?.allCreatureTypes && e.affects?.mode === "dynamic") {
+      if (JSON.stringify(e.affects.selector || {}) === YOUR_CREATURES_SELECTOR
+        && findPerm(state, e.source?.permanentId)?.controller === candidate.controller) allTs = Math.max(allTs, e.timestamp ?? 0);
+      continue;
+    }
+    // A FIXED one (an animation's "with all creature types", Mirror Entity's activation) names its permanents.
     if (e.op?.allCreatureTypes && e.affects?.mode === "fixed" && e.affects.permanentIds?.includes(candidate.id)) {
       allTs = Math.max(allTs, e.timestamp ?? 0);
     }
@@ -1141,7 +1158,9 @@ function effectiveTypeIdentity(candidate, state) {
     for (const t of e.op?.types || []) if (!types.includes(t)) types.push(t);
     for (const st of e.op?.subtypes || []) subtypes.push(String(st).toLowerCase());
   }
-  return { types, subtypes, everyCreatureType: allTs > setTs };
+  // Only a creature takes a creature type (CR 205.3d): Maskwood's grant reaches every permanent its controller controls in the loop
+  // above, so a noncreature artifact beside it must be turned away here.
+  return { types, subtypes, everyCreatureType: types.includes("Creature") && allTs > setTs };
 }
 
 // P/T-PREDICATE recursion guard (Tetsuko — see the powerOrToughnessAtMost branch below): permanent ids whose

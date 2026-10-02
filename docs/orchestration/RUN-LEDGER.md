@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **8 commits**, corpus **44.5% (15,246)** at the tag → **44.5% (15,421)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+10**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **9 commits**, corpus **44.5% (15,246)** at the tag → **44.5% (15,422)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+11**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,39 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 39b: Maskwood Nexus (EDHREC #490) — every creature type off the battlefield · **+1** · corpus 15,422
+> Suite **17,870** green (1 skipped); lint 0; decks **2,746** / 2,998 unchanged. CI GREEN on 39a (run 36960594380).
+> Flip-diff **+1, −0, zero RETIERED** (tier snapshots at e111439d → the change): Maskwood Nexus → native-mixed. Top 1,000 **867**;
+> top 2,500 **1,704**. **Mutants 89/89**, restore byte-identical.
+> · **The grant.** "Creatures you control are every creature type" is a DYNAMIC layer-4 `allCreatureTypes` effect (CR 613.1d) on the
+>   creatures its controller controls — the derive applies it like 39a's fixed effects; effectiveTypeIdentity honors exactly that
+>   printed selector (a plain controller read, no recursion) and turns away a noncreature (Maskwood itself — CR 205.3d).
+> · **The zone half** — "the same is true for creature spells you control and creature cards you own that aren't on the battlefield" —
+>   is a new leaf, `everyCreatureType.js` (cardIsEveryCreatureType: the Changeling keyword ability, or a creature card/spell whose
+>   holder — the spell's controller, the card's owner — controls a Maskwood). Coverage strips that sentence only right after the grant.
+>   Routed: the tutor filter (Goblin Matron's "a Goblin card"; Stoneforge's "an Equipment card" never), Kinnan's "non-Human creature
+>   card" (NEGATED — it would put a Human onto the battlefield), the chosen-type digs and reveals (Icon of Ancestry, Herald's Horn,
+>   Goblin Ringleader, For the Ancestors, Gishath), the graveyard filters (Overlord of the Balemurk's "non-Avatar" — NEGATED; Boggart
+>   Birth Rite; Mantle of the Ancients' Aura/Equipment never), Return from Extinction's shared type, the cast triggers (Lys Alana
+>   Huntmaster, Elder Pine, Elvish Handservant — the caster's Maskwood, not yours — Vanquisher's Banner, Rivaz's rider), the cost
+>   reducers (Goblin Warchief, the Bannerets, Urza's Incubator, Edgewalker, Morophon; Hero of Iroas's Aura never), flash (Rattlechains;
+>   Sigarda's Aid never), cast-from-top (Korlessa; Mystic Forge's artifact never), Vision's free Robot, Rivaz's graveyard cast, Root
+>   Sliver, the spend restrictions (Cavern of Souls; Guidelight's artifact never) — offered AND paid — Path of Ancestry's shared type
+>   (spell side, commander side, command zone or battlefield), the reveal costs and reveal lands (Silvergill Adept, Gilt-Leaf Palace; a
+>   Snarl's Mountain never), the enters-with-counters statics (Bramblewood Paragon, CR 614.12), Essence Flux, the graveyard counts and
+>   conditions (Vengeful Firebrand, Dawnhand Eulogist; Ramunap Hydra's and Desert's Hold's Desert never), the dies look-back (Headless
+>   Rider). Every creature-type gate a non-creature word reaches is witnessed by a real card; the closed ones came out.
+> · **Fixed on the way:** the fixed-type reveal (Merfolk Wayfinder "all Island cards", Elder Pine "all land cards") read creature
+>   subtypes only, so it took no Island and no land — and took a changeling as an Island card; Overlord of the Balemurk could return a
+>   changeling as a "non-Avatar" creature card; For the Ancestors could "choose" Equipment; changeling cards were not every creature
+>   type in hands, libraries and graveyards (Goblin Matron, Boggart Birth Rite, Vengeful Firebrand missed them).
+> · **Documented under-reads (the safe direction):** a copied spell's creature type for copy triggers (no printed copy trigger keys
+>   on one); a subtype spell tax (none printed); "N or more <type> cards in your graveyard" counts (no creature-type printing); a
+>   departed creature whose Maskwood left in the same event; Path of Ancestry between two every-type objects with no printed type.
+>   Witness `app/src/lib/learn/everyCreatureTypeZones.test.js` (60; real-card fixtures generated from the bundled data — synthetic
+>   only for three false-positive guards no printed card reaches yet: the zone-sentence anchoring, a non-creature reveal cost, a
+>   typeless creature spell for Path of Ancestry).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 39a: every creature type on the battlefield — Mirror Entity (EDHREC #995), Mutavault, Faceless Haven · **+3** · corpus 15,421
 > Suite **17,810** green (1 skipped); lint 0; decks **2,746** / 2,998 unchanged. CI GREEN on the card-data refresh (run 36955366806).

@@ -22,6 +22,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { parseStaticAbilities, selfCostReductionMetric, collectCostReducers, costReductionForSpell } from "./staticAbilityParser.js";
+import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — the changeling pin passes the builder's every-creature-type answer
 import { classifyCard } from "./coverage.js";
 import { createGameState, createPermanent, _resetIdsForTests } from "./gameState.js";
 import { enterPermanent } from "./resolvers.js";
@@ -135,8 +136,11 @@ describe("CHOSEN-TYPE — costReductionForSpell + collect pairs the source's cho
     expect(costReductionForSpell(reducers, { type: "Creature — Goblin" })).toBe(0);
   });
   it("a changeling spell matches ANY chosen type", () => {
+    // P·39b: the caster's builder answers "every creature type" once per card (everyCreatureType.cardIsEveryCreatureType — the
+    // Changeling keyword, or the caster's Maskwood Nexus) and passes it as `every`; the reducer no longer re-reads the keyword.
     const reducers = collectCostReducers([{ card: URZAS_INCUBATOR(), chosenType: "Elf" }]);
-    expect(costReductionForSpell(reducers, { type: "Creature — Shapeshifter", keywords: ["Changeling"] })).toBe(2);
+    const changeling = { type: "Creature — Shapeshifter", keywords: ["Changeling"] };
+    expect(costReductionForSpell(reducers, changeling, "hand", null, cardIsEveryCreatureType(null, changeling, "user"))).toBe(2);
   });
   it("INERT: a chosen-type reducer whose source has NO chosenType reduces nothing (never fabricates a type)", () => {
     const reducers = collectCostReducers([{ card: URZAS_INCUBATOR(), chosenType: null }]);

@@ -371,7 +371,7 @@ export function autoPickTutorCandidate(state, pendingChoice) {
   const cards = (pendingChoice.candidates || [])
     .map((c) => byId.get(c.id))
     .filter(Boolean)
-    .filter((c) => cardMatchesTutorFilter(c, pendingChoice.filter));
+    .filter((c) => cardMatchesTutorFilter(c, pendingChoice.filter, state, pendingChoice.controller));
   if (cards.length === 0) return null;
   const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
   return [...cards].sort((a, b) =>

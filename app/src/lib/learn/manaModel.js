@@ -1435,7 +1435,10 @@ export function spendRestrictionAllows(restriction, castCard, opts = {}) {
     if (t === "@any-spell") return true; // bare "cast spells" — any castCard qualifies (context presence IS the spell-ness)
     // A multi-word entry is CONJUNCTIVE ("dragon creature" — every word must sit on the type line;
     // parseSpendRestriction's phrase note). A single-word entry is byte-identical to before.
-    if (t.split(/\s+/).every((word) => new RegExp(`\\b${word}\\b`).test(typeLine))) return true;
+    // P·39b — a cast spell that is every creature type (castEvery: Changeling, or its caster's Maskwood Nexus — the spend context
+    // carries it) meets every CREATURE-type word (Cavern of Souls' chosen type, "only to cast a Dinosaur spell"); a card type or an
+    // Aura / Equipment / Vehicle word is still read off the type line (CR 205.3d).
+    if (t.split(/\s+/).every((word) => new RegExp(`\\b${word}\\b`).test(typeLine) || (opts.castEvery === true && CR_CREATURE_TYPES.has(word)))) return true;
   }
   return false;
 }
@@ -2394,7 +2397,7 @@ function planPaymentCore(pool, sources, cost, spendContext = null) {
   const entrySpends = [];
   const rEntries = (spendContext?.restrictedEntries || [])
     .map((e, i) => ({ e, i }))
-    .filter(({ e }) => e && spendRestrictionAllows(e.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander, activatingIsCreature: spendContext?.activatingIsCreature === true, activatingTypeLine: spendContext?.activatingTypeLine || null, activatingColors: spendContext?.activatingColors ?? null }));
+    .filter(({ e }) => e && spendRestrictionAllows(e.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander, activatingIsCreature: spendContext?.activatingIsCreature === true, activatingTypeLine: spendContext?.activatingTypeLine || null, activatingColors: spendContext?.activatingColors ?? null, castEvery: spendContext?.castEvery === true }));
   if (rEntries.length) {
     let effCost = { ...cost };
     for (const { e, i } of rEntries) {
@@ -2473,7 +2476,7 @@ function planPaymentCore(pool, sources, cost, spendContext = null) {
     // The bound is the cost's total pip count: generic + colored + hybrid.
     .filter(s => {
       if (!s.restriction) return true;
-      if (!spendRestrictionAllows(s.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander, activatingIsCreature: spendContext?.activatingIsCreature === true, activatingTypeLine: spendContext?.activatingTypeLine || null, activatingColors: spendContext?.activatingColors ?? null })) return false;
+      if (!spendRestrictionAllows(s.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander, activatingIsCreature: spendContext?.activatingIsCreature === true, activatingTypeLine: spendContext?.activatingTypeLine || null, activatingColors: spendContext?.activatingColors ?? null, castEvery: spendContext?.castEvery === true })) return false;
       const totalPips = (cost.generic || 0)
         + MANA_COLORS.reduce((n, col) => n + (cost[col] || 0), 0)
         + (Array.isArray(cost.hybrid) ? cost.hybrid.length : 0);

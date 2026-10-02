@@ -86,7 +86,9 @@ import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTap
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
 import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses · LANDS-5: the ONE discard-ability price reducer the offer uses too
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf, crewCostWithOverrides, permanentColors } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions
+import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf, crewCostWithOverrides, permanentColors, permIsEveryCreatureType } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
+import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell / command-zone card that is every creature type (Changeling, Maskwood Nexus); a leaf over keywords.js
+import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39b — every creature type shares a creature type only (CR 205.3d); a zero-import leaf
 import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch; S8 — the Pilot's crew boost
 import { parseSagaChapters } from "./saga.js"; // SAGA LAND (play-weighted P·4 — Urza's Saga): the land drop gives a Saga its entry lore counter too (a pure leaf)
 import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers, checkBecomesCrewedTriggers, checkCycleSelfTriggers, checkCrimeTriggers, checkSagaChapterTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers; S7 — becomes-crewed; D9 — crime (CR 700.13)
@@ -414,7 +416,7 @@ function applyCastSpell(state, action) {
     // "Spend this mana only to cast a creature spell" is offered here and nowhere else. Must MATCH the
     // affordability context in legalChoices exactly — an offer the payment then refuses is a MANA_SHORT
     // throw on a legal-looking action.
-    const plan = planPayment(pool, castSources, action.cost, { castCard, isCommander: action.fromZone === "command", restrictedEntries: state.players[action.playerId]?.restrictedMana || [] });
+    const plan = planPayment(pool, castSources, action.cost, { castCard, isCommander: action.fromZone === "command", restrictedEntries: state.players[action.playerId]?.restrictedMana || [], castEvery: cardIsEveryCreatureType(state, castCard, action.playerId) }); // P·39b — castEvery, the same answer legalChoices' affordability context gives
     if (!plan) {
       throw new DispatcherError("Cannot pay the spell's mana cost", "MANA_SHORT");
     }
@@ -1012,7 +1014,16 @@ function applyCastSpell(state, action) {
     const caster = next.players[action.playerId];
     const commanderCards = [...(caster.command || []), ...(caster.battlefield || []).filter((p) => p.card?.isCommander).map((p) => p.card)];
     const commanderTypes = new Set(commanderCards.flatMap(subtypesOf));
-    const shares = subtypesOf(castCard).some((t) => commanderTypes.has(t));
+    // P·39b — a spell or a commander that is every creature type (a changeling; the caster's Maskwood Nexus reaching the spell and
+    // the commander card they own, or a battlefield commander's layer-4 answer) shares each CREATURE type the other has — none with
+    // a planeswalker commander's "Teferi" (CR 205.3d). Two every-type objects with no printed creature type between them go unread.
+    const hasCreatureType = (types) => types.some((t) => CR_CREATURE_TYPES.has(String(t).toLowerCase()));
+    const castIsEvery = cardIsEveryCreatureType(next, castCard, action.playerId);
+    const commanderIsEvery = (caster.command || []).some((c) => cardIsEveryCreatureType(next, c, action.playerId))
+      || (caster.battlefield || []).some((p) => p.card?.isCommander && permIsEveryCreatureType(next, p.id));
+    const shares = subtypesOf(castCard).some((t) => commanderTypes.has(t))
+      || (castIsEvery && hasCreatureType([...commanderTypes]))
+      || (commanderIsEvery && hasCreatureType(subtypesOf(castCard)));
     if (shares) {
       const fired = [];
       for (const { permanentId, rider } of spentRiders) {

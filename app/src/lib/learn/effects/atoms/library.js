@@ -6,7 +6,8 @@
 import { logEvent, opponentsOf, findPermanent, deterministicRng, shuffleSeededLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
 import { permanentIsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW
 import { controllerMetric } from "../../interveningIf.js"; // TITHE (O8, 2026-09-05) — "target opponent controls more lands than you" read at resolution (interveningIf → gameState only: cycle-free)
-import { hasKeyword } from "../../keywords.js"; // LK-1 chosen-type impulse-dig membership (keywords.js is a zero-import leaf — cycle-safe)
+import { cardIsEveryCreatureType } from "../../everyCreatureType.js"; // P·39b — a library card that is every creature type (Changeling, or Maskwood Nexus's grant): a leaf over keywords.js, cycle-safe
+import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // P·39b — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice, setPendingLookTopTakeChoice, setPendingMilledPickChoice, setPendingSylvanLibraryChoice, setPendingTaintedPactChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard, isInstantOrSorceryCard, resolveScaledAmount } from "./shared.js";
 import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD, parseCountSource, TUTOR_COLOR_WORD } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers; TUTOR_COLOR_WORD for the color-qualified X-tutor (Green Sun's Zenith)
@@ -72,23 +73,30 @@ export function tutorManaValue(card) {
  * `colors` array (cardIndex stamps it on every real card; CR 105 / 202.2). A `green` color requires the card
  * to BE that color; `nonwhite` requires the card NOT be that color. A card lacking a `colors` array fails a
  * positive color gate (FN-safe — never a fabricated match; the rare un-enriched stub stays out of the pool). */
-// LK-1 CHOSEN-TYPE membership (CR 614.12) — does a library card carry the creature type `chosenType`?
-// Subtype word-bounded on the FRONT-face type line OR a changeling (CR 702.73a). Mirrors resolvers.
-// cardHasChosenType / triggers.permHasChosenType / layers.permHasChosenTypeLayer (kept local so the atoms
+// LK-1 CHOSEN-TYPE membership (CR 614.12) — is a library card of the type `chosenType`? The word on the FRONT-face type line (a
+// library card has only its front face's characteristics, CR 712.4a), or — for a creature type — every creature type: a changeling
+// (CR 702.73a), or a creature card its owner's Maskwood Nexus covers (P·39b; the caller names state and the holder, the library's
+// player). Mirrors resolvers.cardHasChosenType / triggers.permHasChosenType / layers.permHasChosenTypeLayer (kept local so the atoms
 // barrel stays leaf-ish — no back-import of resolvers/triggers). An unset chosenType → false (SAFE no-op).
-function creatureSubtypesOfCard(card) {
+// P·39b: the NAMED type is not always a creature type — Merfolk Wayfinder puts "all Island cards" into hand, Elder Pine of Jukai
+// "all land cards" — so every creature type answers for a creature type only (CR 205.3d; a changeling was taken as an Island card),
+// and the type is read off the whole front line: a creature-subtype read never took an Island ("Land — Island") or a land, and
+// missed a Kindred card's creature types.
+function frontSubtypesOfCard(card) {
   const ts = String(card?.type || card?.type_line || "").split(" // ")[0]; // front face only (library cards)
-  if (!/Creature/.test(ts)) return [];
   const dash = ts.indexOf("—");
   if (dash === -1) return [];
   return ts.slice(dash + 1).trim().split(/\s+/).filter(Boolean);
 }
-function cardHasChosenType(card, chosenType) {
+function cardHasChosenType(card, chosenType, state = null, holderId = null) {
   if (!chosenType || !card) return false;
-  if (hasKeyword(card, "changeling")) return true;
-  return creatureSubtypesOfCard(card).some((s) => s.toLowerCase() === String(chosenType).toLowerCase());
+  if (CR_CREATURE_TYPES.has(String(chosenType).toLowerCase()) && cardIsEveryCreatureType(state, card, holderId)) return true;
+  const front = String(card?.type || card?.type_line || "").split(" // ")[0];
+  return new RegExp(`\\b${String(chosenType).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(front);
 }
-export function cardMatchesTutorFilter(card, filter) {
+// P·39b — `state` + `holderId` (the player whose zone holds the card — its owner) let the subtype gates see a card that is every
+// creature type through its holder's Maskwood Nexus; without them only a changeling's own ability is read (CR 702.73a).
+export function cardMatchesTutorFilter(card, filter, state = null, holderId = null) {
   if (!filter) return true;
   // NAME EXCLUSION (Tiamat "up to five Dragon cards NOT NAMED Tiamat"; Burning-Rune Demon "not named
   // Burning-Rune Demon"). Enforced here, in the SHARED matcher, so applyTutor's candidate pool and the
@@ -184,12 +192,14 @@ export function cardMatchesTutorFilter(card, filter) {
     if (!/\b(?:legendary|artifact|saga)\b/.test(frontType)) return false;
   }
   // NEGATED SUBTYPE (CORPUS ④-C — Kinnan "a non-Human creature card"): the FRONT face's type line must NOT carry the
-  // subtype word; a changeling has every creature type (CR 702.73a) and is excluded too. Enforced in the shared
-  // matcher so the candidate pool and any re-check agree.
+  // subtype word; a card that is every creature type is excluded too — a changeling (CR 702.73a; the keyword ability, never a
+  // bare "changeling" in the oracle, which also names the cards that only MAKE changelings), or a creature card its holder's
+  // Maskwood Nexus covers (P·39b). The producer negates a creature subtype only. Enforced in the shared matcher so the
+  // candidate pool and any re-check agree.
   if (filter.notSubtype) {
     const frontType = String(card?.type || card?.type_line || "").toLowerCase().split(" // ")[0];
     if (new RegExp(`\\b${String(filter.notSubtype).toLowerCase()}\\b`).test(frontType)) return false;
-    if (/\bchangeling\b/i.test(String(card?.oracle || card?.oracle_text || "")) || (Array.isArray(card?.keywords) && card.keywords.some((k) => /^changeling$/i.test(k)))) return false;
+    if (cardIsEveryCreatureType(state, card, holderId)) return false;
   }
   // NONLEGENDARY gate (SG-2 — Woodland Bellower): the front face must NOT carry the Legendary supertype.
   if (filter.excludeLegendary) {
@@ -202,7 +212,11 @@ export function cardMatchesTutorFilter(card, filter) {
   // (CR 712.4a), but the enriched type line is the COMBINED "Front // Back" for an MDFC —
   // so a [artifact] tutor must NOT match a card whose FRONT is a land and back an artifact.
   const type = String(card?.type || card?.type_line || "").toLowerCase().split(" // ")[0];
-  return groups.some((group, i) => group.every((w) => new RegExp(`\\b${w}\\b`).test(type))
+  // P·39b — a creature-type word ("a Sliver card", "a Goblin card") is also met by a card that is every creature type (a
+  // changeling, or a Maskwood Nexus creature card); a card type, or a land / artifact / enchantment subtype, never is (CR 205.3d).
+  let every = null;
+  const isEvery = () => (every ??= cardIsEveryCreatureType(state, card, holderId));
+  return groups.some((group, i) => group.every((w) => new RegExp(`\\b${w}\\b`).test(type) || (CR_CREATURE_TYPES.has(w) && isEvery()))
     && (filter.manaAbilityGroup !== i || cardHasManaAbility(card))); // MOONSILVER KEY (KN-4): one group may demand a mana ability
 }
 /** KN-4 — does the card print a mana ability ("{T}: Add {C}{C}.", "{T}, Sacrifice …: Add one mana of any color.")? Reads the
@@ -309,10 +323,10 @@ export function applyTutor(state, atom, ctx) {
   // The top card moves from the library like any library card, so its candidate carries zone "library".
   const candidates = sourceZones
     ? sourceZones.flatMap((zone) => zoneCards(zone)
-        .filter((c) => cardMatchesTutorFilter(c, effFilter))
+        .filter((c) => cardMatchesTutorFilter(c, effFilter, state, controller))
         .map((c) => ({ id: c.id, name: c.name, zone: zone === "libraryTop" ? "library" : zone })))
     : (player[sourceZone] || [])
-        .filter((c) => cardMatchesTutorFilter(c, effFilter))
+        .filter((c) => cardMatchesTutorFilter(c, effFilter, state, controller))
         .map((c) => ({ id: c.id, name: c.name }));
   return setPendingTutorChoice(state, {
     controller,
@@ -368,7 +382,7 @@ export function applyTutor(state, atom, ctx) {
     // Revealing a noncreature is the decline, so it exists only when the revealable pool holds a noncreature; with nothing
     // but creatures to reveal, one of them is put.
     mayFailToFind: atom.revealChoice
-      ? (sourceZones || []).flatMap(zoneCards).some((c) => !cardMatchesTutorFilter(c, effFilter))
+      ? (sourceZones || []).flatMap(zoneCards).some((c) => !cardMatchesTutorFilter(c, effFilter, state, controller))
       : Boolean(atom.optional || effFilter),
   });
 }
@@ -478,12 +492,12 @@ export function applyImpulseDigAtom(state, atom, ctx) {
   const chosenType = atom.filter?.chosenTypeOfSource
     ? (findPermanent(state, ctx.sourceId)?.permanent?.chosenType ?? null)
     : null;
-  const matchesChosen = (c) => cardHasChosenType(c, chosenType);
+  const matchesChosen = (c) => cardHasChosenType(c, chosenType, state, ctx.controller);
   // K7 (Make Your Own Luck): a NONLAND pool is a local type-line test — the tutor-filter vocabulary refuses "nonland".
   const pool = atom.filter?.nonland
     ? top.filter((c) => !/\bLand\b/i.test(String(c?.type || c?.type_line || "").split(" // ")[0]))
     : atom.filter
-      ? top.filter((c) => cardMatchesTutorFilter(c, atom.filter) && (!atom.filter.chosenTypeOfSource || matchesChosen(c)))
+      ? top.filter((c) => cardMatchesTutorFilter(c, atom.filter, state, ctx.controller) && (!atom.filter.chosenTypeOfSource || matchesChosen(c)))
       : top;
   if (pool.length === 0) {
     // Looked at N, nothing matching to reveal → the whole set goes to the bottom (a clean reveal-nothing,
@@ -554,8 +568,8 @@ export function applyLookTopTakeAtom(state, atom, ctx) {
   const chosenType = atom.filter?.chosenTypeOfSource
     ? (findPermanent(state, ctx.sourceId)?.permanent?.chosenType ?? null)
     : null;
-  const matches = cardMatchesTutorFilter(top, atom.filter)
-    && (!atom.filter?.chosenTypeOfSource || cardHasChosenType(top, chosenType));
+  const matches = cardMatchesTutorFilter(top, atom.filter, state, ctx.controller)
+    && (!atom.filter?.chosenTypeOfSource || cardHasChosenType(top, chosenType, state, ctx.controller));
   if (!matches) {
     // Non-matching top card → can't be taken, stays ON TOP. No pause, no surfacing (hidden-zone honesty).
     return logEvent(state, { kind: "spell-effect", effect: "look-top-take", controller: ctx.controller, looked: true, match: false });
@@ -1216,7 +1230,7 @@ export function applyGenesisWave(state, atom, ctx) {
   // type line; mv.max caps the mana value) — so "put any number of permanent cards with MV ≤ X" is enforced
   // identically to the battlefield-tutor cap, never fabricated.
   const capFilter = { ...(atom.filter || {}), mv: { max: x } };
-  const eligibleIds = new Set(revealed.filter((c) => cardMatchesTutorFilter(c, capFilter)).map((c) => c.id));
+  const eligibleIds = new Set(revealed.filter((c) => cardMatchesTutorFilter(c, capFilter, state, controller)).map((c) => c.id));
   // Put EVERY eligible permanent onto the battlefield (the deterministic "put all" resolution of "any number").
   // enterCardFromZone removes the card from the library and enters it under the controller's control, firing
   // ETB / landfall / permanent-enters — one card at a time so each entry's triggers are enqueued in order.
@@ -1268,7 +1282,7 @@ export function applyRevealPutFiltered(state, atom, ctx) {
   if (revealed.length === 0) {
     return logEvent(state, { kind: "spell-effect", effect: "reveal-put-filtered", controller, count: 0, put: 0, rest: 0 });
   }
-  const eligibleIds = new Set(revealed.filter((c) => cardMatchesTutorFilter(c, atom.filter)).map((c) => c.id));
+  const eligibleIds = new Set(revealed.filter((c) => cardMatchesTutorFilter(c, atom.filter, state, controller)).map((c) => c.id));
   // Put EVERY matching creature onto the battlefield (the deterministic "put all" resolution of "any number").
   let next = state;
   let put = 0;
@@ -1323,15 +1337,20 @@ export function applyChosenTypeRevealToHand(state, atom, ctx) {
   if (atom.fixedType) {
     chosenType = String(atom.fixedType);
   } else {
+    // A card that is every creature type (a changeling; P·39b — a creature card under its owner's Maskwood Nexus) is eligible
+    // for whichever type is chosen, so only the others decide it — don't double-weight one type over another. When every
+    // revealed creature is every type, any type takes them all, so the type is read off them instead. Only a CREATURE type can
+    // be chosen ("choose a creature type"): an Equipment or Island subtype is never a candidate.
     const counts = new Map();
+    const everyCounts = new Map();
     for (const c of revealed) {
-      if (hasKeyword(c, "changeling")) continue; // counted implicitly by cardHasChosenType below for every type; don't double-weight one type over another
-      for (const t of creatureSubtypesOfCard(c)) counts.set(t, (counts.get(t) || 0) + 1);
+      const tally = cardIsEveryCreatureType(state, c, controller) ? everyCounts : counts;
+      for (const t of frontSubtypesOfCard(c)) if (CR_CREATURE_TYPES.has(t.toLowerCase())) tally.set(t, (tally.get(t) || 0) + 1);
     }
     let best = 0;
-    for (const [t, ct] of counts) if (ct > best) { chosenType = t; best = ct; }
+    for (const [t, ct] of (counts.size ? counts : everyCounts)) if (ct > best) { chosenType = t; best = ct; }
   }
-  const eligibleIds = new Set(revealed.filter((c) => cardHasChosenType(c, chosenType)).map((c) => c.id));
+  const eligibleIds = new Set(revealed.filter((c) => cardHasChosenType(c, chosenType, state, controller)).map((c) => c.id));
   let next = state;
   let put = 0;
   for (const c of revealed) {

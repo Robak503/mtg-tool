@@ -60,6 +60,8 @@ import { selfDamagePrevention, attachedDamagePrevention, counterShieldPrevention
 import { armDamageToCreatureFlag } from "./wolverine.js";
 import { creatureSatisfiesRestrictions } from "./creatureRestrictions.js"; // the shared 16-kind restriction satisfier (leaf) — also read by effects/atoms/shared.massCreatureTargets
 import { TARGET_SUBTYPES } from "./effects/parseHelpers.js"; // SUBTYPE-TARGET — curated creature-subtype allowlist (leaf, cycle-safe)
+import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39b — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
+import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a graveyard card that is every creature type (Changeling, Maskwood Nexus); a leaf over keywords.js
 
 const NUM_WORDS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 
@@ -120,7 +122,9 @@ function matchesGyTypeToken(front, token) {
   if (token === "historic") return /\bArtifact\b|\bLegendary\b|\bSaga\b/.test(front);
   return token.split("|").some((tok) => (tok === "nonland" ? !/\bLand\b/.test(front) : GY_TYPE_WORD[tok] && front.includes(GY_TYPE_WORD[tok])));
 }
-export function cardMatchesGraveyardFilter(card, cardFilter) {
+// P·39b — `state` + `holderId` (the graveyard's player — the card's owner) let the subtype gates see a card that is every
+// creature type through its holder's Maskwood Nexus; without them only a changeling's own ability is read (CR 702.73a).
+export function cardMatchesGraveyardFilter(card, cardFilter, state = null, holderId = null) {
   if (!cardFilter || cardFilter === "any") return true;
   const front = String(card?.type || card?.type_line || "").split(" // ")[0];
   // STRUCTURED subtype+MV filter (BLITZ SS-1 — the soulshift recursion "target Spirit card with mana
@@ -131,13 +135,16 @@ export function cardMatchesGraveyardFilter(card, cardFilter) {
   if (typeof cardFilter === "object") {
     // A UNION of structured members (shelf D27 — Overlord of the Balemurk's "a non-Avatar creature card or a planeswalker
     // card"): the card matches when ANY member does.
-    if (Array.isArray(cardFilter.anyOf)) return cardFilter.anyOf.some((f) => cardMatchesGraveyardFilter(card, f));
+    if (Array.isArray(cardFilter.anyOf)) return cardFilter.anyOf.some((f) => cardMatchesGraveyardFilter(card, f, state, holderId));
+    // P·39b — a card that is every creature type (a changeling, CR 702.73a; a creature card under its owner's Maskwood Nexus)
+    // carries every CREATURE type; an Aura / Equipment subtype is never one (CR 205.3d — Mantle of the Ancients' pick).
     if (cardFilter.subtype) {
       const re = new RegExp(`\\b${String(cardFilter.subtype).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
-      if (!re.test(front)) return false;
+      if (!re.test(front) && !(CR_CREATURE_TYPES.has(String(cardFilter.subtype).toLowerCase()) && cardIsEveryCreatureType(state, card, holderId))) return false;
     }
-    // NEGATED SUBTYPE ("non-Avatar creature" — shelf D27): the same front-face, word-bounded read as the subtype gate above.
-    if (cardFilter.notSubtype && new RegExp(`\\b${String(cardFilter.notSubtype).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(front)) return false;
+    // NEGATED SUBTYPE ("non-Avatar creature" — shelf D27): the same front-face, word-bounded read as the subtype gate above,
+    // and a card that is every creature type is that type too, so it is excluded (the producer negates a creature type only).
+    if (cardFilter.notSubtype && (new RegExp(`\\b${String(cardFilter.notSubtype).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(front) || cardIsEveryCreatureType(state, card, holderId))) return false;
     // BASE CARD-TYPE gate (BLITZ PW-1 — the reanimate-MV filter {cardType:"creature", mvMax:N}): front-face
     // type-line containment (CR 712.8a, same front-face read as the string-token branch below). An unknown
     // cardType word can never pass → the card is rejected (never a mis-scoped return; whole-or-nothing).
@@ -847,7 +854,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
         // caught in the flip audit: it credited Corpse Hauler while making its ability unable to
         // ever have a legal target — the runtime-invisible FP class.)
         if (effect.excludeTriggeringCard && ctx?.triggeringCardId && card.id === ctx.triggeringCardId) continue;
-        if (!cardMatchesGraveyardFilter(card, effect.cardFilter)) continue;
+        if (!cardMatchesGraveyardFilter(card, effect.cardFilter, state, pid)) continue;
         // MILLED-THIS-TURN restriction (Tato Farmer — "target land card in a graveyard that was milled
         // this turn"): the card must appear in the millCards ledger stamped with the CURRENT turn (stale
         // entries are inert — the reader keys on state.turn, no cleanup pass needed).

@@ -83,6 +83,7 @@ import { creaturePower, creatureToughness, findPermanent } from "./gameState.js"
 // green suite is NOT evidence the module graph still loads (vitest resolves in a different order than node).
 import { permanentHasKeyword, permanentColors, permanentTypes, permanentIsCreature, permIsEveryCreatureType } from "./layers.js"; // + permanentIsCreature (P·32 — Selvala: every OTHER creature, layer-aware) // + permIsEveryCreatureType (P·39)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
+import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a graveyard card that is every creature type (Changeling, its owner's Maskwood Nexus) for "there is an Elf card in your graveyard"; a leaf over keywords.js
 import { hasCitysBlessing } from "./ascend.js"; // shelf D5 — the city's blessing designation (ascend.js imports only gameState)
 
 // ─── cardinal vocabulary ────────────────────────────────────────────────────────
@@ -1698,12 +1699,16 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   // "readable". The typed COUNT reader below has carried exactly that exposure since it shipped. Mirroring it
   // keeps one behaviour instead of two; diverging here (a curated allowlist on the singular arm only) would
   // mean the same phrase answered differently depending on whether it said "a" or "one or more".
+  // P·39b — a card that is every creature type (a changeling; a creature card under its owner's Maskwood Nexus) is an Elf card
+  // (Dawnhand Eulogist); "a Desert card" or "a creature card" is never met by it (CR 205.3d). The counted and two-type forms below
+  // have no creature-type printing in the corpus and read the type line alone.
   m = c.match(/^(?:there is|there's|there are) an? ([a-z]+) card in your graveyard$/);
   if (m) {
     const singularWord = m[1].replace(/s$/, "");
     const w = singularWord.charAt(0).toUpperCase() + singularWord.slice(1);
     const re = new RegExp(`\\b${w}\\b`, "i");
-    return (state.players[controllerId].graveyard || []).some((card) => re.test(typeStr(card)));
+    const every = CR_CREATURE_TYPES.has(singularWord.toLowerCase());
+    return (state.players[controllerId].graveyard || []).some((card) => re.test(typeStr(card)) || (every && cardIsEveryCreatureType(state, card, controllerId)));
   }
   m = c.match(/^(?:there is|there's) a card in your graveyard$/);
   if (m) return (state.players[controllerId].graveyard || []).length >= 1;

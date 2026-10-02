@@ -13,7 +13,7 @@ import { SMALL_NUM, parseCountSource } from "../parseHelpers.js"; // MULTI-COUNT
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // SUBTYPE RETURN (Atzocan Seer) — the closed CR subtype vocabulary (a zero-import leaf, cycle-free)
 import { shuffleControllerLibrary } from "./library.js";
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // the CR 603.7 queue (a sibling leaf)
-import { colorsOf, permanentProtectionColors } from "../../layers.js"; // shelf D41 — the host's live protection colours vs a returning card's colours (CR 702.16c/d)
+import { colorsOf, permanentProtectionColors, permIsEveryCreatureType } from "../../layers.js"; // shelf D41 — the host's live protection colours vs a returning card's colours (CR 702.16c/d); + permIsEveryCreatureType (P·39b — Essence Flux's returned Spirit)
 import { protectionApplies } from "../../protection.js"; // shelf D41 — the shared colour-protection test (an import-free leaf)
 import { auraMayEnchantCreature } from "../../auraHost.js"; // shelf D41 — the shared Enchant-line reader (a leaf; stack.js reads it too)
 // CZ-COMMANDER-VISIT cross-layer doors — INJECTED, never imported: a static resolvers.js/layers.js
@@ -223,10 +223,12 @@ export function applyBlink(state, atom, ctx) {
       blinked.push(cardId);
       // SUBTYPE-COUNTER RIDER (Essence Flux — CR 400.7 the returned object is NEW): "if it's a <subtype>, put
       // a +1/+1 counter on it" — read the RETURNED permanent's live type line; a match adds the counter to the
-      // new object (r.permanentId). A non-matching subtype adds nothing (never a fabricated counter — CREED).
+      // new object (r.permanentId). A non-matching subtype adds nothing (never a fabricated counter — CREED). P·39b — a returned
+      // creature that is every creature type (a changeling, its controller's Maskwood Nexus) is a Spirit too; the subtype is a
+      // creature type (the matcher admits CR_CREATURE_TYPES words only).
       if (atom.ifSubtypeCounter && r.permanentId) {
         const np = findPermanent(next, r.permanentId);
-        if (np && new RegExp(`\\b${atom.ifSubtypeCounter.subtype}\\b`, "i").test(np.permanent.card?.type || "")) {
+        if (np && (new RegExp(`\\b${atom.ifSubtypeCounter.subtype}\\b`, "i").test(np.permanent.card?.type || "") || permIsEveryCreatureType(next, r.permanentId))) {
           next = addCounter(next, { permanentId: r.permanentId, type: atom.ifSubtypeCounter.counterType, amount: atom.ifSubtypeCounter.amount || 1 });
         }
       }
@@ -406,7 +408,7 @@ export function applyReanimate(state, atom, ctx) {
   // resolve logs a clean no-op (the printed "may" had nothing to take).
   let picks = ctx.targets || [];
   if (!picks.length && atom.pickFromGraveyard) {
-    const found = (next.players[ctx.controller]?.graveyard || []).find((c) => cardMatchesGraveyardFilter(c, atom.cardFilter));
+    const found = (next.players[ctx.controller]?.graveyard || []).find((c) => cardMatchesGraveyardFilter(c, atom.cardFilter, next, ctx.controller));
     if (found) picks = [{ type: "graveyardCard", id: found.id }];
   }
   for (const t of picks) {
@@ -479,7 +481,7 @@ export function applyMassReturnToHand(state, atom, ctx) {
   if (!player) return state;
   // Snapshot ids BEFORE moving: each move rewrites the graveyard, so a live re-read mid-loop would skip cards.
   const ids = (player.graveyard || [])
-    .filter((c) => cardMatchesGraveyardFilter(c, atom.cardFilter))
+    .filter((c) => cardMatchesGraveyardFilter(c, atom.cardFilter, state, controller))
     .map((c) => c.id);
   let next = state;
   for (const id of ids) {
@@ -495,7 +497,7 @@ export function applyMassReanimate(state, atom, ctx) {
   // Snapshot the matching ids BEFORE entering anything: entries mutate the graveyard as they go, and a live
   // re-read mid-loop would skip cards (or, with a return-to-graveyard trigger, re-enter one).
   const ids = (player.graveyard || [])
-    .filter((c) => cardMatchesGraveyardFilter(c, atom.cardFilter))
+    .filter((c) => cardMatchesGraveyardFilter(c, atom.cardFilter, state, controller))
     .filter((c) => !/\bAura\b/.test(String(c?.type || c?.type_line || "").split(" // ")[0])) // CR 303.4f/g — see above
     .map((c) => c.id);
   let next = state;
@@ -642,7 +644,7 @@ export function applyReturnFromGraveyardPick(state, atom, ctx) {
   if (!player) return state;
   const mv = (c) => Number(c.cmc ?? c.mana_value ?? 0) || 0;
   const opponentChooses = atom.chooser === "opponent";
-  const candidates = (player.graveyard || []).filter((c) => cardMatchesGraveyardFilter(c, atom.cardFilter))
+  const candidates = (player.graveyard || []).filter((c) => cardMatchesGraveyardFilter(c, atom.cardFilter, state, ctx.controller))
     .sort((x, y) => (opponentChooses ? mv(x) - mv(y) : mv(y) - mv(x)) || String(x.name).localeCompare(String(y.name)));
   if (candidates.length === 0) return logEvent(state, { kind: "spell-effect", effect: "return-from-graveyard-pick", picked: null, controller: ctx.controller });
   if (candidates.length === 1) {

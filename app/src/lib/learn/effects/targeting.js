@@ -18,7 +18,7 @@
 import { enumerateTargets } from "../spellEffects.js";
 import { isNonChosenTargetType } from "../targetTypes.js";
 import { findPermanent } from "../gameState.js";
-import { hasKeyword } from "../keywords.js"; // MG-1: changeling (CR 702.73a) for the shared-creature-type subset gate — keywords.js is a pure leaf (no cycle)
+import { cardIsEveryCreatureType } from "../everyCreatureType.js"; // MG-1: every creature type (a changeling, CR 702.73a; P·39b — a Maskwood Nexus creature card) for the shared-creature-type subset gate — a leaf over keywords.js (no cycle)
 
 // A permanent's mana value (CR 202.3), read off the live battlefield permanent by id. Used by the
 // COLLECTIVE-X-MV restriction ("with total mana value X or less") to sum the chosen subset's MVs. Reads the
@@ -62,8 +62,8 @@ function creatureTypesOfGraveyardCard(card) {
 }
 
 // Do the chosen graveyard cards SHARE at least one creature type (CR 601.2c — the chosen set must satisfy
-// the printed restriction)? A CHANGELING (CR 702.73a — every creature type; hasKeyword, mirroring
-// layers.matchesSelector's changeling gate) constrains nothing; the remaining cards' type sets must have a
+// the printed restriction)? A card that is EVERY creature type (a changeling, CR 702.73a; P·39b — a creature card under its
+// owner's Maskwood Nexus) constrains nothing; the remaining cards' type sets must have a
 // non-empty intersection. A card that vanished from its stamped graveyard, or a non-changeling with NO real
 // creature type (an un-set oddity like B.F.M.), can never certify a share → reject (FP-forbidden — the pair
 // is simply not offered). Fewer than two cards have nothing to share — vacuously legal (unreachable for the
@@ -74,7 +74,7 @@ function subsetSharesCreatureType(state, sub) {
   for (const t of sub) {
     const card = graveyardCardOf(state, t);
     if (!card) return false;
-    if (hasKeyword(card, "changeling")) continue;
+    if (cardIsEveryCreatureType(state, card, t.controller)) continue;
     const types = creatureTypesOfGraveyardCard(card);
     if (types.size === 0) return false;
     inter = inter === null ? types : new Set([...inter].filter((x) => types.has(x)));

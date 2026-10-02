@@ -24,6 +24,8 @@
  * excludes it. Without that a fast land would enter tapped one turn late and a slow land one turn early.
  */
 import { evaluateInterveningIf, interveningIfParseable } from "./interveningIf.js";
+import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a hand card that is every creature type (the reveal lands); a leaf over keywords.js
+import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39b — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 
 const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -151,9 +153,11 @@ export function revealLandEntersTapped(state, card, controller) {
   const types = revealLandTypes(card);
   if (!types) return false;
   const hand = state?.players?.[controller]?.hand || [];
+  // P·39b — a hand card that is every creature type (a changeling, or a creature card under its owner's Maskwood Nexus) is an Elf
+  // card for Gilt-Leaf Palace; a basic land type (a Snarl's "Mountain or Forest") is never one of its types (CR 205.3d).
   const has = hand.some((c) => {
     const front = String(c?.type || c?.type_line || "").split(" // ")[0].toLowerCase();
-    return types.some((t) => new RegExp(`\\b${t}\\b`).test(front));
+    return types.some((t) => new RegExp(`\\b${t}\\b`).test(front) || (CR_CREATURE_TYPES.has(t) && cardIsEveryCreatureType(state, c, controller)));
   });
   return !has;
 }

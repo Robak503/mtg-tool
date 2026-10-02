@@ -3138,6 +3138,15 @@ export function classifyCard(card) {
     const stripped = stripModeledNoMaxHandSize(String(card.oracle)).trim();
     if (stripped !== String(card.oracle).trim()) card = { ...card, oracle: stripped };
   }
+  // P·39b PRE-STRIP — Maskwood Nexus's zone sentence ("The same is true for creature spells you control and creature cards you own
+  // that aren't on the battlefield.") is modeled at the RUNTIME's spell and card readers (everyCreatureType.cardIsEveryCreatureType),
+  // not by a static descriptor, so every residue lane would read it as unmodeled. Stripped only right after the grant sentence it
+  // extends ("Creatures you control are every creature type."): after any OTHER first sentence (Arcane Adaptation's "the chosen type
+  // in addition to their other types", Biotransference's "artifacts") it stays residue — that zone half is not modeled.
+  {
+    const stripped = String(card.oracle).replace(/(creatures you control are every creature type\.)\s*the same is true for creature spells you control and creature cards you own that aren['’]t on the battlefield\./i, (m, first) => first);
+    if (stripped !== String(card.oracle)) card = { ...card, oracle: stripped };
+  }
   // DISCARD-COST HAND ABILITY pre-strip (2026-08-03) — the SAME drift, one lane over. A
   // "<mana>, Discard this card: <effect>" ability is played from HAND, so no battlefield-oriented gate
   // can model it and every one of them reads the line as residue. `stripDiscardCostAbilityLine` already

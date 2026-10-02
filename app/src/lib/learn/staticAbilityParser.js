@@ -23,6 +23,7 @@
 
 import { stripFlashPermissionLine, stripAbilityWordLabel } from "./effects/textNormalize.js"; // leaf module, no cycle — shared self-flash strip; + the CR 207.2c ability-word label strip (Sentinel's Mark's "Addendum —")
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword, hasKeyword } from "./keywords.js";
+import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — Root Sliver's "Sliver spells": a spell's every-creature-type answer; a leaf (keywords.js only)
 import { isLevelerFrame } from "./leveler.js"; // LV-1 — the leveler frame detector (leaf module, no cycle)
 import { isAttackTaxClause, parseAttackTax } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — a pure leaf, shared with the runtime so metric and game agree
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // the closed creature-subtype vocabulary, imported from the LEAF (never through targeting.js — that edge crashes module init; see creatureTypes.js)
@@ -1930,7 +1931,10 @@ function parseColorPips(str) {
  * and the same chosenType pairing — because the two run over the same reducer list and disagreeing about
  * which spells match would be a drift bug that only shows up on one card.
  */
-export function coloredPipReductionForSpell(reducers, spellCard) {
+// `every` (P·39b): the spell is every creature type (everyCreatureType.cardIsEveryCreatureType — the cast builder reads it once,
+// knowing the caster); it meets a CREATURE-type filter only (CR 205.3d). The same flag rides costReductionForSpell,
+// spellMatchesFlashFilter and castFromTopFilterAllows.
+export function coloredPipReductionForSpell(reducers, spellCard, every = false) {
   if (!reducers?.length || !spellCard) return {};
   const typeLine = String(spellCard?.type || spellCard?.type_line || "").toLowerCase();
   const spellName = spellCard?.name;
@@ -1941,9 +1945,9 @@ export function coloredPipReductionForSpell(reducers, spellCard) {
     if (r.subtype) {
       if (!typeLine) continue;
       const sub = String(r.subtype).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      if (!sub || !new RegExp(`\\b${sub}\\b`).test(typeLine)) continue;
+      if (!sub || (!new RegExp(`\\b${sub}\\b`).test(typeLine) && !(every && CR_CREATURE_TYPES.has(String(r.subtype).toLowerCase())))) continue;
     } else if (r.chosenType) {
-      if (!spellHasChosenType(spellCard, r.sourceChosenType)) continue;
+      if (!spellHasChosenType(spellCard, r.sourceChosenType) && !(every && r.sourceChosenType)) continue;
     } else {
       continue; // an unfiltered pip reducer is not a shape any printed card has — never apply one blind
     }
@@ -3563,6 +3567,16 @@ function parseClause(clause, out, selfName, selfType) {
   // intrinsic mana ability through the same manaModel delivery, so every such land also taps for any colour.
   if (/^lands you control are every basic land type in addition to their other types$/.test(c)) {
     out.push({ layer: 4, op: { subtypes: ["Plains", "Island", "Swamp", "Mountain", "Forest"] }, affects: { mode: "dynamic", selector: { cardTypes: ["Land"], controllerScope: "you" } }, duration: { kind: "permanent" } });
+    return;
+  }
+  // ⭐ CREATURES YOU CONTROL ARE EVERY CREATURE TYPE (the play-weighted program, P·39b — Maskwood Nexus, EDHREC #490): a layer-4
+  // grant (CR 613.1d) of the whole creature-type list (CR 205.3m) to each creature its controller controls — the derive's
+  // `everyCreatureType` flag (P·39a), ordered against a creature-type replacement by its timestamp (CR 613.7). The card's next
+  // sentence ("The same is true for creature spells you control and creature cards you own that aren't on the battlefield.") is
+  // the zone half: everyCreatureType.cardIsEveryCreatureType at the spell and card readers. Coverage pre-strips that sentence only
+  // beside this exact one (everyCreatureType.grantsEveryCreatureType).
+  if (/^creatures you control are every creature type$/.test(c)) {
+    out.push({ layer: 4, op: { allCreatureTypes: true }, affects: { mode: "dynamic", selector: { cardTypes: ["Creature"], controllerScope: "you" } }, duration: { kind: "permanent" } });
     return;
   }
   // ⭐ THIS LAND IS EVERY NONBASIC LAND TYPE (SHELF-85 K8, 2026-09-04 — Planar Nexus; CR 205.3i lists the nonbasic land
@@ -5391,11 +5405,11 @@ export function collectCostReducers(permanents, { commandZone = false } = {}) {
 
 // CHOSEN-TYPE membership (CR 614.12, mirrors triggers.permHasChosenType / resolvers.cardHasChosenType — kept
 // local so this module stays a leaf). A spell carries the chosen type if its type line has that creature
-// subtype (word-bounded) OR it's a changeling (CR 702.73a — every creature type). Unset type → false.
+// subtype (word-bounded). Unset type → false. P·39b: a spell that is every creature type — a changeling (CR 702.73a), or a creature
+// spell under its caster's Maskwood Nexus — is the callers' `every` (everyCreatureType.cardIsEveryCreatureType, the keyword ABILITY:
+// a bare /changeling/ match on the oracle also took Springleaf Parade, which only MAKES changeling tokens, as every creature type).
 function spellHasChosenType(spellCard, chosenType) {
   if (!chosenType || !spellCard) return false;
-  const kws = Array.isArray(spellCard.keywords) ? spellCard.keywords.map((k) => String(k).toLowerCase()) : [];
-  if (kws.includes("changeling") || /\bchangeling\b/i.test(String(spellCard.oracle || spellCard.oracle_text || ""))) return true;
   const ts = String(spellCard.type || spellCard.type_line || "");
   const dash = ts.indexOf("—");
   if (dash === -1) return false;
@@ -5415,7 +5429,7 @@ function spellHasChosenType(spellCard, chosenType) {
  * spell that merely NAMES the subtype (e.g. "Beast Within") never does. Generic-only and floored by the caller
  * at the cast site (CR 601.2f); the mana value is never touched (CR 202.3). Pure; 0 when nothing applies.
  */
-export function costReductionForSpell(reducers, spellCard, fromZone = "hand", castContext = null) {
+export function costReductionForSpell(reducers, spellCard, fromZone = "hand", castContext = null, every = false) { // `every` — P·39b, see coloredPipReductionForSpell
   if (!reducers?.length || !spellCard) return 0;
   const typeLine = String(spellCard?.type || spellCard?.type_line || "").toLowerCase();
   const spellName = spellCard?.name;
@@ -5459,7 +5473,7 @@ export function costReductionForSpell(reducers, spellCard, fromZone = "hand", ca
       if (!typeLine) continue;
       const hit = r.subtypes.some((sub) => {
         const esc = String(sub).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        return esc && new RegExp(`\\b${esc}\\b`).test(typeLine);
+        return esc && (new RegExp(`\\b${esc}\\b`).test(typeLine) || every); // P·39b — every printed union names two creature types
       });
       if (!hit) continue;
       total += r.amount || 0;
@@ -5479,7 +5493,7 @@ export function costReductionForSpell(reducers, spellCard, fromZone = "hand", ca
     if (r.subtype) {
       if (!typeLine) continue;
       const sub = String(r.subtype).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      if (!sub || !new RegExp(`\\b${sub}\\b`).test(typeLine)) continue;
+      if (!sub || (!new RegExp(`\\b${sub}\\b`).test(typeLine) && !(every && CR_CREATURE_TYPES.has(String(r.subtype).toLowerCase())))) continue;
       // COLOR + TYPE (the Monument cycle) — a descriptor carrying BOTH qualities is an AND, unlike the
       // colors-only branch below, which is a union across the listed colors. Without this the if/else-if
       // dispatch would take the subtype branch alone and Bontu's Monument would shave WHITE creatures too.
@@ -5494,7 +5508,7 @@ export function costReductionForSpell(reducers, spellCard, fromZone = "hand", ca
     } else if (r.chosenType) {
       // The reducer applies only to its CONTROLLER's spells (the "you cast" framing); the cast site only ever
       // passes the casting player's own reducers, so no controller re-check is needed here.
-      if (spellHasChosenType(spellCard, r.sourceChosenType)) total += r.amount || 0;
+      if (spellHasChosenType(spellCard, r.sourceChosenType) || (every && !!r.sourceChosenType)) total += r.amount || 0;
     }
   }
   return total;
@@ -5684,7 +5698,7 @@ export function flashCastPermissionsOf(card) {
  * Pure; no engine import (reuses the leaf colorsOfSpell). CREED: a spec that ever failed to reduce to a modeled
  * filter is null upstream (never reaches here), so this only ever tests a faithfully-evaluable predicate.
  */
-export function spellMatchesFlashFilter(spec, spellCard) {
+export function spellMatchesFlashFilter(spec, spellCard, every = false) { // `every` — P·39b, see coloredPipReductionForSpell
   if (!spec || !spellCard) return false;
   if (spec.any) return true;
   const typeLine = String(spellCard?.type || spellCard?.type_line || "");
@@ -5706,7 +5720,8 @@ export function spellMatchesFlashFilter(spec, spellCard) {
     }
     if (ok && q.colorless && colorsOf().length > 0) ok = false;
     if (ok && q.nonCreature && /\bcreature\b/.test(typeLineLc)) ok = false;
-    if (ok && q.subtype && !new RegExp(`\\b${q.subtype.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(subtypeStr)) ok = false;
+    if (ok && q.subtype && !new RegExp(`\\b${q.subtype.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(subtypeStr)
+      && !(every && CR_CREATURE_TYPES.has(q.subtype.toLowerCase()))) ok = false;
     if (ok) return true; // matched a qualifier (the qualifiers are OR-joined)
   }
   return false;
@@ -5808,6 +5823,9 @@ export function stackSpellIsUncounterable(state, obj, pre = null) {
     for (const sub of subs) {
       if (new RegExp(`\\b${sub.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(typeLine)) return true;
     }
+    // P·39b — "Sliver spells can't be countered" (Root Sliver): a spell that is every creature type is a Sliver spell — Changeling,
+    // or a creature spell its controller's Maskwood Nexus reaches (CR 205.3d keeps it to creature types).
+    if (cardIsEveryCreatureType(state, obj?.source, obj?.controller) && [...subs].some((s) => CR_CREATURE_TYPES.has(String(s).toLowerCase()))) return true;
   }
   const players = pre?.uncounterablePlayers ?? uncounterablePlayersOnBattlefield(state);
   return uncounterableCoversSpell(players, obj?.controller, obj?.source?.type || obj?.source?.type_line, obj?.source);
@@ -5841,13 +5859,14 @@ function mergeSpellFilters(a, b) {
  * not an intersection — "angel spells and human spells" lets an Angel through even if it is not a Human).
  * Word-boundary matched so "Elf" never matches "Elfball" and "Art" never matches "Artifact".
  */
-export function castFromTopFilterAllows(spellFilter, card) {
+export function castFromTopFilterAllows(spellFilter, card, every = false) { // `every` — P·39b, see coloredPipReductionForSpell
   if (!spellFilter) return false;
   if (spellFilter === "any") return true;
   const tl = `${card?.type || card?.type_line || ""}`;
   // "colorless" (Mystic Forge) is a COLOUR test, not a type-line word: a card with no colour — read off its printed
   // colours, else its cost pips — passes; a land is never a spell and is refused by the caller's lands gate.
-  return spellFilter.some((w) => (w === "colorless" ? cardIsColorless(card) : new RegExp(`\\b${w}\\b`, "i").test(tl)));
+  return spellFilter.some((w) => (w === "colorless" ? cardIsColorless(card)
+    : new RegExp(`\\b${w}\\b`, "i").test(tl) || (every && CR_CREATURE_TYPES.has(String(w).toLowerCase()))));
 }
 function cardIsColorless(card) {
   if (Array.isArray(card?.colors)) return card.colors.length === 0;

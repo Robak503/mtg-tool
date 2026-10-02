@@ -31,6 +31,7 @@ import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { othersEnterWithCounters, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, sunburstCounterKind, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithCountersPerKick, entersWithCastFromHandCounters, choosesColorOnEnter, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
 import { addContinuousEffect, permanentPower, permanentToughness, equipmentBarredAsCreature, permIsEveryCreatureType } from "./layers.js"; // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); acyclic (layers imports only ptPrimitive/keywords/staticAbilityParser/protection, none of which reach resolvers)
 import { conditionalEntersTapped, paysLifeOrEntersTapped, autoPickOptionalLifePayment, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>"; a leaf over interveningIf (interveningIf → layers → staticAbilityParser, none reach resolvers) — acyclic
+import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — the entering creature is every creature type (Changeling, its controller's Maskwood Nexus) for "each other Elf enters with a counter"; a leaf over keywords.js
 import { autoPickCreatureType } from "./choicePolicy.js"; // CR 614.12 auto-choice policy — a zero-import LEAF, shared with the effect atoms (which cannot import resolvers: resolvers → runProgram → effectAtoms). One copy, so an ETB choice and an activated choice can never diverge on the same board.
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
 import { parseFabricate, decideFabricate, applyFabricateServos } from "./fabricate.js"; // KW-FABRICATE (CR 702.111a) — ETB choice: N +1/+1 counters OR N 1/1 Servo tokens
@@ -38,7 +39,6 @@ import { entersWithKickedCounters } from "./kicker.js"; // KICKER (CR 702.33e) �
 import { parseTribute, decideTribute, tributeIfNotClause } from "./tribute.js"; // TRIBUTE (CR 702.96) — opponent ETB choice: pay N +1/+1 counters OR the "if tribute wasn't paid" effect fires (leaf, acyclic)
 import { applyCounterDoubling } from "./replacementEffects.js"; // Wave-3 doubler (leaf): enters-with-counters bypasses addCounter, so double here
 import { countForSpec } from "./effects/atoms/shared.js"; // ETB-XCOUNTERS-FROM-METRIC: resolve a board-metric counter count (leaf: shared → gameState only)
-import { hasKeyword } from "./keywords.js"; // CHOSEN-TYPE ETB counter (Banner of Kinship): changeling counts as the chosen type (leaf module)
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
 // in P2.2 so the effect interpreter can share it without an import cycle).
@@ -94,11 +94,11 @@ function creatureSubtypesOf(card) {
 }
 
 // CHOSEN-TYPE membership (CR 614.12) — does a permanent's `card` carry the creature type `chosenType`?
-// Subtype word-bounded on the type line OR a changeling (CR 702.73a). Mirrors triggers.permHasChosenType +
-// layers.permHasChosenTypeLayer (kept local so resolvers stays leaf-ish). Unset chosenType → false.
+// Subtype word-bounded on the type line. Mirrors triggers.permHasChosenType + layers.permHasChosenTypeLayer (kept local so
+// resolvers stays leaf-ish). Unset chosenType → false. Every creature type (a changeling, CR 702.73a; Mirror Entity's activation)
+// is the caller's layers.permIsEveryCreatureType OR (P·39).
 function cardHasChosenType(card, chosenType) {
   if (!chosenType || !card) return false;
-  if (hasKeyword(card, "changeling")) return true;
   return creatureSubtypesOf(card).some((s) => s.toLowerCase() === String(chosenType).toLowerCase());
 }
 
@@ -173,13 +173,16 @@ function othersEnterWithCountersFor(state, controller, card) {
   if (!card) return 0;
   const tl = String(card.type || card.type_line || "");
   if (!/\bCreature\b/i.test(tl)) return 0;
+  // P·39b — the entering creature as it would exist on the battlefield (CR 614.12): every creature type when it is a changeling or
+  // its controller's Maskwood Nexus already applies to the creatures they control. The subtype is a creature type (TARGET_SUBTYPES).
+  const entersEvery = cardIsEveryCreatureType(state, card, controller);
   let n = 0;
   for (const p of state?.players?.[controller]?.battlefield || []) {
     if (!p) continue;
     const d = othersEnterWithCounters(p.card);
     if (!d) continue;
     if (d.subject === "planeswalker") continue; // Oath of Gideon's loyalty shape — a creature never reads it (othersEnterWithLoyaltyFor)
-    if (d.subtype && !new RegExp(`\\b${d.subtype}\\b`).test(tl)) continue;
+    if (d.subtype && !new RegExp(`\\b${d.subtype}\\b`).test(tl) && !entersEvery) continue;
     const metric = d.metric === "sourceToughness" ? permanentToughness(state, p.id)
       : d.metric === "sourcePower" ? permanentPower(state, p.id) : 0;
     n += Math.max(0, d.fixed + metric);

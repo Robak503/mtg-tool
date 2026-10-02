@@ -34,6 +34,7 @@ import { canAfford, manaSources, manaProduction, manaActivationCost, payActivati
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType } from "./layers.js";
+import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell's every-creature-type answer for the cost readers; a leaf (keywords.js only)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
 import { grantsWubrgAltCost, fixedManaAltCostOf, conditionalFixedManaAltCostOf } from "./effects/textNormalize.js"; // + the trap form (shelf D17) // FIST OF SUNS (RG-5) — the board-granted WUBRG alternative cost; + RG-8 — the spell's OWN fixed-mana alternative cost (the Bringers); leaf readers
@@ -1027,8 +1028,8 @@ function computeAltCastSpec(state, playerId, card) {
 // would get each on its own column). Each colour floors at 0; `generic` and the mana value are untouched
 // (CR 202.3). Returns the cost object unchanged when no pip reducer matches, which is every board without
 // one of the five cards, so this is a no-op in the common case.
-function applyColoredPipReduction(cost, costReducers, card) {
-  const pips = coloredPipReductionForSpell(costReducers, card);
+function applyColoredPipReduction(cost, costReducers, card, everyType = false) {
+  const pips = coloredPipReductionForSpell(costReducers, card, everyType);
   const colors = Object.keys(pips);
   if (!colors.length) return cost;
   const next = { ...cost };
@@ -1089,6 +1090,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
 
   for (const card of cards) {
     if (isLand(card)) continue;
+    // P·39b — is this spell every creature type (Changeling; a creature spell this player's Maskwood Nexus reaches)? Read once for
+    // the cost readers below (CR 601.2f — the spell is the caster's while its cost is determined).
+    const everyType = cardIsEveryCreatureType(state, card, playerId);
 
     // ADVENTURE (CR 715): the COMBINED card is never castable as-is — each half is cast separately via the
     // dedicated adventure generators (adventure half / creature half), which project a single face and re-enter
@@ -1129,7 +1133,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // instant-speed via isSorcerySpeed — true since stage ③ · 22) and only against this player's own statics — so it never
     // widens an opponent's timing. A false match is impossible: the spec was validated to a modeled filter
     // upstream (else it's null and never emitted), so this only offers a cast the rules genuinely permit.
-    const hasFlashPermission = flashSpecs.length > 0 && flashSpecs.some((spec) => spellMatchesFlashFilter(spec, card));
+    const hasFlashPermission = flashSpecs.length > 0 && flashSpecs.some((spec) => spellMatchesFlashFilter(spec, card, everyType));
     const sorcerySpeed = isSorcerySpeed(card) && !hasFlashPermission;
     const timingOk = sorcerySpeed
       ? canCastSorcerySpeed(state, playerId)
@@ -1188,9 +1192,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // floor the GENERIC at 0. The pips and the mana value are never touched (CR 202.3).
       const staticTax = costTaxForSpell(costTaxers, card, playerId);
       if (staticTax) cost = { ...cost, generic: (cost.generic || 0) + staticTax };
-      const reduction = costReductionForSpell(costReducers, card, fromZone, { spellsCastThisTurn: player.spellsCastThisTurn || 0 }) + selfCostReductionForSpell(state, playerId, card);
+      const reduction = costReductionForSpell(costReducers, card, fromZone, { spellsCastThisTurn: player.spellsCastThisTurn || 0 }, everyType) + selfCostReductionForSpell(state, playerId, card);
       if (reduction) cost = { ...cost, generic: Math.max(0, (cost.generic || 0) - reduction) };
-      cost = applyColoredPipReduction(cost, costReducers, card);
+      cost = applyColoredPipReduction(cost, costReducers, card, everyType);
     }
     // Castable if the pool PLUS what untapped lands/rocks/dorks could produce
     // covers the cost — the dispatcher auto-taps to pay. (Pool-only would
@@ -1202,7 +1206,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // POOL-RESTRICTED SUB-POOL (QUARTET Phase 4): thread the tagged entries so a qualifying cast can
     // spend them (restricted-first in the planner). The ability-activation path threads NONE — Klauth's
     // "only to cast spells" is enforced by absence (the default-deny posture).
-    const spendContext = { castCard: card, isCommander: fromZone === "command", restrictedEntries: player.restrictedMana || [] };
+    const spendContext = { castCard: card, isCommander: fromZone === "command", restrictedEntries: player.restrictedMana || [], castEvery: everyType }; // P·39b — castEvery: Cavern-style "creature spell of the chosen type" mana sees every creature type
     const affordable = freeCast || canAfford(player.manaPool, manaSources(state, playerId), cost, spendContext);
     // FIST OF SUNS (RG-5): the five-pip alternative — hand casts only, never a free cast, never an X spell (the X would be 0
     // under an alternative cost — a different, unmodeled line), payable right now.
@@ -1468,7 +1472,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // hand would pay its own discount and the {2} would never be charged. Cheaper-than-printed, the
         // forbidden direction.
         if (!affordable) continue;   // R1.5 — printed-cost re-check, exactly as payLife above
-        const revealable = player.hand.filter((h) => h.id !== card.id && sacTypeMatches(h, "permanent", addCost.subtype));
+        // P·39b — a hand card that is every creature type (a changeling, or a creature card under its owner's Maskwood Nexus) is a
+        // Merfolk card for Silvergill Adept; the reveal grammar admits any word, and only a creature type is one of its types (CR 205.3d).
+        const revealable = player.hand.filter((h) => h.id !== card.id && (sacTypeMatches(h, "permanent", addCost.subtype)
+          || (CR_CREATURE_TYPES.has(String(addCost.subtype).toLowerCase()) && cardIsEveryCreatureType(state, h, playerId))));
         if (!revealable.length) continue;
         // WHICH card is revealed is informationally irrelevant to the engine (nothing moves, no effect reads
         // it back), so the first match is stamped — the auto-pick precedent the discard cost already set.
@@ -1812,9 +1819,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       if (!freeCast) {
         const staticTax = costTaxForSpell(costTaxers, card, playerId);   // increases before decreases (CR 601.2f)
         if (staticTax) bestowCost = { ...bestowCost, generic: (bestowCost.generic || 0) + staticTax };
-        const reduction = costReductionForSpell(costReducers, card, fromZone, { spellsCastThisTurn: player.spellsCastThisTurn || 0 }) + selfCostReductionForSpell(state, playerId, card);
+        const reduction = costReductionForSpell(costReducers, card, fromZone, { spellsCastThisTurn: player.spellsCastThisTurn || 0 }, everyType) + selfCostReductionForSpell(state, playerId, card);
         if (reduction) bestowCost = { ...bestowCost, generic: Math.max(0, (bestowCost.generic || 0) - reduction) };
-        bestowCost = applyColoredPipReduction(bestowCost, costReducers, card);
+        bestowCost = applyColoredPipReduction(bestowCost, costReducers, card, everyType);
       }
       const canAffordBestow = freeCast || canAfford(player.manaPool, manaSources(state, playerId), bestowCost);
       // X-cost bestow (Nyxborn Hydra is gated out by isNativeBestow today — its dynamic per-counter bonus
@@ -3694,9 +3701,10 @@ function actionsCastDragonCreatureFromGraveyard(state, playerId) {
     parseStaticAbilities(p.card).some((d) => d.castDragonCreatureGraveyardPermission)
     && !state.onceTriggersFiredThisTurn?.[`${p.id}_dragonGyCast`]);
   if (!source) return [];
+  // P·39b — a creature card that is every creature type (a changeling, or one under its owner's Maskwood Nexus) is a Dragon card.
   const eligible = (player.graveyard || []).filter((c) => {
     const t = String(c?.type || c?.type_line || "");
-    return /\bDragon\b/.test(t) && /\bCreature\b/.test(t);
+    return (/\bDragon\b/.test(t) || cardIsEveryCreatureType(state, c, playerId)) && /\bCreature\b/.test(t);
   });
   if (!eligible.length) return [];
   return castActionsFromZone(state, playerId, eligible, "graveyard", null, false)
@@ -3714,11 +3722,12 @@ function actionsCastDragonCreatureFromGraveyard(state, playerId) {
  * cleared at the untap step, the Raul / Rivaz latch). An unlimited grant covers a card before a once-grant would spend its
  * latch on it, and a card is offered free at most once.
  */
-function freeCastFilterAllows(filter, card) {
+// `every` (P·39b): the card is every creature type (a changeling; a creature card under its owner's Maskwood Nexus) — a Robot spell.
+function freeCastFilterAllows(filter, card, every = false) {
   const tl = String(card?.type || card?.type_line || "").split(" // ")[0];
   if (filter === "any") return true;
   if (filter === "instantOrSorcery") return /\bInstant\b|\bSorcery\b/.test(tl);
-  if (filter === "noncreatureOrRobot") return !/\bCreature\b/.test(tl) || /\bRobot\b/.test(tl);
+  if (filter === "noncreatureOrRobot") return !/\bCreature\b/.test(tl) || /\bRobot\b/.test(tl) || every;
   return false;
 }
 function actionsCastFreeByPermission(state, playerId) {
@@ -3739,7 +3748,7 @@ function actionsCastFreeByPermission(state, playerId) {
   const offered = new Set();
   const actions = [];
   for (const g of grants) {
-    const pick = (cards) => cards.filter((c) => c && !offered.has(c.id) && freeCastFilterAllows(g.filter, c) && timingOk(c)); // (the builder drops lands)
+    const pick = (cards) => cards.filter((c) => c && !offered.has(c.id) && freeCastFilterAllows(g.filter, c, cardIsEveryCreatureType(state, c, playerId)) && timingOk(c)); // (the builder drops lands)
     const fromHand = pick(player.hand || []);
     const fromTop = g.fromTop && top ? pick([top]) : [];
     for (const c of [...fromHand, ...fromTop]) offered.add(c.id);
@@ -3766,13 +3775,13 @@ function actionsPlayFromTopOfLibrary(state, playerId) {
     // card's type line here. This check is the ENFORCEMENT half of the credited static — without it a
     // filtered permission would offer ANY top card, which is a bigger card than the one printed and exactly
     // the false positive the lands-only gate below already exists to prevent.
-    if (castFromTopFilterAllows(perm.spellFilter, top)) actions.push(...castActionsFromZone(state, playerId, [top], "library", null, false));
+    if (castFromTopFilterAllows(perm.spellFilter, top, cardIsEveryCreatureType(state, top, playerId))) actions.push(...castActionsFromZone(state, playerId, [top], "library", null, false));
     // BOLAS'S CITADEL (P·17 — CR 118.9): the LIFE-COST permission — pay life equal to the spell's mana value rather than its
     // mana cost. Built as a no-mana cast (so X is 0, CR 107.3b, and no other alternative cost stacks, CR 118.9a) and carried
     // as an altCost the dispatcher pays; a mana value of 0 pays nothing (and a card with no mana cost may still be cast,
     // CR 118.6a). The free-cast builder skips the casting-timing check, so the permission's own timing is enforced here: a
     // spell cast this way follows its normal timing. Life is paid only if the total covers it (CR 119.4).
-    if (perm.lifeSpellFilter && castFromTopFilterAllows(perm.lifeSpellFilter, top)
+    if (perm.lifeSpellFilter && castFromTopFilterAllows(perm.lifeSpellFilter, top, cardIsEveryCreatureType(state, top, playerId))
         && (isSorcerySpeed(top) ? canCastSorcerySpeed(state, playerId) : canCastInstantSpeed(state, playerId))) {
       const mv = Math.max(0, Number(top.cmc) || 0);
       if ((player.life ?? 0) >= mv) {
@@ -4552,7 +4561,7 @@ function applyTargetTaxes(state, playerId, actions) {
       const cost = { ...a.cost, generic: (a.cost?.generic || 0) + manaTax };
       const fromZone = a.fromZone || "hand";
       const castCard = a.faceCard || (player?.[fromZone] || []).find((c) => c.id === a.cardId) || null; // the dispatcher's castCard
-      const spendContext = { castCard, isCommander: fromZone === "command", restrictedEntries: player?.restrictedMana || [] };
+      const spendContext = { castCard, isCommander: fromZone === "command", restrictedEntries: player?.restrictedMana || [], castEvery: cardIsEveryCreatureType(state, castCard, playerId) };
       if (!canAfford(player.manaPool, castPaymentSources(state, a), cost, spendContext)) continue;
       taxed = { ...taxed, cost, targetManaTax: manaTax };
     }

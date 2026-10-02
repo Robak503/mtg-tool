@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Maskwood Nexus** — your creatures are every creature type, and so are your creature spells and the creature cards you own in your hand, library, graveyard and command zone: tribal tutors, cost reducers, cast triggers, Cavern of Souls and Path of Ancestry all see them; its {3}, {T} ability makes a 2/2 Shapeshifter
 - **Mirror Entity, Mutavault and Faceless Haven** — "all creature types" works: tribal lords, triggers, counts and costs treat the creature as every creature type until end of turn, and Mirror Entity's X/X reaches an animated land too
 - **Birgi, God of Storytelling // Harnfel, Horn of Bounty** — cast either face: Birgi (each spell you cast adds {R} that stays in your pool until end of turn; your creatures can boast twice each turn) or Harnfel (discard a card to exile the top two cards of your library; you may play them this turn)
 - **Savage Ventmaw, Brazen Collector and Sakura-Tribe Springcaller** — the mana they add stays in your pool until end of turn instead of emptying between steps
@@ -16,6 +17,9 @@ summarizes the notable changes.
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
 
 ### Fixed
+- **Merfolk Wayfinder** and **Elder Pine of Jukai** now put the Island cards / land cards they reveal into your hand (they took none), and a changeling is no longer taken as an Island card
+- **Overlord of the Balemurk** could return a changeling as a "non-Avatar creature card"; a changeling is every creature type, so it no longer can
+- Changeling cards count as every creature type in your hand, library and graveyard too: Goblin Matron finds one as a Goblin card, Boggart Birth Rite returns one, Vengeful Firebrand sees one as a Warrior card; For the Ancestors now chooses only among creature types
 - A changeling could block a creature that "can't be blocked by Walls", and "Spacecraft creatures you control get +3/+3"-style effects pumped it; every creature type now means creature types only
 - Amass created a second Army token when you controlled a changeling (a changeling is an Army); it now puts the counters on the changeling
 - Creatures that only make changeling tokens (Belonging, Springleaf Parade) were counted as changelings by tribal counts and "non-Human" effects; real changelings now also trigger "another Elf enters"-style abilities and count for Sliver Legion and similar
