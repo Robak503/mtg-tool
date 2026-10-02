@@ -5,8 +5,8 @@
  * would create a cycle).
  */
 
-import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions, destructionReplacementFor } from "../../spellEffects.js"; // + destructionReplacementFor (#587): the destroy's own replacement ladder, read for "destroyed this way"
-import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, creatureBasePower, diesExiledInstead, deathExiledInstead, deathLookbackLinks, shufflesIntoLibraryInsteadOfGraveyard, addMana } from "../../gameState.js"; // + shufflesIntoLibraryInsteadOfGraveyard (#582): Saw in Half's "dies this way" verdict
+import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js";
+import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, diesExiledInstead, shufflesIntoLibraryInsteadOfGraveyard, addMana, deathLookback, destructionReplacementFor } from "../../gameState.js"; // + shufflesIntoLibraryInsteadOfGraveyard (#582): Saw in Half's "dies this way" verdict // + deathLookback: the death look-back every death site shares (the sacrifice sites included) // + destructionReplacementFor (#587): the destroy's own replacement ladder (its one copy, in gameState), read for "destroyed this way"
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // ④-BD — the counter rider's delayed "may draw up to N" (Arcane Denial); delayedTrigger imports only gameState (cycle-safe)
 import { checkDiesTriggers, checkLifegainTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers } from "../../triggers.js"; // + checkPlaneswalkerDiesTriggers (#639): a planeswalker sacrificed in a batch dies too (CR 700.4)
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
@@ -15,7 +15,7 @@ import { applyCreateToken, applyCreateNamedToken, applyCreateTokenCopy } from ".
 import { applyTutor, millOnePlayer } from "./library.js";
 import { applyZoneMove, applyExileUntilLeaves } from "./zones.js";
 import { manifestTopOf } from "./manifest.js"; // P·19 — Reality Shift's controller rider (manifest imports only gameState, triggers, tokens)
-import { permanentTypes, permIsEveryCreatureType, permanentHasCardType, deriveCharacteristics } from "../../layers.js"; // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentHasCardType (#509, #639): the batch edict's layer-aware, face-up pool and a sacrificed planeswalker // + deriveCharacteristics (#582): the destroyed creature's copiable values (a layer-1 copy result)
+import { permanentTypes, permIsEveryCreatureType, permanentHasCardType, permanentIsCreature, deriveCharacteristics } from "../../layers.js"; // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentHasCardType (#509, #639): the batch edict's layer-aware, face-up pool and a sacrificed planeswalker // + deriveCharacteristics (#582): the destroyed creature's copiable values (a layer-1 copy result) // + permanentIsCreature: the destroy ladder's layer-aware death look-backs
 import { NAMED_TOKENS } from "./tokens.js"; // NAMED-TOKEN sacrifice pool — same registry the mint side uses, so a pool can never name a token the engine cannot create
 import { NUM_WORD } from "../parseHelpers.js"; // #509 — the N-count edict's spelled cardinal (parseHelpers is a leaf: keywords.js only)
 
@@ -313,28 +313,25 @@ const CR_CARD_TYPES = new Set(["Artifact", "Battle", "Conspiracy", "Creature", "
 export function sacrificeCreatureEffect(state, playerId, permId) {
   const lk = findPermanent(state, permId);
   if (!lk) return logEvent(state, { kind: "spell-effect", effect: "sacrifice", controller: playerId, sacrificed: null });
-  // DIES-TRIGGER-RESOURCE-PAYOFFS: capture the layer-aware POWER from the ORIGINAL `state` (the perm is
-  // still on the battlefield there), BEFORE the moveCardToZone below — CR 603.6e — so a SACRIFICED
-  // Goldvein/Lifeblood/Feral-Ghoul still feeds its "equal to its power" dies-trigger the real on-board power.
-  const sacPower = isCreatureCard(lk.permanent.card) ? creaturePower(lk.permanent, state) : null;
-  // P·20 (Braids — "a permanent … that shares a card type with it"): the card types it had as it LEFT, layer-aware (an animated
-  // land is a creature too), read from the original state and carried on the sacrifice log for the payoff to read (CR 608.2h).
-  // The derived type list also holds the supertypes (Legendary, Basic, Snow), which are not card types (CR 205.4a) — dropped.
-  const sacTypes = permanentTypes(state, permId).types.filter((ty) => CR_CARD_TYPES.has(ty));
-  const sacBasePower = isCreatureCard(lk.permanent.card) ? creatureBasePower(lk.permanent, state) : null;
-  // DIES → EXILE INSTEAD (③ · 18, CR 614) — the sacrifice site asks the same predicate as every other death site. The creature
-  // is still SACRIFICED (the sacrifice triggers below fire), but it is exiled rather than put into the graveyard, so it never
-  // died: its look-back carries exileInstead and the dies triggers skip it.
-  const exileInstead = isCreatureCard(lk.permanent.card) && diesExiledInstead(state, lk.permanent);
+  // The types it had as it LEFT, layer-aware, read from the original `state` (CR 603.10a — an animated land or a crewed Vehicle
+  // is sacrificed AS the creature it became, and dies as one). P·20 (Braids — "a permanent … that shares a card type with it")
+  // carries the card types on the sacrifice log for the payoff to read (CR 608.2h); the derived list also holds the supertypes
+  // (Legendary, Basic, Snow), which are not card types (CR 205.4a) — dropped there.
+  const lkiTypes = permanentTypes(state, permId).types;
+  const sacTypes = lkiTypes.filter((ty) => CR_CARD_TYPES.has(ty));
+  // A creature's death look-back — the one every death site builds (gameState.deathLookback): power and base power for the
+  // "equal to its power" payoffs (CR 603.6e), counters, attachments, and where the card goes. A creature exiled instead (③ · 18 —
+  // Lava Coil's stamp, a damage-source or opponent-creature static, Rest in Peace) or shuffled into its owner's library instead
+  // (Progenitus) is still SACRIFICED (the sacrifice triggers below fire) but never died (CR 700.4): the dies triggers skip it.
+  const death = lkiTypes.includes("Creature") ? deathLookback(state, lk.permanent, playerId) : null;
+  const sacPower = death ? creaturePower(lk.permanent, state) : null;
   // P·28 — the destination is the death-specific exile only; a graveyard replacement (Rest in Peace, Dauthi) redirects inside moveCardToZone.
-  let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: isCreatureCard(lk.permanent.card) && deathExiledInstead(state, lk.permanent) ? "exile" : "graveyard", cardId: permId });
-  if (exileInstead) next = logEvent(next, { kind: "creature-exiled-instead", turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
-  if (isCreatureCard(lk.permanent.card)) {
-    next = checkDiesTriggers(next, [{ controller: playerId, id: permId, name: lk.permanent.card?.name || "creature", card: lk.permanent.card, ...deathLookbackLinks(lk.permanent), /* ③ · 43 */ power: Number.isFinite(sacPower) ? sacPower : null, basePower: Number.isFinite(sacBasePower) ? sacBasePower : null, counters: { ...(lk.permanent.counters || {}) }, exileInstead }]);
-  }
-  // TRIG-SACRIFICE: fire "Whenever you sacrifice a <permanent|creature|artifact>" for the sacrificing
-  // player. The perm has left the battlefield, so its type rides on the lookBack card (sacScopeMatches reads it).
-  next = checkSacrificeTriggers(next, playerId, { id: permId, controller: playerId, card: lk.permanent.card });
+  let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: death?.exileTo ? "exile" : "graveyard", cardId: permId });
+  if (death?.exileInstead) next = logEvent(next, { kind: "creature-exiled-instead", turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
+  if (death) next = checkDiesTriggers(next, [death]);
+  // TRIG-SACRIFICE: fire "Whenever you sacrifice a <permanent|creature|artifact>" for the sacrificing player. The perm has left the
+  // battlefield, so its look-back carries its card and the types it had (sacScopeMatches' creature scope reads them).
+  next = checkSacrificeTriggers(next, playerId, { id: permId, controller: playerId, card: lk.permanent.card, lkiTypes: [...lkiTypes] });
   // + P·36: its last-known power (CR 603.6e) — "where X is that creature's power" (Disciple of Freyalise) reads it off this entry.
   return logEvent(next, { kind: "spell-effect", effect: "sacrifice", controller: playerId, sacrificed: permId, cardName: lk.permanent.card?.name, cardTypes: sacTypes, power: sacPower });
 }
@@ -350,24 +347,24 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
  */
 export function sacrificeCreaturesTogether(state, victims) {
   const batch = victims.map(({ playerId, permId }) => ({ playerId, permId, lk: findPermanent(state, permId) })).filter((v) => v.lk);
-  const dead = [];
-  const deadPw = [];
+  // Each victim's death look-back read from the state BEFORE any of them left (gameState.deathLookback — a creature by its
+  // layer-aware types, an animated land included; where the card goes).
+  const dead = batch.filter((v) => permanentIsCreature(state, v.permId)).map((v) => deathLookback(state, v.lk.permanent, v.playerId));
+  const deathOf = new Map(dead.map((d) => [d.id, d]));
+  // A planeswalker in the batch that is no creature goes to the planeswalker dies dispatch (#639); one that is also a creature
+  // already rides the creature dispatch, so it never dies twice.
+  const deadPw = batch.filter((v) => !deathOf.has(v.permId) && permanentHasCardType(state, v.permId, "Planeswalker"))
+    .map((v) => ({ id: v.permId, controller: v.playerId, name: v.lk.permanent.card?.name, card: v.lk.permanent.card }));
   let next = state;
   for (const { playerId, permId, lk } of batch) {
-    const creature = isCreatureCard(lk.permanent.card);
-    if (!creature && permanentHasCardType(state, permId, "Planeswalker")) deadPw.push({ id: permId, controller: playerId, name: lk.permanent.card?.name, card: lk.permanent.card });
-    const exileInstead = creature && diesExiledInstead(state, lk.permanent);
-    next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: creature && deathExiledInstead(state, lk.permanent) ? "exile" : "graveyard", cardId: permId });
-    if (exileInstead) next = logEvent(next, { kind: "creature-exiled-instead", turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
-    if (creature) {
-      const power = creaturePower(lk.permanent, state);
-      const basePower = creatureBasePower(lk.permanent, state);
-      dead.push({ controller: playerId, id: permId, name: lk.permanent.card?.name || "creature", card: lk.permanent.card, ...deathLookbackLinks(lk.permanent), power: Number.isFinite(power) ? power : null, basePower: Number.isFinite(basePower) ? basePower : null, counters: { ...(lk.permanent.counters || {}) }, exileInstead });
-    }
+    const death = deathOf.get(permId);
+    next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: death?.exileTo ? "exile" : "graveyard", cardId: permId });
+    if (death?.exileInstead) next = logEvent(next, { kind: "creature-exiled-instead", turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
   }
   next = checkDiesTriggers(next, dead);
   next = checkPlaneswalkerDiesTriggers(next, deadPw);
-  for (const { playerId, permId, lk } of batch) next = checkSacrificeTriggers(next, playerId, { id: permId, controller: playerId, card: lk.permanent.card });
+  // The sacrifice look-backs carry the types each had as it left (sacrificeCreatureEffect's shape), for the creature scope.
+  for (const { playerId, permId, lk } of batch) next = checkSacrificeTriggers(next, playerId, { id: permId, controller: playerId, card: lk.permanent.card, lkiTypes: [...permanentTypes(state, permId).types] });
   return logEvent(next, { kind: "spell-effect", effect: "sacrifice-together", sacrificed: batch.map((v) => v.permId) });
 }
 
@@ -396,7 +393,8 @@ export function matchSacrificeAnotherForPower(oracle) {
  * SAME word-anchored type predicates the mass-removal atoms use (isLandCard/isArtifactCard/isEnchantmentCard),
  * so an Artifact Creature is correctly a legal pick for an "artifact" edict (it IS an artifact, CR 305.4) and a
  * creature-land for a "land" edict. An unknown `what` falls back to the creature pool (defensive — the parser
- * only ever emits the five known values, so this is never reached at runtime). Pure type-line read (leaf).
+ * only ever emits the five known values, so this is never reached at runtime). Pure: a type-line read, except the creature
+ * pools' creature-ness, which the caller may pass in from the board (`creatureNow`, below).
  */
 const SACRIFICE_POOLS = new Set(["creature", "permanent", "land", "artifact", "enchantment", "artifactOrEnchantment", "artifactCreatureOrLand", "nonbattlePermanent", "nonbasicLand", "nontokenCreature", "creatureToken", "planeswalker", "creatureOrPlaneswalker"]);
 // NAMED-TOKEN pool (CR 701.16) — "Sacrifice a Food token." The generic nouns above have always worked; the
@@ -409,7 +407,10 @@ const isNamedTokenPool = (what) => typeof what === "string" && what.startsWith("
 // (TF-1). Adding a word here without a carrier is forbidden; the parser arm and sacrificePoolMatch both
 // key on this one set, so the offer and the charge can never disagree about what "an Egg" means.
 const SAC_SUBTYPE_NOUNS = new Set(["egg"]);
-export function sacrificePoolMatch(what, card) {
+// `creatureNow` — is the permanent a creature RIGHT NOW (layer-aware, CR 613.1: an animated land or a crewed Vehicle is one, a
+// bestowed Aura is not)? The edict chain passes it for the creature pools ("a creature", "a nontoken creature", "a creature or
+// planeswalker"); a caller without the board passes nothing and the card's printed type line answers, as before.
+export function sacrificePoolMatch(what, card, creatureNow = isCreatureCard(card)) {
   // NAMED TOKEN — must be a TOKEN (CR 111.1) whose name is the printed one. Both halves matter: without
   // the token check a real Food ARTIFACT card would qualify; without the name check any token would.
   if (isNamedTokenPool(what)) {
@@ -430,12 +431,12 @@ export function sacrificePoolMatch(what, card) {
     // mode blows past a wall of Zombie tokens, the token mode does the opposite. Getting the sense backwards
     // is a wrong-victim sacrifice, so the two are separate cases rather than one flag. `card.token` is the
     // marker gameState stamps on minted tokens (CR 111.1).
-    case "nontokenCreature": return isCreatureCard(card) && !card?.token;
+    case "nontokenCreature": return creatureNow && !card?.token;
     case "creatureToken": return isCreatureCard(card) && !!card?.token;
     // PLANESWALKER pool (Sheoldred's Edict's third mode, Angrath's Rampage). Word-anchored on the type line
     // like every sibling predicate, so a creature-planeswalker DFC face qualifies via its live type line.
     case "planeswalker": return /\bPlaneswalker\b/i.test(card?.type || card?.type_line || "");
-    case "creatureOrPlaneswalker": return isCreatureCard(card) || /\bPlaneswalker\b/i.test(card?.type || card?.type_line || ""); // Flare of Malice (BI-4)
+    case "creatureOrPlaneswalker": return creatureNow || /\bPlaneswalker\b/i.test(card?.type || card?.type_line || ""); // Flare of Malice (BI-4)
     case "land": return isLandCard(card);
     case "artifact": return isArtifactCard(card);
     case "enchantment": return isEnchantmentCard(card);
@@ -451,7 +452,7 @@ export function sacrificePoolMatch(what, card) {
     // "Basic" is printed in the type line's supertype slot, so the word-anchored test is exact; a
     // creature-land is a legal pick iff nonbasic, matching the printed pool).
     case "nonbasicLand": return isLandCard(card) && !/\bBasic\b/i.test(card?.type || card?.type_line || "");
-    default: return isCreatureCard(card); // "creature" (and the unset default)
+    default: return creatureNow; // "creature" (and the unset default)
   }
 }
 
@@ -483,10 +484,12 @@ export function advanceSacrificeChain(state, { queue, sourceName = null }) {
     // Baleful Beholder mode) narrow to exactly the permanents of that type, using the SAME word-anchored type
     // predicates the mass-removal atoms use (so an Artifact Creature is a legal pick for an "artifact" edict —
     // it IS an artifact, CR 305.4). The chooser is their controller and every candidate is public, so any pool
-    // is hidden-info-safe. sacrificeCreatureEffect already sacrifices ANY permanent correctly (it gates
-    // dies-triggers on isCreatureCard, fires sacrifice-triggers for all), so only the pool the chooser sees changes.
+    // is hidden-info-safe. sacrificeCreatureEffect already sacrifices ANY permanent correctly (it gates dies-triggers
+    // on the types the permanent had as it left, fires sacrifice-triggers for all), so only the pool the chooser sees changes.
+    // The creature pools read the PERMANENT (layer-aware): an animated land is a creature this edict can take (CR 701.21a — the
+    // sacrificer chooses among the creatures they control now).
     const poolAll = (player.battlefield || [])
-      .filter((p) => sacrificePoolMatch(head.what, p.card) || (String(head.what).startsWith("subtype:") && permIsEveryCreatureType(next, p.id))) // P·39 — "sacrifice an Egg": every creature type is one (a land / artifact pool never takes it)
+      .filter((p) => sacrificePoolMatch(head.what, p.card, permanentIsCreature(next, p.id)) || (String(head.what).startsWith("subtype:") && permIsEveryCreatureType(next, p.id))) // P·39 — "sacrifice an Egg": every creature type is one (a land / artifact pool never takes it)
       .filter((p) => !(head.excludeId && p.id === head.excludeId)); // "another" — the source is never a victim
     // FLARE OF MALICE (BI-4): narrow to the sacrificer's GREATEST mana value (tokens are 0, CR 202.3); ties stay a choice.
     const mvOf = (c) => { let mv = 0; for (const x of String(c?.mana || c?.mana_cost || "").matchAll(/\{([^}]+)\}/g)) { const pip = x[1].trim().toUpperCase(); mv += /^\d+$/.test(pip) ? parseInt(pip, 10) : (/^[XYZ]$/.test(pip) ? 0 : 1); } return mv; };
@@ -1355,15 +1358,17 @@ const MASS_CREATURE_SUBTYPES = {
  * wipe, run the SHARED applyDestroyEffect mass destroy (so indestructible / regeneration / dies-triggers are
  * handled identically to any board wipe), then count how many of those snapshotted ids actually LEFT the
  * battlefield — that's the exact "destroyed this way" nontoken count. Create that many TAPPED Treasures under
- * the controller via the shared applyCreateNamedToken. A "can't be regenerated" rider (cannotRegenerate) is
- * honored by applyDestroyEffect; none on Blood Money, but threaded for parity.
+ * the controller via the shared applyCreateNamedToken. Blood Money prints no "can't be regenerated", so regeneration saves a
+ * creature from it (and it is not destroyed this way); the parser's rider stamp covers this op like every destroy
+ * (parseEffectClause), so a rider-carrying wording would reach applyDestroyEffect as cannotRegenerate.
  */
 function applyMassDestroyTreasurePerNontoken(state, atom, ctx) {
-  // Snapshot the nontoken-creature ids on every battlefield BEFORE the wipe (CR — "destroyed this way").
+  // Snapshot the nontoken-creature ids on every battlefield BEFORE the wipe (CR — "destroyed this way") — a creature as it is now
+  // (layer-aware, the set massCreatureTargets destroys: an animated land is a nontoken creature this destroys).
   const nontokenIds = [];
   for (const pid of Object.keys(state.players)) {
     for (const perm of (state.players[pid].battlefield || [])) {
-      if (isCreatureCard(perm.card) && !perm.card?.token) nontokenIds.push(perm.id);
+      if (permanentIsCreature(state, perm.id) && !perm.card?.token) nontokenIds.push(perm.id);
     }
   }
   // Shared mass destroy (every creature). Indestructible / regen survivors stay → they won't be counted below.

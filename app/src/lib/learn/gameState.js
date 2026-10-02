@@ -782,6 +782,16 @@ export function splitGraveyardBound(state, ownerId, cards) {
   };
 }
 
+/**
+ * The card a permanent becomes as it leaves the battlefield for another zone: a face-down permanent's real card (the owner looks at
+ * it to see which abilities affect the move, CR 400.6), a copy's own printed card, else its card. ONE read for the zone move's
+ * graveyard replacements (peekMovingCard below) and for every death look-back's verdict on them (diesExiledInstead,
+ * deathLookback), so a death event can never disagree with where the card actually went.
+ */
+export function cardLeavingBattlefield(perm) {
+  return (perm.faceDown && perm.faceUpCard) ? perm.faceUpCard : (perm.printedCard || perm.card);
+}
+
 /** The card object a pending move would actually move, without mutating anything (for the check above). */
 function peekMovingCard(state, playerId, fromZone, cardId) {
   const list = state.players?.[playerId]?.[fromZone];
@@ -789,7 +799,7 @@ function peekMovingCard(state, playerId, fromZone, cardId) {
   if (fromZone === "battlefield") {
     const perm = list.find((p) => p.id === cardId);
     if (!perm) return null;
-    return (perm.faceDown && perm.faceUpCard) ? perm.faceUpCard : (perm.printedCard || perm.card);
+    return cardLeavingBattlefield(perm);
   }
   return list.find((c) => c.id === cardId) || null;
 }
@@ -1594,6 +1604,32 @@ export function hasShieldCounter(permanent) {
  * the permanent has no shield counter (belt-and-suspenders — every caller checks hasShieldCounter first). */
 export function consumeShieldCounter(state, permanentId) {
   return removeCounter(state, { permanentId, type: "shield", amount: 1 });
+}
+
+/**
+ * THE DESTRUCTION LADDER (CR 701.8a) — what, if anything, keeps `permanent` on the battlefield when it would be destroyed,
+ * judged on `state`. Null when it is destroyed, else { kind: "indestructible" | "shield" | "regenerate" | "umbraArmor", auraId? }.
+ * THE ONE COPY: the destroy effect (spellEffects.applyDestroyEffect) and the lethal-damage state-based action
+ * (destroyLethalCreatures, CR 704.5g) both read it, so the two can no longer drift; a "destroyed this way" count (Culling Ritual,
+ * removal.applyMassDestroyAddManaPerDestroyed) reads it to know which permanents a destroy really destroys. A caller destroying
+ * several permanents at once passes the board as the event BEGAN, never one it has already partly destroyed: replacement effects
+ * watch for the event and apply as it would happen (CR 614.1), so an Aura or a lord destroyed in the same event still protects
+ * (the board does not change until the event does).
+ *   - CR 702.12b — an indestructible permanent can't be destroyed. isIndestructible reads the layer engine, so a GRANTED
+ *     indestructible (an Aura, an Equipment, "other permanents you control") counts. It stays put and fires no dies trigger.
+ *   - CR 122.1c — a SHIELD COUNTER replaces the destruction: remove one (no tap). Before regeneration — both are replacements
+ *     the permanent's controller orders (CR 616.1), and a shield is strictly better. "Can't be regenerated" does not bypass it.
+ *   - CR 701.19a — a REGENERATION SHIELD replaces the destruction: remove all damage, tap it, remove it from combat. A "can't be
+ *     regenerated" rider (`cannotRegenerate`) makes the shield not apply (CR 701.19c); indestructible is not regeneration.
+ *   - CR 702.89a — UMBRA ARMOR: the Aura is destroyed instead and all damage is removed from the host. Last, so a save that
+ *     costs nothing is preferred; "can't be regenerated" does not bypass it either.
+ */
+export function destructionReplacementFor(state, permanent, cannotRegenerate = false) {
+  if (isIndestructible(permanent, state)) return { kind: "indestructible" };
+  if (hasShieldCounter(permanent)) return { kind: "shield" };
+  if (!cannotRegenerate && (permanent.regenShields || 0) > 0) return { kind: "regenerate" };
+  const auraId = totemArmorAuraFor(state, permanent);
+  return auraId ? { kind: "umbraArmor", auraId } : null;
 }
 
 // ===== PREVENTION SHIELDS (BLITZ PV-1, CR 615) — "Prevent the next N damage that would be dealt to
@@ -2411,7 +2447,7 @@ export function diesExiledInstead(state, perm) {
   if (!perm) return false;
   return deathExiledInstead(state, perm)
     // P·27 — the graveyard-bound card is exiled instead (Rest in Peace, Leyline of the Void, …), so the creature never dies.
-    || graveyardExiledFor(state, (perm.faceDown && perm.faceUpCard) ? perm.faceUpCard : (perm.printedCard || perm.card), perm.owner || perm.controller);
+    || graveyardExiledFor(state, cardLeavingBattlefield(perm), perm.owner || perm.controller);
 }
 
 /**
@@ -2508,62 +2544,79 @@ export function deathLookbackLinks(perm) {
   return { attachments: [...(perm?.attachments || [])], damagedBy: [...(perm?.damagedBy || [])] };
 }
 
+/**
+ * THE DEATH LOOK-BACK (CR 603.10a) — the entry a death site hands checkDiesTriggers for a creature leaving the battlefield, read
+ * from `state` while the permanent is still there (the board as the event began). ONE constructor for the lethal-damage and
+ * legend-rule state-based actions, the destroy effect and the sacrifice effects, so no site can omit a field the dies triggers read:
+ *   - its last-known characteristics: power and base power (layer-aware, CR 603.6e), counters, attachments and damagedBy, and
+ *     `lkiTypes` — the card types it had (layer 4: a crewed Vehicle or an animated land WAS a creature, a bestowed Aura was not);
+ *   - where the card goes, so the dies triggers can tell a death from a replacement (CR 700.4: dies means put into a graveyard
+ *     from the battlefield): `exileTo` (a death-specific exile — Lava Coil's stamp, a damage-source or opponent-creature static —
+ *     the caller moves it to exile itself), `exileInstead` (exiled by any replacement, those or a graveyard one — Rest in Peace,
+ *     Dauthi Voidwalker), `shuffledInstead` (its own shuffle-into-library replacement — Progenitus), each read off the card
+ *     the zone move reads (cardLeavingBattlefield);
+ *   - `diesExileAfter` — a granted "When this creature dies, exile it" (the death happens, then the card is exiled).
+ */
+export function deathLookback(state, perm, controller) {
+  // POWER (Wave 3b — Goldvein / Lifeblood / Feral Ghoul "equal to its power") and BASE power (the Jason Bright intervening-if,
+  // CR 613.4a): the layer-aware values — counters, anthems and pumps counted — while it is still on the battlefield. Non-finite
+  // (an unsized "*") → null, so a payoff no-ops rather than inventing a count.
+  const pw = creaturePower(perm, state);
+  const bpw = creatureBasePower(perm, state);
+  return {
+    controller,
+    id: perm.id,
+    name: perm.card?.name || "creature",
+    card: perm.card,
+    // attachments (Sword of the Realms' equipped-creature dies — the Equipment's own attachedTo is cleared by the move) and
+    // damagedBy (the Sengir "dealt damage by ~ this turn" payoffs) — the shared reader (③ · 43).
+    ...deathLookbackLinks(perm),
+    power: Number.isFinite(pw) ? pw : null,
+    basePower: Number.isFinite(bpw) ? bpw : null,
+    counters: { ...(perm.counters || {}) }, // undying / persist / modular and the counter-scoped watchers read the last-known bag
+    lkiTypes: [...permanentTypes(state, perm.id).types],
+    exileInstead: diesExiledInstead(state, perm),
+    exileTo: deathExiledInstead(state, perm), // P·28 — where it goes; a graveyard replacement redirects inside moveCardToZone
+    // The shuffle-instead is a replacement at the zone move, but the dead list is built before the move — without the flag every
+    // dies trigger and the deaths-this-turn tally would see a death that never happened.
+    shuffledInstead: shufflesIntoLibraryInsteadOfGraveyard(cardLeavingBattlefield(perm)),
+    diesExileAfter: !!perm.grantDiesExile, // RIVAZ — the death really happens (triggers, tally), then checkDiesTriggers exiles the card
+  };
+}
+
+/**
+ * Was this look-back a CREATURE as it last existed on the battlefield (CR 603.10a)? A deathLookback carries its layer-aware
+ * types (`lkiTypes`); a look-back built without them (a hand-built death entry, a battlefield permanent) answers by its card's
+ * type line. The one reader for the dies triggers' creature scopes (triggers.isCreaturePerm) and the deaths-this-turn tally.
+ */
+export function lastKnownIsCreature(lookback) {
+  return Array.isArray(lookback?.lkiTypes)
+    ? lookback.lkiTypes.includes("Creature")
+    : /\bCreature\b/.test(String(lookback?.card?.type || lookback?.card?.type_line || ""));
+}
+
+/**
+ * ONE SIMULTANEOUS EVENT, MOVED ONE CARD AT A TIME. A replacement effect applies to an event as it would happen (CR 614.1), so
+ * every card that leaves in one event meets the graveyard replacements that were on the battlefield as it began — Rest in Peace
+ * and Dauthi Voidwalker included when they leave in the same event. moveCardToZone reads those replacements live, at each move
+ * (graveyardExileFor), so the permanents carrying one move LAST: no card of the event then moves after its replacement has
+ * already left. The order among the rest is unchanged. `items` carry the permanent `id`; `state` is the board as the event began.
+ */
+export function graveyardReplacementCarriersLast(state, items) {
+  const carries = (item) => !!graveyardExileSpecOf(findPermanent(state, item.id).permanent.card);
+  return [...items.filter((item) => !carries(item)), ...items.filter(carries)];
+}
+
 export function destroyLethalCreatures(state, deathtouched = new Set(), cause = "sba") {
   const dead = [];
   const regenerated = []; // REGEN (CR 701.19) — creatures whose destruction a regen shield replaces this SBA
   const shieldSaved = []; // SHIELD COUNTER (CR 122.1c) — creatures whose destruction a shield counter replaces
   const totemSaved = []; // TOTEM ARMOR (CR 702.89) — {hostId, auraId} pairs whose destruction the Aura replaces
-  // Look-back snapshot (CR 603.10a): by the time dies-triggers are checked the permanent is
-  // already in the graveyard, so its last-known characteristics travel with the `dead` entry.
-  // SELF-LTB (Wave 4): the look-back also carries the dead creature's `attachments` ids (the
-  // equipment/aura that WERE on it at death) — captured here BEFORE destroyLethalCreatures' move loop
-  // detaches them — so the "Whenever equipped creature dies, return it to its owner's hand" trigger
-  // (Sword of the Realms) can match its watcher (an equipment whose id is in this list) even though the
-  // equipment's own `attachedTo` is already null by the time checkDiesTriggers runs.
-  // DIES-TRIGGER-RESOURCE-PAYOFFS (Wave 3b): capture the dying creature's POWER here too (CR 603.6e — a
-  // dies-trigger that reads "its power" uses the creature's last-known power AS IT EXISTED ON THE
-  // BATTLEFIELD just before it left). `creaturePower(perm, state)` reads the full layer-aware value
-  // (counters + anthems + pumps) BECAUSE this runs inside the loop over the ORIGINAL pre-move `state`
-  // (the perm is still on the battlefield) — captured BEFORE the moveCardToZone look-back below, so a
-  // Goldvein/Lifeblood/Feral-Ghoul "equal to its power" payoff sees the real on-board power, never the
-  // post-death printed-only value. Non-finite (CDA "*" not yet captured) → null (the payoff no-ops to 0,
-  // never a fabricated count).
-  const markDead = (pid, perm) => {
-    const pw = creaturePower(perm, state);
-    // BASE power too (CR 613.4a) — the Jason-Bright dies intervening-if ("its power was different from its
-    // base power") compares the two look-back values; captured here pre-move like `power`.
-    const bpw = creatureBasePower(perm, state);
-    dead.push({
-      controller: pid,
-      id: perm.id,
-      name: perm.card?.name || "creature",
-      card: perm.card,
-      // DAMAGED-BY LOOK-BACK: who dealt damage to this creature this turn, snapshotted while the permanent
-      // still exists. checkDiesTriggers runs AFTER the battlefield exit, so without carrying it here the
-      // "whenever a creature dealt damage by ~ this turn dies" payoff could never see it - the same
-      // look-back shape CR 603.6 requires of any leaves-the-battlefield trigger.
-      ...deathLookbackLinks(perm), // attachments + damagedBy — the one reader every death site shares (③ · 43)
-      power: Number.isFinite(pw) ? pw : null,
-      basePower: Number.isFinite(bpw) ? bpw : null,
-      // KW-UNDYING (CR 702.92a + 603.6e): snapshot the dying permanent's counters BEFORE the move loop —
-      // the undying intervening-if ("if it had no +1/+1 counters on it") reads this last-known state.
-      counters: { ...(perm.counters || {}) },
-      // EXILE-IF-DIES (subsystem 3): a creature flagged "if it would die this turn, exile it instead" goes
-      // to EXILE instead of the graveyard — but ONLY this turn (the flag stores the turn it applies to, so
-      // it self-expires; a stale flag from a prior turn is ignored).
-      exileInstead: diesExiledInstead(state, perm),
-      exileTo: deathExiledInstead(state, perm), // P·28 — where it goes; a graveyard replacement redirects inside moveCardToZone
-      // GRANTED DIES-EXILE (RIVAZ): the durable TRIGGER cousin of exileInstead — the death happens (dies
-      // triggers + tally), then checkDiesTriggers exiles the card from the graveyard.
-      diesExileAfter: !!perm.grantDiesExile,
-      // SHUFFLE-INSTEAD (CR 614) - the same "it never actually died" flag as exileInstead directly above.
-      // moveCardToZone redirects the graveyard-bound move to a library shuffle, but the DEAD LIST is built
-      // before that move, so without this every dies-trigger and the deaths-this-turn tally would still see a
-      // death that never happened (caught by a Blood Artist test, not by reading). CR 700.4: dying means
-      // being put into a graveyard from the battlefield - this permanent never is.
-      shuffledInstead: shufflesIntoLibraryInsteadOfGraveyard(perm.printedCard || perm.card),
-    });
-  };
+  // Look-back snapshot (CR 603.10a): by the time dies-triggers are checked the permanent is already in the graveyard, so its
+  // last-known characteristics travel with the `dead` entry — deathLookback, the constructor every death site shares (power and
+  // base power, counters, attachments, damagedBy, its layer-aware types, and where the card goes), read from the ORIGINAL
+  // pre-move `state` while the permanent is still on the battlefield.
+  const markDead = (pid, perm) => dead.push(deathLookback(state, perm, pid));
   for (const [pid, player] of Object.entries(state.players)) {
     for (const perm of player.battlefield) {
       // Layer-aware creature-ness (WALT-ANIMATE): an animated land/man-land is subject to the
@@ -2584,26 +2637,23 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
         continue;
       }
       const lethalDamage = (dmg > 0 && dmg >= tough) || (deathtouched.has(perm.id) && dmg > 0);
-      if (lethalDamage && !isIndestructible(perm, state)) {
-        // CR 122.1c — a SHIELD COUNTER replaces this destruction (704.5g "would be destroyed"): remove one
-        // shield counter (applied below) instead of dying, no tap. Checked BEFORE regen (both are replacements;
-        // the permanent's controller orders them per CR 616, and a shield is strictly better — no tap). In
-        // normal flow damage to a shielded creature is PREVENTED at the damage site (never marked, so this rarely
-        // fires), but this mirrors the regen safety net so any lethal-damage that reached the SBA still consumes
-        // a shield rather than killing. Checked after indestructible (a creature can't be both).
-        // TOTEM ARMOR (CR 702.89) is a THIRD "would be destroyed" replacement — checked LAST so a shield/regen
-        // (which don't sacrifice the Aura) is preferred when the controller has both; if the only save is totem
-        // armor, the Aura is destroyed instead and damage is cleared (applied below).
-        const totemAuraId = totemArmorAuraFor(state, perm);
-        if (hasShieldCounter(perm)) shieldSaved.push(perm.id);
-        else if ((perm.regenShields || 0) > 0) regenerated.push(perm.id); // CR 701.19 — regen shield replaces
-        else if (totemAuraId) totemSaved.push({ hostId: perm.id, auraId: totemAuraId }); // CR 702.89 — totem armor replaces
-        else markDead(pid, perm); // CR 704.5g — destruction; an indestructible creature survives
+      if (lethalDamage) {
+        // CR 704.5g — destruction, through the destroy effect's own ladder (destructionReplacementFor, the one copy): an
+        // indestructible creature survives untouched; a shield counter (CR 122.1c — in normal flow the damage to a shielded
+        // creature is PREVENTED at the damage site, so this is the safety net for lethal damage that reached the SBA), a
+        // regeneration shield (CR 701.19a) or umbra armor (CR 702.89a) replaces the destruction, applied below. Every
+        // creature is judged on the pre-move `state` — the whole check is one simultaneous event (CR 704.3).
+        const save = destructionReplacementFor(state, perm);
+        if (!save) markDead(pid, perm);
+        else if (save.kind === "shield") shieldSaved.push(perm.id);
+        else if (save.kind === "regenerate") regenerated.push(perm.id);
+        else if (save.kind === "umbraArmor") totemSaved.push({ hostId: perm.id, auraId: save.auraId });
       }
     }
   }
   let next = state;
-  for (const d of dead) {
+  // The carriers of a graveyard replacement move last, so every other creature of this one event still meets theirs.
+  for (const d of graveyardReplacementCarriersLast(state, dead)) {
     // EXILE-IF-DIES (subsystem 3): the death-replacement reroutes a flagged creature to exile (CR 614 — a
     // replacement effect; "exile it instead" of the graveyard). All other deaths go to the graveyard.
     const toZone = d.exileTo ? "exile" : "graveyard";
@@ -2657,33 +2707,11 @@ export function applyLegendRule(state) {
       const keep = group.reduce((a, b) => ((b.timestamp || 0) >= (a.timestamp || 0) ? b : a));
       for (const perm of group) {
         if (perm.id === keep.id) continue;
-        const isCreature = /\bCreature\b/.test(String(perm.card?.type || perm.card?.type_line || ""));
-        if (isCreature) {
-          // Same look-back capture as destroyLethalCreatures.markDead — power/counters read BEFORE the move.
-          const pw = creaturePower(perm, state);
-          const bpw = creatureBasePower(perm, state);
-          dead.push({
-            controller: pid,
-            id: perm.id,
-            name: perm.card?.name || "creature",
-            card: perm.card,
-            ...deathLookbackLinks(perm), // attachments + damagedBy (CR 603.10a) — the one reader every death site shares (③ · 43)
-            power: Number.isFinite(pw) ? pw : null,
-            basePower: Number.isFinite(bpw) ? bpw : null,
-            counters: { ...(perm.counters || {}) },
-            // EXILE-IF-DIES: "if it would die this turn, exile it instead" applies to ANY death,
-            // legend-rule included (CR 700.4 — this IS a death).
-            exileInstead: diesExiledInstead(state, perm),
-            exileTo: deathExiledInstead(state, perm), // P·28 — where it goes (see destroyLethalCreatures)
-            // GRANTED DIES-EXILE (RIVAZ): same carry as the markDead site — a legend-rule death still exiles.
-            diesExileAfter: !!perm.grantDiesExile,
-      // SHUFFLE-INSTEAD (CR 614) - the same "it never actually died" flag as exileInstead directly above.
-      // moveCardToZone redirects the graveyard-bound move to a library shuffle, but the DEAD LIST is built
-      // before that move, so without this every dies-trigger and the deaths-this-turn tally would still see a
-      // death that never happened (caught by a Blood Artist test, not by reading). CR 700.4: dying means
-      // being put into a graveyard from the battlefield - this permanent never is.
-      shuffledInstead: shufflesIntoLibraryInsteadOfGraveyard(perm.printedCard || perm.card),
-          });
+        // A creature AS IT IS NOW (layer-aware, CR 603.10a — a crewed legendary Vehicle dies as the creature it became); the
+        // shared look-back captures everything the dies triggers read BEFORE the move, its replacements included (an exile- or
+        // shuffle-instead applies to a legend-rule death too: CR 700.4, this IS a death).
+        if (permanentIsCreature(state, perm.id)) {
+          dead.push(deathLookback(state, perm, pid));
         } else {
           moves.push({ controller: pid, id: perm.id });
         }
@@ -2847,8 +2875,8 @@ export function resetSpellsCastAllPlayers(state) {
  *   - `exileInstead` (EXILE-IF-DIES replacement, CR 614): the creature was exiled instead of being put into a
  *     graveyard, so it never died — it must not count (a forbidden over-count would be a CREED FP).
  *   - a non-CREATURE look-back: every checkDiesTriggers caller passes creatures (planeswalker deaths route
- *     through checkPlaneswalkerDiesTriggers), but the count is guarded on the look-back's card type anyway so
- *     a stray non-creature can never inflate the tally.
+ *     through checkPlaneswalkerDiesTriggers), but the count is guarded on the look-back's last-known types anyway
+ *     (lastKnownIsCreature) so a stray non-creature can never inflate the tally.
  * Per-controller storage (not a single global) lets the controller-scoped reader ("…died under your control
  * this turn" — Body Count) read one seat while the all-seats reader ("…died this turn" — Mahadi) sums them.
  * An entry with no controller is skipped (a safe no-op). Pure; returns a new state.
@@ -2858,7 +2886,7 @@ export function recordCreatureDeaths(state, dead) {
   let next = state;
   for (const d of dead) {
     if (!d || d.exileInstead || d.shuffledInstead || !d.controller || !state.players[d.controller]) continue;
-    if (!/\bCreature\b/.test(String(d.card?.type || d.card?.type_line || ""))) continue; // only creatures count (CR 700.4)
+    if (!lastKnownIsCreature(d)) continue; // only creatures count (CR 700.4) — as it last existed: an animated land is one
     next = withPlayer(next, d.controller, (p) => ({ ...p, creaturesDiedThisTurn: (p.creaturesDiedThisTurn || 0) + 1 }));
   }
   return next;

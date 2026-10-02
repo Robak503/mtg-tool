@@ -25,6 +25,7 @@ import {
   logEvent, // GRANTED DIES-EXILE (Rivaz) — the graveyard→exile move logs at the dies chokepoint
   recordSacrificeThisTurn, // SACRIFICED-THIS-TURN (Elanor Gardner, 2026-09-05) — stamped at the sacrifice chokepoint below
   graveyardExiledFor, // P·27 — a planeswalker exiled instead (Rest in Peace and kin) never died
+  lastKnownIsCreature, // CR 603.10a — a look-back's creature-ness as it last existed (its layer-aware types), the one reader
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { grantedTriggeredQuotedFor, permanentHasKeyword, permanentPower, permanentBasePower, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, colorsOf, isModifiedPermanent, permIsEveryCreatureType } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition
@@ -318,8 +319,10 @@ function parseEtbKeywordFilter(subject) {
   const kw = m[1].trim().toLowerCase();
   return FILTERABLE_ETB_KEYWORDS.has(kw) ? kw : null;
 }
+// A death or sacrifice LOOK-BACK carries the types it had as it last existed on the battlefield (CR 603.10a — a crewed Vehicle
+// or an animated land died as a creature); anything else answers by its card's type line (gameState.lastKnownIsCreature).
 function isCreaturePerm(perm) {
-  return /Creature/.test(typeStr(perm?.card));
+  return lastKnownIsCreature(perm);
 }
 // PLANESWALKER look-back gate (CR 700.4 / 704.5i) — used by the creatureOrPwYouControl dies scope so a
 // dead PLANESWALKER (fed to the dies dispatch via checkPlaneswalkerDiesTriggers) matches a "a creature or
@@ -7315,7 +7318,9 @@ export function checkDiesTriggers(state, dead) {
     // a fact about the DEAD creature, so it can only be answered from the look-back - the permanent is gone
     // by the time the watcher sweep below runs. Added to the SINGULAR path only; the batch path
     // ("whenever one or more creatures die") has no member of this family.
-    const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {}, damagedBy: d.damagedBy || [] };
+    // lkiTypes (CR 603.10a): the types it had as it last existed — the creature scopes read them (isCreaturePerm), so a crewed
+    // Vehicle or an animated land that died fires "whenever a creature dies".
+    const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {}, damagedBy: d.damagedBy || [], lkiTypes: d.lkiTypes };
     // SELF-DIES "if it was a creature" (CR 603.4 + 603.6e last-known-info) — the "Enduring"/Glimmer dies-return
     // intervening-if reads whether the DYING object was a creature. Captured from the death look-back's card
     // type line (the object's last-known characteristics, fixed once it left the battlefield), so
@@ -7454,21 +7459,22 @@ export function checkDiesTriggers(state, dead) {
  * layer-aware creature-ness) rather than duplicating it. The CR-603.10a look-back carries `attachments` and
  * `counters` exactly as checkDiesTriggers builds it, so a scope needing last-known info reads the same bag.
  *
- * EXILE-INSTEAD (CR 614 + 700.4) is filtered first, mirroring checkDiesTriggers: a creature exiled instead of
- * being put into a graveyard never DIED, so it must not contribute to the batch — otherwise a Lava-Coil-class
- * removal would fire a death watcher that saw no death.
+ * EXILE-INSTEAD and SHUFFLE-INSTEAD (CR 614.1 + 700.4) are filtered first, mirroring checkDiesTriggers: a creature exiled
+ * or shuffled into its owner's library instead of being put into a graveyard never DIED, so it must not contribute to the
+ * batch — otherwise a Lava-Coil-class removal, or a Wrath on a Progenitus, would fire a death watcher that saw no death.
  *
  * Pure — appends to pendingTriggers.
  */
 export function checkDiesBatchTriggers(state, dead) {
-  const deaths = (dead || []).filter((d) => d?.card && !d.exileInstead);
+  // Exiled or shuffled into a library instead (CR 700.4): never died, so never part of the batch — the singular path's two skips.
+  const deaths = (dead || []).filter((d) => d?.card && !d.exileInstead && !d.shuffledInstead);
   if (!deaths.length) return state;
   let fired = [];
   // The battlefield's watchers, then the batch's departed ones looking back (CR 603.10a — deadLookBackSources).
   const watchers = [...Object.keys(state.players).flatMap((pid) => triggerSourcesOf(state, pid)), ...deadLookBackSources(state, dead)];
   for (const watcher of watchers) {
     for (const d of deaths) {
-      const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {} };
+      const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {}, lkiTypes: d.lkiTypes };
       const hits = triggersForEvent(state, { event: "diesBatch", sourcePermanent: watcher, triggeringPermanent: lookBack });
       if (hits.length) { fired = fired.concat(hits); break; }  // ONCE per watcher per batch — CR 603.1
     }

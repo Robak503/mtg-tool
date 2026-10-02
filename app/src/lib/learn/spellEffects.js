@@ -21,8 +21,9 @@ import {
   loseLife,
   drawCards,
   moveCardToZone,
-  diesExiledInstead, // ③ · 18 — DIES → EXILE INSTEAD at the destroy site (the one predicate every death site asks)
-  deathExiledInstead, // P·28 — the destroy site's DESTINATION (a graveyard replacement redirects inside moveCardToZone)
+  destructionReplacementFor, // the destroy ladder — ONE copy, shared with the lethal-damage state-based action
+  deathLookback, // the death look-back every death site builds (its last-known types and where the card goes)
+  graveyardReplacementCarriersLast, // a simultaneous event's move order — the graveyard replacements' carriers last
   findPermanent,
   markCombatDamage,
   recordDamageSource,
@@ -31,14 +32,12 @@ import {
   logEvent,
   opponentsOf,
   creaturePower,
-  creatureBasePower,
   creatureToughness,
   isIndestructible,
   regeneratePermanent,
   hasShieldCounter,
   consumeShieldCounter,
   consumePreventionShields,
-  totemArmorAuraFor,
   applyTotemArmor,
   adjustLoyalty,
   destroyZeroLoyaltyPlaneswalkers,
@@ -50,7 +49,7 @@ import {
 } from "./gameState.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, stackSpellIsUncounterable } from "./staticAbilityParser.js";
-import { playerProtectedFromEverything, deathLookbackLinks } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
+import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
 import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentHasCardType } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
 import { protectionApplies } from "./protection.js";
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — damage to a player dealt to a creature instead (CR 614.9)
@@ -1311,91 +1310,66 @@ export function applyDrawEffect(state, { controller, amount }) {
 }
 
 /**
- * THE DESTRUCTION LADDER — what, if anything, keeps `permanent` on the battlefield when an effect would destroy it, judged
- * on `state`, in the order applyDestroyEffect applies it. Returns null when the permanent would be destroyed, else
- * { kind: "indestructible" | "shield" | "regenerate" | "umbraArmor", auraId? }. ONE copy: applyDestroyEffect applies the
- * answer, and a "destroyed this way" count (Culling Ritual) reads it to know which permanents a destroy really destroys —
- * so the two cannot disagree about the set.
- *   - CR 702.12b — an indestructible permanent can't be destroyed. isIndestructible reads the layer engine, so GRANTED
- *     indestructible (Darksteel Forge's "artifacts you control are indestructible", an Equipment/Aura, an anthem) is
- *     honored, not just printed. The permanent stays put and fires no dies-trigger (it never left). Exile/sacrifice/
- *     bounce are NOT destroy and never reach here.
- *   - CR 122.1c — a SHIELD COUNTER replaces this destruction: remove one shield counter (no tap), the permanent survives
- *     and fires no dies-trigger (it never left the battlefield). Checked BEFORE regen (both are replacements the
- *     permanent's controller orders per CR 616; a shield is strictly better — no tap). A "can't be regenerated" rider
- *     (Wrath/Terminate — cannotRegenerate) does NOT bypass a shield counter: that rider is specific to the regeneration
- *     replacement (CR 701.19), NOT the shield-counter replacement, so a shielded creature still survives a "can't be
- *     regenerated" destroy by removing a shield (CR 122.1c).
- *   - CR 701.19 — a regeneration shield REPLACES this destruction: consume one shield, the permanent survives (clear
- *     damage + tap) and fires no dies-trigger (it never left the battlefield). Same look as indestructible. MTG-001 — a
- *     "can't be regenerated" destroy (Wrath of God, Terminate) sets `cannotRegenerate`, which overrides the shield
- *     (CR 701.19 — the rider prevents the regeneration replacement). It does NOT bypass indestructible (a separate rule,
- *     CR 702.12b), so the order here is correct.
- *   - CR 702.89 — TOTEM ARMOR (Umbra armor): if the permanent being destroyed carries a totem-armor Aura, the Aura is
- *     destroyed INSTEAD, all damage is cleared, and the permanent survives (fires no dies-trigger — it never left).
- *     Checked LAST among the replacements (after indestructible/shield/regen, which don't sacrifice the Aura). A "can't be
- *     regenerated" rider does NOT bypass totem armor — that rider is specific to the regeneration replacement
- *     (CR 701.19), not this one, exactly like the shield-counter carve-out above.
+ * DESTROY (CR 701.8a) — every permanent this effect destroys is destroyed in ONE event, so each is judged on the board as the
+ * event BEGAN (`state`), never on one this function has already partly destroyed. Replacement effects watch for the event and
+ * apply as it would happen (CR 614.1): an Aura, a lord or a "die → exile" source destroyed in the same event still applies to
+ * the rest. Walking the targets against the live board instead let target ORDER decide — an umbra or an indestructible-granting
+ * Aura processed before its creature was gone when the creature was asked, and the creature died.
+ *
+ *   1. DECIDE, on `state`: each permanent's replacement (gameState.destructionReplacementFor — the ladder the lethal-damage
+ *      state-based action reads too); for each one destroyed, its look-back (gameState.deathLookback, CR 603.10a: its
+ *      last-known characteristics and where the card goes) — a CREATURE by its layer-aware types (an animated land, a crewed
+ *      Vehicle), a planeswalker by its card (CR 700.4: it dies too).
+ *   2. APPLY, in this order: the replacements that move nothing — a shield counter removed (CR 122.1c), a regeneration shield
+ *      used: damage removed, tapped, out of combat (CR 701.19a); then umbra armor — the host's damage removed and the Aura
+ *      destroyed in its place (CR 702.89a); then the destroyed permanents move, the carriers of a graveyard replacement last
+ *      (gameState.graveyardReplacementCarriersLast). One already gone was moved by this same event — an Aura that fell off a
+ *      destroyed host (CR 704.5m) or one destroyed in place of its host — and goes once.
+ *   3. The dies triggers fire once for the event, off the look-backs — a creature exiled or shuffled away instead never died.
+ *
+ * `targets` are descriptors: "creature" (the creature path / a mass wipe), "permanent" (non-creature removal — Disenchant, Stone
+ * Rain, the typed wipes), "planeswalker" (Hero's Downfall). A target already gone is skipped (CR 608.2b).
  */
-export function destructionReplacementFor(state, permanent, cannotRegenerate = false) {
-  if (isIndestructible(permanent, state)) return { kind: "indestructible" };
-  if (hasShieldCounter(permanent)) return { kind: "shield" };
-  if (!cannotRegenerate && (permanent.regenShields || 0) > 0) return { kind: "regenerate" };
-  const auraId = totemArmorAuraFor(state, permanent);
-  return auraId ? { kind: "umbraArmor", auraId } : null;
-}
-
 export function applyDestroyEffect(state, { controller, targets = [], cannotRegenerate = false }) {
-  let next = state;
-  const dead = [];
-  const deadPw = []; // PLANESWALKER-DIES (CR 700.4) — a destroyed walker also "dies"; collected for its dies-watchers
-  const prevented = [];
+  const saved = [];   // { id, save } — the permanents a replacement keeps on the battlefield (CR 614.6: their destruction never happens)
+  const moves = [];   // { id, controller, toZone, exiledInstead, name } — the permanents this event destroys
+  const dead = [];    // the destroyed CREATURES' look-backs — the dies triggers' input
+  const deadPw = [];  // PLANESWALKER-DIES (CR 700.4) — a destroyed walker also "dies"; collected for its dies-watchers
   for (const t of targets) {
-    // "creature" (the dedicated creature path / mass wipe), "permanent" (targeted non-creature
-    // removal — Disenchant/Stone Rain), or "planeswalker" (PW-7 — Hero's Downfall class). Other
-    // target kinds aren't destroyable here.
     if (t.type !== "creature" && t.type !== "permanent" && t.type !== "planeswalker") continue;
-    const lk = findPermanent(next, t.id);
+    const lk = findPermanent(state, t.id);
     if (!lk) continue;
-    // The ladder above (indestructible, shield counter, regeneration shield, umbra armor), applied: the permanent stays
-    // and fires no dies-trigger; a shield counter / regeneration shield is consumed, an umbra-armor Aura is destroyed.
-    const save = destructionReplacementFor(next, lk.permanent, cannotRegenerate);
+    const save = destructionReplacementFor(state, lk.permanent, cannotRegenerate);
     if (save) {
-      if (save.kind === "shield") next = consumeShieldCounter(next, t.id);
-      else if (save.kind === "regenerate") next = regeneratePermanent(next, t.id);
-      else if (save.kind === "umbraArmor") next = applyTotemArmor(next, t.id, save.auraId);
-      prevented.push(t.id);
+      saved.push({ id: t.id, save });
       continue;
     }
-    // moveCardToZone detaches any Aura/Equipment on the destroyed permanent (CR 704.5n/q). Only a
-    // CREATURE going to the graveyard "dies" (CR 700.4), so only creatures feed the dies-trigger
-    // look-back (captured BEFORE the move, CR 603.10a); destroying a land/artifact fires no dies.
-    let exileInstead = false;
-    let exileTo = false; // P·28 — the destination (death-specific exile only)
-    if (isCreature(lk.permanent.card)) {
-      // DIES-TRIGGER-RESOURCE-PAYOFFS: capture the dying creature's layer-aware POWER here (CR 603.6e),
-      // BEFORE the moveCardToZone below removes it from the battlefield, so a destroy-spell kill still feeds
-      // a "<payoff> equal to its power" dies-trigger the real on-board power (mirrors destroyLethalCreatures).
-      const pw = creaturePower(lk.permanent, next);
-      const bpw = creatureBasePower(lk.permanent, next);
-      // DIES → EXILE INSTEAD (③ · 18, CR 614) — the destroy site asks the same predicate the lethal-damage SBA does (Lava Coil's
-      // stamp, the damage-source and opponent-creature statics), of the pre-move state. An exiled creature never died, so its
-      // look-back carries exileInstead and the dies triggers skip it — the flag destroyLethalCreatures sets.
-      exileInstead = diesExiledInstead(next, lk.permanent);
-      exileTo = deathExiledInstead(next, lk.permanent);
-      dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card, ...deathLookbackLinks(lk.permanent), /* ③ · 43 */ power: Number.isFinite(pw) ? pw : null, basePower: Number.isFinite(bpw) ? bpw : null, counters: { ...(lk.permanent.counters || {}) }, diesExileAfter: !!lk.permanent.grantDiesExile, exileInstead });
-    } else if (isPlaneswalker(lk.permanent.card)) {
-      // A destroyed planeswalker "dies" (CR 700.4); capture its look-back (no power — the only modeled
-      // PW-death watcher is Cruel Celebrant's flat creature-or-planeswalker drain).
-      deadPw.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card });
+    if (permanentIsCreature(state, t.id)) {
+      const d = deathLookback(state, lk.permanent, lk.controller);
+      dead.push(d);
+      // A death-specific exile goes straight to exile; a graveyard replacement (Rest in Peace, Dauthi) or a shuffle-instead
+      // (Progenitus) redirects inside moveCardToZone, read off the same card the look-back read.
+      moves.push({ id: t.id, controller: lk.controller, toZone: d.exileTo ? "exile" : "graveyard", exiledInstead: d.exileInstead, name: lk.permanent.card?.name });
+      continue;
     }
-    // P·28 — the destination is the death-specific exile only; a graveyard replacement (Rest in Peace, Dauthi) redirects inside moveCardToZone.
-    next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: exileTo ? "exile" : "graveyard", cardId: t.id });
-    if (exileInstead) next = logEvent(next, { kind: "creature-exiled-instead", turn: next.turn, cardName: lk.permanent.card?.name, controller: lk.controller, via: "destroy" });
+    // A destroyed planeswalker's look-back (no power — the only modeled PW-death watcher is Cruel Celebrant's flat drain).
+    if (isPlaneswalker(lk.permanent.card)) deadPw.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card });
+    moves.push({ id: t.id, controller: lk.controller, toZone: "graveyard", exiledInstead: false, name: lk.permanent.card?.name });
+  }
+  let next = state;
+  for (const s of saved) {
+    if (s.save.kind === "shield") next = consumeShieldCounter(next, s.id);
+    else if (s.save.kind === "regenerate") next = regeneratePermanent(next, s.id);
+  }
+  for (const s of saved) if (s.save.kind === "umbraArmor") next = applyTotemArmor(next, s.id, s.save.auraId);
+  for (const m of graveyardReplacementCarriersLast(state, moves)) {
+    if (!findPermanent(next, m.id)) continue;
+    next = moveCardToZone(next, { playerId: m.controller, fromZone: "battlefield", toZone: m.toZone, cardId: m.id });
+    if (m.exiledInstead) next = logEvent(next, { kind: "creature-exiled-instead", turn: next.turn, cardName: m.name, controller: m.controller, via: "destroy" });
   }
   next = checkDiesTriggers(next, dead);
   next = checkPlaneswalkerDiesTriggers(next, deadPw);
-  return logEvent(next, { kind: "spell-effect", effect: "destroy", controller, targets: targets.map(t => t.id), prevented });
+  return logEvent(next, { kind: "spell-effect", effect: "destroy", controller, targets: targets.map(t => t.id), prevented: saved.map((s) => s.id) });
 }
 
 export function applyDamageEffect(state, { controller, amount: rawAmount, targetType, targets = [], source = null, restrictions = [], exileIfWouldDie = false, amountPerOpponent = null }) {

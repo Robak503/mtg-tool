@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **36 commits**, corpus **44.5% (15,246)** at the tag → **44.7% (15,463)** — +165 of that is the 10-02 card-data refresh (new
+> **37 commits**, corpus **44.5% (15,246)** at the tag → **44.7% (15,463)** — +165 of that is the 10-02 card-data refresh (new
 > cards, not engine work); engine gains since the tag: **+52**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,25 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: a destroy event reads its replacements against the board as the event began; one destruction ladder, one death look-back · **±0**
+> Flip-diff **0 / 0 / 0**. **Mutants 46/46** on the integrated tree, restore byte-identical. Built by a fan-out builder (rebased onto
+> master before its gates); re-verified on the integrated tree. No existing test re-pointed.
+> · ⚑ Simultaneous destruction was processed one permanent at a time against a partly-destroyed board: a Hyena Umbra processed before
+>   its Grizzly Bears was destroyed first and the Bears died too (Akroma's Vengeance, Nevinyrral's Disk, every wrath).
+>   applyDestroyEffect now decides every replacement (indestructible, shield counter, regeneration, umbra armor) and every look-back
+>   on the board as the event began, then applies them; an umbra destroyed in its host's place goes to the graveyard once;
+>   graveyard-replacement carriers (Rest in Peace) move last. The lethal-damage state-based action uses the same order.
+> · ⚑ Death events match where the card went: one look-back constructor (gameState.deathLookback) for the lethal-damage SBA, the
+>   legend rule, destroy and both sacrifice paths — a Progenitus wrathed (shuffled instead) or a creature exiled instead no longer
+>   fires dies triggers or counts as a death. Look-backs read the permanent's last-known types (CR 603.10a): a destroyed crewed
+>   Vehicle or animated land is a creature dying; the one-creature edict pools are layer-aware. One ladder: destructionReplacementFor
+>   moved into gameState.js (Culling Ritual's count reads it and now agrees with the destroy in either board order). Blood Money's
+>   oracle has no "can't be regenerated" (regeneration saves from it — pinned); the rider pass-through is live for its op. Witness
+>   `destroyEventLadder.test.js` (40 — 28 fail on the old engine).
+> · ⚠️ Found, not fixed (queued): hand-built death look-backs in the sacrifice-for-cost, altar and fading paths (Rest in Peace exiles
+>   but dies triggers fire; a Progenitus sacrificed for a cost fires them); mass-creature target gatherers still accept printed
+>   creatures (a bestowed Aura is swept by "destroy all creatures"); mass damage reads printed types (an animated land takes none).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: attack triggers resolve in the declare attackers step, before blockers are declared (CR 508.1m, 509.1); a removed attacker leaves combat (CR 506.4) · **±0**
 > Flip-diff **0 / 0 / 0**. **Mutants 38/38** on the integrated tree, restore byte-identical. Built by a fan-out builder (rebased onto

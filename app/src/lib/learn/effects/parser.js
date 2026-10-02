@@ -3338,8 +3338,8 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   }
   // ===== BLOOD-MONEY ===== "Destroy all creatures. For each nontoken creature destroyed this way, you create a
   // tapped Treasure token." → ONE mass-destroy-treasure-per-nontoken atom (the Treasure count is the nontoken
-  // creatures actually destroyed, computed at resolution). The "can't be regenerated" rider (none on Blood
-  // Money) is already stripped above; the atom inherits no cannotRegenerate. Not an X spell.
+  // creatures actually destroyed, computed at resolution). A "can't be regenerated" rider (none on Blood Money)
+  // is stripped above and put back on the atom by the parseEffectClause wrapper, as on every destroy. Not an X spell.
   const bm = matchMassDestroyTreasurePerNontoken(oracle);
   if (bm && KNOWN.has(bm.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [bm.atom], xSpell: false, unparsedTail: null });
@@ -3773,7 +3773,10 @@ export function parseEffectClause(oracle, cardType = "", opts = {}) {
   if (!program || !CANT_REGEN_TEST.test(String(oracle || ""))) return program;
   // + the Culling Ritual mass destroy (#587): its matcher reads the rider-stripped text too, so it takes the stamp a plain
   // destroy takes — its resolver passes cannotRegenerate to the destroy AND to the "destroyed this way" count.
-  const stamp = (a) => (a && (a.op === "destroy" || a.op === "mass-destroy-add-mana-per-destroyed") ? { ...a, cannotRegenerate: true } : a);
+  // + the Blood Money mass destroy: the same — its matcher reads the rider-stripped text and its resolver passes cannotRegenerate
+  // to applyDestroyEffect, so a rider-carrying wording takes the stamp instead of resolving with regeneration still saving creatures.
+  const RIDER_OPS = ["destroy", "mass-destroy-add-mana-per-destroyed", "mass-destroy-treasure-per-nontoken"];
+  const stamp = (a) => (a && RIDER_OPS.includes(a.op) ? { ...a, cannotRegenerate: true } : a);
   const next = { ...program };
   if (Array.isArray(next.atoms)) next.atoms = next.atoms.map(stamp);
   if (next.modal && Array.isArray(next.modal.modes)) {
