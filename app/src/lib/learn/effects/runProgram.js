@@ -325,7 +325,8 @@ export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacri
       return markPendingArbiter(next, stackObject, `effect-program (no resolver for atom "${atom?.op}")`);
     }
     next = after;
-    sacrificedByPrev = realSacrificeIn((next.log || []).slice(logLenBefore));
+    // + P·36: "If you do, A and B" — an ifSacrificed atom that ran keeps the gate open for the next one (Disciple of Freyalise).
+    sacrificedByPrev = realSacrificeIn((next.log || []).slice(logLenBefore)) || (atom.ifSacrificed === true && prevDidSacrifice);
     // An atom set a resolution-time CHOICE (tutor search) — suspend the program and
     // record where to resume. The driver settles the choice, then resolveTutorChoice
     // re-enters at nextAtomIndex.

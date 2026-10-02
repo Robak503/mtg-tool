@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **3 commits**, corpus **44.5% (15,246)** at the tag → **44.5% (15,248)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **4 commits**, corpus **44.5% (15,246)** at the tag → **44.5% (15,249)**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -14,6 +14,20 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-01 — PLAY-WEIGHTED · 36: Disciple of Freyalise (EDHREC #483) — sacrifice another, payoff by its power · **+1** · corpus 15,249
+> Suite **17,735** green (1 skipped); lint 0; decks **2,746** / 2,998 unchanged. CI GREEN on P·35 (run 36948836775).
+> Flip-diff **+1, −0, zero RETIERED** (tier snapshots at 1ff98c57 → the change): Disciple of Freyalise // Garden of Freyalise
+> land-partial → native-trigger. Top 1,000 **867** (needs +33); top 2,500 **1,692**. **Mutants 5/5** (restore byte-identical).
+> · "You may sacrifice another creature. If you do, you gain X life and draw X cards, where X is that creature's power." One
+>   whole-effect matcher (removal.matchSacrificeAnotherForPower — Braids' shape): the controller's optional sacrifice of ANOTHER
+>   creature (excludeSource), then two payoffs under the one "if you do": runProgram now carries the gate across consecutive
+>   ifSacrificed atoms ("If you do, A and B"; no earlier program had two in a row). X is the sacrificed creature's last-known
+>   power (CR 603.6e, counters included), recorded on its sacrifice log and read by the new count kind sacrificedThisWayPower —
+>   never the cost channel Fling uses, which an effect sacrifice would leave stale for a later cost-less spell.
+> · Two filters on that read (the sacrificer, a real victim) were seen-to-survive and REMOVED: the "if you do" gate already
+>   guarantees the newest sacrifice entry is this one. Witness `app/src/lib/learn/discipleOfFreyalise.test.js` (6).
+> · **Next:** #489 Birgi, God of Storytelling.
 
 > ## 🎯 2026-10-01 — PLAY-WEIGHTED · 35: Living Death (EDHREC #474) and Living End — the one-event batch sacrifice · **+2** · corpus 15,248
 > Suite **17,729** green (1 skipped); lint 0; decks **2,746** / 2,998 unchanged. CI GREEN on P·34 (run 36947742150).

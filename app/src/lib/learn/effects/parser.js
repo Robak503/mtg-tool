@@ -59,7 +59,7 @@ import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { createNamedTokenClauseParser, createTokenClauseParser, attachSourceToLastTokenClauseParser, mobilizeClauseParser, mobilizeSacClauseParser } from "./atoms/tokens.js";
 import { monarchClauseParser } from "./atoms/monarch.js"; // MONARCH (CR 725)
-import { sacrificeEdictClauseParser, destroyExileClauseParser, ordealThresholdSacClauseParser, mintedLeaveClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding) + OC-1 (Ordeal threshold-sac sentinel)
+import { sacrificeEdictClauseParser, destroyExileClauseParser, ordealThresholdSacClauseParser, mintedLeaveClauseParser, matchSacrificeAnotherForPower } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding) + OC-1 (Ordeal threshold-sac sentinel)
 import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP — "Sacrifice a land." controller self-sac (Roiling Regrowth / Cycle of Renewal)
 import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTROY-TOKEN-RIDER — Pongify / Rapid Hybridization (destroy creature + can't-regen + that controller makes a token)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser, seekClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
@@ -2777,6 +2777,11 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // effect is ONE atom: the second sentence's "it" is the card the first chose (see effects/atoms/voidPlay.js).
   // ===== LIVING DEATH / LIVING END (the play-weighted program, P·35) ===== one atom: its three "then"s are ordered steps of one
   // effect, and the last one's "they exiled this way" reads the first (see effects/atoms/livingDeath.js).
+  // ===== SACRIFICE ANOTHER, PAYOFF BY ITS POWER (P·36 — Disciple of Freyalise) ===== see atoms/removal.js.
+  const sp = matchSacrificeAnotherForPower(oracle);
+  if (sp && sp.atoms.every((a) => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: sp.atoms, xSpell: false, unparsedTail: null });
+  }
   const ld = matchLivingDeath(oracle);
   if (ld && KNOWN.has(ld.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [ld.atom], xSpell: false, unparsedTail: null });

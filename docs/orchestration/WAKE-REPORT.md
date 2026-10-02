@@ -15,13 +15,13 @@
 > 65.9% → +602 from today). **Then reassess with Colton.**
 > **Runnable next:** `MTG_APP_ROOT=… node scripts/measure-coverage.mjs --played=1000` (from `app/`, ~1 min) lists the
 > uncovered cards in rank order, each with the line(s) that alone hold it back. Take the HIGHEST-RANKED miss the CREED can
-> build (next: #483 Disciple of Freyalise). A card that needs Colton's call is skipped with its reason in the ledger, never
+> build (next: #489 Birgi, God of Storytelling). A card that needs Colton's call is skipped with its reason in the ledger, never
 > built: planeswalkers stay their own program (09-30), theft-THEMED decks stay off (single theft cards are fine). Full
 > per-slice gates as ever; each ledger entry records the worklist header (covered N / 1,000).
 > **The shape (measured 10-01):** no veins left — of the 852 top-2,500 misses, 430 are one line away and those lines are
 > 429 distinct shapes. The top 500 are 92.6% covered; #501–1,000 73%; #2,001–2,500 48%. Mostly one card per slice: a
 > program of weeks, not a sprint.
-> **Progress:** PLAY-WEIGHTED · 1–35 (Myriad Landscape #28, Feed the Swarm #89, Urza's Saga #120, Victimize #128, War Room
+> **Progress:** PLAY-WEIGHTED · 1–36 (Myriad Landscape #28, Feed the Swarm #89, Urza's Saga #120, Victimize #128, War Room
 > #140, Three Tree City #178, Gemstone Caverns #179, Tireless Provisioner #182, Hideaway — Mosswort Bridge #194 +2, Idol of
 > Oblivion #196, Animate Dead #224, Gray Merchant of Asphodel #242 +9, Malakir Rebirth #246, Everflowing Chalice #251 (multikicker),
 > Etali, Primal Storm #260 (cast any number from among), Bolas's Citadel #263 +15 (Sacrifice N <class> costs), Hullbreaker Horror
@@ -34,8 +34,8 @@
 > exile and its free play), Underworld Breach #388 (escape, granted), Helm of the Host #396 +2 (a copy of the equipped
 > creature), Silence #412 (the all-spells cast lock), Selvala, Heart of the Wilds #438 (the entering creature's controller may
 > draw), Cabal Ritual #453 +2 (the Threshold upgrade; Thermal Blast with it); · 3 the Construct token, the Saga's prerequisite)
-> → top 1,000 at **866 / 1,000** (needs +34) — with Living Death #474 +2 (Living End with it; the one-event batch sacrifice,
-> after the P·34 death look-back fix).
+> → top 1,000 at **867 / 1,000** (needs +33) — with Living Death #474 +2 (Living End with it; the one-event batch sacrifice,
+> after the P·34 death look-back fix), Disciple of Freyalise #483 (sacrifice another; payoff by its power).
 > **Fix (10-01, P·34):** a death watcher (Blood Artist, Zulaport Cutthroat, Morbid Opportunist) that died alongside other
 > creatures triggered only for itself — fixed (CR 603.10a look-back). Sims with board wipes under Aristocrats watchers under-counted.
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim

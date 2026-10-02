@@ -812,6 +812,14 @@ export function countForSpec(state, ctx, spec) {
   // form which has no singular referent — reads 0: a clean no-op, never a fabricated magnitude (CR 107.3).
   // The copy frozen on the ability as its cost was paid (ctx.sacrificedForCost — shelf D12) wins over the shared state
   // channel, which a sacrifice-cost ability activated in response can overwrite before this one resolves.
+  // SACRIFICED THIS WAY (P·36 — Disciple of Freyalise: "you may sacrifice another creature. If you do, you gain X life and draw X
+  // cards, where X is that creature's power"): the last-known power of the creature the controller's OWN sacrifice just took, off its
+  // sacrifice log (sacrificeCreatureEffect records it, CR 603.6e). Only an "if you do" payoff reads it, and runProgram runs that only
+  // right after the sacrifice — so the newest such entry is this one. Distinct from the cost channel below.
+  if (spec.kind === "sacrificedThisWayPower") {
+    const sac = [...(state.log || [])].reverse().find((e) => e.effect === "sacrifice");
+    return Math.max(0, sac?.power || 0);
+  }
   const sacrificed = ctx?.sacrificedForCost ?? state?.sacrificedForCost;
   if (spec.kind === "sacrificedPower") return Math.max(0, sacrificed?.power || 0);
   if (spec.kind === "sacrificedToughness") return Math.max(0, sacrificed?.toughness || 0);

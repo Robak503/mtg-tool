@@ -280,7 +280,8 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
   // TRIG-SACRIFICE: fire "Whenever you sacrifice a <permanent|creature|artifact>" for the sacrificing
   // player. The perm has left the battlefield, so its type rides on the lookBack card (sacScopeMatches reads it).
   next = checkSacrificeTriggers(next, playerId, { id: permId, controller: playerId, card: lk.permanent.card });
-  return logEvent(next, { kind: "spell-effect", effect: "sacrifice", controller: playerId, sacrificed: permId, cardName: lk.permanent.card?.name, cardTypes: sacTypes });
+  // + P·36: its last-known power (CR 603.6e) — "where X is that creature's power" (Disciple of Freyalise) reads it off this entry.
+  return logEvent(next, { kind: "spell-effect", effect: "sacrifice", controller: playerId, sacrificed: permId, cardName: lk.permanent.card?.name, cardTypes: sacTypes, power: sacPower });
 }
 
 /**
@@ -308,6 +309,24 @@ export function sacrificeCreaturesTogether(state, victims) {
   next = checkDiesTriggers(next, dead);
   for (const { playerId, permId, lk } of batch) next = checkSacrificeTriggers(next, playerId, { id: permId, controller: playerId, card: lk.permanent.card });
   return logEvent(next, { kind: "spell-effect", effect: "sacrifice-together", sacrificed: batch.map((v) => v.permId) });
+}
+
+/**
+ * P·36 — DISCIPLE OF FREYALISE's whole effect (the play-weighted program, EDHREC #483): "you may sacrifice another creature. If you
+ * do, you gain X life and draw X cards, where X is that creature's power." The controller's optional sacrifice of another creature,
+ * then two payoffs under the one "if you do" (runProgram carries the gate across consecutive ifSacrificed atoms), each sized by the
+ * sacrificed creature's last-known power off its sacrifice log (the countForSpec kind sacrificedThisWayPower). Whole, because the
+ * payoff's "that creature" reads across the sentence boundary. Returns { atoms } | null.
+ */
+export function matchSacrificeAnotherForPower(oracle) {
+  const s = String(oracle || "").toLowerCase();
+  if (!/^you may sacrifice another creature\. if you do, you gain x life and draw x cards, where x is that creature's power\.?$/.test(s)) return null;
+  const x = { kind: "sacrificedThisWayPower", per: 1 };
+  return { atoms: [
+    { op: "sacrifice", who: "controller", what: "creature", excludeSource: true, optional: true },
+    { op: "gain-life", amountCount: x, ifSacrificed: true, targetType: null },
+    { op: "draw", amountCount: x, ifSacrificed: true, targetType: null },
+  ] };
 }
 
 /**
