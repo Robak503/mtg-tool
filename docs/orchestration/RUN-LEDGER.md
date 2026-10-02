@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **10 commits**, corpus **44.5% (15,246)** at the tag → **44.5% (15,423)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+12**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **11 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,424)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+13**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,18 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 41: Adeline, Resplendent Cathar (EDHREC #493) — the player-or-planeswalker token defender · **+1** · corpus 15,424
+> Suite **17,918** green (one run for P·40–42). Flip-diff **+1, −0, zero RETIERED**: Adeline → native-mixed. Top 1,000 **869**; top 2,500
+> **1,706**. **Mutants 13/13**, restore byte-identical. Built by a fan-out builder; re-verified on the integrated tree.
+> · The per-opponent tapped-and-attacking arm (Endless Foot Assault) reads Adeline's "that player or a planeswalker they control"
+>   with a house choice — the player, every time: an option the effect allows and always available (CR 508.4, 508.4a, 508.4c), so
+>   an under-offer of the controller's options, never an illegal attack. The tokens are never declared, so no attack trigger fires
+>   for them (CR 508.3a). The arm also carries its token's COLOR (CR 111.3): Adeline's Humans are white, Endless Foot Assault's
+>   Ninjas black (its atom pin re-pointed). Witness `adelineResplendentCathar.test.js` (18) on a four-seat table: one trigger,
+>   three tapped Humans, one per opponent, damage 5/1/1; an eliminated opponent gets none; Honor of the Pure pumps the Humans.
+> · ⚠️ Found, not fixed here (queued): every OTHER create-token arm still mints a colorless token — a false positive where a color
+>   matters (Doom Blade's "nonblack", protection from a color); attack triggers can resolve after a defender has blocked.
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 40: Massacre Wurm (EDHREC #512) — an opponent's dying creature drains its controller · **+1** · corpus 15,423
 > Suite **17,918** green (1 skipped; one run for P·40–42); lint 0; decks **2,746** / 2,998 unchanged. CI GREEN on 39b (run 36966108512).

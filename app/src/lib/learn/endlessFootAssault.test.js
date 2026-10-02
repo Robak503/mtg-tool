@@ -30,7 +30,8 @@ describe("the parser", () => {
     const row = { conf: programConfidence(p), atom: p.atoms[0], adeline: programConfidence(adeline), tier: classifyCard(EFA) };
     console.log("  WITNESS endlessFootAssault", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
     expect(row.conf).toBe("high");
-    expect(row.atom).toEqual({ op: "create-token", power: 1, toughness: 1, descriptor: "black ninja", perOpponent: true, tapped: true, entersAttacking: true, targetType: null });
+    // RE-POINTED (play-weighted #493, Adeline): the arm now carries the token's color (CR 111.3) — the Ninjas are black.
+    expect(row.atom).toEqual({ op: "create-token", power: 1, toughness: 1, descriptor: "black ninja", colors: ["B"], perOpponent: true, tapped: true, entersAttacking: true, targetType: null });
     expect(row.adeline).toBe("low");
     expect(row.tier).toBe("native-trigger");
   });

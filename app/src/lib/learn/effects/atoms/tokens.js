@@ -33,6 +33,19 @@ export function tokenTypeLine(descriptor) {
 }
 
 /**
+ * TOKEN COLOR (CR 111.3 — a token has exactly the characteristics its creating effect defines, color included): the WUBRG
+ * letters of the color words in a token descriptor ("white human" → ["W"], "black ninja" → ["B"]); "colorless", or no color
+ * word, → []. A create-token arm that knows its token's color carries this as `atom.colors`, and applyCreateToken stamps it on
+ * the minted card, where layers.colorsOf reads it (a white-creature anthem, protection from a color, a nonblack target filter).
+ * Carried today by the per-opponent arm (Endless Foot Assault, Adeline); every other arm still mints a colorless token, the
+ * long-standing simplification tokenTypeLine's dropped color words reflect.
+ */
+const TOKEN_COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+function tokenColorsOf(descriptor) {
+  return descriptor.split(" ").map((w) => TOKEN_COLOR_LETTER[w]).filter(Boolean);
+}
+
+/**
  * P2.6 create-token (CR 701.7) — put `count` token creatures onto the controller's
  * battlefield. v1 conservative: tokens enter via createPermanent (correct P/T, owner,
  * summoning sick) but do NOT fire ETB-watcher triggers yet (an under-model, never a
@@ -236,7 +249,9 @@ export function applyCreateToken(state, atom, ctx) {
   for (let i = 0; i < count; i++) {
     const minted = mintId(next, "tok");
     next = minted.state;
-    const card = { id: `tok-${minted.id}`, name, type, power: tokPower, toughness: tokToughness, oracle, keywords, token: true };
+    // COLORS (CR 111.3): the arm's parsed token color (tokenColorsOf), read by layers.colorsOf; an arm that carries no
+    // `colors` leaves it unset and the token is colorless (no mana cost to derive a color from).
+    const card = { id: `tok-${minted.id}`, name, type, power: tokPower, toughness: tokToughness, oracle, keywords, token: true, colors: atom.colors };
     // TAPPED (Tormod — "create a TAPPED 2/2…"): the same atom.tapped flag the Treasure-maker mints honored.
     let perm = createPermanent({ id: minted.id, card, controller: tokenCreatorId, tapped: !!atom.tapped });
     if (counterN > 0) perm = { ...perm, counters: { ...perm.counters, [ewc.type || "+1/+1"]: (perm.counters?.[ewc.type || "+1/+1"] || 0) + counterN } };
@@ -253,7 +268,9 @@ export function applyCreateToken(state, atom, ctx) {
   // fabricated combat entry (the Raph & Mikey convention).
   if (atom.perOpponent && perOpponentIds && perOpponentIds.length && mintedIds.length) {
     // PER-OPPONENT — the i-th minted token attacks the i-th opponent ("attacking THAT player"), round-robin under a doubler.
-    // No trigger defender is consulted: the printed card names each token's own defender.
+    // No trigger defender is consulted: the printed card names each token's own defender. Adeline's "or a planeswalker they
+    // control" alternative resolves to the player as well (the house choice, CR 508.4 — see the parser arm), so no entry
+    // carries a defenderPlaneswalkerId.
     const entries = mintedIds.map((id, i) => ({ permanentId: id, attackingPlayer: ctx.controller, defender: perOpponentIds[i % perOpponentIds.length] }));
     next = { ...next, combat: { ...(next.combat || { attackers: [], blockers: [] }), attackers: [...(next.combat?.attackers || []), ...entries] } };
   } else if (atom.entersAttacking && ctx.defenderId && mintedIds.length) {
@@ -912,15 +929,26 @@ function createTokenClauseParserCore(clause) {
   // Leader) ===== "for each opponent, create a <P>/<T> <desc> creature token that's tapped and attacking THAT PLAYER": one
   // token per opponent, EACH joining combat against ITS opponent (not the trigger's single defender). `perOpponent` sets the
   // count to the live opponent count at resolution and applyCreateToken assigns the i-th minted token to the i-th opponent
-  // (round-robin under a token doubler — every copy still attacks a player). Adeline's "that player or a planeswalker that
-  // player controls" is a CHOICE this arm does not read — it falls through and parks (CREED).
-  const mpo = t.match(/^for each opponent, create (?:a|an|one) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens? that's tapped and attacking that player$/);
+  // (round-robin under a token doubler — every copy still attacks a player).
+  // THE PLANESWALKER ALTERNATIVE (play-weighted #493 — Adeline, Resplendent Cathar: "…tapped and attacking that player or a
+  // planeswalker they control"): when the effect specifies what a creature put onto the battlefield attacking attacks, its
+  // controller chooses among the options the effect allows (CR 508.4). THE HOUSE CHOICE IS THE PLAYER, every time: it is one
+  // of the printed options, and it is always available — "for each opponent" counts only opponents still in the game at
+  // resolution (CR 508.4a), and the requirements and restrictions on declaring attackers do not apply to a creature put onto
+  // the battlefield attacking (CR 508.4c). The engine therefore never sends one of these tokens at a planeswalker: an
+  // under-offer of the controller's options, never an illegal attack or a wrong defender. The atom has the Endless Foot
+  // Assault atom's shape exactly. The tail is anchored to the printed wording; any other alternative ("…that player
+  // controls", a battle) falls through and parks (CREED).
+  // The arm carries its token's COLOR (`colors`, tokenColorsOf — CR 111.3): Adeline's Humans are white and Endless Foot
+  // Assault's Ninjas black, so a white-creature anthem (Honor of the Pure) or protection from a color reads them correctly.
+  const mpo = t.match(/^for each opponent, create (?:a|an|one) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens? that's tapped and attacking that player(?: or a planeswalker they control)?$/);
   if (mpo) {
     const toughness = parseInt(mpo[2], 10);
     if (toughness < 1) return null;
     const landMana = landTokenManaOracle(mpo[3]);
     if (!landMana.ok || landMana.oracle) return null; // a land token minting tapped-and-attacking is unprinted → park (CREED)
-    return { op: "create-token", power: parseInt(mpo[1], 10), toughness, descriptor: mpo[3].trim(), perOpponent: true, tapped: true, entersAttacking: true, targetType: null };
+    const descriptor = mpo[3].trim();
+    return { op: "create-token", power: parseInt(mpo[1], 10), toughness, descriptor, colors: tokenColorsOf(descriptor), perOpponent: true, tapped: true, entersAttacking: true, targetType: null };
   }
   const mta = t.match(/^create (?:a|an|one) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens? that's tapped and attacking for each (.+)$/);
   if (mta) {
