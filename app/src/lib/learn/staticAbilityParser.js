@@ -4889,19 +4889,21 @@ function parseCreatureSelector(c) {
   // control get +2/+2 and have indestructible"; the Background cycle "Commander creatures you own
   // have \"…\""). "Commander" is neither a card type nor a subtype — it's a game-STATE quality
   // (card.isCommander, stamped at seat build), so it gets its own selector field (commanderOnly),
-  // gated at the matchesSelector chokepoint. OWN vs CONTROL: this engine has no native
-  // control-changing effect and permanents carry no owner field — controller IS owner, an engine
-  // invariant — so both printed scopes map to controllerScope "you". If native theft ever ships,
-  // this equivalence must be revisited (grep commanderOnly).
-  m = c.match(/^commander creatures?\s+you (?:own|control)\s+(?:gets?|gains?|has|have)\b/);
+  // gated at the matchesSelector chokepoint. OWN vs CONTROL (CR 108.3, 110.2): "you own" scopes by
+  // OWNER (ownerScope "you": the candidate's effective owner, on any battlefield), "you control" by
+  // controller. The two used to share controllerScope "you" on the invariant that the engine had no
+  // native control change; theft is native now (Act of Treason, Control Magic — ownership survives a
+  // control change since the 10-02 owner fix), so a stolen commander keeps its owner's Backgrounds and
+  // never takes the thief's.
+  m = c.match(/^commander creatures?\s+you (own|control)\s+(?:gets?|gains?|has|have)\b/);
   if (m) {
-    return { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"], commanderOnly: true } };
+    return { mode: "dynamic", selector: { ...(m[1] === "own" ? { ownerScope: "you" } : { controllerScope: "you" }), cardTypes: ["Creature"], commanderOnly: true } };
   }
   // Bare "Commanders you own/control …" (Guardian Augmenter's hexproof line): NO creature restriction —
   // a planeswalker commander is a commander too (cardTypes []), the commanderOnly gate does the work.
-  m = c.match(/^commanders\s+you (?:own|control)\s+(?:gets?|gains?|has|have)\b/);
+  m = c.match(/^commanders\s+you (own|control)\s+(?:gets?|gains?|has|have)\b/);
   if (m) {
-    return { mode: "dynamic", selector: { controllerScope: "you", cardTypes: [], commanderOnly: true } };
+    return { mode: "dynamic", selector: { ...(m[1] === "own" ? { ownerScope: "you" } : { controllerScope: "you" }), cardTypes: [], commanderOnly: true } };
   }
 
   // No-determiner CARD-TYPE creature anthem: "<Artifact|Enchantment|Land> creatures you control

@@ -1320,6 +1320,10 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
     default:
       break;
   }
+  // OWNER scope (the Background cycle — "Commander creatures you OWN have …", CR 108.3, 110.2): the candidate's effective
+  // owner must be the source's controller, on any battlefield. `owner` is stamped only where it differs from the controller
+  // (a control change, a put under another player's control), so an absent field means the controller owns it.
+  if (selector.ownerScope === "you" && (candidate.owner ?? candidate.controller) !== srcController) return false;
   if (selector.excludeSelf && sourcePerm && candidate.id === sourcePerm.id) return false;
   // ATTACKING gate (BLITZ AT-1 — Orcish/Goblin Oriflamme, War Horn): the candidate must be a DECLARED
   // attacker right now. Reads state.combat.attackers — NON-layered state (the requiresCounter class, no

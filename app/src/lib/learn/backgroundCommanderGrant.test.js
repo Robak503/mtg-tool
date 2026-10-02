@@ -2,9 +2,9 @@
  * backgroundCommanderGrant.test.js — the COMMANDER-qualified group selector (BLITZ BG-1: Bastion
  * Protector / Bloodsworn Steward / the Background cycle's "Commander creatures you own have …").
  * "Commander" is a game-STATE quality (card.isCommander, stamped at seat build), not a type-line
- * word — the selector carries commanderOnly and matchesSelector gates on the flag. OWN≡CONTROL is
- * an engine invariant (no native control-changing effect; permanents carry no owner field), so
- * both printed scopes map to controllerScope "you" — documented at the parse site.
+ * word — the selector carries commanderOnly and matchesSelector gates on the flag. "You own" and
+ * "you control" are different scopes since native theft shipped (ownerScope vs controllerScope —
+ * pinned in backgroundOwnerScope.test.js); every board here keeps owner = controller.
  *
  * BLITZ BG-2 extends the pins to the GRANT-carrying Backgrounds ("Commander creatures you own have
  * "<quoted body>""): the six whose body the group validators model (Clan Crafter / Sword Coast

@@ -32,6 +32,7 @@ summarizes the notable changes.
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
 
 ### Fixed
+- A commander an opponent steals keeps its owner's Backgrounds ("Commander creatures you own have …") and no longer gains the thief's
 - **Crush** and **Bramblecrush** could destroy creatures (they read "noncreature" as "creature"), and **Bedevil** could target only creatures; **Stone by Sunlight** now makes its target an artifact (it was filed as a creature type)
 - "Nonblack"-style removal, protection from a colour, colour-counting cards and colour-paying costs now see a permanent's current colours (after a colour-changing effect such as Cerulean Wisps or Singe), and double-faced permanents have their front face's colours instead of none
 - **Plunder the Trollshaws** cast with flashback now draws two cards; it drew one

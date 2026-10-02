@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **29 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,448)** — +165 of that is the 10-02 card-data refresh (new
+> **30 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,448)** — +165 of that is the 10-02 card-data refresh (new
 > cards, not engine work); engine gains since the tag: **+37**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,17 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: "commander creatures you own" scopes by owner, not controller (CR 108.3, 110.2) · **±0**
+> Suite **18,333** green (one run with Mangara and Trouble in Pairs). Flip-diff **0 / 0 / 0**. **Mutants 5/5**, restore byte-identical.
+> Built by the integrator between batches (the owner fix's queued follow-up).
+> · ⚑ The commander selector mapped the Background cycle's "Commander creatures you OWN have …" and Bastion Protector's "…you
+>   CONTROL get …" to one controller scope, on the old invariant that the engine had no theft. Theft is native now, so a stolen
+>   commander took the THIEF's Backgrounds (the thief was offered Clan Crafter's granted activation on another player's
+>   commander) and lost its owner's (Flaming Fist's attack trigger went quiet). "You own" now reads the effective owner on
+>   any battlefield; "you control" is unchanged. Witness `backgroundOwnerScope.test.js` (8 — every steal a real Act of Treason
+>   cast; four fail on the old engine; the bare "Commanders you own" form through one labelled synthetic line, since Disguise
+>   Agent's disguise grant is unmodeled).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 53: Liquimetal Torque (EDHREC #511) — becomes an artifact in addition to its other types · **+4** · corpus 15,448
 > Flip-diff **+4, −0, zero RETIERED**: Liquimetal Torque → native-mana, Liquimetal Coating → native-activated, Myr Landshaper →
