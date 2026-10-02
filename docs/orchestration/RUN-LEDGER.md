@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **15 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,435)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+24**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **16 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,436)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+25**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,17 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 46: Valakut Awakening // Valakut Stoneforge (EDHREC #514) — any number to the bottom, draw that many plus one · **+1** · corpus 15,436
+> Suite **17,996** green (one run for P·44–46). Flip-diff **+1, −0, zero RETIERED**: Valakut Awakening → native-spell (was land-partial).
+> Top 1,000 **874**; top 2,500 **1,711**. **Mutants 22/22**, restore byte-identical. Built by a fan-out builder; re-verified on the tree.
+> · The controller's form of the Puzzle Box composite: "any number" taken by a documented house policy — every card in hand except
+>   a commander (CR 903.9b's command-zone option is unmodeled, so a commander is never tucked), hand order kept (CR 401.4) — then
+>   that many plus one through the draw chokepoint (an empty library is the ordinary draw, CR 121.4).
+> · ⚑ Fixed on the way: every modal-DFC FACE was cast COLORLESS (the bundled combined card carries colors [] — Scryfall keeps
+>   colors on the faces): a red Valakut Awakening fired "whenever you cast a colorless spell" (Kozilek's Sentinel) and was a
+>   legal "counter target colorless spell" target. Face colors now come from each face's own mana cost and Devoid line (CR
+>   712.8f, 202.2; equal to Scryfall's per-face colors on all 196 faces). Witness `valakutAwakening.test.js` (17).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 45: Unbreakable Formation (EDHREC #564) — the Addendum as a cast-time stamp · **+1** · corpus 15,435
 > Suite **17,996** green (one run for P·44–46). Flip-diff **+1, −0, zero RETIERED**: Unbreakable Formation → native-spell. Top 1,000 **873**;

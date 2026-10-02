@@ -5588,8 +5588,9 @@ export function activatedCostReductionForCost(reducers, cost) {
 
 // A spell's colors as WUBRG letters (Scryfall `colors` array, else derived from mana-cost pips). Local mirror
 // of layers.colorsOf — kept here so this leaf module needs no engine import (a {W/U} hybrid pip counts both).
+// Exported for modalDfc.js (play-weighted #514): a modal-DFC face view takes its colours from this derivation.
 const _WUBRG = ["W", "U", "B", "R", "G"];
-function colorsOfSpell(card) {
+export function colorsOfSpell(card) {
   if (Array.isArray(card?.colors)) return card.colors.map((c) => String(c).toUpperCase());
   // DEVOID (CR 702.114, BLITZ DV-1) — a characteristic-defining ability makes the card colorless in EVERY zone
   // regardless of its mana-cost pips. Real cards carry Scryfall's baked colors:[] (returned above); this guards

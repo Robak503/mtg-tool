@@ -886,6 +886,14 @@ export function splitClauses(oracle) {
       clauses.push(sentence);
       continue;
     }
+    // ANY-NUMBER HAND-TO-BOTTOM, DRAW THAT MANY PLUS ONE keep-whole (play-weighted #514 — Valakut Awakening; Into the Fire's
+    // second mode): "Put any number of cards from your hand on the bottom of your library, then draw that many cards plus
+    // one." — "that many" is the count put on the bottom, so the ", then" split would sever the draw from its count. Kept
+    // whole for the controller's arm of the same hand.js composite (hand-to-bottom-draw-same, anyNumber + plus).
+    if (/^put any number of cards from your hand on the bottom of your library, then draw that many cards plus one\.?$/i.test(sentence)) {
+      clauses.push(sentence);
+      continue;
+    }
     // EACH-PLAYER DISCARD-THEN-DRAW-THAT-MANY keep-whole (SHELF-85 N10, 2026-09-04 — Dark Deal "Each player discards all
     // the cards in their hand, then draws that many cards minus one"; Incendiary Command's fourth mode without the
     // "minus one"): "that many" is each player's OWN discarded count, so the ", then" split would sever the draw from

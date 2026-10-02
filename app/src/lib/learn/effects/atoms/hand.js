@@ -396,6 +396,14 @@ export function discardClauseParser(clause) {
     if (/^the upkeep player puts the cards in their hand on the bottom of their library in any order, then draws that many cards$/.test(t)) {
       return { op: "hand-to-bottom-draw-same", who: "upkeepPlayer", targetType: null };
     }
+    // ANY NUMBER, THEN THAT MANY PLUS ONE (play-weighted #514, 2026-10-01 — Valakut Awakening; Into the Fire's second mode, which
+    // stays parked on its first): the CONTROLLER's form of the same composite. "Any number" is a choice made as the effect
+    // resolves (zero is legal), taken by the resolver's documented house policy (`anyNumber`); `plus` is the printed "plus one".
+    // Anchored whole: "that many cards" without the "plus one", the top of the library, or "discard any number of cards"
+    // (Into the Night, Colossus of the Blood Age) are other cards and stay LOW.
+    if (/^put any number of cards from your hand on the bottom of your library, then draw that many cards plus one$/.test(t)) {
+      return { op: "hand-to-bottom-draw-same", who: "controller", anyNumber: true, plus: 1, targetType: null };
+    }
   }
   // EACH-PLAYER WHEEL BY OWN COUNT (SHELF-85 N10, 2026-09-04 — Dark Deal "Each player discards all the cards in their
   // hand, then draws that many cards minus one"; Incendiary Command's fourth mode, no minus): Tolarian Winds' composite
@@ -425,15 +433,30 @@ export function discardClauseParser(clause) {
  * SHELF-85 N12 (2026-09-04) — TEFERI'S PUZZLE BOX: the referent (ctx.upkeepPlayerId — the player whose draw step it is)
  * puts every card in hand on the bottom of their library in the hand's current order, then draws that many. Absent
  * referent → a clean no-op (never the ability's controller). An empty hand tucks nothing and draws nothing.
+ *
+ * PLAY-WEIGHTED #514 (2026-10-01) — VALAKUT AWAKENING, the CONTROLLER's form (`anyNumber` + `plus: 1`): "Put any number of cards
+ * from your hand on the bottom of your library, then draw that many cards plus one."
+ *   · WHICH CARDS — "any number" is the player's choice as the spell resolves (zero is legal). No pause exists for it, so a
+ *     deterministic HOUSE POLICY takes it: the "put all" resolution the genesis-wave / Gishath "any number" puts already use,
+ *     except that a COMMANDER stays in hand — CR 903.9b lets its owner put it into the command zone instead of the library, a
+ *     replacement the engine does not model, so the policy never tucks one. The candidates are the cards in that hand as the
+ *     effect resolves — the spell itself is on the stack by then (CR 601.2a), never in the hand it reads — so nothing outside
+ *     the hand moves and never more cards than it holds.
+ *   · ORDER — the owner arranges cards put into one position of a library at the same time (CR 401.4); the policy keeps the
+ *     hand's order, as the Puzzle Box does: the first card in hand ends up topmost of the tucked block.
+ *   · THE DRAW — "that many" is the count actually put back; the draws are that many plus `plus`, through the same chokepoint,
+ *     so a library that runs short is the ordinary empty-library draw (CR 121.4), never special-cased.
  */
 export function applyHandToBottomDrawSame(state, atom, ctx) {
   const pid = atom.who === "upkeepPlayer" ? ctx.upkeepPlayerId : ctx.controller;
   if (!pid || !state.players?.[pid]) return state;
   const hand = state.players[pid].hand || [];
-  const n = hand.length;
+  const tucked = atom.anyNumber ? hand.filter((c) => !c.isCommander) : hand; // the Puzzle Box names every card in hand
+  const n = tucked.length;
+  const draws = n + (atom.plus ?? 0);
   let next = state;
-  for (const c of hand) next = moveCardToZone(next, { playerId: pid, fromZone: "hand", toZone: "library", cardId: c.id }); // appended = the bottom (index 0 is the top)
-  if (n > 0) next = applyDrawEffect(next, { controller: pid, amount: n }); // through the trigger-firing chokepoint (Sheoldred / Tyranny see these draws)
+  for (const c of tucked) next = moveCardToZone(next, { playerId: pid, fromZone: "hand", toZone: "library", cardId: c.id }); // appended = the bottom (index 0 is the top)
+  if (draws > 0) next = applyDrawEffect(next, { controller: pid, amount: draws }); // through the trigger-firing chokepoint (Sheoldred / Tyranny see these draws)
   return logEvent(next, { kind: "spell-effect", effect: "hand-to-bottom-draw-same", player: pid, amount: n, controller: ctx.controller });
 }
 
@@ -540,6 +563,6 @@ export const handResolvers = {
   "imprint": applyImprint, // IMPRINT (CR 207.2c) — the ETB exile-from-hand that STAMPS the permanent
   "discard": applyDiscard, // ===== EACH-PLAYER ===== target/each player discards N — victim chooses (CR 701.8)
   "discard-hand-draw-same": applyDiscardHandDrawSame, // TW-1 — Tolarian Winds' whole-hand cycle
-  "hand-to-bottom-draw-same": applyHandToBottomDrawSame, // SHELF-85 N12 — Teferi's Puzzle Box (the draw-step referent tucks their hand, draws that many)
+  "hand-to-bottom-draw-same": applyHandToBottomDrawSame, // SHELF-85 N12 — Teferi's Puzzle Box (the draw-step referent tucks their hand, draws that many); #514 — Valakut Awakening (any number, plus one)
   "look-at-hand": applyLookAtHand, // LOOK (CR 701.20e) — information only; the log carries the real contents
 };

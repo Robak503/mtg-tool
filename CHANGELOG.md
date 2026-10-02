@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Valakut Awakening** — put any number of cards from your hand on the bottom of your library, then draw that many plus one
 - **Unbreakable Formation** — your creatures gain indestructible; cast in your main phase, each of them also gets a +1/+1 counter and vigilance (a copy, or a cast during combat, gets only the indestructible)
 - **Champion of Lambholt** — creatures with less power than it can't block creatures you control (checked as blockers are declared, with every pump and counter counted)
 - **Blasphemous Edict, Barter in Blood, Tergrid's Shadow, Taste of Death, Rankle's Prank and Abyssal Gorestalker** — "each player sacrifices N creatures" works: each player chooses their own, in turn order, and they are all sacrificed at once; Blasphemous Edict costs {B} while thirteen or more creatures are on the battlefield
@@ -24,6 +25,7 @@ summarizes the notable changes.
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
 
 ### Fixed
+- Modal double-faced spells (Valakut Awakening, Fell the Profane, Birgi …) are their face's colors; they were cast colorless, so "colorless spell" triggers and counters wrongly saw them
 - Alternative costs (the Bringers' {W}{U}{B}{R}{G}, Fist of Suns, the Traps' conditional costs) now pay cost increases such as Thalia, Guardian of Thraben's; they were offered without the tax
 - A creature returned from a graveyard (Tormod, Syr Konrad) no longer triggers for its own return or for the cards returned with it
 - Endless Foot Assault's Ninja tokens are black (they were colorless)

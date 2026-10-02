@@ -23,6 +23,19 @@
  * (cardIndex.oracleText), the same shape the split-card parser peels with parseFaceBlock.
  */
 import { parseFaceBlock } from "./splitCard.js";
+import { colorsOfSpell } from "./staticAbilityParser.js"; // a face's colours off its own mana cost and Devoid line; staticAbilityParser's import closure holds no MDFC / classifier module, so this edge is acyclic
+
+/**
+ * A face's OWN colours (play-weighted #514, 2026-10-01). A modal DFC on the stack or the battlefield has only the
+ * characteristics of the face that's up (CR 712.8f), and a face is the colours of the mana symbols in its own mana cost
+ * (CR 202.2; a hybrid symbol is each of its colours, CR 107.4e). The combined card's top-level `colors` is never the answer:
+ * the bundled data carries [] there for every modal DFC (Scryfall keeps the colours on the faces), so a face view that
+ * inherited it was cast COLORLESS — a red Valakut Awakening fired "whenever you cast a colorless spell" triggers and was a
+ * legal target for "counter target colorless spell". Derived from the face's own block only — its own Devoid line, never
+ * the combined card's keywords, which carry both faces'. Corpus check (2026-10-01): equal, as a set, to Scryfall's per-face
+ * colours on all 196 faces of the 98 bundled modal DFCs.
+ */
+const faceColors = (face) => colorsOfSpell({ oracle: face.oracle, mana: face.mana });
 
 export function parseModalDfc(card) {
   if (!card) return null;
@@ -55,15 +68,15 @@ export function isModalDfc(card) {
   return parseModalDfc(card) !== null;
 }
 
-/** [frontView, backView] — each `{ ...card, name, type, oracle, mana, faceIndex, mdfcOf }` (id preserved). */
+/** [frontView, backView] — each `{ ...card, name, type, oracle, mana, colors, faceIndex, mdfcOf }` (id preserved). */
 export function mdfcFaceCards(card) {
   const parsed = parseModalDfc(card);
   if (!parsed) return null;
   const mdfcOf = card.name;
   const strip = { card_faces: undefined, mana_cost: undefined, type_line: undefined, oracle_text: undefined };
   return [
-    { ...card, ...strip, name: parsed.front.name, type: parsed.front.type, oracle: parsed.front.oracle, mana: parsed.front.mana, faceIndex: 0, mdfcOf },
-    { ...card, ...strip, name: parsed.back.name, type: parsed.back.type, oracle: parsed.back.oracle, mana: parsed.back.mana, faceIndex: 1, mdfcOf },
+    { ...card, ...strip, name: parsed.front.name, type: parsed.front.type, oracle: parsed.front.oracle, mana: parsed.front.mana, colors: faceColors(parsed.front), faceIndex: 0, mdfcOf },
+    { ...card, ...strip, name: parsed.back.name, type: parsed.back.type, oracle: parsed.back.oracle, mana: parsed.back.mana, colors: faceColors(parsed.back), faceIndex: 1, mdfcOf },
   ];
 }
 
@@ -90,14 +103,14 @@ function faceManaValue(mana) {
 }
 
 /** [frontView, backView] of a spell // spell modal DFC — each its own face under the card's id: the face's name, type, oracle,
- *  mana and mana value (CR 712.8f — a face on the stack or battlefield has only its own characteristics), and its power and
+ *  mana, mana value and colours (CR 712.8f — a face on the stack or battlefield has only its own characteristics), and its power and
  *  toughness off the card's faces when it carries them. */
 export function spellMdfcFaceCards(card) {
   const parsed = parseSpellModalDfc(card);
   if (!parsed) return null;
   const strip = { card_faces: undefined, mana_cost: undefined, type_line: undefined, oracle_text: undefined };
   return [parsed.front, parsed.back].map((f, i) => ({
-    ...card, ...strip, name: f.name, type: f.typeLine, oracle: f.oracle, mana: f.mana, cmc: faceManaValue(f.mana),
+    ...card, ...strip, name: f.name, type: f.typeLine, oracle: f.oracle, mana: f.mana, cmc: faceManaValue(f.mana), colors: faceColors(f),
     ...(card.card_faces ? { power: card.card_faces[i].power ?? null, toughness: card.card_faces[i].toughness ?? null } : {}),
     faceIndex: i, mdfcOf: card.name,
   }));
