@@ -81,7 +81,8 @@ import { creaturePower, creatureToughness, findPermanent } from "./gameState.js"
 // staticAbilityParser / protection, none of which reach interveningIf.js, so this adds no cycle. Verified with
 // `node --input-type=module -e "import './src/lib/learn/legalChoices.js'"` per the RUN-LEDGER's mandate — a
 // green suite is NOT evidence the module graph still loads (vitest resolves in a different order than node).
-import { permanentHasKeyword, permanentColors, permanentTypes, permanentIsCreature } from "./layers.js"; // + permanentIsCreature (P·32 — Selvala: every OTHER creature, layer-aware)
+import { permanentHasKeyword, permanentColors, permanentTypes, permanentIsCreature, permIsEveryCreatureType } from "./layers.js"; // + permanentIsCreature (P·32 — Selvala: every OTHER creature, layer-aware) // + permIsEveryCreatureType (P·39)
+import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { hasCitysBlessing } from "./ascend.js"; // shelf D5 — the city's blessing designation (ascend.js imports only gameState)
 
 // ─── cardinal vocabulary ────────────────────────────────────────────────────────
@@ -173,7 +174,10 @@ function permMatchesFilter(perm, filter, state) {
     // A type/supertype/subtype EXCLUSION — the permanent must carry NONE of these words on its front face
     // (CR 712.4a), mirroring the positive scan directly below.
     const face = typeStr(perm.card).split(" // ")[0];
-    if (filter.notWords.some((w) => new RegExp(`\\b${w}\\b`, "i").test(face))) return false;
+    // P·39 — every creature type (a changeling, Mirror Entity's activation, an animated Mutavault) carries every CREATURE-type
+    // word too, so it is never "non-Human" (CR 205.3d keeps it to creature types — "nonland" is untouched).
+    if (filter.notWords.some((w) => new RegExp(`\\b${w}\\b`, "i").test(face)
+      || (CR_CREATURE_TYPES.has(String(w).toLowerCase()) && permIsEveryCreatureType(state, perm.id)))) return false;
   }
   if (filter.colorless) {
     // CR 105.2c — colourless is having NO colours at all, so an unresolvable read fails closed the OTHER way
@@ -195,7 +199,8 @@ function permMatchesFilter(perm, filter, state) {
   // layer engine: a Dryad player with only Forests does control an Island, so "When you control no Islands, sacrifice this
   // creature" must not fire. The printed line still answers everything it always did.
   const hit = (w) => new RegExp(`\\b${w}\\b`, "i").test(typeStr(perm.card))
-    || permanentTypes(state, perm.id).subtypes.includes(w);
+    || permanentTypes(state, perm.id).subtypes.includes(w)
+    || (CR_CREATURE_TYPES.has(String(w).toLowerCase()) && permIsEveryCreatureType(state, perm.id)); // P·39 — "you control a Goblin": every creature type
   return filter.allWords ? words.every(hit) : words.some(hit);
 }
 
@@ -1508,7 +1513,8 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     }
     if (!perm) return false; // the entering creature already left — it was not "dealt damage this way" in any live sense
     const typeLine = String(perm.card?.type || perm.card?.type_line || "").toLowerCase();
-    const hasSubtype = new RegExp(`\\b${m[1]}\\b`).test(typeLine);
+    const hasSubtype = new RegExp(`\\b${m[1]}\\b`).test(typeLine)
+      || permIsEveryCreatureType(state, perm.id); // P·39 — every creature type is a Dinosaur too
     const wasDamagedBySource = (perm.damagedBy || []).includes(sid);
     return hasSubtype && wasDamagedBySource;
   }
@@ -1993,7 +1999,7 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     if (!triggeringId) return null; // "another" needs the entering permanent to exclude → can't confirm (FN-safe)
     const re = new RegExp(`\\b${sub.charAt(0).toUpperCase() + sub.slice(1)}\\b`, "i");
     return controllerBoard(state, controllerId).some((p) =>
-      p.id !== triggeringId && isCreaturePermLocal(p) && re.test(typeStr(p.card)));
+      p.id !== triggeringId && isCreaturePermLocal(p) && (re.test(typeStr(p.card)) || permIsEveryCreatureType(state, p.id))); // P·39 — "another Elf": every creature type is one
   }
 
   // ⭐ "you control another <FILTER>" (2026-07-30) — the general form of the bare-subtype arm directly above:

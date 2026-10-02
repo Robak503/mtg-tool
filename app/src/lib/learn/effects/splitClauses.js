@@ -742,6 +742,9 @@ export function splitClauses(oracle) {
     // NOT a top-level effect boundary. Keep the whole sentence so setBasePtTeamClauseParser binds it (else it
     // shatters into "…base power" + "toughness X/X…" → low). Anchored to the exact X/X form.
     if (/^creatures you control have base power and toughness x\/x until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // P·39 — Mirror Entity's form: the same one set instruction, its duration leading and its "and gain all creature types" a part
+    // of it (one effect on the same creatures, not a second clause). Exact sentence only.
+    if (/^until end of turn, creatures you control have base power and toughness x\/x and gain all creature types$/i.test(sentence)) { clauses.push(sentence); continue; }
     // SET-BASE-PT-TARGET (BLITZ SU-1 — Diminish / Square Up) — the single-target twin: the " and " inside
     // "base power and toughness" is internal to the one set instruction. Anchored to the exact literal-N/N
     // form (a rider like Turn to Frog's "and loses all abilities" doesn't match → splits → low → Arbiter).

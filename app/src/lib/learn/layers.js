@@ -35,6 +35,7 @@ import {
   counterToughnessDelta,
 } from "./ptPrimitive.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
+import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type matches only a CREATURE type (CR 205.3d); a zero-import leaf
 import { parseStaticAbilities, parseAttachedBonus, parseAuraGrantedManaAbility, parseSoulbondBond } from "./staticAbilityParser.js";
 import { isGraveyardReanimateAura, animateDeadBonusView } from "./animateDeadGate.js"; // P·12 — Animate Dead's -1/-0 (a zero-import leaf)
 import { commanderColorIdentityOf } from "./commanderIdentity.js"; // CR 903.4 — the shared read (stamp + command zone); a zero-import leaf
@@ -154,6 +155,9 @@ function permHasChosenTypeLayer(card, chosenType, state = null, candidateId = nu
   const dash = line.indexOf("—");
   if (dash !== -1 && new RegExp(`\\b${esc}\\b`).test(line.slice(dash + 1))) return true;
   if (!state || !candidateId) return false;                       // no board context → printed answer stands
+  // P·39 — every creature type by a layer-4 effect (Mutavault, Mirror Entity): the recursion-free identity read.
+  const candidate = findPerm(state, candidateId);
+  if (candidate && effectiveTypeIdentity(candidate, state).everyCreatureType) return true;
   if (_chosenTypePredicateInProgress.has(candidateId)) return false;
   _chosenTypePredicateInProgress.add(candidateId);
   try {
@@ -162,6 +166,25 @@ function permHasChosenTypeLayer(card, chosenType, state = null, candidateId = nu
   } finally {
     _chosenTypePredicateInProgress.delete(candidateId);
   }
+}
+
+// P·39 — EVERY CREATURE TYPE for the board COUNTS below, which run inside the layer-7 applier and so may never derive:
+// Changeling (CR 702.73a), or a layer-4 every-creature-type effect read through the recursion-free effectiveTypeIdentity —
+// skipped outright on a board where no such effect exists (one memoized scan per state). It answers for a CREATURE TYPE only:
+// a count whose needle is a card type, a land type or an artifact subtype never matches by it (CR 205.3d / 205.3m).
+const _allTypesBoardMemo = new WeakMap();
+function boardHasAllCreatureTypesEffect(state) {
+  let has = _allTypesBoardMemo.get(state);
+  if (has === undefined) {
+    has = collectContinuousEffects(state).some((e) => e.op?.allCreatureTypes);
+    _allTypesBoardMemo.set(state, has);
+  }
+  return has;
+}
+function countsAsCreatureType(state, p, needle) {
+  if (!CR_CREATURE_TYPES.has(String(needle || "").toLowerCase())) return false;
+  if (hasKeyword(p.card, "changeling")) return true;
+  return !!state && boardHasAllCreatureTypesEffect(state) && effectiveTypeIdentity(p, state).everyCreatureType;
 }
 
 // TRUNK-SELFBUFF: count the controller's permanents matching a self count spec
@@ -224,11 +247,12 @@ function countSelfSpecOnBoard(state, perm, spec) {
     const needle = spec.subtype;
     if (!needle) return 0;
     const re = new RegExp(`\\b${needle}\\b`);
+    const is = (p) => re.test(typeLineOf(p.card)) || countsAsCreatureType(state, p, needle); // P·39 — a changeling, an every-creature-type creature
     let n = 0;
     for (const pl of Object.values(state?.players || {})) {
-      for (const p of pl.battlefield || []) if (re.test(typeLineOf(p.card))) n += 1;
+      for (const p of pl.battlefield || []) if (is(p)) n += 1;
     }
-    if (spec.excludeSelf && re.test(typeLineOf(perm.card))) n -= 1;
+    if (spec.excludeSelf && is(perm)) n -= 1;
     return Math.max(0, n);
   }
   // OPPONENTS-CONTROL count (BLITZ CA-2 — Wu Admiral "as long as an opponent controls an Island"; Syr
@@ -242,7 +266,7 @@ function countSelfSpecOnBoard(state, perm, spec) {
     let oppN = 0;
     for (const [pid, pl] of Object.entries(state?.players || {})) {
       if (pid === perm.controller) continue;
-      for (const p of pl.battlefield || []) if (oppRe.test(typeLineOf(p.card))) oppN += 1;
+      for (const p of pl.battlefield || []) if (oppRe.test(typeLineOf(p.card)) || countsAsCreatureType(state, p, oppNeedle)) oppN += 1; // P·39
     }
     return oppN;
   }
@@ -328,7 +352,7 @@ function countSelfSpecOnBoard(state, perm, spec) {
   // must be a permanent of the named type. THIS is the layer-static count path (the ETB-draw arm uses the
   // shared.js countForSpec twin); both must filter or the two arms disagree. Absent → no filter.
   return (player.battlefield || []).filter((p) =>
-    re.test(typeLineOf(p.card))
+    (re.test(typeLineOf(p.card)) || countsAsCreatureType(state, p, needle)) // P·39 — a changeling, an every-creature-type creature
     && (!spec.untappedOnly || !p.tapped)
     && (spec.attachedToType == null
         || (!!p.attachedTo && new RegExp(`\\b${spec.attachedToType}\\b`, "i").test(typeLineOf(findPerm(state, p.attachedTo)?.card))))
@@ -337,6 +361,8 @@ function countSelfSpecOnBoard(state, perm, spec) {
 
 // GATED-SELFBUFF: does the SOURCE permanent itself match a count spec's type? (so "another <type>" can
 // exclude it from its own gate count). Word-bounded on the type line, mirroring countSelfSpecOnBoard.
+// (P·39: every "as long as you control another <type>" carrier is itself printed with that type, so the
+// printed read already excludes it; an every-creature-type source that ISN'T printed with it has no carrier.)
 function matchesCountSpec(perm, spec) {
   const needle = spec?.cardType || spec?.subtype;
   return needle ? new RegExp(`\\b${needle}\\b`).test(typeLineOf(perm?.card)) : false;
@@ -422,20 +448,24 @@ export function domainCount(state, playerId) {
  *  Rogue, a Warrior and a Wizard creature `playerId` controls — 0..4. A creature carrying several of those types fills only ONE
  *  slot, counted the way that gives the HIGHEST result (CR 700.8b), so this is a maximum matching of the four roles onto the
  *  creatures, never a per-type tally: a Cleric-Rogue plus a plain Cleric is a party of 2 whichever order they are read in.
- *  PRINTED reads, like domainCount: the front-face type line's "Creature" and subtypes, plus Changeling (CR 702.73a). A type
- *  GRANTED by an effect (Maskwood Nexus, an animated land, Veteran Adventurer's own "is also a Cleric, Rogue, Warrior, and
- *  Wizard") is not counted — a documented under-read, the safe direction. It cannot be layer-aware: the count feeds a layer-7c
- *  bonus (Ravager's Mace — "+1/+0 for each creature in your party"), so deriving characteristics here re-enters the layer
- *  system forever (a stack overflow the Mace witness caught). ONE helper for both count evaluators (this file's and
- *  effects/atoms/shared.js's), the domainCount discipline. */
+ *  PRINTED reads, like domainCount: the front-face type line's "Creature" and subtypes, plus Changeling (CR 702.73a), plus a
+ *  creature a layer-4 effect makes every creature type (P·39 — Mirror Entity's activation, an animated Mutavault), read
+ *  through effectiveTypeIdentity: recursion-free (no derive), the read the hostHasSubtype gate already makes from inside the
+ *  layer-7 applier. A single type GRANTED by an effect (Veteran Adventurer's own "is also a Cleric, Rogue, Warrior, and
+ *  Wizard", a chosen type) is not counted — a documented under-read, the safe direction. It cannot come from a derive: the
+ *  count feeds a layer-7c bonus (Ravager's Mace — "+1/+0 for each creature in your party"), so deriving characteristics here
+ *  re-enters the layer system forever (a stack overflow the Mace witness caught). ONE helper for both count evaluators (this
+ *  file's and effects/atoms/shared.js's), the domainCount discipline. */
 const PARTY_ROLES = ["Cleric", "Rogue", "Warrior", "Wizard"];
 export function partyCount(state, playerId) {
   const members = [];
   for (const perm of state?.players?.[playerId]?.battlefield || []) {
     const front = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0];
     if (!/\bCreature\b/.test(front)) continue;
-    // permHasChosenTypeLayer WITHOUT state: the printed subtype match or Changeling — no layer derivation.
-    const roles = PARTY_ROLES.filter((r) => permHasChosenTypeLayer({ ...perm.card, type: front }, r));
+    // permHasChosenTypeLayer WITHOUT state: the printed subtype match or Changeling — no layer derivation. Every creature type
+    // fills any one role (CR 700.8b — still one creature, one slot).
+    const roles = effectiveTypeIdentity(perm, state).everyCreatureType ? PARTY_ROLES
+      : PARTY_ROLES.filter((r) => permHasChosenTypeLayer({ ...perm.card, type: front }, r));
     if (roles.length) members.push(roles);
   }
   const holder = new Map(); // role -> index of the member filling it
@@ -567,7 +597,8 @@ function gateMet(state, perm, gate) {
   // documented under-read, the safe direction — the host goes without the bonus.
   if (gate.kind === "hostHasSubtype") {
     if (hasKeyword(perm.card, "changeling")) return true;
-    const { subtypes } = effectiveTypeIdentity(perm, state);
+    const { subtypes, everyCreatureType } = effectiveTypeIdentity(perm, state);
+    if (everyCreatureType) return true; // P·39 — every creature type by a layer-4 effect (Mutavault, Mirror Entity)
     return (gate.subtypes || []).some((s) => subtypes.includes(String(s).toLowerCase()));
   }
   if (gate.kind === "auraEnteredThisTurn") {
@@ -1035,11 +1066,20 @@ export function collectContinuousEffects(state) {
 function effectiveTypeIdentity(candidate, state) {
   let types = cardTypesOf(candidate.card);
   const subtypes = subtypesOf(candidate.card).map(s => s.toLowerCase());
-  if (!state) return { types, subtypes };
+  if (!state) return { types, subtypes, everyCreatureType: false };
   const board = collectContinuousEffects(state);
-  if (!board.length) return { types, subtypes };
+  if (!board.length) return { types, subtypes, everyCreatureType: false };
+  // EVERY CREATURE TYPE (P·39), mirrored from the derive (everyCreatureTypeFrom) without recursing: the latest
+  // all-creature-types effect that reaches this candidate against the latest creature-type replacement fixed to it.
+  let allTs = -Infinity;
+  let setTs = -Infinity;
   for (const e of board) {
     if (e.layer !== 4) continue;
+    // A FIXED one (an animation's "with all creature types", Mirror Entity's activation) names its permanents. (No DYNAMIC
+    // every-creature-type effect is emitted yet; one would be skipped here — a safe under-read — while the derive applied it.)
+    if (e.op?.allCreatureTypes && e.affects?.mode === "fixed" && e.affects.permanentIds?.includes(candidate.id)) {
+      allTs = Math.max(allTs, e.timestamp ?? 0);
+    }
     // GOD-DEVOTION self-removal: a God below its devotion threshold is NOT a creature, so another source's
     // "creatures you control …" selector (matchesSelector cardTypes:["Creature"]) must NOT match it. The
     // effect is SELF-affecting (permanentId resolved at collection to the God's id), and the devotion read is
@@ -1096,11 +1136,12 @@ function effectiveTypeIdentity(candidate, state) {
     if (e.op?.layerOp === "setCreatureSubtypes") {
       const gone = new Set((e.op.replaces || []).map((st) => String(st).toLowerCase()));
       for (let i = subtypes.length - 1; i >= 0; i--) if (gone.has(subtypes[i])) subtypes.splice(i, 1);
+      setTs = Math.max(setTs, e.timestamp ?? 0);
     }
     for (const t of e.op?.types || []) if (!types.includes(t)) types.push(t);
     for (const st of e.op?.subtypes || []) subtypes.push(String(st).toLowerCase());
   }
-  return { types, subtypes };
+  return { types, subtypes, everyCreatureType: allTs > setTs };
 }
 
 // P/T-PREDICATE recursion guard (Tetsuko — see the powerOrToughnessAtMost branch below): permanent ids whose
@@ -1191,19 +1232,21 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
     // the create-token path). Mirrors the 6 other changeling-aware subtype checks (combatEvasion, groupWard,
     // resolvers, triggers, staticAbilityParser, permHasChosenTypeLayer) so changeling-ness is honored
     // uniformly. A SAFE widening: only a creature already carrying the changeling keyword newly matches.
-    if (!hasKeyword(candidate.card, "changeling")) {
-      const subs = ident.subtypes;
-      // OUTLAW META-TYPE (CR 702.x / 700-series — Vihaan, Goldwaker's "Other outlaws you control"): "outlaw"
-      // is NOT a type-line subtype — it's the umbrella for {Assassin, Mercenary, Pirate, Rogue, Warlock}. A
-      // selector subtype of "Outlaw" therefore matches a candidate carrying ANY of those five (OR semantics,
-      // same as a multi-subtype list). Expanded HERE at the match chokepoint (not at parse) so the single
-      // continuous-effect collection honors the meta-type uniformly; non-meta subtypes are unaffected.
-      const wanted = selector.subtypes.flatMap(st => {
-        const lc = String(st).toLowerCase();
-        return lc === "outlaw" ? OUTLAW_SUBTYPES : [lc];
-      });
-      if (!wanted.some(st => subs.includes(st))) return false;
-    }
+    // P·39 — and the same for a permanent a layer-4 effect makes every creature type (Mutavault, Mirror Entity). EVERY
+    // CREATURE TYPE matches a wanted CREATURE type only (CR 205.3d): a changeling is not a Vehicle or an Equipment, so
+    // "Vehicles you control …" never reaches it (it used to — the old gate skipped the subtype test outright).
+    const everyType = hasKeyword(candidate.card, "changeling") || ident.everyCreatureType;
+    const subs = ident.subtypes;
+    // OUTLAW META-TYPE (CR 702.x / 700-series — Vihaan, Goldwaker's "Other outlaws you control"): "outlaw"
+    // is NOT a type-line subtype — it's the umbrella for {Assassin, Mercenary, Pirate, Rogue, Warlock}. A
+    // selector subtype of "Outlaw" therefore matches a candidate carrying ANY of those five (OR semantics,
+    // same as a multi-subtype list). Expanded HERE at the match chokepoint (not at parse) so the single
+    // continuous-effect collection honors the meta-type uniformly; non-meta subtypes are unaffected.
+    const wanted = selector.subtypes.flatMap(st => {
+      const lc = String(st).toLowerCase();
+      return lc === "outlaw" ? OUTLAW_SUBTYPES : [lc];
+    });
+    if (!wanted.some(st => subs.includes(st) || (everyType && CR_CREATURE_TYPES.has(st)))) return false;
   }
   // LEGENDARY supertype gate (BLITZ SF-1 — CR 205.4; Rising of the Day "Legendary creatures you control get
   // +1/+0", Day of Destiny, Arvad the Cursed, Esika "Other legendary creatures you control have vigilance";
@@ -1694,6 +1737,7 @@ export function deriveCharacteristics(state, permanentId) {
       types: cardTypesOf(permBase.card),
       subtypes: subtypesOf(permBase.card),
       colors: colorsOf(permBase.card),
+      everyCreatureType: false, // no effect touches it — only a layer-4 effect makes a permanent every creature type
       appliedEffects: [],
       copiableValues: copySource || null,
     };
@@ -1787,7 +1831,26 @@ function applyTypeColorLayers(perm, l4, l5, state) {
     if (e.op.layerOp === "setColor") colors = new Set(e.op.colors || []);
     else if (e.op.layerOp === "addColor") for (const c of e.op.colors || []) colors.add(c);
   }
-  return { types: [...types], subtypes: [...subtypes], colors: [...colors] };
+  return { types: [...types], subtypes: [...subtypes], colors: [...colors], everyCreatureType: everyCreatureTypeFrom(l4, types.has("Creature")) };
+}
+
+/**
+ * EVERY CREATURE TYPE (P·39 — the whole CR 205.3m list at once): an `allCreatureTypes` layer-4 effect on this permanent —
+ * a "becomes a 2/2 creature with all creature types" animation (Mutavault), Mirror Entity's activation — set against a
+ * "becomes the creature type of your choice" replacement (setCreatureSubtypes, CR 205.1a), by timestamp (CR 613.7): the
+ * later one is what the permanent is. Only a creature takes a creature type (CR 205.3d). A FLAG
+ * beside the subtype list, never the ~290 types written into it — the same shape as Changeling, which every creature-type
+ * reader already asks about first.
+ */
+function everyCreatureTypeFrom(l4, isCreature) {
+  if (!isCreature) return false;
+  let allTs = -Infinity;
+  let setTs = -Infinity;
+  for (const e of l4) {
+    if (e.op?.allCreatureTypes) allTs = Math.max(allTs, e.timestamp ?? 0);
+    else if (e.op?.layerOp === "setCreatureSubtypes") setTs = Math.max(setTs, e.timestamp ?? 0);
+  }
+  return allTs > setTs;
 }
 
 /**
@@ -2055,6 +2118,18 @@ export function crewCostWithOverrides(state, permanentId, printed) {
 
 export function permanentIsCreature(state, permanentId) {
   return permanentTypes(state, permanentId).types.includes("Creature");
+}
+
+/**
+ * P·39 — is this battlefield permanent EVERY CREATURE TYPE right now? Changeling (CR 702.73a), or a layer-4 every-creature-type
+ * effect not since replaced (the derive's everyCreatureType — Mutavault's animation, Mirror Entity's
+ * activation). The battlefield half of the question; a spell or a card elsewhere asks
+ * everyCreatureType.cardIsEveryCreatureType. Every creature-type reader that knew to ask about Changeling asks this instead.
+ */
+export function permIsEveryCreatureType(state, permanentId) {
+  const perm = findPerm(state, permanentId);
+  if (!perm) return false;
+  return hasKeyword(perm.card, "changeling") || deriveCharacteristics(state, permanentId).everyCreatureType;
 }
 
 /** RECONFIGURE (CR 702.151) is a property of the printed CARD, read off its oracle — one read shared by the layer-4 half
@@ -2336,7 +2411,9 @@ function sourceMultiplierFilterMatches(state, filter, subject, staticPerm) {
     if (term.excludeSelf && subject.id === staticPerm.id) return false;   // "…or ANOTHER Wizard you control"
     if (term.supertype && !new RegExp(`\\b${term.supertype}\\b`).test(line)) return false;
     if (term.cardType && !lowerTypes.includes(term.cardType)) return false;
-    if (term.subtype && !lowerSubs.includes(term.subtype)) return false;
+    // P·39 — a creature type is also met by every creature type (changeling, Mutavault, Mirror Entity; CR 205.3d keeps it to creature types).
+    if (term.subtype && !lowerSubs.includes(term.subtype)
+        && !permIsEveryCreatureType(state, subject.id)) return false;
     // "of the chosen type" (Roaming Throne, shelf D19): the static's own permanent's chosen type — none chosen, none match.
     if (term.chosenTypeOfSource && !permHasChosenTypeLayer(subject.card, staticPerm.chosenType, state, subject.id)) return false;
     return true;

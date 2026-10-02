@@ -61,10 +61,9 @@
  * the Sonorous Howlbonder team static ("Each creature you control with menace can't be blocked except by
  * three or more creatures" — corpus-unique, the Nightkin Ambusher targeted-matcher precedent).
  */
-import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature } from "./layers.js";
+import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, permIsEveryCreatureType } from "./layers.js";
 import { findPermanent, creaturePower } from "./gameState.js";
 import { hasCitysBlessing } from "./ascend.js"; // shelf D5 — "can't attack or block unless you have the city's blessing"
-import { hasKeyword } from "./keywords.js";
 import { parseGroupBlockRestriction, attachedPreventionOf } from "./staticAbilityParser.js";
 
 // ── EVASION-QUALIFIER constants ──
@@ -361,14 +360,16 @@ export function blockableOnlyBySubtypeOf(card) {
  * permanent's effective (layer-4) subtypes include it OR the card has CHANGELING (CR 702.73a — a
  * changeling is EVERY creature type, so it counts as a Sliver for "blocked only by Slivers"). The
  * changeling clause prevents a CREED false negative (disallowing a legal block by a changeling, a wrong
- * play). `subtype` is the Capitalized canonical form; the compare is case-insensitive.
+ * play). `subtype` is the Capitalized canonical form; the compare is case-insensitive. P·39: Changeling and
+ * a layer-4 every-creature-type effect (Mutavault's animation, Mirror Entity's activation) are one read —
+ * layers.permIsEveryCreatureType. (The restriction parsers admit only creature types here — "except by Vehicles" is not read —
+ * so no artifact or land subtype ever reaches it.)
  */
 function permIsSubtype(state, permId, subtype) {
   const want = String(subtype).toLowerCase();
   const subs = (permanentTypes(state, permId)?.subtypes || []).map((s) => String(s).toLowerCase());
   if (subs.includes(want)) return true;
-  const lk = findPermanent(state, permId);
-  return !!lk?.permanent?.card && hasKeyword(lk.permanent.card, "changeling");
+  return permIsEveryCreatureType(state, permId);
 }
 
 // A clause asserted of the creature ITSELF (subject "this creature"/"it"), at a sentence
@@ -1292,8 +1293,6 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   const restrictions = parseAttackerRestrictions(aCard);
   if (restrictions.length > 0) {
     const bColors = permColorSet(state, blockerId);
-    const bTypes = permanentTypes(state, blockerId);
-    const bSubtypes = new Set((bTypes?.subtypes || []).map((s) => String(s).toLowerCase()));
     // A token is flagged on the CARD (`card.token`, set by every token minter — tokens.js / amass.js
     // / resolvers.js). NOT a permanent-level `isToken` field (which the engine never sets).
     const bIsToken = bLook.permanent?.card?.token === true;
@@ -1307,7 +1306,8 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
         if (r.op === "ge" && bPow >= r.n) return false;
       }
       if (r.kind === "token" && bIsToken) return false;
-      if (r.kind === "subtype" && bSubtypes.has(r.subtype.toLowerCase())) return false;
+      // P·39 — through permIsSubtype: a changeling or an every-creature-type creature IS a Human, so "can't be blocked by Humans" bars it.
+      if (r.kind === "subtype" && permIsSubtype(state, blockerId, r.subtype)) return false;
       if (r.kind === "artifact" && isArtifactPerm(state, blockerId)) return false; // ④-AV — "can't be blocked by artifact creatures"
     }
   }

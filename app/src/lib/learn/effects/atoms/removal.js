@@ -15,7 +15,7 @@ import { applyCreateToken, applyCreateNamedToken } from "./tokens.js";
 import { applyTutor, millOnePlayer } from "./library.js";
 import { applyZoneMove, applyExileUntilLeaves } from "./zones.js";
 import { manifestTopOf } from "./manifest.js"; // P·19 — Reality Shift's controller rider (manifest imports only gameState, triggers, tokens)
-import { permanentTypes } from "../../layers.js"; // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h)
+import { permanentTypes, permIsEveryCreatureType } from "../../layers.js"; // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool
 import { NAMED_TOKENS } from "./tokens.js"; // NAMED-TOKEN sacrifice pool — same registry the mint side uses, so a pool can never name a token the engine cannot create
 
 // MULTI-COUNT "any number of target" upper bound (CR 601.2c) — the count is unbounded on the card, so use a
@@ -237,7 +237,8 @@ export function applyChampion(state, atom, ctx) {
     if (p.card?.token) return false;                             // CR 111.7 — a token would not come back
     if (!isCreatureCard(p.card)) return false;
     if (!want || want === "creature") return true;               // "Champion a creature"
-    return new RegExp(`\\b${want}\\b`, "i").test(String(p.card.type || ""));
+    return new RegExp(`\\b${want}\\b`, "i").test(String(p.card.type || ""))
+      || permIsEveryCreatureType(state, p.id); // P·39 — every creature type is a Kithkin
   });
   if (!eligible.length) {
     // No legal offering ⇒ the printed downside, not a skip.
@@ -426,7 +427,7 @@ export function advanceSacrificeChain(state, { queue, sourceName = null }) {
     // is hidden-info-safe. sacrificeCreatureEffect already sacrifices ANY permanent correctly (it gates
     // dies-triggers on isCreatureCard, fires sacrifice-triggers for all), so only the pool the chooser sees changes.
     const poolAll = (player.battlefield || [])
-      .filter((p) => sacrificePoolMatch(head.what, p.card))
+      .filter((p) => sacrificePoolMatch(head.what, p.card) || (String(head.what).startsWith("subtype:") && permIsEveryCreatureType(next, p.id))) // P·39 — "sacrifice an Egg": every creature type is one (a land / artifact pool never takes it)
       .filter((p) => !(head.excludeId && p.id === head.excludeId)); // "another" — the source is never a victim
     // FLARE OF MALICE (BI-4): narrow to the sacrificer's GREATEST mana value (tokens are 0, CR 202.3); ties stay a choice.
     const mvOf = (c) => { let mv = 0; for (const x of String(c?.mana || c?.mana_cost || "").matchAll(/\{([^}]+)\}/g)) { const pip = x[1].trim().toUpperCase(); mv += /^\d+$/.test(pip) ? parseInt(pip, 10) : (/^[XYZ]$/.test(pip) ? 0 : 1); } return mv; };

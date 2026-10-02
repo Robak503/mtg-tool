@@ -25,8 +25,7 @@
  */
 
 import { findPermanent } from "./gameState.js";
-import { permanentTypes } from "./layers.js";
-import { hasKeyword } from "./keywords.js";
+import { permanentTypes, permIsEveryCreatureType } from "./layers.js";
 
 // The canonical Diffusion-Sliver sentence → the subtype + the generic mana amount, or null. Reminder text
 // (CR 207.2) is parenthetical and stripped; the sentence is matched lowercased + whole. ONLY fixed-generic
@@ -50,16 +49,16 @@ function genericCost(n) {
   return { kind: "mana", mana: { generic: n, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } };
 }
 
-// Layer-aware "is this permanent a creature of subtype `subtype`?" — effective (layer-4) subtypes OR a
-// CHANGELING (CR 702.73a — a changeling is every creature type, so it counts as a Sliver). Mirrors the
-// combat-evasion subtype test so granted/removed subtypes + changelings are honored consistently.
+// Layer-aware "is this permanent a creature of subtype `subtype`?" — effective (layer-4) subtypes OR every
+// creature type (CR 702.73a — a changeling counts as a Sliver; P·39 — so does an every-creature-type one, one
+// read: layers.permIsEveryCreatureType). Mirrors the combat-evasion subtype test so granted/removed subtypes,
+// changelings and every-creature-type effects are honored consistently.
 function permIsSubtypeCreature(state, permId, subtype) {
   const t = permanentTypes(state, permId);
   if (!t?.types?.includes("Creature")) return false;
   const want = String(subtype).toLowerCase();
   if ((t.subtypes || []).some((s) => String(s).toLowerCase() === want)) return true;
-  const lk = findPermanent(state, permId);
-  return !!lk?.permanent?.card && hasKeyword(lk.permanent.card, "changeling");
+  return permIsEveryCreatureType(state, permId);
 }
 
 /**

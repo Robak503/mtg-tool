@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **7 commits**, corpus **44.5% (15,246)** at the tag → **44.5% (15,418)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+7**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **8 commits**, corpus **44.5% (15,246)** at the tag → **44.5% (15,421)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+10**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,38 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 39a: every creature type on the battlefield — Mirror Entity (EDHREC #995), Mutavault, Faceless Haven · **+3** · corpus 15,421
+> Suite **17,810** green (1 skipped); lint 0; decks **2,746** / 2,998 unchanged. CI GREEN on the card-data refresh (run 36955366806).
+> Flip-diff **+3, −0, zero RETIERED** (tier snapshots at e6fe84c8 → the change, the 10-01 data): Mirror Entity → native-activated;
+> Mutavault (#1905), Faceless Haven → land. Top 1,000 **866** (+1); top 2,500 **1,703** (+2). **Mutants 78/78** (round 2 — see below).
+> · **The half of #490 Maskwood Nexus that needs no zone.** A FIXED layer-4 `allCreatureTypes` effect (CR 613.1d) — Mutavault's "becomes
+>   a 2/2 creature with all creature types" (Faceless Haven's "with vigilance and all creature types"), Mirror Entity's "gain all
+>   creature types" (its team base-P/T set is layer-aware now: an animated Mutavault is a creature you control) — is the derive's
+>   `everyCreatureType` flag, ordered against a "becomes the creature type of your choice" replacement by timestamp (CR 613.7), only
+>   ever on a creature (CR 205.3d). layers.permIsEveryCreatureType reads it (+ Changeling, CR 702.73a); effectiveTypeIdentity reads it
+>   recursion-free for the selectors and the layer-7 counts.
+> · **Every battlefield creature-type reader asks it** — ~50 sites of the read-only reader inventory (~120 runtime sites in all; the
+>   zone half — spells, hands, libraries, graveyards — is P·39b, Maskwood itself): lords and chosen-type anthems, party, the host-subtype
+>   gate, Sliver Legion / Night Revelers / board-count gates, the trigger doubler, combat evasion, the group ward, the subtype triggers
+>   (batch, attacks, combat damage, another-X-enters, Kindred Discovery, Paired Tactician, Toxin Sliver, Ceaseless Searblades), the
+>   mass/team filters and tribal counts, "target Goblin" / "each non-Dragon", "Sacrifice a Goblin", Mjölnir's non-Villain, the
+>   tap-a-Rebel / tap-a-Druid costs, Banner of Kinship, Champion, the Egg pool, amass, the conditions, Temple Altisaur, Calamity Bearer,
+>   The Ur-Dragon. The NEGATED readers (non-Human, non-Wall, non-Dragon, non-Villain) are the load-bearing half — missing one acts
+>   illegally. Documented under-reads (the safe direction): a departed permanent (a dies / sacrifice look-back) answers by its printed
+>   Changeling only; Hero-only mana reads an activating source's printed type line.
+> · **Existing changeling bugs fixed on the way:** "can't be blocked by Walls" (Juggernaut) let a changeling block; the "Vehicles /
+>   Spacecraft …" selectors matched a changeling (every CREATURE type only, CR 205.3d); amass minted a second Army beside a changeling;
+>   the tribal counts read a bare /changeling/ off the oracle, so Belonging, Springleaf Parade and Maskwood Nexus itself counted as
+>   changelings. Changelings now also fire the another-X-enters / X-dies / X-attacks triggers and fill the counts.
+> · **The gates, measured.** Round 1 (98 mutants) left 24 alive — 20 of them CR 205.3d gates at sites whose parsers only ever emit
+>   creature types (a corpus-wide domain map showed it), so those came out as dead code; the gates a non-creature word DOES reach
+>   (selector Spacecraft/Vehicle, trigger Swamp/Artifact, the Treasure sacrifice, the land/artifact counts and conditions, the
+>   artifact-ability trigger) are witnessed by real cards: Captain Kirk, Aeronaut Admiral, Dread Presence, Arcbound Crusher,
+>   Professional Face-Breaker, Lashwrithe, Magus of the Coffers, Thopter Spy Network, Reclusive Wight, Kurkesh, Yawning Fissure.
+>   Witness `app/src/lib/learn/everyCreatureTypeBattlefield.test.js` (61; 64 real-card fixtures generated from the bundled data).
+> · **Next:** P·39b — #490 Maskwood Nexus: its grant (a dynamic layer-4 effect on its controller's creatures) and the zone readers
+>   (cast triggers, cost reducers, tutors, graveyard filters, the stack).
 
 > ## 📦 2026-10-02 — CARD DATA: the Scryfall refresh 07-18 → 10-01 (The Hobbit, Reality Fracture) · corpus 15,253 → **15,418** (new cards) · top 1,000 868 → **865** (re-ranking)
 > Suite **17,748** green (1 skipped); lint 0; decks **2,746** / 2,998 unchanged. CI GREEN on P·38 (run 36952367593).

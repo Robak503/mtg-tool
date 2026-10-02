@@ -9,12 +9,16 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Mirror Entity, Mutavault and Faceless Haven** — "all creature types" works: tribal lords, triggers, counts and costs treat the creature as every creature type until end of turn, and Mirror Entity's X/X reaches an animated land too
 - **Birgi, God of Storytelling // Harnfel, Horn of Bounty** — cast either face: Birgi (each spell you cast adds {R} that stays in your pool until end of turn; your creatures can boast twice each turn) or Harnfel (discard a card to exile the top two cards of your library; you may play them this turn)
 - **Savage Ventmaw, Brazen Collector and Sakura-Tribe Springcaller** — the mana they add stays in your pool until end of turn instead of emptying between steps
 - **Disciple of Freyalise** — when it enters, you may sacrifice another creature; if you do, you gain life and draw cards equal to that creature's power
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
 
 ### Fixed
+- A changeling could block a creature that "can't be blocked by Walls", and "Spacecraft creatures you control get +3/+3"-style effects pumped it; every creature type now means creature types only
+- Amass created a second Army token when you controlled a changeling (a changeling is an Army); it now puts the counters on the changeling
+- Creatures that only make changeling tokens (Belonging, Springleaf Parade) were counted as changelings by tribal counts and "non-Human" effects; real changelings now also trigger "another Elf enters"-style abilities and count for Sliver Legion and similar
 - **Tato Farmer** keeps its milled-land ability under Scryfall's updated wording ("tapped under your control"); the next card-data update would otherwise have turned it off
 - Blood Artist, Zulaport Cutthroat, Morbid Opportunist and other death watchers triggered only for their own death when they died together with other creatures (a board wipe, a combat trade); they now trigger for each creature that died with them
 

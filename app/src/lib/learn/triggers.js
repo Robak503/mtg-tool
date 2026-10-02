@@ -27,7 +27,7 @@ import {
   graveyardExiledFor, // P·27 — a planeswalker exiled instead (Rest in Peace and kin) never died
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
-import { grantedTriggeredQuotedFor, permanentHasKeyword, permanentPower, permanentBasePower, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, colorsOf, isModifiedPermanent } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition
+import { grantedTriggeredQuotedFor, permanentHasKeyword, permanentPower, permanentBasePower, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, colorsOf, isModifiedPermanent, permIsEveryCreatureType } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 import { applyLifeGainReplacement } from "./replacementEffects.js"; // LIFE-GAIN replacement (CR 614.1) — read by checkLifegainTriggers so a trigger sees the life ACTUALLY gained. replacementEffects imports nothing at all, so this edge is one-way and cycle-free.
 import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
@@ -159,6 +159,26 @@ function subtypeFilterMatches(card, filter) {
   return Array.isArray(filter) ? filter.some((s) => ts.includes(s)) : ts.includes(filter);
 }
 
+// P·39 — a PERMANENT satisfies a subtype filter by its type line OR by being EVERY creature type (Changeling, an animated
+// Mutavault, Mirror Entity's activation — layers.permIsEveryCreatureType), the latter only for a filter naming a CREATURE
+// type (CR 205.3d). A permanent that has LEFT the battlefield (a dies / sacrifice look-back) has nothing left to derive and
+// answers by its printed Changeling alone — a documented under-read on these positive filters, the safe direction.
+// (CR_CREATURE_TYPES is read only inside this function — the init-safety rule its import note states.)
+function permMatchesSubtypeFilter(state, perm, filter) {
+  if (!filter || !perm?.card) return false;
+  if (subtypeFilterMatches(perm.card, filter)) return true;
+  const wanted = Array.isArray(filter) ? filter : [filter];
+  if (!wanted.some((s) => CR_CREATURE_TYPES.has(String(s).toLowerCase()))) return false;
+  return permIsEveryTypeNow(state, perm);
+}
+// P·39 — is this permanent every creature type right now? Live: layer-aware (layers.permIsEveryCreatureType). Departed (a
+// look-back): its printed Changeling only — nothing is left to derive.
+function permIsEveryTypeNow(state, perm) {
+  if (!perm?.card) return false;
+  if (!state || !findPermanent(state, perm.id)) return hasKeyword(perm.card, "changeling");
+  return permIsEveryCreatureType(state, perm.id);
+}
+
 // OUTLAW META-TYPE (CR 203.4c — "outlaw" is the umbrella for these five creature subtypes; NOT a type-line
 // word). Mirrors layers.js's OUTLAW_SUBTYPES (kept local to avoid coupling triggers→layers beyond the existing
 // import surface). Capitalized so it composes with subtypeFilterMatches' type-line substring check.
@@ -242,7 +262,7 @@ function parseBatchSubjectFilter(subjectRaw) {
 // "one or more creatures you control" form. Pure; reads only the dealer permanent's card.
 function batchDealerMatches(descriptor, dealerPerm, state = null) {
   if (!dealerPerm?.card) return false;
-  if (descriptor.subtypeFilter) return subtypeFilterMatches(dealerPerm.card, descriptor.subtypeFilter);
+  if (descriptor.subtypeFilter) return permMatchesSubtypeFilter(state, dealerPerm, descriptor.subtypeFilter);
   if (descriptor.batchArtifact) return /Artifact/.test(typeStr(dealerPerm.card));
   if (descriptor.batchEnchantment) return /Enchantment/.test(typeStr(dealerPerm.card));
   if (descriptor.batchNontoken) return !dealerPerm.card.token;
@@ -255,6 +275,7 @@ function batchDealerMatches(descriptor, dealerPerm, state = null) {
   if (descriptor.batchNotSubtype) {
     if (!state) return false;
     if (permanentHasKeyword(state, dealerPerm.id, "changeling")) return false;
+    if (permIsEveryCreatureType(state, dealerPerm.id)) return false; // P·39 — every creature type IS a Human too (the FP direction)
     const subs = (permanentTypes(state, dealerPerm.id)?.subtypes || []).map((x) => String(x).toLowerCase());
     return !subs.includes(descriptor.batchNotSubtype);
   }
@@ -6633,7 +6654,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       if (triggeringPermanent.id === sourcePermanent.id) return true;
       if (triggeringPermanent.controller !== sourcePermanent.controller) return false;
       if (descriptor.nontokenFilter && triggeringPermanent.card?.token) return false;
-      if (descriptor.subtypeFilter) return subtypeFilterMatches(triggeringPermanent.card, descriptor.subtypeFilter);
+      if (descriptor.subtypeFilter) return permMatchesSubtypeFilter(state, triggeringPermanent, descriptor.subtypeFilter);
       return isCreaturePerm(triggeringPermanent);
     case "subtypeYouControl":
       // SUBTYPE scope — shared by FOUR events: SUBTYPE-ETB-SELF ("NAME or another SUBTYPE you control
@@ -6648,7 +6669,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // death / damage / attack — a forbidden false positive (Hans, cycle 42; widened to attacks/dies #335).
       return !!triggeringPermanent
         && triggeringPermanent.controller === sourcePermanent.controller
-        && (subtypeFilterMatches(triggeringPermanent.card, descriptor.subtypeFilter)
+        && (permMatchesSubtypeFilter(state, triggeringPermanent, descriptor.subtypeFilter)
             || (triggeringPermanent.id === sourcePermanent.id
                 && subtypeFilterMatches(sourcePermanent.card, descriptor.subtypeFilter)));
     case "subtypeGlobal":
@@ -6661,7 +6682,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // subtypeYouControl (the source's OWN matching damage). The subtypeFilter is exact (parseSubtypeList
       // rejects a card-TYPE word), so a non-member creature dealing damage does NOT fire — no over-fire.
       return !!triggeringPermanent
-        && (subtypeFilterMatches(triggeringPermanent.card, descriptor.subtypeFilter)
+        && (permMatchesSubtypeFilter(state, triggeringPermanent, descriptor.subtypeFilter)
             || (triggeringPermanent.id === sourcePermanent.id
                 && subtypeFilterMatches(sourcePermanent.card, descriptor.subtypeFilter)));
     case "subtypeGlobalToCreature":
@@ -6682,7 +6703,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       return !!triggeringPermanent
         && triggeringPermanent.id !== sourcePermanent.id
         && triggeringPermanent.controller === sourcePermanent.controller
-        && typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || "")
+        && (!descriptor.subtypeFilter || permMatchesSubtypeFilter(state, triggeringPermanent, descriptor.subtypeFilter)) // P·39 — a changeling is "another Elf"
         && (!descriptor.legendaryFilter || /\bLegendary\b/.test(typeStr(triggeringPermanent.card)))
         && (!descriptor.legendaryCreatureOnly || /\bCreature\b/.test(typeStr(triggeringPermanent.card)));
     case "otherSubtypeAnywhere":
@@ -6690,7 +6711,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // Fires when any permanent from any controller carries the subtype, excluding the source itself.
       return !!triggeringPermanent
         && triggeringPermanent.id !== sourcePermanent.id
-        && typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || "")
+        && (!descriptor.subtypeFilter || permMatchesSubtypeFilter(state, triggeringPermanent, descriptor.subtypeFilter)) // P·39
         && (!descriptor.legendaryFilter || /\bLegendary\b/.test(typeStr(triggeringPermanent.card)))
         && (!descriptor.legendaryCreatureOnly || /\bCreature\b/.test(typeStr(triggeringPermanent.card)));
     case "creatureYouControlPower":
@@ -6728,7 +6749,8 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // is an Enchantment, never a creature of the chosen type, so it never self-fires.
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent)
         && triggeringPermanent.controller === sourcePermanent.controller
-        && permHasChosenType(triggeringPermanent.card, sourcePermanent.chosenType);
+        && (permHasChosenType(triggeringPermanent.card, sourcePermanent.chosenType)
+            || (!!sourcePermanent.chosenType && permIsEveryTypeNow(state, triggeringPermanent))); // P·39 — every creature type
     default:
       return false;
   }
@@ -7711,7 +7733,8 @@ export function checkAttackTriggers(state) {
     const others = attackers.filter((a) => a.permanentId !== own);
     if (!d.companySubtype) return others.length > 0;
     const re = new RegExp(`\\b${d.companySubtype}\\b`, "i");
-    return others.some((a) => re.test(String(findPermanent(state, a.permanentId)?.permanent?.card?.type || "")));
+    return others.some((a) => re.test(String(findPermanent(state, a.permanentId)?.permanent?.card?.type || ""))
+      || permIsEveryCreatureType(state, a.permanentId)); // P·39 — every creature type is a Warrior too
   });
   if (attackers.length === 1) {
     const soleLk = findPermanent(state, attackers[0].permanentId);
@@ -7809,6 +7832,7 @@ function basiliskPartnerMatches(state, filter, partnerId) {
   }
   if (filter.kind === "notSubtypeOrChangeling") {
     if (permanentHasKeyword(state, partnerId, "changeling")) return false;
+    if (permIsEveryCreatureType(state, partnerId)) return false; // P·39 — every creature type IS a Wall too (the FP direction)
     const subs = (permanentTypes(state, partnerId)?.subtypes || []).map((s) => String(s).toLowerCase());
     return !subs.includes(filter.subtype);
   }
@@ -8312,7 +8336,7 @@ export function checkCombatDamageToCreatureTriggers(state, creatureDamageEvents)
           //     creature's combat damage — the widest possible over-fire.
           if (d.scope === "selfDealerToCreature") {
             if (ev.dealerId !== watcher.id) continue;
-          } else if (!subtypeFilterMatches(dealerPerm.card, d.subtypeFilter)) continue; // a non-member dealer → no fire
+          } else if (!permMatchesSubtypeFilter(state, dealerPerm, d.subtypeFilter)) continue; // a non-member dealer → no fire (P·39 — every creature type is a member)
           // triggeringPermanent = the DAMAGED creature (the destroy target → ctx.triggeringPermanentId).
           // scopeMatches("subtypeGlobalToCreature") confirms it's a creature; the SUBTYPE gate above (on the
           // DEALER) is the authoritative one. We call makePendingTrigger DIRECTLY (not via triggersForEvent) for
@@ -9509,7 +9533,11 @@ export function checkAbilityActivatedTriggers(state, { permanent, activatorId, s
   const typeLine = String(permanent.card?.type || "").toLowerCase();
   const passesFilter = (filt) => {
     if (!filt) return true;
-    return filt.split(" or ").some((tok) => typeLine.includes(tok.trim().toLowerCase()));
+    return filt.split(" or ").some((tok) => {
+      const t = tok.trim().toLowerCase();
+      // P·39 — "an ability of an Elf": every creature type is an Elf too (a creature-type token only, CR 205.3d).
+      return typeLine.includes(t) || (CR_CREATURE_TYPES.has(t) && permIsEveryCreatureType(state, permanent.id));
+    });
   };
   const triggeringContext = { activatedStackObjectId: stackObjectId, activatedIsManaAbility: false, activatorId, activatedPermanentId: permanent.id };
   let fired = [];

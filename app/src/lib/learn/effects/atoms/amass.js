@@ -19,6 +19,7 @@
 import { logEvent, destroyLethalCreatures, createPermanent, mintId, addCounter } from "../../gameState.js";
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): the new-Army mint stamps counters directly, bypassing addCounter
 import { checkDiesTriggers } from "../../triggers.js";
+import { permIsEveryCreatureType } from "../../layers.js"; // P·39 — every creature type is an Army (layers is already reached through triggers.js; no new cycle)
 import { fireTokenEnterTriggers } from "./tokens.js";
 
 /** Replace the controller's battlefield via a pure mapper (updatePermanent / withPlayer are private to
@@ -55,14 +56,17 @@ export function applyAmass(state, atom, ctx) {
   // named subtype too — REUSE, never recreate (the #1 FP guard: repeated amass grows the SAME token).
   const player = next.players?.[me];
   if (!player) return next;
-  const existing = player.battlefield.find(isArmy);
+  // P·39 — EVERY CREATURE TYPE IS AN ARMY (CR 701.47a "an Army creature you control"): a changeling, Mirror Entity's activation,
+  // an animated Mutavault. Amass reuses it — a second Army token would be a creature the rules never make.
+  const existing = player.battlefield.find((p) => isArmy(p) || permIsEveryCreatureType(next, p.id));
   if (existing) {
     if (amount > 0) next = addCounter(next, { permanentId: existing.id, type: PLUS_ONE, amount });
     // "It's also a <Subtype>." — append the subtype to the readable type line so tribal readers
     // (countMatches's `\b<Subtype>\b`, lord static abilities) see it. Rebuild the card.type in place
-    // (updatePermanent is private to gameState); idempotent — only appends when absent.
+    // (updatePermanent is private to gameState); idempotent — only appends when absent. CR 701.47a adds it only "if it isn't
+    // a [subtype]" — an every-creature-type Army already is one, so nothing is written (it stays no Orc once the effect ends).
     const tl = String(existing.card?.type || existing.card?.type_line || "");
-    if (!new RegExp(`\\b${subtype}\\b`).test(tl)) {
+    if (!new RegExp(`\\b${subtype}\\b`).test(tl) && !permIsEveryCreatureType(next, existing.id)) {
       const newType = appendSubtype(tl, subtype);
       next = withControllerBattlefield(next, me, (bf) =>
         bf.map((p) => (p.id === existing.id ? { ...p, card: { ...p.card, type: newType } } : p)),

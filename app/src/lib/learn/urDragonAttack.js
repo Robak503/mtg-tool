@@ -28,6 +28,7 @@
  */
 import { drawCards, createPermanent, mintId, findPermanent, destroyLethalCreatures, logEvent } from "./gameState.js";
 import { checkCardDrawnTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkDiesTriggers } from "./triggers.js";
+import { permIsEveryCreatureType } from "./layers.js"; // P·39 — attacking Dragons: every creature type counts (layers' closure never reaches this file)
 
 // Anchored to the WHOLE unique templating so none of the 24 other "one or more <X> you control attack"
 // cards (which carry DIFFERENT effects — add mana, gain life, make tokens, goad …) can false-match. The
@@ -149,7 +150,7 @@ export function applyUrDragonAttackTriggers(state) {
       // "that many" = the number of this player's attacking creatures of the captured subtype (read from the
       // pre-cheat attacker batch — counts only creatures actually declared as attackers).
       const count = attackers.filter(
-        (a) => a.attackingPlayer === pid && attackerTypeLine(next, a.permanentId).includes(spec.subtype),
+        (a) => a.attackingPlayer === pid && (attackerTypeLine(next, a.permanentId).includes(spec.subtype) || permIsEveryCreatureType(next, a.permanentId)), // P·39 — every creature type is a Dragon too
       ).length;
       if (count <= 0) continue;
       const before = next.players[pid].library.length;

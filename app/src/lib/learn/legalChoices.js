@@ -33,7 +33,8 @@ import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower,
 import { canAfford, manaSources, manaProduction, manaActivationCost, payActivationFromPool, landAuraManaBonus, globalTapManaAugment, applyAuraManaGrantSupplement, sourcesExcludingOneShotVictim, castPaymentSources } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
-import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor, crewCostWithOverrides } from "./layers.js";
+import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType } from "./layers.js";
+import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
 import { grantsWubrgAltCost, fixedManaAltCostOf, conditionalFixedManaAltCostOf } from "./effects/textNormalize.js"; // + the trap form (shelf D17) // FIST OF SUNS (RG-5) — the board-granted WUBRG alternative cost; + RG-8 — the spell's OWN fixed-mana alternative cost (the Bringers); leaf readers
 import { collectCostReducers, playLandFromGraveyardPermission, plotFromLibraryTopGranted, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
@@ -2701,7 +2702,8 @@ function actionsActivateAbility(state, playerId) {
           if (ab.equipQuality === "worthy") {
             const { types = [], subtypes = [] } = permanentTypes(state, t.id) || {};
             const colors = permanentColors(state, t.id) || [];
-            if (!types.includes("Legendary") || subtypes.includes("Villain") || !(colors.includes("R") || colors.includes("W"))) continue;
+            // P·39 — every creature type (a changeling, Mirror Entity's activation) IS a Villain: never worthy.
+            if (!types.includes("Legendary") || subtypes.includes("Villain") || permIsEveryCreatureType(state, t.id) || !(colors.includes("R") || colors.includes("W"))) continue;
           }
           // KW-UNTARGET: Equip is a TARGETED ability (CR 702.6e), so it obeys targetability — a Shroud
           // creature (CR 702.18a) can't be targeted even by its controller. Route through the shared
@@ -2726,7 +2728,10 @@ function actionsActivateAbility(state, playerId) {
       if (ab.sacOther) {
         sacVictims = player.battlefield.filter((v) =>
           (!ab.sacOther.another || v.id !== perm.id) &&
-          sacTypeMatches(v.card, ab.sacOther.type, ab.sacOther.subtype || null) &&
+          (sacTypeMatches(v.card, ab.sacOther.type, ab.sacOther.subtype || null)
+            // P·39 — "Sacrifice a Goblin": every creature type (a changeling, Mirror Entity's activation) is a Goblin; the
+            // base type still holds off the printed line (sacTypeMatches with no subtype).
+            || (!!ab.sacOther.subtype && CR_CREATURE_TYPES.has(String(ab.sacOther.subtype).toLowerCase()) && permIsEveryCreatureType(state, v.id))) &&
           // SAC-NONTOKEN (2026-08-07) — "Sacrifice a NONTOKEN <type>" (Thopter Foundry, Infernal Tribute):
           // a token victim is excluded. Same `!v.card?.token` read the alt-cost sacrificeCreature lane uses.
           // ⛔ Offering a token here would let Thopter Foundry sacrifice its own Thopters in a loop the card
@@ -3410,7 +3415,8 @@ function actionsActivateGraveyardRecursion(state, playerId) {
     if (rec.tapUntapped) {
       const sub = rec.tapUntapped.subtype;
       const subRe = sub ? new RegExp(`\\b${String(sub).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i") : null;
-      const pool = (player.battlefield || []).filter((p) => !p.tapped && (subRe ? subRe.test(String(p.card?.type || "")) : permanentIsCreature(state, p.id)));
+      // P·39 — "Tap an untapped Rebel": every creature type (a changeling, Mirror Entity's activation) is one.
+      const pool = (player.battlefield || []).filter((p) => !p.tapped && (subRe ? (subRe.test(String(p.card?.type || "")) || permIsEveryCreatureType(state, p.id)) : permanentIsCreature(state, p.id)));
       for (const p of pool) out.push({ ...base, tapIds: [p.id], tapName: p.card?.name });
       continue;
     }

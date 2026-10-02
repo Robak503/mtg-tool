@@ -172,8 +172,13 @@ describe("WALT-ANIMATE PR3 — man-land CREED routing (LOW → Arbiter)", () => 
     // selfTargets layer-aware — the unblockable grant genuinely lands on the animated land at runtime.)
     expect(clauseConf("Until end of turn, this land becomes a 3/2 blue and black Elemental creature. It's still a land. It can't be blocked this turn.")).toBe("high");
   });
-  it("Mutavault — 'with all creature types' (changeling) → LOW", () => {
-    expect(clauseConf("This land becomes a 2/2 creature with all creature types until end of turn. It's still a land.")).toBe("low");
+  it("Mutavault — 'with all creature types' now MODELS (P·39a graduation: the animation's layer-4 effect makes it every creature type)", () => {
+    // (This pin guarded "with all creature types" as an unmodeled rider until P·39a: the animate atom carries `allCreatureTypes`,
+    // the layer-4 effect writes it, and layers.permIsEveryCreatureType answers for it at every battlefield creature-type reader.)
+    expect(clauseConf("This land becomes a 2/2 creature with all creature types until end of turn. It's still a land.")).toBe("high");
+  });
+  it("a PERMANENT 'with all creature types' animation (Soulstone Sanctuary — no 'until end of turn') still routes → LOW", () => {
+    expect(clauseConf("This land becomes a 3/3 creature with vigilance and all creature types. It's still a land.")).toBe("low");
   });
   it("Inkmoth Nexus — infect now MODELS (EQ-1 graduation: infect is grantable + enforced layer-aware)", () => {
     // (This pin guarded infect as un-grantable until BLITZ EQ-1 added it to GRANTABLE_STATIC_KEYWORDS —

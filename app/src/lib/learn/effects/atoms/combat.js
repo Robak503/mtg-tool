@@ -3,7 +3,7 @@
  * regenerate). Hosts applyTapEffect (tap/untap).
  */
 
-import { addContinuousEffect, permanentIsCreature, permanentHasKeyword, permanentTypes, hasAuraAttached } from "../../layers.js"; // hasAuraAttached — KARAMETRA'S BLESSING's "enchanted creature" condition // permanentTypes — BLACKSMITH'S SKILL (O9): the "if it's an artifact creature" rider reads the LAYER-4 types (an animated artifact counts)
+import { addContinuousEffect, permanentIsCreature, permanentHasKeyword, permanentTypes, hasAuraAttached, permIsEveryCreatureType } from "../../layers.js"; // permIsEveryCreatureType — P·39, the set-base-pt-team subtype filter (changeling / every creature type) // hasAuraAttached — KARAMETRA'S BLESSING's "enchanted creature" condition // permanentTypes — BLACKSMITH'S SKILL (O9): the "if it's an artifact creature" rider reads the LAYER-4 types (an animated artifact counts)
 import { applyDamageEffect } from "../../spellEffects.js"; // TRAMPLE-EXCESS (Ram Through) — the shared player-damage path (removal.js precedent; call-time binding, cycle-safe)
 import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, markCombatDamage, setDoesNotUntapNext, updatePermanentSafe, addPreventionShield, addMana } from "../../gameState.js";
 import { checkDiesTriggers, checkUntapTriggers } from "../../triggers.js";
@@ -449,7 +449,7 @@ export function applyAnimateEffect(state, atom, ctx) {
     const keepPrintedPt = atom.keepPrintedPt || (atom.ptUnlessVehicle && permanentTypes(next, target.id).subtypes.includes("Vehicle"));
     next = addContinuousEffect(next, {
       layer: 4,
-      op: { types: animateTypes, subtypes: atom.subtypes || [] },
+      op: { types: animateTypes, subtypes: atom.subtypes || [], ...(atom.allCreatureTypes ? { allCreatureTypes: true } : {}) }, // P·39 — Mutavault's "with all creature types"
       affects: { mode: "fixed", permanentIds: [target.id] },
       duration: dur(), source: src,
     }).state;
@@ -2712,9 +2712,14 @@ export function animateClauseParser(clause) {
       else { ok = false; break; }  // an unrecognized middle token — don't risk a mis-model → Arbiter
     }
     if (!ok) return null;
-    const grantKeywords = anmSelf[5] ? parseGrantedKeywords(anmSelf[5]) : [];
-    if (anmSelf[5] && !grantKeywords) return null;  // un-grantable rider (menace/infect/"all creature types") → Arbiter
-    return { op: "animate", target: "self", power: parseInt(anmSelf[2], 10), toughness: parseInt(anmSelf[3], 10), colors, subtypes, cardTypes, grantKeywords, duration: "endOfTurn" };
+    // P·39 — "with all creature types" (Mutavault; Faceless Haven's "with vigilance and all creature types"): the animation's
+    // layer-4 effect also makes it every creature type (CR 205.3m) — the `allCreatureTypes` flag the derive reads. Peeled off
+    // the with-list's END; any keywords before it still go through the grantable-keyword gate.
+    const allTypesM = (anmSelf[5] || "").match(/^(?:(.+?),? and )?all creature types$/);
+    const withKeywords = allTypesM ? (allTypesM[1] || "") : (anmSelf[5] || "");
+    const grantKeywords = withKeywords ? parseGrantedKeywords(withKeywords) : [];
+    if (withKeywords && !grantKeywords) return null;  // un-grantable rider (menace/infect) → Arbiter
+    return { op: "animate", target: "self", power: parseInt(anmSelf[2], 10), toughness: parseInt(anmSelf[3], 10), colors, subtypes, cardTypes, grantKeywords, ...(allTypesM ? { allCreatureTypes: true } : {}), duration: "endOfTurn" };
   }
   return null;
 }
@@ -2739,9 +2744,10 @@ export function applySetBasePtTeam(state, atom, ctx) {
   const subtypeRe = atom.subtype ? new RegExp(`\\b${atom.subtype}\\b`, "i") : null;
   const player = next.players?.[ctx.controller];
   if (!player) return next;
-  // The controller's creatures, locked at resolution (CR 611.2c). Read the type line directly (a base-P/T set
-  // hits every creature you control; the Shepherd form narrows to a printed subtype).
-  const targets = (player.battlefield || []).filter((perm) => /\bCreature\b/.test(typeLineStr(perm.card)) && (!subtypeRe || subtypeRe.test(typeLineStr(perm.card)))).map((perm) => perm.id);
+  // The controller's creatures, locked at resolution (CR 611.2c) — LAYER-AWARE (P·39): an animated land (Mutavault) is a creature
+  // you control, so Mirror Entity's X/X reaches it. The Shepherd form narrows to a subtype: printed, or every creature type
+  // (changeling, Mirror Entity's activation, an animated Mutavault — permIsEveryCreatureType).
+  const targets = (player.battlefield || []).filter((perm) => permanentIsCreature(next, perm.id) && (!subtypeRe || permIsEveryCreatureType(next, perm.id) || subtypeRe.test(typeLineStr(perm.card)))).map((perm) => perm.id);
   const src = { kind: "resolution", permanentId: null, cardName: ctx.cardName || null };
   const dur = () => ({ kind: "endOfTurn", turn: next.turn });
   for (const id of targets) {
@@ -2755,6 +2761,14 @@ export function applySetBasePtTeam(state, atom, ctx) {
       next = addContinuousEffect(next, {
         layer: 4,
         op: { subtypes: [atom.addSubtype] },
+        affects: { mode: "fixed", permanentIds: [id] },
+        duration: dur(), source: src,
+      }).state;
+    }
+    if (atom.allCreatureTypes) { // P·39 — Mirror Entity: "… and gain all creature types"
+      next = addContinuousEffect(next, {
+        layer: 4,
+        op: { allCreatureTypes: true },
         affects: { mode: "fixed", permanentIds: [id] },
         duration: dur(), source: src,
       }).state;
@@ -2792,6 +2806,11 @@ export function setBasePtTeamClauseParser(clause, ctx = {}) {
   if (!ctx.hasX) return null; // only an {X}-cost spell sets X/X here (the literal "x/x" comes from the cost)
   if (/^creatures you control have base power and toughness x\/x until end of turn$/.test(t)) {
     return { op: "set-base-pt-team", scope: "youControl", amountX: true };
+  }
+  // P·39 — Mirror Entity's "{X}: Until end of turn, creatures you control have base power and toughness X/X and gain all creature
+  // types.": the same team set, each creature also made every creature type (a fixed layer-4 `allCreatureTypes` effect).
+  if (/^until end of turn, creatures you control have base power and toughness x\/x and gain all creature types$/.test(t)) {
+    return { op: "set-base-pt-team", scope: "youControl", amountX: true, allCreatureTypes: true };
   }
   return null;
 }

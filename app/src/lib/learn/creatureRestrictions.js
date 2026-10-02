@@ -21,7 +21,7 @@
  * delegation that follows it.
  */
 import { creaturePower, creatureToughness, findPermanent } from "./gameState.js";
-import { permanentColors, permanentHasKeyword, isModifiedPermanent } from "./layers.js";
+import { permanentColors, permanentHasKeyword, isModifiedPermanent, permIsEveryCreatureType } from "./layers.js";
 
 export /** Does a creature permanent (controlled by `pid`) satisfy a restriction set, from `casterId`'s view? */
 function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions, ctx = null) {
@@ -248,7 +248,10 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // `subtypes` (a UNION — "target Wolf or Werewolf", "target Halfling or Treefolk"; SHELF-85 Phase 3, 2026-09-05) is
       // satisfied by ANY listed word; the single `subtype` form is unchanged.
       const subs = Array.isArray(r.subtypes) && r.subtypes.length ? r.subtypes : [r.subtype];
-      const hasSub = subs.some((sub) => new RegExp(`\\b${sub}\\b`, "i").test(tl));
+      // P·39 — every creature type (a changeling; Mirror Entity's activation; an animated Mutavault — layers.permIsEveryCreatureType)
+      // carries any listed CREATURE type (CR 205.3d): "target Goblin" may take it, "each non-Dragon creature" must spare it.
+      const hasSub = subs.some((sub) => new RegExp(`\\b${sub}\\b`, "i").test(tl))
+        || permIsEveryCreatureType(state, perm.id);
       if (r.negate ? hasSub : !hasSub) return false;
     } else if (r.kind === "supertype") {
       // SUPERTYPE-TARGET (CR 205.4) — "target legendary creature you control" (Mithril Coat / Mjölnir ETB

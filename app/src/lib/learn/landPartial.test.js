@@ -57,9 +57,11 @@ describe("lands that DEMOTE to land-partial — unmodeled text can no longer fre
     expect(isNativeTier(t)).toBe(false);
   });
 
-  it("man-land — Mutavault's animation is unmodeled", () => {
+  it("man-land — GRADUATED 2026-10-02 (P·39a): Mutavault's \"with all creature types\" animation is modeled, so it is `land`; a PERMANENT one (Soulstone Sanctuary — no \"until end of turn\") still parks", () => {
     expect(classifyCard(L("Mutavault", "Land",
-      "{T}: Add {C}.\n{1}: This land becomes a 2/2 creature with all creature types until end of turn. It's still a land."))).toBe("land-partial");
+      "{T}: Add {C}.\n{1}: This land becomes a 2/2 creature with all creature types until end of turn. It's still a land."))).toBe("land");
+    expect(classifyCard(L("Soulstone Sanctuary", "Land",
+      "{T}: Add {C}.\n{4}: This land becomes a 3/3 creature with vigilance and all creature types. It's still a land."))).toBe("land-partial");
   });
 
   it("conditional tapland — GRADUATED 2026-09-03 (LANDS-7): the runtime now evaluates the reveal at both enter sites, so Furycalm Snarl is `land`; the unless-continuation shape is still unevaluated and still parks", () => {

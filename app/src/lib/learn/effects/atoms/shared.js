@@ -8,8 +8,9 @@
 
 import { findPermanent, creaturePower, creatureToughness, opponentsOf } from "../../gameState.js";
 import { MASS_WIPE_SCOPES } from "../../targetTypes.js"; // leaf module (pure strings) — no cycle; feeds the atomTargets drift guard below
-import { permanentIsCreature, domainCount, partyCount } from "../../layers.js"; // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import)
+import { permanentIsCreature, domainCount, partyCount, permIsEveryCreatureType } from "../../layers.js"; // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import)
 import { creatureSatisfiesRestrictions } from "../../creatureRestrictions.js"; // the SHARED 16-kind restriction satisfier (leaf: gameState + layers + keywords only — every one of those edges already exists above, so no cycle)
+import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // P·39 — every creature type answers for a CREATURE type only (CR 205.3d); a zero-import leaf
 import { evaluateInterveningIf } from "../../interveningIf.js"; // INSTEAD-AMOUNT (BLITZ INST-1) — the shared board-condition readers for a condition-gated amountUpgrade; interveningIf → gameState is a leaf edge (gameState imports neither shared.js nor interveningIf), so no cycle
 
 export const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
@@ -75,7 +76,9 @@ export function massCreatureTargets(state, opts = {}) {
       if (opts.excludeSource && opts.sourceId && perm.id === opts.sourceId) continue;
       if (subRes) {
         const face = typeLineStr(perm.card).split(" // ")[0]; // front face only (CR 712.4a)
-        const has = subRes.some((re) => re.test(face)); // carries ANY listed subtype
+        // carries ANY listed subtype — printed, or every creature type for a listed creature type (P·39: a changeling, Mirror
+        // Entity's activation, an animated Mutavault IS a Dragon, so "destroy all non-Dragon creatures" spares it)
+        const has = subRes.some((re) => re.test(face)) || permIsEveryCreatureType(state, perm.id);
         if (opts.subtypeNegate ? has : !has) continue;
       }
       // POWER threshold (BLITZ PW-1 — "destroy all creatures with power N or greater/less", Elspeth, Sun's
@@ -178,8 +181,10 @@ export function controllerCreatureTargets(state, controller, opts = {}) {
     .filter((perm) => isCreatureCard(perm.card) || permanentIsCreature(state, perm.id))
     .filter((perm) => !(opts.excludeSource && perm.id === opts.sourceId))
     .filter((perm) => !opts.legendaryOnly || /\bLegendary\b/.test(typeLineStr(perm.card)))  // Hajar's supertype gate
-    .filter((perm) => !subRes || subRes.some((re) => re.test(typeLineStr(perm.card))))
-    .filter((perm) => !negRe || !(negRe.test(typeLineStr(perm.card).split(" // ")[0]) || cardIsChangeling(perm.card)))
+    .filter((perm) => !subRes || subRes.some((re) => re.test(typeLineStr(perm.card)))
+      || permIsEveryCreatureType(state, perm.id)) // P·39 — every creature type
+    .filter((perm) => !negRe || !(negRe.test(typeLineStr(perm.card).split(" // ")[0])
+      || permIsEveryCreatureType(state, perm.id)))
     .map((perm) => ({ type: "creature", id: perm.id, controller }));
 }
 
@@ -549,6 +554,14 @@ export function countMatches(card, spec) {
   return false;
 }
 
+// P·39 — countMatches for a BATTLEFIELD permanent: its type line, or — for a creature-type subtype ("for each Elf you control",
+// Magma Sliver's Slivers) — every creature type (a changeling, Mirror Entity's activation, an animated Mutavault;
+// layers.permIsEveryCreatureType). A land / artifact subtype never matches by it (CR 205.3d).
+function countMatchesPerm(state, perm, spec) {
+  if (countMatches(perm.card, spec)) return true;
+  return !!spec?.subtype && isCreatureTypeWord(spec.subtype) && permIsEveryCreatureType(state, perm.id);
+}
+
 // CHOSEN-TYPE (CR 614.12) spell-time count — Distant Melody ("Choose a creature type. Draw a card for each
 // permanent you control of that type."). The self-play engine has no interactive picker, so the OPTIMAL +
 // deterministic resolution is: the chosen type is the one that MAXIMIZES the draw — i.e. the count equals the
@@ -565,19 +578,22 @@ function permanentSubtypes(card) {
   if (dash === -1) return [];
   return line.slice(dash + 1).trim().split(/\s+/).filter(Boolean);
 }
-function cardIsChangeling(card) {
-  // Reminder-text-tolerant: the printed keyword "changeling" (CR 702.73a) appears in the oracle text.
-  return /\bchangeling\b/i.test(String(card?.oracle || card?.oracle_text || ""));
+// P·39 — a word the closed CR 205.3m creature-type list holds (every creature type answers for these only, CR 205.3d).
+function isCreatureTypeWord(word) {
+  return CR_CREATURE_TYPES.has(String(word || "").toLowerCase());
 }
-function chosenTypePermanentsCount(player) {
+function chosenTypePermanentsCount(state, player) {
   const bf = player?.battlefield || [];
   // Tally per-subtype counts; a changeling is tracked separately and added to every candidate (and forms the
   // floor when it's the only creature-typed permanent — "creature type" still has to be chosen, CR 614.12).
+  // P·39: "a changeling" is EVERY creature type read on the battlefield (layers.permIsEveryCreatureType — the keyword ability,
+  // or Mirror Entity's activation / an animated Mutavault), never a bare /changeling/ match on the oracle, which also counted
+  // a permanent that only MAKES changeling tokens (Belonging) or names one (Maskwood Nexus).
   const tally = new Map();
   let changelings = 0;
   for (const perm of bf) {
     const card = perm.card;
-    if (cardIsChangeling(card)) { changelings += 1; continue; }
+    if (permIsEveryCreatureType(state, perm.id)) { changelings += 1; continue; }
     for (const sub of permanentSubtypes(card)) tally.set(sub, (tally.get(sub) || 0) + 1);
   }
   if (tally.size === 0) return changelings; // only changelings (or nothing) → that count (0 if none)
@@ -660,7 +676,7 @@ export function countForSpec(state, ctx, spec) {
     let total = 0;
     for (const pl of Object.values(state?.players || {})) {
       for (const perm of pl.battlefield || []) {
-        if (countMatches(perm.card, spec) || cardIsChangeling(perm.card)) total += 1;
+        if (countMatchesPerm(state, perm, spec)) total += 1;
       }
     }
     return total;
@@ -954,7 +970,7 @@ export function countForSpec(state, ctx, spec) {
     // LAYER-AWARE (counters + anthems count), so it's applied here against creaturePower read at resolution
     // (CR 608.2h), not in the type-line-only countMatches. Absent → no threshold (the plain count is unchanged).
     return (player.battlefield || []).filter((perm) =>
-      countMatches(perm.card, spec)
+      countMatchesPerm(state, perm, spec)
       && !isExcludedSelf(perm, spec, ctx)
       && (spec.powerAtLeast == null || creaturePower(perm, state) >= spec.powerAtLeast)
       // COUNTER-QUALIFIED ("…with a +1/+1 counter on it"): count only creatures currently carrying ≥1 +1/+1
@@ -976,7 +992,7 @@ export function countForSpec(state, ctx, spec) {
   // at resolution (CR 614.12). The self-play engine maximizes the draw — the count is the greatest, over every
   // creature subtype present, of the controller's permanents of that subtype (changelings count for all). See
   // chosenTypePermanentsCount. Deterministic + optimal, so never an over/under-count.
-  if (spec.kind === "chosenTypePermanents") return chosenTypePermanentsCount(player);
+  if (spec.kind === "chosenTypePermanents") return chosenTypePermanentsCount(state, player);
   // ===== THE SOURCE'S OWN CHOSEN TYPE (play-weighted P·7 — Three Tree City: "… equal to the number of creatures you control of
   // the chosen type") ===== the type THIS permanent chose as it entered (CR 614.12 — stamped `chosenType`, read off ctx.source),
   // not a best type picked now: the controller's creatures of that type, a changeling creature counting for every type
@@ -984,7 +1000,7 @@ export function countForSpec(state, ctx, spec) {
   if (spec.kind === "creaturesOfSourceChosenType") {
     const type = ctx?.source?.chosenType;
     if (!type) return 0;
-    return (player.battlefield || []).filter((p) => (cardIsChangeling(p.card) ? /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || "")) : permanentSubtypes(p.card).includes(type))).length;
+    return (player.battlefield || []).filter((p) => (permIsEveryCreatureType(state, p.id) ? permanentIsCreature(state, p.id) : permanentSubtypes(p.card).includes(type))).length; // P·39 — every creature type, read on the battlefield
   }
   // ===== FOR-EACH ===== cards in the controller's graveyard (raw card objects), optionally one card type.
   if (spec.kind === "cardsInGraveyard") return (player.graveyard || []).filter((c) => (spec.cardType ? countMatches(c, spec) : true)).length;
@@ -1068,7 +1084,8 @@ function greatestPtAmong(state, player, spec, ctx, read) {
   return (player.battlefield || [])
     .filter((perm) => /\bCreature\b/.test(String(perm.card?.type || perm.card?.type_line || "")))
     .filter((perm) => !isExcludedSelf(perm, spec, ctx))
-    .filter((perm) => !negRe || !(negRe.test(typeLineStr(perm.card).split(" // ")[0]) || cardIsChangeling(perm.card)))
+    .filter((perm) => !negRe || !(negRe.test(typeLineStr(perm.card).split(" // ")[0])
+      || permIsEveryCreatureType(state, perm.id))) // P·39 — every creature type IS a Human
     .reduce((mx, perm) => Math.max(mx, read(perm, state)), 0);
 }
 

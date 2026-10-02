@@ -32,7 +32,7 @@
 
 import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, creaturePower, removeCounter, setDoesNotUntapNext, deathLookbackLinks } from "./gameState.js"; // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
 import { checkSacrificeTriggers, checkLeavesTriggers, checkDiesTriggers, checkTapForManaTriggers } from "./triggers.js"; // + ④-D: "tapped for mana" watchers fire at the one tap commit // SG-3: a sacrificed-creature mana cost dies through the chokepoint // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
-import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow, colorsOf, deriveCharacteristics } from "./layers.js";
+import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow, colorsOf, deriveCharacteristics, permIsEveryCreatureType } from "./layers.js";
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // QUARTET Phase 4 step 3 (2026-09-06): the closed CR creature-type vocabulary for spend restrictions ("only to cast a Ninja or Turtle spell") — a zero-import leaf
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { parseAuraLandManaBonus, parseGlobalTapManaAugment, artifactActivationsLocked, abilitiesAsThoughHasteFor } from "./staticAbilityParser.js"; // + SG-18: haste-for-abilities at the mana-source sick gate // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only); NR-1: the artifact-activation lock
@@ -708,10 +708,11 @@ function isCreatureCardType(card) {
   return new RegExp(`\\bcreature\\b`, "i").test(String(card?.type || card?.type_line || ""));
 }
 
-/** Does a battlefield permanent match a printed tap-OTHER payer filter? Front-face type line only. */
-function matchesTapOtherFilter(perm, filter) {
+/** Does a battlefield permanent match a printed tap-OTHER payer filter? Front-face type line — and, for a creature-type filter
+ *  ("Tap an untapped Elf you control"), every creature type (P·39: a changeling, Mirror Entity's activation, an animated Mutavault). */
+function matchesTapOtherFilter(state, perm, filter) {
   const tl = String(perm?.card?.type || perm?.card?.type_line || "").toLowerCase();
-  const word = (w) => new RegExp(`\\b${w}\\b`).test(tl);
+  const word = (w) => new RegExp(`\\b${w}\\b`).test(tl) || permIsEveryCreatureType(state, perm.id);
   if (filter === "token") return !!perm?.card?.token || !!perm?.token;
   // ⛔ "PERMANENT" MUST NOT GO THROUGH THE WORD-BOUND TEST. The word never appears in a type line, so
   // `\bpermanent\b` is a gate NO printed card can satisfy — the source would be built, then never offered,
@@ -1417,6 +1418,9 @@ export function spendRestrictionAllows(restriction, castCard, opts = {}) {
     for (const t of restriction.abilityOf || []) {
       if (t === "@any") return true;                   // the negative cast-only form (Powerstone): every ability spend is legal
       if (t === "creature") { if (opts.activatingIsCreature === true) return true; continue; }
+      // ⚠️ P·39 — a source made every creature type by an effect (Mirror Entity's activation, an animated Mutavault) is read by
+      // its printed type line here: the activation sites pass only that string. A documented UNDER-read, the safe direction —
+      // Hero-only mana is refused for it, never spent where it may not be.
       if (opts.activatingTypeLine && new RegExp(`\\b${t}\\b`, "i").test(String(opts.activatingTypeLine))) return true;
     }
     return false;                                      // no context / no matching source ⇒ REFUSE (the default-deny posture)
@@ -2056,7 +2060,7 @@ export function manaSources(state, playerId) {
       // Elves total. (When it does pay, it ends up tapped, so the ability cannot be reused — which falls out
       // of the tapping rather than needing its own rule.)
       const payers = (player.battlefield || [])
-        .filter((p) => (prod.requiresTap ? p.id !== perm.id : true) && !p.tapped && matchesTapOtherFilter(p, prod.extraTap.filter))
+        .filter((p) => (prod.requiresTap ? p.id !== perm.id : true) && !p.tapped && matchesTapOtherFilter(state, p, prod.extraTap.filter))
         // Payer preference, cheapest-first: a SUMMONING-SICK permanent has nothing else to do this turn, and
         // among the rest a NON-MANA-SOURCE is preferred. ⚠️ That second key matters as soon as "permanent" is an
         // allowed payer noun (Gene Pollinator): tapping a LAND to make one mana is a legal but pointless play

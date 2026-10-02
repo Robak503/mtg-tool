@@ -39,6 +39,7 @@
  * cycle). Pure — `applyDamageReplacements` returns `{ amount, prevented }` and
  * never mutates `state`.
  */
+import { permIsEveryCreatureType } from "./layers.js"; // P·39 — the subtype filters' every-creature-type read (layers' closure never reaches this file — no cycle)
 
 // ─── The doubler parser (verified oracle scope, never from memory) ──────────────
 // Each entry: { op, scope }.
@@ -348,7 +349,9 @@ export function buildSourceFilter(entry, _state) {
           if (tgt) {
             if (pid !== entry.permanentController) return false;
             const type = String(tgt.card?.type_line ?? tgt.card?.type ?? "").toLowerCase();
-            return new RegExp(`\\b${scope.targetSubtype}\\b`).test(type);
+            // P·39 — every creature type (a changeling, Mirror Entity's activation, an animated Mutavault) is a Dinosaur too.
+            return new RegExp(`\\b${scope.targetSubtype}\\b`).test(type)
+              || permIsEveryCreatureType(_state, tgt.id);
           }
         }
         return false;
@@ -439,7 +442,8 @@ export function buildSourceFilter(entry, _state) {
         if (event.sourceId == null) return false;
         for (const pid of Object.keys(_state?.players || {})) {
           const src = (_state.players[pid].battlefield || []).find((p) => p.id === event.sourceId);
-          if (src) return new RegExp(`\\b${scope.sourceSubtype}\\b`).test(String(src.card?.type_line ?? src.card?.type ?? "").toLowerCase());
+          if (src) return new RegExp(`\\b${scope.sourceSubtype}\\b`).test(String(src.card?.type_line ?? src.card?.type ?? "").toLowerCase())
+            || permIsEveryCreatureType(_state, src.id); // P·39 — a Giant too
         }
         return false;
       };
