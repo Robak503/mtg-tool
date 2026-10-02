@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **9 commits**, corpus **44.5% (15,246)** at the tag → **44.5% (15,422)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+11**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **10 commits**, corpus **44.5% (15,246)** at the tag → **44.5% (15,423)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+12**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,18 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 40: Massacre Wurm (EDHREC #512) — an opponent's dying creature drains its controller · **+1** · corpus 15,423
+> Suite **17,918** green (1 skipped; one run for P·40–42); lint 0; decks **2,746** / 2,998 unchanged. CI GREEN on 39b (run 36966108512).
+> Flip-diff **+1, −0, zero RETIERED** (9a055857 → the change): Massacre Wurm → native-trigger. Top 1,000 **868**; top 2,500 **1,705**.
+> **Mutants 10/10**, restore byte-identical. Built by a fan-out builder (Opus 5.5, isolated worktree); re-verified on the integrated tree.
+> · "Whenever a creature an opponent controls dies, that player loses 2 life." The watcher was detected; its payoff parked on "that
+>   player". On the dies event with that scope, a clause that is exactly "that player loses N life" is rebuilt as the triggering
+>   permanent's controller (the sentinel Blood Seeker's payoff uses) — the controller of the creature as it last existed (CR 603.10a,
+>   608.2h), never its owner. The batch event, every other dies scope, an earlier antecedent and a trailing rider stay unrewritten.
+>   Witness `massacreWurm.test.js` (15): the Wurm cast for real (its -2/-2 kills two Bears and a Doomed Traveler — three drains), a
+>   four-seat pod drains each controller separately, Day of Judgment taking the Wurm with them still drains, a creature the user
+>   stole drains nobody and the user's creature the AI stole drains the AI.
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 39b: Maskwood Nexus (EDHREC #490) — every creature type off the battlefield · **+1** · corpus 15,422
 > Suite **17,870** green (1 skipped); lint 0; decks **2,746** / 2,998 unchanged. CI GREEN on 39a (run 36960594380).

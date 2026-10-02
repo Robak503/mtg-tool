@@ -4903,6 +4903,20 @@ export function detectTriggers(card) {
       if (cls.event === "etb" && cls.scope === "creatureOpponentControls") {
         effectClause = effectClause.replace(/^you may have that player lose (\d+) life$/i, (_, n) => `you may have the triggering permanent's controller lose ${n} life`);
       }
+      // OPPONENT'S-DYING-CREATURE DRAIN (play-weighted #512, 2026-10-01 — Massacre Wurm: "Whenever a creature an opponent
+      // controls dies, that player loses 2 life."): the dies twin of the drain above. "That player" is the opponent who controlled
+      // the creature as it last existed on the battlefield: a leaves-the-battlefield ability looks back in time (CR 603.10a) and
+      // the effect reads the departed creature's last known information (CR 608.2h). Every death constructor stamps exactly that
+      // controller on the look-back (the battlefield it died from, never the owner), and makePendingTrigger binds it as the
+      // triggering permanent's controller, the sentinel's referent. The scope's controller test already refuses a creature the
+      // watcher's controller controls (one it took from an opponent included), so the drain only ever lands on an opponent.
+      // ⛔ EACH GATE KEEPS A FABRICATED REFERENT OUT: the BATCH event ("one or more creatures your opponents control die") can
+      // carry several opponents' creatures and names no single player; every other dies scope names no player at all; and the
+      // clause is matched WHOLE and replaced WHOLE, so neither an earlier antecedent ("target player draws a card and that
+      // player …") nor a trailing rider can be swallowed by the rebuild — either one leaves the pronoun unparsed (a safe FN).
+      const opponentDiesDrain = cls.event === "dies" && cls.scope === "creatureOpponentControls"
+        ? /^that player loses (\d+) life$/.exec(effectClause) : null;
+      if (opponentDiesDrain) effectClause = `the triggering permanent's controller loses ${opponentDiesDrain[1]} life`;
       // SELF TO THE BOTTOM (the 09-06 plan's stage ③ · 24, 2026-09-30 — Murderous Rider, Fell Horseman: "When this creature
       // dies, put it on the bottom of its owner's library."): in a SELF dies trigger "it" is the dying creature, so the clause
       // is named ("this creature") for the self-tuck arm, which never takes a bare "it". Any other trigger's "it" is another

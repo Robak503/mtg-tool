@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Massacre Wurm** — whenever a creature an opponent controls dies, that player loses 2 life, including the creatures its own -2/-2 kills
 - **Maskwood Nexus** — your creatures are every creature type, and so are your creature spells and the creature cards you own in your hand, library, graveyard and command zone: tribal tutors, cost reducers, cast triggers, Cavern of Souls and Path of Ancestry all see them; its {3}, {T} ability makes a 2/2 Shapeshifter
 - **Mirror Entity, Mutavault and Faceless Haven** — "all creature types" works: tribal lords, triggers, counts and costs treat the creature as every creature type until end of turn, and Mirror Entity's X/X reaches an animated land too
 - **Birgi, God of Storytelling // Harnfel, Horn of Bounty** — cast either face: Birgi (each spell you cast adds {R} that stays in your pool until end of turn; your creatures can boast twice each turn) or Harnfel (discard a card to exile the top two cards of your library; you may play them this turn)
