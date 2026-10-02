@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.163.0] - 2026-10-02
+
 ### Added
 - **Abrupt Decay**, **Chain Reaction**, **Priest of Titania** (and **Wirewood Channeler**)
 - **Plaguecrafter** (and **Demon's Disciple**) — each player sacrifices a creature or planeswalker; each player who can't discards a card
