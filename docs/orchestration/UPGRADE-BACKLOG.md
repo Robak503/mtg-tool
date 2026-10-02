@@ -258,6 +258,24 @@ summary here for the queue:
 - **E4 · U-F4 durable fix — server-side per-profile color tags** (M, 3) — replace the
   self-labeled localStorage STOPGAP in `useColorTags.js` with a small `/api/color-tags`
   per-profile store + one-time migration.
+- **E6 · "Loses all abilities" — the overwrite system** (L, ~1 day; added 2026-10-02 from a fan-out builder's dossier) —
+  unlocks Darksteel Mutation #586, Kenrith's Transformation #743, Imprisoned in the Moon #765 and ~38 body-only Auras of the
+  same shape (Frogify, Lignify, Ichthyomorphosis, Kasmina's Transmutation, Deep Freeze, Witness Protection …). "Loses all
+  abilities" has NO representation today, and ability readers bypass the layer engine at ~70 `detectTriggers`, 27
+  `parseActivatedAbilities`, 40 `parseStaticAbilities` and 19 `manaProduction` call sites, so per-reader routing is not viable.
+  Design: REWRITE the enchanted permanent's card while the Aura is attached, as manifest (`faceUpCard`) and clones
+  (`printedCard`) already do — a small `overwriteAura.js` (anchored parses; keep supertypes, name, cost, `isCommander` (CR
+  903.3); replace card types (CR 205.1a) and drop only the lost types' subtypes; oracle/keywords/produced mana = only the
+  granted abilities). Apply/revert at `attachPermanent` / `detachPermanentFromAll` (the `controlAura.js` points), recomputed
+  in timestamp order; the zone move, `snapshotCopiedCard` (CR 707.2) and turn-face-up (CR 708.8) read the real card.
+  Timestamp cutoffs in layers.js (CR 613.7): drop the permanent's own effects older than the overwrite in the layers the Aura
+  sets — but keep the restriction pseudo-keywords (`cantBlock`, `cantAttack`, `goaded`, `activatedAbilitiesLocked` …): they
+  are their sources' effects, not abilities (dropping them lets a Pacified creature attack). Name-keyed ability tables
+  (`BASIC_LAND_MANA`, `KNOWN_ROCKS`, `STATIC_REGISTRY`) must be gated, or an Imprisoned Forest still taps for {G}.
+  Imprisoned also needs the "creature, land, or planeswalker" enchant union (the cast predicate, `HOST_TYPE_RE`, and
+  `sba.js`'s Enchant regex, which reads the comma list as "Enchant creature") and a planeswalker type check on attack
+  targets (keyed on loyalty counters today). Order: infrastructure with board witnesses and no card credited → Kenrith's
+  and the Frogify shapes → Darksteel → Imprisoned. Pins to re-point: `bestow.test.js:107` (Trickster's Elk).
 - ✅ v0.96.0 (persists into the owning profile, per Colton's call) **E5 · Cross-profile rating persistence** (M, 4) — **Colton call first** (current
   no-write is BY DESIGN): opt-in persist flag so ratings computed for another profile's
   deck write into that profile's store; then delete PodBalanceView's sessionRatings
