@@ -5,9 +5,9 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **39 commits**, corpus **44.5% (15,246)** at the tag → **44.7% (15,467)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+56**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
+> **0 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **+0**. The next tag
+> comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,17 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🚀 2026-10-02 — v0.163.0 RELEASED · 40 commits since v0.162.0 · engine +56 · tagged early for user-facing fixes
+> Cut under CLAUDE.md §7.2's user-facing-fix exception (Colton's go): short of the ~100-card line, but it ships the fixes a
+> player sees in every game — attack triggers resolve before blocks (CR 508.2, 509.1), targets re-checked on resolution
+> (CR 608.2b), one destruction ladder (Umbra saves in a wrath), stolen permanents to their owner's zones (CR 400.3). Steps
+> (RELEASE.md): the Node pin checked (v22.23.2 stays: the newest v22 security release; v22.23.3 is a non-security patch) · the
+> Spellbook cache warm (sync-spellbook 2026-10-02 09:14Z green) · `[Unreleased]` → `[0.163.0] - 2026-10-02` (dbd01827; CI
+> 37048006497 green) · `git tag v0.163.0` on dbd01827 + push · release run 37048015228 green (test ×2 + build) · published
+> 2026-10-02T19:06:27Z, marked Latest · `latest.json` verified BY CONTENT at the updater endpoint (version 0.163.0, a
+> 420-character signature, the v0.163.0 installer URL). At the tag: top 1,000 **891** / 1,000, top 2,500 **1,730**, corpus
+> 15,467 (+165 of the batch's +221 is the 10-02 card-data refresh, not engine work).
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · 57: Abrupt Decay (EDHREC #742), Chain Reaction (#708), Priest of Titania (#766) · **+4** · corpus 15,467
 > Flip-diff **+4, −0, zero RETIERED**: Abrupt Decay, Chain Reaction → native-spell; Priest of Titania, Wirewood Channeler → native-mana.

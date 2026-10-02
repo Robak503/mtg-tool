@@ -70,14 +70,22 @@
 > ([SUBSYSTEM-QUARTET-PLAN.md](SUBSYSTEM-QUARTET-PLAN.md); read its status ledger first): Phase 2's tail, evalScores on
 > pending rows — and do NOT build the bannered `decisionLog` channel. A change of kind from card slices (CR-level engine work
 > → decision-quality work), so it waits on Colton's nod per CLAUDE.md §7.2. Atraxa (74) stays DEFERRED (Colton 09-30:
-> planeswalkers last, as their own program). Release cadence: v0.162.0 shipped 10-01 (+101 since v0.161.0); the next tag
-> after ~100 more cards or a user-facing fix.
+> planeswalkers last, as their own program). Release cadence: v0.163.0 shipped 10-02 (engine +56, tagged early for
+> user-facing fixes); the next tag after ~100 more cards or a user-facing fix.
 > **Stage ③ closed (10-01):** the fresh census's ≥3-sole rows are all banked but two — ③ · 54 shipped bloodrush (+11 →
 > corpus 15,173; suite 1,695 / 17,428), and splice (3 sole) has no machinery (a reveal-from-hand cost that adds text to
 > the spell) → banked. Every row below is 2-sole, under §3's line.
 > **The run that finished it (D35–D44, 09-30 → 10-01):** Kellan reached 90 (D38); Light-Paws 83 → 90 (D39–D44: Eiganjo
 > Castle, Celestial Mantle, Mantle of the Ancients, the damage redirect, Umbra Mystic, Pearl-Ear). Every deck row: 29 at
 > 90–100, Atraxa 74; aggregate 2,720 / 2,998 (90.7%); corpus 15,162 (44.3%).
+
+## 🚀 2026-10-02 — **v0.163.0 RELEASED** (published 2026-10-02T19:06:27Z) — P·34–P·57 + the combat / targeting / destroy fixes
+
+> **The release:** tagged on dbd01827 (the `[0.163.0]` CHANGELOG cut), early under CLAUDE.md §7.2's user-facing-fix exception
+> (engine +56 since v0.162.0; top 1,000 865 → 891). It ships attack triggers before blocks (CR 508.2, 509.1), the CR 608.2b
+> resolution target re-check, the one destruction ladder and owner routing (CR 400.3). Release run 37048015228 green (two test
+> shards + build); `latest.json` verified BY CONTENT at the updater endpoint (version 0.163.0, a 420-character signature, the
+> v0.163.0 installer URL); marked Latest. Node pin unchanged (v22.23.2); the Spellbook cache was warm (10-02 sync green).
 
 ## 🚀 2026-10-01 — **v0.162.0 RELEASED** (published 2026-10-02T00:46:20Z) — the play-weighted batch, P·1–P·33
 
