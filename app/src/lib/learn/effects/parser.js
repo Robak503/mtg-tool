@@ -46,6 +46,7 @@ import { manifestClauseParser } from "./atoms/manifest.js";
 import { amassClauseParser } from "./atoms/amass.js";
 import { selfReturnClauseParser, selfReturnTriggerDetector } from "./atoms/selfReturn.js";
 import { startEnginesClauseParser } from "./atoms/speed.js";
+import { classLevelBecomeClauseParser } from "./atoms/classLevelUp.js"; // CLASS (CR 716.2a) — the rewritten class level bar
 import { winGameClauseParser } from "./atoms/winGame.js";
 import { rollDieClauseParser, resultScaledPayoffClauseParser } from "./atoms/roll.js"; // DICE-ROLL (CR 726) — roll a d20 + result-scaled token/draw payoff (Ancient Dragons)
 import { hideawayClauseParser } from "./atoms/hideaway.js";
@@ -3868,6 +3869,7 @@ registerClauseParser(amassClauseParser);
 registerClauseParser(monarchClauseParser);
 registerClauseParser(selfReturnClauseParser);
 registerClauseParser(startEnginesClauseParser); // KW-ENGINES (CR 702.179b) — the [start-your-engines] sentinel detectTriggers synthesizes off the printed keyword
+registerClauseParser(classLevelBecomeClauseParser); // CLASS (CR 716.2a) — "This Class's level becomes N.", the rules text effects/abilities.js rewrites each class level bar into
 registerClauseParser(earthbendReturnClauseParser); // EARTHBEND-RETURN (CR 603.7) — the [earthbend-return:zone] marker checkLeavesTriggers synthesizes for the animated land's dies/exile return
 registerClauseParser(detainReturnClauseParser); // DETAIN-RETURN (DT-1, CR 610.3a) — the [detain-return] marker checkLeavesTriggers synthesizes when a detainer leaves
 registerClauseParser(czClauseParser); // CZ-COMMANDER-VISIT (Hellkite Courser) — the three-sentence fetch+haste+delayed-return + the [cz-return] sentinel

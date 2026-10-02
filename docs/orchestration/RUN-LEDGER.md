@@ -6,8 +6,8 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.162.0** (tagged 2026-10-01, published 2026-10-02T00:46:20Z):
-> **33 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,451)** — +165 of that is the 10-02 card-data refresh (new
-> cards, not engine work); engine gains since the tag: **+40**. The next tag comes after ~100 cards of gains (or a user-facing fix).
+> **34 commits**, corpus **44.5% (15,246)** at the tag → **44.6% (15,457)** — +165 of that is the 10-02 card-data refresh (new
+> cards, not engine work); engine gains since the tag: **+46**. The next tag comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -15,6 +15,26 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-02 — PLAY-WEIGHTED · 55: Class levels (CR 716) — Caretaker's Talent (EDHREC #632), Wizard Class (#634) · **+6** · corpus 15,457
+> Suite **18,467** green (one run with the exile-stamp fix, the quick trio, and the combat-timing and destroy-ladder fixes). Flip-diff **+6, −0, zero RETIERED**: Caretaker's Talent, Wizard Class, Ranger Class, Stormchaser's
+> Talent → native-mixed; Esika's Chariot and Three Blind Mice → native-trigger (the same "create a token that's a copy of target token you control"
+> sentence, each witnessed end to end). Top 1,000 **885**; top 2,500 **1,722**. **Mutants 65/65** on the integrated tree, restore
+> byte-identical. Built by a fan-out builder; re-verified on the integrated tree.
+> · New leaf `classLevels.js`: the class level bar is an activated ability ("this Class's level becomes N", only at level N-1 and
+>   only as a sorcery — CR 716.2a) plus the static "as long as this Class is level N or greater, it has …"; the level lives on
+>   the permanent (a designation, not copiable — 716.2b; a new object or a token copy starts at level 1 — 716.2d, 400.7). Statics,
+>   triggers (26 battlefield scan sites) and play-from-top permissions read the Class's LEVEL VIEW; "When this Class becomes level
+>   N" fires on the change. The whole-card gate parks any Class with a line the runtime reads off the raw card. The AI levels up
+>   with leftover mana.
+> · ⚑ Live false positive closed: triggers printed under a level bar fired from level 1 — 11 Classes at base (Artificer, Ranger,
+>   Warlock, Wizard Class, Leader's / Scavenger's / Stormchaser's / Blacksmith's Talent, Does Machines, Advanced Floral
+>   Invocations, Intermediate Chirography); none after (a raw-card vs top-section pin over all 35 Classes). Witness
+>   `classLevels.test.js`.
+> · ⚠️ Innkeeper's Talent stays parked (dossier: level 2 needs a ward grant over a has-counters selector; level 3's doubling
+>   depends on WHO puts the counters, which `applyCounterDoubling` can't see). Found, not fixed (queued): the Vorinclex sentence
+>   ("If you would put one or more counters …") is modeled as a doubler keyed to the permanent's controller, not to who puts the
+>   counters; resolveTopOfStack catches resolver exceptions and only logs them.
 
 > ## 🎯 2026-10-02 — PLAY-WEIGHTED · fix: a card that leaves exile leaves every exile-only stamp behind (CR 400.7) · **±0**
 > Suite **18,467** green (one run with Class levels, the quick trio, and the combat-timing and destroy-ladder fixes). Flip-diff **0 / 0 / 0**. **Mutants 10/10**, restore byte-identical. Built by the integrator

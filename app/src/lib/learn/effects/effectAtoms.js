@@ -50,6 +50,7 @@ import { becomeCopyResolvers } from "./atoms/becomeCopy.js";
 import { conniveResolvers } from "./atoms/connive.js";
 import { suspectResolvers } from "./atoms/suspect.js";
 import { speedResolvers } from "./atoms/speed.js";
+import { classLevelUpResolvers } from "./atoms/classLevelUp.js"; // CLASS (CR 716.2a) — the class level bar's "this Class's level becomes N"
 import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL REPLACEMENT — the SAME evaluator legalChoices and manaSources gate on; interveningIf imports only gameState, so this stays a one-way edge (checked before adding it)
 
 // ─── Re-export the public atom symbols (consumers import these from the barrel path) ──────────
@@ -101,6 +102,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...conniveResolvers, // connive (BLITZ EK-1, CR 701.50a) — draw 1 → chosen discard (pause) → +1/+1 if a nonland was discarded
   ...suspectResolvers, // suspect / unsuspect-all (BLITZ EK-1, CR 701.60) — the suspected designation (menace + can't block via the layer reads)
   ...speedResolvers,   // start-engines (KW-ENGINES, CR 702.179b) — the synthesized "Start your engines!" ETB sets controller speed to 1 if none
+  ...classLevelUpResolvers, // class-level-become (CR 716.2a) — the level-up resolution: the source's level becomes N, then its becomes-level-N triggers
 });
 
 /**

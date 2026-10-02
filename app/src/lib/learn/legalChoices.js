@@ -94,6 +94,7 @@ import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDrops
 // (verified — metric-only, zero runtime consumers), so this import introduces no cycle.
 import { classifyCard, isNativeTier, isNativeBestow, isKeywordOnly, isNativeOrdealAura, grantAuraCastHostType, hasSelfTurnedFaceUpTrigger } from "./coverage.js";
 import { cycleSelfTriggersModeled } from "./triggerRouting.js"; // shelf D6 — the cycling offer and the classifier read the same vouch
+import { classLevelOf } from "./classLevels.js"; // CLASS (CR 716.2a / 716.2d) — the level-up offer gate reads the permanent's level designation (a zero-import leaf)
 import { parseKickerCounterCreature, parseKickerEtbCreature, parseKickerCost, parseMultikickerCost, parseTeamworkCost } from "./kicker.js"; // + TEAMWORK (shelf D16) // KICKER (CR 702.33) — emit a normal + a kicked cast (kicker mana folded into the cost) when the kicker is affordable; ETB-trigger payoff variant (creatures) + kicked-SPELL-effect (instants/sorceries) too
 import { registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant activated-body gate
 import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — emit a normal hard-cast + an emerge cast per legal sacrifice victim (cost reduced by the victim's MV)
@@ -2457,6 +2458,10 @@ function actionsActivateAbility(state, playerId) {
         if (lvl < ab.levelGate.atLeast) continue;
         if (ab.levelGate.atMost != null && lvl > ab.levelGate.atMost) continue;
       }
+      // CLASS LEVEL BAR (CR 716.2a): "Activate only if this Class is level N-1" — read off the permanent's own level
+      // designation (classLevelOf: absent = 1, CR 716.2d). Exactly one bar is ever live, so a level is never skipped
+      // and a reached level is never re-bought. The "only as a sorcery" half is the sorceryOnly gate just below.
+      if (ab.classLevelUp != null && classLevelOf(perm) !== ab.classLevelUp - 1) continue;
       // LEVEL UP is sorcery-only by definition (CR 702.87a "Activate only as a sorcery" = own main,
       // empty stack, priority — CR 602.5i). The main-step gate above already covers own-main+priority;
       // canCastSorcerySpeed adds the empty-stack requirement the generic lane approximates away.

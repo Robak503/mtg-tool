@@ -510,6 +510,14 @@ export function atomTargetIntent(atom) {
       // a controller-restricted form (Clever Concealment's "… you control") keeps the side its restriction already fixes
       // at enumeration.
       return atom.minTargets === 0 && !(atom.restrictions || []).length ? "enemy" : "ambiguous";
+    case "create-token-copy":
+      // TOKEN COPY OF A TARGET TOKEN YOU CONTROL (Caretaker's Talent's level 2; Esika's Chariot, Specimen Collector,
+      // Three Blind Mice print the same sentence): the legal pool is the controller's own tokens and nothing else, so
+      // the side is own by construction — which token is worth copying is play quality, not legality. Every other
+      // targeted copy stays ambiguous (an unrestricted "target permanent", or a creature copy whose best pick may
+      // belong to anyone), so its trigger keeps routing to the Arbiter exactly as before.
+      if (atom.restrictions?.some((r) => r.kind === "token") && atom.restrictions?.some((r) => r.kind === "controller" && r.who === "you")) return "own";
+      return "ambiguous";
     default:
       return "ambiguous";
   }

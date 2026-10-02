@@ -79,6 +79,14 @@ const COPY_COUNT = { two: 2, three: 3, four: 4, five: 5 };
 // that enters wrong is an FP. The card's own "as though it had flash if it targets a permanent you control" line is
 // stripped by the normalizer and NOT honored at runtime — sorcery-speed only (a false negative, documented).
 const TOKEN_COPY_TARGET_PERMANENT_RE = /^create a token that(?:'s| is) a copy of target permanent$/;
+// TOKEN-COPY-TARGET-TOKEN (Caretaker's Talent, level 2 — CR 707.2): "Create a token that's a copy of target token you
+// control." Any of the controller's TOKENS, of any card type — the `token` restriction reads the minted flag
+// (creatureRestrictions), the controller restriction keeps it to your own. The copy takes the token's copiable values as
+// the effect that created it defined them (a printed ruling for the card); counters, tapped state and attachments are not
+// copied (snapshotCopiedCard). Aura and Saga tokens are left out of the pool exactly as Flash Photography's are (an
+// Aura token needs an attach choice and a Saga token its lore counter, neither of which the token path raises): a
+// narrower pool is a false negative, a copy that enters wrong would not be.
+const TOKEN_COPY_TARGET_TOKEN_RE = /^create a token that(?:'s| is) a copy of target token you control$/;
 // TOKEN-COPY-UPTOONE-MVX — "create a token that's a copy of up to one target creature with mana value X or
 // less" (Here Comes a New Hero!, an {X} sorcery). CR 601.2c — the target is OPTIONAL (0-or-1: `optionalTarget`),
 // and its legality is bounded by the spell's chosen X (CR 202.3b — X is bound at cast). The copy is UNRESTRICTED
@@ -149,6 +157,10 @@ export function tokenCopyParser(clause) {
   }
   if (TOKEN_COPY_TARGET_PERMANENT_RE.test(t)) { // KN-3 (Flash Photography)
     return { op: "create-token-copy", copySource: "target", count: 1, targetType: "permanent", restrictions: [{ kind: "typeNeg", type: "aura" }, { kind: "typeNeg", type: "saga" }] };
+  }
+  if (TOKEN_COPY_TARGET_TOKEN_RE.test(t)) { // Caretaker's Talent (level 2)
+    return { op: "create-token-copy", copySource: "target", count: 1, targetType: "permanent",
+      restrictions: [{ kind: "controller", who: "you" }, { kind: "token" }, { kind: "typeNeg", type: "aura" }, { kind: "typeNeg", type: "saga" }] };
   }
   const tm = t.match(TOKEN_COPY_TARGET_RE);
   if (tm) {

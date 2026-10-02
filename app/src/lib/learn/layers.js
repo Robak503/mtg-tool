@@ -38,6 +38,7 @@ import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type matches only a CREATURE type (CR 205.3d); a zero-import leaf
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a graveyard card that is every creature type (Changeling, its owner's Maskwood Nexus) for the subtype counts; a leaf over keywords.js
 import { parseStaticAbilities, parseAttachedBonus, parseAuraGrantedManaAbility, parseSoulbondBond, colorsOfSpell } from "./staticAbilityParser.js"; // + colorsOfSpell: a double-faced permanent's front-face colours (permanentPrintedColors)
+import { classLiveCard } from "./classLevels.js"; // CLASS (CR 716.2a) — a modeled Class's statics are read off its level view (a zero-import leaf)
 import { isGraveyardReanimateAura, animateDeadBonusView } from "./animateDeadGate.js"; // P·12 — Animate Dead's -1/-0 (a zero-import leaf)
 import { commanderColorIdentityOf } from "./commanderIdentity.js"; // CR 903.4 — the shared read (stamp + command zone); a zero-import leaf
 import { parseProtectionColors, parseProtectionClasses } from "./protection.js"; // B7: the "creatures" source-class quality rides the same layer-6 addProtection op (`classes`)
@@ -945,11 +946,13 @@ export function staticEffectsOf(state, permanent) {
     ...(STATIC_REGISTRY[card.name] || []),
     // A graveyard static (P·24 — "as long as this card is in your graveyard …") does nothing on the battlefield (CR 113.6b);
     // graveyardEffectsOf collects it from the graveyard instead.
+    // CLASS (CR 716.2a): a modeled Class has the statics of its top section and of each section at or below its level —
+    // classLiveCard hands over that view; every other permanent (a parked Class included) is read off its own card.
     // A copy whose power and toughness were PROVIDED by its copy effect (cloneCopy's setPT rider stamps ptCdaNotCopied —
     // Quicksilver Gargantuan's "except it's 7/7", Saw in Half's halved copies) did not copy a P/T characteristic-defining
     // ability (CR 707.9d), so the CDA its copied text still carries emits nothing. Every isCDA descriptor the parser emits is
     // a layer-7a P/T CDA.
-    ...parseStaticAbilities(card).filter((p) => p.zone !== "graveyard" && !(card.ptCdaNotCopied && p.isCDA)),
+    ...parseStaticAbilities(classLiveCard(permanent)).filter((p) => p.zone !== "graveyard" && !(card.ptCdaNotCopied && p.isCDA)),
   ];
   // SELF CHOSEN-TYPE ADD (CR 205.1b, layer 4) — "This creature is the chosen type in addition to its other
   // types." The parser can only leave a MARKER, because the subtype added is this permanent's own stored

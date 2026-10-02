@@ -1334,6 +1334,14 @@ const SAFE_ABILITY_OPS = new Map([["draw", 0], ["create-token", 1], ["scry", 2],
 function isLevelUpAtomList(atoms) {
   return atoms.length === 1 && atoms[0].op === "add-named-counter-self" && atoms[0].counterType === "level";
 }
+// CLASS LEVEL (CR 716.2a): the class level bar's activation is the single untargeted atom {op:"class-level-become"}.
+// It is offered ONLY on a WHOLLY-modeled Class (coverage.modeledClassCard), whose every gained ability the engine
+// plays, and gaining a level never removes one (the printed rulings) — so, like a leveler's level up, it soaks leftover
+// main-phase mana at the same last rank. Termination is structural: each bar is offered only at the level below it,
+// so a Class can be levelled at most once per bar, and every printed bar costs at least one mana.
+function isClassLevelUpAtomList(atoms) {
+  return atoms[0].op === "class-level-become"; // the bar's program is that one atom (effects/abilities.classLevelUpAbilities)
+}
 /**
  * COMBAT-ROLE ACTIVATIONS (④-AP, 2026-09-04 — the play-quality half of ④-AE's combat window). The generic picker below
  * skips every TARGETED activation, so an AI archer never shot and an AI pumper never pumped. This picker takes exactly
@@ -1394,6 +1402,7 @@ function pickSafeAbilityActivation(abilityActions) {
     const atoms = a.program.atoms || [];
     if (atoms.length === 0) continue;                     // nothing runnable — activating burns the cost
     if (isLevelUpAtomList(atoms)) { safe.push({ a, rank: 4 }); continue; } // LV-1 — level up with leftover mana
+    if (isClassLevelUpAtomList(atoms)) { safe.push({ a, rank: 4 }); continue; } // CLASS — gain a class level with leftover mana
     if (!atoms.every((atom) => SAFE_ABILITY_OPS.has(atom.op) && !atom.targetType)) continue;
     const rank = Math.min(...atoms.map((atom) => SAFE_ABILITY_OPS.get(atom.op)));
     safe.push({ a, rank });

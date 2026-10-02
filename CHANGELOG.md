@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Class enchantments** — gain the next level as a sorcery to add its ability: **Caretaker's Talent**, **Wizard Class**, **Ranger Class**, **Stormchaser's Talent**; also **Esika's Chariot** and **Three Blind Mice** (copy a token you control)
 - **Mangara, the Diplomat** — draws when an opponent attacks you and/or your planeswalkers with two or more creatures; **Trouble in Pairs** — opponents skip their extra turns, and you draw when an opponent attacks you with two or more creatures, draws their second card or casts their second spell each turn; also **Everett K. Ross, Hapless Attaché**
 - **Liquimetal Torque**, **Liquimetal Coating**, **Myr Landshaper** and **Argent Mutation** — make a permanent an artifact until end of turn ("nonartifact" removal can no longer target it; artifact removal can)
 - **Culling Ritual** — destroy each nonland permanent with mana value 2 or less; add {B} or {G} for each permanent destroyed this way
@@ -33,6 +34,7 @@ summarizes the notable changes.
 - **Living Death and Living End** — each player exiles the creature cards from their graveyard, sacrifices all creatures they control, then puts the exiled cards onto the battlefield
 
 ### Fixed
+- Class enchantments' level 2 and level 3 triggered abilities no longer work while the Class is still level 1
 - A plotted or suspended card that was cast from exile, and later exiled again (Swords to Plowshares), could be cast for free a second time; it no longer can
 - A commander an opponent steals keeps its owner's Backgrounds ("Commander creatures you own have …") and no longer gains the thief's
 - **Crush** and **Bramblecrush** could destroy creatures (they read "noncreature" as "creature"), and **Bedevil** could target only creatures; **Stone by Sunlight** now makes its target an artifact (it was filed as a creature type)

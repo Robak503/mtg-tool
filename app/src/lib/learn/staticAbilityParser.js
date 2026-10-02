@@ -25,6 +25,7 @@ import { stripFlashPermissionLine, stripAbilityWordLabel } from "./effects/textN
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword, hasKeyword } from "./keywords.js";
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — Root Sliver's "Sliver spells": a spell's every-creature-type answer; a leaf (keywords.js only)
 import { isLevelerFrame } from "./leveler.js"; // LV-1 — the leveler frame detector (leaf module, no cycle)
+import { classLiveCard } from "./classLevels.js"; // CLASS (CR 716.2a) — the play-from-top permission reads a modeled Class's level view (a zero-import leaf)
 import { isAttackTaxClause, parseAttackTax } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — a pure leaf, shared with the runtime so metric and game agree
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // the closed creature-subtype vocabulary, imported from the LEAF (never through targeting.js — that edge crashes module init; see creatureTypes.js)
 // COUNT_SUBTYPE — the ONE curated, collision-free permanent-subtype allowlist (parseCountSource and the
@@ -5915,7 +5916,9 @@ export function playFromTopPermission(state, playerId) {
   let merged = null;
   for (const perm of state?.players?.[playerId]?.battlefield || []) {
     if (!perm?.card) continue;
-    const statics = parseStaticAbilities(perm.card);
+    // CLASS (CR 716.2a): a permission printed under a class level bar (Ranger Class's level 3) exists only from that
+    // level on — read the permanent's live view, never the raw card.
+    const statics = parseStaticAbilities(classLiveCard(perm));
     // BOLAS'S CITADEL (P·17): a card that also prints "pay life equal to its mana value rather than pay its mana cost" grants
     // its spells as LIFE-COST casts only (`lifeSpellFilter`), never mana ones; its land permission is unchanged.
     const paysLife = statics.some((d) => d.playFromTopPaysLife);

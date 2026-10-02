@@ -36,7 +36,8 @@ import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMA
 import { detectTriggers, CUMULATIVE_UPKEEP_LIFE_RE, stripTriggerAbilityLabel, foldTwoTriggerDetain, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, hideawayKeywordValue, mobilizeKeywordValue, backupKeywordValue, partnerWithName, hasDethrone, hasTraining, firebendingKeywordValue, soulshiftKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues, startYourEnginesKeywordCount, scanTriggerSentences, stripTriggerSentences } from "./triggers.js"; // scan/stripTriggerSentences: THE shared quote-aware extraction (Codex fix #4) — shaped count + every residue strip must use it or shaped===detected snaps
 import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND no-cost credit — the same gate the runtime offers through (fading→triggers→… is already a loaded edge; no cycle)
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
-import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler, parseDiscardCostAbility, parseHandSelfPutAbility } from "./effects/abilities.js";
+import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler, parseDiscardCostAbility, parseHandSelfPutAbility, classLevelUpAbilities } from "./effects/abilities.js";
+import { hasClassLevelBar, parseClassFrame, registerClassCardValidator } from "./classLevels.js"; // CLASS (CR 716) — the frame + the whole-card gate's injection seam (a zero-import leaf)
 import { playerDamageRedirectLine, othersEnterWithCounters, staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithCountersPerKick, entersWithConditionalCounters, entersWithCastFromHandCounters, entersWithChoiceCounters, isHonestEnterCounterKind, choosesColorOnEnter, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, registerAuraOwnTriggerValidator, registerAttachedExceptByValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, attachedNoUntapOf, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
 import { spellConditionParseable, interveningIfParseable } from "./interveningIf.js"; // EW-1 — the metric⇄runtime shared gate for a conditional enters-with counter (the resolver evaluates the SAME vocabulary via evaluateInterveningIf); acyclic (interveningIf imports only gameState)
 import { isCloneCard } from "./cloneCopy.js";
@@ -3076,11 +3077,70 @@ function isNativeTriggerGrantAuraOrEquipment(card) {
   return sawEquip;
 }
 
+// ─── CLASS CARDS (CR 716) — the whole-card gate ───────────────────────────────────────────────────
+//
+// A Class is native ONLY when every piece is modeled AND every piece reaches the runtime level-aware:
+//   · each class level bar parses as a MODELED activated ability — the CR 716.2a rewrite in
+//     effects/abilities.classLevelUpAbilities (its printed cost, sorcery timing, the class-level-become atom). A bar
+//     the activated lane would refuse to offer (an {X} cost) leaves the Class unable to level, so it parks;
+//   · every line, in any section, classifies native ON ITS OWN (the card's own name and type line, that one line as
+//     its text — "When this Class becomes level N, …" lines included: the detector reads them on a Class) AND reaches
+//     the runtime only through a lane that reads the permanent's live level view (classLevels.classLiveCard):
+//       – triggered abilities: every battlefield trigger scan reads the live view;
+//       – static abilities whose every descriptor is a pure layer effect (layers.staticEffectsOf) or a marker whose
+//         reader is level-aware (playFromTop — staticAbilityParser.playFromTopPermission) or needs none (inertInfo);
+//       – a line that yields no descriptor at all is credited native by a reader of the RAW printed card (a keyword
+//         line, "You have no maximum hand size." read at cleanup). Such a reader acts at every level, which is
+//         exactly what CR 716.3 says the TOP section does — so it is admitted there and parks the card anywhere else;
+//   · no line may be an activated ability of the Class's own: the activated lane (effects/abilities) reads only the
+//     bars, so such an ability — in any section — would never be offered.
+// Anything else — a replacement or marker static the runtime reads off the raw card, a line no lane claims — parks
+// the whole card (body-only, the Arbiter). The gate is injected into the leaf (registerClassCardValidator) so the
+// runtime's level reads and the level-up offer key off this same judgement.
+
+// Every key of a pure layer-effect descriptor. Any other key is a marker some non-layer reader consumes off the raw card.
+const CLASS_LAYER_DESCRIPTOR_KEYS = new Set(["layer", "sublayer", "op", "affects", "duration"]);
+// The marker keys whose runtime reader reads the permanent's live view (or that need no reader at all).
+const CLASS_LEVEL_AWARE_MARKER_KEYS = new Set(["playFromTop", "inertInfo"]);
+
+function classStaticDescriptorLevelAware(d) {
+  const keys = Object.keys(d);
+  return keys.every((k) => CLASS_LAYER_DESCRIPTOR_KEYS.has(k)) || keys.every((k) => CLASS_LEVEL_AWARE_MARKER_KEYS.has(k));
+}
+
+function classLineCovered(card, line, sectionLevel) {
+  const lineCard = { name: card.name, type: card.type ?? card.type_line, mana: card.mana ?? card.mana_cost, oracle: line };
+  if (!isNativeTier(classifyCard(lineCard))) return false;
+  if (parseActivatedAbilities(lineCard).length) return false;
+  const statics = parseStaticAbilities(lineCard);
+  if (!statics.every(classStaticDescriptorLevelAware)) return false;
+  if (detectTriggers(lineCard).length || statics.length) return true;
+  return sectionLevel === 1;
+}
+
+const _classGateMemo = new WeakMap(); // card -> boolean (card objects are immutable, house convention)
+
+/** The Class whole-card gate (see the block comment above). Pure and deterministic; memoized per card object. */
+export function modeledClassCard(card) {
+  if (_classGateMemo.has(card)) return _classGateMemo.get(card);
+  const frame = parseClassFrame(card);
+  const ok = !!frame && classLevelUpAbilities(card).every((ab) => ab.modeled)
+    && frame.top.every((line) => classLineCovered(card, line, 1))
+    && frame.bars.every((bar) => bar.lines.every((line) => classLineCovered(card, line, bar.level)));
+  _classGateMemo.set(card, ok);
+  return ok;
+}
+registerClassCardValidator(modeledClassCard);
+
 /**
  * Classify one card into a coverage tier. Input: { type, oracle, mana, name }
  * (the `publicCard` shape — type is the type line, oracle the full oracle text).
  */
 export function classifyCard(card) {
+  // CLASS (CR 716): a card carrying a class level bar is owned wholly by the Class gate above — judged before any
+  // pre-strip below can rewrite its text (the no-maximum-hand-size strip would otherwise erase a line the gate must
+  // place in its section). Every other lane rejects a level-gated oracle anyway; this makes the routing explicit.
+  if (hasClassLevelBar(card)) return modeledClassCard(card) ? "native-mixed" : "body-only";
   // LEYLINE opening-hand pre-strip (CR 103.6): "If this card is in your opening hand, you may begin the
   // game with it on the battlefield." is a PRE-GAME special action with ZERO in-play runtime effect — the
   // self-play engine never starts a game from an opening hand, and the line never changes how the permanent

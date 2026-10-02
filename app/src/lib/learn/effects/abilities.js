@@ -23,6 +23,7 @@
 
 import { parseEffectClause, programConfidence, programNeedsChosenTarget } from "./parser.js";
 import { parseLeveler, isLevelerFrame } from "../leveler.js";
+import { hasClassLevelBar, parseClassFrame, classCardModeled } from "../classLevels.js"; // CLASS (CR 716) — a zero-import leaf
 // CONDITION rider (CR 602.5d) — the metric⇄runtime shared shape gate. interveningIf.js imports only
 // gameState.js (which does NOT import this module), so this edge is acyclic.
 import { activationConditionParseable } from "../interveningIf.js";
@@ -1199,6 +1200,11 @@ export function parseActivatedAbilities(card) {
   // leveler lane fixes: band abilities are emitted ONLY with their level gate, and ONLY when the WHOLE
   // card is modeled; otherwise the frame emits nothing at all — a safe FN, exactly today's park).
   if (isLevelerFrame(rawOracle)) return levelerActivatedAbilities(card);
+  // CLASS (CR 716.2a): a Class's colon lines are its level bars plus whatever its sections print. Read through the
+  // dedicated lane: the level-up abilities only when the WHOLE card is modeled (classCardModeled — the same gate the
+  // metric uses), otherwise nothing at all. Before this, the generic loop parsed every section's colon lines as
+  // always-on abilities (each bar an unmodeled "Level N" effect); a parked Class now emits none — the leveler park.
+  if (hasClassLevelBar(card)) return classActivatedAbilities(card);
   // Card-level: would a self-sac drop a trigger? Use the RAW oracle (reminder included) so a death
   // keyword whose trigger lives in reminder text (Recover…) is caught, matching the victim path.
   const sacUnsafe = sacrificeDropsTrigger(card?.oracle || card?.oracle_text || "");
@@ -1663,6 +1669,39 @@ function computeModeledLeveler(card) {
     })),
     abilities: stamped,
   };
+}
+
+// ─── CLASS LEVEL BARS (CR 716.2a) ────────────────────────────────────────────────────────────────
+//
+// "[Cost]: Level N — [Abilities]" means "[Cost]: This Class's level becomes N. Activate only if this Class is level
+// N-1 and only as a sorcery" (CR 716.2a). Each printed bar is rewritten into that rules text — minus the level-N-1
+// condition, which is a property of the PERMANENT's designation and is stamped as `classLevelUp: N` for the offer gate
+// (legalChoices) to read — and parsed through the SAME activated-ability loop as a printed line, so the mana cost,
+// the "Activate only as a sorcery" timing rider (CR 602.5d) and the stack are exactly those of any ability.
+
+/**
+ * The level-up abilities of a well-formed Class frame, one per bar, each the CR 716.2a rewrite of its bar parsed by
+ * the ordinary loop and stamped `classLevelUp: N` — or null when the card has no Class frame. Whether each one is
+ * MODELED (offerable) is the parse's own `modeled` flag; the whole-card gate in coverage.js requires every one to be.
+ * Pure; the gate and the runtime lane below both read this one parse.
+ */
+export function classLevelUpAbilities(card) {
+  const frame = parseClassFrame(card);
+  if (!frame) return null;
+  return frame.bars.map((b, i) => {
+    const [ab] = parseActivatedAbilities({
+      name: card.name,
+      type: String(card.type || card.type_line || ""),
+      oracle: `${b.costPips}: This Class's level becomes ${b.level}. Activate only as a sorcery.`,
+    });
+    return { ...ab, index: i, classLevelUp: b.level };
+  });
+}
+
+// The runtime lane for a Class card's own activated abilities: its bars, and only when the whole card is modeled.
+// (The whole-card gate parks any Class printing an activated ability of its own, so there is nothing else to read.)
+function classActivatedAbilities(card) {
+  return classCardModeled(card) ? classLevelUpAbilities(card) : [];
 }
 
 // Host = the enchanted/equipped CREATURE (Aura/Equipment) OR an enchanted LAND (a land-enchanting Aura that
