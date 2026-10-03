@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **9 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,484)**; engine gains since the tag: **+17**. The next tag
+> **10 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,487)**; engine gains since the tag: **+20**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,31 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-03 — PLAY-WEIGHTED · 61: Narset's Reversal (EDHREC #720), Dualcaster Mage (#675), Imp's Mischief (#658) · **+3** · corpus 15,487 · ⭐ **TOP 1,000 AT 901 — 90% REACHED**
+> Suite **18,795** green (one run for · 58–61). Flip-diff **+3, −0, zero RETIERED**: Narset's Reversal, Imp's Mischief → native-spell;
+> Dualcaster Mage → native-trigger. Top 1,000 **901** (Colton's 10-01 checkpoint 866 → **+35**); top 2,500 **1,740**. **Mutants
+> 38/38** on the integrated tree, restore byte-identical. Built by a fan-out builder (rebased onto master before its gates);
+> re-verified on the integrated tree. Two pins re-pointed, none deleted (`changeTarget.test.js` — Imp's Mischief's sentence is now
+> HIGH; `manaDrainDelayed.test.js` — the X witness carries its `{X}{R}` cost).
+> · The copy family: `stack.applyCopyInstantOrSorcery` rewritten — "You may choose new targets for the copy" is a `newTargets`
+>   flag (the bare sentence does not re-aim): the copy keeps its mode, kick, X and target slots, keeps its targets when none is
+>   wrong-sided and otherwise takes the first legal same-slot set, never a target illegal for its colours; a spell that "can't
+>   be copied" is not copied. Narset's Reversal returns the original to its owner's hand (a flashback spell is exiled, a copy
+>   ceases to exist); Dualcaster Mage is the same copy off an enters trigger.
+> · Imp's Mischief: the change-target lane plus `lose-life-spell-mana-value`; `stack.stackSpellManaValue` is the one mana value of
+>   a spell on the stack (a split half, an Adventure, X counted per `{X}`).
+> · ⚑ Existing native cards change: Reverberate, Twincast, Reiterate, Flare of Duplication and Force of Rowan re-aim a
+>   wrong-sided copy, fire magecraft "cast or copy" watchers and respect "can't be copied"; Mana Drain counts a split half's or
+>   an Adventure's own cost and `{X}{X}` twice; the change-target family (Swerve, Misdirection, Deflection, Shunt, Ricochet Trap,
+>   Bolt Bend, Redirect Lightning, Untimely Malfunction, Willbender) no longer offers a permanent with protection from the
+>   spell's colours and has alternatives for an X-target spell cast for X = 1. Witness `spellCopyFamily.test.js` (44).
+> · ⚠️ Under-reads (documented): "you may choose new targets" is policy, not a pause; a copy's targets change as one whole set;
+>   an Aura spell offered to Imp's Mischief is not moved; the AI never casts Narset's Reversal or Imp's Mischief.
+> · ⚠️ Found, not fixed (queued): `applyCopySelfSpell` (Sevinne's Reclamation) builds the copy with no cost (stack mana value 0);
+>   `applyRetarget` (Deflecting Swat) and `applyRedirectToSource` enumerate with no colours; `freshCopyTargets` (storm) with no
+>   colours, kick, X or mode; two wrong-number citations (CR 202.3b for 202.3e in the Mana Drain test; 603.3c for 603.3d in the
+>   trigger flush).
 
 > ## 🎯 2026-10-03 — PLAY-WEIGHTED · 60: Tribute to the World Tree (EDHREC #612), Goreclaw, Terror of Qal Sisma (#643), Mentor of the Meek (#657) · **+9** · corpus 15,484
 > Flip-diff **+9, −0, zero RETIERED**: Tribute to the World Tree, Mentor of the Meek, Serra Redeemer, Inspiring Commander, Snarling

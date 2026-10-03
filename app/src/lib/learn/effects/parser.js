@@ -76,7 +76,7 @@ import { payOrLoseClauseParser } from "./atoms/winGame.js"; // PACT rider (CR 60
 import { adaptIgnoreCountersClauseParser } from "./atoms/counters.js"; // Biomancer's Familiar (CR 701.46a)
 import { conniveClauseParser } from "./atoms/connive.js"; // CONNIVE (BLITZ EK-1, CR 701.50a) — draw 1 → chosen discard → +1/+1 if nonland
 import { suspectClauseParser } from "./atoms/suspect.js"; // SUSPECT (BLITZ EK-1, CR 701.60) — the suspected designation (menace + can't block)
-import { grantUncounterableClauseParser, nextSpellUncounterableClauseParser, attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser, copyCreatureSpellClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell) + COPY-A-CREATURE-SPELL (Double Major)
+import { grantUncounterableClauseParser, nextSpellUncounterableClauseParser, attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser, copyCreatureSpellClauseParser, spellOnStackSentenceAtoms } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell) + COPY-A-CREATURE-SPELL (Double Major)
 import { tuckClauseParser, graveyardReturnClauseParser, graveyardReturnPickClauseParser, bounceClauseParser, earthbendReturnClauseParser, detainReturnClauseParser, czClauseParser, blinkReturnClauseParser, gyBatchToBattlefieldClauseParser, matchGyCastPermission } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce) + EARTHBEND-RETURN (CR 603.7 delayed trigger) + DETAIN-RETURN (DT-1) + CZ-COMMANDER-VISIT (Hellkite Courser) + DELAYED-BLINK (Otherworldly Journey)
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
 import { gainControlClauseParser, regainOwnedCreaturesClauseParser } from "./atoms/control.js"; // GAIN-CONTROL (+ SG-12 Homeward Path's mass "each player gains control of all creatures they own") — indefinite control-change of a target creature/subtype (Sliver Overlord)
@@ -3120,6 +3120,14 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
         fighterCounterFirst: { counterType: "+1/+1", amount: 1 },
       }], xSpell: false, unparsedTail: null });
     }
+  }
+  // ===== SPELLS THAT ACT ON A SPELL (play-weighted #720 / #675 / #658 — Narset's Reversal, Dualcaster Mage, Imp's Mischief)
+  // ===== two-sentence effects whose second sentence binds to the first sentence's target spell ("then return it to its
+  // owner's hand. You may choose new targets for the copy" / "You lose life equal to that spell's mana value"), read whole
+  // by the stack atoms' own matcher — exact anchors, every op resolved in atoms/stack.js.
+  {
+    const atoms = spellOnStackSentenceAtoms(stripReminder(String(oracle)));
+    if (atoms) return makeProgram({ confidence: "high", atoms, xSpell: false, unparsedTail: null });
   }
   // ===== COPY THAT ABILITY (CAP-BRACERS, 2026-09-03 — CR 707.10) ===== the payoff of an ability-activated
   // trigger: "copy that ability. You may choose new targets for the copy." (Illusionist's Bracers, Rings of

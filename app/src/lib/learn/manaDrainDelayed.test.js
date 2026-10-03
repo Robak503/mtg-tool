@@ -34,9 +34,11 @@ const ORACLE = "Counter target spell. At the beginning of your next main phase, 
 const MANA_DRAIN = { id: "c-md", name: "Mana Drain", type: "Instant", mana: "{U}{U}", oracle: ORACLE };
 
 /** A game with one opponent spell on the stack; returns { state, atom }. */
-function boardWithSpell({ cmc = 3, xValue = null } = {}) {
+function boardWithSpell({ cmc = 3, xValue = null, mana = undefined } = {}) {
   const g = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
-  const spellCard = { id: "card-tgt", name: "Target Spell", type: "Sorcery", cmc, oracle: "" };
+  // `mana` (2026-10-03): the stack MV counts the chosen X once per {X} in the MANA COST (CR 202.3e — stackSpellManaValue), so
+  // the X witness carries the cost its title names; before, any recorded xValue was added once whatever the cost said.
+  const spellCard = { id: "card-tgt", name: "Target Spell", type: "Sorcery", cmc, oracle: "", ...(mana ? { mana } : {}) };
   const stackObj = createStackObject({
     id: "stk-tgt", kind: "spell", source: spellCard, controller: "ai1", targets: [],
     payload: { resolver: "manual", params: xValue != null ? { xValue } : {} },
@@ -81,7 +83,7 @@ describe("⭐⭐ LAW 6 — the counter lands AND the payout is scheduled with th
   });
 
   it("⭐ CR 202.3b: an {X}{R} spell cast with X=5 pays out SIX", () => {
-    const { state, atom } = boardWithSpell({ cmc: 1, xValue: 5 });
+    const { state, atom } = boardWithSpell({ cmc: 1, xValue: 5, mana: "{X}{R}" });
     const after = ATOM_RESOLVERS.counter(state, atom, { controller: "user", targets: [{ type: "spell", id: "stk-tgt" }], cardName: "Mana Drain" });
     const clause = (after.delayedTriggers || [])[0]?.effectClause;
     console.log("  WITNESS drainXSpell", JSON.stringify({ clause })); // vitest 4 needs --disable-console-intercept

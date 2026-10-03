@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Narset's Reversal** — copy target instant or sorcery spell, then return it to its owner's hand, with new targets for the copy; **Dualcaster Mage** — flash; when it enters, copy target instant or sorcery spell, with new targets for the copy; **Imp's Mischief** — change the target of target spell with a single target, and lose life equal to that spell's mana value
 - **Tribute to the World Tree** — whenever a creature you control enters, draw a card if its power is 3 or greater, otherwise put two +1/+1 counters on it; **Goreclaw, Terror of Qal Sisma** — creature spells you cast with power 4 or greater cost {2} less, and when it attacks each creature you control with power 4 or greater gets +1/+1 and trample; **Mentor of the Meek** — whenever another creature you control with power 2 or less enters, you may pay {1} to draw a card; also **Serra Redeemer**, **Inspiring Commander**, **Snarling Gorehound**, **Vicious Clown**, **Marketwatch Phantom** and **Neighborhood Guardian**
 - **Kindred Dominance** (and **Kindred Judgment**) — choose a creature type, then destroy every creature that isn't of that type; **Eldritch Evolution** — sacrifice a creature as you cast it, search for a creature card with mana value up to 2 more than the sacrificed creature's, put it onto the battlefield, and exile Eldritch Evolution
 - **Champion's Helm** — equipped creature gets +2/+2 and has hexproof while it is legendary; **Trailblazer's Boots** — equipped creature has nonbasic landwalk (it can't be blocked while the defending player controls a nonbasic land); also **Gimli's Axe**, **Hero's Heirloom** and **Dryad Sophisticate**
@@ -21,6 +22,9 @@ summarizes the notable changes.
 - The choices offered for "untap X target lands" list your own tapped lands first, most mana first
 
 ### Fixed
+- A copy made by **Reverberate**, **Twincast**, **Reiterate**, **Flare of Duplication** or **Force of Rowan** can now take new targets, triggers "whenever you cast or copy" abilities, and is not made of a spell that can't be copied
+- **Mana Drain** counts a split card's or an Adventure's own half, and counts {X}{X} twice
+- Change-target spells (Swerve, Misdirection, Deflection and the like) no longer offer a permanent with protection from the spell's colours as the new target
 - **Welcoming Vampire** and **Enduring Innocence** now check the entering creature's power as it is on the battlefield (anthems and other effects counted), not the number printed on the card
 - A spell that reads "the sacrificed creature" (Fling and the like) now keeps that creature's values even if another sacrifice happens in response; "sacrifice a creature" as a spell's cost now reads what is a creature at that moment (an animated land can be sacrificed; a bestowed Aura cannot)
 - Simulated games with **The Unbeatable Squirrel Girl** no longer hang. The AI used to activate her Squirrel-doubling ability on top of itself without end; it now makes Squirrels only until it has enough to win, stops everything else, and attacks every opponent in one combat

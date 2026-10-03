@@ -75,14 +75,14 @@ describe("the clause", () => {
     expect(atoms("Change the target of target spell with a single target.")).toEqual([{ op: "change-target", targetType: "spell", singleTargetOnly: true, notCounter: true }]);
     expect(atoms("Change the target of target spell or ability with a single target.")).toEqual([{ op: "change-target", targetType: "spellOrStackAbility", singleTargetOnly: true }]);
   });
-  it("the carriers read native; the riders and the player-only form stay refused", () => {
+  it("the carriers read native; the unmodeled riders and the player-only form stay refused (Imp's Mischief's life loss is modeled — spellCopyFamily.test.js)", () => {
     expect([MISDIRECTION, DEFLECTION, SHUNT, BOLT_BEND, REDIRECT_LIGHTNING, UNTIMELY].map((x) => classifyCard(x))).toEqual(Array(6).fill("native-spell"));
     const conf = (o) => programConfidence(parseEffectProgram({ type: "Instant", oracle: o }));
     expect({
       rebound: conf("Change the target of target spell that targets only a player. The new target must be a player."),
       divert: conf("Change the target of target spell with a single target unless that spell's controller pays {2}."),
       imps: conf("Change the target of target spell with a single target. You lose life equal to that spell's mana value."),
-    }).toEqual({ rebound: "low", divert: "low", imps: "low" });
+    }).toEqual({ rebound: "low", divert: "low", imps: "high" });
   });
 });
 

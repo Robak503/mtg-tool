@@ -3,14 +3,16 @@
  * Imports applyControllerRider from removal.js (DAG: removal <- stack) for the soft-counter rider.
  */
 
-import { applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js"; // the SHARED creature-restriction grammar — massFilteredDamageClauseParser's general arm delegates its recipient phrase to it (no new module edge: applyDamageEffect already came from here)
-import { graveyardExileFor, logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe, commanderCastsFromCommandZone } from "../../gameState.js";
+import { applyDamageEffect, parseCreatureTargetRestrictions, resolutionSourceColors } from "../../spellEffects.js"; // the SHARED creature-restriction grammar — massFilteredDamageClauseParser's general arm delegates its recipient phrase to it (no new module edge: applyDamageEffect already came from here); + resolutionSourceColors: a copy's own colours for its new-target pick (protection, CR 702.16b)
+import { graveyardExileFor, logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe, commanderCastsFromCommandZone, loseLife } from "../../gameState.js";
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingOptionalExileSelfChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice, setPendingChangeTargetChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
 import { permanentIsCreature, permanentTypes, equipmentBarredAsCreature, addContinuousEffect } from "../../layers.js"; // + addContinuousEffect (shelf D18 — Veil of Summer's end-of-turn target shields) // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
 import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
-import { expandCastChoices, changeTargetAlternatives } from "../targeting.js"; // + CHANGE THE TARGET (shelf D14) — the other legal targets for a stack object's one target; STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
+import { expandCastChoices, changeTargetAlternatives, atomForStackTarget } from "../targeting.js"; // + CHANGE THE TARGET (shelf D14) — the other legal targets for a stack object's one target; STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c); + atomForStackTarget: the atom a copy's recorded target belongs to (its new-target pick). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
+import { atomTargetIntent } from "../programQueries.js"; // the side a copy's target slot wants (its new-target pick, CR 707.10c). A leaf (imports only targetTypes) — the one intent table, not a second mirror
+import { tutorManaValue } from "./library.js"; // a mana cost's symbols summed (CR 202.3, 202.3f/g) for a spell on the stack. Layering {tokens,library,zones} <- removal <- stack sanctions this edge (library's closure never reaches stack)
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // COPY-A-CREATURE-SPELL (Double Major, CR 707.2): the chosen creature spell's copiable card. cloneCopy is a pure leaf (imports only gameState) — cycle-safe.
 import { checkCopyTriggers } from "../../triggers.js"; // MAGECRAFT COPY HALF (BLITZ MC-1, CR 707.10): fire "cast or copy" watchers at the copy-creation site. Cycle-safe — triggers.js's import closure (targeting→spellEffects→triggers, layers, keywords, saga, triggerScheduler) never reaches atoms/stack.js, so this edge adds no cycle; checkCopyTriggers is called only at runtime.
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // MANA DRAIN: schedule the delayed {C} payout on the CR 603.7 queue (leaf module — imports only gameState, cycle-free)
@@ -173,6 +175,27 @@ export function counterSpellById(state, spellId, { via = null, exileInstead = fa
 }
 
 /**
+ * THE MANA VALUE OF A SPELL ON THE STACK (CR 202.3), read off its stack object — the one answer for every effect that asks
+ * for "that spell's mana value" (Mana Drain's delayed mana, Imp's Mischief's life loss).
+ *  - The printed part is the source's `cmc`, except for a face that rides the stack as a projection of a multi-faced card: a
+ *    split half (CR 202.3d — on the stack only the half being cast counts) and an Adventure (CR 715.3b — only its alternative
+ *    characteristics) keep the WHOLE card's `cmc`, so their own mana cost is summed instead (a hybrid symbol by its largest
+ *    component, CR 202.3f; a Phyrexian symbol as 1, CR 202.3g). A flashback cast's cost view is the opposite case: its `mana`
+ *    is the flashback cost and its `cmc` the printed one, and an alternative cost doesn't change a spell's mana cost
+ *    (CR 118.9c) — so the `cmc` is read there.
+ *  - {X} is the chosen value while the spell is on the stack (CR 202.3e), once per {X} in the mana cost; `cmc` and the
+ *    symbol sum both read X as 0. (An X flashback cost is never offered — legalChoices.parseFlashbackManaCost.)
+ * A copy of a spell has its original's mana cost and its X (CR 707.10); its stack object carries the same source and xValue.
+ */
+const FACE_COSTED_LAYOUTS = new Set(["split", "adventure"]);
+export function stackSpellManaValue(obj) {
+  const face = obj?.source;
+  const cost = String(face?.mana ?? face?.mana_cost ?? "");
+  const printed = FACE_COSTED_LAYOUTS.has(face?.layout) ? tutorManaValue({ mana: cost }) : Math.floor(face?.cmc ?? face?.mana_value ?? 0);
+  return printed + (cost.match(/\{X\}/gi) || []).length * Math.max(0, obj?.payload?.params?.xValue || 0);
+}
+
+/**
  * COUNTER, ASKING CR 701.6a AT RESOLUTION — the entry every COUNTER path takes (2026-09-30). counterSpellById is the
  * raw stack-removal primitive; this asks first whether a SPELL can be countered at all (stackSpellIsUncounterable —
  * the same predicate the counter-target enumeration reads). The enumeration alone was never enough: a counter that
@@ -257,10 +280,9 @@ function applyCounter(state, atom, ctx) {
     // still LEGAL — countered, or uncounterable and left on the stack (the Swan Song / An Offer rulings: its
     // controller still gets the Bird / the Treasures); a fizzle above skips it.
     const riderController = targetObj.controller;
-    // MANA DRAIN — the countered spell's MV, read BEFORE counterSpellById moves it off the stack.
-    // CR 202.3b: on the stack an {X} cost counts the chosen X, which rides payload.params.xValue
-    // (absent on non-X casts → +0); card.cmc counts X as 0, so the sum is the stack MV.
-    const counteredMv = Math.floor(card?.cmc ?? card?.mana_value ?? 0) + Math.max(0, targetObj.payload?.params?.xValue || 0);
+    // MANA DRAIN — the countered spell's MV, read BEFORE counterSpellById moves it off the stack: the stack MV
+    // (stackSpellManaValue — the half or Adventure actually cast, the chosen X once per {X}; CR 202.3d/e).
+    const counteredMv = stackSpellManaValue(targetObj);
     next = uncounterableNow
       ? logEvent(next, { kind: "spell-effect", effect: "counter-uncounterable", targetId: t.id, cardName: card?.name || null, controller: targetObj.controller })
       : counterSpellById(next, t.id, { exileInstead: !!atom.exileInstead, counterDest: atom.counterDest || null });
@@ -1150,6 +1172,8 @@ export function copyCreatureSpellClauseParser(clause) {
   // legal choice, so copying with the ORIGINAL targets is a faithful SUBSET of the printed card — it can
   // only forgo an option, never play a different card. Same discipline the alt-cost recording uses. The
   // rider is therefore ACCEPTED as text (the card is fully modeled without it) rather than left as residue.
+  // (2026-10-03: an effect that is exactly the two sentences is read whole by spellOnStackSentenceAtoms below, whose
+  // atom takes the choice; this arm is what a rider-stripped clause — a mode, a longer effect — still reaches.)
   //
   // Riders that CHANGE the copy ("except that the copy is red" — Fork) are NOT accepted: they alter the
   // copy's characteristics, which this path does not model, so those stay LOW → Arbiter (CREED FN-safe).
@@ -1177,6 +1201,39 @@ export function copyCreatureSpellClauseParser(clause) {
       copyNotCounter: true,
       ...(m[1] ? { stripLegendary: true } : {}),
     };
+  }
+  return null;
+}
+
+/**
+ * ===== SPELLS THAT ACT ON A SPELL, READ WHOLE (play-weighted #720 Narset's Reversal, #675 Dualcaster Mage, #658 Imp's
+ * Mischief) ===== Three effects whose second sentence binds to the first sentence's target, so the sentence split would sever
+ * them. Returns the effect's atoms, or null. Exact anchors; any other wording (Fork's "except that the copy is red", Divert's
+ * "unless that spell's controller pays {2}", a controller or mana-value scope on the copied spell) reaches no arm.
+ *
+ *  - "Copy target instant or sorcery spell. You may choose new targets for the copy." (Dualcaster Mage's enters trigger;
+ *    Reverberate, Twincast and the other spells that are this sentence) → the copy atom with `newTargets`: the printed
+ *    permission of CR 707.10c, taken by applyCopyInstantOrSorcery's pick. The bare sentence (copyCreatureSpellClauseParser,
+ *    reached with the rider sentence stripped or never printed) carries no flag and keeps the original's targets.
+ *  - "Copy target instant or sorcery spell, then return it to its owner's hand. You may choose new targets for the copy."
+ *    (Narset's Reversal) → the same atom with `returnOriginal`: after the copy is made the ORIGINAL leaves the stack for its
+ *    owner's hand, by the stack-leave primitive every bounce takes (counterSpellById).
+ *  - "Change the target of target spell with a single target. You lose life equal to that spell's mana value." (Imp's
+ *    Mischief) → the change-target atom (Swerve's), then the life loss bound to that atom's target (`bindPreviousTargets`):
+ *    the spell stays on the stack, so its mana value is read there as the loss is applied.
+ * Abilities are not spells (CR 113.9): every arm's pool is the stack's spells only.
+ */
+export function spellOnStackSentenceAtoms(clause) {
+  const t = String(clause || "").trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  const copy = t.match(/^copy target instant or sorcery spell(, then return it to its owner's hand)?\. you may choose new targets for the copy$/);
+  if (copy) {
+    return [{ op: "copy-instant-or-sorcery", targetType: "spell", spellFilter: "instantSorcery", copyNotCounter: true, newTargets: true, ...(copy[1] ? { returnOriginal: true } : {}) }];
+  }
+  if (t === "change the target of target spell with a single target. you lose life equal to that spell's mana value") {
+    return [
+      { op: "change-target", targetType: "spell", singleTargetOnly: true, notCounter: true },
+      { op: "lose-life-spell-mana-value", bindPreviousTargets: true, targetType: null },
+    ];
   }
   return null;
 }
@@ -1696,6 +1753,46 @@ function freshCopyTargets(s, controller, bodyProgram, originalTargets) {
 }
 
 /**
+ * NEW TARGETS FOR A COPY OF ANOTHER SPELL (CR 707.10c) — "You may choose new targets for the copy": the copy's controller
+ * may leave any number of targets unchanged, and a changed target must be legal. `copyObj` is the copy as it will go on the
+ * stack (the copier's — CR 707.10), still carrying the original's targets. The house policy (the choice is a player's; the
+ * engine's default takes it the way the storm copies' pick does):
+ *  - KEEP every target when each already sits where its slot's effect wants it for the copier (atomTargetIntent: a harmful
+ *    slot on another player's side, a beneficial one on the copier's own; a slot with no decided side is never a reason to
+ *    move), or when the copy carries no effect program to re-enumerate (declining is always legal).
+ *  - Otherwise RE-AIM: the first legal target set, enumerated for the copy under its new controller — the copy's own
+ *    colours (protection, CR 702.16b), kick, X and mode, none of which a copy may change (CR 707.10, 115.8) — that fills the
+ *    SAME slots (a copy never gains or drops a target) with every target on its wanted side. A set that avoids `avoidId`
+ *    (the original spell, when the effect is about to take it off the stack — Narset's Reversal) is taken first: a copy
+ *    aimed at a spell that then leaves does nothing.
+ *  - No such set → the original targets stand (CR 707.10c), legal or not; an illegal one is dropped at the copy's own
+ *    resolution (CR 608.2b).
+ */
+function newTargetsForCopy(state, controller, copyObj, avoidId) {
+  const params = copyObj.payload.params;
+  const originals = copyObj.targets;
+  // (A copy with no effect program has no slot to read a side from — atomForStackTarget is null, so every target is kept.)
+  const sideOk = (t) => {
+    const intent = atomTargetIntent(atomForStackTarget(copyObj, t));
+    if (intent === "enemy") return copyTargetSide(state, t) !== controller;
+    if (intent === "own") return copyTargetSide(state, t) === controller;
+    return true;
+  };
+  if (originals.every(sideOk)) return originals;
+  // The slot signature: how many targets each atom takes. A target recorded by the single-effect cast path names no atom —
+  // its one slot is the only one — so there the signature is the count alone. (A two-target atom's roles need no entry of
+  // their own: every such atom reads "ambiguous" above, so its targets are never the reason for a re-aim, and at most one
+  // of its two roles is optional, so the count per atom fixes which roles are filled.)
+  const tagged = originals.some((t) => typeof t.atomIndex === "number");
+  const slots = (ts) => ts.map((t) => (tagged ? t.atomIndex : "")).sort().join(",");
+  const combos = expandCastChoices(state, controller, params.program, resolutionSourceColors(state, copyObj, null), { kicked: params.kicked === true, xValue: params.xValue });
+  const mode = JSON.stringify(params.chosenMode ?? null);
+  const fits = combos.filter((c) => JSON.stringify(c.chosenMode ?? null) === mode).map((c) => c.targets)
+    .filter((ts) => slots(ts) === slots(originals) && ts.every(sideOk));
+  return fits.find((ts) => !ts.some((t) => t.id === avoidId)) || fits[0] || originals;
+}
+
+/**
  * ===== SELF-COPY (the play-weighted program, P·23 — Sevinne's Reclamation) ===== "you may copy this spell and may choose a
  * new target for the copy": the resolving spell puts ONE copy of itself on the stack (CR 707.10), above anything below it.
  * The copy's program is `atom.body` — the effect the parser bound. The printed copy also carries the copy sentence, but a
@@ -1935,12 +2032,24 @@ function stripLegendarySupertype(card) {
  * Deep-cloned, not shared: the payload carries the program, its chosen targets and xValue, and the resolver
  * mutates params as it runs. Sharing the object would let the copy's resolution reach into the original's.
  *
- * TARGETS ARE KEPT (CR 707.10c). "You may choose new targets" is DECLINED — always a legal choice, so this
- * is a faithful SUBSET of the card: it can forgo an option, never play a different one.
+ * TARGETS (CR 707.10c). The bare atom keeps the original's targets. With `newTargets` — the printed "You may choose new
+ * targets for the copy", read whole by spellOnStackSentenceAtoms — the copy's controller takes the choice through
+ * newTargetsForCopy (keep, or re-aim a target that sits on the wrong side for its new controller).
  *
- * xValue rides along with the payload (CR 707.10b — a copy copies the value of X). The copy is placed ON TOP
+ * xValue rides along with the payload (CR 707.10 — a copy copies the value of X). The copy is placed ON TOP
  * of the stack, so it resolves BEFORE the spell it copied — which is the printed behaviour and the reason
  * Reverberate can answer a spell that would otherwise resolve first.
+ *
+ * "THIS SPELL CAN'T BE COPIED" (Display of Power, See Double, Choreographed Sparks): the spell is a legal target and no
+ * copy is made — an impossible instruction is not followed (CR 101.2: "can't" beats "can").
+ *
+ * `returnOriginal` (Narset's Reversal — "…, then return it to its owner's hand"): after the copy is made, the ORIGINAL
+ * leaves the stack by counterSpellById with the hand as its destination — not a counter (CR 701.6a names countering). The
+ * card goes to its OWNER's hand; a flashback cast is exiled instead (CR 702.34a); a copy of a spell ceases to exist
+ * (CR 704.5e, 707.10a). It happens whether or not a copy could be made.
+ *
+ * MAGECRAFT (CR 707.10): the copy is a "copy" event for "whenever you cast or copy an instant or sorcery spell"
+ * watchers — checkCopyTriggers, the chokepoint every copy-creation site funnels through.
  */
 function applyCopyInstantOrSorcery(state, atom, ctx) {
   const t = (ctx.targets || []).find((x) => x?.type === "spell");
@@ -1953,19 +2062,22 @@ function applyCopyInstantOrSorcery(state, atom, ctx) {
   if (!targetObj.payload) {
     return logEvent(state, { kind: "spell-effect", effect: "copy-instant-or-sorcery", controller: ctx.controller, count: 0, cardName: targetObj.source?.name });
   }
-  const { id, state: s2 } = mintId(state, "stk");
-  const clonedPayload = spellCopyPayload(targetObj.payload); // no disposition: the copy never puts the original's card in a graveyard
-  if (clonedPayload.params) clonedPayload.params.controller = ctx.controller; // you control the copy (CR 707.10)
-  const copyObj = createStackObject({
-    id,
-    kind: "spell",
-    source: targetObj.source,
-    controller: ctx.controller,
-    targets: targetObj.targets || [],
-    payload: clonedPayload,
-  });
-  const next = { ...s2, stack: [...s2.stack, { ...copyObj, isCopy: true }] };
-  return logEvent(next, { kind: "spell-effect", effect: "copy-instant-or-sorcery", controller: ctx.controller, count: 1, cardName: targetObj.source?.name });
+  let next = state;
+  const copyable = !/^this spell can't be copied\.$/im.test(String(targetObj.source?.oracle || "").replace(/[’]/g, "'"));
+  if (copyable) {
+    const minted = mintId(next, "stk");
+    const clonedPayload = spellCopyPayload(targetObj.payload); // no disposition: the copy never puts the original's card in a graveyard
+    clonedPayload.params.controller = ctx.controller; // you control the copy (CR 707.10)
+    let copyObj = createStackObject({ id: minted.id, kind: "spell", source: targetObj.source, controller: ctx.controller, targets: targetObj.targets || [], payload: clonedPayload });
+    if (atom.newTargets) {
+      const targets = newTargetsForCopy(minted.state, ctx.controller, copyObj, atom.returnOriginal ? targetObj.id : null);
+      copyObj = { ...copyObj, targets, payload: { ...clonedPayload, params: { ...clonedPayload.params, targets } } };
+    }
+    next = { ...minted.state, stack: [...minted.state.stack, { ...copyObj, isCopy: true }] };
+    next = checkCopyTriggers(next, { copiedSpellCard: targetObj.source, controllerId: ctx.controller });
+  }
+  if (atom.returnOriginal) next = counterSpellById(next, targetObj.id, { via: "return-to-hand", counterDest: "hand" });
+  return logEvent(next, { kind: "spell-effect", effect: "copy-instant-or-sorcery", controller: ctx.controller, count: copyable ? 1 : 0, cardName: targetObj.source?.name });
 }
 
 function applyCopyCreatureSpell(state, atom, ctx) {
@@ -2259,6 +2371,20 @@ export function moveStackTarget(state, objId, target, controller) {
 }
 
 /**
+ * "YOU LOSE LIFE EQUAL TO THAT SPELL'S MANA VALUE" (play-weighted #658 — Imp's Mischief): the controller loses life equal to
+ * the stack mana value (stackSpellManaValue — the half or Adventure cast, the chosen X; a copy's is its original's) of the
+ * spell the PRECEDING atom targeted (`bindPreviousTargets`). The change-target atom never takes that spell off the stack, so
+ * it is read where it is, as this instruction is applied (CR 608.2c, 608.2h) — after the change, whether or not the target
+ * could be changed: the loss is not conditional on it. A loss of life, not damage and not a payment (CR 119.3).
+ */
+function applyLoseLifeSpellManaValue(state, atom, ctx) {
+  const t = ctx.targets.find((x) => x.type === "spell");
+  const amount = stackSpellManaValue(state.stack.find((o) => o.id === t?.id));
+  const next = loseLife(state, { playerId: ctx.controller, amount });
+  return logEvent(next, { kind: "spell-effect", effect: "lose-life-spell-mana-value", controller: ctx.controller, amount, targetId: t?.id ?? null });
+}
+
+/**
  * RIVAZ RIDER — 'it gains "When this creature dies, exile it."' applied to the TRIGGERING CAST SPELL.
  * The grant is recorded on the spell's stack payload (params.grantDiesExile); PERMANENT_ETB threads it
  * onto the permanent exactly like castFromZone, and checkDiesTriggers exiles the card from the graveyard
@@ -2355,6 +2481,7 @@ export const stackResolvers = {
   retarget: applyRetarget, // ⭐ RETARGET (Deflecting Swat, CR 115.7) — re-pick a stack object's own targets off the live board; decline = keep (CR 115.7d)
   "redirect-to-source": applyRedirectToSource, // ⭐ REDIRECT (Hydroelectric Specimen, CR 115.7a) — a single-target spell's target moves to the source, or stays
   "change-target": applyChangeTarget, // ⭐ CHANGE THE TARGET (Misdirection, CR 115.7a) — a single-target spell or ability's target moves to another legal one (chosen), or stays
+  "lose-life-spell-mana-value": applyLoseLifeSpellManaValue, // IMP'S MISCHIEF — you lose life equal to the bound target spell's stack mana value (CR 202.3)
   "grant-dies-exile-to-cast-spell": applyGrantDiesExileToCastSpell, // RIVAZ RIDER — stamp the triggering cast spell; the permanent it becomes exiles on death
   "exile-spell": applyExileSpell, // EXILE TARGET SPELLS (Mindbreak Trap, shelf D17) — each chosen spell to its owner's exile; not a counter
   "spells-uncounterable-this-turn": applySpellsUncounterableThisTurn, // VEIL OF SUMMER (shelf D18) — the controller's spells can't be countered this turn

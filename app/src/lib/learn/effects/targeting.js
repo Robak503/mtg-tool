@@ -590,12 +590,19 @@ export function expandCastChoices(state, controllerId, program, sourceColors = [
   return combos.map(targets => ({ targets }));
 }
 
+// The source permanent a stack object's targets were offered for: the flush enumeration's (gameEngine.buildTriggerStack —
+// `context.sourceId ?? source.permanentId`) or an activation's params.sourceId. One read, shared by the two re-enumerations
+// below (the change-target alternatives and the CR 608.2b re-check), so they judge the same source.
+const offerSourceId = (params) => params.context?.sourceId ?? params.sourceId;
+
 /**
  * CHANGE THE TARGET (CR 115.7a — shelf D14): the other legal targets for a stack object's ONE target, i.e. where a "change the
  * target of target spell [or ability] with a single target" effect may move it. Enumerated from the object's controller's side
  * (hexproof, protection and "can't be the target" are the spell's problem, not the redirector's), in the same slot (atomIndex /
- * role), with the object's own kick and mode (CR 115.8 — a mode is never re-chosen). The current target is not "another" target,
- * and an object on the stack is never a legal target for itself (CR 115.5).
+ * role), with the object's own kick and mode (CR 115.8 — a mode is never re-chosen) and its own colours — a spell's, or an
+ * ability's source's (resolutionSourceColors, the read the CR 608.2b re-check judges with): a permanent with protection
+ * from one of them is not a legal target (CR 702.16b), so the target can't be changed to it. The current target is not
+ * "another" target, and an object on the stack is never a legal target for itself (CR 115.5).
  * Returns null when the object can't be re-enumerated (no effect program, or not exactly one recorded target), else the
  * alternatives — possibly none.
  */
@@ -604,7 +611,9 @@ export function changeTargetAlternatives(state, obj) {
   const originals = Array.isArray(params?.targets) ? params.targets : [];
   if (!params?.program || originals.length !== 1) return null;
   const orig = originals[0];
-  let combos = expandCastChoices(state, obj.controller, params.program, [], { kicked: params.kicked === true });
+  const colors = resolutionSourceColors(state, obj, offerSourceId(params));
+  // (`xValue`: a spell whose target count is its X — "exile X target creatures" cast for X = 1 — enumerates at that X.)
+  let combos = expandCastChoices(state, obj.controller, params.program, colors, { kicked: params.kicked === true, xValue: params.xValue });
   if (params.chosenMode != null) combos = combos.filter((c) => JSON.stringify(c.chosenMode) === JSON.stringify(params.chosenMode));
   const out = [];
   for (const c of combos) {
@@ -690,7 +699,7 @@ export function resolutionTargetVerdicts(state, obj, { legality = false } = {}) 
   if (legality) {
     // The flush enumeration's source (gameEngine.buildTriggerStack: `context.sourceId ?? source.permanentId`; an activation's
     // params.sourceId), and the cast's X — a trigger's own X already rides its context.
-    const sourceId = params.context?.sourceId ?? params.sourceId;
+    const sourceId = offerSourceId(params);
     ctx = { ...(params.context || {}), sourceId, ...(params.xValue != null ? { xValue: params.xValue } : {}), recheck: true };
     colors = resolutionSourceColors(state, obj, sourceId);
   }

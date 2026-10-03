@@ -397,6 +397,12 @@ export function atomTargetIntent(atom) {
       // an opponent's removal off your better creature, an opponent's pump onto yours. Aiming it at your own spell only
       // takes your own effect away from where you pointed it, so the chooser looks at opponents' spells.
       return "enemy";
+    case "copy-instant-or-sorcery":
+      // COPY TARGET INSTANT OR SORCERY SPELL (play-weighted #675 — Dualcaster Mage's enters trigger): whichever spell is
+      // copied, the copy is the copier's (CR 707.10) — there is no side to prove, the "under your control" reading of the
+      // any-graveyard reanimate above. A mandatory trigger must take a legal target when one exists (CR 603.3d), so every
+      // spell the enumerator offers is a correct pick; which is best is play quality.
+      return "any";
     case "transfer-counters":
       // COUNTER-TRANSFER (census slice 37) — "put its counters on target creature you control": the printed
       // subject is already restricted to your own creatures, and moving a dead creature's counters onto one
