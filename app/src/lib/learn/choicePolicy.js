@@ -79,6 +79,49 @@ export function autoPickCreatureType(state, controller, { excludePermanentId = n
 }
 
 /**
+ * AUTO-PICK the creature type a "destroy all creatures that aren't of the chosen type" sweep SPARES (Kindred Dominance,
+ * Kindred Judgment — the choice is made as the spell resolves, CR 608.2d, and must be one existing creature type, CR 205.3e).
+ *
+ * This is the "smarter pick at its own site" the policy above defers to, and it cannot be autoPickCreatureType: that one reads
+ * the chooser's PRINTED type lines only (so it can return an artifact type — the "Food" of a Food Golem — which is no creature
+ * type at all) and never looks at the opponents, whose creatures of the chosen type this effect spares too.
+ *
+ * `creatures` is the board as the caller read it: one `{ controller, types }` row per creature that is NOT every creature
+ * type, `types` being its current creature types in the vocabulary's own spelling (layers.permanentCreatureTypes — lowercase).
+ * A creature that is every creature type survives whatever is chosen, so it never moves the pick and the caller leaves it out.
+ * `creatureTypes` is the closed creature-type vocabulary (CR 205.3m), passed in because this leaf imports nothing.
+ *
+ * The policy, over every type on the board plus ONE type no listed creature has (the first such type in the vocabulary's own
+ * order — the choice that spares nothing, which is right when every type present favours the opponents):
+ *   1. the greatest (the caster's creatures of the type) minus (the other players' creatures of the type);
+ *   2. then the most of the caster's own;
+ *   3. then the first in sorted order — deterministic, no Map-iteration-order reliance.
+ * It counts creatures and nothing else (not their size, not indestructible): the same deliberately dull discipline as above.
+ * Returns a member of `creatureTypes`, or of the rows' own types.
+ */
+export function autoPickCreatureTypeToSpare(creatures, controller, creatureTypes) {
+  const tally = new Map(); // type → { own, opp }
+  for (const c of creatures) {
+    for (const type of c.types) {
+      const row = tally.get(type) || { own: 0, opp: 0 };
+      if (c.controller === controller) row.own += 1;
+      else row.opp += 1;
+      tally.set(type, row);
+    }
+  }
+  const rowOf = (type) => tally.get(type) || { own: 0, opp: 0 };
+  const absent = [...creatureTypes].filter((type) => !tally.has(type)).slice(0, 1);
+  const candidates = [...[...tally.keys()].sort(), ...absent];
+  let best = candidates[0];
+  for (const type of candidates) {
+    const a = rowOf(type);
+    const b = rowOf(best);
+    if (a.own - a.opp > b.own - b.opp || (a.own - a.opp === b.own - b.opp && a.own > b.own)) best = type;
+  }
+  return best;
+}
+
+/**
  * AUTO-PICK a card type for an "as this enters, choose <card types>" choice (CR 614.12a — made before the permanent enters):
  * Cloud Key's "choose artifact, creature, enchantment, instant, or sorcery", whose payoff discounts spells of the chosen type.
  *

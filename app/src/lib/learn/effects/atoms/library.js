@@ -290,11 +290,19 @@ export function applyTutor(state, atom, ctx) {
   // was paid) wins over the shared state channel, which a later sacrifice could have overwritten. No value → an exact
   // value no card has, so nothing is fetched (never an uncapped search).
   const sacMv = (ctx?.sacrificedForCost ?? state.sacrificedForCost)?.manaValue;
+  // bfs (play-weighted #756 — Eldritch Evolution) — "mana value X or less, where X is 2 plus the sacrificed creature's mana
+  // value": a CAP from the last-known mana value (CR 608.2h) of the creature sacrificed to cast THIS spell. Read only off the
+  // spell's own frozen copy (ctx.sacrificedForCost — the dispatcher stamps it as the cost is paid, and a copy of the spell
+  // carries it, CR 707.10): the shared state channel holds whatever was sacrificed LAST, by any spell or ability. No frozen
+  // value → a cap no card is under, so nothing is fetched (never an uncapped search).
+  const spellSacMv = ctx?.sacrificedForCost?.manaValue;
   const effFilter = atom.filter?.mvCapX
     ? { ...atom.filter, mv: { max: Math.max(0, ctx.xValue ?? 0) } }
     : atom.filter?.mvFromSacrificedPlus != null
       ? { ...atom.filter, mv: { exact: Number.isFinite(sacMv) ? sacMv + atom.filter.mvFromSacrificedPlus : -1 } }
-      : atom.filter;
+      : atom.filter?.mvMaxFromSacrificedPlus != null
+        ? { ...atom.filter, mv: { max: Number.isFinite(spellSacMv) ? spellSacMv + atom.filter.mvMaxFromSacrificedPlus : -1 } }
+        : atom.filter;
   // RAMP-MULTI-X — resolve the dynamic fetch cardinality (Traverse the Outlands / Boundless Realms) ONCE from
   // the board source. Math.max(0, …) clamps an empty/zero board to 0 (never a fabricated count). When the count
   // is 0 ("search for up to 0 cards" — e.g. Traverse with no creatures), the search fetches NOTHING: a logged

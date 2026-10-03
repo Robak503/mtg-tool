@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Kindred Dominance** (and **Kindred Judgment**) — choose a creature type, then destroy every creature that isn't of that type; **Eldritch Evolution** — sacrifice a creature as you cast it, search for a creature card with mana value up to 2 more than the sacrificed creature's, put it onto the battlefield, and exile Eldritch Evolution
 - **Champion's Helm** — equipped creature gets +2/+2 and has hexproof while it is legendary; **Trailblazer's Boots** — equipped creature has nonbasic landwalk (it can't be blocked while the defending player controls a nonbasic land); also **Gimli's Axe**, **Hero's Heirloom** and **Dryad Sophisticate**
 
 ### Changed
@@ -19,6 +20,7 @@ summarizes the notable changes.
 - The choices offered for "untap X target lands" list your own tapped lands first, most mana first
 
 ### Fixed
+- A spell that reads "the sacrificed creature" (Fling and the like) now keeps that creature's values even if another sacrifice happens in response; "sacrifice a creature" as a spell's cost now reads what is a creature at that moment (an animated land can be sacrificed; a bestowed Aura cannot)
 - Simulated games with **The Unbeatable Squirrel Girl** no longer hang. The AI used to activate her Squirrel-doubling ability on top of itself without end; it now makes Squirrels only until it has enough to win, stops everything else, and attacks every opponent in one combat
 - A game could end in an error when **Phyrexian Altar** or **Ashnod's Altar** helped pay a cost alongside creatures that tap for mana (Cryptolith Rite, Enduring Vitality): the Altar could sacrifice a creature the same payment still needed. It now takes its victim last, never one the spell's or ability's own cost needs, and is not counted when no other creature could feed it
 - A long but legitimate turn (hundreds of triggers resolving one after another) is no longer mistaken for an endless loop and cut off

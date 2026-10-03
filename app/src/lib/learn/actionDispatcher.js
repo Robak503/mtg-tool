@@ -86,7 +86,7 @@ import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTap
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
 import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses · LANDS-5: the ONE discard-ability price reducer the offer uses too
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf, crewCostWithOverrides, permanentColors, permIsEveryCreatureType } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
+import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf, crewCostWithOverrides, permanentColors, permIsEveryCreatureType, permanentManaValue } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell / command-zone card that is every creature type (Changeling, Maskwood Nexus); a leaf over keywords.js
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39b — every creature type shares a creature type only (CR 205.3d); a zero-import leaf
 import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility, parseHandSelfPutAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch; S8 — the Pilot's crew boost; play-weighted #570 — the hand self-put, re-read from the card
@@ -537,6 +537,9 @@ function applyCastSpell(state, action) {
       working = moveCardToZone(working, { playerId: action.playerId, fromZone: "graveyard", toZone: "exile", cardId: gid });
     }
   }
+  // The last-known values of the ONE permanent sacrificed to cast this spell (the single-victim branch below), kept so the
+  // spell's own payload can carry them: null when this cast sacrificed nothing, or N permanents.
+  let sacrificedLki = null;
   for (const ac of chosenSpec || programCosts) {
     if (ac.kind === "sacrifice" && (ac.count ?? 1) > 1) {
       // AC-1 (count-of-N, CR 701.21a) — sacrifice EACH of the N frozen victims (battlefield→graveyard + dies
@@ -573,18 +576,19 @@ function applyCastSpell(state, action) {
       // sacrifice, which is the only moment the permanent is still there — the effect resolves later, when it
       // is long gone. Mirrors the revealedCardMV stamp the reanimate-drain chain uses.
       //
-      // Power/toughness are read LAYER-AWARE (a pumped creature sacrificed gives its CURRENT power, CR 613);
-      // mana value comes off the printed cost (CR 202.3b — no layer alters it). `?? 0` for a permanent with
-      // no P/T (an artifact sacrificed to an "artifact or creature" cost) → a clean 0, never a fabricated
-      // magnitude. Only the SINGLE-victim branch stamps: the count-of-N form has no singular referent to name.
-      working = {
-        ...working,
-        sacrificedForCost: {
-          power: Math.max(0, creaturePower(victim, working) ?? 0),
-          toughness: Math.max(0, creatureToughness(victim, working) ?? 0),
-          manaValue: Math.max(0, victim.card?.cmc ?? 0),
-        },
+      // Power/toughness are read LAYER-AWARE (a pumped creature sacrificed gives its CURRENT power, CR 613).
+      // Mana value is the OBJECT's as it was sacrificed (layers.permanentManaValue, CR 202.3): the mana cost is a copiable
+      // value, so a permanent that is a copy has the copied mana value (CR 707.2 — a layer-1 copy's too); a token that
+      // isn't a copy has no mana cost and mana value 0 (CR 202.1b, 202.3a); an {X} in the cost counts as 0 (CR 107.3g,
+      // 202.3e). `?? 0` for a permanent with no P/T (an artifact sacrificed to an "artifact or creature" cost) → a clean
+      // 0, never a fabricated magnitude. Only the SINGLE-victim branch stamps: the count-of-N form has no singular
+      // referent to name.
+      sacrificedLki = {
+        power: Math.max(0, creaturePower(victim, working) ?? 0),
+        toughness: Math.max(0, creatureToughness(victim, working) ?? 0),
+        manaValue: Math.max(0, permanentManaValue(working, victim)),
       };
+      working = { ...working, sacrificedForCost: sacrificedLki };
       working = sacrificePermanentForCost(working, action.playerId, victim);
     } else if (ac.kind === "payLife") {
       working = loseLife(working, { playerId: action.playerId, amount: ac.amount });
@@ -882,6 +886,14 @@ function applyCastSpell(state, action) {
     // (false) from an object that was never cast at all (no stamp → null). It rides params.context beside castFromGraveyard;
     // a copy is never cast (CR 707.10), so stack.spellCopyPayload strips it from every copy.
     params.context = { ...(params.context || {}), castDuringMainPhase: castDuringMainPhaseNow(state, action.playerId) };
+    // THE SACRIFICED PERMANENT'S LKI, FROZEN ON THIS SPELL (play-weighted #756 — Eldritch Evolution; Fling and the other
+    // "the sacrificed creature's …" spells read it too). The state stamp (`sacrificedForCost`) is one shared channel: a
+    // sacrifice-cost spell or ability put on the stack in response overwrites it, and this spell would resolve reading THAT
+    // permanent's numbers. The copy rides params.context — the channel the activated-ability path already uses (shelf D12) —
+    // and countForSpec / applyTutor read it before the shared one. Stamped only from THIS cast's own payment, never from
+    // whatever the state channel still holds. A copy of the spell keeps it: it uses the objects used to pay the original's
+    // costs (CR 707.10).
+    if (sacrificedLki) params.context = { ...params.context, sacrificedForCost: sacrificedLki };
     // KICKED-SPELL-EFFECT (CR 702.33e): a kicked cast threads the was-kicked flag so runEffectProgram runs the
     // `kickedOnly` atoms (the "If this spell was kicked, <extra>" payoff). A normal cast leaves it unset and the
     // kicked atoms are skipped (base-only). The kicker mana is already folded into action.cost by legalChoices.

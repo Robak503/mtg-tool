@@ -586,8 +586,10 @@ export function programContainsMassRemoval(program) {
   // rocks and dorks included). It names no targetType (nothing is chosen), so it is held by op; it is NOT a creature wipe
   // for the behind-on-board unlock below (it never answers a creature costing more than N), so it stays held, like
   // Armageddon-class mass removal.
+  // KINDRED DOMINANCE (#701) — every creature that isn't of the type chosen on resolution, on every battlefield. It names no
+  // targetType either, so it is held by op; it IS a creature wipe for the behind-on-board unlock below.
   return atoms.some(a => (MASS_WIPE_SCOPES.has(a.targetType) && ["destroy", "exile", "pump", "mass-destroy-treasure-per-nontoken"].includes(a.op))
-    || a.op === "mass-destroy-add-mana-per-destroyed");
+    || a.op === "mass-destroy-add-mana-per-destroyed" || a.op === "destroy-not-chosen-type");
 }
 
 /**
@@ -609,6 +611,7 @@ export function programContainsCreatureMassRemoval(program) {
     : (program.atoms || []);
   return atoms.some(a =>
     a.op === "mass-destroy-treasure-per-nontoken" ||
+    a.op === "destroy-not-chosen-type" || // KINDRED DOMINANCE (#701) — answers a creature board (and spares the caster's best type)
     // the TRIPLE wipe (stage ③ · 29 — Nevinyrral's Disk, Akroma's Vengeance) answers a creature board too
     (a.targetType === "eachArtifactCreatureOrEnchantment" && (a.op === "destroy" || a.op === "exile")) ||
     (a.targetType === "eachCreature" && (

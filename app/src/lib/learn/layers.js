@@ -2272,11 +2272,50 @@ export function permanentIsCreature(state, permanentId) {
  * effect not since replaced (the derive's everyCreatureType — Mutavault's animation, Mirror Entity's
  * activation). The battlefield half of the question; a spell or a card elsewhere asks
  * everyCreatureType.cardIsEveryCreatureType. Every creature-type reader that knew to ask about Changeling asks this instead.
+ *
+ * Changeling is read off the copiable values when a layer-1 copy effect applies (CR 707.2 — the rules text is copied, and
+ * layer 1 comes before the layer-4 characteristic-defining ability, CR 613.1a): Impossible Man as a copy of Chameleon
+ * Colossus is every creature type, and a changeling that became a copy of a creature without Changeling no longer is.
  */
 export function permIsEveryCreatureType(state, permanentId) {
   const perm = findPerm(state, permanentId);
   if (!perm) return false;
-  return hasKeyword(perm.card, "changeling") || deriveCharacteristics(state, permanentId).everyCreatureType;
+  const chars = deriveCharacteristics(state, permanentId);
+  return hasKeyword(chars.copiableValues || perm.card, "changeling") || chars.everyCreatureType;
+}
+
+/**
+ * CREATURE TYPES AFTER LAYER 4 — the creature types battlefield permanent `permanentId` has right now, as the closed
+ * vocabulary spells them (CR 205.3m — lowercase; the one two-word type, "time lord", is one entry). Type-changing effects apply
+ * in layer 4 (CR 613.1d), so the answer is the derive's subtypes: "is the chosen type in addition to its other types" adds one
+ * (Metallic Mimic), "becomes the creature type of your choice" replaces them (the Mistform cycle), and a layer-1 copy has the
+ * copied type line (CR 707.2). A word outside the vocabulary is another card type's subtype riding the same dash (the Food of
+ * a Food Golem, the Forest of Dryad Arbor) and is never a creature type.
+ *
+ * Read with the FRONT FACE's discipline, as permanentHasCardType reads card types: a double-faced permanent with its front
+ * face up has only that face's characteristics (CR 712.8d), but the derive takes its subtypes off the whole "Front // Back"
+ * line, so a type only the back face prints (the Insect of Delver of Secrets // Insectile Aberration) counts here only when a
+ * layer-4 effect on the permanent added it.
+ *
+ * It does NOT expand "every creature type" (Changeling, an all-creature-types effect): that is permIsEveryCreatureType's
+ * answer, and a reader of "is it a <type>?" asks both. A permanent the battlefield no longer holds has none.
+ */
+export function permanentCreatureTypes(state, permanentId) {
+  const perm = findPerm(state, permanentId);
+  if (!perm) return [];
+  const chars = deriveCharacteristics(state, permanentId);
+  const line = typeLineOf(chars.copiableValues || perm.card);
+  const front = line.includes(" // ") ? subtypesOf({ type: line.split(" // ")[0] }) : null;
+  const added = chars.appliedEffects.flatMap((e) => e.op?.subtypes || []);
+  const words = [...new Set(chars.subtypes)] // each type once: both faces of a double-faced card can print the same one
+    .filter((st) => !front || front.includes(st) || added.includes(st))
+    .map((st) => String(st).toLowerCase());
+  const out = words.filter((w) => CR_CREATURE_TYPES.has(w));
+  for (let i = 0; i + 1 < words.length; i++) {
+    const pair = `${words[i]} ${words[i + 1]}`;
+    if (CR_CREATURE_TYPES.has(pair)) out.push(pair);
+  }
+  return out;
 }
 
 /**

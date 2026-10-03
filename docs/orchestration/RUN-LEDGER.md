@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **7 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,472)**; engine gains since the tag: **+5**. The next tag
+> **8 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,475)**; engine gains since the tag: **+8**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,28 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-03 — PLAY-WEIGHTED · 59: Kindred Dominance (EDHREC #701), Eldritch Evolution (#756) · **+3** · corpus 15,475
+> Flip-diff **+3, −0, zero RETIERED**: Kindred Dominance, Eldritch Evolution, Kindred Judgment → native-spell. Top 1,000 **895**;
+> top 2,500 **1,734**. **Mutants 49/49** on the integrated tree, restore byte-identical. Built by a fan-out builder (rebased onto
+> master before its gates); re-verified on the integrated tree. One pin re-pointed, none deleted (`additionalCostLowProgram.test.js`
+> — its "effect does not parse" example is now Neoform).
+> · Kindred Dominance: one atom, `destroy-not-chosen-type`. The type is chosen on resolution by policy
+>   (`choicePolicy.autoPickCreatureTypeToSpare`: the caster's creatures of a type minus everyone else's) — for every seat, the human
+>   included; there is no picker (the Distant Melody convention). The set is every permanent that is a creature NOW and not of
+>   the chosen type by its current types (new `layers.permanentCreatureTypes`; Changeling read off a layer-1 copy), destroyed in one
+>   `applyDestroyEffect` call (indestructible, regeneration, umbra armor apply).
+> · Eldritch Evolution: the existing sacrifice-cost lane and one tutor atom capped at 2 + the sacrificed creature's last-known
+>   mana value, to the battlefield through `enterCardFromZone`, then the `selfExile` stamp. ⚑ The sacrificed permanent's values now
+>   ride the spell's OWN `params.context.sacrificedForCost` (Fling and the other sacrificed-referent spells read that frozen copy
+>   first), its mana value through `permanentManaValue`; the single-victim "sacrifice a creature" offer reads creature-ness through
+>   the layers (an animated Mutavault is offered; a bestowed Aura, a God below devotion and a Saga are not).
+>   Witness `kindredDominanceEvolution.test.js` (36; labelled synthetic cases).
+> · ⚠️ Found, not fixed (queued): `shared.massCreatureTargets` admits any printed creature card (Wrath-class wipes hit a bestowed
+>   Aura or a Saga with a creature back) and its `subtypeFilter` reads the printed front type line; `legalChoices.sacTypeMatches` is
+>   still printed-card for the count-of-N cost, the union types and the ability lanes; the dispatcher does not re-validate a
+>   victim's type at charge time; the activated-ability sacrifice stamp and `runProgram` read `victim.card.cmc`; `applyTutor`'s Pod
+>   arm falls back to the shared state channel; the become-a-copy offer never targets a double-faced permanent.
 
 > ## 🎯 2026-10-03 — PLAY-WEIGHTED · 58: Champion's Helm (EDHREC #740), Trailblazer's Boots (#656) · **+5** · corpus 15,472
 > Flip-diff **+5, −0, zero RETIERED**: Champion's Helm, Trailblazer's Boots, Gimli's Axe, Hero's Heirloom → native-equipment; Dryad

@@ -665,6 +665,48 @@ export function matchMassDestroyManaPerDestroyed(oracle) {
 }
 
 /**
+ * ===== KINDRED DOMINANCE (play-weighted #701; Kindred Judgment) ===== "Choose a creature type. Destroy all creatures that
+ * aren't of the chosen type." The second sentence reads the type the first one chooses, so the sentence split would orphan
+ * both halves (a bare "choose a creature type" does nothing, and "the chosen type" has no source). Collapse the compound up
+ * front to ONE destroy-not-chosen-type atom: the resolver makes the choice as the spell resolves and destroys the rest through
+ * the shared destroy. The atom names no target (targetType null — nothing is chosen as the spell is cast). Anchored ^…$ on
+ * exactly these two sentences: "each player chooses" (Harsh Mercy), "of the creature type of your choice" (Extinction), the
+ * -3/-3 and bounce forms (Crippling Fear, Raise the Palisade) and any rider leave no match → low → Arbiter. Returns { atom }.
+ */
+export function matchDestroyNotChosenType(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  if (!/^choose a creature type\. destroy all creatures that aren't of the chosen type$/.test(s)) return null;
+  return { atom: { op: "destroy-not-chosen-type", targetType: null } };
+}
+
+/**
+ * ===== ELDRITCH EVOLUTION (play-weighted #756) ===== "Search your library for a creature card with mana value X or less, where
+ * X is 2 plus the sacrificed creature's mana value. Put that card onto the battlefield, then shuffle." The put is its own
+ * sentence, so the sentence split would leave a search with no destination and a put with no card. Collapse the two up front
+ * to ONE tutor atom — the Pod family's atom (atoms/library.js bfp) with a CAP instead of an exact value: `mvMaxFromSacrificedPlus`
+ * is resolved in applyTutor to mv.max = N + the last-known mana value of the creature sacrificed to cast this spell (CR 608.2h),
+ * frozen on the spell as that cost was paid. X is defined by the text, never chosen and never in a cost (so the program is not
+ * an X spell). Anchored ^…$ on exactly these two sentences, the creature filter only; the card's own "Exile Eldritch Evolution."
+ * is peeled and stamped by the self-exile retry before this is reached. Returns { atom }.
+ */
+export function matchTutorMvCapFromSacrificed(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  const m = s.match(/^search your library for a creature card with mana value x or less, where x is (\d+) plus the sacrificed creature's mana value\. put that card onto the battlefield, then shuffle$/);
+  if (!m) return null;
+  const plus = parseInt(m[1], 10);
+  return {
+    atom: {
+      op: "tutor",
+      filter: { ...parseTutorFilter("creature"), mvMaxFromSacrificedPlus: plus },
+      filterLabel: `creature card with mana value ${plus} plus the sacrificed creature's or less`,
+      destination: "battlefield",
+      entersTapped: false,
+      targetType: null,
+    },
+  };
+}
+
+/**
  * ===== WINDFALL (max-discarded wheel) ===== "Each player discards their hand, then draws cards equal to the
  * greatest number of cards a player discarded this way." (Windfall, Whispering Madness' base body). A ONE-
  * sentence discard-then-draw where the draw count is the GREATEST number any player discarded — a back-

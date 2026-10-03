@@ -380,12 +380,17 @@ function cardMatchesAddCostType(card, type) {
   return false;
 }
 
-function sacTypeMatches(card, type, subtype = null) {
+// `creatureNow` (play-weighted #756): for the plain "creature" type, whether the PERMANENT is a creature right now
+// (layers.permanentIsCreature), from a caller that holds the object on the battlefield — a bestowed Aura, a God short of its
+// devotion and a Saga whose back face is a creature are not creatures, and an animated land is one. Left out, the answer is the
+// printed type line's: the right read for a card in a hand, and what the callers not yet moved to the object's answer (and
+// every union type below) still get.
+function sacTypeMatches(card, type, subtype = null, creatureNow = null) {
   if (type === "permanent" && !subtype) return true;
   const t = typeLineOf(card);
   const baseOk =
     type === "permanent" ? true :
-    type === "creature" ? t.includes("Creature") :
+    type === "creature" ? (creatureNow ?? t.includes("Creature")) :
     type === "artifact" ? t.includes("Artifact") :
     type === "enchantment" ? t.includes("Enchantment") :
     type === "land" ? t.includes("Land") :
@@ -1424,8 +1429,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // the dies path can't fire is excluded (sacrificeDropsTrigger) so we never partially apply.
         // SAVAGE ORDER (2026-08-14) — minPower gates the victim pool by LAYER-AWARE power at cast time
         // (creaturePower reads pumps/counters live): a 3-power board can't pay "power 4 or greater".
+        // "A creature" is the OBJECT's type as the cost is paid (CR 601.2h — layers.permanentIsCreature): an animated land
+        // pays "sacrifice a creature"; a bestowed Aura, a God short of its devotion and a Saga with a creature back face do not.
         const victims = player.battlefield.filter(v =>
-          sacTypeMatches(v.card, addCost.sacType) &&
+          sacTypeMatches(v.card, addCost.sacType, null, permanentIsCreature(state, v.id)) &&
           (addCost.minPower == null || creaturePower(v, state) >= addCost.minPower) &&
           // COLOR-qualified sac (Natural Order): the victim's CURRENT color (CR 613.1e — permanentColors), the same read
           // the dispatcher re-validates at charge time; a green creature turned blue doesn't pay "sacrifice a green creature".

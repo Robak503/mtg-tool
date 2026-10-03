@@ -15,8 +15,10 @@ import { applyCreateToken, applyCreateNamedToken, applyCreateTokenCopy } from ".
 import { applyTutor, millOnePlayer } from "./library.js";
 import { applyZoneMove, applyExileUntilLeaves } from "./zones.js";
 import { manifestTopOf } from "./manifest.js"; // P·19 — Reality Shift's controller rider (manifest imports only gameState, triggers, tokens)
-import { permanentTypes, permIsEveryCreatureType, permanentHasCardType, permanentIsCreature, deriveCharacteristics } from "../../layers.js"; // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentHasCardType (#509, #639): the batch edict's layer-aware, face-up pool and a sacrificed planeswalker // + deriveCharacteristics (#582): the destroyed creature's copiable values (a layer-1 copy result) // + permanentIsCreature: the destroy ladder's layer-aware death look-backs
+import { permanentTypes, permIsEveryCreatureType, permanentHasCardType, permanentIsCreature, deriveCharacteristics, permanentCreatureTypes } from "../../layers.js"; // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentHasCardType (#509, #639): the batch edict's layer-aware, face-up pool and a sacrificed planeswalker // + deriveCharacteristics (#582): the destroyed creature's copiable values (a layer-1 copy result) // + permanentIsCreature: the destroy ladder's layer-aware death look-backs
 import { NAMED_TOKENS } from "./tokens.js"; // NAMED-TOKEN sacrifice pool — same registry the mint side uses, so a pool can never name a token the engine cannot create
+import { autoPickCreatureTypeToSpare } from "../../choicePolicy.js"; // #701 — Kindred Dominance's resolution-time type choice (a zero-import leaf)
+import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // #701 — the closed creature-type vocabulary the choice is made from (a zero-import leaf)
 import { NUM_WORD } from "../parseHelpers.js"; // #509 — the N-count edict's spelled cardinal (parseHelpers is a leaf: keywords.js only)
 
 // MULTI-COUNT "any number of target" upper bound (CR 601.2c) — the count is unbounded on the card, so use a
@@ -1423,6 +1425,37 @@ function applyMassDestroyAddManaPerDestroyed(state, atom, ctx) {
 }
 
 /**
+ * ===== KINDRED DOMINANCE (play-weighted #701; Kindred Judgment prints the same text) ===== "Choose a creature type. Destroy all
+ * creatures that aren't of the chosen type." ONE atom (templateMatchers.matchDestroyNotChosenType): the second sentence reads the
+ * choice the first makes, a back-reference the sentence split would orphan.
+ *
+ * THE CHOICE is made as the spell resolves (CR 608.2d) and is one existing creature type (CR 205.3e, the CR 205.3m list). The
+ * engine has no picker for it, so the shared policy chooses (choicePolicy.autoPickCreatureTypeToSpare — the type that spares the
+ * most of the caster's creatures net of the other players'), from the board as it is now.
+ *
+ * THE SET is every permanent that is a creature right now (layer-aware — an animated land is one; a bestowed Aura and a God
+ * short of its devotion are not) and is NOT of the chosen type. A creature's types are its current ones (CR 613.1d —
+ * layers.permanentCreatureTypes: a type an effect added counts, a type an effect replaced does not, a double-faced creature has
+ * its front face's). A creature that is every creature type — Changeling (CR 702.73a), an all-creature-types effect — is of
+ * the chosen type whatever was chosen (layers.permIsEveryCreatureType) and is never in the set.
+ *
+ * THE DESTROY is the shared applyDestroyEffect, one simultaneous event (CR 608.2f): indestructible (CR 702.12b), a regeneration
+ * shield (CR 701.8c), a shield counter and umbra armor (CR 702.89a) keep a permanent exactly as they do from any destroy, and
+ * every dies trigger sees the whole set leave together. A "can't be regenerated" rider, were one printed, reaches it as
+ * cannotRegenerate (the parser's rider stamp covers this op).
+ */
+function applyDestroyNotChosenType(state, atom, ctx) {
+  const creatures = massCreatureTargets(state).filter((t) => permanentIsCreature(state, t.id));
+  const typed = creatures
+    .filter((t) => !permIsEveryCreatureType(state, t.id))
+    .map((t) => ({ target: t, controller: t.controller, types: permanentCreatureTypes(state, t.id) }));
+  const chosen = autoPickCreatureTypeToSpare(typed, ctx.controller, CR_CREATURE_TYPES);
+  const targets = typed.filter((row) => !row.types.includes(chosen)).map((row) => row.target);
+  const next = applyDestroyEffect(state, { controller: ctx.controller, targets, cannotRegenerate: atom.cannotRegenerate });
+  return logEvent(next, { kind: "spell-effect", effect: "destroy-not-chosen-type", controller: ctx.controller, chosenType: chosen, notOfType: targets.length, ofType: creatures.length - targets.length });
+}
+
+/**
  * BASILISK TOUCH enqueue (BLITZ DG-1, CR 511) — the destroy-at-end-of-combat resolver does NOT destroy:
  * it pushes a TURN-STAMPED entry onto state.endOfCombatEffects for the triggering creature (the contact
  * partner — ctx.triggeringPermanentId, the thatCreature referent). combatResolution.drainEndOfCombatEffects
@@ -1503,6 +1536,7 @@ export const removalResolvers = {
   "self-at-end-of-combat": applySelfAtEndOfCombat, // ④-AX — "sacrifice it / return it to its owner's hand at end of combat" (the attacks-or-blocks self class)
   "champion": applyChampion, // ===== CHAMPION (CR 702.71a) ===== exile ANOTHER own nontoken creature of the named type, linked to the source via the shared detain resolver (so the return is the one already proven); sacrifice the source when no legal offering exists
   "mass-destroy-treasure-per-nontoken": applyMassDestroyTreasurePerNontoken, // BLOOD-MONEY — destroy all creatures + a tapped Treasure per nontoken creature destroyed
+  "destroy-not-chosen-type": applyDestroyNotChosenType, // KINDRED DOMINANCE (#701) — choose a creature type on resolution, destroy every creature that isn't of it
   "mass-destroy-add-mana-per-destroyed": applyMassDestroyAddManaPerDestroyed, // CULLING RITUAL (#587) — destroy each nonland permanent with mana value N or less + one {X}-or-{Y} mana per permanent destroyed
   "destroy-at-end-of-combat": applyDestroyAtEndOfCombat, // BASILISK TOUCH (DG-1, CR 511) — enqueue a turn-stamped delayed destroy; combatResolution drains it
   "destroy": (state, atom, ctx) =>
