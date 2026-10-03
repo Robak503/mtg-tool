@@ -419,6 +419,24 @@ already carrying the most. The offer side only reorders: `legalChoices` passes
 player's tapped lands come first by value and the best set per X is the first
 one offered (it survives the 64-option cap).
 
+**An activation that resolves to nothing must not be the AI's pick (added 2026-10-03).**
+A free activation the resolver refuses is a turn that never ends: the equip pick
+(`pickEquipAction`) stops only when its Equipment sits on the best body, and
+Puresteel Paladin's "equip {0}" removes the cost that used to bound it. Two rules
+follow. A target the resolver's CR 608.2b re-check would refuse is not a legal
+target, so the OFFER must make the same check with the same inputs — the Equip
+offer's `canBeTargetedBy` carries the source's colours, as `resolvers.ATTACH` does
+(CR 702.16b). An activation that is legal but does nothing stays offered and the
+PICK skips it — a creature Equipment without reconfigure (CR 301.5c / 701.3b;
+`layers.equipmentBarredAsCreature`). Witness: `equipOfferParity.test.js`.
+
+**Commander color identity (`commanderIdentity.js`).** Stamped on the seat at game
+start from the commander cards' `colorIdentity`, which the deck enrichment
+(`server/learnDeckEnrich.js`) carries from the index. A commander card that states
+no identity is UNKNOWN — null, the quality does nothing (CR 903.4f) — never
+colorless: an absent field read as `[]` gave Commander's Plate protection from all
+five colors in every real game while hand-built fixtures stayed green.
+
 ### 4.9 Self-play (`selfPlayRunner.js`, `learnSession.js`, `gameApi.js`)
 
 `learnSession.advanceUntilDecision` is the real driver loop (SBA check →

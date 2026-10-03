@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **11 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
+> **12 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,36 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-03 — FIX: Commander's Plate's commander color identity in real games · the free-Equip loops (Captain America) · **+0** · corpus 15,492
+> Suite **18,864** green. Flip-diff **0 / 0 / 0**. **Mutants 24/24**, restore byte-identical. Omnath's Captain America stalls
+> (118 of the July list's 123 turn stalls name Captain America or Jurassic Ramp): seeds 3171500727, 197676014 and 2478174618
+> replayed — all three now finish with a winner (they ended `turn stall`, 2,000 – 9,900 ticks).
+> · **The loop.** An Equip activation that resolves to nothing, made free by Puresteel Paladin's "equip {0}": the AI's equip
+>   pick (`opponentAI.pickEquipAction`) ends only when its Equipment sits on the best body, so it repeated without end. Two
+>   cases. (1) Red Lizard Blades onto a creature with protection from red: the attach resolver's CR 608.2b re-check refused it
+>   with the source's colours, and the offer passed none — the offer's `canBeTargetedBy` now carries them (CR 702.16b; an
+>   illegal target is no longer offered). (2) Halvar, God of Battle, a creature whose card carries its Equipment face's
+>   "Equip {1}{W}": the activation is LEGAL and does nothing (CR 301.5c / 701.3b — `attachLegality.test.js` pins the same for a
+>   crewed Rover Blades), so the offer stays and the AI's pick skips an Equipment `equipmentBarredAsCreature` bars.
+> · **⚑ The cause behind the first: Commander's Plate was wrong in every real game.** · 6 (10-01) stamped the seat's commander
+>   identity at game start, read from the commander card's `colorIdentity` — which `server/learnDeckEnrich.js` never carried.
+>   The stamp was `[]` ("colorless") for every deck the app or self-play loaded, so the Plate gave protection from all five
+>   colours, the commander's own included. · 6's witnesses set the field by hand, so they stayed green (the hollow-gate law:
+>   no witness ran the deck path). Now: the enrichment carries `colorIdentity` (a bare card, and an already-shaped saved card
+>   that lacks it); `commanderIdentity.knownColorIdentityOfCards` answers null when any commander card states no identity —
+>   unknown is never colourless, and the quality then does nothing (CR 903.4f).
+> · **Results change (flagged to Omnath):** 38 of 40 replayed games are identical once the new card field is ignored; the two
+>   that differ each seat a Commander's Plate deck (Captain America; Omnath, Locus of Mana) — a block the false protection had
+>   barred is now legal. Every card object in a loaded deck now carries `colorIdentity`. New 48-game hashes:
+>   `14b65ca7a0fb9846` (8) / `b4ef9f1b7661a29f` (40).
+> · Witness `equipOfferParity.test.js` (22, real fixtures; the enrichment through its injected lookup; the AI's own picks
+>   under a free Equip). First draft closed case (2) in the offer; the suite's `attachLegality` pin caught it, and the guard
+>   moved to the pick.
+> · ⚠️ Found, not fixed (queued): a permanent-faced modal DFC (Halvar, the Kaldheim Gods) is one merged card — the front-face
+>   permanent carries the back face's text; `effects/atoms/misc.js anyColorChoice` reads the command zone inline, so "add one
+>   mana of any color" follows the commander's identity only while the commander sits in the zone; a saved game from before
+>   this fix keeps its `[]` stamp; the AI's equip pick still assumes every other offered Equip attaches.
 
 > ## 🎯 2026-10-03 — PLAY-WEIGHTED · 62: Springbloom Druid (EDHREC #778), Loyal Apprentice (#753), Warstorm Surge (#731) · **+5** · corpus 15,492
 > Suite **18,842** green. Flip-diff **+5, −0, zero RETIERED**: Springbloom Druid, Loyal Apprentice, Warstorm Surge → native-trigger;

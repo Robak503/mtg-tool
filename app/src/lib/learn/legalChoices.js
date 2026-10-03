@@ -2753,7 +2753,10 @@ function actionsActivateAbility(state, playerId) {
           // KW-UNTARGET: Equip is a TARGETED ability (CR 702.6e), so it obeys targetability — a Shroud
           // creature (CR 702.18a) can't be targeted even by its controller. Route through the shared
           // guard (hexproof never blocks here, since Equip only targets your OWN creatures — CR 702.11b).
-          if (!canBeTargetedBy(state, t, tPid, playerId)) continue; // V15: an opponent's creature obeys hexproof/shroud against the activator
+          // The source's CURRENT colors ride along (CR 702.16b): the attach resolver re-checks with them, so a creature with
+          // protection from the Equipment's color was offered, paid for and refused — with a free equip (Puresteel Paladin),
+          // without end.
+          if (!canBeTargetedBy(state, t, tPid, playerId, permanentColors(state, perm.id))) continue; // V15: an opponent's creature obeys hexproof/shroud against the activator
           actions.push({
             kind: "activate-ability", playerId, permanentId: perm.id, name: perm.card.name,
             abilityIndex: ab.index, cost, cmc: totalCmc(cost), tapSelf: false, program: null,

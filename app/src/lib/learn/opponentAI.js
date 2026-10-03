@@ -29,7 +29,7 @@ import { detectArchetype } from "../goldfish.js";
 import { filterActions } from "./legalChoices.js";
 import { opponentsOf, findPermanent } from "./gameState.js";
 import { lookupPlayHint } from "./cardPlayHints.js"; // PLAY-HINTS (2026-08-12) — a zero-import leaf, cycle-safe
-import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, goaderControllersOf } from "./layers.js";
+import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, goaderControllersOf, equipmentBarredAsCreature } from "./layers.js";
 import { grantsControlWhenAttached } from "./controlAura.js"; // ④-K — a control Aura (or a bestow steal) is ENEMY-intent for auraCastIntent; controlAura is a zero-engine-import leaf
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction } from "./manaModel.js";
@@ -1301,6 +1301,10 @@ function pickEquipAction(state, aiPlayerId, equipActions) {
     byEquip.get(a.permanentId).push(a);
   }
   for (const equipId of [...byEquip.keys()].sort(cmp)) {
+    // CR 301.5c — an Equipment that is a creature right now (no reconfigure) may activate Equip, and the attach does nothing
+    // (CR 701.3b). The pick below ends only when the Equipment sits on its best body, so with a free Equip (Puresteel
+    // Paladin) it never ended: Halvar, God of Battle, whose card carries its Equipment face's Equip; a crewed Rover Blades.
+    if (equipmentBarredAsCreature(state, equipId)) continue;
     const best = byEquip.get(equipId).slice().sort((x, y) =>
       (powerOf(y.targets[0].id) - powerOf(x.targets[0].id)) || cmp(String(x.targets[0].id), String(y.targets[0].id)))[0];
     const holder = findPermanent(state, equipId)?.permanent?.attachedTo ?? null;

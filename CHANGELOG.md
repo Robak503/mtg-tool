@@ -23,6 +23,8 @@ summarizes the notable changes.
 - The choices offered for "untap X target lands" list your own tapped lands first, most mana first
 
 ### Fixed
+- **Commander's Plate** gave protection from all five colors, the commander's own included; it now protects only from the colors outside your commander's color identity
+- The AI could spend a whole turn re-activating a free Equip (Puresteel Paladin) that never attached, ending the game as stuck: an Equipment is no longer offered onto a creature with protection from its color, and the AI no longer activates the Equip of an Equipment that is currently a creature (**Halvar, God of Battle**)
 - **Terror of the Peaks** and **Verdant Sun's Avatar** now use the entering creature's last known power or toughness when it has left the battlefield before their ability resolves; they used 0
 - "If you control your commander" (the Lieutenant ability word) no longer counts an opponent's commander you have taken control of
 - A copy made by **Reverberate**, **Twincast**, **Reiterate**, **Flare of Duplication** or **Force of Rowan** can now take new targets, triggers "whenever you cast or copy" abilities, and is not made of a spell that can't be copied

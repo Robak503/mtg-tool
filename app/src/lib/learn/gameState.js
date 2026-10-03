@@ -33,7 +33,7 @@ import { hasKeyword } from "./keywords.js";
 import { applyCounterDoubling, millMultiplier, playerCounterAdditive, applyLifeGainReplacement, drawMultiplier } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
 import { auraHasTotemArmor, grantsUmbraArmorToAuras, isAuraCard, othersEnterWithCounters, exilesCreaturesItDamaged, exilesOpponentCreaturesOnDeath, lifeFloorOf, graveyardExileSpecOf } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.89; + the Umbra Mystic grant, shelf D43) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
 import { applyControlAuraAttach, revertControlAura } from "./controlAura.js"; // CR 613.1b control Auras — a ZERO-IMPORT leaf, so this lowest-layer module can call it without a cycle
-import { colorIdentityOfCards } from "./commanderIdentity.js"; // CR 903.4a — the seat's commander color identity, stamped at game start (a zero-import leaf)
+import { knownColorIdentityOfCards } from "./commanderIdentity.js"; // CR 903.4a — the seat's commander color identity, stamped at game start (a zero-import leaf)
 import { moveControl } from "./controlMove.js"; // THE one control move, shared by the control Auras and the gain-control atom; controlMove imports nothing, so this stays acyclic
 import { withoutAttackerRecord } from "./combatRemoval.js"; // CR 506.4 — the one attacker-record drop (a zero-import leaf, so the lowest layer stays acyclic)
 
@@ -480,8 +480,8 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
     command: commanderCards.map((c) => (c ? { ...c, isCommander: true, ...(seatId ? { commanderInstanceId: `${seatId}::${c.id}` } : {}) } : c)),
     // CR 903.4a — the commander color identity is fixed before the game begins: stamped once here (the union over this seat's
     // commanders) and read through commanderIdentity.commanderColorIdentityOf, so a reader never depends on where the
-    // commander is now. null = no commander (CR 903.4f).
-    commanderIdentity: commanderCards.some(Boolean) ? colorIdentityOfCards(commanderCards.filter(Boolean)) : null,
+    // commander is now. null = no commander (CR 903.4f), or a commander card that states no identity (unknown, never colorless).
+    commanderIdentity: knownColorIdentityOfCards(commanderCards),
     emblems: [],              // PW-5: emblems this player owns (objects with a continuous/triggered ability)
     experience: 0,
     radCounters: 0,           // RAD (CR 728): rad counters a player has; the inherent radiation ability (applyRadiation) mills + drains at their precombat main

@@ -46,6 +46,12 @@ export function defaultCardLookup(name) {
   }
 }
 
+/** The `colorIdentity` field to add: the card's own when it has one, else the index's; nothing when neither states it. */
+function identityOf(deckCard, full) {
+  if (Array.isArray(deckCard.colorIdentity)) return {};
+  return Array.isArray(full?.colorIdentity) ? { colorIdentity: full.colorIdentity } : {};
+}
+
 /**
  * Merge the local index's full card data into a (possibly blank) deck card,
  * preserving the caller's `id` + `name`. Pure — no I/O, unit-testable in isolation.
@@ -70,6 +76,10 @@ export function mergeCardData(deckCard, full) {
     colors: (Array.isArray(deckCard.colors) && deckCard.colors.length)
       ? deckCard.colors
       : (full.colors || []),
+    // CR 903.4 — the color identity. It is not derivable from `colors` (a mana symbol in the rules text counts), and the
+    // engine stamps a seat's commander identity from it at game start (commanderIdentity.js). Left off when the index
+    // has none, so "unknown" never reads as "colorless".
+    ...identityOf(deckCard, full),
   };
 }
 
@@ -80,9 +90,14 @@ export function enrichDeckCard(card, lookup = defaultCardLookup) {
     // V1 (2026-09-04): an already-shaped deck card (the app's saved-deck snapshot carries type/oracle/mana from import
     // time, before `layout` existed) is left as it is EXCEPT for a missing layout, which is backfilled from the index so
     // a modal DFC in a saved deck reaches the engine with its gate intact. Nothing else is overwritten.
-    if (card.layout != null) return card;
+    // The color identity is backfilled the same way (2026-10-03): a saved commander without it stamped an EMPTY commander
+    // identity, and Commander's Plate then gave protection from all five colors.
+    if (card.layout != null && Array.isArray(card.colorIdentity)) return card;
     const full = lookup(card.name);
-    return full && full.layout ? { ...card, layout: full.layout } : card;
+    if (!full) return card;
+    const layout = card.layout == null && full.layout ? { layout: full.layout } : null;
+    const identity = identityOf(card, full);
+    return layout || Object.keys(identity).length ? { ...card, ...layout, ...identity } : card;
   }
   return mergeCardData(card, lookup(card.name));
 }
