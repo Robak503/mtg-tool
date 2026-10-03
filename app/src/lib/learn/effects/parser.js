@@ -358,6 +358,12 @@ function referentBindingOk(atoms) {
 
 // MINTED-TOKEN HASTE (shelf D26) — "It gains haste." / "They gain haste." right after a token copy (folded onto the copy).
 const MINTED_HASTE_RE = /^(?:it|that token|the token|they|those tokens) gains? haste\.?$/i;
+// CREATED-TOKEN HASTE UNTIL END OF TURN (play-weighted #753 — Loyal Apprentice: "create a 1/1 colorless Thopter artifact
+// creature token with flying. That token gains haste until end of turn."; Siege-Gang Lieutenant: "Those tokens gain haste
+// until end of turn.") — right after a create-token atom, "that token" / "those tokens" are the tokens that atom made
+// (CR 608.2c). Folded onto the create atom as hasteUntilEot. Whole-clause anchored: a longer sentence ("…and attacks this
+// combat if able" — Legion Warboss) leaves its tail unparsed and the card parked.
+const CREATED_TOKEN_HASTE_EOT_RE = /^(?:that token|those tokens) gains? haste until end of turn\.?$/i;
 
 // ATTACH-LAST-TOKEN sequence (Cori-Steel Cutter, W9): the attach atom reads the _lastMintedTokenIds stamp
 // only a create-token atom writes — so it is honest ONLY when a create-token PRECEDES it in the same
@@ -1891,8 +1897,9 @@ function matchOptionalSacBySubtype(oracle, cardType) {
  * artifact's mana value…"). So the pause carries the CANDIDATES, the settle sacrifices the chosen one, and its
  * last-known values ride to the payoff as ctx.sacrificedForCost (CR 608.2h) — the channel the Pod tutor reads.
  *
- * ⛔ The phrase vocabulary is deliberately small — the artifact forms. "Another creature" (19 corpus cards) and "a
- * creature" (9) parse the same way but sacrifice a BODY, and the self-play auto-pick below declines non-token fodder; they
+ * ⛔ The phrase vocabulary is deliberately small — the artifact forms and "a land". "Another creature" (19 corpus cards)
+ * and "a creature" (9) parse the same way but sacrifice a BODY, and the self-play auto-pick below declines non-token
+ * fodder (so the autopilot declines a land too — a legal choice; a human or a pilot names one); they
  * wait for a pilot policy that can weigh a creature against its payoff. The lead clause (Iron Man's "create a Treasure
  * token") must parse HIGH and targetless — it runs before the pause and nothing threads a target through it. Every
  * payoff guard of the value-token lane applies unchanged.
@@ -1900,6 +1907,11 @@ function matchOptionalSacBySubtype(oracle, cardType) {
 const CHOSEN_SAC_FILTERS = {
   "noncreature artifact": { types: ["Artifact"], notTypes: ["Creature"] },
   "artifact": { types: ["Artifact"] },
+  // A LAND (play-weighted #778 — Springbloom Druid: "you may sacrifice a land. If you do, search your library for up to two
+  // basic land cards, put them onto the battlefield tapped, then shuffle"): any one land the controller controls, read off its
+  // current types (an animated land is still a land). One sacrifice buys one payoff — the pause takes a single candidate
+  // (the bundled ruling: several lands can't be sacrificed for several searches).
+  "land": { types: ["Land"] },
 };
 function matchOptionalChosenSac(oracle, cardType) {
   const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
@@ -3707,6 +3719,9 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       // token the copy made, so the grant folds onto that copy as gainsHaste — a lasting layer-6 Haste on exactly the minted
       // tokens (applyCreateTokenCopy), not the copiable "except it has haste" (CR 707.9b).
       if (prev?.op === "create-token-copy" && MINTED_HASTE_RE.test(clause)) { prev.gainsHaste = true; continue; }
+      // CREATED-TOKEN HASTE UNTIL END OF TURN (Loyal Apprentice) — see CREATED_TOKEN_HASTE_EOT_RE. Only directly after the
+      // create-token atom whose tokens it names; the atom is replaced by a flagged copy (a parsed atom may be shared).
+      if (prev?.op === "create-token" && CREATED_TOKEN_HASTE_EOT_RE.test(clause)) { atoms[atoms.length - 1] = { ...prev, hasteUntilEot: true }; continue; }
       allParsed = false; break;
     }
     // REFERENT BINDING (CR 608.2) — "It gains flying until end of turn" acts on whatever the PREVIOUS

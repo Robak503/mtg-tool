@@ -162,6 +162,10 @@ export function combatDamageReferentSatisfied(program, event) {
     // on the etb watcher event whose triggeringPermanentId is that creature. Any other event's triggering
     // object is a different referent class → not native there (a SAFE false-negative, the belt convention).
     if (a?.recipient === "triggering" && event !== "etb") return false;
+    // ENTERING DEALER (Warstorm Surge): the damage's source is the ENTERING creature — the etb event's triggering
+    // permanent. Any other event's triggering object is another referent (a dying creature, an attacker) whose
+    // last-known record this lane does not keep → not native there. The sentinel is written only on etb; this is the belt.
+    if (a?.damageSource === "triggering" && event !== "etb") return false;
   }
   return true;
 }

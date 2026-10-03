@@ -459,8 +459,10 @@ describe("LIEUTENANT — coverage: real cards flip native (whole-card, LOST=0)",
     expect(classifyCard(C("Loyal Subordinate", "Menace (This creature can't be blocked except by two or more creatures.)\nLieutenant — At the beginning of combat on your turn, if you control your commander, each opponent loses 3 life.", "Creature — Human Soldier"))).toBe("native-trigger");
     expect(classifyCard(C("Loyal Guardian", "Trample\nLieutenant — At the beginning of combat on your turn, if you control your commander, put a +1/+1 counter on each creature you control.", "Creature — Elephant Soldier"))).toBe("native-trigger");
   });
-  it("the label strip alone doesn't fabricate a flip — an unrelated unmodeled rider still parks the whole card (Loyal Apprentice's token-then-buff-that-token gap)", () => {
-    expect(classifyCard(C("Loyal Apprentice", "Haste\nLieutenant — At the beginning of combat on your turn, if you control your commander, create a 1/1 colorless Thopter artifact creature token with flying. That token gains haste until end of turn.", "Creature — Human Wizard"))).toBe("body-only");
+  // RE-POINTED 2026-10-03: this pinned Loyal Apprentice's "That token gains haste until end of turn" gap, which is modeled
+  // now (druidApprenticeSurge.test.js). Loyal Unicorn carries the same label over a rider that is still unmodeled.
+  it("the label strip alone doesn't fabricate a flip — an unrelated unmodeled rider still parks the whole card (Loyal Unicorn's combat-damage prevention)", () => {
+    expect(classifyCard(C("Loyal Unicorn", "Vigilance\nLieutenant — At the beginning of combat on your turn, if you control your commander, prevent all combat damage that would be dealt to creatures you control this turn. Other creatures you control gain vigilance until end of turn.", "Creature — Unicorn"))).toBe("body-only");
   });
 });
 

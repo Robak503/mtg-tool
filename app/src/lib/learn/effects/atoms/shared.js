@@ -816,14 +816,21 @@ export function countForSpec(state, ctx, spec) {
     return total;
   }
   const STAT_KIND = {
-    triggeringPower: { id: "triggeringPermanentId", read: creaturePower },
-    triggeringToughness: { id: "triggeringPermanentId", read: creatureToughness },
+    triggeringPower: { id: "triggeringPermanentId", read: creaturePower, lki: "power" },
+    triggeringToughness: { id: "triggeringPermanentId", read: creatureToughness, lki: "toughness" },
     sourcePower: { id: "sourceId", read: creaturePower },
     sourceToughness: { id: "sourceId", read: creatureToughness },
   };
   const stat = STAT_KIND[spec.kind];
   if (stat) {
     const refId = ctx?.[stat.id];
+    // ENTERING-CREATURE LOOK-BACK (play-weighted #731 — Warstorm Surge's and Terror of the Peaks' bundled rulings,
+    // CR 608.2h): the trigger's entering creature has left the battlefield, so the read is of the creature as it
+    // last existed there — the record gameState.stampTriggeringLki wrote onto this trigger as it left. Only the two
+    // TRIGGERING kinds read it (`lki` names the field; a source read keeps its own look-backs below), and the record
+    // answers only for the permanent it was taken from (its id). A referent gone with no record keeps the 0 below.
+    const left = ctx?.triggeringLki;
+    if (left && stat.lki && left.permanentId === refId) return Math.max(0, left[stat.lki]);
     const lk = refId ? findPermanent(state, refId) : null;
     // SACRIFICED-SOURCE LOOK-BACK (④-AW, 2026-09-04 — CR 608.2h): a sourcePower read whose source was sacrificed AS THE
     // COST of this very ability answers from the dispatcher's pre-sacrifice stamp (sacrificedSelfLki, keyed by the

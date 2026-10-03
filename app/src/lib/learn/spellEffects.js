@@ -46,8 +46,10 @@ import {
   removeCounter,
   addRadCounters,
   addPoison,
+  gainLife, // a lifelink source's gain (CR 702.15b) — the entering-creature damage lane
+  stampTriggeringLki, // the destroy event records a waiting trigger's entering creature on the board as the event began
 } from "./gameState.js";
-import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
+import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers, checkLifegainTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, stackSpellIsUncounterable } from "./staticAbilityParser.js";
 import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
 import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentHasCardType, permanentColors, colorsOf } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
@@ -1407,6 +1409,9 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
     moves.push({ id: t.id, controller: lk.controller, toZone: "graveyard", exiledInstead: false, name: lk.permanent.card?.name });
   }
   let next = state;
+  // A waiting trigger's entering creature among the destroyed is recorded as it last existed — on the board as this event
+  // began (gameState.stampTriggeringLki), before anything of it is applied or moved.
+  for (const m of moves) next = stampTriggeringLki(next, m.id);
   for (const s of saved) {
     if (s.save.kind === "shield") next = consumeShieldCounter(next, s.id);
     else if (s.save.kind === "regenerate") next = regeneratePermanent(next, s.id);
@@ -1442,8 +1447,31 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   // activated/triggered abilities); its keywords are read from the PRE-damage state. A spell or a sourceless
   // effect has no permanent source → it routes normally (spell-source infect/wither stays unclaimed — a safe
   // false-negative, never an FP). Gated on the keyword, so every ordinary burn source is byte-for-byte.
-  const sourceInfect = source?.id ? permanentHasKeyword(next, source.id, "Infect") : false;
-  const sourceWither = source?.id ? permanentHasKeyword(next, source.id, "Wither") : false;
+  // A source that has LEFT the battlefield deals its damage as it last existed there (CR 608.2h): `source.lki` — the record
+  // gameState.stampTriggeringLki wrote as it left — answers for its keywords, colors and creature-ness instead of the board.
+  const sourceHas = (kw) => (source?.lki ? source.lki.keywords.includes(kw) : source?.id ? permanentHasKeyword(next, source.id, kw) : false);
+  const sourceInfect = sourceHas("Infect");
+  const sourceWither = sourceHas("Wither");
+  // LIFELINK, DEATHTOUCH AND PROTECTION FROM THE SOURCE (play-weighted #731 — Warstorm Surge, whose damage is dealt by the
+  // entering creature, not by the enchantment that targets): read only for a source that asks (`source.readsKeywords` — the
+  // entering-creature lane, effects/atoms/stack.js). Every other caller keeps this funnel's long-standing read of its source
+  // (infect and wither only). The rules are the same for an ability's own permanent source (CR 702.15b, 702.2b, 702.16e) and
+  // are NOT read for it here yet: turning them on changes what every lifelink, deathtouch or protected-against permanent's
+  // ability damage does, so it is a slice of its own.
+  //   - LIFELINK (CR 702.15b): the source's controller gains the total it dealt, after the hits below.
+  //   - DEATHTOUCH (CR 702.2b): a creature it dealt damage to is destroyed by the lethal pass below. Damage dealt as -1/-1
+  //     counters (the source also has wither or infect) marks none, and that pass asks for marked damage — an under-kill.
+  //   - PROTECTION (CR 702.16e): damage from a source of a color the creature is protected from, or from a creature source
+  //     to a creature with protection from creatures, is prevented — the two qualities the combat funnel prevents by. The
+  //     ability's own source decided whether the creature could be TARGETED (CR 702.16b); this is the dealer's quality.
+  const dealer = source?.readsKeywords === true ? source : null;
+  const sourceLifelink = !!dealer && sourceHas("Lifelink");
+  const sourceDeathtouch = !!dealer && sourceHas("Deathtouch");
+  const sourceColors = !dealer ? [] : dealer.lki ? dealer.lki.colors : permanentColors(next, dealer.id);
+  const sourceIsCreature = !!dealer && (dealer.lki ? dealer.lki.isCreature : permanentIsCreature(next, dealer.id));
+  const protectedFromSource = (s, permId) => protectionApplies(permanentProtectionColors(s, permId), sourceColors)
+    || (sourceIsCreature && permanentProtectionClasses(s, permId).has("creatures"));
+  const deathtouched = new Set(); // the creatures a deathtouch source dealt damage to in this effect
   // AP-1 (Defang / Muzzle): the SOURCE permanent's attached "…dealt BY enchanted creature" ALL wall
   // zeroes every non-combat deal it makes (its ability pings included); the combat-only form binds
   // only at the combat funnel. Read once — the source is constant for the whole effect.
@@ -1485,6 +1513,8 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   const dealtToCreature = {};
   let sourceDealtTotal = 0; // SL-1 — the SOURCE's total dealt this resolution (players + creatures + walkers)
   const hitCreature = (s, permId, raw = amount) => { // `raw` — a redirected player hit's own amount (shelf D42)
+    // PROTECTION FROM THE SOURCE (CR 702.16e — see protectedFromSource): all of it is prevented; nothing below happens.
+    if (protectedFromSource(s, permId)) return logEvent(s, { kind: "damage-prevented", targetKind: "creature", targetId: permId, amount: raw, via: "protection" });
     let dealt = dmgConsult(raw, "creature", permId);
     if (dealt <= 0) return s;
     // CR 122.1c — a SHIELD COUNTER PREVENTS all damage this event would deal to the creature and removes one
@@ -1550,6 +1580,7 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
     if (dealt <= 0) return s;
     dealtToCreature[permId] = (dealtToCreature[permId] || 0) + dealt;
     sourceDealtTotal += dealt; // SL-1
+    if (sourceDeathtouch) deathtouched.add(permId); // CR 702.2b — any damage it dealt is lethal (the lethal pass below)
     let out = (sourceInfect || sourceWither)
       ? addCounter(s, { permanentId: permId, type: "-1/-1", amount: dealt })
       : markCombatDamage(s, { permanentId: permId, amount: dealt });
@@ -1711,6 +1742,12 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   if (source?.id && sourceDealtTotal > 0) {
     next = checkDealtByTriggers(next, [{ sourceId: source.id, amount: sourceDealtTotal }], { isCombat: false });
   }
+  // LIFELINK (CR 702.15b): the source's controller — as it last existed, when it has left — gains the total it dealt to
+  // players, creatures and planeswalkers, and that player's lifegain watchers see it (the combat funnel's own sequence).
+  // Nothing dealt (all of it prevented) is a gain of 0: no life, no watcher (both callees read 0 as no event).
+  if (sourceLifelink) {
+    next = checkLifegainTriggers(gainLife(next, { playerId: source.controller, amount: sourceDealtTotal }), source.controller, sourceDealtTotal);
+  }
   // EXILE-IF-DIES (subsystem 3): "If that creature would die this turn, exile it instead." (single-target)
   // / "If a creature dealt damage this way would die this turn, exile it instead." (mass). Flag exactly the
   // creatures THIS effect actually damaged — `dealtToCreature` is the per-creature hit set built above, so
@@ -1720,7 +1757,7 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   if (exileIfWouldDie) {
     for (const permId of Object.keys(dealtToCreature)) next = markExileIfDies(next, { permanentId: permId, turn: next.turn });
   }
-  const dmgResult = destroyLethalCreatures(next);
+  const dmgResult = destroyLethalCreatures(next, deathtouched);
   next = checkDiesTriggers(dmgResult.state, dmgResult.dead);
   // PW-6: a planeswalker driven to 0 loyalty by the damage is put into the graveyard (CR 704.5i).
   const pwSba = destroyZeroLoyaltyPlaneswalkers(next);

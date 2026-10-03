@@ -557,6 +557,17 @@ export function dealDamageScaledClauseParser(clause) {
     const targetType = TT[sst[2]];
     return targetType ? { op: "deal-damage", targetType, amountCount: { kind: sst[1] === "power" ? "triggeringPower" : "triggeringToughness", per: 1 } } : null;
   }
+  // THE ENTERING CREATURE IS THE DEALER (play-weighted #731 — Warstorm Surge: "Whenever a creature you control enters, it
+  // deals damage equal to its power to any target"; Efteekay's "…to target creature"). "the entering creature deals damage
+  // equal to its own power" is the sentinel detectTriggers writes for "it deals damage equal to its power" on an enters
+  // trigger whose "it" is the entering creature — never printed, so no spell and no other event's trigger reaches this arm.
+  // The amount is the same reading as the arm above (the entering creature's power on resolution, its last known power
+  // once it has left — CR 608.2h). What differs is WHO deals it: `damageSource: "triggering"` makes the entering creature
+  // the damage's source (CR 608.2h: "it's the object as it exists—or as it most recently existed—that does it, not the
+  // ability"), so its lifelink, deathtouch, infect and wither and the target's protection from IT apply, while the ability's
+  // own source still decides what may be targeted.
+  const ecd = t.match(/^the entering creature deals damage equal to its own power to (any target|target creature)$/);
+  if (ecd) return { op: "deal-damage", targetType: TT[ecd[1]], amountCount: { kind: "triggeringPower", per: 1 }, damageSource: "triggering" };
   // SACRIFICED REFERENT (CR 608.2h + 603.6e LKI) — the exact sibling of the triggering-creature arm above,
   // for the permanent sacrificed to pay this spell's ADDITIONAL COST: "Fling deals damage equal to the
   // sacrificed creature's power to any target" (Fling #1462, Thud, Airdrop Condor, Bloodshot Cyclops).
@@ -2585,7 +2596,15 @@ export const stackResolvers = {
       // siblings, this arm is correct by construction instead.
       : (atom.targetType === "defendingPlayer" || atom.targetType === "damagedPlayer" || atom.targetType === "discardingPlayer") ? "player"
       : atom.targetType === "attackedDefender" ? "playerOrPlaneswalker" : atom.targetType;
-    let next = applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType, amountPerOpponent: atom.amountPerOpponent ?? null, targets, source: { id: ctx.sourceId }, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie });
+    // THE DAMAGE'S SOURCE is the ability's own permanent — except on the entering-creature lane (Warstorm Surge), where the
+    // ENTERING creature deals it (CR 608.2h): that creature while it is on the battlefield, else the record written as it
+    // left (ctx.triggeringLki — gameState.stampTriggeringLki). Its controller, then or now, is who a lifelink gain goes to
+    // (CR 702.15b) and whose damage replacements apply; `readsKeywords` asks the funnel for its lifelink, deathtouch and
+    // the target's protection from it.
+    const source = atom.damageSource === "triggering"
+      ? { id: ctx.triggeringPermanentId, controller: ctx.triggeringLki?.controller ?? findPermanent(state, ctx.triggeringPermanentId)?.controller, lki: ctx.triggeringLki ?? null, readsKeywords: true }
+      : { id: ctx.sourceId };
+    let next = applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType, amountPerOpponent: atom.amountPerOpponent ?? null, targets, source, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie });
     // LACCOLITH RIDER (④-AU — "If you do, this creature assigns no combat damage this turn"): the optional damage was
     // taken (a declined "may" never reaches this resolver), so the SOURCE is stamped for the current turn; the combat
     // damage step's dealsThisStep gate reads the stamp. A source already gone is a clean no-op (updatePermanentSafe).

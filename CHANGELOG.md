@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Springbloom Druid** (and **Excavating Anurid**) — when it enters, you may sacrifice a land for its payoff (two basic lands onto the battlefield tapped; a card for the Anurid); **Loyal Apprentice** and **Siege-Gang Lieutenant** — at the beginning of combat on your turn, if you control your commander, make tokens that gain haste until end of turn; **Warstorm Surge** — whenever a creature you control enters, it deals damage equal to its power to any target (the creature is the source: its lifelink and deathtouch apply)
 - **Narset's Reversal** — copy target instant or sorcery spell, then return it to its owner's hand, with new targets for the copy; **Dualcaster Mage** — flash; when it enters, copy target instant or sorcery spell, with new targets for the copy; **Imp's Mischief** — change the target of target spell with a single target, and lose life equal to that spell's mana value
 - **Tribute to the World Tree** — whenever a creature you control enters, draw a card if its power is 3 or greater, otherwise put two +1/+1 counters on it; **Goreclaw, Terror of Qal Sisma** — creature spells you cast with power 4 or greater cost {2} less, and when it attacks each creature you control with power 4 or greater gets +1/+1 and trample; **Mentor of the Meek** — whenever another creature you control with power 2 or less enters, you may pay {1} to draw a card; also **Serra Redeemer**, **Inspiring Commander**, **Snarling Gorehound**, **Vicious Clown**, **Marketwatch Phantom** and **Neighborhood Guardian**
 - **Kindred Dominance** (and **Kindred Judgment**) — choose a creature type, then destroy every creature that isn't of that type; **Eldritch Evolution** — sacrifice a creature as you cast it, search for a creature card with mana value up to 2 more than the sacrificed creature's, put it onto the battlefield, and exile Eldritch Evolution
@@ -22,6 +23,8 @@ summarizes the notable changes.
 - The choices offered for "untap X target lands" list your own tapped lands first, most mana first
 
 ### Fixed
+- **Terror of the Peaks** and **Verdant Sun's Avatar** now use the entering creature's last known power or toughness when it has left the battlefield before their ability resolves; they used 0
+- "If you control your commander" (the Lieutenant ability word) no longer counts an opponent's commander you have taken control of
 - A copy made by **Reverberate**, **Twincast**, **Reiterate**, **Flare of Duplication** or **Force of Rowan** can now take new targets, triggers "whenever you cast or copy" abilities, and is not made of a spell that can't be copied
 - **Mana Drain** counts a split card's or an Adventure's own half, and counts {X}{X} twice
 - Change-target spells (Swerve, Misdirection, Deflection and the like) no longer offer a permanent with protection from the spell's colours as the new target

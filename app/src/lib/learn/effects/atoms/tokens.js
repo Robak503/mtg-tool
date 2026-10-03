@@ -302,6 +302,14 @@ export function applyCreateToken(state, atom, ctx) {
   // (create-token → "creature enters" → create-token is unprinted) and the session resolution safety cap
   // backstops any pathological case; the trigger helpers only ENQUEUE (the flush is later).
   next = fireTokenEnterTriggers(next, mintedIds);
+  // "THAT TOKEN GAINS HASTE UNTIL END OF TURN" (play-weighted #753 — Loyal Apprentice, Siege-Gang Lieutenant): the next
+  // instruction of the same effect, on exactly the tokens this call made (a token doubler's extras included — every one of
+  // them is a token the effect created). A layer-6 grant that ends with the turn (CR 611.2a): the tokens entered without
+  // it (the enters triggers above were judged first) and may attack this turn (CR 702.10b).
+  if (atom.hasteUntilEot) {
+    next = addContinuousEffect(next, { layer: 6, op: { layerOp: "addKeyword", keyword: "Haste" }, affects: { mode: "fixed", permanentIds: [...mintedIds] },
+      duration: { kind: "endOfTurn", turn: next.turn }, source: { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null } }).state;
+  }
   // A 0/0 token with no other effect dies immediately (CR 704.5f) — run the lethal SBA (after ETB enqueue).
   const r = destroyLethalCreatures(next);
   next = checkDiesTriggers(r.state, r.dead);

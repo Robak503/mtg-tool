@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **10 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,487)**; engine gains since the tag: **+20**. The next tag
+> **11 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,37 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-03 — PLAY-WEIGHTED · 62: Springbloom Druid (EDHREC #778), Loyal Apprentice (#753), Warstorm Surge (#731) · **+5** · corpus 15,492
+> Suite **18,842** green. Flip-diff **+5, −0, zero RETIERED**: Springbloom Druid, Loyal Apprentice, Warstorm Surge → native-trigger;
+> Excavating Anurid, Siege-Gang Lieutenant → native-mixed. Top 1,000 **904** (Colton's 10-01 checkpoint 866 → **+38**); top 2,500
+> **1,743**. **Mutants 67/67** on the integrated tree, restore byte-identical. Built by a fan-out builder (rebased onto master
+> before its gates); one positional conflict in `gameState.js` with · 60 resolved by keeping both helpers; re-verified on the
+> integrated tree (the · 60 and · 61 harnesses re-run there: 46/46, 38/38). Two pins re-pointed, none deleted
+> (`interveningIf.test.js` — the label-strip example is now Loyal Unicorn; `laccolithUnblocked.test.js` — the unread-sentinel example
+> is now Stalking Vengeance).
+> · Springbloom Druid: "land" joins the chosen-sacrifice filters; the existing optional-sacrifice pause and the tutor atom do the rest.
+> · Loyal Apprentice: "That token / Those tokens gain(s) haste until end of turn" folds onto the preceding create-token atom (a
+>   copy, not a write — the parse cache) as `hasteUntilEot`; the runtime grants layer-6 haste on the minted ids until end of turn.
+>   "You control your commander" as a trigger condition now requires a commander the player OWNS (Loyal Drake, Loyal Subordinate and
+>   Loyal Guardian tighten with it).
+> · Warstorm Surge: the entering creature is the damage's source (`damageSource: "triggering"`): `applyDamageEffect` reads that
+>   dealer's lifelink, deathtouch, infect / wither and protection only when the caller asks. Last known information:
+>   `gameState.stampTriggeringLki` records the creature (power, toughness, colours, keywords, controller) on the waiting trigger as
+>   it leaves, before any permanent of a multi-permanent event moves (the destroy effect, the lethal-damage pass, the bounce /
+>   exile / tuck move), so a creature removed together with its lord is read with the lord's bonus.
+> · ⚑ Terror of the Peaks and Verdant Sun's Avatar now read the entering creature's last-known power / toughness when it left
+>   before resolution (they read 0; their bundled rulings say last-known). Efteekay and Yuma, Proud Protector get natively
+>   resolving triggers (tiers unchanged). Witness `druidApprenticeSurge.test.js` (47; nine labelled synthetic or hand-built).
+> · ⚠️ Under-reads (documented): the autopilot declines the land sacrifice (it gives up only tokens); a deathtouch dealer with
+>   infect / wither under-kills; a mass sacrifice reads last-known values at each permanent's own move.
+> · ⚠️ Found, not fixed (queued): TWO last-known stamps now ride a trigger's context — · 60's `triggeringLeftPower` and this
+>   slice's `triggeringLki` — one record should serve both; `applyDamageEffect` ignores lifelink / deathtouch / protection for an
+>   ability's own permanent source (Terror of the Peaks wearing Basilisk Collar gains no life — opt-in for now); trigger target
+>   enumeration threads no source colours (a pro-red target is chosen, then fizzles on the CR 608.2b re-check); "you control your
+>   commander" is still any `isCommander` permanent at three sibling sites (the Lieutenant static gate, an alt-cost check,
+>   `legalChoices`); a self-enter "deals damage equal to its power" destroyed in response reads 0; activated abilities are offered
+>   only on their controller's own turn in a main phase; the fixture generator resolves "Inferno" to a theme card.
 
 > ## 🎯 2026-10-03 — PLAY-WEIGHTED · 61: Narset's Reversal (EDHREC #720), Dualcaster Mage (#675), Imp's Mischief (#658) · **+3** · corpus 15,487 · ⭐ **TOP 1,000 AT 901 — 90% REACHED**
 > Suite **18,795** green (one run for · 58–61). Flip-diff **+3, −0, zero RETIERED**: Narset's Reversal, Imp's Mischief → native-spell;

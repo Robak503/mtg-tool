@@ -27,7 +27,7 @@
  */
 
 import { printedPower, printedToughness, counterPowerDelta, counterToughnessDelta } from "./ptPrimitive.js"; // per-axis counter deltas (Contagion, BI-4)
-import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, playerCantGainLife, playerEmptyDrawWins, legendRuleExemptFor, PERMANENT_TYPE_RE } from "./layers.js";
+import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, permanentColors, playerCantGainLife, playerEmptyDrawWins, legendRuleExemptFor, PERMANENT_TYPE_RE } from "./layers.js";
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
 import { applyCounterDoubling, millMultiplier, playerCounterAdditive, applyLifeGainReplacement, drawMultiplier } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
@@ -832,6 +832,8 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
   if (fromZone === "battlefield") {
     const leaving = state.players[playerId]?.battlefield?.find((p) => p.id === cardId);
     if (leaving && !permanentTypes(state, leaving.id).types.includes("Land")) state = { ...state, nonlandLeftBattlefieldTurn: state.turn };
+    // The entering creature of a trigger still waiting to resolve leaves: its last known information goes onto that trigger.
+    if (toZone !== "battlefield") state = stampTriggeringLki(state, cardId);
   }
 
   // CR 614 replacement, applied BEFORE the move so the graveyard is never touched (see the note above).
@@ -1377,6 +1379,60 @@ function stampTriggeringLeftPower(next, permanent, before) {
       ? { ...obj, payload: { ...obj.payload, params: { ...obj.payload.params, context: { ...obj.payload.params.context, triggeringLeftPower } } } }
       : obj)),
     pendingTriggers: (next.pendingTriggers || []).map((trigger) => (names(trigger.context) ? { ...trigger, context: { ...trigger.context, triggeringLeftPower } } : trigger)),
+  };
+}
+
+/**
+ * LAST KNOWN INFORMATION FOR A TRIGGER'S ENTERING CREATURE (CR 608.2h, CR 113.7a — play-weighted #731, Warstorm Surge:
+ * "Whenever a creature you control enters, it deals damage equal to its power to any target"; Terror of the Peaks: "…this
+ * creature deals damage equal to that creature's power…"). The effect reads the entering creature when it resolves; if that
+ * creature has left the battlefield, it reads the creature as it last existed there — its power, and (when it is the one
+ * dealing the damage) its lifelink, deathtouch, infect or wither, its colors and whether it was a creature, and who
+ * controlled it. The engine keeps no general record of permanents that have left, so the record is written here, as the
+ * permanent leaves, onto exactly the triggers that will read it:
+ *   - a triggered ability on the stack whose program reads the entering creature (atomReadsTriggeringLki below — the
+ *     program's own atoms; no modeled card nests such an atom inside a mode or a payment);
+ *   - a trigger still waiting to be put on the stack, recognized by the sentinel its effect clause carries (detectTriggers
+ *     writes these only for an enters trigger whose "it" / "that creature" is the entering creature). The case in play is
+ *     a creature that a state-based action takes in the resolution it entered in, at toughness 0 or less — so only the
+ *     POWER sentinels are recognized here; a waiting toughness read keeps the absent-referent 0.
+ * The record is read off `state` as the call finds it. moveCardToZone calls this before it removes the permanent — the
+ * one exit every path takes. The three sites that move several permanents in ONE event (the destroy effect, the
+ * lethal-damage state-based action, the bounce / exile / tuck zone move) call it for all of their permanents before any
+ * of them moves, so a creature and the lord that was pumping it, removed together, are read with the lord still there; a
+ * trigger already stamped keeps its record, which is what lets that event-begin record stand when the per-move call
+ * follows. Any other effect that moves several permanents at once (a mass sacrifice) is read at each move: a permanent of
+ * that event which already moved no longer affects the ones after it.
+ * No trigger reads the permanent → the state is returned untouched (every other game is byte-identical).
+ */
+const TRIGGERING_LKI_KEYWORDS = ["Lifelink", "Deathtouch", "Infect", "Wither"];
+const TRIGGERING_LKI_CLAUSE_RE = /\bthe entering creature deals damage equal to its own power\b|\bthe triggering creature's power\b/i;
+const atomReadsTriggeringLki = (atom) => atom?.damageSource === "triggering" || atom?.amountCount?.kind === "triggeringPower" || atom?.amountCount?.kind === "triggeringToughness";
+export function stampTriggeringLki(state, permanentId) {
+  // A trigger context that names this permanent as its triggering permanent and carries no record yet.
+  const unstamped = (context) => context?.triggeringPermanentId === permanentId && !context.triggeringLki;
+  const stackWants = (o) => unstamped(o?.payload?.params?.context) && (o.payload.params.program?.atoms || []).some(atomReadsTriggeringLki);
+  const pendingWants = (t) => unstamped(t?.context) && TRIGGERING_LKI_CLAUSE_RE.test(String(t.descriptor?.effectClause || ""));
+  const stack = state.stack || [];
+  const pendingTriggers = state.pendingTriggers || [];
+  if (!stack.some(stackWants) && !pendingTriggers.some(pendingWants)) return state;
+  const lk = findPermanent(state, permanentId);
+  // Not on the battlefield (a caller's list can name a permanent that is already gone): nothing to read, and never a throw
+  // inside a resolving effect. The trigger keeps its absent-referent read.
+  if (!lk) return state;
+  const triggeringLki = {
+    permanentId,
+    controller: lk.controller,
+    power: creaturePower(lk.permanent, state),
+    toughness: creatureToughness(lk.permanent, state),
+    isCreature: permanentIsCreature(state, permanentId),
+    colors: [...permanentColors(state, permanentId)],
+    keywords: TRIGGERING_LKI_KEYWORDS.filter((k) => permanentHasKeyword(state, permanentId, k)),
+  };
+  return {
+    ...state,
+    stack: stack.map((o) => (stackWants(o) ? { ...o, payload: { ...o.payload, params: { ...o.payload.params, context: { ...o.payload.params.context, triggeringLki } } } } : o)),
+    pendingTriggers: pendingTriggers.map((t) => (pendingWants(t) ? { ...t, context: { ...t.context, triggeringLki } } : t)),
   };
 }
 
@@ -2680,6 +2736,9 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
     }
   }
   let next = state;
+  // A waiting trigger's entering creature among the dead is recorded as it last existed — on the board as this one event
+  // began, before any creature of it moves (stampTriggeringLki).
+  for (const d of dead) next = stampTriggeringLki(next, d.id);
   // The carriers of a graveyard replacement move last, so every other creature of this one event still meets theirs.
   for (const d of graveyardReplacementCarriersLast(state, dead)) {
     // EXILE-IF-DIES (subsystem 3): the death-replacement reroutes a flagged creature to exile (CR 614 — a

@@ -3,7 +3,7 @@
  * reanimate). Also hosts the shared enterCardFromZone helper (reanimation + library ramp).
  */
 
-import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf, shuffleSeededLibrary, deterministicRng, advanceRngSeed, attachPermanent, withoutExileStamps } from "../../gameState.js"; // deterministicRng / advanceRngSeed — ENDURANCE's "in a random order" (seeded, never Math.random) // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
+import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf, shuffleSeededLibrary, deterministicRng, advanceRngSeed, attachPermanent, withoutExileStamps, stampTriggeringLki } from "../../gameState.js"; // deterministicRng / advanceRngSeed — ENDURANCE's "in a random order" (seeded, never Math.random) // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
 import { applyEnterReplacements, settleEnterReplacements, sagaEntryChapterTriggers } from "../../enterReplacements.js"; // the entry replacements (CR 614.1c, 614.1d, 614.12) — the ONE reader resolvers.enterPermanent shares; a leaf that reaches neither resolvers.js nor any atom importing this file
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
@@ -31,6 +31,10 @@ export function registerCzAddContinuousEffect(fn) { if (typeof fn === "function"
 export function applyZoneMove(state, atom, ctx, toZone, toTop = false, libraryIndex = null) {
   let next = state;
   const targets = atomTargets(state, atom, ctx);
+  // ONE EVENT (a mass bounce, exile or tuck moves its permanents together): a waiting trigger's entering creature among
+  // them is recorded as it last existed — on the board as the event began, before any permanent of it moves
+  // (gameState.stampTriggeringLki; the per-move record would miss a lord that this same event moved first).
+  for (const t of targets) next = stampTriggeringLki(next, t.id);
   for (const t of targets) {
     // "creature" (bounce/exile-creature + mass eachCreature), "permanent" (targeted non-creature
     // exile — Oblivion Ring-style, incl. a land/artifact within a union target), or "planeswalker"

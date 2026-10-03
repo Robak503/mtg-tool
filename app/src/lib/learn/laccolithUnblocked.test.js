@@ -46,8 +46,8 @@ const SKARRGAN = { id: "c-sk", name: "Skarrgan Skybreaker", type: "Creature — 
   oracle: "Bloodthirst 3 (If an opponent was dealt damage this turn, this creature enters with three +1/+1 counters on it.)\n{1}, Sacrifice this creature: It deals damage equal to its power to any target." };
 const GHITU = { id: "c-gfe", name: "Ghitu Fire-Eater", type: "Creature — Human Nomad", mana: "{2}{R}", cmc: 3, power: 2, toughness: 2, keywords: [],
   oracle: "{T}, Sacrifice this creature: It deals damage equal to its power to any target." };
-const WARSTORM = { id: "c-ws", name: "Warstorm Surge", type: "Enchantment", mana: "{5}{R}", cmc: 6, keywords: [],
-  oracle: "Whenever a creature you control enters, it deals damage equal to its power to any target." };
+const STALKING = { id: "c-sv", name: "Stalking Vengeance", type: "Creature — Avatar", mana: "{5}{R}{R}", cmc: 7, power: "5", toughness: "5", keywords: ["Haste"],
+  oracle: "Haste\nWhenever another creature you control dies, it deals damage equal to its power to target player or planeswalker." };
 const VANCE = { id: "c-crv", name: "Captain Ripley Vance", type: "Legendary Creature — Human Pirate", mana: "{2}{R}", cmc: 3, power: 2, toughness: 2, keywords: [],
   oracle: "Whenever you cast your third spell each turn, put a +1/+1 counter on Captain Ripley Vance, then it deals damage equal to its power to any target." };
 const VIGILANTES = { id: "c-dv", name: "Dwarven Vigilantes", type: "Creature — Dwarf", mana: "{2}{R}", cmc: 3, power: 2, toughness: 2, keywords: [],
@@ -97,13 +97,16 @@ describe("the parse", () => {
     const tap = parseActivatedAbilities({ name: "Synthetic Pinger", type: "Creature — Test", oracle: "{T}: This creature deals damage equal to its power to target creature." });
     expect(tap[0].modeled).toBe(true);
   });
-  it("CREED — 'its power' on a NON-self watcher (Warstorm Surge) is rewritten to an unread sentinel and the card parks", () => {
-    const d = detectTriggers(WARSTORM);
+  // RE-POINTED 2026-10-03: this pinned Warstorm Surge, whose ENTERS watcher is the modeled entering-dealer lane now
+  // (druidApprenticeSurge.test.js). The unread sentinel still parks every other non-self watcher — Stalking Vengeance's
+  // dies watcher, whose "it" is a creature already gone.
+  it("CREED — 'its power' on a NON-self watcher off the enters event (Stalking Vengeance) is rewritten to an unread sentinel and the card parks", () => {
+    const d = detectTriggers(STALKING);
     expect(d).toHaveLength(1);
-    expect(d[0].scope).toBe("creatureYouControl");
-    expect(d[0].effectClause).toBe("the triggering creature deals damage equal to its own power to any target");
+    expect(d[0].scope).toBe("otherCreatureYouControl");
+    expect(d[0].effectClause).toBe("the triggering creature deals damage equal to its own power to target player or planeswalker");
     expect(parseEffectClause(d[0].effectClause, "Instant", { sourceScoped: true }).confidence).toBe("low");
-    expect(classifyCard(WARSTORM)).toBe("body-only");
+    expect(classifyCard(STALKING)).toBe("body-only");
     // …while a player/event watcher (Captain Ripley Vance's cast watcher) keeps its live self read — "it" can only be the source
     const v = detectTriggers(VANCE);
     expect(v).toHaveLength(1);

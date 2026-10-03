@@ -1106,7 +1106,10 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   // board carries the isCommander stamp. It's a game-STATE quality that rides the CARD, not the permanent
   // wrapper (card.isCommander, stamped at seat build — the same field layers.js/legalChoices.js/targeting.js
   // all read via p.card?.isCommander). Board-presence read, identical at flush AND resolution.
-  if (YOU_CONTROL_YOUR_COMMANDER_RE.test(c)) return controllerBoard(state, controllerId).some((p) => p.card?.isCommander === true);
+  // YOUR commander (play-weighted #753 — Loyal Apprentice): a commander this player OWNS. Another player's commander under
+  // this player's control (Control Magic, a threaten) is a commander they control, not theirs. Ownership is recorded
+  // sparsely (controlMove.moveControl): a permanent with no `owner` stamp is owned by its controller.
+  if (YOU_CONTROL_YOUR_COMMANDER_RE.test(c)) return controllerBoard(state, controllerId).some((p) => p.card?.isCommander === true && (p.owner ?? controllerId) === controllerId);
 
   // NO-CARDS-IN-HAND (CR 603.4 — BLITZ IF-1) — the controller's hand is empty. Reuses controllerMetric's
   // "cards in hand" reader (player.hand.length); true iff 0. Identical at flush AND resolution.
