@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **4 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **+0**. The next tag
+> **5 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **+0**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,24 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🌀 2026-10-03 — THE COMBO LINE, slice three: Brago, King Eternal blinks EVERYTHING that has no reason against it · **±0**
+> **Colton's rule (10-03, via Omnath's COMBO note):** "unless there's a reason not to, you blink everything every time."
+> Before: the flicker chooser (shelf D21) took, of Brago's "any number of target nonland permanents you control", only the
+> permanents that GAIN from a flicker (score > 0) — a permanent with nothing to gain and nothing to lose stayed home.
+> · The change (`gameEngine.pickFlickerCandidate`): for an "any number" blink the pick is every target whose score is not
+>   negative. A reason against is a negative score, as before: a token (never), +1/+1 counters, the seat's own attachments on
+>   it, an Equipment/Aura that would come off — and, new, a planeswalker ABOVE its starting loyalty (it returns with the
+>   printed number, CR 306.5b: above, the surplus is lost; at or below, the reset is a gain). "Up to one" flickers (Thassa,
+>   Teleportation Circle, Photon) are unchanged: they still take only what gains.
+> · Witness `flickerTargets.test.js` (14; two Brago pins re-pointed to the new rule, three added — plain permanents go,
+>   loyalty above / at / below start, loyalty only weighed with a loyalty counter (a labelled synthetic board)).
+>   **Mutants 5/5**, restore byte-identical. 48 July seeds byte-identical to c1122e34 (no "any number" blink in those lists).
+>   Flip-diff **0 / 0 / 0**; lint 0. Omnath's hung Brago seed 4088110967 finishes in 4 s (Brago wins, turn 37).
+> · Suite **18,634** tests / 1,767 files (+3) — green in one local run (261 s).
+> · ⚑ Action choices change for a seat with an "any number" blink (Brago) — COMMS flag.
+> · ⚠️ Found, not fixed: Nissa, Vastwood Seer // Nissa, Sage Animist (a creature whose back face is a planeswalker) is not
+>   OFFERED as a target of Brago's "nonland permanents you control" — an under-offer (safe), cause not read.
 
 > ## 🕯️ 2026-10-03 — THE COMBO LINE, slice two: the mana-untap line (Candelabra of Tawnos / Magus of the Candelabra) + mana Auras stack · **±0**
 > **Colton's rules (10-03):** the untap "is used for untapping Cradle and making large mana; if it doesn't go mana positive

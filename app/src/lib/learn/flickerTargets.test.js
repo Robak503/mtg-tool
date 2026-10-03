@@ -7,7 +7,9 @@
  *     you control, and "{3}{U}: Tap another target creature" (the notSource restriction).
  *   • Which permanents a flicker takes was the first correct-side candidate, and the expander orders subsets maximal-first — so
  *     an "up to one" flicker took whatever came first and Brago's "any number" would take everything you control, tokens
- *     included. The chooser now flickers what gains: an enters ability
+ *     included. The chooser scores each permanent (2026-09-30) and, since 2026-10-03 (Colton: "unless there's a reason not
+ *     to, you blink everything every time"), Brago's "any number" takes EVERYTHING with no reason against it; an "up to one"
+ *     flicker still takes only what gains. What gains: an enters ability
  *     fires again, a tapped permanent returns untapped, an opponent's Aura falls off, −1/−1 counters go; not a token (CR 111.8),
  *     not what loses more than it gains (+1/+1 counters, your own Equipment on it, an Equipment coming off its creature).
  *   • Auras are not offered to a flicker until a returned Aura can choose what it enchants (CR 303.4f).
@@ -33,6 +35,7 @@ const THASSA = card("Thassa, Deep-Dwelling", "Legendary Enchantment Creature —
 const CIRCLE = card("Teleportation Circle", "Enchantment", "{3}{W}", 4, "At the beginning of your end step, exile up to one target artifact or creature you control, then return that card to the battlefield under its owner's control.", { colors: ["W"] });
 const CLOSET = card("Conjurer's Closet", "Artifact", "{5}", 5, "At the beginning of your end step, you may exile target creature you control, then return that card to the battlefield under your control.", { colors: [] });
 const VISIONARY = card("Elvish Visionary", "Creature — Elf Shaman", "{1}{G}", 2, "When this creature enters, draw a card.", { power: "1", toughness: "1", colors: ["G"] });
+const TEFERI = {"name":"Teferi, Time Raveler","type":"Legendary Planeswalker — Teferi","mana":"{1}{W}{U}","cmc":3,"keywords":[],"colors":["U","W"],"oracle":"Each opponent can cast spells only any time they could cast a sorcery.\n+1: Until your next turn, you may cast sorcery spells as though they had flash.\n−3: Return up to one target artifact, creature, or enchantment to its owner's hand. Draw a card.","loyalty":"4"};
 const BEAR = card("Grizzly Bears", "Creature — Bear", "{1}{G}", 2, "", { power: "2", toughness: "2", colors: ["G"] });
 const GIANT = card("Hill Giant", "Creature — Giant", "{3}{R}", 4, "", { power: "3", toughness: "3", colors: ["R"] });
 const ELF_TOKEN = card("Llanowar Elves", "Token Creature — Elf Druid", "", 0, "{T}: Add {G}.", { power: "1", toughness: "1", colors: ["G"], token: true });
@@ -83,7 +86,7 @@ describe("the cards", () => {
 });
 
 describe("⭐ Brago, King Eternal", () => {
-  it("⭐ flickers what gains — the Visionary (it draws again), the Bear their Pacifism holds, the Giant with a -1/-1 counter, tapped Brago himself — never the tapped token, not the plain Bear", () => {
+  it("⭐ blinks everything with no reason against it — the Visionary (it draws again), the Bear their Pacifism holds, the Giant with a -1/-1 counter, tapped Brago himself, AND the plain Bear — never the tapped token", () => {
     const s0 = board({
       user: [perm("brago", BRAGO, "user", { tapped: true }), perm("vis", VISIONARY, "user"), perm("held", BEAR, "user", { attachments: ["pac"] }),
         perm("minus", GIANT, "user", { counters: { "-1/-1": 1 } }), perm("plain", BEAR, "user"), perm("tok", ELF_TOKEN, "user", { tapped: true })],
@@ -96,17 +99,32 @@ describe("⭐ Brago, King Eternal", () => {
       targets,
       drew: drawn(s2),
       tokenKept: !!findPermanent(s2, "tok"),
-      plainKept: !!findPermanent(s2, "plain"),
+      plainBlinked: !findPermanent(s2, "plain") && s2.players.user.battlefield.filter((p) => p.card?.name === BEAR.name).length === 2,
       bragoUntapped: s2.players.user.battlefield.some((p) => p.card?.name === BRAGO.name && !p.tapped),
       pacifismHolds: s2.players.user.battlefield.some((p) => (p.attachments || []).length > 0),
     };
     console.log(`WITNESS bragoFlicker ${JSON.stringify(row)}`);
-    expect(row).toEqual({ targets: ["Brago, King Eternal", "Elvish Visionary", "Grizzly Bears", "Hill Giant"], drew: 1, tokenKept: true, plainKept: true, bragoUntapped: true, pacifismHolds: false });
+    expect(row).toEqual({ targets: ["Brago, King Eternal", "Elvish Visionary", "Grizzly Bears", "Grizzly Bears", "Hill Giant"], drew: 1, tokenKept: true, plainBlinked: true, bragoUntapped: true, pacifismHolds: false });
   });
-  it("what loses weighs against: four +1/+1 counters outweigh the Visionary's draw (two don't); a tapped Bear carrying your Bonesplitter, and the tapped Bonesplitter itself, stay", () => {
+  it("a reason against keeps it home: four +1/+1 counters outweigh the Visionary's draw (two don't); a tapped Bear carrying your Bonesplitter, and the tapped Bonesplitter itself, stay — untapped Brago, with nothing to lose, goes", () => {
     const pick = (visCounters) => chosen(bragoHits(board({ user: [perm("brago", BRAGO, "user"), perm("vis", VISIONARY, "user", { counters: { "+1/+1": visCounters } }),
       perm("eqBear", BEAR, "user", { tapped: true, attachments: ["bs"] }), perm("bs", BONESPLITTER, "user", { tapped: true, attachedTo: "eqBear" })] })));
-    expect({ four: pick(4), two: pick(2) }).toEqual({ four: [], two: ["Elvish Visionary"] });
+    expect({ four: pick(4), two: pick(2) }).toEqual({ four: ["Brago, King Eternal"], two: ["Brago, King Eternal", "Elvish Visionary"] });
+  });
+  it("a planeswalker above its starting loyalty stays (the surplus would be lost); at or below it, it goes (it resets)", () => {
+    const pick = (loyalty) => chosen(bragoHits(board({ user: [perm("brago", BRAGO, "user", { counters: { "+1/+1": 1 } }), perm("teferi", TEFERI, "user", { counters: { loyalty } })] })));
+    // Brago carries a +1/+1 counter here (a reason against), so Teferi alone decides the pick.
+    expect({ above: pick(5), atStart: pick(4), below: pick(1) }).toEqual({ above: [], atStart: ["Teferi, Time Raveler"], below: ["Teferi, Time Raveler"] });
+  });
+  it("loyalty is weighed only when the permanent carries a loyalty counter (SYNTHETIC board: the engine always stamps one on a planeswalker that enters)", () => {
+    // Teferi with NO loyalty counter and one +1/+1 counter: the counter is his reason to stay. Read as "below starting
+    // loyalty 4" he would be sent (−1 + 4).
+    const s = board({ user: [perm("brago", BRAGO, "user", { counters: { "+1/+1": 1 } }), perm("teferi", TEFERI, "user", { counters: { "+1/+1": 1 } })] });
+    expect(chosen(bragoHits(s))).toEqual([]);
+  });
+  it("one +1/+1 counter is a reason against a permanent with nothing to gain; a plain one beside it still goes", () => {
+    const s = board({ user: [perm("brago", BRAGO, "user", { counters: { "+1/+1": 1 } }), perm("counter", BEAR, "user", { counters: { "+1/+1": 1 } }), perm("plain", GIANT, "user")] });
+    expect(chosen(bragoHits(s))).toEqual(["Hill Giant"]);
   });
   it("Auras are not offered: your Pacifism is no candidate (a returned Aura must choose a host, CR 303.4f); Brago is", () => {
     const ch = chooser();

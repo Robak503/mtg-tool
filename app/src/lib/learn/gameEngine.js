@@ -51,7 +51,7 @@ import {
   findPermanent,
 } from "./gameState.js";
 import { phaseInAndExpireShield, expireNameCastLocks } from "./gameState.js"; // TEFERI'S PROTECTION - phase in + shield expiry at the active player's untap; B4 — the name cast locks expire there too
-import { withoutImpulseStamps } from "./gameState.js"; // the impulse lapse at cleanup strips the same stamp list the cast out of exile does
+import { withoutImpulseStamps, startingLoyalty } from "./gameState.js"; // the impulse lapse at cleanup strips the same stamp list the cast out of exile does
 import { permanentValue, policyEvalEnabledFor } from "./boardEval.js"; // QUARTET PHASE 1 slice 3 — the shared evaluator (leaf-importing module, cycle-free)
 import { setPendingCleanupDiscardChoice } from "./pendingChoice.js";
 import { skipsDrawStep, extraTurnSkipped } from "./effects/textNormalize.js"; // SKIP YOUR DRAW STEP (RG-4, 2026-09-05) — a leaf reader, controller-scoped; + the opponent-scoped extra-turn skip (Trouble in Pairs, #626)
@@ -1729,13 +1729,16 @@ function buildTriggerStack(state, trigger, chooseTargets) {
  * FLICKER TARGETS (shelf D21) — the trigger chooser's pick when a program's one targeted atom is a blink. Each candidate
  * permanent scores what flickering it gains (it returns as a new object, CR 400.7): its enters abilities fire again (+3), it
  * returns untapped (+1), attachments on it fall off — an opponent's (+3) or its controller's own (−2) — an attached Equipment
- * comes off its creature (−2), and counters go: −1/−1 (+1 each), +1/+1 (−1 each). A token that leaves is gone for good
- * (CR 111.8) and is never chosen. (A commander is fine: it is back on the battlefield before the CR 903.9a state-based action
- * could send it to the command zone.) "Up to" / "any number"
- * flicker only what gains (possibly nothing); a mandatory single target takes the best on offer. The expander orders subsets
- * MAXIMAL-first (targeting.expandAtoms), so for "any number" the first candidate already holds every legal target: the
- * gaining subset is filtered out of it, whatever the 64-option cap dropped from the middle sizes. Null when the program isn't
- * a lone blink.
+ * comes off its creature (−2), and counters go: −1/−1 (+1 each), +1/+1 (−1 each), a planeswalker's loyalty back to its
+ * starting number (the difference, either way). A token that leaves is gone for good (CR 111.8) and is never chosen. (A
+ * commander is fine: it is back on the battlefield before the CR 903.9a state-based action could send it to the command zone.)
+ * "UP TO" flickers only what gains (possibly nothing); a mandatory single target takes the best on offer.
+ * "ANY NUMBER" (Brago, King Eternal) flickers EVERYTHING that has no reason against it — Colton's rule, 2026-10-03: "unless
+ * there's a reason not to, you blink everything every time". A reason against is a negative score: a token, counters or
+ * loyalty that would be lost, an attachment left behind. A permanent with nothing to gain and nothing to lose goes too.
+ * The expander orders subsets MAXIMAL-first (targeting.expandAtoms), so for "any number" the first candidate already holds
+ * every legal target: the set is filtered out of it, whatever the 64-option cap dropped from the middle sizes. Null when the
+ * program isn't a lone blink.
  */
 function pickFlickerCandidate(state, controller, safe, program) {
   // (A modal program's top-level atoms are empty — its modes carry them — so it never reaches the flicker pick.)
@@ -1748,6 +1751,10 @@ function pickFlickerCandidate(state, controller, safe, program) {
     if (p.tapped) g += 1;
     if (p.attachedTo) g -= 2;
     g += (p.counters?.["-1/-1"] || 0) - (p.counters?.["+1/+1"] || 0);
+    // A planeswalker returns with its STARTING loyalty (CR 306.5b): above it, the surplus is lost; below it, the reset gains.
+    const loyaltyNow = p.counters?.loyalty;
+    const loyaltyStart = startingLoyalty(p.card);
+    if (loyaltyNow != null && loyaltyStart != null) g += loyaltyStart - loyaltyNow;
     for (const id of p.attachments || []) {
       const a = findPermanent(state, id);
       if (a) g += a.controller === controller ? -2 : 3;
@@ -1758,7 +1765,7 @@ function pickFlickerCandidate(state, controller, safe, program) {
   const empty = safe.find((c) => size(c) === 0) || null;
   if (targeted[0].anyNumber) {
     const full = safe[0]; // maximal-first: every legal target
-    return { ...full, targets: (full.targets || []).filter((t) => gain(t) > 0) };
+    return { ...full, targets: (full.targets || []).filter((t) => gain(t) >= 0) }; // everything with no reason against it
   }
   const total = (c) => (c.targets || []).reduce((s, t) => s + gain(t), 0);
   const best = safe.filter((c) => size(c) > 0).reduce((a, c) => (a == null || total(c) > total(a) ? c : a), null);

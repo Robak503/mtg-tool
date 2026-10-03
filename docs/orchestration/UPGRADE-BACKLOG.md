@@ -296,6 +296,8 @@ summary here for the queue:
     for a card in HAND (a mana sink on the battlefield — Thrasios, a commander in the command zone — does not trigger
     it); the first mana Aura still goes to the first own land by id (so an "Enchant Forest" Aura can only join a stack
     that started on a Forest); Ancient Tomb counts as a 2-mana land with no weight on its 2 damage.
+    ✅ SHIPPED 2026-10-03 — **Brago, King Eternal**: "unless there's a reason not to, you blink everything every time"
+    (`gameEngine.pickFlickerCandidate`, the "any number" branch).
   · **E7.5 — a real loop shortcut (CR 731.1b):** "repeat this N times" as one decision, for the human player too.
   · **E7.6 — kill everyone when you can, for every seat:** the split-across-all-opponents attack is gated to a seat with a
     token loop today (so every other game stays byte-identical); the general version is an A/B for Omnath.
