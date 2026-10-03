@@ -16,7 +16,8 @@
 
 import { describe, it, expect } from "vitest";
 import { createGame } from "./gameApi.js";
-import { advanceUntilDecision } from "./learnSession.js";
+import { advanceUntilDecision, TURN_RAW_TICK_MULTIPLE } from "./learnSession.js";
+import { parseEffectClause } from "./effects/parser.js";
 
 function deck(prefix) {
   const out = [];
@@ -43,5 +44,43 @@ describe("per-turn tick budget — the grind spin guard", () => {
     // Observability: the busiest turn is recorded, and it's far under the budget.
     expect(decision.maxTurnTicks).toBeGreaterThan(0);
     expect(decision.maxTurnTicks).toBeLessThan(2000);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------
+// WHAT THE BUDGET COUNTS (2026-10-03): ticks that begin with an EMPTY stack. Every player passing so the next
+// object can resolve is resolution work, and a legitimate turn can hold thousands of those ticks (236 Squirrels
+// entering beside Altar of the Brood and Blasting Station: ~4,700). The raw count keeps its own ceiling, ten
+// budgets, for a stack that never empties.
+// ---------------------------------------------------------------------------------------------------------
+describe("the budget is spent on empty-stack ticks", () => {
+  const gainLife = parseEffectClause("You gain 1 life.", "Instant");
+  const stackObject = (i) => ({
+    id: `stk-probe-${i}`, kind: "activated-ability", source: { id: "probe-card", name: "Probe" }, controller: "user", targets: [],
+    payload: { resolver: "effect-program", params: { program: gainLife, controller: "user", targets: [], cardId: "probe-card", sourceId: null } },
+  });
+  const loaded = (n) => { const s = expertGame(); return { ...s, state: { ...s.state, stack: Array.from({ length: n }, (_, i) => stackObject(i)) } }; };
+
+  it("a turn busier than the budget is not a stall while the ticks over it were resolving the stack", () => {
+    // Twenty abilities wait on the stack on turn 1: that turn takes 59 ticks against a budget of 30.
+    const { session, decision } = advanceUntilDecision(loaded(20), { turnTickBudget: 30 });
+    expect(decision.kind).toBe("game-over");
+    expect(decision.maxTurnTicks).toBeGreaterThan(30);
+    expect(session.state.players.user.life).toBe(60); // every one of the twenty resolved
+  });
+
+  it("a plain game's busiest turn may pass the budget in raw ticks too", () => {
+    const { decision } = advanceUntilDecision(expertGame(), { turnTickBudget: 30 });
+    expect(decision.kind).toBe("game-over");
+    expect(decision.maxTurnTicks).toBeGreaterThan(30);
+  });
+
+  it("the raw count has a ceiling of ten budgets: a stack that will not empty in time is a stall", () => {
+    const { session, decision } = advanceUntilDecision(loaded(200), { turnTickBudget: 5 });
+    expect(decision.kind).toBe("engine-stuck");
+    expect(String(decision.reason)).toBe("turn stall (51 ticks in a single turn — non-terminating loop)");
+    expect(decision.ticks).toBe(51);
+    expect(session.state.stack.length).toBeGreaterThan(0);
+    expect(TURN_RAW_TICK_MULTIPLE).toBe(10);
   });
 });

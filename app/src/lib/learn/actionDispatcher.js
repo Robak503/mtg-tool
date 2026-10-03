@@ -72,7 +72,7 @@ function pitchRandomHandCard(working, playerId, excludeId, kind) {
 }
 import { tutorManaValue } from "./effects/atoms/library.js"; // γ1i (CAP14) — the shared MV reader the tutor / free-cast paths use, so "mana value" means ONE thing engine-wide
 import { passPriority, flushTriggers, chooseTriggerTargets, attackDeclarationOpen, closeAttackDeclaration } from "./gameEngine.js";
-import { manaSources, planPayment, sourcesExcludingOneShotVictim, castPaymentSources, commitPaymentPlan, commitManaTap, payManaCost, manaActivationCost, payActivationFromPool } from "./manaModel.js";
+import { manaSources, planPayment, sourcesExcludingOneShotVictim, castPaymentSources, costReservedPermanentIds, withoutUnfeedableSacSources, commitPaymentPlan, commitManaTap, payManaCost, manaActivationCost, payActivationFromPool } from "./manaModel.js";
 import { conditionalEntersTapped, paysLifeOrEntersTapped, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>" + the shockland pay-life clause (a leaf over interveningIf; cycle-free)
 import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT dispatch hook (audit.js imports only the delayed-trigger leaf, cycle-free)
 import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — the payment half; legalChoices holds the restriction half (+ the Phyrexian life lane, Norn's Annex)
@@ -427,7 +427,7 @@ function applyCastSpell(state, action) {
     // Commit the plan (manaModel.commitPaymentPlan): add each source's mana and tap it — OR sacrifice
     // a one-shot Treasure/Gold — then deduct EXACTLY what the plan spent. Any surplus from an
     // over-producing source (Sol Ring on a single generic) floats — the floating-mana behavior we want.
-    working = commitPaymentPlan(state, action.playerId, plan);
+    working = commitPaymentPlan(state, action.playerId, plan, { reserved: costReservedPermanentIds(action) });
     // Read off the SAME plan the commit just deducted, so "counted" and "spent" can never drift apart.
     colorsSpent = ["W", "U", "B", "R", "G"].filter((c) => (plan.spend?.[c] || 0) > 0).length;
     // SG-13: read off the SAME plan — a {0} spell (or a cost reduced to nothing) spent no mana at all.
@@ -1200,7 +1200,7 @@ function applyDoubleManaPool(state, action) {
   );
   const plan = planPayment(player.manaPool, sources, action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
-  let working = commitPaymentPlan(state, action.playerId, plan);
+  let working = commitPaymentPlan(state, action.playerId, plan, { reserved: costReservedPermanentIds(action) });
   if (action.tapSelf) working = tapPermanent(working, action.permanentId);
 
   // Double the pool AFTER the cost is paid (CR 605.3a). addMana(color, amount = current) turns N into 2N per
@@ -1271,7 +1271,7 @@ function applyActivateGyRecursion(state, action) {
   if (!card) throw new DispatcherError(`Card ${action.cardId} not in graveyard`, "CARD_NOT_FOUND");
   const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
-  let working = commitPaymentPlan(state, action.playerId, plan);
+  let working = commitPaymentPlan(state, action.playerId, plan, { reserved: costReservedPermanentIds(action) });
   // GR-1 — the ", Discard N cards" cost rider (Stitchwing Skaab kin, CR 601.2h — costs pay BEFORE the
   // ability stacks): re-verify each enumerated victim is still in hand, then discard it. A vanished
   // victim (hand changed between enumeration and dispatch) aborts — an underpaid cost must never stack.
@@ -1336,7 +1336,7 @@ function applyActivateHandSelfPut(state, action) {
   const cost = parseManaCost(ab.manaPips);
   const plan = planPayment(player.manaPool, manaSources(state, action.playerId), cost);
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
-  const working = commitPaymentPlan(state, action.playerId, plan);
+  const working = commitPaymentPlan(state, action.playerId, plan, { reserved: costReservedPermanentIds(action) });
   const { id: stkId, state: working2 } = mintId(working, "stk");
   const stackObject = createStackObject({
     id: stkId,
@@ -1424,7 +1424,7 @@ function applyActivateGyExile(state, action) {
   if (!card) throw new DispatcherError(`Card ${action.cardId} not in graveyard`, "CARD_NOT_FOUND");
   const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
-  let working = commitPaymentPlan(state, action.playerId, plan);
+  let working = commitPaymentPlan(state, action.playerId, plan, { reserved: costReservedPermanentIds(action) });
   // The exile-self cost item (CR 602.2b — costs are paid before the ability is put on the stack).
   working = moveCardToZone(working, { playerId: action.playerId, fromZone: "graveyard", toZone: "exile", cardId: action.cardId });
   const { id: stkId, state: working2 } = mintId(working, "stk");
@@ -1473,7 +1473,9 @@ function applyActivateAbility(state, action) {
   // per-victim affordability (the two-sites invariant — offered ⇒ payable without cracking the victim).
   // γ1f: a creature TAPPED for a "Tap an untapped creature you control" cost can't ALSO tap for mana —
   // exclude it from the mana sources (mirrors legalChoices' per-victim affordability filter exactly).
-  const sources = sourcesExcludingOneShotVictim(
+  // A sacrifice-a-creature source (the Altars) needs a creature this activation's own costs do not already claim
+  // (withoutUnfeedableSacSources — mirrors legalChoices' per-victim affordability).
+  const sources = withoutUnfeedableSacSources(state, action.playerId, sourcesExcludingOneShotVictim(
     manaSources(state, action.playerId).filter(s =>
       !((action.tapSelf || action.sacSelf || action.exileSelf) && s.permanentId === action.permanentId) &&
       !(action.tapCreatureId && s.permanentId === action.tapCreatureId) &&
@@ -1483,13 +1485,13 @@ function applyActivateAbility(state, action) {
       !(action.returnLandId && s.permanentId === action.returnLandId) &&
       !sacCountExcluded.has(s.permanentId)),
     action.sacCreatureId,
-  );
+  ), costReservedPermanentIds(action));
   // SG-18 (Shang-Chi): the activation spend context — a source printed "Spend this mana only to activate abilities of
   // creature sources" is offered here iff the activating permanent is a creature (layer-aware). Must MATCH legalChoices.
   const plan = planPayment(pool, sources, action.cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id) });
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
 
-  let working = commitPaymentPlan(state, action.playerId, plan);
+  let working = commitPaymentPlan(state, action.playerId, plan, { reserved: costReservedPermanentIds(action) });
 
   // Pay the `{T}` part of the cost by tapping the source (after the mana taps, so the
   // source was already excluded from the mana plan above and can't be double-tapped).
@@ -1818,7 +1820,7 @@ function applyCycle(state, action) {
   } else {
     const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
     if (!plan) throw new DispatcherError("Cannot pay the cycling cost", "MANA_SHORT");
-    working = commitPaymentPlan(state, action.playerId, plan);
+    working = commitPaymentPlan(state, action.playerId, plan, { reserved: costReservedPermanentIds(action) });
   }
 
   // Pay the DISCARD part of the cost — the card itself, hand → graveyard.
@@ -1878,7 +1880,7 @@ function applyDiscardAbility(state, action) {
   const liveCost = reduceDiscardAbilityCost(state, action.playerId, parseManaCost(ab.cost), ab.reduction);
   const plan = planPayment(player.manaPool, manaSources(state, action.playerId), liveCost);
   if (!plan) throw new DispatcherError("Cannot pay the ability cost", "MANA_SHORT");
-  let working = commitPaymentPlan(state, action.playerId, plan);
+  let working = commitPaymentPlan(state, action.playerId, plan, { reserved: costReservedPermanentIds(action) });
 
   working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.cardId });
   working = checkDiscardTriggers(working, action.playerId, [action.cardId]);
@@ -2143,7 +2145,7 @@ function applyCompanionToHand(state, action) {
   }
   const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
   if (!plan) throw new DispatcherError("Cannot pay {3} for the companion", "MANA_SHORT");
-  let working = commitPaymentPlan(state, action.playerId, plan);
+  let working = commitPaymentPlan(state, action.playerId, plan, { reserved: costReservedPermanentIds(action) });
   const w = working.players[action.playerId]; // already carries the deducted pool (W1)
   let next = {
     ...working,
@@ -2296,7 +2298,7 @@ function applyTurnFaceUp(state, action) {
   const player = state.players[action.playerId];
   const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the turn-face-up cost", "MANA_SHORT");
-  let working = commitPaymentPlan(state, action.playerId, plan);
+  let working = commitPaymentPlan(state, action.playerId, plan, { reserved: costReservedPermanentIds(action) });
   working = updatePermanentSafe(working, action.permanentId, (p) => {
     const { faceDown: _fd, faceUpCard: _fu, ...rest } = p;
     return { ...rest, card: real };
@@ -2320,7 +2322,7 @@ function applyPlot(state, action) {
   // Pay the plot MANA cost (CR 702.170a — the plot cost is paid as the special action is taken).
   const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the plot cost", "MANA_SHORT");
-  let working = commitPaymentPlan(state, action.playerId, plan);
+  let working = commitPaymentPlan(state, action.playerId, plan, { reserved: costReservedPermanentIds(action) });
 
   // Exile the card face-up (hand → exile), then stamp the plotted markers onto the exiled copy. The turn
   // stamp is what enforces "not the turn it was plotted" — legalChoices.actionsCastPlottedFromExile compares
@@ -2353,7 +2355,7 @@ function applySuspend(state, action) {
 
   const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the suspend cost", "MANA_SHORT");
-  let working = commitPaymentPlan(state, action.playerId, plan);
+  let working = commitPaymentPlan(state, action.playerId, plan, { reserved: costReservedPermanentIds(action) });
 
   working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "exile", cardId: action.cardId });
   const exile = working.players[action.playerId].exile;

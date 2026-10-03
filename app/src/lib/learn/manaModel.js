@@ -2222,6 +2222,33 @@ export function manaSources(state, playerId) {
 }
 
 /**
+ * The battlefield permanents an action's OWN costs still need once its mana is paid — its sacrifice victims, the
+ * creatures and lands it taps or returns, the Equipment it unattaches, and its source when the source taps, is sacrificed
+ * or is exiled as part of the cost. commitPaymentPlan keeps a sacrifice-a-creature mana source off these, and
+ * withoutUnfeedableSacSources keeps such a source out of the plan when nothing else could feed it.
+ */
+export function costReservedPermanentIds(action) {
+  const ids = new Set();
+  const add = (v) => { if (Array.isArray(v)) v.forEach(add); else if (v != null) ids.add(v); };
+  for (const key of ["sacCreatureId", "sacCountIds", "sacXIds", "sacLandIds", "sacId", "tapCreatureId", "tapCountIds", "tapIds",
+    "teamworkTapIds", "returnLandId", "returnLandIds", "returnPermId", "unattachEquipmentId"]) add(action?.[key]);
+  if (action?.permanentId != null && (action.tapSelf || action.sacSelf || action.exileSelf)) ids.add(action.permanentId);
+  return ids;
+}
+
+/**
+ * Drop every sacrifice-a-creature mana source that has no creature left to feed it once `reserved` (the action's own
+ * cost permanents) is set aside. manaSources offers such a source while ANY other creature is there; when the only
+ * other creature is the very one the action sacrifices or taps, the source cannot pay (CR 601.2h) and must not count
+ * toward affordability. Shared by the offer and the payment so the two cannot diverge.
+ */
+export function withoutUnfeedableSacSources(state, playerId, sources, reserved) {
+  if (!reserved || !sources.some((s) => s.sacrificesCreature)) return sources;
+  const creatures = (state?.players?.[playerId]?.battlefield || []).filter((p) => /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || "")));
+  return sources.filter((s) => !s.sacrificesCreature || creatures.some((c) => c.id !== s.permanentId && !reserved.has(c.id)));
+}
+
+/**
  * W3 (overhaul pass, the γ1b/addCost double-spend guard): a ONE-SHOT mana source (a source the
  * commit path SACRIFICES on use — Treasure/Gold/Eldrazi Spawn) that is ALSO the chosen sacrifice
  * victim of the very cost being paid cannot be cracked for that cost's mana: planPayment would
@@ -2262,6 +2289,8 @@ export function castPaymentSources(state, action) {
     const tw = new Set(action.teamworkTapIds);
     sources = sources.filter((s) => !tw.has(s.permanentId));
   }
+  // · A sacrifice-a-creature source (the Altars) needs a creature the cast's own costs do not already claim.
+  sources = withoutUnfeedableSacSources(state, action.playerId, sources, costReservedPermanentIds(action));
   return sourcesExcludingOneShotVictim(sources, action.sacCreatureId);
 }
 
@@ -2692,7 +2721,7 @@ export function canAfford(pool, sources, cost, spendContext = null) {
  * dispatcher's plan commits, applyTapForMana's explicit tap, and payManaCost's resolution-layer payment —
  * so the commit semantics can't drift.
  */
-export function commitManaTap(state, playerId, tap) {
+export function commitManaTap(state, playerId, tap, { reserved = null } = {}) {
   // MIXED FIXED BUNDLE (karoo / signet): the tap produces its exact per-color tally, so the commit adds each
   // color rather than `amount` of the single recorded `color`. Reading the plan's OWN breakdown is what keeps
   // "affordable per planPayment" == "actually paid" for these sources — the invariant this whole seam exists
@@ -2729,7 +2758,10 @@ export function commitManaTap(state, playerId, tap) {
   // refused) → the tap is logged unpaid rather than fabricated, mirroring the exile-cost branch below.
   if (tap.sacrificesCreature) {
     const bf = next.players[playerId]?.battlefield || [];
-    const victims = bf.filter((p) => p.id !== tap.permanentId && /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || "")));
+    // `reserved` = the permanents the action being paid for still needs for its OWN costs (its sacrifice victim, the
+    // creatures it taps, a source that taps or sacrifices itself): feeding one of those to the Altar would leave that
+    // cost unpayable a moment later ("Sacrifice victim … not on battlefield").
+    const victims = bf.filter((p) => p.id !== tap.permanentId && !reserved?.has(p.id) && /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || "")));
     const mvOf = (p) => { const cost = String(p.card?.mana_cost || p.card?.mana || ""); let n = 0; for (const m of cost.matchAll(/\{([^}]+)\}/g)) n += /^\d+$/.test(m[1]) ? parseInt(m[1], 10) : (m[1] === "X" ? 0 : 1); return n; };
     victims.sort((a, b) => mvOf(a) - mvOf(b) || String(a.card?.name || "").localeCompare(String(b.card?.name || "")));
     const victim = victims[0];
@@ -2798,9 +2830,17 @@ export function commitManaTap(state, playerId, tap) {
  * layer's payManaCost commit through one implementation — the 3-way copy-paste this replaced is the exact
  * seam where tap-for-mana semantics used to drift.
  */
-export function commitPaymentPlan(state, playerId, plan) {
+export function commitPaymentPlan(state, playerId, plan, { reserved = null } = {}) {
   let next = state;
-  for (const tap of plan?.taps || []) next = commitManaTap(next, playerId, tap);
+  // A sacrifice-a-creature source (Ashnod's / Phyrexian Altar) picks its victim as it commits, so it commits LAST: every
+  // creature the same plan taps for mana (Cryptolith Rite, Enduring Vitality) is tapped first, and only then may one be
+  // sacrificed. Committed in plan order, the Altar could sacrifice a creature a later tap of the plan still named
+  // ("Permanent … not found"), ending the game in a dispatch error. A plan with no such source keeps its order.
+  const taps = plan?.taps || [];
+  const ordered = taps.some((t) => t.sacrificesCreature)
+    ? [...taps.filter((t) => !t.sacrificesCreature), ...taps.filter((t) => t.sacrificesCreature)]
+    : taps;
+  for (const tap of ordered) next = commitManaTap(next, playerId, tap, { reserved });
   const topped = next.players[playerId].manaPool;
   const nextPool = {};
   // + activationSpend (the free-activation fix): what funded a mana-costed source — paid out of the pool, never counted as spent on the spell.

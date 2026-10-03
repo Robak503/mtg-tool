@@ -1415,6 +1415,8 @@ function pendingEdictModeActions(pc) {
   return actions;
 }
 
+/** A turn may spend this many tick budgets in all (resolution ticks included) before it is called a stall. */
+export const TURN_RAW_TICK_MULTIPLE = 10;
 /** The sizes past which a game is a runaway loop, not a game: objects on the stack, permanents one seat controls. */
 export const RUNAWAY_LIMITS = Object.freeze({ stack: 500, battlefield: 2000 });
 /** "stack (N objects)" / "battlefield (N permanents, <seat>)" when the state is past a limit; null otherwise. */
@@ -1527,10 +1529,18 @@ export function advanceUntilDecision(
   // ~50 turns), so no real turn approaches it — but it bails a spin ~25× sooner than the 50000
   // backstop. A false trip costs one discarded game (engine-stuck already is); a miss costs a
   // minutes-long hang + an OOM, so the margin is deliberately asymmetric toward catching spins.
+  // ⚑ WHAT THE BUDGET COUNTS (2026-10-03): ticks that BEGIN WITH AN EMPTY STACK. A tick that begins with objects on the
+  // stack is resolution work — every player passing so one trigger can resolve — and a legitimate turn can hold
+  // thousands of those: 236 Squirrels entering beside Altar of the Brood and Blasting Station is two triggers each, four
+  // passes a trigger, ~4,700 ticks, and the raw count called that a loop (2 of Omnath's Squirrel Girl seeds; the stack
+  // was draining the whole time). A spin still shows: every cycle of "act, resolve, act again" begins one tick on an
+  // empty stack. The raw count keeps a ceiling of its own, TURN_RAW_TICK_MULTIPLE budgets, for a turn whose stack
+  // never empties (a trigger that re-triggers itself); the runaway size guard below bounds a stack that only grows.
   let current = session;
   let ticks = 0;
   let turnForTicks = null; // the state.turn we're counting ticks within
   let ticksThisTurn = 0;
+  let idleStackTicksThisTurn = 0; // ticks of this turn that began with an empty stack — what the budget is spent on
   let maxTurnTicks = 0; // observability: the busiest single turn (recorded on the result)
 
   // Turn-boundary state (opt-in observer + opt-in time-pressure clock). Starts at null
@@ -1560,10 +1570,12 @@ export function advanceUntilDecision(
     if (curTurnForTicks !== turnForTicks) {
       turnForTicks = curTurnForTicks;
       ticksThisTurn = 0;
+      idleStackTicksThisTurn = 0;
     }
     ticksThisTurn += 1;
+    if ((current.state?.stack || []).length === 0) idleStackTicksThisTurn += 1;
     if (ticksThisTurn > maxTurnTicks) maxTurnTicks = ticksThisTurn;
-    if (ticksThisTurn > turnTickBudget) {
+    if (idleStackTicksThisTurn > turnTickBudget || ticksThisTurn > turnTickBudget * TURN_RAW_TICK_MULTIPLE) {
       return {
         session: current,
         decision: {

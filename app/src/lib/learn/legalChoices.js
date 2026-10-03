@@ -30,7 +30,7 @@
  */
 
 import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower, nameCastLocked, playerLifeLocked } from "./gameState.js"; // B4: the Reflector Mage name cast lock; playerLifeLocked — CR 119.8, a life total that can't change can't pay life
-import { canAfford, manaSources, manaProduction, manaActivationCost, payActivationFromPool, landAuraManaBonus, globalTapManaAugment, applyAuraManaGrantSupplement, sourcesExcludingOneShotVictim, castPaymentSources } from "./manaModel.js";
+import { canAfford, manaSources, manaProduction, manaActivationCost, payActivationFromPool, landAuraManaBonus, globalTapManaAugment, applyAuraManaGrantSupplement, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType } from "./layers.js";
@@ -1413,6 +1413,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
           if (!freeCast) {
             let src = manaSources(state, playerId);
             for (const id of chosenIds) src = sourcesExcludingOneShotVictim(src, id);
+            // + a sacrifice-a-creature source (the Altars) cannot be fed one of the N victims (manaModel.castPaymentSources).
+            src = withoutUnfeedableSacSources(state, playerId, src, new Set(chosenIds));
             if (!canAfford(player.manaPool, src, cost)) continue;
           }
           emit(ch, { sacCountIds: chosenIds, sacName: `sacrifice ${chosen.map(c => c.card?.name).filter(Boolean).join(", ")}` });
@@ -1434,7 +1436,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
           // W3 (two-sites invariant): a ONE-SHOT mana source (Treasure/Gold/Spawn) chosen as THE victim
           // can't also be cracked to pay the mana cost — re-check affordability with it excluded, per
           // victim (another victim or source may still afford). A repeatable victim taps first legally.
-          if (!freeCast && !canAfford(player.manaPool, sourcesExcludingOneShotVictim(manaSources(state, playerId), victim.id), cost)) continue;
+          // + a sacrifice-a-creature source (the Altars) cannot be fed THE victim either (manaModel.castPaymentSources).
+          if (!freeCast && !canAfford(player.manaPool, withoutUnfeedableSacSources(state, playerId, sourcesExcludingOneShotVictim(manaSources(state, playerId), victim.id), new Set([victim.id])), cost)) continue;
           for (const ch of combos) {
           // Don't sacrifice the very permanent the effect targets — paid as a cost (gone before the spell
           // resolves) → the target would fizzle (CR 608.2b). Pointless self-defeating action; drop it.
@@ -2899,7 +2902,7 @@ function actionsActivateAbility(state, playerId) {
       for (const victim of sacVictims) {
         // W3 (two-sites invariant): exclude a ONE-SHOT mana victim from the sources for THIS victim's
         // affordability — mirrors the dispatcher's payment filter exactly.
-        if (ab.sacOther && !canAfford(player.manaPool, sourcesExcludingOneShotVictim(sources, victim?.id), cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id) })) continue;
+        if (ab.sacOther && !canAfford(player.manaPool, withoutUnfeedableSacSources(state, playerId, sourcesExcludingOneShotVictim(sources, victim?.id), new Set([victim?.id, ...((ab.tapSelf || ab.sacSelf || ab.exileSelf) ? [perm.id] : [])].filter((id) => id != null))), cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id) })) continue;
        for (const tapVictim of tapVictims) {
         // γ1f — a "Tap an untapped creature you control" cost: the chosen creature to tap can't ALSO tap for
         // mana (a mana-dork tapped for the cost is already tapped), so exclude it from THIS victim's mana

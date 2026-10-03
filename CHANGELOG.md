@@ -17,6 +17,8 @@ summarizes the notable changes.
 
 ### Fixed
 - Simulated games with **The Unbeatable Squirrel Girl** no longer hang. The AI used to activate her Squirrel-doubling ability on top of itself without end; it now makes Squirrels only until it has enough to win, stops everything else, and attacks every opponent in one combat
+- A game could end in an error when **Phyrexian Altar** or **Ashnod's Altar** helped pay a cost alongside creatures that tap for mana (Cryptolith Rite, Enduring Vitality): the Altar could sacrifice a creature the same payment still needed. It now takes its victim last, never one the spell's or ability's own cost needs, and is not counted when no other creature could feed it
+- A long but legitimate turn (hundreds of triggers resolving one after another) is no longer mistaken for an endless loop and cut off
 - A game could freeze for minutes on one decision when a spell or ability with "X target …" could choose nearly every legal target (seen with a large board late in a game); listing those choices is now instant
 - A simulated game whose board or stack grows out of control (more than 2,000 permanents under one player, or more than 500 objects on the stack) now ends as a stuck game in seconds instead of running for minutes
 

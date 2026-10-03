@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **5 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **+0**. The next tag
+> **6 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **+0**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,37 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🩸 2026-10-03 — fix: a sacrifice-for-mana Altar takes its victim last and never one the action's own cost needs; the stall guard counts empty-stack ticks · **±0**
+> Omnath's histogram (COMMS 10-03 19:00Z): 31 `dispatch-error` games, Squirrel Girl in every one, plus turn stalls. Seven seeds
+> replayed on master — still 5 dispatch errors and 2 stalls after the combo-line slice, so not a side effect of the old runaway.
+> · ⚑ BUG 1 (stack traces from seeds 3060443104, 918440171): Phyrexian / Ashnod's Altar picks its victim as its tap commits
+>   ("the least-valuable other creature"). Committed in plan order, it sacrificed a creature that a LATER tap of the same plan
+>   still named — creatures tap for mana beside Cryptolith Rite / Enduring Vitality — ("Permanent tok-N not found"), or the very
+>   creature the action sacrifices as its own cost ("Sacrifice victim perm-N not on battlefield"). It also counted that
+>   creature's mana twice. Fix (`manaModel`): `commitPaymentPlan` commits sacrifice-a-creature taps LAST and hands
+>   `commitManaTap` the action's reserved permanents (`costReservedPermanentIds`: its sacrifice / tap / return victims, its
+>   source when the source taps, is sacrificed or is exiled); `withoutUnfeedableSacSources` drops an Altar that only a reserved
+>   creature could feed, in `castPaymentSources`, the dispatcher's activation sources and the three offer-side affordability
+>   checks (CR 601.2h) — the first version of the fix left a cast OFFERED that the payment refused; the Natural Order witness
+>   caught it. All twelve dispatcher payment commits pass the reserve.
+> · ⚑ BUG 2 (seeds 1454408901, 4129660823): `turn stall (2001 ticks)` on a turn that was not a loop — 236 Squirrels entering
+>   beside Altar of the Brood and Blasting Station is two triggers each, four priority passes a trigger, ~4,700 ticks, the
+>   stack draining the whole time. The per-turn budget now counts ticks that BEGIN WITH AN EMPTY STACK (a spin still shows:
+>   each "act, resolve, act again" cycle starts one such tick); the raw count keeps a ceiling of `TURN_RAW_TICK_MULTIPLE` (10)
+>   budgets for a stack that never empties. The reason string is unchanged.
+> · Results: all 7 seeds finish with a winner. Witnesses `altarManaSac.test.js` (+7: the plan with the Altar first, the reserve,
+>   Natural Order with only its own victim, Squirrel Girl's ability paid by three Squirrels and the Altar) and
+>   `turnTickBudget.test.js` (+3: a preloaded stack; the raw ceiling).
+> · **Mutants 33/33**, restore byte-identical. 48 July seeds byte-identical to 6feb96c4; flip-diff **0 / 0 / 0**; lint 0.
+>   Suite **18,644** tests / 1,767 files (+10) — green in one local run.
+> · ⚠️ Not mutation-pinned (mirrors of the tested filter, no real-card witness yet): the count-of-N sacrifice offer site, the
+>   sacrifice-other ability offer site and the dispatcher's activation sources.
+> · ⚠️ Found, not fixed — two REAL loops the new guards end cleanly (Omnath's July-list stalls, 118 of 123):
+>   **Captain America** (seed 3171500727): the AI activates Lizard Blades' Reconfigure {2} again and again and each one
+>   fizzles "all targets illegal (CR 608.2b)" — the equip slice re-offers it, and the 10-02 resolution re-check (or the
+>   reconfigure target) is suspect; **Jurassic Ramp** (seed 1813482482): Polyraptor + Marauding Raptor, a mandatory infinite
+>   loop — a draw by CR 104.4b; the engine ends it `runaway stack (501 objects)`.
 
 > ## 🌀 2026-10-03 — THE COMBO LINE, slice three: Brago, King Eternal blinks EVERYTHING that has no reason against it · **±0**
 > **Colton's rule (10-03, via Omnath's COMBO note):** "unless there's a reason not to, you blink everything every time."
