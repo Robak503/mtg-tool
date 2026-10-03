@@ -21,7 +21,7 @@
 > **The shape (measured 10-01):** no veins left — of the 852 top-2,500 misses, 430 are one line away and those lines are
 > 429 distinct shapes. The top 500 are 92.6% covered; #501–1,000 73%; #2,001–2,500 48%. Mostly one card per slice: a
 > program of weeks, not a sprint.
-> **Progress:** PLAY-WEIGHTED · 1–59 (Myriad Landscape #28, Feed the Swarm #89, Urza's Saga #120, Victimize #128, War Room
+> **Progress:** PLAY-WEIGHTED · 1–60 (Myriad Landscape #28, Feed the Swarm #89, Urza's Saga #120, Victimize #128, War Room
 > #140, Three Tree City #178, Gemstone Caverns #179, Tireless Provisioner #182, Hideaway — Mosswort Bridge #194 +2, Idol of
 > Oblivion #196, Animate Dead #224, Gray Merchant of Asphodel #242 +9, Malakir Rebirth #246, Everflowing Chalice #251 (multikicker),
 > Etali, Primal Storm #260 (cast any number from among), Bolas's Citadel #263 +15 (Sacrifice N <class> costs), Hullbreaker Horror
@@ -34,7 +34,7 @@
 > exile and its free play), Underworld Breach #388 (escape, granted), Helm of the Host #396 +2 (a copy of the equipped
 > creature), Silence #412 (the all-spells cast lock), Selvala, Heart of the Wilds #438 (the entering creature's controller may
 > draw), Cabal Ritual #453 +2 (the Threshold upgrade; Thermal Blast with it); · 3 the Construct token, the Saga's prerequisite)
-> → top 1,000 at **895 / 1,000** (needs +5 — the 10-02 card-data refresh re-ranked the list: 868 → 865, no card lost) — with Living Death #474 +2 (Living End with it; the one-event batch sacrifice,
+> → top 1,000 at **898 / 1,000** (needs +2 — the 10-02 card-data refresh re-ranked the list: 868 → 865, no card lost) — with Living Death #474 +2 (Living End with it; the one-event batch sacrifice,
 > after the P·34 death look-back fix), Disciple of Freyalise #483 (sacrifice another; payoff by its power), the until-end-of-turn
 > mana hold +3 (Savage Ventmaw), Birgi, God of Storytelling #489 (the spell // spell modal-DFC lane — cast either face), every
 > creature type on the battlefield +3 (Mirror Entity #995, Mutavault, Faceless Haven — Maskwood Nexus's battlefield half), Maskwood
@@ -58,7 +58,8 @@
 > Plaguecrafter #639, Ruinous Ultimatum #651, Dramatic Reversal #666 (+6 with Demon's Disciple, Paradox Engine, Unstoppable Plan),
 > Abrupt Decay #742, Chain Reaction #708, Priest of Titania #766 (+4 with Wirewood Channeler),
 > Champion's Helm #740, Trailblazer's Boots #656 (+5 with Gimli's Axe, Hero's Heirloom, Dryad Sophisticate),
-> Kindred Dominance #701, Eldritch Evolution #756 (+3 with Kindred Judgment).
+> Kindred Dominance #701, Eldritch Evolution #756 (+3 with Kindred Judgment),
+> Tribute to the World Tree #612, Goreclaw #643, Mentor of the Meek #657 (+9 with six power-capped enters triggers).
 > **Data (10-02):** the Scryfall refresh 07-18 → 10-01 (The Hobbit, Reality Fracture): corpus **15,418 / 34,620**, top 2,500 1,701 — the
 > denominator step and the top-1,000 re-ranking are explained in the RUN-LEDGER entry. Run `npm run sync:oracle` between slices.
 > **Fix (10-01, P·34):** a death watcher (Blood Artist, Zulaport Cutthroat, Morbid Opportunist) that died alongside other

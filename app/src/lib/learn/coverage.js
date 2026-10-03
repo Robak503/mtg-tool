@@ -60,6 +60,7 @@ function atomCarriesEventReferent(a) {
   if (a?.scope === "batchDealers") return true; // "each of those creatures" (shelf D22) — only a batch combat-damage trigger names them
   if (a?.sacTriggering) return true; // "sacrifice it" (shelf D24) — only a triggering creature can be "it"
   if (a?.op === "gy-batch-to-battlefield") return true; // "put one of them" (shelf D27) — only a graveyard-enter batch names them
+  if (a?.op === "draw-or-counters-by-triggering-power") return true; // "if its power is 3 or greater" (Tribute to the World Tree) — only an enters watcher names the creature
   return (a?.restrictions || []).some((r) => REFERENT_WHOS.has(r?.who));
 }
 import { registerGrantTriggeredBodyValidator, registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant body gates
@@ -1590,6 +1591,11 @@ export function permanentTriggersCovered(card) {
     // branch parses HIGH via matchDrawOrCounterTriggering — proven by allTriggerSentencesModeled). Anchored
     // to DIRECTLY follow the exact counter-gated draw clause (FN-safe).
     .replace(/(draw a card if that creature has a \+1\/\+1 counter on it)\.\s*if it doesn['’]t, put a \+1\/\+1 counter on it\b\.?\s*/gi, "$1. ")
+    // DRAW-OR-COUNTERS-BY-TRIGGERING-POWER (Tribute to the World Tree) — the same follow-up-arm class: the "Otherwise, put
+    // two +1/+1 counters on it." else-arm belongs to the SAME enters trigger's effect (the whole branch parses HIGH via
+    // matchDrawOrCountersByTriggeringPower — proven by allTriggerSentencesModeled). Anchored to DIRECTLY follow the exact
+    // power-gated draw clause (FN-safe).
+    .replace(/(draw a card if its power is \d+ or greater)\.\s*otherwise, put (?:two|three|four|five) \+1\/\+1 counters on it\b\.?\s*/gi, "$1. ")
     // DOUBLE-OR-RESET-COUNTERS (Lily Bowen, SHELF S7) — the same follow-up-arm class as Radgull/Marcus: the
     // "Otherwise, remove all but one +1/+1 counter from it, then you gain 1 life …" else-arm belongs to the
     // SAME upkeep trigger's effect (the whole branch parses HIGH via matchDoubleOrResetCounters — proven by

@@ -1421,6 +1421,19 @@ export function matchGyOwnerDrain(oracle) {
   return { atoms: [{ op: "gy-owner-drain", who: "gyOwner", lose: parseInt(m[1], 10), gain: parseInt(m[2], 10), optional: true, targetType: null }] };
 }
 
+// DRAW-OR-COUNTERS-BY-TRIGGERING-POWER (play-weighted #612 — Tribute to the World Tree: "draw a card if its power is 3 or
+// greater. Otherwise, put two +1/+1 counters on it.") — the same if/else shape as Marcus above, branching on the ENTERING
+// creature's power. The "the triggering creature" SENTINEL is written only by detectTriggers' enters-watcher rewrite
+// (ETB_POWER_BRANCH_RE — it is in no printed oracle), so a spell's or another event's "its power" never reaches this
+// matcher; the routing gate and the spell fence pin the op to the etb event on top of it. ONE branch atom, resolved by
+// counters.applyDrawOrCountersByTriggeringPower.
+export function matchDrawOrCountersByTriggeringPower(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  const m = t.match(/^draw a card if the triggering creature's power is (\d+) or greater\. otherwise, put (two|three|four|five) \+1\/\+1 counters on the triggering creature$/);
+  if (!m) return null;
+  return { atoms: [{ op: "draw-or-counters-by-triggering-power", powerAtLeast: parseInt(m[1], 10), amount: SMALL_NUM[m[2]], targetType: null }] };
+}
+
 export function matchDoubleOrResetCounters(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   const m = t.match(/^double the number of \+1\/\+1 counters on this creature if its power is (\d+) or less\. otherwise, remove all but one \+1\/\+1 counter from it, then you gain 1 life for each \+1\/\+1 counter removed this way$/);

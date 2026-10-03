@@ -2365,6 +2365,16 @@ export function pumpClauseParser(clause) {
   }
   tp = t.match(/^creatures you control get ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (tp) return { op: "pump", scope: "youControl", ptDelta: { p: parseInt(tp[1], 10), t: parseInt(tp[2], 10) } };
+  // POWER-QUALIFIED TEAM PUMP (play-weighted #643 — Goreclaw, Terror of Qal Sisma: "each creature you control with power 4 or
+  // greater gets +1/+1 and gains trample until end of turn"): the youControl team pump with a `powerAtLeast` floor, honoured
+  // by controllerCreatureTargets on the power each creature has as the pump resolves; the set is then fixed (CR 611.2c —
+  // Goreclaw's bundled ruling). The keyword grant is all-or-nothing through parseGrantedKeywords. Whole-clause anchored on
+  // the one printed shape ("each creature … gets … and gains …"): any other subject, bound or tail stays LOW.
+  const tpw = t.match(/^each creature you control with power (\d+) or greater gets ([+-]\d+)\/([+-]\d+) and gains (.+) until end of turn$/);
+  if (tpw) {
+    const kws = parseGrantedKeywords(tpw[4]);
+    return kws ? { op: "pump", scope: "youControl", powerAtLeast: parseInt(tpw[1], 10), ptDelta: { p: parseInt(tpw[2], 10), t: parseInt(tpw[3], 10) }, grantKeywords: kws } : null;
+  }
   // TYPE-NEGATED TEAM PUMP (Return of the Wildspeaker mode 2) — "non-<Subtype> creatures you control get ±P/±T[ and
   // gain KW] until end of turn". The negated subtype is credited via subtypeNegate → controllerCreatureTargets keeps
   // only creatures NOT of that subtype (changeling-aware, CR 702.73a). CURATED subtype only (TARGET_SUBTYPES) — a

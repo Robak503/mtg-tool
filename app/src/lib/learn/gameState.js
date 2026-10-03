@@ -949,7 +949,9 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
     // on it (CR 704.5n/704.5q). A blink (→ battlefield) keeps attachments out of scope here.
     // SELF-LTB: pass whether this exit is to a graveyard so detachPermanentFromAll's leave-event
     // look-back records `toGraveyard` correctly (Rancor's self-PiG-return keys on it).
-    return toZone === "battlefield" ? result : detachPermanentFromAll(result, permanent, toZone === "graveyard", toZone);
+    if (toZone === "battlefield") return result;
+    // LAST KNOWN POWER for the abilities this permanent triggered (CR 608.2h) — read off `state`, the board it is still on.
+    return detachPermanentFromAll(stampTriggeringLeftPower(result, permanent, state), permanent, toZone === "graveyard", toZone);
   }
 
   // Non-battlefield source: cardId is matched against card.id (caller's
@@ -1350,6 +1352,32 @@ export function recordGraveyardEvents(state, events) {
     }
   }
   return { ...state, players, pendingGraveyardEvents: [...(state.pendingGraveyardEvents || []), ...evs], ...(gyCastPermissions !== state.gyCastPermissions ? { gyCastPermissions } : {}), ...(discardExileWatches !== state.discardExileWatches ? { discardExileWatches } : {}) };
+}
+
+/**
+ * THE TRIGGERING PERMANENT'S LAST KNOWN POWER (CR 608.2h — "if it's no longer in that zone … the effect uses the object's
+ * last known information"; play-weighted #612, Tribute to the World Tree). An ability that triggered on a permanent names
+ * it as `context.triggeringPermanentId`. When that permanent leaves the battlefield while the ability is still waiting —
+ * on the stack, or triggered and not yet put there (a creature a state-based action removes first) — its power as it last
+ * existed is written onto that ability's own context as `triggeringLeftPower`, read through the layers on `before`, the
+ * board the permanent is still on (counters, anthems, pumps included). The stamp lives and dies with the ability: there
+ * is nothing to clear, and a permanent id is minted per entry (CR 400.7), so a card that returns can never match it.
+ * `next` is the board after the move; with no ability naming the permanent it is returned as is. Called from the one
+ * battlefield exit (moveCardToZone). Pure.
+ */
+function stampTriggeringLeftPower(next, permanent, before) {
+  const names = (context) => context?.triggeringPermanentId === permanent.id;
+  const onStack = (next.stack || []).some((obj) => names(obj.payload?.params?.context));
+  const waiting = (next.pendingTriggers || []).some((trigger) => names(trigger.context));
+  if (!onStack && !waiting) return next;
+  const triggeringLeftPower = creaturePower(permanent, before);
+  return {
+    ...next,
+    stack: (next.stack || []).map((obj) => (names(obj.payload?.params?.context)
+      ? { ...obj, payload: { ...obj.payload, params: { ...obj.payload.params, context: { ...obj.payload.params.context, triggeringLeftPower } } } }
+      : obj)),
+    pendingTriggers: (next.pendingTriggers || []).map((trigger) => (names(trigger.context) ? { ...trigger, context: { ...trigger.context, triggeringLeftPower } } : trigger)),
+  };
 }
 
 /**

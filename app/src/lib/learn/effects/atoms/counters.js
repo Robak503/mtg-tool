@@ -9,6 +9,7 @@ import { checkDiesTriggers, checkCounterPlacedTriggers, checkEvolvesTriggers, ch
 import { applyCreateNamedToken, applyCreateToken } from "./tokens.js"; // TREASURE-IF-SELF rider (The Ghoul) — the shared named-token resolver; applyCreateToken — ENDURE mode B (N/N white Spirit token when the source has left)
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): mirror the actual placed amount for the COUNTERS-PLACED watcher count
 import { atomTargets, isCreatureCard, countForSpec, resolveScaledAmount } from "./shared.js";
+import { applyDrawEffect } from "../../spellEffects.js"; // the one draw (misc.js's draw atom reads it too) — Tribute to the World Tree's draw arm
 import { SMALL_NUM, parseCountSource, COUNT_SUBTYPE } from "../parseHelpers.js"; // seam batch 3: shared number-word map (leaf, cycle-free) + DYNAMIC-COUNT board-count source + curated MTG-subtype allowlist (filtered mass-counter scope)
 
 /**
@@ -1178,6 +1179,28 @@ export function applyDrawOrCounterTriggering(state, atom, ctx) {
 }
 
 /**
+ * DRAW-OR-COUNTERS-BY-TRIGGERING-POWER (play-weighted #612 — Tribute to the World Tree): "draw a card if its power is 3 or
+ * greater. Otherwise, put two +1/+1 counters on it." One instruction with two arms, decided as the ability RESOLVES — this
+ * is not an intervening "if" (CR 603.4 covers only an "if" right after the trigger condition), so the ability triggers for
+ * every entering creature and reads the power then (CR 608.2h):
+ *   - the creature is still on the battlefield → its current power through the layers (counters, anthems, a pump cast in
+ *     response all count);
+ *   - it has left → its last known power, `ctx.triggeringLeftPower`, stamped on this ability by the battlefield exit
+ *     (gameState.stampTriggeringLeftPower). A draw still happens at 3 or more; the counter arm has no object to act on
+ *     (CR 400.7 — wherever it went, it is a new object), so it does nothing.
+ * Neither a permanent nor a stamp (an ability that never named an entering creature): the power is undefined, the
+ * comparison is false, and the counter arm finds no creature — nothing happens, never a blind draw.
+ * The draw is the plain draw atom's applyDrawEffect; the counters are the plain "put N +1/+1 counters on the triggering
+ * creature" atom through applyAddCounter, so the counter doublers and the counters-placed watchers apply as they do there.
+ */
+export function applyDrawOrCountersByTriggeringPower(state, atom, ctx) {
+  const found = ctx.triggeringPermanentId ? findPermanent(state, ctx.triggeringPermanentId) : null;
+  const power = found ? creaturePower(found.permanent, state) : ctx.triggeringLeftPower;
+  if (power >= atom.powerAtLeast) return applyDrawEffect(state, { controller: ctx.controller, amount: 1 });
+  return applyAddCounter(state, { op: "add-counter", counterType: "+1/+1", amount: atom.amount, target: "thatCreature" }, ctx);
+}
+
+/**
  * KW-EVOLVE counter placement (CR 702.100a/f — SHELF S7): the synthesized evolve trigger's effect. The
  * kind-tagged sentinel "[evolve] put a +1/+1 counter on this creature" is emitted ONLY by detectTriggers'
  * evolve synthesis, so no printed clause routes here. Delegates the placement to applyAddCounter
@@ -1318,6 +1341,7 @@ export const counterResolvers = {
   "evolve-counter-self": applyEvolveCounterSelf, // KW-EVOLVE (CR 702.100) — self +1/+1 via the standard path, then the evolves watchers
   "renown": applyRenown, // KW-RENOWN (CR 702.111) — latching flag + N +1/+1 counters via the standard addCounter chokepoint (the monstrosity template)
   "draw-or-counter-triggering": applyDrawOrCounterTriggering, // Marcus branch (SHELF S7) — draw if the dealer has a +1/+1, else counter it
+  "draw-or-counters-by-triggering-power": applyDrawOrCountersByTriggeringPower, // Tribute to the World Tree — draw at power N or more, else N counters on the entering creature
   "monstrosity": applyMonstrosity, // MONSTROSITY (CR 701.32) — activated "Monstrosity N": N +1/+1 counters + set monstrous, once
   "adapt": applyAdapt,
   "adapt-ignore-counters": applyAdaptIgnoreCounters, // Biomancer's Familiar (CR 701.46a) — suppress the gate once             // ADAPT (CR 701.46a) — activated "Adapt N": N +1/+1 counters ONLY if it has none (no latch)

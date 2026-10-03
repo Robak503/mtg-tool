@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **8 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,475)**; engine gains since the tag: **+8**. The next tag
+> **9 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,484)**; engine gains since the tag: **+17**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,28 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-03 — PLAY-WEIGHTED · 60: Tribute to the World Tree (EDHREC #612), Goreclaw, Terror of Qal Sisma (#643), Mentor of the Meek (#657) · **+9** · corpus 15,484
+> Flip-diff **+9, −0, zero RETIERED**: Tribute to the World Tree, Mentor of the Meek, Serra Redeemer, Inspiring Commander, Snarling
+> Gorehound, Vicious Clown, Marketwatch Phantom, Neighborhood Guardian → native-trigger; Goreclaw → native-mixed. Top 1,000 **898**;
+> top 2,500 **1,737**. **Mutants 46/46** on the integrated tree, restore byte-identical. Built by a fan-out builder (rebased onto
+> master before its gates); one import-list conflict with · 59 resolved as the union of both name sets; re-verified on the
+> integrated tree. No existing test edited.
+> · Tribute: one branch atom, `draw-or-counters-by-triggering-power`, decided on resolution from the entering creature's power
+>   through the layers; if it has left, its last known power — `moveCardToZone` stamps `triggeringLeftPower` on every waiting
+>   ability that names the leaving permanent. The draw goes through `applyDrawEffect`, the counters through `applyAddCounter`.
+> · Goreclaw: a cost reducer with a power floor (`minPower: 4`, the SPELL's printed power — a 0/0 that enters with X counters
+>   gets no discount; generic mana only) and the `youControl` team pump with `powerAtLeast`, its set decided on resolution.
+> · Mentor: the singular "another creature you control with power N or less enters" on the existing `etbMaxPower` gate; the
+>   payment is the optional-mana-payment lane. Six cards with the same condition and already-modelled effects flip with it.
+> · ⚑ `etbMaxPower` now reads the layers, not the printed number: Welcoming Vampire and Enduring Innocence no longer trigger for
+>   a 2/2 entering under an anthem and do for a 3/3 under a −1/−1 static (their bundled rulings). Wispdrinker Vampire and
+>   Irreverent Gremlin get a detected trigger (tiers unchanged). Witness `powerThresholdTrio.test.js` (42; four labelled synthetic).
+> · ⚠️ Under-read (documented): a creature spell with `*` power gets no Goreclaw discount (no stack-zone CDA reader; CR 604.3
+>   says it applies). ⚠️ Found, not fixed (queued): Marcus, Mutant Mayor's branch draws with `drawCards` directly (no draw
+>   watchers) and has no last-known read; plain "Creature spells you cast cost {N} less" reducers discount a spell cast
+>   bestowed; the Garruk's Packleader arm cites CR 109.5 for "another"; `controllerCreatureTargets` admits printed creature cards
+>   that are not creatures; two test headers still call the enters power gate a printed read.
 
 > ## 🎯 2026-10-03 — PLAY-WEIGHTED · 59: Kindred Dominance (EDHREC #701), Eldritch Evolution (#756) · **+3** · corpus 15,475
 > Flip-diff **+3, −0, zero RETIERED**: Kindred Dominance, Eldritch Evolution, Kindred Judgment → native-spell. Top 1,000 **895**;

@@ -1081,6 +1081,14 @@ function classifyCondition(condRaw, cardName, cardType) {
     // when Packleader itself enters — a fabricated trigger, not a missing one.
     const powAnotherM = subj.match(/^another creature you control with power (\d+) or greater$/);
     if (powAnotherM) return { event: "etb", scope: "creatureYouControlPower", whose: "any", powerThreshold: parseInt(powAnotherM[1], 10), etbExcludeSelf: true };
+    // POWER-CAPPED, SINGULAR (play-weighted #657 — Mentor of the Meek "another creature you control with power 2 or less
+    // enters"; Inspiring Commander, Serra Redeemer, Snarling Gorehound): the "N or less" mirror of the arm directly above, on
+    // the etbMaxPower gate the batched form (Welcoming Vampire) already carries. One trigger per entering creature
+    // (CR 603.2c) — the printed text is singular and carries no once-per-turn rider, so none is demanded. "Another" is the
+    // otherCreatureYouControl scope: never the source's own entry. Only this subject: the bare "a creature you control
+    // with power N or less" (Ezuri) and the "<name> or another …" union (Overseer of Vault 76) fall to the reject.
+    const powCapAnotherM = subj.match(/^another creature you control with power (\d+) or less$/);
+    if (powCapAnotherM) return { event: "etb", scope: "otherCreatureYouControl", whose: "any", etbMaxPower: parseInt(powCapAnotherM[1], 10) };
   }
 
   // ===== KEYWORD-FILTER ETB (Dragon Tempest "a creature you control with flying enters, it gains haste …";
@@ -1374,9 +1382,9 @@ function classifyCondition(condRaw, cardName, cardType) {
     if (etbMvM) return { event: "etb", scope: "eachCreature", whose: "any", etbMinMv: parseInt(etbMvM[1], 10) };
   }
   // POWER-CAPPED ATTACKER (the 09-06 plan's stage ③ · 26, 2026-09-30 — Raid Bombardment "Whenever a creature you control with power
-  // 2 or less attacks"; Cavalcade of Calamity "… power 1 or less"): the attack twin of Welcoming Vampire's etbMaxPower, but read at
-  // DECLARATION off the attacker's CURRENT power (layers.permanentPower — a pumped creature stops qualifying, a shrunk one starts),
-  // not the printed power the enters gate reads. Carved out HERE, above the blanket "with …" reject, for the reason the two notes
+  // 2 or less attacks"; Cavalcade of Calamity "… power 1 or less"): the attack twin of Welcoming Vampire's etbMaxPower, read at
+  // DECLARATION off the attacker's CURRENT power (layers.permanentPower — a pumped creature stops qualifying, a shrunk one starts);
+  // the enters gate reads the same layer-aware power, as the creature enters. Carved out HERE, above the blanket "with …" reject, for the reason the two notes
   // above record: its first draft sat beside the bare attack arm below and was never reached. LISTED in the descriptor assembly;
   // enforced in scopeMatches.
   {
@@ -3859,6 +3867,13 @@ function rewriteEtbEnteringPronoun(effectClause) {
 // "counter on it" substring matches whether the counter is a standalone sentence or the leading conjunct of an
 // "and"-joined compound (The Great Henge), so this gate already admits the compound-leading form.
 const ETB_ENTERING_PRONOUN_RE = /(?:put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on (?:it|that creature)|^(?:it|that creature) (?:gets|gains)\b|\.\s+(?:it|that creature) (?:gets|gains)\b)/i;
+// POWER BRANCH ON THE ENTERING CREATURE (play-weighted #612 — Tribute to the World Tree: "Whenever a creature you control
+// enters, draw a card if its power is 3 or greater. Otherwise, put two +1/+1 counters on it."): both pronouns are the
+// entering creature (CR 608.2c), and the "Otherwise" sentence is the else-arm of ONE instruction, so the per-sentence
+// rewriter above can't take it (its second sentence does not start with "put"). The whole two-sentence effect is matched
+// and rewritten onto the "the triggering creature" sentinel templateMatchers.matchDrawOrCountersByTriggeringPower reads;
+// any rider or other wording leaves the raw pronouns → LOW → body-only.
+const ETB_POWER_BRANCH_RE = /^draw a card if its power is \d+ or greater\. otherwise, put (?:two|three|four|five) \+1\/\+1 counters on it$/i;
 
 // TRIG-PRONOUN-IT — the NON-SELF pronoun referent for the OTHER effect families (the non-self analogues of
 // the SELF "it" forms): "Whenever a creature you control attacks, IT gets/gains … until end of turn /
@@ -5259,6 +5274,12 @@ export function detectTriggers(card) {
         // CANT_REGEN_TEST on the full oracle and stamps cannotRegenerate on the destroy atom. The detector
         // gated nativeness on this exact "destroy that creature" prefix, so no other effect reaches this rewrite.
         effectClause = effectClause.replace(/^destroy that creature/i, "destroy the triggering creature");
+      } else if (cls.event === "etb" && ETB_ENTERING_CREATURE_SCOPES.has(cls.scope) && ETB_POWER_BRANCH_RE.test(effectClause)) {
+        // POWER BRANCH ON THE ENTERING CREATURE (Tribute to the World Tree) — see ETB_POWER_BRANCH_RE. On `etb` the
+        // triggering permanent IS the entering creature for these scopes, the same guarantee the pronoun arm below relies
+        // on. Tested BEFORE that arm, whose gate also matches this text (the "counters on it" substring) and would leave it
+        // unrewritten.
+        effectClause = effectClause.replace(/ if its power is /i, " if the triggering creature's power is ").replace(/ on it$/i, " on the triggering creature");
       } else if ((cls.event === "etb" && ETB_ENTERING_CREATURE_SCOPES.has(cls.scope) || cls.event === "attacks" && (cls.scope === "creatureYouControl" || cls.scope === "equippedCreature") || cls.event === "dealtDamage" && cls.scope === "creatureYouControl") && ETB_ENTERING_PRONOUN_RE.test(effectClause)) {
         // (The `dealtDamage`/creatureYouControl arm — Rite of Passage "put a +1/+1 counter on it": on
         // dealtDamage the triggering permanent IS the damaged creature (checkDealtDamageTriggers threads it as
@@ -5698,7 +5719,7 @@ export function detectTriggers(card) {
         gyOwnerScope: cls.gyOwnerScope,       // GY-EVENT: whose graveyard — "you" | "opponent" | "any"
         excludeFromBattlefield: cls.excludeFromBattlefield, // GY-EVENT gyEnter only: skip from-battlefield entries (the dies clause covers those)
         gyFromZone: cls.gyFromZone,           // GY-ENTER-BATCH: the ORIGIN zone the printed trigger names ("library" — Sidisi's mill payoff; absent = "from anywhere"). MUST be listed here or it is silently dropped and the trigger fires on EVERY origin — a live over-fire, not a missed one.
-        etbMaxPower: cls.etbMaxPower,         // BATCHED-ETB FILTER: printed power cap ("with power 2 or less" — Welcoming Vampire). Same warning as gyFromZone: unlisted here = silently dropped = the filter never applies.
+        etbMaxPower: cls.etbMaxPower,         // ENTERS POWER CAP ("with power 2 or less" — Welcoming Vampire's batched form, Mentor of the Meek's singular one), read through the layers as the creature enters. Same warning as gyFromZone: unlisted here = silently dropped = the filter never applies.
         etbMaxMv: cls.etbMaxMv,               // BATCHED-ETB FILTER: printed mana-value cap ("with mana value 3 or less" — Tocasia's Welcome).
         etbMinMv: cls.etbMinMv,               // ETB FILTER: printed mana-value FLOOR ("with mana value 6 or greater" — Dragon Fangs). ⚠️ Unlisted here = dropped = the Aura returns on ANY creature entering, which is the whole restriction gone while the trigger still looks correctly detected.
         tokenFilter: cls.tokenFilter,         // "a CREATURE TOKEN you control …" (Curiosity Crafter, Anointer Priest). Unlisted here = silently dropped = the trigger fires on every creature, token or not.
@@ -6454,14 +6475,18 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   // value 3 or less"). Runs BEFORE the scope switch so it composes with whichever controller scope the
   // descriptor chose, exactly like nontokenFilter above.
   //
-  // Read off the entering permanent's card, not the layer-derived board value: these fire AS the permanent
-  // enters, and the printed characteristics are what the filter names. `?? 0` for a missing power keeps a
-  // non-creature entry from passing a "power 2 or less" gate by accident on undefined comparison.
+  // The POWER cap reads the entering creature's power AS IT ENTERS, through the layers (CR 603.6a, CR 613.4c): the
+  // +1/+1 counters it entered with and every static effect that applies to it on the battlefield count — the bundled
+  // rulings of Mentor of the Meek, Welcoming Vampire and Enduring Innocence each say so (a 2/2 entering under an anthem
+  // is a 3/3 and does not trigger; a 3/3 entering under a -1/-1 static does). The enters dispatchers fire with the
+  // permanent and its enters-with counters already on the battlefield, so creaturePower(perm, state) is that value; a
+  // look-back that is not on the battlefield reads its printed power plus counters. The mana-value cap below is a card
+  // characteristic no layer changes, so it stays a card read.
   // Load-bearing: without this the trigger fires for ANY entering creature — a confident wrong fire on every
   // big creature, and invisible in the tier because the card would still classify native.
-  if (descriptor.etbMaxPower != null && !(Number(triggeringPermanent?.card?.power ?? 0) <= descriptor.etbMaxPower)) return false;
+  if (descriptor.etbMaxPower != null && !(creaturePower(triggeringPermanent, state) <= descriptor.etbMaxPower)) return false;
   // POWER-CAPPED ATTACKER (stage ③ · 26 — Raid Bombardment, Cavalcade of Calamity): the attacker's CURRENT, layer-aware power at
-  // declaration — unlike the enters gate above, which reads the printed card as it enters. No state or no attacker → no fire.
+  // declaration — the enters gate above reads the same power as the creature enters. No state or no attacker → no fire.
   if (descriptor.attackMaxPower != null && !(state && triggeringPermanent?.id && permanentPower(state, triggeringPermanent.id) <= descriptor.attackMaxPower)) return false;
   if (descriptor.etbMaxMv != null && !((triggeringPermanent?.card?.cmc ?? 0) <= descriptor.etbMaxMv)) return false;
   // The MIRROR of the cap directly above — "a creature with mana value N OR GREATER enters" (the Dragon

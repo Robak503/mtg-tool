@@ -2605,6 +2605,16 @@ function parseClause(clause, out, selfName, selfType) {
   // count, stamped by collectCostReducers from the battlefield the cast lane hands it — the caster's own — at cost
   // determination (CR 601.2f). Generic only, floored at the cast site like every reducer.
   if (/^enchantment spells you cast have affinity for auras$/.test(c)) { out.push({ costReduction: { subtype: "enchantment", perAuraYouControl: true } }); return; }
+  // POWER-QUALIFIED CREATURE SPELLS (play-weighted #643 — Goreclaw, Terror of Qal Sisma: "Creature spells you cast with power
+  // 4 or greater cost {2} less to cast."): the creature-spell reducer with a floor on the SPELL's own power, read by
+  // costReductionForSpell (creatureSpellPower — the power the spell has on the stack, never the creature it will become).
+  // Generic mana only (CR 118.7a), floored at {0} at the cast site like every reducer (CR 601.2f). "Creature" and "or
+  // greater" only: the one printed carrier; any other word or bound leaves the clause as residue.
+  const crPowM = c.match(/^creature spells you cast with power (\d+) or greater cost \{(\d+)\} less to cast$/);
+  if (crPowM) {
+    out.push({ costReduction: { subtype: normalizeSubtype("creature"), minPower: parseInt(crPowM[1], 10), amount: parseInt(crPowM[2], 10) } });
+    return;
+  }
   const crM = c.match(/^([a-z]+) spells (?:you cast )?cost \{(\d+)\} less to cast$/);
   if (crM) {
     const word = crM[1];
@@ -5444,6 +5454,23 @@ function spellHasChosenType(spellCard, chosenType) {
 }
 
 /**
+ * The power a creature SPELL has while its cost is determined (CR 601.2f — it is on the stack by then), for a reducer that
+ * names it (Goreclaw, Terror of Qal Sisma). That is the power printed on the card: nothing that will apply to the permanent
+ * counts — not the +1/+1 counters it enters with (a 0/0 that enters with X counters is a power-0 spell), not an anthem
+ * (Goreclaw's own bundled ruling). Returns the printed number, or NaN when there is no number to read:
+ *   - a spell cast BESTOWED is an Aura spell, not a creature spell (CR 702.103b), though its type line still reads
+ *     "Creature" — a creature-spell reducer that names a power does not apply to it;
+ *   - a printed "*" (or "1+*", or no power at all) is not a number. A "*" is set by a characteristic-defining ability,
+ *     which does function on the stack (CR 604.3, CR 208.2a); the engine's one CDA reader is the layer-7a pass over a
+ *     battlefield permanent, so the value is not read here — a documented UNDER-read: the caster pays the full cost for
+ *     a spell the rules would discount, never the reverse.
+ * Pure.
+ */
+function creatureSpellPower(spellCard, castContext) {
+  return castContext?.bestowed ? NaN : Number(spellCard?.power);
+}
+
+/**
  * STATIC-COST-REDUCTION: the total GENERIC-mana reduction a set of `reducers` (from collectCostReducers)
  * grant `spellCard`, summed across every reducer that matches the spell. A reducer matches by:
  *   • subtype     — its `subtype` appears (word-bounded) in the spell's TYPE LINE (Dragonspeaker → a Dragon).
@@ -5528,6 +5555,9 @@ export function costReductionForSpell(reducers, spellCard, fromZone = "hand", ca
       if (!typeLine) continue;
       const sub = String(r.subtype).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       if (!sub || (!new RegExp(`\\b${sub}\\b`).test(typeLine) && !(every && CR_CREATURE_TYPES.has(String(r.subtype).toLowerCase())))) continue;
+      // POWER FLOOR (Goreclaw — "creature spells you cast with power 4 or greater"): an AND with the type test above, on the
+      // power the spell has on the stack. A spell with no readable power (NaN) fails the comparison: no discount.
+      if (r.minPower != null && !(creatureSpellPower(spellCard, castContext) >= r.minPower)) continue;
       // COLOR + TYPE (the Monument cycle) — a descriptor carrying BOTH qualities is an AND, unlike the
       // colors-only branch below, which is a union across the listed colors. Without this the if/else-if
       // dispatch would take the subtype branch alone and Bontu's Monument would shave WHITE creatures too.

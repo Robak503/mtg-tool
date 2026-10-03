@@ -540,6 +540,10 @@ export function splitClauses(oracle) {
     // the clause parse binds the controller-scoped pump + grant together (plural subject →
     // "gain", no trailing s).
     if (/^(?:legendary )?creatures you control get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }  // "legendary" = Hajar
+    // POWER-QUALIFIED TEAM PUMP (Goreclaw, Terror of Qal Sisma — "each creature you control with power 4 or greater gets
+    // +1/+1 and gains trample until end of turn"): the same internal " and ", in the singular "each creature … gets … and
+    // gains" voice. Kept whole for pumpClauseParser's powerAtLeast arm, which recognizes exactly this shape.
+    if (/^each creature you control with power \d+ or greater gets [+-]\d+\/[+-]\d+ and gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // OPEN THE OMENPATHS (KT-4b): the two-colour lead is ONE add — its " and " is inside the sentence, not a clause boundary;
     // kept whole so the spend-rider fold below sees the full lead as `prev`.
     if (/^add two mana of any one color and two mana of any other color$/i.test(sentence)) { clauses.push(sentence); continue; }

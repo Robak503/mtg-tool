@@ -223,6 +223,11 @@ export function controllerCreatureTargets(state, controller, opts = {}) {
       || (subFilters.some(isCreatureTypeWord) && permIsEveryCreatureType(state, perm.id)))
     .filter((perm) => !negRe || !(negRe.test(typeLineStr(perm.card).split(" // ")[0])
       || permIsEveryCreatureType(state, perm.id)))
+    // POWER FLOOR (Goreclaw — "each creature you control with power 4 or greater"): the creature's power as the effect is
+    // applied, through the layers (CR 608.2h, CR 613.4c — counters, anthems and earlier pumps count). The set is gathered
+    // once, before any of this pump lands, and is then fixed (CR 611.2c): a creature this very pump lifts to the floor is
+    // not in it, and one that falls below the floor later in the turn keeps the bonus.
+    .filter((perm) => opts.powerAtLeast == null || creaturePower(perm, state) >= opts.powerAtLeast)
     .map((perm) => ({ type: "creature", id: perm.id, controller }));
 }
 
@@ -380,7 +385,7 @@ export const atomTargets = (state, atom, ctx) => {
     const nm = findPermanent(state, chosen.id)?.permanent?.card?.name;
     return sameNameCreatureTargets(state, nm);
   }
-  if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller, { excludeSource: atom.excludeSource, sourceId: ctx.sourceId, subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate, legendaryOnly: atom.legendaryOnly });
+  if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller, { excludeSource: atom.excludeSource, sourceId: ctx.sourceId, subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate, legendaryOnly: atom.legendaryOnly, powerAtLeast: atom.powerAtLeast });
   // "EACH OF THOSE CREATURES" (shelf D22 — Heroes in a Half Shell): the dealers the batch combat-damage trigger named
   // (ctx.batchDealerIds, stamped by checkBatchCombatDamageTriggers) — those still on the battlefield as it resolves; one
   // that has left gets nothing (CR 400.7 — wherever it went, it is a new object, not one of "those creatures").

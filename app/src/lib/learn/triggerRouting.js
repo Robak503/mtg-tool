@@ -121,6 +121,10 @@ export function combatDamageReferentSatisfied(program, event) {
     if (a?.op === "exile-discarded-card" && event !== "discarded") return false;
     // DEALER-BRANCH (Marcus, SHELF S7): the branch reads the combat-damage DEALER — cdmg events only.
     if (a?.op === "draw-or-counter-triggering" && !DAMAGED_PLAYER_EVENTS.has(event)) return false;
+    // ENTERING-POWER BRANCH (Tribute to the World Tree): the branch reads the ENTERING creature — the etb watchers'
+    // triggering permanent, and its last known power once it has left. The sentinel is written only for an etb enters
+    // watcher (triggers.ETB_POWER_BRANCH_RE); this pin is the belt on top of it.
+    if (a?.op === "draw-or-counters-by-triggering-power" && event !== "etb") return false;
     // TARGETING-OBJECT (the Glasskites, 2026-09-30): "counter that spell or ability" reads the stack object whose target
     // choice fired the trigger — ctx.targetingStackObjectId, set ONLY by checkBecomesTargetTriggers' self becomesTarget
     // event. Anywhere else the referent is unset and the counter would silently do nothing (a dropped payoff credited
