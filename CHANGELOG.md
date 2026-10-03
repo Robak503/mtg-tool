@@ -11,6 +11,10 @@ summarizes the notable changes.
 ### Changed
 - Simulated games run about 2.4 times faster (the Sim Center's grind, the Crucible and Learn games against the AI): each card's rules text is now read once and reused instead of being re-read at every priority window. Results are unchanged — the same seeds play out move for move
 
+### Fixed
+- Simulated games with **The Unbeatable Squirrel Girl** no longer hang. The AI used to activate her Squirrel-doubling ability on top of itself without end; it now makes Squirrels only until it has enough to win, stops everything else, and attacks every opponent in one combat
+- A simulated game whose board or stack grows out of control (more than 2,000 permanents under one player, or more than 500 objects on the stack) now ends as a stuck game in seconds instead of running for minutes
+
 ## [0.163.0] - 2026-10-02
 
 ### Added

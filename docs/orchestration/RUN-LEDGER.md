@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **1 commit**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **+0**. The next tag
+> **2 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **+0**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,38 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🐿️ 2026-10-03 — THE COMBO LINE, slice one: the token loop (The Unbeatable Squirrel Girl) + the runaway size guard · **±0**
+> Omnath's [Q-SG-LOOP] (COMMS 10-03): Squirrel Girl was in the pod for 100 of the 118 games his v0.163.0 shelf run's watchdog
+> killed. Reproduced in 2.7 s (seed 2104572112): a LEGAL combo (Enduring Vitality + Concordant Crossroads + Badgermole Cub:
+> every Squirrel is hasty and taps for 2, the ability costs 2 Squirrels and doubles them) played with no end — the AI
+> activated on top of its own copy (59 on the stack, X read on resolution) and kept doubling with lethal already on the
+> board; 1,500+ permanents, every decision slower than the last.
+> · **Colton's rule (10-03):** "there's never a reason to actually make infinite squirrels … make squirrels, then forgo all
+>   other choices, then a winning combo line. Combo decks should play to their combo line, not generic win positions."
+> · The change: new leaf `tokenLoopLine.js`. The LOOP = an activated ability whose whole cost is mana and whose whole effect is
+>   "create X creature tokens, X counted off what you control" (ONE card in the 34,620-card corpus: Squirrel Girl). ENOUGH NOW
+>   = on its own turn before attackers, the creatures able to attack kill every living opponent through all their untapped
+>   creatures; ENOUGH FOR NEXT TURN = every creature it controls does that twice over against every opposing creature. The AI
+>   (`opponentAI.pickAction`) never activates the loop on its own copy, during its own attack, or past enough; at enough-now on
+>   an empty stack it passes to combat instead of a land / cast / activation; `pickAttackPlan` then splits one combat across
+>   every opponent (cheapest kill first, biggest attackers first, every attacker declared; a goaded attacker keeps the ordinary
+>   plan). All of it declines or re-targets actions the engine already offered — it adds none.
+> · The size guard (`learnSession.RUNAWAY_LIMITS`): more than 500 stack objects or 2,000 permanents under one seat ends the game
+>   `engine-stuck` at once — the 2,000-tick budget counts ticks, not their cost, and never fires in time on a growing board.
+> · Results: the repro seed ends on turn 15 in ~5 s, Squirrel Girl winning by combat damage on all three opponents (her board
+>   peaks at 203 permanents, the stack at 2). 18 of Omnath's hung Squirrel Girl seeds replayed: all 18 finish, she wins 17.
+> · Blast radius: 48 seeded games on the July lists (78,399 rows) byte-identical to master (sha256 equal); flip-diff
+>   **0 / 0 / 0**; lint 0. **Mutants 84/84**, restore byte-identical. Witness `tokenLoopLine.test.js` (42).
+> · Suite: **18,606** tests / 1,766 files (+42). ⚠️ The same load timeout as the cache slice: `crucibleRun.test.js` "plays
+>   EXACTLY N games" (20 s cap) in the full run at `--maxWorkers=8` with Omnath's 16 lanes on the box; 18,605 passed; the file
+>   passes alone (10/10). CI is the full-suite verdict.
+> · ⚑ Action choices change for a seat that controls Squirrel Girl (COMMS flag; her earlier self-play data is survivor-biased).
+> · ⚠️ Found, not fixed (queued): 18 of the 118 hung games have no Squirrel Girl. Seed 1314382654 (cdh): ONE decision took
+>   over 100 s on turn 49 with Candelabra of Tawnos + Magus of the Candelabra on the battlefield — `legalChoices` enumerates
+>   every X from 1 to the mana ceiling and, per X, every X-subset of the lands on the battlefield (`targetCountX` →
+>   `expandCastChoices` → `targetSubsets`), at every priority window. Brago Blink is in 11 of the 18 (cause not traced).
+>   The next combo-line slices are UPGRADE-BACKLOG E7.
 
 > ## ⚡ 2026-10-03 — THE PARSE CACHE · self-play ~2.4× faster, games byte-identical · **±0**
 > Omnath's [Q-PARSE-CACHE] (COMMS 10-03 06:15Z): self-play fell from ~222 to ~66 games/min between v0.149.0 and v0.163.0 with the

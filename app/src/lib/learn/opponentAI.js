@@ -37,6 +37,7 @@ import { attackerMinBlockers, canBlockAttacker, lureFilterOf, mustBeBlockedIfAbl
 import { programContainsCounter, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog, atomTargetIntent, programConfidence } from "./effects/parser.js";
 import { parseAuraBonus } from "./staticAbilityParser.js";
 import { changeTargetAlternatives, atomForStackTarget } from "./effects/targeting.js"; // CHANGE THE TARGET (shelf D14) — where a redirect could send an opponent's spell; the redirected slot's atom
+import { tokenLoopState, isTokenLoopAction, tokenLoopAttackPlan } from "./tokenLoopLine.js"; // THE COMBO LINE for a self-scaling token loop: enough, then nothing else, then the finish
 
 // ─── Play-policy flags (the A/B probe seam) ──────────────────────────────────
 
@@ -1519,6 +1520,16 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
     }
   }
 
+  // THE TOKEN-LOOP LINE (tokenLoopLine.js — Colton 2026-10-03: a combo deck plays its line). null for a seat with no
+  // self-scaling token loop, and then nothing below changes. With one: once the creatures that can attack kill every
+  // opponent, FORGO EVERYTHING ELSE — no land, no cast, no activation — and pass to combat, where pickAttackPlan
+  // executes the finish.
+  const loop = tokenLoopState(state, aiPlayerId);
+  if (loop?.finishNow && (state.stack || []).length === 0) {
+    const pass = actions.find(a => a.kind === "pass-priority");
+    if (pass) return pass;
+  }
+
   const lands = filterActions(actions, "play-land");
   if (lands.length > 0) {
     const land = pickLandAction(state, aiPlayerId, lands, pol);
@@ -1562,7 +1573,8 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
       if (combatRole) return combatRole;
       // Slice 2 — cost-safe generic abilities (a.program non-null; equip is program:null, so the
       // two slices are disjoint by construction).
-      const generic = pickSafeAbilityActivation(abilities.filter(a => !a.isEquipAbility));
+      // The token loop is held while its own copy is on the stack (X is read on resolution) and once there is enough.
+      const generic = pickSafeAbilityActivation(abilities.filter(a => !a.isEquipAbility && !(loop?.holdLoop && isTokenLoopAction(loop, a))));
       if (generic) return generic;
     }
     // CREW (VH-1) — take a ZERO-COST crew: the offer's auto-picked tap set is all summoning-sick
@@ -1847,6 +1859,12 @@ export function selfMustAttack(card) { // exported for the legendShortName unit 
 export function pickAttackPlan(state, aiPlayerId, attackerActions, { policy = null } = {}) {
   if (!Array.isArray(attackerActions) || attackerActions.length === 0) return [];
   const hasDefenderChoice = attackerActions.some(a => a.defenderId);
+  // THE TOKEN-LOOP FINISH: a seat with a self-scaling token loop whose attackers kill EVERY opponent this combat splits
+  // them across all of them, instead of focusing one. null for every other seat and every non-lethal board.
+  if (hasDefenderChoice) {
+    const finish = tokenLoopAttackPlan(state, aiPlayerId, attackerActions);
+    if (finish) return finish;
+  }
   const target = chooseDefender(state, aiPlayerId);
   const chosen = selectProfitableAttackers(state, aiPlayerId, attackerActions, target, normalizePolicy(policy));
   // MUST-ATTACK (subsystem 4, CR 508.1a) — a creature that "attacks each combat/turn if able" MUST be

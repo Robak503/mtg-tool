@@ -1415,6 +1415,19 @@ function pendingEdictModeActions(pc) {
   return actions;
 }
 
+/** The sizes past which a game is a runaway loop, not a game: objects on the stack, permanents one seat controls. */
+export const RUNAWAY_LIMITS = Object.freeze({ stack: 500, battlefield: 2000 });
+/** "stack (N objects)" / "battlefield (N permanents, <seat>)" when the state is past a limit; null otherwise. */
+export function runawaySize(state, limits = RUNAWAY_LIMITS) {
+  const stackSize = (state?.stack || []).length;
+  if (stackSize > limits.stack) return `stack (${stackSize} objects)`;
+  for (const [seat, player] of Object.entries(state?.players || {})) {
+    const size = (player?.battlefield || []).length;
+    if (size > limits.battlefield) return `battlefield (${size} permanents, ${seat})`;
+  }
+  return null;
+}
+
 /**
  * The driver. Given an active session, advance the engine until the
  * user has a real decision (kind: "ask") OR the game ends. AI
@@ -1485,6 +1498,7 @@ export function advanceUntilDecision(
     policy = null,
     resolveArbiter = null,
     turnTickBudget = 2000,
+    runawayLimits = RUNAWAY_LIMITS,
   } = {},
 ) {
   // Resolve the opt-in clock once (null ⇒ OFF ⇒ no behavior change anywhere below).
@@ -1558,6 +1572,17 @@ export function advanceUntilDecision(
           ticks,
           maxTurnTicks,
         },
+      };
+    }
+    // RUNAWAY SIZE GUARD (2026-10-03) — the tick budget counts ticks, not their cost. A loop that GROWS the board
+    // (a token doubler fed by its own tokens) makes every tick slower than the last: at 1,500 permanents and a
+    // 700-object stack one decision takes seconds, so 2,000 ticks is hours and the game never returns. Past these
+    // sizes the game is not being played any more — end it engine-stuck at once (no winner is made up).
+    const runaway = runawaySize(current.state, runawayLimits);
+    if (runaway) {
+      return {
+        session: current,
+        decision: { kind: "engine-stuck", reason: `runaway ${runaway}`, ticks, maxTurnTicks },
       };
     }
 

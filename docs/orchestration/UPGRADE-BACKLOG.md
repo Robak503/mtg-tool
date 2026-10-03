@@ -276,6 +276,25 @@ summary here for the queue:
   `sba.js`'s Enchant regex, which reads the comma list as "Enchant creature") and a planeswalker type check on attack
   targets (keyed on loyalty counters today). Order: infrastructure with board witnesses and no card credited → Kenrith's
   and the Frogify shapes → Darksteel → Imprisoned. Pins to re-point: `bestow.test.js:107` (Trickster's Elk).
+- **E7 · Combo decks play THEIR line** (program; Colton's rule, 2026-10-03: "make squirrels, then forgo all other choices,
+  then a winning combo line — combo decks should play to their combo line, not generic win positions"). The shape for every
+  combo deck's AI: ENGINE ASSEMBLED → build the resource only to ENOUGH (a number worked out from the game, never
+  "infinite") → FORGO every other choice → EXECUTE the finish. Slice one shipped 2026-10-03 (`tokenLoopLine.js`): the
+  self-scaling token loop (The Unbeatable Squirrel Girl is the only corpus card with that ability) whose finish is one
+  combat split across every opponent. Open, in order:
+  · **E7.2 — a finish that is not combat:** an outlet on the battlefield (Blasting Station, Altar of Dementia, Altar of the
+    Brood, Walking Ballista with the loop's mana) sets "enough" (opposing life totals / library sizes) and is the line.
+  · **E7.3 — find the finisher:** when the loop is live and no finish is available, cast the tutor that gets one (Chord of
+    Calling, Green Sun's Zenith, Finale of Devastation, Natural Order → Craterhoof Behemoth); "enough" then includes the
+    mana the tutor and the finisher cost. The video deck tech's plan is the same line with a pump as the finish ("make →
+    double → buff → attack for lethal").
+  · **E7.4 — the same three-phase shape for the other combo decks** on the shelf (cdh 5.1% and Kinnan 8.0% wins in Omnath's
+    v0.163.0 replay): their lines come from the bundled Commander Spellbook combos and `pilots/deck-plans.mjs`.
+  · **E7.5 — a real loop shortcut (CR 731.1b):** "repeat this N times" as one decision, for the human player too.
+  · **E7.6 — kill everyone when you can, for every seat:** the split-across-all-opponents attack is gated to a seat with a
+    token loop today (so every other game stays byte-identical); the general version is an A/B for Omnath.
+  Reference list Colton sent (not his list): Moxfield `ShKkRDHgVUCfNx2yjWjxKw` (cEDH Squirrel Girl; its primer page did not
+  load in the build browser — read it before E7.2).
 - ✅ v0.96.0 (persists into the owning profile, per Colton's call) **E5 · Cross-profile rating persistence** (M, 4) — **Colton call first** (current
   no-write is BY DESIGN): opt-in persist flag so ratings computed for another profile's
   deck write into that profile's store; then delete PodBalanceView's sessionRatings

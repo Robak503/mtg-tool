@@ -388,11 +388,30 @@ self-play (Omnath's pilots drive it); it validates the returned action against t
 offered set with a canonical-key deep compare (`actionInOfferedSet`). A pilot's
 optional `decideMulligan` (same shape) fires at keep/ship windows.
 
+**The default AI's combo line (`tokenLoopLine.js`, added 2026-10-03).** The rule
+(Colton): a combo deck plays to ITS line — build the resource only to "enough",
+then forgo every other choice, then execute the finish. Slice one knows one line:
+a self-scaling token loop (mana-only cost, "create X creature tokens where X is the
+number of … you control" — The Unbeatable Squirrel Girl is the only corpus card)
+whose finish is one combat split across every opponent. `opponentAI.pickAction`
+asks `tokenLoopState` (null for every seat without the loop, so nothing else
+changes): it never activates the loop on top of its own copy (X is read on
+resolution), stops once the creatures that can attack kill everyone (or, when the
+swing is a turn away, twice that against every opposing creature), and at
+enough-now passes to combat instead of playing on. `pickAttackPlan` asks
+`tokenLoopAttackPlan` for the split. All of it is restraint or target choice over
+actions the engine already offered — never a new action. The next slices (other
+finishes, tutoring for the finisher, other combo decks) are UPGRADE-BACKLOG E7.
+
 ### 4.9 Self-play (`selfPlayRunner.js`, `learnSession.js`, `gameApi.js`)
 
 `learnSession.advanceUntilDecision` is the real driver loop (SBA check →
 eliminations → pending-* settlement → turn cap → priority window → `makeDecision`
-→ `dispatchAction`, with a progress-signature anti-loop latch). Instrumentation
+→ `dispatchAction`, with a progress-signature anti-loop latch). Three guards end a
+game `engine-stuck` instead of letting it spin: the 50,000-tick cap, the per-turn
+tick budget (2,000), and the runaway SIZE guard (`RUNAWAY_LIMITS`: more than 500
+objects on the stack or 2,000 permanents under one seat — a board that grows makes
+every tick slower, so a tick count alone never fires in time). Instrumentation
 opts (`decide`/`recordDecision`/`timePressure`/`onTurnStart`) are threaded through
 `act()` and every pending-choice settler, so caller-driven v1 games are fully
 instrumented end-to-end (`gameApiInstrumentation.test.js` pins it). `selfPlayRunner`

@@ -64,6 +64,18 @@
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
 
+## 🐿️ 2026-10-03 — **THE COMBO LINE, slice one** — Squirrel Girl stops at enough and swings; runaway games end clean (±0 cards)
+
+> **Colton's rule:** a combo deck plays to ITS line — build the resource only to "enough", forgo every other choice, execute
+> the finish. `tokenLoopLine.js` teaches the default AI that for a self-scaling token loop (Squirrel Girl is the only corpus
+> card): no activation on its own copy, stop at lethal-on-everyone, pass to combat, split the attack across all opponents.
+> `learnSession.RUNAWAY_LIMITS` ends a game past 500 stack objects / 2,000 permanents per seat as `engine-stuck`.
+> 18 of Omnath's hung Squirrel Girl seeds now finish (she wins 17); 48 other seeded games byte-identical; mutants 84/84.
+> **Runnable next on this thread (UPGRADE-BACKLOG E7 + the ledger entry):** ① the Candelabra / Magus X-target enumeration
+> blow-up that stalls cdh games (one decision > 100 s; seed 1314382654) ② the Brago Blink hangs (11 of the 18 non-SG hung
+> games, cause not traced) ③ E7.2 outlets and E7.3 tutor-for-the-finisher. The play-weighted program is still the main
+> queue: top 1,000 at 891, needs +9.
+
 ## ⚡ 2026-10-03 — **THE PARSE CACHE** — simulated games ~2.4× faster, byte-identical (a speed slice, ±0 cards)
 
 > `parseEffectClause` parses each distinct clause once and shares the frozen result (`effects/parseMemo.js`). 48 seeded games
