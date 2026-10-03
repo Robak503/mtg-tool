@@ -97,6 +97,7 @@ import { cycleSelfTriggersModeled } from "./triggerRouting.js"; // shelf D6 — 
 import { classLevelOf } from "./classLevels.js"; // CLASS (CR 716.2a / 716.2d) — the level-up offer gate reads the permanent's level designation (a zero-import leaf)
 import { parseKickerCounterCreature, parseKickerEtbCreature, parseKickerCost, parseMultikickerCost, parseTeamworkCost } from "./kicker.js"; // + TEAMWORK (shelf D16) // KICKER (CR 702.33) — emit a normal + a kicked cast (kicker mana folded into the cost) when the kicker is affordable; ETB-trigger payoff variant (creatures) + kicked-SPELL-effect (instants/sorceries) too
 import { registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant activated-body gate
+import { isManaUntapProgram, orderUntapTargets } from "./manaUntapLine.js"; // the offer ORDER for "untap X target lands" (a leaf over manaModel)
 import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — emit a normal hard-cast + an emerge cast per legal sacrifice victim (cost reduced by the victim's MV)
 
 // GROUP-ACTIVATED grant (queue 1) — register the modeled-body gate so the runtime path (a SIM that imports
@@ -2597,7 +2598,12 @@ function actionsActivateAbility(state, playerId) {
           // Per-X target enumeration: exactly X distinct legal lands (targetCountX → expandAtoms min=max=X). An X
           // with too few legal lands (fewer than X untappable targets exist) yields no combos → that X is skipped.
           // The SOURCE's colors are the permanent's CURRENT ones (CR 702.16b reads the source; CR 613.1e), as below.
-          const combos = expandCastChoices(state, playerId, ab.program, permanentColors(state, perm.id), { xValue: x });
+          // "Untap X target lands": the activating player's tapped lands come first, by the mana they add, so the
+          // best set to untap is the first one offered for each X (manaUntapLine.orderUntapTargets).
+          const xCtx = isManaUntapProgram(ab.program)
+            ? { xValue: x, orderTargets: (targets) => orderUntapTargets(state, playerId, targets) }
+            : { xValue: x };
+          const combos = expandCastChoices(state, playerId, ab.program, permanentColors(state, perm.id), xCtx);
           for (const ch of combos) {
             actions.push({
               kind: "activate-ability",

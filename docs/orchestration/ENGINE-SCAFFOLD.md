@@ -403,6 +403,22 @@ enough-now passes to combat instead of playing on. `pickAttackPlan` asks
 actions the engine already offered — never a new action. The next slices (other
 finishes, tutoring for the finisher, other combo decks) are UPGRADE-BACKLOG E7.
 
+**The mana-untap line (`manaUntapLine.js`, added 2026-10-03).** Colton's rules:
+Candelabra of Tawnos / Magus of the Candelabra ("{X}, {T}: Untap X target lands")
+exist to untap Gaea's Cradle or a land carrying mana enchantments — "if it
+doesn't go mana positive then there's no choice" — and mana enchantments stack on
+the SAME land. `manaValueOf` reads a land's value off `manaModel.manaSources` (live
+count + mana Auras + tap augments), tapped or not. `manaUntapLineAction` (first
+thing in `pickAction`'s ability block) plans the X most valuable lands for the X
+that nets the most, and only acts when that brings a held, currently unpayable
+card within reach: it taps the planned lands for mana (the one place the default
+AI floats mana), then activates the untap on exactly those lands; the cast follows
+by the ordinary cast pick. `pickAuraCast` sends a land mana Aura to the land
+already carrying the most. The offer side only reorders: `legalChoices` passes
+`orderTargets` into `targeting.expandAtoms` for this ability so the activating
+player's tapped lands come first by value and the best set per X is the first
+one offered (it survives the 64-option cap).
+
 ### 4.9 Self-play (`selfPlayRunner.js`, `learnSession.js`, `gameApi.js`)
 
 `learnSession.advanceUntilDecision` is the real driver loop (SBA check →

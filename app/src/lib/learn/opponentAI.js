@@ -37,6 +37,7 @@ import { attackerMinBlockers, canBlockAttacker, lureFilterOf, mustBeBlockedIfAbl
 import { programContainsCounter, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog, atomTargetIntent, programConfidence } from "./effects/parser.js";
 import { parseAuraBonus } from "./staticAbilityParser.js";
 import { changeTargetAlternatives, atomForStackTarget } from "./effects/targeting.js"; // CHANGE THE TARGET (shelf D14) — where a redirect could send an opponent's spell; the redirected slot's atom
+import { manaUntapLineAction, pickManaAuraTarget } from "./manaUntapLine.js"; // "untap X target lands" as a mana line; mana Auras stack on one land
 import { tokenLoopState, isTokenLoopAction, tokenLoopAttackPlan } from "./tokenLoopLine.js"; // THE COMBO LINE for a self-scaling token loop: enough, then nothing else, then the finish
 
 // ─── Play-policy flags (the A/B probe seam) ──────────────────────────────────
@@ -650,8 +651,9 @@ function pickAuraCast(state, aiPlayerId, actions, card) {
   const opts = actions.filter((a) => (a.targets?.length || 0) === 1);
   if (opts.length === 0) return null;
   if (opts.every((a) => a.targets[0].type !== "creature")) {
-    // Land mana Aura — own lands only by the offer; deterministic pick.
-    return [...opts].sort((x, y) => cmp(String(x.targets[0].id), String(y.targets[0].id)))[0];
+    // Land mana Aura — own lands only by the offer. Mana enchantments stack on the SAME land (Colton 2026-10-03):
+    // the land already carrying the most mana Auras, then the deterministic id order as before.
+    return pickManaAuraTarget(state, [...opts].sort((x, y) => cmp(String(x.targets[0].id), String(y.targets[0].id))));
   }
   const intent = auraCastIntent(card);
   if (!intent) return null;
@@ -1562,6 +1564,11 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
   // loyalty so mana develops the board first; one activation per tick (the driver re-offers).
   // policy 'v1' recovers never-activate for the A/B probe.
   if (pol.ability !== "v1") {
+    // THE MANA-UNTAP LINE (manaUntapLine.js — Candelabra of Tawnos / Magus of the Candelabra): float the best lands'
+    // mana and untap them, only when that nets mana and reaches a card the seat holds and cannot pay for. null for a
+    // seat with no such activation offered.
+    const untapStep = manaUntapLineAction(state, aiPlayerId, actions);
+    if (untapStep) return untapStep;
     const abilities = filterActions(actions, "activate-ability");
     if (abilities.length > 0) {
       // Slice 1 — EQUIP: move each equipment onto the AI's best body (strict improvement only).

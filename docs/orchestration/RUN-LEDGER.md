@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **3 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **+0**. The next tag
+> **4 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **+0**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,40 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🕯️ 2026-10-03 — THE COMBO LINE, slice two: the mana-untap line (Candelabra of Tawnos / Magus of the Candelabra) + mana Auras stack · **±0**
+> **Colton's rules (10-03):** the untap "is used for untapping Cradle and making large mana; if it doesn't go mana positive
+> then there's no choice … or untapping a land with enchantments on it"; and "you should stack mana enchantments on the same
+> land". Before: the AI never activated either card (it skips every targeted ability and never taps a land except to pay),
+> and each mana Aura went on its first own land by id.
+> · The change: new leaf `manaUntapLine.js`. A land's VALUE = what `manaModel.manaSources` says it adds (a live count —
+>   Gaea's Cradle — plus mana Auras and tap augments), read the same tapped or untapped. THE PLAN = the X most valuable own
+>   lands for the smallest X that nets the most (Σ value − the activation's mana cost); no plan unless it nets mana.
+>   `opponentAI.pickAction` runs it first in the ability block, only on its own main phase with an empty stack and only when
+>   the plan brings a held, currently unpayable card within reach: tap each planned land for mana (the mana floats — the
+>   one place the default AI taps a land outside a payment), then activate the untap on exactly those lands; the ordinary
+>   cast pick then casts the card. `pickAuraCast`: a land mana Aura goes to the land already carrying the most.
+> · The offer side only REORDERS: `legalChoices` passes `orderTargets` to `targeting.expandAtoms` for this ability, so the
+>   activating player's tapped lands come first by value and the best set per X is the first offered (inside the 64 cap).
+>   Same offers below the cap (pinned: C(5,1) + C(5,2) on a five-land board).
+> · Witness `manaUntapLine.test.js` (23): values; the order; the plan (incl. "a mana rock is not a land", "the smaller X on a
+>   tie", "no land worth 2 → no plan"); every gate; the line end to end with real cards (tap Cradle → tap the enchanted
+>   Forest → Candelabra X=2 on both → cast Craterhoof Behemoth); Aura stacking. **Mutants 46/46**, restore byte-identical.
+> · Blast radius, measured on the 48 July seeds: 43 games byte-identical; 5 changed, all at the intended seats — Omnath,
+>   Locus of Mana ×3 (the first differing action is a mana Aura cast: the stacking rule) and cdh ×2 (tap-for-mana + Candelabra
+>   activations appear). No winner changed. Flip-diff **0 / 0 / 0**; lint 0.
+> · Suite **18,631** tests / 1,767 files (+23) — GREEN in one local run (296 s; Omnath's shelf run had stopped, so no load
+>   timeout this time).
+> · ⚑ Action choices change for a seat with an "untap X target lands" ability or with two or more land mana Auras, and the
+>   offer ORDER changes for that ability (COMMS flag).
+> · ⚠️ Open (UPGRADE-BACKLOG E7.4): the mana is made only for a card in HAND (not for a mana sink on the battlefield or a
+>   commander in the command zone); the first mana Aura still goes to the first own land by id; Ancient Tomb is planned as a
+>   2-mana land with no weight on its damage (asked Colton).
+> · ⚠️ Found, not fixed (the third hang family in Omnath's list): seed 3166819773, Earth Bent — 371 Scute Swarms on turn 32.
+>   59% of the time is `pickAttackPlan → selectProfitableAttackers → eligibleBlockersFor → canBlockAttacker`, recomputed for
+>   every attacker on every declaration tick, with `parseGroupBlockRestriction` / `selfOracle` re-parsing text each call.
+>   Of the 18 hung seeds without Squirrel Girl, 12 replayed after the pruning fix: 11 finish (every Brago Blink game — the
+>   same combination bug), 1 ends engine-stuck (reason not read yet), and this one is the slow outlier; 5 not replayed yet.
 
 > ## 🧮 2026-10-03 — fix: the target-combination search prunes dead ends (a single decision took over 100 s) · **±0**
 > The second hang family in Omnath's shelf run (18 of 118 watchdog kills have no Squirrel Girl). Seed 1314382654 (cdh), turn

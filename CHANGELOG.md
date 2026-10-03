@@ -10,6 +10,9 @@ summarizes the notable changes.
 
 ### Changed
 - Simulated games run about 2.4 times faster (the Sim Center's grind, the Crucible and Learn games against the AI): each card's rules text is now read once and reused instead of being re-read at every priority window. Results are unchanged — the same seeds play out move for move
+- The AI now uses **Candelabra of Tawnos** and **Magus of the Candelabra** the way the decks that play them do: it taps Gaea's Cradle (or a land with mana enchantments on it), untaps it, and casts the big spell it could not otherwise pay for — and only when the untap nets mana. It left both cards unused before
+- The AI now puts its land mana enchantments (Wild Growth, Fertile Ground and the like) on the same land instead of spreading them out
+- The choices offered for "untap X target lands" list your own tapped lands first, most mana first
 
 ### Fixed
 - Simulated games with **The Unbeatable Squirrel Girl** no longer hang. The AI used to activate her Squirrel-doubling ability on top of itself without end; it now makes Squirrels only until it has enough to win, stops everything else, and attacks every opponent in one combat

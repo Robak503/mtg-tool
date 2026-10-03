@@ -447,7 +447,11 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
     if (atom.targetCountX) {
       const x = Math.max(0, ctx?.xValue || 0);
       if (x === 0) return null;               // X=0 exiles nothing — a no-op cast, not surfaced (FN-safe)
-      const subsets = targetSubsets(tagged, x, x);
+      // ORDER HOOK (manaUntapLine — "untap X target lands"): the caller may put the targets best-first, so the
+      // first X-subset enumerated is the one worth choosing and it survives the MAX_CAST_EXPANSIONS cap. The
+      // hook reorders only — it must return the same targets. Absent (every other caller) → unchanged.
+      const pool = typeof ctx?.orderTargets === "function" ? ctx.orderTargets(tagged) : tagged;
+      const subsets = targetSubsets(pool, x, x);
       if (subsets === null) return null;      // fewer than x legal targets → uncastable at this X
       perAtom.push(subsets);
       continue;

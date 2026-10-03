@@ -290,13 +290,12 @@ summary here for the queue:
     double → buff → attack for lethal").
   · **E7.4 — the same three-phase shape for the other combo decks** on the shelf (cdh 5.1% and Kinnan 8.0% wins in Omnath's
     v0.163.0 replay): their lines come from the bundled Commander Spellbook combos and `pilots/deck-plans.mjs`.
-    Colton's rules for the big-mana pieces (10-03): **Candelabra of Tawnos / Magus of the Candelabra** exist to untap
-    Gaea's Cradle or a land carrying mana enchantments — "if it doesn't go mana positive then there's no choice" (the AI
-    never activates them today: `pickSafeAbilityActivation` skips every targeted ability); and **mana enchantments stack
-    on the SAME land** (`pickAuraCast` takes the first own land by id today). Build: order the untap targets so the
-    controller's tapped lands come first by mana produced (the first offered subset per X is then the best one), have the
-    AI take only a net-positive untap when it holds a card it cannot yet pay for, and send each mana Aura to the land that
-    already carries the most.
+    ✅ SHIPPED 2026-10-03 (`manaUntapLine.js`) — Colton's rules for the big-mana pieces: **Candelabra of Tawnos / Magus
+    of the Candelabra** exist to untap Gaea's Cradle or a land carrying mana enchantments, "if it doesn't go mana positive
+    then there's no choice"; and **mana enchantments stack on the SAME land**. Open on this line: the mana is only made
+    for a card in HAND (a mana sink on the battlefield — Thrasios, a commander in the command zone — does not trigger
+    it); the first mana Aura still goes to the first own land by id (so an "Enchant Forest" Aura can only join a stack
+    that started on a Forest); Ancient Tomb counts as a 2-mana land with no weight on its 2 damage.
   · **E7.5 — a real loop shortcut (CR 731.1b):** "repeat this N times" as one decision, for the human player too.
   · **E7.6 — kill everyone when you can, for every seat:** the split-across-all-opponents attack is gated to a seat with a
     token loop today (so every other game stays byte-identical); the general version is an A/B for Omnath.

@@ -71,10 +71,14 @@
 > card): no activation on its own copy, stop at lethal-on-everyone, pass to combat, split the attack across all opponents.
 > `learnSession.RUNAWAY_LIMITS` ends a game past 500 stack objects / 2,000 permanents per seat as `engine-stuck`.
 > 18 of Omnath's hung Squirrel Girl seeds now finish (she wins 17); 48 other seeded games byte-identical; mutants 84/84.
-> **Runnable next on this thread (UPGRADE-BACKLOG E7 + the ledger entry):** ① the Candelabra / Magus X-target enumeration
-> blow-up that stalls cdh games (one decision > 100 s; seed 1314382654) ② the Brago Blink hangs (11 of the 18 non-SG hung
-> games, cause not traced) ③ E7.2 outlets and E7.3 tutor-for-the-finisher. The play-weighted program is still the main
-> queue: top 1,000 at 891, needs +9.
+> **Since (same day):** the stall in cdh / Brago games was `targeting.kCombinations` walking dead ends (fixed, 12f0fba3,
+> results-neutral); slice two taught the AI the mana-untap line — Candelabra of Tawnos / Magus of the Candelabra untap Gaea's
+> Cradle or an enchanted land only when that nets mana and reaches a held card, and mana Auras stack on one land
+> (`manaUntapLine.js`).
+> **Runnable next on this thread (UPGRADE-BACKLOG E7 + the ledger entries):** ① E7.2 — Squirrel Girl's sacrifice outlets
+> (Altar of Dementia, Blasting Station, Altar of the Brood): "enough" = lethal by any route on board, and the AI takes it
+> ② the big-board attack-plan slowdown (Scute Swarm, seed 3166819773: `canBlockAttacker` re-parsed per attacker per tick)
+> ③ E7.3 tutor-for-the-finisher. The play-weighted program is still the main queue: top 1,000 at 891, needs +9.
 
 ## ⚡ 2026-10-03 — **THE PARSE CACHE** — simulated games ~2.4× faster, byte-identical (a speed slice, ±0 cards)
 
