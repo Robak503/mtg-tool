@@ -8,6 +8,9 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Champion's Helm** — equipped creature gets +2/+2 and has hexproof while it is legendary; **Trailblazer's Boots** — equipped creature has nonbasic landwalk (it can't be blocked while the defending player controls a nonbasic land); also **Gimli's Axe**, **Hero's Heirloom** and **Dryad Sophisticate**
+
 ### Changed
 - Simulated games run about 2.4 times faster (the Sim Center's grind, the Crucible and Learn games against the AI): each card's rules text is now read once and reused instead of being re-read at every priority window. Results are unchanged — the same seeds play out move for move
 - The AI now uses **Candelabra of Tawnos** and **Magus of the Candelabra** the way the decks that play them do: it taps Gaea's Cradle (or a land with mana enchantments on it), untaps it, and casts the big spell it could not otherwise pay for — and only when the untap nets mana. It left both cards unused before

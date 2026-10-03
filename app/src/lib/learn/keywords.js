@@ -96,12 +96,15 @@ export const GRANTABLE_COMBAT_KEYWORDS = new Set(
 // BASIC LANDWALK (CR 702.14) — plains/island/swamp/mountain/forest-walk: canBlockAttacker's BASIC_WALK loop
 // reads permanentHasKeyword(<Type>walk) against the DEFENDING player's lands, so a granted basic-landwalk makes
 // the attached creature unblockable exactly like a printed one (Fishliver Oil's islandwalk, Burrowing's
-// mountainwalk). NONBASIC landwalk has no enforcement path → left out (those cards park, FN-safe).
+// mountainwalk).
+// NONBASIC LANDWALK (CR 702.14c — Trailblazer's Boots, Dryad Sophisticate, 2026-10-03): the same gate, one check below the
+// BASIC_WALK loop — permanentHasKeyword("Nonbasic landwalk") against the DEFENDING player's lands, where a nonbasic land is
+// a land without the basic supertype (CR 205.4c). Printed or granted, that block gate is the whole keyword.
 export const GRANTABLE_STATIC_KEYWORDS = new Set([
   ...GRANTABLE_COMBAT_KEYWORDS, "indestructible", "hexproof", "shroud",
   "defender", "shadow", "flanking", "exalted",
   "infect", "wither", "intimidate", "skulk", "horsemanship",
-  "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk",
+  "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk", "nonbasic landwalk",
 ]);
 
 /** Canonical-cased keyword name for a lowercase word ("first strike" → "First strike"). */

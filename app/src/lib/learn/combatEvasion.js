@@ -13,6 +13,8 @@
  *     "can't be blocked"     — unblockable (bare self-clause): blockable by nothing
  *     basic landwalk (702.14) — unblockable while the DEFENDING player (per-defender → 4P-correct)
  *                              controls a land of that basic type
+ *     nonbasic landwalk (702.14c) — unblockable while the DEFENDING player controls a land without the
+ *                              basic supertype (205.4c)
  *     Skulk (702.118b)        — not blockable by a creature with greater power
  *     Fear (702.36b)         — blockable only by artifact and/or black creatures
  *     Intimidate (702.13b)   — blockable only by artifact and/or creatures sharing a color with it
@@ -968,7 +970,7 @@ export function typeConditionalUnblockableOf(card) {
 // horsemanship) are matched by COVERED_KEYWORDS itself; this only adds the basic-landwalk words and
 // the text-clause forms (including EVASION-QUALIFIER shapes), so a keyword-only body carrying them
 // is honestly native.
-const reLandwalkWord = /^(?:plains|island|swamp|mountain|forest)walk$/;
+const reLandwalkWord = /^(?:(?:plains|island|swamp|mountain|forest)walk|nonbasic landwalk)$/;
 
 // EVASION-QUALIFIER: "can't be blocked by" clause shapes the engine now enforces.
 // Matches: "this creature can't be blocked by [color] creatures", "… by creatures with [keyword]",
@@ -1128,6 +1130,16 @@ function defenderControlsLandType(state, defenderId, subtype) {
   return bf.some((p) => re.test(String(p?.card?.type || p?.card?.type_line || ""))
     || permanentTypes(state, p.id).subtypes.some((s) => String(s).toLowerCase() === want));
 }
+// NONBASIC LANDWALK (CR 702.14c — "without the specified type or supertype (as in 'nonbasic landwalk')"): does the defending
+// player control a land that lacks the basic supertype (CR 205.4c — a nonbasic land, "even if it has a basic land type")?
+// Both halves are the permanent's CURRENT characteristics: the Land card type through permanentHasCardType (a permanent that
+// became a copy of a land is one; the land back face of a double-faced card showing its front is not), the supertype off the
+// derived type list, which is seeded from the copiable values (CR 707.2 — Thespian's Stage as a copy of a basic Forest IS a
+// basic land) — the supertype read groupNoUntap.js makes for "nonbasic lands".
+function defenderControlsNonbasicLand(state, defenderId) {
+  const bf = state.players?.[defenderId]?.battlefield || [];
+  return bf.some((p) => permanentHasCardType(state, p.id, "Land") && !permanentTypes(state, p.id).types.includes("Basic"));
+}
 
 // Does the BLOCKER satisfy one vetted EVASION-EXCEPT arm (parseExceptBlockerFilters)? Layer-aware on every
 // axis: keywords via permanentHasKeyword (a granted flying counts), color via permColorSet, artifact via the
@@ -1255,6 +1267,8 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
       return false;
     }
   }
+  // Nonbasic landwalk (CR 702.14c) — the same per-defender gate, on a land WITHOUT the basic supertype.
+  if (permanentHasKeyword(state, attackerId, "Nonbasic landwalk") && defenderControlsNonbasicLand(state, defenderId)) return false;
 
   // Flying — blockable only by flying/reach (CR 702.9b).
   if (permanentHasKeyword(state, attackerId, "Flying")) {

@@ -86,13 +86,16 @@ describe("classification", () => {
     expect(gated).toEqual([expect.objectContaining({ op: { layerOp: "ptModifyGated", power: 1, toughness: 0, gate: { kind: "hostHasSubtype", subtypes: ["human"] } } })]);
   });
 
-  it("⛔ only CR creature types reach the gate: 'is a Food' (an artifact subtype) and 'is legendary' stay residue", () => {
+  it("⛔ only CR creature types reach the gate: 'is a Food' (an artifact subtype) stays residue; 'is legendary' is not a subtype gate", () => {
     const food = { ...DAGGER, name: "Synthetic Food Dagger", oracle: DAGGER.oracle.replace("is a Human", "is a Food") };
     expect(parseEquipmentBonus(food)).toEqual([]);
     expect(classifyCard(food)).toBe("body-only");
+    // RE-POINTED (2026-10-03, helmAndBoots.test.js): Champion's Helm was pinned body-only here. Its "is legendary" condition
+    // is modeled now, by its own gate kind (hostIsLegendary, a supertype read) — never by this subtype gate.
     const helm = { name: "Champion's Helm", type: EQUIP, mana: "{3}",
       oracle: "Equipped creature gets +2/+2.\nAs long as equipped creature is legendary, it has hexproof. (It can't be the target of spells or abilities your opponents control.)\nEquip {1}" };
-    expect(classifyCard(helm)).toBe("body-only");
+    expect(parseEquipmentBonus(helm).filter((d) => d.op.gate).map((d) => d.op.gate.kind)).toEqual(["hostIsLegendary"]);
+    expect(classifyCard(helm)).toBe("native-equipment");
   });
 });
 

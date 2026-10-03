@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **6 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **+0**. The next tag
+> **7 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,472)**; engine gains since the tag: **+5**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,25 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-03 — PLAY-WEIGHTED · 58: Champion's Helm (EDHREC #740), Trailblazer's Boots (#656) · **+5** · corpus 15,472
+> Flip-diff **+5, −0, zero RETIERED**: Champion's Helm, Trailblazer's Boots, Gimli's Axe, Hero's Heirloom → native-equipment; Dryad
+> Sophisticate → native-body. Top 1,000 **893**; top 2,500 **1,732**. **Mutants 30/30** on the integrated tree, restore
+> byte-identical. Built by a fan-out builder (rebased onto master before its gates); re-verified on the integrated tree. Three
+> pins re-pointed, none deleted (`combatEvasion.test.js`, `equipAuraStaticGrantEQ1.test.js`, `hostSubtypeAttachedBonus.test.js` —
+> each asserted the old limit).
+> · Champion's Helm: "As long as equipped creature is legendary, it has hexproof" — a fifth attached-bonus condition,
+>   `hostIsLegendary`, stamped on keyword grants only and read in `layers.gateMet` off the host's CURRENT supertype over its
+>   copiable values (new `copyBaseOf`): a legend that became a copy of a nonlegendary creature loses it until the copy ends; a
+>   token copy of a legend has it; an "isn't legendary" copy does not. A ward or protection tail under the condition is refused.
+> · Trailblazer's Boots: nonbasic landwalk joins the grantable keywords and `combatEvasion.canBlockAttacker` gates it — the
+>   attacker can't be blocked while the DEFENDING player controls a land without the basic supertype (CR 702.14c, 205.4c), read
+>   off current characteristics (Thespian's Stage as a copy of a basic Forest is basic; a land back face is not a land).
+>   Witness `helmAndBoots.test.js` (29; four labelled synthetic cases).
+> · ⚠️ Found, not fixed (queued): `matchesSelector`'s `legendary` filter and the `hostHasSubtype` gate read the printed card under
+>   a layer-1 copy; `permanentHasKeyword` seeds printed keywords from the card, not the copy base; an opponent's activated ability
+>   is not offered outside its controller's own turn (an under-offer); `permanentGrantedWardCosts` ignores a gate; the Equip offer
+>   lists the creature the Equipment is already on. ENGINE-SCAFFOLD §4.3 cites CR 500.4 for pools emptying; the bundled rule is 500.5.
 
 > ## 🩸 2026-10-03 — fix: a sacrifice-for-mana Altar takes its victim last and never one the action's own cost needs; the stall guard counts empty-stack ticks · **±0**
 > Omnath's histogram (COMMS 10-03 19:00Z): 31 `dispatch-error` games, Squirrel Girl in every one, plus turn stalls. Seven seeds

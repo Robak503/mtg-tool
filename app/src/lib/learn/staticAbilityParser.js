@@ -6655,6 +6655,24 @@ export function parseAttachedBonus(card, subjectOverride) {
       saw = true;
       continue;
     }
+    // HOST-IS-LEGENDARY (Champion's Helm, Gimli's Axe, Hero's Heirloom, 2026-10-03) — "As long as equipped creature is
+    // legendary, it has hexproof." / "… it has menace." / "… it has trample and haste." The fifth condition kind: layers.gateMet
+    // reads the HOST's current supertype (CR 205.4a), so the grant follows the creature it is on and what that creature
+    // currently is (CR 611.3a). KEYWORD grants only, all-or-nothing. The arm reads "it has <keywords>": Combat Research's
+    // "… it gets +1/+1 and has ward {1}" does not match and stays residue (it needs the gated P/T twin and a gated ward). A
+    // "has ward {N}" tail does match, but addWard takes no gate (layers.permanentGrantedWardCosts reads none) — stamped, the
+    // ward would reach every host. So anything but plain keyword grants refuses the whole bonus; a protection tail goes with
+    // it (no printed card carries one under this condition, so a gated protection here would be unwitnessed).
+    // (The matched text names "<subject> creature", so the card's body noun is "creature" here — attachedBodyNoun.)
+    const legendaryM = c.match(new RegExp(`^as long as ${subject} creature is legendary, it (has .+)$`));
+    if (legendaryM) {
+      const inner = parseAttachedClause(`${subject} creature ${legendaryM[1]}`, subject, noun);
+      const gateable = inner && inner.every((d) => d.op.layerOp === "addKeyword" && !d.op.gate);
+      if (!gateable) { if (slot) slot[slotKey] = []; return []; }
+      for (const d of inner) out.push({ ...d, op: { ...d.op, gate: { kind: "hostIsLegendary" } } });
+      saw = true;
+      continue;
+    }
     const dtAttached = /^during your turn, /i.test(c) ? c.replace(/^during your turn,\s*/i, "") : null;
     if (dtAttached && dtAttached.startsWith(`${subject} ${noun}`)) {
       const inner = parseAttachedClause(dtAttached, subject, noun);

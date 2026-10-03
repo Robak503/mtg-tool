@@ -613,6 +613,15 @@ function gateMet(state, perm, gate) {
     if (everyCreatureType) return true; // P·39 — every creature type by a layer-4 effect (Mutavault, Mirror Entity)
     return (gate.subtypes || []).some((s) => subtypes.includes(String(s).toLowerCase()));
   }
+  // HOST-IS-LEGENDARY gate (Champion's Helm — "As long as equipped creature is legendary, it has hexproof"; Gimli's Axe,
+  // Hero's Heirloom, 2026-10-03): open while the HOST (`perm`) has the legendary supertype (CR 205.4a) right now. The read is
+  // the one matchesSelector's `legendary` filter makes (effectiveTypeIdentity — the type line's head words plus fixed layer-4
+  // adds), taken over the host's COPIABLE values (CR 613.1a, layer 1 before layer 4): Impossible Man as a copy of a
+  // nonlegendary creature is not legendary until the copy ends, and a nonlegendary permanent that became a copy of a legend
+  // is. A permanent that ENTERED as a copy or a token copy carries the copied type line as its card (with the supertype
+  // removed when the copy effect says "isn't legendary"), so it needs no layer read. Recursion-free (no derive) — the
+  // keyword grant is evaluated inside the host's own derive.
+  if (gate.kind === "hostIsLegendary") return effectiveTypeIdentity(copyBaseOf(state, perm), state).types.includes("Legendary");
   if (gate.kind === "auraEnteredThisTurn") {
     for (const pid of Object.keys(state?.players || {})) {
       const src = (state.players[pid]?.battlefield || []).find(p => p.id === gate.sourcePermanentId);
@@ -894,10 +903,23 @@ function latestCopySource(copyEffects) {
  */
 function boardCountColors(state, perm) {
   const board = collectContinuousEffects(state);
-  const names = (e) => (e.affects?.mode === "self" && e.affects.permanentId === perm.id)
+  return applyColorLayer(permanentPrintedColors(copyBaseOf(state, perm).card), board.filter((e) => e.layer === 5 && effectNamesPermanent(e, perm)));
+}
+
+/** Does a continuous effect NAME this permanent (a self or fixed affect)? Decided without evaluating a selector, so it is
+ *  safe to ask from inside a derive — the recursion-free reads (boardCountColors, copyBaseOf) are built on it. */
+function effectNamesPermanent(e, perm) {
+  return (e.affects?.mode === "self" && e.affects.permanentId === perm.id)
     || (e.affects?.mode === "fixed" && Array.isArray(e.affects.permanentIds) && e.affects.permanentIds.includes(perm.id));
-  const copySource = latestCopySource(board.filter((e) => e.layer === 1 && e.op === "copy" && e.copiableCard && names(e)));
-  return applyColorLayer(permanentPrintedColors(copySource || perm.card), board.filter((e) => e.layer === 5 && names(e)));
+}
+
+/** The permanent over its COPIABLE values (CR 613.1a / 707.2): its card swapped for the latest layer-1 copy effect that names
+ *  it — the pick deriveCharacteristics makes (latestCopySource) — or the permanent itself when nothing copies. Recursion-free:
+ *  every layer-1 copy effect the engine emits names its permanent (becomeCopy — self). */
+function copyBaseOf(state, perm) {
+  const copySource = latestCopySource(collectContinuousEffects(state)
+    .filter((e) => e.layer === 1 && e.op === "copy" && e.copiableCard && effectNamesPermanent(e, perm)));
+  return copySource ? { ...perm, card: copySource } : perm;
 }
 
 // GOD-DEVOTION (CR 700.5) — count the mana-symbol pips of any color in `colors` (a WUBRG-letter array) among

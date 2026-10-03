@@ -90,7 +90,12 @@ describe("EVADE — classifier (which evasion bodies are honestly native)", () =
     // Bare "can't be blocked by X" WITHOUT "this creature" prefix — still unrecognized (needs subject).
     expect(isEnforcedEvasionClause("can't be blocked by creatures with flying")).toBe(false);
     expect(isEnforcedEvasionClause("creatures you control can't be blocked")).toBe(false);
-    expect(isEnforcedEvasionClause("nonbasic landwalk")).toBe(false);
+    // RE-POINTED (2026-10-03, helmAndBoots.test.js): nonbasic landwalk is enforced now (canBlockAttacker gates it on the
+    // defending player's nonbasic lands, CR 702.14c). The landwalk forms with no gate stay unrecognized.
+    expect(isEnforcedEvasionClause("nonbasic landwalk")).toBe(true);
+    expect(isEnforcedEvasionClause("legendary landwalk")).toBe(false);
+    expect(isEnforcedEvasionClause("snow swampwalk")).toBe(false);
+    expect(isEnforcedEvasionClause("desertwalk")).toBe(false);
     // EVASION-QUALIFIER forms (with subject) are recognized:
     expect(isEnforcedEvasionClause("this creature can't be blocked by creatures with flying")).toBe(true);
     expect(isEnforcedEvasionClause("this creature can't be blocked by white creatures")).toBe(true);

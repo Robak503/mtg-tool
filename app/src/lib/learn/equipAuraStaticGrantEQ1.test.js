@@ -200,8 +200,13 @@ describe("coverage — PINNED false-negatives (whole-card-or-park)", () => {
     // A dropped-tail (infect + toxic) parks the whole grant — never a partial-credit flip.
     expect(parseAuraBonus({ type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature has infect and toxic 1." })).toEqual([]);
   });
-  it("nonbasic landwalk has no enforcement path → body-only (Trailblazer's Boots)", () => {
-    expect(parseEquipmentBonus({ type: "Artifact — Equipment", oracle: "Equipped creature has nonbasic landwalk.\nEquip {1}" })).toEqual([]);
+  it("⭐ GRADUATED — nonbasic landwalk has an enforcement path now, so the grant parses (Trailblazer's Boots)", () => {
+    // RE-POINTED (2026-10-03): this pin asserted [] because nothing enforced the keyword. combatEvasion.canBlockAttacker now
+    // gates it on the defending player's nonbasic lands (CR 702.14c); helmAndBoots.test.js runs it on the board. A landwalk
+    // form with no gate still drops the whole grant.
+    expect(parseEquipmentBonus({ type: "Artifact — Equipment", oracle: "Equipped creature has nonbasic landwalk.\nEquip {1}" }))
+      .toEqual([{ layer: 6, op: { layerOp: "addKeyword", keyword: "nonbasic landwalk" }, duration: { kind: "permanent" } }]);
+    expect(parseEquipmentBonus({ type: "Artifact — Equipment", oracle: "Equipped creature has legendary landwalk.\nEquip {1}" })).toEqual([]);
   });
   it("⭐ GRADUATED — the control-theft rider is now MODELED, so Corrupted Conscience flips", () => {
     // This pin used to assert body-only. It was a CAPABILITY pin ("control theft has no enforcement path"),
