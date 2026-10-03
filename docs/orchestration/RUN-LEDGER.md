@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **2 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **+0**. The next tag
+> **3 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **+0**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,25 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🧮 2026-10-03 — fix: the target-combination search prunes dead ends (a single decision took over 100 s) · **±0**
+> The second hang family in Omnath's shelf run (18 of 118 watchdog kills have no Squirrel Girl). Seed 1314382654 (cdh), turn
+> 49: not a loop — ONE `legalActionsForPlayer` call took over 100 s. Profile: 94.9% self time in `targeting.kCombinations`'
+> DFS, reached from `actionsCastSpell → expandCastChoices → targetSubsets` (an X-count-target SPELL, not the Candelabra
+> activation the first read of the offer list suggested — the profile corrected that).
+> · ⚑ The bug: the DFS looped `i < n` at every depth, so it walked every prefix that can no longer be completed. The 64-row
+>   `limit` only ends the search once 64 combinations EXIST; a pick with fewer in total ("32 of 33": 33 rows) never reaches
+>   it and visits ~2^n prefixes. The 2026-07 OOM fix capped the OUTPUT; the work was still unbounded.
+> · The fix: the loop stops at the last index that still leaves enough elements (`i <= n - (k - combo.length)`). A pruned
+>   prefix has no completion, so the rows and their order are unchanged — pinned against an independent reference for every
+>   (n, k) up to n = 9, and by "30 choose 29 in under 500 ms" (unpruned: 2^30 calls, ~10 s).
+> · Results: the seed finishes in 9 s (50 turns). 48 seeded games byte-identical (sha256 equal); flip-diff **0 / 0 / 0**;
+>   lint 0. **Mutants 3/3**, restore byte-identical. No action-set or results change — no epoch flag.
+> · Suite **18,608** tests / 1,766 files (+2): 18,607 passed locally and the known `crucibleRun.test.js` load timeout (20 s
+>   cap, Omnath's 16 lanes on the box; passes alone) — CI is the full-suite verdict, as for the two commits before.
+> · ⚠️ Colton's rules for the cards that first drew the eye here (10-03, banked in memory and UPGRADE-BACKLOG E7): Candelabra
+>   of Tawnos / Magus of the Candelabra exist to untap Gaea's Cradle or a land carrying mana enchantments — "if it doesn't go
+>   mana positive then there's no choice"; and mana enchantments stack on the SAME land. Not built in this commit.
 
 > ## 🐿️ 2026-10-03 — THE COMBO LINE, slice one: the token loop (The Unbeatable Squirrel Girl) + the runaway size guard · **±0**
 > Omnath's [Q-SG-LOOP] (COMMS 10-03): Squirrel Girl was in the pod for 100 of the 118 games his v0.163.0 shelf run's watchdog

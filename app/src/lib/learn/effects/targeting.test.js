@@ -251,6 +251,28 @@ describe("bounded kCombinations — first-N prefix identical to the unbounded en
     }
   });
 
+  it("every (n, k) up to n = 9 matches the independent reference — the pruned search drops nothing and keeps the order", () => {
+    for (let n = 0; n <= 9; n++) {
+      for (let k = 0; k <= n + 1; k++) {
+        expect(kCombinations(n, k), `${n} choose ${k}`).toEqual(refCombos(n, k, Infinity));
+        expect(kCombinations(n, k, 5), `${n} choose ${k}, limit 5`).toEqual(refCombos(n, k, 5));
+      }
+    }
+  });
+
+  it("a pick with fewer than `limit` combinations in total does not walk the dead-end prefixes (30 choose 29)", () => {
+    // 30 choose 29 has 30 rows — under the cap, so the cap never ends the search. Unpruned, the DFS visits every
+    // prefix of a 30-element set (2^30 ≈ 1.07 billion calls, ~10 s); with the bound it is a few hundred steps. This is the
+    // shape that stalled a cdh game for over 100 s in ONE legalActions call (an X-target spell, X one short of the pool).
+    const started = performance.now();
+    const rows = kCombinations(30, 29, MAX_CAST_EXPANSIONS);
+    const elapsedMs = performance.now() - started;
+    expect(rows).toHaveLength(30);
+    expect(rows[0]).toEqual(Array.from({ length: 29 }, (_, i) => i));       // leaves out 29
+    expect(rows[29]).toEqual(Array.from({ length: 29 }, (_, i) => i + 1));  // leaves out 0
+    expect(elapsedMs).toBeLessThan(500);
+  });
+
   it("limit ≤ 0 and degenerate (k>n, k≤0) yield [] — same as before", () => {
     expect(kCombinations(6, 3, 0)).toEqual([]);
     expect(kCombinations(6, 3, -1)).toEqual([]);

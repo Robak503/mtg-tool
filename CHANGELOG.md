@@ -13,6 +13,7 @@ summarizes the notable changes.
 
 ### Fixed
 - Simulated games with **The Unbeatable Squirrel Girl** no longer hang. The AI used to activate her Squirrel-doubling ability on top of itself without end; it now makes Squirrels only until it has enough to win, stops everything else, and attacks every opponent in one combat
+- A game could freeze for minutes on one decision when a spell or ability with "X target …" could choose nearly every legal target (seen with a large board late in a game); listing those choices is now instant
 - A simulated game whose board or stack grows out of control (more than 2,000 permanents under one player, or more than 500 objects on the stack) now ends as a stuck game in seconds instead of running for minutes
 
 ## [0.163.0] - 2026-10-02

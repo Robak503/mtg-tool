@@ -113,7 +113,13 @@ function kCombinations(n, k, limit = Infinity) {
   const out = [];
   const pick = (start, combo) => {
     if (combo.length === k) { out.push(combo.slice()); return; }
-    for (let i = start; i < n; i++) {
+    // Stop at the last index that still leaves enough elements to finish the combination. Without this bound
+    // the DFS walks every dead-end prefix; the `limit` only ends it once `limit` combinations EXIST, so a pick
+    // with fewer than `limit` in total (32 of 33: only 33) visited all ~2^n prefixes — one legalActions call
+    // took over 100 s (cdh, seed 1314382654). A pruned prefix has no completion, so the output and its order
+    // are unchanged.
+    const last = n - (k - combo.length);
+    for (let i = start; i <= last; i++) {
       combo.push(i); pick(i + 1, combo); combo.pop();
       if (out.length >= limit) return; // capacity reached — unwind the whole DFS
     }
