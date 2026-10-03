@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **0 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **+0**. The next tag
+> **1 commit**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **+0**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,38 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## ⚡ 2026-10-03 — THE PARSE CACHE · self-play ~2.4× faster, games byte-identical · **±0**
+> Omnath's [Q-PARSE-CACHE] (COMMS 10-03 06:15Z): self-play fell from ~222 to ~66 games/min between v0.149.0 and v0.163.0 with the
+> games the same size; his profile put ~half the CPU in re-reading oracle text. Measured here on v0.163.0: 46% of a game's CPU
+> inside `parseEffectClause`, reached from the cast offer (`parseCastProgram`, 28%) and `parseActivatedAbilities` (20%) at every
+> priority window.
+> · The change: new leaf `effects/parseMemo.js`; `parseEffectClause` parses each distinct (clause text, card type, hasX,
+>   sourceScoped) once and returns the same DEEP-FROZEN program. A call outside that exact shape is parsed directly. The parser's
+>   registries are inputs: `registerClauseParser` and the two grant-body validators drop the memo. Capped at 16,384 entries,
+>   oldest evicted first. The card-level stamps in `parseEffectProgramInner` (additionalCosts, altCost, xSpell-from-cost,
+>   selfShuffle, rebound, the escalate clamp, the self-exile retry) wrote onto the parse result in place — now each is a copy.
+>   ENGINE-SCAFFOLD §3.4 carries the rule for every later change: a parse result is shared and frozen; copy before you stamp.
+> · Proof it changes nothing: 48 seeded 4-player games (July seeds, Omnath's compare-worker, 78,399 decision rows) — output
+>   byte-identical to the pristine v0.163.0 checkout (sha256 equal on both sets). Flip-diff **0 / 0 / 0** over 34,620 cards.
+>   Coverage unchanged: corpus 15,467, top 1,000 891, top 2,500 1,730. Lint 0; citations 117 (baseline).
+> · Speed (same machine, Omnath's 60k run sharing it): 8 games 91.2 s → 36.7 s; 40 games 492 s → 207 s (2.4×); the 34,620-card
+>   tier snapshot 208 s → 139 s. `parseEffectClause` is 2% of the profile after the change.
+> · **Mutants 29/29**, restore byte-identical. Witness `effects/parseMemo.test.js` (25): the key separates hasX / sourceScoped /
+>   card type in both call orders; unnamed or non-boolean options bypass the memo; each registry invalidates; the bound and the
+>   eviction order; seven real cards (Thrill of Possibility, Crash, Toxic Deluge, Treasured Find, It's Clobberin' Time!, Blue
+>   Sun's Zenith, Borrowed Malevolence) keep their stamp while the same body without the stamp's cause stays unstamped.
+> · The freeze found every in-place writer: the first cached run ended 7 of 8 games in a dispatch error ("object is not
+>   extensible") from the seven stamps above; the full suite then found no other writer.
+> · ⚠️ Not done (queued, measured after the cache — share of self-play CPU): `classifyCard` from the cast offer ~7%,
+>   `parseActivatedAbilities` ~7%, `parseEffectProgram`'s strip chain ~5%, `detectTriggers` via granted triggers ~3% (each takes
+>   a card object: the key needs a field-by-field audit); `deriveCharacteristics` from the lethal-damage SBA ~21% (board state,
+>   not parsing).
+> · Suite: **18,564** tests / 1,765 files (+25, the witness). ⚠️ NOT one green run locally: three full runs (two at default
+>   parallelism, one at `--maxWorkers=8`) each passed 18,563 and timed out the same test — `crucibleRun.test.js` "plays EXACTLY
+>   N games" (20 s cap) — while Omnath's 16-lane run shared the machine. That test plays vanilla Forest / Grizzly Bears decks
+>   (no oracle text to parse) and takes 14.0 s alone with the cache OFF and 14.2 s with it ON, so the slice cannot move it; the
+>   file passes alone (4 runs, 10/10). CI on a quiet runner is the full-suite verdict for this push.
 
 > ## 🚀 2026-10-02 — v0.163.0 RELEASED · 40 commits since v0.162.0 · engine +56 · tagged early for user-facing fixes
 > Cut under CLAUDE.md §7.2's user-facing-fix exception (Colton's go): short of the ~100-card line, but it ships the fixes a

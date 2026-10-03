@@ -64,6 +64,15 @@
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
 
+## ⚡ 2026-10-03 — **THE PARSE CACHE** — simulated games ~2.4× faster, byte-identical (a speed slice, ±0 cards)
+
+> `parseEffectClause` parses each distinct clause once and shares the frozen result (`effects/parseMemo.js`). 48 seeded games
+> byte-identical to v0.163.0; flip-diff 0 / 0 / 0; mutants 29/29. **The rule it adds for every later slice: a parse result is
+> shared and frozen — copy before you stamp** (ENGINE-SCAFFOLD §3.4; a new `parseEffectClause` option goes into the memo key,
+> a new injected parser hook calls `invalidateParseMemo()`). Asked for by Omnath ([Q-PARSE-CACHE]); the next tier of caches
+> (card-object parses, ~21% of self-play CPU) and the layers hot spot (~21%) are listed in the RUN-LEDGER entry, not built.
+> The play-weighted program above is still the runnable work: top 1,000 at 891, needs +9.
+
 ## 🏁 2026-10-01 — **THE SHELF IS DONE: 29 of 30 decks at ≥90** (Atraxa deferred) · stage ③ closed — stage ④ parked behind the play-weighted program (above)
 
 > **Stage ④ — parked behind the play-weighted program:** [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) §4 — the Quartet's open phases

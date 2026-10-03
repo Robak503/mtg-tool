@@ -185,6 +185,35 @@ the key the runtime resolver dispatches on. Emit an op with no resolver and the
 program is silently LOW (KNOWN excludes it) — which is safe (Arbiter) but means
 your atom does nothing until the resolver exists.
 
+### 3.4 The parse cache (`effects/parseMemo.js`, added 2026-10-03)
+
+`parseEffectClause(oracle, cardType, { hasX, sourceScoped })` parses each distinct
+combination ONCE and hands every caller the same result. Listing legal actions
+re-parses every castable spell and every activated ability at every priority
+window; before the cache that was 46% of a self-play game's CPU.
+
+**The rule this puts on every caller: a parse result is shared and deep-frozen —
+never write to it.** A write throws a `TypeError` (modules are strict mode). To
+add a flag to a program or an atom, copy first: `{ ...program, selfExile: true }`.
+Unfrozen, a write would silently put one card's flag on every other card with the
+same text, in every later game — the freeze turns that into a loud failure.
+
+What keeps one shared result correct:
+- **The key names every input.** Clause text, card type and the two boolean
+  options. A call outside that exact shape (another option key, a non-boolean
+  option, a non-string text) is parsed directly and never cached. **If you add an
+  option to `parseEffectClause`, add it to the key in the same change.**
+- **The registries are inputs too.** `registerClauseParser` and the two grant-body
+  validators (`atoms/grantUntilEot.js`) call `invalidateParseMemo()`. **A new
+  injected hook that a parse consults must do the same.**
+- **Bounded:** 16,384 entries, oldest evicted first — a corpus classification run
+  parses far more texts than that and stays flat.
+
+Still uncached (measured after the cache, share of self-play CPU): `classifyCard`
+from the cast offer ~7%, `parseActivatedAbilities` ~7%, `parseEffectProgram`'s own
+strip chain ~5%, `detectTriggers` via granted triggers ~3%. Those take a card
+object, so each needs its key audited field by field before it can be cached.
+
 ---
 
 ## 4. RUNTIME — how a game actually runs

@@ -42,17 +42,22 @@ import { atomTargets } from "./shared.js";
 import { applyPumpEffect } from "./combat.js";
 import { parseGrantedKeywords } from "../parseHelpers.js"; // a leaf (proven cycle-free — combat.js imports it)
 import { parseGrantedManaSpec } from "../../staticAbilityParser.js"; // the self-grant's mana body (staticAbilityParser imports only leaves; zones.js and counters.js import it too)
+import { invalidateParseMemo } from "../parseMemo.js"; // a leaf (imports nothing)
 
 // ── Injected body validators (the registerGroupTriggeredBodyValidator pattern — no load cycle) ──────────
 let grantTriggeredBodyValidator = null;
 let grantActivatedBodyValidator = null;
 /** coverage.js + gameEngine.js register triggerRouting.isModeledGroupTriggeredBody here. */
 export function registerGrantTriggeredBodyValidator(fn) {
-  if (typeof fn === "function") grantTriggeredBodyValidator = fn;
+  if (typeof fn !== "function") return;
+  grantTriggeredBodyValidator = fn;
+  invalidateParseMemo(); // the validator is a parse input (see parseMemo.js)
 }
 /** coverage.js + legalChoices.js register abilities.isModeledGroupActivatedBody here. */
 export function registerGrantActivatedBodyValidator(fn) {
-  if (typeof fn === "function") grantActivatedBodyValidator = fn;
+  if (typeof fn !== "function") return;
+  grantActivatedBodyValidator = fn;
+  invalidateParseMemo(); // the validator is a parse input (see parseMemo.js)
 }
 
 /** The validated grant KIND for a quoted body — "triggered" / "activated" / null (unmodeled → Arbiter). */

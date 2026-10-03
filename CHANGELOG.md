@@ -8,6 +8,9 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Changed
+- Simulated games run about 2.4 times faster (the Sim Center's grind, the Crucible and Learn games against the AI): each card's rules text is now read once and reused instead of being re-read at every priority window. Results are unchanged — the same seeds play out move for move
+
 ## [0.163.0] - 2026-10-02
 
 ### Added

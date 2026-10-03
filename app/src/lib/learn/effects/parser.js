@@ -90,6 +90,7 @@ import { poisonClauseParser, playerInvestigateClauseParser } from "./atoms/life.
 import { diedCardToHandClauseParser } from "./atoms/delayedTrigger.js"; // DIES WATCH (shelf D25) — the [died-card-to-hand] sentinel "when that creature dies this turn, return that card to its owner's hand" fires
 import { matchExileTopFaceDownToHand, faceDownExileReturnClauseParser } from "./atoms/faceDownExile.js"; // Necropotence — exile the top card face down + its card-bound delayed return
 import { discardedCardExileClauseParser } from "./atoms/discardedCardExile.js"; // Necropotence — the [discarded-card] sentinel detectTriggers writes on a discard trigger
+import { memoizedParse, invalidateParseMemo } from "./parseMemo.js"; // the parse cache — one parse per distinct clause text
 
 /**
  * The atom ops the interpreter can resolve natively — DERIVED from the resolver
@@ -464,6 +465,7 @@ const CLAUSE_PARSERS = [];
 export function registerClauseParser(fn) {
   if (typeof fn !== "function") throw new Error("clause parser must be a function");
   CLAUSE_PARSERS.push(fn);
+  invalidateParseMemo(); // the registry is a parse input — nothing parsed before this registration may be served after it
 }
 
 /**
@@ -1497,8 +1499,7 @@ function parseEffectProgramWithSelfExileRetry(card) {
   if (!selfExile) return direct;
   const retried = parseEffectProgramInner({ ...card, oracle: body, oracle_text: body });
   if (!retried || programConfidence(retried) !== "high") return direct;
-  retried.selfExile = true;
-  return retried;
+  return { ...retried, selfExile: true }; // a copy — a parse result is shared and frozen (parseMemo.js)
 }
 
 function parseEffectProgramInner(card) {
@@ -1571,18 +1572,21 @@ function parseEffectProgramInner(card) {
   // Stamp `selfShuffle` / `selfExile` on the produced program WITHOUT reconstructing it (preserve every field —
   // additionalCosts / altCost / xSpell / modal — that later lines may have attached). Only a HIGH program is
   // flagged: a LOW body (unmodeled family member) routes to the Arbiter, which disposes the spell itself, so
-  // the flag would be inert there anyway. Mutating the returned object is safe (it's freshly built per call).
+  // the flag would be inert there anyway. EVERY STAMP IS A COPY ({ ...p, flag }): parseEffectClause's result is
+  // shared between callers and frozen (parseMemo.js), so the program handed in is never written to — a write
+  // would throw, and unfrozen it would put this card's flag on every other card with the same body.
   // selfShuffle and selfExile are mutually exclusive in the corpus (no card both shuffles-self and rebounds).
-  const stamp = (p) => {
-    if (selfShuffle && p && programConfidence(p) === "high") p.selfShuffle = true;
-    if (rebound && p && programConfidence(p) === "high") p.selfExile = true;
+  const stamp = (parsed) => {
+    if (!parsed || programConfidence(parsed) !== "high") return parsed;
+    let p = parsed;
+    if (selfShuffle) p = { ...p, selfShuffle: true };
+    if (rebound) p = { ...p, selfExile: true };
     // ESCALATE CLAMP — withhold the multi-mode line the engine cannot price. One mode, no upTo, so
     // expandCastChoices offers exactly the single-mode casts and the escalate cost never comes due.
     // `escalateSingleMode` records WHY the modal is narrower than the printed card, so the next reader sees a
     // deliberate under-offer rather than a parse bug.
-    if (escalate && p && programConfidence(p) === "high" && p.modal) {
-      p.modal = { ...p.modal, chooseCount: 1, upTo: false, atLeastOne: false };
-      p.escalateSingleMode = true;
+    if (escalate && p.modal) {
+      p = { ...p, modal: { ...p.modal, chooseCount: 1, upTo: false, atLeastOne: false }, escalateSingleMode: true };
     }
     return p;
   };
@@ -1607,10 +1611,11 @@ function parseEffectProgramInner(card) {
   // the program stamps xSpell so the cast path runs its X-choice expansion. The compound-defer guard
   // above doesn't apply (this X IS the cost's own X, not a second axis).
   const xFromCost = Array.isArray(costs) && costs.some((c) => c.kind === "payLifeX");
-  const program = parseEffectClause(bodyOracle, typeOf(card), { hasX: hasXCost(card) || xFromCost });
-  if (xFromCost && program && programConfidence(program) === "high") program.xSpell = true;
-  if (costs && program) program.additionalCosts = costs;
-  if (altCost && program) program.altCost = altCost;
+  let program = parseEffectClause(bodyOracle, typeOf(card), { hasX: hasXCost(card) || xFromCost });
+  // Stamps are copies here too (see `stamp` above): the parsed body is shared and frozen.
+  if (xFromCost && program && programConfidence(program) === "high") program = { ...program, xSpell: true };
+  if (costs && program) program = { ...program, additionalCosts: costs };
+  if (altCost && program) program = { ...program, altCost };
   return stamp(program);
 }
 
@@ -3769,6 +3774,19 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
  * over-stamping a destroy atom that never carries the rider has no observable effect on any real card.
  */
 export function parseEffectClause(oracle, cardType = "", opts = {}) {
+  // THE PARSE CACHE (parseMemo.js): the result is a pure function of the clause text, the card type and the two
+  // boolean options, so each distinct combination is parsed once and the frozen result shared. Anything outside that
+  // exact shape (a non-string text or type, a non-boolean option, an option this key does not name) is parsed directly.
+  const hasX = opts?.hasX;
+  const sourceScoped = opts?.sourceScoped;
+  const keyable = typeof oracle === "string" && typeof cardType === "string"
+    && (hasX === undefined || typeof hasX === "boolean") && (sourceScoped === undefined || typeof sourceScoped === "boolean")
+    && opts !== null && typeof opts === "object" && Object.keys(opts).every((k) => k === "hasX" || k === "sourceScoped");
+  if (!keyable) return parseEffectClauseUncached(oracle, cardType, opts);
+  const key = `${hasX ? 1 : 0}${sourceScoped ? 1 : 0}\u0001${cardType}\u0001${oracle}`;
+  return memoizedParse(key, () => parseEffectClauseUncached(oracle, cardType, opts));
+}
+function parseEffectClauseUncached(oracle, cardType, opts) {
   const program = parseEffectClauseImpl(oracle, cardType, opts);
   if (!program || !CANT_REGEN_TEST.test(String(oracle || ""))) return program;
   // + the Culling Ritual mass destroy (#587): its matcher reads the rider-stripped text too, so it takes the stamp a plain
