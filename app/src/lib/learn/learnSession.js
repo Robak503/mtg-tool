@@ -59,6 +59,7 @@ import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { takeLastCastRanking } from "./opponentAI.js"; // M5.1 — the tick-scoped cast-ranking side-channel (nearTie/top-k rows)
 import { stableActionKey as _stableActionKey } from "./actionKey.js";
 import { dispatchAction } from "./actionDispatcher.js";
+import { createLoopWatch } from "./mandatoryLoop.js"; // CR 104.4b / 732.4 — a loop of only mandatory actions is a draw (a zero-import leaf)
 import { isLandCard } from "./effects/atoms/shared.js"; // death capture: count lands stuck in the eliminated player's hand
 import { checkAllStateBasedActions } from "./sba.js"; // CR 704.3 (B2) — the comprehensive permanent-SBA fixpoint at the priority checkpoint
 import { resolveAtom } from "./effects/effectAtoms.js"; // Arbiter-in-runner: apply a cached verdict's atoms (applyArbiterVerdict)
@@ -1501,6 +1502,7 @@ export function advanceUntilDecision(
     resolveArbiter = null,
     turnTickBudget = 2000,
     runawayLimits = RUNAWAY_LIMITS,
+    mandatoryLoopLimits = undefined, // mandatoryLoop.MANDATORY_LOOP by default; injectable for tests
   } = {},
 ) {
   // Resolve the opt-in clock once (null ⇒ OFF ⇒ no behavior change anywhere below).
@@ -1542,6 +1544,10 @@ export function advanceUntilDecision(
   let ticksThisTurn = 0;
   let idleStackTicksThisTurn = 0; // ticks of this turn that began with an empty stack — what the budget is spent on
   let maxTurnTicks = 0; // observability: the busiest single turn (recorded on the result)
+  // MANDATORY LOOP (CR 104.4b / 732.4, 2026-10-03) — the watch sees every tick; a tick that was anything but a plain
+  // priority pass (an action, a choice, a pending window, a forced pass by the anti-loop latch) resets it.
+  const loopWatch = createLoopWatch(mandatoryLoopLimits);
+  let lastTickPlainPass = false;
 
   // Turn-boundary state (opt-in observer + opt-in time-pressure clock). Starts at null
   // so the FIRST loop iteration fires for the opening turn, then once per subsequent
@@ -1595,6 +1601,19 @@ export function advanceUntilDecision(
       return {
         session: current,
         decision: { kind: "engine-stuck", reason: `runaway ${runaway}`, ticks, maxTurnTicks },
+      };
+    }
+    // MANDATORY LOOP (CR 104.4b / 732.4) — "If a loop contains only mandatory actions, the game is a draw." Polyraptor
+    // beside Marauding Raptor: no player chooses anything and nothing can stop it. The guards above would end that
+    // game engine-stuck, a non-result; mandatoryLoop.js recognises the narrow, certain case and the game ends a draw.
+    if (!lastTickPlainPass) loopWatch.reset();
+    lastTickPlainPass = false;
+    const mandatoryLoop = current.status === "active" ? loopWatch.observe(current.state) : null;
+    if (mandatoryLoop) {
+      const drawn = logEvent(current.state, { kind: "game-draw", rule: "CR 104.4b", reason: "mandatory loop", period: mandatoryLoop.period, sources: mandatoryLoop.sources });
+      return {
+        session: { ...current, state: drawn, status: "draw", endedAt: new Date().toISOString() },
+        decision: { kind: "game-over", reason: "draw", mandatoryLoop, ticks, maxTurnTicks },
       };
     }
 
@@ -2696,6 +2715,7 @@ export function advanceUntilDecision(
         state: newState,
         decisionLog: [...current.decisionLog, logEntry],
       };
+      lastTickPlainPass = chosenAction.kind === "pass-priority";
     } catch (error) {
       // DispatcherError or other — bail with a structured decision so
       // the UI can show what happened.

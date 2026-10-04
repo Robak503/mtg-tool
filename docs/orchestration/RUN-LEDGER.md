@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **12 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
+> **13 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,37 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## ♾️ 2026-10-03 — A MANDATORY LOOP IS A DRAW (CR 104.4b / 732.4): Polyraptor + Marauding Raptor · **+0** · corpus 15,492
+> Suite **18,890** green. Flip-diff **0 / 0 / 0**. **Mutants 59/59**, restore byte-identical. Omnath's Jurassic Ramp
+> seed 1813482482 ended `engine-stuck — runaway stack (501 objects)` after 81 s; it now ends **a draw in 4 s**.
+> · **The rule.** "If a loop contains only mandatory actions, the game is a draw." Marauding Raptor deals 2 damage to each
+>   creature that enters, Polyraptor's enrage makes a copy, the copy enters. Nobody chooses anything and nothing stops it.
+> · **`mandatoryLoop.js`** (new, a leaf). The driver (`learnSession.advanceUntilDecision`) shows it every tick and resets it
+>   after any tick that was not a plain priority pass. It answers only for the narrow, certain case: 800 plain passes in a
+>   row (100 four-player cycles) whose (priority holder, source, controller) sequence repeats with one period ≤ 64; the
+>   stack never smaller than a period earlier (a long chain that is DRAINING is not a loop — 236 Squirrels entering beside
+>   Altar of the Brood); the turn, phase, step and every player's life, poison, library and hand unmoved (a loop that moves
+>   one of those is on its way to an end of its own); every object on top a triggered ability that is either a LINK — no
+>   targets, from a permanent on the battlefield whose rules text offers no choice (no may / up to / choose / target /
+>   unless / or / any number / random, reminder text aside) — or a BYSTANDER, whose resolution changed nothing on any
+>   battlefield, in any zone or mana pool (an opposing Selvala, Heart of the Wilds watching each copy enter). Bystanders
+>   alone are never a loop. Anything else falls through to the existing guards exactly as before.
+> · The game ends `game-over`, status `draw`, with `decision.mandatoryLoop = { period, ticks, sources }` and a `game-draw`
+>   log entry (rule, period, sources). In a pod it is a draw for the whole game (104.4b; no range of influence).
+> · **⚑ Also fixed — a question with no effect, asked for ever:** Pantlaza, Sun-Favored's "you may discover X … Do this only
+>   once each turn" paused for a yes / no on EVERY later Dinosaur that turn, then did nothing. `runProgram` now skips an
+>   optional atom whose once-each-turn latch is already set (the atom's own key, `<source>_<op>`), so a player is asked
+>   once. It was also what hid the loop from the watch when Pantlaza's trigger resolved inside each cycle.
+> · **Results change (flagged to Omnath):** a game that ended `engine-stuck` on this loop now ends `draw` (a labelled result,
+>   training weight 1, 0.5 each); Pantlaza decks lose the dead yes / no decision rows.
+> · Witness `mandatoryLoop.test.js` (26): the real driver on a real session — the autopilot casts Polyraptor beside the
+>   Raptor; with Pantlaza and an opposing Selvala as bystanders; a player acting inside the loop restarts the count; two
+>   no-loop controls play to a winner — plus the watch's unit cases (labelled SYNTHETIC).
+> · ⚠️ Under-reads (documented): a mandatory loop that moves life or a library (it ends by itself, or runs to the stall
+>   guard); one whose links carry a choice word anywhere in their text ("or" is one); one longer than 64 ticks a cycle; an
+>   optional loop the AI keeps accepting (correctly not a draw — it still ends engine-stuck; the shortcut is E7.5).
+> · ⚠️ Found, not fixed (queued): the Scute Swarm attack-plan slowdown (seed 3166819773); seeds 1173515413 and 1662829456.
 
 > ## 🔧 2026-10-03 — FIX: Commander's Plate's commander color identity in real games · the free-Equip loops (Captain America) · **+0** · corpus 15,492
 > Suite **18,864** green. Flip-diff **0 / 0 / 0**. **Mutants 24/24**, restore byte-identical. Omnath's Captain America stalls

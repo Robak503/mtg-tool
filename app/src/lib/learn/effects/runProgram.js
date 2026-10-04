@@ -261,6 +261,10 @@ export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacri
     // atom then resumes. Mirror the tutor/scry pause — plain JSON, serialize-safe; never resolve a
     // "may" as mandatory (that would be a forbidden mis-apply).
     if (atom.optional) {
+      // "Do this only once each turn", already done this turn (Pantlaza's discover on the second Dinosaur): the atom would
+      // do nothing, so there is no choice to offer — the question was asked on every later trigger, answered, and skipped.
+      // The latch key is the atom's own (`<source>_<op>`); an op whose latch is keyed otherwise still gets the question.
+      if (atom.oncePerTurn && (next.onceTriggersFiredThisTurn || {})[`${sourceId || ""}_${atom.op}`]) continue;
       // TARGET-FACING "MAY" (`optionalDeciderIsTarget`, CR 702.124j) — almost every printed optional reads
       // "YOU may", so the controller decides and the plain `controller` below is right. Partner-with reads
       // "TARGET PLAYER may search their library…", and the choice is that player's, not the caster's.

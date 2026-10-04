@@ -23,6 +23,8 @@ summarizes the notable changes.
 - The choices offered for "untap X target lands" list your own tapped lands first, most mana first
 
 ### Fixed
+- A loop nobody can stop (**Polyraptor** beside **Marauding Raptor**) now ends the game in a draw, as the rules say, after about a hundred copies; it used to run until the game froze and was abandoned
+- **Pantlaza, Sun-Favored** asked "discover?" again for every Dinosaur that entered after its once-each-turn discover was used; it now asks once
 - **Commander's Plate** gave protection from all five colors, the commander's own included; it now protects only from the colors outside your commander's color identity
 - The AI could spend a whole turn re-activating a free Equip (Puresteel Paladin) that never attached, ending the game as stuck: an Equipment is no longer offered onto a creature with protection from its color, and the AI no longer activates the Equip of an Equipment that is currently a creature (**Halvar, God of Battle**)
 - **Terror of the Peaks** and **Verdant Sun's Avatar** now use the entering creature's last known power or toughness when it has left the battlefield before their ability resolves; they used 0

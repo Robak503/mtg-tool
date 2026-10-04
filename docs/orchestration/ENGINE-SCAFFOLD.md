@@ -445,7 +445,18 @@ eliminations → pending-* settlement → turn cap → priority window → `make
 game `engine-stuck` instead of letting it spin: the 50,000-tick cap, the per-turn
 tick budget (2,000), and the runaway SIZE guard (`RUNAWAY_LIMITS`: more than 500
 objects on the stack or 2,000 permanents under one seat — a board that grows makes
-every tick slower, so a tick count alone never fires in time). Instrumentation
+every tick slower, so a tick count alone never fires in time). One loop is not
+`engine-stuck` at all: a loop of only MANDATORY actions is a **draw** (CR 104.4b /
+732.4 — Polyraptor beside Marauding Raptor). `mandatoryLoop.js` (a leaf) watches
+every tick and is reset by any tick that was not a plain priority pass; it answers
+after 800 plain passes whose (holder, source, controller) sequence repeats with one
+period, the stack never smaller than a period earlier, life / poison / library /
+hand / turn / step unmoved, and every object on top either a LINK (an untargeted
+trigger from a permanent whose text offers no choice) or a BYSTANDER (its
+resolution changed nothing). The game then ends `game-over` / `draw` with
+`decision.mandatoryLoop`. Deliberately narrow: anything else falls to the guards
+above. A new guard or result here needs the same care — a wrong `draw` is a
+labelled training row, a missed one only an unlabelled game. Instrumentation
 opts (`decide`/`recordDecision`/`timePressure`/`onTurnStart`) are threaded through
 `act()` and every pending-choice settler, so caller-driven v1 games are fully
 instrumented end-to-end (`gameApiInstrumentation.test.js` pins it). `selfPlayRunner`
