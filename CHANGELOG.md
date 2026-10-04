@@ -25,6 +25,7 @@ summarizes the notable changes.
 - The choices offered for "untap X target lands" list your own tapped lands first, most mana first
 
 ### Fixed
+- The AI could spend a whole turn re-equipping **Lightning Greaves** onto a **Lizard Blades** that was itself attached to a creature (it is not a creature while attached), ending the game as stuck. Equipment can now only be attached to something that is a creature at that moment — which also means a crewed Vehicle or an animated land can be equipped
 - A spell or ability with "any target" could not be aimed at a player when more than 64 creatures were on the battlefield (the target list was cut off before the players); players are now always offered
 - A loop nobody can stop (**Polyraptor** beside **Marauding Raptor**) now ends the game in a draw, as the rules say, after about a hundred copies; it used to run until the game froze and was abandoned
 - **Pantlaza, Sun-Favored** asked "discover?" again for every Dinosaur that entered after its once-each-turn discover was used; it now asks once

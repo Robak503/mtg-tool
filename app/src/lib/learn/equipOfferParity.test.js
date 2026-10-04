@@ -292,3 +292,59 @@ describe("the AI with a free Equip (Puresteel Paladin) stops", () => {
     expect(equipTargets(s, "ai", "blades")).toEqual(["paladin"]);
   });
 });
+
+// ─── "target creature" is read as the battlefield has it, not as the card is printed ─────────────────────────────────
+//
+// Found in self-play (2026-10-04, Omnath's seed 1173515413): Lightning Greaves' Equip {0} was offered onto a Lizard Blades
+// that was ATTACHED to a creature ("While attached, this isn't a creature"). The Equip attached, the CR 704.5n state-based
+// action took the Greaves straight off again, and the AI repeated that 1,987 times in one turn. The offer and the attach
+// resolver read the printed type line; the state-based action reads the layers.
+
+const GREAVES = {"name":"Lightning Greaves","type":"Artifact — Equipment","mana":"{2}","cmc":2,"keywords":["Equip"],"colors":[],"colorIdentity":[],"oracle":"Equipped creature has haste and shroud. (It can't be the target of spells or abilities.)\nEquip {0}"};
+const COPTER = {"name":"Smuggler's Copter","type":"Artifact — Vehicle","mana":"{2}","cmc":2,"power":"3","toughness":"3","keywords":["Flying","Crew"],"colors":[],"colorIdentity":[],"oracle":"Flying\nWhenever this Vehicle attacks or blocks, you may draw a card. If you do, discard a card.\nCrew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)"};
+
+describe("an Equip targets a creature as it is NOW (CR 608.2b / 704.5n)", () => {
+  const bladesBoard = (controller = "user") => board({ [controller]: [P("bears", BEARS, controller), P("giant", GIANT, controller), P("blades", BLADES, controller), P("greaves", GREAVES, controller)], active: controller });
+
+  it("an unattached Lizard Blades is a creature and may be equipped; attached, it is not offered", () => {
+    const s = bladesBoard();
+    expect(equipTargets(s, "user", "greaves")).toEqual(["bears", "blades", "giant"]);
+    const attached = attachPermanent(s, { equipId: "blades", targetId: "bears" });
+    expect(equipTargets(attached, "user", "greaves")).toEqual(["bears", "giant"]);
+  });
+
+  it("a crewed Vehicle is a creature now and may be equipped; uncrewed it may not", () => {
+    const s = board({ user: [P("bears", BEARS, "user"), P("copter", COPTER, "user"), P("bone", BONESPLITTER, "user")] });
+    expect(equipTargets(s, "user", "bone")).toEqual(["bears"]);
+    const crewed = dispatchAction(s, legalActionsForPlayer(s, "user").find((a) => a.kind === "crew-vehicle" && a.permanentId === "copter"));
+    expect(equipTargets(crewed, "user", "bone")).toEqual(["bears", "copter"]);
+    const after = resolveAll(dispatchAction(crewed, equipOffers(crewed, "user", "bone").find((a) => a.targets[0].id === "copter")));
+    expect(lastKind(after)).toBe("attach");
+    expect(findPerm(after, "bone").attachedTo).toBe("copter");
+  });
+
+  it("a target that stops being a creature before the Equip resolves is an illegal target: nothing attaches", () => {
+    const s = bladesBoard();
+    const onStack = dispatchAction(s, equipOffers(s, "user", "greaves").find((a) => a.targets[0].id === "blades"));
+    // in response, the Lizard Blades becomes attached to the Bears — it is no longer a creature
+    const after = resolveAll(attachPermanent(onStack, { equipId: "blades", targetId: "bears" }));
+    expect(after.log.at(-1)).toMatchObject({ kind: "spell-fizzle", source: "Lightning Greaves", reason: "all targets illegal (CR 608.2b)" });
+    expect(findPerm(after, "greaves").attachedTo ?? null).toBeNull();
+    expect(after.log.some((e) => e.kind === "attach" && e.source === "Lightning Greaves")).toBe(false);
+  });
+
+  it("the AI with Lightning Greaves' free Equip beside an attached Lizard Blades stops", () => {
+    const s = attachPermanent(bladesBoard("ai"), { equipId: "blades", targetId: "bears" });
+    let state = s;
+    let passed = null;
+    for (let n = 0; n < 40 && passed === null; n++) {
+      const legal = legalActionsForPlayer({ ...state, priorityHolder: "ai" }, "ai");
+      const pick = pickAction({ ...state, priorityHolder: "ai" }, "ai", legal);
+      if (!pick || pick.kind === "pass-priority") { passed = n; break; }
+      state = resolveAll(dispatchAction({ ...state, priorityHolder: "ai" }, pick));
+    }
+    expect(passed).not.toBeNull();
+    expect(state.log.some((e) => e.kind === "equipment-unattached")).toBe(false);
+    expect(findPerm(state, "greaves").attachedTo).not.toBeNull(); // it did equip something, once
+  });
+});

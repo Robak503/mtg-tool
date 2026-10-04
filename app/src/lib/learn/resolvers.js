@@ -29,7 +29,7 @@ import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate, cloneWidenedCopiable, enteredThisTurnCopiable } from "./cloneCopy.js"; // + cloneWidenedCopiable (KN-2) + enteredThisTurnCopiable (shelf D36)
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { isNativeManaAura, auraChoosesColorOnEnter, parseSoulbondBond } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) — the Aura spell's host re-check; SOULBOND (BLITZ SL-1) — the modeled bond reader
-import { equipmentBarredAsCreature, permanentHasCardType, colorsOf, permanentColors } from "./layers.js"; // CR 301.5c — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types; + the colours the CR 608.2b re-checks judge protection against
+import { equipmentBarredAsCreature, permanentHasCardType, colorsOf, permanentColors, permanentIsCreature } from "./layers.js"; // CR 301.5c — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types; + the colours the CR 608.2b re-checks judge protection against
 import { canBeTargetedBy, playerTargetableBy } from "./spellEffects.js"; // the ONE targetability predicate the Aura / Equip offers read — re-asked as those spells and abilities resolve (CR 608.2b, 608.3b)
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
@@ -596,12 +596,19 @@ export const RESOLVERS = Object.freeze({
     const { sourceId, targetId, controller, aura = false } = obj.payload?.params || {};
     const src = findPermanent(state, sourceId);
     const tgt = findPermanent(state, targetId);
-    const tgtType = String(tgt?.permanent?.card?.type || tgt?.permanent?.card?.type_line || "");
     // SHELF-85 V15 (Detainment Spell): an AURA re-attach ("Attach this Aura to target creature") may land on an
     // opponent's creature — Equip's own-creature rule (CR 702.6a) is Equip's alone. The Aura still must be the
     // activator's, and the target a creature (the printed "Enchant creature").
-    if (!src || !tgt || src.controller !== controller || (!aura && tgt.controller !== controller) || !/Creature/.test(tgtType)) {
+    if (!src || !tgt || src.controller !== controller || (!aura && tgt.controller !== controller)) {
       return resolveManual(state, obj);
+    }
+    // CR 608.2b — "target creature": the target must be a creature as the ability resolves, read layer-aware (the read the
+    // CR 704.5n state-based action makes), not off the printed type line. One that stopped being a creature — a
+    // reconfigure Equipment that became attached in response, an animation that ended — is an illegal target and the
+    // ability does nothing; a permanent that is a creature only by an effect (a crewed Vehicle, an animated land) is a
+    // legal one.
+    if (!permanentIsCreature(state, tgt.permanent.id)) {
+      return logEvent(state, { kind: "spell-fizzle", source: src.permanent.card?.name, reason: "all targets illegal (CR 608.2b)", controller });
     }
     // CR 608.2b — the target must also still be TARGETABLE by this ability: shroud (even on its own controller's creature),
     // hexproof for an Aura moved onto another player's creature, protection from the source's colour. The offer's

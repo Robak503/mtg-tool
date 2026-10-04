@@ -2729,7 +2729,12 @@ function actionsActivateAbility(state, playerId) {
           ? Object.entries(state.players || {}).flatMap(([pid, pl]) => (pl?.battlefield || []).map((t) => ({ t, pid })))
           : player.battlefield.map((t) => ({ t, pid: playerId }));
         for (const { t, pid: tPid } of pool) {
-          if (!isCreature(t.card)) continue;
+          // A creature RIGHT NOW (layer-aware), as the CR 704.5n state-based action reads it — not the printed type line. An
+          // attached reconfigure Equipment (Lizard Blades on a creature: "While attached, this isn't a creature") was
+          // offered, the Equip attached to it, and the state-based action took it straight off again: with Lightning
+          // Greaves' Equip {0} the AI did that 1,987 times in one turn. A crewed Vehicle or an animated land is a creature
+          // now, and is offered.
+          if (!permanentIsCreature(state, t.id)) continue;
           // An Equipment can't equip itself (CR 301.5c); reconfigure attaches to ANOTHER creature (CR 702.151a). A reconfigure
           // Equipment is a creature while unattached, so without this it offered itself (shelf D34): the attach paid its cost
           // and the state-based action unattached it at once.

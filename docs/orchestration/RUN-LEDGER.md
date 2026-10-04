@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **15 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
+> **16 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,33 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-04 — FIX: an Equip targets a creature as it is NOW (the Lightning Greaves loop) · **+0** · corpus 15,492
+> Suite **18,943** green. Flip-diff **0 / 0 / 0**. **Mutants 5/5**, restore byte-identical. Omnath's seed 1173515413
+> (July list — Wolverine) ended `turn stall (9,965 ticks)`; it now finishes with a winner in 2 s.
+> · **The loop.** Lightning Greaves' Equip {0} was offered onto a Lizard Blades that was ATTACHED to a creature ("While
+>   attached, this isn't a creature"). The Equip attached, the CR 704.5n state-based action took the Greaves straight off
+>   again (`equipment-unattached`), and the AI's equip pick repeated it 1,987 times. The same shape as 5a1c25a9: an Equip
+>   that cannot stay, made free.
+> · **The cause.** The offer (`legalChoices`) and the attach resolver (`resolvers.ATTACH`) read the PRINTED type line for
+>   "creature"; the state-based action reads the layers. Both now read `permanentIsCreature` — one question, asked the same
+>   way at the offer, at resolution (CR 608.2b: a target that is no longer a creature is illegal, the ability does nothing,
+>   logged `spell-fizzle`) and in the state-based action.
+> · **⚑ Offer changes, both directions:** an attached reconfigure Equipment, and any permanent that is a creature only on
+>   its printed line (a God below its devotion), is no longer offered as an Equip or
+>   attach-this-Aura target; a permanent that is a creature only by an effect (a crewed Vehicle, an animated land) now IS.
+> · **Results (flagged to Omnath):** of 48 replayed games 44 are byte-identical; the other four keep every action, the winner
+>   and the turn count and differ only in `legal.n` (one Equip target fewer or more). New hashes `a1a9f98e68c3b6c3` (8) /
+>   `fdbb728c27d644a7` (40).
+> · Witness `equipOfferParity.test.js` (+4, 26 in all): Lizard Blades attached / unattached, a crewed Smuggler's Copter, a
+>   target that stops being a creature in response, and the AI's own picks beside Lightning Greaves.
+> · **Seed 1662829456 (shelf list — Omnath, Locus of Mana) is NOT a loop:** Old Gnawbone beside Craterhoof Behemoth makes
+>   about 2,000 Treasures in one combat (27 attackers connect), the stack draining the whole time, and the size guard's
+>   2,000-permanent limit ends a legitimate game `engine-stuck`. Not fixed here: raising the limit before identical tokens
+>   are offered as one action would make every later tick of such a game enormous (each Treasure is five tap-for-mana
+>   offers). Queued with the offer dedupe (UPGRADE-BACKLOG E7.2's open note).
+> · ⚠️ Found, not fixed (queued): `pickEquipAction` still assumes an offered Equip attaches and stays — a per-turn
+>   "this Equip already failed" memory would end the whole family; the size guard counts permanents, not growth.
 
 > ## ⚡ 2026-10-04 — PERF: the block gate's card-text readers are memoized · a 389-attacker turn 411 s → 111 s · **±0** · corpus 15,492
 > Suite **18,939** green. Flip-diff **0 / 0 / 0**. **Mutants 7/7**, restore byte-identical. 48 July-list games
