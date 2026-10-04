@@ -107,7 +107,35 @@ function escapeRegExp(s) {
 // "this creature" so a self-clause printed with the card name ("Invisible Stalker can't be
 // blocked.") reads identically to the templated "This creature can't be blocked." \b-anchored so
 // a short name can't match inside another word.
-function selfOracle(card) {
+const selfOracle = memoByCardText((card) => String(card?.oracle || ""), selfOracleUncached);
+
+/**
+ * TEXT MEMO (2026-10-04) — the readers in this file are pure functions of a card's NAME and rules TEXT, and the block
+ * gate asks them for every blocker of every attacker on every tick. On a wide board that was three quarters of a
+ * game's time (a 389-attacker Scute Swarm turn: 411 s, 74% in canBlockAttacker, half of it rebuilding one RegExp from
+ * the card's name). Keyed by the two strings themselves — name, then text — never by the card object: a card whose
+ * text changes (a test fixture edited in place, a copy effect's derived card) reads its new text. A stored value must be
+ * immutable: a string, null, or a frozen object. Bounded; past the limit the memo starts again.
+ */
+const CARD_TEXT_MEMO_LIMIT = 8192;
+function memoByCardText(textOf, compute) {
+  let byName = new Map();
+  let size = 0;
+  return (card) => {
+    const name = String(card?.name || "");
+    const text = textOf(card);
+    let byText = byName.get(name);
+    if (byText === undefined) { byText = new Map(); byName.set(name, byText); }
+    if (byText.has(text)) return byText.get(text);
+    const value = compute(card);
+    if (size >= CARD_TEXT_MEMO_LIMIT) { byName = new Map(); byText = new Map(); byName.set(name, byText); size = 0; }
+    byText.set(text, value);
+    size += 1;
+    return value;
+  };
+}
+
+function selfOracleUncached(card) {
   let t = String(card?.oracle || "").replace(/\([^)]*\)/g, " ").toLowerCase().replace(/[’']/g, "'");
   const name = String(card?.name || "").toLowerCase().replace(/[’']/g, "'");
   if (name) t = t.replace(new RegExp(`\\b${escapeRegExp(name)}\\b`, "g"), "this creature");
@@ -344,9 +372,13 @@ export function attackerMinBlockers(state, attackerId) {
 // staticAbilityParser.parseGroupBlockRestriction — the SAME function the classifier's `blockRestriction`
 // static marker reads — so the metric and this runtime enforcement can never drift. groupBlockRestrictionOf
 // here just adapts a battlefield permanent (`.card`) to that pure text parser.
-export function groupBlockRestrictionOf(card) {
-  return parseGroupBlockRestriction(String(card?.oracle || card?.oracle_text || ""), card?.name);
-}
+export const groupBlockRestrictionOf = memoByCardText(
+  (card) => String(card?.oracle || card?.oracle_text || ""),
+  (card) => {
+    const restriction = parseGroupBlockRestriction(String(card?.oracle || card?.oracle_text || ""), card?.name);
+    return restriction ? Object.freeze({ ...restriction, subtypes: Object.freeze([...restriction.subtypes]) }) : null; // shared: read-only
+  },
+);
 
 /**
  * Back-compat: the single-subtype form (Shifting Sliver). Returns the lone canonical subtype when the card

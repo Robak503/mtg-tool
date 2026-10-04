@@ -214,6 +214,16 @@ from the cast offer ~7%, `parseActivatedAbilities` ~7%, `parseEffectProgram`'s o
 strip chain ~5%, `detectTriggers` via granted triggers ~3%. Those take a card
 object, so each needs its key audited field by field before it can be cached.
 
+**A second, smaller memo of the same kind (2026-10-04): `combatEvasion.memoByCardText`.**
+The block gate's text readers (`selfOracle`, `groupBlockRestrictionOf`) are pure in
+the card's name and rules text and are asked for every blocker of every attacker on
+every tick; on a 389-attacker turn they were three quarters of the game. The key is
+the two STRINGS (name, then text), never the card object, so a card whose text
+changes reads its new text; a stored value must be a string, null or a frozen
+object. Use the same helper for another reader in that file only if it reads
+nothing but those two fields. On that wide board the next cost is `detectTriggers`
+(43%), re-read for every permanent on every event.
+
 ---
 
 ## 4. RUNTIME — how a game actually runs

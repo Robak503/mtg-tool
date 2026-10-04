@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **14 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
+> **15 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,25 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## ⚡ 2026-10-04 — PERF: the block gate's card-text readers are memoized · a 389-attacker turn 411 s → 111 s · **±0** · corpus 15,492
+> Suite **18,939** green. Flip-diff **0 / 0 / 0**. **Mutants 7/7**, restore byte-identical. 48 July-list games
+> **byte-identical** to e91c8f9c (no behaviour change).
+> · **Found by profile, not by guess** (Omnath's seed 3166819773 on the shelf list — Earth Bent's Scute Swarm, 389
+>   attackers declared in one turn): 74% of the game was `combatEvasion.canBlockAttacker`, called for every blocker of
+>   every attacker on every tick of the declaration; half of that was `selfOracle` rebuilding a RegExp from the card's name
+>   and re-normalising its rules text, and most of the rest `parseGroupBlockRestriction` doing the same.
+> · **The fix.** `combatEvasion.memoByCardText`: both readers are pure functions of the card's NAME and TEXT, so the answer
+>   is kept under those two strings (name, then text — never the card object, so a card whose text changes reads its new
+>   text). `groupBlockRestrictionOf` returns one shared, frozen object. Bounded at 8,192 entries per reader.
+> · Witness `combatEvasionTextMemo.test.js` (8): same name / different text, same text / different name, a card edited in
+>   place, the raw Scryfall field, the shared frozen answer, and right answers past the limit.
+> · ⚠️ Found, not fixed (queued, each needs its own profile-and-gates slice): after this fix the same game spends **43%
+>   in `triggers.detectTriggers`** (re-reading every permanent's triggers on every event — `grantedTriggersForGroup`); in
+>   ordinary games the standing costs are `layers.deriveCharacteristics` (25%), `legalChoices.castActionsFromZone` (23%),
+>   `parseActivatedAbilities` (9%) and `classifyCard` inside the offer (8%). A `detectTriggers` memo must hand out frozen
+>   results (the parse cache's rule, ENGINE-SCAFFOLD §3.4). The attack planner itself re-plans every attacker on every
+>   tick (cubic in the board); one plan per declaration would be the structural fix.
 
 > ## 🌀 2026-10-03 — THE COMBO LINE, slice four (E7.2): Squirrel Girl's finishes that are NOT combat — the sacrifice outlets · **±0** · corpus 15,492
 > **Colton's correction (10-03):** her list does not only win by attacking — Altar of Dementia, Blasting Station and Altar of
