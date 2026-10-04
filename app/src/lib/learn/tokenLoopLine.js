@@ -31,6 +31,7 @@
 import { parseActivatedAbilities } from "./effects/abilities.js";
 import { opponentsOf } from "./gameState.js";
 import { permanentIsCreature, permanentPower, permanentHasKeyword, summoningSickNow, goaderControllersOf } from "./layers.js";
+import { outletState } from "./outletFinishLine.js"; // E7.2 — the finishes that are not combat: a sacrifice outlet on the battlefield
 
 /** How many times over the board must be lethal before the loop stops when the swing is a turn away. */
 export const NEXT_TURN_MARGIN = 2;
@@ -143,6 +144,7 @@ const beforeAttackers = (state, playerId) => state.activePlayer === playerId
  *   finishNow    — own turn before attackers and the creatures that can attack kill every opponent: go to combat
  *   holdLoop     — do not activate the loop now (its copy is on the stack, the seat's attack is under way, or
  *                  there is already enough)
+ *   outlet       — outletFinishLine.outletState: the sacrifice-outlet routes, or null with no outlet on the battlefield
  */
 export function tokenLoopState(state, playerId) {
   const sources = tokenLoopSources(state, playerId);
@@ -158,8 +160,12 @@ export function tokenLoopState(state, playerId) {
   // Its own attack is under way: the swing is the line now, and more tokens (they cannot join it) are not part of it.
   const swinging = state.activePlayer === playerId
     && (state.combat?.attackers || []).some((a) => a.attackingPlayer === playerId);
-  const holdLoop = ownLoopActivationOnStack(state, playerId, sources) || finishNow || swinging || enoughNextTurn;
-  return { sources, finishNow, holdLoop };
+  // E7.2 — an outlet on the battlefield (Blasting Station, Altar of Dementia, Altar of the Brood) is a finish that needs no
+  // attack step: while its route is incomplete the loop goes on past the combat threshold; once it is complete, stop.
+  const outlet = outletState(state, playerId);
+  const holdLoop = ownLoopActivationOnStack(state, playerId, sources) || finishNow || swinging || !!outlet?.complete
+    || (enoughNextTurn && !outlet?.wantsMore);
+  return { sources, finishNow, holdLoop, outlet };
 }
 
 /** Is this offered activate-ability action one of the seat's loop abilities? */

@@ -326,6 +326,16 @@ function targetingAtomOf(atom) {
   return (atom.effectAtoms || []).find((a) => a?.targetType === atom.targetType) || atom;
 }
 
+/**
+ * A required target with MORE candidates than the option cap: the players go first, so the cap never cuts the face
+ * targets off a board full of creatures — "any target" beside 64 creatures offered no player at all (Blasting Station
+ * on a Squirrel board, 2026-10-03). At or under the cap the list is returned as it is, order included.
+ */
+function playersFirstOverCap(tagged) {
+  if (tagged.length <= MAX_CAST_EXPANSIONS) return tagged;
+  return [...tagged.filter((t) => t.type === "player"), ...tagged.filter((t) => t.type !== "player")];
+}
+
 function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) {
   const perAtom = [];
   // atomIndexes that carry a two-target pair (FIGHT-PAIR / DAMAGE-TARGET-POWER) — the fighter + target of
@@ -466,7 +476,7 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
       // primary leaves only the fighter in the combo; applyFightPair no-ops a fighter with no enemy.
     } else {
       if (tagged.length === 0) return null;   // a required target has no legal pick
-      perAtom.push(tagged);
+      perAtom.push(playersFirstOverCap(tagged));
     }
     // TWO-CHOSEN-TARGET (FIGHT-PAIR / DAMAGE-TARGET-POWER): also enumerate the SECONDARY target (the chosen
     // fighter "you control"). Both lists share atomIndex i; distinctness is enforced after the cartesian.

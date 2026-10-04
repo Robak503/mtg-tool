@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **13 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
+> **14 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,43 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🌀 2026-10-03 — THE COMBO LINE, slice four (E7.2): Squirrel Girl's finishes that are NOT combat — the sacrifice outlets · **±0** · corpus 15,492
+> **Colton's correction (10-03):** her list does not only win by attacking — Altar of Dementia, Blasting Station and Altar of
+> the Brood are finishes too. "Enough" is lethal by ANY route on the battlefield, and the AI takes that route.
+> Suite **18,931** green. Flip-diff **0 / 0 / 0**. **Mutants 46/46**, restore byte-identical. Omnath's seven Squirrel Girl
+> seeds replayed: all seven still finish with a winner.
+> · **`outletFinishLine.js`** (new), read only for a seat with a token loop (`tokenLoopLine.tokenLoopState` → `loop.outlet`), so
+>   no other deck's play changes. Outlets are recognised by parsed shape, never by name: a SHOT — "[{T},] Sacrifice a
+>   creature: deals N damage to any target" (Blasting Station, Goblin Bombardment); a MILL — "Sacrifice a creature: Target
+>   player mills cards equal to the sacrificed creature's power" (Altar of Dementia); a PASSIVE MILL — "Whenever another
+>   permanent you control enters, each opponent mills a card" (Altar of the Brood).
+> · **Enough.** Shots: the untapped outlet plus its untap triggers waiting on the stack (one more shot each; Goblin
+>   Bombardment is one a token) cover every opponent's life. Mill: the tokens' power covers every opponent's library,
+>   biggest token to biggest library. Passive mill: the libraries are empty. What is already on the stack counts — a shot
+>   or a mill the seat has activated, each passive mill waiting — so nothing more is sacrificed than the kill needs.
+> · **The line.** While no route is complete the loop keeps going past the combat threshold (an outlet kill needs no attack
+>   step and cannot be blocked), up to `OUTLET_BOARD_CAP` (600 permanents). Once one is complete the loop stops and the
+>   seat does nothing else: it fires the outlet — one offered activation a tick, smallest token for a shot at the least
+>   life, biggest token for a mill — and passes priority while its own work resolves. Only token creatures are sacrificed.
+>   On real sessions: Dementia mills exactly the library and the opponent loses to its next draw; the Station kills on the
+>   turn the untaps cover the life total (three opponents at 40: two loop activations, 120 shots, turn 1); with the Brood
+>   the loop itself is the finish and stops when the libraries are empty.
+> · **⚑ An offer bug found on the way (fixed for every deck):** a required target with more than 64 candidates kept the
+>   first 64 — "any target" beside 64 creatures offered NO player at all, so Blasting Station (or a Lightning Bolt) could
+>   not be aimed at an opponent on a wide board. `effects/targeting.expandAtoms` now puts the players first when the list
+>   is over the cap; at or under the cap the order is unchanged (pinned).
+> · Witness `outletFinishLine.test.js` (41, real fixtures; stack objects made by the engine; four driver runs on real
+>   sessions; nine labelled SYNTHETIC or boundary cases).
+> · ⚠️ Under-reads (documented): on an opponent's turn the engine offers no activated ability, so the finish waits for the
+>   seat's own turn (pinned as an under-offer); a partial kill (one opponent's worth of shots) is not taken; Walking
+>   Ballista is not an outlet (counter removal, and the mana to grow it is E7.3); an opponent whose graveyard shuffles
+>   back into its library is milled again and again while the tokens last; lifegain or damage prevention in response is
+>   re-read each tick, not predicted.
+> · ⚠️ Found, not fixed (queued): the sacrifice-cost offer is one action per victim per target — 283 identical Squirrels ×
+>   64 targets is 18,000 offered actions a priority window (36,000 a doubling later), which is where a Station game's 6
+>   seconds go: identical tokens should be offered as one representative; activated abilities are offered only on the
+>   controller's own turn (P·62's finding — it is what makes this finish wait).
 
 > ## ♾️ 2026-10-03 — A MANDATORY LOOP IS A DRAW (CR 104.4b / 732.4): Polyraptor + Marauding Raptor · **+0** · corpus 15,492
 > Suite **18,890** green. Flip-diff **0 / 0 / 0**. **Mutants 59/59**, restore byte-identical. Omnath's Jurassic Ramp

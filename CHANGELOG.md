@@ -16,6 +16,7 @@ summarizes the notable changes.
 - **Champion's Helm** — equipped creature gets +2/+2 and has hexproof while it is legendary; **Trailblazer's Boots** — equipped creature has nonbasic landwalk (it can't be blocked while the defending player controls a nonbasic land); also **Gimli's Axe**, **Hero's Heirloom** and **Dryad Sophisticate**
 
 ### Changed
+- **The Unbeatable Squirrel Girl** (AI): the combo line now also finishes through the sacrifice outlets on the battlefield — it keeps making Squirrels until **Blasting Station**'s untaps cover every opponent's life, or the tokens cover every library for **Altar of Dementia**, or **Altar of the Brood** has emptied the libraries, then does nothing else until that kill is done, and sacrifices no more than it needs
 - Simulated games run about 2.4 times faster (the Sim Center's grind, the Crucible and Learn games against the AI): each card's rules text is now read once and reused instead of being re-read at every priority window. Results are unchanged — the same seeds play out move for move
 - The AI now uses **Candelabra of Tawnos** and **Magus of the Candelabra** the way the decks that play them do: it taps Gaea's Cradle (or a land with mana enchantments on it), untaps it, and casts the big spell it could not otherwise pay for — and only when the untap nets mana. It left both cards unused before
 - **Brago, King Eternal**: the AI now blinks every permanent it has no reason to keep home (it used to blink only the ones that gained something). It still leaves tokens, permanents with +1/+1 counters, equipped creatures and their Equipment, and a planeswalker above its starting loyalty
@@ -23,6 +24,7 @@ summarizes the notable changes.
 - The choices offered for "untap X target lands" list your own tapped lands first, most mana first
 
 ### Fixed
+- A spell or ability with "any target" could not be aimed at a player when more than 64 creatures were on the battlefield (the target list was cut off before the players); players are now always offered
 - A loop nobody can stop (**Polyraptor** beside **Marauding Raptor**) now ends the game in a draw, as the rules say, after about a hundred copies; it used to run until the game froze and was abandoned
 - **Pantlaza, Sun-Favored** asked "discover?" again for every Dinosaur that entered after its once-each-turn discover was used; it now asks once
 - **Commander's Plate** gave protection from all five colors, the commander's own included; it now protects only from the colors outside your commander's color identity

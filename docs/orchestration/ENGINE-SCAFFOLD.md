@@ -403,6 +403,25 @@ enough-now passes to combat instead of playing on. `pickAttackPlan` asks
 actions the engine already offered — never a new action. The next slices (other
 finishes, tutoring for the finisher, other combo decks) are UPGRADE-BACKLOG E7.
 
+**The finishes that are not combat (`outletFinishLine.js`, E7.2, added 2026-10-03).**
+Colton's correction: "enough" is lethal by ANY route on the battlefield. For a seat
+with a token loop, `tokenLoopState` also returns `outlet` (`outletState`): a SHOT
+outlet ("[{T},] Sacrifice a creature: deals N damage to any target" — Blasting
+Station, Goblin Bombardment), a MILL outlet ("Sacrifice a creature: Target player
+mills cards equal to the sacrificed creature's power" — Altar of Dementia) and a
+PASSIVE MILL ("Whenever another permanent you control enters, each opponent mills
+a card" — Altar of the Brood), recognised by parsed shape. `wantsMore` keeps the
+loop going past the combat threshold while no route is complete (to
+`OUTLET_BOARD_CAP`); `complete` stops it — shots ready and waiting cover every
+life total, token power covers every library, or the libraries are empty — and
+`outletFinishAction` then fires the outlet from the offered actions, or passes
+while the seat's own outlet work resolves. The seat's work already on the stack
+(its shots, its mills, each passive mill and untap waiting) is counted, so nothing
+more is sacrificed than the kill needs. Only token creatures are fed to an outlet.
+The offer side changed once for it: a required target with more than 64
+candidates lists the players first (`targeting.playersFirstOverCap`), so a face
+target survives the option cap on a wide board.
+
 **The mana-untap line (`manaUntapLine.js`, added 2026-10-03).** Colton's rules:
 Candelabra of Tawnos / Magus of the Candelabra ("{X}, {T}: Untap X target lands")
 exist to untap Gaea's Cradle or a land carrying mana enchantments — "if it

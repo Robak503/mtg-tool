@@ -38,6 +38,7 @@ import { programContainsCounter, programContainsMassRemoval, programContainsCrea
 import { parseAuraBonus } from "./staticAbilityParser.js";
 import { changeTargetAlternatives, atomForStackTarget } from "./effects/targeting.js"; // CHANGE THE TARGET (shelf D14) — where a redirect could send an opponent's spell; the redirected slot's atom
 import { manaUntapLineAction, pickManaAuraTarget } from "./manaUntapLine.js"; // "untap X target lands" as a mana line; mana Auras stack on one land
+import { outletFinishAction } from "./outletFinishLine.js"; // E7.2 — the token loop's finishes that are not combat (a sacrifice outlet)
 import { tokenLoopState, isTokenLoopAction, tokenLoopAttackPlan } from "./tokenLoopLine.js"; // THE COMBO LINE for a self-scaling token loop: enough, then nothing else, then the finish
 
 // ─── Play-policy flags (the A/B probe seam) ──────────────────────────────────
@@ -1535,6 +1536,10 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
     const pass = actions.find(a => a.kind === "pass-priority");
     if (pass) return pass;
   }
+  // E7.2 — "enough" is lethal by ANY route on the battlefield (Colton 2026-10-03): with a sacrifice outlet whose route is
+  // complete, fire it — at any priority window, an opponent's turn included — and do nothing else until it is done.
+  const outletStep = loop ? outletFinishAction(loop.outlet, actions) : null;
+  if (outletStep) return outletStep;
 
   const lands = filterActions(actions, "play-land");
   if (lands.length > 0) {

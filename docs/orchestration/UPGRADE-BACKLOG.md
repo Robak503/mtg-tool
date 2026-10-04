@@ -284,6 +284,11 @@ summary here for the queue:
   combat split across every opponent. Open, in order:
   · **E7.2 — a finish that is not combat:** an outlet on the battlefield (Blasting Station, Altar of Dementia, Altar of the
     Brood, Walking Ballista with the loop's mana) sets "enough" (opposing life totals / library sizes) and is the line.
+    ✅ SHIPPED 2026-10-03 (`outletFinishLine.js`) for Blasting Station / Goblin Bombardment, Altar of Dementia and Altar
+    of the Brood. Open on this line: Walking Ballista (counter removal; its mana is E7.3); a partial kill; the finish on
+    an opponent's turn (the engine offers no activated ability there); **the sacrifice-cost offer is one action per
+    victim per target** — 283 identical Squirrels × 64 targets is 18,000 offered actions a priority window — identical
+    tokens should be offered as one representative (an action-set change: flag it to Omnath, measure the speed-up).
   · **E7.3 — find the finisher:** when the loop is live and no finish is available, cast the tutor that gets one (Chord of
     Calling, Green Sun's Zenith, Finale of Devastation, Natural Order → Craterhoof Behemoth); "enough" then includes the
     mana the tutor and the finisher cost. The video deck tech's plan is the same line with a pump as the finish ("make →
