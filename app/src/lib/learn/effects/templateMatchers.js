@@ -1345,6 +1345,21 @@ export function matchTaintedPact(oracle) {
   return null;
 }
 
+/**
+ * RETETHER (2026-10-16): "Return each Aura card from your graveyard to the battlefield. Only creatures can be enchanted this way."
+ * The mass return (zones.applyMassReanimate — one event, each Aura choosing what it enchants as it enters, CR 303.4f) over every
+ * Aura card, with the second sentence as the host limit `onlyCreatures` (auraEntry.auraEntryHosts). The two sentences are one
+ * effect: the first alone would return an enchant-land Aura onto a land that isn't a creature, so it is matched whole or not at
+ * all. The reminder ("Aura cards that can't enchant a creature on the battlefield remain in your graveyard.") is CR 303.4g.
+ */
+export function matchAuraReturnCreaturesOnly(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  if (/^return each aura card from your graveyard to the battlefield\. only creatures can be enchanted this way$/.test(t)) {
+    return { atoms: [{ op: "mass-reanimate", cardFilter: { subtype: "Aura" }, entersTapped: false, auraHostOpts: { onlyCreatures: true }, targetType: null }] };
+  }
+  return null;
+}
+
 export function matchDelayedBlink(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   // DELAY-FIRST + a +1/+1 counter (Otherworldly Journey, Long Road Home): "… At the beginning of the next end

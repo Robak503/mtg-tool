@@ -333,8 +333,9 @@ export function applyExileGraveyard(state, atom, ctx) {
  * AN AURA (CR 303.4f) enters attached: to `attachTo` when the EFFECT names what it enchants ("…onto the battlefield attached to
  * that creature"), else to the host its controller chooses (auraEntry.chooseAuraEntryHost). With nothing it may enchant it
  * stays in its zone (CR 303.4g) — entered:false, logged `aura-stays`. An Equipment the effect attaches enters attached too.
+ * `auraHostOpts` are the effect's own limits on that choice (auraEntry.auraEntryHosts — Retether's "only creatures").
  */
-export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = false, fromPlayerId = playerId, deferEnterTriggers = false, replacementState = null, attachTo = null, auraSideHint = null }) {
+export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = false, fromPlayerId = playerId, deferEnterTriggers = false, replacementState = null, attachTo = null, auraSideHint = null, auraHostOpts = null }) {
   const owner = state.players[fromPlayerId];
   const controllerPlayer = state.players[playerId];
   if (!owner || !controllerPlayer) return { state, entered: false };
@@ -355,7 +356,7 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   const isAura = /\bAura\b/.test(frontType);
   let hostId = attachTo && (isAura || /\bEquipment\b/.test(frontType)) && findPermanent(state, attachTo) ? attachTo : null;
   if (isAura && !hostId) {
-    const choice = attachTo ? { modeled: true, hostId: null } : chooseAuraEntryHost(replacementState || state, card, playerId, { sideHint: auraSideHint });
+    const choice = attachTo ? { modeled: true, hostId: null } : chooseAuraEntryHost(replacementState || state, card, playerId, { ...auraHostOpts, sideHint: auraSideHint });
     if (!choice.hostId) {
       const reason = choice.modeled ? "nothing it can enchant (CR 303.4g)" : "its enchant ability is not modeled";
       return { state: logEvent(state, { kind: "aura-stays", cardName: card?.name, controller: playerId, zone: fromZone, reason }), entered: false };
@@ -552,18 +553,18 @@ export function applyReanimate(state, atom, ctx) {
  * `cardMatchesGraveyardFilter` — the same chokepoint the targeted arms use for enumeration — rather than a
  * private predicate that could drift from the filter the parser emitted.
  *
- * Each card enters via the SAME `enterCardFromZone` every reanimate and library-ramp path uses, so ETB /
- * landfall / permanent-enters triggers all fire per card exactly as they do for a single reanimate. A card
- * that fails to enter is simply skipped (entered:false), never counted.
+ * ONE EVENT (enterCardsTogether — CR 603.6a, 614.12): every card enters through the SAME `enterCardFromZone` every
+ * reanimate and library-ramp path uses, all of them before any enters trigger is checked, so a returning watcher
+ * (Eidolon of Blossoms' constellation) sees each of the others; each card's entry replacements read the board as
+ * the return began. A card that fails to enter is simply skipped (entered:false), never counted.
  *
- * ⛔ AURA CARDS ARE SKIPPED, and this is a deliberate, CR-grounded false negative — the one real hazard in
- * this atom. CR 303.4f: when an effect puts an Aura onto the battlefield without specifying what it enchants,
- * its controller CHOOSES a legal object as it enters. CR 303.4g: if there is no legal object, "the Aura
- * remains in its current zone". This engine has no attach-choice for a non-targeted mass return, so entering
- * an Aura here would put it onto the battlefield attached to NOTHING — an illegal state that CR 704.5m would
- * immediately bin, i.e. a fabricated permanent. Skipping under-delivers when a legal object existed (an FN,
- * which the creed permits) and is exactly correct when none did. Replenish's own printed reminder says the
- * quiet part out loud: "(Auras with nothing to enchant remain in your graveyard.)"
+ * AN AURA CARD (2026-10-16 — skipped until the non-cast entry could choose a host) chooses what it enchants as it
+ * enters (CR 303.4f — auraEntry.chooseAuraEntryHost) on that same board as the return began, so never a permanent
+ * returning with it (the bundled Replenish ruling: "Auras can only be placed on permanents that were on the
+ * battlefield before this effect started to resolve"). With nothing it may enchant it remains in the graveyard
+ * (CR 303.4g — Replenish's reminder: "Auras with nothing to enchant remain in your graveyard."). It must return
+ * when it can, onto an opponent's permanent if nothing else is legal (the same ruling); the house policy does.
+ * `auraHostOpts` is the effect's own limit on the host — Retether's "Only creatures can be enchanted this way."
  */
 /**
  * MASS RETURN TO HAND (CR 608) — "Return ALL <type> cards from your graveyard to your hand" (Wisdom of Ages,
@@ -602,18 +603,10 @@ export function applyMassReanimate(state, atom, ctx) {
   // re-read mid-loop would skip cards (or, with a return-to-graveyard trigger, re-enter one).
   const ids = (player.graveyard || [])
     .filter((c) => cardMatchesGraveyardFilter(c, atom.cardFilter, state, controller))
-    .filter((c) => !/\bAura\b/.test(String(c?.type || c?.type_line || "").split(" // ")[0])) // CR 303.4f/g — see above
     .map((c) => c.id);
-  let next = state;
-  const entered = [];
-  for (const id of ids) {
-    // ONE EVENT: every returned card's entry replacements read the board as the return began (`state`, CR 614.12 — the
-    // enterCardsTogether rule), so a permanent returned with the others modifies none of their entries.
-    const r = enterCardFromZone(next, { playerId: controller, cardId: id, fromZone: "graveyard", tapped: !!atom.entersTapped, replacementState: state });
-    next = r.state;
-    if (r.entered) entered.push(id);
-  }
-  return logEvent(next, { kind: "spell-effect", effect: "mass-reanimate", controller, targets: entered });
+  const back = enterCardsTogether(state, ids.map((id) => ({ playerId: controller, cardId: id, fromZone: "graveyard", tapped: !!atom.entersTapped, auraHostOpts: atom.auraHostOpts || null })));
+  const entered = back.results.filter((r) => r.entered).map((r) => r.cardId);
+  return logEvent(back.state, { kind: "spell-effect", effect: "mass-reanimate", controller, targets: entered });
 }
 
 /**

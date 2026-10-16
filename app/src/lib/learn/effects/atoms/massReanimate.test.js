@@ -9,10 +9,10 @@
  * cast-time enumeration to catch a bad filter, so the gate is the only thing standing between this atom and
  * putting a sorcery onto the battlefield.
  *
- * ⛔ AURAS ARE SKIPPED — CR 303.4f (the controller chooses what an unattached Aura enchants as it enters) and
- * CR 303.4g ("if there is no legal object … the Aura remains in its current zone"). There is no attach-choice
- * for a non-targeted mass return here, so entering one would put an Aura onto the battlefield attached to
- * nothing — a state CR 704.5m bins immediately, i.e. a fabricated permanent. Skipping is the FN direction.
+ * AURAS (graduated 2026-10-16) — they used to be skipped, because the mass return had no way to choose what an
+ * Aura enchants (CR 303.4f). The non-cast entry chooses one now (auraEntry.chooseAuraEntryHost), so each Aura
+ * card returns attached, or stays in the graveyard with nothing it may enchant (CR 303.4g, pinned below). The
+ * Aura cases live in ../../auraMassReturn.test.js (Replenish, Retether).
  *
  * Oracle text is verbatim from the bundled index, hardcoded per this codebase's convention (CI has no
  * Scryfall bulk data) — CLAUDE.md §1.2.
@@ -138,15 +138,17 @@ describe("runtime — every matching card leaves the graveyard and enters the ba
     expect(untapped.players.user.battlefield.every((p) => !p.tapped)).toBe(true);
   });
 
-  it("⛔ SKIPS AURA CARDS — CR 303.4f/g; entering one unattached would fabricate an illegal permanent", () => {
-    // The load-bearing assertion of this atom. Replenish's own reminder says it: "(Auras with nothing to
-    // enchant remain in your graveyard.)" Without the guard the Aura enters attached to nothing.
+  // GRADUATED 2026-10-16: this pin was "⛔ SKIPS AURA CARDS" — every Aura card stayed behind, because the mass return could not
+  // choose a host. It chooses one now (auraMassReturn.test.js holds the returns); what stays is the CR 303.4g half: on a board with
+  // no creature, Pacifism has nothing it may enchant, so it remains in the graveyard (Replenish's reminder says so).
+  it("an Aura card with nothing it may enchant stays in the graveyard (CR 303.4g) — never on the battlefield attached to nothing", () => {
     const s = cast(stateWithGraveyard([
       gy("g1", "Ghostly Prison", "Enchantment"),
-      gy("g2", "Pacifism", "Enchantment — Aura"),
+      { ...gy("g2", "Pacifism", "Enchantment — Aura"), oracle: "Enchant creature\nEnchanted creature can't attack or block." },
     ]), "Return all enchantment cards from your graveyard to the battlefield.");
     expect(bfNames(s)).toEqual(["Ghostly Prison"]);
     expect(gyNames(s)).toEqual(["Pacifism"]); // stayed in its current zone, per CR 303.4g
+    expect((s.log || []).filter((e) => e.kind === "aura-stays").map((e) => e.reason)).toEqual(["nothing it can enchant (CR 303.4g)"]);
   });
 
   it("an empty / all-non-matching graveyard is a clean no-op", () => {

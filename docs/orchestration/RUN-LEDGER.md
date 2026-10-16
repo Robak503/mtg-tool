@@ -16,6 +16,30 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🌿 2026-10-16 — FEAT: the mass return brings Aura cards back attached (Replenish, Resurgent Belief) · Retether · **+1** · corpus 15,493
+> Suite **19,013**: 19,008 green, 1 skipped, and the 4 rules-retrieval POST tests, which fail in a fresh worktree without the
+> built `app/data/rules-index.json` (CI builds it before testing) and pass, 8/8, once it is built — every later slice's suite ran
+> with it, all green. Lint 0. Flip-diff **1 / 0 / 0**. **Mutants 8/8**, restore byte-identical. CR citations: no new dead cite
+> (117 before and after, all pre-existing). Coverage: top 1,000 904 · top 2,500 1,743 (unchanged — Retether ranks below both).
+> Built on 0b074c66 (the Aura re-entry slice).
+> · **The withholding lifted:** `zones.applyMassReanimate` skipped every Aura card — the mass return had no way to choose what an
+>   Aura enchants (CR 303.4f). Each Aura card now returns through the shared entry and chooses its host on the board as the return
+>   began (`auraEntry.chooseAuraEntryHost` reads the one-event `replacementState`): never an enchantment returning with it (the
+>   bundled Replenish ruling — "Auras can only be placed on permanents that were on the battlefield before this effect started to
+>   resolve"), onto an opponent's permanent when nothing else is legal ("You must return Auras if possible"), and with nothing it
+>   may enchant it stays in the graveyard (CR 303.4g, logged `aura-stays`).
+> · **One event (CR 603.6a):** the return goes through `enterCardsTogether` — every card is placed before any enters trigger is
+>   checked, so a returning Eidolon of Blossoms draws for each enchantment returning with it, whatever the graveyard order. It used
+>   to enter card by card, and a later watcher never saw an earlier card.
+> · **Retether** ("Return each Aura card from your graveyard to the battlefield. Only creatures can be enchanted this way."): a
+>   whole-oracle matcher (`templateMatchers.matchAuraReturnCreaturesOnly`) → the mass return over `{ subtype: "Aura" }` with the
+>   host limit `auraHostOpts: { onlyCreatures: true }`, which `auraEntry.auraEntryHosts` takes as its first host option (layer-aware:
+>   the bundled ruling's animated land qualifies). `enterCardFromZone` passes `auraHostOpts` through. The first sentence alone parks.
+> · Graduated: `massReanimate.test.js`'s "⛔ SKIPS AURA CARDS" pin → its CR 303.4g half (no creature: Pacifism stays, logged).
+> · Witness `auraMassReturn.test.js` (10): Pacifism onto the opponent's biggest creature; the Replenish ruling (a 6/7 Nyxborn
+>   Colossus returning AHEAD of Rancor is never its host — seen to fail on a live-board choice); the must-return ruling; CR 303.4g;
+>   the three Eidolon triggers; Retether's creatures-only and the Dryad Arbor ruling; Replenish's unlimited Wild Growth.
+
 > ## 🪢 2026-10-16 — FIX: an Aura that enters without being cast chooses what it enchants (CR 303.4f/g) · an Aura attached to nothing goes to the graveyard (CR 704.5m) · **±0** · corpus 15,492
 > Suite **19,002** green (1 skipped) / 1,780 files (+26). Lint 0. Flip-diff **0 / 0 / 0**. **Mutants 35/35**, restore byte-identical.
 > Coverage unchanged (top 1,000 904 · top 2,500 1,743). The 48-game replay (integration gate, batch 3): byte-identical.

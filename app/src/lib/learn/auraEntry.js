@@ -151,8 +151,12 @@ function cantBeEnchanted(state, perm, controller) {
 /**
  * The permanents `auraCard` may enchant entering the battlefield under `controller` without being cast (CR 303.4f), on the board
  * `state`, as `[{ id, controller }]` in battlefield order — or null when its Enchant line is one the engine can't enumerate.
+ * The host options are the EFFECT's own limits on what the Aura may enchant ("any other applicable effects", CR 303.4f); they
+ * only ever narrow the list:
+ *   · onlyCreatures — "Only creatures can be enchanted this way" (Retether): the host must be a creature as well, read
+ *     layer-aware, so an animated land is one (the bundled Retether ruling's own example).
  */
-export function auraEntryHosts(state, auraCard, controller) {
+export function auraEntryHosts(state, auraCard, controller, { onlyCreatures = false } = {}) {
   const spec = auraEntryHostSpec(auraCard);
   const pred = spec ? ENTRY_HOST_PREDICATES[spec.targetType] : null;
   if (!pred) return null;
@@ -161,6 +165,7 @@ export function auraEntryHosts(state, auraCard, controller) {
   for (const pid of Object.keys(state.players || {})) {
     for (const perm of state.players[pid]?.battlefield || []) {
       if (!pred(state, perm)) continue;
+      if (onlyCreatures && !isCreatureNow(state, perm)) continue;
       if ((spec.restrictions || []).length && !creatureSatisfiesRestrictions(state, perm, pid, controller, spec.restrictions)) continue;
       if (protectionApplies(permanentProtectionColors(state, perm.id), auraColors)) continue; // CR 702.16c
       if (UNREAD_PROTECTION_RE.test(oracleOf(perm.card))) continue;
@@ -196,10 +201,10 @@ export function auraEntryHostScore(state, auraCard, controller, host, { intent =
 /**
  * The CR 303.4f choice: `{ modeled, hostId, score, intent }`. `modeled` false — the Enchant line is one the engine can't list,
  * so the caller leaves the Aura where it is; `hostId` null with `modeled` true — no legal host (CR 303.4g). Among equal scores
- * the lowest permanent id, so the choice is deterministic.
+ * the lowest permanent id, so the choice is deterministic. Every option but `sideHint` is a host option of auraEntryHosts above.
  */
-export function chooseAuraEntryHost(state, auraCard, controller, { sideHint = null } = {}) {
-  const hosts = auraEntryHosts(state, auraCard, controller);
+export function chooseAuraEntryHost(state, auraCard, controller, { sideHint = null, ...hostOpts } = {}) {
+  const hosts = auraEntryHosts(state, auraCard, controller, hostOpts);
   const intent = auraEntryIntent(auraCard);
   if (!hosts) return { modeled: false, hostId: null, score: null, intent };
   let best = null;
