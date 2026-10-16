@@ -69,6 +69,41 @@
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
 
+## 🛰️ 2026-10-16 — **THE FLEET WAVE LANDED** — 27 commits from 19 parallel sessions, integrated in 6 batches (master 4463487c → batch 8) · corpus 15,470 (+46 gained, −43 false credit removed)
+
+> One integrator cherry-picked each session's gated commit; every batch then ran the whole chain once on the merged tree
+> (lint with the CR citation check, the full suite, the tier flip-diff, the 48 July-list replay games) and CI after every
+> push. Each batch's flip-diff and replay movement matched what its sessions had predicted.
+> - **Batch 3 (d70f5763):** the CR citation gate (lint fails on a rule number the CR does not contain) · the Academy cast
+>   chooser lists every variant · an Aura entering without being cast chooses its host, and an Aura attached to nothing goes
+>   to the graveyard (CR 303.4f/g, 704.5m). ±0; replay byte-identical. Suite 19,026.
+> - **Batch 4 (9e06e246, 12 commits):** the seven Aura withholdings lifted (Replenish, Retether, Academy Rector, Mole Module,
+>   Aura token copies, Flickerwisp, detain, Copy Enchantment) · a person chooses a returning Aura's host (PLAY-API 1.3.0, save
+>   schema v6) · the closed targetType vocabulary guard · a mandatory trigger whose only legal targets are on the wrong side
+>   still takes one (Man-o'-War) · 176 citations of the wrong mechanic corrected · the mulligan policy reads a {2/X} pip as 2.
+>   +2; replay byte-identical. Suite 19,144.
+> - **Batch 5 (a089f023):** the derive reads a double-faced permanent's face that is up (Westvale Abbey no longer dies on
+>   entry) · the type-line audit (readers ask what a permanent is now) · turned-face-up watchers · enchantment Adventures
+>   (the Virtues). +19 / 4 retiered; 13 of 48 games change, one winning seat flips (seed 1087189617). Suite 19,265.
+> - **Batch 6 (27c31ffa):** a self-sacrifice mana cost with a discard beside it refuses (Lion's Eye Diamond) · a granted mana
+>   ability is the quoted ability whole (Basal Sliver's grant sacrifices; a creature sacrificed for mana dies) · the auto-tap
+>   pays generic with a plain colorless source first and spends a one-shot source only when the cost needs it · the
+>   native-mana gate reads static and replacement text. −43 (41 + 2, all false credit); 39 of 48 games change, the winning
+>   seat flips on seeds 2579794627 and 2544873418 (both predicted). Suite 19,355.
+> - **Batch 7 (0d2ba3e8):** a double-faced card makes the mana of the face that is up (88 phantom sources) · fights and bites
+>   deal ordinary damage (lifelink, infect, deathtouch, protection, damage watchers). ±0; 12 of 48 change, 2 seat flips. Suite
+>   19,418.
+> - **Batch 8:** the AI's Aura cast picks a side for every host, not only creatures (Fraying Sanity, Petrify). ±0.
+> **Merge notes:** 8 code conflicts were resolved at integration (the type-line audit against sibling edits, import lines,
+> comment rewrites); each batch's full suite ran green on the merged tree.
+> **Omnath:** one epoch notice for the whole wave (COMMS, 2026-10-16) — many of these change action sets.
+> **Open follow-ups, by what they wait on:** after nothing — Role uniqueness (CR 704.5y), the "this turn" selfRef class (22
+> descriptors), Academy option labels and Stomp; after this wave — the explicit tap-for-mana action ignores printed costs
+> (Ashnod's Altar, Mox Opal, Mana Confluence) with Ancient Tomb's missing damage, quoted-grant land lines, kicked/bestowed
+> mana value, the double-faced face-up sweep (keyword bleed, Halvar's Equip, Soul Warden on Westvale), the AI cast-time hold
+> for self-bounce ETBs, sacrifice-as-cost death handling (actionDispatcher.sacrificePermanentForCost); last — the
+> keyword-section citation check (~180 off-by-N keyword citations, touches most files).
+
 ## 🛡️ 2026-10-16 — **FIGHT DAMAGE IS ORDINARY DAMAGE** — the four direct marks go through the spell deal path (a fix, +0 cards)
 
 > A fight, a bite and a self-fight (Kogla's ETB, Prey Upon, Rabid Bite / Ram Through, Justice Strike) marked their damage
