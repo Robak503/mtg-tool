@@ -16,6 +16,53 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🔧 2026-10-16 — FIX: a double-faced card makes the mana of the FACE THAT IS UP — 88 phantom sources (Storm the Vault, a reanimated Drowner of Truth, Tamiyo) · **−1** (an FP removed)
+> Suite **18,999** green (1 skipped; 1,781 files). Flip-diff **0 / 1 / 0** over 34,620 cards — the one LOST is an FP removal
+> (below). Runtime fingerprint: exactly **88** `manaProduction` reads change, every one to null, mana field only, none gained.
+> **Mutants 6/6**, restore byte-identical. Lint 0; CR citations 117 unresolved (the baseline; this slice's two, 712.8d and
+> 712.14, resolve). Built on 4463487c, rebased onto 7f46eff1 (the layer derive's face-up read); every gate re-run there.
+> · **The bug** (found 10-16 in the Lion's Eye Diamond audit). `manaProductionImpl` decided land-ness on the COMBINED type
+>   line and parsed both faces' text as one card. A back face's Land made the front a land — raw oracle, reminder text and
+>   created-token quotes kept — and a back face's mana ability read as the front's. The engine never turns a back face up,
+>   so a transform card cast from hand and a modal one put onto the battlefield by an effect sit there as the whole card.
+> · **Reachable, on the real paths:** Storm the Vault cast beside two artifacts offered {U}{U} and sacrificed itself (its
+>   Treasure reminder + its back's "Add {U} for each artifact"); a Drowner of Truth that Reanimate puts onto the battlefield
+>   paid {C} to sacrifice itself for {C} (its Spawn tokens' quoted ability; `manaActivationCost` read {C} out of "if {C} was
+>   spent to cast it"); a reanimated Tamiyo, Inquisitive Student was an any-colour source with no {T}, sick or not (her back
+>   face's −3); Golden Guardian tapped for two of any one colour. Drowner's face cast is never offered (land-partial), so
+>   reanimation is its only road to the battlefield — as the combined card (CR 712.14).
+> · **The fix.** `manaModel.faceUpManaCard` projects a combined card onto its front face — `layers.faceUpTypeLine` (7f46eff1's
+>   export, the derive's own read) for the type line, the first face block of the bundled oracle, header peeled, for the text —
+>   and `manaProduction`, `manaActivationCost` and `extraManaLineProducts` read that face (`frontFaceOracle`, the partial read
+>   those two used, is gone). A one-line probe of a combined card (coverage's land-line reads) keeps its line. A modal face
+>   played or cast is its own single-face card and unchanged: Drowned Jungle still makes G or U, a Pathway's back face its colour.
+> · **Census** (bundled snapshot, 885 multi-face cards): 91 faces disagree on Land. 80 of the 82 land backs read a phantom, now
+>   none (unchanged: Tangled Florahedron's front taps for its own {G}; Welcome to . . . read none already); the 9 land fronts
+>   keep their own mana. 8 agreeing cards read a back face's (or an Adventure's) mana: Arlinn, the Pack's Hope; Brigid,
+>   Clachan's Heart; Invasion of Zendikar; Keeper of the Crown; Life of Toshiro Umezawa; Tamiyo; The Legend of Kyoshi; Valki.
+> · **The LOST card:** Invasion of Zendikar // Awakened Skyclave, native-mana → body-only — credited with Awakened Skyclave's
+>   "{T}: Add one mana of any color"; the battle makes no mana. Snapshot native count 15,487 → 15,486.
+> · `coverage.hasModeledVariableXMana`'s blanket "//" refusal stood in for this read ("manaProduction scans the COMBINED
+>   oracle") and is removed: 0 tier changes across all 957 multi-face entries with and without it.
+> · **The AI's land pick** read the hand card; with mana now the front face's, a spell // land drop would have lost its colour
+>   (Sink into Stupor makes none). It reads the face the drop plays (`action.faceCard`) — which also judges each Pathway face
+>   on its own (both read as the front before).
+> · Witness `dfcFaceUpMana.test.js` (13) through the cast, Reanimate and land-drop paths and the AI's pick; one pins the
+>   composition with 7f46eff1 (Storm the Vault under Urborg makes nothing — red without the derive fix).
+> · Mutants: the face-up branch off · both faces' types kept (the back's Land decides) · both faces' text kept · the back
+>   face's block read · a one-line probe losing its line · the land pick reading the hand card.
+> · **⚑ Action sets change (Omnath's epoch call):** body-only transform permanents enter the battlefield, so their phantoms were
+>   live — Growing Rites of Itlimoc tapped {G} per creature (Squirrel Girl, cdh), The Legend of Kyoshi X of any colour (Earth
+>   Bent), Ojer Axonil / Ojer Kaslem like their temples (Nekusar, Veyran, Omnath); Brago Blink's Glasspool Mimic and Witch
+>   Enchanter return from a blink as combined cards (`applyBlink` re-enters the exiled `printedCard`; probed: a blinked
+>   face-cast Witch Enchanter tapped {W} at 7f46eff1, nothing now); the land pick moves MDFC decks.
+> · ⚠️ Found, not fixed (relayed to the integrator; type reads, not mana text): `castsAsPlaneswalker` reads the combined line
+>   when a card has no `card_faces` (game cards never do), so Tamiyo casts as an unmodeled planeswalker and never resolves;
+>   manaSources' sickness choice and `layers.summoningSickNow` (a PAIR) test /Creature/ on the combined line — Hostile Hostel
+>   can't tap the turn it is played; `keywords.hasKeyword` scans the combined oracle (a played Westvale Abbey is
+>   indestructible, flying, lifelink, hasty); `globalTapManaAugment`'s subject and the sacrifice / tap-payer filters read the
+>   combined line (Leyline of Abundance adds {G} off Cryptolith Fragment; Ashnod's Altar sacrifices a Westvale Abbey).
+
 > ## 🔧 2026-10-16 — FIX: the native-mana gate reads a mana source's STATIC and REPLACEMENT text · **−41** · corpus 15,451
 > Suite **19,005** green (1 skipped; 1,780 files). Flip-diff **0 / 41 / 0** (34,620 cards, base 4463487c), every LOST card
 > audited by name against the runtime reader of its leftover sentence. **Mutants 12/13** on the final code (the 13th is a gate

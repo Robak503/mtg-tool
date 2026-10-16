@@ -1199,14 +1199,9 @@ export function hasManaAbility(oracle, typeLine) {
 // source stays body-only, a SAFE false-negative). Pure (manaProduction is filesystem-free). The bare
 // "add x mana" guard keeps a non-mana card with a coincidental "X" out (it never reaches manaProduction).
 function hasModeledVariableXMana(card) {
-  // DFC GUARD (CR 712) — a transforming/modal DFC ("Saga // Creature", "Artifact // Land") whose mana
-  // ability lives on the BACK face (The Legend of Kyoshi // Avatar Kyoshi; Matzalantli // The Core) is
-  // cast/played as its FRONT face; the back-face "{T}: Add X mana …" is reachable only AFTER an unmodeled
-  // transform, so crediting it native-mana would be an over-claim (the runtime produces ZERO mana from the
-  // front). manaProduction scans the COMBINED oracle, so it can't tell which face the ability is on — the
-  // type line's "//" is the DFC tell. Exclude every "//" card here (the rare DFC whose FRONT is the mana
-  // source is a SAFE false-negative — under-claim, never an over-claim). CREED.
-  if (/\/\//.test(String(card?.type || card?.type_line || ""))) return false;
+  // A double-faced card's mana is the face that is up's (CR 712.8d — manaProduction's face-up read): a back face's
+  // "{T}: Add X mana …" (The Legend of Kyoshi // Avatar Kyoshi; Matzalantli // The Core) is reachable only after a
+  // transform the engine never makes, and manaProduction reads it as no mana at all, so it is never credited here.
   const oracle = stripCreatedTokenAbilities(stripReminder(String(card?.oracle || card?.oracle_text || "")));
   if (!/\badd x mana\b/i.test(oracle)) return false;            // not the variable-X form → not this tier
   const prod = manaProduction(card);

@@ -32,13 +32,14 @@
 
 import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, removeCounter, setDoesNotUntapNext, deathLookback, deathEventKind } from "./gameState.js"; // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
 import { checkSacrificeTriggers, checkLeavesTriggers, checkDiesTriggers, checkTapForManaTriggers } from "./triggers.js"; // + ④-D: "tapped for mana" watchers fire at the one tap commit // SG-3: a sacrificed-creature mana cost dies through the chokepoint // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
-import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, colorsOf, deriveCharacteristics, permIsEveryCreatureType, permanentColors } from "./layers.js";
+import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, colorsOf, deriveCharacteristics, permIsEveryCreatureType, permanentColors, faceUpTypeLine } from "./layers.js"; // + faceUpTypeLine: the face that is up of a combined "Front // Back" card — the derive's own read, shared by manaModel's face-up mana read
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // QUARTET Phase 4 step 3 (2026-09-06): the closed CR creature-type vocabulary for spend restrictions ("only to cast a Ninja or Turtle spell") — a zero-import leaf
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { COUNT_SUBTYPE } from "./effects/parseHelpers.js"; // #766 — the curated subtype allowlist for "for each <Subtype> on the battlefield" (parseHelpers imports only keywords.js; staticAbilityParser, imported below, already loads it)
 import { parseAuraLandManaBonus, parseGlobalTapManaAugment, artifactActivationsLocked, abilitiesAsThoughHasteFor } from "./staticAbilityParser.js"; // + SG-18: haste-for-abilities at the mana-source sick gate // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only); NR-1: the artifact-activation lock
 import { manaMultiplier } from "./replacementEffects.js"; // MANA-MULTIPLIER: ×N tap-for-mana replacement (Mana Reflection/Nyxbloom; leaf, no cycle)
 import { evaluateInterveningIf } from "./interveningIf.js"; // CONDITION-GATED mana (CR 602.5) — interveningIf imports ONLY gameState, so this is a one-way edge with no cycle (checked before adding it)
+import { parseFaceBlock } from "./splitCard.js"; // THE FACE THAT IS UP — the front face's own text, its "<name> - <type> {mana}" header peeled (splitCard imports nothing)
 
 // A board with one seat and empty zones — enough for evaluateInterveningIf to ANSWER a condition or admit it
 // cannot. Used only by conditionIsExpressible, never for a real verdict.
@@ -1009,7 +1010,7 @@ const PLAIN_MANA_LINE_RE = /^\{T\}: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[
  */
 function honestMultiLineMain(card, result) {
   if (!result) return result;
-  const lines = frontFaceOracle(card).split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const lines = faceUpOracle(card).split(/\n+/).map((l) => l.trim()).filter(Boolean);
   // Every tap-mana line, INCLUDING a mana-costed one ("{1}, {T}: Add one mana of any color." — Hall of Oracles):
   // that cost is exactly what the merge drops, so the line must count as a rider-bearing tap line here.
   const tapLines = lines.filter((l) => /^[^:]*\{T\}[^:]*: Add\b/i.test(l));
@@ -1036,12 +1037,31 @@ function honestMultiLineMain(card, result) {
 const _extraMemo = new WeakMap();
 const COUNTER_GATED_INSTEAD_RE = /\s*If [^.]+? has an? [a-z+/0-9-]+ counter on it, instead add [^.]+\./gi; // P·8 — Gemstone Caverns' luck-counter rider
 const CHOSEN_TYPE_COUNT_MANA_LINE_RE = /^((?:\{[^}]+\}, )*)\{T\}: Choose a color\. Add an amount of mana of that color equal to the number of creatures you control of the chosen type\.$/i;
-/** A double-faced / split card's bundled oracle carries BOTH faces ("Name - Type" headers, a "//" line between).
- *  Only the FRONT face is on the battlefield as this permanent (a Pathway's back-face colour must never be
- *  offered on the front); the back face is its own object when it is played. */
-function frontFaceOracle(card) {
-  return oracleOf(card).split(/\n\/\/\n/)[0];
+/**
+ * THE FACE THAT IS UP, for every mana reader in this file (CR 712.8d — a double-faced permanent with its front face up has
+ * only that face's characteristics; CR 712.14 — one put onto the battlefield from anywhere but the stack enters front face
+ * up). A card with a combined "Front // Back" type line carries both faces' text in its bundled oracle (cardIndex.oracleText:
+ * "<name> - <type> {mana}" headers, a "//" line between), and the engine never turns a back face up (layers.faceUpTypeLine),
+ * so on the battlefield it makes only its FRONT face's mana: that face's own type line decides whether it is a land, and
+ * that face's own text decides what it adds. A modal face that was played or cast enters as its own single-face card
+ * (modalDfc.mdfcFaceCards) and passes through unchanged — so a back-face land played as its back face taps for its own mana.
+ * Text already narrowed to one line (a per-line probe of a combined card) keeps that line; a front block that doesn't parse
+ * leaves no text, so no mana (the safe side).
+ * ⛔ Before this read the parse took the whole combined card: a back face's Land made the front a land (raw oracle, reminder
+ * text and created-token quotes kept) and both faces' text read as one card. Storm the Vault tapped for {U} per artifact and
+ * sacrificed itself (its front's Treasure reminder, its back's "Add {U} for each artifact"); a reanimated Drowner of Truth
+ * paid {C} to sacrifice itself for {C} (its Spawn tokens' quoted ability); Tamiyo, Inquisitive Student was a free any-colour
+ * source off her back face's loyalty ability.
+ */
+function faceUpManaCard(card) {
+  if (!typeLineOf(card).includes(" // ")) return card;
+  const oracle = oracleOf(card);
+  const blocks = oracle.split(/\n\/\/\n/);
+  const text = blocks.length > 1 ? (parseFaceBlock(blocks[0])?.oracle ?? "") : oracle;
+  const type = faceUpTypeLine(card);
+  return { ...card, type, type_line: type, oracle: text, oracle_text: text };
 }
+const faceUpOracle = (card) => oracleOf(faceUpManaCard(card));
 
 /**
  * THE ACTIVATION COST of a card's main mana ability (the free-activation fix, 2026-10-01): the MANA part of the cost printed
@@ -1082,10 +1102,11 @@ export function manaActivationCost(card) {
   let out = null;
   const main = manaProduction(card);
   if (main) {
-    const priced = frontFaceOracle(card).split(/\n+/).map((l) => l.trim()).filter((l) => /^[^:]+:.*\bAdd\b/i.test(l))
+    const face = faceUpManaCard(card); // the main product is the face that is up's, so are the lines it is matched against
+    const priced = oracleOf(face).split(/\n+/).map((l) => l.trim()).filter((l) => /^[^:]+:.*\bAdd\b/i.test(l))
       .map((l) => ({ l, cost: parseActivationManaCost(l.slice(0, l.indexOf(":"))) }));
     const key = productKey(main);
-    const lineKey = (l) => productKey(manaProduction({ ...card, oracle: l, oracle_text: l }));
+    const lineKey = (l) => productKey(manaProduction({ ...face, oracle: l, oracle_text: l }));
     const costed = priced.filter((x) => x.cost !== null);
     if (costed.length && !priced.some((x) => x.cost === null && lineKey(x.l) === key)) {
       out = (costed.find((x) => lineKey(x.l) === key) || costed[0]).cost;
@@ -1097,7 +1118,8 @@ export function manaActivationCost(card) {
 export function extraManaLineProducts(card, mainProd) {
   if (!card || typeof card !== "object") return [];
   if (_extraMemo.has(card)) return _extraMemo.get(card);
-  const lines = frontFaceOracle(card).split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const face = faceUpManaCard(card); // the face that is up's own lines, each parsed as that face
+  const lines = oracleOf(face).split(/\n+/).map((l) => l.trim()).filter(Boolean);
   // No "which line is the main" guess: the main product's own colours decide. A complete line whose colours the
   // main already covers (and that adds no gate or sacrifice) IS the main line, or a duplicate of it — skipped.
   // A complete line adding a colour the main lacks is an extra even when it is printed FIRST (a plain
@@ -1116,7 +1138,7 @@ export function extraManaLineProducts(card, mainProd) {
       continue;
     }
     if (!EXTRA_MANA_LINE_RE.test(line)) continue;
-    const prod = manaProduction({ ...card, oracle: line, oracle_text: line });
+    const prod = manaProduction({ ...face, oracle: line, oracle_text: line });
     if (!prod || !prod.colors?.length) continue;
     // Covered = the main already offers this: every colour, the same sacrifice cost, and the same gate (a card whose
     // ONLY mana line is gated — Tablet of Compleation — has that line AS its main; it must not ride twice).
@@ -1142,6 +1164,16 @@ export function manaProduction(card) {
   if (!card) return null;
   if (typeof card === "object") {
     if (_prodMemo.has(card)) return _prodMemo.get(card);
+    // THE FACE THAT IS UP (faceUpManaCard): a combined "Front // Back" card makes its front face's mana and nothing else — every
+    // read below runs on that face alone. The memo stays keyed on the real card.
+    {
+      const face = faceUpManaCard(card);
+      if (face !== card) {
+        const result = manaProduction(face);
+        _prodMemo.set(card, result);
+        return result;
+      }
+    }
     // SAGA CHAPTER LINES (play-weighted P·4 — Urza's Saga, "I — This Saga gains \"{T}: Add {C}.\""): a chapter is a TRIGGERED
     // ability (CR 714.2b), and a quoted "{T}: Add …" inside one is an ability the Saga GAINS when that chapter resolves (the
     // self-grant, offered off the board by grantedManaSpecsFor) — never one it has from the start. The Add matcher below
@@ -1149,8 +1181,8 @@ export function manaProduction(card) {
     // chapter lines are dropped before the parse; the memo stays keyed on the real card.
     // The re-parse also runs with the type line BLANKED, and that is load-bearing, not only the recursion stop: the land
     // fallback credits {C} to any land whose text says "add" (a basic's reminder text is its real ability), so with the type
-    // kept Urza's Saga still made {C} off its own reminder ("add a lore counter"), and a transform DFC whose back face is a
-    // land (Welcome to . . . // Jurassic Park — the engine plays the front face only) made {C} off the back face's text.
+    // kept Urza's Saga still made {C} off its own reminder ("add a lore counter"). (A double-faced Saga — Welcome to . . . //
+    // Jurassic Park, whose back face is a land — reaches this branch already read as its front face, by the face-up read above.)
     // Measured over every Saga in the bundled oracle: four reads change, all four phantoms removed — Urza's Saga, Song of
     // Freyalise (the enchantment itself tapped for any color), Huatli, Poet of Unity (her back face's chapter II read as
     // her own) and Welcome to . . . ; none gained.

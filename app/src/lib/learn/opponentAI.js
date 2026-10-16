@@ -274,7 +274,10 @@ function pickLandAction(state, aiPlayerId, landActions, pol = {}) {
   }
 
   const ranked = landActions.map((action) => {
-    const card = cardFromHand(state, aiPlayerId, action.cardId);
+    // The FACE the drop plays (a modal DFC's land face — legalChoices.actionsPlayLand projects it): the hand holds the whole
+    // card, whose mana is its front face's (manaModel's face-up read) — a spell // land would read as no land at all, and both
+    // faces of a Pathway would read as its front.
+    const card = action.faceCard || cardFromHand(state, aiPlayerId, action.cardId);
     return {
       action,
       untapped: card && !landEntersTapped(card) ? 1 : 0,
