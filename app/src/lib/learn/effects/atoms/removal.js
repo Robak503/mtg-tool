@@ -6,7 +6,7 @@
  */
 
 import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js";
-import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, diesExiledInstead, shufflesIntoLibraryInsteadOfGraveyard, addMana, deathLookback, destructionReplacementFor } from "../../gameState.js"; // + shufflesIntoLibraryInsteadOfGraveyard (#582): Saw in Half's "dies this way" verdict // + deathLookback: the death look-back every death site shares (the sacrifice sites included) // + destructionReplacementFor (#587): the destroy's own replacement ladder (its one copy, in gameState), read for "destroyed this way"
+import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, diesExiledInstead, shufflesIntoLibraryInsteadOfGraveyard, addMana, deathLookback, deathEventKind, destructionReplacementFor, graveyardReplacementCarriersLast } from "../../gameState.js"; // + shufflesIntoLibraryInsteadOfGraveyard (#582): Saw in Half's "dies this way" verdict // + deathLookback: the death look-back every death site shares (the sacrifice sites included) // + deathEventKind: the event a death site logs, named by where the card goes // + graveyardReplacementCarriersLast: the batch sacrifice's move order (a carrier of a graveyard replacement last) // + destructionReplacementFor (#587): the destroy's own replacement ladder (its one copy, in gameState), read for "destroyed this way"
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // ④-BD — the counter rider's delayed "may draw up to N" (Arcane Denial); delayedTrigger imports only gameState (cycle-safe)
 import { checkDiesTriggers, checkLifegainTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers } from "../../triggers.js"; // + checkPlaneswalkerDiesTriggers (#639): a planeswalker sacrificed in a batch dies too (CR 700.4)
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
@@ -329,7 +329,9 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
   const sacPower = death ? creaturePower(lk.permanent, state) : null;
   // P·28 — the destination is the death-specific exile only; a graveyard replacement (Rest in Peace, Dauthi) redirects inside moveCardToZone.
   let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: death?.exileTo ? "exile" : "graveyard", cardId: permId });
-  if (death?.exileInstead) next = logEvent(next, { kind: "creature-exiled-instead", turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
+  // A creature a replacement kept out of the graveyard logs where it went instead (deathEventKind); the sacrifice is the event below.
+  const deathKind = death ? deathEventKind(death) : null;
+  if (deathKind && deathKind !== "creature-dies") next = logEvent(next, { kind: deathKind, turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
   if (death) next = checkDiesTriggers(next, [death]);
   // TRIG-SACRIFICE: fire "Whenever you sacrifice a <permanent|creature|artifact>" for the sacrificing player. The perm has left the
   // battlefield, so its look-back carries its card and the types it had (sacScopeMatches' creature scope reads them).
@@ -342,8 +344,10 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
  * P·35 — creatures SACRIFICED IN ONE EVENT (Living Death's "each player … sacrifices all creatures they control"; CR 701.21a — the
  * sacrifices are simultaneous). sacrificeCreatureEffect's per-creature rules, but every look-back is read from the state BEFORE any
  * of them left (CR 603.10a), all of them move, and only then do the dies triggers fire — ONCE, for the whole batch — so a watcher
- * sacrificed with the others sees each of them (the departed-watcher look-back, triggers.deadLookBackSources). `victims` is
- * `[{ playerId, permId }]`; one already gone is skipped.
+ * sacrificed with the others sees each of them (the departed-watcher look-back, triggers.deadLookBackSources). The carriers of a
+ * graveyard replacement move last (gameState.graveyardReplacementCarriersLast), as the destroy effect's do: a replacement applies
+ * to the event as it would happen (CR 614.1), so a Dauthi Voidwalker sacrificed beside an opponent's creatures still exiles them.
+ * `victims` is `[{ playerId, permId }]`; one already gone is skipped.
  * A planeswalker in the batch (Plaguecrafter's pool, #639) dies too (CR 700.4): it goes to the planeswalker dies dispatch, as a
  * destroyed one does (spellEffects.applyDestroyEffect) — and only when it is no creature, which the creature dispatch already carries.
  */
@@ -358,10 +362,11 @@ export function sacrificeCreaturesTogether(state, victims) {
   const deadPw = batch.filter((v) => !deathOf.has(v.permId) && permanentHasCardType(state, v.permId, "Planeswalker"))
     .map((v) => ({ id: v.permId, controller: v.playerId, name: v.lk.permanent.card?.name, card: v.lk.permanent.card }));
   let next = state;
-  for (const { playerId, permId, lk } of batch) {
+  for (const { playerId, permId, lk } of graveyardReplacementCarriersLast(state, batch.map((v) => ({ ...v, id: v.permId })))) {
     const death = deathOf.get(permId);
     next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: death?.exileTo ? "exile" : "graveyard", cardId: permId });
-    if (death?.exileInstead) next = logEvent(next, { kind: "creature-exiled-instead", turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
+    const deathKind = death ? deathEventKind(death) : null;
+    if (deathKind && deathKind !== "creature-dies") next = logEvent(next, { kind: deathKind, turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
   }
   next = checkDiesTriggers(next, dead);
   next = checkPlaneswalkerDiesTriggers(next, deadPw);

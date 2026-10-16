@@ -2669,6 +2669,20 @@ export function deathLookback(state, perm, controller) {
 }
 
 /**
+ * THE EVENT A DEATH SITE LOGS for a look-back, named by where the card actually goes, so the log never records a death that did
+ * not happen (CR 700.4: dies means put into a graveyard from the battlefield). Decided in the move's own order: `exileTo` is the
+ * death site's move straight to exile; every other move is graveyard-bound, and moveCardToZone applies the card's own
+ * shuffle-into-library replacement ahead of a graveyard exile (its CR 616.1 choice between them) — so a Blightsteel Colossus
+ * under Rest in Peace is shuffled away, never "exiled instead". "creature-dies" is the death gameAnalysis counts. The lethal-damage
+ * and legend-rule state-based actions log every outcome; the destroy and sacrifice sites log only a replaced one.
+ */
+export function deathEventKind(lookback) {
+  if (lookback.exileTo) return "creature-exiled-instead";
+  if (lookback.shuffledInstead) return "creature-shuffled-instead";
+  return lookback.exileInstead ? "creature-exiled-instead" : "creature-dies";
+}
+
+/**
  * Was this look-back a CREATURE as it last existed on the battlefield (CR 603.10a)? A deathLookback carries its layer-aware
  * types (`lkiTypes`); a look-back built without them (a hand-built death entry, a battlefield permanent) answers by its card's
  * type line. The one reader for the dies triggers' creature scopes (triggers.isCreaturePerm) and the deaths-this-turn tally.
@@ -2749,9 +2763,9 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
     // a direct-damage spell) so the board-visible "a creature just died" event is never silent. `cause`
     // defaults to "sba" (the generic SBA path); combatResolution.js passes "combat" explicitly so its
     // own (now-removed) duplicate emission collapses into this one without changing the log shape.
-    // EXILE-INSTEAD gets its own kind (R1.1): an exiled creature did NOT die (CR 700.4) — labeling it
-    // "creature-dies" over-counted deaths in every log consumer (gameAnalysis combat trades included).
-    next = logEvent(next, { kind: d.exileInstead ? "creature-exiled-instead" : "creature-dies", turn: next.turn, cardName: d.name, controller: d.controller, cause });
+    // EXILE-INSTEAD and SHUFFLE-INSTEAD get their own kinds (R1.1, deathEventKind): neither creature died (CR 700.4) —
+    // labeling one "creature-dies" over-counted deaths in every log consumer (gameAnalysis combat trades included).
+    next = logEvent(next, { kind: deathEventKind(d), turn: next.turn, cardName: d.name, controller: d.controller, cause });
   }
   for (const id of shieldSaved) next = consumeShieldCounter(next, id); // CR 122.1c — remove one shield, survive (no tap)
   for (const pid of regenerated) next = regeneratePermanent(next, pid); // CR 701.19a — clear damage + tap, survive
@@ -2808,7 +2822,7 @@ export function applyLegendRule(state) {
   let next = state;
   for (const d of dead) {
     next = moveCardToZone(next, { playerId: d.controller, fromZone: "battlefield", toZone: d.exileTo ? "exile" : "graveyard", cardId: d.id });
-    next = logEvent(next, { kind: d.exileInstead ? "creature-exiled-instead" : "creature-dies", turn: next.turn, cardName: d.name, controller: d.controller, cause: "legend-rule" });
+    next = logEvent(next, { kind: deathEventKind(d), turn: next.turn, cardName: d.name, controller: d.controller, cause: "legend-rule" });
   }
   for (const m of moves) {
     next = moveCardToZone(next, { playerId: m.controller, fromZone: "battlefield", toZone: "graveyard", cardId: m.id });

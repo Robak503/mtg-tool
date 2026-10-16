@@ -27,6 +27,12 @@ function elimCause(e) {
   return "damage";
 }
 
+/** What sent a creature off the battlefield, as its death site recorded it: a state-based action's `cause`, a destroy or sacrifice's `via`. */
+function deathCause(e) {
+  const c = e.cause || e.via;
+  return c ? ` (${c})` : "";
+}
+
 /**
  * Narrate one engine log into per-turn groups: [{ turn, lines: [string] }].
  * `seatNames` maps engine seat ids → display names (e.g. { user: "Omnath, Locus of Mana", … });
@@ -80,7 +86,10 @@ export function narrateEngineLog(log, seatNames = {}) {
       case "commander-damage":
         push(e.turn, `${e.commanderName} has dealt ${e.total} commander damage to ${who(e.defender)}`);
         break;
-      case "creature-dies": push(e.turn, `${e.cardName} dies${e.cause ? ` (${e.cause})` : ""}`); break;
+      case "creature-dies": push(e.turn, `${e.cardName} dies${deathCause(e)}`); break;
+      // A replacement kept it out of the graveyard, so it never died (CR 700.4): the line says where it went instead.
+      case "creature-exiled-instead": push(e.turn, `${e.cardName} is exiled instead of dying${deathCause(e)}`); break;
+      case "creature-shuffled-instead": push(e.turn, `${e.cardName} is shuffled into its owner's library instead of dying${deathCause(e)}`); break;
       case "tutor-search-pending": push(e.turn, `${who(e.controller)} searches with ${e.sourceName}`); break;
       case "scry-pending": push(e.turn, `${who(e.controller)} ${e.mode === "surveil" ? "surveils" : "scries"} ${e.count} (${e.sourceName})`); break;
       case "player-eliminated": push(e.turn, `☠ ${who(e.player)} is eliminated — ${elimCause(e)}`); break;

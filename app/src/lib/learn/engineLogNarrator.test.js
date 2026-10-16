@@ -52,6 +52,19 @@ describe("narrateEngineLog", () => {
     expect(g[1].lines).toEqual(["☠ Koma is eliminated — poison"]);
   });
 
+  it("a creature a replacement kept out of the graveyard is narrated where it went, never as a death (CR 700.4) — by its cause or via", () => {
+    const g = narrateEngineLog([
+      { turn: 6, kind: "creature-dies", cardName: "Grizzly Bears", controller: "user", cause: "combat" },
+      { turn: 6, kind: "creature-shuffled-instead", cardName: "Blightsteel Colossus", controller: "ai1", cause: "combat" },
+      { turn: 6, kind: "creature-exiled-instead", cardName: "Llanowar Elves", controller: "ai2", via: "sacrifice" },
+    ], NAMES);
+    expect(g[0].lines).toEqual([
+      "Grizzly Bears dies (combat)",
+      "Blightsteel Colossus is shuffled into its owner's library instead of dying (combat)",
+      "Llanowar Elves is exiled instead of dying (sacrifice)",
+    ]);
+  });
+
   it("filters noise, stays SILENT on unknown kinds (never a guessed line), and never emits '?'", () => {
     const g = narrateEngineLog([
       { turn: 3, kind: "step", phase: "beginning", step: "untap", player: "user" },

@@ -23,6 +23,7 @@ import {
   moveCardToZone,
   destructionReplacementFor, // the destroy ladder — ONE copy, shared with the lethal-damage state-based action
   deathLookback, // the death look-back every death site builds (its last-known types and where the card goes)
+  deathEventKind, // the event a death site logs, named by where the card goes (exiled or shuffled away instead never died)
   graveyardReplacementCarriersLast, // a simultaneous event's move order — the graveyard replacements' carriers last
   findPermanent,
   markCombatDamage,
@@ -1384,7 +1385,7 @@ export function applyDrawEffect(state, { controller, amount }) {
  */
 export function applyDestroyEffect(state, { controller, targets = [], cannotRegenerate = false }) {
   const saved = [];   // { id, save } — the permanents a replacement keeps on the battlefield (CR 614.6: their destruction never happens)
-  const moves = [];   // { id, controller, toZone, exiledInstead, name } — the permanents this event destroys
+  const moves = [];   // { id, controller, toZone, deathKind, name } — the permanents this event destroys (deathKind: a creature's, else null)
   const dead = [];    // the destroyed CREATURES' look-backs — the dies triggers' input
   const deadPw = [];  // PLANESWALKER-DIES (CR 700.4) — a destroyed walker also "dies"; collected for its dies-watchers
   for (const t of targets) {
@@ -1401,12 +1402,12 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
       dead.push(d);
       // A death-specific exile goes straight to exile; a graveyard replacement (Rest in Peace, Dauthi) or a shuffle-instead
       // (Progenitus) redirects inside moveCardToZone, read off the same card the look-back read.
-      moves.push({ id: t.id, controller: lk.controller, toZone: d.exileTo ? "exile" : "graveyard", exiledInstead: d.exileInstead, name: lk.permanent.card?.name });
+      moves.push({ id: t.id, controller: lk.controller, toZone: d.exileTo ? "exile" : "graveyard", deathKind: deathEventKind(d), name: lk.permanent.card?.name });
       continue;
     }
     // A destroyed planeswalker's look-back (no power — the only modeled PW-death watcher is Cruel Celebrant's flat drain).
     if (isPlaneswalker(lk.permanent.card)) deadPw.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card });
-    moves.push({ id: t.id, controller: lk.controller, toZone: "graveyard", exiledInstead: false, name: lk.permanent.card?.name });
+    moves.push({ id: t.id, controller: lk.controller, toZone: "graveyard", deathKind: null, name: lk.permanent.card?.name });
   }
   let next = state;
   // A waiting trigger's entering creature among the destroyed is recorded as it last existed — on the board as this event
@@ -1420,7 +1421,8 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
   for (const m of graveyardReplacementCarriersLast(state, moves)) {
     if (!findPermanent(next, m.id)) continue;
     next = moveCardToZone(next, { playerId: m.controller, fromZone: "battlefield", toZone: m.toZone, cardId: m.id });
-    if (m.exiledInstead) next = logEvent(next, { kind: "creature-exiled-instead", turn: next.turn, cardName: m.name, controller: m.controller, via: "destroy" });
+    // A creature a replacement kept out of the graveyard logs where it went instead; a death is the spell-effect event below.
+    if (m.deathKind && m.deathKind !== "creature-dies") next = logEvent(next, { kind: m.deathKind, turn: next.turn, cardName: m.name, controller: m.controller, via: "destroy" });
   }
   next = checkDiesTriggers(next, dead);
   next = checkPlaneswalkerDiesTriggers(next, deadPw);

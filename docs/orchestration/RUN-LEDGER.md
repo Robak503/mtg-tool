@@ -16,6 +16,43 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🔧 2026-10-16 — FIX: a death event names where the card went — a Blightsteel Colossus shuffled away never "dies" · **+0** · corpus 15,492 (unchanged)
+> Suite **18,956** green, 1,777 files (a fresh worktree has no `data/rules-index.json`: `rules-retrieval/route.test.js`'s four
+> POST cases 500 until `npm run build:rules-index`, then 8/8). Flip-diff **0 / 0 / 0** (tier snapshots, HEAD c1f630ab → this).
+> **Mutants 14/14**, restore byte-identical. Lint 0.
+> · **The bug.** "If <this> would be put into a graveyard from anywhere, reveal <this> and shuffle it into its owner's library
+>   instead" (Blightsteel / Darksteel Colossus, Progenitus) is a replacement inside `moveCardToZone`, but the death sites named the
+>   logged event off the look-back's exile flag alone: `creature-dies` for a creature that never died (CR 700.4), and under Rest in
+>   Peace — where the move applies the shuffle first — `creature-exiled-instead`. `gameAnalysis` counts combat `creature-dies` as
+>   trades: measured before the fix, Blightsteel blocked by Blightsteel beside a Bears trade counted **2 attacker + 2 blocker
+>   deaths** (truth 1 + 1), and the Crucible play-by-play said both Colossi died. The dies TRIGGERS were already right (they read
+>   the look-back's flags, not the log).
+> · **The fix.** `gameState.deathEventKind(lookback)`, in the move's own order — `exileTo` → exiled; the card's own shuffle →
+>   **`creature-shuffled-instead`** (new); a graveyard exile → exiled; else `creature-dies` — read at all five sites: the
+>   lethal-damage and legend-rule SBAs, `applyDestroyEffect`, `sacrificeCreatureEffect` and `sacrificeCreaturesTogether` (the
+>   fifth was not in the brief; it had the same line). The destroy and sacrifice sites still log only a replaced creature. The
+>   combat step's `combat-damage` summary `deaths` now lists only real deaths (it listed every look-back; no reader yet). The
+>   narrator says where each went: "… is shuffled into its owner's library instead of dying (combat)", and "… is exiled instead
+>   of dying" (an exiled-instead creature used to vanish from the play-by-play without a line).
+> · **Found by probe, fixed (CR 614.1):** `sacrificeCreaturesTogether` moved its victims in order — the user's first — so a
+>   sacrificed Dauthi Voidwalker had left before the opponent's creatures moved, and Barter in Blood put them into the graveyard
+>   while their look-backs (dies triggers, death tally, log) said exiled. It now moves the carriers of a graveyard replacement
+>   last (`graveyardReplacementCarriersLast`), as the destroy effect and the lethal-damage SBA already did. Living Death shares
+>   the path (not separately witnessed).
+> · **Why the headline witness is a combat, not lethal damage:** the printed Blightsteel is indestructible (CR 702.12b), so a
+>   lethal-damage fixture never moves it and passes on the broken code. Infect damage is -1/-1 counters (CR 702.90c): two Colossi
+>   blocking each other reach toughness 0 and leave by CR 704.5f — the same chokepoint, cause `combat`.
+> · Witness `deathEventKind.test.js` (12) + `engineLogNarrator.test.js` (+1): the combat with and without Rest in Peace (kinds,
+>   zones, the summary, `gameAnalysis`, the narration; a Bears trade is the control), Progenitus at the legend rule (an Isamaru
+>   pair the control), Wrath of God, Misery's Shadow's exile ahead of the shuffle, Diabolic Edict and Barter in Blood with and
+>   without Rest in Peace, Dauthi in one sacrifice event.
+> · **For Omnath:** no decision reads these kinds (only `gameAnalysis` and the narrator do), so the relabel moves no decision
+>   row; the one game-state change is the batch-sacrifice order, in games where a graveyard-replacement carrier is sacrificed in
+>   the same event as other creatures.
+> · ⚠️ Found, not fixed: the engine's CR 616.1 pick is fixed — a death-specific exile (Misery's Shadow, Lava Coil) always beats
+>   the card's own shuffle, and the shuffle always beats Rest in Peace. The rules give that choice to the creature's controller,
+>   who would usually keep the shuffle (a thief holding a stolen Colossus might take the exile).
+
 > ## 🧰 2026-10-16 — TOOLING: the test wrapper's timeout kills only its own run · **±0** · corpus 15,492
 > **Found by the 14-session fleet** (Colton started 14 worktree sessions on one machine, 2026-10-16; the Academy
 > seat-label session flagged it). `app/scripts/test-with-timeout.cjs` — the wrapper `npm test` runs — tore down a timed-out

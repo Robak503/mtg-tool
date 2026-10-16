@@ -42,6 +42,7 @@ import {
   removeCounter,
   addRadCounters,
   destroyLethalCreatures,
+  deathEventKind, // the summary's deaths are the creatures that died — not one exiled or shuffled away instead
   isPlaneswalker,
   adjustLoyalty,
   destroyZeroLoyaltyPlaneswalkers,
@@ -832,7 +833,8 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
     kind: "combat-damage",
     turn: next.turn,
     step: firstStrikeStep ? "first-strike" : "regular",
-    deaths: dead.map(d => d.name),
+    // Only the creatures that died (CR 700.4): one a replacement exiled or shuffled into its owner's library left, but never died.
+    deaths: dead.filter(d => deathEventKind(d) === "creature-dies").map(d => d.name),
     playerDamage: lifeLoss,
     lifeGain,
   });
