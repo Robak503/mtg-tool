@@ -509,6 +509,23 @@ already carrying the most. The offer side only reorders: `legalChoices` passes
 player's tapped lands come first by value and the best set per X is the first
 one offered (it survives the 64-option cap).
 
+**Which side the AI casts an Aura on (`opponentAI.pickAuraCast`, 2026-10-16).** An
+Aura spell targets what it will enchant (CR 303.4a) and the offer lists every legal
+host, so the pick chooses the side. By what the Aura enchants: the lanes offered
+only on the caster's own lands (the mana-boost Auras, `isNativeManaAura`, and the
+granted-ability Auras whose host is a land, `grantAuraCastHostType`) take
+`pickManaAuraTarget`; Animate Dead takes the biggest creature card in either
+graveyard; a player Aura takes the side its triggers hurt — `playerAuraEffect.js`
+reads each trigger as the runtime fires it and looks every atom up in
+`ENCHANTED_PLAYER_EFFECTS` (only Fraying Sanity's `enchanted-gy-mill` today, so a
+newly modeled player-Aura op holds until it has an entry; the non-cast entry should
+read this table too, never a second one); every permanent host — a creature, or the
+"permanent" / "planeswalker" targets a wider Enchant line enumerates — takes
+`auraEntry.auraCastIntent`'s side, then power, then id. A side no reader can tell
+holds. Before this the own-lands rule took every offer without a "creature" target,
+which put Fraying Sanity on the AI itself and Petrify on its own Mind Stone.
+Witness: `auraCastSide.test.js`.
+
 **An activation that resolves to nothing must not be the AI's pick (added 2026-10-03).**
 A free activation the resolver refuses is a turn that never ends: the equip pick
 (`pickEquipAction`) stops only when its Equipment sits on the best body, and

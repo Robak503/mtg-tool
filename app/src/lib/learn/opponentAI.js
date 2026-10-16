@@ -39,6 +39,9 @@ import { changeTargetAlternatives, atomForStackTarget } from "./effects/targetin
 import { manaUntapLineAction, pickManaAuraTarget } from "./manaUntapLine.js"; // "untap X target lands" as a mana line; mana Auras stack on one land
 import { outletFinishAction } from "./outletFinishLine.js"; // E7.2 — the token loop's finishes that are not combat (a sacrifice outlet)
 import { tokenLoopState, isTokenLoopAction, tokenLoopAttackPlan } from "./tokenLoopLine.js"; // THE COMBO LINE for a self-scaling token loop: enough, then nothing else, then the finish
+import { isNativeManaAura } from "./staticAbilityParser.js"; // pickAuraCast — the mana-boost lane, offered on the caster's own lands only
+import { grantAuraCastHostType } from "./coverage.js"; // pickAuraCast — the granted-ability lane, offered on the caster's own lands when its host is a land
+import { playerAuraEffect } from "./playerAuraEffect.js"; // pickAuraCast — which player an "Enchant player" Aura belongs on (the curse reading)
 
 // ─── Play-policy flags (the A/B probe seam) ──────────────────────────────────
 
@@ -593,38 +596,60 @@ function teamPumpFlipsLethal(state, aiPlayerId, pumpPower) {
   return swingIsLethalV2(pumped, blockers.length, defenderLife);
 }
 
+// The target types a permanent host comes enumerated as: "creature" (addCreatures), "permanent" (addPermanents — an
+// artifact, a Vehicle, a nonland permanent, and a creature too when the Enchant line names a wider type), "planeswalker".
+const PERMANENT_HOST_TYPES = new Set(["creature", "permanent", "planeswalker"]);
+
 /**
- * W7e (AI-F6) — pick the Aura cast the AI should take from the card's offered per-target
- * actions, or null to HOLD. A LAND-enchant mana Aura (Wild Growth — the only isAuraSpell shape
- * whose targets aren't creatures) is offered on the caster's OWN lands only by construction
- * (legalChoices' mana-aura branch), so it's pure ramp upside: take the deterministic first
- * target. A CREATURE Aura casts on-intent only: an OWN-intent buff onto the AI's highest-power
- * creature, an ENEMY-intent curse onto the biggest enemy threat among the offered targets; an
- * unparsed/ambiguous grant, or an intent with no on-side legal target (an enemy-intent
- * "enchant creature you control" corner), HOLDS. Chooses among OFFERED actions only.
+ * W7e (AI-F6) — pick the Aura cast the AI should take from the card's offered per-target actions, or null to HOLD. Chooses
+ * among OFFERED actions only; each offer is the Aura spell targeting what it will enchant (CR 303.4a). By what it enchants:
+ *   · THE CASTER'S OWN LANDS — the mana-boost Auras (Wild Growth) and the granted-ability Auras whose host is a land
+ *     (Squirrel Nest, Gift of Paradise) are offered there only (legalChoices), so there is no side to choose: the land already
+ *     carrying the most mana Auras, then the id order (pickManaAuraTarget — mana enchantments stack on the SAME land,
+ *     Colton 2026-10-03).
+ *   · A CARD IN A GRAVEYARD (Animate Dead) — the creature returns under the caster's control from either graveyard, so the
+ *     biggest creature card offered (printed power), then the id order.
+ *   · A PLAYER (Fraying Sanity) — the side its triggers hurt (playerAuraEffect), the players there ranked by that effect.
+ *   · A PERMANENT — the side auraCastIntent reads, then the highest power the layer engine reads on it (an uncrewed
+ *     Vehicle counts its printed power, a permanent with none 0), then the id order: an OWN-intent buff on the AI's best
+ *     body, an ENEMY-intent curse on the biggest enemy threat.
+ * A side no reader can tell, or a side with no offered target (an enemy-intent Aura with only the AI's own permanents to
+ * enchant), HOLDS. Until 2026-10-16 every offer without a "creature" target took the own-lands rule's first id, which put
+ * Fraying Sanity on the AI itself and Petrify on the AI's own Mind Stone.
  */
 function pickAuraCast(state, aiPlayerId, actions, card) {
   const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
+  const byId = (x, y) => cmp(String(x.targets[0].id), String(y.targets[0].id));
   const opts = actions.filter((a) => (a.targets?.length || 0) === 1);
   if (opts.length === 0) return null;
-  if (opts.every((a) => a.targets[0].type !== "creature")) {
-    // Land mana Aura — own lands only by the offer. Mana enchantments stack on the SAME land (Colton 2026-10-03):
-    // the land already carrying the most mana Auras, then the deterministic id order as before.
-    return pickManaAuraTarget(state, [...opts].sort((x, y) => cmp(String(x.targets[0].id), String(y.targets[0].id))));
+  if (isNativeManaAura(card) || grantAuraCastHostType(card)?.host === "land") {
+    // Offered on own lands only; kept to them here too, so a widened offer could never ramp an opponent's land.
+    const ownLands = opts.filter((a) => a.targets[0].controller === aiPlayerId);
+    return ownLands.length ? pickManaAuraTarget(state, [...ownLands].sort(byId)) : null;
+  }
+  if (opts.every((a) => a.enchantsGraveyardCard)) {
+    const printedPower = (t) => Number(state.players?.[t.controller]?.graveyard?.find((c) => c.id === t.id)?.power) || 0;
+    return [...opts].sort((x, y) => (printedPower(y.targets[0]) - printedPower(x.targets[0])) || byId(x, y))[0];
+  }
+  let enemies;
+  try { enemies = new Set(opponentsOf(state, aiPlayerId)); } catch { return null; }
+  if (opts.every((a) => a.enchantsPlayer)) {
+    const effect = playerAuraEffect(card);
+    if (!effect) return null;
+    const onSide = opts.filter((a) => (effect.side === "own" ? a.targets[0].id === aiPlayerId : enemies.has(a.targets[0].id)));
+    if (onSide.length === 0) return null;
+    return [...onSide].sort((x, y) => (effect.rank(state, x.targets[0].id) - effect.rank(state, y.targets[0].id)) || byId(x, y))[0];
   }
   const intent = auraCastIntent(card);
   if (!intent) return null;
-  let enemies;
-  try { enemies = new Set(opponentsOf(state, aiPlayerId)); } catch { return null; }
   const powerOf = (id) => { try { return Math.max(0, permanentPower(state, id)); } catch { return 0; } };
   const onSide = opts.filter((a) => {
     const t = a.targets[0];
-    if (t.type !== "creature") return false;
+    if (!PERMANENT_HOST_TYPES.has(t.type)) return false;
     return intent === "own" ? t.controller === aiPlayerId : enemies.has(t.controller);
   });
   if (onSide.length === 0) return null;
-  return [...onSide].sort((x, y) =>
-    (powerOf(y.targets[0].id) - powerOf(x.targets[0].id)) || cmp(String(x.targets[0].id), String(y.targets[0].id)))[0];
+  return [...onSide].sort((x, y) => (powerOf(y.targets[0].id) - powerOf(x.targets[0].id)) || byId(x, y))[0];
 }
 
 /**
@@ -847,12 +872,14 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
       const life = state.players?.[aiPlayerId]?.life ?? 0;
       if (life <= 0 || unblockedIncomingFace(state, aiPlayerId) < life) continue;
     }
-    // W7e (AI-F6) — AURAS: cast on-intent only. The grant side comes from parseAuraBonus (the
-    // SAME parse the layer engine applies on attach, so the read can't drift): a beneficial
-    // grant → the AI's own highest-power creature; a harmful grant → the biggest enemy threat
-    // among the offered targets; an unparsed/ambiguous grant, or no on-side legal target,
-    // HOLDS (CREED — never hang a buff on an enemy). A land mana Aura (Wild Growth) is offered
-    // on own lands only, so it casts as pure ramp. policy 'v1' recovers hold-always (probe).
+    // W7e (AI-F6) — AURAS: cast on-intent only. A permanent host's side comes from parseAuraBonus
+    // (the SAME parse the layer engine applies on attach, so the read can't drift): a beneficial
+    // grant → the AI's own highest-power permanent; a harmful grant → the biggest enemy threat
+    // among the offered targets; a player Aura's side from what its triggers do to that player;
+    // an unparsed/ambiguous grant, or no on-side legal target, HOLDS (CREED — never hang a buff
+    // on an enemy). An Aura offered on own lands only (Wild Growth, Squirrel Nest) casts as pure
+    // upside; Animate Dead takes the biggest creature card in any graveyard (pickAuraCast).
+    // policy 'v1' recovers hold-always (probe).
     if (actions[0].isAuraSpell) {
       if (pol.aura === "v1") continue;
       const auraPick = pickAuraCast(state, aiPlayerId, actions, card);

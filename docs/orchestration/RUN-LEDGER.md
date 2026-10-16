@@ -16,6 +16,55 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🧭 2026-10-16 — FIX: the AI's Aura cast picks a side for every host, not only creatures (Fraying Sanity on itself, Petrify on its own Mind Stone) · **±0** · corpus 15,494
+> Suite **19,157** green (1 skipped) / 1,794 files. Lint 0 (CR citations: 0 of 10,146 name no rule). Flip-diff **0 / 0 / 0**
+> (34,612 cards; before = 9e06e246's code), so every coverage count is unchanged. **Mutants 7/7**, restore byte-identical.
+> 48 July-list games: 47 byte-identical to batch 4 (9e06e246); one moves — seed 4185404953, where Mothman Cometh (seat user) puts Fraying
+> Sanity on ai2, the opponent with the fewest cards in library, instead of ai1, the first by id; same winner (ai3, combat), 35 turns
+> for 34. Hashes `a1a9f98e68c3b6c3` (8, unchanged) / `884ee6c669637325` (40).
+> · **The bug** (reported 2026-10-16, re-proved through the real `pickAction`). `opponentAI.pickAuraCast` sent every Aura whose
+>   offered targets were not of type "creature" to the land mana Aura rule (`manaUntapLine.pickManaAuraTarget`: the land
+>   carrying the most mana Auras, else the first target by id). That rule is right only where the offer is the caster's own
+>   lands; anywhere else the first id was the AI's own. Fraying Sanity ("Enchant player", offered every player) enchanted the
+>   AI itself whenever the caster's seat sorts first among the players offered — "ai" in a two-player game, "ai1" in a pod
+>   (from the "user" seat, which sorts last, it found an opponent by luck). An Enchant line wider than creature — "artifact
+>   or creature", "nonland permanent", "creature or Vehicle", and "creature or planeswalker" with no creature out —
+>   enumerates its hosts as type "permanent" / "planeswalker" (`spellEffects.enumerateTargets`), so Petrify and Suppression
+>   Bonds locked the AI's own Mind Stone or Grizzly Bears and Nahiri's Binding its own planeswalker. Animate Dead
+>   (graveyard-card targets) reanimated the lowest id.
+> · **The fix, by what the Aura enchants.** The caster's own lands — the mana-boost lane (`isNativeManaAura`) and the
+>   granted-ability lane whose host is a land (`grantAuraCastHostType`: Squirrel Nest, Gift of Paradise, 30 cards) — keep
+>   `pickManaAuraTarget` exactly as c1122e34 left it, now also filtered to own lands. A card in a graveyard (Animate Dead): the
+>   biggest printed power in either graveyard (it returns under the caster's control either way), then id. A player: the new
+>   curse reading, `playerAuraEffect.js` — each trigger read as the runtime fires it (`detectTriggers`, then
+>   `parseEffectClause(clause, "Instant", { hasX, sourceScoped })`), every atom looked up in `ENCHANTED_PLAYER_EFFECTS` (what
+>   the op does to the enchanted player: a side and a ranking). Only Fraying Sanity's `enchanted-gy-mill` is there (enemy; the
+>   opponent with the fewest cards in library first, CR 704.5b); any other op, or a LOW or modal trigger → null → hold. Only
+>   Fraying Sanity of the snapshot's 46 player Auras is native. A permanent ("creature", "permanent", "planeswalker"):
+>   `auraEntry.auraCastIntent`'s side, then power as the layers read it (an uncrewed Vehicle counts its printed power), then
+>   id. Petrify, Suppression Bonds, Stasis Cocoon, Secure Detention and Planar Disruption read as curses through the
+>   restriction grants d70f5763 added to that reader.
+> · **⚑ Results (flag to Omnath):** AI choices change for a seat that casts one of these Auras. Probe — every Aura in the
+>   bundled snapshot through `legalActionsForPlayer` + `pickAction` on mirrored two-seat boards (with creatures; with
+>   planeswalkers and a Vehicle; with no creature): 10 / 11 / 12 picks flip of 560 / 560 / 49 offered, every one off the AI's
+>   own side — onto an opponent's (Fraying Sanity, Petrify, Suppression Bonds, Stasis Cocoon, Secure Detention, Planar
+>   Disruption, Aether Meltdown, Mists of Littjara, Nahiri's Binding) or to a hold (Ice Over, Coma Veil) — plus Relic Ward
+>   choosing its own Smuggler's Copter over its own Mind Stone. The land lanes are unchanged. On the benches only **Mothman
+>   Cometh** (Fraying Sanity; July list and shelf) and **Teval, the Balanced Scale Test** (Animate Dead; shelf) carry one.
+> · Witness `auraCastSide.test.js` (13; 10 red at 9e06e246): Fraying Sanity on the opponent, held when only the AI is
+>   targetable (Leyline of Sanctity), on the fewest-library opponent in a pod; Petrify on the opponent's biggest artifact or
+>   creature and held with only its own; Suppression Bonds on the opponent's Sol Ring; Relic Ward on its own artifact, held
+>   with only the opponent's; Aether Meltdown on the opponent's biggest creature; Ice Over held; Animate Dead from either
+>   graveyard; Wild Growth and Squirrel Nest unchanged; the curse reading itself (Fraying Sanity enemy; Curse of Opulence and
+>   Paradox Haze, which the engine does not read, null).
+> · Mutants: the old routing (8 red) · the curse side flipped (4) · the restriction reading removed from auraCastIntent (3) ·
+>   reanimation smallest first (1) · the pod ranking reversed (1) · the Fraying Sanity entry deleted (3) · the permanent side
+>   ignored (4).
+> · ⚠️ Found, not fixed: "doesn't untap during its controller's untap step" (Ice Over, Coma Veil; Claustrophobia on a creature)
+>   has no side reading — `auraCastIntent` reads null and the AI holds them (FN-safe). Each newly modeled player-Aura op needs an
+>   `ENCHANTED_PLAYER_EFFECTS` entry before the AI casts it; a non-cast Curse entry should import this reading, not write a
+>   second (routed to "Lift the remaining Aura withholdings").
+
 > ## 🔧 2026-10-16 — FIX: a fight, a bite and a self-fight deal ORDINARY damage — the four direct marks go through the spell deal path · **+0** · corpus 15,492
 > Suite **19,026** green on the rebased tree (4463487c + this; 1,780 files, 1 skipped; this slice +50); lint 0; corpus 15,492 / 34,620 unchanged (top 1,000 904, top 2,500 1,743). Flip-diff **0 / 0 / 0** over 34,620 cards (HEAD's engine → the slice). **Mutants 25/25** on assertions, restore byte-identical.
 > Seeded games: 24 commander games on the 30 profile decks (43,509 decision rows) — **23 byte-identical**; the 24th is a fight (below).
@@ -949,6 +998,7 @@
 > · Witness `auraMassReturn.test.js` (10): Pacifism onto the opponent's biggest creature; the Replenish ruling (a 6/7 Nyxborn
 >   Colossus returning AHEAD of Rancor is never its host — seen to fail on a live-board choice); the must-return ruling; CR 303.4g;
 >   the three Eidolon triggers; Retether's creatures-only and the Dryad Arbor ruling; Replenish's unlimited Wild Growth.
+
 > ## 🪢 2026-10-16 — FIX: an Aura that enters without being cast chooses what it enchants (CR 303.4f/g) · an Aura attached to nothing goes to the graveyard (CR 704.5m) · **±0** · corpus 15,492
 > Suite **19,002** green (1 skipped) / 1,780 files (+26). Lint 0. Flip-diff **0 / 0 / 0**. **Mutants 35/35**, restore byte-identical.
 > Coverage unchanged (top 1,000 904 · top 2,500 1,743). The 48-game replay (integration gate, batch 3): byte-identical.
