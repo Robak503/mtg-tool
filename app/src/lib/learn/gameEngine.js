@@ -99,7 +99,7 @@ import { applyTypeFilteredUntap } from "./typeFilteredUntap.js";
 
 import { applyWolverineEndStep, clearWolverineTurnFlags } from "./wolverine.js";
 import { evaluateWinThreshold } from "./effects/atoms/winGame.js";
-import { shuffleControllerLibrary } from "./effects/atoms/library.js"; // seeded opening shuffle (reuses the threaded-rngSeed mulberry32 path; library.js never imports gameEngine → no cycle)
+import { shuffleControllerLibrary, tutorManaValue } from "./effects/atoms/library.js"; // seeded opening shuffle (reuses the threaded-rngSeed mulberry32 path; library.js never imports gameEngine → no cycle); + the mana-value reader the forced trigger target ranks by
 import { drainDelayedTriggers, dropSkippedExtraTurnRecords } from "./effects/atoms/delayedTrigger.js"; // CR 603.7 scheduler drain (leaf atom module — imports only gameState, no cycle); + the skipped-extra-turn drop (CR 614.10a)
 import { rankBottomCandidates } from "./mulliganPolicy.js"; // London bottom-N picker (leaf module, no cycle)
 import { evaluateInterveningIf, interveningIfParseable } from "./interveningIf.js";
@@ -1377,32 +1377,37 @@ function firstLegalChoice(candidates) {
 
 /**
  * The enemy/own chooser (chooseTriggerTargets) returns this sentinel when NO correct-side target is
- * legal — telling buildTriggerStack to route the trigger to the Arbiter no-op rather than first-legal
- * a friendly (the self-harm hazard the α1 allowlist guards). Distinct from `undefined`, which keeps
- * the legacy "fall back to first-legal" contract for a generic / absent chooser.
+ * legal AND the choice isn't forced — the ability is optional, "choose up to one", or a target's side
+ * can't be read (pickForcedTriggerCandidate). buildTriggerStack then routes the trigger to the Arbiter
+ * no-op and flushTriggers logs `trigger-no-safe-target`. A MANDATORY ability with only wrong-side
+ * targets never gets this: it takes the least harmful legal target (CR 603.3d). Distinct from
+ * `undefined`, which keeps the legacy "fall back to first-legal" contract for a generic / absent chooser.
  */
 export const NO_SAFE_TARGET = Symbol("no-safe-trigger-target");
 
 /**
  * Build the serializable stack payload + chosen targets a pending trigger goes on the
- * stack with — or `null` to DROP it (CR 603.3c/608.2b: a triggered ability that needs
- * a target with no legal target is removed from the stack, it never resolves).
+ * stack with — or `null` to DROP it (CR 603.3d: a triggered ability that needs a target
+ * with no legal target is removed from the stack, it never resolves).
  *
  * Routing (mirrors coverage.permanentTriggersCovered exactly so the metric can't drift
  * from the runtime):
  *  - HIGH, non-modal, NON-targeted, no intervening-if → EFFECT_PROGRAM, empty targets.
  *    Inherits the whole P2.x atom family (draw / token / each-opponent / …).
  *  - HIGH, non-modal, TARGETED, no intervening-if → enumerate the legal targets at
- *    flush time via expandCastChoices (CR 603.3c — targets chosen as the ability goes
- *    on the stack). No legal target → DROP; else the chooser picks (default first-legal)
+ *    flush time via expandCastChoices (CR 603.3d → 601.2c — targets chosen as the ability
+ *    goes on the stack). No legal target → DROP; else the chooser picks (default first-legal)
  *    and the atomIndex-tagged targets ride onto the EFFECT_PROGRAM payload, so the
- *    interpreter binds each chosen target to its clause.
+ *    interpreter binds each chosen target to its clause. A mandatory ability whose only
+ *    legal targets are on the wrong side still takes one (`forced` on the result, logged
+ *    by flushTriggers); one the chooser declines (NO_SAFE_TARGET) carries `noSafeTarget`
+ *    with the Arbiter no-op, also logged.
  *  - everything else (MODAL fallthrough; INTERVENING-IF outside the strict evaluators;
  *    unparseable) → the manual/Arbiter no-op payload the trigger already carries
  *    (W4: the naive Phase-1 vocab is deleted), never a fabricated effect (CLAUDE.md §1.2).
  */
 // Distinct sentinel for a CR 603.4 intervening-if condition-not-met removal — the ability is correctly NOT put
-// on the stack, but this is EXPECTED (a false intervening-if), NOT a CR 603.3c no-legal-target fizzle. buildTriggerStack
+// on the stack, but this is EXPECTED (a false intervening-if), NOT a CR 603.3d no-legal-target fizzle. buildTriggerStack
 // returns this instead of bare null so the caller logs `trigger-condition-not-met` (not `trigger-removed-no-target`),
 // which kept polluting the no-target breakage pile (Garruk's Uprising 307×, Inventors' Fair 194×, … — all correct
 // condition-skips, e.g. Garruk's ETB draw cast before a power-4 creature is out).
@@ -1498,12 +1503,12 @@ function buildTriggerStack(state, trigger, chooseTargets) {
           ...(trigger.context || {}),
           sourceId: trigger.context?.sourceId ?? trigger.source?.permanentId ?? null,
         });
-        if (candidates.length === 0) return null; // no legal target → removed (CR 603.3c)
+        if (candidates.length === 0) return null; // no legal target → removed (CR 603.3d)
         const picked =
           typeof chooseTargets === "function"
             ? chooseTargets(candidates, { trigger, program: condProgram, state })
             : undefined;
-        if (picked === NO_SAFE_TARGET) return { payload: { resolver: "manual" }, targets: [] };
+        if (picked === NO_SAFE_TARGET) return { payload: { resolver: "manual" }, targets: [], noSafeTarget: true };
         const choice =
           typeof picked === "number" && candidates[picked]
             ? candidates[picked]
@@ -1514,6 +1519,7 @@ function buildTriggerStack(state, trigger, chooseTargets) {
         return {
           payload: { resolver: "effect-program", params: { ...baseParams, targets } },
           targets,
+          forced: !!choice?.forced,
         };
       }
       // Condition met but the effect isn't fully modeled (LOW / ambiguous target) → Arbiter no-op (FN-safe).
@@ -1572,7 +1578,7 @@ function buildTriggerStack(state, trigger, chooseTargets) {
           targets: [],
         };
       }
-      // Targeted trigger: choose targets as it's put on the stack (CR 603.3c). The
+      // Targeted trigger: choose targets as it's put on the stack (CR 603.3d → 601.2c). The
       // restriction-aware enumerator (expandCastChoices → enumerateTargets) only
       // surfaces LEGAL targets, so a restricted clause ("…an opponent controls")
       // never offers an illegal pick. trigger.context is threaded so a who:"defendingPlayer"
@@ -1585,15 +1591,17 @@ function buildTriggerStack(state, trigger, chooseTargets) {
         ...(trigger.context || {}),
         sourceId: trigger.context?.sourceId ?? trigger.source?.permanentId ?? null,
       });
-      if (candidates.length === 0) return null; // no legal target → removed from the stack (CR 603.3c)
+      if (candidates.length === 0) return null; // no legal target → removed from the stack (CR 603.3d)
       const picked =
         typeof chooseTargets === "function"
           ? chooseTargets(candidates, { trigger, program, state })
           : undefined;
-      // NO_SAFE_TARGET: the enemy/own chooser found no correct-side target → route to the Arbiter
-      // no-op rather than first-legal a friendly (false-negative SAFE). A numeric index or a candidate
-      // object is honored; anything else (a generic / absent chooser) keeps the legacy first-legal pick.
-      if (picked === NO_SAFE_TARGET) return { payload: { resolver: "manual" }, targets: [] };
+      // NO_SAFE_TARGET: no correct-side target AND the choice isn't forced (an optional ability — its
+      // controller declines, CR 603.5) → the Arbiter no-op, logged by flushTriggers. A MANDATORY ability
+      // with only wrong-side targets never gets here: the chooser returns its least harmful legal
+      // candidate marked `forced` (CR 603.3d). A numeric index or a candidate object is honored; anything
+      // else (a generic / absent chooser) keeps the legacy first-legal pick.
+      if (picked === NO_SAFE_TARGET) return { payload: { resolver: "manual" }, targets: [], noSafeTarget: true };
       const choice =
         typeof picked === "number" && candidates[picked]
           ? candidates[picked]
@@ -1604,6 +1612,7 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       return {
         payload: { resolver: "effect-program", params: { ...baseParams, targets } },
         targets,
+        forced: !!choice?.forced,
       };
     }
     // ===== MODAL TRIGGER (CR 700.2) ===== a "choose one/two/one or more/… —" triggered ability where EVERY
@@ -1650,12 +1659,13 @@ function buildTriggerStack(state, trigger, chooseTargets) {
         typeof chooseTargets === "function"
           ? chooseTargets(candidates, { trigger, program, state })
           : undefined;
-      // No mode resolves to a provably-correct-side target (every mode is targeted + mis-sideable) → Arbiter
-      // no-op rather than risk friendly fire (false-negative SAFE). A non-targeted mode would be a safe
-      // candidate, so this only happens when no safe mode exists at all.
+      // No mode resolves to a provably-correct-side target (every mode is targeted + mis-sideable). A non-targeted mode
+      // would be a safe candidate, so this only happens when no safe mode exists at all. A MANDATORY choice is forced
+      // (the chooser's least harmful candidate, CR 603.3d); NO_SAFE_TARGET means it wasn't — an optional mode the
+      // controller declines (CR 603.5) or only modes whose side can't be read → the Arbiter no-op, logged by flushTriggers.
       // CHOOSE UP TO ONE (play-weighted P·18 — Hullbreaker Horror): "none" is a legal choice, and it is the right one when every
       // candidate would hit your own side — no mode is chosen, so the ability is removed from the stack (CR 603.3c).
-      if (picked === NO_SAFE_TARGET) return program.modal?.allowNone ? null : { payload: { resolver: "manual" }, targets: [] };
+      if (picked === NO_SAFE_TARGET) return program.modal?.allowNone ? null : { payload: { resolver: "manual" }, targets: [], noSafeTarget: true };
       const choice =
         typeof picked === "number" && candidates[picked]
           ? candidates[picked]
@@ -1676,6 +1686,7 @@ function buildTriggerStack(state, trigger, chooseTargets) {
           },
         },
         targets,
+        forced: !!choice?.forced,
       };
     }
     // Route to a NO-OP (NOT the unanchored legacy fallback, which would sub-phrase-match a partial)
@@ -1711,21 +1722,6 @@ function buildTriggerStack(state, trigger, chooseTargets) {
   return { payload: trigger.payload || {}, targets: trigger.targets || [] };
 }
 
-/**
- * α1 — the enemy/own-aware trigger-target chooser. Injected at the LIVE flush call-sites so a
- * targeted triggered ability picks a target on the side the card intends instead of blind first-legal:
- * removal / damage / counter / tap / -X-X → an OPPONENT's permanent / spell / the opponent; a buff /
- * +1/+1 / untap / graveyard-return → the controller's OWN. Returns the FIRST candidate whose every
- * target sits on its atom's intended side (deterministic over the enumeration order → serialize-stable);
- * if none exists (no correct-side target is legal), returns the NO_SAFE_TARGET sentinel so
- * buildTriggerStack routes the trigger to the Arbiter no-op rather than first-legal a friendly
- * (false-negative SAFE). Ambiguous atoms (bounce) never reach here — buildTriggerStack gates them to
- * the Arbiter too. Pure function of `info.state`.
- *
- * (Restriction-pinned triggers — "…an opponent controls" / "…you control" — are already correct-side
- * via enumeration; this additionally fixes UNRESTRICTED harmful triggers that first-legal could aim at
- * a friendly. A spell target carries no controller field, so its side is resolved from state.stack.)
- */
 /**
  * FLICKER TARGETS (shelf D21) — the trigger chooser's pick when a program's one targeted atom is a blink. Each candidate
  * permanent scores what flickering it gains (it returns as a new object, CR 400.7): its enters abilities fire again (+3), it
@@ -1809,6 +1805,90 @@ function pickFlickerCandidate(state, controller, safe, program) {
   return best && (!empty || total(best) > 0) ? best : empty;
 }
 
+/**
+ * FORCED TARGET (CR 603.3d, 601.2c) — the pick when NO candidate puts every target on its atom's intended side. A triggered
+ * ability is removed from the stack only when no LEGAL choice can be made (CR 603.3d), so a MANDATORY one still takes a
+ * target: Man-o'-War with no other creature on the battlefield returns itself to its owner's hand, Flametongue Kavu alone
+ * deals 4 damage to itself, Nekrataal beside only your own Grizzly Bears destroys the Bears. Until 2026-10-16 this case went
+ * to the Arbiter no-op, which resolves as nothing: a card classified native lost its whole ability, with no reason logged
+ * (found on shelf D18).
+ *
+ * The pick costs the controller least. A target on its atom's WRONG side costs its value — a permanent's mana value, then
+ * its power (behind `usePolicyEval`, permanentValue), a spell's or graveyard card's mana value, an ability on the stack or a
+ * player nothing — so the least valuable of your own permanents takes the harm and the least valuable of an opponent's takes
+ * the help. A candidate whose damage could kill a wrong-side player — a fixed amount at least their life, or an amount that
+ * isn't fixed — ranks after every other. Correct-side targets cost nothing; ties keep enumeration order (serialize-stable).
+ *
+ * Null (the chooser answers NO_SAFE_TARGET) when the choice isn't forced:
+ *   - "choose up to one": choosing no mode is legal, and it removes the ability (CR 603.3c);
+ *   - any candidate with an OPTIONAL targeted atom ("you may …", or an optional payment that wraps the payoff): the
+ *     controller can decline as it resolves (CR 603.5), and the default autopilot takes every "may", so it is never
+ *     handed a wrong-side target to take;
+ *   - a target whose side can't be read ("ambiguous" — only the choose-one modal partial reaches the chooser with one).
+ */
+function pickForcedTriggerCandidate(state, controller, candidates, program, atomsFor, targetOk) {
+  if (program?.modal?.allowNone) return null;
+  // A chosen-target atom is one with an intent (atomTargetIntent is null only for a non-chosen type — "self", "each …").
+  const optionalTargeted = (a) => atomTargetIntent(a) != null && (!!a.optional || String(a.op || "").startsWith("optional-"));
+  if (candidates.some((c) => atomsFor(c).some(optionalTargeted))) return null;
+  const byValue = policyEvalEnabledFor(state, controller);
+  const mv = (card) => (card ? Math.max(0, tutorManaValue(card)) : 0);
+  // [lethal, value, power], compared in that order; null when a target's side can't be read.
+  const costOf = (c) => {
+    const atoms = atomsFor(c);
+    const onSide = targetOk(atoms);
+    const cost = [0, 0, 0];
+    for (const t of c.targets || []) {
+      const atom = atoms[t.atomIndex];
+      if (atomTargetIntent(atom) === "ambiguous") return null;
+      if (onSide(t)) continue;
+      if (t.type === "player") {
+        // Damage that could kill: a fixed amount at least the player's life, or an amount that isn't fixed ("equal to its
+        // power"). Only damage is ranked so — it is the one harm that offers a player beside a permanent ("any target").
+        const n = Number(atom?.amount);
+        if (atom?.op === "deal-damage" && !(Number.isFinite(n) && n < state.players[t.id].life)) cost[0] += 1;
+      } else if (t.type === "spell") {
+        cost[1] += mv((state.stack || []).find((o) => o.id === t.id)?.source);
+      } else if (t.type === "graveyardCard") {
+        cost[1] += mv((state.players[t.controller]?.graveyard || []).find((card) => card.id === t.id));
+      } else if (t.type !== "stackAbility") {
+        const perm = findPermanent(state, t.id).permanent; // an enumerated permanent target is on the battlefield by construction
+        if (byValue) cost[1] += permanentValue(perm, state);
+        else { cost[1] += mv(perm.card); cost[2] += Number(perm.card?.power) || 0; }
+      }
+    }
+    return cost;
+  };
+  const cmp = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+  let best = null;
+  let bestCost = null;
+  for (const c of candidates) {
+    const cost = costOf(c);
+    if (cost && (!bestCost || cmp(cost, bestCost) < 0)) {
+      best = c;
+      bestCost = cost;
+    }
+  }
+  return best ? { ...best, forced: true } : null;
+}
+
+/**
+ * α1 — the enemy/own-aware trigger-target chooser. Injected at the LIVE flush call-sites so a
+ * targeted triggered ability picks a target on the side the card intends instead of blind first-legal:
+ * removal / damage / counter / tap / -X-X → an OPPONENT's permanent / spell / the opponent; a buff /
+ * +1/+1 / untap / graveyard-return → the controller's OWN. Returns the FIRST candidate whose every
+ * target sits on its atom's intended side (deterministic over the enumeration order → serialize-stable).
+ * If none exists, a MANDATORY ability still takes a target — the least harmful legal candidate, marked
+ * `forced` (pickForcedTriggerCandidate, CR 603.3d); otherwise (optional, "choose up to one", or a side
+ * that can't be read) it returns the NO_SAFE_TARGET sentinel and buildTriggerStack routes the trigger to
+ * the Arbiter no-op. Ambiguous atoms never reach here on the non-modal path — buildTriggerStack gates
+ * them to the Arbiter too. Pure function of `info.state`. Both seats' triggers are targeted here: there
+ * is no separate human target prompt for a triggered ability.
+ *
+ * (Restriction-pinned triggers — "…an opponent controls" / "…you control" — are already correct-side
+ * via enumeration; this additionally fixes UNRESTRICTED harmful triggers that first-legal could aim at
+ * a friendly. A spell target carries no controller field, so its side is resolved from state.stack.)
+ */
 export function chooseTriggerTargets(candidates, info) {
   const state = info?.state;
   const controller = info?.trigger?.controller;
@@ -1860,7 +1940,7 @@ export function chooseTriggerTargets(candidates, info) {
   // above is untouched either way: this re-ranks only what was already provably safe (ranking-only,
   // THE CREED). Flag absent ⇒ first-correct-side, byte-identical.
   const safe = candidates.filter((c) => (c.targets || []).every(targetOk(atomsFor(c))));
-  if (!safe.length) return NO_SAFE_TARGET;
+  if (!safe.length) return pickForcedTriggerCandidate(state, controller, candidates, program, atomsFor, targetOk) ?? NO_SAFE_TARGET;
   // FLICKER (shelf D21 — Brago, King Eternal; Thassa, Deep-Dwelling; Displacer Kitten; Teleportation Circle): a blink's targets
   // are its controller's own permanents and WHICH is the whole decision. The expander orders subsets maximal-first, so the
   // first correct-side candidate was whatever permanent came first ("up to one") or every permanent you control, tokens
@@ -1879,9 +1959,10 @@ export function chooseTriggerTargets(candidates, info) {
 /**
  * Move every pending trigger onto the stack at this priority-grant checkpoint (CR
  * 603.3). Targets for a targeted trigger are chosen HERE, as the ability goes on the
- * stack (CR 603.3c); pass `{ chooseTargets }` to override the default first-legal
+ * stack (CR 603.3d → 601.2c); pass `{ chooseTargets }` to override the default first-legal
  * pick (an AI/Beginner-interactive chooser). A targeted trigger with no legal target
- * is dropped (logged, not silent).
+ * is dropped (logged, not silent); one whose legal targets are all on the wrong side is
+ * logged too — `trigger-target-forced` or `trigger-no-safe-target`.
  */
 export { phaseInAndExpireShield as _phaseInAndExpireShieldForTests }; // TEFERI'S PROTECTION — the untap-step hook, re-exported for the witness
 export function flushTriggers(state, { chooseTargets } = {}) {
@@ -1954,7 +2035,7 @@ export function flushTriggers(state, { chooseTargets } = {}) {
     if (built === TRIGGER_CONDITION_NOT_MET) {
       // CR 603.4 — the intervening-if condition was false at trigger time; the ability CORRECTLY never goes on
       // the stack. This is EXPECTED (e.g. Garruk's Uprising's ETB "if you control a creature with power 4+, draw"
-      // cast before a power-4 creature is out), NOT a CR 603.3c no-legal-target fizzle. Log it DISTINCTLY so
+      // cast before a power-4 creature is out), NOT a CR 603.3d no-legal-target fizzle. Log it DISTINCTLY so
       // breakage attribution (breakageReport.js / selfplay-report) doesn't conflate a correct condition-skip with a
       // real removal — this was mislabeled `trigger-removed-no-target` and polluted that pile (Garruk's 307×, etc.).
       s = logEvent(s, {
@@ -1965,7 +2046,7 @@ export function flushTriggers(state, { chooseTargets } = {}) {
       continue;
     }
     if (!built) {
-      // A targeted trigger with no legal target is removed from the stack (CR 603.3c).
+      // A targeted trigger with no legal target is removed from the stack (CR 603.3d).
       // Log it so the removal is visible to the player, never a silent disappearance.
       s = logEvent(s, {
         kind: "trigger-removed-no-target",
@@ -1973,6 +2054,23 @@ export function flushTriggers(state, { chooseTargets } = {}) {
         controller: trigger.controller,
       });
       continue;
+    }
+    // Every legal target sat on the wrong side for the effect (CR 603.3d). A MANDATORY ability took the least harmful
+    // one — Man-o'-War alone returns itself — and says so; an optional one (its controller declines, CR 603.5) or one
+    // whose side can't be read goes on the stack as the Arbiter no-op, which resolves as nothing, so say why here.
+    if (built.forced) {
+      s = logEvent(s, {
+        kind: "trigger-target-forced",
+        source: trigger.source?.name || trigger.source,
+        controller: trigger.controller,
+        targets: built.targets.map((t) => t.id),
+      });
+    } else if (built.noSafeTarget) {
+      s = logEvent(s, {
+        kind: "trigger-no-safe-target",
+        source: trigger.source?.name || trigger.source,
+        controller: trigger.controller,
+      });
     }
     let id = trigger.id;
     if (!id) {
@@ -1997,7 +2095,7 @@ export function flushTriggers(state, { chooseTargets } = {}) {
     pendingTriggers: [],
   };
   // BECOMES-TARGET (CR 603.2 — the Phantasmal Illusion family): a TRIGGERED ability that chose a target (bound
-  // above at stack time, CR 603.3c) may target a permanent carrying the "becomes the target … sacrifice it"
+  // above at stack time, CR 603.3d) may target a permanent carrying the "becomes the target … sacrifice it"
   // trigger. This is the 4th and final target-choice site (the spell-cast / activated-ability / loyalty sites
   // live in actionDispatcher). Fire the sac trigger for each just-created triggered-ability stack object, then
   // recurse to put it ABOVE them (CR 603.3b — it resolves first, sacrificing the creature, so the targeting

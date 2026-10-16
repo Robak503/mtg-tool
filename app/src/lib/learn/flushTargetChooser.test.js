@@ -111,10 +111,12 @@ describe("flushTriggers — flush-time target chooser (CR 603.3c)", () => {
   });
 
   // α1: a COUNTER trigger (Mystic Snake "When this enters, counter target spell") now routes NATIVELY
-  // with the enemy/own chooser — it counters an ENEMY's spell, never the controller's own. When ONLY
-  // the controller's own spell is targetable, the chooser finds no safe target (NO_SAFE_TARGET) and
-  // the flush routes to the Arbiter no-op rather than self-countering.
-  it("a counter trigger counters an ENEMY spell natively, and no-ops (→ Arbiter) when only the controller's own spell is legal", () => {
+  // with the enemy/own chooser — it counters an ENEMY's spell, never the controller's own while an
+  // enemy spell is legal. When ONLY the controller's own spell is targetable the mandatory trigger must
+  // still take it (CR 603.3d — removed only when no legal choice exists): it counters its own spell,
+  // logged `trigger-target-forced`. An OPTIONAL counter ("you may counter …") is declined instead
+  // (CR 603.5): the Arbiter no-op, logged `trigger-no-safe-target`.
+  it("a counter trigger counters an ENEMY spell natively; with only the controller's own spell legal it is forced onto it, and an optional one declines", () => {
     const enemySpell = { id: "enemy-stk", kind: "spell", controller: "ai", targets: [], cost: null, source: { name: "Opt", type: "Instant" }, payload: {} };
     const ownSpell = { id: "own-stk", kind: "spell", controller: "user", targets: [], cost: null, source: { name: "Divination", type: "Sorcery" }, payload: {} };
     // enemy spell present → counters it natively, NOT the controller's own
@@ -124,11 +126,22 @@ describe("flushTriggers — flush-time target chooser (CR 603.3c)", () => {
     ).stack.find((o) => o.kind === "triggered-ability");
     expect(trig.payload.resolver).toBe("effect-program");
     expect(trig.payload.params.targets.map((t) => t.id)).toEqual(["enemy-stk"]);
-    // only the controller's OWN spell is legal → no safe target → Arbiter no-op (never counters own)
-    trig = flushTriggers(
+    // only the controller's OWN spell is legal → the mandatory counter is forced onto it (CR 603.3d), and says so
+    const forced = flushTriggers(
       { ...stateWith(), stack: [ownSpell], pendingTriggers: [targetedTrigger("counter target spell")] },
       { chooseTargets: chooseTriggerTargets },
-    ).stack.find((o) => o.kind === "triggered-ability");
+    );
+    trig = forced.stack.find((o) => o.kind === "triggered-ability");
+    expect(trig.payload.resolver).toBe("effect-program");
+    expect(trig.payload.params.targets.map((t) => t.id)).toEqual(["own-stk"]);
+    expect(forced.log.filter((e) => e.kind === "trigger-target-forced").map((e) => e.targets)).toEqual([["own-stk"]]);
+    // the OPTIONAL form declines: the Arbiter no-op, with the reason logged (never a silent no-op)
+    const declined = flushTriggers(
+      { ...stateWith(), stack: [ownSpell], pendingTriggers: [targetedTrigger("you may counter target spell")] },
+      { chooseTargets: chooseTriggerTargets },
+    );
+    trig = declined.stack.find((o) => o.kind === "triggered-ability");
     expect(trig.payload.resolver).toBe("manual");
+    expect(declined.log.filter((e) => e.kind === "trigger-no-safe-target").length).toBe(1);
   });
 });

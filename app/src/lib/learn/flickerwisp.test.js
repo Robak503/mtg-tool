@@ -93,11 +93,15 @@ describe("RUNTIME — the pool, the exile, the return", () => {
     console.log(`WITNESS flickerwispRoundTrip ${JSON.stringify(result)}`);
   });
 
-  it("the flush chooser keeps delayed-blink's OWN-side intent: offered only an opponent's permanent, it declines (a safe no-op)", () => {
-    // atomTargetIntent("delayed-blink") is "own" (programQueries) — the chooser never picks an opponent's permanent for a
-    // blink, so a board with nothing else of yours routes the trigger to the Arbiter no-op rather than guessing a side.
+  it("offered only an opponent's permanent, the MANDATORY blink still takes it (CR 603.3d), and it comes back at the end step", () => {
+    // atomTargetIntent("delayed-blink") is "own" (programQueries): while a permanent of yours is legal the chooser blinks that
+    // (the land trick below). With nothing else of yours on the battlefield the only legal target is the opponent's Mind
+    // Stone, and the ability is not optional, so it is forced onto it (gameEngine.pickForcedTriggerCandidate) — this used to
+    // route to the Arbiter no-op, which resolved as nothing.
     const out = settle(enterPermanent(board({ ai: [perm("stone", MIND_STONE, "ai")] }), FLICKERWISP, "user"));
-    expect({ ai: names(out.players.ai.battlefield), exile: names(out.players.ai.exile) }).toEqual({ ai: ["Mind Stone"], exile: [] });
+    expect({ ai: names(out.players.ai.battlefield), exile: names(out.players.ai.exile), forced: out.log.filter((e) => e.kind === "trigger-target-forced").map((e) => e.targets) })
+      .toEqual({ ai: [], exile: ["Mind Stone"], forced: [["stone"]] });
+    expect(names(toEndStep(out).players.ai.battlefield)).toEqual(["Mind Stone"]);
   });
 
   it("the land trick: a TAPPED Plains of your own leaves and returns UNTAPPED at the end step", () => {

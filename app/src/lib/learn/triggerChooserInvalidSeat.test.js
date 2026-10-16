@@ -43,11 +43,14 @@ describe("the chooser surfaces a corrupted seat", () => {
     expect(() => chooseTriggerTargets(candidates, { state: s, trigger: { controller: "nobody" }, program })).toThrow(/Invalid playerId/);
   });
 
-  it("the documented soft answers are untouched: no state / no controller / no candidates → undefined; no safe side → NO_SAFE_TARGET", () => {
+  it("the documented soft answers are untouched: no state / no controller / no candidates → undefined; no safe side → forced if mandatory (CR 603.3d), NO_SAFE_TARGET if optional", () => {
     const { s, program, candidates } = setup();
     expect(chooseTriggerTargets(candidates, { trigger: { controller: "user" }, program })).toBeUndefined();
     expect(chooseTriggerTargets(candidates, { state: s, trigger: {}, program })).toBeUndefined();
     expect(chooseTriggerTargets([], { state: s, trigger: { controller: "user" }, program })).toBeUndefined();
-    expect(chooseTriggerTargets([candidates[0]], { state: s, trigger: { controller: "user" }, program })).toBe(NO_SAFE_TARGET);
+    const forced = chooseTriggerTargets([candidates[0]], { state: s, trigger: { controller: "user" }, program });
+    expect({ targets: forced?.targets?.map((t) => t.id), forced: forced?.forced }).toEqual({ targets: ["MINE"], forced: true });
+    const optional = parseEffectClause("you may destroy target creature", "Instant", { hasX: false });
+    expect(chooseTriggerTargets([candidates[0]], { state: s, trigger: { controller: "user" }, program: optional })).toBe(NO_SAFE_TARGET);
   });
 });

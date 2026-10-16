@@ -281,7 +281,12 @@ detector registry** (`registerTriggerDetector`) adds shapes (e.g. self-LTB-retur
 chosen-type). At flush, `buildTriggerStack` orders APNAP and routes each trigger:
 HIGH non-modal programs get an `effect-program` stack payload with flush-time
 target choice; intervening-ifs are checked at flush *and* re-checked at
-resolution; anything unmodeled → `manual` (Arbiter no-op).
+resolution; anything unmodeled → `manual` (Arbiter no-op). Targets are chosen by
+`chooseTriggerTargets` (the α1 chooser, both seats — a trigger has no human target
+prompt) on the side each effect intends; when every legal target is on the wrong
+side, a MANDATORY ability still takes the least harmful one (CR 603.3d — Man-o'-War
+alone returns itself; logged `trigger-target-forced`), and an optional one is
+declined as the Arbiter no-op (logged `trigger-no-safe-target`).
 
 `triggerRoutesNatively(effectClause)` is the **shared gate** used by *both* the
 metric (coverage's `native-trigger`) and the runtime flush — it re-parses the

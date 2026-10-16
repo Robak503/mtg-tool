@@ -16,6 +16,60 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🔧 2026-10-16 — FIX: a mandatory trigger whose only legal targets are on the wrong side still takes one (CR 603.3d) — Man-o'-War returns itself · **+0** · corpus 15,492
+> Suite **19,001** green (1 skipped) / 1,780 files on the tree rebased onto 4463487c (18,968 / 1,777 on c1f630ab before the
+> rebase). Flip-diff **0 / 0 / 0**. **Mutants 24/24** on assertions, restore byte-identical. 48 seeded July-list games
+> **byte-identical** to c1f630ab (`a1a9f98e68c3b6c3` / `fdbb728c27d644a7`, both reproduced on a pristine c1f630ab archive first); on
+> the rebased tree the same 48 games log 0 forced / 0 declined. Lint 0; citations 117 (baseline). Top 1,000 904 · top 2,500 1,743
+> (unchanged by this slice). Banked on shelf D18 (2026-09-30).
+> · **The bug.** Man-o'-War with no other creature on the battlefield never bounced itself, either seat. The trigger DID go on the
+>   stack, as the Arbiter no-op: the α1 chooser found no opponent's creature, answered `NO_SAFE_TARGET`, and `buildTriggerStack`
+>   gave it the `manual` payload, which resolves as nothing and logs a bare `stack-resolve` (D18's "stack-resolve" was this, not
+>   the creature spell). A card classified `native-trigger` lost its whole ability with no reason logged. The enumeration was
+>   right all along — a creature is a legal target for its own "target creature"; the chooser's refusal was the drop.
+> · **The rule.** CR 603.3d removes a triggered ability only when no legal choice can be made. `pickForcedTriggerCandidate`
+>   (gameEngine.js): when no candidate puts every target on its atom's side, a MANDATORY ability takes the least harmful one — a
+>   wrong-side permanent costs its mana value, then power (behind `usePolicyEval`, `permanentValue`), a spell or graveyard card
+>   its mana value, an ability on the stack or a player nothing; damage that could kill a wrong-side player (a fixed amount ≥ their
+>   life, or an amount that isn't fixed) ranks last; ties keep enumeration order. NOT forced — the Arbiter no-op stays — for
+>   "choose up to one" (choosing none removes it, as before), an optional chosen target ("you may", or an `optional-*` payment
+>   around the payoff: its controller declines, CR 603.5), or a side that can't be read. `flushTriggers` logs
+>   `trigger-target-forced` / `trigger-no-safe-target`: neither case is silent. All three branches (intervening-if, non-modal,
+>   modal) carry it. CR cites in the touched code corrected 603.3c → 603.3d where they meant targets / no-target removal.
+> · **The human path.** There is no separate human target prompt for a triggered ability — `chooseTriggerTargets` targets for both
+>   seats at the flush. Witnessed through the session driver: the human casts Man-o'-War, no target decision is raised, and it
+>   returns to the human's hand. The human's only trigger decision is the "may" prompt, which an optional wrong-side trigger never
+>   reaches (declined for them, now logged).
+> · Witness `forcedTriggerTarget.test.js` (24, real fixtures; cast + resolved through the engine): Man-o'-War both seats, the
+>   Giant control, the lower-MV pick (Bears), the power and tie-order rules (Centaur Courser, Gray Ogre), Mystic Snake countering
+>   the cheaper own spell, Flametongue Kavu, Nekrataal, Sparkmage Apprentice behind Leyline of Sanctity at 20 and 1 life, Murderous
+>   Redcap (twice, through persist), Bloodhall Priest (intervening-if), Duergar Hedge-Mage + its control, Separatist Voidmage + its
+>   control, Equilibrium (optional payment), Return to Nature's modes as a flushed trigger (forced + ambiguous-only), the session
+>   driver, and three chooser-level price units. Five tests that pinned the old no-op now pin the rule (`enemyTriggerChooser`,
+>   `flushTargetChooser` — Mystic Snake's counter, `triggerChooserInvalidSeat`, `boardEval` — the forced pick under the evaluator,
+>   `flickerwisp` — the mandatory blink of an opponent's Mind Stone); the first three sit beside an optional twin that keeps
+>   `NO_SAFE_TARGET`.
+> · **Blast radius (runtime probe: every native-trigger permanent's targeted trigger, flushed with its source alone on the
+>   battlefield).** Pristine tree: 107 of 1,167 descriptors went to the Arbiter no-op. Now: **64 forced (62 cards)** + **43
+>   declined and logged** + 0 other — the control balances. Forced, by play rank: Ulamog, the Infinite Gyre (cast), Venser, Shaper
+>   Savant, Tidespout Tyrant, Angel of Despair, Awaken the Honored Dead, Skinrender, Ashen Rider, Man-o'-War, Network Disruptor,
+>   Spitebellows, Aethersnipe, Aether Adept, Flametongue Kavu, Mist Raven, … Declined: Aura Shards, Brinelin, Necropede,
+>   Surgespanner, Frenzied Goblin, … (all optional).
+> · **Results (flag to Omnath).** The 48 seeds never reach the case — read from the games' own logs: 0 forced, 0 declined, on
+>   both trees. Positive control: the same read finds the flush's other lines in these games (`trigger-condition-not-met` ×10,
+>   `trigger-removed-no-target` ×1 in the 8-seed set; each log complete, turn 1 to the last), so the zero is a measurement. It
+>   matches the byte-identical trajectories. No action-set change. An OUTCOME change wherever the board occurs (an
+>   enters trigger like Man-o'-War's with no correct-side target, Mystic Snake over its own spell), so whether it moves the epoch cut
+>   is Omnath's call; nothing in the July seeds is affected.
+> · ⚠️ Found, not fixed (queued): (1) the AI's cast picker (`opponentAI.pickCastAction`) never reads a permanent's enters trigger,
+>   so it can now cast Man-o'-War onto a board with no enemy creature and bounce its own, or flash in Mystic Snake over its own
+>   spell and counter it — the bug used to hide this; a cast-time hold for a mandatory trigger with no correct-side target is the
+>   next slice (an AI change: needs its own A/B). (2) Forced-pick refinements: a forced tap could prefer an already-tapped
+>   permanent (Network Disruptor), a forced −X/−X or damage a creature that survives it (Festering Goblin), and a forced bounce
+>   treats a token as cheapest though bouncing it loses it; a damage amount that isn't printed is read as possibly lethal, so
+>   Murderous Redcap pings itself rather than its controller at 20 life. (3) An optional wrong-side trigger is declined for a human
+>   too — offering them the "may" needs the prompt to show the target.
+
 > ## 🛡️ 2026-10-16 — GUARD: the closed targetType vocabulary — the classifier and the trigger flush can no longer disagree on a target slot · **±0** · corpus 15,492
 > Suite **1,781 files / 18,989** green on 4463487c (1 pre-existing skip; first gated on c1f630ab, 1,778 / 18,956, then
 > rebased and re-gated). Flip-diff **0 / 0 / 0** (34,620 cards) and program fingerprint **byte-identical** on both bases.

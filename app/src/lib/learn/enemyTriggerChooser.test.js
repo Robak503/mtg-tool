@@ -110,10 +110,22 @@ describe("α1 — chooseTriggerTargets picks the correct side", () => {
     ];
     expect(chooseTriggerTargets(candidates, info(base(), { program })).targets.map((t) => t.id)).toEqual(["mine"]);
   });
-  it("returns NO_SAFE_TARGET when no correct-side target is legal (never first-legal a friendly)", () => {
-    const program = { atoms: [{ op: "destroy", targetType: "creature", restrictions: [] }] };
-    const onlyOwn = [{ targets: [{ type: "creature", id: "mine", controller: "user", atomIndex: 0 }] }];
-    expect(chooseTriggerTargets(onlyOwn, info(base(), { program }))).toBe(NO_SAFE_TARGET);
+  // CR 603.3d — a triggered ability is removed only when NO legal choice exists. With only the controller's own creatures
+  // legal, a MANDATORY destroy still takes one (the least valuable, marked `forced`); an OPTIONAL one ("you may destroy")
+  // gets NO_SAFE_TARGET — its controller declines it as it resolves (CR 603.5).
+  it("no correct-side target: a MANDATORY ability is forced onto the least valuable legal target; an optional one gets NO_SAFE_TARGET", () => {
+    const C = (id, mana, cmc) => createPermanent({ id, controller: "user", card: { id, name: id, type: "Creature — Bear", mana, cmc, power: "2", toughness: "2" } });
+    const g = base();
+    const s = { ...g, players: { ...g.players, user: { ...g.players.user, battlefield: [C("pricey", "{4}{G}", 5), C("cheap", "{G}", 1)] } } };
+    const onlyOwn = [
+      { targets: [{ type: "creature", id: "pricey", controller: "user", atomIndex: 0 }] },
+      { targets: [{ type: "creature", id: "cheap", controller: "user", atomIndex: 0 }] },
+    ];
+    const mandatory = { atoms: [{ op: "destroy", targetType: "creature", restrictions: [] }] };
+    const optional = { atoms: [{ op: "destroy", targetType: "creature", restrictions: [], optional: true }] };
+    const pick = chooseTriggerTargets(onlyOwn, info(s, { program: mandatory }));
+    expect({ targets: pick?.targets?.map((t) => t.id), forced: pick?.forced }).toEqual({ targets: ["cheap"], forced: true });
+    expect(chooseTriggerTargets(onlyOwn, info(s, { program: optional }))).toBe(NO_SAFE_TARGET);
   });
 });
 

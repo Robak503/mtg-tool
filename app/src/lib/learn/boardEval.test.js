@@ -146,16 +146,32 @@ describe("⭐⭐ LAW 6 — the trigger-target chooser converts (slice 3)", () =>
     expect(row).toEqual({ picked: "BIG" });
   });
 
-  it("the side FILTER is untouched by the flag: an own-creature candidate is refused on BOTH sides", () => {
-    const { s, program } = setup();
+  it("the side FILTER is untouched by the flag: an enemy candidate wins over an own one on BOTH sides", () => {
+    const { s, program, candidates } = setup();
     const own = createPermanent({ id: "OWN", controller: "user", summoningSick: false,
       card: { id: "c-OWN", name: "My Guy", type: "Creature — Bear", power: "2", toughness: "2", oracle: "" } });
     const s2 = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [own] } } };
-    const onlyOwn = [{ targets: [{ type: "creature", id: "OWN", controller: "user", atomIndex: 0 }] }];
+    const withOwn = [{ targets: [{ type: "creature", id: "OWN", controller: "user", atomIndex: 0 }] }, ...candidates];
+    const offPick = chooseTriggerTargets(withOwn, { state: s2, trigger: { controller: "user" }, program });
+    const onPick = chooseTriggerTargets(withOwn, { state: { ...s2, usePolicyEval: true }, trigger: { controller: "user" }, program });
+    expect({ off: offPick?.targets?.[0]?.id, on: onPick?.targets?.[0]?.id, forced: [!!offPick?.forced, !!onPick?.forced] })
+      .toEqual({ off: "SM", on: "BIG", forced: [false, false] }); // never friendly fire while an enemy target is legal
+  });
+
+  // CR 603.3d — with ONLY own creatures legal, the mandatory removal is forced onto one of them, and the flag decides which:
+  // the legacy pick gives up the lowest mana value (Llanowar Elves, MV 1), the evaluator the least VALUABLE (the vanilla
+  // Bear — the Elves' ramp role outvalues it, the slice-1 witness's own reason).
+  it("⭐ the FORCED pick converts too: flag off gives up Llanowar Elves (lowest MV), flag on the vanilla Bear (least valuable)", () => {
+    const { s, program } = setup();
+    const s2 = { ...s, players: { ...s.players, ai: { ...s.players.ai, battlefield: [] }, user: { ...s.players.user, battlefield: [perm("ELF", ELVES), perm("B1", BEAR("B1"))] } } };
+    const onlyOwn = [
+      { targets: [{ type: "creature", id: "B1", controller: "user", atomIndex: 0 }] },
+      { targets: [{ type: "creature", id: "ELF", controller: "user", atomIndex: 0 }] },
+    ];
     const offPick = chooseTriggerTargets(onlyOwn, { state: s2, trigger: { controller: "user" }, program });
     const onPick = chooseTriggerTargets(onlyOwn, { state: { ...s2, usePolicyEval: true }, trigger: { controller: "user" }, program });
-    expect(String(offPick)).toBe(String(onPick)); // both NO_SAFE_TARGET — never friendly fire, flag or no flag
-    expect(offPick?.targets).toBeUndefined();
+    expect({ off: offPick?.targets?.[0]?.id, on: onPick?.targets?.[0]?.id, forced: [offPick?.forced, onPick?.forced] })
+      .toEqual({ off: "ELF", on: "B1", forced: [true, true] });
   });
 });
 
