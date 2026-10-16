@@ -16,6 +16,20 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🌿 2026-10-16 — FEAT: Mole Module's milled pick offers an Aura with something to enchant · **±0** · corpus 15,494
+> Suite **19,021** green (1 skipped) / 1,782 files. Lint 0. Flip-diff **0 / 0 / 0**. **Mutants 3/3**, restore byte-identical. CR citations: no new dead cite.
+> Coverage unchanged (top 1,000 904 · top 2,500 1,743).
+> · **The withholding lifted:** `library.applyPickMilledToHand`'s battlefield destination (Mole Module: "mill four cards. You may put
+>   a permanent card from among them onto the battlefield.") never offered an Aura. It offers one now when it has something to
+>   enchant (`auraEntry.auraEntryHasHost`): the pick enters through `enterCardFromZone`, which chooses the host (CR 303.4f). One
+>   with nothing to enchant would stay in the graveyard (CR 303.4g) and is not offered. One candidate still enters directly; two or
+>   more still pause (`runProgram.resolveMilledPickChoice` enters the pick the same way).
+> · Graduated: `moleModule.test.js`'s "the Aura withheld" pin keeps its outcome on its own board — no creature, so nothing to
+>   enchant — and its comment now says why.
+> · Witness: `moleModule.test.js` +4 with real fixtures — the offer holds Rancor, Pacifism and the Forest (never the instant);
+>   Rancor picked enters on your Grizzly Bears; Pacifism on the opponent's Craw Wurm; a lone Aura candidate enters directly,
+>   attached; with no creature anywhere neither Aura is offered and the Forest enters alone.
+
 > ## 🌿 2026-10-16 — FEAT: the battlefield search finds enchantments — Academy Rector · an Aura found enters attached · **+1** · corpus 15,494
 > Suite **19,017** green (1 skipped) / 1,782 files. Lint 0. Flip-diff **1 / 0 / 0**. **Mutants 5/5**, restore byte-identical. CR citations: no new dead cite.
 > Coverage top 1,000 904 · top 2,500 1,743 (unchanged — Academy Rector ranks below both).

@@ -18,6 +18,7 @@ summarizes the notable changes.
 - **Champion's Helm** — equipped creature gets +2/+2 and has hexproof while it is legendary; **Trailblazer's Boots** — equipped creature has nonbasic landwalk (it can't be blocked while the defending player controls a nonbasic land); also **Gimli's Axe**, **Hero's Heirloom** and **Dryad Sophisticate**
 
 ### Changed
+- **Mole Module**: an Aura among the milled cards can now be put onto the battlefield too, enchanting something as it enters (it is offered only when there is something it can enchant)
 - **Replenish** and **Resurgent Belief** now return your Aura cards too: each Aura comes back enchanting something that was already on the battlefield (an opponent's permanent if that is the only legal choice), and one with nothing to enchant stays in your graveyard. They used to leave every Aura behind. Enchantments returned together also see each other enter now (a returning **Eidolon of Blossoms** draws a card for each)
 - The Academy calls the other players "Opponent 1", "Opponent 2" and "Opponent 3" everywhere, as the board does; the turn line, the seat list, the attack choices and Ask Jace's answers used to call them "AI 1" to "AI 3"
 - Declaring attackers on a very wide board (hundreds of creatures) is about four times faster: the game no longer re-reads every card's rules text for each possible blocker

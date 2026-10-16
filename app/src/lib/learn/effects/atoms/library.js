@@ -1939,9 +1939,8 @@ export function libraryKeywordClauseParser(clause) {
   // MOLE MODULE (SHELF-85 · Halfshell Q4, 2026-09-05) — the BATTLEFIELD destination: "mill four cards. You may put a
   // permanent card from among them onto the battlefield." Same candidate set (the stamp ∩ the live graveyard), same pause;
   // the pick enters via enterCardFromZone (ETBs fire, a walker gets its loyalty). "permanent" is the CR 110.4a gate
-  // (`permanentOnly` — a positive front-face permanent-type match), not a group word. ⛔ AURAS ARE NEVER OFFERED for the
-  // battlefield destination: an Aura entering un-cast must choose what it enchants (CR 303.4f) and this path has no such
-  // choice — it would land unattached (the wrong-cheat FP). Withholding the Aura is a documented UNDER-offer.
+  // (`permanentOnly` — a positive front-face permanent-type match), not a group word. An AURA is offered for the battlefield
+  // destination when it has something to enchant (2026-10-16): the entry chooses what it enchants (CR 303.4f — applyPickMilledToHand).
   m = t.match(/^put (?:a|an|one) (?:([a-z, /]+?) )?card from among (?:them|those cards|the milled cards) (into your hand|onto the battlefield)$/);
   if (m) {
     const toBattlefield = m[2] === "onto the battlefield";
@@ -2801,14 +2800,15 @@ export function applyPickMilledToHand(state, atom, ctx) {
   const stamped = new Set(state._lastMilledIds || []);
   const gy = state.players[owner].graveyard || [];
   // MOLE MODULE — the battlefield destination (op pick-milled-to-battlefield): the pick ENTERS via enterCardFromZone; the
-  // `permanentOnly` gate is a positive front-face permanent-type match (CR 110.4a); an Aura is withheld (CR 303.4f — see the
-  // parse arm). The hand form is byte-identical to before.
+  // `permanentOnly` gate is a positive front-face permanent-type match (CR 110.4a). An Aura (2026-10-16 — withheld until the
+  // entry could choose a host) enters choosing what it enchants (CR 303.4f), so it is offered when it has something to enchant;
+  // with nothing it would stay in the graveyard (CR 303.4g) and enter nothing, so it is not. The hand form is byte-identical.
   const toBattlefield = atom.op === "pick-milled-to-battlefield";
   const PERMANENT_TYPE_RE = /\b(?:Artifact|Creature|Enchantment|Land|Planeswalker|Battle)\b/;
   const candidates = gy.filter((c) => {
     if (!stamped.has(c.id)) return false;
     const front = String(c.type || c.type_line || "").split(" // ")[0];
-    if (toBattlefield && /\bAura\b/.test(front)) return false;
+    if (toBattlefield && /\bAura\b/.test(front) && !auraEntryHasHost(state, c, owner)) return false;
     if (atom.permanentOnly && !PERMANENT_TYPE_RE.test(front)) return false;
     if (atom.cardFilter) {
       // A "|"-union of basic type words (the parse arm's closed vocabulary) — the front face must
@@ -2868,7 +2868,7 @@ export function applyTemptingOfferLand(state, atom, ctx) {
 export const libraryResolvers = {
   "tempting-offer-land": applyTemptingOfferLand, // Tempt with Discovery — the offerer's first land search; the settler chains the offer
   "pick-milled-to-hand": applyPickMilledToHand, // MILLED-REFERENT PICK (Ripples / Six) — the _lastMilledIds ∩ live-GY choice
-  "pick-milled-to-battlefield": applyPickMilledToHand, // MOLE MODULE — the same pick, the pick ENTERS the battlefield (enterCardFromZone); Auras withheld
+  "pick-milled-to-battlefield": applyPickMilledToHand, // MOLE MODULE — the same pick, the pick ENTERS the battlefield (enterCardFromZone); an Aura only with something to enchant
   "tutor": applyTutor,
   "shuffle": applyShuffle,
   "enchanted-gy-mill": applyEnchantedGyMill, // ENCHANTED-PLAYER GY-COUNT mill (Fraying Sanity — SHELF S7)
