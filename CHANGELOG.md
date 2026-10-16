@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Virtue of Persistence**, **Virtue of Knowledge** and **Virtue of Loyalty** (and **An Unexpected Party**) — Adventures whose permanent half is an enchantment: cast the Adventure (Locthwain Scorn, Vantress Visions, Ardenvale Fealty, At the Door) and the card waits in exile, then cast the enchantment from there later — or cast the enchantment straight from your hand
 - **"Whenever a permanent is turned face up" abilities now work.** Turning a manifested creature face up (paying its mana cost) triggers them: **Aven Farseer**, **Aphetto Runecaster**, **Bonethorn Valesk**, **Unblinking Bleb**, **Pine Walker**, **Experiment Twelve**, **Salt Road Ambushers**, **Sumala Sentry**, **Pyrotechnic Performer**, **True Identity**, **Mastery of the Unseen**, **Fatal Mutation**, **Projektor Inspector** and **Perimeter Enforcer**, and **Deathmist Raptor** returns from your graveyard, face up. The turned-face-up abilities of **Trail of Mystery**, **Secret Plans**, **Roshan, Hidden Magister** and **Case of the Pilfered Proof** trigger too (their other abilities aren't supported yet)
 - **Academy Rector** — when it dies, you may exile it to search your library for an enchantment card and put it onto the battlefield; an Aura found this way enters enchanting something, and the search offers an Aura only when there is something it can enchant
 - **Retether** — returns each Aura card from your graveyard to the battlefield, each onto a creature; an Aura that can't enchant a creature on the battlefield stays in your graveyard
@@ -37,6 +38,7 @@ summarizes the notable changes.
 - **Brago, King Eternal** and **Displacer Kitten** can now blink Auras: the AI uses it to move your Pacifism-style Aura onto an opponent's bigger creature. An Aura the game can't yet place when it returns (a Curse, Animate Dead) is still not offered
 
 ### Fixed
+- **Virtue of Strength**, **Virtue of Courage** and **Promise of Aclazotz** were offered only as one combined card — both halves' costs added together, and Virtue of Courage even at instant speed on an opponent's turn; each now casts as its enchantment at the enchantment's own cost and timing (their Adventures are not offered yet)
 - **Kaust, Eyes of the Glade** drew a card whenever it dealt combat damage to a player itself; its ability is about creatures that were turned face up this turn, so it no longer triggers that way
 - A manifested **Gadget Technician** (and **Ponyback Brigade**, **Efreet Weaponmaster**, **Offender at Large**, **Rakish Scoundrel**, **Concert Kaboomist**, **Flavor Disaster**, **Crowd-Control Warden**) could be turned face up, but its "enters or is turned face up" ability then did nothing; like other cards whose own turned-face-up ability isn't supported yet, it is no longer offered the turn-up
 - Abilities that trigger when a manifested creature is turned face up — including dies abilities, if it dies right away — now go on the stack immediately, before you act again

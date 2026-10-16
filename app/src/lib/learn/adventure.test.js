@@ -1,8 +1,9 @@
 /**
- * adventure.test.js — ADVENTURE (CR 715). An Adventure card has a CREATURE half and an instant/sorcery
- * "Adventure" half. From hand you may cast EITHER half (CR 715.3). Casting the Adventure half resolves its
- * spell effect, then EXILES the card (CR 715.3d); while the card is exiled you may cast the CREATURE half
- * from exile at its own mana cost (CR 715.3d). The creature then enters the battlefield as normal.
+ * adventure.test.js — ADVENTURE (CR 715). An Adventure card has a PERMANENT half (here a creature — the
+ * enchantment halves are pinned in enchantmentAdventure.test.js) and an instant/sorcery "Adventure" half. From
+ * hand you may cast EITHER half (CR 715.3). Casting the Adventure half resolves its spell effect, then EXILES the
+ * card; while the card is exiled you may cast the permanent half from exile at its own mana cost (both CR
+ * 715.3d). The creature then enters the battlefield as normal.
  *
  * THE CREED: a card is credited native (and offered the adventure cast path) ONLY when BOTH halves are
  * modeled — the creature half is a native tier AND the adventure half's spell effect parses HIGH. A card
@@ -21,7 +22,7 @@ import { legalActionsForPlayer, filterActions } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { resolveTopOfStack } from "./gameEngine.js";
 import { classifyCard } from "./coverage.js";
-import { parseAdventureCard, isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js";
+import { parseAdventureCard, isAdventureCard, adventureFaceCard, permanentFaceCard } from "./adventure.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -118,18 +119,18 @@ describe("ADVENTURE — the metric (classifyCard: a clean card flips native-mixe
 });
 
 describe("ADVENTURE — the shape parser (split the combined oracle into two faces)", () => {
-  it("parseAdventureCard splits creature + adventure halves and strips the reminder", () => {
+  it("parseAdventureCard splits permanent (here a creature) + adventure halves and strips the reminder", () => {
     const p = parseAdventureCard(FOULMIRE);
     expect(p).toBeTruthy();
-    expect(p.creature).toMatchObject({ name: "Foulmire Knight", type: "Creature — Zombie Knight", mana: "{B}" });
-    expect(p.creature.oracle).toBe("Deathtouch");
+    expect(p.permanent).toMatchObject({ name: "Foulmire Knight", type: "Creature — Zombie Knight", mana: "{B}" });
+    expect(p.permanent.oracle).toBe("Deathtouch");
     expect(p.adventure).toMatchObject({ name: "Profane Insight", type: "Instant — Adventure", mana: "{2}{B}" });
     expect(p.adventure.oracle).toBe("You draw a card and you lose 1 life."); // (Then exile…) reminder stripped
   });
   it("handles a Food-token reminder that contains quotes + braces (Curious Pair)", () => {
     const p = parseAdventureCard(CURIOUS);
     expect(p.adventure.oracle).toBe("Create a Food token."); // the whole nested reminder is stripped
-    expect(p.creature.oracle).toBe(""); // vanilla creature half
+    expect(p.permanent.oracle).toBe(""); // vanilla creature half
   });
   it("isAdventureCard is true for an adventure card, false for a normal card", () => {
     expect(isAdventureCard(FAERIE)).toBe(true);
@@ -138,7 +139,7 @@ describe("ADVENTURE — the shape parser (split the combined oracle into two fac
   });
   it("faceCard projections carry the right face fields (same id)", () => {
     expect(adventureFaceCard(FAERIE)).toMatchObject({ id: "fae1", name: "Gift of the Fae", type: "Sorcery — Adventure", mana: "{1}{W}" });
-    expect(creatureFaceCard(FAERIE)).toMatchObject({ id: "fae1", name: "Faerie Guidemother", type: "Creature — Faerie", mana: "{W}" });
+    expect(permanentFaceCard(FAERIE)).toMatchObject({ id: "fae1", name: "Faerie Guidemother", type: "Creature — Faerie", mana: "{W}" });
   });
 });
 
@@ -192,7 +193,7 @@ describe("ADVENTURE — the COMBINED card is never offered (CR 715.3); each half
     expect(casts.some(a => String(a.name).includes("//"))).toBe(false);  // the combined card is gone
   });
 
-  it("the creature half casts from hand at ITS OWN cost and enters as the creature (CR 715.4)", () => {
+  it("the creature half casts from hand at ITS OWN cost and enters as the creature (CR 715.3, 715.4)", () => {
     let s = advState({ hand: [FOULMIRE], battlefield: [swamp("s1")] }); // ONLY {B} available — combined/summed would be unaffordable
     const casts = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").filter(a => a.cardId === "foul1");
     expect(casts).toHaveLength(1); // the {2}{B} adventure half is unaffordable; the {B} creature half is castable

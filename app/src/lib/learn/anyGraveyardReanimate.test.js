@@ -8,8 +8,9 @@
  * its controller. The intent is now "any": the chooser's side filter lets it through (it filters only enemy / own /
  * ambiguous), the resolvability gates refuse only "ambiguous". Which card is best is the policy evaluator's question.
  *
- * Virtue of Persistence prints the same line but stays parked for a different reason: the Adventure lane only models a
- * CREATURE half (adventure.parseAdventureCard), so the enchantment Adventures fall to the spell classifier — banked.
+ * Virtue of Persistence prints the same line; it stayed parked until the Adventure lane took ENCHANTMENT halves
+ * (adventure.parseAdventureCard, 2026-10-16) — its upkeep reanimate is witnessed through that lane in
+ * enchantmentAdventure.test.js.
  *
  * Real oracle fixtures (bundled Scryfall, probed 2026-09-30). The trigger fires through the real step path
  * (runStepActions(advanceStep(…)) into the upkeep) and resolves through the stack.

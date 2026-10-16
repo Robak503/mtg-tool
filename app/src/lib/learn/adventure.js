@@ -1,15 +1,17 @@
 /**
- * adventure.js — ADVENTURE (CR 715). An Adventure card is a split-like card with a CREATURE half and an
- * instant/sorcery "Adventure" half. From your hand you may cast EITHER half (CR 715.3). Casting the
- * Adventure half puts an instant/sorcery on the stack; when it resolves, instead of going to the graveyard
- * the card is EXILED (CR 715.3d), and while it remains exiled you may cast the CREATURE half from exile
- * (CR 715.3d), at the creature's own mana cost. Casting the creature half (from hand or from adventure-
- * exile) puts the creature permanent onto the battlefield as normal.
+ * adventure.js — ADVENTURE (CR 715). An adventurer card has its NORMAL characteristics — a PERMANENT: a creature,
+ * or an enchantment (the Wilds of Eldraine Virtues, An Unexpected Party, Promise of Aclazotz) — and, in the inset
+ * frame, ALTERNATIVE characteristics it may have while it's a spell: an instant/sorcery "Adventure" (CR 715.2,
+ * 205.3k). As the card is cast its owner chooses which (CR 715.3). Casting the Adventure puts an instant/sorcery
+ * on the stack; as it resolves, instead of going to the graveyard the card is EXILED, and for as long as it
+ * remains exiled its owner may cast it — not as an Adventure, so as the permanent, at that half's own cost (CR
+ * 715.3d). Casting the permanent half (from hand or from adventure-exile) puts that permanent onto the battlefield
+ * as normal; off the stack the card has only its normal characteristics (CR 715.4).
  *
  * This module is the SINGLE source of truth for the Adventure card SHAPE:
- *   - parseAdventureCard(card)   → split the combined publicCard oracle into { creature, adventure } faces
+ *   - parseAdventureCard(card)   → split the combined publicCard oracle into { permanent, adventure } faces
  *   - isAdventureCard(card)      → is this an instant/sorcery-adventure card?
- *   - creatureFaceCard(card)     → a card-view projected onto the CREATURE half (type/oracle/mana/name)
+ *   - permanentFaceCard(card)    → a card-view projected onto the PERMANENT half (type/oracle/mana/name)
  *   - adventureFaceCard(card)    → a card-view projected onto the ADVENTURE half (type/oracle/mana/name)
  * The CREED native gate (BOTH halves modeled) lives in coverage.js (classifyAdventure), where classifyCard /
  * spellIsNative are already in scope — this module stays a PURE shape module (no coverage.js import, so the
@@ -19,7 +21,8 @@
  *
  * publicCard (cardIndex.oracleText) renders a face-bearing card as:
  *     <FaceName> - <type line> <mana>\n<face oracle text>\n//\n<FaceName> - <type line> <mana>\n<face oracle>
- * so the combined `type` is "Creature — Giant // Instant — Adventure" and the combined `oracle` carries both
+ * so the combined `type` is "Creature — Giant // Instant — Adventure" (or "Enchantment // Sorcery — Adventure")
+ * and the combined `oracle` carries both
  * faces joined by a line that is exactly "//". We split on that delimiter, then peel the "<name> - <type>
  * <mana>" header line off each half (it's metadata cardIndex injected, NOT rules text) to recover each
  * face's bare oracle text. The header is matched defensively (the face name + " - " + a type fragment); if a
@@ -27,9 +30,10 @@
  * false-negative — it stays whatever tier it was, never a mis-credit).
  */
 
-// The "(Then exile this card. You may cast the creature later from exile.)" reminder (CR 207.2 — no rules
-// meaning) printed on the Adventure half. Stripped before parsing the adventure spell's effect so the bare
-// reminder doesn't drag the program down. Matched permissively (any "then exile this card …" parenthetical).
+// The "(Then exile this card. You may cast the creature later from exile.)" reminder (CR 207.2a — no rules
+// meaning; "… cast the enchantment later …" on an enchantment Adventure) printed on the Adventure half. Stripped
+// before parsing the adventure spell's effect so the bare reminder doesn't drag the program down. Matched
+// permissively (any "then exile this card …" parenthetical).
 const ADVENTURE_REMINDER_RE = /\(\s*then exile this card[^)]*\)/gi;
 
 const stripAdventureReminder = (o) =>
@@ -62,13 +66,24 @@ function parseFaceBlock(block) {
 
 /**
  * Split an Adventure card's combined publicCard fields into its two faces. Returns
- *   { creature: { name, type, oracle, mana }, adventure: { name, type, oracle, mana } }
+ *   { permanent: { name, type, oracle, mana }, adventure: { name, type, oracle, mana } }
  * or null when the card isn't an instant/sorcery-adventure card in the expected combined shape.
  *
  * Detection is grounded on the TYPE line ("… // … — Adventure"): the combined type contains "//" and the
  * Adventure-side type fragment contains "Adventure". This never false-positives on a normal card (no "//"),
  * a regular split/MDFC (no "Adventure"), or a creature-back DFC. The adventure half MUST be an instant or
- * sorcery (CR 715.1) — a card whose "Adventure" half is something else (none in the real corpus) returns null.
+ * sorcery (Adventure is a spell type, CR 205.3k).
+ *
+ * THE PERMANENT HALF: a CREATURE or an ENCHANTMENT (isModeledPermanentHalf). Both are cast at sorcery speed
+ * (CR 303.1 for the enchantment) and enter through the same PERMANENT_ETB lane as any face cast (the projected
+ * face rides as the permanent, the whole card as its printedCard), and the classifiers that judge a creature's
+ * triggers and statics judge an enchantment's the same way. Every other normal half returns null and stays out
+ * of this lane (a safe false-negative):
+ *   - an ARTIFACT half (Equipment, The Arkenstone, Monster Manual) — not yet driven through the face lane;
+ *   - a LAND half (the Final Fantasy Towns) — CR 715.3d lets its owner PLAY it from exile, a land drop the
+ *     exile generator does not offer;
+ *   - a SORCERY half (Twice Upon a Time) — not a permanent at all;
+ *   - an enchantment with a subtype (an Aura, a Saga) — no carrier exists to drive it.
  */
 export function parseAdventureCard(card) {
   if (!card) return null;
@@ -82,19 +97,31 @@ export function parseAdventureCard(card) {
   const b = parseFaceBlock(parts[1]);
   if (!a || !b) return null;
   // Identify which block is the Adventure half (its type line contains "Adventure" and is an instant/sorcery)
-  // and which is the creature half. The creature half is the OTHER block (must be a Creature).
+  // and which is the permanent half. The permanent half is the OTHER block (a Creature or an Enchantment).
   const aIsAdv = /\bAdventure\b/i.test(a.typeLine);
   const bIsAdv = /\bAdventure\b/i.test(b.typeLine);
-  let advBlock, creBlock;
-  if (aIsAdv && !bIsAdv) { advBlock = a; creBlock = b; }
-  else if (bIsAdv && !aIsAdv) { advBlock = b; creBlock = a; }
+  let advBlock, permBlock;
+  if (aIsAdv && !bIsAdv) { advBlock = a; permBlock = b; }
+  else if (bIsAdv && !aIsAdv) { advBlock = b; permBlock = a; }
   else return null; // ambiguous / both / neither → not a clean adventure card
-  if (!/\b(Instant|Sorcery)\b/i.test(advBlock.typeLine)) return null; // CR 715.1 — adventure is instant/sorcery
-  if (!/\bCreature\b/i.test(creBlock.typeLine)) return null;          // the other half must be the creature
+  if (!/\b(Instant|Sorcery)\b/i.test(advBlock.typeLine)) return null; // CR 205.3k — Adventure is a spell type
+  if (!isModeledPermanentHalf(permBlock.typeLine)) return null;       // a creature or an enchantment (see above)
   return {
-    creature: { name: creBlock.name, type: creBlock.typeLine, oracle: creBlock.oracle, mana: creBlock.mana },
+    permanent: { name: permBlock.name, type: permBlock.typeLine, oracle: permBlock.oracle, mana: permBlock.mana },
     adventure: { name: advBlock.name, type: advBlock.typeLine, oracle: stripAdventureReminder(advBlock.oracle), mana: advBlock.mana },
   };
+}
+
+/**
+ * The permanent half this lane models. Every CREATURE half, exactly as before (an Artifact Creature included), plus
+ * an ENCHANTMENT half that is nothing else: no other card type and no subtype — every enchantment Adventure in the
+ * corpus (2026-10-16). A subtype changes how the permanent is cast or what it does (an Aura targets, a Saga keeps
+ * lore counters, a Class levels up); no Adventure prints one, so none is admitted without a carrier to drive it.
+ */
+function isModeledPermanentHalf(typeLine) {
+  const line = String(typeLine || "").trim();
+  if (/\bCreature\b/i.test(line)) return true;
+  return /^(?:Legendary )?Enchantment$/i.test(line);
 }
 
 /** True when `card` is an instant/sorcery Adventure card in the expected combined shape. */
@@ -103,14 +130,14 @@ export function isAdventureCard(card) {
 }
 
 /**
- * A card-view projected onto the CREATURE half: { id, name, type, oracle, mana } (id preserved so zone moves
- * still find it). Used when the creature is cast (from hand or from adventure-exile) so it enters as the
- * creature, not the combined card. Returns null for a non-adventure card.
+ * A card-view projected onto the PERMANENT half: { id, name, type, oracle, mana } (id preserved so zone moves
+ * still find it). Used when the permanent is cast (from hand, the command zone or adventure-exile) so it enters
+ * as that creature or enchantment, not the combined card. Returns null for a non-adventure card.
  */
-export function creatureFaceCard(card) {
+export function permanentFaceCard(card) {
   const parsed = parseAdventureCard(card);
   if (!parsed) return null;
-  return { ...card, name: parsed.creature.name, type: parsed.creature.type, oracle: parsed.creature.oracle, mana: parsed.creature.mana };
+  return { ...card, name: parsed.permanent.name, type: parsed.permanent.type, oracle: parsed.permanent.oracle, mana: parsed.permanent.mana };
 }
 
 /**
@@ -127,7 +154,7 @@ export function adventureFaceCard(card) {
 /** A bare card-view ({name,type,oracle,mana}) for one parsed face — used by the coverage native gate. */
 export function faceViews(parsed) {
   return {
-    creature: { name: parsed.creature.name, type: parsed.creature.type, oracle: parsed.creature.oracle, mana: parsed.creature.mana },
+    permanent: { name: parsed.permanent.name, type: parsed.permanent.type, oracle: parsed.permanent.oracle, mana: parsed.permanent.mana },
     adventure: { name: parsed.adventure.name, type: parsed.adventure.type, oracle: parsed.adventure.oracle, mana: parsed.adventure.mana },
   };
 }

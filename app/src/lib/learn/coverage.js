@@ -95,7 +95,7 @@ import { parseStaticAbilities, registerSelfGraveyardCastConditionReader } from "
 // injected here, where interveningIf is already imported, because importing it there would be a cycle.
 registerSelfGraveyardCastConditionReader(interveningIfParseable);
 import { parseGlobalTapManaAugment, stripGlobalTapManaAugment } from "./staticAbilityParser.js"; // GLOBAL-TAP-AUGMENT: "Whenever you tap a <land|creature> for mana, add …" permanent
-import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR 715) — split the creature/adventure halves; pure shape module (no back-import, acyclic)
+import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR 715) — split the permanent/adventure halves; pure shape module (no back-import, acyclic)
 import { parseSplitCard, splitFaceViews } from "./splitCard.js"; // SPLIT CARDS (CR 709) — the two-spell-halves shape module; pure leaf, acyclic
 import { parseModalDfc, mdfcFaceCards, spellMdfcFaceCards } from "./modalDfc.js"; // MODAL DFC LANDS (CR 712.8, V1) — the face-choice land drop; pure leaf, acyclic
 import { parseKickerCounterCreature, parseKickerEtbCreature, stripKickerText } from "./kicker.js"; // KICKER (CR 702.33) — optional cast cost + a was-kicked payoff (enters-with-counters OR a kicked ETB trigger); runtime hooks in legalChoices/actionDispatcher/resolvers. Leaf (no back-import, acyclic).
@@ -3321,20 +3321,21 @@ export function classifyCard(card) {
     if (planeswalkerPlayable(card)) return "playable-pw";                // PW-2 hybrid: plays, some abilities → Arbiter (NOT counted native)
     return "arbiter-pw";                                                 // unmodeled static/trigger residue → whole card to the Arbiter
   }
-  // ADVENTURE (CR 715) — Bonecrusher Giant // Stomp et al. MUST be intercepted HERE, before the
+  // ADVENTURE (CR 715) — Bonecrusher Giant // Stomp, the Virtues et al. MUST be intercepted HERE, before the
   // instant/sorcery branch below: an Adventure card's COMBINED type line is "Creature — … // Instant/
-  // Sorcery — Adventure", so `/\b(instant|sorcery)\b/.test(type)` would match and mis-route the whole card
-  // to spellIsNative on the COMBINED oracle (→ arbiter-spell, never reaching the registry classifier). The
-  // additive-seam registry runs only AFTER this branch, so the seam alone can't catch it. classifyAdventure
-  // splits the two faces and credits native-mixed iff BOTH halves are modeled (all-or-nothing CREED); a
-  // non-adventure card or an unmodeled half returns null and we fall through to the normal dispatch.
+  // Sorcery — Adventure" (or "Enchantment // …"), so `/\b(instant|sorcery)\b/.test(type)` would match and
+  // mis-route the whole card to spellIsNative on the COMBINED oracle (→ arbiter-spell, never reaching the
+  // registry classifier). The additive-seam registry runs only AFTER this branch, so the seam alone can't
+  // catch it. classifyAdventure splits the two faces and credits native-mixed iff BOTH halves are modeled
+  // (all-or-nothing CREED); a non-adventure card or an unmodeled half returns null and we fall through.
   {
     const advTier = classifyAdventure(card);
     if (advTier) return advTier;
     // An adventure card that DIDN'T flip native (one half unmodeled) must NOT fall into the instant/sorcery
-    // branch (which would mis-parse the combined oracle). It's a permanent (the creature half enters the
-    // battlefield) whose adventure-spell or creature ability is unmodeled → body-only (the creature still
-    // plays; the unmodeled half routes to the Arbiter at cast). parseAdventureCard is the gate.
+    // branch (which would mis-parse the combined oracle). It's a permanent (the creature or enchantment half
+    // enters the battlefield) whose adventure spell or permanent ability is unmodeled → body-only, the tier
+    // of every permanent with unmodeled text (the permanent still casts; the Adventure is never offered).
+    // parseAdventureCard is the gate.
     if (parseAdventureCard(card)) return "body-only";
   }
   // SPLIT CARDS (CR 709) — intercepted here for the same reason as adventure: the combined "Sorcery // Sorcery"
@@ -5182,29 +5183,32 @@ function classifyGroupNoUntap(card) {
 }
 registerCoverageClassifier((card) => classifyGroupNoUntap(card));
 
-// ─── ADVENTURE (CR 715) — Bonecrusher Giant // Stomp et al. (HIGH corpus yield, ~150 cards) ──────────────────
-// An Adventure card has a CREATURE half and an instant/sorcery "Adventure" half (CR 715.1). From hand you may
-// cast EITHER half (CR 715.3); casting the Adventure half resolves its spell effect, then EXILES the card (CR
-// 715.3d), and while exiled you may cast the CREATURE half from exile at its own cost (CR 715.3d). The runtime
-// plays the WHOLE flow (legalChoices.actionsCastAdventureFromHand offers both faces' casts; the adventure spell
-// resolves through the EFFECT_PROGRAM interpreter and the card lands in adventure-exile; the creature is then
-// castable from exile via actionsCastCreatureFromAdventureExile → applyCastSpell → PERMANENT_ETB), so this
-// classifier credits exactly what the engine plays end-to-end.
+// ─── ADVENTURE (CR 715) — Bonecrusher Giant // Stomp, the Virtues et al. (HIGH corpus yield, ~150 cards) ─────
+// An adventurer card has a PERMANENT half — a creature, or an enchantment (the Wilds of Eldraine Virtues) — and an
+// instant/sorcery "Adventure" half (CR 715.2, 205.3k). From hand you may cast EITHER half (CR 715.3); casting the
+// Adventure half resolves its spell effect, then EXILES the card, and while it stays exiled you may cast the
+// PERMANENT half from exile at its own cost (CR 715.3d). The runtime plays the WHOLE flow
+// (legalChoices.actionsCastAdventureFromHand offers the Adventure, actionsCastPermanentFromHand the permanent; the
+// adventure spell resolves through the EFFECT_PROGRAM interpreter and the card lands in adventure-exile; the
+// permanent is then castable from exile via actionsCastPermanentFromAdventureExile → applyCastSpell →
+// PERMANENT_ETB), so this classifier credits exactly what the engine plays end-to-end.
 //
 // CREED — whole card, BOTH halves modeled (the adventure.js shape module splits the combined publicCard oracle):
-//   • the CREATURE half is a native tier — classifyCard on the creature-face VIEW returns a native tier. This
-//     reuses EVERY existing creature classifier (keyword body, ETB/dies trigger, modeled activated/static,
-//     enters-with-counters, …), so a creature half with an unmodeled ability fails here and the WHOLE card
-//     stays body-only. classifyCard is mutually recursive with this classifier, but ONLY ever on a SINGLE-FACE
-//     view (no "//" in the projected type) — parseAdventureCard returns null for a single face, so the recursion
-//     terminates immediately (a face view never re-enters this Adventure branch).
+//   • the PERMANENT half is a native tier — classifyCard on the permanent-face VIEW returns a native tier. This
+//     reuses EVERY existing permanent classifier (keyword body, ETB/dies/upkeep/end-step trigger, modeled
+//     activated/static, enters-with-counters, …) — the same judgment a lone creature or enchantment gets — so a
+//     permanent half with an unmodeled ability fails here and the WHOLE card stays body-only. classifyCard is
+//     mutually recursive with this classifier, but ONLY ever on a SINGLE-FACE view (no "//" in the projected type)
+//     — parseAdventureCard returns null for a single face, so the recursion terminates immediately (a face view
+//     never re-enters this Adventure branch).
 //   • the ADVENTURE half's instant/sorcery effect is native — spellIsNative on the adventure-face VIEW (its
 //     EffectProgram parses HIGH with no combat-referent atom; the "(Then exile this card…)" reminder is stripped
 //     by parseAdventureCard so it never drags the program down).
 // All-or-nothing: either half unmodeled → null → the card stays body-only (a SAFE false-negative; never a
 // partial flip that silently drops the unmodeled half — THE CREED). Returns "native-mixed" (a composite of a
-// modeled creature body + a modeled spell), or null. Mechanism-keyed (the layout), so every clean Adventure
-// card in the corpus flips automatically — this is a GENERAL subsystem, not a single-card hook.
+// modeled permanent + a modeled spell), or null. Mechanism-keyed (the layout), so every clean Adventure card in
+// the corpus flips automatically — this is a GENERAL subsystem, not a single-card hook. Which permanent halves
+// the lane takes at all (creatures, plain enchantments — not artifacts or lands yet) is adventure.js's call.
 //
 // NOTE: called INLINE at the TOP of classifyCard (before the instant/sorcery branch), NOT via the additive
 // registry seam — the seam runs only after the instant/sorcery branch, which would mis-route the combined
@@ -5212,8 +5216,8 @@ registerCoverageClassifier((card) => classifyGroupNoUntap(card));
 function classifyAdventure(card) {
   const parsed = parseAdventureCard(card);
   if (!parsed) return null;                                       // not an instant/sorcery-adventure card → not ours
-  const { creature, adventure } = faceViews(parsed);
-  if (!isNativeTier(classifyCard(creature))) return null;         // the creature half's body/abilities must be modeled
+  const { permanent, adventure } = faceViews(parsed);
+  if (!isNativeTier(classifyCard(permanent))) return null;        // the permanent half's body/abilities must be modeled
   if (!spellIsNative(adventure)) return null;                     // the adventure half's spell effect must be modeled
   return "native-mixed";                                          // both halves modeled — the engine plays the whole card
 }

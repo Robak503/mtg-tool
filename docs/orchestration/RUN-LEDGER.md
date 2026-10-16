@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **36 commits**, corpus **44.7% (15,467)** at the tag → **44.8% (15,494)**; engine gains since the tag: **+27**. The next tag
+> **40 commits**, corpus **44.7% (15,467)** at the tag → **44.8% (15,513)**; engine gains since the tag: **+46**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,50 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-16 — PLAY-WEIGHTED: the Adventure lane takes ENCHANTMENT halves — Virtue of Persistence (EDHREC #2004), Virtue of Knowledge (#2251), Virtue of Loyalty (#2621) · **+4** · corpus 15,496
+> Suite **18,999** green (1 skipped; 1,780 files). Flip-diff **+4, −0, RETIERED 4** (non-native → non-native, arbiter-spell →
+> body-only): Virtue of Persistence, Virtue of Knowledge, Virtue of Loyalty and An Unexpected Party → native-mixed. Top 1,000
+> **904**; top 2,500 **1,745** (+2 — Persistence and Knowledge; Loyalty sits at play position 2,610, just outside). **Mutants
+> 6/6** on assertions, restore byte-identical. Gates run on master 4463487c (rebased; the same diff as on c1f630ab). Committed on
+> `claude/practical-khayyam-9fb759` for the integration batch — not pushed by this seat; the release-batch line and the
+> WAKE-REPORT counters are the integrator's.
+> · **The gap.** `adventure.parseAdventureCard` returned null unless the permanent half was a Creature, so an enchantment Adventure
+>   never reached `classifyAdventure`: its combined "Enchantment // Sorcery — Adventure" type line fell to the instant/sorcery
+>   classifier (arbiter-spell), and at runtime the combined card rode the generic cast builder as one spell — Virtue of Courage
+>   was offered at {4}{R}{R}{R} (both halves summed) and at instant speed on an opponent's turn (measured at c1f630ab). Nothing
+>   in CR 715 is creature-specific (715.2; 715.3d — the exiled card may be played; 715.4).
+> · **The change.** The permanent half may be a Creature (unchanged, an Artifact Creature included) or a plain Enchantment — no
+>   other card type and no subtype, which is every enchantment Adventure in the corpus. Renamed to say what they hold: `creature` →
+>   `permanent` in the parsed shape, `creatureFaceCard` → `permanentFaceCard`, `actionsCastCreatureFromHand` /
+>   `actionsCastCreatureFromAdventureExile` → `actionsCastPermanentFromHand` / `actionsCastPermanentFromAdventureExile`.
+>   `classifyAdventure` judges the enchantment face with the same `classifyCard` a lone enchantment gets and the Adventure face
+>   with `spellIsNative`. The runtime needed no new mechanism: the face lane already enters any permanent face through
+>   PERMANENT_ETB with the whole card as `printedCard`, and `enterPermanent` stamps summoning sickness by the entering type, so an
+>   enchantment half enters unstamped (CR 302.6).
+> · **Parked, with the half that holds each** (all four arbiter-spell → body-only — the enchantment casts at its own cost and
+>   sorcery timing; the Adventure is never offered): Virtue of Strength (#2775 — the basic-land mana tripling), Virtue of Courage
+>   (#3995 — the noncombat-damage impulse trigger), Promise of Aclazotz (both halves: the end-step sacrifice-populate and Foul
+>   Rebirth's "if you do" token), Porcine Portent (conjure, digital-only). ⚑ Their enchantment now casts and its unmodeled text
+>   is inert — the trunk's posture for every body-only enchantment (no Arbiter flag rides a body-only permanent).
+> · **Stage ③ · 40 was already on master:** 3fb0e468 (its comment says ③ · 39) made an any-graveyard reanimate read intent "any";
+>   Persistence's upkeep trigger rides it unchanged — Debtors' Knell's line, now driven through the Adventure lane too.
+> · **Citations corrected** in the comments this slice rewrote: CR 715.3e was cited for the cast from exile (there is no 715.3e;
+>   it is 715.3d), 715.2b for "only its creature characteristics" (715.2b is copiable values; that rule is 715.4), 715.1 for "the
+>   Adventure is an instant or sorcery" (that is 205.3k — Adventure is a spell type).
+> · Witness `enchantmentAdventure.test.js` (23; one SYNTHETIC — the Aura-typed guard): the shape and its guards (artifact, land and
+>   sorcery halves; an enchantment with a subtype; the Artifact Creature still in), the metric with each parked card's blocking
+>   half, and each flip's lifecycle through the real engine — Locthwain Scorn kills the opponent's Bears, the Virtue casts from
+>   exile at {5}{B}{B} and steals them at the upkeep; Ardenvale Fealty at instant speed, then the end-step counters and untap;
+>   Vantress Visions copies Phyrexian Arena's trigger, then the Virtue makes Elvish Visionary draw two; At the Door's Dwarves get
+>   +2/+2 from the Party. A vacuity control on each, and the summoning-sickness contrast (a creature half from the same lane enters
+>   sick). `adventure.test.js` / `cullingRitual.test.js` follow the renames; `anyGraveyardReanimate.test.js`'s parked note rolled
+>   forward. The mutants: the enchantment half refused, its anchor loosened, the permanent-half gate removed, the permanent-half
+>   native check removed, and each cast generator skipping a non-creature face.
+> · ⚠️ Found, not fixed (queued): the 8 ARTIFACT Adventures ride the same face lane with an Artifact half — both faces of The
+>   Arkenstone and Horn of Valhalla already classify native; the 6 Town lands' Adventures need a play-the-land-from-exile offer
+>   (CR 715.3d says "play") — both faces of Jidoor, Aristocratic Capital and Value Town already classify native.
+>   `scripts/slice-manifest.json` (a generated snapshot) lists the eight enchantment Adventures under transform-dfc until rebuilt.
 
 > ## 🎯 2026-10-16 — THE TURNED-FACE-UP WATCHER (P·19's follow-up): a manifest turned face up fires its watchers · **+15** · the ten P·19 losses regained
 > Suite **18,977** green (1 skipped) and `npm run lint` 0 on 4d599284 + this slice (18,976 on c1f630ab + it); rebased onto 4463487c afterward,

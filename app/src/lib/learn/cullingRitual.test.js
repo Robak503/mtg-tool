@@ -32,7 +32,7 @@ import { parseEffectClause, parseEffectProgram, programConfidence, programContai
 import { applyCreateNamedToken, applyCreateTokenCopy } from "./effects/atoms/tokens.js";
 import { manifestCard } from "./effects/atoms/manifest.js";
 import { mdfcFaceCards, spellMdfcFaceCards } from "./modalDfc.js";
-import { creatureFaceCard } from "./adventure.js";
+import { permanentFaceCard } from "./adventure.js";
 import { addContinuousEffect, permanentTypes } from "./layers.js";
 import { ATOM_RESOLVERS } from "./effects/effectAtoms.js";
 
@@ -265,7 +265,7 @@ describe("⭐ mana value and land — read off the object on the battlefield", (
     const user = [
       P("delver", DELVER),                             // transforming, front up: a creature, mana value 1 → destroyed
       P("azcanta", AZCANTA),                           // transforming, front up: a legendary ENCHANTMENT (its back is the land), 2 → destroyed
-      P("giant", creatureFaceCard(BONECRUSHER)),       // an adventurer on the battlefield: its creature card, 3 → stays
+      P("giant", permanentFaceCard(BONECRUSHER)),      // an adventurer on the battlefield: its creature card, 3 → stays
     ];
     // A modal face enters as its face view with the whole card kept as printedCard (actionDispatcher's face cast), so the
     // graveyard receives the real two-face card.

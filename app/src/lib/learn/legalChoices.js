@@ -114,7 +114,7 @@ registerLevelerCardValidator(modeledLeveler);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, auraEnchantHostSpec, playFromTopPermission, castFromTopFilterAllows, parseStaticAbilities, escapeGrantsFor, boastTwiceFor } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
-import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
+import { isAdventureCard, adventureFaceCard, permanentFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR 709) — cast either half; pure shape module
 import { isModalDfc, mdfcLandFaces, mdfcFaceCards, parseSpellModalDfc, spellMdfcFaceCards } from "./modalDfc.js"; // MODAL DFC (CR 712.8, V1) — the land drop chooses a face; the spell front is cast as a face; pure shape module
 import { evaluateInterveningIf } from "./interveningIf.js"; // CR 602.5d "Activate only if <cond>" — the offer gate reads the SAME vocabulary as the trigger + spell lanes
@@ -735,24 +735,24 @@ function actionsCastCommander(state, playerId) {
   const counts = player.commanderCastCount || {};
   const taxFn = (card) => 2 * (counts[card.commanderInstanceId || card.id] || 0);
   const actions = castActionsFromZone(state, playerId, command, "command", taxFn);
-  // ADVENTURE commander (CR 715 + 903.8): the shared builder skips a COMBINED adventure card (CR 715.3),
-  // which silently made an adventure commander (Kellan, the Fae-Blooded / Beluna Grandsquall) uncastable
-  // from the command zone at all. Mirror the two hand generators: project each half onto its face and run
-  // it through the SAME builder with the SAME tax (casting either half from the command zone is casting
-  // the commander — the dispatcher bumps commanderCastCount on fromZone "command" for both).
+  // ADVENTURE commander (CR 715 + 903.8): the shared builder skips a COMBINED adventure card (CR 715.3 — it is
+  // cast as one half or the other), which silently made an adventure commander (Kellan, the Fae-Blooded / Beluna
+  // Grandsquall) uncastable from the command zone at all. Mirror the two hand generators: project each half onto
+  // its face and run it through the SAME builder with the SAME tax (casting either half from the command zone is
+  // casting the commander — the dispatcher bumps commanderCastCount on fromZone "command" for both).
   for (const card of command) {
     if (!isAdventureCard(card)) continue;
-    // Creature half — like hand step 1b: NOT tier-gated (entering as the printed creature body is the
-    // same posture as every body-only creature; strictly more faithful than an uncastable commander).
-    const creature = creatureFaceCard(card);
-    if (creature) {
-      for (const a of castActionsFromZone(state, playerId, [creature], "command", taxFn)) {
-        actions.push({ ...a, faceCard: creature });
+    // Permanent half — like hand step 1b: NOT tier-gated (entering as the printed permanent is the same
+    // posture as every body-only permanent; strictly more faithful than an uncastable commander).
+    const permanent = permanentFaceCard(card);
+    if (permanent) {
+      for (const a of castActionsFromZone(state, playerId, [permanent], "command", taxFn)) {
+        actions.push({ ...a, faceCard: permanent });
       }
     }
     // Adventure half — like hand step 1: gated on BOTH halves modeled (THE CREED — the adventure
     // spell's effect must resolve natively). It resolves, then exiles the card _onAdventure; the
-    // creature half later casts from exile TAX-FREE (CR 903.8 taxes only command-zone casts).
+    // permanent half later casts from exile TAX-FREE (CR 903.8 taxes only command-zone casts).
     if (isNativeTier(classifyCard(card))) {
       const face = adventureFaceCard(card);
       if (face) {
@@ -1131,10 +1131,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     const everyType = cardIsEveryCreatureType(state, card, playerId);
 
     // ADVENTURE (CR 715): the COMBINED card is never castable as-is — each half is cast separately via the
-    // dedicated adventure generators (adventure half / creature half), which project a single face and re-enter
+    // dedicated adventure generators (adventure half / permanent half), which project a single face and re-enter
     // this builder (a projected face has no "//" in its type, so it doesn't trip this gate). Without the skip,
     // a combined type line like "Creature — Giant // Instant — Adventure" reads as containing "Instant" →
-    // isSorcerySpeed false → the combined card was offered at INSTANT speed (illegal timing for the creature)
+    // isSorcerySpeed false → the combined card was offered at INSTANT speed (illegal timing for the permanent)
     // at a SUMMED both-halves cost, alongside the correct per-half actions. Skipping is CREED-safe in every
     // zone this builder serves (hand / command / exile / free-cast): a missing offer is a safe FN; the
     // combined-card cast is a false positive.
@@ -3943,22 +3943,23 @@ function actionsCastAdventureFromHand(state, playerId) {
 }
 
 /**
- * ADVENTURE step 1b — cast the CREATURE half directly from HAND. CR 715.4: everywhere except the stack, an
- * adventurer card has only its creature characteristics — a normal cast from hand casts the CREATURE at the
- * creature half's own cost and timing. Before this generator existed the combined card rode the generic hand
- * enumerator (summed cost, instant timing when the ADVENTURE half is an Instant) — castActionsFromZone now
- * skips combined adventure cards, and this projects the creature face exactly like the exile generator below.
- * NOT tier-gated (unlike the adventure-half generator): entering as the printed creature body is the same
- * posture as every body-only creature in the trunk — the projected face enters via `faceCard`, so even a card
- * with an unmodeled ADVENTURE half is castable as its creature (strictly more faithful than the old combined
- * cast). The adventure HALF stays gated on both halves being modeled (THE CREED — its effect must resolve).
+ * ADVENTURE step 1b — cast the PERMANENT half (a creature or an enchantment) directly from HAND. CR 715.4:
+ * everywhere except the stack, an adventurer card has only its normal characteristics, and cast normally (CR
+ * 715.3) it is cast as that permanent at the permanent half's own cost and timing — sorcery speed for a creature
+ * or an enchantment alike. Before this generator existed the combined card rode the generic hand enumerator
+ * (summed cost, instant timing when the ADVENTURE half is an Instant) — castActionsFromZone now skips combined
+ * adventure cards, and this projects the permanent face exactly like the exile generator below.
+ * NOT tier-gated (unlike the adventure-half generator): entering as the printed permanent is the same posture as
+ * every body-only permanent in the trunk — the projected face enters via `faceCard`, so even a card with an
+ * unmodeled ADVENTURE half is castable as its permanent (strictly more faithful than the old combined cast). The
+ * adventure HALF stays gated on both halves being modeled (THE CREED — its effect must resolve).
  */
-function actionsCastCreatureFromHand(state, playerId) {
+function actionsCastPermanentFromHand(state, playerId) {
   const player = state.players[playerId];
   const actions = [];
   for (const card of player.hand) {
     if (!isAdventureCard(card)) continue;
-    const face = creatureFaceCard(card);                        // project onto the creature half
+    const face = permanentFaceCard(card);                       // project onto the permanent half
     if (!face) continue;
     for (const a of castActionsFromZone(state, playerId, [face], "hand", null)) {
       actions.push({ ...a, faceCard: face });
@@ -4034,22 +4035,23 @@ function actionsCastSplitFromHand(state, playerId) {
 }
 
 /**
- * ADVENTURE step 2 — cast the CREATURE HALF from adventure-exile (CR 715.3d). After the adventure spell
- * resolved, the card sits in exile flagged `_onAdventure`; while it's there the owner may cast the creature
- * half at its OWN mana cost (NOT free — unlike plot/discover). We project the card onto its CREATURE face
- * (creatureFaceCard — same id, the creature half's type/oracle/mana/P-T) and run it through the shared cast
- * builder with fromZone "exile" (sorcery-speed, since a creature is sorcery-speed — enforced by the builder's
- * timing gate via the projected creature type line). Each action carries the projected `faceCard` so
- * applyCastSpell enters the CREATURE (via PERMANENT_ETB), not the combined card. Once cast it leaves exile, so
- * it can't be double-cast. The exiled card stays castable across turns (CR 715.3d — no turn restriction).
+ * ADVENTURE step 2 — cast the PERMANENT HALF from adventure-exile (CR 715.3d). After the adventure spell
+ * resolved, the card sits in exile flagged `_onAdventure`; while it's there the owner may cast it — not as an
+ * Adventure, so as the creature or enchantment — at that half's OWN mana cost (NOT free — unlike plot/discover).
+ * We project the card onto its PERMANENT face (permanentFaceCard — same id, that half's type/oracle/mana/P-T) and
+ * run it through the shared cast builder with fromZone "exile" (sorcery-speed for a creature or an enchantment —
+ * enforced by the builder's timing gate via the projected type line). Each action carries the projected
+ * `faceCard` so applyCastSpell enters that PERMANENT (via PERMANENT_ETB, the whole card riding as printedCard),
+ * not the combined card. Once cast it leaves exile, so it can't be double-cast. The exiled card stays castable
+ * across turns (CR 715.3d — "for as long as that card remains exiled").
  */
-function actionsCastCreatureFromAdventureExile(state, playerId) {
+function actionsCastPermanentFromAdventureExile(state, playerId) {
   const player = state.players[playerId];
   const onAdventure = (player.exile || []).filter(c => c && c._onAdventure);
   if (onAdventure.length === 0) return [];
   const actions = [];
   for (const card of onAdventure) {
-    const face = creatureFaceCard(card);                        // project onto the creature half
+    const face = permanentFaceCard(card);                       // project onto the permanent half
     if (!face) continue;
     for (const a of castActionsFromZone(state, playerId, [face], "exile", null)) {
       actions.push({ ...a, faceCard: face });
@@ -4559,8 +4561,8 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsCastSplitFromHand(state, playerId)); // SPLIT CARDS (CR 709.4): cast either half from hand
     actions.push(...actionsCastModalDfcFrontFromHand(state, playerId)); // MODAL DFC (CR 712.8, V1 slice 2): cast the spell front from hand
     actions.push(...actionsCastAdventureFromHand(state, playerId)); // ADVENTURE step 1 (CR 715.3): cast the adventure (instant/sorcery) half
-    actions.push(...actionsCastCreatureFromHand(state, playerId)); // ADVENTURE step 1b (CR 715.3 / 715.4): cast the creature half from hand at its own cost
-    actions.push(...actionsCastCreatureFromAdventureExile(state, playerId)); // ADVENTURE step 2 (CR 715.3d): cast the creature half from exile
+    actions.push(...actionsCastPermanentFromHand(state, playerId)); // ADVENTURE step 1b (CR 715.3, 715.4): cast the creature/enchantment half from hand at its own cost
+    actions.push(...actionsCastPermanentFromAdventureExile(state, playerId)); // ADVENTURE step 2 (CR 715.3d): cast the creature/enchantment half from exile
   }
   // NONCREATURE CAST-LIMIT (SHELF-85 · Light-Paws L5 Deafening Silence, 2026-09-05 — "Each player can't cast more than one
   // noncreature spell each turn", CR 604.2): while ANY battlefield carries the static, a player who already cast a
