@@ -30,7 +30,7 @@ import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopie
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { auraEntryHasHost, enteringAuraHost } from "./auraEntry.js"; // a clone that enters as a copy of an Aura chooses what it enchants (CR 303.4f) — auraEntry reaches neither resolvers nor cloneCopy (checked 2026-10-16)
 import { isNativeManaAura, auraChoosesColorOnEnter, parseSoulbondBond } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) — the Aura spell's host re-check; SOULBOND (BLITZ SL-1) — the modeled bond reader
-import { equipmentBarredAsCreature, permanentHasCardType, colorsOf, permanentColors, permanentIsCreature } from "./layers.js"; // CR 301.5c — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types; + the colours the CR 608.2b re-checks judge protection against
+import { equipmentBarredAsCreature, cannotEquipNow, permanentHasCardType, colorsOf, permanentColors, permanentIsCreature } from "./layers.js"; // CR 301.5c / 701.3b (cannotEquipNow — a source that is no Equipment right now) — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types; + the colours the CR 608.2b re-checks judge protection against
 import { canBeTargetedBy, playerTargetableBy } from "./spellEffects.js"; // the ONE targetability predicate the Aura / Equip offers read — re-asked as those spells and abilities resolve (CR 608.2b, 608.3b)
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
@@ -650,8 +650,11 @@ export const RESOLVERS = Object.freeze({
     // Equip) can't equip a creature: the ability does nothing and the Equipment stays where it is (CR 701.3b). Logged as
     // refused, never as an "attach" — the log narrator reads that kind as one. Reconfigure (Lizard Blades) is the exception.
     // The 09-06 plan's stage ③ · 34, the attach-pair's guard (③ · 33) on the Equip lane.
-    if (!aura && equipmentBarredAsCreature(state, sourceId)) {
-      return logEvent(state, { kind: "attach-refused", rule: "CR 301.5c", source: src.permanent.card?.name, target: tgt.permanent.card?.name, controller });
+    // CR 701.3b — and a source that is no Equipment right now doesn't move at all: a double-faced permanent front face up
+    // whose combined card carries its back face's Equip (Halvar, God of Battle; Sidequest: Play Blitzball). cannotEquipNow.
+    if (!aura && cannotEquipNow(state, sourceId)) {
+      const rule = equipmentBarredAsCreature(state, sourceId) ? "CR 301.5c" : "CR 701.3b";
+      return logEvent(state, { kind: "attach-refused", rule, source: src.permanent.card?.name, target: tgt.permanent.card?.name, controller });
     }
     return logEvent(attachPermanent(state, { equipId: sourceId, targetId }), {
       kind: "attach", source: src.permanent.card?.name, target: tgt.permanent.card?.name, controller,

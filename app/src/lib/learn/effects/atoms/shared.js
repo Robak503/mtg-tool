@@ -164,22 +164,16 @@ export function massPermanentTargets(state, matches) {
  *     (CR 202.3a): a token that isn't a copy has no mana cost (CR 202.1b), nor has a face-down permanent's stand-in
  *     (CR 708.2a) — so both are swept. A split permanent (a Room) reads its combined cost: the engine has no unlocked-half
  *     designations (CR 709.5), so its value can only read too HIGH, never too low.
- *   - LAND (CR 205.2a) — the layer-aware card types (a copy's types, layer 4's additions), EXCEPT for a multi-face card:
- *     the engine never turns a back face up (it has no transform), so a " // " permanent is front face up (CR 712.8d,
- *     712.14) and that face's printed types are its types. The layer derive reads the whole combined line, and a front
- *     face printed without subtypes ("Legendary Enchantment // Legendary Land" — Search for Azcanta) picks up the BACK
- *     face's Land there, which would spare a permanent this sweep destroys. (No effect the engine models adds the Land
- *     type to a multi-face permanent: the layer effects that can add Land act on a single-faced card itself, Arixmethes'
- *     gated static, or on Treasures.)
+ *   - LAND (CR 205.2a) — the layer-aware card types (a copy's types, layer 4's additions). A multi-face permanent is front
+ *     face up (the engine never turns a back face up — CR 712.8d, 712.14) and the derive reads only that face's types, so
+ *     a front face printed without subtypes ("Legendary Enchantment // Legendary Land" — Search for Azcanta) is no land and
+ *     is swept.
  */
 export function nonlandPermanentsWithManaValueAtMost(state, mvMax) {
   const out = [];
   for (const pid of Object.keys(state.players)) {
     for (const perm of state.players[pid].battlefield) {
-      const chars = deriveCharacteristics(state, perm.id);
-      const object = chars.copiableValues || perm.card;
-      const line = typeLineStr(object);
-      const land = line.includes(" // ") ? /\bLand\b/.test(line.split(" // ")[0]) : chars.types.includes("Land");
+      const land = deriveCharacteristics(state, perm.id).types.includes("Land");
       // the mana value through layers.permanentManaValue — the one reader the targeted manaValue restriction asks too (#742)
       if (land || permanentManaValue(state, perm) > mvMax) continue;
       out.push({ type: "permanent", id: perm.id, controller: pid });

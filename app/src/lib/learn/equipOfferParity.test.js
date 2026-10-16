@@ -231,7 +231,9 @@ describe("a creature Equipment without reconfigure (CR 301.5c): the Equip is leg
     const s = halvarBoard();
     expect(equipTargets(s, "user", "halvar")).toEqual(["bears", "blades"]); // activating is legal; attachLegality.test.js pins the same for a crewed Rover Blades
     const after = resolveAll(dispatchAction(s, equipOffers(s, "user", "halvar")[0]));
-    expect(after.log.at(-1)).toMatchObject({ kind: "attach-refused", rule: "CR 301.5c" });
+    // Front face up, Halvar is a God and no Equipment at all (CR 712.8d), so the attach moves nothing (CR 701.3b). The rule read
+    // CR 301.5c while the derive took the back face's Equipment off the combined type line (2026-10-16).
+    expect(after.log.at(-1)).toMatchObject({ kind: "attach-refused", rule: "CR 701.3b" });
     expect(findPerm(after, "halvar").attachedTo ?? null).toBeNull();
   });
 

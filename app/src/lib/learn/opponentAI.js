@@ -29,7 +29,7 @@ import { detectArchetype } from "../goldfish.js";
 import { filterActions } from "./legalChoices.js";
 import { opponentsOf, findPermanent } from "./gameState.js";
 import { lookupPlayHint } from "./cardPlayHints.js"; // PLAY-HINTS (2026-08-12) — a zero-import leaf, cycle-safe
-import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, goaderControllersOf, equipmentBarredAsCreature } from "./layers.js";
+import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, goaderControllersOf, cannotEquipNow } from "./layers.js";
 import { auraCastIntent } from "./auraEntry.js"; // W7e — which side an Aura lands on (a control Aura is ENEMY, a restriction grant too); shared with the non-cast entry (CR 303.4f)
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction } from "./manaModel.js";
@@ -1258,7 +1258,9 @@ function pickEquipAction(state, aiPlayerId, equipActions) {
     // CR 301.5c — an Equipment that is a creature right now (no reconfigure) may activate Equip, and the attach does nothing
     // (CR 701.3b). The pick below ends only when the Equipment sits on its best body, so with a free Equip (Puresteel
     // Paladin) it never ended: Halvar, God of Battle, whose card carries its Equipment face's Equip; a crewed Rover Blades.
-    if (equipmentBarredAsCreature(state, equipId)) continue;
+    // cannotEquipNow also turns away a source that is no Equipment right now (CR 701.3b — Halvar is front face up, a God);
+    // an Aura re-attach (Detainment Spell) is not an Equip and is never skipped here.
+    if (!byEquip.get(equipId)[0].isAuraAttach && cannotEquipNow(state, equipId)) continue;
     const best = byEquip.get(equipId).slice().sort((x, y) =>
       (powerOf(y.targets[0].id) - powerOf(x.targets[0].id)) || cmp(String(x.targets[0].id), String(y.targets[0].id)))[0];
     const holder = findPermanent(state, equipId)?.permanent?.attachedTo ?? null;

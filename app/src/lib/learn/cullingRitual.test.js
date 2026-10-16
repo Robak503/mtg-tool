@@ -276,12 +276,12 @@ describe("⭐ mana value and land — read off the object on the battlefield", (
     ];
     const s = cull(board({ user, ai }));
     const row = { user: ids(s, "user").filter((id) => !/^(sw|fo)/.test(id)), ai: ids(s, "ai"), userGraveyard: gy(s, "user"), aiGraveyard: gy(s, "ai"), pool: pool(s),
-      azcantaReadAsLandByTheLayerDerive: permanentTypes(board({ user: [P("azcanta", AZCANTA)] }), "azcanta").types.includes("Land") };
+      azcantaIsALandToTheLayerDerive: permanentTypes(board({ user: [P("azcanta", AZCANTA)] }), "azcanta").types.includes("Land") };
     console.log("  WITNESS faces", JSON.stringify(row));
     expect(row).toEqual({ user: ["giant"], ai: ["teeth", "tibalt"],
       userGraveyard: ["Culling Ritual", "Delver of Secrets // Insectile Aberration", "Search for Azcanta // Azcanta, the Sunken Ruin"],
       aiGraveyard: ["Valki, God of Lies // Tibalt, Cosmic Impostor"], pool: { B: 2, G: 1 },
-      azcantaReadAsLandByTheLayerDerive: true }); // why the front face is read for a " // " permanent
+      azcantaIsALandToTheLayerDerive: false }); // the derive reads the face that is up (CR 712.8d); it read the whole line — true — until 2026-10-16
   });
 
   it("⭐ tokens: a token that is not a copy has mana value 0 (swept); a token copy has its original's (CR 707.2)", () => {

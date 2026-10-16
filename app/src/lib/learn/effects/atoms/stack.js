@@ -7,7 +7,7 @@ import { applyDamageEffect, parseCreatureTargetRestrictions, resolutionSourceCol
 import { graveyardExileFor, logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe, commanderCastsFromCommandZone, loseLife } from "../../gameState.js";
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingOptionalExileSelfChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice, setPendingChangeTargetChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
-import { permanentIsCreature, permanentTypes, equipmentBarredAsCreature, addContinuousEffect } from "../../layers.js"; // + addContinuousEffect (shelf D18 — Veil of Summer's end-of-turn target shields) // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
+import { permanentIsCreature, permanentTypes, cannotEquipNow, addContinuousEffect } from "../../layers.js"; // + addContinuousEffect (shelf D18 — Veil of Summer's end-of-turn target shields) // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
 import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
 import { expandCastChoices, changeTargetAlternatives, atomForStackTarget } from "../targeting.js"; // + CHANGE THE TARGET (shelf D14) — the other legal targets for a stack object's one target; STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c); + atomForStackTarget: the atom a copy's recorded target belongs to (its new-target pick). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
@@ -396,7 +396,10 @@ function applyAttachPair(state, atom, ctx) {
   if (!attachT?.id || !hostT?.id || attachT.id === hostT.id) return state;
   // CR 301.5c — an Equipment that is a creature RIGHT NOW and has no reconfigure (a crewed Rover Blades) can't equip a creature,
   // so the attach does nothing and it stays where it is (CR 701.3b). Stage ③ · 33, with the Equipment-only form below.
-  if (equipmentBarredAsCreature(state, attachT.id)) return state;
+  // CR 701.3b — nor does an attachment that is no Aura and no Equipment right now: the pools offer by the printed line, so a
+  // double-faced permanent whose BACK face is the Aura or Equipment (Halvar, God of Battle; Dorothea, Vengeful Victim) can be
+  // chosen, and it is front face up (CR 712.8d). cannotEquipNow reads both halves for a non-Aura.
+  if (!permanentTypes(state, attachT.id).subtypes.includes("Aura") && cannotEquipNow(state, attachT.id)) return state;
   // An AURA moves only onto a creature its own Enchant line admits (Codsworth: a Wild Growth never leaves its land for a Bear).
   // A departed host is still attachPermanent's no-op, below.
   const host = findPermanent(state, hostT.id);

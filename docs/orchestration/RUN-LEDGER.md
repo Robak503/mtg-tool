@@ -16,6 +16,65 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🔧 2026-10-16 — FIX: the layer derive reads a double-faced permanent's FACE THAT IS UP (CR 712.8d) — Westvale Abbey no longer dies as it enters · **±0** · corpus 15,492
+> Suite **18,986** green (1 skipped; 1,780 files). Flip-diff **0 / 0 / 0** over 34,612 cards — the tier classifier reads only
+> `layers.staticEffectsOf`, never the derive, so this runtime change cannot move a tier; its witness is the test below.
+> **Mutants 9/9**, restore byte-identical. Lint 0; CR citations: no new dead cite (117 before and after, all pre-existing).
+> Built off c1f630ab and rebased onto 4463487c; every gate above re-run on the rebased tree. The 10-01 queue item "the layer
+> derive reads a double-faced card's whole type line", made concrete by the 10-16 changeling slice's report (its found-not-fixed
+> Westvale Abbey / Heirloom Mirror item is this fix).
+> · **The bug** (reproduced at c1f630ab): a nonmodal double-faced card whose front face prints no subtype dash and whose back face
+>   is a creature died the moment it reached the battlefield — Westvale Abbey as the land drop, Heirloom Mirror cast: a
+>   `creature-dies` entry, cause `sba`. All 20 permanent cards of that shape in the bundled snapshot.
+> · **The cause.** `layers.cardTypesOf` / `subtypesOf` read the combined "Front // Back" line (`cardIndex.publicCard` keeps
+>   Scryfall's `type_line`): the card types were the words left of the line's first dash, so Westvale Abbey derived as
+>   `[Land, //, Legendary, Creature]` with the front face's null power and toughness — a 0/0 creature for CR 704.5f — and the
+>   subtypes were everything right of it, the back face's included.
+> · **The fix.** `layers.faceUpTypeLine` (exported — the mana lane imports it): both helpers read the front face. The engine never turns a back face up (CR 712.8d/f,
+>   712.14; an unflipped flip card 710.2; an adventurer 715.4; a Room's halves share one line, 709.5; a copy copies the face that
+>   is up, 707.8). It feeds both derive paths and `effectiveTypeIdentity`, so every selector (anthems, lords), the host-subtype
+>   and host-legendary gates and every layer-aware reader see the face that is up. The hand-made front-face filters in
+>   `permanentHasCardType`, `permanentCreatureTypes` and Culling Ritual's nonland sweep (`shared.nonlandPermanentsWithManaValueAtMost`)
+>   gave the same answers on top of it and are collapsed (their comments described the old derive).
+> · **What moves** (an inventory of the snapshot through publicCard + mergeCardData): CARD TYPES only for a front face printed
+>   without a subtype — the 20 creature backs (now stay), and the land / planeswalker / artifact backs (Treasure Map, Search for
+>   Azcanta, Liliana's Other Contract are no longer a land / a planeswalker; Yavimaya no longer makes Treasure Map a Forest);
+>   SUBTYPES lose the separator and every back-face subtype on 366 transform, 26 flip and 166 adventure cards (90 distinct words:
+>   Delver's Insect; Lunarch Veteran's Spirit — Supreme Phantom no longer pumps it; an Invasion battle's Elemental; "Adventure" on
+>   150 adventurers). A modal face enters as its own card, split cards are no permanents, a Room's one line is unchanged.
+> · **⚑ The mask it lifted (CR 701.3b, 301.5c).** The bleed made a back face's Equipment or Aura a subtype of the front face:
+>   Halvar, God of Battle's Equip was refused only by accident ("an Equipment creature", 301.5c), and without the bleed it attached
+>   a God to a creature. New `layers.cannotEquipNow` (not an Equipment right now, or barred as a creature) guards the Equip
+>   resolver (`attach-refused`, rule CR 701.3b), the attach-pair atom and the AI's equip pick. It also closes false positives that
+>   were live at c1f630ab (probed on both trees): Equip attached Sidequest: Play Blitzball's enchantment, Idol of the Deep King's
+>   artifact and the Invasion of New Capenna battle to a creature, and Codsworth attached 15 of the 22 back-attachment permanents
+>   (Dorothea, Vengeful Victim and ten more Aura-back creatures among them). Now none moves.
+> · Witness `dfcFaceUpDerive.test.js` (10; 8 red at c1f630ab): the land drop and the cast through legalActionsForPlayer →
+>   dispatchAction → resolution; all 20 creature backs; Glorious Anthem and Supreme Phantom (the selectors); Delver, a battle, an
+>   adventurer, Treasure Map; a token copy of Heirloom Mirror (CR 707.8); Brass Squire with Halvar; all 22 back-attachments through
+>   Equip and Codsworth, with a coverage witness (6 Equip offers, 22 Codsworth offers exercised). Updated: `equipOfferParity`
+>   (Halvar's refusal now reads CR 701.3b), `cullingRitual` (its pinned bug field `azcantaReadAsLandByTheLayerDerive: true` is now
+>   `azcantaIsALandToTheLayerDerive: false`; the sweep's outcome is unchanged).
+> · Mutants: `faceUpTypeLine` back to the whole line · subtypes only · card types only · `cannotEquipNow` without its
+>   not-an-Equipment arm · the attach-pair guard · the AI pick's guard · the resolver's rule label · the resolver's guard · the
+>   Culling Ritual sweep sparing every multi-face permanent.
+> · **⚑ Epoch flag (results change in any game holding an affected card):** the 20 creature backs stay on the battlefield (they
+>   died on entry); back-face subtypes no longer count; land / planeswalker backs are no longer lands / planeswalkers; a back
+>   face's Equip or Aura attach does nothing.
+> · ⚠️ Found, not fixed (queued): **keywords bleed the same way** — `keywords.hasKeyword` reads Scryfall's combined `keywords`
+>   array, then scans the combined ORACLE (so stripping the array is not enough), and 116 transform / flip / adventure front faces
+>   have a back face's combat keyword (Lunarch Veteran, Devoted Grafkeeper and Overwhelmed Archivist fly; Ravenous Demon flies and
+>   tramples; a land-dropped Westvale Abbey reports Ormendahl's flying, lifelink, indestructible and haste through
+>   `permanentHasKeyword`). Not folded in: `hasKeyword` is read off the card by many readers that bypass the derive, and the
+>   leaked haste is what lets Westvale Abbey tap the turn it is played today (the summoning-sick stamp reads the printed combined
+>   line — Hostile Hostel, with no leak, can't); the mana lane ("Stop DFC front faces reading land-face mana") fixes the sickness
+>   side on top of this derive, and the keyword read lands with or after it; **the back face's abilities
+>   on the combined oracle** are still read as the front face's (Halvar's Equip is still offered — it now does nothing); **printed readers of the combined
+>   line**: `triggers.isCreaturePerm` → `gameState.lastKnownIsCreature` (Soul Warden gains 1 life when Westvale Abbey enters —
+>   probed; the 10-02 queue item), the Equipment / Aura target pools (`equipmentYouControl`, `auraOrEquipmentYouControl` offer
+>   Halvar and Dorothea), `applyAttachToSelf` (Captain America's Catch) has no Equip guard, sba's "Enchant land" host read;
+>   `countForSpec`'s `cardsInGraveyard` reads a double-faced card's combined line (CR 712.8a — a split card's is right, 709.4c).
+
 > ## 🔧 2026-10-16 — FIX: the mulligan policy reads a {2/X} hybrid pip as 2 when a card carries only its cost (CR 202.3f) · **±0**
 > Suite **18,985** green (1 skipped; 1,780 files) under the gate lock, on this commit's tree stacked on the citations
 > commit below (which it also covers). Lint 0. **Mutant 1/1** killed (the old every-pip-is-1 rule bottoms Hill Giant

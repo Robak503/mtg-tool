@@ -117,8 +117,27 @@ function typeLineOf(card) {
   return String(card?.type || card?.type_line || "");
 }
 
-function subtypesOf(card) {
+/**
+ * THE FACE THAT IS UP — the type line a battlefield permanent has, read off a card that prints a combined "Front // Back" line
+ * (every multi-face card in the bundled data: cardIndex.publicCard keeps Scryfall's whole type_line). The engine never turns a
+ * back face up (it models no transform, flip or meld), so every such permanent has only its front face's characteristics: a
+ * double-faced permanent with its front face up (CR 712.8d, 712.8f — one put onto the battlefield enters front face up, 712.14),
+ * an unflipped flip card (CR 710.2), an adventurer (CR 715.4); a Room's halves share one type line (CR 709.5), so its front is
+ * that line. A copy of such a permanent copies the face that is up (CR 707.8). A modal face played or cast enters as its own
+ * single-face card and carries no " // ". Exported for the battlefield readers outside the layer engine that read a type line.
+ * Before this read the derive took its card types and subtypes off the WHOLE line: a front face printed without a subtype took
+ * the back face's types — Westvale Abbey ("Land // Legendary Creature — Demon") was a 0/0 creature the toughness state-based
+ * action put into the graveyard as it entered (CR 704.5f), Treasure Map a land — and every back face's subtypes came along
+ * (Delver of Secrets an Insect, an Invasion battle an Elemental).
+ */
+export function faceUpTypeLine(card) {
   const line = typeLineOf(card);
+  const sep = line.indexOf(" // ");
+  return sep === -1 ? line : line.slice(0, sep);
+}
+
+function subtypesOf(card) {
+  const line = faceUpTypeLine(card);
   const dash = line.indexOf("—");
   if (dash === -1) return [];
   return line.slice(dash + 1).trim().split(/\s+/).filter(Boolean);
@@ -1908,8 +1927,7 @@ export function deriveCharacteristics(state, permanentId) {
 }
 
 function cardTypesOf(card) {
-  const line = typeLineOf(card);
-  const head = line.split("—")[0];
+  const head = faceUpTypeLine(card).split("—")[0]; // the face that is up (CR 712.8d), never the back face's types
   return head.trim().split(/\s+/).filter(w => w && w[0] === w[0].toUpperCase());
 }
 
@@ -2292,23 +2310,16 @@ export function permIsEveryCreatureType(state, permanentId) {
  * copied type line (CR 707.2). A word outside the vocabulary is another card type's subtype riding the same dash (the Food of
  * a Food Golem, the Forest of Dryad Arbor) and is never a creature type.
  *
- * Read with the FRONT FACE's discipline, as permanentHasCardType reads card types: a double-faced permanent with its front
- * face up has only that face's characteristics (CR 712.8d), but the derive takes its subtypes off the whole "Front // Back"
- * line, so a type only the back face prints (the Insect of Delver of Secrets // Insectile Aberration) counts here only when a
- * layer-4 effect on the permanent added it.
+ * A double-faced permanent has only the face that is up (CR 712.8d): the derive reads that face's subtypes (faceUpTypeLine), so
+ * a type only the back face prints (the Insect of Delver of Secrets // Insectile Aberration) is the permanent's only when a
+ * layer-4 effect on it added it.
  *
  * It does NOT expand "every creature type" (Changeling, an all-creature-types effect): that is permIsEveryCreatureType's
  * answer, and a reader of "is it a <type>?" asks both. A permanent the battlefield no longer holds has none.
  */
 export function permanentCreatureTypes(state, permanentId) {
-  const perm = findPerm(state, permanentId);
-  if (!perm) return [];
-  const chars = deriveCharacteristics(state, permanentId);
-  const line = typeLineOf(chars.copiableValues || perm.card);
-  const front = line.includes(" // ") ? subtypesOf({ type: line.split(" // ")[0] }) : null;
-  const added = chars.appliedEffects.flatMap((e) => e.op?.subtypes || []);
-  const words = [...new Set(chars.subtypes)] // each type once: both faces of a double-faced card can print the same one
-    .filter((st) => !front || front.includes(st) || added.includes(st))
+  if (!findPerm(state, permanentId)) return [];
+  const words = [...new Set(deriveCharacteristics(state, permanentId).subtypes)] // each type once: an effect can add a type it already has
     .map((st) => String(st).toLowerCase());
   const out = words.filter((w) => CR_CREATURE_TYPES.has(w));
   for (let i = 0; i + 1 < words.length; i++) {
@@ -2325,29 +2336,19 @@ export function permanentCreatureTypes(state, permanentId) {
  * Torque made an artifact is one until the effect ends, an animated Mishra's Factory is an artifact creature, and a type an
  * effect removed (bestow, a God below its devotion) is gone.
  *
- * Read with the FRONT FACE's discipline. A double-faced permanent with its front face up has only that face's
- * characteristics (CR 712.8d), but the derive takes its card types off the whole "Front // Back" line, so a front face
- * printed without a subtype also carries the back face's types (Thaumatic Compass // Spires of Orazca is not a land, Sidequest:
- * Play Blitzball is not an artifact). A type only the back face prints counts here only when a layer-4 effect on the permanent
- * added it.
+ * A double-faced permanent has only the face that is up (CR 712.8d): the derive reads that face's card types (faceUpTypeLine), so
+ * a front face printed without a subtype does not carry the back face's types (Thaumatic Compass // Spires of Orazca is not a
+ * land, Sidequest: Play Blitzball is not an artifact). A type only the back face prints is the permanent's only when a layer-4
+ * effect on it added it. A layer-1 copy reads the copied card's face that is up (CR 707.8).
  *
  * Every battlefield "is it an artifact?" reader outside the layer engine asks this. The counts that run INSIDE the derive (the
  * layer-7 gates and amounts) read effectiveTypeIdentity's types instead — a derive there would recurse.
  */
 export function permanentHasCardType(state, permanentId, cardType) {
-  const perm = findPerm(state, permanentId);
-  if (!perm) return false;
+  if (!findPerm(state, permanentId)) return false;
   const word = String(cardType || "");
   const want = word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-  const chars = deriveCharacteristics(state, permanentId);
-  if (!chars.types.includes(want)) return false;
-  // The printed base is the copy's when the permanent became a copy (layer 1 — Impossible Man copying an artifact is one).
-  const base = chars.copiableValues || perm.card;
-  if (cardTypesOf({ type: typeLineOf(base).split(" // ")[0] }).includes(want)) return true;
-  // Not printed on the face that is up: it is the permanent's only when a type add on it lists it — otherwise it is the back
-  // face's type bleeding through the combined line. (The one gated add, Arixmethes' Land, is on a single-faced card, so a closed
-  // gate never meets a bleed here.)
-  return chars.appliedEffects.some((e) => (e.op?.types || []).includes(want));
+  return deriveCharacteristics(state, permanentId).types.includes(want);
 }
 
 /**
@@ -2383,6 +2384,20 @@ export function hasReconfigure(card) {
 export function equipmentBarredAsCreature(state, permanentId) {
   const { types, subtypes } = permanentTypes(state, permanentId);
   return subtypes.includes("Equipment") && types.includes("Creature") && !hasReconfigure(findPerm(state, permanentId)?.card);
+}
+
+/**
+ * CAN'T EQUIP A CREATURE RIGHT NOW (CR 301.5c, 701.3b) — the one read for every Equip-lane guard: the Equip resolver, the
+ * attach-pair atom and the AI's equip pick. True when the permanent is not an Equipment right now (layer-aware, the face that
+ * is up) — "An Equipment that loses the subtype 'Equipment' can't equip a creature", and an effect that tries to attach an
+ * object that isn't an Aura, Equipment, or Fortification does nothing and that object doesn't move — or is one barred as a
+ * creature (equipmentBarredAsCreature). The first arm is the double-faced permanent whose combined card carries its BACK face's
+ * Equip: Halvar, God of Battle // Sword of the Realms is front face up, a God and no Equipment (CR 712.8d), as are Sidequest:
+ * Play Blitzball and the Equipment-backed Invasion battles. The combined type line used to make them Equipment in the derive,
+ * so only an Equipment creature was refused (Halvar) and a noncreature front attached itself (Blitzball's enchantment).
+ */
+export function cannotEquipNow(state, permanentId) {
+  return !permanentTypes(state, permanentId).subtypes.includes("Equipment") || equipmentBarredAsCreature(state, permanentId);
 }
 
 /**
