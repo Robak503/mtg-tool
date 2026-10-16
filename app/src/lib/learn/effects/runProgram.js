@@ -134,7 +134,7 @@ export function finishSpellResolution(state, disposition, { selfExile = false, s
   // library.") — the resolving spell shuffles ITSELF into its OWNER's library instead of the graveyard (CR
   // 608.2n replaced by the printed "Shuffle ~ into its owner's library"). The ZONELESS card is appended to the
   // owner's library, then the library is shuffled deterministically (the same threaded-seed shuffle every other
-  // library shuffle uses — serialize-stable, CR 701.19e). A token/copy already returned above (ceases to exist,
+  // library shuffle uses — serialize-stable, CR 701.24a). A token/copy already returned above (ceases to exist,
   // never shuffled in). Everything else about GY-1 (no disposition / eliminated owner → no-op) is identical.
   if (selfShuffle) {
     const withCard = {
@@ -354,7 +354,7 @@ export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacri
  * Deterministically auto-pick a tutor candidate (Expert autopilot / an opponent — no
  * picker shown): the highest-mana-value match, locale-free codepoint tie-break by name
  * then id (serialize-stable). Returns the chosen card id, or null when there's no
- * candidate (a search that finds nothing, CR 701.19f).
+ * candidate (a search that finds nothing, CR 701.23b / 701.23d).
  */
 export function autoPickTutorCandidate(state, pendingChoice) {
   // LAND-FROM-HAND — read the candidate cards from the choice's source zone (hand for Growth Spiral, the
@@ -387,7 +387,7 @@ export function autoPickTutorCandidate(state, pendingChoice) {
 
 /**
  * Settle a pending tutor choice: move the chosen card library→hand (or find nothing if
- * `cardId` is null), shuffle (CR 701.19e, threaded deterministic seed), clear the choice,
+ * `cardId` is null), shuffle (CR 701.24a, threaded deterministic seed), clear the choice,
  * then RESUME the suspended program from where it paused. Hidden-info safe — the log
  * records the controller + found-ness, never the fetched card's name.
  */
@@ -436,11 +436,11 @@ export function resolveTutorChoice(state, cardId) {
     : (pc.sourceZone === "hand" ? "hand" : "library");
   const inSource = cardId && (next.players?.[pc.controller]?.[sourceZone] || []).some((c) => c.id === cardId);
   // WAVE-2b FETCH-TO-TOP — three destinations: "battlefield" (ramp), "top" (Vampiric/Mystical Tutor —
-  // shuffle FIRST, then place the chosen card on top, CR 701.19e, so it survives the shuffle), "hand" (default).
+  // shuffle FIRST, then place the chosen card on top, CR 701.24b, so it survives the shuffle), "hand" (default).
   // GRAVEYARD joins them (CR 701.19a — the search's destination is whatever the card says): Entomb, Buried
   // Alive, Unmarked Grave, Vile Entomber and the reanimator family put the found card straight into the
   // graveyard. It is the SAME moveCardToZone the hand branch uses with a different toZone, so the fetch,
-  // the CR 701.19e shuffle, the multi-pick chain and the find-nothing path are all unchanged.
+  // the CR 701.24a shuffle, the multi-pick chain and the find-nothing path are all unchanged.
   const destination = pc.destination === "battlefield" ? "battlefield"
     : pc.destination === "top" ? "top"
       : pc.destination === "graveyard" ? "graveyard" : "hand";
@@ -484,10 +484,10 @@ export function resolveTutorChoice(state, cardId) {
         }
       }
     } else if (destination === "top") {
-      // FETCH-TO-TOP (CR 701.19e — "shuffle and put that card on top"): SHUFFLE the library FIRST (the chosen
+      // FETCH-TO-TOP (CR 701.24b — "shuffle and put that card on top"): SHUFFLE the library FIRST (the chosen
       // card is still in it), THEN reposition it to index 0 (the top) so it lands on top AFTER the shuffle
       // (never shuffled back into the deck). A from-hand "to top" is never printed (sourceZone is always
-      // "library" here). `topAlreadyShuffled` suppresses the trailing CR-701.19e shuffle below, which would
+      // "library" here). `topAlreadyShuffled` suppresses the trailing CR 701.24a shuffle below, which would
       // otherwise re-randomize the card off the top. (moveCardToZone can't do a SAME-zone library→library
       // move — the spread would re-add the card — so the reposition is an explicit splice-to-front here.)
       next = shuffleControllerLibrary(next, pc.controller);
@@ -549,7 +549,7 @@ export function resolveTutorChoice(state, cardId) {
     });
     return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
   }
-  // A library search shuffles afterward (CR 701.19e); a from-HAND put (LAND-FROM-HAND) doesn't touch the
+  // A library search shuffles afterward (no CR rule states this directly); a from-HAND put (LAND-FROM-HAND) doesn't touch the
   // library; a FETCH-TO-TOP already shuffled-then-placed above, so re-shuffling would knock the card off top.
   // MULTI-ZONE (bfxg) — the library was searched whenever "library" is in the source-zone set, even if the
   // chosen card came from the graveyard (so `sourceZone` is "graveyard"); shuffle in that case too.

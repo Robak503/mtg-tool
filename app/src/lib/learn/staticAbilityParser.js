@@ -1593,7 +1593,7 @@ function parseAsLongAsGate(condText) {
   // Source attachment / tap state ("this creature" — the self-name was normalized upstream).
   if (/^(?:this creature|it) is equipped$/.test(t)) return { kind: "isEquipped", gateOn: "source" };
   if (/^(?:this creature|it) is untapped$/.test(t)) return { kind: "untapped", gateOn: "source" };
-  // MONSTROUS (CR 701.32d) — the untapped gate's sibling; layers.gateMet reads the `monstrous` latch the
+  // MONSTROUS (CR 701.37b) — the untapped gate's sibling; layers.gateMet reads the `monstrous` latch the
   // monstrosity atom sets. gateOn:"source" like the tap read, which is a no-op for these SELF clauses
   // (source == affected) and correct if the shape ever appears on a group anthem.
   if (/^(?:this creature|it) is monstrous$/.test(t)) return { kind: "monstrous", gateOn: "source" };
@@ -2113,7 +2113,7 @@ function parseClause(clause, out, selfName, selfType) {
   const c = clause.toLowerCase().replace(/^(?:metalcraft|threshold|delirium|hellbent|corrupted|infusion|unlock ability|the will of the hive mind)\s*[—–-]\s*/, "");
 
   // ── FLASH-CAST-PERMISSION (Yeva; Vedalken Orrery; Leyline of Anticipation; Prophet of Kruphix; …) ──────
-  // "You may cast <FILTER> spells as though they had flash." A STATIC casting-permission (CR 601.3e / 702.8f
+  // "You may cast <FILTER> spells as though they had flash." A STATIC casting-permission (CR 601.3b / 702.8a
   // — a static ability that lets the controller cast a class of THEIR OWN spells at instant speed). Emitted
   // as a coverage MARKER ({ castFlashPermission } with NO `affects`/`op`, so the layer engine ignores it —
   // effectAffects bails on a missing `affects`); legalChoices reads it at the cast timing gate
@@ -3006,7 +3006,7 @@ function parseClause(clause, out, selfName, selfType) {
 
   // ── EXTRA-LAND-DROPS (Exploration; Azusa, Lost but Seeking) ────────────────────────────────────────────
   // "You may play [an additional|N additional] land[s] on each of your turns." A static that RAISES the
-  // controller's per-turn land-play allowance (CR 305.2 — normally one; CR 505.5b lets an effect grant more).
+  // controller's per-turn land-play allowance (CR 305.2 — normally one; CR 505.6b lets an effect grant more).
   // Emitted as a coverage MARKER ({ extraLandDrops: N } with NO `affects`/`op`), so the layer engine ignores
   // it (layers.effectAffects bails on a missing `affects`); legalChoices.actionsPlayLand + the dispatcher's
   // applyPlayLand read it (extraLandDropsForPlayer) and compute the allowance = 1 + Σ extraLandDrops across the
@@ -3560,7 +3560,7 @@ function parseClause(clause, out, selfName, selfType) {
   //     animated type via effectiveTypeIdentity's dynamic-add branch (an anthem's cardTypes ["Creature"]
   //     matches an animated land — the CR 613 layer-4-before-6/7 dependency); combat / the lethal SBA
   //     read it through deriveCharacteristics.
-  //   • layer 7b — SET base P/T to N/N (CR 613.3b/613.4a); counters and anthems then apply ON TOP (7c).
+  //   • layer 7b — SET base P/T to N/N (CR 613.4b); counters and anthems then apply ON TOP (7c).
   // The animation lifts LIVE (statics are re-collected per state — the carrier leaving removes both).
   // CR 302.6 is enforced by layers.summoningSickNow at the attack/{T}-ability/mana gates: a land played
   // while a carrier is out can't attack or tap for mana that turn. EXACT all-lands line only: the

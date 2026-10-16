@@ -4,7 +4,7 @@
  * "Emerge {cost} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by
  * that creature's mana value.)" lets the caster cast an Eldrazi by sacrificing a creature and paying the
  * emerge cost MINUS the sacrificed creature's mana value (CR 702.97a). A variant "Emerge from artifact
- * {cost}" sacrifices an ARTIFACT instead (CR 702.97c). The spell still goes on the stack as a normal cast,
+ * {cost}" sacrifices an ARTIFACT instead (CR 702.119b). The spell still goes on the stack as a normal cast,
  * so its OWN abilities — a "When you cast this spell, <effect>" self-cast trigger (CR 601.2i) and any ETB —
  * fire EXACTLY as they would on a hard-cast. Emerge changes ONLY how/what you pay, never the permanent's
  * printed text. This is the SAME shape the engine already models for Plot / Warp / Bestow: an alternative

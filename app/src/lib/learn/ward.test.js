@@ -99,7 +99,7 @@ describe("wardTaxForSpell / wardTaxForStackObject", () => {
     expect(wardTaxForSpell(stateWith(v), spell("user", v.id))).toBeNull();
   });
 
-  it("leaves a spell targeting 2+ ward permanents unenforced (each ward is its own trigger — CR 702.21c)", () => {
+  it("leaves a spell targeting 2+ ward permanents unenforced (each ward is its own trigger — CR 702.21a)", () => {
     const w1 = wardCreature("S1", "ai", "Ward {2}");
     const w2 = wardCreature("S2", "ai", "Ward {1}");
     expect(wardTaxForSpell(stateWith(w1, w2), spell("user", w1.id, w2.id))).toBeNull();

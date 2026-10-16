@@ -1,10 +1,10 @@
 /**
- * sorcerySpeedActivation.test.js — "Activate only as a sorcery" (CR 602.5i), the EMPTY-STACK half.
+ * sorcerySpeedActivation.test.js — "Activate only as a sorcery" (CR 602.5d / 307.5), the EMPTY-STACK half.
  *
  * THE OVER-DELIVERY THIS CLOSES. The rider was stripped from the effect clause as an "already enforced"
  * timing restriction, and the code comment saying so was PARTLY true: the generic offer gate does hold the
  * controller's own turn and the main step, so the ability was already withheld on an opponent's turn — and
- * in combat too, though for an unrelated reason the CONTROL block below names. But CR 602.5i also requires
+ * in combat too, though for an unrelated reason the CONTROL block below names. But CR 307.5 also requires
  * an EMPTY STACK, and nothing enforced that
  * — so the engine offered a sorcery-speed ability IN RESPONSE to a spell, which the card forbids. An
  * ignored restriction is the FORBIDDEN direction: the engine plays a card as stronger than printed.

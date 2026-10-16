@@ -619,7 +619,7 @@ Three mechanisms, run from `app/`. **Never claim a change is safe without them.*
 # ~176 filesystem-test failures that are NOT real). Read "Tests N passed".
 VITEST_TIMEOUT_MS=900000 npm test   # the CI wrapper; expect the full suite green (current anchor: WAKE-REPORT top block)
                                     # a fresh worktree first: npm run build:rules-index (docs/gotchas.md #20)
-npm run lint            # eslint --max-warnings 0
+npm run lint            # eslint --max-warnings 0, then scripts/check-cr-citations.cjs (every "CR nnn.n" must exist in the bundled CR)
 ```
 
 ### 7.2 The flip-diff (the CREED gate for any engine change)

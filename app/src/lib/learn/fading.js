@@ -96,10 +96,10 @@ export function applyFadeVanishUpkeep(state) {
 //   - the OWNER's upkeep (applySuspendUpkeep, wired beside applyFadeVanishUpkeep): remove one time
 //     counter; at ZERO the card is stamped `_suspendReady` and legalChoices offers the FREE cast
 //     through the REAL cast path (castActionsFromZone freeCast — the plot machinery), so cast
-//     triggers/watchers fire exactly as a hand cast's would (CR 702.62e — the card IS cast).
+//     triggers/watchers fire exactly as a hand cast's would (CR 702.62d — the card IS cast).
 //
-// TWO DOCUMENTED SIMPLIFICATIONS, both FN-safe by direction and pinned in suspendNoCost.test.js:
-//   - CR makes the zero-counter cast MANDATORY; the engine OFFERS it (an offer can never fire
+// TWO DOCUMENTED POINTS, both FN-safe by direction and pinned in suspendNoCost.test.js:
+//   - CR 702.62a makes the zero-counter play optional; the engine OFFERS it (an offer can never fire
 //     wrongly; a declined Bloom under-uses the card, never mis-plays it).
 //   - the cast window is "whenever the owner has priority once ready" rather than exactly the
 //     upkeep trigger's resolution — for the three scoped ARTIFACTS the battlefield result is

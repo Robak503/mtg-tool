@@ -1,5 +1,5 @@
 /**
- * EXTRA-LAND-DROPS (CR 305.2 / 505.5b) — a static "You may play [an additional|N additional] land[s] on
+ * EXTRA-LAND-DROPS (CR 305.2 / 505.6b) — a static "You may play [an additional|N additional] land[s] on
  * each of your turns" RAISES the controller's per-turn land-play allowance (Exploration → +1; Azusa → +2).
  *
  * Build: parseStaticAbilities emits a { extraLandDrops: N } MARKER (no layer effect); legalChoices.

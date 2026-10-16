@@ -1001,7 +1001,7 @@ function combatStatsOf(state, permanentId) {
  * Outcome of one attacker/blocker duel (POLICY math, not rules execution — the
  * real combat step stays combatResolution.js; this only RANKS offered actions).
  * Honors first/double-strike asymmetry (the lone first-striker kills before
- * taking damage back, CR 510.5) and deathtouch (any nonzero hit is lethal,
+ * taking damage back, CR 510.4) and deathtouch (any nonzero hit is lethal,
  * CR 702.2b). Both stat objects come from combatStatsOf (derived, layer-aware).
  */
 function combatDuel(att, blk) {

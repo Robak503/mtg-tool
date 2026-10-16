@@ -3,7 +3,7 @@
  *
  * PR1 of the wave2b-tutor slice:
  *   1. FETCH-TO-TOP — "search … then shuffle and put that card on top" (Vampiric / Mystical / Worldly
- *      Tutor): destination "top" — resolveTutorChoice SHUFFLES FIRST (CR 701.19e), THEN places the chosen
+ *      Tutor): destination "top" — resolveTutorChoice SHUFFLES FIRST (CR 701.24b), THEN places the chosen
  *      card on top so it survives the shuffle.
  *   2. UP-TO-N — "up to (two|three|four|five)" land multi-fetch (Nissa's Renewal = 3).
  *   3. MV / richer FILTER — "with mana value N or less" (Spellseeker MV<=2) / "with mana value N" (Trophy
@@ -167,7 +167,7 @@ describe("WAVE-2b resolveTutorChoice — FETCH-TO-TOP shuffles FIRST, then place
     const out = resolveTutorChoice(paused, "c"); // fetch Mox Diamond
     const newLib = out.players.user.library;
     expect(newLib).toHaveLength(5);               // nothing lost — it's a reorder + place
-    expect(newLib[0].id).toBe("c");               // Mox Diamond is ON TOP (CR 701.19e)
+    expect(newLib[0].id).toBe("c");               // Mox Diamond is ON TOP (CR 701.24b)
     // It must NOT appear twice (it was moved, not copied).
     expect(newLib.filter((x) => x.id === "c")).toHaveLength(1);
   });

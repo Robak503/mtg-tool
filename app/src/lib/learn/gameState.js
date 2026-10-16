@@ -486,7 +486,7 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
     experience: 0,
     radCounters: 0,           // RAD (CR 728): rad counters a player has; the inherent radiation ability (applyRadiation) mills + drains at their precombat main
     landsPlayedThisTurn: 0,
-    extraLandsThisTurn: 0,    // ONE-SHOT-EXTRA-LAND (CR 505.5b / 305.2): the per-turn land-play budget RAISED by a resolving "you may play [N] additional land[s] this turn" effect (Explore → +1, Summer Bloom → +3). landDropAllowance adds it; resetTurnCounters zeroes it each of the player's turns.
+    extraLandsThisTurn: 0,    // ONE-SHOT-EXTRA-LAND (CR 505.6b / 305.2): the per-turn land-play budget RAISED by a resolving "you may play [N] additional land[s] this turn" effect (Explore → +1, Summer Bloom → +3). landDropAllowance adds it; resetTurnCounters zeroes it each of the player's turns.
     cardsDrawnThisTurn: 0,
     drawnThisTurnIds: [],     // SG-15a: the ids of the cards this player drew this turn, in draw order (drawCards stamps; both per-turn resets clear) — Sylvan Library's "cards in your hand drawn this turn"
     spellsCastThisTurn: 0,    // TRIG-CAST2: "cast your second spell each turn" — incremented at the cast chokepoint, reset for all seats at untap
@@ -1882,7 +1882,7 @@ export function untapAll(state, { playerId }) {
   assertPlayer(playerId);
   // GROUP NO-UNTAP (UT-1): the continuous "<filter> don't untap" statics active on ANY battlefield this step.
   const groupFilters = groupNoUntapActiveFilters(state);
-  // BECAME-UNTAPPED events (Mesmeric Orb — CR 613.10a-style look-back list): record every permanent that
+  // BECAME-UNTAPPED events (Mesmeric Orb — a look-back list, CR 603.2e): record every permanent that
   // actually TRANSITIONS tapped→untapped this step (the doesNotUntapNext / stun / attached-lock skips below
   // stay tapped and must NOT fire; an already-untapped permanent doesn't "become" untapped). gameState can't
   // import triggers.js (cycle), so this only records; triggers.checkUntapTriggers drains the queue (the
@@ -2874,7 +2874,7 @@ export function resetTurnCounters(state, { playerId }) {
     // resetTurnCounters runs for the active player). Extra turns count, as CR 500.7 says they should.
     turnsTaken: (p.turnsTaken || 0) + 1,
     landsPlayedThisTurn: 0,
-    extraLandsThisTurn: 0,  // ONE-SHOT-EXTRA-LAND: the resolving "additional land this turn" budget is per-turn; reset alongside landsPlayedThisTurn so it never carries into a later turn (CR 505.5b — "this turn" only).
+    extraLandsThisTurn: 0,  // ONE-SHOT-EXTRA-LAND: the resolving "additional land this turn" budget is per-turn; reset alongside landsPlayedThisTurn so it never carries into a later turn (CR 611.2a — "this turn" only).
     cardsDrawnThisTurn: 0,
     drawnThisTurnIds: [], // SG-15a — the drawn-this-turn id ledger clears with the count
   }));

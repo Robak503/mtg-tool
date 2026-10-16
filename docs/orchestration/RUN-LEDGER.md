@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **21 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
+> **22 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,28 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 📚 2026-10-16 — CITATION GATE (docs only): every CR citation names a real rule; the check joins `npm run lint` · **±0**
+> Suite **18,952** green (1 skipped; 1,777 files) under the gate lock on 4d599284; rebased onto 4463487c after, where the
+> citation check and eslint were re-run (lint 0). Comments and test titles only: 45 of the 53 source files are
+> token-identical to their parent (espree tokens, comments excluded), the other 8 are test files whose describe/it
+> titles carry a corrected citation. Checker witness mutants **5/5** killed (a sixth is equivalent).
+> · **130 citations corrected:** the 122 that named no rule (25 numbers — 701.19e ×25 → 701.24a/b or dropped, 505.5b ×13
+>   → 505.6b, 602.5i ×9 → 602.5d/307.5, 203.4c ×9 → 700.12, 715.3e ×8 → 715.3d, 701.32d ×8 → 701.37a/b, …; every old →
+>   new number and its reason is in the commit body) and 8 real rules co-cited inside those citations for the wrong thing
+>   (103.2 → 103.3 ×2, 613.4a ×4 removed, 601.3e → 601.3b ×2). Each new number was read in cr_current.json; where no
+>   rule says it (9 comments: "a library search always shuffles"), the number is dropped and the comment says so.
+> · **Comments the CR contradicts, corrected:** suspend's free play is optional (CR 702.62a, "you may play it") — three
+>   comments called the engine's offer a simplification of a mandatory cast. The cumulative-upkeep quote is now 702.24a's.
+> · **The gate:** `npm run lint` = eslint + `scripts/check-cr-citations.cjs` (ci.yml and release.yml run lint). The
+>   checker now joins each file's lines (a citation wrapped across a line break is read) and reads `CR-701.19e` and both
+>   ends of a range; the per-line scan had missed 5 of the 122 and reported 117. 9,925 citations, 0 name no rule. Witness
+>   `scripts/check-cr-citations.test.js` (8).
+> · ⚠️ Found, not fixed (queued): real rules cited for the wrong thing outside the rewritten citations — tribute
+>   702.96/702.96a (Overload) → 702.104, emerge 702.97/702.97a (Scavenge) → 702.119, dethrone 702.104a (Tribute) → 702.105,
+>   search 701.19a/b (Regenerate) → 701.23, monstrous 701.32b → 701.37b, die rolls 726.2–726.4 (the initiative) → 706,
+>   evolve's comparison 702.100d → 702.100a, ~20 uses of 601.3e as a generic permission. One behaviour gap: mulliganPolicy's
+>   cost fallback counts a {2/X} pip as 1 (CR 202.3f: 2).
 
 > ## 🔧 2026-10-16 — FIX: "…your opponents control" reads a permanent like every other count scope (the face that is up, every creature type) · **±0**
 > Suite **18,956** green (1 skipped; 1,777 files). Flip-diff **0 / 0 / 0**. **Mutants 7/7**, restore byte-identical.

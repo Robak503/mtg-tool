@@ -130,7 +130,7 @@ describe("Green Sun's Zenith — RUNTIME: color gate + MV cap + self-shuffle dis
     let s = boardWithLibrary([{ id: "c1", name: "Ornithopter", type: "Artifact Creature — Thopter", mana_cost: "{0}", cmc: 0, colors: [] }]);
     const stackObj = { source: { name: "Green Sun's Zenith" }, payload: { params: { program, controller: "user", targets: [], xValue: 5, spellToGraveyard: { playerId: "user", card: { id: "gsz1", name: "Green Sun's Zenith" } } } } };
     const st = runEffectProgram(s, stackObj);
-    // No legal candidate → the search finds nothing (CR 701.19f); GSZ still self-shuffles.
+    // No legal candidate → the search finds nothing (CR 701.23b); GSZ still self-shuffles.
     expect(st.pendingChoice.candidates).toEqual([]);
   });
 });

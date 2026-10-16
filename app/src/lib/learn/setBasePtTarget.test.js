@@ -4,7 +4,7 @@
  * team form.)
  *
  * The clause parses to a `set-base-pt-target` atom (HIGH, one chosen creature target) resolved by
- * applySetBasePtTarget: a layer-7b base-P/T SET (CR 613.3b/613.4a) fixed to the chosen creature,
+ * applySetBasePtTarget: a layer-7b base-P/T SET (CR 613.4b) fixed to the chosen creature,
  * endOfTurn (worn off at cleanup, CR 514.2). Layer order pinned per CR 613.3/613.4c: counters and
  * anthems apply ON TOP of the new base in 7c (a Diminished 1/1 with a +1/+1 counter is a 2/2), and
  * the lethal SBA runs at resolution — already-marked damage can turn lethal against the new base

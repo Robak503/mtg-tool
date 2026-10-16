@@ -17,7 +17,7 @@
  *   • "commander"  — a DESIGNATION (CR 903.3), not a type-line word. Norn's Choirmaster #3286 (etb+attacks)
  *                    and Keleth #6637 (attacks). Now routed to `commanderYouControl`, the scope that already
  *                    enforced this correctly for combat damage (Kediss).
- *   • "outlaw"     — a CR 203.4c UMBRELLA over five subtypes. Rakish Crew. Now expands to the list.
+ *   • "outlaw"     — a CR 700.12 UMBRELLA over five subtypes. Rakish Crew. Now expands to the list.
  *   • "Allie"      — the naive `-s` strip applied to the irregular plural "Allies". Invasion Tactics #13305.
  *                    Now singularized through the closed CR_CREATURE_TYPES vocabulary.
  */
@@ -106,7 +106,7 @@ describe("COMMANDER is a designation, not a subtype (CR 903.3)", () => {
   });
 });
 
-describe("OUTLAW is an umbrella term (CR 203.4c), not a type-line word", () => {
+describe("OUTLAW is an umbrella term (CR 700.12), not a type-line word", () => {
   const RAKISH = {
     id: "rc", name: "Rakish Crew", type: "Enchantment",
     oracle: "Whenever an outlaw you control dies, each opponent loses 1 life and you gain 1 life.",

@@ -1088,7 +1088,7 @@ export function applyMonstrosity(state, atom, ctx) {
   if (lk.permanent.monstrous) return logEvent(state, { kind: "spell-effect", effect: "monstrosity", note: "already monstrous", permanentId: ctx.sourceId });
   let next = addCounter(state, { permanentId: ctx.sourceId, type: "+1/+1", amount: atom.amount || 1 });
   next = updatePermanentSafe(next, ctx.sourceId, (p) => ({ ...p, monstrous: true }));
-  // BECOMES-MONSTROUS (CR 701.32d — SHELF S7): the real transition just happened (the already-monstrous
+  // BECOMES-MONSTROUS (CR 701.37a — SHELF S7): the real transition just happened (the already-monstrous
   // branch returned above), so the source's own becomes-monstrous watchers fire exactly once.
   next = checkBecomesMonstrousTriggers(next, ctx.sourceId);
   return logEvent(next, { kind: "spell-effect", effect: "monstrosity", permanentId: ctx.sourceId, amount: atom.amount || 1 });
@@ -1205,7 +1205,7 @@ export function applyDrawOrCountersByTriggeringPower(state, atom, ctx) {
  * kind-tagged sentinel "[evolve] put a +1/+1 counter on this creature" is emitted ONLY by detectTriggers'
  * evolve synthesis, so no printed clause routes here. Delegates the placement to applyAddCounter
  * (target:"self" — the standard doubling / counters-placed-watcher / lethal-SBA path), then fires the
- * SOURCE's own "Whenever this creature evolves" watchers (checkEvolvesTriggers — CR 702.100f: a creature
+ * SOURCE's own "Whenever this creature evolves" watchers (checkEvolvesTriggers — CR 702.100b: a creature
  * evolves exactly when this ability's counter is placed on it). A vanished source no-ops inside both.
  */
 export function applyEvolveCounterSelf(state, atom, ctx) {

@@ -7,7 +7,7 @@
  * and no graveyard. The search itself was already right.
  *
  * So this is a DESTINATION, not a new mechanic. The parser arms mirror the fetch-to-hand ones exactly and the
- * settler runs the SAME moveCardToZone with a different toZone — the CR 701.19e shuffle, the multi-pick chain,
+ * settler runs the SAME moveCardToZone with a different toZone — the CR 701.24a shuffle, the multi-pick chain,
  * the find-nothing path and the auto-pick filter are all the existing ones.
  *
  * ⚠️ THE AUTO-PICK COINCIDENCE, asserted rather than assumed: the deterministic picker takes the HIGHEST mana

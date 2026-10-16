@@ -10,7 +10,7 @@
  *   1. tutor  { destination:"battlefield", filter:{groups:[["creature"]], mvCapX:true}, sourceZones:["library","graveyard"] }
  *      — the candidate pool is the UNION of the caster's library + graveyard; each candidate is tagged with
  *        its zone so resolveTutorChoice enters the chosen creature from the RIGHT zone. MV cap = the chosen X
- *        (mvCapX, bound at cast). The library is always searched → the CR-701.19e shuffle always runs (the
+ *        (mvCapX, bound at cast). The library is always searched → the CR 701.24a shuffle always runs (the
  *        separate "If you search your library this way, shuffle." reminder is stripped in splitClauses).
  *   2. pump   { scope:"youControl", amountX:true, condX:{min:10}, grantKeywords:["Haste"] }
  *      — a team +X/+X + Haste GATED on X>=10; applyPumpEffect no-ops the entire pump (no continuous effects,

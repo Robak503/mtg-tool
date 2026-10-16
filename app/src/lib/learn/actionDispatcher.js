@@ -84,7 +84,7 @@ import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTap
 // ORDEAL (BLITZ OC-1): the Theros Ordeal cast lane — the SAME gate legalChoices offers on and the metric
 // awards (single source of truth, no drift). Acyclic: coverage.js never imports actionDispatcher.js.
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
-import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses · LANDS-5: the ONE discard-ability price reducer the offer uses too
+import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.6b) — same reader the action gate uses · LANDS-5: the ONE discard-ability price reducer the offer uses too
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf, crewCostWithOverrides, permanentColors, permIsEveryCreatureType, permanentManaValue } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell / command-zone card that is every creature type (Changeling, Maskwood Nexus); a leaf over keywords.js
@@ -150,7 +150,7 @@ function applyPassPriority(state) {
 function applyPlayLand(state, action) {
   const player = state.players[action.playerId];
   if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
-  // EXTRA-LAND-DROPS (CR 305.2 / 505.5b): the allowance is 1 + every "play an additional land" static the
+  // EXTRA-LAND-DROPS (CR 305.2 / 505.6b): the allowance is 1 + every "play an additional land" static the
   // player controls (Exploration → 2, Azusa → 3). Same reader the action gate (legalChoices) uses, so the two
   // sites can't drift (the CREED two-sites invariant) — a turbo-land board can legally play its extra lands.
   if (player.landsPlayedThisTurn >= landDropAllowance(state, action.playerId)) {
@@ -1371,7 +1371,7 @@ function applyActivateHandSelfPut(state, action) {
 }
 
 /**
- * CREW (BLITZ VH-1, CR 702.121c) — a special activation with NO stack object in this engine (the tap is
+ * CREW (BLITZ VH-1, CR 702.122a) — a special activation with NO stack object in this engine (the tap is
  * the cost; the animation is the effect — modeled as an immediate resolution, the same simplification every
  * no-stack special action here uses). Re-verified live at dispatch (CREED — the action payload is untrusted):
  * the Vehicle must be a live, un-animated Vehicle with a printed Crew N; every tapped creature must be a
@@ -2391,7 +2391,7 @@ const HANDLERS = {
   "activate-gy-recursion": applyActivateGyRecursion, // GY-1 (CR 602.2): "Return this card from your graveyard …" activated from the graveyard
   "activate-gy-exile": applyActivateGyExile, // GY-2 (CR 602.2): "<mana>, Exile this card from your graveyard: <effect>"
   "activate-hand-self-put": applyActivateHandSelfPut, // play-weighted #570 (CR 113.6m): "{N}: Put this card from your hand onto the battlefield."
-  "crew-vehicle": applyCrewVehicle, // CREW (VH-1, CR 702.121c): tap creatures totaling power ≥ N → the Vehicle animates until EOT
+  "crew-vehicle": applyCrewVehicle, // CREW (VH-1, CR 702.122a): tap creatures totaling power ≥ N → the Vehicle animates until EOT
   "cycle": applyCycle, // KW-CYCLING: discard a hand card to draw
   "discard-ability": applyDiscardAbility, // "<mana>, Discard this card: <effect>" — cycling generalized
   "plot": applyPlot,   // PLOT (CR 702.170a): exile a hand card face-up for the plot cost (special action)

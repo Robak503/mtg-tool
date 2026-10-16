@@ -3,7 +3,7 @@
  * instant/sorcery "Adventure" half. From your hand you may cast EITHER half (CR 715.3). Casting the
  * Adventure half puts an instant/sorcery on the stack; when it resolves, instead of going to the graveyard
  * the card is EXILED (CR 715.3d), and while it remains exiled you may cast the CREATURE half from exile
- * (CR 715.3e), at the creature's own mana cost. Casting the creature half (from hand or from adventure-
+ * (CR 715.3d), at the creature's own mana cost. Casting the creature half (from hand or from adventure-
  * exile) puts the creature permanent onto the battlefield as normal.
  *
  * This module is the SINGLE source of truth for the Adventure card SHAPE:

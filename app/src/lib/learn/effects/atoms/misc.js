@@ -178,7 +178,7 @@ function applyForceAttack(state, atom, ctx) {
 }
 
 /**
- * ===== ONE-SHOT EXTRA-LAND ===== (CR 505.5b / 305.2) — "You may play [an|up to N] additional land[s] this
+ * ===== ONE-SHOT EXTRA-LAND ===== (CR 505.6b / 305.2) — "You may play [an|up to N] additional land[s] this
  * turn." A RESOLVING effect (Explore, Summer Bloom, Urban Evolution) that RAISES the controller's per-turn
  * land-play budget for THIS turn only. Bumps player.extraLandsThisTurn by atom.amount; legalChoices
  * .landDropAllowance adds that budget (1 + Σ static-extra + extraLandsThisTurn), and resetTurnCounters zeroes
@@ -389,7 +389,7 @@ export function miscClauseParser(clause) {
   // ("nonblue creatures", "creatures target opponent controls") or any rider leaves residue → no match → low
   // → Arbiter (CREED: never widen or narrow the printed "your opponents control" referent).
   if (/^creatures your opponents control attack this turn if able$/.test(t)) return { op: "force-attack", who: "opponents", targetType: null };
-  // ONE-SHOT EXTRA-LAND (CR 505.5b) — "[you may] play [an|up to N] additional land[s] this turn." A resolving
+  // ONE-SHOT EXTRA-LAND (CR 505.6b) — "[you may] play [an|up to N] additional land[s] this turn." A resolving
   // SELF one-shot land-budget bump (Explore +1, Summer Bloom "up to three" → +3, Urban Evolution +1). The
   // parser's α2 wrapper PEELS the leading "you may" before this runs (and leaves the atom UN-optional — the
   // "may" is realized at the land-play step, where the player chooses whether to use the bigger budget, NOT as
@@ -1021,7 +1021,7 @@ export const miscResolvers = {
   "fog": applyFog, // ===== FOG ===== (FOG-1) prevent all combat damage this turn — a turn-scoped latch
   "opponents-cast-lock-turn": applyOpponentsCastLockTurn, // SHELF-85 S11 — "your opponents can't cast noncreature spells this turn" (Permission Denied)
   "force-attack": applyForceAttack, // ===== FORCED-ATTACK ===== (FORCE-ATTACK-1, CR 508.1a) — "Creatures your opponents control attack this turn if able" (Bident): a turn-scoped attack requirement enforced in opponentAI.pickAttackPlan
-  "play-extra-land-this-turn": applyPlayExtraLandThisTurn, // ===== ONE-SHOT EXTRA-LAND ===== (CR 505.5b) bump the controller's per-turn land budget (Explore/Summer Bloom/Urban Evolution); reset each turn
+  "play-extra-land-this-turn": applyPlayExtraLandThisTurn, // ===== ONE-SHOT EXTRA-LAND ===== (CR 505.6b) bump the controller's per-turn land budget (Explore/Summer Bloom/Urban Evolution); reset each turn
   "create-emblem": applyCreateEmblem, // ===== EMBLEM ===== (PW-5) "you get an emblem with '[modeled static]'"
   // ===== DIVIDE ===== (MT-1) — split N damage among any number of targets via a resolution-time picker.
   // Wired end-to-end: applyDivideDamage → setPendingDivideChoice → driver (AI auto-distributes /

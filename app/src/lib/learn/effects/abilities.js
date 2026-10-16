@@ -47,7 +47,7 @@ function stripReminder(text) {
  * strip identically. Two riders are stripped, BOTH implied by the offer gate (legalChoices.actionsActivate-
  * Ability offers activated abilities ONLY when it is the controller's own main step, they hold priority, and —
  * for a sorceryOnly ability — the stack is empty):
- *   • "Activate [this ability] only as a sorcery." (CR 602.5i) — own main + empty stack, already the gate.
+ *   • "Activate [this ability] only as a sorcery." (CR 602.5d) — own main + empty stack, already the gate.
  *   • "Activate [this ability] only during your turn." (BLITZ AA-1) — own MAIN step is a STRICT SUBSET of
  *     "your turn", so the engine's window is always inside the printed one; stripping only ever UNDER-offers
  *     (never at instant speed on your turn, which the card would allow) — a safe false-negative, never an FP.
@@ -109,7 +109,7 @@ const CONDITION_RIDER = /\.?\s*Activate (?:this ability )?only if ([^.]+)\.\s*$/
 const PER_COUNTER_REDUCTION_RIDER = /(\.)?\s*This ability costs \{(\d+)\} less to activate for each ([a-z][a-z+/0-9-]*) counter on this (?:artifact|creature|enchantment|land|permanent|planeswalker)\.(?=\s|$)/i;
 const OPPONENT_TURN_RIDER = /Activate (?:this ability )?only during an opponent's turn/i;
 
-// CR 602.5i — "Activate only as a sorcery" means own main, priority, AND AN EMPTY STACK. The generic offer
+// CR 602.5d / 307.5 — "Activate only as a sorcery" means own main, priority, AND AN EMPTY STACK. The generic offer
 // gate covers own-turn + main step but NOT the empty-stack half, so the rider cannot simply be stripped as
 // "already enforced": the engine would offer the ability in response to a spell on the stack, which the card
 // forbids. Measured 2026-07-29 on a plain "{2}: Draw a card. Activate only as a sorcery." — correctly
@@ -1385,7 +1385,7 @@ export function parseActivatedAbilities(card) {
     // carriers. Never strip a restriction the runtime doesn't enforce.
     const isExhaust = /^exhaust\s*[—–-]\s*/i.test(costStr);
     if (isExhaust) costStr = costStr.replace(/^exhaust\s*[—–-]\s*/i, "").trim();
-    // Strip a trailing "Activate only as a sorcery" timing rider (CR 602.5i) — a WHEN restriction the runtime
+    // Strip a trailing "Activate only as a sorcery" timing rider (CR 602.5d) — a WHEN restriction the runtime
     // already enforces (activated abilities are offered only at main / sorcery speed), never a WHAT, so the
     // effect parses on its real payload instead of being dragged LOW by the trailing sentence.
     // PER-TURN ACTIVATION LIMIT (BLITZ ONCE-1, generalized from a boolean to a COUNT): a FREQUENCY
@@ -1518,7 +1518,7 @@ export function parseActivatedAbilities(card) {
       ...(isPowerUp ? { powerUp: true } : {}), // the powerUpOnly cost reducer (Hulk, Gamma Goliath) gates on this — Exhaust must NOT ride it
       preCombatOnly, // "before attackers are declared" — legalChoices narrows the window to the PRECOMBAT main
       combatStepOnly, // COMBAT-STEP RIDER (Desert) — "Activate only during the <step> step": legalChoices offers it in exactly that step, or null
-      sorceryOnly,   // CR 602.5i "Activate only as a sorcery" — legalChoices adds the EMPTY-STACK half the generic main-step gate does not cover
+      sorceryOnly,   // CR 602.5d "Activate only as a sorcery" — legalChoices adds the EMPTY-STACK half the generic main-step gate does not cover
 
       boast: isBoast, // CR 702.135 — offer gate requires perm.attackedThisTurn (per-permanent, not per-seat)
       condition, // CR 602.5d "Activate only if <cond>" — legalChoices evaluates it; null when absent OR unreadable

@@ -59,7 +59,7 @@ function typeStr(card) {
 // `probe-vacuous-subtype-filters.mjs` is the instrument that finds them: it derives the real subtype
 // vocabulary from printed type lines and reports any minted filter absent from it. Run it after touching
 // any path that mints a subtypeFilter.
-//   • "commander" / "outlaw" are CR-defined qualities, NOT type-line words (CR 903.3 designation, CR 203.4c
+//   • "commander" / "outlaw" are CR-defined qualities, NOT type-line words (CR 903.3 designation, CR 700.12
 //     umbrella). Both were live FPs found by that probe: Norn's Choirmaster #3286 and Keleth #6637 classified
 //     native-trigger and fired ZERO on a board. Each now has a POSITIVE route below (commanderYouControl for
 //     the first, the five-subtype expansion for the second) — the denylist is the backstop, not the fix.
@@ -185,7 +185,7 @@ function permIsEveryTypeNow(state, perm) {
   return permIsEveryCreatureType(state, perm.id);
 }
 
-// OUTLAW META-TYPE (CR 203.4c — "outlaw" is the umbrella for these five creature subtypes; NOT a type-line
+// OUTLAW META-TYPE (CR 700.12 — "outlaw" is the umbrella for these five creature subtypes; NOT a type-line
 // word). Mirrors layers.js's OUTLAW_SUBTYPES (kept local to avoid coupling triggers→layers beyond the existing
 // import surface). Capitalized so it composes with subtypeFilterMatches' type-line substring check.
 const OUTLAW_SUBTYPE_LIST = ["Assassin", "Mercenary", "Pirate", "Rogue", "Warlock"];
@@ -194,7 +194,7 @@ const OUTLAW_SUBTYPE_LIST = ["Assassin", "Mercenary", "Pirate", "Rogue", "Warloc
  * SUBTYPE/PROPERTY-FILTERED BATCH combat-damage subject → a descriptor fragment the runtime can faithfully
  * gate on, or null (→ the trigger stays Arbiter, a SAFE false-negative). The subject is the text between
  * "one or more" and "you control" in a batch combat-damage condition. Returns AT MOST ONE of:
- *   - { subtypeFilter }      a creature SUBTYPE or list — "outlaws" expands to its five constituents (CR 203.4c);
+ *   - { subtypeFilter }      a creature SUBTYPE or list — "outlaws" expands to its five constituents (CR 700.12);
  *                            a single/plural subtype word ("Goblins", "Dinosaur") → that capitalized subtype.
  *   - { batchArtifact: true }  "artifact creatures" — checked via "Artifact" in the type line (CR 205.2).
  *   - { batchEnchantment: true } "enchantment creatures" — checked via "Enchantment" in the type line.
@@ -882,7 +882,7 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^that mana is spent to cast a creature spell that shares a creature type with your commander$/.test(c)) {
     return { event: "manaSpentRider", scope: "self", whose: "any", manaSpentRider: true };
   }
-  // BECOMES-MONSTROUS (CR 701.32d — SHELF S7, the Alpha Deathclaw lift): the event now EXISTS —
+  // BECOMES-MONSTROUS (CR 701.37a — SHELF S7, the Alpha Deathclaw lift): the event now EXISTS —
   // applyMonstrosity fires checkBecomesMonstrousTriggers on the real transition, and the compound
   // "enters or becomes monstrous" splits via DISJUNCTION_MONSTROUS into two sentences pre-detection.
   // Handled below (after selfRef is computed): the SELF form detects; every other monstrous shape
@@ -955,7 +955,7 @@ function classifyCondition(condRaw, cardName, cardType) {
     return { event: "leavesSelf", scope: "self", whose: "any" };
   }
 
-  // ===== BECOMES-MONSTROUS (CR 701.32d — SHELF S7) ===== the SELF form only ("this creature / <name>
+  // ===== BECOMES-MONSTROUS (CR 701.37a — SHELF S7) ===== the SELF form only ("this creature / <name>
   // becomes monstrous", incl. the split half of "enters or becomes monstrous" — Alpha Deathclaw).
   // applyMonstrosity fires checkBecomesMonstrousTriggers exactly once, on the not-yet-monstrous
   // transition. ANY other monstrous shape (a watcher scoped to other creatures, a restricted subject)
@@ -1655,7 +1655,7 @@ function classifyCondition(condRaw, cardName, cardType) {
     // parseSubtypeList the combat-damage subject uses (string for one word — byte-identical to the old
     // single form — or an array; subtypeFilterMatches checks ANY member). A non-subtype word anywhere in
     // the list → null → undetected → Arbiter (never an over-fire).
-    // OUTLAW dies (CR 203.4c) — "Whenever an outlaw you control dies" (Rakish Crew). "Outlaw" is an UMBRELLA
+    // OUTLAW dies (CR 700.12) — "Whenever an outlaw you control dies" (Rakish Crew). "Outlaw" is an UMBRELLA
     // term, not a type-line word, so it expands to its five constituent subtypes exactly as the batch
     // combat-damage subject parser already does; subtypeFilterMatches accepts a list and matches ANY member.
     // Without this it minted the literal "Outlaw" — a gate no type line satisfies (found by the vacuous-filter
@@ -1780,7 +1780,7 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^a card is put into an opponent's graveyard from anywhere$/.test(c)) {
     return { event: "gyEnter", scope: "gyWatcher", whose: "any", gyCardType: null, gyOwnerScope: "opponent" };
   }
-  // EVOLVES-EVENT (Watchful Radstag — SHELF S7, CR 702.100f): "this creature evolves" — fires exactly when
+  // EVOLVES-EVENT (Watchful Radstag — SHELF S7, CR 702.100b): "this creature evolves" — fires exactly when
   // the SOURCE's own evolve ability places its +1/+1 counter (the evolve-counter-self resolver calls
   // checkEvolvesTriggers). Self-scope only — the printed form is always the evolving creature's own rider.
   if (selfRef && /\bevolves\s*$/.test(c) && /^(?:this creature|[a-z0-9',. -]+?) evolves$/.test(c)) {
@@ -3143,7 +3143,7 @@ const NON_SUBTYPE_ETB_WORDS = new Set([
   "white", "blue", "black", "red", "green", // colors (never in type line)
   "another", "your", "this", "that", "each", "every",
   // CR-defined umbrella terms — not type-line tokens; typeStr check would silently never fire (FP).
-  "outlaw", // CR 203.4c: {Assassin, Mercenary, Pirate, Rogue, Warlock}
+  "outlaw", // CR 700.12: {Assassin, Mercenary, Pirate, Rogue, Warlock}
 ]);
 
 /** Map the words between "cast a[n]" and "spell" to a MODELED spell filter, or null. */
@@ -6186,7 +6186,7 @@ export function detectTriggers(card) {
   // flush AND resolution per CR 603.4 / 702.100d) is enforced by interveningIf.js; the effectClause is the
   // kind-tagged sentinel ONLY evolveCounterSelfClauseParser models → the evolve-counter-self atom places
   // the +1/+1 counter through the standard doubling/watcher path AND fires the "this creature evolves"
-  // watchers (CR 702.100f — a creature evolves exactly when the evolve ability's counter is placed).
+  // watchers (CR 702.100b — a creature evolves exactly when the evolve ability's counter is placed).
   if (evolveKeywordCount(oracle) > 0) {
     out.push({
       event: "etb", scope: "creatureYouControl", whose: "any",
@@ -9473,7 +9473,7 @@ export function checkGraveyardEventTriggers(state) {
 }
 
 /**
- * EVOLVES triggers (Watchful Radstag — SHELF S7, CR 702.100f): fire the SOURCE permanent's own
+ * EVOLVES triggers (Watchful Radstag — SHELF S7, CR 702.100b): fire the SOURCE permanent's own
  * "Whenever this creature evolves, …" watchers the moment its evolve counter is placed (called by the
  * evolve-counter-self resolver, after the counter lands). The evolving permanent is threaded as
  * triggeringPermanent so a copy payoff's "it" (create-token-copy → ctx.triggeringPermanentId, the
@@ -9505,7 +9505,7 @@ export function checkCycleSelfTriggers(state, card, playerId) {
 }
 
 /**
- * BECOMES-MONSTROUS triggers (Alpha Deathclaw — SHELF S7, CR 701.32d): fire the SOURCE permanent's own
+ * BECOMES-MONSTROUS triggers (Alpha Deathclaw — SHELF S7, CR 701.37a): fire the SOURCE permanent's own
  * "when this creature becomes monstrous" watchers the moment applyMonstrosity performs the real
  * not-yet-monstrous transition (an already-monstrous re-activation never calls this). Self-scope only
  * (the checkEvolvesTriggers pattern); a vanished source no-ops.

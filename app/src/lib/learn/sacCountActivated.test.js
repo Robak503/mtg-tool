@@ -15,7 +15,7 @@
  *      UNMODELED → Arbiter: which value permanents to give up is a real choice the auto-pick can't make.
  *
  *   2. ACTIVATE-ONLY-AS-A-SORCERY rider strip (parseActivatedAbilities) — a trailing "Activate [this ability]
- *      only as a sorcery" (CR 602.5i) is a WHEN restriction the runtime ALREADY enforces (activated abilities
+ *      only as a sorcery" (CR 602.5d) is a WHEN restriction the runtime ALREADY enforces (activated abilities
  *      are offered only at step==="main"), never a WHAT. It was being swept into the effect program and
  *      dragging an otherwise-HIGH effect LOW. Stripped before the effect is parsed (single-sourced for the
  *      parser AND the coverage metric), it can NEVER let the engine play an ability faster than the card allows.

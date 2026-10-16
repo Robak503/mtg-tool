@@ -33,7 +33,7 @@ function manaValueFromCost(cost) {
   for (const m of cost.matchAll(/\{([^}]+)\}/g)) {
     const sym = m[1];
     if (/^\d+$/.test(sym)) mv += Number(sym);
-    else if (sym !== "X") mv += 1; // colored/hybrid/phyrexian pips count 1 (CR 203.3)
+    else if (sym !== "X") mv += 1; // colored/hybrid/phyrexian pips count 1 (CR 202.3 / 202.3f / 202.3g) — but a {2/X} pip is 2 under 202.3f, which this fallback counts as 1
   }
   return mv;
 }

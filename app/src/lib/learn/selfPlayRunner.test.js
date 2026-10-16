@@ -405,7 +405,7 @@ describe("runSelfPlayBatch with record + the JSONL writer", () => {
 // The on-the-play seat had been pinned to "user", so a mirror always handed that seat
 // the position edge ⇒ seat-position-biased training data. These cover: the seat picker
 // is deterministic + round-robin (balanced); the default single game stays byte-identical
-// (user on the play); a non-default starting seat correctly takes the CR 103.7a first-turn
+// (user on the play); a non-default starting seat correctly takes the CR 103.8a first-turn
 // draw-skip; the result records the on-the-play seat; and a batch is balanced + reproducible.
 
 describe("startSeatForGame / engineSeatsForMode — deterministic round-robin seat picker", () => {
@@ -433,7 +433,7 @@ describe("startSeatForGame / engineSeatsForMode — deterministic round-robin se
   });
 });
 
-describe("runSelfPlayGame startSeat (CR 103.7a — who is on the play)", () => {
+describe("runSelfPlayGame startSeat (CR 103.8 — who is on the play)", () => {
   it("defaults to 'user' on the play and is BYTE-IDENTICAL to an explicit startSeat:'user'", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const log = vi.spyOn(console, "log").mockImplementation(() => {});

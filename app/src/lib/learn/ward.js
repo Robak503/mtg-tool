@@ -31,7 +31,7 @@
  *     cannot express without a second nested pending-choice (high-blast-radius shared-infra change for 0
  *     in-deck and ~20 corpus cards). Left unenforced rather than half-built.
  *   - {X} ward (Minthara) — the cost is a value the ATTACKER would choose; no soft-counter shape for it.
- *   - A spell/ability targeting 2+ opponent ward permanents (each ward is its own trigger, CR 702.21c).
+ *   - A spell/ability targeting 2+ opponent ward permanents (each ward is its own trigger, CR 702.21a).
  *
  * Pure: regex + board reads, no mutation.
  */
@@ -132,10 +132,10 @@ export function wardTaxForStackObject(state, stackObj) {
     return lk && lk.controller !== caster
       && (permanentHasKeyword(state, t.id, "Ward") || permanentGrantedWardCosts(state, t.id).length > 0);
   });
-  if (wardTargets.length !== 1) return null; // 0 → no ward; 2+ → separate triggers (CR 702.21c), safe FN
+  if (wardTargets.length !== 1) return null; // 0 → no ward; 2+ → separate triggers (CR 702.21a), safe FN
   const lk = findPermanent(state, wardTargets[0].id);
   const printed = parseWardCost(lk?.permanent?.card);
-  // GRANTED ward costs (CR 702.21c — each instance triggers separately; for all-MANA costs, "pay each or
+  // GRANTED ward costs (CR 113.2c — each instance triggers separately; for all-MANA costs, "pay each or
   // the spell is countered" is outcome-identical to one combined tax, so the generic pips are SUMMED into
   // the soft-counter). A printed NON-mana ward (life) plus a grant can't be combined into one binary tax —
   // fall back to the printed cost alone (an under-tax, FN-safe — never a fabricated combined cost).
@@ -143,7 +143,7 @@ export function wardTaxForStackObject(state, stackObj) {
   const grantedGeneric = granted.reduce((s, g) => s + (g.generic || 0), 0);
   const grantedLife = granted.reduce((s, g) => s + (g.life || 0), 0);
   let cost = printed;
-  // GRANTED LIFE WARD (CR 702.21c — each ward instance triggers separately; for costs of a SINGLE kind,
+  // GRANTED LIFE WARD (CR 113.2c — each ward instance triggers separately; for costs of a SINGLE kind,
   // "pay each or the spell is countered" is outcome-identical to one combined tax, which is the same
   // argument the generic-mana branch below already makes). Handled BEFORE the mana branch so a
   // mixed board falls through to it and keeps today's behaviour exactly.

@@ -36,7 +36,7 @@
     "test": "node scripts/test-with-timeout.cjs",
     "test:raw": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint . --max-warnings 0",
+    "lint": "eslint . --max-warnings 0 && node scripts/check-cr-citations.cjs",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

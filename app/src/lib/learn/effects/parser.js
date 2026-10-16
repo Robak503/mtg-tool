@@ -746,7 +746,7 @@ function parseClauseToAtomCore(cardType, clause, hasX = false, sourceScoped = fa
     // cast-or-decline decision offered by legalChoices after the atom parks the candidates), NOT as an
     // optional-effect yes/no pause in runEffectProgram. Stamping `optional` would double-prompt (a yes/no
     // before the cast-or-decline), so the free-cast atom is left un-optional — its "may" is the decline.
-    // ONE-SHOT EXTRA-LAND (CR 505.5b) — same shape: "you may play an additional land this turn" grants the
+    // ONE-SHOT EXTRA-LAND (CR 505.6b) — same shape: "you may play an additional land this turn" grants the
     // OPTION to play more lands, realized at the LAND-PLAY step (the player chooses whether to use the bigger
     // budget; CR 601.3e doesn't force the extra play). It's costless upside with no resolution-time decision,
     // so the atom is left UN-optional too — otherwise Explore ("…land this turn. Draw a card.") would become
@@ -2146,7 +2146,7 @@ function matchOptionalExileSelfReflexive(oracle, cardType) {
   const s = stripReminder(oracle).trim();
   // "When you do" (Undead Butler — the reflexive) and "If you do" (Arena Rector, Greenwarden of Murasa — the
   // conditional, SHELF-85 Atraxa A3 2026-09-05) share one runtime: the exile is the cost, paid at settle by a real
-  // graveyard → exile move, and the payoff runs only on that move (CR 603.7 / CR 117.12). Same atom, both words.
+  // graveyard → exile move, and the payoff runs only on that move (CR 603.7 / CR 118.12). Same atom, both words.
   const m = s.match(/^you may exile it\.\s+(?:when|if) you do(?:\s+this|\s+so)?\s*,?\s+(.+?)\.?$/i);
   if (!m) return null;
   // A chained 2nd reflexive — not modeled. (A chained "if you do" needs no guard: the bare back-reference clause parses
@@ -3787,7 +3787,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   const optionalScopeOk = optionalsFormSuffix(atoms);
   if (allParsed && atoms.length > 0 && optionalScopeOk && atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(atoms) && diceRollSequenceOk(atoms) && revealTopSequenceOk(atoms) && attachLastTokenSequenceOk(atoms) && chooseTargetBoundOk(atoms)) {
     // Drop a redundant `shuffle` atom that immediately follows a `tutor` (the tutor
-    // already shuffles after its search, CR 701.19e) — some cards template the shuffle as
+    // already shuffles after its search; no CR rule states this directly) — some cards template the shuffle as
     // its own sentence, which would otherwise shuffle twice. P3.2 review cleanup.
     const seq = atoms.filter((a, i) => !(a.op === "shuffle" && atoms[i - 1]?.op === "tutor"));
     // `mvCapX` (a search→battlefield tutor whose MV cap IS the spell's X — Wargate, Nature's Rhythm) also makes

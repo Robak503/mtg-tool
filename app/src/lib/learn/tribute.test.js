@@ -4,7 +4,7 @@
  * "Tribute N (As this creature enters, an opponent of your choice may put N +1/+1 counters on it.)" — the
  * controller's chosen opponent decides AS the creature enters: PAY tribute (put N +1/+1 counters on it → a
  * strictly bigger body for the controller) OR DECLINE, in which case a separate "When this creature enters,
- * if tribute wasn't paid, <effect>" triggered ability (CR 702.96e) runs its payoff.
+ * if tribute wasn't paid, <effect>" triggered ability (CR 702.104b) runs its payoff.
  *
  * End-to-end the engine GENUINELY resolves both branches:
  *   parser       → parseTribute reads the count; parseTributeCreature gates the whole card (re-classifies the

@@ -1,5 +1,5 @@
 /**
- * monstrousGate.test.js — "As long as this creature is MONSTROUS, it has <keyword>" (CR 701.32d):
+ * monstrousGate.test.js — "As long as this creature is MONSTROUS, it has <keyword>" (CR 701.37b):
  * Fleecemane Lion, Chillerpillar, Sinuous Vermin, Skittering Crustacean, and four more carriers.
  *
  * ⭐ PURE IGNITION, AND FOUND BY CENSUSING GATES RATHER THAN EFFECTS. Every one of these cards already had

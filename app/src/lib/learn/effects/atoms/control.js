@@ -22,7 +22,7 @@
  *      Sliver can't attack / pay a {T} cost the turn it's taken unless it has haste.
  *   3. EVERYTHING ELSE PRESERVED — tapped state, counters, marked damage, and attachments (Auras / Equipment
  *      stay attached; gaining control of a creature does NOT change control of what's attached to it, CR
- *      702.10e). The permanent keeps its identity (same id), so attachments' `attachedTo` back-references stay
+ *      303.4e / 301.5d). The permanent keeps its identity (same id), so attachments' `attachedTo` back-references stay
  *      valid. The move is a pure array splice (NOT moveCardToZone) precisely because the creature never LEAVES
  *      the battlefield — so no dies/LTB trigger fires and no attachment is detached.
  *

@@ -39,7 +39,7 @@ import { applyDrawEffect } from "../../spellEffects.js";
  * match (deterministic tie-break) so the fetch is a sensible, LEGAL card. Interactive
  * tutor choice is a future enhancement. Hidden-info safe: the log records the FILTER and
  * whether a card was found, NEVER the card's name (an opponent's tutor stays hidden). A
- * "you may"/mandatory search that finds nothing (no match, CR 701.19f) is a logged no-op
+ * "you may"/mandatory search that finds nothing (no match, CR 701.23b / 701.23d) is a logged no-op
  * + shuffle, never an error.
  */
 export function tutorManaValue(card) {
@@ -227,7 +227,7 @@ export function cardHasManaAbility(card) {
 }
 // deterministicRng MOVED to gameState.js (the zone chokepoint needs it and cannot import this module).
 /**
- * Shuffle a player's library deterministically (CR 701.19e / 103.2) using the seed
+ * Shuffle a player's library deterministically (CR 701.24a / 103.3) using the seed
  * THREADED through state (`state.rngSeed`), then advance it (an LCG step) so the next
  * shuffle differs AND a serialized game restores to byte-identical future shuffles. No
  * Math.random anywhere in game-state mutation.
@@ -251,7 +251,7 @@ export function applyTutor(state, atom, ctx) {
   // the card lands in, and the library shuffled afterwards are ALL the target's — none of them the controller's.
   //
   // Naming the searcher HERE is the entire change, because every line below keys off `controller` and
-  // resolveTutorChoice keys off `pendingChoice.controller`: the candidate gather, the fetch, the CR 701.19e
+  // resolveTutorChoice keys off `pendingChoice.controller`: the candidate gather, the fetch, the CR 701.24a
   // shuffle, the chained-pick path and the find-nothing path all follow this one binding automatically.
   //
   // HIDDEN INFO STAYS SAFE PRECISELY BECAUSE THE SEARCHER IS THE CHOICE'S CONTROLLER. The candidate list is
@@ -306,7 +306,7 @@ export function applyTutor(state, atom, ctx) {
   // RAMP-MULTI-X — resolve the dynamic fetch cardinality (Traverse the Outlands / Boundless Realms) ONCE from
   // the board source. Math.max(0, …) clamps an empty/zero board to 0 (never a fabricated count). When the count
   // is 0 ("search for up to 0 cards" — e.g. Traverse with no creatures), the search fetches NOTHING: a logged
-  // no-op + a shuffle (CR 701.19e — you still searched, so a library search shuffles), NEVER coerced up to 1
+  // no-op + a shuffle (no CR rule states this directly — you still searched, so a library search shuffles), NEVER coerced up to 1
   // by setPendingTutorChoice's Math.max(1, …) RAMP guard. A static-`remaining` / non-countFor tutor is
   // untouched (this branch is countFor-only).
   const dynCount = atom.countFor ? Math.max(0, countForSpec(state, ctx, atom.countFor)) : null;
@@ -318,7 +318,7 @@ export function applyTutor(state, atom, ctx) {
     const tgt = (ctx.targets || []).find((t) => t.type === "player" && state.players[t.id] && t.id !== controller);
     if (tgt && controllerMetric(state, tgt.id, atom.extraIfTargetControlsMore.metric) > controllerMetric(state, controller, atom.extraIfTargetControlsMore.metric)) extraCount = atom.extraIfTargetControlsMore.count || 0;
   }
-  // A library search always shuffles afterward (CR 701.19e); a multi-zone search that includes the library
+  // A library search always shuffles afterward (no CR rule states this directly); a multi-zone search that includes the library
   // (bfxg) shuffles too. A from-hand / graveyard-only search never touches the library.
   const searchesLibrary = sourceZones ? sourceZones.includes("library") : sourceZone === "library";
   if (dynCount === 0) {
@@ -590,7 +590,7 @@ export function applyLookTopTakeAtom(state, atom, ctx) {
  * a land card from among them onto the battlefield [tapped]. Put the rest on the bottom of your library in a
  * random order." A DIFFERENT effect from impulse-dig: the chosen LAND enters the BATTLEFIELD (firing its ETB,
  * resolveDigLandChoice handles the enter + bottom), while the REST of the looked-at set (non-chosen lands +
- * every nonland card) go to the bottom of the library in a RANDOM order (CR 701.19e-style deterministic shuffle
+ * every nonland card) go to the bottom of the library in a RANDOM order (a deterministic CR 701.24a shuffle
  * of just those cards). At RESOLUTION this atom peeks the top N, gathers the LAND cards as the puttable
  * candidates (the "you may put a LAND card" gate — nonland cards are never puttable), and either:
  *   - NO land in the top N → no put; bottom the WHOLE looked-at set in a random order inline (a clean no-pause
@@ -2199,7 +2199,7 @@ export function tutorClauseParser(clause, ctx = {}) {
     // <= the chosen X, bound at cast, read at resolution via ctx.xValue — CR 202.3b), but the candidate pool
     // is the UNION of the caster's LIBRARY and GRAVEYARD: `sourceZones:["library","graveyard"]` tells applyTutor
     // to gather from both zones (tagging each candidate with its zone) and resolveTutorChoice to enter the
-    // chosen card from whichever zone it lives in. The library is ALWAYS searched (so the CR-701.19e shuffle
+    // chosen card from whichever zone it lives in. The library is ALWAYS searched (so the CR 701.24a shuffle
     // always runs — Finale's separate "If you search your library this way, shuffle." reminder is stripped in
     // splitClauses since the tutor's own shuffle covers it). Finale prints "and put" (no comma before "put"),
     // so the anchor accepts "(and )?put" with the "and/or graveyard" zone phrase required. CREED: the X cap
@@ -2339,7 +2339,7 @@ export function tutorClauseParser(clause, ctx = {}) {
   // the searcher anything the card didn't, so it is a false negative and stays inside the creed.
   // The trailing shuffle is OPTIONAL in the anchor for the same reason it is on every arm above: splitClauses
   // detaches ", then shuffle" into its own clause, so this arm only ever sees the head. The shuffle is not lost
-  // — resolveTutorChoice runs it unconditionally per CR 701.19e — and accepting it inline keeps the anchor
+  // — resolveTutorChoice runs it unconditionally (no CR rule states this directly) — and accepting it inline keeps the anchor
   // correct if a card ever prints the sentence unsplit.
   const ptm = t.match(/^target player may search their library for a card named (.+?),?(?: reveal (?:it|that card),?)? put (?:it|that card) into their hand(?:,? (?:then |and )?shuffle(?: their library)?)?\.?$/);
   if (ptm) {
@@ -2375,7 +2375,7 @@ export function tutorClauseParser(clause, ctx = {}) {
   //
   // The trailing shuffle is optional in the anchor for the reason it is optional on every arm above:
   // splitClauses usually detaches ", then shuffle" into its own clause, so this only ever sees the head, and
-  // resolveTutorChoice shuffles unconditionally per CR 701.19e.
+  // resolveTutorChoice shuffles unconditionally (no CR rule states this directly).
   // ⭐ THE LIBRARY-AND/OR-GRAVEYARD TWIN (Dominaria's legendary-partner cycle — Niambi Faithful Healer,
   // Ashiok's Forerunner, Sun-Blessed Mount and ~17 more): "search your library AND/OR GRAVEYARD for a card
   // named <X>, reveal it, and put it into your hand. If you search your library this way, shuffle."
@@ -2391,7 +2391,7 @@ export function tutorClauseParser(clause, ctx = {}) {
   // deliberately NOT set here — setting it would ask twice), and the same disjunctive-name refusal.
   //
   // The trailing "If you search your library this way, shuffle." is conditional on WHICH zone was searched,
-  // which the shuffle-unconditionally path (CR 701.19e) already satisfies: shuffling a library that was not
+  // which the shuffle-unconditionally path (no CR rule states this directly) already satisfies: shuffling a library that was not
   // searched is a no-op on a randomized zone, never an observable difference.
   // The connective before "put" is printed BOTH ways across the cycle — "reveal it, AND put it into your
   // hand" (Niambi) and "reveal it, THEN put it into your hand" (Sun-Blessed Mount) — as is the tense of the
@@ -2504,7 +2504,7 @@ export function tutorClauseParser(clause, ctx = {}) {
   // purely because the tutor had hand / battlefield / top destinations and no graveyard.
   //
   // A DELIBERATE MIRROR of `tm` directly above, differing only in the destination phrase and the emitted
-  // `destination`. The settler runs the SAME moveCardToZone with a different toZone, so the CR 701.19e
+  // `destination`. The settler runs the SAME moveCardToZone with a different toZone, so the CR 701.24a
   // shuffle, the find-nothing path and the auto-pick filter are all the existing ones — nothing about the
   // search changes, only where the card lands.
   //
@@ -2831,7 +2831,7 @@ export function applyPickMilledToHand(state, atom, ctx) {
  * Then each player who searched a library this way shuffles." A chain of PAUSES driven by the tutor settler: the
  * offerer's first search (this atom), then one tempting-offer choice per opponent (accept → that opponent's own
  * search), then the offerer's bonus searches (one per accepting opponent, chained through `remaining`). Every
- * search shuffles as it settles (CR 701.19e) — the printed "then each player who searched shuffles" is the same
+ * search shuffles as it settles (no CR rule states this directly) — the printed "then each player who searched shuffles" is the same
  * set of shuffles. The program resumes after the last search.
  */
 export function applyTemptingOfferLand(state, atom, ctx) {

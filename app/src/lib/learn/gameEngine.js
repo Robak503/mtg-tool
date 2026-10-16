@@ -2201,7 +2201,7 @@ function resolveMulligan(mulligan) {
  *     identical (the ~250-case corpus asserts deck-order opening hands).
  *   - `seed` provided: stamp `state.rngSeed = seed` and shuffle EACH seat's
  *     library deterministically via shuffleControllerLibrary (the existing
- *     threaded-rngSeed mulberry32 Fisher-Yates — CR 103.2 / 701.19e, uniform,
+ *     threaded-rngSeed mulberry32 Fisher-Yates — CR 103.3 / 701.24a, uniform,
  *     no card lost/duplicated). Same seed ⇒ byte-identical game (reproducible
  *     for debugging); different seeds ⇒ different opening draws + game. This is
  *     what lets self-play repeat a pairing with REAL variety (the "most data"

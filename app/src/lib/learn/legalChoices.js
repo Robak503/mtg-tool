@@ -506,7 +506,7 @@ function actionPassPriority(playerId) {
 }
 
 /**
- * EXTRA-LAND-DROPS (CR 305.2 / 505.5b) — the number of lands `playerId` may play THIS turn = the base one
+ * EXTRA-LAND-DROPS (CR 305.2 / 505.6b) — the number of lands `playerId` may play THIS turn = the base one
  * (CR 305.2) PLUS the additional plays granted by every static they control ("You may play an additional land
  * on each of your turns" — Exploration → +1; Azusa → +2). Sums extraLandDropsOf across the player's BATTLEFIELD
  * and COMMAND ZONE (a creature-commander like Azusa grants nothing while it sits in the command zone — it must
@@ -523,7 +523,7 @@ export function landDropAllowance(state, playerId) {
   // Command-zone entries are BARE card objects (no { card } wrapper), like the cost-reducer scan. No modeled
   // extra-land card functions from the command zone today, so this contributes 0 — but kept for symmetry.
   for (const card of player.command || []) extra += extraLandDropsOf(card);
-  // ONE-SHOT-EXTRA-LAND (CR 505.5b): a resolving "you may play [N] additional land[s] this turn" effect
+  // ONE-SHOT-EXTRA-LAND (CR 505.6b): a resolving "you may play [N] additional land[s] this turn" effect
   // (Explore → +1, Summer Bloom → +3) bumps the player's per-turn budget (play-extra-land-this-turn atom →
   // player.extraLandsThisTurn). It's reset each of the player's turns (resetTurnCounters) so it never persists
   // like the static "each of your turns" form (extraLandDropsOf, above). `?? 0` — not `|| 0` — so a literal 0
@@ -2271,7 +2271,7 @@ function grantedActivatedForHost(state, hostPerm) {
 }
 
 /**
- * CREW (BLITZ VH-1, CR 702.121c) — offer crewing each of the player's uncrewed Vehicles: tap own untapped
+ * CREW (BLITZ VH-1, CR 702.122a) — offer crewing each of the player's uncrewed Vehicles: tap own untapped
  * creatures with total (layer-aware) power ≥ N; the Vehicle becomes an artifact creature until end of turn.
  * Same window as every activated ability in this engine (own turn + priority + main step). The tap SET is
  * auto-picked deterministically (the oneYouControl auto-pick convention): SUMMONING-SICK creatures first
@@ -2471,7 +2471,7 @@ function actionsActivateAbility(state, playerId) {
       // and a reached level is never re-bought. The "only as a sorcery" half is the sorceryOnly gate just below.
       if (ab.classLevelUp != null && classLevelOf(perm) !== ab.classLevelUp - 1) continue;
       // LEVEL UP is sorcery-only by definition (CR 702.87a "Activate only as a sorcery" = own main,
-      // empty stack, priority — CR 602.5i). The main-step gate above already covers own-main+priority;
+      // empty stack, priority — CR 307.5). The main-step gate above already covers own-main+priority;
       // canCastSorcerySpeed adds the empty-stack requirement the generic lane approximates away.
       if (ab.sorceryOnly && !canCastSorcerySpeed(state, playerId)) continue;
       // PRECOMBAT-ONLY ("Activate only during your turn, before attackers are declared") — a NARROWING of
@@ -2718,7 +2718,7 @@ function actionsActivateAbility(state, playerId) {
       if (!ab.sacOther && !canAfford(player.manaPool, sources, cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id) })) continue; // SG-18: activation spend context
 
       // Equip {cost}: target a creature YOU control (CR 702.6e). Equip is SORCERY-SPEED
-      // (CR 702.6f) — unlike other activated abilities (instant-speed, conservatively
+      // (CR 702.6a) — unlike other activated abilities (instant-speed, conservatively
       // main-gated here), it also needs an EMPTY stack, or the player could illegally equip
       // in response to a spell already on the stack. One action per legal creature target.
       if (ab.isEquipAbility) {
@@ -3414,10 +3414,10 @@ function actionsSuspendFromHand(state, playerId) {
 }
 
 /**
- * KW-SUSPEND step 2 (CR 702.62e) — a suspended card whose last time counter was removed
+ * KW-SUSPEND step 2 (CR 702.62a) — a suspended card whose last time counter was removed
  * (`_suspendReady`, stamped by fading.applySuspendUpkeep) is castable FREE from exile through the
- * real cast machinery, so cast triggers/watchers fire exactly as a hand cast's would. The CR makes
- * this cast mandatory; the engine OFFERS it (documented simplification in suspendNoCost.test.js —
+ * real cast machinery, so cast triggers/watchers fire exactly as a hand cast's would. CR 702.62a makes
+ * this play optional; the engine OFFERS it (documented in suspendNoCost.test.js —
  * an offer can never fire wrongly).
  */
 function actionsCastSuspendReadyFromExile(state, playerId) {
@@ -4009,14 +4009,14 @@ function actionsCastSplitFromHand(state, playerId) {
 }
 
 /**
- * ADVENTURE step 2 — cast the CREATURE HALF from adventure-exile (CR 715.3e). After the adventure spell
+ * ADVENTURE step 2 — cast the CREATURE HALF from adventure-exile (CR 715.3d). After the adventure spell
  * resolved, the card sits in exile flagged `_onAdventure`; while it's there the owner may cast the creature
  * half at its OWN mana cost (NOT free — unlike plot/discover). We project the card onto its CREATURE face
  * (creatureFaceCard — same id, the creature half's type/oracle/mana/P-T) and run it through the shared cast
  * builder with fromZone "exile" (sorcery-speed, since a creature is sorcery-speed — enforced by the builder's
  * timing gate via the projected creature type line). Each action carries the projected `faceCard` so
  * applyCastSpell enters the CREATURE (via PERMANENT_ETB), not the combined card. Once cast it leaves exile, so
- * it can't be double-cast. The exiled card stays castable across turns (CR 715.3e — no turn restriction).
+ * it can't be double-cast. The exiled card stays castable across turns (CR 715.3d — no turn restriction).
  */
 function actionsCastCreatureFromAdventureExile(state, playerId) {
   const player = state.players[playerId];
@@ -4519,7 +4519,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsCastCommander(state, playerId)); // CMD-CAST: cast from the command zone (CR 903.8)
     actions.push(...actionsCastPlottedFromExile(state, playerId)); // PLOT step 2 (CR 702.170d): cast a plotted card free
     actions.push(...actionsSuspendFromHand(state, playerId)); // KW-SUSPEND step 1 (CR 702.62a): exile the no-cost trio with time counters
-    actions.push(...actionsCastSuspendReadyFromExile(state, playerId)); // KW-SUSPEND step 2 (CR 702.62e): cast free at zero counters
+    actions.push(...actionsCastSuspendReadyFromExile(state, playerId)); // KW-SUSPEND step 2 (CR 702.62a): cast free at zero counters
     actions.push(...actionsPlayImpulseFromExile(state, playerId)); // IMPULSE-EXILE step 2 (CR 601.3 / 305.2): play an impulse-exiled card THIS TURN at full cost (nonland cast / land play from exile)
     actions.push(...actionsPlayFromTopOfLibrary(state, playerId)); // PLAY-FROM-TOP (Future Sight, CR 118.6): cast/play the top library card while the permission static is active
     actions.push(...actionsCastFreeByPermission(state, playerId)); // shelf D35 — cast without paying the mana cost (One with the Multiverse, Zaffai, Vision, Omniscience)
@@ -4535,7 +4535,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsCastModalDfcFrontFromHand(state, playerId)); // MODAL DFC (CR 712.8, V1 slice 2): cast the spell front from hand
     actions.push(...actionsCastAdventureFromHand(state, playerId)); // ADVENTURE step 1 (CR 715.3): cast the adventure (instant/sorcery) half
     actions.push(...actionsCastCreatureFromHand(state, playerId)); // ADVENTURE step 1b (CR 715.2b): cast the creature half from hand at its own cost
-    actions.push(...actionsCastCreatureFromAdventureExile(state, playerId)); // ADVENTURE step 2 (CR 715.3e): cast the creature half from exile
+    actions.push(...actionsCastCreatureFromAdventureExile(state, playerId)); // ADVENTURE step 2 (CR 715.3d): cast the creature half from exile
   }
   // NONCREATURE CAST-LIMIT (SHELF-85 · Light-Paws L5 Deafening Silence, 2026-09-05 — "Each player can't cast more than one
   // noncreature spell each turn", CR 604.2): while ANY battlefield carries the static, a player who already cast a
@@ -4575,11 +4575,11 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   // MANA ABILITIES stay legal under split second (CR 702.19a exempts them by name).
   actions.push(...actionsTapForMana(state, playerId));
   actions.push(...actionsDoubleManaPool(state, playerId)); // DOUBLE-MANA-POOL (Doubling Cube): a no-stack mana ability that doubles the pool
-  // …every OTHER activated ability does not. Crew (CR 702.121c), cycling (702.29a) and loyalty (606.1) are
+  // …every OTHER activated ability does not. Crew (CR 702.122a), cycling (702.29a) and loyalty (606.1) are
   // all activated abilities, so they go dark with the rest while a split-second spell is on the stack.
   if (!splitSecondLock) {
     actions.push(...actionsActivateAbility(state, playerId));
-    actions.push(...actionsCrewVehicle(state, playerId)); // CREW (VH-1, CR 702.121c): tap creatures totaling power ≥ N → the Vehicle animates until EOT
+    actions.push(...actionsCrewVehicle(state, playerId)); // CREW (VH-1, CR 702.122a): tap creatures totaling power ≥ N → the Vehicle animates until EOT
     actions.push(...actionsCycleFromHand(state, playerId)); // KW-CYCLING: discard a hand card to draw
     actions.push(...actionsDiscardAbilityFromHand(state, playerId)); // the GENERAL form: "<mana>, Discard this card: <effect>"
     actions.push(...actionsActivateHandSelfPut(state, playerId)); // play-weighted #570 — "{N}: Put this card from your hand onto the battlefield." (any priority window)

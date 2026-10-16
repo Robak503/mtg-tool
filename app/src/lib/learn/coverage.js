@@ -322,7 +322,7 @@ export const COVERED_KEYWORDS = [
   // ("that creature has greater power or toughness than this creature") is enforced LAYER-AWARE by
   // interveningIf.js at flush + resolution (CR 702.100d); the evolve-counter-self atom places the +1/+1
   // through the standard doubling/watcher path and fires the "this creature evolves" watchers
-  // (CR 702.100f — Watchful Radstag's copy rider). The bare "evolve" residue matches via the exact ===
+  // (CR 702.100b — Watchful Radstag's copy rider). The bare "evolve" residue matches via the exact ===
   // check; allTriggerSentencesModeled bumps the shaped count (evolveShaped).
   "evolve",
   // KW-RENOWN (CR 702.111, census slice 2026-07-25) — ENFORCED end to end: detectTriggers synthesizes the
@@ -5167,7 +5167,7 @@ registerCoverageClassifier((card) => classifyGroupNoUntap(card));
 // ─── ADVENTURE (CR 715) — Bonecrusher Giant // Stomp et al. (HIGH corpus yield, ~150 cards) ──────────────────
 // An Adventure card has a CREATURE half and an instant/sorcery "Adventure" half (CR 715.1). From hand you may
 // cast EITHER half (CR 715.3); casting the Adventure half resolves its spell effect, then EXILES the card (CR
-// 715.3d), and while exiled you may cast the CREATURE half from exile at its own cost (CR 715.3e). The runtime
+// 715.3d), and while exiled you may cast the CREATURE half from exile at its own cost (CR 715.3d). The runtime
 // plays the WHOLE flow (legalChoices.actionsCastAdventureFromHand offers both faces' casts; the adventure spell
 // resolves through the EFFECT_PROGRAM interpreter and the card lands in adventure-exile; the creature is then
 // castable from exile via actionsCastCreatureFromAdventureExile → applyCastSpell → PERMANENT_ETB), so this

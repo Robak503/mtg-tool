@@ -2912,7 +2912,7 @@ export function setBasePtTeamClauseParser(clause, ctx = {}) {
 /**
  * ===== SET-BASE-PT-TARGET (BLITZ SU-1 — Diminish 1/1, Square Up 4/4) ===== "Target creature has base
  * power and toughness N/N until end of turn." The single-CHOSEN-TARGET twin of the team form above: the
- * SAME layer-7b base-P/T SET (CR 613.3b/613.4a — overwrites the printed base, BELOW +1/+1 counters and
+ * SAME layer-7b base-P/T SET (CR 613.4b — overwrites the printed base, BELOW +1/+1 counters and
  * anthems in 7c and switches in 7d, so a Diminished 1/1 with a +1/+1 counter is a 2/2), fixed to the one
  * chosen creature, endOfTurn (worn off at cleanup, CR 514.2). The target resolves through the standard
  * atomTargets/ctx.targets path (the pump precedent), a departed target fizzles (CR 608.2b), and the

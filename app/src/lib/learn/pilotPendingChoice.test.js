@@ -179,7 +179,7 @@ describe("YES/NO-UNIFY — a tutor-search routes through decide, including find-
 
   it("HONORED: a decide can decline (find nothing) — candidateId:null is an offered option", () => {
     const offered = firstChoiceOffered(tutorScenario, "tutor-search");
-    expect(offered.some((a) => a.candidateId === null)).toBe(true); // a find-nothing option (CR 701.19f)
+    expect(offered.some((a) => a.candidateId === null)).toBe(true); // a find-nothing option (CR 701.23b) — offered because this hand-built choice carries no mayFailToFind flag (the legacy-save path); applyTutor stamps false on an unfiltered search, where CR 701.23d requires a find
     const row = firstChoiceRow(tutorScenario, "tutor-search", ({ legalActions }) => legalActions.find((a) => a.candidateId === null));
     expect(row.action.candidateId).toBeNull(); // the decline was honored + recorded
   });

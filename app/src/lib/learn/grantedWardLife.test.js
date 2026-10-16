@@ -119,7 +119,7 @@ describe("ENFORCEMENT — the granted ward actually taxes", () => {
     expect(wardTaxForStackObject(withWarlock, boltAt("wl"))?.cost).toEqual({ kind: "life", life: 2 });
   });
 
-  it("SUMS a printed life ward with a granted one (single cost kind, CR 702.21c)", () => {
+  it("SUMS a printed life ward with a granted one (single cost kind, CR 113.2c)", () => {
     const printedWard = {
       name: "Warded Warlock", type: "Creature — Human Warlock", mana: "{B}",
       oracle: `Ward${DASH}Pay 1 life.`,

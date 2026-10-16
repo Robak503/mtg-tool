@@ -168,7 +168,7 @@ describe("REVIEW FIX — granted Vigilance is honored at attack time (shared wit
 });
 
 describe("attach state helpers", () => {
-  it("REVIEW FIX: Equip is sorcery-speed — not offered while the stack is non-empty (CR 702.6f)", () => {
+  it("REVIEW FIX: Equip is sorcery-speed — not offered while the stack is non-empty (CR 702.6a / 307.5)", () => {
     const board = (stack) => ({ ...boardState({ user: [
       createPermanent({ id: "bear", card: bearCard, controller: "user", summoningSick: false }),
       createPermanent({ id: "sword", card: SWORD, controller: "user", summoningSick: false }),

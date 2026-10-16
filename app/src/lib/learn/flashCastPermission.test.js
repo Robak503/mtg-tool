@@ -1,5 +1,5 @@
 /**
- * FLASH-CAST-PERMISSION (CR 601.3e / 702.8f) — a STATIC casting-permission that lets the controller cast a
+ * FLASH-CAST-PERMISSION (CR 601.3b / 702.8a) — a STATIC casting-permission that lets the controller cast a
  * class of THEIR OWN spells at instant speed: "You may cast <FILTER> spells as though they had flash."
  *
  * Build (mirrors the { cantCast } / { extraLandDrops } coverage-marker family):

@@ -35,7 +35,7 @@ const D20_SIDES = 20;
  * through nextRandomInt keeps the die on the SAME serialize-stable seam as every other in-game random draw
  * (no Math.random anywhere in game-state mutation); the result is byte-identical to the pre-primitive inline
  * draw (nextRandomInt's mulberry32 + LCG step are the exact ops this atom used to inline). The roll resolves
- * for `ctx.controller` (CR 726.2a — "you roll"). Pure + serialize-safe (state.diceRoll is a plain number).
+ * for `ctx.controller` (CR 109.5 — "you roll"). Pure + serialize-safe (state.diceRoll is a plain number).
  *
  * `atom.sides` defaults to 20 (the only printed die for these cards); a non-20 die would be a future slice.
  */

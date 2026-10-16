@@ -1604,8 +1604,8 @@ function applyUpkeepSacUnlessPay(state, atom, ctx) {
 }
 
 // CUMULATIVE UPKEEP (CR 702.24) — the synthesized upkeep trigger of a "Cumulative upkeep {cost}" permanent
-// (Mystic Remora, Glacial Chasm). CR 702.24e: "put an age counter on this permanent, then sacrifice it unless
-// you pay its upkeep cost for each age counter on it." Resolve in exactly that order: (1) ADD one age counter
+// (Mystic Remora, Glacial Chasm). CR 702.24a: "put an age counter on this permanent. Then you may pay [cost]
+// for each age counter on it. If you don't, sacrifice it." Resolve in exactly that order: (1) ADD one age counter
 // via addCounter (routes through the counter-doubler chokepoint — Doubling Season DOES double age counters,
 // CR 122.1, so this is the faithful placement), (2) read the NEW age-counter total on the source, (3) SCALE
 // the printed per-counter cost by that total, (4) suspend on the SAME sac-unless-pay pending choice the

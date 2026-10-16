@@ -738,7 +738,7 @@ function gateMet(state, perm, gate) {
   // perm.tapped read the SF-1 untapped/tapped selectors use (a tap is an immutable state update, so the
   // per-state memo re-derives on the post-tap state).
   if (gate.kind === "untapped") return !perm.tapped;
-  // ⭐ MONSTROUS gate (CR 701.32d — "As long as this creature is monstrous, it has trample" — Fleecemane
+  // ⭐ MONSTROUS gate (CR 701.37b — "As long as this creature is monstrous, it has trample" — Fleecemane
   // Lion, Hundred-Handed One, Colossus of Akros and 5 more). The SIBLING of the untapped read directly
   // above, and pure ignition: `perm.monstrous` is a real latch already set by the monstrosity atom
   // (effects/atoms/counters.js applyMonstrosity), and every one of these carriers already has its
@@ -1035,7 +1035,7 @@ export function staticEffectsOf(state, permanent) {
     // ⛔ THIS IS THE LOAD-BEARING HALF OF THE RECONFIGURE SLICE. The attach half rides the equip lane, which
     // on its own would leave an attached Lizard Blades still a creature — free to attack and block while ALSO
     // pumping its host. Strictly better than printed, the forbidden direction. Emitted only while attachedTo
-    // is set, so unattaching makes it a creature again with no extra bookkeeping (CR 702.151c).
+    // is set, so unattaching makes it a creature again with no extra bookkeeping (CR 702.151b).
     // Read off the printed oracle rather than a stamped flag: unlike bestow (a cast-time choice the flag
     // records) reconfigure is a property of the CARD, so there is nothing to stamp and nothing to lose.
     if (hasReconfigure(card)) {

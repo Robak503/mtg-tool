@@ -4,7 +4,7 @@
  * "Tribute N (As this creature enters, an opponent of your choice may put N +1/+1 counters on it.)" — an
  * ETB replacement-style decision (CR 702.96a). The chosen opponent EITHER pays tribute (puts N +1/+1
  * counters on the creature → it's a strictly bigger body for the controller) OR declines, in which case a
- * separate "When this creature enters, if tribute wasn't paid, [effect]" triggered ability (CR 702.96e)
+ * separate "When this creature enters, if tribute wasn't paid, [effect]" triggered ability (CR 702.104b)
  * runs its payoff. The creature's controller picks WHICH opponent decides; that opponent then decides.
  *
  * SCOPE (whole-card per THE CREED): a CREATURE with a vanilla/keyword-only base body whose ONLY non-keyword

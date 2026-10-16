@@ -4,7 +4,7 @@
  *
  * The line parses to TWO REAL layer descriptors on a dynamic every-land selector (no controller
  * scope — symmetric, CR 109.2): a layer-4 Creature ADD ("still lands" = additive, CR 613.1d) and a
- * layer-7b base-P/T SET (CR 613.3b/613.4a). Consequences pinned here:
+ * layer-7b base-P/T SET (CR 613.4b). Consequences pinned here:
  *   • every land, every player, is an N/N creature while the carrier is out; anthems/counters apply
  *     ON TOP of the base set (7b before 7c — effectiveTypeIdentity's dynamic-add branch lets a
  *     "creatures you control" selector see the animated type);

@@ -2,7 +2,7 @@
  * adventure.test.js — ADVENTURE (CR 715). An Adventure card has a CREATURE half and an instant/sorcery
  * "Adventure" half. From hand you may cast EITHER half (CR 715.3). Casting the Adventure half resolves its
  * spell effect, then EXILES the card (CR 715.3d); while the card is exiled you may cast the CREATURE half
- * from exile at its own mana cost (CR 715.3e). The creature then enters the battlefield as normal.
+ * from exile at its own mana cost (CR 715.3d). The creature then enters the battlefield as normal.
  *
  * THE CREED: a card is credited native (and offered the adventure cast path) ONLY when BOTH halves are
  * modeled — the creature half is a native tier AND the adventure half's spell effect parses HIGH. A card
@@ -228,7 +228,7 @@ describe("ADVENTURE — the COMBINED card is never offered (CR 715.2b); each hal
   });
 });
 
-describe("ADVENTURE step 2 — cast the creature half from adventure-exile (CR 715.3e)", () => {
+describe("ADVENTURE step 2 — cast the creature half from adventure-exile (CR 715.3d)", () => {
   // Cast Gift of the Fae (targeting a bear) so Faerie Guidemother lands in adventure-exile, then untap.
   function onAdventureThenUntap() {
     let s = advState({ hand: [FAERIE], battlefield: [plains("p1"), plains("p2"), bear("b1")] });
@@ -268,7 +268,7 @@ describe("ADVENTURE step 2 — cast the creature half from adventure-exile (CR 7
     expect(second).toHaveLength(0);
   });
 
-  it("the creature stays castable from exile on a LATER turn (CR 715.3e — no turn restriction)", () => {
+  it("the creature stays castable from exile on a LATER turn (CR 715.3d — no turn restriction)", () => {
     let s = onAdventureThenUntap();
     s = untapAll({ ...s, turn: s.turn + 2 });
     const fromExile = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").filter(a => a.fromZone === "exile");

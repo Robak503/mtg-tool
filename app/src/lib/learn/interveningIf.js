@@ -63,7 +63,7 @@
  *   "it was kicked" (CR 702.33e) — the kicker ETB-trigger condition (Goblin Ruinblaster, Torch Slinger,
  *      Heartstabber Mosquito …): a per-PERMANENT cast-decision flag read off the entering permanent's
  *      `wasKicked` (stamped by resolvers.enterPermanent on a kicked cast), keyed on ctx.triggeringPermanentId.
- *   "tribute wasn't paid" / "tribute was paid" (CR 702.96e) — the Tribute ETB-trigger condition (Pharagax
+ *   "tribute wasn't paid" / "tribute was paid" (CR 702.104b) — the Tribute ETB-trigger condition (Pharagax
  *      Giant, Ornitharch, Nessian Demolok, Snake of the Golden Grove …): a per-PERMANENT decision flag read
  *      off the entering permanent's `tributePaid` (stamped by resolvers.enterPermanent when the opponent
  *      chose at ETB), keyed on ctx.triggeringPermanentId exactly like the kicked flag.
@@ -514,7 +514,7 @@ const SPENT_PIPS_ETB_RE = /^((?:\{[wubrg]\})+) was spent to cast it$/;
 // the ONLY threshold direction Ravenous prints (X≥5).
 const X_THRESHOLD_RE = /^x is (\d+) or (?:more|greater)$/;
 
-// ===== TRIBUTE ETB (CR 702.96e + 603.4) ======================================================
+// ===== TRIBUTE ETB (CR 702.104b + 603.4) =====================================================
 // "tribute wasn't paid" / "tribute was paid" — the intervening-if on a Tribute creature's ETB trigger
 // ("When this creature enters, if tribute wasn't paid, <effect>" — Pharagax Giant, Ornitharch, Nessian
 // Demolok, Snake of the Golden Grove …). Like the kicked flag, this is a per-PERMANENT decision flag, NOT a
@@ -1336,7 +1336,7 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     }
   }
 
-  // TRIBUTE ETB (CR 702.96e) — "tribute wasn't paid" / "tribute was paid": read the entering permanent's
+  // TRIBUTE ETB (CR 702.104b) — "tribute wasn't paid" / "tribute was paid": read the entering permanent's
   // tributePaid flag (a per-PERMANENT decision flag, stamped by resolvers.enterPermanent as perm.tributePaid
   // = true when an opponent paid tribute / false when every opponent declined, set AS the creature entered).
   // Keyed on the entering permanent (ctx.triggeringPermanentId) like KICKED_ETB, so it reads identically at

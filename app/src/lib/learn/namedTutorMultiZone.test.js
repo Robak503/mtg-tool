@@ -19,7 +19,7 @@
  * rider it has not been shown.
  *
  * The trailing "If you search your library this way, shuffle." is conditional on WHICH zone was searched,
- * which the shuffle-unconditionally path (CR 701.19e) already satisfies: shuffling a library that was not
+ * which the shuffle-unconditionally path (no CR rule states this directly) already satisfies: shuffling a library that was not
  * searched is a no-op on an already-randomized zone, never an observable difference.
  *
  * Mutation-checked (2026-08-05, grep-verified as applied AND verified on the case under test — the clause

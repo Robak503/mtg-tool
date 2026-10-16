@@ -1,5 +1,5 @@
 /**
- * ONE-SHOT EXTRA-LAND (CR 505.5b / 305.2) — the RESOLVING "you may play [an|up to N] additional land[s] this
+ * ONE-SHOT EXTRA-LAND (CR 505.6b / 305.2) — the RESOLVING "you may play [an|up to N] additional land[s] this
  * turn" form (Explore, Summer Bloom, Urban Evolution; + the Scale the Heights composite). Distinct from the
  * STATIC "on each of your turns" form (Exploration/Azusa — see extraLandDrops.test.js): this one RAISES the
  * controller's land-play budget for THIS turn only, then resets next turn.

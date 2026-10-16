@@ -133,7 +133,7 @@ describe("BATCH combat-damage trigger (one or more creatures …)", () => {
 // SUBTYPE/PROPERTY-FILTERED BATCH combat-damage (CR 510.4 + a creature-SUBTYPE / artifact / nontoken filter) —
 // "Whenever one or more <FILTER> you control deal combat damage to a player, <effect>". PRIMARY TARGET: Olivia,
 // Opulent Outlaw (Vihaan deck — "outlaws" = the {Assassin, Mercenary, Pirate, Rogue, Warlock} meta-type, CR
-// 203.4c). Fires ONCE per combat per controller, but ONLY when at least one CONNECTING creature matches the
+// 700.12). Fires ONCE per combat per controller, but ONLY when at least one CONNECTING creature matches the
 // filter — a non-matching attacker connecting alone must NOT fire it (CREED: no over-fire). The "outlaw" word
 // is NOT a type-line subtype, so it's expanded to its five constituents and matched via type-line containment.
 describe("SUBTYPE/PROPERTY-filtered BATCH combat-damage (Olivia + corpus)", () => {
@@ -146,7 +146,7 @@ describe("SUBTYPE/PROPERTY-filtered BATCH combat-damage (Olivia + corpus)", () =
   const assassinTokenCount = (s) => s.players.user.battlefield.filter((pm) => /Assassin/.test(pm.card?.type || "") && pm.card?.token).length;
 
   describe("detection", () => {
-    it("Olivia ('outlaws') → combatDamageBatch with the five outlaw subtypes expanded (CR 203.4c)", () => {
+    it("Olivia ('outlaws') → combatDamageBatch with the five outlaw subtypes expanded (CR 700.12)", () => {
       expect(cdBatch(OLIVIA, "Legendary Creature — Vampire Assassin")[0]).toMatchObject({
         event: "combatDamageBatch", scope: "you",
         subtypeFilter: ["Assassin", "Mercenary", "Pirate", "Rogue", "Warlock"],

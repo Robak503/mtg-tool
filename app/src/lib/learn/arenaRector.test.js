@@ -6,7 +6,7 @@
  *
  * Two arms, one card. (1) The optional-exile-self lane (Undead Butler, "you may exile it. When you do, …") reads the
  * conditional wording too — the cost is the same real graveyard → exile move at settle, and the payoff runs only on
- * that move (CR 603.7 / CR 117.12). Greenwarden of Murasa rides along (its payoff already parsed). (2) The battlefield
+ * that move (CR 603.7 / CR 118.12). Greenwarden of Murasa rides along (its payoff already parsed). (2) The battlefield
  * tutor's admission list gains a GUARANTEED-PLANESWALKER arm beside land / creature / bare permanent: enterCardFromZone
  * already stamps a walker's entry loyalty from any zone, so the list was the only gate. Enchantments stay OUT — an Aura
  * entering un-cast must choose what it enchants (CR 303.4f) and the battlefield path has no such choice; Academy Rector

@@ -10,8 +10,8 @@
  * the FREE cast is offered from exile through the REAL cast machinery (castActionsFromZone
  * freeCast), so cast triggers/watchers fire exactly as a hand cast's would.
  *
- * TWO DOCUMENTED SIMPLIFICATIONS (both FN-safe by direction):
- *   - CR 702.62e makes the zero-counter cast MANDATORY; the engine OFFERS it (an offer can never
+ * TWO DOCUMENTED POINTS (both FN-safe by direction):
+ *   - CR 702.62a makes the zero-counter play optional; the engine OFFERS it (an offer can never
  *     fire wrongly — a declined Bloom under-uses the card, never mis-plays it);
  *   - the cast window is "owner has priority once ready" rather than exactly the upkeep trigger's
  *     resolution. The scoped carriers are noncreature (a creature carrier needs the suspend haste

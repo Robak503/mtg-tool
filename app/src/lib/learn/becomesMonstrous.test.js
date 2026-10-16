@@ -1,5 +1,5 @@
 /**
- * becomesMonstrous.test.js — the BECOMES-MONSTROUS event + Alpha Deathclaw (SHELF S7, CR 701.32d).
+ * becomesMonstrous.test.js — the BECOMES-MONSTROUS event + Alpha Deathclaw (SHELF S7, CR 701.37a).
  *
  * The old guard parked every "becomes monstrous" trigger because the event never fired. Now:
  *   1. applyMonstrosity fires checkBecomesMonstrousTriggers on the REAL not-yet-monstrous transition

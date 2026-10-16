@@ -5,7 +5,7 @@
  * the printed keyword; the comparative intervening-if ("that creature has greater power or toughness than
  * this creature") reads LAYER-AWARE P/T of the entering creature vs the source at flush AND resolution
  * (CR 702.100d); the evolve-counter-self atom places the +1/+1 through the standard doubling/watcher path
- * and fires "this creature evolves" watchers (CR 702.100f — Radstag creates a copy token).
+ * and fires "this creature evolves" watchers (CR 702.100b — Radstag creates a copy token).
  * CREED FP = a counter off a smaller/equal entry, an evolve off an OPPONENT's creature, an evolve off the
  * source's own entry, or a copy token without a real evolve — all pinned here.
  */

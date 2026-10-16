@@ -277,7 +277,7 @@ describe("runtime — level up activates as a sorcery, any number of times, and 
     }
     expect(s.players.user.battlefield.find((p) => p.id === "p1").counters).toEqual({ level: 2 });
   });
-  it("sorcery-only: NOT offered while the stack is non-empty (CR 602.5i)", () => {
+  it("sorcery-only: NOT offered while the stack is non-empty (CR 307.5)", () => {
     const s = boardWith(STUDENT, "p1", [["Plains", "W"]]);
     const busy = { ...s, stack: [{ id: "x", resolver: "SPELL_NOOP", params: {} }] };
     expect(levelUpOffers(busy, "p1")).toHaveLength(0);

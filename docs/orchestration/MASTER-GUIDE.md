@@ -117,7 +117,7 @@ each learned the hard way):
 1. The full gate at the right proof level (OVERHAUL-PLAYBOOK §3 / PLAY-HARNESS §3): suite
    (`VITEST_TIMEOUT_MS=900000 npm test` from `app/` — the wrapper CI runs, not bare
    `npx vitest run`; **never** with `MTG_APP_ROOT`; a fresh worktree first runs
-   `npm run build:rules-index`) + lint (`npm run lint`, `--max-warnings 0`)
+   `npm run build:rules-index`) + lint (`npm run lint`, `--max-warnings 0` + the CR citation check)
    + the fingerprint battery the change class demands. The suite alone misses every FP class
    the passes fixed.
 2. **Scripts always get `MTG_APP_ROOT`; vitest never does.** Anchors are only comparable
