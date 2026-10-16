@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **40 commits**, corpus **44.7% (15,467)** at the tag → **44.8% (15,513)**; engine gains since the tag: **+46**. The next tag
+> **45 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,470)**; engine gains since the tag: **+3** (+46 gained, −43 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,63 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-16 — FIX: the native-mana gate reads a mana source's STATIC and REPLACEMENT text · **−41** · corpus 15,451
+> Suite **19,005** green (1 skipped; 1,780 files). Flip-diff **0 / 41 / 0** (34,620 cards, base 4463487c), every LOST card
+> audited by name against the runtime reader of its leftover sentence. **Mutants 12/13** on the final code (the 13th is a gate
+> labelled belt-and-suspenders in the code), restore byte-identical. Lint 0. CR citations: 9,840 checked, 117 dead before and
+> after, none new.
+> · **The hole.** `manaCardResidueModeled` read a mana source's trigger sentences (FIX-MANA-OVERCLAIM) and its activated
+>   abilities (2026-08-15) and nothing else, so a static or replacement sentence was never read: the card claimed native-mana
+>   whatever it said. Witness (synthetic): Everflowing Chalice whose enters-with sentence ends "… and you lose the game." — the
+>   per-kick strip refuses the rider (whole-sentence anchored), the sentence reached the gate, the gate never looked.
+> · **The fix, no new parser.** The gate now ends with the COMPOSITE tier's own residue walk, lifted out of
+>   `permanentFullyCovered` into two shared helpers (`stripModeledTriggerText` → `remainingClausesModeled`; the composite's
+>   verdicts unchanged — 0 gained, 0 retiered): trigger text and activated lines go, every clause left must be
+>   `clauseProducesStatic` or keyword-only. It reads classifyCard's etCard, so the enters-with / enters-tapped / crew / plot /
+>   warp / cost-only strips and the whole-card pre-strips (self no-untap, no max hand size, suspend, the opening-hand line)
+>   apply first.
+> · **Credited before the loss was counted — sentences the runtime honours, each on the runtime's own reader; each credit's
+>   rescues measured by ablation (20 = 8 + 4 + 2 + 1 + 5; with the 41 lost that is the first probe's 61):** a mana line with a
+>   WORD cost, read by `manaProduction` per line and only in the "<cost>: Add …" shape with the colon outside quotes (Heritage
+>   Druid, the Spirit Guides, Wall of Roots, Seton, Birchlore, The Cabbage Merchant, Lion's Eye Diamond); "As this <permanent>
+>   enters, choose a color." on `choosesColorOnEnter`, admitted in the leg, not stripped upstream, because the chosen-color
+>   mana parse needs its chooser (Coldsteel Heart, Sol Grail, Silhana, Quirion Elves); the counter doublers on
+>   `stripModeledDoublerClauses` (Doc Samson, Kami of Whispered Hopes); the Glimmer "It's an enchantment." directive,
+>   mirrored into the composite chain ANCHORED to the self-return clause (Enduring Vitality); the five Borderposts' unoffered
+>   alternative cost, a printed-cost-gated pre-strip on the 2026-07-25 judgement (⚑ a judgement call — a vacuity credit, not
+>   a runtime reader).
+> · **Caught by the slice's own audit, before commit:** the first per-line mana read credited any line `manaProduction` could
+>   read — including a whole sentence that only QUOTES "{T}: Add …" (Machine God's Effigy's copy clause, Great Divide Guide's
+>   grant to lands and Allies). The flip-diff could not see it — both were native before and stayed native; the tell was two
+>   names leaving the LOST list between iterations. Lesson: every card that LEAVES a LOST list mid-slice needs a reason.
+> · **LOST (41), by what nothing reads:** replacements — Phial of Galadriel (conditional), Mox Diamond (enter), Susan Foreman
+>   (planeswalk), Ichor Elixir (planar dice), Yawgmoth's Day Planner; enters-with shapes the reader refuses — Giada, Dragonstorm
+>   Globe; grants with no descriptor — Chromatic Lantern, Great Divide Guide, Dalakos, Orochi Merge-Keeper; other statics with no
+>   descriptor or reader — Heraldic Banner (chosen-color anthem), Altar of the Pantheon, Undercover Skrull, Stonework Packbeast,
+>   Bender's Waterskin, The Lion-Turtle, Warden of the Wall, Freya Crescent, Crystal Skull, Intrepid Paleontologist, Daxiver,
+>   Serum Powder; copies — Cursed Mirror, Machine God's Effigy; abilities the parser never detects — Devoted Druid, Honor-Worn
+>   Shaku, Baylen, Page, Relic of Legends (a second mana line `manaProduction` can't read); an uncounted labelled trigger —
+>   Phyrexian Atlas ("Corrupted —"); an unmodeled keyword — Topiary Lecturer (Increment); unreachable back faces — Invasion of
+>   Zendikar, Sunbird Standard (Craft), Weaver of Blossoms (daybound); Un-/Alchemy text — The Sad Creaturez, Orb of Origin,
+>   Andrios, Built Bear, Unique Charmed Pants, Gleemox.
+> · **⚑ Chromatic Lantern** was PINNED native (manaTierPins.test.js, re-pinned with a note): board-measured, a Forest beside it
+>   still taps only {G} — `parseStaticAbilities` emits nothing for "Lands you control have …" (Cryptolith Rite on the same
+>   harness is the positive control). A play-weighted build target now, not a credit.
+> · Witness `manaTierStaticResidue.test.js` (28): the synthetic witness beside its real control, one park per residue shape,
+>   each credit beside its runtime proof (Sol Grail stamped through enterPermanent; Doc Samson/Kami through addCounter; Heritage
+>   Druid through manaSources; the Borderpost cast offered at {1}{U}{B} and never for the alternative cost), a SYNTHETIC twin
+>   per credit that its reader refuses, and the two quoted-ability sentences.
+> · ⚠️ Found, not fixed (queued): **Lion's Eye Diamond makes three mana without discarding** — manaCostModelable's self-sac
+>   branch admits the compound "Discard your hand, Sacrifice this artifact" cost (chip filed); **Mox Diamond** enters without
+>   its discard (unmodeled replacement — honestly parked now, still played permissively); a labelled trigger whose ability word
+>   `stripTriggerAbilityLabel` doesn't know ("Corrupted —") is invisible to `allTriggerSentencesModeled`'s count; a brace-cost
+>   SECOND mana line still rides `isManaEffect` without a per-line runtime read; **landFullyCovered's isManaLine (the
+>   precedent) reads a quoted ability too** — ablation credits three lands through it (Forgotten Monument, Riftstone Portal,
+>   Command Power Plant: grants to other lands, no static descriptor) and the guard here cannot be copied verbatim (Nykthos and
+>   four more begin "Choose a color. Add …") (chip filed); seven comments in enterReplacements / manaModel /
+>   staticAbilityParser cite **CR 614.12b** for the choose-on-enter stamp — the rule is **614.12 / 614.12a** (614.12b is
+>   simultaneous entries).
 
 > ## 🔧 2026-10-16 — FIX: a one-shot source pays only when the cost needs it (a Swamp before a sacrificed Basal Sliver / Blood Pet) · **±0** · corpus 15,492
 > Suite **19,005** green (1,781 files, 1 skipped), on top of the slice below. Flip-diff **0 / 0 / 0**. **Mutants 6/6**, restore

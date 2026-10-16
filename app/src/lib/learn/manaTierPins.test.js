@@ -86,12 +86,22 @@ describe("MUST_NOT_OVER-CLAIM — a mana ability plus UNMODELED residue stays pa
   }
 });
 
+// ⚠️ RE-PINNED 2026-10-16 (the gate's static leg — manaTierStaticResidue.test.js). This pair said Chromatic Lantern
+// "earns the tier on its OWN ability, despite also granting one". True of the READER — its own ability is a real
+// source and the grant is not mistaken for one — but the tier also claimed the GRANT, which the gate never read.
+// Measured on a board: a Forest beside the Lantern still taps only for {G}, because parseStaticAbilities emits
+// nothing for "Lands you control have …" (a Cryptolith Rite control on the same harness shows a grant that IS
+// applied: its bear taps for any color). The Lantern now parks on that sentence. The pair's point stands, stated
+// honestly: a grant the runtime applies does not disqualify a card; one it does not apply does.
 describe("GRANTED vs OWN mana ability — the pair that keeps the reader honest", () => {
-  it("Chromatic Lantern earns the tier on its OWN ability, despite also granting one", () => {
-    // It grants "{T}: Add one mana of any color" to lands AND has the same ability itself. The granted
-    // clause must not disqualify it; its own ability must not be confused with the grant.
+  it("a grant the runtime APPLIES does not disqualify the card — Enduring Vitality's creature grant is a parsed static", () => {
+    expect(classifyCard(C("Enduring Vitality", "Enchantment Creature — Elk Glimmer",
+      "Vigilance\nCreatures you control have \"{T}: Add one mana of any color.\"\nWhen Enduring Vitality dies, if it was a creature, return it to the battlefield under its owner's control. It's an enchantment. (It's not a creature.)"))).toBe("native-mana");
+  });
+
+  it("a grant the runtime does NOT apply parks the card, however real its own ability — Chromatic Lantern", () => {
     expect(classifyCard(C("Chromatic Lantern", "Artifact",
-      "Lands you control have \"{T}: Add one mana of any color.\"\n{T}: Add one mana of any color."))).toBe("native-mana");
+      "Lands you control have \"{T}: Add one mana of any color.\"\n{T}: Add one mana of any color."))).not.toBe("native-mana");
   });
 
   it("a granter with NO ability of its own is never credited", () => {

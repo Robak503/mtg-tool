@@ -2144,11 +2144,41 @@ export function permanentFullyCovered(card) {
     if (!staticAbilitiesCoverCard(card, isKeywordOnly)) return false;
   }
 
-  // Residue: drop trigger sentences (anchored, the detectTriggers grammar) + activated-ability
-  // lines (the same shape the parser detects, incl. γ1 word-costs), then every remaining clause
-  // must be a modeled static or keyword-only — no unmodeled trigger/static/other text survives.
-  // FOLD modal-ability bullet lines first (Koma's "Choose one — \n• … \n• …"), so a multi-line modal
-  // activated ability strips as ONE line rather than leaving its mode bullets as apparent residue.
+  const afterTriggerTails = stripModeledTriggerText(card, oracle);
+  // ⭐ EQUIPMENT COMPOSITION — an Equipment whose bonus + Equip line are the whole remainder once the
+  // triggers are stripped. permanentEquipmentCovered ALREADY admits a trigger, but strips it with a naive
+  // `[^.]+` that stops at the first period, so any trigger whose effect runs past one sentence leaves the
+  // rest as residue and sinks the card: Mask of Memory's "If you do, discard a card.", Goldvein Pick's
+  // Treasure reminder, Adaptive Omnitool's three-sentence dig. The composite's residue chain
+  // (stripModeledTriggerText) already handles all of those (the reflexive/optional-payment tails, the label
+  // strip, reminder stripping) — it just had no idea what an equipped-creature bonus is, so the two halves
+  // each understood their own piece and the card fell between them.
+  //
+  // Handing the CAREFULLY-stripped remainder to the equipment gate composes them without duplicating
+  // either. Safe by construction: every trigger was proven to route natively above, and
+  // permanentEquipmentCovered is itself all-or-nothing over what's left. 12 corpus Equipment sit here.
+  // The type test is a cheap EARLY-OUT, not a safety gate — permanentEquipmentCovered rejects a
+  // non-Equipment on its own first line, and a mutation removing this test changes no verdict. Said plainly
+  // so nobody later mistakes it for the thing holding the FP line; the all-or-nothing gate below it is.
+  if (/\bEquipment\b/i.test(String(card?.type || card?.type_line || ""))
+      && permanentEquipmentCovered({ ...card, oracle: afterTriggerTails })) return true;
+
+  return remainingClausesModeled(card, afterTriggerTails);
+}
+
+/**
+ * The TRIGGER half of the composite residue walk: drop every trigger sentence plus the follow-up tails a
+ * modeled trigger's own effect carries, leaving the card's activated, static and keyword text. Shared by
+ * permanentFullyCovered and the native-mana tier's static leg (manaCardResidueModeled), so the two walks
+ * cannot drift (the duplication lesson in the frequency-rider note below). LICENSED ONLY BY
+ * allTriggerSentencesModeled: every caller must have passed it first, or these strips would remove an
+ * unmodeled trigger's text unread.
+ */
+function stripModeledTriggerText(card, oracle) {
+  // Residue, first half: drop trigger sentences (anchored, the detectTriggers grammar). The activated-ability
+  // lines (the same shape the parser detects, incl. γ1 word-costs) go in remainingClausesModeled, which then
+  // requires every remaining clause to be a modeled static or keyword-only — no unmodeled trigger/static/other
+  // text survives.
   // LANDFALL / ability-word label (CR 207.2c) — strip a leading "Landfall —" (constellation, enrage, …)
   // FIRST, identically to permanentTriggersCovered. Without this the trigger-sentence strip below — anchored
   // `(?:^|[\n.;]\s*)(When|Whenever|At)` — never matches a landfall trigger ("Landfall — Whenever a land you
@@ -2168,6 +2198,15 @@ export function permanentFullyCovered(card) {
   // native-trigger residue chain's ordering).
   const afterTriggers = stripTriggerAbilityLabel(foldTwoTriggerDetain(oracle, card))
     .replace(/(counters? on (?:it|that creature|this creature))\.\s+it (?:gets [+-]\d+\/[+-]\d+(?: and gains [^.]+)?|gains [^.]+) until end of turn\b\.?\s*/gi, "$1. ")
+    // GLIMMER SELF-RETURN TYPE DIRECTIVE (the Enduring cycle) — "When ~ dies, if it was a creature, return it to the
+    // battlefield under its owner's control. It's an enchantment." MIRRORED from permanentTriggersCovered, where the
+    // reasoning lives: the directive is part of the modeled dies trigger (triggers.js rewrites the effect to the
+    // [self-return-bf:enchantment] marker, so stripTriggerEffectTails cannot match the printed sentence). ANCHORED here,
+    // unlike the unanchored original: it must DIRECTLY follow the self-return clause, so the copy riders that print the
+    // same words mid-sentence ("… except it's an enchantment in addition to its other types" — Copy Artifact, Felhide
+    // Spiritbinder) are never touched. Runs BEFORE the trigger-sentence strip, which removes the clause this anchor needs.
+    // Horizontal whitespace only — a strip that eats a newline welds the next line onto this one (the Drowner of Hope FP).
+    .replace(/(return it to the battlefield under its owner['’]s control)\.[ \t]+it['’]s an enchantment\b\.?[ \t]*/gi, (_m, lead) => `${lead}. `)
     .replace(/[\s\S]*/, (all) => stripTriggerSentences(all, "\n")) // QUOTE-AWARE (Codex fix #4): the shared scanner strips whole sentences (a quoted ability internal period no longer truncates)
     // REFLEXIVE (CR 603.7) + OPTIONAL-PAYMENT (CR 603.7c) tails — a "When you do, <reflexive>." / "If you do,
     // <effect>." sentence is part of the PRECEDING trigger's effect (detectTriggers folds it into the
@@ -2207,26 +2246,19 @@ export function permanentFullyCovered(card) {
   // …and then the GENERAL case the three hand-written tails above are each a special case of: every
   // remaining sentence of a modeled trigger's own effect. Runs LAST so those anchored strips keep the
   // exact text they were written against.
-  const afterTriggerTails = stripTriggerEffectTails(afterTriggers, card);
-  // ⭐ EQUIPMENT COMPOSITION — an Equipment whose bonus + Equip line are the whole remainder once the
-  // triggers are stripped. permanentEquipmentCovered ALREADY admits a trigger, but strips it with a naive
-  // `[^.]+` that stops at the first period, so any trigger whose effect runs past one sentence leaves the
-  // rest as residue and sinks the card: Mask of Memory's "If you do, discard a card.", Goldvein Pick's
-  // Treasure reminder, Adaptive Omnitool's three-sentence dig. THIS function's residue chain already
-  // handles all of those (the reflexive/optional-payment tails, the label strip, reminder stripping) — it
-  // just had no idea what an equipped-creature bonus is, so the two halves each understood their own piece
-  // and the card fell between them.
-  //
-  // Handing the CAREFULLY-stripped remainder to the equipment gate composes them without duplicating
-  // either. Safe by construction: every trigger was proven to route natively above, and
-  // permanentEquipmentCovered is itself all-or-nothing over what's left. 12 corpus Equipment sit here.
-  // The type test is a cheap EARLY-OUT, not a safety gate — permanentEquipmentCovered rejects a
-  // non-Equipment on its own first line, and a mutation removing this test changes no verdict. Said plainly
-  // so nobody later mistakes it for the thing holding the FP line; the all-or-nothing gate below it is.
-  if (/\bEquipment\b/i.test(String(card?.type || card?.type_line || ""))
-      && permanentEquipmentCovered({ ...card, oracle: afterTriggerTails })) return true;
+  return stripTriggerEffectTails(afterTriggers, card);
+}
 
-  const afterActivated = foldModalBulletLines(stripReminder(afterTriggerTails))
+/**
+ * The CLAUSE half of the composite residue walk: drop the activated-ability lines (the shape
+ * parseActivatedAbilities detects; each caller vouches every detected ability itself), then every remaining
+ * clause must be a modeled static (clauseProducesStatic, the per-clause gate the composite tier trusts) or
+ * keyword-only. Shared by permanentFullyCovered and manaCardResidueModeled.
+ */
+function remainingClausesModeled(card, text) {
+  // FOLD modal-ability bullet lines first (Koma's "Choose one — \n• … \n• …"), so a multi-line modal
+  // activated ability strips as ONE line rather than leaving its mode bullets as apparent residue.
+  const afterActivated = foldModalBulletLines(stripReminder(text))
     .filter((line) => !isActivatedAbilityLine(line, card))
     .join("\n");
   // QUOTE-AWARE residue split (abilityClauses, the SAME splitter staticAbilitiesCoverCard uses): a GROUP-GRANT
@@ -2389,16 +2421,16 @@ export function permanentEquipmentCovered(card) {
 // source with an unmodeled TRIGGER or level structure (Mana Crypt's upkeep coin-flip; Sorcerer Class's
 // levels) was counted fully native: a metric over-claim (the runtime already routes the unmodeled piece
 // to the Arbiter — `classifyCard` has no runtime consumer). This makes `native-mana` all-or-nothing like
-// every other native tier: a mana source is native only when its non-mana TRIGGER text is modeled too.
+// every other native tier: a mana source is native only when its non-mana text is modeled too — its TRIGGER
+// text (this note's original leg), its ACTIVATED abilities (2026-08-15) and its STATIC / REPLACEMENT text
+// (2026-10-16), each leg documented where it is checked below.
 //
 // "Modeled" = the SAME gate the native-trigger tier uses (`allTriggerSentencesModeled`: every trigger-shaped
 // sentence is a detected trigger whose effect routes natively), plus not level-gated. A "pure mana" trigger
 // (an ETB/upkeep/cast "add {mana}") is deliberately NOT a free pass: the runtime mana model produces mana
 // ONLY from tapping/sacrificing a `{T}`/sac source — it never fires triggered mana — so a triggered-mana-
 // ONLY card (Burning-Tree Emissary, Coal Stoker) yields ZERO mana natively and is a genuine over-claim, not
-// a false negative. (The smaller non-mana ACTIVATED-ability over-claim — Lantern of Revealing — is a
-// fragile, separate follow-up: distinguishing a mana ability from a value ability is error-prone, and
-// under-correcting is the safe direction.)
+// a false negative.
 function manaCardResidueModeled(card, oracle) {
   if (isLevelGatedOracle(oracle) || !allTriggerSentencesModeled(card, oracle)) return false;
   // ⭐ ACTIVATED RESIDUE (2026-08-15) — a PRE-EXISTING hole closed the day it grew carriers: this gate
@@ -2418,7 +2450,65 @@ function manaCardResidueModeled(card, oracle) {
     const one = { ...card, oracle: a.raw };
     return !!(parseGraveyardSelfRecursion(one) || parseGraveyardExileAbility(one));
   };
-  return parseActivatedAbilities(card).every((a) => a.modeled || a.isManaEffect || isGraveyardAbility(a));
+  if (!parseActivatedAbilities(card).every((a) => a.modeled || a.isManaEffect || isGraveyardAbility(a))) return false;
+  // ⭐ STATIC / REPLACEMENT RESIDUE (2026-10-16) — the third hole in this gate, and the widest: the two legs
+  // above read trigger sentences and activated abilities, and NOTHING read the rest. A static or replacement
+  // sentence on a mana source was never looked at, so the card claimed native-mana whatever it said. The
+  // witness is synthetic and exact: Everflowing Chalice with its enters-with sentence ending "… for each
+  // time it was kicked and you lose the game." The per-kick enters-with strip refuses the rider (its reader,
+  // entersWithCountersPerKick, is whole-sentence anchored), so the sentence survived into the residue, and
+  // this gate returned true without reading it. Every other native tier is all-or-nothing over the whole
+  // oracle; this one now is too.
+  //
+  // NOT A NEW PARSER: this is the COMPOSITE tier's own residue walk, shared (stripModeledTriggerText, then
+  // remainingClausesModeled). Trigger text and activated-ability lines go — the mana line included, which is
+  // activated-shaped and vouched by the manaProduction credit this tier stands on — and every clause left
+  // must be a modeled static (clauseProducesStatic) or keyword-only. `card` is classifyCard's etCard view, so
+  // the sentences the chain there already credited on their runtime readers (the enters-with counter
+  // families, enters tapped, crew, riot, plot, warp, the cost-only keywords, self cost reduction) are gone
+  // before this reads, and the whole-card pre-strips (self no-untap, no maximum hand size, suspend, the
+  // opening-hand line) ran before that. Only-tightens: a card this refuses falls through to the
+  // trigger/activated/static/mixed gates, each of which reads the same residue and refuses it too.
+  //
+  // A MANA LINE THE ACTIVATED DETECTOR DOES NOT SEE (a word cost: Heritage Druid's "Tap three untapped Elves
+  // you control: Add {G}{G}{G}.", the Spirit Guides' "Exile this card from your hand: Add {R}.", Wall of Roots'
+  // "Put a -0/-1 counter on this creature: Add {G}.") goes too, but ONLY when the runtime's own mana parser
+  // reads that line on its own: manaProduction per line, landFullyCovered's isManaLine discipline. A second
+  // mana ability the runtime never produces (Relic of Legends' "Tap an untapped legendary creature you
+  // control: Add one mana of any color.") is not read, stays residue, and parks the card.
+  // ⛔ THE LINE MUST BE A MANA ABILITY, not merely mention one: "<cost>: Add …", the colon OUTSIDE any quote
+  // (isActivatedAbilityLine's quoted-grant guard) and the effect led by "Add". manaProduction reads a QUOTED
+  // ability too, so without the shape test a whole sentence that only quotes one went as a "mana line":
+  // Machine God's Effigy's copy clause ("… enter as a copy of any creature …, except it's an artifact and it
+  // has \"{T}: Add {U}.\"") and Great Divide Guide's grant to lands and Allies — both measured, both unmodeled.
+  const type = String(card?.type || card?.type_line || "");
+  const isManaLine = (line) => {
+    const t = stripReminder(line).trim();
+    const ci = t.indexOf(":");
+    if (ci === -1 || /["“”]/.test(t.slice(0, ci)) || !/^\s*add\b/i.test(t.slice(ci + 1))) return false;
+    return !!manaProduction({ name: card?.name, type, oracle: t });
+  };
+  // CHOOSE A COLOR AS IT ENTERS (CR 614.12, the choice made before it enters per 614.12a) — "As this artifact
+  // enters, choose a color." (Coldsteel Heart, Sol Grail, Silhana Starfletcher, Quirion Elves). The general enter
+  // site (enterReplacements) stamps the durable `chosenColor` on ANY permanent type through choosesColorOnEnter,
+  // and the mana model's "one mana of the chosen color" leg resolves against it; landFullyCovered admits the land
+  // form on the same reader. Admitted HERE, never stripped upstream: the
+  // chosen-color mana parse reads "the chosen color" only beside its chooser, so removing the sentence from etCard would
+  // null the very manaProduction credit this tier stands on. Only when the reader matches (whole-clause anchored:
+  // "choose a color and an opponent" and a name-led "As Iona enters" stay residue); whatever else reads the chosen color
+  // is judged on its own clause. ⚠️ HONEST LABEL: the reader gate is belt-and-suspenders today. The anchored sentence
+  // accepts exactly the reader's set (measured: dropping the gate changes no verdict in the slice's tests); it stays so
+  // that widening either one cannot credit a chooser the enter site never stamps.
+  let text = stripModeledTriggerText(card, oracle);
+  if (choosesColorOnEnter(card)) text = text.replace(CHOOSE_COLOR_ON_ENTER_SENTENCE, (_m, lead) => lead);
+  // COUNTER / TOKEN DOUBLER sentences (replacement effects, CR 614.1a — Doc Samson's and Kami of Whispered Hopes'
+  // "that many plus one"): applied by the runtime at every counter placement and token mint regardless of tier
+  // (doublerProfile → applyCounterDoubling), and stripped by the SAME single source of truth doublerCardTier uses
+  // (stripModeledDoublerClauses → isModeledDoublerSentence). That tier runs after this one, so a doubler that also taps for mana never reached it.
+  // An unmodeled doubler shape (a token HALVE, a subtype recipient) is not stripped and parks the card.
+  text = stripModeledDoublerClauses(text, card);
+  const rest = text.split("\n").filter((line) => !isManaLine(line)).join("\n");
+  return remainingClausesModeled(card, rest);
 }
 
 // ADDITIVE registry seam (WAVE 0): module-level list of extra coverage classifiers. A classifier is
@@ -3156,6 +3246,14 @@ export function modeledClassCard(card) {
 }
 registerClassCardValidator(modeledClassCard);
 
+// The "As this <permanent> enters, choose a color[ other than <color>]." SENTENCE, in the forms choosesColorOnEnter reads
+// (LAND_CHOOSE_COLOR_RE, per clause). The lead group keeps the previous sentence's period when the two share a line
+// ("This land enters tapped. As it enters, choose a color."); the tail must end the sentence, so a longer chooser
+// ("choose a color and an opponent") can never lose a prefix.
+const CHOOSE_COLOR_ON_ENTER_SENTENCE = /(^|[.!?][ \t]+)as (?:it|this (?:land|artifact|creature|permanent|enchantment)) enters, choose a color(?: other than (?:white|blue|black|red|green))?(?:\.|(?=\n|$))[ \t]*/gim;
+// The Borderposts' printed alternative cost, as one whole line (see the pre-strip in classifyCard).
+const BORDERPOST_ALT_COST_LINE = /^[ \t]*you may pay \{\d+\} and return a basic land you control to its owner['’]s hand rather than pay this spell['’]s mana cost\.?[ \t]*$/im;
+
 /**
  * Classify one card into a coverage tier. Input: { type, oracle, mana, name }
  * (the `publicCard` shape — type is the type line, oracle the full oracle text).
@@ -3203,6 +3301,18 @@ export function classifyCard(card) {
   // keep the line as honest residue.
   if (String(card?.mana ?? card?.mana_cost ?? "").trim() && /^[ \t]*suspend \d+\s*[—–-]/im.test(card?.oracle || "")) {
     card = { ...card, oracle: String(card.oracle).replace(/^[ \t]*suspend \d+\s*[—–-][^\n]*$/gim, "").replace(/\n{2,}/g, "\n").trim() };
+  }
+  // THE BORDERPOSTS' ALTERNATIVE COST (2026-10-16) — "You may pay {1} and return a basic land you control to its owner's
+  // hand rather than pay this spell's mana cost." An OPTIONAL alternative cost (CR 118.9) the cast lane does not offer, on a
+  // card with a printed mana cost: the engine casts it for that cost and it plays identically, the under-offer the
+  // additional-cost park below ("DO NOT WIDEN THIS TO ALTERNATIVE COSTS") judged correct for exactly these five cards on
+  // 2026-07-25, and the same vacuity every unoffered alternative-cost keyword on a permanent is credited on (morph,
+  // ninjutsu, spectacle, madness, plot, suspend with a printed cost). It needed no credit before only because the
+  // native-mana gate never read the line. Gated on a printed mana cost (the suspend gate's own condition) and anchored to
+  // this exact sentence: Allosaurus Rider's exile-two, Delraich's sacrifice and every other printed alternative cost on a
+  // permanent stay residue, each needing its own look.
+  if (String(card?.mana ?? card?.mana_cost ?? "").trim() && BORDERPOST_ALT_COST_LINE.test(card?.oracle || "")) {
+    card = { ...card, oracle: String(card.oracle).replace(BORDERPOST_ALT_COST_LINE, "").replace(/\n{2,}/g, "\n").trim() };
   }
   // NO-MAX-HAND pre-strip (2026-08-03) — the same shape as the two pre-strips above, and it lands HERE
   // for a reason. "You have no maximum hand size." is MODELED and genuinely ENFORCED: cleanupDiscardExcess
@@ -3806,8 +3916,9 @@ export function classifyCard(card) {
     return classifyCard({ ...card, oracle: acRest });     // acRest has the AC sentence removed — no recursion
   }
   if (isKeywordOnly(stripModeledNoMaxHandSize(stripModeledSelfNoUntap(etOracle, card?.name)), card?.name)) return "native-body";
-  // FIX-MANA-OVERCLAIM: a mana source counts native-mana only when its non-mana trigger text is modeled
-  // too (else it falls through to the all-or-nothing trigger/activated/mixed gates → body-only/Arbiter).
+  // FIX-MANA-OVERCLAIM: a mana source counts native-mana only when its non-mana text — trigger, activated,
+  // static and replacement — is modeled too (manaCardResidueModeled; else it falls through to the all-or-nothing
+  // trigger/activated/mixed gates → body-only/Arbiter).
   // VARIABLE-X MANA: the "Add X mana … where X is <modeled metric>" form (Sanctum Weaver) is admitted via
   // hasModeledVariableXMana — gated on manaProduction returning a runtime amountSpec, so an unmodeled-metric
   // X source (Wirewood Channeler) stays body-only (no over-claim). The same residue gate then applies.
