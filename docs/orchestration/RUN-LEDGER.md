@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **16 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
+> **18 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -16,6 +16,21 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🧰 2026-10-16 — TOOLING: the test wrapper's timeout kills only its own run · **±0** · corpus 15,492
+> **Found by the 14-session fleet** (Colton started 14 worktree sessions on one machine, 2026-10-16; the Academy
+> seat-label session flagged it). `app/scripts/test-with-timeout.cjs` — the wrapper `npm test` runs — tore down a timed-out
+> or interrupted run by stopping EVERY node process whose command line held node_modules + vitest. With one worktree per
+> session and node_modules junctioned into the main tree, that is every session's test run, mutation harness included —
+> and the default limit is 5 minutes, about the length of a full suite on a busy box.
+> · **The fix.** The vitest main is stopped by PID, then its descendants are collected from one process snapshot by
+>   ParentProcessId (Windows keeps it after the parent dies) and stopped, pass after pass, until a pass finds none. Only
+>   processes created since the wrapper started are eligible, so a recycled PID cannot pull in an unrelated process. The
+>   sweep is sent as `-EncodedCommand` (an inline PowerShell loop through spawn's quoting silently no-ops).
+> · **Verified live** (no suite test: the old code under test would kill the suite running it, and every other session's
+>   runs): a bystander node process whose command line held node_modules/vitest, beside a 4-worker run timed out at 9 s —
+>   the run's 4 workers were stopped, none left behind, and the bystander survived. The old wrapper matched the bystander.
+> · ⚠️ Until a worktree rebases onto this commit its own copy of the wrapper still kills machine-wide: the fleet runs full
+>   suites with `VITEST_TIMEOUT_MS=1800000` meanwhile.
 > ## 🧹 2026-10-16 — REFACTOR: one seat-label source for the Academy (`seatLabels.js`) · **±0** · no engine change
 > Suite **18,944** green (1 skipped): the full run under the gate lock passed 18,940 in 221 s; its 4 failures were
 > `rules-retrieval/route.test.js` in a fresh worktree with no `data/rules-index.json` (CI builds it first), and they pass

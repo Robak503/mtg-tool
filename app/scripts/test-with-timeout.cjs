@@ -27,13 +27,20 @@
  *
  * IMPLEMENTATION NOTE -- why not `taskkill /T`?
  * ---------------------------------------------
- * vitest's worker pool (tinypool) spawns its forks in a way that does
- * NOT keep them as reliable children of the vitest PID -- they reparent,
- * so `taskkill /T /PID <vitest-pid>` walks the tree and misses them
- * (verified: it left 50 orphans). The reliable kill is to match the
- * worker processes by command line (`node.exe` whose args contain the
- * vitest path) and stop them directly. That's what runs below, and it
- * runs synchronously so the wrapper never exits with workers still live.
+ * `taskkill /T /PID <vitest-pid>` walks the LIVE tree, and the pool can
+ * respawn workers while vitest is alive (verified: it left 50 orphans).
+ * So the main is killed first (no more respawns), then the tree is
+ * collected from a process snapshot by ParentProcessId -- Windows keeps a
+ * child's ParentProcessId after its parent dies -- and stopped, pass after
+ * pass, until a pass finds nothing.
+ *
+ * ONLY THIS RUN'S PROCESSES (2026-10-16). The kill used to match every
+ * node.exe whose command line held node_modules + vitest, which on a
+ * machine running several sessions' test runs at once (one worktree each,
+ * node_modules junctioned into the main tree) stopped everyone's runs when
+ * one of them timed out. It now stops only descendants of this wrapper's
+ * own vitest process, and only processes created after the wrapper
+ * started, so a recycled PID can never pull in an unrelated process.
  */
 
 const { spawn, spawnSync } = require("node:child_process");
@@ -58,6 +65,33 @@ const child = spawn(process.execPath, args, {
 });
 
 let killing = false;
+const startedAtMs = Date.now();
+
+// One PowerShell pass over the process tree rooted at `rootPid`: every
+// descendant created at or after `sinceMs` (epoch ms) is stopped, and the
+// number found is printed.
+function treeSweepScript(rootPid, sinceMs) {
+  return [
+    "$all = @(Get-CimInstance Win32_Process)",
+    "$byParent = @{}",
+    "foreach ($p in $all) { $k = [string]$p.ParentProcessId; if (-not $byParent.ContainsKey($k)) { $byParent[$k] = New-Object System.Collections.ArrayList }; [void]$byParent[$k].Add($p) }",
+    "$since = [DateTimeOffset]::FromUnixTimeMilliseconds(" + Number(sinceMs) + ")",
+    "$queue = New-Object System.Collections.Queue",
+    "$queue.Enqueue('" + Number(rootPid) + "')",
+    "$found = 0",
+    "while ($queue.Count -gt 0) {",
+    "  $parent = $queue.Dequeue()",
+    "  if (-not $byParent.ContainsKey($parent)) { continue }",
+    "  foreach ($c in $byParent[$parent]) {",
+    "    if ([DateTimeOffset]$c.CreationDate -lt $since) { continue }",
+    "    $found++",
+    "    $queue.Enqueue([string]$c.ProcessId)",
+    "    Stop-Process -Id $c.ProcessId -Force -ErrorAction SilentlyContinue",
+    "  }",
+    "}",
+    "$found",
+  ].join("\n");
+}
 
 // Synchronously tear down vitest + every worker it spawned. Safe to call
 // more than once; only does work the first time.
@@ -72,39 +106,24 @@ function killVitestTree() {
     if (child.pid) {
       spawnSync("taskkill", ["/F", "/PID", String(child.pid)], { stdio: "ignore" });
     }
-    // 2. Loop-kill the worker set until a pass finds none. tinypool's
-    //    forks reparent (so taskkill /T misses them) and the pool can
-    //    respawn during a single sweep (verified: one pass left 2
-    //    survivors). The loop is self-correcting: once the main is dead
-    //    no new workers spawn, so the count converges to zero.
-    //
-    //    The loop is driven HERE in Node, with each PowerShell call kept
-    //    to a single simple pipeline -- an inline PS `for` loop breaks
-    //    under spawn's command-line quoting (verified: it silently no-op'd
-    //    and left 25 orphans). Match is `*node_modules*vitest*` (the `*`
-    //    spans either slash style), which hits the main and every forked
-    //    worker whose cmdline embeds the vitest module path, and nothing
-    //    else (the app's own node server has no such path).
-    const killPs =
-      `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | ` +
-      `Where-Object { $_.CommandLine -like '*node_modules*vitest*' } | ` +
-      `ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`;
-    const countPs =
-      `(@(Get-CimInstance Win32_Process -Filter "Name='node.exe'" | ` +
-      `Where-Object { $_.CommandLine -like '*node_modules*vitest*' })).Count`;
-    for (let i = 0; i < 12; i++) {
-      spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", killPs], {
-        stdio: "ignore",
-      });
-      const r = spawnSync(
-        "powershell.exe",
-        ["-NoProfile", "-NonInteractive", "-Command", countPs],
-        { encoding: "utf8" }
-      );
-      if ((parseInt((r.stdout || "").trim(), 10) || 0) === 0) break;
-      // Brief synchronous pause so any worker that was mid-spawn appears
-      // and gets caught on the next pass.
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250);
+    // 2. Stop this run's descendants until a pass finds none. One pass
+    //    collects the tree rooted at the vitest PID from a single process
+    //    snapshot (by ParentProcessId), keeps only processes created since
+    //    the wrapper started, stops them, and prints how many it found.
+    //    The script goes over -EncodedCommand: an inline PS loop passed
+    //    through spawn's command-line quoting silently no-ops (verified
+    //    once: it left 25 orphans).
+    if (child.pid) {
+      const sweep = Buffer.from(treeSweepScript(child.pid, startedAtMs - 2000), "utf16le").toString("base64");
+      for (let i = 0; i < 12; i++) {
+        const r = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-EncodedCommand", sweep], {
+          encoding: "utf8",
+        });
+        if ((parseInt((r.stdout || "").trim(), 10) || 0) === 0) break;
+        // Brief synchronous pause so any worker that was mid-spawn appears
+        // and gets caught on the next pass.
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250);
+      }
     }
   } else {
     try {
