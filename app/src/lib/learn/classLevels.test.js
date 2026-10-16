@@ -554,17 +554,24 @@ describe("SYNTHETIC — the guards that keep a Class shape the runtime can't hon
     expect(levelUpOffers(mainPhase({ battlefield: [onBf(xBar, "x"), ...lands(ISLAND, 8, "i")] }), "x")).toHaveLength(0);
   });
 
-  it("the token-copy target pool: an Aura token (Mask) or a Saga token is never the target; a creature-copy stays ambiguous", () => {
-    // Caretaker's Talent levelling to 2 with only a Mask token, then only a token Saga: no legal target, no copy.
+  // GRADUATED 2026-10-16: the Mask (an Aura token) was never the target. It is now — a token copy of an Aura chooses what it
+  // enchants as it is created (CR 303.4f; auraTokenCopy.test.js), and "Enchant permanent" is an Enchant line the engine lists —
+  // so levelling to 2 makes a second Mask, attached. The token Saga stays out (the copy would miss its lore counter, CR 714.3a).
+  it("the token-copy target pool: a Saga token is never the target; an Aura token (Mask) is, and its copy enters attached; a creature-copy stays ambiguous", () => {
+    // Caretaker's Talent levelling to 2 with only a Mask token, then only a token Saga.
     // The Mask ("Enchant permanent") enchants a Plains: an Aura attached to nothing is put into the graveyard (CR 704.5m).
-    for (const only of [{ ...MASK_TOKEN, token: true }, { ...THREE_BLIND_MICE, token: true }]) {
+    const rows = [{ ...MASK_TOKEN, token: true }, { ...THREE_BLIND_MICE, token: true }].map((only) => {
       const [p0, ...plains] = lands(PLAINS, 3, "p");
       const aura = only.name === "Mask";
       let s = mainPhase({ battlefield: [onBf(CARETAKERS_TALENT, "care"), { ...onBf(only, "tok"), ...(aura && { attachedTo: "p0" }) }, { ...p0, ...(aura && { attachments: ["tok"] }) }, ...plains] });
       s = gainLevel(s, "care");
-      expect(permNamed(s, "Caretaker's Talent").classLevel).toBe(2);
-      expect(s.players.user.battlefield.filter((p) => p.card.token)).toHaveLength(1);
-    }
+      const tokens = s.players.user.battlefield.filter((p) => p.card.token);
+      return { only: only.name, level: permNamed(s, "Caretaker's Talent").classLevel, tokens: tokens.length, copyAttached: tokens.filter((p) => p.id !== "tok").map((p) => !!p.attachedTo) };
+    });
+    expect(rows).toEqual([
+      { only: "Mask", level: 2, tokens: 2, copyAttached: [true] },
+      { only: "Three Blind Mice", level: 2, tokens: 1, copyAttached: [] },
+    ]);
     // The intent is own ONLY for a token copy of yours: Quasiduplicate's creature copy keeps the ambiguous intent (its
     // spell is targeted at cast), and a token copy without the you-control restriction would be ambiguous too.
     const quasi = parseEffectClause(QUASIDUPLICATE.oracle.split("\n")[0], "Sorcery");

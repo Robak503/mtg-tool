@@ -128,6 +128,12 @@ const ENTRY_HOST_PREDICATES = {
 };
 
 const oracleOf = (card) => String(card?.oracle ?? card?.oracle_text ?? "");
+const frontTypeLine = (card) => String(card?.type || card?.type_line || "").split(" // ")[0];
+/** Does `perm` already carry a Role (CR 303.7) that `controller` controls? */
+const carriesRoleOf = (state, perm, controller) => (perm.attachments || []).some((id) => {
+  const a = findPermanent(state, id);
+  return a?.controller === controller && /\bRole\b/.test(frontTypeLine(a.permanent?.card));
+});
 
 // A protection quality layers.permanentProtectionColors does not read (protection.js reads colours and the "creatures" class).
 // Any of these could forbid an Aura (CR 702.16c), so a permanent that prints one is never chosen.
@@ -155,17 +161,24 @@ function cantBeEnchanted(state, perm, controller) {
  * only ever narrow the list:
  *   · onlyCreatures — "Only creatures can be enchanted this way" (Retether): the host must be a creature as well, read
  *     layer-aware, so an animated land is one (the bundled Retether ruling's own example).
+ *   · excludeIds — permanents an earlier Aura of the same event already took, when that would be wrong to share (a Role).
+ * A ROLE (CR 303.7) never chooses a permanent that already carries a Role its controller controls. CR 704.5y would put the
+ * older one into the graveyard, and sba.js does not run that check, so the pair would both stay: a missed host, never two Roles
+ * of one player on one permanent.
  */
-export function auraEntryHosts(state, auraCard, controller, { onlyCreatures = false } = {}) {
+export function auraEntryHosts(state, auraCard, controller, { onlyCreatures = false, excludeIds = null } = {}) {
   const spec = auraEntryHostSpec(auraCard);
   const pred = spec ? ENTRY_HOST_PREDICATES[spec.targetType] : null;
   if (!pred) return null;
   const auraColors = colorsOf(auraCard);
+  const isRole = /\bRole\b/.test(frontTypeLine(auraCard));
   const out = [];
   for (const pid of Object.keys(state.players || {})) {
     for (const perm of state.players[pid]?.battlefield || []) {
       if (!pred(state, perm)) continue;
       if (onlyCreatures && !isCreatureNow(state, perm)) continue;
+      if (excludeIds && excludeIds.includes(perm.id)) continue;
+      if (isRole && carriesRoleOf(state, perm, controller)) continue;
       if ((spec.restrictions || []).length && !creatureSatisfiesRestrictions(state, perm, pid, controller, spec.restrictions)) continue;
       if (protectionApplies(permanentProtectionColors(state, perm.id), auraColors)) continue; // CR 702.16c
       if (UNREAD_PROTECTION_RE.test(oracleOf(perm.card))) continue;

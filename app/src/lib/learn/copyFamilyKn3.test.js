@@ -1,8 +1,9 @@
 /**
  * COPY FAMILY — POD-SIM THREE · KN-3 (2026-09-05): Flash Photography + Imposter Mech.
  *
- * Flash Photography — "Create a token that's a copy of target permanent." (any permanent, any controller; an Aura or a
- * Saga is never a legal target — no attach choice / no lore counter on the token path). The card's own conditional flash
+ * Flash Photography — "Create a token that's a copy of target permanent." (any permanent, any controller; a Saga is never
+ * a legal target — no lore counter on the token path; an Aura is, since 2026-10-16, when its Enchant line is one the engine
+ * can list — the token chooses what it enchants as it is created, auraTokenCopy.test.js). The card's own conditional flash
  * line is stripped and NOT honored: sorcery-speed only (a documented false negative).
  *
  * Imposter Mech — "You may have this Vehicle enter as a copy of a creature an opponent controls, except it's a Vehicle
@@ -51,20 +52,22 @@ const castsOf = (s, cardId) => filterActions(legalActionsForPlayer(s, "user"), "
 const bear = () => perm("mybear", "user", { name: "My Bear", type: "Creature — Bear", power: 2, toughness: 2, oracle: "" });
 
 describe("Flash Photography — a token copy of target permanent", () => {
-  it("parses to the target token-copy with the Aura/Saga exclusions; native-spell", () => {
+  // GRADUATED 2026-10-16: the Aura exclusion (`typeNeg aura`) became `auraEntryModeled` — a token copy of an Aura now chooses what
+  // it enchants as it is created (CR 303.4f), so Pacifism is offered; the Saga exclusion stands.
+  it("parses to the target token-copy with the Saga exclusion and the listable-Aura gate; native-spell", () => {
     const p = parseEffectProgram(PHOTO);
     const row = { confidence: p.confidence, atoms: p.atoms, tier: classifyCard({ ...PHOTO, keywords: [] }) };
     console.log("  WITNESS photoParse", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
     expect(row.confidence).toBe("high");
-    expect(row.atoms).toEqual([{ op: "create-token-copy", copySource: "target", count: 1, targetType: "permanent", restrictions: [{ kind: "typeNeg", type: "aura" }, { kind: "typeNeg", type: "saga" }] }]);
+    expect(row.atoms).toEqual([{ op: "create-token-copy", copySource: "target", count: 1, targetType: "permanent", restrictions: [{ kind: "auraEntryModeled" }, { kind: "typeNeg", type: "saga" }] }]);
     expect(row.tier).toBe("native-spell");
   });
 
-  it("targets: the Ogre, the Sol Ring, the Island and MY bear are offered — never the Aura or the Saga", () => {
+  it("targets: the Ogre, the Sol Ring, the Island, MY bear and the Pacifism are offered — never the Saga", () => {
     const s = state(PHOTO, [bear()]);
     const offered = castsOf(s, "card-fp").flatMap((a) => (a.targets || []).map((t) => t.id)).sort();
     console.log("  WITNESS photoTargets", JSON.stringify(offered)); // vitest 4 needs --disable-console-intercept
-    expect(offered).toEqual(["island", "mybear", "ogre", "sol"]);
+    expect(offered).toEqual(["aura", "island", "mybear", "ogre", "sol"]);
   });
 
   it("copying the opponent's Sol Ring gives ME a Sol Ring TOKEN (an artifact, not a creature); copying my bear gives a second bear", () => {

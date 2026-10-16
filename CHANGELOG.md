@@ -18,6 +18,7 @@ summarizes the notable changes.
 - **Champion's Helm** — equipped creature gets +2/+2 and has hexproof while it is legendary; **Trailblazer's Boots** — equipped creature has nonbasic landwalk (it can't be blocked while the defending player controls a nonbasic land); also **Gimli's Axe**, **Hero's Heirloom** and **Dryad Sophisticate**
 
 ### Changed
+- **Flash Photography** and **Caretaker's Talent** can now copy an Aura: the token enchants something as it is created (copying an opponent's **Pacifism** gives you one for their creature), and is not created when there is nothing it can enchant. A copied Role never goes on a creature that already has one of your Roles
 - **Mole Module**: an Aura among the milled cards can now be put onto the battlefield too, enchanting something as it enters (it is offered only when there is something it can enchant)
 - **Replenish** and **Resurgent Belief** now return your Aura cards too: each Aura comes back enchanting something that was already on the battlefield (an opponent's permanent if that is the only legal choice), and one with nothing to enchant stays in your graveyard. They used to leave every Aura behind. Enchantments returned together also see each other enter now (a returning **Eidolon of Blossoms** draws a card for each)
 - The Academy calls the other players "Opponent 1", "Opponent 2" and "Opponent 3" everywhere, as the board does; the turn line, the seat list, the attack choices and Ask Jace's answers used to call them "AI 1" to "AI 3"

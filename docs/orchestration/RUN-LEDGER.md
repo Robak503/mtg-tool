@@ -16,6 +16,27 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🌿 2026-10-16 — FEAT: a token copy of an Aura chooses what it enchants as it is created (CR 303.4f/g) — Flash Photography, Caretaker's Talent · the Role guard · **±0** · corpus 15,494
+> Suite **19,030** green (1 skipped) / 1,783 files. Lint 0. Flip-diff **0 / 0 / 0**. **Mutants 8/8**, restore byte-identical. CR citations: no new dead cite.
+> Coverage unchanged (top 1,000 904 · top 2,500 1,743).
+> · **The withholding lifted:** both token-copy targets (`tokenCopy.js` — Flash Photography's "target permanent", Caretaker's
+>   Talent's "target token you control") excluded `typeNeg aura`: a token is created, not put onto the battlefield from a zone, so
+>   it never reached the non-cast entry's Aura choice. The exclusion becomes `auraEntryModeled` (a Curse stays out) and
+>   `tokens.applyCreateTokenCopy` chooses the host at creation, on the board as the creation began, attaching through
+>   `attachPermanent` before any enters trigger (a copied Control Magic takes its creature). With nothing to enchant, "If the Aura
+>   is a token, it isn't created" (CR 303.4g) — logged `aura-token-not-created`. The Saga exclusion stands (CR 714.3a).
+> · **The Role guard (CR 303.7a / 704.5y):** sba.js does not run 704.5y, so `auraEntry.auraEntryHosts` never lets a Role choose a
+>   permanent already carrying a Role of its controller, and a doubled Role copy (Doubling Season) passes `excludeIds` so two
+>   copies of one event never share a host. Found on the way, NOT fixed here (flagged as its own task): the cast-side Role
+>   resolver under Doubling Season puts two Monster Roles on one creature and both stay.
+> · Graduated: `copyFamilyKn3.test.js` (Flash Photography's restrictions; the target pool gains the Pacifism) and
+>   `classLevels.test.js` (Caretaker's Talent may copy a Mask token now — its copy enters attached; the token Saga stays out).
+> · Witness `auraTokenCopy.test.js` (9): the restrictions and tiers; the offer (the opponent's Pacifism and your Rancor, never
+>   their Curse or your Saga); the opponent's Pacifism copied goes on THEIR Hill Giant and survives the state-based check; your
+>   Rancor's copy on your best creature; a Cartouche copy with no creature of yours is never created and its draw never
+>   triggers (and the control where it is); the Role copy avoids the Wurm's Role; Doubling Season's two Role copies on two
+>   creatures, or one copy when only one creature is free.
+
 > ## 🌿 2026-10-16 — FEAT: Mole Module's milled pick offers an Aura with something to enchant · **±0** · corpus 15,494
 > Suite **19,021** green (1 skipped) / 1,782 files. Lint 0. Flip-diff **0 / 0 / 0**. **Mutants 3/3**, restore byte-identical. CR citations: no new dead cite.
 > Coverage unchanged (top 1,000 904 · top 2,500 1,743).

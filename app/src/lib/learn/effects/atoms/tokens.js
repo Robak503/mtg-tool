@@ -6,6 +6,7 @@ import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintI
 import { tokenMultiplier, tokenAdditive, tokenExtraKinds, tokenOneOfEachPasses, applyCounterDoubling } from "../../replacementEffects.js"; // + tokenOneOfEachPasses — Academy Manufactor (Bumble F4) // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter; Xorn additive Treasure bonus
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
+import { chooseAuraEntryHost } from "../../auraEntry.js"; // CR 303.4f — what a token copy of an Aura enchants as it is created (a leaf zones.js already imports)
 import { chosenCardTypeOnEnter } from "../../chosenCardType.js"; // CLOUD KEY (CR 707.5 + 614.12a) — a token copy makes the copied "as this enters" card-type choice; a leaf over choicePolicy only
 import { addContinuousEffect } from "../../layers.js"; // MINTED-TOKEN HASTE (shelf D26) — "It gains haste." after a token copy is a lasting layer-6 grant (layers imports no atoms — cycle-free)
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec, halveAmount } from "./shared.js";
@@ -678,7 +679,29 @@ export function applyCreateTokenCopy(state, atom, ctx) {
   // Computed once (the minted copy is token:true, never itself a doubler).
   const count = Math.max(0, atom.count || 1) * tokenMultiplier(next, ctx.controller);
   const mintedIds = [];
+  // A COPY OF AN AURA (2026-10-16) is an Aura token entering without being cast: its controller chooses what it enchants as it
+  // is created (CR 303.4f — auraEntry.chooseAuraEntryHost, nothing targeted), on the board as the creation began, so never
+  // another token this call makes; with nothing it may enchant, "If the Aura is a token, it isn't created" (CR 303.4g). It is
+  // attached before any enters trigger is checked (a copied Claustrophobia taps its creature). A copy of a ROLE never takes a
+  // host an earlier copy of this call took: two Roles of one player on one creature would wait on CR 704.5y, which sba.js does
+  // not run (auraEntry.js) — so a doubled Role copy with one free creature makes one token, not two on it.
+  const copyType = String(copiable.type || copiable.type_line || "").split(" // ")[0];
+  const copyIsAura = /\bAura\b/.test(copyType);
+  const copyIsRole = copyIsAura && /\bRole\b/.test(copyType);
+  const asCreated = next;
+  const rolesTaken = [];
   for (let i = 0; i < count; i++) {
+    let hostId = null;
+    if (copyIsAura) {
+      const choice = chooseAuraEntryHost(asCreated, copiable, ctx.controller, copyIsRole ? { excludeIds: rolesTaken } : {});
+      if (!choice.hostId) {
+        next = logEvent(next, { kind: "aura-token-not-created", cardName: copiable.name, controller: ctx.controller,
+          reason: choice.modeled ? "nothing it can enchant (CR 303.4g)" : "its enchant ability is not modeled" });
+        continue;
+      }
+      hostId = choice.hostId;
+      if (copyIsRole) rolesTaken.push(hostId);
+    }
     const minted = mintId(next, "tok");
     next = minted.state;
     // token:true is the load-bearing non-recurse guard (Miirym's nontoken gate). isCommander already
@@ -695,6 +718,8 @@ export function applyCreateTokenCopy(state, atom, ctx) {
     // into the copiable values). Only the clean tapped/attacking riders reach here (parser-gated).
     if (atom.entersAttacking) entered = { ...entered, attacking: true };
     next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, entered] } } };
+    // attachPermanent keeps both sides of the link and is where a control Aura takes its creature (a copied Control Magic).
+    if (hostId) next = attachPermanent(next, { equipId: minted.id, targetId: hostId });
     mintedIds.push(minted.id);
   }
   // MINTED-TOKEN REFERENT (shelf D26 — Kiki-Jiki, Tempestra): "It gains haste. Sacrifice it at the beginning of the next end
