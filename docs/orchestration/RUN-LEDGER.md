@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **18 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
+> **20 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,45 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-16 — FIX: generic is paid COLORLESS FIRST (D26's floating {R:3, C:2}) · **±0** · corpus 15,492
+> Suite **18,950** green (1,777 files, 1 skipped). Flip-diff **0 / 0 / 0**. **Mutants 5/5**, restore byte-identical. Lint 0;
+> citations 117 unresolved (the baseline, the same 117 as c1f630ab; this slice adds six, all resolve). 48 July-list games
+> **byte-identical** to c1f630ab, twice (`a1a9f98e68c3b6c3` (8) / `fdbb728c27d644a7` (40)).
+> · **The bug** (D26's chip task_4cf7d58e, 09-30). `planPaymentCore` paid generic from mana already made in W→U→B→R→G→C
+>   order, colorless LAST: a {2}{R} from a floating {R:3, C:2} spent the three red and kept both colorless, and the Lightning
+>   Bolt meant to follow was not offered.
+> · **The fix.** `manaModel.GENERIC_SPEND_ORDER` (C, W, U, B, R, G) is the one order every generic spend reads: the
+>   floating-pool drain; the drain after each auto-tap (a tap's colorless before the color it was taken for, whichever symbol
+>   the card prints first); a restricted entry's generic; the explicit tap's activation cost (`payActivationFromPool`,
+>   colorless-first already, now the shared constant). Any type of mana pays generic (CR 107.4b); colored mana left floating
+>   can still pay a colored pip later in the step (CR 106.4), colorless only generic or a colorless symbol (CR 107.4c). So
+>   colorless first loses no later payment the old order could make, except one with a {C} pip (rare).
+> · **Reach.** Only the floating-pool drain moves real games. Bundled corpus: 11 of the 12 cards that add {C} beside a color
+>   print the {C} first (the twelfth, Opening Ceremony, is a sorcery), so the post-tap drain already took their colorless
+>   first; no card mints a restricted entry holding colorless beside a color. Both paths are pinned on hand-built records.
+> · **⚑ Results (flag to Omnath):** the 48 July-list games are byte-identical; the change moved none of them. It moves a
+>   game only where a generic payment draws on mana already made that holds colorless beside a color, with some left over
+>   (a Sol Ring's spare {C} beside floating color): then a different mana floats, and the later offers can change. Whether
+>   that moves the epoch cut is Omnath's call.
+> · **Pins updated, each read first, concern kept:** `actionDispatcher.test.js`'s two pool-arithmetic pins asserted the
+>   W→…→C order ("G before C"); they now assert colorless first. Their W2 note (07-01) called the deleted pool-only heuristic's
+>   C-first generic a divergence; it was the right call. `kikiFamilyTokenCopy.test.js`: D26's comment blamed the generic for
+>   spending the red; measured, the {R} pip spends it in either order (comment only).
+> · Witness `genericSpendOrder.test.js` (7), through `legalActionsForPlayer` + `dispatchAction` on real oracle text:
+>   Purphoros's {2}{R} from {R:3, C:2} leaves {R:2} and the Bolt is cast; Sliver Queen's {2} from {R:1, C:2} leaves the red
+>   and the Bolt is cast; an exact {2}{R} from {R:1, C:2} still spends all three (the red on the pip); Rakdos Signet's
+>   explicit tap pays its {1} with the colorless. Plus the post-tap and restricted-entry pins.
+> · `runtime-fingerprint.mjs` not run: it fingerprints `manaProduction` / `doublerProfile` / `isPureDoubler`, none touched;
+>   `planPayment` is out of its scope by its own header. The witness and the bench are this change's instruments.
+> · ⚠️ Found, not fixed (queued, chip task_24aa20f2): the AUTO-TAP side has the same bias, by board order. `tapAny` taps the
+>   first untapped source for generic, so with Mountain ×3 played before Sol Ring a {2}{R} taps all three Mountains, leaves
+>   Sol Ring up and the Bolt dead (Sol Ring first on the battlefield: the Ring + one Mountain, Bolt live). And pool-first: a
+>   floating {R:2} beside an untapped Sol Ring pays {2}{R} with both red and the Ring, floating {C}. That one is a judgment
+>   call, not a dominance (floating mana empties with the step; the Ring does not): Colton's call.
+> · **Coverage probe** (an instrumented scratch copy, hash-identical games): of 1,937 committed payments in the 48 July-list
+>   games, 2 spent differently (a multi-mana green tap beside a floating {C}: a spare colorless is spent and a color floats
+>   instead); neither changed a recorded decision — about once per 25 games.
 
 > ## 🔧 2026-10-16 — FIX: a death event names where the card went — a Blightsteel Colossus shuffled away never "dies" · **+0** · corpus 15,492 (unchanged)
 > Suite **18,956** green, 1,777 files (a fresh worktree has no `data/rules-index.json`: `rules-retrieval/route.test.js`'s four

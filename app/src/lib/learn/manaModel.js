@@ -96,6 +96,14 @@ const KNOWN_ROCKS = {
 
 const COLOR_SET = new Set(MANA_COLORS);
 
+// The order GENERIC is paid from mana already made (the floating pool, a tap's surplus, a restricted entry): COLORLESS
+// FIRST, then W→U→B→R→G. Any type of mana pays generic (CR 107.4b), but a colored mana left floating can still pay a
+// later colored pip this step (CR 106.4 — the pool empties only as the step ends), while a colorless one pays only generic
+// or a colorless symbol ({C}, CR 107.4c). So spending the colorless first never costs a later payment the other order
+// could make, except one with a colorless pip — rare. With colorless LAST, a {2}{R} paid from {R:3, C:2} spent all three
+// red and left a Lightning Bolt uncastable behind two colorless (measured 2026-09-30, shelf slice D26).
+const GENERIC_SPEND_ORDER = ["C", "W", "U", "B", "R", "G"];
+
 function typeLineOf(card) {
   return String(card?.type || card?.type_line || "");
 }
@@ -2311,7 +2319,8 @@ export function castPaymentSources(state, action) {
  * Greedy: colored pips are paid SCARCEST-COLOR-FIRST (fewest producing sources
  * first) from the most-constrained source, so the sole source of a color isn't
  * wasted on a more-flexible pip. Hybrid pips pay the cheapest colored side;
- * phyrexian pips are assumed paid with life (not mana); X counts as 0.
+ * generic is paid last, colorless first (GENERIC_SPEND_ORDER), so the colored
+ * mana is what floats; phyrexian pips are assumed paid with life (not mana); X counts as 0.
  * Pathological multicolor costs
  * fall to "can't afford" (null) — never to fabricated mana.
  */
@@ -2391,7 +2400,7 @@ export function payActivationFromPool(pool, cost) {
     p[c] -= 1;
   }
   let g = cost.generic || 0;
-  for (const c of ["C", "W", "U", "B", "R", "G"]) { const take = Math.min(p[c], g); p[c] -= take; g -= take; }
+  for (const c of GENERIC_SPEND_ORDER) { const take = Math.min(p[c], g); p[c] -= take; g -= take; }
   return g > 0 ? null : p;
 }
 function planPaymentOnce(pool, sources, cost, spendContext = null) {
@@ -2454,7 +2463,7 @@ function planPaymentCore(pool, sources, cost, spendContext = null) {
         const take = Math.min(e.pool?.[c] || 0, effCost[c] || 0);
         if (take > 0) { es[c] += take; effCost = { ...effCost, [c]: effCost[c] - take }; any = true; }
       }
-      for (const c of MANA_COLORS) { // then generic from what's left in the entry
+      for (const c of GENERIC_SPEND_ORDER) { // then generic from what's left in the entry — its colorless first
         const left = (e.pool?.[c] || 0) - es[c];
         const take = Math.min(left, effCost.generic || 0);
         if (take > 0) { es[c] += take; effCost = { ...effCost, generic: effCost.generic - take }; any = true; }
@@ -2675,23 +2684,28 @@ function planPaymentCore(pool, sources, cost, spendContext = null) {
     if (!paid) return null;
   }
 
-  // 3. Generic — any mana works. Spend the pool first, then tap.
+  // 3. Generic — any mana works. Spend the pool first, then tap. Colorless first, both here and after each tap
+  // (GENERIC_SPEND_ORDER): the colored mana is what keeps floating for a later colored pip.
   let generic = cost.generic || 0;
   if (generic > 0) {
-    for (const c of MANA_COLORS) {
+    for (const c of GENERIC_SPEND_ORDER) {
       while (generic > 0 && working[c] > 0) { spendOne(c); generic -= 1; }
     }
   }
   while (generic > 0) {
     const color = tapAny();
     if (color === null) return null;
-    while (generic > 0 && working[color] > 0) { spendOne(color); generic -= 1; }
+    // A tap that makes colorless beside a color (a karoo's {C}{U}) pays with its colorless, whichever symbol it prints
+    // first; then the color the tap was taken for.
+    for (const c of ["C", color]) {
+      while (generic > 0 && working[c] > 0) { spendOne(c); generic -= 1; }
+    }
     // MIXED FIXED BUNDLE (karoo / signet): a tap can produce SEVERAL colors at once, and `tapAny` reports only
     // the primary. Draining just that one stranded the rest — a Selesnya Signet could not pay {2}, which it
     // plainly does. Generic is paid LAST (snow → colored → here), so nothing colored is still owed and any
     // color left in `working` is legitimately spendable on generic. A single-color tap leaves nothing extra
     // here, so this is a no-op for every source that isn't a bundle. Surplus still floats.
-    for (const c of MANA_COLORS) {
+    for (const c of GENERIC_SPEND_ORDER) {
       while (generic > 0 && working[c] > 0) { spendOne(c); generic -= 1; }
     }
   }

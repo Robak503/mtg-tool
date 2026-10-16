@@ -343,8 +343,9 @@ describe("clearCombat", () => {
 describe("mana payment arithmetic — planPayment + commitPaymentPlan (the live pipeline)", () => {
   // W2: the dead pool-only `deductManaCost` heuristic (test-only export) was deleted. These pins
   // re-assert the pool arithmetic through the LIVE planner + committer every production payment
-  // uses. Where the dead heuristic's choices diverged (C-first generic, smaller-pool-side hybrid),
-  // the pins below assert the planner's REAL choices instead — the behavior games actually see.
+  // uses. Where the dead heuristic's choices diverged (smaller-pool-side hybrid), the pins below
+  // assert the planner's REAL choices instead — the behavior games actually see. (Its C-first
+  // generic was the right call: the planner pays generic colorless first too since 2026-10-16.)
   const payFromPool = (pool, cost) => {
     const plan = planPayment(pool, [], cost);
     if (!plan) return null;
@@ -357,17 +358,17 @@ describe("mana payment arithmetic — planPayment + commitPaymentPlan (the live 
     expect(after.U).toBe(0);
   });
 
-  it("pays generic from the pool in W→U→B→R→G→C order (pool-first, no taps)", () => {
+  it("pays generic from the pool colorless first, then W→U→B→R→G (pool-first, no taps)", () => {
     const after = payFromPool({ W: 0, U: 0, B: 0, R: 0, G: 2, C: 2 }, parseManaCost("{2}"));
-    // The planner spends pool colors in MANA_COLORS order — G before C here.
-    expect(after.G).toBe(0);
-    expect(after.C).toBe(2);
+    // Colorless first (manaModel GENERIC_SPEND_ORDER) — the green is what floats for a later {G} pip.
+    expect(after.C).toBe(0);
+    expect(after.G).toBe(2);
   });
 
-  it("spans colors when generic exceeds one color's pool", () => {
+  it("spans colors when generic exceeds the colorless in the pool", () => {
     const after = payFromPool({ W: 0, U: 0, B: 0, R: 0, G: 3, C: 1 }, parseManaCost("{3}"));
-    expect(after.G).toBe(0);
-    expect(after.C).toBe(1);
+    expect(after.C).toBe(0);
+    expect(after.G).toBe(1);
   });
 
   it("hybrid pip pays the first listed payable side from the pool", () => {

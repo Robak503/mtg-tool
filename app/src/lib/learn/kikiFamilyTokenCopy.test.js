@@ -137,7 +137,7 @@ describe("⭐ in play", () => {
     const s = activate(s0, "tempestra", "isamaru");
     const [tok] = tokens(s);
     const stolen = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: s.players.user.battlefield.filter((p) => p.id !== tok.id) }, ai: { ...s.players.ai, battlefield: [...s.players.ai.battlefield, { ...tok, controller: "ai" }] } } };
-    const withRed = { ...s, players: { ...s.players, user: { ...s.players.user, manaPool: { ...s.players.user.manaPool, R: 1 } } } }; // the auto-payer spent red on the generic cost
+    const withRed = { ...s, players: { ...s.players, user: { ...s.players.user, manaPool: { ...s.players.user.manaPool, R: 1 } } } }; // the {2}{R} spent the only red on its {R} pip
     const killed = settle(act(withRed, (a) => a.kind === "cast-spell" && a.cardId === "bolt" && a.targets?.[0]?.id === tok.id));
     // "It gains haste" states no duration, so it lasts (CR 611.2a): the kept token is still hasty on the next turn.
     let later = toEndStep(stolen), g = 0;

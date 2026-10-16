@@ -380,7 +380,8 @@ means "all permanents" (vacuous filter).
 - `planPayment(...)` is a **pure planner** returning exact `{taps, spend}`; the
   dispatcher commits it verbatim. Cost *legality* and cost *payment* always run
   the same planner — the "two-sites invariant" that stops the offered action and
-  the executed action from diverging.
+  the executed action from diverging. Generic is paid last and colorless first
+  (`GENERIC_SPEND_ORDER`), so the colored mana is what stays floating for a later pip.
 
 ### 4.8 Combat, legal choices, the pilot seam
 
