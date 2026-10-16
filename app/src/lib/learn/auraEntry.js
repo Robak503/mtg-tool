@@ -176,6 +176,15 @@ export function auraEntryHosts(state, auraCard, controller, { onlyCreatures = fa
   return out;
 }
 
+/**
+ * Would `auraCard`, entering under `controller` on the board `state`, have something to enchant (its Enchant line listable and a
+ * legal host on it)? An offer that would otherwise put an Aura nowhere reads this — the battlefield tutor's candidates, for one —
+ * with the same host options its entry will pass.
+ */
+export function auraEntryHasHost(state, auraCard, controller, hostOpts = {}) {
+  return (auraEntryHosts(state, auraCard, controller, hostOpts) || []).length > 0;
+}
+
 /** Mana Auras already on a land (the stacking rule — Colton 2026-10-03). */
 function manaAurasOn(state, landId) {
   const land = findPermanent(state, landId)?.permanent;

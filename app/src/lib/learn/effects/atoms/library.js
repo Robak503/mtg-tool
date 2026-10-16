@@ -23,6 +23,7 @@ import { millMultiplier } from "../../replacementEffects.js"; // MILL-DOUBLER (B
 // ONE-WAY atom-module edge (zones.js does NOT import library.js), so it's cycle-free — the atoms barrel must
 // not be imported here (that would TDZ-cycle, since the barrel imports library.js). Direct sibling import only.
 import { enterCardFromZone } from "./zones.js";
+import { auraEntryHasHost } from "../../auraEntry.js"; // an Aura found for the battlefield is offered only with something to enchant (CR 303.4f/g) — a leaf zones.js already imports
 import { winGameResolvers } from "./winGame.js"; // THASSA'S ORACLE (KN-1) — the win stamp (winGame imports gameState + manaModel only: cycle-free)
 // Router v2 "draw" route — the SAME applyDrawEffect edge misc.js's draw atom rides (count bump + draw
 // watchers), so the router's real-draw semantics can't drift from the draw atom's.
@@ -329,12 +330,19 @@ export function applyTutor(state, atom, ctx) {
   // resolver moves the chosen card from the correct place. Single-zone tutors keep the original untagged shape
   // (the resolver falls back to `pc.sourceZone` when a candidate carries no `zone`), so no existing card drifts.
   // The top card moves from the library like any library card, so its candidate carries zone "library".
+  // AN AURA FOUND FOR THE BATTLEFIELD (2026-10-16) chooses what it enchants as it enters (CR 303.4f — zones.enterCardFromZone).
+  // One with nothing it may enchant would stay where it is (CR 303.4g), so choosing it would put nothing onto the battlefield —
+  // the same as finding nothing, which a search for a card with a stated quality allows (CR 701.23b) — and it is not offered.
+  // That keeps the auto-pick's highest mana value off a card that would stay behind; an Aura whose Enchant line the engine can't
+  // list (a Curse, Animate Dead) is never offered here either.
+  const enters = (c) => atom.destination !== "battlefield" || !/\bAura\b/.test(String(c.type || c.type_line || "").split(" // ")[0])
+    || auraEntryHasHost(state, c, controller);
   const candidates = sourceZones
     ? sourceZones.flatMap((zone) => zoneCards(zone)
-        .filter((c) => cardMatchesTutorFilter(c, effFilter, state, controller))
+        .filter((c) => cardMatchesTutorFilter(c, effFilter, state, controller) && enters(c))
         .map((c) => ({ id: c.id, name: c.name, zone: zone === "libraryTop" ? "library" : zone })))
     : (player[sourceZone] || [])
-        .filter((c) => cardMatchesTutorFilter(c, effFilter, state, controller))
+        .filter((c) => cardMatchesTutorFilter(c, effFilter, state, controller) && enters(c))
         .map((c) => ({ id: c.id, name: c.name }));
   return setPendingTutorChoice(state, {
     controller,
@@ -2593,15 +2601,19 @@ export function tutorClauseParser(clause, ctx = {}) {
     // ARENA RECTOR (SHELF-85 · Atraxa A3, 2026-09-05) — the fourth admission arm: a GUARANTEED-PLANESWALKER fetch
     // ("a planeswalker card, put it onto the battlefield"). enterCardFromZone stamps entry loyalty for a walker
     // arriving from any zone (planeswalkerEntryLoyalty — printed loyalty plus Oath of Gideon's extra), so the
-    // only gate was, again, this list. Enchantments stay OUT on purpose: an Aura entering un-cast must choose
-    // what it enchants (CR 303.4f), and the battlefield path has no such choice — admitting "enchantment card"
-    // (Academy Rector) would land an Aura unattached, the wrong-cheat FP the CREED forbids.
+    // only gate was, again, this list.
     const guaranteedPlaneswalker = (g) => g.includes("planeswalker");
+    // ACADEMY RECTOR (2026-10-16) — the fifth arm: a GUARANTEED-ENCHANTMENT fetch ("an enchantment card, put that card onto the
+    // battlefield" — Academy Rector, Lost Auramancers, Enduring Ideal). Held out until an Aura entering un-cast could choose
+    // what it enchants (CR 303.4f): enterCardFromZone does now (auraEntry.js), and leaves one with nothing to enchant in the
+    // library (CR 303.4g) — applyTutor offers only an Aura that has a host.
+    const guaranteedEnchantment = (g) => g.includes("enchantment");
     const admitted = filter && (
       (filter.permanentOnly && filter.groups.length === 0) ||
       (filter.groups.length > 0 && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) ||
       (filter.groups.length > 0 && filter.groups.every(guaranteedCreature)) ||
-      (filter.groups.length > 0 && filter.groups.every(guaranteedPlaneswalker))
+      (filter.groups.length > 0 && filter.groups.every(guaranteedPlaneswalker)) ||
+      (filter.groups.length > 0 && filter.groups.every(guaranteedEnchantment))
     );
     if (admitted) {
       return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!bfm[2], targetType: null };

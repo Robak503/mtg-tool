@@ -16,6 +16,24 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🌿 2026-10-16 — FEAT: the battlefield search finds enchantments — Academy Rector · an Aura found enters attached · **+1** · corpus 15,494
+> Suite **19,017** green (1 skipped) / 1,782 files. Lint 0. Flip-diff **1 / 0 / 0**. **Mutants 5/5**, restore byte-identical. CR citations: no new dead cite.
+> Coverage top 1,000 904 · top 2,500 1,743 (unchanged — Academy Rector ranks below both).
+> · **The withholding lifted:** the uncapped "search your library for an enchantment card, put it onto the battlefield" (bfm in
+>   `library.js`) was held out of the admission list because a found Aura would have entered attached to nothing. A fifth arm,
+>   GUARANTEED-ENCHANTMENT, joins land / creature / planeswalker / the bare permanent card; the found card enters through
+>   `enterCardFromZone`, which chooses what an Aura enchants (CR 303.4f) or leaves it in the library (CR 303.4g). Carriers:
+>   Academy Rector, Lost Auramancers, Enduring Ideal (still parked on Epic). No uncapped "Aura card" carrier exists, so the arm
+>   admits the word "enchantment" only.
+> · **The offer:** `applyTutor` drops, for a battlefield search only, an Aura with nothing it may enchant (or an Enchant line the
+>   engine can't list) — choosing it would put nothing onto the battlefield, the same as finding nothing (CR 701.23b allows it), and
+>   it kept the auto-pick's highest mana value off a card that stays behind. The MV-capped arm (Zur the Enchanter) gets the same
+>   offer. `auraEntry.auraEntryHasHost` is the shared read.
+> · Graduated: `arenaRector.test.js`'s "the ENCHANTMENT battlefield fetch stays low; Academy Rector parks" → admitted / native.
+> · Witness `academyRector.test.js` (5): the parse and tiers; through the real dies → pay → search: the offer (never Wild
+>   Growth with no land, the Curse or Animate Dead); Pacifism found enters on the opponent's Craw Wurm; Ghostly Prison enters as
+>   itself; with no creature anywhere Control Magic is not offered and the auto-pick takes Ghostly Prison.
+
 > ## 🌿 2026-10-16 — FEAT: the mass return brings Aura cards back attached (Replenish, Resurgent Belief) · Retether · **+1** · corpus 15,493
 > Suite **19,013**: 19,008 green, 1 skipped, and the 4 rules-retrieval POST tests, which fail in a fresh worktree without the
 > built `app/data/rules-index.json` (CI builds it before testing) and pass, 8/8, once it is built — every later slice's suite ran

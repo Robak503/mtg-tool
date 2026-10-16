@@ -8,9 +8,9 @@
  * conditional wording too — the cost is the same real graveyard → exile move at settle, and the payoff runs only on
  * that move (CR 603.7 / CR 118.12). Greenwarden of Murasa rides along (its payoff already parsed). (2) The battlefield
  * tutor's admission list gains a GUARANTEED-PLANESWALKER arm beside land / creature / bare permanent: enterCardFromZone
- * already stamps a walker's entry loyalty from any zone, so the list was the only gate. Enchantments stay OUT — an Aura
- * entering un-cast must choose what it enchants (CR 303.4f) and the battlefield path has no such choice; Academy Rector
- * keeps parking, on purpose (the CREED).
+ * already stamps a walker's entry loyalty from any zone, so the list was the only gate. (Enchantments stayed out until
+ * 2026-10-16, when an Aura entering un-cast could choose what it enchants, CR 303.4f — Academy Rector is native now, its
+ * own witness in academyRector.test.js.)
  *
  * Mutation-checked: see the run ledger (docs-sk97).
  */
@@ -48,7 +48,10 @@ describe("parse + classify", () => {
     expect(row.greenwarden).toBe("native-trigger");
   });
 
-  it("seen-to-fail: a chained second conditional nulls; the ENCHANTMENT battlefield fetch stays low (an Aura would land unattached); Academy Rector parks", () => {
+  // GRADUATED 2026-10-16: this pin held the ENCHANTMENT battlefield fetch LOW and Academy Rector parked — an Aura it found would
+  // have landed unattached. The non-cast entry now chooses what an Aura enchants (CR 303.4f), so the enchantment arm is admitted
+  // (academyRector.test.js witnesses the runtime); the chained-conditional refusal stands.
+  it("seen-to-fail: a chained second conditional nulls; the ENCHANTMENT battlefield fetch is admitted now and Academy Rector is native", () => {
     const row = {
       chained: programConfidence(parseEffectClause("you may exile it. If you do, draw a card. If you do, draw a card", "Creature")),
       enchantment: programConfidence(parseEffectClause("search your library for an enchantment card, put that card onto the battlefield, then shuffle", "Creature")),
@@ -56,8 +59,8 @@ describe("parse + classify", () => {
     };
     console.log("  WITNESS arenaRectorRefusals", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
     expect(row.chained).toBe("low");
-    expect(row.enchantment).toBe("low");
-    expect(row.academy).not.toMatch(/^native/);
+    expect(row.enchantment).toBe("high");
+    expect(row.academy).toBe("native-trigger");
   });
 });
 

@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Academy Rector** — when it dies, you may exile it to search your library for an enchantment card and put it onto the battlefield; an Aura found this way enters enchanting something, and the search offers an Aura only when there is something it can enchant
 - **Retether** — returns each Aura card from your graveyard to the battlefield, each onto a creature; an Aura that can't enchant a creature on the battlefield stays in your graveyard
 - **Springbloom Druid** (and **Excavating Anurid**) — when it enters, you may sacrifice a land for its payoff (two basic lands onto the battlefield tapped; a card for the Anurid); **Loyal Apprentice** and **Siege-Gang Lieutenant** — at the beginning of combat on your turn, if you control your commander, make tokens that gain haste until end of turn; **Warstorm Surge** — whenever a creature you control enters, it deals damage equal to its power to any target (the creature is the source: its lifelink and deathtouch apply)
 - **Narset's Reversal** — copy target instant or sorcery spell, then return it to its owner's hand, with new targets for the copy; **Dualcaster Mage** — flash; when it enters, copy target instant or sorcery spell, with new targets for the copy; **Imp's Mischief** — change the target of target spell with a single target, and lose life equal to that spell's mana value
