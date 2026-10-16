@@ -21,19 +21,15 @@
  * v1 is template-driven and deterministic, which is good for tests.
  */
 
-// ─── Pod-aware subject helpers ────────────────────────────────────────────────
-
 /**
- * Default opponent seat labels, mirroring LearnView's SEAT_LABELS. A caller
+ * Default seat labels: the shared Academy wording the board shows. A caller
  * (decisionGate → narrateDecision) can override via options.seatLabel for a
  * richer label (e.g. a commander name); this is only the fallback so v1
  * ships with zero route changes.
  */
-const DEFAULT_SEAT_LABELS = { user: "You", ai: "Opponent", ai1: "Opponent 1", ai2: "Opponent 2", ai3: "Opponent 3" };
+import { seatLabel as defaultSeatLabel } from "./seatLabels.js";
 
-function defaultSeatLabel(id) {
-  return DEFAULT_SEAT_LABELS[id] || id;
-}
+// ─── Pod-aware subject helpers ────────────────────────────────────────────────
 
 /**
  * Build a grammatically-correct subject descriptor for `playerId` so

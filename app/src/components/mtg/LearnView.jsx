@@ -29,6 +29,7 @@ import StabilityBadge from "./StabilityBadge";
 import { stableActionKey } from "../../lib/learn/actionKey.js";
 import { LearnLogEntry } from "./LearnLogEntry.jsx";
 import { evaluatePuzzle, puzzleGoalLabel } from "../../lib/learn/puzzleGoal.js";
+import { seatLabel } from "../../lib/learn/seatLabels.js";
 import {
   UnresolvedPanel,
   TutorSearchPanel,
@@ -95,11 +96,6 @@ const MODE_OPTIONS = [
     blurb: "You + three opponents, 40 life, free-for-all.",
   },
 ];
-
-const SEAT_LABELS = { user: "You", ai: "Opponent", ai1: "AI 1", ai2: "AI 2", ai3: "AI 3" };
-function seatLabel(id) {
-  return SEAT_LABELS[id] || id;
-}
 
 function deckToCardArray(deck) {
   // useDeckStore exposes decks as { cards: [{ name, qty, section }] }.

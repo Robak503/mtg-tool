@@ -31,8 +31,30 @@ describe("buildBoardContext", () => {
     const ctx = buildBoardContext(state);
     expect(ctx).toMatch(/turn 4, combat \/ declare-attackers, You's turn/);
     expect(ctx).toMatch(/You \(active\): 38 life, 2 in hand, 2 on board/);
-    expect(ctx).toMatch(/AI 2: 21 life.*commander damage from You 7/);
+    expect(ctx).toMatch(/Opponent 2: 21 life.*commander damage from You 7/);
     expect(ctx).toMatch(/Your hand \(2\): Sol Ring, Counterspell/);
     expect(ctx).toMatch(/Your board: Llanowar Elves 1\/1 \(tapped\), Forest/);
+  });
+
+  // The tutor and the Arbiter answer from this text, so a seat must carry the name the board shows (seatLabels.js).
+  it("names an opponent seat as the board does — the active seat, its row, and a commander-damage source", () => {
+    const state = {
+      turn: 7,
+      phase: "main1",
+      step: "main",
+      activePlayer: "ai1",
+      turnOrder: ["user", "ai1", "ai2", "ai3"],
+      players: {
+        user: { life: 19, hand: [], battlefield: [], graveyard: [], commanderDamageFrom: { ai3: 21 } },
+        ai1: { life: 40, hand: [], battlefield: [], graveyard: [], commanderDamageFrom: {} },
+        ai2: { life: 33, hand: [], battlefield: [], graveyard: [], commanderDamageFrom: {} },
+        ai3: { life: 27, hand: [], battlefield: [], graveyard: [], commanderDamageFrom: {} },
+      },
+    };
+    const ctx = buildBoardContext(state);
+    expect(ctx).toMatch(/turn 7, main1 \/ main, Opponent 1's turn/);
+    expect(ctx).toMatch(/- Opponent 1 \(active\): 40 life/);
+    expect(ctx).toMatch(/- You: 19 life.*commander damage from Opponent 3 21/);
+    expect(ctx).not.toMatch(/\bAI \d/);
   });
 });

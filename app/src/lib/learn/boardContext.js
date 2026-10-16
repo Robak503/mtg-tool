@@ -6,9 +6,8 @@
 
 import { tableSnapshot } from "./tableSnapshot.js";
 import { permanentPower, permanentToughness } from "./layers.js";
-
-const SEAT_LABELS = { user: "You", ai: "Opponent", ai1: "AI 1", ai2: "AI 2", ai3: "AI 3" };
-const label = id => SEAT_LABELS[id] || id;
+// The board's own seat names, so a tutor or Arbiter answer names a seat the way the player sees it.
+import { seatLabel } from "./seatLabels.js";
 
 function permLabel(perm, state) {
   const card = perm?.card || {};
@@ -25,16 +24,16 @@ function permLabel(perm, state) {
 export function buildBoardContext(state) {
   if (!state || !state.players) return "";
   const lines = [];
-  lines.push(`## CURRENT GAME — turn ${state.turn}, ${[state.phase, state.step].filter(Boolean).join(" / ")}, ${label(state.activePlayer)}'s turn`);
+  lines.push(`## CURRENT GAME — turn ${state.turn}, ${[state.phase, state.step].filter(Boolean).join(" / ")}, ${seatLabel(state.activePlayer)}'s turn`);
   lines.push("");
   lines.push("Seats:");
   for (const seat of tableSnapshot(state)) {
     const cmd = Object.entries(seat.commanderDamage || {})
       .filter(([, n]) => n > 0)
-      .map(([from, n]) => `${label(from)} ${n}`)
+      .map(([from, n]) => `${seatLabel(from)} ${n}`)
       .join(", ");
     lines.push(
-      `- ${label(seat.id)}${seat.isActive ? " (active)" : ""}: ${seat.life} life, ` +
+      `- ${seatLabel(seat.id)}${seat.isActive ? " (active)" : ""}: ${seat.life} life, ` +
       `${seat.handCount} in hand, ${seat.boardCount} on board, ${seat.graveyardCount} in graveyard` +
       (cmd ? `, commander damage from ${cmd}` : ""),
     );

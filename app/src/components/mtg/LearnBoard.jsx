@@ -21,11 +21,9 @@
 
 import { useState } from "react";
 import { reasonToOutcome } from "../../lib/learn/learnOutcome.js";
+import { SEAT_LABELS } from "../../lib/learn/seatLabels.js";
 
 // Full Magic card image (frame/border/text) — immersion. Cached local-first.
-// Human seat labels (mirrors LearnView SEAT_LABELS) — a raw engine seat id must never render.
-const BOARD_SEAT_LABELS = { user: "You", ai: "Opponent", ai1: "Opponent 1", ai2: "Opponent 2", ai3: "Opponent 3" };
-
 const ART = (name) => `/api/card-image?name=${encodeURIComponent(name || "")}`;
 // WUBRG+C mana-identity swatches — the one sanctioned set of literal colors on
 // this surface (they ARE Magic's colors, not theme colors). Everything else
@@ -78,7 +76,7 @@ export function actionLabel(o) {
     // An escape cast names the three graveyard cards it exiles (P·29 — Underworld Breach) — a cost the player never saw otherwise.
     case "cast-spell": return `Cast ${o.name}${o.targetName ? ` → ${o.targetName}` : ""}${o.kicked && o.kickedName ? ` (${o.kickedName})` : ""}${o.escapeName ? ` (${o.escapeName})` : ""}`;
     case "play-land": return `Play ${o.name}`;
-    case "declare-attacker": return `Attack ${o.targetName || o.defenderName || BOARD_SEAT_LABELS[o.defenderId] || ""} with ${o.name}`.trim();
+    case "declare-attacker": return `Attack ${o.targetName || o.defenderName || SEAT_LABELS[o.defenderId] || ""} with ${o.name}`.trim();
     case "declare-blocker": return `Block ${o.attackerName || "attacker"} with ${o.name}`;
     case "pass-priority": return "Pass";
     case "tap-for-mana": return `Tap ${o.name || "a land"} for mana`;

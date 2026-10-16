@@ -16,6 +16,25 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🧹 2026-10-16 — REFACTOR: one seat-label source for the Academy (`seatLabels.js`) · **±0** · no engine change
+> Suite **18,944** green (1 skipped): the full run under the gate lock passed 18,940 in 221 s; its 4 failures were
+> `rules-retrieval/route.test.js` in a fresh worktree with no `data/rules-index.json` (CI builds it first), and they pass
+> once it is built. Flip-diff not run (no engine or coverage path touched). **Mutants 2/2** (`boardContext`'s old
+> "AI N" map fails 2 tests; the leaf set back to "AI N" fails 6 in 3 consumers), restore byte-identical. Lint 0.
+> · **Why:** four copies of the seat labels disagreed. LearnBoard and the narrator said "Opponent 1–3"; LearnView (the turn
+>   line, the seat strip, commander damage, the attack choices) and `boardContext` (the board text Ask Jace and the
+>   Arbiter's unresolved-card rulings are grounded in) said "AI 1–3": "AI 1's turn" above a board that says "Opponent 1",
+>   and a tutor naming seats the player never sees.
+> · **Build:** all four import D14's zero-import leaf; the local maps are deleted. The narrator imports it as
+>   `defaultSeatLabel`, so `options.seatLabel` still overrides; LearnBoard keeps `SEAT_LABELS[id] || ""` (an unknown id
+>   renders empty, never raw).
+> · **No exception for the model:** every Academy mode is free-for-all, so each AI seat is the player's opponent, and the
+>   Arbiter question already says "An opponent cast …".
+> · Witness `boardContext.test.js` (+1, 3 in all): the active seat, its row and a commander-damage source read
+>   "Opponent N", never "AI N"; seen to fail on the old map.
+> · ⚠️ Found, not fixed: `scripts/test-with-timeout.cjs`'s timeout / signal sweep stops every `node.exe` on the machine
+>   that matches `*node_modules*vitest*`, so one run's timeout kills other sessions' vitest runs (flagged to the integrator).
+
 > ## 🔧 2026-10-04 — FIX: an Equip targets a creature as it is NOW (the Lightning Greaves loop) · **+0** · corpus 15,492
 > Suite **18,943** green. Flip-diff **0 / 0 / 0**. **Mutants 5/5**, restore byte-identical. Omnath's seed 1173515413
 > (July list — Wolverine) ended `turn stall (9,965 ticks)`; it now finishes with a winner in 2 s.
