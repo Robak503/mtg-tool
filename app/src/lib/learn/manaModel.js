@@ -2246,6 +2246,10 @@ export function manaSources(state, playerId) {
     // resolves to no colors totals 0 and is dropped by the `amount > 0` filter in planPayment — the
     // produce-nothing case, never a fabricated mana.
     const bundleTotal = fixed ? Object.values(fixed).reduce((a, b) => a + b, 0) : amount;
+    // STAYS TAPPED (CR 502.3): a permanent whose own text keeps it from untapping in its untap step (Mana Vault, Basalt
+    // and Grim Monolith) — the untap step's own read, so the two cannot drift. Its tap costs the mana of the turns it
+    // stays tapped; the generic tap order (planPaymentCore's tapAny) never promotes it ahead of a source that untaps.
+    const staysTapped = cardSelfPreventsUntap(perm.card);
     // IMPRINT (CR 207.2c) — Chrome Mox's reachable colors ARE the imprinted card's colors, read live off the
     // stamp resolveImprintChoice wrote. NO stamp (declined, or never offered) and NO colors (a colorless card
     // was imprinted) both mean this permanent is not a mana source: `continue` rather than push an
@@ -2254,7 +2258,7 @@ export function manaSources(state, playerId) {
     if (prod.colorsFromImprint) {
       const imprintedColors = (perm.imprinted?.colors || []).filter((c) => MANA_COLORS.includes(c));
       if (!imprintedColors.length) continue;
-      sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}) });
+      sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(staysTapped ? { staysTapped: true } : {}) });
       continue;
     }
     // EXILE-FROM-GY COST (Molt Tender): the source exists ONLY while the graveyard has a card to pay
@@ -2264,7 +2268,7 @@ export function manaSources(state, playerId) {
     // SG-3 — a sacrifice-a-creature source needs ANOTHER creature to feed it (never the source itself, never
     // offered on an empty board): no victim → no source (CR 601.2h — the cost cannot be paid).
     if (prod.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && isCreatureNow(state, p))) continue; // a creature NOW (the type-line audit)
-    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors && !(prod.painUnlessCitysBlessing && player.citysBlessing === true) ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}) /* shelf D5 — Temur Elevator: no loss once the controller has the city's blessing */, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}) });
+    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors && !(prod.painUnlessCitysBlessing && player.citysBlessing === true) ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}) /* shelf D5 — Temur Elevator: no loss once the controller has the city's blessing */, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}), ...(staysTapped ? { staysTapped: true } : {}) });
     // STAGE ④-3 — EXTRA MANA LINES: a second, complete "{T}: Add …" line the main product does not cover (a
     // gated colour line — Tainted Isle / the Verges / Gathering Place; a free "{T}: Add {C}" beside a painful
     // any-colour line — Grand Coliseum; a "{T}, Sacrifice this land: Add …" ritual line). Each is its own
@@ -2285,7 +2289,7 @@ export function manaSources(state, playerId) {
       // `payLife` on a source — the painland/City-of-Brass lane) and is gated exactly like the main product: no life,
       // no source. Without both halves the any-colour tap would be free — the forbidden direction.
       if (extra.payLife != null && !((player.life ?? 0) > extra.payLife)) continue;
-      sources.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.activationCost ? { activationCost: extra.activationCost } : {}), ...(extra.payLife != null ? { payLife: extra.payLife } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: crCount } } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
+      sources.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.activationCost ? { activationCost: extra.activationCost } : {}), ...(extra.payLife != null ? { payLife: extra.payLife } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: crCount } } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), ...(staysTapped ? { staysTapped: true } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
     }
   }
   // SG-6 — EXILE-FROM-HAND sources (Elvish / Simian Spirit Guide): a mana ability of a card in HAND. Offered
@@ -2394,8 +2398,8 @@ export function castPaymentSources(state, action) {
  * fall to "can't afford" (null) — never to fabricated mana.
  */
 /**
- * @param spendContext  what this payment is FOR — `{ castCard, isCommander }`. Used ONLY to admit
- *   spend-restricted sources (CR 106.6).
+ * @param spendContext  what this payment is FOR — `{ castCard, isCommander }`. Used to admit
+ *   spend-restricted sources (CR 106.6); its `activatingPermanentId` only orders the generic taps (tapAny).
  *
  * ⛔ DEFAULT-DENY, AND IT IS LOAD-BEARING FOR EVERY CALLER I DID NOT TOUCH. A restricted source is dropped
  * unless a context is supplied AND satisfies it, so the ~9 existing call sites that pass no context keep
@@ -2503,6 +2507,9 @@ function planPaymentOnce(pool, sources, cost, spendContext = null) {
   return null;
 }
 
+// The fields of a planner source record (planPaymentCore's `avail`) that are not riders — see tapAny's isPlainColorless.
+const PLAIN_TAP_FIELDS = new Set(["permanentId", "colors", "amount", "bonus", "used"]);
+
 function planPaymentCore(pool, sources, cost, spendContext = null) {
   const spend = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
   if (!cost) return { taps: [], spend };
@@ -2585,6 +2592,7 @@ function planPaymentCore(pool, sources, cost, spendContext = null) {
       fromHand: !!s.fromHand, // SG-6 — the source is a HAND card; the committer exiles it instead of tapping
       removesCounters: s.removesCounters || null, // STAGE ④-4 — the counters this tap removes (the commit removes exactly these)
       doesNotUntapNext: !!s.doesNotUntapNext, // STAGE ④-5 — the tapped land skips its controller's next untap step
+      staysTapped: !!s.staysTapped, // the permanent doesn't untap in its untap step at all (Mana Vault) — read by tapAny only
       repeatable: !!s.repeatable, // STAGE ③ · 37 — one of several separate activations of a no-{T} remove-a-counter source
       noTap: !!s.noTap,           // STAGE ③ · 37 — the commit doesn't tap it (its cost is the counter)
       used: false,
@@ -2685,10 +2693,52 @@ function planPaymentCore(pool, sources, cost, spendContext = null) {
     return true;
   };
 
-  // Tap any remaining source (for generic). Returns a color it produced. Prefers a REPEATABLE source
-  // over a one-shot sacrifice source (Treasure/Gold) so we never crack a Treasure for generic while an
-  // untapped land/rock could pay it — a play-quality refinement, not a legality change.
-  const tapAny = () => {
+  // A PLAIN COLORLESS record: colorless mana and nothing else, at no cost beyond the tap. Any other field set on the
+  // record is a rider — life, a sacrifice, an exile, counters, a skipped untap (staysTapped: Mana Vault, the Monoliths),
+  // tapping others, a spend restriction, snow (its mana also pays {S}, CR 107.4h) — and keeps it out, a rider added later
+  // included: a new field costs a source its promotion (the old board order), never promotes one.
+  const isPlainColorless = (s) => {
+    if (!s.colors.every((c) => c === "C") || !s.bonus.every((b) => b.colors.every((c) => c === "C"))) return false;
+    for (const k in s) if (!PLAIN_TAP_FIELDS.has(k) && s[k] != null && s[k] !== false && s[k] !== 0) return false;
+    return true;
+  };
+  let plainColorlessPermanents = null; // permanentId → every record it offers here is plain colorless (built on the first generic tap)
+
+  // Tap a source for GENERIC, `owed` still unpaid. Returns a color it produced. A play-quality order, never a legality
+  // change (any mana pays generic, CR 107.4b):
+  //   1. a PLAIN COLORLESS PERMANENT first (Sol Ring, Mind Stone, Wastes) — the source-side twin of GENERIC_SPEND_ORDER.
+  //      Colorless mana pays generic and little else (a {C} pip, CR 107.4c), so spending it keeps the colored sources
+  //      untapped for a colored pip later. In board order, Purphoros's {2}{R} beside Mountain, Mountain, Mountain,
+  //      Sol Ring tapped all three Mountains and left a Lightning Bolt uncastable (measured 2026-10-16). EVERY record of
+  //      the permanent must be plain colorless: a colored second line (Mogg Hollows), a sacrifice line (Crystal Vein), a
+  //      spend-restricted line (Eldrazi Temple) or a storage land's counter line in the two-pass plan keeps the whole
+  //      permanent where it was. Among them, the SMALLEST THAT COVERS what is still owed (Mind Stone for a {1}, Sol Ring
+  //      for a {2}); if none covers it, board order. Not "least surplus": every source smaller than `owed` has none, so a
+  //      {2} beside Wastes and Thran Dynamo took the Wastes, still needed the Dynamo and floated two — the Dynamo alone
+  //      floats one. Never the permanent whose own ability this pays for (spendContext.activatingPermanentId):
+  //      Mutavault paying its own {1} would animate tapped, so it keeps its board place. One still goes first when it
+  //      OVER-produces (Sol Ring for a lone {1}): the surplus floats to the end of the step (CR 106.4) and the next
+  //      payment spends it first, so within the step the colored source kept untapped pays everything the rock would
+  //      have, and a colored pip besides. It loses only when the surplus goes unspent AND a later step wants more mana
+  //      than color — the planner sees the cost, not the hand.
+  //   2. then any other REPEATABLE source, board order;
+  //   3. then a one-shot sacrifice source (Treasure/Gold) — never crack a Treasure while an untapped land/rock could pay.
+  const tapAny = (owed) => {
+    if (!plainColorlessPermanents) {
+      plainColorlessPermanents = new Map();
+      for (const s of avail) plainColorlessPermanents.set(s.permanentId, (plainColorlessPermanents.get(s.permanentId) ?? true) && isPlainColorless(s));
+    }
+    let first = null;
+    let cover = null;
+    let coverMade = Infinity;
+    for (const s of avail) {
+      if (s.used || s.colors.length === 0 || !plainColorlessPermanents.get(s.permanentId) || s.permanentId === spendContext?.activatingPermanentId) continue;
+      const made = s.amount + s.bonus.reduce((n, b) => n + b.amount, 0);
+      if (!first) first = s;
+      if (made >= owed && made < coverMade) { cover = s; coverMade = made; }
+    }
+    const best = cover || first;
+    if (best) return tapSource(best, null);
     for (const preferSac of [false, true]) {
       for (const s of avail) {
         if (s.used || s.colors.length === 0 || !!s.sacrifices !== preferSac) continue;
@@ -2762,7 +2812,7 @@ function planPaymentCore(pool, sources, cost, spendContext = null) {
     }
   }
   while (generic > 0) {
-    const color = tapAny();
+    const color = tapAny(generic);
     if (color === null) return null;
     // A tap that makes colorless beside a color (a karoo's {C}{U}) pays with its colorless, whichever symbol it prints
     // first; then the color the tap was taken for.

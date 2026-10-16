@@ -16,6 +16,89 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🔧 2026-10-16 — FIX: the auto-tap pays generic with a PLAIN COLORLESS source first (Mountain ×3 before Sol Ring) · **±0** · corpus 15,492
+> Suite **18,997** green at this commit alone (1,780 files, 1 skipped). Flip-diff **0 / 0 / 0**. **Mutants 17/17**, restore
+> byte-identical. Lint 0; citations 117 unresolved (the same 117 as 4463487c; this slice adds eight, all resolve). 48 July-list
+> games: **39 changed** — `a1a9f98e68c3b6c3` / `fdbb728c27d644a7` (4463487c, twice) → `f43823bb74ef0fe5` (8) / `a0af9f80d934a7c9`
+> (40), twice.
+> · **The bug** (stoic-perlman's chip task_24aa20f2, 10-16). `planPaymentCore.tapAny` paid generic with the first untapped
+>   non-sacrifice source in board order. Measured through `legalActionsForPlayer` + `dispatchAction`, empty pool, Lightning Bolt
+>   in hand, Purphoros, God of the Forge's {2}{R}: Mountain, Mountain, Mountain, Sol Ring tapped all three Mountains, left the
+>   Ring up and the Bolt dead; Sol Ring first tapped the Ring and one Mountain, Bolt live. Lands usually reach the battlefield
+>   before rocks, so self-play mostly saw the bad order.
+> · **The fix.** `tapAny(owed)`: a PLAIN COLORLESS PERMANENT first — every record it offers here colorless, none carrying a
+>   rider — the smallest that covers the generic still owed (else board order); then the other repeatable sources in board
+>   order; a sacrifice source last (unchanged). The source-side twin of `GENERIC_SPEND_ORDER` (be159bdf): any mana pays generic
+>   (CR 107.4b), colorless pays little else (CR 107.4c), so the colored sources are the ones kept untapped.
+> · **⚑ The decision — a colorless source that OVER-produces still goes first** (Sol Ring for a lone {1} floats a {C}). The
+>   surplus floats to the end of the step (CR 106.4) and the next payment spends it first (pool-first, colorless first), so
+>   inside the step the colored source kept untapped pays everything the Ring would have, and a colored pip besides. It loses
+>   only when the surplus goes unspent AND a later step wants more mana than color (an instant on an opponent's turn). The
+>   planner sees the cost, not the hand; the over-producing case is exactly where the Bolt bug recurs ({1}{R} from Mountain,
+>   Mountain, Sol Ring), so keeping the color is the safer guess. Among colorless sources, the smallest that covers what is
+>   still owed: Mind Stone pays a {1} before Sol Ring, Sol Ring a {2} exactly, Thran Dynamo alone a {2} beside Wastes. The
+>   first cut took the LEAST SURPLUS — every source smaller than what is owed has none, so it took the Wastes, still needed
+>   the Dynamo and floated two where the old board order (Dynamo first) floated one; the slice-2 differential caught it
+>   before landing.
+> · **Riders keep a source where it was — a whitelist, not a list of riders.** `PLAIN_TAP_FIELDS` names the record fields that
+>   are not riders (`permanentId`, `colors`, `amount`, `bonus`, `used`); any other field set — life, a sacrifice, an exile,
+>   counters, a skipped untap, tapping others, a spend restriction, snow — keeps the record out, a rider added later included
+>   (a new field costs a source its promotion, never grants one). A corpus scan of the 496 cards that build a colorless record
+>   found five of the planner's riders on no colorless card today (`painColors`, `exilesGyCard`, `fromHand`,
+>   `doesNotUntapNext`, `extraTaps`): a blacklist would have held five guards no real card can trip. Judged PER PERMANENT: a
+>   colored second line (Mogg Hollows), a sacrifice line (Crystal Vein), a spend-restricted line (Eldrazi Temple, for an
+>   Eldrazi) or a storage land's counter line keeps the whole permanent in board order. The last is a legality guard: in the
+>   two-pass plan, promoting Mage-Ring Network's plain {C} spends the {T} its counter line needs, and the activation stopped
+>   being offered.
+> · **Never the permanent whose own ability is being paid for.** `applyActivateAbility` passes `activatingPermanentId` and
+>   the promotion skips it: Mutavault paying its own {1} would animate TAPPED (no attack, no block). The AI never animates a
+>   creature-land (not one of its safe ability ops), so self-play is untouched; the app auto-pays a human player's
+>   activations, so it is user-facing. Found reading the tripwire's Mutavault rows (below). Affordability is order-free, so
+>   legalChoices passes nothing new.
+> · **New record field `staysTapped`** (manaSources, CR 502.3). Mana Vault, Basalt Monolith and Grim Monolith built the same
+>   record as Sol Ring ({C}×3, no rider) — the untap step reads the lock off the card. Stamped with the untap step's own read
+>   (`cardSelfPreventsUntap`), so a Monolith is never promoted to pay a {1} and lose its next turns. Corpus record diff (every
+>   card that adds mana, one synthetic board, 4463487c vs this; 2,980 scanned, 1,816 with records): five cards gain the field —
+>   the three rocks, and Jasconian Isle and Forsaken City (colored lands with the same lock, never read by the colorless-only
+>   promotion); nothing else changes.
+> · **Affordability unchanged — differential, 20,000 trials** (random boards of 34 real mana cards incl. Mage-Ring with
+>   counters, random pools and costs, base vs this planner): affordability agreed on all 20,000; the new order picked other
+>   sources in 4,721 of 12,232 payable trials; 0 plans failed the pool + taps − spend ≥ 0 check. Seen to fail: with
+>   per-permanent judging off it disagreed 51 times.
+> · **⚑ Results (flag to Omnath):** 39 of the 48 games change; the winner changes in 2 (seed 2579794627 ai2 → ai3, seed
+>   2544873418 ai3 → ai2); none ends without a winner, before or after; the turn count moves in 8. The mechanism every time: a
+>   generic payment taps a colorless rock instead of a land, the land stays untapped and the later offers grow (seed 199630467,
+>   turn 6: Kellan of the West's Sensei's Divining Top paid by the rock — `own_untapped_lands` 0 → 1, `legal.n` 2 → 3). Games
+>   per minute unchanged. An action-set change in nearly every game with Sol Ring: whether it moves the epoch cut is Omnath's
+>   call. (The first cut, 82b0671b — least surplus — gave `080503154707e3ec` / `82057e3d911c3349`; the covering rule moves 7
+>   of those games again, a Kinnan Mana Overload game among them, no winner.)
+> · **Pins, each read first.** `enchantSubjectHosts.test.js`'s Stasis Cocoon pair read Sol Ring's tap-for-mana offer after
+>   paying {1}{W} from four lands; the payment now taps the Ring, so the scoped-lock row failed and the mana-chokepoint row
+>   passed for the wrong reason (proven: with `actionsTapForMana`'s lock check removed it stayed green). Both now pay from a
+>   floating {W}{C} and assert the Ring is untapped; with the lock check removed the chokepoint row goes red. A DIVERGENCE
+>   TRIPWIRE (a temporary patch logging every call where the new choice differs from the old, by test line; never committed,
+>   restore byte-identical) over the full suite found seven more files: enumeration only (affordability probes), or committed
+>   payments whose assertions don't depend on which source tapped — `cullingRitual` (Sol Ring / Mutavault pay part of the
+>   {2}; the sweep and its mana are the assertions) and `decayChainPriest` (an animated Mutavault pays Chain Reaction's and
+>   Pyroclasm's generic; damage and graveyards are the assertions). Read, unchanged.
+> · Witness `genericTapOrder.test.js` (21), through `legalActionsForPlayer` + `dispatchAction` on real oracle text: both board
+>   orders above (the same Ring + Mountain, the Bolt cast for 3); Lightning Strike's {1}{R} from Mountain, Mountain, Sol Ring
+>   floats {C} and keeps a Mountain for the Bolt; Mind Stone pays a {1} before Sol Ring, Sol Ring a {2} before Mind Stone,
+>   Thran Dynamo alone a {2} beside Wastes; a Treasure is still cracked last; a
+>   plain Wastes is promoted; seven rider sources keep their place (Basalt Monolith, Mana Vault, Eldrazi Spawn, Ashnod's
+>   Altar, Hall of the Bandit Lord, Snow-Covered Wastes, Mogg Hollows) and Wastes under Fertile Ground; Mage-Ring Network's
+>   counters still pay; Mutavault animates untapped, and is promoted for another payment; `staysTapped` on the records.
+> · ⚠️ Found, not fixed: (1) **Ancient Tomb deals no damage** — its record is a bare {C}{C} (the pain parsers need a colored
+>   pip): a painless Ancient Tomb, the CREED's forbidden direction, older than this slice, and now promoted like Sol Ring.
+>   Modeled as `painColors: ["C"]` it would drop out of the promotion with no change here. (2) Hand-blind trade-offs: a
+>   colorless dork (Palladium Myr, Kozilek's Channeler) or creature-land tapped for another payment loses its attack or block;
+>   the planner has never weighed any dork's. (3) Pool-first (stoic's note): a floating {R:2} beside an untapped Sol Ring pays
+>   {2}{R} with both red and the Ring and floats {C}. The Ring taps in BOTH plans, so floating {R:1} instead of {C:1} is a
+>   dominance, not a trade-off; the real judgment call is a pool that covers the cost alone ({R:3}: no tap, or tap the Ring
+>   to keep {R:2}). Colton's call, asked. (4) Colored pips: `tapForColor` can sacrifice a one-shot (a Basal-Sliver-granted
+>   Sliver, Blood Pet; an Eldrazi Spawn for {C}) beside an untapped basic — board order decides a least-flexible tie. Queued
+>   as the next slice, stacked on this one (a two-pass plan: one-shots only when the cost needs them).
+
 > ## 🔧 2026-10-16 — FIX: a granted mana ability is the quoted ability whole (Basal Sliver's sacrifice, Ninja Pizza's Foods) · a creature sacrificed for mana dies · **±0** · corpus 15,492
 > Suite **18,998** green (1,781 files, 1 skipped; +2 files, +22 tests). Flip-diff **0 / 0 / 0** over 34,620 cards. **Mutants 16/16**,
 > restore byte-identical. Lint 0; citations 117 unresolved (the baseline; this slice adds seven, all resolve). 48 July-list games:

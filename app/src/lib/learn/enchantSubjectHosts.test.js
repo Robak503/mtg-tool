@@ -159,6 +159,10 @@ function boardWith(auraCard, perms) {
   return { ...s, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", turn: 5,
     players: { ...s.players, user: { ...s.players.user, battlefield: [...lands, ...built], hand: [auraCard] } } };
 }
+// The two LAW 6 rows that read Sol Ring's tap-for-mana offer pay the Aura's {1}{W} from the POOL, so no source taps: the
+// auto-tap pays generic with a plain colorless source first (genericTapOrder.test.js), and a Sol Ring tapped by the
+// payment reads exactly like a Sol Ring locked by the Aura through that offer. Each row asserts the Ring is still untapped.
+const withFloating = (s, pool) => ({ ...s, players: { ...s.players, user: { ...s.players.user, manaPool: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, ...pool } } } });
 // The cast action carries the card NAME directly (a.name), not a nested card object — filtering on
 // a.card?.name silently matches nothing and every assertion would vacuously "pass" as [].
 const hostsFor = (s, name) => legalActionsForPlayer(s, "user")
@@ -211,7 +215,7 @@ describe("⭐⭐ LAW 6 — the HOST POOLS, named in both directions", () => {
 
 describe("⭐⭐ LAW 6 — cast → resolve → SBA, the two seams that fail SILENTLY", () => {
   it("⭐⭐ Stasis Cocoon ATTACHES to an artifact (the CR 608.2b re-check) and its lock BITES", () => {
-    let s = boardWith(STASIS_COCOON, [SIGNET, SOL_RING]);
+    let s = withFloating(boardWith(STASIS_COCOON, [SIGNET, SOL_RING]), { W: 1, C: 1 });
     // ⛔ THE POSITIVE CONTROLS. Both abilities are offered BEFORE the Aura resolves — without them, a
     // harness that simply never enumerated anything would read as a perfectly working lock. This is the
     // assertion that failed on the first cut and forced the fixture change (see the SIGNET note above).
@@ -230,8 +234,10 @@ describe("⭐⭐ LAW 6 — cast → resolve → SBA, the two seams that fail SIL
       // ⛔ THE UNENCHANTED Sol Ring must KEEP its mana ability — the lock is scoped to the host, and a
       // harness where everything stopped working would otherwise read identically to a correct one.
       manaAfter: after.filter((a) => a.kind === "tap-for-mana" && a.permanentId === "solring").length,
+      solRingTapped: findPermanent(s, "solring")?.permanent?.tapped ?? null, // false, or manaAfter would read the payment
     };
     console.log("  WITNESS stasisCocoonAttach", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row.solRingTapped).toBe(false);
     expect(row.attachedTo).toBe("signet");
     expect(row.hostAttachments).toEqual([aura.id]);
     expect(row.stackBefore).toBeGreaterThan(0);
@@ -244,12 +250,14 @@ describe("⭐⭐ LAW 6 — cast → resolve → SBA, the two seams that fail SIL
     // The parser's claim is that activatedAbilitiesLocked is honored at BOTH gates (CR 605.1a — a mana
     // ability IS an activated ability). The row above proves the stack gate; this proves manaModel's,
     // by moving the Aura onto Sol Ring itself.
-    let s = boardWith(STASIS_COCOON, [SOL_RING]);
+    let s = withFloating(boardWith(STASIS_COCOON, [SOL_RING]), { W: 1, C: 1 });
     const before = legalActionsForPlayer(s, "user").filter((a) => a.kind === "tap-for-mana" && a.permanentId === "solring").length;
     const cast = legalActionsForPlayer(s, "user").find((a) => a.isAuraSpell && a.name === "Stasis Cocoon");
     s = resolveTopOfStack(dispatchAction(s, cast));
-    const row = { manaBefore: before, manaAfter: legalActionsForPlayer(s, "user").filter((a) => a.kind === "tap-for-mana" && a.permanentId === "solring").length };
+    const row = { manaBefore: before, manaAfter: legalActionsForPlayer(s, "user").filter((a) => a.kind === "tap-for-mana" && a.permanentId === "solring").length,
+      tapped: findPermanent(s, "solring")?.permanent?.tapped ?? null }; // false: the 0 below is the lock, not the payment's tap
     console.log("  WITNESS lockedManaArtifact", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row.tapped).toBe(false);
     expect(row.manaBefore).toBeGreaterThan(0);
     expect(row.manaAfter).toBe(0);
   });

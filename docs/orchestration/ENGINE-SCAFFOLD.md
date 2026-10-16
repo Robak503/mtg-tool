@@ -414,8 +414,11 @@ means "all permanents" (vacuous filter).
   self-sacrifice counts only as the cost's WHOLE non-mana part (a discard beside
   it — Lion's Eye Diamond — refuses, `manaCostModelable`); a quoted
   *granted* ability belongs to the recipients, not the granter
-  (`stripNonSelfQuotedGrants` — the Cryptolith Rite fix, §6); a "doesn't untap"
-  restriction routes the card out entirely (the Mana Vault fix, §6).
+  (`stripNonSelfQuotedGrants` — the Cryptolith Rite fix, §6); on a nonland, a
+  "doesn't untap" rider routes the card out, except the continuous self lock
+  (Mana Vault, Basalt / Grim Monolith): that card produces once and stays tapped —
+  the untap step enforces it (`cardSelfPreventsUntap`), and `manaSources` stamps
+  its records `staysTapped`.
 - `manaSources(state, player)` → the untapped permanents that can produce now
   (summoning-sickness aware). Granted mana abilities are counted by ONE read,
   `withGrantedMana`, which the explicit tap (`legalChoices.actionsTapForMana`)
@@ -432,6 +435,10 @@ means "all permanents" (vacuous filter).
   the same planner — the "two-sites invariant" that stops the offered action and
   the executed action from diverging. Generic is paid last and colorless first
   (`GENERIC_SPEND_ORDER`), so the colored mana is what stays floating for a later pip.
+  Its taps follow the same idea (`tapAny`): a plain colorless permanent first (every
+  record colorless, no rider — the `PLAIN_TAP_FIELDS` whitelist), the smallest that
+  covers what is still owed (else board order), then the other repeatable sources in
+  board order, a sacrifice source last.
 
 ### 4.8 Combat, legal choices, the pilot seam
 

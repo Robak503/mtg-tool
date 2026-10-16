@@ -1501,7 +1501,9 @@ function applyActivateAbility(state, action) {
   ), costReservedPermanentIds(action));
   // SG-18 (Shang-Chi): the activation spend context — a source printed "Spend this mana only to activate abilities of
   // creature sources" is offered here iff the activating permanent is a creature (layer-aware). Must MATCH legalChoices.
-  const plan = planPayment(pool, sources, action.cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id) });
+  // `activatingPermanentId` only orders the taps (manaModel tapAny never promotes the permanent whose ability this pays
+  // for: Mutavault's {1} would tap Mutavault and animate it tapped); affordability is order-free, so legalChoices omits it.
+  const plan = planPayment(pool, sources, action.cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id), activatingPermanentId: perm.id });
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
 
   let working = commitPaymentPlan(state, action.playerId, plan, { reserved: costReservedPermanentIds(action) });
