@@ -569,7 +569,12 @@ export function dealDamageScaledClauseParser(clause) {
   // the damage's source (CR 608.2h: "it's the object as it exists—or as it most recently existed—that does it, not the
   // ability"), so its lifelink, deathtouch, infect and wither and the target's protection from IT apply, while the ability's
   // own source still decides what may be targeted.
-  const ecd = t.match(/^the entering creature deals damage equal to its own power to (any target|target creature)$/);
+  // THE TURNED-UP CREATURE (the turned-face-up watcher slice, 2026-10-16 — Pyrotechnic Performer: "Whenever this creature or
+  // another creature you control is turned face up, that creature deals damage equal to its power to each opponent") is the
+  // same lane on the flip event: "the turned-up creature" is the sentinel detectTriggers writes only for a turnedFaceUp
+  // watcher's "that creature", and the card's ruling reads its last known power once it has left.
+  const ecd = t.match(/^the entering creature deals damage equal to its own power to (any target|target creature)$/)
+    || t.match(/^the turned-up creature deals damage equal to its own power to (each opponent)$/);
   if (ecd) return { op: "deal-damage", targetType: TT[ecd[1]], amountCount: { kind: "triggeringPower", per: 1 }, damageSource: "triggering" };
   // SACRIFICED REFERENT (CR 608.2h + 603.6e LKI) — the exact sibling of the triggering-creature arm above,
   // for the permanent sacrificed to pay this spell's ADDITIONAL COST: "Fling deals damage equal to the

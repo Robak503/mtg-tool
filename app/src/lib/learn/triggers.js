@@ -28,7 +28,7 @@ import {
   lastKnownIsCreature, // CR 603.10a — a look-back's creature-ness as it last existed (its layer-aware types), the one reader
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
-import { grantedTriggeredQuotedFor, permanentHasKeyword, permanentPower, permanentBasePower, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, colorsOf, isModifiedPermanent, permIsEveryCreatureType } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition
+import { grantedTriggeredQuotedFor, permanentHasKeyword, permanentPower, permanentBasePower, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, colorsOf, isModifiedPermanent, permIsEveryCreatureType, permanentIsCreature } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition; permanentIsCreature — the flipped permanent's creature-ness at the flip (checkTurnedFaceUpTriggers)
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 import { applyLifeGainReplacement } from "./replacementEffects.js"; // LIFE-GAIN replacement (CR 614.1) — read by checkLifegainTriggers so a trigger sees the life ACTUALLY gained. replacementEffects imports nothing at all, so this edge is one-way and cycle-free.
 import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
@@ -853,25 +853,90 @@ function creatureSubjectScope(subj) {
 }
 
 /**
+ * TURNED FACE UP (CR 701.40b, 708.8 — the turned-face-up watcher slice, 2026-10-16). Since the play-weighted P·19 a manifested
+ * creature card can be turned face up for its mana cost (legalChoices.actionsTurnManifestFaceUp → actionDispatcher.applyTurnFaceUp),
+ * and that flip fires checkTurnedFaceUpTriggers with the flipped permanent as the triggering permanent. This decides every
+ * condition that mentions a flip. Returns a descriptor, null (refused → undetected → the card stays body-only, a safe
+ * false negative), or undefined when the condition is not a flip condition at all.
+ *
+ *   · a WATCHER — "<subject> is turned face up", the whole condition. Each subject maps to a scope scopeMatches enforces
+ *     against the flipped permanent as it is right after the flip (CR 603.10 — the board immediately after the event, so a
+ *     permanent's own ability sees its own flip):
+ *       "a permanent"                                → anyPermanent (any controller, any type — Aven Farseer's ruling)
+ *       "a permanent you control" /
+ *       "a face-down permanent you control"          → permanentYouControl (only a face-down permanent is ever turned up)
+ *       "another permanent you control"              → otherPermanentYouControl (never the watcher's own flip)
+ *       "a creature you control"                     → creatureYouControl (read after the flip — Pine Walker's ruling)
+ *       "this creature or another creature you control" → creatureYouControl (the union IS the creatures you control; the
+ *                                                       DEATH-DRAIN carve-out's reduction)
+ *       "<this …> or another permanent you control"  → permanentYouControl (True Identity — the source is one of them)
+ *       "this creature or another permanent"         → anyPermanent (Unblinking Bleb)
+ *       "a <Subtype> you control"                    → subtypeYouControl (the Detective watchers)
+ *       "enchanted creature"                         → equippedCreature (Fatal Mutation — the Aura's host)
+ *     The intervening "if it's a creature" (Trail of Mystery, Salt Road Ambushers) rides the general interveningIf slot,
+ *     read off the flipped permanent at the flip and again on resolution (CR 603.4; interveningIf.js).
+ *   · the card's OWN flip ("When this creature is turned face up …") → null. Its morph / disguise flip is never offered, and
+ *     the manifest flip is WITHHELD for a card carrying it (coverage.hasSelfTurnedFaceUpTrigger), so it can never fire;
+ *     coverage strips it as vacuous on that same withholding.
+ *   · the compound "<self> enters or is turned face up" → undefined: it keeps its ETB route (classifyCondition's enters arm).
+ *     Its flip half is unreachable by the same withholding.
+ *   · anything else → null. The flip must END the condition: the DELAYED-SETUP wrapper splitTriggerSentence mis-splits runs
+ *     on past it ("When this creature is turned face up, until end of turn, whenever a creature you control deals combat
+ *     damage to a player, investigate" — Mistway Spy; read as a permanent watcher it would be a false positive), and a flip
+ *     named inside another event ("a creature you control that was turned face up this turn deals combat damage" — Kaust,
+ *     Eyes of the Glade, which the "this" of "this turn" used to turn into a SELF combat-damage trigger) is a condition no
+ *     arm reads.
+ */
+function classifyTurnedFaceUp(c, cardName, cardType) {
+  if (!/\bturned face up\b/.test(c)) return undefined;
+  const nameL = String(cardName || "").toLowerCase().trim();
+  const shortL = /legendary/i.test(String(cardType || "")) ? nameL.split(",")[0].trim() : "";
+  const isSelf = (lead) => /^this (?:creature|permanent|artifact|enchantment|land|equipment|aura)$/.test(lead)
+    || (nameL.length > 0 && lead === nameL) || (shortL.length >= 3 && lead === shortL);
+  // The compound self form keeps its ETB route: the enters arm admits exactly this disjunction for a self subject.
+  const compound = c.match(/^(.+?) enters(?: the battlefield)? or is turned face up$/);
+  if (compound && isSelf(compound[1])) return undefined;
+  const w = c.match(/^(.+?) is turned face up$/);
+  if (!w) return null;
+  const subj = w[1];
+  const watcher = (scope, extra = {}) => ({ event: "turnedFaceUp", scope, whose: "any", ...extra });
+  switch (subj) {
+    case "a permanent": return watcher("anyPermanent");
+    case "a permanent you control":
+    case "a face-down permanent you control": return watcher("permanentYouControl");
+    case "another permanent you control": return watcher("otherPermanentYouControl");
+    case "a creature you control": return watcher("creatureYouControl");
+    case "enchanted creature": return watcher("equippedCreature");
+    default: break;
+  }
+  const union = subj.match(/^(.+?) or another (creature you control|permanent you control|permanent)$/);
+  if (union && isSelf(union[1])) {
+    if (union[2] === "permanent") return watcher("anyPermanent");
+    if (union[2] === "permanent you control") return watcher("permanentYouControl");
+    // "<self> or another creature you control" is the creatures you control only when the source is itself a creature.
+    return union[1] === "this creature" || /\bCreature\b/i.test(String(cardType || "")) ? watcher("creatureYouControl") : null;
+  }
+  // A creature type only, validated against the closed CR vocabulary (CR_CREATURE_TYPES, read inside this function — the
+  // init-safety rule its import note states): "a nontoken you control" must never become a filter no permanent satisfies.
+  const sub = subj.match(/^an? ([a-z]{3,}(?:(?:,\s*[a-z]{3,})*,?\s*(?:or|and)\s+[a-z]{3,})?) you control$/);
+  const filter = sub ? parseSubtypeList(sub[1]) : null;
+  if (filter && [].concat(filter).every((t) => CR_CREATURE_TYPES.has(t.toLowerCase()))) return watcher("subtypeYouControl", { subtypeFilter: filter });
+  return null; // the card's own flip, or a subject no scope enforces
+}
+
+/**
  * Classify a trigger condition into { event, scope, whose } or null. selfRef is
  * "this <permanent>" or the card's own name. The CR 603.6d static guard makes
  * "enters tapped / enters with / as ~ enters" NOT an etb trigger.
  */
 function classifyCondition(condRaw, cardName, cardType) {
   const c = condRaw.toLowerCase().trim();
-  // TURNED-FACE-UP (morph / megamorph / disguise flip, CR 707.9) — a PURE "…is turned face up" trigger fires
-  // ONLY when a FACE-DOWN permanent is turned face up, an event the engine never reaches (it hard-casts every
-  // card face UP, never face-down-then-flip). So on the engine's play the effect never happens; detecting it
-  // would MODEL an effect that can't fire. Worse, a "…is turned face up, until end of turn, whenever <X>, <Y>"
-  // DELAYED-SETUP wrapper is mis-split by splitTriggerSentence (the "turned face up" + "until end of turn"
-  // clauses carry no event verb, so the split skips past them to the INNER "<X>" event) — so the inner trigger
-  // would be read as a PERMANENT one, a CREED false positive (Mistway Spy: "…whenever a creature you control
-  // deals combat damage to a player, investigate"). Leave it UNDETECTED (return null): the shaped trigger
-  // sentence then out-runs the detected count in allTriggerSentencesModeled → the card stays body-only. The
-  // COMPOUND "enters or is turned face up" (Gadget Technician, Rakish Scoundrel) has "enters" in its lead clause
-  // and is EXCLUDED — it routes as a normal ETB, which DOES fire on the face-up hard cast (correctly modeled).
-  const firstCondClause = c.split(",")[0].trim();
-  if (/\bis turned face up$/.test(firstCondClause) && !/\benters?\b/.test(firstCondClause)) return null;
+  // TURNED-FACE-UP (CR 701.40b, 708.8) — every condition that mentions a flip is decided HERE, before any other arm can read it:
+  // the WATCHERS of a permanent being turned face up are the turnedFaceUp event; the card's OWN flip stays refused; the
+  // compound "enters or is turned face up" self form keeps its ETB route below; anything else is refused. See
+  // classifyTurnedFaceUp for each case.
+  const turnedFaceUp = classifyTurnedFaceUp(c, cardName, cardType);
+  if (turnedFaceUp !== undefined) return turnedFaceUp;
   // ===== MANA-SPENT RIDER (SHELF-85 V11, 2026-09-04 — Path of Ancestry "{T}: Add one mana of any color in your
   // commander's color identity. When that mana is spent to cast a creature spell that shares a creature type with your
   // commander, scry 1.") ===== a reflexive trigger on the mana this source made. NO event checker fires it: the mana
@@ -3810,6 +3875,37 @@ const ITS_POWER_LIFEGAIN_RE = /^you gain life equal to its power$/i;
 // THE ENTERING CREATURE DEALS ITS OWN POWER (Warstorm Surge) — the clause-LEADING "it deals damage equal to its power to";
 // see the rewrite arm in detectTriggers (enters event + an entering-creature scope only).
 const ENTERING_DEALS_OWN_POWER_RE = /^it deals damage equal to its power to /i;
+
+/**
+ * TURNED-FACE-UP REFERENT (the turned-face-up watcher slice, 2026-10-16). On a turnedFaceUp WATCHER the triggering permanent is
+ * the permanent just turned face up (checkTurnedFaceUpTriggers threads it), so the effect's "it" / "that creature" is that
+ * permanent (CR 608.2c), never the watcher. Each payoff the corpus prints is matched WHOLE and rewritten onto a sentinel an
+ * existing arm reads (the ETB-referent pattern); any other wording keeps its raw pronoun, which no arm binds → LOW → the
+ * card stays body-only. Returns the rewritten clause, or null when nothing matched. Called only for a non-self turnedFaceUp
+ * descriptor.
+ *   · "put two +1/+1 counters on it"                         (Salt Road Ambushers)     → … on the triggering creature
+ *   · "it gets +2/+2 until end of turn"                      (Trail of Mystery)        → the triggering creature gets …
+ *   · "untap that creature"                                  (Pine Walker)             → untap the triggering permanent
+ *   · "put +1/+1 counters on that creature equal to its power" (Experiment Twelve)     → the X-counters sentinel, X read
+ *     on resolution (CR 608.2h)
+ *   · "put a +1/+1 counter on it and a +1/+1 counter on this creature" (Sumala Sentry) → two placements in printed order,
+ *     each on its own object: the ruling puts either one when the other permanent is gone
+ *   · "that creature deals damage equal to its power to each opponent" (Pyrotechnic Performer) → the turned-up creature is
+ *     the damage's source (CR 608.2h — its lifelink, deathtouch and infect apply; its last known power once it has left,
+ *     the card's ruling), effects/atoms/stack.js's triggering-dealer arm
+ *   · "destroy it. It can't be regenerated"                  (Fatal Mutation)          → destroy the triggering creature …
+ */
+function rewriteTurnedFaceUpReferent(effectClause) {
+  const t = String(effectClause || "").trim();
+  if (/^put (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on (?:it|that creature)$/i.test(t)) return t.replace(/ on (?:it|that creature)$/i, " on the triggering creature");
+  if (/^(?:it|that creature) (?:gets [+-]\d+\/[+-]\d+(?: and gains .+?)?|gains .+?) until end of turn$/i.test(t)) return t.replace(/^(?:it|that creature) /i, "the triggering creature ");
+  if (/^untap (?:it|that creature)$/i.test(t)) return "untap the triggering permanent";
+  if (/^put \+1\/\+1 counters on (?:it|that creature) equal to its power$/i.test(t)) return "put x +1/+1 counters on the triggering creature, where x is its power";
+  if (/^put a \+1\/\+1 counter on it and a \+1\/\+1 counter on this creature$/i.test(t)) return "put a +1/+1 counter on the triggering creature. put a +1/+1 counter on this creature";
+  if (/^(?:it|that creature) deals damage equal to its power to each opponent$/i.test(t)) return "the turned-up creature deals damage equal to its own power to each opponent";
+  if (/^destroy (?:it|that creature)\. it can't be regenerated$/i.test(t)) return "destroy the triggering creature. It can't be regenerated";
+  return null;
+}
 // ④-AW — scopes whose trigger threads NO permanent other than the source: the watcher's own "it" can only mean the source
 // (self), or the event is a player/zone fact (a cast, a draw, a discard, a mill, life lost, a graveyard move, a sacrifice
 // by any player). The "its power" non-self guard (the unread sentinel — Stalking Vengeance's class) skips exactly these.
@@ -4345,6 +4441,13 @@ const DISJUNCTION_BLOCKS_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+attacks or 
 // the leaves half detects as the leavesSelf event (ANY exit — graveyard, exile, bounce, tuck), fired by
 // checkLeavesTriggers off the same look-back every leave already records.
 const DISJUNCTION_LTB_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the battlefield)? or leaves the battlefield(,\\s*[^\\n]+)";
+// "enters or is turned face up" on a WATCHER subject (the turned-face-up watcher slice, 2026-10-16 — Case of the Pilfered
+// Proof: "Whenever a Detective you control enters or is turned face up, put a +1/+1 counter on it."): the SAME split, sixth event
+// pair. The enters half rides the normal etb; the flip half is the turnedFaceUp watcher (classifyTurnedFaceUp). ONLY a
+// determiner-led subject ("a" / "an" / "another") is split — the SELF form ("When this creature enters or is turned face up")
+// stays one ETB sentence, its flip half unreachable because the manifest flip is withheld for it
+// (coverage.hasSelfTurnedFaceUpTrigger), and a split self half would only be refused.
+const DISJUNCTION_TURNED_FACE_UP_SRC = "\\b(When|Whenever)\\s+((?:a|an|another)\\s+[^.\\n]+?)\\s+enters(?: the battlefield)? or is turned face up(,\\s*[^\\n]+)";
 // GY-TRAFFIC TRIPLE (Syr Konrad, the Grim — SHELF S7, CR 603.2b): the printed three-event disjunction
 // "Whenever another creature dies, or a creature card is put into a graveyard from anywhere other than
 // the battlefield, or a creature card leaves your graveyard, <effect>" → THREE sentences, one per event,
@@ -4394,6 +4497,8 @@ function splitCompoundTriggerSentences(oracle) {
       `Whenever ${subj} attacks${eff}\nWhenever ${subj} blocks${eff}`)
     .replace(new RegExp(DISJUNCTION_LTB_SRC, "gi"), (_m, _kw, subj, eff) =>
       `Whenever ${subj} enters${eff}\nWhenever ${subj} leaves the battlefield${eff}`)
+    .replace(new RegExp(DISJUNCTION_TURNED_FACE_UP_SRC, "gi"), (_m, _kw, subj, eff) =>
+      `Whenever ${subj} enters${eff}\nWhenever ${subj} is turned face up${eff}`)
     .replace(new RegExp(DISJUNCTION_GY_TRIPLE_SRC, "gi"), (_m, _kw, eff) =>
       `Whenever another creature dies${eff}\nWhenever a creature card is put into a graveyard from anywhere other than the battlefield${eff}\nWhenever a creature card leaves your graveyard${eff}`)
     .replace(new RegExp(DISJUNCTION_OPP_PAIRS_SRC, "gi"), (_m, _kw, eff) =>
@@ -4415,11 +4520,12 @@ export function compoundTriggerCount(oracle) {
   const monstrousDisjunctions = (s.match(new RegExp(DISJUNCTION_MONSTROUS_SRC, "gi")) || []).length;
   const blocksDisjunctions = (s.match(new RegExp(DISJUNCTION_BLOCKS_SRC, "gi")) || []).length; // OR-1 "attacks or blocks"
   const ltbDisjunctions = (s.match(new RegExp(DISJUNCTION_LTB_SRC, "gi")) || []).length; // LV-1 "enters or leaves the battlefield"
+  const turnedFaceUpDisjunctions = (s.match(new RegExp(DISJUNCTION_TURNED_FACE_UP_SRC, "gi")) || []).length; // a watcher's "enters or is turned face up"
   // The GY-traffic triple adds TWO extra sentences per match (1 → 3).
   const gyTriples = (s.match(new RegExp(DISJUNCTION_GY_TRIPLE_SRC, "gi")) || []).length;
   // The opponent-pairs triple (Trouble in Pairs) likewise adds TWO.
   const oppPairsTriples = (s.match(new RegExp(DISJUNCTION_OPP_PAIRS_SRC, "gi")) || []).length;
-  return andJoins + disjunctions + diesDisjunctions + monstrousDisjunctions + blocksDisjunctions + ltbDisjunctions + gyTriples * 2 + oppPairsTriples * 2;
+  return andJoins + disjunctions + diesDisjunctions + monstrousDisjunctions + blocksDisjunctions + ltbDisjunctions + turnedFaceUpDisjunctions + gyTriples * 2 + oppPairsTriples * 2;
 }
 
 /**
@@ -5036,7 +5142,12 @@ export function detectTriggers(card) {
         // trigger at every target-choice site with sourceId = the targeted permanent, so the self-sac resolves it.
         effectClause = "sacrifice this creature";
       }
-      if (cls.event === "dies" && cls.scope === "self" && SELF_RETURN_IT_RE.test(effectClause)) {
+      const turnedFaceUpReferent = cls.event === "turnedFaceUp" && cls.scope !== "self" ? rewriteTurnedFaceUpReferent(effectClause) : null;
+      if (turnedFaceUpReferent !== null) {
+        // TURNED-FACE-UP REFERENT — the flipped permanent named by the watcher's effect (rewriteTurnedFaceUpReferent). First in
+        // the chain, so no later arm reads the raw pronoun.
+        effectClause = turnedFaceUpReferent;
+      } else if (cls.event === "dies" && cls.scope === "self" && SELF_RETURN_IT_RE.test(effectClause)) {
         // SELF-DIES-RETURN (frontier round 4, the Phoenix shape) — "When this creature dies, return it to its
         // owner's hand." (Shivan Phoenix, Immortal Phoenix, Mortus Strider, Weatherseed Treefolk). The
         // creature DIED, so "it" (CR 608.2c — the object the ability triggered on) is the dead creature, now
@@ -5530,6 +5641,20 @@ export function detectTriggers(card) {
         // context; the battlefield loop excludes the flag — the Radroach/aura discipline exactly). The
         // marker resolves via applyGySelfReturnBattlefield (graveyard → battlefield, the exact card). The
         // "may" is auto-taken — returning your own creature is pure upside, the family's standing posture.
+        effectClause = "[gy-self-return:battlefield] return it to the battlefield";
+        cls.functionsFromGraveyard = true;
+      } else if (cls.event === "turnedFaceUp"
+        && /^you may return this card from your graveyard to the battlefield face up or face down$/i.test(effectClause.trim())) {
+        // ===== GRAVEYARD-FUNCTIONING turned-face-up self-return (Deathmist Raptor — the turned-face-up watcher slice,
+        // 2026-10-16) ===== "Whenever a permanent you control is turned face up, you may return this card from your graveyard
+        // to the battlefield face up or face down." "From your graveyard" is the zone statement (CR 603.3d — the card's
+        // ruling: it triggers only while the Raptor is in the graveyard), so the descriptor is stamped functionsFromGraveyard
+        // and checkTurnedFaceUpTriggers' GRAVEYARD scan fires it with the card as source; the battlefield scan skips it.
+        // The return is face UP, the Bloodghast marker's own move: the face-down choice is not offered. A Raptor returned face
+        // down turns up only for its megamorph cost (CR 702.37e), which the engine never offers, while every face-down
+        // permanent the engine makes is a manifest it turns up for the card's MANA cost (CR 701.40b) — a face-down return
+        // would be handed the wrong flip. A narrower choice, never a wrong one. The "may" is taken, as Bloodghast's is:
+        // returning your own creature is pure upside.
         effectClause = "[gy-self-return:battlefield] return it to the battlefield";
         cls.functionsFromGraveyard = true;
       } else if (cls.event === "milled"
@@ -6737,6 +6862,11 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // entry — the same etbExcludeSelf gate the power-threshold ETB scope carries.
       return !!triggeringPermanent && triggeringPermanent.controller === sourcePermanent.controller
         && !(descriptor.etbExcludeSelf && triggeringPermanent.id === sourcePermanent.id);
+    case "otherPermanentYouControl":
+      // TURNED FACE UP "another permanent you control" (Salt Road Ambushers): any permanent the watcher's controller controls
+      // except the watcher itself — its own flip never fires it.
+      return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id
+        && triggeringPermanent.controller === sourcePermanent.controller;
     case "tokenYouControl":
       // TOKEN-ENTERS (Junk Winder — "a token you control enters") — the entering permanent must be a TOKEN
       // (card.token, the token-factory convention, same gate as tokenYouControlLeaves) AND controlled by the
@@ -9520,6 +9650,44 @@ export function checkBecomesMonstrousTriggers(state, permanentId) {
   const fired = detectTriggers(classLiveCard(lk.permanent))
     .filter((d) => d.event === "becomesMonstrous")
     .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, {}));
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * TURNED FACE UP triggers (CR 701.40b, 708.8 — the turned-face-up watcher slice, 2026-10-16): fire every watcher of the flip of
+ * `permanentId`, called by actionDispatcher.applyTurnFaceUp right after a manifested creature card is turned face up. The
+ * flipped permanent is the triggering permanent, so a watcher's "it" / "that creature" binds to it. The board is read as it
+ * stands right after the flip (CR 603.10): the flipped permanent's own abilities see their own flip ("this creature or another
+ * creature you control"), and a face-down watcher has no abilities to see anything with. A manifested instant or sorcery is
+ * never turned up (CR 701.40g), so nothing here fires for one. `triggeringWasCreature` records the flipped permanent's
+ * creature-ness AT the flip: the "if it's a creature" intervening-if reads it should the permanent be gone by the time the
+ * ability is put on the stack or resolves (CR 603.4, 608.2h).
+ * The GRAVEYARD scan fires a turnedFaceUp ability that functions from a graveyard (Deathmist Raptor, CR 603.3d), with the card
+ * as its source — the Bloodghast landfall scan's shape; the battlefield scan skips those. A vanished permanent no-ops.
+ */
+export function checkTurnedFaceUpTriggers(state, permanentId) {
+  const lk = findPermanent(state, permanentId);
+  if (!lk) return state;
+  const flipped = lk.permanent;
+  const context = { triggeringWasCreature: permanentIsCreature(state, permanentId) };
+  let fired = [];
+  for (const pid of Object.keys(state.players)) {
+    for (const watcher of triggerSourcesOf(state, pid)) {
+      fired = fired.concat(triggersForEvent(state, {
+        event: "turnedFaceUp", sourcePermanent: watcher, triggeringPermanent: flipped, triggeringContext: context,
+        descriptorFilter: (d) => !d.functionsFromGraveyard,
+      }));
+    }
+    for (const gyCard of state.players[pid]?.graveyard || []) {
+      // RAW-STRING PRE-FILTER (the landfall scan's): only a card whose text names a flip can carry the descriptor.
+      if (!/turned face up/i.test(String(gyCard?.oracle || gyCard?.oracle_text || ""))) continue;
+      const src = { id: `gy-${gyCard.id}`, controller: pid, card: gyCard };
+      for (const d of detectTriggers(gyCard).filter((x) => x.event === "turnedFaceUp" && x.functionsFromGraveyard)) {
+        if (scopeMatches(d, src, flipped, state)) fired.push(makePendingTrigger(d, src, flipped, { ...context, sourceCardId: gyCard.id }));
+      }
+    }
+  }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }

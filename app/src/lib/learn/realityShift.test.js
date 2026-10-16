@@ -108,12 +108,16 @@ describe("turning a manifest face up (CR 701.40b)", () => {
     expect(turnUps(manifested(SILENCER, { pool: { U: 2 } })).length).toBe(0);
   });
 
-  it("⛔ a WATCHER of other permanents' flips is reachable now, so it is residue — Trail of Mystery and Mastery of the Unseen stay body-only", () => {
+  // RE-POINTED (the turned-face-up watcher slice, 2026-10-16): this pinned P·19's "a watcher is reachable and unmodeled, so it
+  // is residue". The watcher is MODELED now (the turnedFaceUp event — turnedFaceUpWatchers.test.js plays every carrier), so
+  // Mastery of the Unseen, whose only other line is the manifest activation, is native; Trail of Mystery keeps its
+  // unmodeled face-down enters watcher and stays body-only.
+  it("a WATCHER of other permanents' flips is modeled since the watcher slice — Mastery of the Unseen is native; Trail of Mystery stays body-only for its other line", () => {
     const TRAIL = { name: "Trail of Mystery", type: "Enchantment", mana: "{1}{G}", cmc: 2, colors: ["G"], keywords: [],
       oracle: "Whenever a face-down creature you control enters, you may search your library for a basic land card, reveal it, put it into your hand, then shuffle.\nWhenever a permanent you control is turned face up, if it's a creature, it gets +2/+2 until end of turn." };
     const MASTERY = { name: "Mastery of the Unseen", type: "Enchantment", mana: "{1}{W}", cmc: 2, colors: ["W"], keywords: ["Manifest"],
       oracle: "Whenever a permanent you control is turned face up, you gain 1 life for each creature you control.\n{3}{W}: Manifest the top card of your library. (Put it onto the battlefield face down as a 2/2 creature. Turn it face up any time for its mana cost if it's a creature card.)" };
-    expect([classifyCard(TRAIL), classifyCard(MASTERY)]).toEqual(["body-only", "body-only"]);
+    expect([classifyCard(TRAIL), classifyCard(MASTERY)]).toEqual(["body-only", "native-mixed"]);
   });
 
   it("⛔ a crafted turn-up of a manifested sorcery is refused by the dispatcher", () => {

@@ -16,6 +16,63 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🎯 2026-10-16 — THE TURNED-FACE-UP WATCHER (P·19's follow-up): a manifest turned face up fires its watchers · **+15** · the ten P·19 losses regained
+> Suite **18,977** green (1 skipped) and `npm run lint` 0 on 4d599284 + this slice (18,976 on c1f630ab + it); rebased onto 4463487c afterward,
+> its 20 overlapping test files (the slice's, the death-event / count-scope / spend-order ones, the LKI stamp's) re-run green there (418) — the
+> integration gate runs the full suite. CR citations unchanged (117 nameless, none on this slice's lines). Flip-diff **+15, −0, 0
+> retiered** (tier snapshots at c1f630ab → the change; 15,487 → 15,502 native names; every GAINED oracle read whole, below). **Mutants 30/30**
+> (restore byte-identical). None of the 15 ranks in the top 2,500 (highest: Deathmist Raptor #6,732); the deck shelf was not re-measured.
+> · **The event.** `turnedFaceUp`, fired by `actionDispatcher.applyTurnFaceUp` (`triggers.checkTurnedFaceUpTriggers`) right after the flip and BEFORE
+>   the state-based check: the board right after the event decides (CR 603.10), so a permanent's own ability sees its own flip and a creature its new
+>   toughness kills is still the referent. The flipped permanent is the triggering permanent (the ETB-referent sentinel pattern). The flip now
+>   flushes (CR 603.3 — the cycling precedent); P·19 left a flip's dies triggers pending until a later checkpoint.
+> · **The subjects** (`triggers.classifyTurnedFaceUp` — every condition naming a flip is decided there, first): "a permanent" → anyPermanent;
+>   "a permanent you control" / "a face-down permanent you control" → permanentYouControl; "another permanent you control" → otherPermanentYouControl
+>   (new scope); "a creature you control" and "this creature or another creature you control" → creatureYouControl; "<this …> or another permanent
+>   you control" → permanentYouControl; "this creature or another permanent" → anyPermanent; "a <creature type> you control" → subtypeYouControl
+>   (validated against CR_CREATURE_TYPES); "enchanted creature" → equippedCreature. The card's OWN flip stays refused (withheld and stripped — P·19);
+>   every other flip condition is refused: Mistway Spy's delayed-setup wrapper (the flip must END the condition) and a compound like "dies or is
+>   turned face up", which would otherwise fall through to the dies arm with its flip half dropped.
+> · **"if it's a creature"** (interveningIf.js): the triggering permanent's live, layer-aware creature-ness at the flush and on resolution (CR 603.4 —
+>   Salt Road Ambushers' ruling), its flip-time record (`triggeringWasCreature`) once it is gone, so a flip whose new toughness kills the creature
+>   still puts the modeled program on the stack rather than an unreadable condition.
+> · **The referents** (`rewriteTurnedFaceUpReferent`, each payoff matched whole): "put two +1/+1 counters on it", "it gets +2/+2 until end of turn",
+>   "untap that creature", "put +1/+1 counters on that creature equal to its power", "put a +1/+1 counter on it and a +1/+1 counter on this creature",
+>   "that creature deals damage equal to its power to each opponent" (the turned-up creature is the dealer — effects/atoms/stack.js; its last known
+>   power via gameState.stampTriggeringLki, the card's ruling), "destroy it. It can't be regenerated".
+> · **Deathmist Raptor** functions from the graveyard (the Bloodghast landfall scan's shape). The return is FACE UP — the face-down choice isn't
+>   offered: a face-down Raptor turns up only for its megamorph cost, which the engine never offers, and the engine's face-down turn-up is the
+>   manifest's mana-cost flip, which it would wrongly be handed. A narrower choice, never a wrong one (the "may" is taken, as Bloodghast's is).
+> · **The watcher disjunction** "a Detective you control enters or is turned face up" splits into its two events (Case of the Pilfered Proof),
+>   counted in compoundTriggerCount; the SELF form is not split.
+> · **FIXED — two hollows found on the way.** (1) P·19 offered the manifest flip to a card whose own text reads "enters or is turned face up" (Gadget
+>   Technician, Ponyback Brigade, Efreet Weaponmaster, Offender at Large, Rakish Scoundrel — native for the enters half), and the flip half never
+>   fired; `coverage.hasSelfTurnedFaceUpTrigger` now withholds the flip (also Concert Kaboomist, Flavor Disaster's "or when it's turned face up",
+>   Crowd-Control Warden's "As …"). The sentence is never stripped — its enters half is real. (2) Kaust, Eyes of the Glade's "a creature you control
+>   that was turned face up this turn deals combat damage to a player" classified as a SELF combat-damage trigger (the "this" of "this turn" read as a
+>   self reference): at runtime Kaust drew a card whenever it connected. Refused now.
+> · **GAINED 15, every oracle read whole:** Aven Farseer (Flying; a counter on itself), Aphetto Runecaster (may draw), Bonethorn Valesk (1 damage to any
+>   target), Unblinking Bleb (Morph; may scry 2 — its own flip too), Pine Walker (Morph; untaps the flipped creature — itself too), Experiment Twelve
+>   (Trample, Disguise; counters equal to the flipped creature's power), Salt Road Ambushers (Megamorph; two counters on ANOTHER creature turned up),
+>   Sumala Sentry (Reach; a counter on each), Pyrotechnic Performer (Disguise; the flipped creature's power to each opponent), Deathmist Raptor
+>   (Deathtouch, Megamorph; back from the graveyard), True Identity (Disguise; scry 1, draw, once each turn), Mastery of the Unseen (life per creature;
+>   the {3}{W} manifest — native-mixed), Fatal Mutation (destroys the enchanted creature as it turns up), Projektor Inspector and Perimeter Enforcer
+>   (the Detective compounds).
+> · Re-pointed pin (1): realityShift.test.js — P·19's "a watcher is residue" row: Mastery of the Unseen is native-mixed now, Trail of Mystery stays
+>   body-only (its face-down enters watcher).
+> · **Runtime:** `WITNESS turnedFaceUpWatchers {"farseer":1,"twelve":[12,10],"raptor":["Craw Wurm","Deathmist Raptor"],"pyrotechnic":6}` — every
+>   regained card played through the real path (the offer, the special action, the stack). Witness `app/src/lib/learn/turnedFaceUpWatchers.test.js` (33).
+> · ⚠️ Found, not fixed (queued): (a) the "this turn" self-misread is a CLASS — `classifyCondition`'s selfRef counts the "this" of "this turn": 22
+>   descriptors corpus-wide, none native, but one body-only permanent fires wrongly at runtime: Maeve, Insidious Singer's goad rider ("Whenever that
+>   creature attacks one of your opponents this turn, you draw a card") is read as Maeve's OWN attack trigger, so Maeve draws whenever she attacks.
+>   (On Pick Up the Pace, an enchantment that never attacks, the misread only silences its real trigger.) A shared-path fix with its own flip-diff.
+>   (b) Temur War Shaman's watcher waits on
+>   "you may have it fight target creature you don't control", unmodeled even in the self form (Somberwald Stag, Affectionate Indrik) — one lane covers
+>   all three. (c) Trail of Mystery's and Cryptid Inspector's "a face-down … enters" watchers; Secret Plans' and Roshan's face-down statics; Printlifter
+>   Ooze's token entering with counters. (d) The AI's turn-up policy ignores watchers (it flips only a manifest bigger than a 2/2).
+> · For the integrator: games that turn a manifest face up play differently now (the watchers fire; the flip flushes) — replay hashes over such games
+>   move.
+
 > ## 🔎 2026-10-16 — THE TYPE-LINE AUDIT: readers that asked the PRINTED type line a question layer 4 answers · **±0** · corpus 15,492
 > Suite **19,031** green (1 skipped; 1,781 files). Flip-diff **0 / 0 / 0** (34,620 cards). **Mutants 53/53**, restore
 > byte-identical. Lint 0; CR citations: no new dead cite (117 before and after, all pre-existing). 48 July seeds: **13 games

@@ -559,6 +559,17 @@ const NOT_A_TOKEN_RE = /^it(?:'s| is)? ?not a token$|^it isn['’]t a token$/;
 // type/color variant falls through → Arbiter, CREED — never a mis-read designation).
 const WAS_A_CREATURE_RE = /^it was a creature$/;
 
+// ===== IT'S-A-CREATURE (CR 603.4 — the turned-face-up watcher slice, 2026-10-16) ============================
+// "it's a creature" — the intervening-if on a permanent watcher whose subject is any permanent ("Whenever a permanent you
+// control is turned face up, if it's a creature, …" — Trail of Mystery, Salt Road Ambushers, Temur War Shaman). "it" (CR
+// 608.2c) is the object the ability triggered on, ctx.triggeringPermanentId. Read LIVE and layer-aware
+// (layers.permanentIsCreature) while that permanent is on the battlefield — at the flush (the first CR 603.4 check) and again
+// on resolution (the second; Salt Road Ambushers' ruling: "must be a creature … when the triggered ability resolves"). Once
+// it is gone, its last known information (CR 608.2h) answers: ctx.triggeringWasCreature, which the event's checker stamps as
+// it fires. Neither → null (can't confirm → never fail-open). Anchored EXACTLY: "it's a creature card" / "it's a creature
+// spell" are other questions about other objects.
+const IT_IS_A_CREATURE_RE = /^it(?:'s| is) a creature$/;
+
 // ===== HAD-NO-+1/+1-COUNTERS (KW-UNDYING, CR 702.92a + 603.6e) ===============================
 // "it had no +1/+1 counters on it" — the intervening-if on the synthesized UNDYING dies-return trigger.
 // "it" (CR 608.2c) is the dead source itself; "had" is a per-PERMANENT last-known-info read (the object is
@@ -1375,6 +1386,16 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     const wasCreature = context?.triggeringWasCreature;
     if (typeof wasCreature !== "boolean") return null; // no per-object was-creature flag → can't confirm (FN-safe)
     return wasCreature === true; // "it was a creature" → true iff the dying object was a creature
+  }
+
+  // IT'S-A-CREATURE (CR 603.4) — "it's a creature": the triggering permanent's creature-ness, live while it is on the
+  // battlefield, else its last known information (see IT_IS_A_CREATURE_RE).
+  if (IT_IS_A_CREATURE_RE.test(c)) {
+    const triggeringId = context?.triggeringPermanentId;
+    if (!triggeringId) return null; // no triggering permanent in context → can't confirm (FN-safe)
+    if (findPermanent(state, triggeringId)) return permanentIsCreature(state, triggeringId);
+    const was = context?.triggeringWasCreature;
+    return typeof was === "boolean" ? was : null;
   }
 
   // HAD-NO-+1/+1-COUNTERS (KW-UNDYING, CR 702.92a + 603.6e) — read the dying object's counter-lessness off

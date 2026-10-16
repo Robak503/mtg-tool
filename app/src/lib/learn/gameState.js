@@ -1406,7 +1406,9 @@ function stampTriggeringLeftPower(next, permanent, before) {
  * No trigger reads the permanent → the state is returned untouched (every other game is byte-identical).
  */
 const TRIGGERING_LKI_KEYWORDS = ["Lifelink", "Deathtouch", "Infect", "Wither"];
-const TRIGGERING_LKI_CLAUSE_RE = /\bthe entering creature deals damage equal to its own power\b|\bthe triggering creature's power\b/i;
+// + the turned-up dealer (Pyrotechnic Performer — the turned-face-up watcher slice): a flip that leaves the creature at lethal
+// damage takes it in the same state-based check, before its waiting trigger is put on the stack.
+const TRIGGERING_LKI_CLAUSE_RE = /\bthe (?:entering|turned-up) creature deals damage equal to its own power\b|\bthe triggering creature's power\b/i;
 const atomReadsTriggeringLki = (atom) => atom?.damageSource === "triggering" || atom?.amountCount?.kind === "triggeringPower" || atom?.amountCount?.kind === "triggeringToughness";
 export function stampTriggeringLki(state, permanentId) {
   // A trigger context that names this permanent as its triggering permanent and carries no record yet.

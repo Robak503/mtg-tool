@@ -90,7 +90,7 @@ import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — 
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39b — every creature type shares a creature type only (CR 205.3d); a zero-import leaf
 import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility, parseHandSelfPutAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch; S8 — the Pilot's crew boost; play-weighted #570 — the hand self-put, re-read from the card
 import { parseSagaChapters } from "./saga.js"; // SAGA LAND (play-weighted P·4 — Urza's Saga): the land drop gives a Saga its entry lore counter too (a pure leaf)
-import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers, checkBecomesCrewedTriggers, checkCycleSelfTriggers, checkCrimeTriggers, checkSagaChapterTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers; S7 — becomes-crewed; D9 — crime (CR 700.13)
+import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers, checkBecomesCrewedTriggers, checkCycleSelfTriggers, checkCrimeTriggers, checkSagaChapterTriggers, checkTurnedFaceUpTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers; S7 — becomes-crewed; D9 — crime (CR 700.13); the flip's watchers (CR 701.40b)
 import { setPendingSoftCounterChoice, setPendingOptionalLifePaymentChoice } from "./pendingChoice.js"; // setPendingOptionalLifePaymentChoice — the shockland pause (LANDS-TIER slice 2), raised from the play-land path
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
 import { groupWardTaxForSpell, groupWardTaxForStackObject } from "./groupWard.js";
@@ -2317,8 +2317,13 @@ function applyTurnFaceUp(state, action) {
     return { ...rest, card: real };
   });
   working = logEvent(working, { kind: "turn-face-up", playerId: action.playerId, permanentId: action.permanentId, cardName: real.name });
+  // The flip's watchers (the turned-face-up watcher slice, 2026-10-16) are read on the board right after the flip (CR 603.10) —
+  // before the state-based check below, so a creature its new toughness kills is still the trigger's referent.
+  working = checkTurnedFaceUpTriggers(working, action.permanentId);
   const lethal = destroyLethalCreatures(working);
   working = checkDiesTriggers(lethal.state, lethal.dead);
+  // CR 603.3 — what triggered goes on the stack before the actor, who keeps priority, acts again (the cycling precedent).
+  working = flushTriggers(working, { chooseTargets: chooseTriggerTargets });
   return { ...working, priorityHolder: action.playerId, consecutivePasses: 0 };
 }
 

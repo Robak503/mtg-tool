@@ -165,7 +165,10 @@ export function combatDamageReferentSatisfied(program, event) {
     // ENTERING DEALER (Warstorm Surge): the damage's source is the ENTERING creature — the etb event's triggering
     // permanent. Any other event's triggering object is another referent (a dying creature, an attacker) whose
     // last-known record this lane does not keep → not native there. The sentinel is written only on etb; this is the belt.
-    if (a?.damageSource === "triggering" && event !== "etb") return false;
+    // + the TURNED-UP dealer (Pyrotechnic Performer): the flip event's triggering permanent is on the battlefield as the
+    // trigger is made, and gameState.stampTriggeringLki keeps its record should it leave — its own sentinel, written only
+    // for a turnedFaceUp watcher.
+    if (a?.damageSource === "triggering" && event !== "etb" && event !== "turnedFaceUp") return false;
   }
   return true;
 }

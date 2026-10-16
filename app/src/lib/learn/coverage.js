@@ -596,12 +596,30 @@ const ESCAPE_WITH_COUNTERS = /(?:^|(?<=\.)\s*)(?:this creature|this permanent|it
 // only because the turn-up is WITHHELD for a manifested card whose own text carries one (hasSelfTurnedFaceUpTrigger, the same
 // pattern) — the morph flip stays unreachable and the hard-cast body still plays correctly. A WATCHER of other permanents'
 // flips ("Whenever a permanent you control is turned face up" — Trail of Mystery, Secret Plans, Deathmist Raptor; "this
-// creature or another creature you control") is REACHABLE now and is no longer stripped: it stays residue until modeled.
+// creature or another creature you control") is REACHABLE now and is no longer stripped: since the turned-face-up watcher slice
+// (2026-10-16) it is MODELED — the turnedFaceUp event (triggers.classifyTurnedFaceUp, fired by checkTurnedFaceUpTriggers from
+// actionDispatcher.applyTurnFaceUp) — and reconciles like any other trigger sentence.
 const TURNED_FACE_UP_SELF_SRC = "(?:when|whenever|as)\\s+this (?:creature|permanent|equipment|aura|land|artifact|enchantment)\\s+is turned face up\\b[^.\\n]*\\.?";
 const TURNED_FACE_UP = new RegExp(`(?:^|(?<=\\.)\\s*|(?<=\\n))[ \\t]*${TURNED_FACE_UP_SELF_SRC}`, "gi");
-/** Does this card's own text carry a trigger on ITS OWN flip ("When this creature is turned face up, …")? (P·19) */
+/**
+ * Does this card's own text carry a trigger on ITS OWN flip? The turn-up offer withholds the manifest flip for such a card
+ * (legalChoices.actionsTurnManifestFaceUp), which is what keeps that trigger unreachable. (P·19)
+ *   · the pure form, "When this creature is turned face up, …" — the same pattern the TURNED_FACE_UP strip removes;
+ *   · the COMPOUND form (the turned-face-up watcher slice, 2026-10-16): "When this creature enters or is turned face up"
+ *     (Gadget Technician, Ponyback Brigade, Efreet Weaponmaster, Offender at Large, Rakish Scoundrel), "When <its name>
+ *     enters the battlefield or when it's turned face up" (Flavor Disaster), "As this creature enters or is turned face up"
+ *     (Crowd-Control Warden). Its flip half fires on the card's own flip just as the pure form does — P·19 offered the flip
+ *     for these and that half never fired, a dropped trigger on a card credited native for its enters half. Withheld now, the
+ *     flip half is unreachable again; the sentence is NEVER stripped, because its enters half is a real trigger.
+ */
 export function hasSelfTurnedFaceUpTrigger(card) {
-  return new RegExp(TURNED_FACE_UP_SELF_SRC, "i").test(String(card?.oracle || card?.oracle_text || ""));
+  const text = String(card?.oracle || card?.oracle_text || "");
+  if (new RegExp(TURNED_FACE_UP_SELF_SRC, "i").test(text)) return true;
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const name = String(card?.name || "").trim();
+  const short = /legendary/i.test(String(card?.type || card?.type_line || "")) ? name.split(",")[0].trim() : "";
+  const lead = ["this (?:creature|permanent|equipment|aura|land|artifact|enchantment)", name && esc(name), short && short !== name && esc(short)].filter(Boolean).join("|");
+  return new RegExp(`(?:when|whenever|as)\\s+(?:${lead})\\s+enters(?: the battlefield)?\\s+or\\s+(?:when\\s+it['’]s|is)\\s+turned face up\\b`, "i").test(text);
 }
 // KW-PARTNER-WITH (CR 702.124j) — drop the whole "Partner with <name>" LINE before the clause split below.
 // A LINE strip, not a clause credit, and that is the point: partner names routinely contain commas ("Trynn,
