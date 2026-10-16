@@ -121,6 +121,20 @@ describe("rankBottomCandidates — the London bottom-picker", () => {
     expect(byId.get(ids[0]).name).toBe("Big Dragon"); // 7MV + off-color (R not producible) = worst
   });
 
+  it("reads a {2/R} pip as 2 when a card carries only its cost (CR 202.3f): Flame Javelin is mana value 6", () => {
+    // Bundled oracle data: Flame Javelin {2/R}{2/R}{2/R}, mana value 6; Hill Giant {3}{R}, mana value 4. With no cmc
+    // the policy falls back to the cost string. Read as 3, the Javelin is a castable 3-drop and the Giant goes to the
+    // bottom; read as 6, both are uncastable early and the higher mana value goes first.
+    const mountain = () => card("Mountain", "Basic Land — Mountain", "", "({T}: Add {R}.)");
+    const giant = card("Hill Giant", "Creature — Giant", "{3}{R}");
+    const javelinCostOnly = { ...card("Flame Javelin", "Instant", "{2/R}{2/R}{2/R}", "Flame Javelin deals 4 damage to any target."), cmc: undefined };
+    const hand = [mountain(), mountain(), mountain(), bolt(), bolt(), giant, javelinCostOnly];
+    expect(rankBottomCandidates(hand, 1, null)).toEqual([javelinCostOnly.id]);
+    // The same card with its bundled cmc ranks the same way.
+    const javelinWithCmc = { ...javelinCostOnly, cmc: 6 };
+    expect(rankBottomCandidates([...hand.slice(0, 6), javelinWithCmc], 1, null)).toEqual([javelinWithCmc.id]);
+  });
+
   it("is deterministic (same hand → same picks)", () => {
     nextId = 0; const h1 = [forest(), forest(), forest(), forest(), bear(), bigDragon(), bolt()];
     nextId = 0; const h2 = [forest(), forest(), forest(), forest(), bear(), bigDragon(), bolt()];

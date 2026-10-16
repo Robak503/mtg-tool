@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **24 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
+> **36 commits**, corpus **44.7% (15,467)** at the tag → **44.8% (15,494)**; engine gains since the tag: **+27**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,16 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-16 — FIX: the mulligan policy reads a {2/X} hybrid pip as 2 when a card carries only its cost (CR 202.3f) · **±0**
+> Suite **18,985** green (1 skipped; 1,780 files) under the gate lock, on this commit's tree stacked on the citations
+> commit below (which it also covers). Lint 0. **Mutant 1/1** killed (the old every-pip-is-1 rule bottoms Hill Giant
+> instead of Flame Javelin), restored byte-identical (sha1).
+> · `manaValueFromCost`, the fallback when a card has no finite cmc, counted every non-numeric pip as 1, so Flame Javelin
+>   ({2/R}{2/R}{2/R}, MV 6) read as a castable 3-drop. A pip that leads with "N/" now counts N; colored, two-color hybrid
+>   and Phyrexian pips stay 1 — tutorManaValue's rule. Cards built through the server card index carry a cmc
+>   (`cmc: card.cmc ?? 0`), so only hand-built cards reach the fallback.
+> · Not changed, same arithmetic, same no-cmc reach: goldfish.js `manaValueFromCost`, library.js `manaValueOfCard` (clash).
 
 > ## 📚 2026-10-16 — CITATIONS (docs only): real rules cited for the wrong mechanic — 176 one-line edits · **±0**
 > Comments and test titles only: of the 67 changed source files, 56 are token-identical to their parent (espree tokens,

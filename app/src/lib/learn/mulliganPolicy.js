@@ -33,7 +33,12 @@ function manaValueFromCost(cost) {
   for (const m of cost.matchAll(/\{([^}]+)\}/g)) {
     const sym = m[1];
     if (/^\d+$/.test(sym)) mv += Number(sym);
-    else if (sym !== "X") mv += 1; // colored/hybrid/phyrexian pips count 1 (CR 202.3 / 202.3f / 202.3g) — but a {2/X} pip is 2 under 202.3f, which this fallback counts as 1
+    else if (sym !== "X") {
+      // A hybrid pip counts its largest component (CR 202.3f): {2/R} is 2. A colored, two-color hybrid or
+      // Phyrexian pip is 1 (CR 202.3, 202.3g).
+      const generic = sym.match(/^(\d+)\//);
+      mv += generic ? Number(generic[1]) : 1;
+    }
   }
   return mv;
 }
