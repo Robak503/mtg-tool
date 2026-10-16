@@ -16,6 +16,45 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🔧 2026-10-16 — FIX: a one-shot source pays only when the cost needs it (a Swamp before a sacrificed Basal Sliver / Blood Pet) · **±0** · corpus 15,492
+> Suite **19,005** green (1,781 files, 1 skipped), on top of the slice below. Flip-diff **0 / 0 / 0**. **Mutants 6/6**, restore
+> byte-identical. Lint 0; citations 117 unresolved (the same 117 as 4463487c; this slice adds none). 48 July-list games: **2
+> changed** — `f43823bb74ef0fe5` / `a0af9f80d934a7c9` (the slice below, twice) → `f43823bb74ef0fe5` (8, unchanged) /
+> `a1426ff4670c7ebb` (40), twice.
+> · **The bug** (found by the group-grant sacrifice-cost lane, 10-16). Generic already took one-shot sources last (`tapAny`);
+>   a COLORED pip went to the least flexible source, board order breaking ties. Dark Ritual's {B} beside a Swamp sacrificed
+>   Basal Sliver whenever the Sliver came first; Blood Pet (one color) beat a Bayou (two) outright; an Eldrazi Spawn paid a {C}
+>   pip beside Sol Ring; Simian Spirit Guide (one color) was exiled before an untapped Taiga; and Ashnod's Altar sacrificed a
+>   creature for generic whenever it came first among the rider sources.
+> · **The fix — a two-pass plan, not a tie-break.** `planPayment` plans without one-shots first (`isOneShotSource`:
+>   `sacrifices`, `sacrificesCreature`, `fromHand`); only if that fails does it plan with every source, exactly as before
+>   (the storage-land two-pass inside, now `planPaymentRemovalAware`). Affordability is pass B's and never moves. Two rules
+>   were tried first and refuted: "repeatable before self-sacrificing, flexibility within the class" makes payable costs
+>   unpayable ({B}{G}{G} with Overgrown Tomb, Forest, Blood Pet: the Tomb goes to {B} and the second {G} is stranded);
+>   "flexibility first, repeatable as the tie-break" taps a Swamp for Doom Blade's {B} and then still sacrifices the Sliver
+>   for its {1}, where the Sliver's {B}{B} alone pays both.
+> · **⚑ Taken on purpose:** a land taps rather than a creature dying — Blood Pet beside a Bayou paying {B} taps the Bayou
+>   (its {G} is gone for the turn; the Pet stays).
+> · **Differential, 20,000 trials** (random boards incl. Treasure, Eldrazi Spawn, Blood Pet, Basal Sliver, Ashnod's Altar with
+>   Grizzly Bears, Lotus Petal, a Simian Spirit Guide in hand 30% of the time; slice 1 vs this): affordability agreed on all
+>   20,000. The old plan used a one-shot in 3,562 payable trials; this one used fewer in 594 and more in none. 277 other plans
+>   differ with no one-shot on either side: Crystal Vein's free {C} joins slice 1's promotion once its sacrifice line is out
+>   of pass A. 0 plans failed pool + taps − spend ≥ 0. Seen to fail: with the fallback removed it disagreed 2,716 times.
+> · **⚑ Results (flag to Omnath):** 2 of the 48 games change and neither winner does. Seed 608488833: Vihaan, Goldwaker
+>   casting its commander keeps a one-shot and taps a land (its permanents 8 → 9; the game ends a turn sooner). Seed 3615280302:
+>   Jurassic Ramp's Sunfrill Imitator keeps a one-shot and taps a mana creature (permanents 35 → 36). Games per minute
+>   unchanged. An action-set change wherever a one-shot sits beside a source that could pay — rare in these lists; whether it
+>   moves the epoch cut is Omnath's call.
+> · Witness `oneShotSourcesLast.test.js` (8), through `legalActionsForPlayer` + `dispatchAction` on real oracle text: Dark
+>   Ritual from Basal Sliver, Swamp (the Swamp; the Sliver lives) and from Blood Pet, Bayou (the Bayou); Lightning Bolt from
+>   Taiga with Simian Spirit Guide in hand (the Taiga; the Guide stays in hand); Thought-Knot Seer's {3}{C} from Eldrazi
+>   Spawn, Sol Ring, Wastes ×2 (the Spawn lives); Mind Stone from Ashnod's Altar, Grizzly Bears, Mountain ×2 (the Mountains;
+>   the Bears live); Doom Blade's {1}{B} from Basal Sliver, Swamp (no plan spares the Sliver: its {B}{B} pays both and the
+>   Swamp stays up — pass B unchanged); Dark Ritual with only Blood Pet (offered; the Pet pays).
+> · Not covered here: a Sliver whose sacrifice is GRANTED by Basal Sliver is not yet a one-shot on master — the group-grant
+>   path drops the sacrifice cost (Muscle Sliver's granted record reads `sacrifices: false`, a free {B}{B}). The group-grant
+>   lane's fix makes those records one-shot, and this pass then spares them with no change here.
+
 > ## 🔧 2026-10-16 — FIX: the auto-tap pays generic with a PLAIN COLORLESS source first (Mountain ×3 before Sol Ring) · **±0** · corpus 15,492
 > Suite **18,997** green at this commit alone (1,780 files, 1 skipped). Flip-diff **0 / 0 / 0**. **Mutants 17/17**, restore
 > byte-identical. Lint 0; citations 117 unresolved (the same 117 as 4463487c; this slice adds eight, all resolve). 48 July-list

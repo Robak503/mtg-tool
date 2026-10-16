@@ -438,7 +438,10 @@ means "all permanents" (vacuous filter).
   Its taps follow the same idea (`tapAny`): a plain colorless permanent first (every
   record colorless, no rider — the `PLAIN_TAP_FIELDS` whitelist), the smallest that
   covers what is still owed (else board order), then the other repeatable sources in
-  board order, a sacrifice source last.
+  board order, a sacrifice source last. A one-shot source (it sacrifices itself or a
+  creature, or is a card exiled from hand) pays only when the cost cannot be paid
+  without one: `planPayment` plans without them first, then with every source — the
+  storage-land two-pass's shape, so affordability never moves.
 
 ### 4.8 Combat, legal choices, the pilot seam
 

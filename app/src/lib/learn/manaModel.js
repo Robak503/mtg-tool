@@ -2408,6 +2408,24 @@ export function castPaymentSources(state, action) {
  * thing. The unsafe direction requires an explicit, wrong context; the safe direction is the default.
  */
 /**
+ * ONE-SHOT SOURCES ONLY WHEN THE COST NEEDS THEM (2026-10-16). A source spent for good — it sacrifices itself (a Treasure,
+ * an Eldrazi Spawn, Blood Pet, a Sliver under Basal Sliver), sacrifices a creature (Ashnod's Altar) or is a card exiled from
+ * hand (Simian Spirit Guide) — pays only when the cost cannot be paid without one. Pass A plans without them; only if it
+ * fails does pass B plan with every source, exactly as before, so affordability is pass B's and never moves. Pip by pip
+ * cannot do this: Dark Ritual's {B} beside a Swamp and a Sliver under Basal Sliver went to whichever came first on the
+ * battlefield, and an equal-flexibility tie-break would still tap the Swamp for Doom Blade's {B} and then sacrifice the
+ * Sliver for its {1}, where the Sliver's {B}{B} alone pays both.
+ */
+const isOneShotSource = (s) => !!(s && (s.sacrifices || s.sacrificesCreature || s.fromHand));
+export function planPayment(pool, sources, cost, spendContext = null) {
+  const all = sources || [];
+  if (all.some(isOneShotSource)) {
+    const kept = planPaymentRemovalAware(pool, all.filter((s) => !isOneShotSource(s)), cost, spendContext);
+    if (kept) return kept;
+  }
+  return planPaymentRemovalAware(pool, all, cost, spendContext);
+}
+/**
  * STAGE ④-4 — TWO-PASS PLANNING around counter-removal sources. A storage land offers two records on one
  * permanent (its plain tap and its counter-removal line) and the greedy planner tries sources in order:
  * taking the plain tap first would exclude the removal sibling and report a payable {3} as unpayable, while
@@ -2416,7 +2434,7 @@ export function castPaymentSources(state, action) {
  * does pass B plan with every record, a permanent's larger sibling first. Boards with no removal record take
  * pass A alone — byte-identical to the single-pass planner.
  */
-export function planPayment(pool, sources, cost, spendContext = null) {
+function planPaymentRemovalAware(pool, sources, cost, spendContext = null) {
   const hasRemoval = (sources || []).some((s) => s && s.removesCounters);
   if (!hasRemoval) return planPaymentOnce(pool, sources, cost, spendContext);
   const passA = planPaymentOnce(pool, (sources || []).filter((s) => !s.removesCounters), cost, spendContext);
