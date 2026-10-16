@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **22 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
+> **23 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,35 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🖱️ 2026-10-16 — FIX: the Academy board's cast chooser — every cast variant is reachable (follow-up to shelf D16) · **±0** · corpus unchanged
+> Suite **18,992** green (1,780 files, 1 skipped — on 4463487c). Flip-diff n/a (UI only — no engine file touched). **Mutants 11/11**, restore byte-identical.
+> · **The bug.** `LearnBoard.clickPermanent` dispatched `targeting.options.find(...)` — the FIRST option aimed at the clicked
+>   permanent. legalChoices interleaves normal, kicked, normal, kicked …, so a kicked / teamwork / other-mode / alternative-cost
+>   cast at the same target was never reachable by click; a card whose options take no target (Village Rites, a kicker
+>   creature, a modal double-faced card's land) or target a player or a stack object entered target mode with nothing
+>   clickable. The fallback bar showed 6 options and its labels named only the kicker and escape, so Village Rites' two
+>   sacrifices read identically.
+> · **The fix (UI only).** `castChooserView(options, boardIds, pickedId)` — board targets highlight, every off-board target
+>   (player, stack object, graveyard card) gets a button, targetless plays are rows; a picked target with more than one cast
+>   lists them. Rows come from `variantChoices`: each labelled by what differs (face, target, the clauses not every row
+>   shares; "Normal cast"; repeats numbered). `castVariantClauses` is the one source of variant wording — mode, X,
+>   kicker/teamwork, bestow, emerge, flashback, escape, alt (evoke named), Bolas's Citadel's life cost, the additional costs
+>   — and `actionLabel` appends it. Player targets read as seats; same-named targets get their controller. The chooser is
+>   derived from the live decision each render (it closes itself when its card has no options left). Also: the commander
+>   tile opens the chooser (it only magnified before — a commander cast was reachable only through the 6-cap bar); a land
+>   that is a legal target is targeted, not tapped, under manual mana; an opponent summary glows while it holds a target;
+>   the bar's overflow is a "+N more" sheet.
+> · **Live check (dev server, scratch data root, a seeded commander puzzle):** HULK SMASH! at Opponent 1's Sol Ring listed
+>   the plain cast and both teamwork casts, and the picked row dispatched with `kicked: true` and its tap set; Village
+>   Rites, Baloth Gorger (Normal / Kicked +3), Blaze (player buttons, then X=1–9), the commander and the overflow sheet all
+>   dispatched the option shown.
+> · Witness `castVariantChooser.test.jsx` (16 — engine-backed HULK SMASH!, Village Rites, Baloth Gorger, Blaze; labels;
+>   the rendered bar; the overflow and commander hint).
+> · ⚠️ Found, not fixed: LearnView's list-mode `DecisionPrompt` (no board) still renders `opt.name || opt.kind`, not
+>   `actionLabel`; `actionLabel` has no bespoke wording for activate-ability / crew / cycle / loyalty, so several read
+>   "activate ability" alike (now numbered in the overflow, still alike in the bar); the engine does not offer Stomp (the
+>   Bonecrusher Giant adventure) in the seeded position — not investigated.
 
 > ## 📚 2026-10-16 — CITATION GATE (docs only): every CR citation names a real rule; the check joins `npm run lint` · **±0**
 > Suite **18,952** green (1 skipped; 1,777 files) under the gate lock on 4d599284; rebased onto 4463487c after, where the

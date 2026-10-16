@@ -13,10 +13,14 @@
  *   bottom — collapsible hand (click-toggle) + the progression button + a
  *            fallback list of every legal action (so the game is never a dead-end)
  *
- * v1 interactions wired: click a playable hand/board card → its action (with a
- * simple target-pick step for targeted spells); the progression button → pass /
- * advance; opponent summary → focus swap; any card → magnify. Real art via
- * /api/art-crop. Non-card actions always available in the fallback action row.
+ * v1 interactions wired: click a playable hand/board card → its action; a card
+ * with more than one way to play it (a target to pick, a mode, X, kicker or
+ * teamwork, an alternative or additional cost, a land face) opens the cast
+ * chooser, which lists each variant by what sets it apart (castChooserView);
+ * the commander in the command zone opens the same chooser; the progression
+ * button → pass / advance; opponent summary → focus swap; any card → magnify.
+ * Real art via /api/art-crop. Non-card actions always available in the fallback
+ * action row, with a "+N more" list for the actions that don't fit.
  */
 
 import { useState } from "react";
@@ -31,6 +35,8 @@ const ART = (name) => `/api/card-image?name=${encodeURIComponent(name || "")}`;
 const MANA_PIPS = [["W", "#f5f0d8"], ["U", "#a9d2f0"], ["B", "#b9a7c0"], ["R", "#f0a98f"], ["G", "#9fd0a3"], ["C", "#cfd0dd"]];
 const TONE_COLOR = { win: "var(--ley-green)", loss: "var(--ley-red)", draw: "var(--ley-gold)", neutral: "var(--ley-text-dim)" };
 const KW_ABBR = { Flying: "FLY", Reach: "RCH", Deathtouch: "DT", Trample: "TR", Vigilance: "VIG", Lifelink: "LL", "First Strike": "FS", "Double Strike": "DS", Menace: "MEN", Haste: "HST", Hexproof: "HEX", Indestructible: "IND" };
+// The bottom bar shows this many legal actions; the rest sit behind its "+N more" list.
+const BAR_ACTION_LIMIT = 6;
 
 /** Group identical permanents (token stacks) into one tile with a count. */
 function stackPermanents(perms) {
@@ -61,6 +67,78 @@ function progressionLabel(step, stackLen, passOption) {
   }
 }
 
+// The additional costs a cast pays, by the name legalChoices gives each payment (CR 601.2f): pay life, pay mana, the
+// permanent sacrificed, the card discarded, exiled from the graveyard, returned to hand or revealed.
+const ADDITIONAL_COST_NAMES = ["payLifeName", "payManaName", "sacName", "discardName", "exileGyName", "returnName", "revealName"];
+
+/**
+ * The clauses that set one cast apart from a plain cast of the same card, in reading order: the chosen mode(s), X, the kicker
+ * (teamwork names the creatures it taps, shelf D16), an alternative cost (bestow, emerge, flashback, escape with the three
+ * graveyard cards it exiles, P·29; a pitch, evoke or another "rather than its mana cost" payment) and the additional costs.
+ * The ONE place variant wording lives: actionLabel appends these, and the cast chooser lists each variant by them. Without
+ * them a plain and a paid cast read identically, and a cost (the creature sacrificed, the card pitched) goes unnamed.
+ */
+export function castVariantClauses(o) {
+  if (!o || o.kind !== "cast-spell") return [];
+  const out = [];
+  if (o.modeName) out.push(o.modeName);
+  if (o.xName) out.push(o.xName);
+  if (o.kicked && o.kickedName) out.push(o.kickedName);
+  if (o.bestow) out.push("bestow");
+  if (o.emerge) out.push(o.sacCreatureName ? `emerge: sacrifice ${o.sacCreatureName}` : "emerge");
+  if (o.flashbackCast) out.push("flashback");
+  if (o.escapeName) out.push(o.escapeName);
+  if (o.altName) out.push(o.altCost?.evoke ? `evoke: ${o.altName}` : o.altName);
+  // Bolas's Citadel's library-top cast carries its life payment as an altCost with no altName (P·17).
+  else if (o.lifeCostFromTop && o.altCost) out.push(o.altCost.payLife ? `pay ${o.altCost.payLife} life rather than its mana cost` : "without paying its mana cost");
+  for (const key of ADDITIONAL_COST_NAMES) if (o[key]) out.push(o[key]);
+  return out;
+}
+
+// A target's controller as a possessive, for telling apart two targets that share a name.
+const controllerPossessive = (pid) => (pid === "user" ? "your" : `${SEAT_LABELS[pid] || pid}'s`);
+
+/**
+ * Human labels for a list of targets: a player reads as its seat ("Opponent 1", never the engine's "ai1"), anything else by
+ * name. Two targets sharing a name — your Grizzly Bears and theirs — are told apart by their controller.
+ */
+export function targetLabels(targets) {
+  const names = targets.map((t) => (t?.type === "player" ? SEAT_LABELS[t.id] || t.id : t?.name || ""));
+  const uses = new Map();
+  for (const n of names) uses.set(n, (uses.get(n) || 0) + 1);
+  return targets.map((t, i) => (uses.get(names[i]) > 1 && t?.type !== "player" && t?.controller
+    ? `${controllerPossessive(t.controller)} ${names[i]}`
+    : names[i]));
+}
+
+// What a cast is aimed at, as one string — from its target objects, or the engine's targetName when they carry no names.
+function castTargetText(o) {
+  const labels = targetLabels((o.targets || []).filter(Boolean));
+  return labels.length && labels.every(Boolean) ? labels.join(", ") : o.targetName || null;
+}
+
+// The three parts a hand-card play's label is built from: the verb and the face played, the target, the variant clauses.
+function playLabelParts(o) {
+  return {
+    head: `${o.kind === "play-land" ? "Play" : "Cast"} ${o.name}`,
+    target: o.kind === "cast-spell" ? castTargetText(o) : null,
+    clauses: castVariantClauses(o),
+  };
+}
+
+// Number the labels that repeat ("Sacrifice Goblin Token (1)", "(2)"), so every button reads differently from the others.
+function numberRepeats(labels) {
+  const total = new Map();
+  for (const l of labels) total.set(l, (total.get(l) || 0) + 1);
+  const seen = new Map();
+  return labels.map((l) => {
+    if (total.get(l) === 1) return l;
+    const n = (seen.get(l) || 0) + 1;
+    seen.set(l, n);
+    return `${l} (${n})`;
+  });
+}
+
 /**
  * Human label for a legal-action object — the ONE source of truth for how an
  * action reads, shared by the fallback action buttons AND the P3 post-game
@@ -71,10 +149,10 @@ function progressionLabel(step, stackLen, passOption) {
 export function actionLabel(o) {
   if (!o || !o.kind) return "—";
   switch (o.kind) {
-    // A kicked / teamwork variant says so (shelf D16 — "teamwork: tap Grizzly Bears"); without it the plain and the paid cast
-    // read identically, and the teamwork one taps creatures the player never saw named.
-    // An escape cast names the three graveyard cards it exiles (P·29 — Underworld Breach) — a cost the player never saw otherwise.
-    case "cast-spell": return `Cast ${o.name}${o.targetName ? ` → ${o.targetName}` : ""}${o.kicked && o.kickedName ? ` (${o.kickedName})` : ""}${o.escapeName ? ` (${o.escapeName})` : ""}`;
+    case "cast-spell": {
+      const { head, target, clauses } = playLabelParts(o);
+      return `${head}${target ? ` → ${target}` : ""}${clauses.length ? ` (${clauses.join("; ")})` : ""}`;
+    }
     case "play-land": return `Play ${o.name}`;
     case "declare-attacker": return `Attack ${o.targetName || o.defenderName || SEAT_LABELS[o.defenderId] || ""} with ${o.name}`.trim();
     case "declare-blocker": return `Block ${o.attackerName || "attacker"} with ${o.name}`;
@@ -82,6 +160,108 @@ export function actionLabel(o) {
     case "tap-for-mana": return `Tap ${o.name || "a land"} for mana`;
     default: return o.kind.replace(/-/g, " ");
   }
+}
+
+const hasTarget = (o) => (o?.targets || []).some((t) => t?.id);
+
+/** The casts in `options` aimed at the target `id` (any of their targets). */
+export function castsAimedAt(options, id) {
+  return options.filter((o) => (o.targets || []).some((t) => t?.id === id));
+}
+
+/**
+ * The cast chooser's rows for legal plays of ONE card, each labelled by what sets it apart from the others: the face played
+ * (an Adventure half, a modal double-faced card's land), the target, and the clauses of castVariantClauses that not every
+ * row shares. A lone play keeps its full action label; a cast with nothing of its own reads "Normal cast"; two rows that
+ * still read the same are numbered.
+ */
+export function variantChoices(options) {
+  if (options.length <= 1) return options.map((option) => ({ option, label: actionLabel(option) }));
+  const parts = options.map(playLabelParts);
+  const differs = (key) => parts.some((p) => p[key] !== parts[0][key]);
+  const showHead = differs("head");
+  const showTarget = differs("target");
+  const shared = parts[0].clauses.filter((c) => parts.every((p) => p.clauses.includes(c)));
+  const labels = parts.map((p) => {
+    const bits = [];
+    if (showHead) bits.push(p.head);
+    if (showTarget && p.target) bits.push(`→ ${p.target}`);
+    bits.push(...p.clauses.filter((c) => !shared.includes(c)));
+    const text = bits.join(" · ");
+    return text ? text.charAt(0).toUpperCase() + text.slice(1) : "Normal cast";
+  });
+  const numbered = numberRepeats(labels);
+  return options.map((option, i) => ({ option, label: numbered[i] }));
+}
+
+/**
+ * What the cast chooser offers for one card's legal plays (`options`), given the ids of every permanent on the board.
+ * Before a target is picked: the permanents some cast can target (`boardTargetIds` — highlighted, picked by clicking them),
+ * a button for every other target (a player, a spell or ability on the stack, a card in a graveyard), and a row for each
+ * play that takes no target. Once a target is picked (`pickedId`): a row for each cast aimed at it. Every legal play of the
+ * card is reachable this way; the old target click took the FIRST option aimed at the permanent, so a kicked, teamwork or
+ * other-mode cast at the same target never was.
+ */
+export function castChooserView(options, boardIds, pickedId = null) {
+  const targeted = options.filter(hasTarget);
+  const boardTargetIds = new Set();
+  const offBoard = new Map(); // id → target, in the order the casts name them
+  for (const o of targeted) {
+    for (const t of o.targets) {
+      if (!t?.id) continue;
+      if (boardIds.has(t.id)) boardTargetIds.add(t.id);
+      else if (!offBoard.has(t.id)) offBoard.set(t.id, t);
+    }
+  }
+  const offTargets = [...offBoard.values()];
+  const offLabels = targetLabels(offTargets);
+  const aimed = pickedId ? castsAimedAt(targeted, pickedId) : [];
+  const pickedTarget = aimed.length ? aimed[0].targets.find((t) => t?.id === pickedId) : null;
+  return {
+    boardTargetIds,
+    targetButtons: offTargets.map((t, i) => ({ id: t.id, label: offLabels[i] })),
+    picked: pickedTarget ? { id: pickedId, label: targetLabels([pickedTarget])[0] } : null,
+    rows: variantChoices(pickedTarget ? aimed : options.filter((o) => !hasTarget(o))),
+  };
+}
+
+/**
+ * The cast chooser bar for one hand / command-zone card (`view` from castChooserView). `onTarget(id)` picks a target,
+ * `onCast(option)` plays a row, `onView` magnifies the card, `onCancel` closes.
+ */
+export function CastChooser({ card, view, onTarget, onCast, onView, onCancel }) {
+  const anyTarget = view.boardTargetIds.size > 0 || view.targetButtons.length > 0;
+  const verb = view.rows.some((r) => r.option.kind === "play-land") ? "play" : "cast";
+  return (
+    <div className="lb-targetbar lb-castbar">
+      <div className="lb-castline">
+        {view.picked
+          ? <span>Cast <b>{card.name}</b> → <b>{view.picked.label}</b> — choose how</span>
+          : anyTarget
+            ? <span>Choose a target for <b>{card.name}</b>{view.boardTargetIds.size > 0 ? " · highlighted permanents are legal" : ""}</span>
+            : <span><b>{card.name}</b> — choose how to {verb} it</span>}
+        <span className="lb-castctl">
+          <button className="btn btn-ghost btn-sm" onClick={onView} title="View the card">🔍 card</button>
+          <button className="btn btn-ghost btn-sm" onClick={onCancel}>cancel</button>
+        </span>
+      </div>
+      {view.targetButtons.length > 0 && (
+        <div className="lb-variants">
+          {view.targetButtons.map((t) => (
+            <button key={t.id} className={`btn btn-secondary btn-sm ${view.picked?.id === t.id ? "on" : ""}`} onClick={() => onTarget(t.id)}>{t.label}</button>
+          ))}
+        </div>
+      )}
+      {view.rows.length > 0 && (
+        <div className="lb-variants">
+          {!view.picked && anyTarget && <span className="lb-or">or</span>}
+          {view.rows.map((r, i) => (
+            <button key={i} className="btn btn-secondary btn-sm" onClick={() => onCast(r.option)}>{r.label}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -125,7 +305,10 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
   const [focusedId, setFocusedId] = useState(null);
   const [handUp, setHandUp] = useState(true);
   const [enlarged, setEnlarged] = useState(null);
-  const [targeting, setTargeting] = useState(null); // { card, options }
+  // The cast chooser's card and the target picked so far. Its options are re-read from the live decision every render, so
+  // the chooser never offers an action the current decision doesn't hold.
+  const [casting, setCasting] = useState(null); // { card, pickedId }
+  const [moreOpen, setMoreOpen] = useState(false); // the "+N more" list of the actions past the bar's limit
   const [manualMana, setManualMana] = useState(difficulty === "beginner"); // Beginner default ON
   const [manaPick, setManaPick] = useState(null); // dual land color choice: { name, options }
   const [peek, setPeek] = useState(false);        // game-over "Review board" peek
@@ -160,7 +343,11 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
   const passOption = options.find(o => o.kind === "pass-priority");
   const stackLen = (board?.stack || []).length;
   const progLabel = progressionLabel(step, stackLen, passOption);
-  const legalTargetIds = targeting ? new Set(targeting.options.flatMap(o => (o.targets || []).map(t => t.id))) : null;
+  // The cast chooser, derived from the live decision: an empty option list (the decision moved on) closes it.
+  const boardIds = new Set(players.flatMap(p => [...(p.permanents || []), ...(p.lands || [])].map(c => c.id)));
+  const castOpts = casting ? optsForCard(casting.card.id) : [];
+  const castView = castOpts.length ? castChooserView(castOpts, boardIds, casting.pickedId) : null;
+  const legalTargetIds = castView ? castView.boardTargetIds : null;
   // A stacked tile's own .id is just its FIRST member's id, but the engine may
   // offer a LATER copy as the legal target — check every member and remember
   // which one matched so the click dispatches the right option (U-F11).
@@ -169,9 +356,25 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
     for (const id of (tile.ids || [tile.id])) { if (legalTargetIds.has(id)) return id; }
     return null;
   };
+  // An opponent's summary glows while a permanent on their board is a legal target (their board shows it once focused).
+  const holdsTarget = (p) => !!legalTargetIds && [...p.permanents, ...p.lands].some(c => legalTargetIds.has(c.id));
+  const barOptions = options.filter(o => o.kind !== "pass-priority" && o.kind !== "tap-for-mana");
+  const hiddenOptions = barOptions.slice(BAR_ACTION_LIMIT);
+  const cmdCard = me.command?.[0] || null;
+  const cmdCastable = !!cmdCard && optsForCard(cmdCard.id).length > 0;
+
+  // A play the player commits to closes the "+N more" list, whichever control it came from.
+  const act = (o) => { setMoreOpen(false); onAction(o); };
+  const cast = (o) => { setCasting(null); act(o); };
+  const pickTarget = (id) => {
+    const aimed = castsAimedAt(castOpts, id);
+    if (aimed.length === 1) cast(aimed[0]);
+    else if (aimed.length > 1) setCasting(c => (c ? { ...c, pickedId: id } : c));
+  };
 
   const clickLand = (tile) => {
-    if (manaTapEnabled) {
+    // A land that is a legal target of the cast being chosen is targeted, not tapped for mana.
+    if (manaTapEnabled && !tileTargetId(tile)) {
       const opts = tapOptsForTile(tile);
       if (opts.length === 1) { onAction(opts[0]); return; }
       if (opts.length > 1) { setManaPick({ name: tile.name, options: opts }); return; } // dual → pick color
@@ -179,22 +382,21 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
     clickPermanent(tile);
   };
 
-  const clickHandCard = (card) => {
+  // A hand card with exactly one play and nothing to choose plays at once; anything else opens the cast chooser. The
+  // commander passes `ask`: a click on it only ever showed the card, so it opens the chooser rather than casting outright.
+  const clickCastable = (card, ask = false) => {
     const opts = optsForCard(card.id);
     if (!opts.length) { setEnlarged(card); return; }       // not playable now → just show it
-    if (opts.length === 1 && !opts[0].needsTargets) { onAction(opts[0]); return; }
-    setTargeting({ card, options: opts });                  // pick a target
+    if (!ask && opts.length === 1 && !hasTarget(opts[0])) { act(opts[0]); return; }
+    setCasting({ card, pickedId: null });
   };
   const clickPermanent = (perm) => {
-    const targetId = targeting ? tileTargetId(perm) : null;
-    if (targetId) {
-      const opt = targeting.options.find(o => (o.targets || []).some(t => t.id === targetId));
-      if (opt) { onAction(opt); setTargeting(null); return; }
-    }
+    const targetId = tileTargetId(perm);
+    if (targetId) { pickTarget(targetId); return; }
     setEnlarged(perm);
   };
   const clickProgress = () => {
-    if (passOption) onAction(passOption);
+    if (passOption) act(passOption);
   };
 
   return (
@@ -204,10 +406,9 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
       {viewingOpp && (
         <button className="lb-backbar btn btn-secondary btn-sm" onClick={() => setFocusedId(me.id)}>← Back to your board (viewing {focused.id})</button>
       )}
-      {targeting && (
-        <div className="lb-targetbar">Choose a target for <b>{targeting.card.name}</b> · highlighted permanents are legal
-          <button className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={() => setTargeting(null)}>cancel</button>
-        </div>
+      {castView && (
+        <CastChooser card={casting.card} view={castView} onTarget={pickTarget} onCast={cast}
+          onView={() => setEnlarged(casting.card)} onCancel={() => setCasting(null)} />
       )}
       {manaPick && (
         <div className="lb-targetbar lb-manabar">Tap <b>{manaPick.name}</b> for which color?
@@ -236,8 +437,8 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
           )}
           <div className="lb-box lb-cmd">
             <div className="lb-zl" style={{ marginBottom: 4 }}>Commander</div>
-            {me.command?.[0]
-              ? <Card card={me.command[0]} onClick={() => setEnlarged(me.command[0])} sel />
+            {cmdCard
+              ? <Card card={cmdCard} onClick={() => clickCastable(cmdCard, true)} sel hint={cmdCastable ? "▶ cast" : null} />
               : <div className="lb-empty">—</div>}
           </div>
           <div className="lb-box lb-tax"><div className="lb-zl">Cmd Tax</div><div className="lb-tn">+{2}</div></div>
@@ -283,7 +484,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
         {/* RIGHT: opponent summaries + log */}
         <div className="lb-right">
           {opponents.map(o => (
-            <div key={o.id} className={`lb-osum ${focusedId === o.id ? "on" : ""}`} onClick={() => setFocusedId(o.id)}>
+            <div key={o.id} className={`lb-osum ${focusedId === o.id ? "on" : ""} ${holdsTarget(o) ? "target" : ""}`} onClick={() => setFocusedId(o.id)}>
               {o.command?.[0] && <img className="lb-ct" src={ART(o.command[0].name)} alt="" />}
               <div className="lb-info">
                 <div className="lb-onm">{o.command?.[0]?.name || o.id}</div>
@@ -317,7 +518,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
             return (
               <div key={card.id || i} className={`lb-handcard ${playable ? "playable" : ""}`}
                 style={{ transform: `rotate(${rot}deg) translateY(${Math.abs(rot) * 0.9}px)` }}
-                onClick={() => clickHandCard(card)}>
+                onClick={() => clickCastable(card)}>
                 <Card card={card} hand />
                 {playable && <div className="lb-playhint">▶ play</div>}
               </div>
@@ -337,12 +538,17 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
           {(decision?.prompt || "").split("\n")[0]}{decision?.prompt && decision.prompt.includes("\n") ? (narrExpanded ? " ▲" : " ▼") : ""}
         </span>
         <div className="lb-actions">
-          {options.filter(o => o.kind !== "pass-priority" && o.kind !== "tap-for-mana").slice(0, 6).map((o, i) => (
-            <button key={i} className="btn btn-secondary btn-sm" onClick={() => onAction(o)} title={o.kind}>
+          {barOptions.slice(0, BAR_ACTION_LIMIT).map((o, i) => (
+            <button key={i} className="btn btn-secondary btn-sm" onClick={() => act(o)} title={o.kind}>
               {actionLabel(o)}
             </button>
           ))}
         </div>
+        {hiddenOptions.length > 0 && (
+          <button className="btn btn-ghost btn-sm" onClick={() => setMoreOpen(v => !v)} title="The legal actions that don't fit in the bar">
+            +{hiddenOptions.length} more
+          </button>
+        )}
         {me.manaPool && (
           <button className="btn btn-secondary btn-sm" style={manualMana ? { background: "var(--ley-green-dim)" } : undefined}
             onClick={() => setManualMana(v => !v)}
@@ -352,6 +558,20 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
         )}
         {progLabel && <button className="btn btn-primary" onClick={clickProgress}>{progLabel}</button>}
       </div>
+
+      {moreOpen && hiddenOptions.length > 0 && (
+        <div className="lb-more ley-glass-strong ley-glass-lit">
+          <div className="lb-moreh">
+            <span className="lb-zl">More actions</span>
+            <button className="btn btn-ghost btn-sm" onClick={() => setMoreOpen(false)}>close</button>
+          </div>
+          {numberRepeats(hiddenOptions.map(actionLabel)).map((label, i) => (
+            <button key={i} className="btn btn-secondary btn-sm" onClick={() => act(hiddenOptions[i])} title={hiddenOptions[i].kind}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {narrExpanded && decision?.prompt && (
         <div className="lb-narrpanel" onClick={() => setNarrExpanded(false)}>
@@ -397,11 +617,12 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
   );
 }
 
-function Card({ card, onClick, sel, hand, count, tappable, target }) {
+function Card({ card, onClick, sel, hand, count, tappable, target, hint }) {
   const cls = ["lb-card", sel && "sel", hand && "hand", tappable && card.tapped && "tapped", card.summoningSick && "sick", target && "target"].filter(Boolean).join(" ");
   return (
     <div className={cls} onClick={onClick} title={card.name}>
       {count && <div className="lb-cnt">×{count}</div>}
+      {hint && <div className="lb-cardhint">{hint}</div>}
       <img className="lb-cimg" src={ART(card.name)} alt={card.name} loading="lazy" />
       <div className="lb-mag">🔍</div>
       {card.isCreature && card.power != null && <div className="lb-pt">{card.power}/{card.toughness}</div>}
@@ -446,6 +667,14 @@ const LB_CSS = `
 .lb-backbar{width:100%;justify-content:flex-start;}
 .lb-targetbar{display:flex;align-items:center;gap:10px;padding:6px 14px;font-size:12px;font-weight:700;background:var(--ley-gold-dim);color:var(--ley-gold);}
 .lb-targetbar b{color:var(--ley-text);}
+/* Cast chooser — the target bar grown into rows: the prompt line, then target buttons, then one button per variant */
+.lb-castbar{flex-direction:column;align-items:stretch;gap:6px;}
+.lb-castline{display:flex;align-items:center;gap:10px;}
+.lb-castctl{margin-left:auto;display:flex;gap:4px;flex:0 0 auto;}
+.lb-variants{display:flex;flex-wrap:wrap;align-items:center;gap:6px;max-height:132px;overflow-y:auto;}
+.lb-variants .btn{white-space:normal;line-height:1.3;text-align:left;}
+.lb-variants .btn.on{border-color:var(--ley-green);background:var(--ley-green-dim);}
+.lb-or{font-size:11px;font-weight:700;color:var(--ley-text-faint);}
 .lb-table{flex:1;display:grid;grid-template-columns:166px 1fr 290px;gap:8px;padding:8px;min-height:0;}
 .lb-left{display:flex;flex-direction:column;gap:8px;min-height:0;}
 .lb-box{border:1px solid var(--ley-line);border-radius:9px;background:var(--ley-surface-1);padding:8px;}
@@ -476,6 +705,7 @@ const LB_CSS = `
 .lb-card.sel{border-color:var(--ley-green);box-shadow:0 0 0 2px var(--ley-green);}
 .lb-card.tapped{transform:rotate(90deg);} .lb-card.sick{filter:saturate(.6) brightness(.84);}
 .lb-card.target{border-color:var(--ley-green-bright);box-shadow:0 0 0 2px var(--ley-green-bright),0 0 14px var(--ley-green-glow);}
+.lb-card .lb-cardhint{position:absolute;top:4px;left:50%;transform:translateX(-50%);z-index:5;font-size:9px;font-weight:700;color:var(--ley-green-bright);background:rgba(0,0,0,0.75);border:1px solid var(--ley-line-bright);border-radius:4px;padding:1px 6px;white-space:nowrap;}
 .lb-card:hover{border-color:var(--ley-green);}
 .lb-land{position:relative;width:78px;aspect-ratio:488/680;border-radius:6px;overflow:hidden;border:1px solid var(--ley-line-bright);background:var(--ley-surface-0);cursor:pointer;}
 .lb-land .lb-cimg{width:100%;height:100%;object-fit:cover;}
@@ -483,6 +713,7 @@ const LB_CSS = `
 .lb-right{display:flex;flex-direction:column;gap:8px;min-height:0;}
 .lb-osum{display:flex;align-items:center;gap:10px;border:1px solid var(--ley-line);border-radius:9px;background:linear-gradient(var(--ley-surface-2),var(--ley-surface-1));padding:8px 11px;cursor:pointer;position:relative;flex:0 0 auto;}
 .lb-osum:hover,.lb-osum.on{border-color:var(--ley-green);box-shadow:0 0 0 1px var(--ley-green-dim);}
+.lb-osum.target{border-color:var(--ley-green-bright);box-shadow:0 0 0 2px var(--ley-green-bright),0 0 14px var(--ley-green-glow);}
 .lb-osum .lb-ct{width:42px;height:57px;border-radius:5px;border:1px solid var(--ley-line-bright);object-fit:cover;flex:0 0 auto;}
 .lb-osum .lb-info{flex:1;min-width:0;} .lb-osum .lb-onm{font-size:13px;font-weight:800;color:var(--ley-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .lb-osum .lb-ost{font-size:10.5px;color:var(--ley-text-dim);margin-top:4px;} .lb-osum .lb-ost b{color:var(--ley-text);}
@@ -503,6 +734,10 @@ const LB_CSS = `
 .lb-bar .lb-narr{flex:1;font-size:12px;color:var(--ley-text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .lb-bar .lb-narr-click{cursor:pointer;} .lb-bar .lb-narr-click:hover{color:var(--ley-green);}
 .lb-actions{display:flex;gap:6px;overflow-x:auto;max-width:42%;}
+/* "+N more" — the legal actions past the bar's limit, an elevated sheet over the bar's right end */
+.lb-more{position:absolute;right:14px;bottom:54px;z-index:40;display:flex;flex-direction:column;gap:6px;min-width:240px;max-width:min(520px,calc(100% - 28px));max-height:50vh;overflow-y:auto;padding:10px 12px;}
+.lb-moreh{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.lb-more .btn{justify-content:flex-start;text-align:left;white-space:normal;line-height:1.3;}
 .lb-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.7);z-index:50;display:flex;align-items:center;justify-content:center;}
 .lb-narrpanel{position:absolute;inset:0;background:rgba(0,0,0,0.7);z-index:52;display:flex;align-items:center;justify-content:center;padding:24px;}
 .lb-narrbody{padding:20px 24px;max-width:560px;max-height:70vh;overflow-y:auto;}
