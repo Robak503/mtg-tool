@@ -16,6 +16,33 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 📚 2026-10-16 — CITATIONS (docs only): real rules cited for the wrong mechanic — 176 one-line edits · **±0**
+> Comments and test titles only: of the 67 changed source files, 56 are token-identical to their parent (espree tokens,
+> comments excluded) and 11 are test files whose only token change is a describe/it title. Lint 0; the citation check
+> reads 9,931 citations, 0 name no rule. Suite: run once on the stacked tree with the next entry's commit (see there).
+> · **The queued families from the entry below, swept file-wide** (each new number read in cr_current.json): tribute
+>   702.96/a (Overload) → 702.104/a ×11 · scavenge 702.96 → 702.97 · dethrone 702.104a (Tribute) → 702.105a ×5 · emerge
+>   702.97/a (Scavenge) → 702.119/a ×12, dropped ×2 ("Emerge cards are creatures": no rule says so) · search
+>   701.19/a/b/c (Regenerate) → 701.23/a/b/g ×15, 608.2c where the claim is "the destination is whatever the card
+>   says" ×4 · monstrosity 701.32/a/b/c (Set in Motion) → 701.37/a/b ×9 · die
+>   rolls 726.2–726.4 (the initiative) → 706.1a/b · evolve's comparison 702.100d (multiple instances) → 702.100a + 603.4
+>   ×5 · layer-7 reads 613.3 (layers 2–6) → 613.4/613.4c ×9, 613.1g ×2 · suspend's upkeep tick 702.62d → 702.62a ×2 ·
+>   summoning sickness 702.10c (haste) → 302.6 ×15 · "X bound at cast" 202.3b (DFC back faces) → 107.3a ×10 · the
+>   adventurer's creature half 715.2b → 715.3/715.4 ×6 · 601.3e as a generic permission → 601.3b (flash grants) ×10,
+>   305.2a (the land-play count) ×4, 601.3 (cast permission) ×6; kept where the permission is type-filtered (its own
+>   examples are Garruk's Horde and Melek) ×3; equip's target 702.6e (Equip planeswalker) → 702.6a ×3.
+> · **Same wrong numbers, more mechanics:** ingest 701.19a → 702.115a ×4 · shuffle 701.19/701.19e → 701.24a ×2 ·
+>   populate 701.32a → 701.36a ×4 · equip "sorcery speed" 702.6b → 702.6a ×2 · 202.3b for "MV is the printed cost" →
+>   202.3, 202.3e (X on/off the stack), 118.9c (an alternative cost), 118.8d (an additional cost: commander tax, Toxic
+>   Deluge) ×15 · 118.6 (unpayable cost) as the play-from-zone permission → 116.2a (a land played "from the zone it was
+>   in") / 601.3 ×13, dropped ×2 (a filter's word list is a union: no rule says so) · "CR 720" (Omen cards) for gain
+>   control → 613.1b · the 702.100a/f shorthand (there is no 702.100f) → 702.100a.
+> · ⚠️ **Found, not fixed (code, not comments):** the kicked cast action's `cmc` is printed + kicker and the bestowed
+>   cast's is the bestow cost; both comments cite 202.3b for it, and CR 118.8d / 118.9c say additional and alternative costs
+>   don't change mana value. The field feeds opponentAI's scoring; whether it reaches a spell's MV on the stack is
+>   unverified. Left as written for a code slice. ⚠️ A keyword-vs-section scan ("AFFLICT (CR 702.131)" where 702.131 is
+>   Ascend) finds ~180 more off-by-N citations across ~50 keywords — too many to gate in this slice; queued.
+
 > ## 🔧 2026-10-16 — FIX: a mandatory trigger whose only legal targets are on the wrong side still takes one (CR 603.3d) — Man-o'-War returns itself · **+0** · corpus 15,492
 > Suite **19,001** green (1 skipped) / 1,780 files on the tree rebased onto 4463487c (18,968 / 1,777 on c1f630ab before the
 > rebase). Flip-diff **0 / 0 / 0**. **Mutants 24/24** on assertions, restore byte-identical. 48 seeded July-list games

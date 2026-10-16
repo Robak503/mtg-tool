@@ -743,7 +743,7 @@ function gateMet(state, perm, gate) {
   // above, and pure ignition: `perm.monstrous` is a real latch already set by the monstrosity atom
   // (effects/atoms/counters.js applyMonstrosity), and every one of these carriers already has its
   // activation modelled. Only the gate vocabulary was missing, so the whole clause parked.
-  // ⓘ Monstrosity is a ONE-WAY latch (CR 701.32b — a monstrous creature is monstrous forever), so this
+  // ⓘ Monstrosity is a ONE-WAY latch (CR 701.37b — a monstrous creature is monstrous forever), so this
   // needs no history and no timestamp: a live boolean read, re-evaluated like every other gate.
   if (gate.kind === "monstrous") return !!perm.monstrous;
   // CARDS-IN-HAND gate (BLITZ CA-1 — Neheb, the Worthy "As long as you have one or fewer cards in hand,
@@ -1278,7 +1278,7 @@ function effectiveTypeIdentity(candidate, state) {
 
 // P/T-PREDICATE recursion guard (Tetsuko — see the powerOrToughnessAtMost branch below): permanent ids whose
 // layer-aware P/T is being read FROM INSIDE a selector evaluation right now. A nested deriveCharacteristics
-// for such an id (a) excludes the P/T-predicate grant (P/T-irrelevant — CR 613.1f vs 613.3) and (b) skips the
+// for such an id (a) excludes the P/T-predicate grant (P/T-irrelevant — CR 613.1f vs 613.1g) and (b) skips the
 // memo write, so no keyword-less entry can ever be served to a later reader.
 const _ptPredicateInProgress = new Set();
 const _withKeywordInProgress = new Set(); // WD-1 — the withKeyword selector's re-entry guard, shared by FT-1's withoutKeyword twin (see matchesSelector)
@@ -1464,7 +1464,7 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
   // evasion). RECURSION GUARD: deriveCharacteristics pre-buckets EVERY effect through effectAffects, so the
   // P/T read here re-enters deriveCharacteristics for the SAME candidate. The nested pass finds the
   // candidate in _ptPredicateInProgress and EXCLUDES this layer-6 grant — exact for that pass, because a
-  // layer-6 keyword grant cannot influence layer-7 P/T (CR 613.1f vs 613.3), and the OUTER pass's memo
+  // layer-6 keyword grant cannot influence layer-7 P/T (CR 613.1f vs 613.1g), and the OUTER pass's memo
   // write (deriveCharacteristics tail) overwrites the nested keyword-less entry, so keyword readers always
   // see the final, correct set. Terminates at depth 2 by construction.
   if (selector.powerOrToughnessAtMost != null) {

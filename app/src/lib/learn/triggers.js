@@ -2325,7 +2325,7 @@ function classifyCondition(condRaw, cardName, cardType) {
   // AFTER the clash ends (the printed reminder). Bare forms only; any rider on the condition → UNDETECTED.
   if (/^you clash$/.test(c)) return { event: "clash", scope: "you", whose: "any" };
   if (/^you clash and win$/.test(c)) return { event: "clash", scope: "you", whose: "any", winOnly: true };
-  // ===== LIBRARY SEARCH (POD-SIM THREE · KN-5b, 2026-09-05 — CR 701.19) ===== "Whenever an opponent searches their
+  // ===== LIBRARY SEARCH (POD-SIM THREE · KN-5b, 2026-09-05 — CR 701.23) ===== "Whenever an opponent searches their
   // library" (Wan Shi Tong; Ob Nixilis / Aven Mindcensor-family twins). Emitted by the TWO tutor sites only — the
   // no-pause tutor path and the tutor-pause settle — never by the shuffle chokepoint (plain shuffles, wheels and scry
   // shuffles are not searches). Bare opponent form only; a rider → UNDETECTED.
@@ -3351,7 +3351,7 @@ export function firebendingKeywordValue(oracle) {
 }
 
 /**
- * KW-DETHRONE (CR 702.104a) — does the card print the bare keyword? Parens stripped first, like renown /
+ * KW-DETHRONE (CR 702.105a) — does the card print the bare keyword? Parens stripped first, like renown /
  * firebending, because the whole ability lives inside the reminder text.
  *
  * Excluded on purpose: Dack's Duplicate ("…enter as a copy of any creature, except it has haste and
@@ -6183,7 +6183,7 @@ export function detectTriggers(card) {
   // creature-you-control ETB descriptor: checkEnterTriggers fires it (the source's OWN entry included —
   // CR-faithful: comparing itself to itself is never greater, so it correctly never evolves off itself);
   // the comparative intervening-if (LAYER-AWARE P/T of the entering creature vs the source, re-read at
-  // flush AND resolution per CR 603.4 / 702.100d) is enforced by interveningIf.js; the effectClause is the
+  // flush AND resolution per CR 603.4 / 702.100a) is enforced by interveningIf.js; the effectClause is the
   // kind-tagged sentinel ONLY evolveCounterSelfClauseParser models → the evolve-counter-self atom places
   // the +1/+1 counter through the standard doubling/watcher path AND fires the "this creature evolves"
   // watchers (CR 702.100b — a creature evolves exactly when the evolve ability's counter is placed).
@@ -6283,7 +6283,7 @@ export function detectTriggers(card) {
       });
     }
   }
-  // KW-DETHRONE (CR 702.104a, census slice 46) — "Whenever this creature attacks the player with the most
+  // KW-DETHRONE (CR 702.105a, census slice 46) — "Whenever this creature attacks the player with the most
   // life or tied for most life, put a +1/+1 counter on it." Synthesized from the printed keyword like renown
   // / firebending, with an ORDINARY modeled effectClause (the self-scoped add-counter atom, backup's
   // precedent) so no new resolver is needed.
@@ -9125,7 +9125,7 @@ function spellManaValue(spellCard) {
  * Prefers a numeric cmc/mana_value, else SUMS the pips of the printed mana cost (CR 202.3) so a test/runtime
  * card carrying only a `mana`/`mana_cost` string still resolves a correct cap — the same MV arithmetic
  * tutorManaValue (library.js) uses, replicated here so triggers.js stays a leaf (no library import / cycle).
- * {X}/{Y}/{Z} count 0 (CR 202.3b — X is 0 on the stack outside its own cost context); a 2-generic hybrid pip
+ * {X}/{Y}/{Z} count 0 (CR 202.3e — X is 0 while the card is not on the stack); a 2-generic hybrid pip
  * ({2/W}) counts its largest component (CR 202.3f); a colored/phyrexian pip counts 1.
  */
 function cascadingSpellManaValue(spellCard) {

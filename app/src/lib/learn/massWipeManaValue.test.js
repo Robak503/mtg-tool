@@ -6,9 +6,9 @@
  * mana-value qualifier was missing, which is why Austere Command (EDHREC #169) sat on the Arbiter. That is
  * the pattern this whole stretch runs on: the engine knew the EFFECT, not the PHRASING.
  *
- * MANA VALUE IS NOT LAYER-AWARE, and that is deliberate. Power is read through creaturePower (CR 613.3 —
+ * MANA VALUE IS NOT LAYER-AWARE, and that is deliberate. Power is read through creaturePower (CR 613.4c —
  * counters and anthems counted) because layers change it. Mana value comes from the printed mana cost and no
- * layer alters it (CR 202.3b), so a pumped 1-drop is still mana value 1 and Austere Command's "3 or less"
+ * layer alters it (CR 202.3), so a pumped 1-drop is still mana value 1 and Austere Command's "3 or less"
  * still kills it. Reading a "current" mana value would be the wrong rule, not a stricter one.
  *
  * A TOKEN HAS MANA VALUE 0 (CR 111.5) — it has no mana cost at all. So the `?? 0` default on the index's

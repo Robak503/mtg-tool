@@ -120,7 +120,7 @@ export function abilityIsSorcerySpeedOnly(clause) {
   return SORCERY_TIMING_RIDER.test(String(clause || ""));
 }
 
-// FABLED PASSAGE's trailing bonus (CR 701.19 fetch + a conditional untap) — "…, then shuffle. THEN IF YOU
+// FABLED PASSAGE's trailing bonus (CR 701.23 fetch + a conditional untap) — "…, then shuffle. THEN IF YOU
 // CONTROL FOUR OR MORE LANDS, UNTAP THAT LAND." Without this the whole ability failed to parse and the card
 // was **completely dead**: no action offered at all, on a land ranked #50 that sits in three of the shelf's
 // decks. The coverage metric cannot see it — every land classifies `tier: "land"` regardless.

@@ -1,5 +1,5 @@
 /**
- * tutorToGraveyard.test.js — "search your library for a card, put that card into your graveyard" (CR 701.19a).
+ * tutorToGraveyard.test.js — "search your library for a card, put that card into your graveyard" (CR 701.23a).
  *
  * The reanimator setup family: Entomb (rank 328), Buried Alive (371), Goblin Engineer (1172), Unmarked Grave
  * (1599), Vile Entomber (1887), Corpse Connoisseur, Oriq Loremage, Scion of the Ur-Dragon — 17 corpus cards,

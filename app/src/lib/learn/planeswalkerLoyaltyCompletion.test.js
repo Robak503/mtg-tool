@@ -13,7 +13,7 @@
  *   2. UNTAP-N-LANDS — "untap two target lands" → the untap atom's EXACT-count form (minTargets:N = maxTargets:N,
  *      CR 601.2c; CR 701.26b untap). Flips Garruk Wildspeaker; corpus: Argothian Elder / Ley Weaver / Hope Tender.
  *   3. DESTROY-POWER — "destroy all creatures with power N or greater/less" → the eachCreature wipe narrowed by
- *      a LAYER-AWARE effective-power threshold (CR 613.3 counters+anthems, CR 208.1 power, CR 701.8a destroy).
+ *      a LAYER-AWARE effective-power threshold (CR 613.4c counters+anthems, CR 208.1 power, CR 701.8a destroy).
  *      Flips Elspeth, Sun's Champion; corpus: Retribution of the Meek / The Battle of Bywater.
  *
  * WHOLE-CARD LAW (probed on REAL oracle, bundled Scryfall): each flipped walker's OTHER two loyalty abilities
@@ -180,7 +180,7 @@ describe("PW-1 runtime — destroy-power is layer-aware", () => {
   it("massCreatureTargets(power ≥ 4) hits base-4 AND a base-3 lifted by a +1/+1 counter, spares a base-2", () => {
     const s = stateWith({ battlefield: [
       bear("p4", { power: 4 }),
-      bear("p3c", { power: 3, counters: { "+1/+1": 1 } }), // effective power 4 (CR 613.3)
+      bear("p3c", { power: 3, counters: { "+1/+1": 1 } }), // effective power 4 (CR 613.4c)
       bear("p2", { power: 2 }),
     ] });
     const hits = massCreatureTargets(s, { powerCmp: ">=", powerVal: 4 }).map((t) => t.id).sort();

@@ -789,7 +789,7 @@ export function runStepActions(state) {
     }
   }
   if (next.step === "upkeep") next = applyFadeVanishUpkeep(next);
-  // KW-SUSPEND (CR 702.62d) — tick the active player's suspended exile cards beside the other
+  // KW-SUSPEND (CR 702.62a) — tick the active player's suspended exile cards beside the other
   // time-counter upkeep; a card reaching zero becomes castable FREE via legalChoices (the real path).
   if (next.step === "upkeep") next = applySuspendUpkeep(next);
   if (next.step === "upkeep") next = checkStepTriggers(next, "upkeep");

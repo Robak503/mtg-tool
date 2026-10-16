@@ -99,8 +99,8 @@ import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR
 import { parseSplitCard, splitFaceViews } from "./splitCard.js"; // SPLIT CARDS (CR 709) — the two-spell-halves shape module; pure leaf, acyclic
 import { parseModalDfc, mdfcFaceCards, spellMdfcFaceCards } from "./modalDfc.js"; // MODAL DFC LANDS (CR 712.8, V1) — the face-choice land drop; pure leaf, acyclic
 import { parseKickerCounterCreature, parseKickerEtbCreature, stripKickerText } from "./kicker.js"; // KICKER (CR 702.33) — optional cast cost + a was-kicked payoff (enters-with-counters OR a kicked ETB trigger); runtime hooks in legalChoices/actionDispatcher/resolvers. Leaf (no back-import, acyclic).
-import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — alt cast cost (sac a creature/artifact, pay the emerge cost reduced by its MV); runtime hooks in legalChoices/actionDispatcher. Leaf (no back-import, acyclic).
-import { parseTributeCreature } from "./tribute.js"; // TRIBUTE (CR 702.96) — ETB opponent-choice (pay N +1/+1 counters OR the "if tribute wasn't paid" effect); runtime hook in resolvers.enterPermanent. Leaf (no back-import, acyclic).
+import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.119) — alt cast cost (sac a creature/artifact, pay the emerge cost reduced by its MV); runtime hooks in legalChoices/actionDispatcher. Leaf (no back-import, acyclic).
+import { parseTributeCreature } from "./tribute.js"; // TRIBUTE (CR 702.104) — ETB opponent-choice (pay N +1/+1 counters OR the "if tribute wasn't paid" effect); runtime hook in resolvers.enterPermanent. Leaf (no back-import, acyclic).
 
 // Keywords a keyword-only body counts native on — TWO classes, per Colton's
 // "enforce, don't drop" policy (2026-06-18, docs/orchestration/retired-fp-ledger.md):
@@ -320,7 +320,7 @@ export const COVERED_KEYWORDS = [
   // synthesizes the creature-you-control ETB descriptor from the printed keyword (evolveKeywordCount —
   // structural line-segment match, grants never self-synthesize); the comparative intervening-if
   // ("that creature has greater power or toughness than this creature") is enforced LAYER-AWARE by
-  // interveningIf.js at flush + resolution (CR 702.100d); the evolve-counter-self atom places the +1/+1
+  // interveningIf.js at flush + resolution (CR 702.100a / 603.4); the evolve-counter-self atom places the +1/+1
   // through the standard doubling/watcher path and fires the "this creature evolves" watchers
   // (CR 702.100b — Watchful Radstag's copy rider). The bare "evolve" residue matches via the exact ===
   // check; allTriggerSentencesModeled bumps the shaped count (evolveShaped).
@@ -407,7 +407,7 @@ export const COVERED_KEYWORDS = [
   // those tokens at end of combat." An optional attack rider: declining is a complete, legal attack, and the
   // tokens would be exiled at end of combat anyway. The engine declines, so the board it plays is a real one.
   "myriad",
-  // KW-DETHRONE (CR 702.104a, census slice 46) — ENFORCED: detectTriggers synthesizes the self-scoped
+  // KW-DETHRONE (CR 702.105a, census slice 46) — ENFORCED: detectTriggers synthesizes the self-scoped
   // attacks descriptor whose effectClause is ordinary modeled text (the add-counter atom), gated by the
   // "that player has the most life or is tied for most life" intervening-if, which compares across ALL
   // players (the attacker included) rather than opponents only. Bare keyword only — a GRANTED dethrone
@@ -976,7 +976,7 @@ const rePrototypeCost = /^prototype (?:\{[^}]+\})+ [—–-] \d+\/\d+$/;
 // zone the engine never offers; on the battlefield the line is inert):
 //   evoke (CR 702.74 — alt cost whose sac-on-ETB applies ONLY to an evoked cast; hard-cast = normal body)
 //   unearth (702.84 — GY-activated one-shot return; census #1 sole-blocker at 18)
-//   disturb (702.146 — cast transformed from GY) · embalm (702.128) · scavenge (702.96 — GY-activated
+//   disturb (702.146 — cast transformed from GY) · embalm (702.128) · scavenge (702.97 — GY-activated
 //   counters) · mayhem (discarded-this-turn GY cast window)
 //   eternalize (702.129, ADDED 2026-07-25 with the audit its first pass deferred): embalm's exact twin —
 //   exile from the GY for a token copy. Audited per the suspend rule: of 11 carriers only Lazotep Archway
@@ -4322,7 +4322,7 @@ registerCoverageClassifier((card) => {
   return spec ? spec.bodyTier : null;
 });
 
-// ─── TRIBUTE (CR 702.96) — Eldrazi-Theros ETB opponent-choice (counters vs the "if tribute wasn't paid" effect) ─
+// ─── TRIBUTE (CR 702.104) — Eldrazi-Theros ETB opponent-choice (counters vs the "if tribute wasn't paid" effect) ─
 // A CREATURE with a clean "Tribute N" keyword whose BODY — the Tribute line stripped — is ALREADY native under
 // the existing cascade: a keyword-only base body plus a single "When this creature enters, if tribute wasn't
 // paid, <effect>" ETB trigger whose <effect> is fully modeled (Pharagax Giant = damage-to-each-opponent;
@@ -4344,7 +4344,7 @@ registerCoverageClassifier((card) => {
   return spec ? spec.bodyTier : null;
 });
 
-// ─── EMERGE (CR 702.97) — Eldrazi alternative cast cost (sac a creature/artifact, pay reduced) ───────────────
+// ─── EMERGE (CR 702.119) — Eldrazi alternative cast cost (sac a creature/artifact, pay reduced) ───────────────
 // An Eldrazi/creature with a clean "Emerge {cost}" (or "Emerge from artifact {cost}") line whose BODY — the
 // Emerge keyword line stripped — is ALREADY native under the existing cascade (a keyword-only body, or a body
 // whose only non-keyword text is a modeled self-cast / ETB trigger). Emerge changes ONLY how/what you pay,

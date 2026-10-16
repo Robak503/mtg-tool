@@ -91,7 +91,7 @@ const TOKEN_COPY_TARGET_PERMANENT_RE = /^create a token that(?:'s| is) a copy of
 const TOKEN_COPY_TARGET_TOKEN_RE = /^create a token that(?:'s| is) a copy of target token you control$/;
 // TOKEN-COPY-UPTOONE-MVX — "create a token that's a copy of up to one target creature with mana value X or
 // less" (Here Comes a New Hero!, an {X} sorcery). CR 601.2c — the target is OPTIONAL (0-or-1: `optionalTarget`),
-// and its legality is bounded by the spell's chosen X (CR 202.3b — X is bound at cast). The copy is UNRESTRICTED
+// and its legality is bounded by the spell's chosen X (CR 107.3a — X is bound at cast). The copy is UNRESTRICTED
 // on controller (ANY player's creature is a legal target, so NO you-control restriction), scoped only by the
 // MV≤X cap, which the cast-time target enumerator enforces per-X via a `manaValue`/`valueX` restriction
 // (resolved from ctx.xValue, exactly like a tutor's mvCapX but at the TARGET-legality layer). `mvCapX:true` on

@@ -1,5 +1,5 @@
 /**
- * castFromTopFiltered.test.js — TYPE-FILTERED cast-from-top-of-library (CR 118.6 / 601.3e).
+ * castFromTopFiltered.test.js — TYPE-FILTERED cast-from-top-of-library (CR 601.3 / 601.3e).
  *
  * The bare permissions were already modeled ("play lands and cast spells", "play lands"). The FILTERED forms
  * were deliberately left body-only, and together they outnumber both bare forms: "you may cast CREATURE
@@ -178,7 +178,7 @@ describe("filter semantics", () => {
     expect(castFromTopFilterAllows(null, { type: "Creature — Elf" })).toBe(false);
   });
 
-  it("a word list is a UNION, not an intersection (CR 118.6 grants each independently)", () => {
+  it("a word list is a UNION, not an intersection (no CR rule states this directly)", () => {
     // Sigarda #3305 — "angel spells and human spells". An Angel that is not a Human still qualifies.
     expect(castFromTopFilterAllows(["Angel", "Human"], { type: "Creature — Angel" })).toBe(true);
     expect(castFromTopFilterAllows(["Angel", "Human"], { type: "Creature — Human Soldier" })).toBe(true);

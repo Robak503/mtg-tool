@@ -1,8 +1,8 @@
 /**
- * tribute.js — TRIBUTE (CR 702.96) as a modeled ETB opponent-choice keyword.
+ * tribute.js — TRIBUTE (CR 702.104) as a modeled ETB opponent-choice keyword.
  *
  * "Tribute N (As this creature enters, an opponent of your choice may put N +1/+1 counters on it.)" — an
- * ETB replacement-style decision (CR 702.96a). The chosen opponent EITHER pays tribute (puts N +1/+1
+ * ETB replacement-style decision (CR 702.104a). The chosen opponent EITHER pays tribute (puts N +1/+1
  * counters on the creature → it's a strictly bigger body for the controller) OR declines, in which case a
  * separate "When this creature enters, if tribute wasn't paid, [effect]" triggered ability (CR 702.104b)
  * runs its payoff. The creature's controller picks WHICH opponent decides; that opponent then decides.
@@ -19,7 +19,7 @@
  * RUNTIME (the decision path, resolvers.enterPermanent):
  *   1. As the creature enters, the controller's opponent decides via `decideTribute` (a deterministic
  *      value heuristic — pay to deny a HARMFUL if-not effect, decline to deny the controller free counters
- *      when the if-not effect is pure upside for the controller). A genuine resolution of CR 702.96a.
+ *      when the if-not effect is pure upside for the controller). A genuine resolution of CR 702.104a.
  *   2. If paid → N +1/+1 counters are added AS the creature enters (the bigger P/T is correct from turn 1,
  *      through applyCounterDoubling like every other enters-with-counter write) and `perm.tributePaid=true`.
  *   3. If declined → no counters; `perm.tributePaid=false`, and the "if tribute wasn't paid" ETB trigger
@@ -101,7 +101,7 @@ export function parseTributeCreature(card, classifyStripped, isNative) {
 }
 
 /**
- * The chosen opponent's tribute DECISION (CR 702.96a) — true = PAY (put N +1/+1 counters on the entering
+ * The chosen opponent's tribute DECISION (CR 702.104a) — true = PAY (put N +1/+1 counters on the entering
  * creature), false = DECLINE (the "if tribute wasn't paid" effect runs instead). A deterministic, defensible
  * value heuristic, NOT a fabricated outcome: the opponent pays iff the if-not effect would be WORSE for the
  * opponents than handing the controller a +N/+N-bigger body — i.e. the if-not effect HARMS an opponent

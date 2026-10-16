@@ -7,7 +7,7 @@
  * Build:
  *   • parser — a new `play-extra-land-this-turn` atom. The α2 wrapper PEELS the leading "you may" and (like
  *     free-cast) leaves this atom UN-optional — the "may" is realized at the LAND-PLAY step (the player chooses
- *     whether to use the bigger budget; CR 601.3e), not as a resolution yes/no. That's why Explore ("…land this
+ *     whether to use the bigger budget; CR 305.2a), not as a resolution yes/no. That's why Explore ("…land this
  *     turn. Draw a card." = optional-then-mandatory grammar) stays HIGH instead of failing optionalsFormSuffix.
  *   • atom — applyPlayExtraLandThisTurn bumps player.extraLandsThisTurn by atom.amount (`?? 1`, never a
  *     fabricated 0). gameState.resetTurnCounters zeroes it each of the player's turns (alongside

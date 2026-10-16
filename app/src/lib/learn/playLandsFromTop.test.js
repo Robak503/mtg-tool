@@ -1,5 +1,5 @@
 /**
- * playLandsFromTop.test.js — THE LANDS-ONLY play-from-top permission (CR 118.6):
+ * playLandsFromTop.test.js — THE LANDS-ONLY play-from-top permission (CR 116.2a):
  * Oracle of Mul Daya #499 · Courser of Kruphix #1232.
  *
  *   "You may play lands from the top of your library."

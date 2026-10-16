@@ -28,7 +28,7 @@ import { nextRandomInt } from "../../seedMath.js"; // THE canonical seeded singl
 const D20_SIDES = 20;
 
 /**
- * ROLL-D20 (CR 726.2-726.4) — pick a uniform result in [1, sides] from the threaded seed via the canonical
+ * ROLL-D20 (CR 706.1a / 706.1b) — pick a uniform result in [1, sides] from the threaded seed via the canonical
  * nextRandomInt primitive (which reads state.rngSeed, maps ONE mulberry32 output into [0, sides), and ADVANCES
  * the seed by the shared LCG step so consecutive rolls differ AND a serialized game restores to byte-identical
  * future rolls) — then stamp the result on `state.diceRoll` for the following payoff atom to read. Drawing

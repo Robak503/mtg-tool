@@ -15,7 +15,7 @@
  * The control MOVE mirrors effects/atoms/control.js's applyGainControl: an array splice rather than
  * moveCardToZone, so the creature never LEAVES the battlefield — no dies/LTB fires, identity and tapped
  * state and counters and attachments all survive, and it is summoning-sick under its new controller
- * (CR 702.10c).
+ * (CR 302.6).
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -68,7 +68,7 @@ describe("⭐ ATTACH — control moves", () => {
     expect(controllerOf(attached(MIND_CONTROL), "H")).toBe("user"); // after
   });
 
-  it("⛔ it is summoning-sick under its new controller (CR 702.10c)", () => {
+  it("⛔ it is summoning-sick under its new controller (CR 302.6)", () => {
     expect(findPermanent(attached(MIND_CONTROL), "H").permanent.summoningSick).toBe(true);
   });
 

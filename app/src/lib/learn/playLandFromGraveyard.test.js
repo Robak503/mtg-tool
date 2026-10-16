@@ -1,5 +1,5 @@
 /**
- * playLandFromGraveyard.test.js — "You may play lands from your graveyard." (CR 118.6, census slice 44.)
+ * playLandFromGraveyard.test.js — "You may play lands from your graveyard." (CR 116.2a, census slice 44.)
  *
  * Crucible of Worlds / Ramunap Excavator / Ancient Greenwarden — 9 corpus carriers of the bare form.
  *

@@ -748,10 +748,10 @@ function parseClauseToAtomCore(cardType, clause, hasX = false, sourceScoped = fa
     // before the cast-or-decline), so the free-cast atom is left un-optional — its "may" is the decline.
     // ONE-SHOT EXTRA-LAND (CR 505.6b) — same shape: "you may play an additional land this turn" grants the
     // OPTION to play more lands, realized at the LAND-PLAY step (the player chooses whether to use the bigger
-    // budget; CR 601.3e doesn't force the extra play). It's costless upside with no resolution-time decision,
+    // budget; CR 305.2a doesn't force the extra play). It's costless upside with no resolution-time decision,
     // so the atom is left UN-optional too — otherwise Explore ("…land this turn. Draw a card.") would become
     // optional-then-mandatory and fail the optionalsFormSuffix suffix rule, dropping a clean card to Arbiter.
-    // TURN-SCOPED FLASH GRANT (CR 601.3e) — the THIRD member of this family, for the reason already
+    // TURN-SCOPED FLASH GRANT (CR 601.3b) — the THIRD member of this family, for the reason already
     // written above: a casting PERMISSION is costless upside with no resolution-time decision. Its "may"
     // is realized when the player chooses whether to cast at instant speed, exactly as the extra-land
     // grant's is realized at the land-play step. Stamping `optional` would add a meaningless yes/no pause
@@ -3122,7 +3122,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // clause splitter would shatter, collapsed whole. (1) "Search your library for a creature or land card and reveal
   // it. Put it onto the battlefield tapped if it's a land card. Otherwise, put it into your hand. Then shuffle." →
   // the PROVEN tutor atom with a per-card destination rider (`landToBattlefieldTapped` — the settler routes a land
-  // to the battlefield tapped and anything else to the hand; CR 701.19). (2) "Put a +1/+1 counter on target
+  // to the battlefield tapped and anything else to the hand; CR 608.2c). (2) "Put a +1/+1 counter on target
   // creature you control. It deals damage equal to its power to target creature you don't control." → the PROVEN
   // one-way bite (damage-target-power, roles fighter/target) with `fighterCounterFirst` — the counter lands on the
   // fighter BEFORE its power is read (CR 608.2c, in printed order), so the bite deals power+1. EXACT anchors.
@@ -4234,7 +4234,7 @@ registerClauseParser(putFromHandClauseParser);
 registerClauseParser(freeCastClauseParser);
 registerClauseParser(hideawayClauseParser);
 registerClauseParser(animateDeadClauseParser);
-// GAIN-CONTROL (CR 613.1b layer-2 / 702.10c) — "Gain control of target creature." / "Gain control of target <Subtype>."
+// GAIN-CONTROL (CR 613.1b layer-2 / 302.6) — "Gain control of target creature." / "Gain control of target <Subtype>."
 // (Sliver Overlord). INDEFINITE (non-reverting) control change only — the "(This effect lasts indefinitely.)"
 // reminder is pre-stripped; a duration word ("until end of turn"), a controller/self-exclusion restriction, or
 // a non-curated word after "target" fails the anchored matcher → LOW → Arbiter (CREED). The subtype rides as a
@@ -4281,7 +4281,7 @@ export function learnClauseParser(clause) {
 registerClauseParser(learnClauseParser);
 
 /**
- * POPULATE (CR 701.32a) — "Populate." as its own sentence, and the "…, then populate" tail, on Scion of
+ * POPULATE (CR 701.36a) — "Populate." as its own sentence, and the "…, then populate" tail, on Scion of
  * Vitu-Ghazi, Selesnya Eulogist, Xavier Sal and eleven more whose OTHER text already parses HIGH.
  *
  * ⭐ THE MINTER WAS ALREADY BUILT. `create-token-copy` (CR 707.1) does the whole job — the copiable-values

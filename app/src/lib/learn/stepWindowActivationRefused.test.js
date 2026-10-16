@@ -26,7 +26,7 @@
  *
  * ⛔ WHAT MUST LAND FIRST (the reason this is not a one-line widening): several ability shapes in that lane are
  * sorcery-speed BY RULE and carry no flag of their own — they free-ride on the blanket main-step return.
- * EQUIP is the clearest (CR 702.6b): `isEquipAbility` has no timing gate anywhere in the function. Removing or
+ * EQUIP is the clearest (CR 702.6a): `isEquipAbility` has no timing gate anywhere in the function. Removing or
  * loosening the early return without first giving equip — and every other by-rule sorcery-speed shape in the
  * lane — an explicit gate would make the engine MORE PERMISSIVE THAN THE RULES, which is the forbidden
  * direction. So the order is: explicit timing gates for the free-riders, THEN widen the lane, THEN this rider.
@@ -91,7 +91,7 @@ describe("⛔⭐ THE MEASUREMENT THAT FORCED THE REFUSAL — the offer lane cann
 
 describe("⛔ the prerequisite that must land first", () => {
   it("EQUIP has no timing gate of its own — it depends on the lane's main-step return", () => {
-    // CR 702.6b makes equip sorcery-speed. Nothing in actionsActivateAbility enforces that for
+    // CR 702.6a makes equip sorcery-speed. Nothing in actionsActivateAbility enforces that for
     // `isEquipAbility`; the blanket main-step return does it implicitly. So loosening that return without
     // first giving equip an explicit gate would let the engine equip during an upkeep — more permissive than
     // the rules. This test documents the dependency; it does not assert the (absent) gate.

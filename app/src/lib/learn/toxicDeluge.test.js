@@ -5,7 +5,7 @@
  * Four pieces: ① the payLifeX extractor arm (castModifiers) marking the program X-parameterized through
  * its COST; ② "payLifeX" vetted into SUPPORTED_ADDITIONAL_COST_KINDS only WITH ③ the cast-path
  * enforcement — the X range is bounded by the caster's LIFE minus one (CR 119.4; the suicide cast is a
- * never-offered FN), the mana half stays the fixed printed cost, MV stays printed (CR 202.3b), and the
+ * never-offered FN), the mana half stays the fixed printed cost, MV stays printed (CR 118.8d), and the
  * dispatcher loseLife-charges the chosen X (a missing X THROWS — never a silently skipped cost);
  * ④ the plural "All creatures GET -X/-X" joins the symmetric X-pump rewrite (gets? — the targeted
  * singular forms unchanged).
@@ -55,7 +55,7 @@ describe("⭐⭐ the cast loop — X bounded by life, the life REALLY paid, the 
     const xs = casts(s).map((a) => a.xValue).sort((a, b) => a - b);
     console.log("  WITNESS delugeXs", JSON.stringify({ life: 5, xs })); // vitest 4 needs --disable-console-intercept
     expect(Math.max(...xs)).toBe(4); // life 5 → X caps at 4 (CR 119.4 minus the suicide guard)
-    expect(casts(s).every((a) => a.cmc === 3)).toBe(true); // MV stays printed (CR 202.3b)
+    expect(casts(s).every((a) => a.cmc === 3)).toBe(true); // MV stays printed (CR 118.8d)
     const three = casts(s).find((a) => a.xValue === 3);
     let after = dispatchAction(s, three);
     expect(after.players.user.life).toBe(2); // 3 life REALLY paid at cast

@@ -614,10 +614,10 @@ const IN_YOUR_GRAVEYARD_RE = /^this creature is in your graveyard$/;
 // (checkEnterTriggers threads enteredPerm), resolved against the controller's battlefield.
 const SAME_NAME_ETB_RE = /^it doesn't have the same name as another creature you control or a creature card in your graveyard$/;
 
-// ===== EVOLVE-COMPARE (KW-EVOLVE, CR 702.100a/d — SHELF S7) ==================================
+// ===== EVOLVE-COMPARE (KW-EVOLVE, CR 702.100a / 603.4 — SHELF S7) ==================================
 // "that creature has greater power or toughness than this creature" — the synthesized evolve trigger's
 // intervening-if: LAYER-AWARE P/T of the ENTERING creature (ctx.triggeringPermanentId) vs the SOURCE
-// (ctx.sourcePermanentId), re-read live at flush AND resolution (CR 702.100d — the comparison uses
+// (ctx.sourcePermanentId), re-read live at flush AND resolution (CR 603.4 — the comparison uses
 // current values both times). Either permanent gone → null (can't confirm → FN-safe drop, the engine's
 // vanished-referent convention).
 const EVOLVE_COMPARE_RE = /^that creature has greater power or toughness than this creature$/;
@@ -1441,7 +1441,7 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     return false;
   }
 
-  // DETHRONE (CR 702.104a, census slice 46) — "attacks the player with the most life or tied for most life".
+  // DETHRONE (CR 702.105a, census slice 46) — "attacks the player with the most life or tied for most life".
   //
   // Deliberately NOT the SC-1 branch above, though the two look alike. Sword Coast Sailor asks whether no
   // OPPONENT has more life than the attacked player; dethrone asks whether that player has the most life

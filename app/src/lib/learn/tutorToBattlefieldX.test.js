@@ -6,7 +6,7 @@
  * native-spell. The seam reuses the shipped battlefield-destination tutor resolver (enterCardFromZone →
  * ETB fires, library shuffles); the NEW piece is (a) a parser branch (bfx) that accepts a NON-land
  * creature/permanent fetch GUARDED by an MV cap = the spell's X, and (b) applyTutor resolving that cap
- * from ctx.xValue at resolution (CR 202.3b — X is chosen at cast). The program is marked xSpell so the
+ * from ctx.xValue at resolution (CR 107.3a — X is chosen at cast). The program is marked xSpell so the
  * cast path enumerates affordable X.
  *
  * CREED — the X cap is the safety: a dropped cap would fetch ANY creature/permanent (a forbidden FP). So

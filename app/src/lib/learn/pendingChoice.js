@@ -2,7 +2,7 @@
  * pendingChoice.js — the resolution-time interactive-choice seam (leaf module).
  *
  * Mirrors pendingArbiter.js, but for a choice the engine CAN model yet needs the
- * player to make: a tutor's "search your library for a card" (CR 701.19). When a
+ * player to make: a tutor's "search your library for a card" (CR 701.23). When a
  * tutor atom resolves, instead of auto-picking it flags `state.pendingChoice` with
  * the legal candidates and pauses the effect program (runProgram records where to
  * resume). The session driver then either surfaces a picker (the player's own tutor,
@@ -123,7 +123,7 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
   // "top" (shuffle-then-place-on-top — Vampiric/Mystical/Worldly Tutor), or "hand" (the default P3.2 tutor).
   // A RAMP-SPLIT destSeq head is only ever battlefield/hand (Cultivate/Kodama), so "top" only arrives via the
   // plain `destination` param. Any unrecognized value falls back to "hand" (safe — the most conservative zone).
-  // "graveyard" joins them for the reanimator family (Entomb / Buried Alive, CR 701.19a).
+  // "graveyard" joins them for the reanimator family (Entomb / Buried Alive, CR 608.2c).
   //
   // ⚠️ THIS IS THE THIRD PLACE A DESTINATION MUST BE NAMED — the parser emits it, applyTutor whitelists it
   // onto the choice, and this coerces it. Miss any one and the fetch silently lands in the HAND with every
@@ -571,7 +571,7 @@ export function setPendingSoftCounterChoice(state, { controller, amount, cost = 
  * (the driver routes the pause to that seat — a human decides at the panel, the AI by autoPickTemptingOffer). The
  * offer's running state (offerer, opponents still to ask, accepted count) rides the choice; the settler either
  * suspends the opponent's own land search (accept) or asks the next opponent / pays the offerer (decline).
- * `hasLand` is read here for the panel; accepting with no land still counts as having searched (CR 701.19c).
+ * `hasLand` is read here for the panel; accepting with no land still counts as having searched (CR 701.23g).
  */
 export function setPendingTemptingOfferChoice(state, { controller, offerer, accepted = 0, opponents = [], sourceName = null, resume = null }) {
   if (state.pendingChoice) return state;

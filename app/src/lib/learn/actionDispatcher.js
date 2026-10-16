@@ -158,9 +158,9 @@ function applyPlayLand(state, action) {
   }
   // IMPULSE-EXILE (CR 305.2): a land impulse-exiled this turn is played FROM EXILE (action.fromZone === "exile"),
   // not from hand — the same land-drop rules apply, only the source zone differs. PLAY-FROM-TOP (Future Sight,
-  // CR 118.6): a land played from the TOP of the library (action.fromZone === "library"). Default "hand" keeps
+  // CR 116.2a): a land played from the TOP of the library (action.fromZone === "library"). Default "hand" keeps
   // every existing play-land call byte-identical. The card is found in whichever zone the action names.
-  // PLAY-LANDS-FROM-GRAVEYARD (CR 118.6, census slice 44): a land played from the GRAVEYARD under the
+  // PLAY-LANDS-FROM-GRAVEYARD (CR 116.2a, census slice 44): a land played from the GRAVEYARD under the
   // Crucible of Worlds permission (action.fromZone === "graveyard"). Joins exile/library on the same
   // zone-parameterized path — the card is looked up in, and removed from, whichever zone it came from.
   const fromZone = action.fromZone === "exile" ? "exile"
@@ -765,7 +765,7 @@ function applyCastSpell(state, action) {
     }
   }
 
-  // 2c. EMERGE (CR 702.97a) — the alt-cast's REQUIRED sacrifice (a creature, or an artifact for "Emerge from
+  // 2c. EMERGE (CR 702.119a) — the alt-cast's REQUIRED sacrifice (a creature, or an artifact for "Emerge from
   // artifact"), paid at cast before the spell goes on the stack (CR 601.2h). The reduced mana was already paid
   // above with the victim excluded from the sources, so the victim is still untapped here. sacrificePermanent-
   // ForCost moves it battlefield→graveyard and fires its dies + sacrifice watchers. FAIL-FAST: an emerge cast

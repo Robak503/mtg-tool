@@ -8,7 +8,7 @@
  * creature|permanent while its FIXED-cap twin `bfn` — ten lines below in the same file — has always taken any
  * `parseTutorFilter` phrase (artifact, enchantment, Equipment, "Rebel permanent"). Both arms carry the
  * IDENTICAL safety argument, and bfn's own comment states it: the MV cap is what makes an uncapped fetch
- * impossible. X-bound-at-cast (CR 202.3b) is exactly as real a cap as a printed N. So Soul of Mirrodin's
+ * impossible. X-bound-at-cast (CR 107.3a) is exactly as real a cap as a printed N. So Soul of Mirrodin's
  * artifact fetch at a fixed cap worked while Whir's at an X cap parked, for no reason either comment gave.
  *
  * ⛔ The allowlist stays the gate. An unmodeled filter word returns null → LOW → Arbiter, and the colour

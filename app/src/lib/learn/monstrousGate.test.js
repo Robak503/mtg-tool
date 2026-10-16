@@ -15,7 +15,7 @@
  * came back 8 parked / 0 native — an effect side that was fully modelled behind a condition that wasn't.
  * The same census lists several more with zero natives; they are named in the run ledger.
  *
- * ⓘ Monstrosity is a ONE-WAY latch (CR 701.32b — once monstrous, monstrous forever), so the gate needs no
+ * ⓘ Monstrosity is a ONE-WAY latch (CR 701.37b — once monstrous, monstrous forever), so the gate needs no
  * history and no timestamp. It is a live boolean read, re-evaluated like every other gate, which is why
  * the drive below can show the keyword switching on mid-game with nothing else changing.
  *

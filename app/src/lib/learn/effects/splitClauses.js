@@ -50,7 +50,7 @@ export function splitClauses(oracle) {
   const normalized = stripReminder(stripCastKeywordLines(oracle))
     // FINALE-SHUFFLE-REMINDER — strip the vacuous "If you search your library this way, shuffle." sentence
     // (Finale of Devastation). Its "and/or graveyard" tutor (bfxg) ALWAYS searches the library, so the CR-
-    // 701.19e shuffle the tutor's own resolver runs already covers this conditional exactly — stripping it
+    // 701.24a shuffle the tutor's own resolver runs already covers this conditional exactly — stripping it
     // just prevents the sentence from orphaning into an unparsed clause (→ low). Anchored to the exact
     // wording, so it can only PROMOTE this already-low library-and/or-graveyard shape; no other card prints it.
     // ⭐ BOTH TENSES (2026-08-05): the cycle prints "If you SEARCH your library this way" (Finale, Niambi)

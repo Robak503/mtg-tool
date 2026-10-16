@@ -1306,7 +1306,7 @@ export function destroyExileClauseParser(clause) {
   // POWER-FILTERED CREATURE WIPE (BLITZ PW-1 — Elspeth, Sun's Champion "−3: Destroy all creatures with power 4
   // or greater"; Solar Tide / Retribution of the Meek / Dusk // Dawn / Draw Team Lines — 8 corpus carriers):
   // the eachCreature wipe NARROWED by an effective-power threshold. massCreatureTargets reads LAYER-AWARE
-  // creaturePower (CR 613.3 — counters + anthems counted), so the set is exactly the creatures whose CURRENT
+  // creaturePower (CR 613.4c — counters + anthems counted), so the set is exactly the creatures whose CURRENT
   // power meets the bound at resolution (CR 208.1 power, CR 701.8a destroy). "greater" → power ≥ N; "less" →
   // power ≤ N. eachCreature stays a NON-chosen mass target (no rider, no target choice). A non-integer bound /
   // "greater than" (strict) / any trailing rider fails the exact `$` → low → Arbiter (CREED whole-clause).

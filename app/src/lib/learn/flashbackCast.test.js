@@ -74,7 +74,7 @@ describe("flashback — recognition (metric ⇄ runtime lockstep)", () => {
     expect(fb[0].cardId).toBe("tt1");
     expect(fb[0].fromZone).toBe("graveyard");
     expect(fb[0].cost).toMatchObject({ U: 1, generic: 2 }); // the FLASHBACK cost {2}{U}, not the {1}{U} mana cost
-    expect(fb[0].cmc).toBe(2); // CR 202.3b — mana value stays the PRINTED {1}{U}
+    expect(fb[0].cmc).toBe(2); // CR 118.9c — mana value stays the PRINTED {1}{U}
   });
 
   it("an unmodeled-body flashback card (Cabal Therapy) is NOT native and is NEVER offered", () => {

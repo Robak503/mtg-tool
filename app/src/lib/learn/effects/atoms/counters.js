@@ -761,7 +761,7 @@ export function addCounterClauseParser(clause) {
   // cast's chosen X threaded to the ETB, or an activation's), read through the shared scaled-amount reader.
   m = t.match(/^put x ([+-]1\/[+-]1) counters? on this creature$/);
   if (m) return { op: "add-counter", counterType: m[1], amountX: true, target: "self" };
-  // MONSTROSITY (CR 701.32) — the "Monstrosity N" activated keyword action: if the source ISN'T monstrous, put N
+  // MONSTROSITY (CR 701.37) — the "Monstrosity N" activated keyword action: if the source ISN'T monstrous, put N
   // +1/+1 counters on it and it becomes monstrous. A ONE-SHOT latch — re-activating a monstrous creature does
   // nothing — so it needs its own atom (applyMonstrosity gates on the monstrous flag + fires the "becomes
   // monstrous" event); a plain self add-counter would let a monstrous creature re-monstrosity for more counters
@@ -1076,11 +1076,11 @@ export function shieldCounterClauseParser(clause) {
 }
 
 /**
- * MONSTROSITY (CR 701.32) — resolve "Monstrosity N". A ONE-SHOT (CR 701.32c): ONLY if the source isn't already
+ * MONSTROSITY (CR 701.37) — resolve "Monstrosity N". A ONE-SHOT (CR 701.37a): ONLY if the source isn't already
  * monstrous, put N +1/+1 counters on it and mark it monstrous; activating it again on a monstrous creature does
  * nothing (the flag latches). The `monstrous` flag also gates the "becomes monstrous" trigger event (Alpha
  * Deathclaw's "When ~ enters or becomes monstrous, …") — checkBecomesMonstrousTriggers reads it. Self-scoped:
- * the activating permanent is ctx.sourceId (CR 701.32a — Monstrosity acts on its own source).
+ * the activating permanent is ctx.sourceId (CR 701.37a — Monstrosity acts on its own source).
  */
 export function applyMonstrosity(state, atom, ctx) {
   const lk = findPermanent(state, ctx.sourceId);
@@ -1201,7 +1201,7 @@ export function applyDrawOrCountersByTriggeringPower(state, atom, ctx) {
 }
 
 /**
- * KW-EVOLVE counter placement (CR 702.100a/f — SHELF S7): the synthesized evolve trigger's effect. The
+ * KW-EVOLVE counter placement (CR 702.100a — SHELF S7): the synthesized evolve trigger's effect. The
  * kind-tagged sentinel "[evolve] put a +1/+1 counter on this creature" is emitted ONLY by detectTriggers'
  * evolve synthesis, so no printed clause routes here. Delegates the placement to applyAddCounter
  * (target:"self" — the standard doubling / counters-placed-watcher / lethal-SBA path), then fires the
@@ -1342,7 +1342,7 @@ export const counterResolvers = {
   "renown": applyRenown, // KW-RENOWN (CR 702.111) — latching flag + N +1/+1 counters via the standard addCounter chokepoint (the monstrosity template)
   "draw-or-counter-triggering": applyDrawOrCounterTriggering, // Marcus branch (SHELF S7) — draw if the dealer has a +1/+1, else counter it
   "draw-or-counters-by-triggering-power": applyDrawOrCountersByTriggeringPower, // Tribute to the World Tree — draw at power N or more, else N counters on the entering creature
-  "monstrosity": applyMonstrosity, // MONSTROSITY (CR 701.32) — activated "Monstrosity N": N +1/+1 counters + set monstrous, once
+  "monstrosity": applyMonstrosity, // MONSTROSITY (CR 701.37) — activated "Monstrosity N": N +1/+1 counters + set monstrous, once
   "adapt": applyAdapt,
   "adapt-ignore-counters": applyAdaptIgnoreCounters, // Biomancer's Familiar (CR 701.46a) — suppress the gate once             // ADAPT (CR 701.46a) — activated "Adapt N": N +1/+1 counters ONLY if it has none (no latch)
 

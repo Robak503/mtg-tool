@@ -1,5 +1,5 @@
 /**
- * controlMove.js — the ONE way a permanent changes controller (CR 613.1b layer-2 / CR 702.10c).
+ * controlMove.js — the ONE way a permanent changes controller (CR 613.1b layer-2 / CR 302.6).
  *
  * WHY THIS EXISTS. The move was written twice: once in `effects/atoms/control.js` (the indefinite
  * gain-control atom — Sliver Overlord) and once in `controlAura.js` (the while-attached control Auras —
@@ -14,7 +14,7 @@
  *   · tapped state, counters, marked damage and attachments all ride along untouched (CR 303.4e / 301.5d —
  *     changing control of a creature does not change control of an Aura or Equipment attached to it).
  * The one thing that DOES change besides the controller is summoning sickness: it has not been under the
- * new controller's control since their turn began, so it is sick under them (CR 702.10c) and untaps/clears
+ * new controller's control since their turn began, so it is sick under them (CR 302.6) and untaps/clears
  * on their next untap step exactly like a freshly-entered creature.
  *
  * ⛔ OWNERSHIP NEVER MOVES. A control change does not change the owner (CR 110.2 — a permanent's owner is

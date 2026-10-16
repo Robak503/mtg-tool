@@ -10,7 +10,7 @@
  * The new slice: tokenCopy.js emits an `optionalTarget` + `mvCapX` copy atom carrying a
  * `manaValue`/`valueX` restriction; spellEffects.creatureSatisfiesRestrictions resolves the
  * cap from ctx.xValue; legalChoices enumerates the copy target PER-X so a creature whose MV
- * exceeds the chosen X is never offered (CR 202.3b / 601.2c). copySource:"target" reuses the
+ * exceeds the chosen X is never offered (CR 107.3a / 601.2c). copySource:"target" reuses the
  * proven resolver, which treats a declined "up to one" as a CR 111.12 clean no-op.
  *
  * CREED: an EXACT anchor — a type/stat "except" rider, "up to two", a FIXED MV cap, a

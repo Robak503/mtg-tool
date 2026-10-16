@@ -11,7 +11,7 @@
  *      it to hand, shuffles. Nothing new — proven by the tutor family.
  *   2. GAIN-CONTROL (this slice) — the NEW op:"gain-control" atom (effects/atoms/control.js). An INDEFINITE
  *      (non-reverting) control change: the target Sliver is physically moved into the controller's battlefield
- *      and its `controller` flips, becoming summoning-sick under the new controller (CR 702.10c). The subtype
+ *      and its `controller` flips, becoming summoning-sick under the new controller (CR 302.6). The subtype
  *      restriction rides as {kind:"subtype", subtype:"sliver"} so enumerateTargets offers ONLY a Sliver.
  *
  * THE CREED (all-or-nothing): Sliver Overlord classifies native-activated ONLY because BOTH abilities are
@@ -113,7 +113,7 @@ describe("Sliver Overlord — gain-control runtime", () => {
     expect(next.players.ai.battlefield.map((p) => p.id)).toEqual([]);
   });
 
-  it("RUNTIME: the gained creature becomes summoning-sick under the new controller (CR 702.10c), other state preserved", () => {
+  it("RUNTIME: the gained creature becomes summoning-sick under the new controller (CR 302.6), other state preserved", () => {
     const s = boardWith([
       cre("aiSliver", "Creature — Sliver Warrior", "ai", { summoningSick: false, tapped: true }),
     ]);

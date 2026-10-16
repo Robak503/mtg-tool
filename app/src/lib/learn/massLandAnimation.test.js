@@ -72,7 +72,7 @@ describe("runtime — the mass animation", () => {
     expect(`${permanentPower(lp, "f1")}/${permanentToughness(lp, "f1")}`).toBe("1/1");
   });
 
-  it("anthems apply ON TOP of the 7b base set (CR 613.3 — a selector sees the animated type)", () => {
+  it("anthems apply ON TOP of the 7b base set (CR 613.4 / 613.1d — a selector sees the animated type)", () => {
     const s = board([perm("lp", LIVING_PLANE), perm("f1", FOREST), perm("an", ANTHEM)]);
     expect(`${permanentPower(s, "f1")}/${permanentToughness(s, "f1")}`).toBe("2/2"); // 1/1 base + 1/1 anthem
   });

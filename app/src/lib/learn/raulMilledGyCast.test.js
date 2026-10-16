@@ -1,6 +1,6 @@
 /**
  * raulMilledGyCast.test.js — the MILLED-THIS-TURN graveyard cast permission (Raul, Trouble Shooter —
- * SHELF S6, CR 601.3e). "Once during each of your turns, you may cast a spell from among cards in your
+ * SHELF S6, CR 601.3). "Once during each of your turns, you may cast a spell from among cards in your
  * graveyard that were milled this turn." Enforcement: actionsCastMilledFromGraveyard offers full-cost
  * casts (fromZone 'graveyard') gated on (a) YOUR turn, (b) the millCards ledger stamping the CURRENT turn,
  * (c) the per-source once-latch (set by the dispatcher on the cast, cleared at untap). CREED FP = offering

@@ -1,5 +1,5 @@
 /**
- * controlAura.js — "You control enchanted creature." (CR 613.1b layer-2 control-change, CR 702.10c).
+ * controlAura.js — "You control enchanted creature." (CR 613.1b layer-2 control-change, CR 302.6).
  *
  * Mind Control / Control Magic / Treachery / Corrupted Conscience — 27 corpus cards print this exact line.
  * Unlike the INDEFINITE one-shot `gain-control` atom (effects/atoms/control.js), this control lasts only
@@ -22,7 +22,7 @@
  *
  * The MOVE mirrors effects/atoms/control.js's applyGainControl exactly (array splice, not moveCardToZone, so
  * the creature never LEAVES the battlefield and no dies/LTB fires; identity, tapped state, counters, damage
- * and attachments all preserved; summoning-sick under its new controller per CR 702.10c). ⚠️ That mirroring
+ * and attachments all preserved; summoning-sick under its new controller per CR 302.6). ⚠️ That mirroring
  * is a deliberate duplication of MECHANISM to avoid destabilising a proven atom — unifying the two movers is
  * a follow-up, noted in the queue.
  *

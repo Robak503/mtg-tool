@@ -1,7 +1,7 @@
 /**
  * effects/atoms/control.js — the CONTROL-CHANGE atom (gain-control).
  *
- * ===== GAIN-CONTROL (indefinite) ===== (CR 613.1b layer-2 control-change / 800.4a on-leaving; CR 702.10c summoning-sickness)
+ * ===== GAIN-CONTROL (indefinite) ===== (CR 613.1b layer-2 control-change / 800.4a on-leaving; CR 302.6 summoning-sickness)
  * "Gain control of target <Subtype>. (This effect lasts indefinitely.)" — Sliver Overlord's second activated
  * ability ("Gain control of target Sliver"). A ONE-SHOT, NON-reverting control change: the target permanent is
  * physically moved from its current controller's battlefield array into ctx.controller's battlefield, and its
@@ -15,7 +15,7 @@
  *      ONLY a creature of the named subtype (a "target Sliver" ability can never pick a non-Sliver). The
  *      resolver re-reads the LIVE permanent by id, so a target that left the battlefield between announce and
  *      resolution is a clean no-op (CR 608.2b), never a fabricated control grab.
- *   2. SUMMONING SICKNESS (CR 702.10c) — the creature has NOT been under the new controller's control
+ *   2. SUMMONING SICKNESS (CR 302.6) — the creature has NOT been under the new controller's control
  *      continuously since their most recent turn began, so it is summoning-sick under its new controller:
  *      `summoningSick:true`. It untaps + loses sickness on the new controller's next untap step (untapAll
  *      clears the flag for the whole battlefield), exactly like a freshly-entered creature — so a stolen
@@ -108,7 +108,7 @@ export function applyGainControl(state, atom, ctx) {
     // this atom mid-build, and closed here. Semantics unchanged: an array splice rather than moveCardToZone,
     // so the creature never LEAVES the battlefield (no dies/LTB, identity and attachedTo back-references
     // survive), keeping tapped state / counters / damage / attachments, summoning-sick under its new
-    // controller (CR 702.10c). What stays LOCAL is what belongs to this atom: the event log and the soulbond
+    // controller (CR 302.6). What stays LOCAL is what belongs to this atom: the event log and the soulbond
     // teardown below.
     // THREATEN (atom.untilEndOfTurn): stamp the SAME stash the control Auras use, so the cleanup-step revert
     // knows where home is and who took it. `controlOriginal` is stamped ONCE — if the creature was already
@@ -134,7 +134,7 @@ export function applyGainControl(state, atom, ctx) {
 }
 
 /**
- * ===== REGAIN-OWNED-CREATURES (SG-12, 2026-09-03 — Homeward Path, CR 613.1b / 702.10c) =====
+ * ===== REGAIN-OWNED-CREATURES (SG-12, 2026-09-03 — Homeward Path, CR 613.1b / 302.6) =====
  * "Each player gains control of all creatures they own." A MASS control reset: every creature on ANY
  * battlefield whose stamped `owner` differs from its controller goes home through the shared control move
  * (an in-place splice — no leave/enter, no dies, attachments ride). A permanent with no `owner` stamp has

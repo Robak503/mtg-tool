@@ -10,7 +10,7 @@
  * arm, no dead "that spell" referent). fireStep "main" + fireScope "yours" = YOUR next main phase, and
  * the step-entry drain makes "next" correct by construction (CR 603.7b).
  *
- * ⭐ CR 202.3b: an {X} spell's stack MV counts the chosen X (payload.params.xValue) — witnessed.
+ * ⭐ CR 202.3e: an {X} spell's stack MV counts the chosen X (payload.params.xValue) — witnessed.
  * ⛔ MV 0 schedules nothing; a FIZZLED counter schedules nothing. Both witnessed.
  *
  * Mutation-checked (2026-08-14, applied-check by PRINTING THE CHANGED LINE BACK):
@@ -82,7 +82,7 @@ describe("⭐⭐ LAW 6 — the counter lands AND the payout is scheduled with th
     expect(parseEffectClause("add {c}{c}", "Instant").atoms[0]).toMatchObject({ op: "add-mana", mana: { C: 2 } });
   });
 
-  it("⭐ CR 202.3b: an {X}{R} spell cast with X=5 pays out SIX", () => {
+  it("⭐ CR 202.3e: an {X}{R} spell cast with X=5 pays out SIX", () => {
     const { state, atom } = boardWithSpell({ cmc: 1, xValue: 5, mana: "{X}{R}" });
     const after = ATOM_RESOLVERS.counter(state, atom, { controller: "user", targets: [{ type: "spell", id: "stk-tgt" }], cardName: "Mana Drain" });
     const clause = (after.delayedTriggers || [])[0]?.effectClause;

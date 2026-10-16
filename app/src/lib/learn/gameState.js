@@ -2941,7 +2941,7 @@ export function recordSpellCast(state, { playerId, spellCard = null, colors = nu
  * reset at untap.
  */
 /**
- * TURN-SCOPED FLASH GRANT (CR 601.3e) — "You may cast spells this turn as though they had flash."
+ * TURN-SCOPED FLASH GRANT (CR 601.3b) — "You may cast spells this turn as though they had flash."
  * (Borne Upon a Wind, Complete the Circuit, Cherished Hatchling, Ride the Avalanche.)
  *
  * The STATIC form of this permission was already modeled (Yeva, Vedalken Orrery). The spec stored here is

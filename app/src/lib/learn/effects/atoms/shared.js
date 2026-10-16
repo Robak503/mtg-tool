@@ -83,7 +83,7 @@ export function massCreatureTargets(state, opts = {}) {
         if (opts.subtypeNegate ? has : !has) continue;
       }
       // POWER threshold (BLITZ PW-1 — "destroy all creatures with power N or greater/less", Elspeth, Sun's
-      // Champion). LAYER-AWARE effective power (CR 613.3 — counters + anthems counted), read at resolution so
+      // Champion). LAYER-AWARE effective power (CR 613.4c — counters + anthems counted), read at resolution so
       // a pumped/shrunk creature is judged by its CURRENT power (CR 208.1). ">=" keeps power ≥ N; "<=" ≤ N.
       if (opts.powerCmp && typeof opts.powerVal === "number") {
         const pw = creaturePower(perm, state);
@@ -95,7 +95,7 @@ export function massCreatureTargets(state, opts = {}) {
       // has no mana cost and therefore mana value 0 (CR 111.5), so tokens genuinely fall inside an
       // "N or less" wipe — which is exactly what Austere Command does to a board of Soldier tokens.
       // Unlike power this is NOT layer-aware: mana value comes from the printed mana cost and no layer
-      // alters it (CR 202.3b), so a pumped creature keeps its mana value.
+      // alters it (CR 202.3), so a pumped creature keeps its mana value.
       if (opts.mvCmp && typeof opts.mvVal === "number") {
         const mv = perm.card?.cmc ?? 0;
         if (opts.mvCmp === ">=" ? mv < opts.mvVal : mv > opts.mvVal) continue;

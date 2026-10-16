@@ -179,7 +179,7 @@ describe("ADVENTURE step 1 — cast the adventure (instant/sorcery) half from ha
   });
 });
 
-describe("ADVENTURE — the COMBINED card is never offered (CR 715.2b); each half casts separately", () => {
+describe("ADVENTURE — the COMBINED card is never offered (CR 715.3); each half casts separately", () => {
   it("an adventure card in hand yields ONLY adventureCast + creature-half actions — never a combined-card cast", () => {
     // FOULMIRE's combined type contains "Instant" → the old generic hand enumerator offered the COMBINED
     // card (summed {B}+{2}{B} cost, instant timing) alongside the correct per-half actions.
@@ -192,7 +192,7 @@ describe("ADVENTURE — the COMBINED card is never offered (CR 715.2b); each hal
     expect(casts.some(a => String(a.name).includes("//"))).toBe(false);  // the combined card is gone
   });
 
-  it("the creature half casts from hand at ITS OWN cost and enters as the creature (CR 715.2b)", () => {
+  it("the creature half casts from hand at ITS OWN cost and enters as the creature (CR 715.4)", () => {
     let s = advState({ hand: [FOULMIRE], battlefield: [swamp("s1")] }); // ONLY {B} available — combined/summed would be unaffordable
     const casts = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").filter(a => a.cardId === "foul1");
     expect(casts).toHaveLength(1); // the {2}{B} adventure half is unaffordable; the {B} creature half is castable
@@ -298,7 +298,7 @@ describe("ADVENTURE — full lifecycle (Curious Pair: Food token, then the creat
   });
 });
 
-describe("ADVENTURE commander — each half casts from the COMMAND zone (CR 715.2b + 903.8)", () => {
+describe("ADVENTURE commander — each half casts from the COMMAND zone (CR 715.3 + 903.8)", () => {
   // P0-verify repair: castActionsFromZone's combined-card skip (correct) made an adventure COMMANDER
   // (Kellan, the Fae-Blooded / Beluna Grandsquall) entirely uncastable from the command zone — no
   // command-zone half-projection existed. actionsCastCommander now mirrors the two hand generators.

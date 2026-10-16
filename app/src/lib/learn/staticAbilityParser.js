@@ -1822,7 +1822,7 @@ function emitGatedGroupEffect(out, effRaw, gate, affects) {
   for (const kw of kws) out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: kw, gate }, affects, duration: { kind: "permanent" } });
 }
 
-// ─── FLASH-CAST-PERMISSION filter vocabulary (CR 601.3e — cast a class of your spells at instant speed) ───
+// ─── FLASH-CAST-PERMISSION filter vocabulary (CR 601.3b — cast a class of your spells at instant speed) ───
 // The CLOSED set of card-TYPE words a flash-cast filter may name — each is a real type-line token, so a
 // word-bounded type-line test faithfully decides membership at the cast site. "noncreature"/"colorless" are
 // SPECIAL negations handled separately below (not type-line tokens). Nothing else (a supertype, "permanent",
@@ -3191,8 +3191,8 @@ function parseClause(clause, out, selfName, selfType) {
   }
 
   // PLAY-FROM-TOP-OF-LIBRARY (Future Sight / The Reality Chip / One with the Multiverse) — a static play-
-  // PERMISSION letting the controller play lands and cast spells from the TOP card of their library (CR 118.6 /
-  // 601.3e). Emitted as a coverage + enforcement MARKER ({ playFromTop }); the RUNTIME enforcement is in
+  // PERMISSION letting the controller play lands and cast spells from the TOP card of their library (CR 116.2a /
+  // 601.3). Emitted as a coverage + enforcement MARKER ({ playFromTop }); the RUNTIME enforcement is in
   // legalChoices.actionsPlayFromTopOfLibrary, which offers the top card as a real cast/play action — so an
   // unmodeled permission can never be a claimed-native no-op (the Dracogenesis "does nothing" FP). "You may look
   // at the top card of your library any time" and "Play with the top card of your library revealed" are INERT in
@@ -3368,7 +3368,7 @@ function parseClause(clause, out, selfName, selfType) {
   // slice 44) — the graveyard sibling of the play-from-top permission above, and modeled the same way: a
   // coverage + enforcement MARKER whose runtime is legalChoices.actionsPlayLandFromGraveyard, so the credited
   // static can never be a claimed-native no-op. The land still costs a land drop and still needs sorcery
-  // timing; the permission changes the ZONE, nothing else (CR 118.6).
+  // timing; the permission changes the ZONE, nothing else (CR 116.2a).
   //
   // BARE FORM ONLY. Every richer printed variant stays body-only → Arbiter, deliberately:
   //   • "…play lands AND CAST SPELLS from your graveyard" (Yawgmoth's Agenda / Gaea's Will) — the spell half
@@ -3642,7 +3642,7 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
-  // ── MILLED-THIS-TURN GRAVEYARD CAST PERMISSION (Raul, Trouble Shooter — SHELF S6, CR 601.3e): "Once
+  // ── MILLED-THIS-TURN GRAVEYARD CAST PERMISSION (Raul, Trouble Shooter — SHELF S6, CR 601.3): "Once
   // during each of your turns, you may cast a spell from among cards in your graveyard that were milled
   // this turn." A coverage MARKER (no affects/op — the layer engine ignores it); legalChoices'
   // actionsCastMilledFromGraveyard enforces it (once-per-your-turn latch + the millCards ledger gate), so
@@ -3652,7 +3652,7 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
-  // ── DRAGON-CREATURE GRAVEYARD CAST PERMISSION (Rivaz of the Claw — Dragons shelf, CR 601.3e):
+  // ── DRAGON-CREATURE GRAVEYARD CAST PERMISSION (Rivaz of the Claw — Dragons shelf, CR 601.3 / 601.3e):
   // "Once during each of your turns, you may cast a Dragon creature spell from your graveyard." The
   // Raul marker's type-filtered sibling: a coverage MARKER (no affects/op) enforced by legalChoices'
   // actionsCastDragonCreatureFromGraveyard (once-per-your-turn latch + the conjunctive Dragon∧Creature
@@ -5909,7 +5909,7 @@ export function stackSpellIsUncounterable(state, obj, pre = null) {
  * ⚠️ The old merge was `a || b`, which was correct only while the two values were "any" and null. With type
  * filters it silently DROPS the second permission: an Eladamri ("creature") plus a Mystic Forge ("artifact")
  * on the same battlefield would grant creature-only, because the first truthy value won. Two permissions
- * UNION — each independently permits its own spells (CR 118.6) — and "any" absorbs everything.
+ * UNION — each independently permits its own spells (CR 601.3) — and "any" absorbs everything.
  */
 function mergeSpellFilters(a, b) {
   if (a === "any" || b === "any") return "any";
@@ -5920,7 +5920,7 @@ function mergeSpellFilters(a, b) {
 
 /**
  * Does a card's type line satisfy a cast-from-top spell filter? `"any"` permits every spell; an ARRAY permits
- * a card carrying ANY of its words (CR 118.6 grants each permission independently, so the words are a union,
+ * a card carrying ANY of its words (each word grants its own permission — no CR rule states this directly — so the words are a union,
  * not an intersection — "angel spells and human spells" lets an Angel through even if it is not a Human).
  * Word-boundary matched so "Elf" never matches "Elfball" and "Art" never matches "Artifact".
  */

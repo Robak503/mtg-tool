@@ -98,7 +98,7 @@ import { classLevelOf } from "./classLevels.js"; // CLASS (CR 716.2a / 716.2d) �
 import { parseKickerCounterCreature, parseKickerEtbCreature, parseKickerCost, parseMultikickerCost, parseTeamworkCost } from "./kicker.js"; // + TEAMWORK (shelf D16) // KICKER (CR 702.33) — emit a normal + a kicked cast (kicker mana folded into the cost) when the kicker is affordable; ETB-trigger payoff variant (creatures) + kicked-SPELL-effect (instants/sorceries) too
 import { registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant activated-body gate
 import { isManaUntapProgram, orderUntapTargets } from "./manaUntapLine.js"; // the offer ORDER for "untap X target lands" (a leaf over manaModel)
-import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — emit a normal hard-cast + an emerge cast per legal sacrifice victim (cost reduced by the victim's MV)
+import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.119) — emit a normal hard-cast + an emerge cast per legal sacrifice victim (cost reduced by the victim's MV)
 
 // GROUP-ACTIVATED grant (queue 1) — register the modeled-body gate so the runtime path (a SIM that imports
 // legalChoices but not coverage) still emits + enumerates group-activated grants. Idempotent with coverage.js's
@@ -533,7 +533,7 @@ export function landDropAllowance(state, playerId) {
 }
 
 /**
- * FLASH-CAST-PERMISSION (CR 601.3e) — the flash-cast-permission specs `playerId` currently has, from every
+ * FLASH-CAST-PERMISSION (CR 601.3b) — the flash-cast-permission specs `playerId` currently has, from every
  * static they control ("You may cast <FILTER> spells as though they had flash" — Yeva, Vedalken Orrery,
  * Leyline of Anticipation, …). A static ability functions ONLY while its source is on the battlefield (CR
  * 113.6), so only the battlefield is scanned — a creature-commander carrying this clause grants nothing while
@@ -709,7 +709,7 @@ function actionsCastCommander(state, playerId) {
   const counts = player.commanderCastCount || {};
   const taxFn = (card) => 2 * (counts[card.commanderInstanceId || card.id] || 0);
   const actions = castActionsFromZone(state, playerId, command, "command", taxFn);
-  // ADVENTURE commander (CR 715 + 903.8): the shared builder skips a COMBINED adventure card (CR 715.2b),
+  // ADVENTURE commander (CR 715 + 903.8): the shared builder skips a COMBINED adventure card (CR 715.3),
   // which silently made an adventure commander (Kellan, the Fae-Blooded / Beluna Grandsquall) uncastable
   // from the command zone at all. Mirror the two hand generators: project each half onto its face and run
   // it through the SAME builder with the SAME tax (casting either half from the command zone is casting
@@ -1091,7 +1091,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     ? []
     : collectCostTaxers(Object.entries(state.players || {}).map(([pid, p]) => ({ controller: pid, battlefield: p.battlefield }))); 
 
-  // FLASH-CAST-PERMISSION (CR 601.3e): the flash-cast statics this player controls ("You may cast <FILTER>
+  // FLASH-CAST-PERMISSION (CR 601.3b): the flash-cast statics this player controls ("You may cast <FILTER>
   // spells as though they had flash" — Yeva, Vedalken Orrery, …), gathered ONCE (invariant across the loop).
   // A card that isn't instant-speed but matches one of these specs (spellMatchesFlashFilter) is offered at
   // instant speed below (subject to the normal instant-speed priority window). A free-cast bypasses the timing
@@ -1137,7 +1137,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       continue;
     }
 
-    // FLASH-CAST-PERMISSION (CR 601.3e): a sorcery-speed card the player has flash permission for (Yeva → a
+    // FLASH-CAST-PERMISSION (CR 601.3b): a sorcery-speed card the player has flash permission for (Yeva → a
     // green creature; Vedalken Orrery → any spell) may be cast whenever the player has priority (instant
     // speed). Checked only when the card ISN'T already instant-speed (a real Instant / a Flash card reads
     // instant-speed via isSorcerySpeed — true since stage ③ · 22) and only against this player's own statics — so it never
@@ -1181,7 +1181,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // IS "unless an effect allows it"). Lands never reach here (skipped above).
     if (!freeCast && !String(manaCostOf(card) || "").trim()) continue;
     let cost = parseManaCost(manaCostOf(card));
-    // Mana value is a card characteristic the commander tax does NOT change (CR 202.3b) — capture it from
+    // Mana value is a card characteristic the commander tax does NOT change (CR 118.8d) — capture it from
     // the PRINTED cost before the tax is folded into `cost` (which becomes the payable amount).
     const printedCmc = totalCmc(cost);
     let staticTax = 0; // hoisted (#509): the fixed-mana alternative cost below pays the same static tax (CR 118.9d)
@@ -1239,7 +1239,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     const wubrgAffordable = !!fixedAltCost && !freeCast && fromZone === "hand" && !cost.hasX
       && canAfford(player.manaPool, manaSources(state, playerId), fixedAltCost, spendContext);
     if (wubrgAffordable) wubrgSpecs.set(card.id, { baseAffordable: affordable, cost: fixedAltCost, altManaCost: ownPips ? "own" : "wubrg", altName: `pay ${ownPips || "{W}{U}{B}{R}{G}"} rather than its mana cost` });
-    // EMERGE (CR 702.97): the whole POINT of emerge is casting the Eldrazi when the FULL printed cost is out
+    // EMERGE (CR 702.119): the whole POINT of emerge is casting the Eldrazi when the FULL printed cost is out
     // of reach — sacrificing a creature cuts the cost by its mana value. So when the normal cast is NOT
     // affordable, do NOT skip the card outright (the old `if (!affordable) continue`): an emerge cast may
     // still be payable. Compute the emerge spec here (gated on a native body — the SAME gate coverage uses,
@@ -1594,7 +1594,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // PAY-X-LIFE (Toxic Deluge, 2026-08-15): the X lives in the ADDITIONAL COST, not the mana — the
       // range is bounded by the caster's LIFE (CR 119.4; capped at life-1 so the sim never offers the
       // suicide cast — a play-quality bound, X=life stays a legal-but-never-offered FN) and the mana
-      // half stays the fixed printed cost. MV stays printed too (CR 202.3b counts only {X} in the MANA
+      // half stays the fixed printed cost. MV stays printed too (CR 202.3e counts only {X} in the MANA
       // cost, and this spell has none).
       const lifeX = (program.additionalCosts || []).some((c) => c.kind === "payLifeX");
       // CR 601.2b — a spell cast without paying its mana cost has X = 0. Otherwise enumerate affordable X.
@@ -1617,7 +1617,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       if (!expandsTargetsPerX && combosOnce.length === 0) continue;
       for (const x of xValues) {
         const xCost = lifeX ? cost : xResolvedCost(cost, x); // PAY-X-LIFE: the mana half is the fixed printed cost (the X is life, charged at the dispatcher)
-        const xCmc = lifeX ? printedCmc : printedCmc + (cost.xCount ?? 1) * x; // MV stays printed for a life-X (CR 202.3b counts only mana-{X})
+        const xCmc = lifeX ? printedCmc : printedCmc + (cost.xCount ?? 1) * x; // MV stays printed for a life-X (CR 202.3e counts only mana-{X})
         // Per-X target enumeration for an X-count-target (min=max=X distinct) OR an X-MV-bound target; otherwise
         // the hoisted X-independent combos. An X with too few / no legal targets yields no combos → that X skipped.
         const combos = expandsTargetsPerX
@@ -1985,7 +1985,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       continue;
     }
 
-    // EMERGE (CR 702.97) — a creature with a clean "Emerge {cost}" (or "Emerge from artifact {cost}") line
+    // EMERGE (CR 702.119) — a creature with a clean "Emerge {cost}" (or "Emerge from artifact {cost}") line
     // whose BODY is native (parseEmergeCard re-classifies the keyword-line-stripped body — the SAME gate the
     // coverage classifier uses, so the metric and the runtime can't drift). For each legal sacrifice victim
     // of the emerge sac-type, emit an EMERGE cast whose `cost` is the emerge cost with its GENERIC portion
@@ -2008,7 +2008,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         return !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || "");
       });
       for (const victim of victims) {
-        // CR 702.97a — the emerge cost is reduced by the sacrificed creature's MANA VALUE (generic only,
+        // CR 702.119a — the emerge cost is reduced by the sacrificed creature's MANA VALUE (generic only,
         // floored at {0}); the colored pips stay. parseManaCost returns a fresh object, but build a new one
         // per victim so each emerge cast carries its own reduced cost.
         const reducedGeneric = Math.max(0, (emergeCost.generic || 0) - manaValueOf(victim.card));
@@ -2020,7 +2020,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         actions.push({
           ...base,
           cost: reducedCost,
-          cmc: printedCmc, // CR 202.3b — mana value reads the card's PRINTED cost, unaffected by the alt-cast
+          cmc: printedCmc, // CR 118.9c — mana value reads the card's PRINTED cost, unaffected by the alt-cast
           targets: [],
           needsTargets: false,
           emerge: true,
@@ -2717,7 +2717,7 @@ function actionsActivateAbility(state, playerId) {
       // keep this fast path.
       if (!ab.sacOther && !canAfford(player.manaPool, sources, cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id) })) continue; // SG-18: activation spend context
 
-      // Equip {cost}: target a creature YOU control (CR 702.6e). Equip is SORCERY-SPEED
+      // Equip {cost}: target a creature YOU control (CR 702.6a). Equip is SORCERY-SPEED
       // (CR 702.6a) — unlike other activated abilities (instant-speed, conservatively
       // main-gated here), it also needs an EMPTY stack, or the player could illegally equip
       // in response to a spell already on the stack. One action per legal creature target.
@@ -2755,7 +2755,7 @@ function actionsActivateAbility(state, playerId) {
             // P·39 — every creature type (a changeling, Mirror Entity's activation) IS a Villain: never worthy.
             if (!types.includes("Legendary") || subtypes.includes("Villain") || permIsEveryCreatureType(state, t.id) || !(colors.includes("R") || colors.includes("W"))) continue;
           }
-          // KW-UNTARGET: Equip is a TARGETED ability (CR 702.6e), so it obeys targetability — a Shroud
+          // KW-UNTARGET: Equip is a TARGETED ability (CR 702.6a), so it obeys targetability — a Shroud
           // creature (CR 702.18a) can't be targeted even by its controller. Route through the shared
           // guard (hexproof never blocks here, since Equip only targets your OWN creatures — CR 702.11b).
           // The source's CURRENT colors ride along (CR 702.16b): the attach resolver re-checks with them, so a creature with
@@ -3590,7 +3590,7 @@ function actionsPlayImpulseFromExile(state, playerId) {
 /**
  * PLAY-FROM-TOP-OF-LIBRARY (Future Sight / Bolas's Citadel) — the enforcement of the { playFromTop } static
  * permission (staticAbilityParser). While the player controls such a permanent, the TOP card of their library
- * is playable/castable (CR 118.6 / 601.3e): a NONLAND is cast at FULL cost through the SAME shared builder a
+ * is playable/castable (CR 116.2a / 601.3): a NONLAND is cast at FULL cost through the SAME shared builder a
  * hand cast uses (castActionsFromZone with fromZone "library" — target/mode/X/additional-cost enumeration, the
  * stack, cast triggers, AI all identical), and a LAND rides the play-land path (sorcery speed, own main, a land
  * drop available) with fromZone "library" so the dispatcher splices it from the right zone. Only the TOP card is
@@ -3599,7 +3599,7 @@ function actionsPlayImpulseFromExile(state, playerId) {
  * credited static from being a no-op (CREED). Perfect-information sim → offering the known top card is faithful.
  */
 /**
- * MILLED-THIS-TURN GRAVEYARD CAST (Raul, Trouble Shooter — SHELF S6, CR 601.3e): "Once during each of your
+ * MILLED-THIS-TURN GRAVEYARD CAST (Raul, Trouble Shooter — SHELF S6, CR 601.3): "Once during each of your
  * turns, you may cast a spell from among cards in your graveyard that were milled this turn." While the
  * player controls a permanent carrying the castMilledGraveyardPermission static AND it's THEIR turn AND the
  * per-source once-latch is unused, every NONLAND graveyard card stamped in the millCards ledger with the
@@ -3670,7 +3670,7 @@ function actionsCastFlashbackFromGraveyard(state, playerId) {
     // Project the flashback cost as the payable cost; body/type/oracle are unchanged (the builder's
     // parseCastProgram strips the flashback line to parse the body, and manaCostOf reads the overridden cost —
     // set BOTH `mana` and `mana_cost` since manaCostOf prefers `mana`). The mana VALUE stays the PRINTED cost
-    // (CR 202.3b — an alternative cost doesn't change mana value), so it's restamped after the builder runs.
+    // (CR 118.9c — an alternative cost doesn't change mana value), so it's restamped after the builder runs.
     const face = { ...card, mana: fbCost, mana_cost: fbCost };
     const printedMv = totalCmc(parseManaCost(manaCostOf(card)));
     for (const a of castActionsFromZone(state, playerId, [face], "graveyard", null, false)) {
@@ -3757,7 +3757,7 @@ function actionsCastMilledFromGraveyard(state, playerId) {
 }
 
 /**
- * DRAGON-CREATURE GRAVEYARD CAST (Rivaz of the Claw — Dragons shelf, CR 601.3e): "Once during each of
+ * DRAGON-CREATURE GRAVEYARD CAST (Rivaz of the Claw — Dragons shelf, CR 601.3 / 601.3e): "Once during each of
  * your turns, you may cast a Dragon creature spell from your graveyard." The Raul machine's type-filtered
  * sibling: same once-per-your-turn latch (`${sourceId}_dragonGyCast`, latched by the dispatcher on the
  * cast, cleared at untap), same SHARED cast builder (fromZone "graveyard" — full cost, targets, timing,
@@ -3871,7 +3871,7 @@ function actionsPlayFromTopOfLibrary(state, playerId) {
 }
 
 /**
- * PLAY-LANDS-FROM-GRAVEYARD (CR 118.6, census slice 44) — the runtime half of the Crucible of Worlds
+ * PLAY-LANDS-FROM-GRAVEYARD (CR 116.2a, census slice 44) — the runtime half of the Crucible of Worlds
  * permission. Offers every LAND in the player's graveyard as a real play-land action from that zone.
  *
  * The permission changes the ZONE and nothing else, so this deliberately reuses the same two gates
@@ -3918,7 +3918,7 @@ function actionsCastAdventureFromHand(state, playerId) {
 }
 
 /**
- * ADVENTURE step 1b — cast the CREATURE half directly from HAND. CR 715.2b: everywhere except the stack, an
+ * ADVENTURE step 1b — cast the CREATURE half directly from HAND. CR 715.4: everywhere except the stack, an
  * adventurer card has only its creature characteristics — a normal cast from hand casts the CREATURE at the
  * creature half's own cost and timing. Before this generator existed the combined card rode the generic hand
  * enumerator (summed cost, instant timing when the ADVENTURE half is an Instant) — castActionsFromZone now
@@ -4511,7 +4511,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
 
   // Lands, spells, mana.
   actions.push(...actionsPlayLand(state, playerId)); // playing a land is NOT casting a spell — never suppressed
-  // PLAY-LANDS-FROM-GRAVEYARD (CR 118.6, Crucible of Worlds) — same zone-agnostic special action, sourced
+  // PLAY-LANDS-FROM-GRAVEYARD (CR 116.2a, Crucible of Worlds) — same zone-agnostic special action, sourced
   // from the graveyard under the static permission. Also never cast-suppressed, for the same reason.
   actions.push(...actionsPlayLandFromGraveyard(state, playerId));
   if (!cantCast) {
@@ -4521,7 +4521,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsSuspendFromHand(state, playerId)); // KW-SUSPEND step 1 (CR 702.62a): exile the no-cost trio with time counters
     actions.push(...actionsCastSuspendReadyFromExile(state, playerId)); // KW-SUSPEND step 2 (CR 702.62a): cast free at zero counters
     actions.push(...actionsPlayImpulseFromExile(state, playerId)); // IMPULSE-EXILE step 2 (CR 601.3 / 305.2): play an impulse-exiled card THIS TURN at full cost (nonland cast / land play from exile)
-    actions.push(...actionsPlayFromTopOfLibrary(state, playerId)); // PLAY-FROM-TOP (Future Sight, CR 118.6): cast/play the top library card while the permission static is active
+    actions.push(...actionsPlayFromTopOfLibrary(state, playerId)); // PLAY-FROM-TOP (Future Sight, CR 116.2a / 601.3): cast/play the top library card while the permission static is active
     actions.push(...actionsCastFreeByPermission(state, playerId)); // shelf D35 — cast without paying the mana cost (One with the Multiverse, Zaffai, Vision, Omniscience)
     actions.push(...actionsCastMilledFromGraveyard(state, playerId)); // MILLED-GY CAST (Raul): once per your turn, cast a nonland milled this turn from your graveyard
     actions.push(...actionsCastPermittedFromGraveyard(state, playerId)); // shelf D30 — a "you may cast that card this turn" permission (Emry)
@@ -4534,7 +4534,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsCastSplitFromHand(state, playerId)); // SPLIT CARDS (CR 709.4): cast either half from hand
     actions.push(...actionsCastModalDfcFrontFromHand(state, playerId)); // MODAL DFC (CR 712.8, V1 slice 2): cast the spell front from hand
     actions.push(...actionsCastAdventureFromHand(state, playerId)); // ADVENTURE step 1 (CR 715.3): cast the adventure (instant/sorcery) half
-    actions.push(...actionsCastCreatureFromHand(state, playerId)); // ADVENTURE step 1b (CR 715.2b): cast the creature half from hand at its own cost
+    actions.push(...actionsCastCreatureFromHand(state, playerId)); // ADVENTURE step 1b (CR 715.3 / 715.4): cast the creature half from hand at its own cost
     actions.push(...actionsCastCreatureFromAdventureExile(state, playerId)); // ADVENTURE step 2 (CR 715.3d): cast the creature half from exile
   }
   // NONCREATURE CAST-LIMIT (SHELF-85 · Light-Paws L5 Deafening Silence, 2026-09-05 — "Each player can't cast more than one

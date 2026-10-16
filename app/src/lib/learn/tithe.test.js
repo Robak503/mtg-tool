@@ -4,7 +4,7 @@
  * hand, then shuffle." The splitter folds the three sentences into one clause; the tutor arm emits ONE atom — a hand
  * fetch of the printed filter with a TARGETED-OPPONENT compare rider — and applyTutor reads the chosen opponent's land
  * tally against the controller's at resolution (CR 608.2), adding the extra pick when strictly greater. The "you may"
- * is the chain's own find-optionality (a filtered search may fail to find, CR 701.19b): the second pick can be declined.
+ * is the chain's own find-optionality (a filtered search may fail to find, CR 701.23b): the second pick can be declined.
  *
  * Mutation-checked: see the run ledger (docs-sk59).
  */

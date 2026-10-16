@@ -1,5 +1,5 @@
 /**
- * turnScopedFlashGrant.test.js — "You may cast spells this turn as though they had flash." (CR 601.3e)
+ * turnScopedFlashGrant.test.js — "You may cast spells this turn as though they had flash." (CR 601.3b)
  * Borne Upon a Wind. +1, and the first card off the `cdh` shelf gap (83 → 84 of 100).
  *
  * ⭐ THE STATIC FORM WAS ALREADY MODELED and this is its missing twin — the same axis this run keeps finding.

@@ -1,5 +1,5 @@
 /**
- * TRIBUTE (CR 702.96) — the ETB opponent-choice keyword.
+ * TRIBUTE (CR 702.104) — the ETB opponent-choice keyword.
  *
  * "Tribute N (As this creature enters, an opponent of your choice may put N +1/+1 counters on it.)" — the
  * controller's chosen opponent decides AS the creature enters: PAY tribute (put N +1/+1 counters on it → a
@@ -214,7 +214,7 @@ function setup({ hand = [], mana = {}, oppBoard = [] } = {}) {
   const s = mainState();
   return { ...s, players: { ...s.players, user: { ...s.players.user, hand, manaPool: { ...s.players.user.manaPool, ...mana } }, ai: { ...s.players.ai, battlefield: oppBoard } } };
 }
-// A SOLO state (the controller has NO opponent) — CR 702.96a: no opponent to pay tribute → declined → the
+// A SOLO state (the controller has NO opponent) — CR 702.104a: no opponent to pay tribute → declined → the
 // if-not effect fires. The cleanest way to exercise the DECLINE branch deterministically.
 function soloState(hand = []) {
   const base = createGameState({ userDeck: [], aiDeck: [] });
@@ -315,7 +315,7 @@ describe("TRIBUTE runtime — DECLINE (upside if-not effects the AI denies): the
 // ── Runtime: the HARMFUL if-not effects GENUINELY fire when tribute is declined ──────────────────────
 // The AI auto-PAYS to avoid these, so to prove the effect resolves we force the DECLINE branch: enter on a
 // real opponent board, stamp tributePaid=false (the opponent choosing to decline despite the harm — a legal
-// CR 702.96a choice), and re-fire the ETB trigger. This pins that the modeled if-not atom actually resolves.
+// CR 702.104a choice), and re-fire the ETB trigger. This pins that the modeled if-not atom actually resolves.
 describe("TRIBUTE runtime — DECLINED harmful effects resolve (anti-latent-FP)", () => {
   function forceDeclineAndFire(card, oppBoard) {
     let s = setup({ oppBoard });
@@ -344,8 +344,8 @@ describe("TRIBUTE runtime — DECLINED harmful effects resolve (anti-latent-FP)"
   });
 });
 
-// ── Runtime: no opponent → tribute can't be paid → declined (CR 702.96a) ─────────────────────────────
-describe("TRIBUTE runtime — with NO opponent, tribute is declined (CR 702.96a — 'an opponent of your choice')", () => {
+// ── Runtime: no opponent → tribute can't be paid → declined (CR 702.104a) ─────────────────────────────
+describe("TRIBUTE runtime — with NO opponent, tribute is declined (CR 702.104a — 'choose an opponent')", () => {
   it("Snake of the Golden Grove in a solo game → declined → you gain 4 life", () => {
     const after = enterSoloAndFlush(SNAKE);
     const perm = after.players.user.battlefield.find((p) => p.card.name === "Snake of the Golden Grove");

@@ -612,7 +612,7 @@ function resolveCopySource(state, atom, ctx) {
   // this atom, with the card it captured. A token source is copied too — CR 111.12's no-token rule does not apply to an effect
   // that uses last known information, and the ruling copies a token as its creating effect defined it.
   if (atom.copySource === "lki") return { card: atom.lkiCard };
-  // POPULATE (CR 701.32a) — "Create a token that's a copy of a creature token you control." The source is
+  // POPULATE (CR 701.36a) — "Create a token that's a copy of a creature token you control." The source is
   // CHOSEN by the controller from their own creature TOKENS, and it is not a target (populate never uses
   // the word), so nothing is chosen at cast time and the pick happens here at resolution.
   //

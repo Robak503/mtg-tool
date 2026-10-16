@@ -1,5 +1,5 @@
 /**
- * playFromTopOfLibrary.test.js — the PLAY-FROM-TOP-OF-LIBRARY subsystem (Future Sight; CR 118.6 / 601.3e).
+ * playFromTopOfLibrary.test.js — the PLAY-FROM-TOP-OF-LIBRARY subsystem (Future Sight; CR 116.2a / 601.3).
  * A static { playFromTop } marker (staticAbilityParser) that is genuinely ENFORCED, not a no-op: while a player
  * controls such a permanent, legalChoices.actionsPlayFromTopOfLibrary offers the TOP library card as a real
  * action — a nonland cast at full cost through the shared cast builder (fromZone "library"), or a land via the

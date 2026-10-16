@@ -453,7 +453,7 @@ export function resolveTutorChoice(state, cardId) {
   const inSource = cardId && (next.players?.[pc.controller]?.[sourceZone] || []).some((c) => c.id === cardId);
   // WAVE-2b FETCH-TO-TOP — three destinations: "battlefield" (ramp), "top" (Vampiric/Mystical Tutor —
   // shuffle FIRST, then place the chosen card on top, CR 701.24b, so it survives the shuffle), "hand" (default).
-  // GRAVEYARD joins them (CR 701.19a — the search's destination is whatever the card says): Entomb, Buried
+  // GRAVEYARD joins them (CR 608.2c — the search's destination is whatever the card says): Entomb, Buried
   // Alive, Unmarked Grave, Vile Entomber and the reanimator family put the found card straight into the
   // graveyard. It is the SAME moveCardToZone the hand branch uses with a different toZone, so the fetch,
   // the CR 701.24a shuffle, the multi-pick chain and the find-nothing path are all unchanged.
@@ -462,7 +462,7 @@ export function resolveTutorChoice(state, cardId) {
       : pc.destination === "graveyard" ? "graveyard" : "hand";
   // ARCHDRUID'S CHARM (2026-09-03) — `landToBattlefieldTapped`: the destination is decided PER CHOSEN CARD — a land
   // enters the battlefield tapped, anything else takes the choice's destination (the hand). Read off the card's
-  // own type line at settle time (CR 701.19 — the search's destination is whatever the card says).
+  // own type line at settle time (CR 608.2c — the search's destination is whatever the card says).
   const chosenCardObj = inSource ? (next.players?.[pc.controller]?.[sourceZone] || []).find((c) => c.id === cardId) : null;
   const landPick = !!pc.landToBattlefieldTapped && !!chosenCardObj && /\bLand\b/i.test(String(chosenCardObj.type || chosenCardObj.type_line || ""));
   let topAlreadyShuffled = false;
@@ -613,7 +613,7 @@ export function advanceTemptingOffer(state, pc) {
 /**
  * TEMPTING OFFER — the asked opponent's answer. Accept: the opponent's own land search is suspended (their pick
  * settles through resolveTutorChoice, which advances the offer with `accepted + 1` — they searched, whether or not
- * they found a land, CR 701.19c). Decline: the offer advances at once (the next opponent, or the offerer's bonus).
+ * they found a land, CR 701.23g). Decline: the offer advances at once (the next opponent, or the offerer's bonus).
  */
 export function resolveTemptingOfferChoice(state, accept) {
   const pc = state.pendingChoice;

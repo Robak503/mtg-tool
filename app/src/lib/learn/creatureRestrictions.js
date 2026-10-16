@@ -226,7 +226,7 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       if (r.op === ">=" && !(th >= r.value)) return false;
     } else if (r.kind === "powerOrToughness") {
       // DISJUNCTIVE P/T BOUND (Warping Wail) — EITHER characteristic satisfying the bound is enough, so a
-      // 3/1 is a legal target for "power or toughness 1 or less". Both reads are LAYER-AWARE (CR 613.3),
+      // 3/1 is a legal target for "power or toughness 1 or less". Both reads are LAYER-AWARE (CR 613.4c),
       // matching the single-characteristic branches above, so counters and anthems count.
       const p = creaturePower(perm, state);
       const th = creatureToughness(perm, state);
@@ -239,7 +239,7 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // (CR 707.2) — a printed 3 that became a copy of a 5 is not a "3 or less" target (layers.permanentManaValue).
       const mv = permanentManaValue(state, perm);
       // MV-CAP-BY-X (Here Comes a New Hero! — "with mana value X or less"): `valueX` resolves the cap from the
-      // chosen X (ctx.xValue, bound at cast per CR 202.3b). `?? 0` (not `|| 0`) so an explicit X=0 caps at MV 0
+      // chosen X (ctx.xValue, bound at cast per CR 107.3a). `?? 0` (not `|| 0`) so an explicit X=0 caps at MV 0
       // (a legal, conservative choice — target only 0-drops), and a missing xValue is treated as 0, NEVER as
       // "uncapped" — the CREED guarantee that the X-bound cap is never silently dropped into an illegal target.
       // A cast-time enumeration threads ctx={xValue:x} per affordable X (legalChoices X-spell branch), so this

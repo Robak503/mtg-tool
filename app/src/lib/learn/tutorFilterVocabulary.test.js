@@ -1,5 +1,5 @@
 /**
- * tutorFilterVocabulary.test.js — two additions to the tutor's FILTER vocabulary (CR 701.19a / 110.4a).
+ * tutorFilterVocabulary.test.js — two additions to the tutor's FILTER vocabulary (CR 701.23a / 110.4a).
  *
  * The graveyard-destination slice ended on the pin "a destination landing does not widen the search
  * vocabulary" (Unmarked Grave). This is the other axis of that same subsystem, and it turned out to be the

@@ -124,7 +124,7 @@ export function parseSuspendNoCost(card) {
 }
 
 /**
- * The OWNER's upkeep half (CR 702.62d): remove one time counter from each of the active player's
+ * The OWNER's upkeep half (CR 702.62a): remove one time counter from each of the active player's
  * suspended exile cards; a card reaching ZERO is stamped `_suspendReady` (the free cast is offered
  * from legalChoices through the real cast machinery). Wired in gameEngine beside the fade/vanish
  * upkeep. Pure.

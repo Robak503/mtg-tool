@@ -143,7 +143,7 @@ describe("⭐ THE SEAM — a REAL cast through the dispatcher stamps the permane
   });
 });
 
-describe("TIAMAT's two search riders (CR 701.19) — enforced, not assumed vacuous", () => {
+describe("TIAMAT's two search riders (CR 701.23) — enforced, not assumed vacuous", () => {
   it("⭐ both ride on the tutor filter", async () => {
     const { parseEffectClause } = await import("./effects/parser.js");
     const atom = parseEffectClause(

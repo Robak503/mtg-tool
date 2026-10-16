@@ -185,7 +185,7 @@ function applyForceAttack(state, atom, ctx) {
  * it each of the player's turns, so it never persists like the static "each of your turns" form. The "may"
  * is satisfied for free — granting the OPTION to play more lands costs nothing and is never a downside (the
  * player simply chooses whether to use the bigger budget at the land-play step), so no yes/no pause is needed
- * (CR 601.3e — a player isn't forced to play the extra land). Non-targeted; a removed controller is a clean
+ * (CR 305.2a — a player isn't forced to play the extra land). Non-targeted; a removed controller is a clean
  * no-op. `atom.amount ?? 1` (not `|| 1`) so a parsed +0 — impossible from the anchored parser, but
  * defensively — would add exactly 0, never a fabricated land.
  */
@@ -277,7 +277,7 @@ export function miscClauseParser(clause) {
   // extra turn" / "take two extra turns" / a skip-step rider never matches) → low → Arbiter (FN-safe —
   // an extra turn credited to the wrong player would be a catastrophic FP).
   if (/^take an extra turn after this one$/.test(t)) return { op: "extra-turn", targetType: null };
-  // TURN-SCOPED FLASH GRANT (CR 601.3e) — "You may cast [<FILTER>] spells this turn as though they had
+  // TURN-SCOPED FLASH GRANT (CR 601.3b) — "You may cast [<FILTER>] spells this turn as though they had
   // flash." The STATIC form is modeled in staticAbilityParser (Yeva, Vedalken Orrery) and its matcher
   // comment names this very gap: "Anchored ^…$ so any rider variant ('… this turn') never matches."
   // Same permission, same spec shape, different duration.
@@ -400,7 +400,7 @@ export function miscClauseParser(clause) {
   // grant must never model as a self-only bump). The variable "X additional lands" form (Nahiri's Lithoforming)
   // has no fixed N → not matched → its whole card stays non-native (safe FN). "an"/"one".."ten" + a numeric "2
   // additional", with or without the "up to" cap (the cap is irrelevant to the budget — you may always play
-  // FEWER lands; CR 601.3e), all parse to N.
+  // FEWER lands; CR 305.2a), all parse to N.
   const eld = t.match(/^(?:you may )?play (?:up to )?(an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) additional lands? this turn$/);
   if (eld) {
     const W = { an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
@@ -837,7 +837,7 @@ export function applyAddMana(state, atom, ctx) {
  * entry carries only the player id; the extra turn itself is a full normal turn (untap → cleanup).
  */
 /**
- * TURN-SCOPED FLASH GRANT (CR 601.3e) — stamp the casting permission on the CONTROLLER for this turn.
+ * TURN-SCOPED FLASH GRANT (CR 601.3b) — stamp the casting permission on the CONTROLLER for this turn.
  * legalChoices.flashPermissionSpecsFor reads it alongside the battlefield statics;
  * gameState.resetSpellsCastAllPlayers clears it at untap with the other per-turn player state.
  */
@@ -1013,7 +1013,7 @@ export const miscResolvers = {
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player
   "draw-half-library-lose-half-life": applyDrawHalfLibraryLoseHalfLife, // SHELF-85 N11 — Peer into the Abyss (the target draws ceil(library/2), loses ceil(life/2))
   "extra-combat": applyExtraCombat, // ===== EXTRA-COMBAT ===== (CR 500.8) — queue one additional combat phase; advanceStep pops it leaving end-of-combat
-  "grant-flash-this-turn": applyGrantFlashThisTurn, // CR 601.3e — the TURN-SCOPED twin of the static flash-cast permission
+  "grant-flash-this-turn": applyGrantFlashThisTurn, // CR 601.3b — the TURN-SCOPED twin of the static flash-cast permission
   "extra-turn": applyExtraTurn, // ===== EXTRA-TURN ===== (XT-1, CR 500.7) — "Take an extra turn after this one": a LIFO stack popped at advanceStep's end-of-turn branch
   "lure-this-turn": applyLureThisTurn, // ===== THIS-TURN LURE ===== (LU-2, CR 509.1c) — a turn-scoped block requirement marker, enforced in opponentAI.pickBlockers at the LU-1 bar
   "add-mana": applyAddMana, // RITUAL-MANA — "Add {C}{C}{C}" adds basic mana to the controller's pool

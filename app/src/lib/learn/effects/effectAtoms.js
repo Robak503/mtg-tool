@@ -96,7 +96,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...faceDownExileResolvers, // face-down-exile-top + face-down-exile-return (Necropotence, CR 406.3 + 603.7) — exile face down, return that card at your next end step
   ...discardedCardExileResolvers, // exile-discarded-card (Necropotence, CR 603.6) — the discard trigger's "exile that card from your graveyard"
   conditional: applyConditional, // CONDITIONAL REPLACEMENT (CR 608.2) — "<base>. If <cond>, <alt> instead." Defined below; recurses through resolveAtom, so it lives in the barrel.
-  ...controlResolvers, // gain-control (CR 613.1b layer-2 / 702.10c) — indefinite control-change of a target creature/subtype (Sliver Overlord "Gain control of target Sliver")
+  ...controlResolvers, // gain-control (CR 613.1b layer-2 / 302.6) — indefinite control-change of a target creature/subtype (Sliver Overlord "Gain control of target Sliver")
   ...becomeCopyResolvers, // become-copy (CR 613.1a / 707.9) — a permanent becomes a copy of a chosen target until end of turn
   ...grantUntilEotResolvers, // grant-until-eot (TG-1, CR 611.2c fixed set) — until-EOT quoted-ability grants (Feign Death / Showstopper family)
   ...conniveResolvers, // connive (BLITZ EK-1, CR 701.50a) — draw 1 → chosen discard (pause) → +1/+1 if a nonland was discarded

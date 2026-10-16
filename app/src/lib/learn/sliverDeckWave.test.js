@@ -190,7 +190,7 @@ describe("Essence Sliver — GLOBAL SUBTYPE damage → controller-lifegain → n
   });
 });
 
-describe("Sliver Overlord — GAIN-CONTROL (CR 720 / 702.10c) → native-activated", () => {
+describe("Sliver Overlord — GAIN-CONTROL (CR 613.1b / 302.6) → native-activated", () => {
   // The tutor half ("Search your library for a Sliver card …") was already modeled (the shipped Sliver-filtered
   // tutor); modeling the second ability's INDEFINITE control change ("Gain control of target Sliver.") — the new
   // op:"gain-control" atom — flips the WHOLE card. Both activated abilities now route natively. Full runtime +

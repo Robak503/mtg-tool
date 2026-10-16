@@ -1,5 +1,5 @@
 /**
- * populate.test.js — POPULATE (CR 701.32a). Thirteen carriers, none native before this: Trostani, Growing
+ * populate.test.js — POPULATE (CR 701.36a). Thirteen carriers, none native before this: Trostani, Growing
  * Ranks, Wayfaring Temple, Rootborn Defenses, Sundering Growth and more.
  *
  * "Populate. (Create a token that's a copy of a creature token you control.)"

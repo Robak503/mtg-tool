@@ -1236,7 +1236,7 @@ export function pickLoyaltyAction(state, aiPlayerId, loyaltyActions) {
  * Slice 1 — EQUIP: attach each equipment to the AI's BEST creature (highest derived power via
  * permanentPower — layers.js, so anthems/counters/the equipment's own bonus all count), id
  * tiebreak. Equip targets are the AI's OWN creatures by construction (legalChoices enumerates
- * the controller's battlefield only, CR 702.6e), so there is no side to get wrong — only
+ * the controller's battlefield only, CR 702.6a), so there is no side to get wrong — only
  * PROFITABILITY: skip when the equipment already sits on the chosen best body (a no-op
  * re-equip), and only MOVE an attached equipment onto a STRICTLY higher-power body. The
  * strict-improvement rule is also the TERMINATION guard (recon-flagged loop risk): once the

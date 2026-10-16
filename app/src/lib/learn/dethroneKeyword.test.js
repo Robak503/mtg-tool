@@ -1,5 +1,5 @@
 /**
- * dethroneKeyword.test.js — dethrone (CR 702.104a, census slice 46).
+ * dethroneKeyword.test.js — dethrone (CR 702.105a, census slice 46).
  *
  * "Dethrone (Whenever this creature attacks the player with the most life or tied for most life, put a
  * +1/+1 counter on it.)"

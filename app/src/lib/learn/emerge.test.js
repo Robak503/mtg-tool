@@ -1,5 +1,5 @@
 /**
- * EMERGE (CR 702.97) — Eldrazi ALTERNATIVE cast cost: sacrifice a creature (or an artifact, for "Emerge
+ * EMERGE (CR 702.119) — Eldrazi ALTERNATIVE cast cost: sacrifice a creature (or an artifact, for "Emerge
  * from artifact") and pay the emerge cost reduced by that permanent's mana value.
  *
  * Scope (this slice): a creature with a clean "Emerge {cost}" line whose BODY — the keyword line stripped —
@@ -102,7 +102,7 @@ describe("EMERGE parser — parseEmergeCard (whole-card gate)", () => {
   it("returns null when the stripped body is UNMODELED (Distended Mindbender's reveal-and-choose-discard)", () => {
     expect(parseEmergeCard(DISTENDED_MINDBENDER, classifyCard, isNativeTier)).toBeNull();
   });
-  it("returns null for a non-creature (Emerge cards are creatures, CR 702.97a)", () => {
+  it("returns null for a non-creature (Emerge cards are creatures; no CR rule states this directly)", () => {
     const fake = { name: "X", type: "Artifact", oracle: "Emerge {5}{U} (reminder)\nFlying" };
     expect(parseEmergeCard(fake, classifyCard, isNativeTier)).toBeNull();
   });
@@ -160,7 +160,7 @@ describe("EMERGE runtime — casting via emerge sacrifices the victim, pays the 
     // The reduced cost: {3}{U} (generic 5 − MV 2 = 3; the colored {U} stays).
     expect(emerge.cost.generic).toBe(3);
     expect(emerge.cost.U).toBe(1);
-    expect(emerge.cmc).toBe(7); // MV reads the PRINTED cost, unaffected by the alt-cast (CR 202.3b)
+    expect(emerge.cmc).toBe(7); // MV reads the PRINTED cost, unaffected by the alt-cast (CR 118.9c)
     expect(emerge.sacCreatureId).toBe("bear");
 
     let after = dispatchAction(s, emerge);
@@ -219,7 +219,7 @@ describe("EMERGE runtime — casting via emerge sacrifices the victim, pays the 
     expect(casts(s).length).toBe(0); // can't afford normal {7}, no victim for emerge → uncastable
   });
 
-  it("the cost reduction FLOORS at the colored pips — a high-MV sacrifice never underpays (CR 702.97a)", () => {
+  it("the cost reduction FLOORS at the colored pips — a high-MV sacrifice never underpays (CR 702.119a)", () => {
     const dragon = { name: "Big Dragon", type: "Creature — Dragon", mana: "{5}{R}", power: 5, toughness: 5, oracle: "" }; // MV 6
     const s = setup({
       hand: [{ ...WRETCHED_GRYFF, id: "gryff" }],

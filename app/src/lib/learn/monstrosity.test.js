@@ -1,7 +1,7 @@
 /**
- * monstrosity.test.js — the MONSTROSITY keyword action (CR 701.32). "{cost}: Monstrosity N" is modeled as a
+ * monstrosity.test.js — the MONSTROSITY keyword action (CR 701.37). "{cost}: Monstrosity N" is modeled as a
  * dedicated op (applyMonstrosity): if the source ISN'T monstrous, put N +1/+1 counters on it and latch it
- * monstrous; re-activating a monstrous creature is a no-op (CR 701.32c) — which is why it needs its own atom,
+ * monstrous; re-activating a monstrous creature is a no-op (CR 701.37a) — which is why it needs its own atom,
  * not a plain self add-counter. Flips the activated-ONLY monstrosity cards (Ill-Tempered Cyclops, Nessian Asp,
  * Gluttonous Cyclops, Fleetfeather Cockatrice, Ravenous Leucrocota).
  *

@@ -30,7 +30,7 @@ import { winGameResolvers } from "./winGame.js"; // THASSA'S ORACLE (KN-1) — t
 import { applyDrawEffect } from "../../spellEffects.js";
 
 /**
- * P3.2 tutor (CR 701.19) — search the caster's library for a card matching the modeled
+ * P3.2 tutor (CR 701.23) — search the caster's library for a card matching the modeled
  * type filter, put it into their hand, then shuffle. The filter (`atom.filter.groups`,
  * parsed + allowlisted by the parser) matches a library card when ANY group's words ALL
  * appear in the card's type line (so "instant or sorcery" → 2 groups; "basic land" → 1).
@@ -239,7 +239,7 @@ export function shuffleControllerLibrary(state, controller) {
   return shuffleSeededLibrary(state, controller);
 }
 /**
- * Tutor (CR 701.19) — flag a resolution-time CHOICE rather than auto-picking. Gathers the
+ * Tutor (CR 701.23) — flag a resolution-time CHOICE rather than auto-picking. Gathers the
  * caster's legal library cards (matching the filter; a null filter = "search for a card" =
  * every card) and sets `state.pendingChoice`; runProgram pauses the effect program here.
  * The driver surfaces a picker (the player's own tutor, beginner/intermediate) or auto-
@@ -280,7 +280,7 @@ export function applyTutor(state, atom, ctx) {
   const zoneCards = (zone) => (zone === "libraryTop" ? (player.library || []).slice(0, 1) : (player[zone] || []));
   const sourceZone = atom.sourceZone === "hand" ? "hand" : "library";
   // SEARCH→BATTLEFIELD MV-CAPPED-BY-X (bfx) — a `mvCapX` filter resolves its MV cap from the CHOSEN X at
-  // resolution (Wargate / Nature's Rhythm "mana value X or less", X bound at cast per CR 601.2b / 202.3b).
+  // resolution (Wargate / Nature's Rhythm "mana value X or less", X bound at cast per CR 601.2b / 107.3a).
   // `?? 0` (not `|| 0`) so an explicit X=0 caps at 0 (fetch only MV-0 — a legal, conservative search), and a
   // missing xValue (never happens for an xSpell, but defensive) is treated as 0, never as "uncapped" — the
   // cardinal CREED guarantee that the cap is never silently dropped. The resolved filter (with a concrete
@@ -936,7 +936,7 @@ export function millOnePlayer(state, playerId, count) {
 }
 
 /**
- * ⭐ EXILE-TOP-OF-LIBRARY (CR 701.19a) — INGEST (Ruination Guide, Dominator Drone, Benthic Infiltrator and
+ * ⭐ EXILE-TOP-OF-LIBRARY (CR 702.115a) — INGEST (Ruination Guide, Dominator Drone, Benthic Infiltrator and
  * the Battle for Zendikar processor shell): "Whenever this creature deals combat damage to a player, that
  * player exiles the top card of their library."
  *
@@ -1514,7 +1514,7 @@ function manaValueOfCard(card) {
   for (const m of cost.matchAll(/\{([^}]+)\}/g)) {
     const sym = m[1];
     if (/^\d+$/.test(sym)) mv += parseInt(sym, 10);
-    else if (sym.toUpperCase() !== "X") mv += 1; // a coloured / hybrid / phyrexian pip is 1; X is 0 off the stack (CR 202.3b/e)
+    else if (sym.toUpperCase() !== "X") mv += 1; // a coloured / hybrid / phyrexian pip is 1; X is 0 off the stack (CR 202.3e)
   }
   return mv;
 }
@@ -1776,7 +1776,7 @@ export function applyShuffle(state, atom, ctx) {
 }
 
 /**
- * SHUFFLE-GRAVEYARD-INTO-LIBRARY (Finale of Revelation "shuffle your graveyard into your library", CR 701.19)
+ * SHUFFLE-GRAVEYARD-INTO-LIBRARY (Finale of Revelation "shuffle your graveyard into your library", CR 701.24a)
  * — move EVERY card in the controller's graveyard into their library, then shuffle deterministically (the same
  * threaded-seed shuffle as every other library shuffle, so it's serialize-stable). The graveyard is emptied
  * (its cards are now in the library and randomized), matching the printed effect exactly. condX-gated: when
@@ -2091,13 +2091,13 @@ export function millClauseParser(clause) {
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   m = t.match(/^(?:that player|they) mills? (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "damagedPlayer", targetType: null };
-  // ⭐ INGEST (CR 701.19a) — "that player exiles the top card of their library." The EXILE twin of the
+  // ⭐ INGEST (CR 702.115a) — "that player exiles the top card of their library." The EXILE twin of the
   // CDMG-MILL arm directly above: same non-targeted damagedPlayer referent, same fixed-N discipline, same
   // clean no-op when the referent is absent. ⛔ It emits its OWN op and NOT `mill`, because a milled card
   // lands in the GRAVEYARD where recursion / delve / threshold can still reach it while an ingested card is
   // gone — aliasing would be strictly more generous to the ingested player than the printed card.
   // The count word is OPTIONAL because the printed wording omits it entirely — "exiles the TOP CARD of
-  // their library", not "the top one card". An absent count is exactly one (CR 701.19a).
+  // their library", not "the top one card". An absent count is exactly one (CR 702.115a).
   m = t.match(/^(?:that player|they) exiles? the top (?:(\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) )?cards? of their library$/);
   if (m) return { op: "exile-top-of-library", amount: m[1] ? (NUM_WORD[m[1]] ?? parseInt(m[1], 10)) : 1, who: "damagedPlayer", targetType: null };
   // OWN EXILE-TOP (SHELF-85 K9, 2026-09-04 — Mystic Forge "{T}, Pay 1 life: Exile the top card of your library"): the
@@ -2167,7 +2167,7 @@ export function millClauseParser(clause) {
 }
 
 /**
- * TUTOR clause parser (CR 701.19) — migrated from parseExtendedAtom (seam batch 12e / Wave B2b), verbatim.
+ * TUTOR clause parser (CR 701.23) — migrated from parseExtendedAtom (seam batch 12e / Wave B2b), verbatim.
  * SEVEN contiguous match blocks (+ the hasX-gated bfx/bfxg pair), FIRST-MATCH ORDER LOAD-BEARING (tm/ttm/bfm
  * share the `^search your library for a…` prefix; the fixed-MV battlefield bfn is anchored on "with mana value
  * N or less … onto the battlefield" so it is disjoint from all three, ordered first for documentation; tm
@@ -2203,7 +2203,7 @@ export function tutorClauseParser(clause, ctx = {}) {
     // bfxg — SEARCH LIBRARY-AND/OR-GRAVEYARD → BATTLEFIELD, MV-CAPPED-BY-X (Finale of Devastation): "search
     // your library and/or graveyard for a creature card with mana value X or less and put it onto the
     // battlefield" on an {X}-cost spell. Same MV-cap SAFETY as bfx (the fetched card's mana value must be
-    // <= the chosen X, bound at cast, read at resolution via ctx.xValue — CR 202.3b), but the candidate pool
+    // <= the chosen X, bound at cast, read at resolution via ctx.xValue — CR 107.3a), but the candidate pool
     // is the UNION of the caster's LIBRARY and GRAVEYARD: `sourceZones:["library","graveyard"]` tells applyTutor
     // to gather from both zones (tagging each candidate with its zone) and resolveTutorChoice to enter the
     // chosen card from whichever zone it lives in. The library is ALWAYS searched (so the CR 701.24a shuffle
@@ -2219,7 +2219,7 @@ export function tutorClauseParser(clause, ctx = {}) {
       if (!base) return null; // defensive (the regex already constrains to the two allowed words)
       return {
         op: "tutor",
-        filter: { ...base, mvCapX: true }, // mv resolved to { max: ctx.xValue } in applyTutor (CR 202.3b)
+        filter: { ...base, mvCapX: true }, // mv resolved to { max: ctx.xValue } in applyTutor (CR 107.3a)
         filterLabel: `${phrase} card with mana value X or less`,
         destination: "battlefield",
         entersTapped: !!bfxg[2],
@@ -2239,7 +2239,7 @@ export function tutorClauseParser(clause, ctx = {}) {
     // words creature|permanent while its FIXED-cap twin (bfn, ten lines below) has always taken any
     // parseTutorFilter phrase — artifact, enchantment, Equipment, "Rebel permanent". The two arms carry the
     // IDENTICAL safety argument, and bfn's own comment states it: the MV cap is what makes an uncapped fetch
-    // impossible, and X-bound-at-cast (CR 202.3b) is exactly as real a cap as a printed N. So the narrower
+    // impossible, and X-bound-at-cast (CR 107.3a) is exactly as real a cap as a printed N. So the narrower
     // word set was an inconsistency, not a guard — it parked Whir of Invention ("an artifact card with mana
     // value X or less") while Soul of Mirrodin's identical fetch at a fixed cap worked.
     // The allowlist stays the gate: an unmodeled word (a color on a non-creature, "nonland") → null → Arbiter.
@@ -2261,7 +2261,7 @@ export function tutorClauseParser(clause, ctx = {}) {
       const base = phrase === null ? { groups: [] } : parseTutorFilter(phrase);
       if (!base) return null; // unmodeled filter word → LOW → Arbiter (never an over-fetch)
       if (permanentOnly) base.permanentOnly = true;
-      const filter = { ...base, mvCapX: true }; // mv resolved to { max: ctx.xValue } in applyTutor (CR 202.3b)
+      const filter = { ...base, mvCapX: true }; // mv resolved to { max: ctx.xValue } in applyTutor (CR 107.3a)
       if (colorWord) filter.colors = [colorWord]; // color gate enforced upstream by cardMatchesTutorFilter
       return {
         op: "tutor",
@@ -2477,7 +2477,7 @@ export function tutorClauseParser(clause, ctx = {}) {
   // the whole shape reaches this arm. ONE tutor atom: a hand fetch of the printed filter, `remaining` 1, plus a
   // TARGETED-OPPONENT compare rider — applyTutor reads the chosen opponent's tally against the controller's at
   // resolution (CR 608.2) and adds the extra pick when it is strictly greater. The "you may" is honoured by the
-  // chain itself: a filtered search may fail to find (CR 701.19b), so the second pick can be declined. The spell
+  // chain itself: a filtered search may fail to find (CR 701.23b), so the second pick can be declined. The spell
   // is TARGETED (targetType "opponent") — only opponents are legal picks; the searcher is still the controller.
   const tth = t.match(/^search your library for an? ([a-z][a-z ]*?) card, if target opponent controls more (lands|creatures|artifacts|enchantments) than you, you may search your library for an additional \1 card, reveal those cards, put them into your hand, then shuffle$/);
   if (tth) {
@@ -2505,7 +2505,7 @@ export function tutorClauseParser(clause, ctx = {}) {
     const label = cap ? `${phrase} card with ${stat} ${capCapture}` : `${phrase} card`;
     return { op: "tutor", filter, filterLabel: label, destination: "hand", targetType: null };
   }
-  // ===== tgm — fetch-to-GRAVEYARD, single card (CR 701.19a) =====================================
+  // ===== tgm — fetch-to-GRAVEYARD, single card (CR 701.23a) =====================================
   // Entomb #328, Unmarked Grave #1599, Vile Entomber #1887's ETB, Goblin Engineer's ETB, Oriq Loremage,
   // Corpse Connoisseur — the reanimator setup family, 17 corpus cards and not one of them modelled before,
   // purely because the tutor had hand / battlefield / top destinations and no graveyard.
@@ -2860,7 +2860,7 @@ export function applyTemptingOfferLand(state, atom, ctx) {
     filter: { groups: [["land"]] },
     destination: "battlefield",
     entersTapped: false,
-    mayFailToFind: true, // a search WITH a stated quality may fail to find (CR 701.19b)
+    mayFailToFind: true, // a search WITH a stated quality may fail to find (CR 701.23b)
     temptingOffer: { stage: "offerer-first", offerer: controller, opponents: opponentsOf(state, controller), accepted: 0 },
   });
 }
@@ -2884,7 +2884,7 @@ export const libraryResolvers = {
   "cascade": applyCascadeAtom, // ===== CASCADE (CR 702.85) ===== exile-top-until-nonland-MV<spell-MV → park for cast-free/decline (action layer). The Cascade keyword (Bloodbraid Elf, Shardless Agent, …) flips native via the synthesized selfCast trigger.
   "mill": applyMill,
   "reveal-top-cast-or-hand": applyRevealTopCastOrHand, // K5 (Rashmi) — reveal the top; free-cast park if lesser than the cast spell, else hand
-  "exile-top-of-library": applyExileTopOfLibrary, // ===== INGEST (CR 701.19a) ===== the EXILE twin of mill; a separate op because an ingested card leaves the graveyard unreachable
+  "exile-top-of-library": applyExileTopOfLibrary, // ===== INGEST (CR 702.115a) ===== the EXILE twin of mill; a separate op because an ingested card leaves the graveyard unreachable
   "each-player-may-draw": applyEachPlayerMayDraw, // Kwain (2026-09-05) — the per-seat "may" draw (+ per-drawer life); raises the seat-by-seat pause
   "each-player-may-wheel": applyEachPlayerMayWheel, // K9 (Step Between Worlds) — the per-seat "may" wheel; raises the seat-by-seat pause
   "timetwister-wheel": applyTimetwisterWheel, // TIMETWISTER WHEEL (Echo of Eons) — hand+GY fold into library, shuffle, draw 7, per player
