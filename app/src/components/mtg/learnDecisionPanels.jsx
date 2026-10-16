@@ -724,8 +724,8 @@ export function MilledPickPanel({ decision, onChoose }) {
           <button
             key={c.id}
             type="button"
-            className="ley-glass"
-            style={{ textAlign: "left", padding: "10px 14px", cursor: "pointer" }}
+            className="ley-glass ley-card"
+            style={{ textAlign: "left", padding: "10px 14px", cursor: "pointer", color: "var(--ley-text)" }}
             onClick={() => onChoose?.(c.id)}
           >
             <strong>{c.name}</strong>
@@ -3021,12 +3021,58 @@ export function ChangeTargetPanel({ decision, onChoose }) {
           <button
             key={c.id}
             type="button"
-            className="ley-glass"
-            style={{ textAlign: "left", padding: "10px 14px", cursor: "pointer" }}
+            className="ley-glass ley-card"
+            style={{ textAlign: "left", padding: "10px 14px", cursor: "pointer", color: "var(--ley-text)" }}
             onClick={() => submit(c.id)}
             disabled={submitting}
           >
             <strong>{changeTargetLabel(c)}</strong>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** An Aura's host as the player reads it: the permanent's name, with whose it is. */
+export function auraEntryHostLabel(c) {
+  return `${c?.name || "that permanent"} (${c?.controller === "user" ? "yours" : seatLabel(c?.controller)})`;
+}
+
+/**
+ * AURA ENTRY HOST (CR 303.4f): an Aura of yours is entering the battlefield without being cast — blinked back, returned from your
+ * graveyard, put there from your library — and you choose what it enchants. It enters attached, so there is no decline (the
+ * engine asks only when two or more permanents qualify). Nothing is targeted, so a hexproof creature is a choice and one with
+ * protection from the Aura's colour is not.
+ */
+export function AuraEntryHostPanel({ decision, onChoose }) {
+  const [submitting, setSubmitting] = useState(false);
+  const submit = async (hostId) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onChoose?.(hostId);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  const aura = decision.cardName || "your Aura";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <ChoiceBanner icon="✨" title={`Choose what ${aura} enchants${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}>
+        It enters the battlefield without being cast, so it targets nothing: hexproof doesn’t stop it, protection does.
+      </ChoiceBanner>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
+        {(decision.candidates || []).map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            className="ley-glass ley-card"
+            style={{ textAlign: "left", padding: "10px 14px", cursor: "pointer", color: "var(--ley-text)" }}
+            onClick={() => submit(c.id)}
+            disabled={submitting}
+          >
+            <strong>{auraEntryHostLabel(c)}</strong>
           </button>
         ))}
       </div>

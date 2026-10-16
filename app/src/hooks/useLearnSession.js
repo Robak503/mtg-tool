@@ -54,6 +54,14 @@ export function changeTargetChoicePayload(targetId) {
   return { kind: "change-target", targetId: typeof targetId === "string" ? targetId : null };
 }
 
+/**
+ * The /api/learn/choose payload for an Aura's host (CR 303.4f — what your Aura enchants as it enters without being cast): the
+ * picked candidate's id, with the `kind` echo the server checks (WI-5). Pure, so it is tested without React.
+ */
+export function auraEntryHostChoicePayload(hostId) {
+  return { kind: "aura-entry-host", hostId: typeof hostId === "string" ? hostId : null };
+}
+
 export default function useLearnSession() {
   const [state, setState] = useState(INITIAL_STATE);
   const inFlightRef = useRef(false);
@@ -1111,6 +1119,12 @@ export default function useLearnSession() {
     [submitPendingChoice],
   );
 
+  /** AURA ENTRY HOST (CR 303.4f) — name what your Aura enchants as it enters without being cast; there is no decline. */
+  const applyAuraEntryHostChoice = useCallback(
+    (hostId) => submitPendingChoice("aura-entry-host", auraEntryHostChoicePayload(hostId)),
+    [submitPendingChoice],
+  );
+
   /** SAC-UNLESS-PAY — INVERTED polarity: paying KEEPS the permanent, declining sacrifices it. */
   const applySacUnlessPayChoice = useCallback(
     (pay) => submitPendingChoice("sac-unless-pay", { pay: pay === true }),
@@ -1781,6 +1795,7 @@ export default function useLearnSession() {
     applyTemptingOfferChoice,
     applyOptionalSacChoice,
     applyChangeTargetChoice,
+    applyAuraEntryHostChoice, // CR 303.4f — what your entering Aura enchants
     applyCommanderReturnChoice,
     mulligan,
     reset,

@@ -354,14 +354,26 @@ Genesis Wave, a multi-pick put) passes `replacementState`, the board as the even
 
 **An Aura entering without being cast** (2026-10-16, CR 303.4f/g): `enterCardFromZone` attaches it as it enters —
 to `attachTo` when the effect names the host ("…attached to that creature": Dragon Fangs, Mantle of the Ancients),
-else to the host `auraEntry.chooseAuraEntryHost` picks on the board it is entering (`replacementState` for one card
+else to the host `auraEntry.enteringAuraHost` gives on the board it is entering (`replacementState` for one card
 of a larger event, so never a permanent entering with it). Nothing is targeted (hexproof doesn't matter; the Enchant
 line, protection and "can't be enchanted" do). No legal host, or an Enchant line `staticAbilityParser.auraEntryHostSpec`
-can't list (a Curse, Animate Dead), and it stays in its zone (`entered: false`, logged `aura-stays`). The choice is the
-house policy for every seat (the cast side's `auraCastIntent`); a human choice would need a pause this path lacks. A
-blink exiles every target, then returns them as one event (`enterCardsTogether`). `sba.js` puts an Aura attached to
-nothing into its owner's graveyard (CR 704.5m) — a Curse (`enchantedPlayerId`), Animate Dead before its trigger
-(`enchantedGraveyardCard`) and a bestowed creature are attached to something, and exempt.
+can't list (a Curse, Animate Dead), and it stays in its zone (`entered: false`, logged `aura-stays`). Every seat the AI
+plays takes the house pick (`chooseAuraEntryHost` — the cast side's `auraCastIntent`). A blink exiles every target,
+then returns them as one event (`enterCardsTogether`). `sba.js` puts an Aura attached to nothing into its owner's
+graveyard (CR 704.5m) — a Curse (`enchantedPlayerId`), Animate Dead before its trigger (`enchantedGraveyardCard`) and a
+bestowed creature are attached to something, and exempt.
+
+**A person chooses** (the `aura-entry-host` pause, 2026-10-16): a seat in `state.humanSeats` (`createLearnSession`
+stamps the user seat below Expert) picks the host itself, and no entry site handles the pause. The step that enters
+the Aura runs inside an ASK — every atom `runEffectProgram` resolves (`resolveAtomAsking`, its loop and the optional
+settle) and the settles that enter a card (`learnSession.settleAskingAuraHost`: tutor, dig, milled pick, clone).
+Meeting a person's Aura with two or more legal hosts and no answer, `enteringAuraHost` records the question and lets
+the step finish on the house pick; the ask throws that run away, pauses on the state the step began from, and the
+settle (`runProgram.resolveAuraEntryHostChoice`) re-runs the step with the answer — again for the next of that
+person's Auras in the same event. Exact because the engine is: ids from `state.idSeq`, shuffles from `state.rngSeed`,
+no entry mutates its input. A new road onto the battlefield needs nothing for this beyond deciding its host through
+`enterCardFromZone` or `enteringAuraHost` (never `chooseAuraEntryHost`, which a simulation reads and never asks)
+inside an atom or one of those settles; anywhere else a person's Aura takes the house pick.
 
 **Where an Aura enters without being cast** (2026-10-16, the withholdings lifted one slice each): the mass return
 (`zones.applyMassReanimate` — one event, Retether's "only creatures" as a host option), the battlefield search

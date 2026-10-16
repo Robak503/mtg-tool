@@ -301,7 +301,12 @@ export function observe(state, seat) {
 //     old-vs-new policy probes through the contract seam. It only ever re-ranks actions
 //     already offered by legalChoices — NEVER a legality gate (THE CREED). Default null ⇒
 //     byte-identical play.
-export const PLAY_API_VERSION = "1.2.0";
+// 1.3.0 (additive MINOR — a new decision kind, 2026-10-16):
+//   - "aura-entry-host" (CR 303.4f): the person playing a seat picks what their Aura enchants as it
+//     enters without being cast; answer `{ kind, hostId }`, hostId ∈ candidates[].id, no decline.
+//     Raised only for a seat in state.humanSeats (createLearnSession stamps the user seat below
+//     Expert), so an Expert/self-play driver never meets it; one action per host if it does.
+export const PLAY_API_VERSION = "1.3.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

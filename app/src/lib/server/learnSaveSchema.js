@@ -19,7 +19,7 @@
 import { createHash } from "node:crypto";
 import { containsFunction } from "../learn/serialization.js";
 
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 /**
  * Forward-only migrations: { [fromVersion]: (saveDoc) => saveDoc-at-fromVersion+1 }.
@@ -99,6 +99,22 @@ export const MIGRATIONS = {
   // fires once more for the in-flight turn — harmless today (resume passes no opts;
   // worst case one extra time-pressure drain on an opted-in resume). (CONTRACT-MIG.)
   4: (doc) => ({ ...doc, schemaVersion: 5 }),
+
+  // v5 → v6 — the aura-entry-host pause (2026-10-16, CR 303.4f) carries the seats a PERSON
+  // plays as `state.humanSeats` (createLearnSession stamps ["user"] below Expert); the engine
+  // asks those seats the choices it otherwise makes by house policy. Absent means nobody is
+  // asked, so a pre-v6 game resumed without it would silently keep choosing for its player.
+  // Backfill it from the session's own difficulty, exactly as createLearnSession stamps it;
+  // an Expert (or difficulty-less) save stays without it, and an existing field is kept.
+  // (CONTRACT-MIG.)
+  5: (doc) => {
+    const session = doc.session || {};
+    const state = session.state;
+    const stamp = !!state && state.humanSeats === undefined && typeof session.difficulty === "string" && session.difficulty !== "expert";
+    return stamp
+      ? { ...doc, schemaVersion: 6, session: { ...session, state: { ...state, humanSeats: ["user"] } } }
+      : { ...doc, schemaVersion: 6 };
+  },
 };
 
 export class SaveMigrationError extends Error {

@@ -56,6 +56,7 @@ import {
   TemptingOfferPanel,
   OptionalSacPanel,
   ChangeTargetPanel,
+  AuraEntryHostPanel,
   SacrificeChoicePanel,
   DiscardChoicePanel,
   HandToLibraryTopPanel,
@@ -752,6 +753,7 @@ export default function LearnView({
               onTemptingOfferChoose={session.applyTemptingOfferChoice}
               onOptionalSacChoose={session.applyOptionalSacChoice}
               onChangeTargetChoose={session.applyChangeTargetChoice}
+              onAuraEntryHostChoose={session.applyAuraEntryHostChoice}
               onCommanderReturnChoose={session.applyCommanderReturnChoice}
             />
           </main>
@@ -1014,6 +1016,12 @@ export default function LearnView({
       {session.board && decision?.kind === "change-target" && (
         <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
           <ChangeTargetPanel decision={decision} onChoose={session.applyChangeTargetChoice} />
+        </div>
+      )}
+      {/* AURA ENTRY HOST (CR 303.4f) — your Aura enters without being cast; pick what it enchants. No decline. */}
+      {session.board && decision?.kind === "aura-entry-host" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <AuraEntryHostPanel decision={decision} onChoose={session.applyAuraEntryHostChoice} />
         </div>
       )}
       {/* Engine OR transport error as a floating banner over the board (never drops
@@ -1439,6 +1447,7 @@ function DecisionPrompt({
   onTemptingOfferChoose,
   onOptionalSacChoose,
   onChangeTargetChoose,
+  onAuraEntryHostChoose,
   onCommanderReturnChoose,
 }) {
   if (!decision) {
@@ -1542,6 +1551,9 @@ function DecisionPrompt({
   }
   if (decision.kind === "change-target") {
     return <ChangeTargetPanel decision={decision} onChoose={onChangeTargetChoose} />;
+  }
+  if (decision.kind === "aura-entry-host") {
+    return <AuraEntryHostPanel decision={decision} onChoose={onAuraEntryHostChoose} />;
   }
   if (decision.kind === "commander-return") {
     return <CommanderReturnPanel decision={decision} onChoose={onCommanderReturnChoose} />;

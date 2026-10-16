@@ -16,7 +16,7 @@ import { applyScheduleDelayed } from "./delayedTrigger.js"; // the CR 603.7 queu
 import { colorsOf, permanentProtectionColors, permIsEveryCreatureType } from "../../layers.js"; // shelf D41 — the host's live protection colours vs a returning card's colours (CR 702.16c/d); + permIsEveryCreatureType (P·39b — Essence Flux's returned Spirit)
 import { protectionApplies } from "../../protection.js"; // shelf D41 — the shared colour-protection test (an import-free leaf)
 import { auraMayEnchantCreature } from "../../auraHost.js"; // shelf D41 — the shared Enchant-line reader (a leaf; stack.js reads it too)
-import { chooseAuraEntryHost } from "../../auraEntry.js"; // CR 303.4f — what an Aura entering without being cast enchants (a leaf over modules this file already reaches)
+import { enteringAuraHost } from "../../auraEntry.js"; // CR 303.4f — what an Aura entering without being cast enchants, asked of a seat a person plays (a leaf over modules this file already reaches)
 // CZ-COMMANDER-VISIT cross-layer doors — INJECTED, never imported: a static resolvers.js/layers.js
 // import from this atoms leaf TDZ-crashed 56 suites (zones sits under effectAtoms → parser, and
 // resolvers.js reaches back through that chain). The integrators register at their own load
@@ -331,7 +331,7 @@ export function applyExileGraveyard(state, atom, ctx) {
  * reanimation (β-3b, graveyard) and battlefield ramp (RAMP-1, library) so the two enter-a-found-card paths
  * can't drift.
  * AN AURA (CR 303.4f) enters attached: to `attachTo` when the EFFECT names what it enchants ("…onto the battlefield attached to
- * that creature"), else to the host its controller chooses (auraEntry.chooseAuraEntryHost). With nothing it may enchant it
+ * that creature"), else to the host its controller chooses (auraEntry.enteringAuraHost). With nothing it may enchant it
  * stays in its zone (CR 303.4g) — entered:false, logged `aura-stays`. An Equipment the effect attaches enters attached too.
  * `auraHostOpts` are the effect's own limits on that choice (auraEntry.auraEntryHosts — Retether's "only creatures").
  */
@@ -348,15 +348,16 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   // one card of a larger event, so never a permanent entering with it (the bundled Brago, King Eternal ruling: "The Aura can't
   // enter the battlefield enchanting a permanent that enters the battlefield at the same time"), else the board as it is (the
   // card still in its zone). `attachTo` is the object the EFFECT names (Dragon Fangs' self-return, Mantle of the Ancients — the
-  // caller has checked it may be enchanted, CR 303.4i); otherwise its controller chooses — the house policy for every seat,
-  // nothing targeted (auraEntry.js). With no legal object it stays in its zone (CR 303.4g), and so does an Aura whose Enchant
-  // line the engine can't list (never attached to a guess) — the effect's caller sees entered:false, as for a card that left.
+  // caller has checked it may be enchanted, CR 303.4i); otherwise its controller chooses — the house policy, or the person playing
+  // that seat when the step runs inside an ask (auraEntry.enteringAuraHost) — nothing targeted (auraEntry.js). With no legal object
+  // it stays in its zone (CR 303.4g), and so does an Aura whose Enchant line the engine can't list (never attached to a guess) —
+  // the effect's caller sees entered:false, as for a card that left.
   // An Equipment the effect attaches enters attached the same way; anything else enters unattached (CR 303.4h).
   const frontType = String(card?.type || card?.type_line || "").split(" // ")[0];
   const isAura = /\bAura\b/.test(frontType);
   let hostId = attachTo && (isAura || /\bEquipment\b/.test(frontType)) && findPermanent(state, attachTo) ? attachTo : null;
   if (isAura && !hostId) {
-    const choice = attachTo ? { modeled: true, hostId: null } : chooseAuraEntryHost(replacementState || state, card, playerId, { ...auraHostOpts, sideHint: auraSideHint });
+    const choice = attachTo ? { modeled: true, hostId: null } : enteringAuraHost(replacementState || state, card, playerId, { ...auraHostOpts, sideHint: auraSideHint });
     if (!choice.hostId) {
       const reason = choice.modeled ? "nothing it can enchant (CR 303.4g)" : "its enchant ability is not modeled";
       return { state: logEvent(state, { kind: "aura-stays", cardName: card?.name, controller: playerId, zone: fromZone, reason }), entered: false };
@@ -559,7 +560,7 @@ export function applyReanimate(state, atom, ctx) {
  * the return began. A card that fails to enter is simply skipped (entered:false), never counted.
  *
  * AN AURA CARD (2026-10-16 — skipped until the non-cast entry could choose a host) chooses what it enchants as it
- * enters (CR 303.4f — auraEntry.chooseAuraEntryHost) on that same board as the return began, so never a permanent
+ * enters (CR 303.4f — auraEntry.enteringAuraHost) on that same board as the return began, so never a permanent
  * returning with it (the bundled Replenish ruling: "Auras can only be placed on permanents that were on the
  * battlefield before this effect started to resolve"). With nothing it may enchant it remains in the graveyard
  * (CR 303.4g — Replenish's reminder: "Auras with nothing to enchant remain in your graveyard."). It must return

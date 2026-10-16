@@ -10,7 +10,16 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.2.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.3.0"`
+
+> **v1.3.0 (additive MINOR, 2026-10-16 — a new decision kind):**
+> - **`aura-entry-host`** (CR 303.4f): the person playing a seat picks what their Aura enchants as
+>   it enters the battlefield without being cast (a blink's return, a reanimation, a put from library
+>   or hand). Asked only of a seat in `state.humanSeats` — `createLearnSession` stamps `["user"]` below
+>   Expert, so an Expert or self-play driver never meets it and every AI seat keeps the house pick,
+>   byte-identical. A driver that does meet it answers `{ kind, hostId }` (row in §1.1a); a pilot is
+>   offered one action per legal host. A table with a person at it also carries the additive state
+>   field `state.humanSeats` (save schema v6 backfills it on a pre-v6 save from the session's difficulty).
 
 > **v1.2.x doc wave (2026-07-03 — lane E, PS-1/PS-5/PS-6/PS-7):** no runtime change. The doc
 > now enumerates the REAL 20-kind decision vocabulary (§1.1a — the old "13" was doc drift),
@@ -135,6 +144,7 @@ General rules, all kinds:
 | `sac-unless-pay` | `{ kind, pay: boolean }` | pay `cost` keeps the permanent (`sourceId`); decline / unaffordable sacrifices it. |
 | `taxed-payment` | `{ kind, pay: boolean }` | the answering seat is the PAYER (`controller === payer`, Rhystic-style); decline / can't-pay gives `beneficiary` the `declinePayoff` (`"draw"` \| `"treasure"`). |
 | `edict-mode` | `{ kind, mode: "life"\|"sacrifice"\|"discard", permId?, cardId? }` | `mode` must be ∈ the decision's `modes` (anything else coerces to `"life"`); `permId` picks from the `sac` pool, `cardId` from the `disc` pool; chains via `queue`. |
+| `aura-entry-host` | `{ kind, hostId }` | v1.3.0, CR 303.4f — the Aura's controller picks what it enchants as it enters without being cast; `hostId` ∈ `candidates[].id` (`{ id, name, controller }` — the legal hosts on the board it enters; nothing is targeted, so hexproof doesn't exclude one, protection does). No decline: an id that isn't a candidate takes the house pick. Asked only of a `state.humanSeats` seat; another of that seat's Auras entering in the same event asks again. |
 
 (Shape source of truth: the `apply*Choice` settlers in `app/src/lib/learn/learnSession.js` —
 the dispatch table in `applyPendingChoice` names all 21 (20 original + BLITZ LK-2 `look-top-take`).

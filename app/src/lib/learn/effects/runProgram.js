@@ -25,7 +25,8 @@
 
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { taintedPactStep, wheelOnePlayer } from "./atoms/library.js"; // K9 (Step Between Worlds) — the per-player fold the each-player-may settler applies to the yes-seats
-import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice, setPendingTemptingOfferChoice } from "../pendingChoice.js"; // + TEMPTING OFFER (Tempt with Discovery) // + SG-15b: the Sylvan Library per-card pause is chained by its own settler
+import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice, setPendingTemptingOfferChoice, setPendingAuraEntryHostChoice } from "../pendingChoice.js"; // + TEMPTING OFFER (Tempt with Discovery) // + SG-15b: the Sylvan Library per-card pause is chained by its own settler // + the aura-entry-host pause (CR 303.4f)
+import { withAuraEntryAsk } from "../auraEntry.js"; // CR 303.4f — the ask an atom runs in, so a person chooses what their entering Aura enchants (a leaf; zones.js already imports it)
 import { updatePermanentSafe, graveyardExileFor } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, gainLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, advanceCreatureBatchSacrifice, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
@@ -165,6 +166,21 @@ export function finishSpellResolution(state, disposition, { selfExile = false, s
 // "IF YOU DO" after a sacrifice (CR 608.2c): did these log entries record a sacrifice with a real victim? A no-victim entry (a
 // stale pick, an escaped self-sacrifice) is not one. The one read shared by runEffectProgram's loop and resolveOptionalChoice.
 const realSacrificeIn = (entries) => entries.some((e) => e.effect === "sacrifice" && e.sacrificed != null);
+
+/**
+ * resolveAtom inside the ask (CR 303.4f — auraEntry.js): an atom that puts a person's Aura onto the battlefield with two or more
+ * legal hosts does not keep its result. It returns the state it began from, paused on the aura-entry-host choice that carries the
+ * atom and its ctx; the settle (resolveAuraEntryHostChoice) re-runs them with the answer, and the caller's own pause handling
+ * attaches the program's resume, as for any atom that pauses. A table with no person at it never opens the ask, so the AI's
+ * games run resolveAtom exactly as before. Every atom a program resolves comes through here (runEffectProgram's loop, the
+ * optional settle); a caller that cannot pause (an Arbiter verdict) calls resolveAtom, and a person's Aura takes the house pick there.
+ */
+function resolveAtomAsking(state, atom, ctx) {
+  if (!state.humanSeats?.length) return resolveAtom(state, atom, ctx);
+  const { state: after, question } = withAuraEntryAsk(null, () => resolveAtom(state, atom, ctx));
+  if (!question || after == null) return after;
+  return setPendingAuraEntryHostChoice(state, { ...question, sourceName: ctx?.cardName ?? null, step: { atom, ctx } });
+}
 
 export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacrificed = false, recheckTargets = false } = {}) {
   const params = stackObject?.payload?.params || {};
@@ -321,7 +337,7 @@ export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacri
     }
     const ctx = { ...context, controller, targets: atomTargets, cardName, xValue, sourceId };
     const logLenBefore = next.log?.length ?? 0;
-    const after = resolveAtom(next, atom, ctx);
+    const after = resolveAtomAsking(next, atom, ctx);
     if (after == null) {
       // Belt-and-braces: an atom with no resolver. programConfidence should have
       // already forced this program to `low`, but if it didn't, never fabricate —
@@ -1457,7 +1473,7 @@ export function resolveOptionalChoice(state, doIt) {
   if (doIt) {
     const ctx = { ...(r.context || {}), controller: r.controller, targets: targetsForAtom(r.targets, i), cardName: r.cardName, xValue: r.xValue, sourceId: r.sourceId };
     const logLenBefore = next.log?.length ?? 0;
-    const after = resolveAtom(next, { ...atom, optional: false }, ctx);
+    const after = resolveAtomAsking(next, { ...atom, optional: false }, ctx);
     if (after == null) return markPendingArbiter(next, { source: { name: r.cardName }, payload: { params: r } }, `optional atom "${atom?.op}" had no resolver`);
     // "YOU MAY SACRIFICE … IF YOU DO" (P·20 — Braids, Arisen Nightmare): a taken optional sacrifice that went inline (a sole
     // candidate) answers the `ifSacrificed` atom after it, read off the log by the same predicate runEffectProgram uses. A sacrifice
@@ -1482,6 +1498,41 @@ export function resolveOptionalChoice(state, doIt) {
     while (progAtoms[skipTo] && progAtoms[skipTo].reflexiveGate) skipTo += 1;
     return resumeAfterChoice(next, { resume: { ...r, nextAtomIndex: skipTo } });
   }
+}
+
+/**
+ * AURA ENTRY HOST (CR 303.4f) — settle the person's pick of what their Aura enchants: re-run the step that paused, inside the ask,
+ * with the host recorded (auraEntry.withAuraEntryAsk), and carry on as that step would have. `hostId` must be one of the pause's
+ * candidates; anything else takes the house policy's pick (`suggestedId`) — the Aura must enter, attached, so there is no decline
+ * and no host is made up. Another of the person's Auras entering in the same step (Brago returning two of them) asks again, every
+ * answer so far carried. An ATOM step then resumes the program after that atom (through the atom's own pause, if it raises one).
+ * A SETTLE step (a tutor, a dig, a milled pick or a clone that entered the Aura) runs that settle again on its paused choice
+ * through `replaySettle(state, answer)` — learnSession's table of them — and that settle resumes the program itself.
+ */
+export function resolveAuraEntryHostChoice(state, hostId, { replaySettle = null } = {}) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "aura-entry-host") return state;
+  const pick = (pc.candidates || []).some((c) => c.id === hostId) ? hostId : pc.suggestedId ?? null;
+  const answers = { ...(pc.answers || {}), ...(pc.cardId != null && pick != null ? { [pc.cardId]: pick } : {}) };
+  const next = clearPendingChoice(state);
+  const step = pc.step || {};
+  const askAgain = (question) => setPendingAuraEntryHostChoice(next, { ...question, sourceName: pc.sourceName ?? null, answers, step, resume: pc.resume });
+  if (step.atom) {
+    const logLenBefore = next.log?.length ?? 0;
+    const { state: after, question } = withAuraEntryAsk(answers, () => resolveAtom(next, step.atom, step.ctx));
+    if (question) return askAgain(question);
+    if (after == null) return markPendingArbiter(next, { source: { name: pc.sourceName ?? null }, payload: { params: pc.resume || {} } }, `aura-entry-host: atom "${step.atom?.op}" had no resolver`);
+    if (after.pendingChoice) return after.pendingChoice.resume || pc.resume === undefined ? after : { ...after, pendingChoice: { ...after.pendingChoice, resume: pc.resume } };
+    // "If you do" after a sacrifice reads this atom's own result, as runEffectProgram's loop does (an ifSacrificed atom ran
+    // because the gate was open).
+    const sacrificed = realSacrificeIn((after.log || []).slice(logLenBefore)) || step.atom.ifSacrificed === true;
+    return resumeAfterChoice(after, pc, { prevSacrificed: sacrificed });
+  }
+  if (step.outer && typeof replaySettle === "function") {
+    const { state: after, question } = withAuraEntryAsk(answers, () => replaySettle({ ...next, pendingChoice: step.outer }, step.answer));
+    return question ? askAgain(question) : after;
+  }
+  return next;
 }
 
 /**

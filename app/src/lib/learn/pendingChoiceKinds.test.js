@@ -47,6 +47,7 @@ import {
   setPendingCommanderReturnChoice,
   setPendingCleanupDiscardChoice,
   setPendingChangeTargetChoice,
+  setPendingAuraEntryHostChoice,
 } from "./pendingChoice.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
 
@@ -126,6 +127,9 @@ const FIXTURES = {
   // CHANGE THE TARGET (shelf D14) — the redirected object is gone and nothing was offered: the autopick returns null, the
   // settle changes nothing (logged "gone"), and the choice clears in one tick.
   "change-target": (s) => setPendingChangeTargetChoice(s, { controller: "ai", stackObjectId: "gone", candidates: [] }),
+  // AURA ENTRY HOST (CR 303.4f) — raised only for a seat a person plays, so an AI controller is the contract's auto path: the
+  // fallback is the house pick (`suggestedId` — none here), nothing re-runs (no `step`), and the choice clears in one tick.
+  "aura-entry-host": (s) => setPendingAuraEntryHostChoice(s, { controller: "ai", cardId: "gone", cardName: "Pacifism", candidates: [] }),
 };
 
 describe("PENDING_CHOICE_KINDS is exhaustive against the FIXTURES map (this test file itself)", () => {

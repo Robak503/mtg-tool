@@ -27,8 +27,7 @@
  * agree), a mana Aura on the controller's land already carrying the most of them (manaUntapLine.pickManaAuraTarget's rule).
  * One whose side that reading can't tell goes back to the side it left when it is blinked (`sideHint`), else to its
  * controller's. When the side it wants has no legal host the Aura still must enter (CR 303.4f), so it takes the other side's
- * least-harmful one. A human seat is chosen for by the same policy; giving the human the choice is a pause this path does not
- * have yet.
+ * least-harmful one. A seat a person plays is asked instead (enteringAuraHost, below).
  *
  * LEAF: staticAbilityParser, layers, protection, creatureRestrictions, controlAura and gameState — every one of them is already
  * reachable from effects/atoms/zones.js, and none imports an atoms module or the AI.
@@ -241,4 +240,72 @@ export function chooseAuraEntryHost(state, auraCard, controller, { sideHint = nu
     if (s > bestScore || (s === bestScore && String(h.id) < String(best.id))) { best = h; bestScore = s; }
   }
   return { modeled: true, hostId: best ? best.id : null, score: best ? bestScore : null, intent };
+}
+
+/**
+ * A PERSON CHOOSES (2026-10-16). CR 303.4f makes the player the Aura enters under the chooser, and a seat a person plays makes
+ * the choice itself, through the aura-entry-host pause (pendingChoice.js). No caller of the entry handles that pause. The step
+ * that puts the Aura onto the battlefield runs inside an ASK — an effect's atom (effects/runProgram.resolveAtomAsking) or a
+ * settle that enters a card (learnSession.settleAskingAuraHost) — and enteringAuraHost, meeting a person's Aura with two or more
+ * legal hosts and no answer, records the question and lets the step finish on the house pick. The ask throws that run away and
+ * pauses on the state the step began from; the answer re-runs the step with the host recorded. One question at a time, in entry
+ * order, so an event that returns several of a person's Auras (Brago, King Eternal) asks for each in turn and then happens once,
+ * every choice made on the board as the event began. The re-run is exact because the engine is: ids come from state.idSeq,
+ * shuffles from state.rngSeed, and an entry never mutates the state it is given.
+ *
+ * Who is a person: `state.humanSeats`, stamped by learnSession.createLearnSession below Expert (the seats its driver pauses for).
+ * No self-play game and no Expert game carries it, and outside an ask every caller gets the house pick, so every seat the AI
+ * plays takes the path it took before.
+ */
+let openAsk = null;
+
+/** Does a person make `seat`'s choices? */
+export function seatIsHuman(state, seat) {
+  return Array.isArray(state?.humanSeats) && state.humanSeats.includes(seat);
+}
+
+/**
+ * Run `step` (a function returning a state) inside an ask holding the `answers` already given (Aura card id → host permanent id).
+ * Returns `{ state, question }` — the question for the first of a person's Auras that entered without an answer, or null. An ask
+ * opened inside another passes through: the outermost owns the question, and its step is the one that re-runs.
+ */
+export function withAuraEntryAsk(answers, step) {
+  if (openAsk) return { state: step(), question: null };
+  openAsk = { answers: answers || {}, question: null };
+  try {
+    const state = step();
+    return { state, question: openAsk.question };
+  } finally {
+    openAsk = null;
+  }
+}
+
+/**
+ * The host an Aura entering under `controller` really takes — what every REAL entry asks (enterCardFromZone; an effect that makes
+ * the Aura enter by another road, a token copy or a clone, the same). The house pick (chooseAuraEntryHost), except for a person's
+ * seat inside an ask: their answer once given, else the question is recorded and the house pick stands in until the ask throws
+ * the run away. One legal host is no choice, and none leaves the Aura where it is (CR 303.4g). A simulation (the AI's flicker
+ * gain, gameEngine.pickFlickerCandidate) reads chooseAuraEntryHost, which never asks.
+ */
+export function enteringAuraHost(state, auraCard, controller, opts = {}) {
+  const policy = chooseAuraEntryHost(state, auraCard, controller, opts);
+  if (!openAsk || !policy.hostId || !seatIsHuman(state, controller)) return policy;
+  const hosts = auraEntryHosts(state, auraCard, controller, opts) || [];
+  if (hosts.length < 2) return policy;
+  const answer = hosts.find((h) => h.id === openAsk.answers[auraCard?.id]);
+  if (answer) return { ...policy, hostId: answer.id, score: auraEntryHostScore(state, auraCard, controller, answer, { intent: policy.intent, sideHint: opts.sideHint ?? null }) };
+  if (!openAsk.question) {
+    openAsk.question = {
+      controller,
+      cardId: auraCard?.id ?? null,
+      cardName: auraCard?.name ?? null,
+      suggestedId: policy.hostId,
+      // A face-down permanent's card is the nameless 2/2 (CR 708.2), so its name never leaks onto the panel.
+      candidates: hosts.map((h) => {
+        const perm = findPermanent(state, h.id)?.permanent;
+        return { id: h.id, name: perm?.card?.name || (perm?.faceDown ? "Face-down creature" : "a permanent"), controller: h.controller };
+      }),
+    };
+  }
+  return policy;
 }

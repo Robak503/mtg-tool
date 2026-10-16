@@ -54,6 +54,7 @@ export const PENDING_CHOICE_KINDS = [
   "cleanup-discard",
   "each-player-may", // K9 (Step Between Worlds) — a per-seat yes/no, raised seat by seat; the effect applies to the seats that said yes
   "change-target", // shelf D14 (Misdirection) — the redirector picks which other legal target a single-target spell or ability moves to
+  "aura-entry-host", // CR 303.4f — a person picks what their Aura enchants as it enters without being cast (asked of a human seat only)
 ];
 
 /**
@@ -704,6 +705,36 @@ export function setPendingChangeTargetChoice(state, { controller, stackObjectId,
   return {
     ...next,
     pendingChoice: { kind: "change-target", controller, stackObjectId, spellName, from, candidates, sourceName },
+  };
+}
+
+/**
+ * ===== AURA ENTRY HOST (CR 303.4f, 2026-10-16) ===== — suspend while the person playing `controller` picks what their Aura
+ * (`cardId`, `cardName`) enchants as it enters the battlefield without being cast (a blink's return, a reanimation, a put from
+ * library or hand). Raised only for a seat a person plays (auraEntry.enteringAuraHost — never for the AI) and only with two or more
+ * legal hosts, so there is no decline: the Aura must enter, and it enters attached. `candidates` are the legal hosts as
+ * `{ id, name, controller }` on the board it enters (nothing targeted, so a hexproof creature is one; protection and "can't be
+ * enchanted" keep one out); `suggestedId` the house policy's pick, taken for an answer that isn't a candidate. `step` is what
+ * re-runs once answered — `{ atom, ctx }` (an effect's atom) or `{ outer, answer }` (a settle that enters a card: the paused
+ * choice it settled, and its answer); `answers` the hosts already picked for earlier Auras of the same step. Plain JSON.
+ */
+export function setPendingAuraEntryHostChoice(state, { controller, cardId, cardName = null, candidates = [], suggestedId = null, sourceName = null, answers = null, step = null, resume = undefined }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "aura-entry-host-pending", controller, cardName, count: candidates.length, sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "aura-entry-host",
+      controller,
+      cardId,
+      cardName,
+      candidates,
+      suggestedId,
+      sourceName,
+      ...(answers && Object.keys(answers).length ? { answers } : {}),
+      ...(step ? { step } : {}),
+      ...(resume !== undefined ? { resume } : {}),
+    },
   };
 }
 

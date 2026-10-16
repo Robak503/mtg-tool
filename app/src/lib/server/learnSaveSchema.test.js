@@ -263,6 +263,32 @@ describe("migrate", () => {
     expect(isResumable(upgraded)).toBe(true);
   });
 
+  // CONTRACT-MIG (the aura-entry-host pause, CR 303.4f): v6 carries the seats a person plays as
+  // `state.humanSeats`, which createLearnSession stamps below Expert. A v5 save is backfilled from its
+  // own difficulty, so an in-flight beginner game resumes still asking its player; an Expert one never
+  // did, and an existing field is kept as it is.
+  it("carries a v5 save forward to v6, stamping humanSeats from the session's difficulty — and only below Expert", () => {
+    const v5 = (difficulty, extraState = {}) => ({
+      schemaVersion: 5,
+      kind: "learn-session-save",
+      savedAt: "2026-10-16T00:00:00.000Z",
+      sessionId: `learn-v5-${difficulty}`,
+      serializable: true,
+      session: {
+        id: `learn-v5-${difficulty}`, difficulty, mode: "standard", status: "active",
+        state: { turn: 4, idSeq: 9, stack: [], rngSeed: 7, continuousEffects: [], timestampCounter: 0, players: { user: { life: 20, battlefield: [] }, ai: { life: 20, battlefield: [] } }, ...extraState },
+        decisionLog: [],
+      },
+      checksum: "sha256:stale-but-unused-after-verify",
+    });
+    const seats = (doc) => migrate(doc).session.state.humanSeats ?? null;
+    expect({ beginner: seats(v5("beginner")), intermediate: seats(v5("intermediate")), expert: seats(v5("expert")), kept: seats(v5("beginner", { humanSeats: [] })) })
+      .toEqual({ beginner: ["user"], intermediate: ["user"], expert: null, kept: [] });
+    const upgraded = migrate(v5("beginner"));
+    expect({ version: upgraded.schemaVersion, turn: upgraded.session.state.turn, rngSeed: upgraded.session.state.rngSeed, resumable: isResumable(upgraded) })
+      .toEqual({ version: CURRENT_SCHEMA_VERSION, turn: 4, rngSeed: 7, resumable: true });
+  });
+
   // A game serialized mid-tutor-search (a paused pendingChoice + its resume continuation)
   // is plain JSON — it must round-trip losslessly so save/resume mid-search is exact.
   it("a v4 save paused on a tutor-search (pendingChoice + resume) round-trips serializably", () => {

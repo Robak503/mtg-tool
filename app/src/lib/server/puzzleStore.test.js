@@ -8,14 +8,17 @@
  * is rejected, never silently corrupting a reload).
  */
 
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, it, expect } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 import { createLearnSession, advanceUntilDecision } from "../learn/learnSession.js";
 import { boardSnapshot } from "../learn/boardSnapshot.js";
 import { tableSnapshot } from "../learn/tableSnapshot.js";
-import { puzzleFromSession } from "./puzzleStore.js";
+import { puzzleFromSession, listPuzzles, getPuzzle } from "./puzzleStore.js";
 import { engineBuild } from "../learn/engineBuild.js";
-import { verifyChecksum } from "./learnSaveSchema.js";
+import { checksumOf, verifyChecksum, CURRENT_SCHEMA_VERSION } from "./learnSaveSchema.js";
 
 function forest(i) {
   return { id: `forest-${i}`, name: "Forest", type: "Basic Land — Forest", oracle: "{T}: Add {G}.", mana: "" };
@@ -77,5 +80,34 @@ describe("puzzleFromSession — snapshot fidelity (P9 load path)", () => {
   it("normalizes an unknown goal to the default", () => {
     const built = puzzleFromSession(liveSession(), { goal: "nonsense" });
     expect(built.doc.goal).toEqual({ type: "win-this-turn" });
+  });
+});
+
+// A SCHEMA BUMP MUST NOT GREY OUT A SAVED PUZZLE (the v5 → v6 humanSeats bump, 2026-10-16). getPuzzle migrates on load, so the
+// picker's `resumable` is judged on the migrated doc too — learnSaveStore's index learned the same lesson for in-flight saves.
+// The process.chdir(tmpdir) idiom: vitest scrubs MTG_APP_ROOT, so paths.js resolves the profile data under <tmpdir>/data.
+describe("the puzzle picker across a schema bump", () => {
+  let tmpDir, originalCwd;
+  beforeEach(() => {
+    originalCwd = process.cwd();
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mtg-puzzle-"));
+    process.chdir(tmpDir);
+  });
+  afterEach(() => {
+    process.chdir(originalCwd);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("a puzzle saved at v5 still lists as resumable, and loads migrated — its beginner player is asked (humanSeats)", async () => {
+    const session = { id: "learn-old", difficulty: "beginner", mode: "standard", status: "active",
+      state: { turn: 3, idSeq: 4, stack: [], rngSeed: 1, continuousEffects: [], timestampCounter: 0, players: { user: { life: 20, battlefield: [] }, ai: { life: 20, battlefield: [] } } }, decisionLog: [] };
+    const doc = { id: "puz_old", kind: "learn-puzzle", schemaVersion: 5, createdAt: "2026-10-01T00:00:00.000Z", goal: { type: "win-this-turn" }, label: null,
+      startTurn: 3, activePlayer: "user", session, serializable: true, checksum: checksumOf(session) };
+    fs.mkdirSync(path.join(tmpDir, "data"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "data", "puzzles.json"), JSON.stringify([doc]), "utf8");
+    const listed = (await listPuzzles()).find((p) => p.id === "puz_old");
+    const loaded = await getPuzzle("puz_old");
+    expect({ listed: listed?.resumable, loaded: loaded.ok, version: loaded.doc?.schemaVersion, seats: loaded.doc?.session.state.humanSeats })
+      .toEqual({ listed: true, loaded: true, version: CURRENT_SCHEMA_VERSION, seats: ["user"] });
   });
 });

@@ -29,7 +29,8 @@
  */
 
 import { createGameState, loseLife, logEvent, moveCardToZone, MODES } from "./gameState.js";
-import { setPendingCommanderReturnChoice, clearPendingChoice } from "./pendingChoice.js";
+import { setPendingCommanderReturnChoice, clearPendingChoice, setPendingAuraEntryHostChoice } from "./pendingChoice.js";
+import { withAuraEntryAsk } from "./auraEntry.js"; // CR 303.4f — the ask a settle that enters a card runs in, so a person chooses what their Aura enchants
 import { autoPickOptionalLifePayment } from "./landEntersTapped.js"; // LANDS-TIER slice 2 — the shockland auto-policy (pay iff life >= 10)
 import { autoPickSylvanLibraryPayment, autoPickTemptingOffer, autoPickTaintedPactTake } from "./choicePolicy.js"; // + TEMPTING OFFER (Tempt with Discovery) — the asked opponent's auto-answer // SG-15b — Sylvan Library's per-card pay-or-put-back auto-policy (pay iff ≥8 life would remain)
 import { resolveSylvanLibraryChoice, resolveTemptingOfferChoice, resolveTaintedPactChoice } from "./effects/runProgram.js"; // + TEMPTING OFFER — the asked opponent's settler // SG-15b — the per-card settler (chains the next card, then resumes)
@@ -103,6 +104,7 @@ import {
   resolveOptionalDiscardPaymentChoice,
   resolveOptionalExileSelfChoice,
   resolveMilledPickChoice,
+  resolveAuraEntryHostChoice,
   autoPickSacUnlessPay,
   resolveSacUnlessPayChoice,
   autoPickTaxedPayment,
@@ -249,6 +251,11 @@ export function createLearnSession({
   if (ffaSoleSurvivor ?? mode === "commander") {
     state = { ...state, rules: { ...(state.rules || {}), ffaSoleSurvivor: true } };
   }
+  // A PERSON PLAYS THE USER SEAT below Expert — the seat advanceUntilDecision pauses for. Carried ON THE STATE so the engine asks
+  // that seat the choices it otherwise makes by house policy (what an Aura entering without being cast enchants, CR 303.4f —
+  // auraEntry.enteringAuraHost), and a saved game resumes asking the same way. Expert and every self-play game leave it off, so
+  // a seat the AI plays never sees the question.
+  if (difficulty !== "expert") state = { ...state, humanSeats: [HUMAN_SEAT] };
 
   return {
     id: generateSessionId(),
@@ -802,7 +809,37 @@ export function applyArbiterVerdict(state, verdict, pa) {
  * priority window. A re-paused program (a second tutor) finalizes when ITS choice settles.
  */
 function settleTutorChoice(state, cardId) {
-  const next = resolveTutorChoice(state, cardId);
+  const next = settleAskingAuraHost(state, cardId, resolveTutorChoice);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+/**
+ * A SETTLE THAT ENTERS A CARD, ASKING (CR 303.4f — auraEntry.js). The tutor, dig, milled-pick and clone settles put a picked card
+ * onto the battlefield; when it is a person's Aura with two or more legal hosts, the settle does not keep its result. It returns
+ * the state it began from, the choice it was settling folded into an aura-entry-host pause (`step.outer`, with its answer), and
+ * settleAuraEntryHostChoice runs the same settle again (ENTRY_SETTLERS, by the folded choice's kind) with the host recorded. A
+ * table with no person at it runs the settle alone, as before.
+ */
+const ENTRY_SETTLERS = {
+  "tutor-search": resolveTutorChoice,
+  "impulse-dig": resolveImpulseDigChoice,
+  "milled-pick": resolveMilledPickChoice,
+  "clone-search": resolveCloneChoice,
+};
+
+function settleAskingAuraHost(state, answer, settle) {
+  if (!state.humanSeats?.length) return settle(state, answer);
+  const outer = state.pendingChoice;
+  const { state: after, question } = withAuraEntryAsk(null, () => settle(state, answer));
+  if (!question) return after;
+  return setPendingAuraEntryHostChoice(clearPendingChoice(state), { ...question, sourceName: outer?.sourceName ?? null, step: { outer, answer } });
+}
+
+// AURA ENTRY HOST (CR 303.4f) — settle the person's pick of what their Aura enchants: the paused step re-runs with it (an atom, or
+// one of the settles above), and may ask again for the next of their Auras entering in the same step; otherwise finalize.
+function settleAuraEntryHostChoice(state, hostId) {
+  const replaySettle = (s, answer) => (ENTRY_SETTLERS[s.pendingChoice?.kind] || ((x) => x))(s, answer);
+  const next = resolveAuraEntryHostChoice(state, hostId, { replaySettle });
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
@@ -813,7 +850,8 @@ function settleTutorChoice(state, cardId) {
  * "when this enters" trigger doesn't sit unflushed past the next priority window.
  */
 function settleCloneChoice(state, chosenPermId) {
-  return finalizeStackResolution(resolveCloneChoice(state, chosenPermId));
+  const next = settleAskingAuraHost(state, chosenPermId, resolveCloneChoice);
+  return next.pendingChoice ? next : finalizeStackResolution(next); // a clone of an Aura may ask its host first (CR 303.4f)
 }
 
 /**
@@ -933,7 +971,7 @@ function settleOptionalExileSelfChoice(state, doExile) {
 // MILLED-PICK (Ripples / Six) — settle "put a [land ]card from among those cards into your hand": the
 // chosen (or auto-picked) card moves graveyard → hand, then the program resumes. Same flush shape.
 function settleMilledPickChoice(state, cardId) {
-  const next = resolveMilledPickChoice(state, cardId);
+  const next = settleAskingAuraHost(state, cardId, resolveMilledPickChoice);
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
@@ -1084,7 +1122,7 @@ function settleCleanupDiscardStep(state, cardId) {
  * flushing), then finalizeStackResolution flushes any triggers a resumed atom enqueued.
  */
 function settleImpulseDigChoice(state, cardId) {
-  const next = resolveImpulseDigChoice(state, cardId);
+  const next = settleAskingAuraHost(state, cardId, resolveImpulseDigChoice);
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
@@ -2346,6 +2384,30 @@ export function advanceUntilDecision(
         current = { ...current, state: settleChangeTargetChoice(current.state, picked.value) };
         continue;
       }
+      // ===== AURA ENTRY HOST ===== (CR 303.4f) — the person playing pc.controller picks what their Aura enchants as it enters
+      // without being cast. Raised only for a seat a person plays (auraEntry.enteringAuraHost), so `pause` is the path it takes;
+      // the rest is the contract's settle-in-one-tick path (and a pilot's offer): one action per legal host, no decline, the
+      // house policy's pick (`suggestedId`) as the fallback.
+      if (pc.kind === "aura-entry-host") {
+        if (pause) {
+          return { session: current, decision: { kind: "aura-entry-host", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
+          buildOffered: () => (pc.candidates || []).map((c) => ({ kind: "pending-choice", choiceKind: pc.kind, value: c.id, label: `Enchant ${c.name}` })),
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            value: pc.suggestedId ?? null,
+          },
+        });
+        current = { ...current, state: settleAuraEntryHostChoice(current.state, picked.value) };
+        continue;
+      }
       if (pc.kind === "optional-draw-discard") {
         if (pause) {
           return { session: current, decision: { kind: "optional-draw-discard", ...pc } };
@@ -3503,6 +3565,46 @@ export function applyChangeTargetChoice(session, choice, opts = {}) {
 }
 
 /**
+ * ===== AURA ENTRY HOST ===== (CR 303.4f) — the player named what their Aura enchants as it enters without being cast
+ * (`choice.hostId`, one of the pause's candidates). settleAuraEntryHostChoice re-runs the step that paused with it — a pick that
+ * isn't a candidate takes the house policy's — then the session re-derives (it may ask again, for the next Aura of the same
+ * step). A double-submit (nothing pending) re-derives. Mirrors applyChangeTargetChoice.
+ */
+export function applyAuraEntryHostChoice(session, choice, opts = {}) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "aura-entry-host") {
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
+  }
+  const hostId = typeof choice?.hostId === "string" ? choice.hostId : null;
+  let newState;
+  try {
+    newState = settleAuraEntryHostChoice(session.state, hostId);
+  } catch (error) {
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "aura-entry-host-choice", cardId: pc.cardId, hostId },
+    auto: false,
+    reasoning: "user-chose-aura-entry-host",
+  };
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
+}
+
+/**
  * ===== OPTIONAL DRAW-THEN-DISCARD ===== — the player chose to draw (and then discard) or not, for a "you may
  * draw a card. If you do, discard a card." `choice.draw` is the yes/no. resolveOptionalDrawDiscardChoice runs the
  * [draw, discard] on yes (or nothing on decline), then resumes + re-derives. Mirrors applyOptionalSacChoice.
@@ -4396,6 +4498,7 @@ export function applyPendingChoice(session, choice, opts = {}) {
   if (kind === "tempting-offer") return applyTemptingOfferChoice(session, choice, opts); // Tempt with Discovery — the asked opponent's answer
   if (kind === "optional-sac-payment") return applyOptionalSacChoice(session, choice, opts);
   if (kind === "change-target") return applyChangeTargetChoice(session, choice, opts); // shelf D14 (Misdirection)
+  if (kind === "aura-entry-host") return applyAuraEntryHostChoice(session, choice, opts); // CR 303.4f — what a person's entering Aura enchants
   if (kind === "optional-draw-discard")
     return applyOptionalDrawDiscardChoice(session, choice, opts);
   if (kind === "optional-discard-payment")

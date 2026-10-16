@@ -44,6 +44,10 @@ async function readAll() {
 
 /** Slim list entry — everything the picker shows, WITHOUT the heavy session. */
 function indexEntry(doc) {
+  // `resumable` is judged on the MIGRATED doc, exactly as getPuzzle loads it (learnSaveStore's index does the same):
+  // judged on the raw doc, every puzzle saved before a schema bump would grey out though it still loads.
+  let migrated;
+  try { migrated = migrate(doc); } catch { migrated = null; }
   return {
     id: doc.id,
     createdAt: doc.createdAt,
@@ -53,7 +57,7 @@ function indexEntry(doc) {
     mode: doc.session?.mode ?? null,
     difficulty: doc.session?.difficulty ?? null,
     meta: doc.session?.meta ?? doc.meta ?? null,
-    resumable: doc.schemaVersion === CURRENT_SCHEMA_VERSION && doc.serializable !== false,
+    resumable: !!migrated && isResumable(migrated),
   };
 }
 

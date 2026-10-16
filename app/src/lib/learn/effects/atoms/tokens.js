@@ -6,7 +6,7 @@ import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintI
 import { tokenMultiplier, tokenAdditive, tokenExtraKinds, tokenOneOfEachPasses, applyCounterDoubling } from "../../replacementEffects.js"; // + tokenOneOfEachPasses — Academy Manufactor (Bumble F4) // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter; Xorn additive Treasure bonus
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
-import { chooseAuraEntryHost } from "../../auraEntry.js"; // CR 303.4f — what a token copy of an Aura enchants as it is created (a leaf zones.js already imports)
+import { enteringAuraHost } from "../../auraEntry.js"; // CR 303.4f — what a token copy of an Aura enchants as it is created, asked of a seat a person plays (a leaf zones.js already imports)
 import { chosenCardTypeOnEnter } from "../../chosenCardType.js"; // CLOUD KEY (CR 707.5 + 614.12a) — a token copy makes the copied "as this enters" card-type choice; a leaf over choicePolicy only
 import { addContinuousEffect } from "../../layers.js"; // MINTED-TOKEN HASTE (shelf D26) — "It gains haste." after a token copy is a lasting layer-6 grant (layers imports no atoms — cycle-free)
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec, halveAmount } from "./shared.js";
@@ -680,7 +680,7 @@ export function applyCreateTokenCopy(state, atom, ctx) {
   const count = Math.max(0, atom.count || 1) * tokenMultiplier(next, ctx.controller);
   const mintedIds = [];
   // A COPY OF AN AURA (2026-10-16) is an Aura token entering without being cast: its controller chooses what it enchants as it
-  // is created (CR 303.4f — auraEntry.chooseAuraEntryHost, nothing targeted), on the board as the creation began, so never
+  // is created (CR 303.4f — auraEntry.enteringAuraHost, nothing targeted), on the board as the creation began, so never
   // another token this call makes; with nothing it may enchant, "If the Aura is a token, it isn't created" (CR 303.4g). It is
   // attached before any enters trigger is checked (a copied Claustrophobia taps its creature). A copy of a ROLE never takes a
   // host an earlier copy of this call took: two Roles of one player on one creature would wait on CR 704.5y, which sba.js does
@@ -693,7 +693,10 @@ export function applyCreateTokenCopy(state, atom, ctx) {
   for (let i = 0; i < count; i++) {
     let hostId = null;
     if (copyIsAura) {
-      const choice = chooseAuraEntryHost(asCreated, copiable, ctx.controller, copyIsRole ? { excludeIds: rolesTaken } : {});
+      // One question per copy (a doubled copy is two Auras to place): the copiable values carry no id of their own, so a
+      // person's answer is keyed by the source and the copy's index in this call (deterministic, so the re-run after an answer
+      // asks the same way, and two copy effects in one step never share a key).
+      const choice = enteringAuraHost(asCreated, { ...copiable, id: `${sourcePerm.id ?? sourcePerm.card?.id}#${i}` }, ctx.controller, copyIsRole ? { excludeIds: rolesTaken } : {});
       if (!choice.hostId) {
         next = logEvent(next, { kind: "aura-token-not-created", cardName: copiable.name, controller: ctx.controller,
           reason: choice.modeled ? "nothing it can enchant (CR 303.4g)" : "its enchant ability is not modeled" });

@@ -16,6 +16,53 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🙋 2026-10-16 — FEAT: a person chooses what their Aura enchants as it enters without being cast (CR 303.4f) — the `aura-entry-host` pause · **±0** · corpus 15,494
+> Suite **19,081** green (1 skipped) / 1,788 files (+3). Lint 0. Flip-diff **0 / 0 / 0** (vs e708140a). **Mutants 22/22**, restore
+> byte-identical. AI path: 40 seeded Expert games on e708140a vs this change — final states, logs and per-decision trajectories
+> **identical** (332 non-cast Aura entries across 33 of the games, none asked). Live in npm run dev — see below.
+> · **Builds on e708140a** — cool-easley's Aura re-entry slice (7af4f621), then ecstatic-jang's seven Aura lifts (c63c7925..e708140a).
+>   Cherry-pick those first, in that order.
+> · **Who is asked:** `state.humanSeats` — `createLearnSession` stamps `["user"]` below Expert, the seat the driver pauses for.
+>   Expert and self-play never carry it, so every seat the AI plays runs the identical path (the witnesses deep-equal it).
+> · **No entry site pauses.** Every real entry decides its host through `auraEntry.enteringAuraHost` — `enterCardFromZone`, the
+>   lifts' token copy and clone (both swapped from `chooseAuraEntryHost`; the flicker gain's simulation keeps the pure chooser): a
+>   person's Aura with two or more legal hosts, inside an ask, records the question and lets the step finish on the house pick. A
+>   doubled token copy asks once per copy (keyed by source + index — the copiable values carry no id). The ask — every atom
+>   `runEffectProgram` resolves (`resolveAtomAsking`: its loop and the optional settle) and the settles that enter a card
+>   (`learnSession.settleAskingAuraHost`: tutor, dig, milled pick, clone) — throws that run away, pauses on the state the step began
+>   from, and `runProgram.resolveAuraEntryHostChoice` re-runs the step with the answer. Exact because the engine is: ids from
+>   `state.idSeq`, shuffles from `state.rngSeed`, an entry that never mutates its input (the dig and tutor witnesses compare the
+>   library order with the house run's).
+> · **One event (Brago, Replenish):** the candidates come off `replacementState` — never a permanent returning with the Aura;
+>   several of a person's Auras are asked in turn, answers carried, then the event happens once.
+> · **Contract:** `aura-entry-host` in PENDING_CHOICE_KINDS (pendingChoiceKinds fixture: settles in one tick on the AI path);
+>   PLAY_API_VERSION **1.3.0** (additive MINOR — PLAY-API-CONTRACT §1.1a row; the COMMS post rides the ship). The wire carries kind,
+>   controller, cardName, sourceName, candidates — the re-run step never crosses it.
+> · **UI:** AuraEntryHostPanel (one button per host, no decline), `useLearnSession.applyAuraEntryHostChoice`, the LearnView sheet
+>   and router. `settleCloneChoice` gains the pendingChoice guard the other settles have.
+> · **Save schema v6 (CONTRACT-MIG):** `state.humanSeats` is durable, so v5→v6 backfills it from the session's own difficulty (a
+>   pre-v6 beginner game resumes still asking its player; Expert stays without; an existing field is kept). The bump exposed a
+>   latent puzzle-picker bug: `puzzleStore`'s index judged `resumable` on the RAW doc, so every saved puzzle would have greyed out
+>   though `getPuzzle` migrates and loads it — it now judges the migrated doc, as learnSaveStore's index already did (seen to fail
+>   without it).
+> · **Live (npm run dev, port 3417, temporary route + page, deleted after):** a beginner session parked on the question through the
+>   real enrichment (`enrichDeck`), the real wire view and the real panel in LearnView's sheet; the real `/api/learn/choose` with
+>   the hook's payload put Pacifism on the opponent's Bears (200, next decision `ask`, no server errors). It caught the glass
+>   choice buttons rendering black text on the black glass with no hover — a `<button>` doesn't inherit the text colour — in this
+>   panel and, shipped, the change-the-target and milled-pick panels: all three now carry `--ley-text` + `.ley-card`.
+> · **Witnesses:** auraEntryHostChoice.test.js (23) — Displacer Kitten, Brago's one event, two Auras in one event, Sun Titan's "you
+>   may" then the host, Academy Rector through the session's tutor settle, Replenish's two Auras, Flash Photography doubled by
+>   Doubling Season (one question per copy), Copy Enchantment through the session's clone settle, a save mid-question, the
+>   session driver / wire / hook payload, a pilot's offer, the AI path byte-identical; the dig settle on a built pause (no dig puts
+>   an Aura onto the battlefield yet). auraEntryHostPanel.test.jsx (3), glassChoiceButtons.test.jsx (3), the v5→v6 migration, the
+>   puzzle picker.
+> · **Flagged, not built (task chips):** the Academy board shows no attachments (boardSnapshot carries none, LearnBoard renders
+>   none — after any Aura resolves the player can't see its host); PENDING_CHOICE_KINDS omits four kinds the driver handles
+>   (optional-life-payment, sylvan-library, tainted-pact, tempting-offer).
+> · **Still the house pick for a person:** a resolver called outside an atom (an Arbiter verdict — it can't pause) and The
+>   Ur-Dragon's hand put (its card is picked by heuristic too). A new road onto the battlefield needs nothing beyond deciding its
+>   host through `enterCardFromZone` / `enteringAuraHost` inside an atom or one of those settles (ENGINE-SCAFFOLD §4.5).
+
 > ## 🌿 2026-10-16 — FEAT: a clone may copy an Aura — the copy chooses what it enchants (CR 303.4f), or the spell goes to the graveyard (CR 303.4g) · **±0** · corpus 15,494
 > Suite **19,049** green (1 skipped) / 1,785 files. Lint 0. Flip-diff **0 / 0 / 0**. **Mutants 7/7**, restore byte-identical. CR citations: no new dead cite.
 > Coverage unchanged (top 1,000 904 · top 2,500 1,743).
@@ -154,7 +201,6 @@
 > · Witness `auraMassReturn.test.js` (10): Pacifism onto the opponent's biggest creature; the Replenish ruling (a 6/7 Nyxborn
 >   Colossus returning AHEAD of Rancor is never its host — seen to fail on a live-board choice); the must-return ruling; CR 303.4g;
 >   the three Eidolon triggers; Retether's creatures-only and the Dryad Arbor ruling; Replenish's unlimited Wild Growth.
-
 > ## 🪢 2026-10-16 — FIX: an Aura that enters without being cast chooses what it enchants (CR 303.4f/g) · an Aura attached to nothing goes to the graveyard (CR 704.5m) · **±0** · corpus 15,492
 > Suite **19,002** green (1 skipped) / 1,780 files (+26). Lint 0. Flip-diff **0 / 0 / 0**. **Mutants 35/35**, restore byte-identical.
 > Coverage unchanged (top 1,000 904 · top 2,500 1,743). The 48-game replay (integration gate, batch 3): byte-identical.
