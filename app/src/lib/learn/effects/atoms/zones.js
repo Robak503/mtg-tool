@@ -1945,6 +1945,10 @@ export function applyCzReturn(state, atom, ctx) {
  * reads, firing at the NEXT end step. Mirrors cz-commander-visit's fetch+schedule shape exactly, but exiles
  * (battlefield → exile) instead of fetching, and the delayed half re-enters FROM EXILE (enterCardFromZone).
  * A target gone before the exile resolves is a clean no-op (CR 608.2b).
+ * An AURA target (Flickerwisp's permanent pool) returns choosing what it enchants (CR 303.4f, in enterCardFromZone); the
+ * sentinel carries the side it was on as it left — "own" when its host's controller is its owner (who it returns under),
+ * else "enemy" — for an Aura whose side the house policy can't read (auraEntry.auraEntryHostScore's `sideHint`, as the
+ * immediate blink passes it).
  */
 export function applyDelayedBlink(state, atom, ctx) {
   let next = state;
@@ -1961,26 +1965,31 @@ export function applyDelayedBlink(state, atom, ctx) {
     const cardId = perm.card?.id;
     if (!cardId) continue;
     const owner = perm.owner || lk.controller;
+    const hostController = perm.attachedTo ? findPermanent(next, perm.attachedTo)?.controller ?? null : null;
+    const side = hostController ? ` ${hostController === owner ? "own" : "enemy"}` : "";
     next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "exile", cardId: perm.id });
-    next = applyScheduleDelayed(next, { delayedClause: `[blink-return ${cardId} ${owner} ${atom.withCounter ? "counter" : "plain"}]`, fireStep: "end", fireScope: "any" }, ctx);
+    next = applyScheduleDelayed(next, { delayedClause: `[blink-return ${cardId} ${owner} ${atom.withCounter ? "counter" : "plain"}${side}]`, fireStep: "end", fireScope: "any" }, ctx);
     done.push(cardId);
   }
   return logEvent(next, { kind: "spell-effect", effect: "delayed-blink", controller: ctx.controller, targets: done });
 }
 
 /** The delayed half's sentinel parser (mirrors czClauseParser's `[cz-return …]`). Case-preserving on the ids —
- * the fixed tokens are matched case-insensitively, but the card/owner ids keep their original case. */
+ * the fixed tokens are matched case-insensitively, but the card/owner ids keep their original case. The optional last token
+ * is an exiled Aura's side (applyDelayedBlink); a sentinel without one — any card that wasn't attached, an older save — reads
+ * as before. */
 export function blinkReturnClauseParser(clause) {
-  const m = String(clause || "").trim().match(/^\[blink-return (\S+) (\S+) (counter|plain)\]$/i);
-  if (m) return { op: "blink-return", cardId: m[1], ownerId: m[2], withCounter: /^counter$/i.test(m[3]) };
+  const m = String(clause || "").trim().match(/^\[blink-return (\S+) (\S+) (counter|plain)(?: (own|enemy))?\]$/i);
+  if (m) return { op: "blink-return", cardId: m[1], ownerId: m[2], withCounter: /^counter$/i.test(m[3]), ...(m[4] ? { auraSideHint: m[4].toLowerCase() } : {}) };
   return null;
 }
 
 /** Return the exiled card to the battlefield under its owner's control (CR 400.7 — a NEW object), with a
- * +1/+1 counter when the source printed one. Owner eliminated / card already gone from exile → a clean no-op. */
+ * +1/+1 counter when the source printed one. Owner eliminated / card already gone from exile → a clean no-op. An Aura
+ * chooses what it enchants as it returns, or stays exiled with nothing to enchant (CR 303.4f/g — enterCardFromZone). */
 export function applyBlinkReturn(state, atom, ctx) {
   if (!state.players?.[atom.ownerId]) return logEvent(state, { kind: "spell-effect", effect: "blink-return", returned: null, controller: ctx.controller });
-  const r = enterCardFromZone(state, { playerId: atom.ownerId, cardId: atom.cardId, fromZone: "exile", fromPlayerId: atom.ownerId });
+  const r = enterCardFromZone(state, { playerId: atom.ownerId, cardId: atom.cardId, fromZone: "exile", fromPlayerId: atom.ownerId, auraSideHint: atom.auraSideHint || null });
   let next = r.state;
   if (r.entered && atom.withCounter && r.permanentId) {
     next = addCounter(next, { permanentId: r.permanentId, type: "+1/+1", amount: 1 });

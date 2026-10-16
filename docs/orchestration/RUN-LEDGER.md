@@ -16,6 +16,22 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🌿 2026-10-16 — FEAT: Flickerwisp's end-step return brings an Aura back attached (CR 303.4f) · **±0** · corpus 15,494
+> Suite **19,034** green (1 skipped) / 1,783 files. Lint 0. Flip-diff **0 / 0 / 0**. **Mutants 7/7**, restore byte-identical. CR citations: no new dead cite.
+> Coverage unchanged (top 1,000 904 · top 2,500 1,743).
+> · **The withholding lifted:** the delayed blink on the permanent pool (`templateMatchers.matchDelayedBlink` — Flickerwisp,
+>   Glimmerpoint Stag) excluded `typeNeg aura`. The return (`zones.applyBlinkReturn` → `enterCardFromZone`) chooses what the Aura
+>   enchants under its owner's control, or leaves it exiled with nothing to enchant (CR 303.4g), so the pool admits an Aura —
+>   `auraEntryModeled` keeps a Curse out. The bundled Flickerwisp ruling: the return happens even when Flickerwisp is gone.
+> · **The side it left:** `applyDelayedBlink` carries an exiled Aura's side ("own" when its host's controller is its owner, else
+>   "enemy") as an optional last token of the `[blink-return …]` sentinel; `blinkReturnClauseParser` reads it (a sentinel without
+>   one — an unattached card, an older save — reads as before) and the return passes it as `auraSideHint`, the house policy's
+>   tiebreak for an Aura whose side it can't read (the immediate blink already does).
+> · Graduated: `flickerwisp.test.js`'s parse pin (`typeNeg aura` → `auraEntryModeled`) and pool pin (the Pacifism joins).
+> · Witness: `flickerwisp.test.js` +4 — the pool (never the Curse); the opponent's Pacifism, flickered off their Bears, returns
+>   at the end step under its owner's control onto YOUR Craw Wurm, a new object; with every creature gone it stays exiled; your
+>   Curiosity flickered off the opponent's Hill Giant returns to THEIR Giant (the sentinel's side).
+
 > ## 🌿 2026-10-16 — FEAT: a token copy of an Aura chooses what it enchants as it is created (CR 303.4f/g) — Flash Photography, Caretaker's Talent · the Role guard · **±0** · corpus 15,494
 > Suite **19,030** green (1 skipped) / 1,783 files. Lint 0. Flip-diff **0 / 0 / 0**. **Mutants 8/8**, restore byte-identical. CR citations: no new dead cite.
 > Coverage unchanged (top 1,000 904 · top 2,500 1,743).
