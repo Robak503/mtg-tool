@@ -69,6 +69,20 @@
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
 
+## 🛡️ 2026-10-16 — **FIGHT DAMAGE IS ORDINARY DAMAGE** — the four direct marks go through the spell deal path (a fix, +0 cards)
+
+> A fight, a bite and a self-fight (Kogla's ETB, Prey Upon, Rabid Bite / Ram Through, Justice Strike) marked their damage
+> straight onto the creature (`markCombatDamage`) and skipped every rule a spell's damage obeys: prevention walls and shields,
+> damage replacement, protection, lifelink, infect / wither, the damage-source record (Sengir Vampire, Kumano's Pupils), the
+> enrage and dealt-by triggers. All four now deal through `spellEffects.dealSimultaneousDamage` — the same hit and settlement
+> functions `applyDamageEffect` uses, extracted from it, one simultaneous event per fight. Fixed with it: The Last Agni Kai's
+> mana is the excess actually dealt; deathtouch dealt as -1/-1 counters destroys (fights AND combat); Ram Through's excess is
+> the creature's damage (Blightsteel's is poison); **a bite at a planeswalker (Bite Down + 3) did nothing** — now it does.
+> Witness 50 (29 red on the old engine), mutants 25/25, suite 19,026, flip-diff 0 / 0 / 0; 23 of 24 seeded games
+> byte-identical — the 24th is Wolverine fighting, which now earns its end-step counter.
+> **The rule it adds** (ENGINE-SCAFFOLD §6): damage is dealt through one of two funnels — combat, or spellEffects — and a new
+> "deals damage" atom never calls `markCombatDamage` itself. **Unblocked:** Crystal Barricade / Tajic (census rank 46). Queued:
+> Chandra's Ignition's lifelink/deathtouch read; 29 "CR 701.12" fight citations (fight is 701.14) left for the citation sweep.
 ## 🐿️ 2026-10-03 — **THE COMBO LINE, slice one** — Squirrel Girl stops at enough and swings; runaway games end clean (±0 cards)
 
 > **Colton's rule:** a combo deck plays to ITS line — build the resource only to "enough", forgo every other choice, execute

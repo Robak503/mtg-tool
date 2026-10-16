@@ -1428,180 +1428,283 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
   return logEvent(next, { kind: "spell-effect", effect: "destroy", controller, targets: targets.map(t => t.id), prevented: saved.map((s) => s.id) });
 }
 
+// ─── ONE DAMAGE EVENT — the shared non-combat deal path ────────────────────────────────────────────────────
+//
+// Every non-combat damage event deals each of its hits through dealDamageToCreature / dealDamageToPlayer and settles
+// once through settleDamageEvent: applyDamageEffect (a spell's or an ability's damage) and dealSimultaneousDamage (a
+// creature dealing damage by an effect — a fight, a bite, a self-fight). The combat funnel (combatResolution) is the
+// only other deal site. A second copy of these steps is how the fights came to skip all of them (prevention walls,
+// shields, damage replacement, lifelink, infect and wither, the damage-source record, the dealt-damage triggers).
+
+/**
+ * THE DEALER — a damage event's source (CR 120.1), its qualities read ONCE, on the board as the event begins (CR 608.2h),
+ * so no hit of the event changes how another hit of it is dealt. A source that has left the battlefield deals its damage
+ * as it last existed there (CR 702.15c, 702.2e): `source.lki` — the record gameState.stampTriggeringLki wrote as it left —
+ * answers for its keywords, colors and creature-ness instead of the board.
+ *   - INFECT / WITHER (CR 120.3b, 120.3d): always read — damage to a creature as -1/-1 counters, infect's to a player as poison.
+ *   - LIFELINK, DEATHTOUCH and the qualities PROTECTION prevents by (CR 120.3f, 704.5h, 702.16e): read only for a source
+ *     that asks (`source.readsKeywords`) — a creature that deals the damage itself (a fight, a bite — dealSimultaneousDamage;
+ *     Warstorm Surge's entering creature — effects/atoms/stack.js). The rules are the same for an ability's own permanent
+ *     source and are NOT read for it yet: turning them on changes what every lifelink, deathtouch or protected-against
+ *     permanent's ability damage does, so it is a slice of its own.
+ *   - SILENCED (AP-1, Defang / Muzzle): an attached "Prevent all damage that would be dealt by enchanted creature" — every
+ *     hit it makes is prevented.
+ * `controller` is the effect's controller, used when the source names none.
+ */
+export function damageDealer(state, source, controller = null) {
+  const has = (kw) => (source?.lki ? source.lki.keywords.includes(kw) : source?.id ? permanentHasKeyword(state, source.id, kw) : false);
+  const reads = source?.readsKeywords === true;
+  return {
+    source,
+    id: source?.id ?? null,
+    controller: source?.controller ?? controller,
+    infect: has("Infect"),
+    wither: has("Wither"),
+    lifelink: reads && has("Lifelink"),
+    deathtouch: reads && has("Deathtouch"),
+    colors: !reads ? [] : source.lki ? source.lki.colors : permanentColors(state, source.id),
+    isCreature: reads && (source.lki ? source.lki.isCreature : permanentIsCreature(state, source.id)),
+    silenced: source?.id ? attachedDamagePrevention(state, source.id).by === "all" : false,
+  };
+}
+
+/**
+ * A DAMAGE EVENT's running record, begun on the board as the event begins: whether that board carries a damage
+ * replacement (CR 614 — the consult is skipped on every other board, so an ordinary event is byte-for-byte), the damage
+ * dealt to each creature (the dealt-damage triggers, exile-if-it-dies, the lethal pass), each dealer's total (its dealt-by
+ * triggers and lifelink) and the creatures a deathtouch source dealt damage to (CR 704.5h).
+ */
+export function beginDamageEvent(state) {
+  return { replacing: boardHasDamageReplacement(state), toCreature: {}, byDealer: new Map(), deathtouched: new Set() };
+}
+
+/** The dealer of `source` in `event` (damageDealer), read on `state` and registered with the event (its total starts at 0). */
+export function eventDealer(state, event, source, controller = null) {
+  const dealer = damageDealer(state, source, controller);
+  event.byDealer.set(dealer, 0);
+  return dealer;
+}
+
+const tallyDealt = (event, dealer, n) => event.byDealer.set(dealer, (event.byDealer.get(dealer) || 0) + n);
+
+/** DAMAGE REPLACEMENT (CR 614 — the doublers, Furnace of Rath) on one hit, on the board as the hit is dealt. A hit of 0 is not
+ * dealt (CR 120.8) and is not consulted. Exported for applyDamageEffect's planeswalker hits. */
+export function consultDealt(s, event, dealer, raw, targetKind, targetId) {
+  return event.replacing && raw > 0
+    ? consultDamageAmount(s, { sourceId: dealer.id, sourceController: dealer.controller, amount: raw, targetKind, targetId, isCombat: false })
+    : raw;
+}
+
+/** PROTECTION FROM THE DEALER (CR 702.16e) — damage from a source of a color the creature is protected from, or from a creature
+ * source to a creature with protection from creatures, is prevented: the two qualities the combat funnel prevents by. */
+function protectedFromDealer(s, dealer, permId) {
+  return protectionApplies(permanentProtectionColors(s, permId), dealer.colors)
+    || (dealer.isCreature && permanentProtectionClasses(s, permId).has("creatures"));
+}
+
+/**
+ * THE CREATURE HIT — `dealer` deals `raw` damage to the creature `permId`, one hit of `event`. In order (the engine's fixed
+ * CR 616.1 order): protection from the dealer, the damage replacements, then the prevention effects (CR 615), then what is
+ * left is DEALT — -1/-1 counters from a source with infect or wither, marked damage otherwise (CR 120.3d / 120.3e) — and the
+ * dealer is recorded on the creature (damagedBy — Sengir Vampire's watcher, Kumano's Pupils' exile). A prevented hit deals
+ * nothing (CR 120.8): no mark, no record, no tally, so nothing it would have triggered triggers (CR 603.2g).
+ */
+export function dealDamageToCreature(s, event, dealer, permId, raw) {
+  if (dealer.silenced) return s;
+  // PROTECTION FROM THE SOURCE (CR 702.16e — see protectedFromDealer): all of it is prevented; nothing below happens.
+  if (protectedFromDealer(s, dealer, permId)) return logEvent(s, { kind: "damage-prevented", targetKind: "creature", targetId: permId, amount: raw, via: "protection" });
+  let dealt = consultDealt(s, event, dealer, raw, "creature", permId);
+  if (dealt <= 0) return s;
+  // CR 122.1c — a SHIELD COUNTER PREVENTS all damage this event would deal to the creature and removes one
+  // shield counter. The damage is prevented, so it is NOT marked, feeds NO enrage/dealtDamage tally (CR 120.8 —
+  // 0 damage was dealt), and no infect/wither -1/-1 counters land. One event removes exactly one shield (this
+  // effect hits each creature at most once). Gated on the counter, so an unshielded creature is byte-identical.
+  const lk = findPermanent(s, permId);
+  if (lk && hasShieldCounter(lk.permanent)) return consumeShieldCounter(s, permId);
+  // FOG-1 (CR 615): the creature's own printed "Prevent all damage …" wall — the ALL form blocks
+  // non-combat damage too (Dawn Elemental shrugs off a Bolt); the combat-only form does NOT (Gomazoa
+  // takes the Bolt), handled at the combat funnel instead.
+  if (lk && selfDamagePrevention(lk.permanent.card) === "all") return s;
+  // COUNTER-SHIELD (Phantom cycle / Bloatfly Swarm, CR 615) — the same wall the combat funnel enforces,
+  // applied to NON-COMBAT damage: a Phantom shrugs off a Bolt exactly as it shrugs off a blocker. Unlike
+  // the combat path (which must record and pay after its loops, because `state` there is the frozen
+  // pre-step board) this site owns mutable state, so the counters are spent inline.
+  //
+  // ⛔ BRANCH ON THE MODE, NEVER ON TRUTHINESS — the zero-counter behaviour is OPPOSITE between the two:
+  // a Phantom still prevents with nothing left to shed, while Bloatfly stops preventing entirely and must
+  // FALL THROUGH to take the damage. Collapsing them makes one immortal or the other paper.
+  if (lk) {
+    const csMode = counterShieldPrevention(lk.permanent.card);
+    if (csMode === "phantom") {
+      const have = (lk.permanent.counters?.["+1/+1"]) || 0;
+      return have > 0 ? removeCounter(s, { permanentId: permId, type: "+1/+1", amount: 1 }) : s;
+    }
+    if (csMode === "bloatfly") {
+      const have = (lk.permanent.counters?.["+1/+1"]) || 0;
+      if (have > 0) {
+        const removed = Math.min(have, dealt);
+        let out = removeCounter(s, { permanentId: permId, type: "+1/+1", amount: removed });
+        // "give EACH PLAYER a rad counter for each +1/+1 counter removed this way" (CR 728).
+        for (const pid of Object.keys(out.players)) out = addRadCounters(out, { playerId: pid, amount: removed });
+        return out;
+      }
+      // no counter → NOT prevented; fall through and take it.
+    }
+  }
+  // PREVENT-AND-PUT (SHELF CAP9, CR 615 — Panther Habit): the ATTACHED wall pays out in +1/+1 counters
+  // and covers ALL damage, so unlike the combat-only walls it binds here too — a Bolt aimed at the
+  // wearer is prevented and grows it by that much. Same slot as the counter-shield sibling directly
+  // above, and this site owns mutable state so the payout is inline (no record-and-pay pass needed).
+  // Ironscale Hydra's SELF wall is deliberately absent: its printed scope is COMBAT damage from a
+  // creature, so it must NOT fire here — it takes the Bolt, exactly as printed.
+  // Routed through addCounter so counter doublers / counters-placed watchers see the placement.
+  if (lk && attachedPreventPutCounters(s, permId)) {
+    return addCounter(s, { permanentId: permId, type: "+1/+1", amount: dealt });
+  }
+  // AP-1 (Inviolability / Heart of Light): an attached "…dealt TO enchanted creature" ALL wall blocks
+  // non-combat damage too; the combat-only forms (Gaseous Form) bind only at the combat funnel.
+  if (lk && attachedDamagePrevention(s, permId).to === "all") return s;
+  // PV-1 (CR 615): floating prevent-next-N shields (Samite Healer on a creature) consume before the hit.
+  const pv = consumePreventionShields(s, { targetKind: "creature", targetId: permId, amount: dealt });
+  s = pv.state; dealt = pv.amount;
+  // ④-H (the en-Kor cycle, CR 615.7): a consumed REDIRECT shield deals its amount to the named creature instead —
+  // marked here and tallied so the effect's lethal pass and dealt-damage watchers see it. Plain damage (the
+  // source's infect/wither/deathtouch is not carried — an under-kill, the FN-safe direction).
+  for (const r of pv.redirects || []) {
+    if (!findPermanent(s, r.to) || r.amount <= 0) continue;
+    event.toCreature[r.to] = (event.toCreature[r.to] || 0) + r.amount;
+    s = markCombatDamage(s, { permanentId: r.to, amount: r.amount });
+  }
+  if (dealt <= 0) return s;
+  event.toCreature[permId] = (event.toCreature[permId] || 0) + dealt;
+  tallyDealt(event, dealer, dealt); // SL-1
+  if (dealer.deathtouch) event.deathtouched.add(permId); // CR 704.5h — any damage it dealt destroys the creature (the lethal pass)
+  let out = (dealer.infect || dealer.wither)
+    ? addCounter(s, { permanentId: permId, type: "-1/-1", amount: dealt })
+    : markCombatDamage(s, { permanentId: permId, amount: dealt });
+  // DAMAGE-RIDER (2026-08-14 — Marauding Raptor): record the SOURCE of this hit on the victim's
+  // damagedBy list, exactly as the combat funnel does (recordDamageSource). The list was already
+  // documented as "optional — a call site that cannot name its source records nothing"; this call
+  // site CAN (the trigger threads source.id), and the stamp is what lets the "dealt damage by this
+  // source" rider read the honest fact — a prevention shield above zeroed `dealt` and never reaches
+  // here, so a fully-prevented hit is never falsely recorded. Additive for the Fatal Blow family
+  // (dealtDamageThisTurn reads damageMarked OR damagedBy — both now witness a sourced ability hit).
+  if (dealer.id) out = recordDamageSource(out, { permanentId: permId, sourceId: dealer.id });
+  // WOLVERINE clause 2: a non-combat damage source (an ability, a fight) that hits another creature arms the
+  // per-turn flag too (the oracle says "dealt damage", not "combat damage"). No-op for non-Wolverine sources.
+  if (dealer.source) out = armDamageToCreatureFlag(out, dealer.source, permId);
+  return out;
+}
+
+/**
+ * THE PLAYER HIT — `dealer` deals `raw` damage to the player `pid`, one hit of `event`: a redirect to a creature first, the
+ * damage replacements, protection from everything, the prevention shields, then poison from a source with infect (CR 120.3b),
+ * life loss otherwise (CR 120.3a — not combat damage).
+ */
+export function dealDamageToPlayer(s, event, dealer, pid, raw) {
+  if (dealer.silenced) return s;
+  // DAMAGE REDIRECT (shelf D42, CR 614.9 — With Great Power . . ., Pariah, Empyrial Archangel): damage that would be dealt to
+  // this player is dealt to the creature their redirect names instead — an ordinary hit on that creature (its own walls,
+  // shields and doublers; the source's infect/wither; the lethal pass and dealt-damage watchers). Applied FIRST, a legal
+  // CR 616.1 order (the affected player picks which replacement applies). Never onto a creature with any protection: this
+  // funnel doesn't thread a spell's colours, so a prevention CR 702.16e owes can't be told apart — the damage stays with
+  // the player, an under-delivery.
+  const redirectTo = playerDamageRedirectTarget(s, pid);
+  if (redirectTo && !permanentProtectionColors(s, redirectTo).size && !permanentProtectionClasses(s, redirectTo).size) {
+    return dealDamageToCreature(s, event, dealer, redirectTo, raw);
+  }
+  // DAMAGE-REPLACEMENT: double the magnitude per target. Infect still REPLACES life loss with poison —
+  // the doubled magnitude becomes that many poison counters (CR 614 doubles the amount; CR 702.90b changes
+  // the form). 120.8: only deal if >0 after doubling.
+  let dealt = consultDealt(s, event, dealer, raw, "player", pid);
+  if (dealt <= 0) return s;
+  // TEFERI'S PROTECTION — protection from everything prevents ALL damage to the player, from every source
+  // including the player's own (CR 702.16e); the deal never happens, so no dealt-by tally either.
+  if (playerProtectedFromEverything(s, pid)) return logEvent(s, { kind: "damage-prevented", targetKind: "player", targetId: pid, amount: dealt, via: "protection from everything" });
+  // PV-1 (CR 615): floating prevent-next-N shields consume BEFORE the hit lands (after the doubler —
+  // CR 616.1 ordering is the engine's deterministic simplification). Fast-pathed inside the helper.
+  const pv = consumePreventionShields(s, { targetKind: "player", targetId: pid, amount: dealt });
+  s = pv.state; dealt = pv.amount;
+  if (dealt <= 0) return s;
+  tallyDealt(event, dealer, dealt); // SL-1: the source's dealt-by tally (players count — "deals damage" is any)
+  return dealer.infect
+    ? addPoison(s, { playerId: pid, amount: dealt })
+    : loseLife(s, { playerId: pid, amount: dealt, combatDamage: false }); // non-combat (spell/ability) damage → burn win-con
+}
+
+/**
+ * A DAMAGE EVENT'S SETTLEMENT — what its hits owe once every one of them is dealt, before the lethal-damage pass (the
+ * abilities trigger as the damage is dealt, CR 120.4b, and bind while their sources are still on the battlefield):
+ *   1. ENRAGE / DAMAGE-RECEIVED (CR 603.2): each creature dealt damage triggers ONCE, with its total for the event. Every
+ *      entry is > 0, so prevented damage never fires (CR 120.8). A creature that then dies to the lethal pass self-no-ops
+ *      at resolution (the "must survive" reminder).
+ *   2. DEALT-BY (SL-1 — Zebra Unicorn, Spirit Link): each source that dealt damage, once, with its total. Not combat damage,
+ *      so a combat-only link (Sunhome Enforcer) stays silent.
+ *   3. LIFELINK (CR 120.3f): each dealer with lifelink makes its controller gain its total, and that player's lifegain
+ *      watchers see it. Nothing dealt (all of it prevented) is a gain of 0: no life, no watcher (both callees read 0 as no event).
+ */
+export function settleDamageEvent(s, event) {
+  s = checkDealtDamageTriggers(s, Object.entries(event.toCreature).map(([creatureId, dealt]) => ({ creatureId, amount: dealt })));
+  const dealtBy = [];
+  for (const [dealer, total] of event.byDealer) if (dealer.id && total > 0) dealtBy.push({ sourceId: dealer.id, amount: total });
+  if (dealtBy.length) s = checkDealtByTriggers(s, dealtBy, { isCombat: false });
+  for (const [dealer, total] of event.byDealer) {
+    if (dealer.lifelink) s = checkLifegainTriggers(gainLife(s, { playerId: dealer.controller, amount: total }), dealer.controller, total);
+  }
+  return s;
+}
+
+/**
+ * SIMULTANEOUS DAMAGE DEALT BY CREATURES (a fight — CR 701.14a; a bite; a self-fight): ONE damage event in which each
+ * creature deals damage itself, through the same deal path as a spell (dealDamageToCreature / dealDamageToPlayer) — so
+ * its prevention walls and shields, damage replacement, infect and wither, the damage-source record, lifelink, deathtouch,
+ * protection from it and the dealt-damage triggers all apply, as they do to any damage. Not combat damage (CR 701.14d).
+ *
+ * `hits` — [{ source: { id, controller, card }, to: { type: "creature" | "player", id }, amount }]: each source a creature
+ * on the battlefield, each amount LOCKED by the caller (its power, read at resolution — CR 608.2h). Every dealer is read
+ * before any hit is dealt, and every hit is dealt before the single lethal pass, so the damage is simultaneous: a creature
+ * the event kills still dealt its share, and -1/-1 counters from one hit never shrink another. A source dealing more than
+ * one hit (a bite's creature and its trample excess) is one dealer with one total: one dealt-by trigger, one lifelink gain.
+ *
+ * Returns { state, dealtTo }: dealtTo maps each creature to the damage actually dealt to it, after replacement and
+ * prevention — what "is dealt excess damage" reads (CR 120.10).
+ */
+export function dealSimultaneousDamage(state, hits) {
+  const event = beginDamageEvent(state);
+  const dealers = new Map(); // source id → its dealer, read on the board as the event begins
+  for (const h of hits) {
+    if (!dealers.has(h.source.id)) dealers.set(h.source.id, eventDealer(state, event, { ...h.source, readsKeywords: true }));
+  }
+  let next = state;
+  for (const h of hits) {
+    if (!(h.amount > 0)) continue; // CR 120.8 — a creature with 0 power deals no damage
+    const dealer = dealers.get(h.source.id);
+    if (h.to.type === "player") { if (next.players?.[h.to.id]) next = dealDamageToPlayer(next, event, dealer, h.to.id, h.amount); }
+    else if (findPermanent(next, h.to.id)) next = dealDamageToCreature(next, event, dealer, h.to.id, h.amount);
+  }
+  next = settleDamageEvent(next, event);
+  const lethal = destroyLethalCreatures(next, event.deathtouched);
+  return { state: checkDiesTriggers(lethal.state, lethal.dead), dealtTo: { ...event.toCreature } };
+}
+
 export function applyDamageEffect(state, { controller, amount: rawAmount, targetType, targets = [], source = null, restrictions = [], exileIfWouldDie = false, amountPerOpponent = null }) {
   let next = state;
   const amount = Math.max(0, rawAmount || 0);
-  // DAMAGE-REPLACEMENT (CR 614 — Wolverine "double all damage", Furnace of Rath …). Finalize the per-target
-  // amount AFTER the infect/wither reroute below (the magnitude IS doubled; the keyword only changes the FORM)
-  // and BEFORE hitPlayer/hitCreature/adjustLoyalty. Gated on the board carrying a replacement, so an ordinary
-  // burn spell is byte-for-byte. `source` is the permanent dealing the damage (an activated/triggered ability's
-  // own permanent; a spell has no permanent source → source-self doublers don't match, a safe FN). Never a hook
-  // on loseLife. 120.8 zero-guard is re-checked (`> 0`) AFTER doubling at each hit below.
-  const dmgConsult = boardHasDamageReplacement(next)
-    ? (raw, targetKind, targetId) => raw > 0
-      ? consultDamageAmount(next, { sourceId: source?.id ?? null, sourceController: source?.controller ?? controller, amount: raw, targetKind, targetId, isCombat: false })
-      : raw
-    : (raw) => raw;
-  // KW-POISON (CR 702.90 infect / 702.79 wither): a source with infect/wither replaces ALL the damage it
-  // deals — NOT just combat — to a creature as that many -1/-1 counters, and (infect only) to a player as
-  // that many poison counters. `source.id` is the permanent dealing the damage (ctx.sourceId, threaded for
-  // activated/triggered abilities); its keywords are read from the PRE-damage state. A spell or a sourceless
-  // effect has no permanent source → it routes normally (spell-source infect/wither stays unclaimed — a safe
-  // false-negative, never an FP). Gated on the keyword, so every ordinary burn source is byte-for-byte.
-  // A source that has LEFT the battlefield deals its damage as it last existed there (CR 608.2h): `source.lki` — the record
-  // gameState.stampTriggeringLki wrote as it left — answers for its keywords, colors and creature-ness instead of the board.
-  const sourceHas = (kw) => (source?.lki ? source.lki.keywords.includes(kw) : source?.id ? permanentHasKeyword(next, source.id, kw) : false);
-  const sourceInfect = sourceHas("Infect");
-  const sourceWither = sourceHas("Wither");
-  // LIFELINK, DEATHTOUCH AND PROTECTION FROM THE SOURCE (play-weighted #731 — Warstorm Surge, whose damage is dealt by the
-  // entering creature, not by the enchantment that targets): read only for a source that asks (`source.readsKeywords` — the
-  // entering-creature lane, effects/atoms/stack.js). Every other caller keeps this funnel's long-standing read of its source
-  // (infect and wither only). The rules are the same for an ability's own permanent source (CR 702.15b, 702.2b, 702.16e) and
-  // are NOT read for it here yet: turning them on changes what every lifelink, deathtouch or protected-against permanent's
-  // ability damage does, so it is a slice of its own.
-  //   - LIFELINK (CR 702.15b): the source's controller gains the total it dealt, after the hits below.
-  //   - DEATHTOUCH (CR 702.2b): a creature it dealt damage to is destroyed by the lethal pass below. Damage dealt as -1/-1
-  //     counters (the source also has wither or infect) marks none, and that pass asks for marked damage — an under-kill.
-  //   - PROTECTION (CR 702.16e): damage from a source of a color the creature is protected from, or from a creature source
-  //     to a creature with protection from creatures, is prevented — the two qualities the combat funnel prevents by. The
-  //     ability's own source decided whether the creature could be TARGETED (CR 702.16b); this is the dealer's quality.
-  const dealer = source?.readsKeywords === true ? source : null;
-  const sourceLifelink = !!dealer && sourceHas("Lifelink");
-  const sourceDeathtouch = !!dealer && sourceHas("Deathtouch");
-  const sourceColors = !dealer ? [] : dealer.lki ? dealer.lki.colors : permanentColors(next, dealer.id);
-  const sourceIsCreature = !!dealer && (dealer.lki ? dealer.lki.isCreature : permanentIsCreature(next, dealer.id));
-  const protectedFromSource = (s, permId) => protectionApplies(permanentProtectionColors(s, permId), sourceColors)
-    || (sourceIsCreature && permanentProtectionClasses(s, permId).has("creatures"));
-  const deathtouched = new Set(); // the creatures a deathtouch source dealt damage to in this effect
-  // AP-1 (Defang / Muzzle): the SOURCE permanent's attached "…dealt BY enchanted creature" ALL wall
-  // zeroes every non-combat deal it makes (its ability pings included); the combat-only form binds
-  // only at the combat funnel. Read once — the source is constant for the whole effect.
-  const sourceBySilenced = source?.id ? attachedDamagePrevention(next, source.id).by === "all" : false;
-  const hitPlayer = (s, pid, override = null) => {
-    // DAMAGE REDIRECT (shelf D42, CR 614.9 — With Great Power . . ., Pariah, Empyrial Archangel): damage that would be dealt to
-    // this player is dealt to the creature their redirect names instead — an ordinary hit on that creature (its own walls,
-    // shields and doublers; the source's infect/wither; the lethal pass and dealt-damage watchers). Applied FIRST, a legal
-    // CR 616.1 order (the affected player picks which replacement applies). Never onto a creature with any protection: this
-    // funnel doesn't thread a spell's colours, so a prevention CR 702.16e owes can't be told apart — the damage stays with
-    // the player, an under-delivery.
-    const redirectTo = playerDamageRedirectTarget(s, pid);
-    if (redirectTo && !permanentProtectionColors(s, redirectTo).size && !permanentProtectionClasses(s, redirectTo).size) {
-      return hitCreature(s, redirectTo, override ?? amount);
-    }
-    // DAMAGE-REPLACEMENT: double the magnitude per target. Infect still REPLACES life loss with poison —
-    // the doubled magnitude becomes that many poison counters (CR 614 doubles the amount; CR 702.90a changes
-    // the form). 120.8: only deal if >0 after doubling. `override` = a PER-PLAYER amount (Molten Psyche reads each
-    // opponent's own cards-drawn count) — it replaces the shared `amount` for this one seat only.
-    let dealt = dmgConsult(override ?? amount, "player", pid);
-    if (dealt <= 0) return s;
-    // TEFERI'S PROTECTION — protection from everything prevents ALL damage to the player, from every source
-    // including the player's own (CR 702.16b); the deal never happens, so no dealt-by tally either.
-    if (playerProtectedFromEverything(s, pid)) return logEvent(s, { kind: "damage-prevented", targetKind: "player", targetId: pid, amount: dealt, via: "protection from everything" });
-    // PV-1 (CR 615): floating prevent-next-N shields consume BEFORE the hit lands (after the doubler —
-    // CR 616.1 ordering is the engine's deterministic simplification). Fast-pathed inside the helper.
-    const pv = consumePreventionShields(s, { targetKind: "player", targetId: pid, amount: dealt });
-    s = pv.state; dealt = pv.amount;
-    if (dealt <= 0) return s;
-    sourceDealtTotal += dealt; // SL-1: the source's dealt-by tally (players count — "deals damage" is any)
-    return sourceInfect
-      ? addPoison(s, { playerId: pid, amount: dealt })
-      : loseLife(s, { playerId: pid, amount: dealt, combatDamage: false }); // non-combat (spell/ability) damage → burn win-con
-  };
-  // ENRAGE / DAMAGE-RECEIVED (CR 603.2): tally the FINAL amount dealt to each creature this effect so a
-  // dealtDamage trigger fires ONCE per creature with its total (CR 120.8 — only > 0 entries). One entry per
-  // creature here (each is hit at most once per applyDamageEffect), but the map keeps it one-event-per-creature
-  // if a future effect hits one creature twice in a call. Reflects the Wave-5a doubler (dmgConsult ran).
-  const dealtToCreature = {};
-  let sourceDealtTotal = 0; // SL-1 — the SOURCE's total dealt this resolution (players + creatures + walkers)
-  const hitCreature = (s, permId, raw = amount) => { // `raw` — a redirected player hit's own amount (shelf D42)
-    // PROTECTION FROM THE SOURCE (CR 702.16e — see protectedFromSource): all of it is prevented; nothing below happens.
-    if (protectedFromSource(s, permId)) return logEvent(s, { kind: "damage-prevented", targetKind: "creature", targetId: permId, amount: raw, via: "protection" });
-    let dealt = dmgConsult(raw, "creature", permId);
-    if (dealt <= 0) return s;
-    // CR 122.1c — a SHIELD COUNTER PREVENTS all damage this event would deal to the creature and removes one
-    // shield counter. The damage is prevented, so it is NOT marked, feeds NO enrage/dealtDamage tally (CR 120.8 —
-    // 0 damage was dealt), and no infect/wither -1/-1 counters land. One event removes exactly one shield (this
-    // effect hits each creature at most once). Gated on the counter, so an unshielded creature is byte-identical.
-    const lk = findPermanent(s, permId);
-    if (lk && hasShieldCounter(lk.permanent)) return consumeShieldCounter(s, permId);
-    // FOG-1 (CR 615): the creature's own printed "Prevent all damage …" wall — the ALL form blocks
-    // non-combat damage too (Dawn Elemental shrugs off a Bolt); the combat-only form does NOT (Gomazoa
-    // takes the Bolt), handled at the combat funnel instead.
-    if (lk && selfDamagePrevention(lk.permanent.card) === "all") return s;
-    // COUNTER-SHIELD (Phantom cycle / Bloatfly Swarm, CR 615) — the same wall the combat funnel enforces,
-    // applied to NON-COMBAT damage: a Phantom shrugs off a Bolt exactly as it shrugs off a blocker. Unlike
-    // the combat path (which must record and pay after its loops, because `state` there is the frozen
-    // pre-step board) this site owns mutable state, so the counters are spent inline.
-    //
-    // ⛔ BRANCH ON THE MODE, NEVER ON TRUTHINESS — the zero-counter behaviour is OPPOSITE between the two:
-    // a Phantom still prevents with nothing left to shed, while Bloatfly stops preventing entirely and must
-    // FALL THROUGH to take the damage. Collapsing them makes one immortal or the other paper.
-    if (lk) {
-      const csMode = counterShieldPrevention(lk.permanent.card);
-      if (csMode === "phantom") {
-        const have = (lk.permanent.counters?.["+1/+1"]) || 0;
-        return have > 0 ? removeCounter(s, { permanentId: permId, type: "+1/+1", amount: 1 }) : s;
-      }
-      if (csMode === "bloatfly") {
-        const have = (lk.permanent.counters?.["+1/+1"]) || 0;
-        if (have > 0) {
-          const removed = Math.min(have, dealt);
-          let out = removeCounter(s, { permanentId: permId, type: "+1/+1", amount: removed });
-          // "give EACH PLAYER a rad counter for each +1/+1 counter removed this way" (CR 728).
-          for (const pid of Object.keys(out.players)) out = addRadCounters(out, { playerId: pid, amount: removed });
-          return out;
-        }
-        // no counter → NOT prevented; fall through and take it.
-      }
-    }
-    // PREVENT-AND-PUT (SHELF CAP9, CR 615 — Panther Habit): the ATTACHED wall pays out in +1/+1 counters
-    // and covers ALL damage, so unlike the combat-only walls it binds here too — a Bolt aimed at the
-    // wearer is prevented and grows it by that much. Same slot as the counter-shield sibling directly
-    // above, and this site owns mutable state so the payout is inline (no record-and-pay pass needed).
-    // Ironscale Hydra's SELF wall is deliberately absent: its printed scope is COMBAT damage from a
-    // creature, so it must NOT fire here — it takes the Bolt, exactly as printed.
-    // Routed through addCounter so counter doublers / counters-placed watchers see the placement.
-    if (lk && attachedPreventPutCounters(s, permId)) {
-      return addCounter(s, { permanentId: permId, type: "+1/+1", amount: dealt });
-    }
-    // AP-1 (Inviolability / Heart of Light): an attached "…dealt TO enchanted creature" ALL wall blocks
-    // non-combat damage too; the combat-only forms (Gaseous Form) bind only at the combat funnel.
-    if (lk && attachedDamagePrevention(s, permId).to === "all") return s;
-    // PV-1 (CR 615): floating prevent-next-N shields (Samite Healer on a creature) consume before the hit.
-    const pv = consumePreventionShields(s, { targetKind: "creature", targetId: permId, amount: dealt });
-    s = pv.state; dealt = pv.amount;
-    // ④-H (the en-Kor cycle, CR 615.7): a consumed REDIRECT shield deals its amount to the named creature instead —
-    // marked here and tallied so the effect's lethal pass and dealt-damage watchers see it. Plain damage (the
-    // source's infect/wither/deathtouch is not carried — an under-kill, the FN-safe direction).
-    for (const r of pv.redirects || []) {
-      if (!findPermanent(s, r.to) || r.amount <= 0) continue;
-      dealtToCreature[r.to] = (dealtToCreature[r.to] || 0) + r.amount;
-      s = markCombatDamage(s, { permanentId: r.to, amount: r.amount });
-    }
-    if (dealt <= 0) return s;
-    dealtToCreature[permId] = (dealtToCreature[permId] || 0) + dealt;
-    sourceDealtTotal += dealt; // SL-1
-    if (sourceDeathtouch) deathtouched.add(permId); // CR 702.2b — any damage it dealt is lethal (the lethal pass below)
-    let out = (sourceInfect || sourceWither)
-      ? addCounter(s, { permanentId: permId, type: "-1/-1", amount: dealt })
-      : markCombatDamage(s, { permanentId: permId, amount: dealt });
-    // DAMAGE-RIDER (2026-08-14 — Marauding Raptor): record the SOURCE of this hit on the victim's
-    // damagedBy list, exactly as the combat funnel does (recordDamageSource). The list was already
-    // documented as "optional — a call site that cannot name its source records nothing"; this call
-    // site CAN (the trigger threads source.id), and the stamp is what lets the "dealt damage by this
-    // source" rider read the honest fact — a prevention shield above zeroed `dealt` and never reaches
-    // here, so a fully-prevented hit is never falsely recorded. Additive for the Fatal Blow family
-    // (dealtDamageThisTurn reads damageMarked OR damagedBy — both now witness a sourced ability hit).
-    if (source?.id) out = recordDamageSource(out, { permanentId: permId, sourceId: source.id });
-    // WOLVERINE clause 2: a non-combat damage source (an ability) that hits another creature arms the
-    // per-turn flag too (the oracle says "dealt damage", not "combat damage"). No-op for non-Wolverine sources.
-    if (source) out = armDamageToCreatureFlag(out, source, permId);
-    return out;
-  };
+  // ONE DAMAGE EVENT, ONE SOURCE (damageDealer says what is read of it, and when): every target is hit through the shared
+  // deal path and the event settles once, below. `source` is the permanent dealing the damage — an activated or triggered
+  // ability's own permanent, or the creature that deals it (Warstorm Surge's entering creature reads its keywords —
+  // `source.readsKeywords`); a spell has no permanent source, so a source-scoped doubler or a source's infect never
+  // matches it (a safe FN).
+  const event = beginDamageEvent(next);
+  const dealer = eventDealer(next, event, source, controller);
+  // `override` — a PER-PLAYER amount (Molten Psyche reads each opponent's own cards-drawn count) that replaces the shared
+  // `amount` for that one seat; `raw` — a redirected player hit's own amount (shelf D42).
+  const hitPlayer = (s, pid, override = null) => dealDamageToPlayer(s, event, dealer, pid, override ?? amount);
+  const hitCreature = (s, permId, raw = amount) => dealDamageToCreature(s, event, dealer, permId, raw);
   // A 0-damage effect deals no damage (no marks, no counters, no poison — CR 120.8); guard so an infect
   // source can't stamp a stray "-1/-1": 0 counter. The lethal SBA + log below still run for parity.
   // AP-1: a by-silenced source deals nothing at all (every hit zeroed) — same parity flow as amount 0.
-  if ((amount > 0 || amountPerOpponent) && !sourceBySilenced) {
+  if ((amount > 0 || amountPerOpponent) && !dealer.silenced) {
     if (targetType === "eachOpponent") {
       // amountPerOpponent === "cardsDrawnThisTurn": each opponent takes ITS OWN drawn count (Molten Psyche) — a seat
       // that drew nothing takes nothing (CR 120.8 — zero damage is not dealt).
@@ -1655,12 +1758,12 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
           if (!walkersToo) continue;
           if (!permanentHasCardType(state, perm.id, "Planeswalker")) continue; // its face that is up (the type-line audit)
           // The single-target loyalty path, reused: damage replacement → prevention shields → loyalty removal.
-          let dealt = dmgConsult(amount, "planeswalker", perm.id);
+          let dealt = consultDealt(next, event, dealer, amount, "planeswalker", perm.id);
           if (dealt > 0) {
             const pv = consumePreventionShields(next, { targetKind: "planeswalker", targetId: perm.id, amount: dealt });
             next = pv.state; dealt = pv.amount;
           }
-          if (dealt > 0) { next = adjustLoyalty(next, { permanentId: perm.id, delta: -dealt }); sourceDealtTotal += dealt; }
+          if (dealt > 0) { next = adjustLoyalty(next, { permanentId: perm.id, delta: -dealt }); tallyDealt(event, dealer, dealt); }
         }
       }
     } else if (targetType === "eachCreatureAndPlaneswalker") {
@@ -1673,7 +1776,7 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
       // nothing about a planeswalker, and Magmaquake hits every walker regardless.
       //
       // ⭐ THE LOYALTY PATH IS THE SINGLE-TARGET ONE, REUSED RATHER THAN REIMPLEMENTED — damage replacement
-      // (dmgConsult), then prevention shields (CR 615), then loyalty removal (CR 120.3c). Writing a second
+      // (consultDealt), then prevention shields (CR 615), then loyalty removal (CR 120.3c). Writing a second
       // loyalty path here is how the two would drift.
       for (const pid of Object.keys(next.players)) {
         for (const perm of next.players[pid].battlefield) {
@@ -1684,12 +1787,12 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
         for (const perm of [...next.players[pid].battlefield]) {
           // a planeswalker NOW, its face that is up (the type-line audit — a front-up Nissa, Vastwood Seer is a creature, not a walker)
           if (!permanentHasCardType(next, perm.id, "Planeswalker")) continue;
-          let dealt = dmgConsult(amount, "planeswalker", perm.id);
+          let dealt = consultDealt(next, event, dealer, amount, "planeswalker", perm.id);
           if (dealt > 0) {
             const pv = consumePreventionShields(next, { targetKind: "planeswalker", targetId: perm.id, amount: dealt });
             next = pv.state; dealt = pv.amount;
           }
-          if (dealt > 0) { next = adjustLoyalty(next, { permanentId: perm.id, delta: -dealt }); sourceDealtTotal += dealt; }
+          if (dealt > 0) { next = adjustLoyalty(next, { permanentId: perm.id, delta: -dealt }); tallyDealt(event, dealer, dealt); }
         }
       }
     } else if (targetType === "eachCreatureAndPlayer") {
@@ -1723,43 +1826,31 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
         // doesn't touch planeswalkers (it replaces damage to creatures/players only) — loyalty as normal.
         // DAMAGE-REPLACEMENT (CR 120.3c): loyalty uses the DOUBLED amount.
         else if (t.type === "planeswalker" && findPermanent(next, t.id)) {
-          let dealt = dmgConsult(amount, "planeswalker", t.id);
+          let dealt = consultDealt(next, event, dealer, amount, "planeswalker", t.id);
           // PV-1 (CR 615): a prevention shield on a planeswalker consumes before the loyalty hit.
           if (dealt > 0) {
             const pv = consumePreventionShields(next, { targetKind: "planeswalker", targetId: t.id, amount: dealt });
             next = pv.state; dealt = pv.amount;
           }
-          if (dealt > 0) { next = adjustLoyalty(next, { permanentId: t.id, delta: -dealt }); sourceDealtTotal += dealt; } // SL-1
+          if (dealt > 0) { next = adjustLoyalty(next, { permanentId: t.id, delta: -dealt }); tallyDealt(event, dealer, dealt); } // SL-1
         }
       }
     }
   }
-  // ENRAGE / DAMAGE-RECEIVED (CR 603.2) — fire each damaged creature's "Whenever this creature is dealt
-  // damage" trigger ONCE with its total, BEFORE the lethal SBA so the source binds while still on the
-  // battlefield (a creature that then dies to the SBA self-no-ops at resolution — the "must survive"
-  // reminder). Every entry is > 0 (the hitCreature `dealt <= 0` guard), so 0/prevented damage never fires.
-  next = checkDealtDamageTriggers(next, Object.entries(dealtToCreature).map(([creatureId, dealt]) => ({ creatureId, amount: dealt })));
-  // SL-1 — the DEALT-BY lifegain link: the SOURCE permanent (a ping / fight / enrage payload) dealt this
-  // resolution's total. Non-combat, so a combat-only link (Sunhome Enforcer) stays silent here.
-  if (source?.id && sourceDealtTotal > 0) {
-    next = checkDealtByTriggers(next, [{ sourceId: source.id, amount: sourceDealtTotal }], { isCombat: false });
-  }
-  // LIFELINK (CR 702.15b): the source's controller — as it last existed, when it has left — gains the total it dealt to
-  // players, creatures and planeswalkers, and that player's lifegain watchers see it (the combat funnel's own sequence).
-  // Nothing dealt (all of it prevented) is a gain of 0: no life, no watcher (both callees read 0 as no event).
-  if (sourceLifelink) {
-    next = checkLifegainTriggers(gainLife(next, { playerId: source.controller, amount: sourceDealtTotal }), source.controller, sourceDealtTotal);
-  }
+  // ENRAGE, DEALT-BY, LIFELINK — the event's settlement (settleDamageEvent): each damaged creature's dealt-damage triggers
+  // once with its total, the source's dealt-by links once with its total (players, creatures and planeswalkers), and its
+  // lifelink gain — all BEFORE the lethal pass, so their sources bind while still on the battlefield.
+  next = settleDamageEvent(next, event);
   // EXILE-IF-DIES (subsystem 3): "If that creature would die this turn, exile it instead." (single-target)
   // / "If a creature dealt damage this way would die this turn, exile it instead." (mass). Flag exactly the
-  // creatures THIS effect actually damaged — `dealtToCreature` is the per-creature hit set built above, so
+  // creatures THIS effect actually damaged — `event.toCreature` is the per-creature hit set built above, so
   // this is correct for the single target AND the mass forms (any-target / each-creature) and NEVER marks a
   // creature the spell didn't hit. Done BEFORE the lethal SBA so destroyLethalCreatures reroutes them to
   // exile; the marker self-expires by turn (applies whether lethal now or the creature dies later this turn).
   if (exileIfWouldDie) {
-    for (const permId of Object.keys(dealtToCreature)) next = markExileIfDies(next, { permanentId: permId, turn: next.turn });
+    for (const permId of Object.keys(event.toCreature)) next = markExileIfDies(next, { permanentId: permId, turn: next.turn });
   }
-  const dmgResult = destroyLethalCreatures(next, deathtouched);
+  const dmgResult = destroyLethalCreatures(next, event.deathtouched);
   next = checkDiesTriggers(dmgResult.state, dmgResult.dead);
   // PW-6: a planeswalker driven to 0 loyalty by the damage is put into the graveyard (CR 704.5i).
   const pwSba = destroyZeroLoyaltyPlaneswalkers(next);

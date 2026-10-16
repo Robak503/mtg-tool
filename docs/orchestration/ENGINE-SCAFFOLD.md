@@ -663,6 +663,20 @@ fingerprints compare the parse pipeline against the parse pipeline, so a runtime
 empty list is STRUCTURALLY invisible to them. Any change to a resolver, enumerator or legality gate must
 be proven by driving a card on a board — a green fingerprint means the gates couldn't see it.
 
+### THE DEAL PATH — damage is dealt at two sites, never one per atom (2026-10-16)
+
+Damage reaches a creature or a player through exactly two funnels: combat damage through
+`combatResolution.resolveCombatDamage`, and all other damage through `spellEffects` — `applyDamageEffect` for a spell's
+or an ability's damage, `dealSimultaneousDamage` for damage a creature deals itself (a fight, a bite, a self-fight). The
+two non-combat funnels deal every hit through the same `dealDamageToCreature` / `dealDamageToPlayer` and settle once
+through `settleDamageEvent`: protection from the source, the damage replacements, the prevention walls and shields,
+infect and wither, the damage-source record (`damagedBy`), lifelink, deathtouch, the dealt-damage and dealt-by triggers.
+`gameState.markCombatDamage` — despite its name it marks all damage — is the LAST step of that path, never a substitute
+for it: the four fight atoms called it directly, and for months a fight ignored Dawn Elemental's wall and never gained
+lifelink, never dealt infect's counters, never fed Sengir Vampire or an enrage trigger. **A new "deals damage" atom deals
+through one of the two funnels.** An effect whose hits are simultaneous (both creatures of a fight) is ONE event: lock
+the amounts, deal every hit, then the single lethal pass.
+
 Other live seams (documented, mostly benign, listed so you don't rediscover them):
 the `land` tier is unconditional (§2.1); resolved instants/sorceries now reach their
 owner's graveyard (CR 608.2n — fixed in the overhaul pass; Arbiter-routed spells still

@@ -2620,8 +2620,8 @@ export function clearCombatDamage(state) {
  * which is why indestructible (CR 702.12b) splits them:
  *   - CR 704.5f — toughness 0 or less → put into graveyard. NOT "destroy", so an
  *     indestructible creature still dies this way (a 0/0 token, an -X/-X wipe).
- *   - CR 704.5g — lethal marked damage (≥ effective toughness), OR any damage from a
- *     deathtouch source (pass `deathtouched` as a Set of permanent ids) → DESTROYED.
+ *   - CR 704.5g — lethal marked damage (≥ effective toughness), or CR 704.5h — any damage DEALT by a
+ *     deathtouch source (`deathtouched`: the ids of the creatures a deathtouch source dealt damage to) → DESTROYED.
  *     An indestructible creature is NOT destroyed and survives.
  * Shared by combat damage and direct-damage spells so the lethality rule lives in one
  * place. Returns `{ state, dead }`.
@@ -2750,7 +2750,11 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
         markDead(pid, perm); // CR 704.5f — indestructible does NOT prevent this
         continue;
       }
-      const lethalDamage = (dmg > 0 && dmg >= tough) || (deathtouched.has(perm.id) && dmg > 0);
+      // CR 704.5h asks whether a deathtouch source DEALT the creature damage, not whether damage is marked on it: every producer
+      // of `deathtouched` adds a creature only for an amount actually dealt (combatResolution's addDmg, spellEffects
+      // .dealDamageToCreature), and damage dealt as -1/-1 counters (a deathtouch source that also has infect or wither — a
+      // granted keyword; no printed card has both) is dealt but marks nothing.
+      const lethalDamage = (dmg > 0 && dmg >= tough) || deathtouched.has(perm.id);
       if (lethalDamage) {
         // CR 704.5g — destruction, through the destroy effect's own ladder (destructionReplacementFor, the one copy): an
         // indestructible creature survives untouched; a shield counter (CR 122.1c — in normal flow the damage to a shielded

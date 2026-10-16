@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **45 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,470)**; engine gains since the tag: **+3** (+46 gained, −43 false credit removed). The next tag
+> **47 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,470)**; engine gains since the tag: **+3** (+46 gained, −43 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,68 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-16 — FIX: a fight, a bite and a self-fight deal ORDINARY damage — the four direct marks go through the spell deal path · **+0** · corpus 15,492
+> Suite **19,026** green on the rebased tree (4463487c + this; 1,780 files, 1 skipped; this slice +50); lint 0; corpus 15,492 / 34,620 unchanged (top 1,000 904, top 2,500 1,743). Flip-diff **0 / 0 / 0** over 34,620 cards (HEAD's engine → the slice). **Mutants 25/25** on assertions, restore byte-identical.
+> Seeded games: 24 commander games on the 30 profile decks (43,509 decision rows) — **23 byte-identical**; the 24th is a fight (below).
+> · **The gap** (banked 2026-09-30 at census rank 46, Crystal Barricade / Tajic; stage ③ · 18's "a fight recording no damage
+>   source is the one left"). `effects/atoms/combat.js` marked the damage of four atoms straight onto the creature with
+>   `gameState.markCombatDamage` — `fightCreature` (the source-bound fight: Kogla, the Titan Ape's ETB), `applyFightPair` (Prey
+>   Upon), `applyDamageTargetPower` (Rabid Bite, Ram Through) and `applyDamageSelfPower` (Justice Strike) — skipping every step
+>   `applyDamageEffect` takes. Each consequence was cast for real on the old code before the fix, and every one reproduced:
+>   Dawn Elemental died to all four paths; Child of Night gained nothing; Glistener Elf marked 1 damage instead of a -1/-1
+>   counter; Sengir Vampire got no counter and Kumano's Pupils' victim went to the graveyard (no damage source recorded);
+>   Ripjaw Raptor's enrage and Zebra Unicorn's dealt-by link never fired; Furnace of Rath did not double; a Samite Healer
+>   shield was not consumed; White Knight's protection from black did not stop Sengir.
+> · **The fix — one deal path, extracted, not copied.** `spellEffects.js`: applyDamageEffect's creature hit and player hit are
+>   now `dealDamageToCreature` / `dealDamageToPlayer`, its source read `damageDealer`, its record `beginDamageEvent`, its
+>   settlement `settleDamageEvent` (enrage, dealt-by, lifelink); applyDamageEffect calls them and is unchanged (218
+>   damage-touching test files, 3,645 tests, green before the fights were touched). New `dealSimultaneousDamage(state, hits)`:
+>   ONE event — every dealer read before any hit, every hit dealt before the single lethal pass — each creature the source of
+>   its own damage with its keywords read (`readsKeywords`, the Warstorm Surge lane's flag). The four atoms lock their amounts
+>   (CR 608.2h) and call it. Not combat damage (CR 701.14d). ENGINE-SCAFFOLD §6 carries the rule: a new "deals damage" atom
+>   deals through one of the two funnels; `markCombatDamage` is the last step, never a substitute.
+> · **Fixed with it — each a consequence of the routing:**
+>   ① The Last Agni Kai's mana is the excess DEALT (CR 120.10): the old excess came from the locked power, so once Dawn
+>   Elemental's wall applied it would have minted {R}{R}{R} for damage never dealt.
+>   ② The lethal pass destroys for deathtouch damage DEALT, not marked (CR 704.5h): `destroyLethalCreatures` asked
+>   `deathtouched && damageMarked > 0`, so deathtouch dealt as -1/-1 counters killed nothing. Every producer of the set adds
+>   only dealt damage (combatResolution's addDmg, the shared hit), so the marked-damage proxy is gone. 0 printed cards carry
+>   deathtouch with infect or wither (corpus, 38,697); 191 grant deathtouch. **⚑ Combat changes too** for a granted pair:
+>   Glistener Elf wearing Basilisk Collar now kills its blocker.
+>   ③ Ram Through's trample excess is dealt by the biting creature in the same event (it was dealt by the spell, a second
+>   event): Blightsteel Colossus's 9 is poison, and a lifelinker gains its whole total once.
+>   ④ **A bite at a planeswalker resolved as NOTHING** (hollow native, pre-existing): `fightPairRefs` kept only creature
+>   targets, and the enumerator tags the walker `planeswalker` — Bite Down, Hard-Hitting Question, Horrific Assault, Master's
+>   Rebuke (and split faces) never touched loyalty; their test parsed the clause and never cast one. The dealee may now be a
+>   role-tagged planeswalker; the bite's source is the creature (lifelink, a doubler scoped to it).
+>   ⑤ Deathtouch counts only damage dealt: the old fights put the dealee in the deathtouch set before any damage, so with
+>   the prevention walls now applying, a prevented deathtouch hit would still have killed — witnessed the right way round
+>   (Vampire Nighthawk's prevented 2 leaves Dawn Elemental alive and gains nothing).
+> · **Citations:** fight is CR 701.14 in the bundled CR — 701.12 is Exchange. The rewritten docblocks cite 701.14a/b/d,
+>   120.2b, 120.10, 704.5h, 608.2h; a moved comment's 702.16b (targeting) for Teferi's Protection's damage is 702.16e.
+>   ⚠️ 29 other "CR 701.12" fight citations remain in 8 files (combat.js, parser.js, targeting.js, tribute.js and four tests)
+>   — a real rule number, the wrong rule, so a does-it-exist check passes them. Left for the citation sweep.
+> · Witness `fightDamagePipeline.test.js` (50), every case cast through legalActionsForPlayer → dispatchAction → resolve
+>   (the combat case through resolveCombatDamage), real fixtures, each witness beside a control that differs in one card.
+>   Seen to fail: 29 of 50 red on HEAD's engine, every one an AssertionError at the witnessing line. Mutants (25): the four
+>   routings reverted one at a time, the planeswalker source and dealee, Ram Through's excess dealer, Agni Kai's excess, the
+>   fighter's card (Wolverine), two simultaneity breaks (sequential events; the second power re-read after the first hit),
+>   thirteen steps of the shared path (the doubler's source among them), and the lethal-pass guard.
+> · ⚑ **Results change (flag to Omnath):** any game with a fight, a bite or a self-fight whose creatures carry a wall, a
+>   shield, lifelink, infect, wither, deathtouch, protection, an enrage or a dealt-by trigger, a doubler, or a dealt-by watcher.
+>   Measured: the 24-game batch (base seed 20261016) changed ONE game — seed 942741375, Wolverine / Zaxara / Atraxa / Believe
+>   it! — where Wolverine, Best There Is fights Walking Ballista through Ancient Animus: the fight now counts as Wolverine
+>   dealing damage to another creature, so its end-step +1/+1 counter lands (HEAD's direct mark skipped the arm); same winner
+>   and turn count, 1,220 → 1,226 decision rows, first divergence at that end step. Five other games resolved a fight or a
+>   bite and stayed byte-identical (no wall, shield, keyword or watcher in them). That game is now a witness (Wolverine vs
+>   Wall of Stone: its own doubler makes the fight deal 4; the counter lands) — the doubler scoped to the fighter was the one
+>   step Furnace of Rath could not see.
+> · ⚠️ Found, not fixed (queued): Chandra's Ignition (`source-power-fanout`) still deals through applyDamageEffect without
+>   `readsKeywords` — the chosen creature deals the damage, but its lifelink and deathtouch are not read (one flag at its
+>   call site, witness first); `fightCreature` does not check CR 701.14b's "no longer a creature" for a source-bound
+>   fighter; the combat funnel gains lifelink per player, where CR 119.9 counts a life-gain event per source. Crystal Barricade / Tajic
+>   (census rank 46) is unblocked: a group noncombat wall is now one check in `dealDamageToCreature`.
 
 > ## 🔧 2026-10-16 — FIX: a double-faced card makes the mana of the FACE THAT IS UP — 88 phantom sources (Storm the Vault, a reanimated Drowner of Truth, Tamiyo) · **−1** (an FP removed)
 > Suite **18,999** green (1 skipped; 1,781 files). Flip-diff **0 / 1 / 0** over 34,620 cards — the one LOST is an FP removal

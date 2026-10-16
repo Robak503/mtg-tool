@@ -4,8 +4,8 @@
  */
 
 import { addContinuousEffect, permanentIsCreature, permanentHasCardType, permanentHasKeyword, permanentTypes, hasAuraAttached, permIsEveryCreatureType, permanentColors } from "../../layers.js"; // permanentHasCardType — #666, the nonland untap's layer-aware, face-up land read // permanentColors — the protection-color pick's layer-aware tally (applyGrantProtection) // permIsEveryCreatureType — P·39, the set-base-pt-team subtype filter (changeling / every creature type) // hasAuraAttached — KARAMETRA'S BLESSING's "enchanted creature" condition // permanentTypes — BLACKSMITH'S SKILL (O9): the "if it's an artifact creature" rider reads the LAYER-4 types (an animated artifact counts)
-import { applyDamageEffect } from "../../spellEffects.js"; // TRAMPLE-EXCESS (Ram Through) — the shared player-damage path (removal.js precedent; call-time binding, cycle-safe)
-import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, markCombatDamage, setDoesNotUntapNext, updatePermanentSafe, addPreventionShield, addMana } from "../../gameState.js";
+import { applyDamageEffect, dealSimultaneousDamage } from "../../spellEffects.js"; // the shared deal path: a bite of a planeswalker (applyDamageEffect) and the fights, bites and self-fights (dealSimultaneousDamage) — call-time binding, cycle-safe (removal.js precedent)
+import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, setDoesNotUntapNext, updatePermanentSafe, addPreventionShield, addMana } from "../../gameState.js";
 import { checkDiesTriggers, checkUntapTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
 import { autoPickCreatureType, autoPickProtectionColor } from "../../choicePolicy.js"; // BECOME-CREATURE-TYPE (CR 614.12) + PROTECTION-COLOR (vein #3, Mother/Giver) — the shared auto-choice policies; choicePolicy.js imports NOTHING, which is the only shape an atom can share with resolvers (resolvers -> runProgram -> effectAtoms -> here)
@@ -568,64 +568,57 @@ export function applyUntapEarthbentLand(state, atom, ctx) {
 }
 
 /**
- * ETB-FIGHT (CR 701.12) — "[this creature|it] fights (up to one) target creature you don't control."
- * Two creatures fight: each deals damage EQUAL TO ITS POWER to the other, SIMULTANEOUSLY (CR 701.12a).
+ * A creature that deals damage itself — a fighter, a biter, a creature dealing damage to itself — as the source
+ * spellEffects.dealSimultaneousDamage reads: its id (the damage-source record, the dealt-by triggers, a doubler scoped to
+ * it), its controller (lifelink's gain, a doubler scoped to "a source you control") and its card (Wolverine's
+ * dealt-damage-to-a-creature clause). `lk` is a findPermanent result.
+ */
+const creatureDamageSource = (lk) => ({ id: lk.permanent.id, controller: lk.controller, card: lk.permanent.card });
+
+/**
+ * ETB-FIGHT (CR 701.14) — "[this creature|it] fights (up to one) target creature you don't control."
+ * Two creatures fight: each deals damage EQUAL TO ITS POWER to the other (CR 701.14a).
  * The SOURCE is the fighting creature (ctx.sourceId, threaded from the ETB/Enrage trigger flush — these
  * are all triggered abilities in the corpus, never a spell). The chosen creature is the single target.
  *
- * SIMULTANEITY is the cardinal invariant: both damage amounts are LOCKED from the PRE-fight (layer-aware,
- * at-resolution) power BEFORE any damage is marked, then both marks are stamped, and a SINGLE lethal SBA
- * pass runs. Calling applyDamageEffect twice in sequence would run the SBA between the two hits — a
- * source killed by the first hit would never deal back, breaking the two-way "each deals damage to the
- * other" (CR 701.12c — a creature that has left the battlefield still dealt its locked-in damage).
+ * The damage is ordinary damage, dealt through the deal path a spell's damage takes (spellEffects.dealSimultaneousDamage):
+ * the prevention walls and shields of the creature it is dealt to, the damage replacements, protection from the fighter,
+ * -1/-1 counters from infect or wither, the record of which creature dealt it (Sengir Vampire, Kumano's Pupils), lifelink,
+ * deathtouch (CR 704.5h) and the dealt-damage triggers. It is not combat damage (CR 701.14d).
  *
- * Deathtouch (CR 702.2c): any damage from a deathtouch source is lethal — we collect both fighters into
- * the `deathtouched` Set passed to destroyLethalCreatures (the same arg pattern combat damage uses), so a
- * deathtouch source kills any-toughness target (and vice versa) on the single SBA pass. Power floors at 0
- * (a 0-power fighter marks nothing — markCombatDamage is a no-op at 0 and CR 701.12b deals no damage).
+ * SIMULTANEITY is the cardinal invariant: both amounts are LOCKED from the at-resolution, layer-aware power before any
+ * damage is dealt, both hits are one damage event, and a SINGLE lethal pass runs after it — so a fighter the other kills
+ * still dealt its damage, and a withering fighter's -1/-1 counters never shrink the damage dealt back. Power floors at 0
+ * (a 0-power fighter deals no damage — CR 120.8).
  *
  * "up to one target" / no legal target on the battlefield → the loop never runs → a clean no-op (never a
- * fabricated fight). The source having left the battlefield between trigger and resolution leaves srcPow
- * unreadable → no-op (CR 701.12: nothing fights). Single-target in the corpus; the loop is general.
+ * fabricated fight). The source having left the battlefield between trigger and resolution → nothing fights
+ * (CR 701.14b). Single-target in the corpus; the loop is general.
  */
 export function fightCreature(state, atom, ctx) {
   // ENCHANTED-HOST fighter (Meltstrider's Resolve, W7 — CR 303.4): on an Aura's own trigger, "enchanted
   // creature fights …" makes the fighter the aura's HOST (the permanent it's attached to), not the aura.
   // Resolved LIVE off the aura's attachedTo (the aura's own ETB — the host it just attached to); an
-  // unattached/vanished aura or host → null fighter → nothing fights (a clean no-op, CR 701.12).
+  // unattached/vanished aura or host → null fighter → nothing fights (a clean no-op, CR 701.14b).
   const fighterId = atom.fighterReferent === "enchantedHost"
     ? (ctx.sourceId ? findPermanent(state, ctx.sourceId)?.permanent?.attachedTo ?? null : null)
     : ctx.sourceId;
   const sourceLk = fighterId ? findPermanent(state, fighterId) : null;
-  const source = sourceLk?.permanent;
   const targets = atomTargets(state, atom, ctx);
-  let next = state;
-  let acted = false;
-  const deathtouched = new Set();
+  const hits = [];
   const hitIds = [];
   for (const t of targets) {
     if (t.type !== "creature") continue;
-    if (t.id === fighterId) continue; // "another target creature" (CR 701.12) — a creature never fights itself
-    const targetLk = findPermanent(next, t.id);
-    if (!source || !targetLk) continue; // source/target left the battlefield → nothing fights (CR 701.12)
-    // Lock BOTH amounts from the PRE-fight, layer-aware power (CR 701.12a, read at resolution), floored at 0.
-    const srcPow = Math.max(0, creaturePower(source, next));
-    const tgtPow = Math.max(0, creaturePower(targetLk.permanent, next));
-    // Deathtouch is read PRE-fight too (a fighter killed by the simultaneous damage still dealt its damage
-    // deathtouch-flagged); reuse the layer-aware keyword read so a GRANTED deathtouch counts.
-    if (permanentHasKeyword(next, fighterId, "Deathtouch")) deathtouched.add(t.id);
-    if (permanentHasKeyword(next, t.id, "Deathtouch")) deathtouched.add(fighterId);
-    // Mark BOTH hits before any SBA runs — simultaneity (CR 701.12a). markCombatDamage is a no-op at 0.
-    if (srcPow > 0) next = markCombatDamage(next, { permanentId: t.id, amount: srcPow });
-    if (tgtPow > 0) next = markCombatDamage(next, { permanentId: fighterId, amount: tgtPow });
+    if (t.id === fighterId) continue; // "another target creature" — a creature never fights itself here
+    const targetLk = findPermanent(state, t.id);
+    if (!sourceLk || !targetLk) continue; // source/target left the battlefield → nothing fights (CR 701.14b)
+    // Lock BOTH amounts from the layer-aware power, read at resolution (CR 608.2h), floored at 0.
+    hits.push({ source: creatureDamageSource(sourceLk), to: { type: "creature", id: t.id }, amount: Math.max(0, creaturePower(sourceLk.permanent, state)) });
+    hits.push({ source: creatureDamageSource(targetLk), to: { type: "creature", id: fighterId }, amount: Math.max(0, creaturePower(targetLk.permanent, state)) });
     hitIds.push(t.id, fighterId);
-    acted = true;
   }
-  if (acted) {
-    // A SINGLE lethal SBA pass over BOTH fighters (deathtouch honored), then dies-triggers once.
-    const lethal = destroyLethalCreatures(next, deathtouched);
-    next = checkDiesTriggers(lethal.state, lethal.dead);
-  }
+  // ONE damage event: both hits, then the single lethal pass (deathtouch honored) and the dies triggers once.
+  const next = hits.length ? dealSimultaneousDamage(state, hits).state : state;
   return logEvent(next, { kind: "spell-effect", effect: "fight", source: fighterId || null, targets: hitIds });
 }
 
@@ -640,7 +633,11 @@ export function fightCreature(state, atom, ctx) {
  * (fighter first) for an untagged target list — defensive; the live paths always role-tag.
  */
 function fightPairRefs(state, ctx) {
-  const ts = (ctx.targets || []).filter(t => t.type === "creature");
+  // The fighter is always a creature. The dealee is a creature — or, for the bite's creature-or-planeswalker union (BLITZ
+  // JB-1 — Bite Down, Hard-Hitting Question, Horrific Assault, Master's Rebuke), a planeswalker, which the cast-time
+  // enumerator tags type "planeswalker", role "target". Read here only as that role-tagged dealee: kept to creatures, the
+  // pair had no dealee whenever a planeswalker was chosen, and the spell resolved doing nothing.
+  const ts = (ctx.targets || []).filter(t => t.type === "creature" || (t.type === "planeswalker" && t.role === "target"));
   let fighterT = ts.find(t => t.role === "fighter");
   let targetT = ts.find(t => t.role === "target");
   if (!fighterT && !targetT) { fighterT = ts[0]; targetT = ts[1]; } // untagged → positional (fighter, then dealee)
@@ -654,14 +651,15 @@ function fightPairRefs(state, ctx) {
 }
 
 /**
- * FIGHT-PAIR (CR 701.12) — the TWO-CHOSEN-TARGET fight: "Target creature you control fights target creature
+ * FIGHT-PAIR (CR 701.14) — the TWO-CHOSEN-TARGET fight: "Target creature you control fights target creature
  * you don't control" (Prey Upon, Pounce, Khalni Ambush) and the any-side "Target creature fights another
  * target creature" (Clash of Titans, Blood Feud). Both chosen creatures deal damage EQUAL TO THEIR POWER to
- * each other SIMULTANEOUSLY — identical invariant to source-bound `fight` (CR 701.12a): lock both layer-aware
- * powers at resolution (floored at 0), read deathtouch pre-fight, mark BOTH hits before any SBA, then a SINGLE
- * lethal SBA pass + dies-triggers once. The ONLY difference from `fight` is that the first fighter comes from
- * a chosen target (role "fighter"), not ctx.sourceId. A missing/illegal half (a target left the battlefield,
- * "up to one" declined) → clean no-op (CR 701.12: nothing fights), never fabricated damage.
+ * each other (CR 701.14a) — identical invariant to source-bound `fight`: lock both layer-aware powers at
+ * resolution (floored at 0), deal BOTH hits as ONE damage event through the spell deal path
+ * (spellEffects.dealSimultaneousDamage), then a SINGLE lethal pass + dies-triggers once. The ONLY difference from
+ * `fight` is that the first fighter comes from a chosen target (role "fighter"), not ctx.sourceId. A missing/illegal
+ * half (a target left the battlefield, "up to one" declined) → clean no-op (CR 701.14b: nothing fights), never
+ * fabricated damage.
  */
 export function applyFightPair(state, atom, ctx) {
   let base = state;
@@ -703,31 +701,26 @@ export function applyFightPair(state, atom, ctx) {
   if (!fighter || !target) {
     return logEvent(base, { kind: "spell-effect", effect: "fight-pair", targets: [] });
   }
-  const aPow = Math.max(0, creaturePower(fighter.permanent, base)); // CR 701.12a — read at resolution (buffed)
+  const aPow = Math.max(0, creaturePower(fighter.permanent, base)); // CR 608.2h — read at resolution (buffed)
   const bPow = Math.max(0, creaturePower(target.permanent, base));
-  const deathtouched = new Set();
-  // Deathtouch read PRE-fight (a fighter killed by the simultaneous damage still dealt its damage); layer-aware.
-  if (permanentHasKeyword(base, fighter.permanent.id, "Deathtouch")) deathtouched.add(target.permanent.id);
-  if (permanentHasKeyword(base, target.permanent.id, "Deathtouch")) deathtouched.add(fighter.permanent.id);
-  let next = base;
-  // EXCESS-TO-MANA rider (The Last Agni Kai, SHELF-TAIL W11 — CR 120.4a): "If the creature the opponent
-  // controls is dealt excess damage this way, add that much {R}." Excess = the fighter's damage beyond the
-  // TARGET's lethal need — its remaining toughness (toughness − damage already marked), or 1 when the
-  // fighter has deathtouch (the Ram Through convention exactly). Computed PRE-mark off the same reads the
-  // fight locks; 0 excess adds nothing. The mana is added AFTER the exchange with the turn-scoped hold
-  // (holdManaColorTurn → player.manaHoldTurn — emptyManaPools keeps that color at every step/phase end
-  // until finishCleanupActions strips the flag, the printed "you don't lose unspent red mana" line).
-  let excess = 0;
-  if (atom.excessToMana && aPow > 0) {
-    const lethalNeed = deathtouched.has(target.permanent.id)
-      ? 1
-      : Math.max(0, creatureToughness(target.permanent, base) - (target.permanent.damageMarked || 0));
-    excess = Math.max(0, aPow - lethalNeed);
-  }
-  if (aPow > 0) next = markCombatDamage(next, { permanentId: target.permanent.id, amount: aPow });
-  if (bPow > 0) next = markCombatDamage(next, { permanentId: fighter.permanent.id, amount: bPow });
-  const lethal = destroyLethalCreatures(next, deathtouched); // SINGLE simultaneous SBA pass (CR 701.12a)
-  next = checkDiesTriggers(lethal.state, lethal.dead);
+  // EXCESS-TO-MANA rider (The Last Agni Kai, SHELF-TAIL W11): "If the creature the opponent controls is dealt
+  // excess damage this way, add that much {R}." Excess is damage DEALT beyond lethal damage (CR 120.10) — what the
+  // fight actually dealt to the TARGET (after its prevention, after a doubler), less its lethal need read before the
+  // fight: its remaining toughness (toughness − damage already marked), or 1 when the fighter has deathtouch (the
+  // Ram Through convention exactly). Prevented damage was never dealt, so it is never excess; 0 excess adds nothing.
+  // The mana is added AFTER the exchange with the turn-scoped hold (holdManaColorTurn → player.manaHoldTurn —
+  // emptyManaPools keeps that color at every step/phase end until finishCleanupActions strips the flag, the printed
+  // "you don't lose unspent red mana" line).
+  const lethalNeed = permanentHasKeyword(base, fighter.permanent.id, "Deathtouch")
+    ? 1
+    : Math.max(0, creatureToughness(target.permanent, base) - (target.permanent.damageMarked || 0));
+  // ONE damage event (spellEffects.dealSimultaneousDamage): both hits, the single lethal pass, the dies triggers once.
+  const fought = dealSimultaneousDamage(base, [
+    { source: creatureDamageSource(fighter), to: { type: "creature", id: target.permanent.id }, amount: aPow },
+    { source: creatureDamageSource(target), to: { type: "creature", id: fighter.permanent.id }, amount: bPow },
+  ]);
+  let next = fought.state;
+  const excess = atom.excessToMana ? Math.max(0, (fought.dealtTo[target.permanent.id] || 0) - lethalNeed) : 0;
   if (atom.excessToMana && excess > 0) {
     next = addMana(next, { playerId: ctx.controller, color: atom.excessToMana, amount: excess });
   }
@@ -739,20 +732,20 @@ export function applyFightPair(state, atom, ctx) {
 }
 
 /**
- * DAMAGE-TARGET-POWER (CR 119) — the ONE-WAY "fight": "Target creature you control deals damage equal to its
+ * DAMAGE-TARGET-POWER (CR 120.2b) — the ONE-WAY "fight": "Target creature you control deals damage equal to its
  * power to target creature you don't control" (Aggressive Instinct, Rabid Bite). ONLY the `fighter` (the
  * dealer, role "fighter") deals — the dealee (role "target") does NOT deal back (the asymmetry vs fight-pair).
- * Lock the dealer's layer-aware power at resolution (floored at 0), mark that much on the dealee (non-combat
- * damage — markCombatDamage only adds damageMarked, fires no combat triggers), then a lethal SBA + dies once.
- * Deathtouch from the dealer makes any nonzero damage lethal (CR 702.2c). A 0-power dealer / a missing half →
- * clean no-op.
+ * Lock the dealer's layer-aware power at resolution (floored at 0) and deal it as ONE damage event through the spell
+ * deal path (spellEffects.dealSimultaneousDamage — not combat damage), the dealer its source: the dealee's prevention,
+ * the damage replacements, infect or wither, lifelink, deathtouch (CR 704.5h), the damage-source record and the
+ * dealt-damage triggers all apply; then a lethal pass + dies once. A 0-power dealer / a missing half → clean no-op.
  *
  * TRAMPLE-EXCESS rider (Ram Through — SHELF W2): "If the creature you control has trample, excess damage is
  * dealt to that creature's controller instead." With atom.trampleExcess and a TRAMPLING dealer (layer-aware,
  * read at resolution), the dealee is assigned only LETHAL damage — its remaining toughness, or 1 if the dealer
- * has deathtouch (CR 702.19b) — and the excess goes to the dealee's CONTROLLER through the shared
- * applyDamageEffect player path (prevention/replacement/watchers all apply). A non-trampling dealer deals the
- * whole amount to the creature exactly as before — the rider simply doesn't apply.
+ * has deathtouch (CR 120.4a: the excess is split off first, before prevention) — and the excess goes to the dealee's
+ * CONTROLLER in the SAME event, dealt by the same creature (its infect makes it poison; its lifelink gains the whole
+ * total once). A non-trampling dealer deals the whole amount to the creature — the rider simply doesn't apply.
  */
 export function applyDamageTargetPower(state0, atom, ctx) {
   let state = state0;
@@ -772,28 +765,28 @@ export function applyDamageTargetPower(state0, atom, ctx) {
   if (pow <= 0) {
     return logEvent(state, { kind: "spell-effect", effect: "damage-target-power", targets: [target.permanent.id] });
   }
+  const dealer = creatureDamageSource(fighter);
   // BITE-PW (BLITZ JB-1, CR 120.3c) — a PLANESWALKER dealee (the creature-or-planeswalker union): route the
-  // locked power through the shared applyDamageEffect pw path (damage → loyalty loss, zero-loyalty SBA).
-  // Deathtouch/trample are creature-combat concepts — irrelevant here (the union form carries no trampleExcess).
+  // locked power through the shared applyDamageEffect pw path (damage → loyalty loss, zero-loyalty SBA), the biting
+  // creature its source with its own keywords read (`readsKeywords` — its lifelink gains, a doubler scoped to it
+  // applies). Deathtouch/trample are creature concepts — irrelevant here (the union form carries no trampleExcess).
   if (/\bPlaneswalker\b/i.test(String(target.permanent.card?.type || target.permanent.card?.type_line || ""))) {
-    const afterPw = applyDamageEffect(state, { controller: ctx.controller, amount: pow, targetType: "planeswalker", targets: [{ type: "planeswalker", id: target.permanent.id }], source: { id: ctx.sourceId } });
+    const afterPw = applyDamageEffect(state, { controller: ctx.controller, amount: pow, targetType: "planeswalker", targets: [{ type: "planeswalker", id: target.permanent.id }], source: { ...dealer, readsKeywords: true } });
     return logEvent(afterPw, { kind: "spell-effect", effect: "damage-target-power", targets: [target.permanent.id] });
   }
-  const deathtouched = new Set();
-  if (permanentHasKeyword(state, fighter.permanent.id, "Deathtouch")) deathtouched.add(target.permanent.id);
   let toCreature = pow, excess = 0;
   if (atom.trampleExcess && permanentHasKeyword(state, fighter.permanent.id, "Trample")) {
     const remaining = Math.max(0, creatureToughness(target.permanent, state) - (target.permanent.damageMarked || 0));
-    const lethalNeed = deathtouched.has(target.permanent.id) ? Math.min(1, remaining) : remaining; // CR 702.19b
+    const lethalNeed = permanentHasKeyword(state, fighter.permanent.id, "Deathtouch") ? Math.min(1, remaining) : remaining; // CR 120.4a
     excess = Math.max(0, pow - lethalNeed);
     toCreature = pow - excess;
   }
-  let next = toCreature > 0 ? markCombatDamage(state, { permanentId: target.permanent.id, amount: toCreature }) : state;
-  const lethal = destroyLethalCreatures(next, deathtouched);
-  next = checkDiesTriggers(lethal.state, lethal.dead);
-  if (excess > 0) {
-    next = applyDamageEffect(next, { controller: ctx.controller, amount: excess, targets: [{ type: "player", id: target.controller }], source: { id: ctx.sourceId } });
-  }
+  // ONE damage event (spellEffects.dealSimultaneousDamage): the creature's share and the trample excess to its
+  // controller, both dealt by the biting creature; the lethal pass and the dies triggers once.
+  const next = dealSimultaneousDamage(state, [
+    { source: dealer, to: { type: "creature", id: target.permanent.id }, amount: toCreature },
+    { source: dealer, to: { type: "player", id: target.controller }, amount: excess },
+  ]).state;
   return logEvent(next, { kind: "spell-effect", effect: "damage-target-power", targets: [target.permanent.id] });
 }
 
@@ -1132,36 +1125,30 @@ export function applySwitchPT(state, atom, ctx) {
 }
 
 /**
- * SELF-DAMAGE-BY-POWER (CR 119, a "self-fight") — "Target creature deals damage to itself equal to its
+ * SELF-DAMAGE-BY-POWER (CR 120.2b, a "self-fight") — "Target creature deals damage to itself equal to its
  * power" (Justice Strike, Repentance, Wrack with Madness, Inner Struggle, Kiku's Shadow; Kiku, Night's
  * Flower's activated ability) and the MASS form "Each creature deals damage to itself equal to its power"
- * (Solar Blaze, Wave of Reckoning). Mirrors fightCreature's proven shape: lock each creature's LAYER-AWARE
- * power at resolution (CR 608.2, floored at 0), mark that much damage on it (markCombatDamage only adds to
- * damageMarked — no triggers fired, so this is non-combat damage exactly like fight), then a SINGLE lethal
- * SBA pass + dies-triggers over the whole set (mass = simultaneous, CR 704.7). A creature with deathtouch
- * dealing damage to itself dies regardless of toughness (CR 702.2e); 0 power = no damage, a clean no-op.
+ * (Solar Blaze, Wave of Reckoning). Mirrors fightCreature's shape: lock each creature's LAYER-AWARE power at
+ * resolution (CR 608.2h, floored at 0), then every creature deals that much to itself in ONE damage event through
+ * the spell deal path (spellEffects.dealSimultaneousDamage — not combat damage), each creature the source of its own
+ * hit: its own prevention wall (Dawn Elemental), its infect or wither (-1/-1 counters), its lifelink (its controller
+ * gains), its deathtouch (it is destroyed — CR 704.5h) and its dealt-damage triggers all apply. Then a SINGLE lethal
+ * pass + dies-triggers over the whole set (the mass form is simultaneous). 0 power = no damage, a clean no-op.
  * Real damage (not "destroy"), so indestructible survives, prevention/regeneration apply, and the lethal
- * SBA reads derived toughness — the correct model. EXPORTED + registered as "damage-self-power".
+ * pass reads derived toughness — the correct model. EXPORTED + registered as "damage-self-power".
  */
 export function applyDamageSelfPower(state, atom, ctx) {
   const targets = atomTargets(state, atom, ctx);
-  let next = state;
-  const deathtouched = new Set();
-  let acted = false;
+  const hits = [];
   for (const t of targets) {
     if (t.type !== "creature") continue;
-    const lk = findPermanent(next, t.id);
+    const lk = findPermanent(state, t.id);
     if (!lk) continue; // left the battlefield between cast and resolution → nothing happens to it
-    const pow = Math.max(0, creaturePower(lk.permanent, next));
+    const pow = Math.max(0, creaturePower(lk.permanent, state));
     if (pow <= 0) continue; // a 0-power creature deals no damage to itself (CR 120.8) — clean no-op
-    if (permanentHasKeyword(next, t.id, "Deathtouch")) deathtouched.add(t.id); // self-deathtouch is lethal
-    next = markCombatDamage(next, { permanentId: t.id, amount: pow });
-    acted = true;
+    hits.push({ source: creatureDamageSource(lk), to: { type: "creature", id: t.id }, amount: pow });
   }
-  if (acted) {
-    const lethal = destroyLethalCreatures(next, deathtouched);
-    next = checkDiesTriggers(lethal.state, lethal.dead);
-  }
+  const next = hits.length ? dealSimultaneousDamage(state, hits).state : state;
   return logEvent(next, { kind: "spell-effect", effect: "damage-self-power", targets: targets.map((t) => t.id) });
 }
 
