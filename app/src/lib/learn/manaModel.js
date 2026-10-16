@@ -30,7 +30,7 @@
  * legalChoices, and layers imports none of these modules so that edge is acyclic too.
  */
 
-import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, creaturePower, removeCounter, setDoesNotUntapNext, deathLookbackLinks } from "./gameState.js"; // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
+import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, removeCounter, setDoesNotUntapNext, deathLookback, deathEventKind } from "./gameState.js"; // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
 import { checkSacrificeTriggers, checkLeavesTriggers, checkDiesTriggers, checkTapForManaTriggers } from "./triggers.js"; // + ④-D: "tapped for mana" watchers fire at the one tap commit // SG-3: a sacrificed-creature mana cost dies through the chokepoint // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
 import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, colorsOf, deriveCharacteristics, permIsEveryCreatureType, permanentColors } from "./layers.js";
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // QUARTET Phase 4 step 3 (2026-09-06): the closed CR creature-type vocabulary for spend restrictions ("only to cast a Ninja or Turtle spell") — a zero-import leaf
@@ -1918,6 +1918,40 @@ export function applyAuraManaGrantSupplement(state, perm, prod) {
   return prod;
 }
 
+/**
+ * A GRANTED MANA ABILITY (CR 113.10 — an effect that says a permanent "has" an ability adds it to that permanent): the
+ * production a permanent with NO mana ability of its own offers through the first grant that affects it — Gemhide /
+ * Manaweft Sliver, Cryptolith Rite, an Aura's or Equipment's "has \"{T}: Add …\"", Urza's Saga's chapter, Basal Sliver's
+ * self-sacrifice, Ninja Pizza's Foods. The spec IS the quoted ability (staticAbilityParser.parseGrantedManaSpec), so every
+ * flag it carries rides through: `sacrifices` cracks the RECIPIENT on use (commitManaTap sacrifices the source it taps), and a
+ * cost with no {T} (`requiresTap: false`) is activatable while summoning sick (CR 302.6) and is not tapping it for mana (CR
+ * 106.12), so Mana Reflection leaves it alone. Only the grant's ROUTING markers stay behind — `via` and `upgrade` decide
+ * whether a grant may supplement a host's OWN production (applyAuraManaGrantSupplement) and say nothing about the ability.
+ *
+ * ⛔ The fallback this replaces rebuilt the record from `colors` and `amount` alone and forced `requiresTap: true`, at both
+ * mana-source sites: a Metallic Sliver beside Basal Sliver made {B}{B} every turn and was never sacrificed (Mana Reflection
+ * doubled it), and a Food under Ninja Pizza became a permanent any-colour rock. Cheaper than printed, the forbidden direction.
+ *
+ * Null when no grant applies. Only the FIRST grant is read: a permanent granted two mana abilities (a Sliver under Gemhide
+ * and Basal) is offered one of them — an under-offer, never a second source on one permanent.
+ */
+export function grantedManaProduction(state, perm) {
+  const [spec] = grantedManaSpecsFor(state, perm.id);
+  if (!spec) return null;
+  const { via: _via, upgrade: _upgrade, ...ability } = spec;
+  return { ...ability, requiresTap: spec.requiresTap !== false };
+}
+
+/**
+ * THE ONE READ of a permanent's production once the mana abilities granted to it are counted — made by both mana-source sites
+ * (manaSources for the planner, legalChoices.actionsTapForMana for the explicit tap) so the two cannot drift. A permanent with a
+ * mana ability of its own keeps it (upgraded in place by a dominating Aura / Equipment / `upgrade` grant — never a second tap: the
+ * DEDUP that keeps a self-including granter like Gemhide Sliver from tapping twice); one without takes its granted ability whole.
+ */
+export function withGrantedMana(state, perm, prod) {
+  return prod ? applyAuraManaGrantSupplement(state, perm, prod) : grantedManaProduction(state, perm);
+}
+
 // ─── Battlefield → available sources ───────────────────────────────────────────
 
 /**
@@ -2021,19 +2055,14 @@ export function manaSources(state, playerId) {
         if (merged.length !== (prod.colors || []).length) prod = { ...prod, colors: merged };
       }
     }
-    // GROUP-GRANT: a permanent with NO own mana ability can have a {T}: Add … MANA ability GRANTED by a lord
-    // (Gemhide/Manaweft "All Slivers have \"{T}: Add one mana of any color\"" — every OTHER Sliver gains it).
-    // DEDUP (the double-grant landmine): when the permanent ALREADY produces mana from its OWN card, keep the
-    // own source and SKIP the grant — the granter (a Sliver) self-includes via "All Slivers", and manaModel
-    // already reads its quoted text as its own source (the test-pinned Gemhide self-production). Granting it
-    // again would tap it twice. A recipient with its own DIFFERENT ability also keeps only its own (a safe
-    // under-count, never a fabricated extra tap). So the grant only ever ADDS a source where there was none.
-    if (!prod) {
-      const granted = grantedManaSpecsFor(state, perm.id);
-      if (granted.length) prod = { colors: granted[0].colors, amount: granted[0].amount, requiresTap: true };
-    } else {
-      prod = applyAuraManaGrantSupplement(state, perm, prod);   // AURA-MANA-GRANT: a land's own tap upgrades to a dominating aura grant
-    }
+    // GRANTED MANA (withGrantedMana — the ONE read legalChoices.actionsTapForMana makes too): a permanent with NO own mana
+    // ability takes the ability a lord / Aura / Equipment grants it, every cost flag included (Basal Sliver's self-sacrifice).
+    // DEDUP (the double-grant landmine): when the permanent ALREADY produces mana from its OWN card, keep the own source and
+    // SKIP the grant — the granter (a Sliver) self-includes via "All Slivers", and manaModel already reads its quoted text as
+    // its own source (the test-pinned Gemhide self-production). Granting it again would tap it twice. A recipient with its own
+    // DIFFERENT ability also keeps only its own (a safe under-count, never a fabricated extra tap), unless the grant dominates
+    // it in place (AURA-MANA-GRANT: a land's own tap upgrades to a dominating aura grant).
+    prod = withGrantedMana(state, perm, prod);
     if (!prod) continue;
     if (prod.fromHand) continue; // SG-6 — an exile-from-HAND ability does not exist on the battlefield permanent
     // LANDS-12 — resolve the CHOSEN-COLOR leg against THIS permanent's stamp (see parseAddClause). Unstamped →
@@ -2762,16 +2791,42 @@ export function canAfford(pool, sources, cost, spendContext = null) {
 }
 
 /**
+ * A PERMANENT SACRIFICED TO PAY A MANA ABILITY'S COST (CR 701.21a) — the source's own self-sacrifice (a Treasure, a Lotus Petal,
+ * an Eldrazi Spawn, Basal Sliver or any Sliver it grants the ability) or the creature an Altar takes. The canonical sacrifice
+ * (effects/atoms/removal.sacrificeCreatureEffect, without its spell-effect log): the types it had as it left are read layer-aware
+ * from the board as the cost began (CR 603.10a), so a CREATURE leaves through gameState.deathLookback — the one constructor every
+ * death site builds — and DIES (CR 700.4): its own and every watcher's dies triggers fire and the deaths-this-turn tally counts it,
+ * unless a replacement keeps it out of the graveyard (Rest in Peace, a shuffle-instead), when it is still sacrificed and never died.
+ * Every sacrifice watcher sees it, and its leave event drains now (LEAVE-DRAIN, CR 603.3b) so permanentLeaves watchers stack in
+ * cost order. A permanent already gone makes moveCardToZone throw: a plan naming a source that left is a hard error, never mana.
+ *
+ * ⛔ BOTH SACRIFICES USED TO SKIP THIS. The self-sacrifice moved the card and fired only the sacrifice watchers, so an Eldrazi Spawn
+ * cracked for {C} never died — no Blood Artist drain for its controller's watchers or an opponent's. The Altar's victim built its
+ * own death entry without the replacement flags, so a creature Rest in Peace exiled still fired dies triggers and counted as a
+ * death; and it never reached the sacrifice watchers at all (Korvold).
+ */
+function sacrificeForManaCost(state, playerId, perm) {
+  const lkiTypes = permanentTypes(state, perm.id).types;
+  const death = lkiTypes.includes("Creature") ? deathLookback(state, perm, playerId) : null;
+  // The destination is a death-specific exile only (P·28); a graveyard replacement redirects inside moveCardToZone.
+  let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: death?.exileTo ? "exile" : "graveyard", cardId: perm.id });
+  const deathKind = death ? deathEventKind(death) : null;
+  if (deathKind && deathKind !== "creature-dies") next = logEvent(next, { kind: deathKind, turn: next.turn, cardName: perm.card?.name, controller: playerId, via: "sacrifice" });
+  if (death) next = checkDiesTriggers(next, [death]);
+  next = checkSacrificeTriggers(next, playerId, { id: perm.id, controller: playerId, card: perm.card, lkiTypes: [...lkiTypes] });
+  return checkLeavesTriggers(next);
+}
+
+/**
  * W1 — THE single mana-tap commit (one tap of a payment plan, or one explicit tap-for-mana action; both
  * carry the same `{ color, amount, bonus, sacrifices, permanentId }` shape). Add the source's mana to the
  * pool (plus any inline boost-Aura bonus — the Aura is NOT tapped/consumed, CR 605.1b), then either TAP a
- * repeatable land/rock/dork or — for a one-shot sacrifice-for-mana source (Treasure / Gold / Lotus Petal,
- * `tap.sacrifices`) — SACRIFICE it (battlefield → graveyard) so it can't ramp again (the TOK-2 correctness
- * invariant). Those sources are non-creatures, so no dies trigger fires; routing the removal through
- * moveCardToZone keeps it on the one shared zone-move path. The crack fires "whenever you sacrifice an
- * artifact/permanent" (SAC-TREASURE, CR 701.21) and drains the pending leave event NOW (LEAVE-DRAIN,
- * CR 603.3b) so permanentLeaves watchers stack in cost order, not at the NEXT stack resolution against a
- * battlefield that may have changed (the stale-scan FP window). Shared by every payment path — the
+ * repeatable land/rock/dork or — for a one-shot sacrifice-for-mana source (Treasure / Gold / Lotus Petal / an
+ * Eldrazi Spawn / a Sliver granted Basal Sliver's ability, `tap.sacrifices`) — SACRIFICE it so it can't ramp
+ * again (the TOK-2 correctness invariant), through sacrificeForManaCost: a creature dies (CR 700.4), every
+ * "whenever you sacrifice …" watcher fires (SAC-TREASURE, CR 701.21a), and the pending leave event drains NOW
+ * (LEAVE-DRAIN, CR 603.3b) so permanentLeaves watchers stack in cost order, not at the NEXT stack resolution
+ * against a battlefield that may have changed (the stale-scan FP window). Shared by every payment path — the
  * dispatcher's plan commits, applyTapForMana's explicit tap, and payManaCost's resolution-layer payment —
  * so the commit semantics can't drift.
  */
@@ -2820,10 +2875,7 @@ export function commitManaTap(state, playerId, tap, { reserved = null } = {}) {
     victims.sort((a, b) => mvOf(a) - mvOf(b) || String(a.card?.name || "").localeCompare(String(b.card?.name || "")));
     const victim = victims[0];
     if (victim) {
-      const pw = creaturePower(victim, next);
-      const lkiTypes = [...permanentTypes(next, victim.id).types]; // the types it had as it left (CR 603.10a — the type-line audit)
-      next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: victim.id });
-      next = checkDiesTriggers(next, [{ controller: playerId, id: victim.id, name: victim.card?.name || "creature", card: victim.card, ...deathLookbackLinks(victim), /* ③ · 43 */ counters: { ...(victim.counters || {}) }, power: Number.isFinite(pw) ? pw : null, basePower: Number.isFinite(pw) ? pw : null, diesExileAfter: !!victim.grantDiesExile, lkiTypes }]);
+      next = sacrificeForManaCost(next, playerId, victim);
       next = logEvent(next, { kind: "mana", event: "sacrifice-creature-cost", permanentId: tap.permanentId, playerId, victimId: victim.id, victimName: victim.card?.name });
     } else {
       next = logEvent(next, { kind: "mana", event: "sacrifice-creature-cost-unpaid", permanentId: tap.permanentId, playerId });
@@ -2855,11 +2907,9 @@ export function commitManaTap(state, playerId, tap, { reserved = null } = {}) {
     next = logEvent(next, { kind: "mana", event: "remove-counters-cost", permanentId: tap.permanentId, playerId, counterType: tap.removesCounters.type, removed: tap.removesCounters.count });
   }
   if (tap.sacrifices) {
-    const sacPerm = next.players[playerId]?.battlefield?.find(p => p.id === tap.permanentId); // capture pre-move (for the type)
-    const sacLkiTypes = sacPerm ? [...permanentTypes(next, sacPerm.id).types] : null; // the types it had (CR 603.10a — the type-line audit)
-    next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId });
-    if (sacPerm) next = checkSacrificeTriggers(next, playerId, { id: sacPerm.id, controller: playerId, card: sacPerm.card, lkiTypes: sacLkiTypes });
-    next = checkLeavesTriggers(next);
+    // The source pays with itself — the RECIPIENT of a granted self-sacrifice included (grantedManaProduction keeps the flag).
+    const sacPerm = next.players[playerId]?.battlefield?.find((p) => p.id === tap.permanentId);
+    next = sacrificeForManaCost(next, playerId, sacPerm || { id: tap.permanentId });
   } else if (tap.noTap) {
     // STAGE ③ · 37 — a no-{T} remove-a-counter source (Pentad Prism): the counter above WAS the whole cost. Nothing taps, and
     // it was not "tapped for mana" (CR 605.3), so no tapped-for-mana watcher fires either.

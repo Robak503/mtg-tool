@@ -417,7 +417,16 @@ means "all permanents" (vacuous filter).
   (`stripNonSelfQuotedGrants` — the Cryptolith Rite fix, §6); a "doesn't untap"
   restriction routes the card out entirely (the Mana Vault fix, §6).
 - `manaSources(state, player)` → the untapped permanents that can produce now
-  (summoning-sickness aware; group-granted abilities via `grantedManaSpecsFor`).
+  (summoning-sickness aware). Granted mana abilities are counted by ONE read,
+  `withGrantedMana`, which the explicit tap (`legalChoices.actionsTapForMana`)
+  makes too: a permanent with no mana ability of its own takes the granted spec
+  WHOLE (`grantedManaSpecsFor` → `grantedManaProduction`, its `sacrifices` and a
+  no-{T} cost's `requiresTap:false` included — Basal Sliver's grant is a one-shot
+  sacrifice, never a repeatable tap). Never rebuild a granted record field by field.
+- `commitManaTap` pays the costs a tap carries; a permanent sacrificed to a mana
+  cost (the source itself, or an Altar's victim) leaves through
+  `sacrificeForManaCost` — the canonical sacrifice, so a creature dies through
+  `gameState.deathLookback` like at every other death site.
 - `planPayment(...)` is a **pure planner** returning exact `{taps, spend}`; the
   dispatcher commits it verbatim. Cost *legality* and cost *payment* always run
   the same planner — the "two-sites invariant" that stops the offered action and

@@ -16,6 +16,61 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🔧 2026-10-16 — FIX: a granted mana ability is the quoted ability whole (Basal Sliver's sacrifice, Ninja Pizza's Foods) · a creature sacrificed for mana dies · **±0** · corpus 15,492
+> Suite **18,998** green (1,781 files, 1 skipped; +2 files, +22 tests). Flip-diff **0 / 0 / 0** over 34,620 cards. **Mutants 16/16**,
+> restore byte-identical. Lint 0; citations 117 unresolved (the baseline; this slice adds seven, all resolve). 48 July-list games:
+> the 8 byte-identical (`a1a9f98e68c3b6c3`); 38 of the 40 byte-identical, two move as intended (`fdbb728c27d644a7` →
+> `d88bd6338c7e81eb`). HEAD 4463487c reproduces the c1f630ab hashes.
+> · **The bug** (found 2026-10-16 beside the Lion's Eye Diamond slice). The recipient side of a mana grant — `manaSources` and
+>   `legalChoices.actionsTapForMana`, each with its own copy — rebuilt the granted record from `colors` and `amount` alone and
+>   forced `requiresTap: true`. On a board: a Metallic Sliver beside Basal Sliver ("All Slivers have \"Sacrifice this permanent:
+>   Add {B}{B}.\"") was `{B×2, sacrifices:false}`; it paid Sign in Blood and stayed, tapped, a source again after the untap; Mana
+>   Reflection made it four; summoning-sick it was no source, though the ability has no {T}. A Food under Ninja Pizza tapped for
+>   any colour every turn. Cheaper than printed. (Basal Sliver itself was right — its own production reads its self-included
+>   quote.)
+> · **Census** — every mana grant the parsers emit (group, counter-gated, Aura/Equipment, the Saga self-grant) over 35,748
+>   cards: 37 specs. Three carry `sacrifices`: Basal Sliver's and Ninja Pizza's reach recipients with no production of their own
+>   (the two phantoms); Goldspan Dragon's reaches only Treasures, which keep their own sacrifice through the supplement. Basal's
+>   is the only cost with no {T}. `upgrade` (Jaheira, Night of the Sweets' Revenge, Goldspan, Ninja Pizza) and `via:"attached"`
+>   (14 Auras/Equipment) route the grant and say nothing about the ability. No spec carries a mixed bundle, a restriction, a mana
+>   activation cost or a life cost — `parseGrantedManaSpec` refuses each — and a recipient with no production of its own has no
+>   card-keyed activation cost, spent rider or extra line to misattach.
+> · **Fix, part 1.** `parseGrantedManaSpec` records `requiresTap:false` for a cost with no {T} (a {T} cost adds no key, the
+>   printed-source convention). `manaModel.grantedManaProduction` returns the spec whole minus the routing markers;
+>   `withGrantedMana` is the ONE read both sites make — own production (+ the dominating-grant supplement), or the grant whole.
+>   A sacrifice without {T} is usable while summoning sick (CR 302.6) and is not tapping for mana (CR 106.12), so no doubler.
+>   `commitManaTap` already sacrificed `tap.permanentId` — the recipient — once the record said so.
+> · **Fix, part 2** (found checking that commit). A creature sacrificed for a mana cost never died. The self-sacrifice branch
+>   moved the card and fired only the sacrifice watchers: an Eldrazi Spawn cracked for {C} beside Blood Artist drew no trigger
+>   and no death count, and an opponent's Blood Artist never drained its controller. The Altar-victim branch built its own death
+>   entry without the replacement flags — Ashnod's Altar feeding Memnite under Rest in Peace: exiled, yet Blood Artist triggered
+>   and a death was counted (CR 700.4) — and never reached the sacrifice watchers (Korvold). Both now leave through
+>   `sacrificeForManaCost`, `removal.sacrificeCreatureEffect`'s sequence: layer-aware types as it left (CR 603.10a),
+>   `gameState.deathLookback`, the death-specific exile honoured, a replaced death logged, dies triggers, sacrifice triggers with
+>   `lkiTypes`, the leave drain.
+> · Witness `grantedManaAbility.test.js` (13) + `manaCostSacrificeDies.test.js` (9), real fixtures. Mutants (16): the whole fix
+>   reverted (18 of 22 red; the 4 green are the controls) · the parser's `requiresTap` · the helper dropping `sacrifices`,
+>   forcing `requiresTap`, keeping the routing markers · each site back on its own fallback · a grant replacing own production ·
+>   no dies triggers · the printed creature test · the exile destination · no sacrifice watchers · no `lkiTypes` for them · no
+>   replaced-death log · the Altar victim's old entry · the self-sacrifice's old path.
+> · ⚑ **Results change (flag to Omnath), both traced on a board.** Seed 1087189617 (Vihaan, Goldwaker): turn 36, three
+>   Treasures pay Mithril Coat's Equip {3}; one is a 3/3 Construct Assassin (Vihaan's combat animation), so it now DIES — Cruel
+>   Celebrant and Pitiless Plunderer trigger and Teysa Karlov doubles each (stack 7 → 11, one death counted); Vihaan still
+>   wins, on turn 38 instead of 41. Seed 1861743451 (Halfshell heroes): turn 21, paying for Voracious Hydra cracks a Food
+>   under Ninja Pizza instead of tapping it (one permanent fewer); winner, turn count and decision count unchanged.
+> · ⚠️ Found, not fixed (queued — a task chip for the first; the second is the type-line audit's sixth death site, one
+>   slice): **the explicit tap-for-mana action ignores printed cost flags** —
+>   `actionsTapForMana` re-reads production and carries none of `sacrificesCreature`, `activationCondition`, `extraTap`,
+>   `payLife`, `painColors`: Ashnod's Altar TAPS (no {T} in its cost) for {C}{C} with nothing sacrificed, Mox Opal makes mana
+>   without metalcraft, Birchlore Rangers taps only itself, Mana Confluence and Adarkar Wastes cost no life (the AI never takes
+>   the action; a human can). **`actionDispatcher.sacrificePermanentForCost`** (activated-ability costs) builds the same
+>   flag-less death entry the Altar victim had: Carrion Feeder eating Memnite under Rest in Peace fires Blood Artist and counts a
+>   death. Also (safe under-offers): the planner takes Crystal Vein's {C} line first and then cannot pay {2} with the sac line;
+>   a tapped permanent cannot use a no-{T} sacrifice; a permanent granted two mana abilities is offered the first;
+>   `actionsTapForMana`'s sickness gate ignores `requiresTap:false`. Play quality: a colored pip's pick (`tapForColor`) does not
+>   prefer a repeatable source the way generic does, so a Basal-granted Sliver can be sacrificed for {B} beside an untapped
+>   Swamp (battlefield order decides) — pre-existing for Basal itself, Blood Pet, a Spawn's {C}.
+
 > ## 🔧 2026-10-16 — FIX: a self-sacrifice mana cost with a discard beside it refuses (Lion's Eye Diamond, Overeager Apprentice) · **−2** · corpus 15,490
 > Suite **18,954** green (1,777 files; the one skip is optionalModeKeywords' standing SUPERSEDED pin). Lint 0. Flip-diff
 > **0 / 2 / 0**, both LOST rows deliberate (below). **Mutants 5/5**, restore byte-identical. manaProduction drift probe

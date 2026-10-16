@@ -576,17 +576,20 @@ function parseCdaCountSource(phrase) {
 
 /**
  * GROUP-GRANT — parse the QUOTED text of a granted ability into a serializable, FIXED-amount mana spec
- * `{ colors, amount }`, or null. The modeled subset MIRRORS manaModel.parseAddClause's fixed (non-variable)
- * branches EXACTLY so a granted ability taps for the same thing a printed one would (CREED #17 — the granted
- * ability must itself be fully modeled). Requires a `{T}:` (tap) cost and an `Add …` effect:
+ * `{ colors, amount }` plus its cost flags, or null. The modeled subset MIRRORS manaModel.parseAddClause's fixed
+ * (non-variable) branches EXACTLY so a granted ability makes the same thing a printed one would (CREED #17 — the
+ * granted ability must itself be fully modeled). The cost is a {T}, a self-sacrifice, or both; the effect an `Add …`:
  *   "{T}: Add one mana of any color."        → { colors:["W","U","B","R","G"], amount:1 }   (Gemhide/Manaweft)
  *   "{T}: Add N mana of any one color."      → { colors:[5 colors], amount:N }
  *   "{T}: Add {G}." / "{T}: Add {W} or {U}." → fixed pips ("or" = a choice ⇒ amount 1)
+ *   "{T}, Sacrifice this artifact: Add …"    → + sacrifices:true                      (Goldspan Dragon, Ninja Pizza)
+ *   "Sacrifice this permanent: Add {B}{B}."  → + sacrifices:true, requiresTap:false   (Basal Sliver)
+ * The spec IS the recipient's ability, so manaModel.grantedManaProduction carries every flag through unchanged.
  * DELIBERATELY EXCLUDED (→ null → grant stays non-native, a safe FN): any VARIABLE/X amount ("Add X mana …",
- * "for each"/"equal to" — those resolve against the GRANTER's board, wrong scope for a recipient), a
- * sacrifice-for-mana cost, or any non-mana / triggered / activated-non-mana quoted ability. The recipient is
- * a real permanent that taps the granted ability, so a {T} cost is correct; a non-{T} mana grant is rare and
- * left unmodeled. Pure; no engine import (manaModel reads this spec, not vice-versa, so no cycle).
+ * "for each"/"equal to" — those resolve against the GRANTER's board, wrong scope for a recipient), any cost beyond
+ * a {T} and a self-sacrifice (a mana pip, life, another permanent), a spending restriction, or any non-mana /
+ * triggered / activated-non-mana quoted ability. Pure; no engine import (manaModel reads this spec, not vice-versa,
+ * so no cycle).
  */
 export function parseGrantedManaSpec(quoted) { // exported for the self-grant atom (play-weighted P·4 — Urza's Saga's chapter I)
   const q = String(quoted || "");
@@ -621,9 +624,12 @@ export function parseGrantedManaSpec(quoted) { // exported for the self-grant at
   // unrestricted), so dropping it would grant unrestricted mana the card actually restricts (a CREED FP).
   // Reject the whole grant — the recipient keeps no fabricated all-purpose mana.
   if (/\bspend this mana\b|\bthis mana can'?t be spent\b|\bcan'?t be spent\b|\bonly to (?:cast|pay|activate)\b/i.test(effect)) return null;
-  // `sac` rides onto every returned spec so a self-sacrifice granted source is cracked (never a phantom
-  // repeatable). An omitted/false flag leaves the spec identical to the pre-existing tap-only shape.
-  const sac = sacrifices ? { sacrifices: true } : {};
+  // The COST FLAGS ride onto every returned spec: `sacrifices` cracks the recipient on use (never a phantom repeatable
+  // source), and `requiresTap: false` marks a cost with no {T} (Basal Sliver's bare self-sacrifice) — such an ability
+  // is activatable while its creature is summoning sick (CR 302.6) and is not "tapping it for mana" (CR 106.12), so no
+  // mana doubler touches it. A {T} cost adds no key: undefined means "taps", manaProduction's convention for a printed
+  // source, so a tap-only spec keeps its pre-existing shape.
+  const sac = { ...(sacrifices ? { sacrifices: true } : {}), ...(/\{t\}/i.test(cost) ? {} : { requiresTap: false }) };
   // "Add N mana of any one color" — N spelled or digit; "Add … mana of any color" — amount 1.
   let mm = effect.match(/\badd\s+(one|two|three|four|five|\d+)\s+mana of any one color\b/i);
   if (mm) {

@@ -2539,11 +2539,13 @@ export function entersAsCreature(state, controller, card, bestowed = false) {
  * lord's "All Slivers have \"{T}: Add …\"" — Gemhide/Manaweft, Enduring Vitality). Walks the same continuous
  * -effect collection the layer engine uses, filters to layer-6 `addAbility` grants of kind "mana" that
  * AFFECT this permanent (selector match via the shared `effectAffects`, so self in/exclude + controller
- * scope + subtype are all honored), and returns the serializable `{colors, amount}` specs (parsed once by
- * staticAbilityParser — manaModel reads these, never re-parses, so the classifier and runtime can't drift).
- * Returns [] when no grant applies. Pure. Used by manaModel.manaSources / legalChoices.actionsTapForMana to
- * offer a recipient the tap-for-mana source it gained — kept HERE (not manaModel) because only this module
- * owns `effectAffects`/`matchesSelector`, and exposing the raw specs avoids a layers→manaModel import cycle.
+ * scope + subtype are all honored), and returns the serializable specs — `{colors, amount}` plus the quoted cost's
+ * flags (`sacrifices`, `requiresTap: false`) and the grant's routing markers (`via`, `upgrade`) — parsed once by
+ * staticAbilityParser.parseGrantedManaSpec; manaModel reads these, never re-parses, so the classifier and runtime can't
+ * drift. Returns [] when no grant applies. Pure. Read by manaModel.withGrantedMana — the one read manaSources and
+ * legalChoices.actionsTapForMana both make — to offer a recipient the mana ability it gained; kept HERE (not manaModel)
+ * because only this module owns `effectAffects`/`matchesSelector`, and exposing the raw specs avoids a layers→manaModel
+ * import cycle.
  */
 export function grantedManaSpecsFor(state, permanentId) {
   const perm = findPerm(state, permanentId);

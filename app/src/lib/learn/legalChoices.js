@@ -30,10 +30,10 @@
  */
 
 import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower, nameCastLocked, playerLifeLocked } from "./gameState.js"; // B4: the Reflector Mage name cast lock; playerLifeLocked — CR 119.8, a life total that can't change can't pay life
-import { canAfford, manaSources, manaProduction, manaActivationCost, payActivationFromPool, landAuraManaBonus, globalTapManaAugment, applyAuraManaGrantSupplement, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources } from "./manaModel.js";
+import { canAfford, manaSources, manaProduction, manaActivationCost, payActivationFromPool, landAuraManaBonus, globalTapManaAugment, withGrantedMana, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
-import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord } from "./layers.js"; // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
+import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord } from "./layers.js"; // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell's every-creature-type answer for the cost readers; a leaf (keywords.js only)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
@@ -2200,16 +2200,10 @@ function actionsTapForMana(state, playerId) {
   for (const perm of player.battlefield) {
     if (perm.tapped) continue;
     if (lockedActivationSource(state, artLocked, perm.id)) continue; // NR-1 artifact lock + AU-2 per-permanent lock
-    let prod = manaProduction(perm.card);
-    // GROUP-GRANT: a permanent with no own mana ability can have a {T}: Add … ability GRANTED by a lord
-    // (Gemhide/Manaweft). DEDUP mirrors manaSources — the grant only adds a source where the permanent has
-    // none of its own (the granter keeps its own quoted-text source; granting again would double it).
-    if (!prod) {
-      const granted = grantedManaSpecsFor(state, perm.id);
-      if (granted.length) prod = { colors: granted[0].colors, amount: granted[0].amount };
-    } else {
-      prod = applyAuraManaGrantSupplement(state, perm, prod);   // AURA-MANA-GRANT supplement — mirrors manaSources (two-sites invariant)
-    }
+    // GRANTED MANA: the SAME read manaSources makes (manaModel.withGrantedMana — the two-sites invariant as one function): a
+    // permanent with no own mana ability takes its granted one whole, so a granted self-sacrifice (Basal Sliver) offers an action
+    // that sacrifices this permanent; one with its own keeps it, upgraded in place by a dominating Aura / Equipment grant.
+    const prod = withGrantedMana(state, perm, manaProduction(perm.card));
     if (!prod) continue;
     // STAGE ③ · 37 — a no-{T} remove-a-counter source (Pentad Prism) is paid through the planner: manaSources gives it one
     // record per counter and the commit removes the counter. This direct TAP action would add the mana without removing a
