@@ -741,8 +741,14 @@ export function resolveImpulseDigChoice(state, cardId) {
   let toBottom = lookedAt;
   let keptIds = picked;
   if (pc.chosenTo === "battlefield" && picked.length) {
-    for (const id of picked) next = enterCardFromZone(next, { playerId: pc.controller, cardId: id, fromZone: "library" }).state;
-    toBottom = Math.max(0, lookedAt - picked.length);
+    // A pick that doesn't enter — an Aura with nothing to enchant stays in the library (CR 303.4g) — is one of "the rest".
+    let enteredCount = 0;
+    for (const id of picked) {
+      const r = enterCardFromZone(next, { playerId: pc.controller, cardId: id, fromZone: "library" });
+      next = r.state;
+      if (r.entered) enteredCount += 1;
+    }
+    toBottom = Math.max(0, lookedAt - enteredCount);
     keptIds = [];
   }
   // K7 (Make Your Own Luck "it becomes plotted"): the pick leaves the library for EXILE carrying the plot stamp the plot

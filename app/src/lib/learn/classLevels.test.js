@@ -556,8 +556,11 @@ describe("SYNTHETIC — the guards that keep a Class shape the runtime can't hon
 
   it("the token-copy target pool: an Aura token (Mask) or a Saga token is never the target; a creature-copy stays ambiguous", () => {
     // Caretaker's Talent levelling to 2 with only a Mask token, then only a token Saga: no legal target, no copy.
+    // The Mask ("Enchant permanent") enchants a Plains: an Aura attached to nothing is put into the graveyard (CR 704.5m).
     for (const only of [{ ...MASK_TOKEN, token: true }, { ...THREE_BLIND_MICE, token: true }]) {
-      let s = mainPhase({ battlefield: [onBf(CARETAKERS_TALENT, "care"), onBf(only, "tok"), ...lands(PLAINS, 3, "p")] });
+      const [p0, ...plains] = lands(PLAINS, 3, "p");
+      const aura = only.name === "Mask";
+      let s = mainPhase({ battlefield: [onBf(CARETAKERS_TALENT, "care"), { ...onBf(only, "tok"), ...(aura && { attachedTo: "p0" }) }, { ...p0, ...(aura && { attachments: ["tok"] }) }, ...plains] });
       s = gainLevel(s, "care");
       expect(permNamed(s, "Caretaker's Talent").classLevel).toBe(2);
       expect(s.players.user.battlefield.filter((p) => p.card.token)).toHaveLength(1);

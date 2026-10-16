@@ -14,10 +14,11 @@
  *   - 704.5i   — 0-loyalty planeswalkers (+ PW dies triggers)
  *   - 704.5j   — the LEGEND RULE (applyLegendRule — new in B2; + dies triggers for creatures)
  *   - 704.5m/n — attachment legality: an Equipment on a non-creature (or vanished host) becomes
- *                unattached; an Aura whose host is gone or no longer matches its enchant type goes
- *                to its owner's graveyard. Player-auras (enchantedPlayerId — the Curse class) and
- *                bestowed permanents are exempt (their legality is owned by the elimination sweep
- *                and the bestow exit transform respectively).
+ *                unattached; an Aura whose host is gone or no longer matches its enchant type, or
+ *                that is attached to nothing at all, goes to its owner's graveyard. Player-auras
+ *                (enchantedPlayerId — the Curse class) and bestowed permanents are exempt (their
+ *                legality is owned by the elimination sweep and the bestow exit transform
+ *                respectively).
  *   - 704.5r   — +1/+1 and -1/-1 counter annihilation (previously unimplemented; invisible to
  *                layer-derived P/T but VISIBLE to counter-reading effects: undying's intervening-if,
  *                remove-a-counter costs, proliferate, requiresAnyCounter selectors).
@@ -46,11 +47,28 @@ import { grantCitysBlessings } from "./ascend.js"; // shelf D5 — Ascend (CR 70
 
 const MAX_PASSES = 10;
 
+/**
+ * CR 704.5m — "…or is not attached to an object or player, that Aura is put into its owner's graveyard." An Aura the engine
+ * attaches to something other than a permanent is attached all the same: to a player (the Curse class — `enchantedPlayerId`),
+ * or to a creature card in a graveyard (Animate Dead — `enchantedGraveyardCard`, until its enters trigger returns the card and
+ * attaches to it). A bestowed permanent whose host left is an enchantment creature, no longer an Aura (CR 702.103e). A face-down
+ * permanent never matches: it has no subtypes (CR 708.2), and its `card` is the face-down stand-in. Front face up (CR 712.8d).
+ */
+function attachedToNothing(perm) {
+  if (perm.attachedTo || perm.enchantedPlayerId || perm.enchantedGraveyardCard || perm.bestowed) return false;
+  return /\bAura\b/.test(String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0]);
+}
+
 /** CR 704.5m/n — attachment legality. One pass; returns the same state when nothing is illegal. */
 function sweepAttachmentLegality(state) {
   let next = state;
   for (const [pid, player] of Object.entries(state.players)) {
     for (const perm of player.battlefield) {
+      if (attachedToNothing(perm) && findPermanent(next, perm.id)) {
+        next = moveCardToZone(next, { playerId: pid, fromZone: "battlefield", toZone: "graveyard", cardId: perm.id });
+        next = logEvent(next, { kind: "aura-falls-off", turn: next.turn, cardName: perm.card?.name, controller: pid, cause: "sba", reason: "attached to nothing" });
+        continue;
+      }
       if (!perm.attachedTo) continue;
       if (perm.bestowed) continue; // bestow's host-exit transform owns this case (CR 702.103e)
       if (perm.enchantedPlayerId) continue; // player-aura — legality is the enchanted player's existence

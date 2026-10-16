@@ -352,6 +352,17 @@ mass return; a permanent that wasn't cast has X = 0). A one-event entry (Living 
 Genesis Wave, a multi-pick put) passes `replacementState`, the board as the event began (CR 614.12). A new
 "enters with" / "as this enters" ability goes in this leaf, never at an entry site.
 
+**An Aura entering without being cast** (2026-10-16, CR 303.4f/g): `enterCardFromZone` attaches it as it enters —
+to `attachTo` when the effect names the host ("…attached to that creature": Dragon Fangs, Mantle of the Ancients),
+else to the host `auraEntry.chooseAuraEntryHost` picks on the board it is entering (`replacementState` for one card
+of a larger event, so never a permanent entering with it). Nothing is targeted (hexproof doesn't matter; the Enchant
+line, protection and "can't be enchanted" do). No legal host, or an Enchant line `staticAbilityParser.auraEntryHostSpec`
+can't list (a Curse, Animate Dead), and it stays in its zone (`entered: false`, logged `aura-stays`). The choice is the
+house policy for every seat (the cast side's `auraCastIntent`); a human choice would need a pause this path lacks. A
+blink exiles every target, then returns them as one event (`enterCardsTogether`). `sba.js` puts an Aura attached to
+nothing into its owner's graveyard (CR 704.5m) — a Curse (`enchantedPlayerId`), Animate Dead before its trigger
+(`enchantedGraveyardCard`) and a bestowed creature are attached to something, and exempt.
+
 ### 4.6 Layers (`layers.js`, CR 613)
 
 Continuous effects are derived in CR-613 layer order (7a CDA → 7b set → 7c

@@ -12,7 +12,8 @@
  *     flicker still takes only what gains. What gains: an enters ability
  *     fires again, a tapped permanent returns untapped, an opponent's Aura falls off, −1/−1 counters go; not a token (CR 111.8),
  *     not what loses more than it gains (+1/+1 counters, your own Equipment on it, an Equipment coming off its creature).
- *   • Auras are not offered to a flicker until a returned Aura can choose what it enchants (CR 303.4f).
+ *   • Auras are offered since a returned Aura chooses what it enchants (CR 303.4f, 2026-10-16) — not one whose Enchant line the
+ *     return can't place (a Curse). Where a returned Aura lands, and what the chooser gains by it: auraReentry.test.js.
  *
  * Every board is built so the rule under test DECIDES its outcome (each factor flips a sign or a pick).
  * Real oracle fixtures (bundled Scryfall, probed 2026-09-30).
@@ -40,6 +41,7 @@ const BEAR = card("Grizzly Bears", "Creature — Bear", "{1}{G}", 2, "", { power
 const GIANT = card("Hill Giant", "Creature — Giant", "{3}{R}", 4, "", { power: "3", toughness: "3", colors: ["R"] });
 const ELF_TOKEN = card("Llanowar Elves", "Token Creature — Elf Druid", "", 0, "{T}: Add {G}.", { power: "1", toughness: "1", colors: ["G"], token: true });
 const PACIFISM = card("Pacifism", "Enchantment — Aura", "{1}{W}", 2, "Enchant creature\nEnchanted creature can't attack or block.", { keywords: ["Enchant"], colors: ["W"] });
+const CURSE_OF_OPULENCE = card("Curse of Opulence", "Enchantment — Aura Curse", "{R}", 1, "Enchant player\nWhenever enchanted player is attacked, create a Gold token. Each opponent attacking that player does the same. (A Gold token is an artifact with \"Sacrifice this token: Add one mana of any color.\")", { keywords: ["Enchant"], colors: ["R"] });
 const BONESPLITTER = card("Bonesplitter", "Artifact — Equipment", "{1}", 1, "Equipped creature gets +2/+0.\nEquip {1}", { keywords: ["Equip"], colors: [] });
 const DJINN = card("Tempest Djinn", "Creature — Djinn", "{U}{U}{U}", 3, "Flying\nThis creature gets +1/+0 for each basic Island you control.", { power: "0", toughness: "4", keywords: ["Flying"], colors: ["U"] });
 const MANOWAR = card("Man-o'-War", "Creature — Jellyfish", "{2}{U}", 3, "When this creature enters, return target creature to its owner's hand.", { power: "2", toughness: "2", colors: ["U"] });
@@ -68,7 +70,7 @@ const offered = (ch) => [...new Set(ch.seen.flatMap((c) => (c.targets || []).map
 const drawn = (s) => 4 - s.players.user.library.length;
 
 describe("the cards", () => {
-  it("parse: Brago's any-number flicker (no Auras), Thassa's other-creature flicker and her tap; both read native", () => {
+  it("parse: Brago's any-number flicker (Auras whose return can be placed), Thassa's other-creature flicker and her tap; both read native", () => {
     const bragoAtom = parseEffectClause(detectTriggers(BRAGO)[0].effectClause, "Instant", { sourceScoped: true }).atoms[0];
     const thassaBlink = parseEffectClause(detectTriggers(THASSA).find((d) => d.event === "endStep").effectClause, "Instant", { sourceScoped: true }).atoms[0];
     expect({
@@ -77,7 +79,7 @@ describe("the cards", () => {
       thassaTap: parseEffectClause("Tap another target creature.", "Instant").atoms[0],
       tiers: [classifyCard(BRAGO), classifyCard(THASSA)],
     }).toEqual({
-      brago: ["blink", "nonlandPermanent", "owner", 0, 99, true, [{ kind: "controller", who: "you" }, { kind: "typeNeg", type: "aura" }]],
+      brago: ["blink", "nonlandPermanent", "owner", 0, 99, true, [{ kind: "controller", who: "you" }, { kind: "auraEntryModeled" }]],
       thassaBlink: ["blink", "creature", 1, 0, [{ kind: "controller", who: "you" }, { kind: "notSource" }]],
       thassaTap: { op: "tap", targetType: "creature", restrictions: [{ kind: "notSource" }] },
       tiers: ["native-trigger", "native-mixed"],
@@ -126,10 +128,11 @@ describe("⭐ Brago, King Eternal", () => {
     const s = board({ user: [perm("brago", BRAGO, "user", { counters: { "+1/+1": 1 } }), perm("counter", BEAR, "user", { counters: { "+1/+1": 1 } }), perm("plain", GIANT, "user")] });
     expect(chosen(bragoHits(s))).toEqual(["Hill Giant"]);
   });
-  it("Auras are not offered: your Pacifism is no candidate (a returned Aura must choose a host, CR 303.4f); Brago is", () => {
+  it("Auras are offered (a returned Aura chooses its host, CR 303.4f): your Pacifism is a candidate; your Curse — an Enchant line the return can't place — is not", () => {
     const ch = chooser();
-    bragoHits(board({ user: [perm("brago", BRAGO, "user"), perm("myPac", PACIFISM, "user", { attachedTo: "theirs" })], ai: [perm("theirs", BEAR, "ai", { attachments: ["myPac"] })] }), ch);
-    expect(offered(ch)).toEqual(["brago"]);
+    bragoHits(board({ user: [perm("brago", BRAGO, "user"), perm("myPac", PACIFISM, "user", { attachedTo: "theirs" }), perm("myCurse", CURSE_OF_OPULENCE, "user", { enchantedPlayerId: "ai" })],
+      ai: [perm("theirs", BEAR, "ai", { attachments: ["myPac"] })] }), ch);
+    expect(offered(ch)).toEqual(["brago", "myPac"]);
   });
 });
 

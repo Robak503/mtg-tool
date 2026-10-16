@@ -53,6 +53,7 @@ import {
 import { phaseInAndExpireShield, expireNameCastLocks } from "./gameState.js"; // TEFERI'S PROTECTION - phase in + shield expiry at the active player's untap; B4 — the name cast locks expire there too
 import { withoutImpulseStamps, startingLoyalty } from "./gameState.js"; // the impulse lapse at cleanup strips the same stamp list the cast out of exile does
 import { permanentValue, policyEvalEnabledFor } from "./boardEval.js"; // QUARTET PHASE 1 slice 3 — the shared evaluator (leaf-importing module, cycle-free)
+import { chooseAuraEntryHost, auraEntryHostScore } from "./auraEntry.js"; // the flicker policy reads where a returned Aura lands (CR 303.4f) — the choice the return makes (a leaf)
 import { setPendingCleanupDiscardChoice } from "./pendingChoice.js";
 import { skipsDrawStep, extraTurnSkipped } from "./effects/textNormalize.js"; // SKIP YOUR DRAW STEP (RG-4, 2026-09-05) — a leaf reader, controller-scoped; + the opponent-scoped extra-turn skip (Trouble in Pairs, #626)
 import { resolveCombatDamage } from "./combatResolution.js";
@@ -1730,8 +1731,10 @@ function buildTriggerStack(state, trigger, chooseTargets) {
  * permanent scores what flickering it gains (it returns as a new object, CR 400.7): its enters abilities fire again (+3), it
  * returns untapped (+1), attachments on it fall off — an opponent's (+3) or its controller's own (−2) — an attached Equipment
  * comes off its creature (−2), and counters go: −1/−1 (+1 each), +1/+1 (−1 each), a planeswalker's loyalty back to its
- * starting number (the difference, either way). A token that leaves is gone for good (CR 111.8) and is never chosen. (A
- * commander is fine: it is back on the battlefield before the CR 903.9a state-based action could send it to the command zone.)
+ * starting number (the difference, either way). A token that leaves is gone for good (CR 111.8) and is never chosen, nor is a
+ * permanent that would come back under another player's control (Brago's "under their owner's control" — one you took goes
+ * home; 2026-10-16). (A commander is fine: it is back on the battlefield before the CR 903.9a state-based action could send it
+ * to the command zone.)
  * "UP TO" flickers only what gains (possibly nothing); a mandatory single target takes the best on offer.
  * "ANY NUMBER" (Brago, King Eternal) flickers EVERYTHING that has no reason against it — Colton's rule, 2026-10-03: "unless
  * there's a reason not to, you blink everything every time". A reason against is a negative score: a token, counters or
@@ -1739,17 +1742,45 @@ function buildTriggerStack(state, trigger, chooseTargets) {
  * The expander orders subsets MAXIMAL-first (targeting.expandAtoms), so for "any number" the first candidate already holds
  * every legal target: the set is filtered out of it, whatever the 64-option cap dropped from the middle sizes. Null when the
  * program isn't a lone blink.
+ * AN AURA (2026-10-16) comes back choosing what it enchants (CR 303.4f), so what flickering it gains is the RE-AIM: the host the
+ * return will choose (auraEntry.chooseAuraEntryHost) scored against its current host by the same policy — your Pacifism from an
+ * opponent's 2-power creature to their 6-power one is +4, back onto the same creature 0. Both are read on the board the return
+ * will see, with the leaving permanents exiled (so never one returning at the same time — the bundled Brago ruling — and no host
+ * counted with this Aura's own bonus on it). A reason against: nothing to come back to (it would stay exiled, CR 303.4g), or a
+ * side the policy can't read. One whose host is leaving too would fall off with it, so its baseline there is 0 (losing it).
+ * For "any number", the permanents are decided first and every Aura after, against them.
  */
 function pickFlickerCandidate(state, controller, safe, program) {
   // (A modal program's top-level atoms are empty — its modes carry them — so it never reaches the flicker pick.)
   const targeted = (program?.atoms || []).filter((a) => a?.targetType);
   if (targeted.length !== 1 || targeted[0].op !== "blink") return null;
-  const gain = (t) => {
-    const p = findPermanent(state, t.id).permanent; // an enumerated target is on the battlefield by construction
+  const blink = targeted[0];
+  const isAura = (p) => /\bAura\b/.test(String(p.card?.type || p.card?.type_line || "").split(" // ")[0]);
+  // The board as the return begins: every leaving permanent exiled (the blink's own exile — effects/atoms/zones.applyBlink).
+  const exiled = (ids) => [...ids].reduce((s, id) => {
+    const lk = findPermanent(s, id);
+    return lk ? moveCardToZone(s, { playerId: lk.controller, fromZone: "battlefield", toZone: "exile", cardId: id }) : s;
+  }, state);
+  const reaimGain = (p, onReturn) => {
+    const hostController = p.attachedTo ? findPermanent(state, p.attachedTo)?.controller ?? null : null;
+    const sideHint = hostController ? (hostController === controller ? "own" : "enemy") : null; // as applyBlink passes it
+    const choice = chooseAuraEntryHost(onReturn, p.card, controller, { sideHint });
+    if (!choice.hostId || !choice.intent) return -Infinity;
+    const host = p.attachedTo ? findPermanent(onReturn, p.attachedTo) : null;
+    const before = host ? auraEntryHostScore(onReturn, p.card, controller, { id: p.attachedTo, controller: host.controller }, { sideHint }) : 0;
+    return choice.score - before;
+  };
+  // `onReturn`: the board the return sees when this target leaves (alone, unless the any-number pick passes the whole set's).
+  const gain = (t, onReturn = null) => {
+    const lk = findPermanent(state, t.id); // an enumerated target is on the battlefield by construction
+    const p = lk.permanent;
     if (p.card?.token || p.token) return -Infinity;
+    // Brago returns cards "under their owner's control": a permanent you took goes home, lost to you.
+    if (blink.returnTo === "owner" && (p.owner || lk.controller) !== controller) return -Infinity;
     let g = detectTriggers(p.card).some((d) => d.event === "etb" && d.scope === "self") ? 3 : 0;
     if (p.tapped) g += 1;
-    if (p.attachedTo) g -= 2;
+    if (isAura(p)) g += reaimGain(p, onReturn || exiled([t.id]));
+    else if (p.attachedTo) g -= 2;
     g += (p.counters?.["-1/-1"] || 0) - (p.counters?.["+1/+1"] || 0);
     // A planeswalker returns with its STARTING loyalty (CR 306.5b): above it, the surplus is lost; below it, the reset gains.
     const loyaltyNow = p.counters?.loyalty;
@@ -1763,9 +1794,14 @@ function pickFlickerCandidate(state, controller, safe, program) {
   };
   const size = (c) => (c.targets || []).length;
   const empty = safe.find((c) => size(c) === 0) || null;
-  if (targeted[0].anyNumber) {
+  if (blink.anyNumber) {
     const full = safe[0]; // maximal-first: every legal target
-    return { ...full, targets: (full.targets || []).filter((t) => gain(t) >= 0) }; // everything with no reason against it
+    const all = full.targets || [];
+    const auraTargets = all.filter((t) => isAura(findPermanent(state, t.id).permanent));
+    const going = new Set(all.filter((t) => !auraTargets.includes(t) && gain(t) >= 0).map((t) => t.id)); // everything with no reason against it
+    const onReturn = exiled([...going, ...auraTargets.map((t) => t.id)]);
+    for (const t of auraTargets) if (gain(t, onReturn) >= 0) going.add(t.id);
+    return { ...full, targets: all.filter((t) => going.has(t.id)) };
   }
   const total = (c) => (c.targets || []).reduce((s, t) => s + gain(t), 0);
   const best = safe.filter((c) => size(c) > 0).reduce((a, c) => (a == null || total(c) > total(a) ? c : a), null);

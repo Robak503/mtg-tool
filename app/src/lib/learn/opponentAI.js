@@ -30,12 +30,11 @@ import { filterActions } from "./legalChoices.js";
 import { opponentsOf, findPermanent } from "./gameState.js";
 import { lookupPlayHint } from "./cardPlayHints.js"; // PLAY-HINTS (2026-08-12) — a zero-import leaf, cycle-safe
 import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, goaderControllersOf, equipmentBarredAsCreature } from "./layers.js";
-import { grantsControlWhenAttached } from "./controlAura.js"; // ④-K — a control Aura (or a bestow steal) is ENEMY-intent for auraCastIntent; controlAura is a zero-engine-import leaf
+import { auraCastIntent } from "./auraEntry.js"; // W7e — which side an Aura lands on (a control Aura is ENEMY, a restriction grant too); shared with the non-cast entry (CR 303.4f)
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction } from "./manaModel.js";
 import { attackerMinBlockers, canBlockAttacker, lureFilterOf, mustBeBlockedIfAble, mustAttackUnlessOf, controllerMeetsBoardPredicate } from "./combatEvasion.js";
 import { programContainsCounter, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog, atomTargetIntent, programConfidence } from "./effects/parser.js";
-import { parseAuraBonus } from "./staticAbilityParser.js";
 import { changeTargetAlternatives, atomForStackTarget } from "./effects/targeting.js"; // CHANGE THE TARGET (shelf D14) — where a redirect could send an opponent's spell; the redirected slot's atom
 import { manaUntapLineAction, pickManaAuraTarget } from "./manaUntapLine.js"; // "untap X target lands" as a mana line; mana Auras stack on one land
 import { outletFinishAction } from "./outletFinishLine.js"; // E7.2 — the token loop's finishes that are not combat (a sacrifice outlet)
@@ -589,52 +588,6 @@ function teamPumpFlipsLethal(state, aiPlayerId, pumpPower) {
   if (swingIsLethalV2(rows, blockers.length, defenderLife)) return false; // already lethal — don't waste it
   const pumped = rows.map((r) => ({ ...r, power: r.power + pumpPower }));
   return swingIsLethalV2(pumped, blockers.length, defenderLife);
-}
-
-/**
- * W7e (AI-F6) — which side should this Aura land on? Classified from parseAuraBonus — the SAME
- * parse the battlefield layer engine applies once the Aura attaches, so the AI's read of "what
- * this Aura does" can never disagree with what it WILL do. "own" = every granted descriptor is
- * beneficial (a non-negative P/T mod, a dynamic non-negative per-count mod, a keyword or
- * protection grant); "enemy" = every descriptor is harmful (a non-positive P/T mod, a keyword
- * removal); null = HOLD — an empty parse (the bonus machinery couldn't model the grant), a
- * mixed +/- delta, a base-P/T set (could buff or shrink depending on the body), or any
- * mixed own/enemy combination. Mirrors atomTargetIntent's ambiguous→skip discipline (CREED:
- * never guess a side — a beneficial Aura on an enemy fatty is a live FP).
- */
-function auraCastIntent(card) {
-  // ④-K CONTROL AURA (2026-09-03): "You control enchanted creature." steals the host — ENEMY-intent, whatever the
-  // rest of the bonus says (Spirit Away's +2/+2 flying is a buff on a creature that is now OURS). Type-blind so a
-  // bestow steal (Hypnotic Siren) reads the same. Before this, parseAuraBonus read [] for every control Aura (the
-  // control line poisoned the parse) and the AI HELD Mind Control forever; once the bonus survives, a control Aura
-  // with a positive bonus would have read as an OWN buff and been cast on the AI's own creature.
-  if (grantsControlWhenAttached(card)) return "enemy";
-  let bonus;
-  try { bonus = parseAuraBonus(card); } catch { return null; }
-  if (!Array.isArray(bonus) || bonus.length === 0) return null;
-  let own = 0;
-  let enemy = 0;
-  for (const d of bonus) {
-    const op = d?.op || {};
-    if (op.layerOp === "ptModify") {
-      const p = op.power || 0;
-      const t = op.toughness || 0;
-      if (p >= 0 && t >= 0) own++;
-      else if (p <= 0 && t <= 0) enemy++;
-      else return null;                                   // mixed +/- delta → ambiguous
-    } else if (op.layerOp === "ptModifyDynamicCount") {
-      if ((op.perPower || 0) >= 0 && (op.perToughness || 0) >= 0) own++;
-      else return null;
-    } else if (op.layerOp === "addKeyword" || op.layerOp === "addProtection") {
-      own++;
-    } else if (op.layerOp === "removeKeyword") {
-      enemy++;                                            // grounding a flyer — a soft curse
-    } else {
-      return null;                                        // base-P/T set / future ops → unevaluable
-    }
-  }
-  if (own > 0 && enemy > 0) return null;
-  return own > 0 ? "own" : "enemy";
 }
 
 /**

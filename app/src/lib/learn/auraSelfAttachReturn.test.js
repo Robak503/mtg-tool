@@ -78,6 +78,15 @@ describe("⭐ the Aura really comes back, really attached, and the buff really a
     expect(permanentToughness(r.s, "big")).toBe(7);
     expect(r.errors).toBe(0);
   });
+
+  it("⭐ \"that creature\" is the host even when an opponent's enters: the effect names it, so nothing is chosen (CR 303.4f) — never your own Bear", () => {
+    // A choice would put this +1/+1 Aura on its controller's creature (auraEntry's house policy); the printed host wins.
+    const b = board({ cmc: 6, entersFor: "ai1" });
+    const bear = createPermanent({ id: "bear", card: { id: "c-bear", name: "Grizzly Bears", type: "Creature — Bear", power: 2, toughness: 2, cmc: 2, oracle: "" }, controller: "user" });
+    const state = { ...b.state, players: { ...b.state.players, user: { ...b.state.players.user, battlefield: [bear] } } };
+    const r = settle({ state, entering: b.entering });
+    expect({ attachedTo: r.attachedTo, oppPower: permanentPower(r.s, "oppbig"), bearPower: permanentPower(r.s, "bear") }).toEqual({ attachedTo: "oppbig", oppPower: 7, bearPower: 2 });
+  });
 });
 
 describe("⛔ the ways a returning Aura could appear from nowhere", () => {

@@ -16,6 +16,7 @@ import { applyScheduleDelayed } from "./delayedTrigger.js"; // the CR 603.7 queu
 import { colorsOf, permanentProtectionColors, permIsEveryCreatureType } from "../../layers.js"; // shelf D41 — the host's live protection colours vs a returning card's colours (CR 702.16c/d); + permIsEveryCreatureType (P·39b — Essence Flux's returned Spirit)
 import { protectionApplies } from "../../protection.js"; // shelf D41 — the shared colour-protection test (an import-free leaf)
 import { auraMayEnchantCreature } from "../../auraHost.js"; // shelf D41 — the shared Enchant-line reader (a leaf; stack.js reads it too)
+import { chooseAuraEntryHost } from "../../auraEntry.js"; // CR 303.4f — what an Aura entering without being cast enchants (a leaf over modules this file already reaches)
 // CZ-COMMANDER-VISIT cross-layer doors — INJECTED, never imported: a static resolvers.js/layers.js
 // import from this atoms leaf TDZ-crashed 56 suites (zones sits under effectAtoms → parser, and
 // resolvers.js reaches back through that chain). The integrators register at their own load
@@ -202,36 +203,57 @@ export function applyShuffleSelfIntoLibrary(state, atom, ctx) {
  * "under your control", "owner" for "under its owner's control" — different cards for a stolen creature.
  *
  * A target that vanished before resolution is a clean no-op (CR 608.2b), never a fabricated entry.
+ *
+ * TWO EVENTS, IN ORDER: every target is exiled, then every card returns — "exiles and returns all the targets" (the bundled
+ * Brago, King Eternal ruling). The return is one event (enterCardsTogether, CR 603.6a): each card is on the battlefield before
+ * any enters trigger is checked, and a returning AURA chooses what it enchants on the board as the return begins — so never a
+ * permanent returning with it ("The Aura can't enter the battlefield enchanting a permanent that enters the battlefield at the
+ * same time"), and with nothing it may enchant it stays exiled ("If the Aura can't legally be attached to anything, it remains
+ * exiled" — CR 303.4f/g, effects/atoms/zones.enterCardFromZone). A target attached to another target is exiled first: it
+ * leaves with its host in the one event rather than falling off it into the graveyard (gameState.detachPermanentFromAll).
  */
 export function applyBlink(state, atom, ctx) {
-  let next = state;
-  const blinked = [];
+  // findPermanent returns { permanent, controller } — the CONTROLLER key, not playerId. The `owner` stamp is present only on a
+  // cross-player entry (a stolen/reanimated permanent); absent means owner === controller, which is why the fallback chain ends
+  // there rather than guessing. Read off the board as the exile begins; a target gone before resolution is a no-op, never a
+  // fabricated return. The CARD id is what lands in exile (see above).
+  const leaving = [];
   for (const t of ctx.targets || []) {
-    const lk = findPermanent(next, t.id);
-    if (!lk) continue;                       // gone before resolution — no-op, never a fabricated return
-    const perm = lk.permanent;
-    const cardId = perm.card?.id;
-    if (!cardId) continue;
-    // findPermanent returns { permanent, controller } — the CONTROLLER key, not playerId. The `owner` stamp
-    // is present only on a cross-player entry (a stolen/reanimated permanent); absent means owner ===
-    // controller, which is why the fallback chain ends there rather than guessing.
-    const owner = perm.owner || lk.controller;
-    const returnController = atom.returnTo === "owner" ? owner : ctx.controller;
-    next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "exile", cardId: perm.id });
-    const r = enterCardFromZone(next, { playerId: returnController, cardId, fromZone: "exile", fromPlayerId: owner });
-    next = r.state;
-    if (r.entered) {
-      blinked.push(cardId);
-      // SUBTYPE-COUNTER RIDER (Essence Flux — CR 400.7 the returned object is NEW): "if it's a <subtype>, put
-      // a +1/+1 counter on it" — read the RETURNED permanent's live type line; a match adds the counter to the
-      // new object (r.permanentId). A non-matching subtype adds nothing (never a fabricated counter — CREED). P·39b — a returned
-      // creature that is every creature type (a changeling, its controller's Maskwood Nexus) is a Spirit too; the subtype is a
-      // creature type (the matcher admits CR_CREATURE_TYPES words only).
-      if (atom.ifSubtypeCounter && r.permanentId) {
-        const np = findPermanent(next, r.permanentId);
-        if (np && (new RegExp(`\\b${atom.ifSubtypeCounter.subtype}\\b`, "i").test(np.permanent.card?.type || "") || permIsEveryCreatureType(next, r.permanentId))) {
-          next = addCounter(next, { permanentId: r.permanentId, type: atom.ifSubtypeCounter.counterType, amount: atom.ifSubtypeCounter.amount || 1 });
-        }
+    const lk = findPermanent(state, t.id);
+    if (!lk?.permanent.card?.id) continue;
+    const attachedTo = lk.permanent.attachedTo || null;
+    leaving.push({ permId: lk.permanent.id, cardId: lk.permanent.card.id, owner: lk.permanent.owner || lk.controller, attachedTo, hostController: attachedTo ? findPermanent(state, attachedTo)?.controller ?? null : null });
+  }
+  const leavingIds = new Set(leaving.map((l) => l.permId));
+  const attachedToAnother = (l) => (l.attachedTo && leavingIds.has(l.attachedTo) ? 0 : 1);
+  let next = state;
+  // ONE EVENT, as applyZoneMove's: a waiting trigger's creature among the targets is recorded as it was when the exile began.
+  for (const l of leaving) next = stampTriggeringLki(next, l.permId);
+  for (const l of [...leaving].sort((a, b) => attachedToAnother(a) - attachedToAnother(b))) {
+    const lk = findPermanent(next, l.permId);
+    if (lk) next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "exile", cardId: l.permId });
+  }
+  // `returnTo` picks the controller: "controller" for "under your control", "owner" for "under its owner's control". An Aura
+  // whose side its reading can't tell goes back to the side it left (`auraSideHint` — auraEntry.auraEntryHostScore).
+  const back = enterCardsTogether(next, leaving.map((l) => {
+    const playerId = atom.returnTo === "owner" ? l.owner : ctx.controller;
+    const auraSideHint = l.hostController ? (l.hostController === playerId ? "own" : "enemy") : null;
+    return { playerId, cardId: l.cardId, fromZone: "exile", fromPlayerId: l.owner, auraSideHint };
+  }));
+  next = back.state;
+  const blinked = [];
+  for (const r of back.results) {
+    if (!r.entered) continue;
+    blinked.push(r.cardId);
+    // SUBTYPE-COUNTER RIDER (Essence Flux — CR 400.7 the returned object is NEW): "if it's a <subtype>, put
+    // a +1/+1 counter on it" — read the RETURNED permanent's live type line; a match adds the counter to the
+    // new object (r.permanentId). A non-matching subtype adds nothing (never a fabricated counter — CREED). P·39b — a returned
+    // creature that is every creature type (a changeling, its controller's Maskwood Nexus) is a Spirit too; the subtype is a
+    // creature type (the matcher admits CR_CREATURE_TYPES words only).
+    if (atom.ifSubtypeCounter && r.permanentId) {
+      const np = findPermanent(next, r.permanentId);
+      if (np && (new RegExp(`\\b${atom.ifSubtypeCounter.subtype}\\b`, "i").test(np.permanent.card?.type || "") || permIsEveryCreatureType(next, r.permanentId))) {
+        next = addCounter(next, { permanentId: r.permanentId, type: atom.ifSubtypeCounter.counterType, amount: atom.ifSubtypeCounter.amount || 1 });
       }
     }
   }
@@ -308,8 +330,11 @@ export function applyExileGraveyard(state, atom, ctx) {
  * entered:false (state unchanged) when the card isn't in the source zone (CR 608.2b — it left). Shared by
  * reanimation (β-3b, graveyard) and battlefield ramp (RAMP-1, library) so the two enter-a-found-card paths
  * can't drift.
+ * AN AURA (CR 303.4f) enters attached: to `attachTo` when the EFFECT names what it enchants ("…onto the battlefield attached to
+ * that creature"), else to the host its controller chooses (auraEntry.chooseAuraEntryHost). With nothing it may enchant it
+ * stays in its zone (CR 303.4g) — entered:false, logged `aura-stays`. An Equipment the effect attaches enters attached too.
  */
-export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = false, fromPlayerId = playerId, deferEnterTriggers = false, replacementState = null }) {
+export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = false, fromPlayerId = playerId, deferEnterTriggers = false, replacementState = null, attachTo = null, auraSideHint = null }) {
   const owner = state.players[fromPlayerId];
   const controllerPlayer = state.players[playerId];
   if (!owner || !controllerPlayer) return { state, entered: false };
@@ -318,6 +343,25 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   // A card put onto the battlefield from exile is a new object (CR 400.7): its exile-only stamps (plot, suspend, hideaway,
   // impulse, void counter, the face-down and adventure markers) stay behind, as at every other exit from exile.
   const card = fromZone === "exile" ? withoutExileStamps(found) : found;
+  // WHAT AN AURA ENCHANTS (CR 303.4f) — decided as it enters, against the board it is entering: `replacementState` when it is
+  // one card of a larger event, so never a permanent entering with it (the bundled Brago, King Eternal ruling: "The Aura can't
+  // enter the battlefield enchanting a permanent that enters the battlefield at the same time"), else the board as it is (the
+  // card still in its zone). `attachTo` is the object the EFFECT names (Dragon Fangs' self-return, Mantle of the Ancients — the
+  // caller has checked it may be enchanted, CR 303.4i); otherwise its controller chooses — the house policy for every seat,
+  // nothing targeted (auraEntry.js). With no legal object it stays in its zone (CR 303.4g), and so does an Aura whose Enchant
+  // line the engine can't list (never attached to a guess) — the effect's caller sees entered:false, as for a card that left.
+  // An Equipment the effect attaches enters attached the same way; anything else enters unattached (CR 303.4h).
+  const frontType = String(card?.type || card?.type_line || "").split(" // ")[0];
+  const isAura = /\bAura\b/.test(frontType);
+  let hostId = attachTo && (isAura || /\bEquipment\b/.test(frontType)) && findPermanent(state, attachTo) ? attachTo : null;
+  if (isAura && !hostId) {
+    const choice = attachTo ? { modeled: true, hostId: null } : chooseAuraEntryHost(replacementState || state, card, playerId, { sideHint: auraSideHint });
+    if (!choice.hostId) {
+      const reason = choice.modeled ? "nothing it can enchant (CR 303.4g)" : "its enchant ability is not modeled";
+      return { state: logEvent(state, { kind: "aura-stays", cardName: card?.name, controller: playerId, zone: fromZone, reason }), entered: false };
+    }
+    hostId = choice.hostId;
+  }
   const { id: permId, state: s2 } = mintId(state, "perm");
   const ts = s2.timestampCounter || 0;
   const isCreatureCard = /Creature/.test(String(card?.type || card?.type_line || ""));
@@ -369,14 +413,22 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   // settled now that it is on the battlefield (enterReplacements.settleEnterReplacements, as the cast entry does), before
   // any enters trigger is checked.
   next = settleEnterReplacements(next, perm, settle);
+  // It enters ATTACHED (CR 303.4f): the link is made before any enters trigger is checked, so an Aura's own "When this Aura
+  // enters, tap enchanted creature" finds its creature. attachPermanent is the one place an attachment forms (a control Aura
+  // takes its creature there, CR 613.1b).
+  let entered = perm;
+  if (hostId) {
+    next = attachPermanent(next, { equipId: permId, targetId: hostId });
+    entered = findPermanent(next, permId)?.permanent || perm;
+    next = logEvent(next, { kind: "enters-attached", cardName: card?.name, controller: playerId, hostId, hostName: findPermanent(next, hostId)?.permanent?.card?.name ?? null, chosenBy: attachTo ? "effect" : "controller" });
+  }
   // ONE EVENT, SEVERAL CARDS (enterCardsTogether below, CR 603.6a): that caller places every card of the event first and
   // checks the enters triggers afterwards, so here the new permanent is handed back before any trigger is checked.
-  if (deferEnterTriggers) return { state: next, entered: true, permanentId: permId, permanent: perm };
+  if (deferEnterTriggers) return { state: next, entered: true, permanentId: permId, permanent: entered };
   // `permanentId` is returned so a caller that must do something TO the permanent it just created can find
-  // it without guessing. The Aura self-return (gy-self-attach-return) needs it to attach the Aura to its
-  // named host; scanning the battlefield for a matching card id afterwards would pick the wrong copy when
-  // two are in play. Additive — every existing caller destructures only {state, entered}.
-  return { state: fireEnterTriggers(next, perm), entered: true, permanentId: permId };
+  // it without guessing (Essence Flux's counter on the returned Spirit); scanning the battlefield for a
+  // matching card id afterwards would pick the wrong copy when two are in play.
+  return { state: fireEnterTriggers(next, entered), entered: true, permanentId: permId };
 }
 
 /**
@@ -416,18 +468,19 @@ function fireEnterTriggers(state, perm) {
  * newcomer's static never modifies another newcomer's entry (Renata gives a creature entering with her no counter; Squad
  * Captain counts only the creatures already there — both bundled rulings).
  * `entries` are enterCardFromZone's arguments, read off their zones by the caller immediately before (a card no longer in
- * its zone would enter nothing, and the trigger checks pass over the missing permanent).
+ * its zone enters nothing, nor does an Aura with nothing to enchant — it stays in its zone, CR 303.4g). Returns the state and
+ * one `{ cardId, entered, permanentId }` per entry, in order.
  */
 function enterCardsTogether(state, entries) {
   let next = state;
-  const entered = [];
+  const results = [];
   for (const entry of entries) {
     const r = enterCardFromZone(next, { ...entry, deferEnterTriggers: true, replacementState: state });
     next = r.state;
-    entered.push(r.permanent);
+    results.push({ cardId: entry.cardId, entered: r.entered, permanentId: r.permanentId ?? null, permanent: r.permanent ?? null });
   }
-  for (const perm of entered) next = fireEnterTriggers(next, perm);
-  return next;
+  for (const r of results) if (r.entered) next = fireEnterTriggers(next, r.permanent);
+  return { state: next, results: results.map(({ permanent: _p, ...rest }) => rest) };
 }
 
 // Mana value of a graveyard Card (CR 202.3) — cmc/mana_value when present (Scryfall cards carry cmc), else a
@@ -581,7 +634,7 @@ function applyMassReanimateAllGraveyards(state, atom, ctx) {
   const entries = Object.keys(state.players).flatMap((pid) => (state.players[pid].graveyard || [])
     .filter((c) => cardMatchesGraveyardFilter(c, atom.cardFilter))
     .map((c) => ({ playerId: controller, cardId: c.id, fromZone: "graveyard", fromPlayerId: pid })));
-  const next = enterCardsTogether(state, entries);
+  const next = enterCardsTogether(state, entries).state;
   return logEvent(next, { kind: "spell-effect", effect: "mass-reanimate-all-graveyards", controller, targets: entries.map((e) => e.cardId) });
 }
 
@@ -1123,11 +1176,12 @@ export function graveyardReturnClauseParser(clause) {
   // family's FIRST TRIGGER-side carrier (a cast trigger — Displace/Flicker are spells), which is why
   // atomTargetIntent gained its "blink" → own case in the same slice. maxTargets 1 + minTargets 0 rides
   // the same subset path as up-to-two (the [t]-or-[] expansion).
-  // + NO AURAS (shelf D21): a returned Aura must choose what it enchants (CR 303.4f) and the shared return (enterCardFromZone)
-  // doesn't yet — it came back attached to nothing — so an Aura is not offered until that lands (an under-offer, never a
-  // wrong resolution). The same exclusion rides Brago's any-number arm below.
+  // AURAS (2026-10-16): a returned Aura chooses what it enchants as it comes back (CR 303.4f — enterCardFromZone, auraEntry.js),
+  // so an Aura is offered — your Pacifism comes back on the opponent's biggest creature. Not one whose Enchant line the engine
+  // can't list (a Curse, Animate Dead): it would stay in exile where the rules return it (`auraEntryModeled`, an under-offer).
+  // Shelf D21's interim exclusion of every Aura is lifted. The same restriction rides Brago's any-number arm below.
   const blink1M = t.match(/^exile up to one target nonland permanent you control, then return that card to the battlefield under (your|its owner's) control$/);
-  if (blink1M) return { op: "blink", targetType: "nonlandPermanent", restrictions: [{ kind: "controller", who: "you" }, { kind: "typeNeg", type: "aura" }], returnTo: blink1M[1] === "your" ? "controller" : "owner", maxTargets: 1, minTargets: 0 };
+  if (blink1M) return { op: "blink", targetType: "nonlandPermanent", restrictions: [{ kind: "controller", who: "you" }, { kind: "auraEntryModeled" }], returnTo: blink1M[1] === "your" ? "controller" : "owner", maxTargets: 1, minTargets: 0 };
   // THASSA, DEEP-DWELLING (shelf D21) — "exile up to one OTHER target creature you control, then return that card to the
   // battlefield under your control": the up-to-one creature form plus notSource (Thassa, a creature once your devotion to blue
   // reaches five, never flickers herself).
@@ -1135,10 +1189,10 @@ export function graveyardReturnClauseParser(clause) {
   if (blinkOtherM) return { op: "blink", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }, { kind: "notSource" }], returnTo: blinkOtherM[1] === "your" ? "controller" : "owner", maxTargets: 1, minTargets: 0 };
   // BRAGO, KING ETERNAL (shelf D21) — "exile any number of target nonland permanents you control, then return those cards to
   // the battlefield under their owner's control": phase-out's any-number bound (0..99, anyNumber — the expander keeps the
-  // largest subsets and seeds the empty one), Auras excluded as above. Which permanents is the trigger chooser's call
-  // (gameEngine.chooseTriggerTargets — the flicker gain).
+  // largest subsets and seeds the empty one), Auras as above (an Aura can't come back on a permanent returning with it — the
+  // bundled ruling; applyBlink). Which permanents is the trigger chooser's call (gameEngine.chooseTriggerTargets — the flicker gain).
   const blinkAnyM = t.match(/^exile any number of target nonland permanents you control, then return those cards to the battlefield under (your|their owner's) control$/);
-  if (blinkAnyM) return { op: "blink", targetType: "nonlandPermanent", restrictions: [{ kind: "controller", who: "you" }, { kind: "typeNeg", type: "aura" }], returnTo: blinkAnyM[1] === "your" ? "controller" : "owner", minTargets: 0, maxTargets: 99, anyNumber: true };
+  if (blinkAnyM) return { op: "blink", targetType: "nonlandPermanent", restrictions: [{ kind: "controller", who: "you" }, { kind: "auraEntryModeled" }], returnTo: blinkAnyM[1] === "your" ? "controller" : "owner", minTargets: 0, maxTargets: 99, anyNumber: true };
   // TELEPORTATION CIRCLE (SHELF-85 B6, 2026-09-04) — "exile up to one target artifact or creature you control, then
   // return that card to the battlefield under its owner's control" (the end-step blink; Escape Protocol / Against
   // All Odds print the mandatory single form): the own-side ARTIFACT-OR-CREATURE union, enumerated in spellEffects
@@ -2082,9 +2136,10 @@ function applyReturnAttachedFromGraveyard(state, atom, ctx) {
   for (const card of [...picked.filter((c) => !isAura(c)), ...picked.filter(isAura)]) {
     if (protectionApplies(permanentProtectionColors(next, hostId), colorsOf(card))) continue; // CR 702.16c/d
     if (isAura(card) && !auraMayEnchantCreature(next, card, findPermanent(next, hostId), owner)) continue; // CR 303.4i
-    const r = enterCardFromZone(next, { playerId: owner, cardId: card.id, fromZone: "graveyard" });
-    next = attachPermanent(r.state, { equipId: r.permanentId, targetId: hostId });
-    returned.push(card.id);
+    // "…to the battlefield attached to enchanted creature": the effect names the host, so it enters attached to it (CR 303.4f).
+    const r = enterCardFromZone(next, { playerId: owner, cardId: card.id, fromZone: "graveyard", attachTo: hostId });
+    next = r.state;
+    if (r.entered) returned.push(card.id);
   }
   return logEvent(next, { kind: "spell-effect", effect: "return-attached-from-graveyard", returned, host: hostId, controller: owner });
 }

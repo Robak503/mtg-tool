@@ -7435,6 +7435,7 @@ export function auraEnchantRestrictions(card) {
  * line the engine can enumerate natively, or null. THE SINGLE SOURCE for all five seams that must agree:
  *   ① isNativeAura's gate           ② legalChoices' cast enumeration    ③ the AURA_ETB payload's hostType
  *   ④ the resolver's CR 608.2b re-check                                 ⑤ sba.js's CR 704.5n fall-off sweep
+ *   ⑥ the host an Aura chooses entering without being cast (CR 303.4f — auraEntryHostSpec below, a superset)
  * Any one of them disagreeing is a card credited native that the engine cannot actually attach — or worse,
  * one that attaches and is then killed by the sweep on the next SBA pass. Both were live before this slice
  * (④ defaulted to /Creature/, so an "Enchant artifact" cast FIZZLED at resolution; ⑤ read "Enchant creature
@@ -7476,6 +7477,28 @@ export function auraEnchantHostSpec(card) {
   //     restrictions are ANDed, so listing two colors would demand a creature be both. +2 waiting.
   //   · "creature with another Aura attached to it" (Daybreak Coronet) and "modified creature" (Lion Umbra)
   //     need new board-reading predicates. +1 each.
+  return null;
+}
+
+/**
+ * THE ENTRY HOST SPEC (CR 303.4f) — `{ targetType, restrictions }` for what an Aura put onto the battlefield WITHOUT being
+ * cast may enchant, or null when the engine can't enumerate it. The sixth seam of the host spec above, and read through it:
+ * every subject auraEnchantHostSpec expresses, plus the four permanent subjects its cast lanes own elsewhere — "land" and
+ * "land you control" (the mana-boost and grant lanes cast them on their own lands; the Enchant line itself admits any land,
+ * or the controller's), "Forest" (Utopia Sprawl) and "permanent" (any permanent, Song of the Dryads).
+ * Null for everything else, a player (the Curses) and a card in a graveyard (Animate Dead) among them: an Aura whose legal
+ * hosts the engine can't list stays where it is rather than entering attached to a guess (effects/atoms/zones.js), and a
+ * flicker never offers it (creatureRestrictions' `auraEntryModeled` kind).
+ * Not a cast-side source: a non-cast entry chooses, it does not target (CR 303.4f), so nothing here narrows by targeting.
+ */
+export function auraEntryHostSpec(card) {
+  const spec = auraEnchantHostSpec(card);
+  if (spec) return spec;
+  const subject = auraEnchantSubject(card);
+  if (subject === "land") return { targetType: "land", restrictions: [] };
+  if (subject === "land you control") return { targetType: "land", restrictions: [{ kind: "controller", who: "you" }] };
+  if (subject === "forest") return { targetType: "forest", restrictions: [] };
+  if (subject === "permanent") return { targetType: "permanent", restrictions: [] };
   return null;
 }
 

@@ -23,6 +23,7 @@
 import { creaturePower, creatureToughness, findPermanent } from "./gameState.js";
 import { permanentColors, permanentColorsIfKnown, permanentHasKeyword, isModifiedPermanent, permIsEveryCreatureType, permanentHasCardType, permanentManaValue } from "./layers.js"; // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
 import { isBlockingCreature } from "./combatRemoval.js"; // CR 506.4 — the one "is it a blocking creature" read (a zero-import leaf, no cycle)
+import { auraEntryHostSpec } from "./staticAbilityParser.js"; // the flicker's Aura gate — layers.js already imports staticAbilityParser, so no new cycle
 
 export /** Does a creature permanent (controlled by `pid`) satisfy a restriction set, from `casterId`'s view? */
 function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions, ctx = null) {
@@ -203,6 +204,12 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // Read off the layer engine (its types are card types and supertypes, so a subtype word — "aura", "saga" — answers no);
       // the printed read above still answers everything it did.
       if (permanentHasCardType(state, perm.id, r.type)) return false;
+    } else if (r.kind === "auraEntryModeled") {
+      // A FLICKER'S AURA (CR 303.4f, 2026-10-16 — Displacer Kitten, Brago): an Aura the blink returns chooses what it enchants as
+      // it comes back, so it is a legal target only when the engine can list what its Enchant line admits
+      // (staticAbilityParser.auraEntryHostSpec); otherwise it would stay in exile where the rules return it. Every non-Aura passes.
+      const tl = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0];
+      if (/\bAura\b/.test(tl) && !auraEntryHostSpec(perm.card)) return false;
     } else if (r.kind === "cardType") {
       // CARD-TYPE TARGET (CR 205.2) — the positive mirror of typeNeg: "target artifact creature" (Modular's
       // dies payoff, BLITZ MOD-1) requires the target creature's type line to ALSO carry the named card type.

@@ -41,7 +41,7 @@
  * atoms module could race a direct `import triggers` + detectTriggers call and miss the WeakMap-cached card).
  */
 
-import { addCounter, logEvent, moveCardToZone, destroyLethalCreatures, attachPermanent, findPermanent } from "../../gameState.js";
+import { addCounter, logEvent, moveCardToZone, destroyLethalCreatures, findPermanent } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js"; // PS-1: a 1/1 persister returns 0/0 → the immediate lethal SBA (CR 704.5f) — cycle-safe (triggers doesn't import atoms/selfReturn)
 import { enterCardFromZone } from "./zones.js";
 
@@ -381,8 +381,8 @@ export function applyGySelfReturnBattlefield(state, atom, ctx) {
  *  - enterCardFromZone reports it did not enter.
  * All three log a no-op rather than half-acting, so an Aura is never left on the battlefield unattached.
  *
- * The attach itself needs nothing new: attachPermanent is bidirectional, no-ops if either side is missing,
- * and already routes control-Auras (CR 613.1b), so this composes with everything downstream.
+ * The effect names the host, so the Aura enters ATTACHED to it (enterCardFromZone's `attachTo`, CR 303.4f) — the link is made
+ * before any enters trigger is checked, through attachPermanent (bidirectional; routes control-Auras, CR 613.1b).
  */
 export function applyGySelfAttachReturn(state, atom, ctx) {
   const owner = ctx.controller;
@@ -392,10 +392,9 @@ export function applyGySelfAttachReturn(state, atom, ctx) {
   if (!owner || !cardId || !state.players?.[owner]) return state;
   if (!(state.players[owner].graveyard || []).some((c) => c.id === cardId)) return noop("card-left-graveyard");
   if (!hostId || !findPermanent(state, hostId)) return noop("no-legal-host");   // CR 303.4g
-  const r = enterCardFromZone(state, { playerId: owner, cardId, fromZone: "graveyard" });
+  const r = enterCardFromZone(state, { playerId: owner, cardId, fromZone: "graveyard", attachTo: hostId });
   if (!r.entered || !r.permanentId) return noop("did-not-enter");
-  const next = attachPermanent(r.state, { equipId: r.permanentId, targetId: hostId });
-  return logEvent(next, { kind: "spell-effect", effect: "gy-self-attach-return", returned: true, controller: owner, host: hostId });
+  return logEvent(r.state, { kind: "spell-effect", effect: "gy-self-attach-return", returned: true, controller: owner, host: hostId });
 }
 
 /**

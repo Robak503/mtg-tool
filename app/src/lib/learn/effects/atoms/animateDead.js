@@ -7,8 +7,9 @@
  * graveyard). Then:
  *   - its ETB ("if it's on the battlefield", CR 603.4 — checked as it resolves) returns that card to the battlefield under the
  *     Aura's controller and attaches the Aura to it, stamping the creature `animatedBy` (the Aura's id). A card that left the
- *     graveyard first leaves the Aura attached to nothing, so it goes to its owner's graveyard (CR 704.5m — the SBA sweep reads
- *     only attached Auras, so the resolver does it).
+ *     graveyard first leaves the Aura attached to nothing, so it goes to its owner's graveyard (CR 704.5m — the SBA sweep passes
+ *     over an Aura still stamped `enchantedGraveyardCard`, which is attached to that card until this trigger settles it, so the
+ *     resolver does it).
  *   - its leave trigger finds the creature this Aura animated — that creature's controller sacrifices it. A creature already
  *     gone (it died, so the Aura fell off) is a clean no-op.
  * "Enchanted creature gets -1/-0." is the ordinary attached bonus, live once the Aura is attached.

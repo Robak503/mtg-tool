@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **23 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
+> **24 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,46 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🪢 2026-10-16 — FIX: an Aura that enters without being cast chooses what it enchants (CR 303.4f/g) · an Aura attached to nothing goes to the graveyard (CR 704.5m) · **±0** · corpus 15,492
+> Suite **19,002** green (1 skipped) / 1,780 files (+26). Lint 0. Flip-diff **0 / 0 / 0**. **Mutants 35/35**, restore byte-identical.
+> Coverage unchanged (top 1,000 904 · top 2,500 1,743). The 48-game replay (integration gate, batch 3): byte-identical.
+> · **The bug (found at shelf D21, chip task_149886ba):** `zones.enterCardFromZone` — the one non-cast entry (blink, reanimation,
+>   library and hand puts) — had no Aura handling: a blinked Pacifism came back attached to nothing, and the CR 704.5m sweep read
+>   only attached Auras, so it stayed. The reported probe reproduced it before the fix.
+> · **The entry (CR 303.4f/g):** `auraEntry.js` (new leaf) lists the legal hosts — `staticAbilityParser.auraEntryHostSpec` (the cast
+>   host spec plus land / land you control / Forest / permanent), layer-aware types, the Enchant restrictions, protection (CR
+>   702.16c; an unread quality — everything, enchantments, the chosen colour — fails closed), "can't be enchanted"; nothing is
+>   targeted (the bundled Brago ruling: hexproof doesn't matter). The house policy, every seat: the cast side's `auraCastIntent`
+>   (moved from opponentAI) — a harmful Aura on an opponent's highest-power creature, a helpful one on its controller's, a mana
+>   Aura on the land carrying the most; an unread side goes back to the side it left on a blink, else its controller's (two in
+>   three of the 833 placeable Auras the reader can't side help their host). No legal host, or an Enchant line it can't list (a
+>   Curse, Animate Dead) → it stays in its zone (`entered: false`, logged `aura-stays`). `attachTo` for an effect that names the host
+>   (Dragon Fangs, Mantle of the Ancients — their post-entry attach moved into the entry, so it attaches before triggers).
+> · **The blink:** every target exiled first (an attached target before its host), then all returned as ONE event
+>   (`enterCardsTogether`) — "The Aura can't enter the battlefield enchanting a permanent that enters the battlefield at the same
+>   time." Multi-target blinks (Brago, Displace, Ghostly Flicker) used to exile and return one target at a time.
+> · **CR 704.5m:** `sba.js` puts an Aura attached to nothing into its owner's graveyard; a Curse (`enchantedPlayerId`), Animate Dead
+>   before its trigger (`enchantedGraveyardCard`) and a bestowed creature are exempt (attached to something / not an Aura).
+>   `classLevels.test.js`'s Mask token fixture now enchants a Plains (an unattached Aura token is binned, rightly).
+> · **The guard lifted:** Displacer Kitten's and Brago's arms trade shelf D21's `typeNeg aura` for `auraEntryModeled` — an Aura is
+>   offered unless its Enchant line is one the return can't place (pins flipped in `displacerKittenBlink` / `flickerTargets`).
+> · **The flicker policy:** an Aura's gain is its RE-AIM — the host the return will choose vs its current one, scored by the same
+>   policy on the board the return sees (the leaving permanents exiled); −∞ for no host or an unread side. Brago decides the
+>   permanents first, Auras after. And, for every target: nothing that would go home to another player (Brago's "under their
+>   owner's control" — a permanent you took) is flickered.
+> · **⚑ AI cast change (the shared intent reader):** the `cantAttack` / `cantBlock` / `activatedAbilitiesLocked` grants counted as
+>   buffs, so the AI cast **Pacifism / Arrest / Prison Term** (30 Auras whose whole bonus is a restriction) on its OWN best creature
+>   (probe-proven). A restriction now reads as a curse, or as the drawback of a buff beside it (Undying Rage stays own); Crippling
+>   Blight and Cast into Darkness (held before) cast on enemies. **Action choices change** for seats with these cards, with Brago or
+>   Displacer Kitten (Auras now offered), and for any multi-target blink (one event) — COMMS flag for Omnath.
+> · Witness `auraReentry.test.js` (25) + a Dragon Fangs case in `auraSelfAttachReturn.test.js` (the effect's named host is an
+>   opponent's creature) — 20 of the first 23 failed on the HEAD engine; the 3 that passed are guards, each mutation-pinned.
+> · ⚠️ Found, not fixed (chips task_9420b128 · task_2f9dadc6 · task_18eb6934): the AI's Aura CAST puts a Curse on the first player
+>   by id (Fraying Sanity on itself) and a non-creature-host Aura on the first permanent by id (Petrify, Suppression Bonds on its own
+>   Mind Stone) — `pickAuraCast` sends every non-creature target to the mana-Aura rule (probe-proven); the Aura WITHHOLDINGS that
+>   can now be lifted, each its own slice (Replenish's mass return, an enchantment tutor-to-battlefield, Mole Module, token copies,
+>   the delayed blink, detain, Copy Enchantment); a human seat still doesn't choose (needs a pause in the shared entry).
 
 > ## 🖱️ 2026-10-16 — FIX: the Academy board's cast chooser — every cast variant is reachable (follow-up to shelf D16) · **±0** · corpus unchanged
 > Suite **18,992** green (1,780 files, 1 skipped — on 4463487c). Flip-diff n/a (UI only — no engine file touched). **Mutants 11/11**, restore byte-identical.
