@@ -16,6 +16,49 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🔧 2026-10-16 — FIX: a self-sacrifice mana cost with a discard beside it refuses (Lion's Eye Diamond, Overeager Apprentice) · **−2** · corpus 15,490
+> Suite **18,954** green (1,777 files; the one skip is optionalModeKeywords' standing SUPERSEDED pin). Lint 0. Flip-diff
+> **0 / 2 / 0**, both LOST rows deliberate (below). **Mutants 5/5**, restore byte-identical. manaProduction drift probe
+> over all 36,462 index cards: **4 change** (production → null), each audited; every other card's production, activation
+> cost and extra mana lines are byte-identical. Corpus 15,492 → 15,490.
+> · **The bug** (found auditing the native-mana tier). `manaCostModelable`'s non-{T} branch accepted ANY cost containing
+>   "Sacrifice this …", so Lion's Eye Diamond ("Discard your hand, Sacrifice this artifact: Add three mana of any one color.
+>   Activate only as an instant.") was a plain one-shot source and `manaCostConsumable` never saw the discard. Driven on a
+>   board: Phyrexian Arena cast off the Diamond alone, the Diamond to the graveyard, Grizzly Bears and Night's Whisper still
+>   in hand. Overeager Apprentice ("Discard a card, Sacrifice this creature: Add {B}{B}{B}.") the same. **Sibling asymmetry:**
+>   Diamond Lion prints the Diamond's cost behind a {T}, and the {T} branch's compound-cost guard refused it all along.
+> · **The fix.** One residue rule for every cost shape: mana symbols + ONE self-sacrifice phrase ("Sacrifice this <noun>") +
+>   separators, nothing else. The noun is one word now (the old {T} strip ate everything up to the next comma, so "Sacrifice
+>   this artifact and a creature" passed), and a self-included has/have grant's preamble ("All Slivers have") is not a cost
+>   item. Refused, not charged: an honest under-offer.
+> · **Census** (bundled index): 303 printed self-sacrifice mana lines (mostly token reminder text the parse strips) → 30
+>   cards with a runtime production → exactly **2** with a consumable beside the sacrifice. The mana-costed self-sacrifices
+>   (Chromatic Star, Coal Golem, Kaleidostone, the Invasion Attendants, Satyr Hedonist) were already charged by
+>   `manaActivationCost`; unchanged.
+> · **LOST 2, both deliberate FP removals:** Lion's Eye Diamond and Overeager Apprentice, native-mana → body-only. The tier
+>   stood on a production that credited mana for a cost nobody paid.
+> · **Runtime-only changes** (invisible to the tier diff, seen by the drift probe): **Oddric, Lunar Marquis**: the old branch
+>   read the quote he only SHARES ("… and the activated ability \"Sacrifice this creature: Add {C}.\"") as his own, so he could
+>   sacrifice himself for {C}; now no source. **Rain of Filth**: an instant's "lands you control gain \"…\"" quote; inert.
+> · **Caught before handoff:** the first cut read Basal Sliver's "All Slivers have \"Sacrifice this permanent: Add {B}{B}.\""
+>   preamble as residue. Its own production went null and `manaSources` fell back to the GROUP-GRANT path, which drops the
+>   spec's `sacrifices`, so the Sliver tapped for {B}{B} every turn. Seen on a board, fixed by the preamble rule, pinned.
+> · Witness `selfSacCompoundManaCost.test.js` (10, 8 of them red at the parent): both carriers' productions and both on a
+>   board (no record, no tap-for-mana action, nothing castable), a clean Lotus Petal paying on the same board, the
+>   second-victim probes, Basal Sliver's single sacrificing record, Oddric and Rain of Filth, the tier move.
+> · **BANKED: charging the discard** (not a quick slice; four new mechanisms). ① "Activate only as an instant" (CR 602.5e)
+>   means only with priority, never inside a payment (CR 601.2g / 605.3a; the Diamond's one ruling, 2004-10-04, says the
+>   same), so the Diamond can only ever be a priority-time float (the tap-for-mana action), never a `planPayment` source.
+>   ② The discard goes through the discard chokepoint (madness, discard triggers), and the Diamond's takes any card about to
+>   be cast from hand with it. ③ The Apprentice's "Discard a card" needs a chosen card that is not the spell being paid for,
+>   so the planner must know the spell's card. ④ Payment policy: the auto-payer must never burn a hand for mana.
+> · ⚠️ Found, not fixed (filed as tasks): the group-grant fallback in `manaSources` / `actionsTapForMana` drops the granted
+>   spec's `sacrifices`, so every Sliver with no mana of its own taps for a repeatable {B}{B} beside Basal Sliver today
+>   (Metallic Sliver, on a board); a double-faced card whose BACK face is a land is parsed as a land on its front face (Storm
+>   the Vault offered as a self-sacrificing {U}-per-artifact source, Drowner of Truth a pay-{C}-for-{C} sacrifice). Seen,
+>   not queued: Rhystic Cave's "unless any player pays {1}" and Mana Screw / Everythingamajig's coin flip are ignored by the
+>   mana parse.
+
 > ## 🎯 2026-10-16 — PLAY-WEIGHTED: the Adventure lane takes ENCHANTMENT halves — Virtue of Persistence (EDHREC #2004), Virtue of Knowledge (#2251), Virtue of Loyalty (#2621) · **+4** · corpus 15,496
 > Suite **18,999** green (1 skipped; 1,780 files). Flip-diff **+4, −0, RETIERED 4** (non-native → non-native, arbiter-spell →
 > body-only): Virtue of Persistence, Virtue of Knowledge, Virtue of Loyalty and An Unexpected Party → native-mixed. Top 1,000

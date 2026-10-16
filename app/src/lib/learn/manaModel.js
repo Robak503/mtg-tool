@@ -758,18 +758,38 @@ function matchesTapOtherFilter(state, perm, filter) {
   return word(filter);   // card type (creature / artifact) or subtype (elf / druid / food) — word-bound test
 }
 
+// The SELF-SACRIFICE a mana cost may carry — "Sacrifice this artifact", "Sacrifice this token", "Sacrifice ~": the phrase and
+// ONE noun. Anything written after the noun ("Sacrifice this artifact and a creature") is left behind as residue.
+const SELF_SAC_COST_RE = /\bsacrifice (?:this [a-z]+|~)/gi;
+// A SELF-INCLUDED GROUP GRANT — Basal Sliver's "All Slivers have \"Sacrifice this permanent: Add {B}{B}.\"" on a Sliver.
+// stripNonSelfQuotedGrants has already removed every quoted grant the card is not inside, so a has/have quote still here
+// is the card's own ability, and its cost starts at the opening quote: "All Slivers have" is the grant, not a cost item.
+// (The matcher is that function's own subject shape.) Only has/have: a "gain" quote (Rain of Filth's lands until end of
+// turn) or a sharing clause (Oddric, Lunar Marquis — "the activated ability \"Sacrifice this creature: Add {C}.\"", which
+// Oddric has only while another creature of his controller does) is never the card's own standing ability, so its text
+// stays residue and the line refuses.
+const SELF_GRANT_PREAMBLE_RE = /^[^.\n"“]*?\bha(?:ve|s)\b[^.\n"“]*?["“]/i;
+
 function manaCostModelable(cost) {
-  if (/\{t\}/i.test(cost)) {
-    // COMPOUND-COST GUARD (SHELF S7 audit catch — Sphere of the Suns / Channeler Initiate / Spell Satchel /
-    // Springleaf Drum): "{T}, Remove a charge counter …" / "{T}, Tap an untapped creature …" is NOT a plain
-    // tap dork — riding the {T} half alone minted PHANTOM mana every turn (the consumable half was never
-    // spent, never even required). A {T} line is modelable only when the rest of the cost is mana symbols,
-    // separators, or a SELF-sacrifice (the Treasure/Gold compound "{T}, Sacrifice this artifact" — the
-    // production parse flags `sacrifices` and the commit path cracks it, so that pair stays fully modeled).
-    return cost.replace(/\{[^}]*\}/g, " ").replace(/\bsacrifice (?:this|~)[^,:]*/gi, " ").replace(/[\s,]/g, "") === "";
-  }
-  if (/\bsacrifice (?:this|~)\b/i.test(cost)) return true; // self-sac one-shot (Treasure/Gold) — cracked on use
-  return cost.replace(/\{[^}]*\}/g, "").replace(/[\s,]/g, "") === ""; // pure-mana / {Q} filter (payable from pool)
+  // ONE RESIDUE RULE FOR EVERY COST SHAPE: drop a self-included grant's preamble, then strip the mana symbols ({T}, {Q} and
+  // the pips manaActivationCost charges), a SELF-sacrifice (the production flags `sacrifices` and the commit path cracks the
+  // source — Treasure / Gold / Lotus Petal / Eldrazi Spawn) and the separators; the cost is modelable only when NOTHING is
+  // left.
+  //
+  // COMPOUND-COST GUARD (SHELF S7 audit catch — Sphere of the Suns / Channeler Initiate / Spell Satchel / Springleaf Drum):
+  // "{T}, Remove a charge counter …" / "{T}, Tap an untapped creature …" is NOT a plain tap dork — riding the {T} half
+  // alone minted PHANTOM mana every turn (the consumable half was never spent, never even required).
+  //
+  // ⛔ THE SELF-SACRIFICE HALF IS HELD TO THE SAME RULE. It used to be its own branch that accepted ANY cost containing a
+  // self-sacrifice, so Lion's Eye Diamond ("Discard your hand, Sacrifice this artifact: Add three mana of any one color.")
+  // and Overeager Apprentice ("Discard a card, Sacrifice this creature: Add {B}{B}{B}.") were plain one-shot sources —
+  // three mana for the sacrifice, the discard never charged nor required (driven on a board: Phyrexian Arena cast off
+  // either card with the whole hand kept). Cheaper than printed, the forbidden direction. Both now refuse, an honest
+  // under-offer until the discard is paid for real — and Lion's Eye Diamond needs more than a payment flag: "Activate only
+  // as an instant" (CR 602.5e) means only while its controller has priority, never in the middle of paying a cost (CR
+  // 601.2g / 605.3a), so the auto-payer can never crack it, and the hand it discards still holds any card about to be
+  // cast from it.
+  return cost.replace(SELF_GRANT_PREAMBLE_RE, "").replace(/\{[^}]*\}/g, " ").replace(SELF_SAC_COST_RE, " ").replace(/[\s,]/g, "") === "";
 }
 
 // Is the cost an UNPAYABLE, non-repeatable CONSUMABLE the sim can't spend — so registering its "Add …" as a
@@ -778,7 +798,9 @@ function manaCostModelable(cost) {
 // (Treasonous Ogre), DISCARD (Skirge Familiar), REMOVE A COUNTER (Cryptic Trilobite — a FINITE counter pool
 // the sim would treat as infinite), EXILE-as-cost (Simian Spirit Guide — also never a battlefield source),
 // TAP-OTHER permanents (Heritage Druid convoke-style — the sim doesn't tap the other Elves), or RETURN-to-hand
-// (Grinning Ignus). Excludes self-sac (the Treasure case, handled by `sacrifices`) and a {T} cost (a real dork).
+// (Grinning Ignus). Excludes a cost that is ONLY a {T}, mana symbols and/or a self-sacrifice (manaCostModelable — the
+// Treasure case, handled by `sacrifices`); a self-sacrifice with a consumable beside it (Lion's Eye Diamond's discard) is
+// consumable like any other.
 function manaCostConsumable(cost) {
   // A modelable line (plain {T} / pure-mana / self-sac — incl. the Treasure "{T}, Sacrifice this" compound)
   // is never consumable. The old blanket {T} exemption let a COMPOUND "{T}, Remove a counter / Tap another /

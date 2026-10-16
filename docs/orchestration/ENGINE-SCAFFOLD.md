@@ -410,7 +410,9 @@ means "all permanents" (vacuous filter).
   or `null`. Resolution: basic-land name → `KNOWN_ROCKS` table → oracle "Add"
   parse → land colorless fallback. **Heavily gated against phantom sources**: a
   triggered/ETB/one-shot "Add" is not a standing source; an unpayable cost
-  (non-self sacrifice, pay-life, etc.) is not a standing source; a quoted
+  (non-self sacrifice, pay-life, etc.) is not a standing source, and a
+  self-sacrifice counts only as the cost's WHOLE non-mana part (a discard beside
+  it — Lion's Eye Diamond — refuses, `manaCostModelable`); a quoted
   *granted* ability belongs to the recipients, not the granter
   (`stripNonSelfQuotedGrants` — the Cryptolith Rite fix, §6); a "doesn't untap"
   restriction routes the card out entirely (the Mana Vault fix, §6).
