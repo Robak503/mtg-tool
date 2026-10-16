@@ -964,8 +964,11 @@ export function destroyExileClauseParser(clause) {
   // (ANY exit — bounce included, CR 610.3a). Per CR 610.3b, a source already gone at resolution → the exile
   // doesn't happen at all (the resolver's source guard). An inner shape the bare parser doesn't model (an
   // "up to one target" form, an unmodeled union) returns null → LOW → Arbiter (a safe FN, whole-card CREED).
-  // typeNeg:aura — a detained AURA would need attach-on-return modeling (CR 611.3c owner's choice); v1
-  // excludes auras AT ENUMERATION (never offered, never a silent resolver skip) — a documented narrow FN.
+  // A detained AURA (2026-10-16 — v1 excluded every Aura at enumeration, `typeNeg aura`, while the return had no attach step)
+  // returns under its owner's control (CR 610.3c) choosing what it enchants as it enters (CR 303.4f — zones.applyDetainReturn
+  // → enterCardFromZone), and with nothing it may enchant it remains exiled (CR 303.4g; the bundled Oblivion Ring ruling).
+  // `auraEntryModeled` still keeps out an Aura whose Enchant line the engine can't list (a Curse) — a documented narrow FN.
+  // (This note used to cite "CR 611.3c" for the owner's choice; 611.3c is about static effects applying as a permanent enters.)
   {
     // SHELF-85 V15 (2026-09-04 — Chains of Custody / Sheltered by Ghosts "When this Aura enters, exile target nonland
     // permanent an opponent controls until this AURA leaves the battlefield"): the Aura noun joins the alternation — the
@@ -974,7 +977,7 @@ export function destroyExileClauseParser(clause) {
     const dtm = t.match(/^exile (.+?) until this (?:enchantment|creature|artifact|permanent|aura) leaves the battlefield$/);
     if (dtm) {
       let body = dtm[1];
-      const extra = [{ kind: "typeNeg", type: "aura" }];
+      const extra = [{ kind: "auraEntryModeled" }];
       // "another target …" (Oblivion Ring) — the source can't detain itself (CR 109.5); normalize + notSource.
       if (/^another target /.test(body)) { body = body.replace(/^another target /, "target "); extra.push({ kind: "notSource" }); }
       // "target tapped creature …" (Seal Away / Glass Casket's kin) — the tapped restriction, then normalize.

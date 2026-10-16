@@ -1457,7 +1457,12 @@ function recordLeaveEvent(state, permanent, toGraveyard, toZone = null) {
   if (permanent.earthbendReturn) { ev.earthbendReturn = true; ev.toZone = toZone; }
   // DETAIN (DT-1, CR 610.3a): carry the detainer's linked-exile records so checkLeavesTriggers can
   // synthesize the [detain-return] one-shot — fires on ANY exit (bounce included), unlike earthbend.
-  if (permanent.detainedExile?.length) ev.detainedExile = permanent.detainedExile;
+  // + the permanents on the battlefield as it leaves (`boardIds`, 2026-10-16): a returning Aura may enchant only one of those —
+  // every return this leave sets off is simultaneous (CR 610.3d), so a card another detainer returns is not a host for it.
+  if (permanent.detainedExile?.length) {
+    ev.detainedExile = permanent.detainedExile;
+    ev.boardIds = Object.values(state.players || {}).flatMap((p) => (p.battlefield || []).map((x) => x.id));
+  }
   return { ...state, pendingLeaveEvents: [...(state.pendingLeaveEvents || []), ev] };
 }
 

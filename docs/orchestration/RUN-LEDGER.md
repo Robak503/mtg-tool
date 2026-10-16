@@ -16,6 +16,30 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🌿 2026-10-16 — FEAT: a detained Aura returns attached under its owner's control (CR 610.3c, 303.4f) · the CR 610.3d simultaneity guard · **±0** · corpus 15,494
+> Suite **19,042** green (1 skipped) / 1,784 files. Lint 0. Flip-diff **0 / 0 / 0**. **Mutants 9/9**, restore byte-identical. CR citations: no new dead cite.
+> Coverage unchanged (top 1,000 904 · top 2,500 1,743).
+> · **The withholding lifted:** the detain frame (`removal.js` — Banishing Light, and Oblivion Ring's two-trigger printing folded
+>   onto it) excluded `typeNeg aura` at enumeration. The return (`zones.applyDetainReturn` → `enterCardFromZone`) brings an Aura
+>   back under its owner's control (CR 610.3c) choosing what it enchants (CR 303.4f — the owner chooses, the bundled Oblivion Ring
+>   ruling), or leaves it exiled forever with nothing to enchant (CR 303.4g, the same ruling). `auraEntryModeled` keeps a Curse out.
+>   The note's old citation "CR 611.3c" (static effects as a permanent enters) is corrected to 610.3c.
+> · **CR 610.3d:** every return one leave event sets off is simultaneous, but the engine runs each detainer's return as its own
+>   trigger, so a card another detainer returned is already on the battlefield when a later return runs — and an Aura can't enter
+>   attached to a permanent entering at the same time. `gameState.recordLeaveEvent` records the battlefield as the detainer leaves
+>   (`boardIds`), `triggers.checkLeavesTriggers` threads it (`detainBoardIds`), and the return passes it as the host option
+>   `presentIds` (`auraEntry.auraEntryHosts`). Permanent ids, not timestamps: tokens are minted without one. For the folded
+>   two-trigger printing the returns really are separate triggers, so this can miss a legal host there (a false negative), never
+>   add one. An older save's trigger carries no list and chooses on the board as it is.
+> · **The side it left:** the link records an exiled Aura's side (`auraSideHint`) for an Aura whose side the policy can't read.
+> · Graduated: `detainExile.test.js`'s parse pin and its "an opposing AURA is never offered" runtime pin (the Light now takes the
+>   Pacifism off your bear).
+> · Witness `auraDetainReturn.test.js` (8): the restrictions and tiers; the pool (never the Curse); Banishing Light takes the
+>   opponent's Pacifism off your Bears and, leaving, returns it under its owner's control onto your Craw Wurm; your Curiosity
+>   returns to the opponent's Giant (the link's side); the Oblivion Ring ruling (nothing to enchant → stays exiled); two Lights
+>   leaving together in either order — the Rancor never takes the Wurm returning with it; the control — the second Light leaving
+>   later lets it.
+
 > ## 🌿 2026-10-16 — FEAT: Flickerwisp's end-step return brings an Aura back attached (CR 303.4f) · **±0** · corpus 15,494
 > Suite **19,034** green (1 skipped) / 1,783 files. Lint 0. Flip-diff **0 / 0 / 0**. **Mutants 7/7**, restore byte-identical. CR citations: no new dead cite.
 > Coverage unchanged (top 1,000 904 · top 2,500 1,743).

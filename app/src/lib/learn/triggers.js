@@ -7623,7 +7623,8 @@ export function checkLeavesTriggers(state) {
     // re-enters each card from its owner's exile zone (a gone card is a clean no-op).
     if (e.detainedExile?.length) {
       const desc = { event: "detainReturn", scope: "self", whose: "any", optional: false, effectClause: "[detain-return] return the exiled cards to the battlefield" };
-      fired = fired.concat(makePendingTrigger(desc, lookBack, lookBack, { detainedExile: e.detainedExile }));
+      // `detainBoardIds`: the battlefield as the detainer left — what a returning Aura may enchant (CR 610.3d; auraEntry.js).
+      fired = fired.concat(makePendingTrigger(desc, lookBack, lookBack, { detainedExile: e.detainedExile, ...(e.boardIds ? { detainBoardIds: e.boardIds } : {}) }));
     }
     // SELF-PiG ("ltb") — the Aura self-PiG-return (Rancor), printed "is put INTO A GRAVEYARD from the
     // battlefield" (CR 700.4 — NOT a bounce/exile). Fire "ltb" ONLY for a graveyard exit; a bounce/exile leave

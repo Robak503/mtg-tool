@@ -1813,6 +1813,9 @@ export function applyExileUntilLeaves(state, atom, ctx) {
     const lk = findPermanent(next, t.id);
     if (!lk) continue;
     const card = lk.permanent.card;
+    // An attached AURA's side as it leaves (2026-10-16): "own" when its host's controller is its owner (who it returns under),
+    // else "enemy" — the house policy's `sideHint` for an Aura whose side it can't read (auraEntry.auraEntryHostScore).
+    const hostController = lk.permanent.attachedTo ? findPermanent(next, lk.permanent.attachedTo)?.controller ?? null : null;
     next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "exile", cardId: t.id });
     exiled.push(t.id);
     // OWNER-LINK (SB-2 desk completion): a STOLEN permanent (owner-stamped by a cross-player reanimation)
@@ -1820,7 +1823,8 @@ export function applyExileUntilLeaves(state, atom, ctx) {
     // return one-shot (CR 610.3; enterCardFromZone reads exactly players[ownerId].exile) misses the card
     // and it strands in exile forever. Owner-return also matches the class's printed text ("return that
     // card to the battlefield under its owner's control"). No owner stamp → controller, unchanged.
-    if (!card?.token) links.push({ cardId: card.id, ownerId: lk.permanent.owner && next.players[lk.permanent.owner] ? lk.permanent.owner : lk.controller });
+    const ownerId = lk.permanent.owner && next.players[lk.permanent.owner] ? lk.permanent.owner : lk.controller;
+    if (!card?.token) links.push({ cardId: card.id, ownerId, ...(hostController ? { auraSideHint: hostController === ownerId ? "own" : "enemy" } : {}) });
   }
   if (links.length) {
     // Stamp the links on the LIVE source permanent (it may have moved in `next`'s player objects — re-find).
@@ -1848,6 +1852,10 @@ export function applyExileUntilLeaves(state, atom, ctx) {
  * OWNER's exile zone to the battlefield under that owner's control (enterCardFromZone — ETB/landfall/
  * permanent-enters fire like any entry; a fresh permanent id, CR 400.7). A card no longer in that exile zone
  * is a clean no-op (CR 608.2b-style fail-safe); a token never linked, so nothing fabricated returns.
+ * AN AURA (2026-10-16) returns choosing what it enchants (CR 303.4f — the owner chooses, the bundled Oblivion Ring ruling), only
+ * among the permanents on the battlefield as the detainer left (`ctx.detainBoardIds` — every return the leave sets off is
+ * simultaneous, CR 610.3d, so never a card another detainer returns), and with nothing it may enchant it remains exiled
+ * (CR 303.4g). A trigger from an older save carries no board list and chooses on the board as it is.
  */
 const DETAIN_RETURN_RE = /^\[detain-return\] return the exiled cards to the battlefield$/i;
 export function detainReturnClauseParser(clause) {
@@ -1858,7 +1866,8 @@ export function applyDetainReturn(state, atom, ctx) {
   const returned = [];
   for (const link of ctx.detainedExile || []) {
     if (!link?.cardId || !next.players?.[link.ownerId]) continue;
-    const { state: after, entered } = enterCardFromZone(next, { playerId: link.ownerId, cardId: link.cardId, fromZone: "exile" });
+    const { state: after, entered } = enterCardFromZone(next, { playerId: link.ownerId, cardId: link.cardId, fromZone: "exile",
+      auraSideHint: link.auraSideHint || null, ...(Array.isArray(ctx.detainBoardIds) ? { auraHostOpts: { presentIds: ctx.detainBoardIds } } : {}) });
     next = after;
     if (entered) returned.push(link.cardId);
   }

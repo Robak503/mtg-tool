@@ -18,6 +18,7 @@ summarizes the notable changes.
 - **Champion's Helm** — equipped creature gets +2/+2 and has hexproof while it is legendary; **Trailblazer's Boots** — equipped creature has nonbasic landwalk (it can't be blocked while the defending player controls a nonbasic land); also **Gimli's Axe**, **Hero's Heirloom** and **Dryad Sophisticate**
 
 ### Changed
+- **Banishing Light**, **Oblivion Ring** and the other "exile it until this leaves the battlefield" cards can now exile an Aura: when they leave, it returns under its owner's control enchanting something that was already on the battlefield (never a card returning at the same moment), or stays exiled if there is nothing it can enchant
 - **Flickerwisp** and **Glimmerpoint Stag** can now exile an Aura: it comes back at the beginning of the next end step under its owner's control, enchanting something (it stays exiled if there is nothing it can enchant)
 - **Flash Photography** and **Caretaker's Talent** can now copy an Aura: the token enchants something as it is created (copying an opponent's **Pacifism** gives you one for their creature), and is not created when there is nothing it can enchant. A copied Role never goes on a creature that already has one of your Roles
 - **Mole Module**: an Aura among the milled cards can now be put onto the battlefield too, enchanting something as it enters (it is offered only when there is something it can enchant)

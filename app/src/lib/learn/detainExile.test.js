@@ -10,8 +10,9 @@
  * under that owner's control (a fresh permanent — its own ETBs fire, CR 400.7).
  *
  * CR guards pinned: 610.3b (source already left → no exile at all) · 111.7 (a token vanishes, never
- * linked, never returns) · the v1 aura exclusion (typeNeg at ENUMERATION — a detained Aura would need
- * attach-on-return modeling, so it is never offered; a documented narrow FN, not a resolver skip).
+ * linked, never returns) · the Aura gate (graduated 2026-10-16 from the v1 exclusion, which kept every Aura out
+ * at enumeration while the return had no attach step: now only an Aura whose Enchant line the engine can't list
+ * stays out — the return chooses what the others enchant; auraDetainReturn.test.js holds those cases).
  * Real oracle fixtures (bundled Scryfall, verified 2026-07-16).
  */
 
@@ -38,11 +39,12 @@ const ANGEL_OF_SANCTIONS = { id: "as", name: "Angel of Sanctions", type: "Creatu
   oracle: "Flying\nWhen this creature enters, you may exile target nonland permanent an opponent controls until this creature leaves the battlefield.\nEmbalm {5}{W}" };
 
 describe("parse + classify", () => {
-  it("the detain clause parses HIGH with the link flag + the v1 aura exclusion", () => {
+  it("the detain clause parses HIGH with the link flag + the Aura gate (auraEntryModeled — graduated 2026-10-16 from typeNeg aura)", () => {
     const p = parseEffectClause("exile target nonland permanent an opponent controls until this enchantment leaves the battlefield");
     expect(p.confidence).toBe("high");
     expect(p.atoms[0]).toMatchObject({ op: "exile", targetType: "nonlandPermanent", untilSourceLeaves: true });
-    expect(p.atoms[0].restrictions).toContainEqual({ kind: "typeNeg", type: "aura" });
+    expect(p.atoms[0].restrictions).toContainEqual({ kind: "auraEntryModeled" });
+    expect(p.atoms[0].restrictions).not.toContainEqual({ kind: "typeNeg", type: "aura" });
     // The normalized qualifiers: tapped (Seal Away) and the controller+MV combination (Portable Hole).
     const tapped = parseEffectClause("exile target tapped creature an opponent controls until this enchantment leaves the battlefield");
     expect(tapped.atoms[0].restrictions).toContainEqual({ kind: "tapped", value: true });
@@ -132,7 +134,9 @@ describe("runtime — the full detain loop", () => {
     expect(s.players.ai1.exile || []).toHaveLength(0);
   });
 
-  it("v1 aura exclusion — an opposing AURA is never offered: with only an aura available the trigger drops", () => {
+  // GRADUATED 2026-10-16: this was "v1 aura exclusion — an opposing AURA is never offered: with only an aura available the trigger
+  // drops". The Aura is offered now (its return chooses what it enchants), so the Light takes the Pacifism off your bear.
+  it("an opposing AURA is offered now: with only that Pacifism available, Banishing Light exiles it and your bear is free", () => {
     let s = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
     // ai1's only nonland permanent is an Aura enchanting the USER's own bear.
     const myBear = createPermanent({ id: "mb", card: { id: "mbc", name: "My Bear", type: "Creature — Bear", power: "2", toughness: "2", oracle: "" }, controller: "user", summoningSick: false });
@@ -143,7 +147,8 @@ describe("runtime — the full detain loop", () => {
     s = enterPermanent(s, BANISHING_LIGHT, "user", {});
     let after = flushTriggers(s, "user");
     while ((after.stack || []).length) after = resolveTopOfStack(after);
-    expect(after.players.ai1.battlefield.map((p) => p.card.name)).toEqual(["Pacifism"]); // still there
-    expect(after.players.ai1.exile || []).toHaveLength(0);
+    expect(after.players.ai1.battlefield.map((p) => p.card.name)).toEqual([]); // the Pacifism is gone
+    expect((after.players.ai1.exile || []).map((c) => c.name)).toEqual(["Pacifism"]);
+    expect(after.players.user.battlefield.find((p) => p.id === "mb").attachments).toEqual([]); // the bear carries nothing
   });
 });

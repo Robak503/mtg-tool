@@ -162,11 +162,15 @@ function cantBeEnchanted(state, perm, controller) {
  *   · onlyCreatures — "Only creatures can be enchanted this way" (Retether): the host must be a creature as well, read
  *     layer-aware, so an animated land is one (the bundled Retether ruling's own example).
  *   · excludeIds — permanents an earlier Aura of the same event already took, when that would be wrong to share (a Role).
+ *   · presentIds — the permanents on the battlefield when the event that returns the Aura happened; only those may be chosen.
+ *     A detainer's return (CR 610.3) is simultaneous with every other return its leave event set off (CR 610.3d), but the
+ *     engine runs each as its own trigger, so a card another detainer returned is already on the battlefield — and an Aura
+ *     can't enter attached to a permanent entering at the same time.
  * A ROLE (CR 303.7) never chooses a permanent that already carries a Role its controller controls. CR 704.5y would put the
  * older one into the graveyard, and sba.js does not run that check, so the pair would both stay: a missed host, never two Roles
  * of one player on one permanent.
  */
-export function auraEntryHosts(state, auraCard, controller, { onlyCreatures = false, excludeIds = null } = {}) {
+export function auraEntryHosts(state, auraCard, controller, { onlyCreatures = false, excludeIds = null, presentIds = null } = {}) {
   const spec = auraEntryHostSpec(auraCard);
   const pred = spec ? ENTRY_HOST_PREDICATES[spec.targetType] : null;
   if (!pred) return null;
@@ -178,6 +182,7 @@ export function auraEntryHosts(state, auraCard, controller, { onlyCreatures = fa
       if (!pred(state, perm)) continue;
       if (onlyCreatures && !isCreatureNow(state, perm)) continue;
       if (excludeIds && excludeIds.includes(perm.id)) continue;
+      if (presentIds && !presentIds.includes(perm.id)) continue;
       if (isRole && carriesRoleOf(state, perm, controller)) continue;
       if ((spec.restrictions || []).length && !creatureSatisfiesRestrictions(state, perm, pid, controller, spec.restrictions)) continue;
       if (protectionApplies(permanentProtectionColors(state, perm.id), auraColors)) continue; // CR 702.16c
