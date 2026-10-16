@@ -16,6 +16,28 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🌿 2026-10-16 — FEAT: a clone may copy an Aura — the copy chooses what it enchants (CR 303.4f), or the spell goes to the graveyard (CR 303.4g) · **±0** · corpus 15,494
+> Suite **19,049** green (1 skipped) / 1,785 files. Lint 0. Flip-diff **0 / 0 / 0**. **Mutants 7/7**, restore byte-identical. CR citations: no new dead cite.
+> Coverage unchanged (top 1,000 904 · top 2,500 1,743).
+> · **The withholding lifted:** `cloneCopy.cloneWidenedCopiable` (Copy Enchantment's "any enchantment", Clever Impersonator's
+>   "any nonland permanent", Sakashima's Protege's entered-this-turn pool) never offered an Aura. A copy entering as an Aura is
+>   not resolving as an Aura spell, so CR 303.4f applies: `resolvers.resolveCloneChoice` chooses the host just before it enters
+>   (the bundled Copy Enchantment ruling) and enters it attached (`enterPermanent`'s `attachTo`). With nothing it may enchant, the
+>   clone — a resolving spell — goes to its owner's graveyard (CR 303.4g: "unless that zone is the stack"), logged `aura-stays`.
+>   An Aura is copiable when its Enchant line is one the engine lists (`auraEntryHostSpec`, now imported by cloneCopy — it
+>   reaches no clone module); the Saga exclusion stands (CR 714.3a).
+> · **The offer:** the PERMANENT_ETB pause lists an Aura only when its COPY (the clone's riders applied) would have a host on the
+>   board the clone enters (`cloneCandidateEnters`); a pick from outside the offer is refused at the settle (the clone enters as
+>   itself), as before.
+> · Graduated: `cloneWidened.test.js` (both pools and both pauses gain the Pacifism; "a wrong pick (the Aura) is refused" → the
+>   copy becomes a Pacifism on the opponent's Bear) and `sakashimasProtege.test.js` (the pool and the witness gain the Pacifism).
+>   Both boards' Pacifism is attached to a creature now: an unattached Aura is put into the graveyard by the next state-based check
+>   (CR 704.5m, the re-entry slice), so it vanished mid-cast and the stale pick entered the clone as itself.
+> · Witness `copyEnchantmentAura.test.js` (7): the tiers; the offer (Pacifism and Ghostly Prison, never the Saga or the Curse);
+>   copying the opponent's Control Magic takes your Craw Wurm back; a stale pick with no host sends Copy Enchantment to the
+>   graveyard; a pick of the Curse from outside the offer is refused; the Cartouche whose copy has no host is not offered;
+>   Clever Impersonator's Rancor copy (an Aura, not a creature) on your best creature.
+
 > ## 🌿 2026-10-16 — FEAT: a detained Aura returns attached under its owner's control (CR 610.3c, 303.4f) · the CR 610.3d simultaneity guard · **±0** · corpus 15,494
 > Suite **19,042** green (1 skipped) / 1,784 files. Lint 0. Flip-diff **0 / 0 / 0**. **Mutants 9/9**, restore byte-identical. CR citations: no new dead cite.
 > Coverage unchanged (top 1,000 904 · top 2,500 1,743).

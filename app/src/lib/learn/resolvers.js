@@ -28,6 +28,7 @@ import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js
 import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate, cloneWidenedCopiable, enteredThisTurnCopiable } from "./cloneCopy.js"; // + cloneWidenedCopiable (KN-2) + enteredThisTurnCopiable (shelf D36)
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
+import { auraEntryHasHost, chooseAuraEntryHost } from "./auraEntry.js"; // a clone that enters as a copy of an Aura chooses what it enchants (CR 303.4f) — auraEntry reaches neither resolvers nor cloneCopy (checked 2026-10-16)
 import { isNativeManaAura, auraChoosesColorOnEnter, parseSoulbondBond } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) — the Aura spell's host re-check; SOULBOND (BLITZ SL-1) — the modeled bond reader
 import { equipmentBarredAsCreature, permanentHasCardType, colorsOf, permanentColors, permanentIsCreature } from "./layers.js"; // CR 301.5c — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types; + the colours the CR 608.2b re-checks judge protection against
 import { canBeTargetedBy, playerTargetableBy } from "./spellEffects.js"; // the ONE targetability predicate the Aura / Equip offers read — re-asked as those spells and abilities resolve (CR 608.2b, 608.3b)
@@ -341,14 +342,28 @@ export function resolveCloneChoice(state, chosenPermId) {
     // subtype, granted keyword, set P/T, conditional vanishing all bake into the copy's card. The
     // entersWithCounterIf / noop riders are NOT card-level (a counter lives on the permanent; isn't-legendary is
     // unenforced) — they're filtered out here so snapshotCopiedCard only sees card riders.
-    const cardRiders = riders.filter((r) => r.kind !== "entersWithCounterIf" && r.kind !== "noop");
-    const copied = snapshotCopiedCard(chosen.permanent, cloneCard, cardRiders);
+    const copied = snapshotCopiedCard(chosen.permanent, cloneCard, cloneCardRiders(riders));
     // CONDITIONAL ENTERS-WITH-COUNTER (Spark Double, CR 707.9a + 614.1c) — resolve the gate against the COPIED
     // card's resulting type (creature copy → +1/+1; planeswalker copy → loyalty) and pass the concrete counter
     // to enterPermanent so it's applied AS the permanent enters (before the lethal SBA + before ETB triggers
     // see it), exactly like every other enters-with-counter replacement. A non-matching condition adds nothing.
     const extraCounter = resolveCloneEntersCounter(riders, copied);
-    next = enterPermanent(next, copied, controller, { printedCard: printedCard || cloneCard, extraCounter, ...(owner ? { owner } : {}), ...(escaped ? { escaped: true } : {}) });
+    // A COPY OF AN AURA (2026-10-16) is not resolving as an Aura spell, so CR 303.4f applies: its controller chooses what it
+    // enchants just before it enters (the bundled Copy Enchantment ruling), nothing targeted, on the board as it enters — the
+    // clone is the one permanent entering. With nothing it may enchant it "remains in its current zone, unless that zone is the
+    // stack. In that case, the Aura is put into its owner's graveyard" (CR 303.4g): this settle is a resolving spell's, so the
+    // card goes to its owner's graveyard. (The offer above lists only an Aura with a host; this covers a board that changed.)
+    let attachTo = null;
+    if (/\bAura\b/.test(String(copied?.type || copied?.type_line || "").split(" // ")[0])) {
+      const choice = chooseAuraEntryHost(next, copied, controller);
+      if (!choice.hostId) {
+        const gone = finishSpellResolution(next, { playerId: owner || controller, card: printedCard || cloneCard });
+        return logEvent(gone, { kind: "aura-stays", cardName: copied.name, controller, zone: "stack",
+          reason: choice.modeled ? "nothing it can enchant (CR 303.4g)" : "its enchant ability is not modeled" });
+      }
+      attachTo = choice.hostId;
+    }
+    next = enterPermanent(next, copied, controller, { printedCard: printedCard || cloneCard, extraCounter, ...(attachTo ? { attachTo } : {}), ...(owner ? { owner } : {}), ...(escaped ? { escaped: true } : {}) });
   } else {
     // Declined, or the target is gone/illegal — the clone enters as itself (a 0/0).
     next = enterPermanent(next, cloneCard, controller, { ...(printedCard ? { printedCard } : {}), ...(owner ? { owner } : {}) });
@@ -357,6 +372,21 @@ export function resolveCloneChoice(state, chosenPermId) {
   // (the copy case finds nothing lethal, so this is a no-op for it).
   const lethal = destroyLethalCreatures(next);
   return checkDiesTriggers(lethal.state, lethal.dead);
+}
+
+/** The clone riders that modify the copied CARD (CR 707.9) — the entered-with counter and the no-op riders are not card-level. */
+const cloneCardRiders = (riders) => (riders || []).filter((r) => r.kind !== "entersWithCounterIf" && r.kind !== "noop");
+
+/**
+ * A copy candidate whose copy would enter as an Aura with nothing to enchant is not offered (2026-10-16): choosing it would
+ * only put the clone into its owner's graveyard (CR 303.4g — resolveCloneChoice). Read on the copy — the clone's riders
+ * applied — on the board the clone is entering. Every non-Aura candidate passes.
+ */
+function cloneCandidateEnters(state, candidateId, cloneCard, riders, controller) {
+  const p = findPermanent(state, candidateId)?.permanent;
+  if (!p) return false;
+  const copied = snapshotCopiedCard(p, cloneCard, cloneCardRiders(riders));
+  return !/\bAura\b/.test(String(copied?.type || copied?.type_line || "").split(" // ")[0]) || auraEntryHasHost(state, copied, controller);
 }
 
 /**
@@ -415,7 +445,7 @@ export const RESOLVERS = Object.freeze({
       // for an unrestricted clone. The candidate list is filtered here so the picker only ever offers
       // legal targets; the riders ride in the resume so resolveCloneChoice applies them to the copy.
       const mvCap = cloneMvCap(card, spec, xValue);
-      const candidates = cloneCandidates(state, controller, spec.scope, mvCap);
+      const candidates = cloneCandidates(state, controller, spec.scope, mvCap).filter((c) => cloneCandidateEnters(state, c.id, card, spec.riders, controller));
       if (candidates.length > 0) {
         // WI-2 (CR 707.9): thread the parsed mandatory-ness. `optional:false` ("~ enters as a copy
         // of …", no "you may") means the copy choice CANNOT be declined — the pilot seam drops the

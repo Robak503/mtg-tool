@@ -3,8 +3,8 @@
  *
  *   "Flash / Cascade / You may have this creature enter as a copy of any permanent that entered this turn."
  *
- * The clone scope "any permanent that entered this turn" is the widened nonland pool (never a land, an Aura or a Saga —
- * the narrower-is-safe pool Clever Impersonator uses) narrowed to permanents whose enteredOnTurn stamp is this turn, any
+ * The clone scope "any permanent that entered this turn" is the widened nonland pool (never a land or a Saga; an Aura since
+ * 2026-10-16, when its copy can choose what it enchants — the pool Clever Impersonator uses) narrowed to permanents whose enteredOnTurn stamp is this turn, any
  * controller. One helper serves the enumerator and the resolution-time re-check (CR 707.9c), so they cannot drift. The
  * printed Flash and Cascade lines keep their cast-path jobs (timing; the cast trigger, CR 702.85a) and are consumed only
  * in the clone parser's shape view, as Flash already was.
@@ -41,8 +41,9 @@ function table({ active = "user", library = [], mana = { G: 2 } } = {}) {
     players: { ...g.players,
       user: { ...g.players.user, hand: [{ ...BEARS, id: "bears" }, { ...PROTEGE, id: "protege" }], library: library.map(([id, c]) => ({ ...c, id })), manaPool: { ...g.players.user.manaPool, ...mana } },
       ai: { ...g.players.ai, battlefield: [
-        P("ANGEL", ANGEL, "ai", TURN), P("OLD", BEARS, "ai", TURN - 1), P("SOL", SOL, "ai", TURN),
-        P("ISL", ISLAND, "ai", TURN), P("AURA", PACIFISM, "ai", TURN),
+        // The Pacifism is on the older Bears (2026-10-16): an Aura attached to nothing is put into the graveyard (CR 704.5m).
+        P("ANGEL", ANGEL, "ai", TURN), { ...P("OLD", BEARS, "ai", TURN - 1), attachments: ["AURA"] }, P("SOL", SOL, "ai", TURN),
+        P("ISL", ISLAND, "ai", TURN), { ...P("AURA", PACIFISM, "ai", TURN), attachedTo: "OLD" },
       ] } } };
 }
 const cast = (s, cardId) => {
@@ -78,9 +79,10 @@ describe("the card", () => {
 });
 
 describe("in play", () => {
-  it("the pool is every nonland, non-Aura permanent that entered this turn, any controller — the stamped Bears included", () => {
+  // GRADUATED 2026-10-16: the Pacifism that entered this turn is in the pool now (a copy of it chooses what it enchants).
+  it("the pool is every nonland, non-Saga permanent that entered this turn, any controller — the stamped Bears and the Pacifism included", () => {
     const s = resolveAll(cast(table(), "bears"));
-    expect(cloneCandidates(s, "user", "anyPermanentEnteredThisTurn").map((c) => c.id).sort()).toEqual(["ANGEL", "SOL", bearsId(s)].sort());
+    expect(cloneCandidates(s, "user", "anyPermanentEnteredThisTurn").map((c) => c.id).sort()).toEqual(["ANGEL", "AURA", "SOL", bearsId(s)].sort());
   });
 
   it("flashed in on the opponent's turn: cascade still fires first, then it copies the opponent's new Serra Angel (WITNESS)", () => {
@@ -97,7 +99,7 @@ describe("in play", () => {
     const clone = s.players.user.battlefield.find((p) => p.printedCard?.name === "Sakashima's Protege");
     const witness = { cascadeFound, pause: paused.pendingChoice?.kind, pool, became: clone?.card?.name, size: clone ? [permanentPower(s, clone.id), permanentToughness(s, clone.id)] : null };
     console.log(`WITNESS sakashimasProtege ${JSON.stringify(witness)}`);
-    expect(witness).toEqual({ cascadeFound: "bolt", pause: "clone-search", pool: ["ANGEL", "SOL"], became: "Serra Angel", size: [4, 4] });
+    expect(witness).toEqual({ cascadeFound: "bolt", pause: "clone-search", pool: ["ANGEL", "AURA", "SOL"], became: "Serra Angel", size: [4, 4] }); // + the Pacifism, 2026-10-16
   });
 
   it("a pick from outside the pool (a Bear that entered last turn) is refused: it enters as itself", () => {

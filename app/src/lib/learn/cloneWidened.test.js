@@ -3,8 +3,9 @@
  * Impersonator ("any nonland permanent on the battlefield").
  *
  * The runbook's bar: a copied STATIC must APPLY — a Copy Enchantment entering as an anthem pumps the copier's creatures.
- * Auras and Sagas are never offered under either scope (an Aura copy needs an attach choice the entry path does not raise,
- * CR 303.4f; a Saga copy needs its lore counter on entry, CR 714.2 — both unmodeled, so a narrower pool: false-negative safe).
+ * Sagas are never offered under either scope (a Saga copy needs its lore counter on entry, CR 714.3a — unmodeled, so a narrower
+ * pool: false-negative safe). Auras were not either until 2026-10-16; the copy now chooses what it enchants as it enters
+ * (CR 303.4f — copyEnchantmentAura.test.js), so the pins below that kept the Pacifism out are graduated.
  *
  * Mutation-checked: see the run ledger (docs-sk44).
  */
@@ -24,11 +25,13 @@ const CLEVER = { id: "card-cl", name: "Clever Impersonator", type: "Creature —
 
 const perm = (id, controller, card, extra = {}) => createPermanent({ id, card: { id: `c-${id}`, ...card }, controller, summoningSick: false, ...extra });
 const ANTHEM = { name: "Glorious Anthem", type: "Enchantment", mana: "{1}{W}{W}", oracle: "Creatures you control get +1/+1." };
+// The Pacifism is attached to the Bear (2026-10-16): an Aura attached to nothing is put into the graveyard by the next
+// state-based check (CR 704.5m), so an unattached one would vanish mid-cast and never reach the copy choice.
 const board = () => [
   perm("anthem", "ai", ANTHEM),
-  perm("aura", "ai", { name: "Pacifism", type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature can't attack or block." }),
+  { ...perm("aura", "ai", { name: "Pacifism", type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature can't attack or block." }), attachedTo: "bear" },
   perm("saga", "ai", { name: "History of Benalia", type: "Enchantment — Saga", oracle: "I, II — Create a 2/2 white Knight creature token with vigilance." }),
-  perm("bear", "ai", { name: "Bear", type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }),
+  { ...perm("bear", "ai", { name: "Bear", type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }), attachments: ["aura"] },
   perm("sol", "ai", { name: "Sol Ring", type: "Artifact", oracle: "{T}: Add {C}{C}." }),
   perm("pw", "ai", { name: "Jace", type: "Legendary Planeswalker — Jace", oracle: "" }),
   perm("land", "ai", { name: "Island", type: "Basic Land — Island", oracle: "" }),
@@ -54,12 +57,13 @@ function castToPause(s, cardId) {
 const ids = (cands) => cands.map((c) => c.id).sort();
 
 describe("candidate pools", () => {
-  it("anyEnchantment offers the anthem — never the Aura, the Saga, a creature, an artifact, a planeswalker or a land", () => {
+  // GRADUATED 2026-10-16: the Aura (Pacifism, Enchant creature — a line the engine lists) is in both pools now.
+  it("anyEnchantment offers the anthem and the Aura — never the Saga, a creature, an artifact, a planeswalker or a land", () => {
     const s = state(COPY_ENCHANT);
     const row = { ench: ids(cloneCandidates(s, "user", "anyEnchantment")), nonland: ids(cloneCandidates(s, "user", "anyNonlandPermanent")) };
     console.log("  WITNESS cloneWidenedPools", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
-    expect(row.ench).toEqual(["anthem"]);
-    expect(row.nonland).toEqual(["anthem", "bear", "pw", "sol"]);
+    expect(row.ench).toEqual(["anthem", "aura"]);
+    expect(row.nonland).toEqual(["anthem", "aura", "bear", "pw", "sol"]);
   });
 });
 
@@ -68,7 +72,7 @@ describe("Copy Enchantment — the copied STATIC applies", () => {
     const mine = perm("mybear", "user", { name: "My Bear", type: "Creature — Bear", power: 2, toughness: 2, oracle: "" });
     const s = state(COPY_ENCHANT, [mine]);
     const paused = castToPause(s, "card-ce");
-    expect(ids(paused.pendingChoice.candidates)).toEqual(["anthem"]);
+    expect(ids(paused.pendingChoice.candidates)).toEqual(["anthem", "aura"]); // graduated 2026-10-16: + the Pacifism (its copy has a host)
     const copied = finalizeStackResolution(resolveCloneChoice(paused, "anthem"));
     const clone = copied.players.user.battlefield.find((p) => p.printedCard);
     const row = { became: clone?.card?.name, printed: clone?.printedCard?.name, type: clone?.card?.type, myBear: permanentPower(copied, "mybear"), theirBear: permanentPower(copied, "bear") };
@@ -84,18 +88,20 @@ describe("Copy Enchantment — the copied STATIC applies", () => {
     expect(permanentPower(declined, "mybear")).toBe(2);
   });
 
-  it("a wrong pick (the Aura) is refused: optional → enters as itself, never as a Pacifism with nothing to enchant", () => {
+  // GRADUATED 2026-10-16: this was "a wrong pick (the Aura) is refused: … never as a Pacifism with nothing to enchant". The Aura is
+  // a legal pick now — the copy chooses what it enchants as it enters — so it becomes a Pacifism on the opponent's Bear.
+  it("the Aura is a legal pick now: the copy enters as a Pacifism attached to the opponent's Bear (never to nothing)", () => {
     const paused = castToPause(state(COPY_ENCHANT), "card-ce");
     const after = finalizeStackResolution(resolveCloneChoice(paused, "aura"));
-    const names = after.players.user.battlefield.map((p) => p.card?.name);
-    expect(names).toEqual(["Copy Enchantment"]);
+    const copy = after.players.user.battlefield.find((p) => p.printedCard?.name === "Copy Enchantment");
+    expect({ became: copy?.card?.name, host: copy?.attachedTo ?? null }).toEqual({ became: "Pacifism", host: "bear" });
   });
 });
 
 describe("Clever Impersonator — any nonland permanent", () => {
-  it("copies the opponent's Sol Ring (a creature card becoming an artifact) and their anthem; the pause offers the four nonland non-Aura non-Saga permanents", () => {
+  it("copies the opponent's Sol Ring (a creature card becoming an artifact) and their anthem; the pause offers the five nonland non-Saga permanents", () => {
     const paused = castToPause(state(CLEVER), "card-cl");
-    expect(ids(paused.pendingChoice.candidates)).toEqual(["anthem", "bear", "pw", "sol"]);
+    expect(ids(paused.pendingChoice.candidates)).toEqual(["anthem", "aura", "bear", "pw", "sol"]); // graduated 2026-10-16: + the Pacifism
     const asRing = finalizeStackResolution(resolveCloneChoice(paused, "sol"));
     const ring = asRing.players.user.battlefield.find((p) => p.printedCard);
     const mine = perm("mybear", "user", { name: "My Bear", type: "Creature — Bear", power: 2, toughness: 2, oracle: "" });

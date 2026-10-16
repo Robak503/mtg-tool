@@ -363,6 +363,17 @@ blink exiles every target, then returns them as one event (`enterCardsTogether`)
 nothing into its owner's graveyard (CR 704.5m) — a Curse (`enchantedPlayerId`), Animate Dead before its trigger
 (`enchantedGraveyardCard`) and a bestowed creature are attached to something, and exempt.
 
+**Where an Aura enters without being cast** (2026-10-16, the withholdings lifted one slice each): the mass return
+(`zones.applyMassReanimate` — one event, Retether's "only creatures" as a host option), the battlefield search
+(`library.applyTutor`), the milled pick (Mole Module), a token copy (`tokens.applyCreateTokenCopy` — chooses at creation;
+with no host the token isn't created, CR 303.4g), the delayed blink's return (Flickerwisp), the detain return
+(`applyDetainReturn`) and a clone copying an Aura (`resolvers.resolveCloneChoice` — with no host the clone spell goes to the
+graveyard). Each runs through the same chooser; an effect's own limits are host options of `auraEntry.auraEntryHosts`
+(`onlyCreatures`, `excludeIds`, `presentIds` — the detain return's CR 610.3d board), passed as `enterCardFromZone`'s
+`auraHostOpts`. An offer that would otherwise put an Aura nowhere reads `auraEntry.auraEntryHasHost` (the search, the milled
+pick, a clone's candidates); a targeted pool keeps an unlistable Enchant line out with the `auraEntryModeled` restriction. A
+Role never chooses a permanent already carrying a Role of its controller: sba.js does not run CR 704.5y.
+
 ### 4.6 Layers (`layers.js`, CR 613)
 
 Continuous effects are derived in CR-613 layer order (7a CDA → 7b set → 7c

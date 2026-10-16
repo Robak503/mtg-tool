@@ -32,10 +32,11 @@
  * copied creature fire for free, because `enterPermanent` detects triggers from the (now-copied)
  * `card.oracle`.
  *
- * Pure leaf; imports only gameState board helpers — no cycle.
+ * Leaf: imports gameState's board helpers and staticAbilityParser's Enchant-line reader (neither reaches a clone module).
  */
 
 import { findPermanent } from "./gameState.js";
+import { auraEntryHostSpec } from "./staticAbilityParser.js"; // an Aura is a widened-scope copy candidate only with an Enchant line the engine lists (CR 303.4f) — staticAbilityParser reaches no clone module (checked 2026-10-16)
 
 const typeLine = (card) => String(card?.type || card?.type_line || "");
 // Front-face only (CR 712.4a) — a battlefield permanent shows its front face; a clone copies a
@@ -389,9 +390,9 @@ export function parseCloneSpec(card) {
           : m[1] === "any artifact on the battlefield" ? "anyArtifact"
             : m[1] === "any equipment on the battlefield" ? "anyEquipment"
               // CLONE WIDENING (POD-SIM THREE · KN-2, 2026-09-05): Clever Impersonator ("any nonland permanent") and Copy
-              // Enchantment ("any enchantment"). Auras and Sagas are NOT offered under either scope (an Aura copy needs an
-              // attach choice the entry path does not raise — CR 303.4f; a Saga copy needs its lore counter on entry —
-              // CR 714.2, unmodeled): a narrower pool is a false negative, a copy that enters wrong is an FP.
+              // Enchantment ("any enchantment"). A Saga is NOT offered under either scope (a Saga copy needs its lore counter on
+              // entry — CR 714.3a, unmodeled): a narrower pool is a false negative, a copy that enters wrong is an FP. An AURA is
+              // (2026-10-16): the copy enters as an Aura choosing what it enchants (CR 303.4f — resolvers.resolveCloneChoice).
               : m[1] === "any nonland permanent on the battlefield" ? "anyNonlandPermanent"
                 // IMPOSTER MECH (KN-3): "a creature an opponent controls" — creatures only, never your own.
                 : m[1] === "a creature an opponent controls" ? "opponentCreature"
@@ -495,7 +496,7 @@ export function isCloneCard(card) {
   // snapshot of an artifact (the anyArtifactOrCreature runtime already copies artifacts; enterPermanent handles a
   // non-creature card). A creature-copy scope on a non-creature card would become a creature — not modeled → PARK.
   // + KN-2 (POD-SIM THREE, 2026-09-05): the ENCHANTMENT scope (Copy Enchantment — an enchantment copying an enchantment stays
-  // an enchantment) and the NONLAND scope on a non-creature card (none on the shelf; Auras/Sagas never offered).
+  // an enchantment) and the NONLAND scope on a non-creature card (none on the shelf; Sagas never offered, Auras since 2026-10-16).
   // + KN-3 (Imposter Mech): a NON-creature card copying a creature is native only when a become-Vehicle rider keeps the
   // copy a non-creature artifact (the creature-becoming case above stays parked).
   if (spec.scope === "opponentCreature") return (spec.riders || []).some((r) => r.kind === "becomeVehicle" && r.crew != null);
@@ -582,18 +583,21 @@ export function cloneCandidates(state, controller, scope, mvCap = null) {
 /** Append a creature SUBtype to a type line "in addition to its other types" (CR 707.9). Inserts a
  *  "— Subtypes" section if there's no dash, else appends (idempotent — never duplicates). */
 /** KN-2 — the widened scopes' copiability, shared by the enumerator and the settle: nonland (Impersonator) / enchantment
- * (Copy Enchantment), never an Aura or a Saga (see parseCloneSpec). Reads the FRONT face's type line. */
+ * (Copy Enchantment), never a Saga (see parseCloneSpec). Reads the FRONT face's type line. An AURA (2026-10-16): its copy enters
+ * as an Aura choosing what it enchants (CR 303.4f — resolvers.resolveCloneChoice), so it is copiable when its Enchant line is one
+ * the engine lists (staticAbilityParser.auraEntryHostSpec); a Curse or Animate Dead is not. */
 export function cloneWidenedCopiable(card, scope) {
   const tl = String(card?.type || card?.type_line || "").split(" // ")[0];
   if (/\bLand\b/.test(tl)) return false;
-  if (/\bAura\b/.test(tl) || /\bSaga\b/.test(tl)) return false;
+  if (/\bSaga\b/.test(tl)) return false;
+  if (/\bAura\b/.test(tl) && !auraEntryHostSpec(card)) return false;
   if (scope === "anyEnchantment") return /\bEnchantment\b/.test(tl);
   if (scope === "anyNonlandPermanent") return /\b(Creature|Artifact|Enchantment|Planeswalker|Battle)\b/.test(tl);
   return false;
 }
 
-/** shelf D36 — "any permanent that entered this turn" (Sakashima's Protege): the widened nonland copiability (never a land,
- * an Aura or a Saga — the same narrower-is-safe pool as Clever Impersonator) AND the permanent's enteredOnTurn stamp on the
+/** shelf D36 — "any permanent that entered this turn" (Sakashima's Protege): the widened nonland copiability (never a land or
+ * a Saga, an Aura only with a listable Enchant line — the same pool as Clever Impersonator) AND the permanent's enteredOnTurn stamp on the
  * current turn (every enter path writes it; an unstamped permanent never qualifies). Shared by the enumerator and the
  * resolution-time re-check so the two cannot drift. */
 export function enteredThisTurnCopiable(state, perm) {
