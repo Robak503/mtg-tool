@@ -17,6 +17,7 @@
 
 import { enumerateTargets, legacyTargetingEffect, resolutionSourceColors } from "../spellEffects.js"; // + the CR 608.2b re-check's two reads (resolutionTargetVerdicts)
 import { isNonChosenTargetType } from "../targetTypes.js";
+import { targetingAtomOf } from "./programQueries.js"; // the enumerated slot of an optional-payment wrapper — shared with programConfidence's target-slot gate
 import { findPermanent } from "../gameState.js";
 import { cardIsEveryCreatureType } from "../everyCreatureType.js"; // MG-1: every creature type (a changeling, CR 702.73a; P·39b — a Maskwood Nexus creature card) for the shared-creature-type subset gate — a leaf over keywords.js (no cycle)
 
@@ -310,22 +311,6 @@ const GY_FROM_TARGET_PLAYER_SPEC = { targetType: "graveyardCard", cardFilter: "a
  *   - `null`   when a targeting atom has ZERO legal targets (spell uncastable)
  *   - otherwise an array of flat, atomIndex-tagged target arrays.
  */
-/**
- * The atom a chosen target is ENUMERATED from. For an optional-mana-payment wrapper ("you may pay {N}. If you do, <payoff>")
- * that is its payoff's chosen-target atom: the wrapper carries only the payoff's `targetType` (so the trigger enumerates and
- * locks its target at flush, CR 603.3d), and reading the rest of the spec off the WRAPPER dropped every other targeting
- * field — a graveyard payoff's cardFilter and graveyard scope, a creature payoff's restrictions ("another target attacking
- * creature"), excludeSource, a multi-count. Measured 2026-09-30 (the 09-06 plan's stage ③ · 39): 13 native carriers were
- * offering targets wider than printed — Veinwitch Coven any card in your graveyard, Consul's Shieldguard any creature,
- * Jubilant Mascot one target including itself. The parser admits EXACTLY ONE chosen target type per wrapper, so the
- * payoff's first atom of that type is the one. The wrapper's atomIndex stays on the targets (the settler hands them to the
- * payoff) and its intent already delegates the same way (programQueries.atomTargetIntent). Every other atom is itself.
- */
-function targetingAtomOf(atom) {
-  if (atom?.op !== "optional-mana-payment" || !atom.targetType) return atom;
-  return (atom.effectAtoms || []).find((a) => a?.targetType === atom.targetType) || atom;
-}
-
 /**
  * A required target with MORE candidates than the option cap: the players go first, so the cap never cuts the face
  * targets off a board full of creatures — "any target" beside 64 creatures offered no player at all (Blasting Station

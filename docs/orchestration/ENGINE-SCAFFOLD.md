@@ -591,6 +591,12 @@ pass fixed four of these; they are the template for what to look for:
   `IRREGULAR_SUBTYPE_PLURALS` table + invariant `-us` handling.
 - **Intervening-if fail-open** (fixed): "Plains"→"Plain" scanned nothing → a
   native trigger that never fired. Fix: invariant basic-land types kept verbatim.
+- **Unregistered targetType** (fixed 2026-10-16): a referent missing from
+  `NON_CHOSEN_TARGET_TYPES` read as a chosen target the enumerator had no pool
+  for → classified native, dropped at the flush. Fix: every target slot must name
+  a type in `targetTypes.js`'s closed vocabulary (non-chosen, or one of
+  `enumerateTargets`' pools), checked in `programConfidence`, which every consumer
+  re-asks — so the classifier and the flush cannot disagree.
 
 **The generalizable rule for any new recognizer: validate an emitted
 selector/filter/subtype against a *closed* vocabulary (or corpus reality) before

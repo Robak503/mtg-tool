@@ -16,6 +16,46 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🛡️ 2026-10-16 — GUARD: the closed targetType vocabulary — the classifier and the trigger flush can no longer disagree on a target slot · **±0** · corpus 15,492
+> Suite **1,781 files / 18,989** green on 4463487c (1 pre-existing skip; first gated on c1f630ab, 1,778 / 18,956, then
+> rebased and re-gated). Flip-diff **0 / 0 / 0** (34,620 cards) and program fingerprint **byte-identical** on both bases.
+> **Mutants 10/10**, every one killed on assertions; every restore byte-identical (sha256).
+> · **The trap.** A referent targetType (a recipient synthesized from the trigger's context: `defendingPlayer`,
+>   `damagedPlayer`, `discardingPlayer`, `attackedDefender`) had to be listed in `NON_CHOSEN_TARGET_TYPES` by hand. Missing
+>   there, it read as a chosen target the enumerator had no pool for: coverage credited the card native (`deal-damage` is
+>   enemy-side, so it read as resolvable) while the flush found no candidates, logged `trigger-removed-no-target` and dealt
+>   nothing. Three times (`eachOpponentCreature`, `discardingPlayer`, `attackedDefender`), and the stage ③ · 25 mutant left
+>   the classification test green.
+> · **The guard — option 1, placed at the parser's validity gate.** `targetTypes.js` gains `CHOSEN_TARGET_TYPES`, the 47
+>   pools `spellEffects.enumerateTargets` dispatches (19 direct branches plus the 28 `PERMANENT_PREDICATES` keys),
+>   partitioned against `NON_CHOSEN_TARGET_TYPES` at load. `programConfidence` reads a program LOW when a target slot names a
+>   type in neither set. The slots are an atom's `targetType` and a two-target atom's `secondaryTargetType`, read through
+>   `targetingAtomOf`, which moved to `programQueries.js` so the enumerator and the gate read one definition. Every consumer
+>   re-asks `programConfidence` (`triggerRoutesNatively`, `buildTriggerStack`, the spell, activated and loyalty lanes, the
+>   cast and activation offers, `runEffectProgram`), so for such an atom they agree by construction: the Arbiter.
+> · **Options 2 and 3, not taken.** The corpus sweep (2) is a tautology once the gate exists, and it needs the gitignored
+>   corpus (hollow in CI). The resolver registry (3) covers `deal-damage` only. The probe says `deal-damage` is the only op
+>   carrying a referent targetType today, but the gate also covers every op and every path, and the matchers that take a
+>   targetType from a regex capture.
+> · **Scope, measured** (drift probe, 34,620 cards). 8,150 natively routed triggers, 55 targetTypes, zero chosen slots
+>   without a pool. The full parse surface (spell, triggers, activated, loyalty, nested payoffs) names 60 targetTypes, none
+>   unknown. **Probe positive control:** HEAD with `attackedDefender` unregistered → 5 holes, each credited `native-trigger`
+>   while the flush could not reach it: Hellrider, Scorch Spitter, Rakdos Roustabout, Raid Bombardment, Cavalcade of
+>   Calamity.
+> · **Seen to fail.** `attackedDefender` removed from `NON_CHOSEN_TARGET_TYPES` (a real edit, guard in place): 8 assertion
+>   failures, no load error. The guard's referent row reads `attackedDefender: UNREGISTERED · low · routes false ·
+>   body-only`, and `attackedDefenderDamage`'s "flip native" goes red (`expected 'body-only' to match /^native-/`). The same
+>   mutant on HEAD: 4 runtime reds and the classification test GREEN — the blind spot, reproduced. Restored byte-identical.
+> · Witnesses (+13): `targetTypeVocabulary.test.js` (9) — every chosen type offered a target through `expandCastChoices` on
+>   a full board, while an unregistered type gets nothing on the same board (vacuity control); the gate on each slot shape
+>   (own, secondary, one modal mode, an optional payment's payoff); the four live referent families on real oracle.
+>   `referentRegistrationTrap.test.js` (4) — `vi.mock` unregisters `attackedDefender`: the classifier refuses Hellrider,
+>   the flush routes it `manual` (not removed), and Falkenrath Perforator (`defendingPlayer`) is the control — native,
+>   effect program, 1 damage. Red 3 of 4 on HEAD (`classifier [true, true]`, `flush []`).
+> · ⚠️ Not covered: the mirror hazard — a type IN `NON_CHOSEN_TARGET_TYPES` whose op's resolver has no arm for it
+>   (classified native, resolves with no recipient). That is per-op resolver coverage, its own slice.
+> · CHANGELOG: none — no card, tier or game changes.
+
 > ## 🙋 2026-10-16 — FEAT: a person chooses what their Aura enchants as it enters without being cast (CR 303.4f) — the `aura-entry-host` pause · **±0** · corpus 15,494
 > Suite **19,081** green (1 skipped) / 1,788 files (+3). Lint 0. Flip-diff **0 / 0 / 0** (vs e708140a). **Mutants 22/22**, restore
 > byte-identical. AI path: 40 seeded Expert games on e708140a vs this change — final states, logs and per-decision trajectories

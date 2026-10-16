@@ -90,13 +90,53 @@ export const NON_WIPE_MASS_SCOPES = new Set([
 
 export const NON_CHOSEN_TARGET_TYPES = new Set([...MASS_WIPE_SCOPES, ...NON_WIPE_MASS_SCOPES]);
 
-// Load-time drift guard — the two halves must PARTITION (an entry in both means someone classified a
-// scope twice with different intents; fail loud at import, not silently at play time).
+/**
+ * The CHOSEN target types: each one names a target pool in spellEffects.enumerateTargets, the enumerator the cast,
+ * activation and trigger-flush paths offer chosen targets through (effects/targeting.expandCastChoices). Copied from that
+ * function's dispatch: its direct branches, then the keys of its PERMANENT_PREDICATES table.
+ *
+ * THE CLOSED VOCABULARY. Every targetType an atom carries is in exactly one of two sets: non-chosen (the resolver hits a
+ * whole set, or synthesizes the recipient from the trigger's context) or chosen (the enumerator has a pool for it).
+ * parser.programConfidence reads a program whose target slot names a type in NEITHER set as LOW, and every consumer asks
+ * programConfidence — the classifier, the trigger flush, the cast and activation offers, the resolver — so for such an atom
+ * they all route to the Arbiter. This closes the drift trap above for any type and any op: a referent missing from
+ * NON_CHOSEN_TARGET_TYPES read as a chosen target with no pool, so the classifier credited the trigger native (a
+ * "deal-damage" target is enemy-side, which reads as resolvable) while the flush found no candidates, logged
+ * trigger-removed-no-target and dealt nothing (eachOpponentCreature, discardingPlayer, attackedDefender). Now the same miss
+ * costs the card its native tier, which the slice's own classification test sees.
+ *
+ * A new pool in enumerateTargets needs its type here, or no program naming it reads HIGH. A new type here needs a pool
+ * first: targetTypeVocabulary.test.js runs every entry through the flush's own enumeration and fails on one with none.
+ */
+export const CHOSEN_TARGET_TYPES = new Set([
+  // enumerateTargets' direct branches
+  "creature", "creatureYouControl", "equipmentYouControl", "auraOrEquipmentYouControl", "artifactCreatureOrLandYouControl",
+  "artifactOrCreatureYouControl", "player", "any", "creatureOrPlaneswalker", "playerOrPlaneswalker", "planeswalker", "spell",
+  "abilityYouControl", "spellOrPermanent", "stackAbility", "spellOrStackAbility", "graveyardCard", "opponent",
+  "artifactOrEnchantmentOrFlyingCreature",
+  // its PERMANENT_PREDICATES table
+  "artifact", "enchantment", "land", "forest", "island", "swamp", "mountain", "plains", "permanent", "nonlandPermanent",
+  "noncreaturePermanent", "nonbasicLand", "artifactEnchantmentOrNonbasicLand", "basicLand", "artifactOrEnchantment",
+  "artifactCreatureEnchantmentOrPlaneswalker", "artifactEnchantmentOrLand", "noncreatureArtifact", "noncreatureEnchantment",
+  "noncreatureArtifactOrEnchantment", "creatureOrEnchantment", "creatureOrLand", "creatureOrArtifact", "artifactOrLand",
+  "creatureOrVehicle", "vehicle", "artifactCreatureOrPlaneswalker", "enchantmentOrLand",
+]);
+
+// Load-time drift guard — the halves must PARTITION (an entry in two sets means someone classified a type twice with
+// different intents; fail loud at import, not silently at play time).
 for (const tt of MASS_WIPE_SCOPES) {
   if (NON_WIPE_MASS_SCOPES.has(tt)) throw new Error(`targetTypes: "${tt}" is in BOTH MASS_WIPE_SCOPES and NON_WIPE_MASS_SCOPES — pick one`);
+}
+for (const tt of CHOSEN_TARGET_TYPES) {
+  if (NON_CHOSEN_TARGET_TYPES.has(tt)) throw new Error(`targetTypes: "${tt}" is in BOTH NON_CHOSEN_TARGET_TYPES and CHOSEN_TARGET_TYPES — pick one`);
 }
 
 /** True iff `tt` is a mass / auto-scoped target type that needs NO chosen target. */
 export function isNonChosenTargetType(tt) {
   return !!tt && NON_CHOSEN_TARGET_TYPES.has(tt);
+}
+
+/** True iff the engine serves `tt`: non-chosen (resolved without a target) or chosen (the enumerator has a pool for it). */
+export function isKnownTargetType(tt) {
+  return isNonChosenTargetType(tt) || (!!tt && CHOSEN_TARGET_TYPES.has(tt));
 }

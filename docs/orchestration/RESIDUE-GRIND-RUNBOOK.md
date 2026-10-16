@@ -242,6 +242,7 @@ Take the top un-attempted cluster. Then, IN ORDER:
 | **A clause the engine never gives a window** | "costs {1} less for each attacking creature" on Flash cards while Flash was cast at sorcery speed — nothing was ever attacking (2026-09-30) | the clause parses and a direct unit call works, but no offered action can reach its condition — find the runtime path that opens the window before crediting |
 | **A fold that eats its own sentence boundary** | slice 10's `\.?` consumed the rider's period and the replacement didn't restore it, gluing the NEXT sentence on | a card whose tier DIDN'T change is silently held back — invisible to the fingerprint diff, which only shows movers |
 | **A whole-oracle `$` anchor on a span matcher** | RIDER-REMOVAL matched "Destroy X. Its controller <rider>." only as the LAST text on the card | the card parses HIGH when you delete an ordinary trailing sentence like "Draw a card." |
+| **A targetType outside the closed vocabulary** | three referent targetTypes (`eachOpponentCreature`, `discardingPlayer`, `attackedDefender`) arrived unregistered: classified native, dropped by the flush (`trigger-removed-no-target`). Since 2026-10-16 `programConfidence` reads such a program LOW for every consumer | the atoms look right and the card still won't flip: a type it emits is in neither `NON_CHOSEN_TARGET_TYPES` nor `CHOSEN_TARGET_TYPES` (`targetTypes.js`). A referent → non-chosen (plus its resolver arm); a new pool → chosen (plus its `enumerateTargets` branch) |
 
 ---
 

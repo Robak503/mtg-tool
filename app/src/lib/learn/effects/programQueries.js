@@ -19,7 +19,7 @@
  * imports programNeedsChosenTarget back (7 internal call sites) and RE-EXPORTS the
  * whole family, so every existing consumer import path stays valid.
  */
-import { isNonChosenTargetType, MASS_WIPE_SCOPES } from "../targetTypes.js";
+import { isKnownTargetType, isNonChosenTargetType, MASS_WIPE_SCOPES } from "../targetTypes.js";
 
 /**
  * Does the program contain an atom that REQUIRES a chosen target (vs. self / each-*
@@ -34,6 +34,37 @@ export function programNeedsChosenTarget(program) {
     ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
     : (program.atoms || []);
   return atoms.some(a => a.targetType && !isNonChosenTargetType(a.targetType));
+}
+
+/**
+ * The atom a chosen target is ENUMERATED from. For an optional-mana-payment wrapper ("you may pay {N}. If you do, <payoff>")
+ * that is its payoff's chosen-target atom: the wrapper carries only the payoff's `targetType` (so the trigger enumerates and
+ * locks its target at flush, CR 603.3d), and reading the rest of the spec off the WRAPPER dropped every other targeting
+ * field — a graveyard payoff's cardFilter and graveyard scope, a creature payoff's restrictions ("another target attacking
+ * creature"), excludeSource, a multi-count. Measured 2026-09-30 (the 09-06 plan's stage ③ · 39): 13 native carriers were
+ * offering targets wider than printed — Veinwitch Coven any card in your graveyard, Consul's Shieldguard any creature,
+ * Jubilant Mascot one target including itself. The parser admits EXACTLY ONE chosen target type per wrapper, so the
+ * payoff's first atom of that type is the one. The wrapper's atomIndex stays on the targets (the settler hands them to the
+ * payoff) and its intent already delegates the same way (atomTargetIntent below). Every other atom is itself.
+ * Read by effects/targeting.js's enumeration and by atomTargetSlotsKnown, so the two read the same slots.
+ */
+export function targetingAtomOf(atom) {
+  if (atom?.op !== "optional-mana-payment" || !atom.targetType) return atom;
+  return (atom.effectAtoms || []).find((a) => a?.targetType === atom.targetType) || atom;
+}
+
+/**
+ * Does every target slot of these atoms name a type the engine serves (targetTypes.isKnownTargetType — non-chosen, or a
+ * pool in the enumerator)? The slots are the ones effects/targeting.expandAtoms hands spellEffects.enumerateTargets: each
+ * atom's targetType and a two-target atom's secondaryTargetType, both read off targetingAtomOf. parser.programConfidence
+ * reads a program that fails this as LOW: a slot naming a type in neither set can never be offered a target nor have its
+ * recipient synthesized, so no consumer may treat the program as modeled — see the closed-vocabulary note in targetTypes.js.
+ */
+export function atomTargetSlotsKnown(atoms) {
+  return (atoms || []).every((atom) => {
+    const a = targetingAtomOf(atom);
+    return (!a?.targetType || isKnownTargetType(a.targetType)) && (!a?.secondaryTargetType || isKnownTargetType(a.secondaryTargetType));
+  });
 }
 
 /**
