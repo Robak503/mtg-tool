@@ -39,7 +39,6 @@ import {
   spendEnergy,
   creaturePower,
   creatureToughness,   // SACRIFICED REFERENT — layer-aware toughness of the cost victim, captured pre-sacrifice
-  creatureBasePower,
   removeCounter,
   addCounter,
   destroyLethalCreatures,
@@ -55,7 +54,7 @@ import {
   findPermanent,
   unattachEquipment,
 } from "./gameState.js";
-import { deterministicRng, advanceRngSeed, deathLookbackLinks } from "./gameState.js"; // RG-7 (2026-09-05) — the seeded random-discard pick at payment
+import { deterministicRng, advanceRngSeed, deathLookback } from "./gameState.js"; // RG-7 (2026-09-05) — the seeded random-discard pick at payment
 import { withoutExileStamps } from "./gameState.js"; // shelf D3 — a card cast out of exile leaves every exile-only permission behind (CR 400.7)
 import { parseTeamworkCost } from "./kicker.js"; // TEAMWORK (shelf D16) — the N a kicked teamwork cast must tap; kicker.js imports only leaves (parseHelpers, keywords)
 
@@ -86,7 +85,7 @@ import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTap
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
 import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.6b) — same reader the action gate uses · LANDS-5: the ONE discard-ability price reducer the offer uses too
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf, crewCostWithOverrides, permanentColors, permIsEveryCreatureType, permanentManaValue } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
+import { permanentHasKeyword, permanentIsCreature, permanentTypes, addContinuousEffect, colorsOf, crewCostWithOverrides, permanentColors, permIsEveryCreatureType, permanentManaValue } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell / command-zone card that is every creature type (Changeling, Maskwood Nexus); a leaf over keywords.js
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39b — every creature type shares a creature type only (CR 205.3d); a zero-import leaf
 import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility, parseHandSelfPutAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch; S8 — the Pilot's crew boost; play-weighted #570 — the hand self-put, re-read from the card
@@ -1244,19 +1243,21 @@ function applyDoubleManaPool(state, action) {
  * Sacrifice a permanent `playerId` controls as part of paying an activated-ability cost (γ1 self-sac /
  * γ1b chosen-victim): move it battlefield→graveyard and, if it's a CREATURE, fire its + watchers' dies
  * triggers (CR 700.4 — the aristocrats payoff). A non-creature sacrifice leaves no dies trigger. The
- * dispatch's flushTriggers then stacks these ABOVE the ability so they resolve first (CR 603.3b). The
- * type read mirrors typeLineOf's DFC front-face fallthrough (single-source-of-truth with legalChoices).
+ * dispatch's flushTriggers then stacks these ABOVE the ability so they resolve first (CR 603.3b).
+ * The SAME look-back the sacrifice effect builds (removal.sacrificeCreatureEffect — the type-line audit): the card types it had as
+ * it LEFT, read off the layer engine while it is still on the battlefield (CR 603.10a, 613.1d), so a God below its devotion, a
+ * bestowed Aura or an attached Lizard Blades sacrificed to Viscera Seer is not a creature dying (the printed line fired Blood
+ * Artist and counted a creature death), while an animated land or a crewed Vehicle is; and the one death look-back every death
+ * site builds (gameState.deathLookback — power and base power for the dies payoffs, CR 603.6e; counters; links; and where the card
+ * goes: a creature exiled instead or shuffled instead is still sacrificed but never died, CR 700.4, so the dies triggers skip it).
  */
 function sacrificePermanentForCost(state, playerId, permObj) {
-  const typeLine = String(permObj.card?.type || permObj.card?.type_line || permObj.card?.card_faces?.[0]?.type_line || permObj.card?.card_faces?.[0]?.type || "");
-  // Power + base power captured BEFORE the move (CR 603.6e — the layer-aware read needs the permanent
-  // still on the battlefield) so a dies-payoff reading either LKI (dyingPower / the Jason-Bright
-  // power-differed intervening-if) resolves off a cost-sacrifice too.
-  const sfcPw = creaturePower(permObj, state);
-  const sfcBpw = creatureBasePower(permObj, state);
-  let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: permObj.id });
-  if (/Creature/.test(typeLine)) {
-    next = checkDiesTriggers(next, [{ controller: playerId, id: permObj.id, name: permObj.card?.name || "creature", card: permObj.card, ...deathLookbackLinks(permObj), /* ③ · 43 */ counters: { ...(permObj.counters || {}) }, power: Number.isFinite(sfcPw) ? sfcPw : null, basePower: Number.isFinite(sfcBpw) ? sfcBpw : null, diesExileAfter: !!permObj.grantDiesExile }]);
+  const lkiTypes = [...permanentTypes(state, permObj.id).types];
+  const death = lkiTypes.includes("Creature") ? deathLookback(state, permObj, playerId) : null;
+  // The destination is the death-specific exile only; a graveyard replacement (Rest in Peace, Dauthi) redirects inside moveCardToZone.
+  let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: death?.exileTo ? "exile" : "graveyard", cardId: permObj.id });
+  if (death) {
+    next = checkDiesTriggers(next, [death]);
   } else {
     // LEAVE-DRAIN (CR 603.3b): a NON-creature cost sacrifice (Blood/Clue/artifact) has no dies path —
     // drain its leave event now so permanentLeaves watchers stack above the ability (the creature
@@ -1264,8 +1265,8 @@ function sacrificePermanentForCost(state, playerId, permObj) {
     next = checkLeavesTriggers(next);
   }
   // TRIG-SACRIFICE: a sac-as-cost is a sacrifice → fire "Whenever you sacrifice a <permanent|creature|
-  // artifact>" for the sacrificing player (the perm has left, so its type rides on the lookBack card).
-  next = checkSacrificeTriggers(next, playerId, { id: permObj.id, controller: playerId, card: permObj.card });
+  // artifact>" for the sacrificing player (the perm has left, so its card and the types it had ride on the look-back).
+  next = checkSacrificeTriggers(next, playerId, { id: permObj.id, controller: playerId, card: permObj.card, lkiTypes });
   return next;
 }
 

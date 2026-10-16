@@ -29,7 +29,7 @@ import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoic
 import { withAuraEntryAsk } from "../auraEntry.js"; // CR 303.4f — the ask an atom runs in, so a person chooses what their entering Aura enchants (a leaf; zones.js already imports it)
 import { updatePermanentSafe, graveyardExileFor } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, gainLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, advanceCreatureBatchSacrifice, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatchNow, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, advanceCreatureBatchSacrifice, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
 import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard, policyEvalEnabledFor } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
 import { programConfidence, atomTargetIntent } from "./parser.js"; // + atomTargetIntent — the change-target auto-pick reads the redirected slot's side (shelf D14)
 import { moveStackTarget } from "./atoms/stack.js"; // CHANGE THE TARGET (shelf D14) — the settle writes the pick back; runProgram already reaches atoms/stack.js through parser → effectAtoms, so no new cycle
@@ -2068,7 +2068,7 @@ export function autoPickSacUnlessPay(state, pc) {
   // SAC-UNLESS-SACRIFICE (2026-08-12) — pay iff enough pool-matching permanents are on the controller's
   // battlefield (same predicate the settle uses, so offer and payment cannot disagree about payability).
   if (pc.cost?.kind === "sacrifice") {
-    return (player.battlefield || []).filter((p) => sacrificePoolMatch(pc.cost.type, p.card)).length >= (pc.cost.count || 1);
+    return (player.battlefield || []).filter((p) => sacrificePoolMatchNow(pc.cost.type, state, p)).length >= (pc.cost.count || 1); // as it is now (the type-line audit)
   }
   // SAC-UNLESS-RETURN-LAND (2026-08-12) — pay iff a pool-matching land is on the battlefield (the
   // Djinn's untapped gate lives in the shared predicate, so a fully-tapped board honestly refuses).
@@ -2300,12 +2300,12 @@ export function resolveSacUnlessPayChoice(state, pay) {
   } else if (pay && pc.cost?.kind === "sacrifice") {
     // SAC-UNLESS-SACRIFICE (2026-08-12, Bog Elemental / Cosmic Larva / Endless Wurm) — pay by sacrificing
     // `count` permanents from the printed pool, re-scanned NOW (CR 603.6e — the board may have changed during
-    // the pause). Pool = sacrificePoolMatch, the SAME word-anchored edict predicate offered at auto-pick, so
+    // the pause). Pool = sacrificePoolMatchNow, the SAME layer-aware edict predicate offered at auto-pick, so
     // the two sides cannot disagree. A cost is all-or-nothing: fewer than `count` matches pays NOTHING and
     // `paid` stays false → the source sacrifices (the printed outcome). Victim policy mirrors the edict
     // chain's: lowest power+toughness, id tie-break — each dies through sacrificeCreatureEffect so dies +
     // TRIG-SACRIFICE watchers fire per victim.
-    const pool = (next.players[pc.controller]?.battlefield || []).filter((p) => sacrificePoolMatch(pc.cost.type, p.card));
+    const pool = (next.players[pc.controller]?.battlefield || []).filter((p) => sacrificePoolMatchNow(pc.cost.type, next, p)); // as it is now (the type-line audit)
     const count = pc.cost.count || 1;
     if (pool.length >= count) {
       const score = (p) => (Number(p.card?.power) || 0) + (Number(p.card?.toughness) || 0);
@@ -2345,7 +2345,7 @@ export function autoPickTaxedPayment(state, pc) {
   // TAXED EDICT (2026-09-30): with nothing in the edict's pool to lose, declining costs nothing — keep the mana.
   if (pc.declinePayoff === "edict") {
     const what = pc.declineEdict?.what || "creature";
-    if (!(player.battlefield || []).some((p) => sacrificePoolMatch(what, p.card))) return false;
+    if (!(player.battlefield || []).some((p) => sacrificePoolMatchNow(what, state, p))) return false; // as it is now (the type-line audit)
   }
   return canAfford(player.manaPool, manaSources(state, pc.payer), pc.cost?.mana || {});
 }

@@ -30,7 +30,7 @@ import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopie
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { auraEntryHasHost, enteringAuraHost } from "./auraEntry.js"; // a clone that enters as a copy of an Aura chooses what it enchants (CR 303.4f) — auraEntry reaches neither resolvers nor cloneCopy (checked 2026-10-16)
 import { isNativeManaAura, auraChoosesColorOnEnter, parseSoulbondBond } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) — the Aura spell's host re-check; SOULBOND (BLITZ SL-1) — the modeled bond reader
-import { equipmentBarredAsCreature, cannotEquipNow, permanentHasCardType, colorsOf, permanentColors, permanentIsCreature } from "./layers.js"; // CR 301.5c / 701.3b (cannotEquipNow — a source that is no Equipment right now) — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types; + the colours the CR 608.2b re-checks judge protection against
+import { equipmentBarredAsCreature, cannotEquipNow, permanentHasCardType, permanentHasTypeWord, colorsOf, permanentColors, permanentIsCreature } from "./layers.js"; // + permanentHasTypeWord (the type-line audit — the clone re-check's Equipment) // CR 301.5c / 701.3b (cannotEquipNow — a source that is no Equipment right now) — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types; + the colours the CR 608.2b re-checks judge protection against
 import { canBeTargetedBy, playerTargetableBy } from "./spellEffects.js"; // the ONE targetability predicate the Aura / Equip offers read — re-asked as those spells and abilities resolve (CR 608.2b, 608.3b)
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
@@ -317,13 +317,15 @@ export function resolveCloneChoice(state, chosenPermId) {
   //   creature / PW scopes — a creature, plus a planeswalker for the youControlCreatureOrPw scope (Spark Double).
   const copiable = (c) => {
     if (!c) return false;
-    const tl = String(c?.permanent?.card?.type || c?.permanent?.card?.type_line || "").split(" // ")[0];
-    if (scope === "anyEquipment") return /Artifact/.test(tl) && /\bEquipment\b/.test(tl);
-    if (scope === "anyArtifact") return /Artifact/.test(tl);
+    // The types it has NOW, its face that is up — cloneCandidates' read (the type-line audit), so the offer and this re-check agree.
+    const id = c.permanent.id;
+    const is = (T) => permanentHasCardType(next, id, T);
+    if (scope === "anyEquipment") return is("Artifact") && permanentHasTypeWord(next, id, "Equipment");
+    if (scope === "anyArtifact") return is("Artifact");
     if (scope === "anyEnchantment" || scope === "anyNonlandPermanent") return cloneWidenedCopiable(c.permanent.card, scope); // KN-2
     if (scope === "anyPermanentEnteredThisTurn") return enteredThisTurnCopiable(next, c.permanent); // shelf D36 (Sakashima's Protege)
-    if (scope === "opponentCreature") return /Creature/.test(tl) && c.permanent.controller !== controller; // KN-3 (Imposter Mech): never your own
-    return /Creature/.test(tl) || (scope === "youControlCreatureOrPw" && /Planeswalker/.test(tl)) || (scope === "anyArtifactOrCreature" && /Artifact/.test(tl));
+    if (scope === "opponentCreature") return is("Creature") && c.permanent.controller !== controller; // KN-3 (Imposter Mech): never your own
+    return is("Creature") || (scope === "youControlCreatureOrPw" && is("Planeswalker")) || (scope === "anyArtifactOrCreature" && is("Artifact"));
   };
   let chosen = chosenPermId ? findPermanent(next, chosenPermId) : null;
   // WI-2 (CREED — CR 707.9): a MANDATORY clone ("~ enters as a copy of …", no "you may") cannot

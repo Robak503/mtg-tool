@@ -1268,7 +1268,7 @@ function applySourcePowerFanout(state, atom, ctx) {
   const chosen = (ctx.targets || []).find((t) => t.type === "creature");
   const lk = chosen?.id ? findPermanent(state, chosen.id) : null;
   // LAYER-AWARE (slice 25): an ANIMATED source still fans out its power rather than silently dealing 0.
-  if (!lk || !(isCreatureCard(lk.permanent.card) || permanentIsCreature(state, chosen.id))) {
+  if (!lk || !permanentIsCreature(state, chosen.id)) { // the creature it is now (the type-line audit — a God below its devotion, a bestowed Aura, an attached reconfigure Equipment are not)
     return logEvent(state, { kind: "spell-effect", effect: "source-power-fanout", controller: ctx.controller, amount: 0 });
   }
   const sourceId = chosen.id;
@@ -1277,7 +1277,7 @@ function applySourcePowerFanout(state, atom, ctx) {
   const targets = [];
   for (const pid of Object.keys(state.players)) {
     for (const perm of (state.players[pid].battlefield || [])) {
-      if (perm.id !== sourceId && isCreatureCard(perm.card)) targets.push({ type: "creature", id: perm.id });
+      if (perm.id !== sourceId && permanentIsCreature(state, perm.id)) targets.push({ type: "creature", id: perm.id }); // the creature it is now (the type-line audit — a God below its devotion, a bestowed Aura, an attached reconfigure Equipment are not); an animated land is
     }
   }
   for (const opp of opponentsOf(state, ctx.controller)) {
@@ -1974,7 +1974,7 @@ function applyCdmgMassToDamagedPlayer(state, atom, ctx) {
     return logEvent(state, { kind: "spell-effect", effect: "cdmg-mass-to-damaged-player", controller: ctx.controller, amount: 0 });
   }
   const targets = (state.players[pid].battlefield || [])
-    .filter((perm) => isCreatureCard(perm.card))
+    .filter((perm) => permanentIsCreature(state, perm.id)) // the creature it is now (the type-line audit — a God below its devotion, a bestowed Aura, an attached reconfigure Equipment are not); an animated land is
     .map((perm) => ({ type: "creature", id: perm.id }));
   if (targets.length === 0) {
     return logEvent(state, { kind: "spell-effect", effect: "cdmg-mass-to-damaged-player", controller: ctx.controller, amount });
@@ -2531,7 +2531,7 @@ export const stackResolvers = {
     let next = state;
     for (const pid of Object.keys(next.players || {})) {
       for (const perm of [...(next.players[pid]?.battlefield || [])]) {
-        if (!(isCreatureCard(perm.card) || permanentIsCreature(next, perm.id))) continue;
+        if (!permanentIsCreature(next, perm.id)) continue; // the creature it is now (the type-line audit — a God below its devotion, a bestowed Aura, an attached reconfigure Equipment are not)
         next = applyDamageEffect(next, {
           controller: ctx.controller, amount: atom.amount, targetType: "player",
           targets: [{ type: "player", id: pid }], source: { id: perm.id },

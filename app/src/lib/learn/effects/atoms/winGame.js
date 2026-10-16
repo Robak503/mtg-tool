@@ -27,6 +27,7 @@
  */
 
 import { logEvent } from "../../gameState.js";
+import { permanentHasTypeWord } from "../../layers.js"; // the type-line audit: a win threshold counts what the permanents ARE now
 import { payManaCost } from "../../manaModel.js"; // PACT rider: the shared plan-and-commit payment (manaModel -> atoms/shared only, no cycle back here)
 
 // Spelled cardinals that appear in win-threshold conditions (ten Treasures, thirty artifacts, fifty
@@ -86,8 +87,9 @@ export function evaluateWinThreshold(state, condition, controllerId) {
     if (n == null) return null;
     const singular = m[2].replace(/s$/, "");                  // "treasures" → "treasure", "artifacts" → "artifact"
     const word = singular.charAt(0).toUpperCase() + singular.slice(1); // type lines are Title-Cased
-    const re = new RegExp(`\\b${word}\\b`, "i");
-    const count = (player.battlefield || []).filter((p) => re.test(typeStr(p.card))).length;
+    // AS IT IS NOW (layers.permanentHasTypeWord — the type-line audit, CR 613.1d): a God below its devotion is not one of Epic
+    // Struggle's twenty creatures, a double-faced permanent is its front face, an animated land is a creature.
+    const count = (player.battlefield || []).filter((p) => permanentHasTypeWord(state, p.id, word)).length;
     return count >= n;
   }
 

@@ -32,7 +32,7 @@
 
 import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, creaturePower, removeCounter, setDoesNotUntapNext, deathLookbackLinks } from "./gameState.js"; // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
 import { checkSacrificeTriggers, checkLeavesTriggers, checkDiesTriggers, checkTapForManaTriggers } from "./triggers.js"; // + ④-D: "tapped for mana" watchers fire at the one tap commit // SG-3: a sacrificed-creature mana cost dies through the chokepoint // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
-import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow, colorsOf, deriveCharacteristics, permIsEveryCreatureType, permanentColors } from "./layers.js";
+import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, colorsOf, deriveCharacteristics, permIsEveryCreatureType, permanentColors } from "./layers.js";
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // QUARTET Phase 4 step 3 (2026-09-06): the closed CR creature-type vocabulary for spend restrictions ("only to cast a Ninja or Turtle spell") — a zero-import leaf
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { COUNT_SUBTYPE } from "./effects/parseHelpers.js"; // #766 — the curated subtype allowlist for "for each <Subtype> on the battlefield" (parseHelpers imports only keywords.js; staticAbilityParser, imported below, already loads it)
@@ -725,6 +725,14 @@ function parseTapOtherCost(oracle) {
 // prints many other payer nouns, but on tap-for-EFFECT abilities this seam never sees.
 const TAP_OTHER_FILTERS = new Set(["creature", "elf", "token", "food", "artifact", "permanent", "druid"]);
 
+/** Is this battlefield permanent a CREATURE right now (layer 4, CR 613.1d — the type-line audit)? A God below its devotion, a
+ *  bestowed Aura, an attached reconfigure Equipment and a slumbering Arixmethes are not; an animated land or a crewed Vehicle is.
+ *  The Altar victim pool and its offer gates read it, so none of them feeds a non-creature as one. Its face that is up (CR 712.8d —
+ *  layers.permanentHasCardType): a Westvale Abbey or a Fable of the Mirror-Breaker is no creature, whatever its back face prints. */
+function isCreatureNow(state, perm) {
+  return !!perm && permanentHasCardType(state, perm.id, "Creature");
+}
+
 /** Is this card a CREATURE by printed type? Used only to scope the payer-ordering sickness key. */
 function isCreatureCardType(card) {
   return new RegExp(`\\bcreature\\b`, "i").test(String(card?.type || card?.type_line || ""));
@@ -734,7 +742,12 @@ function isCreatureCardType(card) {
  *  ("Tap an untapped Elf you control"), every creature type (P·39: a changeling, Mirror Entity's activation, an animated Mutavault). */
 function matchesTapOtherFilter(state, perm, filter) {
   const tl = String(perm?.card?.type || perm?.card?.type_line || "").toLowerCase();
-  const word = (w) => new RegExp(`\\b${w}\\b`).test(tl) || permIsEveryCreatureType(state, perm.id);
+  // A CARD TYPE is the one it has now (layer 4 — the type-line audit): Springleaf Drum's "Tap an untapped creature you control"
+  // can't tap a God below its devotion, and can tap an animated land; its face that is up (CR 712.8d), so a Westvale Abbey is no
+  // creature to tap. A subtype stays the printed word (or every creature type).
+  const CARD_TYPE_WORDS = { creature: "Creature", artifact: "Artifact", land: "Land", enchantment: "Enchantment" };
+  const word = (w) => (CARD_TYPE_WORDS[w] ? permanentHasCardType(state, perm.id, CARD_TYPE_WORDS[w])
+    : new RegExp(`\\b${w}\\b`).test(tl) || permIsEveryCreatureType(state, perm.id));
   if (filter === "token") return !!perm?.card?.token || !!perm?.token;
   // ⛔ "PERMANENT" MUST NOT GO THROUGH THE WORD-BOUND TEST. The word never appears in a type line, so
   // `\bpermanent\b` is a gate NO printed card can satisfy — the source would be built, then never offered,
@@ -1798,8 +1811,13 @@ export function globalTapManaAugment(state, playerId, sourcePerm) {
   const player = state?.players?.[playerId];
   if (!player || !sourcePerm) return [];
   const srcType = typeLineOf(sourcePerm.card);
-  const srcIsLand = /\bLand\b/.test(srcType);
-  const srcIsCreature = /\bCreature\b/.test(srcType);
+  // The tapped permanent AS IT IS NOW (layer 4 — the type-line audit): a slumbering Arixmethes is a land, not a creature (no
+  // Leyline of Abundance bonus, and no Kinnan bonus for a "nonland" tap); an animated land is a creature and still a land; its
+  // face that is up (CR 712.8d — a Westvale Abbey tapped for {C} is no creature). A source the battlefield doesn't hold (a hand
+  // card exiled for mana) keeps the printed read.
+  const live = !!findPermanent(state, sourcePerm.id);
+  const srcIsLand = live ? permanentHasCardType(state, sourcePerm.id, "Land") : /\bLand\b/.test(srcType);
+  const srcIsCreature = live ? permanentHasCardType(state, sourcePerm.id, "Creature") : /\bCreature\b/.test(srcType);
   // NONLAND MANA DOUBLER (BLITZ MD-1, Kinnan): a "nonland permanent" is any tapped mana source whose type
   // line is NOT a Land — a mana rock (Sol Ring/Signet), a mana dork (a creature IS nonland), a Treasure. The
   // subject-gate is the whole point: a LAND tapped under a nonland-only doubler adds NOTHING (never fire on a
@@ -2194,7 +2212,7 @@ export function manaSources(state, playerId) {
     if (prod.exilesGyCard && (player.graveyard || []).length === 0) continue;
     // SG-3 — a sacrifice-a-creature source needs ANOTHER creature to feed it (never the source itself, never
     // offered on an empty board): no victim → no source (CR 601.2h — the cost cannot be paid).
-    if (prod.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || "")))) continue;
+    if (prod.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && isCreatureNow(state, p))) continue; // a creature NOW (the type-line audit)
     if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors && !(prod.painUnlessCitysBlessing && player.citysBlessing === true) ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}) /* shelf D5 — Temur Elevator: no loss once the controller has the city's blessing */, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}) });
     // STAGE ④-3 — EXTRA MANA LINES: a second, complete "{T}: Add …" line the main product does not cover (a
     // gated colour line — Tainted Isle / the Verges / Gathering Place; a free "{T}: Add {C}" beside a painful
@@ -2252,7 +2270,7 @@ export function costReservedPermanentIds(action) {
  */
 export function withoutUnfeedableSacSources(state, playerId, sources, reserved) {
   if (!reserved || !sources.some((s) => s.sacrificesCreature)) return sources;
-  const creatures = (state?.players?.[playerId]?.battlefield || []).filter((p) => /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || "")));
+  const creatures = (state?.players?.[playerId]?.battlefield || []).filter((p) => isCreatureNow(state, p)); // a creature NOW (the type-line audit)
   return sources.filter((s) => !s.sacrificesCreature || creatures.some((c) => c.id !== s.permanentId && !reserved.has(c.id)));
 }
 
@@ -2775,14 +2793,15 @@ export function commitManaTap(state, playerId, tap, { reserved = null } = {}) {
     // `reserved` = the permanents the action being paid for still needs for its OWN costs (its sacrifice victim, the
     // creatures it taps, a source that taps or sacrifices itself): feeding one of those to the Altar would leave that
     // cost unpayable a moment later ("Sacrifice victim … not on battlefield").
-    const victims = bf.filter((p) => p.id !== tap.permanentId && !reserved?.has(p.id) && /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || "")));
+    const victims = bf.filter((p) => p.id !== tap.permanentId && !reserved?.has(p.id) && isCreatureNow(next, p)); // a creature NOW (the type-line audit) — Ashnod's Altar never eats a God below its devotion
     const mvOf = (p) => { const cost = String(p.card?.mana_cost || p.card?.mana || ""); let n = 0; for (const m of cost.matchAll(/\{([^}]+)\}/g)) n += /^\d+$/.test(m[1]) ? parseInt(m[1], 10) : (m[1] === "X" ? 0 : 1); return n; };
     victims.sort((a, b) => mvOf(a) - mvOf(b) || String(a.card?.name || "").localeCompare(String(b.card?.name || "")));
     const victim = victims[0];
     if (victim) {
       const pw = creaturePower(victim, next);
+      const lkiTypes = [...permanentTypes(next, victim.id).types]; // the types it had as it left (CR 603.10a — the type-line audit)
       next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: victim.id });
-      next = checkDiesTriggers(next, [{ controller: playerId, id: victim.id, name: victim.card?.name || "creature", card: victim.card, ...deathLookbackLinks(victim), /* ③ · 43 */ counters: { ...(victim.counters || {}) }, power: Number.isFinite(pw) ? pw : null, basePower: Number.isFinite(pw) ? pw : null, diesExileAfter: !!victim.grantDiesExile }]);
+      next = checkDiesTriggers(next, [{ controller: playerId, id: victim.id, name: victim.card?.name || "creature", card: victim.card, ...deathLookbackLinks(victim), /* ③ · 43 */ counters: { ...(victim.counters || {}) }, power: Number.isFinite(pw) ? pw : null, basePower: Number.isFinite(pw) ? pw : null, diesExileAfter: !!victim.grantDiesExile, lkiTypes }]);
       next = logEvent(next, { kind: "mana", event: "sacrifice-creature-cost", permanentId: tap.permanentId, playerId, victimId: victim.id, victimName: victim.card?.name });
     } else {
       next = logEvent(next, { kind: "mana", event: "sacrifice-creature-cost-unpaid", permanentId: tap.permanentId, playerId });
@@ -2815,8 +2834,9 @@ export function commitManaTap(state, playerId, tap, { reserved = null } = {}) {
   }
   if (tap.sacrifices) {
     const sacPerm = next.players[playerId]?.battlefield?.find(p => p.id === tap.permanentId); // capture pre-move (for the type)
+    const sacLkiTypes = sacPerm ? [...permanentTypes(next, sacPerm.id).types] : null; // the types it had (CR 603.10a — the type-line audit)
     next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId });
-    if (sacPerm) next = checkSacrificeTriggers(next, playerId, { id: sacPerm.id, controller: playerId, card: sacPerm.card });
+    if (sacPerm) next = checkSacrificeTriggers(next, playerId, { id: sacPerm.id, controller: playerId, card: sacPerm.card, lkiTypes: sacLkiTypes });
     next = checkLeavesTriggers(next);
   } else if (tap.noTap) {
     // STAGE ③ · 37 — a no-{T} remove-a-counter source (Pentad Prism): the counter above WAS the whole cost. Nothing taps, and

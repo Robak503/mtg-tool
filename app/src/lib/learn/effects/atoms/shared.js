@@ -8,9 +8,8 @@
 
 import { findPermanent, creaturePower, creatureToughness, opponentsOf } from "../../gameState.js";
 import { MASS_WIPE_SCOPES } from "../../targetTypes.js"; // leaf module (pure strings) — no cycle; feeds the atomTargets drift guard below
-import { permanentIsCreature, permanentHasCardType, domainCount, partyCount, permIsEveryCreatureType, deriveCharacteristics, permanentManaValue } from "../../layers.js"; // + permanentHasCardType (#651): the layer-aware, face-up land read of the opponents' nonland set // + deriveCharacteristics (#587): a permanent's copiable values + layer-4 types for the nonland mana-value set // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import) // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
+import { permanentIsCreature, permanentHasCardType, permanentHasTypeWord, permanentTypes, permanentCreatureTypes, domainCount, partyCount, permIsEveryCreatureType, deriveCharacteristics, permanentManaValue } from "../../layers.js"; // + permanentHasTypeWord (the type-line audit): a subtype filter reads the permanent as it is now // + permanentHasCardType (#651): the layer-aware, face-up land read of the opponents' nonland set // + deriveCharacteristics (#587): a permanent's copiable values + layer-4 types for the nonland mana-value set // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import) // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
 import { creatureSatisfiesRestrictions } from "../../creatureRestrictions.js"; // the SHARED 16-kind restriction satisfier (leaf: gameState + layers + keywords only — every one of those edges already exists above, so no cycle)
-import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // P·39 — every creature type answers for a CREATURE type only (CR 205.3d); a zero-import leaf
 import { isBlockingCreature } from "../../combatRemoval.js"; // CR 506.4 — the one "is it a blocking creature" read (a zero-import leaf)
 import { evaluateInterveningIf } from "../../interveningIf.js"; // INSTEAD-AMOUNT (BLITZ INST-1) — the shared board-condition readers for a condition-gated amountUpgrade; interveningIf → gameState is a leaf edge (gameState imports neither shared.js nor interveningIf), so no cycle
 
@@ -52,34 +51,34 @@ export const isInstantOrSorceryCard = (card) => /\b(Instant|Sorcery)\b/.test(typ
  */
 export function massCreatureTargets(state, opts = {}) {
   // CRUX — an optional creature-SUBTYPE filter ("destroy all Dragon creatures" / "all non-Dragon creatures",
-  // Crux of Fate). A creature subtype is a proper noun that appears verbatim ONLY in the subtype portion of a
-  // type line ("Creature — Dragon"), so a word-bounded, case-insensitive containment test selects exactly the
-  // subtyped creatures (CR 205.3m; mirrors creatureSatisfiesRestrictions' subtype branch). `subtypeNegate`
-  // flips it to "every creature that is NOT that subtype". The subtype comes from the curated parser allowlist,
-  // so it's a real, collision-free MTG subtype — pure type-line read (no state), so this stays a strict leaf.
+  // Crux of Fate). The subtype comes from the curated parser allowlist, so it's a real, collision-free MTG subtype
+  // (CR 205.3m; mirrors creatureSatisfiesRestrictions' subtype branch), read off the permanent as it is now
+  // (layers.permanentHasTypeWord — its front face, every creature type, a creature type a layer-4 effect added or
+  // replaced). `subtypeNegate` flips it to "every creature that is NOT that subtype".
   //
   // MULTI-SUBTYPE — `subtypeFilter` may be an ARRAY of subtypes (Whelming Wave's mass bounce "except for
   // Krakens, Leviathans, Octopuses, and Serpents"). A creature matches the filter if it carries ANY one of the
-  // listed subtypes (OR-union, word-bounded per subtype); `subtypeNegate` then keeps every creature carrying
-  // NONE of them. A single string keeps its exact original one-subtype behavior (byte-for-byte unchanged below
-  // — `subRes` is a one-element array, the .some() reduces to that single test).
+  // listed subtypes (OR-union); `subtypeNegate` then keeps every creature carrying NONE of them. A single string
+  // is a one-element list.
   const subList = opts.subtypeFilter == null ? null : (Array.isArray(opts.subtypeFilter) ? opts.subtypeFilter : [opts.subtypeFilter]);
-  const subRes = subList ? subList.map((s) => new RegExp(`\\b${String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i")) : null;
   const out = [];
   for (const pid of Object.keys(state.players)) {
     for (const perm of state.players[pid].battlefield) {
-      // LAYER-AWARE (slice 27, CR 613): an animated land / crewed Vehicle IS a creature right now.
-      if (!(isCreatureCard(perm.card) || permanentIsCreature(state, perm.id))) continue;
+      // LAYER-AWARE (slice 27, CR 613): an animated land / crewed Vehicle IS a creature right now — and a God below its devotion,
+      // a bestowed Aura, an attached reconfigure Equipment and a slumbering Arixmethes are NOT (the type-line audit: the printed
+      // read beside the layer read let a removed type through, so Farewell's "exile all creatures" took a Thassa that isn't one).
+      if (!permanentIsCreature(state, perm.id)) continue;
       // "ALL OTHER creatures" (④-AV, 2026-09-04 — Shrieking Mogg / Thundermare / Timbermare "tap all other creatures"):
       // CR 109.5 — the ability's own permanent is excluded when the atom says so. Fails CLOSED without a sourceId
       // (nothing is excluded → the source is tapped too), so the parser arm is reached only from a source-bearing
       // trigger; every existing mass atom passes no excludeSource and is byte-identical.
       if (opts.excludeSource && opts.sourceId && perm.id === opts.sourceId) continue;
-      if (subRes) {
-        const face = typeLineStr(perm.card).split(" // ")[0]; // front face only (CR 712.4a)
-        // carries ANY listed subtype — printed, or every creature type for a listed creature type (P·39: a changeling, Mirror
-        // Entity's activation, an animated Mutavault IS a Dragon, so "destroy all non-Dragon creatures" spares it)
-        const has = subRes.some((re) => re.test(face)) || permIsEveryCreatureType(state, perm.id);
+      if (subList) {
+        // carries ANY listed subtype AS IT IS NOW, on its front face (layers.permanentHasTypeWord — the type-line audit): every
+        // creature type for a listed creature type (P·39: a changeling, Mirror Entity's activation, an animated Mutavault IS a
+        // Dragon, so "destroy all non-Dragon creatures" spares it), and a creature type a layer-4 effect added — a Metallic Mimic
+        // that chose Dragon is one too (CR 205.1b), where the printed line ("Shapeshifter") had Crux of Fate destroy it.
+        const has = subList.some((s) => permanentHasTypeWord(state, perm.id, s));
         if (opts.subtypeNegate ? has : !has) continue;
       }
       // POWER threshold (BLITZ PW-1 — "destroy all creatures with power N or greater/less", Elspeth, Sun's
@@ -131,27 +130,34 @@ export function sameNameCreatureTargets(state, name) {
   const out = [];
   for (const pid of Object.keys(state.players)) {
     for (const perm of state.players[pid].battlefield) {
-      if ((isCreatureCard(perm.card) || permanentIsCreature(state, perm.id)) && perm.card?.name === name) out.push({ type: "creature", id: perm.id, controller: pid });
+      if (permanentIsCreature(state, perm.id) && perm.card?.name === name) out.push({ type: "creature", id: perm.id, controller: pid }); // the creature it is now (the type-line audit)
     }
   }
   return out;
 }
 
 /**
- * MASS-NC — every permanent matching `matches(card)` on EVERY battlefield, as `{type:"permanent"}`
+ * MASS-NC — every permanent matching `matches(card, perm)` on EVERY battlefield, as `{type:"permanent"}`
  * descriptors (the type applyDestroyEffect accepts; it re-checks isCreature for the CR 603.10a dies
  * look-back, so an artifact/enchantment CREATURE swept this way still dies + fires its dies-trigger).
- * Mirrors massCreatureTargets for "destroy all artifacts / enchantments / lands".
+ * Mirrors massCreatureTargets for "destroy all artifacts / enchantments / lands". The predicate gets the permanent too, so
+ * atomTargets asks the type it has NOW (permanentTypeWordNow — the type-line audit).
  */
 export function massPermanentTargets(state, matches) {
   const out = [];
   for (const pid of Object.keys(state.players)) {
     for (const perm of state.players[pid].battlefield) {
-      if (matches(perm.card)) out.push({ type: "permanent", id: perm.id, controller: pid });
+      if (matches(perm.card, perm)) out.push({ type: "permanent", id: perm.id, controller: pid });
     }
   }
   return out;
 }
+
+/** A mass-set predicate: does the permanent carry every one of `words` AS IT IS NOW (layers.permanentHasTypeWord — the
+ *  type-line audit, CR 613.1d)? Its front face only (Armageddon spares a front-up Ojer Taq, a creature with a land back face;
+ *  Tranquility spares Sheoldred // The True Scriptures), a type an effect added counted (Shatterstorm takes a creature Liquimetal
+ *  Torque made an artifact; Boil takes every Island under Dryad of the Ilysian Grove), a type an effect removed not. */
+const permanentTypeWordNow = (state, ...words) => (card, perm) => words.every((w) => permanentHasTypeWord(state, perm.id, w));
 
 /**
  * "EACH NONLAND PERMANENT WITH MANA VALUE N OR LESS" (Culling Ritual, play-weighted #587) — every permanent on EVERY
@@ -193,30 +199,23 @@ export function controllerCreatureTargets(state, controller, opts = {}) {
   if (!player) return [];
   // TEAM-PUMP-SCOPE — two optional narrowings of the controller's creatures, both fixed AT RESOLUTION:
   //   • excludeSource (CR 113.7 "OTHER creatures you control") drops the pump's own source permanent.
-  //   • subtypeFilter ("<Subtype>s you control") keeps only creatures whose type line carries that
-  //     subtype, word-bounded (\b) so "Elf" matches "Creature — Elf Warrior" but never a substring.
-  //     The subtype comes from the curated COUNT_SUBTYPE allowlist (parser-side), so it's a real,
-  //     collision-free MTG subtype — the \b match credits exactly the subtyped creatures (CREED).
+  //   • subtypeFilter ("<Subtype>s you control") keeps only creatures that carry that subtype. The subtype comes
+  //     from the curated COUNT_SUBTYPE allowlist (parser-side), so it's a real, collision-free MTG subtype.
   //     UNION (Vault 12's chapter III "each creature you control that's a Zombie or Mutant" — SHELF S7):
-  //     an ARRAY matches ANY listed subtype (the massCreatureTargets subList pattern exactly); a single
-  //     string keeps its original one-subtype behavior byte-for-byte.
-  const subFilters = opts.subtypeFilter == null ? null : (Array.isArray(opts.subtypeFilter) ? opts.subtypeFilter : [opts.subtypeFilter]);
-  const subRes = subFilters ? subFilters.map((s) => new RegExp(`\\b${String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`)) : null;
+  //     an ARRAY matches ANY listed subtype (the massCreatureTargets subList pattern exactly).
   // TYPE-NEGATED team scope (Return of the Wildspeaker "Non-Human creatures you control get +3/+3") — subtypeNegate
-  // keeps only creatures NOT of that subtype. Word-bounded, case-insensitive front-face read (CR 712.4a), and a
-  // CHANGELING (CR 702.73a — IS every creature type) is excluded too, mirroring greatestPtAmong's notSubtype. The
-  // subtype is a curated allowlist word (parser-side), so the \b match credits exactly the non-<Subtype> creatures.
-  const negRe = opts.subtypeNegate ? new RegExp(`\\b${opts.subtypeNegate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i") : null;
+  // keeps only creatures NOT of that subtype. The subtype is a curated allowlist word (parser-side).
+  // Every type word here is read off the creature AS IT IS NOW (layers.permanentHasTypeWord — the type-line audit): its front
+  // face (CR 712.4a), every creature type for a creature type (P·39 — a changeling is a Human, so not a "non-Human"), a type a
+  // layer-4 effect added (a Metallic Mimic that chose Human is one; a creature Liquimetal Torque made an artifact is one of Steel
+  // Overseer's "artifact creatures you control" — the card-type qualifier rides subtypeFilter "Artifact" / "Enchantment").
+  const subFilters = opts.subtypeFilter == null ? null : (Array.isArray(opts.subtypeFilter) ? opts.subtypeFilter : [opts.subtypeFilter]);
   return player.battlefield
-    .filter((perm) => isCreatureCard(perm.card) || permanentIsCreature(state, perm.id))
+    .filter((perm) => permanentIsCreature(state, perm.id)) // the creature it is now — a God below its devotion is not one
     .filter((perm) => !(opts.excludeSource && perm.id === opts.sourceId))
-    .filter((perm) => !opts.legendaryOnly || /\bLegendary\b/.test(typeLineStr(perm.card)))  // Hajar's supertype gate
-    // P·39 — every creature type answers a CREATURE-type filter only (CR 205.3d): Steel Overseer's "each artifact creature you
-    // control" (counters.js — the card-type qualifier rides subtypeFilter "Artifact" / "Enchantment") is never met by it.
-    .filter((perm) => !subRes || subRes.some((re) => re.test(typeLineStr(perm.card)))
-      || (subFilters.some(isCreatureTypeWord) && permIsEveryCreatureType(state, perm.id)))
-    .filter((perm) => !negRe || !(negRe.test(typeLineStr(perm.card).split(" // ")[0])
-      || permIsEveryCreatureType(state, perm.id)))
+    .filter((perm) => !opts.legendaryOnly || permanentHasTypeWord(state, perm.id, "Legendary"))  // Hajar's supertype gate
+    .filter((perm) => !subFilters || subFilters.some((s) => permanentHasTypeWord(state, perm.id, s)))
+    .filter((perm) => !opts.subtypeNegate || !permanentHasTypeWord(state, perm.id, opts.subtypeNegate))
     // POWER FLOOR (Goreclaw — "each creature you control with power 4 or greater"): the creature's power as the effect is
     // applied, through the layers (CR 608.2h, CR 613.4c — counters, anthems and earlier pumps count). The set is gathered
     // once, before any of this pump lands, and is then fixed (CR 611.2c): a creature this very pump lifts to the floor is
@@ -249,7 +248,9 @@ export function worstOwnBounceTarget(state, controller, { creatureOnly = false, 
   // violation here, in the direction of refusing something the card allows.
   // COLOUR-FILTERED (2026-09-30 — Horned Kavu's "a red or green creature you control"): the printed filter as the SHARED
   // restriction satisfier reads it (colorAny: layer-aware, fail-closed), so the pick can never return an off-colour creature.
-  const cands = bf.filter((p) => (!creatureOnly || isCreatureCard(p.card)) && (!landOnly || isLandCard(p.card))
+  // The creature / land it is NOW (the type-line audit, CR 613.1d): a God below its devotion is not "a creature you control" to
+  // return, an animated land is; a slumbering Arixmethes is "a land you control".
+  const cands = bf.filter((p) => (!creatureOnly || permanentIsCreature(state, p.id)) && (!landOnly || permanentHasCardType(state, p.id, "Land"))
     && !(excludeSource && p.id === sourceId)
     && (!restrictions?.length || creatureSatisfiesRestrictions(state, p, controller, controller, restrictions, null)));
   if (cands.length === 0) return [];
@@ -278,7 +279,7 @@ export function opponentCreatureTargets(state, controller, opts = {}) {
     const opp = state.players?.[oppId];
     if (!opp) continue;
     for (const perm of opp.battlefield) {
-      if (!(isCreatureCard(perm.card) || permanentIsCreature(state, perm.id))) continue;
+      if (!permanentIsCreature(state, perm.id)) continue; // the creature it is now (the type-line audit)
       if (cap != null && creatureToughness(perm, state) > cap) continue; // above the count-derived bound → spared
       out.push({ type: "creature", id: perm.id, controller: oppId });
     }
@@ -315,19 +316,19 @@ export const atomTargets = (state, atom, ctx) => {
   // `restrictions` is the SHARED grammar (2026-07-30) — the same array the damage side has always carried,
   // now readable here too, so a destroy/exile/bounce can say every filter a burn spell could.
   if (atom.targetType === "eachCreature") return massCreatureTargets(state, { subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate, powerCmp: atom.powerCmp, powerVal: atom.powerVal, mvCmp: atom.mvCmp, mvVal: atom.mvVal, restrictions: atom.restrictions, casterId: ctx?.controller, ctx, excludeSource: atom.excludeSource, sourceId: ctx?.sourceId });
-  if (atom.targetType === "eachArtifact") return massPermanentTargets(state, isArtifactCard);
-  if (atom.targetType === "eachEnchantment") return massPermanentTargets(state, isEnchantmentCard);
+  if (atom.targetType === "eachArtifact") return massPermanentTargets(state, permanentTypeWordNow(state, "Artifact"));
+  if (atom.targetType === "eachEnchantment") return massPermanentTargets(state, permanentTypeWordNow(state, "Enchantment"));
   if (atom.targetType === "eachLand") return massPermanentTargets(state, atom.landSubtype
-    ? (c) => isLandCard(c) && new RegExp(`\\b${atom.landSubtype}\\b`, "i").test(typeLineStr(c)) // MASS-LAND-SUBTYPE (Boil "destroy all Islands")
-    : isLandCard);
-  if (atom.targetType === "eachArtifactOrEnchantment") return massPermanentTargets(state, (c) => isArtifactCard(c) || isEnchantmentCard(c));
+    ? permanentTypeWordNow(state, "Land", atom.landSubtype) // MASS-LAND-SUBTYPE (Boil "destroy all Islands")
+    : permanentTypeWordNow(state, "Land"));
+  if (atom.targetType === "eachArtifactOrEnchantment") return massPermanentTargets(state, (c, p) => permanentTypeWordNow(state, "Artifact")(c, p) || permanentTypeWordNow(state, "Enchantment")(c, p));
   // THE TRIPLE (stage ③ · 29 — Nevinyrral's Disk, Akroma's Vengeance): the layer-aware creature set the Wrath path uses (an
   // animated land counts), plus every artifact and enchantment by type line like the pair above — each permanent ONCE (an
   // artifact creature is in both halves; its creature descriptor wins).
   if (atom.targetType === "eachArtifactCreatureOrEnchantment") {
     const creatures = massCreatureTargets(state);
     const seen = new Set(creatures.map((t) => t.id));
-    return [...creatures, ...massPermanentTargets(state, (c) => isArtifactCard(c) || isEnchantmentCard(c)).filter((t) => !seen.has(t.id))];
+    return [...creatures, ...massPermanentTargets(state, (c, p) => permanentTypeWordNow(state, "Artifact")(c, p) || permanentTypeWordNow(state, "Enchantment")(c, p)).filter((t) => !seen.has(t.id))];
   }
   // MASS-OPPONENT-BOUNCE (Scourge of Fleets) — "each creature your opponents control[ with toughness X or less]"
   // gathered AT RESOLUTION (CR 611.2c — the set is fixed as the one-shot begins). The optional toughness bound X
@@ -494,7 +495,7 @@ export function enchantedTargets(state, ctx) {
   // is a LIVE question, not a printed one: an Aura on a permanent that has been animated (or a Vehicle that
   // is currently crewed) has a creature host right now. The printed-card check alone no-opped the effect
   // while the metric read HIGH — the same catch selfTargets already carries.
-  return hostLk && (isCreatureCard(hostLk.permanent.card) || permanentIsCreature(state, hostId))
+  return hostLk && permanentIsCreature(state, hostId) // the creature it is now (the type-line audit — not printed OR layers)
     ? [{ type: "creature", id: hostId, controller: hostLk.controller }]
     : [];
 }
@@ -511,7 +512,7 @@ export function selfTargets(state, ctx) {
   // became a creature) counts too; the printed-card check alone silently dropped self effects on it
   // (the metric said HIGH while the runtime no-opped — the exact FP class the CREED forbids).
   if (!lk) return [];
-  if (isCreatureCard(lk.permanent.card) || permanentIsCreature(state, ctx.sourceId)) {
+  if (permanentIsCreature(state, ctx.sourceId)) { // the creature it is now (the type-line audit — a God below its devotion is a permanent)
     return [{ type: "creature", id: ctx.sourceId, controller: lk.controller }];
   }
   // NON-CREATURE SELF (census slice 22) — the same catch as the animated-land case above, one type wider.
@@ -539,7 +540,7 @@ export function triggeringTargets(state, ctx) {
   // silently dropped the referent for a permanent that is a creature only BY LAYERS (an animated land that
   // triggered something), so the effect no-opped while the metric read HIGH. Verified: with an animated land
   // as the triggering permanent this returned [] while selfTargets on the same permanent returned it.
-  return lk && (isCreatureCard(lk.permanent.card) || permanentIsCreature(state, id))
+  return lk && permanentIsCreature(state, id) // the creature it is now (the type-line audit — not printed OR layers)
     ? [{ type: "creature", id, controller: lk.controller }] : [];
 }
 
@@ -606,19 +607,24 @@ export function countMatches(card, spec) {
   return false;
 }
 
-// P·39 — countMatches for a BATTLEFIELD permanent: its type line, or — for a creature-type subtype ("for each Elf you control",
-// Magma Sliver's Slivers) — every creature type (a changeling, Mirror Entity's activation, an animated Mutavault;
-// layers.permIsEveryCreatureType). A land / artifact subtype never matches by it (CR 205.3d).
-// The FRONT FACE of a " // " permanent (play-weighted #766): a double-faced permanent with its front face up has only that face's
-// characteristics (CR 712.8d), and the engine has every double-faced permanent front face up (it never transforms; a modal face
-// played or cast enters as its own card), while a Room's halves share one type line. The combined "Front // Back" line credited a
-// back face's types: Invasion of Lorwyn (a Battle — Siege) counted as an Elf through Winnowing Forces, and Fable of the
-// Mirror-Breaker (a Saga) as a creature. Only the battlefield read narrows: a split card in a graveyard has the card types of both
-// halves (CR 709.4c), so cardsInGraveyard keeps the combined line.
+// countMatches for a BATTLEFIELD permanent — the permanent AS IT IS NOW (the type-line audit; layers.permanentHasTypeWord, CR
+// 613.1d). This count runs at resolution and in the mana model, never inside a derive, so it reads the layer engine:
+//   · a type an effect REMOVED is gone — a God below its devotion, a bestowed Aura, an attached reconfigure Equipment and a
+//     slumbering Arixmethes are not creatures, so Gaea's Cradle ("Add {G} for each creature you control") and "draw a card for
+//     each creature you control" don't count them (the printed line did: extra mana, an extra card — the forbidden direction);
+//   · a type an effect ADDED counts — Cabal Coffers ("Add {B} for each Swamp you control") counts every land under Urborg, Tomb
+//     of Yawgmoth (CR 205.1b), an animated land is a creature, a creature Liquimetal Torque made an artifact is an artifact;
+//   · every creature type for a creature-type subtype (P·39 — "for each Elf you control", Magma Sliver's Slivers: a changeling,
+//     Mirror Entity's activation, an animated Mutavault); a land / artifact subtype never matches by it (CR 205.3d);
+//   · the FRONT FACE of a " // " permanent (play-weighted #766, CR 712.8d): the engine has every double-faced permanent front face
+//     up, so Invasion of Lorwyn (a Battle — Siege) is no Elf for Winnowing Forces and Fable of the Mirror-Breaker (a Saga) is no
+//     creature. Only the battlefield read narrows: a split card in a graveyard has both halves' card types (CR 709.4c), so
+//     cardsInGraveyard keeps the combined line (countMatches).
 function countMatchesPerm(state, perm, spec) {
-  const line = typeLineStr(perm.card);
-  if (countMatches(line.includes(" // ") ? { type: line.split(" // ")[0] } : perm.card, spec)) return true;
-  return !!spec?.subtype && isCreatureTypeWord(spec.subtype) && permIsEveryCreatureType(state, perm.id);
+  if (spec?.subtype) return permanentHasTypeWord(state, perm.id, spec.subtype);
+  if (Array.isArray(spec?.cardTypes)) return spec.cardTypes.some((ct) => permanentHasTypeWord(state, perm.id, ct));
+  if (spec?.cardType) return permanentHasTypeWord(state, perm.id, spec.cardType);
+  return false;
 }
 
 // CHOSEN-TYPE (CR 614.12) spell-time count — Distant Melody ("Choose a creature type. Draw a card for each
@@ -628,18 +634,14 @@ function countMatchesPerm(state, perm, spec) {
 // the controller controls of that subtype. A CHANGELING (CR 702.73a — every creature type) counts toward EVERY
 // candidate type, so it's added to the max once any candidate exists (and is the floor when only changelings
 // are present). This exactly matches what a player maximizing the draw would pick, so it's never an over- or
-// under-count. Reads the card type line directly (no engine import). 0 when the controller controls no
-// creature-typed permanent (a safe floor — no fabricated draw).
-function permanentSubtypes(card) {
-  const line = String(card?.type || card?.type_line || "");
-  if (!/Creature/.test(line)) return [];
-  const dash = line.indexOf("—");
-  if (dash === -1) return [];
-  return line.slice(dash + 1).trim().split(/\s+/).filter(Boolean);
-}
-// P·39 — a word the closed CR 205.3m creature-type list holds (every creature type answers for these only, CR 205.3d).
-function isCreatureTypeWord(word) {
-  return CR_CREATURE_TYPES.has(String(word || "").toLowerCase());
+// under-count. Each permanent's creature types are the ones it has NOW (the type-line audit — layers.permanentCreatureTypes,
+// CR 613.1d): a Metallic Mimic has the type it chose; a God below its devotion, a bestowed Aura and an attached Lizard Blades have
+// none (a removed card type takes its subtypes with it, CR 205.1a — creature types belong to creatures and kindreds, CR 205.3m);
+// a double-faced permanent has its front face's. 0 when the controller controls no creature-typed permanent (a safe floor — no
+// fabricated draw).
+function creatureTypedNow(state, perm) {
+  const { types } = permanentTypes(state, perm.id);
+  return types.includes("Creature") || types.includes("Kindred") || types.includes("Tribal");
 }
 function chosenTypePermanentsCount(state, player) {
   const bf = player?.battlefield || [];
@@ -651,9 +653,9 @@ function chosenTypePermanentsCount(state, player) {
   const tally = new Map();
   let changelings = 0;
   for (const perm of bf) {
-    const card = perm.card;
+    if (!creatureTypedNow(state, perm)) continue;
     if (permIsEveryCreatureType(state, perm.id)) { changelings += 1; continue; }
-    for (const sub of permanentSubtypes(card)) tally.set(sub, (tally.get(sub) || 0) + 1);
+    for (const sub of permanentCreatureTypes(state, perm.id)) tally.set(sub, (tally.get(sub) || 0) + 1);
   }
   if (tally.size === 0) return changelings; // only changelings (or nothing) → that count (0 if none)
   let best = 0;
@@ -846,7 +848,8 @@ export function countForSpec(state, ctx, spec) {
     if (!lk && spec.kind === "sourcePower" && refId && ctx?.triggeringPermanentId === refId && typeof ctx?.dyingPower === "number") {
       return Math.max(0, ctx.dyingPower);
     }
-    if (!lk || !/\bCreature\b/.test(String(lk.permanent.card?.type || lk.permanent.card?.type_line || ""))) return 0;
+    // A creature NOW (the type-line audit): a noncreature permanent has no power (CR 208.3) — a God below its devotion reads 0.
+    if (!lk || !permanentIsCreature(state, lk.permanent.id)) return 0;
     return Math.max(0, stat.read(lk.permanent, state));
   }
   // ===== TARGET-STAT (DRAW-BY-TARGET-POWER) ===== a count read off the CHOSEN CREATURE TARGET'S layer-aware
@@ -863,7 +866,7 @@ export function countForSpec(state, ctx, spec) {
   if (targetRead) {
     const tgt = (ctx?.targets || []).find((t) => t.type === "creature");
     const lk = tgt ? findPermanent(state, tgt.id) : null;
-    if (!lk || !/\bCreature\b/.test(String(lk.permanent.card?.type || lk.permanent.card?.type_line || ""))) return 0;
+    if (!lk || !permanentIsCreature(state, lk.permanent.id)) return 0; // a creature NOW (the type-line audit, CR 208.3)
     return Math.max(0, targetRead(lk.permanent, state));
   }
   // ===== COUNTERS-ON-SOURCE (DOUBLE-COUNTERS) ===== the number of counters of a given kind CURRENTLY on
@@ -1066,10 +1069,9 @@ export function countForSpec(state, ctx, spec) {
       // ATTACHED-TO-TYPE (Sage's Reverie SH4 — "aura you control that's attached to a CREATURE"): the aura's
       // host must be a permanent of the named type. Read live off attachedTo (an aura on a land/artifact, or
       // a detached one, is excluded — CR 303.4). Absent → no filter (plain count, byte-identical).
+      // The host's type as it is now (the type-line audit — an Aura on an animated land is attached to a creature).
       && (spec.attachedToType == null
-          || (!!perm.attachedTo && new RegExp(`\\b${spec.attachedToType}\\b`, "i").test(
-                String(findPermanent(state, perm.attachedTo)?.permanent?.card?.type
-                    || findPermanent(state, perm.attachedTo)?.permanent?.card?.type_line || "")))),
+          || (!!perm.attachedTo && permanentHasTypeWord(state, perm.attachedTo, spec.attachedToType))),
     ).length;
   }
   // ===== CHOSEN-TYPE (Distant Melody) ===== "permanent you control of that type" where the type was chosen
@@ -1084,7 +1086,9 @@ export function countForSpec(state, ctx, spec) {
   if (spec.kind === "creaturesOfSourceChosenType") {
     const type = ctx?.source?.chosenType;
     if (!type) return 0;
-    return (player.battlefield || []).filter((p) => (permIsEveryCreatureType(state, p.id) ? permanentIsCreature(state, p.id) : permanentSubtypes(p.card).includes(type))).length; // P·39 — every creature type, read on the battlefield
+    // P·39 — every creature type, read on the battlefield; the type-line audit — a creature type a layer-4 effect added counts (a
+    // Metallic Mimic that chose it), and a God below its devotion is no creature of any type (CR 205.1a).
+    return (player.battlefield || []).filter((p) => permanentIsCreature(state, p.id) && permanentHasTypeWord(state, p.id, type)).length;
   }
   // ===== FOR-EACH ===== cards in the controller's graveyard (raw card objects), optionally one card type.
   if (spec.kind === "cardsInGraveyard") return (player.graveyard || []).filter((c) => (spec.cardType ? countMatches(c, spec) : true)).length;
@@ -1164,12 +1168,13 @@ function isExcludedSelf(perm, spec, ctx) {
 // CHANGELING (CR 702.73a — IS every creature type, so it IS the negated subtype) is also excluded. Absent → no
 // filter (every existing caller is byte-for-byte unchanged).
 function greatestPtAmong(state, player, spec, ctx, read) {
-  const negRe = spec.notSubtype ? new RegExp(`\\b${spec.notSubtype.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i") : null;
+  // The creature it is NOW, and the subtype it has now (the type-line audit — layers, CR 613.1d): a Purphoros below its devotion
+  // prints 6 power and is no creature, so Return of the Wildspeaker draws off the creatures actually there; an animated land is
+  // one; every creature type IS a Human (P·39), and so is a Metallic Mimic that chose Human.
   return (player.battlefield || [])
-    .filter((perm) => /\bCreature\b/.test(String(perm.card?.type || perm.card?.type_line || "")))
+    .filter((perm) => permanentIsCreature(state, perm.id))
     .filter((perm) => !isExcludedSelf(perm, spec, ctx))
-    .filter((perm) => !negRe || !(negRe.test(typeLineStr(perm.card).split(" // ")[0])
-      || permIsEveryCreatureType(state, perm.id))) // P·39 — every creature type IS a Human
+    .filter((perm) => !spec.notSubtype || !permanentHasTypeWord(state, perm.id, spec.notSubtype))
     .reduce((mx, perm) => Math.max(mx, read(perm, state)), 0);
 }
 

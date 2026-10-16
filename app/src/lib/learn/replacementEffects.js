@@ -26,7 +26,12 @@
  * RECURSION: the multiplier is computed ONCE and applied to the count/amount at the put/create event — never
  * a post-event "add more" (that would double-fire ETB/dies and break CR 616 once-per-event semantics), and a
  * doubler-created token is just minted (no re-entry into the multiply path).
+ *
+ * ONE ENGINE EDGE (the type-line audit): layers.js, for the recipient's types as they are now (recipientTypeMatches). layers.js
+ * imports none of the modules that import this one (its whole closure is a set of leaves — verified), so there is still no cycle.
  */
+
+import { permanentHasCardType } from "./layers.js";
 
 function oracleOf(card) {
   return String(card?.oracle ?? card?.oracle_text ?? card?.text ?? "").toLowerCase();
@@ -352,18 +357,13 @@ function counterDoublerApplies(d, ownerId, recipientId, permId, recipientPermId)
   return d.scope === "global" || ownerId === recipientId;
 }
 
-// The recipient permanent's PRINTED type line carries one of `types` (word-bounded). A local battlefield
-// scan — this module is a LEAF gameState imports, so it cannot import findPermanent (cycle). Printed-line
-// read matches doublerProfile's own convention (the parse is printed-text too).
+// The recipient permanent HAS one of `types` NOW (layers.permanentHasCardType — CR 613.1d, its face that is up; the type-line
+// audit): Winding Constrictor's "an artifact or creature you control" adds nothing to a God below its devotion or to a slumbering
+// Arixmethes' slumber counters (neither is a creature or an artifact now), and it does reach an animated land. A permanent the
+// battlefield doesn't hold matches nothing. (This module is a LEAF gameState imports, so it can't import findPermanent; layers.js
+// reaches neither module, so this edge is cycle-free.)
 function recipientTypeMatches(state, permId, types) {
-  for (const pid of Object.keys(state?.players || {})) {
-    const perm = (state.players[pid].battlefield || []).find((p) => p.id === permId);
-    if (perm) {
-      const t = String(perm.card?.type || perm.card?.type_line || "");
-      return types.some((ty) => new RegExp(`\\b${ty}\\b`).test(t));
-    }
-  }
-  return false;
+  return types.some((ty) => permanentHasCardType(state, permId, ty));
 }
 
 /**

@@ -321,8 +321,8 @@ function parseEtbKeywordFilter(subject) {
 }
 // A death or sacrifice LOOK-BACK carries the types it had as it last existed on the battlefield (CR 603.10a — a crewed Vehicle
 // or an animated land died as a creature); anything else answers by its card's type line (gameState.lastKnownIsCreature).
-function isCreaturePerm(perm) {
-  return lastKnownIsCreature(perm);
+function isCreaturePerm(perm, state = null) {
+  return lastKnownIsCreature(perm, state); // + state: a LIVE permanent is the creature it is now (the type-line audit)
 }
 // PLANESWALKER look-back gate (CR 700.4 / 704.5i) — used by the creatureOrPwYouControl dies scope so a
 // dead PLANESWALKER (fed to the dies dispatch via checkPlaneswalkerDiesTriggers) matches a "a creature or
@@ -6603,11 +6603,11 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // checkLifeLossTriggers directly. Always matches here (the milled/opponentDraw precedent).
       return true;
     case "eachCreature":
-      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent);
+      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent, state);
     case "eachOtherCreature":
-      return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id && isCreaturePerm(triggeringPermanent);
+      return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id && isCreaturePerm(triggeringPermanent, state);
     case "creatureYouControl":
-      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller === sourcePermanent.controller;
+      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent, state) && triggeringPermanent.controller === sourcePermanent.controller;
     case "commanderYouControl":
       // COMMANDER-SCOPED subject (CR 903.3) — "a commander you control deals combat damage to an opponent"
       // (Kediss, Emberclaw Familiar). Narrower than creatureYouControl in exactly one way: the triggering
@@ -6619,13 +6619,13 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // owns but you have gained control of IS a commander you control and does fire (CR 903.3 designates
       // the card; control is read live). Same controller comparison creatureYouControl uses.
       return !!triggeringPermanent
-        && isCreaturePerm(triggeringPermanent)
+        && isCreaturePerm(triggeringPermanent, state)
         && triggeringPermanent.controller === sourcePermanent.controller
         && !!triggeringPermanent.card?.isCommander;
     case "selfOrOtherCreatureYouControl": // SATORU (BI-5): itself OR another creature it controls
-      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller === sourcePermanent.controller;
+      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent, state) && triggeringPermanent.controller === sourcePermanent.controller;
     case "otherCreatureYouControl":
-      return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller === sourcePermanent.controller;
+      return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id && isCreaturePerm(triggeringPermanent, state) && triggeringPermanent.controller === sourcePermanent.controller;
     case "creatureOrPwYouControl":
       // CREATURE-OR-PLANESWALKER dies (Cruel Celebrant — "this creature or another creature OR PLANESWALKER you
       // control dies"). The subject union is { a creature you control } ∪ { a planeswalker you control } (the
@@ -6636,7 +6636,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // type line. A non-controlled or wrong-type death does NOT match (no over-fire); an opponent's PW dying
       // never fires this (controller gate), matching CR 603.6e.
       return !!triggeringPermanent
-        && (isCreaturePerm(triggeringPermanent) || isPlaneswalkerPerm(triggeringPermanent))
+        && (isCreaturePerm(triggeringPermanent, state) || isPlaneswalkerPerm(triggeringPermanent))
         && triggeringPermanent.controller === sourcePermanent.controller;
     // ===== LTB / PiG WATCHER scopes (CR 700.4 / 603.6e) ===== The triggeringPermanent is the LEAVING permanent
     // (a CR-603.10a look-back from checkLeavesTriggers, carrying `leftToGraveyard`). All are controller-gated.
@@ -6647,7 +6647,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       return !!triggeringPermanent && triggeringPermanent.leftToGraveyard
         && triggeringPermanent.controller === sourcePermanent.controller
         && (descriptor.includeSelf || triggeringPermanent.id !== sourcePermanent.id)
-        && (isCreaturePerm(triggeringPermanent) || /Artifact/.test(typeStr(triggeringPermanent.card)));
+        && (isCreaturePerm(triggeringPermanent, state) || /Artifact/.test(typeStr(triggeringPermanent.card)));
     case "artifactYouControlPiG":
       // Marionette Master — "an artifact you control is put into a graveyard". The "another"-form sets excludeSelf
       // (Disciple-of-the-Vault style); the bare form's source is a creature (never an artifact), so self never matches.
@@ -6660,7 +6660,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // graveyard exit only (CR 700.4). isCreaturePerm + controller gate, mirroring creatureYouControl (dies).
       return !!triggeringPermanent && triggeringPermanent.leftToGraveyard
         && triggeringPermanent.controller === sourcePermanent.controller
-        && isCreaturePerm(triggeringPermanent);
+        && isCreaturePerm(triggeringPermanent, state);
     case "artifactAnyPiG":
       // BLITZ TR-3 (CR 700.4 / 603.6e) — "an artifact is put into a graveyard from the battlefield" (Molder
       // Beast, Fangren Marauder, Moriok Rigger, Disciple of the Vault). ANY player's artifact, so NO controller
@@ -6696,28 +6696,28 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // CR 603.6c). isCreaturePerm + same-controller + not-self (the "another" exclusion, so the source's own
       // leave — arriving via the self look-back with source===triggering — never self-fires).
       return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id
-        && isCreaturePerm(triggeringPermanent)
+        && isCreaturePerm(triggeringPermanent, state)
         && triggeringPermanent.controller === sourcePermanent.controller;
     case "creatureYouControlLeaves":
       // "a creature you control leaves the battlefield" (The Ozolith, W2) — the bare form of the arm directly
       // above: NO self exclusion (the bare subject self-includes, the same convention as the bare PiG scopes).
-      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent)
+      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent, state)
         && triggeringPermanent.controller === sourcePermanent.controller;
     case "otherNontokenCreatureYouControlLeaves":
       // Tokka & Rahzar — "another nontoken creature you control leaves the battlefield": the "another" arm above with
       // a NONTOKEN gate on the leaving permanent (card.token — the token-factory convention; a token leaving never fires).
       return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id
         && !triggeringPermanent.card?.token
-        && isCreaturePerm(triggeringPermanent)
+        && isCreaturePerm(triggeringPermanent, state)
         && triggeringPermanent.controller === sourcePermanent.controller;
     case "nontokenCreatureYouControlLeaves":
       // Splinter, the Mentor — "Splinter or another nontoken creature you control leaves the battlefield": self-inclusive
       // (the source's own leave fires it), nontoken-gated like the arm above.
       return !!triggeringPermanent && !triggeringPermanent.card?.token
-        && isCreaturePerm(triggeringPermanent)
+        && isCreaturePerm(triggeringPermanent, state)
         && triggeringPermanent.controller === sourcePermanent.controller;
     case "creatureOpponentControls":
-      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller !== sourcePermanent.controller;
+      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent, state) && triggeringPermanent.controller !== sourcePermanent.controller;
     case "landYouControl":
       // LANDFALL — the entering land must be controlled by the watcher's controller. checkLandfallTriggers
       // only fires on a land entry (triggeringPermanent is a land), but the isLandPerm guard keeps it exact.
@@ -6772,7 +6772,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       if (triggeringPermanent.controller !== sourcePermanent.controller) return false;
       if (descriptor.nontokenFilter && triggeringPermanent.card?.token) return false;
       if (descriptor.subtypeFilter) return permMatchesSubtypeFilter(state, triggeringPermanent, descriptor.subtypeFilter);
-      return isCreaturePerm(triggeringPermanent);
+      return isCreaturePerm(triggeringPermanent, state);
     case "subtypeYouControl":
       // SUBTYPE scope — shared by FOUR events: SUBTYPE-ETB-SELF ("NAME or another SUBTYPE you control
       // enters", Pantlaza — #330), SUBTYPE combat-damage (#333), and SUBTYPE attacks / dies (#335). Fires
@@ -6811,7 +6811,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // (the damaged creature) still exists as a creature. A null/non-creature triggering permanent → no fire
       // (a clean no-op; never a fabricated destroy). The scan's subtype gate (parseSubtypeList exact) is what
       // prevents an over-fire on a non-member dealer; this guards the target side.
-      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent);
+      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent, state);
     case "otherSubtypeYouControl":
       // "another <SUBTYPE> you control enters" (Youthful Valkyrie / Champion of the Perished family).
       // Fires when a non-self permanent the source's controller controls carries the subtype in its type line.
@@ -6838,7 +6838,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // etbExcludeSelf: the "another creature you control with power N or greater" form (Garruk's
       // Packleader) must NOT fire on the source's own entry. Without this the card draws an extra card
       // for itself — a fabricated trigger the tier can't see, since it classifies native either way.
-      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent)
+      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent, state)
         && triggeringPermanent.controller === sourcePermanent.controller
         && !(descriptor.etbExcludeSelf && triggeringPermanent.id === sourcePermanent.id)
         && creaturePower(triggeringPermanent, state) >= (descriptor.powerThreshold || 0);
@@ -6851,7 +6851,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // fire (the forbidden FP this gate prevents). checkEnterTriggers fires after the permanent + its
       // enters-with effects settle, so the keyword read is accurate at ETB; `state` is threaded through
       // scopeMatches. The controller gate keeps it to the source controller's creatures ("you control").
-      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent)
+      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent, state)
         && triggeringPermanent.controller === sourcePermanent.controller
         && permanentHasKeyword(state, triggeringPermanent.id, descriptor.keywordFilter);
     case "chosenTypeYouControl":
@@ -6864,7 +6864,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // trigger never fires (a SAFE no-op, never an over-fire on an unknown type). A non-chosen-type creature
       // entering/attacking does NOT match (the subtype check is exact). Self-inclusion is natural — the source
       // is an Enchantment, never a creature of the chosen type, so it never self-fires.
-      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent)
+      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent, state)
         && triggeringPermanent.controller === sourcePermanent.controller
         && (permHasChosenType(triggeringPermanent.card, sourcePermanent.chosenType)
             || (!!sourcePermanent.chosenType && permIsEveryTypeNow(state, triggeringPermanent))); // P·39 — every creature type
@@ -7177,7 +7177,7 @@ export function checkEnterTriggers(state, enteredPerm) {
   // fired because THIS permanent entered, so each is repeated once per matching multiplier its controller
   // controls. The filter is tested against the entering card, which is why the counter is closed over it
   // rather than taking only a controller like its two siblings.
-  fired = multiplyTriggers(s, fired, (st, ctrl) => etbTriggerMultiplierCount(st, ctrl, enteredPerm.card));
+  fired = multiplyTriggers(s, fired, (st, ctrl) => etbTriggerMultiplierCount(st, ctrl, enteredPerm.card, enteredPerm.id)); // + the permanent: its types now (the type-line audit)
   // ONCE-PER-BATCH (Satoru, BI-5): a watcher whose descriptor is once-per-batch fires at most once per unflushed batch —
   // a second entering permanent in the same resolution finds the first firing still pending and is dropped.
   const pending = s.pendingTriggers || [];
@@ -7230,7 +7230,7 @@ export function checkLandfallTriggers(state, enteredLand, { played = false } = {
   // ENTERS-TRIGGER MULTIPLIER applies HERE TOO, and forgetting it would be the quiet half of the bug: a
   // landfall trigger is a triggered ability that triggered because a permanent entered, so Ancient
   // Greenwarden (land filter) and Yarok (any permanent) double it exactly as they double an ETB.
-  fired = multiplyTriggers(state, fired, (st, ctrl) => etbTriggerMultiplierCount(st, ctrl, enteredLand.card));
+  fired = multiplyTriggers(state, fired, (st, ctrl) => etbTriggerMultiplierCount(st, ctrl, enteredLand.card, enteredLand.id)); // + the permanent (the type-line audit)
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
@@ -7606,7 +7606,9 @@ export function checkLeavesTriggers(state) {
     if (!e?.card) continue;
     // The look-back carries `leftToGraveyard` so the PiG watcher scopes (graveyard-only) can distinguish a
     // graveyard exit from a bounce/exile; the LEAVES watcher (Nadier's token-leaves) ignores it (fires on any exit).
-    const lookBack = { id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard };
+    // + `lkiTypes`: the types it had as it left (CR 603.10a — recorded by gameState.recordLeaveEvent; the type-line audit), so a
+    // God below its devotion leaving is not "another creature you control" leaving (Ninth Bridge Patrol, The Ozolith).
+    const lookBack = { id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}) };
     // EARTHBEND-RETURN (CR 603.7) — the animated land's "when it dies or is exiled, return it to the battlefield
     // tapped" delayed trigger. Flag-driven (combat.applyEarthbend set `earthbendReturn`; gameState.recordLeaveEvent
     // carried it + the destination zone onto this look-back). Fire ONLY on a graveyard (dies) or exile exit — never
@@ -7673,7 +7675,7 @@ export function checkLeavesTriggers(state) {
   // left in the same batch still saw the others go. A card flickered back already sits on the battlefield as a NEW object
   // (CR 400.7) that never saw this batch leave, so its look-back is the one source for it: a battlefield watcher whose card
   // left in the batch is skipped. "without dying" skips the graveyard exits (CR 700.4).
-  const batch = events.filter((e) => e?.card).map((e) => ({ id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard }));
+  const batch = events.filter((e) => e?.card).map((e) => ({ id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}) })); // + the types it had (the type-line audit)
   const leftCardIds = new Set(batch.map((b) => b.card.id).filter(Boolean));
   for (const pid of Object.keys(cleared.players)) {
     const onBattlefield = triggerSourcesOf(cleared, pid).filter((w) => !leftCardIds.has(w.card?.id)); // an emblem has no card id: always kept
@@ -8267,7 +8269,7 @@ export function checkBecomesTargetTriggers(state, stackObj) {
     // scopeMatches("creatureYouControl") requires the triggering creature and the watcher share a controller,
     // so scanning only the targeted creature's controller's sources is exact (an opponent's watcher never
     // matches). isCreaturePerm gate on the target: the group anchor's subject is "a creature you control".
-    if (isSpell && isCreaturePerm(lk.permanent)) {
+    if (isSpell && isCreaturePerm(lk.permanent, state)) {
       for (const watcher of triggerSourcesOf(state, lk.permanent.controller)) {
         fired = fired.concat(triggersForEvent(state, {
           event: "becomesTargetGroup",
@@ -8969,8 +8971,9 @@ export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
   // permanent being a CREATURE: a non-creature sacrifice (Treasure/Clue/Food, or the Mirkwood-Bats onSacrifice
   // token drain off a NON-creature token) is NOT a creature dying, so it's never doubled (no over-fire — the
   // CREED gate). Uses the same shared expansion as the dies dispatch (per-controller multiplier, distinct
-  // additional instances). A non-creature sac leaves the fired list unchanged (a clean skip).
-  if (/\bcreature\b/i.test(String(sacrificed.card?.type || sacrificed.card?.type_line || ""))) {
+  // additional instances). A non-creature sac leaves the fired list unchanged (a clean skip). A creature AS IT LEFT (the look-back's
+  // types — the type-line audit): a God below its devotion or a bestowed Aura sacrificed is no creature dying, so Teysa doesn't double.
+  if (isCreaturePerm(sacrificed, state)) {
     fired = multiplyDiesTriggers(state, fired);
   }
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
@@ -9886,7 +9889,7 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
   // coverage classifies prowess (granted prowess isn't modeled anywhere — a consistent, honest scope).
   if (spellMatchesFilter("noncreature", spellCard)) {
     for (const perm of state.players[casterId]?.battlefield || []) {
-      if (isCreaturePerm(perm) && hasKeyword(perm.card, "Prowess")) {
+      if (isCreaturePerm(perm, state) && hasKeyword(perm.card, "Prowess")) {
         fired.push(makePendingTrigger(prowessDescriptor(), perm, null, context));
       }
     }

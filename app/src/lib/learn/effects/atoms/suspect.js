@@ -23,7 +23,8 @@
  */
 
 import { findPermanent, updatePermanentSafe, logEvent } from "../../gameState.js";
-import { atomTargets, isCreatureCard } from "./shared.js";
+import { atomTargets } from "./shared.js";
+import { permanentIsCreature } from "../../layers.js"; // the type-line audit: only a creature as it is NOW is suspected (CR 701.60a)
 
 export function applySuspect(state, atom, ctx) {
   let next = state;
@@ -32,7 +33,7 @@ export function applySuspect(state, atom, ctx) {
   const targets = atomTargets(state, atom, ctx);
   for (const t of targets) {
     const lk = findPermanent(next, t.id);
-    if (!lk || !isCreatureCard(lk.permanent.card)) continue; // only creatures are suspected (CR 701.60a)
+    if (!lk || !permanentIsCreature(next, t.id)) continue; // only creatures are suspected (CR 701.60a) — the creature it is now (the type-line audit — a God below its devotion, a bestowed Aura, an attached reconfigure Equipment are not)
     if (lk.permanent.suspected) continue;                    // can't become suspected again (CR 701.60d)
     next = updatePermanentSafe(next, t.id, (p) => ({ ...p, suspected: true }));
     next = logEvent(next, { kind: "spell-effect", effect: "suspect", permanentId: t.id, name: lk.permanent.card?.name || null, controller: ctx.controller });

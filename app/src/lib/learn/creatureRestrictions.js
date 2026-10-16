@@ -21,7 +21,7 @@
  * delegation that follows it.
  */
 import { creaturePower, creatureToughness, findPermanent } from "./gameState.js";
-import { permanentColors, permanentColorsIfKnown, permanentHasKeyword, isModifiedPermanent, permIsEveryCreatureType, permanentHasCardType, permanentManaValue } from "./layers.js"; // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
+import { permanentColors, permanentColorsIfKnown, permanentHasKeyword, isModifiedPermanent, permanentHasCardType, permanentManaValue, permanentHasTypeWord } from "./layers.js"; // + permanentHasTypeWord (the type-line audit — a subtype as it is now) // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
 import { isBlockingCreature } from "./combatRemoval.js"; // CR 506.4 — the one "is it a blocking creature" read (a zero-import leaf, no cycle)
 import { auraEntryHostSpec } from "./staticAbilityParser.js"; // the flicker's Aura gate — layers.js already imports staticAbilityParser, so no new cycle
 
@@ -95,7 +95,9 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       let enchanted = false;
       for (const pid of Object.keys(state?.players || {})) {
         for (const p of state.players[pid]?.battlefield || []) {
-          if (p.attachedTo === perm.id && /\baura\b/i.test(String(p.card?.type || p.card?.type_line || ""))) { enchanted = true; break; }
+          // A BESTOWED permanent attached is an Aura (CR 702.103b — it "becomes an Aura enchantment" while attached; its printed line
+          // says Enchantment Creature, no "Aura"): the type-line audit — Winds of Rath must not destroy a creature enchanted only by it.
+          if (p.attachedTo === perm.id && (p.bestowed || /\baura\b/i.test(String(p.card?.type || p.card?.type_line || "")))) { enchanted = true; break; }
         }
         if (enchanted) break;
       }
@@ -277,8 +279,13 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       const subs = Array.isArray(r.subtypes) && r.subtypes.length ? r.subtypes : [r.subtype];
       // P·39 — every creature type (a changeling; Mirror Entity's activation; an animated Mutavault — layers.permIsEveryCreatureType)
       // carries any listed CREATURE type (CR 205.3d): "target Goblin" may take it, "each non-Dragon creature" must spare it.
-      const hasSub = subs.some((sub) => new RegExp(`\\b${sub}\\b`, "i").test(tl))
-        || permIsEveryCreatureType(state, perm.id);
+      // AS IT IS NOW (the type-line audit — layers.permanentHasTypeWord, CR 613.1d): a creature type a layer-4 effect added counts
+      // (a Metallic Mimic that chose Pirate is a Pirate, so Fiery Cannonade's "each non-Pirate creature" spares it), a replaced one
+      // doesn't (the Mistform cycle), and a God below its devotion is no God (CR 205.1a). A permanent the battlefield no longer
+      // holds answers by its printed front face, as before.
+      const hasSub = findPermanent(state, perm.id)
+        ? subs.some((sub) => permanentHasTypeWord(state, perm.id, sub))
+        : subs.some((sub) => new RegExp(`\\b${sub}\\b`, "i").test(tl));
       if (r.negate ? hasSub : !hasSub) return false;
     } else if (r.kind === "supertype") {
       // SUPERTYPE-TARGET (CR 205.4) — "target legendary creature you control" (Mithril Coat / Mjölnir ETB

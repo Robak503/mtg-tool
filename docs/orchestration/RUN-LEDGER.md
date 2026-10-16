@@ -16,6 +16,77 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🔎 2026-10-16 — THE TYPE-LINE AUDIT: readers that asked the PRINTED type line a question layer 4 answers · **±0** · corpus 15,492
+> Suite **19,031** green (1 skipped; 1,781 files). Flip-diff **0 / 0 / 0** (34,620 cards). **Mutants 53/53**, restore
+> byte-identical. Lint 0; CR citations: no new dead cite (117 before and after, all pre-existing). 48 July seeds: **13 games
+> change** (2 of 8, 11 of 40; one winner flips), every one traced to its first diverging event and every one the rules' answer
+> (below); no slowdown (16 s / 77 s against 17 s / 81 s).
+> · **The audit.** P·21 (Dryad of the Ilysian Grove) made the land-type readers see a granted subtype and #511 (Liquimetal Torque)
+>   the artifact readers a granted card type; this pass swept every remaining engine reader that tests a battlefield permanent's
+>   printed `card.type` (three read-only lanes over 72 files, ~340 sites; every FP claim reproduced on the live engine before it
+>   was fixed). The false positives ran BOTH ways round: a type a layer-4 effect REMOVED was still read as present — a Theros God
+>   below its devotion, a bestowed Aura, an attached reconfigure Equipment and a slumbering Arixmethes counted as creatures for
+>   costs, targets, sweeps, counts, triggers and mana — and a type an effect ADDED was read as absent by every "non-<type>" read
+>   (an animated land offered to Bramblecrush's "noncreature permanent"; a Metallic Mimic that chose Dragon destroyed by Crux of
+>   Fate's "non-Dragon"). Printed whole-line reads also took a double-faced card's back face (Armageddon destroyed Ojer Taq;
+>   Ashnod's Altar ate a Westvale Abbey and Springleaf Drum tapped one — the mana-model payers now read `permanentHasCardType`,
+>   the face that is up, which the derive's own types won't until the double-faced root is fixed).
+> · **The readers.** `layers.permanentHasTypeWord` (new) is the one exact answer for a type word on a battlefield permanent: a card
+>   type or supertype through `permanentHasCardType`, a creature type only while it is a creature or a kindred (CR 205.1a — a God
+>   below its devotion is no God), any other subtype through `permanentSubtypes` (new; the front face's discipline).
+>   `layers.entersAsCreature` (new) answers "a creature as it enters" (CR 614.12 — a bestowed card, a God whose own pips leave it
+>   below its devotion). `legalChoices.sacTypeMatchesNow` and `removal.sacrificePoolMatchNow` are the battlefield twins of the
+>   card-level cost and edict pools.
+> · **Inside the derive (no recursion).** The layer-7 board counts and gates read card-type needles through the recursion-free
+>   `effectiveTypeIdentity` (`countsAsNeedleInDerive`), skipped on a board with no layer-4 card-type effect; the identity read now
+>   also mirrors Arixmethes' self Land add. Battle Squadron no longer counts a God below its devotion; Briarberry Cohort's
+>   "another blue creature" and Watchwing Scarecrow's "a blue creature" gates stay shut beside one; Spur Grappler's "no untapped
+>   lands" sees an untapped slumbering Arixmethes. Subtype needles stay printed — a documented under-count (the dynamic subtype
+>   adds, Urborg / Dryad, are not mirrored), the safe direction for "count what you control". layers.js calls no interveningIf.
+> · **Triggers.** `gameState.lastKnownIsCreature(lookback, state)` reads a LIVE permanent through the layers (every trigger creature
+>   scope: enters, becomes target, counters, tapped, attack, damage); a leave event carries `lkiTypes` from the board it left (the
+>   single and batched leave look-backs keep them), as do the cost sacrifice (`sacrificePermanentForCost` now builds the one
+>   `deathLookback`, so a creature exiled or shuffled instead never "died"), the Saga sacrifice and the mana sacrifice. Soul Warden
+>   doesn't fire for Purphoros entering below its devotion; Ninth Bridge Patrol doesn't for Thassa leaving; Teysa doesn't double it.
+> · **Decided (task point 5):** the resolution / mana counts (`shared.countMatchesPerm`) run outside the derive, so they read the
+>   permanent exactly — that closes the FP (Gaea's Cradle counted a God below its devotion) and, as a side effect, Cabal Coffers now
+>   counts the Swamps Urborg makes (FN fixed). The in-derive counts (point 4) stay printed for SUBTYPES by design (recursion).
+> · ⚑ **Action-set / result changes (flag to Omnath):** every offer and count above changes for a board holding a God below its
+>   devotion, a bestowed Aura, an attached reconfigure Equipment, a slumbering Arixmethes, an animated or crewed permanent, a
+>   Metallic Mimic, or a double-faced permanent. The 13 replay games, by cause (each first diverging event found on both engines):
+>   - **An earthbended land is a creature** (8 games). Badgermole Cub's "Whenever you tap a creature for mana, add an additional
+>     {G}" now applies to it (40-seed #2: Earth Bent casts Mossborn Hydra on turn 11 and wins at turn 35 — the base had Vihaan win
+>     at turn 41; #5: Kinnan's payment leaves Delighted Halfling untapped to attack; #11: cdh casts Chord of Calling in its turn-9
+>     upkeep; #19 and 8-seed #2: one more {G}). Craterhoof Behemoth's X counts three of them (#9: +5/+5 → +8/+8; the pumped set was
+>     already those 8 creatures). The Ozolith triggers when one dies (#18, #21 — its "if it had counters" fails). The Wise Mothman
+>     and Phyrexian Metamorph may choose one (one more candidate; the same picks).
+>   - **A bestowed Springheart Nantuko is not a creature** (40-seed #24, #26): Gaea's Cradle makes one less ({G}{G}{G} → {G}{G}).
+>     #24: Candelabra of Tawnos loses 64 X options and Chord of Calling fetches at X=4 (Phyrexian Metamorph) instead of X=5
+>     (Seedborn Muse), the game ending at turn 38 instead of 41; #26: Phyrexian Metamorph is not castable that turn and Growing Rites
+>     of Itlimoc's "four or more creatures" fails.
+>   - **A double-faced permanent is its front face** (3 games): The Legend of Yangchen (a Saga) gets no +1/+1 from Stagecoach
+>     Security (8-seed #1 — later ids renumber by 2, so the same Vega blocks under a new id); Invasion of Tarkir (a Battle) fires no
+>     Dragon Tempest or Miirym trigger as it enters (40-seed #17), satisfies no Mox Jasper ("Activate only if you control a
+>     Dragon"), so Sarkhan, Fireblood is not cast, and is no Wise Mothman target (40-seed #30).
+> · Witnesses `typeLineLayerReaders.test.js` (14) + `typeLineLayerActions.test.js` (41): real-card pairs — the permanent a layer-4
+>   effect changed beside a plain one.
+> · ⚠️ Found, not fixed (queued — low or another seam): Homeward Path's printed creature check (control.js stays a leaf); the
+>   trigger subtype scopes (permMatchesSubtypeFilter — FP only via bestow / Mistform / a copy); Intervene's spell-target filter;
+>   soulbond pairing and bond (the bond is read inside the collection); the bestow-cast spell read as a creature spell ON THE STACK
+>   (Essence Scatter can target it, Karametra triggers — CR 702.103b); Hardened Scales / High Score / Neriv apply with no recipient
+>   or source type check; Kinnan's bonus attached to Ashnod's Altar; layer-1 copies whose readers read printed abilities
+>   (attackTax, urDragonAttack, Padeem's mana value); `selfReturn.stripCreatureFromCard` bakes a type removal into the card; the
+>   Aura resolution re-check's printed host type; historic, the activated-ability reducers' land / artifact / subtype subjects,
+>   Equip legendary and "Tap an untapped <Subtype>" (FP only via a rare removal); an animated planeswalker is now hit as a creature
+>   AND as a planeswalker by "each creature and each planeswalker" (Storm's Wrath — both results are the rules', CR 120.3, but the
+>   source's dealt total counts it twice; no carrier has lifelink or a dealt-by payoff today); the cost sacrifice
+>   (`sacrificePermanentForCost`) builds the shared `deathLookback` but logs no replaced death (a sixth `deathEventKind` site,
+>   unchanged); `countGraveyardSpec`'s head bleed (a Westvale Abbey card counts as a creature card for Tarmogoyf); the dynamic
+>   subtype adds not mirrored in `effectiveTypeIdentity` (FN for selectors and in-derive counts). The double-faced root
+>   (`cardTypesOf` / `subtypesOf`: Westvale Abbey derives Creature, Growing Rites of Itlimoc derives Land) is zealous-hofstadter's
+>   slice; `permanentIsCreature`, `permanentTypes` and the leave `lkiTypes` still see that bleed until it lands (no worse than the
+>   printed reads they replaced), and `permanentSubtypes`' front-face filter becomes redundant after it.
+
 > ## 🔧 2026-10-16 — FIX: the layer derive reads a double-faced permanent's FACE THAT IS UP (CR 712.8d) — Westvale Abbey no longer dies as it enters · **±0** · corpus 15,492
 > Suite **18,986** green (1 skipped; 1,780 files). Flip-diff **0 / 0 / 0** over 34,612 cards — the tier classifier reads only
 > `layers.staticEffectsOf`, never the derive, so this runtime change cannot move a tier; its witness is the test below.

@@ -953,7 +953,7 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
     // look-back records `toGraveyard` correctly (Rancor's self-PiG-return keys on it).
     if (toZone === "battlefield") return result;
     // LAST KNOWN POWER for the abilities this permanent triggered (CR 608.2h) — read off `state`, the board it is still on.
-    return detachPermanentFromAll(stampTriggeringLeftPower(result, permanent, state), permanent, toZone === "graveyard", toZone);
+    return detachPermanentFromAll(stampTriggeringLeftPower(result, permanent, state), permanent, toZone === "graveyard", toZone, state);
   }
 
   // Non-battlefield source: cardId is matched against card.id (caller's
@@ -1445,12 +1445,16 @@ export function stampTriggeringLki(state, permanentId) {
  * JSON so serialize→restore replays identically. `toGraveyard` distinguishes a graveyard exit (Rancor's
  * PiG) from a non-graveyard exit (bounce/exile) — the Aura self-PiG-return detector keys on the former.
  */
-function recordLeaveEvent(state, permanent, toGraveyard, toZone = null) {
+function recordLeaveEvent(state, permanent, toGraveyard, toZone = null, before = null) {
   if (!permanent?.card) return state;
   // `counters` — the leaving permanent's counter pile, snapshotted while it still exists (CR 603.6e/603.10a
   // look-back, the markDead precedent): The Ozolith's "if it had counters on it, put THOSE counters on ~"
   // reads this last-known state (checkLeavesTriggers threads it as trigger context). Plain JSON, serialize-safe.
   const ev = { id: permanent.id, controller: permanent.controller, card: permanent.card, toGraveyard: !!toGraveyard, counters: { ...(permanent.counters || {}) } };
+  // `lkiTypes` — the card types it had as it last existed (CR 603.10a, layer 4 — the type-line audit), read off `before`, the
+  // board it was still on (deathLookback's field, so lastKnownIsCreature answers every leave scope the same way): a God below its
+  // devotion leaving is not a creature leaving (The Ozolith, Ninth Bridge Patrol); an animated land is one.
+  if (before && findPermanent(before, permanent.id)) ev.lkiTypes = [...permanentTypes(before, permanent.id).types];
   // EARTHBEND-RETURN (CR 603.7): carry the animated land's flag + destination zone so triggers.checkLeavesTriggers
   // can synthesize the "when it dies or is exiled, return it to the battlefield tapped" delayed trigger. Only a
   // graveyard (dies) or exile exit qualifies — a bounce to hand / tuck to library does NOT (the rider is dies-or-exiled).
@@ -1475,9 +1479,9 @@ function recordLeaveEvent(state, permanent, toGraveyard, toZone = null) {
  * (moveCardToZone calls this on any non-battlefield move). `toGy` marks whether the leaving permanent is
  * itself headed to a graveyard (passed by moveCardToZone); the orphaned Aura is always graveyard-bound.
  */
-export function detachPermanentFromAll(state, permanent, toGy = false, toZone = null) {
+export function detachPermanentFromAll(state, permanent, toGy = false, toZone = null, before = null) {
   if (!permanent) return state;
-  let next = recordLeaveEvent(state, permanent, toGy, toZone);
+  let next = recordLeaveEvent(state, permanent, toGy, toZone, before); // `before`: the board it left, for its look-back types
   // REMOVED FROM COMBAT (CR 506.4 — "A permanent is removed from combat if it leaves the battlefield"): an attacking creature
   // that leaves stops being an attacking creature, so its record leaves state.combat.attackers here, at the single
   // battlefield-exit chokepoint (destroy, sacrifice, bounce, exile, a token ceasing to exist). No block is offered against it
@@ -2688,14 +2692,19 @@ export function deathEventKind(lookback) {
 }
 
 /**
- * Was this look-back a CREATURE as it last existed on the battlefield (CR 603.10a)? A deathLookback carries its layer-aware
- * types (`lkiTypes`); a look-back built without them (a hand-built death entry, a battlefield permanent) answers by its card's
- * type line. The one reader for the dies triggers' creature scopes (triggers.isCreaturePerm) and the deaths-this-turn tally.
+ * Was this look-back a CREATURE as it last existed on the battlefield (CR 603.10a)? A deathLookback and a leave event carry their
+ * layer-aware types (`lkiTypes`). A permanent still ON the battlefield of `state` (the enters, becomes-target, counters, tapped,
+ * attack and damage scopes hand the live permanent) is the creature it is NOW (layers.permanentIsCreature, CR 613.1d — the
+ * type-line audit): a God below its devotion, a bestowed Aura, an attached reconfigure Equipment and a slumbering Arixmethes are
+ * not creatures, so a Purphoros entering below its devotion fires no Soul Warden, and an animated land or a crewed Vehicle is one.
+ * Permanent ids are minted fresh on every entry, so an id the battlefield holds is that object. Anything else (a hand-built death
+ * entry, no state) answers by its card's type line. The one reader for the creature scopes of every trigger (triggers.isCreaturePerm)
+ * and the deaths-this-turn tally.
  */
-export function lastKnownIsCreature(lookback) {
-  return Array.isArray(lookback?.lkiTypes)
-    ? lookback.lkiTypes.includes("Creature")
-    : /\bCreature\b/.test(String(lookback?.card?.type || lookback?.card?.type_line || ""));
+export function lastKnownIsCreature(lookback, state = null) {
+  if (Array.isArray(lookback?.lkiTypes)) return lookback.lkiTypes.includes("Creature");
+  if (state && lookback?.id && findPermanent(state, lookback.id)) return permanentIsCreature(state, lookback.id);
+  return /\bCreature\b/.test(String(lookback?.card?.type || lookback?.card?.type_line || ""));
 }
 
 /**

@@ -13,7 +13,7 @@ import { SMALL_NUM, parseCountSource } from "../parseHelpers.js"; // MULTI-COUNT
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // SUBTYPE RETURN (Atzocan Seer) — the closed CR subtype vocabulary (a zero-import leaf, cycle-free)
 import { shuffleControllerLibrary } from "./library.js";
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // the CR 603.7 queue (a sibling leaf)
-import { colorsOf, permanentProtectionColors, permIsEveryCreatureType } from "../../layers.js"; // shelf D41 — the host's live protection colours vs a returning card's colours (CR 702.16c/d); + permIsEveryCreatureType (P·39b — Essence Flux's returned Spirit)
+import { colorsOf, permanentProtectionColors, permanentIsCreature, permanentHasTypeWord } from "../../layers.js"; // shelf D41 — the host's live protection colours vs a returning card's colours (CR 702.16c/d); + permIsEveryCreatureType (P·39b — Essence Flux's returned Spirit)
 import { protectionApplies } from "../../protection.js"; // shelf D41 — the shared colour-protection test (an import-free leaf)
 import { auraMayEnchantCreature } from "../../auraHost.js"; // shelf D41 — the shared Enchant-line reader (a leaf; stack.js reads it too)
 import { enteringAuraHost } from "../../auraEntry.js"; // CR 303.4f — what an Aura entering without being cast enchants, asked of a seat a person plays (a leaf over modules this file already reaches)
@@ -252,7 +252,7 @@ export function applyBlink(state, atom, ctx) {
     // creature type (the matcher admits CR_CREATURE_TYPES words only).
     if (atom.ifSubtypeCounter && r.permanentId) {
       const np = findPermanent(next, r.permanentId);
-      if (np && (new RegExp(`\\b${atom.ifSubtypeCounter.subtype}\\b`, "i").test(np.permanent.card?.type || "") || permIsEveryCreatureType(next, r.permanentId))) {
+      if (np && permanentHasTypeWord(next, r.permanentId, atom.ifSubtypeCounter.subtype)) { // the type-line audit: its front face, as it is now
         next = addCounter(next, { permanentId: r.permanentId, type: atom.ifSubtypeCounter.counterType, amount: atom.ifSubtypeCounter.amount || 1 });
       }
     }
@@ -1966,7 +1966,7 @@ export function applyDelayedBlink(state, atom, ctx) {
   // NON-TARGETED MASS (Ghostway "exile each creature you control"): enumerate the controller's creatures at
   // resolution — there are no chosen targets. A snapshot of ids taken BEFORE any exile, so the loop is stable.
   const targets = atom.eachYouControl
-    ? (state.players?.[ctx.controller]?.battlefield || []).filter((p) => /\bcreature\b/i.test(p.card?.type || "")).map((p) => ({ id: p.id }))
+    ? (state.players?.[ctx.controller]?.battlefield || []).filter((p) => permanentIsCreature(state, p.id)).map((p) => ({ id: p.id })) // the creatures there NOW (the type-line audit)
     : (ctx.targets || []);
   for (const t of targets) {
     const lk = findPermanent(next, t.id);

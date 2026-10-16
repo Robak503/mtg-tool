@@ -35,7 +35,7 @@
 
 import { castsAsPlaneswalker, planeswalkerEntryLoyalty, opponentsOf, loseLife, logEvent } from "./gameState.js";
 import { othersEnterWithCounters, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, sunburstCounterKind, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithCountersPerKick, entersWithCastFromHandCounters, choosesColorOnEnter, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, auraChoosesColorOnEnter, riotKeywordCount } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
-import { addContinuousEffect, permanentPower, permanentToughness, permIsEveryCreatureType } from "./layers.js"; // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); layers imports no atoms and not resolvers
+import { addContinuousEffect, permanentPower, permanentToughness, permIsEveryCreatureType, entersAsCreature } from "./layers.js"; // + entersAsCreature (the type-line audit — is it a creature AS IT ENTERS, CR 614.12) // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); layers imports no atoms and not resolvers
 import { conditionalEntersTapped, paysLifeOrEntersTapped, autoPickOptionalLifePayment, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>"; a leaf over interveningIf
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — the entering creature is every creature type (Changeling, its controller's Maskwood Nexus) for "each other Elf enters with a counter"; a leaf over keywords.js
 import { autoPickCreatureType } from "./choicePolicy.js"; // CR 614.12 auto-choice policy — a zero-import LEAF, shared with the effect atoms. One copy, so an ETB choice and an activated choice can never diverge on the same board.
@@ -128,10 +128,12 @@ export function autoPickManaColor(state, controller, exclude = null) {
  * "Other" needs no explicit self-check here: the entering permanent is not on the battlefield in the board this reads (a
  * self-exclusion written first was unreachable under mutation and was removed, not kept).
  */
-function othersEnterWithCountersFor(state, controller, card) {
+function othersEnterWithCountersFor(state, controller, card, bestowed = false) {
   if (!card) return 0;
   const tl = String(card.type || card.type_line || "");
-  if (!/\bCreature\b/i.test(tl)) return 0;
+  // A creature AS IT ENTERS (CR 614.12 — layers.entersAsCreature, the type-line audit): a God entering below its devotion (its own
+  // pips counted) and a card entering bestowed are not, so Renata puts no +1/+1 counter on them.
+  if (!entersAsCreature(state, controller, card, bestowed)) return 0;
   // P·39b — the entering creature as it would exist on the battlefield (CR 614.12): every creature type when it is a changeling or
   // its controller's Maskwood Nexus already applies to the creatures they control. The subtype is a creature type (TARGET_SUBTYPES).
   const entersEvery = cardIsEveryCreatureType(state, card, controller);
@@ -165,10 +167,11 @@ function othersEnterWithCountersFor(state, controller, card) {
 //   • the clause is matched by the SAME anchored predicate the classifier credits, so metric and runtime
 //     cannot drift apart — a card whose text this scan does not recognise is not credited either.
 // CR 702.136b (multiple instances work separately) falls out for free: each grant counts once.
-function grantedRiotCount(state, controller, card) {
+function grantedRiotCount(state, controller, card, bestowed = false) {
   if (!card || card.token) return 0;
-  const tl = String(card.type || card.type_line || "");
-  if (!/\bCreature\b/i.test(tl)) return 0;
+  // A nontoken creature AS IT ENTERS (CR 614.12 — the type-line audit): Rhythm of the Wild gives no riot to a God entering below its
+  // devotion or to a card entering bestowed.
+  if (!entersAsCreature(state, controller, card, bestowed)) return 0;
   let n = 0;
   for (const p of state?.players?.[controller]?.battlefield || []) {
     const oracle = String(p?.card?.oracle || p?.card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
@@ -430,9 +433,9 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // OTHERS-ENTER-WITH (CR 614.1c — SHELF-85 H8, 2026-09-04): another permanent's static ("Each other creature you control
   // enters with an additional +1/+1 counter on it" — Arwen / Renata / Bramblewood Paragon) adds counters as THIS one
   // enters. Read from the controller's battlefield through the same reader coverage credits; the source never counts itself.
-  const othersExtra = othersEnterWithCountersFor(state, controller, card);
+  const othersExtra = othersEnterWithCountersFor(state, controller, card, !!base.bestowed);
   if (othersExtra > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", othersExtra) };
-  const riotCount = riotKeywordCount(card) + grantedRiotCount(state, controller, card);
+  const riotCount = riotKeywordCount(card) + grantedRiotCount(state, controller, card, !!base.bestowed);
   const riotHaste = riotCount > 0 && riotPicksHaste(state, controller);
   if (riotCount > 0 && !riotHaste) {
     perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", riotCount) };

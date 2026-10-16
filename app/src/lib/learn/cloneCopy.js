@@ -37,19 +37,15 @@
 
 import { findPermanent } from "./gameState.js";
 import { auraEntryHostSpec } from "./staticAbilityParser.js"; // an Aura is a widened-scope copy candidate only with an Enchant line the engine lists (CR 303.4f) — staticAbilityParser reaches no clone module (checked 2026-10-16)
+import { permanentHasCardType, permanentHasTypeWord } from "./layers.js"; // the type-line audit: a copy CHOICE is the permanent's types now (layers imports nothing of this module, so no cycle)
 
 const typeLine = (card) => String(card?.type || card?.type_line || "");
-// Front-face only (CR 712.4a) — a battlefield permanent shows its front face; a clone copies a
-// transform creature only when its FRONT is a creature.
-const isCreatureCard = (card) => /Creature/.test(typeLine(card).split(" // ")[0]);
-// Front-face planeswalker (CR 712.4a) — a clone with a "creature or planeswalker" scope (Spark Double) may
-// copy a battlefield permanent whose FRONT is a planeswalker; the copy then enters with its starting loyalty
-// (enterPermanent's castsAsPlaneswalker path) plus any conditional loyalty rider.
-const isPlaneswalkerCard = (card) => /Planeswalker/.test(typeLine(card).split(" // ")[0]);
-// Front-face artifact (CR 712.4a) — a clone with an "artifact or creature" scope (Phyrexian Metamorph) may
-// copy a battlefield permanent whose FRONT is an artifact (including a NON-creature artifact); the copy enters
-// as that artifact (plus the "it's an artifact" rider, harmless-idempotent when it's already one).
-const isArtifactCard = (card) => /Artifact/.test(typeLine(card).split(" // ")[0]);
+// The copy CHOICE reads the permanent's types now, its face that is up (layers.permanentHasCardType — CR 712.4a, 613.1d; the
+// type-line audit): a clone copies a transform creature only when its FRONT is a creature; a "creature or planeswalker" scope
+// (Spark Double) may copy a permanent whose front is a planeswalker, which then enters with its starting loyalty
+// (enterPermanent's castsAsPlaneswalker path) plus any conditional loyalty rider; an "artifact or creature" scope (Phyrexian
+// Metamorph) may copy a NON-creature artifact, which enters as that artifact (plus the "it's an artifact" rider,
+// harmless-idempotent when it's already one).
 
 function stripReminder(text) {
   return String(text || "").replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
@@ -569,9 +565,12 @@ export function cloneCandidates(state, controller, scope, mvCap = null) {
         ? enteredThisTurnCopiable(state, perm)
         : (nonlandAny || enchantmentOnly)
         ? cloneWidenedCopiable(perm.card, scope)
+        // The types it has NOW, its face that is up (the type-line audit — CR 613.1d): Clone may copy an animated Mutavault (a
+        // creature now; the copy is of its copiable values, CR 707.2) and may not copy a God below its devotion, a bestowed Aura
+        // or an attached Lizard Blades, none of which is a creature now.
         : (artifactOnly || equipmentOnly)
-        ? (isArtifactCard(perm.card) && (!equipmentOnly || /\bEquipment\b/i.test(typeLine(perm.card))))
-        : (isCreatureCard(perm.card) || (allowPw && isPlaneswalkerCard(perm.card)) || (allowArtifact && isArtifactCard(perm.card)));
+        ? (permanentHasCardType(state, perm.id, "Artifact") && (!equipmentOnly || permanentHasTypeWord(state, perm.id, "Equipment")))
+        : (permanentHasCardType(state, perm.id, "Creature") || (allowPw && permanentHasCardType(state, perm.id, "Planeswalker")) || (allowArtifact && permanentHasCardType(state, perm.id, "Artifact")));
       if (!copiable) continue;
       if (mvCap != null && manaValueOfCard(perm.card) > mvCap) continue; // CR 707 head MV filter
       out.push({ id: perm.id, name: perm.card?.name });

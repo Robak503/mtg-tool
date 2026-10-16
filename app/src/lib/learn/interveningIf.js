@@ -81,7 +81,7 @@ import { creaturePower, creatureToughness, findPermanent } from "./gameState.js"
 // staticAbilityParser / protection, none of which reach interveningIf.js, so this adds no cycle. Verified with
 // `node --input-type=module -e "import './src/lib/learn/legalChoices.js'"` per the RUN-LEDGER's mandate — a
 // green suite is NOT evidence the module graph still loads (vitest resolves in a different order than node).
-import { permanentHasKeyword, permanentColors, permanentTypes, permanentIsCreature, permIsEveryCreatureType, permanentHasCardType } from "./layers.js"; // + permanentIsCreature (P·32 — Selvala: every OTHER creature, layer-aware) // + permIsEveryCreatureType (P·39) // + permanentHasCardType (#511 — a card type a layer-4 effect added: Liquimetal Torque's artifact)
+import { permanentHasKeyword, permanentColors, permanentIsCreature, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord } from "./layers.js"; // + permanentIsCreature (P·32 — Selvala: every OTHER creature, layer-aware) // + permIsEveryCreatureType (P·39) // + permanentHasCardType (#511 — a card type a layer-4 effect added: Liquimetal Torque's artifact) // + permanentHasTypeWord (the type-line audit — one exact read for a type word)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a graveyard card that is every creature type (Changeling, its owner's Maskwood Nexus) for "there is an Elf card in your graveyard"; a leaf over keywords.js
 import { hasCitysBlessing } from "./ascend.js"; // shelf D5 — the city's blessing designation (ascend.js imports only gameState)
@@ -174,17 +174,14 @@ function permMatchesFilter(perm, filter, state) {
     if (!Array.isArray(colors) || colors.includes(filter.colorNeg)) return false;
   }
   if (filter.notWords) {
-    // A type/supertype/subtype EXCLUSION — the permanent must carry NONE of these words on its front face
-    // (CR 712.4a), mirroring the positive scan directly below.
-    const face = typeStr(perm.card).split(" // ")[0];
-    // P·39 — every creature type (a changeling, Mirror Entity's activation, an animated Mutavault) carries every CREATURE-type
-    // word too, so it is never "non-Human" (CR 205.3d keeps it to creature types — "nonland" is untouched).
-    // #511 — and a card type a layer-4 effect added is carried too: a creature Liquimetal Torque made an artifact is not a
-    // "nonartifact creature" (CR 613.1d). layers.permanentHasCardType reads the derive's types (card types and supertypes), so
-    // a subtype word answers no there.
-    if (filter.notWords.some((w) => new RegExp(`\\b${w}\\b`, "i").test(face)
-      || (CR_CREATURE_TYPES.has(String(w).toLowerCase()) && permIsEveryCreatureType(state, perm.id))
-      || permanentHasCardType(state, perm.id, w))) return false;
+    // A type/supertype/subtype EXCLUSION — the permanent must carry NONE of these words RIGHT NOW, on its front face
+    // (CR 712.4a), mirroring the positive scan directly below. layers.permanentHasTypeWord is the one exact read (CR 613.1d):
+    // a card type a layer-4 effect added is carried (a creature Liquimetal Torque made an artifact is not a "nonartifact
+    // creature"; an animated land is not a "noncreature permanent"), a card type an effect removed is not (a God below its
+    // devotion IS a noncreature permanent), and every creature type answers for a creature type (P·39 — "non-Human").
+    // A token is a token by its stamp (CR 111.1), whatever its type line spells — a token copy of a card prints no "Token".
+    if (filter.notWords.some((w) => permanentHasTypeWord(state, perm.id, w)
+      || (String(w).toLowerCase() === "token" && !!(perm.token || perm.card?.token)))) return false;
   }
   if (filter.colorless) {
     // CR 105.2c — colourless is having NO colours at all, so an unresolvable read fails closed the OTHER way
@@ -201,16 +198,16 @@ function permMatchesFilter(perm, filter, state) {
   // lands, i.e. fire an ability whose condition is false. A single word keeps its exact prior behaviour
   // (a one-element array reduces to the same single test under either quantifier).
   const words = Array.isArray(filter.word) ? filter.word : [filter.word];
-  // type/subtype containment: whole-word, Title-cased singular ("creatures" → \bCreature\b). A SUBTYPE a continuous effect
-  // granted counts too (CR 613.1d, 205.1b — Urborg's Swamp, Dryad of the Ilysian Grove's every basic land type), read off the
-  // layer engine: a Dryad player with only Forests does control an Island, so "When you control no Islands, sacrifice this
-  // creature" must not fire. The printed line still answers everything it always did.
-  // A CARD TYPE a continuous effect added counts the same way (#511, CR 613.1d): a creature Liquimetal Torque or Stone by Sunlight
-  // made an artifact is an artifact, so "you control an artifact" holds and "you control no artifacts" does not.
-  const hit = (w) => new RegExp(`\\b${w}\\b`, "i").test(typeStr(perm.card))
-    || permanentTypes(state, perm.id).subtypes.includes(w)
-    || (CR_CREATURE_TYPES.has(String(w).toLowerCase()) && permIsEveryCreatureType(state, perm.id)) // P·39 — "you control a Goblin": every creature type
-    || permanentHasCardType(state, perm.id, w);
+  // type/subtype containment: Title-cased singular ("creatures" → Creature), answered by the permanent AS IT IS NOW
+  // (layers.permanentHasTypeWord, CR 613.1d) — never the printed line, which is wrong in both directions and so wrong for both
+  // polarities this filter serves ("you control N or more X" counts it, "you control no X" counts it the other way):
+  //   · a type an effect GAVE it counts (205.1b) — Urborg's Swamp, Dryad of the Ilysian Grove's every basic land type (a Dryad
+  //     player with only Forests controls an Island, so "When you control no Islands, sacrifice this creature" must not fire),
+  //     a creature Liquimetal Torque made an artifact (#511), every creature type (P·39 — "you control a Goblin");
+  //   · a type an effect TOOK does not — a God below its devotion, a bestowed Aura, an attached reconfigure Equipment and a
+  //     slumbering Arixmethes are not creatures, so "you control three or more creatures" must not count them;
+  //   · a double-faced permanent is its front face (CR 712.8d), so a back face's subtype (Delver's Insect) is not counted.
+  const hit = (w) => permanentHasTypeWord(state, perm.id, w);
   return filter.allWords ? words.every(hit) : words.some(hit);
 }
 
@@ -469,9 +466,10 @@ export function controllerMetric(state, controllerId, kind) { // exported 2026-0
   if (kind === "cards in hand") return (player.hand || []).length;
   // a permanent-type count — word-anchored type-line match (singular Title-case), mirroring parseFilter; a type a layer-4
   // effect added counts too (#511 — both sides of "an opponent controls more artifacts than you" see a Torqued creature)
+  // …AS IT IS NOW (the type-line audit — layers.permanentHasTypeWord): a God below its devotion is not one of an opponent's
+  // creatures (Linvala, the Preserver's "if an opponent controls more creatures than you"), a removed type does not count.
   const word = kind.replace(/s$/, "");
-  const re = new RegExp(`\\b${word.charAt(0).toUpperCase() + word.slice(1)}\\b`, "i");
-  return (player.battlefield || []).filter((p) => re.test(typeStr(p.card)) || permanentHasCardType(state, p.id, word)).length;
+  return (player.battlefield || []).filter((p) => permanentHasTypeWord(state, p.id, word)).length;
 }
 
 // ===== CONTROL-ANOTHER-SUBTYPE (CR 603.4 + 113.7 — "another" excludes the trigger source) =================
@@ -784,11 +782,14 @@ const SOURCE_HAS_ANY_COUNTERS_RE = /^this (?:enchantment|artifact|creature|perma
 function isCreatureCard(card) {
   return /\bcreature\b/i.test(typeStr(card));
 }
-// A permanent is a creature when its (layer-aware-irrelevant for this name gate) printed type line says so.
-// Reading the card's type line is sufficient here: the same-name gate compares the entering creature against
-// OTHER creatures — a non-creature permanent sharing the name (rare) shouldn't block the draw (CR cares about
-// "another CREATURE you control"). Mirrors isCreatureCard so on-field and graveyard checks stay consistent.
-function isCreaturePermLocal(perm) {
+// Is this battlefield permanent a creature RIGHT NOW (layers.permanentIsCreature, CR 613.1d — the type-line audit)? The
+// greatest-power, total-power / total-toughness and "another <Subtype>" conditions count creatures, and a God below its devotion
+// (printed 6 power), a bestowed Aura, an attached reconfigure Equipment and a slumbering Arixmethes are not creatures — the printed
+// line counted them, so High Score, Formidable and Betor read a condition true that was false; an animated land is one. The
+// same-name gate compares the entering creature against OTHER creatures, so a non-creature permanent sharing the name doesn't
+// block the draw. Without a state (no board) the printed line answers.
+function isCreaturePermLocal(perm, state = null) {
+  if (state && perm?.id && findPermanent(state, perm.id)) return permanentIsCreature(state, perm.id);
   return /\bcreature\b/i.test(typeStr(perm?.card));
 }
 
@@ -1176,7 +1177,7 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     const nm = String(name).toLowerCase();
     // (a) another creature you control with the same name (exclude the entering permanent itself — "another")
     const dupOnField = board.some((p) =>
-      p.id !== triggeringId && isCreaturePermLocal(p) && String(p.card?.name ?? p.name ?? "").toLowerCase() === nm);
+      p.id !== triggeringId && isCreaturePermLocal(p, state) && String(p.card?.name ?? p.name ?? "").toLowerCase() === nm);
     if (dupOnField) return false;
     // (b) a creature CARD in your graveyard with the same name
     const gy = state.players[controllerId].graveyard || [];
@@ -1493,7 +1494,7 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   if (GREATEST_POWER_RE.test(c)) {
     const everyone = [];
     for (const pid of Object.keys(state.players || {})) {
-      for (const p of controllerBoard(state, pid)) if (isCreaturePermLocal(p)) everyone.push({ p, pid });
+      for (const p of controllerBoard(state, pid)) if (isCreaturePermLocal(p, state)) everyone.push({ p, pid });
     }
     if (!everyone.length) return false;
     const max = Math.max(...everyone.map(({ p }) => creaturePower(p, state)));
@@ -1601,7 +1602,7 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     const need = parseInt(m[1], 10);
     let total = 0;
     for (const perm of controllerBoard(state, controllerId)) {
-      if (isCreaturePermLocal(perm)) total += creatureToughness(perm, state);
+      if (isCreaturePermLocal(perm, state)) total += creatureToughness(perm, state);
     }
     return total >= need;
   }
@@ -1734,7 +1735,7 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     const n = parseCount(m[1]);
     if (n == null) return null;
     const total = controllerBoard(state, controllerId)
-      .filter((p) => isCreaturePermLocal(p))
+      .filter((p) => isCreaturePermLocal(p, state))
       .reduce((sum, p) => sum + creaturePower(p, state), 0);
     return total >= n;
   }
@@ -2063,9 +2064,10 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     if (!CONTROL_SUBTYPE_ALLOW.has(sub)) return null; // non-creature-type word (designation/color) → Arbiter (CREED)
     const triggeringId = context?.triggeringPermanentId;
     if (!triggeringId) return null; // "another" needs the entering permanent to exclude → can't confirm (FN-safe)
-    const re = new RegExp(`\\b${sub.charAt(0).toUpperCase() + sub.slice(1)}\\b`, "i");
+    // A creature of that type AS IT IS NOW (the type-line audit — layers.permanentHasTypeWord): every creature type is one (P·39 —
+    // "another Elf"), a Metallic Mimic that chose it is one, and a bestowed Aura is no Spirit (Apothecary Geist).
     return controllerBoard(state, controllerId).some((p) =>
-      p.id !== triggeringId && isCreaturePermLocal(p) && (re.test(typeStr(p.card)) || permIsEveryCreatureType(state, p.id))); // P·39 — "another Elf": every creature type is one
+      p.id !== triggeringId && isCreaturePermLocal(p, state) && permanentHasTypeWord(state, p.id, sub));
   }
 
   // ⭐ "you control another <FILTER>" (2026-07-30) — the general form of the bare-subtype arm directly above:

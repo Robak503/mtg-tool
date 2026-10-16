@@ -15,7 +15,7 @@ import { applyCreateToken, applyCreateNamedToken, applyCreateTokenCopy } from ".
 import { applyTutor, millOnePlayer } from "./library.js";
 import { applyZoneMove, applyExileUntilLeaves } from "./zones.js";
 import { manifestTopOf } from "./manifest.js"; // P·19 — Reality Shift's controller rider (manifest imports only gameState, triggers, tokens)
-import { permanentTypes, permIsEveryCreatureType, permanentHasCardType, permanentIsCreature, deriveCharacteristics, permanentCreatureTypes } from "../../layers.js"; // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentHasCardType (#509, #639): the batch edict's layer-aware, face-up pool and a sacrificed planeswalker // + deriveCharacteristics (#582): the destroyed creature's copiable values (a layer-1 copy result) // + permanentIsCreature: the destroy ladder's layer-aware death look-backs
+import { permanentTypes, permIsEveryCreatureType, permanentHasCardType, permanentIsCreature, deriveCharacteristics, permanentCreatureTypes, permanentHasTypeWord } from "../../layers.js"; // + permanentHasTypeWord (the type-line audit): sacrificePoolMatchNow // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentHasCardType (#509, #639): the batch edict's layer-aware, face-up pool and a sacrificed planeswalker // + deriveCharacteristics (#582): the destroyed creature's copiable values (a layer-1 copy result) // + permanentIsCreature: the destroy ladder's layer-aware death look-backs
 import { NAMED_TOKENS } from "./tokens.js"; // NAMED-TOKEN sacrifice pool — same registry the mint side uses, so a pool can never name a token the engine cannot create
 import { autoPickCreatureTypeToSpare } from "../../choicePolicy.js"; // #701 — Kindred Dominance's resolution-time type choice (a zero-import leaf)
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // #701 — the closed creature-type vocabulary the choice is made from (a zero-import leaf)
@@ -291,10 +291,11 @@ export function applyChampion(state, atom, ctx) {
   const eligible = bf.filter((p) => {
     if (p.id === ctx.sourceId) return false;                     // "ANOTHER" — never itself
     if (p.card?.token) return false;                             // CR 111.7 — a token would not come back
-    if (!isCreatureCard(p.card)) return false;
+    // The creature it is NOW, of the type it has now (the type-line audit — layers.permanentHasTypeWord): a God below its devotion
+    // is no offering; an animated land is; every creature type is a Kithkin (P·39); a Metallic Mimic that chose Kithkin is one.
+    if (!permanentIsCreature(state, p.id)) return false;
     if (!want || want === "creature") return true;               // "Champion a creature"
-    return new RegExp(`\\b${want}\\b`, "i").test(String(p.card.type || ""))
-      || permIsEveryCreatureType(state, p.id); // P·39 — every creature type is a Kithkin
+    return permanentHasTypeWord(state, p.id, want);
   });
   if (!eligible.length) {
     // No legal offering ⇒ the printed downside, not a skip.
@@ -464,6 +465,38 @@ export function sacrificePoolMatch(what, card, creatureNow = isCreatureCard(card
 }
 
 /**
+ * THE SAME POOLS, read off a BATTLEFIELD permanent as it is now (the type-line audit — layers.permanentHasTypeWord, CR 613.1d): every
+ * card type and subtype word is the one it has now, so a God below its devotion, a bestowed Aura and an attached Lizard Blades are no
+ * creature to sacrifice, a slumbering Arixmethes is a land and no creature, an animated land is a creature, a creature Liquimetal
+ * Torque made an artifact is an artifact, and a double-faced permanent is its front face (an edict's "land" never takes a front-up
+ * Ojer Taq, its "enchantment" never a Sheoldred). A token is a token by its stamp (CR 111.1); a named-token pool reads the name and
+ * the stamp only. Every caller with the board reads this — the edict chain and the sacrifice-unless costs, offered and paid;
+ * sacrificePoolMatch stays the card read.
+ */
+export function sacrificePoolMatchNow(what, state, perm) {
+  if (!perm) return false;
+  if (isNamedTokenPool(what)) return sacrificePoolMatch(what, perm.card, false);
+  const has = (w) => permanentHasTypeWord(state, perm.id, w);
+  // "sacrifice an Egg": a creature that is an Egg now — every creature type included (P·39).
+  if (typeof what === "string" && what.startsWith("subtype:")) return has("Creature") && has(what.slice(8));
+  switch (what) {
+    case "permanent": return true;
+    case "nontokenCreature": return has("Creature") && !perm.card?.token;
+    case "creatureToken": return has("Creature") && !!perm.card?.token;
+    case "planeswalker": return has("Planeswalker");
+    case "creatureOrPlaneswalker": return has("Creature") || has("Planeswalker");
+    case "land": return has("Land");
+    case "artifact": return has("Artifact");
+    case "enchantment": return has("Enchantment");
+    case "artifactOrEnchantment": return has("Artifact") || has("Enchantment");
+    case "artifactCreatureOrLand": return has("Artifact") || has("Creature") || has("Land");
+    case "nonbattlePermanent": return ["Artifact", "Creature", "Enchantment", "Land", "Planeswalker"].some(has);
+    case "nonbasicLand": return has("Land") && !has("Basic");
+    default: return has("Creature"); // "creature" (and the unset default)
+  }
+}
+
+/**
  * ===== EDICTS ===== — walk the sacrifice CHAIN (CR 701.21 — each sacrificing player chooses what to give
  * up). `queue` is the remaining sacrificers, head-first, each `{ playerId, what? }` (one permanent apiece —
  * `what:"creature"` default | `what:"permanent"` for the any-permanent forms | a TYPED pool). For each in turn:
@@ -496,7 +529,7 @@ export function advanceSacrificeChain(state, { queue, sourceName = null }) {
     // The creature pools read the PERMANENT (layer-aware): an animated land is a creature this edict can take (CR 701.21a — the
     // sacrificer chooses among the creatures they control now).
     const poolAll = (player.battlefield || [])
-      .filter((p) => sacrificePoolMatch(head.what, p.card, permanentIsCreature(next, p.id)) || (String(head.what).startsWith("subtype:") && permIsEveryCreatureType(next, p.id))) // P·39 — "sacrifice an Egg": every creature type is one (a land / artifact pool never takes it)
+      .filter((p) => sacrificePoolMatchNow(head.what, next, p)) // the permanent as it is now (the type-line audit; P·39 — "sacrifice an Egg": every creature type is one, a land / artifact pool never takes it)
       .filter((p) => !(head.excludeId && p.id === head.excludeId)); // "another" — the source is never a victim
     // FLARE OF MALICE (BI-4): narrow to the sacrificer's GREATEST mana value (tokens are 0, CR 202.3); ties stay a choice.
     const mvOf = (c) => { let mv = 0; for (const x of String(c?.mana || c?.mana_cost || "").matchAll(/\{([^}]+)\}/g)) { const pip = x[1].trim().toUpperCase(); mv += /^\d+$/.test(pip) ? parseInt(pip, 10) : (/^[XYZ]$/.test(pip) ? 0 : 1); } return mv; };

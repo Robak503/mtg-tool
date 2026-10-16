@@ -8,7 +8,7 @@ import { addContinuousEffect, permanentIsCreature } from "../../layers.js"; // C
 import { checkDiesTriggers, checkCounterPlacedTriggers, checkEvolvesTriggers, checkBecomesMonstrousTriggers } from "../../triggers.js";
 import { applyCreateNamedToken, applyCreateToken } from "./tokens.js"; // TREASURE-IF-SELF rider (The Ghoul) — the shared named-token resolver; applyCreateToken — ENDURE mode B (N/N white Spirit token when the source has left)
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): mirror the actual placed amount for the COUNTERS-PLACED watcher count
-import { atomTargets, isCreatureCard, countForSpec, resolveScaledAmount } from "./shared.js";
+import { atomTargets, countForSpec, resolveScaledAmount } from "./shared.js";
 import { applyDrawEffect } from "../../spellEffects.js"; // the one draw (misc.js's draw atom reads it too) — Tribute to the World Tree's draw arm
 import { SMALL_NUM, parseCountSource, COUNT_SUBTYPE } from "../parseHelpers.js"; // seam batch 3: shared number-word map (leaf, cycle-free) + DYNAMIC-COUNT board-count source + curated MTG-subtype allowlist (filtered mass-counter scope)
 
@@ -27,7 +27,7 @@ function triggeringCreatureTargets(state, ctx) {
   // each other, and they had drifted: the printed-card check alone drops a permanent that is a creature only
   // BY LAYERS (an animated land that dealt the combat damage, a crewed Vehicle), so the counter was silently
   // never placed while the metric read HIGH. Same catch selfTargets carries; CR 613 decides creature-ness.
-  return lk && (isCreatureCard(lk.permanent.card) || permanentIsCreature(state, ctx.triggeringPermanentId))
+  return lk && permanentIsCreature(state, ctx.triggeringPermanentId) // the creature it is now (the type-line audit — a God below its devotion, a bestowed Aura, an attached reconfigure Equipment are not)
     ? [{ type: "creature", id: ctx.triggeringPermanentId, controller: lk.controller }]
     : [];
 }
@@ -830,12 +830,10 @@ export function addCounterClauseParser(clause) {
     return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl", subtypeFilter: m[3].charAt(0).toUpperCase() + m[3].slice(1) };
   }
   // "each LAND creature you control" (Bumi, Eclectic Earthbender — his attack trigger buffs the lands earthbend
-  // animated into creatures). "land" is a card-TYPE qualifier, NOT a COUNT_SUBTYPE, and — critically — it must
-  // NOT route through subtypeFilter:"Land"/controllerCreatureTargets, which gate on isCreatureCard(perm.card) =
-  // the PRINTED type, so an earthbend-animated Land (printed Land, layer-4 Creature) would be MISSED → pump
-  // nothing → FP. The dedicated landCreaturesYouControl scope does a LAYER-AWARE gather in atomTargets
-  // (permanentIsCreature ∧ printed-Land) so the animated lands are hit (CR 613.7c: the type layer adds Creature,
-  // keeps Land). Checked BEFORE the COUNT_SUBTYPE branch so "land" never falls through to a non-curated null.
+  // animated into creatures). "land" is a card-TYPE qualifier, NOT a COUNT_SUBTYPE: the dedicated
+  // landCreaturesYouControl scope does a LAYER-AWARE gather in atomTargets (permanentIsCreature ∧ Land) so the
+  // animated lands are hit (CR 613.7c: the type layer adds Creature, keeps Land). Checked BEFORE the COUNT_SUBTYPE
+  // branch so "land" never falls through to a non-curated null.
   if (m && m[3] === "land") {
     return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "landCreaturesYouControl" };
   }
@@ -1029,7 +1027,7 @@ export function applyShieldCounter(state, atom, ctx) {
   // LAYER-AWARE (census slice 25) — same catch as the referent resolvers: a permanent that is a creature
   // only BY LAYERS (an animated land, a crewed Vehicle) is a creature right now (CR 613). The printed-card
   // check alone made this a silent no-op on exactly those permanents.
-    if (!lk || !(isCreatureCard(lk.permanent.card) || permanentIsCreature(next, t.id))) continue;
+    if (!lk || !permanentIsCreature(next, t.id)) continue; // the creature it is now (the type-line audit — a God below its devotion, a bestowed Aura, an attached reconfigure Equipment are not)
     next = addCounter(next, { permanentId: t.id, type: "shield", amount: 1 });
     placed.push(t.id);
   }

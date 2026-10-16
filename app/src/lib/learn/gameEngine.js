@@ -77,7 +77,7 @@ import {
   detectTriggers, // FLICKER TARGETS (shelf D21) — does a permanent carry an enters ability worth re-firing?
 } from "./triggers.js";
 import { checkAllStateBasedActions } from "./sba.js";
-import { expireContinuousEffects, maxHandSizeFor, sourceTriggerMultiplierCount } from "./layers.js";
+import { expireContinuousEffects, maxHandSizeFor, sourceTriggerMultiplierCount, permanentTypes } from "./layers.js";
 import {
   parseEffectClause,
   programConfidence,
@@ -1269,6 +1269,9 @@ function sweepFinishedSagas(state) {
           o.payload?.params?.sourcePermanentId === perm.id,
       );
       if (pendingOwn || stackOwn) continue;
+      // The types it had as it left (CR 603.10a — the type-line audit), read while it is still on the battlefield: a Saga is no
+      // creature, whatever a double-faced card prints on its back face, so "Whenever you sacrifice a creature" never fires for it.
+      const lkiTypes = [...permanentTypes(next, perm.id).types];
       next = moveCardToZone(next, {
         playerId: pid,
         fromZone: "battlefield",
@@ -1276,7 +1279,7 @@ function sweepFinishedSagas(state) {
         cardId: perm.id,
       });
       next = checkLeavesTriggers(next);
-      next = checkSacrificeTriggers(next, pid, { id: perm.id, controller: pid, card: perm.card });
+      next = checkSacrificeTriggers(next, pid, { id: perm.id, controller: pid, card: perm.card, lkiTypes });
       next = logEvent(next, {
         kind: "saga-sacrificed",
         cardName: perm.card?.name,

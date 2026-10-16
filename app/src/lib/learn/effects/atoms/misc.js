@@ -6,7 +6,8 @@ import { applyDrawEffect } from "../../spellEffects.js";
 import { logEvent, addEmblem, addMana, holdMana, holdManaUntilEndOfTurn, opponentsOf, grantFlashThisTurn, grantTeferiShield, phaseOutAllPermanents, phaseOutPermanents, loseLife } from "../../gameState.js"; // + TEFERI'S PROTECTION (CAP, 2026-09-03); loseLife — N11 Peer into the Abyss
 import { parseFlashCastFilter } from "../../staticAbilityParser.js"; // the STATIC grant's own filter parser — reused so the turn-scoped twin cannot drift from it
 import { setPendingDivideChoice } from "../../pendingChoice.js";
-import { resolveScaledAmount, isCreatureCard, countForSpec, atomTargets } from "./shared.js";
+import { resolveScaledAmount, countForSpec, atomTargets } from "./shared.js";
+import { permanentIsCreature } from "../../layers.js"; // the type-line audit: the divide-damage creature recipients are the creatures there NOW
 import { findPermanent } from "../../gameState.js"; // ADD-RESTRICTED-MANA — the source card's color identity read (same leaf edge as line 6)
 import { NUM_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 23 (NUM_WORD, each-player draw) + 26 (parseCountSource, for-each draw)
 import { parseSpendRestriction } from "../../manaModel.js"; // SARKHAN-FIREBLOOD restricted add — the planner's OWN restriction parser, reused so the arm can't drift from what the spender enforces (read only inside the clause parser — init-safe)
@@ -236,7 +237,7 @@ export function applyDivideDamage(state, atom, ctx) {
   if (group !== "players") {
     for (const pid of Object.keys(state.players)) {
       for (const perm of state.players[pid].battlefield) {
-        if (isCreatureCard(perm.card)) candidates.push({ id: perm.id, name: perm.card?.name, type: "creature", controller: pid });
+        if (permanentIsCreature(state, perm.id)) candidates.push({ id: perm.id, name: perm.card?.name, type: "creature", controller: pid }); // the creature it is now (the type-line audit — a God below its devotion, a bestowed Aura, an attached reconfigure Equipment are not); an animated land is
       }
     }
   }

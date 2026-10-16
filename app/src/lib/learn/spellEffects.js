@@ -53,7 +53,7 @@ import {
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers, checkLifegainTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, stackSpellIsUncounterable } from "./staticAbilityParser.js";
 import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
-import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentHasCardType, permanentColors, colorsOf } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
+import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentHasCardType, permanentHasTypeWord, permanentColors, colorsOf } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
 import { protectionApplies } from "./protection.js";
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — damage to a player dealt to a creature instead (CR 614.9)
 import { isNonChosenTargetType } from "./targetTypes.js";
@@ -69,9 +69,6 @@ const NUM_WORDS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 
 function typeOf(card) {
   return String(card?.type || card?.type_line || "");
-}
-function isCreature(card) {
-  return typeOf(card).includes("Creature");
 }
 
 // ===== REG-1 graveyard-recursion filter ===== the card-type filter on "Return target <X> card from your
@@ -944,84 +941,83 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // Targeted NON-CREATURE permanent removal (Disenchant / Naturalize / Stone Rain / "destroy target
   // permanent"). The only modeled restriction is the controller (the 3 the parser captures);
   // tapped/power aren't part of the anchored permanent shapes, so they never reach here.
-  // ARTIFACT AFTER LAYER 4 (play-weighted #511): every predicate that names the Artifact card type asks `has`, which is the
-  // printed type line OR a type a layer-4 effect added (layers.permanentHasCardType, CR 613.1d) — a land Liquimetal Coating
-  // made an artifact is a legal Shatter target until cleanup. `nonlandPermanent` reads the Land type the same way (a slumbering
-  // Arixmethes IS a land, so Liquimetal Torque may not target it). The other type words keep their printed read.
+  // EVERY TYPE WORD AFTER LAYER 4 (#511, then the type-line audit): each predicate asks `has(T)` — the type the permanent HAS NOW
+  // (layers.permanentHasCardType, CR 613.1d; a DFC never reaches a predicate, so the derive's types are the face that is up) — and
+  // `hasSub(S)` for a subtype (layers.permanentHasTypeWord). Both directions are the rules': a land Liquimetal Coating made an
+  // artifact is a legal Shatter target until cleanup, a slumbering Arixmethes IS a land (Liquimetal Torque's "nonland permanent"
+  // can't take it), an animated land is a creature (Bramblecrush's "noncreature permanent" can't take it), and a God below its
+  // devotion, a bestowed Aura and an attached reconfigure Equipment are NOT creatures (Putrefy's "artifact or creature" can't take
+  // Heliod, Fissure's "creature or land" can't take an attached Lizard Blades). The printed line read a removed type as present.
   const PERMANENT_PREDICATES = {
     artifact: (tl, perm, has) => has("Artifact"),
-    enchantment: (tl) => /\bEnchantment\b/.test(tl),
-    land: (tl) => /\bLand\b/.test(tl),
+    enchantment: (tl, perm, has) => has("Enchantment"),
+    land: (tl, perm, has) => has("Land"),
     // UNTAP-BASIC-SUBTYPE (Arbor Elf "Untap target Forest") — a land of a specific basic subtype (CR 305.6).
-    // BOTH a Land type line AND the subtype are required (a non-land bearing the word can never match).
-    forest: (tl) => /\bLand\b/.test(tl) && /\bForest\b/.test(tl),
-    island: (tl) => /\bLand\b/.test(tl) && /\bIsland\b/.test(tl),
-    swamp: (tl) => /\bLand\b/.test(tl) && /\bSwamp\b/.test(tl),
-    mountain: (tl) => /\bLand\b/.test(tl) && /\bMountain\b/.test(tl),
-    plains: (tl) => /\bLand\b/.test(tl) && /\bPlains\b/.test(tl),
+    // BOTH the Land type AND the subtype are required (a non-land bearing the word can never match); a granted basic land type
+    // counts (CR 205.1b — under Dryad of the Ilysian Grove every land its controller controls is a Forest).
+    forest: (tl, perm, has, hasSub) => has("Land") && hasSub("Forest"),
+    island: (tl, perm, has, hasSub) => has("Land") && hasSub("Island"),
+    swamp: (tl, perm, has, hasSub) => has("Land") && hasSub("Swamp"),
+    mountain: (tl, perm, has, hasSub) => has("Land") && hasSub("Mountain"),
+    plains: (tl, perm, has, hasSub) => has("Land") && hasSub("Plains"),
     permanent: () => true,
     nonlandPermanent: (tl, perm, has) => !has("Land"),
     // NONCREATURE-PERMANENT (Mold Shambler "destroy target noncreature permanent") — any permanent that is
     // not a Creature. addPermanents only iterates battlefield permanents, so the not-a-Creature test alone
-    // is the full predicate (mirrors nonlandPermanent). An Artifact/Enchantment CREATURE (\bCreature\b) is
-    // correctly excluded; a land/artifact/enchantment/planeswalker is eligible.
-    noncreaturePermanent: (tl) => !/\bCreature\b/.test(tl),
+    // is the full predicate (mirrors nonlandPermanent). An Artifact/Enchantment CREATURE is correctly excluded,
+    // and so is an animated land or a crewed Vehicle; a land/artifact/enchantment/planeswalker is eligible.
+    noncreaturePermanent: (tl, perm, has) => !has("Creature"),
     // NONBASIC-LAND (Goblin Ruinblaster / Sinkhole-type "destroy target nonbasic land") — a Land WITHOUT the
-    // Basic supertype (CR 205.4a). Both a Land type line AND the absence of the Basic supertype are required,
-    // so a basic land (type line "Basic Land — …") is excluded and a non-land bearing neither word never matches.
-    nonbasicLand: (tl) => /\bLand\b/.test(tl) && !/\bBasic\b/.test(tl),
+    // Basic supertype (CR 205.4a). Both the Land type AND the absence of the Basic supertype are required,
+    // so a basic land ("Basic Land — …") is excluded and a non-land bearing neither word never matches.
+    nonbasicLand: (tl, perm, has) => has("Land") && !has("Basic"),
     // SG-16 (Boseiju, Who Endures) — "artifact, enchantment, or nonbasic land": the three-way union whose land
     // arm excludes the Basic supertype (CR 205.4a). A basic land is never a legal target; an artifact or
     // enchantment always is (an artifact land counts through its artifact arm, as printed).
-    artifactEnchantmentOrNonbasicLand: (tl, perm, has) => has("Artifact") || /\bEnchantment\b/.test(tl) || (/\bLand\b/.test(tl) && !/\bBasic\b/.test(tl)),
-    // BASIC-LAND (Earthcraft "Untap target basic land") — a Land WITH the Basic supertype (CR 205.4a). Both a
-    // Land type line AND the Basic supertype are required, so a nonbasic land (type line "Land — …", no "Basic")
+    artifactEnchantmentOrNonbasicLand: (tl, perm, has) => has("Artifact") || has("Enchantment") || (has("Land") && !has("Basic")),
+    // BASIC-LAND (Earthcraft "Untap target basic land") — a Land WITH the Basic supertype (CR 205.4a). Both the
+    // Land type AND the Basic supertype are required, so a nonbasic land (type line "Land — …", no "Basic")
     // is excluded and a non-land never matches. Symmetric with nonbasicLand above.
-    basicLand: (tl) => /\bLand\b/.test(tl) && /\bBasic\b/.test(tl),
-    artifactOrEnchantment: (tl, perm, has) => has("Artifact") || /\bEnchantment\b/.test(tl),
+    basicLand: (tl, perm, has) => has("Land") && has("Basic"),
+    artifactOrEnchantment: (tl, perm, has) => has("Artifact") || has("Enchantment"),
     // LANDS-5 (Otawara) — the four-type union; NOT nonlandPermanent, which would also admit a Battle.
-    artifactCreatureEnchantmentOrPlaneswalker: (tl, perm, has) => has("Artifact") || /\bCreature\b|\bEnchantment\b|\bPlaneswalker\b/.test(tl),
+    artifactCreatureEnchantmentOrPlaneswalker: (tl, perm, has) => has("Artifact") || has("Creature") || has("Enchantment") || has("Planeswalker"),
     // (SHELF-85 N8 — Bedevil's "artifact, creature, or planeswalker" destroy rides the ES-2 artifactCreatureOrPlaneswalker
     // entry below, the same three-type union Planar Disruption's enchant line already reads.)
     // THREE-WAY union — "destroy target artifact, enchantment, or land" (Acidic Slime, Creeping Mold,
-    // Reclaiming Vines, Dire-Strain Rampage, Hoodwink, World Breaker). A straight OR of the three printed
-    // types, exactly as the card reads: no narrowing, and deliberately NOT mapped to "permanent", which
+    // Reclaiming Vines, Dire-Strain Rampage, Hoodwink, World Breaker). A straight OR of the three types,
+    // exactly as the card reads: no narrowing, and deliberately NOT mapped to "permanent", which
     // would also offer creatures and planeswalkers the card cannot touch.
-    artifactEnchantmentOrLand: (tl, perm, has) => has("Artifact") || /\bEnchantment\b|\bLand\b/.test(tl),
+    artifactEnchantmentOrLand: (tl, perm, has) => has("Artifact") || has("Enchantment") || has("Land"),
     // NONCREATURE ARTIFACT / ENCHANTMENT (Crush, Overwhelming Surge, Haywire Mite, Joven, Guerrilla Gorilla)
     // — the qualifier EXCLUDES artifact/enchantment CREATURES, so it is a genuine narrowing of the bare
     // types above, not a synonym. Modeling it as the bare type would let the engine destroy an artifact
     // creature the printed card cannot touch: an over-delivery, the forbidden direction. That is why these
-    // shapes correctly refused until now rather than being approximated.
-    //
-    // ⭐ LAYER-AWARE, and that is the whole point of the second argument. The printed type line alone misses
-    // a permanent that is a creature only BY LAYERS — an artifact animated by March of the Machines / Karn /
-    // Sydri is a CREATURE and must not be offered. (The older `noncreaturePermanent` above is printed-only;
-    // it is left as-is rather than silently widened here, but the same gap applies to it.)
-    noncreatureArtifact: (tl, perm, has) => has("Artifact") && !/\bCreature\b/.test(tl) && !permanentIsCreature(state, perm.id),
-    noncreatureEnchantment: (tl, perm) => /\bEnchantment\b/.test(tl) && !/\bCreature\b/.test(tl) && !permanentIsCreature(state, perm.id),
-    noncreatureArtifactOrEnchantment: (tl, perm, has) => (has("Artifact") || /\bEnchantment\b/.test(tl)) && !/\bCreature\b/.test(tl) && !permanentIsCreature(state, perm.id),
-    creatureOrEnchantment: (tl) => /\bCreature\b|\bEnchantment\b/.test(tl), // β-2 type unions
-    creatureOrLand: (tl) => /\bCreature\b|\bLand\b/.test(tl),
-    creatureOrArtifact: (tl, perm, has) => /\bCreature\b/.test(tl) || has("Artifact"),
-    artifactOrLand: (tl, perm, has) => has("Artifact") || /\bLand\b/.test(tl),
+    // shapes correctly refused until now rather than being approximated. An artifact animated by March of the
+    // Machines / Karn / Sydri is a CREATURE now and is not offered; a God below its devotion is a noncreature
+    // enchantment now and is.
+    noncreatureArtifact: (tl, perm, has) => has("Artifact") && !has("Creature"),
+    noncreatureEnchantment: (tl, perm, has) => has("Enchantment") && !has("Creature"),
+    noncreatureArtifactOrEnchantment: (tl, perm, has) => (has("Artifact") || has("Enchantment")) && !has("Creature"),
+    creatureOrEnchantment: (tl, perm, has) => has("Creature") || has("Enchantment"), // β-2 type unions
+    creatureOrLand: (tl, perm, has) => has("Creature") || has("Land"),
+    creatureOrArtifact: (tl, perm, has) => has("Creature") || has("Artifact"),
+    artifactOrLand: (tl, perm, has) => has("Artifact") || has("Land"),
     // ES-1 "Enchant creature or Vehicle" (Aether Meltdown, Mists of Littjara) — CR 301.7: a Vehicle is an
     // ARTIFACT that is only a creature while crewed, so this is NOT creatureOrArtifact (that would offer
     // every artifact on the board, hosts the printed card cannot touch — the forbidden direction). The
     // Vehicle arm requires BOTH the Artifact type and the Vehicle subtype, mirroring the basic-land-subtype
-    // predicates above. PRINTED-only on the creature arm, consistent with its creatureOrArtifact sibling:
-    // a permanent that is a creature only by LAYERS is simply not offered (a safe under-offer), and a
-    // CREWED Vehicle matches the Vehicle arm regardless, so the practically-reachable pool is complete.
-    creatureOrVehicle: (tl) => /\bCreature\b/.test(tl) || (/\bArtifact\b/.test(tl) && /\bVehicle\b/.test(tl)),
+    // predicates above; a crewed Vehicle matches either arm.
+    creatureOrVehicle: (tl, perm, has, hasSub) => has("Creature") || (has("Artifact") && hasSub("Vehicle")),
     // SHELF-85 S6 (2026-09-04 — Peacewalker Colossus "another target Vehicle you control becomes an artifact creature"):
     // the Vehicle subtype alone (an uncrewed Vehicle is not a creature, CR 301.7 — the plain creature pool can't reach it).
-    vehicle: (tl) => /\bVehicle\b/.test(tl),
+    vehicle: (tl, perm, has, hasSub) => hasSub("Vehicle"),
     // ES-2 "Enchant artifact, creature, or planeswalker" (Planar Disruption) — the triple union, read
     // exactly as printed. Deliberately NOT mapped to nonlandPermanent, which would also offer an
     // ENCHANTMENT the printed card cannot touch (the same no-narrowing/no-widening discipline as the
     // artifactEnchantmentOrLand entry above).
-    artifactCreatureOrPlaneswalker: (tl, perm, has) => has("Artifact") || /\bCreature\b|\bPlaneswalker\b/.test(tl),
-    enchantmentOrLand: (tl) => /\bEnchantment\b|\bLand\b/.test(tl),
+    artifactCreatureOrPlaneswalker: (tl, perm, has) => has("Artifact") || has("Creature") || has("Planeswalker"),
+    enchantmentOrLand: (tl, perm, has) => has("Enchantment") || has("Land"),
   };
   const addPermanents = (pred) => {
     for (const pid of Object.keys(state.players)) {
@@ -1046,10 +1042,12 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
         // `perm` is passed as a SECOND argument so a predicate can be layer-aware (the noncreature-artifact
         // family needs the live creature-ness, not just the printed type line). Every pre-existing predicate
         // takes one parameter and ignores it, so this is inert for them.
-        // `has` (THIRD, #511): the card-type read — the printed word, or a type a layer-4 effect added (CR 613.1d). A DFC never
-        // gets here (skipped above), so the printed line is the face that is up.
-        const has = (T) => new RegExp(`\\b${T}\\b`).test(tl) || permanentHasCardType(state, perm.id, T);
-        if (pred(tl, perm, has) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && targetable(perm, pid)) {
+        // `has` (THIRD, #511): the card-type read — the type the permanent has NOW (layers.permanentHasCardType, CR 613.1d: one a
+        // layer-4 effect added counts, one it removed doesn't — the type-line audit dropped the printed half, which read a removed
+        // type as present). `hasSub` (FOURTH): a subtype the same way (layers.permanentHasTypeWord). A DFC never gets here.
+        const has = (T) => permanentHasCardType(state, perm.id, T);
+        const hasSub = (S) => permanentHasTypeWord(state, perm.id, S);
+        if (pred(tl, perm, has, hasSub) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && targetable(perm, pid)) {
           // `owner` rides the enumerated object for the same reason `controller` does (see the
           // its-controller projection note in atoms/combat.js): "…to its owner's hand. Then THAT
           // PLAYER discards" must project the OWNER after the permanent has already left the
@@ -1112,7 +1110,8 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       // set and this permanent IS the source, skip it so the chooser never offers the source as a target. A
       // missing ctx.sourceId simply doesn't exclude (the plain form is unaffected — excludeSource is unset).
       if (effect.excludeSource && ctx?.sourceId && perm.id === ctx.sourceId) continue;
-      if (isCreature(perm.card) && targetable(perm, controllerId)) {
+      // A creature NOW (the type-line audit, CR 613.1d): Mother of Runes can't target a God below its devotion; an animated land is one.
+      if (permanentHasCardType(state, perm.id, "Creature") && targetable(perm, controllerId)) {
         out.push({ type: "creature", id: perm.id, controller: controllerId, name: perm.card?.name });
       }
     }
@@ -1148,8 +1147,8 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // returns whatever leaves, so type mixing is free; canBeTargetedBy keeps shroud/protection honest.
   else if (effect.targetType === "artifactCreatureOrLandYouControl") {
     for (const perm of state.players[controllerId]?.battlefield || []) {
-      const tl = String(perm.card?.type || perm.card?.type_line || "");
-      if ((/\bArtifact\b/.test(tl) || isCreature(perm.card) || /\bLand\b/.test(tl))
+      // The types it has NOW, its face that is up (the type-line audit — layers.permanentHasCardType, CR 613.1d).
+      if ((permanentHasCardType(state, perm.id, "Artifact") || permanentHasCardType(state, perm.id, "Creature") || permanentHasCardType(state, perm.id, "Land"))
           && targetable(perm, controllerId)) {
         out.push({ type: "creature", id: perm.id, controller: controllerId, name: perm.card?.name });
       }
@@ -1159,8 +1158,8 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // artifact-or-creature pair, the Ghostly Flicker triple above minus lands. Same targeting gate.
   else if (effect.targetType === "artifactOrCreatureYouControl") {
     for (const perm of state.players[controllerId]?.battlefield || []) {
-      const tl = String(perm.card?.type || perm.card?.type_line || "");
-      if ((/\bArtifact\b/.test(tl) || isCreature(perm.card))
+      // The types it has NOW (the type-line audit): Teleportation Circle can't take a God below its devotion.
+      if ((permanentHasCardType(state, perm.id, "Artifact") || permanentHasCardType(state, perm.id, "Creature"))
           && targetable(perm, controllerId)) {
         out.push({ type: "creature", id: perm.id, controller: controllerId, name: perm.card?.name });
       }
@@ -1629,7 +1628,7 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
       // the only carriers are creature ETBs whose source is always set, so the source is always excluded.
       for (const pid of Object.keys(next.players)) {
         for (const perm of next.players[pid].battlefield) {
-          if (perm.id !== source?.id && isCreature(perm.card) && creatureSatisfiesRestrictions(next, perm, pid, controller, restrictions)) next = hitCreature(next, perm.id);
+          if (perm.id !== source?.id && permanentHasCardType(state, perm.id, "Creature") && creatureSatisfiesRestrictions(next, perm, pid, controller, restrictions)) next = hitCreature(next, perm.id); // a creature NOW (the type-line audit — the eachCreature read)
         }
       }
     } else if (targetType === "eachPlayer") {
@@ -1652,9 +1651,9 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
         if (!next.players[oid]) continue;
         next = hitPlayer(next, oid);
         for (const perm of [...next.players[oid].battlefield]) {
-          if (isCreature(perm.card)) { next = hitCreature(next, perm.id); continue; }
+          if (permanentHasCardType(state, perm.id, "Creature")) { next = hitCreature(next, perm.id); continue; } // a creature NOW (the type-line audit)
           if (!walkersToo) continue;
-          if (!/\bPlaneswalker\b/i.test(String(perm.card?.type || perm.card?.type_line || ""))) continue;
+          if (!permanentHasCardType(state, perm.id, "Planeswalker")) continue; // its face that is up (the type-line audit)
           // The single-target loyalty path, reused: damage replacement → prevention shields → loyalty removal.
           let dealt = dmgConsult(amount, "planeswalker", perm.id);
           if (dealt > 0) {
@@ -1678,12 +1677,13 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
       // loyalty path here is how the two would drift.
       for (const pid of Object.keys(next.players)) {
         for (const perm of next.players[pid].battlefield) {
-          if (isCreature(perm.card) && creatureSatisfiesRestrictions(next, perm, pid, controller, restrictions)) next = hitCreature(next, perm.id);
+          if (permanentHasCardType(state, perm.id, "Creature") && creatureSatisfiesRestrictions(next, perm, pid, controller, restrictions)) next = hitCreature(next, perm.id); // a creature NOW (the type-line audit)
         }
       }
       for (const pid of Object.keys(next.players)) {
         for (const perm of [...next.players[pid].battlefield]) {
-          if (!/\bPlaneswalker\b/i.test(String(perm.card?.type || perm.card?.type_line || ""))) continue;
+          // a planeswalker NOW, its face that is up (the type-line audit — a front-up Nissa, Vastwood Seer is a creature, not a walker)
+          if (!permanentHasCardType(next, perm.id, "Planeswalker")) continue;
           let dealt = dmgConsult(amount, "planeswalker", perm.id);
           if (dealt > 0) {
             const pv = consumePreventionShields(next, { targetKind: "planeswalker", targetId: perm.id, amount: dealt });
@@ -1712,7 +1712,7 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
       for (const pid of Object.keys(next.players)) {
         if (next.players[pid]) next = hitPlayer(next, pid);
         for (const perm of next.players[pid].battlefield) {
-          if (isCreature(perm.card) && creatureSatisfiesRestrictions(next, perm, pid, controller, restrictions)) next = hitCreature(next, perm.id);
+          if (permanentHasCardType(state, perm.id, "Creature") && creatureSatisfiesRestrictions(next, perm, pid, controller, restrictions)) next = hitCreature(next, perm.id); // a creature NOW (the type-line audit)
         }
       }
     } else {

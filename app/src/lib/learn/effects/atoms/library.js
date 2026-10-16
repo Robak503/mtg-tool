@@ -1860,7 +1860,7 @@ export function applyExplore(state, atom, ctx) {
     } else {
       // Nonland → +1/+1 on the exploring creature (only if still on the battlefield), card kept on top.
       // LAYER-AWARE (slice 25): an ANIMATED land that explores still gets its +1/+1 counter (CR 613).
-      if (lk && (isCreatureCard(lk.permanent.card) || permanentIsCreature(next, subjectId))) {
+      if (lk && permanentIsCreature(next, subjectId)) { // the creature it is now (the type-line audit — a God below its devotion, a bestowed Aura, an attached reconfigure Equipment are not)
         next = addCounter(next, { permanentId: subjectId, type: "+1/+1", amount: 1 });
       }
       next = logEvent(next, { kind: "spell-effect", effect: "explore", controller, revealed: top.name, land: false });

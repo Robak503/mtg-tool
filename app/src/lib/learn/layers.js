@@ -208,6 +208,38 @@ function countsAsCreatureType(state, p, needle) {
   return !!state && boardHasAllCreatureTypesEffect(state) && effectiveTypeIdentity(p, state).everyCreatureType;
 }
 
+// THE IN-DERIVE CARD-TYPE READ (the type-line audit) — "does permanent `p` have the card type or supertype `word` right now?"
+// for the board counts below, which run INSIDE a derive (the layer-7 applier, a gate) and so may never derive. The printed
+// line over-counts there, the forbidden direction: a God below its devotion, a bestowed Aura, an attached reconfigure
+// Equipment and a slumbering Arixmethes are NOT creatures (CR 613.1d — a card type a layer-4 effect removed is gone), so
+// Battle Squadron's "the number of creatures you control" and Briarberry Cohort's "as long as you control another blue
+// creature" must not count them. effectiveTypeIdentity answers recursion-free (no derive): it mirrors those removals and the
+// fixed and card-type-only adds (an animated land, a crewed Vehicle, a Torqued creature). Skipped outright — the printed line
+// answers, as before — on a board with no layer-4 card-type effect (one memoized scan per state). A SUBTYPE needle is not
+// read here: the dynamic subtype adds (Urborg's Swamp, Dryad of the Ilysian Grove's every basic land type) are not mirrored,
+// so those counts stay printed — an under-count, the safe direction for a count of what you control.
+const CARD_TYPE_OR_SUPERTYPE = new Set(["Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery", "Tribal", "Legendary", "Basic", "Snow", "World"]);
+const _cardTypeChangeMemo = new WeakMap();
+function boardChangesCardTypes(state) {
+  let has = _cardTypeChangeMemo.get(state);
+  if (has === undefined) {
+    has = collectContinuousEffects(state).some((e) => e.layer === 4 && ((e.op?.types || []).length > 0
+      || e.op?.layerOp === "removeCardType" || e.op?.layerOp === "removeTypeWhileDevotionBelow"));
+    _cardTypeChangeMemo.set(state, has);
+  }
+  return has;
+}
+function hasCardTypeInDerive(state, p, word) {
+  if (!state || !boardChangesCardTypes(state)) return cardTypesOf(p.card).includes(word); // the same base types the derive starts from
+  return effectiveTypeIdentity(p, state).types.includes(word);
+}
+/** A count needle on a permanent, inside a derive: a card type or supertype through hasCardTypeInDerive, a subtype off the
+ *  printed line as before. (Every creature type for a creature-type needle is the callers' countsAsCreatureType — P·39.) */
+function countsAsNeedleInDerive(state, p, needle) {
+  if (CARD_TYPE_OR_SUPERTYPE.has(needle)) return hasCardTypeInDerive(state, p, needle);
+  return new RegExp(`\\b${needle}\\b`).test(typeLineOf(p.card));
+}
+
 // TRUNK-SELFBUFF: count the controller's permanents matching a self count spec
 // ({ kind:"permanentsYouControl", cardType|subtype }) — the magnitude of a "for each <X> you control"
 // static self-buff. Word-bounded match on the type line. Local (no gameState import). 0 on an unknown spec.
@@ -229,10 +261,9 @@ function countSelfSpecOnBoard(state, perm, spec) {
   if (spec.kind === "countersOnPermanentsYouControl") {
     const needle = spec.cardType;
     if (!needle || !spec.counterType) return 0;
-    const re = new RegExp(`\\b${needle}\\b`);
     let n = 0;
     for (const p of state?.players?.[perm.controller]?.battlefield || []) {
-      if (re.test(typeLineOf(p.card))) n += (p.counters?.[spec.counterType] || 0);
+      if (countsAsNeedleInDerive(state, p, needle)) n += (p.counters?.[spec.counterType] || 0); // the type it has NOW (the type-line audit)
     }
     return n;
   }
@@ -283,11 +314,10 @@ function countSelfSpecOnBoard(state, perm, spec) {
   if (spec.kind === "opponentsControl") {
     const oppNeedle = spec.cardType || spec.subtype;
     if (!oppNeedle) return 0;
-    const oppRe = new RegExp(`\\b${oppNeedle}\\b`);
     let oppN = 0;
     for (const [pid, pl] of Object.entries(state?.players || {})) {
       if (pid === perm.controller) continue;
-      for (const p of pl.battlefield || []) if (oppRe.test(typeLineOf(p.card)) || countsAsCreatureType(state, p, oppNeedle)) oppN += 1; // P·39
+      for (const p of pl.battlefield || []) if (countsAsNeedleInDerive(state, p, oppNeedle) || countsAsCreatureType(state, p, oppNeedle)) oppN += 1; // P·39; the type it has NOW (the type-line audit)
     }
     return oppN;
   }
@@ -321,11 +351,11 @@ function countSelfSpecOnBoard(state, perm, spec) {
   if (spec.kind === "colorPermanentsYouControl") {
     const want = new Set(spec.colors || []);
     if (want.size === 0) return 0;
-    const typeRe = spec.cardType ? new RegExp(`\\b${spec.cardType}\\b`, "i") : null;
     let cn = 0;
     for (const p of player.battlefield || []) {
       if (spec.excludeSelf && p.id === perm.id) continue;
-      if (typeRe && !typeRe.test(typeLineOf(p.card))) continue;
+      // The CREATURE it is now (the type-line audit): a blue God below its devotion is not "another blue creature".
+      if (spec.cardType && !countsAsNeedleInDerive(state, p, spec.cardType)) continue;
       if (boardCountColors(state, p).some((c) => want.has(c))) cn += 1;
     }
     return cn;
@@ -359,38 +389,41 @@ function countSelfSpecOnBoard(state, perm, spec) {
   if (spec.kind === "permanentsYouControlMulti") {
     const needles = spec.allOf || spec.anyOf || [];
     if (!needles.length) return 0;
-    const res = needles.map((n) => new RegExp(`\\b${n}\\b`));
     const joinAll = !!spec.allOf;
     return (player.battlefield || []).filter((p) => {
-      const line = typeLineOf(p.card);
-      return joinAll ? res.every((r) => r.test(line)) : res.some((r) => r.test(line));
+      const has = (n) => countsAsNeedleInDerive(state, p, n); // the types it has NOW (the type-line audit)
+      return joinAll ? needles.every(has) : needles.some(has);
     }).length;
   }
   if (spec.kind !== "permanentsYouControl") return 0;
   const needle = spec.cardType || spec.subtype;
   if (!needle) return 0;
-  const re = new RegExp(`\\b${needle}\\b`);
   // untappedOnly (BLITZ CA-2 — Spur Grappler / Scoria Cat "as long as you control no untapped lands", an
   // atLeast:0/atMost:0 band over this filtered count): restrict to permanents whose live tapped flag is
   // false. Absent flag keeps the pre-existing unfiltered count — no behavior change for prior gates.
   // attachedToType (Sage's Reverie SH4 — "aura you control that's attached to a CREATURE"): the aura's host
   // must be a permanent of the named type. THIS is the layer-static count path (the ETB-draw arm uses the
   // shared.js countForSpec twin); both must filter or the two arms disagree. Absent → no filter.
+  // The type-line audit: a card-type needle and the host's type are the types each has NOW (countsAsNeedleInDerive — a God
+  // below its devotion is not a creature you control, a slumbering Arixmethes is an untapped land).
+  const hostType = spec.attachedToType == null ? null : spec.attachedToType.charAt(0).toUpperCase() + spec.attachedToType.slice(1).toLowerCase();
   return (player.battlefield || []).filter((p) =>
-    (re.test(typeLineOf(p.card)) || countsAsCreatureType(state, p, needle)) // P·39 — a changeling, an every-creature-type creature
+    (countsAsNeedleInDerive(state, p, needle) || countsAsCreatureType(state, p, needle)) // P·39 — a changeling, an every-creature-type creature
     && (!spec.untappedOnly || !p.tapped)
-    && (spec.attachedToType == null
-        || (!!p.attachedTo && new RegExp(`\\b${spec.attachedToType}\\b`, "i").test(typeLineOf(findPerm(state, p.attachedTo)?.card))))
+    && (hostType == null
+        || (!!p.attachedTo && !!findPerm(state, p.attachedTo) && countsAsNeedleInDerive(state, findPerm(state, p.attachedTo), hostType)))
   ).length;
 }
 
 // GATED-SELFBUFF: does the SOURCE permanent itself match a count spec's type? (so "another <type>" can
-// exclude it from its own gate count). Word-bounded on the type line, mirroring countSelfSpecOnBoard.
+// exclude it from its own gate count). The SAME read countSelfSpecOnBoard counts with (countsAsNeedleInDerive — the type-line
+// audit), so the self-exclusion subtracts exactly when the count included it: a God below its devotion is not counted as
+// "another creature", so it is not subtracted either.
 // (P·39: every "as long as you control another <type>" carrier is itself printed with that type, so the
 // printed read already excludes it; an every-creature-type source that ISN'T printed with it has no carrier.)
-function matchesCountSpec(perm, spec) {
+function matchesCountSpec(perm, spec, state = null) {
   const needle = spec?.cardType || spec?.subtype;
-  return needle ? new RegExp(`\\b${needle}\\b`).test(typeLineOf(perm?.card)) : false;
+  return needle && perm ? countsAsNeedleInDerive(state, perm, needle) : false;
 }
 
 // GATED-GY: graveyard-count gate sources — the TOTAL cards (threshold, CR 702.15a) or the distinct CARD TYPES
@@ -800,7 +833,7 @@ function gateMet(state, perm, gate) {
     return n >= (gate.atLeast ?? 1) && (gate.atMost == null || n <= gate.atMost);
   }
   let n = countSelfSpecOnBoard(state, perm, spec);
-  if (gate.excludeSelf && matchesCountSpec(perm, spec)) n -= 1;
+  if (gate.excludeSelf && matchesCountSpec(perm, spec, state)) n -= 1;
   // EXACTLY-N band (BLITZ CA-1 — Homicidal Seclusion / Deadly Wanderings "as long as you control exactly
   // one creature"): an optional atMost upper bound on the board count. Absent atMost keeps the pre-existing
   // open-ended (">= atLeast") semantics for every prior control gate — no behavior change. BLITZ CA-2:
@@ -1253,6 +1286,15 @@ function effectiveTypeIdentity(candidate, state) {
       if (e.affects?.mode === "self" && e.affects.permanentId === candidate.id
           && (!e.op.gate || gateMet(state, candidate, e.op.gate))) {
         types = types.filter(t => t !== e.op.removeType);
+      }
+      continue;
+    }
+    // …and its other half, the counter-gated self card-type ADD (the type-line audit): while its slumber counters remain,
+    // Arixmethes IS a land, so the board counts that read this identity see an untapped slumbering Arixmethes as an untapped
+    // land (Spur Grappler's "as long as you control no untapped lands" stays shut). The same gate read, recursion-free.
+    if (e.op?.layerOp === "addCardType" && e.affects?.mode === "self") {
+      if (e.affects.permanentId === candidate.id && (!e.op.gate || gateMet(state, candidate, e.op.gate))) {
+        for (const t of e.op.types || []) if (!types.includes(t)) types.push(t);
       }
       continue;
     }
@@ -2421,6 +2463,78 @@ export function summoningSickNow(state, perm) {
 }
 
 /**
+ * SUBTYPES AFTER LAYER 4 — every subtype battlefield permanent `permanentId` has right now (land, artifact, enchantment,
+ * planeswalker and creature types alike), spelled as printed. Type-changing effects apply in layer 4 (CR 613.1d), so the answer
+ * is the derive's subtypes: Urborg, Tomb of Yawgmoth makes every land a Swamp and Dryad of the Ilysian Grove makes its
+ * controller's lands every basic land type (CR 205.1b, "in addition to"), a Mistform creature's chosen type replaces its others,
+ * and a layer-1 copy has the copied type line (CR 707.2).
+ *
+ * Read with the FRONT FACE's discipline, as permanentCreatureTypes reads creature types: the derive takes its subtypes off the
+ * whole "Front // Back" line (and the separator and the back face's card types with them), so a subtype only the back face
+ * prints counts here only when a layer-4 effect on the permanent added it. A permanent the battlefield no longer holds has none.
+ * This is the raw subtype list — it does not apply CR 205.1a's removal (permanentHasTypeWord does).
+ */
+export function permanentSubtypes(state, permanentId) {
+  const perm = findPerm(state, permanentId);
+  if (!perm) return [];
+  const chars = deriveCharacteristics(state, permanentId);
+  const line = typeLineOf(chars.copiableValues || perm.card);
+  const front = line.includes(" // ") ? subtypesOf({ type: line.split(" // ")[0] }) : null;
+  const added = chars.appliedEffects.flatMap((e) => e.op?.subtypes || []);
+  return [...new Set(chars.subtypes)].filter((st) => !front || front.includes(st) || added.includes(st));
+}
+
+/**
+ * IS THIS PERMANENT A <word> RIGHT NOW? — the one layer-aware answer for a TYPE WORD on a battlefield permanent, for every reader
+ * outside the layer engine whose wrong answer is a false positive: a "non-<word>" target or sweep that must skip a permanent an
+ * effect GAVE the type (an Island under Dryad of the Ilysian Grove is not a legal "non-Island"; an animated land is not a
+ * "noncreature permanent"), and a "<word>" read that must skip a permanent an effect TOOK it from (a God below its devotion,
+ * a bestowed Aura, an attached reconfigure Equipment and a slumbering Arixmethes are not creatures — CR 613.1d).
+ *   · a CARD TYPE or SUPERTYPE ("creature", "Artifact", "legendary", "snow") — permanentHasCardType;
+ *   · a CREATURE TYPE (the CR 205.3m list) — permanentCreatureTypes or every creature type, and only while the permanent is a
+ *     creature or a kindred: a card type that is removed takes its subtypes with it (CR 205.1a), so a God below its devotion is
+ *     not a God (CR 205.3d keeps a creature type to those two card types);
+ *   · any OTHER subtype ("Island", "Swamp", "Equipment", "Aura", "Saga", "Gate") — permanentSubtypes.
+ * Case-insensitive; one word (or one two-word creature type, "time lord"). Never call it from inside the layer engine — it
+ * derives; the counts that run inside a derive read effectiveTypeIdentity instead.
+ */
+export function permanentHasTypeWord(state, permanentId, word) {
+  const w = String(word || "").trim();
+  if (!w || !findPerm(state, permanentId)) return false;
+  if (permanentHasCardType(state, permanentId, w)) return true;
+  const lc = w.toLowerCase();
+  if (CR_CREATURE_TYPES.has(lc)) {
+    const { types } = permanentTypes(state, permanentId);
+    if (!types.includes("Creature") && !types.includes("Kindred") && !types.includes("Tribal")) return false;
+    return permanentCreatureTypes(state, permanentId).includes(lc) || permIsEveryCreatureType(state, permanentId);
+  }
+  return permanentSubtypes(state, permanentId).some((st) => String(st).toLowerCase() === lc);
+}
+
+/**
+ * WILL THIS CARD BE A CREATURE AS IT ENTERS? (CR 614.12 — "the permanent as it would exist on the battlefield, taking into account
+ * … continuous effects from the permanent's own static abilities that would apply to it once it's on the battlefield"; the
+ * type-line audit's entering-side read for "each other creature you control enters with an additional +1/+1 counter" — Renata,
+ * Arwen, Bramblewood Paragon — and granted riot — Rhythm of the Wild.) A creature card is NOT one when it enters BESTOWED (an Aura,
+ * CR 702.103b), or when its own "isn't a creature while your devotion to <color> is less than N" holds with its OWN mana cost
+ * counted toward that devotion (the Theros Gods: the God's own pips decide whether a creature entered). Front face only (CR 712.8d).
+ * Not read: another permanent's effect that would animate or stop it being a creature as it enters, and Arixmethes' slumber
+ * counters (both under-reads — no counter or riot where one might apply, the safe direction).
+ */
+export function entersAsCreature(state, controller, card, bestowed = false) {
+  if (!card || bestowed) return false;
+  if (!cardTypesOf({ type: typeLineOf(card).split(" // ")[0] }).includes("Creature")) return false;
+  const gate = parseStaticAbilities(card).find((e) => e.layer === 4 && e.op?.layerOp === "removeTypeWhileDevotionBelow" && e.op.removeType === "Creature");
+  if (!gate) return true;
+  const wanted = new Set((gate.op.colors || []).map(String));
+  let own = 0;
+  for (const pip of String(card.mana || card.mana_cost || "").match(/\{[^}]+\}/g) || []) {
+    if (pip.slice(1, -1).split("/").some((p) => wanted.has(p))) own += 1;
+  }
+  return devotionToColors(state, controller, gate.op.colors) + own >= (gate.op.atLeast || 0);
+}
+
+/**
  * GROUP-GRANT — the MANA-ability specs another permanent's static ability GRANTS this permanent (a Sliver
  * lord's "All Slivers have \"{T}: Add …\"" — Gemhide/Manaweft, Enduring Vitality). Walks the same continuous
  * -effect collection the layer engine uses, filters to layer-6 `addAbility` grants of kind "mana" that
@@ -2578,20 +2692,25 @@ export function castTriggerMultiplierCount(state, controllerId) {
  * FILTERED — Panharmonicon doubles only for an artifact or creature, Greenwarden only for a land — so the
  * entering object's type line is tested per static rather than counting them all.
  */
-export function etbTriggerMultiplierCount(state, controllerId, enteringCard) {
-  return triggerMultiplierCount(state, controllerId, "etbTriggerMultiplier", (op) => enteringMatchesFilter(op?.entering, enteringCard));
+export function etbTriggerMultiplierCount(state, controllerId, enteringCard, enteringPermId = null) {
+  return triggerMultiplierCount(state, controllerId, "etbTriggerMultiplier", (op) => enteringMatchesFilter(op?.entering, enteringCard, state, enteringPermId));
 }
 
-/** Does the entering object satisfy a multiplier's printed filter? Word-anchored type-line reads. */
-function enteringMatchesFilter(filter, card) {
-  const t = String(card?.type || card?.type_line || "");
+/** Does the entering object satisfy a multiplier's printed filter? The permanent that entered, AS IT IS NOW (the type-line audit —
+ *  permanentHasCardType, CR 613.1d, its face that is up): Panharmonicon doubles nothing for a God that entered below its devotion,
+ *  and nothing for Fable of the Mirror-Breaker, a Saga whose BACK face is a creature. Without the permanent (no id, or it already
+ *  left) the printed FRONT face answers. */
+function enteringMatchesFilter(filter, card, state = null, permId = null) {
+  const t = String(card?.type || card?.type_line || "").split(" // ")[0];
   if (!t) return false;                       // no type line to test → never double (FN-safe)
+  const live = state && permId != null && findPerm(state, permId);
+  const is = (T) => (live ? permanentHasCardType(state, permId, T) : new RegExp(`\\b${T}\\b`, "i").test(t));
   switch (filter) {
     case "permanent": return true;
-    case "artifact or creature": return /\bArtifact\b/i.test(t) || /\bCreature\b/i.test(t);
-    case "creature": return /\bCreature\b/i.test(t);
-    case "artifact": return /\bArtifact\b/i.test(t);
-    case "land": return /\bLand\b/i.test(t);
+    case "artifact or creature": return is("Artifact") || is("Creature");
+    case "creature": return is("Creature");
+    case "artifact": return is("Artifact");
+    case "land": return is("Land");
     default: return false;                    // an unknown filter never doubles (FN-safe)
   }
 }
@@ -2840,7 +2959,7 @@ export function legendRuleExemptFor(state, perm) {
     const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
     if (!src?.controller || src.controller !== perm.controller) continue;
     if (scope === "permanentsYouControl") return true;
-    if (scope === "creaturesYouControl" && /\bCreature\b/.test(String(perm.card?.type || perm.card?.type_line || ""))) return true;
+    if (scope === "creaturesYouControl" && permanentIsCreature(state, perm.id)) return true; // a creature NOW (the type-line audit — a God below its devotion isn't exempt)
     if (scope === "tokensYouControl" && perm.card?.token) return true;
   }
   return false;

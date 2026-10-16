@@ -39,7 +39,7 @@
  * cycle). Pure — `applyDamageReplacements` returns `{ amount, prevented }` and
  * never mutates `state`.
  */
-import { permIsEveryCreatureType } from "./layers.js"; // P·39 — the subtype filters' every-creature-type read (layers' closure never reaches this file — no cycle)
+import { permIsEveryCreatureType, permanentIsCreature } from "./layers.js"; // + permanentIsCreature (the type-line audit — a creature source is one NOW) // P·39 — the subtype filters' every-creature-type read (layers' closure never reaches this file — no cycle)
 
 // ─── The doubler parser (verified oracle scope, never from memory) ──────────────
 // Each entry: { op, scope }.
@@ -425,8 +425,8 @@ export function buildSourceFilter(entry, _state) {
           if (src) break;
         }
         if (!src) return false;
-        const type = String(src.card?.type_line ?? src.card?.type ?? "").toLowerCase();
-        if (!/\bcreature\b/.test(type)) return false;
+        // A creature source NOW (the type-line audit, CR 613.1d): Gratuitous Violence doesn't double a Purphoros below its devotion.
+        if (!permanentIsCreature(_state, src.id)) return false;
         // Uncivil Unrest's +1/+1 gate; "any" (Raphael, shelf D11) = at least one counter of any kind.
         if (scope.sourceHasCounter === "any" && !Object.values(src.counters || {}).some((n) => Number(n) > 0)) return false;
         if (scope.sourceHasCounter && scope.sourceHasCounter !== "any" && !((src.counters?.[scope.sourceHasCounter] || 0) > 0)) return false;

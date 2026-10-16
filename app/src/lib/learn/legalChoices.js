@@ -33,7 +33,7 @@ import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower,
 import { canAfford, manaSources, manaProduction, manaActivationCost, payActivationFromPool, landAuraManaBonus, globalTapManaAugment, applyAuraManaGrantSupplement, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
-import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType } from "./layers.js";
+import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord } from "./layers.js"; // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell's every-creature-type answer for the cost readers; a leaf (keywords.js only)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
@@ -378,6 +378,32 @@ function cardMatchesAddCostType(card, type) {
   if (type === "land") return t.includes("Land");
   if (type === "instant or sorcery") return t.includes("Instant") || t.includes("Sorcery");
   return false;
+}
+
+// THE SAME COST TYPES, asked of a PERMANENT on the battlefield as it is now (the type-line audit — CR 601.2h: a cost is paid with the
+// object as it is; CR 613.1d): every card type through layers.permanentHasCardType (its face that is up; a type a layer-4 effect added
+// counts, one it removed doesn't — a God below its devotion, a bestowed Aura and an attached Lizard Blades pay no "sacrifice a
+// creature" to Viscera Seer, Deadly Dispute or emerge, an animated land does, a slumbering Arixmethes is a land), and a subtype through
+// layers.permanentHasTypeWord (every creature type for a creature type — P·39). A token is a token by its stamp (CR 111.1). Every
+// battlefield cost pool reads this; sacTypeMatches stays the card read (a card revealed from a hand).
+function sacTypeMatchesNow(state, perm, type, subtype = null) {
+  if (type === "permanent" && !subtype) return true;
+  const has = (T) => permanentHasCardType(state, perm.id, T);
+  const baseOk =
+    type === "permanent" ? true :
+    type === "creature" ? has("Creature") :
+    type === "artifact" ? has("Artifact") :
+    type === "enchantment" ? has("Enchantment") :
+    type === "land" ? has("Land") :
+    type === "token" ? !!perm.card?.token :
+    type === "artifactOrCreature" ? (has("Artifact") || has("Creature")) :
+    type === "creatureOrEnchantment" ? (has("Creature") || has("Enchantment")) :
+    type === "creatureOrPlaneswalker" ? (has("Creature") || has("Planeswalker")) :
+    type === "creatureOrLand" ? (has("Creature") || has("Land")) :
+    type === "nonlandPermanent" ? !has("Land") :
+    false;
+  if (!baseOk) return false;
+  return !subtype || permanentHasTypeWord(state, perm.id, subtype);
 }
 
 // `creatureNow` (play-weighted #756): for the plain "creature" type, whether the PERMANENT is a creature right now
@@ -770,7 +796,7 @@ function selfCostReductionForSpell(state, playerId, card) {
   switch (metric.kind) {
     case "totalPowerYouControl":
       return (player.battlefield || [])
-        .filter((p) => /\bCreature\b/.test(typeLineOf(p.card)))
+        .filter((p) => permanentHasCardType(state, p.id, "Creature")) // a creature NOW (the type-line audit — a God below its devotion adds nothing to Ghalta's total)
         .reduce((sum, p) => sum + Math.max(0, creaturePower(p, state)), 0); // CR 107.1b — a negative power contributes 0 to a "total power" count
     case "greatestPowerYouControl":
       return countForSpec(state, { controller: playerId }, { kind: "greatestPowerYouControl" });
@@ -786,7 +812,7 @@ function selfCostReductionForSpell(state, playerId, card) {
       for (const oppId of opponentsOf(state, playerId)) {
         const opp = state.players[oppId];
         if (!opp) continue;
-        const n = (opp.battlefield || []).filter((p) => /\bArtifact\b/.test(typeLineOf(p.card))).length;
+        const n = (opp.battlefield || []).filter((p) => permanentHasCardType(state, p.id, "Artifact")).length; // an artifact NOW, its face that is up (the type-line audit)
         if (n > best) best = n;
       }
       return best;
@@ -937,7 +963,7 @@ function enumerateAltPayments(state, playerId, card, alt) {
       const letter = alt.color == null ? null : ALT_COST_COLOR_LETTER[alt.color];
       if (alt.color != null && !letter) return [];
       return (player.battlefield || [])
-        .filter((v) => sacTypeMatches(v.card, "creature")
+        .filter((v) => sacTypeMatchesNow(state, v, "creature") // a creature NOW (the type-line audit)
           && (!alt.nontoken || !v.card?.token)
           // The victim's CURRENT color (CR 613.1e — layers.permanentColors): Flare of Cultivation's "a nontoken green
           // creature" is not paid by a Grizzly Bears Cerulean Wisps turned blue, and a front-face-green double-faced
@@ -1395,7 +1421,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // leave-trigger the dies path can't fire is excluded (sacrificeDropsTrigger) so we never partially apply.
         const n = addCost.count;
         const pool = player.battlefield.filter(v =>
-          sacTypeMatches(v.card, addCost.sacType) &&
+          sacTypeMatchesNow(state, v, addCost.sacType) && // the type it has NOW (the type-line audit)
           !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""));
         if (pool.length < n) continue;                    // fewer than N legal victims → cost can't be paid → uncastable
         // QUARTET PHASE 1 (the first converted site, 2026-08-14): behind `state.usePolicyEval` the
@@ -1432,7 +1458,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // "A creature" is the OBJECT's type as the cost is paid (CR 601.2h — layers.permanentIsCreature): an animated land
         // pays "sacrifice a creature"; a bestowed Aura, a God short of its devotion and a Saga with a creature back face do not.
         const victims = player.battlefield.filter(v =>
-          sacTypeMatches(v.card, addCost.sacType, null, permanentIsCreature(state, v.id)) &&
+          sacTypeMatchesNow(state, v, addCost.sacType) && // every type it has NOW (the type-line audit — the unions too: Deadly Dispute)
           (addCost.minPower == null || creaturePower(v, state) >= addCost.minPower) &&
           // COLOR-qualified sac (Natural Order): the victim's CURRENT color (CR 613.1e — permanentColors), the same read
           // the dispatcher re-validates at charge time; a green creature turned blue doesn't pay "sacrifice a green creature".
@@ -1563,7 +1589,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // ⛔ Same fail-safe as γ1b and the return-land activation cost: a permanent whose OWN leave-trigger
         // the engine cannot fire is excluded, so paying the cost never silently drops printed text.
         const bounceable = (player.battlefield || [])
-          .filter((p) => sacTypeMatches(p.card, addCost.permType))
+          .filter((p) => sacTypeMatchesNow(state, p, addCost.permType)) // the type it has NOW (the type-line audit)
           .filter((p) => !sacrificeDropsTrigger(p));
         // ⚠️ NOT LOAD-BEARING, and said out loud rather than left to look like a gate: a mutation deleting
         // this line SURVIVES the suite (verified). The loop below emits nothing for an empty list and the
@@ -2423,7 +2449,7 @@ function actionsActivateAbility(state, playerId) {
     // live here moved UP into lockedActivationSource, which this loop already gates on. It was the only
     // one of the five enumeration sites that had it, and that asymmetry was the bug — see the predicate's
     // note. Left as a pointer rather than a duplicate check so there stays exactly ONE source of truth.
-    const isCreaturePerm = isCreature(perm.card);
+    const isCreaturePerm = permanentIsCreature(state, perm.id); // a creature NOW (the type-line audit — Training Grounds discounts no God below its devotion; an animated land's abilities)
     for (let ab of abilities) {
       if (!ab.modeled) continue;
       // WAR ROOM (play-weighted P·6): "Pay life equal to the number of colors in your commanders' color identity" is sized
@@ -2658,7 +2684,7 @@ function actionsActivateAbility(state, playerId) {
       let sacCountPool = null;
       if (ab.sacCount) {
         sacCountPool = player.battlefield.filter((v) =>
-          sacTypeMatches(v.card, ab.sacCount.type, ab.sacCount.subtype || null) &&
+          sacTypeMatchesNow(state, v, ab.sacCount.type, ab.sacCount.subtype || null) && // the type it has NOW (the type-line audit)
           !(ab.sacCount.other && v.id === perm.id) && // SAC-N-CLASS (P·17): "two OTHER creatures" never takes the source
           !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""),
         );
@@ -2690,7 +2716,7 @@ function actionsActivateAbility(state, playerId) {
       let sacXPool = null;
       if (ab.sacX) {
         sacXPool = player.battlefield.filter((v) =>
-          sacTypeMatches(v.card, ab.sacX.type, ab.sacX.subtype || null) &&
+          sacTypeMatchesNow(state, v, ab.sacX.type, ab.sacX.subtype || null) && // the type it has NOW (the type-line audit)
           !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""),
         );
         if (sacXPool.length < 1) continue; // can't sacrifice even one → X≥1 impossible → not offered
@@ -2781,10 +2807,9 @@ function actionsActivateAbility(state, playerId) {
       if (ab.sacOther) {
         sacVictims = player.battlefield.filter((v) =>
           (!ab.sacOther.another || v.id !== perm.id) &&
-          (sacTypeMatches(v.card, ab.sacOther.type, ab.sacOther.subtype || null)
-            // P·39 — "Sacrifice a Goblin": every creature type (a changeling, Mirror Entity's activation) is a Goblin; the
-            // base type still holds off the printed line (sacTypeMatches with no subtype).
-            || (!!ab.sacOther.subtype && CR_CREATURE_TYPES.has(String(ab.sacOther.subtype).toLowerCase()) && permIsEveryCreatureType(state, v.id))) &&
+          // The type it has NOW (the type-line audit — Viscera Seer can't eat a God below its devotion, a bestowed Aura or an
+          // attached Lizard Blades); P·39 — "Sacrifice a Goblin": every creature type (a changeling, Mirror Entity's activation) is one.
+          sacTypeMatchesNow(state, v, ab.sacOther.type, ab.sacOther.subtype || null) &&
           // SAC-NONTOKEN (2026-08-07) — "Sacrifice a NONTOKEN <type>" (Thopter Foundry, Infernal Tribute):
           // a token victim is excluded. Same `!v.card?.token` read the alt-cost sacrificeCreature lane uses.
           // ⛔ Offering a token here would let Thopter Foundry sacrifice its own Thopters in a loop the card
@@ -2818,14 +2843,14 @@ function actionsActivateAbility(state, playerId) {
       let tapCountIds = null;
       if (ab.tapCreature && ab.tapCreature.count > 1) {
         const selfExcluded = ab.tapSelf || ab.tapCreature.another;
-        const pool = player.battlefield.filter((v) => !v.tapped && isCreature(v.card) && !(selfExcluded && v.id === perm.id));
+        const pool = player.battlefield.filter((v) => !v.tapped && permanentIsCreature(state, v.id) && !(selfExcluded && v.id === perm.id)); // a creature NOW (the type-line audit)
         const ordered = [...pool.filter((v) => v.summoningSick), ...pool.filter((v) => !v.summoningSick)];
         if (ordered.length < ab.tapCreature.count) continue;
         tapCountIds = ordered.slice(0, ab.tapCreature.count).map((v) => v.id);
       } else if (ab.tapCreature) {
         const selfExcluded = ab.tapSelf || ab.tapCreature.another;
         tapVictims = player.battlefield.filter((v) =>
-          !v.tapped && isCreature(v.card) &&
+          !v.tapped && permanentIsCreature(state, v.id) && // a creature NOW (the type-line audit — Earthcraft taps no God below its devotion)
           !(selfExcluded && v.id === perm.id),
         );
         if (tapVictims.length === 0) continue; // no untapped creature to tap → the cost can't be paid
@@ -3200,7 +3225,7 @@ export function reduceActivatedAbilityCost(perm, cost, reduction) {
 export function reduceDiscardAbilityCost(state, playerId, cost, reduction) {
   if (!reduction || !(reduction.perLegendaryCreature > 0)) return cost;
   const n = (state.players?.[playerId]?.battlefield || [])
-    .filter((p) => permanentTypes(state, p.id).types.includes("Creature") && /\bLegendary\b/.test(String(p.card?.type || p.card?.type_line || ""))).length;
+    .filter((p) => permanentHasCardType(state, p.id, "Creature") && permanentHasCardType(state, p.id, "Legendary")).length; // its face that is up (the type-line audit)
   const off = n * reduction.perLegendaryCreature;
   return off > 0 ? { ...cost, generic: Math.max(0, (cost.generic || 0) - off) } : cost;
 }

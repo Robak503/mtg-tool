@@ -21,7 +21,7 @@
 import { logEvent, findPermanent, getCounter, addCounter, removeCounter, destroyLethalCreatures } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js"; // the counter-move family's lethal sweeps (W1/W2) — the counters.js atoms already hold this edge (atoms→triggers is cycle-free)
 import { setPendingDistributeChoice } from "../../pendingChoice.js";
-import { isCreatureCard } from "./shared.js";
+import { permanentIsCreature } from "../../layers.js"; // the type-line audit: the recipients are the creatures there NOW (an animated land is one; a God below its devotion is not)
 
 export function applyDistributeCounters(state, atom, ctx) {
   // MILLED-COUNT (The Wise Mothman, SHELF M1c): countContext reads a TRIGGER-context magnitude
@@ -39,7 +39,7 @@ export function applyDistributeCounters(state, atom, ctx) {
     const player = state.players?.[pid];
     if (!player) continue;
     for (const perm of player.battlefield) {
-      if (isCreatureCard(perm.card)) candidates.push({ id: perm.id, name: perm.card?.name, type: "creature", controller: pid });
+      if (permanentIsCreature(state, perm.id)) candidates.push({ id: perm.id, name: perm.card?.name, type: "creature", controller: pid });
     }
   }
   if (candidates.length === 0) return logEvent(state, { kind: "spell-effect", effect: "distribute-counters", controller: ctx.controller, amount, candidates: 0 });
@@ -75,7 +75,7 @@ export function applyMoveCountersFromSelf(state, atom, ctx) {
   const candidates = [];
   for (const [pid, player] of Object.entries(state.players || {})) {
     for (const perm of player.battlefield || []) {
-      if (perm.id !== src.permanent.id && isCreatureCard(perm.card)) candidates.push({ id: perm.id, name: perm.card?.name, type: "creature", controller: pid });
+      if (perm.id !== src.permanent.id && permanentIsCreature(state, perm.id)) candidates.push({ id: perm.id, name: perm.card?.name, type: "creature", controller: pid });
     }
   }
   if (candidates.length === 0) return logEvent(state, { kind: "spell-effect", effect: "move-counters-from-self", controller: ctx.controller, moved: 0, reason: "no-other-creatures" });

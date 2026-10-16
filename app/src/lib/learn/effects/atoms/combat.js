@@ -157,7 +157,7 @@ export function applyUntapLands(state, atom, ctx) {
     // permanent type), and creature-ness is read LAYER-AWARE so an animated land counts exactly as the
     // board sees it, not as its printed line reads.
     if (atom?.scope === "creature") {
-      if (!(/\bcreature\b/i.test(typeLineStr(perm.card)) || permanentIsCreature(state, perm.id))) continue;
+      if (!permanentIsCreature(state, perm.id)) continue; // the creature it is now (the type-line audit — a God below its devotion, a bestowed Aura, an attached reconfigure Equipment are not)
       if (atom.attackedThisTurnOnly && !perm.attackedThisTurn) continue; // Overpowering Attack (KT-7a): only those that attacked this turn
     } else if (atom?.scope === "attacking") {
       // ATTACKING-ONLY (CR 506.3) — Karlach #1039, Hellkite Charger #2125, Scourge of the Throne #1277,
@@ -175,13 +175,13 @@ export function applyUntapLands(state, atom, ctx) {
       // these spells resolve in a MAIN phase (combat is already null). A creature that never attacked
       // this turn is untouched; outside any attack this turn the loop unatps nothing (clean no-op).
       if (!perm.attackedThisTurn) continue;
-      if (!(/\bcreature\b/i.test(typeLineStr(perm.card)) || permanentIsCreature(state, perm.id))) continue;
+      if (!permanentIsCreature(state, perm.id)) continue; // the creature it is now (the type-line audit — a God below its devotion, a bestowed Aura, an attached reconfigure Equipment are not)
     } else if (atom?.scope === "nonland") {
       // NONLAND (play-weighted #666 — Dramatic Reversal "Untap all nonland permanents you control."): every permanent the
       // controller controls that is not a land as it exists right now (layers.permanentHasCardType — layer-aware, read on the face
       // that is up, CR 712.8d), so an animated land stays tapped and Legion's Landing, an enchantment with a land back face, untaps.
       if (permanentHasCardType(state, perm.id, "Land")) continue;
-    } else if (!/\bland\b/i.test(typeLineStr(perm.card))) continue;
+    } else if (!permanentHasCardType(state, perm.id, "Land")) continue; // a land NOW, its face that is up (the type-line audit — Sword of Feast and Famine untaps no creature with a land back face)
     ids.push(perm.id);
   }
   let next = state;
