@@ -591,6 +591,8 @@ export const effectiveAmount = (atom, ctx) => halveAmount(atom.amountX ? ctx.xVa
 // (creature/land/artifact/enchantment) or basic-land SUBTYPE (Mountain/Forest/Island/Plains/Swamp), or
 // cards in your hand. The matcher (countMatches) reads the same `card.type` line as isCreatureCard, so an
 // Artifact Creature correctly counts for both "creatures" and "artifacts" (it IS both, CR 305.4-ish).
+// A PERMANENT is never read here directly: every battlefield scope asks countMatchesPerm (below), which adds the face
+// that is up and every creature type. This printed read is left to the cards in a graveyard.
 export function countMatches(card, spec) {
   const type = String(card?.type || card?.type_line || "");
   if (spec.subtype) return new RegExp(`\\b${spec.subtype}\\b`).test(type);   // basic-land subtype (Mountain…)
@@ -720,13 +722,17 @@ export function countForSpec(state, ctx, spec) {
   // per-opponent count reuses the SAME spec (kind + cardType[s]/subtype) against each opponent's
   // battlefield, summed. Only permanentsYouControl is opponent-scopeable today (the parser only emits
   // who:"opponents" for that kind); any other kind under who:"opponents" sums 0 (a safe no-op).
+  // Each permanent is read by countMatchesPerm, the same read as the controller / target / defending-player scopes below:
+  // the face that is up (CR 712.8d) and, for a creature type, every creature type (CR 702.73a). The printed countMatches
+  // read the whole "Front // Back" line, so an opponent's Edgar, Charmed Groom was an artifact to Dockside Extortionist
+  // and a tapped Ojer Taq a land to Mana Geyser.
   if (spec.who === "opponents") {
     let total = 0;
     for (const oppId of opponentsOf(state, ctx.controller)) {
       const opp = state?.players?.[oppId];
       if (!opp) continue;
       // P·22 — the tapped qualifier rides the opponents sum too (Mana Geyser "tapped land your opponents control").
-      if (spec.kind === "permanentsYouControl") total += (opp.battlefield || []).filter((perm) => countMatches(perm.card, spec) && (!spec.tappedOnly || !!perm.tapped)).length;
+      if (spec.kind === "permanentsYouControl") total += (opp.battlefield || []).filter((perm) => countMatchesPerm(state, perm, spec) && (!spec.tappedOnly || !!perm.tapped)).length;
     }
     return total;
   }

@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **20 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
+> **21 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,492)**; engine gains since the tag: **+25**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,46 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-16 — FIX: "…your opponents control" reads a permanent like every other count scope (the face that is up, every creature type) · **±0**
+> Suite **18,956** green (1 skipped; 1,777 files). Flip-diff **0 / 0 / 0**. **Mutants 7/7**, restore byte-identical.
+> Lint 0; CR citations: no new dead cite (117 before and after, all pre-existing).
+> · **The report** (a changeling never counted by a tribal board count — Malakir Bloodwitch's Vampires, "for each Goblin you
+>   control" — because `countMatches` reads the printed type line) **was already answered by P·39 (e111439d, 2026-10-01)** for
+>   the player-scoped counts: countForSpec's `permanentsYouControl` reads each permanent through `countMatchesPerm` — the face
+>   that is up (CR 712.8d) and, for a CREATURE type only (CR 205.3d), every creature type through
+>   `layers.permIsEveryCreatureType` (the Changeling keyword, never a mention). Re-proved through the cast path; nothing to fix
+>   there. `cardIsChangeling()` (the oracle-mention read the report named) no longer exists.
+> · **The keyword read is exact on the corpus.** `keywords.hasKeyword(card, "changeling")` takes Scryfall's keyword array, else
+>   a keyword-position oracle match; across the bundled snapshot the two agree on all 72 changelings, and the oracle read
+>   matches no card that only MENTIONS the word (Maskwood Nexus, Belonging, Springleaf Parade make changeling tokens). It is
+>   NOT narrowed to the array: a saved deck's cards arrive already shaped from the deck store (name, type, mana, oracle) and
+>   `learnDeckEnrich` never backfills `keywords`, so the oracle read is what makes their changelings changelings. A "with
+>   changeling" token is minted with `keywords: ["Changeling"]` (tokens.js) and reads the same.
+> · **Kindred counts too.** Firdoch Core (Kindred Artifact — Shapeshifter, Changeling) IS a Vampire: kindreds share the
+>   creature types (CR 205.3m, 308.2). The line is "has the ability and can have creature types", not "is a creature".
+> · **The fix.** The opponents' sum (`who:"opponents"` — Dockside Extortionist, Mana Geyser, Dragon's Desire, Riot Control) was
+>   the last scope on the printed `countMatches`: it read a double-faced permanent's whole "Front // Back" line, so an
+>   opponent's Edgar, Charmed Groom was an artifact (Dockside made 3 Treasures for 1), a tapped Ojer Taq a land (Mana
+>   Geyser {R}{R} for {R}), Fable of the Mirror-Breaker a creature (Riot Control +1). Over-counts — the forbidden direction;
+>   162 nonmodal DFCs (156 transform, 6 flip) print a counted type on the back face only. It now asks `countMatchesPerm`,
+>   like the controller, target and defending-player scopes. The changeling half is latent there: `parseCountSource` emits
+>   no subtype for this scope (pinned).
+> · Witness `boardCountScopes.test.js` (12): Bloodwitch + Woodland Changeling, Firdoch Core, Maskwood Nexus and Springleaf
+>   Parade (not Vampires), Belonging's tokens; Spitting Earth's Mountains and Smaug's Treasures never count a changeling;
+>   Dockside, Mana Geyser, Dragon's Desire and Riot Control beside front-face-up DFCs; an opponent's changeling; "that player
+>   controls" and "your opponents control" agree on one board. Six of the twelve were red at c1f630ab (the opponents block).
+> · Mutants: the opponents sum back on `countMatches` · every creature type for any subtype · the whole-line read in
+>   `countMatchesPerm` · no every-creature-type disjunct · a bare /changeling/ mention for the keyword (also makes Belonging
+>   itself a Vampire) · the opponents sum ignoring "tapped" · a changeling token minted without the keyword.
+> · ⚠️ Found, not fixed (queued — task chip raised): **a nonmodal DFC whose front face has no subtype dash dies on entry.**
+>   `layers.cardTypesOf` takes the types left of the first "—" of the whole line, so Westvale Abbey ("Land // Legendary
+>   Creature — Demon") derives as `[Land, //, Legendary, Creature]`, a 0/0 creature: played as the land drop, the
+>   state-based action puts it straight into the graveyard (Heirloom Mirror cast: the same). 23 cards (Westvale Abbey, Heirloom
+>   Mirror, Altar of the Wretched, Soulcipher Board, Saheeli's Lattice, Sunbird Standard, Dormant Grove, …); ~38 more get other
+>   back-face types (Treasure Map derives Land). The concrete face of the 10-01 queue item "the layer derive reads a
+>   double-faced card's whole type line". Also: `cardsInGraveyard` reads a DFC's combined line in a graveyard — right for a
+>   split card (CR 709.4c), wrong for a double-faced card (CR 712.8a).
 
 > ## 🔧 2026-10-16 — FIX: generic is paid COLORLESS FIRST (D26's floating {R:3, C:2}) · **±0** · corpus 15,492
 > Suite **18,950** green (1,777 files, 1 skipped). Flip-diff **0 / 0 / 0**. **Mutants 5/5**, restore byte-identical. Lint 0;
