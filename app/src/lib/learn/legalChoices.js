@@ -1803,6 +1803,23 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
           // `cmc` stays the printed mana value: the increase is part of the total cost (CR 601.2f), not the mana cost (CR 202.3).
           striven = { ...common, cost };
         }
+        // ⭐ SPREE (CR 702.172a, 700.2h): each chosen mode's cost (`program.modal.spreeCosts`, stamped by the parser) is an
+        // additional cost, so the cast pays the base cost — taxed and reduced as computed above — plus every chosen mode's
+        // cost (CR 601.2f), and a mode set the caster can't fund is not offered. The charge is this action's own `cost`, which
+        // the dispatcher pays through planPayment: the offer and the payment are one object. `cmc` stays printed (CR 202.3 —
+        // an additional cost is not part of the mana cost). A generic reduction the base cost alone could not absorb (Phantom
+        // Interference's {U} under "instant and sorcery spells cost {1} less") is not carried onto the modes' costs: the total
+        // can cost more than the rules ask, never less. A free cast pays no mana at all (the dispatcher skips the plan for
+        // `freeCast`), so it could not pay these costs: under a free-cast permission a Spree spell is not offered (a safe
+        // under-offer — every free-cast window carries its own decline).
+        if (program.modal?.spreeCosts) {
+          if (freeCast) return null;
+          const chosen = Array.isArray(ch.chosenMode) ? ch.chosenMode : [ch.chosenMode];
+          const spreeCost = chosen.map((k) => program.modal.spreeCosts[k]).join("");
+          const cost = mergeManaCost(striven.cost ?? base.cost, parseManaCost(spreeCost));
+          if (!canAfford(player.manaPool, manaSources(state, playerId), cost, spendContext)) return null;
+          striven = { ...striven, cost, spreeCost };
+        }
         return kickedSpell ? { ...striven, kicked: false } : striven;
       };
       for (let k = 0; k < Math.max(choices.length, kickedChoices.length); k++) {
@@ -2172,11 +2189,13 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
   if (wubrgSpecs.size) {
     // FIST OF SUNS (RG-5): duplicate each plain hand-cast action with the five-pip cost; drop the printed-cost action when it
     // was not itself payable (it was admitted past the affordability gate only for this variant's sake).
+    // A SPREE cast (`spreeCost`) is not twinned: its cost carries the chosen modes' additional costs, which apply to an
+    // alternative cost too (CR 118.9d), and the variant's cost is the five pips alone — a safe under-offer.
     const out = [];
     for (const a of actions) {
       const spec = (a.kind === "cast-spell" && a.fromZone === "hand" && !a.freeCast && !a.altCost && !a.faceCard
         && !a.emerge && !a.bestow && a.kicked === undefined && a.xValue == null
-        && !a.sacCreatureId && !a.payLifeCost && !a.discardCardId) ? wubrgSpecs.get(a.cardId) : undefined;
+        && !a.sacCreatureId && !a.payLifeCost && !a.discardCardId && !a.spreeCost) ? wubrgSpecs.get(a.cardId) : undefined;
       if (!spec) { out.push(a); continue; }
       if (spec.baseAffordable) out.push(a);
       out.push({ ...a, cost: spec.cost, altManaCost: spec.altManaCost, altName: spec.altName });

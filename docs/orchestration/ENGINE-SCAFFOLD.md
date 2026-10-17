@@ -790,6 +790,25 @@ a creature front with an Aura back (Accursed Witch, the disturb Spirits) enters 
 places one through `pickAuraCast` (auraCastIntent; an unread side holds). Witness:
 `bodyOnlyAuraTarget.test.js`.
 
+**Spree — modes with their own additional costs (2026-10-17, CR 702.172a, 700.2h).** "Spree (Choose one or more additional
+costs.)" then one "+ {cost} — effect" line per mode. There is no parallel modal path: `textNormalize.readSpree` reads the lines
+(all-or-nothing — the bare keyword lead, every later line a "+" mode, at least two, each cost plain mana; hybrid / {X} /
+Phyrexian costs read nothing), `parseEffectProgramInner` re-reads the modes as the existing "Choose one or more —" modal
+(parseModal's `atLeastOne`: every non-empty subset, each mode through the full clause machinery, one unmodeled mode → LOW → the
+card stays on the Arbiter) and STAMPS `modal.spreeCosts` (printed order, parallel to `modes`). The stamp is what makes it safe:
+the cast lane (`legalChoices`, the program lane's `normalCast`, beside strive) charges the base cost — taxed and reduced as
+computed — plus every chosen mode's cost (CR 601.2f) as the action's own `cost`, which the dispatcher pays, and offers only a set
+the caster can fund; `expandCastChoices` already drops a mode whose targets can't be chosen (CR 700.2a) and `programAtoms` runs
+the chosen modes in printed order (CR 608.2c). Not offered: under a free-cast permission (the dispatcher pays no mana for
+`freeCast`, so the modes' costs could not be paid — every free-cast window has its own decline), and the Fist of Suns
+five-pip variant is never twinned onto a cast carrying `spreeCost` (CR 118.9d). The AI (`opponentAI.pickSpreeCast`, policy key
+`spree`) judges each chosen MODE by the hold it would face as a spell of its own — a counter mode only at an opponent's spell
+over the threat bar, a wipe mode only when behind, a team pump only when lethal, every target on its atom's side, "each creature
+target player controls" only on a player with a creature — then takes the most modes, then the cheapest, then the heaviest
+permanent targets; nothing worth it → hold. Native: Requisition Raid, Insatiable Avarice, Explosive Derailment, Phantom
+Interference, Trash the Town, Three Steps Ahead (its copy mode: `artifactOrCreatureYouControl`, Sagas kept out). The other 15
+Spree cards each have a mode no reader resolves. Witness: `spree.test.js`.
+
 **An activation that resolves to nothing must not be the AI's pick (added 2026-10-03).**
 A free activation the resolver refuses is a turn that never ends: the equip pick
 (`pickEquipAction`) stops only when its Equipment sits on the best body, and

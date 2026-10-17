@@ -171,10 +171,16 @@ export function splitClauses(oracle) {
     .replace(/(tap up to two target creatures)\.\s+those creatures don[’']t untap during their controllers?[’']s? next untap steps?(?=\.|$)/gi, "$1 and they don't untap during their controllers' next untap step")
     // DRAW-LOSE-SUBJECT — "Target player draws N cards and loses M life" (Sign in Blood, Blood Pact, Painful
     // Lesson, Harrowing Journey) shares ONE subject across the conjunction; the top-level " and " split would
-    // orphan "loses M life" (no subject → unmodeled). Inject the subject into the 2nd half so both halves parse
-    // with their EXISTING who:"target" atoms (draw + lose-life). A trailing rider (", and gets poison" /
-    // ", loses … and gets") doesn't match the contiguous "and loses \d+ life" → stays Arbiter (FN-safe).
-    .replace(/(target player draws \w+ cards?) and (loses \d+ life)/gi, "$1. Target player $2")
+    // orphan "loses M life" (no subject → unmodeled). Inject the subject into the 2nd half so both halves parse:
+    // the draw as its who:"target" atom, the loss as a REFERENT to that same player — "the same target player", a
+    // sentinel no printed card carries (atoms/life.js), parsed as lose-life bound to the draw's target
+    // (bindPreviousTargets, CR 608.2). ⛔ ONE TARGET, NOT TWO: the injection used to be a second "Target player",
+    // which parsed as a second, independent player target — every cast offered a cartesian of picks, and the
+    // flush chooser drew for its controller while an opponent lost the life (draw is own-side, lose-life
+    // enemy-side), a split the printed card cannot make (CR 115.1 — the sentence names one target). A trailing
+    // rider (", and gets poison" / ", loses … and gets") doesn't match the contiguous "and loses \d+ life" → stays
+    // Arbiter (FN-safe).
+    .replace(/(target player draws \w+ cards?) and (loses \d+ life)/gi, "$1. The same target player $2")
     // NAME-LOCK BOUNCE (SHELF-85 B4, 2026-09-04 — Reflector Mage): "return target creature an opponent controls to its
     // owner's hand. That creature's owner can't cast spells with the same name as that creature until your next turn."
     // The second sentence is a RIDER on the bounce (the owner and the name are the bounced card's), so the sentence

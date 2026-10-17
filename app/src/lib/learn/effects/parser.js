@@ -29,7 +29,7 @@
 import { parseSpellEffect, parseCreatureTargetRestrictions } from "../spellEffects.js"; // parseGraveyardFilter moved to atoms/zones.graveyardReturnClauseParser (seam batch 16)
 import { isNonChosenTargetType } from "../targetTypes.js"; // MASS_WIPE_SCOPES (the centralized wipe partition) now consumed by ./programQueries.js (slice 3), not here
 import { ATOM_RESOLVERS, PAUSING_ATOM_OPS, YOU_AND_ATTACKING_OPPONENTS_INNER_OPS } from "./effectAtoms.js"; // PAUSING_ATOM_OPS (WI-3) — ops whose resolver can set pendingChoice; gates optional-payment payoffs
-import { typeOf, isInstantOrSorcery, oracleOf, stripAbilityWordLabel, hasXCost, stripReminder, stripRegenerationRider, stripUncounterableRider, stripNoMaxHandSizeRider, stripCastKeywordLines, rewriteAmountX, CANT_REGEN_TEST, DISCARD_COST_ABILITY_LINE } from "./textNormalize.js";
+import { typeOf, isInstantOrSorcery, oracleOf, stripAbilityWordLabel, hasXCost, stripReminder, stripRegenerationRider, stripUncounterableRider, stripNoMaxHandSizeRider, stripCastKeywordLines, rewriteAmountX, readSpree, CANT_REGEN_TEST, DISCARD_COST_ABILITY_LINE } from "./textNormalize.js";
 import { CR_CREATURE_TYPES } from "./creatureTypes.js"; // SUBTYPE TARGET NOUN peel (SHELF-85 Phase 3, 2026-09-05) — the closed CR creature-type vocabulary (a zero-import leaf) // oracle-text normalization + card-field leaf (parser decomposition slice 1) — pure String|card→String|bool, no cycle
 import { splitClauses } from "./splitClauses.js"; // oracle → clause[] sentence splitter (parser decomposition slice 2) — leaf; sole caller is parser.js
 import { programNeedsChosenTarget, atomTargetSlotsKnown } from "./programQueries.js"; // program-shape query leaf (slice 3) — imported for the assembly-time call sites + programConfidence's target-slot gate; the full family is re-exported at the bottom of this file
@@ -1596,6 +1596,26 @@ function parseEffectProgramInner(card) {
     }
     return p;
   };
+  // ===== SPREE (CR 702.172a, 700.2h) =====================================================================
+  // "Spree (Choose one or more additional costs.)" + one "+ {cost} — effect" line per mode (textNormalize.readSpree). Spree
+  // means "Choose one or more modes. As an additional cost to cast this spell, pay the costs associated with those modes", so
+  // the BODY is exactly the "Choose one or more —" modal this parser already owns (parseModal's atLeastOne: every non-empty
+  // subset, each mode parsed through the full clause machinery, all-or-nothing) — the "+" lines are read as that modal's
+  // bullets, and each mode's cost is STAMPED on the modal as `spreeCosts` (printed order, parallel to `modes`).
+  // ⛔ THE STAMP IS THE POINT, NOT THE REWRITE. The cast lane (legalChoices' program lane) adds the chosen modes' costs to the
+  // spell's total cost (CR 601.2f) and offers only a set the caster can pay; read without the stamp, the modal would cast
+  // every mode for the base cost alone — the forbidden cheaper-than-printed cast. A modal that isn't HIGH with one mode per
+  // "+" line, or a Spree card with an {X} cost (no printed card has one; the X lane doesn't add the modes' costs), falls
+  // through to the ORIGINAL parse below — LOW, the card stays on the Arbiter exactly as before.
+  const spree = hasXCost(card) ? null : readSpree(oracle);
+  if (spree) {
+    const asModal = `Choose one or more —\n${spree.modes.map((m) => `• ${m.text}`).join("\n")}`;
+    const p = parseEffectClause(asModal, typeOf(card), { hasX: false });
+    if (p && programConfidence(p) === "high" && p.structure === "modal" && p.modal?.atLeastOne
+      && (p.modal.modes || []).length === spree.modes.length) {
+      return stamp({ ...p, modal: { ...p.modal, spreeCosts: spree.modes.map((m) => m.cost) } });
+    }
+  }
   // KICKED-SPELL-EFFECT (CR 702.33e) — "<base>. If this spell was kicked, <extra>." The kicked atom(s) are
   // appended stamped `kickedOnly` and run ONLY on a kicked cast (runEffectProgram skips them otherwise). The
   // kicker line + kicked sentence keep the NORMAL parse LOW, so this MUST run first. Whole-card-or-null (CREED).

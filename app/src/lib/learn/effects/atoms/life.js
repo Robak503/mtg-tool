@@ -365,6 +365,12 @@ export function lifeClauseParser(clause) {
   if (m) return { op: "gain-life", amount: parseInt(m[1], 10), who: "eachOpponent", targetType: null };
   m = t.match(/^target (player|opponent) loses (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[2], 10), who: "target", targetType: m[1] };
+  // DRAW-LOSE-SUBJECT's second half — "the same target player loses M life", the sentinel splitClauses injects into
+  // "Target player draws N cards and loses M life" (Sign in Blood). The player is the draw's target, so the loss binds to
+  // it (bindPreviousTargets — runProgram reads the antecedent's target slice) and chooses no target of its own (CR 115.1).
+  // Corpus-clean: no printed card carries the phrase, so only that rewrite reaches this arm.
+  m = t.match(/^the same target player loses (\d+) life$/);
+  if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "target", targetType: null, bindPreviousTargets: true };
   // ⭐ TARGET **OPPONENT** GAINS (TO-1, 2026-08-05 — Fiery Justice, Soldevi Steam Beast, Armistice): the
   // same targeted gain, with the printed "opponent" NARROWING the legal targets to opponents. This is the
   // shape its own sibling one line above already had — `target (player|opponent) loses N life` — and the

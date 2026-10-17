@@ -321,6 +321,31 @@ export function stripCastKeywordLines(text) {
     .replace(FLASH_PERMISSION_LINE, " ");
 }
 
+// ===== SPREE (CR 702.172a, 700.2h) =====
+// "Spree (Choose one or more additional costs.)" followed by one line per mode, "+ {cost} — effect". Spree means "Choose one or
+// more modes. As an additional cost to cast this spell, pay the costs associated with those modes" (CR 702.172a); the plus sign
+// is a visual reminder with no rules meaning of its own (CR 702.172b), and a mode's cost is an additional cost paid as the spell
+// is cast when that mode is chosen (CR 700.2h). The reader is all-or-nothing: the lead line is the keyword alone (with or without
+// its reminder), EVERY following line is one "+ {cost} — effect" mode, at least two modes, and each cost is plain mana — digits
+// and coloured / colourless pips only (every printed Spree cost is; hybrid, {X} or Phyrexian would need a payment the cast lane
+// doesn't price, so such a card reads nothing and stays on the Arbiter). Returns { modes: [{ cost, text }] } in printed order,
+// or null. Read-only: the parser rewrites the modes as a "Choose one or more" modal and stamps the costs; the cast lane charges
+// them per chosen mode.
+const SPREE_LEAD_RE = /^spree(?:\s*\([^)]*\))?$/i;
+const SPREE_MODE_RE = /^\+\s*((?:\{[^}]+\})+)\s*[—–]\s*(\S[^\n]*)$/;
+const SPREE_PLAIN_MANA_COST_RE = /^(?:\{(?:\d+|[WUBRGC])\})+$/;
+export function readSpree(oracle) {
+  const lines = String(oracle || "").split("\n").map((ln) => ln.trim()).filter(Boolean);
+  if (lines.length < 3 || !SPREE_LEAD_RE.test(lines[0])) return null;
+  const modes = [];
+  for (const ln of lines.slice(1)) {
+    const m = SPREE_MODE_RE.exec(ln);
+    if (!m || !SPREE_PLAIN_MANA_COST_RE.test(m[1])) return null;
+    modes.push({ cost: m[1], text: m[2].trim() });
+  }
+  return { modes };
+}
+
 /**
  * For an {X}-cost spell, rewrite the X in the AMOUNT slot of a modeled clause to a
  * sentinel "1" so the proven numeric clause parser recognizes the shape; the caller

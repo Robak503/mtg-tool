@@ -1162,12 +1162,13 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     }
   }
   // TELEPORTATION CIRCLE union (SHELF-85 B6, 2026-09-04) — "target artifact or creature you control": the own-side
-  // artifact-or-creature pair, the Ghostly Flicker triple above minus lands. Same targeting gate.
+  // artifact-or-creature pair, the Ghostly Flicker triple above minus lands. Same targeting gate. The atom's restrictions
+  // narrow it (Three Steps Ahead's token copy keeps Sagas out — none of the earlier carriers has any, so they are unchanged).
   else if (effect.targetType === "artifactOrCreatureYouControl") {
     for (const perm of state.players[controllerId]?.battlefield || []) {
       // The types it has NOW (the type-line audit): Teleportation Circle can't take a God below its devotion.
       if ((permanentHasCardType(state, perm.id, "Artifact") || permanentHasCardType(state, perm.id, "Creature"))
-          && targetable(perm, controllerId)) {
+          && targetable(perm, controllerId) && creatureSatisfiesRestrictions(state, perm, controllerId, controllerId, restrictions, ctx)) {
         out.push({ type: "creature", id: perm.id, controller: controllerId, name: perm.card?.name });
       }
     }

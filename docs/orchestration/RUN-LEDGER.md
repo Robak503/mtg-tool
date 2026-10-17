@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **16 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.8% (15,497)**; engine gains since the tag: **+44** (+53 gained, −9 false credit removed). The next tag
+> **17 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.8% (15,503)**; engine gains since the tag: **+50** (+59 gained, −9 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,79 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-17 — PLAY-WEIGHTED: SPREE (CR 702.172a) — Three Steps Ahead (EDHREC #1076), Insatiable Avarice (#1200), Requisition Raid (#1218) + Explosive Derailment, Phantom Interference, Trash the Town: one or more modes, the base cost plus each chosen mode's cost, the modes in printed order; and FIX (false positive): "target player draws N cards and loses M life" names ONE player (Sign in Blood #233 and 21 more) · **+6** · snapshot native 15,470 → 15,476
+> Suite **20,429 green (1 skipped) / 1,857 files** under the gate queue. Lint 0 (CR citations: 0 of 11,340 name no rule; keyword citations: 0 of
+> 2,362 cite a different keyword). Flip-diff **+6 / −0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of f71b7e86, snapshotted
+> before the first edit; native 15,470 → 15,476 of 34,584 snapshot names): Requisition Raid, Insatiable Avarice, Explosive Derailment, Phantom
+> Interference, Trash the Town, Three Steps Ahead — arbiter-spell → native-spell; nothing else moved. `measure-coverage` (MTG_APP_ROOT = the
+> install): corpus 15,475 → 15,481 (44.7%); top 1,000 **903 → 903**; top 2,500 **1,741 → 1,744** (the three ranked above); top 5,000 2,738 →
+> 2,741; top 10,000 4,533 → 4,537; profile decks: Test Rashmi 94 → 95 (Three Steps Ahead), Nekusar Wheels 91 → 92 (Insatiable Avarice), the other
+> 28 unchanged, **Killer Turts 90 → 90** (Great Train Heist stays parked, below); aggregate 2,747 → 2,749 / 2,998. **Mutants 14/14** on assertions,
+> each restored byte-identical (sha256). Witness `spree.test.js` written first: 19 of the first 21 seen to fail on the base engine on
+> assertions (the 2 controls — the parked Spree cards stay off native, the AI holds a Derailment with only its own targets — pass on both); of
+> the 2 added while building, the AI's Three Steps Ahead pick fails on base and "a Saga is no copy target" is a control proven by its mutants:
+> 20 of the final 23 fail on base. A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the
+> untouched f71b7e86 archive): **77 byte-identical, 1 differs only in an offered set** (game 54: a discovered Three Steps Ahead is no longer
+> offered as a free cast — the AI took it to hand on both trees), **2 change picks**, **0 winners change**, turn counts move in 2 games, 0 errors
+> / stalls on either tree, results unchanged (ai-wins 57 / user-wins 23).
+> Committed on `day/spree`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The mechanic.** Spree means "Choose one or more modes. As an additional cost to cast this spell, pay the costs associated with those
+>   modes" (CR 702.172a); a mode's cost is paid as the spell is cast when that mode is chosen, every chosen mode's cost (CR 700.2h). No parallel
+>   modal path: `textNormalize.readSpree` reads the lead and the "+ {cost} — effect" lines all-or-nothing (the bare keyword, every later line a
+>   mode, at least two, plain-mana costs only — hybrid / {X} / Phyrexian read nothing); `parseEffectProgramInner` re-reads the modes as the
+>   existing "Choose one or more —" modal (parseModal's `atLeastOne`: every non-empty subset; each mode through the full clause machinery; one
+>   unmodeled mode → LOW → the original parse, the card unchanged) and STAMPS `modal.spreeCosts` (printed order). The cast lane
+>   (`legalChoices` program lane, `normalCast`, beside strive) charges the base cost — taxed and reduced as computed — plus the chosen modes'
+>   costs as the action's own `cost` (CR 601.2f; the dispatcher pays that object, so offer and payment cannot drift), and offers only a set the
+>   caster can fund; `expandCastChoices` already drops a mode whose targets can't be chosen (CR 700.2a) and `programAtoms` runs the chosen
+>   modes in printed order (CR 608.2c). Mana value stays printed (CR 202.3). Not offered: under a free-cast permission (the dispatcher pays no
+>   mana for `freeCast`, so the modes' costs could not be paid — every free-cast window has its own decline), and Fist of Suns' five-pip
+>   variant is never twinned onto a cast carrying `spreeCost` (CR 118.9d). A generic reduction the base cost alone can't absorb is not carried
+>   onto the modes' costs (an over-charge, never an under-charge).
+> · **The AI** (`opponentAI.pickSpreeCast`, new policy key `spree`, 'v1' recovers the whole-card cascade): each chosen MODE is judged by the
+>   hold it would face as a spell of its own — a counter mode only at an opponent's spell over the threat bar (`pickCounterCast`), a
+>   change-target mode only as `pickChangeTargetCast`'s redirect, a wipe mode only when clearly behind, a team pump only when lethal, a fog only
+>   when it saves the game, every target on its atom's side (`atomTargetIntent`; ambiguous never), "each creature target player controls" only
+>   on a player with a creature — then the most modes, then the cheapest, then the heaviest permanent targets; none → hold. Placed before the
+>   whole-card holds, which read every mode at once (Phantom Interference's counter mode would hold its token mode too).
+> · **Three Steps Ahead's copy mode** — new `tokenCopy` arm: "Create a token that's a copy of target artifact or creature you control" →
+>   copySource "target" over Teleportation Circle's `artifactOrCreatureYouControl` pool (the types it has now), Sagas kept out as Flash
+>   Photography keeps them out (CR 714.3a); that enumeration branch now honours an atom's restrictions (its earlier carriers have none); the
+>   atom's side is own (`atomTargetIntent`). A noncreature artifact copies (a Sol Ring token — witnessed).
+> · **FIX (false positive): "Target player draws N cards and loses M life" names ONE player.** The DRAW-LOSE-SUBJECT normalize injected a
+>   second "Target player" into the loss half, which parsed as a SECOND, independent player target: every cast offered the cartesian
+>   (Sign in Blood in a 2-seat game: 4 casts, user-draws / ai-loses among them), and the trigger chooser drew for its controller while an
+>   opponent lost the life (draw is own-side, lose-life enemy-side — re-proved on f71b7e86 for Bloodgift Demon's upkeep trigger). Now the
+>   loss is a referent: the injection is the corpus-clean sentinel "the same target player", read by `atoms/life.js` as lose-life
+>   `bindPreviousTargets` with no target of its own (CR 115.1; runProgram reads the draw's slice). 22 cards carry the shape (Sign in Blood,
+>   Blood Pact, Painful Lesson, Harrowing Journey, Bloodgift Demon, Vault Plunderer, Fell Stinger, Unscrupulous Contractor, Shredder's
+>   Revenge, Reverent Howl, Toil // Trouble, Cost of Brilliance, Wretched Confluence, Insatiable Avarice …); no tier moved; none is in the 30
+>   profile decks. Graduated: `drawLoseSubject.test.js` (the loss atom is the bound referent now).
+> · **Every Spree card's verdict** (text from the bundled oracle): native — Requisition Raid, Insatiable Avarice, Explosive Derailment,
+>   Phantom Interference, Trash the Town, Three Steps Ahead. Parked, the blocking mode(s): **Great Train Heist** (#1118, Killer Turts) "+ {2}{R}
+>   — Untap all creatures you control. If it's your combat phase, there is an additional combat phase after this phase." and "+ {R} — Choose
+>   target opponent. Whenever a creature you control deals combat damage to that player this turn, create a tapped Treasure token."; **Return
+>   the Favor** (#580) "+ {1} — Copy target instant spell, sorcery spell, activated ability, or triggered ability. …" (the copy-ability
+>   resolver keeps the original's controller — right only for "an ability you control"); **Smuggler's Surprise** (#1582) "+ {2} — Mill four
+>   cards. You may put up to two creature and/or land cards …" and "+ {1} — Creatures you control with power 4 or greater gain hexproof and
+>   indestructible …"; **Lively Dirge** (#1693) "+ {2} — Return up to two creature cards with total mana value 4 or less …"; **Final
+>   Showdown** (#2217) "+ {1} — All creatures lose all abilities until end of turn." and "+ {1} — Choose a creature you control. It gains
+>   indestructible …"; Unfortunate Accident (the Mercenary token's quoted ability); One Last Job (the Mount-or-Vehicle and Aura-or-Equipment
+>   returns); Metamorphic Blast (the Rabbit); Rush of Dread, Shifting Grift, Dance of the Tumbleweeds, Getaway Glamer, Caught in the Crossfire
+>   (every mode); Jailbreak Scheme ("… owner puts it on their choice of the top or bottom of their library"); Rustler Rampage ("Untap all
+>   creatures target player controls").
+> · **A/B detail.** The only Spree casts in the 80 games are the two changed picks: game 56 (turn 10, Test Rashmi) casts Three Steps Ahead's draw
+>   mode alone for {U}{2} where the base held the card (39 → 37 turns); game 72 (turn 21, Nekusar Wheels) casts Insatiable Avarice with both modes
+>   for {B}{B}{B}{2}, targeting itself (27 → 37 turns). Breakage log 78 → 79 entries, all honest signals (trigger-removed-no-target,
+>   spell-unresolved) from the two re-played games. No Sign in Blood-shape card is in any of the 30 decks, so the FIX moves no A/B game.
+> · ⚠️ **Found, not fixed:** (1) Jailbreak Scheme's first mode "Put a +1/+1 counter on target creature. It can't be blocked this turn." parses the
+>   second sentence as `cant-be-blocked` target "self" (effects/atoms/combat.js:1731), which on a spell resolves to nothing
+>   (effects/atoms/shared.js:510 selfTargets) — a spell of that shape classifies native today with the rider dropped; no printed native
+>   card carries it (the only two carriers, Jailbreak Scheme and Fast // Furious, are parked), so it is latent. (2) A LOW Spree card (still on
+>   the Arbiter) is offered for its base cost alone, no mode paid — pre-existing, unchanged. (3) The "or pay {N}" additional mana cost
+>   (`payMana`) under a free cast is emitted with `freeCast` and its merged cost (legalChoices.js:1573, :1583), which the dispatcher then does
+>   not pay (actionDispatcher.js:434 skips the plan for `freeCast`) — read, not reproduced.
 
 > ## 🔧 2026-10-17 — FIX (play order): the generic tap no longer spends a land with a bigger mana line on one {C} ahead of the other lands — Nykthos, Three Tree City, the ten filter lands, the "{1}, {T}: Add one mana of any color" lands, Crystal Vein, Phyrexian Tower and storage lands holding counters keep their board place (55 bundled cards); affordability never moves (planPayment's first plan still decides it); spend-restricted lines left as they were (open question) · **±0** · snapshot native 15,470 unchanged
 > Suite **20,421 green (1 skipped) / 1,857 files** under the gate queue (with the rules index built locally, as CI does; without it

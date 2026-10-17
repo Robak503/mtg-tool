@@ -57,7 +57,7 @@ import { entersTriggerRemovesOwn } from "./gameEngine.js"; // the cast-time hold
  * Accepted shapes:
  *   null / undefined                        → all-current (the shipping behavior)
  *   "v1"                                    → every subsystem legacy
- *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold: "v1" } → per-subsystem legacy
+ *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree: "v1" } → per-subsystem legacy
  *
  * The DEFAULT is always the new behavior (the Academy and self-play improve
  * automatically); "v1" exists only so the probe can measure old-vs-new inside one
@@ -68,7 +68,7 @@ import { entersTriggerRemovesOwn } from "./gameEngine.js"; // the cast-time hold
  * Exported so the A/B probe derives its legacy-key list from THIS array (AI-F11:
  * a hand-copied list silently drops every new subsystem from `--legacy=all`).
  */
-export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold"];
+export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree"];
 function normalizePolicy(policy) {
   if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
   if (policy && typeof policy === "object") return policy;
@@ -403,6 +403,92 @@ function pickCounterCast(state, aiPlayerId, actions) {
     }
   }
   return best?.action || null;
+}
+
+/**
+ * SPREE (CR 702.172a — Explosive Derailment, Phantom Interference, Requisition Raid, Insatiable Avarice, Trash the Town, Three
+ * Steps Ahead): every offered cast is one non-empty mode set the caster can pay, with legal targets for each chosen mode
+ * (legalChoices' program lane, CR 601.2f / 700.2a). Which set to cast is the AI's choice, and each chosen MODE must earn its
+ * cost on its own — read with the same rules the AI already plays every other spell by, applied mode by mode:
+ *   · a counter mode only at an opponent's spell over the threat bar (pickCounterCast), a change-target mode only as a
+ *     redirect of an opponent's harmful spell or ability aimed at this seat (pickChangeTargetCast);
+ *   · a mass-removal mode only when it is a creature wipe and the AI is clearly behind on board; a whole-team pump only in its
+ *     own precombat main when the bonus makes the swing lethal; a fog only when it saves the game (the W7 holds);
+ *   · every target on the side its atom wants (atomTargetIntent: removal, damage, a counter on an opponent's; a buff, a +1/+1
+ *     counter, a draw, a copy on its own; an ambiguous side is never chosen), and "each creature target player controls"
+ *     only on a player who controls a creature;
+ *   · anything else (a draw, a search, a token) is worth it as it is.
+ * Among the casts whose every chosen mode is worth it: the most modes (each is value on the same card), then the cheapest
+ * (mana left for the rest of the turn), then the heaviest permanent targets (mana value, then power — the biggest threat
+ * removed, the best own creature grown), then the offered order. None → hold. Choice only: every candidate was offered.
+ */
+function pickSpreeCast(state, aiPlayerId, actions, pol = {}) {
+  const program = actions[0].program;
+  const modes = program?.modal?.modes || [];
+  const enemies = new Set(opponentsOf(state, aiPlayerId));
+  const sideOf = (t) => {
+    if (t.type === "player") return t.id;
+    if (t.type === "spell" || t.type === "stackAbility") return (state.stack || []).find((o) => o.id === t.id)?.controller;
+    return t.controller;
+  };
+  const targetOnSide = (atom, t) => {
+    const intent = atomTargetIntent(atom);
+    if (intent === "enemy") return enemies.has(sideOf(t));
+    if (intent === "own") return sideOf(t) === aiPlayerId;
+    return intent === "any";
+  };
+  const modeWorth = (atoms, targets) => {
+    const prog = { structure: "sequence", atoms };
+    if (programContainsCounter(prog)) return !!pickCounterCast(state, aiPlayerId, [{ targets }]);
+    if (atoms.length && atoms.every((a) => a.op === "change-target")) return !!pickChangeTargetCast(state, aiPlayerId, [{ targets }]);
+    if (programContainsMassRemoval(prog)
+      && (pol.wipe === "v1" || !programContainsCreatureMassRemoval(prog) || !clearlyBehindOnBoard(state, aiPlayerId))) return false;
+    if (programContainsTeamPump(prog)) {
+      if (pol.pump === "v1" || state.activePlayer !== aiPlayerId || state.phase !== "precombat-main") return false;
+      const pumpPower = teamPumpAmount(prog);
+      if (pumpPower == null || pumpPower <= 0 || !teamPumpFlipsLethal(state, aiPlayerId, pumpPower)) return false;
+    }
+    if (programContainsFog(prog)) {
+      if (pol.fog === "v1" || (state.step !== "declare-blockers" && state.step !== "combat-damage")) return false;
+      const life = state.players?.[aiPlayerId]?.life ?? 0;
+      if (life <= 0 || unblockedIncomingFace(state, aiPlayerId) < life) return false;
+    }
+    for (const t of targets) {
+      const atom = atoms[t.atomIndex];
+      if (!targetOnSide(atom, t)) return false;
+      if (atom?.eachCreatureOfTargetPlayer
+        && !(state.players?.[t.id]?.battlefield || []).some((p) => permanentIsCreature(state, p.id))) return false;
+    }
+    return true;
+  };
+  const weightOf = (a) => (a.targets || []).reduce((w, t) => {
+    if (t.type === "player" || t.type === "spell" || t.type === "stackAbility") return w;
+    const perm = findPermanent(state, t.id)?.permanent;
+    if (!perm) return w;
+    const mv = typeof perm.card?.cmc === "number" ? perm.card.cmc : 0;
+    return w + mv * 100 + (permanentIsCreature(state, perm.id) ? Math.max(0, permanentPower(state, perm.id)) : 0);
+  }, 0);
+  let best = null;
+  for (const a of actions) {
+    const chosen = Array.isArray(a.chosenMode) ? a.chosenMode : [a.chosenMode];
+    let offset = 0;
+    let worth = true;
+    for (const k of chosen) {
+      const atoms = modes[k]?.atoms || [];
+      // A cast's targets index the chosen modes' atoms concatenated in printed order (expandCastChoices); re-index each
+      // mode's slice to its own atoms.
+      const targets = (a.targets || []).filter((t) => t.atomIndex >= offset && t.atomIndex < offset + atoms.length)
+        .map((t) => ({ ...t, atomIndex: t.atomIndex - offset }));
+      offset += atoms.length;
+      if (!modeWorth(atoms, targets)) { worth = false; break; }
+    }
+    if (!worth) continue;
+    const key = [chosen.length, -castCostTotal(a.cost), weightOf(a)];
+    if (!best || key[0] > best.key[0] || (key[0] === best.key[0] && (key[1] > best.key[1] || (key[1] === best.key[1] && key[2] > best.key[2])))) {
+      best = { action: a, key };
+    }
+  }
+  return best?.action ?? null;
 }
 
 /**
@@ -838,6 +924,16 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     // loss ("at the beginning of that turn's end step, you lose the game") is a gamble the AI never takes — it has no
     // "I win this extra turn" oracle, and casting it otherwise is the one play that ends its game. A human may.
     if ((actions[0].program?.atoms || []).some((a) => (a.op === "schedule-delayed" && /\byou lose the game\b/i.test(String(a.delayedClause || ""))) || (a.op === "win-game" && a.outcome === "lose" && a.who === "controller"))) continue; // + One with Death's immediate "you lose the game"
+    // SPREE (CR 702.172a): the mode set is the decision — each chosen mode judged by the hold it would face as a spell of its own
+    // (a counter mode, a wipe mode, a team pump mode), so a Spree card never reaches the whole-card holds below, which read
+    // every mode at once (Phantom Interference's counter mode would otherwise hold its token mode too). policy 'v1' (`spree`)
+    // recovers the whole-card cascade below for the A/B probe.
+    if (pol.spree !== "v1" && actions[0].program?.modal?.spreeCosts) {
+      const spreePick = pickSpreeCast(state, aiPlayerId, actions, pol);
+      if (!spreePick) continue;
+      scored.push({ action: spreePick, score: scoreCastAction(spreePick, card, archetype, hint, state, aiPlayerId), cmc: spreePick.cmc || 0 });
+      continue;
+    }
     if (programContainsCounter(actions[0].program)) {
       if (pol.counter === "v1") continue;
       const counterPick = pickCounterCast(state, aiPlayerId, actions);

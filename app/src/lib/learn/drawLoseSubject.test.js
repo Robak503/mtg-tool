@@ -2,15 +2,17 @@
  * drawLoseSubject.test.js — DRAW-LOSE-SUBJECT: "Target player draws N cards and loses M life" (Sign in
  * Blood, Blood Pact, Painful Lesson, Harrowing Journey) shares ONE subject across the conjunction. The
  * top-level " and " split would orphan "loses M life" (no subject → unmodeled → Arbiter). A splitClauses
- * normalize injects the subject into the 2nd half ("…draws N cards. Target player loses M life") so both
- * halves parse with their EXISTING who:"target" atoms (draw + lose-life). Recognition-only — no new resolver.
+ * normalize injects the subject into the 2nd half ("…draws N cards. The same target player loses M life") so both
+ * halves parse: the draw's who:"target" atom and a lose-life bound to that same player. Recognition-only — no new resolver.
  */
 import { describe, it, expect } from "vitest";
 import { parseEffectProgram } from "./effects/parser.js";
 import { classifyCard } from "./coverage.js";
 
 const draw = (n) => ({ op: "draw", amount: n, who: "target", targetType: "player" });
-const lose = (n) => ({ op: "lose-life", amount: n, who: "target", targetType: "player" });
+// GRADUATED 2026-10-17 (the Spree slice): the loss is a referent to the draw's player (bindPreviousTargets, no target of its own) —
+// it used to parse as a SECOND player target, and the cast offered a draw for one player and a loss for another (CR 115.1).
+const lose = (n) => ({ op: "lose-life", amount: n, who: "target", targetType: null, bindPreviousTargets: true });
 const S = (name, oracle, type = "Sorcery", mana = "{1}{B}") => ({ name, oracle, type, keywords: [], mana });
 
 describe("draw-lose-subject — the conjunction parses to the two who:target atoms", () => {

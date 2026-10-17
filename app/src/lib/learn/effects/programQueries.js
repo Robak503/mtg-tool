@@ -554,6 +554,9 @@ export function atomTargetIntent(atom) {
       // targeted copy stays ambiguous (an unrestricted "target permanent", or a creature copy whose best pick may
       // belong to anyone), so its trigger keeps routing to the Arbiter exactly as before.
       if (atom.restrictions?.some((r) => r.kind === "token") && atom.restrictions?.some((r) => r.kind === "controller" && r.who === "you")) return "own";
+      // Three Steps Ahead's "target artifact or creature you control": the targetType itself enumerates only the controller's
+      // own permanents, so the side is own by construction, the same reading.
+      if (atom.targetType === "artifactOrCreatureYouControl") return "own";
       return "ambiguous";
     default:
       return "ambiguous";

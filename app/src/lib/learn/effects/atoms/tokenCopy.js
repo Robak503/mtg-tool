@@ -89,6 +89,13 @@ const TOKEN_COPY_TARGET_PERMANENT_RE = /^create a token that(?:'s| is) a copy of
 // admitted the same way (a Role among them — the copy never doubles a Role on one creature, auraEntry.js): a narrower pool is
 // a false negative, a copy that enters wrong would not be.
 const TOKEN_COPY_TARGET_TOKEN_RE = /^create a token that(?:'s| is) a copy of target token you control$/;
+// TOKEN-COPY-TARGET ARTIFACT OR CREATURE YOU CONTROL (Three Steps Ahead's second Spree mode): "Create a token that's a copy of
+// target artifact or creature you control." The own-side artifact-or-creature pool Teleportation Circle already enumerates
+// (`artifactOrCreatureYouControl` — the types it has now), and the same proven copySource:"target" resolver Flash Photography
+// uses for any permanent, a noncreature artifact included. A Saga is kept out of the pool exactly as Flash Photography keeps
+// it out (a Saga token needs its lore counter, CR 714.3a, which the token path doesn't give it): a narrower pool is a false
+// negative, a token that enters wrong would not be.
+const TOKEN_COPY_TARGET_ARTIFACT_OR_CREATURE_RE = /^create a token that(?:'s| is) a copy of target artifact or creature you control$/;
 // TOKEN-COPY-UPTOONE-MVX — "create a token that's a copy of up to one target creature with mana value X or
 // less" (Here Comes a New Hero!, an {X} sorcery). CR 601.2c — the target is OPTIONAL (0-or-1: `optionalTarget`),
 // and its legality is bounded by the spell's chosen X (CR 107.3a — X is bound at cast). The copy is UNRESTRICTED
@@ -159,6 +166,9 @@ export function tokenCopyParser(clause) {
   }
   if (TOKEN_COPY_TARGET_PERMANENT_RE.test(t)) { // KN-3 (Flash Photography)
     return { op: "create-token-copy", copySource: "target", count: 1, targetType: "permanent", restrictions: [{ kind: "auraEntryModeled" }, { kind: "typeNeg", type: "saga" }] };
+  }
+  if (TOKEN_COPY_TARGET_ARTIFACT_OR_CREATURE_RE.test(t)) { // Three Steps Ahead
+    return { op: "create-token-copy", copySource: "target", count: 1, targetType: "artifactOrCreatureYouControl", restrictions: [{ kind: "typeNeg", type: "saga" }] };
   }
   if (TOKEN_COPY_TARGET_TOKEN_RE.test(t)) { // Caretaker's Talent (level 2)
     return { op: "create-token-copy", copySource: "target", count: 1, targetType: "permanent",
