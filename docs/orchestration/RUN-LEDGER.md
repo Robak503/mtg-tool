@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **19 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.8% (15,503)**; engine gains since the tag: **+50** (+59 gained, −9 false credit removed). The next tag
+> **20 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.8% (15,514)**; engine gains since the tag: **+61** (+70 gained, −9 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,81 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-17 — PLAY-WEIGHTED: Deathrite Shaman (EDHREC #611) — a targeted "Add" is a stack ability (CR 605.1a); Archaeomancer's Map (#702) — "a land an opponent controls enters", "that player" its controller, in the effect and the intervening "if" (+ Polluted Bonds, Nightshade Harvester, Shattered Angel, Sire of Stagnation, Spectrum Sentinel); Hellkite Tyrant (#745) — gain control of all artifacts the damaged player controls; Danitha Capashen, Paragon (#795) — "Aura and Equipment spells" one union reducer (+ Starnheim Courser), a bestowed spell priced as the Aura spell it is; Gilded Goose (#803) — "Sacrifice a Food" mana cost · **+11** · snapshot native 15,498 → 15,509
+> Suite **20,562 green (1 skipped) / 1,868 files** under the gate queue (with the rules index built locally for the run, then deleted). Lint 0
+> (CR citations: 0 of 11,405 name no rule; keyword citations: 0 of 2,371 cite a different keyword). Flip-diff **+11 / −0 / RETIERED 0** (34,620
+> cards; before = an untouched `git archive` of b28acb52; native 15,498 → 15,509 of 34,584 snapshot names): Deathrite Shaman → native-activated;
+> Archaeomancer's Map, Polluted Bonds, Nightshade Harvester, Shattered Angel, Sire of Stagnation, Spectrum Sentinel, Hellkite Tyrant →
+> native-trigger; Danitha Capashen, Paragon, Starnheim Courser → native-static; Gilded Goose → native-mana; nothing else moved. A corpus census of
+> every card's activated-ability routing, mana production, trigger descriptors and cost reducers (base vs after) differs on exactly these 11 plus
+> Cid, Freeflier Pilot (its reducer reads; its graveyard ability keeps it parked) and Confounding Conundrum (its landfall trigger is detected; its
+> condition and effect stay unread — a manual no-op, tier unchanged). `measure-coverage` (MTG_APP_ROOT = the install): corpus 15,503 → 15,514
+> (44.8%); top 1,000 **908 → 913** (Deathrite Shaman, Archaeomancer's Map, Hellkite Tyrant, Danitha Capashen, Gilded Goose); top 2,500 **1,753 →
+> 1,758**; top 5,000 2,750 → 2,759 (+ Sire of Stagnation #2761, Starnheim Courser #2982, Polluted Bonds #3687, Nightshade Harvester #4621); top
+> 10,000 4,552 → 4,563 (+ Spectrum Sentinel #5821, Shattered Angel #6812); profile decks: Teval, the Balanced Scale Test 91 → 92 (Deathrite
+> Shaman), the other 29 unchanged; aggregate 2,749 → 2,750 / 2,998. **Mutants 12/12** on assertions, each restored byte-identical (sha256).
+> Witness tests written first: the final 62 (5 files) run on the untouched b28acb52 archive — **37 fail on assertions, the 25 controls pass**;
+> three were corrected against the engine while building (below). A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile
+> decks, default AI; base = the untouched b28acb52 archive): **76 byte-identical, 4 differ only in offered sets** (games 51, 54, 56, 59 — the
+> Teval pod, seat ai2: 50 decision rows, each only more activate-ability offers — Deathrite Shaman's first ability; the AI never activates a
+> targeted ability, `opponentAI.pickSafeAbilityActivation`), **0 change picks**, **0 winners change**, 0 errors on either tree, results
+> unchanged (ai-wins 57 / user-wins 23), 172 s / 177 s per batch.
+> Committed on `day/played25b`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **Deathrite Shaman** ("{T}: Exile target land card from a graveyard. Add one mana of any color. (Activate only as an instant.)") — an
+>   activated ability is a mana ability only without a target (CR 605.1a; the card's ruling: it uses the stack and can be responded to). The
+>   "Add" alone routed the line into the mana model, which can't drive a target, so it parked the card. `abilities.parseActivatedAbilities` now
+>   reads an "Add" effect whose program parses HIGH with a chosen target as a stack ability (`targetedAdd`): offered once per land card in any
+>   graveyard, put on the stack, exile-from-graveyard then add-mana run as it resolves (`applyAddMana`, the any-colour pick); a target gone by
+>   then → no mana (CR 608.2b, the ruling). `manaProduction` still refuses the line, so the planner never pays a cost with it mid-cast
+>   (witnessed: Deathrite + one Forest can't cast Grizzly Bears; its resolved mana does pay a later cast). Twins: none (every other targeted
+>   "Add" in the corpus — Priest of Forgotten Gods, Red Death, Witch Engine — stays LOW).
+> · **The opponent's land** — `classifyCondition`: "a land an opponent controls enters" → the landfall event, scope `landOpponentControls`
+>   (`nonbasicLandOpponentControls` for "a nonbasic land …", CR 205.4c); `scopeMatches` requires a land under another player's control
+>   (checkLandfallTriggers fires for every land entry — play-land and effects). On these two scopes only, "that player" → "the triggering
+>   permanent's controller" (`ctx.triggeringPermanentController`, bound by makePendingTrigger off the entered land) in the effect — the
+>   lose-life arm exists; the exile-top arm gains who `triggeringPermanentController` (Sire of Stagnation) — and in the intervening "if":
+>   interveningIf reads "the triggering permanent's controller controls more <lands|creatures|artifacts|enchantments> than you" against that
+>   player at the flush and on resolution (CR 603.4; the Map's ruling), its parse probe carrying the key. Archaeomancer's Map's land comes from
+>   hand through the existing tutor seam ("you may", untapped, not a land play).
+> · **Hellkite Tyrant** — on `combatDamageToPlayer`, the whole clause "gain control of all artifacts that player controls" → "… the damaged
+>   player controls" (one corpus carrier) → control.js `gain-control-all`: every permanent the damaged player controls that is an artifact as it
+>   resolves (layers.permanentHasCardType; the set fixed then, CR 611.2c; indefinite, CR 611.2a), each through `controlMove.moveControl` — an
+>   artifact creature summoning-sick (CR 302.6), an Equipment left on the creature it equips with only its new controller able to pay its equip
+>   (CR 301.5d, witnessed), a threaten's until-end-of-turn stash cleared (the later control effect wins, CR 613.7), soulbond unpaired (CR
+>   702.95e). The upkeep win was already read (pinned).
+> · **Danitha Capashen, Paragon** — "<A> and <B> spells you cast cost {N} less" was two reducers only for a provably disjoint pair (instant /
+>   sorcery) and dropped otherwise. Any other admissible pair is now ONE `subtypes` union (the Banneret shape) — Aura and Equipment, Equipment and
+>   Vehicle (Cid), Artifact and enchantment (Starnheim Courser): a spell that is both is reduced once. The union's every-creature-type shortcut
+>   now holds for creature-type words only (a changeling is no Aura — witnessed on Universal Automaton). **And a bestowed spell is priced as cast**
+>   (CR 702.103b, 205.1a — `legalChoices.bestowedSpellView`: its supertypes + "Enchantment — Aura", no creature type): Danitha and Transcendent
+>   Envoy reduce Nyxborn Wolf's bestow cast ({4}{G} → {3}{G}; before, no Aura reducer touched it), Marauding Raptor's creature reducer no longer
+>   does, Thalia's noncreature tax now does ({4}{G} → {5}{G}). No cast offer changed in any of the 80 A/B games.
+> · **Gilded Goose** ("{T}, Sacrifice a Food: Add one mana of any color.") — the Altars' sacrifice cost with a second victim kind
+>   (`sacVictimTest`: `sacrificesCreature` | `sacrificesFood`; `isFoodNow` — the Food artifact type as it is now, CR 205.3g; Tough Cookie counts,
+>   the card's ruling): `PAID_MANA_COST_ITEMS`, the production reader (every mana line carries the cost), the `manaSources` gate (a Food other
+>   than the source, CR 118.3), `withoutUnfeedableSacSources`, `tapRecordFor`, the planner record, the one-shot pass (spent only when nothing else
+>   pays — witnessed), the commit (the least valuable Food, sacrificed after the plan's other taps). Utopia Mycon ("a Saproling") and
+>   Krark-Clan Ironworks ("an artifact", repeatable, self-sacrifice legal) stay refused.
+> · **Witness tests corrected against the engine while building** (each still fails on base on assertions or is a control): Deathrite's
+>   "offered in the opponent's turn" was dropped — the engine offers every activated ability on its controller's own main phase only
+>   (legalChoices.js:4578, all cards alike); the Map's equal-counts case checks the outcome, not the pending queue (the intervening "if" is
+>   evaluated as the trigger is put on the stack); the effect-entry case uses `zones.enterCardFromZone` (`resolvers.enterPermanent` leaves
+>   landfall to its callers). Graduated with the date: `staticResidueST2.test.js` (Starnheim's pin — no reducer → the union),
+>   `landfall.test.js` (the opponent's land was pinned undetected → its own scope).
+> · **Not taken:** Spelunking (#741 — "Lands you control enter untapped" is a replacement against every enters-tapped site — the play-land
+>   path, the tutor/enter paths, shocklands' pending choice — plus a "this way" Cave referent: two new mechanisms), Whip of Erebos (#712 — an
+>   indefinite haste grant on the returned creature, the delayed exile, and "if it would leave the battlefield, exile it instead" honoured at
+>   every battlefield exit: unearth's frame, unmodeled), Kaya's Ghostform (#764 — no "put into exile" trigger event exists; the orphaned-Aura
+>   look-back covers graveyard exits only, and "that card" must be returned from the first zone it went to, CR 603.6c).
+> · ⚠️ **Found, not fixed:** (1) every activated ability — Deathrite's included — is offered on its controller's own main phase only
+>   (legalChoices.js:4578): no instant-speed activation in an opponent's turn (an under-offer). (2) The any-colour add is picked automatically
+>   (effects/atoms/misc.js:763 `anyColorChoice` — commander identity, WUBRG order): the human doesn't choose Deathrite's colour. (3)
+>   `commitManaTap` makes the mana before it pays a sacrifice cost (manaModel.js:4136) and the planner reserves no distinct victims across
+>   sacrifice-cost sources: two sources sharing one victim (two Altars and one creature; Gilded Goose + Phyrexian Altar with Tough Cookie the only
+>   Food) — the second tap is logged unpaid and its mana still made. Pre-existing for the Altars; the Food kind joins it. (4) The single-target
+>   indefinite `gain-control` keeps a threaten's until-end-of-turn stash (effects/atoms/control.js:165), so an indefinite theft of a creature
+>   someone threatened reverts at cleanup (gain-control-all clears it).
 
 > ## 🧹 2026-10-17 — HYGIENE: the Crucible bank test writes into a tmp sandbox, not the working tree's app/data · **±0**
 > `crucibleRun.test.js`'s fire-and-forget bank test banked a real pod (the report .txt + the trajectory .jsonl, via profilePath("self-play"))

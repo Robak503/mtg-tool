@@ -2802,21 +2802,30 @@ function parseClause(clause, out, selfName, selfType) {
   // so it can't ALSO be artifact/creature/
   // enchantment, and no printed card is both instant AND sorcery. That makes {Instant,X} / {Sorcery,X} descriptor
   // pairs match disjoint spell sets → each spell is reduced by exactly {N}. The dual-permanent pairs ("artifact
-  // and enchantment", "artifact and creature", "creature and enchantment") are NOT admitted — a card can carry
-  // both types, so two descriptors would over-reduce it → those stay body-only (a safe FN, e.g. Starnheim Courser).
-  // A compound SUBTYPE reducer ("Elemental spells and Warrior spells" — the Banneret cycle) is likewise NOT
-  // admitted here (the single-`subtype` enforcement can't express an OR over two subtypes, and a dual-subtype
-  // creature spell would double-reduce) — it stays body-only. Both words must be recognized card types.
+  // and enchantment", "artifact and creature", "creature and enchantment") are NOT two descriptors — a card can
+  // carry both types, so two would over-reduce it. Since 2026-10-17 they, and a pair of subtypes ("Aura and
+  // Equipment"), are ONE union descriptor instead (below), which reduces a spell carrying both words once.
   const cctM = c.match(/^([a-z]+) and ([a-z]+) spells you cast cost \{(\d+)\} less to cast$/);
   if (cctM) {
     const a = cctM[1], b = cctM[2];
+    const amount = parseInt(cctM[3], 10);
     if (COST_REDUCTION_CARDTYPE_WORDS.has(a) && COST_REDUCTION_CARDTYPE_WORDS.has(b) &&
         (a === "instant" || a === "sorcery" || b === "instant" || b === "sorcery")) {
-      const amount = parseInt(cctM[3], 10);
       out.push({ costReduction: { subtype: normalizeSubtype(a), amount } });
       out.push({ costReduction: { subtype: normalizeSubtype(b), amount } });
+      return;
     }
-    return; // a compound card-type cost-reduction clause — handled (or dropped to body-only on a non-disjoint / non-card-type pair)
+    // ⭐ A PAIR THAT IS NOT PROVABLY DISJOINT → ONE UNION REDUCER (play-weighted #795, 2026-10-17 — Danitha Capashen, Paragon
+    // "Aura and Equipment spells you cast cost {1} less to cast"; Cid, Freeflier Pilot "Equipment and Vehicle …"; Starnheim
+    // Courser "Artifact and enchantment …"). Two descriptors would over-reduce a spell carrying both words (an artifact
+    // enchantment), so the pair rides the SAME `subtypes` union the Banneret arm above emits: a spell that is either is reduced,
+    // once (costReductionForSpell's union branch — word-bound on the spell's type line as cast). Both words pass the same
+    // admissibility test as that arm (a card type, or a word that can stand on a type line — never a colour, a quality, a
+    // supertype or a category word, whose type-line match would never fire).
+    const ok = (w) => COST_REDUCTION_CARDTYPE_WORDS.has(w)
+      || (!NON_SUBTYPE_ANTHEM_WORDS.has(w) && !COLOR_WORDS[w] && !NON_SUBTYPE_COST_FILTER_WORDS.has(w));
+    if (ok(a) && ok(b) && a !== b) out.push({ costReduction: { subtypes: [normalizeSubtype(a), normalizeSubtype(b)], amount } });
+    return; // a compound cost-reduction clause — handled (or dropped to body-only on an inadmissible word)
   }
 
   // ── ACTIVATED-ABILITY COST-REDUCTION (Training Grounds; Biomancer's Familiar) ───────────────────────────
@@ -5612,7 +5621,9 @@ export function costReductionForSpell(reducers, spellCard, fromZone = "hand", ca
       if (!typeLine) continue;
       const hit = r.subtypes.some((sub) => {
         const esc = String(sub).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        return esc && (new RegExp(`\\b${esc}\\b`).test(typeLine) || every); // P·39b — every printed union names two creature types
+        // P·39b — a spell that is every creature type matches a CREATURE-TYPE word only (CR 702.73a): since 2026-10-17 a union
+        // can name two subtypes of another kind (Danitha's "Aura and Equipment") or two card types, which a changeling is not.
+        return esc && (new RegExp(`\\b${esc}\\b`).test(typeLine) || (every && CR_CREATURE_TYPES.has(String(sub).toLowerCase())));
       });
       if (!hit) continue;
       total += r.amount || 0;

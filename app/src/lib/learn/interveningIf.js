@@ -1881,6 +1881,17 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     const mine = controllerMetric(state, controllerId, m[1]);
     return opponentIds(state, controllerId).some((oid) => controllerMetric(state, oid, m[1]) > mine);
   }
+  // THE TRIGGERING PERMANENT'S CONTROLLER controls more <lands|…> than you (play-weighted #702, 2026-10-17 — Archaeomancer's
+  // Map's "if that player controls more lands than you", rewritten by detectTriggers on the opponent's-land landfall scope only):
+  // the same strict compare as the existential above, against ONE player — the entering land's controller, as makePendingTrigger
+  // bound it (ctx.triggeringPermanentController), so the second check on resolution (CR 603.4) compares the same player even if
+  // the land has left. No referent, or a player who left the game → null (can't confirm — the FN-safe side).
+  m = c.match(/^the triggering permanent's controller controls more (lands|creatures|artifacts|enchantments) than you$/);
+  if (m) {
+    const pid = context?.triggeringPermanentController;
+    if (!pid || !state?.players?.[pid]) return null;
+    return controllerMetric(state, pid, m[1]) > controllerMetric(state, controllerId, m[1]);
+  }
   // "an opponent has more <life|cards in hand> than you"
   m = c.match(OPP_HAS_MORE_RE);
   if (m) {
@@ -2212,7 +2223,9 @@ export function interveningIfParseable(condition) {
   // here (the runtime stamps it off every leave event's counters snapshot); every other shape ignores it.
   // `declaredAttackers`: an empty declaration so the THOSE-ATTACKERS-AT-YOU shape (Mangara) probes as readable; the runtime
   // threads the real declaration off checkAttackTriggers' opponent-attacks pass.
-  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringHadNoMinusCounters: true, triggeringHadCounters: true, triggeringPowerDifferedFromBase: true, defenderId: "__probe__", sourceCardId: "__probe_gy__", sourcePermanentId: "__entering__", xValue: 0, manaSpent: true, activatedIsManaAbility: false, declaredAttackers: [] }) !== null; // activatedIsManaAbility: a definite boolean so the NOT-A-MANA-ABILITY shape (Illusionist's Bracers) probes as readable; the runtime threads false off every stack activation. manaSpent: a definite boolean so the NO-MANA-SPENT shape (Vexing Bauble) probes as readable; the runtime threads the real value off every cast
+  // `triggeringPermanentController`: the TRIGGERING PERMANENT'S CONTROLLER compare (Archaeomancer's Map, 2026-10-17) probes as
+  // readable; the runtime binds the real player off every triggering permanent (makePendingTrigger).
+  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringHadNoMinusCounters: true, triggeringHadCounters: true, triggeringPowerDifferedFromBase: true, defenderId: "__probe__", sourceCardId: "__probe_gy__", sourcePermanentId: "__entering__", xValue: 0, manaSpent: true, activatedIsManaAbility: false, declaredAttackers: [], triggeringPermanentController: "__probe__" }) !== null; // activatedIsManaAbility: a definite boolean so the NOT-A-MANA-ABILITY shape (Illusionist's Bracers) probes as readable; the runtime threads false off every stack activation. manaSpent: a definite boolean so the NO-MANA-SPENT shape (Vexing Bauble) probes as readable; the runtime threads the real value off every cast
 }
 
 /**

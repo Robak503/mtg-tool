@@ -1463,7 +1463,20 @@ export function parseActivatedAbilities(cardIn) {
     // program is parsed and `modeled` stays false (like every mana ability), so it's never offered as a
     // stack `activate-ability`.
     const doubleManaPool = effectIsDoubleManaPool(effectClause);
-    const isManaEffect = effectIsManaAbility(effectClause) || doubleManaPool;
+    // ⭐ A TARGETED "ADD" IS NO MANA ABILITY (play-weighted #611, 2026-10-17 — Deathrite Shaman's "{T}: Exile target land card
+    // from a graveyard. Add one mana of any color."). An activated ability is a mana ability only if it has no target (CR
+    // 605.1a); one that targets uses the stack like any other (the card's ruling: "it is not a mana ability. It uses the stack
+    // and can be responded to"), and does nothing — no mana — if its target is illegal as it resolves (CR 608.2b). The "Add"
+    // alone used to route it into the mana model, a lane that can't drive a target, and the line parked the card. So: an effect
+    // whose program parses HIGH with a chosen target is a stack ability here, its add-mana atom run as it resolves (applyAddMana
+    // — into the activator's pool, CR 106.4). manaProduction never reads it (its line is refused there), so the planner can't
+    // pay a cost with it mid-cast. An unparseable or untargeted "Add" keeps the mana-model route exactly as before.
+    const addsMana = effectIsManaAbility(effectClause);
+    const targetedAdd = addsMana && !doubleManaPool && (() => {
+      const p = parseEffectClause(normalizeSelfName(effectClause, card), "Instant");
+      return !!p && programConfidence(p) === "high" && !p.modal && programNeedsChosenTarget(p);
+    })();
+    const isManaEffect = (addsMana && !targetedAdd) || doubleManaPool;
     // γ1e — a "Sacrifice X <fungible subtype>" cost makes the ability's X a PLAYER CHOICE that threads into the
     // EFFECT (Grim Hireling: "-X/-X" scales by the X Treasures paid). Parse the effect with hasX:true so an
     // amount-X atom binds to ctx.xValue, and REQUIRE the effect to be an X-scaled program (see the effectHigh

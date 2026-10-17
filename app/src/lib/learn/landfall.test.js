@@ -7,7 +7,7 @@
  * shaped-sentence count and the detected-trigger count agree. Controller-scoped (the entering land is YOURS).
  *
  * CREED: only the bare "a land you control enters" / "a land enters the battlefield under your control" forms
- * with a MODELED payoff flip; a filtered subject ("a basic land", "another land", an opponent's land), an
+ * with a MODELED payoff flip; a filtered subject ("a basic land", "another land"), an
  * "enters tapped" rider, or an unmodeled payoff (Lotus Cobra's landfall MANA) stays on the Arbiter. The
  * ramp/fetch land-entry path is a follow-up slice (a missed landfall there is a SAFE under-fire).
  *
@@ -40,11 +40,15 @@ describe("LANDFALL — detection (label-stripped, controller-scoped)", () => {
   it("detects the UNLABELED form too (Tatyova prints without the ability word in some templates)", () => {
     expect(lf("Whenever a land you control enters, you gain 1 life.")).toMatchObject({ event: "landfall", scope: "landYouControl" });
   });
-  it("CREED: a filtered subject / opponent's land / 'enters tapped' rider stays UNDETECTED → Arbiter", () => {
+  it("CREED: a filtered subject / 'enters tapped' rider stays UNDETECTED → Arbiter", () => {
     expect(lf("Landfall — Whenever a basic land you control enters, draw a card.")).toBeUndefined();
     expect(lf("Whenever another land you control enters, draw a card.")).toBeUndefined();
-    expect(lf("Whenever a land an opponent controls enters, you draw a card.")).toBeUndefined();
     expect(lf("Whenever a land you control enters tapped, draw a card.")).toBeUndefined();
+  });
+  // GRADUATED 2026-10-17 (play-weighted #702, Archaeomancer's Map): the opponent's land was pinned undetected here. It is now its
+  // own scope — never the controller-scoped one (opponentLandEnters.test.js holds the runtime).
+  it("an opponent's land is the landOpponentControls scope, never landYouControl", () => {
+    expect(lf("Whenever a land an opponent controls enters, you draw a card.")).toMatchObject({ event: "landfall", scope: "landOpponentControls" });
   });
   it("stripTriggerAbilityLabel removes only a leading Landfall label", () => {
     expect(stripTriggerAbilityLabel("Landfall — Whenever a land you control enters, draw a card.")).toBe("Whenever a land you control enters, draw a card.");

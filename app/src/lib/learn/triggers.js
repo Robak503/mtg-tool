@@ -2016,6 +2016,13 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^a land you control enters$/.test(c) || /^a land enters(?: the battlefield)? under your control$/.test(c)) {
     return { event: "landfall", scope: "landYouControl", whose: "any" };
   }
+  // OPPONENT'S LAND (play-weighted #702, 2026-10-17 — Archaeomancer's Map, Polluted Bonds, Nightshade Harvester, Shattered Angel,
+  // Sire of Stagnation; Spectrum Sentinel's "a NONBASIC land"): the same land-entry event, the entering land controlled by a
+  // player other than the watcher's controller (the engine seats no teams, so every other seat is an opponent). "That player" in the effect and
+  // in an intervening "if" is the land's controller — rewritten below to the triggering-permanent's-controller sentinel. Anchored
+  // bare forms only: "enters tapped", "another", or any other qualifier stays undetected → Arbiter.
+  if (/^a land an opponent controls enters$/.test(c)) return { event: "landfall", scope: "landOpponentControls", whose: "any" };
+  if (/^a nonbasic land an opponent controls enters$/.test(c)) return { event: "landfall", scope: "nonbasicLandOpponentControls", whose: "any" };
   // CITY OF TRAITORS (POD-SIM THREE · KT-5, 2026-09-05) — "When you play another land": the landfall family with two gates
   // it lacked. PLAYED only (CR 305.1 — the special action; a land an EFFECT puts onto the battlefield is not played): the
   // play-land dispatcher threads `played: true` into checkLandfallTriggers and the effect path does not, so the descriptor
@@ -5141,6 +5148,10 @@ export function detectTriggers(cardIn) {
         // isCleanClause refusal. Throat Slitter ("target NONBLACK creature that player controls") is the
         // known cost — a safe FN, and cheaper than the whack-a-mole.
         effectClause = effectClause.replace(/\btarget creature that player controls\b/gi, "target creature the damaged player controls");
+        // HELLKITE TYRANT (play-weighted #745, 2026-10-17 — "gain control of all artifacts that player controls"): the same
+        // referent, the whole clause anchored and replaced whole (no other reader keys on this phrase — measured, one corpus
+        // carrier) → control.js's gain-control-all arm.
+        effectClause = effectClause.replace(/^gain control of all artifacts that player controls$/i, "gain control of all artifacts the damaged player controls");
       }
       // ⭐⭐ ITS-CONTROLLER REFERENT (IC-1, 2026-08-06 — Poisonbelly Ogre, Fate Foretold, Parasitic Impetus,
       // Smoke Blessing). "Its controller" names the controller of the object that TRIGGERED the ability, and
@@ -5197,6 +5208,14 @@ export function detectTriggers(cardIn) {
       const opponentDiesDrain = cls.event === "dies" && cls.scope === "creatureOpponentControls"
         ? /^that player loses (\d+) life$/.exec(effectClause) : null;
       if (opponentDiesDrain) effectClause = `the triggering permanent's controller loses ${opponentDiesDrain[1]} life`;
+      // OPPONENT'S LAND (play-weighted #702, 2026-10-17 — Polluted Bonds "that player loses 2 life and you gain 2 life", Nightshade
+      // Harvester, Sire of Stagnation "that player exiles the top two cards of their library …"): "that player" is the entering
+      // land's controller — the triggering permanent's, bound by makePendingTrigger off checkLandfallTriggers' entered land. These
+      // two scopes are new and no matcher reads their raw phrase, so the swap renames nothing another reader keys on; a clause
+      // the sentinel arms don't read stays LOW (the card parks).
+      if (cls.event === "landfall" && (cls.scope === "landOpponentControls" || cls.scope === "nonbasicLandOpponentControls")) {
+        effectClause = effectClause.replace(/\bthat player\b/gi, "the triggering permanent's controller");
+      }
       // SELF TO THE BOTTOM (the 09-06 plan's stage ③ · 24, 2026-09-30 — Murderous Rider, Fell Horseman: "When this creature
       // dies, put it on the bottom of its owner's library."): in a SELF dies trigger "it" is the dying creature, so the clause
       // is named ("this creature") for the self-tuck arm, which never takes a bare "it". Any other trigger's "it" is another
@@ -5876,6 +5895,13 @@ export function detectTriggers(cardIn) {
           && /^it's the first time that creature has become tapped this turn$/i.test(String(interveningIfRaw || "").trim())) {
         firstTapOfThatCreatureThisTurn = true;
         interveningIfRaw = null;
+      }
+      // OPPONENT'S LAND's intervening "if" (Archaeomancer's Map — "if that player controls more lands than you"): the same
+      // referent as the effect's "that player" (above), the same sentinel; interveningIf.js reads it off the trigger context at
+      // the trigger and again on resolution (CR 603.4). Whole-condition anchored to the one comparison shape it reads.
+      if (cls.event === "landfall" && (cls.scope === "landOpponentControls" || cls.scope === "nonbasicLandOpponentControls")
+          && /^that player controls more (?:lands|creatures|artifacts|enchantments) than you$/i.test(String(interveningIfRaw || "").trim())) {
+        interveningIfRaw = String(interveningIfRaw).trim().replace(/^that player\b/i, "the triggering permanent's controller");
       }
       let oncePerTurnTrigger = false;
       if (!compoundLimiter && /\bThis ability triggers only once each turn\.?\s*$/i.test(effectClause)) {
@@ -6966,6 +6992,13 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // LANDFALL — the entering land must be controlled by the watcher's controller. checkLandfallTriggers
       // only fires on a land entry (triggeringPermanent is a land), but the isLandPerm guard keeps it exact.
       return !!triggeringPermanent && isLandPerm(triggeringPermanent) && triggeringPermanent.controller === sourcePermanent.controller;
+    case "landOpponentControls":
+      // OPPONENT'S LAND (Archaeomancer's Map) — the twin of the arm above: the entering land is controlled by another player.
+      return !!triggeringPermanent && isLandPerm(triggeringPermanent) && triggeringPermanent.controller !== sourcePermanent.controller;
+    case "nonbasicLandOpponentControls":
+      // …and NONBASIC (Spectrum Sentinel): no basic supertype on the entering land's type line (CR 205.4c).
+      return !!triggeringPermanent && isLandPerm(triggeringPermanent) && triggeringPermanent.controller !== sourcePermanent.controller
+        && !/\bBasic\b/.test(typeStr(triggeringPermanent.card));
     case "artifactYouControl":
       // PERM-ENTERS artifact — type-line substring (CR 205.2) catches Artifact Creature; controller gate.
       return !!triggeringPermanent && /Artifact/.test(typeStr(triggeringPermanent.card)) && triggeringPermanent.controller === sourcePermanent.controller;

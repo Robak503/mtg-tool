@@ -725,6 +725,22 @@ function manaAbilitySacrificesCreature(oracle) {
 }
 
 /**
+ * SACRIFICE-A-FOOD MANA COST (play-weighted #803, 2026-10-17 — Gilded Goose "{T}, Sacrifice a Food: Add one mana of any color.").
+ * The Altars' twin with another victim kind, paid for real the same way: manaSources offers the source only while its controller
+ * controls a Food other than the source (CR 118.3), and commitManaTap sacrifices the least valuable one through the cost
+ * sacrifice. Every activated mana line must carry exactly this cost (optionally after "{T},") — the creature twin's all-lines
+ * rule; any other sacrifice ("an artifact", "a Saproling") stays refused.
+ */
+function manaAbilitySacrificesFood(oracle) {
+  const manaLines = String(oracle || "").split(/\n+/).filter((line) => {
+    const ci = line.indexOf(":");
+    return ci !== -1 && /\badd\b/i.test(line.slice(ci + 1));
+  });
+  if (!manaLines.length) return false;
+  return manaLines.every((line) => /^(?:\{t\},\s*)?sacrifice a food\s*$/i.test(line.slice(0, line.indexOf(":")).trim()));
+}
+
+/**
  * EXILE-FROM-HAND MANA (SG-6, 2026-09-03 — Elvish Spirit Guide "Exile this card from your hand: Add {G}", Simian
  * Spirit Guide "… Add {R}"; 2 corpus cards). A mana ability of a card IN HAND (CR 605.1a — a mana ability may
  * be activated from any zone its cost allows): the production carries `fromHand`, manaSources walks the HAND
@@ -853,6 +869,19 @@ function isCreatureNow(state, perm) {
   return !!perm && permanentHasCardType(state, perm.id, "Creature");
 }
 
+/** Is this battlefield permanent a FOOD right now (an artifact type, CR 205.3g — any Food artifact: a Food token, Tough Cookie)?
+ *  Gilded Goose's "Sacrifice a Food" victim pool and its offer gates read it (play-weighted #803, 2026-10-17). */
+function isFoodNow(state, perm) {
+  return !!perm && permanentSubtypes(state, perm.id).some((st) => String(st).toLowerCase() === "food");
+}
+
+/** The victim test of a source's "Sacrifice a <kind>" cost (a creature for the Altars, a Food for Gilded Goose), or null. */
+function sacVictimTest(s) {
+  if (s?.sacrificesCreature) return isCreatureNow;
+  if (s?.sacrificesFood) return isFoodNow;
+  return null;
+}
+
 /** Is this card a CREATURE by printed type? Used only to scope the payer-ordering sickness key. */
 function isCreatureCardType(card) {
   return new RegExp(`\\bcreature\\b`, "i").test(String(card?.type || card?.type_line || ""));
@@ -935,6 +964,7 @@ const PAID_MANA_COST_ITEMS = [
   /\bpay \d+ life\b/gi,
   /\btap (?:an|a|two|three) untapped (?:legendary creatures?|[a-z]+) you control\b/gi, // + "legendary creature" (Relic of Legends, 2026-10-17)
   /\bsacrifice a creature\b/gi,
+  /\bsacrifice a food\b/gi, // play-weighted #803 (Gilded Goose) — `sacrificesFood`
   /\bexile a card from your graveyard\b/gi,
   /\bexile this (?:card|creature) from your hand\b/gi,
   /\bremove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature)\b/gi,
@@ -1834,7 +1864,7 @@ function mainMakesProduct(card, main, prod, lineCost) {
     if (!same(prod.amountSpec, main.amountSpec) || !same(prod.fixedSpec, main.fixedSpec)) return false;
   } else if ((prod.amount ?? 1) > (main.amount ?? 1)) return false;
   if ((prod.fixed || main.fixed) && !same(prod.fixed, main.fixed)) return false;
-  for (const k of ["sacrifices", "sacrificesCreature", "exilesGyCard", "fromHand", "doesNotUntapNext", "requiresMaxSpeed"]) if (main[k] && !prod[k]) return false;
+  for (const k of ["sacrifices", "sacrificesCreature", "sacrificesFood", "exilesGyCard", "fromHand", "doesNotUntapNext", "requiresMaxSpeed"]) if (main[k] && !prod[k]) return false;
   for (const k of ["extraTap", "removesCounters", "putsCounter", "activationCondition", "restriction", "opponentsGainLife"]) if (main[k] != null && !same(main[k], prod[k])) return false;
   if (main.activationLimit && !same({ ...main.activationLimit, line: null }, prod.activationLimit ? { ...prod.activationLimit, line: null } : null)) return false;
   if ((main.payLife ?? 0) > (prod.payLife ?? 0)) return false;
@@ -2512,9 +2542,10 @@ function manaProductionImpl(card) {
   // a non-empty graveyard. The flag rides the production so both halves key off one read.
   const exilesGyCard = manaAbilityExilesGyCard(oracleForAdd);
   const sacrificesCreature = manaAbilitySacrificesCreature(oracleForAdd); // SG-3 — paid for real (see the helper)
+  const sacrificesFood = manaAbilitySacrificesFood(oracleForAdd); // play-weighted #803 — Gilded Goose, paid for real (see the helper)
   const exilesSelfFromHand = manaAbilityExilesSelfFromHand(oracleForAdd); // SG-6 — a hand-zone source (see the helper)
   const isActivatedSource =
-    isLandCard || (activatedManaText(oracleForAdd) != null && (!manaAbilityCostUnpayable(oracleForAdd) || exilesGyCard || sacrificesCreature || exilesSelfFromHand));
+    isLandCard || (activatedManaText(oracleForAdd) != null && (!manaAbilityCostUnpayable(oracleForAdd) || exilesGyCard || sacrificesCreature || sacrificesFood || exilesSelfFromHand));
   // STAGE ④-5 (2026-09-03): the PAY-LIFE cost is read HERE, before the activated-source return, so a LAND's
   // "{T}, Pay 1 life: Add …" carries it (Horizon Canopy / Silent Clearing / the Horizon cycle / Mana Confluence
   // used to return from this block with their colours and NO cost — a free Mana Confluence, measured).
@@ -2524,7 +2555,7 @@ function manaProductionImpl(card) {
     const lifeRider = payLife ? { payLife: payLife.amount } : {};
     return manaAbilitySacrificesSelf(oracleForAdd)
       ? { ...fromOracle, sacrifices: true, requiresTap, ...lifeRider }
-      : { ...fromOracle, requiresTap, ...(exilesGyCard ? { exilesGyCard: true } : {}), ...(sacrificesCreature ? { sacrificesCreature: true } : {}), ...(exilesSelfFromHand ? { fromHand: true } : {}), ...lifeRider };
+      : { ...fromOracle, requiresTap, ...(exilesGyCard ? { exilesGyCard: true } : {}), ...(sacrificesCreature ? { sacrificesCreature: true } : {}), ...(sacrificesFood ? { sacrificesFood: true } : {}), ...(exilesSelfFromHand ? { fromHand: true } : {}), ...lifeRider };
   }
 
   // ===== TAP-OTHER COST (CR 118.4 / 302.6) =====================================================
@@ -3242,7 +3273,8 @@ export function manaSources(state, playerId) {
     // SG-3 — a sacrifice-a-creature source needs ANOTHER creature to feed it (never the source itself, never
     // offered on an empty board): no victim → no source (CR 601.2h — the cost cannot be paid).
     if (prod.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && isCreatureNow(state, p))) continue; // a creature NOW (the type-line audit)
-    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(painOn ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });
+    if (prod.sacrificesFood && !(player.battlefield || []).some((p) => p.id !== perm.id && isFoodNow(state, p))) continue; // Gilded Goose — a Food NOW, never the source (CR 118.3)
+    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(prod.sacrificesFood ? { sacrificesFood: true } : {}), ...(fixed ? { fixed } : {}), ...(painOn ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });
     // STAGE ④-3 — EXTRA MANA LINES (extraLineSources): each its own record on the SAME permanent.
     sources.push(...extraLineSources(state, playerId, player, perm, manaMult));
   }
@@ -3333,9 +3365,13 @@ export function costReservedPermanentIds(action) {
  * toward affordability. Shared by the offer and the payment so the two cannot diverge.
  */
 export function withoutUnfeedableSacSources(state, playerId, sources, reserved) {
-  if (!reserved || !sources.some((s) => s.sacrificesCreature)) return sources;
-  const creatures = (state?.players?.[playerId]?.battlefield || []).filter((p) => isCreatureNow(state, p)); // a creature NOW (the type-line audit)
-  return sources.filter((s) => !s.sacrificesCreature || creatures.some((c) => c.id !== s.permanentId && !reserved.has(c.id)));
+  if (!reserved || !sources.some((s) => sacVictimTest(s))) return sources;
+  const bf = state?.players?.[playerId]?.battlefield || [];
+  // Each kind reads its own pool: a creature NOW for the Altars, a Food NOW for Gilded Goose (the type-line audit).
+  return sources.filter((s) => {
+    const isVictim = sacVictimTest(s);
+    return !isVictim || bf.some((c) => c.id !== s.permanentId && !reserved.has(c.id) && isVictim(state, c));
+  });
 }
 
 /**
@@ -3404,7 +3440,7 @@ export function castPaymentSources(state, action) {
 export function tapRecordFor(s, color, bonus = []) {
   const fixed = s.fixed && Object.keys(s.fixed).length > 1 ? s.fixed : null;
   const painHit = Array.isArray(s.painColors) && s.painColors.includes(color) ? (s.painAmount || 0) : 0;
-  return { permanentId: s.permanentId, color, amount: s.amount ?? 1, ...(Array.isArray(s.extraTaps) ? { extraTaps: [...s.extraTaps] } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(fixed && { fixed: { ...fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(s.sacrificeIfNoCounters && { sacrificeIfNoCounters: true }), ...(s.putsCounter && { putsCounter: { ...s.putsCounter } }), ...(s.limitKey && { limitKey: s.limitKey }), ...(s.noTap && { noTap: true }), /* ③ · 37 + 2026-10-17: every no-{T} line */ ...(s.doesNotUntapNext && { doesNotUntapNext: true }), ...(s.restriction?.uncounterableIfSpent && { uncounterableIfSpent: true }), ...(s.spentRider && { spentRider: s.spentRider }), /* SHELF-85 V11 (Path of Ancestry): the "when that mana is spent" rider rides the tap to the cast site */ ...(s.opponentsGainLife && { opponentsGainLife: s.opponentsGainLife }), ...(s.bundle && { bundle: s.bundle }), /* 2026-10-17, the land lines: Grove of the Burnwillows' opponents' life; a filter land's bundle, the explicit tap's key */ ...(bonus.length && { bonus }) }; // + CAP-CAVERN: the cast site reads uncounterableIfSpent off the taps
+  return { permanentId: s.permanentId, color, amount: s.amount ?? 1, ...(Array.isArray(s.extraTaps) ? { extraTaps: [...s.extraTaps] } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(fixed && { fixed: { ...fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.sacrificesFood && { sacrificesFood: true }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(s.sacrificeIfNoCounters && { sacrificeIfNoCounters: true }), ...(s.putsCounter && { putsCounter: { ...s.putsCounter } }), ...(s.limitKey && { limitKey: s.limitKey }), ...(s.noTap && { noTap: true }), /* ③ · 37 + 2026-10-17: every no-{T} line */ ...(s.doesNotUntapNext && { doesNotUntapNext: true }), ...(s.restriction?.uncounterableIfSpent && { uncounterableIfSpent: true }), ...(s.spentRider && { spentRider: s.spentRider }), /* SHELF-85 V11 (Path of Ancestry): the "when that mana is spent" rider rides the tap to the cast site */ ...(s.opponentsGainLife && { opponentsGainLife: s.opponentsGainLife }), ...(s.bundle && { bundle: s.bundle }), /* 2026-10-17, the land lines: Grove of the Burnwillows' opponents' life; a filter land's bundle, the explicit tap's key */ ...(bonus.length && { bonus }) }; // + CAP-CAVERN: the cast site reads uncounterableIfSpent off the taps
 }
 
 /**
@@ -3515,7 +3551,7 @@ export function manualManaTaps(state, playerId) {
  * cards, it lost 33 payable costs and found 65 the old order misses). A board with no such permanent plans once (both plans are
  * the same there). canAfford runs plan 1 alone.
  */
-const isOneShotSource = (s) => !!(s && (s.sacrifices || s.sacrificesCreature || s.fromHand || (s.noTap && s.payLife != null)));
+const isOneShotSource = (s) => !!(s && (s.sacrifices || s.sacrificesCreature || s.sacrificesFood || s.fromHand || (s.noTap && s.payLife != null)));
 export function planPayment(pool, sources, cost, spendContext = null) {
   const all = sources || [];
   const plan = planPaymentPasses(pool, all, cost, spendContext, null);
@@ -3708,6 +3744,7 @@ function plannerSourceRecord(s) {
     // cost (Molt Tender), which the direct tap action carried but this planned path silently dropped
     // (a planned Molt Tender tap exiled nothing; now it does).
     sacrificesCreature: !!s.sacrificesCreature,
+    sacrificesFood: !!s.sacrificesFood, // play-weighted #803 — Gilded Goose's Food, sacrificed by the commit
     exilesGyCard: !!s.exilesGyCard,
     fromHand: !!s.fromHand, // SG-6 — the source is a HAND card; the committer exiles it instead of tapping
     removesCounters: s.removesCounters || null, // STAGE ④-4 — the counters this tap removes (the commit removes exactly these)
@@ -4135,20 +4172,24 @@ export function commitManaTap(state, playerId, tap, { reserved = null } = {}) {
   // mana value, then name — never the source) goes to the graveyard through the dies chokepoint, so its dies
   // triggers fire like any sacrifice (CR 700.4). No victim at commit time (a race the offer gate already
   // refused) → the tap is logged unpaid rather than fabricated, mirroring the exile-cost branch below.
-  if (tap.sacrificesCreature) {
+  // + SACRIFICE-A-FOOD (play-weighted #803, 2026-10-17 — Gilded Goose): the same commit with a Food victim pool (isFoodNow), the
+  // least valuable Food (a token before Tough Cookie) through the same cost sacrifice; its own log event names.
+  const isVictim = sacVictimTest(tap);
+  if (isVictim) {
+    const kind = tap.sacrificesCreature ? "creature" : "food";
     const bf = next.players[playerId]?.battlefield || [];
     // `reserved` = the permanents the action being paid for still needs for its OWN costs (its sacrifice victim, the
     // creatures it taps, a source that taps or sacrifices itself): feeding one of those to the Altar would leave that
     // cost unpayable a moment later ("Sacrifice victim … not on battlefield").
-    const victims = bf.filter((p) => p.id !== tap.permanentId && !reserved?.has(p.id) && isCreatureNow(next, p)); // a creature NOW (the type-line audit) — Ashnod's Altar never eats a God below its devotion
+    const victims = bf.filter((p) => p.id !== tap.permanentId && !reserved?.has(p.id) && isVictim(next, p)); // a creature / Food NOW (the type-line audit) — Ashnod's Altar never eats a God below its devotion
     const mvOf = (p) => { const cost = String(p.card?.mana_cost || p.card?.mana || ""); let n = 0; for (const m of cost.matchAll(/\{([^}]+)\}/g)) n += /^\d+$/.test(m[1]) ? parseInt(m[1], 10) : (m[1] === "X" ? 0 : 1); return n; };
     victims.sort((a, b) => mvOf(a) - mvOf(b) || String(a.card?.name || "").localeCompare(String(b.card?.name || "")));
     const victim = victims[0];
     if (victim) {
       next = sacrificePermanentForCost(next, playerId, victim);
-      next = logEvent(next, { kind: "mana", event: "sacrifice-creature-cost", permanentId: tap.permanentId, playerId, victimId: victim.id, victimName: victim.card?.name });
+      next = logEvent(next, { kind: "mana", event: `sacrifice-${kind}-cost`, permanentId: tap.permanentId, playerId, victimId: victim.id, victimName: victim.card?.name });
     } else {
-      next = logEvent(next, { kind: "mana", event: "sacrifice-creature-cost-unpaid", permanentId: tap.permanentId, playerId });
+      next = logEvent(next, { kind: "mana", event: `sacrifice-${kind}-cost-unpaid`, permanentId: tap.permanentId, playerId });
     }
   }
   if (tap.exilesGyCard) {
@@ -4245,8 +4286,9 @@ export function commitPaymentPlan(state, playerId, plan, { reserved = null } = {
   // sacrificed. Committed in plan order, the Altar could sacrifice a creature a later tap of the plan still named
   // ("Permanent … not found"), ending the game in a dispatch error. A plan with no such source keeps its order.
   const taps = plan?.taps || [];
-  const ordered = taps.some((t) => t.sacrificesCreature)
-    ? [...taps.filter((t) => !t.sacrificesCreature), ...taps.filter((t) => t.sacrificesCreature)]
+  const picksVictim = (t) => t.sacrificesCreature || t.sacrificesFood; // + Gilded Goose's Food (play-weighted #803): picked as it commits too
+  const ordered = taps.some(picksVictim)
+    ? [...taps.filter((t) => !picksVictim(t)), ...taps.filter(picksVictim)]
     : taps;
   for (const tap of ordered) next = commitManaTap(next, playerId, tap, { reserved });
   const topped = next.players[playerId].manaPool;

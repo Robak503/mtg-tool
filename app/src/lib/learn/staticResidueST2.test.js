@@ -16,7 +16,8 @@
  *      Electromancer, Mana Matrix). TWO { costReduction: { subtype } } markers, admitted ONLY when the pair
  *      is PROVABLY DISJOINT (one side is instant/sorcery — a spell can never carry both type-line tokens, so
  *      no spell is double-reduced). A compound SUBTYPE pair (Brighthearth Banneret — itself an Elemental
- *      Warrior!) or a dual-permanent pair (Starnheim Courser "Artifact and enchantment") stays body-only.
+ *      Warrior!) or a dual-permanent pair (Starnheim Courser "Artifact and enchantment") is ONE union
+ *      descriptor (since 2026-10-17 for the latter), reduced once.
  *
  * CREED: false-neg safe, false-pos forbidden, whole-card-or-park. Every fixture's oracle is real (bundled
  * Scryfall, verified 2026-07-17); every expected value confirmed against the live parser + engine.
@@ -212,8 +213,14 @@ describe("ST-2 C — compound card-type reducer: FN guards (CREED — over-reduc
     expect(costReductionForSpell(reducers, { name: "S", type: "Creature — Elemental", mana: "{3}" })).toBe(1);
     expect(costReductionForSpell(reducers, { name: "S", type: "Creature — Goblin", mana: "{3}" })).toBe(0);
   });
-  it("Starnheim Courser (Artifact and enchantment — a dual-permanent pair) emits NO reducer → body-only", () => {
-    expect(parseStaticAbilities(STARNHEIM()).some((d) => d.costReduction)).toBe(false);
-    expect(classifyCard(STARNHEIM())).toBe("body-only");
+  // GRADUATED 2026-10-17 (play-weighted #795, Danitha Capashen, Paragon): this pin asserted NO reducer for the dual-permanent
+  // pair, because two descriptors would double-reduce an artifact enchantment. The pair is now ONE union descriptor — the
+  // Brighthearth shape above — so the hazard stays closed: an artifact enchantment spell is reduced once.
+  it("Starnheim Courser (Artifact and enchantment — a dual-permanent pair) is ONE union reducer → native; an artifact enchantment is reduced once", () => {
+    const reducers = parseStaticAbilities(STARNHEIM()).filter((d) => d.costReduction).map((d) => d.costReduction);
+    expect(reducers).toEqual([{ subtypes: ["Artifact", "Enchantment"], amount: 1 }]);
+    expect(classifyCard(STARNHEIM())).toMatch(/^native/);
+    expect(costReductionForSpell(reducers, { name: "S", type: "Artifact Enchantment", mana: "{3}" })).toBe(1);
+    expect(costReductionForSpell(reducers, { name: "S", type: "Creature — Pegasus", mana: "{3}" })).toBe(0);
   });
 });

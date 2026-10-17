@@ -962,6 +962,10 @@ export function applyExileTopOfLibrary(state, atom, ctx) {
     // checkCombatDamageTriggers). Absent / eliminated referent → exile nobody, mirroring applyMill's guard.
     const pid = ctx.damagedPlayerId;
     if (pid && next.players?.[pid]) next = exileTopOnePlayer(next, pid, amount);
+  } else if (atom.who === "triggeringPermanentController") {
+    // Sire of Stagnation — the entering land's controller (ctx.triggeringPermanentController). Absent / eliminated → nobody.
+    const pid = ctx.triggeringPermanentController;
+    if (pid && next.players?.[pid]) next = exileTopOnePlayer(next, pid, amount);
   } else if (atom.who === "eachOpponent") {
     for (const opp of opponentsOf(next, ctx.controller)) next = exileTopOnePlayer(next, opp, amount);
   } else {
@@ -2107,6 +2111,12 @@ export function millClauseParser(clause) {
   // their library", not "the top one card". An absent count is exactly one (CR 702.115a).
   m = t.match(/^(?:that player|they) exiles? the top (?:(\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) )?cards? of their library$/);
   if (m) return { op: "exile-top-of-library", amount: m[1] ? (NUM_WORD[m[1]] ?? parseInt(m[1], 10)) : 1, who: "damagedPlayer", targetType: null };
+  // THE TRIGGERING PERMANENT'S CONTROLLER (play-weighted #702 slice, 2026-10-17 — Sire of Stagnation "that player exiles the top
+  // two cards of their library", "that player" rewritten by detectTriggers on the opponent's-land landfall scope only): the same
+  // op, the library of the player the trigger names (ctx.triggeringPermanentController). The sentinel appears in no printed
+  // oracle; coverage's referent fence keeps it off spells.
+  m = t.match(/^the triggering permanent's controller exiles the top (?:(\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) )?cards? of their library$/);
+  if (m) return { op: "exile-top-of-library", amount: m[1] ? (NUM_WORD[m[1]] ?? parseInt(m[1], 10)) : 1, who: "triggeringPermanentController", targetType: null };
   // OWN EXILE-TOP (SHELF-85 K9, 2026-09-04 — Mystic Forge "{T}, Pay 1 life: Exile the top card of your library"): the
   // controller's own library, same op, who "controller". No play permission rides it (the printed line grants none).
   m = t.match(/^exile the top (?:(\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) )?cards? of your library$/);

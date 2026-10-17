@@ -1077,6 +1077,19 @@ function computeAltCastSpec(state, playerId, card) {
 // would get each on its own column). Each colour floors at 0; `generic` and the mana value are untouched
 // (CR 202.3). Returns the cost object unchanged when no pip reducer matches, which is every board without
 // one of the five cards, so this is a no-op in the common case.
+/**
+ * A BESTOWED SPELL AS IT IS CAST (CR 702.103b, 205.1a): the card with its type line set to its supertypes (CR 205.4a — kept) plus
+ * "Enchantment — Aura". Read by the bestow cast lane's cost effects only (taxes, reductions, coloured-pip reductions); everything
+ * else on the card (name, colours, mana cost, text) is the printed card's.
+ */
+const SUPERTYPE_WORDS = new Set(["basic", "legendary", "ongoing", "snow", "world"]);
+function bestowedSpellView(card) {
+  const printed = String(card?.type || card?.type_line || "");
+  const supers = printed.split(/\s+[—–-]\s+/)[0].split(/\s+/).filter((w) => SUPERTYPE_WORDS.has(w.toLowerCase()));
+  const type = [...supers, "Enchantment"].join(" ") + " — Aura";
+  return { ...card, type, type_line: type };
+}
+
 function applyColoredPipReduction(cost, costReducers, card, everyType = false) {
   const pips = coloredPipReductionForSpell(costReducers, card, everyType);
   const colors = Object.keys(pips);
@@ -1945,14 +1958,18 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       const tax = freeCast ? 0 : (taxFn ? taxFn(card) : 0);
       if (tax) bestowCost = { ...bestowCost, generic: (bestowCost.generic || 0) + tax };
       if (!freeCast) {
-        const staticTax = costTaxForSpell(costTaxers, card, playerId);   // increases before decreases (CR 601.2f)
+        // THE SPELL AS CAST (2026-10-17): a spell cast bestowed becomes an Aura enchantment (CR 702.103b) — its card types set to
+        // Enchantment, the old ones replaced, and the creature subtypes gone with the creature type (CR 205.1a); its supertypes
+        // stay. Every cost effect reads that spell, not the printed "Enchantment Creature": an Aura reducer (Danitha, Transcendent
+        // Envoy) reduces it, a creature reducer (Marauding Raptor) and a creature-type reducer don't, a noncreature tax (Thalia)
+        // taxes it — and it is no creature type at all (`every` false). The card's own text (selfCostReductionForSpell) is unchanged.
+        const asCast = bestowedSpellView(card);
+        const staticTax = costTaxForSpell(costTaxers, asCast, playerId);   // increases before decreases (CR 601.2f)
         if (staticTax) bestowCost = { ...bestowCost, generic: (bestowCost.generic || 0) + staticTax };
-        // `bestowed` (CLOUD KEY): a spell cast bestowed becomes an Aura enchantment (CR 702.103b) — its card type set, the old
-        // ones replaced (CR 205.1a) — so the chosen-card-type reducer reads it as an enchantment spell and no creature spell;
-        // judged on the printed "Enchantment Creature" line, a chosen "creature" would discount the bestow cast too.
-        const reduction = costReductionForSpell(costReducers, card, fromZone, { spellsCastThisTurn: player.spellsCastThisTurn || 0, bestowed: true }, everyType) + selfCostReductionForSpell(state, playerId, card);
+        // `bestowed` (CLOUD KEY): the chosen-card-type reducer reads it as an enchantment spell and no creature spell.
+        const reduction = costReductionForSpell(costReducers, asCast, fromZone, { spellsCastThisTurn: player.spellsCastThisTurn || 0, bestowed: true }, false) + selfCostReductionForSpell(state, playerId, card);
         if (reduction) bestowCost = { ...bestowCost, generic: Math.max(0, (bestowCost.generic || 0) - reduction) };
-        bestowCost = applyColoredPipReduction(bestowCost, costReducers, card, everyType);
+        bestowCost = applyColoredPipReduction(bestowCost, costReducers, asCast, false);
       }
       const canAffordBestow = freeCast || canAfford(player.manaPool, manaSources(state, playerId), bestowCost);
       // X-cost bestow (Nyxborn Hydra is gated out by isNativeBestow today — its dynamic per-counter bonus

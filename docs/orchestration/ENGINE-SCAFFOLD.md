@@ -318,6 +318,18 @@ and `gameState.stampTriggeringLki` keeps its record if it leaves before the trig
 Surge), the turned-up creature (Pyrotechnic Performer), and the creature that was dealt damage (Brash Taunter's family — "it
 deals that much damage to …" on the self dealt-damage event, the amount `ctx.dealtDamageAmount`).
 
+**A referent is a scope-gated sentinel (2026-10-17 — the opponent's land, the damaged player's artifacts).** "That player" names
+a different player on every event, so it is never parsed raw: `detectTriggers` rewrites it, gated on the event AND scope that
+bind the referent, to a phrase no printed card uses, and only an atom arm reads the phrase. The landfall event now has the
+scopes `landOpponentControls` / `nonbasicLandOpponentControls` ("Whenever a [nonbasic] land an opponent controls enters" —
+Archaeomancer's Map, Polluted Bonds, Sire of Stagnation, Spectrum Sentinel): "that player" → "the triggering permanent's
+controller" (`ctx.triggeringPermanentController`, bound by `makePendingTrigger` off the entered land), in the effect and in the
+intervening "if" (interveningIf reads "the triggering permanent's controller controls more <lands|…> than you"; its parse probe
+carries the key). On `combatDamageToPlayer`, "gain control of all artifacts that player controls" → "… the damaged player
+controls" → `gain-control-all` (control.js: every permanent of the card type the damaged player controls as it resolves, through
+`controlMove.moveControl`; an Equipment stays on its host, CR 301.5d). A new sentinel: rewrite only on a scope no other reader
+keys on (or anchor the whole clause), add the atom arm, and add the `who` to coverage's `REFERENT_WHOS` fence if it is new.
+
 #### 4.4b Trigger classes beyond the event trigger (added 2026-07-25)
 
 Three kinds of trigger do NOT fire off a discrete event, and each has its own lane:
@@ -460,11 +472,16 @@ only beside `choosesCreatureTypeAsEnters`, the one chooser regex the enter site 
   reader in `manaProductionImpl` (lands included, so a refused only-line makes nothing): a
   loyalty ability (CR 606.2, 605.1a — "+1" is no cost a record pays), an ability quoted inside a sentence (the colon behind a
   trigger or an effect — Roxanne's Meteorite, Old-Growth Troll's Aura grant), an ability with a target (CR 605.1a — Deathrite
-  Shaman), an "If …," or "For each …," sentence ahead of the add (the vivid bundle excepted — Selvala, Explorer Returned), or a
-  cost item outside the positive list `PAID_MANA_COST_ITEMS` ({T} and pips, a self-sacrifice, "Pay N life", tap-other,
-  "Sacrifice a creature", exile from graveyard, exile from hand, the storage and no-{T} counter removals, a land's single-counter
-  removal and Wall of Roots' -0/-1 counter; {Q} absent). A new cost rider goes on the source record, in `tapRecordFor` AND in
-  `PAID_MANA_COST_ITEMS` — otherwise its line makes nothing.
+  Shaman; since 2026-10-17 such a line, when its effect parses HIGH, is an ordinary STACK ability instead —
+  `abilities.parseActivatedAbilities`' `targetedAdd`: offered with its target, its add-mana atom run as it resolves, never a
+  planner source), an "If …," or "For each …," sentence ahead of the add (the vivid bundle excepted — Selvala, Explorer
+  Returned), or a cost item outside the positive list `PAID_MANA_COST_ITEMS` ({T} and pips, a self-sacrifice, "Pay N life",
+  tap-other, "Sacrifice a creature", "Sacrifice a Food", exile from graveyard, exile from hand, the storage and no-{T} counter
+  removals, a land's single-counter removal and Wall of Roots' -0/-1 counter; {Q} absent). A new cost rider goes on the source
+  record, in `tapRecordFor` AND in `PAID_MANA_COST_ITEMS` — otherwise its line makes nothing. A "Sacrifice a <kind>" cost is one
+  victim kind behind `sacVictimTest` (`sacrificesCreature` — the Altars, Phyrexian Tower; `sacrificesFood` — Gilded Goose,
+  2026-10-17): the offer gate, `withoutUnfeedableSacSources`, the one-shot planner pass and the commit (least valuable victim,
+  sacrificed last in the plan) all read it; a new kind is one predicate there plus its flag on the record.
 - **Counter costs, no-{T} lines and per-turn limits (2026-10-17).** The two counter-cost lines a record pays are admitted only in
   their whole anchored line (`LAND_COUNTER_MANA_LINE_RE`, `PUT_COUNTER_MANA_LINE_RE` — manaLineRefused refuses the cost item in any
   other line): "{T}, Remove a <charge|mining|depletion> counter from this land: Add …" (`removesCounters` mode `"one"`: one
@@ -767,6 +784,13 @@ player Auras fell to the no-target push, were cast with NO target and vanished i
 A body-only one now resolves through AURA_ETB's player branch and sits on its player inert.
 The dispatcher refuses a player-Aura cast without exactly one legal player target
 (`AURA_TARGET_REQUIRED`). Witness: `playerAuraTarget.test.js`.
+
+**Cost effects read the spell as cast (2026-10-17).** The bestow lane prices its cast against `bestowedSpellView(card)` — the
+printed card with its type line set to its supertypes + "Enchantment — Aura" (CR 702.103b, 205.1a) and no creature type
+(`every` false): an Aura reducer reduces it, a creature or creature-type reducer doesn't, a noncreature tax does. A
+"<A> and <B> spells" reducer is two descriptors only over a provably disjoint pair (instant/sorcery); any other admissible pair
+(Danitha's "Aura and Equipment", Starnheim Courser's "Artifact and enchantment") is ONE `subtypes` union, reduced once, and the
+union's every-creature-type shortcut holds for creature-type words only.
 
 **Every other Aura is cast targeting a host too (2026-10-17, `auraSpellHost.js`).** An Aura that
 enchants a permanent and has no modeled lane (`isBodyOnlyAuraSpell` — the face being cast is an Aura,

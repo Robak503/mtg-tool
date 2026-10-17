@@ -36,6 +36,7 @@ import { findPermanent, logEvent, updatePermanentSafe } from "../../gameState.js
 import { atomTargets } from "./shared.js";
 import { TARGET_SUBTYPES } from "../parseHelpers.js"; // curated creature-subtype allowlist (leaf, cycle-free)
 import { moveControl } from "../../controlMove.js"; // the ONE control move, shared with controlAura.js (a zero-import leaf — no cycle)
+import { permanentHasCardType } from "../../layers.js"; // GAIN-CONTROL-ALL (Hellkite Tyrant): the card type as it is now — the import removal.js and the other atom modules make (the barrel imports both from the same place, so no new cycle)
 
 /**
  * ===== GAIN-CONTROL clause parser ===== "Gain control of target <Subtype>." / "Gain control of target
@@ -84,7 +85,50 @@ export function gainControlClauseParser(clause) {
   if (m && TARGET_SUBTYPES.has(m[1]) && m[1] !== "creature") {
     return { op: "gain-control", targetType: "creature", restrictions: [{ kind: "subtype", subtype: m[1] }] };
   }
+  // ⭐ THE DAMAGED PLAYER'S ARTIFACTS (play-weighted #745, 2026-10-17 — Hellkite Tyrant: "Whenever this creature deals combat
+  // damage to a player, gain control of all artifacts that player controls."). The sentinel phrase is written only by
+  // detectTriggers' combat-damage-to-a-player rewrite ("that player" → "the damaged player"); it appears in no printed oracle,
+  // and triggerRouting's referent gate pins who:"damagedPlayer" to the combat-damage events (coverage's fence keeps it off
+  // spells). A MASS, indefinite, untargeted control change — see applyGainControlAll.
+  if (t === "gain control of all artifacts the damaged player controls") {
+    return { op: "gain-control-all", cardType: "Artifact", who: "damagedPlayer", targetType: null };
+  }
   return null;
+}
+
+/**
+ * ===== GAIN-CONTROL-ALL (play-weighted #745 — Hellkite Tyrant) =====
+ * Every permanent the damaged player (ctx.damagedPlayerId) controls that has the card type (`atom.cardType`) as the effect
+ * resolves — the type as it is NOW (layers.permanentHasCardType: an animated or type-changed permanent counts, a removed type
+ * doesn't) — moves to the trigger's controller. The set is fixed as the effect begins (CR 611.2c); the change lasts
+ * indefinitely (CR 611.2a — no duration printed). Each permanent goes through the one control move (controlMove.moveControl —
+ * it never leaves the battlefield: counters, tapped state and attachments ride; an artifact creature is summoning-sick under
+ * its new controller, CR 302.6; an Equipment stays on the creature it equips, whose controller doesn't change, CR 301.5d).
+ * A later control effect wins over an earlier one (CR 613.7), so a stolen permanent's until-end-of-turn stash (a threaten) is
+ * cleared: nothing reverts it at cleanup. No referent (a non-combat event), the controller itself, or a seat that left the game
+ * → nothing moves (CR 800.4a).
+ */
+export function applyGainControlAll(state, atom, ctx) {
+  const controller = ctx.controller;
+  if (!state.players?.[controller]) return state;
+  const from = atom.who === "damagedPlayer" ? ctx.damagedPlayerId : null;
+  if (!from || from === controller || !state.players[from]) {
+    return logEvent(state, { kind: "spell-effect", effect: "gain-control-all", controller, from: from ?? null, moved: 0 });
+  }
+  const ids = (state.players[from].battlefield || []).filter((p) => permanentHasCardType(state, p.id, atom.cardType)).map((p) => p.id);
+  let next = state;
+  for (const id of ids) {
+    const perm = (next.players[from]?.battlefield || []).find((p) => p.id === id);
+    if (!perm) continue;
+    next = moveControl(next, id, controller, { controlOriginal: undefined, controlUntilEndOfTurn: undefined });
+    next = logEvent(next, { kind: "spell-effect", effect: "gain-control", controller, from, permanentId: id, name: perm.card?.name || null });
+    // SOULBOND teardown (CR 702.95e) — the same rule as applyGainControl's: another player gaining control unpairs it.
+    if (perm.soulbondPartner) {
+      next = updatePermanentSafe(next, perm.soulbondPartner, (p) => ({ ...p, soulbondPartner: null }));
+      next = updatePermanentSafe(next, id, (p) => ({ ...p, soulbondPartner: null }));
+    }
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "gain-control-all", controller, from, moved: ids.length });
 }
 
 export function applyGainControl(state, atom, ctx) {
@@ -170,5 +214,6 @@ export function applyRegainOwnedCreatures(state, atom, ctx) {
 
 export const controlResolvers = {
   "gain-control": applyGainControl,
+  "gain-control-all": applyGainControlAll, // play-weighted #745 — Hellkite Tyrant: every artifact the damaged player controls
   "regain-owned-creatures": applyRegainOwnedCreatures,
 };
