@@ -28,6 +28,7 @@ import {
   lastKnownIsCreature, // CR 603.10a — a look-back's creature-ness as it last existed (its layer-aware types), the one reader
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
+import { characteristicTypeLine, faceUpView } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8a / 712.8d) — every type scope reads the front face of a multi-face card
 import { grantedTriggeredQuotedFor, permanentHasKeyword, permanentPower, permanentBasePower, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, colorsOf, isModifiedPermanent, permIsEveryCreatureType, permanentIsCreature } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition; permanentIsCreature — the flipped permanent's creature-ness at the flip (checkTurnedFaceUpTriggers)
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 import { applyLifeGainReplacement } from "./replacementEffects.js"; // LIFE-GAIN replacement (CR 614.1) — read by checkLifegainTriggers so a trigger sees the life ACTUALLY gained. replacementEffects imports nothing at all, so this edge is one-way and cycle-free.
@@ -44,8 +45,11 @@ import { hasClassLevelBar, classTopView, classLiveCard } from "./classLevels.js"
 function oracleOf(card) {
   return String(card?.oracle || card?.oracle_text || "");
 }
+// THE FACE THAT IS UP (faceUp.characteristicTypeLine, CR 712.8a / 712.8d): every scope below reads a permanent, a look-back or a
+// card in a zone, never a back face up; a split card keeps both halves (CR 709.4c). The combined line made Treasure Map (an
+// artifact front face up) a land for landfall and Halvar's entering an artifact's.
 function typeStr(card) {
-  return String(card?.type || card?.type_line || "");
+  return characteristicTypeLine(card);
 }
 
 // SUBTYPE filter — a single creature subtype ("Dinosaur") OR a list ("Kraken, Leviathan, Octopus, or
@@ -4622,7 +4626,12 @@ export const CUMULATIVE_UPKEEP_LIFE_RE = /(?:^|\n)[ \t]*cumulative upkeep[ \t]*[
 /** COMMANDER STORM (stage ③ · 49): the printed self-cast trigger's effect clause, whole. */
 const COMMANDER_STORM_CLAUSE_RE = /^copy it for each time you['’]ve cast your commander from the command zone this game\.?$/i;
 
-export function detectTriggers(card) {
+export function detectTriggers(cardIn) {
+  // THE FACE THAT IS UP (faceUp.faceUpView, CR 712.8a / 712.8d): a multi-face card's triggered abilities are its front face's alone — the
+  // engine never turns a back face up, and a split card stays whole (CR 709.4c). Any other card is the same object, so the
+  // per-card cache below still keys on it.
+  // Before this the combined card's back face fired: Lambholt Elder drew off Silverpelt Werewolf's combat-damage trigger.
+  const card = faceUpView(cardIn);
   if (!card || typeof card !== "object") return [];
   if (_detectCache.has(card)) return _detectCache.get(card);
   // CLASS (CR 716.2a / 716.3): a trigger printed under a class level bar exists only while the Class is at that level
@@ -6878,10 +6887,10 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       return !!triggeringPermanent && isLandPerm(triggeringPermanent) && triggeringPermanent.controller === sourcePermanent.controller;
     case "artifactYouControl":
       // PERM-ENTERS artifact — type-line substring (CR 205.2) catches Artifact Creature; controller gate.
-      return !!triggeringPermanent && /Artifact/.test(triggeringPermanent.card?.type || triggeringPermanent.card?.type_line || "") && triggeringPermanent.controller === sourcePermanent.controller;
+      return !!triggeringPermanent && /Artifact/.test(typeStr(triggeringPermanent.card)) && triggeringPermanent.controller === sourcePermanent.controller;
     case "enchantmentYouControl":
       // PERM-ENTERS enchantment — Enchantment Creature / Aura matches too; controller gate.
-      return !!triggeringPermanent && /Enchantment/.test(triggeringPermanent.card?.type || triggeringPermanent.card?.type_line || "") && triggeringPermanent.controller === sourcePermanent.controller;
+      return !!triggeringPermanent && /Enchantment/.test(typeStr(triggeringPermanent.card)) && triggeringPermanent.controller === sourcePermanent.controller;
     case "permanentYouControl":
       // PERM-ENTERS permanent-wide (Amulet of Vigor) — the same controller gate as its siblings with NO type
       // predicate, because every permanent qualifies. The optional "entered TAPPED" narrowing is enforced as

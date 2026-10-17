@@ -204,10 +204,12 @@ describe("Brass Squire's attach: a double-faced permanent whose back face is the
     && a.targets?.find((t) => t.role === "attachment")?.id === attachment && a.targets?.find((t) => t.role === "host")?.id === host);
   const settle = (s0) => { let s = s0; for (let i = 0; i < 10 && s.stack.length && !s.pendingChoice; i++) s = resolveTopOfStack(s); return s; };
 
-  it("⭐ Halvar (offered by its printed line) stays where it is; the Bears are not equipped", () => {
+  it("⭐ Halvar is not offered (the pool reads the face that is up); an attach naming it anyway leaves it where it is", () => {
     const s0 = squireBoard();
-    const offer = attachOffer(s0, "halvar", "bears");
-    expect(offer).toBeTruthy(); // the pool reads the printed combined line — the resolution is what must hold the line
+    expect(attachOffer(s0, "halvar", "bears")).toBeUndefined(); // 2026-10-17: the pool asks what the permanent is now
+    // The Bonesplitter offer with Halvar put in its place — what the printed-line pool used to list; the resolution holds the line.
+    const real = attachOffer(s0, "bone", "bears");
+    const offer = { ...real, targets: real.targets.map((t) => (t.role === "attachment" ? { ...t, id: "halvar", name: HALVAR.name } : t)) };
     const s = settle(dispatchAction(s0, offer));
     const halvar = s.players.user.battlefield.find((p) => p.id === "halvar");
     expect({ attachedTo: halvar.attachedTo ?? null, bearsAttachments: s.players.user.battlefield.find((p) => p.id === "bears").attachments || [] })
@@ -226,36 +228,42 @@ describe("Brass Squire's attach: a double-faced permanent whose back face is the
 // ─── a back face's Aura or Equipment never moves the front face (CR 712.8d, 701.3b) ──────────────────────────────────
 
 describe("a permanent whose BACK face is the Aura or Equipment is never attached by it", () => {
-  it("⭐ every one of the 22: its Equip (the combined card prints the back face's) is refused, and Codsworth's attach moves nothing", () => {
+  it("⭐ every one of the 22: no Equip and no Codsworth attach is offered for it, and one activated anyway moves nothing", () => {
     const settle = (s0) => { let s = s0; for (let i = 0; i < 10 && s.stack.length && !s.pendingChoice; i++) s = resolveTopOfStack(s); return s; };
-    let equipExercised = 0, codsworthExercised = 0;
+    let equipOffered = 0, codsworthOffered = 0, equipExercised = 0, codsworthExercised = 0;
     const rows = BACK_ATTACHMENTS.map((card) => {
-      const s0 = board({ user: [P("x", card), P("bears", BEARS), P("cods", CODSWORTH)] });
+      const s0 = board({ user: [P("x", card), P("bears", BEARS), P("cods", CODSWORTH), P("bone", BONESPLITTER)] });
       const legal = legalActionsForPlayer(s0, "user");
       const row = { name: card.name, equip: null, codsworth: null };
-      const equip = legal.find((a) => a.isEquipAbility && a.permanentId === "x" && a.targets?.[0]?.id === "bears");
-      if (equip) {
+      // THE OFFERS (2026-10-17) read the face that is up: the activated abilities off the front face's text, Codsworth's pool by
+      // what the permanent is now — neither lists a back face's Equip or Aura.
+      equipOffered += legal.filter((a) => a.isEquipAbility && a.permanentId === "x").length;
+      codsworthOffered += legal.filter((a) => a.permanentId === "cods" && a.targets?.find((t) => t.role === "attachment")?.id === "x").length;
+      // THE RESOLVERS keep their own guard: Bonesplitter's real offers with this permanent put in Bonesplitter's place.
+      const boneEquip = legal.find((a) => a.isEquipAbility && a.permanentId === "bone" && a.targets?.[0]?.id === "bears");
+      if (boneEquip) {
         equipExercised += 1;
-        const s = settle(dispatchAction(s0, equip));
-        const last = s.log.at(-1);
+        const s = settle(dispatchAction(s0, { ...boneEquip, permanentId: "x", name: card.name }));
+        // The attach outcome (a 0/0 front face — Mirrorhall Mimic — then dies to the toughness check, logged after it).
+        const last = s.log.findLast((e) => e.kind === "attach" || e.kind === "attach-refused");
         row.equip = { kind: last?.kind, rule: last?.rule ?? null, attachedTo: s.players.user.battlefield.find((p) => p.id === "x")?.attachedTo ?? null };
       }
-      const cod = legal.find((a) => a.permanentId === "cods" && a.targets?.find((t) => t.role === "attachment")?.id === "x" && a.targets?.find((t) => t.role === "host")?.id === "bears");
-      if (cod) {
+      const boneCod = legal.find((a) => a.permanentId === "cods" && a.targets?.find((t) => t.role === "attachment")?.id === "bone" && a.targets?.find((t) => t.role === "host")?.id === "bears");
+      if (boneCod) {
         codsworthExercised += 1;
+        const cod = { ...boneCod, targets: boneCod.targets.map((t) => (t.role === "attachment" ? { ...t, id: "x", name: card.name } : t)) };
         const s = settle(dispatchAction(s0, cod));
         row.codsworth = { attachedTo: s.players.user.battlefield.find((p) => p.id === "x")?.attachedTo ?? null };
       }
       return row;
     });
-    console.log("  WITNESS back attachments", JSON.stringify({ equipExercised, codsworthExercised }));
+    console.log("  WITNESS back attachments", JSON.stringify({ equipOffered, codsworthOffered, equipExercised, codsworthExercised }));
     for (const row of rows) {
-      if (row.equip) expect({ name: row.name, ...row.equip }).toEqual({ name: row.name, kind: "attach-refused", rule: "CR 701.3b", attachedTo: null });
-      if (row.codsworth) expect({ name: row.name, ...row.codsworth }).toEqual({ name: row.name, attachedTo: null });
+      expect({ name: row.name, ...row.equip }).toEqual({ name: row.name, kind: "attach-refused", rule: "CR 701.3b", attachedTo: null });
+      expect({ name: row.name, ...row.codsworth }).toEqual({ name: row.name, attachedTo: null });
     }
-    // COVERAGE WITNESS — the offers read the printed combined card (a separate queued item), so both paths are exercised today:
-    // six cards print a back-face Equip the offer lists, and Codsworth's pool (the printed line's Aura or Equipment) lists all 22.
-    // When the offers read the face that is up, these counts fall and this test must be revisited, never deleted.
-    expect({ equipExercised, codsworthExercised }).toEqual({ equipExercised: 6, codsworthExercised: 22 });
+    // COVERAGE WITNESS — the offers list none of them (before 2026-10-17: six back-face Equips and all 22 in Codsworth's pool), and
+    // both resolvers were driven for every one.
+    expect({ equipOffered, codsworthOffered, equipExercised, codsworthExercised }).toEqual({ equipOffered: 0, codsworthOffered: 0, equipExercised: 22, codsworthExercised: 22 });
   });
 });

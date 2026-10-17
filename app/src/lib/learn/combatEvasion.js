@@ -68,6 +68,7 @@
  */
 import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, permIsEveryCreatureType, deriveCharacteristics, permanentHasCardType } from "./layers.js";
 import { findPermanent, creaturePower } from "./gameState.js";
+import { faceUpView } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the evasion text is the front face's
 import { hasCitysBlessing } from "./ascend.js"; // shelf D5 — "can't attack or block unless you have the city's blessing"
 import { parseGroupBlockRestriction, attachedPreventionOf } from "./staticAbilityParser.js";
 
@@ -107,7 +108,10 @@ function escapeRegExp(s) {
 // "this creature" so a self-clause printed with the card name ("Invisible Stalker can't be
 // blocked.") reads identically to the templated "This creature can't be blocked." \b-anchored so
 // a short name can't match inside another word.
-const selfOracle = memoByCardText((card) => String(card?.oracle || ""), selfOracleUncached);
+// THE FACE THAT IS UP (faceUp.faceUpView, CR 712.8d): a multi-face permanent's evasion text is its front face's — Tangleclaw
+// Werewolf had to be blocked by Fibrous Entangler's "must be blocked if able".
+const selfOracleMemo = memoByCardText((card) => String(card?.oracle || ""), selfOracleUncached);
+const selfOracle = (card) => selfOracleMemo(faceUpView(card));
 
 /**
  * TEXT MEMO (2026-10-04) — the readers in this file are pure functions of a card's NAME and rules TEXT, and the block

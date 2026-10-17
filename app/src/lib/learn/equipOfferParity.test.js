@@ -221,30 +221,32 @@ describe("Equip offer — a target the resolver refuses is not offered (CR 702.1
   });
 });
 
-describe("a creature Equipment without reconfigure (CR 301.5c): the Equip is legal, does nothing, and the AI does not take it", () => {
+describe("Halvar, God of Battle front face up has no Equip; the resolver and the AI's pick still refuse one", () => {
   const halvarBoard = (controller = "user") => {
     const mine = [P("halvar", HALVAR, controller), P("bears", BEARS, controller), P("bone", BONESPLITTER, controller), P("blades", BLADES, controller)];
     return board({ [controller]: mine, active: controller });
   };
+  /** An Equip activation for Halvar built from Bonesplitter's real offer — what the combined card used to offer (2026-10-17: the
+   *  offer reads the face that is up, so nothing lists it now; the resolver and the pick keep their own guard). */
+  const halvarEquip = (s, pid, target) => ({ ...equipOffers(s, pid, "bone").find((a) => a.targets[0].id === target), permanentId: "halvar", name: HALVAR.name });
 
-  it("Halvar, God of Battle (a creature carrying its Equipment face's Equip): the activation is refused at resolution (CR 701.3b)", () => {
+  it("Halvar offers no Equip (its front face prints none, CR 712.8d); an Equip activation for it is refused at resolution (CR 701.3b)", () => {
     const s = halvarBoard();
-    expect(equipTargets(s, "user", "halvar")).toEqual(["bears", "blades"]); // activating is legal; attachLegality.test.js pins the same for a crewed Rover Blades
-    const after = resolveAll(dispatchAction(s, equipOffers(s, "user", "halvar")[0]));
-    // Front face up, Halvar is a God and no Equipment at all (CR 712.8d), so the attach moves nothing (CR 701.3b). The rule read
-    // CR 301.5c while the derive took the back face's Equipment off the combined type line (2026-10-16).
+    expect(equipTargets(s, "user", "halvar")).toEqual([]);
+    const after = resolveAll(dispatchAction(s, halvarEquip(s, "user", "bears")));
+    // Front face up, Halvar is a God and no Equipment at all (CR 712.8d), so the attach moves nothing (CR 701.3b).
     expect(after.log.at(-1)).toMatchObject({ kind: "attach-refused", rule: "CR 701.3b" });
     expect(findPerm(after, "halvar").attachedTo ?? null).toBeNull();
   });
 
-  it("the AI's own pick never takes Halvar's Equip, and still equips the ordinary Equipment", () => {
+  it("the AI's own pick never takes an Equip for Halvar, and still equips the ordinary Equipment", () => {
     const s = halvarBoard("ai");
     const legal = legalActionsForPlayer(s, "ai");
-    expect(legal.some((a) => a.isEquipAbility && a.permanentId === "halvar")).toBe(true);
+    expect(legal.some((a) => a.isEquipAbility && a.permanentId === "halvar")).toBe(false);
     const pick = pickAction(s, "ai", legal);
     expect({ kind: pick.kind, source: pick.permanentId, equip: pick.isEquipAbility }).toEqual({ kind: "activate-ability", source: "blades", equip: true });
-    // With only Halvar's Equip left to take, the AI takes no Equip at all.
-    const onlyHalvar = legal.filter((a) => !a.isEquipAbility || a.permanentId === "halvar");
+    // With only an Equip for Halvar to take (one handed to the pick), the AI takes no Equip at all.
+    const onlyHalvar = [...legal.filter((a) => !a.isEquipAbility), halvarEquip(s, "ai", "bears")];
     expect(pickAction(s, "ai", onlyHalvar)?.isEquipAbility ?? false).toBe(false);
     // Halvar FIRST in the pick's id order: it is skipped, and the Equipment after it is still taken.
     const first = board({ active: "ai", ai: [P("a-halvar", HALVAR, "ai"), P("bears", BEARS, "ai"), P("bone", BONESPLITTER, "ai")] });

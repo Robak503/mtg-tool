@@ -7,6 +7,7 @@
  */
 
 import { findPermanent, creaturePower, creatureToughness, opponentsOf } from "../../gameState.js";
+import { characteristicTypeLine } from "../../faceUp.js"; // THE FACE THAT IS UP (CR 712.8a) — a graveyard card's type line for the counts
 import { MASS_WIPE_SCOPES } from "../../targetTypes.js"; // leaf module (pure strings) — no cycle; feeds the atomTargets drift guard below
 import { permanentIsCreature, permanentHasCardType, permanentHasTypeWord, permanentTypes, permanentCreatureTypes, domainCount, partyCount, permIsEveryCreatureType, deriveCharacteristics, permanentManaValue } from "../../layers.js"; // + permanentHasTypeWord (the type-line audit): a subtype filter reads the permanent as it is now // + permanentHasCardType (#651): the layer-aware, face-up land read of the opponents' nonland set // + deriveCharacteristics (#587): a permanent's copiable values + layer-4 types for the nonland mana-value set // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import) // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
 import { creatureSatisfiesRestrictions } from "../../creatureRestrictions.js"; // the SHARED 16-kind restriction satisfier (leaf: gameState + layers + keywords only — every one of those edges already exists above, so no cycle)
@@ -587,9 +588,10 @@ export const effectiveAmount = (atom, ctx) => halveAmount(atom.amountX ? ctx.xVa
 // cards in your hand. The matcher (countMatches) reads the same `card.type` line as isCreatureCard, so an
 // Artifact Creature correctly counts for both "creatures" and "artifacts" (it IS both, CR 305.4-ish).
 // A PERMANENT is never read here directly: every battlefield scope asks countMatchesPerm (below), which adds the face
-// that is up and every creature type. This printed read is left to the cards in a graveyard.
+// that is up and every creature type. This printed read is left to the cards in a graveyard — the FRONT FACE's types (CR 712.8a,
+// faceUp.characteristicTypeLine: a Westvale Abbey is no creature card for Gnaw to the Bone), a split card's both halves (CR 709.4c).
 export function countMatches(card, spec) {
-  const type = String(card?.type || card?.type_line || "");
+  const type = characteristicTypeLine(card);
   if (spec.subtype) return new RegExp(`\\b${spec.subtype}\\b`).test(type);   // basic-land subtype (Mountain…)
   // ===== TREASURE-MAKER ===== a UNION of card types — "artifacts and enchantments" (Dockside Extortionist).
   // A permanent matching ANY listed type counts ONCE (CR 305.4: an Artifact Creature that's also an

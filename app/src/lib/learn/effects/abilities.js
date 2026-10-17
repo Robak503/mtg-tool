@@ -23,6 +23,7 @@
 
 import { parseEffectClause, programConfidence, programNeedsChosenTarget } from "./parser.js";
 import { parseLeveler, isLevelerFrame } from "../leveler.js";
+import { faceUpView } from "../faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — a multi-face card's activated abilities are its front face's
 import { hasClassLevelBar, parseClassFrame, classCardModeled } from "../classLevels.js"; // CLASS (CR 716) — a zero-import leaf
 // CONDITION rider (CR 602.5d) — the metric⇄runtime shared shape gate. interveningIf.js imports only
 // gameState.js (which does NOT import this module), so this edge is acyclic.
@@ -1145,7 +1146,13 @@ export function expandOutlastLines(oracle) {
     return m ? `${m[1]}, {T}: Put a +1/+1 counter on this creature. Activate only as a sorcery.` : ln;
   }).join("\n");
 }
-export function parseActivatedAbilities(card) {
+export function parseActivatedAbilities(cardIn) {
+  // THE FACE THAT IS UP (faceUp.faceUpView, CR 712.8a / 712.8d): a multi-face card's activated abilities are its front face's alone — the
+  // engine never turns a back face up, and a split card stays whole (CR 709.4c). Any other card is the same object, so the
+  // per-card cache below still keys on it.
+  // Before this the offer listed the back face's: Halvar, God of Battle its Sword's Equip, Chalice of Life "{T}: Target player
+  // loses 5 life", Treasure Map Treasure Cove's draw, Neglected Heirloom Ashmouth Blade's Equip {3}.
+  const card = faceUpView(cardIn);
   // ABILITY-WORD LABEL on an ACTIVATED line (CR 207.2c — "Sleight of Hand — {8}: Draw two cards.", the CLB
   // Invokers; "Come Fly With Me — {2}, Sacrifice a creature: …", Jason Bright): a TRUE ability word carries
   // NO rules meaning, so strip a leading "<Words> — " when a BRACE COST follows the dash. CRITICAL GATE

@@ -128,7 +128,9 @@ function sweepAttachmentLegality(state) {
         }
         else if (!enchantM) legal = true;
         else if (enchantM[1] === "creature") legal = permanentIsCreature(next, host.permanent.id);
-        else if (enchantM[1] === "land") legal = /\bLand\b/.test(String(host.permanent.card?.type || host.permanent.card?.type_line || ""));
+        // A land NOW (layer-aware, the face that is up — CR 712.8d), like the creature and artifact arms: a Treasure Map is an
+        // artifact whose combined line carries Treasure Cove's Land, and an Enchant-land Aura on it stayed (CR 704.5m).
+        else if (enchantM[1] === "land") legal = permanentHasCardType(next, host.permanent.id, "Land");
         else legal = true; // "Enchant permanent"
       }
       if (!legal) {

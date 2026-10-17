@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **62 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,436)**; engine gains since the tag: **−31** (+50 gained, −81 false credit removed). The next tag
+> **63 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,436)**; engine gains since the tag: **−31** (+50 gained, −81 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,60 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX: a double-faced permanent is its face that is up everywhere — keywords, activated / triggered / static abilities, evasion text, trigger scopes, graveyard counts, sickness, legend rule, attach lanes (CR 712.8a, 712.8d) · **±0** · corpus unchanged
+> Suite **19,621 green (1 skipped) / 1,818 files** under the gate queue. Lint 0 (CR citations: 0 of 10,519 name no rule). Flip-diff **0 / 0 / 0** (34,620
+> cards; before = an untouched `git archive` of 72e05f63); a classify probe over all 957 combined (" // ") cards moves none either.
+> `runtime-fingerprint.mjs` **before = after (34,620 rows, 0 differ)**. **Mutants 23/23** on assertions, each restored byte-identical (sha256).
+> · **The bug** (the 10-16 DFC slices' found-not-fixed list, and wider): in-game multi-face cards carry Scryfall's COMBINED type line,
+>   oracle (both face blocks) and `keywords` (both faces'). The derive and the mana model read the face that is up (7f46eff1,
+>   ff9a5c3c); every other reader read the whole card. Measured on the bundled snapshot: 146 of 822 non-split combined cards had a
+>   back face's keyword (131 a combat keyword) — Westvale Abbey Ormendahl's flying / lifelink / indestructible / haste, Tony Stark
+>   flying + haste, Bruce Banner reach + trample, King T'Challa double strike; 193 back-face activated abilities were parsed as the
+>   front's (offered: Chalice of Life "{T}: Target player loses 5 life", Treasure Map's Treasure Cove draw, Neglected Heirloom's
+>   Equip {3}, Halvar's Sword Equip, Jerren's sacrifice-draw); 126 back-face triggers (Lambholt Elder drew on combat damage); 39
+>   cards' back-face statics (Bloodline Keeper's Vampire anthem, Liliana's Other Contract "you can't lose the game", Duskwatch
+>   Recruiter's creature discount, Emet-Selch's graveyard → exile, Heliod's flash permission); evasion text (Tangleclaw Werewolf
+>   had to be blocked); and type reads — Hostile Hostel couldn't tap the turn it was played (summoningSickNow + manaSources read
+>   "Creature"), Treasure Map / Growing Rites / the Ojer gods fired landfall, Halvar's entering was an artifact's and Dorothea's an
+>   enchantment's, two Westvale Abbeys met the legend rule, an Enchant-land Aura stayed on a Treasure Map, Captain America's Catch
+>   and Codsworth's pools listed Halvar / Dorothea, and a graveyard Westvale Abbey was a creature card and two delirium types.
+> · **The fix**: one leaf, `faceUp.js` — `faceUpTypeLine` (moved from layers.js, re-exported there), `characteristicTypeLine`
+>   (a type-word read in any zone; a split card stays whole, CR 709.4c) and `faceUpView` (front type + text, NO keyword array —
+>   Scryfall's can't say which face prints which; any other card returned as the same object, the view memoized, so the per-card
+>   caches still hit). Applied at the chokepoints: inside `detectTriggers`, `parseStaticAbilities`, `parseActivatedAbilities` and
+>   `keywords.hasKeyword`; layers' printed-host-keyword gate (Solid Footing); `combatEvasion.selfOracle`; `triggers.typeStr` + the
+>   artifact / enchantment perm-enters scopes; `interveningIf.typeStr`; the graveyard counts (layers `countGraveyardSpec`, shared
+>   `countMatches`); `layers.summoningSickNow` + manaSources' sickness choice; `gameState.lastKnownIsCreature`'s fallback and the
+>   legend rule; spellEffects' `equipmentYouControl` / `auraOrEquipmentYouControl` pools (layer-aware `permanentHasTypeWord`);
+>   sba's Enchant-land host (layer-aware). The Equip OFFER now asks `layers.cannotEquipNow` like the resolver and the pick (so a
+>   crewed Rover Blades no longer offers a do-nothing Equip — ENGINE-SCAFFOLD §4.8 updated); `applyAttachToSelf` gained the
+>   attach-pair's `cannotEquipNow` guard.
+> · **Westvale's entry-turn {C}** (the CAUTION): it used to tap only because of the leaked haste — the sickness pair read the
+>   combined line's "Creature" and the entry stamp (summoningSick:true). With both reads face-up it taps for {C} and offers its {T}
+>   token ability the turn it is played with no haste (control test); Hostile Hostel now does too (CR 302.6).
+> · **Did not reproduce at 72e05f63** (pinned as controls): Soul Warden on a played / put Westvale Abbey (the live enter scopes read
+>   the live permanent through the derive; only a look-back with no `lkiTypes` reached the combined-line fallback — fixed, unit
+>   witness); Ashnod's Altar / Springleaf Drum on a Westvale Abbey (already `permanentHasCardType` since the type-line audit).
+> · **Witness** `dfcFaceUpSweep.test.js` (33): 25 failed at 72e05f63 on assertions, 8 controls held (a printed flier, Dorothea's own
+>   flying, a split card's aftermath and both card types, Westvale's entry-turn tap, Soul Warden on a creature, Lunarch Veteran's own
+>   trigger, Altar, Drum). Updated pins that asserted the bug: equipOfferParity (Halvar's Equip was offered), attachLegality (a
+>   crewed Rover's Equip was offered), dfcFaceUpDerive (Brass Squire / Codsworth pools listed Halvar; the 22 back-attachment rows now
+>   assert the offers list none AND drive both resolvers for all 22 with a hand-built activation).
+> · **⚑ Epoch (AI play changes):** decks holding affected DFCs — Joe: Captain America (Halvar, Tony Stark, King T'Challa), Kellan (Aang,
+>   Yangchen), Dragons (Invasion of Tarkir), Hulk Smash (Bruce Banner), Jurassic Ramp (Welcome to . . .), Earth Bent (Kyoshi);
+>   Omnath: Shalai and Hallar (Miles Morales), Shorikai (Cosima), Nekusar (Ojer Axonil, Tergrid); Colton: Squirrel Girl (Duskwatch,
+>   Itlimoc, Invasion of Ikoria), cdh (Ikoria, Itlimoc), Killer Turts (Ikoria), Veyran / Omnath Locus (Ojer). Every deck with a modal
+>   spell // land card counts it as its front face in the graveyard (delirium / threshold / land-card counts). Action sets change
+>   (back-face activations and the crewed-Equipment Equip are gone).
+> · ⚠️ Found, not fixed (raw combined reads, each low-reach; full list in the integrator report): triggers.js inline reads (orphaned
+>   Aura 7473, `triggeringWasCreature`, attacker / company subtype, sacrifice subtype / artifact scope, tap-for-mana and
+>   ability-activated filters); the entry `summoningSick` stamps (masked now); sba's attachment type + Enchant-line reads;
+>   combatEvasion `groupBlockRestrictionOf`; legalChoices' Equip-legendary quality, unattach pool, Vehicle crew gate, emerge / alt-cost
+>   / return-land subtype pools, spend-restriction `activatingTypeLine`, graveyard / hand cost-type matchers; manaModel's tap-other
+>   subtype word, Crypt Ghast swamp, snow; the atoms' raw `isLandCard` / `isCreatureCard` pools (sacLand, iteratedEdict, control,
+>   runProgram, shared); spellEffects' stale skip of every multi-face permanent from native removal pools (FN); `isPlaneswalker`'s
+>   any-face read; the AI heuristics and library / reveal reads.
 
 > ## 🔧 2026-10-17 — FIX: a group one instruction removes leaves as ONE event — the minted tokens' end-step sacrifice / exile, a cost of N permanents, Gush's Islands, Cosmic Larva's and Planar Engineering's lands · **±0** · corpus 15,494
 > Suite **19,624** green (1 skipped) / 1,819 files. Lint 0 (CR citations: 0 of 10,493 name no rule). Flip-diff **0 / 0 / 0**

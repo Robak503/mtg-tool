@@ -268,6 +268,11 @@ function applyAttachToSelf(state, atom, ctx) {
   let next = state;
   for (const t of ctx.targets || []) {
     if (!t?.id) continue;
+    // CR 301.5c / 701.3b — the attach-pair atom's guard (below): an object that is no Equipment right now (a multi-face
+    // permanent whose back face is the Equipment — Halvar, God of Battle, front face up a God, CR 712.8d) or an Equipment that
+    // is a creature without reconfigure doesn't move. Re-read at resolution, so an Equipment that stopped being one since
+    // the target was chosen stays where it is too.
+    if (cannotEquipNow(next, t.id)) continue;
     next = attachPermanent(next, { equipId: t.id, targetId: ctx.sourceId });
     next = logEvent(next, { kind: "spell-effect", effect: "equip-attach", equipId: t.id, targetId: ctx.sourceId, controller: ctx.controller });
   }

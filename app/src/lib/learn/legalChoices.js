@@ -33,7 +33,7 @@ import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower,
 import { canAfford, manaSources, manualManaTaps, payActivationFromPool, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // SELF-METRIC-COST-REDUCTION: a live count read at cast announce
 import { hasKeyword } from "./keywords.js";
-import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord } from "./layers.js"; // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
+import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord, cannotEquipNow } from "./layers.js"; // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell's every-creature-type answer for the cost readers; a leaf (keywords.js only)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
@@ -2717,6 +2717,11 @@ function actionsActivateAbility(state, playerId) {
       // in response to a spell already on the stack. One action per legal creature target.
       if (ab.isEquipAbility) {
         if ((state.stack?.length || 0) > 0) continue;
+        // CR 301.5c / 701.3b — an Equip whose source can't equip a creature right now is not offered: the resolver refuses it
+        // (resolvers.ATTACH) and the AI's pick skips it, both through layers.cannotEquipNow, so the offer asks the same read —
+        // a source that is no Equipment now (a multi-face permanent whose back face is the Equipment) or an Equipment that is a
+        // creature without reconfigure (a crewed Rover Blades). An Aura attach (isAuraAttach) is the Aura's own lane.
+        if (!ab.isAuraAttach && cannotEquipNow(state, perm.id)) continue;
         // SHELF-85 V15 (Detainment Spell's "Attach this Aura to target creature"): an Aura may be moved onto ANY
         // creature ("Enchant creature"), an opponent's included — so the pool is every battlefield; Equip stays yours.
         const pool = ab.isAuraAttach

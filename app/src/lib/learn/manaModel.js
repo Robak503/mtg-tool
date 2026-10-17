@@ -2296,7 +2296,9 @@ export function manaSources(state, playerId) {
     if (prod.requiresMaxSpeed && (player.speed || 0) < 4) continue;
     // The PRINTED card, deliberately (not the copy): it picks which sickness read applies — a printed creature's stamped flag,
     // or the layer-aware summoningSickNow for everything else, which is the read that sees a land that became a creature copy.
-    const isCreature = /Creature/.test(typeLineOf(perm.card));
+    // Its FACE THAT IS UP (CR 712.8d) — the pair of layers.summoningSickNow's printed arm: Hostile Hostel's combined line says
+    // "Creature", and the land could not tap the turn it was played.
+    const isCreature = /Creature/.test(faceUpTypeLine(perm.card));
     // GRANTED Haste counts (read through the layer engine), not just printed — a mana dork
     // enchanted/anthemed with Haste can tap the turn it enters. Falls back to the printed
     // seed when there are no continuous effects (the common case), so the hot path is cheap.

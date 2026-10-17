@@ -1123,7 +1123,9 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // source creature (ctx.sourceId).
   else if (effect.targetType === "equipmentYouControl") {
     for (const perm of state.players[controllerId]?.battlefield || []) {
-      if (/\bEquipment\b/.test(String(perm.card?.type || perm.card?.type_line || ""))
+      // An Equipment NOW (layers.permanentHasTypeWord — the face that is up, CR 712.8d): Halvar, God of Battle is a God whose
+      // combined line carries its Sword's Equipment, and Captain America's Catch attached Halvar to him.
+      if (permanentHasTypeWord(state, perm.id, "Equipment")
           && targetable(perm, controllerId)) {
         out.push({ type: "permanent", id: perm.id, controller: controllerId, name: perm.card?.name });
       }
@@ -1136,8 +1138,9 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // is an artifact subtype, so one word-bounded type-line test covers both.
   else if (effect.targetType === "auraOrEquipmentYouControl") {
     for (const perm of state.players[controllerId]?.battlefield || []) {
-      const tl = String(perm.card?.type || perm.card?.type_line || "");
-      if ((/\bEquipment\b/.test(tl) || /\bAura\b/.test(tl))
+      // An Aura or an Equipment NOW (the face that is up, CR 712.8d): Dorothea, Vengeful Victim (an Aura back face) and Halvar (an
+      // Equipment back face) are creatures front face up — offered here before, then refused at resolution (CR 701.3b).
+      if ((permanentHasTypeWord(state, perm.id, "Equipment") || permanentHasTypeWord(state, perm.id, "Aura"))
           && targetable(perm, controllerId)) {
         out.push({ type: "permanent", id: perm.id, controller: controllerId, name: perm.card?.name });
       }

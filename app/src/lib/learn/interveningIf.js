@@ -82,6 +82,7 @@ import { creaturePower, creatureToughness, findPermanent } from "./gameState.js"
 // `node --input-type=module -e "import './src/lib/learn/legalChoices.js'"` per the RUN-LEDGER's mandate — a
 // green suite is NOT evidence the module graph still loads (vitest resolves in a different order than node).
 import { permanentHasKeyword, permanentColors, permanentIsCreature, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord } from "./layers.js"; // + permanentIsCreature (P·32 — Selvala: every OTHER creature, layer-aware) // + permIsEveryCreatureType (P·39) // + permanentHasCardType (#511 — a card type a layer-4 effect added: Liquimetal Torque's artifact) // + permanentHasTypeWord (the type-line audit — one exact read for a type word)
+import { characteristicTypeLine } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8a / 712.8d) — every condition's type read
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a graveyard card that is every creature type (Changeling, its owner's Maskwood Nexus) for "there is an Elf card in your graveyard"; a leaf over keywords.js
 import { hasCitysBlessing } from "./ascend.js"; // shelf D5 — the city's blessing designation (ascend.js imports only gameState)
@@ -101,8 +102,11 @@ function parseCount(token) {
 // a word the regex matches always has a value: parseCount never returns null for a NUM_RE capture.
 const NUM_RE = `(\\d+|${Object.keys(NUM_WORD).join("|")})`;
 
+// THE FACE THAT IS UP (faceUp.characteristicTypeLine): every condition here reads a battlefield permanent, a look-back or a card in
+// a graveyard — a multi-face card's front face (CR 712.8a, 712.8d), a split card's both halves (CR 709.4c). A Westvale Abbey in a
+// graveyard was a land AND a creature card for delirium.
 function typeStr(card) {
-  return String(card?.type || card?.type_line || "");
+  return characteristicTypeLine(card);
 }
 
 // The CARD TYPES (CR 205.2a) delirium counts. Kindred is Tribal's current name for the SAME type, so both

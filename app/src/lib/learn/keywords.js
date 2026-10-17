@@ -12,7 +12,13 @@
  * lords, anthems, equipment) are a continuous-effects feature — deferred to the
  * cardEffects registry. Detection is intentionally conservative: a miss means a
  * keyword doesn't apply (safe), never a fabricated ability.
+ *
+ * THE FACE THAT IS UP (2026-10-17): a multi-face card is read as faceUp.faceUpView — its front face's text, and none of
+ * Scryfall's `keywords` array, which lists both faces' keywords together (CR 712.8a, 712.8d). A split card stays whole
+ * (CR 709.4c). Before this, 146 front faces had a back face's keyword: a played Westvale Abbey was flying, lifelink,
+ * indestructible and hasty (Ormendahl's), Lunarch Veteran flew (Luminous Phantom's).
  */
+import { faceUpView } from "./faceUp.js";
 
 // Evergreen + common combat keywords the engine models.
 export const COMBAT_KEYWORDS = [
@@ -151,8 +157,9 @@ const LEVEL_BAND_SPLIT_RE = /(?:^|\n)LEVEL \d+(?:-\d+|\+)\s*(?:\n|$)/;
  * (LEVEL band headers present) only the text above the first band is consulted — band
  * keywords are counter-gated statics, not printed keywords (CR 711.2a).
  */
-export function hasKeyword(card, keyword) {
-  if (!card || !keyword) return false;
+export function hasKeyword(cardIn, keyword) {
+  if (!cardIn || !keyword) return false;
+  const card = faceUpView(cardIn); // the face that is up — never a back face's keyword (CR 712.8a, 712.8d)
 
   const oracle = card.oracle || card.oracle_text || "";
   const bandSplit = oracle ? oracle.search(LEVEL_BAND_SPLIT_RE) : -1;

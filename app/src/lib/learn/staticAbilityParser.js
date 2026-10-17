@@ -25,6 +25,7 @@ import { stripFlashPermissionLine, stripAbilityWordLabel } from "./effects/textN
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword, hasKeyword } from "./keywords.js";
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — Root Sliver's "Sliver spells": a spell's every-creature-type answer; a leaf (keywords.js only)
 import { isLevelerFrame } from "./leveler.js"; // LV-1 — the leveler frame detector (leaf module, no cycle)
+import { faceUpView } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — a multi-face card's statics are its front face's
 import { classLiveCard } from "./classLevels.js"; // CLASS (CR 716.2a) — the play-from-top permission reads a modeled Class's level view (a zero-import leaf)
 import { isAttackTaxClause, parseAttackTax } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — a pure leaf, shared with the runtime so metric and game agree
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // the closed creature-subtype vocabulary, imported from the LEAF (never through targeting.js — that edge crashes module init; see creatureTypes.js)
@@ -5271,7 +5272,13 @@ function parseLieutenantStatic(clause) {
 let selfGraveyardCastConditionReader = null;
 export function registerSelfGraveyardCastConditionReader(fn) { selfGraveyardCastConditionReader = typeof fn === "function" ? fn : null; }
 
-export function parseStaticAbilities(card) {
+export function parseStaticAbilities(cardIn) {
+  // THE FACE THAT IS UP (faceUp.faceUpView, CR 712.8a / 712.8d): a multi-face card's static abilities are its front face's alone — the
+  // engine never turns a back face up, and a split card stays whole (CR 709.4c). Any other card is the same object, so the
+  // per-card cache below still keys on it.
+  // Before this the combined card's back face applied: Bloodline Keeper's Vampire anthem, Duskwatch Recruiter's creature
+  // discount, Emet-Selch's graveyard-to-exile replacement, Heliod's flash permission, Liliana's Other Contract's "you can't lose".
+  const card = faceUpView(cardIn);
   const slot = _cardSlot(card);
   if (slot && "statics" in slot) return slot.statics;
   const rawOracle = String(card?.oracle || card?.oracle_text || "");

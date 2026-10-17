@@ -69,10 +69,13 @@ describe("the Equip lane — CR 301.5c", () => {
     expect({ attachedTo: onBoard(out, "rover").attachedTo, attachLogged: logged(out, (e) => e.kind === "attach") }).toEqual({ attachedTo: "bear", attachLogged: true });
   });
 
-  it("⭐ a CREWED Rover Blades (an artifact creature, no reconfigure) pays Equip {4} and nothing attaches — logged as refused, never as an attach", () => {
+  it("⭐ a CREWED Rover Blades (an artifact creature, no reconfigure) offers no Equip; one activated anyway attaches nothing — logged as refused", () => {
     const crewed = crew(base());
     expect(permanentIsCreature(crewed, "rover")).toBe(true);
-    const out = resolveTopOfStack(dispatchAction(crewed, equipAct(crewed, "rover", "bear")));
+    // The offer asks layers.cannotEquipNow, as the resolver does (2026-10-17); the activation below is the uncrewed offer, paid
+    // after the crew — the resolver keeps its own guard.
+    expect(equipAct(crewed, "rover", "bear")).toBeUndefined();
+    const out = resolveTopOfStack(dispatchAction(crewed, equipAct(base(), "rover", "bear")));
     const result = { attachedTo: onBoard(out, "rover").attachedTo ?? null, bearAttachments: onBoard(out, "bear").attachments || [],
       attachLogged: logged(out, (e) => e.kind === "attach"), refusal: (out.log || []).find((e) => e.kind === "attach-refused")?.rule ?? null };
     expect(result).toEqual({ attachedTo: null, bearAttachments: [], attachLogged: false, refusal: "CR 301.5c" });

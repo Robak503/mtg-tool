@@ -30,6 +30,7 @@ import { printedPower, printedToughness, counterPowerDelta, counterToughnessDelt
 import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, permanentColors, playerCantGainLife, playerEmptyDrawWins, legendRuleExemptFor, PERMANENT_TYPE_RE } from "./layers.js";
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
+import { faceUpTypeLine } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the look-back fallback and the legend rule read the front face's type line
 import { applyCounterDoubling, millMultiplier, playerCounterAdditive, applyLifeGainReplacement, drawMultiplier } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
 import { auraHasTotemArmor, grantsUmbraArmorToAuras, isAuraCard, othersEnterWithCounters, exilesCreaturesItDamaged, exilesOpponentCreaturesOnDeath, lifeFloorOf, graveyardExileSpecOf } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.89; + the Umbra Mystic grant, shelf D43) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
 import { applyControlAuraAttach, revertControlAura } from "./controlAura.js"; // CR 613.1b control Auras — a ZERO-IMPORT leaf, so this lowest-layer module can call it without a cycle
@@ -2700,13 +2701,14 @@ export function deathEventKind(lookback) {
  * type-line audit): a God below its devotion, a bestowed Aura, an attached reconfigure Equipment and a slumbering Arixmethes are
  * not creatures, so a Purphoros entering below its devotion fires no Soul Warden, and an animated land or a crewed Vehicle is one.
  * Permanent ids are minted fresh on every entry, so an id the battlefield holds is that object. Anything else (a hand-built death
- * entry, no state) answers by its card's type line. The one reader for the creature scopes of every trigger (triggers.isCreaturePerm)
- * and the deaths-this-turn tally.
+ * entry, no state) answers by its card's type line — the FACE THAT IS UP's (CR 712.8d): a Westvale Abbey look-back is a land, never
+ * the back face's creature a Soul Warden would gain life for. The one reader for the creature scopes of every trigger
+ * (triggers.isCreaturePerm) and the deaths-this-turn tally.
  */
 export function lastKnownIsCreature(lookback, state = null) {
   if (Array.isArray(lookback?.lkiTypes)) return lookback.lkiTypes.includes("Creature");
   if (state && lookback?.id && findPermanent(state, lookback.id)) return permanentIsCreature(state, lookback.id);
-  return /\bCreature\b/.test(String(lookback?.card?.type || lookback?.card?.type_line || ""));
+  return /\bCreature\b/.test(faceUpTypeLine(lookback?.card));
 }
 
 /**
@@ -2815,7 +2817,9 @@ export function applyLegendRule(state) {
   for (const [pid, player] of Object.entries(state.players)) {
     const byName = new Map();
     for (const perm of player.battlefield) {
-      const type = String(perm.card?.type || perm.card?.type_line || "");
+      // The FACE THAT IS UP (CR 712.8d): Westvale Abbey's combined line carries Ormendahl's "Legendary", and two Abbeys met the
+      // rule — a permanent put into the graveyard that the rule never touches.
+      const type = faceUpTypeLine(perm.card);
       if (!/\bLegendary\b/.test(type)) continue;
       // ⭐ LEGEND-RULE EXEMPTION (CR 704.5j) — Mirror Gallery / Mirror Box / Council of Reeds / Cadric.
       // ⛔ Skipped at the GROUPING step, not at the destroy step, and that is deliberate: an exempt permanent

@@ -592,9 +592,12 @@ Puresteel Paladin's "equip {0}" removes the cost that used to bound it. Two rule
 follow. A target the resolver's CR 608.2b re-check would refuse is not a legal
 target, so the OFFER must make the same check with the same inputs — the Equip
 offer's `canBeTargetedBy` carries the source's colours, as `resolvers.ATTACH` does
-(CR 702.16b). An activation that is legal but does nothing stays offered and the
-PICK skips it — a creature Equipment without reconfigure (CR 301.5c / 701.3b;
-`layers.equipmentBarredAsCreature`). Witness: `equipOfferParity.test.js`.
+(CR 702.16b). An Equip whose source can't equip a creature right now — no
+Equipment now, or a creature Equipment without reconfigure (CR 301.5c / 701.3b) —
+is not offered either (2026-10-17; before, it stayed offered and only the pick
+skipped it): the offer, the resolver and the AI's pick all ask
+`layers.cannotEquipNow`, and the pick keeps its skip for an Equip handed to it from
+elsewhere. Witnesses: `equipOfferParity.test.js`, `attachLegality.test.js`.
 
 **Commander color identity (`commanderIdentity.js`).** Stamped on the seat at game
 start from the commander cards' `colorIdentity`, which the deck enrichment
@@ -705,6 +708,18 @@ pass fixed four of these; they are the template for what to look for:
   self-noun list (CR 700.7) plus the noun-less "this <event verb>" subject; a trailing
   "this turn" with no self is a delayed trigger's window (CR 603.7b) and is refused
   (an ordinal count — "your second spell this turn" — excepted).
+
+- **The combined card is not the permanent** (fixed 2026-10-17): a double-faced, adventure or flip card carries
+  Scryfall's COMBINED fields (both faces' type line, oracle and keywords), and the engine never turns a back face
+  up, so every reader must see its FRONT face (CR 712.8a, 712.8d). One leaf, `faceUp.js`: `faceUpTypeLine` (the
+  derive's subtype parse), `characteristicTypeLine` (a type-word test in any zone — a split card stays whole, CR
+  709.4c) and `faceUpView` (the face-up card: front text, no keyword array; any other card is returned as the same
+  object). It is applied at the chokepoints — inside the per-card parsers (`detectTriggers`, `parseStaticAbilities`,
+  `parseActivatedAbilities`) and `keywords.hasKeyword`, `combatEvasion`'s self-text read, the trigger scopes' and
+  `interveningIf`'s `typeStr`, the graveyard counts, summoning sickness, the legend rule, the attach pools and the
+  Enchant-land host. No tier moved (flip-diff 0 / 0 / 0). A new reader of a
+  permanent's or a zone card's type, text or keywords goes through a parser or one of the three, never raw
+  `card.type` / `card.oracle` / `card.keywords`. Witness: `dfcFaceUpSweep.test.js`.
 
 **The generalizable rule for any new recognizer: validate an emitted
 selector/filter/subtype against a *closed* vocabulary (or corpus reality) before

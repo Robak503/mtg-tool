@@ -35,6 +35,7 @@ import {
   counterToughnessDelta,
 } from "./ptPrimitive.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
+import { faceUpTypeLine, faceUpView, characteristicTypeLine } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the type line the derive reads, and the face-up card the host-keyword gate reads
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type matches only a CREATURE type (CR 205.3d); a zero-import leaf
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a graveyard card that is every creature type (Changeling, its owner's Maskwood Nexus) for the subtype counts; a leaf over keywords.js
 import { parseStaticAbilities, parseAttachedBonus, parseAuraGrantedManaAbility, parseSoulbondBond, colorsOfSpell } from "./staticAbilityParser.js"; // + colorsOfSpell: a double-faced permanent's front-face colours (permanentPrintedColors)
@@ -117,24 +118,10 @@ function typeLineOf(card) {
   return String(card?.type || card?.type_line || "");
 }
 
-/**
- * THE FACE THAT IS UP — the type line a battlefield permanent has, read off a card that prints a combined "Front // Back" line
- * (every multi-face card in the bundled data: cardIndex.publicCard keeps Scryfall's whole type_line). The engine never turns a
- * back face up (it models no transform, flip or meld), so every such permanent has only its front face's characteristics: a
- * double-faced permanent with its front face up (CR 712.8d, 712.8f — one put onto the battlefield enters front face up, 712.14),
- * an unflipped flip card (CR 710.2), an adventurer (CR 715.4); a Room's halves share one type line (CR 709.5), so its front is
- * that line. A copy of such a permanent copies the face that is up (CR 707.8). A modal face played or cast enters as its own
- * single-face card and carries no " // ". Exported for the battlefield readers outside the layer engine that read a type line.
- * Before this read the derive took its card types and subtypes off the WHOLE line: a front face printed without a subtype took
- * the back face's types — Westvale Abbey ("Land // Legendary Creature — Demon") was a 0/0 creature the toughness state-based
- * action put into the graveyard as it entered (CR 704.5f), Treasure Map a land — and every back face's subtypes came along
- * (Delver of Secrets an Insect, an Invasion battle an Elemental).
- */
-export function faceUpTypeLine(card) {
-  const line = typeLineOf(card);
-  const sep = line.indexOf(" // ");
-  return sep === -1 ? line : line.slice(0, sep);
-}
+// THE FACE THAT IS UP — faceUpTypeLine lives in faceUp.js (a leaf every reader shares: keywords, classLevels, the trigger
+// scopes) and is re-exported here for its existing importers. The derive below reads card types and subtypes off it (CR
+// 712.8d): Westvale Abbey is a land, never the 0/0 creature its combined "Land // Legendary Creature" line once made it.
+export { faceUpTypeLine };
 
 function subtypesOf(card) {
   const line = faceUpTypeLine(card);
@@ -449,6 +436,9 @@ function countGraveyardSpec(state, perm, spec) {
   const gy = allGy
     ? Object.values(state?.players || {}).flatMap((pl) => pl.graveyard || [])
     : (state?.players?.[perm?.controller]?.graveyard || []);
+  // A card in a graveyard has its FRONT FACE's types only (CR 712.8a — faceUp.characteristicTypeLine): a Westvale Abbey is a land
+  // card, never a creature card or two card types for delirium. A split card keeps both halves' (CR 709.4c).
+  const gyLine = characteristicTypeLine;
   if (spec.kind === "cardsInGraveyard" || spec.kind === "cardsInAllGraveyards") {
     // SUBTYPE-GY (BLITZ CA-2 — "a Warrior card is in your graveyard" / "there is a Desert card in your
     // graveyard"): a word-bounded match on the FULL type line (subtypes live RIGHT of the dash, so the
@@ -462,26 +452,26 @@ function countGraveyardSpec(state, perm, spec) {
       const owned = allGy
         ? Object.entries(state?.players || {}).flatMap(([pid, pl]) => (pl.graveyard || []).map((c) => [c, pid]))
         : gy.map((c) => [c, perm?.controller]);
-      return owned.filter(([c, owner]) => subRe.test(typeLineOf(c)) || (every && cardIsEveryCreatureType(state, c, owner))).length;
+      return owned.filter(([c, owner]) => subRe.test(gyLine(c)) || (every && cardIsEveryCreatureType(state, c, owner))).length;
     }
     if (!spec.cardType) return gy.length; // bare threshold: all cards
     // GATED-GY-EXT: typed count — cardType "Permanent" (Descend 4) or "instantOrSorcery" (Ghitu style).
     // "Permanent" = any permanent card type (creature/artifact/enchantment/land/battle/planeswalker, CR 700.3).
     if (spec.cardType === "Permanent") {
-      return gy.filter((c) => PERMANENT_TYPE_RE.test(typeLineOf(c).split("—")[0])).length;
+      return gy.filter((c) => PERMANENT_TYPE_RE.test(gyLine(c).split("—")[0])).length;
     }
     if (spec.cardType === "instantOrSorcery") {
-      return gy.filter((c) => /\b(?:instant|sorcery)\b/i.test(typeLineOf(c).split("—")[0])).length;
+      return gy.filter((c) => /\b(?:instant|sorcery)\b/i.test(gyLine(c).split("—")[0])).length;
     }
     // Generic single-type filter (e.g., "creature cards") — matches the card-type word in the type line.
     const typeRe = new RegExp(`\\b${spec.cardType}\\b`, "i");
-    return gy.filter((c) => typeRe.test(typeLineOf(c).split("—")[0])).length;
+    return gy.filter((c) => typeRe.test(gyLine(c).split("—")[0])).length;
   }
   // cardTypesInGraveyard (controller) OR cardTypesInAllGraveyards (every player) — distinct DELIRIUM card
   // types across the collected `gy`. Supertypes (Legendary/Basic/Snow/World) are deliberately excluded.
   const seen = new Set();
   for (const card of gy) {
-    const head = typeLineOf(card).split("—")[0].toLowerCase(); // types/supertypes, before any subtypes
+    const head = gyLine(card).split("—")[0].toLowerCase(); // types/supertypes, before any subtypes
     for (const [re, key] of DELIRIUM_TYPE_RES) if (re.test(head)) seen.add(key);
   }
   return seen.size;
@@ -648,8 +638,9 @@ function gateMet(state, perm, gate) {
   if (gate.kind === "hostHasPrintedKeyword") {
     const kw = String(gate.keyword || "").toLowerCase();
     if (!kw) return false;
-    if ((perm.card?.keywords || []).some((k) => String(k).toLowerCase() === kw)) return true;
-    return new RegExp("(^|\\n)" + kw.replace(/ /g, "\\s+") + "\\b", "i").test(String(perm.card?.oracle || ""));
+    const host = faceUpView(perm.card); // the face that is up (CR 712.8d): a back face's keyword is not the host's
+    if ((host?.keywords || []).some((k) => String(k).toLowerCase() === kw)) return true;
+    return new RegExp("(^|\\n)" + kw.replace(/ /g, "\\s+") + "\\b", "i").test(String(host?.oracle || ""));
   }
   // HOST-HAS-SUBTYPE gate (the 09-06 plan's stage ③ · 9, 2026-09-30 — "As long as equipped creature is a Human, it gets an
   // additional +1/+0"; Bladed Bracers' "a Human or an Angel"): open while the HOST (`perm`) is any of the named creature types.
@@ -2457,7 +2448,10 @@ export function cannotEquipNow(state, permanentId) {
  */
 export function summoningSickNow(state, perm) {
   if (!perm) return false;
-  if (/\bCreature\b/.test(String(perm.card?.type || perm.card?.type_line || ""))) return !!perm.summoningSick;
+  // A printed creature by its FACE THAT IS UP (CR 712.8d): the entry stamp marks every permanent whose combined line says
+  // "Creature", so a land with a creature back face (Hostile Hostel, Westvale Abbey) read its stamp and was sick the turn it
+  // was played — a land is not (CR 302.6). It answers by the layer read below, like any other non-creature.
+  if (/\bCreature\b/.test(faceUpTypeLine(perm.card))) return !!perm.summoningSick;
   if (perm.enteredOnTurn !== state?.turn) return false;
   return permanentIsCreature(state, perm.id);
 }
