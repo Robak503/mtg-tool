@@ -9,7 +9,7 @@
  * ENCHANTED_PLAYER_EFFECTS: what that op does to the enchanted player, keyed by op.
  *
  * An entry carries `side` — "enemy" (an opponent should be enchanted) or "own" (the controller) — and `rank(state, playerId)`,
- * which orders the players on that side, lowest first. A trigger that doesn't parse HIGH, a modal one, or an atom whose op has
+ * which orders the players on that side, lowest first, or `compare(state, a, b)`, a comparator in its place (negative: `a` first). A trigger that doesn't parse HIGH, a modal one, or an atom whose op has
  * no entry makes the whole reading null: the Aura's side is unknown and the caller holds it, never guesses. So a player Aura
  * whose trigger is newly modeled needs its op added here before it is cast on anyone. Two different entries on one card read
  * null too (no single ranking).
@@ -18,11 +18,17 @@
  */
 import { detectTriggers } from "./triggers.js";
 import { parseEffectClause, programConfidence } from "./effects/parser.js";
+import { compareDefenders } from "./defenderOrder.js";
 
 export const ENCHANTED_PLAYER_EFFECTS = Object.freeze({
   // Fraying Sanity — "enchanted player mills X cards" (effects/atoms/library.applyEnchantedGyMill): an opponent, the one with
   // the fewest cards in library (a player who draws from an empty library loses, CR 704.5b).
   "enchanted-gy-mill": Object.freeze({ side: "enemy", rank: (state, playerId) => (state.players?.[playerId]?.library || []).length }),
+  // Curse of Opulence and its siblings — "Whenever enchanted player is attacked, <effect>. Each opponent attacking that player does
+  // the same." (effects/effectAtoms.applyYouAndAttackingOpponents): the controller profits every time the enchanted player is
+  // attacked, by anyone. An opponent — the one the house AI swings at itself (defenderOrder.compareDefenders: the lowest life,
+  // then the fewest untapped creatures), so every one of its own attacks pays it.
+  "you-and-attacking-opponents": Object.freeze({ side: "enemy", compare: compareDefenders }),
 });
 
 /** The one ENCHANTED_PLAYER_EFFECTS entry every atom of every trigger of a player Aura reads as, or null (unknown — hold). */

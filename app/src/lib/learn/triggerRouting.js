@@ -130,6 +130,10 @@ export function combatDamageReferentSatisfied(program, event) {
     // event. Anywhere else the referent is unset and the counter would silently do nothing (a dropped payoff credited
     // native — a forbidden FP). The splitter only writes the phrase for that event; this is the belt on top of it.
     if (a?.op === "counter-targeting-object" && event !== "becomesTarget") return false;
+    // THE ATTACKED PLAYER (Curse of Opulence, play-weighted #699): "Each opponent attacking that player does the same" reads "that
+    // player" off ctx.attackedPlayerId, threaded ONLY by checkAttackTriggers' enchanted-player pass. On any other event the
+    // opponents' half would silently never happen while the card read native — a dropped clause, the forbidden FP.
+    if (a?.op === "you-and-attacking-opponents" && event !== "enchantedPlayerAttacked") return false;
     // UNTAPPED-CONTROLLER (Mesmeric Orb, SHELF S6): the mill's referent is the just-untapped permanent's
     // controller — set ONLY by checkUntapTriggers' untapped event.
     if (a?.who === "untappedController" && event !== "untapped") return false;

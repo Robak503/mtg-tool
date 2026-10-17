@@ -1980,8 +1980,10 @@ export function addCounter(state, { permanentId, type, amount = 1 }) {
   // pendingGraveyardEvents pattern. ONE row per placement carrying the post-replacement amount: the printed
   // trigger is "one or more … are put on", which fires ONCE per event however many counters land. A
   // 0-count placement (a doubler flooring to zero) records nothing — no counters were put on.
+  // `before` is the count of this kind the permanent had BEFORE the placement — the counter-threshold trigger ("When the
+  // twelfth hour counter is put on this artifact" — Midnight Clock) fires when one placement takes it from below N to N or more.
   if (!lk || placed <= 0) return next;
-  return { ...next, pendingCounterEvents: [...(next.pendingCounterEvents || []), { id: permanentId, type, amount: placed, controller: lk.controller }] };
+  return { ...next, pendingCounterEvents: [...(next.pendingCounterEvents || []), { id: permanentId, type, amount: placed, before: lk.permanent.counters?.[type] || 0, controller: lk.controller }] };
 }
 
 export function removeCounter(state, { permanentId, type, amount = 1 }) {

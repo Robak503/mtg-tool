@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **5 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,462)**; engine gains since the tag: **+9**. The next tag
+> **6 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,467)**; engine gains since the tag: **+14**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,69 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-17 — PLAY-WEIGHTED: Midnight Clock (EDHREC #645) — the counter-threshold trigger, the controller's wheel and the self exile; Curse of Opulence (#699) — "whenever enchanted player is attacked" and "each opponent attacking that player does the same" (+ Curse of Verbosity, Curse of Disturbance, Curse of Vitality) · **+5** · snapshot native 15,451 → 15,456
+> Suite **20,007 green (1 skipped) / 1,838 files** under the gate queue. Lint 0 (CR citations: 0 of 10,992 name no rule; keyword citations: 0 of 2,313 cite a
+> different keyword). Flip-diff **+5 / −0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of 6a9782c4; native
+> 15,451 → 15,456 of 34,584 snapshot names). Top 1,000 **896 → 898** (`measure-coverage --played=1000`: "covered 896/1000 (89.6%) ·
+> to 90%: +4" before, "covered 898/1000 (89.8%) · to 90%: +2" after); top 2,500 +2 (the three sibling Curses are #3819, #4119,
+> #12445). **Mutants 22/22** on assertions, each restored byte-identical (sha256). Witness tests written first and seen to fail on
+> the base engine on assertions (Clock 6 of the first 10, Curse 14 of the first 17; the rest are controls); the four guard and edge
+> cases added while building (the enters-with SYNTHETIC case, the referent-gate guard, the two leave-combat cases) are proven by
+> their mutants. Committed on `day/pw-clock`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **Midnight Clock** ("…When the twelfth hour counter is put on this artifact, shuffle your hand and graveyard into your library,
+>   then draw seven cards. Exile this artifact."). Its mana ability, its {2}{U} counter ability and its each-upkeep counter trigger
+>   were already modeled; the twelfth-counter trigger was not even detected. New trigger event `nthCounterPut` (triggers.js
+>   classifyCondition: "the <second…twelfth> <kind> counter is put on <this artifact|creature|enchantment|permanent|land|its name>",
+>   self only; descriptor field `counterThreshold`, listed in the whitelist). `gameState.addCounter` now records `before` (the count
+>   of that kind before the placement) on every `pendingCounterEvents` row, and an entering permanent's rows carry `before: 0`
+>   (`enterReplacements`, CR 122.6); `checkCounterTriggers` fires the descriptor once when one placement goes from below N to N or
+>   more — the card's bundled ruling, verbatim in shape; a permanent already at N never fires it again; a row without `before`
+>   fires nothing. The effect: `library.selfWheelClauseParser` → op `shuffle-hand-graveyard-draw` (the controller's Timetwister
+>   fold through `wheelOnePlayer` — the same fold, seeded shuffle and trigger-threading draws as the each-player wheels; the
+>   splitter keeps its ", then" whole), and a new self-exile arm in `zones.js` ("exile this <self-noun>" → `{ op: "exile",
+>   target: "self" }`, the third cell of the self-bounce / self-tuck grid: `selfTargets` finds the source only while it is the same
+>   object on the battlefield, so a Clock that left is not exiled — the second bundled ruling). Tier: native-mana. The new arms
+>   flipped nothing else: Shang-Chi and the Ten Rings' tenth-counter trigger detects and routes now, but the card stays body-only
+>   on its draw trigger ("put a +1/+1 counter on Shang-Chi"); the Plans' threshold sentences stay undetected (the split takes
+>   "…this enchantment, sacrifice it" as the condition — "sacrifice" reads as an event verb); Weftwalking parks on its static line.
+> · **Curse of Opulence** ("Enchant player / Whenever enchanted player is attacked, create a Gold token. Each opponent attacking
+>   that player does the same."). The bundled text carries the second sentence. New event `enchantedPlayerAttacked` (scope
+>   `enchantedPlayer`, Aura only): `checkAttackTriggers` fires every Aura whose `enchantedPlayerId` was declared attacked AS A PLAYER
+>   once per declaration (CR 508.3b, 603.2c; a planeswalker attack is not the player — the bundled ruling), threading
+>   `attackedPlayerId`. The effect: a parser arm collapses "<effect>. Each opponent attacking that player does the same." into ONE
+>   atom `you-and-attacking-opponents` (resolver in the effectAtoms barrel beside `conditional`, since it recurses through
+>   `resolveAtom`): the controller performs the inner atom, then each opponent of the controller who still controls a creature
+>   attacking that player as a player (membership in `state.combat.attackers`) performs it in APNAP order as its "you" — the
+>   rulings: no attacker left → only the controller. Inner atoms admitted: one untargeted, unconditional, non-optional
+>   create-named-token / create-token / draw / gain-life whose only player is its controller (`YOU_AND_ATTACKING_OPPONENTS_INNER_OPS`)
+>   — Curse of Bounty's untap sentence is different wording and stays body-only. Referent gates both sides: the trigger path
+>   routes the atom only off `enchantedPlayerAttacked` (`triggerRouting.combatDamageReferentSatisfied`), a spell never
+>   (`coverage.atomCarriesEventReferent`). The Gold token was already registered and taps nothing: it sacrifices for one mana of
+>   any colour, by hand and inside a payment (witnessed).
+> · **Gained, each witnessed on the real engine** (`midnightClock.test.js` 11, `curseOfOpulence.test.js` 20): **Midnight Clock** —
+>   through the upkeeps of a four-seat pod, 10 → 11 does nothing, 11 → 12 shuffles three hand cards and two graveyard cards in,
+>   draws seven, exiles the Clock, and the next round of upkeeps finds no second wheel; at 11 the offered {2}{U} activation does the
+>   same; Doubling Season's 11 → 13 wheels once; 12 → 13 and 9 → 10 do nothing; the Clock bounced with the trigger on the stack:
+>   the wheel happens, nothing is exiled; SYNTHETIC: a permanent entering with the threshold's count fires it. **Curse of
+>   Opulence** — ai1 attacks the enchanted ai2 with two creatures: one trigger, one Gold for the Curse's controller and one for
+>   ai1; an attack on ai3: none; the controller attacking ai2: one Gold, its own; one creature at ai2 and one at ai3: one each; only
+>   ai2's planeswalker attacked: none; the attackers gone before resolution, or only attacking ai3 or ai2's planeswalker by then:
+>   the controller only. **Curse of Verbosity / Disturbance / Vitality** — the controller and the attacking opponent each draw a
+>   card / get a 2/2 black Zombie / gain 2 life, nobody else.
+> · **AI / self-play.** No profile deck holds any of the five. The Clock: the AI never activates its {2}{U} (a named counter other
+>   than "level" stays outside the safe-activation whitelist), so in a four-seat pod it wheels on the twelfth upkeep after it
+>   lands — it used to sit as a {U} rock collecting counters forever. The Curses: the AI used to cast the body-only Curse with no
+>   target; now the curse reading (`playerAuraEffect`, entry `you-and-attacking-opponents`, side enemy) puts it on the opponent
+>   it attacks itself — new leaf `defenderOrder.js` (`compareDefenders`: the lowest life, then the fewest untapped creatures),
+>   which `opponentAI.chooseDefender` now reads too (behaviour unchanged), and `pickAuraCast` takes an entry's `compare` in place of
+>   a numeric `rank`. Tests graduated: `manaTierPins.test.js` (Midnight Clock up to MUST_STAY_HIGH; Black Market keeps the shape
+>   parked), `auraCastSide.test.js` (Curse of Opulence reads now; Paradox Haze stays unread).
+> · ⚠️ **Found, not fixed:** `checkCounterTriggers` (the existing "one or more counters" path and this one) drops a trigger whose
+>   permanent left the battlefield before the flush, though the event happened while it was there (CR 603.10 checks right after the
+>   event) — a false negative, pre-existing · on the base engine `legalChoices` offered a body-only player Aura (Curse of Opulence)
+>   as a cast with NO target and the AI cast it that way — pre-existing; Paradox Haze still takes that lane on this tree (checked;
+>   Curse of Bounty is the same shape, not checked).
 
 > ## 🎯 2026-10-17 — PLAY-WEIGHTED: Cursed Mirror (EDHREC #448) — the as-enters copy that lasts until end of turn, with haste, through the entering-clone lane and a cleanup revert; Darksteel Mutation (#586) PARKED (the engine has no ability-removing effect) · **+1** · snapshot native 15,451 → 15,452
 > Suite **20,003 green (1 skipped) / 1,837 files** under the gate queue. Lint 0 (CR citations: 0 of 11,005 name no rule; keyword citations: 0 of 2,313 cite a

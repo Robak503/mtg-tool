@@ -51,6 +51,8 @@ import { conniveResolvers } from "./atoms/connive.js";
 import { suspectResolvers } from "./atoms/suspect.js";
 import { speedResolvers } from "./atoms/speed.js";
 import { classLevelUpResolvers } from "./atoms/classLevelUp.js"; // CLASS (CR 716.2a) — the class level bar's "this Class's level becomes N"
+import { apnapOrder } from "./atoms/removal.js"; // YOU-AND-ATTACKING-OPPONENTS — the opponents who do the same go in APNAP order (the edict chain's own ordering)
+import { findPermanent, opponentsOf, logEvent } from "../gameState.js"; // YOU-AND-ATTACKING-OPPONENTS — who is attacking the attacked player as the ability resolves
 import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL REPLACEMENT — the SAME evaluator legalChoices and manaSources gate on; interveningIf imports only gameState, so this stays a one-way edge (checked before adding it)
 
 // ─── Re-export the public atom symbols (consumers import these from the barrel path) ──────────
@@ -96,6 +98,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...faceDownExileResolvers, // face-down-exile-top + face-down-exile-return (Necropotence, CR 406.3 + 603.7) — exile face down, return that card at your next end step
   ...discardedCardExileResolvers, // exile-discarded-card (Necropotence, CR 603.6) — the discard trigger's "exile that card from your graveyard"
   conditional: applyConditional, // CONDITIONAL REPLACEMENT (CR 608.2) — "<base>. If <cond>, <alt> instead." Defined below; recurses through resolveAtom, so it lives in the barrel.
+  "you-and-attacking-opponents": applyYouAndAttackingOpponents, // CURSE OF OPULENCE (#699) — "<effect>. Each opponent attacking that player does the same." Defined below; recurses through resolveAtom.
   ...controlResolvers, // gain-control (CR 613.1b layer-2 / 302.6) — indefinite control-change of a target creature/subtype (Sliver Overlord "Gain control of target Sliver")
   ...becomeCopyResolvers, // become-copy (CR 613.1a / 707.9) — a permanent becomes a copy of a chosen target until end of turn
   ...grantUntilEotResolvers, // grant-until-eot (TG-1, CR 611.2c fixed set) — until-EOT quoted-ability grants (Feign Death / Showstopper family)
@@ -171,6 +174,37 @@ export function resolveAtom(state, atom, ctx) {
   const fn = ATOM_RESOLVERS[atom?.op];
   if (!fn) return null;
   return fn(state, atom, ctx);
+}
+
+/**
+ * YOU AND EACH ATTACKING OPPONENT (Curse of Opulence, play-weighted #699 — "Whenever enchanted player is attacked, create a Gold
+ * token. Each opponent attacking that player does the same."; Curse of Verbosity / Disturbance / Vitality print the same second
+ * sentence). The controller performs the inner atom; then each opponent of the controller who is attacking "that player" as the
+ * ability resolves performs it, in APNAP order, with that opponent as the instruction's "you" (a token is theirs, CR 111.2; a draw
+ * or a life gain is theirs). The bundled rulings fix the read: "A player is attacking another player if they control a creature
+ * that's attacking that player. If no creatures are attacking the enchanted player as a Curse's ability resolves …, only the
+ * Curse's controller performs its actions." Attacking-ness is membership in state.combat.attackers (combatRemoval.js — a creature
+ * removed from combat, CR 506.4, loses its record), as a player: a creature attacking that player's planeswalker is not attacking
+ * the player. "That player" is ctx.attackedPlayerId, threaded by triggers.checkAttackTriggers' enchanted-player pass.
+ * The inner op is one of YOU_AND_ATTACKING_OPPONENTS_INNER_OPS (the parser admits no other; none of them pauses); any other returns
+ * null and the caller routes to the Arbiter rather than fabricate.
+ */
+export const YOU_AND_ATTACKING_OPPONENTS_INNER_OPS = Object.freeze(new Set(["create-named-token", "create-token", "draw", "gain-life"]));
+function applyYouAndAttackingOpponents(state, atom, ctx) {
+  const inner = atom.inner;
+  if (!inner || !YOU_AND_ATTACKING_OPPONENTS_INNER_OPS.has(inner.op)) return null;
+  let next = resolveAtom(state, inner, { ...ctx, targets: [] });
+  if (next == null) return null;
+  const attacked = ctx.attackedPlayerId;
+  const attackingThatPlayer = (pid) => (next.combat?.attackers || []).some((a) =>
+    a?.defender === attacked && !a.defenderPlaneswalkerId && findPermanent(next, a.permanentId)?.controller === pid);
+  const doers = attacked ? apnapOrder(next, opponentsOf(next, ctx.controller).filter((pid) => next.players?.[pid] && attackingThatPlayer(pid))) : [];
+  for (const pid of doers) {
+    const after = resolveAtom(next, inner, { ...ctx, controller: pid, targets: [] });
+    if (after == null) return null;
+    next = after;
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "you-and-attacking-opponents", controller: ctx.controller, innerOp: inner.op, attackedPlayer: attacked ?? null, alsoDid: doers });
 }
 
 /**

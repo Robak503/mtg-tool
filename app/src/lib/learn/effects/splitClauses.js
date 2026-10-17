@@ -915,6 +915,13 @@ export function splitClauses(oracle) {
       clauses.push(sentence);
       continue;
     }
+    // THE CONTROLLER'S WHEEL keep-whole (Midnight Clock, play-weighted #645 — "shuffle your hand and graveyard into your library,
+    // then draw seven cards. Exile this artifact."): the ", then" split would orphan "draw seven cards" from its fold. Kept whole for
+    // library.selfWheelClauseParser (one atom); the trailing sentence splits off as usual.
+    if (/^shuffle your hand and graveyard into your library, then draw seven cards\.?$/i.test(sentence)) {
+      clauses.push(sentence);
+      continue;
+    }
     // TWO-SEAT DRAW keep-whole (SHELF-85 B8, 2026-09-04 — Loran of the Third Path / Secret Rendezvous / Flumph: "You
     // and target opponent each draw N cards"): the " and " here joins two SUBJECTS of one verb, not two effects; the
     // split would orphan "You" and hand the whole draw to the opponent (the second half parses as "target opponent

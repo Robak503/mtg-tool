@@ -61,6 +61,7 @@ function atomCarriesEventReferent(a) {
   if (a?.sacTriggering) return true; // "sacrifice it" (shelf D24) — only a triggering creature can be "it"
   if (a?.op === "gy-batch-to-battlefield") return true; // "put one of them" (shelf D27) — only a graveyard-enter batch names them
   if (a?.op === "draw-or-counters-by-triggering-power") return true; // "if its power is 3 or greater" (Tribute to the World Tree) — only an enters watcher names the creature
+  if (a?.op === "you-and-attacking-opponents") return true; // "each opponent attacking that player does the same" (Curse of Opulence) — only the enchanted-player-attacked trigger names the player
   return (a?.restrictions || []).some((r) => REFERENT_WHOS.has(r?.who));
 }
 import { registerGrantTriggeredBodyValidator, registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant body gates

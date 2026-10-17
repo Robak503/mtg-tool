@@ -35,6 +35,9 @@ describe("MUST_STAY_HIGH — clean mana sources keep the native-mana tier", () =
     ["Selvala, Heart of the Wilds", "Legendary Creature — Elf Scout",
       "Whenever another creature enters, its controller may draw a card if its power is greater than each other creature's power.\n{G}, {T}: Add X mana in any combination of colors, where X is the greatest power among creatures you control.",
       "graduated 2026-10-01 (P·32) — the power-comparison draw trigger is modeled beside its variable-X add"],
+    ["Midnight Clock", "Artifact",
+      "{T}: Add {U}.\n{2}{U}: Put an hour counter on this artifact.\nAt the beginning of each upkeep, put an hour counter on this artifact.\nWhen the twelfth hour counter is put on this artifact, shuffle your hand and graveyard into your library, then draw seven cards. Exile this artifact.",
+      "graduated 2026-10-17 (play-weighted #645) — the twelfth-counter trigger, the controller's wheel and the self exile are modeled (midnightClock.test.js runs them)"],
   ];
 
   for (const [name, type, oracle, why] of CASES) {
@@ -55,13 +58,13 @@ describe("MUST_STAY_HIGH — clean mana sources keep the native-mana tier", () =
 // BOUNDARY-MARKER GRADUATED 2026-10-01 (P·32) — SELVALA, HEART OF THE WILDS moved up to MUST_STAY_HIGH: its
 // power-comparison draw trigger is modeled (the entering creature's controller decides; selvala.test.js runs it). Its
 // shape — a trigger beside a variable-X add — keeps a live fixture here in Helga, Skittish Seer, still parked.
+// BOUNDARY-MARKER GRADUATED 2026-10-17 (play-weighted #645) — MIDNIGHT CLOCK moved up to MUST_STAY_HIGH: its counter-threshold
+// trigger ("When the twelfth hour counter is put on this artifact"), the controller's shuffle-and-draw-seven and the self exile are
+// modeled. Its shape — counters accumulating toward a payoff — keeps a live fixture here in Black Market, still parked.
 describe("MUST_NOT_OVER-CLAIM — a mana ability plus UNMODELED residue stays parked", () => {
   // Every card here taps for mana, so ONLY the residue gate keeps it honest. If one of these ever reports
   // native-mana, the runtime is ignoring the rest of the card while the metric counts it fully modeled.
   const CASES = [
-    ["Midnight Clock", "Artifact",
-      "{T}: Add {U}.\n{2}{U}: Put an hour counter on this artifact.\nAt the beginning of each upkeep, put an hour counter on this artifact.\nWhen the twelfth hour counter is put on this artifact, shuffle your hand and graveyard into your library, then draw seven cards. Exile this artifact.",
-      "hour counters + a threshold shuffle-and-draw trigger"],
     ["Black Market", "Enchantment",
       "Whenever a creature dies, put a charge counter on this enchantment.\nAt the beginning of your first main phase, add {B} for each charge counter on this enchantment.",
       "counter accumulation feeding a scaled phase-triggered add"],

@@ -28,7 +28,7 @@
 
 import { parseSpellEffect, parseCreatureTargetRestrictions } from "../spellEffects.js"; // parseGraveyardFilter moved to atoms/zones.graveyardReturnClauseParser (seam batch 16)
 import { isNonChosenTargetType } from "../targetTypes.js"; // MASS_WIPE_SCOPES (the centralized wipe partition) now consumed by ./programQueries.js (slice 3), not here
-import { ATOM_RESOLVERS, PAUSING_ATOM_OPS } from "./effectAtoms.js"; // PAUSING_ATOM_OPS (WI-3) — ops whose resolver can set pendingChoice; gates optional-payment payoffs
+import { ATOM_RESOLVERS, PAUSING_ATOM_OPS, YOU_AND_ATTACKING_OPPONENTS_INNER_OPS } from "./effectAtoms.js"; // PAUSING_ATOM_OPS (WI-3) — ops whose resolver can set pendingChoice; gates optional-payment payoffs
 import { typeOf, isInstantOrSorcery, oracleOf, stripAbilityWordLabel, hasXCost, stripReminder, stripRegenerationRider, stripUncounterableRider, stripNoMaxHandSizeRider, stripCastKeywordLines, rewriteAmountX, CANT_REGEN_TEST, DISCARD_COST_ABILITY_LINE } from "./textNormalize.js";
 import { CR_CREATURE_TYPES } from "./creatureTypes.js"; // SUBTYPE TARGET NOUN peel (SHELF-85 Phase 3, 2026-09-05) — the closed CR creature-type vocabulary (a zero-import leaf) // oracle-text normalization + card-field leaf (parser decomposition slice 1) — pure String|card→String|bool, no cycle
 import { splitClauses } from "./splitClauses.js"; // oracle → clause[] sentence splitter (parser decomposition slice 2) — leaf; sole caller is parser.js
@@ -64,7 +64,7 @@ import { sacrificeEdictClauseParser, destroyExileClauseParser, ordealThresholdSa
 import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP — "Sacrifice a land." controller self-sac (Roiling Regrowth / Cycle of Renewal)
 import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTROY-TOKEN-RIDER — Pongify / Rapid Hybridization (destroy creature + can't-regen + that controller makes a token)
 import { parseDestroyDiesCopy } from "./atoms/destroyDiesCopy.js"; // DESTROY-DIES-COPY — Saw in Half (destroy creature; if it died this way, its controller makes two half-P/T token copies)
-import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser, seekClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
+import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser, seekClauseParser, selfWheelClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
 import { parseTokenKeywords, parseGrantedKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); parseGrantedKeywords (COUNTER-THEN-GRANT + the SAVAGE ORDER fetched-grants fold); SMALL_NUM for MULTI-COUNT damage count words; parseCountSource for FE-1 DRAIN-BY-COUNT fused matcher
 import { proliferateClauseParser, gainExperienceClauseParser, gainEnergyClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, removeNamedCounterSelfClauseParser, shieldCounterClauseParser, evolveCounterSelfClauseParser, renownClauseParser, endureClauseParser, transferCountersClauseParser, moveCounterClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + ARIXMETHES (remove named counter from self) + SHIELD-COUNTER (CR 122.1c protective counter) + KW-EVOLVE sentinel (SHELF S7)
@@ -2294,6 +2294,27 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // KWSTRIP-1 — drop a vacuous cast-keyword line (foretell / suspend / splice onto arcane / recover /
   // harmonize / basic landcycling) so the spell's BODY parses; the normal-cast resolution is identical.
   oracle = stripCastKeywordLines(oracle);
+  // ===== "EACH OPPONENT ATTACKING THAT PLAYER DOES THE SAME" (Curse of Opulence, play-weighted #699; Curse of Verbosity, Curse of
+  // Disturbance, Curse of Vitality) ===== "<effect>. Each opponent attacking that player does the same." — ONE atom
+  // (you-and-attacking-opponents): the ability's controller performs <effect>, then each of the controller's opponents who
+  // controls a creature attacking "that player" as it resolves performs it too ("does the same": the same instruction with that
+  // opponent as its "you"). Collapsed here so the splitter never strands the second sentence. <effect> must be ONE untargeted,
+  // unconditional, non-optional atom whose only player is its controller, from the four printed ops — so re-running it for
+  // another player is exactly "the same". "That player" is the enchanted, attacked player: only the enchanted-player-attacked
+  // event supplies it (triggerRouting.combatDamageReferentSatisfied; a spell never does — coverage.atomCarriesEventReferent).
+  {
+    const same = oracle.match(/^([^.]+)\.\s*each opponent attacking that player does the same\.?\s*$/i);
+    if (same) {
+      const inner = parseEffectClauseImpl(same[1].trim(), cardType, { hasX, sourceScoped });
+      const a = inner && inner.atoms.length === 1 ? inner.atoms[0] : null;
+      const onlyController = a && (a.who == null || a.who === "controller") && !a.whoCreates && !a.targetType && !a.optional
+        && !a.condition && !a.countContext && !a.oncePerTurn && !a.kickedOnly && !a.nonKickedOnly;
+      if (inner && programConfidence(inner) === "high" && inner.structure !== "modal" && onlyController && YOU_AND_ATTACKING_OPPONENTS_INNER_OPS.has(a.op)) {
+        return makeProgram({ confidence: "high", atoms: [{ op: "you-and-attacking-opponents", inner: a, targetType: null }], unparsedTail: null });
+      }
+      return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
+    }
+  }
   // ===== CONDITIONAL REPLACEMENT (CR 608.2) ===== "<base>. If <condition>, <alternative> instead."
   // Scute Swarm ("…create a token that's a copy of this creature instead") and Entish Restoration, which
   // prints the other word order ("…, instead search your library for up to three basic land cards").
@@ -4085,6 +4106,7 @@ registerClauseParser(massFilteredDamageClauseParser); // MASS-FILTERED-DAMAGE �
 // metalcraft tail) it reaches the splitter — which now keeps its ", then draws that many cards" whole — and lands here as
 // ONE clause → the same collapsed per-player atom. Whole-clause anchored, so any rider still leaves residue → low.
 registerClauseParser((clause) => matchWindsOfChange(clause)?.atoms?.[0] ?? null);
+registerClauseParser(selfWheelClauseParser); // MIDNIGHT CLOCK (#645) — "shuffle your hand and graveyard into your library, then draw seven cards" (the controller's Timetwister fold; the splitter keeps the ", then" whole)
 registerClauseParser(cdmgMassToDamagedPlayerClauseParser); // CDMG-MASS-TO-DAMAGED-PLAYER (Balefire Dragon) — combat-damage trigger: "deals that much damage to each creature that player controls"
 registerClauseParser(playerInvestigateClauseParser); // INVESTIGATE for a NAMED player (CR 701.16a) — recipient via whoCreates, the field the mint actually reads
 registerClauseParser(poisonClauseParser); // POISON (CR 122) — the track existed since KW-POISON; no clause ever parsed to it

@@ -945,6 +945,9 @@ function classifyTurnedFaceUp(c, cardName, cardType) {
   return null; // the card's own flip, or a subject no scope enforces
 }
 
+/** The ordinals a counter-threshold trigger prints ("When the twelfth hour counter is put on …"), as counts. */
+const COUNTER_THRESHOLD_ORDINALS = Object.freeze({ second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10, eleventh: 11, twelfth: 12 });
+
 /**
  * Classify a trigger condition into { event, scope, whose } or null. selfRef is
  * "this <permanent>" or the card's own name. The CR 603.6d static guard makes
@@ -1075,6 +1078,32 @@ function classifyCondition(condRaw, cardName, cardType) {
   {
     const lvl = c.match(/^this class becomes level (\d+)$/);
     if (lvl) return /\bClass\b/.test(String(cardType || "")) ? { event: "classLevelBecomes", scope: "self", whose: "any", classLevel: parseInt(lvl[1], 10) } : null;
+  }
+
+  // ===== COUNTER THRESHOLD (CR 122.6, 603.2) ===== "When the twelfth hour counter is put on this artifact" (Midnight Clock),
+  // "When the fourth plan counter is put on this enchantment" (the Plans), "When the tenth +1/+1 counter is put on Shang-Chi".
+  // The event is one placement of counters of that kind that takes the permanent from fewer than N to N or more — Midnight
+  // Clock's bundled ruling: "triggers after one or more counters are put onto it if it had fewer than twelve counters on it
+  // before those counters were put on it and it has twelve or more counters on it after". checkCounterTriggers fires it off the
+  // placement's recorded `before` count (gameState.addCounter; an entering permanent's counters count from 0, CR 122.6). SELF
+  // only, the ordinals the corpus prints; any other subject or count wording stays undetected → Arbiter.
+  {
+    const nth = c.match(/^the (second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth) ([a-z]+|[+-]\d+\/[+-]\d+) counter is put on (.+)$/);
+    if (nth) {
+      const subj = nth[3].trim();
+      const isSelfSubj = /^this (?:artifact|creature|enchantment|permanent|land)$/.test(subj)
+        || (nameL && subj === nameL) || (shortName && subj === shortName) || (firstWord && subj === firstWord);
+      return isSelfSubj ? { event: "nthCounterPut", scope: "self", whose: "any", counterType: nth[2], counterThreshold: COUNTER_THRESHOLD_ORDINALS[nth[1]] } : null;
+    }
+  }
+  // ===== ENCHANTED PLAYER IS ATTACKED (CR 508.3b) ===== "Whenever enchanted player is attacked" (Curse of Opulence and the Curses
+  // printed beside it): an Aura enchanting a player (CR 303.4b) triggers when the attack declaration closes with one or more
+  // creatures declared attacking that player — once per declaration however many attack (CR 603.2c; the bundled ruling "Each
+  // Curse's ability triggers only once, no matter how many creatures are attacking the enchanted player"), never for a
+  // planeswalker of theirs alone (the bundled ruling) and never for a creature put onto the battlefield attacking (CR 508.3b).
+  // Fired by checkAttackTriggers' enchanted-player pass. Only on an Aura.
+  if (c === "enchanted player is attacked") {
+    return /\bAura\b/.test(String(cardType || "")) ? { event: "enchantedPlayerAttacked", scope: "enchantedPlayer", whose: "any" } : null;
   }
 
   // ===== COMPOUND self-event guard (CREED, CLAUDE.md §1.2) ===== A condition that names TWO trigger
@@ -5870,6 +5899,7 @@ export function detectTriggers(cardIn) {
         requiresModified: cls.requiresModified, // MODIFIED-PREDICATE combatDamageToPlayer (Kodama, W3 — CR 700.9) — scopeMatches gate via layers.isModifiedPermanent. ⚠️ Unlisted here = dropped = fires on EVERY connecting creature — the over-fire direction, with the detector looking correct.
         requiresDamagedBySource: cls.requiresDamagedBySource, // DEALT-DAMAGE-BY-ME dies scope only (Sengir Vampire) — scopeMatches gate reads the dead creature's damagedBy look-back. ⚠️ Unlisted here = dropped = the trigger fires on EVERY creature death anywhere, the widest possible over-fire, while still looking correctly detected.
         counterType: cls.counterType,         // COUNTERS-PUT-ON (CR 122.6) — the counter KIND the watcher listens for; checkCounterTriggers fires only on a matching placement
+        counterThreshold: cls.counterThreshold, // COUNTER THRESHOLD (Midnight Clock — "the twelfth hour counter") — N; checkCounterTriggers fires only on the placement that takes the count from below N to N or more. ⚠️ Unlisted here = dropped = the threshold reads undefined and the descriptor never fires (a dead native).
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
         keywordFilter: cls.keywordFilter,     // KEYWORD-FILTER ETB only (lowercase keyword for "with <kw>" — Dragon Tempest "flying")
         stateCondition: cls.stateCondition,   // STATE TRIGGER (CR 603.8) — the continuously-checked board condition string, read by checkStateTriggers via the shared interveningIf evaluator
@@ -6731,6 +6761,8 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       return true; // step / lifegain / cardDrawn / youAttack triggers — `whose` gates ownership
     case "anyAttack":
       return true; // ANY-PLAYER ATTACK-COUNT (Aurelia, SH5) — checkAttackTriggers' all-players pass is the gate
+    case "enchantedPlayer":
+      return !!sourcePermanent?.enchantedPlayerId; // ENCHANTED PLAYER IS ATTACKED (Curse of Opulence) — only an Aura enchanting a player; checkAttackTriggers' enchanted-player pass matches the attacked player
     case "milled":
       // MILL-ON-EVENT — a player-mill event has NO triggering PERMANENT (the milled cards are library
       // objects, not permanents); the milling-player `whose` gate is applied in checkMilledTriggers, which
@@ -7969,6 +8001,21 @@ export function checkAttackTriggers(state) {
       for (const watcher of triggerSourcesOf(state, pid)) {
         const raw = triggersForEvent(state, { event: "opponentAttacks", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: { attackingPlayerId: attackingPlayer, declaredAttackers } });
         fired = fired.concat(raw.filter((t) => !(t.descriptor?.minAttackingYou != null && atYou < t.descriptor.minAttackingYou)));
+      }
+    }
+    // ENCHANTED PLAYER IS ATTACKED (Curse of Opulence — CR 508.3b): every Aura enchanting a player that one or more creatures were
+    // declared attacking AS A PLAYER (a planeswalker attack carries defenderPlaneswalkerId and is not an attack on its controller —
+    // the Curses' bundled ruling) triggers ONCE for this declaration (CR 603.2c), whoever controls it. The attacked player rides the
+    // context as attackedPlayerId: "that player" of "Each opponent attacking that player does the same", read as it resolves
+    // (effects/effectAtoms.applyYouAndAttackingOpponents). The declared batch only — a creature put onto the battlefield attacking
+    // joins combat after this point and never counts (CR 508.3b).
+    const playersAttacked = new Set(declaredAttackers.filter((a) => !a.defenderPlaneswalkerId).map((a) => a.defender));
+    if (playersAttacked.size) {
+      for (const pid of Object.keys(state.players || {})) {
+        for (const watcher of triggerSourcesOf(state, pid)) {
+          if (!watcher.enchantedPlayerId || !playersAttacked.has(watcher.enchantedPlayerId)) continue;
+          fired = fired.concat(triggersForEvent(state, { event: "enchantedPlayerAttacked", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: { attackedPlayerId: watcher.enchantedPlayerId, attackingPlayerId: attackingPlayer } }));
+        }
       }
     }
   }
@@ -9416,6 +9463,18 @@ export function checkCounterTriggers(state) {
         // via countContext:"countersPutCount" — the counters-placed sentinel discipline, one event over.
         .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, { countersPutCount: ev.amount }))
     );
+    // COUNTER THRESHOLD (Midnight Clock — "When the twelfth hour counter is put on this artifact"): the recipient's own
+    // descriptor fires when THIS placement took the count of that kind from below N to N or more (the bundled ruling; CR 122.6
+    // counts an entering permanent's counters from 0). One placement, one firing; a permanent already at N or more never fires
+    // it again. A row with no recorded `before` (a state saved before the field existed) fires nothing — never a guessed count.
+    if (Number.isInteger(ev.before)) {
+      fired = fired.concat(
+        detectTriggers(classLiveCard(lk.permanent))
+          .filter((d) => d.event === "nthCounterPut" && d.scope === "self" && d.counterType === ev.type
+            && Number.isInteger(d.counterThreshold) && ev.before < d.counterThreshold && ev.before + ev.amount >= d.counterThreshold)
+          .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, {}))
+      );
+    }
     // SCOPED COUNTERS-PUT — WATCHERS ("a creature you control receives counters"), as opposed to the
     // receiving permanent's own self-trigger handled just above. Routed through triggersForEvent so the
     // shared scopeMatches vocabulary does the controller/not-self work rather than a bespoke check.

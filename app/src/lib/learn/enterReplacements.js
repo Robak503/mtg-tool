@@ -536,7 +536,7 @@ export function settleEnterReplacements(state, perm, settle) {
   if (enteredCounters.length) {
     next = { ...next, pendingCounterEvents: [
       ...(next.pendingCounterEvents || []),
-      ...enteredCounters.map(([type, n]) => ({ id: perm.id, type, amount: n, controller, fromEnter: true })),
+      ...enteredCounters.map(([type, n]) => ({ id: perm.id, type, amount: n, before: 0, controller, fromEnter: true })), // before: an entering permanent had none (the counter-threshold trigger reads it)
     ] };
   }
   // KW-RIOT (CR 702.136a) HASTE branch — when the auto-pick chose haste, the permanent "gains haste": a

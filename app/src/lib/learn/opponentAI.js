@@ -42,6 +42,7 @@ import { tokenLoopState, isTokenLoopAction, tokenLoopAttackPlan } from "./tokenL
 import { isNativeManaAura } from "./staticAbilityParser.js"; // pickAuraCast — the mana-boost lane, offered on the caster's own lands only
 import { grantAuraCastHostType } from "./coverage.js"; // pickAuraCast — the granted-ability lane, offered on the caster's own lands when its host is a land
 import { playerAuraEffect } from "./playerAuraEffect.js"; // pickAuraCast — which player an "Enchant player" Aura belongs on (the curse reading)
+import { compareDefenders, untappedCreatureCount } from "./defenderOrder.js"; // the defender order — chooseDefender and the curse reading (Curse of Opulence) read one comparator
 import { entersByDiscardingLand, pickEnterDiscardLand } from "./discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247) — the entry replacement's policy, read before the cast (a leaf; no AI module)
 import { entersTriggerRemovesOwn } from "./gameEngine.js"; // the cast-time hold — what a permanent's own enters trigger would be forced to remove (gameEngine imports no AI module: no cycle)
 
@@ -640,7 +641,8 @@ function pickAuraCast(state, aiPlayerId, actions, card) {
     if (!effect) return null;
     const onSide = opts.filter((a) => (effect.side === "own" ? a.targets[0].id === aiPlayerId : enemies.has(a.targets[0].id)));
     if (onSide.length === 0) return null;
-    return [...onSide].sort((x, y) => (effect.rank(state, x.targets[0].id) - effect.rank(state, y.targets[0].id)) || byId(x, y))[0];
+    const order = effect.compare || ((st, a, b) => effect.rank(st, a) - effect.rank(st, b));
+    return [...onSide].sort((x, y) => order(state, x.targets[0].id, y.targets[0].id) || byId(x, y))[0];
   }
   const intent = auraCastIntent(card);
   if (!intent) return null;
@@ -1619,10 +1621,9 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
   return actions.find(a => a.kind === "pass-priority") || null;
 }
 
-/** Count an opponent's untapped creatures (rough "how hard to push through"). */
+/** Count an opponent's untapped creatures (rough "how hard to push through") — defenderOrder.js, layer-aware (animated man-lands). */
 function untappedBlockerCount(state, playerId) {
-  const bf = state.players?.[playerId]?.battlefield || [];
-  return bf.filter(p => permanentIsCreature(state, p.id) && !p.tapped).length;  // layer-aware (animated man-lands)
+  return untappedCreatureCount(state, playerId);
 }
 
 /**
@@ -1634,11 +1635,7 @@ function untappedBlockerCount(state, playerId) {
 function chooseDefender(state, aiPlayerId) {
   const living = opponentsOf(state, aiPlayerId).filter(id => (state.players?.[id]?.life ?? 0) > 0);
   if (living.length === 0) return null;
-  return living.slice().sort((a, b) => {
-    const lifeDiff = state.players[a].life - state.players[b].life;
-    if (lifeDiff !== 0) return lifeDiff;
-    return untappedBlockerCount(state, a) - untappedBlockerCount(state, b);
-  })[0];
+  return living.slice().sort((a, b) => compareDefenders(state, a, b))[0]; // defenderOrder.js — the curse reading enchants the same opponent
 }
 
 /** First/double strike on a permanent (layer-aware), guarded against bad ids. */

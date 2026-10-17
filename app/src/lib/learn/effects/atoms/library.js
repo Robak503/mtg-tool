@@ -2004,6 +2004,24 @@ export function wheelOnePlayer(state, pid, draw = 7) {
   return applyDrawEffect(next, { controller: pid, amount: Math.min(draw, (next.players[pid].library || []).length) });
 }
 
+/**
+ * SHUFFLE HAND AND GRAVEYARD, DRAW SEVEN — the controller alone (Midnight Clock's twelfth-counter trigger, play-weighted #645:
+ * "shuffle your hand and graveyard into your library, then draw seven cards"). The Timetwister fold for ONE player — the
+ * ability's controller ("your", "you") — through wheelOnePlayer, so the fold, the seeded shuffle (CR 701.24a) and the draws
+ * through the trigger-threading draw path are the very ones the each-player wheels use. Whole-clause anchored; the ", then"
+ * is kept whole by the splitter (splitClauses) so the draw is never severed from the fold.
+ */
+export function selfWheelClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.$/, "");
+  if (t === "shuffle your hand and graveyard into your library, then draw seven cards") return { op: "shuffle-hand-graveyard-draw", draw: 7, targetType: null };
+  return null;
+}
+function applyShuffleHandGraveyardDraw(state, atom, ctx) {
+  if (!state.players?.[ctx.controller]) return state;
+  const next = wheelOnePlayer(state, ctx.controller, atom.draw || 7);
+  return logEvent(next, { kind: "spell-effect", effect: "shuffle-hand-graveyard-draw", controller: ctx.controller, draw: atom.draw || 7 });
+}
+
 export function applyTimetwisterWheel(state, atom, ctx) {
   let next = state;
   for (const pid of Object.keys(next.players)) next = wheelOnePlayer(next, pid, atom.draw || 7);
@@ -2877,6 +2895,7 @@ export const libraryResolvers = {
   "each-player-may-draw": applyEachPlayerMayDraw, // Kwain (2026-09-05) — the per-seat "may" draw (+ per-drawer life); raises the seat-by-seat pause
   "each-player-may-wheel": applyEachPlayerMayWheel, // K9 (Step Between Worlds) — the per-seat "may" wheel; raises the seat-by-seat pause
   "timetwister-wheel": applyTimetwisterWheel, // TIMETWISTER WHEEL (Echo of Eons) — hand+GY fold into library, shuffle, draw 7, per player
+  "shuffle-hand-graveyard-draw": applyShuffleHandGraveyardDraw, // MIDNIGHT CLOCK (#645) — the same fold for the controller alone
   "winds-of-change": applyWindsOfChange, // WINDS OF CHANGE (Nekusar) — hand-only fold into library, shuffle, draw THAT MANY (per-player hand count), per player
   "explore": applyExplore, // ===== EXPLORE ===== (CR 701.44) reveal top: land→hand, else +1/+1 + keep-on-top. Ixalan ETB family flips native-trigger.
   "reveal-top-to-hand": applyRevealTopToHand, // ===== REVEAL-TOP-TO-HAND (Yuriko) ===== reveal top → hand + stamp its MV (state.revealedCardMV) for a following drain.

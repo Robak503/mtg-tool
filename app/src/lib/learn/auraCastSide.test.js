@@ -80,8 +80,16 @@ describe("the curse reading (playerAuraEffect) — what a player Aura's triggers
     expect(ENCHANTED_PLAYER_EFFECTS["enchanted-gy-mill"].side).toBe("enemy");
   });
 
-  it("a player Aura whose trigger the engine does not read has no side — Curse of Opulence (its Gold tokens are the attackers'), Paradox Haze (an extra upkeep you want for yourself)", () => {
-    expect({ opulence: playerAuraEffect(CURSE_OF_OPULENCE), haze: playerAuraEffect(PARADOX_HAZE) }).toEqual({ opulence: null, haze: null });
+  it("a player Aura whose trigger the engine does not read has no side — Paradox Haze (an extra upkeep you want for yourself)", () => {
+    expect(playerAuraEffect(PARADOX_HAZE)).toBeNull();
+  });
+
+  // GRADUATED 2026-10-17 (play-weighted #699): Curse of Opulence's trigger is modeled ("Each opponent attacking that player does the
+  // same" — effects/effectAtoms.applyYouAndAttackingOpponents), and it reads as an opponent's Aura, ranked by the house defender
+  // order (curseOfOpulence.test.js casts it). It sat beside Paradox Haze above while its trigger was unread.
+  it("Curse of Opulence (graduated) reads as an opponent's Aura — the one the AI attacks", () => {
+    expect(playerAuraEffect(CURSE_OF_OPULENCE)).toBe(ENCHANTED_PLAYER_EFFECTS["you-and-attacking-opponents"]);
+    expect(ENCHANTED_PLAYER_EFFECTS["you-and-attacking-opponents"].side).toBe("enemy");
   });
 });
 

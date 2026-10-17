@@ -1660,6 +1660,11 @@ export function bounceClauseParser(clause) {
   // here, so it is not invented. applyZoneMove already accepts the {type:"permanent"} entry selfTargets hands
   // back for a non-creature source (the same path the regenerate slice verified), so no resolver change.
   if (/^put this (?:creature|permanent|aura|enchantment|artifact|equipment|land) on top of its owner's library$/.test(t)) return { op: "tuck", target: "self", where: "top" };
+  // SELF-EXILE — "exile this <self-noun>" (Midnight Clock's "…then draw seven cards. Exile this artifact.", play-weighted #645): the
+  // third cell of the self-bounce / self-tuck grid above — the same self referent (selfTargets: the source permanent while it is
+  // still that object on the battlefield, CR 400.7 — a source that has left is not exiled, the Clock's bundled ruling), the same
+  // zone move (applyZoneMove → moveCardToZone, its owner's exile). The noun list is the self-bounce one.
+  if (/^exile this (?:creature|permanent|aura|enchantment|artifact|equipment|land)$/.test(t)) return { op: "exile", target: "self" };
   if (/^return the triggering creature to its owner's hand$/.test(t)) return { op: "bounce", target: "thatCreature" };
   // SUBTYPE-CREATURE-BOUNCE (CR 205.3m) — "return target <Subtype> you control to its owner's hand" (Kogla,
   // the Titan Ape's activated ability "{1}{G}, …: Return target Human you control to its owner's hand"). The
