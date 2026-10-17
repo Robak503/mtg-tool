@@ -925,6 +925,8 @@ const VIVID_ADD_SENTENCE_RE = /^for each color among permanents you control, add
  *     a coin flip) or "For each …" (Selvala, Explorer Returned's "For each nonland card revealed this way, add {G}"), so
  *     the amount is the condition's or the count's — the parse read the bare symbols as a flat amount. The vivid bundle,
  *     read for real, is the one exception.
+ *   · AN "UNLESS" ON THE ADD (2026-10-17). Rhystic Cave's "Add one mana of that color unless any player pays {1}." makes its mana
+ *     only if no player pays (CR 118.12a) — another player's choice no record holds. It took the land's {C} fallback.
  *   · A COST ITEM NO RECORD PAYS (PAID_MANA_COST_ITEMS). The phantom-mana gate below names consumables one by one, so
  *     every cost it doesn't name rode through as free: "Mill a card" (Deranged Assistant, Millikin), "Forage" (Thornvault
  *     Forager — read as two mana of any colours over its plain {G}), "Collect evidence 3" (Cryptex), "Sacrifice X Goats"
@@ -948,6 +950,10 @@ function manaLineRefused(line) {
   if (/\btarget\b/i.test(effect)) return true;
   const sentence = (effect.split(/(?<=\.)\s+/).find((s) => /\badd\b/i.test(s)) || "").trim();
   if (/^(?:if|for each)\b/i.test(sentence) && !VIVID_ADD_SENTENCE_RE.test(sentence)) return true;
+  // "… UNLESS <a player does something>" on the add (2026-10-17 — Rhystic Cave: "Add one mana of that color unless any player pays
+  // {1}."): the mana is made only if no player takes the option as the ability resolves (CR 118.12a), a choice of other players
+  // no record holds. The line used to parse to nothing and take the land's colourless fallback — {C}, a type it never makes.
+  if (/\bunless\b/i.test(sentence)) return true;
   let cost = t.slice(0, ci).replace(SELF_GRANT_PREAMBLE_RE, "").replace(ABILITY_WORD_PREFIX_RE, "");
   // A counter cost a record pays only in its whole anchored line (2026-10-17): anything else written around it is refused. The
   // single-counter item binds a land's line, and any line that also taps ({T}) — the same text with no {T} on an artifact, a
@@ -1218,6 +1224,19 @@ const MAX_SPEED_PREFIX = /^\s*max speed\s*[—–-]\s*/i;
  * fails it.
  */
 const TAP_OTHER_NO_TAP_MANA_LINE_RE = /^Tap (?:an|a|two|three) untapped (?:legendary )?[a-z]+ you control: Add (?:(?:\{[WUBRGC]\})+|one mana of any color)\.$/i;
+/**
+ * THE SAME COST WITH THE SOURCE'S OWN {T} (2026-10-17 — Holdout Settlement, Survivors' Encampment, Scene of the Crime): "{T}, Tap an
+ * untapped creature you control: Add one mana of any color." beside the land's plain "{T}: Add {C}.". Two abilities (CR 113.2c)
+ * sharing the land's one {T}; this one also taps a creature its controller controls (CR 118.3 — none untapped, no activation; a
+ * creature that came under its control this turn may pay, CR 302.6 — its {T} is not the cost). A land's raw-oracle parse used to
+ * return before the tap-other reader ran, so the line kept no payer: Holdout Settlement made any colour with no creature tapped
+ * (its plain line's reminder text kept the honest-main rule from finding it) and the other two never offered the line. On a land
+ * it now leaves the whole-card parse beside another mana line and rides as its own extra record carrying `extraTap`
+ * (manaProductionImpl, extraManaLineProducts); as a land's only mana line it is the product, with its payer. On a nonland the
+ * line was already read with its payer (Springleaf Drum, Loam Dryad), and the extra-line read finds it covered by the main.
+ * Whole-line anchored: a rider fails it.
+ */
+const TAP_OTHER_TAP_MANA_LINE_RE = /^\{T\}, Tap (?:an|a|two|three) untapped (?:legendary )?[a-z]+ you control: Add (?:(?:\{[WUBRGC]\})+|one mana of any color)\.$/i;
 const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Pay \d life: Add one mana of any color\.|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell of the chosen type(?:, and that spell can't be countered)?(?: or (?:to )?activate an ability of an? (?:[a-z]+ )?source of the chosen type)?\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)? spells?(?: or (?:to )?activate an ability of an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)?(?: source)?)?\.|\{T\}: Add (?:\{[WUBRGC]\})+\. Spend this mana only to cast [^.]+\.(?: Activate only if [^.]+\.)?|\{T\}: Add one mana of any color among legendary permanents you control\.|\{T\}, Remove an? (?:charge|mining|depletion) counter from this land: Add (?:(?:\{[WUBRGC]\})+|one mana of any color)\.(?: If there are no (?:charge|mining|depletion) counters on this land, sacrifice it\.)?)$/i; // + 2026-10-17: the single-counter land line (the Vivid lands, Tendo Ice Bridge, Mirrodin's Core) rides as its own record, removing its counter (ONE_COUNTER_MANA_LINE_RE); + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals; + CAP-CAVERN: the chosen-type any-colour line (Cavern of Souls, Unclaimed Territory); + SHELF-85 S17: the fixed-type restricted any-colour line (Mech Hangar "Spend this mana only to cast a Pilot or Vehicle spell.") — the per-line product carries its restriction (restrictedManaProduction), never a free colour
 // A PLAIN tap line: complete, ungated, no sacrifice — the line a multi-line card can always tap for.
 const PLAIN_MANA_LINE_RE = /^\{T\}: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.$/i;
@@ -1273,11 +1292,18 @@ const _extraMemo = new WeakMap();
  *   · playedLandThisTurn — "you played a land this turn": a land is played only on its controller's own turn (CR 305.3), so
  *     the land-play count (reset at that player's untap step) is read only then;
  *   · selfCounter — "<this permanent / its own name> has a <kind> counter on it" (CR 201.5): Gemstone Caverns' luck counter
- *     (unreachable today — the opening-hand action is never offered — so it still makes {C}), Incubation Druid's +1/+1.
- * Any other condition (A-Town's "If you're in a city that starts with an A", Leafkin Druid's creature count, Ugin's Labyrinth's
- * exiled card) keeps the base and stamps `insteadUnread`: an under-read the runtime may keep (each upgrade is more mana, except
- * A-Town's any colour, which the old any-colour arm had made unconditional), but a land carrying one is not fully modelled
- * (coverage.landFullyCovered reads the flag).
+ *     (unreachable today — the opening-hand action is never offered — so it still makes {C}), Incubation Druid's +1/+1;
+ *   · (2026-10-17) controlsEach with names of CREATURES — Tower Worker's "you control creatures named Mine Worker and Power Plant
+ *     Worker" (its ruling: at least one creature of each name);
+ *   · (2026-10-17) interveningIf — any condition the intervening-if evaluator decides, read through it as the ability resolves:
+ *     Leafkin Druid's "you control four or more creatures", Raucous Audience's and Ilysian Caryatid's "you control a creature
+ *     with power 4 or greater" (layer-aware power — a Hill Giant with a +1/+1 counter counts).
+ * Any other condition (A-Town's "If you're in a city that starts with an A", Ugin's Labyrinth's exiled card, Brood Astronomer's
+ * Planet, Sarevok's Tome's initiative, Undermountain Adventurer's dungeon) keeps the base and stamps `insteadUnread`: an
+ * under-read the runtime may keep (each upgrade is more mana, except A-Town's any colour, which the old any-colour arm had made
+ * unconditional), but a card carrying one is not fully modelled — coverage.landFullyCovered reads the flag, and since 2026-10-17
+ * the native-mana tier does too (Leafkin Druid, Raucous Audience, Ilysian Caryatid and Tower Worker were credited native while
+ * the runtime made only their base).
  */
 const INSTEAD_RIDER_RE = /(\bAdd ([^.]+)\.)\s+If ([^,.]+), (?:add ([^.]+?) instead|instead add ([^.]+?))\./i;
 const LAND_TYPE_WORDS = new Set(["cave", "desert", "forest", "gate", "island", "lair", "locus", "mine", "mountain", "plains", "planet", "power-plant", "sphere", "swamp", "tower", "town", "urza's"]);
@@ -1289,9 +1315,21 @@ function insteadRiderMatch(line) {
   const m = INSTEAD_RIDER_RE.exec(line);
   return m && m.index > ci ? m : null;
 }
+// A condition the intervening-if evaluator DECIDES (2026-10-17 — Leafkin Druid's "you control four or more creatures", Raucous
+// Audience's and Ilysian Caryatid's "you control a creature with power 4 or greater"): read through that evaluator, the reader an
+// "Activate only if" mana gate already uses (Fanatic of Rhonas), layer-aware (permanentHasTypeWord, creaturePower). Consulted only
+// after the kinds below read nothing, so none of their reads move; one the evaluator can't decide stays unread.
 function parseInsteadCondition(text, card) {
   const c = straightApostrophes(text).trim();
+  return parseInsteadConditionKind(c, card) || (conditionIsExpressible(c) ? { kind: "interveningIf", text: c } : null);
+}
+// TOWER WORKER (2026-10-17): "you control creatures named Mine Worker and Power Plant Worker" — its ruling: at least one creature
+// named each. Two capitalised names, each a creature its controller controls (the name the permanent has now — a copy's).
+const CONTROLS_CREATURES_NAMED_RE = /^you control creatures named ((?:[A-Z][A-Za-z'-]*\s?)+?) and ((?:[A-Z][A-Za-z'-]*\s?)+)$/;
+function parseInsteadConditionKind(c, card) {
   if (/^you played a land this turn$/i.test(c)) return { kind: "playedLandThisTurn" };
+  const named = c.match(CONTROLS_CREATURES_NAMED_RE);
+  if (named) return { kind: "controlsEach", of: [named[1], named[2]].map((n) => ({ name: n.trim(), cardType: "Creature" })) };
   const own = c.match(/^(.+?) has an? ([a-z+/0-9-]+) counter on it$/i);
   if (own) {
     const subject = own[1].trim().toLowerCase();
@@ -1351,8 +1389,10 @@ function insteadConditionHolds(state, playerId, perm, condition) {
       const lc = (s) => straightApostrophes(s).toLowerCase();
       return condition.of.every((req) => bf.some((p) => (req.subtypes
         ? req.subtypes.every((st) => permanentSubtypes(state, p.id).some((x) => lc(x) === lc(st)))
-        : lc(manaCardOf(state, p)?.name) === lc(req.name))));
+        : lc(manaCardOf(state, p)?.name) === lc(req.name) && (!req.cardType || permanentHasCardType(state, p.id, req.cardType)))));
     }
+    case "interveningIf":
+      return evaluateInterveningIf(state, condition.text, playerId, { sourcePermanentId: perm?.id }) === true;
     default:
       return false;
   }
@@ -1468,7 +1508,8 @@ export function extraManaLineProducts(card, mainProd) {
       if (!activationCost?.unpayable) out.push({ colors: ["W", "U", "B", "R", "G"], amount: 0, amountSpec: { kind: "creaturesOfSourceChosenType" }, ...(activationCost ? { activationCost } : {}), extraLine: line });
       continue;
     }
-    const tapOtherLine = TAP_OTHER_NO_TAP_MANA_LINE_RE.test(line);
+    // + 2026-10-17: the {T} form on a land (TAP_OTHER_TAP_MANA_LINE_RE — Holdout Settlement), its single-line product carrying its payer.
+    const tapOtherLine = TAP_OTHER_NO_TAP_MANA_LINE_RE.test(line) || TAP_OTHER_TAP_MANA_LINE_RE.test(line);
     if (!EXTRA_MANA_LINE_RE.test(line) && !tapOtherLine) continue;
     const prod = manaProduction({ ...face, oracle: line, oracle_text: line });
     if (!prod || !prod.colors?.length) continue;
@@ -2065,6 +2106,26 @@ function manaProductionImpl(card) {
     const otherAddLine = rcm && /\bAdd\b/.test(oracleForAdd.replace(rcm[0], ""));
     if (rcm && !otherAddLine) {
       return { colors: rcm[2] === "{C}" ? ["C"] : ["W", "U", "B", "R", "G"], amount: 1, requiresTap: false, removesCounters: { type: rcm[1], mode: "each" } };
+    }
+  }
+  // ===== A LAND'S TAP-OTHER LINE (2026-10-17 — TAP_OTHER_TAP_MANA_LINE_RE) ===== a land keeps its raw oracle and returns from the
+  // activated-source branch below before the tap-other reader runs, so its "{T}, Tap an untapped creature you control: Add …" line
+  // kept no payer. Beside another mana line (Holdout Settlement, Survivors' Encampment, Scene of the Crime — each beside a plain
+  // "{T}: Add {C}.") it leaves the whole-card parse, which then reads the land's own plain line, and rides as its own extra record
+  // (extraManaLineProducts parses it alone, where this block returns it); as the land's only mana line it is the product, its
+  // payer carried as `extraTap` (manaSources resolves the payers off the live board). A payer noun parseTapOtherCost doesn't read
+  // makes nothing — never the colourless fallback.
+  if (isLandCard) {
+    const lines = oracleForAdd.split("\n").map((l) => l.trim());
+    const tapOtherLine = lines.find((l) => TAP_OTHER_TAP_MANA_LINE_RE.test(l));
+    if (tapOtherLine) {
+      const others = lines.filter((l) => l !== tapOtherLine);
+      if (!others.some((l) => /\badd\b/i.test(l))) {
+        const made = parseAddClause(tapOtherLine, card);
+        const payer = parseTapOtherCost(tapOtherLine);
+        return made && payer ? { ...made, requiresTap: true, extraTap: payer } : null;
+      }
+      oracleForAdd = others.join("\n");
     }
   }
   // ===== THE TWO COUNTER-COST LINES A RECORD PAYS (2026-10-17 — ONE_COUNTER_MANA_LINE_RE / PUT_COUNTER_MANA_LINE_RE) =====

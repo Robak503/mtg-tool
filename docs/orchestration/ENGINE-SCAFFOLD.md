@@ -467,8 +467,13 @@ means "all permanents" (vacuous filter).
   product }; `withInsteadUpgrade` (manaSources and `landsCouldProduce`) makes the upgrade while the condition holds, as the
   ability resolves (CR 605.3b). Conditions read (`parseInsteadCondition`): `controlsEach` (land-type phrases are subtypes —
   Urza's Tower; capitalised non-type phrases are names — Command Mine), `playedLandThisTurn` (own turn only, CR 305.3 — River
-  of Tears), `selfCounter` (Gemstone Caverns, Incubation Druid). Any other condition keeps the base and stamps `insteadUnread`,
-  which `landFullyCovered` refuses (A-Town). A new condition gets a parse arm and an `insteadConditionHolds` case together.
+  of Tears), `selfCounter` (Gemstone Caverns, Incubation Druid), and since the 10-17 honesty slice `controlsEach` over
+  creature names (Tower Worker — "creatures named Mine Worker and Power Plant Worker") and `interveningIf` — any condition
+  `evaluateInterveningIf` decides, read through it (Leafkin Druid's creature count, Raucous Audience's and Ilysian Caryatid's
+  power-4 creature; consulted only after the other kinds read nothing). Any other condition keeps the base and stamps
+  `insteadUnread`, which `landFullyCovered` AND the native-mana tier refuse (A-Town; a nonland was credited native-mana with
+  it until 10-17). A new condition gets a parse arm and an `insteadConditionHolds` case together. An "unless <a player does
+  something>" on the add (Rhystic Cave, CR 118.12a) is refused by `manaLineRefused` — no record holds another player's choice.
   `colorsAmongSpec` kind `permanentsYouControl` reads Meteor Crater. `manaActivationLimit` also reads "Activate only during an
   opponent's turn" (`opponentsTurnOnly`, no count — Lavinia); `manaLimitAllows` is the one gate. `ONE_COUNTER_MANA_LINE_RE`
   (was LAND_COUNTER_MANA_LINE_RE) admits the {T} single-counter cost on an artifact or creature (charge, book, -1/-1 — Sphere of
@@ -492,7 +497,10 @@ means "all permanents" (vacuous filter).
   extra lines (`extraLineSources`); the explicit tap offers such a line when no earlier record of its permanent makes that
   colour (one option per permanent and colour). In the planner a no-{T} record doesn't share its permanent's {T}, and every
   permanent a tap taps (its source, its payers) can't pay a {T} record or be another record's payer afterwards — before
-  this, Springleaf Drum beside a lone Llanowar Elves paid {2}.
+  this, Springleaf Drum beside a lone Llanowar Elves paid {2}. **On a land, the {T} form too** (10-17 honesty slice,
+  `TAP_OTHER_TAP_MANA_LINE_RE` — Holdout Settlement, Survivors' Encampment, Scene of the Crime): a land returns from the
+  activated-source branch before the tap-other reader, so `manaProductionImpl` takes the line out of the whole-card parse
+  beside another mana line (it rides as an extra record with `extraTap`) and reads it with its payer as the land's only line.
 - **The explicit tap reads the planner's records (2026-10-16).** `manualManaTaps` is
   the explicit tap's only source: `legalChoices.actionsTapForMana` offers its options
   and `actionDispatcher.applyTapForMana` re-derives the one taken from it (never from
@@ -800,6 +808,13 @@ pass fixed four of these; they are the template for what to look for:
   Enchant-land host. No tier moved (flip-diff 0 / 0 / 0). A new reader of a
   permanent's or a zone card's type, text or keywords goes through a parser or one of the three, never raw
   `card.type` / `card.oracle` / `card.keywords`. Witness: `dfcFaceUpSweep.test.js`.
+- **A counter replacement keyed on WHO PUTS the counters** (credit removed 2026-10-17): "If you would put …" / "If an
+  opponent would put …" (Vorinclex, Monstrous Raider; Lae'zel, Vlaakith's Champion; Doc Samson) describes the putter (CR
+  614.1a; wither / infect counters are put by the source's controller, CR 120.3d), but `gameState.addCounter` carries no
+  putter and `applyCounterDoubling` applies by the recipient's controller; a player recipient ("on yourself", "permanent or
+  player") reaches no adder but Winding Constrictor's exact "If you would get" template. `isModeledDoublerSentence` (and
+  `isPureDoubler` through it) refuses both shapes; the runtime still applies the recipient half. Modelling them needs a
+  putter threaded through addCounter's callers and the four player-counter adders. Witness: `counterPutterHonesty.test.js`.
 
 **The generalizable rule for any new recognizer: validate an emitted
 selector/filter/subtype against a *closed* vocabulary (or corpus reality) before

@@ -151,9 +151,12 @@ describe("a counter-doubler sentence — credited on isModeledDoublerSentence (a
   const DOC = card("Doc Samson, Super Psychiatrist", "Legendary Creature — Gamma Doctor Hero", "{4}{G}", "If you would put one or more counters on a permanent you control, put that many plus one of each of those kinds of counters on that permanent instead.\n{T}: Add X mana of any one color, where X is Doc Samson's power.", { power: 5, toughness: 5 });
   const KAMI = card("Kami of Whispered Hopes", "Creature — Spirit", "{2}{G}", "If one or more +1/+1 counters would be put on a permanent you control, that many plus one +1/+1 counters are put on that permanent instead.\n{T}: Add X mana of any one color, where X is this creature's power.", { power: 0, toughness: 0 });
 
-  it("Doc Samson and Kami of Whispered Hopes keep native-mana", () => {
-    expect(classifyCard(DOC)).toBe("native-mana");
+  // Re-pointed 2026-10-17: Doc Samson's "If you would put …" is keyed on who puts the counters, which applyCounterDoubling never
+  // reads (it applies by the recipient's controller), so its sentence is no longer credited and the card parks —
+  // counterPutterHonesty.test.js. Kami's passive "would be put on a permanent you control" names no putter and keeps its credit.
+  it("Kami of Whispered Hopes keeps native-mana; Doc Samson's putter-keyed sentence parks it", () => {
     expect(classifyCard(KAMI)).toBe("native-mana");
+    expect(classifyCard(DOC)).toBe("body-only");
   });
 
   it("⭐ runtime: one counter becomes two — of every kind under Doc Samson, of +1/+1 only under Kami", () => {

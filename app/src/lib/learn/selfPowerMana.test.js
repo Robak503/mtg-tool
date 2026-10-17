@@ -141,7 +141,15 @@ describe("⭐ RUNTIME — the amount is the SOURCE's live power, not the board's
 
 describe("tier", () => {
   it("⭐ the four flip body-only → native-mana", () => {
-    for (const card of [HERONBLADE, DOC_SAMSON, MONA_LISA]) expect(classifyCard(card)).toBe("native-mana");
+    for (const card of [HERONBLADE, MONA_LISA]) expect(classifyCard(card)).toBe("native-mana");
+  });
+
+  // Re-pointed 2026-10-17: Doc Samson's self-power mana line still reads (the parse tests above), but its counter replacement
+  // ("If you would put …") is keyed on who puts the counters, which the runtime never reads — the card parks on that sentence
+  // (counterPutterHonesty.test.js). Without the sentence, the same card is native-mana: the mana half keeps its credit.
+  it("Doc Samson parks on its putter-keyed replacement, not on its mana line", () => {
+    expect(classifyCard(DOC_SAMSON)).toBe("body-only");
+    expect(classifyCard({ ...DOC_SAMSON, oracle: "{T}: Add X mana of any one color, where X is Doc Samson's power." })).toBe("native-mana");
   });
 
   it("⛔ the spend-restricted sibling stays body-only — it must not ride in on this change", () => {

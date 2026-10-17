@@ -3983,7 +3983,12 @@ export function classifyCard(card) {
   // A card whose mana is TRIGGERED (Burning-Tree Emissary's "When this creature enters, add {R}{G}") is not
   // dropped by this: it falls through to the trigger tier below, which is where it belonged — the mana
   // really is delivered, just not by a standing source. Losing the native-MANA label is the correction.
-  if (((hasManaAbility(oracle, String(etCard?.type ?? etCard?.type_line ?? "")) && manaProduction(etCard)) || hasModeledVariableXMana(etCard) || hasDoubleManaPoolAbility(etCard)) && manaCardResidueModeled(etCard, etOracle)) return "native-mana";
+  // ⛔ AN "INSTEAD" RIDER THE RUNTIME CAN'T READ (manaModel's `insteadUnread`, 2026-10-17): the line makes its base mana whatever
+  // its condition says, so the card is not fully modelled — the flag landFullyCovered already refused (A-Town) and this tier never
+  // read: Leafkin Druid, Raucous Audience, Ilysian Caryatid and Tower Worker were credited native-mana while the runtime made only
+  // their base. Their conditions are read now (manaModel.parseInsteadCondition); a rider still unread parks the card.
+  const readManaLine = () => { const own = manaProduction(etCard); return !!own && !own.insteadUnread; };
+  if (((hasManaAbility(oracle, String(etCard?.type ?? etCard?.type_line ?? "")) && readManaLine()) || hasModeledVariableXMana(etCard) || hasDoubleManaPoolAbility(etCard)) && manaCardResidueModeled(etCard, etOracle)) return "native-mana";
   // Single-mechanism tiers first (the informative labels), then the composite catch-all for
   // multi-ability creatures whose pieces are each modeled but span types.
   if (permanentTriggersCovered(etCard)) return "native-trigger";   // P2.8: body + only-routing triggers

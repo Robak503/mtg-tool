@@ -22,6 +22,10 @@ summarizes the notable changes.
 - **Hardened Scales**, **Branching Evolution**, **Primal Vigor**, **Corpsejack Menace**, **The Earth Crystal**, **Conclave Mentor** and the other "+1/+1 counters on a creature" replacements no longer add counters to a noncreature permanent (an artifact, an uncrewed Vehicle, The Ozolith); **Loading Zone** and **Lae'zel, Vlaakith's Champion** act only on the permanents they name
 - **Winding Constrictor** and **Ozolith, the Shattered Spire** now add their extra counter to a creature or artifact that enters with counters (a Hydra cast for X, a modular creature, Zaxara's Hydra token, an amassed Army)
 - **Stocking the Pantry** and **Terrasymbiosis** no longer count a +1/+1 counter put on a noncreature artifact as one put on a creature
+- **Holdout Settlement** no longer taps for any color without tapping a creature: it taps for {C}, or for one mana of any color while you also tap an untapped creature you control (one that came under your control this turn may be tapped). **Survivors' Encampment** and **Scene of the Crime** now offer that same any-color ability (before, they only made {C})
+- **Leafkin Druid**, **Raucous Audience**, **Ilysian Caryatid** and **Tower Worker** now make their bigger amount when its condition holds — {G}{G} with four or more creatures, {G}{G} or two of one color with a creature of power 4 or greater (counters and pumps count), {C}{C}{C} beside a Mine Worker and a Power Plant Worker — instead of always their base mana
+- **Rhystic Cave** no longer taps for {C} (a color it can never make); its "unless any player pays {1}" ability isn't modeled yet, so it makes no mana in the Academy
+- The coverage numbers no longer count as fully modeled **Rhystic Cave**, **Vorinclex, Monstrous Raider**, **Lae'zel, Vlaakith's Champion** and **Doc Samson, Super Psychiatrist**: the engine doesn't yet track who puts counters (Vorinclex's halving of an opponent's counters, the "If you would put" bonus only on your own) or counters put on a player, and a mana creature whose "instead" condition it can't read no longer counts as fully modeled either
 
 ## [0.164.0] - 2026-10-17
 

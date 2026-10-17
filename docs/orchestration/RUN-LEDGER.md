@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **6 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,467)**; engine gains since the tag: **+14**. The next tag
+> **7 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,463)**; engine gains since the tag: **+10** (+14 gained, −4 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,83 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX: false-positive honesty — a land's tap-a-creature line carries its payer (Holdout Settlement, Survivors' Encampment, Scene of the Crime); nonland "instead" riders read or refused (Leafkin Druid, Raucous Audience, Ilysian Caryatid, Tower Worker); Rhystic Cave's "unless" refused; putter-keyed / player-recipient counter replacements uncredited (Lae'zel, Vorinclex, Doc Samson) · **−4** (false credit removed) · snapshot native 15,462 → 15,458
+> Suite **20,145 green (1 skipped) / 1,846 files** under the gate queue. Lint 0 (CR citations: 0 of 11,117 name no rule; keyword citations: 0 of 2,317 cite a
+> different keyword). Flip-diff **+0 / −4 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of 6465a494, snapshotted
+> before the first edit; native 15,462 → 15,458 of 34,584 snapshot names; corpus 15,467 → 15,463). Runtime fingerprint (manaProduction,
+> doublerProfile, isPureDoubler over 34,620 cards): **6 reads change**, every one below. Top 1,000 **903 → 903** (`measure-coverage
+> --played=1000`: "covered 903/1000 (90.3%) · to 90%: +0" before and after); top 2,500 1,742 → 1,740 (Vorinclex #1,250, Lae'zel
+> #1,459). **Mutants 13/13** on assertions, each restored byte-identical (sha256 of manaModel.js / coverage.js / replacementEffects.js
+> checked after the run). Witness tests written first and seen to fail on 6465a494 on assertions (32 of the first 49, every one an
+> AssertionError; the 17 that passed there are controls). Committed on `day/fp-honesty`, not pushed; the release-batch line and the
+> WAKE-REPORT are the integrator's.
+> · **The land tap-a-creature line** (bundled text: "{T}: Add {C}." + "{T}, Tap an untapped creature you control: Add one mana of any
+>   color."; Holdout Settlement's {C} line carries "({C} represents colorless mana.)"). A land keeps its raw oracle and returned from
+>   `manaProductionImpl`'s activated-source branch before the tap-other reader, so the line kept no payer: Holdout Settlement's
+>   whole-card parse took the any-colour line as its main (the reminder text kept `honestMultiLineMain` from finding the plain line) —
+>   any colour with NO creature tapped and never {C} (FP); Survivors' Encampment and Scene of the Crime fell to their plain {C} and
+>   never offered the line (FN — extraManaLineProducts skips a tap-other line without `extraTap`). New `TAP_OTHER_TAP_MANA_LINE_RE`
+>   (whole-line anchored): on a land the line leaves the whole-card parse beside another mana line and rides as an extra record with
+>   `extraTap` (parseTapOtherCost); as a land's only mana line it is the product with its payer; an unread payer noun makes nothing.
+>   The planner's one-tap-per-permanent rule (10-17 Relic slice) covers the payer; the explicit tap offers the line for the colours
+>   the {C} record doesn't make. CR 113.2c, 118.3, 302.6 (the bundled ruling: a creature that came under its controller's control this
+>   turn may be tapped). Witness `landTapCreatureMana.test.js` (20): Holdout alone is a {C} source and can't cast Fugitive Wizard; with
+>   a sick Grizzly Bears it casts the Wizard, land and Bears tapped; Encampment + Bears casts it (it couldn't); by hand {C}, then
+>   W/U/B/R/G carrying the Bears; Holdout + Llanowar Elves pay {2} or {U}, never {U}{G}; controls: a tapped or an opponent's creature is
+>   no payer, the two lines share one {T}, {C} by hand leaves the Bears untapped; the three stay `land`.
+> · **Nonland "instead" riders** (the 10-17 Tron slice's found-not-fixed ①). The native-mana tier never read `insteadUnread`, so four
+>   cards were credited while the runtime made their base. Modelled instead of dropped (the conditions are simple): new instead kind
+>   `interveningIf` — a condition `evaluateInterveningIf` decides, consulted only after the other kinds read nothing (Leafkin Druid's
+>   "you control four or more creatures"; Raucous Audience's and Ilysian Caryatid's "you control a creature with power 4 or greater",
+>   layer-aware power — the reader Fanatic of Rhonas's gate uses), and `controlsEach` over creature names (Tower Worker's "creatures
+>   named Mine Worker and Power Plant Worker", its ruling: one of each). Ilysian's upgrade is two of any ONE colour. `classifyCard`'s
+>   native-mana door now refuses a main product carrying `insteadUnread` (CR 605.3b, 613.4c). Verdicts: **Leafkin Druid, Raucous
+>   Audience, Ilysian Caryatid, Tower Worker — MODELLED** (stay native-mana, now true); **Brood Astronomer** (a Planet's charge
+>   counters), **Sarevok's Tome** (the initiative — no live tracking), **Undermountain Adventurer** (a completed dungeon) — **NO CREDIT
+>   TO DROP**: all three were already body-only on other text; they keep `insteadUnread` and make their base (an under-read, FN).
+>   Witness in `manaTierHonesty.test.js` (23, with Rhystic Cave): Leafkin {G} with three creatures, {G}{G} with four (casts Grizzly Bears alone; by hand {G}{G});
+>   Audience {G}{G} beside Craw Wurm, {G} beside Hill Giant, {G}{G} beside a Hill Giant with a +1/+1 counter; Ilysian beside the Wurm
+>   pays {U}{U}, never {U}{R}; Tower Worker {C}{C}{C} beside a Mine Worker and a Power Plant Worker; controls: the opponent's creatures
+>   don't count, a SYNTHETIC noncreature named Power Plant Worker doesn't, a SYNTHETIC dungeon rider parks its card.
+> · **Rhystic Cave** ("{T}: Choose a color. Add one mana of that color unless any player pays {1}. Activate only as an instant.").
+>   "Unless" is another player's choice as the ability resolves (CR 118.12a); the line parsed to nothing and took the land's colourless
+>   fallback — {C}, a type it never makes — credited `land`. `manaLineRefused` now refuses an add sentence carrying "unless" (the only
+>   such mana line in the bundled oracle): no product, no source, land-partial. **DROPPED** (modelling the pay-or-not needs a
+>   pending choice for every player — CR 602.5e's "only as an instant" with the errata ruling against activation mid-cast besides).
+> · **Counter replacements keyed on who PUTS the counters** (the 10-17 Ozolith slice's found-not-fixed: Lae'zel's "or on yourself").
+>   Found wider while reading it: "If you would put …" / "If an opponent would put …" describes the putter (CR 614.1a — wither and
+>   infect counters are put by the source's controller, CR 120.3d), but `gameState.addCounter` (36 call sites) carries no putter and
+>   `applyCounterDoubling` applies by the recipient's controller: Lae'zel and Doc Samson add one to an opponent's -1/-1 counters on
+>   their controller's creature; Vorinclex doubles those and halves its controller's counters on an opponent's creature. A player
+>   recipient ("on yourself", "permanent or player") reaches no adder — only Winding Constrictor's exact "If you would get" template
+>   does. `isModeledDoublerSentence` now refuses both shapes, and `isPureDoubler` reads it for its counter clauses (no real card
+>   moved by that half; a SYNTHETIC passive player-recipient enchantment is its witness). The runtime still applies the recipient
+>   half. Verdicts: **Lae'zel, Vlaakith's Champion — DROPPED** (native-static → body-only; modelling needs a putter threaded through
+>   addCounter's callers and the four player-counter adders — not simple); **Vorinclex, Monstrous Raider — DROPPED** (same);
+>   **Doc Samson, Super Psychiatrist — DROPPED** (native-mana → body-only; its self-power mana line keeps reading).
+>   Witness `counterPutterHonesty.test.js` (8). Re-pointed, not deleted: `doublerCardCoverage.test.js` (Vorinclex's flip pin and its
+>   halve sentence's "modelled" pin now say parked), `manaTierStaticResidue.test.js` and `selfPowerMana.test.js` (Doc Samson parks on
+>   the sentence; the same card without it is native-mana).
+> · **Flip-diff, every card** (all LOST, each a false credit removed against its runtime reader): Rhystic Cave land → land-partial
+>   (manaLineRefused); Lae'zel native-static → body-only, Vorinclex native-static → body-only, Doc Samson native-mana → body-only
+>   (isModeledDoublerSentence). **Runtime fingerprint, every read**: Holdout Settlement (any colour → {C}); Leafkin Druid, Raucous
+>   Audience, Ilysian Caryatid, Tower Worker (`insteadUnread` → `insteadUpgrade`); Rhystic Cave ({C} → null). Survivors' Encampment
+>   and Scene of the Crime change only in their extra record (not in the fingerprint).
+> · **Profile decks** (app data dir, read 2026-10-17): none holds Holdout Settlement, Survivors' Encampment, Scene of the Crime, Leafkin
+>   Druid, Raucous Audience, Ilysian Caryatid, Tower Worker, Rhystic Cave or Lae'zel. Joe's **Mothman Cometh** holds Vorinclex (91% →
+>   90%, 89/98 → 88/98) and Joe's **Hulk Smash** holds Doc Samson (91% → 90%, 91/100 → 90/100); shelf aggregate 2,744 → 2,742 of
+>   2,998 slots. Both cards play exactly as before — only the false claim is gone.
+> · ⚠️ **Found, not fixed:** the land colourless fallback still mints {C} for an add line the parser can't read, and
+>   `landFullyCovered`'s per-line probe credits such a line as a modelled mana line: **Crypt of Agadeem** (#1,711, `land`) makes {C}
+>   instead of its printed {B} (its variable second line nulls the whole-card parse); **Cabal Stronghold** (#970), **Urza's Workshop**,
+>   **Cascading Cataracts** (#1,217) and **Baldur's Gate** are credited `land` on a second line the runtime never makes (their {C} is
+>   right); **City of Shadows** makes {C} with no storage counters; **Cryptic Spires**, **Captivating Crossroads**, **Forsaken
+>   Crossroads**, **Gem Bazaar** make {C} they can never make (land-partial). Fixing the fallback alone would demote every chosen-colour
+>   land too (Night Market, Three Tree City #177, Nykthos #163 read their per-line "{T}: Add one mana of the chosen color." through the
+>   same fallback) — it needs `landFullyCovered`'s per-line probe to read the whole card's records first. · The putter for counters
+>   (above) is unthreaded everywhere: the active-voice replacements still apply by recipient at runtime. · Extra mana records carry no
+>   Wild Growth-style land boost (`landAuraManaBonus` rides the main record only) — an under-offer, pre-existing.
 
 > ## 🎯 2026-10-17 — PLAY-WEIGHTED: Midnight Clock (EDHREC #645) — the counter-threshold trigger, the controller's wheel and the self exile; Curse of Opulence (#699) — "whenever enchanted player is attacked" and "each opponent attacking that player does the same" (+ Curse of Verbosity, Curse of Disturbance, Curse of Vitality) · **+5** · snapshot native 15,451 → 15,456
 > Suite **20,007 green (1 skipped) / 1,838 files** under the gate queue. Lint 0 (CR citations: 0 of 10,992 name no rule; keyword citations: 0 of 2,313 cite a

@@ -36,7 +36,9 @@ const card = (k) => ({ name: k, type: C[k][0], oracle: C[k][1] });
 describe("doubler full-card coverage — honest flips to native", () => {
   it("flips a doubler on a vanilla/keyword body to native-static", () => {
     expect(classifyCard(card("corpsejack"))).toBe("native-static");   // vanilla 4/4 + ×2 counter doubler
-    expect(classifyCard(card("vorinclex"))).toBe("native-static");    // trample,haste + doubler + opp-halve (both modeled)
+    // Vorinclex left this list 2026-10-17: its "If you would put" / "If an opponent would put" sentences are keyed on who PUTS the
+    // counters and name a player recipient — applyCounterDoubling reads only the recipient's controller and no player adder reads
+    // them (counterPutterHonesty.test.js). The non-flip pin below holds it parked.
     expect(classifyCard(card("adrix"))).toBe("native-static");        // Ward {2} + ×2 token doubler
     // Loading Zone = ×2 counter doubler whose ONLY other text is a WARP line — vacuous for the normal cast (the
     // permanent is hard-cast and behaves as printed), stripped by classifyCard's warp preprocessing → native-static.
@@ -70,6 +72,7 @@ describe("doubler full-card coverage — CREED FN-safe non-flips (body-only)", (
     expect(classifyCard(card("highScore"))).toBe("native-mixed");
     expect(classifyCard(card("mondrak"))).toBe("body-only");            // activated indestructible-counter ability
     expect(classifyCard(card("halvingSeason"))).toBe("body-only");      // token-HALVE not modeled (tokenMultiplier has no halve)
+    expect(classifyCard(card("vorinclex"))).toBe("body-only");          // 2026-10-17: putter-keyed + player recipient (counterPutterHonesty.test.js)
   });
   it("excludes a SUBTYPE-restricted recipient (Mauhúr) — no profile, stays body-only", () => {
     expect(doublerProfile(card("mauhur"))).toBeNull();                  // "Army, Goblin, or Orc you control" → not generic
@@ -91,11 +94,12 @@ describe("doublerProfile subtype-recipient guard", () => {
 describe("isModeledDoublerSentence / stripModeledDoublerClauses", () => {
   it("recognizes the modeled doubler shapes, rejects unmodeled ones", () => {
     expect(isModeledDoublerSentence("if one or more +1/+1 counters would be put on a creature you control, twice that many +1/+1 counters are put on it instead.")).toBe(true);
-    expect(isModeledDoublerSentence("if an opponent would put one or more counters on a permanent or player, they put half that many of each of those kinds of counters on that permanent or player instead, rounded down.")).toBe(true);
     expect(isModeledDoublerSentence("if one or more tokens would be created under your control, twice that many of those tokens are created instead.")).toBe(true);
     // unmodeled: subtype recipient, token-halve
     expect(isModeledDoublerSentence("if one or more +1/+1 counters would be put on an army, goblin, or orc you control, that many plus one +1/+1 counters are put on it instead.")).toBe(false);
     expect(isModeledDoublerSentence("if an opponent would create one or more tokens, they create half that many of each of those kinds of tokens instead, rounded down.")).toBe(false);
+    // 2026-10-17: keyed on who puts the counters and naming a player — the runtime reads neither (counterPutterHonesty.test.js)
+    expect(isModeledDoublerSentence("if an opponent would put one or more counters on a permanent or player, they put half that many of each of those kinds of counters on that permanent or player instead, rounded down.")).toBe(false);
   });
   it("strips the doubler sentence IN PLACE, preserving reminder-text parentheses", () => {
     const stripped = stripModeledDoublerClauses(C.solidGround[1]);
@@ -106,7 +110,8 @@ describe("isModeledDoublerSentence / stripModeledDoublerClauses", () => {
   });
   it("leaves only keyword text after stripping a pure body doubler", () => {
     expect(stripModeledDoublerClauses(C.corpsejack[1]).trim()).toBe("");
-    expect(stripModeledDoublerClauses(C.vorinclex[1]).replace(/\s+/g, " ").trim()).toBe("Trample, haste");
+    // Vorinclex's two sentences are not modelled since 2026-10-17 (putter-keyed, player recipient) — they stay as residue.
+    expect(stripModeledDoublerClauses(C.vorinclex[1])).toMatch(/if you would put one or more counters/i);
   });
 });
 

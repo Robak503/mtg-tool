@@ -279,11 +279,14 @@ export function isPureDoubler(card) {
   if (!/\benchantment\b/.test(type)) return false;
   if (/\bcreature\b|\bplaneswalker\b|\bartifact\b/.test(type)) return false;
   const o = oracleOf(card).replace(/\([^)]*\)/g, " "); // strip reminder text
+  const shortName = String(card?.name ?? "").split(",")[0].trim().toLowerCase();
   for (const raw of o.split(".")) {
     const s = raw.trim();
     if (!s) continue;
+    // + 2026-10-17: a counter clause counts only when the runtime models it (isModeledDoublerSentence — never one keyed on who
+    // puts the counters or naming a player), so this shortcut can't credit what the residue strip refuses.
     const counterClause = (/counters? would be put on/.test(s) || /would put (?:one or more )?counters? on/.test(s)) &&
-      (/twice that many/.test(s) || /that many plus (one|1)/.test(s) || /half that many/.test(s));
+      (/twice that many/.test(s) || /that many plus (one|1)/.test(s) || /half that many/.test(s)) && isModeledDoublerSentence(s, shortName);
     const tokenClause = (/(?:create|creates) one or more tokens?/.test(s) || /one or more tokens? would be created/.test(s)) &&
       /twice that many/.test(s);
     const millClause = /^if an opponent would mill one or more cards, they mill twice that many cards instead$/.test(s); // Bruvac shape (M2)
@@ -297,8 +300,9 @@ export function isPureDoubler(card) {
  * Is sentence `s` (already lowercased) a doubler clause the runtime MODELS? SINGLE SOURCE OF TRUTH shared with
  * the coverage residue-strip so "what we strip from the card for the whole-card check" can never drift from
  * "what the runtime actually applies". Mirrors doublerProfile's clause logic: the your-side counter multiply/
- * additive (generic recipient + you/global scope), the Vorinclex opponent-counter HALVE, and the token-creation
- * doubler. A token-HALVE (Halving Season "an opponent would create … half that many … tokens") is NOT modeled
+ * additive (generic recipient + you/global scope), the passive opponent-recipient counter HALVE, and the token-creation
+ * doubler — never a counter sentence keyed on who puts the counters or naming a player recipient (2026-10-17: Vorinclex's
+ * two, Lae'zel's, Doc Samson's — the runtime reads neither; see the first guard below). A token-HALVE (Halving Season "an opponent would create … half that many … tokens") is NOT modeled
  * (tokenMultiplier has no halving) → returns false → the clause is NOT stripped → the card stays non-native.
  * `shortName` (lowercased pre-comma card name, threaded by stripModeledDoublerClauses) enables the SELF-scope
  * clause (Mowu) to be recognized/stripped; absent → only the name-free self pronouns are matched.
@@ -306,7 +310,17 @@ export function isPureDoubler(card) {
 export function isModeledDoublerSentence(s, shortName = null) {
   const counterPut = /counters? would be put on/.test(s) || /would put (?:one or more )?counters? on/.test(s);
   if (counterPut) {
-    if (/(an opponent would put|an opponent controls)/.test(s) && /half that many/.test(s)) return true; // opponent counter-halve
+    // ⛔ WHO PUTS THE COUNTERS, OR A PLAYER RECIPIENT (2026-10-17). A replacement applies to the event its text describes (CR
+    // 614.1a). "If you would put …" / "If an opponent would put …" is keyed on the player PUTTING the counters (an opponent's
+    // wither or infect damage puts its -1/-1 counters, CR 120.3d), and applyCounterDoubling has no putter — gameState.addCounter
+    // passes a permanent, a kind and an amount, and the profile applies by the recipient's controller: Lae'zel, Vlaakith's
+    // Champion and Doc Samson added one to an opponent's -1/-1 counters on their controller's creature, Vorinclex doubled them and
+    // halved its own controller's on an opponent's creature. A player recipient ("or on yourself", "permanent or player") reaches
+    // no adder at all — only Winding Constrictor's "If you would get" template below does (playerCounterAdditive). Neither is
+    // modelled, so neither is stripped; "If an effect would put …" (Doubling Season) and the passive "would be put on … you
+    // control" name no putter. The runtime still applies the recipient half as before (doublerProfile is unchanged).
+    if (/\b(?:you|an opponent) would put\b/.test(s) || /\b(?:player|yourself)\b/.test(s)) return false;
+    if (/an opponent controls/.test(s) && /half that many/.test(s)) return true; // the passive opponent counter-halve (by recipient)
     if (/twice that many/.test(s) || /that many plus (one|1)/.test(s)) {
       const youScope = RECIPIENT_GENERIC.test(s) && (/you control/.test(s) || /you would put/.test(s) || /your team controls?/.test(s));
       const globalScope = /\b(?:put on|on) (?:a|an|each|any|that) (?:creature|permanent|planeswalker|player|spacecraft|planet)\b/.test(s);
