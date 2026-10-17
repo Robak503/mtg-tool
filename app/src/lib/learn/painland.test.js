@@ -65,12 +65,12 @@ describe("the SINGLE-ABILITY form — an FP that was already live", () => {
       .toMatchObject({ colors: ["R"], painColors: ["R"] });
   });
 
-  it("⛔ CREED — CONDITIONAL damage is EXCLUDED (Tomb of Urami: \"if you don't control an Ogre\")", () => {
-    // Nothing here models that condition, so charging it always would over-charge. Left exactly as it was —
-    // a known, recorded gap rather than a new wrong answer.
+  it("⛔ CREED — CONDITIONAL damage rides with its condition (Tomb of Urami: \"if you don't control an Ogre\")", () => {
+    // 2026-10-16: this was excluded as unmodelled, which left the land PAINLESS on every board — the forbidden direction.
+    // The condition now rides the product; manaSources drops the damage only while it is false (manaDroppedText.test.js
+    // drives both boards).
     const p = manaProduction({ name: "Tomb of Urami", type: "Legendary Land", oracle: "{T}: Add {B}. Tomb of Urami deals 1 damage to you if you don't control an Ogre." });
-    expect(p).toMatchObject({ colors: ["B"], amount: 1 });
-    expect(p.painColors).toBeUndefined();
+    expect(p).toMatchObject({ colors: ["B"], amount: 1, painColors: ["B"], painAmount: 1, painCondition: "you don't control an Ogre" });
   });
 
   it("a plain coloured land is untouched", () => {

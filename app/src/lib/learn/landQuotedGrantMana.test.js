@@ -45,10 +45,12 @@ const URZAS_SAGA = card("Urza's Saga", "Enchantment Land — Urza's Saga", "", "
 // without one (manaModel.withGrantedMana), so these are the boards where a delivered grant would show.
 const PROBE_CAVE = card("Probe Cave", "Land — Cave", "", "");
 const PROBE_LAND = card("Probe Land", "Land", "", "");
+// A commander with a stated identity: Command Tower makes its colours (CR 903.4) and nothing without one (CR 903.4f).
+const OMNATH = card("Omnath, Locus of Mana", "Legendary Creature — Elemental", "{2}{G}", "You don't lose unspent green mana as steps and phases end.\nOmnath gets +1/+1 for each unspent green mana you have.", { power: "1", toughness: "1", colorIdentity: ["G"] });
 
 const perm = (c, id = c.id) => createPermanent({ id, card: c, controller: "user", summoningSick: false });
-function board(battlefield, graveyard = []) {
-  const s0 = createGameState({ userDeck: [], aiDeck: [] });
+function board(battlefield, graveyard = [], userCommanders = []) {
+  const s0 = createGameState({ userDeck: [], aiDeck: [], userCommanders });
   return {
     ...s0, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0,
     players: { ...s0.players, user: { ...s0.players.user, battlefield, graveyard, hand: [], library: [], manaPool: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 } } },
@@ -110,9 +112,9 @@ describe("⭐ runtime: none of the three grants is applied on a board — the re
   });
 
   it("Command Power Plant beside a Command Tower and a Command Mine: the Tower never gains the three-mana ability", () => {
-    const s = board([perm(COMMAND_POWER_PLANT), perm(COMMAND_TOWER), perm(COMMAND_MINE)]);
-    expect(sourceOf(s, COMMAND_TOWER.id)).toMatchObject({ amount: 1 });
-    expect(sourceOf(s, COMMAND_TOWER.id)).toEqual(sourceOf(board([perm(COMMAND_TOWER)]), COMMAND_TOWER.id));
+    const s = board([perm(COMMAND_POWER_PLANT), perm(COMMAND_TOWER), perm(COMMAND_MINE)], [], [OMNATH]);
+    expect(sourceOf(s, COMMAND_TOWER.id)).toMatchObject({ amount: 1, colors: ["G"] });
+    expect(sourceOf(s, COMMAND_TOWER.id)).toEqual(sourceOf(board([perm(COMMAND_TOWER)], [], [OMNATH]), COMMAND_TOWER.id));
   });
 });
 

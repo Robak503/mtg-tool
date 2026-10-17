@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **53 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **±0** (+46 gained, −46 false credit removed). The next tag
+> **54 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **±0** (+46 gained, −46 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,72 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-16 — FIX: mana text the engine read past — Ancient Tomb's damage, Mox Amber's legends, the commander's color identity, the "could produce" lands · **±0** · corpus 15,494
+> Suite **19,514** green (1 skipped) / 1,810 files. Lint 0 (CR citations: 0 of 10,393 name no rule). Flip-diff **0 / 0 / 0**
+> (34,620 cards; before = cf0cd5cb's code from an untouched git-archive copy, after = this tree), so every coverage count is
+> unchanged. **Mutants 16/16** on assertions, restore byte-identical (sha256 of manaModel.js compared after each). Runtime only:
+> the tier of every card named here is unchanged.
+> · **The bugs** (re-proved on cf0cd5cb through `legalActionsForPlayer` + `dispatchAction`; every text read from the bundled
+>   oracle index). ① **Ancient Tomb** ("{T}: Add {C}{C}. This land deals 2 damage to you.") made {C}{C} with no damage on both
+>   paths: the single-ability painland arm took ONE coloured symbol, so a colourless bundle fell to the bare parse. As a "plain
+>   colourless" record the planner also tapped it FIRST for generic, ahead of a Forest. **Tomb of Urami**'s "deals 1 damage to
+>   you if you don't control an Ogre" was excluded as unmodelled, so it was painless on every board. ② **Mox Amber** ("any color
+>   among legendary creatures and planeswalkers you control") made all five, on an empty board too. ③ **Command Tower, Arcane
+>   Signet, Commander's Sphere, Path of Ancestry, Hidden Hideout, Command Mine** ("any color in your commander's color identity")
+>   made all five, with no commander at all too (CR 903.4f: the quality is undefined and that part does nothing). Arcane Signet and
+>   Fellwar Stone sat in `KNOWN_ROCKS` as five-colour rocks, a table read BEFORE the oracle parse. ④ Found on the way, the same
+>   laundering: **Exotic Orchard, Fellwar Stone, Quirion Explorer, Sylvok Explorer** ("any color that a land an opponent controls
+>   could produce", CR 106.7), **Harvester Druid** ("…a land you control…") and **Star Compass** ("…a basic land you control…")
+>   all made any of the five; Reflecting Pool and Incubation Druid beside a Command Tower read the Tower's five.
+> · **The fix — one colour-set reader, one damage rider.** `parseAddClause` gains arms ahead of the free any-colour arm, each
+>   stamping `colorsAmongSpec`: `legendaryCreaturesAndPlaneswalkersYouControl`, `commanderColorIdentity`, and the could-produce
+>   kinds (`landsYouControlCouldProduce` / new `landsOpponentsControlCouldProduce`, with `colorsOnly` / `basicOnly`).
+>   `manaSources` narrows every spec through ONE switch, `colorsAmongFor` (Plaza's and Incubation Druid's inline blocks folded
+>   in; an unknown kind is empty, never the placeholder five); an empty set drops the main record. The identity is
+>   `commanderIdentity.commanderColorIdentityOf` (the seat's game-start stamp ∪ the command zone; partners union; colourless
+>   or unknown → nothing). `landsCouldProduce` is the CR 106.7 read for both sides: a land's own production plus granted basic
+>   types; a board-derived land is skipped (no recursion), except a Command Tower, whose set is ITS controller's identity.
+>   The painland arm now takes any one symbol repeated (amount = count), so Ancient Tomb is `painColors ["C"]`, `painAmount 2`;
+>   a printed "if <condition>" rides as `painCondition` when the intervening-if evaluator can answer it, and `manaSources` drops
+>   the damage only while it is false (an unanswerable condition keeps the damage — worse than printed, the safe side). Damage
+>   from a source without infect is life lost (CR 120.3a): `tapRecordFor` → `painLife` → `commitManaTap`, on the planner's tap and
+>   the explicit tap alike. A painful record is never `tapAny`'s plain colourless, so a Forest pays a {1} before the Tomb.
+>   Arcane Signet and Fellwar Stone left `KNOWN_ROCKS` (a copy with no oracle text now makes nothing — an under-count).
+> · **Checked, no change needed.** City of Brass's damage is its own becomes-tapped trigger (④-AB), queued by the tap on both
+>   paths — pinned as a control. Talismans, Grand Coliseum, Tarnished Citadel and the two-line painlands already carried pain.
+>   Path of Ancestry's scry stays a modeled `spentRider` and it stays off the hand tap (cf0cd5cb's rule).
+> · **Self-play decks this moves** (profile decks in AppData): Ancient Tomb — cdh, Kinnan Mana Overload, Killer Turts, The
+>   Unbeatable Squirrel Girl; Mox Amber — cdh, Kinnan, Believe it!, Light-Paws Voltron, Atraxa Superfriends; Exotic Orchard —
+>   Nekusar Wheels, Atraxa, Mothman Cometh, Jurassic Ramp, Hulk Smash, Halfshell heroes; Fellwar Stone — Otharri Test, Kinnan.
+>   Command Tower (23 decks), Arcane Signet (22), Path of Ancestry (4 + 1 sideboard) and Hidden Hideout (3) now make only their
+>   commander's colours — every self-play commander carries `colorIdentity` (31 of 31 checked through `toRunnerDeck`), so these
+>   only lose off-identity colours. No seeded batch was run.
+> · Witness `manaDroppedText.test.js` (39; 31 red at cf0cd5cb, every one an AssertionError): Ancient Tomb's parse, hand tap,
+>   planner cast, planner-parity and generic order (+ the Sol Ring control); Tomb of Urami with and without an Ogre on both paths;
+>   City of Brass control; Mox Amber alone / Isamaru / Jace Beleren / Honden / a Bear / an opponent's legend + parity; the four
+>   identity sources on a mono-green commander and three with none, Path planner-only, partners, a colourless and an unknown
+>   commander, the commander on the battlefield, parity, the parse of all six; Exotic Orchard (opponent Forest / none / Wastes /
+>   another Orchard / its own Island / an opponent's Command Tower), Fellwar Stone, the Explorers, Star Compass (Forest / Tundra /
+>   Wastes), Harvester Druid, Reflecting Pool + Tower, and the Incubation Druid and Forest controls. Fixture corrections:
+>   pathOfAncestry.test.js's commander gains `colorIdentity` (its red Probe Bolt turns green; the no-commander case now asserts no
+>   mana), landQuotedGrantMana.test.js's Command Power Plant board gains a commander, painland.test.js's Tomb of Urami pin flips.
+> · Mutants (16): Ancient Tomb's bundle arm · the condition parse · the condition stamp · the condition gate · the Mox Amber arm ·
+>   its creature/planeswalker filter · the identity arm · no commander as five · Arcane Signet and Fellwar Stone back in
+>   KNOWN_ROCKS (2) · the could-produce arm · opponents' lands read as the controller's · basicOnly · colorsOnly · the Tower in
+>   could-produce · an empty set keeping the placeholder.
+> · ⚠️ Found, not fixed: ① **19 commander-legal planeswalkers' loyalty "Add" abilities are mana sources** in `manaSources` — no
+>   loyalty paid, any time, at any speed (the commit then taps the planeswalker, so once per untap); CR 605.1a says a loyalty
+>   ability is never a mana ability (Chandra, Torch of Defiance: `{R}{R}`; The Aetherspark: ten of any colour; Liliana of the Dark
+>   Realms reads her emblem's quoted grant as her own `{B}{B}{B}{B}`); in a profile deck: Sarkhan, Fireblood (Did you say
+>   Dragons?). ② **Roxanne, Starfall Savant** taps for any colour off her Meteorite token's quoted
+>   "{T}: Add one mana of any color." (the created-token strip misses a two-quote chain). ③ **Springjack Pasture** ("{T},
+>   Sacrifice X Goats: Add X mana of any one color") reads as a free any-colour tap. ④ **Selvala, Explorer Returned**'s parley
+>   reads as a flat {G}. ⑤ Under-reads (safe): Murmuring Bosk's painful {W}/{B} line is never offered; a Command Tower made a
+>   Swamp by Urborg loses the granted {B} when it is off-identity (the narrowing replaces the merged colours — Plaza already did
+>   this); Exotic Orchard facing only an opponent's Exotic Orchard makes nothing where CR 106.7's example lets it copy what that
+>   Orchard could make; the could-produce read ignores a land's chosen colour (Thriving lands); `opponentAI`'s land pick still
+>   reads the placeholder five for every `colorsAmongSpec` source.
 
 > ## 🔧 2026-10-16 — FIX: "this turn" is not "this creature" — a trigger condition's bare "this" no longer makes it the card's own event (Maeve, Insidious Singer drew whenever she attacked) · **±0** · corpus 15,494 (unchanged)
 > Suite **19,446** green (1 skipped) / 1,808 files. Lint 0 (CR citations: 0 of 10,373 name no rule). Flip-diff **0 / 0 / 0** (34,620 cards; before = an

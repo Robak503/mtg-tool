@@ -445,6 +445,16 @@ means "all permanents" (vacuous filter).
   neither), and a permanent's extra mana lines. Before this, the explicit tap rebuilt
   production from `manaProduction` and paid only a self-sacrifice: Ashnod's Altar made
   {C}{C} with no creature sacrificed, Mox Opal tapped without metalcraft.
+- **A colour set read off the board (`colorsAmongSpec`, 2026-10-16).** `parseAddClause` stamps the spec and a five-colour
+  placeholder; `manaSources` narrows it through `colorsAmongFor` (one switch, an unknown kind is empty) and drops the main
+  record when the set is empty. Kinds: Plaza's legendary permanents, Mox Amber's legendary creatures and planeswalkers, the
+  controller's commander's color identity (`commanderIdentity.commanderColorIdentityOf` — none or unknown makes nothing, CR
+  903.4f), and the "could produce" lands (`landsCouldProduce`, CR 106.7 — the controller's or its opponents', `basicOnly`,
+  `colorsOnly`; a land whose own set is board-derived is skipped, except a Command Tower's identity). A new "any color …
+  <qualifier>" line gets an arm here, never the free any-colour arm.
+- **Damage on a mana line rides `painColors`** (`painAmount`, optional `painCondition` read live — Tomb of Urami): every tap
+  that makes a painful colour deals it, the planner's and the explicit one (tapRecordFor → `painLife` → commitManaTap). A
+  painful source is never "plain colourless" in `tapAny`, so Ancient Tomb is not tapped first for generic.
 - `commitManaTap` pays the costs a tap carries; a permanent sacrificed to a mana
   cost (the source itself, or an Altar's victim) leaves through
   `sacrificeForManaCost` — the canonical sacrifice, so a creature dies through

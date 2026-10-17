@@ -31,10 +31,12 @@ beforeEach(() => _resetIdsForTests());
 
 const PATH = { id: "c-path", name: "Path of Ancestry", type: "Land", keywords: [],
   oracle: "This land enters tapped.\n{T}: Add one mana of any color in your commander's color identity. When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1." };
-const COMMANDER = { id: "c-cmdr", name: "Probe Commander", type: "Legendary Creature — Turtle Warrior", power: 3, toughness: 3, mana: "{2}{G}" };
+// colorIdentity as the deck enrichment carries it: the Path makes one mana of a colour in it (CR 903.4) — a commander card
+// stating none is unknown, and the Path then makes nothing (CR 903.4f; 2026-10-16, the identity read).
+const COMMANDER = { id: "c-cmdr", name: "Probe Commander", type: "Legendary Creature — Turtle Warrior", power: 3, toughness: 3, mana: "{2}{G}", colorIdentity: ["G"] };
 const TURTLE = { id: "c-turtle", name: "Probe Turtle", type: "Creature — Turtle", power: 1, toughness: 1, mana: "{G}" };
 const BEAR = { id: "c-bear", name: "Probe Bear", type: "Creature — Bear", power: 2, toughness: 2, mana: "{G}" };
-const SHOCK = { id: "c-shock", name: "Probe Bolt", type: "Instant", mana: "{R}", oracle: "Draw a card." };
+const SHOCK = { id: "c-shock", name: "Probe Bolt", type: "Instant", mana: "{G}", oracle: "Draw a card." }; // green, in the commander's identity — the Path pays it
 
 const lib = () => Array.from({ length: 3 }, (_, i) => ({ id: `u-${i}`, name: "Card " + i, type: "Instant", oracle: "" }));
 function board({ commanders = [COMMANDER], commanderOnBattlefield = false } = {}) {
@@ -105,9 +107,9 @@ describe("the cast site — a sharing creature spell fires the scry above the sp
     s = dispatchAction(s, cast);
     expect(s.stack.map((o) => o.kind)).toEqual(["spell"]);
   });
-  it("no commander at all: nothing (nothing to share a type with)", () => {
-    let s = board({ commanders: [] });
-    s = dispatchAction(s, castFrom(s, "c-turtle"));
-    expect(s.stack.map((o) => o.kind)).toEqual(["spell"]);
+  it("no commander at all: the Path makes no mana (CR 903.4f), so nothing is ever spent to fire the rider", () => {
+    const s = board({ commanders: [] });
+    expect(manaSources(s, "user").some((x) => x.permanentId === "PATH")).toBe(false);
+    expect(castFrom(s, "c-turtle")).toBeUndefined();
   });
 });

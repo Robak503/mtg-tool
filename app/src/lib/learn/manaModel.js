@@ -30,7 +30,7 @@
  * legalChoices, and layers imports none of these modules so that edge is acyclic too.
  */
 
-import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, removeCounter, setDoesNotUntapNext, deathLookback, deathEventKind } from "./gameState.js"; // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
+import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, removeCounter, setDoesNotUntapNext, deathLookback, deathEventKind, opponentsOf } from "./gameState.js"; // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider; + opponentsOf — the lands Exotic Orchard reads
 import { checkSacrificeTriggers, checkLeavesTriggers, checkDiesTriggers, checkTapForManaTriggers } from "./triggers.js"; // + ④-D: "tapped for mana" watchers fire at the one tap commit // SG-3: a sacrificed-creature mana cost dies through the chokepoint // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
 import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, colorsOf, deriveCharacteristics, permIsEveryCreatureType, permanentColors, faceUpTypeLine } from "./layers.js"; // + faceUpTypeLine: the face that is up of a combined "Front // Back" card — the derive's own read, shared by manaModel's face-up mana read
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // QUARTET Phase 4 step 3 (2026-09-06): the closed CR creature-type vocabulary for spend restrictions ("only to cast a Ninja or Turtle spell") — a zero-import leaf
@@ -39,6 +39,7 @@ import { COUNT_SUBTYPE } from "./effects/parseHelpers.js"; // #766 — the curat
 import { parseAuraLandManaBonus, parseGlobalTapManaAugment, artifactActivationsLocked, abilitiesAsThoughHasteFor } from "./staticAbilityParser.js"; // + SG-18: haste-for-abilities at the mana-source sick gate // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only); NR-1: the artifact-activation lock
 import { manaMultiplier } from "./replacementEffects.js"; // MANA-MULTIPLIER: ×N tap-for-mana replacement (Mana Reflection/Nyxbloom; leaf, no cycle)
 import { evaluateInterveningIf } from "./interveningIf.js"; // CONDITION-GATED mana (CR 602.5) — interveningIf imports ONLY gameState, so this is a one-way edge with no cycle (checked before adding it)
+import { commanderColorIdentityOf } from "./commanderIdentity.js"; // "your commander's color identity" (CR 903.4) — the shared read off the seat's stamp (a zero-import leaf)
 import { parseFaceBlock } from "./splitCard.js"; // THE FACE THAT IS UP — the front face's own text, its "<name> - <type> {mana}" header peeled (splitCard imports nothing)
 
 // A board with one seat and empty zones — enough for evaluateInterveningIf to ANSWER a condition or admit it
@@ -91,8 +92,10 @@ const KNOWN_ROCKS = {
   // the oracle path below routes such cards out via the untap-restriction gate instead.
   "Mana Crypt": { colors: ["C"], amount: 2 },
   "Mind Stone": { colors: ["C"], amount: 1 },
-  "Arcane Signet": { colors: ["W", "U", "B", "R", "G"], amount: 1 },
-  "Fellwar Stone": { colors: ["W", "U", "B", "R", "G"], amount: 1 },
+  // Arcane Signet and Fellwar Stone are deliberately ABSENT (2026-10-16): this table answers BEFORE the oracle parse and can only
+  // say a fixed colour set, so it made both all five colours — Arcane Signet on a mono-green deck or with no commander at all,
+  // Fellwar Stone facing no land. Their colours are read off the board (parseAddClause's commanderColorIdentity and
+  // landsOpponentsControlCouldProduce arms), and a copy with no oracle text makes nothing — an under-count, the safe side.
 };
 
 const COLOR_SET = new Set(MANA_COLORS);
@@ -385,6 +388,32 @@ function parseAddClause(oracle, card) {
   if (/\badd one mana of any type that a land you control could produce\b/i.test(oracle)) {
     return { colors: ["W", "U", "B", "R", "G", "C"], amount: 1, colorsAmongSpec: { kind: "landsYouControlCouldProduce" } };
   }
+  // ── Three more colour sets the free any-colour arm below used to read as all five (2026-10-16). Each is resolved LIVE in
+  // manaSources (colorsAmongFor); an empty set means the line makes no mana, never a fabricated colour.
+  // MOX AMBER — "{T}: Add one mana of any color among legendary creatures and planeswalkers you control." Plaza's shape over a
+  // narrower set: a legendary permanent counts only while it is a creature or a planeswalker (a legendary enchantment, land or
+  // artifact gives it nothing).
+  if (/\badd one mana of any color among legendary creatures and planeswalkers you control\b/i.test(oracle)) {
+    return { colors: ["W", "U", "B", "R", "G"], amount: 1, colorsAmongSpec: { kind: "legendaryCreaturesAndPlaneswalkersYouControl" } };
+  }
+  // "YOUR COMMANDER'S COLOR IDENTITY" — Command Tower, Arcane Signet, Commander's Sphere, Path of Ancestry, Hidden Hideout, Command
+  // Mine / Command Power Plant (their "instead" upgrade read at its base, the documented under-read). The colours are the
+  // controller's commander's color identity (CR 903.4), read off the seat's stamp (commanderIdentity.commanderColorIdentityOf). No
+  // commander, or one whose identity is unknown, leaves the quality undefined and the ability makes nothing (CR 903.4f); a
+  // colourless commander names no colour, so nothing either.
+  if (/\badd one mana of any color in your commander['’]s color identity\b/i.test(oracle)) {
+    return { colors: ["W", "U", "B", "R", "G"], amount: 1, colorsAmongSpec: { kind: "commanderColorIdentity" } };
+  }
+  // "ANY COLOR THAT A LAND … COULD PRODUCE" (CR 106.7) — Exotic Orchard, Fellwar Stone, Quirion / Sylvok Explorer (a land an
+  // opponent controls), Harvester Druid (a land you control), Star Compass (a basic land you control). Incubation Druid's
+  // "any TYPE" form above includes colourless; these say "any COLOR", so {C} is never theirs (colorsOnly).
+  {
+    const cp = oracle.match(/\badd one mana of any color that a (basic )?land (you control|an opponent controls) could produce\b/i);
+    if (cp) {
+      const kind = /^you/i.test(cp[2]) ? "landsYouControlCouldProduce" : "landsOpponentsControlCouldProduce";
+      return { colors: ["W", "U", "B", "R", "G"], amount: 1, colorsAmongSpec: { kind, colorsOnly: true, ...(cp[1] ? { basicOnly: true } : {}) } };
+    }
+  }
   let any = oracle.match(/add\b[^.]*?\b(\S+)\s+mana of any(?: one)? color/i);
   if (any) {
     const n = parseFixedQuantity(any[1]);
@@ -442,29 +471,32 @@ function parseAddClause(oracle, card) {
       return { colors: ["C", a, b], amount: 1, painColors: [a, b], painAmount: parseInt(pain[3], 10) };
     }
     // ⭐ SINGLE-ABILITY PAINLAND (the Odyssey threshold cycle — Cabal Pit, Barbarian Ring, Cephalid
-    // Coliseum, Centaur Garden, Nomad Stadium — plus Fogwell's Gym). ONE coloured ability that costs life:
+    // Coliseum, Centaur Garden, Nomad Stadium — plus Fogwell's Gym, Elves of Deep Shadow, Ancient Tomb). ONE ability whose
+    // every activation deals damage to its controller:
     //     "{T}: Add {B}. This land deals 1 damage to you."
-    // These were NOT colourless — their first Add clause IS coloured, so they parsed fine and the damage
-    // rider was simply DROPPED. That is a PAINLESS painland: strictly better than printed, and unlike the
-    // two-line cycle's under-delivery this one was already live in the FORBIDDEN direction.
+    //     "{T}: Add {C}{C}. This land deals 2 damage to you."
+    // Their first Add clause parsed fine and the damage rider was simply DROPPED. That is a PAINLESS painland:
+    // strictly better than printed, already live in the FORBIDDEN direction.
     //
-    // ⛔ UNCONDITIONAL DAMAGE ONLY. Tomb of Urami prints "deals 1 damage to you IF YOU DON'T CONTROL AN
-    // OGRE" — a condition nothing here models. Charging it always would over-charge, so it is excluded and
-    // stays exactly as it is (a known, recorded gap rather than a new wrong answer).
+    // ⭐ ANY ONE SYMBOL, REPEATED (2026-10-16 — Ancient Tomb). This arm used to take ONE coloured symbol, so a colourless
+    // bundle ("{C}{C}") fell through to the bare parse below and Ancient Tomb made {C}{C} with no damage at all. The symbol
+    // may be any of the six and repeat; the amount is the count. Damage dealt to a player by a source without infect is
+    // life lost (CR 120.3a) — commitManaTap's painLife, on the planner's tap and the explicit tap alike (tapRecordFor).
     //
-    // The `\.` before the lookahead is what does that work: the conditional printing has no period there
-    // ("…damage to you IF you don't…"), so it simply never matches. A second `!/damage to you if/` guard was
-    // written here first and MUTATION-CHECKED AS REDUNDANT — removing it changed nothing, because this
-    // anchor already excluded the card. Dropped rather than kept: a guard that cannot be seen to fail
-    // implies protection it does not add.
+    // ⭐ CONDITIONAL DAMAGE (2026-10-16 — Tomb of Urami: "deals 1 damage to you if you don't control an Ogre"). This used to be
+    // excluded as unmodelled, which left the land PAINLESS whatever the board — the forbidden direction. The condition rides
+    // the product as `painCondition` when the intervening-if evaluator can answer it, and manaSources leaves the damage off
+    // only while it is FALSE as the ability resolves (CR 605.3b). A condition it cannot answer is not stamped, so the damage
+    // is always dealt — worse than printed, the safe side.
     //
     // The `[^.\n]*?` covers the older printings that self-reference by name instead of "This land".
     const pain1 = String(oracle || "").trim().match(
-      /^(?:This land enters tapped\.\n)?\{T\}: Add \{([WUBRG])\}\. [^.\n]*? deals (\d+) damage to you\.(?:\n|$)/i,
+      /^(?:This land enters tapped\.\n)?\{T\}: Add ((\{[WUBRGC]\})\2*)\. [^.\n]*? deals (\d+) damage to you(?: if ([^.\n]+))?\.(?:\n|$)/i,
     );
     if (pain1) {
-      const col = pain1[1].toUpperCase();
-      return { colors: [col], amount: 1, painColors: [col], painAmount: parseInt(pain1[2], 10) };
+      const col = pain1[2].charAt(1).toUpperCase();
+      const condition = pain1[4] ? pain1[4].trim() : null;
+      return { colors: [col], amount: pain1[1].length / 3, painColors: [col], painAmount: parseInt(pain1[3], 10), ...(condition && conditionIsExpressible(condition) ? { painCondition: condition } : {}) };
     }
     // ⭐ BLESSING-GATED PAIN (shelf D5, 2026-09-30 — Temur Elevator: "Ascend\n{T}: Add {G}, {U}, or {R}. If you don't
     // have the city's blessing, you lose 1 life."). Its first Add clause parsed and the life loss was DROPPED — a
@@ -2020,6 +2052,58 @@ function grantedBasicTypeColors(state, perm) {
   return [...new Set(out)];
 }
 
+/**
+ * THE MANA TYPES THESE PLAYERS' LANDS COULD PRODUCE (CR 106.7) — the live union of each land's own production (manaProduction,
+ * basics included via CR 305.6) and the basic types it was granted (Urborg / Yavimaya). A land whose own set is board-derived
+ * (colorsAmongSpec) is skipped — Exotic Orchard facing Exotic Orchard is no recursion, an under-read — except a Command Tower's,
+ * which is its CONTROLLER's commander's color identity, read off that seat and never off another land. `basicOnly` keeps lands
+ * with the basic supertype (Star Compass); `colorsOnly` drops colourless (every "any color" form — only "any type" keeps {C}).
+ */
+function landsCouldProduce(state, playerIds, { basicOnly = false, colorsOnly = false } = {}) {
+  const types = new Set();
+  for (const pid of playerIds) {
+    for (const p of state?.players?.[pid]?.battlefield || []) {
+      const face = String(p.card?.type || p.card?.type_line || "").split(" // ")[0];
+      if (!/\bLand\b/i.test(face)) continue;
+      if (basicOnly && !/\bBasic\b/i.test(face)) continue;
+      const lp = manaProduction(p.card);
+      if (lp && !lp.colorsAmongSpec) for (const c of lp.colors || []) types.add(c);
+      else if (lp?.colorsAmongSpec?.kind === "commanderColorIdentity") for (const c of commanderColorIdentityOf(state, pid) || []) types.add(c);
+      for (const c of grantedBasicTypeColors(state, p)) types.add(c);
+    }
+  }
+  return [...types].filter((c) => !colorsOnly || c !== "C");
+}
+
+/**
+ * THE COLOURS A BOARD-DERIVED MANA LINE CAN MAKE RIGHT NOW (`colorsAmongSpec`, parsed by parseAddClause), read as the ability
+ * resolves (CR 605.3b — a mana ability resolves as it is activated). Empty means the line makes no mana and manaSources drops its
+ * record. An unrecognised kind is EMPTY, never the parser's five-colour placeholder: a spec without a reader here makes nothing.
+ *   · legendaryPermanentsYouControl (Plaza of Heroes) — each legendary permanent's current colours (CR 613.1e);
+ *   · legendaryCreaturesAndPlaneswalkersYouControl (Mox Amber) — the same, only while it is a creature or a planeswalker;
+ *   · landsYouControlCouldProduce / landsOpponentsControlCouldProduce — landsCouldProduce over the controller / its opponents;
+ *   · commanderColorIdentity — the controller's commander's color identity; none (or unknown) is null → nothing (CR 903.4f).
+ */
+function colorsAmongFor(state, playerId, spec) {
+  const bf = state?.players?.[playerId]?.battlefield || [];
+  const colorsOfEach = (perms) => [...new Set(perms.flatMap((p) => permanentColors(state, p.id)))].filter((c) => c !== "C");
+  switch (spec?.kind) {
+    case "legendaryPermanentsYouControl":
+      return colorsOfEach(bf.filter((p) => /\bLegendary\b/i.test(String(p.card?.type || p.card?.type_line || "").split(" // ")[0])));
+    case "legendaryCreaturesAndPlaneswalkersYouControl":
+      return colorsOfEach(bf.filter((p) => permanentHasCardType(state, p.id, "Legendary")
+        && (permanentHasCardType(state, p.id, "Creature") || permanentHasCardType(state, p.id, "Planeswalker"))));
+    case "landsYouControlCouldProduce":
+      return landsCouldProduce(state, [playerId], spec);
+    case "landsOpponentsControlCouldProduce":
+      return landsCouldProduce(state, opponentsOf(state, playerId), spec);
+    case "commanderColorIdentity":
+      return commanderColorIdentityOf(state, playerId) || [];
+    default:
+      return [];
+  }
+}
+
 // LAYER-1 COPY (the play-weighted program, P·26 — Shifting Woodland; Thespian's Stage, Mizzium Transreliquat): a permanent that
 // BECAME a copy (CR 707.2, 613.1a) has the copied card's mana abilities and never its printed ones — a Stage that became a Forest
 // taps for {G} only, and one that became a Bear taps for nothing. layers.deriveCharacteristics owns which copy wins (CR 613.7b).
@@ -2242,31 +2326,22 @@ export function manaSources(state, playerId) {
     const dynFixed = prod.fixedSpec?.kind === "colorsAmongPermanents"
       ? Object.fromEntries([...new Set((player.battlefield || []).flatMap((p) => permanentColors(state, p.id)))].map((c) => [c, scale]))
       : null;
-    // S17 (Plaza of Heroes) — ONE mana of any colour AMONG the controller's legendary permanents: narrow the colour set to
-    // the live union of their colours (CR 608.2g); an empty union means no colour can be made → the MAIN record is not
-    // offered, but the card's EXTRA lines still are (a `continue` here would take Plaza's honest {C} line with it).
-    // The colours are each legendary permanent's CURRENT ones (permanentColors, CR 613.1e), as in the bundle above.
+    // A BOARD-DERIVED COLOUR SET (colorsAmongFor) — Plaza of Heroes (S17), Incubation Druid (2026-09-05), and since 2026-10-16
+    // Mox Amber, the commander's-color-identity sources (Command Tower, Arcane Signet …) and the "could produce" lands (Exotic
+    // Orchard, Fellwar Stone, Star Compass, Harvester Druid): narrow the parser's placeholder to the live set. An empty set
+    // means no colour can be made → the MAIN record is not offered, but the card's EXTRA lines still are (a `continue` here
+    // would take Plaza's honest {C} line with it).
     let dropMain = false;
-    if (prod.colorsAmongSpec?.kind === "legendaryPermanentsYouControl") {
-      const among = [...new Set((player.battlefield || []).filter((p) => /\bLegendary\b/i.test(String(p.card?.type || p.card?.type_line || "").split(" // ")[0])).flatMap((p) => permanentColors(state, p.id)))].filter((c) => c !== "C");
+    if (prod.colorsAmongSpec) {
+      const among = colorsAmongFor(state, playerId, prod.colorsAmongSpec);
       if (among.length) prod = { ...prod, colors: among };
       else dropMain = true;
     }
-    // Incubation Druid (2026-09-05) — ONE mana of any TYPE a LAND the controller controls could produce: the live union of
-    // each land's own production (manaProduction — basics included via CR 305.6; a land whose own set is board-derived is
-    // skipped, no recursion) and the basic types it was granted (Urborg / Yavimaya). Colourless counts as a type. No land
-    // that makes anything → the main record is not offered (a produce-nothing source, never a fabricated type).
-    if (prod.colorsAmongSpec?.kind === "landsYouControlCouldProduce") {
-      const landTypes = new Set();
-      for (const p of player.battlefield || []) {
-        if (!/\bLand\b/i.test(String(p.card?.type || p.card?.type_line || "").split(" // ")[0])) continue;
-        const lp = manaProduction(p.card);
-        if (lp && !lp.colorsAmongSpec) for (const c of lp.colors || []) landTypes.add(c);
-        for (const c of grantedBasicTypeColors(state, p)) landTypes.add(c);
-      }
-      if (landTypes.size) prod = { ...prod, colors: [...landTypes] };
-      else dropMain = true; // no land makes a type
-    }
+    // THE DAMAGE A PAINFUL LINE DEALS (painColors): off once the controller has the city's blessing (shelf D5 — Temur
+    // Elevator), and off while a printed "if <condition>" is FALSE as the ability resolves (Tomb of Urami beside an Ogre,
+    // CR 605.3b). Every other tap deals it, the planner's and the explicit one alike (tapRecordFor).
+    const painOn = !!prod.painColors && !(prod.painUnlessCitysBlessing && player.citysBlessing === true)
+      && !(prod.painCondition && evaluateInterveningIf(state, prod.painCondition, playerId, { sourcePermanentId: perm.id }) === false);
     // THE FREE-ACTIVATION FIX: the main record carries the mana cost of the line it comes from (null for a plain {T} line);
     // the planner funds it before the source produces. A cost the reader can't price drops the main record (FN-safe).
     const mainActivationCost = manaActivationCost(perm.card);
@@ -2300,7 +2375,7 @@ export function manaSources(state, playerId) {
     // SG-3 — a sacrifice-a-creature source needs ANOTHER creature to feed it (never the source itself, never
     // offered on an empty board): no victim → no source (CR 601.2h — the cost cannot be paid).
     if (prod.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && isCreatureNow(state, p))) continue; // a creature NOW (the type-line audit)
-    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors && !(prod.painUnlessCitysBlessing && player.citysBlessing === true) ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}) /* shelf D5 — Temur Elevator: no loss once the controller has the city's blessing */, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}), ...(staysTapped ? { staysTapped: true } : {}) });
+    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(painOn ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}), ...(staysTapped ? { staysTapped: true } : {}) });
     // STAGE ④-3 — EXTRA MANA LINES: a second, complete "{T}: Add …" line the main product does not cover (a
     // gated colour line — Tainted Isle / the Verges / Gathering Place; a free "{T}: Add {C}" beside a painful
     // any-colour line — Grand Coliseum; a "{T}, Sacrifice this land: Add …" ritual line). Each is its own
