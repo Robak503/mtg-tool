@@ -990,8 +990,9 @@ function settleTaxedPaymentChoice(state, pay) {
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
-// ITERATED-EDICT (Torment of Hailfire) — settle ONE opponent's edict mode ({ mode, permId?, cardId? }): apply the
-// lose-3 / sac-nonland / discard, then advance the chain. The chain RE-PAUSES for the next opponent/round (guard
+// ITERATED-EDICT (Torment of Hailfire) — settle ONE opponent's edict mode ({ mode, permId?, cardId? }): lock it in,
+// then advance the chain; a round's answers are carried out together once its last opponent has chosen (CR 101.4,
+// 2026-10-17). The chain RE-PAUSES for the next opponent/round (guard
 // pendingChoice before flushing); when the whole X × opponents queue empties, resumeAfterChoice finishes the spell.
 function settleEdictModeChoice(state, choice) {
   const next = resolveEdictModeChoice(state, choice);
@@ -3840,9 +3841,9 @@ export function applyTaxedPaymentChoice(session, choice, opts = {}) {
 
 /**
  * ===== ITERATED-EDICT (Torment of Hailfire) ===== — the affected OPPONENT resolved one edict decision. `choice`
- * carries { mode, permId?, cardId? } (the picked mode + the specific permanent / card). settleEdictModeChoice applies
- * it (lose 3 / sac / discard), advances the chain to the next opponent/round, then finishes the spell when the whole
- * queue drains. Mirrors applySacUnlessPayChoice (the actor is the affected opponent, whose seat == pc.controller).
+ * carries { mode, permId?, cardId? } (the picked mode + the specific permanent / card). settleEdictModeChoice locks
+ * it in (lose 3 / sac / discard — carried out with the rest of its round, CR 101.4), advances the chain to the next
+ * opponent/round, then finishes the spell when the whole queue drains. Mirrors applySacUnlessPayChoice (the actor is the affected opponent, whose seat == pc.controller).
  */
 export function applyEdictModeChoice(session, choice, opts = {}) {
   if (session.status !== "active") {

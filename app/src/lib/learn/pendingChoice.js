@@ -862,15 +862,18 @@ export function setPendingTaxedPaymentChoice(state, { payer, beneficiary, cost, 
  * these picks: `queue` is the remaining per-opponent decisions (head = the current one). The caster's
  * continuation rides on `pendingChoice.resume` (attached by runProgram on the first pause; resolveEdictMode-
  * Choice carries it forward across the chain). Only flagged when a REAL choice exists (≥2 modes); a life-only
- * opponent is the forced inline loss with no pause. FIFO (guarded).
+ * opponent's forced "life" is locked in with no pause. FIFO (guarded).
+ * `chosen` (2026-10-17) is the round's answers already locked in and not yet carried out — every opponent of a
+ * round chooses first, then the round's actions happen together (CR 101.4; iteratedEdict.settleEdictRound).
  */
-export function setPendingEdictModeChoice(state, { controller, modes, sac = [], disc = [], queue = null, sourceName = null, spec = null }) {
+export function setPendingEdictModeChoice(state, { controller, modes, sac = [], disc = [], queue = null, sourceName = null, spec = null, chosen = null }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "edict-mode-pending", controller, modes, sourceName });
   return {
     ...next,
     // P·20 — the chain's spec (Braids: 2 life, the caster draws, a shares-a-card-type pool) rides the pause so the settler applies it.
-    pendingChoice: { kind: "edict-mode", controller, modes, sac, disc, queue, sourceName, ...(spec ? { spec } : {}) },
+    // The round's locked-in answers, as { playerId, mode, permId?, cardId?, round } — present only when there are some.
+    pendingChoice: { kind: "edict-mode", controller, modes, sac, disc, queue, sourceName, ...(spec ? { spec } : {}), ...(chosen?.length ? { chosen } : {}) },
   };
 }
 

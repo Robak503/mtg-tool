@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **70 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,453)**; engine gains since the tag: **−14** (+68 gained, −82 false credit removed). The next tag
+> **71 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,453)**; engine gains since the tag: **−14** (+68 gained, −82 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,55 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX: the ITERATED edict chain chooses, then acts together, one round at a time — Torment of Hailfire's rounds, Braids, Arisen Nightmare's opponents (CR 101.4); the opponents asked in APNAP order · **±0** · corpus 15,494
+> Suite **19,823** green (1 skipped) / 1,827 files under the gate queue. Lint 0 (CR citations: 0 of 10,788 name no rule). Flip-diff **0 / 0 / 0**
+> (34,620 cards; before = 56ed652e's code from an untouched git-archive copy, after = this tree), so every coverage count is unchanged. **Mutants 15/15** on assertions, restore
+> byte-identical (sha256 of each mutated file compared after each). Runtime only.
+> · **The bug** (found 10-17 by the edict slice, "still one at a time"; re-proved on 56ed652e — every text from the bundled oracle
+>   index). **`iteratedEdict.advanceEdictChain`** carried each opponent's answer out AS IT WAS CHOSEN. Torment of Hailfire, X = 2, in
+>   a pod with two opponents sacrificing creatures each round: Great Fierce Bee ("Whenever one or more other creatures die") ×4, one
+>   per opponent per round (FALSE POSITIVE; ×2, one per round, CR 603.2c); Braids with two answering opponents: Bee ×3 (×2: one for
+>   the controller's own sacrifice, one for the opponents' batch). A later opponent chose after an earlier one's permanent had left;
+>   what an answer saw depended on seat order — a forced life loss or a discard carried out before a later opponent sacrificed
+>   Exquisite Blood / Megrim fired it (false triggers), and a discard carried out after another opponent had already sacrificed Rest
+>   in Peace went to the graveyard; and the opponents were asked in seat order from the first seat (`opponentsOf`), not from the
+>   active player (ai2's Torment asked user → ai1 → ai3; CR 101.4: ai3 → user → ai1). The bundled Torment rulings (2017-07-14) state
+>   the model: "each opponent in turn order makes their choice once, then all of the actions occur simultaneously, then they repeat
+>   this process", and "Each repetition through this process is done separately" (CR 608.2c — each round is the next instruction).
+> · **The fix — the edict chain's choose-then-batch, per round.** Queue entries carry `round` (Torment 0..X−1; Braids one round, 0),
+>   ordered by **`removal.apnapOrder`** (now exported). Each answer is locked in — **`lockInEdictPick`** replaces `applyEdictMode`
+>   (a stale / illegal pick is still the mandatory life loss) — a forced "life" too; the pause carries them as
+>   `pendingChoice.chosen`, and `runProgram.resolveEdictModeChoice` locks the answer in (logged `edict-mode-chosen`: a sacrifice names
+>   its permanent, CR 101.4b; a discard never names its card, CR 101.4a) and re-enters. When a round's last opponent has chosen,
+>   **`settleEdictRound`** carries it out: the discarded cards move first (every permanent chosen for sacrifice still on the
+>   battlefield, so a graveyard replacement of one of them still applies, CR 614.1a); the sacrifices as ONE event
+>   (**`removal.sacrificeChosen`**, now exported — one is the single sacrifice, more `sacrificeCreaturesTogether`); then the discard
+>   watchers and the life losses (Braids's draws with them) — after the sacrifices, so a permanent that left in the round never sees
+>   them (only leaves-the-battlefield abilities look back, CR 603.10a); Braids's life loss and draw are its next sentence anyway. A
+>   round is carried out before the next round's first choice. A queue entry with no `round` (a pause saved before this change) is
+>   its own round, so an old save settles answer by answer as it did.
+> · **Found, not fixed:** a life-loss REPLACEMENT on a permanent sacrificed in the same round would no longer apply to that round's
+>   life losses (they go after the sacrifices, which is what keeps Exquisite Blood / Mindcrank from seeing them); no card of that
+>   shape was found in the profile decks. Several players' discards are separate `checkDiscardTriggers` calls, one per player, as
+>   before.
+> · **AI / self-play** (the profile decks in AppData, read for these cards; no seeded batch was run). **Zaxara kinda X'ish** holds
+>   Torment of Hailfire; no profile deck holds Braids, Arisen Nightmare or a "one or more … die" watcher, so no trigger COUNT changes
+>   in profile pods. What can change: each round's sacrifices leave as one batch and the round's life losses land after them, so the
+>   round's triggers queue in a different order (Vihaan's Blood Artist, Zulaport Cutthroat, Pitiless Plunderer, Mayhem Devil — still
+>   once per creature / sacrifice); a Mindcrank (Mothman Cometh) sacrificed to Torment no longer mills for another opponent's life
+>   loss in that round; when Zaxara sits in a seat other than the first, the opponents are asked in APNAP order. `autoPickEdictMode`
+>   reads only the chooser's own life, hand and board, so AI answers are unchanged; a pilot that reads the state at its pause sees
+>   the round's earlier answers locked in, not carried out. Seeded games with Torment can diverge.
+> · Witness **`iteratedEdictTogether.test.js`** (14; 11 red at 56ed652e, every one an AssertionError; 3 controls pass on both):
+>   Torment X = 2 in a pod through the real cast (Bee ×2, Blood Artist ×4, two batches, ai3's 6 life), nothing leaving mid-round and
+>   the round's permanents gone before round two's choice, mixed answers (a sacrifice, a discard and a life loss all held to the last
+>   choice), Exquisite Blood sacrificed in the round not seeing a forced life loss, Rest in Peace sacrificed in the round exiling the
+>   discarded card in both seatings, Megrim sacrificed in the round not seeing the discard, APNAP order for ai2's Torment, the
+>   chosen-log (discard face down, sacrifice named), a human opponent asked through the session driver after two AI answers were
+>   locked in (then one batch of three), Braids with two answering opponents (one batch; Bee ×2 with the controller's own
+>   sacrifice), ai2's Braids asking in APNAP order; controls: one opponent (two single sacrifices), every opponent losing life, a
+>   pre-change pause.
 
 > ## 🔧 2026-10-17 — FIX: mana lines make what their condition says — "instead" upgrades read (Tron, River of Tears, Command Mine, Gemstone Caverns, Incubation Druid; A-Town refused), Meteor Crater's colours, Lavinia's opponent's-turn gate, nonland counter costs (Sphere of the Suns, Spell Satchel, Channeler Initiate, Mana Bloom) · **+2** (+3 / −1 false credit) · snapshot native 15,446 → 15,448
 > Suite **19,823** green (1 skipped) / 1,826 files, under the gate queue. Lint 0 (CR citations: 0 of 10,741 name no rule). Flip-diff **3 gained / 1 lost / 0 retiered** (34,620 cards; before = 9d3c3521

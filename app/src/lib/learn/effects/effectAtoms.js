@@ -64,7 +64,7 @@ export { tutorManaValue, cardMatchesTutorFilter, shuffleControllerLibrary, botto
 export { advanceDiscardChain, advanceHandToLibraryTopChain, pitchRandomDiscard } from "./atoms/hand.js";
 export { applyConniveCounter } from "./atoms/connive.js"; // CONNIVE (CR 701.50a) — the settle-side nonland→counter step (runProgram.resolveDiscardChoice)
 export { applyDivideDamage } from "./atoms/misc.js";
-export { advanceEdictChain, applyEdictMode, edictLegalModes, edictLoseLife, EDICT_LIFE_LOSS } from "./atoms/iteratedEdict.js";
+export { advanceEdictChain, lockInEdictPick, edictLegalModes, edictLoseLife, EDICT_LIFE_LOSS } from "./atoms/iteratedEdict.js";
 
 export const ATOM_RESOLVERS = Object.freeze({
   ...stackResolvers,   // deal-damage, counter, self-attach

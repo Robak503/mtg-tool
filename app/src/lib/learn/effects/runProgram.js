@@ -29,7 +29,7 @@ import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoic
 import { withAuraEntryAsk } from "../auraEntry.js"; // CR 303.4f — the ask an atom runs in, so a person chooses what their entering Aura enchants (a leaf; zones.js already imports it)
 import { updatePermanentSafe, graveyardExileFor } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, gainLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificeCreaturesTogether, sacrificePoolMatchNow, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, advanceCreatureBatchSacrifice, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificeCreaturesTogether, sacrificePoolMatchNow, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, advanceCreatureBatchSacrifice, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, lockInEdictPick, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
 import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard, policyEvalEnabledFor } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
 import { programConfidence, atomTargetIntent } from "./parser.js"; // + atomTargetIntent — the change-target auto-pick reads the redirected slot's side (shelf D14)
 import { moveStackTarget } from "./atoms/stack.js"; // CHANGE THE TARGET (shelf D14) — the settle writes the pick back; runProgram already reaches atoms/stack.js through parser → effectAtoms, so no new cycle
@@ -1334,28 +1334,35 @@ export function autoPickEdictMode(state, pc) {
 }
 
 /**
- * ===== ITERATED-EDICT ===== (Torment of Hailfire) — settle ONE pick in the edict chain: apply the chosen
- * `choice` ({ mode, permId?, cardId? }) for the AFFECTED opponent (pc.controller) via applyEdictMode — "life"
- * loses 3, "sacrifice" gives up the chosen nonland permanent (dies triggers fire), "discard" pitches the
- * chosen card — then ADVANCE the chain (advanceEdictChain), which either pauses again (the next opponent /
- * round owes a real choice) or, when the queue empties, RESUMES the caster's suspended program. An eliminated
- * opponent mid-pause (CR 800.4a) is a logged no-op that still advances the chain; a stale/illegal permId or
- * cardId falls back to the mandatory life loss inside applyEdictMode (never a fabricated sac/discard). The
- * caster-resume rides forward across each re-pause. Hidden-info safe (the affected opponent is the chooser).
+ * ===== ITERATED-EDICT ===== (Torment of Hailfire, Braids, Arisen Nightmare) — settle ONE pick in the edict
+ * chain: LOCK IN the chosen `choice` ({ mode, permId?, cardId? }) for the AFFECTED opponent (pc.controller)
+ * beside the round's earlier answers (lockInEdictPick — a stale/illegal permId or cardId is the mandatory life
+ * loss, never a fabricated sac/discard), then ADVANCE the chain (advanceEdictChain), which either pauses again
+ * (the next opponent / round owes a real choice) or, when the queue empties, RESUMES the caster's suspended
+ * program. The answer is carried out with the rest of its round, once the round's last opponent has chosen
+ * (CR 101.4, 2026-10-17 — each answer used to be carried out as it was chosen). It is logged as it is made —
+ * a sacrifice names its permanent, so a later chooser knows it (CR 101.4b); a discard never names its card,
+ * which stays face down until it is discarded (CR 101.4a). An eliminated opponent mid-pause (CR 800.4a) is a
+ * logged no-op that still advances the chain. The caster-resume rides forward across each re-pause.
+ * Hidden-info safe (the affected opponent is the chooser).
  */
 export function resolveEdictModeChoice(state, choice) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "edict-mode") return state;
   let next = clearPendingChoice(state);
+  let chosen = pc.chosen || [];
   if (next.players?.[pc.controller]) {
     const mode = pc.modes.includes(choice?.mode) ? choice.mode : "life";
-    next = applyEdictMode(next, { playerId: pc.controller, mode, permId: choice?.permId ?? null, cardId: choice?.cardId ?? null, sac: pc.sac || [], spec: pc.spec });
+    const pick = lockInEdictPick(next, { playerId: pc.controller, mode, permId: choice?.permId ?? null, cardId: choice?.cardId ?? null, sac: pc.sac || [], round: pc.queue?.[0]?.round });
+    const named = pick.mode === "sacrifice" ? { chosen: pick.permId, cardName: (pc.sac || []).find((c) => c.id === pick.permId)?.name } : {};
+    next = logEvent(next, { kind: "edict-mode-chosen", controller: pc.controller, mode: pick.mode, ...named, sourceName: pc.sourceName });
+    chosen = [...chosen, pick];
   } else {
     next = logEvent(next, { kind: "spell-effect", effect: "iterated-edict-skip", controller: pc.controller });
   }
   // Advance the chain — drop the settled head, then continue (the next opponent / round).
   const queue = (pc.queue || []).slice(1);
-  const r = advanceEdictChain(next, { queue, sourceName: pc.sourceName, spec: pc.spec });
+  const r = advanceEdictChain(next, { queue, sourceName: pc.sourceName, spec: pc.spec, chosen });
   if (r.pendingChoice) {
     // The chain re-paused (the next decision owes a real choice). Carry the original caster-resume forward
     // so the program resumes once the whole chain settles (advanceEdictChain never sets a resume itself).

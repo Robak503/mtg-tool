@@ -490,9 +490,10 @@ export function sacrificePoolMatchNow(what, state, perm) {
 
 /**
  * `playerIds` in APNAP order (CR 101.4): the active player, then the others in turn order. The order the players of one
- * "each player …" instruction make their choices in — the N-count edict's and the one-permanent chain's.
+ * "each player …" instruction make their choices in — the N-count edict's, the one-permanent chain's and the iterated edict's
+ * (iteratedEdict.js — Torment of Hailfire's and Braids, Arisen Nightmare's opponents).
  */
-function apnapOrder(state, playerIds) {
+export function apnapOrder(state, playerIds) {
   const order = state.turnOrder || Object.keys(state.players || {});
   const ap = Math.max(0, order.indexOf(state.activePlayer));
   const ranked = [...order.slice(ap), ...order.slice(0, ap)].filter((pid) => playerIds.includes(pid));
@@ -503,8 +504,9 @@ function apnapOrder(state, playerIds) {
  * The permanents one instruction's choices settled on, sacrificed: one alone is the single sacrifice (sacrificeCreatureEffect — its
  * "sacrifice" log entry, byte-identical to a one-victim edict), two or more go TOGETHER as one event (sacrificeCreaturesTogether,
  * CR 101.4: "Then all creatures chosen this way are sacrificed simultaneously"; CR 603.2c — a "one or more" watcher triggers once).
+ * The iterated edict's round settles its sacrifices through it too.
  */
-function sacrificeChosen(state, chosen) {
+export function sacrificeChosen(state, chosen) {
   if (chosen.length === 0) return state;
   if (chosen.length === 1) return sacrificeCreatureEffect(state, chosen[0].playerId, chosen[0].permId);
   return sacrificeCreaturesTogether(state, chosen);

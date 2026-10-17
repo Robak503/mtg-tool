@@ -539,9 +539,19 @@ means "all permanents" (vacuous filter).
   permanents go before the next group's first choice. The batch log entry
   carries `victims` (each one's controller, card types, power); a reader of
   "the permanent you sacrificed" goes through `shared.sacrificesByIn`, never
-  `effect === "sacrifice"` alone. Still one at a time: the iterated-edict chain
-  (`iteratedEdict.advanceEdictChain` — Torment of Hailfire's rounds, Braids,
-  Arisen Nightmare's opponents).
+  `effect === "sacrifice"` alone. **The iterated-edict chain does the same, one
+  round at a time (2026-10-17):** `iteratedEdict.advanceEdictChain` (Torment of
+  Hailfire's rounds, Braids, Arisen Nightmare's opponents) asks the opponents in
+  `apnapOrder`, locks each answer in (`lockInEdictPick`; a forced "life" too) —
+  the pause carries them as `pendingChoice.chosen`, a queue entry's `round` ends
+  one round — and `settleEdictRound` carries a round out once its last opponent
+  has chosen: the discarded cards move first (a graveyard replacement of a
+  permanent sacrificed in the round still applies), the sacrifices go as one
+  event (`sacrificeChosen`), then the discard watchers and the life losses
+  (Braids' draws with them) — after the sacrifices, so a permanent that left
+  in the round never sees them (CR 603.10a). Each round is its own event
+  (the bundled Torment rulings; CR 608.2c). A queue entry without a `round` (a
+  pause saved before) is its own round.
 - `planPayment(...)` is a **pure planner** returning exact `{taps, spend}`; the
   dispatcher commits it verbatim. Cost *legality* and cost *payment* always run
   the same planner — the "two-sites invariant" that stops the offered action and
