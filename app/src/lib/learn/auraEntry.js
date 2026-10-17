@@ -102,8 +102,9 @@ export function auraCastIntent(card) {
 
 /** The side parseAuraBonus's descriptors read (see auraCastIntent), or null where they read none. */
 function bonusSide(card) {
-  let bonus;
-  try { bonus = parseAuraBonus(card); } catch { return null; }
+  // No try/catch: parseAuraBonus throws for none of the 1,297 bundled Aura faces (probed 2026-10-17), and a throw here
+  // would be a parser bug to surface, not a card to quietly hold (CLAUDE.md §1.2 — never hide errors).
+  const bonus = parseAuraBonus(card);
   if (!Array.isArray(bonus) || bonus.length === 0) return null;
   let own = 0;
   let enemy = 0;

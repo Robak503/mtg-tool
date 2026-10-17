@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **12 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,478)**; engine gains since the tag: **+25** (+31 gained, −6 false credit removed). The next tag
+> **13 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,478)**; engine gains since the tag: **+25** (+31 gained, −6 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,11 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🧹 2026-10-17 — HYGIENE: the silent try/catch around parseAuraBonus is gone (CLAUDE.md §1.2) · **±0**
+> `auraEntry.bonusSide` caught any parseAuraBonus throw and returned null (the AI then held the Aura). A probe ran parseAuraBonus over all
+> 1,297 bundled Aura faces: none throws, so the catch hid nothing today and would only have hidden a future parser bug. Removed; the
+> Aura side tests (auraClauseSide, auraCastSide, auraReentry, bodyOnlyAuraTarget — 94) and the full gate stay green.
 
 > ## 🔧 2026-10-17 — FIX (AI decision quality + false positive): the AI reads an Aura's printed bonus CLAUSE BY CLAUSE where the all-or-nothing bonus parse reads nothing — 289 of the 623 body-only Auras now read a side (49 before), and the Light-Paws Voltron deck casts Angelic Destiny, Spectra Ward, Benevolent Blessing, Darksteel Mutation and Swift Reconfiguration again; every Aura cast lane now narrows its hosts by `mayBeEnchantedBy` (Pacifism no longer offered on, or resolved onto, Azorius First-Wing), whose printed-protection read is now the permanent's own · **±0** · snapshot native 15,462 unchanged
 > Suite **20,174 green (1 skipped) / 1,846 files** under the gate queue. Lint 0 (CR citations: 0 of 11,230 name no rule; keyword citations: 0 of 2,347 cite a
