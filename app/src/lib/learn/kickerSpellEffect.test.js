@@ -177,7 +177,7 @@ describe("KICKED-SPELL-EFFECT runtime — legalChoices emits both casts; only no
     expect(mine.map((a) => a.kicked).sort()).toEqual([false, true]);
     const kicked = mine.find((a) => a.kicked === true);
     const normal = mine.find((a) => a.kicked === false);
-    expect(kicked.cmc).toBe(2);            // CR 202.3b — MV counts the kicker paid ({W} + {U})
+    expect(kicked.cmc).toBe(1);            // the printed mana value: the kicker is paid, never part of it (CR 118.8d)
     expect(normal.cmc).toBe(1);
     expect(kicked.cost.U).toBe(1);         // kicker pip folded into the cost
     expect(kicked.targetName).toBe("Grizzly Bears");

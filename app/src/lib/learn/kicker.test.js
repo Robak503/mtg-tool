@@ -270,7 +270,7 @@ describe("KICKER runtime — legalChoices emission (both actions when affordable
     // The kicked action folds the kicker pips into the cost (3 more generic on top of {2}{G}{G}).
     const kicked = mine.find((a) => a.kicked === true);
     expect(kicked.cost.generic).toBe(2 + 4); // {2} base generic + {4} kicker generic
-    expect(kicked.cmc).toBe(8);              // mana value counts the kicker paid (CR 202.3b)
+    expect(kicked.cmc).toBe(4);              // the kicker is paid, never part of the mana value (CR 118.8d)
   });
   it("offers ONLY the normal cast when the kicker cost is NOT affordable", () => {
     // Exactly the base {2}{G}{G} but not the +{4} kicker.
@@ -400,7 +400,7 @@ describe("KICKED ETB runtime — Heartstabber Mosquito destroys a creature ONLY 
     const kicked = casts(s).find((a) => a.cardId === "c1" && a.kicked === true);
     expect(kicked).toBeTruthy();
     expect(kicked.cost.generic).toBe(3 + 2);            // {3} base + {2} kicker generic (the {B} is colored)
-    expect(kicked.cmc).toBe(7);                          // CR 202.3b — MV counts the kicker paid
+    expect(kicked.cmc).toBe(4);                          // the printed mana value: a kicker never adds to it (CR 118.8d)
     s = drainStack(dispatchAction(s, kicked));
     expect(s.players.ai.battlefield.map((p) => p.card.name)).not.toContain("Grizzly Bears");
     expect(s.players.ai.graveyard.map((c) => c.name)).toContain("Grizzly Bears");

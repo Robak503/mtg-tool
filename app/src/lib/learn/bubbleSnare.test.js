@@ -56,13 +56,13 @@ describe("the offer", () => {
     expect(acts[0].targets[0].id).toBe("bear");
     expect(acts[0].kicked).not.toBe(true);
   });
-  it("⭐ with {2}{U}{U} the lane ALSO offers the kicked cast — kicker pips folded in, mana value 4 (CR 202.3b)", () => {
+  it("⭐ with {2}{U}{U} the lane ALSO offers the kicked cast — kicker pips folded in, mana value still 1 (CR 118.8d)", () => {
     const acts = snareCasts(board({ U: 2, C: 2 }));
     expect(acts.length).toBe(2);
     const kicked = acts.find((a) => a.kicked === true);
     expect(kicked).toBeTruthy();
     expect(kicked.targets[0].id).toBe("bear");
-    expect(kicked.cmc).toBe(4);
+    expect(kicked.cmc).toBe(1); // the printed mana value: the kicker is paid, never part of it
     expect(kicked.cost.generic).toBe(2);
     expect(kicked.cost.U).toBe(2);
   });

@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **56 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **±0** (+46 gained, −46 false credit removed). The next tag
+> **57 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **±0** (+46 gained, −46 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,51 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX: a cast offer's `cmc` is the card's mana value — kicker, multikicker, bestow and strive no longer add to it, and a {2/X} pip counts 2 (CR 118.8d, 118.9c, 202.3f) · **±0** · corpus unchanged
+> Suite **19,518** green (1 skipped) / 1,812 files, under the gate queue. Lint 0 (CR citations: 0 of 10,429 name no rule). Flip-diff
+> **0 / 0 / 0** (34,620 cards; before = an untouched `git archive` of b51c65d0; native 15,462 of 34,584 snapshot names before and
+> after). **Mutants 7/7** on assertions, each restored byte-identical (sha256). The stack guards were seen to fail: a dispatcher
+> mutant that puts the paid cost on the stack card fails all three, on their counterspell assertions.
+> · **The report** (the 10-16 citations entry below): a kicked cast's `cmc` was printed + kicker and a bestowed cast's the bestow
+>   cost, "whether it reaches a spell's MV on the stack is unverified". **It doesn't.** The dispatcher puts the card (`castCard`) on
+>   the stack, never the offer's `cmc`, and every stack reader takes the card's `cmc`: the mana-value counters
+>   (`stack.counterMvOk`, `spellEffects.spellMatchesCounterFilter` — Spell Snare, Thoughtbind, Disdainful Stroke, Minor Misstep),
+>   `stack.stackSpellManaValue` (Mana Drain, Imp's Mischief), the cast-trigger mana-value filter (`triggers.spellManaValue`),
+>   cascade (`cascadingSpellManaValue`). The offer's `cmc` has two readers, both the AI's: `opponentAI.scoreCastTier` /
+>   `scoreByRole` (aggro's cheap body at 2 / 3, ramp's finisher at 7+) and `pickCastAction`'s tie-break (and the M5.1 ranking it
+>   records). `manaUntapLine` reads only activation offers; `pickCounterCast` reads the stack object's paid `cost` (a threat
+>   heuristic) — both unchanged.
+> · **The fix** (`legalChoices.js`). Every cast offer keeps `base.cmc`, the printed mana value: the kicked creature, spell and
+>   Aura, every multikick count (it grew by the multikicker per kick), the bestow cast (it was the bestow cost), and a strive cast
+>   with extra targets (it was the whole payable cost, tax included) — the rule the additional-mana-cost, emerge, flashback and
+>   alt-cost casts already followed. `totalCmc` counts a hybrid symbol by its largest component (CR 202.3f): the 22 {2/X} cards
+>   (Spectral Procession, Flame Javelin, Reaper King …) were offered at about half their mana value. `totalCmc` also feeds the
+>   flashback cast's printed MV, `manaValueOf`'s no-cmc fallback and the equip-override comparison.
+> · **Corpus effect** (an offer probe over the 339 nonland kicker / multikicker / bestow / strive / {2/X} cards, archive vs fix):
+>   146 cards' offers change `cmc`; afterwards every offer reads the printed mana value (an X cast reads printed + X, CR 202.3e —
+>   Nyxborn Hydra). No tier moves.
+> · **Decks** (the three profiles' decks): Everflowing Chalice (Otharri Test), Galadriel's Dismissal (Otharri Test, Shalai and
+>   Hallar Test, Light-Paws Voltron) and Divine Resilience (Otharri Test) change `cmc`; their score is the same in every archetype
+>   (Chalice is ramp; the other two are neither creatures nor 7+), so only the tie-break among equal-score casts moves. Springheart
+>   Nantuko's bestow cost equals its mana value; Nyxborn Hydra's bestow and the kicks of Sowing Mycospawn and Inscription of
+>   Abundance are not offered; teamwork casts already kept the printed value. **⚑ Epoch:** AI picks can change in a game holding a
+>   kicker, multikicker, bestow, strive or {2/X} card (scores in aggro / ramp, tie-breaks anywhere); the action set does not.
+> · **{2/X} audit:** goldfish.js `manaValueFromCost` and library.js `manaValueOfCard` (clash) are NOT changed — no real card reaches
+>   them. Every card the app builds carries a numeric cmc (`cardIndex.publicCard` `cmc ?? 0`, the live fallback the same,
+>   `learnDeckEnrich` `cmc ?? full.cmc ?? 0`, self-play enriches through it; the saved decks hold names only); all 22 {2/X} cards
+>   are layout normal; and `opponentAI` calls `detectArchetype(aiDeck, {})` with empty card data, so goldfish's fallback there only
+>   ever reads "". modalDfc `faceManaValue` has the same arithmetic and needs a {2/X} modal DFC face (none exists).
+> · Witness `castManaValue.test.js` (18): 13 failed on b51c65d0 on assertions (the offers, the scorer, two aggro / tie-break
+>   picks), 5 held (four stack guards and the unkicked control). Four old pins asserted the bug, each citing CR 202.3b (the
+>   back-face rule): kicker.test ×2, bubbleSnare.test, kickerSpellEffect.test → the printed value.
+> · ⚠️ Found, not fixed (queued): **the mana-value counters and the cast-trigger filter read the card's `cmc`, not
+>   `stackSpellManaValue`.** An X spell on the stack counts X as 0 (CR 202.3e: the chosen X) — probed: Hungering Hydra cast for X=5
+>   (stack MV 6) is offered to Thoughtbind ("4 or less", an illegal target) and not to Disdainful Stroke; a split half or an
+>   Adventure reads the whole card's cmc (`splitFaceCards` / `adventureFaceCard` spread the card; CR 202.3d), so a "N or greater"
+>   or exact counter can be offered against a half that is below it. Fix: route both counter filters through
+>   `stackSpellManaValue(stackObj)` and give the cast-trigger filter the cast's X and face. The strive citation CR 702.106 (Hidden
+>   Agenda) remains in parser.js and strive.test.js (corrected here in legalChoices to CR 207.2c, the ability-word list).
 
 > ## 🏷️ 2026-10-17 — FIX: every Academy action reads as words (activate / crew / cycle / loyalty and the 13 other unlabelled kinds; the no-board prompt; "You's turn"; raw seat ids) · Stomp withheld on purpose · **±0** · corpus unchanged
 > Suite **19,518** green (1 skipped) / 1,814 files under the gate lock. Lint 0 (CR citations: 0 of 10,404 name no rule). Flip-diff

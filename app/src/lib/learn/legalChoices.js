@@ -302,14 +302,19 @@ export function addExtraManaCost(cost, extraPips) {
 /**
  * Total mana value (CMC) from a parsed cost. Used for sort hints and
  * curve analysis, not legality. X counts as 0 here.
+ * A hybrid symbol counts its largest component (CR 202.3f): {2/W} is 2, {W/U} is 1. A Phyrexian symbol is 1 (CR 202.3g).
  */
 export function totalCmc(cost) {
   return (cost.generic || 0)
     + (cost.W || 0) + (cost.U || 0) + (cost.B || 0) + (cost.R || 0) + (cost.G || 0)
     + (cost.C || 0)
     + (cost.snow || 0)   // SNOW ({S}) contributes 1 to mana value each (CR 202.3a)
-    + cost.hybrid.length
+    + cost.hybrid.reduce((sum, parts) => sum + hybridPipManaValue(parts), 0)
     + cost.phyrexian.length;
+}
+/** One hybrid symbol's share of the mana value: its largest component — a number counts itself, a colour 1 (CR 202.3f). */
+function hybridPipManaValue(parts) {
+  return Math.max(1, ...parts.map((p) => (/^\d+$/.test(p) ? parseInt(p, 10) : 1)));
 }
 
 /**
@@ -1333,14 +1338,14 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // the normal cast offered — the base still resolves; a SAFE limitation).
     // + TEAMWORK's "choose both instead" modal (shelf D16): its kicked cast is the both-modes one.
     const kickedSpell = isHigh && ((program.atoms || []).some((a) => a.kickedOnly) || !!program.modal?.conditionalBothKicked);
-    let kickedSpellCost = null, kickedSpellCmc = null, kickedSpellAffordable = false;
+    // The kicked cast keeps the printed mana value (`base.cmc`): a kicker is paid, never part of the mana cost (CR 118.8d).
+    let kickedSpellCost = null, kickedSpellAffordable = false;
     let teamworkTap = null; // TEAMWORK (shelf D16): the creatures the kicked cast taps instead of paying kicker mana
     if (kickedSpell && !freeCast) {
       const kStr = parseKickerCost(card); // clean single mana cost (kicker.js gate); the program only carries kickedOnly atoms when this is non-null
       if (kStr) {
         const kCost = parseManaCost(kStr);
         kickedSpellCost = mergeManaCost(cost, kCost);       // base (already taxed/reduced) + the kicker pips
-        kickedSpellCmc = printedCmc + totalCmc(kCost);      // CR 202.3b — mana value counts the kicker paid
         kickedSpellAffordable = canAfford(player.manaPool, manaSources(state, playerId), kickedSpellCost);
       } else {
         // TEAMWORK N — no extra mana: tap creatures with total power ≥ N (the printed reminder). The same mana cost, paid
@@ -1349,7 +1354,6 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         teamworkTap = n != null ? teamworkTapSet(state, playerId, n) : null;
         if (teamworkTap) {
           kickedSpellCost = cost;
-          kickedSpellCmc = printedCmc;
           kickedSpellAffordable = canAfford(player.manaPool, castPaymentSources(state, { playerId, teamworkTapIds: teamworkTap.ids }), cost);
         }
       }
@@ -1712,7 +1716,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // kicked:false explicitly so the dispatcher/AI distinguish it from the kicked variant. Null = not offered.
       const normalCast = (ch) => {
         const common = commonFor(ch);
-        // ⭐ STRIVE (CR 702.106 — ④-AS, 2026-09-04): "this spell costs {N} more to cast for each target beyond the first"
+        // ⭐ STRIVE (an ability word, CR 207.2c — ④-AS, 2026-09-04): "this spell costs {N} more to cast for each target beyond the first"
         // rides the program as `strivePerTarget` (parseEffectProgram peels and stamps it). Each chosen subset pays the base
         // cost plus N × (targets − 1), and a subset the player cannot fund is simply not offered — the printed card's
         // own limit. A one-target (or zero-target) cast pays the base cost, exactly as printed.
@@ -1731,7 +1735,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
           let cost = base.cost;
           for (let i = 1; i < ch.targets.length; i++) cost = mergeManaCost(cost, per);
           if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) return null;
-          striven = { ...common, cost, cmc: totalCmc(cost) };
+          // `cmc` stays the printed mana value: the increase is part of the total cost (CR 601.2f), not the mana cost (CR 202.3).
+          striven = { ...common, cost };
         }
         return kickedSpell ? { ...striven, kicked: false } : striven;
       };
@@ -1742,7 +1747,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // cast's own targets; kicked:true → runEffectProgram runs the kickedOnly atoms and skips the nonKickedOnly ones.
         if (k < kickedChoices.length) {
           actions.push({
-            ...commonFor(kickedChoices[k]), cost: kickedSpellCost, cmc: kickedSpellCmc, kicked: true,
+            ...commonFor(kickedChoices[k]), cost: kickedSpellCost, kicked: true,
             ...(teamworkTap
               ? { kickedName: `teamwork: tap ${teamworkTap.names.join(", ")}`, teamworkTapIds: teamworkTap.ids, teamworkFree: teamworkTap.free }
               : { kickedName: "kicked" }),
@@ -1825,7 +1830,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
           const auraKickedCost = mergeManaCost(cost, auraKickerCost);
           if (canAfford(player.manaPool, manaSources(state, playerId), auraKickedCost)) {
             for (const t of targets) {
-              actions.push({ ...base, cost: auraKickedCost, cmc: printedCmc + totalCmc(auraKickerCost), targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true, kicked: true, kickedName: "kicked" });
+              actions.push({ ...base, cost: auraKickedCost, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true, kicked: true, kickedName: "kicked" }); // `cmc` stays printed (CR 118.8d)
             }
           }
         }
@@ -1862,7 +1867,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     const bestowCostStr = isNativeBestow(card) ? parseBestowCost(card) : null;
     if (bestowCostStr) {
       let bestowCost = parseManaCost(bestowCostStr);
-      const bestowCmc = totalCmc(bestowCost); // mana value reads the (printed) bestow cost (CR 202.3b) — before the tax
+      // The bestow cost is paid INSTEAD of the mana cost, which it doesn't change (CR 702.103a, 118.9c): the cast keeps the
+      // card's printed mana value (`base.cmc`).
       // The commander tax + static cost-reducers apply to the alt-cast too (CR 601.2f / 903.8) — mirror
       // the creature-mode cost adjustments above so a taxed/discounted bestow cast is priced correctly.
       const tax = freeCast ? 0 : (taxFn ? taxFn(card) : 0);
@@ -1886,7 +1892,6 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
           actions.push({
             ...base,
             cost: bestowCost,
-            cmc: bestowCmc,
             targets: [t],
             targetName: t.name,
             needsTargets: true,
@@ -1971,8 +1976,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // enters-with counters, an ETB's "for each time it was kicked". Offered only for a card whose classification is native —
     // every line, the payoff included, modeled — so a kick is never paid for text the engine doesn't play. A permanent
     // without cast targets (the shape every native multikicker card has; an Aura returned above). A free cast pays no kicker
-    // (the same limitation as single kicker below). `cmc` grows with each kick — the AI's mana-spent heuristic, as for the
-    // kicked casts below; the card's mana value never changes (CR 202.3 — kicker is an additional cost, not mana cost).
+    // (the same limitation as single kicker below). `cmc` stays the printed mana value on every kick count: a kick is paid,
+    // never part of the mana cost (CR 118.8d, 702.33c).
     const multikickPips = parseMultikickerCost(card);
     if (multikickPips && isNativeTier(classifyCard(card))) {
       actions.push({ ...base, targets: [], needsTargets: false, kicked: false, kickCount: 0 });
@@ -1982,7 +1987,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         for (let k = 1; k <= MULTIKICK_OFFER_CAP; k++) {
           folded = mergeManaCost(folded, unit);
           if (!canAfford(player.manaPool, manaSources(state, playerId), folded, spendContext)) break;
-          actions.push({ ...base, cost: folded, cmc: printedCmc + k * totalCmc(unit), targets: [], needsTargets: false,
+          actions.push({ ...base, cost: folded, targets: [], needsTargets: false,
             kicked: true, kickCount: k, kickedName: `kicked ×${k}` });
         }
       }
@@ -1999,8 +2004,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         if (canAfford(player.manaPool, manaSources(state, playerId), kickedCost)) {
           actions.push({
             ...base,
-            cost: kickedCost,
-            cmc: printedCmc + totalCmc(kickerCost), // CR 202.3b — mana value counts the additional kicker cost paid
+            cost: kickedCost, // `cmc` stays printed (base): the kicker is paid, never part of the mana value (CR 118.8d)
             targets: [],
             needsTargets: false,
             kicked: true,
