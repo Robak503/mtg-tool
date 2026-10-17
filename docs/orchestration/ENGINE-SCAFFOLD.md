@@ -462,6 +462,18 @@ means "all permanents" (vacuous filter).
   activated abilities' own ledger `state.activatedOncePerTurn` (`permId:line` → `{ turn, n }`): manaSources reads it, commitManaTap
   (via the record's `limitKey`) stamps it. A new no-{T} mana line with any other "Activate …" rider needs an arm there first —
   without the tap nothing else holds it back.
+- **"Instead" riders, timing gates, nonland counter costs (2026-10-17 evening).** A mana line "Add <base>. If <condition>, add
+  <upgrade> instead." (or "…, instead add …") is parsed with the rider stripped and carries `insteadUpgrade` { condition,
+  product }; `withInsteadUpgrade` (manaSources and `landsCouldProduce`) makes the upgrade while the condition holds, as the
+  ability resolves (CR 605.3b). Conditions read (`parseInsteadCondition`): `controlsEach` (land-type phrases are subtypes —
+  Urza's Tower; capitalised non-type phrases are names — Command Mine), `playedLandThisTurn` (own turn only, CR 305.3 — River
+  of Tears), `selfCounter` (Gemstone Caverns, Incubation Druid). Any other condition keeps the base and stamps `insteadUnread`,
+  which `landFullyCovered` refuses (A-Town). A new condition gets a parse arm and an `insteadConditionHolds` case together.
+  `colorsAmongSpec` kind `permanentsYouControl` reads Meteor Crater. `manaActivationLimit` also reads "Activate only during an
+  opponent's turn" (`opponentsTurnOnly`, no count — Lavinia); `manaLimitAllows` is the one gate. `ONE_COUNTER_MANA_LINE_RE`
+  (was LAND_COUNTER_MANA_LINE_RE) admits the {T} single-counter cost on an artifact or creature (charge, book, -1/-1 — Sphere of
+  the Suns, Spell Satchel, Channeler Initiate); the no-{T} per-counter reader takes Mana Bloom's "Activate only once each turn",
+  and manaSources caps its records at the activations left (a capped single record is offered by hand).
 - `manaSources(state, player)` → the untapped permanents that can produce now
   (summoning-sickness aware). Granted mana abilities are counted by ONE read,
   `withGrantedMana`: a permanent with no mana ability of its own takes the granted spec

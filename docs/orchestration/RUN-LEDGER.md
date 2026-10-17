@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **68 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,451)**; engine gains since the tag: **−16** (+65 gained, −81 false credit removed). The next tag
+> **69 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,453)**; engine gains since the tag: **−14** (+68 gained, −82 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,77 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX: mana lines make what their condition says — "instead" upgrades read (Tron, River of Tears, Command Mine, Gemstone Caverns, Incubation Druid; A-Town refused), Meteor Crater's colours, Lavinia's opponent's-turn gate, nonland counter costs (Sphere of the Suns, Spell Satchel, Channeler Initiate, Mana Bloom) · **+2** (+3 / −1 false credit) · snapshot native 15,446 → 15,448
+> Suite **19,823** green (1 skipped) / 1,826 files, under the gate queue. Lint 0 (CR citations: 0 of 10,741 name no rule). Flip-diff **3 gained / 1 lost / 0 retiered** (34,620 cards; before = 9d3c3521
+> from an untouched `git archive` copy, after = this tree). Runtime fingerprint: **23 of 34,584 distinct `manaProduction` reads change**
+> (every one below). **Mutants 28/28** on assertions, each restored byte-identical (sha256 of manaModel.js / coverage.js /
+> staticAbilityParser.js compared after each, in a scratch copy of this tree).
+> · **The bugs** (found 10-17 by the counter-cost slice; re-proved on 9d3c3521 through `manaSources`, `legalActionsForPlayer` and
+>   `dispatchAction`; every text from the bundled oracle index). ① **"Instead" riders unread**: the parse took the first "Add"
+>   sentence — Urza's Tower / Mine / Power Plant made {C} assembled or not; River of Tears made {U} after a land drop (it makes only
+>   {B} then — a wrong colour, an FP); Command Mine never made two; Incubation Druid never three. The any-colour arm read A-Town's
+>   rider ("If you're in a city that starts with an A, instead add one mana of any color") as the line's mana: any colour,
+>   unconditionally (FP). ② **Meteor Crater** parsed as no mana and took the land fallback: {C}, with a coloured permanent or none.
+>   ③ **Lavinia, Foil to Conspiracy** ("Activate only during an opponent's turn") tapped on her controller's own turn (FP). ④ The
+>   {T} single-counter cost on a nonland (Sphere of the Suns, Spell Satchel, Channeler Initiate) and Mana Bloom's once-each-turn
+>   no-{T} charge line were refused; Sphere also entered untapped with no counters ("enters tapped and with" read by neither reader).
+> · **The fix.** ① `manaProduction` strips an "instead" rider (`INSTEAD_RIDER_RE`, on a mana line only) before the parse and rides it
+>   on the product as `insteadUpgrade` { condition, product } — `withInsteadUpgrade` (manaSources, so the planner and the explicit
+>   tap; and `landsCouldProduce`, CR 106.7) makes the upgrade instead of the base while the condition holds as the ability resolves
+>   (CR 605.3b). Conditions (`parseInsteadCondition`): `controlsEach` — a land-type phrase is subtypes (CR 205.3i; the cards'
+>   rulings: types, not names — Planar Nexus completes a Tower alone), a capitalised non-type phrase a name (Command Tower /
+>   Command Power Plant); `playedLandThisTurn` — the land-play count, read only on its controller's turn (CR 305.3: no land is
+>   played on another's; the count resets only at that player's untap); `selfCounter` — "this <permanent> / <its name> has a <kind>
+>   counter on it" (CR 201.5). The upgrade's mana: "N mana of that type / of <the base's own words>" is N of the base's set; else a
+>   plain parsed clause. Anything else keeps the base and stamps `insteadUnread`, which `landFullyCovered` refuses (A-Town → land-
+>   partial; non-land tiers untouched). P·8's Gemstone Caverns strip (COUNTER_GATED_INSTEAD_RE) is folded in. ② `colorsAmongSpec`
+>   kind `permanentsYouControl` (CR 105.2). ③ `manaActivationLimit` reads "Activate only during an opponent's turn" as
+>   `opponentsTurnOnly` (no count, no ledger stamp); `manaLimitAllows` is the one gate (CR 602.5). ④ `ONE_COUNTER_MANA_LINE_RE`
+>   (renamed from LAND_COUNTER_MANA_LINE_RE) and its cost item take charge / book / -1/-1 on "this artifact|creature" too (the
+>   sacrifice rider stays a land's); manaLineRefused anchors the item in any {T} line; coverage's counter-cost strip keeps a "one"
+>   line. The no-{T} per-counter reader takes Mana Bloom's "Activate only once each turn."; manaSources caps its records at the
+>   activations left and stamps the ledger — a capped single record is not `repeatable`, so the explicit tap offers it.
+>   `entersTapped` / `entersWithNamedCounters` read "enters tapped and with N <kind> counters on it" for an honest kind only (Sphere's
+>   charge; Noble's Purse's coin counters stay unread on both sides, as before).
+> · **Every card whose mana changed.** Urza's Tower ({C}{C}{C} beside an Urza's Mine and an Urza's Power-Plant), Urza's Mine and
+>   Urza's Power Plant ({C}{C} beside the other two); River of Tears ({B} instead of {U} after its controller played a land this
+>   turn); Command Mine and Command Power Plant (two of the commander's colours beside the other two — Power Plant stays land-partial
+>   on its quoted grant); Incubation Druid (three of one type while it has a +1/+1 counter); Gemstone Caverns (any colour with a luck
+>   counter — still unreachable, no engine path places one, so {C} in play); A-Town ({C} only; was any colour); Meteor Crater (a
+>   colour of a permanent its controller controls; nothing without one; was {C}); Lavinia (no source on her controller's turn);
+>   Sphere of the Suns (any colour, one charge counter; enters tapped with three), Spell Satchel ({C}, one book counter), Channeler
+>   Initiate (any colour, one -1/-1 counter — the creature grows), Mana Bloom (any colour, one charge counter, once each turn, no
+>   tap). Flag only, no runtime change: `insteadUnread` on Brood Astronomer, Ilysian Caryatid, Leafkin Druid, Raucous Audience,
+>   Sarevok's Tome, Tower Worker, Undermountain Adventurer, Ugin's Labyrinth (their base, as before).
+> · **Flip-diff, every card.** Gained body-only → native-mana: Sphere of the Suns, Spell Satchel, Channeler Initiate (their counter
+>   line now read by the runtime's own parse; the rest of each card was already modelled). Lost land → land-partial: A-Town (its
+>   rider's real-world condition can't be read — false credit removed, intended). Mana Bloom stays body-only (its other lines).
+> · **Profile decks** (app data dir, read 2026-10-17; no seeded batch was run). Colton: cdh, Killer Turts, The Unbeatable Squirrel
+>   Girl and Joe's Believe it! / Kinnan Mana Overload hold Gemstone Caverns — unchanged in play ({C}; no luck counter can exist).
+>   Colton's Zaxara kinda X'ish and Omnath's Shalai and Hallar Test hold Incubation Druid — once it has a +1/+1 counter (Adapt, or
+>   any counter source) it makes three mana of one type instead of one. Joe's Kellan of the west holds Planar Nexus but no Urza's
+>   land — unchanged. No profile deck holds an Urza's land, River of Tears, A-Town, Meteor Crater, Lavinia, Command Mine, Sphere,
+>   Satchel, Channeler Initiate or Mana Bloom.
+> · Witness `manaLineConditions.test.js` (30; 21 red at 9d3c3521, every one an AssertionError; the 9 controls green on both). Fixture
+>   flips: gemstoneCaverns.test.js (the product carries the rider), manaReachability.test.js (the Sphere-like card is reachable; the
+>   unpaid pin moves to a two-counter cost); comment-only: incubationDruid, manaDroppedText, landEntersWithCounters.
+> · Mutants (28): the rider read · land-type phrase vs name · the played-land own-turn guard, its read · the self-counter read ·
+>   subtypes vs names · your permanents only · the name arm · the upgrade's inherited set · an unread rider kept at its base · the
+>   upgrade in manaSources, in landsCouldProduce · coverage's unread refusal · the Meteor arm, its colour read · the opponent's-turn
+>   read, its gate · the counter item's nouns, the line's nouns, book, -1/-1 · Mana Bloom's anchor, its cap, its non-repeatable
+>   single record, its ledger stamp · coverage's "one" keep · "tapped and with" in entersTapped, in entersWithNamedCounters.
+>   Not counted: manaLineRefused's {T} anchor on a nonland (masked by the older phantom-cost gate — the fence test passes either way).
+> · ⚠️ Found, not fixed: ① The nonland "instead" riders the engine can't read (Leafkin Druid's creature count, Raucous Audience's
+>   power-4 creature, Ilysian Caryatid, Brood Astronomer, Sarevok's Tome's initiative, Tower Worker's named creatures,
+>   Undermountain Adventurer's dungeon) still make their base while their tier claims full modelling — the same false credit
+>   A-Town lost, left for its own slice (the runtime under-read is FN-safe). ② Component Pouch ("two mana of different colors") has
+>   no record shape; Ice Cauldron / Jeweled Amulet ("last noted type") none either. ③ Rhystic Cave ("{T}: Choose a color. Add one
+>   mana of that color unless any player pays {1}. Activate only as an instant.") takes Meteor Crater's old path: the land fallback
+>   makes {C} — a type it can never make — and it is credited `land`. Corrupted Grafstone ("a color of a card in your graveyard")
+>   makes nothing (refused, safe).
+>   ④ Command Mine's "two mana of any color" is planned as two of one colour (an under-read). ⑤ opponentAI's land-pick heuristic
+>   reads Meteor Crater's five-colour placeholder as producible colours, as it already does for every `colorsAmongSpec` land.
 
 > ## 🧠 2026-10-17 — AI: the cast picker reads a permanent's own enters trigger (Man-o'-War, Mystic Snake held when the trigger would be forced onto its own side), the forced trigger target prefers a harm its target survives, and an untap-lock Aura is a curse (Ice Over, Coma Veil, Claustrophobia) · **±0** · corpus unchanged
 > Suite **1,825 files / 19,785 green (1 skipped)** under the gate queue. Lint 0 (CR citations: 0 of 10,702 name no rule). Flip-diff **0 / 0 / 0 (34,620 cards)** (before = an untouched

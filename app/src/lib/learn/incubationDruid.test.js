@@ -6,7 +6,8 @@
  * The Exotic Orchard / Reflecting Pool family read on the controller's side: manaProduction emits a board-derived colour set
  * (colorsAmongSpec "landsYouControlCouldProduce"), which manaSources resolves LIVE as the union of each controlled land's own
  * production (basics via CR 305.6) and its granted basic types (Urborg). No land that makes anything → the Druid is not
- * offered. The counter-gated "three … instead" is a documented under-read (base amount 1).
+ * offered. The counter-gated "three … instead" was a documented under-read (base amount 1) until 2026-10-17 (evening): it is read
+ * now — three of the same set while the Druid has a +1/+1 counter (manaModel's "instead" read; manaLineConditions.test.js).
  *
  * Mutation-checked: see the run ledger (docs-sk121).
  */

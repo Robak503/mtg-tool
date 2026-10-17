@@ -6,9 +6,11 @@
  *    {T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color."
  *
  * The opening-hand line is a CR 103.6 pre-game action the engine never offers — coverage pre-strips it like the Leylines', so
- * the land is played from hand as printed. That makes the luck counter unreachable, and the mana line's "instead" rider is
- * read as its base: {C}. Before this slice the any-colour arm read "add one mana of any color" off the rider with no counter
- * anywhere, and every Caverns tapped for any colour (probed live) — fixed here.
+ * the land is played from hand as printed. That makes the luck counter unreachable, so the land makes its base: {C}. Before
+ * this slice the any-colour arm read "add one mana of any color" off the rider with no counter anywhere, and every Caverns
+ * tapped for any colour (probed live) — fixed here. Since 2026-10-17 (evening) the rider is read, not dropped: the product
+ * carries it as an `insteadUpgrade` gated on a luck counter on the land itself, so a Caverns that had one would make any
+ * colour (manaLineConditions.test.js places one by hand); the luck counter itself is still unreachable.
  *
  * Real oracle fixtures (bundled Scryfall, probed 2026-10-01), except the synthetic fence.
  */
@@ -34,7 +36,9 @@ describe("Gemstone Caverns", () => {
     const s = board();
     const witness = { tier: classifyCard(CAVERNS), product: manaProduction(CAVERNS), green: pays(s, { G: 1 }), generic: pays(s, { generic: 1 }), colorless: pays(s, { C: 1 }) };
     console.log(`WITNESS gemstoneCaverns ${JSON.stringify(witness)}`);
-    expect(witness).toEqual({ tier: "land", product: { colors: ["C"], amount: 1, requiresTap: true }, green: false, generic: true, colorless: true });
+    expect(witness).toEqual({ tier: "land", product: { colors: ["C"], amount: 1, requiresTap: true,
+      insteadUpgrade: { condition: { kind: "selfCounter", counter: "luck" }, product: { colors: ["W", "U", "B", "R", "G"], amount: 1 } } },
+    green: false, generic: true, colorless: true });
   });
 
   it("fence (synthetic): the pre-game line is stripped only in its printed form — another rider after \"If you do,\" keeps the card partial", () => {

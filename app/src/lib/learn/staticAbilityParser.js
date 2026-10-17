@@ -867,10 +867,15 @@ export function entersWithNamedCounters(card) {
     // so tolerate an optional "tapped" between "enters" and "with" (the enters-tapped seam handles the tapped
     // status separately; the coverage tapRe strip removes the tapped mention from the classifier residue).
     // "on him/her" — a named legend's pronoun (Captain America "…a shield counter on him") is the same clause.
-    const m = sentence.trim().match(/^[^.]*?\benters (?:the battlefield )?(?:tapped )?with (a|an|one|two|three|four|five|\d+) ([a-z]+) counters? on (?:it|him|her)\.?$/i);
+    // + "tapped AND with" (2026-10-17 evening — Sphere of the Suns: "This artifact enters tapped and with three charge counters on
+    // it."): the same two clauses joined by "and", read for an honest kind only (isHonestEnterCounterKind) — entersTapped takes
+    // the same remainder under the same gate, so the two halves of the sentence are read together or not at all (Noble's Purse's
+    // coin counters: neither).
+    const m = sentence.trim().match(/^[^.]*?\benters (?:the battlefield )?(?:tapped (?:and )?)?with (a|an|one|two|three|four|five|\d+) ([a-z]+) counters? on (?:it|him|her)\.?$/i);
     if (!m) continue;
     const kind = m[2].toLowerCase();
     if (_RESERVED_ENTER_COUNTER_KINDS.has(kind)) return null; // owned by another path (fading/PW) → not this seam
+    if (/\btapped and with\b/i.test(sentence) && !isHonestEnterCounterKind(kind)) return null;
     if (/\b(?:if|for each|where|kicked|unless|equal to|plus)\b/i.test(sentence)) return null; // conditional/variable → not modeled
     const n = _ENTER_NUM[m[1].toLowerCase()] ?? (parseInt(m[1], 10) || 0);
     return n > 0 ? { type: kind, n } : null;
@@ -923,7 +928,7 @@ const _INERT_ENTER_COUNTER_KINDS = new Set([
   // LANDS-9 (2026-09-03): the land counter kinds — "depletion" (Hickory Woodlot, Remote Farm, Peat Bog,
   // Sandstone Needle, Saprazzan Skerry) and "mining" (Gemstone Mine). Inert by CR 122.1; their ONLY
   // readers are the printed "{T}, Remove a <kind> counter: Add … If there are no <kind> counters on this
-  // land, sacrifice it" mana abilities, modeled for real since 2026-10-17 (manaModel LAND_COUNTER_MANA_LINE_RE — the record
+  // land, sacrifice it" mana abilities, modeled for real since 2026-10-17 (manaModel ONE_COUNTER_MANA_LINE_RE — the record
   // removes one counter and the emptied land is sacrificed; refused that morning, when no record did either).
   "depletion", "mining",
   // Stage ③ · 47 (the Kamigawa Myojin): "divinity" — inert by CR 122.1; its only readers are the printed "has
@@ -1350,7 +1355,14 @@ export function entersTapped(card) {
     // tapped clause → an over-credit. Reject it (CREED: a false negative is safe; the card stays body-only
     // until the rider is modeled too). Only "and"/"then" AFTER "tapped" count — a leading multi-subject
     // join ("X and Y enter tapped") is left to the conditional denylist above.
-    if (/\b(?:and|then)\b/i.test(sentence.slice(m.index + m[0].length))) return false;
+    // The one rider read (2026-10-17 evening): "… enters tapped and with N <kind> counters on it." (Sphere of the Suns) — the
+    // counters are entersWithNamedCounters' own clause, placed by the same enter sites, and both read it only for an honest kind
+    // (isHonestEnterCounterKind), so the coverage strip never credits a counter the runtime has no honest reader for (Noble's
+    // Purse's coin counters keep the whole sentence unread, as before).
+    const rest = sentence.slice(m.index + m[0].length);
+    const andWith = rest.match(/^\s*and with (?:a|an|one|two|three|four|five|\d+) ([a-z]+) counters? on (?:it|him|her)\.?\s*$/i);
+    if (andWith) return isHonestEnterCounterKind(andWith[1]);
+    if (/\b(?:and|then)\b/i.test(rest)) return false;
     return true;
   }
   return false;

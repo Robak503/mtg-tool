@@ -262,7 +262,7 @@ describe("3 · 'your commander's color identity' is read off the seat's commande
     expect(offered).toEqual(planned);
   });
 
-  it("the parse: every identity source carries the spec, Command Mine's 'instead' upgrade read at its base", () => {
+  it("the parse: every identity source carries the spec, Command Mine's base included (its 'instead' upgrade rides the product)", () => {
     for (const card of [TOWER, SIGNET, SPHERE, PATH, HIDEOUT, COMMAND_MINE]) {
       expect(manaProduction(card), card.name).toMatchObject({ amount: 1, colorsAmongSpec: { kind: "commanderColorIdentity" } });
     }

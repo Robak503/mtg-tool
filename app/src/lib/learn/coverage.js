@@ -1168,7 +1168,9 @@ function stripEnergyGatedManaLines(oracle) {
 // the metric credits exactly what the runtime pays for; every other counter-cost mana line is still stripped.
 function stripCounterCostManaLines(oracle, typeLine = "") {
   return String(oracle || "").replace(/[^.\n]*\bremove (?:a|an|one|two|three|\d+|x) [a-z+\-/0-9]+ counters?[^.\n:]*:\s*add\b[^.\n]*\.?/gi,
-    (line) => (manaProduction({ name: "", type: typeLine, oracle: line.trim() })?.removesCounters?.mode === "each" ? line : " "));
+    // Kept when the runtime pays the counter: the no-{T} per-counter form ("each") and, since 2026-10-17 evening, the {T} single-
+    // counter form on an artifact or a creature ("one" — Sphere of the Suns, Spell Satchel, Channeler Initiate).
+    (line) => (["each", "one"].includes(manaProduction({ name: "", type: typeLine, oracle: line.trim() })?.removesCounters?.mode) ? line : " "));
 }
 
 export function hasManaAbility(oracle, typeLine) {
@@ -1905,7 +1907,14 @@ function landFullyCovered(card) {
   // carried by the land's OWN modeled ability (Spawning Bed's Scions) passes on the activated lane's modeled flag. No land
   // in the bundled corpus carries a quoted mana grant the static parser emits (a layer-6 mana addAbility), so no lane
   // admits one; Urza's Saga's self-grant is decided by the Saga gate above.
-  const isManaLine = (txt) => !/["“”]/.test(txt) && /\badd\b/i.test(txt) && !!manaProduction({ name: card?.name, type, oracle: txt });
+  // A line whose "instead" rider the runtime can't read (manaModel's `insteadUnread` — A-Town's real-world city) makes its base
+  // mana but is not fully modelled (2026-10-17 evening): the land stays land-partial. A rider it reads (Urza's Tower, River of
+  // Tears, Gemstone Caverns, Command Mine — `insteadUpgrade`) is made at tap time and keeps the line.
+  const isManaLine = (txt) => {
+    if (/["“”]/.test(txt) || !/\badd\b/i.test(txt)) return false;
+    const prod = manaProduction({ name: card?.name, type, oracle: txt });
+    return !!prod && !prod.insteadUnread;
+  };
   const isGraveyardAbility = (txt) => {
     const one = { ...card, oracle: txt };
     return !!(parseGraveyardSelfRecursion(one) || parseGraveyardExileAbility(one));

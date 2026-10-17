@@ -94,7 +94,7 @@ describe("classification — credited only through the reader AND the honesty ga
     // "{T}, Remove a <charge|depletion|mining> counter from this land: Add …" — refused for a morning (2026-10-17, manaLineRefused:
     // no record removed the counter, and the depletion and mining lands were never sacrificed — free forever), then paid for real
     // the same day: the record removes one counter, is no source with none left, and the depletion / mining land is sacrificed
-    // with its last one (manaModel LAND_COUNTER_MANA_LINE_RE; manaPrintedCosts.test.js drives each on a board).
+    // with its last one (manaModel ONE_COUNTER_MANA_LINE_RE; manaPrintedCosts.test.js drives each on a board).
     expect(classifyCard(VIVID_MARSH)).toBe("land");
     expect(classifyCard(HICKORY)).toBe("land");
     expect(classifyCard(GEMSTONE)).toBe("land");

@@ -33,7 +33,7 @@
 import { MANA_COLORS, addMana, addCounter, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, removeCounter, setDoesNotUntapNext, opponentsOf } from "./gameState.js"; // + addCounter — 2026-10-17: Wall of Roots' -0/-1 counter cost // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
 import { checkTapForManaTriggers } from "./triggers.js"; // + ④-D: "tapped for mana" watchers fire at the one tap commit
 import { sacrificePermanentForCost } from "./costSacrifice.js"; // SG-3 / SAC-TREASURE: a permanent sacrificed to a mana cost leaves through THE cost sacrifice (dies, sacrifice watchers, the leave drain — CR 603.3b), the one the activated-ability and additional costs use
-import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, colorsOf, deriveCharacteristics, permIsEveryCreatureType, permanentColors, faceUpTypeLine } from "./layers.js"; // + faceUpTypeLine: the face that is up of a combined "Front // Back" card — the derive's own read, shared by manaModel's face-up mana read
+import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, colorsOf, deriveCharacteristics, permIsEveryCreatureType, permanentColors, faceUpTypeLine, permanentSubtypes } from "./layers.js"; // + faceUpTypeLine: the face that is up of a combined "Front // Back" card — the derive's own read, shared by manaModel's face-up mana read; + permanentSubtypes: the land types an "instead" condition names (Urza's Tower)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // QUARTET Phase 4 step 3 (2026-09-06): the closed CR creature-type vocabulary for spend restrictions ("only to cast a Ninja or Turtle spell") — a zero-import leaf
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { COUNT_SUBTYPE } from "./effects/parseHelpers.js"; // #766 — the curated subtype allowlist for "for each <Subtype> on the battlefield" (parseHelpers imports only keywords.js; staticAbilityParser, imported below, already loads it)
@@ -395,7 +395,7 @@ function parseAddClause(oracle, card) {
   // family, read on the controller's own side). Same discipline as Plaza's arm: a colour set resolved LIVE in manaSources
   // (each land's own production ∪ its granted basic types), never the free any-colour arm — no land that makes a type means
   // the source is not offered. The card's "If this creature has a +1/+1 counter on it, add three mana of that type instead"
-  // rider is read as its base amount (1) — the same documented under-read the any-colour + instead forms already carry.
+  // rider is read by manaProduction's "instead" read (2026-10-17): three of the same set while the counter is there.
   if (/\badd one mana of any type that a land you control could produce\b/i.test(oracle)) {
     return { colors: ["W", "U", "B", "R", "G", "C"], amount: 1, colorsAmongSpec: { kind: "landsYouControlCouldProduce" } };
   }
@@ -407,8 +407,14 @@ function parseAddClause(oracle, card) {
   if (/\badd one mana of any color among legendary creatures and planeswalkers you control\b/i.test(oracle)) {
     return { colors: ["W", "U", "B", "R", "G"], amount: 1, colorsAmongSpec: { kind: "legendaryCreaturesAndPlaneswalkersYouControl" } };
   }
+  // METEOR CRATER (2026-10-17) — "{T}: Choose a color of a permanent you control. Add one mana of that color." One mana of a colour
+  // some permanent its controller controls has right now (CR 105.2; its ruling: colorless can't be chosen). It used to parse as no
+  // mana and take the land's colourless fallback: {C} whatever the board, a coloured permanent or none.
+  if (/\bchoose a color of a permanent you control\. add one mana of that color\b/i.test(oracle)) {
+    return { colors: ["W", "U", "B", "R", "G"], amount: 1, colorsAmongSpec: { kind: "permanentsYouControl" } };
+  }
   // "YOUR COMMANDER'S COLOR IDENTITY" — Command Tower, Arcane Signet, Commander's Sphere, Path of Ancestry, Hidden Hideout, Command
-  // Mine / Command Power Plant (their "instead" upgrade read at its base, the documented under-read). The colours are the
+  // Mine / Command Power Plant (their "instead" upgrade is read by manaProduction's rider read, 2026-10-17). The colours are the
   // controller's commander's color identity (CR 903.4), read off the seat's stamp (commanderIdentity.commanderColorIdentityOf). No
   // commander, or one whose identity is unknown, leaves the quality undefined and the ability makes nothing (CR 903.4f); a
   // colourless commander names no colour, so nothing either.
@@ -841,12 +847,14 @@ function manaCostModelable(cost) {
 // mana pips (activationCost — manaActivationCost / the planner's funding); a self-sacrifice (`sacrifices`); "Pay N life"
 // (`payLife`); "Tap N untapped <filter> you control" (`extraTap`); "Sacrifice a creature" (`sacrificesCreature`); "Exile a card
 // from your graveyard" (`exilesGyCard`); "Exile this card from your hand" (`fromHand`); the storage and no-{T} counter removals
-// (`removesCounters`); a land's single-counter removal and Wall of Roots' -0/-1 counter (`removesCounters` mode "one",
-// `putsCounter` — 2026-10-17, each admitted only in its whole anchored line: LAND_COUNTER_MANA_LINE_RE / PUT_COUNTER_MANA_LINE_RE).
+// (`removesCounters`); a {T} single-counter removal and Wall of Roots' -0/-1 counter (`removesCounters` mode "one",
+// `putsCounter` — 2026-10-17, each admitted only in its whole anchored line: ONE_COUNTER_MANA_LINE_RE / PUT_COUNTER_MANA_LINE_RE).
 // Each reader below still applies its own stricter shape; this list only says what COULD be paid.
 // {Q} is deliberately absent: nothing untaps the source, and manaSources offers only untapped permanents — the opposite of
 // what an untap-symbol cost needs (CR 107.6).
-const LAND_COUNTER_COST_RE = /\bremove an? (?:charge|mining|depletion) counter from this land\b/gi;
+// The single-counter item: a land's (charge, mining, depletion — 2026-10-17 morning) and, since the evening's slice, the same {T}
+// form on an artifact or a creature (Sphere of the Suns' charge, Spell Satchel's book, Channeler Initiate's -1/-1 counter).
+const ONE_COUNTER_COST_RE = /\bremove an? (?:charge|mining|depletion|book|-1\/-1) counter from this (?:land|artifact|creature)\b/gi;
 const PUT_COUNTER_COST_RE = /\bput an? -0\/-1 counter on this creature\b/gi;
 const PAID_MANA_COST_ITEMS = [
   /\{(?!Q\})[^}]*\}/gi,
@@ -858,22 +866,25 @@ const PAID_MANA_COST_ITEMS = [
   /\bexile this (?:card|creature) from your hand\b/gi,
   /\bremove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature)\b/gi,
   /\bremove an? (?:charge|\+1\/\+1|-1\/-1) counter from this (?:artifact|creature|enchantment)\b/gi,
-  LAND_COUNTER_COST_RE,
+  ONE_COUNTER_COST_RE,
   PUT_COUNTER_COST_RE,
 ];
 /**
  * THE TWO COUNTER-COST MANA LINES A RECORD PAYS (2026-10-17), whole-line anchored — a line whose cost holds either counter
  * item but whose text is anything else is refused by manaLineRefused, never read past its rider:
- *   · LAND_COUNTER_MANA_LINE_RE — "{T}, Remove a <charge|mining|depletion> counter from this land: Add <mana>." with the
+ *   · ONE_COUNTER_MANA_LINE_RE — "{T}, Remove a <kind> counter from this <land|artifact|creature>: Add <mana>." with the
  *     depletion and mining lands' "If there are no <kind> counters on this land, sacrifice it." (Gemstone Mine; Hickory
- *     Woodlot, Peat Bog, Remote Farm, Sandstone Needle, Saprazzan Skerry; the Vivid lands, Tendo Ice Bridge, Mirrodin's Core).
- *     The record removes ONE counter (`removesCounters` mode "one"), is offered only while one is there (CR 118.3), and the
- *     sacrifice is the ability's own instruction, followed as it resolves (CR 605.3b, 608.2c) — `sacrificeIfNoCounters`.
+ *     Woodlot, Peat Bog, Remote Farm, Sandstone Needle, Saprazzan Skerry; the Vivid lands, Tendo Ice Bridge, Mirrodin's Core;
+ *     since the evening slice Sphere of the Suns, Spell Satchel and Channeler Initiate — the same cost on an artifact or a
+ *     creature). The record removes ONE counter (`removesCounters` mode "one"), is offered only while one is there (CR 118.3),
+ *     and the sacrifice is the ability's own instruction, followed as it resolves (CR 605.3b, 608.2c) — `sacrificeIfNoCounters`,
+ *     a land's only. Component Pouch's "Add two mana of different colors." is no shape a record holds (two of one colour would
+ *     be the forbidden side), so its line stays refused.
  *   · PUT_COUNTER_MANA_LINE_RE — Wall of Roots' "Put a -0/-1 counter on this creature: Add {G}. Activate only once each turn."
  *     The record puts the counter on (`putsCounter`, through gameState.addCounter — a counter doubler applies, CR 122.6), has no
  *     {T} (usable tapped or summoning sick) and the once-each-turn limit (manaActivationLimit).
  */
-const LAND_COUNTER_MANA_LINE_RE = /^\{T\}, Remove an? (charge|mining|depletion) counter from this land: (Add (?:(?:\{[WUBRGC]\})+|one mana of any color)\.)( If there are no \1 counters on this land, sacrifice it\.)?$/i;
+const ONE_COUNTER_MANA_LINE_RE = /^\{T\}, Remove an? (charge|mining|depletion|book|-1\/-1) counter from this (land|artifact|creature): (Add (?:(?:\{[WUBRGC]\})+|one mana of any color)\.)( If there are no \1 counters on this land, sacrifice it\.)?$/i;
 const PUT_COUNTER_MANA_LINE_RE = /^Put an? (-0\/-1) counter on this creature: (Add (?:\{[WUBRGC]\})+\.)(?: Activate only once each turn\.)?$/i;
 // An ability word ahead of a cost ("Parley — {T}", "Metalcraft — {T}", "Vivid — {T}") has no rules meaning (CR 207.2c).
 const ABILITY_WORD_PREFIX_RE = /^[^{}:—"“|]*—\s*/;
@@ -930,16 +941,18 @@ function manaLineRefused(line) {
   const sentence = (effect.split(/(?<=\.)\s+/).find((s) => /\badd\b/i.test(s)) || "").trim();
   if (/^(?:if|for each)\b/i.test(sentence) && !VIVID_ADD_SENTENCE_RE.test(sentence)) return true;
   let cost = t.slice(0, ci).replace(SELF_GRANT_PREAMBLE_RE, "").replace(ABILITY_WORD_PREFIX_RE, "");
-  // A counter cost a record pays only in its whole anchored line (2026-10-17): anything else written around it is refused.
+  // A counter cost a record pays only in its whole anchored line (2026-10-17): anything else written around it is refused. The
+  // single-counter item binds a land's line, and any line that also taps ({T}) — the same text with no {T} on an artifact, a
+  // creature or an enchantment is the per-counter form (Pentad Prism, Mana Bloom), read by its own anchored reader below.
   const whole = t.replace(/\s+/g, " ").trim();
-  if (new RegExp(LAND_COUNTER_COST_RE.source, "i").test(cost) && !LAND_COUNTER_MANA_LINE_RE.test(whole)) return true;
+  if (new RegExp(ONE_COUNTER_COST_RE.source, "i").test(cost) && (/\{T\}/i.test(cost) || /\bfrom this land\b/i.test(cost)) && !ONE_COUNTER_MANA_LINE_RE.test(whole)) return true;
   if (new RegExp(PUT_COUNTER_COST_RE.source, "i").test(cost) && !PUT_COUNTER_MANA_LINE_RE.test(whole)) return true;
   for (const re of PAID_MANA_COST_ITEMS) cost = cost.replace(re, " ");
   return cost.replace(/[\s,]/g, "") !== "";
 }
 
 /**
- * THE PER-TURN LIMIT A MANA LINE PRINTS (2026-10-17) — `{ perTurn, yourTurnOnly? }`, or null. A restriction on an activated
+ * THE PER-TURN LIMIT A MANA LINE PRINTS (2026-10-17) — `{ perTurn?, yourTurnOnly?, opponentsTurnOnly? }`, or null. A restriction on an activated
  * ability's use holds for that object every turn (CR 602.5b), a mana ability's included; manaSources reads the activation
  * ledger the activated abilities already keep (state.activatedOncePerTurn — `${permanentId}:${line}` → { turn, n }, a record
  * from an earlier turn counting zero) and commitManaTap stamps it. Before this a no-{T} line was held to its limit only by the
@@ -950,6 +963,10 @@ function manaLineRefused(line) {
  *   · "If this ability has been activated four or more times this turn, sacrifice this creature at the beginning of the next
  *     end step." (Initiates of the Ebon Hand, Farrelite Priest) — read as three each turn: the activations it allows with no
  *     sacrifice. The delayed sacrifice a fourth would set up is not modelled, so a fourth is never offered (an under-offer).
+ *   · "Activate only during an opponent's turn." (Lavinia, Foil to Conspiracy — a {T} line, 2026-10-17 evening): no count, a
+ *     turn gate only (`opponentsTurnOnly`) — a player can't begin to activate an ability that's prohibited (CR 602.5). It
+ *     tapped on her controller's own turn.
+ * `perTurn` is absent on a turn-only gate: nothing is counted, and no ledger entry is stamped.
  */
 function manaActivationLimit(line) {
   const t = String(line || "").replace(/\([^)]*\)/g, " ");
@@ -957,6 +974,7 @@ function manaActivationLimit(line) {
   if (ci === -1) return null;
   const effect = t.slice(ci + 1);
   if (!/\badd\b/i.test(effect)) return null;
+  if (/\bActivate only during an opponent['’]s turn\.?$/i.test(effect.trim())) return { opponentsTurnOnly: true };
   if (/\bActivate only during your turn and only once each turn\b/i.test(effect)) return { perTurn: 1, yourTurnOnly: true };
   if (/\bActivate only once each turn\b/i.test(effect)) return { perTurn: 1 };
   const noMore = effect.match(/\bActivate no more than (twice|three times) each turn\b/i);
@@ -970,6 +988,13 @@ const manaLimitKey = (permId, limit) => `${permId}:${limit.line}`;
 function manaLimitUsed(state, permId, limit) {
   const rec = state?.activatedOncePerTurn?.[manaLimitKey(permId, limit)];
   return rec && rec.turn === state.turn ? rec.n : 0;
+}
+// May this limited line be activated now? Its turn gate (its controller's turn only — Vivi Ornitier; an opponent's turn only —
+// Lavinia) and, when it counts, the activations left this turn.
+function manaLimitAllows(state, playerId, permId, limit) {
+  if (limit.yourTurnOnly && state.activePlayer !== playerId) return false;
+  if (limit.opponentsTurnOnly && !opponentsOf(state, playerId).includes(state.activePlayer)) return false;
+  return limit.perTurn == null || manaLimitUsed(state, permId, limit) < limit.perTurn;
 }
 
 // Is the cost an UNPAYABLE, non-repeatable CONSUMABLE the sim can't spend — so registering its "Add …" as a
@@ -1174,7 +1199,7 @@ const MAX_SPEED_PREFIX = /^\s*max speed\s*[—–-]\s*/i;
  * counter-removal rider fails the anchor on purpose: its single-line product would silently drop the rider
  * (a painless painland tap), the forbidden direction. Never the main line itself. Memoized per card object.
  */
-const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Pay \d life: Add one mana of any color\.|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell of the chosen type(?:, and that spell can't be countered)?(?: or (?:to )?activate an ability of an? (?:[a-z]+ )?source of the chosen type)?\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)? spells?(?: or (?:to )?activate an ability of an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)?(?: source)?)?\.|\{T\}: Add (?:\{[WUBRGC]\})+\. Spend this mana only to cast [^.]+\.(?: Activate only if [^.]+\.)?|\{T\}: Add one mana of any color among legendary permanents you control\.|\{T\}, Remove an? (?:charge|mining|depletion) counter from this land: Add (?:(?:\{[WUBRGC]\})+|one mana of any color)\.(?: If there are no (?:charge|mining|depletion) counters on this land, sacrifice it\.)?)$/i; // + 2026-10-17: the single-counter land line (the Vivid lands, Tendo Ice Bridge, Mirrodin's Core) rides as its own record, removing its counter (LAND_COUNTER_MANA_LINE_RE); + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals; + CAP-CAVERN: the chosen-type any-colour line (Cavern of Souls, Unclaimed Territory); + SHELF-85 S17: the fixed-type restricted any-colour line (Mech Hangar "Spend this mana only to cast a Pilot or Vehicle spell.") — the per-line product carries its restriction (restrictedManaProduction), never a free colour
+const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Pay \d life: Add one mana of any color\.|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell of the chosen type(?:, and that spell can't be countered)?(?: or (?:to )?activate an ability of an? (?:[a-z]+ )?source of the chosen type)?\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)? spells?(?: or (?:to )?activate an ability of an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)?(?: source)?)?\.|\{T\}: Add (?:\{[WUBRGC]\})+\. Spend this mana only to cast [^.]+\.(?: Activate only if [^.]+\.)?|\{T\}: Add one mana of any color among legendary permanents you control\.|\{T\}, Remove an? (?:charge|mining|depletion) counter from this land: Add (?:(?:\{[WUBRGC]\})+|one mana of any color)\.(?: If there are no (?:charge|mining|depletion) counters on this land, sacrifice it\.)?)$/i; // + 2026-10-17: the single-counter land line (the Vivid lands, Tendo Ice Bridge, Mirrodin's Core) rides as its own record, removing its counter (ONE_COUNTER_MANA_LINE_RE); + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals; + CAP-CAVERN: the chosen-type any-colour line (Cavern of Souls, Unclaimed Territory); + SHELF-85 S17: the fixed-type restricted any-colour line (Mech Hangar "Spend this mana only to cast a Pilot or Vehicle spell.") — the per-line product carries its restriction (restrictedManaProduction), never a free colour
 // A PLAIN tap line: complete, ungated, no sacrifice — the line a multi-line card can always tap for.
 const PLAIN_MANA_LINE_RE = /^\{T\}: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.$/i;
 
@@ -1216,7 +1241,113 @@ function honestMultiLineMain(card, result) {
   return { ...plainProd, ...(result.activationCondition && /activate only if/i.test(plain) ? { activationCondition: result.activationCondition } : {}) };
 }
 const _extraMemo = new WeakMap();
-const COUNTER_GATED_INSTEAD_RE = /\s*If [^.]+? has an? [a-z+/0-9-]+ counter on it, instead add [^.]+\./gi; // P·8 — Gemstone Caverns' luck-counter rider
+/**
+ * "INSTEAD" RIDERS (2026-10-17 evening) — "<cost>: Add <base>. If <condition>, add <upgrade> instead." / "…, instead add <upgrade>."
+ * The parse read only the first "Add" sentence, so the line always made its base: Urza's Tower, Mine and Power Plant never made
+ * their Tron mana, and River of Tears made {U} after a land drop, where it makes only {B} — a colour the card can't make then.
+ * Gemstone Caverns' luck-counter rider was dropped by its own strip (P·8). The rider is now read as the ability resolves (CR
+ * 605.3b): the product carries `insteadUpgrade` { condition, product } and manaSources — the planner's and the explicit tap's
+ * one read — makes the upgrade instead of the base while the condition holds (withInsteadUpgrade). Conditions read:
+ *   · controlsEach — "you control an Urza's Mine and an Urza's Power-Plant": a phrase of land types (CR 205.3i) is a permanent
+ *     you control with those subtypes (their rulings: land types, not names — one Planar Nexus is both); a phrase of capitalised
+ *     words that are not all land types is a name ("a Command Tower and a Command Power Plant");
+ *   · playedLandThisTurn — "you played a land this turn": a land is played only on its controller's own turn (CR 305.3), so
+ *     the land-play count (reset at that player's untap step) is read only then;
+ *   · selfCounter — "<this permanent / its own name> has a <kind> counter on it" (CR 201.5): Gemstone Caverns' luck counter
+ *     (unreachable today — the opening-hand action is never offered — so it still makes {C}), Incubation Druid's +1/+1.
+ * Any other condition (A-Town's "If you're in a city that starts with an A", Leafkin Druid's creature count, Ugin's Labyrinth's
+ * exiled card) keeps the base and stamps `insteadUnread`: an under-read the runtime may keep (each upgrade is more mana, except
+ * A-Town's any colour, which the old any-colour arm had made unconditional), but a land carrying one is not fully modelled
+ * (coverage.landFullyCovered reads the flag).
+ */
+const INSTEAD_RIDER_RE = /(\bAdd ([^.]+)\.)\s+If ([^,.]+), (?:add ([^.]+?) instead|instead add ([^.]+?))\./i;
+const LAND_TYPE_WORDS = new Set(["cave", "desert", "forest", "gate", "island", "lair", "locus", "mine", "mountain", "plains", "planet", "power-plant", "sphere", "swamp", "tower", "town", "urza's"]);
+const straightApostrophes = (s) => String(s || "").replace(/’/g, "'");
+// The rider on a mana ability's own line — the colon before the "Add" sentence, and no quoted ability on the line.
+function insteadRiderMatch(line) {
+  const ci = line.indexOf(":");
+  if (ci === -1 || /["“”]/.test(line)) return null;
+  const m = INSTEAD_RIDER_RE.exec(line);
+  return m && m.index > ci ? m : null;
+}
+function parseInsteadCondition(text, card) {
+  const c = straightApostrophes(text).trim();
+  if (/^you played a land this turn$/i.test(c)) return { kind: "playedLandThisTurn" };
+  const own = c.match(/^(.+?) has an? ([a-z+/0-9-]+) counter on it$/i);
+  if (own) {
+    const subject = own[1].trim().toLowerCase();
+    const name = straightApostrophes(card?.name).toLowerCase();
+    return /^this (?:land|creature|artifact|enchantment|permanent)$/.test(subject) || (name && subject === name)
+      ? { kind: "selfCounter", counter: own[2].toLowerCase() } : null;
+  }
+  const ctl = c.match(/^you control (an? .+)$/i);
+  if (!ctl) return null;
+  const of = [];
+  for (const part of ctl[1].split(/,?\s+and\s+(?=an?\s)/i)) {
+    const words = (part.match(/^an? (.+)$/i)?.[1] || "").trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return null;
+    if (words.every((w) => LAND_TYPE_WORDS.has(w.toLowerCase()))) of.push({ subtypes: words });
+    else if (words.every((w) => /^[A-Z][A-Za-z'-]*$/.test(w))) of.push({ name: words.join(" ") });
+    else return null;
+  }
+  return { kind: "controlsEach", of };
+}
+// The upgrade's own mana: "<N> mana of that type" / "<N> mana of <the base's own words>" is N of the base's set (Incubation Druid,
+// Command Mine); anything else is parsed as its own "Add" clause, and only a plain product (symbols or any colour) is taken.
+function parseInsteadUpgrade(baseText, upText, base, card) {
+  const up = String(upText || "").trim();
+  const q = up.match(/^(\S+) mana of (.+)$/i);
+  const bq = String(baseText || "").trim().match(/^(\S+) mana of (.+)$/i);
+  if (q) {
+    const n = parseFixedQuantity(q[1]);
+    const desc = q[2].trim().toLowerCase();
+    if (n && (/^that (?:type|color)$/.test(desc) || (bq && bq[2].trim().toLowerCase() === desc))) {
+      if (base.amountSpec || base.fixed || base.fixedSpec || !base.colors?.length) return null;
+      return { colors: [...base.colors], amount: n, ...(base.colorsAmongSpec ? { colorsAmongSpec: { ...base.colorsAmongSpec } } : {}) };
+    }
+  }
+  const made = parseAddClause(`Add ${up}.`, card);
+  return made && Object.keys(made).every((k) => k === "colors" || k === "amount" || k === "fixed") ? made : null;
+}
+// The rider read onto the product its line made (or `insteadUnread` when it can't be read — or when the card's product is not
+// that line's own: a rider never rides another line's mana).
+function withInsteadRider(card, hits, keptLines, result) {
+  if (hits.length !== 1) return { ...result, insteadUnread: true };
+  const [{ m, i }] = hits;
+  const lineProd = manaProduction({ ...card, oracle: keptLines[i], oracle_text: keptLines[i] });
+  const condition = parseInsteadCondition(m[3], card);
+  const product = productKey(lineProd) === productKey(result) ? parseInsteadUpgrade(m[2], m[4] ?? m[5], result, card) : null;
+  return condition && product ? { ...result, insteadUpgrade: { condition, product } } : { ...result, insteadUnread: true };
+}
+/** Does an "instead" rider's condition hold for this permanent right now (parseInsteadCondition's kinds; any other is false)? */
+function insteadConditionHolds(state, playerId, perm, condition) {
+  const player = state?.players?.[playerId];
+  switch (condition?.kind) {
+    case "playedLandThisTurn":
+      return state.activePlayer === playerId && (player?.landsPlayedThisTurn || 0) > 0;
+    case "selfCounter":
+      return (perm?.counters?.[condition.counter] || 0) > 0;
+    case "controlsEach": {
+      const bf = player?.battlefield || [];
+      const lc = (s) => straightApostrophes(s).toLowerCase();
+      return condition.of.every((req) => bf.some((p) => (req.subtypes
+        ? req.subtypes.every((st) => permanentSubtypes(state, p.id).some((x) => lc(x) === lc(st)))
+        : lc(manaCardOf(state, p)?.name) === lc(req.name))));
+    }
+    default:
+      return false;
+  }
+}
+/**
+ * The production a permanent's printed ability makes right now, its "instead" rider applied — the upgrade's mana replaces the
+ * base's (CR 605.3b, read as the ability resolves); every cost rider of the line is kept. Read by manaSources (the planner and
+ * the explicit tap) and landsCouldProduce (CR 106.7 — what the ability would produce if it resolved now).
+ */
+function withInsteadUpgrade(state, playerId, perm, prod) {
+  if (!prod?.insteadUpgrade || !insteadConditionHolds(state, playerId, perm, prod.insteadUpgrade.condition)) return prod;
+  const { insteadUpgrade, colors: _c, amount: _a, fixed: _f, colorsAmongSpec: _s, amountSpec: _as, fixedSpec: _fs, ...riders } = prod;
+  return { ...riders, ...insteadUpgrade.product };
+}
 const CHOSEN_TYPE_COUNT_MANA_LINE_RE = /^((?:\{[^}]+\}, )*)\{T\}: Choose a color\. Add an amount of mana of that color equal to the number of creatures you control of the chosen type\.$/i;
 /**
  * THE FACE THAT IS UP, for every mana reader in this file (CR 712.8d — a double-faced permanent with its front face up has
@@ -1373,17 +1504,18 @@ export function manaProduction(card) {
       _prodMemo.set(card, result);
       return result;
     }
-    // COUNTER-GATED "INSTEAD" (play-weighted P·8 — Gemstone Caverns: "{T}: Add {C}. If Gemstone Caverns has a luck counter on it,
-    // instead add one mana of any color."): the upgrade holds only while the permanent carries that counter, but the any-colour
-    // arm below read "add one mana of any color" off the rider with no counter anywhere — every Caverns tapped for any colour
-    // (probed live). The rider is read as its BASE, the documented under-read the other "instead" forms carry: the sentence is
-    // dropped before the parse, so the line makes {C}. Nothing in the engine places a luck counter (the Caverns' pre-game
-    // action is never offered — coverage's CR 103.6 pre-strip), so the upgrade is unreachable, not merely unmodeled.
+    // "INSTEAD" RIDERS (INSTEAD_RIDER_RE, 2026-10-17 evening; P·8 had stripped Gemstone Caverns' alone): the rider sentence is
+    // dropped before the parse, so the base is read as the line's own product — the any-colour arm used to read Gemstone Caverns'
+    // and A-Town's rider as the line's mana, with no counter and in no city — and the rider rides that product as
+    // `insteadUpgrade` (manaSources makes the upgrade while its condition holds) or `insteadUnread`.
     {
-      const o = String(card.oracle ?? card.oracle_text ?? "");
-      const kept = o.replace(COUNTER_GATED_INSTEAD_RE, "");
-      if (kept !== o) {
-        const result = manaProduction({ ...card, oracle: kept, oracle_text: kept });
+      const lines = String(card.oracle ?? card.oracle_text ?? "").split("\n");
+      const hits = lines.map((l, i) => ({ m: insteadRiderMatch(l), i })).filter((h) => h.m);
+      if (hits.length) {
+        const keptLines = lines.map((l, i) => { const h = hits.find((x) => x.i === i); return h ? l.replace(h.m[0], () => h.m[1]) : l; });
+        const kept = keptLines.join("\n");
+        const base = manaProduction({ ...card, oracle: kept, oracle_text: kept });
+        const result = base && withInsteadRider(card, hits, keptLines, base);
         _prodMemo.set(card, result);
         return result;
       }
@@ -1899,33 +2031,38 @@ function manaProductionImpl(card) {
   // mana (its colour chosen per activation), so the permanent is as many one-mana sources as it has counters — manaSources
   // expands it (`repeatable` records the planner lets coexist, `noTap` so the commit never taps), and the commit removes one
   // counter per record. Usable tapped and summoning-sick (no {T}), never multiplied (not "tapped for mana"). Whole-line anchored
-  // and only as the card's ONLY Add line: a rider fails the anchor and parks (Mana Bloom's "Activate only once each turn",
-  // Mana Cache's "Any player may activate…", Cryptic Trilobite's spend restriction).
+  // and only as the card's ONLY Add line: a rider fails the anchor and parks (Mana Cache's "Any player may activate…", Cryptic
+  // Trilobite's spend restriction) — except Mana Bloom's "Activate only once each turn." (2026-10-17 evening): manaProduction's
+  // limit read stamps it, and manaSources offers at most the activations left this turn.
   {
-    const rcm = oracleForAdd.match(/^Remove an? (charge|\+1\/\+1|-1\/-1) counter from this (?:artifact|creature|enchantment): Add (\{C\}|one mana of any color)\.?$/im);
+    const rcm = oracleForAdd.match(/^Remove an? (charge|\+1\/\+1|-1\/-1) counter from this (?:artifact|creature|enchantment): Add (\{C\}|one mana of any color)\.?(?: Activate only once each turn\.)?$/im);
     const otherAddLine = rcm && /\bAdd\b/.test(oracleForAdd.replace(rcm[0], ""));
     if (rcm && !otherAddLine) {
       return { colors: rcm[2] === "{C}" ? ["C"] : ["W", "U", "B", "R", "G"], amount: 1, requiresTap: false, removesCounters: { type: rcm[1], mode: "each" } };
     }
   }
-  // ===== THE TWO COUNTER-COST LINES A RECORD PAYS (2026-10-17 — LAND_COUNTER_MANA_LINE_RE / PUT_COUNTER_MANA_LINE_RE) =====
+  // ===== THE TWO COUNTER-COST LINES A RECORD PAYS (2026-10-17 — ONE_COUNTER_MANA_LINE_RE / PUT_COUNTER_MANA_LINE_RE) =====
   // manaLineRefused has already dropped every line whose counter cost isn't in its whole anchored form, so a line here is one of
   // the two. As the card's ONLY mana line it is the product: Gemstone Mine and the depletion lands ({T}, one counter removed per
-  // activation, `sacrificeIfNoCounters` for their "If there are no <kind> counters on this land, sacrifice it"), Wall of Roots
+  // activation, `sacrificeIfNoCounters` for their "If there are no <kind> counters on this land, sacrifice it"), Sphere of the
+  // Suns, Spell Satchel and Channeler Initiate (the same {T} cost on an artifact or a creature, 2026-10-17 evening), Wall of Roots
   // (no {T}, a -0/-1 counter put on — its once-each-turn rider is stamped by manaProduction's limit read). Beside another mana
   // line (the Vivid lands, Tendo Ice Bridge, Mirrodin's Core) it leaves the whole-card parse — the plain line is the card's own
   // product, never merged with a coloured line whose counter it doesn't pay — and rides as its own extra record
   // (extraManaLineProducts parses it alone, where this block returns it).
   {
     const lines = oracleForAdd.split("\n").map((l) => l.trim());
-    const counterLine = lines.find((l) => LAND_COUNTER_MANA_LINE_RE.test(l) || PUT_COUNTER_MANA_LINE_RE.test(l));
+    const counterLine = lines.find((l) => ONE_COUNTER_MANA_LINE_RE.test(l) || PUT_COUNTER_MANA_LINE_RE.test(l));
     if (counterLine) {
       const others = lines.filter((l) => l !== counterLine);
       if (!others.some((l) => /\badd\b/i.test(l))) {
-        const lc = LAND_COUNTER_MANA_LINE_RE.exec(counterLine);
+        const lc = ONE_COUNTER_MANA_LINE_RE.exec(counterLine);
         if (lc) {
-          const made = parseAddClause(lc[2], card);
-          return made && { ...made, requiresTap: true, removesCounters: { type: lc[1].toLowerCase(), mode: "one" }, ...(lc[3] ? { sacrificeIfNoCounters: true } : {}) };
+          // The depletion / mining sacrifice is a land's own sentence ("… on this land, sacrifice it"); the same {T} cost on an
+          // artifact or a creature (Sphere of the Suns, Spell Satchel, Channeler Initiate) removes its counter and nothing more.
+          if (lc[4] && lc[2].toLowerCase() !== "land") return null;
+          const made = parseAddClause(lc[3], card);
+          return made && { ...made, requiresTap: true, removesCounters: { type: lc[1].toLowerCase(), mode: "one" }, ...(lc[4] ? { sacrificeIfNoCounters: true } : {}) };
         }
         const pc = PUT_COUNTER_MANA_LINE_RE.exec(counterLine);
         const made = parseAddClause(pc[2], card);
@@ -2254,7 +2391,8 @@ function landsCouldProduce(state, playerIds, { basicOnly = false, colorsOnly = f
       const face = String(p.card?.type || p.card?.type_line || "").split(" // ")[0];
       if (!/\bLand\b/i.test(face)) continue;
       if (basicOnly && !/\bBasic\b/i.test(face)) continue;
-      const lp = manaProduction(p.card);
+      // Its "instead" rider applied (2026-10-17 evening): a River of Tears after its controller's land drop could produce {B}, not {U}.
+      const lp = withInsteadUpgrade(state, pid, p, manaProduction(p.card));
       if (lp && !lp.colorsAmongSpec) for (const c of lp.colors || []) types.add(c);
       else if (lp?.colorsAmongSpec?.kind === "commanderColorIdentity") for (const c of commanderColorIdentityOf(state, pid) || []) types.add(c);
       for (const c of grantedBasicTypeColors(state, p)) types.add(c);
@@ -2270,7 +2408,8 @@ function landsCouldProduce(state, playerIds, { basicOnly = false, colorsOnly = f
  *   · legendaryPermanentsYouControl (Plaza of Heroes) — each legendary permanent's current colours (CR 613.1e);
  *   · legendaryCreaturesAndPlaneswalkersYouControl (Mox Amber) — the same, only while it is a creature or a planeswalker;
  *   · landsYouControlCouldProduce / landsOpponentsControlCouldProduce — landsCouldProduce over the controller / its opponents;
- *   · commanderColorIdentity — the controller's commander's color identity; none (or unknown) is null → nothing (CR 903.4f).
+ *   · commanderColorIdentity — the controller's commander's color identity; none (or unknown) is null → nothing (CR 903.4f);
+ *   · permanentsYouControl (Meteor Crater) — each permanent the controller controls, its current colours (CR 105.2).
  */
 function colorsAmongFor(state, playerId, spec) {
   const bf = state?.players?.[playerId]?.battlefield || [];
@@ -2287,6 +2426,8 @@ function colorsAmongFor(state, playerId, spec) {
       return landsCouldProduce(state, opponentsOf(state, playerId), spec);
     case "commanderColorIdentity":
       return commanderColorIdentityOf(state, playerId) || [];
+    case "permanentsYouControl": // Meteor Crater (2026-10-17 evening) — the current colours of every permanent its controller controls
+      return colorsOfEach(bf);
     default:
       return [];
   }
@@ -2341,13 +2482,22 @@ export function manaSources(state, playerId) {
     // spend several (a permanent's OTHER lines are one {T} and exclude each other; these are separate activations), `noTap`
     // keeps the commit from tapping it, and each record removes exactly one counter. Summoning sickness doesn't apply (no {T},
     // CR 302.6) and a mana multiplier doesn't either (not tapped for mana), so this runs before both.
+    // A PRINTED PER-TURN LIMIT on such a line (Mana Bloom's "Activate only once each turn", 2026-10-17 evening) caps the records
+    // at the activations left this turn, each stamping the ledger (`limitKey`); a capped single record is no longer `repeatable`,
+    // so the explicit tap offers it — there is exactly one activation to take.
     if (prod?.removesCounters?.mode === "each") {
-      const n = perm.counters?.[prod.removesCounters.type] || 0;
+      const lim = prod.activationLimit;
+      if (lim && !manaLimitAllows(state, playerId, perm.id, lim)) continue;
+      const counters = perm.counters?.[prod.removesCounters.type] || 0;
+      const n = lim?.perTurn != null ? Math.min(counters, lim.perTurn - manaLimitUsed(state, perm.id, lim)) : counters;
       for (let i = 0; i < n; i++) {
-        sources.push({ permanentId: perm.id, colors: prod.colors, amount: 1, removesCounters: { type: prod.removesCounters.type, count: 1 }, repeatable: true, noTap: true });
+        sources.push({ permanentId: perm.id, colors: prod.colors, amount: 1, removesCounters: { type: prod.removesCounters.type, count: 1 }, repeatable: !lim || n > 1, noTap: true, ...(lim?.perTurn != null ? { limitKey: manaLimitKey(perm.id, lim) } : {}) });
       }
       continue;
     }
+    // THE "INSTEAD" RIDER (withInsteadUpgrade, 2026-10-17 evening): the printed ability's upgrade replaces its base while the
+    // condition holds — Urza's Tower's {C}{C}{C}, River of Tears' {B} after a land drop — before any grant or gate reads it.
+    prod = withInsteadUpgrade(state, playerId, perm, prod);
     // ⭐ GRANTED BASIC LAND TYPE (④-BE, CR 305.6 — Urborg / Yavimaya / Blanket of Night): a land whose EFFECTIVE subtypes
     // include a basic type it does not print has that type's INTRINSIC mana ability, "{T}: Add <colour>". Merged into the
     // land's own one-mana tap source (so it stays ONE tap for one mana, just with more colour choices), or synthesized when
@@ -2376,11 +2526,9 @@ export function manaSources(state, playerId) {
     if (perm.tapped && prod.requiresTap !== false) continue; // CR 107.5 — a {T} ability (own or granted) needs it untapped
     if (prod.fromHand) continue; // SG-6 — an exile-from-HAND ability does not exist on the battlefield permanent
     // THE PER-TURN LIMIT (manaActivationLimit — CR 602.5b): a line already activated its limit-many times this turn is not a
-    // source again until the next turn; one limited to its controller's turn (Vivi Ornitier) is no source on another's.
-    if (prod.activationLimit) {
-      if (prod.activationLimit.yourTurnOnly && state.activePlayer !== playerId) continue;
-      if (manaLimitUsed(state, perm.id, prod.activationLimit) >= prod.activationLimit.perTurn) continue;
-    }
+    // source again until the next turn; one limited to its controller's turn (Vivi Ornitier) is no source on another's, one
+    // limited to an opponent's turn (Lavinia, 2026-10-17 evening) none on its controller's own (CR 602.5).
+    if (prod.activationLimit && !manaLimitAllows(state, playerId, perm.id, prod.activationLimit)) continue;
     // LANDS-12 — resolve the CHOSEN-COLOR leg against THIS permanent's stamp (see parseAddClause). Unstamped →
     // only the fixed option remains; a spec with no fixed option and no stamp produces nothing (never a guess).
     if (prod.chosenColor) {
@@ -2579,7 +2727,7 @@ export function manaSources(state, playerId) {
       ...(prod.requiresTap === false ? { noTap: true } : {}),
       ...(prod.putsCounter ? { putsCounter: { ...prod.putsCounter } } : {}),
       ...(prod.sacrificeIfNoCounters && prod.removesCountersLive ? { sacrificeIfNoCounters: true } : {}),
-      ...(prod.activationLimit ? { limitKey: manaLimitKey(perm.id, prod.activationLimit) } : {}),
+      ...(prod.activationLimit?.perTurn != null ? { limitKey: manaLimitKey(perm.id, prod.activationLimit) } : {}),
     };
     // IMPRINT (CR 207.2c) — Chrome Mox's reachable colors ARE the imprinted card's colors, read live off the
     // stamp resolveImprintChoice wrote. NO stamp (declined, or never offered) and NO colors (a colorless card
@@ -2608,8 +2756,7 @@ export function manaSources(state, playerId) {
     for (const extra of extraManaLineProducts(perm.card, manaProduction(perm.card))) {
       if (extra.activationCondition && evaluateInterveningIf(state, extra.activationCondition, playerId, { sourcePermanentId: perm.id }) !== true) continue;
       if (perm.tapped && extra.requiresTap !== false) continue; // CR 107.5 — the main record had no {T}; this line has one
-      if (extra.activationLimit && ((extra.activationLimit.yourTurnOnly && state.activePlayer !== playerId)
-        || manaLimitUsed(state, perm.id, extra.activationLimit) >= extra.activationLimit.perTurn)) continue;
+      if (extra.activationLimit && !manaLimitAllows(state, playerId, perm.id, extra.activationLimit)) continue;
       const exFixed = extra.fixed && Object.keys(extra.fixed).length > 1 ? extra.fixed : null;
       // STAGE ④-4: a counter-removal line's amount is the permanent's LIVE counters (plus one for the Battery form). A single-
       // counter land line ("one" — the Vivid lands, Tendo Ice Bridge, Mirrodin's Core, 2026-10-17) keeps its printed amount,
@@ -2628,7 +2775,7 @@ export function manaSources(state, playerId) {
       // `payLife` on a source — the painland/City-of-Brass lane) and is gated exactly like the main product: no life,
       // no source. Without both halves the any-colour tap would be free — the forbidden direction.
       if (extra.payLife != null && !((player.life ?? 0) > extra.payLife)) continue;
-      sources.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.activationCost ? { activationCost: extra.activationCost } : {}), ...(extra.payLife != null ? { payLife: extra.payLife } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: oneCounter ? 1 : crCount } } : {}), ...(extra.sacrificeIfNoCounters && extra.removesCounters ? { sacrificeIfNoCounters: true } : {}), ...(extra.requiresTap === false ? { noTap: true } : {}), ...(extra.putsCounter ? { putsCounter: { ...extra.putsCounter } } : {}), ...(extra.activationLimit ? { limitKey: manaLimitKey(perm.id, extra.activationLimit) } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), ...(staysTapped ? { staysTapped: true } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
+      sources.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.activationCost ? { activationCost: extra.activationCost } : {}), ...(extra.payLife != null ? { payLife: extra.payLife } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: oneCounter ? 1 : crCount } } : {}), ...(extra.sacrificeIfNoCounters && extra.removesCounters ? { sacrificeIfNoCounters: true } : {}), ...(extra.requiresTap === false ? { noTap: true } : {}), ...(extra.putsCounter ? { putsCounter: { ...extra.putsCounter } } : {}), ...(extra.activationLimit?.perTurn != null ? { limitKey: manaLimitKey(perm.id, extra.activationLimit) } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), ...(staysTapped ? { staysTapped: true } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
     }
   }
   // SG-6 — EXILE-FROM-HAND sources (Elvish / Simian Spirit Guide): a mana ability of a card in HAND. Offered

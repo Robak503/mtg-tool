@@ -58,8 +58,13 @@ describe("cards the engine CANNOT tap are no longer tiered native-mana", () => {
 
     // ⛔ AND THE FILE'S CLAIM IS UNCHANGED for every cost that is still unreachable. These are the stand-ins
     // now: a FINITE counter pool the sim would treat as infinite, and a non-self sacrifice it never spends.
+    // GRADUATED 2026-10-17 (evening): the {T} single-counter cost on an artifact (Sphere of the Suns) is PAID now — the record
+    // removes one counter and is no source with none left — so the Sphere-like card is reachable; the unpaid pin moves to a
+    // two-counter cost no record pays.
     expect(classifyCard(card({ name: "Sphere-like", type: "Artifact", mana: "{2}",
-      oracle: "{T}, Remove a charge counter from this artifact: Add one mana of any color." }))).not.toBe("native-mana");
+      oracle: "{T}, Remove a charge counter from this artifact: Add one mana of any color." }))).toBe("native-mana");
+    expect(classifyCard(card({ name: "Two-Counter-like", type: "Artifact", mana: "{2}",
+      oracle: "{T}, Remove two charge counters from this artifact: Add one mana of any color." }))).not.toBe("native-mana");
     // GRADUATED 2026-09-03 (SG-3): "Sacrifice a creature: Add …" is PAID now — manaSources gates the source on
     // another creature and commitManaTap sacrifices it through the dies chokepoint — so Ashnod's Altar is
     // reachable and native-mana. The unpayable pin moves to a sacrifice the engine still does not feed.
