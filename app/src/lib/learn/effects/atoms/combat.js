@@ -2543,6 +2543,20 @@ export function pumpClauseParser(clause) {
   if (m) return { op: "pump", target: "self", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) }, grantKeywords: ["attacksIgnoringDefender"] };
   m = t.match(/^the triggering creature gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (m) return { op: "pump", target: "thatCreature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
+  // SHARED ANIMOSITY (play-weighted #684 — "Whenever a creature you control attacks, it gets +1/+0 until end of turn for each other
+  // attacking creature that shares a creature type with it"): the triggering creature's pump sized by the other attackers that
+  // share a creature type with it, counted as the ability resolves (countForSpec "otherAttackersSharingCreatureType", CR 608.2h).
+  // The trailing "it" can only be the triggering creature here: the detector names the pumped "it" so for a non-self trigger
+  // alone, and a self trigger's "this creature" / a spell's "target creature" form never reaches this anchor (both stay LOW). The
+  // zero pip marks the stat that does not scale (the CP-1 discipline above); two different non-zero pips are refused.
+  m = t.match(/^the triggering creature gets \+(\d+)\/\+(\d+) until end of turn for each other attacking creature that shares a creature type with it$/);
+  if (m) {
+    const pv = parseInt(m[1], 10), tv = parseInt(m[2], 10);
+    const per = pv === 0 ? tv : pv;
+    const slot = pv !== 0 && tv !== 0 ? null : (pv !== 0 ? "p" : "t");
+    if (per === 0 || (slot === null && pv !== tv)) return null;
+    return { op: "pump", target: "thatCreature", ptDelta: { p: 0, t: 0 }, ptDeltaCount: { kind: "otherAttackersSharingCreatureType", per }, ...(slot ? { ptDeltaCountSlot: slot } : {}) };
+  }
   m = t.match(/^the triggering creature gets ([+-]\d+)\/([+-]\d+) and gains (.+) until end of turn$/);
   if (m) {
     const kws = parseGrantedKeywords(m[3]);

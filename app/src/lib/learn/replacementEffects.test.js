@@ -90,15 +90,19 @@ describe("doublerProfile / isPureDoubler — detection over real text", () => {
   });
 });
 
+// A creature recipient, named the way an entry site names it (the permanent's types as it enters, CR 614.12). RE-POINTED (play-weighted
+// #640, the recipient lists): Hardened Scales, Branching Evolution and Primal Vigor act only on a CREATURE now, so a call naming no
+// recipient no longer reaches them; every production caller names one (a battlefield id, or the entering object's types).
+const CREATURE = ["creature"];
 describe("applyCounterDoubling — factor math (CR 616.1e greedy-max)", () => {
   it("additive THEN multiplicative, greedy-max: Hardened Scales + Primal Vigor on base 1 → 4 (not 3)", () => {
-    expect(applyCounterDoubling(stateWith(permOf("hardenedScales", "me"), permOf("primalVigor", "me")), "me", "+1/+1", 1)).toBe(4);
+    expect(applyCounterDoubling(stateWith(permOf("hardenedScales", "me"), permOf("primalVigor", "me")), "me", "+1/+1", 1, null, CREATURE)).toBe(4);
   });
   it("two multiplicative doublers stack to x4", () => {
     expect(applyCounterDoubling(stateWith(permOf("doublingSeason", "me"), permOf("doublingSeason", "me")), "me", "+1/+1", 1)).toBe(4);
   });
   it("a +1/+1-only doubler does NOT double a non-+1/+1 counter (loyalty)", () => {
-    expect(applyCounterDoubling(stateWith(permOf("branchingEvolution", "me")), "me", "loyalty", 3)).toBe(3);
+    expect(applyCounterDoubling(stateWith(permOf("branchingEvolution", "me")), "me", "loyalty", 3, null, CREATURE)).toBe(3);
     // …but Doubling Season (any counter) does double loyalty.
     expect(applyCounterDoubling(stateWith(permOf("doublingSeason", "me")), "me", "loyalty", 3)).toBe(6);
   });
@@ -110,7 +114,11 @@ describe("applyCounterDoubling — factor math (CR 616.1e greedy-max)", () => {
     expect(applyCounterDoubling(stateWith(permOf("pir", "me")), "opp", "+1/+1", 1)).toBe(1);  // opponent's: UNCHANGED
   });
   it("a GLOBAL doubler (Primal Vigor) affects everyone", () => {
-    expect(applyCounterDoubling(stateWith(permOf("primalVigor", "opp")), "me", "+1/+1", 1)).toBe(2);
+    expect(applyCounterDoubling(stateWith(permOf("primalVigor", "opp")), "me", "+1/+1", 1, null, CREATURE)).toBe(2);
+  });
+  it("a creature-only replacement does not reach a noncreature recipient (play-weighted #640 — the recipient lists)", () => {
+    expect(applyCounterDoubling(stateWith(permOf("hardenedScales", "me"), permOf("primalVigor", "me")), "me", "+1/+1", 1, null, ["artifact"])).toBe(1);
+    expect(applyCounterDoubling(stateWith(permOf("doublingSeason", "me")), "me", "+1/+1", 1, null, ["artifact"])).toBe(2); // "a permanent": universal
   });
   it("Vorinclex halves (floor) counters on an opponent's permanent, doubles its controller's", () => {
     expect(applyCounterDoubling(stateWith(permOf("vorinclex", "opp")), "me", "+1/+1", 5)).toBe(2); // floor(5/2)

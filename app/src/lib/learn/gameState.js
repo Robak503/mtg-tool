@@ -27,7 +27,7 @@
  */
 
 import { printedPower, printedToughness, counterPowerDelta, counterToughnessDelta } from "./ptPrimitive.js"; // per-axis counter deltas (Contagion, BI-4)
-import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, permanentColors, playerCantGainLife, playerEmptyDrawWins, legendRuleExemptFor, PERMANENT_TYPE_RE } from "./layers.js";
+import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, permanentColors, playerCantGainLife, playerEmptyDrawWins, legendRuleExemptFor, PERMANENT_TYPE_RE, enteringTypeWords } from "./layers.js";
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
 import { faceUpTypeLine } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the look-back fallback and the legend rule read the front face's type line
@@ -322,7 +322,9 @@ export function planeswalkerEntryLoyalty(state, controller, card) {
     const d = p ? othersEnterWithCounters(p.card) : null;
     if (d && d.subject === "planeswalker") extra += Math.max(0, d.fixed);
   }
-  return applyCounterDoubling(state, controller, "loyalty", loy + extra);
+  // The planeswalker is not on the battlefield yet: a typed replacement (Lae'zel's "a creature or planeswalker you control") reads
+  // its types as it enters (CR 122.6, 614.12).
+  return applyCounterDoubling(state, controller, "loyalty", loy + extra, null, enteringTypeWords(state, controller, card));
 }
 
 /**

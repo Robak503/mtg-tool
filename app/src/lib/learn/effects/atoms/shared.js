@@ -9,7 +9,7 @@
 import { findPermanent, creaturePower, creatureToughness, opponentsOf } from "../../gameState.js";
 import { characteristicTypeLine } from "../../faceUp.js"; // THE FACE THAT IS UP (CR 712.8a) — a graveyard card's type line for the counts
 import { MASS_WIPE_SCOPES } from "../../targetTypes.js"; // leaf module (pure strings) — no cycle; feeds the atomTargets drift guard below
-import { permanentIsCreature, permanentHasCardType, permanentHasTypeWord, permanentTypes, permanentCreatureTypes, domainCount, partyCount, permIsEveryCreatureType, deriveCharacteristics, permanentManaValue } from "../../layers.js"; // + permanentHasTypeWord (the type-line audit): a subtype filter reads the permanent as it is now // + permanentHasCardType (#651): the layer-aware, face-up land read of the opponents' nonland set // + deriveCharacteristics (#587): a permanent's copiable values + layer-4 types for the nonland mana-value set // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import) // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
+import { permanentIsCreature, permanentHasCardType, permanentHasTypeWord, permanentTypes, permanentCreatureTypes, domainCount, partyCount, permIsEveryCreatureType, deriveCharacteristics, permanentManaValue, permanentsShareCreatureType } from "../../layers.js"; // + permanentsShareCreatureType (#684 — Shared Animosity's count) // + permanentHasTypeWord (the type-line audit): a subtype filter reads the permanent as it is now // + permanentHasCardType (#651): the layer-aware, face-up land read of the opponents' nonland set // + deriveCharacteristics (#587): a permanent's copiable values + layer-4 types for the nonland mana-value set // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import) // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
 import { creatureSatisfiesRestrictions } from "../../creatureRestrictions.js"; // the SHARED 16-kind restriction satisfier (leaf: gameState + layers + keywords only — every one of those edges already exists above, so no cycle)
 import { isBlockingCreature } from "../../combatRemoval.js"; // CR 506.4 — the one "is it a blocking creature" read (a zero-import leaf)
 import { evaluateInterveningIf } from "../../interveningIf.js"; // INSTEAD-AMOUNT (BLITZ INST-1) — the shared board-condition readers for a condition-gated amountUpgrade; interveningIf → gameState is a leaf edge (gameState imports neither shared.js nor interveningIf), so no cycle
@@ -992,6 +992,20 @@ export function countForSpec(state, ctx, spec) {
     return (state.combat?.attackers || []).filter((a) => {
       const lk = findPermanent(state, a.permanentId);
       return lk && !lk.permanent.removedFromCombat && (!spec.youControl || lk.controller === ctx?.controller);
+    }).length;
+  }
+  // OTHER ATTACKERS SHARING A CREATURE TYPE (play-weighted #684 — Shared Animosity: "it gets +1/+0 until end of turn for each other
+  // attacking creature that shares a creature type with it"): "it" is the attacking creature the trigger fired for
+  // (ctx.triggeringPermanentId). Counted once, as the ability resolves (CR 608.2h): every other creature in state.combat.attackers
+  // still on the battlefield, still a creature and not removed from combat (CR 508.1k, 506.4) that shares a creature type with it
+  // (layers.permanentsShareCreatureType — a changeling is every creature type). The creature gone → 0; its pump has no target then.
+  if (spec.kind === "otherAttackersSharingCreatureType") {
+    const tid = ctx?.triggeringPermanentId;
+    if (!tid || !findPermanent(state, tid)) return 0;
+    return (state.combat?.attackers || []).filter((a) => {
+      if (a.permanentId === tid) return false;
+      const lk = findPermanent(state, a.permanentId);
+      return !!lk && !lk.permanent.removedFromCombat && permanentIsCreature(state, a.permanentId) && permanentsShareCreatureType(state, tid, a.permanentId);
     }).length;
   }
   if (spec.kind === "totalAttackingPower") {

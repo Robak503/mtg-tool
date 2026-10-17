@@ -113,7 +113,9 @@ describe("isModeledDoublerSentence / stripModeledDoublerClauses", () => {
 describe("runtime over-fire regression (applyCounterDoubling)", () => {
   const state = (k) => ({ players: { p1: { battlefield: [{ id: `t-${k}`, controller: "p1", card: card(k), counters: {} }] } } });
   it("a generic you-doubler still doubles its controller's +1/+1 counters", () => {
-    expect(applyCounterDoubling(state("corpsejack"), "p1", "+1/+1", 2)).toBe(4); // ×2
+    // RE-POINTED (play-weighted #640, the recipient lists): Corpsejack acts on "a creature you control", so the call names a creature
+    // recipient the way an entry site does (its types as it enters, CR 614.12).
+    expect(applyCounterDoubling(state("corpsejack"), "p1", "+1/+1", 2, null, ["creature"])).toBe(4); // ×2
   });
   it("Mauhúr no longer over-applies to every permanent (subtype recipient dropped)", () => {
     expect(applyCounterDoubling(state("mauhur"), "p1", "+1/+1", 2)).toBe(2);     // base, not 3 — over-fire removed

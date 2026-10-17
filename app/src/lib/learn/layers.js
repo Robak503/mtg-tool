@@ -2363,6 +2363,22 @@ export function permanentCreatureTypes(state, permanentId) {
 }
 
 /**
+ * DO TWO BATTLEFIELD PERMANENTS SHARE A CREATURE TYPE? (Shared Animosity — "each other attacking creature that shares a creature
+ * type with it".) At least one creature type in common, each read after layer 4 (permanentCreatureTypes, CR 205.3m); a permanent
+ * that is every creature type (a changeling, CR 702.73a, or an all-creature-types effect — permIsEveryCreatureType) shares one with
+ * any permanent that has at least one creature type, and two of them share every type. A permanent with no creature type shares
+ * none, and a permanent the battlefield doesn't hold shares nothing.
+ */
+export function permanentsShareCreatureType(state, aId, bId) {
+  if (!findPerm(state, aId) || !findPerm(state, bId)) return false;
+  const aEvery = permIsEveryCreatureType(state, aId), bEvery = permIsEveryCreatureType(state, bId);
+  const aTypes = permanentCreatureTypes(state, aId), bTypes = permanentCreatureTypes(state, bId);
+  if (aEvery) return bEvery || bTypes.length > 0;
+  if (bEvery) return aTypes.length > 0;
+  return aTypes.some((ty) => bTypes.includes(ty));
+}
+
+/**
  * CARD TYPE AFTER LAYER 4 — does battlefield permanent `permanentId` have the card type `cardType` (CR 205.2a — "artifact",
  * "Land", any case) right now? Type-changing effects apply in layer 4 (CR 613.1d), and "becomes an artifact in addition to
  * its other types" keeps every type the permanent had (CR 205.1b), so the answer is the derive's types: a creature Liquimetal
@@ -2526,6 +2542,19 @@ export function entersAsCreature(state, controller, card, bestowed = false) {
     if (pip.slice(1, -1).split("/").some((p) => wanted.has(p))) own += 1;
   }
   return devotionToColors(state, controller, gate.op.colors) + own >= (gate.op.atLeast || 0);
+}
+
+/**
+ * THE TYPES A CARD ENTERS WITH — lowercase card types and subtypes of the face that is up (CR 712.8d), "creature" only when
+ * entersAsCreature says it is one as it enters (CR 614.12: a bestowed Aura, a God below its devotion are not). The counter
+ * replacements read it for a permanent entering with counters (CR 122.6 — "put on" includes an object given counters as it
+ * enters): Hardened Scales' "a creature you control", Ozolith's and Winding Constrictor's "an artifact or creature you control".
+ * The same under-read as entersAsCreature: another permanent's effect that would change its types as it enters is not read.
+ */
+export function enteringTypeWords(state, controller, card, bestowed = false) {
+  if (!card) return [];
+  const types = cardTypesOf(card).filter((t) => t !== "Creature" || entersAsCreature(state, controller, card, bestowed));
+  return [...types, ...subtypesOf(card)].map((w) => String(w).toLowerCase());
 }
 
 /**

@@ -31,7 +31,7 @@
  * imports none of the modules that import this one (its whole closure is a set of leaves — verified), so there is still no cycle.
  */
 
-import { permanentHasCardType } from "./layers.js";
+import { permanentHasTypeWord } from "./layers.js";
 
 function oracleOf(card) {
   return String(card?.oracle ?? card?.oracle_text ?? card?.text ?? "").toLowerCase();
@@ -58,6 +58,24 @@ function isSelfRecipient(s, shortName) {
 // only tracks the controller, not the recipient's subtype — a forbidden over-fire. Requiring a generic recipient
 // drops the counter profile for such cards (FN-safe: the runtime never over-fires, and the card stays non-native).
 const RECIPIENT_GENERIC = /\bon (?:a|an|each|any|that|another)\s+(?:(?:nontoken|target|other)\s+)*(?:creature|permanent|artifact|planeswalker|enchantment|land|battle|player|spacecraft|planet)\b/;
+
+// THE RECIPIENT LIST a counter replacement names — the nouns of its first "on a/an/another …" phrase, a closed vocabulary of card
+// types and the subtypes the corpus prints there ("a creature" · "an artifact or creature" · "a creature or Vehicle" · "a creature
+// or planeswalker" · "a creature, Spacecraft, or Planet"). Returns the type words (permanentHasTypeWord's spelling), or null when
+// the list names "permanent" (universal — Doubling Season, Vorinclex's "permanent or player") or nothing this vocabulary reads.
+// "player" is not a permanent type and drops out (a player recipient is the playerCounterAdd lane's, never this profile's).
+const RECIPIENT_TYPE_WORD = { creature: "Creature", artifact: "Artifact", planeswalker: "Planeswalker", enchantment: "Enchantment", land: "Land",
+  battle: "Battle", vehicle: "Vehicle", spacecraft: "Spacecraft", planet: "Planet", permanent: null, player: null };
+const RECIPIENT_NOUN = Object.keys(RECIPIENT_TYPE_WORD).join("|");
+const RECIPIENT_LIST_RE = new RegExp(`\\bon (?:a|an|each|any|that|another)\\s+(?:(?:nontoken|target|other)\\s+)*((?:${RECIPIENT_NOUN})(?:(?:,\\s*(?:or\\s+|and\\s+)?|\\s+or\\s+|\\s+and\\s+)(?:${RECIPIENT_NOUN}))*)\\b`);
+function recipientTypesOf(s) {
+  const m = RECIPIENT_LIST_RE.exec(s);
+  if (!m) return null;
+  const words = m[1].split(/,\s*(?:or\s+|and\s+)?|\s+or\s+|\s+and\s+/).map((w) => w.trim()).filter(Boolean);
+  if (words.includes("permanent")) return null;
+  const types = words.map((w) => RECIPIENT_TYPE_WORD[w]).filter(Boolean);
+  return types.length ? types : null;
+}
 
 /**
  * Classify a single permanent's card into its doubler profile, or null. Parses by sentence so a card with
@@ -165,12 +183,16 @@ export function doublerProfile(card) {
         if (scope) {
           if (/twice that many/.test(s)) counter = { op: "multiply", factor: 2, kind, scope, ...(excludeSource && { excludeSource: true }) };
           else if (/that many plus (one|1)/.test(s)) counter = { op: "additive", factor: 1, kind, scope, ...(excludeSource && { excludeSource: true }) };
-          // RECIPIENT-TYPE UNION (Winding Constrictor — "…put on an ARTIFACT OR CREATURE you control"): the
-          // replacement applies ONLY to counters landing on those types. Stamped so applyCounterDoubling
-          // type-gates via the recipient permanent (before this, the profile applied to EVERY permanent you
-          // control — a live over-apply on lands/planeswalkers). Single-noun generic recipients stay untyped
-          // (Doubling Season's "a permanent" is genuinely universal).
-          if (counter && /\bon an artifact or creature you control\b/.test(s)) counter.recipientTypes = ["Artifact", "Creature"];
+          // RECIPIENT TYPES (Winding Constrictor — "…put on an ARTIFACT OR CREATURE you control"; Hardened Scales — "…on a
+          // CREATURE you control"): the replacement applies ONLY to counters landing on a permanent of a type its sentence
+          // names. Stamped so applyCounterDoubling type-gates via the recipient (before the list was read, only the
+          // artifact-or-creature union was typed, and every creature-only replacement added counters to ANY permanent its
+          // controller controlled — Hardened Scales on Ozolith's counter on a Sol Ring, Loading Zone on a charge counter).
+          // "permanent" stays untyped (Doubling Season is genuinely universal); the self scope (Mowu) needs no list.
+          if (counter && scope !== "self") {
+            const recipientTypes = recipientTypesOf(s);
+            if (recipientTypes) counter.recipientTypes = recipientTypes;
+          }
         }
       }
     }
@@ -357,13 +379,13 @@ function counterDoublerApplies(d, ownerId, recipientId, permId, recipientPermId)
   return d.scope === "global" || ownerId === recipientId;
 }
 
-// The recipient permanent HAS one of `types` NOW (layers.permanentHasCardType — CR 613.1d, its face that is up; the type-line
-// audit): Winding Constrictor's "an artifact or creature you control" adds nothing to a God below its devotion or to a slumbering
+// The recipient permanent HAS one of `types` NOW (layers.permanentHasTypeWord — a card type or a subtype, CR 613.1d, its face that is
+// up; the type-line audit): Winding Constrictor's "an artifact or creature you control" adds nothing to a God below its devotion or to a slumbering
 // Arixmethes' slumber counters (neither is a creature or an artifact now), and it does reach an animated land. A permanent the
 // battlefield doesn't hold matches nothing. (This module is a LEAF gameState imports, so it can't import findPermanent; layers.js
 // reaches neither module, so this edge is cycle-free.)
 function recipientTypeMatches(state, permId, types) {
-  return types.some((ty) => permanentHasCardType(state, permId, ty));
+  return types.some((ty) => permanentHasTypeWord(state, permId, ty)); // a card type or a subtype (Vehicle, Spacecraft, Planet)
 }
 
 /**
@@ -390,8 +412,13 @@ export function playerCounterAdditive(state, playerId) {
  * `recipientPermId` (optional) is the permanent RECEIVING the counters. A self-excluding "another creature you
  * control" replacement (CR 109.5 — Benevolent Hydra) is skipped when that recipient IS the replacement's own
  * source permanent. Absent (every legacy caller) → no self-exclusion is possible, so behavior is unchanged.
+ *
+ * `enteringTypes` (optional) is the type words (lowercase card types and subtypes) of a permanent ENTERING with the counters —
+ * a counter it enters with is a counter put on it (CR 122.6), and which replacements apply is judged on the permanent as it would
+ * exist on the battlefield (CR 614.12). The entry sites build it with layers.enteringTypeWords; the permanent is not on the
+ * battlefield yet, so it has no id to look up.
  */
-export function applyCounterDoubling(state, recipientControllerId, counterType, baseAmount, recipientPermId = null) {
+export function applyCounterDoubling(state, recipientControllerId, counterType, baseAmount, recipientPermId = null, enteringTypes = null) {
   const base = Math.max(0, Number(baseAmount) || 0);
   if (base === 0) return 0;
   let additive = 0;
@@ -405,12 +432,13 @@ export function applyCounterDoubling(state, recipientControllerId, counterType, 
     // (an under-exclusion would be an over-fire — but the runtime add-counter path always threads the recipient
     // permanent id, so this is exact in practice, and the classifier's honesty rests on that path).
     const selfExcluded = c?.excludeSource && recipientPermId != null && permId != null && recipientPermId === permId;
-    // RECIPIENT-TYPE gate (Winding Constrictor — "an artifact or creature you control"): a typed profile
-    // applies only when the RECIPIENT permanent's printed type line carries one of the types. An unknown
-    // recipient (recipientPermId null — no legacy caller reaches a typed profile today) skips the profile
-    // (FN-safe under-apply, never an over-fire on a land/planeswalker counter).
+    // RECIPIENT-TYPE gate (Winding Constrictor — "an artifact or creature you control"; Hardened Scales — "a creature you
+    // control"): a typed profile applies only when the recipient is one of the types — a battlefield permanent as it is now, an
+    // entering one by its `enteringTypes`. A recipient known by neither (every caller passes one of the two) skips the profile
+    // (an under-apply, never an over-fire on a land / planeswalker / noncreature artifact counter).
     const typeGated = c?.recipientTypes
-      && !(recipientPermId != null && recipientTypeMatches(state, recipientPermId, c.recipientTypes));
+      && !(recipientPermId != null && recipientTypeMatches(state, recipientPermId, c.recipientTypes))
+      && !(Array.isArray(enteringTypes) && c.recipientTypes.some((ty) => enteringTypes.includes(ty.toLowerCase())));
     if (c && !selfExcluded && !typeGated && (c.kind !== "+1/+1" || counterType === "+1/+1") && counterDoublerApplies(c, ownerId, recipientControllerId, permId, recipientPermId)) {
       if (c.op === "additive") additive += c.factor;
       else multiplier *= c.factor;

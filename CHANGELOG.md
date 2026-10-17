@@ -9,10 +9,16 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Ozolith, the Shattered Spire** — {1}{G}, {T}: put a +1/+1 counter on target artifact or creature you control, as a sorcery (with Ozolith's own replacement, the counter becomes two); **Shared Animosity** — whenever a creature you control attacks, it gets +1/+0 until end of turn for each other attacking creature that shares a creature type with it (a changeling shares every type)
 - **Chromatic Lantern** (and **Joiner Adept**) — lands you control have "{T}: Add one mana of any color": a Forest beside the Lantern taps for green or any other color, a Wastes for colorless or any color, once per untap, and a painland's colored mana through the Lantern is painless. An opponent's lands don't gain it. (A land whose own mana ability does more than make one mana — Ancient Tomb, Gaea's Cradle, Command Tower, Mana Confluence — still taps only for its own mana for now.)
 - **Relic of Legends** — besides its own "{T}: Add one mana of any color", tap an untapped legendary creature you control for one mana of any color, even one that came under your control this turn, and even while the Relic is already tapped. A creature tapped to pay a cost like Springleaf Drum's can no longer also tap for its own mana in the same payment (Springleaf Drum beside a lone Llanowar Elves used to pay for a two-mana spell)
 - **Mox Diamond** — when it would enter the battlefield you discard a land card, or it goes to the graveyard instead (it never enters, so it never makes mana). It applies however it would enter: cast, searched or returned onto the battlefield, a Sculpting Steel copying it, a token copy from Flash Photography or Second Harvest. The land is chosen automatically, the same way for every seat: one is discarded only when you hold a land card and have already played your land this turn, or hold two or more (a basic land first). The AI no longer casts it when it would just go to the graveyard
 - **Bender's Waterskin** (and **Thousand Moons Infantry**) — untaps during each other player's untap step as well as yours, so it can make mana on every turn. A stun counter still keeps it tapped there; "doesn't untap during its controller's untap step" effects (Inertia Bubble) don't, as the card's ruling says. Under Seedborn Muse or Unwinding Clock it still untaps only once per step
+
+### Fixed
+- **Hardened Scales**, **Branching Evolution**, **Primal Vigor**, **Corpsejack Menace**, **The Earth Crystal**, **Conclave Mentor** and the other "+1/+1 counters on a creature" replacements no longer add counters to a noncreature permanent (an artifact, an uncrewed Vehicle, The Ozolith); **Loading Zone** and **Lae'zel, Vlaakith's Champion** act only on the permanents they name
+- **Winding Constrictor** and **Ozolith, the Shattered Spire** now add their extra counter to a creature or artifact that enters with counters (a Hydra cast for X, a modular creature, Zaxara's Hydra token, an amassed Army)
+- **Stocking the Pantry** and **Terrasymbiosis** no longer count a +1/+1 counter put on a noncreature artifact as one put on a creature
 
 ## [0.164.0] - 2026-10-17
 

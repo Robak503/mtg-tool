@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **3 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,459)**; engine gains since the tag: **+6**. The next tag
+> **4 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,461)**; engine gains since the tag: **+8**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,68 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-17 — PLAY-WEIGHTED: Ozolith, the Shattered Spire (#640) and Shared Animosity (#684) — the own-side artifact-or-creature counter, the attackers-sharing-a-creature-type count; and a counter replacement acts only on the permanents its sentence names, entering ones included · **+2** · snapshot native 15,448 → 15,450
+> Suite **19,961 green (1 skipped) / 1,836 files** under the gate queue. Lint 0 (CR citations and keyword-section citations both clean). Flip-diff **+2 / −0 / RETIERED 0** (34,620 cards; before =
+> an untouched `git archive` of 0c221772; native 15,448 → 15,450 of 34,584 snapshot names). Top 1,000 **894 → 896** (`measure-coverage --played=1000`:
+> "covered 894/1000 (89.4%) · to 90%: +6" before, "covered 896/1000 (89.6%) · to 90%: +4" after); top 2,500 **1,733 → 1,735** (read off the two
+> snapshots). **Mutants 14/14** on assertions, each restored byte-identical (sha256), run in an isolated copy of this tree (a 15th — counting an
+> attacker that left the battlefield — was discarded as equivalent: the battlefield-exit chokepoint already drops its attacker record, CR 506.4).
+> Committed on `day/pw-abil`, not pushed; the release-batch line and the WAKE-REPORT counters are the integrator's.
+> · **Ozolith, the Shattered Spire** (sole blocker confirmed: "{1}{G}, {T}: Put a +1/+1 counter on target artifact or creature you control. Activate
+>   only as a sorcery."). `atoms/counters.js`: "put N +1/+1 counter(s) on target artifact or creature you control" → `add-counter` over the
+>   `artifactOrCreatureYouControl` pool Teleportation Circle already enumerates (own side only, CR 115.1); +1/+1 only (a -1/-1 on an own-side pool
+>   would read "own" to the chooser and "harm" to the counter — no corpus card, stays LOW). Sorcery timing was already enforced (CR 602.5d, 307.1).
+>   The counter goes through `gameState.addCounter`, so Ozolith's own "that many plus one" and every other replacement apply (CR 122.6, 616.1).
+>   Witness `ozolithShatteredSpire.test.js` (15): offered on the user's Bears, Sol Ring and Ozolith itself, never the opponent's Bears or Sol Ring, never
+>   a land; the Forests pay, Ozolith taps, Bears gets 2 (1 + 1); Sol Ring and Ozolith get 2; refused with a spell on the stack, on the opponent's turn,
+>   in combat, without the mana; a target that changed control before resolution gets nothing (CR 608.2b); Hardened Scales: Bears 3, Sol Ring 2;
+>   Stocking the Pantry: a supply counter for the Bears, none for the Sol Ring; classification native-mixed.
+> · **What the lane exposed, fixed with it** (each witnessed in the same file):
+>   1. A counter replacement acts only on the permanents its sentence names. `replacementEffects.doublerProfile` typed only Winding Constrictor's
+>      "artifact or creature"; every creature-only replacement (Hardened Scales, Branching Evolution, Primal Vigor, Corpsejack Menace, The Earth
+>      Crystal, Conclave Mentor, High Score, Michelangelo, Shang-Chi, Benevolent Hydra, Yoshimaru) added counters to ANY permanent its controller
+>      controlled — Ozolith's counter on a Sol Ring took Hardened Scales' extra one, and The Ozolith's banked counters took every one of them. The
+>      recipient list is read off the sentence now (`recipientTypesOf`, a closed noun vocabulary: creature · artifact or creature · creature or Vehicle
+>      (Caradora) · creature or planeswalker (Lae'zel) · creature, Spacecraft, or Planet (Loading Zone); "permanent" stays universal — Doubling Season,
+>      Vorinclex, Pir, Solid Ground, Kami of Whispered Hopes, Brad Boimler, Doc Samson) and matched with `layers.permanentHasTypeWord` (a card type
+>      or a subtype, as the permanent is now).
+>   2. A permanent ENTERING with counters is a counter put on it (CR 122.6), judged as it would exist on the battlefield (CR 614.12). The entry sites
+>      passed no recipient, so a typed replacement skipped every one: Winding Constrictor (native-static) added nothing to a Hydra cast for X, a
+>      modular creature or Zaxara's Hydra token — and Ozolith's own first line would not have either. New `layers.enteringTypeWords` (the face-up
+>      card types and subtypes, "creature" only when `entersAsCreature` says so); `applyCounterDoubling` takes it as a sixth argument, and every
+>      null-recipient caller passes it: the 20 calls in `enterReplacements.applyEnterReplacements`, the token mint (`tokens.applyCreateToken`),
+>      the new Army (`amass`), the planeswalker's starting loyalty (`gameState.planeswalkerEntryLoyalty` — Lae'zel's +1 loyalty survives the typing).
+>      Witnesses: Spike Colony enters with 5 under Ozolith, Hardened Scales or Winding Constrictor (4 alone), Arcbound Worker with 2, Zaxara's X = 2
+>      Hydra with 3, a fresh Army with 2, Jace Beleren with 4 loyalty under Lae'zel; Loading Zone doubles the Bears' counter and not a Sol Ring's
+>      charge counter or an uncrewed Copter's +1/+1; Caradora reaches the Copter (the Vehicle subtype) and not the Sol Ring.
+>   3. `applyAddCounter`'s "+1/+1 counters on a creature" watcher count (Stocking the Pantry, Terrasymbiosis) trusted the pick's tag, and the
+>      artifact-or-creature pool tags every pick "creature"; it reads the permanent (`permanentIsCreature`).
+> · **Shared Animosity** (sole blocker confirmed: the whole card). `atoms/combat.js`: "the triggering creature gets +N/+M until end of turn for each
+>   other attacking creature that shares a creature type with it" → a `thatCreature` pump with `ptDeltaCount` kind `otherAttackersSharingCreatureType`
+>   (the CP-1 slot discipline: the zero pip does not scale); the self form ("this creature …") and the spell form ("target creature …") stay LOW.
+>   `atoms/shared.countForSpec` counts, once as the ability resolves (CR 608.2h), every other attacker still on the battlefield and still a creature
+>   (CR 508.1k, 506.4) that shares a creature type with the triggering creature — `layers.permanentsShareCreatureType`, layer-aware creature types
+>   (CR 205.3m), a changeling every type (CR 702.73a). The bonus is a fixed layer-7c effect until end of turn (CR 613.4c, 611.2a, 514.2).
+>   Witness `sharedAnimosity.test.js` (9): Llanowar Elves, Fyndhorn Elves, Elvish Warrior, Woodland Changeling and Grizzly Bears attack — the Elves
+>   +3 (4 / 4 / 5), the changeling +4 (6), the Bears +1 (3, the changeling only), toughness untouched; without the changeling the Bears stays 2 and
+>   each Elf is +2; two changelings +1 each, a non-attacking Elf uncounted; back to printed power on turn 6; an Elf removed before the triggers
+>   resolve is not counted (+1 each, not +2) and the bonus stays when another leaves after; an opponent's Shared Animosity and a lone attacker give
+>   nothing; Mondassian Colony Ship and Goblin Rabblemaster stay parked; classification native-trigger.
+> · **Re-pointed, not deleted:** `replacementEffects.test.js` (the factor-math calls name a creature recipient; + a noncreature-recipient row),
+>   `doublerCardCoverage.test.js` (Corpsejack's call names a creature recipient), `benevolentHydra.test.js` (the profile carries
+>   `recipientTypes: ["Creature"]`; the "plain form applies to its own source" control uses Conclave Mentor, a creature, instead of Hardened Scales,
+>   an enchantment its own text no longer reaches).
+> · **Profile decks:** neither card is in a saved deck. The recipient-list fix moves real decks: Wolverine, claws out! and Earth Bent (The Ozolith's
+>   counters no longer take Hardened Scales / Branching Evolution / Primal Vigor / The Earth Crystal / Loading Zone), Mothman Cometh (Winding
+>   Constrictor now adds to creatures entering with counters), Zaxara kinda X'ish (Branching Evolution and Benevolent Hydra still reach Zaxara's
+>   Hydra tokens — they enter as creatures).
+> · ⚠️ **Found, not fixed:** Lae'zel's "or on yourself" (a player recipient) is not modeled while the card reads native-static — her player half adds
+>   nothing; Seedpod Caretaker's first mode now parses, its Incubator mode does not (incubate is unmodeled), so it stays parked; the self form "it
+>   gets +N/+0 for each other attacking <Type>" (Goblin Rabblemaster #4551, Goblin Piledriver, Dire Fleet Captain, Rampaging Classmate) is unmodeled;
+>   `enteringTypeWords` shares `entersAsCreature`'s under-read (another permanent's effect that would change the entering object's types — an
+>   Opalescence enchantment entering with counters — is not read; the typed replacement under-applies there). The count's `permanentIsCreature`
+>   check on an attacker that stopped being a creature mid-combat is defensive and unwitnessed.
 
 > ## 🎯 2026-10-17 — PLAY-WEIGHTED: lands get Chromatic Lantern's "{T}: Add one mana of any color" as a choice on their one tap (#85, Joiner Adept with it), and Relic of Legends taps a legendary creature for mana (#535); a tap-other payer is tapped once · **+3** · snapshot native 15,448 → 15,451
 > Suite **19,969 green (1 skipped) / 1,836 files** under the gate queue. Lint 0 (CR citations: 0 of 10,942 name no rule; keyword

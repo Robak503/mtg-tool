@@ -19,7 +19,7 @@
 import { logEvent, destroyLethalCreatures, createPermanent, mintId, addCounter } from "../../gameState.js";
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): the new-Army mint stamps counters directly, bypassing addCounter
 import { checkDiesTriggers } from "../../triggers.js";
-import { permIsEveryCreatureType } from "../../layers.js"; // P·39 — every creature type is an Army (layers is already reached through triggers.js; no new cycle)
+import { permIsEveryCreatureType, enteringTypeWords } from "../../layers.js"; // + enteringTypeWords: the new Army's types for the typed counter replacements // P·39 — every creature type is an Army (layers is already reached through triggers.js; no new cycle)
 import { fireTokenEnterTriggers } from "./tokens.js";
 
 /** Replace the controller's battlefield via a pure mapper (updatePermanent / withPlayer are private to
@@ -96,7 +96,9 @@ export function applyAmass(state, atom, ctx) {
   // existing-Army path above uses addCounter and is already doubler-aware. The Army-token creation itself is the
   // singleton amass mint, not a "create N tokens" event, so it is deliberately not token-doubled.)
   if (amount > 0) {
-    const n = applyCounterDoubling(next, me, PLUS_ONE, amount);
+    // The fresh Army is stamped before it joins the battlefield, so a typed replacement (Hardened Scales' "a creature you control",
+    // Ozolith's "an artifact or creature") reads its types from the card (CR 122.6, 614.12).
+    const n = applyCounterDoubling(next, me, PLUS_ONE, amount, null, enteringTypeWords(next, me, card));
     perm = { ...perm, counters: { ...perm.counters, [PLUS_ONE]: (perm.counters?.[PLUS_ONE] || 0) + n } };
   }
   next = withControllerBattlefield(next, me, (bf) => [...bf, perm]);

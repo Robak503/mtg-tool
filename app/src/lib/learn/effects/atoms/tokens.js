@@ -9,7 +9,7 @@ import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only g
 import { enteringAuraHost, isRoleCard } from "../../auraEntry.js"; // CR 303.4f — what a token copy of an Aura enchants as it is created, asked of a seat a person plays (a leaf zones.js already imports)
 import { entersByDiscardingLand, applyDiscardLandToEnter } from "../../discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247, CR 614.1a / 707.5) — a token copy of it enters only on a discarded land card; a leaf over gameState / triggers / staticAbilityParser
 import { chosenCardTypeOnEnter } from "../../chosenCardType.js"; // CLOUD KEY (CR 707.5 + 614.12a) — a token copy makes the copied "as this enters" card-type choice; a leaf over choicePolicy only
-import { addContinuousEffect } from "../../layers.js"; // MINTED-TOKEN HASTE (shelf D26) — "It gains haste." after a token copy is a lasting layer-6 grant (layers imports no atoms — cycle-free)
+import { addContinuousEffect, enteringTypeWords } from "../../layers.js"; // + enteringTypeWords: a token entering with counters is judged by its types as it enters (CR 614.12) // MINTED-TOKEN HASTE (shelf D26) — "It gains haste." after a token copy is a lasting layer-6 grant (layers imports no atoms — cycle-free)
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec, halveAmount } from "./shared.js";
 import { SMALL_NUM, NUM_WORD, parseCountSource, parseTokenManaAbility, parseTokenTriggeredAbility, parseTokenStaticAbility, parseTokenKeywords, BASIC_LAND_SUBTYPES } from "../parseHelpers.js"; // seam batch 18/19: shared parse helpers (leaf, cycle-free) for create-named-token + create-token clause parsers
 
@@ -242,7 +242,9 @@ export function applyCreateToken(state, atom, ctx) {
   // bypass addCounter (the token is minted locally), so the Wave-3 counter doubler is applied here, once.
   const ewc = atom.entersWithCounters;
   const counterBase = ewc ? Math.max(0, ewc.countX ? (ctx.xValue || 0) : (ewc.amount || 0)) : 0;
-  const counterN = counterBase > 0 ? applyCounterDoubling(next, tokenCreatorId, ewc.type || "+1/+1", counterBase) : 0;
+  // The token is not on the battlefield yet: the typed counter replacements read its types as it enters (CR 614.12, 122.6 —
+  // Ozolith's and Hardened Scales' extra counter on Zaxara's Hydra).
+  const counterN = counterBase > 0 ? applyCounterDoubling(next, tokenCreatorId, ewc.type || "+1/+1", counterBase, null, enteringTypeWords(next, tokenCreatorId, { name, type, oracle })) : 0;
   // X/X P/T (DOUBLE-X subsystem): a token whose printed P/T is the spell's {X} (Gelatinous Genesis "X X/X",
   // Slime Molding "an X/X") mints at xValue/xValue. CR 107.3 — an X of 0 makes a 0/0 that dies to the lethal
   // SBA below (the countX path already mints zero tokens at X=0, so this only bites a fixed-count X/X token).

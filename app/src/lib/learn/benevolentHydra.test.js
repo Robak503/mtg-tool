@@ -71,7 +71,7 @@ describe("Benevolent Hydra — clause 3 (activated ability: 'another target crea
 describe("Benevolent Hydra — clause 2 (self-excluding counter-replacement)", () => {
   it("the profile captures the additive +1 AND the self-exclusion", () => {
     expect(doublerProfile({ name: "Benevolent Hydra", type: "Creature — Hydra", oracle: ORACLE }).counter)
-      .toEqual({ op: "additive", factor: 1, kind: "+1/+1", scope: "you", excludeSource: true });
+      .toEqual({ op: "additive", factor: 1, kind: "+1/+1", scope: "you", excludeSource: true, recipientTypes: ["Creature"] }); // + recipientTypes (play-weighted #640 — "another CREATURE you control")
   });
   it("counters on ANOTHER creature you control get +1; counters on the Hydra ITSELF do NOT (CR 109.5)", () => {
     _resetIdsForTests();
@@ -103,9 +103,14 @@ describe("Benevolent Hydra — CREED near-misses (must NOT flip / must NOT mis-a
     // self-exclusion must be scoped to the 'another'/'other' wording only — never leak onto the plain form.
     const p = doublerProfile({ name: "Hardened Scales", type: "Enchantment", oracle: "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead." });
     expect(p.counter.excludeSource).toBeUndefined();
-    const s = { players: { p1: { battlefield: [{ id: "hs", controller: "p1", card: { name: "Hardened Scales", type: "Enchantment", oracle: "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead." }, counters: {} }] } } };
-    // With no recipientPermId AND with the recipient BEING the source, a non-self-excluding profile still fires (base 2 → 3).
-    expect(applyCounterDoubling(s, "p1", "+1/+1", 2, "hs")).toBe(3);
+    // RE-POINTED (play-weighted #640, the recipient lists): Hardened Scales is an enchantment, and "a creature you control" no longer
+    // reaches a noncreature recipient, so the source that receives its own counters is Conclave Mentor — a creature printing the same
+    // plain form (real oracle text, bundled Scryfall).
+    const MENTOR = "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on that creature instead.\nWhen this creature dies, you gain life equal to its power.";
+    expect(doublerProfile({ name: "Conclave Mentor", type: "Creature — Centaur Cleric", oracle: MENTOR }).counter.excludeSource).toBeUndefined();
+    const s = { players: { p1: { battlefield: [{ id: "cm", controller: "p1", card: { name: "Conclave Mentor", type: "Creature — Centaur Cleric", power: "2", toughness: "2", oracle: MENTOR }, counters: {} }] } } };
+    // With the recipient BEING the source, a non-self-excluding profile still fires (base 2 → 3).
+    expect(applyCounterDoubling(s, "p1", "+1/+1", 2, "cm")).toBe(3);
   });
   it("the plain 'target creature you control' add-counter (no 'another') carries NO excludeSource", () => {
     const p = parseEffectClause("Put a +1/+1 counter on target creature you control", "Instant", {});

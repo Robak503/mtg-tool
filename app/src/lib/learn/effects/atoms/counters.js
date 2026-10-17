@@ -170,8 +170,10 @@ export function applyAddCounter(state, atom, ctx) {
     // dropped them all: those cards classified native while their counter never landed (the CV-2 test checked the pool
     // and never resolved). A permanent target is a legal recipient; the "+1/+1 counters on a creature" watchers below
     // still count only a recipient that IS a creature (an uncrewed Vehicle is not, CR 301.7).
+    // The watcher's "on a creature" reads the PERMANENT, never the pick's tag: the artifact-or-creature pool (Ozolith, the
+    // Shattered Spire) tags every pick type:"creature", a Sol Ring included, and Stocking the Pantry took a supply counter for it.
     if (addAmt > 0 && (t.type === "creature" || t.type === "permanent") && lk) {
-      if (atom.counterType === "+1/+1" && (t.type === "creature" || permanentIsCreature(next, t.id))) {
+      if (atom.counterType === "+1/+1" && permanentIsCreature(next, t.id)) {
         // Mirror the ACTUAL placed amount for the watcher — thread t.id so a self-excluding "another creature
         // you control" replacement (CR 109.5) skips the recipient when it IS its own source (matches addCounter).
         const placed = applyCounterDoubling(next, t.controller, "+1/+1", addAmt, t.id);
@@ -654,6 +656,15 @@ export function addCounterClauseParser(clause) {
     return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10),
       targetType: "creatureOrVehicle", restrictions: [{ kind: "controller", who: "you" }] };
   }
+  // ARTIFACT-OR-CREATURE YOU CONTROL (play-weighted #640 — Ozolith, the Shattered Spire: "{1}{G}, {T}: Put a +1/+1 counter on
+  // target artifact or creature you control"; Seedpod Caretaker's first mode). The own-side union pool Teleportation Circle
+  // already enumerates (spellEffects.enumerateTargets — the controller's own permanents that are an artifact or a creature now,
+  // so an opponent's permanent is never a legal target, CR 115.1). The counter lands on a noncreature artifact too:
+  // applyAddCounter places it on any permanent target and the creature-only watchers read the permanent, not the pick's tag.
+  // ⛔ +1/+1 ONLY: a -1/-1 counter on an own-side pool would read "own" to the trigger chooser and "harm" to the counter's
+  // kind — no corpus card prints it, so it stays LOW. Whole-clause anchored; any rider → LOW → Arbiter.
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on target artifact or creature you control$/);
+  if (m) return { op: "add-counter", counterType: "+1/+1", amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "artifactOrCreatureYouControl" };
   // ENTERED-THIS-TURN target (Cathedral Acolyte's activated — "put a +1/+1 counter on target creature that
   // entered this turn"): the chosen-creature atom narrowed by the enteredThisTurn enumeration gate
   // (perm.enteredOnTurn === state.turn — the field every enter path stamps). ANY controller's creature
