@@ -17,6 +17,7 @@ import { colorsOf, permanentProtectionColors, permanentIsCreature, permanentHasT
 import { protectionApplies } from "../../protection.js"; // shelf D41 — the shared colour-protection test (an import-free leaf)
 import { auraMayEnchantCreature } from "../../auraHost.js"; // shelf D41 — the shared Enchant-line reader (a leaf; stack.js reads it too)
 import { entersByDiscardingLand, applyDiscardLandToEnter } from "../../discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247, CR 614.1a / 614.12a) — whether it enters at all; a leaf over gameState / triggers / staticAbilityParser, which this file already reaches
+import { temporaryEntryCopySpec, cloneCandidates, pickTemporaryCopy, snapshotCopiedCard } from "../../cloneCopy.js"; // CURSED MIRROR (play-weighted #448, CR 614.1c / 614.12) — the as-enters copy until end of turn on a put; a leaf over gameState / layers / keywords / staticAbilityParser (becomeCopy.js, a sibling atom, already imports it)
 import { enteringAuraHost } from "../../auraEntry.js"; // CR 303.4f — what an Aura entering without being cast enchants, asked of a seat a person plays (a leaf over modules this file already reaches)
 // CZ-COMMANDER-VISIT cross-layer doors — INJECTED, never imported: a static resolvers.js/layers.js
 // import from this atoms leaf TDZ-crashed 56 suites (zones sits under effectAtoms → parser, and
@@ -376,9 +377,28 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
     }
     state = r.state;
   }
+  // CURSED MIRROR (play-weighted #448 — CR 614.1c, 614.12, 707.5): "As this artifact enters, you may have it become a copy of any
+  // creature on the battlefield until end of turn, except it has haste." It applies however it enters, so a put onto the battlefield
+  // offers it too: the house policy decides for every seat (cloneCopy.pickTemporaryCopy — the cast entry asks a person; this road, like
+  // every other entry replacement here, does not), on the board as it enters — never a creature entering with it (the bundled ruling).
+  // Copied, it enters as that creature (its enters triggers and replacements below read the copy) carrying its own card as printedCard
+  // and the stamp the cleanup step reverts (gameState.revertEndOfTurnCopies, CR 514.2).
+  let entering = card;
+  let copyStamp = null;
+  const temporaryCopy = temporaryEntryCopySpec(card);
+  if (temporaryCopy) {
+    const asEntering = replacementState || state;
+    const pickId = pickTemporaryCopy(asEntering, playerId, cloneCandidates(asEntering, playerId, temporaryCopy.scope), temporaryCopy.riders);
+    const source = pickId ? findPermanent(asEntering, pickId)?.permanent : null;
+    if (source) {
+      entering = snapshotCopiedCard(source, card, temporaryCopy.riders);
+      copyStamp = { turn: state.turn, card };
+    }
+    state = logEvent(state, { kind: "temporary-copy-choice", controller: playerId, cardName: card?.name, copiedName: source?.card?.name ?? null, auto: true });
+  }
   const { id: permId, state: s2 } = mintId(state, "perm");
   const ts = s2.timestampCounter || 0;
-  const isCreatureCard = /Creature/.test(String(card?.type || card?.type_line || ""));
+  const isCreatureCard = /Creature/.test(String(entering?.type || entering?.type_line || ""));
   // OWNER STAMP (BLITZ SB-2, CR 110.2 / 404.1): a CROSS-PLAYER entry (reanimation out of another player's
   // graveyard — Ashen Powder / Hymn of Rebirth / the Ink-Eyes saboteur theft) creates a permanent whose
   // controller is NOT its owner (the zone holder — a player's graveyard contains only their own cards,
@@ -387,7 +407,8 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   // destroyed object "is put on top of its owner's graveyard"; CR 700.4 — dies = put into a graveyard
   // from the battlefield). The common same-player entry stamps nothing → byte-identical.
   // K9 (Fblthp "if it entered from your library"): the zone this permanent arrived from, for ETB riders that ask.
-  const base = { ...createPermanent({ id: permId, card, controller: playerId, summoningSick: isCreatureCard, tapped }), enteredOnTurn: s2.turn, timestamp: ts, enteredFromZone: fromZone, ...(fromPlayerId !== playerId && { owner: fromPlayerId }) };
+  const base = { ...createPermanent({ id: permId, card: entering, controller: playerId, summoningSick: isCreatureCard, tapped }), enteredOnTurn: s2.turn, timestamp: ts, enteredFromZone: fromZone, ...(fromPlayerId !== playerId && { owner: fromPlayerId }),
+    ...(copyStamp ? { printedCard: card, copyUntilEndOfTurn: copyStamp } : {}) };
   // THE ENTRY REPLACEMENTS (CR 614.1c, 614.1d, 614.12) — the same reader the cast entry (resolvers.enterPermanent) uses, so a
   // permanent that wasn't cast enters exactly as its replacement effects say: "enters tapped" (Diregraf Ghoul), "enters with
   // N +1/+1 counters" (Spike Feeder), the planeswalker's loyalty (CR 306.5b), fading / vanishing / Saga lore, another
@@ -422,7 +443,7 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   if (fromZone === "graveyard") {
     next = recordGraveyardEvents(next, [{ dir: "leave", card, gyOwner: fromPlayerId, zone: "battlefield" }]);
   }
-  next = logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller: playerId });
+  next = logEvent(next, { kind: "permanent-enters", cardName: entering?.name, controller: playerId });
   // The shockland's life payment, the CR 122.6 counter events of the counters it entered with, riot's haste, Fabricate's Servos —
   // settled now that it is on the battlefield (enterReplacements.settleEnterReplacements, as the cast entry does), before
   // any enters trigger is checked.

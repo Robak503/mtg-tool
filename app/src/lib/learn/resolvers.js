@@ -139,6 +139,9 @@ export function enterPermanent(state, card, controller, opts = {}) {
     ...(opts.castForNoMana ? { castForNoMana: true } : {}), // SATORU (BI-5): cast, but for no mana (free / pitch / alt cost)
     ...(opts.evoked ? { evoked: true } : {}), // EVOKE (Solitude): its evoke cost was paid — the sacrifice trigger is queued as it enters
     ...(opts.escaped ? { escaped: true } : {}), // ESCAPE (P·29, CR 702.138b): cast with escape — "sacrifice it unless it escaped" reads it
+    // CURSED MIRROR (play-weighted #448): a copy that lasts until end of turn — { turn, card, printedCard? }: the card the permanent turns
+    // back into in the cleanup step (CR 514.2 — gameState.revertEndOfTurnCopies) and the printedCard it carried before the copy.
+    ...(opts.copyUntilEndOfTurn ? { copyUntilEndOfTurn: opts.copyUntilEndOfTurn } : {}),
     // CAST-FROM-ZONE (CR 601.2 / 400.7) — WHICH zone this permanent's spell was cast from, for the
     // "if you cast it from your hand" ETB rider (Furnace Dragon, Reiver Demon, Angel of the Dire Hour,
     // Wakening Sun's Avatar, Coal Stoker). A per-PERMANENT fact about HOW the object arrived, so it lives
@@ -307,7 +310,7 @@ export function applyAdventureExile(state, { playerId, card }) {
 export function resolveCloneChoice(state, chosenPermId) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "clone-search") return state;
-  const { cloneCard, controller, riders = [], optional, scope, printedCard, owner, escaped } = pc.resume || {}; // printedCard: V1 slice 3 (Glasspool Mimic's real two-face card); owner: shelf D3 (a clone cast from its owner's exile)
+  const { cloneCard, controller, riders = [], optional, scope, printedCard, owner, escaped, untilEndOfTurn } = pc.resume || {}; // printedCard: V1 slice 3 (Glasspool Mimic's real two-face card); owner: shelf D3 (a clone cast from its owner's exile)
   let next = clearPendingChoice(state);
   if (!cloneCard || !controller) return next;
 
@@ -376,7 +379,11 @@ export function resolveCloneChoice(state, chosenPermId) {
       }
       attachTo = choice.hostId;
     }
-    next = enterPermanent(next, copied, controller, { printedCard: printedCard || cloneCard, extraCounter, ...(attachTo ? { attachTo } : {}), ...(owner ? { owner } : {}), ...(escaped ? { escaped: true } : {}) });
+    // CURSED MIRROR (play-weighted #448): "…become a copy … until end of turn" — the permanent turns back into its own card in the cleanup
+    // step (CR 514.2). The stamp is on the permanent, never the card, so something copying it meanwhile takes no duration (the bundled
+    // ruling: it stays that creature with haste).
+    const copyUntilEndOfTurn = untilEndOfTurn ? { turn: next.turn, card: cloneCard, ...(printedCard ? { printedCard } : {}) } : null;
+    next = enterPermanent(next, copied, controller, { printedCard: printedCard || cloneCard, extraCounter, ...(attachTo ? { attachTo } : {}), ...(owner ? { owner } : {}), ...(escaped ? { escaped: true } : {}), ...(copyUntilEndOfTurn ? { copyUntilEndOfTurn } : {}) });
   } else {
     // Declined, or the target is gone/illegal — the clone enters as itself (a 0/0).
     next = enterPermanent(next, cloneCard, controller, { ...(printedCard ? { printedCard } : {}), ...(owner ? { owner } : {}) });
@@ -469,13 +476,16 @@ export const RESOLVERS = Object.freeze({
           candidates,
           sourceName: card?.name || null,
           optional: spec.optional,
-          resume: { cloneCard: card, controller, riders: spec.riders, optional: spec.optional, scope: spec.scope, ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}), ...(escaped ? { escaped: true } : {}) },
+          resume: { cloneCard: card, controller, riders: spec.riders, optional: spec.optional, scope: spec.scope, ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}), ...(escaped ? { escaped: true } : {}), ...(spec.untilEndOfTurn ? { untilEndOfTurn: true } : {}) },
         });
       }
-      // No creature to copy: the clone enters as itself (a 0/0) and dies (CR 704.5f).
-      const entered = enterPermanent(state, card, controller, { ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) });
-      const lethal = destroyLethalCreatures(entered);
-      return checkDiesTriggers(lethal.state, lethal.dead);
+      // No creature to copy: the clone enters as itself (a 0/0) and dies (CR 704.5f). A copy that lasts until end of turn (Cursed
+      // Mirror) has a body of its own: it enters as itself through the ordinary entry below, with the cast's facts.
+      if (!spec.untilEndOfTurn) {
+        const entered = enterPermanent(state, card, controller, { ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) });
+        const lethal = destroyLethalCreatures(entered);
+        return checkDiesTriggers(lethal.state, lethal.dead);
+      }
     }
     return enterPermanent(state, card, controller, { xValue, kicked, timesKicked, wasCast: true, castFromZone, castDuringMainPhase: !!castDuringMainPhase, colorsSpent, grantDiesExile, castForNoMana: manaSpent === false, evoked: !!evoked, escaped: !!escaped, ...(manaSpentByColor ? { manaSpentByColor } : {}), ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) }); // owner: shelf D3 — a spell cast from its owner's exile (the stack object's stamp)
   },

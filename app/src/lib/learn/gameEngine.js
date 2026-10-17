@@ -40,6 +40,7 @@ import {
   untapAll,
   clearCombatDamage,
   revertEndOfTurnControl,
+  revertEndOfTurnCopies,
   clearRemovedFromCombatFlags,
   clearManaHolds,
   logEvent,
@@ -945,6 +946,9 @@ export function finishCleanupActions(state) {
   // because sending a creature home can itself raise one: the original controller may already own a
   // legendary copy, and the legend rule is checked at 514.3a like any other.
   next = revertEndOfTurnControl(next);
+  // CURSED MIRROR (CR 514.2) — a copy that lasts "until end of turn" ends here too: the permanent is its own card again, before the
+  // state-based check below (an Aura or Equipment on the creature it was may now be on a non-creature, CR 704.5m / 704.5n).
+  next = revertEndOfTurnCopies(next);
   // CR 514.3a (CR-remediation B2) — expiring UEOT effects can themselves cause SBAs (a creature whose
   // toughness the expired pump was propping up is now ≤0; an Equipment on a man-land whose animation
   // just ended sits on a non-creature). Checked and applied HERE, per the rule.

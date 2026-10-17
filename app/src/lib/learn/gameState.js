@@ -2593,6 +2593,40 @@ export function revertEndOfTurnControl(state) {
   return next;
 }
 
+/**
+ * UNTIL-END-OF-TURN COPY REVERT (CR 514.2) — Cursed Mirror ("As this artifact enters, you may have it become a copy of any creature on
+ * the battlefield until end of turn, except it has haste."): every permanent stamped `copyUntilEndOfTurn` turns back into its own card
+ * in the cleanup step, with marked damage and every other "until end of turn" effect. A sweep over the stamp, like
+ * revertEndOfTurnControl, so nothing that happened during the turn can skip it.
+ *
+ * The stamp carries the card to return to and the printedCard the permanent had before the copy (none for a plain cast). The
+ * permanent is the same object — its counters, attachments, damage and tapped status stay (what it copies changing is not an enter
+ * or a leave, CR 707.4); the cleanup's state-based check then deals with an Aura or Equipment that may no longer be attached to it
+ * (CR 704.5m, 704.5n). Its summoning-sick flag is the one its own card would have entered with: the engine stamps that flag on
+ * creatures only, and a non-creature's sickness is read by layers.summoningSickNow. A copy of it made meanwhile is not stamped (the
+ * duration is not a copiable value — the bundled ruling), so it stays what it copied. Pure; returns the same state when nothing
+ * is stamped.
+ */
+export function revertEndOfTurnCopies(state) {
+  const stamped = [];
+  for (const player of Object.values(state.players || {})) {
+    for (const p of player.battlefield || []) if (p.copyUntilEndOfTurn) stamped.push(p);
+  }
+  if (!stamped.length) return state;
+  let next = state;
+  for (const perm of stamped) {
+    const { card: ownCard, printedCard: priorPrinted } = perm.copyUntilEndOfTurn;
+    if (!ownCard) throw new Error(`revertEndOfTurnCopies: permanent ${perm.id} carries a copyUntilEndOfTurn stamp with no card to return to`);
+    next = updatePermanentSafe(next, perm.id, (p) => {
+      const { copyUntilEndOfTurn: _drop, printedCard: _copyPrinted, ...rest } = p;
+      const ownIsCreature = /\bCreature\b/.test(String(ownCard.type || ownCard.type_line || "").split(" // ")[0]);
+      return { ...rest, card: ownCard, ...(priorPrinted ? { printedCard: priorPrinted } : {}), summoningSick: ownIsCreature ? !!p.summoningSick : false };
+    });
+    next = logEvent(next, { kind: "copy-ends", permanentId: perm.id, cardName: ownCard?.name ?? null, copiedName: perm.card?.name ?? null, controller: perm.controller });
+  }
+  return next;
+}
+
 /** Wipe marked damage off every permanent (combat damage wears off at cleanup). Also expires unused
  * regeneration shields (CR 701.19 — the replacement lasts "this turn" only), since both are turn-scoped
  * cleanup state cleared at the same step. */

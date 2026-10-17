@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **4 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,461)**; engine gains since the tag: **+8**. The next tag
+> **5 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,462)**; engine gains since the tag: **+9**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,74 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-17 — PLAY-WEIGHTED: Cursed Mirror (EDHREC #448) — the as-enters copy that lasts until end of turn, with haste, through the entering-clone lane and a cleanup revert; Darksteel Mutation (#586) PARKED (the engine has no ability-removing effect) · **+1** · snapshot native 15,451 → 15,452
+> Suite **20,003 green (1 skipped) / 1,837 files** under the gate queue. Lint 0 (CR citations: 0 of 11,005 name no rule; keyword citations: 0 of 2,313 cite a
+> different keyword). Flip-diff **+1 / −0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of 6a9782c4, snapshotted
+> before the first edit; native 15,451 → 15,452 of 34,584 snapshot names). Top 1,000 **896 → 897** (`measure-coverage --played=1000`:
+> "covered 896/1000 (89.6%) · to 90%: +4" before, "covered 897/1000 (89.7%) · to 90%: +3" after). **Mutants 16/16** on assertions,
+> each restored byte-identical (sha256). Witness tests written first and seen to fail on the base engine on assertions (16 of the first 26).
+> Committed on `day/pw-copy`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **Cursed Mirror** ("{T}: Add {R}. / As this artifact enters, you may have it become a copy of any creature on the battlefield
+>   until end of turn, except it has haste."). An as-enters replacement (CR 614.1c): it enters AS the copy (CR 707.5 — the copied
+>   creature's enters triggers and "as this enters" abilities work, the bundled rulings), copiable values only (CR 707.2), haste part
+>   of the copy (CR 707.9a), ended in the cleanup step (CR 514.2). `cloneCopy.parseCloneSpec` gains a closed second shape
+>   (`parseTemporaryEntryCopy`: exactly one "as this artifact|creature|enchantment enters, you may have it become a copy of any
+>   creature on the battlefield until end of turn[, except <a rider the snapshot applies>]" line; every other line a one-symbol
+>   "{T}: Add {X}." — the card's own ability, which the copy lacks while it lasts and has again after, the bundled ruling) →
+>   `untilEndOfTurn: true`; `isCloneCard` admits it on a non-creature card. The cast rides the existing clone lane (PERMANENT_ETB →
+>   `clone-search` → `resolveCloneChoice`: the snapshot is the permanent's card, the Mirror its printedCard) and stamps
+>   `copyUntilEndOfTurn: { turn, card }` on the PERMANENT, never the card — so a Clone copying it meanwhile keeps the copy (the bundled
+>   ruling: the duration is not copied); with nothing to copy it enters as itself through the ordinary cast entry (cast facts kept).
+>   New `gameState.revertEndOfTurnCopies`, swept in `gameEngine.finishCleanupActions` beside the Threaten revert and before the SBA
+>   check: the permanent is its own card again (same object — counters and attachments stay, CR 707.4; the creature-only sick flag
+>   reset), logged `copy-ends`. A put onto the battlefield (`zones.enterCardFromZone` — Whir of Invention, a blink return, a
+>   reanimation) offers the copy too (CR 614.12), by the house policy for every seat, on the board as it enters (never a creature
+>   entering with it — the bundled ruling), logged `temporary-copy-choice` (auto) — the Mox Diamond precedent for a put.
+> · **The policy** (`cloneCopy.pickTemporaryCopy`, reached through `autoPickCloneCandidate` when the pending choice is temporary — the
+>   AI's fallback and the put road share it): the best body — highest printed power, then toughness, name, id — copied only when it
+>   ATTACKS profitably (its controller's turn, combat still ahead: some living opponent has no untapped creature that can block it
+>   [flying / reach], kill it [deathtouch counted] and live [first strike counted]; never a defender) or BLOCKS profitably (another
+>   player's turn, before blockers: it can block an attacker of its controller — else an untapped creature of the active player — and
+>   live); never a legendary body whose name its controller already has (CR 704.5j). Otherwise null: decline, keep the mana rock. A
+>   Clone's pick is unchanged (highest power + toughness).
+> · **Gained, witnessed on the real engine** (`cursedMirror.test.js`, 28): cast beside the opponent's tapped Craw Wurm →
+>   `clone-search` (optional; every creature, any controller) → a 6/4 Craw Wurm with haste and no {R}; it attacks the turn it enters
+>   for 6 and at cleanup is Cursed Mirror again (an artifact that taps for {R}, sick flag false, `copy-ends` logged); declined, or
+>   nothing to copy → an artifact that taps for {R} (with nothing to copy, the cast facts kept: `wasCast`); copying Elvish Visionary draws a card; counters are not
+>   copied; copying Llanowar Elves taps for {G}, not {R}; a Clone copying the Mirror-copy is still a Craw Wurm with haste after
+>   cleanup (control: a Clone's own copy is never undone); dying as a copy puts Cursed Mirror in the graveyard; Whir of Invention
+>   (X=3) before combat → the Wurm with the stamp, after combat → Cursed Mirror, at the AI's beginning of combat → the Wurm (it
+>   blocks the AI's Hill Giant and lives). The policy: the tapped Wurm over the Bears; the Wurm into an untapped Serra Angel (the
+>   Angel dies blocking); declines into Wall of Swords; the Suntail Hawk over the Bears facing Wall of Spears (first strike, no
+>   reach); declines after combat; declines its own Isamaru, copies the opponent's. The AI through the real session loop
+>   (`advanceUntilDecision`, expert): casts it before combat, copies the tapped Wurm, attacks for 6, reverted at cleanup.
+> · ⏸ **Darksteel Mutation — PARKED, not built** (body-only, unchanged; the AI still holds it — `auraEntry.auraCastIntent` reads it
+>   null). "…is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other
+>   abilities, card types, and creature types." The types (CR 613.1d) and the base 0/1 (CR 613.4b) have layer ops; "loses all other
+>   abilities" (CR 613.1f) has none, and faking it would play the card wrong: (1) every reader of a permanent's abilities reads
+>   `perm.card` text directly — detectTriggers, parseActivatedAbilities, parseStaticAbilities, manaProduction, combatEvasion's text
+>   reads, ~200 call sites — so the only chokepoint is swapping the permanent's card, which acts ahead of EVERY continuous effect
+>   (like layer 1): an Equipment's flying / lifelink / protection granted before Mutation must be lost and an earlier P/T set or type
+>   add overwritten (the bundled rulings), and the swap leaks into copies (a Clone must copy the original, CR 707.2), zone moves and
+>   token copies unless each is re-pointed; (2) layer 6's keyword vocabulary mixes real abilities with rules-effect pseudo-keywords
+>   (cantBlock, cantAttack, unblockable, goaded, mustAttack, activatedAbilitiesLocked, attacksIgnoringDefender …) with no record of
+>   "has <ability>" versus "can't …" — Mutation removes the first and must keep the second (a Pacifism beside it still binds), so
+>   it needs an emitter-by-emitter audit first; (3) keyword counters (layer 6, timestamp-ordered) carry no timestamp, and the
+>   name-keyed registries (layers STATIC_REGISTRY, cardEffects REGISTRY, manaModel KNOWN_ROCKS) bypass the text; (4) the
+>   recursion-free partial layer readers (effectiveTypeIdentity, copyBaseOf, boardCountColors) would each need the new type-setting
+>   op. The shape of the real fix: a layer-6 `loseAllAbilities` op honoured at `layers.effectAffects` (earlier ability grants stop
+>   applying) and in the keyword seeds, an ability-vs-effect flag on every layer-6 emitter, and an abilities view of the permanent
+>   that every text reader takes — its own program, not a card slice.
+> · **AI / self-play.** Profile decks: Cursed Mirror is in none; Darksteel Mutation is in Light-Paws Voltron (prof_50410046) and is
+>   unchanged. Any deck that casts Cursed Mirror now gets a hasty attacker the turn it lands (or a blocker on an opponent's turn when
+>   an effect puts it in) instead of a plain {R} rock.
+> · ⚠️ **Found, not fixed:** the clone lane's settle (`resolvers.resolveCloneChoice`) enters the copy without the cast facts
+>   (wasCast, castFromZone, colorsSpent) — the declined Cursed Mirror too — so a clone that copies a creature with an "if you cast it" / "cast it from your hand" enters
+>   rider (Tiamat, Furnace Dragon, Reiver Demon) loses it — Clone, Phantasmal Image and Cursed Mirror alike · a Clone-family creature
+>   put onto the battlefield without being cast (reanimated, searched) gets no copy choice — `zones.enterCardFromZone` has no clone
+>   arm, so it enters as a 0/0 and dies (only Cursed Mirror's shape is offered on that road, this slice) · a token copy of Cursed
+>   Mirror (Flash Photography) enters as plain Cursed Mirror — the token-copy atoms skip as-enters copies (a legal decline).
 
 > ## 🎯 2026-10-17 — PLAY-WEIGHTED: Ozolith, the Shattered Spire (#640) and Shared Animosity (#684) — the own-side artifact-or-creature counter, the attackers-sharing-a-creature-type count; and a counter replacement acts only on the permanents its sentence names, entering ones included · **+2** · snapshot native 15,448 → 15,450
 > Suite **19,961 green (1 skipped) / 1,836 files** under the gate queue. Lint 0 (CR citations and keyword-section citations both clean). Flip-diff **+2 / −0 / RETIERED 0** (34,620 cards; before =

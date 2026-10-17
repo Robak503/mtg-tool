@@ -35,9 +35,10 @@
  * Leaf: imports gameState's board helpers and staticAbilityParser's Enchant-line reader (neither reaches a clone module).
  */
 
-import { findPermanent } from "./gameState.js";
+import { findPermanent, opponentsOf } from "./gameState.js";
 import { auraEntryHostSpec } from "./staticAbilityParser.js"; // an Aura is a widened-scope copy candidate only with an Enchant line the engine lists (CR 303.4f) — staticAbilityParser reaches no clone module (checked 2026-10-16)
-import { permanentHasCardType, permanentHasTypeWord } from "./layers.js"; // the type-line audit: a copy CHOICE is the permanent's types now (layers imports nothing of this module, so no cycle)
+import { permanentHasCardType, permanentHasTypeWord, permanentIsCreature, permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js"; // the type-line audit: a copy CHOICE is the permanent's types now (layers imports nothing of this module, so no cycle); + the combat reads of the temporary copy's policy (pickTemporaryCopy)
+import { hasKeyword } from "./keywords.js"; // the temporary copy's policy reads the copied body's keywords (keywords.js imports only faceUp.js)
 
 const typeLine = (card) => String(card?.type || card?.type_line || "");
 // The copy CHOICE reads the permanent's types now, its face that is up (layers.permanentHasCardType — CR 712.8, 613.1d; the
@@ -351,7 +352,7 @@ export function parseCloneSpec(card) {
   const m = t.match(
     /^(?:you may have (?:~|this (?:creature|artifact|equipment|enchantment|vehicle)) enter|(?:~|this (?:creature|artifact|equipment|enchantment|vehicle)) enters?)(?: the battlefield)? as a copy of (any creature on the battlefield|any artifact or creature on the battlefield|any artifact on the battlefield|any equipment on the battlefield|any nonland permanent on the battlefield|any enchantment on the battlefield|any permanent that entered this turn|a creature an opponent controls|a creature you control|another creature you control|a creature or planeswalker you control)( with mana value less than or equal to the amount of mana spent to cast this creature)?(?:, except (.+?))?\.?$/,
   );
-  if (!m) return null;
+  if (!m) return parseTemporaryEntryCopy(card);
 
   let riders = [];
   if (m[3]) {
@@ -399,6 +400,61 @@ export function parseCloneSpec(card) {
     mvLimit: !!m[2],
     riders,
   };
+}
+
+/**
+ * CURSED MIRROR (play-weighted #448) — the as-enters copy that lasts until end of turn:
+ *   "As this artifact enters, you may have it become a copy of any creature on the battlefield until end of turn, except it has
+ *    haste."
+ * An "as [this permanent] enters" ability is a replacement effect (CR 614.1c): the copy is made as it enters, so it enters as the
+ * creature (CR 707.5 — the copied enters triggers and "as this enters" abilities work, the bundled rulings). Its "until end of turn"
+ * ends in the cleanup step (CR 514.2): the permanent carries the stamp (resolvers.resolveCloneChoice,
+ * zones.enterCardFromZone) and gameState.revertEndOfTurnCopies turns it back into its own card there.
+ *
+ * Closed on purpose: exactly one line is the copy sentence with the "any creature on the battlefield" scope and "until end of
+ * turn"; every other line must be a plain one-symbol mana ability ("{T}: Add {R}."). That line is the card's OWN ability, which the
+ * copy does not have while it lasts (the copy overwrites every copiable value — the bundled ruling) and has again once it ends,
+ * because the printed card is what the permanent turns back into — so carrying it costs the runtime nothing. The rider must be one
+ * the snapshot applies (snapshotCopiedCard). Anything else returns null and the card parks.
+ * The one-symbol mana line is exactly what the mana model's plain "Add" parse produces for every symbol it admits (pinned in
+ * cursedMirror.test.js). Returns the parseCloneSpec shape plus `untilEndOfTurn: true`.
+ */
+const TEMPORARY_ENTRY_COPY_RE = /^as (?:~|this (?:artifact|creature|enchantment)) enters(?: the battlefield)?, you may have it become a copy of (any creature on the battlefield) until end of turn(?:, except (.+?))?\.?$/;
+const SUSPENDED_MANA_LINE_RE = /^\{t\}: add \{[wubrgc]\}\.?$/;
+function parseTemporaryEntryCopy(card) {
+  const nameL = card?.name ? String(card.name).toLowerCase() : null;
+  const lines = String(card?.oracle || card?.oracle_text || "").split("\n")
+    .map((l) => stripReminder(l).toLowerCase())
+    .filter(Boolean)
+    .map((l) => (nameL ? l.replace(new RegExp(escapeRegex(nameL), "g"), "~") : l));
+  let m = null;
+  for (const line of lines) {
+    const hit = line.match(TEMPORARY_ENTRY_COPY_RE);
+    if (hit) {
+      if (m) return null; // two copy sentences — not this shape
+      m = hit;
+      continue;
+    }
+    if (!SUSPENDED_MANA_LINE_RE.test(line)) return null;
+  }
+  if (!m) return null;
+  const riders = [];
+  if (m[2]) {
+    for (const s of m[2].split(/,\s*and\s+|,\s+|\s+and\s+/).map((x) => x.trim()).filter(Boolean)) {
+      const atom = parseCloneRider(s);
+      // Only riders the snapshot itself applies: the own-abilities marker needs the tail lines this shape refuses, and the
+      // conditional entering counter is the cast settle's alone.
+      if (!atom || atom.kind === "retainOwnAbilities" || atom.kind === "entersWithCounterIf") return null;
+      riders.push(atom);
+    }
+  }
+  return { optional: true, scope: "any", mvLimit: false, riders, untilEndOfTurn: true };
+}
+
+/** The temporary as-enters copy spec (Cursed Mirror), or null — for an entry site that offers only that shape. */
+export function temporaryEntryCopySpec(card) {
+  const spec = parseCloneSpec(card);
+  return spec?.untilEndOfTurn ? spec : null;
 }
 
 /**
@@ -487,6 +543,9 @@ export function isCloneCard(card) {
   if (spec === null) return false;
   // A CREATURE clone card (Clone, Phyrexian Metamorph, Spark Double) is native for any modeled scope — unchanged.
   if (/Creature/.test(typeLine(card))) return true;
+  // CURSED MIRROR (play-weighted #448): the non-creature card enters as the copied creature (with haste) and turns back into itself
+  // in the cleanup step (CR 514.2) — the snapshot and the cleanup sweep (gameState.revertEndOfTurnCopies) model both halves.
+  if (spec.untilEndOfTurn) return true;
   // A NON-creature clone card (Sculpting Steel = Artifact, Copy Artifact = Enchantment, Masterwork of Ingenuity =
   // Artifact — Equipment) is native ONLY for the runtime-proven artifact/Equipment copy scopes: it enters as a
   // snapshot of an artifact (the anyArtifactOrCreature runtime already copies artifacts; enterPermanent handles a
@@ -753,6 +812,9 @@ const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
  * deterministic heuristic; the player's own clone surfaces an interactive picker instead.
  */
 export function autoPickCloneCandidate(state, pendingChoice) {
+  // CURSED MIRROR — a copy that lasts until end of turn is worth taking only for this turn's combat (pickTemporaryCopy below); a
+  // decline (null) keeps the mana rock.
+  if (pendingChoice?.resume?.untilEndOfTurn) return pickTemporaryCopy(state, pendingChoice.controller ?? pendingChoice.resume.controller, pendingChoice.candidates || [], pendingChoice.resume.riders || []);
   const cands = (pendingChoice?.candidates || [])
     .map((c) => ({ ...c, perm: findPermanent(state, c.id)?.permanent }))
     .filter((c) => c.perm);
@@ -762,4 +824,84 @@ export function autoPickCloneCandidate(state, pendingChoice) {
     cmp(String(a.name || ""), String(b.name || "")) ||
     cmp(String(a.id || ""), String(b.id || "")),
   )[0].id;
+}
+
+// ─── CURSED MIRROR — the house policy for a copy that lasts until end of turn ─────────────────────────────────────────────────
+
+const printedStat = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0; // a "*" body (a characteristic-defining ability) reads 0 here — never judged a profitable body
+};
+
+/** The copy's body as the policy reads it: the candidate's copiable card with the rider applied (haste) — printed P/T and keywords,
+ *  since a copy takes no counters or other effects (CR 707.2). */
+function temporaryCopyBody(perm, riders) {
+  const card = snapshotCopiedCard(perm, null, riders);
+  const kw = (k) => hasKeyword(card, k);
+  return {
+    id: perm.id, name: String(perm.card?.name || ""), copyName: String(card.name || ""),
+    legendary: /\bLegendary\b/.test(typeLine(card).split(" // ")[0]),
+    power: printedStat(card.power), toughness: printedStat(card.toughness),
+    flying: kw("Flying"), reach: kw("Reach"), deathtouch: kw("Deathtouch"), firstStrike: kw("First strike") || kw("Double strike"), defender: kw("Defender"),
+  };
+}
+
+/** A creature on the battlefield as a blocker or a threat — its layer-aware stats now. */
+function combatant(state, perm) {
+  const kw = (k) => permanentHasKeyword(state, perm.id, k);
+  return {
+    power: Math.max(0, permanentPower(state, perm.id)), toughness: permanentToughness(state, perm.id),
+    flying: kw("Flying"), reach: kw("Reach"), deathtouch: kw("Deathtouch"), firstStrike: kw("First strike") || kw("Double strike"),
+  };
+}
+
+const untappedCreaturesOf = (state, pid) => (state.players?.[pid]?.battlefield || []).filter((p) => !p.tapped && permanentIsCreature(state, p.id));
+const canBlockBody = (blocker, attacker) => !attacker.flying || blocker.flying || blocker.reach;
+const killsBody = (hitter, hit) => hitter.power > 0 && (hitter.deathtouch || hitter.power >= hit.toughness);
+
+/** Would the body attack profitably: some living opponent has no untapped creature that can block it, kill it and live. */
+function attacksProfitably(state, controller, body) {
+  if (body.defender || body.power <= 0) return false;
+  return opponentsOf(state, controller).filter((pid) => (state.players?.[pid]?.life ?? 0) > 0).some((pid) =>
+    !untappedCreaturesOf(state, pid).map((p) => combatant(state, p)).some((b) =>
+      canBlockBody(b, body) && killsBody(b, body)
+        // the blocker lives: the body never deals its damage (a first striker kills it first), or doesn't kill the blocker
+        && ((b.firstStrike && !body.firstStrike) || !killsBody(body, b))));
+}
+
+/** Would the body block profitably: a creature threatening its controller (attacking it, else any untapped creature of the active
+ *  player) that it can block and live through. */
+function blocksProfitably(state, controller, body) {
+  const attacking = (state.combat?.attackers || []).filter((a) => a.defender === controller).map((a) => findPermanent(state, a.permanentId)?.permanent).filter(Boolean);
+  const threats = attacking.length ? attacking : untappedCreaturesOf(state, state.activePlayer);
+  return threats.map((p) => combatant(state, p)).some((a) => a.power > 0 && canBlockBody(body, a) && !killsBody(a, body));
+}
+
+/**
+ * The house policy for Cursed Mirror's copy (and any copy that lasts until end of turn): copy the best body on the battlefield, any
+ * controller's — highest printed power, then toughness, then name and id (serialize-stable) — when it would ATTACK profitably (its
+ * controller's turn, this turn's combat still ahead) or BLOCK profitably (another player's turn, before blockers are declared).
+ * Otherwise decline (null): the copy would be gone before it could fight, and the Mirror keeps its "{T}: Add {R}" this turn. Never a
+ * legendary body its controller already has by name (CR 704.5j).
+ * `candidates` are the pending choice's `{ id, name }` list (or any list of battlefield permanent ids). Pure.
+ */
+export function pickTemporaryCopy(state, controller, candidates, riders = []) {
+  const bodies = (candidates || [])
+    .map((c) => findPermanent(state, c.id)?.permanent)
+    .filter(Boolean)
+    .map((perm) => temporaryCopyBody(perm, riders))
+    .sort((a, b) => b.power - a.power || b.toughness - a.toughness || cmp(a.name, b.name) || cmp(String(a.id), String(b.id)));
+  const ownTurn = state.activePlayer === controller;
+  const beforeCombat = state.phase === "beginning" || state.phase === "precombat-main";
+  const attackWindow = ownTurn && (beforeCombat || (state.phase === "combat" && state.step === "beginning-of-combat"));
+  const blockWindow = !ownTurn && (beforeCombat || (state.phase === "combat" && (state.step === "beginning-of-combat" || state.step === "declare-attackers")));
+  // A legendary body whose name its controller already has on the battlefield is never taken: the legend rule (CR 704.5j) would put
+  // one of the two into the graveyard.
+  const ownNames = new Set((state.players?.[controller]?.battlefield || []).map((p) => String(p.card?.name || "")));
+  for (const body of bodies) {
+    if (body.legendary && ownNames.has(body.copyName)) continue;
+    if (attackWindow && attacksProfitably(state, controller, body)) return body.id;
+    if (blockWindow && blocksProfitably(state, controller, body)) return body.id;
+  }
+  return null;
 }
