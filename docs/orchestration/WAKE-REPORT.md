@@ -69,8 +69,9 @@
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
 
-## 🚀 2026-10-17 — **v0.164.0 TAGGED** — the 10-16 fleet wave + the 10-17 overnight run (72 commits since v0.163.0)
+## 🚀 2026-10-17 — **v0.164.0 RELEASED** (published 2026-10-17T14:57:40Z) — the 10-16 fleet wave + the 10-17 overnight run (72 commits since v0.163.0)
 
+> **Verified:** release run 39040345537 green on attempt 2 (attempt 1's build died in next/font's Google loader on a transient bad reply — the endpoint answered normally minutes later; vendoring the four fonts is queued); `latest.json` verified BY CONTENT at the updater endpoint (version 0.164.0, a 420-character signature, the v0.164.0 installer URL); marked Latest.
 > **The release:** tagged on the `[0.164.0]` CHANGELOG cut, early under CLAUDE.md §7.2's user-facing-fix exception (Westvale Abbey
 > dying on entry, the auto-tap wasting coloured mana, free planeswalker / Ancient Tomb / Altar mana, counterspells reading the
 > wrong mana value). Corpus at the tag **15,453 / 34,620 (44.6%)** — v0.163.0 → v0.164.0 is +68 gained and −82 false credit
