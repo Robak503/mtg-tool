@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **18 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.8% (15,503)**; engine gains since the tag: **+50** (+59 gained, −9 false credit removed). The next tag
+> **19 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.8% (15,503)**; engine gains since the tag: **+50** (+59 gained, −9 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,13 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🧹 2026-10-17 — HYGIENE: the Crucible bank test writes into a tmp sandbox, not the working tree's app/data · **±0**
+> `crucibleRun.test.js`'s fire-and-forget bank test banked a real pod (the report .txt + the trajectory .jsonl, via profilePath("self-play"))
+> into the working tree's `app/data/self-play` on EVERY suite run since 2026-09-29: 268 synthetic Alpha/Bravo pods in the integration
+> worktree alone (gitignored, so invisible to git status). The test now points MTG_APP_ROOT at an mkdtemp sandbox, restores it in a
+> `finally`, and asserts both files landed in the sandbox. Seen to fail: without the sandbox line the test fails (ENOENT on the sandbox)
+> and a file appears in app/data again. A test-only change; the full gate stays green.
 
 > ## 🔧 2026-10-17 — FIX (false positive): "target opponent" is an opponent — Deadeye Duelist's "{1}, {T}: This creature deals 1 damage to target opponent." is no longer offered at its own controller, nor is any spell or ability of the shape (57 bundled cards — Burning Fields, Jeskai Charm, Vampiric Touch, Kindlespark Duo, Shocking Sharpshooter, Shalai and Hallar, Casey Jones, the ten "deals 1 damage to target opponent" dual lands …); a trigger whose every opponent is untargetable is removed (CR 603.3d) instead of forced at its controller; and the sibling: Assassin Den's "It can't be blocked this turn" lands on the creature it targeted, not on the Wall · **±0** · snapshot native 15,498 unchanged
 > Suite **20,525 green (1 skipped) / 1,864 files** under the gate queue (with the rules index built for the run and deleted after).

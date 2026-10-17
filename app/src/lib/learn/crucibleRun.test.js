@@ -5,6 +5,9 @@
  * run mechanics — not deck balance — are what's under test.
  */
 
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   startCrucibleRun,
@@ -159,29 +162,44 @@ describe("crucibleReportText + bank guard", () => {
   });
 
   it("training bank is FIRE-AND-FORGET — the report saves instantly, the replay finishes in the background", async () => {
+    // The bank writes real files (the report .txt and the trajectory .jsonl) under profilePath("self-play"). Point the
+    // app root at a tmp sandbox so a suite run never banks into the working tree's app/data (it had banked one pod per
+    // run since 2026-09-29).
+    const originalAppRoot = process.env.MTG_APP_ROOT;
+    const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), "crucible-bank-"));
+    process.env.MTG_APP_ROOT = sandbox;
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    startCrucibleRun({ decks: POD(), mode: "commander", target: 3, seed: 11 });
-    await awaitDone();
+    try {
+      startCrucibleRun({ decks: POD(), mode: "commander", target: 3, seed: 11 });
+      await awaitDone();
 
-    const res = await bankCrucibleRun({ trainingBank: true, pilotLabel: "Specialist" });
-    expect(res.ok).toBe(true);
-    expect(res.file).toBeTruthy();
-    // The bank returned BEFORE the replay finished (non-blocking) — it's still running in the background.
-    expect(res.training?.running).toBe(true);
-    expect(res.training?.target).toBe(3);
-    expect(crucibleTrainingStatus().running).toBe(true);
+      const res = await bankCrucibleRun({ trainingBank: true, pilotLabel: "Specialist" });
+      expect(res.ok).toBe(true);
+      expect(res.file).toBeTruthy();
+      // The bank returned BEFORE the replay finished (non-blocking) — it's still running in the background.
+      expect(res.training?.running).toBe(true);
+      expect(res.training?.target).toBe(3);
+      expect(crucibleTrainingStatus().running).toBe(true);
 
-    // …and the background replay completes on its own, writing real trajectory rows.
-    const t0 = Date.now();
-    while (crucibleTrainingStatus().running && Date.now() - t0 < 60000) await new Promise((r) => setTimeout(r, 20));
-    const done = crucibleTrainingStatus();
-    warn.mockRestore();
-    log.mockRestore();
-    expect(done.running).toBe(false);
-    expect(done.error).toBeNull();
-    expect(done.rows).toBeGreaterThan(0);
-    expect(done.file).toBeTruthy();
+      // …and the background replay completes on its own, writing real trajectory rows.
+      const t0 = Date.now();
+      while (crucibleTrainingStatus().running && Date.now() - t0 < 60000) await new Promise((r) => setTimeout(r, 20));
+      const done = crucibleTrainingStatus();
+      expect(done.running).toBe(false);
+      expect(done.error).toBeNull();
+      expect(done.rows).toBeGreaterThan(0);
+      expect(done.file).toBeTruthy();
+      // Both files landed in the sandbox.
+      expect(fs.readdirSync(path.join(sandbox, "data", "self-play")).filter((f) => f.endsWith(".txt"))).toHaveLength(1);
+      expect(fs.readdirSync(path.join(sandbox, "data", "self-play", "trajectories"))).toEqual([done.file]);
+    } finally {
+      warn.mockRestore();
+      log.mockRestore();
+      if (originalAppRoot === undefined) delete process.env.MTG_APP_ROOT;
+      else process.env.MTG_APP_ROOT = originalAppRoot;
+      fs.rmSync(sandbox, { recursive: true, force: true });
+    }
   });
 });
 
