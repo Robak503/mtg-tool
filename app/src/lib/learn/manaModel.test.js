@@ -86,14 +86,13 @@ describe("manaProduction", () => {
     expect(manaProduction({ name: "Oblivion Ring", type: "Enchantment", oracle: "Add a +1/+1 counter? no." })).toBeNull();
   });
 
-  it("falls back to colorless for a land whose mana ability it cannot PARSE", () => {
-    // RE-POINTED (2026-07-29). This used to assert the fallback for a land with an EMPTY oracle, encoding
-    // the premise "every land taps for something". That premise is false for 54 corpus lands — every
-    // fetchland, Maze of Ith, Glacial Chasm, Dark Depths — and the fallback was minting them a repeatable
-    // tapless {C}. The fallback's real PURPOSE survives and is what this now pins: a land that clearly
-    // prints a mana ability in a shape the parser cannot read still pays generic rather than nothing.
+  it("a land whose only mana line it cannot PARSE makes nothing — no {C} fallback", () => {
+    // RE-POINTED TWICE. 2026-07-29: an EMPTY-oracle land no longer made {C} (54 lands with no mana ability). 2026-10-17 (the land
+    // {C} fallback, landManaFallback.test.js): a land that prints a mana ability in a shape the parser can't read no longer makes
+    // {C} either — that {C} was a colour Crypt of Agadeem can't make and a line the land gate credited without the engine ever
+    // making it. An unreadable line makes nothing (an under-count, the safe side).
     expect(manaProduction({ name: "Mysterious Nonbasic", type: "Land", oracle: "{T}: Add one mana of whatever the flavor text says." }))
-      .toEqual({ colors: ["C"], amount: 1 });
+      .toBeNull();
   });
 
   it("⛔ but a land with NO mana ability at all produces NOTHING (phantom-mana gate)", () => {

@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **10 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,480)**; engine gains since the tag: **+27** (+31 gained, −4 false credit removed). The next tag
+> **11 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,478)**; engine gains since the tag: **+25** (+31 gained, −6 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,52 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX (false positive): the land {C} fallback — no mana from an unreadable land line, and the land gate credits only lines the runtime makes; Crypt of Agadeem taps for {B} (it made {C}), Cabal Stronghold / Urza's Workshop / Baldur's Gate / Cascading Cataracts / Baxter Building make their second line, Nykthos its devotion, Plaza of Harmony its Gates' types, City of Shadows its storage counters; Gem Bazaar, Cryptic Spires and the two name-chooser Crossroads make no phantom {C}; Fabled Path of Searo Point {R} · **−2** (false credit removed) · snapshot native 15,475 → 15,473
+> Suite **20,251 green (1 skipped) / 1,853 files** under the gate queue. Lint 0 (CR citations: 0 of 11,180 name no rule; keyword citations: 0 of
+> 2,326 cite a different keyword). Flip-diff **+0 / −2 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of 22c849e5; native
+> 15,475 → 15,473 of 34,584 snapshot names): **Great Hall of the Citadel** (#1,818) and **Sunken Citadel** (#6,205) land → land-partial — each
+> was credited on a spend-restricted line read through the fallback that the engine never makes (Great Hall's "{1}, {T}: Add two mana in any
+> combination of colors. Spend this mana only to cast legendary spells." — the planner never funds a restricted costed source; Sunken
+> Citadel's "two mana of the chosen color … only to activate abilities of land sources" — no reader). Runtime fingerprint: 14 `manaProduction`
+> reads change, all lands (below). `measure-coverage` (MTG_APP_ROOT = the install): corpus 15,480 → 15,478 (44.7%); top 1,000 **903 → 903**;
+> top 2,500 1,742 → 1,741 (Great Hall); top 5,000 2,739 → 2,738; every one of the 30 profile decks unchanged (aggregate 2,747 / 2,998). Decks
+> holding a changed land: Light-Paws Voltron and Omnath, Locus of Mana (Nykthos — stays `land`, now made). **Mutants 21/21** on assertions,
+> each restored byte-identical (sha256). Witness tests written first and seen to fail on the base engine on assertions (15 of 22; the other 7
+> are the still-works and controls). Two old pins graduated with the date (manaModel.test.js, manaLandNoAbility.test.js: an unreadable land
+> line now makes nothing). Committed on `day/landfallback`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The bug** (found 10-17 by the mana-honesty slice; every text from the bundled oracle). `manaProductionImpl`'s last arm made `{C}` for
+>   any land whose text says "add" but whose line didn't parse; `coverage.landFullyCovered` reads each line through the same parser, so every
+>   unreadable line counted as modelled. `parseAddClause` also gives up on the WHOLE text when an arm matches a line it can't price (a count
+>   it can't read, an any-combination line behind a mana cost), so a land's plain line beside it was lost and the fallback answered.
+> · **The fix, in order.** (1) The readable lines made explicit: `landLineMana(card, line)` (manaModel) is the land gate's per-line read —
+>   the card's extra records, the line alone, or the chosen-colour line of a chosen-colour main (alone it has no chooser beside it; every
+>   chosen-colour land — Night Market, Big Apple, 3 a.m., Valgavoth's Lair … — was credited through the fallback). Count readers:
+>   `basicSubtypeYouControl` (Cabal Stronghold — the basic supertype, CR 205.4c), `creatureCardsOfColorInGraveyard` (Crypt; front face, CR
+>   712.8a, 202.2), "<land type> land(s) you control" (Urza's Workshop), "other <subtype>s you control" (Baldur's Gate, excludeSelf), "storage
+>   counter on this land" (City of Shadows), "any type that a <land type> you control could produce" (Plaza of Harmony, `landsCouldProduce`'s
+>   `subtype`). Extra records: `COSTED_COUNT_MANA_LINE_RE` (the count / X / any-combination line behind its mana cost, an ability word and an
+>   "Activate only if" gate allowed — the cost rides as `activationCost`) and `DEVOTION_TO_CHOSEN_MANA_LINE_RE` (Nykthos: five records, one
+>   per colour, each its devotion, CR 700.5; land only — Nyx Lotus has no main product, parked). On a land a plain line is the main product
+>   beside a count line (`honestMultiLineMain`: Crypt's explicit tap offers {B} with an empty graveyard; Workshop's gate isn't lost). (2) The
+>   fallback removed: a land whose whole-card parse fails reads its plain line alone, else its basic land types (CR 305.6), else nothing.
+>   (3) Planner: a permanent's several costed records are tried best first and each alternative retried (`costedActivationOrders`), and the
+>   generic tap takes a permanent's biggest plain colourless line when nothing covers the cost (Workshop's metalcraft count).
+> · **Every land whose mana or tier moved** (17; before → after): Nykthos {C} → {C}, + {2}: devotion to a chosen colour · Cabal Stronghold
+>   {C} → {C}, + {3}: {B} per basic Swamp · Cascading Cataracts {C} → {C}, + {5}: five of one colour (the planner reads "any combination" as
+>   one colour per activation — an under-read) · Crypt of Agadeem {C} behind {2} + {B} → {B}, + {2}: {B} per black creature card · Urza's
+>   Workshop {C} → {C}, + metalcraft {C} per Urza's land · Baldur's Gate {C} → {C}, + {2}: X of one colour, X = other Gates · Baxter Building
+>   (land-partial) {C} → {C}, + {4}: four of one colour · Mage-Ring Network {C} → {C} (its plain line now, `requiresTap`; storage line
+>   unchanged) · Plaza of Harmony {C} → a type its Gates could produce, + {C} (by hand it offers the Gate colours, as Plaza of Heroes does) ·
+>   City of Shadows (land-partial) {C} → {C} per storage counter · Fabled Path of Searo Point {C} → {R} · Cryptic Spires, Forsaken Crossroads,
+>   Captivating Crossroads, Gem Bazaar {C} → nothing (their choosers aren't modeled) · Great Hall of the Citadel, Sunken Citadel: mana
+>   unchanged, land → land-partial. No nonland read changes.
+> · **Open, not closed here:** a line that parses alone but that the whole card never makes is still credited through the single-line read —
+>   54 single-faced lands by a corpus probe, 12 in the top 1,000 (the filter lands' hybrid lines — Rugged Prairie #282, Graven Cairns #553 …;
+>   "{1}, {T}: Add one mana of any color" beside a plain {C} — Talon Gates #570; Phyrexian Tower's sacrifice line #194; Opal Palace #680;
+>   Spire of Industry's pay-life + artifact line #394). The filter lines also misparse alone ("{B}{B}, {B}{R}, or {R}{R}" reads as one mana of
+>   B or R). Great Hall of the Citadel needs the planner to fund a restricted costed source; Sunken Citadel a "two mana of the chosen color"
+>   reader; Nyx Lotus a main-less extra lane.
 
 > ## 🔧 2026-10-17 — FIX (false positive): every Aura that enchants a PERMANENT is cast targeting a host its Enchant line allows — 651 Auras the engine doesn't fully model (419 "Enchant creature", 51 "Enchant land") were offered with no target, cast that way by the AI, and vanished; a creature front with an Aura back (Accursed Witch, Faithbound Judge, 14 disturb Spirits) now enters as the creature · **±0** · snapshot native 15,462 unchanged
 > Suite **20,146 green (1 skipped) / 1,845 files** under the gate queue. Lint 0 (CR citations: 0 of 11,187 name no rule; keyword citations: 0 of 2,329 cite a

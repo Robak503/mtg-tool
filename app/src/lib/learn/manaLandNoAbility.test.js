@@ -21,9 +21,10 @@
  * was a source on its own. The control WAS the finding. Second time this run that adding a
  * without-the-thing control turned a green measurement into a bug.
  *
- * THE RULE NOW: a land produces mana only if it has a BASIC LAND TYPE (CR 305.6, printed in no oracle) or
- * its oracle says "add" somewhere (a printed ability the parser merely failed to read — the case the
- * fallback was actually written for). Everything else produces nothing: an UNDER-count, the safe direction.
+ * THE RULE NOW: a land produces mana only from a line the parser reads, or from its BASIC LAND TYPES (CR 305.6,
+ * printed in no oracle — that type's own colour, never {C}). The second half of the old fallback (any oracle
+ * saying "add" made {C}) was removed 2026-10-17 (landManaFallback.test.js). Everything else produces nothing:
+ * an UNDER-count, the safe direction.
  *
  * Fixtures are VERBATIM oracle/type lines pulled from the bundled index (the test env has no oracle repo,
  * so they are inlined rather than looked up).
@@ -87,10 +88,11 @@ describe("⭐ CONTROL — every land that SHOULD make mana still does", () => {
       .toMatchObject({ colors: ["W", "U", "B", "R", "G"] });
   });
 
-  it("a land whose ability the parser cannot READ still falls back to colorless", () => {
-    // The fallback's real purpose, preserved: it prints "Add", so it HAS an ability; we just can't parse it.
+  it("a land whose ability the parser cannot READ makes nothing (2026-10-17 — the {C} fallback is gone)", () => {
+    // This pinned the fallback's second half: a land that prints "Add" in a shape the parser can't read made {C}. That {C} was
+    // wrong in play (Crypt of Agadeem, Gem Bazaar) and credited in the metric (landManaFallback.test.js); it makes nothing now.
     expect(manaProduction({ name: "Weird Land", type: "Land", oracle: "{T}: Add one mana of a color nobody has named yet." }))
-      .toEqual({ colors: ["C"], amount: 1 });
+      .toBeNull();
   });
 });
 

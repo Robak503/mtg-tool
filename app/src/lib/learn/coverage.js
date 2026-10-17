@@ -72,7 +72,7 @@ import { isNativeKira } from "./kiraTargetCounter.js";
 import { chosenCardTypeReducer, chosenCardTypeResidue } from "./chosenCardType.js"; // CLOUD KEY — the card-type chooser + its reducer, the reader the cast lane's descriptor comes from (a leaf over the zero-import choicePolicy)
 import { isEnforcedEvasionClause, selfDamagePrevention, selfDamagePreventionBy, counterShieldPrevention, attachedPreventPutCountersOf, selfPreventPutCounters, groupPreventPutCountersOf, attachedExceptByOf } from "./combatEvasion.js";
 import { entersTappedUnlessCondition, paysLifeOrEntersTapped, revealLandTypes } from "./landEntersTapped.js"; // LANDS-TIER — the conditional enters-tapped reader BOTH enter sites consult (metric and runtime read one function)
-import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
+import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction, landLineMana } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
 // OMNATH — ground the classifier on the two RUNTIME registries the engine actually consults (never a
 // name-only credit): staticEffectsOf reads layers.STATIC_REGISTRY (the layer-7c dynamic +1/+1-per-green
 // descriptor), _registry is cardEffects.REGISTRY (the green-mana retention descriptor). Both are leaf
@@ -1912,9 +1912,15 @@ function landFullyCovered(card) {
   // A line whose "instead" rider the runtime can't read (manaModel's `insteadUnread` — A-Town's real-world city) makes its base
   // mana but is not fully modelled (2026-10-17 evening): the land stays land-partial. A rider it reads (Urza's Tower, River of
   // Tears, Gemstone Caverns, Command Mine — `insteadUpgrade`) is made at tap time and keeps the line.
+  // ⛔ ONLY A LINE THE RUNTIME MAKES (2026-10-17 — the land {C} fallback). This read the line alone through manaProduction, whose
+  // last arm made {C} for any land text saying "add" that it couldn't parse — so every unreadable mana line counted as modelled
+  // (Cabal Stronghold's, Urza's Workshop's, Cascading Cataracts' and Baldur's Gate's second lines, Nykthos' devotion line, Great
+  // Hall of the Citadel's and Sunken Citadel's restricted lines — none of them ever made). The fallback is gone, and the line is
+  // read by manaModel.landLineMana: the card's own extra mana records, the line alone, or the chosen-colour line of a card whose
+  // main product is that colour (alone it has no chooser beside it).
   const isManaLine = (txt) => {
     if (/["“”]/.test(txt) || !/\badd\b/i.test(txt)) return false;
-    const prod = manaProduction({ name: card?.name, type, oracle: txt });
+    const prod = landLineMana(card, txt);
     return !!prod && !prod.insteadUnread;
   };
   const isGraveyardAbility = (txt) => {

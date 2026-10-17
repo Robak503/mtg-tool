@@ -425,7 +425,8 @@ means "all permanents" (vacuous filter).
 
 - `manaProduction(card)` → `{colors, amount, sacrifices?, requiresTap?, amountSpec?}`
   or `null`. Resolution: basic-land name → `KNOWN_ROCKS` table → oracle "Add"
-  parse → land colorless fallback. **Heavily gated against phantom sources**: a
+  parse → for a land whose whole-card parse failed, its plain "{T}: Add …" line read alone, else its basic land types' own
+  mana (CR 305.6) — **no {C} fallback** (2026-10-17, below). **Heavily gated against phantom sources**: a
   triggered/ETB/one-shot "Add" is not a standing source; an unpayable cost
   (non-self sacrifice, pay-life, etc.) is not a standing source, and a
   self-sacrifice counts only as the cost's WHOLE non-mana part (a discard beside
@@ -437,7 +438,7 @@ means "all permanents" (vacuous filter).
   the untap step enforces it (`cardSelfPreventsUntap`), and `manaSources` stamps
   its records `staysTapped`.
 - **A mana line no record can honour is dropped before the parse (`manaLineRefused`, 2026-10-17).** Per line, ahead of every
-  reader in `manaProductionImpl` (lands included, so a refused only-line leaves no "add" for the colourless fallback): a
+  reader in `manaProductionImpl` (lands included, so a refused only-line makes nothing): a
   loyalty ability (CR 606.2, 605.1a — "+1" is no cost a record pays), an ability quoted inside a sentence (the colon behind a
   trigger or an effect — Roxanne's Meteorite, Old-Growth Troll's Aura grant), an ability with a target (CR 605.1a — Deathrite
   Shaman), an "If …," or "For each …," sentence ahead of the add (the vivid bundle excepted — Selvala, Explorer Returned), or a
@@ -479,6 +480,25 @@ means "all permanents" (vacuous filter).
   (was LAND_COUNTER_MANA_LINE_RE) admits the {T} single-counter cost on an artifact or creature (charge, book, -1/-1 — Sphere of
   the Suns, Spell Satchel, Channeler Initiate); the no-{T} per-counter reader takes Mana Bloom's "Activate only once each turn",
   and manaSources caps its records at the activations left (a capped single record is offered by hand).
+- **No mana from an unreadable land line; the land gate credits only lines the runtime makes (2026-10-17, the land {C}
+  fallback).** The last arm of `manaProductionImpl` used to make {C} for any land whose text says "add" but whose line didn't
+  parse — wrong in play (Crypt of Agadeem made {C}; Gem Bazaar, Cryptic Spires, the two name-chooser Crossroads made a {C} they
+  can't) and credited by `landFullyCovered`, which read each line through the same parser (Cabal Stronghold, Urza's Workshop,
+  Cascading Cataracts, Baldur's Gate, Nykthos, Great Hall of the Citadel, Sunken Citadel, every chosen-colour land). Now a land
+  whose whole-card parse fails reads its plain line (`PLAIN_MANA_LINE_RE`) alone, else its basic land types' mana (CR 305.6 —
+  Fabled Path of Searo Point {R}), else nothing. On a land, a plain line is the main product beside a count line
+  (`honestMultiLineMain`'s land count-main swap), and the count line rides as an extra record behind its mana cost
+  (`COSTED_COUNT_MANA_LINE_RE`: the "{X} for each …", "X mana of any one color, where X is …" and "N mana in any combination"
+  forms, an ability word and an "Activate only if" gate allowed); Nykthos' devotion line rides as five records, one per colour
+  (`DEVOTION_TO_CHOSEN_MANA_LINE_RE`, countForSpec's devotion). New counts: `basicSubtypeYouControl` (CR 205.4c),
+  `creatureCardsOfColorInGraveyard`, "<land type> land(s) you control", "other <subtype>s you control" (excludeSelf), "storage
+  counter on this land"; `landsCouldProduce`'s `subtype` (Plaza of Harmony's Gates). The planner tries a permanent's several
+  costed records best first and retries each alternative (`costedActivationOrders`), and its generic tap takes a permanent's
+  biggest plain colourless line when nothing covers the cost. `landFullyCovered` reads lines through `landLineMana` (the card's
+  extra records, the line alone, or the chosen-colour line of a chosen-colour main). ⚠️ Still open: a line that parses alone
+  but the whole card never makes (the filter lands' hybrid lines, "{1}, {T}: Add one mana of any color" beside a plain {C},
+  Phyrexian Tower's sacrifice line — 54 single-faced lands by a corpus probe, 12 in the play-weighted top 1,000) is still
+  credited through the single-line read. Witness: `landManaFallback.test.js`.
 - `manaSources(state, player)` → the untapped permanents that can produce now
   (summoning-sickness aware). Granted mana abilities are counted by ONE read,
   `withGrantedMana`: a permanent with no mana ability of its own takes the granted spec

@@ -9,7 +9,7 @@
 import { findPermanent, creaturePower, creatureToughness, opponentsOf } from "../../gameState.js";
 import { characteristicTypeLine } from "../../faceUp.js"; // THE FACE THAT IS UP (CR 712.8a) — a graveyard card's type line for the counts
 import { MASS_WIPE_SCOPES } from "../../targetTypes.js"; // leaf module (pure strings) — no cycle; feeds the atomTargets drift guard below
-import { permanentIsCreature, permanentHasCardType, permanentHasTypeWord, permanentTypes, permanentCreatureTypes, domainCount, partyCount, permIsEveryCreatureType, deriveCharacteristics, permanentManaValue, permanentsShareCreatureType } from "../../layers.js"; // + permanentsShareCreatureType (#684 — Shared Animosity's count) // + permanentHasTypeWord (the type-line audit): a subtype filter reads the permanent as it is now // + permanentHasCardType (#651): the layer-aware, face-up land read of the opponents' nonland set // + deriveCharacteristics (#587): a permanent's copiable values + layer-4 types for the nonland mana-value set // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import) // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
+import { permanentIsCreature, permanentHasCardType, permanentHasTypeWord, permanentTypes, permanentCreatureTypes, domainCount, partyCount, permIsEveryCreatureType, deriveCharacteristics, permanentManaValue, permanentsShareCreatureType, permanentPrintedColors } from "../../layers.js"; // + permanentPrintedColors (2026-10-17): a graveyard card's front-face colours for the coloured creature-card count // + permanentsShareCreatureType (#684 — Shared Animosity's count) // + permanentHasTypeWord (the type-line audit): a subtype filter reads the permanent as it is now // + permanentHasCardType (#651): the layer-aware, face-up land read of the opponents' nonland set // + deriveCharacteristics (#587): a permanent's copiable values + layer-4 types for the nonland mana-value set // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import) // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
 import { creatureSatisfiesRestrictions } from "../../creatureRestrictions.js"; // the SHARED 16-kind restriction satisfier (leaf: gameState + layers + keywords only — every one of those edges already exists above, so no cycle)
 import { isBlockingCreature } from "../../combatRemoval.js"; // CR 506.4 — the one "is it a blocking creature" read (a zero-import leaf)
 import { evaluateInterveningIf } from "../../interveningIf.js"; // INSTEAD-AMOUNT (BLITZ INST-1) — the shared board-condition readers for a condition-gated amountUpgrade; interveningIf → gameState is a leaf edge (gameState imports neither shared.js nor interveningIf), so no cycle
@@ -1111,6 +1111,21 @@ export function countForSpec(state, ctx, spec) {
   }
   // ===== FOR-EACH ===== cards in the controller's graveyard (raw card objects), optionally one card type.
   if (spec.kind === "cardsInGraveyard") return (player.graveyard || []).filter((c) => (spec.cardType ? countMatches(c, spec) : true)).length;
+  // ===== TWO LAND MANA COUNTS (2026-10-17 — the land {C} fallback; manaModel.parseManaMetric emits them, the mana path reads them
+  // here). Their own kinds, so no other count evaluator can read them without the qualifier — an unknown kind counts 0.
+  // "black creature card(s) in your graveyard" (Crypt of Agadeem): a creature card of that colour in the controller's graveyard —
+  // its front face's types and colours (CR 712.8a; a card's colour is its mana cost's, CR 202.2 — layers.permanentPrintedColors
+  // reads a double-faced card's front face).
+  if (spec.kind === "creatureCardsOfColorInGraveyard") {
+    return (player.graveyard || []).filter((c) => countMatches(c, { cardType: "creature" }) && permanentPrintedColors(c).includes(spec.color)).length;
+  }
+  // "basic Swamp(s) you control" (Cabal Stronghold): a permanent of that basic land type, as it is now (countMatchesPerm), that has
+  // the basic supertype (CR 205.4c — a nonbasic with the type, Watery Grave, is no basic Swamp), read off its copiable values (a
+  // copy has the copied supertypes, CR 707.2) and the face that is up.
+  if (spec.kind === "basicSubtypeYouControl") {
+    return (player.battlefield || []).filter((perm) => countMatchesPerm(state, perm, { subtype: spec.subtype })
+      && /\bBasic\b/.test(characteristicTypeLine(deriveCharacteristics(state, perm.id)?.copiableValues || perm.card))).length;
+  }
   // ===== EXPERIENCE ===== the controller's experience counter total (Toph, Command Beacon, etc.)
   if (spec.kind === "experienceCounters") return (player.experience || 0);
   // ===== OVERRUN-X / MANA-VARIABLE / DRAW-METRIC ===== a MAX-reduction: the single greatest layer-resolved

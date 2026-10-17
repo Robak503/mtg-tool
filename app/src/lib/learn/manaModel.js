@@ -203,6 +203,33 @@ function parseManaMetric(tail, card) {
     return null;
   }
 
+  // ── FOUR LAND COUNTS (2026-10-17 — the land {C} fallback). Each line used to parse to nothing, so the land read its
+  // "{C}" fallback in its place and the land gate credited the line; each is now read, and made (extraManaLineProducts).
+  // "BASIC <type> you control" (Cabal Stronghold "{3}, {T}: Add {B} for each basic Swamp you control."): a permanent of that
+  // basic land type that also has the basic supertype (CR 205.4c — a dual with the type is no basic land). A closed vocabulary.
+  m = t.match(/^(?:number of )?basic (plains|island|swamp|mountain|forest)s? you control$/);
+  if (m) return { kind: "basicSubtypeYouControl", subtype: m[1].charAt(0).toUpperCase() + m[1].slice(1) };
+  // "<land type> land(s) you control" (Urza's Workshop "for each Urza's land you control"): a land type (CR 205.3i) the SOURCE's
+  // own type line carries — the subtype counts' vocabulary gate above.
+  m = t.match(/^(?:number of )?([a-z']+) lands? you control$/);
+  if (m) {
+    const Word = m[1].charAt(0).toUpperCase() + m[1].slice(1);
+    return LAND_TYPE_WORDS.has(m[1]) && new RegExp(`\\b${Word}\\b`).test(String(card?.type || card?.type_line || ""))
+      ? { kind: "permanentsYouControl", subtype: Word } : null;
+  }
+  // "OTHER <subtype>s you control" (Baldur's Gate "where X is the number of other Gates you control"): the subtype count without
+  // the source itself (countForSpec's excludeSelf — ctx.source on the mana path). The same vocabulary gate; card types not read.
+  m = t.match(/^(?:number of )?other ([a-z]+?)s? you control$/);
+  if (m) {
+    const Word = m[1].charAt(0).toUpperCase() + m[1].slice(1);
+    if (["Creature", "Artifact", "Enchantment", "Land", "Planeswalker"].includes(Word)) return null;
+    return new RegExp(`\\b${Word}\\b`).test(String(card?.type || card?.type_line || "")) ? { kind: "permanentsYouControl", subtype: Word, excludeSelf: true } : null;
+  }
+  // "<colour> creature card(s) in your graveyard" (Crypt of Agadeem "for each black creature card in your graveyard"): the
+  // controller's graveyard, each card's front-face types and colours (CR 712.8a, 202.2).
+  m = t.match(/^(?:number of )?(white|blue|black|red|green) creature cards? in your graveyard$/);
+  if (m) return { kind: "creatureCardsOfColorInGraveyard", color: VAR_COLOR_WORD[m[1]] };
+
   // ⭐ ALL-SEATS SUBTYPE COUNT (play-weighted #766 — Priest of Titania "{T}: Add {G} for each Elf on the battlefield"; Wirewood
   // Channeler "Add X mana of any one color, where X is the number of Elves on the battlefield"; Cloudpost "Add {C} for each Locus
   // on the battlefield"). "On the battlefield" is every player's battlefield, the source included (the Priest's ruling: it counts
@@ -251,6 +278,9 @@ function parseManaMetric(tail, card) {
     // The CHARGE-counter twin (play-weighted P·15 — Everflowing Chalice: "{T}: Add {C} for each charge counter on this
     // artifact"). The same self-reference gate: only "this artifact" — any other subject is another object's counters.
     if (/^charge counter on this artifact$/.test(t)) return { kind: "selfCounters", counter: "charge" };
+    // The STORAGE-counter land twin (2026-10-17 — City of Shadows: "{T}: Add {C} for each storage counter on this land"). It read
+    // nothing and the land made a fallback {C} with no counter on it; the same self-reference gate — only "this land".
+    if (/^storage counter on this land$/.test(t)) return { kind: "selfCounters", counter: "storage" };
   }
   if (/^this creature's power$/.test(t)) return { kind: "selfPower" };
   m = t.match(/^(.+)'s power$/);
@@ -398,6 +428,15 @@ function parseAddClause(oracle, card) {
   // rider is read by manaProduction's "instead" read (2026-10-17): three of the same set while the counter is there.
   if (/\badd one mana of any type that a land you control could produce\b/i.test(oracle)) {
     return { colors: ["W", "U", "B", "R", "G", "C"], amount: 1, colorsAmongSpec: { kind: "landsYouControlCouldProduce" } };
+  }
+  // PLAZA OF HARMONY (2026-10-17 — the land {C} fallback): "{T}: Add one mana of any type that a Gate you control could produce." —
+  // the same set narrowed to the controller's lands of one land type (CR 205.3i; landsCouldProduce's `subtype`). It parsed to
+  // nothing, the land {C} fallback answered for it, and the land gate credited a line the engine never made.
+  {
+    const lt = oracle.match(/\badd one mana of any type that an? ([a-z']+) you control could produce\b/i);
+    if (lt && lt[1].toLowerCase() !== "land" && LAND_TYPE_WORDS.has(lt[1].toLowerCase())) {
+      return { colors: ["W", "U", "B", "R", "G", "C"], amount: 1, colorsAmongSpec: { kind: "landsYouControlCouldProduce", subtype: lt[1] } };
+    }
   }
   // ── Three more colour sets the free any-colour arm below used to read as all five (2026-10-16). Each is resolved LIVE in
   // manaSources (colorsAmongFor); an empty set means the line makes no mana, never a fabricated colour.
@@ -1275,7 +1314,13 @@ function honestMultiLineMain(card, result) {
   // cost off the FIRST add line, found none, and offered a FREE any-colour main; the plain line is the main, the
   // pay-life line rides as an extra carrying its cost).
   const unsafeMerge = foreign.length > 0 && riderless && tapLines.some((l) => l !== plain && (!EXTRA_MANA_LINE_RE.test(l) || /\bPay \d+ life\b/i.test(l)) && foreign.some((c) => new RegExp(c === "C" ? "\\{C\\}" : `\\{${c}\\}|any color`, "i").test(l)));
-  if (!unsafeSac && !unsafeMerge) return result;
+  // A LAND'S COUNT LINE READ AS ITS MAIN (2026-10-17 — the land {C} fallback): parseAddClause reads a variable-amount line first
+  // wherever it is printed, so with the land counts read, Crypt of Agadeem's main became "{2}, {T}: Add {B} for each black
+  // creature card …" (the explicit tap then offered no {B} with an empty graveyard) and Urza's Workshop's became its metalcraft
+  // count WITHOUT the gate (the gate is read off the first mana line, the plain one). On a land the plain line is the main
+  // product; the count line rides as its own record with its cost and gate (extraManaLineProducts' COSTED_COUNT_MANA_LINE_RE).
+  const landCountMain = /\bLand\b/.test(typeLineOf(faceUpManaCard(card))) && !!result.amountSpec && !plainProd.amountSpec;
+  if (!unsafeSac && !unsafeMerge && !landCountMain) return result;
   return { ...plainProd, ...(result.activationCondition && /activate only if/i.test(plain) ? { activationCondition: result.activationCondition } : {}) };
 }
 const _extraMemo = new WeakMap();
@@ -1409,6 +1454,27 @@ function withInsteadUpgrade(state, playerId, perm, prod) {
 }
 const CHOSEN_TYPE_COUNT_MANA_LINE_RE = /^((?:\{[^}]+\}, )*)\{T\}: Choose a color\. Add an amount of mana of that color equal to the number of creatures you control of the chosen type\.$/i;
 /**
+ * A COUNT OR ANY-COMBINATION LINE BEHIND A MANA COST, BESIDE ANOTHER MANA LINE (2026-10-17 — the land {C} fallback): Cabal
+ * Stronghold's "{3}, {T}: Add {B} for each basic Swamp you control.", Crypt of Agadeem's "{2}, {T}: Add {B} for each black
+ * creature card in your graveyard.", Urza's Workshop's "Metalcraft — {T}: Add {C} for each Urza's land you control. Activate only
+ * if you control three or more artifacts.", Baldur's Gate's "{2}, {T}: Add X mana of any one color, where X is the number of
+ * other Gates you control.", Cascading Cataracts' "{5}, {T}: Add five mana in any combination of colors." Each printed beside a
+ * plain "{T}: Add …" line, which is the card's main product; the line was never made — its single-line read fell to the land
+ * {C} fallback, which credited it. It rides as its own record: the "Add" sentence (and its "Activate only if" gate) read alone
+ * behind a bare {T}, its mana cost carried as `activationCost` (the free-activation fix — the planner funds it from other mana
+ * first). The cost prefix admits mana pips only, so a non-mana cost item is never dropped on the way in; an ability word is
+ * no rules text (CR 207.2c). A line that IS the card's main product (Cabal Coffers, Gaea's Cradle) is not read twice.
+ */
+const COSTED_COUNT_MANA_LINE_RE = /^(?:[A-Z][a-z]+ — )?((?:\{(?:\d+|[WUBRGC])\}, )*)\{T\}: (Add (?:\{[WUBRGC]\} for each [^.]+|X mana of any one color, where X is [^.]+|(?:two|three|four|five) mana in any combination of colors)\.(?: Activate only if [^.]+\.)?)$/;
+/**
+ * NYKTHOS (2026-10-17): "{2}, {T}: Choose a color. Add an amount of mana of that color equal to your devotion to that color."
+ * (CR 700.5 — the mana symbols of that colour among the mana costs of permanents its controller controls). The amount depends on
+ * the colour chosen, so one record per colour: each makes devotion-to-it of it (countForSpec's devotion), all five sharing the
+ * land's one {T} (the planner taps a permanent once), each behind the {2}. Its line was credited off the land {C} fallback and
+ * never made — Nykthos tapped for its plain {C} alone.
+ */
+const DEVOTION_TO_CHOSEN_MANA_LINE_RE = /^((?:\{(?:\d+|[WUBRGC])\}, )*)\{T\}: Choose a color\. Add an amount of mana of that color equal to your devotion to that color\.(?: \([^)]*\))?$/i;
+/**
  * THE FACE THAT IS UP, for every mana reader in this file (CR 712.8d — a double-faced permanent with its front face up has
  * only that face's characteristics; CR 712.14 — one put onto the battlefield from anywhere but the stack enters front face
  * up). A card with a combined "Front // Back" type line carries both faces' text in its bundled oracle (cardIndex.oracleText:
@@ -1508,6 +1574,27 @@ export function extraManaLineProducts(card, mainProd) {
       if (!activationCost?.unpayable) out.push({ colors: ["W", "U", "B", "R", "G"], amount: 0, amountSpec: { kind: "creaturesOfSourceChosenType" }, ...(activationCost ? { activationCost } : {}), extraLine: line });
       continue;
     }
+    // NYKTHOS (DEVOTION_TO_CHOSEN_MANA_LINE_RE): one record per colour, each its devotion to that colour, behind the line's cost.
+    // A land's line only: Nyx Lotus prints it as its only mana line, so it has no main product and manaSources reads no extra
+    // line of it (a null main is a refused card — Joraga Treespeaker's level bands); making it is its own slice.
+    const dev = /\bLand\b/.test(typeLineOf(face)) ? DEVOTION_TO_CHOSEN_MANA_LINE_RE.exec(line) : null;
+    if (dev) {
+      const activationCost = parseActivationManaCost(dev[1]);
+      if (!activationCost?.unpayable) {
+        for (const color of ["W", "U", "B", "R", "G"]) out.push({ colors: [color], amount: 0, amountSpec: { kind: "devotion", color }, requiresTap: true, ...(activationCost ? { activationCost } : {}), extraLine: line });
+      }
+      continue;
+    }
+    // A COUNT OR ANY-COMBINATION LINE BEHIND A MANA COST (COSTED_COUNT_MANA_LINE_RE): its "Add" sentence read alone behind a bare
+    // {T}; nothing when the count isn't read, the cost can't be priced, or the line is the card's main product already.
+    const ccl = COSTED_COUNT_MANA_LINE_RE.exec(line);
+    if (ccl) {
+      const activationCost = parseActivationManaCost(ccl[1]);
+      const bare = `{T}: ${ccl[2]}`;
+      const prod = activationCost?.unpayable ? null : manaProduction({ ...face, oracle: bare, oracle_text: bare });
+      if (prod?.colors?.length && !(mainProd && productKey(prod) === productKey(mainProd))) out.push({ ...prod, ...(activationCost ? { activationCost } : {}), extraLine: line });
+      continue;
+    }
     // + 2026-10-17: the {T} form on a land (TAP_OTHER_TAP_MANA_LINE_RE — Holdout Settlement), its single-line product carrying its payer.
     const tapOtherLine = TAP_OTHER_NO_TAP_MANA_LINE_RE.test(line) || TAP_OTHER_TAP_MANA_LINE_RE.test(line);
     if (!EXTRA_MANA_LINE_RE.test(line) && !tapOtherLine) continue;
@@ -1537,6 +1624,34 @@ export function extraManaLineProducts(card, mainProd) {
   }
   _extraMemo.set(card, out);
   return out;
+}
+
+/**
+ * WHAT ONE PRINTED LINE OF A LAND MAKES, as the runtime makes it (2026-10-17 — the land {C} fallback): coverage.landFullyCovered's
+ * per-line read, so the land gate credits a mana line only when the engine plays it. null when the line makes nothing.
+ *   · one of the card's extra mana records (extraManaLineProducts) — Three Tree City's and Nykthos' costed lines, the count lines,
+ *     a storage land's counter line, a Verge's gated colour;
+ *   · the line read alone (manaProduction on the single line — the gate's read before this, which covers the main line);
+ *   · the "one mana of the chosen color" line of a card whose main product is that chosen colour: read alone it has no chooser
+ *     beside it, so it parses to nothing (the chosen-colour arm needs the card's "As it enters, choose a color"), and the land
+ *     {C} fallback used to answer for it — every chosen-colour land (Night Market, Big Apple, 3 a.m.) was credited on a {C}.
+ * Reminder text is ignored when the line is matched (the gate reads lines with it stripped; the card's own lines keep it).
+ * ⚠️ Not closed here: a line that parses alone but that the runtime never makes on the whole card (a filter land's hybrid line,
+ * a "{1}, {T}: Add one mana of any color" beside a plain {C}) still reads through the single-line arm, as before.
+ */
+const CHOSEN_COLOR_MANA_LINE_RE = /^\{T\}: Add (?:\{[WUBRG]\} or )?one mana of the chosen color\.$/i;
+export function landLineMana(card, line) {
+  if (!card || typeof card !== "object") return null;
+  const norm = (t) => stripReminder(String(t || "")).replace(/\s+/g, " ").trim();
+  const want = norm(line);
+  if (!want) return null;
+  const main = manaProduction(card);
+  const extra = extraManaLineProducts(card, main).find((e) => norm(e.extraLine) === want);
+  if (extra) return extra;
+  const face = faceUpManaCard(card);
+  const single = manaProduction({ name: face.name, type: typeLineOf(face), oracle: String(line).trim() });
+  if (single) return single;
+  return main?.chosenColor && CHOSEN_COLOR_MANA_LINE_RE.test(want) ? main : null;
 }
 
 export function manaProduction(card) {
@@ -2213,39 +2328,30 @@ function manaProductionImpl(card) {
     return { ...fromOracle, requiresTap: manaAbilityRequiresTap(oracleForAdd), payLife: payLife.amount };
   }
 
-  // A land we couldn't otherwise parse still taps for something — assume colorless so it can at least pay
-  // generic. Never invents a color.
-  //
-  // ⛔ BUT ONLY WHEN IT PLAUSIBLY HAS A MANA ABILITY AT ALL. The premise "every land taps for something" is
-  // simply FALSE for a large, heavily-played class, and this fallback was minting a repeatable, TAPLESS {C}
-  // for every one of them — 54 corpus lands, led by **every fetchland** (Polluted Delta #36, Evolving Wilds
-  // #18, Terramorphic Expanse #27, Fabled Passage #50, the whole Onslaught/Zendikar cycle) plus Maze of Ith,
-  // Glacial Chasm, Diamond Valley and Dark Depths. A fetchland has NO mana ability — it sacrifices itself to
-  // search. Measured live: a battlefield holding nothing but Maze of Ith could pay {1}. In a fetch-heavy
-  // deck that is a fistful of fabricated mana every turn, and it goes straight into self-play training data,
-  // which is the exact failure the phantom-mana gates elsewhere in this file exist to prevent.
-  //
-  // Two ways a land earns the fallback, and nothing else:
-  //   • a BASIC LAND TYPE — the intrinsic ability of CR 305.6, which is printed nowhere in the oracle. This
-  //     arm should be unreachable (the basic path returns its colored mana far above) and is kept anyway:
-  //     stripping production from a basic would be catastrophic, so it must not depend on ordering.
-  //   • the word "add" ANYWHERE in its oracle — it prints a mana ability this parser merely failed to read,
-  //     which is the case the fallback was actually written for.
-  //
-  // Everything else now produces NOTHING. That is an UNDER-count, the safe direction (CREED).
-  // ⚠️ KNOWN UNDER-COUNT, ACCEPTED: Urborg, Tomb of Yawgmoth and Yavimaya, Cradle of Growth ("Each land is
-  // a Swamp/Forest in addition to its other land types") DO tap for mana in real Magic, via a basic type
-  // they grant themselves. They print no "add" and carry no basic subtype, so they now produce nothing.
-  // They were already WRONG here — credited {C} when they should make {B}/{G} — so this trades a wrong
-  // answer for a missing one, which is the direction the creed requires. Modelling the self-granted type is
-  // its own slice; pinned in manaLandNoAbility.test.js so it cannot be "fixed" by re-widening this.
+  // ⛔ NO MANA FROM AN UNREADABLE LINE (2026-10-17 — the land {C} fallback). This arm used to make {C} for any land whose oracle
+  // says "add" anywhere but whose mana line the parser couldn't read ("a land we couldn't otherwise parse still taps for
+  // something — assume colorless"). That {C} was wrong in play and credited in the metric: Crypt of Agadeem made {C} where it
+  // prints {B}; Gem Bazaar, Cryptic Spires, Forsaken and Captivating Crossroads and City of Shadows made a {C} they can't make;
+  // and coverage.landFullyCovered, which reads each line through this parser, counted every unreadable line as modelled —
+  // Cabal Stronghold, Urza's Workshop, Cascading Cataracts and Baldur's Gate on a second line the engine never made, Nykthos on
+  // its devotion line, and every chosen-colour land on its own mana line (now read in the card's context, landLineMana). The
+  // fallback's first narrowing (54 lands with no mana ability at all made {C} — manaLandNoAbility.test.js) kept this half; this
+  // removes it. A land now makes mana from exactly two places here:
+  //   • ITS PLAIN LINE, when the whole-card parse failed on another line. parseAddClause gives up on the WHOLE text when one of
+  //     its arms matches a line it then can't price — a count it can't read ("Add {C} for each storage counter removed this
+  //     way" — Mage-Ring Network), an any-combination line behind a mana cost (Cascading Cataracts' "{5}, {T}: Add five mana in
+  //     any combination of colors") — so a plain "{T}: Add …" printed beside it (CR 113.2c: a separate ability) is read alone.
+  //   • ITS BASIC LAND TYPES (CR 305.6): a land with a basic land type has the intrinsic "{T}: Add [symbol]" even when its text
+  //     doesn't say so — Fabled Path of Searo Point ("Legendary Land — Mountain") taps for {R}. The fallback made {C}, a colour
+  //     no basic type makes; a nonbasic with basic types normally prints the ability as reminder text, which parses above.
+  // Anything else makes NOTHING — an under-count, the safe direction (CREED). Urborg, Tomb of Yawgmoth and Yavimaya, Cradle of
+  // Growth carry no basic type of their own: the type they grant reaches them through manaSources (grantedBasicTypeColors).
   if (isLandCard) {
-    const tl = typeLineOf(card).toLowerCase();
-    // "basic" catches Wastes, whose type line is a bare "Basic Land" with NO subtype (the word Wastes is
-    // only its NAME — an easy and wrong thing to match on). The subtype list catches a nonbasic that carries
-    // basic types (Tundra, "Land — Plains Island").
-    const hasBasicType = /\bbasic\b/.test(tl) || [...BASIC_LAND_SUBTYPES].some((b) => new RegExp(`\\b${b}\\b`).test(tl));
-    if (hasBasicType || /\badd\b/i.test(oracleForAdd)) return { colors: ["C"], amount: 1 };
+    const plain = oracleForAdd.split("\n").map((l) => l.trim()).find((l) => PLAIN_MANA_LINE_RE.test(l));
+    if (plain && plain !== oracleForAdd.trim()) return manaProductionImpl({ ...card, oracle: plain, oracle_text: plain });
+    const tl = typeLineOf(card);
+    const intrinsic = Object.entries(BASIC_LAND_MANA).filter(([sub]) => sub !== "Wastes" && new RegExp(`\\b${sub}\\b`).test(tl)).map(([, colors]) => colors[0]);
+    if (intrinsic.length) return { colors: intrinsic, amount: 1, requiresTap: true };
     return null;
   }
   return null;
@@ -2520,13 +2626,15 @@ function grantedBasicTypeColors(state, perm) {
  * which is its CONTROLLER's commander's color identity, read off that seat and never off another land. `basicOnly` keeps lands
  * with the basic supertype (Star Compass); `colorsOnly` drops colourless (every "any color" form — only "any type" keeps {C}).
  */
-function landsCouldProduce(state, playerIds, { basicOnly = false, colorsOnly = false } = {}) {
+function landsCouldProduce(state, playerIds, { basicOnly = false, colorsOnly = false, subtype = null } = {}) {
   const types = new Set();
   for (const pid of playerIds) {
     for (const p of state?.players?.[pid]?.battlefield || []) {
       const face = String(p.card?.type || p.card?.type_line || "").split(" // ")[0];
       if (!/\bLand\b/i.test(face)) continue;
       if (basicOnly && !/\bBasic\b/i.test(face)) continue;
+      // `subtype` (Plaza of Harmony, 2026-10-17): only the lands of that land type, as they are now.
+      if (subtype && !permanentSubtypes(state, p.id).some((st) => String(st).toLowerCase() === subtype.toLowerCase())) continue;
       // Its "instead" rider applied (2026-10-17 evening): a River of Tears after its controller's land drop could produce {B}, not {U}.
       const lp = withInsteadUpgrade(state, pid, p, manaProduction(p.card));
       if (lp && !lp.colorsAmongSpec) for (const c of lp.colors || []) types.add(c);
@@ -3224,19 +3332,56 @@ export function payActivationFromPool(pool, cost) {
   for (const c of GENERIC_SPEND_ORDER) { const take = Math.min(p[c], g); p[c] -= take; g -= take; }
   return g > 0 ? null : p;
 }
+/**
+ * THE ORDERS THE COSTED SOURCES ARE TRIED IN (2026-10-17 — Nykthos): board order, as before, except that one permanent's several
+ * costed records — alternatives sharing its one {T} (Nykthos' five devotion records, one per colour) — are tried best first: a
+ * record making a colour the cost has pips of, then the larger amount. Only one record per permanent is ever activated (the
+ * loop's `spent`), and the first one the core will tap is the one taken, so in board order Nykthos made one blue (devotion 1)
+ * for a cost of four green. When that order pays nothing, each other alternative of such a permanent is tried first in turn
+ * (one more greedy pass per alternative — Nykthos' blue for {U}{G} beside three green devotion), so every plan found is one the
+ * board makes. A permanent with one costed record (a Signet, Cabal Coffers, Three Tree City) keeps its place, and a board
+ * without such a permanent runs the single pass it always did.
+ */
+function costedActivationOrders(all, cost) {
+  const groups = new Map();
+  for (const s of all) {
+    if (!s?.activationCost) continue;
+    if (!groups.has(s.permanentId)) groups.set(s.permanentId, []);
+    groups.get(s.permanentId).push(s);
+  }
+  const needs = (s) => ((s.colors || []).some((c) => c !== "C" && (cost?.[c] || 0) > 0) ? 1 : 0);
+  for (const [id, g] of groups) if (g.length > 1) groups.set(id, [...g].sort((a, b) => (needs(b) - needs(a)) || ((b.amount ?? 1) - (a.amount ?? 1))));
+  // Each permanent's records keep the slots they had in board order; only who fills them changes.
+  const fill = (byId) => {
+    const next = new Map([...byId.keys()].map((id) => [id, 0]));
+    return all.filter((s) => s?.activationCost).map((s) => { const i = next.get(s.permanentId); next.set(s.permanentId, i + 1); return byId.get(s.permanentId)[i]; });
+  };
+  const orders = [fill(groups)];
+  for (const [id, g] of groups) {
+    for (let k = 1; k < g.length; k++) orders.push(fill(new Map([...groups, [id, [g[k], ...g.filter((_, j) => j !== k)]]])));
+  }
+  return orders;
+}
 function planPaymentOnce(pool, sources, cost, spendContext = null) {
   const all = sources || [];
   if (!all.some((s) => s?.activationCost)) return planPaymentCore(pool, all, cost, spendContext);
   const free = all.filter((s) => !s?.activationCost);
   const direct = planPaymentCore(pool, free, cost, spendContext);
   if (direct || !cost) return direct;
+  for (const order of costedActivationOrders(all, cost)) {
+    const plan = activateCostedInOrder(pool, free, order, cost, spendContext);
+    if (plan) return plan;
+  }
+  return null;
+}
+function activateCostedInOrder(pool, free, order, cost, spendContext) {
   let curPool = {};
   for (const c of MANA_COLORS) curPool[c] = pool?.[c] || 0;
   let remaining = free;
   const preTaps = [];
   const activationSpend = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
   const spent = new Set();
-  for (const s of all) {
+  for (const s of order) {
     if (!s?.activationCost || spent.has(s.permanentId)) continue; // (an unpriceable cost never reaches here — manaSources drops that record)
     if (!activatedSourceTap(s, cost, curPool)) continue; // the core won't tap it (restricted / produces nothing) — don't fund it
     const fund = planPaymentCore(curPool, remaining.filter((r) => r.permanentId !== s.permanentId), s.activationCost, null);
@@ -3502,7 +3647,15 @@ function planPaymentCore(pool, sources, cost, spendContext = null) {
       if (!first) first = s;
       if (made >= owed && made < coverMade) { cover = s; coverMade = made; }
     }
-    const best = cover || first;
+    let best = cover || first;
+    // ONE PERMANENT, SEVERAL PLAIN COLORLESS LINES (2026-10-17 — Urza's Workshop: "{T}: Add {C}." and, with metalcraft, "{T}: Add
+    // {C} for each Urza's land you control"): its records share its one {T}, so when nothing covers what is owed and board order
+    // reaches it, it taps its biggest line — the first record would spend the tap on one {C} and strand the rest.
+    if (!cover && first) {
+      for (const o of avail) {
+        if (!o.used && o !== best && o.permanentId === first.permanentId && o.colors.length && o.amount + o.bonus.reduce((n, b) => n + b.amount, 0) > best.amount + best.bonus.reduce((n, b) => n + b.amount, 0)) best = o;
+      }
+    }
     if (best) return tapSource(best, null);
     for (const preferSac of [false, true]) {
       for (const s of avail) {
