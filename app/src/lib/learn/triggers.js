@@ -3389,7 +3389,7 @@ export function hideawayKeywordValue(oracle) {
 }
 
 /**
- * MOBILIZE N (CR 702.174) — "Whenever this creature attacks, create N tapped and attacking 1/1 red Warrior
+ * MOBILIZE N (CR 702.181a) — "Whenever this creature attacks, create N tapped and attacking 1/1 red Warrior
  * creature tokens. Sacrifice them at the beginning of the next end step." Like renown, the whole ability
  * lives in reminder parens (and one printing omits the reminder entirely — "Mobilize 1" bare), so the
  * boundary-anchored trigger regex can never see it. Reminder text is stripped before matching so both
@@ -6420,7 +6420,7 @@ export function detectTriggers(card) {
       });
     }
   }
-  // KW-MOBILIZE (CR 702.174) — the printed keyword's ability is entirely inside reminder parens, so it is
+  // KW-MOBILIZE (CR 702.181a) — the printed keyword's ability is entirely inside reminder parens, so it is
   // synthesized here exactly like renown above. The effect is a kind-tagged sentinel only one clause parser
   // models, so no printed text can route into it. Scoped SELF on the attacks event, which is what threads
   // ctx.defenderId — the minted tokens must join the SAME combat against the SAME defender, and without

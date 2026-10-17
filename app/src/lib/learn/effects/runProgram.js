@@ -29,7 +29,7 @@ import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoic
 import { withAuraEntryAsk } from "../auraEntry.js"; // CR 303.4f — the ask an atom runs in, so a person chooses what their entering Aura enchants (a leaf; zones.js already imports it)
 import { updatePermanentSafe, graveyardExileFor } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, gainLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatchNow, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, advanceCreatureBatchSacrifice, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificeCreaturesTogether, sacrificePoolMatchNow, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, advanceCreatureBatchSacrifice, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
 import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard, policyEvalEnabledFor } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
 import { programConfidence, atomTargetIntent } from "./parser.js"; // + atomTargetIntent — the change-target auto-pick reads the redirected slot's side (shelf D14)
 import { moveStackTarget } from "./atoms/stack.js"; // CHANGE THE TARGET (shelf D14) — the settle writes the pick back; runProgram already reaches atoms/stack.js through parser → effectAtoms, so no new cycle
@@ -2304,13 +2304,17 @@ export function resolveSacUnlessPayChoice(state, pay) {
     // the two sides cannot disagree. A cost is all-or-nothing: fewer than `count` matches pays NOTHING and
     // `paid` stays false → the source sacrifices (the printed outcome). Victim policy mirrors the edict
     // chain's: lowest power+toughness, id tie-break — each dies through sacrificeCreatureEffect so dies +
-    // TRIG-SACRIFICE watchers fire per victim.
+    // TRIG-SACRIFICE watchers fire per victim. Two or more (Cosmic Larva's "two lands") go TOGETHER, as the one payment they are
+    // (CR 603.2c; sacrificeCreaturesTogether): until 2026-10-17 each was its own sacrifice, so lands that are creatures (Living Plane)
+    // fired a "one or more creatures die" watcher once per land.
     const pool = (next.players[pc.controller]?.battlefield || []).filter((p) => sacrificePoolMatchNow(pc.cost.type, next, p)); // as it is now (the type-line audit)
     const count = pc.cost.count || 1;
     if (pool.length >= count) {
       const score = (p) => (Number(p.card?.power) || 0) + (Number(p.card?.toughness) || 0);
       const victims = pool.slice().sort((a, b) => score(a) - score(b) || String(a.id).localeCompare(String(b.id))).slice(0, count);
-      for (const vic of victims) next = sacrificeCreatureEffect(next, pc.controller, vic.id);
+      next = victims.length === 1
+        ? sacrificeCreatureEffect(next, pc.controller, victims[0].id)
+        : sacrificeCreaturesTogether(next, victims.map((vic) => ({ playerId: pc.controller, permId: vic.id })));
       paid = true;
     }
   } else if (pay && pc.cost?.kind === "return-land") {

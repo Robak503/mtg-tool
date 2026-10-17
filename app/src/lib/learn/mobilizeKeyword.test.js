@@ -1,5 +1,5 @@
 /**
- * mobilizeKeyword.test.js — MOBILIZE N (CR 702.174), census slice 31.
+ * mobilizeKeyword.test.js — MOBILIZE N (CR 702.181a), census slice 31.
  *
  * "Whenever this creature attacks, create N tapped and attacking 1/1 red Warrior creature tokens.
  *  Sacrifice them at the beginning of the next end step."

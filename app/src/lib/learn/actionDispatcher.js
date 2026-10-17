@@ -73,7 +73,7 @@ import { tutorManaValue } from "./effects/atoms/library.js"; // γ1i (CAP14) —
 import { passPriority, flushTriggers, chooseTriggerTargets, attackDeclarationOpen, closeAttackDeclaration } from "./gameEngine.js";
 import { manaSources, planPayment, sourcesExcludingOneShotVictim, castPaymentSources, costReservedPermanentIds, withoutUnfeedableSacSources, commitPaymentPlan, commitManaTap, payManaCost, manualManaTaps, payActivationFromPool } from "./manaModel.js";
 import { conditionalEntersTapped, paysLifeOrEntersTapped, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>" + the shockland pay-life clause (a leaf over interveningIf; cycle-free)
-import { sacrificePermanentForCost } from "./costSacrifice.js"; // every cost sacrifice (activated-ability costs, additional and alternative costs, emerge) — the ONE sequence the mana-cost sacrifice uses too
+import { sacrificePermanentForCost, sacrificePermanentsForCost } from "./costSacrifice.js"; // + sacrificePermanentsForCost (2026-10-17): a cost of N permanents, one event // every cost sacrifice (activated-ability costs, additional and alternative costs, emerge) — the ONE sequence the mana-cost sacrifice uses too
 import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT dispatch hook (audit.js imports only the delayed-trigger leaf, cycle-free)
 import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — the payment half; legalChoices holds the restriction half (+ the Phyrexian life lane, Norn's Annex)
 import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
@@ -549,14 +549,17 @@ function applyCastSpell(state, action) {
       // AC-1 (count-of-N, CR 701.21a) — sacrifice EACH of the N frozen victims (battlefield→graveyard + dies
       // triggers). legalChoices froze exactly N legal ids on `sacCountIds`; a short/missing list is an upstream
       // bug — THROW rather than cast having sacrificed fewer than N (paying N-1 is the cardinal false positive).
+      // The N go TOGETHER (costSacrifice.sacrificePermanentsForCost — one cost, one event, CR 603.2c): until 2026-10-17 each was its
+      // own sacrifice, so a "one or more creatures die" watcher (Vengeful Townsfolk) triggered once per victim.
       if (!Array.isArray(action.sacCountIds) || action.sacCountIds.length < ac.count) {
         throw new DispatcherError(`Spell requires sacrificing ${ac.count} but ${action.sacCountIds?.length || 0} were chosen`, "ADDCOST_UNPAID");
       }
-      for (const vid of action.sacCountIds) {
+      const victims = action.sacCountIds.map((vid) => {
         const victim = working.players[action.playerId]?.battlefield.find(p => p.id === vid);
         if (!victim) throw new DispatcherError(`Sacrifice victim ${vid} not on battlefield`, "PERM_NOT_FOUND");
-        working = sacrificePermanentForCost(working, action.playerId, victim);
-      }
+        return victim;
+      });
+      working = sacrificePermanentsForCost(working, action.playerId, victims);
     } else if (ac.kind === "sacrifice") {
       if (!action.sacCreatureId) throw new DispatcherError("Spell requires an additional sacrifice cost but no victim was chosen", "ADDCOST_UNPAID");
       const victim = working.players[action.playerId]?.battlefield.find(p => p.id === action.sacCreatureId);
@@ -725,15 +728,17 @@ function applyCastSpell(state, action) {
       if (!Array.isArray(alt.returnLandIds) || alt.returnLandIds.length === 0) {
         throw new DispatcherError("Alt-cost cast requires returned lands but none were chosen", "ALTCOST_UNPAID");
       }
-      // Same mechanism as the γ1g return-cost: battlefield → hand per land, draining each land's leave
-      // event (checkLeavesTriggers) so modeled leave watchers stack correctly (CR 603.3b); the offer gate
-      // already excluded lands with an unmodeled leaves/LTB trigger (sacrificeDropsTrigger).
+      // Same mechanism as the γ1g return-cost: battlefield → hand per land, then the leave events drain (checkLeavesTriggers) so
+      // modeled leave watchers stack correctly (CR 603.3b); the offer gate already excluded lands with an unmodeled leaves/LTB
+      // trigger (sacrificeDropsTrigger). ONE drain after every land moved: "return two Islands" is one cost, one event (CR 603.2c) —
+      // until 2026-10-17 each Island drained its own, so Islands that are creatures (Living Plane) fired a "one or more creatures
+      // leave the battlefield" watcher (Dour Port-Mage) once per Island.
       for (const lid of alt.returnLandIds) {
         const land = working.players[action.playerId]?.battlefield.find((p) => p.id === lid);
         if (!land) throw new DispatcherError(`Alt-cost return land ${lid} not on battlefield`, "PERM_NOT_FOUND");
         working = moveCardToZone(working, { playerId: action.playerId, fromZone: "battlefield", toZone: "hand", cardId: lid });
-        working = checkLeavesTriggers(working);
       }
+      working = checkLeavesTriggers(working);
     } else if (alt.kind === "tapCreature") {
       // "you may tap an untapped creature you control rather than pay this spell's mana cost" (the Mercadian Plains
       // cycle). Tapped as the cost (CR 601.2h); a summoning-sick creature is legal (CR 302.6 bars only its own {T}
@@ -747,8 +752,9 @@ function applyCastSpell(state, action) {
       }
       working = tapPermanent(working, alt.tapCreatureId);
     } else if (alt.kind === "sacrificeLands") {
-      // "you may sacrifice a Mountain / two Mountains rather than pay this spell's mana cost" (2026-09-30). Each chosen land is
-      // sacrificed as the cost (CR 601.2h) through the same cost path the creature sacrifice uses, so its leave events fire.
+      // "you may sacrifice a Mountain / two Mountains rather than pay this spell's mana cost" (2026-09-30). The chosen lands are
+      // sacrificed as the cost (CR 601.2h) through the same cost path the creature sacrifice uses, so their leave events fire — two
+      // of them TOGETHER (costSacrifice.sacrificePermanentsForCost, one cost, one event — CR 603.2c; one at a time until 2026-10-17).
       // The COUNT and SUBTYPE are re-derived from the card's own printed alternative cost — the action carries only the
       // payment — so a malformed action can neither shortchange the cost nor pay it with the wrong land.
       const printed = extractAltCost(String(castCard?.oracle || castCard?.oracle_text || "")).altCost;
@@ -757,13 +763,14 @@ function applyCastSpell(state, action) {
         throw new DispatcherError(`Alt-cost cast requires ${printed.count} ${printed.subtype} to sacrifice, got ${alt.sacLandIds?.length ?? 0}`, "ALTCOST_UNPAID");
       }
       const subRe = new RegExp(`\\b${printed.subtype}\\b`, "i");
-      for (const lid of alt.sacLandIds) {
+      const lands = alt.sacLandIds.map((lid) => {
         const land = working.players[action.playerId]?.battlefield.find((p) => p.id === lid);
         if (!land) throw new DispatcherError(`Alt-cost sacrifice land ${lid} not on battlefield`, "PERM_NOT_FOUND");
         const tl = String(land.card?.type || land.card?.type_line || "");
         if (!/\bLand\b/.test(tl) || !subRe.test(tl)) throw new DispatcherError(`Alt-cost sacrifice ${lid} is not a ${printed.subtype}`, "ALTCOST_UNPAID");
-        working = sacrificePermanentForCost(working, action.playerId, land);
-      }
+        return land;
+      });
+      working = sacrificePermanentsForCost(working, action.playerId, lands);
     } else {
       throw new DispatcherError(`Unsupported alt cost kind: ${alt.kind}`, "ALTCOST_UNSUPPORTED");
     }
@@ -1624,14 +1631,17 @@ function applyActivateAbility(state, action) {
   }
   // γ1d — pay a "Sacrifice N <fungible subtype>" cost: sacrifice each of the N chosen victims (battlefield →
   // graveyard, firing their dies + sacrifice watchers via sacrificePermanentForCost — cracking value tokens is
-  // a real sacrifice, CR 701.21). Each id is re-resolved against the LIVE battlefield as the prior sacrifices
-  // mutate it; a missing victim (already gone) is a hard error so we never silently under-pay the cost.
+  // a real sacrifice, CR 701.21). Each id is resolved against the LIVE battlefield; a missing victim (already gone) is a hard
+  // error so we never silently under-pay the cost. The N go TOGETHER (costSacrifice.sacrificePermanentsForCost — one cost, one
+  // event, CR 603.2c; the SAC-N-CLASS and "Sacrifice X" costs ride this list too): until 2026-10-17 each was its own sacrifice,
+  // so a "one or more creatures die" watcher triggered once per victim (Tooth and Claw beside Vengeful Townsfolk).
   if (action.sacCountIds?.length) {
-    for (const vid of action.sacCountIds) {
+    const victims = action.sacCountIds.map((vid) => {
       const v = working.players[action.playerId]?.battlefield.find((p) => p.id === vid);
       if (!v) throw new DispatcherError(`Sacrifice victim ${vid} not on battlefield`, "PERM_NOT_FOUND");
-      working = sacrificePermanentForCost(working, action.playerId, v);
-    }
+      return v;
+    });
+    working = sacrificePermanentsForCost(working, action.playerId, victims);
   }
   if (action.exileSelf) {
     // Exile the source from the battlefield (CR 406). Exile is NOT "dies" (CR 700.4 — dies = to the

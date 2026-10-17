@@ -478,6 +478,17 @@ means "all permanents" (vacuous filter).
   `removal.applyMobilizeSac`). Every one of them, and the legend rule, sends a
   planeswalker that is no creature to `checkPlaneswalkerDiesTriggers`. A new
   sacrifice site calls one of these three; it never moves the card by hand.
+  **A group one instruction sacrifices is ONE event (2026-10-17, CR 603.2c):**
+  the batch sequence lives in `costSacrifice.sacrificePermanentsTogether` (every
+  look-back read first, one dies batch, one leave drain, then each sacrifice's
+  watchers); `sacrificeCreaturesTogether` wraps it with the effect log, and a
+  cost of N permanents is `costSacrifice.sacrificePermanentsForCost` (Tooth and
+  Claw, Bankrupt in Blood, "Sacrifice N <subtype>", Pulverize's two Mountains).
+  A loop of single sacrifices over a group fires a "one or more" watcher once
+  per member — the minted-token end-step sacrifice (`removal.applyMintedLeave`)
+  did exactly that. Still open: `advanceSacrificeChain` sacrifices each pick as
+  it is made (each-player edicts — CR 101.4's own example — annihilator N, a
+  chosen "Sacrifice two lands"); the N-count edict's choose-then-batch is the fix.
 - `planPayment(...)` is a **pure planner** returning exact `{taps, spend}`; the
   dispatcher commits it verbatim. Cost *legality* and cost *payment* always run
   the same planner — the "two-sites invariant" that stops the offered action and

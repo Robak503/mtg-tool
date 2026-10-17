@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **61 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,436)**; engine gains since the tag: **−31** (+50 gained, −81 false credit removed). The next tag
+> **62 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,436)**; engine gains since the tag: **−31** (+50 gained, −81 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,68 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX: a group one instruction removes leaves as ONE event — the minted tokens' end-step sacrifice / exile, a cost of N permanents, Gush's Islands, Cosmic Larva's and Planar Engineering's lands · **±0** · corpus 15,494
+> Suite **19,624** green (1 skipped) / 1,819 files. Lint 0 (CR citations: 0 of 10,493 name no rule). Flip-diff **0 / 0 / 0**
+> (34,620 cards; before = ca3d9822's code from an untouched git-archive copy, after = this tree), so every coverage count is
+> unchanged. **Mutants 9/9** on assertions, restore byte-identical (sha256 of each mutated file compared after each). Runtime only.
+> · **The bug** (probed 10-17 by the death-sites slice, re-proved on ca3d9822 on a real board — Kiki-Jiki activated with
+>   `legalActionsForPlayer` + `dispatchAction`, the turn stepped to its end step, the delayed leave resolved; every text from the bundled
+>   oracle index). **`removal.applyMintedLeave`** — the delayed "Sacrifice it / Exile that token at the beginning of the next end step"
+>   bound to the tokens a token copy made (Kiki-Jiki, Tempestra, Orthion, The Fire Crystal, Stormsplitter) — took the tokens one at a
+>   time. Each `sacrificeCreatureEffect` drains its own leave event and fires its own dies batch, so beside a doubler Vengeful
+>   Townsfolk ("Whenever one or more other creatures you control die") triggered twice instead of once (FALSE POSITIVE; Orthion's five
+>   copies: five times), and under Rest in Peace Dour Port-Mage ("leave the battlefield without dying") drew twice. "Sacrifice them" is
+>   one instruction, one event: CR 603.2c ("it can trigger repeatedly if one event contains multiple occurrences" — its example is one
+>   spell destroying all lands); CR 101.4's example says the same of an each-player sacrifice; Kiki-Jiki's bundled ruling: "you'll
+>   sacrifice each of them". The exile branch already drained its leave events as one batch (nothing drains between the moves), but
+>   made one zone move and one exile log per token.
+> · **The fix.** The batch sequence moves verbatim from `removal.sacrificeCreaturesTogether` to **`costSacrifice.sacrificePermanentsTogether`**
+>   (every look-back read first — CR 603.10a — one dies batch, one leave drain, the graveyard-replacement carriers last, a planeswalker to
+>   its dispatch, then each sacrifice's watchers); `sacrificeCreaturesTogether` now wraps it with its "sacrifice-together" log, and
+>   **`costSacrifice.sacrificePermanentsForCost`** is the cost of N permanents (one victim stays `sacrificePermanentForCost`; the same
+>   permanent twice throws). costSacrifice imports only gameState / layers / triggers, so removal → costSacrifice adds no cycle.
+>   `applyMintedLeave` sacrifices two or more live tokens the delayed ability's controller still controls through
+>   `sacrificeCreaturesTogether` (one stays the single sacrifice, byte-identical) and exiles every live token in ONE `applyZoneMove`.
+> · **The audit — every loop that removes a group one at a time** (`sacrificeCreatureEffect` / `sacrificePermanentForCost` /
+>   `moveCardToZone` from the battlefield over a list). FIXED, same bug: the AC-1 additional cost of N creatures (Bankrupt in Blood),
+>   the activated "Sacrifice N …" list (`sacCountIds` — SAC-N-CLASS Tooth and Claw / Sai / Mondrak / Zopandrel / Bolas's Citadel, γ1d
+>   Treasures / Foods, γ1e "Sacrifice X") and the sacrifice-lands alternative cost (Pulverize, Fireblast, Mogg Alarm) → one
+>   `sacrificePermanentsForCost`; Gush's return-lands alternative cost drained the leave events after each Island → one drain after the
+>   moves; the sac-unless payment of two lands (Cosmic Larva) and Planar Engineering's forced "Sacrifice two lands" →
+>   `sacrificeCreaturesTogether`. ALREADY ONE EVENT: mobilize (`applyMobilizeSac`), Living Death, the N-count edict
+>   (`advanceCreatureBatchSacrifice`), the mass zone moves (`applyZoneMove`, `applyBlink`), the destroy effect, every SBA sweep.
+>   SEPARATE EVENTS BY RULE (unchanged): the end-of-combat queue (each entry its own delayed ability — Mardu Blazebringer, Basilisk
+>   Touch), Fading / Vanishing (each permanent's own upkeep trigger). OPEN (found, not fixed — not a local swap):
+>   **`advanceSacrificeChain` sacrifices each pick as it is made** — each-player / each-opponent edicts (Innocent Blood, Dictate of
+>   Erebos, Silverclad Ferocidons, Flare of Malice — CR 101.4's own example), annihilator N (Kozilek, Nazgûl Battle-Mace), Planar
+>   Engineering with a real choice. A "one or more die" watcher fires per pick, and a watcher sacrificed earlier in the chain misses
+>   the later victims. The fix is the N-count edict's choose-then-batch generalized to every `what` pool, with the readers of the
+>   "sacrifice" log entry (`realSacrificeIn`, `sacrificedThisWayPower`, iteratedEdict) taught the batch's entry. Also open:
+>   `zones.applyExileUntilLeaves` / `applyDelayedBlink` skip applyZoneMove's up-front LKI stamp (no trigger count changes — their leave
+>   events still drain as one batch), and Ghostway's "return those cards" schedules one delayed return per card (a group RETURN as
+>   separate enter events).
+> · **Citations.** Mobilize was still cited as CR 702.174 (Gift) in coverage.js, triggers.js (twice) and mobilizeKeyword.test.js →
+>   702.181a; offspring as 702.174 in coverage.js → 702.175 (the bundled CR's Offspring — the brief named 702.175 as the stale one;
+>   702.175 IS Offspring, the stale number was 702.174). ENGINE-SCAFFOLD §4.7 names the batch and the open chain.
+> · **AI / self-play** (the 30 profile decks in AppData, read for these cards; no seeded batch was run). No profile deck holds a
+>   "one or more … die" watcher; Dour Port-Mage (Brago Blink) is the only "one or more … leave" watcher, and nothing fixed here can
+>   reach it in that deck. The minted leave changes nothing in a profile game: Tempestra (Halfshell heroes) is the only minted-leave
+>   card, and Donatello's extra Mutagen is not one of the copy's tokens (one copy → the single sacrifice, byte-identical). A cost of N
+>   now stacks its triggers as one batch — every victim's dies triggers, then every sacrifice trigger, instead of interleaved — and
+>   reads every victim's look-back before any left: Vihaan, Goldwaker (Mondrak, Olivia, Grim Hireling), Shorikai Vehicles (Sai), Thrun
+>   Voltron (Zopandrel), Bumble Flower Combo (Peregrin Took's and Samwise Gamgee's Foods), The Unbeatable Squirrel
+>   Girl (Peregrin Took's Foods). Earth Bent's Planar Engineering with two lands or fewer goes as
+>   one batch (a land matters only when earthbend has animated it). Gush (Believe it!) is human-only. Trigger counts are unchanged in
+>   every one of these decks; only the order of same-controller triggers can move, so seeded games there can diverge.
+> · Witness **`groupSacrificeTogether.test.js`** (15; 12 red at ca3d9822, every one an AssertionError; the 3 controls pass on both):
+>   Kiki-Jiki copying Grizzly Bears under Parallel Lives / Doubling Season / Anointed Procession (Vengeful Townsfolk ×1, Blood Artist
+>   ×2, Korvold ×2, two deaths, one sacrifice-together naming both tokens), under Rest in Peace (Dour Port-Mage ×1, no dies trigger,
+>   Korvold ×2), the one-token control; Orthion's five copies (Townsfolk ×1, Blood Artist ×5); Stormsplitter's two copies under
+>   Anointed Procession (one exile naming both, Port-Mage ×1); Tooth and Claw sacrificing two Memnites (Townsfolk ×1, Blood Artist ×2,
+>   Korvold ×2) and its Blood Artist-only control; Bankrupt in Blood; Pulverize's two Mountains and Gush's two Islands under Living
+>   Plane (Townsfolk ×1, Port-Mage ×1); Cosmic Larva paid with two Forests and Planar Engineering's two Forests under Living Plane
+>   (Townsfolk ×1, Blood Artist ×2), and the plain-Forest control.
 
 > ## 🎯 2026-10-17 — PLAY-WEIGHTED: the Adventure lane takes ARTIFACT and LAND (Town) halves — The Arkenstone, Horn of Valhalla, Jidoor, Aristocratic Capital (EDHREC #2172), Value Town; a Town is PLAYED from adventure-exile as the turn's land · **+4** · snapshot native 15,462 → 15,466
 > Suite **19,615 green (1 skipped) / 1,818 files** under the gate queue. Lint 0 (CR citations: 0 of 10,483 name no rule). Flip-diff **+4 / −0 / RETIERED 6**

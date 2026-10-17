@@ -15,10 +15,15 @@
  * own move before (2026-10-17): the Fading copy's death entry carried no replacement flags (a Blastoderm Rest in Peace exiled still
  * "died") and neither fired the sacrifice watchers; the Saga copy assumed a Saga is never a creature.
  *
+ * A GROUP sacrificed by one instruction is one event (2026-10-17): sacrificePermanentsTogether, the batch every such site shares — a
+ * cost that sacrifices N permanents (sacrificePermanentsForCost) and the effect-side batch (effects/atoms/removal.sacrificeCreaturesTogether
+ * wraps it with its log entry). Before, the cost sites paid N victims through N single sacrifices, so a "one or more creatures die"
+ * watcher triggered once per victim.
+ *
  * Imports only gameState, layers and triggers — the modules manaModel already imports — so hosting the helper here adds no cycle.
  */
-import { moveCardToZone, logEvent, deathLookback, deathEventKind } from "./gameState.js";
-import { permanentTypes } from "./layers.js";
+import { moveCardToZone, logEvent, deathLookback, deathEventKind, findPermanent, graveyardReplacementCarriersLast } from "./gameState.js";
+import { permanentTypes, permanentIsCreature, permanentHasCardType } from "./layers.js";
 import { checkDiesTriggers, checkLeavesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers } from "./triggers.js";
 
 /**
@@ -47,4 +52,57 @@ export function sacrificePermanentForCost(state, playerId, perm) {
   next = death ? checkDiesTriggers(next, [death]) : checkLeavesTriggers(next);
   if (!death && lkiTypes.includes("Planeswalker")) next = checkPlaneswalkerDiesTriggers(next, [{ id: perm.id, controller: playerId, name: perm.card?.name, card: perm.card }]);
   return checkSacrificeTriggers(next, playerId, { id: perm.id, controller: playerId, card: perm.card, lkiTypes });
+}
+
+/**
+ * Permanents SACRIFICED IN ONE EVENT — one instruction that sacrifices a group: "Sacrifice them" (a token copy's extra tokens, the
+ * mobilized Warriors), "each player … sacrifices all creatures they control" (Living Death), an N-count edict once every player has
+ * chosen (CR 101.4 — "Then all creatures chosen this way are sacrificed simultaneously"), a cost that sacrifices N permanents. One
+ * event, so a watcher triggers once per occurrence in it and a "one or more" watcher once (CR 603.2c). The single sacrifice's rules,
+ * but every look-back is read from the state BEFORE any of them left (CR 603.10a), all of them move, and only then do the dies
+ * triggers fire — ONCE, for the whole batch — so a watcher sacrificed with the others sees each of them (the departed-watcher
+ * look-back, triggers.deadLookBackSources). The carriers of a graveyard replacement move last (gameState.graveyardReplacementCarriersLast),
+ * as the destroy effect's do: a replacement applies to the event as it would happen (CR 614.1), so a Dauthi Voidwalker sacrificed
+ * beside an opponent's creatures still exiles them. The leave events drain once, before the dies triggers (checkDiesTriggers' first
+ * line — also with no creature among them), so a "one or more … leave the battlefield" watcher sees one batch too.
+ * `victims` is `[{ playerId, permId }]`; one already gone is skipped (a cost site checks its victims before calling).
+ * A planeswalker in the batch (Plaguecrafter's pool, #639) dies too (CR 700.4): it goes to the planeswalker dies dispatch, as a
+ * destroyed one does (spellEffects.applyDestroyEffect) — and only when it is no creature, which the creature dispatch already carries.
+ * Then every sacrifice's "whenever you sacrifice …" watchers, each look-back carrying the types it had as it left.
+ */
+export function sacrificePermanentsTogether(state, victims) {
+  const batch = victims.map(({ playerId, permId }) => ({ playerId, permId, lk: findPermanent(state, permId) })).filter((v) => v.lk);
+  // Each victim's death look-back read from the state BEFORE any of them left (gameState.deathLookback — a creature by its
+  // layer-aware types, an animated land included; where the card goes).
+  const dead = batch.filter((v) => permanentIsCreature(state, v.permId)).map((v) => deathLookback(state, v.lk.permanent, v.playerId));
+  const deathOf = new Map(dead.map((d) => [d.id, d]));
+  // A planeswalker in the batch that is no creature goes to the planeswalker dies dispatch (#639); one that is also a creature
+  // already rides the creature dispatch, so it never dies twice.
+  const deadPw = batch.filter((v) => !deathOf.has(v.permId) && permanentHasCardType(state, v.permId, "Planeswalker"))
+    .map((v) => ({ id: v.permId, controller: v.playerId, name: v.lk.permanent.card?.name, card: v.lk.permanent.card }));
+  let next = state;
+  for (const { playerId, permId, lk } of graveyardReplacementCarriersLast(state, batch.map((v) => ({ ...v, id: v.permId })))) {
+    const death = deathOf.get(permId);
+    next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: death?.exileTo ? "exile" : "graveyard", cardId: permId });
+    const deathKind = death ? deathEventKind(death) : null;
+    if (deathKind && deathKind !== "creature-dies") next = logEvent(next, { kind: deathKind, turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
+  }
+  next = checkDiesTriggers(next, dead);
+  next = checkPlaneswalkerDiesTriggers(next, deadPw);
+  // The sacrifice look-backs carry the types each had as it left (sacrificePermanentForCost's shape), for the creature scope.
+  for (const { playerId, permId, lk } of batch) next = checkSacrificeTriggers(next, playerId, { id: permId, controller: playerId, card: lk.permanent.card, lkiTypes: [...permanentTypes(state, permId).types] });
+  return next;
+}
+
+/**
+ * A cost that sacrifices N permanents — "Sacrifice two creatures:" (Tooth and Claw), "Sacrifice N <subtype>", an additional cost of
+ * N creatures (Bankrupt in Blood), "sacrifice two Mountains rather than pay this spell's mana cost" (Pulverize) — paid as ONE event
+ * (sacrificePermanentsTogether): the cost is one instruction, and its victims leave together. One victim is the single cost sacrifice
+ * (sacrificePermanentForCost). `perms` are permanents `playerId` controls, read from `state` and checked by the caller; the same
+ * permanent twice is a malformed payment, never a cheaper one — it throws.
+ */
+export function sacrificePermanentsForCost(state, playerId, perms) {
+  if (perms.length === 1) return sacrificePermanentForCost(state, playerId, perms[0]);
+  if (new Set(perms.map((p) => p.id)).size !== perms.length) throw new Error(`a cost sacrifice names the same permanent twice: ${perms.map((p) => p.id).join(", ")}`);
+  return sacrificePermanentsTogether(state, perms.map((p) => ({ playerId, permId: p.id })));
 }

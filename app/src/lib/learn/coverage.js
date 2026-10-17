@@ -332,7 +332,7 @@ export const COVERED_KEYWORDS = [
   // damage again does nothing. The keyword prints as "renown N", so it matches via the startsWith check;
   // allTriggerSentencesModeled bumps the shaped count (renownShaped).
   "renown",
-  // KW-MOBILIZE (CR 702.174) — ENFORCED end to end: detectTriggers synthesizes the attacks descriptor from
+  // KW-MOBILIZE (CR 702.181a) — ENFORCED end to end: detectTriggers synthesizes the attacks descriptor from
   // the printed keyword (mobilizeKeywordValue), and the `mobilize` atom mints N tapped 1/1 red Warriors AND
   // REGISTERS THEM IN state.combat.attackers against the source's defender. That registration is the whole
   // point: attacking-ness is combat.attackers membership, not a permanent field, so without it the tokens
@@ -1054,7 +1054,7 @@ const reFirebendingFixed = /^firebending \d+$/;
 // dredge N (CR 702.52) — a REPLACEMENT OPTION on draws while in the GY ("instead of drawing, return this
 // and mill N"). Never offered → every draw stays a normal draw, resolution faithful. Digit tail, not brace.
 const reDredgeCost = /^dredge \d+$/;
-// OPTIONAL ADDITIONAL COSTS at cast (CR 702.33 kicker / 702.174 offspring): unpaid = the printed base mode,
+// OPTIONAL ADDITIONAL COSTS at cast (CR 702.33 kicker / 702.175 offspring): unpaid = the printed base mode,
 // which IS a complete, real game mode (an unkicked Skizzik is exactly what the card says it is). The engine
 // never pays them → base mode always → faithful. A body clause conditioned on kicked-ness ("if it was
 // kicked") is a SEPARATE clause judged on its own gate — crediting the cost line cannot force-flip those.

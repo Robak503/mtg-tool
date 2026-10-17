@@ -6,10 +6,11 @@
  */
 
 import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js";
-import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, diesExiledInstead, shufflesIntoLibraryInsteadOfGraveyard, addMana, deathLookback, deathEventKind, destructionReplacementFor, graveyardReplacementCarriersLast } from "../../gameState.js"; // + shufflesIntoLibraryInsteadOfGraveyard (#582): Saw in Half's "dies this way" verdict // + deathLookback: the death look-back every death site shares (the sacrifice sites included) // + deathEventKind: the event a death site logs, named by where the card goes // + graveyardReplacementCarriersLast: the batch sacrifice's move order (a carrier of a graveyard replacement last) // + destructionReplacementFor (#587): the destroy's own replacement ladder (its one copy, in gameState), read for "destroyed this way"
+import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, diesExiledInstead, shufflesIntoLibraryInsteadOfGraveyard, addMana, deathLookback, deathEventKind, destructionReplacementFor } from "../../gameState.js"; // + shufflesIntoLibraryInsteadOfGraveyard (#582): Saw in Half's "dies this way" verdict // + deathLookback: the death look-back every death site shares (the sacrifice sites included) // + deathEventKind: the event a death site logs, named by where the card goes // + destructionReplacementFor (#587): the destroy's own replacement ladder (its one copy, in gameState), read for "destroyed this way"
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // ④-BD — the counter rider's delayed "may draw up to N" (Arcane Denial); delayedTrigger imports only gameState (cycle-safe)
 import { checkDiesTriggers, checkLifegainTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers } from "../../triggers.js"; // + checkPlaneswalkerDiesTriggers (#639): a planeswalker sacrificed in a batch — or alone (2026-10-17) — dies too (CR 700.4)
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
+import { sacrificePermanentsTogether } from "../../costSacrifice.js"; // the batch sacrifice every group sacrifice shares (2026-10-17); costSacrifice imports only gameState, layers and triggers
 import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandCard, massCreatureTargets, nonlandPermanentsWithManaValueAtMost } from "./shared.js";
 import { applyCreateToken, applyCreateNamedToken, applyCreateTokenCopy } from "./tokens.js"; // + applyCreateTokenCopy (#582): Saw in Half's copies ride the shared token-copy minter
 import { applyTutor, millOnePlayer } from "./library.js";
@@ -348,37 +349,15 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
 
 /**
  * P·35 — creatures SACRIFICED IN ONE EVENT (Living Death's "each player … sacrifices all creatures they control"; CR 701.21a — the
- * sacrifices are simultaneous). sacrificeCreatureEffect's per-creature rules, but every look-back is read from the state BEFORE any
- * of them left (CR 603.10a), all of them move, and only then do the dies triggers fire — ONCE, for the whole batch — so a watcher
- * sacrificed with the others sees each of them (the departed-watcher look-back, triggers.deadLookBackSources). The carriers of a
- * graveyard replacement move last (gameState.graveyardReplacementCarriersLast), as the destroy effect's do: a replacement applies
- * to the event as it would happen (CR 614.1), so a Dauthi Voidwalker sacrificed beside an opponent's creatures still exiles them.
- * `victims` is `[{ playerId, permId }]`; one already gone is skipped.
- * A planeswalker in the batch (Plaguecrafter's pool, #639) dies too (CR 700.4): it goes to the planeswalker dies dispatch, as a
- * destroyed one does (spellEffects.applyDestroyEffect) — and only when it is no creature, which the creature dispatch already carries.
+ * sacrifices are simultaneous): costSacrifice.sacrificePermanentsTogether, the one batch sequence every group sacrifice shares (every
+ * look-back read before any of them left, CR 603.10a; the dies triggers once for the batch; a graveyard-replacement carrier moved
+ * last; a planeswalker in it to the planeswalker dies dispatch; each sacrifice's watchers), plus the effect side's log entry naming
+ * the permanents that went. `victims` is `[{ playerId, permId }]`; one already gone is skipped. The batch moved to costSacrifice.js
+ * on 2026-10-17 so a cost that sacrifices N permanents is the same one event.
  */
 export function sacrificeCreaturesTogether(state, victims) {
-  const batch = victims.map(({ playerId, permId }) => ({ playerId, permId, lk: findPermanent(state, permId) })).filter((v) => v.lk);
-  // Each victim's death look-back read from the state BEFORE any of them left (gameState.deathLookback — a creature by its
-  // layer-aware types, an animated land included; where the card goes).
-  const dead = batch.filter((v) => permanentIsCreature(state, v.permId)).map((v) => deathLookback(state, v.lk.permanent, v.playerId));
-  const deathOf = new Map(dead.map((d) => [d.id, d]));
-  // A planeswalker in the batch that is no creature goes to the planeswalker dies dispatch (#639); one that is also a creature
-  // already rides the creature dispatch, so it never dies twice.
-  const deadPw = batch.filter((v) => !deathOf.has(v.permId) && permanentHasCardType(state, v.permId, "Planeswalker"))
-    .map((v) => ({ id: v.permId, controller: v.playerId, name: v.lk.permanent.card?.name, card: v.lk.permanent.card }));
-  let next = state;
-  for (const { playerId, permId, lk } of graveyardReplacementCarriersLast(state, batch.map((v) => ({ ...v, id: v.permId })))) {
-    const death = deathOf.get(permId);
-    next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: death?.exileTo ? "exile" : "graveyard", cardId: permId });
-    const deathKind = death ? deathEventKind(death) : null;
-    if (deathKind && deathKind !== "creature-dies") next = logEvent(next, { kind: deathKind, turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
-  }
-  next = checkDiesTriggers(next, dead);
-  next = checkPlaneswalkerDiesTriggers(next, deadPw);
-  // The sacrifice look-backs carry the types each had as it left (sacrificeCreatureEffect's shape), for the creature scope.
-  for (const { playerId, permId, lk } of batch) next = checkSacrificeTriggers(next, playerId, { id: permId, controller: playerId, card: lk.permanent.card, lkiTypes: [...permanentTypes(state, permId).types] });
-  return logEvent(next, { kind: "spell-effect", effect: "sacrifice-together", sacrificed: batch.map((v) => v.permId) });
+  const sacrificed = victims.filter((v) => findPermanent(state, v.permId)).map((v) => v.permId);
+  return logEvent(sacrificePermanentsTogether(state, victims), { kind: "spell-effect", effect: "sacrifice-together", sacrificed });
 }
 
 /**
@@ -1580,17 +1559,24 @@ export function applyMobilizeSac(state, atom, ctx) {
 }
 
 /**
- * The delayed half: each token still on the battlefield leaves. A SACRIFICE takes only a token the delayed ability's
- * controller still controls (CR 701.21a — a player can't sacrifice what they don't control); an EXILE takes it whoever
- * controls it. One already gone is left alone (CR 603.7c).
+ * The delayed half: the tokens still on the battlefield leave, ALL IN ONE EVENT — "sacrifice it" after a doubler made two is one
+ * instruction (Kiki-Jiki's ruling: "you'll sacrifice each of them"), so a watcher triggers once per token and a "one or more"
+ * watcher once (CR 603.2c). A SACRIFICE takes only a token the delayed ability's controller still controls (CR 701.21a — a player
+ * can't sacrifice what they don't control), through the batch sacrifice (sacrificeCreaturesTogether); an EXILE takes it whoever
+ * controls it, through one zone move naming every token (applyZoneMove's one-event shape). One already gone is left alone
+ * (CR 603.7c). A lone token keeps the single sacrifice — the same event, and its log stays the "sacrifice" entry.
+ * Until 2026-10-17 each token left in its own sacrifice or zone move: the sacrifice drained a leave batch and fired a dies batch per
+ * token (Vengeful Townsfolk triggered once per token), the exile logged one exile per token.
  */
 export function applyMintedLeave(state, atom, ctx) {
+  const live = (atom.tokenIds || []).map((id) => ({ id, lk: findPermanent(state, id) })).filter((t) => t.lk);
   let next = state;
-  for (const id of atom.tokenIds || []) {
-    const lk = findPermanent(next, id);
-    if (!lk) continue;
-    if (atom.fate === "exile") next = applyZoneMove(next, { op: "exile" }, { ...ctx, targets: [{ type: "permanent", id }] }, "exile");
-    else if (lk.controller === ctx.controller) next = sacrificeCreatureEffect(next, ctx.controller, id);
+  if (atom.fate === "exile") {
+    if (live.length) next = applyZoneMove(state, { op: "exile" }, { ...ctx, targets: live.map((t) => ({ type: "permanent", id: t.id })) }, "exile");
+  } else {
+    const victims = live.filter((t) => t.lk.controller === ctx.controller).map((t) => ({ playerId: ctx.controller, permId: t.id }));
+    if (victims.length === 1) next = sacrificeCreatureEffect(state, ctx.controller, victims[0].permId);
+    else if (victims.length > 1) next = sacrificeCreaturesTogether(state, victims);
   }
   return logEvent(next, { kind: "spell-effect", effect: "minted-leave", fate: atom.fate, controller: ctx.controller });
 }

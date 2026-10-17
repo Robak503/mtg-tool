@@ -28,9 +28,9 @@
  *
  * Pure (returns a new state). Hidden-info safe — the candidate lands are the controller's own, public board.
  */
-import { logEvent, findPermanent } from "../../gameState.js";
+import { logEvent } from "../../gameState.js";
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
-import { sacrificeCreatureEffect } from "./removal.js";
+import { sacrificeCreatureEffect, sacrificeCreaturesTogether } from "./removal.js";
 import { isLandCard } from "./shared.js";
 
 /**
@@ -55,10 +55,12 @@ export function applySacrificeLand(state, atom, ctx) {
   const n = Math.max(1, atom.count || 1);
   if (lands.length <= n) {
     // No more lands than must go → every one is sacrificed and there is nothing to choose. Covers the sole-land
-    // case the single form handled before, byte-identically.
-    let next = state;
-    for (const l of lands) if (findPermanent(next, l.id)) next = sacrificeCreatureEffect(next, controller, l.id);
-    return next;
+    // case the single form handled before, byte-identically. Two or more go TOGETHER — "Sacrifice two lands" is one instruction,
+    // one event (CR 603.2c; removal.sacrificeCreaturesTogether): until 2026-10-17 each land was its own sacrifice, so lands that are
+    // creatures (Living Plane) fired a "one or more creatures die" watcher once per land. (The real-choice path below still
+    // sacrifices pick by pick — it rides advanceSacrificeChain, whose one-at-a-time picks are the open half of this fix.)
+    if (lands.length === 1) return sacrificeCreatureEffect(state, controller, lands[0].id);
+    return sacrificeCreaturesTogether(state, lands.map((l) => ({ playerId: controller, permId: l.id })));
   }
   // A real choice. `queue` carries the REMAINING sacrifices (n-1 of them); null for the single form keeps its
   // "one settle, then resume into the tutor" behaviour exactly as it was.

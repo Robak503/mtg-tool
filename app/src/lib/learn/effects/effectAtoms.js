@@ -56,7 +56,7 @@ import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL REPL
 // ─── Re-export the public atom symbols (consumers import these from the barrel path) ──────────
 export { applyCreateToken, applyCreateTokenCopy } from "./atoms/tokens.js";
 export { enterCardFromZone } from "./atoms/zones.js";
-export { sacrificeCreatureEffect, advanceSacrificeChain, advanceCreatureBatchSacrifice, sacrificePoolMatch, sacrificePoolMatchNow } from "./atoms/removal.js"; // + advanceCreatureBatchSacrifice (#509 — the N-count edict's settle side)
+export { sacrificeCreatureEffect, sacrificeCreaturesTogether, advanceSacrificeChain, advanceCreatureBatchSacrifice, sacrificePoolMatch, sacrificePoolMatchNow } from "./atoms/removal.js"; // + advanceCreatureBatchSacrifice (#509 — the N-count edict's settle side) // + sacrificeCreaturesTogether (2026-10-17): the sac-unless N-land payment, one event
 export { applyProliferate } from "./atoms/counters.js";
 export { applyEarthbend } from "./atoms/combat.js";
 export { counterSpellById, counterIfCounterable, controllerSacSubtypeMatch } from "./atoms/stack.js";
