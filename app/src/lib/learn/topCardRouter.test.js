@@ -8,7 +8,7 @@
  *     byte-identical legacy);
  *   - applyRevealTopConditional routes: battlefield → enterCardFromZone (ETB fires); hand/graveyard →
  *     moveCardToZone. CR-honest: the hand route is NOT a draw (no draw triggers — CR 121.1 draws come
- *     only from draws), and the graveyard route is NOT a mill (CR 701.13a — no milled watchers);
+ *     only from draws), and the graveyard route is NOT a mill (CR 701.17a — no milled watchers);
  *   - the coverage residue anchor is generalized to exactly the modeled combos.
  *
  * Flips: Zoologist · Call of the Wild (activated) · Neurok Familiar · Coiling Oracle (ETB) · Skyward Eye

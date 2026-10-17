@@ -8,7 +8,7 @@
  * the sharesCreatureType SUBSET gate (targeting.expandAtoms, the singleGraveyard pattern): a pair is legal
  * only if the two cards share a real CR 205.3m creature type (changeling = every type, CR 702.73a; the
  * after-dash allowlist keeps a non-creature subtype like "Food"/"Equipment" from certifying a share; the
- * " // " front-face split keeps DFC junk words out — CR 712.4a). An off-type pair is NEVER offered; with no
+ * " // " front-face split keeps DFC junk words out — CR 712.8). An off-type pair is NEVER offered; with no
  * legal pair the mode simply isn't offered while mode 1 stays castable (expandCastChoices gates per mode).
  * Real oracle fixtures (bundled Scryfall, verified 2026-07-16).
  */
@@ -106,7 +106,7 @@ describe("MG-1 enumeration — only real shared-creature-type pairs are offered 
     expect(singles.map((ch) => ch.targets[0].id).sort()).toEqual(["g1", "g2"]);
   });
 
-  it("DFC junk words never certify a share (CR 712.4a front face only)", () => {
+  it("DFC junk words never certify a share (CR 712.8 front face only)", () => {
     // Combined type lines share the words "Creature" and "Wolf" on their BACK faces — the front faces
     // (Human vs Elf) share nothing, so the pair is illegal. A naive un-split intersection would offer it.
     const s = boardState({ userGy: [

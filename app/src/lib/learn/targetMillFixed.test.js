@@ -104,7 +104,7 @@ describe("resolver (fixed amount, target branch)", () => {
     expect(after.players.user.library).toHaveLength(5); // the caster's library untouched
   });
 
-  it("a short library bounds the mill (physical reality, CR 701.13a)", () => {
+  it("a short library bounds the mill (physical reality, CR 701.17a)", () => {
     let s = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
     s = withLibrary(s, "ai1", 3);
     const after = applyMill(s, MILL4, { controller: "user", targets: [{ type: "player", id: "ai1" }] });

@@ -1,5 +1,5 @@
 /**
- * cipher.test.js — CIPHER (CR 702.98a). Eight carriers: Paranoid Delusions, Last Thoughts, Midnight
+ * cipher.test.js — CIPHER (CR 702.99a). Eight carriers: Paranoid Delusions, Last Thoughts, Midnight
  * Recovery, Whispering Madness, Call of the Nightwing, Hands of Binding, Mental Vapors, Shadow Slice.
  *
  * "Cipher (Then you may exile this spell card encoded on a creature you control. Whenever that creature
@@ -95,7 +95,7 @@ describe("⛔ the line it sits beside — CHAMPION — stays on the OTHER side o
  * ⭐ THE SAME LENS, TWO MORE KEYWORDS (2026-08-05) — undaunted and bargain, found by asking which OTHER
  * keyword lines are still sole blockers and testing each against this family's criterion.
  *
- * UNDAUNTED (CR 702.150a) — "This spell costs {1} less to cast for each opponent." A pure COST REDUCTION,
+ * UNDAUNTED (CR 702.125a) — "This spell costs {1} less to cast for each opponent." A pure COST REDUCTION,
  * which makes it DELVE's exact twin; delve is already credited on "not delving = paying full cost". Not
  * applying undaunted is likewise paying full price — STRICTLY HARDER than the card allows, the safe
  * direction, and nothing about the resolution changes. Crediting delve while refusing its twin was the

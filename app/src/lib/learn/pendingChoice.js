@@ -249,7 +249,7 @@ export function setPendingScryChoice(state, { controller, mode, cards, sourceNam
 }
 
 /**
- * Flag a hand-disruption awaiting the CASTER's pick of which card to discard (δ-1b, CR 701.8 — Duress
+ * Flag a hand-disruption awaiting the CASTER's pick of which card to discard (δ-1b, CR 701.9 — Duress
  * / Thoughtseize / …). The spell already targeted ONE opponent (`victim`) at cast; the atom resolved by
  * revealing that opponent's hand and filtering it, so `candidates` is the matching subset as
  * `{ id, name }`. The caster picks one to discard (driver: a picker for the human, auto-pick the best for
@@ -475,7 +475,7 @@ export function setPendingDistributeChoice(state, { controller, amount, counterT
 
 /**
  * ===== EACH-PLAYER ===== discard (EP-2) — flag a discard awaiting the DISCARDING player's pick of which
- * card to pitch (CR 701.8 — the discarding player chooses, NOT the caster; the opposite chooser to δ-1b
+ * card to pitch (CR 701.9 — the discarding player chooses, NOT the caster; the opposite chooser to δ-1b
  * hand disruption). `controller` here is the DISCARDER (Mind Rot's target / each player), so the driver's
  * `pause = pc.controller === "user"` rule pauses for a human discarder and auto-discards an AI one. A
  * discard of N>1 or by several players ("each player discards N") resolves as a CHAIN: this flags the

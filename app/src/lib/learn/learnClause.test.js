@@ -1,5 +1,5 @@
 /**
- * learnClause.test.js — LEARN (CR 701.44a, Strixhaven). Fourteen carriers, none native before this.
+ * learnClause.test.js — LEARN (CR 701.48a, Strixhaven). Fourteen carriers, none native before this.
  *
  * The printed choice is three-way: reveal a Lesson you own FROM OUTSIDE THE GAME and put it into your hand,
  * OR discard a card to draw a card, OR do nothing.

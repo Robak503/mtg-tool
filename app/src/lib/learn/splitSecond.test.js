@@ -1,5 +1,5 @@
 /**
- * splitSecond.test.js — the split second restriction (CR 702.19a, census slice 42).
+ * splitSecond.test.js — the split second restriction (CR 702.61a, census slice 42).
  *
  * "Split second (As long as this spell is on the stack, players can't cast spells or activate abilities
  * that aren't mana abilities.)"
@@ -11,7 +11,7 @@
  * be a live divergence from the printed card, not a no-op. It is credited because splitSecondOnStack imposes
  * the restriction, and these tests are what make that claim checkable.
  *
- * THE SCOPE, precisely as CR 702.19a words it:
+ * THE SCOPE, precisely as CR 702.61a words it:
  *   - casting spells            → suppressed, for EVERY player (not just opponents)
  *   - non-mana activated abilities → suppressed (activate / crew / cycling / loyalty)
  *   - MANA abilities            → still legal, exempted by name

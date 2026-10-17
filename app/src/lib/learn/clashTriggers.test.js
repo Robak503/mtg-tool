@@ -1,5 +1,5 @@
 /**
- * clashTriggers.test.js — STAGE ④-2 (2026-09-03): the CLASH trigger event (CR 701.22) — "Whenever you clash
+ * clashTriggers.test.js — STAGE ④-2 (2026-09-03): the CLASH trigger event (CR 701.30) — "Whenever you clash
  * and win, you may draw a card." (Sylvan Echoes). Both clashing players clashed, so each player's own
  * watchers fire with that player's own result; a "…and win" watcher fires only for the winner. Fired by the
  * clash applier after the clash ends. Entangling Trap / Rebellion of the Flamekin share the condition but

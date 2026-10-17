@@ -782,7 +782,7 @@ const _ENTER_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, si
  * these cards — so the metric can never over-claim a card the engine plays wrong. Leaf (no engine import).
  */
 export function entersWithPlusCounters(card) {
-  // ⭐ GRAFT N (CR 702.57a) — the count lives ONLY in the KEYWORD, never in a rules sentence: "Graft 2 (This
+  // ⭐ GRAFT N (CR 702.58a) — the count lives ONLY in the KEYWORD, never in a rules sentence: "Graft 2 (This
   // creature enters with two +1/+1 counters on it. Whenever another creature enters, you may move…)". The
   // reminder strip on the very next line removes that sentence, so the generic matcher below can never see
   // it and every graft creature read 0.
@@ -1049,16 +1049,16 @@ export function entersWithChoiceCounters(card) {
  * variant is a DIFFERENT magnitude (not the cast X) → false, left for the Arbiter. Leaf (no engine import).
  */
 /**
- * ⭐ SUNBURST (CR 702.43) — "This permanent enters with a +1/+1 counter on it for each color of mana spent
+ * ⭐ SUNBURST (CR 702.44) — "This permanent enters with a +1/+1 counter on it for each color of mana spent
  * to cast it." (Spinal Parasite, Sawtooth Thresher, Solarion, Skyrider Elf, Woodland Wanderer, Radiant
  * Epicure, the Archaic cycle…). Like ravenous above, the keyword's whole rule lives in REMINDER parens, so
  * the reminder-strip erases it and no sentence matcher can see it — the keyword itself is detected instead.
  *
  * ⛔ THE COUNTER KIND IS PART OF THE ANSWER, not an assumption. Sunburst puts +1/+1 counters on a CREATURE
- * and CHARGE counters on a non-creature artifact (CR 702.43a). Returning the kind rather than a boolean
+ * and CHARGE counters on a non-creature artifact (CR 702.44a). Returning the kind rather than a boolean
  * keeps the resolver honest — a bare `true` would have quietly given Solarion +1/+1 counters it doesn't get.
  *
- * ⛔ ARTIFACT CREATURES TAKE +1/+1 (CR 702.43a — "if it's a creature", checked first), which is why the
+ * ⛔ ARTIFACT CREATURES TAKE +1/+1 (CR 702.44a — "if it's a creature", checked first), which is why the
  * creature test precedes the artifact one.
  *
  * Returns "+1/+1" | "charge" | null.
@@ -1069,7 +1069,7 @@ export function sunburstCounterKind(card) {
   const tl = String(card?.type || card?.type_line || "").split(" // ")[0];
   if (/\bCreature\b/i.test(tl)) return "+1/+1";
   if (/\bArtifact\b/i.test(tl)) return "charge";
-  return null; // neither — outside CR 702.43a's two cases, so refuse rather than guess
+  return null; // neither — outside CR 702.44a's two cases, so refuse rather than guess
 }
 
 /**
@@ -4498,7 +4498,7 @@ function parseClause(clause, out, selfName, selfType) {
     }
   }
 
-  // ── GROUP-AFFLICT GRANT (CR 702.131) — "<selector> have afflict N" ──────────────────────
+  // ── GROUP-AFFLICT GRANT (CR 702.130) — "<selector> have afflict N" ──────────────────────
   // Afflict is a TRIGGERED-ability keyword ("Whenever this creature becomes blocked, defending player loses
   // N life"), NOT a static-characteristic keyword — so it is NOT in GRANTABLE_KEYWORDS (a plain layer-6
   // addKeyword would make permanentHasKeyword report it but NEVER fire the trigger). Instead grant it exactly
@@ -6093,7 +6093,7 @@ function parseAttachedProtectionColors(tail) {
  *   - EQUIP-PROTECTION  "has protection from <color>…" (Captain America Swords → layer-6 addProtection).
  */
 /**
- * ⭐ GOAD TAIL (CR 701.38) — a WRAPPER, not a ninth regex. "Enchanted creature is goaded" appears bolted
+ * ⭐ GOAD TAIL (CR 701.15) — a WRAPPER, not a ninth regex. "Enchanted creature is goaded" appears bolted
  * onto almost every other attached shape in the corpus: bare, "+2/+2 and is goaded" (Psychic Impetus),
  * "has indestructible and is goaded" (Redemption Arc), "+1/+1, has deathtouch, and is goaded" (Ghoulish
  * Impetus). Matching each of those separately would fork the parser eight ways and drift from the plain
@@ -6256,7 +6256,7 @@ function parseAttachedClauseCore(c, subject, noun = "creature") {
   // ⓘ ENFORCEMENT PARITY, stated plainly rather than implied: this requirement is enforced in the AI's
   // attack planner only, which is exactly where the PRINTED form (Juggernaut, native today) is enforced.
   // The granted form makes no broader claim than the printed one already does.
-  // ⛔ GOAD IS NOT THIS (CR 701.38) and must not be folded in — "is goaded" adds "and attacks a player
+  // ⛔ GOAD IS NOT THIS (CR 701.15) and must not be folded in — "is goaded" adds "and attacks a player
   // other than you if able", a DEFENDER restriction the planner would also have to honor. 8 aura carriers
   // wait on that; crediting them here would over-claim.
   {
@@ -6920,7 +6920,7 @@ function auraResidueClauses(card) {
     // isKeywordOnly admission here would credit keywords whose aura-side behaviour nobody has checked.
     // DIGIT tail, matching coverage's own anchor — a dredge-REFERENCING static or trigger never matches.
     if (/^dredge \d+$/.test(c)) continue;
-    // RIPPLE N (CR 702.19 — Surging Might) — the same admission as dredge directly above, on the same
+    // RIPPLE N (CR 702.60 — Surging Might) — the same admission as dredge directly above, on the same
     // settled call: `isKeywordOnly("Ripple 4")` is true and a vanilla ripple creature is already
     // native-body. Ripple is a CAST-time bonus ("when you cast this spell, you may reveal the top N and
     // cast free copies") that the engine never offers, so the spell simply resolves as printed — an

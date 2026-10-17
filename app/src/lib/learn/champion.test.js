@@ -1,5 +1,5 @@
 /**
- * champion.test.js — CHAMPION (CR 702.71a). Six carriers: Thoughtweft Trio, Changeling Berserker,
+ * champion.test.js — CHAMPION (CR 702.72a). Six carriers: Thoughtweft Trio, Changeling Berserker,
  * Changeling Titan, Changeling Hero, Lightning Crafter, Boggart Mob.
  *
  * "Champion a Kithkin (When this enters, sacrifice it unless you exile another Kithkin you control. When

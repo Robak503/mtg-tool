@@ -162,7 +162,7 @@ export const COVERED_KEYWORDS = [
   // the immediate zero-toughness SBA). "persist" matches via the startsWith check; persistKeywordCount
   // bumps the shaped count (grants never count — the structural matcher).
   "persist",
-  // BATTLE CRY (BLITZ BC-1, CR 702.90) — ENFORCED: one synthesized attacks trigger per printed instance,
+  // BATTLE CRY (BLITZ BC-1, CR 702.91) — ENFORCED: one synthesized attacks trigger per printed instance,
   // pumping each OTHER attacker +1/+0 until end of turn (the Trumpet-Blast scope with excludeSource).
   // "battle cry" matches via the startsWith check; battleCryKeywordCount bumps the shaped count.
   "battle cry",
@@ -173,7 +173,7 @@ export const COVERED_KEYWORDS = [
   // "echo {cost}" matches via the startsWith check exactly like cumulative upkeep; only the pure-mana cost
   // shape flips (matchEcho rejects {X}/hybrid → LOW → body-only, a SAFE FN).
   "echo",
-  // KW-FABRICATE (CR 702.111a) — ENFORCED: the ETB choice (N +1/+1 counters OR N 1/1 Servo tokens) resolves in
+  // KW-FABRICATE (CR 702.123a) — ENFORCED: the ETB choice (N +1/+1 counters OR N 1/1 Servo tokens) resolves in
   // enterPermanent (resolvers.js) via fabricate.js — the counters branch adds them AS the creature enters
   // (through applyCounterDoubling), the Servo branch mints the tokens + fires their ETB watchers. "fabricate N"
   // matches via the startsWith check (the reminder-text "(When this creature enters …)" is parenthetical, stripped
@@ -206,21 +206,21 @@ export const COVERED_KEYWORDS = [
   // (evaluated against ctx.xValue). allTriggerSentencesModeled bumps the shaped count (ravenousTriggerCount)
   // so the synthesized draw trigger balances. The bare "ravenous" residue matches via the exact === check.
   "ravenous",
-  // AFFLICT (CR 702.131) — ENFORCED: the keyword's triggered ability ("Whenever this creature becomes
+  // AFFLICT (CR 702.130) — ENFORCED: the keyword's triggered ability ("Whenever this creature becomes
   // blocked, defending player loses N life") is synthesized in detectTriggers + fired by checkBlockTriggers
   // (which now threads the defending player into the context so the lose-life resolves). "afflict N" matches
   // via the startsWith check; allTriggerSentencesModeled bumps the shaped count. This lets a pure printed-
   // afflict creature (Khenra Eternal — "Afflict 1") read keyword-only after its synthesized trigger sentence
   // is stripped, exactly like bushido.
   "afflict",
-  // INGEST (CR 702.114a) — ENFORCED end-to-end, exactly like afflict directly above: detectTriggers
+  // INGEST (CR 702.115a) — ENFORCED end-to-end, exactly like afflict directly above: detectTriggers
   // synthesizes the combat-damage descriptor from the printed keyword, allTriggerSentencesModeled bumps the
   // shaped count for it, and the effect ("that player exiles the top card of their library") parses to the
   // exile-top-of-library atom, which the normal combat-damage flush fires with the damaged player threaded
   // as the referent. Crediting the bare "Ingest" line here is the LAST of the three pieces — the descriptor
   // routed natively and the counts balanced while the card still parked, because the keyword's own printed
   // line survived the trigger-sentence strip as residue.
-  // CIPHER (CR 702.98a) — credited on the UNTAKEN-OPTION rationale, and it meets that family's stated
+  // CIPHER (CR 702.99a) — credited on the UNTAKEN-OPTION rationale, and it meets that family's stated
   // criterion exactly rather than by analogy. optionalModeKeywords.test.js sets the bar: "the option has to
   // be one the player may simply decline with no consequence to the rest of the card. A keyword whose
   // UNPAID state still changes the board (or whose reminder hides a mandatory rider) is a different animal."
@@ -237,11 +237,11 @@ export const COVERED_KEYWORDS = [
   // ⛔ FN-SAFE: the player loses access to the encode mode, never gains anything. The spell's own printed
   // effect is untouched — which is why every carrier here was already native once this line was removed.
   "cipher",
-  // UNDAUNTED (CR 702.150a) — a pure COST REDUCTION and therefore DELVE's exact twin, which this list
+  // UNDAUNTED (CR 702.125a) — a pure COST REDUCTION and therefore DELVE's exact twin, which this list
   // already credits on "not delving = paying full cost". Not applying undaunted is likewise paying full
   // price: STRICTLY HARDER than the card allows, the safe direction, and nothing about the resolution
   // changes. Crediting delve while refusing its twin was the inconsistency.
-  // GRAFT N (CR 702.57a) — ENFORCED on its mandatory half and declined on its optional one, which is what
+  // GRAFT N (CR 702.58a) — ENFORCED on its mandatory half and declined on its optional one, which is what
   // makes the credit honest rather than an untaken-option shortcut:
   //   · MANDATORY: "enters with N +1/+1 counters" — entersWithPlusCounters now reads N off the KEYWORD (the
   //     count exists nowhere else on the card), so a 0/0 graft creature actually lands at N/N. Driven on the
@@ -265,7 +265,7 @@ export const COVERED_KEYWORDS = [
   // mana. ⛔ Cannot match the "if it's bargained" references — no word boundary between "bargain" and "ed".
   "bargain",
   "ingest",
-  // CHAMPION (CR 702.71a) — ENFORCED end-to-end, the ingest pattern exactly: detectTriggers synthesizes the
+  // CHAMPION (CR 702.72a) — ENFORCED end-to-end, the ingest pattern exactly: detectTriggers synthesizes the
   // ENTERS descriptor from the printed keyword (one only — the leaves half rides the detain link),
   // allTriggerSentencesModeled bumps the shaped count, and the sentinel effect resolves through
   // removal.applyChampion. Crediting the bare "Champion a <Type>" line here is the third of the three
@@ -306,7 +306,7 @@ export const COVERED_KEYWORDS = [
   // count) and "Poison Modular N" (Arcbound Mamba — a player-or-artifact-creature + poison variant) never match
   // this keyword and stay body-only/Arbiter (CREED — their differing behavior is never claimed native).
   "modular",
-  // KW-UNDYING (CR 702.92a, SHELF S7) — ENFORCED end-to-end: detectTriggers synthesizes the self-dies
+  // KW-UNDYING (CR 702.93a, SHELF S7) — ENFORCED end-to-end: detectTriggers synthesizes the self-dies
   // return trigger from the printed keyword (undyingKeywordCount — structural line-segment match, so grants
   // like Undying Evil / Mikaeus never self-synthesize); checkDiesTriggers fires it with the death look-back's
   // counters snapshot (CR 603.6e LKI); the intervening-if "it had no +1/+1 counters on it" is enforced by
@@ -325,9 +325,9 @@ export const COVERED_KEYWORDS = [
   // (CR 702.100b — Watchful Radstag's copy rider). The bare "evolve" residue matches via the exact ===
   // check; allTriggerSentencesModeled bumps the shaped count (evolveShaped).
   "evolve",
-  // KW-RENOWN (CR 702.111, census slice 2026-07-25) — ENFORCED end to end: detectTriggers synthesizes the
+  // KW-RENOWN (CR 702.112, census slice 2026-07-25) — ENFORCED end to end: detectTriggers synthesizes the
   // combat-damage-to-player descriptor from the printed keyword (renownKeywordValue), and the `renown` atom
-  // applies the CR 702.111a latch — if it isn't renowned, place N +1/+1 counters through the standard
+  // applies the CR 702.112a latch — if it isn't renowned, place N +1/+1 counters through the standard
   // addCounter chokepoint (doublers/watchers compose) and set the flag; an already-renowned creature dealing
   // damage again does nothing. The keyword prints as "renown N", so it matches via the startsWith check;
   // allTriggerSentencesModeled bumps the shaped count (renownShaped).
@@ -340,24 +340,24 @@ export const COVERED_KEYWORDS = [
   // the next end step. Prints as "mobilize N", so it matches via the startsWith check; the shaped count is
   // bumped by mobilizeShaped below.
   "mobilize",
-  // KW-BACKUP (CR 702.166) — ENFORCED as the SELF-TARGET line: detectTriggers synthesizes an ETB whose
+  // KW-BACKUP (CR 702.165) — ENFORCED as the SELF-TARGET line: detectTriggers synthesizes an ETB whose
   // effectClause is ordinary modeled text ("put N +1/+1 counters on this creature"), so it resolves through
   // the existing self-scoped add-counter atom with no new runtime code. The narrowing is deliberate and
   // stated at backupKeywordValue: self-target is one of the card's own legal choices (forced when it is your
   // only creature) and makes the "if that's another creature" grant vacuous, so the engine plays a real
   // legal line. It simply never offers backup on ANOTHER creature — an under-offer, the safe direction.
   "backup",
-  // KW-ENLIST (CR 702.151a, census slice 49) — "As this creature attacks, YOU MAY tap a nonattacking
+  // KW-ENLIST (CR 702.154a, census slice 49) — "As this creature attacks, YOU MAY tap a nonattacking
   // creature you control without summoning sickness. When you do, add its power to this creature's until
   // end of turn." Wholly optional, and declining leaves a complete, legal attack with the printed power.
   // The engine declines, so the combat it plays is a real one — the myriad rationale exactly.
   "enlist",
-  // KW-EXTORT (CR 702.99a, census slice 49) — "Whenever you cast a spell, YOU MAY pay {W/B}. If you do,
+  // KW-EXTORT (CR 702.101a, census slice 49) — "Whenever you cast a spell, YOU MAY pay {W/B}. If you do,
   // each opponent loses 1 life and you gain that much life." An optional payment on an already-modeled
   // event; declining costs nothing and changes nothing else on the card.
   //
   "extort",
-  // KW-UNLEASH (CR 702.86a, census slice 50) — credited ONLY because it is now ENFORCED, not as an untaken
+  // KW-UNLEASH (CR 702.98a, census slice 50) — credited ONLY because it is now ENFORCED, not as an untaken
   // option. Slice 49 refused it on exactly that grounds: its second sentence ("It can't block as long as it
   // has a +1/+1 counter on it") is a conditional static, so a free credit would let the creature block when
   // the printed card forbids it. combatEvasion.canBlockAttacker now reads the permanent's counters LIVE at
@@ -367,7 +367,7 @@ export const COVERED_KEYWORDS = [
   "unleash",
   // Census slice 51 — the permanent-side halves of the same four. Each was read off the printed corpus line
   // before crediting, and each is an option whose declined state is the printed card:
-  //   provoke  (CR 702.38a)  — "Whenever this creature attacks, YOU MAY have target creature defending
+  //   provoke  (CR 702.39a)  — "Whenever this creature attacks, YOU MAY have target creature defending
   //                            player controls untap and block it if able." Declined: an ordinary attack.
   //   assist   (CR 702.132a) — cost help from another player the engine never offers; full price is paid.
   //   casualty (CR 702.153a) — an optional additional cost; declined, the spell is copied zero times.
@@ -379,13 +379,13 @@ export const COVERED_KEYWORDS = [
   //  uncertain rule reading is exactly what this project forbids, so it stays on the Arbiter until someone
   //  checks the rule properly. A false negative costs 13 cards; a false positive costs trust.)
   "provoke", "assist", "casualty", "ripple",
-  // KW-TRAINING (CR 702.148a, census slice 52) — NOT a member of the optional-mode family above it: training
+  // KW-TRAINING (CR 702.149a, census slice 52) — NOT a member of the optional-mode family above it: training
   // is a MANDATORY trigger, so it is credited by being MODELED, not by being declined. detectTriggers
   // synthesizes the self-scoped attacks descriptor (ordinary add-counter effectClause) gated by the "another
   // attacking creature has greater power" intervening-if, which compares layer-aware power against the other
   // ATTACKERS — a bigger creature staying home trains nothing.
   "training",
-  // ⭐ KW-SUNBURST (CR 702.43a) — ENFORCED, not declined, and the enforcement is what earns the credit.
+  // ⭐ KW-SUNBURST (CR 702.44a) — ENFORCED, not declined, and the enforcement is what earns the credit.
   // "This permanent enters with a +1/+1 counter on it for each COLOR of mana spent to cast it" (a charge
   // counter instead if it isn't a creature). The colour count is captured off the payment plan at cast time
   // (actionDispatcher reads plan.spend, the same tally the commit deducts), threaded to the ETB beside
@@ -402,7 +402,7 @@ export const COVERED_KEYWORDS = [
   // improvise. Credited on the permanent side too because delve rides CREATURES as well as spells (Gurmag
   // Angler), and the spell path gets it via COST_ONLY_KEYWORD_LINE.
   "delve",
-  // KW-MYRIAD (CR 702.115a, census slice 48) — "Whenever this creature attacks, for each opponent other than
+  // KW-MYRIAD (CR 702.116a, census slice 48) — "Whenever this creature attacks, for each opponent other than
   // defending player, YOU MAY create a token that's a copy of this creature attacking that player. Exile
   // those tokens at end of combat." An optional attack rider: declining is a complete, legal attack, and the
   // tokens would be exiled at end of combat anyway. The engine declines, so the board it plays is a real one.
@@ -413,7 +413,7 @@ export const COVERED_KEYWORDS = [
   // players (the attacker included) rather than opponents only. Bare keyword only — a GRANTED dethrone
   // (Dack's Duplicate) never matches the anchor and stays on the Arbiter.
   "dethrone",
-  // KW-SPLIT-SECOND (CR 702.19a) — ENFORCED in legalChoices.js: while a spell with split second is on the
+  // KW-SPLIT-SECOND (CR 702.61a) — ENFORCED in legalChoices.js: while a spell with split second is on the
   // stack, splitSecondOnStack suppresses every player's casts (folded into the same `cantCast` the Grand
   // Abolisher lane feeds) AND every non-mana activated ability (activate / crew / cycling / loyalty). Mana
   // abilities and CR 116.2 special actions stay legal, exactly as the rule words it. Credited because the
@@ -975,7 +975,7 @@ const reSpectacleCost = /^spectacle (?:\{[^}]+\})+$/;
 // change; 10 permanents wait on it (escape 6 · suspend 3 · awaken 1).
 const reVacuousAltCastCost = /^(?:miracle|prowl|surge|flashback) (?:\{[^}]+\})+$/;
 
-// KW-PROTOTYPE (CR 702.161) — an artifact creature with a SECOND, smaller castable profile ("Prototype {cost} —
+// KW-PROTOTYPE (CR 702.160) — an artifact creature with a SECOND, smaller castable profile ("Prototype {cost} —
 // X/Y (…different mana cost, color, and size; keeps its abilities and types)"). Hard-casting at the printed
 // (full) cost yields the printed (full) creature — the prototype profile is the OPTIONAL cheaper entry the engine
 // never takes — so recognizing the line is CREED-safe (the ninjutsu/morph rationale). Anchored on the "{cost} —
@@ -1028,7 +1028,7 @@ const reReinforceCost = /^reinforce \d+\s*[—–-]\s*(?:\{[^}]+\})+$/;
 // excluded: the synthesizer returns null for it, so a startsWith-style credit would mark the card native
 // while the runtime placed nothing. Caught by this slice's own per-flip audit before it shipped.
 const reBloodthirstFixed = /^bloodthirst \d+$/;
-// devour N (CR 702.81a, census slice 53) — "As this creature enters, YOU MAY sacrifice any number of
+// devour N (CR 702.82a, census slice 53) — "As this creature enters, YOU MAY sacrifice any number of
 // creatures. It enters with that many +1/+1 counters on it." (×N for devour 2/3.) The optional-mode family's
 // reasoning, in its purest form: sacrificing ZERO creatures is a legal choice, and "that many" is then zero,
 // so the permanent enters exactly as printed. Squad's twin — pay zero times, get zero copies.
@@ -1040,7 +1040,7 @@ const reBloodthirstFixed = /^bloodthirst \d+$/;
 // zero choice: sacrifice none, enter as printed. The type word is the CURATED set of the three printed forms (an
 // unlisted word stays refused) and the digit anchor still holds ("Devour Food X" is nobody's number).
 const reDevourFixed = /^devour (?:(?:artifact|land|food) )?\d+$/;
-// amplify N (CR 702.37a, census slice 53) — "As this creature enters, REVEAL ANY NUMBER of cards from your
+// amplify N (CR 702.38a, census slice 53) — "As this creature enters, REVEAL ANY NUMBER of cards from your
 // hand that share a creature type with it. This creature enters with N +1/+1 counters on it for each card
 // revealed this way." Devour's hand-side twin: revealing zero is a legal choice, "for each card revealed"
 // is then zero, and the creature enters exactly as printed. Digit-anchored like devour/bloodthirst.
@@ -1058,7 +1058,7 @@ const reDredgeCost = /^dredge \d+$/;
 // which IS a complete, real game mode (an unkicked Skizzik is exactly what the card says it is). The engine
 // never pays them → base mode always → faithful. A body clause conditioned on kicked-ness ("if it was
 // kicked") is a SEPARATE clause judged on its own gate — crediting the cost line cannot force-flip those.
-// SQUAD (CR 702.152a, census slice 47) joins the family on exactly the same reasoning: "Squad {2} (As an
+// SQUAD (CR 702.157a, census slice 47) joins the family on exactly the same reasoning: "Squad {2} (As an
 // additional cost to cast this spell, you may pay {2} any number of times. When this creature enters, create
 // that many tokens that are copies of it.)" — the ENTIRE ability lives in the reminder, and paying zero times
 // is the printed base mode: a real, complete creature with no token copies. The engine never pays optional
@@ -1392,7 +1392,7 @@ function allTriggerSentencesModeled(card, oracle) {
   // counts as a shaped sentence — bump the shaped count by N (cascadeInstanceCount) so shaped === detected holds.
   // Keyed on the RAW oracle (stripReminder removes the signature, so count before).
   const cascadeKw = cascadeInstanceCount(oracle);
-  // AFFLICT (CR 702.131) — like bushido/rampage, the printed "Afflict N" keyword's triggered ability lives in
+  // AFFLICT (CR 702.130) — like bushido/rampage, the printed "Afflict N" keyword's triggered ability lives in
   // stripped reminder text, so it never counts as a shaped sentence. detectTriggers synthesizes a
   // becomesBlocked descriptor from the keyword; bump the shaped count by 1 so shaped === detected holds. The
   // SAME "have/has afflict" guard detectTriggers uses excludes the GROUP-GRANT form ("Sliver creatures you
@@ -1412,7 +1412,7 @@ function allTriggerSentencesModeled(card, oracle) {
   // appears as a When/Whenever/At sentence. Bump the count by 1 for the keyword so shaped === detected holds
   // (mirrors cascadeKw). Keyed on the RAW oracle (the reminder signature is gone after stripReminder).
   const ravenousShaped = ravenousTriggerCount(oracle);
-  // KW-UNDYING (CR 702.92a) — like bushido/afflict, the printed "Undying" keyword's triggered ability lives
+  // KW-UNDYING (CR 702.93a) — like bushido/afflict, the printed "Undying" keyword's triggered ability lives
   // entirely in stripped reminder text, so it never counts as a shaped sentence. detectTriggers synthesizes
   // a self-dies descriptor from the keyword (undyingKeywordCount — the SAME structural matcher, so grant
   // forms contribute 0 to both counts); bump the shaped count by 1 so shaped === detected holds.
@@ -1453,7 +1453,7 @@ function allTriggerSentencesModeled(card, oracle) {
   const flankingShaped = flankingKeywordCount(oracle);
   // KW-PERSIST (BLITZ PS-1) — undying's mirror; bump by 1 (the structural matcher, grants never count).
   const persistShaped = persistKeywordCount(oracle);
-  // BATTLE CRY (BLITZ BC-1) — one synthesized attacks descriptor per printed instance (CR 702.90b).
+  // BATTLE CRY (BLITZ BC-1) — one synthesized attacks descriptor per printed instance (CR 702.91).
   const battleCryShaped = battleCryKeywordCount(oracle);
   // AFTERLIFE (BLITZ AF-2, CR 702.135b) — the same reminder-parens keyword synthesis; bump by the number of
   // printed instances (the structural matcher — grants never count). Every printed N synthesizes (digit form
@@ -1474,13 +1474,13 @@ function allTriggerSentencesModeled(card, oracle) {
   const enginesShaped = startYourEnginesKeywordCount(oracle);
   // KW-HIDEAWAY (P·10) — the same reminder-text keyword synthesis; one descriptor for exactly one printed "Hideaway N".
   const hideawayShaped = hideawayKeywordValue(oracle) > 0 ? 1 : 0;
-  // KW-INGEST (CR 702.114a) — the keyword synthesizes ONE combat-damage descriptor in detectTriggers, and
+  // KW-INGEST (CR 702.115a) — the keyword synthesizes ONE combat-damage descriptor in detectTriggers, and
   // its printed line is a KEYWORD rather than a When/Whenever sentence, so TRIGGER_SENTENCE_RE counts zero
   // for it. The shaped count must be bumped to keep `shaped === detected` — exactly what bushido, afflict
   // and rampage do below. Without this the descriptor detects and routes natively while the card still
   // classifies parked, which is the standing tell for this invariant.
   const ingestShaped = /\bingest\b/i.test(stripReminder(oracle)) ? 1 : 0;
-  // KW-CHAMPION (CR 702.71a) — same reason as ingest directly above: the keyword synthesizes ONE enters
+  // KW-CHAMPION (CR 702.72a) — same reason as ingest directly above: the keyword synthesizes ONE enters
   // descriptor and its printed line is a keyword, not a When/Whenever sentence. Only the ENTERS half is
   // synthesized (the leaves half rides the detain link), so this bumps by exactly 1.
   const championShaped = /\bchampion an? [a-z]/i.test(stripReminder(oracle)) ? 1 : 0;
@@ -3731,7 +3731,7 @@ export function classifyCard(card) {
   const plotStrippedRaw = parsePlotCost(card)
     ? oracle.replace(/(?:^|\n)[^\n]*\bplot\s+(?:\{[^}]+\})+[^\n]*(?=\n|$)/i, "\n")
     : oracle;
-  // WARP (CR 702.176) — "Warp {cost}" is an alternative cast cost from hand (cast cheaper, exile at the next
+  // WARP (CR 702.185) — "Warp {cost}" is an alternative cast cost from hand (cast cheaper, exile at the next
   // end step, recast from exile later). Like Plot it changes ONLY how/when the card is cast, never the
   // permanent's printed abilities; the runtime hard-casts at full cost and the body resolves identically (the
   // "exile at end step" rider applies ONLY to a warp cast the engine never offers). Strip the whole "Warp
@@ -3871,7 +3871,7 @@ export function classifyCard(card) {
   const reveal = revealLandTypes(card);
   const revealRe = /^[ \t]*as this land enters, you may reveal an? [a-z]+(?: or [a-z]+)? card from your hand\. if you don't, (?:this land|it) enters tapped\.?[ \t]*$/gim;
   const isTapped = entersTapped(card) || !!entersTappedUnlessCondition(card) || !!shock || !!reveal;
-  // CREW (BLITZ VH-1, CR 702.121): "Crew N" is a modeled special-activation line — legalChoices.
+  // CREW (BLITZ VH-1, CR 702.122): "Crew N" is a modeled special-activation line — legalChoices.
   // actionsCrewVehicle offers it (tap own creatures with total power ≥ N, auto-picked sick-first),
   // actionDispatcher.applyCrewVehicle taps + animates (a layer-4 endOfTurn Creature type-add; printed P/T
   // and printed keyword lines apply once it's a creature; a same-turn-entered vehicle is stamped

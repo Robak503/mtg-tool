@@ -1,7 +1,7 @@
 /**
  * dredgeSpellSide.test.js — dredge is vacuous on the SPELL path too (census slice 28).
  *
- * Dredge (CR 702.51) is a graveyard REPLACEMENT for a draw: "If you would draw a card, you may mill N
+ * Dredge (CR 702.52) is a graveyard REPLACEMENT for a draw: "If you would draw a card, you may mill N
  * instead. If you do, return this card from your graveyard to your hand." It changes nothing about how the
  * card resolves when it is CAST NORMALLY from hand, which is exactly the vacuous-line rationale textNormalize
  * already applies to flashback / escape / jump-start / retrace.

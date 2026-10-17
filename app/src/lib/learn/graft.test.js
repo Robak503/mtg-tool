@@ -1,5 +1,5 @@
 /**
- * graft.test.js — GRAFT N (CR 702.57a): Vigean Hydropon, Simic Initiate.
+ * graft.test.js — GRAFT N (CR 702.58a): Vigean Hydropon, Simic Initiate.
  *
  * "Graft 2 (This creature enters with two +1/+1 counters on it. Whenever another creature enters, you may
  * move a +1/+1 counter from this creature onto it.)"

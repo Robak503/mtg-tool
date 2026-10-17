@@ -40,7 +40,7 @@ describe("the strip must not eat the line before it", () => {
   // are about the STRIP'S ANCHOR: an unmodeled NO-PERIOD keyword line sitting before the counters sentence
   // must not be eaten by it. The fixture needs a keyword that is UNMODELED, which is precisely the property
   // this project exists to destroy, so **it will rot again**. It was "Champion a Goblin" until champion was
-  // modeled (CR 702.71a); then "Sunburst" until sunburst was modeled (CR 702.43a, 2026-08-05); now
+  // modeled (CR 702.72a); then "Sunburst" until sunburst was modeled (CR 702.44a, 2026-08-05); now
   // "Double team", verified unmodeled both alone and welded at the time of writing.
   // ⛔ WHEN THIS GOES RED, THE GUARD IS ALMOST CERTAINLY FINE — re-probe for a keyword that still parks
   // alone, swap it in, and record the flip below rather than weakening the assertion.
@@ -58,7 +58,7 @@ describe("the strip must not eat the line before it", () => {
   });
 
   it("ⓘ sunburst, the previous fixture, is now MODELED and welds cleanly — recorded, not deleted", () => {
-    // CR 702.43a. The colour count is threaded from the payment plan; see sunburst.test.js.
+    // CR 702.44a. The colour count is threaded from the payment plan; see sunburst.test.js.
     expect(classifyCard(creature("Sunburst"))).toBe("native-body");
   });
 

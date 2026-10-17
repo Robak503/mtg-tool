@@ -1,5 +1,5 @@
 /**
- * unleashKeyword.test.js — unleash (CR 702.86a, census slice 50).
+ * unleashKeyword.test.js — unleash (CR 702.98a, census slice 50).
  *
  * "Unleash (You may have this creature enter with a +1/+1 counter on it. It can't block as long as it has a
  * +1/+1 counter on it.)"

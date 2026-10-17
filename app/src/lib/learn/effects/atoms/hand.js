@@ -11,7 +11,7 @@ import { NUM_WORD } from "../parseHelpers.js"; // seam batch 23: shared number-w
 import { nextRandomInt } from "../../seedMath.js"; // RD-1: THE canonical seeded uniform draw for random discard (leaf; no cycle)
 
 /**
- * δ-1b targeted hand disruption (CR 701.8 discard) — Duress / Thoughtseize / Inquisition / Coercion /
+ * δ-1b targeted hand disruption (CR 701.9 discard) — Duress / Thoughtseize / Inquisition / Coercion /
  * Despise / Divest / Harsh Scrutiny. The spell targeted an OPPONENT at cast (a player target, chosen
  * WITHOUT seeing their hand — the faithful Duress flow). NOW it resolves: REVEAL that opponent's hand,
  * keep only the cards matching the atom's handFilter, and set a `pendingChoice` for the CASTER to pick
@@ -66,7 +66,7 @@ export function applyImprint(state, atom, ctx) {
 
 // ===== EACH-PLAYER ===== discard (EP-2)
 /**
- * Walk the discard CHAIN (CR 701.8 — the DISCARDING player chooses which cards). `queue` is the remaining
+ * Walk the discard CHAIN (CR 701.9 — the DISCARDING player chooses which cards). `queue` is the remaining
  * discarders, head-first, each `{ playerId, remaining }`. For each in turn:
  *   - eliminated / empty hand / nothing left to discard → drop and move on (no-op).
  *   - hand ≤ remaining → a FORCED whole-hand discard (no real choice): pitch every card inline, move on.
@@ -144,7 +144,7 @@ export function pitchRandomDiscard(state, { discarders, amount, sourceName = nul
 /**
  * ===== EACH-PLAYER ===== discard (EP-2) — "Target player discards N cards" (Mind Rot / Fugue — the
  * VICTIM chooses) and "Each player discards N cards" (Delirium Skeins — every player chooses their own).
- * CR 701.8: the discarding player picks the cards, so this routes through the resolution-time pending-
+ * CR 701.9: the discarding player picks the cards, so this routes through the resolution-time pending-
  * choice CHAIN (advanceDiscardChain) — a human discarder gets a picker, an AI discards its cheapest, and
  * N>1 / multiple discarders resolve as a sequence of single-card picks. who:"target" reads the player
  * target(s) chosen at cast; who:"eachPlayer" enumerates every player, the controller first (APNAP-stable,
@@ -182,7 +182,7 @@ export function applyDiscard(state, atom, ctx) {
     // combat damage to (ctx.damagedPlayerId, carried by checkCombatDamageTriggers, the SAME referent the mill /
     // rad / token-factory damagedPlayer resolvers read). Absent / eliminated referent (a spell, a non-combat
     // trigger, a player who left the game) → discard nobody (a clean logged no-op, never a fabrication — mirrors
-    // applyMill's damagedPlayer guard). The discarder chooses their own card via the chain (CR 701.8).
+    // applyMill's damagedPlayer guard). The discarder chooses their own card via the chain (CR 701.9).
     const pid = ctx.damagedPlayerId;
     discarders = pid && state.players?.[pid] ? [pid] : [];
   } else if (atom.who === "upkeepPlayer") {
@@ -245,7 +245,7 @@ export function applyDiscard(state, atom, ctx) {
  * family, original first-match order: target player (who:"target", targetType:"player") / each player
  * (who:"eachPlayer") / each opponent (who:"eachOpponent") / controller ("[you] discard N cards"). Numeric/spelled
  * N only — "at random" / "X" / "their hand" / "half" / any trailing rider fails the `$` anchor → low → Arbiter
- * (the victim chooses, CR 701.8 — the resolver walks the discard chain). Pure; uses the NUM_WORD leaf. Registered
+ * (the victim chooses, CR 701.9 — the resolver walks the discard chain). Pure; uses the NUM_WORD leaf. Registered
  * via registerClauseParser in parser.js.
  */
 /**
@@ -355,7 +355,7 @@ export function discardClauseParser(clause) {
   // TARGET-OPPONENT discard (Ravenous Rats / Dirty Rat / Deadbridge Shaman ETB) — the same targeted discard as
   // "target player", but the printed "opponent" narrows the legal targets to opponents (targetType "opponent" →
   // atomTargetSpec enumerates opponents; the discard is already enemy-intent, so the trigger flush never picks
-  // the controller). The discarding player still chooses which card (CR 701.8). Distinct anchor from "target
+  // the controller). The discarding player still chooses which card (CR 701.9). Distinct anchor from "target
   // player"; the resolver reads the chosen victim regardless of targetType, so it lifts the "player" runtime.
   m = t.match(/^target opponent discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "opponent" };
@@ -373,7 +373,7 @@ export function discardClauseParser(clause) {
   // an upkeep "that player discards a card" (Necrogen Mists' upkeep referent) can NEVER route here and mis-scope.
   // Anchored ^…$ — "that player discards THAT card" (the reveal-then-discard discard-chosen family, Gix's Caress)
   // wants "that card" not "a/N cards" and never matches; a rider ("…and you untap all lands", Sword of Feast and
-  // Famine) keeps its tail → low → Arbiter (CREED: never a dropped clause). Discarder chooses (CR 701.8 chain).
+  // Famine) keeps its tail → low → Arbiter (CREED: never a dropped clause). Discarder chooses (CR 701.9 chain).
   m = t.match(/^that player discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "damagedPlayer", targetType: null };
   // CDMG-DISCARD-SCALED — "that player discards that many cards" / "they discard that many cards" (Dreamstealer,
@@ -566,7 +566,7 @@ export const handResolvers = {
   "hand-to-library-top": applyHandToLibraryTop, // Brainstorm put-back — top placement, NOT a discard
 
   "imprint": applyImprint, // IMPRINT (CR 207.2c) — the ETB exile-from-hand that STAMPS the permanent
-  "discard": applyDiscard, // ===== EACH-PLAYER ===== target/each player discards N — victim chooses (CR 701.8)
+  "discard": applyDiscard, // ===== EACH-PLAYER ===== target/each player discards N — victim chooses (CR 701.9)
   "discard-hand-draw-same": applyDiscardHandDrawSame, // TW-1 — Tolarian Winds' whole-hand cycle
   "hand-to-bottom-draw-same": applyHandToBottomDrawSame, // SHELF-85 N12 — Teferi's Puzzle Box (the draw-step referent tucks their hand, draws that many); #514 — Valakut Awakening (any number, plus one)
   "look-at-hand": applyLookAtHand, // LOOK (CR 701.20e) — information only; the log carries the real contents

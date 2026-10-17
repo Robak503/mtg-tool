@@ -1,5 +1,5 @@
 /**
- * goadAtom.test.js — ④-AI (2026-09-03 night): GOAD AS AN EFFECT ATOM (CR 701.38) — Jeering Homunculus "When this creature
+ * goadAtom.test.js — ④-AI (2026-09-03 night): GOAD AS AN EFFECT ATOM (CR 701.15) — Jeering Homunculus "When this creature
  * enters, you may goad target creature", Taunting Kobold "Whenever this creature attacks, goad target creature an opponent
  * controls", Goblin Racketeer / Coveted Peacock ("… defending player controls"), Taunting Sliver, Glóin. The goad-AURA slice
  * (goad.test.js) already grants the two pseudo-keywords the attack planner reads layer-aware — `mustAttack` and `goaded`,

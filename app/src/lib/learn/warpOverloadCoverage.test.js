@@ -2,7 +2,7 @@
  * warpOverloadCoverage.test.js — two alternative-cast levers, both vacuous for the NORMAL cast (THE CREED,
  * the Plot/Spectacle precedent):
  *
- *   WARP (CR 702.176, permanent-only) — "Warp {cost}" casts the card cheaper from hand, exiles it at the next
+ *   WARP (CR 702.185, permanent-only) — "Warp {cost}" casts the card cheaper from hand, exiles it at the next
  *   end step, and lets you recast it later. It changes only how/when the card is cast, never the permanent's
  *   printed abilities; the runtime hard-casts at full cost and the body resolves identically (the "exile at end
  *   step" rider applies ONLY to a warp cast, which the engine never offers). classifyCard strips the Warp LINE

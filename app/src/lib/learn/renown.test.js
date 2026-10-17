@@ -1,12 +1,12 @@
 /**
- * renown.test.js — KW-RENOWN (CR 702.111), census slice 6 (12 sole-blockers).
+ * renown.test.js — KW-RENOWN (CR 702.112), census slice 6 (12 sole-blockers).
  *
  * "Renown N (When this creature deals combat damage to a player, if it isn't renowned, put N +1/+1
  * counters on it and it becomes renowned.)" — the ability lives entirely in reminder parens, so it is
  * synthesized from the printed keyword exactly like evolve/undying (detectTriggers → a
  * combatDamageToPlayer descriptor carrying a kind-tagged sentinel only renownClauseParser models).
  *
- * THE LATCH is the load-bearing part (CR 702.111a): "if it isn't renowned" is a ONE-SHOT per-permanent
+ * THE LATCH is the load-bearing part (CR 702.112a): "if it isn't renowned" is a ONE-SHOT per-permanent
  * flag, not a board query, so it lives INSIDE the atom next to monstrosity's `monstrous` flag rather than
  * as an intervening-if — a fail-open board read would re-renown the creature every single combat, the
  * forbidden FP. These tests prove the latch holds across repeated damage.
@@ -59,7 +59,7 @@ describe("detection — keyword→trigger synthesis (the evolve precedent)", () 
   });
 });
 
-describe("RUNTIME — the CR 702.111a latch (the FP this design exists to prevent)", () => {
+describe("RUNTIME — the CR 702.112a latch (the FP this design exists to prevent)", () => {
   function boardWith(renowned = false) {
     const s = createGameState({ userDeck: [], aiDeck: [] });
     const perm = createPermanent({

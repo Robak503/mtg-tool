@@ -184,7 +184,7 @@ export function applyControllerRider(state, rider, cap, ctx) {
   if (rider.kind === "mill") {
     // CNT-MILL-RIDER (BLITZ CS-1 — Thought Collapse / Didn't Say Please): the COUNTERED spell's controller
     // mills N. Routes through the SHARED millOnePlayer chokepoint, so the mill-doubler (CR 616) and the
-    // milled-trigger binds fire exactly like every other mill instruction (CR 701.13a).
+    // milled-trigger binds fire exactly like every other mill instruction (CR 701.17a).
     const n = Math.max(0, rider.count || 0);
     const next = millOnePlayer(state, cap.controller, n);
     return logEvent(next, { kind: "spell-effect", effect: "rider-mill", controller: cap.controller, amount: n });
@@ -255,7 +255,7 @@ export function applyDestroyDiesCopy(state, atom, ctx) {
  * already left) is a logged no-op via the findPermanent guard + moveCardToZone's own guard.
  */
 /**
- * ⭐ CHAMPION (CR 702.71a) — "Champion a Kithkin (When this enters, sacrifice it unless you exile another
+ * ⭐ CHAMPION (CR 702.72a) — "Champion a Kithkin (When this enters, sacrifice it unless you exile another
  * Kithkin you control. When this leaves the battlefield, that card returns to the battlefield.)"
  * Thoughtweft Trio, Changeling Berserker, Nova Chaser, Mistbind Clique and five more.
  *
@@ -387,7 +387,7 @@ export function matchSacrificeAnotherForPower(oracle) {
 }
 
 /**
- * VICTIM-POOL predicate (CR 701.16) — does card `c` belong to the pool a `what`-typed edict lets a sacrificer
+ * VICTIM-POOL predicate (CR 701.21) — does card `c` belong to the pool a `what`-typed edict lets a sacrificer
  * give up? "creature" (default / unset, so every legacy creature edict is byte-stable) | "permanent" (any
  * permanent) | the TYPED pools "land"/"artifact"/"enchantment"/"artifactOrEnchantment". The typed pools use the
  * SAME word-anchored type predicates the mass-removal atoms use (isLandCard/isArtifactCard/isEnchantmentCard),
@@ -397,7 +397,7 @@ export function matchSacrificeAnotherForPower(oracle) {
  * pools' creature-ness, which the caller may pass in from the board (`creatureNow`, below).
  */
 const SACRIFICE_POOLS = new Set(["creature", "permanent", "land", "artifact", "enchantment", "artifactOrEnchantment", "artifactCreatureOrLand", "nonbattlePermanent", "nonbasicLand", "nontokenCreature", "creatureToken", "planeswalker", "creatureOrPlaneswalker"]);
-// NAMED-TOKEN pool (CR 701.16) — "Sacrifice a Food token." The generic nouns above have always worked; the
+// NAMED-TOKEN pool (CR 701.21) — "Sacrifice a Food token." The generic nouns above have always worked; the
 // named-token nouns had no pool, so the clause produced no atom at all. Carried as a `token:<name>` string
 // rather than one enum entry per kind, validated against NAMED_TOKENS — the SAME registry the mint side
 // uses — so a name the engine cannot mint can never become a pool that is silently empty at resolution.
@@ -550,7 +550,7 @@ export function advanceSacrificeChain(state, { queue, sourceName = null, chosen 
     const player = next.players?.[head.playerId];
     if (!player) { q = q.slice(1); continue; } // sacrificer left the game (CR 800.4a) → skip
     const taken = new Set(picked.map((v) => v.permId));
-    // VICTIM POOL — `head.what` selects which permanents this sacrificer may give up (CR 701.16). Default
+    // VICTIM POOL — `head.what` selects which permanents this sacrificer may give up (CR 701.21). Default
     // "creature" (every legacy edict + a head with no `what`, so the migrated creature edicts are byte-stable);
     // "permanent" broadens to ALL the sacrificer's permanents (Silverclad Ferocidons etc.). The TYPED pools
     // ("land"/"artifact"/"enchantment"/"artifactOrEnchantment" — Yawning Fissure, Tribute to the Wild, the
@@ -628,7 +628,7 @@ export function advanceCreatureBatchSacrifice(state, { queue, chosen, sourceName
 
 /**
  * EDICTS — sacrifice-as-an-effect, resolved through the chain above. The SACRIFICING player chooses which
- * permanent (CR 701.16/701.21), never the caster. `atom.who` selects the sacrificers:
+ * permanent (CR 701.21), never the caster. `atom.who` selects the sacrificers:
  *   - "target" (default, #214) — the player(s) targeted at cast (Diabolic Edict / Cruel Edict / Geth's Verdict).
  *   - "eachPlayer" (Innocent Blood / Reign of the Pit) — every player.
  *   - "eachOpponent" (Liliana's Triumph / Skull Storm) — every opponent.
@@ -729,7 +729,7 @@ function applySacrifice(state, atom, ctx) {
 }
 
 /**
- * SACRIFICE-EDICT clause parser (CR 701.16) — migrated from parser.js parseExtendedAtom (seam batch 21 / Wave C).
+ * SACRIFICE-EDICT clause parser (CR 701.21) — migrated from parser.js parseExtendedAtom (seam batch 21 / Wave C).
  * The contiguous EDICT block (each sacrificer gives up ONE creature of their choice; resolved through
  * applySacrifice → advanceSacrificeChain), three matchers in original first-match order:
  *   target (player|opponent) sacrifices a creature  → who via targetType (offensive edict)
@@ -834,11 +834,11 @@ export function sacrificeEdictClauseParser(clause) {
   if (m) return { op: "sacrifice", who: "eachOpponent", what: EDICT_POOL[m[1]] };
   // FLARE OF MALICE (POD-SIM THREE · BI-4, 2026-09-05): "Each opponent sacrifices a creature or planeswalker with the greatest
   // mana value among creatures and planeswalkers they control." — the edict over a creature-or-planeswalker pool, narrowed
-  // PER SACRIFICER to their greatest mana value (ties: the sacrificer chooses among them, CR 701.16 — the pause).
+  // PER SACRIFICER to their greatest mana value (ties: the sacrificer chooses among them, CR 701.21 — the pause).
   if (/^each opponent sacrifices a creature or planeswalker with the greatest mana value among creatures and planeswalkers they control$/.test(t)) {
     return { op: "sacrifice", who: "eachOpponent", what: "creatureOrPlaneswalker", greatestMv: true };
   }
-  // PERMANENT-EDICT (CR 701.16) — "sacrifices a permanent of their choice" (Silverclad Ferocidons, Martyr's
+  // PERMANENT-EDICT (CR 701.21) — "sacrifices a permanent of their choice" (Silverclad Ferocidons, Martyr's
   // Bond, Possessed Portal, the Rishadan pirates, Crack the Earth). The SACRIFICING player chooses ANY
   // permanent they control, not just a creature — so the victim pool is broadened to ALL their permanents in
   // advanceSacrificeChain (what:"permanent"). Genuinely resolvable + hidden-info-safe: each sacrificer's
@@ -852,7 +852,7 @@ export function sacrificeEdictClauseParser(clause) {
   if (m) return { op: "sacrifice", who: "eachPlayer", what: "permanent" };
   m = t.match(/^each (?:opponent|other player) sacrifices a permanent(?: of (?:their|his or her) choice)?$/);
   if (m) return { op: "sacrifice", who: "eachOpponent", what: "permanent" };
-  // TYPED-EDICT (CR 701.16) — "sacrifices a/an <land|artifact|enchantment|artifact or enchantment>" (Yawning
+  // TYPED-EDICT (CR 701.21) — "sacrifices a/an <land|artifact|enchantment|artifact or enchantment>" (Yawning
   // Fissure: "Each opponent sacrifices a land of their choice."; Tribute to the Wild: "…an artifact or
   // enchantment of their choice."; the Baleful Beholder "…an enchantment" mode). The sacrificing player chooses
   // a permanent OF THAT TYPE (advanceSacrificeChain narrows the pool via sacrificePoolMatch). Genuinely
@@ -1639,7 +1639,7 @@ export const removalResolvers = {
   "mobilize-sac": applyMobilizeSac,                   // KW-MOBILIZE's delayed half (CR 702.181a) — the mobilized Warriors, sacrificed together
   "bounce-at-end-of-combat": applyBounceAtEndOfCombat, // ④-BB — "return that creature to its owner's hand at end of combat" (Wall of Tears)
   "self-at-end-of-combat": applySelfAtEndOfCombat, // ④-AX — "sacrifice it / return it to its owner's hand at end of combat" (the attacks-or-blocks self class)
-  "champion": applyChampion, // ===== CHAMPION (CR 702.71a) ===== exile ANOTHER own nontoken creature of the named type, linked to the source via the shared detain resolver (so the return is the one already proven); sacrifice the source when no legal offering exists
+  "champion": applyChampion, // ===== CHAMPION (CR 702.72a) ===== exile ANOTHER own nontoken creature of the named type, linked to the source via the shared detain resolver (so the return is the one already proven); sacrifice the source when no legal offering exists
   "mass-destroy-treasure-per-nontoken": applyMassDestroyTreasurePerNontoken, // BLOOD-MONEY — destroy all creatures + a tapped Treasure per nontoken creature destroyed
   "destroy-not-chosen-type": applyDestroyNotChosenType, // KINDRED DOMINANCE (#701) — choose a creature type on resolution, destroy every creature that isn't of it
   "mass-destroy-add-mana-per-destroyed": applyMassDestroyAddManaPerDestroyed, // CULLING RITUAL (#587) — destroy each nonland permanent with mana value N or less + one {X}-or-{Y} mana per permanent destroyed

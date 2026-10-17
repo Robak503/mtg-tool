@@ -1518,7 +1518,7 @@ export function LookTopTakePanel({ decision, onChoose }) {
 
 /**
  * EDICTS — interactive sacrifice choice (Diabolic Edict / Cruel Edict / Geth's Verdict). Shown to the
- * human when THEY are the edict's target: pick which of your OWN creatures to sacrifice (CR 701.16 — the
+ * human when THEY are the edict's target: pick which of your OWN creatures to sacrifice (CR 701.21 — the
  * sacrificing player chooses, not the caster). Resumes the suspended spell via session.applySacrificeChoice.
  * Same non-blocking side-sheet as the dig/discard pickers; the sacrifice is mandatory (the engine only
  * pauses here when ≥2 creatures could be sacrificed — 0/1 resolve without a choice), so there's no decline.
@@ -2220,7 +2220,7 @@ export function SacrificeChoicePanel({ decision, onChoose }) {
 
 /**
  * EACH-PLAYER discard (EP-2 — Mind Rot / Fugue / Delirium Skeins). Shown to the human when THEY are a
- * discarder: pick which card from your OWN hand to pitch (CR 701.8 — the discarding player chooses, not
+ * discarder: pick which card from your OWN hand to pitch (CR 701.9 — the discarding player chooses, not
  * the caster). A discard of N>1 (or "each player discards N") re-surfaces this panel once per card —
  * `decision.remaining` is how many more this player still owes. Resumes the chain via
  * session.applyDiscardChoice. Same non-blocking side-sheet as the dig/sacrifice pickers; the discard is

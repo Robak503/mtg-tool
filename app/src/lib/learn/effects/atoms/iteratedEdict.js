@@ -1,7 +1,7 @@
 /**
  * effects/atoms/iteratedEdict.js — the X-iterated multi-mode edict atom (Torment of Hailfire).
  *
- * MODELS (CR 118.9 / 701.16 / 701.8): "Repeat the following process X times. Each opponent loses 3 life
+ * MODELS (CR 118.9 / 701.16 / 701.9): "Repeat the following process X times. Each opponent loses 3 life
  * unless that player sacrifices a nonland permanent of their choice or discards a card."
  *
  * SHAPE — an {X}-cost sorcery whose body is an X-times-repeated, per-opponent, THREE-mode edict. Each
@@ -37,7 +37,7 @@
  * routes to the Arbiter. X=0 (cast for free / X chosen 0) is a clean no-op (an empty queue).
  *
  * Hidden-info safe: the chooser IS the affected opponent; their board (sac pool) and hand SIZE are public,
- * and the discard's specific card is chosen by them at resolution via the SAME discard chain (CR 701.8),
+ * and the discard's specific card is chosen by them at resolution via the SAME discard chain (CR 701.9),
  * so the caster never sees or cherry-picks an opponent's hand.
  */
 

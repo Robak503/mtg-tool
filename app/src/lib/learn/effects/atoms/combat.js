@@ -123,7 +123,7 @@ export function applyTapEffect(state, atom, ctx, tap) {
 
 /**
  * UNTAP-UP-TO-N-LANDS (Finale of Revelation "untap up to five lands") — a NON-targeted, CONTROLLER-scoped
- * untap of up to `atom.uptoN` of the controller's OWN tapped lands (CR 701.20). Untapping is never a downside
+ * untap of up to `atom.uptoN` of the controller's OWN tapped lands (CR 701.26). Untapping is never a downside
  * and the controller would always untap the MAXIMUM available (up to the cap), so this is a deterministic
  * greedy auto-untap (min(cap, tapped lands)) — no interactive choice needed and no CREED risk (over-untapping
  * an opponent's land / a non-land is impossible; only the controller's tapped lands, in battlefield order, are
@@ -641,7 +641,7 @@ function fightPairRefs(state, ctx) {
   let fighterT = ts.find(t => t.role === "fighter");
   let targetT = ts.find(t => t.role === "target");
   if (!fighterT && !targetT) { fighterT = ts[0]; targetT = ts[1]; } // untagged → positional (fighter, then dealee)
-  // CR 701.12 / "another target creature": the two must be DISTINCT objects. If a malformed input gave the
+  // CR 701.14 / "another target creature": the two must be DISTINCT objects. If a malformed input gave the
   // same id for both, drop the second so we never make a creature fight itself (a no-op on the missing half).
   if (fighterT && targetT && fighterT.id === targetT.id) targetT = undefined;
   return {
@@ -826,7 +826,7 @@ export function applyPumpPair(state, atom, ctx) {
  * damage), so atomTargetIntent → "enemy" and the trigger-flush chooser picks an opponent's creature.
  */
 /**
- * GOAD (CR 701.38 — ④-AI, 2026-09-03): "goad target creature [an opponent controls]" — Jeering Homunculus, Bothersome
+ * GOAD (CR 701.15 — ④-AI, 2026-09-03): "goad target creature [an opponent controls]" — Jeering Homunculus, Bothersome
  * Quasit, Taunting Kobold, Maeve; "goad target creature that player controls" through the subject peel's referent
  * fallback (Alela, Frenzied Gorespawn); ~56 carriers. The two rules of goad are the two pseudo-keywords the goad-AURA
  * slice already grants and the attack planner already reads layer-aware: `mustAttack` ("attacks each combat if
@@ -856,7 +856,7 @@ export function applyGoad(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "goad", targets: targets.map(t => t.id) });
 }
 
-// ===== DETAIN (CR 701.29, ④-AZ 2026-09-04 — Azorius Arrester, Isperia's Skywatch, Soulsworn Spirit "When this creature
+// ===== DETAIN (CR 701.35, ④-AZ 2026-09-04 — Azorius Arrester, Isperia's Skywatch, Soulsworn Spirit "When this creature
 // enters, detain target creature an opponent controls") ===== "Until your next turn, that creature can't attack or block
 // and its activated abilities can't be activated." Three layer-6 grants the engine already enforces — cantAttack (the
 // Pacifism-class attacker gate), cantBlock (canBlockAttacker), activatedAbilitiesLocked (lockedActivationSource, mana
@@ -1342,7 +1342,7 @@ export function combatKeywordClauseParser(clause) {
     const n = SMALL_NUM[multiTapM[1]];
     if (n >= 2) return { op: "tap", targetType: multiTapM[2] === "creatures" ? "creature" : "permanent", restrictions: [], maxTargets: n, minTargets: 0, ...(multiTapM[3] ? { noUntapNext: true } : {}) };
   }
-  // MASS TAP, OPPONENT-SCOPED (CR 701.21a — Cryptic Command, EDHREC #1617: "Tap all creatures your opponents
+  // MASS TAP, OPPONENT-SCOPED (CR 701.26a — Cryptic Command, EDHREC #1617: "Tap all creatures your opponents
   // control"). Reuses the shipped eachOpponentCreature mass scope (the Scourge-of-Fleets bounce set) — a
   // NON-CHOSEN, layer-aware, opponents-only creature set — so nothing new is enumerated. Only the opponent
   // form is admitted: a symmetric "tap all creatures" would need the eachCreature scope AND would tap the
@@ -1669,7 +1669,7 @@ export function combatKeywordClauseParser(clause) {
   if (us) return { op: "untap", targetType: us[1] };
   // UNTAP-UP-TO-N-LANDS (Cloud of Faeries / Peregrine Drake "untap up to N lands"; Treachery, Snap, Frantic
   // Search, et al.) — a NON-targeted, CONTROLLER-scoped untap of up to N of the controller's OWN tapped lands
-  // (CR 701.20). This is the SAME atom Finale of Revelation's anchor already emits (op:"untap-lands", uptoN,
+  // (CR 701.26). This is the SAME atom Finale of Revelation's anchor already emits (op:"untap-lands", uptoN,
   // targetType:null) and the SAME applyUntapLands resolver plays: a deterministic greedy auto-untap of up to
   // the cap, no chosen target and no CREED risk (only the controller's own tapped lands, in battlefield order,
   // are touched — never an opponent's land, never a non-land, verified live). The optional "you control" is
@@ -1686,7 +1686,7 @@ export function combatKeywordClauseParser(clause) {
   }
   // UNTAP-ALL-LANDS (Bear Umbra's granted attack trigger "untap all lands you control"; Sword of Feast and
   // Famine's rider; Nature's Will) — a NON-targeted, CONTROLLER-scoped untap of EVERY one of the controller's
-  // OWN tapped lands (CR 701.20 — no cap). The SAME applyUntapLands resolver plays it via `all:true` (an
+  // OWN tapped lands (CR 701.26 — no cap). The SAME applyUntapLands resolver plays it via `all:true` (an
   // unbounded greedy auto-untap of the controller's own tapped lands, in battlefield order, live-verified as
   // lands — never an opponent's land, never a non-land, no chosen target, no CREED risk). Whole-clause anchored
   // ($): a qualified form ("untap all lands" without "you control" is accepted since the resolver already scopes
@@ -1694,9 +1694,9 @@ export function combatKeywordClauseParser(clause) {
   // The optional leading "you " is the second-conjunct form of an and-compound trigger effect ("that
   // player discards a card and YOU untap all lands you control" — Sword of Feast and Famine): the split
   // hands this parser "you untap all lands you control". The subject is redundant (the resolver already
-  // scopes to the controller — CR 701.20), so both forms route to the identical atom.
+  // scopes to the controller — CR 701.26), so both forms route to the identical atom.
   if (/^(?:you )?untap all lands(?: you control)?$/.test(t)) return { op: "untap-lands", all: true, targetType: null };
-  // MASS-OWN-CREATURE UNTAP (CR 701.20) — "untap all/each creature(s) you control" (Aggravated Assault #699,
+  // MASS-OWN-CREATURE UNTAP (CR 701.26) — "untap all/each creature(s) you control" (Aggravated Assault #699,
   // Aurelia #820, Moraug #995, Great Train Heist #1118, Port Razer, Savage Beating, Anzrag). The SAME
   // applyUntapLands resolver plays it with scope:"creature": a deterministic greedy untap of the
   // CONTROLLER'S OWN tapped creatures, no chosen target, no cap. Untapping your own board is never a
@@ -2418,7 +2418,7 @@ export function pumpClauseParser(clause) {
   // whole-clause anchored, so a filtered/rider form fails the `$` → low → Arbiter (FN-safe).
   const cmb = t.match(/^(attacking|blocking) creatures get ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (cmb) return { op: "pump", scope: cmb[1] === "attacking" ? "attackingCreatures" : "blockingCreatures", ptDelta: { p: parseInt(cmb[2], 10), t: parseInt(cmb[3], 10) } };
-  // BATTLE CRY (BLITZ BC-1, CR 702.90a) — "each other attacking creature gets +N/+M until end of turn":
+  // BATTLE CRY (BLITZ BC-1, CR 702.91a) — "each other attacking creature gets +N/+M until end of turn":
   // the Trumpet-Blast team pump EXCLUDING the source (excludeSource → atomTargets drops ctx.sourceId).
   // Fired from the keyword's synthesized attacks trigger; whole-clause anchored (a rider → LOW).
   const boc = t.match(/^each other attacking creature gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
@@ -2947,7 +2947,7 @@ export function setBasePtTargetClauseParser(clause) {
  * → the two-chosen-target fight-pair forms (a/b/c/d) → source-power-fanout. Each form is whole-clause anchored
  * (`$`) so any rider leaves residue → null → low → Arbiter (CREED — never a mis-wired or half-modeled fight).
  *
- * ===== ETB-FIGHT (CR 701.12) ===== "[this creature|it] fights (up to one) target creature you don't
+ * ===== ETB-FIGHT (CR 701.14) ===== "[this creature|it] fights (up to one) target creature you don't
  * control" (Kogla, Apex Altisaur, Kogla and Yidaro modal). The SOURCE creature and the chosen creature
  * each deal damage equal to their power to the other, simultaneously (resolver fightCreature). The head
  * is accepted DIRECTLY here ("it" / "this creature") — triggers.js' it→this-creature rewrite is NOT
@@ -2957,13 +2957,13 @@ export function setBasePtTargetClauseParser(clause) {
  * mis-wired one-sided fight. restrictions:{controller:opponent} so atomTargets/enumeration only offers
  * an enemy creature; optionalTarget for "up to one" (0-or-1, declinable → clean no-op).
  *
- * ===== ETB-FIGHT — SOURCE-BOUND "ANOTHER" (CR 701.12) ===== "[this creature|it] fights another target
+ * ===== ETB-FIGHT — SOURCE-BOUND "ANOTHER" (CR 701.14) ===== "[this creature|it] fights another target
  * creature" (Brash Taunter's activated ability, Territorial Allosaurus' kicked-ETB, Atzocan Archer's
  * "you may have it fight …", Nessian Wilds Ravager's tribute if-not). DISTINCT shape from the fight-pair
  * forms: the subject is the SOURCE ("this creature"|"it" → fighter = ctx.sourceId, resolver
  * fightCreature), NOT a chosen "target creature you control" (the fight-pair (d) Ulvenwald Tracker case,
  * which starts with "target creature" and can never reach this source-anchored head). "another" (CR
- * 701.12) means the dealee must be DISTINCT from the source — modeled by restrictions:{controller:opponent}
+ * 701.14) means the dealee must be DISTINCT from the source — modeled by restrictions:{controller:opponent}
  * (the source is the controller's, so an opponent-only enumeration EXCLUDES it; the cast/flush chooser
  * also aims an enemy via atomTargetIntent→"enemy"). Narrowing the dealee to enemies is a SAFE
  * false-negative vs the strict CR "any other creature" (you'd never choose to fight your own creature),
@@ -2973,7 +2973,7 @@ export function setBasePtTargetClauseParser(clause) {
  * Archer / Nessian Wilds Ravager. fightAtomMisplaced still forces the WHOLE program LOW unless this fight
  * is the SOLE atom (no half-resolve).
  *
- * ===== FIGHT-PAIR / DAMAGE-TARGET-POWER (CR 701.12 / 119) ===== the TWO-CHOSEN-TARGET forms — the
+ * ===== FIGHT-PAIR / DAMAGE-TARGET-POWER (CR 701.14 / 119) ===== the TWO-CHOSEN-TARGET forms — the
  * SPELL/activated shape where the FIGHTER (the dealer) is itself a chosen target, NOT the source:
  *   "Target creature you control fights target creature you don't control"            (Prey Upon, Pounce)
  *   "Target creature you control deals damage equal to its power to target creature you don't control"
@@ -3065,14 +3065,14 @@ export function fightClauseParser(clause) {
       op: "damage-target-power", targetType: "creatureOrPlaneswalker", restrictions: [{ kind: "controller", who: "opponent" }], role: "target",
       secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "fighter",
     };
-    // (c) "target creature fights another target creature"  (any-side, the two must be DISTINCT — CR 701.12)
+    // (c) "target creature fights another target creature"  (any-side, the two must be DISTINCT — CR 701.14)
     m = t.match(/^target creature fights another target creature$/);
     if (m) return {
       op: "fight-pair", targetType: "creature", restrictions: [], role: "target",
       secondaryTargetType: "creature", secondaryRestrictions: [], secondaryRole: "fighter", distinct: true,
     };
     // (d) "target creature you control fights another target creature" (Ulvenwald Tracker) — the FIGHTER is
-    // yours; the dealee is ANY OTHER creature ("another" → distinct, CR 701.12). The dealee carries no
+    // yours; the dealee is ANY OTHER creature ("another" → distinct, CR 701.14). The dealee carries no
     // controller restriction (it may legally be your own), but the cast-path AI still aims it at an enemy
     // (its two-target chooser only offers the enemy as the `target` role) and a human picks interactively.
     m = t.match(/^target creature you control fights another target creature$/);
@@ -3179,7 +3179,7 @@ export function applyUntapRemoveFromCombat(state, atom, ctx) {
 
 export const combatResolvers = {
   "untap-earthbent-land": applyUntapEarthbentLand, // the ", then untap that land" tail of an earthbend (Avatar Kyoshi) — reads the earthbendLandId stamp
-  "fight": fightCreature, // ETB-FIGHT (CR 701.12) — source + target creature deal damage = power to each other, simultaneously
+  "fight": fightCreature, // ETB-FIGHT (CR 701.14) — source + target creature deal damage = power to each other, simultaneously
   "prevent-next-damage": applyPreventNextDamage, // PV-1 (CR 615) — floating this-turn prevent-the-next-N shield
   "set-base-pt-team": applySetBasePtTeam, // SET-BASE-PT-TEAM (Biomass Mutation) — team layer-7b base-P/T set to X/X until end of turn
   "set-base-pt-target": applySetBasePtTarget, // SET-BASE-PT-TARGET (BLITZ SU-1 — Diminish / Square Up) — chosen-target layer-7b base-P/T set to N/N until end of turn
@@ -3195,8 +3195,8 @@ export const combatResolvers = {
   "cant-block": applyCantBlock,
   "cant-block-source": applyCantBlockSource, // PAIRWISE CANT-BLOCK (④-BA) — "target creature can't block THIS creature this turn"
   "must-block-source": applyMustBlockSource, // PAIRWISE MUST-BLOCK (③ · 13) — "target creature blocks THIS creature this turn if able"
-  "goad": applyGoad, // GOAD (CR 701.38, ④-AI) — mustAttack + goaded until the goader's next turn; the goader on the source
-  "detain": applyDetain, // DETAIN (CR 701.29, ④-AZ) — cantAttack + cantBlock + activatedAbilitiesLocked until the detainer's next turn
+  "goad": applyGoad, // GOAD (CR 701.15, ④-AI) — mustAttack + goaded until the goader's next turn; the goader on the source
+  "detain": applyDetain, // DETAIN (CR 701.35, ④-AZ) — cantAttack + cantBlock + activatedAbilitiesLocked until the detainer's next turn
   "become-color": applyBecomeColor,            // COLOUR CHANGE (CR 105.1) — setColor had only the animate writer
   "become-type": applyBecomeType,              // CARD-TYPE ADD (CR 613.1d, play-weighted #511 — Liquimetal Torque) — "becomes an artifact in addition to its other types"
   "grant-protection": applyGrantProtection,   // PROTECTION-FROM-A-COLOUR (CR 702.16) — the layer op existed; nothing parsed to it // CANT-BLOCK — "target creature can't block this turn" → layer-6 endOfTurn cantBlock grant
@@ -3206,7 +3206,7 @@ export const combatResolvers = {
   "grant-keywords-group": applyGrantKeywordsGroup,
   "lose-keywords-group": applyLoseKeywordsGroup, // LOSE-KEYWORDS-GROUP — "(creatures|permanents) your opponents control lose KW until end of turn" (Shadowspear) // GROUP-KEYWORD-GRANT — "(creatures|permanents) you control gain KW until end of turn"
   "damage-self-power": applyDamageSelfPower, // SELF-DAMAGE-BY-POWER — "target/each creature deals damage to itself equal to its power"
-  "fight-pair": applyFightPair, // FIGHT-PAIR (CR 701.12) — two CHOSEN creatures (fighter + target) deal damage = power to each other, simultaneously
+  "fight-pair": applyFightPair, // FIGHT-PAIR (CR 701.14) — two CHOSEN creatures (fighter + target) deal damage = power to each other, simultaneously
   "damage-target-power": applyDamageTargetPower, // DAMAGE-TARGET-POWER (CR 119) — one-way: only the chosen fighter deals damage = its power to the chosen target
   "pump-pair": applyPumpPair, // PUMP-PAIR — two chosen creatures: fighter gets +buff, target gets -debuff (Leeching Bite / Consume Strength / Schismotivate)
 };

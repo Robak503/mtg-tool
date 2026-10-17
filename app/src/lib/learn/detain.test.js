@@ -1,5 +1,5 @@
 /**
- * detain.test.js — ④-AZ (2026-09-04 night): DETAIN (CR 701.29) — "Until your next turn, that creature can't attack or block
+ * detain.test.js — ④-AZ (2026-09-04 night): DETAIN (CR 701.35) — "Until your next turn, that creature can't attack or block
  * and its activated abilities can't be activated." Three layer-6 grants the engine already enforced (cantAttack — the
  * Pacifism-class attacker gate; cantBlock — canBlockAttacker; activatedAbilitiesLocked — lockedActivationSource) under
  * goad's untilOwnersNextTurn duration (owner = the detainer). Azorius Arrester / Isperia's Skywatch / Soulsworn Spirit

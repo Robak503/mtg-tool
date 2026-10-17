@@ -1,6 +1,6 @@
 /**
  * SAC-LAND-RAMP (Toph TIER-2) — "Sacrifice a land." as a RESOLUTION EFFECT (the controller self-sacs one of
- * their lands of their choice, CR 701.16), the lead clause of the sac-then-fetch ramp spells:
+ * their lands of their choice, CR 701.21), the lead clause of the sac-then-fetch ramp spells:
  *   "Sacrifice a land. Search your library for up to two basic land cards, put them onto the battlefield
  *    tapped, then shuffle."   (Roiling Regrowth, Cycle of Renewal)
  *
@@ -80,7 +80,7 @@ describe("SAC-LAND-RAMP — classification (CREED whole-card)", () => {
     expect(isHigh("Sacrifice two lands. Draw a card.")).toBe(true);
     expect(isHigh("Each player sacrifices two lands. Draw a card.")).toBe(false); // a COUNT on the each-player edict stays LOW
     // NOTE: "Each player sacrifices a land" (the bare TYPED-EDICT) is now NATIVE (each sacrificer chooses a land,
-    // CR 701.16 — see edicts.test.js TYPED-EDICT); it is the each-player land EDICT, NOT the controller self-sac
+    // CR 701.21 — see edicts.test.js TYPED-EDICT); it is the each-player land EDICT, NOT the controller self-sac
     // land-ramp this module guards. "Each player sacrifices a land. Draw a card." composes HIGH (edict + draw).
   });
 });

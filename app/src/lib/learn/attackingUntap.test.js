@@ -1,5 +1,5 @@
 /**
- * attackingUntap.test.js — "untap all ATTACKING creatures" (CR 506.3 + 701.20), the third scope on the
+ * attackingUntap.test.js — "untap all ATTACKING creatures" (CR 506.3 + 701.26), the third scope on the
  * mass-untap resolver.
  *
  * The axis pattern one line deep, again: the untap resolver already did the deterministic mass untap and

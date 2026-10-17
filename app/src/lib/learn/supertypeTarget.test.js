@@ -3,7 +3,7 @@
  * Hero's Demise, Tsabo Tavoc.
  *
  * ⭐⭐ ELEVENTH "BUILT ENGINE, PARTIAL IGNITION" OF THIS RUN. The `supertype` restriction kind and its
- * evaluator — word-bounded, FRONT-FACE only (CR 712.4a), fail-closed on a missing type line — already
+ * evaluator — word-bounded, FRONT-FACE only (CR 712.8), fail-closed on a missing type line — already
  * existed, with exactly ONE emitter: the Mithril Coat / Mjölnir self-attach in stack.js. The shared target
  * grammar never emitted it, so every targeted legendary-removal card in the corpus parked.
  *
@@ -88,7 +88,7 @@ describe("⭐⭐ LAW 6 — the enumerated pool, with the DFC named", () => {
       players: { ...s.players, ai1: { ...s.players.ai1, battlefield: [
         mk("LEGEND", "Legendary Creature — Human Wizard"),
         mk("PLAIN", "Creature — Bear"),
-        // ⭐ CR 712.4a — the combined "Front // Back" type line contains the word "Legendary", but the FRONT
+        // ⭐ CR 712.8 — the combined "Front // Back" type line contains the word "Legendary", but the FRONT
         // face is not legendary. A naive substring read would offer it; the evaluator reads front-face only.
         mk("LEGEND_ON_BACK_FACE", "Creature — Bear // Legendary Creature — Angel"),
       ] } } };

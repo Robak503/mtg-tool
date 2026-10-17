@@ -271,7 +271,7 @@ describe("parseEffectProgram — each-player / target-player draw", () => {
 });
 
 // ===== EACH-PLAYER ===== discard (EP-2) — "target/each player discards N cards" (the DISCARDING player
-// chooses which cards, CR 701.8). Anchored allowlist: a bare numeric count only. "at random" (RNG, no
+// chooses which cards, CR 701.9). Anchored allowlist: a bare numeric count only. "at random" (RNG, no
 // choice), X, "their hand", "half", the "target opponent" form (deferred — 0 clean cards this slice, all
 // have riders), or any unmodeled rider fails → low → Arbiter. Composes HIGH when every clause is modeled.
 describe("parseEffectProgram — each-player / target-player discard (EP-2)", () => {
@@ -1401,7 +1401,7 @@ const MUST_STAY_HIGH = [
   "Each player sacrifices a creature.",                                         // bare form without "of their choice" (Tergrid's Shadow-adjacent)
 
   // ── EACH-PLAYER discard (EP-2) — "target/each player discards N cards" (the DISCARDING player chooses
-  // at resolution, CR 701.8) + a modeled compose (Fill with Fright = discard + scry; Unhinge = discard +
+  // at resolution, CR 701.9) + a modeled compose (Fill with Fright = discard + scry; Unhinge = discard +
   // draw; Consult the Necrosages = modal draw|discard). Full behavior modeled via the pending-choice chain. ──
   "Target player discards two cards.",                                          // Mind Rot
   "Target player discards three cards.",                                        // Fugue / Three Tragedies

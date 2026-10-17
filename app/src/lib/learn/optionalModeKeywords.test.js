@@ -7,11 +7,11 @@
  *
  *   delve     (CR 702.66a)  — "Each card you exile from your graveyard while casting this spell pays for
  *                             {1}." A pure cost REDUCTION. Not delving = paying full cost.
- *   replicate (CR 702.55a)  — an optional additional cost; paid zero times, the spell is copied zero times,
+ *   replicate (CR 702.56a)  — an optional additional cost; paid zero times, the spell is copied zero times,
  *                             which is exactly the printed spell.
  *   fuse      (CR 702.102a) — "You may cast one or both halves of this card from your hand." The engine
  *                             already casts either half; fuse only adds the BOTH mode.
- *   myriad    (CR 702.115a) — "…YOU MAY create a token that's a copy of this creature attacking that
+ *   myriad    (CR 702.116a) — "…YOU MAY create a token that's a copy of this creature attacking that
  *                             player. Exile those tokens at end of combat." Declining is a legal attack,
  *                             and the tokens would be exiled at end of combat regardless.
  *

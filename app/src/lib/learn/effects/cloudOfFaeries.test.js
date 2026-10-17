@@ -8,7 +8,7 @@
  * "untap target land" match, no bare "up to N lands" matcher). combatKeywordClauseParser now emits the
  * EXISTING op:"untap-lands" atom (uptoN, targetType:null) that Finale of Revelation's anchor already uses
  * and that applyUntapLands already plays — a deterministic greedy auto-untap of up to N of the CONTROLLER'S
- * OWN tapped lands (CR 701.20). No chosen target, so the ETB trigger routes natively (α1 allowlist), and the
+ * OWN tapped lands (CR 701.26). No chosen target, so the ETB trigger routes natively (α1 allowlist), and the
  * card's other text is fully modeled (Flying keyword; Cycling {2} via parseCyclingCost) → native-trigger.
  *
  * CREED: the atom untaps ONLY the controller's own tapped lands, in battlefield order, capped at N — never an

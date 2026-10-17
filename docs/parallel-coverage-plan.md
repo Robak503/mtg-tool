@@ -90,7 +90,7 @@ scoreboard + live coverage number; cut a release at milestones. Then self-pace (
 A **false-negative is SAFE** — if you can't fully model a card's text, route it to the Arbiter (the
 program parses LOW). A **false-positive is FORBIDDEN**: claiming a card is native and then mis-resolving
 it, dropping a clause, hitting the wrong target, or losing/duplicating a card. Anchored, all-or-nothing
-matchers (`^…$`), front-face type only (CR 712.4a), and a guard for every rider. Never invent rule
+matchers (`^…$`), front-face type only (CR 712.8a off the battlefield, 712.8d on it), and a guard for every rider. Never invent rule
 numbers or card text. `npm`/`lint`/`coverage` always from `app/`. Stage explicit paths (`git add <path>`,
 never `git add -A` — it re-adds an untracked `ACADEMY-CONVO.md`). Sweep stray scratch `.mjs` before lint.
 

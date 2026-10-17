@@ -40,7 +40,7 @@ import { auraEntryHostSpec } from "./staticAbilityParser.js"; // an Aura is a wi
 import { permanentHasCardType, permanentHasTypeWord } from "./layers.js"; // the type-line audit: a copy CHOICE is the permanent's types now (layers imports nothing of this module, so no cycle)
 
 const typeLine = (card) => String(card?.type || card?.type_line || "");
-// The copy CHOICE reads the permanent's types now, its face that is up (layers.permanentHasCardType — CR 712.4a, 613.1d; the
+// The copy CHOICE reads the permanent's types now, its face that is up (layers.permanentHasCardType — CR 712.8, 613.1d; the
 // type-line audit): a clone copies a transform creature only when its FRONT is a creature; a "creature or planeswalker" scope
 // (Spark Double) may copy a permanent whose front is a planeswalker, which then enters with its starting loyalty
 // (enterPermanent's castsAsPlaneswalker path) plus any conditional loyalty rider; an "artifact or creature" scope (Phyrexian
@@ -337,7 +337,7 @@ export function parseCloneSpec(card) {
   // since the clone isn't on the battlefield yet when candidates are gathered, "another" is naturally
   // satisfied, so it maps to the same youControl candidate set.
   // SCOPE "any artifact or creature on the battlefield" (Phyrexian Metamorph) — the copy may be a NON-creature
-  // ARTIFACT too (front-face, CR 712.4a). Copying an artifact snapshots its whole card (mana abilities /
+  // ARTIFACT too (front-face, CR 712.8d). Copying an artifact snapshots its whole card (mana abilities /
   // activated abilities resolve through the same runtime as the source, CR 707.2) and — with the addCardType
   // "it's an artifact" rider — the entering permanent is an artifact (non-creature artifacts enter without a
   // lethal-toughness SBA, so they don't die like a 0/0 clone). enterPermanent handles a non-creature card
@@ -534,12 +534,12 @@ export function cloneMvCap(cloneCard, spec, xValue = 0) {
  * itself isn't on the battlefield yet, so it can't be a candidate.
  *
  * SCOPE "youControlCreatureOrPw" (Spark Double) — the controller's CREATURES *and* PLANESWALKERS are both
- * legal (front-face, CR 712.4a). Both copy correctly: a creature copy enters as the snapshot; a planeswalker
+ * legal (front-face, CR 712.8). Both copy correctly: a creature copy enters as the snapshot; a planeswalker
  * copy enters with its starting loyalty via enterPermanent's castsAsPlaneswalker path. (No MV cap pairs with
  * this scope in the corpus; the cap filter still applies harmlessly if one ever did.)
  *
  * SCOPE "anyArtifactOrCreature" (Phyrexian Metamorph) — every ARTIFACT *and* every CREATURE on ANY player's
- * battlefield is legal (front-face, CR 712.4a — an artifact-front DFC copies as its artifact side). A copied
+ * battlefield is legal (front-face, CR 712.8d — an artifact-front DFC copies as its artifact side). A copied
  * NON-creature artifact enters as an artifact (no lethal SBA, doesn't die like a 0/0). An artifact creature
  * satisfies both predicates and is offered once (the `||`).
  */

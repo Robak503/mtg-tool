@@ -1,10 +1,10 @@
 /**
- * fabricate.js — KW-FABRICATE (CR 702.111a).
+ * fabricate.js — KW-FABRICATE (CR 702.123a).
  *
  *   Fabricate N — "When this creature enters, put N +1/+1 counters on it OR create N 1/1 colorless
  *                 Servo artifact creature tokens." (a modal ETB triggered ability; the controller chooses.)
  *
- * Fabricate is a CHOICE (CR 702.111a): as its ETB ability resolves, the controller picks EITHER the
+ * Fabricate is a CHOICE (CR 702.123a): as its ETB ability resolves, the controller picks EITHER the
  * counters OR the Servo tokens — not both. Both branches are modeled here so the whole card plays:
  *
  *   • COUNTERS branch — N +1/+1 counters added to the entering permanent. Applied by enterPermanent AS the
@@ -42,7 +42,7 @@ export function parseFabricate(card) {
 }
 
 /**
- * The self-play choice for Fabricate N (CR 702.111a). Deterministic, mirroring decideTribute: default to the
+ * The self-play choice for Fabricate N (CR 702.123a). Deterministic, mirroring decideTribute: default to the
  * +1/+1 COUNTERS branch — a strictly-correct, always-legal resolution that makes the source a bigger threat
  * from turn 1. Returns "counters" | "servos". (A future value heuristic — e.g. prefer Servos with an
  * aristocrat/go-wide payoff on board — is a pure refinement; both branches already resolve correctly.)

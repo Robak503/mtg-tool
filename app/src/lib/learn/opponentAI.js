@@ -1942,7 +1942,7 @@ export function pickAttackPlan(state, aiPlayerId, attackerActions, { policy = nu
 
   const plan = [];
   for (const opts of byPermanent.values()) {
-    // ⭐ GOAD, SECOND HALF (CR 701.38): "attacks a player other than YOU if able" — YOU being the GOADER,
+    // ⭐ GOAD, SECOND HALF (CR 701.15): "attacks a player other than YOU if able" — YOU being the GOADER,
     // which is normally NOT this creature's controller. The must-attack half rides the shared `mustAttack`
     // keyword and is already handled above; this is the defender restriction.
     // ⛔ "IF ABLE", NOT "NEVER" — the trap this whole feature turns on. If the goader is the ONLY player

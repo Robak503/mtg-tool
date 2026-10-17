@@ -2097,7 +2097,7 @@ export function advanceUntilDecision(
         continue;
       }
       // ===== EACH-PLAYER ===== discard (Mind Rot / Fugue / Delirium Skeins). pc.controller is the
-      // DISCARDING player (CR 701.8 — the victim chooses, not the caster), so `pause` already pauses the
+      // DISCARDING player (CR 701.9 — the victim chooses, not the caster), so `pause` already pauses the
       // human and auto-resolves an AI: the human picks which card to pitch; the AI discards its cheapest.
       // N>1 / "each player" re-set the next pick after this settles, so the loop sequences the whole chain.
       if (pc.kind === "discard") {
@@ -4360,7 +4360,7 @@ export function applySacrificeChoice(session, choice, opts = {}) {
 
 /**
  * ===== EACH-PLAYER ===== discard (EP-2) — the player picked which card to pitch from a `discard` decision
- * (Mind Rot / Fugue / Delirium Skeins). This fires when the HUMAN is a discarder (CR 701.8 — the discarding
+ * (Mind Rot / Fugue / Delirium Skeins). This fires when the HUMAN is a discarder (CR 701.9 — the discarding
  * player chooses). Validates the pick against the offered hand, discards it, advances the chain (more cards
  * / the next discarder, or resume the caster's riders), then re-derives the next decision. `choice.cardId`
  * is the chosen hand card id. A null/illegal pick re-surfaces the picker (a discard always pitches one when

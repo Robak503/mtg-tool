@@ -129,7 +129,7 @@ describe("B. the historic filter — a gate on the shared matcher, read off the 
     expect(cardMatchesTutorFilter({ name: "Opt", type: "Instant" }, f)).toBe(false);
   });
 
-  it("⛔ FRONT face only (CR 712.4a): an MDFC whose BACK is legendary is not historic in the library", () => {
+  it("⛔ FRONT face only (CR 712.8a): an MDFC whose BACK is legendary is not historic in the library", () => {
     const f = parseTutorFilter("historic");
     expect(cardMatchesTutorFilter({ name: "Probe MDFC", type: "Creature — Elf // Legendary Land" }, f)).toBe(false);
     expect(cardMatchesTutorFilter({ name: "Probe MDFC 2", type: "Legendary Creature — Elf // Land" }, f)).toBe(true);

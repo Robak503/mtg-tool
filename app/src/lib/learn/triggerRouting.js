@@ -47,7 +47,7 @@ const COMBAT_DAMAGE_AMOUNT_EVENTS = new Set(["combatDamageToPlayer", "combatDama
 // (triggers.checkAttackTriggers, CR 509.1a) AND by the BECOMES-BLOCKED event (triggers.checkBlockTriggers,
 // CR 509.1h — it now looks up the blocked attacker's declared defender and threads it into the context). On
 // any OTHER event the referent is unset → the clause would silently drop (a FORBIDDEN dropped-clause FP,
-// CREED), so "defending player loses N life" routes natively only off those two events. AFFLICT (CR 702.131 —
+// CREED), so "defending player loses N life" routes natively only off those two events. AFFLICT (CR 702.130 —
 // "Whenever this creature becomes blocked, defending player loses N life") relies on the becomesBlocked entry;
 // Silent Skimmer ("Whenever this creature attacks, defending player loses 2 life") on the attacks entry.
 // "attacksAlone" (BLITZ TR-2, CR 506.5): the sole-attacker event — checkAttackTriggers threads the sole

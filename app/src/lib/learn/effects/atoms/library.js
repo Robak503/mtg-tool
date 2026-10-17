@@ -64,7 +64,7 @@ export function tutorManaValue(card) {
  * to BE that color; `nonwhite` requires the card NOT be that color. A card lacking a `colors` array fails a
  * positive color gate (FN-safe — never a fabricated match; the rare un-enriched stub stays out of the pool). */
 // LK-1 CHOSEN-TYPE membership (CR 614.12) — is a library card of the type `chosenType`? The word on the FRONT-face type line (a
-// library card has only its front face's characteristics, CR 712.4a), or — for a creature type — every creature type: a changeling
+// library card has only its front face's characteristics, CR 712.8a), or — for a creature type — every creature type: a changeling
 // (CR 702.73a), or a creature card its owner's Maskwood Nexus covers (P·39b; the caller names state and the holder, the library's
 // player). Mirrors enterReplacements.cardHasChosenType / triggers.permHasChosenType / layers.permHasChosenTypeLayer (kept local so the atoms
 // barrel stays leaf-ish — no back-import of resolvers/triggers). An unset chosenType → false (SAFE no-op).
@@ -199,7 +199,7 @@ export function cardMatchesTutorFilter(card, filter, state = null, holderId = nu
   const groups = Array.isArray(filter.groups) ? filter.groups : [];
   if (groups.length === 0) return true; // type-unfiltered (null filter handled above; MV-only / permanentOnly / historic fall here)
   // Match the FRONT face only: a library card has just its front-face characteristics
-  // (CR 712.4a), but the enriched type line is the COMBINED "Front // Back" for an MDFC —
+  // (CR 712.8a), but the enriched type line is the COMBINED "Front // Back" for an MDFC —
   // so a [artifact] tutor must NOT match a card whose FRONT is a land and back an artifact.
   const type = String(card?.type || card?.type_line || "").toLowerCase().split(" // ")[0];
   // P·39b — a creature-type word ("a Sliver card", "a Goblin card") is also met by a card that is every creature type (a
@@ -902,8 +902,8 @@ export function applyCascadeAtom(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "cascade", controller, cap, found: !!found });
 }
 
-/** Mill ONE player `count` cards (CR 701.13), then fire the MILL-ON-EVENT trigger bind for that player's
- * mill (CR 701.13a — one event per mill instruction). Captures the ACTUAL milled cards (top N, bounded by
+/** Mill ONE player `count` cards (CR 701.17), then fire the MILL-ON-EVENT trigger bind for that player's
+ * mill (CR 701.17a — one event per mill instruction). Captures the ACTUAL milled cards (top N, bounded by
  * library size) BEFORE the move so checkMilledTriggers can read their front-face types. A no-op mill (empty
  * library) mills nothing → no trigger (checkMilledTriggers no-ops on an empty batch). Pure. */
 export function millOnePlayer(state, playerId, count) {
@@ -970,9 +970,9 @@ export function applyExileTopOfLibrary(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "exile-top-of-library", who: atom.who || "controller", amount });
 }
 
-/** Mill (CR 701.13) — "you mill N cards" (the controller), "each opponent mills N cards", or
+/** Mill (CR 701.17) — "you mill N cards" (the controller), "each opponent mills N cards", or
  * "each player mills N cards" (EP-3). Top N of each milled player's library → their graveyard. Non-targeted.
- * Each player's mill is its OWN event (CR 701.13a), so millOnePlayer fires the milled trigger bind per seat. */
+ * Each player's mill is its OWN event (CR 701.17a), so millOnePlayer fires the milled trigger bind per seat. */
 export function applyMill(state, atom, ctx) {
   let next = state;
   // LIFE-LOSS-SCALED (Mindcrank, SHELF M3): countContext reads a trigger-context magnitude
@@ -1043,7 +1043,7 @@ export function applyMill(state, atom, ctx) {
 
 /**
  * ===== REVEAL-TOP-TO-HAND (Yuriko) ===== "reveal the top card of your library and put that card into your
- * hand" (CR 701.18 reveal + CR 121 put-to-hand). Functionally a draw — reveal is public-info and the card
+ * hand" (CR 701.20 reveal + CR 121 put-to-hand). Functionally a draw — reveal is public-info and the card
  * goes to the controller's hand — BUT it ALSO captures the revealed card's MANA VALUE so a FOLLOWING drain
  * atom can read it (Yuriko: "Each opponent loses life equal to that card's mana value"). This is the exact
  * mid-resolution value-capture pattern roll-d20 uses: the atom stamps the value on `state.revealedCardMV`,
@@ -1116,7 +1116,7 @@ export function applyImpulseExileAtom(state, atom, ctx) {
   }
   // COUNT (census slice — Light Up the Stage / Reckless Impulse / Wrenn's Resolve / Jeska's Will class):
   // `atom.count` exiles the top N instead of the top card. Absent → 1, so every shipped single-card carrier
-  // is byte-identical. A library shorter than N exiles what is there (CR 701.10a — you exile as many as you
+  // is byte-identical. A library shorter than N exiles what is there (CR 701.13a — you exile as many as you
   // can); it is never an error and never fabricates a card.
   const count = Math.max(1, atom?.count || 1);
   const taken = lib.slice(0, count);
@@ -1191,7 +1191,7 @@ function impulseExileFromDamagedPlayer(state, atom, ctx) {
 }
 
 /**
- * ===== GENESIS-WAVE ===== (CR 701 "put onto the battlefield" + CR 701.13 mill) — the mass reveal-top-X
+ * ===== GENESIS-WAVE ===== (CR 701 "put onto the battlefield" + CR 701.17 mill) — the mass reveal-top-X
  * spell family: "Reveal the top X cards of your library. You may put any number of <FILTER> cards with mana
  * value X or less from among them onto the battlefield. Then put all cards revealed this way that weren't put
  * onto the battlefield into your graveyard." (Genesis Wave — `permanent`; Saheeli's Directive — `artifact`).
@@ -1217,7 +1217,7 @@ function impulseExileFromDamagedPlayer(state, atom, ctx) {
  * Each eligible permanent enters via enterCardFromZone (fires ETB / landfall / permanent-enters triggers,
  * mints a fresh perm id + timestamp) — the exact shared entry the battlefield-tutor / reanimation paths use,
  * so a Genesis-Wave-put permanent can't drift from a Wargate-fetched one. The mill-the-rest goes through the
- * millOnePlayer chokepoint (fires the milled trigger bind, CR 701.13a). An EMPTY library reveals nothing → a
+ * millOnePlayer chokepoint (fires the milled trigger bind, CR 701.17a). An EMPTY library reveals nothing → a
  * clean no-op. Pure data mutation — a game serialized mid-resolution restores byte-identical (no closures).
  */
 export function applyGenesisWave(state, atom, ctx) {
@@ -1486,7 +1486,7 @@ export function applyRevealUntilCreatureAttacking(state, atom, ctx) {
 }
 
 /**
- * ===== CLASH (STAGE ④-1, 2026-09-03 — CR 701.22) ===== "clash with an opponent": this player and ONE opponent
+ * ===== CLASH (STAGE ④-1, 2026-09-03 — CR 701.30) ===== "clash with an opponent": this player and ONE opponent
  * each reveal the top card of their library; a player wins the clash iff their card's mana value is GREATER
  * (a tie wins for nobody). Each player may then put their card on the bottom (701.22a) — the engine's
  * deterministic policy keeps it on top (always legal: a "may"). The opponent is the first opponent in seat
@@ -1520,7 +1520,7 @@ export function applyClash(state, atom, ctx) {
   const oppWon = !!opp && theirs != null && theirMv > myMv;
   let next = { ...state, clashResult: { controller, opponent: opp, won } };
   next = logEvent(next, { kind: "spell-effect", effect: "clash", controller, opponent: opp, revealed: mine?.name || null, revealedMv: mine ? myMv : null, opponentRevealed: theirs?.name || null, opponentRevealedMv: theirs ? theirMv : null, won });
-  // STAGE ④-2: "Whenever you clash [and win]" — BOTH clashing players clashed (CR 701.22a); each fires their own
+  // STAGE ④-2: "Whenever you clash [and win]" — BOTH clashing players clashed (CR 701.30a); each fires their own
   // watchers with their own result, after the clash ends (the printed reminder). No opponent → only the
   // controller clashed (a solo reveal is still a clash they took part in).
   return checkClashTriggers(next, opp ? [{ id: controller, won }, { id: opp, won: oppWon }] : [{ id: controller, won }]);
@@ -1627,7 +1627,7 @@ export function applySeek(state, atom, ctx) {
 }
 
 /**
- * ===== REVEAL-UNTIL-CREATURE-TO-HAND (SG-9, 2026-09-03 — Evolutionary Leap, CR 701.18) =====
+ * ===== REVEAL-UNTIL-CREATURE-TO-HAND (SG-9, 2026-09-03 — Evolutionary Leap, CR 701.20) =====
  * "Reveal cards from the top of your library until you reveal a creature card. Put that card into your hand
  * and the rest on the bottom of your library in a random order." The attacking sibling's frame with the
  * INTO-HAND disposition: the first creature card in the library goes to hand (moveCardToZone, the ordinary
@@ -1657,7 +1657,7 @@ export function applyRevealUntilCreatureToHand(state, atom, ctx) {
 /**
  * ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card of your library. If it's a
  * creature card, put it onto the battlefield. Otherwise, you may put that card on the bottom of your library."
- * (CR 701.18 reveal, CR 701.16 put-onto-the-battlefield-from-a-library, CR 601-free bottom move.) A cast-trigger
+ * (CR 701.20 reveal, CR 701.16 put-onto-the-battlefield-from-a-library, CR 601-free bottom move.) A cast-trigger
  * effect (fired by "Whenever an opponent casts a spell, …" — ctx.controller is the enchantment's controller).
  * Three faithful outcomes, all executed here as ONE atom (the sentences span the clause splitter, so the parser
  * collapses them up front to this single atom — see matchRevealTopConditional):
@@ -1690,7 +1690,7 @@ export function applyRevealTopConditional(state, atom, ctx) {
   // the original fused Lurking Predators shape (whose atoms carry NO params → the legacy branch below runs
   // byte-identically). Predicate = the revealed card's TYPE test; thenRoute/elseRoute = where it goes.
   // CR notes: "put it into your hand" is NOT a draw (no draw triggers — moveCardToZone, never drawCards);
-  // the revealed card going "into your graveyard" is NOT a mill (CR 701.13a — mill is its own action;
+  // the revealed card going "into your graveyard" is NOT a mill (CR 701.17a — mill is its own action;
   // Zoologist's revealed-card move fires no milled watchers). battlefield rides enterCardFromZone (ETB /
   // permanent-enters / landfall fire exactly like the legacy creature branch).
   if (atom.predicate) {
@@ -1969,7 +1969,7 @@ export function cascadeClauseParser(clause) {
 }
 
 /**
- * MILL clause parser (CR 701.13) — migrated from parseExtendedAtom (seam batch 11 / Wave A6).
+ * MILL clause parser (CR 701.17) — migrated from parseExtendedAtom (seam batch 11 / Wave A6).
  * Top N of a library to its graveyard. Non-targeted only: "you mill N" (controller) / "each opponent mills N"
  * / "each player mills N" (mutually-exclusive anchors). "TARGET player mills N" is deferred (a targeted mill
  * on a trigger could first-legal the controller); a variable "mills X cards" isn't matched → low → Arbiter.
@@ -2801,7 +2801,7 @@ export function applyPickMilledToHand(state, atom, ctx) {
     if (atom.permanentOnly && !PERMANENT_TYPE_RE.test(front)) return false;
     if (atom.cardFilter) {
       // A "|"-union of basic type words (the parse arm's closed vocabulary) — the front face must
-      // carry ANY listed type, cap-cased word test (CR 712.4a front-face discipline).
+      // carry ANY listed type, cap-cased word test (CR 712.8 front-face discipline).
       const front = String(c.type || c.type_line || "").split(" // ")[0];
       const ok = atom.cardFilter.split("|").some((w) => front.includes(w[0].toUpperCase() + w.slice(1)));
       if (!ok) return false;

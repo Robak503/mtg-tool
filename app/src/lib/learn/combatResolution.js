@@ -64,7 +64,7 @@ import { sacrificeCreatureEffect } from "./effects/atoms/removal.js"; // ④-AX 
 import { armDamageToCreatureFlag, marksDamageToCreature } from "./wolverine.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCombatDamageTriggers, checkCombatDamageToCreatureTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
 
-// KW-POISON (toxic — CR 702.180a): the toxic VALUE N. The keyword reminder text spells the number
+// KW-POISON (toxic — CR 702.164a): the toxic VALUE N. The keyword reminder text spells the number
 // out ("Toxic 3"); the Scryfall keywords array only carries the bare word "Toxic", so N is read from
 // the oracle. The creature's OWN toxic is always the FIRST "Toxic N" in its text (the keyword line
 // precedes any GRANTED "…gains toxic 1" / "Other Rats have toxic 1" clause — verified across the

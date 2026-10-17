@@ -301,11 +301,11 @@ export function resolveCloneChoice(state, chosenPermId) {
   if (!cloneCard || !controller) return next;
 
   // A clone with the "creature or planeswalker" scope (Spark Double) may copy a PLANESWALKER too (front-face,
-  // CR 712.4a). A copied planeswalker enters with its starting loyalty via enterPermanent's castsAsPlaneswalker
+  // CR 712.8d). A copied planeswalker enters with its starting loyalty via enterPermanent's castsAsPlaneswalker
   // path, so it's a real, non-dying permanent (NOT a 0/0). Front-face only: a creature-front DFC copies as its
   // creature side. (creature-clones still copy creatures; this only WIDENS what a PW-scope clone accepts.)
   // A clone with the "artifact or creature" scope (Phyrexian Metamorph) may copy a NON-creature ARTIFACT too
-  // (front-face, CR 712.4a) — the resolution-time re-check (CR 707.9c) must accept an artifact source for that
+  // (front-face, CR 712.8d) — the resolution-time re-check (CR 707.9c) must accept an artifact source for that
   // scope, else a valid artifact pick would be treated as illegal and the clone would wrongly enter as a 0/0
   // (a forbidden FP). Scope-gated so a creature-only / PW clone still rejects an artifact source.
   // Resolution-time source re-check (CR 707.9c), SCOPE-GATED so it exactly mirrors cloneCandidates (defense-in-
@@ -395,7 +395,7 @@ function cloneCandidateEnters(state, candidateId, cloneCard, riders, controller)
  * CONDITIONAL ENTERS-WITH-COUNTER (Spark Double, CR 707.9a + 614.1c) — given the clone's riders and the
  * COPIED card, return the single { type, n } counter the matching condition adds (a creature copy gets the
  * "+1/+1 if it's a creature" rider, a planeswalker copy the "loyalty if it's a planeswalker" rider), or null
- * when no condition matches. The gate reads the copy's FRONT face (CR 712.4a) via castsAsPlaneswalker /
+ * when no condition matches. The gate reads the copy's FRONT face (CR 712.8d) via castsAsPlaneswalker /
  * the Creature type line, so a creature-front DFC copy is treated as a creature. At most one rider matches
  * (the copy is one type), so the first match wins. Pure card read.
  */

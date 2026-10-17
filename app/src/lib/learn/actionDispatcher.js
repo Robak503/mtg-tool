@@ -382,7 +382,7 @@ function applyCastSpell(state, action) {
   // freeCast: the pendingFreeCast/pendingCascade clears further down are keyed off action.freeCast under a
   // single-producer invariant an overloaded flag would silently corrupt.
   let working;
-  // ⭐ COLOURS SPENT (CR 202.2 / 105.1) — SUNBURST (CR 702.43) and CONVERGE both ask "how many COLOURS of
+  // ⭐ COLOURS SPENT (CR 202.2 / 105.1) — SUNBURST (CR 702.44) and CONVERGE both ask "how many COLOURS of
   // mana were spent to cast this?", and the answer has always existed here and been discarded: planPayment
   // returns `spend: {W,U,B,R,G,C}`, the exact per-colour tally the payment then deducts. Captured beside the
   // commit and threaded onto the spell's params, the same way `castFromZone` is a few hundred lines down.
@@ -1565,7 +1565,7 @@ function applyActivateAbility(state, action) {
     working = unattachEquipment(working, action.unattachEquipmentId);
   }
   // γ1h (BLITZ DC-1) — pay a "Discard a card" cost by moving the CHOSEN hand card to the graveyard
-  // (CR 601.2h / 701.8 — a discard from a cost is still a discard; the graveyard-entry event records via
+  // (CR 601.2h / 701.9 — a discard from a cost is still a discard; the graveyard-entry event records via
   // moveCardToZone's chokepoint). The card is re-resolved against the LIVE hand; a missing card is a hard
   // error so we never silently under-pay (CREED). Done BEFORE the ability goes on the stack.
   if (action.discardRandom) working = pitchRandomHandCard(working, action.playerId, null, "Activated ability"); // RG-7
@@ -2085,7 +2085,7 @@ function applyDeclareAttacker(state, action) {
         // turn (distinct), stamped at this same sole chokepoint and cleared beside the Raid flag at untap. countForSpec's
         // opponentsAttackedThisTurn reads it, filtering to live opponents (a planeswalker defender id never counts).
         attackedPlayersThisTurn: [...new Set([...(next.players[action.playerId].attackedPlayersThisTurn || []), defender])],
-        // BOAST (CR 702.135b) needs PER-PERMANENT attack history, not per-player: "only if THIS CREATURE
+        // BOAST (CR 702.142) needs PER-PERMANENT attack history, not per-player: "only if THIS CREATURE
         // attacked this turn". Reading the seat flag would offer boast whenever ANY of your creatures
         // attacked, which is a different and much looser card. Stamped at the same sole chokepoint, and
         // cleared beside the seat flag at untap so the two can never drift out of step.

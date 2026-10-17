@@ -1,5 +1,5 @@
 /**
- * millOnEvent.test.js — MILL-ON-EVENT trigger bind (Wave 3b, CR 701.13a — milling cards is a SINGLE event).
+ * millOnEvent.test.js — MILL-ON-EVENT trigger bind (Wave 3b, CR 701.17a — milling cards is a SINGLE event).
  *
  * detectTriggers' classifyCondition had no "milled" case, so a milled-trigger condition was UNDETECTED and
  * the WHOLE card routed to the Arbiter. This slice supplies the missing BIND:
@@ -74,7 +74,7 @@ describe("checkMilledTriggers — cardinality, nonland filter, whose gate", () =
   }
   const milledOf = (s) => (s.pendingTriggers || []).filter((t) => t.event === "milled");
 
-  it("BATCH fires ONCE per event regardless of how many nonland cards milled (CR 701.13a)", () => {
+  it("BATCH fires ONCE per event regardless of how many nonland cards milled (CR 701.17a)", () => {
     const s = board("Whenever one or more nonland cards are milled, draw a card.");
     const out = checkMilledTriggers(s, { milledByPlayer: "user", milledCards: [nonland("a"), nonland("b"), nonland("c")] });
     expect(milledOf(out)).toHaveLength(1); // ONE trigger for three milled cards

@@ -1,5 +1,5 @@
 /**
- * reinforceSpell.test.js — CORPUS ④-O (2026-09-03 night): REINFORCE on a SPELL (CR 702.71a) — "Reinforce 2—{2}{G}
+ * reinforceSpell.test.js — CORPUS ④-O (2026-09-03 night): REINFORCE on a SPELL (CR 702.77a) — "Reinforce 2—{2}{G}
  * ({2}{G}, Discard this card: Put two +1/+1 counters on target creature.)" is a HAND-zone activated option the engine
  * never offers; declined, the spell is cast and resolves as printed (cycling's exact basis on the permanent side). The
  * line joins the spell-side cost-only keyword strip (transmute / flashback / convoke …). Break Ties / Fowl Strike /

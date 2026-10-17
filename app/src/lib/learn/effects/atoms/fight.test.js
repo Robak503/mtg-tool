@@ -1,8 +1,8 @@
 /**
- * fight.test.js — ETB-FIGHT (CR 701.12) atom + clause parser (slice ETB-FIGHT, branch wave2b-fight).
+ * fight.test.js — ETB-FIGHT (CR 701.14) atom + clause parser (slice ETB-FIGHT, branch wave2b-fight).
  *
  * Covers the BUILD-NEW fight subsystem: the source creature and the chosen creature each deal damage
- * equal to their power to the OTHER, SIMULTANEOUSLY (CR 701.12a — both amounts locked from pre-fight
+ * equal to their power to the OTHER, SIMULTANEOUSLY (CR 701.14a — both amounts locked from pre-fight
  * P/T, then a SINGLE lethal SBA pass). Verified:
  *   - a 5/4 fights a 3/3 → both take damage simultaneously; the 3/3 dies (5≥3), the 5/4 survives (3<4);
  *   - a 2/2 fights a 2/2 → both die on ONE SBA pass (mutual lethality);
@@ -46,7 +46,7 @@ const fight = (s, { sourceId, targetId, optionalTarget = false }) =>
 const onBf = (s, pid, id) => s.players[pid].battlefield.some((p) => p.id === id);
 const inGy = (s, pid, name) => s.players[pid].graveyard.some((c) => c.name === name);
 
-describe("ETB-FIGHT resolver — simultaneous two-way damage (CR 701.12a)", () => {
+describe("ETB-FIGHT resolver — simultaneous two-way damage (CR 701.14a)", () => {
   it("a 5/4 fights a 3/3 → both take damage simultaneously; the 3/3 dies (5≥3), the 5/4 survives (3<4)", () => {
     const src = creature("src", "Apex", 5, 4, {}, "user");
     const tgt = creature("tgt", "Bear", 3, 3, {}, "ai");
@@ -70,7 +70,7 @@ describe("ETB-FIGHT resolver — simultaneous two-way damage (CR 701.12a)", () =
   it("a SOURCE killed by the fight still dealt its locked-in damage (a 1/1 fights a 5/5 → both die)", () => {
     // The 1/1 source dies to the 5/5's 5 damage, but its own 1 damage was marked BEFORE the SBA; pair
     // it with deathtouch below for the any-toughness kill. Here the 1 < 5 so only the source dies — the
-    // 5/5 survives with 1 marked, proving the source's hit landed even as it died (CR 701.12c).
+    // 5/5 survives with 1 marked, proving the source's hit landed even as it died (CR 701.14).
     const src = creature("src", "Mouse", 1, 1, {}, "user");
     const tgt = creature("tgt", "Giant", 5, 5, {}, "ai");
     const s = fight(board([src], [tgt]), { sourceId: "src", targetId: "tgt" });
@@ -186,11 +186,11 @@ describe("ETB-FIGHT parser", () => {
   });
 });
 
-// ===== SOURCE-BOUND "FIGHT ANOTHER TARGET CREATURE" (CR 701.12) =====
+// ===== SOURCE-BOUND "FIGHT ANOTHER TARGET CREATURE" (CR 701.14) =====
 // "[this creature|it] fights another target creature" (Brash Taunter's activated ability, Territorial
 // Allosaurus' kicked-ETB, Atzocan Archer's "you may have it fight …", Nessian Wilds Ravager's tribute
 // if-not). Fighter = the SOURCE (ctx.sourceId); "another" = the dealee must be DISTINCT from the source.
-describe("ETB-FIGHT — source-bound 'another target creature' parse (CR 701.12)", () => {
+describe("ETB-FIGHT — source-bound 'another target creature' parse (CR 701.14)", () => {
   it("'This creature fights another target creature.' → HIGH source-bound fight (Brash Taunter / Territorial Allosaurus)", () => {
     const p = parseEffectClause("This creature fights another target creature.", "Creature");
     expect(p.confidence).toBe("high");
@@ -224,7 +224,7 @@ describe("ETB-FIGHT — source-bound 'another target creature' parse (CR 701.12)
   });
 });
 
-describe("ETB-FIGHT — source-bound 'another' RUNTIME (CR 701.12)", () => {
+describe("ETB-FIGHT — source-bound 'another' RUNTIME (CR 701.14)", () => {
   it("a 4/4 fights another 2/2 → both deal power-damage; the 2/2 dies, the 4/4 survives (Territorial Allosaurus)", () => {
     const src = creature("src", "Allosaurus", 4, 4, {}, "user");
     const tgt = creature("tgt", "Goat", 2, 2, {}, "ai");
@@ -244,7 +244,7 @@ describe("ETB-FIGHT — source-bound 'another' RUNTIME (CR 701.12)", () => {
     expect(inGy(s, "ai", "Rival")).toBe(true);
   });
 
-  it("'another' (CR 701.12) — the source can NEVER fight itself even if its own id is fed as the target", () => {
+  it("'another' (CR 701.14) — the source can NEVER fight itself even if its own id is fed as the target", () => {
     // Defense in depth: a malformed ctx that aims the source at itself is a clean no-op (no self-damage).
     const src = creature("src", "Solo", 5, 5, {}, "user");
     const s = resolveAtom(

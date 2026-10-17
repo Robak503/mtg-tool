@@ -88,7 +88,7 @@ export function applyGainLife(state, atom, ctx) {
  * arm makes, and for the same reason: a recipient the engine can't restrict exactly is not a recipient.
  */
 /**
- * INVESTIGATE for a NAMED player (CR 701.17a) — "Target player investigates." (Panther Pounce) and, via
+ * INVESTIGATE for a NAMED player (CR 701.16a) — "Target player investigates." (Panther Pounce) and, via
  * the bound-referent arm, "Its controller investigates." (Fateful Absence).
  *
  * ⚠️ THE RECIPIENT FIELD IS `whoCreates`, NOT `who`. The Clue mint reads `whoCreates:"target"` off

@@ -31,7 +31,7 @@
  *     Fanged Coast), grant a quoted dies-trigger ability (Flame-Wreathed Phoenix) — parseTributeCreature
  *     returns null for these because the bare body fails to re-classify native. (Nessian Wilds Ravager's
  *     optional "you may have this creature fight another target creature" if-not is NOW modeled as a
- *     source-bound ETB-FIGHT (CR 701.12), so it re-classifies native and the whole card is credited.)
+ *     source-bound ETB-FIGHT (CR 701.14), so it re-classifies native and the whole card is credited.)
  *
  * Leaf module: no engine import (mirrors kicker.js / fading.js). The coverage classifier and the runtime
  * BOTH call these pure functions, so the metric credits EXACTLY the cards the engine plays.

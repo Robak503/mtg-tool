@@ -1558,7 +1558,7 @@ function parseEffectProgramInner(card) {
   // never overlap (rebound is peeled AFTER shuffle so a hypothetical both-lines card keeps working). A card
   // without the line yields `oracle === shuffleBody` and `rebound === false` — byte-identical to prior behavior.
   const { body: reboundBody, rebound } = stripReboundLine(shuffleBody);
-  // ===== ESCALATE (CR 702.121a) =====================================================================
+  // ===== ESCALATE (CR 702.120a) =====================================================================
   // "Escalate [cost]" means "For each mode you choose beyond the first, you must pay [cost] as an
   // additional cost to cast this spell." Peel the keyword line so the modal body parses, and record it.
   //
@@ -3228,7 +3228,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       return makeProgram({ confidence: "high", atoms: [{ op: "teferi-protection", targetType: null }], xSpell: false, unparsedTail: null });
     }
   }
-  // ===== CLASH + "IF YOU WIN" (STAGE ④-1, 2026-09-03 — CR 701.22) ===== "[you may ]clash with an opponent. If
+  // ===== CLASH + "IF YOU WIN" (STAGE ④-1, 2026-09-03 — CR 701.30) ===== "[you may ]clash with an opponent. If
   // you win, <payoff>" (Nath's Elite / Oaken Brawler / Paperfin Rascal / Bog Hoodlums / Adder-Staff Boggart's
   // ETB counter; Fire Juggler; Ringskipper …). Two atoms: the clash (optional when printed "you may" — the
   // optional-effect pause), then a conditional on the normalized "you won the clash", evaluated by
@@ -3863,7 +3863,7 @@ function parseEffectClauseUncached(oracle, cardType, opts) {
  * "high" must be a deliberate, reviewed change — the `parser.test.js` corpus pins
  * every "must drop to low" oracle as a merge gate.
  */
-// ETB-FIGHT (CR 701.12) gate: a `fight` atom binds its fighter to ctx.sourceId (the permanent whose
+// ETB-FIGHT (CR 701.14) gate: a `fight` atom binds its fighter to ctx.sourceId (the permanent whose
 // triggered/activated ability it is), so it is only correct as the SOLE atom of its (sub)program. When a
 // `fight` clause appears ALONGSIDE other atoms it is the anaphoric SPELL form — "Target creature you control
 // gets +X/+Y. It fights target creature you don't control." (Epic Confrontation / Savage Smash / Swift Kick)
@@ -4049,8 +4049,8 @@ registerClauseParser(cascadeClauseParser); // CASCADE (CR 702.85) — the synthe
 // COMBAT KEYWORDS (seam batch 7 / Wave A2) — tap/untap/cant-block/regenerate migrated to
 // atoms/combat.combatKeywordClauseParser (all whole-clause-anchored). program-diff = 0.
 registerClauseParser(combatKeywordClauseParser);
-registerClauseParser(goadClauseParser); // GOAD (CR 701.38, ④-AI) — "goad target creature [an opponent controls]" → mustAttack + goaded until the goader's next turn
-registerClauseParser(detainClauseParser); // DETAIN (CR 701.29, ④-AZ) — "detain target creature an opponent controls" → cantAttack + cantBlock + activatedAbilitiesLocked until the detainer's next turn
+registerClauseParser(goadClauseParser); // GOAD (CR 701.15, ④-AI) — "goad target creature [an opponent controls]" → mustAttack + goaded until the goader's next turn
+registerClauseParser(detainClauseParser); // DETAIN (CR 701.35, ④-AZ) — "detain target creature an opponent controls" → cantAttack + cantBlock + activatedAbilitiesLocked until the detainer's next turn
 registerClauseParser(massBlockLockClauseParser); // MASS-BLOCK-LOCK (FT-1, the Falter class) — "creatures [without flying] can't block this turn" → one dynamic-selector cantBlock rule (CR 611.2c)
 // PUMP (seam batch 12c / Wave B1b) — the most fragmented op (14 returns, 7 interleaved clusters) migrated to
 // atoms/combat.pumpClauseParser; branch order preserved. program-diff = 0 (gate-verified).
@@ -4086,7 +4086,7 @@ registerClauseParser(massFilteredDamageClauseParser); // MASS-FILTERED-DAMAGE �
 // ONE clause → the same collapsed per-player atom. Whole-clause anchored, so any rider still leaves residue → low.
 registerClauseParser((clause) => matchWindsOfChange(clause)?.atoms?.[0] ?? null);
 registerClauseParser(cdmgMassToDamagedPlayerClauseParser); // CDMG-MASS-TO-DAMAGED-PLAYER (Balefire Dragon) — combat-damage trigger: "deals that much damage to each creature that player controls"
-registerClauseParser(playerInvestigateClauseParser); // INVESTIGATE for a NAMED player (CR 701.17a) — recipient via whoCreates, the field the mint actually reads
+registerClauseParser(playerInvestigateClauseParser); // INVESTIGATE for a NAMED player (CR 701.16a) — recipient via whoCreates, the field the mint actually reads
 registerClauseParser(poisonClauseParser); // POISON (CR 122) — the track existed since KW-POISON; no clause ever parsed to it
 registerClauseParser(grantUncounterableClauseParser); // GRANT UNCOUNTERABILITY (Vexing Shusher) -- "target spell can't be countered"
 registerClauseParser(nextSpellUncounterableClauseParser); // NEXT-SPELL UNCOUNTERABLE (Mistrise Village, LANDS-6) -- "the next spell you cast this turn can't be countered"
@@ -4301,7 +4301,7 @@ export function populateClauseParser(clause) {
 registerClauseParser(populateClauseParser);
 
 /**
- * CHAMPION (CR 702.71a) — the sentinel detectTriggers emits for the printed keyword, carrying the named
+ * CHAMPION (CR 702.72a) — the sentinel detectTriggers emits for the printed keyword, carrying the named
  * creature type: `[champion:kithkin] champion a kithkin`.
  *
  * A SENTINEL rather than printed text, deliberately: the card's real wording is "sacrifice it unless you

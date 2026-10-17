@@ -136,7 +136,7 @@ describe("FL-1 — flanking", () => {
   });
 });
 
-// BLITZ BC-1 — BATTLE CRY (CR 702.90): the keyword's synthesized attacks trigger pumps each OTHER
+// BLITZ BC-1 — BATTLE CRY (CR 702.91): the keyword's synthesized attacks trigger pumps each OTHER
 // attacker +1/+0 until end of turn (the Trumpet-Blast scope with excludeSource — the crier never pumps
 // itself). One descriptor per printed instance; a grant never self-synthesizes.
 describe("BC-1 — battle cry", () => {

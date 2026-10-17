@@ -18,7 +18,7 @@ export const NUM_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 
 
 // ===== COST-ONLY KEYWORD LINES (CONVOKE / AFFINITY) — strip-before-parse, mirroring the Ninjutsu/Cycling
 // metric rationale (coverage.js) =====================================================================
-// CONVOKE (CR 702.51) and AFFINITY (CR 702.40) are pure cost-REDUCTION abilities: they change ONLY how much
+// CONVOKE (CR 702.51) and AFFINITY (CR 702.41) are pure cost-REDUCTION abilities: they change ONLY how much
 // the spell costs to cast, never WHAT it does on resolution. Every card carrying one ALSO has a normal printed
 // mana cost, so the engine can hard-cast it at full price and resolve its body 100% CORRECTLY — the only
 // unmodeled part is the optional discount (tapping creatures for convoke / the per-permanent affinity scaler),
@@ -50,7 +50,7 @@ export const NUM_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 
 // full cost through the printed mode, so an option it never takes cannot change what resolves:
 //   • delve (CR 702.66a)     — "Each card you exile from your graveyard while casting this spell pays for
 //                              {1}." Pure cost REDUCTION, exactly like convoke/improvise above it.
-//   • replicate (CR 702.55a) — an OPTIONAL additional cost; paid zero times, the spell is copied zero times,
+//   • replicate (CR 702.56a) — an OPTIONAL additional cost; paid zero times, the spell is copied zero times,
 //                              which is the printed base spell (kicker's reasoning, on the spell side).
 //   • fuse (CR 702.102a)     — "You may cast one or both halves of this card from your hand." The engine
 //                              already casts either half (actionsCastSplitFromHand); fuse only adds the
@@ -65,7 +65,7 @@ export const NUM_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 
 //   • ripple   (CR 702.60a)  — "When you cast this spell, YOU MAY reveal the top N cards of your library…
 //                              Put the rest on the bottom." Declined, the library is untouched and nothing
 //                              else on the card changes.
-// ④-O (2026-09-03 night) adds REINFORCE (CR 702.71a) — "Reinforce N—{cost} ({cost}, Discard this card: Put N +1/+1
+// ④-O (2026-09-03 night) adds REINFORCE (CR 702.77a) — "Reinforce N—{cost} ({cost}, Discard this card: Put N +1/+1
 //   counters on target creature.)": a HAND-zone activated option the engine never offers (exactly cycling's basis
 //   on the permanent side, reCyclingCost). Declined, the spell is cast and resolves as printed — a real, complete
 //   mode; not offering the discard-for-counters is an under-offer, the safe direction. Read off the printed corpus:

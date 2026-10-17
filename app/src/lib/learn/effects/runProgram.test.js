@@ -443,7 +443,7 @@ describe("interactive tutor — resolution-time choice (pause / resume)", () => 
   it("filter matching: 'basic land' excludes nonbasic; MDFC matches FRONT face only", () => {
     const a = runEffectProgram(withLibrary([lib("nb", "Command Tower", "Land"), lib("b", "Island", "Basic Land — Island")]), tutorObj({ groups: [["basic", "land"]] }));
     expect(a.pendingChoice.candidates.map(c => c.name)).toEqual(["Island"]); // not the nonbasic Land
-    // MDFC front is a Creature, back a Land → a [land] tutor does NOT offer it (CR 712.4a).
+    // MDFC front is a Creature, back a Land → a [land] tutor does NOT offer it (CR 712.8a).
     const m = runEffectProgram(withLibrary([lib("m", "Glasspool Mimic", "Creature — Shapeshifter // Land"), lib("f", "Forest", "Basic Land — Forest")]), tutorObj({ groups: [["land"]] }));
     expect(m.pendingChoice.candidates.map(c => c.name)).toEqual(["Forest"]);
   });

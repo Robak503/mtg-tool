@@ -1,5 +1,5 @@
 /**
- * exileGraveyardZone.test.js — WHOLE-GRAVEYARD EXILE (CR 701.10a): the graveyard-hate staple.
+ * exileGraveyardZone.test.js — WHOLE-GRAVEYARD EXILE (CR 701.13a): the graveyard-hate staple.
  *
  * The engine modeled exiling a single CARD from a graveyard (exile-from-graveyard) but had no way to exile an
  * entire graveyard ZONE — so every card in the family parsed low and routed to the Arbiter: 0 native, 62 parked.

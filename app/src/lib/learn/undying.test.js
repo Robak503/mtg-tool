@@ -1,5 +1,5 @@
 /**
- * undying.test.js — KW-UNDYING (CR 702.92a) + the HANCOCK counter-keyed dynamic anthem (SHELF S7).
+ * undying.test.js — KW-UNDYING (CR 702.93a) + the HANCOCK counter-keyed dynamic anthem (SHELF S7).
  *
  * UNDYING: "Undying (When this creature dies, if it had no +1/+1 counters on it, return it to the battlefield
  * under its owner's control with a +1/+1 counter on it.)" — a keyword whose whole triggered ability lives in
@@ -147,7 +147,7 @@ describe("engine (CREED core) — the undying loop", () => {
     expect(s.players.user.graveyard.map((c) => c.name)).not.toContain("Butcher Ghoul");
     const bf = s.players.user.battlefield.filter((p) => p.card?.name === "Butcher Ghoul");
     expect(bf).toHaveLength(1);
-    expect(bf[0].counters?.["+1/+1"]).toBe(1); // returned WITH the counter (CR 702.92a)
+    expect(bf[0].counters?.["+1/+1"]).toBe(1); // returned WITH the counter (CR 702.93a)
     expect(bf[0].controller).toBe("user"); // under its OWNER's control
 
     // SECOND death — the LKI now shows a +1/+1 counter → the intervening-if is false → no return (loop ends).

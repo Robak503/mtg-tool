@@ -915,7 +915,7 @@ export function resolveDigLandChoice(state, cardId) {
 }
 
 /**
- * ===== EDICTS ===== — deterministically auto-pick the creature an AI sacrifices to an edict (CR 701.16,
+ * ===== EDICTS ===== — deterministically auto-pick the creature an AI sacrifices to an edict (CR 701.21,
  * no picker for the AI / Expert): its LEAST valuable creature = lowest mana value, tie-break lowest
  * printed power, then codepoint name then id (serialize-stable, no Math.random). Returns the permanent id
  * from the SACRIFICER's battlefield, or null if none remain. Mirrors autoPickTutorCandidate's shape but
@@ -1172,7 +1172,7 @@ export function resolveDistributeChoice(state, distribution) {
 }
 
 /**
- * ===== EACH-PLAYER ===== discard (EP-2) — deterministically auto-pick the card an AI discards (CR 701.8,
+ * ===== EACH-PLAYER ===== discard (EP-2) — deterministically auto-pick the card an AI discards (CR 701.9,
  * no picker for the AI / Expert): its LEAST valuable card = lowest mana value, tie-break lowest power,
  * then codepoint name then id (serialize-stable, no Math.random). Returns the card id from the DISCARDER's
  * current hand, or null if none remain. Mirrors autoPickSacrificeCandidate (cheapest-first — pitch the

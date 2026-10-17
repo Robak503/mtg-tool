@@ -1,6 +1,6 @@
 /**
  * meltstridersResolve.test.js — the ENCHANTED-HOST fight + the ATTACHED block-cap (Meltstrider's Resolve,
- * SHELF-TAIL W7 — CR 303.4 + 701.12 + 509.1c).
+ * SHELF-TAIL W7 — CR 303.4 + 701.14 + 509.1c).
  *
  * Four seams, each riding an existing convention:
  *  ① the fight arm "ENCHANTED CREATURE fights (up to one) target creature you don't control / an opponent
@@ -74,7 +74,7 @@ describe("Meltstrider's — parse + classify (the four carriers)", () => {
   });
 });
 
-describe("Meltstrider's — the HOST fights (CR 701.12 via CR 303.4)", () => {
+describe("Meltstrider's — the HOST fights (CR 701.14 via CR 303.4)", () => {
   const atom = { op: "fight", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], optionalTarget: true, sourceAnchored: true, fighterReferent: "enchantedHost" };
   it("the aura's HOST exchanges damage with the target — the aura itself never fights (mutation-check line)", () => {
     const host = cr("Host", "h", "user", { power: 3, toughness: 4 });

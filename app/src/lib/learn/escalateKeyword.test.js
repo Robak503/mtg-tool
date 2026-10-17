@@ -1,5 +1,5 @@
 /**
- * escalateKeyword.test.js — ESCALATE (CR 702.121a), admitted with the multi-mode option WITHHELD.
+ * escalateKeyword.test.js — ESCALATE (CR 702.120a), admitted with the multi-mode option WITHHELD.
  *
  * "Escalate [cost]" means "For each mode you choose beyond the first, you must pay [cost] as an additional
  * cost to cast this spell." (Borrowed Hostility, Borrowed Malevolence, Borrowed Grace, Collective Resistance.)

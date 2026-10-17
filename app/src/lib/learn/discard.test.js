@@ -1,6 +1,6 @@
 /**
  * discard.test.js — EACH-PLAYER discard (EP-2), discard as an EFFECT where the DISCARDING player chooses
- * which cards (CR 701.8 — Mind Rot / Fugue / Delirium Skeins; the OPPOSITE chooser to δ-1b hand disruption).
+ * which cards (CR 701.9 — Mind Rot / Fugue / Delirium Skeins; the OPPOSITE chooser to δ-1b hand disruption).
  *
  * "Target player discards N cards" / "Each player discards N cards" collapse to one `discard` atom.
  * At RESOLUTION the discarder(s) choose, modeled as a CHAIN of single-card pending choices: a human gets a

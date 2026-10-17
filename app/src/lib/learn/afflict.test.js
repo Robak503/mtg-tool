@@ -1,5 +1,5 @@
 /**
- * afflict.test.js — AFFLICT (CR 702.131): a KEYWORD→TRIGGER keyword whose triggered ability lives in reminder
+ * afflict.test.js — AFFLICT (CR 702.130): a KEYWORD→TRIGGER keyword whose triggered ability lives in reminder
  * text ("Whenever this creature becomes blocked, defending player loses N life."). Mirrors the BUSHIDO
  * subsystem: detectTriggers synthesizes the becomesBlocked descriptor off the printed keyword;
  * checkBlockTriggers fires it, threading the blocked attacker's DECLARED DEFENDER into the context so
@@ -43,7 +43,7 @@ const wall = (id = "w", controller = "ai") =>
   createPermanent({ id, card: { id: `c-${id}`, name: "Wall", type: "Creature — Wall", power: 0, toughness: 4, oracle: "" }, controller, summoningSick: false });
 
 // ─── PRINTED AFFLICT ───────────────────────────────────────────────────────────────────────────────
-describe("AFFLICT (CR 702.131) — printed keyword synthesis + classification", () => {
+describe("AFFLICT (CR 702.130) — printed keyword synthesis + classification", () => {
   it("synthesizes a becomesBlocked → 'defending player loses N life' descriptor off the keyword", () => {
     const d = detectTriggers(cr("Khenra Eternal", "Afflict 1 (Whenever this creature becomes blocked, defending player loses 1 life.)"));
     expect(d).toEqual([expect.objectContaining({ event: "becomesBlocked", effectClause: "defending player loses 1 life", sourceText: "Afflict 1" })]);

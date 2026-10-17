@@ -487,7 +487,7 @@ function manaCostOf(card) {
   if (!card) return "";
   // An EMPTY cost STRING is not a real cost. A DFC / MDFC / transform card leaves the top-level
   // mana_cost "" and carries the castable cost on card_faces[0] (you cast it from its front face,
-  // CR 712.4a). The old `typeof === "string"` guards returned that "" early — so such a card read
+  // CR 712.11). The old `typeof === "string"` guards returned that "" early — so such a card read
   // as FREE TO CAST. Skip empties (and a non-string mana) and fall through to the front face before
   // giving up. A genuinely costless card (suspend-only spell, token) has no face cost either, so it
   // still returns "" — correct (it has no mana cost).
@@ -2500,7 +2500,7 @@ function actionsActivateAbility(state, playerId) {
       // EXACTLY the printed step of the combat window (the defender holds priority there on the attacker's turn, CR 602.2);
       // never the main phase, never another combat step.
       if (ab.combatStepOnly && state.step !== ab.combatStepOnly) continue;
-      // BOAST (CR 702.135b) — "only if THIS CREATURE attacked this turn". Read off the PERMANENT, never the
+      // BOAST (CR 702.142) — "only if THIS CREATURE attacked this turn". Read off the PERMANENT, never the
       // seat: the seat-level attackedThisTurn (Raid) would offer boast whenever ANY of your creatures
       // attacked, which is a materially different card. The other half of the reminder — once each turn —
       // rides the existing activationLimit ledger rather than a second mechanism.
@@ -2908,7 +2908,7 @@ function actionsActivateAbility(state, playerId) {
         const seenNames = new Set();
         discardVictims = (player.hand || []).filter((c) => {
           // γ1h-TYPED (Tortured Existence): a typed discard cost narrows the pool to hand cards whose
-          // FRONT-FACE type line carries the type (CR 712.4a, word-cased match — "creature" → Creature).
+          // FRONT-FACE type line carries the type (CR 712.8a, word-cased match — "creature" → Creature).
           if (ab.discardCardFilter) {
             const front = String(c?.type || c?.type_line || "").split(" // ")[0];
             const word = ab.discardCardFilter[0].toUpperCase() + ab.discardCardFilter.slice(1);
@@ -4448,7 +4448,7 @@ function opponentsCantActAgainst(state, playerId) {
   return { cantCast: false };
 }
 
-// ─── SPLIT SECOND (CR 702.19a) ────────────────────────────────────────────────
+// ─── SPLIT SECOND (CR 702.61a) ────────────────────────────────────────────────
 
 /**
  * True while a spell with split second sits on the stack: "As long as this spell is on the stack, players
@@ -4541,7 +4541,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   // untap). Lands / activations / special actions are untouched — casting alone is limited (CR 601).
   const castLimited = (state.players[playerId]?.spellsCastThisTurn || 0) >= 1
     && Object.values(state.players).some((pl) => (pl.battlefield || []).some((perm) => castsPerTurnLimitOf(perm.card) != null));
-  // SPLIT SECOND (CR 702.19a) — suppresses casting for EVERY player while such a spell is on the stack.
+  // SPLIT SECOND (CR 702.61a) — suppresses casting for EVERY player while such a spell is on the stack.
   // Special actions are untouched (playing a land, plotting, the companion {3}): the rule names casting and
   // activating, and CR 116.2 special actions are neither.
   const splitSecondLock = splitSecondOnStack(state);
@@ -4616,7 +4616,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   actions.push(...actionsPlotFromHand(state, playerId));  // PLOT step 1 (CR 702.170a): exile from hand for the plot cost — a SPECIAL action, not casting
   actions.push(...actionsPlotFromLibraryTop(state, playerId)); // shelf D38 (Fblthp, CR 702.170f): the same special action for the library's top card
   actions.push(...actionsTurnManifestFaceUp(state, playerId)); // P·19 (CR 701.40b): turn a manifested creature card face up — a special action
-  // MANA ABILITIES stay legal under split second (CR 702.19a exempts them by name).
+  // MANA ABILITIES stay legal under split second (CR 702.61a exempts them by name).
   actions.push(...actionsTapForMana(state, playerId));
   actions.push(...actionsDoubleManaPool(state, playerId)); // DOUBLE-MANA-POOL (Doubling Cube): a no-stack mana ability that doubles the pool
   // …every OTHER activated ability does not. Crew (CR 702.122a), cycling (702.29a) and loyalty (606.1) are

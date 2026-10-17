@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **71 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,453)**; engine gains since the tag: **−14** (+68 gained, −82 false credit removed). The next tag
+> **72 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,453)**; engine gains since the tag: **−14** (+68 gained, −82 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,50 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 📚 2026-10-17 — CITATIONS + LINT: a keyword-section citation must cite the keyword its comment names — 304 rewrites by script (262 off-by-N keyword sections incl. all 29 fight-as-701.12, 42 meld-712.4a-for-a-front-face), and `npm run lint` now gates it · **±0**
+> Comments and test titles only: all 99 changed source files are espree-token-identical to 55af28c3 outside Comment tokens and
+> it/test/describe title strings (280 comments, 20 titles). Suite **19,850 green (1 skipped) / 1,829 files** under the gate
+> queue (the new check-cr-keywords.test.js included, seen to fail first). Lint 0 (CR citations: 0 of 10,842 name no rule; keyword
+> citations: 0 of 2,301 cite a different keyword). No flip-diff: no code token changed. Committed on `night/kwcites`, not pushed;
+> the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The checker** (`app/scripts/check-cr-keywords.cjs`, after check-cr-citations in `npm run lint`). The keyword map is READ from
+>   cr_current.json — each 701.N / 702.N whose rule text is its title ("702.130 Afflict"; "Tap and Untap" names both; "Megamorph is
+>   a variant of the morph ability" adds megamorph). Comments are found with espree (eslint's parser). A citation whose comment
+>   sentence names its own section's keyword passes; otherwise a same-family keyword named right before it ("AFFLICT (CR 702.131)",
+>   "devour N (CR …", "the HOST fights (CR …"), right after it ("CR 701.8 discard", "(CR 701.16 — sacrifice …"), as an upper-case
+>   label in its clause, or as the sentence's capitalised first word is a NAMED hit; two different ones are ambiguous. A lower-case
+>   keyword merely nearby is a WEAK reading (ordinary words collide: "the partner gains it too", "offering a recast") and counts only
+>   when a named hit somewhere makes the same remap; a file's own remap also moves its keyword-less stragglers under prose that names
+>   the new keyword and never the old ("the source's hit landed even as it died (CR 701.12c)"). Never read as the intent: a keyword
+>   the cited rule's own text mentions (regeneration's "tap it"), one cited in the same sentence, the other family, a card name
+>   ("TEFERI'S PROTECTION", "Surging Might"), a slice label ("BLITZ BC-1"), a keyword right after another citation. **Precision on
+>   55af28c3: 262 hits (199 named, 27 corroborated, 36 same-file), every one read by hand — 0 false positives**; the prototypes'
+>   false positives (Teferi's Protection, a reveal claimed by the wrong citation, regeneration's "tapped", the city's-blessing and
+>   modular-b stragglers) became the rules above. 20 advisory readings stay listed under `--all`, never failing (14 are correct
+>   citations beside a colliding word; 6 are real but unreadable — listed below).
+> · **The fixer** (`app/scripts/fix-cr-keyword-citations.cjs`, re-run from app/: `node scripts/fix-cr-keyword-citations.cjs`;
+>   idempotent — a second run rewrites 0). Keyword hits move to the named section: a cited "a" subrule (the definition) to the new
+>   "a", any other letter to the bare section (subrule orders differ between editions: BOAST 702.135b's text is 702.142a). Pass 2:
+>   CR 712.4a is meld; a comment citing it for a front face moves by its sentence's zone — 712.8a off the battlefield ×13, 712.8d a
+>   permanent ×9, 712.11 casting ×1, the whole rule 712.8 where no zone is named ×18, one dropped as already cited (triggers.js
+>   "712.4a / 712.8a"). A number already in its list is dropped, not repeated (removal.js "CR 701.16/701.21" → "CR 701.21").
+> · **The families** (each new number read in cr_current.json): fight 701.12 → 701.14 ×29 · discard 701.8 → 701.9 ×23 · mill
+>   701.13 → 701.17 ×20 · sacrifice 701.16 → 701.21 ×15 · sunburst 702.43 → 702.44 ×11 · undying 702.92 → 702.93 ×10 · renown
+>   702.111 → 702.112 ×10 · goad 701.38 → 701.15 ×10 · champion 702.71 → 702.72 ×9 · battle cry 702.90 → 702.91 ×8 · clash 701.22 →
+>   701.30 ×8 · afflict 702.131 → 702.130 ×7 · untap 701.20 → 701.26 ×7 · split second 702.19 → 702.61 ×6 · exile 701.10 → 701.13 ×6
+>   · training ×5 · boast ×5 · fabricate ×5 · detain ×5 · unleash, graft, backup, ingest ×4 · cipher, max speed (702.179d → 702.178),
+>   warp, undaunted, reveal (701.18) ×3 · reinforce, replicate, exhaust, crew, escalate, myriad, investigate, reveal (701.15) ×2 ·
+>   extort, living weapon, devour, dredge, affinity, provoke, amplify, ripple, toxic, prototype, squad, enlist, encore, learn,
+>   proliferate, tap ×1. Docs: parallel-coverage-plan.md's CREED line ("front-face type only (CR 712.4a)") → 712.8a / 712.8d.
+> · ⚠️ **Found, not fixed** (ambiguous to the script, or no keyword rule fits): splitSecond.test.js:101 702.19a (split second,
+>   702.61a) · abilities.js:1530 702.135 (boast, 702.142a) · library.js:942 701.13a (mill, 701.17a) · iteratedEdict.js:4 and
+>   annihilator.test.js:118 701.16 (sacrifice, 701.21) · triggers.js:8239 702.46a (bushido, 702.45) · idolOfOblivion.test.js:7
+>   701.34 (manifest, 701.40) · hand.js:23 701.8 · library.js:1660 701.16 ("put onto the battlefield from a library" — no keyword) ·
+>   gatesSeek.test.js:4 701.55 (seek is not in the CR) · staticAbilityParser.js:7528 + creatureRestrictions.js:106 701.48 for
+>   "modified" (700.9) · channel cited as 702.33a (kicker) ×5 — an ability word (207.2c) · clone.test.js:682 712.4a (no front-face
+>   wording) · zoneOptionKeywords.test.js:61 "squad (CR 702.152a)" sits in a test-data string, not a title · abilities.js:1357's
+>   claim that boast is an ability word (the bundled CR has it as keyword 702.142). Historical ledgers / CHANGELOG entries left as written.
 
 > ## 🔧 2026-10-17 — FIX: the ITERATED edict chain chooses, then acts together, one round at a time — Torment of Hailfire's rounds, Braids, Arisen Nightmare's opponents (CR 101.4); the opponents asked in APNAP order · **±0** · corpus 15,494
 > Suite **19,823** green (1 skipped) / 1,827 files under the gate queue. Lint 0 (CR citations: 0 of 10,788 name no rule). Flip-diff **0 / 0 / 0**

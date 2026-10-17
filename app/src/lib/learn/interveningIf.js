@@ -179,7 +179,7 @@ function permMatchesFilter(perm, filter, state) {
   }
   if (filter.notWords) {
     // A type/supertype/subtype EXCLUSION — the permanent must carry NONE of these words RIGHT NOW, on its front face
-    // (CR 712.4a), mirroring the positive scan directly below. layers.permanentHasTypeWord is the one exact read (CR 613.1d):
+    // (CR 712.8d), mirroring the positive scan directly below. layers.permanentHasTypeWord is the one exact read (CR 613.1d):
     // a card type a layer-4 effect added is carried (a creature Liquimetal Torque made an artifact is not a "nonartifact
     // creature"; an animated land is not a "noncreature permanent"), a card type an effect removed is not (a God below its
     // devotion IS a noncreature permanent), and every creature type answers for a creature type (P·39 — "non-Human").
@@ -574,7 +574,7 @@ const WAS_A_CREATURE_RE = /^it was a creature$/;
 // spell" are other questions about other objects.
 const IT_IS_A_CREATURE_RE = /^it(?:'s| is) a creature$/;
 
-// ===== HAD-NO-+1/+1-COUNTERS (KW-UNDYING, CR 702.92a + 603.6e) ===============================
+// ===== HAD-NO-+1/+1-COUNTERS (KW-UNDYING, CR 702.93a + 603.6e) ===============================
 // "it had no +1/+1 counters on it" — the intervening-if on the synthesized UNDYING dies-return trigger.
 // "it" (CR 608.2c) is the dead source itself; "had" is a per-PERMANENT last-known-info read (the object is
 // in a graveyard by now, counters don't travel to it), so the faithful value is the death look-back's
@@ -918,7 +918,7 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     return n === null ? null : n >= 2;
   }
 
-  // ===== CLASH RESULT (STAGE ④-1, 2026-09-03 — CR 701.22) ===== "you won the clash": the parser's normalized
+  // ===== CLASH RESULT (STAGE ④-1, 2026-09-03 — CR 701.30) ===== "you won the clash": the parser's normalized
   // form of "If you win" after a clash atom. Reads the stamp the clash applier wrote for THIS controller
   // (`state.clashResult`); no stamp, another player's stamp, or a non-boolean → null (never a guess). The
   // collapse always emits the clash atom immediately before this conditional, so the stamp is never stale.
@@ -1402,7 +1402,7 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     return typeof was === "boolean" ? was : null;
   }
 
-  // HAD-NO-+1/+1-COUNTERS (KW-UNDYING, CR 702.92a + 603.6e) — read the dying object's counter-lessness off
+  // HAD-NO-+1/+1-COUNTERS (KW-UNDYING, CR 702.93a + 603.6e) — read the dying object's counter-lessness off
   // the context flag (ctx.triggeringHadNoPlusCounters, stamped by checkDiesTriggers from the death
   // look-back's counters snapshot). NOT a board scan — the object is in a graveyard by now. A definite
   // boolean once the dies trigger fires from a stamped look-back; undefined (no snapshot / not a dies
@@ -1442,7 +1442,7 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     return true;
   }
 
-  // TRAINING (CR 702.148a, census slice 52) — "Whenever this creature attacks WITH ANOTHER CREATURE WITH
+  // TRAINING (CR 702.149a, census slice 52) — "Whenever this creature attacks WITH ANOTHER CREATURE WITH
   // GREATER POWER, put a +1/+1 counter on this creature."
   //
   // The comparison is against the OTHER ATTACKERS in this combat, not the whole board: a bigger creature
@@ -1918,7 +1918,7 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   m = c.match(CTRL_LIFE_EXACT_RE);
   if (m) return controllerMetric(state, controllerId, "life") === parseInt(m[1], 10);
 
-  // KW-ENGINES MAX SPEED (CR 702.179d) — "your speed is 4": the condition the "Max speed —" ability
+  // KW-ENGINES MAX SPEED (CR 702.178) — "your speed is 4": the condition the "Max speed —" ability
   // prefix rewrites into (effects/abilities.js). Reads the live player speed; a player with no speed
   // has 0 and fails. Exact anchor — no printed card words a speed threshold any other way.
   if (/^your speed is 4$/.test(c)) return (state.players?.[controllerId]?.speed || 0) >= 4;

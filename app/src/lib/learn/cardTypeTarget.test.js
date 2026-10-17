@@ -3,7 +3,7 @@
  * Leonin Iconoclast, Hearth Charm, Chandler, Molten Frame.
  *
  * ⭐⭐ NINTH "BUILT ENGINE, PARTIAL IGNITION" OF THIS RUN. The `cardType` restriction kind and its
- * evaluator — front-face only (CR 712.4a), fail-closed on missing type data — already existed, with exactly
+ * evaluator — front-face only (CR 712.8), fail-closed on missing type data — already existed, with exactly
  * TWO emitters: a prevent-damage clause and Modular's counter payoff. The SHARED target grammar never
  * emitted it, so every positive-type removal target in the corpus parked. One arm was the whole fix.
  *

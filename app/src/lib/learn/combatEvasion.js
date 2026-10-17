@@ -424,7 +424,7 @@ const reBlockOnlyFlying = /(?:^|[\n.;])\s*(?:this creature|it) can block only cr
 // whose LIVE power (layer-aware, CR 613) meets the printed N. Fixed-N only — the relative form ("greater than this
 // creature's power") is reSelfPowerCantBlock's, an attacker-side reader. Same self-subject anchoring as the line above.
 const reBlockerMaxPower = /(?:^|[\n.;])\s*(?:this creature|it) can't block creatures with power (\d+) or greater\s*(?:\.|$)/;
-// KW-UNLEASH (CR 702.86a, census slice 50) — "You may have this creature enter with a +1/+1 counter on it.
+// KW-UNLEASH (CR 702.98a, census slice 50) — "You may have this creature enter with a +1/+1 counter on it.
 // It can't block as long as it has a +1/+1 counter on it."
 //
 // The keyword was REFUSED by the optional-mode family (slice 49) precisely because that second sentence is
@@ -1249,7 +1249,7 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
 
   // Blocker-side restrictions.
   if (isSelfCantBlock(bCard)) return false;
-  // KW-UNLEASH (CR 702.86a) — "It can't block as long as it has a +1/+1 counter on it." A LIVE counter read,
+  // KW-UNLEASH (CR 702.98a) — "It can't block as long as it has a +1/+1 counter on it." A LIVE counter read,
   // deliberately not a flag set at entry: the restriction binds no matter where the counter came from, which
   // is exactly why the keyword could not simply be credited as an untaken option (slice 49's refusal).
   if (hasUnleash(bCard) && (bLook.permanent?.counters?.["+1/+1"] || 0) > 0) return false;

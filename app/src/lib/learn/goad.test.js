@@ -1,5 +1,5 @@
 /**
- * goad.test.js — GOAD (CR 701.38): "It attacks each combat if able and attacks a player other than you if
+ * goad.test.js — GOAD (CR 701.15): "It attacks each combat if able and attacks a player other than you if
  * able." The Impetus cycle, Bloodthirsty Blade, Redemption Arc and friends — fourteen attached carriers,
  * none native before, and ZERO engine infrastructure: goad appeared nowhere in the codebase.
  *

@@ -14,7 +14,7 @@
  * the wrong moment, which is a wrong effect rather than a missing one. templateMatchers already documented
  * this refusal and the count change does not touch it. It needs a controller-scoped expiry.
  *
- * A library shorter than N exiles what is there (CR 701.10a — as many as you can), never an error and never
+ * A library shorter than N exiles what is there (CR 701.13a — as many as you can), never an error and never
  * a fabricated card.
  */
 import { describe, expect, it } from "vitest";
@@ -99,7 +99,7 @@ describe("RUNTIME — N cards move, stamped for THIS turn", () => {
     expect(s.players.user.library).toHaveLength(5);
   });
 
-  it("a library SHORTER than N exiles what is there (CR 701.10a), never an error", () => {
+  it("a library SHORTER than N exiles what is there (CR 701.13a), never an error", () => {
     const s = run(boardWithLibrary(2), { op: "impulse-exile", count: 5 });
     expect(s.players.user.exile).toHaveLength(2);
     expect(s.players.user.library).toHaveLength(0);

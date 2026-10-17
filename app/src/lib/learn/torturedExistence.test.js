@@ -3,7 +3,7 @@
  * "{B}, Discard a creature card: Return target creature card from your graveyard to your hand."
  *
  * γ1h-TYPED: the bare "Discard a card" cost (DC-1, the looter class) gains a basic-card-type filter.
- * The victim pool narrows at the ENUMERATOR (front-face type, CR 712.4a) and the DISPATCHER
+ * The victim pool narrows at the ENUMERATOR (front-face type, CR 712.8) and the DISPATCHER
  * re-validates the pitch (defense in depth — paying "Discard a creature card" with a land is the
  * under-pay FP, CR 601.2h). A subtype/color/compound filter still nulls the whole cost (FN-safe).
  *

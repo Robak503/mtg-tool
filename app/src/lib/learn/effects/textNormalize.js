@@ -198,7 +198,7 @@ export function stripNoMaxHandSizeRider(text) {
 //     make a player lose when the card says they survive. That is a WRONG game state, not a missed option.
 //   · PARADIGM exiles the spell UNCONDITIONALLY ("Then exile this spell"), so ignoring it graveyards a card
 //     that should be in exile — a board difference with no unpaid state to hide behind.
-// UNDAUNTED (CR 702.150a) — "This spell costs {1} less to cast for each opponent." A pure COST REDUCTION,
+// UNDAUNTED (CR 702.125a) — "This spell costs {1} less to cast for each opponent." A pure COST REDUCTION,
 // which is DELVE's exact twin: delve is already credited on "not delving = paying full cost", and not
 // applying undaunted is likewise paying full cost. The engine casts at the printed price, which is STRICTLY
 // HARDER than the card allows — the safe direction, and it changes nothing about what resolves.
@@ -208,7 +208,7 @@ export function stripNoMaxHandSizeRider(text) {
 // SEPARATE sentence already handled, so declining only means paying full price. ⛔ `bargain\b` cannot match
 // the "if it's bargained" references — no word boundary between "bargain" and "ed" — and the anchor is
 // line-leading anyway.
-// CIPHER (CR 702.98a) — joins on this block's OWN stated basis: it changes the resolution only when the
+// CIPHER (CR 702.99a) — joins on this block's OWN stated basis: it changes the resolution only when the
 // option is taken, and the engine never takes it, so a normal cast resolves the printed body byte-identically
 // and the spell graveyards normally. "Then you MAY exile this spell card encoded on a creature you control" is
 // declined, and the encoded-copy trigger that the reminder describes exists only if it was taken — verified,

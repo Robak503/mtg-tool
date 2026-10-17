@@ -143,7 +143,7 @@ export function revealLandTypes(card) {
 /**
  * Does this reveal-land enter TAPPED right now? True iff the card carries the printed reveal clause AND the
  * controller's hand holds NO card of a named type. THE WRITTEN POLICY (both seats): a matching card is
- * always revealed. Revealing is free (no cost, no zone change — CR 701.15a), the only price is information,
+ * always revealed. Revealing is free (no cost, no zone change — CR 701.20a), the only price is information,
  * and an untapped land on the turn it is played is worth more than hiding one card's identity in every
  * position this engine models; so the reveal is automatic rather than a pause. The hidden-information side
  * is NOT modeled (no opponent ever "sees" the revealed card) — a documented limit, never a fabricated gate.

@@ -6,7 +6,7 @@
  * card", Murmuring Bosk "a Treefolk card", Ancient Amphitheater "a Giant card").
  *
  * ONE READER, TWO ENTER SITES, TWO CLASSIFIER SITES — the LANDS-1 shape. THE WRITTEN POLICY: a matching card
- * in hand is always revealed (revealing costs nothing — CR 701.15a — and an untapped land is worth more than
+ * in hand is always revealed (revealing costs nothing — CR 701.20a — and an untapped land is worth more than
  * hiding one card), so the gate is automatic at both sites; the hidden-information side (an opponent seeing
  * the card) is not modeled and is named as a limit, never faked. The entering land is never in the hand at
  * either site, so the scan is exactly the rest of the hand.
@@ -74,7 +74,7 @@ describe("play-land path — auto-reveal-if-able", () => {
     expect(playLand(twoSeat(), SECLUDED_GLEN, [FOREST])).toBe(true);
   });
 
-  it("⛔ FRONT face only (CR 712.4a): an MDFC whose BACK is a Forest does not reveal as one", () => {
+  it("⛔ FRONT face only (CR 712.8a): an MDFC whose BACK is a Forest does not reveal as one", () => {
     expect(playLand(twoSeat(), GAME_TRAIL, [MDFC_BACK_FOREST])).toBe(true);
   });
 

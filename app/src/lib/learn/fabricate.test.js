@@ -1,5 +1,5 @@
 /**
- * KW-FABRICATE (CR 702.111a) — "When this creature enters, put N +1/+1 counters on it OR create N 1/1
+ * KW-FABRICATE (CR 702.123a) — "When this creature enters, put N +1/+1 counters on it OR create N 1/1
  * colorless Servo artifact creature tokens." A modal ETB choice, modeled in fabricate.js + wired into
  * enterPermanent (resolvers.js). Both branches are exercised here (correct P/T, real Servo tokens firing
  * their ETB watchers), the CR 616 doublers compose, and the full Marionette Apprentice flips native-trigger

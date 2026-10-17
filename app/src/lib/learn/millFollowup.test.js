@@ -1,5 +1,5 @@
 /**
- * Mill (CR 701.13) + the trigger FOLLOW-UP fix. Mill: "you mill N" / "each opponent mills N" (top N
+ * Mill (CR 701.17) + the trigger FOLLOW-UP fix. Mill: "you mill N" / "each opponent mills N" (top N
  * → graveyard, non-targeted). The follow-up fix: detectTriggers now captures a trigger's follow-up
  * sentences into the effectClause, so a trigger with an UNMODELED follow-up ("mill a card. If a land
  * card was milled this way, you gain 2 life") parses LOW → routes to Arbiter (a safe no-op) instead

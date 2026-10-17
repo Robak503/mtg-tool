@@ -1,5 +1,5 @@
 /**
- * trainingKeyword.test.js — training (CR 702.148a, census slice 52).
+ * trainingKeyword.test.js — training (CR 702.149a, census slice 52).
  *
  * "Training (Whenever this creature attacks with another creature with greater power, put a +1/+1 counter
  * on this creature.)"

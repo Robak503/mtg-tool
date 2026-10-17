@@ -1,5 +1,5 @@
 /**
- * backupKeyword.test.js — BACKUP N (CR 702.166), census slice 34.
+ * backupKeyword.test.js — BACKUP N (CR 702.165), census slice 34.
  *
  * "When this creature enters, put N +1/+1 counters on target creature. If that's another creature, it gains
  * the following ability until end of turn." The whole ability lives in reminder parens, so it is synthesized

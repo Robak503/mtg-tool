@@ -63,7 +63,7 @@ const SIREN = { name: "Siren of the Fanged Coast", type: "Creature — Siren", m
 const FLAME_WREATHED_PHOENIX = { name: "Flame-Wreathed Phoenix", type: "Creature — Phoenix", mana: "{2}{R}{R}", power: 3, toughness: 3,
   oracle: "Flying\nTribute 2 (As this creature enters, an opponent of your choice may put two +1/+1 counters on it.)\nWhen this creature enters, if tribute wasn't paid, it gains haste and \"When this creature dies, return it to its owner's hand.\"" };
 // NOW NATIVE — the if-not "you may have this creature fight another target creature" is modeled as a
-// source-bound ETB-FIGHT (CR 701.12); the bare body re-classifies native, so the whole card is credited.
+// source-bound ETB-FIGHT (CR 701.14); the bare body re-classifies native, so the whole card is credited.
 const NESSIAN_WILDS_RAVAGER = { name: "Nessian Wilds Ravager", type: "Creature — Hydra", mana: "{4}{G}{G}", power: 6, toughness: 6,
   oracle: "Tribute 6 (As this creature enters, an opponent of your choice may put six +1/+1 counters on it.)\nWhen this creature enters, if tribute wasn't paid, you may have this creature fight another target creature. (Each deals damage equal to its power to the other.)" };
 
@@ -137,7 +137,7 @@ describe("TRIBUTE parser — parseTributeCreature (whole-card gate)", () => {
     expect(parseTributeCreature(SIREN, classifyCard, isNativeTier)).toBeNull();           // gain control of a creature — unmodeled
     expect(parseTributeCreature(FLAME_WREATHED_PHOENIX, classifyCard, isNativeTier)).toBeNull(); // grants a quoted dies-trigger — unmodeled
   });
-  it("Nessian Wilds Ravager now classifies native — its 'you may have this creature fight another target creature' if-not is modeled (source-bound ETB-FIGHT, CR 701.12)", () => {
+  it("Nessian Wilds Ravager now classifies native — its 'you may have this creature fight another target creature' if-not is modeled (source-bound ETB-FIGHT, CR 701.14)", () => {
     const spec = parseTributeCreature(NESSIAN_WILDS_RAVAGER, classifyCard, isNativeTier);
     expect(spec).not.toBeNull();
     expect(spec.n).toBe(6);
@@ -199,7 +199,7 @@ describe("TRIBUTE coverage — CREED anti-FP: deferred shapes stay body-only", (
   });
 });
 
-describe("TRIBUTE coverage — newly-modeled if-not (source-bound ETB-FIGHT, CR 701.12)", () => {
+describe("TRIBUTE coverage — newly-modeled if-not (source-bound ETB-FIGHT, CR 701.14)", () => {
   it("Nessian Wilds Ravager (optional 'fight another target creature') now classifies native", () => {
     expect(isNativeTier(classifyCard(NESSIAN_WILDS_RAVAGER))).toBe(true);
   });

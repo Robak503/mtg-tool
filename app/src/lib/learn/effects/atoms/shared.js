@@ -207,7 +207,7 @@ export function controllerCreatureTargets(state, controller, opts = {}) {
   // TYPE-NEGATED team scope (Return of the Wildspeaker "Non-Human creatures you control get +3/+3") — subtypeNegate
   // keeps only creatures NOT of that subtype. The subtype is a curated allowlist word (parser-side).
   // Every type word here is read off the creature AS IT IS NOW (layers.permanentHasTypeWord — the type-line audit): its front
-  // face (CR 712.4a), every creature type for a creature type (P·39 — a changeling is a Human, so not a "non-Human"), a type a
+  // face (CR 712.8d), every creature type for a creature type (P·39 — a changeling is a Human, so not a "non-Human"), a type a
   // layer-4 effect added (a Metallic Mimic that chose Human is one; a creature Liquimetal Torque made an artifact is one of Steel
   // Overseer's "artifact creatures you control" — the card-type qualifier rides subtypeFilter "Artifact" / "Enchantment").
   const subFilters = opts.subtypeFilter == null ? null : (Array.isArray(opts.subtypeFilter) ? opts.subtypeFilter : [opts.subtypeFilter]);
@@ -1052,7 +1052,7 @@ export function countForSpec(state, ctx, spec) {
   // the mana path) — see isExcludedSelf. A plain spell threads neither → nothing excluded (no "other" referent);
   // the cardsInHand / experience kinds have no per-permanent identity, so the flag is a safe no-op there.
   // DOMAIN (2026-09-06 — Stratadon's self cost reduction): the number of DISTINCT basic land types among the controller's
-  // lands, off the front-face type line (CR 712.4a). Granted basic types are not counted — a documented under-read.
+  // lands, off the front-face type line (CR 712.8d). Granted basic types are not counted — a documented under-read.
   if (spec.kind === "domain") return domainCount(state, ctx?.controller);
   // PARTY (2026-09-30 — the Zendikar Rising cycle's "for each creature in your party"): CR 700.8's up-to-one-each Cleric /
   // Rogue / Warrior / Wizard, maximised per 700.8b — the SAME helper layers.js's twin calls.
@@ -1169,7 +1169,7 @@ function isExcludedSelf(perm, spec, ctx) {
 //
 // TYPE-NEGATED (Return of the Wildspeaker "greatest power among non-Human creatures you control") — spec.notSubtype
 // drops every creature of that subtype from the pool. Word-bounded, case-insensitive front-face type-line read
-// (CR 712.4a — a DFC/adventure's front face defines its types), mirroring massCreatureTargets' subtypeNegate; a
+// (CR 712.8 — a DFC/adventure's front face defines its types), mirroring massCreatureTargets' subtypeNegate; a
 // CHANGELING (CR 702.73a — IS every creature type, so it IS the negated subtype) is also excluded. Absent → no
 // filter (every existing caller is byte-for-byte unchanged).
 function greatestPtAmong(state, player, spec, ctx, read) {

@@ -1,5 +1,5 @@
 /**
- * sunburst.test.js — SUNBURST (CR 702.43a): "This permanent enters with a +1/+1 counter on it for each COLOR
+ * sunburst.test.js — SUNBURST (CR 702.44a): "This permanent enters with a +1/+1 counter on it for each COLOR
  * of mana spent to cast it." Solarion, Suncrusher, Skyreach Manta, Suntouched Myr, Etched Oracle, Baton of
  * Courage.
  *
@@ -13,7 +13,7 @@
  * three files; a fixture with `colorsSpent` set by hand would pass while the wiring was broken and prove
  * nothing. This is the pin the wake report's seam-map demanded in advance.
  *
- * ⛔ THE COUNTER KIND IS READ FROM THE TYPE LINE, never assumed. CR 702.43a: +1/+1 counters if it's a
+ * ⛔ THE COUNTER KIND IS READ FROM THE TYPE LINE, never assumed. CR 702.44a: +1/+1 counters if it's a
  * creature, CHARGE counters otherwise. Baton of Courage is the non-creature artifact that proves it — a flat
  * "+1/+1" would have mis-modelled it silently, since it would still have entered with the right NUMBER.
  *
@@ -47,7 +47,7 @@ const BATON = { id: "sb2", name: "Baton of Courage", type: "Artifact", mana: "{3
   oracle: "Flash\nSunburst (This artifact enters with a charge counter on it for each color of mana spent to cast it.)\nRemove a charge counter from this artifact: Target creature gets +1/+1 until end of turn." };
 
 describe("the counter KIND comes from the type line", () => {
-  it("⭐ creature → +1/+1, non-creature artifact → charge (CR 702.43a)", () => {
+  it("⭐ creature → +1/+1, non-creature artifact → charge (CR 702.44a)", () => {
     expect(sunburstCounterKind(MYR)).toBe("+1/+1");
     expect(sunburstCounterKind(BATON)).toBe("charge");
   });

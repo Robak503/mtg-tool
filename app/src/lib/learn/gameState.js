@@ -1198,7 +1198,7 @@ export function applyImpulseDig(state, { playerId, n, chosenId, chosenIds, restT
 }
 
 /**
- * Mill (CR 701.13) — put the top `count` cards of a player's library into their graveyard, top
+ * Mill (CR 701.17) — put the top `count` cards of a player's library into their graveyard, top
  * first. Bounded by the library size (milling an empty/short library is a clean no-op). A removed/
  * stale player resolves to a no-op (never a throw). Pure.
  */

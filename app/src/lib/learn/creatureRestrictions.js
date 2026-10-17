@@ -197,7 +197,7 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       if (r.kind === "color" && !set.has(r.color)) return false;
       if (r.kind === "multicolored" && set.size < 2) return false;  // CR 105.3 — two or more colors
     } else if (r.kind === "typeNeg") {
-      // FRONT-face type only (CR 712.4a) — a DFC's combined "Front // Back" line would wrongly match a
+      // FRONT-face type only (CR 712.8) — a DFC's combined "Front // Back" line would wrongly match a
       // back-face type (mirrors the front-face discipline used for counter/tutor/graveyard targets here).
       const tl = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0].toLowerCase();
       if (tl.includes(r.type)) return false;       // a non<type> target can't be that card type
@@ -215,7 +215,7 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
     } else if (r.kind === "cardType") {
       // CARD-TYPE TARGET (CR 205.2) — the positive mirror of typeNeg: "target artifact creature" (Modular's
       // dies payoff, BLITZ MOD-1) requires the target creature's type line to ALSO carry the named card type.
-      // Front-face only (CR 712.4a) so a DFC back-face type can't wrongly qualify; fail-closed on a missing
+      // Front-face only (CR 712.8) so a DFC back-face type can't wrongly qualify; fail-closed on a missing
       // type line (a creature with no readable type → not that type → SAFE false-negative, never a wrong pick).
       // A card type a layer-4 effect added qualifies too (CR 613.1d — a creature Liquimetal Torque made an artifact IS an
       // artifact creature), read off the layer engine with the same front-face discipline.
@@ -268,7 +268,7 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // group-granted ability). A creature subtype is a proper noun appearing verbatim ONLY in the subtype
       // portion of a type line ("Creature — Sliver"), so a word-bounded, case-insensitive containment test
       // matches exactly the subtyped creatures. The matcher (combatKeywordClauseParser) only emits a CURATED
-      // creature-subtype word, so this never mis-matches a color/card-type word. Front-face only (CR 712.4a):
+      // creature-subtype word, so this never mis-matches a color/card-type word. Front-face only (CR 712.8):
       // a DFC's combined "Front // Back" line would wrongly match a back-face subtype.
       const tl = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0];
       // `negate` flips it to "every creature that is NOT that subtype" (Breath Weapon's "each non-Dragon
@@ -291,7 +291,7 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // SUPERTYPE-TARGET (CR 205.4) — "target legendary creature you control" (Mithril Coat / Mjölnir ETB
       // auto-attach; "Equip legendary" also gates on legendary, checked inline in legalChoices). A supertype
       // (legendary / basic / snow / world) appears verbatim in the type line, so a word-bounded case-insensitive
-      // front-face test matches exactly the creatures carrying it. Front-face only (CR 712.4a) so a DFC's
+      // front-face test matches exactly the creatures carrying it. Front-face only (CR 712.8) so a DFC's
       // back-face supertype can't wrongly qualify. Fail-closed on a missing type line (safe false-negative).
       // `negate` is "target NONLEGENDARY creature you control" (Kiki-Jiki — shelf D26): every creature WITHOUT it.
       const stl = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0];

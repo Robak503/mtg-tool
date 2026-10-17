@@ -72,7 +72,7 @@ describe("parse", () => {
     expect(parseGraveyardFilter("nonland permanent")).toBeNull();
     expect(cardMatchesGraveyardFilter(BOLT, "nonland")).toBe(true);
     expect(cardMatchesGraveyardFilter(SWAMP, "nonland")).toBe(false);
-    // Front face only (CR 712.4a): a Land // Creature MDFC is a land in the graveyard.
+    // Front face only (CR 712.8a): a Land // Creature MDFC is a land in the graveyard.
     expect(cardMatchesGraveyardFilter({ name: "Westvale Abbey // Ormendahl", type: "Land // Legendary Creature — Demon" }, "nonland")).toBe(false);
   });
 });

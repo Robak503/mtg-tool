@@ -1,5 +1,5 @@
 /**
- * LIVING WEAPON (CR 702.91) / FOR MIRRODIN! (CR 702.157) — the Equipment's built-in ETB: it enters, creates a
+ * LIVING WEAPON (CR 702.92) / FOR MIRRODIN! (CR 702.157) — the Equipment's built-in ETB: it enters, creates a
  * token (a 0/0 black Phyrexian Germ for living weapon; a 2/2 red Rebel for For Mirrodin!), and attaches itself
  * to that token. The equipped-creature +X/+Y then buffs the token via the layer engine — so a 0/0 Germ never
  * dies to the 0-toughness SBA (it's buffed the same instant it's created, CR 613). Modeled in enterPermanent

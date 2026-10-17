@@ -7,7 +7,7 @@
  * The held red is ordinary pool mana (spendable on anything — a boast cost included) plus an EXACT until-end-of-turn hold on that
  * amount (gameState.holdManaUntilEndOfTurn → emptyManaPools keeps up to it at each step/phase end; commitPaymentPlan clamps it to
  * what is left of the color, so once it is spent a later red can't ride it; cleanup drops it, CR 514.2). Boast twice raises boast's
- * once-each-turn limit (CR 702.135b) to two on its controller's own turns.
+ * once-each-turn limit (CR 702.142) to two on its controller's own turns.
  *
  * Birgi // Harnfel itself is a creature // artifact modal DFC: the face lines are witnessed here on the front face's own view, and
  * casting either face (P·38's spell // spell MDFC lane) is witnessed in spellModalDfc.test.js. The same "you don't lose this mana"

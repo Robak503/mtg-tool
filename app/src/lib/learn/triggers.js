@@ -2416,7 +2416,7 @@ function classifyCondition(condRaw, cardName, cardType) {
   // token's card; the once-per-batch dedupe (the Satoru mechanism) collapses the per-token calls of one batch.
   if (/^you create one or more creature tokens$/.test(c)) return { event: "tokenChange", scope: "you", whose: "any", onCreate: true, onSacrifice: false, oncePerBatch: true, creatureTokensOnly: true };
   if (/^you sacrifice a token$/.test(c)) return { event: "tokenChange", scope: "you", whose: "any", onCreate: false, onSacrifice: true };
-  // ===== CLASH (STAGE ④-2, 2026-09-03 — CR 701.22) ===== "Whenever you clash [and win]" (Sylvan Echoes;
+  // ===== CLASH (STAGE ④-2, 2026-09-03 — CR 701.30) ===== "Whenever you clash [and win]" (Sylvan Echoes;
   // Entangling Trap / Rebellion of the Flamekin carry the same condition with parked riders). BOTH clashing
   // players clash (701.22a — "each clashing player"), so the clash applier fires checkClashTriggers for the
   // controller AND the chosen opponent, each with their own won/lost; `winOnly` narrows to a won clash. Fires
@@ -3174,13 +3174,13 @@ function classifyCondition(condRaw, cardName, cardType) {
     const spellFilter = castSpellFilter(castM[2].trim());
     if (spellFilter) return { event: "cast", scope: "castWatcher", whose, spellFilter };
   }
-  // ===== MILL-ON-EVENT (Wave 3b, CR 701.13a — milling cards is a SINGLE game event) ===== Two corpus
+  // ===== MILL-ON-EVENT (Wave 3b, CR 701.17a — milling cards is a SINGLE game event) ===== Two corpus
   // templates, both classified to the shared "milled" event (fired by checkMilledTriggers off the real
   // mill chokepoints — the mill effect atom + the inherent radiation ability):
   //   BATCH ("one or more [nonland] cards are milled") — fires ONCE per mill event regardless of how many
   //     cards were milled (Mirelurk Queen, Screeching Scorchbeast, The Wise Mothman). perCard:false.
   //   PER-CARD ("a player|an opponent mills a [nonland] card") — fires once per MATCHING card milled (CR
-  //     701.13a — each milled card is a distinct object, so a payoff phrased per-card fires per-card;
+  //     701.17a — each milled card is a distinct object, so a payoff phrased per-card fires per-card;
   //     Glowing One "you gain 1 life" per nonland, Infesting Radroach). perCard:true.
   // `milledFilter` = "nonland" gates on the milled card's FRONT-face type (checkMilledTriggers), null = any
   // card. `whose` = "any" ("a player") or "opponent" (the milling player must be an opponent of the
@@ -3329,7 +3329,7 @@ export function cascadeInstanceCount(oracle) {
 }
 
 /**
- * KW-UNDYING (CR 702.92a, SHELF S7) — is the PRINTED undying keyword on this card? 1/0 (multiple printed
+ * KW-UNDYING (CR 702.93a, SHELF S7) — is the PRINTED undying keyword on this card? 1/0 (multiple printed
  * instances don't exist; a hypothetical double would still return 1 — each extra instance's trigger is a
  * strict-superset no-op after the first returns the card, so 1 is the honest count). The keyword line is
  * matched STRUCTURALLY, not by word-lookbehind: after reminder-strip, split each oracle LINE on commas and
@@ -3358,7 +3358,7 @@ export function evolveKeywordCount(oracle) {
 }
 
 /**
- * KW-RENOWN (CR 702.111) — "Renown N" on its own line (reminder text stripped, the undying/evolve idiom).
+ * KW-RENOWN (CR 702.112) — "Renown N" on its own line (reminder text stripped, the undying/evolve idiom).
  * Returns N (the counter count), or 0 when the card doesn't carry a printed renown keyword. A GRANTED
  * renown ("creatures you control have renown 1") is a different shape and never matches the anchor, so it
  * contributes 0 here and 0 to the detected count — the pair stays reconciled.
@@ -3411,7 +3411,7 @@ export function mobilizeKeywordValue(oracle) {
 }
 
 /**
- * BACKUP N (CR 702.166) — "When this creature enters, put N +1/+1 counters on target creature. If that's
+ * BACKUP N (CR 702.165) — "When this creature enters, put N +1/+1 counters on target creature. If that's
  * another creature, it gains the following ability until end of turn." The whole ability is in reminder
  * parens, so it is synthesized like renown / mobilize.
  *
@@ -3467,7 +3467,7 @@ export function hasDethrone(oracle) {
 }
 
 /**
- * KW-TRAINING (CR 702.148a) — does the card print the bare keyword? Parens stripped first, like dethrone.
+ * KW-TRAINING (CR 702.149a) — does the card print the bare keyword? Parens stripped first, like dethrone.
  * Unlike the optional-mode family, training is a MANDATORY trigger with a real condition, so it is credited
  * by being modeled (synthesized descriptor + intervening-if), never by being declined.
  */
@@ -3640,8 +3640,8 @@ export function persistKeywordCount(oracle) {
   return 0;
 }
 
-/** BATTLE CRY (BLITZ BC-1, CR 702.90) — the STRUCTURAL instance counter (the flanking matcher: a whole
- * comma-segment must be exactly "battle cry"; multiples stack per CR 702.90b — each instance pumps the
+/** BATTLE CRY (BLITZ BC-1, CR 702.91) — the STRUCTURAL instance counter (the flanking matcher: a whole
+ * comma-segment must be exactly "battle cry"; multiples stack per CR 702.91 — each instance pumps the
  * team +1/+0 again). A grant ("…creatures have battle cry") never counts. Shared by the synthesis and
  * coverage's shaped bump. */
 export function battleCryKeywordCount(oracle) {
@@ -4701,7 +4701,7 @@ export function detectTriggers(cardIn) {
       // as an untaken alternative cast mode), so there is no real trigger to lose. Anchored to the exact
       // reminder shape — an impending-REFERENCING sentence in rules text is untouched.
       .replace(/\(if you cast this spell for its impending cost[^)]*\)/gi, "")
-      // ⭐ GRAFT REMINDER STRIP (CR 702.57a) — the FIFTH instance of this exact failure, and it was found by
+      // ⭐ GRAFT REMINDER STRIP (CR 702.58a) — the FIFTH instance of this exact failure, and it was found by
       // sweeping for the signature the previous four left behind rather than by tripping over a card: a
       // descriptor whose effectClause carries an unbalanced ')'.
       // "Graft 2 (This creature enters with two +1/+1 counters on it. Whenever another creature enters, you
@@ -4714,7 +4714,7 @@ export function detectTriggers(cardIn) {
       // MANDATORY half of graft (entering with N +1/+1 counters) is NOT dropped: entersWithPlusCounters now
       // reads the count off the keyword, because these carriers are 0/0 and would otherwise die on arrival.
       .replace(/\(this (?:creature|permanent) enters (?:the battlefield )?with [^)]*\+1\/\+1 counters? on it\. whenever another creature enters[^)]*\)/gi, "")
-      // ⭐ CHAMPION REMINDER STRIP (CR 702.71a) — the SIXTH instance, and it is here for a REASON THE
+      // ⭐ CHAMPION REMINDER STRIP (CR 702.72a) — the SIXTH instance, and it is here for a REASON THE
       // OTHERS DID NOT HAVE: it is a PREREQUISITE for the leaves-self anchor widening below.
       // "Champion an Elf (When this creature enters, sacrifice it unless you exile another Elf you control.
       // When this creature leaves the battlefield, that card returns to the battlefield.)" — the second
@@ -5944,7 +5944,7 @@ export function detectTriggers(cardIn) {
       optional: false, sourceText: `Bushido ${n}`,
     });
   }
-  // AFFLICT (CR 702.131) — KEYWORD→TRIGGER synthesis, the BUSHIDO precedent exactly. "Afflict N" is a keyword
+  // AFFLICT (CR 702.130) — KEYWORD→TRIGGER synthesis, the BUSHIDO precedent exactly. "Afflict N" is a keyword
   // whose triggered ability lives in REMINDER parens ("(Whenever this creature becomes blocked, defending
   // player loses N life.)"), which the boundary-anchored When/Whenever/At regex above can't reach (the "("
   // before "Whenever" isn't a sentence boundary). Synthesize the real "becomesBlocked" descriptor off the
@@ -5978,7 +5978,7 @@ export function detectTriggers(cardIn) {
       optional: false, sourceText: `Afflict ${n}`,
     });
   }
-  // ⭐ INGEST (CR 702.114a) — KEYWORD→TRIGGER synthesis, the same shape as afflict directly above:
+  // ⭐ INGEST (CR 702.115a) — KEYWORD→TRIGGER synthesis, the same shape as afflict directly above:
   // "Ingest (Whenever this creature deals combat damage to a player, that player exiles the top card of
   // their library.)" The keyword line carries no rules text of its own, so without this the whole Battle
   // for Zendikar processor shell sits on the Arbiter.
@@ -5991,7 +5991,7 @@ export function detectTriggers(cardIn) {
   // canonical sentence, so an unstripped match would synthesize the descriptor AND let the grammar detect
   // the reminder as a second, real trigger — a double fire. `oracle` here is already reminder-stripped by
   // the caller, and the word-boundary anchor keeps "ingest" from matching inside other text.
-  // ⭐ CHAMPION (CR 702.71a) — KEYWORD→TRIGGER synthesis, the ingest/afflict shape. "Champion a Kithkin
+  // ⭐ CHAMPION (CR 702.72a) — KEYWORD→TRIGGER synthesis, the ingest/afflict shape. "Champion a Kithkin
   // (When this enters, sacrifice it unless you exile another Kithkin you control. When this leaves the
   // battlefield, that card returns to the battlefield.)"
   //
@@ -6137,9 +6137,9 @@ export function detectTriggers(cardIn) {
       optional: false, sourceText: "Flanking",
     });
   }
-  // BATTLE CRY (BLITZ BC-1, CR 702.90a) — KEYWORD→TRIGGER synthesis (the reminder-parens keyword, the
+  // BATTLE CRY (BLITZ BC-1, CR 702.91a) — KEYWORD→TRIGGER synthesis (the reminder-parens keyword, the
   // bushido precedent): "Whenever this creature attacks, each other attacking creature gets +1/+0 until
-  // end of turn." One descriptor PER printed instance (CR 702.90b — multiples stack); the effect is the
+  // end of turn." One descriptor PER printed instance (CR 702.91 — multiples stack); the effect is the
   // Trumpet-Blast team pump with excludeSource, fired through the normal attacks event (checkAttackTriggers
   // threads ctx.sourceId, so "each OTHER" drops the crier itself). A grant never self-synthesizes
   // (battleCryKeywordCount — structural).
@@ -6236,7 +6236,7 @@ export function detectTriggers(cardIn) {
       optional: false, sourceText: `Soulshift ${n}`,
     });
   }
-  // KW-UNDYING (CR 702.92a, SHELF S7) — KEYWORD→TRIGGER synthesis, the BUSHIDO/AFFLICT precedent. "Undying"
+  // KW-UNDYING (CR 702.93a, SHELF S7) — KEYWORD→TRIGGER synthesis, the BUSHIDO/AFFLICT precedent. "Undying"
   // is a keyword whose triggered ability lives entirely in REMINDER parens ("(When this creature dies, if it
   // had no +1/+1 counters on it, return it to the battlefield under its owner's control with a +1/+1 counter
   // on it.)"), which the boundary-anchored When/Whenever/At regex above can't reach. Synthesize the SELF-DIES
@@ -6249,7 +6249,7 @@ export function detectTriggers(cardIn) {
   //     returned body carries a +1/+1 counter; its NEXT death reads "had counters" → no second return).
   //   - the effectClause is the kind-tagged sentinel ONLY selfReturnClauseParser models → the undying-return
   //     atom (graveyard → battlefield under owner's control + one +1/+1 counter through the doubling
-  //     replacement, CR 614.1c/702.92a — Doubling Season doubles it per the official ruling).
+  //     replacement, CR 614.1c/702.93a — Doubling Season doubles it per the official ruling).
   //   - a TOKEN never returns (CR 111.7 — it ceases to exist; guarded in the resolver via
   //     ctx.triggeringCardIsToken, the applySelfReturn precedent).
   // Matched STRUCTURALLY (undyingKeywordCount — a whole comma-segment of a line must be exactly "undying"),
@@ -6359,7 +6359,7 @@ export function detectTriggers(cardIn) {
       optional: false, sourceText: "Evolve",
     });
   }
-  // KW-RENOWN (CR 702.111, census slice 2026-07-25) — the SAME keyword→trigger synthesis as evolve above.
+  // KW-RENOWN (CR 702.112, census slice 2026-07-25) — the SAME keyword→trigger synthesis as evolve above.
   // "Renown N (When this creature deals combat damage to a player, if it isn't renowned, put N +1/+1
   // counters on it and it becomes renowned.)" — the ability lives entirely in reminder parens, unreachable
   // by the boundary-anchored trigger regex. The "isn't renowned" gate is a LATCH, not a board query, so it
@@ -6378,7 +6378,7 @@ export function detectTriggers(cardIn) {
       });
     }
   }
-  // KW-BACKUP (CR 702.166) — synthesized from the printed keyword like renown/mobilize. The effectClause is
+  // KW-BACKUP (CR 702.165) — synthesized from the printed keyword like renown/mobilize. The effectClause is
   // ORDINARY MODELED TEXT, not a kind-tagged sentinel: "put N +1/+1 counters on this creature" already parses
   // HIGH to the existing self-scoped add-counter atom, so this keyword needs no new resolver and inherits a
   // runtime path that is already proven. See backupKeywordValue for why the SELF target is the modeled line.
@@ -6466,7 +6466,7 @@ export function detectTriggers(cardIn) {
       optional: false, sourceText: "Dethrone",
     });
   }
-  // KW-TRAINING (CR 702.148a, census slice 52) — "Whenever this creature attacks with another creature with
+  // KW-TRAINING (CR 702.149a, census slice 52) — "Whenever this creature attacks with another creature with
   // greater power, put a +1/+1 counter on this creature." Same synthesis shape as dethrone: an ordinary
   // modeled effectClause plus a condition. The condition compares against the OTHER ATTACKERS, not the
   // board, so a bigger creature staying home trains nothing.
@@ -7540,7 +7540,7 @@ export function checkDiesTriggers(state, dead) {
     // payment). The permanent is gone by then; the card id is the only stable key. Additive + inert.
     if (d.card?.id) diesCtx.triggeringCardId = d.card.id;
     if (d.power != null) diesCtx.dyingPower = d.power;
-    // KW-UNDYING (CR 702.92a + 603.6e last-known-info): the undying intervening-if reads whether the DYING
+    // KW-UNDYING (CR 702.93a + 603.6e last-known-info): the undying intervening-if reads whether the DYING
     // object had any +1/+1 counters AS IT LAST EXISTED on the battlefield. Stamped ONLY when the death
     // look-back carried its `counters` snapshot (every modeled death constructor does) — an entry without
     // one leaves the flag undefined, and interveningIf.js returns null on undefined (can't confirm → the
@@ -9182,7 +9182,7 @@ export function checkTokenCreatedTriggers(state, creatingPlayerId, numCreated = 
 }
 
 /**
- * CLASH on-event (STAGE ④-2, CR 701.22) — enqueue "Whenever you clash [and win]" for EVERY player who clashed.
+ * CLASH on-event (STAGE ④-2, CR 701.30) — enqueue "Whenever you clash [and win]" for EVERY player who clashed.
  * `clashers` is [{ id, won }] — the controller and the chosen opponent, each with their own result (701.22c: a
  * player wins iff THEIR revealed card's mana value is greater, so at most one wins; a tie wins for nobody).
  * Only each clasher's OWN watchers are scanned ("you clash"); a `winOnly` watcher fires only for the winner.
@@ -9286,7 +9286,7 @@ export function checkBecomesMonarchTriggers(state, newMonarchId) {
 
 // The cast spell's mana value is spellOnStack.spellManaValue — its value on the stack (CR 202.3), read once per cast event below.
 
-/** MILL-ON-EVENT — front-face type line (CR 712.4a / 712.8a). A card in the library has ONLY its front-face
+/** MILL-ON-EVENT — front-face type line (CR 712.8a). A card in the library has ONLY its front-face
  * characteristics, so an MDFC whose BACK is a land (Malakir Rebirth // Malakir Mire) is a NONLAND when milled.
  * Mirrors gameState.frontFaceTypeLine (kept local so triggers.js stays a leaf — no gameState type import). */
 function frontFaceType(card) {
@@ -9301,13 +9301,13 @@ function isNonlandCard(card) {
 }
 
 /**
- * MILL-ON-EVENT (Wave 3b, CR 701.13a) — enqueue "milled" triggers for ONE player-mill event. `milledCards`
+ * MILL-ON-EVENT (Wave 3b, CR 701.17a) — enqueue "milled" triggers for ONE player-mill event. `milledCards`
  * is the ordered batch of card objects that just moved from `milledByPlayer`'s library to their graveyard
  * (captured by the caller — the mill effect atom or the inherent radiation ability — BEFORE/at the mill so
  * the front-face type is readable). Fires every battlefield/emblem watcher of EVERY player, because the
  * corpus triggers watch mills globally ("one or more nonland cards are milled" / "a player mills …"):
  *   - BATCH descriptors (perCard:false) fire ONCE for this event when ≥1 matching card was milled (CR
- *     701.13a — milling is a single event; the count rides the context for an amount-aware payoff).
+ *     701.17a — milling is a single event; the count rides the context for an amount-aware payoff).
  *   - PER-CARD descriptors (perCard:true) fire ONCE PER matching card milled (each milled card is its own
  *     object — Glowing One's "you gain 1 life" per nonland is N separate triggers).
  * `milledFilter:"nonland"` counts only nonland cards (front-face); null counts all. The `whose:"opponent"`
@@ -9752,7 +9752,7 @@ export function checkMilledTriggers(state, { milledByPlayer, milledCards } = {})
         const matchCount = d.milledFilter === "nonland" ? nonlandCount : cards.length;
         if (matchCount === 0) continue; // no matching card milled → this descriptor doesn't fire
         const context = { milledByPlayer, milledCount: cards.length, nonlandMilledCount: nonlandCount };
-        // PER-CARD fires once per matching card (CR 701.13a — each milled card is a distinct object); BATCH
+        // PER-CARD fires once per matching card (CR 701.17a — each milled card is a distinct object); BATCH
         // fires exactly once for the whole event. makePendingTrigger is re-called so each is a distinct object.
         const times = d.perCard ? matchCount : 1;
         for (let i = 0; i < times; i++) fired.push(makePendingTrigger(d, watcher, null, context));

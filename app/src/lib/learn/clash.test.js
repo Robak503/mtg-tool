@@ -1,5 +1,5 @@
 /**
- * clash.test.js — STAGE ④-1 (2026-09-03): CLASH (CR 701.22) — "clash with an opponent. If you win, <payoff>".
+ * clash.test.js — STAGE ④-1 (2026-09-03): CLASH (CR 701.30) — "clash with an opponent. If you win, <payoff>".
  * Nath's Elite's ETB is the shape (× Oaken Brawler, Paperfin Rascal, Bog Hoodlums, Adder-Staff Boggart):
  * "When this creature enters, clash with an opponent. If you win, put a +1/+1 counter on this creature."
  * Two atoms — the clash (reveal tops vs one opponent; win iff GREATER mana value; a tie wins for nobody;

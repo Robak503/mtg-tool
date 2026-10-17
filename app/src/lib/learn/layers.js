@@ -485,7 +485,7 @@ function countGraveyardSpec(state, perm, spec) {
 // colorsAmongPermanents, …) → the board evaluator countSelfSpecOnBoard. A null/unknown spec is 0 (never
 // emitted — the parser only produces a spec whose evaluator exists here; metric⇄runtime lockstep).
 /** DOMAIN (2026-09-06 — Stratadon's cost, Strength of Unity's / Manaforce Mace's per-count bonus): the number of DISTINCT basic
- *  land types among `playerId`'s lands, off the front-face type line (CR 712.4a). Granted basic types (Urborg / Yavimaya) are
+ *  land types among `playerId`'s lands, off the front-face type line (CR 712.8d). Granted basic types (Urborg / Yavimaya) are
  *  not counted — a documented under-read. ONE helper for both count evaluators (this file's and effects/atoms/shared.js's),
  *  so a layer bonus and a cast reduction can never disagree about domain. */
 export function domainCount(state, playerId) {
@@ -2096,7 +2096,7 @@ export function permanentBasePower(state, permanentId) {
  * pays ≈ the old cost.
  */
 /**
- * GOAD (CR 701.38) — which players GOADED this permanent right now.
+ * GOAD (CR 701.15) — which players GOADED this permanent right now.
  *
  * Goad's second half is "attacks a player other than YOU if able", and **YOU is the GOADER, not the
  * creature's controller** — that asymmetry is the entire mechanic. A plain keyword read can't express it,

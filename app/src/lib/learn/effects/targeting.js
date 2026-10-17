@@ -46,7 +46,7 @@ function graveyardCardOf(state, t) {
   return (state.players?.[t.controller]?.graveyard || []).find((c) => c.id === t.id) || null;
 }
 
-// The REAL creature types on a graveyard card, per its FRONT face (CR 712.4a — outside the battlefield a
+// The REAL creature types on a graveyard card, per its FRONT face (CR 712.8a — outside the battlefield a
 // card has only its front-face characteristics; the " // " split mirrors shared.js's typeLineStr front-face
 // discipline, without which a DFC's combined line would leak "creature"/"//" junk into the word set): the
 // type-line words after the em-dash, admitted only through CR_CREATURE_TYPES (see above). "Time Lord" is
@@ -324,7 +324,7 @@ function playersFirstOverCap(tagged) {
 function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) {
   const perAtom = [];
   // atomIndexes that carry a two-target pair (FIGHT-PAIR / DAMAGE-TARGET-POWER) — the fighter + target of
-  // ONE such atom must be DISTINCT creatures (CR 701.12 / "another target creature"); enforced post-combine.
+  // ONE such atom must be DISTINCT creatures (CR 701.14 / "another target creature"); enforced post-combine.
   const pairAtomIdx = [];
   // ⭐ A KICKED SPELL'S TARGETS DEPEND ON THE KICK (CR 601.2c — "a spell may require some targets only if an alternative
   // or additional cost (such as a kicker cost) … was chosen for it … Similarly, a spell may require alternative targets
@@ -497,7 +497,7 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
     }
     combos = next;
   }
-  // DISTINCTNESS — drop any combo where a pair atom's two creatures are the same object (CR 701.12 — a
+  // DISTINCTNESS — drop any combo where a pair atom's two creatures are the same object (CR 701.14 — a
   // creature can't fight itself; "another target creature" demands two distinct). Keeps every other combo.
   if (pairAtomIdx.length) {
     combos = combos.filter(combo => pairAtomIdx.every(idx => {

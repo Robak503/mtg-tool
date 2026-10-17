@@ -929,7 +929,7 @@ export default function LearnView({
         </div>
       )}
       {/* EACH-PLAYER discard (Mind Rot / Fugue / Delirium Skeins) → the human (a discarder) picks which
-          card from THEIR OWN hand to pitch (CR 701.8 — the discarding player chooses). N>1 / each-player
+          card from THEIR OWN hand to pitch (CR 701.9 — the discarding player chooses). N>1 / each-player
           re-surfaces this panel per card. Same side-sheet. */}
       {session.board && decision?.kind === "discard" && (
         <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>

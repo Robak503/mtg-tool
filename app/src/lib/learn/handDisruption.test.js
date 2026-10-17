@@ -134,7 +134,7 @@ describe("resolution — reveal the targeted opponent's hand, then the caster pi
     const paused = resolveTopOfStack(dispatchAction(s, filterActions(legalActionsForPlayer(s, "user"), "cast-spell").find((a) => a.cardId === "des")));
     expect(paused.pendingChoice.candidates.map((c) => c.id).sort()).toEqual(["a-bear", "a-pw"]);
   });
-  it("CR 712.4a — a card's FRONT face decides the filter (an Instant // Land MDFC is noncreature, nonland)", () => {
+  it("CR 712.8 — a card's FRONT face decides the filter (an Instant // Land MDFC is noncreature, nonland)", () => {
     const mdfc = { id: "a-mdfc", name: "Malakir Rebirth", type: "Instant // Land", cmc: 2, oracle: "" };
     const s = state({ userHand: [DURESS], aiHand: [mdfc] });
     const paused = resolveTopOfStack(dispatchAction(s, filterActions(legalActionsForPlayer(s, "user"), "cast-spell").find((a) => a.cardId === "dur")));

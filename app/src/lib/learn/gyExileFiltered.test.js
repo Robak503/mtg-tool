@@ -10,7 +10,7 @@
  *
  * ⭐ NOTHING NEW WAS BUILT. The `exile-from-graveyard` atom, `applyExileFromGraveyard`, the `cardFilter`
  * vocabulary and `cardMatchesGraveyardFilter` (which enforces the filter at ENUMERATION, front-face per
- * CR 712.4a) all predate this slice. Only the bare-noun matcher was reachable, so ANY filter parked the
+ * CR 712.8a) all predate this slice. Only the bare-noun matcher was reachable, so ANY filter parked the
  * card. `parseGraveyardFilter` is REUSED rather than re-implemented, so the exile lane and the return lane
  * cannot drift into two different ideas of what "creature card" means.
  *

@@ -1,5 +1,5 @@
 /**
- * exhaustKeyword.test.js — EXHAUST (CR 702.180a): "Exhaust — {cost}: <effect>. (Activate each exhaust
+ * exhaustKeyword.test.js — EXHAUST (CR 702.177a): "Exhaust — {cost}: <effect>. (Activate each exhaust
  * ability only once.)" Pacesetter Paragon, Greenbelt Guardian, Skystreak Engineer, Rough Rhino Cavalry,
  * Prowcatcher Specialist, Rebellious Captives, Hazard of the Dunes, Stampeding Scurryfoot, Keen Buccaneer,
  * Camera Launcher.

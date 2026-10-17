@@ -3,7 +3,8 @@
 //
 // What it catches: a citation to a rule that is not in the CR at all — a sub-letter past the end of its rule
 // (702.88d, 702.30c), a mistyped number. What it cannot catch: a real rule cited for the wrong thing (118.10 for
-// the impulse permission). That half is judgment; this script only guarantees the number is real.
+// the impulse permission). That half is judgment; this script only guarantees the number is real. (For the keyword
+// sections, 701.N / 702.N, check-cr-keywords.cjs checks the cited keyword against the one the comment names.)
 //
 // Lists after one "CR" are read too ("CR 608.2n / 608.3b", "CR 601.2f, 601.2h", both ends of "CR 706.1-706.2"), as
 // is the hyphenated form ("the CR-603.10a look-back"). A citation that a comment wraps across a line break ("… CR" at

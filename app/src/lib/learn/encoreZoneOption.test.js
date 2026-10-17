@@ -1,5 +1,5 @@
 /**
- * encoreZoneOption.test.js — ENCORE (CR 702.130) joins the graveyard zone-option family (slice 39).
+ * encoreZoneOption.test.js — ENCORE (CR 702.141) joins the graveyard zone-option family (slice 39).
  *
  * "Encore {cost} ({cost}, Exile this card from your graveyard: For each opponent, create a token copy that
  * attacks that opponent this turn if able. Sacrifice them at the beginning of the next end step. Activate

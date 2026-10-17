@@ -75,7 +75,7 @@ export function applyConnive(state, atom, ctx) {
   // Masque's own "draw your second card each turn" triggers must count connive's draw).
   let next = applyDrawEffect(state, { controller, amount: 1 });
   next = logEvent(next, { kind: "spell-effect", effect: "connive", controller, permanentId: subjectId, drew: true });
-  // (2) Discard a card — the DISCARDING player chooses (CR 701.8).
+  // (2) Discard a card — the DISCARDING player chooses (CR 701.9).
   const hand = (next.players[controller]?.hand || []).filter((c) => !c.token);
   if (hand.length === 0) {
     // Impossible discard — the connive still completes (CR 701.50b); no counter (nothing discarded).

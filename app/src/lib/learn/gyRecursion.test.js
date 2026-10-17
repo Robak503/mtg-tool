@@ -257,7 +257,7 @@ describe("enumeration — only the CASTER'S graveyard, filtered by card type", (
     expect(any.some((x) => x.id === "u-tok")).toBe(false);          // a token is not a card
   });
 
-  it("CR 712.4a — a transform card whose FRONT is non-creature is not a creature-card target", () => {
+  it("CR 712.8 — a transform card whose FRONT is non-creature is not a creature-card target", () => {
     // "Westvale Abbey // Ormendahl, Profane Prince" is a LAND in the graveyard (front face only).
     const dfc = { id: "u-abbey", name: "Westvale Abbey", type: "Land // Legendary Creature — Demon", oracle: "" };
     const s = boardState({ userGy: [dfc, gyCreature("u-bear", "Grizzly Bears")] });

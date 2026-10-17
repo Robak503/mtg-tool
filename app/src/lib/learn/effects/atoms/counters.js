@@ -1220,7 +1220,7 @@ export function evolveCounterSelfClauseParser(clause) {
 }
 
 /**
- * KW-RENOWN (CR 702.111) — the kind-tagged sentinel detectTriggers synthesizes from the printed keyword
+ * KW-RENOWN (CR 702.112) — the kind-tagged sentinel detectTriggers synthesizes from the printed keyword
  * ("[renown] put N +1/+1 counters on this creature"). Only this parser models that sentinel, so no printed
  * clause can route here. Mirrors evolveCounterSelfClauseParser exactly.
  */
@@ -1230,7 +1230,7 @@ export function renownClauseParser(clause) {
 }
 
 /**
- * KW-RENOWN resolution (CR 702.111a) — "if it isn't renowned, put N +1/+1 counters on it and it becomes
+ * KW-RENOWN resolution (CR 702.112a) — "if it isn't renowned, put N +1/+1 counters on it and it becomes
  * renowned." A ONE-SHOT LATCH exactly like monstrosity (applyMonstrosity above is the template): an
  * already-renowned creature dealing combat damage again does NOTHING, so the flag gate lives here rather
  * than in an intervening-if (a fail-open board query would re-renown every combat — the forbidden FP).
@@ -1337,7 +1337,7 @@ export const counterResolvers = {
   "move-counter": applyMoveCounter, // shelf D2 (Nesting Grounds) — one counter from a permanent you control onto a second target permanent (CR 122.5)
   "endure": applyEndure, // ENDURE N (CR 701.63 — BLITZ KW-1) — modal keyword action: N +1/+1 counters on the source, or an N/N white Spirit token when the source has left
   "evolve-counter-self": applyEvolveCounterSelf, // KW-EVOLVE (CR 702.100) — self +1/+1 via the standard path, then the evolves watchers
-  "renown": applyRenown, // KW-RENOWN (CR 702.111) — latching flag + N +1/+1 counters via the standard addCounter chokepoint (the monstrosity template)
+  "renown": applyRenown, // KW-RENOWN (CR 702.112) — latching flag + N +1/+1 counters via the standard addCounter chokepoint (the monstrosity template)
   "draw-or-counter-triggering": applyDrawOrCounterTriggering, // Marcus branch (SHELF S7) — draw if the dealer has a +1/+1, else counter it
   "draw-or-counters-by-triggering-power": applyDrawOrCountersByTriggeringPower, // Tribute to the World Tree — draw at power N or more, else N counters on the entering creature
   "monstrosity": applyMonstrosity, // MONSTROSITY (CR 701.37) — activated "Monstrosity N": N +1/+1 counters + set monstrous, once
@@ -1351,7 +1351,7 @@ export const counterResolvers = {
   "gain-experience": applyGainExperience, // EARTHBEND-PR3 — "you get an experience counter" (Toph landfall)
   "add-energy": applyAddEnergy, // ENERGY (CR 122.1e) — "you get {E}…" increments player.energy
   "rad": applyRad, // RAD (CR 728) — "each/target player gets N rad counter(s)" (The Wise Mothman); engine mills + drains at precombat main
-  "proliferate": applyProliferate, // PROLIFERATE (CR 701.27) — add one of each counter kind to never-harmful picks
+  "proliferate": applyProliferate, // PROLIFERATE (CR 701.34) — add one of each counter kind to never-harmful picks
 };
 
 // ─── COUNTER-TRANSFER (census slice 37) ──────────────────────────────────────────

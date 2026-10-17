@@ -1368,7 +1368,7 @@ export default function useLearnSession() {
 
   /**
    * EACH-PLAYER discard (EP-2) — submit the player's pick from a `discard` decision (Mind Rot / Fugue /
-   * Delirium Skeins). Fires when the HUMAN is a discarder (CR 701.8 — the discarding player chooses).
+   * Delirium Skeins). Fires when the HUMAN is a discarder (CR 701.9 — the discarding player chooses).
    * `cardId` is the chosen hand card id to pitch. Resumes the chain (more cards / the caster's riders)
    * server-side and returns the next decision.
    */

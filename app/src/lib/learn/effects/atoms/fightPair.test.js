@@ -4,7 +4,7 @@
  * Covers the SPELL/activated forms where the FIGHTER (the dealer) is itself a chosen target, NOT the
  * source (the existing source-bound `fight` atom handles ETB/Enrage triggers; this handles Prey Upon /
  * Pounce / Ulvenwald Tracker / Aggressive Instinct / Rabid Bite):
- *   - applyFightPair          — both chosen creatures deal damage = power to each other, SIMULTANEOUSLY (CR 701.12a)
+ *   - applyFightPair          — both chosen creatures deal damage = power to each other, SIMULTANEOUSLY (CR 701.14a)
  *   - applyDamageTargetPower  — ONE-WAY: only the chosen fighter deals (Aggressive Instinct / Rabid Bite)
  * Verified: simultaneous two-way kill, one-sided survival, deathtouch both directions, power read AT
  * RESOLUTION, 0-power no-op, missing/illegal target clean no-op, distinctness (a creature can't fight
@@ -46,7 +46,7 @@ const DMG_POWER = { op: "damage-target-power", targetType: "creature" };
 const onBf = (s, pid, id) => s.players[pid].battlefield.some((p) => p.id === id);
 const inGy = (s, pid, name) => s.players[pid].graveyard.some((c) => c.name === name);
 
-describe("FIGHT-PAIR resolver — two CHOSEN creatures deal simultaneously (CR 701.12a)", () => {
+describe("FIGHT-PAIR resolver — two CHOSEN creatures deal simultaneously (CR 701.14a)", () => {
   it("a 5/4 fighter vs a 3/3 target → both take damage; the 3/3 dies (5≥3), the 5/4 survives (3<4)", () => {
     const fighter = creature("f", "Apex", 5, 4, {}, "user");
     const tgt = creature("t", "Bear", 3, 3, {}, "ai");
@@ -63,7 +63,7 @@ describe("FIGHT-PAIR resolver — two CHOSEN creatures deal simultaneously (CR 7
     expect(onBf(s, "ai", "t")).toBe(false);
   });
 
-  it("a 1/1 fighter vs a 5/5 target → only the fighter dies; its 1 still landed (CR 701.12c)", () => {
+  it("a 1/1 fighter vs a 5/5 target → only the fighter dies; its 1 still landed (CR 701.14)", () => {
     const s = applyFightPair(board([creature("f", "Mouse", 1, 1, {}, "user")], [creature("t", "Giant", 5, 5, {}, "ai")]), FIGHT_PAIR, pairCtx("f", "t"));
     expect(onBf(s, "user", "f")).toBe(false);
     expect(onBf(s, "ai", "t")).toBe(true);

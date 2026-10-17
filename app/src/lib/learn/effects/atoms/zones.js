@@ -178,7 +178,7 @@ export function applyShuffleSelfIntoLibrary(state, atom, ctx) {
 }
 
 /**
- * WHOLE-GRAVEYARD EXILE (CR 701.10a) — exile every card in one or more graveyards (Bojuka Bog, Farewell,
+ * WHOLE-GRAVEYARD EXILE (CR 701.13a) — exile every card in one or more graveyards (Bojuka Bog, Farewell,
  * Rakdos Charm). The graveyard list is SNAPSHOT before the moves so the iteration can't be disturbed by
  * moveCardToZone rebuilding the zone underneath it.
  *
@@ -1135,7 +1135,7 @@ export function graveyardReturnClauseParser(clause) {
   // Memory). ANY player's graveyard (anyGraveyard → enumerate every graveyard), destination exile. The exact
   // `$` anchor rejects "from your graveyard" (the caster-only forms above), "up to N"/plural, a type-filtered
   // variant, or a trailing rider → low → Arbiter (FN-safe). cardFilter "any" matches every graveyard card.
-  // WHOLE-GRAVEYARD EXILE (CR 701.10a) — the graveyard-hate staple, distinct from the single-CARD
+  // WHOLE-GRAVEYARD EXILE (CR 701.13a) — the graveyard-hate staple, distinct from the single-CARD
   // exile-from-graveyard family above: this exiles an ENTIRE graveyard zone, so there is no target card to
   // choose and no cardFilter. Bojuka Bog (EDHREC #24) is the most-played card the engine could not model.
   //

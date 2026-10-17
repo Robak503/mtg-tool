@@ -102,7 +102,7 @@ export function parseGraveyardFilter(phrase) {
 }
 
 /**
- * Does a graveyard card match a parseGraveyardFilter cardFilter token? FRONT-FACE type only (CR 712.4a):
+ * Does a graveyard card match a parseGraveyardFilter cardFilter token? FRONT-FACE type only (CR 712.8a):
  * a card in the graveyard has only its front-face characteristics, but the enriched type line is the
  * combined "Front // Back" for a transform-DFC / MDFC / Battle / Saga — so "Westvale Abbey // Ormendahl,
  * Profane Prince" (Land // Creature) is a LAND in the graveyard and must NOT match a creature filter.
@@ -128,7 +128,7 @@ export function cardMatchesGraveyardFilter(card, cardFilter, state = null, holde
   if (!cardFilter || cardFilter === "any") return true;
   const front = String(card?.type || card?.type_line || "").split(" // ")[0];
   // STRUCTURED subtype+MV filter (BLITZ SS-1 — the soulshift recursion "target Spirit card with mana
-  // value N or less"): front-face subtype containment (word-bounded, CR 712.4a discipline) AND the
+  // value N or less"): front-face subtype containment (word-bounded, CR 712.8 discipline) AND the
   // card's mana value within the cap (the same `cmc ?? mana_value ?? 0` read the Despark-class MV
   // gates use — CR 202.3, an absent cost reads 0). Object filters and string tokens share this ONE
   // chokepoint, so cast-time enumeration and the trigger-flush chooser can't drift.
@@ -530,7 +530,7 @@ export function parseCreatureTargetRestrictions(card, { allowPlaneswalkerUnion =
   // the card classifies native and targets NOTHING. That is the failure this pairing exists to prevent, and
   // it is the silent kind rather than the loud kind.
   // ⭐⭐ ST-1 (2026-08-06) — SUPERTYPE (CR 205.4). The `supertype` restriction kind and its evaluator —
-  // word-bounded, FRONT-FACE only (CR 712.4a, so a DFC back-face supertype cannot wrongly qualify), and
+  // word-bounded, FRONT-FACE only (CR 712.8, so a DFC back-face supertype cannot wrongly qualify), and
   // fail-closed on a missing type line — already existed with exactly ONE emitter: the Mithril Coat /
   // Mjölnir self-attach in stack.js. The shared target grammar never emitted it. Eleventh "built engine,
   // partial ignition" of this run.
@@ -875,7 +875,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // Graveyard recursion: legal targets are CARDS in the CASTER'S OWN graveyard ("your graveyard"),
   // filtered by the atom's cardFilter (REG-1: creature / any / artifact / instant|sorcery / permanent /
   // … — see parseGraveyardFilter). The graveyard is a public zone, so this is a normal cast-time target
-  // choice; cardMatchesGraveyardFilter applies the front-face (CR 712.4a) type discipline.
+  // choice; cardMatchesGraveyardFilter applies the front-face (CR 712.8a) type discipline.
   const addGraveyardCards = () => {
     // Default: the CASTER'S OWN graveyard ("your graveyard" — return-from-graveyard / reanimate / GY-TO-TOP).
     // GY-EXILE / REANIMATE-FROM-ANY set effect.anyGraveyard ("a graveyard") → offer cards from EVERY player's
@@ -1197,7 +1197,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
  * spec the parser built: `include` (front-face type must contain ANY listed type — "creature or
  * planeswalker"), `exclude` (must contain NONE — "noncreature, nonland"), and `maxCmc` (Inquisition's
  * "mana value 3 or less"). An empty filter ({}) matches any card (Coercion). Front-face type only
- * (CR 712.4a), mirroring the counter/tutor/graveyard discipline. A filter the parser couldn't model
+ * (CR 712.8a), mirroring the counter/tutor/graveyard discipline. A filter the parser couldn't model
  * never reaches here — the whole spell stayed low → Arbiter. Exported because the filter is now applied
  * at RESOLUTION (effectAtoms.applyDiscardChosen reveals the targeted opponent's hand and keeps only the
  * matching cards), not at cast-time enumeration.

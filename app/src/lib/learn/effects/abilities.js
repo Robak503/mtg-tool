@@ -176,7 +176,7 @@ const ONCE_EVER_RIDER = /\.?\s*Activate (?:this ability )?only once\.?\s*$/i;
 export function parseGraveyardExileAbility(card) {
   const oracle = stripReminder(String(card?.oracle || card?.oracle_text || ""));
   for (const rawLine of oracle.split("\n")) {
-    // KW-ENGINES (CR 702.179d) — "Max speed — {3}, Exile this card from your graveyard: …" (the
+    // KW-ENGINES (CR 702.178) — "Max speed — {3}, Exile this card from your graveyard: …" (the
     // Aetherdrift Surveyor cycle). The prefix gates the ability on speed 4; peel it and carry
     // `maxSpeed` so the offer site withholds below max — never an ungated view of a gated ability.
     // RENEW (④-T, 2026-09-03 — Tarkir: Dragonstorm's "Renew — {1}{B}, Exile this card from your graveyard: Put a
@@ -486,7 +486,7 @@ export function parseAbilityCost(costStr, card = null) {
     if (/^discard a card$/i.test(item)) { discardCard = 1; continue; }
     // γ1h-TYPED (Tortured Existence "{B}, Discard a creature card: …", 2026-08-15): the TYPED discard
     // cost — same choice shape, the hand pool narrowed to cards whose FRONT-FACE type line carries the
-    // type (CR 712.4a, the graveyard/tutor front-face discipline). legalChoices filters the victims;
+    // type (CR 712.8a, the graveyard/tutor front-face discipline). legalChoices filters the victims;
     // the dispatcher re-validates the chosen card (defense in depth — a non-matching pitch is the FP).
     // Basic card types only; a subtype/color/compound filter still nulls (deferred, a safe FN).
     {
@@ -645,7 +645,7 @@ export function parseAbilityCost(costStr, card = null) {
     // whose type line carries that subtype — so it works uniformly for a CREATURE subtype (Goblin/Serpent), a
     // LAND subtype (Swamp/Island — those sac a LAND, never a creature, so scoping to "creature" would make the
     // cost unpayable yet still count native: a CREED metric over-claim), or an artifact subtype. type:"permanent"
-    // + the subtype filter is exactly CR-correct (CR 701.16 — sacrifice a permanent you control matching the
+    // + the subtype filter is exactly CR-correct (CR 701.21 — sacrifice a permanent you control matching the
     // description); legalChoices' sacTypeMatches narrows on the subtype and the leave-trigger fail-safe still
     // applies. Gated to a SINGLE Capitalized word (a real subtype is one capitalized token on the type line)
     // NOT a base card type (those are the case-insensitive branch above) — so a lowercase noun or a compound
@@ -656,7 +656,7 @@ export function parseAbilityCost(costStr, card = null) {
     // "Sacrifice three Treasures" / "Sacrifice two Foods", Ruthless Knave / Savvy Hunter / Olivia / Magda).
     // Scoped DELIBERATELY to the fungible value-token subtypes (Treasure/Clue/Food/Gold/Blood/Map/Powerstone/
     // Incubator) — those are interchangeable tokens, so paying N of them is a NO-DECISION cost (any N satisfy
-    // it identically, CR 701.16); the runtime auto-picks N matching permanents. A COUNT-sac of a DISTINGUISHABLE
+    // it identically, CR 701.21); the runtime auto-picks N matching permanents. A COUNT-sac of a DISTINGUISHABLE
     // class ("two artifacts", "two creatures", "two other artifacts and/or creatures") is a real choice of which
     // permanents to give up — modeled since P·17 by SAC-N-CLASS above, which ranks the victims least-valuable first
     // (the spell-side AC-1 policy) and names them on the action. type:"permanent" + the subtype filter reuses sacTypeMatches exactly
@@ -691,7 +691,7 @@ export function parseAbilityCost(costStr, card = null) {
     // γ1e — SAC-X-SUBTYPE: "Sacrifice X <Subtype>" (a VARIABLE count the PLAYER chooses at activation — "Sacrifice
     // X Treasures", Grim Hireling). Scoped to the SAME fungible value-token subtypes as γ1d (Treasure/Clue/Food/…):
     // those tokens are interchangeable, so paying X of them is a NO-DECISION cost given a chosen X (any X satisfy it
-    // identically, CR 701.16); the runtime offers one action per affordable X (1..available) and auto-picks X victims.
+    // identically, CR 701.21); the runtime offers one action per affordable X (1..available) and auto-picks X victims.
     // The X threads into the ability's EFFECT (Grim Hireling's "-X/-X" reads the SAME X the player paid), so the
     // caller (parseActivatedAbilities) parses the effect with hasX:true and REQUIRES an X-scaled (amountX) atom —
     // an effect that doesn't consume X would leave the sac-X choice with no payoff (a broken half-model). A sac-X of
@@ -1050,7 +1050,7 @@ export function parsePlotCost(card) {
 }
 
 /**
- * WARP (CR 702.176, Edge of Eternities) — "Warp {cost}" is an ALTERNATIVE cast cost from hand: you may cast
+ * WARP (CR 702.185, Edge of Eternities) — "Warp {cost}" is an ALTERNATIVE cast cost from hand: you may cast
  * the card for its warp cost, then exile it at the beginning of the next end step, and may cast it from exile
  * on a later turn. It changes ONLY how/when the card is cast — never WHAT the card does on resolution or what
  * the permanent's printed abilities are. Every card carrying Warp ALSO has a normal printed mana cost, so the
@@ -1074,7 +1074,7 @@ export function parseWarpCost(card) {
 }
 
 /**
- * CREW N (BLITZ VH-1, CR 702.121 — Vehicles): "Crew N (Tap any number of creatures you control with total
+ * CREW N (BLITZ VH-1, CR 702.122 — Vehicles): "Crew N (Tap any number of creatures you control with total
  * power N or more: This Vehicle becomes an artifact creature until end of turn.)" Returns the integer N, or
  * null when the card has no clean printed "Crew N" line (reminder text rides the line — line-anchored match).
  * A "when/whenever … crew(s|ed)" TRIGGER elsewhere on the card is NOT gated here — the classify strip only
@@ -1165,7 +1165,7 @@ export function parseActivatedAbilities(cardIn) {
   // the gate holds without a name list.
   const rawOracle = String(card?.oracle || card?.oracle_text || "");
   const labelStripped = rawOracle.split("\n").map((ln) => {
-    // KW-ENGINES "Max speed —" (CR 702.179d) is RULES-BEARING, not a flavor label — the ability is
+    // KW-ENGINES "Max speed —" (CR 702.178) is RULES-BEARING, not a flavor label — the ability is
     // live only at speed 4. The generic label strip below was silently eating it (an ungated view of
     // a gated ability — the credited-but-wrong class). Rewrite it into the "Activate only if" rider
     // idiom instead, so the EXISTING condition machinery (CONDITION_RIDER → activationCondition-
@@ -1354,7 +1354,7 @@ export function parseActivatedAbilities(cardIn) {
     const preColonQuotes = (line.slice(0, ci).match(/["“”]/g) || []).length;
     if (preColonQuotes % 2 === 1) continue;   // colon inside a quoted granted ability → a static grant, not our own
     let costStr = line.slice(0, ci).trim();
-    // BOAST (CR 702.135) — an ABILITY WORD (CR 207.2c), so "Boast" itself has no rules meaning; the whole
+    // BOAST (CR 702.142) — an ABILITY WORD (CR 207.2c), so "Boast" itself has no rules meaning; the whole
     // rule lives in its reminder text: "Activate only if this creature attacked this turn and only once
     // each turn." Strip the label so parseAbilityCost sees the real cost, then carry BOTH halves of that
     // reminder as enforced facts — the once-per-turn limit through the existing activationLimit ledger,
@@ -1379,7 +1379,7 @@ export function parseActivatedAbilities(cardIn) {
     // modelled: not applying a discount makes the ability cost MORE, an under-offer — the safe direction.
     const isPowerUp = /^power-up\s*[—–-]\s*/i.test(costStr);
     if (isPowerUp) costStr = costStr.replace(/^power-up\s*[—–-]\s*/i, "").trim();
-    // ⭐ EXHAUST (CR 702.180a) — "Exhaust — {cost}: <effect>. (Activate each exhaust ability only once.)"
+    // ⭐ EXHAUST (CR 702.177a) — "Exhaust — {cost}: <effect>. (Activate each exhaust ability only once.)"
     // Structurally identical to POWER-UP directly above: an ability-word label with no rules meaning, whose
     // entire restriction is a ONCE-PER-GAME activation limit. Strip the label so parseAbilityCost sees the
     // real cost, and carry the limit as an ENFORCED fact through the SAME `activationLimitScope:"game"`

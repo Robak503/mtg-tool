@@ -1,5 +1,5 @@
 /**
- * boastKeyword.test.js — BOAST (CR 702.135).
+ * boastKeyword.test.js — BOAST (CR 702.142).
  *
  * "Boast — {4}{R}: Create a 5/5 red Dragon. (Activate only if this creature attacked this turn and only
  * once each turn.)"
