@@ -310,8 +310,8 @@ describe("the AI places an Aura by what its bonus does, and holds one it can't r
     expect(aiPick(pod({ aura: SPECTRAL_STEEL, boards }))).toBe("creature g1");
   });
 
-  it("⭐ held where the reading can't tell a side: Angelic Destiny (its bonus doesn't parse as a whole), Cursed Land", () => {
-    expect({ destiny: aiPick(pod({ aura: ANGELIC_DESTINY })), cursedLand: aiPick(pod({ aura: CURSED_LAND })) }).toEqual({ destiny: "held", cursedLand: "held" });
+  it("⭐ where the bonus doesn't parse as a whole, the printed text decides clause by clause (2026-10-17, auraClauseSide.test.js — it used to hold): Angelic Destiny on its own Bears, Cursed Land on ai2's Forest", () => {
+    expect({ destiny: aiPick(pod({ aura: ANGELIC_DESTINY })), cursedLand: aiPick(pod({ aura: CURSED_LAND })) }).toEqual({ destiny: "creature b1", cursedLand: "permanent f2" });
   });
 
   it("the AI's cast resolves: World-Weary goes on ai3's Hill Giant and the Giant dies", () => {

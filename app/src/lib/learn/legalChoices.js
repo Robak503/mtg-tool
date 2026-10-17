@@ -125,7 +125,7 @@ import { isPermanentSpell } from "./resolvers.js";
 import { commanderColorIdentityOf } from "./commanderIdentity.js";
 import { hideawayPlayOfferable } from "./effects/atoms/hideaway.js";
 import { isGraveyardReanimateAura } from "./animateDeadGate.js"; // P·12 — Animate Dead // P·10 — the linked free play is offered only when it can do something // P·6 — War Room's life cost (CR 903.4; a zero-import leaf)
-import { isBodyOnlyAuraSpell, bodyOnlyAuraHosts } from "./auraSpellHost.js"; // every Aura no modeled lane casts — one cast per legal host (CR 303.4a)
+import { isBodyOnlyAuraSpell, bodyOnlyAuraHosts, enchantableHosts } from "./auraSpellHost.js"; // every Aura no modeled lane casts — one cast per legal host (CR 303.4a); every lane's hosts narrowed to what its Aura may enchant
 import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND — the one gate offer/dispatch/classifier all read
 
 /**
@@ -1876,8 +1876,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // THAT type. ⛔ The pin that matters is the negative one: an "Enchant artifact" Aura must never
       // enumerate a creature. A test that only checked "it attached" would pass while attaching to
       // anything, which is why enchantSubjectHosts.test.js asserts the pools by NAME in both directions.
+      // MAY BE ENCHANTED (2026-10-17, auraSpellHost.enchantableHosts): targeting alone let Pacifism target Azorius First-Wing
+      // ("protection from enchantments" — CR 702.16b, 702.16c); every Aura lane now narrows its hosts to what it may enchant.
       const hostSpec = auraEnchantHostSpec(card) || { targetType: "creature", restrictions: [] };
-      const targets = enumerateTargets(state, playerId, { targetType: hostSpec.targetType, restrictions: hostSpec.restrictions }, colorsOf(card));
+      const targets = enchantableHosts(state, enumerateTargets(state, playerId, { targetType: hostSpec.targetType, restrictions: hostSpec.restrictions }, colorsOf(card)), card);
       if (targets.length === 0) continue;
       for (const t of targets) {
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
@@ -1939,7 +1941,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // X-cost bestow (Nyxborn Hydra is gated out by isNativeBestow today — its dynamic per-counter bonus
       // isn't modeled) — so a clean bestow card here never has {X} in its bestow cost; no X enumeration.
       if (canAffordBestow && !bestowCost.hasX) {
-        const targets = enumerateTargets(state, playerId, { targetType: "creature" }, colorsOf(card));
+        const targets = enchantableHosts(state, enumerateTargets(state, playerId, { targetType: "creature" }, colorsOf(card)), card); // a bestowed spell is an Aura spell (CR 702.103b)
         for (const t of targets) {
           actions.push({
             ...base,
@@ -1967,7 +1969,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // subtype). A bare "Enchant land" mana Aura offers any own land. Honoring the subtype at the target site
       // is what keeps the boost faithful to "enchant Forest" — the Aura only ever attaches to (and boosts) a Forest.
       const targetType = auraEnchantSubject(card) === "forest" ? "forest" : "land";
-      const targets = enumerateTargets(state, playerId, { targetType, restrictions: [{ kind: "controller", who: "you" }] }, colorsOf(card));
+      const targets = enchantableHosts(state, enumerateTargets(state, playerId, { targetType, restrictions: [{ kind: "controller", who: "you" }] }, colorsOf(card)), card);
       if (targets.length === 0) continue;
       for (const t of targets) {
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
@@ -1995,7 +1997,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         const restrictions = grantHost.host === "creature"
           ? (auraEnchantRestrictions(card) || [])
           : (grantHost.ownOnly ? [{ kind: "controller", who: "you" }] : []);
-        const targets = enumerateTargets(state, playerId, { targetType: grantHost.host, restrictions }, colorsOf(card));
+        const targets = enchantableHosts(state, enumerateTargets(state, playerId, { targetType: grantHost.host, restrictions }, colorsOf(card)), card);
         if (targets.length === 0) continue;         // no legal host → can't cast (CR 303.4a)
         for (const t of targets) {
           actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });

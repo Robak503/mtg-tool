@@ -23,6 +23,7 @@
  *     to the permanents it may enchant at all (auraEntry.mayBeEnchantedBy — protection from enchantments, "can't be enchanted",
  *     CR 303.4). The offer (legalChoices), the dispatcher's refusal of a cast without one, and AURA_ETB's resolution re-check
  *     (resolvers.js, CR 608.2b, 608.3b) all read this one list, so what is offered is what resolves.
+ *   · enchantableHosts(state, targets, auraCard) — that last narrowing alone, read by every other Aura cast lane too (2026-10-17).
  *
  * Imports only modules legalChoices, actionDispatcher and resolvers already reach; none of them imports those three.
  */
@@ -53,11 +54,23 @@ export function isBodyOnlyAuraSpell(card) {
 export function bodyOnlyAuraHosts(state, card, controller, { recheck = false } = {}) {
   const spec = auraSpellHostSpec(card);
   if (!spec) return [];
-  const face = faceUpView(card);
   // The spell's colours are its front face's (layers.permanentPrintedColors — a transform card's top-level colours are empty).
   const targets = enumerateTargets(state, controller, { targetType: spec.targetType, restrictions: spec.restrictions }, permanentPrintedColors(card), recheck ? { recheck: true } : null);
-  return targets.filter((t) => {
+  return enchantableHosts(state, targets, faceUpView(card));
+}
+
+/**
+ * EVERY AURA CAST LANE'S LAST NARROWING (2026-10-17): the permanent targets in `targets` (an Aura lane's cast enumeration) that
+ * `auraCard` may enchant at all (auraEntry.mayBeEnchantedBy — protection from a colour it is, from a quality the layer engine
+ * doesn't read such as enchantments, "can't be enchanted"; CR 303.4, 702.16b, 702.16c). Targeting alone (shroud, hexproof,
+ * protection from a colour) is the enumeration's own. Read by the body-only lane above and by legalChoices' native, Ordeal,
+ * bestow, mana-boost and granted-ability lanes, so no lane offers a host its Aura may not enchant: until this, Pacifism was
+ * offered on Azorius First-Wing ("protection from enchantments"), cast there by the AI, and resolved onto it. A target that
+ * isn't a permanent on the battlefield is dropped.
+ */
+export function enchantableHosts(state, targets, auraCard) {
+  return (targets || []).filter((t) => {
     const lk = findPermanent(state, t.id);
-    return !!lk && mayBeEnchantedBy(state, lk.permanent, lk.controller, face);
+    return !!lk && mayBeEnchantedBy(state, lk.permanent, lk.controller, auraCard);
   });
 }

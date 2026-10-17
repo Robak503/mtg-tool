@@ -692,9 +692,25 @@ holds. An untap-lock Aura reads ENEMY when the lock is the whole card — every 
 its Enchant line, Flash, "Enchanted creature/permanent doesn't untap during its
 controller's untap step" or "When this Aura enters, tap enchanted creature"
 (`isUntapLockAura`, 2026-10-17: Ice Over, Coma Veil, Claustrophobia); a lock printed
-beside anything else (Leaden Fists' +3/+3, Eternity Snare's draw) still holds. Before this the own-lands rule took every offer without a "creature" target,
+beside anything else (Leaden Fists' +3/+3) still holds; one beside an enters draw (Eternity Snare) the printed reading below reads. Before this the own-lands rule took every offer without a "creature" target,
 which put Fraying Sanity on the AI itself and Petrify on its own Mind Stone.
 Witness: `auraCastSide.test.js`.
+
+**The printed side reading (2026-10-17, `auraPrintedSide.js`).** `parseAuraBonus` is all-or-nothing: one line about the host it
+doesn't model empties it, and only 49 of the 623 body-only Auras read a side. Where it reads none, `auraCastIntent` reads the
+printed text sentence by sentence (the face being cast, reminder text and ability-word labels gone): OWN (+N/+N, a keyword or
+protection, "can't be blocked", a granted activated ability, umbra armor, its card returning when it dies, its controller's
+extra mana or card), ENEMY (−N/−N, can't attack / block, abilities locked, doesn't untap, loses abilities or card types, goad,
+a forced attack, its controller losing life or sacrificing it, destroyed or exiled, tapped as the Aura enters, control
+changing hands), NEUTRAL (the Aura's own business: Enchant, Flash, cycling, a colour chosen, an enters draw or an exile of an
+opponent's permanent, an upkeep cost), else UNKNOWN. The side is the consensus; any UNKNOWN, or OWN beside ENEMY, holds; all
+NEUTRAL takes the side the Enchant line names ("… you control" → own, "… an opponent controls" → enemy). A restriction beside a
+buff is mixed here (the bonus reading calls it the buff's drawback — this reader never trades a hold for a guess). A
+transformation ("loses all other abilities / card types") is ENEMY as a whole — what the same sentence gives is the new body
+(Darksteel Mutation's indestructible 0/1). A condition on the host itself ("as long as enchanted creature is white") is UNKNOWN.
+Now 289 of the 623 read a side (Angelic Destiny own, Darksteel Mutation enemy, Psychic Impetus still held), 774 of the 1,274
+Aura faces in all (445 before; no existing reading changed). The non-cast entry reads the same answer. Unmodeled text stays
+inert: only where the AI casts an Aura, and whether, moves. Witness: `auraClauseSide.test.js`.
 
 **Every Aura that enchants a player is cast targeting one (2026-10-17).** The cast builder's
 player-Aura branch (`castActionsFromZone`, above the additional costs) reads
@@ -714,7 +730,11 @@ it) is offered once per host in `bodyOnlyAuraHosts`: `enumerateTargets` over
 `staticAbilityParser.auraSpellHostSpec` (auraEntryHostSpec's subjects plus a whole-subject table of
 exact typed hosts — "snow land you control", "artifact you control", "creature an opponent controls",
 the basic land types …) with the spell's front-face colours, narrowed by `auraEntry.mayBeEnchantedBy`
-(protection from enchantments, "can't be enchanted"). It resolves through AURA_ETB's `bodyOnlyAura`
+(protection from enchantments, "can't be enchanted" — since 2026-10-17 every Aura cast lane narrows its hosts the same way,
+`auraSpellHost.enchantableHosts`: native, Ordeal, bestow, mana-boost, granted-ability; AURA_ETB's re-check asks it too, so
+Pacifism is no longer offered on, or resolved onto, Azorius First-Wing — CR 702.16b, 702.16c; its printed-protection read is the
+permanent's OWN — a grant to a target, the player or a host is masked, so Mother of Runes and Giver of Runes may be enchanted — and
+multicolored / monocolored / colorless are read against the Aura's colours, CR 105.2a, 105.2b, 105.2c). It resolves through AURA_ETB's `bodyOnlyAura`
 branch — re-checked against the same list (CR 608.2b, 608.3b) — and sits on its host with its
 unmodeled text inert; the tier doesn't move. An {X} Aura is offered per affordable X ≥ 1 per host (the X
 rides the stack spell, CR 202.3e). An Enchant line the reader can't list, a printed rule about "this

@@ -243,11 +243,11 @@ describe("3 · an untap-lock Aura is a curse — cast on the opponent's best cre
     expect({ enemy: aiPick(enemy, "aura1"), ownOnly: aiPick(ownOnly, "aura1") }).toEqual({ enemy: "Hill Giant (user)", ownOnly: "held" });
   });
 
-  it("the reading: the lock alone (with its Enchant line, Flash and the enters tap) is ENEMY for the cast and the non-cast entry; a lock printed with a buff or beside another line is not read", () => {
+  it("the reading: the lock alone (with its Enchant line, Flash and the enters tap) is ENEMY for the cast and the non-cast entry; a lock printed with a buff is not read; beside an enters draw the printed reading (2026-10-17, auraClauseSide.test.js) reads it ENEMY", () => {
     const row = (c) => [c.name, auraCastIntent(c)];
     expect([ICE_OVER, COMA_VEIL, CLAUSTROPHOBIA, DEHYDRATION, PACIFISM, LEADEN_FISTS, ETERNITY_SNARE].map(row)).toEqual([
       ["Ice Over", "enemy"], ["Coma Veil", "enemy"], ["Claustrophobia", "enemy"], ["Dehydration", "enemy"], ["Pacifism", "enemy"],
-      ["Leaden Fists", null], ["Eternity Snare", null],
+      ["Leaden Fists", null], ["Eternity Snare", "enemy"],
     ]);
     expect(auraEntryIntent(CLAUSTROPHOBIA)).toBe("enemy");
   });

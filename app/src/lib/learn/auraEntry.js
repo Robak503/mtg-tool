@@ -29,15 +29,17 @@
  * controller's. When the side it wants has no legal host the Aura still must enter (CR 303.4f), so it takes the other side's
  * least-harmful one. A seat a person plays is asked instead (enteringAuraHost, below).
  *
- * LEAF: staticAbilityParser, layers, protection, creatureRestrictions, controlAura and gameState — every one of them is already
- * reachable from effects/atoms/zones.js, and none imports an atoms module or the AI.
+ * LEAF: staticAbilityParser, layers, protection, creatureRestrictions, controlAura, gameState and auraPrintedSide (which imports only
+ * faceUp and staticAbilityParser) — every one of them is reachable from effects/atoms/zones.js, and none imports an atoms module or
+ * the AI.
  */
 import { findPermanent } from "./gameState.js";
-import { auraEntryHostSpec, isAttachedNoUntapLine, isNativeManaAura, parseAuraBonus } from "./staticAbilityParser.js";
+import { abilityClauses, auraEntryHostSpec, isAttachedNoUntapLine, isNativeManaAura, parseAuraBonus } from "./staticAbilityParser.js";
 import { colorsOf, permanentHasCardType, permanentIsCreature, permanentPower, permanentProtectionColors, permanentTypes } from "./layers.js";
 import { protectionApplies } from "./protection.js";
 import { creatureSatisfiesRestrictions } from "./creatureRestrictions.js";
 import { grantsControlWhenAttached } from "./controlAura.js";
+import { printedAuraSide } from "./auraPrintedSide.js"; // where the bonus parse reads no side, the printed text's clause-by-clause reading
 
 /**
  * THE RESTRICTION GRANTS (2026-10-16). "Can't attack", "can't block" and "its activated abilities can't be activated" parse to
@@ -81,6 +83,11 @@ function isUntapLockAura(card) {
  * mixed own/enemy combination; an untap-lock Aura (isUntapLockAura) is "enemy". Mirrors atomTargetIntent's ambiguous→skip discipline (CREED:
  * never guess a side — a beneficial Aura on an enemy fatty is a live FP).
  * (Moved from opponentAI.js, 2026-10-16, so the non-cast entry reads the cast side's answer; the restriction grants are new.)
+ * THE PRINTED READING (2026-10-17): where the bonus parse reads no side — empty (one unmodeled line about the host poisons it),
+ * mixed, or an op it can't weigh — the printed text decides, clause by clause (auraPrintedSide.printedAuraSide: each sentence
+ * helps the host, hurts it, is the Aura's own business, or is unreadable; their consensus, else null). Angelic Destiny reads
+ * own, Darksteel Mutation enemy, Psychic Impetus (+2/+2 beside goad) still holds. Unmodeled text stays inert at runtime: this
+ * moves only where the AI casts an Aura, whether it does, and where a non-cast entry puts it.
  */
 export function auraCastIntent(card) {
   // ④-K CONTROL AURA (2026-09-03): "You control enchanted creature." steals the host — ENEMY-intent, whatever the
@@ -90,6 +97,11 @@ export function auraCastIntent(card) {
   // with a positive bonus would have read as an OWN buff and been cast on the AI's own creature.
   if (grantsControlWhenAttached(card)) return "enemy";
   if (isUntapLockAura(card)) return "enemy"; // the untap lock alone (above) — the curse lane, like Pacifism's restriction grants
+  return bonusSide(card) ?? printedAuraSide(card);
+}
+
+/** The side parseAuraBonus's descriptors read (see auraCastIntent), or null where they read none. */
+function bonusSide(card) {
   let bonus;
   try { bonus = parseAuraBonus(card); } catch { return null; }
   if (!Array.isArray(bonus) || bonus.length === 0) return null;
@@ -163,8 +175,30 @@ const carriesRoleOf = (state, perm, controller) => (perm.attachments || []).some
 
 // A protection quality layers.permanentProtectionColors does not read (protection.js reads colours and the "creatures" class).
 // Any of these could forbid an Aura (CR 702.16c), so a permanent that prints one is never chosen.
-const UNREAD_PROTECTION_RE = /protection from (?:everything|enchantments?|auras?|multicolored|monocolored|colorless|the chosen colou?r|the colou?r|any colou?r|a colou?r|each colou?r among|the chosen card name)/i;
+const UNREAD_PROTECTION_RE = /protection from (?:everything|enchantments?|auras?|the chosen colou?r|the colou?r|any colou?r|a colou?r|each colou?r among|the chosen card name)/i;
+// The three colour-count qualities are read exactly against the Aura's colours (CR 105.2a, 105.2b, 105.2c, 2026-10-17): protection
+// from multicolored keeps out only a multicolored Aura — Stonecoil Serpent may wear mono-blue Curiosity — monocolored only a
+// monocolored one, colorless only a colorless one.
+const COLOUR_COUNT_PROTECTION = [
+  [/protection from multicolored/i, (n) => n >= 2],
+  [/protection from monocolored/i, (n) => n === 1],
+  [/protection from colorless/i, (n) => n === 0],
+];
+// Protection GRANTED to something else is not this permanent's own (2026-10-17): a target (Mother of Runes, Giver of Runes), the
+// player (The One Ring's "you gain protection from everything"), the host of an Aura or Equipment (Benevolent Blessing's
+// "Enchanted creature has …"), "other creatures you control". Such a mention is masked before the reading; every other one —
+// "this creature has", "creatures you control have", a condition, a keyword line — still keeps the permanent out.
+const PROTECTION_GRANTED_ELSEWHERE_RE = /((?:\b(?:another )?target [a-z ]+?|(?:^|[,;:]\s*)you|\benchanted (?:creature|permanent|artifact|land|enchantment|planeswalker)|\bequipped creature|\bother creatures you control)\s+(?:gains?|has|have)\s+)protection from/gi;
 const CANT_BE_ENCHANTED_RE = /can['’]t be enchanted/i;
+
+/** Does `perm`'s own printed text give it a protection that would keep `auraCard` out (CR 702.16b, 702.16c)? Fails closed. */
+function printedProtectionKeepsOut(perm, auraCard) {
+  const n = colorsOf(auraCard).length;
+  return abilityClauses(oracleOf(perm.card)).some((clause) => {
+    const own = clause.replace(PROTECTION_GRANTED_ELSEWHERE_RE, "$1shielding from");
+    return UNREAD_PROTECTION_RE.test(own) || COLOUR_COUNT_PROTECTION.some(([re, applies]) => re.test(own) && applies(n));
+  });
+}
 
 /**
  * "Can't be enchanted", read wherever it can sit: the permanent's own text, an Aura on it ("Enchanted creature … can't be
@@ -184,11 +218,15 @@ function cantBeEnchanted(state, perm, controller) {
  * May `auraCard` be attached to `perm` (controlled by `pid`) at all, as far as the engine can tell? Protection from a colour the
  * Aura is (CR 702.16c), protection from a quality the layer engine doesn't read, and an effect that says the permanent can't be
  * enchanted each keep it out (CR 303.4 — "Other effects can limit what a permanent can be enchanted by"). Fails closed. Read
- * by the entry choice below and by the cast lane of every Aura no modeled lane casts (auraSpellHost.js).
+ * by the entry choice below, by every Aura cast lane (auraSpellHost.enchantableHosts — the body-only lane since 2026-10-17's
+ * first slice, the native, Ordeal, bestow, mana-boost and granted-ability lanes since its second) and by AURA_ETB's resolution
+ * re-check. Since the second, the printed protection is the permanent's OWN (one granted to a target, the player or a host is
+ * not — Mother of Runes, The One Ring) and multicolored / monocolored / colorless are read against the Aura's colours: before,
+ * any mention kept the permanent out, so widening this to the native lanes would have withdrawn legal casts.
  */
 export function mayBeEnchantedBy(state, perm, pid, auraCard) {
   if (protectionApplies(permanentProtectionColors(state, perm.id), colorsOf(auraCard))) return false; // CR 702.16c
-  if (UNREAD_PROTECTION_RE.test(oracleOf(perm.card))) return false;
+  if (printedProtectionKeepsOut(perm, auraCard)) return false;
   return !cantBeEnchanted(state, perm, pid);
 }
 
@@ -250,8 +288,9 @@ function manaAurasOn(state, landId) {
  * better; the flicker policy compares an Aura's current host with where it would return by the same numbers. On the side the
  * Aura wants, the host's power (a non-creature host 0; for a mana Aura, the mana Auras already on that land); on the other side,
  * always below every wanted host, the less harm the better. An unknown intent wants `sideHint` ("own" / "enemy" — a blinked
- * Aura's side before it left: its controller put it there), else its controller's side — two in three of the Auras whose side the
- * reading can't tell help their host (Curiosity, Bear Umbra, Angelic Destiny; the others hurt it — Darksteel Mutation, Lignify).
+ * Aura's side before it left: its controller put it there), else its controller's side — most Auras help their host (since
+ * 2026-10-17 the printed reading tells Angelic Destiny from Darksteel Mutation; what it can't tell is mixed or unreadable — Leaden
+ * Fists, Pariah).
  */
 export function auraEntryHostScore(state, auraCard, controller, host, { intent = auraEntryIntent(auraCard), sideHint = null } = {}) {
   const ownSide = host.controller === controller;

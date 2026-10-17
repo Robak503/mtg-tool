@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **11 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,478)**; engine gains since the tag: **+25** (+31 gained, −6 false credit removed). The next tag
+> **12 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,478)**; engine gains since the tag: **+25** (+31 gained, −6 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,93 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX (AI decision quality + false positive): the AI reads an Aura's printed bonus CLAUSE BY CLAUSE where the all-or-nothing bonus parse reads nothing — 289 of the 623 body-only Auras now read a side (49 before), and the Light-Paws Voltron deck casts Angelic Destiny, Spectra Ward, Benevolent Blessing, Darksteel Mutation and Swift Reconfiguration again; every Aura cast lane now narrows its hosts by `mayBeEnchantedBy` (Pacifism no longer offered on, or resolved onto, Azorius First-Wing), whose printed-protection read is now the permanent's own · **±0** · snapshot native 15,462 unchanged
+> Suite **20,174 green (1 skipped) / 1,846 files** under the gate queue. Lint 0 (CR citations: 0 of 11,230 name no rule; keyword citations: 0 of 2,347 cite a
+> different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of 7263caa3, snapshotted before the
+> first edit; after = this tree; native+land 15,462 of 34,584 snapshot names on both). **Mutants 22/22** on assertions, each restored byte-identical
+> (sha256). Witness tests written first and seen to fail on the base engine on assertions (17 of the first 23; the 6 controls pass on both);
+> every test added while building fails on base too (21 of the final 28 fail on assertions, the 7 controls pass). A/B **80 seeded commander
+> games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched 7263caa3 archive): **68 byte-identical, 1 differs
+> only in a cast-score row** (game 22: Super-Soldier Serum now scored, not picked), **11 change picks**, 2 winners change (both to Light-Paws),
+> 0 errors on either tree, results unchanged (ai-wins 57 / user-wins 23). Committed on `day/auraside`, not pushed; the release-batch line and
+> the WAKE-REPORT are the integrator's.
+> · **The bug (AI).** Since 7263caa3 every body-only Aura is cast targeting a host and the AI places it by `auraEntry.auraCastIntent` —
+>   `parseAuraBonus`'s descriptors, all-or-nothing: one line about the host it doesn't model ("When enchanted creature dies, return this card
+>   to its owner's hand", "has protection from the chosen color", "loses all other abilities") empties the parse and the AI HOLDS the card.
+>   Only 49 of the 623 readable body-only Auras read a side (34 own, 15 enemy); 445 of the 1,274 Aura faces in all. Light-Paws Voltron held
+>   11 of its 34 Auras (its A/B lost 3 games in 7263caa3).
+> · **The fix (AI)** — `auraPrintedSide.js` (new, leaf: faceUp + staticAbilityParser.auraEnchantSubject); `auraCastIntent` = control → enemy,
+>   untap lock → enemy, the bonus parse's side, else `printedAuraSide`. The face being cast, reminder text and ability-word labels gone, its
+>   own name read as "this aura", split quote-aware into sentences; each sentence is OWN (+N/+N incl. per-count and game-conditioned, a
+>   keyword or protection, "can't be blocked", "can't be the target of spells", a granted activated ability — optional for its controller,
+>   CR 602.1 —, a granted trigger whose effect is plainly a gain, umbra armor, its card returning when it dies, an extra mana or draw for its
+>   controller, a +1/+1 counter or untap on it, an Aura-own activation that pumps or regenerates it, cost reductions for spells targeting it,
+>   a land animated), ENEMY (−N/−N, can't attack / block / crew, abilities locked or costlier, doesn't untap, can't become untapped, loses
+>   abilities / keywords / card types, defender, goad, attacks each combat, its controller losing life, dealt damage or sacrificing it,
+>   destroyed / exiled for being damaged, targeted, tapped or blocking, tapped as the Aura enters, "you control enchanted …", a type set that
+>   replaces its card types), NEUTRAL (the Aura's own business: Enchant, Flash, split second, cycling, vanishing / fading / cumulative upkeep
+>   on the Aura, channel / forecast, a colour chosen, an enters draw / scry / life / investigate / exile or destroy of an opponent's
+>   permanent, the Aura returning to hand, an upkeep cost), else UNKNOWN. Consensus: any UNKNOWN, or OWN beside ENEMY → null (hold); all
+>   NEUTRAL → the side the Enchant line names ("… you control" own, "… an opponent controls" / "you don't control" enemy), else null. Two
+>   rules above single clauses: a restriction beside a buff is MIXED here (the bonus reading calls it the buff's drawback — this reader never
+>   trades a hold for a guess); a TRANSFORMATION ("loses all [other] abilities" / "all other card types") is ENEMY as a whole — the
+>   abilities, base P/T and types the same sentence gives are the new body (Darksteel Mutation's indestructible 0/1, Kenrith's
+>   Transformation's 3/3 Elk, Swift Reconfiguration's crew-5 Vehicle); a P/T change in it still counts. A condition on the host itself ("as
+>   long as enchanted creature is white", "as long as it's a Human") is UNKNOWN. Cached per printed card. No tier, offer or resolution reads
+>   it; the non-cast entry (`auraEntryIntent` → `chooseAuraEntryHost`, and the AI's flicker gain) reads the same answer, as designed.
+> · **After (census, every Aura face, text from the bundled oracle):** body-only readable 623 → **289 read a side (172 own, 117 enemy)**, 334
+>   held; all 1,274 Aura faces 445 → 774; **no existing reading changed** (the bonus parse is consulted first). Each of the 327 newly read
+>   cards was reviewed by hand against its oracle text — no wrong side found. Neutral-only forced sides: Dying Wish, On Thin Ice,
+>   Dimensional Exile, Chained to the Rocks, Ossification → own; Betrayal → enemy.
+> · **Light-Paws Voltron (Omnath profile, 34 Auras).** Body-only — Angelic Destiny **own**, Benevolent Blessing **own**, Spectra Ward **own**,
+>   On Thin Ice **own** (its snow land), Darksteel Mutation **enemy**, Swift Reconfiguration **enemy** (all six held before); native —
+>   Chains of Custody **own**, Sheltered by Ghosts **own** (held before); All That Glitters, Daybreak Coronet, Eland Umbra, Ethereal Armor,
+>   Face of Divinity, Feather of Flight, Gift of Granite, Mantle of the Ancients, Mask of Law and Grace, Sage's Reverie, Sentinel's Mark,
+>   Shardmage's Rescue, Shield of Duty and Reason, Spirit Mantle, Stoneskin, Timely Ward, Triclopean Sight, Twinblade Blessing, With Great
+>   Power . . . own and Detainment Spell enemy (unchanged); other lanes — Brilliant Wings, Celestial Mantle, Shielded by Faith own
+>   (unchanged); still held — Pariah (your damage redirected to it: either side), Solid Footing (a bonus gated on the host's own vigilance),
+>   Gauntlets of Light (damage by toughness). **31 of 34 read a side (23 before).**
+> · **The bug (false positive).** The native, Ordeal, bestow, mana-boost and granted-ability lanes enumerated hosts by targeting alone;
+>   `canBeTargetedBy` reads protection from colours, not from enchantments, so Pacifism was offered on Azorius First-Wing ("Flying,
+>   protection from enchantments" — it can't be targeted by enchantment spells, CR 702.16b, nor enchanted by enchantment Auras, CR 702.16c),
+>   the AI cast it there, and AURA_ETB attached it. **The fix:** `auraSpellHost.enchantableHosts` (the body-only lane's last narrowing,
+>   factored out) now narrows every Aura cast lane; AURA_ETB's resolution re-check asks `mayBeEnchantedBy` too (CR 608.2b, 608.3b — a
+>   bestowed Aura whose target became illegal resolves as a creature, CR 702.103e). Animate Dead (a card in a graveyard) and the player lane
+>   (players, not permanents) are outside it.
+> · **And `mayBeEnchantedBy`'s printed-protection read** (auraEntry): it kept out any permanent whose text MENTIONED an unread protection, and
+>   read multicolored / monocolored / colorless as unread. Measured by a spy-pilot A/B (each decision's offered Aura casts logged on both
+>   trees), the first build of this slice withdrew LEGAL casts: Level Up and Shardmage's Rescue on Giver of Runes and Mother of Runes (they
+>   grant protection to a target), mono-blue Ophidian Eye and Curiosity on Stonecoil Serpent (protection from multicolored). Now a protection
+>   granted elsewhere — "target … gains", "you gain" (The One Ring), "enchanted … has" / "equipped creature has", "other creatures you
+>   control" — is masked before the read, and the three colour-count qualities are read against the Aura's colours (CR 105.2a, 105.2b,
+>   105.2c). Everything else still keeps the permanent out (fail closed: "this creature has / gains", "creatures you control have", "All
+>   Slivers have"). Of the 59 permanents the old read kept out, 28 only grant protection elsewhere and may be enchanted again, the 6 with
+>   protection from multicolored may wear a monocolored Aura and the 2 with protection from monocolored a multicolored one — in the
+>   body-only lane and the non-cast entry too.
+> · **A/B detail.** Pick changes: game 29 (Captain America casts Super-Soldier Serum on itself, held before) and games 60–69 (the Light-Paws
+>   pod: Sheltered by Ghosts, Angelic Destiny, Benevolent Blessing, Spectra Ward, On Thin Ice, Swift Reconfiguration on Shorikai, Born to
+>   Drive on Mobilizer Mech cast where they were held). Winners: games 60 and 65 Thrun → **Light-Paws** (Light-Paws 1 → 3 wins of its 10);
+>   turn counts move in 60, 61, 62, 65, 66, 68, 69. Offered sets (the spy pilot, decision by decision until the trees' picks diverge): no
+>   Aura cast removed at a shared state in any of the 80 games (no First-Wing, Consecrate Land or other illegal host appeared in these
+>   pods); the only additions are Benevolent Blessing and Swift Reconfiguration on Giver of Runes (games 63, 66 — the legal host the
+>   body-only lane had withheld).
+> · **Found, not fixed:** (1) an Aura whose only value is its enters exile (On Thin Ice, Chained to the Rocks, Dimensional Exile,
+>   Ossification) is cast even when no opponent has a creature to exile — the trigger then has no target (in Light-Paws the cast still
+>   triggers the commander); an enters-target preview for Auras, like `entersTriggerRemovesOwn`, is the next AI step. (2) Protection GRANTED
+>   by an effect from a quality the layer engine doesn't read (an Equipment's "protection from everything", Mother of Runes' chosen colour on
+>   a creature) stays invisible to `mayBeEnchantedBy` — the gap 7263caa3 had, unchanged. (3) 334 body-only Auras still read no side (the
+>   largest shapes: land-type changes, host-colour conditions, "all creatures able to block it do so", goad beside a buff, set base P/T
+>   without a loss of abilities). (4) `bonusSide`'s silent `try { parseAuraBonus } catch` is pre-existing (moved, not added).
+> · Witness **`auraClauseSide.test.js`** (28): the AI casts Angelic Destiny / Spectra Ward / Benevolent Blessing / Chains of Custody /
+>   Sheltered by Ghosts / Hermetic Study on its own best creature and On Thin Ice on its snow land; Darksteel Mutation / Swift
+>   Reconfiguration / Kenrith's Transformation / Betrayal on the biggest enemy creature, Cursed Land on the opposing land, the cast resolving;
+>   held — Psychic Impetus, Clutch of Undeath, Air Bladder, Leaden Fists (mixed), Pariah, Solid Footing, Gauntlets of Light (unreadable), a
+>   buff with only enemy hosts, a curse with only its own; the reading table and the non-cast entry; Pacifism not offered on / not resolving
+>   onto First-Wing and the AI holding it, Nyxborn Wolf's bestow, Wild Growth and Squirrel Nest skipping a Consecrate Land; Spectral Steel on
+>   Mother / Giver of Runes and Stonecoil Serpent, multicolored Spectral Shield not on Stonecoil, the entry onto Mother of Runes; controls.
+>   Revised: `bodyOnlyAuraTarget.test.js` (Angelic Destiny and Cursed Land now read their sides — they were its "held" examples),
+>   `aiEntersTriggerHold.test.js` (Eternity Snare's lock beside an enters draw reads enemy now).
 
 > ## 🔧 2026-10-17 — FIX (false positive): the land {C} fallback — no mana from an unreadable land line, and the land gate credits only lines the runtime makes; Crypt of Agadeem taps for {B} (it made {C}), Cabal Stronghold / Urza's Workshop / Baldur's Gate / Cascading Cataracts / Baxter Building make their second line, Nykthos its devotion, Plaza of Harmony its Gates' types, City of Shadows its storage counters; Gem Bazaar, Cryptic Spires and the two name-chooser Crossroads make no phantom {C}; Fabled Path of Searo Point {R} · **−2** (false credit removed) · snapshot native 15,475 → 15,473
 > Suite **20,251 green (1 skipped) / 1,853 files** under the gate queue. Lint 0 (CR citations: 0 of 11,180 name no rule; keyword citations: 0 of
