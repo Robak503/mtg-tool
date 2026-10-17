@@ -100,8 +100,10 @@ describe("a counter's mana-value filter reads the spell on the stack (CR 202.3e 
     expect(countersAgainst(s, "Hungering Hydra")).toEqual(["tb", "sn"]);
   });
 
-  it("an X Aura the engine hands to the Arbiter keeps its X on the stack: Awakened Awareness for X = 5 is mana value 7", () => {
-    const s = cast(board({ ai: { hand: [H("aw", AWAKENED_AWARENESS)], pool: { U: 2, C: 5 } }, user: { hand: COUNTERS, pool: COUNTER_POOL } }), "ai", "aw", xIs(5));
+  it("an X Aura keeps its X on the stack: Awakened Awareness for X = 5 is mana value 7", () => {
+    // 2026-10-17: an Aura spell targets its host (CR 303.4a) — it used to be cast with no target and handed to the Arbiter, so the
+    // board now holds a creature for it to enchant (auraSpellHost.js). Its X still rides the stack spell, not the payload.
+    const s = cast(board({ ai: { battlefield: [P("ab", BEARS, "ai")], hand: [H("aw", AWAKENED_AWARENESS)], pool: { U: 2, C: 5 } }, user: { hand: COUNTERS, pool: COUNTER_POOL } }), "ai", "aw", xIs(5));
     expect(countersAgainst(s, "Awakened Awareness")).toEqual(["ds"]);
   });
 

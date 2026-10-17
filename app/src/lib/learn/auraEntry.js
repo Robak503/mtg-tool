@@ -181,6 +181,18 @@ function cantBeEnchanted(state, perm, controller) {
 }
 
 /**
+ * May `auraCard` be attached to `perm` (controlled by `pid`) at all, as far as the engine can tell? Protection from a colour the
+ * Aura is (CR 702.16c), protection from a quality the layer engine doesn't read, and an effect that says the permanent can't be
+ * enchanted each keep it out (CR 303.4 — "Other effects can limit what a permanent can be enchanted by"). Fails closed. Read
+ * by the entry choice below and by the cast lane of every Aura no modeled lane casts (auraSpellHost.js).
+ */
+export function mayBeEnchantedBy(state, perm, pid, auraCard) {
+  if (protectionApplies(permanentProtectionColors(state, perm.id), colorsOf(auraCard))) return false; // CR 702.16c
+  if (UNREAD_PROTECTION_RE.test(oracleOf(perm.card))) return false;
+  return !cantBeEnchanted(state, perm, pid);
+}
+
+/**
  * The permanents `auraCard` may enchant entering the battlefield under `controller` without being cast (CR 303.4f), on the board
  * `state`, as `[{ id, controller }]` in battlefield order — or null when its Enchant line is one the engine can't enumerate.
  * The host options are the EFFECT's own limits on what the Aura may enchant ("any other applicable effects", CR 303.4f); they
@@ -201,7 +213,6 @@ export function auraEntryHosts(state, auraCard, controller, { onlyCreatures = fa
   const spec = auraEntryHostSpec(auraCard);
   const pred = spec ? ENTRY_HOST_PREDICATES[spec.targetType] : null;
   if (!pred) return null;
-  const auraColors = colorsOf(auraCard);
   const isRole = isRoleCard(auraCard);
   const out = [];
   for (const pid of Object.keys(state.players || {})) {
@@ -212,9 +223,7 @@ export function auraEntryHosts(state, auraCard, controller, { onlyCreatures = fa
       if (presentIds && !presentIds.includes(perm.id)) continue;
       if (isRole && carriesRoleOf(state, perm, controller)) continue;
       if ((spec.restrictions || []).length && !creatureSatisfiesRestrictions(state, perm, pid, controller, spec.restrictions)) continue;
-      if (protectionApplies(permanentProtectionColors(state, perm.id), auraColors)) continue; // CR 702.16c
-      if (UNREAD_PROTECTION_RE.test(oracleOf(perm.card))) continue;
-      if (cantBeEnchanted(state, perm, pid)) continue;
+      if (!mayBeEnchantedBy(state, perm, pid, auraCard)) continue;
       out.push({ id: perm.id, controller: pid });
     }
   }

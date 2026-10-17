@@ -3,8 +3,8 @@
  * battlefield attached to it (CR 303.4f), the enchanted-creature static bonus (P/T +
  * keywords via the CR-613 layer engine, scoped to attachedTo), the falls-off SBA
  * (CR 704.5n — an Aura that loses its host goes to the graveyard, unlike Equipment),
- * and the all-or-nothing native-aura coverage tier (no silent partial buff, no
- * do-nothing permanent — a non-native Aura routes to the Arbiter seam instead).
+ * and the all-or-nothing native-aura coverage tier (no silent partial buff). A non-native Aura is cast targeting its
+ * host like any Aura and enters attached with its unmodeled text inert (2026-10-17 — it used to route to the Arbiter seam).
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -204,44 +204,28 @@ describe("REVIEW FIX — granted keywords are honored at runtime (no partial app
   });
 });
 
-describe("cast legality + Arbiter routing", () => {
-  it("a non-native Aura is offered but routes to the Arbiter seam at resolution (no do-nothing permanent)", () => {
-    // A still-non-native Aura. FIXTURE SWAPPED THREE TIMES, and the pattern is the point: it was Bequeathal
-    // until the aura-own DIES detector landed, then Forced Adaptation until the target:'enchanted' counter
-    // referent landed, then Writ of Passage until the SELF P/T THRESHOLD intervening-if landed (2026-07-30,
-    // Role tokens phase 2 — Writ's "if its power is 2 or less" is exactly that condition). Each time the card
-    // became native the test started passing for the wrong reason.
+describe("cast legality + routing", () => {
+  it("a non-native Aura is cast targeting its host like any Aura, and enters attached with its unmodeled text inert (2026-10-17)", () => {
+    // REVISED 2026-10-17 (bodyOnlyAuraTarget.test.js owns the rule). This pinned the old posture: a non-native Aura offered with
+    // NO target, routed to the Arbiter seam, and gone from every zone when it resolved. An Aura spell requires a target defined by
+    // its enchant ability (CR 303.4a, 115.1b), so a cast without one was itself the false positive. Every Aura is now cast
+    // targeting a host its Enchant line allows and enters attached to it (auraSpellHost.js); what the engine doesn't model of it
+    // stays inert — the body-only posture, the same one an Aura put onto the battlefield without being cast already took.
     //
-    // Ghostly Touch is the current shape with genuinely no route: the Aura DELIVERY is modelled (a quoted
-    // grant to the enchanted creature works), but the granted BODY — "you may tap or untap target permanent" —
-    // is not. ⚠️ So the next thing that un-parks this fixture is somebody modelling an optional
-    // tap-or-untap-any-permanent payoff. When that happens, swap again rather than deleting: the behaviour
-    // under test (a non-native Aura must route to the Arbiter, never enter as a do-nothing permanent) is
-    // permanent even though every example of it is temporary.
-    //
-    // ⚠️ KEEP THE FIXTURE CHEAP. The board under test has no mana, so an expensive Aura is never OFFERED and
-    // `cast` comes back undefined — the assertion then dies on a TypeError instead of testing routing. Hit
-    // live while swapping this (a {3}{U} candidate); {U} is deliberate.
-    //
-    // The behavior under test is unchanged and is the point: a non-native Aura must still route to the
-    // Arbiter seam at resolution, never enter as a do-nothing permanent. Expect to swap the fixture again;
-    // assert against COMPLEX.name (below) so the swap can never pass vacuously.
+    // Ghostly Touch is still the right fixture: the Aura DELIVERY is modelled (a quoted grant to the enchanted creature works),
+    // the granted BODY — "you may tap or untap target permanent" — is not, so the card stays non-native and the host gets no
+    // ability the engine would play. ⚠️ KEEP THE FIXTURE CHEAP ({U} + generic — the pool below pays it), and assert against
+    // COMPLEX.name so a future swap can never pass vacuously.
     const COMPLEX = { id: "c-cplx", name: "Ghostly Touch", type: "Enchantment — Aura", mana: "{1}{U}", oracle: "Enchant creature\nEnchanted creature has \"Whenever this creature attacks, you may tap or untap target permanent.\"" };
-    // The default pool is colorless-only ({C:5}), which paid Forced Adaptation's generic {1} but cannot pay a
-    // COLORED fixture — the cast is then never offered and `cast` is undefined.
+    expect(isNativeAura(COMPLEX)).toBe(false);
     let s = boardState({ user: [createPermanent({ id: "bear", card: bearCard, controller: "user", summoningSick: false })], hand: [COMPLEX], pool: { C: 5, U: 1 } });
-    const cast = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").find(a => a.cardId === "c-cplx");
-    // Assert the fixture is actually OFFERED before reading it — an unaffordable/unoffered fixture used to
-    // die here on a TypeError, which reads like a routing failure and is not one.
-    expect(cast, `${COMPLEX.name} was not offered — check the fixture's cost against the pool`).toBeTruthy();
-    expect(cast.isAuraSpell).toBeUndefined(); // not a native aura → no targeted attach
-    s = resolveTopOfStack(dispatchAction(s, cast));
-    // It did NOT enter the battlefield as a permanent; it flagged the Arbiter seam.
-    // Assert against the FIXTURE's own name, not a hard-coded one. When the fixture was swapped this line
-    // still said "Bequeathal" and passed VACUOUSLY — no card by that name was in the state at all, so it
-    // proved nothing. Reading COMPLEX.name keeps it honest through any future swap.
-    expect(s.players.user.battlefield.some(p => p.card?.name === COMPLEX.name)).toBe(false);
-    expect(s.pendingArbiter).toBeTruthy();
+    const casts = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").filter(a => a.cardId === "c-cplx");
+    // Offered once — on the only creature — and never targetless.
+    expect(casts.map(a => (a.targets || []).map(t => t.id))).toEqual([["bear"]]);
+    expect(casts[0].isAuraSpell).toBe(true);
+    s = resolveTopOfStack(dispatchAction(s, casts[0]));
+    expect(s.players.user.battlefield.find(p => p.card?.name === COMPLEX.name)?.attachedTo).toBe("bear");
+    expect(s.pendingArbiter ?? null).toBe(null);
   });
   it("if the target is gone by resolution, the Aura spell fizzles and never enters (CR 608.3b)", () => {
     const bear = createPermanent({ id: "bear", card: bearCard, controller: "user", summoningSick: false });

@@ -29,6 +29,7 @@ import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js
 import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate, cloneWidenedCopiable, enteredThisTurnCopiable } from "./cloneCopy.js"; // + cloneWidenedCopiable (KN-2) + enteredThisTurnCopiable (shelf D36)
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
+import { bodyOnlyAuraHosts } from "./auraSpellHost.js"; // AURA_ETB's re-check for an Aura no modeled lane casts — the host list its cast was offered from (CR 608.2b)
 import { auraEntryHasHost, enteringAuraHost } from "./auraEntry.js"; // a clone that enters as a copy of an Aura chooses what it enchants (CR 303.4f) — auraEntry reaches neither resolvers nor cloneCopy (checked 2026-10-16)
 import { isNativeManaAura, auraChoosesColorOnEnter, parseSoulbondBond } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) — the Aura spell's host re-check; SOULBOND (BLITZ SL-1) — the modeled bond reader
 import { equipmentBarredAsCreature, cannotEquipNow, permanentHasCardType, permanentHasTypeWord, colorsOf, permanentColors, permanentIsCreature } from "./layers.js"; // + permanentHasTypeWord (the type-line audit — the clone re-check's Equipment) // CR 301.5c / 701.3b (cannotEquipNow — a source that is no Equipment right now) — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types; + the colours the CR 608.2b re-checks judge protection against
@@ -496,8 +497,18 @@ export const RESOLVERS = Object.freeze({
   // resolve — it's put into its owner's graveyard by game rules (CR 608.3b) and never
   // enters (logged, never fabricated). The targetId is a battlefield permanent id.
   [RESOLVER_KEYS.AURA_ETB]: (state, obj) => {
-    const { card, controller, targetId, bestowed, enchantsPlayer, enchantsGraveyardCard, hostType, kicked, printedCard, castDuringMainPhase } = obj.payload?.params || {}; // printedCard: V1 slice 3 (a modal-DFC Aura front — Glasswing Grace); castDuringMainPhase: Sentinel's Mark's Addendum look-back
+    const { card, controller, targetId, bestowed, enchantsPlayer, enchantsGraveyardCard, hostType, kicked, printedCard, castDuringMainPhase, bodyOnlyAura } = obj.payload?.params || {}; // printedCard: V1 slice 3 (a modal-DFC Aura front — Glasswing Grace); castDuringMainPhase: Sentinel's Mark's Addendum look-back
     if (!card || !controller) return resolveManual(state, obj);
+    // EVERY OTHER AURA (2026-10-17 — auraSpellHost.js): an Aura no modeled lane casts re-checks its target against the SAME host
+    // list its cast was offered from (bodyOnlyAuraHosts: the Enchant line's host spec, targetability, what it may enchant), so a
+    // host that left, stopped matching, or gained hexproof or protection makes the target illegal and the spell goes to its
+    // owner's graveyard (CR 608.2b, 608.3b). Otherwise it enters attached to that host, its unmodeled text inert.
+    if (bodyOnlyAura) {
+      if (!bodyOnlyAuraHosts(state, card, controller, { recheck: true }).some((h) => h.id === targetId)) {
+        return logEvent(finishSpellResolution(state, { playerId: obj.owner || controller, card }), { kind: "spell-fizzle", source: card?.name, reason: "aura target illegal", controller });
+      }
+      return enterPermanent(state, card, controller, { attachTo: targetId, wasCast: true, ...(castDuringMainPhase ? { castDuringMainPhase: true } : {}), ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) });
+    }
     // PLAYER-AURA (Fraying Sanity / the Curse class — SHELF S7, CR 303.4): the target is a PLAYER.
     // Re-check at resolution (CR 608.2b — the player may have been eliminated); gone → the Aura card
     // reaches its owner's graveyard (CR 608.3b, the same fizzle as a vanished creature target). Enters

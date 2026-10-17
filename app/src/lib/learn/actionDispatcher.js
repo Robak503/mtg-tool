@@ -81,7 +81,8 @@ import { parseEffectProgram, parseEffectClause, programConfidence } from "./effe
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only — strip before the cast-effect parse so the runtime resolves the body natively (matches the classifier; fixes a classifier↔runtime pendingArbiter mismatch)
 import { RESOLVER_KEYS, isPermanentSpell, autoPickManaColor, choosesCreatureTypeOnEnter } from "./resolvers.js"; // LANDS-12: the ONE color auto-pick both enter sites stamp with; + CAP-CAVERN: the chosen-type chooser for a land drop
 import { autoPickCreatureType } from "./choicePolicy.js"; // CAP-CAVERN: the SAME auto-pick resolvers.enterPermanent stamps, for a land played from hand
-import { isAuraCard, isNativeAura, isNativeManaAura, playerAuraSpellSubject, entersTapped, impositionEntersTapped, auraEnchantHostSpec, entersWithNamedCounters, choosesColorOnEnter, stackSpellIsUncounterable } from "./staticAbilityParser.js";
+import { isBodyOnlyAuraSpell, bodyOnlyAuraHosts } from "./auraSpellHost.js"; // every Aura no modeled lane casts — its cast targets one legal host (CR 303.4a)
+import { isNativeAura, isNativeManaAura, playerAuraSpellSubject, entersTapped, impositionEntersTapped, auraEnchantHostSpec, entersWithNamedCounters, choosesColorOnEnter, stackSpellIsUncounterable } from "./staticAbilityParser.js";
 // ORDEAL (BLITZ OC-1): the Theros Ordeal cast lane — the SAME gate legalChoices offers on and the metric
 // awards (single source of truth, no drift). Acyclic: coverage.js never imports actionDispatcher.js.
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
@@ -384,6 +385,17 @@ function applyCastSpell(state, action) {
     const legal = (action.targets || []).length === 1 && t0?.type === "player" && !!state.players?.[t0.id]
       && !(playerAuraSubject === "opponent" && t0.id === action.playerId);
     if (!legal) throw new DispatcherError(`${castCard?.name} is an Aura spell that enchants a ${playerAuraSubject}: it must target one (CR 303.4a)`, "AURA_TARGET_REQUIRED");
+  }
+  // EVERY OTHER AURA SPELL TARGETS ONE PERMANENT IT MAY ENCHANT (CR 303.4a, 115.1b, 702.5a — 2026-10-17, auraSpellHost.js). An Aura
+  // no modeled lane casts is offered once per legal host (legalChoices); a cast of one that names anything else — no target, a
+  // permanent its Enchant line doesn't allow or it can't target, an Enchant line the engine can't list — is an upstream bug,
+  // refused before any cost is paid rather than resolved (it used to vanish into the Arbiter no-op). Read off the face being cast:
+  // a creature front with an Aura back (Accursed Witch) is a creature spell, never refused here.
+  const bodyOnlyAura = isBodyOnlyAuraSpell(castCard);
+  if (bodyOnlyAura) {
+    const t0 = (action.targets || [])[0];
+    const legal = (action.targets || []).length === 1 && bodyOnlyAuraHosts(state, castCard, action.playerId).some((h) => h.id === t0?.id);
+    if (!legal) throw new DispatcherError(`${castCard?.name} is an Aura spell: it must target a permanent its enchant ability allows (CR 303.4a)`, "AURA_TARGET_REQUIRED");
   }
 
   // DISCOVER / free-cast (CR 601.2b — "cast without paying its mana cost"): skip the mana plan + payment
@@ -874,11 +886,14 @@ function applyCastSpell(state, action) {
     // on the SAME grantAuraCastHostType legalChoices offered with, so offer and resolution can't drift.
     const targetId = targets[0]?.id;
     payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId, hostType: grantAuraCastHostType(castCard).host } };
-  } else if (isAuraCard(castCard)) {
-    // An Aura we can't model end-to-end (enchants a non-creature / restricted subject, or
-    // carries an unmodeled bonus/ability). Route to the Arbiter seam rather than entering a
-    // do-nothing unattached permanent — honest about the gap, never a silent no-op.
-    payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: castCard.name, reason: "aura (unmodeled enchant or bonus)" } };
+  } else if (bodyOnlyAura) {
+    // EVERY OTHER AURA (2026-10-17 — auraSpellHost.js): an Aura no lane above models end to end is cast targeting a permanent its
+    // Enchant line allows (checked before any cost, above) and enters attached to it through AURA_ETB, its unmodeled text inert —
+    // the body-only posture. `bodyOnlyAura` on the serializable payload sends the resolver's CR 608.2b re-check to the same host
+    // list the offer enumerated. It used to route to the Arbiter no-op and vanish (SPELL_NOOP, "aura (unmodeled enchant or
+    // bonus)"). The face test is the face being cast (CR 712.8a, 712.8c): a creature front whose back face is an Aura (Accursed
+    // Witch, Binding Geist) is no Aura spell, reaches the permanent lane below and enters as the creature.
+    payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId: targets[0]?.id, bodyOnlyAura: true, castDuringMainPhase: castDuringMainPhaseNow(state, action.playerId) } };
   } else if (castsAsPlaneswalker(castCard)) {
     // A card that casts AS a planeswalker (front face — so a creature-front DFC falls through to the
     // permanent/creature path and enters as its creature side, PW-1 review P2.1). Only a FULLY-

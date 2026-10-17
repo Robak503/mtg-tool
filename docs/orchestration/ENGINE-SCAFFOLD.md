@@ -687,6 +687,24 @@ A body-only one now resolves through AURA_ETB's player branch and sits on its pl
 The dispatcher refuses a player-Aura cast without exactly one legal player target
 (`AURA_TARGET_REQUIRED`). Witness: `playerAuraTarget.test.js`.
 
+**Every other Aura is cast targeting a host too (2026-10-17, `auraSpellHost.js`).** An Aura that
+enchants a permanent and has no modeled lane (`isBodyOnlyAuraSpell` — the face being cast is an Aura,
+not a player Aura, and none of Animate Dead / native / Ordeal / mana-boost / granted-ability claims
+it) is offered once per host in `bodyOnlyAuraHosts`: `enumerateTargets` over
+`staticAbilityParser.auraSpellHostSpec` (auraEntryHostSpec's subjects plus a whole-subject table of
+exact typed hosts — "snow land you control", "artifact you control", "creature an opponent controls",
+the basic land types …) with the spell's front-face colours, narrowed by `auraEntry.mayBeEnchantedBy`
+(protection from enchantments, "can't be enchanted"). It resolves through AURA_ETB's `bodyOnlyAura`
+branch — re-checked against the same list (CR 608.2b, 608.3b) — and sits on its host with its
+unmodeled text inert; the tier doesn't move. An {X} Aura is offered per affordable X ≥ 1 per host (the X
+rides the stack spell, CR 202.3e). An Enchant line the reader can't list, a printed rule about "this
+spell's target", or an additional cost → not offered. The dispatcher refuses a cast without
+exactly one listed host (`AURA_TARGET_REQUIRED`). Before this, ~650 such Auras were offered with NO
+target and vanished into SPELL_NOOP; the dispatcher's combined-type-line `isAuraCard` arm is gone, so
+a creature front with an Aura back (Accursed Witch, the disturb Spirits) enters as the creature. The AI
+places one through `pickAuraCast` (auraCastIntent; an unread side holds). Witness:
+`bodyOnlyAuraTarget.test.js`.
+
 **An activation that resolves to nothing must not be the AI's pick (added 2026-10-03).**
 A free activation the resolver refuses is a turn that never ends: the equip pick
 (`pickEquipAction`) stops only when its Equipment sits on the best body, and

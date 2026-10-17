@@ -14,8 +14,9 @@
  * mana-boost lane's useful-subset precedent), the dispatcher routes AURA_ETB with the host type stamped
  * on the serializable payload, and the resolver's CR 608.2b re-check requires that host type.
  *
- * CREED: the gate stands on the SAME classifyCard tier the metric awards (all-or-nothing per card), so a
- * body-only aura's cast still routes to the Arbiter — never a partially-modeled attach.
+ * CREED: the gate stands on the SAME classifyCard tier the metric awards (all-or-nothing per card), so a body-only
+ * aura never rides this lane. Since 2026-10-17 it is cast on a host like any Aura (auraSpellHost.js) and sits there with its
+ * granted effect inert — it used to be cast targetless, routed to the Arbiter, and vanish.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { legalActionsForPlayer } from "./legalChoices.js";
@@ -131,10 +132,19 @@ describe("cast → attach (the lane end-to-end)", () => {
     expect(d.players.user.graveyard.map((c) => c.name)).toContain("Squirrel Nest");
   });
 
-  it("CREED — a body-only aura (unmodeled granted effect) still gets NO targeted aura cast", () => {
-    const s = stateWith([OMEN_CHAMBER]);
+  it("CREED — a body-only aura (unmodeled granted effect) is cast on a land like any Aura, and its granted ability is never offered", () => {
+    // REVISED 2026-10-17 (bodyOnlyAuraTarget.test.js owns the rule). This pinned the old posture — no targeted cast, the cast
+    // offered with NO target and routed to the Arbiter seam, where the card vanished. An Aura spell requires a target defined by
+    // its enchant ability (CR 303.4a), so every Aura is now cast on a host its Enchant line allows ("Enchant land": any land,
+    // whoever controls it) and enters attached. The CREED half is unchanged and is what this still guards: the granted effect
+    // the engine doesn't model is never offered on the land — the Aura sits there inert.
+    let s = stateWith([OMEN_CHAMBER]);
     const offers = castsOf(s, "h0");
-    expect(offers.every((a) => !a.isAuraSpell)).toBe(true); // the Arbiter-seam posture, unchanged
+    expect(offers.map((a) => a.targets[0].id).sort()).toEqual(["land", "oppland"]);
+    expect(offers.every((a) => a.isAuraSpell)).toBe(true);
+    s = resolveTopOfStack(dispatchAction(s, offers.find((a) => a.targets[0].id === "land")));
+    expect(s.players.user.battlefield.find((p) => p.card?.name === "Omen Chamber")?.attachedTo).toBe("land");
+    expect(landActs(s)).toEqual([]); // no granted "{T}, Discard a card: …" on the land
   });
 });
 

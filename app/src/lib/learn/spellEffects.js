@@ -980,6 +980,9 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     // Land type AND the Basic supertype are required, so a nonbasic land (type line "Land — …", no "Basic")
     // is excluded and a non-land never matches. Symmetric with nonbasicLand above.
     basicLand: (tl, perm, has) => has("Land") && has("Basic"),
+    // SNOW-LAND (On Thin Ice "Enchant snow land you control", 2026-10-17 — auraSpellHost.js) — a Land WITH the Snow supertype
+    // (CR 205.4a), read off the types it has now like the basic-land pair beside it.
+    snowLand: (tl, perm, has) => has("Land") && has("Snow"),
     artifactOrEnchantment: (tl, perm, has) => has("Artifact") || has("Enchantment"),
     // LANDS-5 (Otawara) — the four-type union; NOT nonlandPermanent, which would also admit a Battle.
     artifactCreatureEnchantmentOrPlaneswalker: (tl, perm, has) => has("Artifact") || has("Creature") || has("Enchantment") || has("Planeswalker"),

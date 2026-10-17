@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **9 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,480)**; engine gains since the tag: **+27** (+31 gained, −4 false credit removed). The next tag
+> **10 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,480)**; engine gains since the tag: **+27** (+31 gained, −4 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,76 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX (false positive): every Aura that enchants a PERMANENT is cast targeting a host its Enchant line allows — 651 Auras the engine doesn't fully model (419 "Enchant creature", 51 "Enchant land") were offered with no target, cast that way by the AI, and vanished; a creature front with an Aura back (Accursed Witch, Faithbound Judge, 14 disturb Spirits) now enters as the creature · **±0** · snapshot native 15,462 unchanged
+> Suite **20,146 green (1 skipped) / 1,845 files** under the gate queue. Lint 0 (CR citations: 0 of 11,187 name no rule; keyword citations: 0 of 2,329 cite a
+> different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of 44dd9f16, snapshotted before
+> the first edit; after = this tree; native 15,462 of 34,584 snapshot names on both). **Mutants 17/17** on assertions, each restored
+> byte-identical (sha256). Witness tests written first and seen to fail on the base engine on assertions (21 of the first 23; the 2
+> controls pass on both); every test added while building fails on base too (24 of the final 26). A/B **80 seeded commander games**
+> (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched 44dd9f16 archive): **65 byte-identical, 4 differ only
+> in the offered set** (an Aura now offered once per host; same picks, winner, turns), **11 change picks**, 3 winners change, 0 errors
+> on either tree (below). Committed on `day/fp-aura2`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The bug** (found by the player-Aura slice, its found-not-fixed (1) and (2); re-measured on 44dd9f16 for every card, text from
+>   the bundled oracle). Of 1,226 non-player Aura cast faces, `legalChoices` offered 651 with NO target — every one no modeled lane
+>   (Animate Dead, native, Ordeal, mana-boost, granted-ability) claims: 646 body-only plus Petrified Plating (native-aura by the
+>   classifier, its suspend line fails the runtime gate) and On Thin Ice / Chained to the Rocks / Dimensional Exile / Ossification
+>   (native-trigger, no cast lane at all). By subject: creature 419, land 51, creature you control 31, permanent 23, artifact or
+>   creature 18, artifact 17, creature or vehicle 8, … An Aura spell requires a target defined by its enchant ability (CR 303.4a,
+>   115.1b, 702.5a). `actionDispatcher` routed each to SPELL_NOOP and the card left every zone (a cast-and-resolve probe over every
+>   Aura: 668 vanished on the base engine, 667 raising the Arbiter flag; 1 on this tree — Glasswing Grace, a probe artifact: it enters
+>   under its face name). The same arm read `isAuraCard` off the COMBINED type line, so the 16 transform cards with a creature front
+>   and an Aura back vanished when their creature was cast.
+> · **The fix** (`auraSpellHost.js`, new; read by legalChoices, actionDispatcher and resolvers). `isBodyOnlyAuraSpell` — the face being
+>   cast (faceUpView, CR 712.8a, 712.8c) is an Aura, not a player Aura, and no modeled lane claims it. `bodyOnlyAuraHosts` —
+>   `enumerateTargets` over `staticAbilityParser.auraSpellHostSpec` with the spell's front-face colours (`permanentPrintedColors`: a
+>   transform card's top-level colours are empty), narrowed by `auraEntry.mayBeEnchantedBy` (protection from a colour, protection
+>   from a quality the layer engine doesn't read — enchantments —, "can't be enchanted"; factored out of `auraEntryHosts`, which reads it
+>   unchanged). `auraSpellHostSpec`: auraEntryHostSpec's subjects, then a whole-subject table of exact typed hosts on existing target
+>   types and restriction kinds (enchantment, creature or land, creature or enchantment, artifact or land, artifact or enchantment,
+>   nonbasic land, the four basic land types, Mountain / basic land / snow land / artifact / artifact or creature "you control",
+>   artifact / creature "an opponent controls", creature "you don't control"; a new `snowLand` predicate in spellEffects), and null for
+>   a face that prints a rule about "this spell's target" (Enthralling Hold, Dream Leash). The offer (above the additional costs): one
+>   cast per host; an {X} Aura one per affordable X ≥ 1 per host, the X carried on the stack (CR 107.3a, 202.3e; a free cast pays no
+>   mana and is offered at X = 0, CR 107.3b); an additional cost (Grafted Identity) → not offered. The dispatcher refuses, before any
+>   cost, a cast without exactly one listed host (`AURA_TARGET_REQUIRED`) and routes the rest to AURA_ETB's new `bodyOnlyAura` branch,
+>   which re-checks the host against the same list (CR 608.2b, 608.3b) and enters the Aura attached, its unmodeled text inert. The
+>   combined-line `isAuraCard` → SPELL_NOOP arm is gone, so a creature front with an Aura back reaches PERMANENT_ETB. Tiers untouched.
+> · **After** (the census board): 0 targetless; 599 of the 651 now offered per host and resolving attached (1,151 attached in the
+>   resolve probe, 15 to the graveyard when a -X/-X Aura killed its host, all 16 creature-front cards on the battlefield as
+>   creatures, 0 errors, 0 Arbiter flags). Not offered: 36 Enchant lines no reader lists (the five planeswalker Talents, the five
+>   "Taught by" commander enchantments with no Enchant line, Dance of the Dead, Spellweaver Volute, Animate Spell / Wall / Graveyard /
+>   Library, Soulmates "two creatures", the non-Wall / Giant / legendary / artifact-creature / Equipment subjects, Food / Clue /
+>   Spacecraft / planeswalker unions, Zone of Flame, Don't Worry About It), Enthralling Hold and Dream Leash, Grafted Identity — each a
+>   safe false negative where the targetless cast was a false positive. On Thin Ice and Chained to the Rocks now attach to their land
+>   and exile (their enters trigger was modeled; the cast was missing).
+> · **AI** (no AI code change: every offer is `isAuraSpell`, so `pickAuraCast` reads `auraCastIntent`). 49 of the 623 readable body-only
+>   Auras read a side (World-Weary, Swampsnare Trap → the biggest enemy creature; Spectral Steel, the Wards → its own best); the rest
+>   (Angelic Destiny, Spectra Ward, Darksteel Mutation — the all-or-nothing bonus parse fails) are held, never guessed. **Profile decks
+>   holding affected cards** (30 decks read): Joe — Captain America Shoot your Shot (Super-Soldier Serum), Kinnan Mana Overload
+>   (Amphibian Downpour); Omnath — Bumble Flower Combo (Mechanized Production), Brago Blink (Reality Acid), Shorikai Vehicles (Born to
+>   Drive), Thrun Voltron (Strong Back, Kenrith's Transformation), Light-Paws Voltron (Darksteel Mutation, Swift Reconfiguration, On
+>   Thin Ice, Angelic Destiny, Benevolent Blessing, Spectra Ward). None holds a creature-front DFC. Every one of these reads no side, so
+>   the AI now HOLDS them where it used to cast them targetless into nothing. The A/B's 11 pick changes are exactly that: game 29
+>   (Captain America holds Super-Soldier Serum, casts Arcane Signet) and games 60–69 (the Brago / Shorikai / Thrun / Light-Paws pod:
+>   Angelic Destiny, Benevolent Blessing, Born to Drive, Spectra Ward, Reality Acid, Strong Back, On Thin Ice, Swift Reconfiguration,
+>   Kenrith's Transformation held). Winners: games 63, 65, 66 Light-Paws → Thrun (Light-Paws' "whenever you cast an Aura spell" fed
+>   on those vanishing casts); turn counts move in 61, 62, 63, 65, 66, 69. Results (ai-wins 57 / user-wins 23) unchanged.
+> · **Found, not fixed:** (1) the native Aura lanes skip the may-be-enchanted check — Pacifism is still offered on Azorius First-Wing
+>   (protection from enchantments, CR 702.16b); this lane checks it. (2) The AI holds every body-only Aura whose bonus doesn't parse
+>   as a whole — Light-Paws Voltron holds most of its deck; reading the bonus clause by clause is AI work of its own. (3) The 36
+>   unread Enchant lines above (the next reader rows: planeswalker, Equipment, the non-Wall subjects). (4) The creature-front DFCs'
+>   back faces (Accursed Witch's death return, disturb) stay unmodeled. (5) Grafted Identity's sacrifice (an additional cost on an Aura).
+> · Witness **`bodyOnlyAuraTarget.test.js`** (26): the offer (Spectral Steel per creature, Cursed Land per land, Dying Wish / Reality
+>   Acid / Born to Drive, the typed hosts — On Thin Ice, Mechanized Production, Betrayal, Chained to the Rocks —, no host → no cast,
+>   unreadable → no cast, Grafted Identity, Endless Scream per X per host with X on the stack, a discover free cast, hexproof /
+>   protection-from-black / protection-from-enchantments narrowing, Radiant Grace by its front face and colour); resolution (attached,
+>   no Arbiter flag, the modeled bonus live; Cursed Land on a land; Angelic Destiny / Born to Drive / Radiant Grace; On Thin Ice's
+>   exile; host gone or gaining hexproof → owner's graveyard; Accursed Witch and Binding Geist as creatures); the dispatcher refusal;
+>   the AI (World-Weary on the biggest enemy, Spectral Steel on its own best, Angelic Destiny / Cursed Land held, the cast resolving);
+>   controls (Pacifism, Paradox Haze, tiers). Revised: `aura.test.js` (a non-native Aura routed to the Arbiter → cast on its host,
+>   attached, no flag), `grantAuraCast.test.js` (Omen Chamber: no targeted cast → cast on any land, its granted ability never offered),
+>   `stackManaValueReaders.test.js` (Awakened Awareness needs a host on the board now; its X still rides the stack).
 
 > ## 🎯 2026-10-17 — SHELF-90: Veyran Cantrips 88 → 91, Halfshell heroes 90 → 91, Mothman Cometh 89 → 90 (/98), Killer Turts held at 90 — Firespitter Whelp's "noncreature or Dragon" (the disjunctive cast list, + 9 twins), Visions of Beyond's "a graveyard has twenty or more cards", Overmaster's / Insist's typed next-spell shields, Vigor's group prevent-and-put wall, Finality's untargeted own-creature counters (+ Humiliate, Sword of Truth and Justice); Lunar Mystic's instant-only FP closed · **+17** · snapshot native 15,462 → 15,479
 > Suite **20,150 green (1 skipped) / 1,848 files** under the gate queue. Lint 0 (CR citations: 0 of 11,118 name no rule; keyword citations: 0 of

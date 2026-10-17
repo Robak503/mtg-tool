@@ -7573,6 +7573,55 @@ export function auraEntryHostSpec(card) {
   return null;
 }
 
+/**
+ * THE AURA SPELL'S HOST (2026-10-17) — `{ targetType, restrictions }` for what an Aura spell that enchants a permanent may target,
+ * read off the face being cast (faceUp.faceUpView: a double-faced card off the battlefield has only its front face, CR 712.8a,
+ * and is cast front face up, CR 712.8c), or null: the face is no Aura, it enchants a player (playerAuraSpellSubject's lane), or
+ * its Enchant line is one the engine can't list. An Aura spell requires a target, defined by its enchant ability (CR 303.4a,
+ * 115.1b), and the enchant ability restricts what an Aura spell can target (CR 702.5a). Read by the cast lane of every Aura no
+ * modeled lane casts (auraSpellHost.js) — the offer, the dispatcher's refusal and the resolution re-check — never by the
+ * classifier, so no tier reads it.
+ *   · auraEntryHostSpec's subjects first (the cast lanes' host spec, plus "land", "land you control", "Forest", "permanent");
+ *   · then AURA_SPELL_TYPED_HOSTS below — whole subjects the cast enumeration lists exactly, each an existing
+ *     spellEffects.enumerateTargets target type and an existing restriction kind (creatureRestrictions), read layer-aware;
+ *   · null for a face that also prints a rule about choosing this spell's target ("You can't choose an untapped creature as this
+ *     spell's target as you cast it" — Enthralling Hold, Dream Leash): the host list would offer a target that rule forbids.
+ * What narrows the hosts by targeting (shroud, hexproof, protection) is the cast enumeration's own, never this reader.
+ */
+const YOU_CONTROL = Object.freeze({ kind: "controller", who: "you" });
+const OPPONENT_CONTROLS = Object.freeze({ kind: "controller", who: "opponent" }); // creatureRestrictions: any player but the caster
+const AURA_SPELL_TYPED_HOSTS = Object.freeze({
+  "enchantment": { targetType: "enchantment", restrictions: [] },
+  "creature or land": { targetType: "creatureOrLand", restrictions: [] },
+  "creature or enchantment": { targetType: "creatureOrEnchantment", restrictions: [] },
+  "artifact or land": { targetType: "artifactOrLand", restrictions: [] },
+  "artifact or enchantment": { targetType: "artifactOrEnchantment", restrictions: [] },
+  "nonbasic land": { targetType: "nonbasicLand", restrictions: [] },
+  "plains": { targetType: "plains", restrictions: [] },
+  "island": { targetType: "island", restrictions: [] },
+  "swamp": { targetType: "swamp", restrictions: [] },
+  "mountain": { targetType: "mountain", restrictions: [] },
+  "mountain you control": { targetType: "mountain", restrictions: [YOU_CONTROL] },
+  "basic land you control": { targetType: "basicLand", restrictions: [YOU_CONTROL] },
+  "snow land you control": { targetType: "snowLand", restrictions: [YOU_CONTROL] },
+  "artifact you control": { targetType: "artifact", restrictions: [YOU_CONTROL] },
+  "artifact or creature you control": { targetType: "creatureOrArtifact", restrictions: [YOU_CONTROL] },
+  "artifact an opponent controls": { targetType: "artifact", restrictions: [OPPONENT_CONTROLS] },
+  "creature an opponent controls": { targetType: "creature", restrictions: [OPPONENT_CONTROLS] },
+  "creature you don't control": { targetType: "creature", restrictions: [OPPONENT_CONTROLS] },
+});
+const SPELL_TARGET_RULE_RE = /\bthis spell['’]s target\b/i;
+export function auraSpellHostSpec(card) {
+  const face = faceUpView(card);
+  if (!isAuraCard(face)) return null;
+  if (SPELL_TARGET_RULE_RE.test(String(face?.oracle ?? face?.oracle_text ?? "").replace(/\([^)]*\)/g, " "))) return null;
+  const spec = auraEntryHostSpec(face);
+  if (spec) return spec;
+  const subject = auraEnchantSubject(face);
+  const typed = subject && Object.hasOwn(AURA_SPELL_TYPED_HOSTS, subject) ? AURA_SPELL_TYPED_HOSTS[subject] : null;
+  return typed ? { targetType: typed.targetType, restrictions: [...typed.restrictions] } : null;
+}
+
 /** The CREATURE-subject half of the host spec (every subject that yields targetType "creature"). */
 function creatureEnchantRestrictions(card) {
   const subject = auraEnchantSubject(card);

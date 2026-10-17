@@ -125,6 +125,7 @@ import { isPermanentSpell } from "./resolvers.js";
 import { commanderColorIdentityOf } from "./commanderIdentity.js";
 import { hideawayPlayOfferable } from "./effects/atoms/hideaway.js";
 import { isGraveyardReanimateAura } from "./animateDeadGate.js"; // P·12 — Animate Dead // P·10 — the linked free play is offered only when it can do something // P·6 — War Room's life cost (CR 903.4; a zero-import leaf)
+import { isBodyOnlyAuraSpell, bodyOnlyAuraHosts } from "./auraSpellHost.js"; // every Aura no modeled lane casts — one cast per legal host (CR 303.4a)
 import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND — the one gate offer/dispatch/classifier all read
 
 /**
@@ -1430,6 +1431,28 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         if (opponents && !opponents.has(pid)) continue;
         if (!playerTargetableBy(state, pid, playerId)) continue;
         actions.push({ ...base, targets: [{ type: "player", id: pid }], targetName: pid, needsTargets: true, isAuraSpell: true, enchantsPlayer: true });
+      }
+      continue;
+    }
+    // ⭐ EVERY OTHER AURA SPELL TARGETS A HOST TOO (2026-10-17 — auraSpellHost.js). An Aura spell requires a target defined by its
+    // enchant ability (CR 303.4a, 115.1b, 702.5a). An Aura no modeled lane below casts (600-odd cards whose text the engine doesn't
+    // fully model) used to fall to the no-target push at the bottom: offered with NO target, cast that way by the AI, routed to the
+    // Arbiter no-op, and gone from every zone when it resolved. Now: one cast per legal host (bodyOnlyAuraHosts — the cast
+    // enumeration over the Enchant line's host spec, narrowed to what it may enchant at all), resolving through AURA_ETB onto
+    // that host with its unmodeled text inert. An Enchant line the engine can't list, no legal host, or an additional cost this
+    // lane doesn't pay (Grafted Identity's sacrifice) and it is not offered — a safe under-offer. An {X} Aura (Endless Scream,
+    // Venarian Gold, Awakened Awareness): its caster chooses X as it is cast (CR 107.3a), so one cast per affordable X ≥ 1 per
+    // host, the X folded into the cost and carried on the stack, where it counts toward the spell's mana value (CR 202.3e); X = 0
+    // is not offered. A free cast pays no mana, so its cost carries no {X}: it is offered at X = 0, the only legal X (CR 107.3b).
+    // An optional kicker is not paid (the unkicked cast is offered). Read off the face being cast, so a creature front with an
+    // Aura back (Accursed Witch) is never one of these and is cast as the creature below.
+    if (isBodyOnlyAuraSpell(card)) {
+      if (addCost0 || lifeXAddCost) continue;
+      const hosts = bodyOnlyAuraHosts(state, card, playerId);
+      const xValues = cost.hasX ? affordableXValues(state, playerId, cost) : [null];
+      for (const x of xValues) {
+        const xFields = x == null ? {} : { cost: xResolvedCost(cost, x), cmc: printedCmc + (cost.xCount ?? 1) * x, xValue: x, xName: `X=${x}` };
+        for (const t of hosts) actions.push({ ...base, ...xFields, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
       }
       continue;
     }
