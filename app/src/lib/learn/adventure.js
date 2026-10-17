@@ -1,16 +1,18 @@
 /**
  * adventure.js — ADVENTURE (CR 715). An adventurer card has its NORMAL characteristics — a PERMANENT: a creature,
- * or an enchantment (the Wilds of Eldraine Virtues, An Unexpected Party, Promise of Aclazotz) — and, in the inset
+ * an enchantment (the Wilds of Eldraine Virtues, An Unexpected Party, Promise of Aclazotz), an artifact (The
+ * Arkenstone, Horn of Valhalla) or a land (the Final Fantasy Towns) — and, in the inset
  * frame, ALTERNATIVE characteristics it may have while it's a spell: an instant/sorcery "Adventure" (CR 715.2,
- * 205.3k). As the card is cast its owner chooses which (CR 715.3). Casting the Adventure puts an instant/sorcery
+ * 205.3k). As the card is played its owner chooses which (CR 715.3). Casting the Adventure puts an instant/sorcery
  * on the stack; as it resolves, instead of going to the graveyard the card is EXILED, and for as long as it
- * remains exiled its owner may cast it — not as an Adventure, so as the permanent, at that half's own cost (CR
- * 715.3d). Casting the permanent half (from hand or from adventure-exile) puts that permanent onto the battlefield
- * as normal; off the stack the card has only its normal characteristics (CR 715.4).
+ * remains exiled its owner may play it — not as an Adventure, so as the permanent: cast at that half's own cost, or,
+ * for a land, played as a land drop (CR 715.3d). Casting the permanent half (from hand or from adventure-exile) puts
+ * that permanent onto the battlefield as normal; off the stack the card has only its normal characteristics (CR 715.4).
  *
  * This module is the SINGLE source of truth for the Adventure card SHAPE:
  *   - parseAdventureCard(card)   → split the combined publicCard oracle into { permanent, adventure } faces
  *   - isAdventureCard(card)      → is this an instant/sorcery-adventure card?
+ *   - isLandAdventure(card)      → is its permanent half a LAND (a Town — played, never cast)?
  *   - permanentFaceCard(card)    → a card-view projected onto the PERMANENT half (type/oracle/mana/name)
  *   - adventureFaceCard(card)    → a card-view projected onto the ADVENTURE half (type/oracle/mana/name)
  * The CREED native gate (BOTH halves modeled) lives in coverage.js (classifyAdventure), where classifyCard /
@@ -74,16 +76,15 @@ function parseFaceBlock(block) {
  * a regular split/MDFC (no "Adventure"), or a creature-back DFC. The adventure half MUST be an instant or
  * sorcery (Adventure is a spell type, CR 205.3k).
  *
- * THE PERMANENT HALF: a CREATURE or an ENCHANTMENT (isModeledPermanentHalf). Both are cast at sorcery speed
- * (CR 303.1 for the enchantment) and enter through the same PERMANENT_ETB lane as any face cast (the projected
- * face rides as the permanent, the whole card as its printedCard), and the classifiers that judge a creature's
- * triggers and statics judge an enchantment's the same way. Every other normal half returns null and stays out
- * of this lane (a safe false-negative):
- *   - an ARTIFACT half (Equipment, The Arkenstone, Monster Manual) — not yet driven through the face lane;
- *   - a LAND half (the Final Fantasy Towns) — CR 715.3d lets its owner PLAY it from exile, a land drop the
- *     exile generator does not offer;
+ * THE PERMANENT HALF: a CREATURE, an ENCHANTMENT, an ARTIFACT or a LAND (a Town) — isModeledPermanentHalf. The first
+ * three are cast at sorcery speed (CR 301.1, 303.1) and enter through the same PERMANENT_ETB lane as any face cast (the
+ * projected face rides as the permanent, the whole card as its printedCard), and the classifiers that judge a
+ * creature's triggers and statics judge the others' the same way. A LAND half is PLAYED, never cast (CR 305.1): from
+ * hand as the turn's land drop, and from adventure-exile under CR 715.3d's "that player may play it" — the same land
+ * drop (CR 116.2a, 305.2a), offered by legalChoices.actionsPlayLand with the projected face. Every other normal half
+ * returns null and stays out of this lane (a safe false-negative):
  *   - a SORCERY half (Twice Upon a Time) — not a permanent at all;
- *   - an enchantment with a subtype (an Aura, a Saga) — no carrier exists to drive it.
+ *   - a subtype no Adventure prints (an Aura, a Saga, a Vehicle, a basic land type) — no carrier exists to drive it.
  */
 export function parseAdventureCard(card) {
   if (!card) return null;
@@ -113,15 +114,29 @@ export function parseAdventureCard(card) {
 }
 
 /**
- * The permanent half this lane models. Every CREATURE half, exactly as before (an Artifact Creature included), plus
- * an ENCHANTMENT half that is nothing else: no other card type and no subtype — every enchantment Adventure in the
- * corpus (2026-10-16). A subtype changes how the permanent is cast or what it does (an Aura targets, a Saga keeps
- * lore counters, a Class levels up); no Adventure prints one, so none is admitted without a carrier to drive it.
+ * The permanent half this lane models. Every CREATURE half, exactly as before (an Artifact Creature included), plus a
+ * noncreature half of exactly the shapes the corpus prints (2026-10-17), each nothing else (no other card type):
+ *   - an ENCHANTMENT with no subtype (the Virtues, An Unexpected Party). A subtype changes how the permanent is cast or
+ *     what it does (an Aura targets, a Saga keeps lore counters, a Class levels up); no Adventure prints one.
+ *   - an ARTIFACT, plain or Legendary, with no subtype (The Arkenstone, Altar of Bhaal) or the subtype Equipment (Horn of
+ *     Valhalla, Glamdring — the equip ability is the engine's own, CR 702.6a) or Book (Monster Manual — an artifact type
+ *     with no rules of its own, CR 205.3g). Cast at sorcery speed like any artifact (CR 301.1).
+ *   - a LAND with the subtype Town (the Final Fantasy Towns, Value Town — a land type with no rules of its own, CR 205.3i).
+ *     A land is never cast (CR 305.1): legalChoices plays it, from hand or from adventure-exile, as a land drop.
+ * Any other subtype (a Vehicle, a basic land type with its intrinsic mana ability) stays out until a card needs it.
  */
 function isModeledPermanentHalf(typeLine) {
   const line = String(typeLine || "").trim();
   if (/\bCreature\b/i.test(line)) return true;
-  return /^(?:Legendary )?Enchantment$/i.test(line);
+  return /^(?:Legendary )?Enchantment$/i.test(line)
+    || /^(?:Legendary )?Artifact(?: — (?:Equipment|Book))?$/i.test(line)
+    || /^Land — Town$/i.test(line);
+}
+
+/** True when the card's permanent half is a LAND (a Town): that half is played as a land drop, never cast (CR 305.1). */
+export function isLandAdventure(card) {
+  const parsed = parseAdventureCard(card);
+  return !!parsed && /\bLand\b/.test(parsed.permanent.type);
 }
 
 /** True when `card` is an instant/sorcery Adventure card in the expected combined shape. */

@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **60 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,432)**; engine gains since the tag: **−35** (+46 gained, −81 false credit removed). The next tag
+> **61 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,436)**; engine gains since the tag: **−31** (+50 gained, −81 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,64 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-17 — PLAY-WEIGHTED: the Adventure lane takes ARTIFACT and LAND (Town) halves — The Arkenstone, Horn of Valhalla, Jidoor, Aristocratic Capital (EDHREC #2172), Value Town; a Town is PLAYED from adventure-exile as the turn's land · **+4** · snapshot native 15,462 → 15,466
+> Suite **19,615 green (1 skipped) / 1,818 files** under the gate queue. Lint 0 (CR citations: 0 of 10,483 name no rule). Flip-diff **+4 / −0 / RETIERED 6**
+> (34,620 cards; before = an untouched `git archive` of 72e05f63; native 15,462 → 15,466 of 34,584 snapshot names). Top 1,000
+> **896** unchanged (`measure-coverage --played=1000`: "covered 896/1000 (89.6%) · to 90%: +4" before and after); top 2,500
+> **1,735 → 1,736** (Jidoor, play position 2,161; read off the two snapshots). **Mutants 8/8** on assertions, each restored
+> byte-identical (sha256), run in an isolated copy of this tree so the queued snapshot read untouched files. Committed on
+> `night/artadv`, not pushed; the release-batch line and the WAKE-REPORT counters are the integrator's.
+> · **The gap** (measured on the 72e05f63 archive). `adventure.parseAdventureCard` took only a creature or a plain enchantment
+>   permanent half. The 8 ARTIFACT Adventures rode the generic cast builder as one combined spell: Monster Manual at {5}{G}{G}
+>   (both halves summed) — cast, it resolved as an effect program, went to the Arbiter and never entered the battlefield;
+>   Two-Handed Axe at {3}{R}{R} and on an opponent's turn; Horn of Valhalla at {X}{1}{W}{W}{W}. The 6 TOWN Adventures were
+>   played from hand as the combined card (it entered named "Jidoor, Aristocratic Capital // Overture", the Adventure's text
+>   on the battlefield), the Adventure was never offered, and nothing played the land from exile.
+> · **The rules** (bundled CR, cited exactly). CR 715.3d: "For as long as that card remains exiled, that player may play it" —
+>   PLAY, so a land half is played, never cast (CR 305.1: "it is never a spell"). Playing a land is one special action whatever
+>   zone it is in (CR 116.2a), so the play from exile IS the turn's land play: CR 305.2a counts every land played "including
+>   lands played as special actions", CR 305.2b refuses one past the allowance, CR 305.3 only on the player's own turn. From
+>   hand the player chooses normally or as an Adventure (CR 715.3); off the stack only the normal characteristics (CR 715.4).
+> · **The change.** `adventure.js`: the permanent half may also be a plain or Legendary Artifact with no subtype, Equipment or
+>   Book (CR 205.3g — Book has no rules of its own), or a Land — Town (CR 205.3i); any other subtype stays out (a Vehicle, a
+>   basic land type). New `isLandAdventure`. `coverage.js`: a Town with an unmodeled half stays `land-partial` (the land drop
+>   still plays), never `body-only`; a Town flips only when its land face passes `landFullyCovered` like a lone land.
+>   `legalChoices.actionsPlayLand`: a Town in hand plays its projected land FACE; a Town on an adventure (`_onAdventure`) plays
+>   from exile as its face inside the same generator, so it shares the gates by construction (own main phase, empty stack, a
+>   land play left). `actionDispatcher.applyPlayLand`: the entering face and its `printedCard` drop the exile-only stamps
+>   (CR 400.7) — without that the whole card, exiled again later, still carried the adventure permission and was playable
+>   again. Every hand drop is byte-identical (a card with no stamp is returned as is). No new runtime mechanism: the artifact
+>   face rides the face cast lane (PERMANENT_ETB, `printedCard`); equip already worked on the face-entered Equipment.
+> · **Gained, each witnessed end to end** (`artifactLandAdventure.test.js`, 27): **The Arkenstone** — Seek the Heart's search
+>   offers only the legendary creature (Isamaru, not the Grizzly Bears), the card goes on an adventure, The Arkenstone casts from
+>   exile at {5} as a Legendary Artifact, the Bears is 3/3 (the opponent's 2/2) and the end step draws one. **Horn of Valhalla**
+>   — Ysgard's Call X = 2 makes two 1/1 white Soldiers, the Horn casts from exile at {1}{W}, Equip {3} puts it on the Bears:
+>   5/5 with three creatures. **Jidoor** — Overture mills 4 of the opponent's 9, the Town plays from exile tapped, spends the
+>   land play (the Forest in hand is no longer offered), taps for {U}; refused after a land play, on the opponent's turn, with
+>   a spell on the stack; with Exploration the Forest and the Town both play; played from exile and exiled again it is not
+>   playable a second time. **Value Town** — Take a Trip to… draws two and deals 2 to the opponent, the Town plays from exile
+>   tapped and taps for {U} or {R} (it is not Commander-legal — Mystery Booster 2 — but it is in the corpus). Vacuity controls
+>   (no Arkenstone: no draw, no pump; a Town in exile without the permission: no play), and the controls: Murderous Rider
+>   (Swift End → exile → the Rider from exile) and Virtue of Loyalty (Ardenvale Fealty → exile → the Virtue) play as before.
+> · **Retiered, parked** (arbiter-spell → body-only: each now casts as its artifact at its own cost and sorcery timing; its
+>   Adventure is never offered), with the line that holds each (a sole-blocker probe on the face): Altar of Bhaal (#7502 — the
+>   "Exile a creature you control" cost reanimation), Glamdring, Foe-hammer (#9614 — the equipped-power spell discount AND Gleam
+>   of Death's mill-and-take), My Precious (#6149 — no single line: the hexproof + can't-be-blocked grant and the
+>   "Equip—{2}, Pay 2 life" cost), Ghost Lantern (#8235 — the dies trigger that counters the equipped creature), Two-Handed Axe
+>   (#2389 — the attack trigger that doubles power), Monster Manual (#1899 — Zoological Study's milled-creature return). The
+>   parked Towns keep `land-partial` and now enter as the land face: Midgar (#1216 — Reactor Raid's "you may sacrifice … If you
+>   do"), Lindblum (#1401 — Mage Siege's token with a quoted trigger), Ishgard (#1436 — Faith & Grief's up-to-two return),
+>   Zanarkand (#3857 — Lasting Fayth's counter per land).
+> · **AI / self-play.** Profile decks holding these cards: Light-Paws Voltron (Ishgard — its land drop enters as Ishgard, the
+>   face, instead of the combined card), Did you say Dragons? and Jurassic Ramp (Monster Manual — the AI used to cast the
+>   combined card at {5}{G}{G} into the Arbiter; it now casts Monster Manual at {3}{G} and it stays on the battlefield). None
+>   holds the four gained cards. `enchantmentAdventure.test.js`'s artifact/land guard re-pointed (the two now read as their
+>   permanent halves).
+> · ⚠️ Not built (noted): a Town put into exile by an IMPULSE effect, played from the top with Future Sight, or from the
+>   graveyard with Crucible of Worlds still enters as the combined card (those three land-play generators offer `card.name`, not
+>   the face) — the same land, tapped, the same mana, the combined name and text riding along; the pre-existing posture, one
+>   helper away.
 
 > ## 🔧 2026-10-17 — FIX: a spell's mana value is read on the stack — the counter filters, the mana-value cast watchers, castSpellMv, the copy watchers, the forced trigger-target pick and Bolas's Citadel all read one leaf (`spellOnStack.js`): the announced X, the half or Adventure cast · **±0** · corpus 15,494 (unchanged)
 > Suite **19,579** green (1 skipped) / 1,815 files. Lint 0 (CR citations: 0 of 10,484 name no rule). Flip-diff **0 / 0 / 0** (34,620 cards;

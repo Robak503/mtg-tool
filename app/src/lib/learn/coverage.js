@@ -3452,11 +3452,13 @@ export function classifyCard(card) {
     const advTier = classifyAdventure(card);
     if (advTier) return advTier;
     // An adventure card that DIDN'T flip native (one half unmodeled) must NOT fall into the instant/sorcery
-    // branch (which would mis-parse the combined oracle). It's a permanent (the creature or enchantment half
-    // enters the battlefield) whose adventure spell or permanent ability is unmodeled → body-only, the tier
-    // of every permanent with unmodeled text (the permanent still casts; the Adventure is never offered).
+    // branch (which would mis-parse the combined oracle). It's a permanent (the creature, enchantment or artifact
+    // half enters the battlefield) whose adventure spell or permanent ability is unmodeled → body-only, the tier
+    // of every permanent with unmodeled text (the permanent still casts; the Adventure is never offered). A LAND
+    // half (a Town) is land-partial instead — the tier of a land with unmodeled text: the land drop still plays.
     // parseAdventureCard is the gate.
-    if (parseAdventureCard(card)) return "body-only";
+    const parsedAdventure = parseAdventureCard(card);
+    if (parsedAdventure) return /\bLand\b/.test(parsedAdventure.permanent.type) ? "land-partial" : "body-only";
   }
   // SPLIT CARDS (CR 709) — intercepted here for the same reason as adventure: the combined "Sorcery // Sorcery"
   // type line would mis-route to spellIsNative on the mashed oracle. classifySplit credits native-spell iff BOTH
@@ -5305,14 +5307,16 @@ function classifyGroupNoUntap(card) {
 registerCoverageClassifier((card) => classifyGroupNoUntap(card));
 
 // ─── ADVENTURE (CR 715) — Bonecrusher Giant // Stomp, the Virtues et al. (HIGH corpus yield, ~150 cards) ─────
-// An adventurer card has a PERMANENT half — a creature, or an enchantment (the Wilds of Eldraine Virtues) — and an
-// instant/sorcery "Adventure" half (CR 715.2, 205.3k). From hand you may cast EITHER half (CR 715.3); casting the
-// Adventure half resolves its spell effect, then EXILES the card, and while it stays exiled you may cast the
-// PERMANENT half from exile at its own cost (CR 715.3d). The runtime plays the WHOLE flow
+// An adventurer card has a PERMANENT half — a creature, an enchantment (the Wilds of Eldraine Virtues), an artifact
+// (The Arkenstone, Horn of Valhalla) or a land (the Final Fantasy Towns) — and an instant/sorcery "Adventure" half
+// (CR 715.2, 205.3k). From hand you may play EITHER half (CR 715.3); casting the Adventure half resolves its spell
+// effect, then EXILES the card, and while it stays exiled you may play the PERMANENT half from exile — cast at its own
+// cost, or a land played as the turn's land drop (CR 715.3d, 305.2a). The runtime plays the WHOLE flow
 // (legalChoices.actionsCastAdventureFromHand offers the Adventure, actionsCastPermanentFromHand the permanent; the
 // adventure spell resolves through the EFFECT_PROGRAM interpreter and the card lands in adventure-exile; the
 // permanent is then castable from exile via actionsCastPermanentFromAdventureExile → applyCastSpell →
-// PERMANENT_ETB), so this classifier credits exactly what the engine plays end-to-end.
+// PERMANENT_ETB, and a land half is played from hand or exile by actionsPlayLand → applyPlayLand with the projected
+// face), so this classifier credits exactly what the engine plays end-to-end.
 //
 // CREED — whole card, BOTH halves modeled (the adventure.js shape module splits the combined publicCard oracle):
 //   • the PERMANENT half is a native tier — classifyCard on the permanent-face VIEW returns a native tier. This
@@ -5329,7 +5333,9 @@ registerCoverageClassifier((card) => classifyGroupNoUntap(card));
 // partial flip that silently drops the unmodeled half — THE CREED). Returns "native-mixed" (a composite of a
 // modeled permanent + a modeled spell), or null. Mechanism-keyed (the layout), so every clean Adventure card in
 // the corpus flips automatically — this is a GENERAL subsystem, not a single-card hook. Which permanent halves
-// the lane takes at all (creatures, plain enchantments — not artifacts or lands yet) is adventure.js's call.
+// the lane takes at all (creatures, plain enchantments, artifacts, Towns) is adventure.js's call; a land half is judged
+// by the land gate (landFullyCovered — "land" when every line is modeled), so a Town flips only when its own land
+// text is as covered as a lone land's.
 //
 // NOTE: called INLINE at the TOP of classifyCard (before the instant/sorcery branch), NOT via the additive
 // registry seam — the seam runs only after the instant/sorcery branch, which would mis-route the combined

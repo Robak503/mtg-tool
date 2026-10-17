@@ -114,7 +114,7 @@ registerLevelerCardValidator(modeledLeveler);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, auraEnchantHostSpec, playFromTopPermission, castFromTopFilterAllows, parseStaticAbilities, escapeGrantsFor, boastTwiceFor } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
-import { isAdventureCard, adventureFaceCard, permanentFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
+import { isAdventureCard, isLandAdventure, adventureFaceCard, permanentFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face (a Town's land face is played); pure shape module
 import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR 709) — cast either half; pure shape module
 import { spellManaValue } from "./spellOnStack.js"; // the mana value of the spell being cast (CR 202.3) — Bolas's Citadel's life payment per offered face; a zero-import leaf
 import { isModalDfc, mdfcLandFaces, mdfcFaceCards, parseSpellModalDfc, spellMdfcFaceCards } from "./modalDfc.js"; // MODAL DFC (CR 712.8, V1) — the land drop chooses a face; the spell front is cast as a face; pure shape module
@@ -604,8 +604,27 @@ function actionsPlayLand(state, playerId) {
       }
       continue;
     }
+    // A TOWN ADVENTURE (CR 715.3, 715.4 — "As a player plays an adventurer card, the player chooses whether they play the
+    // card normally or as an Adventure"): played normally it is the land on its own frame, so the drop carries the
+    // projected land FACE (the dispatcher enters that face, the whole card as printedCard) — never the combined card with
+    // the Adventure's text on it. Not tier-gated: the land drop is the trunk posture; the Adventure half is gated.
+    if (isLandAdventure(card)) {
+      const face = permanentFaceCard(card);
+      actions.push({ kind: "play-land", playerId, cardId: card.id, name: face.name, faceCard: face });
+      continue;
+    }
     if (!isLand(card)) continue;
     actions.push({ kind: "play-land", playerId, cardId: card.id, name: card.name });
+  }
+  // ADVENTURE-EXILE (CR 715.3d — "For as long as that card remains exiled, that player may play it"): a Town that went on
+  // an adventure is PLAYED from exile as its land face. Playing a land is the one special action whatever zone the land is
+  // in (CR 116.2a), so it shares this generator's gates: the player's own main phase with an empty stack, and a land play
+  // left this turn — it IS the turn's land play (CR 305.2a counts every land played; CR 305.2b refuses one past the
+  // allowance). The dispatcher strips the adventure permission as the card leaves exile (CR 400.7).
+  for (const card of player.exile || []) {
+    if (!card?._onAdventure || !isLandAdventure(card)) continue;
+    const face = permanentFaceCard(card);
+    actions.push({ kind: "play-land", playerId, cardId: card.id, name: face.name, faceCard: face, fromZone: "exile" });
   }
   return actions;
 }
@@ -3893,10 +3912,11 @@ function actionsCastAdventureFromHand(state, playerId) {
 }
 
 /**
- * ADVENTURE step 1b — cast the PERMANENT half (a creature or an enchantment) directly from HAND. CR 715.4:
+ * ADVENTURE step 1b — cast the PERMANENT half (a creature, an enchantment or an artifact) directly from HAND. CR 715.4:
  * everywhere except the stack, an adventurer card has only its normal characteristics, and cast normally (CR
- * 715.3) it is cast as that permanent at the permanent half's own cost and timing — sorcery speed for a creature
- * or an enchantment alike. Before this generator existed the combined card rode the generic hand enumerator
+ * 715.3) it is cast as that permanent at the permanent half's own cost and timing — sorcery speed for a creature,
+ * an enchantment or an artifact alike. A LAND half (a Town) is never cast — the shared builder skips a land face, and
+ * actionsPlayLand offers its land drop. Before this generator existed the combined card rode the generic hand enumerator
  * (summed cost, instant timing when the ADVENTURE half is an Instant) — castActionsFromZone now skips combined
  * adventure cards, and this projects the permanent face exactly like the exile generator below.
  * NOT tier-gated (unlike the adventure-half generator): entering as the printed permanent is the same posture as
@@ -3987,9 +4007,10 @@ function actionsCastSplitFromHand(state, playerId) {
 /**
  * ADVENTURE step 2 — cast the PERMANENT HALF from adventure-exile (CR 715.3d). After the adventure spell
  * resolved, the card sits in exile flagged `_onAdventure`; while it's there the owner may cast it — not as an
- * Adventure, so as the creature or enchantment — at that half's OWN mana cost (NOT free — unlike plot/discover).
+ * Adventure, so as the creature, enchantment or artifact — at that half's OWN mana cost (NOT free — unlike plot/discover;
+ * a Town's land face is PLAYED from exile instead, by actionsPlayLand).
  * We project the card onto its PERMANENT face (permanentFaceCard — same id, that half's type/oracle/mana/P-T) and
- * run it through the shared cast builder with fromZone "exile" (sorcery-speed for a creature or an enchantment —
+ * run it through the shared cast builder with fromZone "exile" (sorcery-speed for each of those —
  * enforced by the builder's timing gate via the projected type line). Each action carries the projected
  * `faceCard` so applyCastSpell enters that PERMANENT (via PERMANENT_ETB, the whole card riding as printedCard),
  * not the combined card. Once cast it leaves exile, so it can't be double-cast. The exiled card stays castable
@@ -4511,8 +4532,8 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsCastSplitFromHand(state, playerId)); // SPLIT CARDS (CR 709.4): cast either half from hand
     actions.push(...actionsCastModalDfcFrontFromHand(state, playerId)); // MODAL DFC (CR 712.8, V1 slice 2): cast the spell front from hand
     actions.push(...actionsCastAdventureFromHand(state, playerId)); // ADVENTURE step 1 (CR 715.3): cast the adventure (instant/sorcery) half
-    actions.push(...actionsCastPermanentFromHand(state, playerId)); // ADVENTURE step 1b (CR 715.3, 715.4): cast the creature/enchantment half from hand at its own cost
-    actions.push(...actionsCastPermanentFromAdventureExile(state, playerId)); // ADVENTURE step 2 (CR 715.3d): cast the creature/enchantment half from exile
+    actions.push(...actionsCastPermanentFromHand(state, playerId)); // ADVENTURE step 1b (CR 715.3, 715.4): cast the creature/enchantment/artifact half from hand at its own cost
+    actions.push(...actionsCastPermanentFromAdventureExile(state, playerId)); // ADVENTURE step 2 (CR 715.3d): cast the creature/enchantment/artifact half from exile (a Town plays from exile in actionsPlayLand)
   }
   // NONCREATURE CAST-LIMIT (SHELF-85 · Light-Paws L5 Deafening Silence, 2026-09-05 — "Each player can't cast more than one
   // noncreature spell each turn", CR 604.2): while ANY battlefield carries the static, a player who already cast a

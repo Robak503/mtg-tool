@@ -130,13 +130,14 @@ describe("a counter's mana-value filter reads the spell on the stack (CR 202.3e 
     expect(countersAgainst(s, "Beanstalk Giant")).toEqual(["ds"]);
   });
 
-  it("an adventurer on the stack whole, not as an Adventure, has its normal mana value (CR 715.4): Monster Manual // Zoological Study is 4", () => {
-    // The engine offers this unmodeled adventurer (an artifact half) as the whole card; its cost names both halves, so the
-    // mana value is the card's 4 — never the 7 the two halves' symbols add up to. Mana Drain's delayed mana reads the same 4.
+  it("an adventurer cast normally, not as an Adventure, has its normal mana value (CR 715.4): Monster Manual is 4", () => {
+    // Cast from hand as its artifact half (the Adventure lane takes artifact halves since 2026-10-17), the spell on the stack
+    // is Monster Manual with its own cost {3}{G}: mana value 4 — never the 7 the two halves' symbols add up to. Mana Drain's
+    // delayed mana reads the same 4.
     const s = cast(board({ ai: { hand: [H("mn", MONSTER_MANUAL)], pool: { G: 2, C: 5 } }, user: { hand: [...COUNTERS, H("md", MANA_DRAIN)], pool: { U: 2, C: 2 } } }), "ai", "mn");
-    expect(countersAgainst(s, "Monster Manual // Zoological Study")).toEqual(["tb", "ds"]);
+    expect(countersAgainst(s, "Monster Manual")).toEqual(["tb", "ds"]);
     const after = resolveTopOfStack(cast(s, "user", "md"));
-    expect(after.players.ai.graveyard.map((c) => c.name)).toContain("Monster Manual // Zoological Study");
+    expect(after.players.ai.graveyard.map((c) => c.name).some((n) => /^Monster Manual\b/.test(n))).toBe(true);
     expect((after.delayedTriggers || []).map((d) => d.effectClause)).toEqual(["add {c}{c}{c}{c}"]);
   });
 

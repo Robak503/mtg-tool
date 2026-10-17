@@ -50,7 +50,7 @@ const ACLAZOTZ = fx("c-aclazotz", { colors: ["B"], keywords: ["Populate"], name:
   oracle: "Promise of Aclazotz - Enchantment {1}{B}\nAt the beginning of your end step, you may sacrifice a non-Demon creature. If you do, populate. (Create a token that's a copy of a creature token you control.)\n//\nFoul Rebirth - Sorcery — Adventure {2}{B}\nSacrifice a non-Demon creature. If you do, create a 4/3 white and black Vampire Demon creature token with flying." });
 const PORCINE = fx("c-porcine", { colors: ["W"], keywords: ["Conjure"], name: "Porcine Portent // Lend a Ham", type: "Enchantment // Instant — Adventure", mana: "{3}{W} // {2}{B}", cmc: 4, layout: "adventure",
   oracle: "Porcine Portent - Enchantment {3}{W}\nWhen Porcine Portent enters, conjure a card of your choice from the Three Pigs spellbook onto the battlefield.\nBoars you control get +1/+1.\n//\nLend a Ham - Instant — Adventure {2}{B}\nExile target creature. You gain 1 life for each Boar you control." });
-// Guards — normal halves this lane does NOT take (artifact, land, sorcery), and the creature branch it keeps.
+// Guards — an artifact and a land half (in the lane since 2026-10-17, artifactLandAdventure.test.js), a sorcery half the lane does NOT take, and the creature branch it keeps.
 const LANTERN = fx("c-lantern", { colors: ["B"], keywords: ["Equip"], name: "Ghost Lantern // Bind Spirit", type: "Artifact — Equipment // Instant — Adventure", mana: "{B} // {1}{B}", cmc: 1, layout: "adventure",
   oracle: "Ghost Lantern - Artifact — Equipment {B}\nWhenever a creature you control dies, put a +1/+1 counter on equipped creature.\nEquip {1}\n//\nBind Spirit - Instant — Adventure {1}{B}\nReturn target creature card from your graveyard to your hand. (Then exile this card. You may cast the artifact later from exile.)" });
 const LINDBLUM = fx("c-lindblum", { colors: [], name: "Lindblum, Industrial Regency // Mage Siege", type: "Land — Town // Instant — Adventure", mana: "{2}{R}", cmc: 0, layout: "adventure",
@@ -101,7 +101,7 @@ function play(s, action, what) {
 const names = (list) => (list || []).map((c) => c.card?.name ?? c.name).sort();
 const byName = (s, who, name) => s.players[who].battlefield.find((p) => p.card?.name === name);
 
-describe("the shape — an ENCHANTMENT half is a permanent half; artifact, land and sorcery halves stay out", () => {
+describe("the shape — an ENCHANTMENT half is a permanent half; a sorcery half stays out", () => {
   it("⭐ Virtue of Persistence splits into its enchantment and its Adventure (the reminder-free Locthwain Scorn kept whole)", () => {
     const p = parseAdventureCard(PERSISTENCE);
     expect(p?.permanent).toEqual({ name: "Virtue of Persistence", type: "Enchantment", mana: "{5}{B}{B}",
@@ -115,9 +115,11 @@ describe("the shape — an ENCHANTMENT half is a permanent half; artifact, land 
   it("every enchantment Adventure in the corpus is in the lane", () => {
     for (const c of [PERSISTENCE, LOYALTY, KNOWLEDGE, PARTY, STRENGTH, COURAGE, ACLAZOTZ, PORCINE]) expect(isAdventureCard(c)).toBe(true);
   });
-  it("⛔ an ARTIFACT half, a LAND half and a SORCERY half stay out (a safe false-negative); the creature branch is unchanged (an Artifact Creature still in)", () => {
-    expect({ lantern: parseAdventureCard(LANTERN), lindblum: parseAdventureCard(LINDBLUM), twice: parseAdventureCard(TWICE) })
-      .toEqual({ lantern: null, lindblum: null, twice: null });
+  it("⛔ a SORCERY half stays out (a safe false-negative); the creature branch is unchanged (an Artifact Creature still in)", () => {
+    // GRADUATED 2026-10-17: the ARTIFACT half (Ghost Lantern) and the LAND half (Lindblum) joined the lane — their whole
+    // story, flips and parks, is artifactLandAdventure.test.js. Re-pointed, not deleted: the two still read as their permanent.
+    expect({ lantern: parseAdventureCard(LANTERN)?.permanent?.type, lindblum: parseAdventureCard(LINDBLUM)?.permanent?.type, twice: parseAdventureCard(TWICE) })
+      .toEqual({ lantern: "Artifact — Equipment", lindblum: "Land — Town", twice: null });
     expect(parseAdventureCard(OMNICLOWN)?.permanent?.type).toBe("Artifact Creature — Clown Robot");
   });
   it("⛔ an enchantment WITH A SUBTYPE stays out — no Adventure prints one (SYNTHETIC: Persistence's text re-typed as an Aura)", () => {

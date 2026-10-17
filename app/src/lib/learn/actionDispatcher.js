@@ -172,7 +172,11 @@ function applyPlayLand(state, action) {
   // legalChoices from modalDfc.mdfcLandFaces). Every enter check below — tapped, shock, reveal, chosen type, fade —
   // reads the FACE; the permanent's `card` becomes the face and the combined card rides as `printedCard`, which is
   // exactly the hook moveCardToZone restores when the permanent leaves the battlefield (the same restore a copy uses).
-  const card = action.faceCard ? { ...action.faceCard, id: realCard.id } : realCard;
+  // A TOWN ADVENTURE's land face (CR 715.3d) rides the same hook, from hand or from adventure-exile. Played from exile, the
+  // card that leaves is a new object (CR 400.7): the face and the printed card both drop the exile-only stamps (the
+  // adventure permission among them — gameState.withoutExileStamps), or the whole card, exiled again later, would still be
+  // playable. A card with no stamp is returned as is, so every hand drop is unchanged.
+  const card = action.faceCard ? { ...withoutExileStamps(action.faceCard), id: realCard.id } : realCard;
 
   let next = moveCardToZone(state, {
     playerId: action.playerId,
@@ -185,7 +189,7 @@ function applyPlayLand(state, action) {
     const bf0 = next.players[action.playerId].battlefield;
     const enteredId = bf0[bf0.length - 1]?.id;
     next = { ...next, players: { ...next.players, [action.playerId]: { ...next.players[action.playerId],
-      battlefield: bf0.map((p) => (p.id === enteredId ? { ...p, card, printedCard: realCard } : p)) } } };
+      battlefield: bf0.map((p) => (p.id === enteredId ? { ...p, card, printedCard: withoutExileStamps(realCard) } : p)) } } };
   }
   // TRUNK-ENTERSTAPPED (CR 614.1c): a tapland (Temple / Triome / karoo / bounce land / tapped dual) enters
   // tapped, so it can't be tapped for mana the turn it's played. The freshly-minted land is the last
