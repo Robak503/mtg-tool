@@ -1862,7 +1862,8 @@ export function permanentTriggersCovered(card) {
  *     condition (it enters untapped, the documented player-favorable miss), so the metric must not call
  *     that card fully modeled.
  *   · mana lines — manaProduction ON THE SINGLE LINE (the runtime's own parser), so a second, unparsed
- *     ability can never free-ride on the first line's production.
+ *     ability can never free-ride on the first line's production; a line that quotes an ability is never one
+ *     (a quoted grant's mana is the recipient's, CR 113.10 — 2026-10-16).
  *   · activated-ability lines — parseActivatedAbilities' own modeled flag / the graveyard-ability lanes / the hand
  *     self-put (Fabled Passage's sac-fetch is modeled and stays "land"; Mystifying Maze's exile is not and parks).
  *   · anything left must be keyword-only (Cycling on a Triome) — else land-partial.
@@ -1891,7 +1892,20 @@ function landFullyCovered(card) {
   // Saga gate decides — played as a land it enters with its lore counter and fires chapter I like any Saga (CR 714.3a).
   if (isSagaCard(card)) return sagaChaptersRouteNatively(card);
   if (!allTriggerSentencesModeled(card, raw)) return false;
-  const isManaLine = (txt) => /\badd\b/i.test(txt) && !!manaProduction({ name: card?.name, type, oracle: txt });
+  // ⛔ A LINE THAT QUOTES AN ABILITY IS NEVER THE LAND'S OWN MANA LINE (2026-10-16). manaProduction keeps a land's raw
+  // oracle (the reminder-text duals print their whole ability in parentheses), so on a land it never runs the
+  // quoted-grant strip (stripNonSelfQuotedGrants) and reads a quoted "Add" as production. Per line, a sentence that only
+  // GRANTS a mana ability parsed as the land's own source: Forgotten Monument ("Other Caves you control have \"{T}, Pay 1
+  // life: Add one mana of any color.\""), Riftstone Portal (lands, from the graveyard) and Command Power Plant (Command
+  // Towers) counted "land" on a grant parseStaticAbilities never emits, so no other permanent ever gains it. An ability
+  // an effect says an object "has" or "gains" is THAT object's (CR 113.10), never the granter's own mana ability
+  // (CR 605.1a). The WHOLE line is refused, not the quote cut out of it: a grant welded onto a real mana line would
+  // otherwise ride on that line's own production. Both lanes below read this, so an unmodeled activated ability whose
+  // effect grants mana ("Target land gains \"{T}: Add {B}.\"") is not rescued as a mana line either; a quoted mana ability
+  // carried by the land's OWN modeled ability (Spawning Bed's Scions) passes on the activated lane's modeled flag. No land
+  // in the bundled corpus carries a quoted mana grant the static parser emits (a layer-6 mana addAbility), so no lane
+  // admits one; Urza's Saga's self-grant is decided by the Saga gate above.
+  const isManaLine = (txt) => !/["“”]/.test(txt) && /\badd\b/i.test(txt) && !!manaProduction({ name: card?.name, type, oracle: txt });
   const isGraveyardAbility = (txt) => {
     const one = { ...card, oracle: txt };
     return !!(parseGraveyardSelfRecursion(one) || parseGraveyardExileAbility(one));

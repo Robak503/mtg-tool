@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **49 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,470)**; engine gains since the tag: **+3** (+46 gained, −43 false credit removed). The next tag
+> **50 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **±0** (+46 gained, −46 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,50 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-16 — FIX: a quoted grant is never a land's own mana line (Forgotten Monument, Riftstone Portal, Command Power Plant) · **−3** (FPs removed) · corpus 15,467
+> Suite **19,444** green (1 skipped; 1,808 files). Lint 0 (CR citations: 0 of 10,366 name no rule). Flip-diff **0 / 3 / 0** over
+> 34,620 cards (before = 86389b97's code, snapshotted before the first edit), every LOST card named below against the runtime
+> reader of its grant. measure-coverage 15,470 → 15,467 (44.7%); play-weighted unchanged (top 1,000 896, top 2,500 1,735; none of
+> the three is ranked above #11,678); decks 2,738 / 2,998 unchanged. **Mutants 4/4** on assertions, restore byte-identical.
+> Classification only: the diff is coverage.js (`classifyCard` has no runtime consumer) plus one test file.
+> · **The hole** (filed by the native-mana static-residue slice, found there by ablation). `landFullyCovered`'s `isManaLine`
+>   read each line with `manaProduction`, which keeps a land's raw oracle (the reminder-text duals) and so never runs
+>   `stripNonSelfQuotedGrants` on a land: a quoted "{T}: Add …" inside a grant read as the land's own production, and the
+>   grant line passed as a mana line. The activated leg (`a.modeled || … || isManaLine(a.raw)`) shares the read, so an
+>   unmodeled activated ability whose effect grants mana ('gains "{T}: Add …"') was rescued the same way (synthetic witness;
+>   no real land carries it).
+> · **The fix.** A line that quotes an ability is never a mana line: an ability an effect says an object "has" or "gains" is
+>   that object's (CR 113.10), not the granter's own mana ability (CR 605.1a). The whole line is refused, not the quote cut
+>   out of it; the cut form lets a grant welded onto a real mana line ride on that line's production (mutant M2). Not the
+>   nonland guard's "<cost>: Add" shape, which the chip warned cannot be copied (Nykthos and four more begin "Choose a color.
+>   Add …"): the quote rule leaves them alone (0 gained, 0 retiered).
+> · **LOST (3), each against the runtime reader of its grant** (`parseStaticAbilities` emits no mana grant for any of the
+>   three, so `grantedManaSpecsFor` never delivers one; each card's own mana line still plays): **Forgotten Monument**
+>   ("Other Caves you control have …") — beside it a Cave with no mana ability is no source and Hidden Courtyard taps only
+>   {W}; **Riftstone Portal** ("As long as this card is in your graveyard, lands you control have …") — with it in the
+>   graveyard a land with no mana ability is no source and an Island taps only {U}; **Command Power Plant** ("Command Towers
+>   you control have, …") — beside it and a Command Mine, a Command Tower's record equals the Tower's alone (one mana).
+> · **Kept:** 22 cards with a Land type line and a quote were native before; the other 19 are unchanged — reminder quotes
+>   stripped before the read (the ten Investigate rooms, Junktown, Gingerbread Cabin, Hall of Tagsin, Dryad Arbor, Gobland),
+>   Dragon-Cursed Halls (a granted trigger, no mana), Spawning Bed (its Scions' "Sacrifice this token: Add {C}." is part of its
+>   own modeled token ability, vouched by the activated lane), Malakir Rebirth (the quote is on the spell face), and **Urza's
+>   Saga**, the one land whose quoted mana grant the runtime does apply — the Saga gate decides it, not this read.
+> · **No exception lane:** 0 of the 63 cards with a Land type line and a quote carry a mana grant the static parser emits (a
+>   layer-6 mana addAbility), so no land keeps credit through a grant. A synthetic land with Cryptolith Rite's grant (which
+>   the runtime would apply) now parks too: a false negative with no carrier.
+> · Witness `landQuotedGrantMana.test.js` (13; 3 red at 86389b97, each an AssertionError — the named three, the welded grant,
+>   the gains grant): the named lands beside their grant-less twins; the empty static reads beside Cryptolith Rite's one; the
+>   three boards above, Cryptolith Rite's bear the positive control; Spawning Bed, Command Tower and Urza's Saga kept, the
+>   Saga's exactly-{C} driven through the land drop and chapter I. The 10 runtime and control cases pass at 86389b97 too.
+> · Mutants (4): the quote gate dropped (3 red) · the quote cut out instead of the line refused (1) · the gate on the residue
+>   loop only (2) · on the activated leg only (1).
+> · ⚠️ Found, not fixed: seven lands are credited `land` while their mana line ends in a conditional "instead" sentence the
+>   per-line read never checks. Six read as their base (the documented under-read): Urza's Tower, Urza's Mine, Urza's Power
+>   Plant, Command Mine (one mana, never the upgrade), River of Tears ({U} even after a land drop), Gemstone Caverns (its
+>   upgrade unreachable, no luck counter is ever placed). **A-Town** is the other way: `manaProduction` reads its "instead add
+>   one mana of any color" and the land taps for any color unconditionally (an Un-card; a runtime over-read). Crediting a
+>   land's modeled group mana grant would need a static lane in `landFullyCovered` (zero carriers today).
 
 > ## 🧭 2026-10-16 — FIX: the AI's Aura cast picks a side for every host, not only creatures (Fraying Sanity on itself, Petrify on its own Mind Stone) · **±0** · corpus 15,494
 > Suite **19,157** green (1 skipped) / 1,794 files. Lint 0 (CR citations: 0 of 10,146 name no rule). Flip-diff **0 / 0 / 0**
