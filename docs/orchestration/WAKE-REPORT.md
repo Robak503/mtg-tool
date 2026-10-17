@@ -9,14 +9,16 @@
 
 ## 🎯 2026-10-01 — **THE PLAY-WEIGHTED PROGRAM** (Colton's order) — runnable: the top-2,500 worklist (phase 2), in rank order
 
-> **NOW (2026-10-17 ~20:00Z) — PHASE 1 MET AGAIN, PHASE 2 RUNNABLE.** Top 1,000 **903 / 1,000** (back over 90% after the v0.164.0
-> false-credit removals); top 2,500 **1,741 / 2,500 (69.6%) → +509 to 90%**; corpus 15,478; shelf 29 / 30 ≥90 (Atraxa 74 deferred).
-> Runnable: `MTG_APP_ROOT=… node scripts/measure-coverage.mjs --played=2500` (from `app/`), highest-ranked buildable miss first —
-> 509 of the 759 misses are body-only, 164 Arbiter spells, 59 partial lands, 27 planeswalkers. Since the tag (13 commits, all in the
-> RUN-LEDGER): play-weighted Mox Diamond / Chromatic Lantern / Ozolith / Cursed Mirror / Midnight Clock, mana honesty, every Aura cast
-> targeting a legal player or host, shelf-90 +17, the land {C} fallback removed, the AI's clause-by-clause Aura side reader.
-> In build (Cindy's fleet, `day-*` worktrees): lands credited on a line never made; Omnath's [Q-NYK] (the generic-first auto-tap
-> spends Nykthos / Three Tree City on {C}); a top-2,500 slice (Coat of Arms, Metallic Mimic, Ichor Wellspring, Chasm Skulker, …).
+> **NOW (2026-10-17 ~21:35Z) — PHASE 1 MET AGAIN, PHASE 2 RUNNABLE.** Top 1,000 **908 / 1,000** (back over 90% after the v0.164.0
+> false-credit removals); top 2,500 **1,750 / 2,500 (70.0%) → +500 to 90%**; corpus 15,497; shelf 29 / 30 ≥90 (Atraxa 74 deferred).
+> Runnable: `MTG_APP_ROOT=… node scripts/measure-coverage.mjs --played=2500` (from `app/`), highest-ranked buildable miss first.
+> Since the tag (16 commits, all in the RUN-LEDGER): play-weighted Mox Diamond / Chromatic Lantern / Ozolith / Cursed Mirror /
+> Midnight Clock; mana honesty; every Aura cast targeting a legal player or host; shelf-90 +17; the land {C} fallback removed; the
+> AI's clause-by-clause Aura side reader; the 54 hidden land lines made (filter lands, "{1}: any colour"); play-weighted +22 (Brash
+> Taunter, Heraldic Banner, Metallic Mimic, Ichor Wellspring, Chasm Skulker, Hangarback Walker…); the generic tap keeps Nykthos /
+> Three Tree City / filter lands for their bigger line (Omnath's [Q-NYK]). In build (`day-*` worktree): the Spree mechanic (21
+> cards, 8 in the top 2,500). Open play call: should the generic tap also hold back restricted-line lands (Cavern of Souls, Mech
+> Hangar — 27)? See the Nykthos RUN-LEDGER entry.
 
 > **Colton, 10-01:** "So 1k then 2.5k then we re assess from there." The steering metric is now PLAY-WEIGHTED coverage —
 > the most-played Commander cards by edhrec_rank, covered = a native tier or a plain land — not the corpus total.

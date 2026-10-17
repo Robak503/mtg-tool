@@ -3503,15 +3503,32 @@ export function manualManaTaps(state, playerId) {
  * Kozilek's Translator) waits for pass B too. It used to be held to one use per untap by the commit wrongly tapping it; once
  * it no longer taps (CR 107.5) nothing else stops it paying life on every payment in board order, ahead of an untapped land.
  * A play policy, never a legality change — pass B still counts it.
+ *
+ * THE WHOLE-BOARD GENERIC ORDER (2026-10-17 — Nykthos). The generic tap promotes a plain colorless permanent (tapAny), and each
+ * planner call judged "plain" from the records it was handed — a subset in every pass that splits the list, so Nykthos, Shrine
+ * to Nyx (its devotion line held out of the direct pass) was tapped for one {C} before a land (holdsBack has the list).
+ * planPayment now plans twice when a permanent has a plain {C} record beside a line that holds it back:
+ *   1. with each call's own judgment, exactly as before — this plan decides affordability, which therefore never moves;
+ *   2. counting that line wherever it sits in the whole list (`board`), and returns that plan when it also pays, else plan 1.
+ * Plan 2 alone is not a safe planner: the costed pass is greedy, and what the funding call taps decides the colors left for the
+ * rest — funding a Signet from a Swamp where a {C} paid before stranded a {B} pip (alone, on 20,000 random boards of real mana
+ * cards, it lost 33 payable costs and found 65 the old order misses). A board with no such permanent plans once (both plans are
+ * the same there). canAfford runs plan 1 alone.
  */
 const isOneShotSource = (s) => !!(s && (s.sacrifices || s.sacrificesCreature || s.fromHand || (s.noTap && s.payLife != null)));
 export function planPayment(pool, sources, cost, spendContext = null) {
   const all = sources || [];
+  const plan = planPaymentPasses(pool, all, cost, spendContext, null);
+  if (!plan || !boardJudgmentCanDiffer(all)) return plan;
+  return planPaymentPasses(pool, all, cost, spendContext, all) ?? plan;
+}
+/** The one-shot two-pass above; `board` — null for each call's own judgment, else the list the generic tap judges by. */
+function planPaymentPasses(pool, all, cost, spendContext, board) {
   if (all.some(isOneShotSource)) {
-    const kept = planPaymentRemovalAware(pool, all.filter((s) => !isOneShotSource(s)), cost, spendContext);
+    const kept = planPaymentRemovalAware(pool, all.filter((s) => !isOneShotSource(s)), cost, spendContext, board);
     if (kept) return kept;
   }
-  return planPaymentRemovalAware(pool, all, cost, spendContext);
+  return planPaymentRemovalAware(pool, all, cost, spendContext, board);
 }
 /**
  * STAGE ④-4 — TWO-PASS PLANNING around counter-removal sources. A storage land offers two records on one
@@ -3524,13 +3541,13 @@ export function planPayment(pool, sources, cost, spendContext = null) {
  * 2026-10-17) waits for pass B too: each one shrinks it for good.
  */
 const spendsCounter = (s) => !!(s && (s.removesCounters || s.putsCounter));
-function planPaymentRemovalAware(pool, sources, cost, spendContext = null) {
+function planPaymentRemovalAware(pool, sources, cost, spendContext = null, board = null) {
   const hasRemoval = (sources || []).some(spendsCounter);
-  if (!hasRemoval) return planPaymentOnce(pool, sources, cost, spendContext);
-  const passA = planPaymentOnce(pool, (sources || []).filter((s) => !spendsCounter(s)), cost, spendContext);
+  if (!hasRemoval) return planPaymentOnce(pool, sources, cost, spendContext, board);
+  const passA = planPaymentOnce(pool, (sources || []).filter((s) => !spendsCounter(s)), cost, spendContext, board);
   if (passA) return passA;
   const ordered = [...(sources || [])].sort((a, b) => (a.permanentId === b.permanentId ? (b.amount || 0) - (a.amount || 0) : 0));
-  return planPaymentOnce(pool, ordered, cost, spendContext);
+  return planPaymentOnce(pool, ordered, cost, spendContext, board);
 }
 
 /**
@@ -3616,19 +3633,19 @@ function costedActivationOrders(all, cost) {
   }
   return orders;
 }
-function planPaymentOnce(pool, sources, cost, spendContext = null) {
+function planPaymentOnce(pool, sources, cost, spendContext = null, board = null) {
   const all = sources || [];
-  if (!all.some((s) => s?.activationCost)) return planPaymentCore(pool, all, cost, spendContext);
+  if (!all.some((s) => s?.activationCost)) return planPaymentCore(pool, all, cost, spendContext, board);
   const free = all.filter((s) => !s?.activationCost);
-  const direct = planPaymentCore(pool, free, cost, spendContext);
+  const direct = planPaymentCore(pool, free, cost, spendContext, board);
   if (direct || !cost) return direct;
   for (const order of costedActivationOrders(all, cost)) {
-    const plan = activateCostedInOrder(pool, free, order, cost, spendContext);
+    const plan = activateCostedInOrder(pool, free, order, cost, spendContext, board);
     if (plan) return plan;
   }
   return null;
 }
-function activateCostedInOrder(pool, free, order, cost, spendContext) {
+function activateCostedInOrder(pool, free, order, cost, spendContext, board) {
   let curPool = {};
   for (const c of MANA_COLORS) curPool[c] = pool?.[c] || 0;
   let remaining = free;
@@ -3638,7 +3655,7 @@ function activateCostedInOrder(pool, free, order, cost, spendContext) {
   for (const s of order) {
     if (!s?.activationCost || spent.has(s.permanentId)) continue; // (an unpriceable cost never reaches here — manaSources drops that record)
     if (!activatedSourceTap(s, cost, curPool)) continue; // the core won't tap it (restricted / produces nothing) — don't fund it
-    const fund = planPaymentCore(curPool, remaining.filter((r) => r.permanentId !== s.permanentId), s.activationCost, null);
+    const fund = planPaymentCore(curPool, remaining.filter((r) => r.permanentId !== s.permanentId), s.activationCost, null, board);
     if (!fund) continue;
     for (const tap of fund.taps) curPool = addTapMana(curPool, tap);
     for (const c of MANA_COLORS) { curPool[c] -= fund.spend[c] || 0; activationSpend[c] += fund.spend[c] || 0; }
@@ -3648,16 +3665,113 @@ function activateCostedInOrder(pool, free, order, cost, spendContext) {
     const gone = new Set([s.permanentId, ...fund.taps.map((x) => x.permanentId)]);
     for (const id of gone) spent.add(id);
     remaining = remaining.filter((r) => !gone.has(r.permanentId));
-    const rest = planPaymentCore(curPool, remaining, cost, spendContext);
+    const rest = planPaymentCore(curPool, remaining, cost, spendContext, board);
     if (rest) return { ...rest, taps: [...preTaps, ...rest.taps], activationSpend };
   }
   return null;
 }
 
-// The fields of a planner source record (planPaymentCore's `avail`) that are not riders — see tapAny's isPlainColorless.
+// The fields of a planner source record (plannerSourceRecord) that are not riders — see isPlainColorless.
 const PLAIN_TAP_FIELDS = new Set(["permanentId", "colors", "amount", "bonus", "used"]);
 
-function planPaymentCore(pool, sources, cost, spendContext = null) {
+/** planPaymentCore's working record for one source (its `avail`): every field the plan and the committer read, a rider's
+ *  absence spelled out (null / false / 0). The whitelist above and isPlainColorless read these records. */
+function plannerSourceRecord(s) {
+  return {
+    permanentId: s.permanentId,
+    colors: s.colors.filter(c => COLOR_SET.has(c)),
+    amount: s.amount ?? 1,
+    sacrifices: !!s.sacrifices,   // one-shot source (Treasure/Gold) — the commit path sacrifices it
+    // AURA-LAND-MANA-BOOST: extra mana produced INLINE when this source (a land) taps — each entry
+    // {colors, amount}. Credited on tap; the bonus is part of the land tap, never a separate tap.
+    // MANA FLARE (MF-1): a sameAsProduced bonus keeps its marker — tapSource binds its color to the
+    // PRIMARY's chosen color (the type this tap produced), never an independent pick (CREED, off-type FP).
+    bonus: Array.isArray(s.bonus) ? s.bonus.map(b => ({ colors: b.colors.filter(c => COLOR_SET.has(c)), amount: b.amount, ...(b.sameAsProduced && { sameAsProduced: true }) })).filter(b => b.amount > 0 && b.colors.length) : [],
+    snow: !!s.snow,   // SNOW (SN-1): a source produced by a snow permanent — the only kind that can pay a {S} pip
+    // SPEND-RESTRICTED (CR 106.6): the permission this source's mana carries. Filtered out entirely in planPaymentCore
+    // unless the caller supplied a spend context that satisfies it — see the DEFAULT-DENY note.
+    restriction: s.restriction || null,
+    // TAP-OTHER payers, resolved by manaSources against the live board. Carried verbatim so the plan the
+    // committer executes is the plan the planner priced — the same "affordable == actually paid" invariant
+    // the fixed-bundle and painland fields exist to hold.
+    extraTaps: Array.isArray(s.extraTaps) ? [...s.extraTaps] : null,
+    payLife: s.payLife ?? null,
+    spentRider: s.spentRider ?? null, // SHELF-85 V11 (Path of Ancestry): the "when that mana is spent" rider rides the tap to the cast site
+    // PAINLAND: the colours that cost life, and how much. Carried so tapSource can stamp the tap.
+    painColors: Array.isArray(s.painColors) ? s.painColors : null,
+    painAmount: s.painAmount || 0,
+    // MIXED FIXED BUNDLE (karoo / signet): a per-color tally this source produces SIMULTANEOUSLY. When
+    // present it REPLACES the primary component's "pick one color × amount" — see tapSource.
+    fixed: s.fixed && Object.keys(s.fixed).length > 1 ? { ...s.fixed } : null,
+    // COST RIDERS carried into the plan so the committer pays what the planner priced (SG-3, 2026-09-03):
+    // the sacrifice-a-creature cost (the Altars) and — found while wiring it — the exile-from-graveyard
+    // cost (Molt Tender), which the direct tap action carried but this planned path silently dropped
+    // (a planned Molt Tender tap exiled nothing; now it does).
+    sacrificesCreature: !!s.sacrificesCreature,
+    exilesGyCard: !!s.exilesGyCard,
+    fromHand: !!s.fromHand, // SG-6 — the source is a HAND card; the committer exiles it instead of tapping
+    removesCounters: s.removesCounters || null, // STAGE ④-4 — the counters this tap removes (the commit removes exactly these)
+    doesNotUntapNext: !!s.doesNotUntapNext, // STAGE ④-5 — the tapped land skips its controller's next untap step
+    staysTapped: !!s.staysTapped, // the permanent doesn't untap in its untap step at all (Mana Vault) — read by tapAny only
+    repeatable: !!s.repeatable, // STAGE ③ · 37 — one of several separate activations of a no-{T} remove-a-counter source
+    noTap: !!s.noTap,           // STAGE ③ · 37 — the commit doesn't tap it (its cost is the counter); 2026-10-17 — every line with no {T}
+    putsCounter: s.putsCounter || null,             // 2026-10-17 — Wall of Roots' -0/-1 counter, put on by the commit
+    sacrificeIfNoCounters: !!s.sacrificeIfNoCounters, // 2026-10-17 — a depletion / mining land's last counter sacrifices it
+    limitKey: s.limitKey || null,                   // 2026-10-17 — the per-turn activation ledger entry the commit stamps
+    opponentsGainLife: s.opponentsGainLife || 0,     // 2026-10-17 (the land lines) — Grove of the Burnwillows: each opponent gains this much as the tap resolves
+    bundle: s.bundle || null,                       // 2026-10-17 (the land lines) — a filter land's bundle (the explicit tap's key; the commit reads `fixed`)
+    used: false,
+  };
+}
+
+// A PLAIN COLORLESS record (a plannerSourceRecord): colorless mana and nothing else, at no cost beyond the tap. Any other field set
+// on the record is a rider — life, a sacrifice, an exile, counters, a skipped untap (staysTapped: Mana Vault, the Monoliths),
+// tapping others, a spend restriction, snow (its mana also pays {S}, CR 107.4h) — and keeps it out, a rider added later
+// included: a new field costs a source its promotion (the old board order), never promotes one.
+function isPlainColorless(s) {
+  if (!s.colors.every((c) => c === "C") || !s.bonus.every((b) => b.colors.every((c) => c === "C"))) return false;
+  for (const k in s) if (!PLAIN_TAP_FIELDS.has(k) && s[k] != null && s[k] !== false && s[k] !== 0) return false;
+  return true;
+}
+
+// A source record (manaSources' or the planner's own) that is plain colorless and not behind an activation cost (a cost beyond the tap).
+const isPlainRecord = (s) => !s.activationCost && isPlainColorless(plannerSourceRecord(s));
+
+/** THE PERMANENTS THE GENERIC TAP PROMOTES (tapAny): permanentId → true when EVERY record the permanent has in `records` is plain. */
+function plainColorlessPermanents(records) {
+  const plain = new Map();
+  for (const s of records) plain.set(s.permanentId, (plain.get(s.permanentId) ?? true) && isPlainRecord(s));
+  return plain;
+}
+/**
+ * A LINE THAT HOLDS ITS PERMANENT BACK FROM THE PROMOTION wherever it sits in the board (2026-10-17 — Nykthos): any record that is
+ * not plain, except a spend-restricted one. planPaymentCore judges the records it was handed, and those are a subset in every
+ * pass that splits the list: planPaymentOnce's direct pass and activateCostedInOrder's funding and rest calls see only the records
+ * without an activation cost, planPayment's pass A holds out the one-shot records, planPaymentRemovalAware's pass A the counter
+ * records. Judged on the subset, Nykthos, Shrine to Nyx ("{T}: Add {C}." beside its "{2}, {T}:" devotion line) looked like Wastes
+ * and spent its tap on one {C} for generic before any land (measured by the Omnath self-play lane on its deck); so did Three Tree
+ * City, the filter lands and the "{1}, {T}: Add one mana of any color" lands, Crystal Vein, Phyrexian Tower and a storage land
+ * holding counters. In planPayment's plan 2 such a line anywhere on the board keeps its permanent in board order, as Mogg Hollows
+ * always did. A SPEND-RESTRICTED line is not one: it counts only when this payment may spend it (the core keeps it then), as
+ * 3d121554 judged it — Eldrazi Temple keeps its place paying for an Eldrazi and goes first for anything else. Its mana pays a
+ * narrow set of spells where a basic's color pays any; whether it should hold Cavern of Souls or Eldrazi Temple back too is a
+ * play question left open (RUN-LEDGER 2026-10-17). Records only: a line that makes nothing has no record (Nykthos at devotion 0
+ * offers just its {C}), so that permanent is still promoted.
+ */
+const holdsBack = (s) => !s.restriction && !isPlainRecord(s);
+/** Can planPayment's two plans differ on this list? Only through a permanent with a plain record AND a line that holds it back. */
+function boardJudgmentCanDiffer(board) {
+  const plain = new Set(), held = new Set();
+  for (const s of board) {
+    if (isPlainRecord(s)) plain.add(s.permanentId);
+    else if (holdsBack(s)) held.add(s.permanentId);
+  }
+  for (const id of plain) if (held.has(id)) return true;
+  return false;
+}
+
+/** `board` — null: the generic tap judges by this call's own records; else also by every line of the whole list (planPayment's plan 2). */
+function planPaymentCore(pool, sources, cost, spendContext = null, board = null) {
   const spend = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
   if (!cost) return { taps: [], spend };
 
@@ -3699,56 +3813,12 @@ function planPaymentCore(pool, sources, cost, spendContext = null) {
   const working = {};
   for (const c of MANA_COLORS) working[c] = pool?.[c] || 0;
 
-  // `amount ?? 1` (NOT `|| 1`): a hand-built source with NO amount field defaults to 1 (the legacy
+  // `amount ?? 1` (NOT `|| 1`, plannerSourceRecord): a hand-built source with NO amount field defaults to 1 (the legacy
   // contract), but a resolved variable source with an explicit amount of 0 (Gaea's Cradle / Sanctum
   // Weaver on an empty board) must NOT be floored UP to 1 — that would fabricate mana (MANA-VARIABLE
   // CREED). A non-positive source produces nothing right now, so drop it from the payable set.
   const avail = sources
-    .map(s => ({
-      permanentId: s.permanentId,
-      colors: s.colors.filter(c => COLOR_SET.has(c)),
-      amount: s.amount ?? 1,
-      sacrifices: !!s.sacrifices,   // one-shot source (Treasure/Gold) — the commit path sacrifices it
-      // AURA-LAND-MANA-BOOST: extra mana produced INLINE when this source (a land) taps — each entry
-      // {colors, amount}. Credited on tap; the bonus is part of the land tap, never a separate tap.
-      // MANA FLARE (MF-1): a sameAsProduced bonus keeps its marker — tapSource binds its color to the
-      // PRIMARY's chosen color (the type this tap produced), never an independent pick (CREED, off-type FP).
-      bonus: Array.isArray(s.bonus) ? s.bonus.map(b => ({ colors: b.colors.filter(c => COLOR_SET.has(c)), amount: b.amount, ...(b.sameAsProduced && { sameAsProduced: true }) })).filter(b => b.amount > 0 && b.colors.length) : [],
-      snow: !!s.snow,   // SNOW (SN-1): a source produced by a snow permanent — the only kind that can pay a {S} pip
-      // SPEND-RESTRICTED (CR 106.6): the permission this source's mana carries. Filtered out entirely below
-      // unless the caller supplied a spend context that satisfies it — see the DEFAULT-DENY note.
-      restriction: s.restriction || null,
-      // TAP-OTHER payers, resolved by manaSources against the live board. Carried verbatim so the plan the
-      // committer executes is the plan the planner priced — the same "affordable == actually paid" invariant
-      // the fixed-bundle and painland fields exist to hold.
-      extraTaps: Array.isArray(s.extraTaps) ? [...s.extraTaps] : null,
-      payLife: s.payLife ?? null,
-      spentRider: s.spentRider ?? null, // SHELF-85 V11 (Path of Ancestry): the "when that mana is spent" rider rides the tap to the cast site
-      // PAINLAND: the colours that cost life, and how much. Carried so tapSource can stamp the tap.
-      painColors: Array.isArray(s.painColors) ? s.painColors : null,
-      painAmount: s.painAmount || 0,
-      // MIXED FIXED BUNDLE (karoo / signet): a per-color tally this source produces SIMULTANEOUSLY. When
-      // present it REPLACES the primary component's "pick one color × amount" — see tapSource.
-      fixed: s.fixed && Object.keys(s.fixed).length > 1 ? { ...s.fixed } : null,
-      // COST RIDERS carried into the plan so the committer pays what the planner priced (SG-3, 2026-09-03):
-      // the sacrifice-a-creature cost (the Altars) and — found while wiring it — the exile-from-graveyard
-      // cost (Molt Tender), which the direct tap action carried but this planned path silently dropped
-      // (a planned Molt Tender tap exiled nothing; now it does).
-      sacrificesCreature: !!s.sacrificesCreature,
-      exilesGyCard: !!s.exilesGyCard,
-      fromHand: !!s.fromHand, // SG-6 — the source is a HAND card; the committer exiles it instead of tapping
-      removesCounters: s.removesCounters || null, // STAGE ④-4 — the counters this tap removes (the commit removes exactly these)
-      doesNotUntapNext: !!s.doesNotUntapNext, // STAGE ④-5 — the tapped land skips its controller's next untap step
-      staysTapped: !!s.staysTapped, // the permanent doesn't untap in its untap step at all (Mana Vault) — read by tapAny only
-      repeatable: !!s.repeatable, // STAGE ③ · 37 — one of several separate activations of a no-{T} remove-a-counter source
-      noTap: !!s.noTap,           // STAGE ③ · 37 — the commit doesn't tap it (its cost is the counter); 2026-10-17 — every line with no {T}
-      putsCounter: s.putsCounter || null,             // 2026-10-17 — Wall of Roots' -0/-1 counter, put on by the commit
-      sacrificeIfNoCounters: !!s.sacrificeIfNoCounters, // 2026-10-17 — a depletion / mining land's last counter sacrifices it
-      limitKey: s.limitKey || null,                   // 2026-10-17 — the per-turn activation ledger entry the commit stamps
-      opponentsGainLife: s.opponentsGainLife || 0,     // 2026-10-17 (the land lines) — Grove of the Burnwillows: each opponent gains this much as the tap resolves
-      bundle: s.bundle || null,                       // 2026-10-17 (the land lines) — a filter land's bundle (the explicit tap's key; the commit reads `fixed`)
-      used: false,
-    }))
+    .map(plannerSourceRecord)
     .filter(s => s.amount > 0)
     // ⛔ SPEND-RESTRICTED FILTER (CR 106.6). Two conditions, both required:
     //   1. the spend context satisfies the printed permission (default-deny — no context means no);
@@ -3859,16 +3929,7 @@ function planPaymentCore(pool, sources, cost, spendContext = null) {
     return true;
   };
 
-  // A PLAIN COLORLESS record: colorless mana and nothing else, at no cost beyond the tap. Any other field set on the
-  // record is a rider — life, a sacrifice, an exile, counters, a skipped untap (staysTapped: Mana Vault, the Monoliths),
-  // tapping others, a spend restriction, snow (its mana also pays {S}, CR 107.4h) — and keeps it out, a rider added later
-  // included: a new field costs a source its promotion (the old board order), never promotes one.
-  const isPlainColorless = (s) => {
-    if (!s.colors.every((c) => c === "C") || !s.bonus.every((b) => b.colors.every((c) => c === "C"))) return false;
-    for (const k in s) if (!PLAIN_TAP_FIELDS.has(k) && s[k] != null && s[k] !== false && s[k] !== 0) return false;
-    return true;
-  };
-  let plainColorlessPermanents = null; // permanentId → every record it offers here is plain colorless (built on the first generic tap)
+  let plainIds = null; // permanentId → promoted (plainColorlessPermanents, and in plan 2 holdsBack over `board`), built on the first generic tap
 
   // Tap a source for GENERIC, `owed` still unpaid. Returns a color it produced. A play-quality order, never a legality
   // change (any mana pays generic, CR 107.4b):
@@ -3876,9 +3937,10 @@ function planPaymentCore(pool, sources, cost, spendContext = null) {
   //      Colorless mana pays generic and little else (a {C} pip, CR 107.4c), so spending it keeps the colored sources
   //      untapped for a colored pip later. In board order, Purphoros's {2}{R} beside Mountain, Mountain, Mountain,
   //      Sol Ring tapped all three Mountains and left a Lightning Bolt uncastable (measured 2026-10-16). EVERY record of
-  //      the permanent must be plain colorless: a colored second line (Mogg Hollows), a sacrifice line (Crystal Vein), a
-  //      spend-restricted line (Eldrazi Temple) or a storage land's counter line in the two-pass plan keeps the whole
-  //      permanent where it was. Among them, the SMALLEST THAT COVERS what is still owed (Mind Stone for a {1}, Sol Ring
+  //      the permanent must be plain colorless (this call's records; in planPayment's plan 2 also every line holdsBack finds
+  //      on the board): a colored second line (Mogg Hollows), a costed line (Nykthos' devotion, Three Tree City, a filter
+  //      land), a sacrifice line (Crystal Vein), a spend-restricted line this payment may spend (Eldrazi Temple, for an
+  //      Eldrazi) or a storage land's counter line keeps the whole permanent where it was. Among them, the SMALLEST THAT COVERS what is still owed (Mind Stone for a {1}, Sol Ring
   //      for a {2}); if none covers it, board order. Not "least surplus": every source smaller than `owed` has none, so a
   //      {2} beside Wastes and Thran Dynamo took the Wastes, still needed the Dynamo and floated two — the Dynamo alone
   //      floats one. Never the permanent whose own ability this pays for (spendContext.activatingPermanentId):
@@ -3890,15 +3952,15 @@ function planPaymentCore(pool, sources, cost, spendContext = null) {
   //   2. then any other REPEATABLE source, board order;
   //   3. then a one-shot sacrifice source (Treasure/Gold) — never crack a Treasure while an untapped land/rock could pay.
   const tapAny = (owed) => {
-    if (!plainColorlessPermanents) {
-      plainColorlessPermanents = new Map();
-      for (const s of avail) plainColorlessPermanents.set(s.permanentId, (plainColorlessPermanents.get(s.permanentId) ?? true) && isPlainColorless(s));
+    if (!plainIds) {
+      plainIds = plainColorlessPermanents(avail);
+      if (board) for (const s of board) if (holdsBack(s)) plainIds.set(s.permanentId, false); // plan 2: a line this pass holds out still counts
     }
     let first = null;
     let cover = null;
     let coverMade = Infinity;
     for (const s of avail) {
-      if (s.used || s.colors.length === 0 || !plainColorlessPermanents.get(s.permanentId) || s.permanentId === spendContext?.activatingPermanentId) continue;
+      if (s.used || s.colors.length === 0 || !plainIds.get(s.permanentId) || s.permanentId === spendContext?.activatingPermanentId) continue;
       const made = s.amount + s.bonus.reduce((n, b) => n + b.amount, 0);
       if (!first) first = s;
       if (made >= owed && made < coverMade) { cover = s; coverMade = made; }
@@ -4008,10 +4070,10 @@ function planPaymentCore(pool, sources, cost, spendContext = null) {
 
 /**
  * Can `cost` be paid from `pool` plus tapping `sources`? Pure — no mutation.
- * legalChoices uses this for cast-spell legality.
+ * legalChoices uses this for cast-spell legality. planPayment's plan 1 decides affordability, so it alone is run here.
  */
 export function canAfford(pool, sources, cost, spendContext = null) {
-  return planPayment(pool, sources, cost, spendContext) !== null;
+  return planPaymentPasses(pool, sources || [], cost, spendContext, null) !== null;
 }
 
 /**

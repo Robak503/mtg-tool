@@ -640,6 +640,16 @@ only beside `choosesCreatureTypeAsEnters`, the one chooser regex the enter site 
   creature, or is a card exiled from hand — and, since 2026-10-17, a no-{T} line that costs
   life, Treasonous Ogre) pays only when the cost cannot be paid without one: `planPayment` plans without them first, then with every source — the
   storage-land two-pass's shape, so affordability never moves.
+  "Plain" is judged per permanent, and since 2026-10-17 (Nykthos) a line a pass holds out
+  still counts (`holdsBack`, over the whole list `planPayment` was handed): a costed line kept
+  out of the direct pass (Nykthos' devotion, Three Tree City, a filter land, "{1}, {T}: any
+  color"), a one-shot line out of pass A (Crystal Vein, Phyrexian Tower) or a counter line
+  out of the storage pass A keeps the permanent in board order. A spend-restricted line still
+  counts only when the payment may spend it (Eldrazi Temple, for an Eldrazi) — whether it
+  should hold Cavern of Souls back too is open. That plan is `planPayment`'s second, taken
+  when it also pays; the first (each call's own judgment, as before) decides affordability,
+  and `canAfford` runs it alone. The second plan alone is not safe: the costed pass is greedy,
+  and what its funding call taps decides the colors left for the rest.
 
 ### 4.8 Combat, legal choices, the pilot seam
 

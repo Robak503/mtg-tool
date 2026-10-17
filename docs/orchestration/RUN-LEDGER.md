@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **15 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.8% (15,497)**; engine gains since the tag: **+44** (+53 gained, −9 false credit removed). The next tag
+> **16 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.8% (15,497)**; engine gains since the tag: **+44** (+53 gained, −9 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,78 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX (play order): the generic tap no longer spends a land with a bigger mana line on one {C} ahead of the other lands — Nykthos, Three Tree City, the ten filter lands, the "{1}, {T}: Add one mana of any color" lands, Crystal Vein, Phyrexian Tower and storage lands holding counters keep their board place (55 bundled cards); affordability never moves (planPayment's first plan still decides it); spend-restricted lines left as they were (open question) · **±0** · snapshot native 15,470 unchanged
+> Suite **20,421 green (1 skipped) / 1,857 files** under the gate queue (with the rules index built locally, as CI does; without it
+> `rules-retrieval/route.test.js` fails 4 on this tree and on the untouched f71b7e86 archive alike). Lint 0 (CR citations: 0 of 11,308 name no
+> rule; keyword citations: 0 of 2,353 cite a different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an untouched `git
+> archive` of f71b7e86; native 15,470 of 34,584 snapshot names on both). **Mutants 11/12** on assertions, each restored byte-identical (sha256);
+> the twelfth (an activation cost not counted as a rider) is equivalent on today's corpus: no bundled permanent pairs a plain {C} with a costed
+> colorless-only line (Apprentice Wizard's {U}-costed {C}{C}{C} is its only line). Witness `genericTapWholeBoard.test.js` (15) written first:
+> 9 fail on the f71b7e86 archive on assertions, 6 pass on both (4 controls, 2 affordability pins); before the rebase, 8 of the first 11 failed on
+> 423a98cc. A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched f71b7e86 archive):
+> **68 byte-identical, 7 differ only in later offered sets** (same picks, log, winner and turns — a different land left untapped changes the
+> later tap-for-mana offers), **5 change picks**, **0 winners change**, 0 errors on either tree, results unchanged (ai-wins 57 / user-wins 23),
+> 169 s per batch on both. Rebased onto f71b7e86 (the land lines) mid-slice at the integrator's call. Committed on `day/nykthos`, not pushed;
+> the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The bug** (the Omnath self-play lane, measured on its deck: Nykthos games net −29 per ~868 vs about −10 expected). 3d121554's generic tap
+>   promotes a plain colorless permanent (every record colorless, no rider), and each `planPaymentCore` call judged "plain" from the records it
+>   was handed. Three passes hand it a subset: `planPaymentOnce`'s direct pass and `activateCostedInOrder`'s funding and rest calls see only the
+>   records without an activation cost; `planPayment`'s pass A holds out the one-shot records; `planPaymentRemovalAware`'s pass A the counter
+>   records. So Nykthos, Shrine to Nyx (its devotion line behind {2}) looked like Wastes and spent its tap on one {C} for generic before any
+>   land; so did Three Tree City and, since f71b7e86 made their second lines, the filter lands and the "{1}, {T}: any color" lands; Crystal
+>   Vein and Phyrexian Tower (their sacrifice line out of pass A — the side effect ebaca087 recorded) and storage lands holding counters.
+> · **The fix.** `holdsBack(s)` — a record that is not plain and not spend-restricted. `planPayment` plans with each call's own judgment
+>   (plan 1, byte-identical to before: 20,000 random boards, whole plans compared); when some permanent has a plain record beside a holdsBack
+>   line (`boardJudgmentCanDiffer`) it plans again counting every holdsBack line on the whole list (plan 2 — the list rides as `board` through
+>   the one-shot pass, the storage pass, the direct pass and the funding and rest calls) and returns plan 2 when it pays, else plan 1.
+>   `canAfford` runs plan 1 alone. Carried: the planner's record builder is the named `plannerSourceRecord` (moved as is, plus f71b7e86's two
+>   fields), `isPlainColorless` at module scope. An order change only (any mana pays generic, CR 107.4b).
+> · **Why two plans (measured, not assumed).** The first build used plan 2 alone; a randomized differential (20,000 boards of real mana cards,
+>   bundled oracle text, the f71b7e86 land lines included; random pool, cost and spend context) caught it moving affordability: 98 flips — 33
+>   payable costs lost (Swamp, Mage-Ring Network, Simic Signet paying {U}{B}{G}: the funding call took the Swamp and stranded the {B}) and 65
+>   found that the old order misses. The costed pass is greedy, and what its funding call taps decides the colors left for the rest. Shipped
+>   planner: 0 of 20,000 disagree, 3,063 plans differ, 0 plans fail pool + taps − spend ≥ 0. The 65 boards stay unpayable on purpose (a safe
+>   false negative kept, not a new offer; pinned: Selesnya Signet, Swamp, Cascading Cataracts can't pay {2}{C}).
+> · **⚑ Judgment call — spend-restricted lines left as 3d121554 judged them (open question for Colton / Omnath).** The second build held them
+>   back too (Cavern of Souls, Secluded Courtyard, Unclaimed Territory, Plaza of Heroes, Eldrazi Temple, Mech Hangar and 21 more lands). Its A/B
+>   on the same 80 games lost a pick: game 63, Shorikai Vehicles paid Emry, Lurker of the Loch with its Plains and kept Mech Hangar, and next
+>   turn could not cast Dovin's Veto ({W}{U}); base paid with Cavern's and Mech Hangar's {C} and kept Plains + Tundra (verified by an exact
+>   replay, log hashes matching the batch). A restricted line pays a narrow set of spells where a basic's color pays any, and 3d121554 judged
+>   it per payment on purpose ("Eldrazi Temple, for an Eldrazi"), so `holdsBack` excludes it. Whether Cavern of Souls should be kept up in a
+>   tribal deck is a play question this slice does not decide.
+> · **Reach** (manaSources over every bundled mana-producing permanent — 1,832 — on a bare and a rich board, base vs this planner on Grizzly
+>   Bears' {1}{G} with the card third): **55 change.** Costed 48 — Nykthos (#163), Three Tree City (#177), Cabal Stronghold (#970) and Baldur's
+>   Gate (#2566) once their count is positive; the filter lands Rugged Prairie (#282), Cascade Bluffs (#291), Flooded Grove (#301), Fetid Heath
+>   (#334), Twilight Mire (#355), Graven Cairns (#553), Mystic Gate (#839), Sunken Ruins (#950), Fire-Lit Thicket (#1186), Wooded Bastion
+>   (#2018); the "{1}, {T}: any color" lands Talon Gates of Madara (#570), The Mycosynth Gardens (#853), Conduit Pylons, Hidden Grotto, Planar
+>   Nexus, Crystal Grotto, Rumble Arena, Capital City, Unknown Shores, Artifact Unknown Shores and kin; Cascading Cataracts (#1217), Abstergo
+>   Entertainment, Heap Gate, Daily Bugle Building, White Lotus Hideout, Hall of Oracles, Crystal Quarry, Captivating Cave, Hall of Tagsin,
+>   Painted Bluffs, Baxter Building, Cave of Temptation, Surveillance Room, Guildmages' Forum, Crypt of the Eternals, Shimmering Grotto, Castle
+>   Sengir, Henge of Ramos, School of the Unseen, An-Havva Township, Wizards' School, Aysen Abbey, Koskun Keep, Tarkir Omenpath. One-shot 4 —
+>   Phyrexian Tower (#194, with a creature to sacrifice), Crystal Vein (#1488), Lazotep Quarry (#1870, with a creature), Archaeological Dig.
+>   Counter 3 (holding counters) — Mage-Ring Network, Tendo Ice Bridge, Mirrodin's Core. Unchanged: the 27 restricted-line lands; Apprentice
+>   Wizard. Profile decks holding a changed card: Omnath and Light-Paws (Nykthos), Vihaan, Slivers, Zaxara, Kellan, Veyran, Test Rashmi (filter
+>   lands; Kellan's Planar Nexus), cdh / Otharri / Teval (Talon Gates), Earth Bent (Rumble Arena), Kinnan (The Mycosynth Gardens), Killer Turts
+>   (Crystal Vein).
+> · **A/B detail — the Omnath games** (pod 1, games 0–9; pod 8, games 70–79): 14 byte-identical, 3 offered-set only (3, 7, 74), 3 change picks.
+>   Game 78: base paid Bear Umbra with Forest ×3 + Nykthos' {C}; now Forest ×3 + Boseiju, and Nykthos' devotion casts Avenger of Zendikar the
+>   same turn — Omnath wins in 47 turns (51); Omnath wins 5 of these 20 on both trees. Game 73: the Selvala payment tapped Fanatic of Rhonas (board order) where base promoted Nykthos, so
+>   the Fanatic didn't attack — turns 31 → 55, Vihaan wins both (found-not-fixed (2)). Game 9: the trees part at Vihaan's untapped lands on turn
+>   21, Slivers' attack differs on turn 23 — Slivers wins both, 37 → 40. Games 73 and 78 verified by exact replays (log hashes match the batch on
+>   both trees). Other pick changes: 49 (Halfshell heroes' pod), 53 (Bumble Flower's pod) — winners and turns unchanged.
+> · Witness **`genericTapWholeBoard.test.js`** (15), through `legalActionsForPlayer` + `dispatchAction` on bundled oracle text unless said:
+>   Nykthos beside Forests keeps its tap and then pays Rumbling Baloth off devotion; beside Sol Ring the Ring covers the {1}; Three Tree City
+>   likewise; Graven Cairns filters the spare Mountain into {B}{B} for Hymn to Tourach; Unknown Shores turns it into {G} for Llanowar Elves; the
+>   funding call (Coiling Oracle through Simic Signet) and the rest call (planPayment) keep Nykthos; Crystal Vein and Mage-Ring Network keep
+>   their tap; affordability pins (planPayment + canAfford): the plan-1 fallback, the kept false negative; controls — Wastes, Sol Ring beside
+>   Mountains, Eldrazi Temple's {C} for a non-Eldrazi (restricted, unchanged), Nykthos at devotion 0 (no devotion record — still first).
+> · **Found, not fixed:** (1) Nykthos at devotion 0 and Three Tree City with no creature of its type offer no costed record, so they are still
+>   promoted (judged by records). (2) The board-order tier taps a mana creature as readily as a land — game 73 above; 3d121554's found-not-fixed
+>   (a dork tapped for another payment loses its attack), now reached by the lands that left the promotion. (3) A permanent with another line
+>   goes in board order, not last: Nykthos on the battlefield before the basics is still tapped first for generic (only the promotion changed).
+>   (4) The costed pass's greedy order misses payable costs: plan 2 finds 65 of 20,000 random boards that plan 1 can't pay (a planner-completeness
+>   slice). (5) The restricted-line question above.
 
 > ## 🎯 2026-10-17 — PLAY-WEIGHTED: Brash Taunter (EDHREC #799) — "it deals that much damage" on the self dealt-damage event, the damaged creature the dealer; Chasm Skulker (#705) and Hangarback Walker (#1522) — counted tokens with a keyword rider; Ichor Wellspring (#963), Prized Statue (#2323), Mycosynth Wellspring (#2444) — "enters or is put into a graveyard from the battlefield" split; Metallic Mimic (#961) — the chosen-type others-enter-with counter; Heraldic Banner (#856) — the chosen-colour anthem · **+22** · snapshot native 15,473 → 15,495
 > Suite **20,360 green (1 skipped) / 1,860 files** under the gate queue. Lint 0 (CR citations: 0 of 11,303 name no rule; keyword citations: 0 of 2,354 cite a
