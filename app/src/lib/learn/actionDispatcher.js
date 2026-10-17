@@ -54,7 +54,7 @@ import {
   findPermanent,
   unattachEquipment,
 } from "./gameState.js";
-import { deterministicRng, advanceRngSeed, deathLookback } from "./gameState.js"; // RG-7 (2026-09-05) — the seeded random-discard pick at payment
+import { deterministicRng, advanceRngSeed } from "./gameState.js"; // RG-7 (2026-09-05) — the seeded random-discard pick at payment
 import { withoutExileStamps } from "./gameState.js"; // shelf D3 — a card cast out of exile leaves every exile-only permission behind (CR 400.7)
 import { parseTeamworkCost } from "./kicker.js"; // TEAMWORK (shelf D16) — the N a kicked teamwork cast must tap; kicker.js imports only leaves (parseHelpers, keywords)
 
@@ -73,6 +73,7 @@ import { tutorManaValue } from "./effects/atoms/library.js"; // γ1i (CAP14) —
 import { passPriority, flushTriggers, chooseTriggerTargets, attackDeclarationOpen, closeAttackDeclaration } from "./gameEngine.js";
 import { manaSources, planPayment, sourcesExcludingOneShotVictim, castPaymentSources, costReservedPermanentIds, withoutUnfeedableSacSources, commitPaymentPlan, commitManaTap, payManaCost, manualManaTaps, payActivationFromPool } from "./manaModel.js";
 import { conditionalEntersTapped, paysLifeOrEntersTapped, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>" + the shockland pay-life clause (a leaf over interveningIf; cycle-free)
+import { sacrificePermanentForCost } from "./costSacrifice.js"; // every cost sacrifice (activated-ability costs, additional and alternative costs, emerge) — the ONE sequence the mana-cost sacrifice uses too
 import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT dispatch hook (audit.js imports only the delayed-trigger leaf, cycle-free)
 import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — the payment half; legalChoices holds the restriction half (+ the Phyrexian life lane, Norn's Annex)
 import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
@@ -85,12 +86,12 @@ import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTap
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
 import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.6b) — same reader the action gate uses · LANDS-5: the ONE discard-ability price reducer the offer uses too
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { permanentHasKeyword, permanentIsCreature, permanentTypes, addContinuousEffect, colorsOf, crewCostWithOverrides, permanentColors, permIsEveryCreatureType, permanentManaValue } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
+import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf, crewCostWithOverrides, permanentColors, permIsEveryCreatureType, permanentManaValue } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell / command-zone card that is every creature type (Changeling, Maskwood Nexus); a leaf over keywords.js
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39b — every creature type shares a creature type only (CR 205.3d); a zero-import leaf
 import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility, parseHandSelfPutAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch; S8 — the Pilot's crew boost; play-weighted #570 — the hand self-put, re-read from the card
 import { parseSagaChapters } from "./saga.js"; // SAGA LAND (play-weighted P·4 — Urza's Saga): the land drop gives a Saga its entry lore counter too (a pure leaf)
-import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers, checkBecomesCrewedTriggers, checkCycleSelfTriggers, checkCrimeTriggers, checkSagaChapterTriggers, checkTurnedFaceUpTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers; S7 — becomes-crewed; D9 — crime (CR 700.13); the flip's watchers (CR 701.40b)
+import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers, checkBecomesCrewedTriggers, checkCycleSelfTriggers, checkCrimeTriggers, checkSagaChapterTriggers, checkTurnedFaceUpTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers; S7 — becomes-crewed; D9 — crime (CR 700.13); the flip's watchers (CR 701.40b)
 import { setPendingSoftCounterChoice, setPendingOptionalLifePaymentChoice } from "./pendingChoice.js"; // setPendingOptionalLifePaymentChoice — the shockland pause (LANDS-TIER slice 2), raised from the play-land path
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
 import { groupWardTaxForSpell, groupWardTaxForStackObject } from "./groupWard.js";
@@ -1244,37 +1245,6 @@ function applyDoubleManaPool(state, action) {
  * source stays on the battlefield (an activated ability isn't the permanent leaving).
  * Mana abilities never reach here — they resolve via `applyTapForMana` (no stack).
  */
-/**
- * Sacrifice a permanent `playerId` controls as part of paying an activated-ability cost (γ1 self-sac /
- * γ1b chosen-victim): move it battlefield→graveyard and, if it's a CREATURE, fire its + watchers' dies
- * triggers (CR 700.4 — the aristocrats payoff). A non-creature sacrifice leaves no dies trigger. The
- * dispatch's flushTriggers then stacks these ABOVE the ability so they resolve first (CR 603.3b).
- * The SAME look-back the sacrifice effect builds (removal.sacrificeCreatureEffect — the type-line audit): the card types it had as
- * it LEFT, read off the layer engine while it is still on the battlefield (CR 603.10a, 613.1d), so a God below its devotion, a
- * bestowed Aura or an attached Lizard Blades sacrificed to Viscera Seer is not a creature dying (the printed line fired Blood
- * Artist and counted a creature death), while an animated land or a crewed Vehicle is; and the one death look-back every death
- * site builds (gameState.deathLookback — power and base power for the dies payoffs, CR 603.6e; counters; links; and where the card
- * goes: a creature exiled instead or shuffled instead is still sacrificed but never died, CR 700.4, so the dies triggers skip it).
- */
-function sacrificePermanentForCost(state, playerId, permObj) {
-  const lkiTypes = [...permanentTypes(state, permObj.id).types];
-  const death = lkiTypes.includes("Creature") ? deathLookback(state, permObj, playerId) : null;
-  // The destination is the death-specific exile only; a graveyard replacement (Rest in Peace, Dauthi) redirects inside moveCardToZone.
-  let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: death?.exileTo ? "exile" : "graveyard", cardId: permObj.id });
-  if (death) {
-    next = checkDiesTriggers(next, [death]);
-  } else {
-    // LEAVE-DRAIN (CR 603.3b): a NON-creature cost sacrifice (Blood/Clue/artifact) has no dies path —
-    // drain its leave event now so permanentLeaves watchers stack above the ability (the creature
-    // branch drains via checkDiesTriggers' own first-line drain; re-draining is an idempotent no-op).
-    next = checkLeavesTriggers(next);
-  }
-  // TRIG-SACRIFICE: a sac-as-cost is a sacrifice → fire "Whenever you sacrifice a <permanent|creature|
-  // artifact>" for the sacrificing player (the perm has left, so its card and the types it had ride on the look-back).
-  next = checkSacrificeTriggers(next, playerId, { id: permObj.id, controller: playerId, card: permObj.card, lkiTypes });
-  return next;
-}
-
 /**
  * GY SELF-RECURSION (BLITZ GY-1, CR 602.2): activate "Return this card from your graveyard to <your
  * hand | the battlefield [tapped]>" FROM the graveyard. Mana-only cost (paid through the same

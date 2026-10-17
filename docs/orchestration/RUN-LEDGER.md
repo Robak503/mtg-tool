@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **54 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **±0** (+46 gained, −46 false credit removed). The next tag
+> **55 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **±0** (+46 gained, −46 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,71 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-16 — FIX: one cost sacrifice — the activated-ability / additional-cost sacrifice and the mana-cost sacrifice are one helper (`costSacrifice.sacrificePermanentForCost`): a replaced death is logged, a noncreature's watchers stack in one order · **±0** · corpus 15,494
+> Suite **19,488** green (1 skipped) / 1,810 files. Lint 0 (CR citations: 0 of 10,372 name no rule). Flip-diff **0 / 0 / 0**
+> (34,620 cards; before = cf0cd5cb's code, after = this tree), so every coverage count is unchanged. **Mutants 10/10** on
+> assertions, restore byte-identical (sha256 of the three engine files compared after each).
+> · **The report, re-proved on cf0cd5cb (it was half stale).** Two 10-16 sessions found `actionDispatcher.sacrificePermanentForCost`
+>   building a flag-less death entry: Carrion Feeder eating Memnite under Rest in Peace fired Blood Artist and counted a death. That
+>   half was already closed on master by the type-line audit (18402016 moved the function onto `gameState.deathLookback`): probed
+>   through `legalActionsForPlayer` + `dispatchAction` on cf0cd5cb, Memnite goes to exile, no Blood Artist trigger, tally 0, and a
+>   Blightsteel Colossus is shuffled with no trigger. What was still wrong was the drift between the two copies of the sequence: the
+>   cost copy logged no replaced death (no `creature-exiled-instead` / `creature-shuffled-instead` event, so the narration never said
+>   "Memnite is exiled instead of dying (sacrifice)" — the mana copy, the destroy and the sacrifice effects all log one), and the two
+>   drained a noncreature's leave event on opposite sides of its sacrifice watchers (cost: leave watchers, then sacrifice watchers;
+>   mana: the reverse) — a Clue and a Treasure sacrificed beside Disciple of the Vault and Korvold stacked in opposite orders.
+> · **The fix.** New `app/src/lib/learn/costSacrifice.js` (imports gameState, layers, triggers only; in no import cycle) holds THE
+>   cost sacrifice: layer-aware types as it left (CR 603.10a), `deathLookback` for a creature, the death-specific exile as the
+>   destination, the replaced death logged (`deathEventKind`, `via: "sacrifice"`), the leave event drained first (CR 603.3b —
+>   `checkDiesTriggers`' first line for a creature, `checkLeavesTriggers` otherwise; the cost path's documented order, which the Saga
+>   sweep mirrors), dies triggers for a real death only (CR 700.4), sacrifice triggers with `lkiTypes` for every sacrifice
+>   (CR 701.21a). `manaModel.sacrificeForManaCost` and actionDispatcher's copy are deleted; every caller imports the one helper.
+>   ENGINE-SCAFFOLD §4.7 names it.
+> · **Every cost-sacrifice site (all now the helper):** actionDispatcher — the spell's additional cost, single victim (Village
+>   Rites, Bone Splinters, Natural Order, Fling: `sacCreatureId`) and count-of-N (`sacCountIds`); the alternative costs
+>   `sacrificeCreature` and `sacrificeLands` (Fireblast's Mountains); emerge's victim; an activated ability's self-sacrifice
+>   (`sacSelf` — Clue, Food, Mind Stone), its chosen victim (`sacCreatureId` — Carrion Feeder, Viscera Seer,
+>   Altar of Dementia) and its "Sacrifice N <subtype>" (`sacCountIds`); manaModel.commitManaTap — an Altar's victim
+>   (`sacrificesCreature`) and a one-shot source's self-sacrifice (`sacrifices` — Treasure, Lotus Petal, Eldrazi Spawn, a Basal
+>   grant). The resolution-time sacrifices (edicts, sac-unless-pay — Bog Elemental, "you may sacrifice … if you do", the
+>   end-of-combat sacrifice, sacLand, Champion's fallback) go through `removal.sacrificeCreatureEffect` /
+>   `sacrificeCreaturesTogether`, already on `deathLookback` with the replaced-death log.
+> · **AI / self-play.** The cost-path change is log-only (gameAnalysis counts `creature-dies`; nothing reads the two replaced kinds
+>   but the narrator). The play change is the mana path's noncreature order: a Treasure (Gold, Lotus Petal, Crystal Vein's sac
+>   line, any one-shot noncreature mana source) whose controller also has a leave watcher that sees it (Disciple of the Vault,
+>   Marionette Master, its own "put into a graveyard" trigger) AND a sacrifice watcher (Korvold, Mayhem Devil) now stacks the
+>   sacrifice watcher on top. A seeded batch (80 commander games — base seed 7, 10 per pod, the 30 profile decks, default AI;
+>   base = cf0cd5cb's tree, after = this tree): 77 logs byte-identical, 3 reordered — seeds 2654435768 (Omnath / Vihaan / cdh /
+>   Slivers), 3781345310 and 3541994918 (Nekusar / Atraxa / Omnath / Vihaan): Vihaan, Goldwaker cracks a Treasure beside Nadier's
+>   Nightblade (a token leaves) and Captain Lannery Storm / Mayhem Devil (a sacrifice), and the triggers resolve in the new order —
+>   the same log events (ids aside), eliminations, winner, turn count and tick count. No new replaced-death event fired in the 80
+>   (no pod paired a cost sacrifice with Rest in Peace, a death-exile static or a shuffle-instead creature); a 16-game batch (seed
+>   1, 2 per pod) was byte-identical. The full suite ran on this tree before the slice's dates were set in three comments; the six
+>   sacrifice test files, lint and the ten mutants re-ran on the committed bytes.
+> · Witness `costSacrificeDies.test.js` (13; 7 red at cf0cd5cb, every one an AssertionError — the replaced-death log ×5, the
+>   Altar/Feeder parity, the Treasure/Clue order; the other 6 are controls that pass on both): Carrion Feeder + Memnite under Rest
+>   in Peace (exile, no drain, tally 0, Korvold still sees the sacrifice, logged) and without it (graveyard, one drain, tally 1);
+>   Doomed Traveler's own dies trigger; Blightsteel Colossus alone and under Rest in Peace (shuffled, logged as shuffled); Lava Coil's
+>   stamp (exile); an animated Swamp under Living Plane (a creature death and a creature sacrifice — Smothering Abomination); a Clue
+>   and Mind Stone (sacrifice watchers, no death, Disciple below Korvold); Village Rites under Rest in Peace and without; the parity
+>   pair. Comment references to the old locations updated (abilities.js, removal.js, sacCostSelfPiG.test.js,
+>   manaCostSacrificeDies.test.js).
+> · Mutants (10): no replaced-death log · the leave drain after the sacrifice watchers (the old mana order) · no leave drain for a
+>   noncreature · no dies triggers · the printed creature test · the death-specific exile ignored · no sacrifice triggers · no
+>   `lkiTypes` for them · actionDispatcher back on cf0cd5cb (its own copy) · manaModel back on cf0cd5cb (its own copy).
+> · ⚠️ Found, not fixed (not cost sacrifices — the seventh death site and two more, each its own slice):
+>   ① **`fading.applyFadeVanishUpkeep` builds a hand-made death entry with no replacement flags** — a FALSE POSITIVE, probed on this
+>   tree: Blastoderm sacrificed at upkeep (no fade counter left) under Rest in Peace goes to exile, yet Blood Artist triggers and a
+>   death is counted (CR 700.4); a death-specific exile (Lava Coil's stamp) is not honoured as the destination; a shuffle-instead
+>   fading creature would "die" too; and no sacrifice watcher fires (Korvold — FN). Route it through `deathLookback` +
+>   `deathEventKind` + `checkSacrificeTriggers` (the helper's sequence; mind the batch's one `checkDiesTriggers`).
+>   ② `tokens.applyMobilizeSac` moves the mobilized Warriors to the graveyard and then asks `destroyLethalCreatures`, which can no
+>   longer see them: no dies trigger, no sacrifice trigger, no death tally (probed — FN, the safe direction).
+>   ③ `gameEngine.sweepFinishedSagas` (CR 714.4) assumes a Saga is no creature: an animated Urza's Saga (Living Plane) sacrificed
+>   at its last chapter fires no dies trigger and logs no replaced death (FN).
+>   ④ A planeswalker sacrificed as a cost (a "Sacrifice a permanent" cost) reaches no `checkPlaneswalkerDiesTriggers` — the batch
+>   effect sacrifice does (FN; the single effect sacrifice skips it too).
 
 > ## 🔧 2026-10-16 — FIX: mana text the engine read past — Ancient Tomb's damage, Mox Amber's legends, the commander's color identity, the "could produce" lands · **±0** · corpus 15,494
 > Suite **19,514** green (1 skipped) / 1,810 files. Lint 0 (CR citations: 0 of 10,393 name no rule). Flip-diff **0 / 0 / 0**

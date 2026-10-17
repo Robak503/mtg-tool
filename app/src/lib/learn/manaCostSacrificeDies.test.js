@@ -7,7 +7,7 @@
  * sacrifice watchers: the creature never died — no Blood Artist drain for its controller's watchers OR an opponent's, no
  * deaths-this-turn count. The Altar's victim built its own death entry without the replacement flags, so a creature Rest in Peace
  * exiled still fired dies triggers and counted as a death (CR 700.4: it never died) — and the victim never reached the
- * "whenever you sacrifice" watchers at all. Both now leave through manaModel.sacrificeForManaCost, the canonical sacrifice
+ * "whenever you sacrifice" watchers at all. Both now leave through costSacrifice.sacrificePermanentForCost (manaModel.sacrificeForManaCost until 2026-10-16), the canonical sacrifice
  * (effects/atoms/removal.sacrificeCreatureEffect's sequence): layer-aware types as it left (CR 603.10a), the death look-back, the
  * death-specific exile honoured, dies triggers, sacrifice triggers, the leave drain.
  *

@@ -6,7 +6,7 @@
  * clauses ("put into … from the battlefield", commented "zone-LTB the detector misses") had gone STALE
  * for the SELF form: detectTriggers maps "When this artifact is put into a graveyard from the
  * battlefield, …" to the `ltb` event, and the cost-sac path fires it —
- * actionDispatcher.sacrificePermanentForCost calls moveCardToZone (queuing the leave event) then
+ * costSacrifice.sacrificePermanentForCost calls moveCardToZone (queuing the leave event) then
  * checkLeavesTriggers (non-creature) / checkDiesTriggers (creature, which drains the same queue first).
  *
  * That was verified at RUNTIME before the guard was narrowed, and this file pins the verification so the

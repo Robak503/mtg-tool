@@ -840,7 +840,7 @@ export function sacrificeDropsTrigger(oracle) {
     // CR 700.4 dies-equiv / zone-LTB. EXCEPTION (verified 2026-07-25, runtime not by reading): the SELF form
     // — "When this <artifact|creature|enchantment|permanent|land|aura> is put into a graveyard from the
     // battlefield, …" — is no longer missed. detectTriggers maps it to the `ltb` event, and the cost-sac path
-    // itself fires it: actionDispatcher.sacrificePermanentForCost calls moveCardToZone (which queues the leave
+    // itself fires it: costSacrifice.sacrificePermanentForCost calls moveCardToZone (which queues the leave
     // event) and then checkLeavesTriggers for a non-creature / checkDiesTriggers for a creature, whose first
     // line drains the same queue. Probed end to end on Implement of Examination before narrowing this.
     // Every OTHER subject ("another creature you control is put into…", a player/zone variant) stays flagged:

@@ -30,8 +30,9 @@
  * legalChoices, and layers imports none of these modules so that edge is acyclic too.
  */
 
-import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, removeCounter, setDoesNotUntapNext, deathLookback, deathEventKind, opponentsOf } from "./gameState.js"; // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider; + opponentsOf — the lands Exotic Orchard reads
-import { checkSacrificeTriggers, checkLeavesTriggers, checkDiesTriggers, checkTapForManaTriggers } from "./triggers.js"; // + ④-D: "tapped for mana" watchers fire at the one tap commit // SG-3: a sacrificed-creature mana cost dies through the chokepoint // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
+import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, removeCounter, setDoesNotUntapNext, opponentsOf } from "./gameState.js"; // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
+import { checkTapForManaTriggers } from "./triggers.js"; // + ④-D: "tapped for mana" watchers fire at the one tap commit
+import { sacrificePermanentForCost } from "./costSacrifice.js"; // SG-3 / SAC-TREASURE: a permanent sacrificed to a mana cost leaves through THE cost sacrifice (dies, sacrifice watchers, the leave drain — CR 603.3b), the one the activated-ability and additional costs use
 import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, colorsOf, deriveCharacteristics, permIsEveryCreatureType, permanentColors, faceUpTypeLine } from "./layers.js"; // + faceUpTypeLine: the face that is up of a combined "Front // Back" card — the derive's own read, shared by manaModel's face-up mana read
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // QUARTET Phase 4 step 3 (2026-09-06): the closed CR creature-type vocabulary for spend restrictions ("only to cast a Ninja or Turtle spell") — a zero-import leaf
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
@@ -3020,39 +3021,12 @@ export function canAfford(pool, sources, cost, spendContext = null) {
 }
 
 /**
- * A PERMANENT SACRIFICED TO PAY A MANA ABILITY'S COST (CR 701.21a) — the source's own self-sacrifice (a Treasure, a Lotus Petal,
- * an Eldrazi Spawn, Basal Sliver or any Sliver it grants the ability) or the creature an Altar takes. The canonical sacrifice
- * (effects/atoms/removal.sacrificeCreatureEffect, without its spell-effect log): the types it had as it left are read layer-aware
- * from the board as the cost began (CR 603.10a), so a CREATURE leaves through gameState.deathLookback — the one constructor every
- * death site builds — and DIES (CR 700.4): its own and every watcher's dies triggers fire and the deaths-this-turn tally counts it,
- * unless a replacement keeps it out of the graveyard (Rest in Peace, a shuffle-instead), when it is still sacrificed and never died.
- * Every sacrifice watcher sees it, and its leave event drains now (LEAVE-DRAIN, CR 603.3b) so permanentLeaves watchers stack in
- * cost order. A permanent already gone makes moveCardToZone throw: a plan naming a source that left is a hard error, never mana.
- *
- * ⛔ BOTH SACRIFICES USED TO SKIP THIS. The self-sacrifice moved the card and fired only the sacrifice watchers, so an Eldrazi Spawn
- * cracked for {C} never died — no Blood Artist drain for its controller's watchers or an opponent's. The Altar's victim built its
- * own death entry without the replacement flags, so a creature Rest in Peace exiled still fired dies triggers and counted as a
- * death; and it never reached the sacrifice watchers at all (Korvold).
- */
-function sacrificeForManaCost(state, playerId, perm) {
-  const lkiTypes = permanentTypes(state, perm.id).types;
-  const death = lkiTypes.includes("Creature") ? deathLookback(state, perm, playerId) : null;
-  // The destination is a death-specific exile only (P·28); a graveyard replacement redirects inside moveCardToZone.
-  let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: death?.exileTo ? "exile" : "graveyard", cardId: perm.id });
-  const deathKind = death ? deathEventKind(death) : null;
-  if (deathKind && deathKind !== "creature-dies") next = logEvent(next, { kind: deathKind, turn: next.turn, cardName: perm.card?.name, controller: playerId, via: "sacrifice" });
-  if (death) next = checkDiesTriggers(next, [death]);
-  next = checkSacrificeTriggers(next, playerId, { id: perm.id, controller: playerId, card: perm.card, lkiTypes: [...lkiTypes] });
-  return checkLeavesTriggers(next);
-}
-
-/**
  * W1 — THE single mana-tap commit (one tap of a payment plan, or one explicit tap-for-mana action; both
  * carry the same `{ color, amount, bonus, sacrifices, permanentId }` shape). Add the source's mana to the
  * pool (plus any inline boost-Aura bonus — the Aura is NOT tapped/consumed, CR 605.1b), then either TAP a
  * repeatable land/rock/dork or — for a one-shot sacrifice-for-mana source (Treasure / Gold / Lotus Petal / an
  * Eldrazi Spawn / a Sliver granted Basal Sliver's ability, `tap.sacrifices`) — SACRIFICE it so it can't ramp
- * again (the TOK-2 correctness invariant), through sacrificeForManaCost: a creature dies (CR 700.4), every
+ * again (the TOK-2 correctness invariant), through costSacrifice.sacrificePermanentForCost: a creature dies (CR 700.4), every
  * "whenever you sacrifice …" watcher fires (SAC-TREASURE, CR 701.21a), and the pending leave event drains NOW
  * (LEAVE-DRAIN, CR 603.3b) so permanentLeaves watchers stack in cost order, not at the NEXT stack resolution
  * against a battlefield that may have changed (the stale-scan FP window). Shared by every payment path — the
@@ -3104,7 +3078,7 @@ export function commitManaTap(state, playerId, tap, { reserved = null } = {}) {
     victims.sort((a, b) => mvOf(a) - mvOf(b) || String(a.card?.name || "").localeCompare(String(b.card?.name || "")));
     const victim = victims[0];
     if (victim) {
-      next = sacrificeForManaCost(next, playerId, victim);
+      next = sacrificePermanentForCost(next, playerId, victim);
       next = logEvent(next, { kind: "mana", event: "sacrifice-creature-cost", permanentId: tap.permanentId, playerId, victimId: victim.id, victimName: victim.card?.name });
     } else {
       next = logEvent(next, { kind: "mana", event: "sacrifice-creature-cost-unpaid", permanentId: tap.permanentId, playerId });
@@ -3138,7 +3112,7 @@ export function commitManaTap(state, playerId, tap, { reserved = null } = {}) {
   if (tap.sacrifices) {
     // The source pays with itself — the RECIPIENT of a granted self-sacrifice included (grantedManaProduction keeps the flag).
     const sacPerm = next.players[playerId]?.battlefield?.find((p) => p.id === tap.permanentId);
-    next = sacrificeForManaCost(next, playerId, sacPerm || { id: tap.permanentId });
+    next = sacrificePermanentForCost(next, playerId, sacPerm || { id: tap.permanentId });
   } else if (tap.noTap) {
     // STAGE ③ · 37 — a no-{T} remove-a-counter source (Pentad Prism): the counter above WAS the whole cost. Nothing taps, and
     // it was not "tapped for mana" (CR 605.3), so no tapped-for-mana watcher fires either.

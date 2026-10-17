@@ -457,8 +457,11 @@ means "all permanents" (vacuous filter).
   painful source is never "plain colourless" in `tapAny`, so Ancient Tomb is not tapped first for generic.
 - `commitManaTap` pays the costs a tap carries; a permanent sacrificed to a mana
   cost (the source itself, or an Altar's victim) leaves through
-  `sacrificeForManaCost` — the canonical sacrifice, so a creature dies through
-  `gameState.deathLookback` like at every other death site.
+  `costSacrifice.sacrificePermanentForCost` — THE cost sacrifice, the one every
+  activated-ability, additional, alternative and emerge cost in `actionDispatcher`
+  calls too (2026-10-16: the two copies had drifted), so a creature dies through
+  `gameState.deathLookback` like at every other death site, a replaced death is
+  logged, and the leave event drains before the sacrifice watchers.
 - `planPayment(...)` is a **pure planner** returning exact `{taps, spend}`; the
   dispatcher commits it verbatim. Cost *legality* and cost *payment* always run
   the same planner — the "two-sites invariant" that stops the offered action and

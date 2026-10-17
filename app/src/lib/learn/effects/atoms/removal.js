@@ -247,7 +247,7 @@ export function applyDestroyDiesCopy(state, atom, ctx) {
 /**
  * ===== EDICTS ===== — sacrifice a creature controlled by `playerId` as an EFFECT (CR 701.21): move it
  * battlefield → graveyard and fire its + watchers' dies triggers (CR 700.4 — the aristocrats payoff).
- * The EFFECT-side twin of actionDispatcher.sacrificePermanentForCost (the cost-side self-sac), kept here
+ * The EFFECT-side twin of costSacrifice.sacrificePermanentForCost (the cost-side sacrifice), kept here
  * so the edict resolver + the resolution-time victim-choice path (runProgram.resolveSacrificeChoice)
  * share ONE implementation. These paths only ever pass a CREATURE, so dies triggers always fire; the
  * dispatch's stack-resolution finalizer flushes them above the rest (CR 603.3b). A stale id (the creature
