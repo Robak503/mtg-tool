@@ -6,10 +6,15 @@
  * a recorded play-by-play reads identically to the live game.
  *
  * A decisionLog entry (learnSession.js) is a structured object:
- *   { ts, turn, phase, step, actor, action: { kind, name? }, auto, reasoning }
+ *   { ts, turn, phase, step, actor, action: { kind, name?, ...the dispatched action }, auto, reasoning }
+ * It reads as words: the actor's seat label ("Opponent 1", never "ai1") and the action's label from the shared labeller,
+ * told from that seat (lib/learn/actionLabel.js logActionText) — never the engine kind.
  * Legacy/defensive: a plain string entry renders as-is (older records, or any
  * non-object line), so this never emits "[object Object]".
  */
+
+import { logActionText } from "../../lib/learn/actionLabel.js";
+import { seatLabel } from "../../lib/learn/seatLabels.js";
 
 const ACTOR_COLOR = (actor) => (actor === "user" ? "var(--ley-green)" : "var(--ley-blue)");
 
@@ -27,12 +32,9 @@ export function LearnLogEntry({ entry, dim = false }) {
   return (
     <div style={{ fontSize: 11, color: "var(--ley-text)", lineHeight: 1.4, padding: "6px 8px", background: "var(--ley-surface-2)", border: "1px solid var(--ley-line)", borderRadius: 4, opacity: dim ? 0.55 : 1 }}>
       <div style={{ color: ACTOR_COLOR(entry.actor), fontWeight: 700, marginBottom: 2 }}>
-        T{entry.turn ?? "?"} · {entry.actor || "?"}{entry.auto ? " (auto)" : ""}
+        T{entry.turn ?? "?"} · {seatLabel(entry.actor) || "?"}{entry.auto ? " (auto)" : ""}
       </div>
-      <div>
-        {action.kind || "—"}
-        {action.name ? ` · ${action.name}` : ""}
-      </div>
+      <div>{logActionText(action, { seat: entry.actor || undefined })}</div>
     </div>
   );
 }

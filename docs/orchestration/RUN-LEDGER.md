@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **66 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,451)**; engine gains since the tag: **−16** (+65 gained, −81 false credit removed). The next tag
+> **67 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,451)**; engine gains since the tag: **−16** (+65 gained, −81 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,57 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX: the Academy's narration and game logs read as words — every dispatcher kind narrates from its own data (crew names its crew, suspend, the discard / graveyard / hand abilities, Doubling Cube), costs as pips ("for 2 life", "for {0}"), and the Game Log / replay / Recent actions name the seat and label the action · **±0** · corpus unchanged
+> Suite **19,781 green (1 skipped) / 1,826 files** under the gate queue. Lint 0 (CR citations: 0 of 10,678 name no rule). Flip-diff **0 / 0 / 0** (34,620 cards; before = an untouched
+> `git archive` of dbc9db58; the snapshot's import graph — 123 files — reaches none of the changed files). **Mutants 21/21** on assertions, each
+> restored byte-identical (sha256). Engine behaviour and AI play unchanged: the narration and the labels are text-out, read only by the UI.
+> · **The bug** (the 10-17 action-label slice's found-not-fixed list, re-proved on dbc9db58 by the new witnesses, 17/17 red on assertions):
+>   `narrator.narrateAction` had no case for crew-vehicle ("Take action") or suspend / discard-ability / activate-gy-recursion /
+>   activate-gy-exile / activate-hand-self-put / double-mana-pool ("Take action: <name>"); its `formatCost` wrote a zero cost as "0" —
+>   "Cycle [[Street Wraith]] for 0" (the bundled text is "Cycling—Pay 2 life"), "Cast [[Memnite]] for 0", and every alternative-cost cast
+>   (the engine stores `{ generic: 0 }` there) "for 0"; an activation's line ended in two full stops ("Draw a card..") and named neither its
+>   cost nor its target, so the pinger's six targets read alike; a loyalty ability aimed at a player dropped the player (Liliana's −2 at
+>   the opponent and at you read the same); cascade-decline carries only a card id, so it read "[[the card]]"; a discover park whose
+>   decline leaves the card exiled (The Key to the Vault, `leaveExiled`) said "Put … into your hand"; a plot from the library said "exile
+>   it from your hand"; kicker / X / mode clauses were not narrated, so the variants of one cast read identically. ② `LearnLogEntry` (the
+>   Recent actions feed and the Table Records replay scrubber) and LearnBoard's Game Log printed `actor · kind · name`: "ai1 ·
+>   activate-ability · Prodigal Pyromancer".
+> · **The fix.** The labeller (`actionLabel`, `castVariantClauses`, `targetLabels`, `manaCostText`, the activation-cost and ability helpers)
+>   moved out of the client component into `app/src/lib/learn/actionLabel.js` (LearnBoard re-exports it), so the engine-side narrator shares
+>   it. `narrateAction` words all 23 `ACTION_KINDS` from each action's fields with those helpers: "Activate [[Mind Stone]] ({1}, {T},
+>   sacrifice it): Draw a card." · "Activate [[Prodigal Pyromancer]] ({T}) targeting Opponent: …" · "Crew [[Smuggler's Copter]] (crew 1, tap
+>   [[Prodigal Pyromancer]])." (the crew is named off the board; counted when the board doesn't hold it) · "Cycle [[Street Wraith]] for 2
+>   life." · "Suspend [[Lotus Bloom]] for {0} with 3 time counters." · "Activate [[Reassembling Skeleton]] from your graveyard: {1}{B}: …" ·
+>   "Activate [[Trumpeting Carnosaur]] from your hand ({2}{R}, discard it) targeting [[Hill Giant]]." · a free cast reads "without paying its
+>   mana cost", an alternative-cost cast names its payment instead of a mana cost, and the cast clauses ride in parentheses. Targets: every
+>   target, players by seat ("you", "Opponent 1"), and a name another target or a permanent on another side also bears gets its controller
+>   ("your [[Prodigal Pyromancer]]" / "Opponent's [[Prodigal Pyromancer]]" — found live: two pingers read alike). Cascade decline reads the
+>   card's name off the board ("Decline the cascade cast." when it can't). `formatCost` is gone (`manaCostText` writes pips, {0} for free).
+>   ② `actionLabel(o, { seat })` tells an action from the acting seat — "your" becomes `seatPossessive(seat)` (graveyard / hand / library /
+>   the exile cost) and an attack on the player reads "Attack you with …"; the player's own buttons are unchanged (seat defaults to
+>   "user"). `logActionText` labels a log line; a kind that is not a dispatcher action (the engine's ~35 choice and bookkeeping records)
+>   keeps its kind's words and card ("Spell unresolved · Kozilek's Return"). `LearnLogEntry` and the Game Log print `seatLabel(actor)` and
+>   that text.
+> · **Live check** (`next dev -p 3108`, scratch `MTG_APP_ROOT` under C:\tmp with the AppData data as the read-only `MTG_REFERENCE_DIR`, a
+>   seeded beginner 1v1 puzzle — Mind Stone, two Prodigal Pyromancers, Smuggler's Copter, Street Wraith, Hieroglyphic Illumination, Lotus
+>   Bloom, a graveyard Reassembling Skeleton): the expanded narration listed all 22 options in words ("Suspend [[Lotus Bloom]] for {0} with 3
+>   time counters.", "Crew [[Smuggler's Copter]] (crew 1, tap [[Prodigal Pyromancer]]).", "Cycle [[Street Wraith]] for 2 life: …",
+>   "targeting your / Opponent's [[Prodigal Pyromancer]]" after the hot reload). Played ping → crew → both cycles → Skeleton: the Game Log
+>   read "You · Activate Prodigal Pyromancer: … → Opponent ({T})", "You · Crew Smuggler's Copter (crew 1, tap 1 creature)", "You · Cycle
+>   Street Wraith (pay 2 life)", "You · Pass", then the AI's turn "Opponent (auto) · Play Mountain" / "Attack with Hill Giant". The game
+>   was driven to its end through `/api/learn/step`; its Table Records replay showed "T5 · You / Cycle Street Wraith (pay 2 life)" and
+>   "T6 · Opponent (auto) / Play Mountain". Not reachable live: the Recent actions list (LearnView's no-board path; the API always sends
+>   a board) — covered by the render test. The dev server was stopped after.
+> · Witnesses: `narratorKinds.test.js` (11 — engine-backed narration on real oracle text, the every-`ACTION_KINDS` guard at both
+>   difficulties, the costs / decline / leave-exiled / alt-cost / kicker lines, the same-name controller), `learnLogLabels.test.jsx` (8 —
+>   LearnLogEntry and the Game Log render seat labels and labels, the seat-told label, the non-dispatcher fallback, the string entry).
+> · ⚠️ Found, not fixed: the board's narration panel shows the narrator's `[[card]]` brackets verbatim; the beginner list repeats one
+>   identical "Tap [[Swamp]] for {B}." line per land; the action BUTTONS for same-named targets on different sides still read alike
+>   ("→ Prodigal Pyromancer" twice — `actionLabel` has no board; the "+N more" list numbers them), and the crew button still counts its
+>   crew; the ~35 engine choice records in the logs read as their kind's words ("Hand discard choice") — wording each needs its own copy;
+>   the engine's player target objects carry `name: "user"` / `"ai"` (raw seat ids) — the labeller and narrator map players by seat, but any
+>   other reader of `target.name` would print the id.
 
 > ## 🔧 2026-10-17 — FIX: a split half or an Adventure on the stack has only its own COLOURS, and no card is cast as one object paying two halves' costs — Fire is red (Gainsay, Pyroblast, Kor Firewalker), Blow Off Steam is red; omen and preparation cards cast as their creature; Rooms, three-half splits and Twice Upon a Time are not offered · **±0** · snapshot native 15,431 → 15,431
 > Suite **19,745 green (1 skipped) / 1,824 files** under the gate queue. Lint 0 (CR citations: 0 of 10,679 name no rule). Flip-diff **0 / 0 / 0 — no card's tier moves** (34,620 cards; before = an

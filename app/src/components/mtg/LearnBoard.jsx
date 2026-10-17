@@ -25,7 +25,11 @@
 
 import { useState } from "react";
 import { reasonToOutcome } from "../../lib/learn/learnOutcome.js";
-import { SEAT_LABELS, seatLabel, seatPossessive } from "../../lib/learn/seatLabels.js";
+import { seatLabel, seatPossessive } from "../../lib/learn/seatLabels.js";
+import { actionLabel, logActionText, playLabelParts, targetLabels } from "../../lib/learn/actionLabel.js";
+
+// The labeller lives in lib/learn/actionLabel.js (the narrator and the game logs share it); re-exported for this module's callers.
+export { actionLabel, castVariantClauses, manaCostText, targetLabels } from "../../lib/learn/actionLabel.js";
 
 // Full Magic card image (frame/border/text) — immersion. Cached local-first.
 const ART = (name) => `/api/card-image?name=${encodeURIComponent(name || "")}`;
@@ -67,65 +71,6 @@ function progressionLabel(step, stackLen, passOption) {
   }
 }
 
-// The additional costs a cast pays, by the name legalChoices gives each payment (CR 601.2f): pay life, pay mana, the
-// permanent sacrificed, the card discarded, exiled from the graveyard, returned to hand or revealed.
-const ADDITIONAL_COST_NAMES = ["payLifeName", "payManaName", "sacName", "discardName", "exileGyName", "returnName", "revealName"];
-
-/**
- * The clauses that set one cast apart from a plain cast of the same card, in reading order: the chosen mode(s), X, the kicker
- * (teamwork names the creatures it taps, shelf D16), an alternative cost (bestow, emerge, flashback, escape with the three
- * graveyard cards it exiles, P·29; a pitch, evoke or another "rather than its mana cost" payment) and the additional costs.
- * The ONE place variant wording lives: actionLabel appends these, and the cast chooser lists each variant by them. Without
- * them a plain and a paid cast read identically, and a cost (the creature sacrificed, the card pitched) goes unnamed.
- */
-export function castVariantClauses(o) {
-  if (!o || o.kind !== "cast-spell") return [];
-  const out = [];
-  if (o.modeName) out.push(o.modeName);
-  if (o.xName) out.push(o.xName);
-  if (o.kicked && o.kickedName) out.push(o.kickedName);
-  if (o.bestow) out.push("bestow");
-  if (o.emerge) out.push(o.sacCreatureName ? `emerge: sacrifice ${o.sacCreatureName}` : "emerge");
-  if (o.flashbackCast) out.push("flashback");
-  if (o.escapeName) out.push(o.escapeName);
-  if (o.altName) out.push(o.altCost?.evoke ? `evoke: ${o.altName}` : o.altName);
-  // Bolas's Citadel's library-top cast carries its life payment as an altCost with no altName (P·17).
-  else if (o.lifeCostFromTop && o.altCost) out.push(o.altCost.payLife ? `pay ${o.altCost.payLife} life rather than its mana cost` : "without paying its mana cost");
-  for (const key of ADDITIONAL_COST_NAMES) if (o[key]) out.push(o[key]);
-  return out;
-}
-
-// A target's controller as a possessive, for telling apart two targets that share a name.
-const controllerPossessive = (pid) => seatPossessive(pid);
-
-/**
- * Human labels for a list of targets: a player reads as its seat ("Opponent 1", never the engine's "ai1"), anything else by
- * name. Two targets sharing a name — your Grizzly Bears and theirs — are told apart by their controller.
- */
-export function targetLabels(targets) {
-  const names = targets.map((t) => (t?.type === "player" ? SEAT_LABELS[t.id] || t.id : t?.name || ""));
-  const uses = new Map();
-  for (const n of names) uses.set(n, (uses.get(n) || 0) + 1);
-  return targets.map((t, i) => (uses.get(names[i]) > 1 && t?.type !== "player" && t?.controller
-    ? `${controllerPossessive(t.controller)} ${names[i]}`
-    : names[i]));
-}
-
-// What a cast is aimed at, as one string — from its target objects, or the engine's targetName when they carry no names.
-function castTargetText(o) {
-  const labels = targetLabels((o.targets || []).filter(Boolean));
-  return labels.length && labels.every(Boolean) ? labels.join(", ") : o.targetName || null;
-}
-
-// The three parts a hand-card play's label is built from: the verb and the face played, the target, the variant clauses.
-function playLabelParts(o) {
-  return {
-    head: `${o.kind === "play-land" ? "Play" : "Cast"} ${o.name}`,
-    target: o.kind === "cast-spell" ? castTargetText(o) : null,
-    clauses: castVariantClauses(o),
-  };
-}
-
 // Number the labels that repeat ("Sacrifice Goblin Token (1)", "(2)"), so every button reads differently from the others.
 function numberRepeats(labels) {
   const total = new Map();
@@ -137,112 +82,6 @@ function numberRepeats(labels) {
     seen.set(l, n);
     return `${l} (${n})`;
   });
-}
-
-/**
- * A parsed mana cost (legalChoices.parseManaCost's object) written back as pips — "{2}{R}", "{W/U}", "{U/P}"; a cost with no
- * pips reads "{0}". `xPaid` drops the {X} pips of a cost whose X is already folded into its generic part (xResolvedCost).
- */
-export function manaCostText(cost, { xPaid = false } = {}) {
-  if (!cost) return "";
-  const pips = [];
-  if (cost.hasX && !xPaid) for (let i = 0; i < (cost.xCount || 1); i++) pips.push("{X}");
-  if (cost.generic) pips.push(`{${cost.generic}}`);
-  for (const h of cost.hybrid || []) pips.push(`{${(Array.isArray(h) ? h : [h]).join("/")}}`);
-  for (const c of ["W", "U", "B", "R", "G", "C"]) for (let i = 0; i < (cost[c] || 0); i++) pips.push(`{${c}}`);
-  for (const c of cost.phyrexian || []) pips.push(`{${c}/P}`);
-  for (let i = 0; i < (cost.snow || 0); i++) pips.push("{S}");
-  return pips.join("") || "{0}";
-}
-
-// An ability's text as a button reads it: the action's own text, without its closing full stop.
-const abilityWords = (text) => String(text || "").trim().replace(/\.$/, "");
-
-// The cost an activated ability pays beyond what its text names: its mana, {T}, life, energy, and what happens to the
-// source. A victim the player picked (a sacrificed creature, a returned land) already leads the action's abilityText.
-function activationCostText(o) {
-  const parts = [];
-  const mana = manaCostText(o.cost, { xPaid: o.xValue != null });
-  if (mana && mana !== "{0}") parts.push(mana);
-  if (o.tapSelf) parts.push("{T}");
-  const tapN = o.tapCountIds?.length || 0;
-  if (tapN) parts.push(`tap ${tapN} untapped creature${tapN === 1 ? "" : "s"}`);
-  const exileN = o.exileGyIds?.length || 0;
-  if (exileN) parts.push(`exile ${exileN} card${exileN === 1 ? "" : "s"} from your graveyard`);
-  if (o.payLife > 0) parts.push(`pay ${o.payLife} life`);
-  if (o.payEnergy > 0) parts.push(`pay ${"{E}".repeat(o.payEnergy)}`);
-  if (o.sacSelf) parts.push("sacrifice it");
-  if (o.exileSelf) parts.push("exile it");
-  if (o.removeCounter?.type) {
-    const n = o.removeCounter.count || 1;
-    const t = o.removeCounter.type;
-    parts.push(n === 1 ? `remove ${/^[aeiou]/i.test(t) ? "an" : "a"} ${t} counter` : `remove ${n} ${t} counters`);
-  }
-  return parts.join(", ");
-}
-
-// "<head>: <text> → <target> (<cost>)" — the shape every activated-ability label shares; empty parts drop out.
-function abilityLabel(head, o, cost = "") {
-  const text = abilityWords(o.abilityText);
-  const target = castTargetText(o);
-  return `${head}${text ? `: ${text}` : ""}${target ? ` → ${target}` : ""}${cost ? ` (${cost})` : ""}`;
-}
-
-/**
- * Human label for a legal-action object — the ONE source of truth for how an
- * action reads, shared by the board's action buttons, the no-board decision
- * prompt AND the P3 post-game debrief (so "you did X, the suggested play was Y"
- * reads identically to the button the player clicked). Every kind the
- * dispatcher handles has its own phrasing, built only from the action's data
- * (actionLabelKinds.test.jsx holds that list); an unknown kind falls back to
- * its de-kebabed name.
- */
-export function actionLabel(o) {
-  if (!o || !o.kind) return "—";
-  switch (o.kind) {
-    case "cast-spell": {
-      const { head, target, clauses } = playLabelParts(o);
-      return `${head}${target ? ` → ${target}` : ""}${clauses.length ? ` (${clauses.join("; ")})` : ""}`;
-    }
-    case "play-land": return `Play ${o.name}`;
-    case "declare-attacker": {
-      const at = o.targetName || o.defenderName || SEAT_LABELS[o.defenderId] || "";
-      return at ? `Attack ${at} with ${o.name}` : `Attack with ${o.name}`;
-    }
-    case "declare-blocker": return `Block ${o.attackerName || "attacker"} with ${o.name}`;
-    case "pass-priority": return "Pass";
-    case "tap-for-mana": return `Tap ${o.name || "a land"} for mana`;
-    // An Equipment's equip text carries its own cost ("Equip {1}"), so it isn't repeated.
-    case "activate-ability": return abilityLabel(`Activate ${o.name}`, o, o.isEquipAbility ? "" : activationCostText(o));
-    case "activate-loyalty": {
-      const target = castTargetText(o);
-      const text = abilityWords(o.abilityText) || `${o.costDelta > 0 ? "+" : ""}${o.costDelta}`;
-      return `Activate ${o.name} ${text}${target ? ` → ${target}` : ""}`;
-    }
-    case "crew-vehicle": {
-      const n = Array.isArray(o.tapIds) ? o.tapIds.length : 0;
-      return `Crew ${o.vehicleName}${o.crew != null ? ` (crew ${o.crew}${n ? `, tap ${n} creature${n === 1 ? "" : "s"}` : ""})` : ""}`;
-    }
-    case "cycle": return `Cycle ${o.name} (${o.lifeCost != null ? `pay ${o.lifeCost} life` : manaCostText(o.cost)})`;
-    // These abilities' texts carry their own costs.
-    case "double-mana-pool": return abilityLabel(`Activate ${o.name}`, o);
-    case "activate-gy-recursion": return `${abilityLabel(`Activate ${o.name} from your graveyard`, o)}${o.tapName ? ` (tap ${o.tapName})` : ""}`;
-    case "activate-gy-exile": return abilityLabel(`Activate ${o.name} from your graveyard`, o);
-    case "activate-hand-self-put": return abilityLabel(`Activate ${o.name} from your hand`, o);
-    case "discard-ability": {
-      const mana = manaCostText(o.cost);
-      return abilityLabel(`Activate ${o.name} from your hand`, o, [mana !== "{0}" ? mana : "", "discard it"].filter(Boolean).join(", "));
-    }
-    case "suspend": return `Suspend ${o.name} (${manaCostText(o.cost)}, ${o.suspendCounters} time counter${o.suspendCounters === 1 ? "" : "s"})`;
-    case "plot": return `Plot ${o.name}${o.fromZone === "library" ? " from the top of your library" : ""} (${manaCostText(o.cost)})`;
-    case "turn-face-up": return `Turn ${o.name} face up (${manaCostText(o.cost)})`;
-    case "companion-to-hand": return `Put companion ${o.name} into your hand (${manaCostText(o.cost)})`;
-    case "discover-to-hand": return o.leaveExiled ? `Leave ${o.name || "it"} in exile` : `Put ${o.name || "it"} into your hand`;
-    case "free-cast-decline": return "Decline the free cast";
-    case "cascade-decline": return "Decline the cascade cast";
-    case "cast-from-among-done": return "Done casting from among the exiled cards";
-    default: return o.kind.replace(/-/g, " ");
-  }
 }
 
 const hasTarget = (o) => (o?.targets || []).some((t) => t?.id);
@@ -580,7 +419,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
             <div className="lb-zl" style={{ marginBottom: 6 }}>Game Log</div>
             {(logTail || []).slice().reverse().map((e, i) => (
               <div key={`${e.ts}-${i}`} className="lb-ln">
-                <b>{e.actor}{e.auto ? " (auto)" : ""}</b> · {e.action?.kind}{e.action?.name ? ` · ${e.action.name}` : ""}
+                <b>{seatLabel(e.actor) || "?"}{e.auto ? " (auto)" : ""}</b> · {logActionText(e.action, { seat: e.actor || undefined })}
               </div>
             ))}
             {!(logTail || []).length && <div className="lb-ln">No actions yet.</div>}

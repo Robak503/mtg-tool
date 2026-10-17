@@ -28,6 +28,7 @@
  * ships with zero route changes.
  */
 import { seatLabel as defaultSeatLabel } from "./seatLabels.js";
+import { abilityWords, activationCostText, castVariantClauses, discardAbilityCostText, manaCostText } from "./actionLabel.js";
 
 // ─── Pod-aware subject helpers ────────────────────────────────────────────────
 
@@ -175,10 +176,79 @@ export function narrateStep(state, { difficulty = "beginner", seatLabel } = {}) 
 
 // ─── Action narration ────────────────────────────────────────────────────────
 
+// Card names are written [[like this]] (the voice rule above); `fallback` stands in, unbracketed, when the action names none.
+const cardRef = (name, fallback = "it") => (name ? `[[${name}]]` : fallback);
+
+// "A", "A and B", "A, B and C".
+function joinAnd(words) {
+  return words.length <= 1 ? words.join("") : `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
+}
+
+// Does a permanent of this name sit on the battlefield under a controller other than `controller`?
+function nameOnAnotherSide(state, name, controller) {
+  for (const [pid, p] of Object.entries(state?.players || {})) {
+    if ((p.battlefield || []).some((x) => x?.card?.name === name && (x.controller ?? pid) !== controller)) return true;
+  }
+  return false;
+}
+
+/**
+ * " targeting <who>" for every target an action carries: a player by seat ("you", "Opponent 1"), anything else by its card
+ * name. A name another target, or a permanent on another side of the board, also bears is told apart by its controller
+ * ("your [[Prodigal Pyromancer]]", "Opponent's [[Prodigal Pyromancer]]"). Falls back to the engine's targetName; "" when the
+ * action has no target.
+ */
+function targetingText(action, state, seatLabel) {
+  const targets = (action.targets || []).filter(Boolean);
+  const nameUses = new Map();
+  for (const t of targets) if (t.type !== "player" && t.name) nameUses.set(t.name, (nameUses.get(t.name) || 0) + 1);
+  const words = targets.map((t) => {
+    if (t.type === "player") return t.id === "user" ? "you" : seatLabel(t.id);
+    if (!t.name) return null;
+    const shared = t.controller && (nameUses.get(t.name) > 1 || nameOnAnotherSide(state, t.name, t.controller));
+    const owner = shared ? `${t.controller === "user" ? "your" : `${seatLabel(t.controller)}'s`} ` : "";
+    return `${owner}${cardRef(t.name)}`;
+  });
+  if (words.length && words.every(Boolean)) return ` targeting ${joinAnd(words)}`;
+  return action.targetName ? ` targeting ${cardRef(action.targetName)}` : "";
+}
+
+// " for <pips>" — a parsed mana cost as pips (a free one is {0}; X dropped once folded into generic); "" when there is none.
+function forManaCost(cost, opts) {
+  const pips = manaCostText(cost, opts);
+  return pips ? ` for ${pips}` : "";
+}
+
+// The name of the permanent or card `id` wherever it is (battlefield, hand, graveyard, exile, command zone); null if absent.
+function objectName(state, id) {
+  if (!id) return null;
+  for (const p of Object.values(state?.players || {})) {
+    const perm = (p.battlefield || []).find((x) => x?.id === id);
+    if (perm) return perm.card?.name || null;
+    for (const zone of ["hand", "graveyard", "exile", "command"]) {
+      const c = (p[zone] || []).find((x) => x?.id === id);
+      if (c) return c.name || null;
+    }
+  }
+  return null;
+}
+
+/**
+ * An activated ability's line: "<head> (<cost>) targeting <who>: <its text>." — the action's own text (its closing full stop
+ * dropped, so the line has one), cost and targets; empty parts drop out.
+ */
+function abilityLine(head, action, { cost = "", state, seatLabel }) {
+  const text = abilityWords(action.abilityText);
+  return `${head}${cost ? ` (${cost})` : ""}${targetingText(action, state, seatLabel)}${text ? `: ${text}` : ""}.`;
+}
+
 /**
  * Generate a Jace-voice description of a single legal action. Used in
  * the decision menu so the user sees not just "Cast Lightning Bolt"
- * but "Cast [[Lightning Bolt]] for {R}: deal 3 damage to any target."
+ * but "Cast [[Lightning Bolt]] for {R} targeting [[Hill Giant]]." Every kind the dispatcher handles
+ * has its own line, built from the action's fields with the action labeller's cost and text helpers
+ * (actionLabel.js) — narratorKinds.test.js holds every ACTION_KINDS kind to one; an unknown kind
+ * falls back to "Take action".
  */
 export function narrateAction(action, state, { card = null, difficulty = "beginner", seatLabel = defaultSeatLabel } = {}) {
   switch (action.kind) {
@@ -196,25 +266,26 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
     }
 
     case "cast-spell": {
-      const cardName = action.name || card?.name || "the spell";
-      const costString = formatCost(action.cost);
+      const ref = cardRef(action.name || card?.name, "the spell");
+      // A free cast pays nothing, and an alternative cost names its own payment among the clauses (the engine stores {0} as
+      // that cast's mana cost) — neither reads "for {0}".
+      const costPart = action.freeCast
+        ? " without paying its mana cost"
+        : (action.altName || action.altCost) ? "" : forManaCost(action.cost, { xPaid: action.xValue != null });
+      const clauses = castVariantClauses(action);
+      const clauseText = clauses.length ? ` (${clauses.join("; ")})` : "";
       const oracle = card?.oracle || card?.oracle_text || "";
       const oracleSnippet = oracle ? ` (${truncate(oracle, 80)})` : "";
-      const tgt = action.targets?.[0];
-      const targeting = tgt
-        ? (tgt.type === "player"
-          ? ` targeting ${tgt.id === "user" ? "you" : seatLabel(tgt.id)}`
-          : ` targeting [[${tgt.name || "a creature"}]]`)
-        : "";
+      const targeting = targetingText(action, state, seatLabel);
       // Front-face planeswalker? (a creature-front DFC casts as its creature side, so check face 0).
       const frontType = card?.card_faces?.[0]?.type_line || card?.type || card?.type_line || "";
       const pwNote = /Planeswalker/.test(frontType)
         ? ` It enters with its starting loyalty counters, and you can activate one of its loyalty abilities this turn (loyalty abilities ignore summoning sickness).`
         : "";
       if (difficulty === "beginner") {
-        return `Cast [[${cardName}]] for ${costString}${targeting}${oracleSnippet}. The spell goes on the stack; opponents can respond before it resolves.${pwNote}`;
+        return `Cast ${ref}${costPart}${targeting}${clauseText}${oracleSnippet}. The spell goes on the stack; opponents can respond before it resolves.${pwNote}`;
       }
-      return `Cast [[${cardName}]] for ${costString}${targeting}.`;
+      return `Cast ${ref}${costPart}${targeting}${clauseText}.`;
     }
 
     case "declare-attacker": {
@@ -267,7 +338,8 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
       const name = action.name || "the planeswalker";
       const delta = action.costDelta;
       const sign = delta > 0 ? `+${delta}` : `${delta}`;
-      const targeting = action.targetName ? ` targeting [[${action.targetName}]]` : "";
+      // Every target, a player included — Liliana's −2 at an opponent and at you are two different lines.
+      const targeting = targetingText(action, state, seatLabel);
       if (difficulty === "beginner") {
         const costLine = delta > 0
           ? `Pay the cost by adding ${delta} loyalty counter${delta === 1 ? "" : "s"}`
@@ -281,7 +353,7 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
           `You may activate only ONE loyalty ability of a given planeswalker each turn, and only when you could cast a sorcery — your main phase, stack empty (rule 606.3). ` +
           `A planeswalker CAN use a loyalty ability the turn it enters; loyalty abilities ignore summoning sickness.${arbiterNote}`;
       }
-      return `Activate [[${name}]]'s ${sign} ability${action.targetName ? ` (${action.targetName})` : ""}.`;
+      return `Activate [[${name}]]'s ${sign} ability${targeting}.`;
     }
 
     case "companion-to-hand": {
@@ -295,55 +367,93 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
     }
 
     case "activate-ability": {
-      // N5: the common Commander action (Sol Ring, mana rocks, utility lands, equip, etc.) had zero
-      // narration before this — every activation fell to the generic default.
-      const name = action.name || card?.name || "the permanent";
-      const abilityText = action.abilityText || "its ability";
+      // N5: the common Commander action (mana rocks, pingers, utility lands, equip, etc.). The line names the ability's cost
+      // (an Equipment's equip text carries its own), its targets and its text — the same parts as its button.
+      const line = abilityLine(`Activate ${cardRef(action.name || card?.name, "the permanent")}`, action,
+        { cost: action.isEquipAbility ? "" : activationCostText(action), state, seatLabel });
       if (difficulty === "beginner") {
-        return `Activate [[${name}]]: ${abilityText}. The ability goes on the stack and opponents can respond before it resolves (mana abilities are the exception — they resolve immediately, no stack, rule 605.3a).`;
+        return `${line} The ability goes on the stack and opponents can respond before it resolves (mana abilities are the exception — they resolve immediately, no stack, rule 605.3a).`;
       }
-      return `Activate [[${name}]]: ${abilityText}.`;
+      return line;
+    }
+
+    // These abilities' texts carry their own costs (Doubling Cube's "{3}, {T}:", a graveyard or hand ability's mana).
+    case "double-mana-pool":
+      return abilityLine(`Activate ${cardRef(action.name || card?.name, "the permanent")}`, action, { state, seatLabel });
+
+    case "activate-gy-recursion":
+      return abilityLine(`Activate ${cardRef(action.name || card?.name, "the card")} from your graveyard`, action,
+        { cost: action.tapName ? `tap ${cardRef(action.tapName)}` : "", state, seatLabel });
+
+    case "activate-gy-exile":
+      return abilityLine(`Activate ${cardRef(action.name || card?.name, "the card")} from your graveyard`, action, { state, seatLabel });
+
+    case "activate-hand-self-put":
+      return abilityLine(`Activate ${cardRef(action.name || card?.name, "the card")} from your hand`, action, { state, seatLabel });
+
+    case "discard-ability":
+      return abilityLine(`Activate ${cardRef(action.name || card?.name, "the card")} from your hand`, action,
+        { cost: discardAbilityCostText(action), state, seatLabel });
+
+    case "crew-vehicle": {
+      // CREW (CR 702.122a): the creatures the engine taps are named off the board; without the board, counted (as the button).
+      const vehicle = cardRef(action.vehicleName || objectName(state, action.permanentId), "the Vehicle");
+      const ids = Array.isArray(action.tapIds) ? action.tapIds : [];
+      const names = ids.map((id) => objectName(state, id));
+      const tapPart = !ids.length ? ""
+        : names.every(Boolean) ? `, tap ${joinAnd(names.map((n) => cardRef(n)))}`
+          : `, tap ${ids.length} creature${ids.length === 1 ? "" : "s"}`;
+      return `Crew ${vehicle}${action.crew != null ? ` (crew ${action.crew}${tapPart})` : ""}.`;
     }
 
     case "cycle": {
-      // CYCLING (CR 702.29a): an activated ability from hand — discard this card, draw a card.
-      const name = action.name || card?.name || "the card";
-      const costString = formatCost(action.cost);
+      // CYCLING (CR 702.29a): an activated ability from hand — discard this card, draw a card. Its cost is mana, or life
+      // (Street Wraith's "Pay 2 life"), never a bare "0".
+      const ref = cardRef(action.name || card?.name, "the card");
+      const costString = action.lifeCost != null ? ` for ${action.lifeCost} life` : forManaCost(action.cost);
       if (difficulty === "beginner") {
-        return `Cycle [[${name}]] for ${costString}: discard it and draw a card. Cycling is an activated ability that uses the stack (rule 702.29a) — it can be responded to, though the draw itself can't be stopped once it resolves.`;
+        return `Cycle ${ref}${costString}: discard it and draw a card. Cycling is an activated ability that uses the stack (rule 702.29a) — it can be responded to, though the draw itself can't be stopped once it resolves.`;
       }
-      return `Cycle [[${name}]] for ${costString}.`;
+      return `Cycle ${ref}${costString}.`;
+    }
+
+    case "suspend": {
+      const n = action.suspendCounters;
+      return `Suspend ${cardRef(action.name || card?.name, "the card")}${forManaCost(action.cost)}${n != null ? ` with ${n} time counter${n === 1 ? "" : "s"}` : ""}.`;
     }
 
     case "turn-face-up": {
       // MANIFEST (CR 701.40b): a special action (no stack) — pay the face-down card's mana cost and turn it face up.
-      const name = action.name || "the card";
-      const costString = formatCost(action.cost);
+      const ref = cardRef(action.name, "the card");
+      const costString = forManaCost(action.cost);
       if (difficulty === "beginner") {
-        return `Turn your face-down 2/2 face up for ${costString}: it becomes [[${name}]]. A manifested creature card can be turned face up any time you have priority by paying its mana cost — a special action that doesn't use the stack, and it isn't entering the battlefield, so its enters abilities don't trigger.`;
+        return `Turn your face-down 2/2 face up${costString}: it becomes ${ref}. A manifested creature card can be turned face up any time you have priority by paying its mana cost — a special action that doesn't use the stack, and it isn't entering the battlefield, so its enters abilities don't trigger.`;
       }
-      return `Turn [[${name}]] face up for ${costString}.`;
+      return `Turn ${ref} face up${costString}.`;
     }
 
     case "plot": {
-      // PLOT (CR 702.170a-b): a special action (no stack) — exile this card from hand and pay its plot
-      // cost now; next turn you may cast it from exile without paying its mana cost.
-      const name = action.name || card?.name || "the card";
-      const costString = formatCost(action.cost);
+      // PLOT (CR 702.170a-b): a special action (no stack) — exile this card (from hand, or the top of the library when an
+      // effect lets you plot that) and pay its plot cost now; next turn you may cast it from exile without paying its mana cost.
+      const ref = cardRef(action.name || card?.name, "the card");
+      const fromTop = action.fromZone === "library";
+      const costString = forManaCost(action.cost);
       if (difficulty === "beginner") {
-        return `Plot [[${name}]] for ${costString}: exile it from your hand now. Plotting is a special action — it doesn't use the stack and can't be responded to (rule 702.170b). Starting your next turn, you may cast it from exile without paying its mana cost.`;
+        return `Plot ${ref}${fromTop ? " from the top of your library" : ""}${costString}: exile it ${fromTop ? "from the top of your library" : "from your hand"} now. Plotting is a special action — it doesn't use the stack and can't be responded to (rule 702.170b). Starting your next turn, you may cast it from exile without paying its mana cost.`;
       }
-      return `Plot [[${name}]] for ${costString}.`;
+      return `Plot ${ref}${fromTop ? " from the top of your library" : ""}${costString}.`;
     }
 
     case "discover-to-hand": {
       // DISCOVER (CR 701.57a, a keyword ACTION, not an ability): the revealed card missed discover's
-      // mana-value-or-less free-cast window — put it into your hand instead.
-      const name = action.name || card?.name || "the card";
+      // mana-value-or-less free-cast window — put it into your hand instead. A park whose decline leaves the card exiled
+      // (The Key to the Vault) carries leaveExiled: it stays in exile.
+      const ref = cardRef(action.name || card?.name);
+      if (action.leaveExiled) return `Leave ${ref} in exile.`;
       if (difficulty === "beginner") {
-        return `Put [[${name}]] into your hand instead of casting it. Discover lets you cast a revealed nonland card whose mana value is at most the discover number for free, or put it into your hand if you don't (or can't) cast it (rule 701.57a).`;
+        return `Put ${ref} into your hand instead of casting it. Discover lets you cast a revealed nonland card whose mana value is at most the discover number for free, or put it into your hand if you don't (or can't) cast it (rule 701.57a).`;
       }
-      return `Put [[${name}]] into your hand.`;
+      return `Put ${ref} into your hand.`;
     }
 
     case "free-cast-decline": {
@@ -366,29 +476,18 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
 
     case "cascade-decline": {
       // CASCADE (CR 702.85a): decline the free cast off the top of the exiled cards — it goes to the
-      // bottom of your library instead.
-      const name = action.name || card?.name || "the card";
+      // bottom of your library instead. The action carries the card's id only; its name is read off the board.
+      const name = action.name || card?.name || objectName(state, action.cardId);
+      const head = name ? `Decline to cast ${cardRef(name)}` : "Decline the cascade cast";
       if (difficulty === "beginner") {
-        return `Decline to cast [[${name}]] for free. Cascade lets you cast the first nonland card revealed with a lower mana value for free; if you don't (or can't), it goes to the bottom of your library instead (rule 702.85a).`;
+        return `${head}${name ? " for free" : ""}. Cascade lets you cast the first nonland card revealed with a lower mana value for free; if you don't (or can't), it goes to the bottom of your library instead (rule 702.85a).`;
       }
-      return `Decline to cast [[${name}]].`;
+      return `${head}.`;
     }
 
     default:
       return action.name ? `Take action: ${action.name}` : "Take action";
   }
-}
-
-function formatCost(cost) {
-  if (!cost) return "0";
-  const parts = [];
-  if (cost.generic) parts.push(`{${cost.generic}}`);
-  for (const color of ["W", "U", "B", "R", "G", "C"]) {
-    for (let i = 0; i < (cost[color] || 0); i++) parts.push(`{${color}}`);
-  }
-  for (const opt of cost.hybrid || []) parts.push(`{${opt.join("/")}}`);
-  for (const c of cost.phyrexian || []) parts.push(`{${c}/P}`);
-  return parts.join("") || "0";
 }
 
 function truncate(text, max) {
