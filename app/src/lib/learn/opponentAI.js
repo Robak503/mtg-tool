@@ -28,13 +28,15 @@
 import { detectArchetype } from "../goldfish.js";
 import { filterActions } from "./legalChoices.js";
 import { opponentsOf, findPermanent } from "./gameState.js";
+import { atomTargets } from "./effects/atoms/shared.js"; // the mass-counter side read (Oran-Rief) — the set the resolution itself reads
 import { lookupPlayHint } from "./cardPlayHints.js"; // PLAY-HINTS (2026-08-12) — a zero-import leaf, cycle-safe
 import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, goaderControllersOf, cannotEquipNow } from "./layers.js";
 import { auraCastIntent } from "./auraEntry.js"; // W7e — which side an Aura lands on (a control Aura is ENEMY, a restriction grant too); shared with the non-cast entry (CR 303.4f)
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction } from "./manaModel.js";
 import { attackerMinBlockers, canBlockAttacker, lureFilterOf, mustBeBlockedIfAble, mustAttackUnlessOf, controllerMeetsBoardPredicate } from "./combatEvasion.js";
-import { programContainsCounter, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog, atomTargetIntent, programConfidence } from "./effects/parser.js";
+import { programContainsCounter, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog, atomTargetIntent, programConfidence, parseEffectClause } from "./effects/parser.js";
+import { detectTriggers } from "./triggers.js"; // the land-drop ranking reads an SNC fetch land's enters trigger (triggers.js imports no AI module)
 import { changeTargetAlternatives, atomForStackTarget } from "./effects/targeting.js"; // CHANGE THE TARGET (shelf D14) — where a redirect could send an opponent's spell; the redirected slot's atom
 import { manaUntapLineAction, pickManaAuraTarget } from "./manaUntapLine.js"; // "untap X target lands" as a mana line; mana Auras stack on one land
 import { outletFinishAction } from "./outletFinishLine.js"; // E7.2 — the token loop's finishes that are not combat (a sacrifice outlet)
@@ -235,6 +237,32 @@ function landEntersTapped(card) {
 }
 
 /**
+ * A land that, as it enters, sacrifices itself and puts a TAPPED basic onto the battlefield in its place (2026-10-17 — the SNC
+ * family fetch lands: "When this land enters, sacrifice it. When you do, search your library for a basic Swamp, Mountain, or
+ * Forest card, put it onto the battlefield tapped, …"). Read off the enters trigger's own program (the one the runtime resolves):
+ * a self-sacrifice, then a search for basic land types to the battlefield tapped. Returns the colours those basic types make, or
+ * null. The land-drop ranking counts those colours toward the colour the hand needs (it makes no mana itself, so manaProduction
+ * reads nothing). It is NOT ranked as a tapped land, though that is what it becomes: measured on 80 seeded games with the family
+ * lands swapped into the profile decks, that reading made the AI drop an uncracked fetch land (Scalding Tarn, Windswept Heath,
+ * Prismatic Vista — the AI never activates a sacrifice-self fetch, yet the ranking reads it as an untapped land) ahead of the
+ * family land in 8 games. The tapped reading waits for that fetch-land fix.
+ */
+const BASIC_TYPE_COLOR = { plains: "W", island: "U", swamp: "B", mountain: "R", forest: "G" };
+function landFetchesTappedBasicOnEnter(card) {
+  if (!/\bwhen you do\b/i.test(String(card?.oracle || card?.oracle_text || ""))) return null;
+  for (const d of detectTriggers(card)) {
+    if (d.event !== "etb" || d.scope !== "self") continue;
+    const atoms = parseEffectClause(d.effectClause, "Land")?.atoms || [];
+    const [sac, tutor] = atoms;
+    if (sac?.op !== "sacrifice" || sac.target !== "self" || tutor?.op !== "tutor" || tutor.destination !== "battlefield" || !tutor.entersTapped) continue;
+    const groups = tutor.filter?.groups || [];
+    const colors = groups.map((g) => (g.length === 2 && g[0] === "basic" ? BASIC_TYPE_COLOR[g[1]] : null));
+    if (colors.length && colors.every(Boolean)) return colors;
+  }
+  return null;
+}
+
+/**
  * Colored pips in a mana cost string ({W}{U}{B}{R}{G}; each half of a hybrid pip
  * counts as needing that color — a payable-either-way pip is a soft need).
  */
@@ -284,10 +312,11 @@ function pickLandAction(state, aiPlayerId, landActions, pol = {}) {
     // card, whose mana is its front face's (manaModel's face-up read) — a spell // land would read as no land at all, and both
     // faces of a Pathway would read as its front.
     const card = action.faceCard || cardFromHand(state, aiPlayerId, action.cardId);
+    const fetched = card ? landFetchesTappedBasicOnEnter(card) : null; // an SNC fetch land: a basic of one of these colours
     return {
       action,
       untapped: card && !landEntersTapped(card) ? 1 : 0,
-      fillsGap: (manaProduction(card)?.colors || []).some((c) => needed.has(c)) ? 1 : 0,
+      fillsGap: [...(manaProduction(card)?.colors || []), ...(fetched || [])].some((c) => needed.has(c)) ? 1 : 0,
     };
   });
   ranked.sort((a, b) => (b.untapped - a.untapped) || (b.fillsGap - a.fillsGap) || byName(a.action, b.action));
@@ -1499,7 +1528,52 @@ function pickCombatRoleActivation(state, aiPlayerId, abilityActions) {
   return ranked[0].a;
 }
 
-function pickSafeAbilityActivation(abilityActions) {
+/**
+ * THE CONTROLLER'S OWN LIFE LOSS, SIZED AHEAD (2026-10-17 — Castle Locthwain: "{1}{B}{B}, {T}: Draw a card, then you lose life
+ * equal to the number of cards in your hand."). A program of safe ops plus "you lose life" is taken only when the loss can be
+ * read before activating — a fixed amount, or the hand's size after the program's own draws (each draw counted at its printed
+ * amount: a short library draws fewer, so the estimate only errs high) — and leaves the AI at LIFE_PRUDENCE_FLOOR or more, the
+ * floor its alternative-cost life payments and the shockland auto-policy use. Returns the loss, or null when unreadable (held).
+ */
+const LIFE_PRUDENCE_FLOOR = 10;
+function predictedSelfLifeLoss(state, aiPlayerId, atoms) {
+  let hand = state?.players?.[aiPlayerId]?.hand?.length ?? 0;
+  let loss = 0;
+  for (const atom of atoms) {
+    if (atom.op === "draw") {
+      if (!Number.isFinite(atom.amount) || atom.amountCount || atom.amountX || atom.countContext) return null;
+      hand += atom.amount;
+    } else if (atom.op === "lose-life") {
+      if (atom.who !== "controller" || atom.countContext || atom.amountX || atom.half) return null;
+      if (atom.amountCount) {
+        if (atom.amountCount.kind !== "cardsInHand" || (atom.amountCount.per ?? 1) !== 1) return null;
+        loss += hand;
+      } else if (Number.isFinite(atom.amount)) loss += atom.amount;
+      else return null;
+    }
+  }
+  return loss;
+}
+
+/**
+ * A +1/+1 COUNTER ON EACH CREATURE OF A SET (2026-10-17 — Oran-Rief, the Vastwood: "{T}: Put a +1/+1 counter on each green creature
+ * that entered this turn."; Novijen, Raucous Entertainer). The set may hold an opponent's creatures too, so the side is read off
+ * the set itself — the same atomTargets the resolution reads — and the AI activates only when its own creatures in it outnumber
+ * everyone else's. On its own turn only from the postcombat main on: the "entered this turn" set only grows as the turn goes on
+ * (a creature cast after the activation would miss its counter). Returns true to activate.
+ */
+function massCounterFavorsAI(state, aiPlayerId, action) {
+  const atom = action.program?.atoms?.[0];
+  if (!state || !aiPlayerId || !atom) return false;
+  if (state.activePlayer === aiPlayerId && state.phase !== "postcombat-main" && state.phase !== "ending") return false;
+  const set = atomTargets(state, atom, { controller: aiPlayerId, sourceId: action.permanentId, targets: [] });
+  const own = set.filter((t) => t.controller === aiPlayerId).length;
+  return own > set.length - own;
+}
+const isMassPlusCounterAtomList = (atoms) => atoms.length === 1 && atoms[0].op === "add-counter" && atoms[0].counterType === "+1/+1" && atoms[0].targetType === "eachCreature"
+  && !atoms[0].countFor && !atoms[0].countContext && !atoms[0].amountX && Number.isFinite(atoms[0].amount);
+
+function pickSafeAbilityActivation(abilityActions, { state = null, aiPlayerId = null } = {}) {
   const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
   const safe = [];
   for (const a of abilityActions) {
@@ -1512,8 +1586,17 @@ function pickSafeAbilityActivation(abilityActions) {
     if (atoms.length === 0) continue;                     // nothing runnable — activating burns the cost
     if (isLevelUpAtomList(atoms)) { safe.push({ a, rank: 4 }); continue; } // LV-1 — level up with leftover mana
     if (isClassLevelUpAtomList(atoms)) { safe.push({ a, rank: 4 }); continue; } // CLASS — gain a class level with leftover mana
-    if (!atoms.every((atom) => SAFE_ABILITY_OPS.has(atom.op) && !atom.targetType)) continue;
-    const rank = Math.min(...atoms.map((atom) => SAFE_ABILITY_OPS.get(atom.op)));
+    if (isMassPlusCounterAtomList(atoms)) { if (massCounterFavorsAI(state, aiPlayerId, a)) safe.push({ a, rank: 1 }); continue; } // Oran-Rief — own side gains more
+    // A "you lose life" atom beside the safe ops rides only when predictedSelfLifeLoss sizes it and the AI stays at the floor.
+    const losesLife = atoms.some((atom) => atom.op === "lose-life");
+    if (!atoms.every((atom) => (SAFE_ABILITY_OPS.has(atom.op) || (losesLife && atom.op === "lose-life")) && !atom.targetType)) continue;
+    if (losesLife) {
+      if (!atoms.some((atom) => SAFE_ABILITY_OPS.has(atom.op))) continue; // a bare life loss buys nothing
+      const loss = predictedSelfLifeLoss(state, aiPlayerId, atoms);
+      const life = state?.players?.[aiPlayerId]?.life;
+      if (loss == null || !Number.isFinite(life) || life - loss < LIFE_PRUDENCE_FLOOR) continue;
+    }
+    const rank = Math.min(...atoms.filter((atom) => SAFE_ABILITY_OPS.has(atom.op)).map((atom) => SAFE_ABILITY_OPS.get(atom.op)));
     safe.push({ a, rank });
   }
   if (safe.length === 0) return null;
@@ -1691,7 +1774,7 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
       // Slice 2 — cost-safe generic abilities (a.program non-null; equip is program:null, so the
       // two slices are disjoint by construction).
       // The token loop is held while its own copy is on the stack (X is read on resolution) and once there is enough.
-      const generic = pickSafeAbilityActivation(abilities.filter(a => !a.isEquipAbility && !(loop?.holdLoop && isTokenLoopAction(loop, a))));
+      const generic = pickSafeAbilityActivation(abilities.filter(a => !a.isEquipAbility && !(loop?.holdLoop && isTokenLoopAction(loop, a))), { state, aiPlayerId });
       if (generic) return generic;
     }
     // CREW (VH-1) — take a ZERO-COST crew: the offer's auto-picked tap set is all summoning-sick

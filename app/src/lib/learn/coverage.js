@@ -1995,7 +1995,20 @@ function landFullyCovered(card) {
   // K8 (Planar Nexus) — a SELF layer-4 add carrying the nonbasic land types: the descriptor is the vouch, the same way
   // grantsBasicType vouches ④-BE; the line is admitted only when the parser actually emitted it.
   const selfNonbasicTypes = parseStaticAbilities(card).some((e) => e?.layer === 4 && e?.affects?.mode === "self" && Array.isArray(e?.op?.subtypes) && e.op.subtypes.includes("Urza's"));
+  // A REFLEXIVE TAIL (CR 603.7 — 2026-10-17, the SNC family fetch lands: "When this land enters, sacrifice it. When you do, search
+  // your library …"). The trigger-sentence strip stops at the first period, so the "When you do, …" sentence is left as a line of
+  // its own. It is admitted only when it is the reflexive a detected trigger FOLDED into its own effect — the same words, read off
+  // the descriptor — and allTriggerSentencesModeled above already proved every detected trigger routes natively, so the reflexive
+  // is part of a program the runtime plays. A "When you do" no trigger folded (an activated line's, an unread one) stays residue.
+  const foldedReflexives = detectTriggers(card)
+    .map((d) => String(d.effectClause || "").match(/\.\s+when you do(?:\s+this|\s+so)?,?\s+(.+?)\.?$/i)?.[1]?.toLowerCase())
+    .filter(Boolean);
+  const isFoldedReflexiveLine = (line) => {
+    const m = line.match(/^when you do(?:\s+this|\s+so)?,?\s+(.+?)\.?$/i);
+    return !!m && foldedReflexives.includes(m[1].toLowerCase());
+  };
   for (const line of afterTriggers.split("\n").map((l) => l.trim()).filter(Boolean)) {
+    if (isFoldedReflexiveLine(line)) continue;
     if (tapped && /^[^.]*\benters (?:the battlefield )?tapped\.?$/i.test(line)) continue;
     if (condLineRe && condLineRe.test(line)) continue;
     if (shockLineRe && shockLineRe.test(line)) continue;

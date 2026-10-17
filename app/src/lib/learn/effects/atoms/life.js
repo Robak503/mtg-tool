@@ -332,6 +332,15 @@ export function lifeClauseParser(clause) {
     const src = parseCountSource(mfe[2]);
     return src ? { op: "lose-life", who: "controller", amountCount: { ...src, per: parseInt(mfe[1], 10) }, targetType: null } : null;
   }
+  // "YOU LOSE LIFE EQUAL TO THE NUMBER OF <count>" (2026-10-17 — Castle Locthwain: "Draw a card, then you lose life equal to the
+  // number of cards in your hand."): the "equal to the number of" spelling of the controller's for-each arm directly above, per 1.
+  // The count is read as the loss happens (countForSpec at resolution, CR 608.2h), so after a preceding draw in the same
+  // program. An unmodelled count source nulls the clause (a safe false negative).
+  mfe = t.match(/^(?:you )?lose life equal to the number of (.+)$/);
+  if (mfe) {
+    const src = parseCountSource(mfe[1]);
+    return src ? { op: "lose-life", who: "controller", amountCount: { ...src, per: 1 }, targetType: null } : null;
+  }
   // ===== SCALED DAMAGED-PLAYER (2026-08-12 — Graveblade Marauder "that player loses life equal to the
   // number of creature cards in your graveyard"; Emissary of Despair "that player loses 1 life for each
   // artifact they control") ===== who:"damagedPlayer" pins the referent to the combat-damage event via

@@ -352,12 +352,17 @@ export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacri
     // An atom set a resolution-time CHOICE (tutor search) — suspend the program and
     // record where to resume. The driver settles the choice, then resolveTutorChoice
     // re-enters at nextAtomIndex.
+    // THE "IF YOU DO" GATE ACROSS THE PAUSE (2026-10-17 — the SNC family fetch lands: "sacrifice it. When you do, search …, then
+    // shuffle and you gain 1 life"): when the gate is open as this atom pauses — it ran behind a real sacrifice, or it sacrificed —
+    // the resume records the index it is open for, and resumeAfterChoice hands it back as prevSacrificed, so the gated atom after
+    // the search still runs. Keyed to the index (never a bare flag), so a settler that copies the record onto another index can't
+    // carry it; absent when the gate is closed, so every other resume record is byte-identical.
     if (next.pendingChoice && !next.pendingChoice.resume) {
       return {
         ...next,
         pendingChoice: {
           ...next.pendingChoice,
-          resume: { program, controller, targets, xValue, sourceId, context, kicked, chosenMode: params.chosenMode ?? null, nextAtomIndex: i + 1, cardName, spellToGraveyard: params.spellToGraveyard ?? null },
+          resume: { program, controller, targets, xValue, sourceId, context, kicked, chosenMode: params.chosenMode ?? null, nextAtomIndex: i + 1, cardName, spellToGraveyard: params.spellToGraveyard ?? null, ...(sacrificedByPrev ? { sacrificeGateOpenAt: i + 1 } : {}) },
         },
       };
     }
@@ -2428,7 +2433,8 @@ function resumeAfterChoice(state, pc, { prevSacrificed = false } = {}) {
       source: { name: r.cardName ?? pc.sourceName ?? null },
       payload: { params: { program: r.program, controller: r.controller, targets: r.targets, xValue: r.xValue, sourceId: r.sourceId, context: r.context, kicked: r.kicked ?? false, chosenMode: r.chosenMode, spellToGraveyard: r.spellToGraveyard ?? null } },
     };
-    return runEffectProgram(state, obj, { startIndex: r.nextAtomIndex, prevSacrificed });
+    // The settler's own answer (a sacrifice settle, a taken optional sacrifice), or the gate the pause recorded for this very index.
+    return runEffectProgram(state, obj, { startIndex: r.nextAtomIndex, prevSacrificed: prevSacrificed || r.sacrificeGateOpenAt === r.nextAtomIndex });
   }
   // GY-1 terminal: no atoms remain after the settle — the re-entered program can't finish the spell,
   // so finish it here (the two completion points are mutually exclusive per settle: exactly one fires).

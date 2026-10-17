@@ -351,7 +351,8 @@ function referentBindingOk(atoms) {
     // the walk returns -1, `atoms[-1]` is undefined, so the predecessor check below already returns false.
     // Both cases — no atom before it, and an atom before it that targets nothing — are the same question,
     // and asking it once means there is no line here that no test can kill.
-    if (!atoms[referentSourceIndex(atoms, i)]?.targetType) return false;
+    const antecedent = atoms[referentSourceIndex(atoms, i)];
+    if (!antecedent?.targetType || isNonChosenTargetType(antecedent.targetType)) return false; // a mass set is no chosen target list
   }
   return true;
 }
@@ -2096,13 +2097,23 @@ function matchReflexiveTrigger(oracle, cardType, hasX) {
   // fire the reflexive). xSpell primary is allowed (X binds at cast); but reject if the PRIMARY is itself an
   // xSpell here only when the reflexive also needs X (kept simple — neither half xSpell, see below).
   if ((primary.atoms || []).some(a => a.optional)) return null;
+  // ⛔ A PAY-OR-SACRIFICE PRIMARY IS A CHOICE TOO ("sacrifice this permanent unless you discard a card. When you do, …"): whether the
+  // sacrifice happens is the controller's answer, so a sequential tail would fire the reflexive after a payment as well. No bundled
+  // card prints it; refused so the land gate's reflexive-tail admission (coverage.landFullyCovered) can never credit one.
+  if ((primary.atoms || []).some(a => a.op === "sac-unless-pay")) return null;
   const reflexive = parseEffectClauseImpl(reflexiveText, cardType, { hasX: false });
   if (!reflexive || programConfidence(reflexive) !== "high" || reflexive.structure === "modal") return null;
   // Conservative: neither half may be an xSpell (an {X} amount would bind ambiguously across the fold), and
   // the reflexive must not itself carry an optional atom mid-sequence that a later atom could wrongly force
   // (optionalsFormSuffix on the COMBINED sequence enforces the α2 invariant at the call site too).
   if (primary.xSpell || reflexive.xSpell) return null;
-  const atoms = [...(primary.atoms || []), ...(reflexive.atoms || [])];
+  // A SELF-SACRIFICE PRIMARY CAN FAIL TO HAPPEN (2026-10-17 — the SNC family fetch lands; Smoke Bomb): the source may have left
+  // the battlefield before this resolves, and a permanent that isn't there can't be sacrificed (CR 701.21a), so the reflexive
+  // doesn't trigger (CR 603.7 — "when you do" names the action). The reflexive atoms ride the `ifSacrificed` gate: runEffectProgram
+  // runs them only when the sacrifice logged a real victim, and carries the gate along the run (and across a search's pause).
+  const selfSacPrimary = (primary.atoms || []).length === 1 && primary.atoms[0].op === "sacrifice" && primary.atoms[0].target === "self" && !primary.atoms[0].unlessEscaped;
+  const reflexiveAtoms = selfSacPrimary ? (reflexive.atoms || []).map(a => ({ ...a, ifSacrificed: true })) : (reflexive.atoms || []);
+  const atoms = [...(primary.atoms || []), ...reflexiveAtoms];
   if (!atoms.every(a => KNOWN.has(a.op)) || !optionalsFormSuffix(atoms)) return null;
   return { atoms };
 }
@@ -3838,7 +3849,11 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
     // until end of turn." — "it" is the TOKEN the copy made, not the creature it copied, so binding to the copy's target would
     // act on the original. Refused; the minted-token folds (gainsHaste, the end-step leave) are the modeled forms.
     if (atom.bindPreviousTargets && atoms[referentSourceIndex(atoms, atoms.length)]?.op === "create-token-copy") { allParsed = false; break; }
-    if (atom.bindPreviousTargets && !atoms[referentSourceIndex(atoms, atoms.length)]?.targetType) {
+    // ⛔ A NON-CHOSEN MASS targetType IS NO TARGET LIST (2026-10-17): "Put a +1/+1 counter on each green creature that entered
+    // this turn. Those creatures gain trample …" — the eachCreature atom carries a targetType, but nothing is ever chosen for it, so
+    // the referent would read an empty slice at resolution and silently do nothing. It takes the mass-rebind path (or is refused).
+    const referentAntecedent = atoms[referentSourceIndex(atoms, atoms.length)];
+    if (atom.bindPreviousTargets && (!referentAntecedent?.targetType || isNonChosenTargetType(referentAntecedent.targetType))) {
       // No chosen targets to bind to — but the antecedent may be an UNFILTERED mass atom, in which case
       // the referent rewrites into the equivalent mass atom (see rebindToMassAntecedent). A filtered or
       // unrecognised antecedent returns null and the whole spell drops to Arbiter, as before.

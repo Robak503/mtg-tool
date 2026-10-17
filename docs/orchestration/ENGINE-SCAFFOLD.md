@@ -384,6 +384,16 @@ ends in `finalizeStackResolution` (flush triggers + drain leave events). There a
 `pendingChoiceKinds.test.js` + `omnathSeam.test.js`; the PLAY-API-CONTRACT list is
 informative, the export is truth).
 
+**"If you do" after a sacrifice, and the reflexive behind one** (`ifSacrificed`; the reflexive half 2026-10-17): an atom
+flagged `ifSacrificed` runs only when the atom before it logged a real sacrifice victim (`realSacrificeIn`), and a run of them
+shares the gate. `parser.matchReflexiveTrigger` tags a "When you do, …" reflexive with it when the primary is a lone
+self-sacrifice ("sacrifice this permanent" — the SNC family fetch lands, Smoke Bomb): a source that left the battlefield can't
+be sacrificed (CR 701.21a), so the reflexive doesn't trigger (CR 603.7). A pay-or-sacrifice primary (`sac-unless-pay`) folds no
+reflexive at all. When a gated atom pauses (a search), the resume records `sacrificeGateOpenAt` — the index the gate is open for
+— and `resumeAfterChoice` hands it back as `prevSacrificed`, so "…then shuffle and you gain 1 life" still runs after the pick; a
+settler that copies the record onto another index can't carry it. On a land, the reflexive sentence the trigger strip leaves as
+its own line is admitted by `landFullyCovered` only when it is the reflexive a detected (natively routing) trigger folded.
+
 **Entry replacements** (`enterReplacements.js`, 2026-10-02): `applyEnterReplacements` (enters tapped, the
 counters a permanent enters with, the as-enters choices: chosen creature type, colour, card type) and
 `settleEnterReplacements` (the shockland's life payment, the CR 122.6 counter events, riot's haste, Fabricate's
@@ -950,6 +960,13 @@ pass fixed four of these; they are the template for what to look for:
   a type in `targetTypes.js`'s closed vocabulary (non-chosen, or one of
   `enumerateTargets`' pools), checked in `programConfidence`, which every consumer
   re-asks — so the classifier and the flush cannot disagree.
+- **A mass set is no chosen target list** (guarded 2026-10-17): the referent gate
+  ("They / Those creatures …" binding to the previous atom's targets) asked only whether
+  the antecedent HAD a targetType, and a non-chosen mass type (`eachCreature`) has one — the
+  referent would have read an empty slice at resolution and dropped silently. The assembly gate
+  and `referentBindingOk` now treat a non-chosen type as no target list (the mass-rebind path, or
+  refused). No bundled card's parse moved; witness: the Oran-Rief near-miss in
+  `enteredThisTurnCounters.test.js`.
 - **"this" is not a self-reference** (fixed 2026-10-16): `classifyCondition`'s `selfRef`
   was `/\bthis\b/`, so "this turn" / "this way" made a condition the card's OWN event
   (Maeve, Insidious Singer drew whenever she attacked). Fix: `SELF_THIS_RE`, a closed

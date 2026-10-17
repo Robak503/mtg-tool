@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **20 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.8% (15,514)**; engine gains since the tag: **+61** (+70 gained, −9 false credit removed). The next tag
+> **21 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.8% (15,523)**; engine gains since the tag: **+70** (+79 gained, −9 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,85 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-17 — PLAY-WEIGHTED: the SNC family fetch lands — Riveteers Overlook (EDHREC #716), Cabaretti Courtyard (#969), Maestros Theater (#1284), Brokers Hideout (#1315), Obscura Storefront (#1671) — "sacrifice it. When you do, search …, then shuffle and you gain 1 life", the reflexive gated on the sacrifice and the gate carried across the search's pause; Castle Locthwain (#793) — "you lose life equal to the number of cards in your hand"; Oran-Rief, the Vastwood (#736) — "each green creature that entered this turn" (+ Novijen, Raucous Entertainer); the AI plays all three · **+9** · snapshot native 15,492 → 15,501
+> Suite **20,513 green (1 skipped) / 1,865 files** under the gate queue (with the rules index built locally, as CI does, then deleted). Lint 0 (CR citations: 0 of
+> 11,348 name no rule; keyword citations: 0 of 2,358 cite a different keyword). Flip-diff **+9 / −0 / RETIERED 0** (34,620 cards; before =
+> an untouched `git archive` of 6d0abb06, snapshotted before the first edit; native 15,492 → 15,501 of 34,584 snapshot names).
+> `program-fingerprint`: 12 cards' parses move — the 9 gained, Smoke Bomb (its reflexive atom now carries the sacrifice gate) and
+> Vislor Turlough (its end-step "draw a card, then you lose life equal to the number of cards in your hand" now reads and routes
+> natively; the card stays body-only on its other lines). `measure-coverage` (MTG_APP_ROOT = the install): corpus 15,497 → 15,506
+> (44.8%); top 1,000 **908 → 912** (Riveteers Overlook, Oran-Rief, Castle Locthwain, Cabaretti Courtyard); top 2,500 **1,750 → 1,757**
+> (+ Maestros Theater, Brokers Hideout, Obscura Storefront); top 5,000 2,747 → 2,754; top 10,000 4,548 → 4,556 (+ Novijen #7,360);
+> the 30 profile decks unchanged (aggregate 2,747 / 2,998 — none holds a gained card). **Mutants 14/15** on assertions, each restored
+> byte-identical (sha256); the fifteenth (Oran-Rief held only in the precombat main, the first build's guard) is equivalent today — on
+> the AI's own turn the engine offers the activation only in its two main phases (probed: upkeep, draw, every combat step and the end
+> step offer it nothing). Witness tests written first and seen to fail on the base engine on assertions (20 of the first 31; the 11
+> controls pass on both); every test added while building fails on base too (23 of the final 38; the 15 controls pass on both). A/B **80 seeded commander games** (base
+> seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched 6d0abb06 archive): **80 / 80 byte-identical** (every
+> decision row, log hash, winner and turn count), 0 errors on either tree, results unchanged (ai-wins 57 / user-wins 23) — expected,
+> as no profile deck holds a changed card; the harness sees the engine (hollow-gate check): the same
+> batch with one basic swapped for a family land in 27 decks — base: no family land is ever sacrificed by its trigger; after: 48 are, 40
+> games byte-identical, 40 change picks (30 first at the family land's new search, 10 at a land drop — below), 15 winners change, 0 errors
+> on either tree (run before the last Oran-Rief phase-guard edit, which nothing in that batch reaches). Committed on `day/landutil`, not pushed; the release-batch line and the
+> WAKE-REPORT are the integrator's.
+> · **The SNC family** ("When this land enters, sacrifice it. When you do, search your library for a basic Swamp, Mountain, or Forest
+>   card, put it onto the battlefield tapped, then shuffle and you gain 1 life."). Three readings: (1) `triggers.js` —
+>   `SELF_SAC_IT_REFLEXIVE_RE`: on a self-scope ETB, "it" is the source (CR 608.2c), so the FIRST sentence's pronoun becomes "sacrifice
+>   this permanent." and the reflexive is left as printed (a Plan's counter-event "sacrifice it. When you do" is another event, unchanged).
+>   (2) `splitClauses` — "search your library … , then shuffle and you gain N life" splits into the tutor (with its shuffle) and the plain
+>   gain, in written order (CR 608.2c); mandatory searches only. (3) `parser.matchReflexiveTrigger` — a lone self-sacrifice primary can fail
+>   to happen (the land bounced in response can't be sacrificed, CR 701.21a), and then the reflexive doesn't trigger (CR 603.7): the
+>   reflexive atoms ride the existing `ifSacrificed` gate. The search pauses, so `runEffectProgram` records `sacrificeGateOpenAt` (the index
+>   the gate is open for) on the resume and `resumeAfterChoice` hands it back — the life after the pick still comes (found or not); a
+>   settler copying the record onto another index can't carry it, and every other resume record is byte-identical. A pay-or-sacrifice
+>   primary ("sacrifice this permanent unless you discard a card. When you do, …" — found by the CREED near-miss: the Karoo rewrite's
+>   greedy tail took the reflexive along and it folded ungated) is now refused outright; no bundled card prints one. The land gate
+>   (`landFullyCovered`) admits the "When you do, …" line the trigger strip leaves behind only when it is the reflexive a detected trigger
+>   folded, word for word (allTriggerSentencesModeled has already proved every detected trigger routes natively). The AI: the trigger is
+>   mandatory; the search is the existing auto-pick; the land drop (`opponentAI.pickLandAction`) now counts the colours the land can fetch
+>   toward the colour the hand needs (`landFetchesTappedBasicOnEnter`, off the trigger's own program — it makes no mana itself). ⚑ It is
+>   deliberately NOT ranked as the tapped land it becomes: that first build, measured on the harness-witness batch below, made the AI
+>   drop an uncracked fetch land (Scalding Tarn, Windswept Heath, Verdant Catacombs, Polluted Delta, Prismatic Vista, Wooded Foothills —
+>   the ranking reads one as an untapped land, and the AI never cracks it) ahead of the family land in 8 of 80 games. The tapped reading
+>   waits for the fetch-land fix (found-not-fixed (2)). ⚑ What the shipped reading does (the 10 land-drop divergences): the family land
+>   is played for the colour it fetches over Evolving Wilds (2 — never cracked) and over an untapped land that doesn't make the needed
+>   colour (Taiga, Sunbaked Canyon, Riverpyre Verge, Otawara, a basic — 8): the colour a turn later, tapped, over a wrong colour now.
+> · **Castle Locthwain** ("{1}{B}{B}, {T}: Draw a card, then you lose life equal to the number of cards in your hand.") — `life.js` reads
+>   "you lose life equal to the number of <count>" (the for-each arm's spelling, per 1; parseCountSource or nothing); the count is read as
+>   the loss happens (CR 608.2h), after the draw. The conditional tapland line was already read. The AI (`pickSafeAbilityActivation`): a
+>   program of safe ops plus "you lose life" is taken only when `predictedSelfLifeLoss` sizes the loss (a fixed amount, or the hand after
+>   the program's own draws) and leaves it at 10 or more — the floor its alternative-cost life payments and the shockland policy use.
+>   Corpus scan: Castle Locthwain is the only activation newly taken (Greta, Moriok Replica, Infernal Idol, Metalspinner's Puzzleknot read
+>   the same atoms but carry sacrifice costs the picker still refuses). Twin at runtime: Vislor Turlough's end-step trigger.
+> · **Oran-Rief, the Vastwood** ("{T}: Put a +1/+1 counter on each green creature that entered this turn.") — `counters.js`: "put N +1/+1
+>   counters on each [<colour>] creature [you control] that entered this turn" → an untargeted `eachCreature` atom narrowed by the shared
+>   restriction grammar (`enteredThisTurn` — the `enteredOnTurn` stamp every enter path writes —, the colour as the creature is now,
+>   `controller: you`); with no "you control" it holds every player's creatures, as printed. Twins: Novijen, Heart of Progress (any
+>   creature), Raucous Entertainer (you control). The AI: `massCounterFavorsAI` reads the set through the same `atomTargets` the
+>   resolution reads and activates only when its own creatures in it outnumber everyone else's, and on its own turn only from the
+>   postcombat main on (the set only grows; a creature cast later would miss its counter).
+> · **The referent gate** (found building the Oran-Rief near-miss): "… on each green creature that entered this turn. Those creatures gain
+>   trample until end of turn." classified `land` — the assembly gate asked only whether the antecedent HAD a targetType, and the
+>   non-chosen `eachCreature` has one, so the referent would read an empty slice at resolution and drop. The assembly gate and
+>   `referentBindingOk` now treat a non-chosen type as no target list (the mass-rebind path, else refused). No bundled card's parse moved
+>   (program-fingerprint), so it is a guard.
+> · **Not taken:** Krosan Verge (#997 — "a Forest card and a Plains card" is one search with a different filter per pick; the chained pick
+>   re-uses the first pick's candidates, and an empty first pick ends the search — both need per-pick filters in `resolveTutorChoice`; and
+>   the AI never activates ANY sacrifice-self fetch land today, below); Field of Ruin (#905 — "each player searches their library" is a
+>   search chained across players, each choosing, that the engine has no lane for; plus the same AI gap); Arena of Glory (#372 — exert is
+>   not in the engine at all, and "if any of that mana is spent on a creature spell, it gains haste" is a spend rider on a mana ability's
+>   bundle — a cost kind and a rider lane, its own slice).
+> · ⚠️ **Found, not fixed:** (1) **Smoke Bomb** (#4790, credited native-mixed) never does anything: the fold picks its reflexive's target
+>   when the upkeep trigger is put on the stack, while its own "All creatures have shroud" still applies, so the trigger is removed for
+>   lack of a target (`trigger-removed-no-target`, gameEngine.js:2188) — by the rules the reflexive targets after the sacrifice, when the
+>   shroud is gone. Probed on both trees; a false positive in the credit (the reflexive's target timing, parser.js matchReflexiveTrigger
+>   ~2042). (2) The AI never activates a sacrifice-self fetch land — Evolving Wilds, Terramorphic Expanse, Fabled Passage sit in seven
+>   profile decks (Atraxa, Mothman, Wolverine, Jurassic Ramp, Earth Bent, Hulk Smash, Halfshell) and are never cracked:
+>   `pickSafeAbilityActivation` skips every `sacSelf` cost (opponentAI.js:1482). (3) The search's auto-pick takes the highest mana value,
+>   then the name (runProgram.js:382), so a fetch for basics takes the alphabetically first type, not the colour the hand needs.
+> · Witness: `sncFetchLands.test.js` (16), `castleLocthwain.test.js` (11), `enteredThisTurnCounters.test.js` (11). Graduated:
+>   `effects/parser.test.js` (Raucous Entertainer's line left the must-stay-LOW list, dated).
 
 > ## 🎯 2026-10-17 — PLAY-WEIGHTED: Deathrite Shaman (EDHREC #611) — a targeted "Add" is a stack ability (CR 605.1a); Archaeomancer's Map (#702) — "a land an opponent controls enters", "that player" its controller, in the effect and the intervening "if" (+ Polluted Bonds, Nightshade Harvester, Shattered Angel, Sire of Stagnation, Spectrum Sentinel); Hellkite Tyrant (#745) — gain control of all artifacts the damaged player controls; Danitha Capashen, Paragon (#795) — "Aura and Equipment spells" one union reducer (+ Starnheim Courser), a bestowed spell priced as the Aura spell it is; Gilded Goose (#803) — "Sacrifice a Food" mana cost · **+11** · snapshot native 15,498 → 15,509
 > Suite **20,562 green (1 skipped) / 1,868 files** under the gate queue (with the rules index built locally for the run, then deleted). Lint 0

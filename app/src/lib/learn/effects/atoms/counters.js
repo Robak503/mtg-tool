@@ -673,6 +673,19 @@ export function addCounterClauseParser(clause) {
   // qualifies (the printed target carries no controller restriction).
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature that entered this turn$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature", restrictions: [{ kind: "enteredThisTurn" }] };
+  // EACH [<COLOUR>] CREATURE [YOU CONTROL] THAT ENTERED THIS TURN (play-weighted #736, 2026-10-17 — Oran-Rief, the Vastwood "{T}: Put
+  // a +1/+1 counter on each green creature that entered this turn."; Novijen, Heart of Progress "… on each creature that entered this
+  // turn."; Raucous Entertainer "… on each creature you control that entered this turn."). Untargeted: the eachCreature set fixed as
+  // it resolves (CR 608.2h), narrowed by the shared restriction grammar massCreatureTargets applies — enteredThisTurn (the
+  // enteredOnTurn stamp every enter path writes), the colour as the creature is now (layer-aware, CR 105.2), and "you control" (the
+  // ability's controller). With no "you control" the set holds every player's creatures, as printed. +1/+1 only (the printed
+  // carriers); whole-clause anchored, so any other qualifier or rider stays unread.
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on each (?:(white|blue|black|red|green) )?creature (you control )?that entered this turn$/);
+  if (m) {
+    const COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+    return { op: "add-counter", counterType: "+1/+1", amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "eachCreature",
+      restrictions: [{ kind: "enteredThisTurn" }, ...(m[2] ? [{ kind: "color", color: COLOR_LETTER[m[2]] }] : []), ...(m[3] ? [{ kind: "controller", who: "you" }] : [])] };
+  }
   // MENTOR (BLITZ MN-1, CR 702.134a) — the keyword's synthesized attacks trigger: "put a +1/+1 counter on target
   // attacking creature with lesser power". The chosen-creature atom narrowed by TWO restrictions the enumerator
   // enforces: combat:"attacking" (the target must be a current attacker) AND powerVsSource:"<" (the target's

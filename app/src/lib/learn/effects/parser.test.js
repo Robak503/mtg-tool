@@ -1099,7 +1099,8 @@ const MUST_DROP_TO_LOW = [
   "Put a +1/+1 counter on each creature you control with flying.",          // Wingspan Mentor — keyword-filtered subset
   "Put a +1/+1 counter on each creature you control other than this creature.", // Dawnstrike Vanguard — excludes the source
   "Put a +1/+1 counter on each creature you control with a +1/+1 counter on it.", // Patron of the Valiant — counter-filtered subset
-  "Put a +1/+1 counter on each creature you control that entered this turn.", // Raucous Entertainer — entered-this-turn subset
+  // (Raucous Entertainer's "…on each creature you control that entered this turn" is now MODELED, 2026-10-17 — the eachCreature
+  // set narrowed by the shared enteredThisTurn / controller restrictions; positive pins in enteredThisTurnCounters.test.js.)
   // (Voja's "…on each creature you control, where X is the number of Elves you control" is now MODELED by the
   // DYNAMIC-COUNT keystone — a board-count countFor via the shared countForSpec; see dynamicCount.test.js.)
   "Put a +1/+1 counter on each creature you control with toughness 3 or greater.", // toughness-filtered subset (still LOW)

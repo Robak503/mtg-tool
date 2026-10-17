@@ -3838,6 +3838,14 @@ const SELF_SAC_IT_RE = /^sacrifice it$/i;
 // return-land / sacrifice / discard); an unreadable cost leaves residue → LOW → Arbiter. Gated on
 // cls.event === "etb" && cls.scope === "self" at the rewrite site.
 const SELF_SAC_IT_UNLESS_RE = /^sacrifice it unless (you .+)$/i;
+// SELF-SAC-IT, REFLEXIVE (play-weighted 2026-10-17 — the Streets of New Capenna family fetch lands: "When this land enters,
+// sacrifice it. When you do, search your library for a basic Swamp, Mountain, or Forest card, …"). "it" is the SOURCE of a
+// self-scope ETB (CR 608.2c), so the pronoun in the FIRST sentence becomes "this permanent" — the self-sacrifice noun the clause
+// parser admits — and the "When you do, …" reflexive that follows is left byte-identical for the parser's reflexive fold
+// (matchReflexiveTrigger), which gates it on the sacrifice actually happening (CR 603.7). Gated on cls.event === "etb" &&
+// cls.scope === "self" at the rewrite site; a Plan's counter-event "sacrifice it. When you do" is another event and stays as
+// printed.
+const SELF_SAC_IT_REFLEXIVE_RE = /^sacrifice it\.(\s+when you do,\s)/i;
 
 // COUNTERS-PLACED — the EXACT "that many"/"that much" payoff shapes a counters-placed trigger rewrites to an
 // event-specific sentinel (so the count binds ctx.countersPlaced, not combatDamageAmount). Anchored to the
@@ -5259,6 +5267,10 @@ export function detectTriggers(cardIn) {
         // SELF-SAC-IT-UNLESS (LANDS-11, the Karoos / "sacrifice it unless you pay {1}" lands) — see the
         // constant's note: "it" is the source of a self-scope ETB; the sac-unless-pay matcher re-gates the cost.
         effectClause = effectClause.replace(SELF_SAC_IT_UNLESS_RE, "sacrifice this permanent unless $1");
+      }
+      if (cls.event === "etb" && cls.scope === "self" && SELF_SAC_IT_REFLEXIVE_RE.test(effectClause)) {
+        // SELF-SAC-IT, REFLEXIVE (the SNC family fetch lands) — see the constant's note: only the first sentence's pronoun moves.
+        effectClause = effectClause.replace(SELF_SAC_IT_REFLEXIVE_RE, "sacrifice this permanent.$1");
       }
       if (cls.event === "becomesTarget" && cls.scope === "self" && SELF_SAC_IT_RE.test(effectClause)) {
         // SELF-SAC-IT (BECOMES-TARGET, the Phantasmal Illusion family) — "…sacrifice it" where "it" is the

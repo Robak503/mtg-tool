@@ -405,6 +405,21 @@ export function splitClauses(oracle) {
         continue;
       }
     }
+    // A SEARCH, THEN A LIFE GAIN JOINED BY "AND" (2026-10-17 — the SNC family fetch lands' reflexive: "search your library for a
+    // basic Swamp, Mountain, or Forest card, put it onto the battlefield tapped, then shuffle and you gain 1 life"): two
+    // instructions in written order (CR 608.2c), the gain after the shuffle and not conditional on the find. The keep-whole rule
+    // below would hand the tutor arms a sentence none of them reads; split off the exact "and you gain N life" tail so each half
+    // takes its own modelled path (the tutor with its ", then shuffle", and the plain gain). Mandatory searches only (a "you may"
+    // search would leave the gain's place inside or outside the choice unread) and anchored to the shuffle-then-gain
+    // ending — any other tail after the shuffle keeps the sentence whole and unread.
+    {
+      const shuffleThenGain = sentence.match(/^(search your library\b.*, then shuffle) and (you gain \d+ life)$/i);
+      if (shuffleThenGain) {
+        clauses.push(shuffleThenGain[1]);
+        clauses.push(shuffleThenGain[2]);
+        continue;
+      }
+    }
     // A sentence that STARTS with "search your library" — or a "you may search your library" optional
     // tutor (RAMP-1: Farhaven Elf's "you may search … put it onto the battlefield … then shuffle") — is
     // ONE tutor instruction (P3.2 / α2): its internal " and " ("reveal it, and put it into your hand",
