@@ -69,6 +69,29 @@
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
 
+## 🚀 2026-10-17 — **v0.164.0 TAGGED** — the 10-16 fleet wave + the 10-17 overnight run (72 commits since v0.163.0)
+
+> **The release:** tagged on the `[0.164.0]` CHANGELOG cut, early under CLAUDE.md §7.2's user-facing-fix exception (Westvale Abbey
+> dying on entry, the auto-tap wasting coloured mana, free planeswalker / Ancient Tomb / Altar mana, counterspells reading the
+> wrong mana value). Corpus at the tag **15,453 / 34,620 (44.6%)** — v0.163.0 → v0.164.0 is +68 gained and −82 false credit
+> removed (planeswalker loyalty "Add" abilities, quoted / targeted / conditional mana lines, static-residue mana cards, LED). Play-
+> weighted top 1,000 **894** (89.4% — below 90% again: every lost card was false credit) · top 2,500 **1,733**. Shelf: **26 of 30 ≥90%**
+> (Halfshell heroes 89, Killer Turts 89, Veyran 88 slipped on the same false-credit removals; Atraxa 74 deferred). Bundled Node
+> v22.23.3. **Runnable next:** the top-1,000 worklist back to 90% (`measure-coverage.mjs --played=1000`, +6), then the three
+> decks back over 90.
+> **The overnight run (10-17, Colton: "full automation"):** 22 slices built by parallel subagents in `night-*` worktrees and
+> integrated one at a time by Cindy (cherry-pick, full gate chain on the merged tree, push, CI) — quoted-grant land credit, explicit
+> tap-for-mana costs, CR 704.5y Roles, "this turn" ≠ self, mana text (Ancient Tomb, Mox Amber, commander identity), one cost
+> sacrifice, Academy labels, cast-offer mana value, the remaining death sites, mana that is not the permanent's own (planeswalkers),
+> stack mana value, artifact + Town Adventures, groups leave as one event, the DFC face-up sweep, mana costs as printed (Gemstone
+> Mine, Wall of Roots, no-{T} Altars, Kinnan), edicts together, split-half colours (no combined casts), narration + log wording, the
+> AI's enters-trigger hold, conditional mana lines (Tron, River of Tears), iterated edicts, the keyword-section citation lint gate.
+> Three integration breaks were caught by the batch gate, never by a slice alone (a moved helper's test import, a test that cast
+> the old combined Monster Manual, and a keywords → faceUp → splitCard → staticAbilityParser import cycle). A Windows Update restart
+> at ~10:27Z stopped the run for ~2.5 h; recovery recipe in memory (reference_windows_update_reboot_overnight).
+> **Open for Colton:** Rover Blades' crewed Equip offer (now hidden) · relax the Adventure gate to "the Adventure half native"? ·
+> archive the 10-16 fleet sessions · Node 24 (the newest LTS line) as its own change. Full found-not-fixed list: the slices' RUN-LEDGER entries.
+
 ## 🛰️ 2026-10-16 — **THE FLEET WAVE LANDED** — 27 commits from 19 parallel sessions, integrated in 6 batches (master 4463487c → batch 8) · corpus 15,470 (+46 gained, −43 false credit removed)
 
 > One integrator cherry-picked each session's gated commit; every batch then ran the whole chain once on the merged tree

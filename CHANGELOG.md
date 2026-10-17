@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.164.0] - 2026-10-17
+
 ### Added
 - **The Arkenstone** and **Horn of Valhalla** — Adventures whose permanent half is an artifact: cast the Adventure (Seek the Heart searches for a legendary creature card; Ysgard's Call makes X 1/1 Soldiers) and the card waits in exile, then cast the artifact from there later — or cast the artifact straight from your hand
 - **Jidoor, Aristocratic Capital** and **Value Town** — Adventures whose permanent half is a land: cast the Adventure (Overture mills half an opponent's library; Take a Trip to… draws two and deals 2 to each opponent) and the card waits in exile, then play the land from there later as your land for the turn — or play it straight from your hand as a land
