@@ -480,6 +480,19 @@ means "all permanents" (vacuous filter).
   WHOLE (`grantedManaSpecsFor` → `grantedManaProduction`, its `sacrifices` and a
   no-{T} cost's `requiresTap:false` included — Basal Sliver's grant is a one-shot
   sacrifice, never a repeatable tap). Never rebuild a granted record field by field.
+- **A land grant is a choice on the land's one tap (2026-10-17, Chromatic Lantern).** "Lands you control have \"{T}: Add …\""
+  emits a layer-6 mana grant (selector: the controller's Lands) only for a plain one-mana {T} spec, marked `asChoice`;
+  `withGrantedChoice` merges its colours into a land's own plain one-mana {T} line (`isPlainOneManaTap` — colours, amount 1,
+  {T}, per-colour pain; a granted colour leaves `painColors`), so a Forest beside the Lantern taps once, for any colour. A land
+  with no mana ability takes the grant whole; any other own line (Ancient Tomb, Gaea's Cradle, Mana Confluence, Command Tower)
+  keeps itself alone — an under-offer.
+- **Tap-other extra lines and one tap per permanent (2026-10-17, Relic of Legends).** A no-{T} "Tap an untapped <filter> you
+  control: Add …" line printed after a {T} line rides as an extra record (`TAP_OTHER_NO_TAP_MANA_LINE_RE`; payers by
+  `tapOtherPayers`, the main product's reader; "legendary creature" is a filter); a tapped permanent still reaches its no-{T}
+  extra lines (`extraLineSources`); the explicit tap offers such a line when no earlier record of its permanent makes that
+  colour (one option per permanent and colour). In the planner a no-{T} record doesn't share its permanent's {T}, and every
+  permanent a tap taps (its source, its payers) can't pay a {T} record or be another record's payer afterwards — before
+  this, Springleaf Drum beside a lone Llanowar Elves paid {2}.
 - **The explicit tap reads the planner's records (2026-10-16).** `manualManaTaps` is
   the explicit tap's only source: `legalChoices.actionsTapForMana` offers its options
   and `actionDispatcher.applyTapForMana` re-derives the one taken from it (never from

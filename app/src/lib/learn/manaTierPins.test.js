@@ -93,15 +93,24 @@ describe("MUST_NOT_OVER-CLAIM — a mana ability plus UNMODELED residue stays pa
 // nothing for "Lands you control have …" (a Cryptolith Rite control on the same harness shows a grant that IS
 // applied: its bear taps for any color). The Lantern now parks on that sentence. The pair's point stands, stated
 // honestly: a grant the runtime applies does not disqualify a card; one it does not apply does.
+// ⚠️ RE-PINNED AGAIN 2026-10-17 (play-weighted #85). The runtime applies the Lantern's land grant now (a Forest beside it taps
+// for any colour, once — chromaticLantern.test.js), so the Lantern moved to the APPLIED side. The not-applied witness is
+// Orochi Merge-Keeper: a real "{T}: Add {G}." of its own and a conditional self-grant ("As long as this creature is modified,
+// it has \"{T}: Add {G}{G}.\"") nothing emits a descriptor for.
 describe("GRANTED vs OWN mana ability — the pair that keeps the reader honest", () => {
   it("a grant the runtime APPLIES does not disqualify the card — Enduring Vitality's creature grant is a parsed static", () => {
     expect(classifyCard(C("Enduring Vitality", "Enchantment Creature — Elk Glimmer",
       "Vigilance\nCreatures you control have \"{T}: Add one mana of any color.\"\nWhen Enduring Vitality dies, if it was a creature, return it to the battlefield under its owner's control. It's an enchantment. (It's not a creature.)"))).toBe("native-mana");
   });
 
-  it("a grant the runtime does NOT apply parks the card, however real its own ability — Chromatic Lantern", () => {
+  it("a grant the runtime APPLIES to lands does not disqualify the card either — Chromatic Lantern (since 2026-10-17)", () => {
     expect(classifyCard(C("Chromatic Lantern", "Artifact",
-      "Lands you control have \"{T}: Add one mana of any color.\"\n{T}: Add one mana of any color."))).not.toBe("native-mana");
+      "Lands you control have \"{T}: Add one mana of any color.\"\n{T}: Add one mana of any color."))).toBe("native-mana");
+  });
+
+  it("a grant the runtime does NOT apply parks the card, however real its own ability — Orochi Merge-Keeper", () => {
+    expect(classifyCard(C("Orochi Merge-Keeper", "Creature — Snake Druid",
+      "{T}: Add {G}.\nAs long as this creature is modified, it has \"{T}: Add {G}{G}.\" (Equipment, Auras you control, and counters are modifications.)"))).not.toBe("native-mana");
   });
 
   it("a granter with NO ability of its own is never credited", () => {

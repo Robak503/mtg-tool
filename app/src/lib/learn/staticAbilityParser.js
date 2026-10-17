@@ -3827,6 +3827,28 @@ function parseClause(clause, out, selfName, selfType) {
     if (grantQ) {
       const creatureSelector = parseCreatureSelector(grantQ[1].toLowerCase() + " have");
       const quoted = grantQ[2];
+      // ⭐ THE LAND MANA GRANT (play-weighted #85, 2026-10-17 — Chromatic Lantern, Joiner Adept): "Lands you control have
+      // \"{T}: Add one mana of any color.\"". Every land its controller controls has the quoted ability (CR 113.10), re-read
+      // at every moment (CR 611.3a), so a land that enters later has it too and an opponent's land never does. Emitted ONLY
+      // for what the runtime honours: a plain one-mana {T} ability (no self-sacrifice, no other cost — parseGrantedManaSpec
+      // already refuses any cost beyond {T}, a variable amount and a spend restriction). `asChoice` routes it in
+      // manaModel.withGrantedMana: a land with a plain one-mana {T} line of its own takes the granted colours as more
+      // choices on that ONE tap (the two abilities share the {T}, CR 107.5 — never a second tap, never more mana); a land
+      // with no mana ability takes the granted ability whole; any other land keeps its own line (an under-offer). A grant
+      // of two or three mana (Overlaid Terrain, Tectonic Split) has no such merge — a land's own one-mana line and a
+      // two-mana granted one are no single record — so it emits nothing and its card stays where it was (a safe FN).
+      if (/^lands you control$/i.test(grantQ[1].trim())) {
+        const landSpec = parseGrantedManaSpec(quoted);
+        if (landSpec && landSpec.amount === 1 && !landSpec.sacrifices && landSpec.requiresTap !== false) {
+          out.push({
+            layer: 6,
+            op: { layerOp: "addAbility", grant: { kind: "mana", spec: { ...landSpec, asChoice: true } } },
+            affects: { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Land"] } },
+            duration: { kind: "permanent" },
+          });
+        }
+        return;
+      }
       const isTriggeredBody = /^(?:when|whenever|at)\b/i.test(quoted.trim());
       // NON-CREATURE TOKEN-MANA GRANT (Goldspan Dragon — "Treasures you control have \"{T}, Sacrifice this
       // artifact: Add two mana of any one color.\""). A grant to a mana-relevant ARTIFACT token subtype

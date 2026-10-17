@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **2 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.6% (15,456)**; engine gains since the tag: **+3**. The next tag
+> **3 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,459)**; engine gains since the tag: **+6**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,63 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-17 — PLAY-WEIGHTED: lands get Chromatic Lantern's "{T}: Add one mana of any color" as a choice on their one tap (#85, Joiner Adept with it), and Relic of Legends taps a legendary creature for mana (#535); a tap-other payer is tapped once · **+3** · snapshot native 15,448 → 15,451
+> Suite **19,969 green (1 skipped) / 1,836 files** under the gate queue. Lint 0 (CR citations: 0 of 10,942 name no rule; keyword
+> citations: 0 of 2,310 cite a different keyword). Flip-diff **+3 / −0 / RETIERED 0** (34,620 cards; before = an untouched
+> `git archive` of 0c221772; native 15,448 → 15,451 of 34,584 snapshot names). Runtime fingerprint (manaProduction, doublerProfile,
+> isPureDoubler over 34,620 cards) **byte-identical** before/after — every change is in manaSources, the planner, the explicit tap,
+> an extra-line record and a static descriptor, none in a card's main product. Play-weighted worklist header (`measure-coverage
+> --played=1000`): **"covered 894/1000 (89.4%) · to 90%: +6" → "covered 896/1000 (89.6%) · to 90%: +4"**; top 2,500 **1,733 →
+> 1,735** (read off the two snapshots). **Mutants 16/16** on assertions, each restored byte-identical (sha256), run in an isolated
+> copy so the queued suite read untouched files. Committed on `day/pw-mana`, not pushed; the release-batch line and the
+> WAKE-REPORT are the integrator's. Next on the worklist: #247 Mox Diamond.
+> · **The rules** (bundled CR, cited exactly). An effect that says an object "has" an ability adds it (CR 113.10); an object may
+>   have several abilities, each its own (CR 113.2c); a static applies at any moment to whatever its text indicates (CR 611.3a).
+>   A tapped permanent can't be tapped again to pay a cost (CR 107.5, 118.3). Summoning sickness restricts only a creature's own
+>   ability with {T} or {Q} in its activation cost (CR 302.6, 602.5a) — a legend that came under its controller's control this
+>   turn is a legal payer for Relic, whose ability it is.
+> · **Chromatic Lantern** (`staticAbilityParser`, `manaModel.withGrantedChoice`). "Lands you control have \"{T}: Add …\"" had no
+>   descriptor. It now emits a layer-6 mana grant (selector: the controller's Lands) — only for a plain one-mana {T} spec, marked
+>   `asChoice`; a two- or three-mana grant (Overlaid Terrain, Tectonic Split) emits nothing. In manaSources the grant's colours join
+>   a land's own plain one-mana {T} line (`isPlainOneManaTap`: colours, amount 1, {T}, per-colour pain) as ONE record — the two
+>   abilities share the {T}, so one tap, one mana; a colour the grant makes leaves `painColors`. A land with no mana ability takes
+>   the grant whole (grantedManaProduction, as before). Witnesses (`chromaticLantern.test.js`, 15): a Forest beside a TAPPED Lantern
+>   casts Fugitive Wizard ({U}) and is tapped; a Wastes casts Lightning Bolt ({R}); by hand the Forest offers G, W, U, B, R, taps
+>   for {U} and is offered nothing after; Evolving Wilds taps for any colour; Karplusan Forest's {R} through the grant deals no
+>   damage (19 without the Lantern); Lantern + Forest pay {U}{U}, never {U}{U}{U}. Controls: no Lantern, no Wizard; an opponent's
+>   Forest stays {G}; an opponent's Lantern gives my Forest nothing; Ancient Tomb stays {C}{C} and Gaea's Cradle its green count.
+>   **Joiner Adept** (#11,795, the same line alone) gains with it.
+> · **Relic of Legends** (`manaModel`). The tap-a-legend line was refused (a cost item no record paid). Now: "legendary creature"
+>   is a payer filter (parseTapOtherCost, PAID_MANA_COST_ITEMS, matchesTapOtherFilter — the Legendary supertype and the Creature
+>   type it has now, so a Legendary Artifact Creature pays and a changeling doesn't); the no-{T} line printed after a {T} line rides
+>   as an extra record (`TAP_OTHER_NO_TAP_MANA_LINE_RE`; extraManaLineProducts' covered check tells it from the {T} line; a land's
+>   raw-oracle product of the line, which keeps no payer, is never a record) with its payers resolved by `tapOtherPayers` — the
+>   main product's own reader, extracted; a tapped permanent whose own line taps still reaches its no-{T} extra lines
+>   (`extraLineSources`, the extra-line loop extracted); the explicit tap offers such a line for a colour no earlier record of its
+>   permanent makes (one option per permanent and colour, so the dispatcher's re-derivation finds it alone). In the planner a
+>   no-{T} record no longer shares its permanent's {T}. Witnesses (`relicOfLegends.test.js`, 17): a tapped Relic and a SICK Isamaru
+>   cast Fugitive Wizard (Isamaru tapped); an untapped Relic and Isamaru cast Grizzly Bears — both abilities pay; by hand the tapped
+>   Relic offers five colours carrying Isamaru and taps him, not the Relic; untapped, it offers its {T} line, then the legend line.
+>   Controls: a Grizzly Bears, a tapped legend, an opponent's legend and a changeling are no payers.
+> · ⛔ **Found and fixed: a tap-other payer was tapped twice.** manaSources resolves each record's payers against the untapped
+>   board alone, and the plan never checked them: Springleaf Drum beside a lone Llanowar Elves paid {2} (measured on 0c221772 —
+>   the plan tapped the Elves for {G} and as the Drum's payer). tapSource now marks every permanent a tap taps (its source unless
+>   the line has no {T}, and its payers) unable to pay a {T} record or be another record's payer. Relic beside a lone Riven
+>   Turnbull pays {1}, never {2}.
+> · **AI / self-play.** Profile decks holding the cards: Kinnan Mana Overload (Joe — Chromatic Lantern, Relic of Legends, and
+>   Springleaf Drum, which the payer fix touches), Halfshell heroes (Joe — Lantern), Slivers (Colton — Lantern), cdh (Colton —
+>   Springleaf Drum). Kinnan adds nothing to Relic's legend line (no {T}: not tapping it for mana, CR 106.12).
+> · ⚠️ **Found, not fixed:** **Holdout Settlement** (#3,018, pre-existing FP) — "{T}: Add {C}. ({C} represents colorless mana.)" /
+>   "{T}, Tap an untapped creature you control: Add one mana of any color." taps for any colour with NO creature tapped and never for
+>   {C} (a land's raw-oracle parse keeps no payer); Survivors' Encampment and Scene of the Crime never offer their tap-a-creature
+>   line (FN). The lands' tap-other lines need the payer on the land path. · Under the Lantern a land whose own line is not plain
+>   keeps only its own (Ancient Tomb, Gaea's Cradle, Command Tower, Mana Confluence, the bounce lands, the Thriving lands) — an
+>   under-offer. · An Aura or creature group grant onto a land with a different own ability still follows the old dominate-or-keep
+>   rule (Abundant Growth on a Wastes keeps only {C}; Cryptolith Rite on Dryad Arbor keeps {G}). · `landsCouldProduce` (Exotic
+>   Orchard, Fellwar Stone, Incubation Druid) reads no granted mana ability (CR 106.7 counts them) — an under-read. ·
+>   manaUntapLine's `availableMana` (the Candelabra heuristic) sums every record, so it still counts a Drum and its payer's own
+>   mana. · The World Tree's conditional land grant (#817, "As long as you control six or more lands") stays unparsed.
 
 > ## 🎯 2026-10-17 — PLAY-WEIGHTED: Mox Diamond (EDHREC #247) — the discard-a-land entry replacement, read at every road onto the battlefield; Bender's Waterskin (#558) — "Untap this artifact during each other player's untap step." (+ Thousand Moons Infantry) · **+3** · snapshot native 15,448 → 15,451
 > Suite **19,975 green (1 skipped) / 1,836 files** under the gate queue. Lint 0 (CR citations: 0 of 10,971 name no rule; keyword

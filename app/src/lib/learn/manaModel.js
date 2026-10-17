@@ -747,7 +747,10 @@ function parseTapOtherCost(oracle) {
   const line = String(oracle || "").split(/\n+/).find((l) => /\btap (?:an|two|three|a)\b[^:]*:/i.test(l) && /\badd\b/i.test(l));
   if (!line) return null;
   const cost = line.split(":")[0] || "";
-  const m = cost.match(/\btap (an|a|two|three) untapped ([a-z]+)s? you control\b/i);
+  // One qualifier word is read: "legendary" (Relic of Legends' "Tap an untapped legendary creature you control" — play-weighted
+  // #535, 2026-10-17), which makes the filter the two-word "legendary creature". Any other qualifier ("blue creature", "nontoken
+  // artifacts") is no match here and refuses, as before.
+  const m = cost.match(/\btap (an|a|two|three) untapped (legendary )?([a-z]+)s? you control\b/i);
   if (!m) return null;
   const count = { a: 1, an: 1, two: 2, three: 3 }[m[1].toLowerCase()];
   if (!count) return null;
@@ -757,11 +760,12 @@ function parseTapOtherCost(oracle) {
   // A partial flip across identical printed shapes, which is the same tell that uncovered the destroy-CREATURE
   // lead hole earlier today. De-pluralize against the allowlist rather than widening it with plural spellings,
   // so the vocabulary stays one entry per real noun.
-  const raw = m[2].toLowerCase();
+  const raw = m[3].toLowerCase();
+  const qualifier = m[2] ? m[2].toLowerCase() : "";
   const candidates = [raw];
   if (raw.endsWith("ves")) candidates.push(`${raw.slice(0, -3)}f`);   // elves → elf
   if (raw.endsWith("s")) candidates.push(raw.slice(0, -1));            // creatures → creature
-  const filter = candidates.find((c) => TAP_OTHER_FILTERS.has(c));
+  const filter = candidates.map((c) => qualifier + c).find((c) => TAP_OTHER_FILTERS.has(c));
   // The payer vocabulary the corpus prints for this shape. Anything else → null → the card keeps its refusal.
   if (!filter) return null;
   // The REST of the cost must be modelable on its own terms — a {T} and/or mana symbols. A third consumable
@@ -772,8 +776,9 @@ function parseTapOtherCost(oracle) {
 }
 // Each entry earned its place by MEASUREMENT — a parked mana card whose only blocker was this noun. "permanent"
 // (Gene Pollinator, cdh) and "druid" (Seton, Krosan Protector) were added 2026-07-29 on that basis; the corpus
-// prints many other payer nouns, but on tap-for-EFFECT abilities this seam never sees.
-const TAP_OTHER_FILTERS = new Set(["creature", "elf", "token", "food", "artifact", "permanent", "druid"]);
+// prints many other payer nouns, but on tap-for-EFFECT abilities this seam never sees. "legendary creature" (Relic of Legends,
+// play-weighted #535) was added 2026-10-17 on the same basis.
+const TAP_OTHER_FILTERS = new Set(["creature", "elf", "token", "food", "artifact", "permanent", "druid", "legendary creature"]);
 
 /** Is this battlefield permanent a CREATURE right now (layer 4, CR 613.1d — the type-line audit)? A God below its devotion, a
  *  bestowed Aura, an attached reconfigure Equipment and a slumbering Arixmethes are not; an animated land or a crewed Vehicle is.
@@ -805,6 +810,9 @@ function matchesTapOtherFilter(state, perm, filter) {
   // has shipped twice before (Norn's Choirmaster, Keleth) and it is silent in every metric. Everything on a
   // battlefield IS a permanent (CR 110.1), so the honest predicate is "yes".
   if (filter === "permanent") return true;
+  // "legendary creature" (Relic of Legends): the supertype and the card type it has NOW (layer 4 — a creature that became a
+  // copy of a nonlegendary one is no payer; an animated legendary land is).
+  if (filter === "legendary creature") return permanentHasCardType(state, perm.id, "Legendary") && permanentHasCardType(state, perm.id, "Creature");
   return word(filter);   // card type (creature / artifact) or subtype (elf / druid / food) — word-bound test
 }
 
@@ -860,7 +868,7 @@ const PAID_MANA_COST_ITEMS = [
   /\{(?!Q\})[^}]*\}/gi,
   /\bsacrifice (?:this [a-z]+|~)/gi,
   /\bpay \d+ life\b/gi,
-  /\btap (?:an|a|two|three) untapped [a-z]+ you control\b/gi,
+  /\btap (?:an|a|two|three) untapped (?:legendary creatures?|[a-z]+) you control\b/gi, // + "legendary creature" (Relic of Legends, 2026-10-17)
   /\bsacrifice a creature\b/gi,
   /\bexile a card from your graveyard\b/gi,
   /\bexile this (?:card|creature) from your hand\b/gi,
@@ -1199,6 +1207,17 @@ const MAX_SPEED_PREFIX = /^\s*max speed\s*[—–-]\s*/i;
  * counter-removal rider fails the anchor on purpose: its single-line product would silently drop the rider
  * (a painless painland tap), the forbidden direction. Never the main line itself. Memoized per card object.
  */
+/**
+ * A MANA LINE WHOSE WHOLE COST TAPS OTHER PERMANENTS (play-weighted #535, 2026-10-17): "Tap an untapped <filter> you control: Add
+ * <mana>." — no {T} of its own, nothing after the add. Printed after a "{T}: Add …" line (Relic of Legends) it is a second ability
+ * (CR 113.2c) the whole-card parse never reads (that parse takes the first activated mana line — the {T} one — with its own
+ * cost), so it rides as an extra record: its single-line product carries `extraTap` (parseTapOtherCost, whose filter vocabulary
+ * still decides — an unknown payer noun parses to nothing) and `requiresTap: false`, so manaSources resolves its payers off the
+ * live board and it is activatable while its source is tapped (CR 107.5). As a card's ONLY mana line (Birchlore Rangers, Seton,
+ * Heritage Druid, Urza) it is the main product, as before. Whole-line anchored: a rider (a spend restriction — Grand Architect)
+ * fails it.
+ */
+const TAP_OTHER_NO_TAP_MANA_LINE_RE = /^Tap (?:an|a|two|three) untapped (?:legendary )?[a-z]+ you control: Add (?:(?:\{[WUBRGC]\})+|one mana of any color)\.$/i;
 const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Pay \d life: Add one mana of any color\.|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell of the chosen type(?:, and that spell can't be countered)?(?: or (?:to )?activate an ability of an? (?:[a-z]+ )?source of the chosen type)?\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)? spells?(?: or (?:to )?activate an ability of an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)?(?: source)?)?\.|\{T\}: Add (?:\{[WUBRGC]\})+\. Spend this mana only to cast [^.]+\.(?: Activate only if [^.]+\.)?|\{T\}: Add one mana of any color among legendary permanents you control\.|\{T\}, Remove an? (?:charge|mining|depletion) counter from this land: Add (?:(?:\{[WUBRGC]\})+|one mana of any color)\.(?: If there are no (?:charge|mining|depletion) counters on this land, sacrifice it\.)?)$/i; // + 2026-10-17: the single-counter land line (the Vivid lands, Tendo Ice Bridge, Mirrodin's Core) rides as its own record, removing its counter (ONE_COUNTER_MANA_LINE_RE); + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals; + CAP-CAVERN: the chosen-type any-colour line (Cavern of Souls, Unclaimed Territory); + SHELF-85 S17: the fixed-type restricted any-colour line (Mech Hangar "Spend this mana only to cast a Pilot or Vehicle spell.") — the per-line product carries its restriction (restrictedManaProduction), never a free colour
 // A PLAIN tap line: complete, ungated, no sacrifice — the line a multi-line card can always tap for.
 const PLAIN_MANA_LINE_RE = /^\{T\}: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.$/i;
@@ -1449,9 +1468,13 @@ export function extraManaLineProducts(card, mainProd) {
       if (!activationCost?.unpayable) out.push({ colors: ["W", "U", "B", "R", "G"], amount: 0, amountSpec: { kind: "creaturesOfSourceChosenType" }, ...(activationCost ? { activationCost } : {}), extraLine: line });
       continue;
     }
-    if (!EXTRA_MANA_LINE_RE.test(line)) continue;
+    const tapOtherLine = TAP_OTHER_NO_TAP_MANA_LINE_RE.test(line);
+    if (!EXTRA_MANA_LINE_RE.test(line) && !tapOtherLine) continue;
     const prod = manaProduction({ ...face, oracle: line, oracle_text: line });
     if (!prod || !prod.colors?.length) continue;
+    // A tap-other line is a source only with its payers: a product without `extraTap` (a land's raw-oracle parse keeps no payer)
+    // would be the line's mana for nothing — never offered.
+    if (tapOtherLine && !prod.extraTap) continue;
     // Covered = the main already offers this: every colour, the same sacrifice cost, and the same gate (a card whose
     // ONLY mana line is gated — Tablet of Compleation — has that line AS its main; it must not ride twice).
     const covered = !!mainProd && prod.colors.every((c) => (mainProd.colors || []).includes(c))
@@ -1464,7 +1487,10 @@ export function extraManaLineProducts(card, mainProd) {
       // STAGE ④-4: a counter-removal line is its own ability — covered only by a main that IS that same line
       // (the Batteries), never by a plain tap of the same colour (Mage-Ring Network's storage line rides).
       && (prod.removesCounters?.type || null) === (mainProd.removesCounters?.type || null)
-      && (prod.removesCounters?.mode || null) === (mainProd.removesCounters?.mode || null);
+      && (prod.removesCounters?.mode || null) === (mainProd.removesCounters?.mode || null)
+      // 2026-10-17: a tap-other line (Relic of Legends) is its own ability — its payers are its cost, and it has no {T} — never
+      // covered by a {T} line making the same colours.
+      && !!prod.extraTap === !!mainProd.extraTap;
     if (covered) continue;
     out.push({ ...prod, extraLine: line });
   }
@@ -2327,18 +2353,67 @@ export function applyAuraManaGrantSupplement(state, perm, prod) {
 export function grantedManaProduction(state, perm) {
   const [spec] = grantedManaSpecsFor(state, perm.id);
   if (!spec) return null;
-  const { via: _via, upgrade: _upgrade, ...ability } = spec;
+  const { via: _via, upgrade: _upgrade, asChoice: _asChoice, ...ability } = spec;
   return { ...ability, requiresTap: spec.requiresTap !== false };
+}
+
+/**
+ * A PLAIN ONE-MANA {T} LINE — one mana of a colour set (`colors` is a choice when the amount is one), paid by {T} and nothing
+ * else. The only rider it may carry is a painful colour's damage (`painColors` and its amount / condition / city's-blessing
+ * exemption), which tapRecordFor charges per colour, so more colours beside it change nothing about it. `insteadUpgrade` is
+ * allowed because withInsteadUpgrade has already resolved it by the time a grant is read: an upgraded line has its upgrade's
+ * amount and fails the one-mana test, an un-upgraded one makes its base. Any other field — a cost, a condition, a limit, a
+ * restriction, a count, a fixed bundle, a board-read colour set, a chosen colour — applies to the WHOLE ability, so the line
+ * is not plain and is never merged with another (an unknown field included: a new rider costs a land the merge, never
+ * adds one).
+ */
+const PLAIN_ONE_MANA_TAP_FIELDS = new Set(["colors", "amount", "requiresTap", "painColors", "painAmount", "painCondition", "painUnlessCitysBlessing", "insteadUpgrade"]);
+function isPlainOneManaTap(p) {
+  if (!p || p.amount !== 1 || p.requiresTap === false || !Array.isArray(p.colors) || p.colors.length === 0) return false;
+  return Object.keys(p).every((k) => PLAIN_ONE_MANA_TAP_FIELDS.has(k) || p[k] == null || p[k] === false);
+}
+
+/**
+ * A GRANTED TAP AS A CHOICE ON THE LAND'S OWN TAP (play-weighted #85, 2026-10-17 — Chromatic Lantern, Joiner Adept: "Lands you
+ * control have \"{T}: Add one mana of any color.\""). A land with its own plain one-mana {T} line now has two abilities (CR
+ * 113.2c, 113.10), each costing the same {T}: a tapped land can activate neither again (CR 107.5), so the two are ONE record
+ * whose colours are both abilities' — a Forest beside the Lantern taps once, for {G} or any other colour; a Wastes for {C} or
+ * any colour. A colour the granted ability makes is made painlessly through it, so it leaves the land's painful set (Karplusan
+ * Forest's {R} beside the Lantern deals no damage). Only grants marked `asChoice` (staticAbilityParser's land grant, emitted
+ * only for a plain one-mana {T} spec) merge, and only into a plain one-mana {T} line; a land whose own line is anything else —
+ * Ancient Tomb's {C}{C}, Gaea's Cradle's count, Mana Confluence's life, Command Tower's identity — keeps its own record alone
+ * (merging there would make the own line's amount in any colour, or charge its cost on the granted colours): an under-offer.
+ * A land with no mana ability of its own never reaches here — it takes the granted ability whole (grantedManaProduction).
+ */
+function withGrantedChoice(state, perm, prod) {
+  if (!isPlainOneManaTap(prod)) return prod;
+  let out = prod;
+  for (const g of grantedManaSpecsFor(state, perm.id)) {
+    // The grant is a plain one-mana {T} ability by construction: staticAbilityParser marks `asChoice` on no other spec.
+    if (!g.asChoice) continue;
+    out = { ...out, colors: [...new Set([...out.colors, ...g.colors])] };
+    if (out.painColors) {
+      const painful = out.painColors.filter((c) => !g.colors.includes(c));
+      if (painful.length) out.painColors = painful;
+      else {
+        const { painColors: _pc, painAmount: _pa, painCondition: _pcond, painUnlessCitysBlessing: _pcb, ...painless } = out;
+        out = painless;
+      }
+    }
+  }
+  return out;
 }
 
 /**
  * THE ONE READ of a permanent's production once the mana abilities granted to it are counted — made by manaSources, which both
  * the planner and the explicit tap (manualManaTaps) read, so the two cannot drift. A permanent with a
  * mana ability of its own keeps it (upgraded in place by a dominating Aura / Equipment / `upgrade` grant — never a second tap: the
- * DEDUP that keeps a self-including granter like Gemhide Sliver from tapping twice); one without takes its granted ability whole.
+ * DEDUP that keeps a self-including granter like Gemhide Sliver from tapping twice; and since 2026-10-17 a land's plain one-mana
+ * {T} line takes an `asChoice` land grant's colours on the same tap — withGrantedChoice); one without takes its granted ability
+ * whole.
  */
 export function withGrantedMana(state, perm, prod) {
-  return prod ? applyAuraManaGrantSupplement(state, perm, prod) : grantedManaProduction(state, perm);
+  return prod ? applyAuraManaGrantSupplement(state, perm, withGrantedChoice(state, perm, prod)) : grantedManaProduction(state, perm);
 }
 
 // ─── Battlefield → available sources ───────────────────────────────────────────
@@ -2440,6 +2515,36 @@ function manaCardOf(state, perm) {
   return deriveCharacteristics(state, perm.id)?.copiableValues || perm.card;
 }
 
+/**
+ * THE TAP-OTHER PAYERS (`extraTap` — "Tap N untapped <filter> you control"): the ids of the untapped permanents the record will tap,
+ * or null when there are too few (CR 118.3 — no source then, not a cheaper one). One reader for a main product and an extra
+ * line (Relic of Legends' tap-a-legend line, 2026-10-17), so the two can't drift.
+ */
+function tapOtherPayers(state, player, perm, prod) {
+  // ⛔ THE SOURCE EXCLUDES ITSELF ONLY WHEN IT IS ALREADY TAPPING ITSELF. Springleaf Drum pays {T} as
+  // part of the same cost, so it cannot also be the tapped creature — and it is an Artifact anyway.
+  // Birchlore Rangers has NO {T}: its cost is purely "Tap two untapped Elves you control", and the
+  // Rangers IS an untapped Elf, so it is a legal payer for its own ability. Excluding it unconditionally
+  // is wrong in the RESTRICTIVE direction — it would demand two OTHER Elves where the card asks for two
+  // Elves total. (When it does pay, it ends up tapped, so the ability cannot be reused — which falls out
+  // of the tapping rather than needing its own rule.)
+  const payers = (player.battlefield || [])
+    .filter((p) => (prod.requiresTap ? p.id !== perm.id : true) && !p.tapped && matchesTapOtherFilter(state, p, prod.extraTap.filter))
+    // Payer preference, cheapest-first: a SUMMONING-SICK permanent has nothing else to do this turn, and
+    // among the rest a NON-MANA-SOURCE is preferred. ⚠️ That second key matters as soon as "permanent" is an
+    // allowed payer noun (Gene Pollinator): tapping a LAND to make one mana is a legal but pointless play
+    // that nets zero, and the sim would have made it on every activation. This is a policy, not a rule —
+    // both orderings are legal — so it is stated as one.
+    // ⚠️ THE SICKNESS KEY IS CREATURE-SCOPED. `createPermanent` stamps summoningSick on EVERY fresh
+    // permanent, lands included, and sickness is meaningless for a land tapped as a COST — so an
+    // unscoped key sorted a just-played Forest ahead of a ready creature and picked the land. Caught by
+    // asserting which payer was chosen rather than only that one was.
+    .sort((a, b) =>
+      (Number(isCreatureCardType(b.card) && !!b.summoningSick) - Number(isCreatureCardType(a.card) && !!a.summoningSick))
+      || (Number(!!manaProduction(a.card)) - Number(!!manaProduction(b.card))));
+  return payers.length < prod.extraTap.count ? null : payers.slice(0, prod.extraTap.count).map((p) => p.id);
+}
+
 export function manaSources(state, playerId) {
   const player = state?.players?.[playerId];
   if (!player) return [];
@@ -2466,10 +2571,16 @@ export function manaSources(state, playerId) {
     // untapped; 2026-10-17): Ashnod's Altar, Kozilek's Translator, Wall of Roots, a no-{T} remove-a-counter source (stage ③ ·
     // 37 — Crystalline Crawler taps to add its own counter, then spends them). One whose own ability taps is skipped here; one
     // with no ability of its own is decided once its granted ability is read (below). manaProduction is memoized per card.
+    // One whose own ability taps but that prints an EXTRA line with no {T} (Relic of Legends' tap-a-legend line, 2026-10-17)
+    // still offers that line: its own record is skipped, the extra lines are read (extraLineSources), after the locks below.
     const card = manaCardOf(state, perm); // P·26 — a permanent that BECAME a copy taps for the copy's mana, not its printed mana
+    let ownLineTapped = false;
     if (perm.tapped) {
       const own = manaProduction(card);
-      if (own && own.requiresTap !== false) continue;
+      if (own && own.requiresTap !== false) {
+        if (!extraManaLineProducts(perm.card, manaProduction(perm.card)).some((e) => e.requiresTap === false)) continue;
+        ownLineTapped = true;
+      }
     }
     // ACTIVATED-LOCK (BLITZ AU-2, CR 605.1a): a mana ability IS an activated ability, so a permanent under the
     // layer-6 "activatedAbilitiesLocked" grant (an Arrest-class Aura, or Koma mode 1) is NOT a mana source —
@@ -2477,6 +2588,7 @@ export function manaSources(state, playerId) {
     // this is a no-op for the common case; mirrors the NR-1 artifact-lock skip just below.
     if (permanentHasKeyword(state, perm.id, "activatedAbilitiesLocked")) continue; // AU-2
     if (artLocked && permanentTypes(state, perm.id).types.includes("Artifact")) continue; // NR-1
+    if (ownLineTapped) { sources.push(...extraLineSources(state, playerId, player, perm, manaMult)); continue; }
     let prod = manaProduction(card);
     // REMOVE-A-COUNTER, NO {T} (stage ③ · 37): one one-mana record per counter on it right now. `repeatable` lets the planner
     // spend several (a permanent's OTHER lines are one {T} and exclude each other; these are separate activations), `noTap`
@@ -2520,7 +2632,9 @@ export function manaSources(state, playerId) {
     // SKIP the grant — the granter (a Sliver) self-includes via "All Slivers", and manaModel already reads its quoted text as
     // its own source (the test-pinned Gemhide self-production). Granting it again would tap it twice. A recipient with its own
     // DIFFERENT ability also keeps only its own (a safe under-count, never a fabricated extra tap), unless the grant dominates
-    // it in place (AURA-MANA-GRANT: a land's own tap upgrades to a dominating aura grant).
+    // it in place (AURA-MANA-GRANT: a land's own tap upgrades to a dominating aura grant), or it is a land grant marked
+    // `asChoice` (Chromatic Lantern, 2026-10-17) and the land's own line is a plain one-mana {T} tap: the granted colours join
+    // that ONE tap's choices (withGrantedChoice).
     prod = withGrantedMana(state, perm, prod);
     if (!prod) continue;
     if (perm.tapped && prod.requiresTap !== false) continue; // CR 107.5 — a {T} ability (own or granted) needs it untapped
@@ -2619,29 +2733,8 @@ export function manaSources(state, playerId) {
     if (prod.payLife != null && !((player.life ?? 0) > prod.payLife)) continue;
     let extraTaps = null;
     if (prod.extraTap) {
-      // ⛔ THE SOURCE EXCLUDES ITSELF ONLY WHEN IT IS ALREADY TAPPING ITSELF. Springleaf Drum pays {T} as
-      // part of the same cost, so it cannot also be the tapped creature — and it is an Artifact anyway.
-      // Birchlore Rangers has NO {T}: its cost is purely "Tap two untapped Elves you control", and the
-      // Rangers IS an untapped Elf, so it is a legal payer for its own ability. Excluding it unconditionally
-      // is wrong in the RESTRICTIVE direction — it would demand two OTHER Elves where the card asks for two
-      // Elves total. (When it does pay, it ends up tapped, so the ability cannot be reused — which falls out
-      // of the tapping rather than needing its own rule.)
-      const payers = (player.battlefield || [])
-        .filter((p) => (prod.requiresTap ? p.id !== perm.id : true) && !p.tapped && matchesTapOtherFilter(state, p, prod.extraTap.filter))
-        // Payer preference, cheapest-first: a SUMMONING-SICK permanent has nothing else to do this turn, and
-        // among the rest a NON-MANA-SOURCE is preferred. ⚠️ That second key matters as soon as "permanent" is an
-        // allowed payer noun (Gene Pollinator): tapping a LAND to make one mana is a legal but pointless play
-        // that nets zero, and the sim would have made it on every activation. This is a policy, not a rule —
-        // both orderings are legal — so it is stated as one.
-        // ⚠️ THE SICKNESS KEY IS CREATURE-SCOPED. `createPermanent` stamps summoningSick on EVERY fresh
-        // permanent, lands included, and sickness is meaningless for a land tapped as a COST — so an
-        // unscoped key sorted a just-played Forest ahead of a ready creature and picked the land. Caught by
-        // asserting which payer was chosen rather than only that one was.
-        .sort((a, b) =>
-          (Number(isCreatureCardType(b.card) && !!b.summoningSick) - Number(isCreatureCardType(a.card) && !!a.summoningSick))
-          || (Number(!!manaProduction(a.card)) - Number(!!manaProduction(b.card))));
-      if (payers.length < prod.extraTap.count) continue;                 // cannot pay → not a source
-      extraTaps = payers.slice(0, prod.extraTap.count).map((p) => p.id);
+      extraTaps = tapOtherPayers(state, player, perm, prod); // the payers, resolved off the live board (one reader, main and extra lines)
+      if (!extraTaps) continue;                                // cannot pay → not a source
     }
     const baseAmount = prod.amountSpec
       ? Math.max(0, countForSpec(state, { controller: playerId, source: perm }, prod.amountSpec))
@@ -2748,35 +2841,8 @@ export function manaSources(state, playerId) {
     // offered on an empty board): no victim → no source (CR 601.2h — the cost cannot be paid).
     if (prod.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && isCreatureNow(state, p))) continue; // a creature NOW (the type-line audit)
     if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(painOn ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });
-    // STAGE ④-3 — EXTRA MANA LINES: a second, complete "{T}: Add …" line the main product does not cover (a
-    // gated colour line — Tainted Isle / the Verges / Gathering Place; a free "{T}: Add {C}" beside a painful
-    // any-colour line — Grand Coliseum; a "{T}, Sacrifice this land: Add …" ritual line). Each is its own
-    // source record on the SAME permanent; the planner treats a permanent's records as mutually exclusive
-    // (one {T}, CR 605.3a). Gated live exactly like the main product, at this same chokepoint.
-    for (const extra of extraManaLineProducts(perm.card, manaProduction(perm.card))) {
-      if (extra.activationCondition && evaluateInterveningIf(state, extra.activationCondition, playerId, { sourcePermanentId: perm.id }) !== true) continue;
-      if (perm.tapped && extra.requiresTap !== false) continue; // CR 107.5 — the main record had no {T}; this line has one
-      if (extra.activationLimit && !manaLimitAllows(state, playerId, perm.id, extra.activationLimit)) continue;
-      const exFixed = extra.fixed && Object.keys(extra.fixed).length > 1 ? extra.fixed : null;
-      // STAGE ④-4: a counter-removal line's amount is the permanent's LIVE counters (plus one for the Battery form). A single-
-      // counter land line ("one" — the Vivid lands, Tendo Ice Bridge, Mirrodin's Core, 2026-10-17) keeps its printed amount,
-      // removes one counter, and is no source with none of that kind left (CR 118.3).
-      const crCount = extra.removesCounters ? (perm.counters?.[extra.removesCounters.type] || 0) : 0;
-      const oneCounter = extra.removesCounters?.mode === "one";
-      if (oneCounter && crCount < 1) continue;
-      const exMult = extra.requiresTap === false ? 1 : manaMult; // a no-{T} line is not tapped for mana (CR 106.12)
-      const exAmount = extra.removesCounters && !oneCounter ? ((extra.removesCounters.mode === "plusOne" ? 1 : 0) + crCount) * exMult
-        : exFixed ? Object.values(exFixed).reduce((a, b) => a + b, 0)
-        : extra.amountSpec ? Math.max(0, countForSpec(state, { controller: playerId, source: perm }, extra.amountSpec)) * exMult // P·7 — a count read live (Three Tree City)
-        : (extra.amount ?? 1) * exMult;
-      if (exAmount <= 0) continue;
-      // V2 (2026-09-04 — Starting Town "{T}, Pay 1 life: Add one mana of any color" beside a free "{T}: Add {C}"): a
-      // pay-life extra line carries its life cost onto the record (the planner and commitPaymentPlan already honour
-      // `payLife` on a source — the painland/City-of-Brass lane) and is gated exactly like the main product: no life,
-      // no source. Without both halves the any-colour tap would be free — the forbidden direction.
-      if (extra.payLife != null && !((player.life ?? 0) > extra.payLife)) continue;
-      sources.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.activationCost ? { activationCost: extra.activationCost } : {}), ...(extra.payLife != null ? { payLife: extra.payLife } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: oneCounter ? 1 : crCount } } : {}), ...(extra.sacrificeIfNoCounters && extra.removesCounters ? { sacrificeIfNoCounters: true } : {}), ...(extra.requiresTap === false ? { noTap: true } : {}), ...(extra.putsCounter ? { putsCounter: { ...extra.putsCounter } } : {}), ...(extra.activationLimit?.perTurn != null ? { limitKey: manaLimitKey(perm.id, extra.activationLimit) } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), ...(staysTapped ? { staysTapped: true } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
-    }
+    // STAGE ④-3 — EXTRA MANA LINES (extraLineSources): each its own record on the SAME permanent.
+    sources.push(...extraLineSources(state, playerId, player, perm, manaMult));
   }
   // SG-6 — EXILE-FROM-HAND sources (Elvish / Simian Spirit Guide): a mana ability of a card in HAND. Offered
   // as a one-shot source keyed by the card's id (the committer exiles it); never a tap, never repeatable.
@@ -2788,6 +2854,48 @@ export function manaSources(state, playerId) {
   return sources;
 }
 
+/**
+ * STAGE ④-3 — A PERMANENT'S EXTRA MANA LINES as source records (extraManaLineProducts): a second, complete "{T}: Add …" line the
+ * main product does not cover (a gated colour line — Tainted Isle / the Verges / Gathering Place; a free "{T}: Add {C}" beside a
+ * painful any-colour line — Grand Coliseum; a "{T}, Sacrifice this land: Add …" ritual line) and, since 2026-10-17, a no-{T}
+ * tap-other line (Relic of Legends). Each is its own record on the SAME permanent; the planner treats a permanent's {T}
+ * records as one tap (tapSource). Gated live exactly like the main product. Read by manaSources for every permanent it
+ * reaches — and for a TAPPED one whose own line needs {T} when one of these lines has none (CR 107.5): Relic of Legends'
+ * tap-a-legend line after its {T} line was used.
+ */
+function extraLineSources(state, playerId, player, perm, manaMult) {
+  const out = [];
+  const staysTapped = cardSelfPreventsUntap(perm.card);
+  for (const extra of extraManaLineProducts(perm.card, manaProduction(perm.card))) {
+    if (extra.activationCondition && evaluateInterveningIf(state, extra.activationCondition, playerId, { sourcePermanentId: perm.id }) !== true) continue;
+    if (perm.tapped && extra.requiresTap !== false) continue; // CR 107.5 — a tapped permanent offers only a line with no {T}
+    if (extra.activationLimit && !manaLimitAllows(state, playerId, perm.id, extra.activationLimit)) continue;
+    const exFixed = extra.fixed && Object.keys(extra.fixed).length > 1 ? extra.fixed : null;
+    // STAGE ④-4: a counter-removal line's amount is the permanent's LIVE counters (plus one for the Battery form). A single-
+    // counter land line ("one" — the Vivid lands, Tendo Ice Bridge, Mirrodin's Core, 2026-10-17) keeps its printed amount,
+    // removes one counter, and is no source with none of that kind left (CR 118.3).
+    const crCount = extra.removesCounters ? (perm.counters?.[extra.removesCounters.type] || 0) : 0;
+    const oneCounter = extra.removesCounters?.mode === "one";
+    if (oneCounter && crCount < 1) continue;
+    const exMult = extra.requiresTap === false ? 1 : manaMult; // a no-{T} line is not tapped for mana (CR 106.12)
+    const exAmount = extra.removesCounters && !oneCounter ? ((extra.removesCounters.mode === "plusOne" ? 1 : 0) + crCount) * exMult
+      : exFixed ? Object.values(exFixed).reduce((a, b) => a + b, 0)
+      : extra.amountSpec ? Math.max(0, countForSpec(state, { controller: playerId, source: perm }, extra.amountSpec)) * exMult // P·7 — a count read live (Three Tree City)
+      : (extra.amount ?? 1) * exMult;
+    if (exAmount <= 0) continue;
+    // V2 (2026-09-04 — Starting Town "{T}, Pay 1 life: Add one mana of any color" beside a free "{T}: Add {C}"): a
+    // pay-life extra line carries its life cost onto the record (the planner and commitPaymentPlan already honour
+    // `payLife` on a source — the painland/City-of-Brass lane) and is gated exactly like the main product: no life,
+    // no source. Without both halves the any-colour tap would be free — the forbidden direction.
+    if (extra.payLife != null && !((player.life ?? 0) > extra.payLife)) continue;
+    // A TAP-OTHER line (Relic of Legends' "Tap an untapped legendary creature you control", 2026-10-17): its payers resolved off the
+    // live board by the main product's own reader; too few → no record (CR 118.3). Carried on the record, tapped by the commit.
+    const exTaps = extra.extraTap ? tapOtherPayers(state, player, perm, extra) : null;
+    if (extra.extraTap && !exTaps) continue;
+    out.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.activationCost ? { activationCost: extra.activationCost } : {}), ...(extra.payLife != null ? { payLife: extra.payLife } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: oneCounter ? 1 : crCount } } : {}), ...(extra.sacrificeIfNoCounters && extra.removesCounters ? { sacrificeIfNoCounters: true } : {}), ...(extra.requiresTap === false ? { noTap: true } : {}), ...(extra.putsCounter ? { putsCounter: { ...extra.putsCounter } } : {}), ...(extra.activationLimit?.perTurn != null ? { limitKey: manaLimitKey(perm.id, extra.activationLimit) } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), ...(exTaps ? { extraTaps: exTaps } : {}), ...(staysTapped ? { staysTapped: true } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
+  }
+  return out;
+}
 /**
  * The battlefield permanents an action's OWN costs still need once its mana is paid — its sacrifice victims, the
  * creatures and lands it taps or returns, the Equipment it unattaches, and its source when the source taps, is sacrificed
@@ -2900,19 +3008,28 @@ export function tapRecordFor(s, color, bonus = []) {
  *     not, and the dispatcher doesn't tap it;
  *   · its mana is spend-restricted (CR 106.6) or carries a "when that mana is spent" rider: floating mana keeps neither;
  *   · it is a permanent's EXTRA mana line (Crystal Vein's sacrifice line, Starting Town's pay-life line, a storage land's
- *     counters) — the action names its colour only, so a costed line would look like the free one beside it;
+ *     counters) — the action names its colour only, so a costed line would look like the free one beside it. The one
+ *     exception is a line that taps other permanents (Relic of Legends, 2026-10-17), offered for a colour no earlier record of
+ *     its permanent makes — one option per permanent and colour, so the dispatcher's re-derivation finds that record alone;
  *   · it makes nothing right now (Gaea's Cradle with no creatures).
  * An activation cost is left to the caller: the offer requires the floating pool to pay it, the dispatcher charges it.
  */
 export function manualManaTaps(state, playerId) {
   const out = [];
+  const offered = new Set(); // `${permanentId}:${color}` — the action names only these two, so each pair is ONE option
   for (const s of manaSources(state, playerId)) {
     if (s.fromHand || s.repeatable) continue;
     if (s.restriction || s.spentRider) continue;
-    if (s.extraLine) continue;
+    // An extra line stays planner-only — except one that taps other permanents (Relic of Legends' tap-a-legend line,
+    // 2026-10-17): its record carries the payers it taps, and it is offered for a colour only when no earlier record of the
+    // same permanent makes that colour (`offered` below), so the colour the action names picks it alone. Relic untapped is
+    // offered its {T} line; Relic tapped, its tap-a-legend line.
+    if (s.extraLine && !s.extraTaps) continue;
     if (!((s.amount ?? 1) > 0)) continue;
     const fixed = s.fixed && Object.keys(s.fixed).length > 1 ? s.fixed : null;
     for (const color of fixed ? [Object.keys(fixed)[0]] : (s.colors || []).filter((c) => COLOR_SET.has(c))) {
+      if (offered.has(`${s.permanentId}:${color}`)) continue;
+      offered.add(`${s.permanentId}:${color}`);
       // A bonus makes its own colour (an any-colour boost its first); a sameAsProduced one (Mana Flare) the colour this tap made.
       const bonus = (s.bonus || []).map((b) => ({ color: b.sameAsProduced ? color : b.colors[0], amount: b.amount }));
       out.push({ ...tapRecordFor(s, color, bonus), ...(s.activationCost ? { activationCost: s.activationCost } : {}) });
@@ -3211,7 +3328,23 @@ function planPaymentCore(pool, sources, cost, spendContext = null) {
     // every sibling record of this permanent used so the planner can never tap it twice through two lines.
     // + STAGE ③ · 37: records that are each their own ACTIVATION (a no-{T} remove-a-counter source — one record per counter)
     // don't exclude one another; nothing here is a shared {T}.
-    for (const o of avail) if (o !== s && o.permanentId === s.permanentId && !o.fromHand && !s.fromHand && !(o.repeatable && s.repeatable)) o.used = true;
+    // + 2026-10-17 (Relic of Legends): a record with NO {T} (`noTap`) doesn't share its permanent's {T} either — Relic's {T} line and
+    // its tap-a-legend line are two activations, two mana — unless one of the two sacrifices the permanent (the other could no
+    // longer follow it).
+    // ⛔ AND A PERMANENT THIS TAP TAPS IS TAPPED ONCE (CR 107.5, 118.3). The permanents it taps are its source (unless the line has
+    // no {T}) and its tap-other payers (`extraTaps`); afterwards none of them can pay a {T} record of its own or be another
+    // record's payer. Before this, Springleaf Drum beside a lone Llanowar Elves paid {2}: the Elves tapped for {G} AND as the
+    // Drum's payer — mana a board can't make. (manaSources resolves each record's payers against the untapped board alone;
+    // only the plan sees two records claim one permanent.)
+    const tappedNow = new Set([...(s.noTap || s.fromHand ? [] : [s.permanentId]), ...(s.extraTaps || [])]);
+    for (const o of avail) {
+      if (o === s || o.used) continue;
+      const sameTap = o.permanentId === s.permanentId && !o.fromHand && !s.fromHand && !(o.repeatable && s.repeatable)
+        && ((!o.noTap && !s.noTap) || o.sacrifices || s.sacrifices);
+      if (sameTap
+        || (!o.noTap && !o.fromHand && tappedNow.has(o.permanentId))
+        || (o.extraTaps || []).some((id) => tappedNow.has(id))) o.used = true;
+    }
     // Components: the primary land mana (one chosen color from s.colors) + each bonus entry.
     const components = [{ colors: s.colors, amount: s.amount, primary: true }, ...s.bonus.map(b => ({ colors: b.colors, amount: b.amount, primary: false, sameAsProduced: !!b.sameAsProduced }))];
     let primaryColor = null;

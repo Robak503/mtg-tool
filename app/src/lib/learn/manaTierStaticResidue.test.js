@@ -57,8 +57,10 @@ describe("genuine static / replacement residue parks the card — one pin per sh
       "an equipped-creatures grant with no static descriptor"],
     ["Serum Powder", "Artifact", "{3}", "{T}: Add {C}.\nAny time you could mulligan and this card is in your hand, you may exile all the cards from your hand, then draw that many cards. (You can do this in addition to taking mulligans.)",
       "a mulligan action the engine never offers"],
-    ["Relic of Legends", "Artifact", "{3}", "{T}: Add one mana of any color.\nTap an untapped legendary creature you control: Add one mana of any color.",
-      "a SECOND mana ability the runtime's mana parser cannot read (its tap-a-legendary-creature cost)"],
+    // Relic of Legends was this row until 2026-10-17, when its tap-a-legend line became a record the runtime pays
+    // (relicOfLegends.test.js). The shape stays pinned on its synthetic twin: a payer noun the reader doesn't read.
+    ["Relic of Legends (a blue-creature payer)", "Artifact", "{3}", "{T}: Add one mana of any color.\nTap an untapped blue creature you control: Add one mana of any color.",
+      "a SECOND mana ability the runtime's mana parser cannot read (a tap-a-blue-creature cost)"],
     ["Devoted Druid", "Creature — Elf Druid", "{1}{G}", "{T}: Add {G}.\nPut a -1/-1 counter on this creature: Untap this creature.",
       "an activated ability the parser never detects (a -1/-1 counter cost), so the untap is never offered"],
     ["Phyrexian Atlas", "Artifact", "{3}", "{T}: Add one mana of any color.\nCorrupted — Whenever this artifact becomes tapped, each opponent who has three or more poison counters loses 1 life.",
@@ -105,8 +107,11 @@ describe("a mana line with a WORD cost is read by the runtime's own mana parser,
     expect(src(1)).toBeUndefined();
   });
 
-  it("⛔ a second word-cost mana line the parser cannot read is residue — Relic of Legends parks, the same card without it does not", () => {
-    expect(classifyCard(card("Relic of Legends", "Artifact", "{3}", "{T}: Add one mana of any color.\nTap an untapped legendary creature you control: Add one mana of any color."))).toBe("body-only");
+  it("⛔ a second word-cost mana line the parser cannot read is residue — an unread payer noun parks the card, the same card without it does not", () => {
+    // 2026-10-17: Relic of Legends' own "legendary creature" payer reads (its record taps the legend — relicOfLegends.test.js),
+    // so the real card is native-mana; a payer noun the reader has no filter for ("blue creature") still parks it.
+    expect(classifyCard(card("Relic of Legends", "Artifact", "{3}", "{T}: Add one mana of any color.\nTap an untapped blue creature you control: Add one mana of any color."))).toBe("body-only");
+    expect(classifyCard(card("Relic of Legends", "Artifact", "{3}", "{T}: Add one mana of any color.\nTap an untapped legendary creature you control: Add one mana of any color."))).toBe("native-mana");
     expect(classifyCard(card("Relic of Legends", "Artifact", "{3}", "{T}: Add one mana of any color."))).toBe("native-mana");
   });
 
