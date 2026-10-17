@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **63 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,436)**; engine gains since the tag: **−31** (+50 gained, −81 false credit removed). The next tag
+> **64 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,451)**; engine gains since the tag: **−16** (+65 gained, −81 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,86 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX: mana abilities pay their printed costs — counter costs paid (Gemstone Mine, the depletion and Vivid lands, Tendo Ice Bridge, Mirrodin's Core, Wall of Roots), no-{T} lines don't tap, per-turn limits, Kinnan only on a tap for mana · **+15** · snapshot native 15,427 → 15,442
+> Suite **19,691** green (1 skipped) / 1,820 files. Lint 0 (CR citations: 0 of 10,545 name no rule). Flip-diff **15 gained / 0 lost / 0 retiered** (34,620 cards;
+> before = c5846749 from an untouched `git archive` copy, after = this tree). Runtime fingerprint: **25 of 34,620 `manaProduction`
+> reads change** (7 restored, 17 gain a per-turn limit, Vivi Ornitier's X); the extra-line probe: 7 lands gain their charge-counter
+> record; activation costs unchanged. **Mutants 31/31** on assertions, restore byte-identical (sha256 of manaModel.js and
+> actionDispatcher.js compared after each).
+> · **The bugs** (found 10-17 by the tap-cost and planeswalker slices; re-proved on c5846749 through `manaSources`,
+>   `legalActionsForPlayer` and `dispatchAction`; every text from the bundled oracle index). ① **Counter costs refused**: c5846749
+>   dropped "{T}, Remove a <charge|mining|depletion> counter from this land: Add …" and Wall of Roots' "Put a -0/-1 counter on this
+>   creature: Add {G}." because no record paid the counter — Gemstone Mine and the five depletion lands made nothing, the Vivid lands,
+>   Tendo Ice Bridge and Mirrodin's Core only their plain line, Wall of Roots nothing. ② **No-{T} lines tapped**: commitManaTap tapped
+>   every source whose record lacked `noTap` (only the per-counter records carried it) — Ashnod's / Phyrexian Altar, Kozilek's
+>   Translator, the filters ended tapped after one use and fired "becomes tapped" (CR 106.12: "tapped for mana" needs {T} in the
+>   cost); Birchlore Rangers tapped itself on top of the two Elves it paid with; a tapped no-{T} source was no source at all (CR 107.5
+>   asks only {T} for an untapped permanent). ③ **"Activate only once each turn"** on a mana line was enforced by nothing but that
+>   tap. ④ **Kinnan** (and every "tapped for mana" boost) added its mana to an Ashnod's Altar activation and an Eldrazi Spawn sacrifice.
+> · **The fix.** ① `LAND_COUNTER_MANA_LINE_RE` / `PUT_COUNTER_MANA_LINE_RE` — the two counter costs join `PAID_MANA_COST_ITEMS` and
+>   manaLineRefused admits them only in their whole anchored line (Throne of Makindi's kicked-only charge line and any rider variant
+>   still refuse). The land line is the product when it is the card's only mana line (`removesCounters` mode `"one"` — one counter per
+>   activation, no source with none left, CR 118.3; `sacrificeIfNoCounters` for the depletion / mining lands); beside a plain line it
+>   leaves the whole-card parse and rides as an extra record (`EXTRA_MANA_LINE_RE` admits it). The commit removes the counter, then,
+>   after the mana, sacrifices a depletion / mining land with none left — the ability's own instruction, followed in order as it
+>   resolves (CR 605.3b, 608.2c), neither a trigger (CR 603.1) nor a state-based action — through `sacrificePermanentForCost`, since
+>   no resolution finalizer runs after a mana ability. Wall of Roots' record puts the counter on through `addCounter` (a doubler
+>   applies, CR 122.6). ② Every line with no {T} carries `noTap` (the record, `tapRecordFor`, the planner): commitManaTap doesn't tap
+>   it and fires no tapped-for-mana watcher; `manaSources` offers it while tapped (a granted {T} ability on a tapped permanent still
+>   doesn't count); `manualManaTaps` skips only the per-counter `repeatable` records; `applyTapForMana` takes a tapped no-{T} source.
+>   ③ `manaActivationLimit` reads every limit printed on a no-{T} mana line in the corpus (once each turn; Vivi Ornitier's "only during
+>   your turn and only once each turn"; Manaforge Cinder's "no more than three times"; the Initiates / Farrelite "four or more … sacrifice"
+>   rider read as three) into `activationLimit`, keyed into the activated abilities' own ledger `state.activatedOncePerTurn`
+>   (`permId:line` → `{ turn, n }`, self-expiring — CR 602.5b): manaSources gates, commitManaTap stamps (`limitKey`). Vivi's "X mana in
+>   any combination of {U} and/or {R}, where X is Vivi Ornitier's power" now reads X (selfPower) — it made one mana at power 0.
+>   ④ The `landAuraManaBonus` / `globalTapManaAugment` bonus is empty for a `requiresTap === false` line. Policy (no legality change):
+>   a counter put on waits for the planner's pass B like a counter removed (Wall of Roots beside a Forest stays clean), and a no-{T}
+>   life payment waits like a one-shot (Treasonous Ogre beside a Mountain pays nothing).
+> · **Every card whose mana changed.** Restored: Gemstone Mine (any colour, a mining counter, sacrificed with the last), Hickory
+>   Woodlot / Peat Bog / Remote Farm / Sandstone Needle / Saprazzan Skerry (two of their colour, a depletion counter, sacrificed with
+>   the last), Vivid Crag / Creek / Grove / Marsh / Meadow, Tendo Ice Bridge, Mirrodin's Core (an any-colour record removing a charge
+>   counter beside the unchanged plain line), Wall of Roots ({G}, a -0/-1 counter, no tap, once each turn). Per-turn limits stamped:
+>   Abzan / Jeskai / Mardu / Sultai / Temur Devotee, Barrels of Blasting Jelly, Foraging Wickermaw, Gravestone Strider, Salvaged
+>   Manaworker, Scarecrow Guide, Shire Scarecrow, Three Tree Mascot, Kozilek's Translator, Ronin, Shadow Stalker (once), Manaforge
+>   Cinder, Initiates of the Ebon Hand, Farrelite Priest (three), Vivi Ornitier (once, her turn; X = power). No longer tapped, usable
+>   tapped, no tap-for-mana boost (the 66 battlefield no-{T} mana lines of the corpus survey — among them Ashnod's / Phyrexian Altar,
+>   Thermopod, Birchlore Rangers, Heritage Druid, Seton, Supportive Parents, Baylen, The Cabbage Merchant, Urza, Lord High Artificer,
+>   Treasonous Ogre, Blood Celebrant, Kozilek's Translator, the Spawn / Treasure-less sacrifice creatures, Basal Sliver's grant, the
+>   {N}: filters Prismite / Orochi Leafcaller / Bog Initiate / Stonework Packbeast / Nomadic Elf …).
+> · **Flip-diff, every card.** Gained land-partial → land: Gemstone Mine, Hickory Woodlot, Peat Bog, Remote Farm, Sandstone
+>   Needle, Saprazzan Skerry, Vivid Crag, Vivid Creek, Vivid Grove, Vivid Marsh, Vivid Meadow, Tendo Ice Bridge, Mirrodin's Core (each
+>   counter line now read by the runtime's own per-line parse); body-only → native-mana: Wall of Roots (its line reads again) and Vivi
+>   Ornitier (hasModeledVariableXMana: her X now has a runtime metric). Each has a runtime witness: Gemstone Mine, Hickory Woodlot,
+>   Vivid Crag, Tendo Ice Bridge, Mirrodin's Core, Wall of Roots and Vivi on a board; the other four depletion and four Vivid lands
+>   through the same parse in the witness's per-card loop.
+> · **Profile decks** (app data dir, read 2026-10-17; no seeded batch was run). Colton: Killer Turts — Gemstone Mine (three
+>   any-colour mana, then sacrificed; the planner spends its counters only when nothing else can pay), Treasonous Ogre (no longer
+>   taps; its 3 life now only when nothing else can pay), Vessel of Volatility (usable tapped, no Kinnan-type boost). The Unbeatable
+>   Squirrel Girl — Phyrexian Altar (no longer taps: a second sacrifice for mana the same turn is possible, still planned last),
+>   Supportive Parents and The Cabbage Merchant (tap only their payers). cdh — The Cabbage Merchant. Veyran Cantrips — Vivi
+>   Ornitier (X = her power, once on her turn, no tap: she no longer makes 1 mana at power 0, nor taps away her attack). Joe: Kinnan
+>   Mana Overload — Kinnan no longer adds mana to Stonework Packbeast's {2} filter or The Cabbage Merchant's Food tap; the Packbeast
+>   no longer taps. Elvish Spirit Guide (three decks) and the Wild Growth / Mana Reflection decks are unaffected.
+> · Witness `manaPrintedCosts.test.js` (31; 24 red at c5846749, every one an AssertionError; the 7 controls green on both). Fixture
+>   flips: manaNotItsOwn.test.js, manaModel.test.js, manaTierStaticResidue.test.js, landEntersWithCounters.test.js (the morning's
+>   refusals of these lines, reversed); grantedManaAbility.test.js and selfSacCompoundManaCost.test.js (Basal Sliver's no-{T}
+>   sacrifice records now carry `noTap`), and with manaCostSacrificeDies.test.js (a tapped Basal Sliver is a source now — CR 107.5 —
+>   so the Metallic Sliver pays by board order instead of by Basal being tapped).
+> · Mutants (31): each paid item · each anchor guard · the land reader, its {T}, its sacrifice flag · Wall of Roots' no-{T} · the
+>   whole-card strip · the extra-line admission · "one" needs a counter (main, extra) · "one" removes one · the commit's sacrifice, its
+>   counter put on, its ledger stamp · noTap · the tapped gate (own, granted) · the explicit tap's skip · the dispatcher's tapped check ·
+>   the limit gate, the your-turn gate, each limit reading · Vivi's X · the boost gate · the two pass-B policies.
+> · ⚠️ Found, not fixed: ① **Lavinia, Foil to Conspiracy** ("{T}: Add {C}{C}. Activate only during an opponent's turn.") taps on its
+>   controller's own turn — a timing rider on a {T} line nothing reads (an FP, pre-existing; `manaActivationLimit` is the place).
+>   ② The same single-counter {T} form on a non-land (Sphere of the Suns' charge, Channeler Initiate's -1/-1, Spell Satchel's book,
+>   Component Pouch) and Mana Bloom ("Activate only once each turn" on a no-{T} charge line) still refuse — each is one vocabulary
+>   entry plus its own check of the rest of the card. ③ "Any combination" (Vivi, Shape B) is planned as X of ONE colour per
+>   activation, an under-read. ④ The explicit tap never offers a permanent's extra line, so a Vivid land's charge line is
+>   planner-only. ⑤ A no-{T} source pays at most once per payment plan (an Altar can't feed two creatures into one cast). ⑥ Bog
+>   Initiate and Orochi Leafcaller are pool-neutral repeatable filters, offered by hand again and again (faithful; a pilot that keeps
+>   choosing one loops until the step budget). ⑦ Initiates of the Ebon Hand / Farrelite Priest stop at three (the fourth, with its
+>   delayed sacrifice, is not modelled). ⑧ Extra mana lines never carry a tap-for-mana boost (Mana Flare on a Vivid charge tap).
 
 > ## 🔧 2026-10-17 — FIX: a double-faced permanent is its face that is up everywhere — keywords, activated / triggered / static abilities, evasion text, trigger scopes, graveyard counts, sickness, legend rule, attach lanes (CR 712.8a, 712.8d) · **±0** · corpus unchanged
 > Suite **19,621 green (1 skipped) / 1,818 files** under the gate queue. Lint 0 (CR citations: 0 of 10,519 name no rule). Flip-diff **0 / 0 / 0** (34,620

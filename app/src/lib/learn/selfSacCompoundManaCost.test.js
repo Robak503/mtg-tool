@@ -123,7 +123,7 @@ describe("on a board — nothing is paid by the sacrifice alone", () => {
 
   it("⭐ Basal Sliver on the battlefield is ONE record that sacrifices it; Oddric is none", () => {
     const s = board([BASAL_SLIVER, ODDRIC], []);
-    expect(manaSources(s, "user")).toEqual([{ permanentId: "src0", colors: ["B"], amount: 2, sacrifices: true }]);
+    expect(manaSources(s, "user")).toEqual([{ permanentId: "src0", colors: ["B"], amount: 2, sacrifices: true, noTap: true }]);
     expect(actionsOf(s, "tap-for-mana").map((a) => [a.permanentId, a.color, a.amount, a.sacrifices])).toEqual([["src0", "B", 2, true]]);
   });
 });

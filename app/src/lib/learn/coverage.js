@@ -2482,8 +2482,8 @@ function manaCardResidueModeled(card, oracle) {
   // A MANA LINE THE ACTIVATED DETECTOR DOES NOT SEE (a word cost: Heritage Druid's "Tap three untapped Elves
   // you control: Add {G}{G}{G}.", the Spirit Guides' "Exile this card from your hand: Add {R}.") goes too, but ONLY when the
   // runtime's own mana parser reads that line on its own: manaProduction per line, landFullyCovered's isManaLine discipline
-  // (Wall of Roots' "Put a -0/-1 counter on this creature: Add {G}." no longer reads — a cost no mana record pays,
-  // manaModel.manaLineRefused, 2026-10-17 — so it stays residue). A second
+  // (Wall of Roots' "Put a -0/-1 counter on this creature: Add {G}." reads again since 2026-10-17's counter-cost slice: its
+  // record puts the counter on at commit — the morning's manaLineRefused had dropped it as a cost no record paid). A second
   // mana ability the runtime never produces (Relic of Legends' "Tap an untapped legendary creature you
   // control: Add one mana of any color.") is not read, stays residue, and parks the card.
   // ⛔ THE LINE MUST BE A MANA ABILITY, not merely mention one: "<cost>: Add …", the colon OUTSIDE any quote

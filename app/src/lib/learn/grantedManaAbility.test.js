@@ -97,7 +97,7 @@ describe("grantedManaProduction — the recipient's production is the spec whole
 describe("on a board — Basal Sliver's grant sacrifices the Sliver that uses it", () => {
   it("⭐ the planner's record and the explicit tap both say sacrifice (they read one function)", () => {
     const s = board([["basal", BASAL], ["metal", METALLIC]]);
-    expect(recordOf(s, "metal")).toEqual([{ permanentId: "metal", colors: ["B"], amount: 2, sacrifices: true }]);
+    expect(recordOf(s, "metal")).toEqual([{ permanentId: "metal", colors: ["B"], amount: 2, sacrifices: true, noTap: true }]);
     expect(tapActions(s, "metal").map((a) => [a.color, a.amount, a.sacrifices])).toEqual([["B", 2, true]]);
   });
 
@@ -111,8 +111,9 @@ describe("on a board — Basal Sliver's grant sacrifices the Sliver that uses it
   });
 
   it("⭐ paying Sign in Blood with the granted ability sacrifices the Sliver; it is no source afterwards", () => {
-    // Basal is tapped so it cannot pay with its own ability — Metallic is the only {B}{B} on the board.
-    const s = board([["basal", BASAL, { tapped: true }], ["metal", METALLIC]], [SIGN_IN_BLOOD]);
+    // Metallic is first on the battlefield, so it pays. (Tapping Basal no longer keeps it out: its own "Sacrifice this
+    // permanent: Add {B}{B}." has no {T}, so a tapped Basal may activate it too — CR 107.5, 2026-10-17.)
+    const s = board([["metal", METALLIC], ["basal", BASAL]], [SIGN_IN_BLOOD]);
     const cast = legalActionsForPlayer(s, "user").find((a) => a.kind === "cast-spell" && a.cardId === "h0");
     expect(cast).toBeTruthy();
     const after = dispatchAction(s, cast);
@@ -125,14 +126,14 @@ describe("on a board — Basal Sliver's grant sacrifices the Sliver that uses it
 
   it("a summoning-sick Sliver may sacrifice for it — the cost has no {T} (CR 302.6); a sick Sliver under Gemhide may not tap", () => {
     const sac = board([["basal", BASAL, { tapped: true }], ["metal", METALLIC, { sick: true }]]);
-    expect(recordOf(sac, "metal")).toEqual([{ permanentId: "metal", colors: ["B"], amount: 2, sacrifices: true }]);
+    expect(recordOf(sac, "metal")).toEqual([{ permanentId: "metal", colors: ["B"], amount: 2, sacrifices: true, noTap: true }]);
     const tap = board([["gem", GEMHIDE, { tapped: true }], ["metal", METALLIC, { sick: true }]]);
     expect(recordOf(tap, "metal")).toEqual([]);
   });
 
   it("Mana Reflection doubles a granted {T} ability but not the sacrifice — it is not tapping for mana (CR 106.12)", () => {
     const sac = board([["basal", BASAL, { tapped: true }], ["metal", METALLIC], ["refl", REFLECTION]]);
-    expect(recordOf(sac, "metal")).toEqual([{ permanentId: "metal", colors: ["B"], amount: 2, sacrifices: true }]);
+    expect(recordOf(sac, "metal")).toEqual([{ permanentId: "metal", colors: ["B"], amount: 2, sacrifices: true, noTap: true }]);
     const tap = board([["gem", GEMHIDE, { tapped: true }], ["metal", METALLIC], ["refl", REFLECTION]]);
     expect(recordOf(tap, "metal")).toEqual([{ permanentId: "metal", colors: WUBRG, amount: 2, sacrifices: false }]);
   });

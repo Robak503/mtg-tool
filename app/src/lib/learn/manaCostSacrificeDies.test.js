@@ -79,7 +79,9 @@ describe("a creature that sacrifices itself for mana dies", () => {
   });
 
   it("⭐ a Sliver paying with Basal Sliver's granted ability dies — the grant's sacrifice is a real one, end to end", () => {
-    const after = castFirst(board([["basal", BASAL, { tapped: true }], ["metal", METALLIC], ["artist", BLOOD_ARTIST]], [SIGN_IN_BLOOD]));
+    // The Metallic Sliver pays: it is first on the battlefield. (A tapped Basal Sliver is no longer kept out — the granted
+    // "Sacrifice this permanent: Add {B}{B}." has no {T}, so a tapped Sliver may activate it too, CR 107.5; 2026-10-17.)
+    const after = castFirst(board([["metal", METALLIC], ["basal", BASAL], ["artist", BLOOD_ARTIST]], [SIGN_IN_BLOOD]));
     expect(zoneNames(after, "graveyard")).toEqual(["Metallic Sliver"]);
     expect(triggers(after)).toEqual(["user:Blood Artist"]);
     expect(after.players.user.creaturesDiedThisTurn).toBe(1);
@@ -115,7 +117,7 @@ describe("a creature that sacrifices itself for mana dies", () => {
 
   it("⛔ a creature that would be exiled if it died this turn goes to exile, not the graveyard, and fires no dies trigger", () => {
     // exileIfDiesTurn — the stamp a "if that creature would die this turn, exile it instead" effect leaves (Lava Coil's rider).
-    const after = castFirst(board([["basal", BASAL, { tapped: true }], ["metal", METALLIC, { exileIfDiesTurn: 3 }], ["artist", BLOOD_ARTIST]], [SIGN_IN_BLOOD]));
+    const after = castFirst(board([["metal", METALLIC, { exileIfDiesTurn: 3 }], ["basal", BASAL], ["artist", BLOOD_ARTIST]], [SIGN_IN_BLOOD]));
     expect(zoneNames(after, "exile")).toEqual(["Metallic Sliver"]);
     expect(zoneNames(after, "graveyard")).toEqual([]);
     expect(triggers(after)).toEqual([]);

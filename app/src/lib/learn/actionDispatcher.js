@@ -1173,14 +1173,16 @@ function applyTapForMana(state, action) {
   if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
   const perm = player.battlefield.find(p => p.id === action.permanentId);
   if (!perm) throw new DispatcherError(`Permanent ${action.permanentId} not on battlefield`, "PERM_NOT_FOUND");
-  if (perm.tapped) throw new DispatcherError("Mana source is already tapped", "ALREADY_TAPPED");
 
   // THE TAP IS RE-DERIVED FROM THE BOARD, never read off the action (2026-10-16): manaModel.manualManaTaps — the offer's own
   // source — gives the tap record for this permanent and colour, with every cost rider the planner would pay (the life, the
-  // permanents tapped, the creature sacrificed, the graveyard card exiled, the counters removed). An action that names a colour
-  // the permanent can't make now, or a source whose cost can't be paid or whose condition is false, is refused outright: a
-  // partial payment isn't allowed (CR 601.2h), and an action that left its costs out used to get the mana for free.
+  // permanents tapped, the creature sacrificed, the graveyard card exiled, the counters removed or put on). An action that names
+  // a colour the permanent can't make now, or a source whose cost can't be paid or whose condition is false, is refused
+  // outright: a partial payment isn't allowed (CR 601.2h), and an action that left its costs out used to get the mana for free.
   const tap = manualManaTaps(state, action.playerId).find((t) => t.permanentId === action.permanentId && t.color === action.color);
+  // A tapped permanent can't pay {T} (CR 107.5); a line with no {T} in its cost (`noTap` — Ashnod's Altar, Wall of Roots) is
+  // activated tapped or not (2026-10-17).
+  if (perm.tapped && !tap?.noTap) throw new DispatcherError("Mana source is already tapped", "ALREADY_TAPPED");
   if (!tap) throw new DispatcherError(`${perm.card?.name || "This permanent"} can't be tapped for {${action.color}} now — it doesn't make that colour, its cost can't be paid, or its condition isn't met`, "MANA_TAP_UNAVAILABLE");
 
   // THE FREE-ACTIVATION FIX: a mana-costed ability's activation is paid from the floating pool FIRST (CR 602.2b); a pool that

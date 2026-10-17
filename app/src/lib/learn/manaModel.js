@@ -30,7 +30,7 @@
  * legalChoices, and layers imports none of these modules so that edge is acyclic too.
  */
 
-import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, removeCounter, setDoesNotUntapNext, opponentsOf } from "./gameState.js"; // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
+import { MANA_COLORS, addMana, addCounter, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, removeCounter, setDoesNotUntapNext, opponentsOf } from "./gameState.js"; // + addCounter — 2026-10-17: Wall of Roots' -0/-1 counter cost // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
 import { checkTapForManaTriggers } from "./triggers.js"; // + ④-D: "tapped for mana" watchers fire at the one tap commit
 import { sacrificePermanentForCost } from "./costSacrifice.js"; // SG-3 / SAC-TREASURE: a permanent sacrificed to a mana cost leaves through THE cost sacrifice (dies, sacrifice watchers, the leave drain — CR 603.3b), the one the activated-ability and additional costs use
 import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, colorsOf, deriveCharacteristics, permIsEveryCreatureType, permanentColors, faceUpTypeLine } from "./layers.js"; // + faceUpTypeLine: the face that is up of a combined "Front // Back" card — the derive's own read, shared by manaModel's face-up mana read
@@ -362,6 +362,16 @@ function parseAddClause(oracle, card) {
     const spec = parseManaMetric(v[1], card);
     if (spec) return { colors: ["W", "U", "B", "R", "G"], amount: 0, amountSpec: spec };
     return null; // unmodeled metric — non-native
+  }
+  // Shape B over TWO named colours (2026-10-17 — Vivi Ornitier: "Add X mana in any combination of {U} and/or {R}, where X is
+  // Vivi Ornitier's power"). The bare-symbol arm below read the two symbols and dropped the X: one mana at any power, a 0/3
+  // Vivi included. Now X is the metric, over exactly those two colours (the planner credits one activation as X of one of
+  // them — an under-read of "any combination", never more); an unmodelled metric makes nothing.
+  v = oracle.match(/\bAdd X mana in any combination of \{([WUBRGC])\} and\/or \{([WUBRGC])\}, (where X is [^.]+)/i);
+  if (v) {
+    const spec = parseManaMetric(v[3], card);
+    if (spec) return { colors: [...new Set([v[1].toUpperCase(), v[2].toUpperCase()])], amount: 0, amountSpec: spec };
+    return null;
   }
 
   // "Add <N> mana of any (one) color" → any of the five colors, amount = the QUANTITY word. The token
@@ -831,9 +841,13 @@ function manaCostModelable(cost) {
 // mana pips (activationCost — manaActivationCost / the planner's funding); a self-sacrifice (`sacrifices`); "Pay N life"
 // (`payLife`); "Tap N untapped <filter> you control" (`extraTap`); "Sacrifice a creature" (`sacrificesCreature`); "Exile a card
 // from your graveyard" (`exilesGyCard`); "Exile this card from your hand" (`fromHand`); the storage and no-{T} counter removals
-// (`removesCounters`). Each reader below still applies its own stricter shape; this list only says what COULD be paid.
+// (`removesCounters`); a land's single-counter removal and Wall of Roots' -0/-1 counter (`removesCounters` mode "one",
+// `putsCounter` — 2026-10-17, each admitted only in its whole anchored line: LAND_COUNTER_MANA_LINE_RE / PUT_COUNTER_MANA_LINE_RE).
+// Each reader below still applies its own stricter shape; this list only says what COULD be paid.
 // {Q} is deliberately absent: nothing untaps the source, and manaSources offers only untapped permanents — the opposite of
 // what an untap-symbol cost needs (CR 107.6).
+const LAND_COUNTER_COST_RE = /\bremove an? (?:charge|mining|depletion) counter from this land\b/gi;
+const PUT_COUNTER_COST_RE = /\bput an? -0\/-1 counter on this creature\b/gi;
 const PAID_MANA_COST_ITEMS = [
   /\{(?!Q\})[^}]*\}/gi,
   /\bsacrifice (?:this [a-z]+|~)/gi,
@@ -844,7 +858,23 @@ const PAID_MANA_COST_ITEMS = [
   /\bexile this (?:card|creature) from your hand\b/gi,
   /\bremove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature)\b/gi,
   /\bremove an? (?:charge|\+1\/\+1|-1\/-1) counter from this (?:artifact|creature|enchantment)\b/gi,
+  LAND_COUNTER_COST_RE,
+  PUT_COUNTER_COST_RE,
 ];
+/**
+ * THE TWO COUNTER-COST MANA LINES A RECORD PAYS (2026-10-17), whole-line anchored — a line whose cost holds either counter
+ * item but whose text is anything else is refused by manaLineRefused, never read past its rider:
+ *   · LAND_COUNTER_MANA_LINE_RE — "{T}, Remove a <charge|mining|depletion> counter from this land: Add <mana>." with the
+ *     depletion and mining lands' "If there are no <kind> counters on this land, sacrifice it." (Gemstone Mine; Hickory
+ *     Woodlot, Peat Bog, Remote Farm, Sandstone Needle, Saprazzan Skerry; the Vivid lands, Tendo Ice Bridge, Mirrodin's Core).
+ *     The record removes ONE counter (`removesCounters` mode "one"), is offered only while one is there (CR 118.3), and the
+ *     sacrifice is the ability's own instruction, followed as it resolves (CR 605.3b, 608.2c) — `sacrificeIfNoCounters`.
+ *   · PUT_COUNTER_MANA_LINE_RE — Wall of Roots' "Put a -0/-1 counter on this creature: Add {G}. Activate only once each turn."
+ *     The record puts the counter on (`putsCounter`, through gameState.addCounter — a counter doubler applies, CR 122.6), has no
+ *     {T} (usable tapped or summoning sick) and the once-each-turn limit (manaActivationLimit).
+ */
+const LAND_COUNTER_MANA_LINE_RE = /^\{T\}, Remove an? (charge|mining|depletion) counter from this land: (Add (?:(?:\{[WUBRGC]\})+|one mana of any color)\.)( If there are no \1 counters on this land, sacrifice it\.)?$/i;
+const PUT_COUNTER_MANA_LINE_RE = /^Put an? (-0\/-1) counter on this creature: (Add (?:\{[WUBRGC]\})+\.)(?: Activate only once each turn\.)?$/i;
 // An ability word ahead of a cost ("Parley — {T}", "Metalcraft — {T}", "Vivid — {T}") has no rules meaning (CR 207.2c).
 const ABILITY_WORD_PREFIX_RE = /^[^{}:—"“|]*—\s*/;
 // The one "for each …, add" form a record reads: the vivid bundle (parseAddClause's fixedSpec).
@@ -878,10 +908,11 @@ const VIVID_ADD_SENTENCE_RE = /^for each color among permanents you control, add
  *     read for real, is the one exception.
  *   · A COST ITEM NO RECORD PAYS (PAID_MANA_COST_ITEMS). The phantom-mana gate below names consumables one by one, so
  *     every cost it doesn't name rode through as free: "Mill a card" (Deranged Assistant, Millikin), "Forage" (Thornvault
- *     Forager — read as two mana of any colours over its plain {G}), "Collect evidence 3" (Cryptex), "Put a -0/-1 counter on
- *     this creature" (Wall of Roots), a depletion or mining counter (Hickory Woodlot, Gemstone Mine — free forever, never
- *     emptied, never sacrificed), "Sacrifice X Goats" (Springjack Pasture), a station threshold ("12+ | {G}, {T}: Add {G}
- *     for each creature you control" — Evendo, Waking Haven, read as its main product with no counters on it), {Q}.
+ *     Forager — read as two mana of any colours over its plain {G}), "Collect evidence 3" (Cryptex), "Sacrifice X Goats"
+ *     (Springjack Pasture), a station threshold ("12+ | {G}, {T}: Add {G} for each creature you control" — Evendo, Waking
+ *     Haven, read as its main product with no counters on it), {Q}. Wall of Roots' -0/-1 counter and the land single-counter
+ *     removal (Gemstone Mine, the depletion and Vivid lands) were in this list for a morning (free forever, never emptied, never
+ *     sacrificed); since the same day's counter-cost slice a record pays them, in their whole anchored line only (below).
  * Lines only — a refused line is dropped before the parse, so a card's other, honest line still makes its mana (Springjack's
  * "{T}: Add {C}.", Thornvault Forager's "{T}: Add {G}."). Reminder text is read past; a kept self-grant's preamble ("All
  * Slivers have \"…") is not a cost.
@@ -899,8 +930,46 @@ function manaLineRefused(line) {
   const sentence = (effect.split(/(?<=\.)\s+/).find((s) => /\badd\b/i.test(s)) || "").trim();
   if (/^(?:if|for each)\b/i.test(sentence) && !VIVID_ADD_SENTENCE_RE.test(sentence)) return true;
   let cost = t.slice(0, ci).replace(SELF_GRANT_PREAMBLE_RE, "").replace(ABILITY_WORD_PREFIX_RE, "");
+  // A counter cost a record pays only in its whole anchored line (2026-10-17): anything else written around it is refused.
+  const whole = t.replace(/\s+/g, " ").trim();
+  if (new RegExp(LAND_COUNTER_COST_RE.source, "i").test(cost) && !LAND_COUNTER_MANA_LINE_RE.test(whole)) return true;
+  if (new RegExp(PUT_COUNTER_COST_RE.source, "i").test(cost) && !PUT_COUNTER_MANA_LINE_RE.test(whole)) return true;
   for (const re of PAID_MANA_COST_ITEMS) cost = cost.replace(re, " ");
   return cost.replace(/[\s,]/g, "") !== "";
+}
+
+/**
+ * THE PER-TURN LIMIT A MANA LINE PRINTS (2026-10-17) — `{ perTurn, yourTurnOnly? }`, or null. A restriction on an activated
+ * ability's use holds for that object every turn (CR 602.5b), a mana ability's included; manaSources reads the activation
+ * ledger the activated abilities already keep (state.activatedOncePerTurn — `${permanentId}:${line}` → { turn, n }, a record
+ * from an earlier turn counting zero) and commitManaTap stamps it. Before this a no-{T} line was held to its limit only by the
+ * commit tapping it, which it must not (CR 107.5) — so every printed form on a no-{T} mana line in the corpus is read here:
+ *   · "Activate only once each turn." — Kozilek's Translator, Wall of Roots, the Devotees, the Scarecrows, Ronin;
+ *   · "Activate only during your turn and only once each turn." — Vivi Ornitier (her controller's turn only);
+ *   · "Activate no more than twice / three times each turn." — Manaforge Cinder;
+ *   · "If this ability has been activated four or more times this turn, sacrifice this creature at the beginning of the next
+ *     end step." (Initiates of the Ebon Hand, Farrelite Priest) — read as three each turn: the activations it allows with no
+ *     sacrifice. The delayed sacrifice a fourth would set up is not modelled, so a fourth is never offered (an under-offer).
+ */
+function manaActivationLimit(line) {
+  const t = String(line || "").replace(/\([^)]*\)/g, " ");
+  const ci = t.indexOf(":");
+  if (ci === -1) return null;
+  const effect = t.slice(ci + 1);
+  if (!/\badd\b/i.test(effect)) return null;
+  if (/\bActivate only during your turn and only once each turn\b/i.test(effect)) return { perTurn: 1, yourTurnOnly: true };
+  if (/\bActivate only once each turn\b/i.test(effect)) return { perTurn: 1 };
+  const noMore = effect.match(/\bActivate no more than (twice|three times) each turn\b/i);
+  if (noMore) return { perTurn: /^twice$/i.test(noMore[1]) ? 2 : 3 };
+  if (/\bIf this ability has been activated four or more times this turn, sacrifice this creature at the beginning of the next end step\b/i.test(effect)) return { perTurn: 3 };
+  return null;
+}
+// The ledger key of a limited mana line on a permanent — the activated abilities' own shape (permId:rawLine, legalChoices).
+const manaLimitKey = (permId, limit) => `${permId}:${limit.line}`;
+// Activations of this limited line already made this turn (a record from an earlier turn counts zero — self-expiring).
+function manaLimitUsed(state, permId, limit) {
+  const rec = state?.activatedOncePerTurn?.[manaLimitKey(permId, limit)];
+  return rec && rec.turn === state.turn ? rec.n : 0;
 }
 
 // Is the cost an UNPAYABLE, non-repeatable CONSUMABLE the sim can't spend — so registering its "Add …" as a
@@ -941,9 +1010,10 @@ function manaCostConsumable(cost) {
  *
  * FN-safe: gates ONLY when EVERY activated mana line is unpayable, so a card with a real {T}: / pure-mana
  * line keeps that source. A mana FILTER ({mana}: Add) and a {T}: dork are never consumable → never gated.
- * Any cost item no record pays ("Put a -0/-1 counter" — Wall of Roots, "Mill a card", "Forage") never reaches here either:
- * manaLineRefused drops the line first (2026-10-17), so this gate sees only lines whose every cost item is payable — a
- * loyalty line included (CR 605.1a / 606.2 — never a mana ability).
+ * Any cost item no record pays ("Mill a card", "Forage") never reaches here either: manaLineRefused drops the line first
+ * (2026-10-17), so this gate sees only lines whose every cost item is payable — a loyalty line included (CR 605.1a / 606.2 —
+ * never a mana ability). The counter-cost lines a record pays (Wall of Roots, the land single-counter removal) return from
+ * their own reader in manaProductionImpl before this gate is consulted.
  */
 function manaAbilityCostUnpayable(oracle) {
   const costs = activatedManaCosts(oracle);
@@ -1104,7 +1174,7 @@ const MAX_SPEED_PREFIX = /^\s*max speed\s*[—–-]\s*/i;
  * counter-removal rider fails the anchor on purpose: its single-line product would silently drop the rider
  * (a painless painland tap), the forbidden direction. Never the main line itself. Memoized per card object.
  */
-const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Pay \d life: Add one mana of any color\.|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell of the chosen type(?:, and that spell can't be countered)?(?: or (?:to )?activate an ability of an? (?:[a-z]+ )?source of the chosen type)?\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)? spells?(?: or (?:to )?activate an ability of an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)?(?: source)?)?\.|\{T\}: Add (?:\{[WUBRGC]\})+\. Spend this mana only to cast [^.]+\.(?: Activate only if [^.]+\.)?|\{T\}: Add one mana of any color among legendary permanents you control\.)$/i; // + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals; + CAP-CAVERN: the chosen-type any-colour line (Cavern of Souls, Unclaimed Territory); + SHELF-85 S17: the fixed-type restricted any-colour line (Mech Hangar "Spend this mana only to cast a Pilot or Vehicle spell.") — the per-line product carries its restriction (restrictedManaProduction), never a free colour
+const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Pay \d life: Add one mana of any color\.|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell of the chosen type(?:, and that spell can't be countered)?(?: or (?:to )?activate an ability of an? (?:[a-z]+ )?source of the chosen type)?\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)? spells?(?: or (?:to )?activate an ability of an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)?(?: source)?)?\.|\{T\}: Add (?:\{[WUBRGC]\})+\. Spend this mana only to cast [^.]+\.(?: Activate only if [^.]+\.)?|\{T\}: Add one mana of any color among legendary permanents you control\.|\{T\}, Remove an? (?:charge|mining|depletion) counter from this land: Add (?:(?:\{[WUBRGC]\})+|one mana of any color)\.(?: If there are no (?:charge|mining|depletion) counters on this land, sacrifice it\.)?)$/i; // + 2026-10-17: the single-counter land line (the Vivid lands, Tendo Ice Bridge, Mirrodin's Core) rides as its own record, removing its counter (LAND_COUNTER_MANA_LINE_RE); + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals; + CAP-CAVERN: the chosen-type any-colour line (Cavern of Souls, Unclaimed Territory); + SHELF-85 S17: the fixed-type restricted any-colour line (Mech Hangar "Spend this mana only to cast a Pilot or Vehicle spell.") — the per-line product carries its restriction (restrictedManaProduction), never a free colour
 // A PLAIN tap line: complete, ungated, no sacrifice — the line a multi-line card can always tap for.
 const PLAIN_MANA_LINE_RE = /^\{T\}: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.$/i;
 
@@ -1373,6 +1443,14 @@ export function manaProduction(card) {
       .find((line) => /\badd\b/i.test(line));
     const gate = modelledManaLine && modelledManaLine.match(/\bactivate (?:this ability )?only if ([^.]+)\./i);
     if (gate) result = { ...result, activationCondition: gate[1].trim() };
+    // THE PER-TURN LIMIT a mana line prints (manaActivationLimit, 2026-10-17): read off the card's mana lines that survive
+    // manaLineRefused; the first limited one stamps the product, keyed by its own text. A card whose main product comes from
+    // another, unlimited line takes the limit too — an under-offer, never an extra activation.
+    if (result) {
+      const limited = (gateOracle ?? oracleOf(card)).split(/\n+/).map((l) => l.trim())
+        .filter((l) => !manaLineRefused(l)).map((l) => ({ l, limit: manaActivationLimit(l) })).find((x) => x.limit);
+      if (limited) result = { ...result, activationLimit: { ...limited.limit, line: limited.l } };
+    }
     result = honestMultiLineMain(card, result);
     _prodMemo.set(card, result);
     return result;
@@ -1830,6 +1908,32 @@ function manaProductionImpl(card) {
       return { colors: rcm[2] === "{C}" ? ["C"] : ["W", "U", "B", "R", "G"], amount: 1, requiresTap: false, removesCounters: { type: rcm[1], mode: "each" } };
     }
   }
+  // ===== THE TWO COUNTER-COST LINES A RECORD PAYS (2026-10-17 — LAND_COUNTER_MANA_LINE_RE / PUT_COUNTER_MANA_LINE_RE) =====
+  // manaLineRefused has already dropped every line whose counter cost isn't in its whole anchored form, so a line here is one of
+  // the two. As the card's ONLY mana line it is the product: Gemstone Mine and the depletion lands ({T}, one counter removed per
+  // activation, `sacrificeIfNoCounters` for their "If there are no <kind> counters on this land, sacrifice it"), Wall of Roots
+  // (no {T}, a -0/-1 counter put on — its once-each-turn rider is stamped by manaProduction's limit read). Beside another mana
+  // line (the Vivid lands, Tendo Ice Bridge, Mirrodin's Core) it leaves the whole-card parse — the plain line is the card's own
+  // product, never merged with a coloured line whose counter it doesn't pay — and rides as its own extra record
+  // (extraManaLineProducts parses it alone, where this block returns it).
+  {
+    const lines = oracleForAdd.split("\n").map((l) => l.trim());
+    const counterLine = lines.find((l) => LAND_COUNTER_MANA_LINE_RE.test(l) || PUT_COUNTER_MANA_LINE_RE.test(l));
+    if (counterLine) {
+      const others = lines.filter((l) => l !== counterLine);
+      if (!others.some((l) => /\badd\b/i.test(l))) {
+        const lc = LAND_COUNTER_MANA_LINE_RE.exec(counterLine);
+        if (lc) {
+          const made = parseAddClause(lc[2], card);
+          return made && { ...made, requiresTap: true, removesCounters: { type: lc[1].toLowerCase(), mode: "one" }, ...(lc[3] ? { sacrificeIfNoCounters: true } : {}) };
+        }
+        const pc = PUT_COUNTER_MANA_LINE_RE.exec(counterLine);
+        const made = parseAddClause(pc[2], card);
+        return made && { ...made, requiresTap: false, putsCounter: { type: pc[1] } };
+      }
+      oracleForAdd = others.join("\n");
+    }
+  }
   const fromOracle = parseAddClause(oracleForAdd, card);
   // A NON-LAND activated mana ability must also be PAYABLE by the sim as a standing source. An ability whose
   // only cost is a CONSUMABLE/non-repeatable resource the sim can't spend — a non-self sacrifice (Utopia Mycon
@@ -2103,8 +2207,8 @@ export function withGrantedMana(state, perm, prod) {
 // ─── Battlefield → available sources ───────────────────────────────────────────
 
 /**
- * Untapped permanents that can produce mana right now, as
- * `{ permanentId, colors, amount }`. Lands + non-creature rocks have no
+ * Permanents that can produce mana right now — untapped ones, and tapped ones through a mana ability with no {T} in its cost
+ * (CR 107.5; 2026-10-17) — as `{ permanentId, colors, amount }`. Lands + non-creature rocks have no
  * summoning-sickness gate; creature dorks are excluded while summoning sick
  * (unless they have Haste).
  *
@@ -2217,10 +2321,15 @@ export function manaSources(state, playerId) {
   const artLocked = artifactActivationsLocked(state);
   const sources = [];
   for (const perm of player.battlefield) {
-    // A no-{T} remove-a-counter source (stage ③ · 37) is still a source while TAPPED — its cost never taps (Crystalline
-    // Crawler taps to add its own counter, then spends them). manaProduction is memoized per card, so this read is free.
+    // A TAPPED permanent is still a source when its mana ability has no {T} to pay (CR 107.5 — only the tap symbol needs it
+    // untapped; 2026-10-17): Ashnod's Altar, Kozilek's Translator, Wall of Roots, a no-{T} remove-a-counter source (stage ③ ·
+    // 37 — Crystalline Crawler taps to add its own counter, then spends them). One whose own ability taps is skipped here; one
+    // with no ability of its own is decided once its granted ability is read (below). manaProduction is memoized per card.
     const card = manaCardOf(state, perm); // P·26 — a permanent that BECAME a copy taps for the copy's mana, not its printed mana
-    if (perm.tapped && manaProduction(card)?.removesCounters?.mode !== "each") continue;
+    if (perm.tapped) {
+      const own = manaProduction(card);
+      if (own && own.requiresTap !== false) continue;
+    }
     // ACTIVATED-LOCK (BLITZ AU-2, CR 605.1a): a mana ability IS an activated ability, so a permanent under the
     // layer-6 "activatedAbilitiesLocked" grant (an Arrest-class Aura, or Koma mode 1) is NOT a mana source —
     // the mana-path twin of the stack-ability gate in legalChoices. Board-rare (only that grant sets it), so
@@ -2264,7 +2373,14 @@ export function manaSources(state, playerId) {
     // it in place (AURA-MANA-GRANT: a land's own tap upgrades to a dominating aura grant).
     prod = withGrantedMana(state, perm, prod);
     if (!prod) continue;
+    if (perm.tapped && prod.requiresTap !== false) continue; // CR 107.5 — a {T} ability (own or granted) needs it untapped
     if (prod.fromHand) continue; // SG-6 — an exile-from-HAND ability does not exist on the battlefield permanent
+    // THE PER-TURN LIMIT (manaActivationLimit — CR 602.5b): a line already activated its limit-many times this turn is not a
+    // source again until the next turn; one limited to its controller's turn (Vivi Ornitier) is no source on another's.
+    if (prod.activationLimit) {
+      if (prod.activationLimit.yourTurnOnly && state.activePlayer !== playerId) continue;
+      if (manaLimitUsed(state, perm.id, prod.activationLimit) >= prod.activationLimit.perTurn) continue;
+    }
     // LANDS-12 — resolve the CHOSEN-COLOR leg against THIS permanent's stamp (see parseAddClause). Unstamped →
     // only the fixed option remains; a spec with no fixed option and no stamp produces nothing (never a guess).
     if (prod.chosenColor) {
@@ -2282,11 +2398,18 @@ export function manaSources(state, playerId) {
       && evaluateInterveningIf(state, prod.activationCondition, playerId, { sourcePermanentId: perm.id }) !== true) continue;
     // STAGE ④-4: a MAIN counter-removal product (the Mana Batteries — their only mana line) resolves its amount
     // from the permanent's live counters, plus one for the Battery form; nothing to add → no source.
+    // 2026-10-17: a SINGLE-counter land line ("one" — Gemstone Mine, the depletion lands) keeps its printed amount and removes
+    // one counter; with none of that kind left the cost can't be paid (CR 118.3) and the land is no source.
     if (prod.removesCounters) {
       const n = perm.counters?.[prod.removesCounters.type] || 0;
-      const a = (prod.removesCounters.mode === "plusOne" ? 1 : 0) + n;
-      if (a <= 0) continue;
-      prod = { ...prod, amount: a, removesCountersLive: { type: prod.removesCounters.type, count: n } };
+      if (prod.removesCounters.mode === "one") {
+        if (n < 1) continue;
+        prod = { ...prod, removesCountersLive: { type: prod.removesCounters.type, count: 1 } };
+      } else {
+        const a = (prod.removesCounters.mode === "plusOne" ? 1 : 0) + n;
+        if (a <= 0) continue;
+        prod = { ...prod, amount: a, removesCountersLive: { type: prod.removesCounters.type, count: n } };
+      }
     }
     // KW-ENGINES (CR 702.179) — a "Max speed —" mana ability is live ONLY while its controller's speed
     // is 4. Gated here at the same single chokepoint as the activation condition, for the same reason:
@@ -2393,7 +2516,11 @@ export function manaSources(state, playerId) {
     // MANA FLARE (MF-1): a sameAsProduced bonus's reachable color set IS the source's own production set
     // (the extra pip is the type this tap produced), so stamp prod.colors here — planPayment's flex/can-make
     // reads stay exact (no new color reach) and its sameAsProduced pick binds the bonus to the primary color.
-    const bonus = [...landAuraManaBonus(state, perm), ...globalTapManaAugment(state, playerId, perm)]
+    // ⛔ ONLY A TAP FOR MANA (2026-10-17 — CR 106.12, 106.12a): every one of these boosts is "whenever … is tapped for mana",
+    // and a permanent is tapped for mana only by a mana ability with {T} in its cost. An Ashnod's Altar activation or an Eldrazi
+    // Spawn sacrificed for mana is not one, so Kinnan, Bonder Prodigy added a phantom mana to both — the same `requiresTap ===
+    // false` that keeps the multiplier off above.
+    const bonus = (prod.requiresTap === false ? [] : [...landAuraManaBonus(state, perm), ...globalTapManaAugment(state, playerId, perm)])
       .map((b) => (b.sameAsProduced ? { sameAsProduced: true, colors: [...prod.colors], amount: b.amount } : b));
     // SNOW (SN-1, CR 107.4h): stamp sources produced by a snow permanent so planPayment can pay a {S} pip
     // with one mana from here (a {S} is NEVER paid from a non-snow source). The snow flag is the SOURCE
@@ -2443,6 +2570,17 @@ export function manaSources(state, playerId) {
     // and Grim Monolith) — the untap step's own read, so the two cannot drift. Its tap costs the mana of the turns it
     // stays tapped; the generic tap order (planPaymentCore's tapAny) never promotes it ahead of a source that untaps.
     const staysTapped = cardSelfPreventsUntap(perm.card);
+    // THE COST RIDERS OF THE LINE ITSELF (2026-10-17), carried to the tap record (tapRecordFor) and paid by commitManaTap:
+    //   · noTap — the line has no {T}: the commit never taps the source, and it is not tapped for mana (CR 107.5, 106.12);
+    //   · putsCounter — Wall of Roots' -0/-1 counter, put on as the cost;
+    //   · sacrificeIfNoCounters — the depletion / mining land's own "if there are no <kind> counters on this land, sacrifice it";
+    //   · limitKey — the activation ledger entry the commit stamps (manaActivationLimit).
+    const lineRiders = {
+      ...(prod.requiresTap === false ? { noTap: true } : {}),
+      ...(prod.putsCounter ? { putsCounter: { ...prod.putsCounter } } : {}),
+      ...(prod.sacrificeIfNoCounters && prod.removesCountersLive ? { sacrificeIfNoCounters: true } : {}),
+      ...(prod.activationLimit ? { limitKey: manaLimitKey(perm.id, prod.activationLimit) } : {}),
+    };
     // IMPRINT (CR 207.2c) — Chrome Mox's reachable colors ARE the imprinted card's colors, read live off the
     // stamp resolveImprintChoice wrote. NO stamp (declined, or never offered) and NO colors (a colorless card
     // was imprinted) both mean this permanent is not a mana source: `continue` rather than push an
@@ -2451,7 +2589,7 @@ export function manaSources(state, playerId) {
     if (prod.colorsFromImprint) {
       const imprintedColors = (perm.imprinted?.colors || []).filter((c) => MANA_COLORS.includes(c));
       if (!imprintedColors.length) continue;
-      sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(staysTapped ? { staysTapped: true } : {}) });
+      sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });
       continue;
     }
     // EXILE-FROM-GY COST (Molt Tender): the source exists ONLY while the graveyard has a card to pay
@@ -2461,7 +2599,7 @@ export function manaSources(state, playerId) {
     // SG-3 — a sacrifice-a-creature source needs ANOTHER creature to feed it (never the source itself, never
     // offered on an empty board): no victim → no source (CR 601.2h — the cost cannot be paid).
     if (prod.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && isCreatureNow(state, p))) continue; // a creature NOW (the type-line audit)
-    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(painOn ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}), ...(staysTapped ? { staysTapped: true } : {}) });
+    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(painOn ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });
     // STAGE ④-3 — EXTRA MANA LINES: a second, complete "{T}: Add …" line the main product does not cover (a
     // gated colour line — Tainted Isle / the Verges / Gathering Place; a free "{T}: Add {C}" beside a painful
     // any-colour line — Grand Coliseum; a "{T}, Sacrifice this land: Add …" ritual line). Each is its own
@@ -2469,20 +2607,28 @@ export function manaSources(state, playerId) {
     // (one {T}, CR 605.3a). Gated live exactly like the main product, at this same chokepoint.
     for (const extra of extraManaLineProducts(perm.card, manaProduction(perm.card))) {
       if (extra.activationCondition && evaluateInterveningIf(state, extra.activationCondition, playerId, { sourcePermanentId: perm.id }) !== true) continue;
+      if (perm.tapped && extra.requiresTap !== false) continue; // CR 107.5 — the main record had no {T}; this line has one
+      if (extra.activationLimit && ((extra.activationLimit.yourTurnOnly && state.activePlayer !== playerId)
+        || manaLimitUsed(state, perm.id, extra.activationLimit) >= extra.activationLimit.perTurn)) continue;
       const exFixed = extra.fixed && Object.keys(extra.fixed).length > 1 ? extra.fixed : null;
-      // STAGE ④-4: a counter-removal line's amount is the permanent's LIVE counters (plus one for the Battery form).
+      // STAGE ④-4: a counter-removal line's amount is the permanent's LIVE counters (plus one for the Battery form). A single-
+      // counter land line ("one" — the Vivid lands, Tendo Ice Bridge, Mirrodin's Core, 2026-10-17) keeps its printed amount,
+      // removes one counter, and is no source with none of that kind left (CR 118.3).
       const crCount = extra.removesCounters ? (perm.counters?.[extra.removesCounters.type] || 0) : 0;
-      const exAmount = extra.removesCounters ? ((extra.removesCounters.mode === "plusOne" ? 1 : 0) + crCount) * manaMult
+      const oneCounter = extra.removesCounters?.mode === "one";
+      if (oneCounter && crCount < 1) continue;
+      const exMult = extra.requiresTap === false ? 1 : manaMult; // a no-{T} line is not tapped for mana (CR 106.12)
+      const exAmount = extra.removesCounters && !oneCounter ? ((extra.removesCounters.mode === "plusOne" ? 1 : 0) + crCount) * exMult
         : exFixed ? Object.values(exFixed).reduce((a, b) => a + b, 0)
-        : extra.amountSpec ? Math.max(0, countForSpec(state, { controller: playerId, source: perm }, extra.amountSpec)) * manaMult // P·7 — a count read live (Three Tree City)
-        : (extra.amount ?? 1) * manaMult;
+        : extra.amountSpec ? Math.max(0, countForSpec(state, { controller: playerId, source: perm }, extra.amountSpec)) * exMult // P·7 — a count read live (Three Tree City)
+        : (extra.amount ?? 1) * exMult;
       if (exAmount <= 0) continue;
       // V2 (2026-09-04 — Starting Town "{T}, Pay 1 life: Add one mana of any color" beside a free "{T}: Add {C}"): a
       // pay-life extra line carries its life cost onto the record (the planner and commitPaymentPlan already honour
       // `payLife` on a source — the painland/City-of-Brass lane) and is gated exactly like the main product: no life,
       // no source. Without both halves the any-colour tap would be free — the forbidden direction.
       if (extra.payLife != null && !((player.life ?? 0) > extra.payLife)) continue;
-      sources.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.activationCost ? { activationCost: extra.activationCost } : {}), ...(extra.payLife != null ? { payLife: extra.payLife } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: crCount } } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), ...(staysTapped ? { staysTapped: true } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
+      sources.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.activationCost ? { activationCost: extra.activationCost } : {}), ...(extra.payLife != null ? { payLife: extra.payLife } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: oneCounter ? 1 : crCount } } : {}), ...(extra.sacrificeIfNoCounters && extra.removesCounters ? { sacrificeIfNoCounters: true } : {}), ...(extra.requiresTap === false ? { noTap: true } : {}), ...(extra.putsCounter ? { putsCounter: { ...extra.putsCounter } } : {}), ...(extra.activationLimit ? { limitKey: manaLimitKey(perm.id, extra.activationLimit) } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), ...(staysTapped ? { staysTapped: true } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
     }
   }
   // SG-6 — EXILE-FROM-HAND sources (Elvish / Simian Spirit Guide): a mana ability of a card in HAND. Offered
@@ -2576,17 +2722,19 @@ export function castPaymentSources(state, action) {
  * activated like any ability (CR 602.2b): its whole cost is paid, never part of it (CR 601.2h) — and the explicit tap used to
  * skip every rider but the self-sacrifice.
  *   · painLife — a painland's damage, only for a painful colour (its {C} half is free);
- *   · payLifeCost / extraTaps / sacrificesCreature / exilesGyCard / removesCounters — the printed costs (pay life, tap
- *     other permanents, sacrifice a creature, exile a graveyard card, remove counters);
+ *   · payLifeCost / extraTaps / sacrificesCreature / exilesGyCard / removesCounters / putsCounter — the printed costs (pay
+ *     life, tap other permanents, sacrifice a creature, exile a graveyard card, remove counters, put a counter on);
  *   · sacrifices / fromHand / noTap / doesNotUntapNext — how the source itself pays (sacrificed, exiled from hand, not
- *     tapped, skips its next untap step);
+ *     tapped — every line with no {T} in its cost, CR 107.5 — skips its next untap step);
+ *   · sacrificeIfNoCounters / limitKey — what the ability does as it resolves (a depletion or mining land sacrificed with its
+ *     last counter gone) and the per-turn activation ledger entry it stamps;
  *   · uncounterableIfSpent / spentRider — what the mana carries to the cast site.
  * `fixed` (a karoo's / Signet's bundle) only when it names two or more colours, as the planner reads it.
  */
 export function tapRecordFor(s, color, bonus = []) {
   const fixed = s.fixed && Object.keys(s.fixed).length > 1 ? s.fixed : null;
   const painHit = Array.isArray(s.painColors) && s.painColors.includes(color) ? (s.painAmount || 0) : 0;
-  return { permanentId: s.permanentId, color, amount: s.amount ?? 1, ...(Array.isArray(s.extraTaps) ? { extraTaps: [...s.extraTaps] } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(fixed && { fixed: { ...fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(s.noTap && { noTap: true }), /* ③ · 37 */ ...(s.doesNotUntapNext && { doesNotUntapNext: true }), ...(s.restriction?.uncounterableIfSpent && { uncounterableIfSpent: true }), ...(s.spentRider && { spentRider: s.spentRider }), /* SHELF-85 V11 (Path of Ancestry): the "when that mana is spent" rider rides the tap to the cast site */ ...(bonus.length && { bonus }) }; // + CAP-CAVERN: the cast site reads uncounterableIfSpent off the taps
+  return { permanentId: s.permanentId, color, amount: s.amount ?? 1, ...(Array.isArray(s.extraTaps) ? { extraTaps: [...s.extraTaps] } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(fixed && { fixed: { ...fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(s.sacrificeIfNoCounters && { sacrificeIfNoCounters: true }), ...(s.putsCounter && { putsCounter: { ...s.putsCounter } }), ...(s.limitKey && { limitKey: s.limitKey }), ...(s.noTap && { noTap: true }), /* ③ · 37 + 2026-10-17: every no-{T} line */ ...(s.doesNotUntapNext && { doesNotUntapNext: true }), ...(s.restriction?.uncounterableIfSpent && { uncounterableIfSpent: true }), ...(s.spentRider && { spentRider: s.spentRider }), /* SHELF-85 V11 (Path of Ancestry): the "when that mana is spent" rider rides the tap to the cast site */ ...(bonus.length && { bonus }) }; // + CAP-CAVERN: the cast site reads uncounterableIfSpent off the taps
 }
 
 /**
@@ -2600,7 +2748,9 @@ export function tapRecordFor(s, color, bonus = []) {
  * graveyard (Molt Tender), Max speed, a colour set read off the board (Plaza of Heroes, Incubation Druid, Chrome Mox), the
  * activation locks, summoning sickness, granted abilities, multipliers and boosts. The explicit path used to rebuild all of
  * this from manaProduction and dropped the costs — free mana. A planner source is NOT offered by hand when:
- *   · it is a card in hand (a Spirit Guide) or a no-{T} remove-a-counter source — planner-only, as before;
+ *   · it is a card in hand (a Spirit Guide) or one of a no-{T} remove-a-counter source's per-counter records (Pentad Prism) —
+ *     planner-only, as before. Any other no-{T} line (Ashnod's Altar, Kozilek's Translator, Wall of Roots) is offered, tapped or
+ *     not, and the dispatcher doesn't tap it;
  *   · its mana is spend-restricted (CR 106.6) or carries a "when that mana is spent" rider: floating mana keeps neither;
  *   · it is a permanent's EXTRA mana line (Crystal Vein's sacrifice line, Starting Town's pay-life line, a storage land's
  *     counters) — the action names its colour only, so a costed line would look like the free one beside it;
@@ -2610,7 +2760,7 @@ export function tapRecordFor(s, color, bonus = []) {
 export function manualManaTaps(state, playerId) {
   const out = [];
   for (const s of manaSources(state, playerId)) {
-    if (s.fromHand || s.noTap) continue;
+    if (s.fromHand || s.repeatable) continue;
     if (s.restriction || s.spentRider) continue;
     if (s.extraLine) continue;
     if (!((s.amount ?? 1) > 0)) continue;
@@ -2664,8 +2814,12 @@ export function manualManaTaps(state, playerId) {
  * cannot do this: Dark Ritual's {B} beside a Swamp and a Sliver under Basal Sliver went to whichever came first on the
  * battlefield, and an equal-flexibility tie-break would still tap the Swamp for Doom Blade's {B} and then sacrifice the
  * Sliver for its {1}, where the Sliver's {B}{B} alone pays both.
+ * + LIFE WITH NO TAP (2026-10-17): a no-{T} line that costs life (Treasonous Ogre's "Pay 3 life: Add {R}", Blood Celebrant,
+ * Kozilek's Translator) waits for pass B too. It used to be held to one use per untap by the commit wrongly tapping it; once
+ * it no longer taps (CR 107.5) nothing else stops it paying life on every payment in board order, ahead of an untapped land.
+ * A play policy, never a legality change — pass B still counts it.
  */
-const isOneShotSource = (s) => !!(s && (s.sacrifices || s.sacrificesCreature || s.fromHand));
+const isOneShotSource = (s) => !!(s && (s.sacrifices || s.sacrificesCreature || s.fromHand || (s.noTap && s.payLife != null)));
 export function planPayment(pool, sources, cost, spendContext = null) {
   const all = sources || [];
   if (all.some(isOneShotSource)) {
@@ -2681,12 +2835,14 @@ export function planPayment(pool, sources, cost, spendContext = null) {
  * taking the removal first would burn every stored counter to pay a single {C}. So: pass A plans WITHOUT the
  * removal records (the counters are preserved whenever the cost can be met without them); only if that fails
  * does pass B plan with every record, a permanent's larger sibling first. Boards with no removal record take
- * pass A alone — byte-identical to the single-pass planner.
+ * pass A alone — byte-identical to the single-pass planner. A record that PUTS a counter on its source (Wall of Roots' -0/-1,
+ * 2026-10-17) waits for pass B too: each one shrinks it for good.
  */
+const spendsCounter = (s) => !!(s && (s.removesCounters || s.putsCounter));
 function planPaymentRemovalAware(pool, sources, cost, spendContext = null) {
-  const hasRemoval = (sources || []).some((s) => s && s.removesCounters);
+  const hasRemoval = (sources || []).some(spendsCounter);
   if (!hasRemoval) return planPaymentOnce(pool, sources, cost, spendContext);
-  const passA = planPaymentOnce(pool, (sources || []).filter((s) => !s.removesCounters), cost, spendContext);
+  const passA = planPaymentOnce(pool, (sources || []).filter((s) => !spendsCounter(s)), cost, spendContext);
   if (passA) return passA;
   const ordered = [...(sources || [])].sort((a, b) => (a.permanentId === b.permanentId ? (b.amount || 0) - (a.amount || 0) : 0));
   return planPaymentOnce(pool, ordered, cost, spendContext);
@@ -2861,7 +3017,10 @@ function planPaymentCore(pool, sources, cost, spendContext = null) {
       doesNotUntapNext: !!s.doesNotUntapNext, // STAGE ④-5 — the tapped land skips its controller's next untap step
       staysTapped: !!s.staysTapped, // the permanent doesn't untap in its untap step at all (Mana Vault) — read by tapAny only
       repeatable: !!s.repeatable, // STAGE ③ · 37 — one of several separate activations of a no-{T} remove-a-counter source
-      noTap: !!s.noTap,           // STAGE ③ · 37 — the commit doesn't tap it (its cost is the counter)
+      noTap: !!s.noTap,           // STAGE ③ · 37 — the commit doesn't tap it (its cost is the counter); 2026-10-17 — every line with no {T}
+      putsCounter: s.putsCounter || null,             // 2026-10-17 — Wall of Roots' -0/-1 counter, put on by the commit
+      sacrificeIfNoCounters: !!s.sacrificeIfNoCounters, // 2026-10-17 — a depletion / mining land's last counter sacrifices it
+      limitKey: s.limitKey || null,                   // 2026-10-17 — the per-turn activation ledger entry the commit stamps
       used: false,
     }))
     .filter(s => s.amount > 0)
@@ -3194,13 +3353,31 @@ export function commitManaTap(state, playerId, tap, { reserved = null } = {}) {
     next = removeCounter(next, { permanentId: tap.permanentId, type: tap.removesCounters.type, amount: tap.removesCounters.count });
     next = logEvent(next, { kind: "mana", event: "remove-counters-cost", permanentId: tap.permanentId, playerId, counterType: tap.removesCounters.type, removed: tap.removesCounters.count });
   }
+  // 2026-10-17 — A COUNTER PUT ON AS THE COST (Wall of Roots' "Put a -0/-1 counter on this creature"): through addCounter, so a
+  // counter doubler applies (CR 122.6) and a "counters are put on" watcher sees it. A Wall that reaches 0 toughness dies to the
+  // next state-based check, as a cost may legally leave it (CR 118.3 only asks that the counter can be put on).
+  if (tap.putsCounter) {
+    next = addCounter(next, { permanentId: tap.permanentId, type: tap.putsCounter.type, amount: 1 });
+    next = logEvent(next, { kind: "mana", event: "put-counter-cost", permanentId: tap.permanentId, playerId, counterType: tap.putsCounter.type });
+  }
+  // 2026-10-17 — THE PER-TURN LIMIT (manaActivationLimit, CR 602.5b): stamp the activation ledger the activated abilities share
+  // (actionDispatcher's applyActivateAbility writes the same { turn, n } shape), so manaSources stops offering the line once its
+  // limit is reached this turn. A record from an earlier turn restarts at 1.
+  if (tap.limitKey) {
+    const prev = next.activatedOncePerTurn?.[tap.limitKey];
+    const n = (prev && prev.turn === next.turn ? prev.n : 0) + 1;
+    next = { ...next, activatedOncePerTurn: { ...(next.activatedOncePerTurn || {}), [tap.limitKey]: { turn: next.turn, n } } };
+  }
   if (tap.sacrifices) {
     // The source pays with itself — the RECIPIENT of a granted self-sacrifice included (grantedManaProduction keeps the flag).
     const sacPerm = next.players[playerId]?.battlefield?.find((p) => p.id === tap.permanentId);
     next = sacrificePermanentForCost(next, playerId, sacPerm || { id: tap.permanentId });
   } else if (tap.noTap) {
-    // STAGE ③ · 37 — a no-{T} remove-a-counter source (Pentad Prism): the counter above WAS the whole cost. Nothing taps, and
-    // it was not "tapped for mana" (CR 605.3), so no tapped-for-mana watcher fires either.
+    // A LINE WITH NO {T} IN ITS COST doesn't tap its source (CR 107.5 — the tap symbol is what taps it) and is not "tapped for
+    // mana" (CR 106.12), so no tapped-for-mana watcher fires: STAGE ③ · 37's remove-a-counter sources (Pentad Prism) and, since
+    // 2026-10-17, every other one — Ashnod's and Phyrexian Altar, Birchlore Rangers (only the Elves it pays with tap), Kozilek's
+    // Translator, Wall of Roots, the mana filters. Before, only the counter sources carried the flag and the rest were tapped:
+    // used once and done until the untap step, and "becomes tapped" watchers fired for a tap that never happened.
   } else {
     next = tapPermanent(next, tap.permanentId);
     // STAGE ④-5 — the doesn't-untap rider: the land tapped through this line skips its controller's next untap
@@ -3210,6 +3387,20 @@ export function commitManaTap(state, playerId, tap, { reserved = null } = {}) {
     // and every "you tap a land / an opponent taps a land for mana" watcher enqueue here (a Treasure cracked for
     // mana is a sacrifice, not a tap — the branch above never reaches this line).
     if (!tap.fromHand) next = checkTapForManaTriggers(next, { permanentId: tap.permanentId, tapperId: playerId });
+  }
+  // 2026-10-17 — "IF THERE ARE NO <kind> COUNTERS ON THIS LAND, SACRIFICE IT." (Gemstone Mine, the depletion lands): the mana
+  // ability's own instruction, followed in order as it resolves, after the mana is added (CR 605.3b — it resolves immediately;
+  // CR 608.2c — in the order written). It is neither a triggered ability (no "when / whenever / at", CR 603.1) nor a state-based
+  // action, so it is checked here, once, against the counters left after the cost. The land leaves through THE cost sacrifice's
+  // sequence (costSacrifice.sacrificePermanentForCost) although this is an effect: a mana ability resolves outside the stack, so
+  // no resolution finalizer drains the leave event after it — the case that helper exists for (CR 701.21a; the sacrifice
+  // watchers fire, a land doesn't die).
+  if (tap.sacrificeIfNoCounters && tap.removesCounters) {
+    const land = next.players[playerId]?.battlefield?.find((p) => p.id === tap.permanentId);
+    if (land && !((land.counters?.[tap.removesCounters.type] || 0) > 0)) {
+      next = sacrificePermanentForCost(next, playerId, land);
+      next = logEvent(next, { kind: "mana", event: "sacrificed-no-counters", permanentId: tap.permanentId, playerId, counterType: tap.removesCounters.type, cardName: land.card?.name });
+    }
   }
   return next;
 }

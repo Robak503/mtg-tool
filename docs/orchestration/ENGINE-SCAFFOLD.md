@@ -432,8 +432,26 @@ means "all permanents" (vacuous filter).
   trigger or an effect — Roxanne's Meteorite, Old-Growth Troll's Aura grant), an ability with a target (CR 605.1a — Deathrite
   Shaman), an "If …," or "For each …," sentence ahead of the add (the vivid bundle excepted — Selvala, Explorer Returned), or a
   cost item outside the positive list `PAID_MANA_COST_ITEMS` ({T} and pips, a self-sacrifice, "Pay N life", tap-other,
-  "Sacrifice a creature", exile from graveyard, exile from hand, the storage and no-{T} counter removals; {Q} absent). A new
-  cost rider goes on the source record, in `tapRecordFor` AND in `PAID_MANA_COST_ITEMS` — otherwise its line makes nothing.
+  "Sacrifice a creature", exile from graveyard, exile from hand, the storage and no-{T} counter removals, a land's single-counter
+  removal and Wall of Roots' -0/-1 counter; {Q} absent). A new cost rider goes on the source record, in `tapRecordFor` AND in
+  `PAID_MANA_COST_ITEMS` — otherwise its line makes nothing.
+- **Counter costs, no-{T} lines and per-turn limits (2026-10-17).** The two counter-cost lines a record pays are admitted only in
+  their whole anchored line (`LAND_COUNTER_MANA_LINE_RE`, `PUT_COUNTER_MANA_LINE_RE` — manaLineRefused refuses the cost item in any
+  other line): "{T}, Remove a <charge|mining|depletion> counter from this land: Add …" (`removesCounters` mode `"one"`: one
+  counter per activation, no source with none left; Gemstone Mine and the depletion lands carry `sacrificeIfNoCounters`, the
+  ability's own "if there are no … counters on this land, sacrifice it", followed by commitManaTap after the mana — CR 605.3b,
+  608.2c — through `sacrificePermanentForCost`, since no resolution finalizer runs after a mana ability; beside a plain line — the
+  Vivid lands, Tendo Ice Bridge, Mirrodin's Core — the counter line leaves the whole-card parse and rides as an extra record) and
+  Wall of Roots' "Put a -0/-1 counter on this creature" (`putsCounter`, put on through `addCounter`). **A line with no {T} in its
+  cost carries `noTap`** (every one, not only the per-counter records): commitManaTap never taps its source and fires no
+  tapped-for-mana watcher (CR 107.5, 106.12); manaSources offers it while the source is tapped; the explicit tap offers it
+  (only a no-{T} counter source's per-counter `repeatable` records stay planner-only) and the dispatcher takes it tapped; the
+  "tapped for mana" boosts (`landAuraManaBonus`, `globalTapManaAugment` — Kinnan) never ride it. **A printed per-turn limit**
+  (`manaActivationLimit`: once each turn, Vivi Ornitier's "only during your turn and only once each turn", "no more than twice /
+  three times", the "four or more times … sacrifice" rider read as three) rides the product as `activationLimit`, keyed into the
+  activated abilities' own ledger `state.activatedOncePerTurn` (`permId:line` → `{ turn, n }`): manaSources reads it, commitManaTap
+  (via the record's `limitKey`) stamps it. A new no-{T} mana line with any other "Activate …" rider needs an arm there first —
+  without the tap nothing else holds it back.
 - `manaSources(state, player)` → the untapped permanents that can produce now
   (summoning-sickness aware). Granted mana abilities are counted by ONE read,
   `withGrantedMana`: a permanent with no mana ability of its own takes the granted spec
@@ -448,7 +466,7 @@ means "all permanents" (vacuous filter).
   read off the board) holds on both paths; each option is the tap record the planner
   would commit, built by the ONE builder `tapRecordFor` (planPaymentCore's `tapSource`
   calls it too) — so a new cost rider goes on the source record and in `tapRecordFor`,
-  and both paths pay it. By hand it skips hand cards, no-{T} counter sources,
+  and both paths pay it. By hand it skips hand cards, a no-{T} counter source's per-counter records,
   spend-restricted mana and "when that mana is spent" riders (floating mana keeps
   neither), and a permanent's extra mana lines. Before this, the explicit tap rebuilt
   production from `manaProduction` and paid only a self-sacrifice: Ashnod's Altar made
@@ -498,8 +516,8 @@ means "all permanents" (vacuous filter).
   record colorless, no rider — the `PLAIN_TAP_FIELDS` whitelist), the smallest that
   covers what is still owed (else board order), then the other repeatable sources in
   board order, a sacrifice source last. A one-shot source (it sacrifices itself or a
-  creature, or is a card exiled from hand) pays only when the cost cannot be paid
-  without one: `planPayment` plans without them first, then with every source — the
+  creature, or is a card exiled from hand — and, since 2026-10-17, a no-{T} line that costs
+  life, Treasonous Ogre) pays only when the cost cannot be paid without one: `planPayment` plans without them first, then with every source — the
   storage-land two-pass's shape, so affordability never moves.
 
 ### 4.8 Combat, legal choices, the pilot seam

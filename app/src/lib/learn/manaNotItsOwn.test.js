@@ -268,9 +268,15 @@ describe("5 · an ability with a target is not a mana ability (CR 605.1a, 115.6)
 });
 
 describe("6 · a cost no record pays drops the line", () => {
-  it.each([["Cryptex", CRYPTEX], ["Deranged Assistant", DERANGED], ["Wall of Roots", WALL_OF_ROOTS], ["Hickory Woodlot", HICKORY],
-    ["Gemstone Mine", GEMSTONE_MINE], ["Pili-Pala", PILI_PALA]])("%s makes no mana", (_name, card) => {
+  it.each([["Cryptex", CRYPTEX], ["Deranged Assistant", DERANGED], ["Pili-Pala", PILI_PALA]])("%s makes no mana", (_name, card) => {
     expect(manaProduction(card)).toBeNull();
+  });
+
+  // Wall of Roots, Hickory Woodlot and Gemstone Mine were refused here until the same day's counter-cost slice: their records now
+  // put the -0/-1 counter on / remove the depletion or mining counter and sacrifice the emptied land (manaPrintedCosts.test.js).
+  it.each([["Wall of Roots", WALL_OF_ROOTS], ["Hickory Woodlot", HICKORY], ["Gemstone Mine", GEMSTONE_MINE]])("%s makes mana only through its paid counter cost", (_name, card) => {
+    const prod = manaProduction(card);
+    expect(!!(prod?.putsCounter || prod?.removesCounters?.mode === "one")).toBe(true);
   });
 
   it("Thornvault Forager keeps its plain {G}; the forage line makes nothing", () => {
@@ -288,7 +294,7 @@ describe("6 · a cost no record pays drops the line", () => {
     expect(manaSources(s, "user").find((r) => r.permanentId === "src")).toMatchObject({ colors: ["G"], amount: 1 });
   });
 
-  it("Hickory Woodlot and Gemstone Mine pay for nothing", () => {
+  it("Hickory Woodlot and Gemstone Mine with no counter on them pay for nothing", () => {
     expect(castable(table([on("src", HICKORY)]))).toEqual(["Ornithopter"]);
     expect(castable(table([on("src", GEMSTONE_MINE)]))).toEqual(["Ornithopter"]);
   });
