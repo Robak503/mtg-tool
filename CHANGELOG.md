@@ -8,6 +8,10 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Mox Diamond** — when it would enter the battlefield you discard a land card, or it goes to the graveyard instead (it never enters, so it never makes mana). It applies however it would enter: cast, searched or returned onto the battlefield, a Sculpting Steel copying it, a token copy from Flash Photography or Second Harvest. The land is chosen automatically, the same way for every seat: one is discarded only when you hold a land card and have already played your land this turn, or hold two or more (a basic land first). The AI no longer casts it when it would just go to the graveyard
+- **Bender's Waterskin** (and **Thousand Moons Infantry**) — untaps during each other player's untap step as well as yours, so it can make mana on every turn. A stun counter still keeps it tapped there; "doesn't untap during its controller's untap step" effects (Inertia Bubble) don't, as the card's ruling says. Under Seedborn Muse or Unwinding Clock it still untaps only once per step
+
 ## [0.164.0] - 2026-10-17
 
 ### Added

@@ -7,6 +7,7 @@ import { tokenMultiplier, tokenAdditive, tokenExtraKinds, tokenOneOfEachPasses, 
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
 import { enteringAuraHost, isRoleCard } from "../../auraEntry.js"; // CR 303.4f — what a token copy of an Aura enchants as it is created, asked of a seat a person plays (a leaf zones.js already imports)
+import { entersByDiscardingLand, applyDiscardLandToEnter } from "../../discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247, CR 614.1a / 707.5) — a token copy of it enters only on a discarded land card; a leaf over gameState / triggers / staticAbilityParser
 import { chosenCardTypeOnEnter } from "../../chosenCardType.js"; // CLOUD KEY (CR 707.5 + 614.12a) — a token copy makes the copied "as this enters" card-type choice; a leaf over choicePolicy only
 import { addContinuousEffect } from "../../layers.js"; // MINTED-TOKEN HASTE (shelf D26) — "It gains haste." after a token copy is a lasting layer-6 grant (layers imports no atoms — cycle-free)
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec, halveAmount } from "./shared.js";
@@ -705,6 +706,14 @@ export function applyCreateTokenCopy(state, atom, ctx) {
       hostId = choice.hostId;
       if (copyIsRole) rolesTaken.push(hostId);
     }
+    // A COPY OF MOX DIAMOND (discardLandToEnter.js — CR 707.5, 614.1a): the copied entry replacement applies as the token would
+    // enter — its controller discards a land card, or it is put into its owner's graveyard instead, where a token ceases to exist
+    // (CR 704.5d): not created. One land per copy (a doubled copy asks twice, on the live hand).
+    if (entersByDiscardingLand(copiable)) {
+      const r = applyDiscardLandToEnter(next, ctx.controller, copiable);
+      next = r.state;
+      if (!r.enters) continue;
+    }
     const minted = mintId(next, "tok");
     next = minted.state;
     // token:true is the load-bearing non-recurse guard (Miirym's nontoken gate). isCommander already
@@ -1178,6 +1187,12 @@ export function applyCreateTokenCopyEach(state, atom, ctx) {
   const mintedIds = [];
   for (const copiable of copiables) {
     for (let i = 0; i < doubler; i++) {
+      // A copy of a Mox Diamond token: its copied entry replacement (discardLandToEnter.js, CR 707.5) — no land card, no token.
+      if (entersByDiscardingLand(copiable)) {
+        const r = applyDiscardLandToEnter(next, ctx.controller, copiable);
+        next = r.state;
+        if (!r.enters) continue;
+      }
       const minted = mintId(next, "tok");
       next = minted.state;
       const card = { ...copiable, id: `tok-${minted.id}`, token: true };

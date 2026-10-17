@@ -542,6 +542,7 @@ export function advanceStep(state) {
  */
 export function runStepActions(state) {
   let next = state;
+  let othersUntapStart; // case "untap": the board as the "during each other player's untap step" family begins
 
   switch (state.step) {
     case "untap":
@@ -561,6 +562,9 @@ export function runStepActions(state) {
       // B4 (Reflector Mage — "until your next turn", CR 611.2b): the name cast locks THIS player set on an earlier turn end here.
       next = expireNameCastLocks(next, state.activePlayer);
       next = untapAll(next, { playerId: state.activePlayer });
+      // The board as the "during each other player's untap step" family begins: those untaps happen at the same time as the active
+      // player's (CR 502.3 — the bundled rulings), once per permanent per step, so the last pass below skips what an earlier one met.
+      othersUntapStart = next;
       // SEEDBORN-UNTAP (a targeted #319-style hook the trigger compiler can't reach): Seedborn Muse —
       // "Untap all permanents you control during each other player's untap step" — gives its controller an
       // ADDITIONAL untap during every OTHER player's untap step. There is no untap-others atom / "during each
@@ -576,7 +580,9 @@ export function runStepActions(state) {
       // TYPE-FILTERED UNTAP (same #319 phase-static family, parameterized rather than a third twin):
       // Unwinding Clock "all artifacts", Drumbellower "all creatures", Prophet of Kruphix "all creatures
       // and lands". Layer-aware type read; a no-op when no such watcher sits on a non-active board.
-      next = applyTypeFilteredUntap(next, state.activePlayer);
+      // + THE SELF MEMBER (play-weighted #558): "Untap this artifact during each other player's untap step." (Bender's Waterskin,
+      // Thousand Moons Infantry, Endbringer) — the permanent the line is printed on, once per step even beside Seedborn Muse.
+      next = applyTypeFilteredUntap(next, state.activePlayer, { stepStart: othersUntapStart });
       // BECOMES-UNTAPPED triggers (Mesmeric Orb — CR 502.4): drain the untap events recorded by untapAll +
       // the Seedborn/Murkfiend hooks into pending triggers HERE; they naturally wait for the upkeep's
       // priority to go on the stack (no priority exists during the untap step — CR-correct).

@@ -43,15 +43,14 @@ describe("the witness — a rider on an enters-with sentence the strip refuses",
 describe("genuine static / replacement residue parks the card — one pin per shape", () => {
   // Every card here taps for mana the runtime really produces, so only the residue read keeps it honest. Each
   // `why` names the runtime reader that does NOT read the leftover sentence.
+  // (2026-10-17: Mox Diamond's enter replacement and Bender's Waterskin's self untap left this list when their readers landed —
+  // discardLandToEnter.js and typeFilteredUntap.js's self member; their runtime witnesses are moxDiamond.test.js and
+  // bendersWaterskin.test.js, each with the refused variants beside them.)
   const CASES = [
     ["Phial of Galadriel", "Legendary Artifact", "{3}", "If you would draw a card while you have no cards in hand, draw two cards instead.\nIf you would gain life while you have 5 or less life, you gain twice that much life instead.\n{T}: Add one mana of any color.",
       "two CONDITIONAL replacements; the draw and life-gain doublers read only the unconditional templates"],
-    ["Mox Diamond", "Artifact", "{0}", "If this artifact would enter, you may discard a land card instead. If you do, put this artifact onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add one mana of any color.",
-      "an enter replacement with no reader: the runtime puts it onto the battlefield without the discard"],
     ["Giada, Font of Hope", "Legendary Creature — Angel", "{1}{W}", "Flying, vigilance\nEach other Angel you control enters with an additional +1/+1 counter on it for each Angel you already control.\n{T}: Add {W}. Spend this mana only to cast an Angel spell.",
       "an others-enter-with shape othersEnterWithCounters refuses (no 'creature', a per-Angel count)"],
-    ["Bender's Waterskin", "Artifact", "{3}", "Untap this artifact during each other player's untap step.\n{T}: Add one mana of any color.",
-      "a SELF untap in other players' untap steps; every such reader takes 'Untap all …'"],
     ["Heraldic Banner", "Artifact", "{3}", "As this artifact enters, choose a color.\nCreatures you control of the chosen color get +1/+0.\n{T}: Add one mana of the chosen color.",
       "the chooser is credited; the chosen-color anthem has no static descriptor"],
     ["Dalakos, Crafter of Wonders", "Legendary Creature — Merfolk Artificer", "{1}{U}{R}", "{T}: Add {C}{C}. Spend this mana only to cast artifact spells or activate abilities of artifacts.\nEquipped creatures you control have flying and haste.",

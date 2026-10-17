@@ -38,7 +38,7 @@ import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — 
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
 import { grantsWubrgAltCost, fixedManaAltCostOf, conditionalFixedManaAltCostOf } from "./effects/textNormalize.js"; // + the trap form (shelf D17) // FIST OF SUNS (RG-5) — the board-granted WUBRG alternative cost; + RG-8 — the spell's OWN fixed-mana alternative cost (the Bringers); leaf readers
-import { collectCostReducers, playLandFromGraveyardPermission, plotFromLibraryTopGranted, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
+import { collectCostReducers, playLandFromGraveyardPermission, plotFromLibraryTopGranted, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, landDropAllowance, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksFor, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund (+ the Phyrexian life lane, Norn's Annex)
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, legacyTargetingEffect, canBeTargetedBy, playerTargetableBy } from "./spellEffects.js";
@@ -538,32 +538,10 @@ function actionPassPriority(playerId) {
   return { kind: "pass-priority", playerId };
 }
 
-/**
- * EXTRA-LAND-DROPS (CR 305.2 / 505.6b) — the number of lands `playerId` may play THIS turn = the base one
- * (CR 305.2) PLUS the additional plays granted by every static they control ("You may play an additional land
- * on each of your turns" — Exploration → +1; Azusa → +2). Sums extraLandDropsOf across the player's BATTLEFIELD
- * and COMMAND ZONE (a creature-commander like Azusa grants nothing while it sits in the command zone — it must
- * be on the battlefield — so the command-zone scan finds nothing for it; the scan is there only for a future
- * command-zone-functioning grant, mirroring the cost-reducer two-zone pattern). The SINGLE source of truth for
- * the per-turn land allowance — both the action gate (actionsPlayLand) and the dispatcher gate (applyPlayLand)
- * call this, so they can't drift (the CREED two-sites invariant). Pure; ≥ 1 always.
- */
-export function landDropAllowance(state, playerId) {
-  const player = state.players[playerId];
-  if (!player) return 1;
-  let extra = 0;
-  for (const perm of player.battlefield || []) extra += extraLandDropsOf(perm.card);
-  // Command-zone entries are BARE card objects (no { card } wrapper), like the cost-reducer scan. No modeled
-  // extra-land card functions from the command zone today, so this contributes 0 — but kept for symmetry.
-  for (const card of player.command || []) extra += extraLandDropsOf(card);
-  // ONE-SHOT-EXTRA-LAND (CR 505.6b): a resolving "you may play [N] additional land[s] this turn" effect
-  // (Explore → +1, Summer Bloom → +3) bumps the player's per-turn budget (play-extra-land-this-turn atom →
-  // player.extraLandsThisTurn). It's reset each of the player's turns (resetTurnCounters) so it never persists
-  // like the static "each of your turns" form (extraLandDropsOf, above). `?? 0` — not `|| 0` — so a literal 0
-  // budget (no effect resolved) reads exactly 0, never a fabricated allowance.
-  extra += player.extraLandsThisTurn ?? 0;
-  return 1 + extra;
-}
+// EXTRA-LAND-DROPS (CR 305.2 / 505.6b): landDropAllowance lives in staticAbilityParser.js beside extraLandDropsOf, so the entry-replacement
+// leaf (discardLandToEnter.js, Mox Diamond's policy) reads the same allowance without importing this module; re-exported here for
+// its callers (actionDispatcher, the tests).
+export { landDropAllowance };
 
 /**
  * FLASH-CAST-PERMISSION (CR 601.3b) — the flash-cast-permission specs `playerId` currently has, from every

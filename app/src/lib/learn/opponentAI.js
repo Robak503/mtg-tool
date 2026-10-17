@@ -42,6 +42,7 @@ import { tokenLoopState, isTokenLoopAction, tokenLoopAttackPlan } from "./tokenL
 import { isNativeManaAura } from "./staticAbilityParser.js"; // pickAuraCast — the mana-boost lane, offered on the caster's own lands only
 import { grantAuraCastHostType } from "./coverage.js"; // pickAuraCast — the granted-ability lane, offered on the caster's own lands when its host is a land
 import { playerAuraEffect } from "./playerAuraEffect.js"; // pickAuraCast — which player an "Enchant player" Aura belongs on (the curse reading)
+import { entersByDiscardingLand, pickEnterDiscardLand } from "./discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247) — the entry replacement's policy, read before the cast (a leaf; no AI module)
 import { entersTriggerRemovesOwn } from "./gameEngine.js"; // the cast-time hold — what a permanent's own enters trigger would be forced to remove (gameEngine imports no AI module: no cycle)
 
 // ─── Play-policy flags (the A/B probe seam) ──────────────────────────────────
@@ -55,7 +56,7 @@ import { entersTriggerRemovesOwn } from "./gameEngine.js"; // the cast-time hold
  * Accepted shapes:
  *   null / undefined                        → all-current (the shipping behavior)
  *   "v1"                                    → every subsystem legacy
- *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold: "v1" } → per-subsystem legacy
+ *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold: "v1" } → per-subsystem legacy
  *
  * The DEFAULT is always the new behavior (the Academy and self-play improve
  * automatically); "v1" exists only so the probe can measure old-vs-new inside one
@@ -66,7 +67,7 @@ import { entersTriggerRemovesOwn } from "./gameEngine.js"; // the cast-time hold
  * Exported so the A/B probe derives its legacy-key list from THIS array (AI-F11:
  * a hand-copied list silently drops every new subsystem from `--legacy=all`).
  */
-export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold"];
+export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold"];
 function normalizePolicy(policy) {
   if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
   if (policy && typeof policy === "object") return policy;
@@ -807,6 +808,11 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     // Ranking-only — the cast stays offered. policy 'v1' (`etbHold`) recovers the cast-anyway for the A/B probe.
     if (pol.etbHold !== "v1" && !actions[0].isAuraSpell && !/\b(?:Instant|Sorcery)\b/.test(String(card.type || card.type_line || "").split(" // ")[0])
       && entersTriggerRemovesOwn(state, aiPlayerId, card)) continue;
+    // DISCARD-TO-ENTER HOLD (play-weighted #247 — Mox Diamond, 2026-10-17): a permanent that enters only on a discarded land card
+    // (discardLandToEnter.js) is held while its entry policy would decline — cast then, it goes straight to the graveyard. The
+    // policy read here is the one the entry applies (pickEnterDiscardLand), so the AI casts exactly when the Mox will stay.
+    // Ranking-only — the cast stays offered. policy 'v1' (`discardEnterHold`) recovers the cast-anyway for the A/B probe.
+    if (pol.discardEnterHold !== "v1" && entersByDiscardingLand(card) && !pickEnterDiscardLand(state, aiPlayerId)) continue;
     // AI-F2 — UNRESOLVABLE SPELLS: a LOW-confidence instant/sorcery whose program carries ZERO
     // runnable atoms (and no legacy `effect`, no chosen target) resolves as markPendingArbiter —
     // in self-play the spell just VANISHES (the Tier-1 breakage census's spell-unresolved rows:

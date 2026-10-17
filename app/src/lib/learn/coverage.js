@@ -88,7 +88,8 @@ import { parseVihaanCombatAnimate } from "./vihaanAnimate.js"; // VIHAAN command
 import { parseAnnihilator } from "./annihilator.js"; // KW-ANNIHILATOR (CR 702.86a) — runtime hook lives in gameEngine (applyAnnihilatorTriggers)
 import { isSeedbornUntap } from "./seedbornUntap.js"; // SEEDBORN-UNTAP — runtime hook lives in gameEngine (applySeedbornUntap)
 import { isMurkfiendUntap } from "./murkfiendUntap.js"; // MURKFIEND-UNTAP — runtime hook lives in gameEngine (applyMurkfiendUntap)
-import { parseTypeFilteredUntap } from "./typeFilteredUntap.js"; // TYPE-FILTERED UNTAP — runtime hook lives in gameEngine (applyTypeFilteredUntap)
+import { stripModeledDiscardLandToEnter } from "./discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247) — the entry replacement every entry site reads; its pre-strip below
+import { parseTypeFilteredUntap, stripModeledSelfOtherUntap } from "./typeFilteredUntap.js"; // TYPE-FILTERED UNTAP — runtime hook lives in gameEngine (applyTypeFilteredUntap); + its SELF member's pre-strip (play-weighted #558)
 import { groupNoUntapFiltersOf, GROUP_NO_UNTAP_SENTENCE_RE } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1) — runtime enforced in gameState.untapAll (groupPreventsUntap)
 import { parseStaticAbilities, registerSelfGraveyardCastConditionReader } from "./staticAbilityParser.js"; // for the eminence cost-reduction marker (Ur-Dragon classifier)
 // SELF GRAVEYARD CAST (shelf D31): the static parser asks the SHARED condition reader whether it can read "as long as <cond>" —
@@ -3404,6 +3405,25 @@ export function classifyCard(card) {
   {
     const noUntapStripped = stripModeledSelfNoUntap(String(card?.oracle || ""), card?.name);
     if (noUntapStripped !== String(card?.oracle || "")) card = { ...card, oracle: noUntapStripped.trim() };
+  }
+  // SELF UNTAP DURING EACH OTHER PLAYER'S UNTAP STEP (play-weighted #558 — Bender's Waterskin, Thousand Moons Infantry, Endbringer):
+  // "Untap this <permanent> during each other player's untap step." is played by the runtime whatever the tier — the untap step's
+  // family pass (typeFilteredUntap.applyTypeFilteredUntap, wired in gameEngine.runStepActions) reads the permanent's own oracle —
+  // so the metric strips the same printed line through the same reader before any lane judges the rest (the self no-untap
+  // pre-strip above, the opposite polarity). Line-anchored there: a quoted grant (Urban Burgeoning) or a conditional tail is not
+  // stripped and stays residue.
+  {
+    const selfOtherStripped = stripModeledSelfOtherUntap(String(card?.oracle || ""));
+    if (selfOtherStripped !== String(card?.oracle || "")) card = { ...card, oracle: selfOtherStripped.trim() };
+  }
+  // MOX DIAMOND'S ENTRY (play-weighted #247 — "If this artifact would enter, you may discard a land card instead. If you do, put
+  // this artifact onto the battlefield. If you don't, put it into its owner's graveyard."): a replacement effect (CR 614.1a) the
+  // runtime applies wherever the card would enter — resolvers.enterPermanent (the cast, a clone copying it), zones.enterCardFromZone
+  // (every put) and the token-copy atoms — through discardLandToEnter.js, whose reader this strip shares. Whole-sentence anchored
+  // there: a different discard cost or a missing graveyard rider is not stripped and parks the card.
+  {
+    const discardEntryStripped = stripModeledDiscardLandToEnter(String(card?.oracle || ""));
+    if (discardEntryStripped !== String(card?.oracle || "")) card = { ...card, oracle: discardEntryStripped.trim() };
   }
   // PLOT pre-strip for PERMANENTS (2026-08-03) — the same zone-ability drift as the two strips above.
   // The plot line is already stripped on the SPELL path (parseEffectProgram) and inside the clone view,

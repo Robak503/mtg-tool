@@ -22,6 +22,7 @@
 
 import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, castsAsPlaneswalker, moveCardToZone, tapPermanent, recordGraveyardEvents, updatePermanentSafe } from "./gameState.js";
 import { queueEvokeSacrifice, checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLandfallTriggers } from "./triggers.js";
+import { entersByDiscardingLand, applyDiscardLandToEnter } from "./discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247) — "If this artifact would enter, you may discard a land card instead…" (CR 614.1a, 614.12a): whether it enters at all
 import { applyEnterReplacements, settleEnterReplacements, sagaEntryChapterTriggers } from "./enterReplacements.js"; // the entry replacements (CR 614.1c, 614.1d, 614.12) — the ONE reader the cast entry and the non-cast entry (zones.enterCardFromZone) share
 import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js";
@@ -73,8 +74,18 @@ function livingWeaponToken(card) {
 export { choosesCreatureTypeOnEnter, autoPickManaColor } from "./enterReplacements.js";
 
 export function enterPermanent(state, card, controller, opts = {}) {
+  if (!state.players[controller]) return state;
+  // MOX DIAMOND (discardLandToEnter.js — CR 614.1a, 614.12a): "you may discard a land card instead. If you do, put this artifact
+  // onto the battlefield. If you don't, put it into its owner's graveyard." Applied before anything else about the entry (a clone
+  // entering as a copy of it carries the sentence on `card`, CR 707.5). Declined, it never enters: the resolving card goes to its
+  // owner's graveyard from the stack (finishSpellResolution — a copy of a spell or a token ceases to exist, a graveyard
+  // replacement applies; a clone's own card is what goes, `printedCard`).
+  if (entersByDiscardingLand(card)) {
+    const r = applyDiscardLandToEnter(state, controller, card);
+    if (!r.enters) return finishSpellResolution(r.state, { playerId: opts.owner || controller, card: opts.printedCard || card });
+    state = r.state;
+  }
   const player = state.players[controller];
-  if (!player) return state;
   const { id: permId, state: s2 } = mintId(state, "perm");
   // Stamp the CR 613.7e layer timestamp at ETB (Phase-7 PR-9), alongside the
   // deterministic id, and advance the monotonic counter. Layers reads

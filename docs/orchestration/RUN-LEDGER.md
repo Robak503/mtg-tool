@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **1 commit**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits); engine gains since the tag: **±0**. The next tag
+> **2 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.6% (15,456)**; engine gains since the tag: **+3**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,67 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-17 — PLAY-WEIGHTED: Mox Diamond (EDHREC #247) — the discard-a-land entry replacement, read at every road onto the battlefield; Bender's Waterskin (#558) — "Untap this artifact during each other player's untap step." (+ Thousand Moons Infantry) · **+3** · snapshot native 15,448 → 15,451
+> Suite **19,975 green (1 skipped) / 1,836 files** under the gate queue. Lint 0 (CR citations: 0 of 10,971 name no rule; keyword
+> citations: 0 of 2,312 cite a different keyword). Flip-diff **+3 / −0 / RETIERED 0** (34,620 cards; before = this worktree untouched
+> at 0c221772, snapshotted before the first edit; native 15,448 → 15,451 of 34,584 snapshot names). Top 1,000 **894 → 896**
+> (`measure-coverage --played=1000`: "covered 894/1000 (89.4%) · to 90%: +6" before, "covered 896/1000 (89.6%) · to 90%: +4"
+> after); top 2,500 +2 (both cards sit inside the top 1,000; Thousand Moons Infantry is #22893). **Mutants 17/17** on assertions,
+> each restored byte-identical (sha256). Witness tests written first and seen to fail on the base engine on assertions. Committed
+> on `day/pw-timing`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **Mox Diamond** ("If this artifact would enter, you may discard a land card instead. If you do, put this artifact onto the
+>   battlefield. If you don't, put it into its owner's graveyard."). A replacement effect (CR 614.1a) that functions as the object
+>   enters (CR 113.6h, 614.12), its choice made before it enters (CR 614.12a), the discard another object changing zones with it
+>   (CR 614.13), the put not replaced again (CR 614.5). New leaf `discardLandToEnter.js` (recognizer, metric strip, policy, apply),
+>   read where a permanent enters, not in `enterReplacements.applyEnterReplacements` (that leaf decides HOW a permanent enters and
+>   always returns one; this decides WHETHER): `resolvers.enterPermanent` (the cast; a clone entering as a copy of it, CR 707.5 —
+>   declined, the card goes to its owner's graveyard through `finishSpellResolution`, so a spell copy or token ceases to exist and
+>   a graveyard replacement applies), `zones.enterCardFromZone` (every put — declined, the card moves from its zone to its owner's
+>   graveyard; from a graveyard it stays), `tokens.applyCreateTokenCopy` / `applyCreateTokenCopyEach` (declined, the token is not
+>   created, CR 704.5d). The discard is real: `moveCardToZone` hand → graveyard + `checkDiscardTriggers` (Glint-Horn Buccaneer
+>   fires). One event, two Moxes, one land: the live hand is read, so the same land is never discarded twice (CR 614.13b).
+>   `coverage.classifyCard` pre-strips the sentence through the same reader (whole-sentence anchored — "discard a card" or a missing
+>   graveyard rider parks the card). `landDropAllowance` moved from `legalChoices.js` to `staticAbilityParser.js` beside
+>   `extraLandDropsOf` (re-exported from legalChoices) so the leaf reads it without importing legalChoices.
+> · **The choice.** The house policy for every seat — the way every other entry replacement decides (the shockland inside an
+>   effect, the chosen creature type / colour / card type, riot, Fabricate, tribute): discard only with a land card in hand AND
+>   either the land drop spent (own turn, `landsPlayedThisTurn >= landDropAllowance`) or two or more land cards; a basic first.
+>   A land card is read on the front face in hand (CR 712.8a — Valakut Awakening is not one). Logged `enter-discard-replacement`
+>   with `auto: true`. **A person's seat is not asked** — a documented limit: the one entry ask (the aura-entry-host pause) is a
+>   host choice inside an effect, not the cast path; a real ask needs a new pending-choice kind + panel + PLAY-API bump.
+> · **Bender's Waterskin.** The SELF member of the "during each other player's untap step" family, folded into
+>   `typeFilteredUntap.applyTypeFilteredUntap` (new `parseSelfOtherUntap` / `stripModeledSelfOtherUntap`, line-anchored, "this
+>   artifact|creature|permanent|land|enchantment", CR 700.7) so the stun / becomes-untapped / summoning-sickness handling stays one
+>   copy. CR 502.3: the untap step's turn-based action is the active player's; this adds an untap of the one permanent. A stun
+>   counter holds it (CR 122.1d replaces any untap); "doesn't untap during its controller's untap step" does not (Inertia Bubble —
+>   the bundled ruling: "These effects won't apply and stop Bender's Waterskin from untapping during another player's untap
+>   step"). ONE untap per permanent per step across the family (Unwinding Clock's ruling: "you'll only untap your artifacts once"):
+>   `gameEngine.runStepActions` hands the pass the board as the family began (`stepStart`), and a permanent Seedborn Muse already
+>   untapped or un-stunned is skipped — before this, Seedborn + Unwinding Clock on a stunned artifact removed a stun counter twice
+>   (or removed one, then untapped it) in one step.
+>   `coverage.classifyCard` pre-strips the line (Urban Burgeoning's quoted grant is not stripped).
+> · **Gained, each witnessed on the real engine** (`moxDiamond.test.js` 22, `bendersWaterskin.test.js` 19): **Mox Diamond** — cast
+>   with a Forest (drop made) enters and the Forest is in the graveyard; with only a Bolt it goes to the graveyard and never logs an
+>   entry; Whir of Invention (X=1), Argivian Restoration, Brilliant Restoration (two Moxes, one land → one enters), Sculpting Steel,
+>   Flash Photography and Second Harvest each ask; a human seat takes the same policy. **Bender's Waterskin** — paying for Mind
+>   Stone taps it and a Manalith; on the AI's untap step only the Waterskin untaps (the control rock stays tapped); two stun counters
+>   lose one on its own step (not twice); Inertia Bubble holds it on its controller's step only; Seedborn / Unwinding Clock + two
+>   stun counters lose one. **Thousand Moons Infantry** (body-only → native-body, its whole text) untaps on the opponent's step and
+>   keeps its summoning sickness there. Untouched: **Endbringer** untaps the same way (the runtime reads the line on any carrier) but
+>   stays body-only on "{C}, {T}: Target creature can't attack or block this turn."; **Victory Chimes** stays parked on "{T}: A
+>   player of your choice adds {C}."; **Urban Burgeoning** on its quoted grant. `manaTierStaticResidue.test.js` dropped its two
+>   park pins for these cards (their readers exist now).
+> · **AI / self-play.** Profile decks: Mox Diamond in Believe it!, Kinnan Mana Overload, cdh, Killer Turts, The Unbeatable Squirrel
+>   Girl — it used to enter for free and tap for any colour with no land discarded; now it costs a land, and the AI holds the cast
+>   while the policy would decline (`opponentAI.pickCastAction`, new policy key `discardEnterHold`; the cast stays offered). Bender's
+>   Waterskin in Light-Paws Voltron — now available on every opponent's turn (instant-speed mana in the pod).
+> · ⚠️ **Found, not fixed:** Seedborn Muse's and Murkfiend Liege's hooks still both act on one stunned permanent in the same step
+>   (two counters) — the `stepStart` guard covers only the last pass · the stun rule is cited as "CR 122.1c" (shield counters) at
+>   gameState.js:1558 and :1937, seedbornUntap.js:70, murkfiendUntap.js:88 and typeFilteredUntap.test.js:108 — it is 122.1d ·
+>   token copies (`applyCreateTokenCopy`) still skip `applyEnterReplacements` (a copy of an "enters tapped" or "enters with
+>   counters" permanent enters bare) — pre-existing · Mox Diamond's off-turn policy declines with a single land even though no land
+>   can be played then (conservative by choice).
 
 > ## 📚 2026-10-17 — CITATIONS + LINT: a keyword-section citation must cite the keyword its comment names — 304 rewrites by script (262 off-by-N keyword sections incl. all 29 fight-as-701.12, 42 meld-712.4a-for-a-front-face), and `npm run lint` now gates it · **±0**
 > Comments and test titles only: all 99 changed source files are espree-token-identical to 55af28c3 outside Comment tokens and

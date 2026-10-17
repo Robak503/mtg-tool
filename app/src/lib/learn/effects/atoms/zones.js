@@ -16,6 +16,7 @@ import { applyScheduleDelayed } from "./delayedTrigger.js"; // the CR 603.7 queu
 import { colorsOf, permanentProtectionColors, permanentIsCreature, permanentHasTypeWord } from "../../layers.js"; // shelf D41 — the host's live protection colours vs a returning card's colours (CR 702.16c/d); + permIsEveryCreatureType (P·39b — Essence Flux's returned Spirit)
 import { protectionApplies } from "../../protection.js"; // shelf D41 — the shared colour-protection test (an import-free leaf)
 import { auraMayEnchantCreature } from "../../auraHost.js"; // shelf D41 — the shared Enchant-line reader (a leaf; stack.js reads it too)
+import { entersByDiscardingLand, applyDiscardLandToEnter } from "../../discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247, CR 614.1a / 614.12a) — whether it enters at all; a leaf over gameState / triggers / staticAbilityParser, which this file already reaches
 import { enteringAuraHost } from "../../auraEntry.js"; // CR 303.4f — what an Aura entering without being cast enchants, asked of a seat a person plays (a leaf over modules this file already reaches)
 // CZ-COMMANDER-VISIT cross-layer doors — INJECTED, never imported: a static resolvers.js/layers.js
 // import from this atoms leaf TDZ-crashed 56 suites (zones sits under effectAtoms → parser, and
@@ -363,6 +364,17 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
       return { state: logEvent(state, { kind: "aura-stays", cardName: card?.name, controller: playerId, zone: fromZone, reason }), entered: false };
     }
     hostId = choice.hostId;
+  }
+  // MOX DIAMOND (discardLandToEnter.js — CR 614.1a, 614.12a): its controller-to-be discards a land card from their hand, or it never
+  // enters and is put into its owner's graveyard from the zone it was leaving (from a graveyard it simply stays there). Read on the
+  // live hand, so two entering in one event (Open the Vaults) can never discard the same land (CR 614.13b).
+  if (entersByDiscardingLand(card)) {
+    const r = applyDiscardLandToEnter(state, playerId, card);
+    if (!r.enters) {
+      const gone = fromZone === "graveyard" ? r.state : moveCardToZone(r.state, { playerId: fromPlayerId, fromZone, toZone: "graveyard", cardId });
+      return { state: gone, entered: false };
+    }
+    state = r.state;
   }
   const { id: permId, state: s2 } = mintId(state, "perm");
   const ts = s2.timestampCounter || 0;

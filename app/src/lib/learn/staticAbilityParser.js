@@ -5740,6 +5740,33 @@ export function extraLandDropsOf(card) {
 }
 
 /**
+ * EXTRA-LAND-DROPS (CR 305.2 / 505.6b) — the number of lands `playerId` may play THIS turn = the base one
+ * (CR 305.2) PLUS the additional plays granted by every static they control ("You may play an additional land
+ * on each of your turns" — Exploration → +1; Azusa → +2). Sums extraLandDropsOf across the player's BATTLEFIELD
+ * and COMMAND ZONE (a creature-commander like Azusa grants nothing while it sits in the command zone — it must
+ * be on the battlefield — so the command-zone scan finds nothing for it; the scan is there only for a future
+ * command-zone-functioning grant, mirroring the cost-reducer two-zone pattern). The SINGLE source of truth for
+ * the per-turn land allowance — both the action gate (actionsPlayLand) and the dispatcher gate (applyPlayLand)
+ * call this, so they can't drift (the CREED two-sites invariant). Pure; ≥ 1 always.
+ */
+export function landDropAllowance(state, playerId) {
+  const player = state.players[playerId];
+  if (!player) return 1;
+  let extra = 0;
+  for (const perm of player.battlefield || []) extra += extraLandDropsOf(perm.card);
+  // Command-zone entries are BARE card objects (no { card } wrapper), like the cost-reducer scan. No modeled
+  // extra-land card functions from the command zone today, so this contributes 0 — but kept for symmetry.
+  for (const card of player.command || []) extra += extraLandDropsOf(card);
+  // ONE-SHOT-EXTRA-LAND (CR 505.6b): a resolving "you may play [N] additional land[s] this turn" effect
+  // (Explore → +1, Summer Bloom → +3) bumps the player's per-turn budget (play-extra-land-this-turn atom →
+  // player.extraLandsThisTurn). It's reset each of the player's turns (resetTurnCounters) so it never persists
+  // like the static "each of your turns" form (extraLandDropsOf, above). `?? 0` — not `|| 0` — so a literal 0
+  // budget (no effect resolved) reads exactly 0, never a fabricated allowance.
+  extra += player.extraLandsThisTurn ?? 0;
+  return 1 + extra;
+}
+
+/**
  * FLASH-CAST-PERMISSION — the flash-cast-permission specs this ONE card grants its controller (a card has at
  * most one such clause in the corpus, but returning all is harmless + future-proof). Each spec is the
  * serializable `{ any } | { qualifiers }` filter from parseFlashCastFilter. Pure — the per-player gather (scan
