@@ -885,11 +885,22 @@ function landTokenManaOracle(descriptor) {
 }
 
 /**
+ * The "with <keywords>" rider of a COUNTED token (the X and for-each arms of createTokenClauseParser). No rider → `{ fields: {} }`;
+ * a keyword list parseTokenKeywords reads (keywords the engine enforces — the fixed-count arm's own keyword path) →
+ * `{ fields: { keywords } }`; anything else (an unenforced keyword, a quoted ability) → null, and the clause stays unread.
+ */
+function countedKeywordRider(phrase) {
+  if (phrase === undefined) return { fields: {} };
+  const keywords = parseTokenKeywords(phrase);
+  return keywords ? { fields: { keywords } } : null;
+}
+
+/**
  * CREATE-TOKEN clause parser (vanilla typed creature tokens) — migrated from parser.js parseExtendedAtom
  * (seam batch 20 / Wave C). Two matchers, original first-match order (for-each before fixed-N):
  *   mtf (FOR-EACH) — "create a/an/one P/T <descriptor> creature token for each <count source>" (Avenger of
- *     Zendikar, Garruk Primal Hunter): one token per source-unit, count at resolution (countFor). No "with"
- *     rider in scope. CREED guards travel: toughness<1 → null (dies to lethal SBA); a LAND creature token →
+ *     Zendikar, Garruk Primal Hunter): one token per source-unit, count at resolution (countFor). A "with" rider
+ *     is a keyword list only (countedKeywordRider, 2026-10-17). CREED guards travel: toughness<1 → null (dies to lethal SBA); a LAND creature token →
  *     null (intrinsic mana dropped); unmodeled count source → null.
  *   m (FIXED-N + optional "with") — "create N P/T <descriptor> creature token(s) [named X] with <…>": the
  *     "with" slot is a QUOTED inline mana ability (parseTokenManaAbility → tokenOracle) OR a keyword phrase
@@ -990,14 +1001,20 @@ function createTokenClauseParserCore(clause) {
     const countFor = parseCountSource(mnum[4].replace(/^the (?:total )?number of /, ""));
     return countFor ? { op: "create-token", power: parseInt(mnum[1], 10), toughness, descriptor: mnum[3].trim(), countFor, targetType: null } : null;
   }
-  const mxw = t.match(/^create x (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?,? where x is (?:equal to )?(.+)$/);
+  // + the KEYWORD RIDER on a counted token (the play-weighted Skulker / Hangarback slice, 2026-10-17 — Chasm Skulker: "create X 1/1
+  // blue Squid creature tokens with islandwalk, where X is the number of +1/+1 counters on this creature"): the fixed-count arm
+  // below always read "with <keywords>"; the counted arms did not. The rider goes through the same reader (countedKeywordRider →
+  // parseTokenKeywords: keywords the engine enforces, nothing else), so an unread rider still leaves the clause unread.
+  const mxw = t.match(/^create x (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?(?: with ([a-z ,]+?))?,? where x is (?:equal to )?(.+)$/);
   if (mxw) {
     const toughness = parseInt(mxw[2], 10);
     if (toughness < 1) return null;
     const landMana = landTokenManaOracle(mxw[3]);
     if (!landMana.ok || landMana.oracle) return null; // a land token's intrinsic mana + a dynamic count is unprinted — park (CREED)
-    const countFor = parseCountSource(mxw[4].replace(/^the (?:total )?number of /, ""));
-    return countFor ? { op: "create-token", power: parseInt(mxw[1], 10), toughness, descriptor: mxw[3].trim(), countFor, targetType: null } : null;
+    const rider = countedKeywordRider(mxw[4]);
+    if (!rider) return null;
+    const countFor = parseCountSource(mxw[5].replace(/^the (?:total )?number of /, ""));
+    return countFor ? { op: "create-token", power: parseInt(mxw[1], 10), toughness, descriptor: mxw[3].trim(), countFor, targetType: null, ...rider.fields } : null;
   }
   // ===== TAPPED-AND-ATTACKING FOR-EACH (Otharri, Suns' Glory — SHELF-TAIL O1, CR 508.1c) ===== "create a
   // <P>/<T> <desc> creature token that's tapped and attacking for each <count source>". The mobilize
@@ -1040,7 +1057,9 @@ function createTokenClauseParserCore(clause) {
     const countFor = parseCountSource(mta[4]);
     return countFor ? { op: "create-token", power: parseInt(mta[1], 10), toughness, descriptor: mta[3].trim(), countFor, tapped: true, entersAttacking: true, targetType: null } : null;
   }
-  const mtf = t.match(/^create (?:a|an|one) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens? for each (.+)$/);
+  // (+ the keyword rider — Hangarback Walker's "a 1/1 colorless Thopter artifact creature token with flying for each +1/+1 counter
+  // on this creature"; see the X arm above.)
+  const mtf = t.match(/^create (?:a|an|one) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?(?: with ([a-z ,]+?))? for each (.+)$/);
   if (mtf) {
     const toughness = parseInt(mtf[2], 10);
     if (toughness < 1) return null;
@@ -1049,8 +1068,11 @@ function createTokenClauseParserCore(clause) {
     // land token returns ok:false → null → Arbiter (the intrinsic mana would be dropped/ambiguous — CREED).
     const landMana = landTokenManaOracle(mtf[3]);
     if (!landMana.ok) return null;
-    const countFor = parseCountSource(mtf[4]);
-    return countFor ? { op: "create-token", power: parseInt(mtf[1], 10), toughness, descriptor: mtf[3].trim(), countFor, targetType: null, ...(landMana.oracle ? { tokenOracle: landMana.oracle } : {}) } : null;
+    const rider = countedKeywordRider(mtf[4]);
+    // A land token's intrinsic mana line and a keyword rider would both claim the token's oracle — park, as the fixed arm does.
+    if (!rider || (landMana.oracle && rider.fields.keywords)) return null;
+    const countFor = parseCountSource(mtf[5]);
+    return countFor ? { op: "create-token", power: parseInt(mtf[1], 10), toughness, descriptor: mtf[3].trim(), countFor, targetType: null, ...(landMana.oracle ? { tokenOracle: landMana.oracle } : {}), ...rider.fields } : null;
   }
   // NAMED-TOKEN (CR 111.4) — a typed creature token can carry a printed name ("…creature token named Koma's
   // Coil", Koma/Ur-Dragon-style). The name is captured into atom.name (applyCreateToken stamps it on the

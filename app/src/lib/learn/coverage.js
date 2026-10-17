@@ -62,6 +62,7 @@ function atomCarriesEventReferent(a) {
   if (a?.op === "gy-batch-to-battlefield") return true; // "put one of them" (shelf D27) — only a graveyard-enter batch names them
   if (a?.op === "draw-or-counters-by-triggering-power") return true; // "if its power is 3 or greater" (Tribute to the World Tree) — only an enters watcher names the creature
   if (a?.op === "you-and-attacking-opponents") return true; // "each opponent attacking that player does the same" (Curse of Opulence) — only the enchanted-player-attacked trigger names the player
+  if (a?.countContext === "dealtDamageAmount") return true; // "that much" (Brash Taunter) — only the dealt-damage trigger carries the amount
   return (a?.restrictions || []).some((r) => REFERENT_WHOS.has(r?.who));
 }
 import { registerGrantTriggeredBodyValidator, registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant body gates
@@ -1227,6 +1228,12 @@ function hasDoubleManaPoolAbility(card) {
 
 /** True when an instant/sorcery resolves fully through the EffectProgram interpreter. */
 export function spellIsNative(card) {
+  // AN {X} NOTHING READS (2026-10-17, found by the play-weighted Skulker slice — Sweep the Skies "{X}{U}{U} … Converge — Create a
+  // 1/1 colorless Thopter … for each color of mana spent to cast this spell"; Prismatic Ending, Molten Note, Mathemagics). The cast
+  // offer expands X only for a program that reads X (legalChoices' xSpell branch); a text that never names X is offered once, at
+  // X = 0, so the X the caster chooses (CR 107.3a, 601.2b) — the whole point of these cards — is never offered. Not native. Every
+  // carrier was already parked on its own text before this line; it keeps a widened reader from crediting one.
+  if (/\{X\}/.test(String(card?.mana ?? card?.mana_cost ?? card?.manaCost ?? "")) && !/\bX\b/.test(stripReminder(String(card?.oracle ?? card?.oracle_text ?? "")))) return false;
   // STORM (CR 702.40): an instant/sorcery can carry the "Storm" KEYWORD ("Storm (When you cast this spell, copy
   // it for each spell cast before it this turn. …)"). The keyword is a triggered ability modeled SEPARATELY from
   // the spell's own effect (triggers.detectTriggers synthesizes a selfCast copy-spell trigger; the runtime fires
@@ -2303,7 +2310,7 @@ function remainingClausesModeled(card, text) {
   // modeled ACTIVATED ability fell between both tiers and landed in body-only despite every piece being
   // understood. Same normalizer, same grammar, both paths.
   for (const clause of abilityClauses(selfNormalizeOracle(afterActivated, card?.name, card?.type || card?.type_line))) {
-    if (clauseProducesStatic(clause)) continue;  // a modeled static clause
+    if (clauseProducesStatic(clause, card)) continue;  // a modeled static clause (the card: a chosen-colour anthem needs its chooser)
     if (isKeywordOnly(clause, card?.name)) continue;  // keyword-only / vanilla
     return false;                                 // unmodeled residue
   }
@@ -3875,7 +3882,7 @@ export function classifyCard(card) {
   // OTHERS-ENTER-WITH (SHELF-85 H8 — Arwen / Renata / Bramblewood Paragon): stripped ONLY when the reader the resolver
   // honours (othersEnterWithCounters) confirms the whole line — the same single-source-of-truth gate as every branch above.
   const ewOracle = othersEnterWithCounters(card)
-    ? choiceEnterOracle.replace(/(?:^[ \t]*each other [^.\n]*creature you control enters with (?:an additional \+1\/\+1 counter|a number of additional \+1\/\+1 counters) on it[^.\n]*\.?[ \t]*$|^[ \t]*each planeswalker you control enters with an additional loyalty counter on it\.?[ \t]*$)/im, " ")
+    ? choiceEnterOracle.replace(/(?:^[ \t]*each other [^.\n]*creature you control (?:of the chosen type )?enters with (?:an additional \+1\/\+1 counter|a number of additional \+1\/\+1 counters) on it[^.\n]*\.?[ \t]*$|^[ \t]*each planeswalker you control enters with an additional loyalty counter on it\.?[ \t]*$)/im, " ")
     : choiceEnterOracle;
   // ENTERS-TAPPED: actionDispatcher handles unconditional "enters tapped" via entersTapped() — credit it
   // here by stripping that sentence from the oracle so it doesn't block coverage on cards whose remaining

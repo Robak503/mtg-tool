@@ -67,10 +67,12 @@ describe("detection — the disjunction splits into two independently-classified
     expect(compoundTriggerCount(c.oracle)).toBe(1);
   });
 
-  it("the ARTIFACT 'is put into a graveyard' wording is NOT split (its dies-half never dispatches — parked)", () => {
+  // GRADUATED 2026-10-17 (wellspringEntersOrGraveyard.test.js): the graveyard half is the self-PiG ltb event, which classifies.
+  it("the ARTIFACT 'is put into a graveyard' wording splits too — etb + ltb halves, tier flips", () => {
     const c = { name: "Ichor Wellspring", type: "Artifact", oracle: "When Ichor Wellspring enters or is put into a graveyard from the battlefield, draw a card." };
-    expect(detectTriggers(c)).toHaveLength(0);
-    expect(compoundTriggerCount(c.oracle)).toBe(0);
+    expect(detectTriggers(c).map((x) => x.event).sort()).toEqual(["etb", "ltb"]);
+    expect(compoundTriggerCount(c.oracle)).toBe(1);
+    expect(classifyCard(c)).toBe("native-trigger");
   });
 });
 

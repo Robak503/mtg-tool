@@ -107,6 +107,8 @@ nonbasic-text lands demoted; corpus native 41.2% → 39.4% — the honest number
 3.  Land (type line)?        → landFullyCovered ? "land" : "land-partial" (Codex #3 — see §2.1)
 4.  DFC back-face PW?        → body-only
 5.  Instant/Sorcery?         → spellIsNative:
+       an {X} in the mana cost that the text never names → not native (the cast offer
+       expands X only for a program that reads it — 2026-10-17, Sweep the Skies) ·
        storm/cascade keyword carve-outs (validated via detectTriggers +
        triggerRoutesNatively) · plot/convoke/affinity cost strips ·
        parseEffectProgram must be HIGH with NO combat-referent atoms
@@ -304,6 +306,18 @@ effect and requires HIGH + resolvable targets + combat-referent satisfied + a
 strict intervening-if vocabulary. Single source of truth ⇒ the classifier can't
 claim native for a trigger the runtime would drop.
 
+**Event disjunctions split; the dealer can be the triggering creature (2026-10-17).** One ability with two trigger events
+("enters or attacks", "enters or dies", "enters or leaves the battlefield", "attacks or blocks", "enters or is put into a
+graveyard from the battlefield" — CR 603.2b) is rewritten by `splitCompoundTriggerSentences` to one sentence per event, each
+carrying the whole effect; `compoundTriggerCount` counts each split so an unread half parks the card. A new disjunction is one
+regex beside its siblings plus its count — only when the two events are disjoint and each half already classifies alone
+(Ichor Wellspring's graveyard half is the self-PiG `ltb` event, graveyard exits only). A damage payoff whose DEALER is the
+trigger's triggering creature carries `damageSource: "triggering"` (the deal-damage resolver reads that creature's keywords,
+and `gameState.stampTriggeringLki` keeps its record if it leaves before the trigger resolves — add the sentinel to
+`TRIGGERING_LKI_CLAUSE_RE`, and the event to the `damageSource` pin in `triggerRouting`): the entering creature (Warstorm
+Surge), the turned-up creature (Pyrotechnic Performer), and the creature that was dealt damage (Brash Taunter's family — "it
+deals that much damage to …" on the self dealt-damage event, the amount `ctx.dealtDamageAmount`).
+
 #### 4.4b Trigger classes beyond the event trigger (added 2026-07-25)
 
 Three kinds of trigger do NOT fire off a discrete event, and each has its own lane:
@@ -419,7 +433,12 @@ permanent's *effective* type/subtype identity, so an animated Treasure is seen a
 the creature it became) and handles the special meta-types (changeling matches any
 subtype; "outlaw" expands to its five subtypes). A selector carries
 `{controllerScope, cardTypes, subtypes, colors, excludeSelf, …}`; `cardTypes: []`
-means "all permanents" (vacuous filter).
+means "all permanents" (vacuous filter). Two selectors read the SOURCE permanent's as-enters choice: `chosenTypeOfSource`
+(its `chosenType`) and `chosenColorOfSource` (its `chosenColor`, matched through the layer-aware colour gate — Heraldic
+Banner, 2026-10-17). `parseStaticAbilities` drops either descriptor when the card prints no chooser the enter site stamps
+from, so a chosen-X line without its chooser parks instead of reading native while touching nobody. The same holds for the
+others-enter-with replacement's chosen-type form (Metallic Mimic — `othersEnterWithCounters` returns `chosenType: true`
+only beside `choosesCreatureTypeAsEnters`, the one chooser regex the enter site reads too).
 
 ### 4.7 Mana (`manaModel.js`)
 

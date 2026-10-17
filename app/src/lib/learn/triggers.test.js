@@ -116,9 +116,11 @@ describe("classifyCondition — compound self-event + LTB guard (CREED)", () => 
     const ds = detectTriggers(creature("Grave Titan", "Whenever Grave Titan enters or attacks, create two 2/2 black Zombie creature tokens."));
     expect(ds.map((d) => d.event).sort()).toEqual(["attacks", "etb"]);
   });
-  it("does NOT detect 'enters or is put into a graveyard' (Ichor Wellspring / Servo Schematic) — the death half would be dropped", () => {
-    expect(detectTriggers(creature("Ichor Wellspring", "When Ichor Wellspring enters or is put into a graveyard from the battlefield, draw a card.", { type: "Artifact" }))).toHaveLength(0);
-    expect(detectTriggers(creature("Servo Schematic", "When this artifact enters or is put into a graveyard from the battlefield, create a 1/1 colorless Servo artifact creature token.", { type: "Artifact" }))).toHaveLength(0);
+  // GRADUATED 2026-10-17 (the play-weighted Wellspring slice — wellspringEntersOrGraveyard.test.js): the graveyard half classifies
+  // (the self-PiG ltb event, BLITZ TR-3), so the disjunction now SPLITS — both halves, never the enters half alone.
+  it("SPLITS 'enters or is put into a graveyard from the battlefield' (Ichor Wellspring / Servo Schematic) into etb + ltb — both halves", () => {
+    expect(detectTriggers(creature("Ichor Wellspring", "When Ichor Wellspring enters or is put into a graveyard from the battlefield, draw a card.", { type: "Artifact" })).map((d) => d.event).sort()).toEqual(["etb", "ltb"]);
+    expect(detectTriggers(creature("Servo Schematic", "When this artifact enters or is put into a graveyard from the battlefield, create a 1/1 colorless Servo artifact creature token.", { type: "Artifact" })).map((d) => d.event).sort()).toEqual(["etb", "ltb"]);
   });
   it("does NOT detect 'a creature dies or a creature card is put into a graveyard from a library' (Dreadhound) — the second event would be dropped", () => {
     expect(detectTriggers(creature("Dreadhound", "Whenever a creature dies or a creature card is put into a graveyard from a library, each opponent loses 1 life."))).toHaveLength(0);

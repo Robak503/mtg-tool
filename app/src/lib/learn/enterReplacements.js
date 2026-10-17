@@ -34,7 +34,7 @@
  */
 
 import { castsAsPlaneswalker, planeswalkerEntryLoyalty, opponentsOf, loseLife, logEvent } from "./gameState.js";
-import { othersEnterWithCounters, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, sunburstCounterKind, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithCountersPerKick, entersWithCastFromHandCounters, choosesColorOnEnter, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, auraChoosesColorOnEnter, riotKeywordCount } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
+import { othersEnterWithCounters, choosesCreatureTypeAsEnters, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, sunburstCounterKind, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithCountersPerKick, entersWithCastFromHandCounters, choosesColorOnEnter, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, auraChoosesColorOnEnter, riotKeywordCount } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
 import { addContinuousEffect, permanentPower, permanentToughness, permIsEveryCreatureType, entersAsCreature, enteringTypeWords } from "./layers.js"; // + enteringTypeWords: the entering object's types for the typed counter replacements (CR 614.12, 122.6) // + entersAsCreature (the type-line audit — is it a creature AS IT ENTERS, CR 614.12) // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); layers imports no atoms and not resolvers
 import { conditionalEntersTapped, paysLifeOrEntersTapped, autoPickOptionalLifePayment, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>"; a leaf over interveningIf
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — the entering creature is every creature type (Changeling, its controller's Maskwood Nexus) for "each other Elf enters with a counter"; a leaf over keywords.js
@@ -54,9 +54,10 @@ import { parseSagaChapters } from "./saga.js"; // SAGA (CR 714 — Vault 12, SHE
 // creature type"? Anchored to the bare creature-type chooser (CR 614.12 — a choose-a-type-as-it-enters
 // replacement). NOT "choose a card type / land type / planeswalker type" (a different chooser the engine
 // doesn't model), and NOT an activated/spell-level "Choose a creature type" (those carry no "as ~ enters").
-const CHOOSE_CREATURE_TYPE_ETB_RE = /\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b/i;
+// The regex lives in staticAbilityParser (choosesCreatureTypeAsEnters, 2026-10-17), the ONE copy the chosen-type others-enter-with
+// reader (Metallic Mimic) reads beside, so the chooser this site stamps from and the line coverage credits cannot drift apart.
 export function choosesCreatureTypeOnEnter(card) { // exported for the play-land drop (actionDispatcher.applyPlayLand — CAP-CAVERN), through resolvers.js
-  return CHOOSE_CREATURE_TYPE_ETB_RE.test(String(card?.oracle || card?.oracle_text || ""));
+  return choosesCreatureTypeAsEnters(card);
 }
 
 // The creature subtypes printed on a card's type line (the words after the "—", CR 205.3a). [] for a card
@@ -144,6 +145,9 @@ function othersEnterWithCountersFor(state, controller, card, bestowed = false) {
     if (!d) continue;
     if (d.subject === "planeswalker") continue; // Oath of Gideon's loyalty shape — a creature never reads it (othersEnterWithLoyaltyFor)
     if (d.subtype && !new RegExp(`\\b${d.subtype}\\b`).test(tl) && !entersEvery) continue;
+    // THE CHOSEN TYPE (Metallic Mimic): the SOURCE's stored chosenType against the entering card's subtypes as it enters (the face
+    // that is up — enteringTypeWords), or every type for a changeling (entersEvery). A source whose type was never chosen adds nothing.
+    if (d.chosenType && !(p.chosenType && (entersEvery || enteringTypeWords(state, controller, card, bestowed).includes(String(p.chosenType).toLowerCase())))) continue;
     const metric = d.metric === "sourceToughness" ? permanentToughness(state, p.id)
       : d.metric === "sourcePower" ? permanentPower(state, p.id) : 0;
     n += Math.max(0, d.fixed + metric);

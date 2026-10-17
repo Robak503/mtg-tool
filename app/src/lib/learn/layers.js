@@ -1455,7 +1455,12 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
   // P/T predicate: a nested read finds the id in _selectorColorInProgress and bails as UNSELECTED (FN-safe — a
   // color filter is layer-7-inert, so excluding the anthem leaves the nested pass's layer-5 colors exact), and
   // that nested derive is not memoized (deriveCharacteristics' tail gates on the same set). Terminates at depth 2.
-  if (selector.colors || selector.notColors || selector.colorless || selector.multicolored) {
+  // CHOSEN-COLOUR anthem (Heraldic Banner — "Creatures you control of the chosen color get +1/+0"): the SOURCE permanent's stored
+  // `chosenColor` (a WUBRG letter, stamped as it entered — CR 614.12) is the colour the candidate must have, read through the same
+  // layer-aware colour gate as a printed colour. No colour stored → the anthem touches nobody.
+  if (selector.chosenColorOfSource && !sourcePerm?.chosenColor) return false;
+  const wantColors = selector.chosenColorOfSource ? [sourcePerm.chosenColor] : selector.colors;
+  if (wantColors || selector.notColors || selector.colorless || selector.multicolored) {
     if (_selectorColorInProgress.has(candidate.id)) return false;
     _selectorColorInProgress.add(candidate.id);
     let cols;
@@ -1464,7 +1469,7 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
     } finally {
       _selectorColorInProgress.delete(candidate.id);
     }
-    if (selector.colors && !selector.colors.some(c => cols.includes(c))) return false;
+    if (wantColors && !wantColors.some(c => cols.includes(c))) return false;
     if (selector.notColors && selector.notColors.some(c => cols.includes(c))) return false;
     if (selector.colorless && cols.length !== 0) return false;
     if (selector.multicolored && cols.length <= 1) return false;

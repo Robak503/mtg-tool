@@ -7,8 +7,8 @@
  * A replacement effect on ANOTHER permanent's entry (CR 614.1c). The reader (staticAbilityParser.othersEnterWithCounters)
  * returns { subtype, fixed, metric }; the resolver reads every OTHER permanent's descriptor on the controller's battlefield
  * as a creature enters and adds the counters (the metric is the LIVE toughness/power through layers); coverage strips the
- * sentence only when the same reader confirms it. Master Biomancer ("… and as a Mutant …") and Metallic Mimic ("of the
- * chosen type") stay unmatched → unmodelled, FN-safe (CREED).
+ * sentence only when the same reader confirms it. Master Biomancer ("… and as a Mutant …") stays unmatched → unmodelled,
+ * FN-safe (CREED). Metallic Mimic ("of the chosen type") reads since 2026-10-17 — metallicMimic.test.js.
  *
  * Real oracle fixtures (bundled Scryfall snapshot, verified in-session 2026-09-04).
  */
@@ -43,12 +43,12 @@ const withPerms = (s, perms) => ({ ...s, players: { ...s.players, user: { ...s.p
 const countersOfCard = (s, cardId) => s.players.user.battlefield.find((p) => p.card?.id === cardId)?.counters?.["+1/+1"] || 0;
 
 describe("reader + classifier", () => {
-  it("Arwen reads as a toughness metric, Renata as fixed 1, Bramblewood as Warrior-only fixed 1; the two tails stay unread", () => {
+  it("Arwen reads as a toughness metric, Renata as fixed 1, Bramblewood as Warrior-only fixed 1; Biomancer's tail stays unread, Mimic reads its chosen type", () => {
     expect(othersEnterWithCounters(ARWEN)).toEqual({ subtype: null, fixed: 0, metric: "sourceToughness" });
     expect(othersEnterWithCounters(RENATA)).toEqual({ subtype: null, fixed: 1, metric: null });
     expect(othersEnterWithCounters(PARAGON)).toEqual({ subtype: "Warrior", fixed: 1, metric: null });
     expect(othersEnterWithCounters(BIOMANCER)).toBeNull();
-    expect(othersEnterWithCounters(MIMIC)).toBeNull();
+    expect(othersEnterWithCounters(MIMIC)).toEqual({ subtype: null, fixed: 1, metric: null, chosenType: true }); // graduated 2026-10-17 (metallicMimic.test.js)
     // CREED: the "a number of" form NEEDS a metric and the "an additional" form REFUSES one
     expect(othersEnterWithCounters({ ...ARWEN, oracle: "Each other creature you control enters with a number of additional +1/+1 counters on it." })).toBeNull();
     expect(othersEnterWithCounters({ ...ARWEN, oracle: "Each other creature you control enters with an additional +1/+1 counter on it equal to Arwen's toughness." })).toBeNull();

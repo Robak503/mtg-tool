@@ -1025,6 +1025,20 @@ export function cdmgMassToDamagedPlayerClauseParser(clause) {
   if (/^.+? deals? that much damage to each other opponent$/.test(t)) {
     return { op: "cdmg-to-each-other-opponent", countContext: "combatDamageAmount", targetType: null };
   }
+  // THE DAMAGED CREATURE DEALS THAT MUCH (Brash Taunter family, the play-weighted Taunter slice, 2026-10-17) — the sentinel
+  // detectTriggers writes for "it deals that much damage to <recipient>" on the SELF dealt-damage event only (never printed, so no
+  // spell and no other event reaches this arm; triggerRouting pins the atom back to that event). The amount is the damage the
+  // creature was dealt in the event (ctx.dealtDamageAmount — CR 510.2: one event, its total); the DEALER is that creature
+  // (damageSource "triggering" — the deal-damage resolver's entering-dealer lane: its lifelink, deathtouch, infect and colour
+  // apply, and its last known record once it has left, CR 608.2h). The recipients the engine lists: an opponent (the enumerator's
+  // opponent pool), any target, a player, each player, each opponent, its controller ("you"). Any other ("target opponent or
+  // planeswalker", "any other target", "the chosen player") returns null and the trigger stays unread.
+  const dtm = t.match(/^the damaged creature deals that much damage to (target opponent|any target|target player|each player|each opponent|you)$/);
+  if (dtm) {
+    const base = { op: "deal-damage", countContext: "dealtDamageAmount", damageSource: "triggering" };
+    if (dtm[1] === "you") return { ...base, target: "you", targetType: null };
+    return { ...base, targetType: { "target opponent": "opponent", "any target": "any", "target player": "player", "each player": "eachPlayer", "each opponent": "eachOpponent" }[dtm[1]] };
+  }
   return null;
 }
 

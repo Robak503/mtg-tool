@@ -1249,11 +1249,25 @@ export function entersWithMetricCounters(card) {
 // kind; the creature shape carries neither (its descriptor is byte-identical, so every existing consumer and pin is
 // untouched) and the entry site treats an absent subject as the creature/+1/+1 default. Exactly this sentence.
 const PW_ENTERS_WITH_LOYALTY_RE = /^each planeswalker you control enters with an additional loyalty counter on it\.?\s*$/i;
+// THE CHOSEN-TYPE FORM (the play-weighted Mimic slice, 2026-10-17 — Metallic Mimic: "Each other creature you control of the chosen
+// type enters with an additional +1/+1 counter on it."): the fixed +1, matched at the entry against the SOURCE permanent's stored
+// `chosenType` (enterReplacements.othersEnterWithCountersFor). Read only beside the card's own creature-type chooser — the one the
+// enter site stamps `chosenType` from (choosesCreatureTypeAsEnters): without it no type could ever be chosen and the line would be
+// credited for an effect that never applies.
+const CHOSEN_TYPE_ENTERS_WITH_RE = /^each other creature you control of the chosen type enters with an additional \+1\/\+1 counter on it\.?\s*$/i;
+// "As <it> enters, choose a creature type" (CR 614.12 — a choice made as the permanent enters): the reader the enter site stamps
+// `chosenType` from (enterReplacements.choosesCreatureTypeOnEnter) and the chosen-type others-enter-with line is read beside.
+// Anchored to the bare creature-type chooser — not "choose a card type / land type", not a spell's "Choose a creature type".
+const CHOOSE_CREATURE_TYPE_ETB_RE = /\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b/i;
+export function choosesCreatureTypeAsEnters(card) {
+  return CHOOSE_CREATURE_TYPE_ETB_RE.test(String(card?.oracle || card?.oracle_text || ""));
+}
 export function othersEnterWithCounters(card) {
   const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
   for (const line of oracle.split("\n")) {
     const pw = line.trim().match(PW_ENTERS_WITH_LOYALTY_RE);
     if (pw) return { subtype: null, fixed: 1, metric: null, subject: "planeswalker", counter: "loyalty" };
+    if (CHOSEN_TYPE_ENTERS_WITH_RE.test(line.trim())) return choosesCreatureTypeAsEnters(card) ? { subtype: null, fixed: 1, metric: null, chosenType: true } : null;
   }
   const full = String(card?.name || "");
   const short = full.includes(",") ? full.split(",")[0].trim() : full;
@@ -5144,6 +5158,19 @@ function parseCreatureSelector(c) {
         selector: { controllerScope, cardTypes: ["Creature"], chosenTypeOfSource: true, ...(ctFlat[1] ? { excludeSelf: true } : {}) },
       };
     }
+    // THE CHOSEN COLOUR (the play-weighted Banner slice, 2026-10-17 — Heraldic Banner: "Creatures you control of the chosen color
+    // get +1/+0."; Caged Sun, Hall of Triumph; Gauntlet of Power's determiner-less "Creatures of the chosen color …" reaches every
+    // player): the same shape on the colour the SOURCE permanent stored as it entered (`chosenColor` — the enter site stamps it
+    // from choosesColorOnEnter). layers.matchesSelector reads the candidate's colours as they are now (layer 5). A card that
+    // prints no colour choice has no stamp to read: parseStaticAbilities drops the descriptor (the chosen-type rule's twin).
+    const ccFlat = c.match(/^(other\s+)?creatures?\s+(you control\s+)?of the chosen colou?r\s+(?:gets?|gains?|has|have)\b/);
+    if (ccFlat) {
+      const controllerScope = ccFlat[2] ? "you" : "each";
+      return {
+        mode: "dynamic",
+        selector: { controllerScope, cardTypes: ["Creature"], chosenColorOfSource: true, ...(ccFlat[1] ? { excludeSelf: true } : {}) },
+      };
+    }
   }
 
   // TOKEN anthem (Teysa Karlov — "Creature tokens you control have vigilance and lifelink"): a static
@@ -5340,6 +5367,8 @@ export function parseStaticAbilities(cardIn) {
     if (out.some((d) => d?.costReduction?.chosenType) && !/choose a creature type/i.test(rawOracle)) {
       out = out.filter((d) => !d?.costReduction?.chosenType);
     }
+    // ⛔ …AND A CHOSEN COLOUR WITHOUT ITS CHOOSER (2026-10-17, Heraldic Banner) — keepChosenColorReadable, below.
+    out = keepChosenColorReadable(out, card);
     // ⭐ CHOSEN CARD TYPE COST-REDUCTION (Cloud Key — "Spells you cast of the chosen type cost {1} less to cast." beside "As this
     // artifact enters, choose artifact, creature, enchantment, instant, or sorcery."). Emitted HERE, at card level, and never by
     // parseClause: the reducer line means a card type only beside that chooser (under a creature-type chooser — Gathering Stone
@@ -6090,7 +6119,7 @@ export function staticAbilitiesCoverCard(card, isKeywordOnlyClause) {
     if (parseLieutenantStatic(clause)) continue; // LIEUTENANT (CR 903) — a commander-gated compound handled outside parseClause; parseStaticAbilities emits its descriptors in the same loop
     const produced = [];
     parseClause(clause, produced, card?.name);
-    if (produced.length > 0) continue;          // a modeled static clause
+    if (keepChosenColorReadable(produced, card).length > 0) continue;          // a modeled static clause
     if (isKeywordOnlyClause(clause)) continue;   // keyword-only / vanilla line
     return false;                                // unmodeled residue (trigger/activated/…)
   }
@@ -8107,11 +8136,22 @@ export function combatCapFor(state, kind) {
   return cap;
 }
 
-export function clauseProducesStatic(clause) {
+// A CHOSEN COLOUR WITHOUT ITS CHOOSER (2026-10-17, Heraldic Banner). A `chosenColorOfSource` selector matches only against the colour
+// the enter site stamps, and it stamps one only from the card's own "As this … enters, choose a color" (choosesColorOnEnter /
+// auraChoosesColorOnEnter). Without that line the anthem could never touch a creature: its descriptor is dropped, and the clause
+// stays unread residue. Applied wherever a static clause is credited — the card's parse, the per-clause walk of
+// staticAbilitiesCoverCard, and clauseProducesStatic (which, given no card, never credits one).
+function keepChosenColorReadable(descriptors, card) {
+  if (!descriptors.some((d) => d?.affects?.selector?.chosenColorOfSource)) return descriptors;
+  if (card && (choosesColorOnEnter(card) || auraChoosesColorOnEnter(card))) return descriptors;
+  return descriptors.filter((d) => !d?.affects?.selector?.chosenColorOfSource);
+}
+
+export function clauseProducesStatic(clause, card = null) {
   if (parseLieutenantStatic(String(clause || ""))) return true; // LIEUTENANT (CR 903) — a commander-gated compound handled outside parseClause
   const out = [];
   parseClause(String(clause || ""), out);
-  return out.length > 0;
+  return keepChosenColorReadable(out, card).length > 0;
 }
 export function isLevelGatedOracle(oracle) {
   return isLevelGated(String(oracle || ""));

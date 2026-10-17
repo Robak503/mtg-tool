@@ -3846,6 +3846,10 @@ const COUNTERS_PLACED_PAYOFF_RE = /^(?:you may )?(?:draw that many cards|gain th
 // is unprintable text, so ONLY a countersPut-context clause ever reaches the parser arm — a different
 // trigger's "deals that much damage to target opponent" is never rewritten → parks (CREED, no absent-ctx FP).
 const COUNTERS_PUT_DAMAGE_PAYOFF_RE = /^this creature deals that much damage to target opponent$/i;
+// DEALT-DAMAGE "THAT MUCH" PAYOFF (Brash Taunter family, 2026-10-17): "it deals that much damage to <recipient>" — one sentence, no
+// rider (a following sentence, Screaming Nemesis's can't-gain-life clause, keeps the raw text and parks). The recipient is read
+// by the damage parser's sentinel arm (stack.cdmgMassToDamagedPlayerClauseParser); one it doesn't list leaves the clause unread.
+const DEALT_DAMAGE_THAT_MUCH_RE = /^it deals that much damage to [^.]+$/i;
 // COUNTERS-PUT SELF-COUNTER ACCUMULATOR (Simic Ascendancy — SHELF-TAIL SH11): the PASSIVE "one or more
 // +1/+1 counters are put on a creature you control → put THAT MANY <named> counters on this <permanent>"
 // (Simic's growth-counter accumulator). "that many" = the counters placed in the event (ctx.countersPutCount,
@@ -4510,11 +4514,17 @@ const COMPOUND_AT_BEGINNING_SRC = "\\b(When|Whenever)\\s+(.+?)\\s+and\\s+at\\s+(
 // (chosenTypeEntersOrAttacks, exact-matched on the UNSPLIT sentence) which the split would break.
 const DISJUNCTION_TRIGGER_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the battlefield)? or attacks(,\\s*[^\\n]+)";
 // "enters or dies" (Vinereap Mentor class) — the SAME split, second event pair. The dies-half phrasing
-// ("<subject> dies") classifies standalone (dies/self — verified); the ARTIFACT wording ("is put into a
-// graveyard from the battlefield") does NOT classify and is NOT split — the Ichor Wellspring family
-// stays under the compound guard (splitting it would detect an ETB half while the dies-half never
-// dispatches; the triggers.test guards still assert it).
+// ("<subject> dies") classifies standalone (dies/self — verified).
 const DISJUNCTION_DIES_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the battlefield)? or dies(,\\s*[^\\n]+)";
+// "enters or is put into a graveyard from the battlefield" (the play-weighted Wellspring slice, 2026-10-17 — Ichor Wellspring,
+// Prized Statue, Mycosynth Wellspring, Servo / Nimblewright Schematic, Mephitic Draught: "When this artifact enters or is put
+// into a graveyard from the battlefield, <effect>."): the SAME split, the ARTIFACT wording of "enters or dies". It used to stay
+// under the compound guard because its graveyard half did not classify; since BLITZ TR-3 it does — the self "is put into a
+// graveyard from the battlefield" is the `ltb` event, fired by checkLeavesTriggers for a GRAVEYARD exit only (CR 700.4: an
+// exile or a bounce is no such event). The two events are disjoint (one enters, the other leaves), so the split never fires
+// twice for one event; each half classifies through its own arm, and an unread half under-runs the shaped count and parks the
+// card, as for every split here.
+const DISJUNCTION_PIG_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the battlefield)? or is put into a graveyard from the battlefield(,\\s*[^\\n]+)";
 // "enters or becomes monstrous" (Alpha Deathclaw — SHELF S7): the SAME split, third event pair. The
 // monstrous half classifies standalone (becomesMonstrous/self — fired by applyMonstrosity's transition).
 const DISJUNCTION_MONSTROUS_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the battlefield)? or becomes monstrous(,\\s*[^\\n]+)";
@@ -4580,6 +4590,8 @@ function splitCompoundTriggerSentences(oracle) {
       /of the chosen type/i.test(subj) ? m : `Whenever ${subj} enters${eff}\nWhenever ${subj} attacks${eff}`)
     .replace(new RegExp(DISJUNCTION_DIES_SRC, "gi"), (_m, _kw, subj, eff) =>
       `Whenever ${subj} enters${eff}\nWhenever ${subj} dies${eff}`)
+    .replace(new RegExp(DISJUNCTION_PIG_SRC, "gi"), (_m, _kw, subj, eff) =>
+      `Whenever ${subj} enters${eff}\nWhenever ${subj} is put into a graveyard from the battlefield${eff}`)
     .replace(new RegExp(DISJUNCTION_MONSTROUS_SRC, "gi"), (_m, _kw, subj, eff) =>
       `Whenever ${subj} enters${eff}\nWhenever ${subj} becomes monstrous${eff}`)
     .replace(new RegExp(DISJUNCTION_BLOCKS_SRC, "gi"), (_m, _kw, subj, eff) =>
@@ -4605,7 +4617,8 @@ export function compoundTriggerCount(oracle) {
     + (s.match(new RegExp(COMPOUND_AT_BEGINNING_SRC, "gi")) || []).length;
   const disjunctions = (s.match(new RegExp(DISJUNCTION_TRIGGER_SRC, "gi")) || [])
     .filter((m) => !/of the chosen type/i.test(m)).length;
-  const diesDisjunctions = (s.match(new RegExp(DISJUNCTION_DIES_SRC, "gi")) || []).length;
+  const diesDisjunctions = (s.match(new RegExp(DISJUNCTION_DIES_SRC, "gi")) || []).length
+    + (s.match(new RegExp(DISJUNCTION_PIG_SRC, "gi")) || []).length; // + the artifact wording (Ichor Wellspring)
   const monstrousDisjunctions = (s.match(new RegExp(DISJUNCTION_MONSTROUS_SRC, "gi")) || []).length;
   const blocksDisjunctions = (s.match(new RegExp(DISJUNCTION_BLOCKS_SRC, "gi")) || []).length; // OR-1 "attacks or blocks"
   const ltbDisjunctions = (s.match(new RegExp(DISJUNCTION_LTB_SRC, "gi")) || []).length; // LV-1 "enters or leaves the battlefield"
@@ -5460,6 +5473,15 @@ export function detectTriggers(cardIn) {
         // (equipped) creature, threaded as the triggering permanent by checkDealtDamageTriggers — the same referent
         // guarantee Toxin Sliver's "destroy that creature" rides. Exact-clause gated: any rider stays unrewritten → LOW.
         effectClause = "destroy the triggering creature";
+      } else if (cls.event === "dealtDamage" && cls.scope === "self" && DEALT_DAMAGE_THAT_MUCH_RE.test(effectClause)) {
+        // ===== "IT DEALS THAT MUCH DAMAGE" (the play-weighted Taunter slice, 2026-10-17 — Brash Taunter: "Whenever this creature is
+        // dealt damage, it deals that much damage to target opponent."; Boros Reckoner, Spitemare, Jackal Pup, Coalhauler Swine,
+        // Truefire Captain …) ===== on the self dealt-damage event "it" is the creature that was dealt the damage — the trigger's
+        // source AND its triggering permanent (checkDealtDamageTriggers) — and "that much" is the damage it was dealt in the event
+        // (ctx.dealtDamageAmount). Rewritten to the sentinel the damage parser reads as a deal-damage atom dealt BY that creature
+        // (damageSource "triggering": its keywords apply, and once it has left, its last known record — CR 608.2h). Only this
+        // event and this scope: a watcher's "it" (Wrathful Red Dragon's damaged Dragon) and every other event keep the raw text.
+        effectClause = effectClause.replace(/^it deals that much damage to /i, "the damaged creature deals that much damage to ");
       } else if (cls.event === "combatDamageToCreature" && cls.tapLockThatCreature) {
         // ⭐ SELF combat-damage TAP-AND-LOCK — the destroy twin's sibling rewrite, and identical in shape:
         // "that creature" is the DAMAGED creature, threaded by checkCombatDamageToCreatureTriggers as the

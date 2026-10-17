@@ -172,7 +172,12 @@ export function combatDamageReferentSatisfied(program, event) {
     // + the TURNED-UP dealer (Pyrotechnic Performer): the flip event's triggering permanent is on the battlefield as the
     // trigger is made, and gameState.stampTriggeringLki keeps its record should it leave — its own sentinel, written only
     // for a turnedFaceUp watcher.
-    if (a?.damageSource === "triggering" && event !== "etb" && event !== "turnedFaceUp") return false;
+    // + the DAMAGED dealer (Brash Taunter family, 2026-10-17): on the dealt-damage event the triggering permanent is the creature
+    // that was dealt the damage, on the battlefield as the trigger is made (checkDealtDamageTriggers fires before the lethal-damage
+    // check); stampTriggeringLki keeps its record should that check take it. Its sentinel is written only for the SELF scope.
+    if (a?.damageSource === "triggering" && event !== "etb" && event !== "turnedFaceUp" && event !== "dealtDamage") return false;
+    // "THAT MUCH" — the damage the creature was dealt (ctx.dealtDamageAmount), threaded ONLY by checkDealtDamageTriggers.
+    if (a?.countContext === "dealtDamageAmount" && event !== "dealtDamage") return false;
   }
   return true;
 }

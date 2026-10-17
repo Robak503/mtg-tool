@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **14 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,475)**; engine gains since the tag: **+22** (+31 gained, −9 false credit removed). The next tag
+> **15 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.8% (15,497)**; engine gains since the tag: **+44** (+53 gained, −9 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,78 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-17 — PLAY-WEIGHTED: Brash Taunter (EDHREC #799) — "it deals that much damage" on the self dealt-damage event, the damaged creature the dealer; Chasm Skulker (#705) and Hangarback Walker (#1522) — counted tokens with a keyword rider; Ichor Wellspring (#963), Prized Statue (#2323), Mycosynth Wellspring (#2444) — "enters or is put into a graveyard from the battlefield" split; Metallic Mimic (#961) — the chosen-type others-enter-with counter; Heraldic Banner (#856) — the chosen-colour anthem · **+22** · snapshot native 15,473 → 15,495
+> Suite **20,360 green (1 skipped) / 1,860 files** under the gate queue. Lint 0 (CR citations: 0 of 11,303 name no rule; keyword citations: 0 of 2,354 cite a
+> different keyword). Flip-diff **+22 / −0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of 423a98cc, snapshotted
+> before the first edit; native 15,473 → 15,495 of 34,584 snapshot names). `measure-coverage` (MTG_APP_ROOT = the install): corpus
+> 15,478 → 15,500 (44.7% → 44.8%); top 1,000 **903 → 908** (Brash Taunter, Chasm Skulker, Heraldic Banner, Metallic Mimic, Ichor
+> Wellspring); top 2,500 **1,741 → 1,750** (+ Hangarback Walker, Assemble the Legion #2258, Prized Statue, Mycosynth Wellspring); top
+> 5,000 2,738 → 2,747; the 30 profile decks unchanged (aggregate 2,747 / 2,998 — none holds a gained card). **Mutants 11/11** on
+> assertions, each restored byte-identical (sha256). Witness tests written first and seen to fail on the base engine on assertions (31
+> of the first 47; the 16 controls pass on both); every test added while building fails on base too (39 of the final 55, the same 16
+> controls pass). A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched
+> 423a98cc archive): **80 / 80 byte-identical** (every decision row — offered-set summary, pick, rank, cast scores —, winner and turn
+> count; the breakage report identical), 0 errors on either tree, results unchanged (ai-wins 57 / user-wins 23). Committed on
+> `day/played25a`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **Brash Taunter** ("Whenever this creature is dealt damage, it deals that much damage to target opponent.") — the trigger was detected
+>   (the self `dealtDamage` event, fired once per damage event with the creature's total before the lethal-damage check, CR 510.2); its
+>   effect was not read. On that event and the SELF scope only, detectTriggers rewrites "it deals that much damage to …" to the
+>   sentinel "the damaged creature deals that much damage to …" (`DEALT_DAMAGE_THAT_MUCH_RE`, one sentence, no rider); the damage
+>   parser's sentinel arm (stack.cdmgMassToDamagedPlayerClauseParser) reads it as `deal-damage` with `countContext:
+>   "dealtDamageAmount"` and `damageSource: "triggering"` — the entering-dealer lane (Warstorm Surge): the creature that was dealt the
+>   damage deals it, its lifelink / deathtouch / infect / colour apply (CR 702.15b, 608.2h), and `gameState.stampTriggeringLki` keeps its
+>   record when the lethal-damage check takes it before the trigger is put on the stack (the sentinel joined
+>   `TRIGGERING_LKI_CLAUSE_RE`). Recipients read: target opponent (the enumerator's opponent pool), any target, target player, each
+>   player, each opponent, you. Routing pins: `dealtDamageAmount` only off `dealtDamage`; `damageSource: "triggering"` admits
+>   `dealtDamage`; `coverage.atomCarriesEventReferent` refuses the amount on a spell. Twins gained: Boros Reckoner, Spitemare, Klement,
+>   Tempest Acolyte (any target), Truefire Captain (target player), Coalhauler Swine (each player), Jackal Pup, Shinka Gatekeeper (you).
+>   Still parked, each on its own text: Mogg Maniac ("target opponent or planeswalker" — no such pool), Stuffy Doll (a chosen player),
+>   Screaming Nemesis (the can't-gain-life rider), Wrathful Red Dragon / Wrathful Raptors (a subtype watcher), Pain for All / Spiteful
+>   Shadows / Blazing Sunsteel (attached scopes), Spiteful Sliver (a granted body), Firedrinker Satyr (its pump line), Ill-Tempered
+>   Loner (daybound).
+> · **Counted tokens with a keyword rider** — Chasm Skulker ("create X 1/1 blue Squid creature tokens with islandwalk, where X is the
+>   number of +1/+1 counters on this creature"), Hangarback Walker ("… a 1/1 colorless Thopter artifact creature token with flying for
+>   each +1/+1 counter on this creature"). The X and for-each arms of `createTokenClauseParser` now take "with <keywords>" through
+>   `countedKeywordRider` → `parseTokenKeywords` (the fixed-count arm's own keyword reader: enforced keywords only; a quoted ability,
+>   protection, banding … keep the clause unread). The dying creature's counters are the CR 603.10a look-back the Hooded Hydra form
+>   already read. Twins: Jötun Owl Keeper (age counters, LKI), Hallowed Spiritkeeper (creature cards in your graveyard at resolution —
+>   it counts itself, the card's ruling), Assemble the Legion (muster counters after its own counter), Spider Spawning (flashback was
+>   modeled) — each witnessed on a board.
+> · **The {X} nothing reads** (found here, guarded): the rider let Sweep the Skies ("{X}{U}{U} … for each color of mana spent to cast
+>   this spell") parse HIGH, but the cast offer expands X only for a program that reads X, so it is offered at X = 0 alone.
+>   `spellIsNative` now refuses an instant/sorcery whose mana cost has {X} and whose text never names X — 4 corpus cards (Sweep the
+>   Skies, Prismatic Ending, Molten Note, Mathemagics), all arbiter-spell before and after; no tier moved but the one it kept parked.
+> · **"enters or is put into a graveyard from the battlefield"** (Ichor Wellspring, Prized Statue, Mycosynth Wellspring, Servo /
+>   Nimblewright Schematic, Mephitic Draught) — one more event-disjunction split (`DISJUNCTION_PIG_SRC`, counted in
+>   `compoundTriggerCount`): the graveyard half is the self-PiG `ltb` event (BLITZ TR-3; checkLeavesTriggers fires it for a graveyard
+>   exit only, CR 700.4), so destroyed or sacrificed draws, exiled or bounced does not (witnessed: Shatter, the cost sacrifice, Revoke
+>   Existence, Boomerang). The quote mask keeps a granted copy of the sentence the recipients'.
+> · **Metallic Mimic** — `othersEnterWithCounters` reads "Each other creature you control of the chosen type enters with an additional
+>   +1/+1 counter on it." as `{ fixed: 1, chosenType: true }`, only beside the card's own creature-type chooser
+>   (`choosesCreatureTypeAsEnters` — the regex moved out of enterReplacements so the enter site and the reader share one copy); the
+>   entry matches the source's stored `chosenType` against the entering card's types as it enters (`enteringTypeWords`; a changeling is
+>   every type). Coverage's strip admits the "of the chosen type" words.
+> · **Heraldic Banner** — "creatures [you control] of the chosen color get …" parses to a layer-7c anthem with `chosenColorOfSource`;
+>   `layers.matchesSelector` reads the source's `chosenColor` through the layer-aware colour gate. `keepChosenColorReadable` drops the
+>   descriptor wherever a static clause is credited (the card's parse, staticAbilitiesCoverCard's clause walk, clauseProducesStatic —
+>   now given the card by the composite residue walk) unless the card prints the colour chooser the enter site stamps from. The
+>   chooser line and the chosen-colour mana leg were already modeled (Coldsteel Heart).
+> · **Not taken:** Coat of Arms (#953 — a layer-7c count per affected creature over shared creature types: a new count kind with a
+>   recursion guard; its own slice), Gilded Goose (#803 — "Sacrifice a Food" as a mana cost needs a victim-choosing record in the
+>   planner, the out-of-bounds internals), Devoted Druid (#967 — its "Put a -1/-1 counter on this creature" cost is not parsed and the
+>   AI would need an untap policy), Myr Battlesphere (#926 — an X choice of Myr tapped inside the resolution), Hall of Triumph (a
+>   name-led colour chooser `choosesColorOnEnter` doesn't read).
+> · ⚠️ **Found, not fixed:** (1) the legacy damage parse maps "target opponent" to `targetType: "player"` (spellEffects.js:227), so
+>   Deadeye Duelist's "{1}, {T}: This creature deals 1 damage to target opponent." is offered with its own controller as a target
+>   (probed) — an illegal action offered; a trigger is unaffected (its chooser picks an enemy). (2) A chosen-TYPE flat anthem without
+>   its chooser is still credited (a synthetic "Creatures you control of the chosen type get +1/+1." classifies native-static) —
+>   no printed carrier; the colour twin is guarded here. (3) Sweep the Skies, Prismatic Ending, Molten Note and Mathemagics are offered at
+>   X = 0 only (legalChoices' xSpell branch).
+> · Witness: `wellspringEntersOrGraveyard.test.js` (13), `countedTokensKeyword.test.js` (13), `metallicMimic.test.js` (9),
+>   `heraldicBanner.test.js` (7), `dealtDamageThatMuch.test.js` (13). Graduated: `triggers.test.js` and `entersOrAttacks.test.js` (the
+>   Wellspring sentence splits now), `arwenOthersEnterWith.test.js` (Mimic reads), `manaTierStaticResidue.test.js` (Heraldic Banner's
+>   row moves to a synthetic no-chooser twin).
 
 > ## 🔧 2026-10-17 — FIX (false positive): the land lines — a land's mana line is credited only when the engine makes it; the 54 lines d6aee1ed's probe found (credited, never made) are now made: the ten filter lands' three bundles behind the hybrid pip, "{1}, {T}: any colour" beside a plain {C} (Talon Gates of Madara, Planar Nexus + 14; two more for {2}), the Homelands keeps, Crystal Quarry, Crypt of the Eternals, Phyrexian Tower's sacrifice line, Spire of Industry's gated pay-life line and the deserts', Opal Palace (with its commander counters), Guildmages' Forum (its counter), Muraganda Raceway, Murmuring Bosk, Grove of the Burnwillows, The Grey Havens, Power Depot, Tournament Grounds, Maelstrom of the Spirit Dragon, Brotherhood Headquarters, Crumbling Vestige · **−3** (false credit removed: Artist Alley, Reflective Gate, The Big Top) · snapshot native 15,473 → 15,470
 > Suite **20,352 green (1 skipped) / 1,854 files** under the gate queue (the final tree re-run below). Lint 0 (CR citations: 0 of 11,206 name no

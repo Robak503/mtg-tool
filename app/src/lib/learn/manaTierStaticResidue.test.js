@@ -51,8 +51,10 @@ describe("genuine static / replacement residue parks the card — one pin per sh
       "two CONDITIONAL replacements; the draw and life-gain doublers read only the unconditional templates"],
     ["Giada, Font of Hope", "Legendary Creature — Angel", "{1}{W}", "Flying, vigilance\nEach other Angel you control enters with an additional +1/+1 counter on it for each Angel you already control.\n{T}: Add {W}. Spend this mana only to cast an Angel spell.",
       "an others-enter-with shape othersEnterWithCounters refuses (no 'creature', a per-Angel count)"],
-    ["Heraldic Banner", "Artifact", "{3}", "As this artifact enters, choose a color.\nCreatures you control of the chosen color get +1/+0.\n{T}: Add one mana of the chosen color.",
-      "the chooser is credited; the chosen-color anthem has no static descriptor"],
+    // Heraldic Banner was this row until 2026-10-17, when its chosen-colour anthem became a layer-7c descriptor the runtime applies
+    // (heraldicBanner.test.js). The shape stays pinned on its SYNTHETIC twin: the anthem without the colour chooser it reads.
+    ["Heraldic Banner (no colour chooser)", "Artifact", "{3}", "Creatures you control of the chosen color get +1/+0.\n{T}: Add {C}.",
+      "a chosen-colour anthem on a card that never chooses a colour (parseStaticAbilities drops it)"],
     ["Dalakos, Crafter of Wonders", "Legendary Creature — Merfolk Artificer", "{1}{U}{R}", "{T}: Add {C}{C}. Spend this mana only to cast artifact spells or activate abilities of artifacts.\nEquipped creatures you control have flying and haste.",
       "an equipped-creatures grant with no static descriptor"],
     ["Serum Powder", "Artifact", "{3}", "{T}: Add {C}.\nAny time you could mulligan and this card is in your hand, you may exile all the cards from your hand, then draw that many cards. (You can do this in addition to taking mulligans.)",
