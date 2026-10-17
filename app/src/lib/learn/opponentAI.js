@@ -41,7 +41,7 @@ import { outletFinishAction } from "./outletFinishLine.js"; // E7.2 — the toke
 import { tokenLoopState, isTokenLoopAction, tokenLoopAttackPlan } from "./tokenLoopLine.js"; // THE COMBO LINE for a self-scaling token loop: enough, then nothing else, then the finish
 import { isNativeManaAura } from "./staticAbilityParser.js"; // pickAuraCast — the mana-boost lane, offered on the caster's own lands only
 import { grantAuraCastHostType } from "./coverage.js"; // pickAuraCast — the granted-ability lane, offered on the caster's own lands when its host is a land
-import { playerAuraEffect } from "./playerAuraEffect.js"; // pickAuraCast — which player an "Enchant player" Aura belongs on (the curse reading)
+import { playerAuraSide } from "./playerAuraEffect.js"; // pickAuraCast — which player an "Enchant player" Aura belongs on (the curse reading, then the printed reading)
 import { compareDefenders, untappedCreatureCount } from "./defenderOrder.js"; // the defender order — chooseDefender and the curse reading (Curse of Opulence) read one comparator
 import { entersByDiscardingLand, pickEnterDiscardLand } from "./discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247) — the entry replacement's policy, read before the cast (a leaf; no AI module)
 import { entersTriggerRemovesOwn } from "./gameEngine.js"; // the cast-time hold — what a permanent's own enters trigger would be forced to remove (gameEngine imports no AI module: no cycle)
@@ -612,7 +612,9 @@ const PERMANENT_HOST_TYPES = new Set(["creature", "permanent", "planeswalker"]);
  *     Colton 2026-10-03).
  *   · A CARD IN A GRAVEYARD (Animate Dead) — the creature returns under the caster's control from either graveyard, so the
  *     biggest creature card offered (printed power), then the id order.
- *   · A PLAYER (Fraying Sanity) — the side its triggers hurt (playerAuraEffect), the players there ranked by that effect.
+ *   · A PLAYER (Fraying Sanity) — the side its triggers hurt (playerAuraEffect), the players there ranked by that effect; an Aura
+ *     whose triggers that can't read takes its printed side (2026-10-17, printedPlayerAuraSide — a Curse on the opponent the AI
+ *     attacks, Paradox Haze on itself), and one neither reading tells holds.
  *   · A PERMANENT — the side auraCastIntent reads, then the highest power the layer engine reads on it (an uncrewed
  *     Vehicle counts its printed power, a permanent with none 0), then the id order: an OWN-intent buff on the AI's best
  *     body, an ENEMY-intent curse on the biggest enemy threat.
@@ -637,7 +639,7 @@ function pickAuraCast(state, aiPlayerId, actions, card) {
   let enemies;
   try { enemies = new Set(opponentsOf(state, aiPlayerId)); } catch { return null; }
   if (opts.every((a) => a.enchantsPlayer)) {
-    const effect = playerAuraEffect(card);
+    const effect = playerAuraSide(card);
     if (!effect) return null;
     const onSide = opts.filter((a) => (effect.side === "own" ? a.targets[0].id === aiPlayerId : enemies.has(a.targets[0].id)));
     if (onSide.length === 0) return null;

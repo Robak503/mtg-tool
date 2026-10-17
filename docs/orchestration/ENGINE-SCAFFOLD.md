@@ -660,9 +660,12 @@ granted-ability Auras whose host is a land, `grantAuraCastHostType`) take
 `pickManaAuraTarget`; Animate Dead takes the biggest creature card in either
 graveyard; a player Aura takes the side its triggers hurt — `playerAuraEffect.js`
 reads each trigger as the runtime fires it and looks every atom up in
-`ENCHANTED_PLAYER_EFFECTS` (only Fraying Sanity's `enchanted-gy-mill` today, so a
-newly modeled player-Aura op holds until it has an entry; the non-cast entry should
-read this table too, never a second one); every permanent host — a creature, or the
+`ENCHANTED_PLAYER_EFFECTS` (Fraying Sanity's `enchanted-gy-mill`, Curse of Opulence's
+`you-and-attacking-opponents`; the non-cast entry should read this table too, never a
+second one), and where that reads nothing takes the printed side
+(`printedPlayerAuraSide`, 2026-10-17: a Curse → the opponent the AI attacks; every line an
+extra step or phase for the enchanted player — Paradox Haze — → itself; Grievous Wound's
+lines → an opponent; anything else holds); every permanent host — a creature, or the
 "permanent" / "planeswalker" targets a wider Enchant line enumerates — takes
 `auraEntry.auraCastIntent`'s side, then power, then id. A side no reader can tell
 holds. An untap-lock Aura reads ENEMY when the lock is the whole card — every line
@@ -672,6 +675,17 @@ controller's untap step" or "When this Aura enters, tap enchanted creature"
 beside anything else (Leaden Fists' +3/+3, Eternity Snare's draw) still holds. Before this the own-lands rule took every offer without a "creature" target,
 which put Fraying Sanity on the AI itself and Petrify on its own Mind Stone.
 Witness: `auraCastSide.test.js`.
+
+**Every Aura that enchants a player is cast targeting one (2026-10-17).** The cast builder's
+player-Aura branch (`castActionsFromZone`, above the additional costs) reads
+`staticAbilityParser.playerAuraSpellSubject` — the face being cast (`faceUpView`, CR 712.8a),
+"Enchant player" or "Enchant opponent" — and emits one cast per living player the caster may
+target (`playerTargetableBy`), opponents only for "Enchant opponent"; no legal player, no cast
+(CR 303.4a, 115.1b, 702.5d). Every tier: it used to be gated on native-aura, and the 43 body-only
+player Auras fell to the no-target push, were cast with NO target and vanished into SPELL_NOOP.
+A body-only one now resolves through AURA_ETB's player branch and sits on its player inert.
+The dispatcher refuses a player-Aura cast without exactly one legal player target
+(`AURA_TARGET_REQUIRED`). Witness: `playerAuraTarget.test.js`.
 
 **An activation that resolves to nothing must not be the AI's pick (added 2026-10-03).**
 A free activation the resolver refuses is a turn that never ends: the equip pick

@@ -112,7 +112,7 @@ registerGrantActivatedBodyValidator(isModeledGroupActivatedBody);
 // with coverage.js's identical registration; see registerLevelerCardValidator in staticAbilityParser.js.
 registerLevelerCardValidator(modeledLeveler);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, auraEnchantHostSpec, playFromTopPermission, castFromTopFilterAllows, parseStaticAbilities, escapeGrantsFor, boastTwiceFor } from "./staticAbilityParser.js";
+import { isNativeAura, isNativeManaAura, playerAuraSpellSubject, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, auraEnchantHostSpec, playFromTopPermission, castFromTopFilterAllows, parseStaticAbilities, escapeGrantsFor, boastTwiceFor } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, isLandAdventure, adventureFaceCard, permanentFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face (a Town's land face is played); pure shape module
 import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR 709) — cast either half; pure shape module
@@ -1410,6 +1410,29 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // ⛔ No vetted cost, but the card PRINTS a mandatory one → do not offer the cast at all. See the helper:
     // casting it is casting cheaper than printed. This must sit BEFORE every remaining cast branch.
     if (!addCost0 && !lifeXAddCost && hasUnvettedMandatoryAdditionalCost(card)) continue; // (payLifeX is vetted — the X branch pays it)
+    // ⭐ AN AURA THAT ENCHANTS A PLAYER (2026-10-17 — the whole class, not only the native tier). An Aura spell requires a target,
+    // defined by its enchant ability (CR 303.4a, 115.1b), chosen as it is cast (CR 601.2c), and an Aura that can enchant a player
+    // targets only players (CR 702.5d): one cast per living player the caster may target ("Enchant player"), or per opponent
+    // ("Enchant opponent"). No legal player → no cast. A player the caster may not target — shroud, hexproof, protection from
+    // everything — is not offered (spellEffects.playerTargetableBy, the enumeration's own predicate; stage ③ · 48).
+    // This sat below the creature Aura branch, gated on the card classifying native-aura: every other player Aura (Paradox Haze,
+    // Curse of Bounty, 41 more) fell to the no-target push at the bottom, was cast with NO target, and vanished into the Arbiter
+    // no-op. Ungated now: a player Aura whose text the engine doesn't model resolves onto its player inert (the body-only
+    // posture), and the dispatcher refuses any cast of one that names no legal player. Placed before every other emitting branch
+    // so it is the only one a player Aura reaches; a cost it doesn't pay — an additional cost, {X} — is not offered (a safe
+    // under-offer: no printed player Aura carries either). Read off the face being cast (playerAuraSpellSubject, CR 712.8a).
+    const playerAuraSubject = playerAuraSpellSubject(card);
+    if (playerAuraSubject) {
+      if (addCost0 || lifeXAddCost || cost.hasX) continue;
+      const opponents = playerAuraSubject === "opponent" ? new Set(opponentsOf(state, playerId)) : null;
+      for (const pid of Object.keys(state.players || {})) {
+        if (!state.players[pid]) continue;
+        if (opponents && !opponents.has(pid)) continue;
+        if (!playerTargetableBy(state, pid, playerId)) continue;
+        actions.push({ ...base, targets: [{ type: "player", id: pid }], targetName: pid, needsTargets: true, isAuraSpell: true, enchantsPlayer: true });
+      }
+      continue;
+    }
     if (addCost0) {
       // A permanent has no effect atoms to enumerate, so it has exactly ONE (empty) target combo. Asking
       // expandCastChoices for it would return [] (it early-returns on a null program) and the `continue`
@@ -1857,21 +1880,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       continue;
     }
 
-    // PLAYER-AURA (Fraying Sanity / the Curse class — SHELF S7, CR 303.4): an "Enchant player" Aura
-    // targets a PLAYER at cast — one action per living player. Gated on the SAME native-aura tier the
-    // metric awards (classifyCard — legalChoices already consults it), so the offer and the claim can't
-    // drift: a player-aura with unmodeled residue is body-only → falls through → the Arbiter seam.
-    if (isPlayerAuraCard(card) && classifyCard(card) === "native-aura") {
-      for (const pid of Object.keys(state.players || {})) {
-        if (!state.players[pid]) continue;
-        // An Aura spell TARGETS what it will enchant (CR 303.4a), so a player the caster may not target is not offered —
-        // shroud, hexproof, protection from everything (spellEffects.playerTargetableBy, the enumeration's own predicate;
-        // stage ③ · 48 — this offer listed every living player before).
-        if (!playerTargetableBy(state, pid, playerId)) continue;
-        actions.push({ ...base, targets: [{ type: "player", id: pid }], targetName: pid, needsTargets: true, isAuraSpell: true, enchantsPlayer: true });
-      }
-      continue;
-    }
+    // (An "Enchant player" / "Enchant opponent" Aura never reaches here — its own branch above the additional costs emits every
+    // cast of it, each targeting a player.)
 
     // BESTOW (CR 702.103): a bestow creature has an ALTERNATIVE cast cost that turns it into an Aura
     // spell enchanting a creature (granting "+X/+X" and/or a keyword), becoming a creature again if it

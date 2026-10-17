@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **7 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,463)**; engine gains since the tag: **+10** (+14 gained, −4 false credit removed). The next tag
+> **8 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,463)**; engine gains since the tag: **+10** (+14 gained, −4 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,77 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX (false positive): every Aura that enchants a player is cast TARGETING a player — Paradox Haze, Curse of Bounty and 41 more were offered with no target, cast that way by the AI, and vanished; "Enchant opponent" targets only opponents; the AI's printed side reading · **±0** · snapshot native 15,462 unchanged
+> Suite **20,120 green (1 skipped) / 1,844 files** under the gate queue. Lint 0 (CR citations: 0 of 11,129 name no rule; keyword citations: 0 of 2,322 cite a
+> different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of 6465a494, snapshotted before the first
+> edit; after = this tree; native 15,462 of 34,584 snapshot names on both), so every coverage count is unchanged. **Mutants 15/15** on assertions, each restored byte-identical
+> (sha256). Witness tests written first and seen to fail on the base engine on assertions (21 of the first 24; 3 controls pass on
+> both); the three added while building (the unpaid-cost guard, the printed reading's face-up read, the reading order) are proven by
+> their mutants. Committed on `day/fp-aura`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's. Runtime only.
+> · **The bug** (found 10-17 by the Midnight Clock / Curse slice; re-proved on 6465a494 for every card below, text from the bundled
+>   oracle). `legalChoices` offered a player target only for a player Aura classified native-aura (Fraying Sanity, the Curse of
+>   Opulence four). Every other "Enchant player" Aura fell through to the plain no-target permanent push: ONE cast with NO target
+>   (an Aura spell requires a target defined by its enchant ability, CR 303.4a, 115.1b; one that enchants a player targets only
+>   players, CR 702.5d); `actionDispatcher` routed it to SPELL_NOOP ("aura (unmodeled enchant or bonus)"); the card left every zone
+>   when it resolved and `pendingArbiter` was set. The AI cast every one of them that way (`chooseDisciplinedVariant` takes an
+>   untargeted group's first action). "Enchant opponent" Auras (`isPlayerAuraCard` reads "player" only) took the same lane.
+> · **The fix.** `staticAbilityParser.playerAuraSpellSubject` — "player" | "opponent" | null, read off the face being cast
+>   (`faceUpView`: a double-faced card in the hand has only its front face, CR 712.8a, and is cast front face up, CR 712.8c — Curse of
+>   Leeches is a player Aura spell, Accursed Witch is a creature). `castActionsFromZone`'s player-Aura branch moved ABOVE the
+>   additional costs and lost its native-aura gate: one cast per living player the caster may target (`playerTargetableBy`),
+>   opponents only for "Enchant opponent"; no legal player, no cast; an additional cost or {X} (no printed player Aura has either)
+>   is not offered rather than cast for less. The dispatcher routes every player-Aura cast through AURA_ETB's player branch (enters
+>   with `enchantedPlayerId`; the resolution re-check and the CR 608.3b fizzle were already there) and refuses, before any cost, a
+>   player-Aura cast without exactly one legal player target (`AURA_TARGET_REQUIRED`; "Enchant opponent" naming its caster too).
+>   A body-only player Aura sits on its player with its unmodeled text inert — the body-only posture; the tier is untouched.
+> · **The AI's side** (`playerAuraEffect.playerAuraSide`, read by `opponentAI.pickAuraCast`): the curse reading first (its triggers'
+>   atoms — Fraying Sanity, the Opulence four, unchanged), then `printedPlayerAuraSide`: a Curse (CR 205.3h names the enchantment
+>   type) → the opponent the AI attacks (`compareDefenders`); every line past the Enchant line an extra step or phase for the
+>   enchanted player (Paradox Haze, Shadow of the Second Sun) → itself; Grievous Wound's two lines → an opponent; anything else
+>   holds (Wheel of Sun and Moon, Volrath's Motion Sensor, the four "Enchant opponent" Auras — Psychic Possession's live line is its
+>   own "Skip your draw step", the draw that pays for it is unmodeled).
+> · **Inert, checked** (scratch differential self-play, two seeds × ~50 turns of a four-seat pod with combat, burn, life gain, draws
+>   and Pacifism; each of the 52 matched cards placed on ai1's side enchanting ai2 vs. no Aura): of the 48 cast as player Auras, 40 leave both games' logs identical; the five
+>   native ones fire their modeled triggers; Curse of Bounty's attacked trigger and Curse of Misfortunes' upkeep trigger go on the
+>   stack and resolve as manual no-ops (logged, nothing happens); Psychic Possession skips its controller's draw step (its printed
+>   "Skip your draw step", read by `textNormalize.skipsDrawStep`); Accursed Witch / Faithbound Judge are creatures there (never cast
+>   as player Auras). Nothing else in those games read any of them.
+> · **Every Enchant-player / Enchant-opponent card in the bundled data** (52 matches; 48 cast as a player Aura): native, unchanged —
+>   Fraying Sanity, Curse of Opulence, Curse of Verbosity, Curse of Disturbance, Curse of Vitality; body-only, now targeted, AI on the
+>   opponent it attacks — the 34 other Curses (Curse of the Restless Dead, Inertia, Hospitality, Overwhelming Splendor, Oblivion,
+>   Trespasser's Curse, Shaken Faith, Cruel Reality, Bloodletting, Silence, Curse of Leeches // Leeching Lurker (front face),
+>   Torment of Scarabs, Surveillance, the Bloody Tome, Maddening Hex, Exhaustion, Predation, Death's Hold, Conformity, Stalked Prey,
+>   Unbinding, Fool's Wisdom, Chaos, Misfortunes, Bounty, Vengeance, Echoes, Obsession, the Nightly Hunt, Clinging Webs, Shallow
+>   Graves, the Forsaken, the Pierced Heart, Thirst); body-only non-Curses — Paradox Haze and Shadow of the Second Sun (AI: itself),
+>   Grievous Wound (AI: an opponent), Wheel of Sun and Moon and Volrath's Motion Sensor (Unglued; AI holds); "Enchant opponent" —
+>   Psychic Possession, Archnemesis, Tenuous Truce, Overencumbered (offered on opponents only; AI holds). Not player Aura spells:
+>   Accursed Witch // Infectious Curse and Faithbound Judge // Sinner's Judgment (creature fronts; the Curse backs arrive by a death
+>   trigger / disturb, neither modeled), Radiant Grace // Radiant Restraints ("Enchant creature" front), Zone of Flame ("Enchant zone").
+> · **AI / self-play** (the profile decks in AppData, read for these cards; no seeded batch was run). Only Joe's **Mothman Cometh**
+>   holds one — Fraying Sanity, native, offered and picked exactly as before. No profile deck holds a body-only player Aura or any
+>   of the 16 creature-front DFCs below, so no profile pod changes. In other decks: the AI casts a body-only Curse on the opponent it
+>   attacks and Paradox Haze / Shadow of the Second Sun on itself — the card stays on the battlefield (an enchantment for counts,
+>   removal and sacrifice) where it used to vanish; Grievous Wound on the opponent it attacks; it holds Wheel of Sun and Moon,
+>   Volrath's Motion Sensor and every "Enchant opponent" Aura. A person's seat now picks the player; a body-only player Aura no longer raises the Arbiter flag.
+> · **Found, not fixed:** (1) the 16 transform cards with a creature front and an Aura back (Accursed Witch, Faithbound Judge and 14
+>   disturb Spirits — Dorothea, Distracting Geist, Drogskol Infantry, Katilda, Mischievous Catgeist, Twinblade Geist, Mirrorhall
+>   Mimic, Binding Geist, Lantern Bearer, Brine Comber, Soul Seizer, Gutter Skulker, Kindly Ancestor, Vengeful Strangler): casting
+>   the creature routes to SPELL_NOOP and the card vanishes — `actionDispatcher`'s `isAuraCard(castCard)` reads the combined type
+>   line (a face-up read, CR 712.8a/712.8c, would send them to PERMANENT_ETB); no profile deck holds one. (2) The same targetless
+>   class for Auras that enchant a PERMANENT: measured on this tree, 647 of 1,222 non-player Aura cast faces (420 "Enchant creature",
+>   51 "Enchant land", …) are offered as a cast with no target when they aren't modeled, and vanish into SPELL_NOOP — the creature
+>   side was this slice's control, so it is untouched. (3) Zone of Flame ("Enchant zone", a playtest card) is cast targetless too.
+> · Witness **`playerAuraTarget.test.js`** (27): the offer (Paradox Haze, Curse of Bounty one per player; the four "Enchant opponent"
+>   Auras on opponents only; all 15 fixtures never targetless; discover's free cast; hexproof opponents dropped, the caster's own
+>   hexproof not; no legal player → no cast; Curse of Leeches by its front face, Accursed Witch never player-targeted; SYNTHETIC {X} /
+>   additional-cost player Auras not offered); resolution (Paradox Haze on its caster, Curse of Bounty on ai2, Psychic Possession on
+>   an opponent, Curse of Leeches; hexproof gained in response → owner's graveyard; Curse of Death's Hold inert on ai2 — no creature's
+>   P/T moves); the dispatcher refusal (no target; "Enchant opponent" on its caster; a creature target); the AI (Paradox Haze and
+>   Shadow on itself, Curse of Bounty and Grievous Wound on the opponent it attacks, Wheel / Psychic Possession / Archnemesis held,
+>   the printed reading's face-up read, the curse reading first for Fraying Sanity, the AI's cast resolving); controls (Opulence and
+>   Fraying Sanity unchanged, tiers unchanged, Pacifism per creature). `frayingSanity.test.js`'s cast-gate case revised: it pinned the
+>   body-only Curse OUT of the player cast — onto the targetless lane; it now pins every cast of it to one player target.
 
 > ## 🔧 2026-10-17 — FIX: false-positive honesty — a land's tap-a-creature line carries its payer (Holdout Settlement, Survivors' Encampment, Scene of the Crime); nonland "instead" riders read or refused (Leafkin Druid, Raucous Audience, Ilysian Caryatid, Tower Worker); Rhystic Cave's "unless" refused; putter-keyed / player-recipient counter replacements uncredited (Lae'zel, Vorinclex, Doc Samson) · **−4** (false credit removed) · snapshot native 15,462 → 15,458
 > Suite **20,145 green (1 skipped) / 1,846 files** under the gate queue. Lint 0 (CR citations: 0 of 11,117 name no rule; keyword citations: 0 of 2,317 cite a

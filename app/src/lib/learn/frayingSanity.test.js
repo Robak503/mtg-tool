@@ -5,8 +5,8 @@
  * number of cards put into their graveyard from anywhere this turn."
  *   1. isPlayerAuraCard (staticAbilityParser) — an Aura whose Enchant subject is exactly "player".
  *   2. classifyCard: player-aura gate — the Enchant line stripped, EVERY remaining sentence a natively-
- *      routed trigger → native-aura; any residue → body-only. legalChoices gates the player-target cast
- *      enumeration on the SAME tier, so offer and claim can't drift.
+ *      routed trigger → native-aura; any residue → body-only. (Until 2026-10-17 legalChoices gated the
+ *      player-target cast on the SAME tier; now every player Aura is cast on a player — playerAuraTarget.test.js.)
  *   3. AURA_ETB's player branch enters the permanent with enchantedPlayerId stamped (re-checked at
  *      resolution — an eliminated target fizzles the Aura to its owner's graveyard, CR 608.3b).
  *   4. players[pid].gyEnteredThisTurn — stamped at the recordGraveyardEvents chokepoint (cards only,
@@ -16,7 +16,8 @@
  *   by full FFA games; its failure mode is FN-safe by construction: the resolver's players[pid] guard
  *   no-ops a dangling referent, never a mis-aimed mill.)
  * CREED FP = a mill for the wrong player, a count fed by another player's graveyard, a token counting
- * as a card, or a body-only curse being offered the player-cast — all pinned here.
+ * as a card, or a curse cast with no player target (2026-10-17 — it used to read "a body-only curse being offered the
+ * player-cast", the old gate; that gate cast the body-only curse targetless) — all pinned here.
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
@@ -65,14 +66,18 @@ describe("detection + classify + the cast gate", () => {
     expect(classifyCard(fsCard())).toBe("native-aura");
   });
 
-  it("CREED: a player-aura with unmodeled residue stays body-only and is NEVER offered the player-cast", () => {
+  // REVISED 2026-10-17 (playerAuraTarget.test.js): this pinned the body-only Curse OUT of the player-cast, onto "the Arbiter lane" —
+  // which was the plain no-target push: the Curse was cast with NO target (an Aura spell requires one, CR 303.4a) and vanished.
+  // A body-only player Aura is now cast targeting a player like any other and sits on it inert; the tier is unchanged.
+  it("CREED: a player-aura with unmodeled residue stays body-only — and every cast of it targets one player, never none", () => {
     expect(isPlayerAuraCard(UNMODELED_CURSE)).toBe(true);
     expect(classifyCard(UNMODELED_CURSE)).toBe("body-only");
     let s = baseState();
     s = withZone(s, "user", "hand", [UNMODELED_CURSE]);
     s = { ...s, players: { ...s.players, user: { ...s.players.user, manaPool: { ...s.players.user.manaPool, R: 1, C: 5 } } } };
-    const casts = legalActionsForPlayer(s, "user").filter((a) => a.kind === "cast-spell" && a.cardId === "ch" && a.enchantsPlayer);
-    expect(casts).toHaveLength(0); // body-only → the Arbiter lane, never a player-target offer
+    const casts = legalActionsForPlayer(s, "user").filter((a) => a.kind === "cast-spell" && a.cardId === "ch");
+    expect(casts.map((a) => (a.enchantsPlayer ? a.targets.map((t) => `${t.type} ${t.id}`).join("+") : "NO TARGET")))
+      .toEqual(["player user", "player ai1", "player ai2", "player ai3"]);
   });
 });
 

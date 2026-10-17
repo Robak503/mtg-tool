@@ -6861,6 +6861,23 @@ export function isPlayerAuraCard(card) {
 }
 
 /**
+ * THE PLAYER AURA SPELL (2026-10-17): what the face being cast enchants when it enchants a player — "player" (any player) or
+ * "opponent" (an opponent of its caster) — else null. An Aura spell requires a target, defined by its enchant ability
+ * (CR 303.4a, 115.1b), and an Aura that can enchant a player can target only players (CR 702.5d), so the cast offer
+ * (legalChoices), the dispatcher's routing and its refusal of a cast without one all read this, whatever the card's tier: an
+ * Aura whose text the engine doesn't model still targets its player and sits on it inert, never cast targetless.
+ * The face that is up (faceUp.faceUpView): a double-faced card in the hand has only its front face's characteristics
+ * (CR 712.8a) and is cast front face up (CR 712.8c), so Curse of Leeches is a player Aura spell and Accursed Witch — a creature
+ * front with a Curse back face — is not. isPlayerAuraCard above keeps the combined read the classifier was built on.
+ */
+export function playerAuraSpellSubject(card) {
+  const face = faceUpView(card);
+  if (!isAuraCard(face)) return null;
+  const subject = auraEnchantSubject(face);
+  return subject === "player" || subject === "opponent" ? subject : null;
+}
+
+/**
  * The subject of an Aura's "Enchant <subject>" keyword ability (CR 702.5), lowercased —
  * "creature", "permanent", "creature you control", "land", "player", … — or null if the
  * card has no Enchant line. The modeled subset is EXACTLY "creature" (any creature, no

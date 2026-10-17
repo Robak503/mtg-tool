@@ -80,7 +80,7 @@ import { parseEffectProgram, parseEffectClause, programConfidence } from "./effe
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only — strip before the cast-effect parse so the runtime resolves the body natively (matches the classifier; fixes a classifier↔runtime pendingArbiter mismatch)
 import { RESOLVER_KEYS, isPermanentSpell, autoPickManaColor, choosesCreatureTypeOnEnter } from "./resolvers.js"; // LANDS-12: the ONE color auto-pick both enter sites stamp with; + CAP-CAVERN: the chosen-type chooser for a land drop
 import { autoPickCreatureType } from "./choicePolicy.js"; // CAP-CAVERN: the SAME auto-pick resolvers.enterPermanent stamps, for a land played from hand
-import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTapped, impositionEntersTapped, auraEnchantHostSpec, entersWithNamedCounters, choosesColorOnEnter, stackSpellIsUncounterable } from "./staticAbilityParser.js";
+import { isAuraCard, isNativeAura, isNativeManaAura, playerAuraSpellSubject, entersTapped, impositionEntersTapped, auraEnchantHostSpec, entersWithNamedCounters, choosesColorOnEnter, stackSpellIsUncounterable } from "./staticAbilityParser.js";
 // ORDEAL (BLITZ OC-1): the Theros Ordeal cast lane — the SAME gate legalChoices offers on and the metric
 // awards (single source of truth, no drift). Acyclic: coverage.js never imports actionDispatcher.js.
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
@@ -372,6 +372,18 @@ function applyCastSpell(state, action) {
   // mixes Creature + Instant/Sorcery and would mis-route). The card is still spliced out of its zone by id.
   // For a normal cast faceCard is undefined and castCard === card (byte-identical behavior).
   const castCard = action.faceCard || card;
+
+  // AN AURA THAT ENCHANTS A PLAYER IS CAST TARGETING ONE (CR 303.4a, 115.1b, 702.5d — 2026-10-17). The offer emits every cast of
+  // one with a single player target (legalChoices); anything else reaching here is an upstream bug, refused before any cost is
+  // paid rather than resolved as a targetless spell (which used to vanish into the Arbiter no-op): no player target, a player
+  // gone from the game, or — for "Enchant opponent" — the caster itself.
+  const playerAuraSubject = playerAuraSpellSubject(castCard);
+  if (playerAuraSubject) {
+    const t0 = (action.targets || [])[0];
+    const legal = (action.targets || []).length === 1 && t0?.type === "player" && !!state.players?.[t0.id]
+      && !(playerAuraSubject === "opponent" && t0.id === action.playerId);
+    if (!legal) throw new DispatcherError(`${castCard?.name} is an Aura spell that enchants a ${playerAuraSubject}: it must target one (CR 303.4a)`, "AURA_TARGET_REQUIRED");
+  }
 
   // DISCOVER / free-cast (CR 601.2b — "cast without paying its mana cost"): skip the mana plan + payment
   // entirely when `action.freeCast` is set. ONLY the mana cost is waived — the ADDITIONAL costs below
@@ -838,10 +850,11 @@ function applyCastSpell(state, action) {
     // (PERMANENT_ETB) — the resolver hands it to enterPermanent, which stamps wasKicked for the "it was kicked"
     // intervening-if. A normal cast leaves it unset.
     payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId, castDuringMainPhase: castDuringMainPhaseNow(state, action.playerId), ...(hostSpec && { hostType: hostSpec.targetType }), ...(action.kicked ? { kicked: true } : {}) } };
-  } else if (action.enchantsPlayer && isPlayerAuraCard(castCard)) {
-    // PLAYER-AURA (Fraying Sanity / the Curse class — SHELF S7, CR 303.4): the target is a PLAYER id;
+  } else if (playerAuraSubject) {
+    // PLAYER-AURA (Fraying Sanity / the Curse class — SHELF S7, CR 303.4): the target is a PLAYER id (checked above);
     // AURA_ETB's player branch re-checks the player is still in the game at resolution and enters the
-    // permanent with enchantedPlayerId stamped (no host permanent, attachments untouched).
+    // permanent with enchantedPlayerId stamped (no host permanent, attachments untouched). Every player Aura, its tier aside
+    // (2026-10-17): one whose text the engine doesn't model sits on its player inert, the body-only posture.
     const targetId = targets[0]?.id;
     payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId, enchantsPlayer: true } };
   } else if (isNativeManaAura(castCard)) {
