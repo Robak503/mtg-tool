@@ -178,9 +178,10 @@ describe("manaProduction", () => {
     // Self-sac one-shot (Treasure) is unchanged — flagged sacrifices, cracked on use (not gated).
     expect(manaProduction({ name: "Gold", type: "Token Artifact — Gold", oracle: "Sacrifice this artifact: Add one mana of any color." }))
       .toEqual({ colors: ["W", "U", "B", "R", "G"], amount: 1, sacrifices: true, requiresTap: false });
-    // "Put a -0/-1 counter" (Wall of Roots) is NOT "remove a counter" — a real once-per-turn dork, kept.
+    // "Put a -0/-1 counter" (Wall of Roots) is a cost no record pays (2026-10-17, manaLineRefused): the counter was never placed,
+    // so the wall never shrank, and the commit tapped it instead — the line makes nothing now (manaNotItsOwn.test.js).
     expect(manaProduction({ name: "Wall of Roots", type: "Creature — Plant Wall", oracle: "Defender\nPut a -0/-1 counter on this creature: Add {G}. Activate only once each turn." }))
-      .toEqual({ colors: ["G"], amount: 1, requiresTap: false });
+      .toBeNull();
   });
   it("KEEPS the real {T}: line on a card that ALSO has a consumable-cost mana line (FN-safe)", () => {
     // Phyrexian Tower: "{T}: Add {C}" (real) + "{T}, Sacrifice a creature: Add {B}{B}". A modelable line

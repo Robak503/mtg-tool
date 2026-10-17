@@ -686,8 +686,8 @@ function activatedManaCosts(oracle) {
 
 // Can the SIM actually PAY this activation cost when it taps a standing mana source? True for a {T} cost
 // (tap — gated by summoning sickness), a self-SACRIFICE (cracked on use, flagged `sacrifices`), or a PURE
-// MANA cost ({…} symbols + {Q}, nothing else — a mana FILTER the sim pays from its pool, e.g. Prismite
-// "{2}: Add one mana of any color", Pili-Pala "{2}, {Q}: …"). These three are the only repeatable/standing
+// MANA cost ({…} symbols, nothing else — a mana FILTER the sim pays from its pool, e.g. Prismite
+// "{2}: Add one mana of any color"; a {Q} line — Pili-Pala — never reaches here, manaLineRefused drops it). These three are the only repeatable/standing
 // costs the mana subsystem models — everything else (a non-self sacrifice, pay-life, discard, remove-counter,
 // exile, tap-OTHER-permanents, return-to-hand) is a resource the sim doesn't spend.
 /**
@@ -826,6 +826,83 @@ function manaCostModelable(cost) {
   return cost.replace(SELF_GRANT_PREAMBLE_RE, "").replace(/\{[^}]*\}/g, " ").replace(SELF_SAC_COST_RE, " ").replace(/[\s,]/g, "") === "";
 }
 
+// ── A MANA LINE NO RECORD CAN HONOUR (2026-10-17) ───────────────────────────────────────────────────────────────────────────
+// The cost items a mana record carries and the commit actually pays, each with the field that pays it: {T} (the tap) and the
+// mana pips (activationCost — manaActivationCost / the planner's funding); a self-sacrifice (`sacrifices`); "Pay N life"
+// (`payLife`); "Tap N untapped <filter> you control" (`extraTap`); "Sacrifice a creature" (`sacrificesCreature`); "Exile a card
+// from your graveyard" (`exilesGyCard`); "Exile this card from your hand" (`fromHand`); the storage and no-{T} counter removals
+// (`removesCounters`). Each reader below still applies its own stricter shape; this list only says what COULD be paid.
+// {Q} is deliberately absent: nothing untaps the source, and manaSources offers only untapped permanents — the opposite of
+// what an untap-symbol cost needs (CR 107.6).
+const PAID_MANA_COST_ITEMS = [
+  /\{(?!Q\})[^}]*\}/gi,
+  /\bsacrifice (?:this [a-z]+|~)/gi,
+  /\bpay \d+ life\b/gi,
+  /\btap (?:an|a|two|three) untapped [a-z]+ you control\b/gi,
+  /\bsacrifice a creature\b/gi,
+  /\bexile a card from your graveyard\b/gi,
+  /\bexile this (?:card|creature) from your hand\b/gi,
+  /\bremove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature)\b/gi,
+  /\bremove an? (?:charge|\+1\/\+1|-1\/-1) counter from this (?:artifact|creature|enchantment)\b/gi,
+];
+// An ability word ahead of a cost ("Parley — {T}", "Metalcraft — {T}", "Vivid — {T}") has no rules meaning (CR 207.2c).
+const ABILITY_WORD_PREFIX_RE = /^[^{}:—"“|]*—\s*/;
+// The one "for each …, add" form a record reads: the vivid bundle (parseAddClause's fixedSpec).
+const VIVID_ADD_SENTENCE_RE = /^for each color among permanents you control, add one mana of that color\b/i;
+
+/**
+ * Is this "<cost>: … Add …" line one no mana record can honour? Each way below was a false positive the parse used to mint
+ * (the cost, the condition or the owner dropped, the mana kept) — on the planner's tap and the explicit tap alike, since both
+ * read manaSources:
+ *   · A LOYALTY ABILITY. A loyalty symbol in the cost makes it a loyalty ability (CR 606.2), and a loyalty ability is never
+ *     a mana ability (CR 605.1a). "+1" / "−10" / "0" is no cost item a record pays, so the line goes: Chandra, Torch of
+ *     Defiance's "+1: Add {R}{R}.", The Aetherspark's "−10: Add ten mana of any one color.", Ugin, Eye of the Storms' "0: Add
+ *     {C}{C}{C}." and 22 more were sources the planner spent at any time, an opponent's turn included — no loyalty paid,
+ *     none of a loyalty ability's main-phase timing (CR 606.3); Liliana of the Dark Realms read her −6 emblem's quoted Swamp grant as her own
+ *     {B}{B}{B}{B}. Whatever mana a loyalty ability makes is the loyalty program's to resolve, never a standing source's.
+ *   · AN ABILITY QUOTED INSIDE A SENTENCE. When the line's first colon sits inside a quoted ability, what stands before it is
+ *     a trigger or an effect, not a cost: Roxanne, Starfall Savant's Meteorite token ("… with \"When this token enters, …\"
+ *     and \"{T}: Add one mana of any color.\"" — the token strip takes only the first quote), Glorious Sunrise's modal "Target
+ *     land gains \"{T}: Add {G}{G}{G}\"", Princess Yue's and Hydro-Man, Fluid Felon's "becomes a land and gains \"{T}: Add …\""
+ *     after a death or an end step, and Old-Growth Troll's and Harold and Bob, First Numens' Aura-after-death grant to a
+ *     Forest each read as the card's own tap. An ability an effect says an object "gains" or "has" is that object's (CR
+ *     113.10); a self-included grant ("All Slivers have \"…") keeps its preamble out of the cost, as manaCostModelable does.
+ *   · A TARGET. An activated ability is a mana ability only if it doesn't require a target (CR 605.1a — "up to one" still
+ *     requires one, CR 115.6). Deathrite Shaman ("{T}: Exile target land card from a graveyard. Add one mana of any color.")
+ *     was free any-colour mana with no land card anywhere; Soulbright Flamekin and Soulbright Seeker ("Target creature gains
+ *     trample … If this is the third time this ability has resolved this turn, add …") made {R}{R}{R}{R} or eight {R} on
+ *     every activation, a loop out of one red mana; Red Death, Shipwrecker made {R} without goading anything.
+ *   · A CONDITION OR A COUNT AHEAD OF THE ADD. The sentence holding the line's first "add" opens "If …" (the Soulbrights,
+ *     a coin flip) or "For each …" (Selvala, Explorer Returned's "For each nonland card revealed this way, add {G}"), so
+ *     the amount is the condition's or the count's — the parse read the bare symbols as a flat amount. The vivid bundle,
+ *     read for real, is the one exception.
+ *   · A COST ITEM NO RECORD PAYS (PAID_MANA_COST_ITEMS). The phantom-mana gate below names consumables one by one, so
+ *     every cost it doesn't name rode through as free: "Mill a card" (Deranged Assistant, Millikin), "Forage" (Thornvault
+ *     Forager — read as two mana of any colours over its plain {G}), "Collect evidence 3" (Cryptex), "Put a -0/-1 counter on
+ *     this creature" (Wall of Roots), a depletion or mining counter (Hickory Woodlot, Gemstone Mine — free forever, never
+ *     emptied, never sacrificed), "Sacrifice X Goats" (Springjack Pasture), a station threshold ("12+ | {G}, {T}: Add {G}
+ *     for each creature you control" — Evendo, Waking Haven, read as its main product with no counters on it), {Q}.
+ * Lines only — a refused line is dropped before the parse, so a card's other, honest line still makes its mana (Springjack's
+ * "{T}: Add {C}.", Thornvault Forager's "{T}: Add {G}."). Reminder text is read past; a kept self-grant's preamble ("All
+ * Slivers have \"…") is not a cost.
+ */
+function manaLineRefused(line) {
+  const t = String(line || "").replace(/\([^)]*\)/g, " ");
+  const ci = t.indexOf(":");
+  if (ci === -1) return false;
+  const effect = t.slice(ci + 1);
+  if (!/\badd\b/i.test(effect)) return false;
+  // "target" the noun or adjective of THIS ability ("target land card", "any target", "Target opponent"); a "when that mana
+  // is spent … you may choose new targets for the copy" rider (Pyromancer's Goggles, Magus Lucea Kane) is the copy's, not a
+  // target of the mana ability, so the plural is not read.
+  if (/\btarget\b/i.test(effect)) return true;
+  const sentence = (effect.split(/(?<=\.)\s+/).find((s) => /\badd\b/i.test(s)) || "").trim();
+  if (/^(?:if|for each)\b/i.test(sentence) && !VIVID_ADD_SENTENCE_RE.test(sentence)) return true;
+  let cost = t.slice(0, ci).replace(SELF_GRANT_PREAMBLE_RE, "").replace(ABILITY_WORD_PREFIX_RE, "");
+  for (const re of PAID_MANA_COST_ITEMS) cost = cost.replace(re, " ");
+  return cost.replace(/[\s,]/g, "") !== "";
+}
+
 // Is the cost an UNPAYABLE, non-repeatable CONSUMABLE the sim can't spend — so registering its "Add …" as a
 // free, tapless, standing source would mint PHANTOM mana every turn? The named consumable set: a non-self
 // SACRIFICE (Utopia Mycon "Sacrifice a Saproling", Ashnod's Altar "Sacrifice a creature"), PAY N LIFE
@@ -864,8 +941,9 @@ function manaCostConsumable(cost) {
  *
  * FN-safe: gates ONLY when EVERY activated mana line is unpayable, so a card with a real {T}: / pure-mana
  * line keeps that source. A mana FILTER ({mana}: Add) and a {T}: dork are never consumable → never gated.
- * "Put a -0/-1 counter" (Wall of Roots, a real once-per-turn dork) is NOT "remove a counter" → kept. A
- * planeswalker loyalty cost (+N/−N) is not in the consumable set → PWs are left for a dedicated lane.
+ * Any cost item no record pays ("Put a -0/-1 counter" — Wall of Roots, "Mill a card", "Forage") never reaches here either:
+ * manaLineRefused drops the line first (2026-10-17), so this gate sees only lines whose every cost item is payable — a
+ * loyalty line included (CR 605.1a / 606.2 — never a mana ability).
  */
 function manaAbilityCostUnpayable(oracle) {
   const costs = activatedManaCosts(oracle);
@@ -1707,6 +1785,11 @@ function manaProductionImpl(card) {
   // Strip the gated ability (lands included) so parseAddClause sees only the ENERGY-FREE mana: Aether Hub keeps
   // its {C}, and a source whose ONLY mana is energy-gated produces nothing → null → non-native, correctly.
   oracleForAdd = oracleForAdd.replace(/[^.\n]*\bpay (?:\{e\})+[^.\n:]*:\s*add\b[^.\n]*\.?/gi, " ");
+  // A MANA LINE NO RECORD CAN HONOUR (2026-10-17 — manaLineRefused: a loyalty ability, an ability quoted inside a sentence, a
+  // target, a condition or count ahead of the add, a cost item no record pays) is dropped here, lands included, before any
+  // reader below sees it. A card whose only mana line goes makes nothing (a land too: its colourless fallback needs an "add"
+  // left to read).
+  oracleForAdd = oracleForAdd.split("\n").filter((line) => !manaLineRefused(line)).join("\n");
   // ===== COUNTER-REMOVAL MANA (STAGE ④-4, 2026-09-03 — CR 605.1a / 122.1) ===== the tap-only, mana-cost-free
   // forms: "{T}, Remove any number of <K> counters from this <noun>: Add {M} for each <K> counter removed this
   // way." (the storage lands — Fountain of Cho, Mage-Ring Network, Subterranean Hangar …) and "…: Add {M}, then

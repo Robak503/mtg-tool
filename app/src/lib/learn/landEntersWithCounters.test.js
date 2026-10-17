@@ -90,10 +90,14 @@ describe("tutor site — the same reader, the same counters", () => {
 });
 
 describe("classification — credited only through the reader AND the honesty gate", () => {
-  it("the Vivid, depletion and mining lands are `land`", () => {
-    expect(classifyCard(VIVID_MARSH)).toBe("land");
-    expect(classifyCard(HICKORY)).toBe("land");
-    expect(classifyCard(GEMSTONE)).toBe("land");
+  it("the Vivid, depletion and mining lands are `land-partial`: no mana record removes their counters", () => {
+    // "{T}, Remove a <charge|depletion|mining> counter from this land: Add …" was credited on a per-line read that removed no
+    // counter (and, for the depletion and mining lands, never sacrificed the land — their only mana line, free forever). No
+    // record pays that cost — the runtime never offered the Vivid land's any-colour line, only its plain {B}. Since 2026-10-17
+    // the line is refused (manaModel.manaLineRefused) and stays residue: the enters line is still read, the mana line is not.
+    expect(classifyCard(VIVID_MARSH)).toBe("land-partial");
+    expect(classifyCard(HICKORY)).toBe("land-partial");
+    expect(classifyCard(GEMSTONE)).toBe("land-partial");
   });
 
   it("⛔ an unknown counter kind is not credited (the enters line stays residue)", () => {

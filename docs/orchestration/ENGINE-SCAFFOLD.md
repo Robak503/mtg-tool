@@ -426,6 +426,14 @@ means "all permanents" (vacuous filter).
   (Mana Vault, Basalt / Grim Monolith): that card produces once and stays tapped —
   the untap step enforces it (`cardSelfPreventsUntap`), and `manaSources` stamps
   its records `staysTapped`.
+- **A mana line no record can honour is dropped before the parse (`manaLineRefused`, 2026-10-17).** Per line, ahead of every
+  reader in `manaProductionImpl` (lands included, so a refused only-line leaves no "add" for the colourless fallback): a
+  loyalty ability (CR 606.2, 605.1a — "+1" is no cost a record pays), an ability quoted inside a sentence (the colon behind a
+  trigger or an effect — Roxanne's Meteorite, Old-Growth Troll's Aura grant), an ability with a target (CR 605.1a — Deathrite
+  Shaman), an "If …," or "For each …," sentence ahead of the add (the vivid bundle excepted — Selvala, Explorer Returned), or a
+  cost item outside the positive list `PAID_MANA_COST_ITEMS` ({T} and pips, a self-sacrifice, "Pay N life", tap-other,
+  "Sacrifice a creature", exile from graveyard, exile from hand, the storage and no-{T} counter removals; {Q} absent). A new
+  cost rider goes on the source record, in `tapRecordFor` AND in `PAID_MANA_COST_ITEMS` — otherwise its line makes nothing.
 - `manaSources(state, player)` → the untapped permanents that can produce now
   (summoning-sickness aware). Granted mana abilities are counted by ONE read,
   `withGrantedMana`: a permanent with no mana ability of its own takes the granted spec

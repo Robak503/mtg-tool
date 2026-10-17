@@ -60,9 +60,12 @@ describe("runtime — the activated ability puts the counter on the land itself"
 });
 
 describe("classification", () => {
-  it("the storage lands flip to `land`", () => {
-    expect(classifyCard(SALTCRUSTED)).toBe("land");
+  it("the storage lands flip to `land` — the ones whose removal line a mana record pays", () => {
     expect(classifyCard(FOUNTAIN)).toBe("land");
+    // Saltcrusted Steppe's "{1}, Remove X storage counters from this land: Add X mana …" was never paid: its per-line read made
+    // one tapless {G}/{W} with no counter removed (no record removes X counters for {1}). Since 2026-10-17 the line is refused
+    // (manaModel.manaLineRefused) and stays residue, so the land is land-partial.
+    expect(classifyCard(SALTCRUSTED)).toBe("land-partial");
   });
 
   it("CREED — the same land with an unreadable put line stays land-partial", () => {

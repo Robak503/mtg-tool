@@ -921,7 +921,8 @@ const _INERT_ENTER_COUNTER_KINDS = new Set([
   // LANDS-9 (2026-09-03): the land counter kinds — "depletion" (Hickory Woodlot, Remote Farm, Peat Bog,
   // Sandstone Needle, Saprazzan Skerry) and "mining" (Gemstone Mine). Inert by CR 122.1; their ONLY
   // readers are the printed "{T}, Remove a <kind> counter: Add … If there are no <kind> counters on this
-  // land, sacrifice it" mana abilities, which are modeled (ablation: only the enters line parked them).
+  // land, sacrifice it" mana abilities. ⚠️ Those are NOT modeled (2026-10-17): the record never removed the counter or
+  // sacrificed the land — free mana forever — so manaModel.manaLineRefused drops the line and the land makes nothing.
   "depletion", "mining",
   // Stage ③ · 47 (the Kamigawa Myojin): "divinity" — inert by CR 122.1; its only readers are the printed "has
   // indestructible as long as it has a divinity counter on it" and "Remove a divinity counter from ~: …", both

@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **58 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **±0** (+46 gained, −46 false credit removed). The next tag
+> **59 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,432)**; engine gains since the tag: **−35** (+46 gained, −81 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,94 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX: mana that is not the permanent's own — loyalty abilities, quoted abilities, targets, a count or condition ahead of the add, costs no record pays (Chandra, Torch of Defiance; Roxanne, Starfall Savant; Springjack Pasture; Selvala, Explorer Returned) · **−35** (false credit removed) · snapshot native 15,462 → 15,427
+> Suite **19,590** green (1 skipped) / 1,813 files. Lint 0 (CR citations: 0 of 10,441 name no rule). Flip-diff **0 gained / 35
+> lost / 0 retiered** (34,620 cards; before = 5daf02e3 from an untouched `git archive` copy, after = this tree). Runtime
+> fingerprint: **60 of 34,620 `manaProduction` reads change** — 55 now make no mana, 4 fall back to their plain line, 1 (The
+> Eternity Elevator) goes from none to {C}{C}{C}. **Mutants 18/18** on assertions, restore byte-identical (sha256 of
+> manaModel.js compared after each).
+> · **The bugs** (found 10-16 by the mana-text slice; re-proved on 5daf02e3 through `manaSources`, `legalActionsForPlayer` and
+>   `dispatchAction`; every text from the bundled oracle index). ① **Loyalty abilities read as mana sources**: the Add matcher
+>   reads any "<cost>: Add …" line, and the phantom-mana gate's consumable list never named a loyalty cost, so "+1: Add {R}{R}."
+>   was a tapless source the planner spent and the explicit tap offered, no loyalty paid, at any time (the commit tapped the
+>   planeswalker, so once per untap). CR 606.2 makes it a loyalty ability and CR 605.1a says a loyalty ability is never a mana
+>   ability. Enumerated with a script over the bundled oracle — **25 cards** (20 commander-legal): Chandra, Torch of Defiance /
+>   Bold Pyromancer / Dressed to Kill / Flameshaper / Heart of Fire / Hope's Beacon / Legacy of Fire / Novice Pyromancer,
+>   Domri, Anarch of Bolas / Chaos Bringer, Jaya Ballard, Koth of the Hammer, Liliana of the Dark Realms (her −6 emblem's quoted
+>   Swamp grant read as her own {B}{B}{B}{B}), Lukka, Bound to Ruin, Sarkhan Unbroken, Sarkhan, Fireblood, The Aetherspark (ten of
+>   any one colour), Ugin, Eye of the Storms, Vraska, Betrayal's Sting (a −2 Treasure grant read as her own), Xenagos, the
+>   Reveler; not commander-legal: Planeswalkerificate, The Unluckiest Planeswalker, Thomil, the Destroyer, Tibalt, Wicked
+>   Tormentor, Wrenn and One. ② **Roxanne, Starfall Savant** tapped for any colour: `stripCreatedTokenAbilities` takes only the
+>   first quote of "with \"…\" and \"{T}: Add one mana of any color.\"". ③ **Springjack Pasture**'s "{T}, Sacrifice X Goats: Add X
+>   mana of any one color." merged into its main record as a free any-colour tap (lands are exempt from the cost gate, and the
+>   honest-main check's "any color" test misses "any one color"). ④ **Selvala, Explorer Returned**'s parley ("For each nonland
+>   card revealed this way, add {G}") was a flat {G}, no reveal, no life, no draws.
+> · **The fix — one per-line reader, `manaLineRefused`**, applied to `oracleForAdd` in `manaProductionImpl` ahead of every reader
+>   (lands included). A "<cost>: … Add …" line goes when: the text before the colon holds anything outside the positive list
+>   `PAID_MANA_COST_ITEMS` — {T} and mana pips (activationCost), a self-sacrifice, "Pay N life", "Tap N untapped <filter> you
+>   control", "Sacrifice a creature", "Exile a card from your graveyard", "Exile this card from your hand", the storage and no-{T}
+>   counter removals — after an ability word (CR 207.2c) and a self-included grant's preamble are set aside; that one rule refuses a
+>   loyalty symbol (①), a colon inside a quoted ability behind a trigger or effect (②, and the quote family below), and every
+>   unpaid cost (③); OR the effect has a target (CR 605.1a, 115.6 — the singular "target", so a copy rider's "choose new targets"
+>   is not read); OR the sentence holding the first "add" opens "If" or "For each" (④), the vivid bundle excepted. {Q} is not in
+>   the list (CR 107.6 — nothing untaps the source). The phantom-mana gate's negative consumable list is untouched; this is the
+>   positive list in front of it. First drafts also carried a separate loyalty strip, a two-quote token strip, a widened gains
+>   pass and a no-grant quote pass: each changed **0** corpus reads once `manaLineRefused` was in (measured by mutating each
+>   away and re-running the runtime fingerprint), so all four were removed rather than shipped as dead weight.
+> · **Every card whose mana changed** (runtime fingerprint, 5daf02e3 → this tree): the 25 loyalty cards above → no mana. Quoted
+>   abilities → none: Roxanne, Old-Growth Troll and Harold and Bob, First Numens (an Aura-after-death grant to a Forest), Glorious
+>   Sunrise (a modal "Target land gains …"), Princess Yue and Hydro-Man, Fluid Felon ("becomes a land and gains …"), Divergent
+>   Growth (an instant). Targets → none: Deathrite Shaman, Red Death, Shipwrecker, Soulbright Flamekin (was eight {R} per {2}),
+>   Soulbright Seeker (four {R} per {R} — a loop), Witch Engine (no control change). If / for each → none: Selvala, Explorer
+>   Returned; Un: Mana Screw, Everythingamajig (the coin-flip variant), Rainbow Dash. Unpaid costs → none: Cryptex (collect
+>   evidence), Deranged Assistant, Millikin, Manakin and Millikin (mill), Wall of Roots (the -0/-1 counter was never placed; the
+>   commit tapped it instead), Gemstone Mine, Hickory Woodlot, Peat Bog, Remote Farm, Sandstone Needle, Saprazzan Skerry (the
+>   counter was never removed nor the land sacrificed — free forever), Pili-Pala ({Q}); Un: Built Bear, Unique Charmed Pants.
+>   To the honest plain line: Springjack Pasture any colour → {C}; Thornvault Forager two of any colours → {G}; Evendo, Waking
+>   Haven {G} per creature (its "12+ |" station line, no counters) → {G}; Uthros, Titanic Godcore {U} per artifact → {U}. Gained:
+>   The Eternity Elevator null → {C}{C}{C} (its "20+ |" line's unmodelled metric nulled the whole card; the runtime already
+>   offered {C}{C}{C} as an extra line, so nothing new is produced, only the main record moved). Extra mana lines and activation
+>   costs, corpus-wide: only those cards' rows change.
+> · **Flip-diff: −35, every one a credit resting on a line no record pays.** native-mana → body-only (12): Deathrite Shaman,
+>   Red Death, Shipwrecker, Witch Engine, Soulbright Flamekin (a target); Selvala, Explorer Returned, Mana Screw (if / for each);
+>   Cryptex, Deranged Assistant, Millikin, Manakin and Millikin, Wall of Roots, Pili-Pala (an unpaid cost). land → land-partial
+>   (23): six whose only mana line was free forever — Gemstone Mine, Hickory Woodlot, Peat Bog, Remote Farm, Sandstone Needle,
+>   Saprazzan Skerry (they now make nothing); Springjack Pasture (now {C}); and 16 whose runtime mana is unchanged (each probed
+>   alone, with its counters, on both trees: same planner records, same hand taps) but whose second line the land classifier
+>   credited on a per-line read the runtime never offered — the five Vivid lands, Tendo Ice Bridge and Mirrodin's Core ("{T},
+>   Remove a charge counter from this land: Add …"), Saltcrusted Steppe, Dreadship Reef, Calciform Pools, Molten Slagheap,
+>   Fungal Reaches and Crucible of the Spirit Dragon ("Remove X storage counters"), The Secret Lair ("Say the secret word"), Arena
+>   of Glory (exert), Tarnation Vista ("{1}, {T}: For each color among monocolored permanents …"). The planeswalkers' tiers come
+>   from the loyalty classifier and do not move.
+> · **Self-play decks this moves** (profile decks in AppData, all mainboard): Sarkhan, Fireblood — Joe: Did you say Dragons?;
+>   Deathrite Shaman — Omnath: Teval, the Balanced Scale Test; Gemstone Mine — Colton: Killer Turts; Evendo, Waking Haven —
+>   Colton: The Unbeatable Squirrel Girl; Uthros, Titanic Godcore — Joe: Captain America Shoot your Shot; Harold and Bob, First
+>   Numens — Joe: Mothman Cometh. No seeded batch was run.
+> · Witness `manaNotItsOwn.test.js` (51; 42 red at 5daf02e3, every one an AssertionError; the 9 controls green on both):
+>   eight loyalty adders' parse, Chandra and The Aetherspark alone through the planner and the explicit tap, Koth beside three
+>   Mountains, Chandra beside a Mountain (the Mountain taps by hand and for a cast); Roxanne + the Meteorite token control;
+>   Springjack by hand and the planner with Goats; Selvala; the target five, Deathrite's empty graveyards, the Flamekin loop and
+>   the Pyromancer's Goggles control; the unpaid-cost six, Thornvault, Evendo with three Elves, Hickory and Gemstone, The Eternity
+>   Elevator; the quoted five; controls for every paid cost item (Mana Confluence, Springleaf Drum, Ashnod's Altar, Molt Tender,
+>   Elvish Spirit Guide, a Treasure, Fountain of Cho, Pentad Prism), the self-included grants (Gemhide, Basal, Sachi), an ability
+>   word and gate (Mox Opal), the vivid count (Bloom Tender), the "instead" riders (Incubation Druid, Command Mine), Tundra's
+>   reminder-text ability, Llanowar Elves, a Forest. Fixture flips: manaModel.test.js and manaTierStaticResidue.test.js (Wall of
+>   Roots — now no mana, body-only), landEntersWithCounters.test.js (Vivid Marsh, Hickory Woodlot, Gemstone Mine → land-partial),
+>   storageCounterLands.test.js (Saltcrusted Steppe → land-partial) — each was credited on a per-line read of a line no record pays.
+> · Mutants (18): the filter's application · the cost-residue rule · the target rule · singular "target" only · the if/for-each
+>   rule · the vivid exception · reminder text read past · the ability-word prefix · the self-grant preamble · {Q} unpaid · each
+>   paid item (self-sacrifice, pay life, tap-other, sacrifice a creature, exile from graveyard, exile from hand, storage removal,
+>   no-{T} counter removal). Each mutant's corpus effect was measured too (from 1 row — {Q} — to 108 — reminder text).
+> · ⚠️ Found, not fixed: ① **Meteor Crater** ("{T}: Choose a color of a permanent you control. Add one mana of that color.")
+>   reads as the land fallback's {C}: wrong colour, and {C} on a board with no coloured permanent where it makes nothing. ②
+>   `stripCreatedTokenAbilities` and the gains-form pass still take one quote / named subjects only — harmless now (the colon rule
+>   refuses those lines first) but wrong as helpers. ③ The Vivid lands' "{T}, Remove a charge counter from this land: Add one mana
+>   of any color." was never offered at runtime and is now no longer credited by the land classifier either; modelling it (the
+>   commit already removes counters for the storage lands' lines) would return them to `land`. ④ Wall of Roots now
+>   makes nothing: modelling its cost needs a -0/-1 counter the commit places (and no tap). ⑤ Pili-Pala's {Q} filter needs an
+>   untap-symbol cost. ⑥ `powerRanker.producedColors` (deck ranking, not the engine) still reads Scryfall's `produced_mana`, which
+>   lists a planeswalker's loyalty colours.
 
 > ## 🔧 2026-10-17 — FIX: the death sites that bypassed the shared sacrifice — the Fading / Vanishing upkeep, the mobilized Warriors, a creature Saga, a sacrificed planeswalker · **±0** · corpus 15,494
 > Suite **19,573** green (1 skipped) / 1,814 files. Lint 0 (CR citations: 0 of 10,451 name no rule). Flip-diff **0 / 0 / 0**

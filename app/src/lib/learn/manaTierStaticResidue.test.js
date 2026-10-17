@@ -89,10 +89,12 @@ function board(battlefield, hand = []) {
 describe("a mana line with a WORD cost is read by the runtime's own mana parser, line by line", () => {
   const HERITAGE = card("Heritage Druid", "Creature — Elf Druid", "{G}", "Tap three untapped Elves you control: Add {G}{G}{G}.", { power: 1, toughness: 1 });
 
-  it("Heritage Druid, Elvish Spirit Guide, Wall of Roots, Seton and Birchlore Rangers keep native-mana", () => {
+  it("Heritage Druid, Elvish Spirit Guide, Seton and Birchlore Rangers keep native-mana; Wall of Roots parks", () => {
     expect(classifyCard(HERITAGE)).toBe("native-mana");
     expect(classifyCard(card("Elvish Spirit Guide", "Creature — Elf Spirit", "{2}{G}", "Exile this card from your hand: Add {G}."))).toBe("native-mana");
-    expect(classifyCard(card("Wall of Roots", "Creature — Plant Wall", "{1}{G}", "Defender\nPut a -0/-1 counter on this creature: Add {G}. Activate only once each turn."))).toBe("native-mana");
+    // Wall of Roots' "Put a -0/-1 counter on this creature" is a cost no mana record pays (2026-10-17, manaLineRefused), so the
+    // runtime makes no mana from it and the metric no longer credits the line.
+    expect(classifyCard(card("Wall of Roots", "Creature — Plant Wall", "{1}{G}", "Defender\nPut a -0/-1 counter on this creature: Add {G}. Activate only once each turn."))).toBe("body-only");
     expect(classifyCard(card("Seton, Krosan Protector", "Legendary Creature — Centaur Druid", "{G}{G}{G}", "Tap an untapped Druid you control: Add {G}."))).toBe("native-mana");
     expect(classifyCard(card("Birchlore Rangers", "Creature — Elf Druid Ranger", "{G}", "Tap two untapped Elves you control: Add one mana of any color.\nMorph {G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)"))).toBe("native-mana");
   });
