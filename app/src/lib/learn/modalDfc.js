@@ -23,7 +23,7 @@
  * (cardIndex.oracleText), the same shape the split-card parser peels with parseFaceBlock.
  */
 import { parseFaceBlock } from "./splitCard.js";
-import { colorsOfSpell } from "./staticAbilityParser.js"; // a face's colours off its own mana cost and Devoid line; staticAbilityParser's import closure holds no MDFC / classifier module, so this edge is acyclic
+import { colorsOfSpell } from "./spellColors.js"; // a leaf (no imports): a face's colours off its own mana cost (CR 202.2) — importing staticAbilityParser here closed a cycle through faceUp.js
 
 /**
  * A face's OWN colours (play-weighted #514, 2026-10-01). A modal DFC on the stack or the battlefield has only the

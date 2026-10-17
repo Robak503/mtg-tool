@@ -789,6 +789,13 @@ and so did the cast watchers. Every reader — the counters, Mana Drain, Imp's M
 leaf. A payload that resolves without X (an Aura, a planeswalker, the Arbiter's no-op) carries the announced X on the stack
 object (`applyCastSpell`). **A new effect that asks for "that spell's mana value" reads `stackSpellManaValue`, never
 `source.cmc`.** Witness: `stackManaValueReaders.test.js`.
+The spell's COLOURS are read off the same `source`, so a projected face carries its own half's (2026-10-17): a split half
+(`splitCard.splitFaceCards`, CR 709.3b) and an Adventure (`adventure.adventureFaceCard`, CR 715.3b) are the colours of their own
+mana symbols (CR 202.2, `colorsOfSpell`) — never the card's top-level `colors`, which is the combined card's (CR 709.4b) or the
+adventurer's normal half's (CR 715.4). The counters' colour filters, Pyroblast/Hydroblast, the "casts a red spell" watchers and
+protection-from-colour targeting all read it. Witness: `splitHalfColors.test.js`. And no cast pays a cost naming two halves
+(`castActionsFromZone` skips any "//" mana cost): omen and preparation cards cast normally as their creature (`omenPrepare.js`);
+Rooms, three-half split cards and Twice Upon a Time are not offered. Witness: `combinedHalvesCast.test.js`.
 
 **How to CHECK a pair you inherit — the drift probe.** Two functions answering one question can be run
 against each other across the whole corpus: iterate real cards, call both, print disagreements. No fixture

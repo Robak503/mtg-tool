@@ -26,6 +26,18 @@
  * (metadata cardIndex injected, NOT rules text), recovering each face's bare oracle. A block that doesn't
  * match the expected header shape returns null → the card is treated as non-split (a safe FN).
  */
+import { colorsOfSpell } from "./spellColors.js"; // a leaf (no imports): a face's colours off its own mana cost (CR 202.2) — importing staticAbilityParser here closed a cycle through faceUp.js
+
+/**
+ * A HALF's OWN colours (2026-10-17). While a split card is on the stack only the characteristics of the half being cast exist
+ * (CR 709.3b), and that half is the colour of the mana symbols in its own mana cost (CR 202.2; a hybrid symbol is each of its
+ * colours, CR 202.2d). The card's top-level `colors` is the COMBINED card's — "a split card's colors … are determined from its
+ * combined mana cost" (CR 709.4b), the answer in every zone but the stack — so a face that inherited it was cast as both halves'
+ * colours: Fire was red AND blue (Gainsay countered it, Kor Firewalker gained life on Ice, Ice could not tap a creature with
+ * protection from red). Derived from the half's own block only (its own Devoid line, never the card's keywords). Corpus check
+ * (2026-10-17, the bundled data): the union of the two halves equals Scryfall's combined colours on every split card.
+ */
+const halfColors = (half) => colorsOfSpell({ mana: half.mana, oracle: half.oracle });
 
 /** Peel the cardIndex header line "<Name> - <type line> {mana}" off a face block → { name, typeLine, mana,
  *  oracle } or null. (Identical shape to adventure.parseFaceBlock; duplicated so each shape module stays a
@@ -117,18 +129,19 @@ export function isSplitCard(card) {
 }
 
 /**
- * The two half card-views for a split card: [left, right], each `{ ...card, name, type, oracle, mana }`
- * (id preserved so zone moves still find the real card). Used by legalChoices to offer each half's cast and
- * by the dispatcher (action.faceCard) to resolve the chosen half's program. Returns null for a non-split card.
+ * The two half card-views for a split card: [left, right], each `{ ...card, name, type, oracle, mana, colors }` — the half's
+ * own characteristics, its colours among them (halfColors, CR 709.3b); id preserved so zone moves still find the real card.
+ * Used by legalChoices to offer each half's cast and by the dispatcher (action.faceCard) to resolve the chosen half's program,
+ * and it rides the stack as the spell's `source`, where every colour reader looks. Returns null for a non-split card.
  */
 export function splitFaceCards(card) {
   const parsed = parseSplitCard(card);
   if (!parsed) return null;
   return [
-    { ...card, name: parsed.left.name, type: parsed.left.type, oracle: parsed.left.oracle, mana: parsed.left.mana },
+    { ...card, name: parsed.left.name, type: parsed.left.type, oracle: parsed.left.oracle, mana: parsed.left.mana, colors: halfColors(parsed.left) },
     // AFTERMATH: the right face carries the graveyard-only fact with it, so any consumer that projects the
     // faces (not just the hand-cast lane) can see it rather than having to re-parse the card to find out.
-    { ...card, name: parsed.right.name, type: parsed.right.type, oracle: parsed.right.oracle, mana: parsed.right.mana, ...(parsed.rightGraveyardOnly ? { graveyardOnly: true } : {}) },
+    { ...card, name: parsed.right.name, type: parsed.right.type, oracle: parsed.right.oracle, mana: parsed.right.mana, colors: halfColors(parsed.right), ...(parsed.rightGraveyardOnly ? { graveyardOnly: true } : {}) },
   ];
 }
 

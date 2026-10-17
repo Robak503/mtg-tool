@@ -116,6 +116,7 @@ import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, 
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, isLandAdventure, adventureFaceCard, permanentFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face (a Town's land face is played); pure shape module
 import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR 709) — cast either half; pure shape module
+import { normalFaceCard } from "./omenPrepare.js"; // OMEN (CR 720) / PREPARATION (CR 722) cards — cast normally, as the creature; pure shape module
 import { spellManaValue } from "./spellOnStack.js"; // the mana value of the spell being cast (CR 202.3) — Bolas's Citadel's life payment per offered face; a zero-import leaf
 import { isModalDfc, mdfcLandFaces, mdfcFaceCards, parseSpellModalDfc, spellMdfcFaceCards } from "./modalDfc.js"; // MODAL DFC (CR 712.8, V1) — the land drop chooses a face; the spell front is cast as a face; pure shape module
 import { evaluateInterveningIf } from "./interveningIf.js"; // CR 602.5d "Activate only if <cond>" — the offer gate reads the SAME vocabulary as the trigger + spell lanes
@@ -787,6 +788,14 @@ function actionsCastCommander(state, playerId) {
       }
     }
   }
+  // OMEN / PREPARATION commander (CR 720.3, 722.4 + 903.8): the shared builder skips the combined card (its cost names both
+  // halves), so a legendary preparation creature (Abigale, Poet Laureate; Tam, Observant Sequencer …) is cast from the command
+  // zone NORMALLY — its creature face, with the same tax — exactly as actionsCastNormalFaceFromHand offers it from hand.
+  for (const card of command) {
+    const face = normalFaceCard(card);
+    if (!face) continue;
+    for (const a of castActionsFromZone(state, playerId, [face], "command", taxFn)) actions.push({ ...a, faceCard: face });
+  }
   return actions;
 }
 
@@ -1170,14 +1179,26 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // via actionsCastSplitFromHand, which projects a single face (no "//" in the projected type/mana, so the
     // face re-enters this builder cleanly). Skipping the combined card is CREED-safe (a missing combined offer
     // is a safe FN; casting the combined card at a summed/malformed cost is a false positive). Fuse/aftermath
-    // splits (parseSplitCard returns null for them) are NOT skipped here — they stay Arbiter spells whose
-    // combined cast the generic path routes to the Arbiter, unchanged.
+    // splits are split cards too (parseSplitCard takes them since census slices 54/55), so they are skipped here as well.
     if (isSplitCard(card)) continue;
     // MODAL DFC (V1 slice 2, CR 712.8): the combined "<Spell> // Land" card is never cast as one object — its FRONT face
     // is cast through actionsCastModalDfcFrontFromHand (a projected single face, exactly the split-card lane), and its
     // back is a land drop. The same CREED reasoning as the split skip above: the mashed two-face oracle would parse to a
     // malformed program.
     if (isModalDfc(card)) continue;
+    // TWO HALVES, ONE COST (2026-10-17): a mana cost that names two or more halves ("{U} // {4}{U}") is never paid by one cast.
+    // A split card is cast as the half chosen before it goes on the stack, and only that half is evaluated (CR 709.3, 709.3a) —
+    // a Room is a split card, and casting a door unlocks that door (CR 709.5d); an adventurer is played normally or as an
+    // Adventure (CR 715.3, 715.3a); an omen card is cast normally or as an Omen (CR 720.3, 720.3a); a preparation card can't be
+    // cast with its inset characteristics at all (CR 722.3). The one cast that pays both halves is fuse (CR 702.102a, 702.102c),
+    // which the engine does not offer. The three skips above cover the shapes the engine models; every other such card rode on
+    // to here as ONE object at the summed cost — the Rooms (Bottomless Pool // Locker Room for {U} + {4}{U}), the omen and
+    // preparation cards (Marang River Regent // Coil and Catch for ten, at instant speed off its Omen's type line), the
+    // three-half split cards, Twice Upon a Time. The omen and preparation cards are offered NORMALLY instead, as their creature
+    // (actionsCastNormalFaceFromHand / actionsCastCommander — omenPrepare.js); the rest are not offered at all (no door model,
+    // no reader for the other halves) — a safe false negative where the combined cast was a false positive. A projected face
+    // carries its own half's cost, never "//", so it passes.
+    if (String(manaCostOf(card)).includes("//")) continue;
     // P·38 — a SPELL // SPELL modal DFC (CR 712.11b — the caster chooses the face): offered as each of its faces, never as the
     // combined card, once it classifies native (both faces modeled — the classifier's own authority); otherwise as before. Every
     // lane reaches it through here (hand, command zone, graveyard, exile), so a commander cast offers both faces with its tax.
@@ -3944,6 +3965,25 @@ function actionsCastPermanentFromHand(state, playerId) {
 }
 
 /**
+ * OMEN (CR 720) and PREPARATION (CR 722) cards — cast NORMALLY from hand: the creature face (omenPrepare.normalFaceCard — same
+ * id, the normal half's name / type / oracle / mana) at its own cost and timing, entering as that creature with the whole card
+ * as its printedCard (the dispatcher's face-cast path). An omen card cast normally, and a preparation card in every zone, has
+ * only its normal characteristics (CR 720.3, 720.4, 722.4). The Omen spell (shuffled into its owner's library as it resolves,
+ * CR 720.3d) and the prepare spell's copy (CR 722.3c) are never offered — unmodeled, a safe under-offer. NOT tier-gated, the
+ * adventurer's permanent-half posture (actionsCastPermanentFromHand): entering as the printed creature is how every body-only
+ * creature is played. The combined card itself is skipped by castActionsFromZone (its cost names both halves).
+ */
+function actionsCastNormalFaceFromHand(state, playerId) {
+  const actions = [];
+  for (const card of state.players[playerId].hand) {
+    const face = normalFaceCard(card);
+    if (!face) continue;
+    for (const a of castActionsFromZone(state, playerId, [face], "hand", null)) actions.push({ ...a, faceCard: face });
+  }
+  return actions;
+}
+
+/**
  * SPLIT CARDS (CR 709.4) — cast EITHER half from hand. Offered ONLY for a plain split card whose BOTH halves
  * are modeled (classifyCard returns a native tier — the metric's own authority, so runtime and coverage can't
  * disagree; a split with an unmodeled half is arbiter-spell and is NEVER offered here, so we never silently
@@ -4539,6 +4579,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsCastAdventureFromHand(state, playerId)); // ADVENTURE step 1 (CR 715.3): cast the adventure (instant/sorcery) half
     actions.push(...actionsCastPermanentFromHand(state, playerId)); // ADVENTURE step 1b (CR 715.3, 715.4): cast the creature/enchantment/artifact half from hand at its own cost
     actions.push(...actionsCastPermanentFromAdventureExile(state, playerId)); // ADVENTURE step 2 (CR 715.3d): cast the creature/enchantment/artifact half from exile (a Town plays from exile in actionsPlayLand)
+    actions.push(...actionsCastNormalFaceFromHand(state, playerId)); // OMEN / PREPARATION (CR 720.3, 722.4): cast normally — the creature face at its own cost
   }
   // NONCREATURE CAST-LIMIT (SHELF-85 · Light-Paws L5 Deafening Silence, 2026-09-05 — "Each player can't cast more than one
   // noncreature spell each turn", CR 604.2): while ANY battlefield carries the static, a player who already cast a

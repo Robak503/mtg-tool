@@ -32,6 +32,8 @@
  * false-negative — it stays whatever tier it was, never a mis-credit).
  */
 
+import { colorsOfSpell } from "./spellColors.js"; // a leaf (no imports): a face's colours off its own mana cost (CR 202.2) — importing staticAbilityParser here closed a cycle through faceUp.js
+
 // The "(Then exile this card. You may cast the creature later from exile.)" reminder (CR 207.2a — no rules
 // meaning; "… cast the enchantment later …" on an enchantment Adventure) printed on the Adventure half. Stripped
 // before parsing the adventure spell's effect so the bare reminder doesn't drag the program down. Matched
@@ -148,6 +150,9 @@ export function isAdventureCard(card) {
  * A card-view projected onto the PERMANENT half: { id, name, type, oracle, mana } (id preserved so zone moves
  * still find it). Used when the permanent is cast (from hand, the command zone or adventure-exile) so it enters
  * as that creature or enchantment, not the combined card. Returns null for a non-adventure card.
+ * Its colours are the card's own: the bundled data records an adventurer's top-level colours as its NORMAL characteristics'
+ * (CR 715.4) — corpus check 2026-10-17: equal to the permanent half's mana symbols (CR 202.2) on every adventurer except the
+ * playtest Keeper of the Crown, whose {L} symbol the data colours green.
  */
 export function permanentFaceCard(card) {
   const parsed = parseAdventureCard(card);
@@ -156,14 +161,19 @@ export function permanentFaceCard(card) {
 }
 
 /**
- * A card-view projected onto the ADVENTURE half: { id, name, type, oracle, mana }. Used when the Adventure
- * spell is cast so the stack object carries the adventure spell's program/cost. Returns null for a
- * non-adventure card.
+ * A card-view projected onto the ADVENTURE half: { id, name, type, oracle, mana, colors }. Used when the Adventure
+ * spell is cast so the stack object carries the adventure spell's program/cost — and its COLOURS (2026-10-17): on the stack as
+ * an Adventure the spell has only its alternative characteristics (CR 715.3b), so it is the colour of the mana symbols in the
+ * Adventure's own cost (CR 202.2). The card's top-level `colors` is its NORMAL colour (CR 715.4 — the bundled data records the
+ * permanent half's), so a face that inherited it cast Blow Off Steam ({R}) as the blue of Frolicking Familiar: Gainsay could
+ * counter it, it could target a creature with protection from red, and "whenever a player casts a red spell" never saw it.
+ * (permanentFaceCard keeps the card's colours: they ARE the normal half's.) Returns null for a non-adventure card.
  */
 export function adventureFaceCard(card) {
   const parsed = parseAdventureCard(card);
   if (!parsed) return null;
-  return { ...card, name: parsed.adventure.name, type: parsed.adventure.type, oracle: parsed.adventure.oracle, mana: parsed.adventure.mana };
+  const { name, type, oracle, mana } = parsed.adventure;
+  return { ...card, name, type, oracle, mana, colors: colorsOfSpell({ mana, oracle }) };
 }
 
 /** A bare card-view ({name,type,oracle,mana}) for one parsed face — used by the coverage native gate. */

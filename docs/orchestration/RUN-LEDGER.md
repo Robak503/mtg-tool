@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **65 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,451)**; engine gains since the tag: **−16** (+65 gained, −81 false credit removed). The next tag
+> **66 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,451)**; engine gains since the tag: **−16** (+65 gained, −81 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,83 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX: a split half or an Adventure on the stack has only its own COLOURS, and no card is cast as one object paying two halves' costs — Fire is red (Gainsay, Pyroblast, Kor Firewalker), Blow Off Steam is red; omen and preparation cards cast as their creature; Rooms, three-half splits and Twice Upon a Time are not offered · **±0** · snapshot native 15,431 → 15,431
+> Suite **19,745 green (1 skipped) / 1,824 files** under the gate queue. Lint 0 (CR citations: 0 of 10,679 name no rule). Flip-diff **0 / 0 / 0 — no card's tier moves** (34,620 cards; before = an
+> · **Integration (2026-10-17):** `colorsOfSpell` moved from staticAbilityParser.js to the new leaf `spellColors.js` (re-exported by the parser). On top of the same night's DFC sweep (faceUp.js imports splitCard.js), this slice's splitCard/adventure → staticAbilityParser imports closed the cycle keywords → faceUp → splitCard → staticAbilityParser → keywords; at integration 759 tests read GRANTABLE_STATIC_KEYWORDS as undefined. The leaf has no imports, so the edge is gone; the full chain re-ran green.
+> untouched `git archive` of f06415fb, after = this tree). **Mutants 8/8** on assertions, each restored byte-identical (sha256 of the
+> four engine files compared after the run). Committed on `night/splitcolors`, not pushed; the release-batch line and the WAKE-REPORT
+> counters are the integrator's.
+> · **The report (the counter-mana-value slice's probe, 10-17), re-proved on f06415fb** — every witness below failed there on an
+>   assertion (19 of the 29 board tests; the 8 controls and 2 reads already right there — Fire triggering Kor Firewalker,
+>   Gainsay countering Ice — passed; the 2 shape tests came with omenPrepare.js). `splitCard.splitFaceCards` and `adventure.adventureFaceCard` spread the whole card into the projected face, so the face
+>   kept the card's top-level `colors`: the COMBINED colours for a split card (CR 709.4b — right in every zone but the stack) and the
+>   NORMAL half's for an adventurer (CR 715.4 — the bundled data records the permanent half's). Fire from Fire // Ice was red AND blue:
+>   Gainsay ("Counter target blue spell") and Pyroblast could counter it, Hydroblast could counter Ice, Kor Firewalker ("Whenever a
+>   player casts a red spell") triggered on Ice, and Ice could not tap Kor Firewalker (protection from red). Blow Off Steam, the {R}
+>   Adventure of the blue Frolicking Familiar, was cast BLUE (Gainsay and Pyroblast could counter it, it could be aimed at Kor
+>   Firewalker, Kor Firewalker never saw it); Seek the Heart, Overture and Take a Trip to… were cast COLOURLESS (the Arkenstone and the
+>   Towns are colourless). Separately, `castActionsFromZone` skipped the combined card only for the shapes it models, so every other card
+>   whose mana cost names two halves rode the generic builder as one object at the summed cost: Marang River Regent // Coil and Catch
+>   for ten (and on an opponent's turn, off "Instant — Omen"), Bottomless Pool // Locker Room for {U} + {4}{U}, Adventurous Eater //
+>   Have a Bite for {2}{B} + {B}.
+> · **The rules** (bundled CR, cited exactly). CR 709.3 / 709.3a: the half is chosen before the card goes on the stack and only it is
+>   evaluated; CR 709.3b: "While on the stack, only the characteristics of the half being cast exist"; CR 709.4b: the combined colours
+>   everywhere else; CR 715.3b: an Adventure on the stack "has only its alternative characteristics"; CR 202.2 / 202.2d: an object is
+>   the colour of its mana symbols, a hybrid symbol each of its colours. A fused split spell has the combined characteristics (CR
+>   702.102b, 709.4d) — fuse is not offered. Rooms are split cards; casting a door unlocks it (CR 709.5d) and a locked door is unlocked
+>   by a special action (CR 709.5e). OMEN cards are CR 720 (cast normally or as an Omen, 720.3; normal characteristics everywhere but
+>   the stack as an Omen, 720.4; the Omen shuffles into its owner's library, 720.3d); PREPARATION cards are CR 722 (the inset can't be
+>   cast at all, 722.3; it defines a prepared permanent's copy, 722.3c; normal characteristics in every zone, 722.4).
+> · **The change.** `splitCard.splitFaceCards` and `adventure.adventureFaceCard` set the face's `colors` from the half's own block
+>   (`staticAbilityParser.colorsOfSpell` — the derivation modalDfc's faces already use; its import closure holds no shape module, so the
+>   edges are acyclic). `permanentFaceCard` keeps the card's colours (they ARE the normal half's — corpus check below). Every colour reader
+>   takes the stack object's `source`, so nothing else changed: the counter filters and Pyroblast/Hydroblast's restricted twins
+>   (`spellOnStack.counterColorsOf`), the cast watchers (`triggers` via `layers.colorsOf`, and `recordSpellCast`'s colours), the cast
+>   offer's protection read (`colorsOf(face)` into `expandCastChoices` / `enumerateTargets`) and the CR 608.2b re-check
+>   (`resolutionSourceColors`). `legalChoices.castActionsFromZone`: any card whose mana cost holds "//" is skipped (a projected face never
+>   does). New pure shape module `omenPrepare.js` (an omen by its inset's spell type, CR 205.3k; a preparation card by the Scryfall layout
+>   "prepare" — its inset names nothing); `actionsCastNormalFaceFromHand` and an `actionsCastCommander` branch offer the NORMAL face —
+>   the creature at its own cost and timing, entering with the whole card as printedCard — the adventurer's permanent-half posture, not
+>   tier-gated. The Omen and the prepare copy are never offered.
+> · **Corpus checks** (bundled data, this tree): the union of each split card's two half colours equals Scryfall's combined colours on all
+>   103 split cards; 68 of them (136 halves) change colour on the stack, 26 offered natively (Fire // Ice, Consign // Oblivion, Order //
+>   Chaos, Far // Away …). 36 Adventure halves change colour, 13 on native cards (Blow Off Steam, Steam Clean, Can't Wake Up, Scan the
+>   Clouds, Seek the Heart, Overture …). An adventurer's top-level colours equal its permanent half's mana symbols on 148 of 149 (the
+>   playtest Keeper of the Crown's {L}, coloured green by the data, is the exception — kept). The 86 omen and preparation cards' top-level
+>   colours equal their normal half's. No split or adventure face carries a colour indicator or Devoid.
+> · **Every card shape that still got a combined cast** (a census of all 884 "//" cards in the index, cast offers from hand on a board with
+>   six of each basic, before vs after): **119 change, 0 two-half combined casts remain.** 16 OMEN → the creature at its own cost
+>   (Marang River Regent, Whirlwing Stormbrood with its own flash, Stonehide Ancient, Scavenger Regent …; Runescale, Disruptive and Twinmaw
+>   Stormbrood were offered nothing — the combined card read as an Omen spell — and now cast as the creature). 70 PREPARATION → the
+>   creature (Adventurous Eater, Emeritus of Truce, Abigale, Poet Laureate and the five other legendaries also from the command zone). 30
+>   ROOMS → nothing (no door / unlock model — CR 709.5d's per-door cast is not offered: FN). 2 three-half split cards (Smelt // Herd //
+>   Saw, There // They're // Their) and Twice Upon a Time (a sorcery normal half outside the Adventure lane, with a cast restriction) →
+>   nothing. Unchanged and out of scope (none pays two halves): 390 transform DFCs, 21 flip cards and 37 non-native spell // spell modal
+>   DFCs still cast as the combined object at the front face's cost (see ⚠️).
+> · **Witnesses.** `splitHalfColors.test.js` (17): Gainsay / Pyroblast / Hydroblast against Fire, Ice, Blow Off Steam, Steam Clean;
+>   Gainsay resolving against Ice (the whole card to the graveyard); Kor Firewalker on Ice (no trigger), Fire, Blow Off Steam (trigger);
+>   Ice may tap Kor Firewalker, Fire and Blow Off Steam may not target it, Steam Clean may; the face colours (Response // Resurgence's
+>   hybrid half). Controls: Frolicking Familiar cast normally (blue), Lightning Bolt, Turn // Burn (fuse never offered; a combined split
+>   source reads fail-closed in `counterColorsOf`). `combinedHalvesCast.test.js` (14): the Room, the three-half splits and Twice Upon a
+>   Time not offered; Marang River Regent at {4}{U}{U}, resolving as the Dragon with printedCard, not on the opponent's turn; Whirlwing
+>   Stormbrood at {4}{U} with its own flash; Runescale Stormbrood; Adventurous Eater at {2}{B} → a 3/2 with no counters; Abigale from the
+>   command zone with the tax; the shape reader. Controls: Fire // Ice's two halves, Bonecrusher Giant's creature half, Grizzly Bears.
+> · **AI / self-play.** Profile decks holding a changed card: Test Rashmi (Omnath profile — Marang River Regent: was the ten-mana combined
+>   cast, now the six-mana Dragon at sorcery speed), Shorikai Vehicles (Emeritus of Truce: now the three-mana creature), Believe it!
+>   (Joe — Consign is blue only on the stack, no longer black). Decks whose colour readers now judge halves correctly when an opponent
+>   casts one: Killer Turts (Pyroblast, Red Elemental Blast, Veil of Summer), Kinnan, cdh (Veil of Summer), and the protection-from-colour
+>   holders (Light-Paws Voltron's Mask of Law and Grace / Shield of Duty and Reason, Captain America's Swords, Akroma's Memorial,
+>   Mistcutter Hydra, Archon of Absolution).
+> · ⚠️ Found, not fixed: (1) the projected faces still inherit the whole card's `keywords` (Swift End carries Lifelink, Petty Theft
+>   Flash and Flying, Yeah Nah split second) — no runtime reader reads a spell face's keyword array except Flash at the timing gate, and
+>   no corpus sorcery half inherits Flash, so it is unobservable today; a future spell-lifelink or split-second reader would see it.
+>   The faces also keep the whole card's `cmc` (the stack mana-value leaf reads the half's own cost by `layout`) and an Adventure keeps
+>   the creature's power/toughness. (2) The 390 transform DFCs, 21 flip cards and 37 non-native spell // spell modal DFCs are cast as the
+>   combined object at the front face's (legal) cost, the other face's text riding along. (3) Rooms need a door model (CR 709.5) before
+>   either door is offered; the Omen spell (CR 720.3d shuffle) and the prepared copy (CR 722.3c) are unbuilt; coverage still tiers the
+>   omen and preparation cards `arbiter-spell` although the runtime now plays their creature. (4) An omen or preparation card in another
+>   cast lane (impulse exile, the top of the library, a graveyard permission, cascade) is not offered — the adventurer's precedent.
 
 > ## 🔧 2026-10-17 — FIX: the edict chain CHOOSES, THEN SACRIFICES TOGETHER — each-player / each-opponent edicts (CR 101.4's own example), annihilator N one event per trigger, Planar Engineering's chosen two lands (it took ONE) · **±0** · corpus 15,494
 > Suite **19,745** green (1 skipped) / 1,824 files under the gate queue. Lint 0 (CR citations: 0 of 10,634 name no rule). Flip-diff **0 / 0 / 0**
