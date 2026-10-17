@@ -39,7 +39,7 @@ describe("detection, the rewrite and the classifier", () => {
     console.log("  WITNESS caseyJones", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
     expect(row.scope).toBe("creatureYouControl");
     expect(row.clause).toBe("this creature deals that much counters-placed damage to target opponent");
-    expect(row.atom).toMatchObject({ op: "deal-damage", countContext: "countersPlaced", targetType: "player" });
+    expect(row.atom).toMatchObject({ op: "deal-damage", countContext: "countersPlaced", targetType: "opponent" }); // the opponent pool (graduated 2026-10-17 from "player" — targetOpponentOnly.test.js)
     expect(row.tier).toMatch(/^native/);
   });
 

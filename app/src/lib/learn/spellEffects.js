@@ -224,7 +224,15 @@ export function parseSpellEffect(card) {
     // not contain the word "target", so order is not load-bearing here, but keeping the referent forms
     // together with their siblings is.
     if (/^the discarding player$/.test(tgt)) return { kind: "damage", amount, targetType: "discardingPlayer" };
-    if (/target (player|opponent)/.test(tgt)) return { kind: "damage", amount, targetType: "player" };
+    // "target opponent" names an OPPONENT — the other player (CR 102.2), in a Free-for-All game every other player (CR 806.1,
+    // Commander's default, CR 903.2): the controller is never a legal target (CR 115.1, 601.2c), so it reads the opponent
+    // pool, never the every-player one. This shape is the fallback every clause reaches through
+    // parser.legacyToAtom — spells, activated and triggered abilities alike — so reading "player" here offered Deadeye Duelist's
+    // "deals 1 damage to target opponent" at its own controller, and a trigger whose every opponent was untargetable forced
+    // its controller as the target where CR 603.3d removes it. "target opponent or planeswalker" lands here too: the opponents
+    // are offered and the planeswalker half is not (no such pool yet) — an under-offer, never an illegal target.
+    const tp = tgt.match(/target (player|opponent)/);
+    if (tp) return { kind: "damage", amount, targetType: tp[1] };
     if (/target[^,]*creature/.test(tgt)) return { kind: "damage", amount, targetType: "creature" };
     return null; // unrecognized damage target
   }

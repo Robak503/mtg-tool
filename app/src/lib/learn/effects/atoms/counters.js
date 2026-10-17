@@ -436,17 +436,19 @@ export function cdmgPayoffClauseParser(clause) {
   if (cpLifeM) return { op: "gain-life", countContext: "countersPlaced", optional: !!cpLifeM[1], targetType: null };
   // (cp-dmg) counters-PUT damage sentinel (Shalai and Hallar — SH1): "this creature deals that much
   // counters-put damage to target opponent" → the deal-damage atom the fixed form emits
-  // ({op:"deal-damage", targetType:"player"}), amount swapped for countContext:"countersPutCount" (the
+  // ({op:"deal-damage", targetType:"opponent"}), amount swapped for countContext:"countersPutCount" (the
   // counters placed in the event, threaded by checkCountersPutTriggers). Source is the trigger's
   // permanent (ctx.sourceId) automatically. Sentinel-only → never reached off the countersPut rewrite.
+  // The opponent pool, never the every-player one (CR 102.2, 806.1): with every opponent untargetable the trigger has
+  // no legal target and is removed (CR 603.3d) — the every-player pool forced its controller as the target instead.
   const cpDmgM = t.match(/^this creature deals that much counters-put damage to target opponent$/);
-  if (cpDmgM) return { op: "deal-damage", countContext: "countersPutCount", targetType: "player" };
+  if (cpDmgM) return { op: "deal-damage", countContext: "countersPutCount", targetType: "opponent" };
   // (cpd-dmg) counters-PLACED damage sentinel (Casey Jones, Back Alley Brute — SHELF-85 · Halfshell Q3, 2026-09-05): the
   // ACTIVE event's twin of the arm above — "this creature deals that much counters-placed damage to target opponent" →
   // the same deal-damage atom, amount swapped for countContext:"countersPlaced" (the counters YOU placed in the event,
   // threaded by checkCounterPlacedTriggers). Sentinel-only → never reached off the countersPlaced rewrite.
   const cpdDmgM = t.match(/^this creature deals that much counters-placed damage to target opponent$/);
-  if (cpdDmgM) return { op: "deal-damage", countContext: "countersPlaced", targetType: "player" };
+  if (cpdDmgM) return { op: "deal-damage", countContext: "countersPlaced", targetType: "opponent" }; // the opponent pool, as above
   // (cp-self-ctr) counters-PUT self-counter accumulator (Simic Ascendancy — SH11): "put that many counters-put
   // <named> counters on this <permanent>" → the add-named-counter-self atom the fixed form emits, amount swapped
   // for countContext:"countersPutCount". Sentinel-only ("counters-put" is inserted by the countersPut rewrite) →

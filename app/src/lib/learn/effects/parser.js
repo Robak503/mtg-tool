@@ -365,6 +365,27 @@ const MINTED_HASTE_RE = /^(?:it|that token|the token|they|those tokens) gains? h
 // combat if able" — Legion Warboss) leaves its tail unparsed and the card parked.
 const CREATED_TOKEN_HASTE_EOT_RE = /^(?:that token|those tokens) gains? haste until end of turn\.?$/i;
 
+// A BARE "IT" AFTER A TARGET (2026-10-17 — Assassin Den, Jailbreak Scheme, Kiora of Salt and Sand). A few arms read a leading
+// "it" as the ability's own permanent (target "self" — "it can't be blocked this turn", "it becomes colorless until end of
+// turn"), which is right when nothing else has been named (Razzle-Dazzler: "put a +1/+1 counter on this creature. It can't
+// be blocked this turn."). After a clause that TARGETS, "it" is that target (CR 608.2c — the text is read by the rules of
+// English): Assassin Den's "Put a +1/+1 counter on target creature you control. It can't be blocked this turn." made the
+// Wall unblockable instead of the creature, and on a spell (no source permanent) the rider resolved to nothing.
+//   "bind"   — the clause right before it targets with the controller or the target as its subject (a closed lead: put,
+//              untap, tap, target): the atom drops its self referent and binds to that target (bindPreviousTargets, CR 608.2).
+//   "refuse" — something earlier targets but that proof is missing (the source may be the subject — "it deals 1 damage to
+//              target creature. It …"): the clause is unread and the program drops to LOW, never a guessed subject.
+//   null     — no target before it, or not a bare leading "it": the self reading stands.
+const BARE_IT_LEAD_RE = /^it\b/i;
+const TARGETING_CLAUSE_LEAD_RE = /^(?:then )?(?:put|untap|tap|target)\b/i;
+function bareItAfterTarget(atom, clause, atoms, prevClause) {
+  if (atom?.target !== "self" || !BARE_IT_LEAD_RE.test(stripReminder(clause).trim())) return null;
+  const targets = (a) => !!a?.targetType && !isNonChosenTargetType(a.targetType);
+  if (!atoms.some(targets)) return null;
+  const prev = atoms[atoms.length - 1];
+  return targets(prev) && !prev.bindPreviousTargets && TARGETING_CLAUSE_LEAD_RE.test(stripReminder(prevClause || "").trim()) ? "bind" : "refuse";
+}
+
 // ATTACH-LAST-TOKEN sequence (Cori-Steel Cutter, W9): the attach atom reads the _lastMintedTokenIds stamp
 // only a create-token atom writes — so it is honest ONLY when a create-token PRECEDES it in the same
 // program (else the read silently no-ops: the dropped-clause FP). Mirrors diceRollSequenceOk exactly.
@@ -3772,8 +3793,8 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   const clauses = splitClauses(oracle);
   const atoms = [];
   let allParsed = clauses.length > 0;
-  for (const clause of clauses) {
-    const atom = parseClauseToAtom(cardType, clause, hasX, sourceScoped);
+  for (const [ci, clause] of clauses.entries()) {
+    let atom = parseClauseToAtom(cardType, clause, hasX, sourceScoped);
     if (!atom) {
       // EXILE-IF-DIES rider (subsystem 3) — "If that creature would die this turn, exile it instead."
       // (Lava Coil, Magma Spray, Puncturing Blow): a floating death-replacement scoped to the single
@@ -3797,6 +3818,13 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       // create-token atom whose tokens it names; the atom is replaced by a flagged copy (a parsed atom may be shared).
       if (prev?.op === "create-token" && CREATED_TOKEN_HASTE_EOT_RE.test(clause)) { atoms[atoms.length - 1] = { ...prev, hasteUntilEot: true }; continue; }
       allParsed = false; break;
+    }
+    // A BARE "IT" AFTER A TARGET names that target, not the source (see bareItAfterTarget).
+    const itRead = bareItAfterTarget(atom, clause, atoms, ci > 0 ? clauses[ci - 1] : null);
+    if (itRead === "refuse") { allParsed = false; break; }
+    if (itRead === "bind") {
+      const { target: _self, ...rest } = atom;
+      atom = { ...rest, bindPreviousTargets: true };
     }
     // REFERENT BINDING (CR 608.2) — "It gains flying until end of turn" acts on whatever the PREVIOUS
     // clause targeted, so it is only meaningful directly after a targeting atom. Enforced HERE, at
@@ -3836,7 +3864,9 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
     // evaluated at resolution by the conditional-rider gate in runProgram).
     if (atom.op === "discard" && atom.who === "damagedPlayer" && !atom.countContext && atoms.length > 0) {
       const prevAtom = atoms[atoms.length - 1];
-      const projection = (prevAtom.op === "deal-damage" && prevAtom.targetType === "player") ? {}
+      // (A "target opponent" damage atom reads the opponent pool — spellEffects.parseSpellEffect — and its "that player" is the
+      // chosen opponent exactly as a "target player" one's is the chosen player: Carnage, Carnival // Carnage's second half.)
+      const projection = (prevAtom.op === "deal-damage" && (prevAtom.targetType === "player" || prevAtom.targetType === "opponent")) ? {}
         : (prevAtom.op === "bounce" && prevAtom.targetType) ? { playerFrom: "owner" }
         : (prevAtom.op === "counter" && prevAtom.targetType === "spell") ? { playerFrom: "controller" }
         : null;

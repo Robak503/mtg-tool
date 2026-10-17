@@ -8,8 +8,9 @@
  * (2) detectTriggers rewrites the countersPut damage payoff → the unprintable sentinel "deals that much
  * counters-put damage to target opponent" (the sentinel IS the referent gate — only a countersPut-context
  * clause reaches the parser arm, so no other event reads an absent ctx and silently deals 0); (3) the arm
- * maps the sentinel → {op:"deal-damage", countContext:"countersPutCount", targetType:"player"} — the exact
- * fixed-form atom with the amount swapped for the context. resolveScaledAmount already reads countContext,
+ * maps the sentinel → {op:"deal-damage", countContext:"countersPutCount", targetType:"opponent"} — the exact
+ * fixed-form atom with the amount swapped for the context (graduated 2026-10-17: both read targetType "player", the
+ * every-player pool, until targetOpponentOnly.test.js — "target opponent" is the opponent pool, CR 102.2, 806.1). resolveScaledAmount already reads countContext,
  * so the applier was untouched. Flip +1/0/0 (the commander).
  *
  * Mutation-checked (via Edit): the countersPut rewrite branch → the sentinel never forms → classify dies;
@@ -38,10 +39,10 @@ describe("SH1 — parse + rewrite + classify", () => {
   it("MUST STAY HIGH: the sentinel → deal-damage reading countContext; the fixed form is unchanged", () => {
     const p = parseEffectClause("this creature deals that much counters-put damage to target opponent", "Instant", { sourceScoped: true });
     expect(programConfidence(p)).toBe("high");
-    expect(p.atoms[0]).toMatchObject({ op: "deal-damage", countContext: "countersPutCount", targetType: "player" });
+    expect(p.atoms[0]).toMatchObject({ op: "deal-damage", countContext: "countersPutCount", targetType: "opponent" });
     // regression: the fixed-amount form is byte-identical
     expect(parseEffectClause("this creature deals 3 damage to target opponent", "Instant", { sourceScoped: true }).atoms[0])
-      .toMatchObject({ op: "deal-damage", amount: 3, targetType: "player" });
+      .toMatchObject({ op: "deal-damage", amount: 3, targetType: "opponent" });
   });
   it("detectTriggers rewrites Shalai's countersPut payoff to the sentinel; classify is native-trigger", () => {
     const d = detectTriggers(shalaiCard).find((x) => x.event === "countersPut");
@@ -65,7 +66,7 @@ describe("SH1 — threading + the RUNTIME hollow-gate check", () => {
   it("THE HOLLOW-GATE CHECK — the damage dealt EQUALS the counters placed (mutation-check line)", () => {
     const s = board([{ id: "w", controller: "user", card: shalaiCard }], []);
     const before = s.players.ai1.life;
-    const atom = { op: "deal-damage", countContext: "countersPutCount", targetType: "player" };
+    const atom = { op: "deal-damage", countContext: "countersPutCount", targetType: "opponent" };
     const after = resolveAtom(s, atom, { controller: "user", sourceId: "w", countersPutCount: 4, targets: [{ type: "player", id: "ai1" }] });
     expect(before - after.players.ai1.life).toBe(4);
     // and a 0-count event deals 0 (CR 609 — never a fabricated minimum)

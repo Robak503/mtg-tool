@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **17 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.8% (15,503)**; engine gains since the tag: **+50** (+59 gained, −9 false credit removed). The next tag
+> **18 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.8% (15,503)**; engine gains since the tag: **+50** (+59 gained, −9 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,84 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX (false positive): "target opponent" is an opponent — Deadeye Duelist's "{1}, {T}: This creature deals 1 damage to target opponent." is no longer offered at its own controller, nor is any spell or ability of the shape (57 bundled cards — Burning Fields, Jeskai Charm, Vampiric Touch, Kindlespark Duo, Shocking Sharpshooter, Shalai and Hallar, Casey Jones, the ten "deals 1 damage to target opponent" dual lands …); a trigger whose every opponent is untargetable is removed (CR 603.3d) instead of forced at its controller; and the sibling: Assassin Den's "It can't be blocked this turn" lands on the creature it targeted, not on the Wall · **±0** · snapshot native 15,498 unchanged
+> Suite **20,525 green (1 skipped) / 1,864 files** under the gate queue (with the rules index built for the run and deleted after).
+> Lint 0 (CR citations: 0 of 11,392 name no rule; keyword citations: 0 of 2,365 cite a different keyword). Flip-diff
+> **0 / 0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of b28acb52, snapshotted before the first edit; native+land
+> 15,498 of 34,584 snapshot names on both — no tier of any card moved, parked tiers included). **Mutants 7/7** on assertions, each
+> restored byte-identical (sha256). Witness `targetOpponentOnly.test.js` written first: 14 of the first 20 seen to fail on the base
+> engine on assertions (the 6 controls pass on both); with the sibling and Carnage cases added while building, 18 of the final 26 fail
+> on the untouched b28acb52 archive on assertions, the 8 controls pass on both. A/B **80 seeded commander games** (base seed 7, 10 per
+> pod, the 30 profile decks, default AI; base = the untouched b28acb52 archive): **80 / 80 byte-identical** (every decision row —
+> action, offered-set summary, rank, cast scores —, winner and turn count; the breakage report identical, 82 entries), 0 errors on
+> either tree, results unchanged (ai-wins 57 / user-wins 23), 175 s / 176 s per batch. Committed on `day/tgtopp`, not pushed; the
+> release-batch line and the WAKE-REPORT are the integrator's.
+> · **The bug** (found 2026-10-17 in the Brash Taunter slice, probed again on b28acb52). The legacy damage parse
+>   (`spellEffects.parseSpellEffect`) read "… damage to target opponent" — and "… to target opponent or planeswalker" — as targetType
+>   "player", the every-player pool, and that shape is the fallback every clause reaches through `parser.legacyToAtom`: spells, activated
+>   and triggered abilities alike. The counters-put / counters-placed damage sentinels (`atoms/counters.js` — Shalai and Hallar, Casey
+>   Jones) emitted "player" too. So Deadeye Duelist's ability was offered at `user` and `ai` both (a "target opponent" is never you — the
+>   other player, CR 102.2; in a Free-for-All game every other player, CR 806.1 / 903.2; a target is chosen as the spell or ability is
+>   put on the stack, CR 115.1, 601.2c, 602.2b), and so was every cast of Burning Fields, Jeskai Charm's damage mode, Vampiric Touch, and
+>   the cast offer of a LOW spell (Stinging Vitriol). Triggers looked safe — the α1 chooser picks an enemy — but with every opponent
+>   untargetable (Leyline of Sanctity) it found no correct-side candidate and `pickForcedTriggerCandidate` forced one from the pool: the
+>   controller, where CR 603.3d removes the ability (probed: Shocking Sharpshooter, Shalai and Hallar and Casey Jones each dealt their
+>   damage to their own controller, `trigger-target-forced: ["user"]`).
+> · **The fix.** `parseSpellEffect` maps the printed word: "target opponent" → targetType "opponent" (the enumerator's existing opponent
+>   pool, `spellEffects.addOpponents`, which the discard / draw / life / mill / edict arms already use), "target player" → "player" as
+>   before; the two counters sentinels emit "opponent". Nothing else needed a change: the cast, activation and trigger-flush offers
+>   enumerate the atom's pool (targeting.atomTargetSpec), `atomTargetIntent("opponent")` is enemy, the deal-damage resolver reads
+>   `ctx.targets`, and the CR 608.2b re-check judges a recorded target by the same pool — so a stack object whose target is its own
+>   controller (a pre-fix record, a saved game) now fizzles instead of dealing the damage (witnessed). The THAT-PLAYER rebind
+>   (parser.js — "…deals N damage to target player. That player discards…") accepts the opponent antecedent too, so Carnage (Carnival //
+>   Carnage's second half) keeps the HIGH read it had (the card is arbiter-spell, so nothing is offered from it today).
+> · **Reach** (the engine's own parse over every bundled card — legacy parse, cast program, activated abilities, triggers — base vs this
+>   tree; every changed atom went "player" → "opponent", nothing else moved): **57 cards.** 35 classify native — Aragorn, the Uniter
+>   (#3383), Shalai and Hallar (#4099), Hedron Detonator, Kindlespark Duo, Shocking Sharpshooter, Hearthborn Battler, Casey Jones, Biotech
+>   Specialist, Jeskai Charm, Ill-Gotten Inheritance, Raphael, Tough Turtle, Scuttling Doom Engine, Frilled Deathspitter, Sun-Crowned
+>   Hunters, Deadeye Duelist, Aether Charge, Iron-Fist Pulverizer, Fireblade Artist, Cult Guildmage, Bedeck // Bedazzle, Inferno Jet,
+>   Razortip Whip, Syndicate Guildmage, Cinder Hellion, Thumbscrews, Zealot of the God-Pharaoh, Searing Flesh, Vampiric Touch, Scalding
+>   Tongs, Burning Fields, Manticore of the Gauntlet, Kiss of Death, Sorcerer of the Fang, Stolen Grain, Iridescent Vinelasher; 10 are the
+>   land-tier "enters tapped, deals 1 damage to target opponent" duals (Abraded Bluffs #2996, Bristling Backwoods, Jagged Barrens, Eroded
+>   Canyon, Creosote Heath, Lush Oasis, Forlorn Flats, Festering Gulch, Soured Springs, Lonely Arroyo), whose trigger routes natively; 6
+>   carry the ability natively on an otherwise parked card (Urabrask // The Great Work #1879, Ral, Storm Conduit, Theater of Horrors, Gev,
+>   Scaled Scorch, Morlun, Devourer of Spiders, Gastal Thrillseeker); 5 are LOW spells whose cast offer reads the legacy shape (Stinging
+>   Vitriol, Explosion of Riches, the three prepared "Vicious Verse" cards); Human Torch, Johnny Storm's trigger does not route. 24 of the
+>   57 print "target opponent or planeswalker". **Profile decks:** Halfshell heroes (Casey Jones) and Shalai and Hallar Test (Shalai and
+>   Hallar) — triggers both, so the A/B could not see it: no opponent in those 80 games was untargetable.
+> · **The sibling (fixed — a pronoun resolving to the wrong subject).** "It can't be blocked this turn" (atoms/combat.js — the self arm,
+>   and its except-by twin; "it becomes colorless until end of turn" is the same shape) parsed as the SOURCE whatever came before it, so
+>   Assassin Den's "{3}{U}: Put a +1/+1 counter on target creature you control. It can't be blocked this turn." (native-activated) made
+>   the Wall — a defender — unblockable and left the creature that took the counter blockable (probed), and on a spell (no source
+>   permanent, atoms/shared.js selfTargets) the rider resolved to nothing. "It" there is the target (CR 608.2c — the rules of English).
+>   `parser.bareItAfterTarget`, at sequence assembly: a bare leading "it" with a self referent, right after a clause that targets with
+>   the controller or the target as its subject (a closed lead — put / untap / tap / target), drops the self referent and binds to that
+>   target (the existing referent binding, `bindPreviousTargets`, CR 608.2); after any other clause that owns a target it is not read (the
+>   program drops to LOW — "this creature deals 1 damage to target creature. It …" might mean the source); with no target before it, the
+>   self reading stands (Razzle-Dazzler, Kappa Cannoneer). The self-referent scan (every atom with target "self" after an atom owning a
+>   chosen target, over all bundled cards) went 18 → 16 hits: Assassin Den and Kiora of Salt and Sand (body-only; its intervening-if
+>   doesn't route) now bind; the 16 left name the source explicitly ("this creature", "this artifact", the card's name). Jailbreak Scheme's
+>   first mode now reads right; the card stays parked on its second mode. None of the three is in a profile deck.
+> · Witness **`targetOpponentOnly.test.js`** (26), through `legalActionsForPlayer` + `dispatchAction` + `resolveTopOfStack` on bundled
+>   oracle text unless said: the parse (Burning Fields, Stinging Vitriol "opponent", Lava Spike "playerOrPlaneswalker", Deadeye Duelist's
+>   atom; Carnage's that-player rebind); the activation offer (Deadeye Duelist, Kindlespark Duo, Zealot; a four-seat Commander game offers
+>   ai1–ai3; behind Leyline of Sanctity no offer at all); the spell offer (Burning Fields, Jeskai Charm's mode, Vampiric Touch, Stinging
+>   Vitriol; behind Leyline no cast); the CR 608.2b fizzle of a controller target; triggers behind Leyline (Shocking Sharpshooter,
+>   Shalai and Hallar, Casey Jones — removed, nothing forced); the sibling (Assassin Den at runtime, the binding parse on Den and on
+>   Jailbreak Scheme's first mode, a synthetic CREED refusal). Controls: no tier moves, the opponent target resolves, "target player or
+>   planeswalker" still offers every player and the planeswalker, the chooser still hits the opponent, Razzle-Dazzler keeps its self.
+>   Graduated with the date: `shalaiCountersDamage.test.js`, `caseyJones.test.js` (the sentinel atoms read "opponent").
+> · **Mutants (7):** the legacy map back to "player" (15 fail); either sentinel back to "player" (2 each); the bind branch off (2); the
+>   refuse branch off (1); the that-player projection without "opponent" (1); "put" out of the closed lead (3). (Run before a
+>   comment-only reflow of two CR citations; the code they ran against is otherwise byte-identical.)
+> · ⚠️ **Found, not fixed:** (1) "target opponent or planeswalker" has no pool: those 24 cards are offered the opponents alone, never a
+>   planeswalker (spellEffects.js:234 — an under-offer, never an illegal target; a pool `opponentOrPlaneswalker` = addOpponents +
+>   addPlaneswalkers, with its intent and the vocabulary test, is its own slice — Mogg Maniac's sentinel arm parks on the same gap).
+>   (2) The collapsed-template rider path (parser.js:2725 `collapsed`, the imprint / hand-disruption / impulse-dig leads) and the optional-
+>   discard head do not run `bareItAfterTarget`; no bundled card puts a bare "it" self clause there (the self scan above covers them).
+>   (3) A bare "it" as an OBJECT read as the source ("Sacrifice it unless it escaped", "Remove a +1/+1 counter from it at end of combat"
+>   — atoms/removal.js:761, :1026) is untouched; no bundled card prints either after a targeted clause (read, not reproduced).
 
 > ## 🎯 2026-10-17 — PLAY-WEIGHTED: SPREE (CR 702.172a) — Three Steps Ahead (EDHREC #1076), Insatiable Avarice (#1200), Requisition Raid (#1218) + Explosive Derailment, Phantom Interference, Trash the Town: one or more modes, the base cost plus each chosen mode's cost, the modes in printed order; and FIX (false positive): "target player draws N cards and loses M life" names ONE player (Sign in Blood #233 and 21 more) · **+6** · snapshot native 15,470 → 15,476
 > Suite **20,429 green (1 skipped) / 1,857 files** under the gate queue. Lint 0 (CR citations: 0 of 11,340 name no rule; keyword citations: 0 of
