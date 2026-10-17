@@ -36,7 +36,7 @@ import { permanentTypes } from "../../layers.js"; // P·20 — "shares a card ty
 import { checkDiscardTriggers } from "../../triggers.js"; // TRIG-DISCARD (CR 701.9a) — an edict discard is a discard
 import { setPendingEdictModeChoice } from "../../pendingChoice.js";
 import { sacrificeCreatureEffect } from "./removal.js";
-import { isLandCard } from "./shared.js";
+import { isLandCard, sacrificesByIn } from "./shared.js"; // + sacrificesByIn (2026-10-17): the controller's sacrifice, single or in a batch
 import { loseLife } from "../../gameState.js";
 
 /** The nonland permanents an opponent controls, as `{ id, name }` (public — on the battlefield). */
@@ -191,8 +191,10 @@ export function matchBraidsPunisher(oracle) {
 }
 
 export function applyEdictSharesType(state, atom, ctx) {
-  const last = [...(state.log || [])].reverse().find((e) => e.effect === "sacrifice" && e.controller === ctx.controller && e.sacrificed != null);
-  const types = last?.cardTypes || [];
+  // The newest permanent the controller sacrificed — alone, or in a batch (shared.sacrificesByIn, 2026-10-17); more than one of
+  // theirs in that batch is no singular "it", and nothing is shared.
+  const last = [...(state.log || [])].reverse().map((e) => sacrificesByIn(e, ctx.controller)).find((mine) => mine.length > 0);
+  const types = last?.length === 1 ? last[0].cardTypes || [] : [];
   if (!types.length) return state; // no typed sacrifice to share with — nothing for the opponents to answer
   const spec = { lifeLoss: atom.lifeLoss, drawFor: ctx.controller, drawCount: atom.casterDraws, sacTypes: types, allowDiscard: false };
   const queue = opponentsOf(state, ctx.controller).filter((pid) => state.players?.[pid]).map((pid) => ({ playerId: pid }));

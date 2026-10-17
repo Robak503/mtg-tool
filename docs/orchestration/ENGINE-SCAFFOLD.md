@@ -504,9 +504,22 @@ means "all permanents" (vacuous filter).
   Claw, Bankrupt in Blood, "Sacrifice N <subtype>", Pulverize's two Mountains).
   A loop of single sacrifices over a group fires a "one or more" watcher once
   per member — the minted-token end-step sacrifice (`removal.applyMintedLeave`)
-  did exactly that. Still open: `advanceSacrificeChain` sacrifices each pick as
-  it is made (each-player edicts — CR 101.4's own example — annihilator N, a
-  chosen "Sacrifice two lands"); the N-count edict's choose-then-batch is the fix.
+  did exactly that. **The edict chain chooses, then sacrifices together
+  (2026-10-17, CR 101.4):** `removal.advanceSacrificeChain` locks each pick in
+  (a forced one too; a chosen permanent leaves its controller's pool), the
+  sacrificers choose in APNAP order (`apnapOrder` — the active player first,
+  whoever controls the spell), and when the instruction's choices are done the
+  chosen permanents go through `sacrificeChosen` (one → the single sacrifice,
+  more → `sacrificeCreaturesTogether`). The pause carries them as
+  `pendingChoice.chosen`; `runProgram.resolveSacrificeChoice` locks the answer
+  in and re-enters. A queue entry's `group` ends one instruction inside one
+  chain — annihilator's separate triggers (CR 702.86b) — and that group's
+  permanents go before the next group's first choice. The batch log entry
+  carries `victims` (each one's controller, card types, power); a reader of
+  "the permanent you sacrificed" goes through `shared.sacrificesByIn`, never
+  `effect === "sacrifice"` alone. Still one at a time: the iterated-edict chain
+  (`iteratedEdict.advanceEdictChain` — Torment of Hailfire's rounds, Braids,
+  Arisen Nightmare's opponents).
 - `planPayment(...)` is a **pure planner** returning exact `{taps, spend}`; the
   dispatcher commits it verbatim. Cost *legality* and cost *payment* always run
   the same planner — the "two-sites invariant" that stops the offered action and

@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **64 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,451)**; engine gains since the tag: **−16** (+65 gained, −81 false credit removed). The next tag
+> **65 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,451)**; engine gains since the tag: **−16** (+65 gained, −81 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,64 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX: the edict chain CHOOSES, THEN SACRIFICES TOGETHER — each-player / each-opponent edicts (CR 101.4's own example), annihilator N one event per trigger, Planar Engineering's chosen two lands (it took ONE) · **±0** · corpus 15,494
+> Suite **19,745** green (1 skipped) / 1,824 files under the gate queue. Lint 0 (CR citations: 0 of 10,634 name no rule). Flip-diff **0 / 0 / 0**
+> (34,620 cards; before = 6f609d04's code from an untouched git-archive copy, after = this tree), so every coverage count is unchanged.
+> **Mutants 13/13** on assertions, restore byte-identical (sha256 of each mutated file compared after each). Runtime only.
+> · **The bug** (found 10-17 by the group-sacrifice slice; re-proved on 6f609d04 on real boards — every text from the bundled oracle
+>   index). **`removal.advanceSacrificeChain`** sacrificed each pick AS IT WAS MADE, so one instruction's sacrifices were several
+>   events. Innocent Blood with Great Fierce Bee ("Whenever one or more other creatures die") on the table: Bee ×2 in a duel, ×3 in a
+>   pod (FALSE POSITIVE; one event, CR 603.2c). Ulamog's Crusher's annihilator 2: the defender's Vengeful Townsfolk ×2. A watcher
+>   sacrificed early in the chain missed the later victims, and a later chooser chose after the earlier victims had left. CR 101.4's
+>   example is this card: "First, the active player chooses a creature they control. Then each of the nonactive players, in turn
+>   order, chooses … Then all creatures chosen this way are sacrificed simultaneously." Also: the chain asked the spell's CONTROLLER
+>   first (CR 101.4 — the ACTIVE player chooses first), and **Planar Engineering with a real choice sacrificed ONE land**: its pause
+>   queued only the n−1 sacrifices after the pick, and `resolveSacrificeChoice` drops the queue's head as the settled pick (probe: five
+>   Forests → one in the graveyard, then the search).
+> · **The fix — the N-count edict's choose-then-batch, generalized to every pool the chain serves.** `advanceSacrificeChain` takes
+>   `chosen` (`[{ playerId, permId, group }]`): a forced pick is locked in, not sacrificed; a permanent already chosen is out of its
+>   controller's pool (annihilator's N picks are N permanents); a real choice pauses with `pendingChoice.chosen`, and
+>   `runProgram.resolveSacrificeChoice` locks the answer in (logged `sacrifice-chosen`, CR 101.4b) and re-enters. When the
+>   instruction's choices are done, `sacrificeChosen` sacrifices them: one → `sacrificeCreatureEffect` (its "sacrifice" entry, the
+>   single-victim edict unchanged), more → `sacrificeCreaturesTogether` (one event; every look-back read first, CR 603.10a).
+>   `applySacrifice` orders every chain's sacrificers by **`apnapOrder`** (CR 101.4; the N-count path shares it). A queue entry's
+>   **`group`** ends one instruction inside one chain: `annihilator.js` pools every attacker's obligation into one chain for the
+>   one-pause seam, but each instance is its own trigger (CR 702.86b) — `annihilatorInstances` (parseAnnihilator still sums) gives
+>   each its group, and the chain sacrifices a group's permanents before the next group's first choice. `sacLand`'s real choice
+>   queues all n sacrifices with this pick at the head. Pools covered: every `what` the chain reads (creature, permanent, the typed
+>   pools, nontoken / token creature, planeswalker, creature-or-planeswalker with Flare of Malice's greatest mana value, named-token,
+>   subtype), every `who` (target, each player, each opponent, controller, upkeep / damaged / defending player — one-victim forms
+>   stay the single sacrifice), annihilator, and Planar Engineering.
+> · **The readers.** The batch entry ("sacrifice-together") carries `victims` — each one's controller, card types and last-known
+>   power, read before any left (CR 608.2h). **`shared.sacrificesByIn(entry, controller)`** is the one read of "the permanent
+>   `controller` sacrificed" in a single or a batch entry, and the three readers the group-sacrifice slice named go through it:
+>   `runProgram.realSacrificeIn` ("if you do" — now the program controller's OWN victim: an opponent's victim used to count),
+>   `countForSpec`'s `sacrificedThisWayPower` (the controller's victim in the newest sacrifice entry; none or several → 0) and
+>   `iteratedEdict.applyEdictSharesType` (Braids's "shares a card type with it"). No printed card puts one of those payoffs after a
+>   sacrifice that can batch (Victimize, Disciple of Freyalise and Braids sacrifice their controller's one permanent), so behaviour
+>   is unchanged for them; the pins pair a real Innocent Blood resolution with the payoff atom.
+> · **Still one at a time (found, not fixed):** the iterated-edict chain (`iteratedEdict.advanceEdictChain` → `applyEdictMode`) —
+>   Torment of Hailfire's per-round opponents and Braids, Arisen Nightmare's "each opponent may sacrifice" are CR 101.4 choices too,
+>   but each sacrifice goes as it is chosen (its modes mix life loss, a discard and a sacrifice). Nazgûl Battle-Mace's GRANTED
+>   annihilator 1 never triggers (`applyAnnihilatorTriggers` reads the attacker's printed oracle); the card is body-only, so no false
+>   credit.
+> · **AI / self-play** (the profile decks in AppData, read for these cards; no seeded batch was run). **Earth Bent**: Planar
+>   Engineering with three or more lands now loses the two lands it picks (it kept one more before) — a real outcome change.
+>   **Omnath, Locus of Mana** (Kozilek, annihilator 4), **Vihaan, Goldwaker** (Grave Pact, Dictate of Erebos), **Jurassic Ramp**
+>   (Silverclad Ferocidons), **Believe it!** (Flare of Malice): the victims now leave as one batch, so same-controller triggers stack
+>   in a different order, and the choosers pick in APNAP order with the earlier picks still on the battlefield (the legacy
+>   least-valuable pick reads no board; the policy-eval pick does, so its later picks can differ). No profile deck holds a "one or
+>   more … die" watcher (Teval's are graveyard-leave watchers); Dour Port-Mage (Brago Blink) would see a batch only under an exile
+>   replacement. Torment of Hailfire (Zaxara) and Tergrid (Nekusar Wheels) are unchanged in count. Seeded games in these decks can diverge.
+> · Witness **`edictChainTogether.test.js`** (16; 12 red at 6f609d04, every one an AssertionError; the Braids pin and 3 controls pass on
+>   both): Innocent Blood in a pod (Bee ×1, Blood Artist ×3, one batch), the active player choosing first when the controller is not
+>   active (ai2 → ai3 → user → ai1, all eight creatures on the battlefield at every pause), a person asked for their victim through the
+>   session driver after the AI's pick was locked in but not carried out, Ulamog's Crusher (Townsfolk ×1, Blood Artist ×2), two
+>   Crushers (two batches, Townsfolk ×2), a human defender asked twice with nothing gone between, Flare of Malice (forced picks wait
+>   for ai3's tie; Bee ×1), Dictate of Erebos (Spectacle of Destruction's two wreck counters, not four), Silverclad Ferocidons enraged
+>   by a Bolt (a creature, a creature and a land, one batch), Planar Engineering with five Forests under Living Plane (two lands,
+>   Townsfolk ×1, Blood Artist ×2, then the search), and the readers. `sacrificeLandCount.test.js`'s queue pin 1 → 2 (it pinned the bug).
 
 > ## 🔧 2026-10-17 — FIX: mana abilities pay their printed costs — counter costs paid (Gemstone Mine, the depletion and Vivid lands, Tendo Ice Bridge, Mirrodin's Core, Wall of Roots), no-{T} lines don't tap, per-turn limits, Kinnan only on a tap for mana · **+15** · snapshot native 15,427 → 15,442
 > Suite **19,691** green (1 skipped) / 1,820 files. Lint 0 (CR citations: 0 of 10,545 name no rule). Flip-diff **15 gained / 0 lost / 0 retiered** (34,620 cards;

@@ -57,15 +57,16 @@ export function applySacrificeLand(state, atom, ctx) {
     // No more lands than must go → every one is sacrificed and there is nothing to choose. Covers the sole-land
     // case the single form handled before, byte-identically. Two or more go TOGETHER — "Sacrifice two lands" is one instruction,
     // one event (CR 603.2c; removal.sacrificeCreaturesTogether): until 2026-10-17 each land was its own sacrifice, so lands that are
-    // creatures (Living Plane) fired a "one or more creatures die" watcher once per land. (The real-choice path below still
-    // sacrifices pick by pick — it rides advanceSacrificeChain, whose one-at-a-time picks are the open half of this fix.)
+    // creatures (Living Plane) fired a "one or more creatures die" watcher once per land.
     if (lands.length === 1) return sacrificeCreatureEffect(state, controller, lands[0].id);
     return sacrificeCreaturesTogether(state, lands.map((l) => ({ playerId: controller, permId: l.id })));
   }
-  // A real choice. `queue` carries the REMAINING sacrifices (n-1 of them); null for the single form keeps its
-  // "one settle, then resume into the tutor" behaviour exactly as it was.
-  const queue = Array.from({ length: n - 1 }, () => ({ playerId: controller, what: "land" }));
-  return setPendingSacrificeChoice(state, { controller, candidates: lands, queue: queue.length ? queue : null, sourceName: ctx.cardName });
+  // A real choice. For the counted form `queue` is the chain's: every one of the n sacrifices, THIS pick at its head (the settle
+  // drops the head and asks for the rest, then the chain sacrifices every chosen land together — advanceSacrificeChain, CR 101.4).
+  // Until 2026-10-17 it held only the n-1 after this pick, the settle dropped one more, and Planar Engineering with three or more
+  // lands sacrificed ONE. Null for the single form keeps its "one settle, then resume into the tutor" behaviour exactly as it was.
+  const queue = n > 1 ? Array.from({ length: n }, () => ({ playerId: controller, what: "land" })) : null;
+  return setPendingSacrificeChoice(state, { controller, candidates: lands, queue, sourceName: ctx.cardName });
 }
 
 /**

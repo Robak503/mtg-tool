@@ -356,8 +356,16 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
  * on 2026-10-17 so a cost that sacrifices N permanents is the same one event.
  */
 export function sacrificeCreaturesTogether(state, victims) {
-  const sacrificed = victims.filter((v) => findPermanent(state, v.permId)).map((v) => v.permId);
-  return logEvent(sacrificePermanentsTogether(state, victims), { kind: "spell-effect", effect: "sacrifice-together", sacrificed });
+  const live = victims.filter((v) => findPermanent(state, v.permId));
+  // Each victim as it left, read before any of them did (CR 608.2h, 603.10a): who sacrificed it, its card types and, for a creature,
+  // its power — the single sacrifice's log fields, per victim, so a reader of "the permanent you sacrificed" finds its own in a batch
+  // (shared.sacrificesByIn).
+  const victimLog = live.map(({ playerId, permId }) => {
+    const lkiTypes = permanentTypes(state, permId).types;
+    const perm = findPermanent(state, permId).permanent;
+    return { controller: playerId, sacrificed: permId, cardName: perm.card?.name, cardTypes: lkiTypes.filter((ty) => CR_CARD_TYPES.has(ty)), power: lkiTypes.includes("Creature") ? creaturePower(perm, state) : null };
+  });
+  return logEvent(sacrificePermanentsTogether(state, victims), { kind: "spell-effect", effect: "sacrifice-together", sacrificed: live.map((v) => v.permId), victims: victimLog });
 }
 
 /**
@@ -481,26 +489,65 @@ export function sacrificePoolMatchNow(what, state, perm) {
 }
 
 /**
+ * `playerIds` in APNAP order (CR 101.4): the active player, then the others in turn order. The order the players of one
+ * "each player …" instruction make their choices in — the N-count edict's and the one-permanent chain's.
+ */
+function apnapOrder(state, playerIds) {
+  const order = state.turnOrder || Object.keys(state.players || {});
+  const ap = Math.max(0, order.indexOf(state.activePlayer));
+  const ranked = [...order.slice(ap), ...order.slice(0, ap)].filter((pid) => playerIds.includes(pid));
+  return [...ranked, ...playerIds.filter((pid) => !ranked.includes(pid))];
+}
+
+/**
+ * The permanents one instruction's choices settled on, sacrificed: one alone is the single sacrifice (sacrificeCreatureEffect — its
+ * "sacrifice" log entry, byte-identical to a one-victim edict), two or more go TOGETHER as one event (sacrificeCreaturesTogether,
+ * CR 101.4: "Then all creatures chosen this way are sacrificed simultaneously"; CR 603.2c — a "one or more" watcher triggers once).
+ */
+function sacrificeChosen(state, chosen) {
+  if (chosen.length === 0) return state;
+  if (chosen.length === 1) return sacrificeCreatureEffect(state, chosen[0].playerId, chosen[0].permId);
+  return sacrificeCreaturesTogether(state, chosen);
+}
+
+/**
  * ===== EDICTS ===== — walk the sacrifice CHAIN (CR 701.21 — each sacrificing player chooses what to give
- * up). `queue` is the remaining sacrificers, head-first, each `{ playerId, what? }` (one permanent apiece —
- * `what:"creature"` default | `what:"permanent"` for the any-permanent forms | a TYPED pool). For each in turn:
- *   - eliminated / no creature → drop and move on (a clean no-op; you can't sacrifice what you don't have).
- *   - exactly 1 creature → FORCED sacrifice (no real choice): pitch it inline (dies triggers fire), move on.
- *   - ≥2 creatures → a REAL choice: pause via setPendingSacrificeChoice for THIS sacrificer (the driver
- *     pauses a human picker, auto-sacs an AI's least-valuable), carrying the queue so resolveSacrificeChoice
- *     can drop the settled head + re-enter.
+ * up). `queue` is the choices still to make, head-first, each `{ playerId, what?, excludeId?, greatestMv?, group? }` (one
+ * permanent apiece — `what:"creature"` default | `what:"permanent"` for the any-permanent forms | a TYPED pool; several entries
+ * for one player are several permanents — annihilator N, "Sacrifice two lands"). `chosen` is the permanents already chosen and
+ * not yet sacrificed, `[{ playerId, permId, group }]`. For each head in turn:
+ *   - eliminated / nothing in the pool → drop and move on (a clean no-op; you can't sacrifice what you don't have).
+ *   - exactly 1 candidate → FORCED (no real choice): it is chosen, move on.
+ *   - ≥2 candidates → a REAL choice: pause via setPendingSacrificeChoice for THIS sacrificer (the driver
+ *     pauses a human picker, auto-picks an AI's least-valuable), carrying the queue and the chosen list so
+ *     resolveSacrificeChoice can lock the pick in, drop the settled head and re-enter.
+ * CHOOSE, THEN SACRIFICE TOGETHER (2026-10-17, CR 101.4 — its own example is "Each player sacrifices a creature"): nothing leaves
+ * while choices remain. A permanent already chosen is out of its controller's pool (two picks never name one permanent), and when
+ * the instruction's choices are done every chosen permanent is sacrificed in ONE event (sacrificeChosen), so a "one or more …
+ * die" watcher triggers once and each victim's look-back is read before any of them left (CR 603.2c, 603.10a). Before, each pick
+ * was sacrificed as it was made: Innocent Blood fired Great Fierce Bee once per player, annihilator 2 fired Vengeful Townsfolk twice.
+ * `group` marks where one instruction ends and the next begins in one queue — annihilator's separate triggers (CR 702.86b), pooled
+ * into one chain for the one-pause seam: the chosen permanents of a group are sacrificed before the next group's first choice, so
+ * each trigger is its own event. Entries with no group are one instruction.
  * When the queue empties with no pause, returns the advanced state (the program continues / resumes). Shared
  * by applySacrifice (the atom's first entry) and runProgram.resolveSacrificeChoice (each subsequent pick),
  * so ONE implementation drives the single-target edict (#214) AND the each-player / each-opponent forms.
- * Hidden-info safe: each sacrificer's creatures are public, and the chooser IS their controller.
+ * Hidden-info safe: each sacrificer's permanents are public, and the chooser IS their controller.
  */
-export function advanceSacrificeChain(state, { queue, sourceName = null }) {
+export function advanceSacrificeChain(state, { queue, sourceName = null, chosen = [] }) {
   let next = state;
   let q = queue || [];
+  let picked = chosen;
   while (q.length) {
     const head = q[0];
+    // The previous instruction's choices are done (a new group begins): its permanents go now, as one event.
+    if (picked.length && picked[picked.length - 1].group !== head.group) {
+      next = sacrificeChosen(next, picked);
+      picked = [];
+    }
     const player = next.players?.[head.playerId];
     if (!player) { q = q.slice(1); continue; } // sacrificer left the game (CR 800.4a) → skip
+    const taken = new Set(picked.map((v) => v.permId));
     // VICTIM POOL — `head.what` selects which permanents this sacrificer may give up (CR 701.16). Default
     // "creature" (every legacy edict + a head with no `what`, so the migrated creature edicts are byte-stable);
     // "permanent" broadens to ALL the sacrificer's permanents (Silverclad Ferocidons etc.). The TYPED pools
@@ -513,6 +560,7 @@ export function advanceSacrificeChain(state, { queue, sourceName = null }) {
     // The creature pools read the PERMANENT (layer-aware): an animated land is a creature this edict can take (CR 701.21a — the
     // sacrificer chooses among the creatures they control now).
     const poolAll = (player.battlefield || [])
+      .filter((p) => !taken.has(p.id)) // already chosen by an earlier pick of this instruction
       .filter((p) => sacrificePoolMatchNow(head.what, next, p)) // the permanent as it is now (the type-line audit; P·39 — "sacrifice an Egg": every creature type is one, a land / artifact pool never takes it)
       .filter((p) => !(head.excludeId && p.id === head.excludeId)); // "another" — the source is never a victim
     // FLARE OF MALICE (BI-4): narrow to the sacrificer's GREATEST mana value (tokens are 0, CR 202.3); ties stay a choice.
@@ -523,14 +571,15 @@ export function advanceSacrificeChain(state, { queue, sourceName = null }) {
       .map((p) => ({ id: p.id, name: p.card?.name }));
     if (candidates.length === 0) { q = q.slice(1); continue; } // nothing to sacrifice → can't → skip
     if (candidates.length === 1) {
-      next = sacrificeCreatureEffect(next, head.playerId, candidates[0].id); // forced — sole legal pick
+      picked = [...picked, { playerId: head.playerId, permId: candidates[0].id, group: head.group }]; // forced — sole legal pick
       q = q.slice(1);
       continue;
     }
-    // ≥2 — a real choice: pause for THIS sacrificer's pick, carrying the rest of the queue (each head keeps its own `what`).
-    return setPendingSacrificeChoice(next, { controller: head.playerId, candidates, queue: q, sourceName });
+    // ≥2 — a real choice: pause for THIS sacrificer's pick, carrying the rest of the queue (each head keeps its own `what`) and
+    // the permanents chosen so far.
+    return setPendingSacrificeChoice(next, { controller: head.playerId, candidates, queue: q, sourceName, chosen: picked });
   }
-  return next;
+  return sacrificeChosen(next, picked);
 }
 
 /** The permanents `playerId` could give up to a batch edict right now: their creatures, plus their planeswalkers for a
@@ -579,8 +628,9 @@ export function advanceCreatureBatchSacrifice(state, { queue, chosen, sourceName
  * EDICTS — sacrifice-as-an-effect, resolved through the chain above. The SACRIFICING player chooses which
  * permanent (CR 701.16/701.21), never the caster. `atom.who` selects the sacrificers:
  *   - "target" (default, #214) — the player(s) targeted at cast (Diabolic Edict / Cruel Edict / Geth's Verdict).
- *   - "eachPlayer" (Innocent Blood / Reign of the Pit) — every player, the controller first (APNAP-stable).
+ *   - "eachPlayer" (Innocent Blood / Reign of the Pit) — every player.
  *   - "eachOpponent" (Liliana's Triumph / Skull Storm) — every opponent.
+ * The sacrificers choose in APNAP order (CR 101.4), and every chosen permanent is sacrificed together once the last has chosen.
  * `atom.what` selects the victim pool: "creature" (default) or "permanent" (Silverclad Ferocidons — any permanent).
  * A removed sacrificer / an empty pool is a clean no-op; the caster's riders resume after the whole chain settles.
  */
@@ -644,13 +694,13 @@ function applySacrifice(state, atom, ctx) {
   if (sacrificers.length === 0) {
     return logEvent(state, { kind: "spell-effect", effect: "sacrifice", who: atom.who || "target", sacrificers: 0 });
   }
-  // N-COUNT EDICT (#509 — Blasphemous Edict, Barter in Blood): `count` creatures apiece, chosen in APNAP order (the active player,
-  // then turn order — CR 101.4) and sacrificed together (advanceCreatureBatchSacrifice). The one-at-a-time chain below is the
-  // one-permanent form only.
+  // The sacrificers choose in APNAP order — the active player, then turn order (CR 101.4) — and nothing leaves until the last has
+  // chosen, both chains. Until 2026-10-17 the one-permanent chain asked the controller first (CR 101.4's example has the active
+  // player choose first, whoever controls the spell).
+  const apnap = apnapOrder(state, sacrificers);
+  // N-COUNT EDICT (#509 — Blasphemous Edict, Barter in Blood): `count` creatures apiece, chosen in APNAP order and sacrificed
+  // together (advanceCreatureBatchSacrifice). The chain below is the one-permanent form.
   if (atom.count) {
-    const order = state.turnOrder;
-    const ap = order.indexOf(state.activePlayer);
-    const apnap = [...order.slice(ap), ...order.slice(0, ap)].filter((pid) => sacrificers.includes(pid));
     // The creature-or-planeswalker pool (#639 — Plaguecrafter, "each player sacrifices a creature or planeswalker") rides each queue
     // entry, so a re-entry keeps it; a creature edict's entries carry none and stay as they were.
     const batchWhat = atom.what === "creatureOrPlaneswalker" ? { what: "creatureOrPlaneswalker" } : {};
@@ -673,7 +723,7 @@ function applySacrifice(state, atom, ctx) {
   // excludeSource ("sacrifice ANOTHER permanent" — Korvold): the source is never a legal victim. Threaded
   // per head so a resolveSacrificeChoice re-entry (queue.slice(1)) preserves it, like `what`.
   const excludeId = atom.excludeSource ? (ctx.sourceId ?? null) : null;
-  return advanceSacrificeChain(state, { queue: sacrificers.map((pid) => ({ playerId: pid, what, ...(excludeId ? { excludeId } : {}), ...(atom.greatestMv ? { greatestMv: true } : {}) })), sourceName: ctx.cardName }); // + greatestMv (Flare of Malice, BI-4)
+  return advanceSacrificeChain(state, { queue: apnap.map((pid) => ({ playerId: pid, what, ...(excludeId ? { excludeId } : {}), ...(atom.greatestMv ? { greatestMv: true } : {}) })), sourceName: ctx.cardName }); // + greatestMv (Flare of Malice, BI-4)
 }
 
 /**

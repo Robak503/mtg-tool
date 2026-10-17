@@ -920,10 +920,13 @@ export function countForSpec(state, ctx, spec) {
   // SACRIFICED THIS WAY (P·36 — Disciple of Freyalise: "you may sacrifice another creature. If you do, you gain X life and draw X
   // cards, where X is that creature's power"): the last-known power of the creature the controller's OWN sacrifice just took, off its
   // sacrifice log (sacrificeCreatureEffect records it, CR 603.6e). Only an "if you do" payoff reads it, and runProgram runs that only
-  // right after the sacrifice — so the newest such entry is this one. Distinct from the cost channel below.
+  // right after the sacrifice — so the newest such entry is this one. Distinct from the cost channel below. A sacrifice that went in
+  // a batch (2026-10-17 — an each-player edict's victims leave together) is read off that entry: the creature the controller
+  // sacrificed in it (sacrificesByIn); none, or more than one, is no singular "that creature" — 0, never another player's victim.
   if (spec.kind === "sacrificedThisWayPower") {
-    const sac = [...(state.log || [])].reverse().find((e) => e.effect === "sacrifice");
-    return Math.max(0, sac?.power || 0);
+    const sac = [...(state.log || [])].reverse().find((e) => e.effect === "sacrifice" || e.effect === "sacrifice-together");
+    const mine = sacrificesByIn(sac, ctx?.controller);
+    return mine.length === 1 ? Math.max(0, mine[0].power || 0) : 0;
   }
   const sacrificed = ctx?.sacrificedForCost ?? state?.sacrificedForCost;
   if (spec.kind === "sacrificedPower") return Math.max(0, sacrificed?.power || 0);
@@ -1227,3 +1230,16 @@ export const resolveScaledAmount = (state, atom, ctx) => {
     : atom.amountCount ? halveAmount(countForSpec(state, ctx, atom.amountCount) * (atom.amountCount.per ?? 1) + (atom.amountCount.plus ?? 0), atom.halve) // + plus (Sea Gate Restoration, BI-3)
       : effectiveAmount(atom, ctx);
 };
+
+/**
+ * The permanents `controller` sacrificed in ONE sacrifice log entry, as `[{ sacrificed, cardName, cardTypes, power }]`: a single
+ * sacrifice ("sacrifice", sacrificeCreatureEffect — none when it took nothing) or a batch ("sacrifice-together", whose `victims` name
+ * each one's controller). The one read every "the permanent you sacrificed" payoff shares — "if you do" (runProgram), "that
+ * creature's power" (countForSpec's sacrificedThisWayPower), "shares a card type with it" (iteratedEdict) — so a sacrifice
+ * that went in a batch (an each-player edict, CR 101.4) answers them as a single one does, and another player's victim never does.
+ */
+export function sacrificesByIn(entry, controller) {
+  if (entry?.effect === "sacrifice") return entry.sacrificed != null && entry.controller === controller ? [entry] : [];
+  if (entry?.effect === "sacrifice-together") return (entry.victims || []).filter((v) => v.controller === controller);
+  return [];
+}

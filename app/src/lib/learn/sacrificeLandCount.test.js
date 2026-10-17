@@ -64,10 +64,12 @@ describe("parsing", () => {
 });
 
 describe("⭐ RUNTIME — N sacrifices ride the existing chain", () => {
-  it("MORE lands than needed → pauses for a pick, with the REMAINING sacrifice queued", () => {
+  it("MORE lands than needed → pauses for a pick; the chain's queue holds BOTH sacrifices (this pick at its head)", () => {
     const after = run(boardWith(5));
     expect(after.pendingChoice).toBeTruthy();
-    expect(after.pendingChoice.queue).toHaveLength(1); // 2 total = this pick + 1 queued
+    // 2 total = this pick (the head the settle drops) + 1 still to choose. Until 2026-10-17 the queue held only the 1, the settle
+    // dropped it as the head, and Planar Engineering sacrificed ONE land (edictChainTogether.test.js ④ plays it through).
+    expect(after.pendingChoice.queue).toHaveLength(2);
     expect(after.players.user.battlefield).toHaveLength(5); // nothing sacrificed until the pick settles
   });
 

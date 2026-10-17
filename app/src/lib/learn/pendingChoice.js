@@ -408,7 +408,7 @@ export function setPendingDigLandChoice(state, { controller, candidates, restIds
  * battlefield, and the chooser is their controller). The caster's continuation rides on `pendingChoice
  * .resume` (attached by runProgram), so a rider — Geth's Verdict "You lose 1 life" — runs after. FIFO.
  */
-export function setPendingSacrificeChoice(state, { controller, candidates, queue = null, sourceName = null, batch = null }) {
+export function setPendingSacrificeChoice(state, { controller, candidates, queue = null, sourceName = null, batch = null, chosen = null }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "sacrifice-pending", controller, count: candidates.length, sourceName });
   return {
@@ -423,8 +423,12 @@ export function setPendingSacrificeChoice(state, { controller, candidates, queue
       sourceName,
       // N-COUNT EDICT (#509 — Blasphemous Edict): the creatures chosen so far, every player's, as { playerId, permId } — this pick
       // is locked in beside them and the whole set is sacrificed together once the last player has chosen (CR 101.4). Present
-      // only on that chain; the one-permanent edicts carry no `batch` and settle exactly as before.
+      // only on that chain; the one-permanent edicts carry no `batch`.
       ...(batch ? { batch } : {}),
+      // THE ONE-PERMANENT CHAIN (removal.advanceSacrificeChain, 2026-10-17): the permanents earlier picks of this instruction chose,
+      // as { playerId, permId, group } — not yet sacrificed; they go together once the last choice is made (CR 101.4). Present only
+      // when there are some.
+      ...(chosen?.length ? { chosen } : {}),
     },
   };
 }

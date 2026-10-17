@@ -36,7 +36,7 @@ import { moveStackTarget } from "./atoms/stack.js"; // CHANGE THE TARGET (shelf 
 import { changeTargetAlternatives, atomForStackTarget, resolutionTargetVerdicts } from "./targeting.js"; // CHANGE THE TARGET — the settle re-derives the alternatives; the auto-pick finds the redirected slot's atom; + the CR 608.2b target re-check
 import { checkDiscardTriggers, checkDiesTriggers, checkLibrarySearchTriggers, checkLifegainTriggers } from "../triggers.js"; // + checkLifegainTriggers — Kwain's per-drawer life (2026-09-05)
 import { applyDrawEffect } from "../spellEffects.js"; // Kwain (2026-09-05) — the trigger-threading draw for the each-player-may DRAW fold // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event; checkDiesTriggers — the move-from-self settle's lethal sweep (W1)
-import { isLandCard } from "./atoms/shared.js"; // SAC-UNLESS-RETURN-LAND — shared.js is a strict leaf, so this edge is DAG-safe
+import { isLandCard, sacrificesByIn } from "./atoms/shared.js"; // SAC-UNLESS-RETURN-LAND — shared.js is a strict leaf, so this edge is DAG-safe // + sacrificesByIn (2026-10-17): "if you do" reads the controller's victim, single or in a batch
 import { grantVoidPlay } from "./atoms/voidPlay.js"; // P·28 — the playFree milled-pick settles into Dauthi Voidwalker's grant (voidPlay imports gameState + pendingChoice only)
 
 // SAC-UNLESS-RETURN-LAND (2026-08-12) — the ONE pool predicate for a return-a-land upkeep cost
@@ -163,9 +163,11 @@ export function finishSpellResolution(state, disposition, { selfExile = false, s
   return logEvent(next, { kind: "spell-to-graveyard", playerId, cardName: card.name || null });
 }
 
-// "IF YOU DO" after a sacrifice (CR 608.2c): did these log entries record a sacrifice with a real victim? A no-victim entry (a
-// stale pick, an escaped self-sacrifice) is not one. The one read shared by runEffectProgram's loop and resolveOptionalChoice.
-const realSacrificeIn = (entries) => entries.some((e) => e.effect === "sacrifice" && e.sacrificed != null);
+// "IF YOU DO" after a sacrifice (CR 608.2c): did these log entries record `controller` sacrificing a real victim — alone or in a
+// batch (shared.sacrificesByIn — an each-player edict's victims go together since 2026-10-17)? A no-victim entry (a stale pick,
+// an escaped self-sacrifice) is not one, and neither is another player's victim ("you" is the program's controller). The one read
+// shared by runEffectProgram's loop, the sacrifice settle, resolveOptionalChoice and the aura-entry settle.
+const realSacrificeIn = (entries, controller) => entries.some((e) => sacrificesByIn(e, controller).length > 0);
 
 /**
  * resolveAtom inside the ask (CR 303.4f — auraEntry.js): an atom that puts a person's Aura onto the battlefield with two or more
@@ -346,7 +348,7 @@ export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacri
     }
     next = after;
     // + P·36: "If you do, A and B" — an ifSacrificed atom that ran keeps the gate open for the next one (Disciple of Freyalise).
-    sacrificedByPrev = realSacrificeIn((next.log || []).slice(logLenBefore)) || (atom.ifSacrificed === true && prevDidSacrifice);
+    sacrificedByPrev = realSacrificeIn((next.log || []).slice(logLenBefore), controller) || (atom.ifSacrificed === true && prevDidSacrifice);
     // An atom set a resolution-time CHOICE (tutor search) — suspend the program and
     // record where to resume. The driver settles the choice, then resolveTutorChoice
     // re-enters at nextAtomIndex.
@@ -940,9 +942,9 @@ export function autoPickSacrificeCandidate(state, pendingChoice) {
 
 /**
  * Settle ONE pick in the sacrifice chain (edicts — Diabolic Edict / Innocent Blood / Liliana's Triumph):
- * sacrifice the chosen creature from the SACRIFICER's battlefield (pc.controller) → their graveyard, firing
- * dies triggers via the shared helper, then ADVANCE the chain (advanceSacrificeChain) — which either pauses
- * again (the next each-player/each-opponent sacrificer owes a real choice) or, when the queue empties,
+ * lock in the chosen permanent of the SACRIFICER's (pc.controller) beside the ones earlier picks chose, then
+ * ADVANCE the chain (advanceSacrificeChain) — which either pauses again (the next each-player/each-opponent
+ * sacrificer owes a real choice) or, when the queue empties, sacrifices every chosen permanent together and
  * RESUMES the CASTER's program (a rider like Geth's Verdict "You lose 1 life", which is the CASTER's, not the
  * sacrificer's). A `permId` not among the offered candidates / no longer on the battlefield (stale) is a
  * logged no-op (the sacrifice still "resolved"). Eliminated-player guards (the pause can outlive an SBA, CR
@@ -956,12 +958,15 @@ export function resolveSacrificeChoice(state, permId) {
   // the last player has chosen (removal.advanceCreatureBatchSacrifice, CR 101.4). No "if you do" follows a count edict.
   if (pc.batch) return settleSacrificeChain(lockInBatchSacrificePick(state, pc, permId), pc, false);
   let next = clearPendingChoice(state);
-  let sacrificed = false; // the pick really went — the answer an `ifSacrificed` atom right after this sacrifice reads on resume
+  // The pick is LOCKED IN beside the permanents earlier picks chose, not carried out: the chain sacrifices them all together once
+  // the instruction's last choice is made (removal.advanceSacrificeChain, CR 101.4 — 2026-10-17; each pick used to go as it was
+  // made). It is logged as it is made, so a later chooser knows it (CR 101.4b).
+  let chosen = pc.chosen || [];
   if (next.players?.[pc.controller]) {
     const isCandidate = (pc.candidates || []).some((c) => c.id === permId);
     if (isCandidate && findPermanent(next, permId)) {
-      next = sacrificeCreatureEffect(next, pc.controller, permId);
-      sacrificed = true;
+      next = logEvent(next, { kind: "sacrifice-chosen", controller: pc.controller, chosen: permId, cardName: pc.candidates.find((c) => c.id === permId).name, sourceName: pc.sourceName });
+      chosen = [...chosen, { playerId: pc.controller, permId, group: pc.queue?.[0]?.group }];
     } else {
       next = logEvent(next, { kind: "spell-effect", effect: "sacrifice", controller: pc.controller, sacrificed: null });
     }
@@ -970,9 +975,13 @@ export function resolveSacrificeChoice(state, permId) {
     // stale-permId case, then advance the chain (the next sacrificer / the caster's riders still settle).
     next = logEvent(next, { kind: "spell-effect", effect: "sacrifice", controller: pc.controller, sacrificed: null });
   }
-  // Advance the chain — drop the settled head sacrificer, then continue (each-player / each-opponent forms).
+  // Advance the chain — drop the settled head sacrificer, then continue (each-player / each-opponent forms). When it finishes here,
+  // the batch went in this advance: whether the resumed program's controller really sacrificed is read off what it logged — the
+  // answer an `ifSacrificed` atom right after this sacrifice reads on resume.
   const queue = (pc.queue || []).slice(1);
-  const r = advanceSacrificeChain(next, { queue, sourceName: pc.sourceName });
+  const logLenBefore = next.log?.length ?? 0;
+  const r = advanceSacrificeChain(next, { queue, sourceName: pc.sourceName, chosen });
+  const sacrificed = !r.pendingChoice && realSacrificeIn((r.log || []).slice(logLenBefore), pc.resume?.controller ?? pc.controller);
   return settleSacrificeChain(r, pc, sacrificed);
 }
 
@@ -1478,7 +1487,7 @@ export function resolveOptionalChoice(state, doIt) {
     // "YOU MAY SACRIFICE … IF YOU DO" (P·20 — Braids, Arisen Nightmare): a taken optional sacrifice that went inline (a sole
     // candidate) answers the `ifSacrificed` atom after it, read off the log by the same predicate runEffectProgram uses. A sacrifice
     // that paused for a pick answers through resolveSacrificeChoice instead (the resume chained below).
-    const sacrificed = realSacrificeIn((after.log || []).slice(logLenBefore));
+    const sacrificed = realSacrificeIn((after.log || []).slice(logLenBefore), r.controller);
     next = logEvent(after, { kind: "spell-effect", effect: "optional", controller: r.controller, op: atom?.op, taken: true });
     // The optional atom may ITSELF set a choice ("you may scry 2") — chain its resume to ours.
     if (next.pendingChoice && !next.pendingChoice.resume) {
@@ -1525,7 +1534,7 @@ export function resolveAuraEntryHostChoice(state, hostId, { replaySettle = null 
     if (after.pendingChoice) return after.pendingChoice.resume || pc.resume === undefined ? after : { ...after, pendingChoice: { ...after.pendingChoice, resume: pc.resume } };
     // "If you do" after a sacrifice reads this atom's own result, as runEffectProgram's loop does (an ifSacrificed atom ran
     // because the gate was open).
-    const sacrificed = realSacrificeIn((after.log || []).slice(logLenBefore)) || step.atom.ifSacrificed === true;
+    const sacrificed = realSacrificeIn((after.log || []).slice(logLenBefore), step.ctx?.controller) || step.atom.ifSacrificed === true;
     return resumeAfterChoice(after, pc, { prevSacrificed: sacrificed });
   }
   if (step.outer && typeof replaySettle === "function") {

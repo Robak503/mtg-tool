@@ -27,12 +27,12 @@
  * choice at a time). Two attacking annihilators would otherwise collide — the second's chain would silently
  * no-op against the first's live pendingChoice, DROPPING sacrifices (a forbidden FP). So ALL attackers'
  * sacrifice obligations are pooled into ONE combined queue and the chain is walked ONCE. CR-faithfully, each
- * annihilator trigger is a separate ability, but the defender's net obligation (and their free choice of
- * victims) is identical whether resolved as one pooled chain or N sequential ones — and pooling is the only
- * shape compatible with the single-pendingChoice seam.
+ * annihilator trigger is a separate ability, so each is its own `group` on the queue (2026-10-17): the chain
+ * sacrifices one trigger's N permanents together, as one event, before the defender chooses for the next —
+ * the separate resolutions' events, on the single-pendingChoice seam.
  *
  * CR: 702.86a (annihilator triggers on attack; the defending player sacrifices N permanents of their choice);
- * 702.86b (multiple instances trigger separately — summed per attacker here); 508.3a (an attack trigger fires
+ * 702.86b (multiple instances trigger separately — one group each here); 508.3a (an attack trigger fires
  * when attackers are declared — the full batch is in state.combat.attackers when the declaration closes); 701.21a
  * (sacrifice — the sacrificing player chooses what to sacrifice).
  *
@@ -53,16 +53,25 @@ const ANNIHILATOR = /(?:^|\n|, |; )annihilator\s+(\d+)/gi;
  * Returns { n } with n ≥ 1, or null when the card has no annihilator keyword. Reminder text is stripped first.
  */
 export function parseAnnihilator(card) {
+  const total = annihilatorInstances(card).reduce((sum, n) => sum + n, 0);
+  return total > 0 ? { n: total } : null;
+}
+
+/**
+ * Each annihilator instance on a card, as its N, in printed order (CR 702.86b — each triggers separately, so each is its own
+ * sacrifice event). Empty when the card has none. Reminder text is stripped first.
+ */
+export function annihilatorInstances(card) {
   const oracle = String(card?.oracle ?? card?.oracle_text ?? "").replace(/\([^)]*\)/g, " ");
-  let total = 0;
+  const out = [];
   let m;
   // Fresh lastIndex per call (the regex is module-level + global): reset so repeated calls are deterministic.
   ANNIHILATOR.lastIndex = 0;
   while ((m = ANNIHILATOR.exec(oracle)) !== null) {
     const n = parseInt(m[1], 10);
-    if (Number.isFinite(n) && n > 0) total += n;
+    if (Number.isFinite(n) && n > 0) out.push(n);
   }
-  return total > 0 ? { n: total } : null;
+  return out;
 }
 
 /**
@@ -86,15 +95,20 @@ export function applyAnnihilatorTriggers(state) {
     const defender = a?.defender;
     if (!defender || !state.players?.[defender]) continue; // no defending player / left the game → skip
     const perm = (state.players?.[a.attackingPlayer]?.battlefield || []).find((p) => p.id === a.permanentId);
-    const spec = parseAnnihilator(perm?.card);
-    if (!spec) continue;
+    const instances = annihilatorInstances(perm?.card);
+    if (!instances.length) continue;
     sources.push(perm?.card?.name || "creature");
-    // The defending player sacrifices N permanents of their choice — N queue entries (one permanent apiece),
-    // each with the any-permanent pool. advanceSacrificeChain re-reads the board per pick, so N entries for
-    // the same defender sacrifice N distinct permanents one at a time (CR 701.21a — their choice each time).
-    for (let i = 0; i < spec.n; i++) queue.push({ playerId: defender, what: "permanent" });
+    // The defending player sacrifices N permanents of their choice — N queue entries (one permanent apiece), each with the
+    // any-permanent pool. A permanent one entry chose is out of the next one's pool, so the N are N distinct permanents (CR
+    // 701.21a — their choice), and they leave TOGETHER once all N are chosen (advanceSacrificeChain, 2026-10-17): one trigger is
+    // one event, so a "one or more … die" watcher triggers once per trigger (CR 603.2c). Each instance is its own trigger (CR
+    // 702.86b), so each is its own `group`: the chain sacrifices one trigger's N before the defender chooses for the next.
+    instances.forEach((n, k) => {
+      for (let i = 0; i < n; i++) queue.push({ playerId: defender, what: "permanent", group: `${a.permanentId}#${k}` });
+    });
   }
   if (!queue.length) return state;
-  // ONE chain for the whole batch (FIFO-safe). sourceName for the decision log: the attacking annihilator(s).
+  // ONE chain for every trigger (FIFO-safe), one event per trigger (its group). sourceName for the decision log: the attacking
+  // annihilator(s).
   return advanceSacrificeChain(state, { queue, sourceName: sources.join(", ") });
 }
