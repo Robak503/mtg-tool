@@ -49,6 +49,7 @@ import {
   markLoyaltyActivated,
   destroyZeroLoyaltyPlaneswalkers,
   recordSpellCast,
+  consumeTypedSpellShields, // Overmaster / Insist (2026-10-17) — the typed next-spell shields, consumed at this chokepoint
   clearRemovedFromCombatFlags,
   recordGraveyardEvents,
   findPermanent,
@@ -999,6 +1000,9 @@ function applyCastSpell(state, action) {
   // same `uncounterable` mark the make-uncounterable grant leaves (the counter-target enumeration skips it).
   // The flag clears in the same write below, so exactly one spell is shielded.
   const shieldNext = !!player.nextSpellUncounterable;
+  // The TYPED shields (Overmaster "the next instant or sorcery spell", Insist "the next creature spell", 2026-10-17): each
+  // waits for the next spell of its type, so only the filters this spell matches are consumed; the rest stay armed.
+  const typedShield = consumeTypedSpellShields(player, castCard);
   const builtSpell = createStackObject({
     id: stkId,
     kind: "spell",
@@ -1014,7 +1018,7 @@ function applyCastSpell(state, action) {
   const xSpell = action.xValue != null && payload?.params?.xValue == null ? { ...builtSpell, xValue: action.xValue } : builtSpell;
   // Stamped AFTER construction, exactly as the make-uncounterable atom marks a spell already on the stack —
   // createStackObject builds a fixed shape and would drop an extra field passed through it.
-  const shieldedSpell = (shieldNext || paidUncounterable) ? { ...xSpell, uncounterable: true } : xSpell; // + CAP-CAVERN: paid with "can't be countered" mana
+  const shieldedSpell = (shieldNext || typedShield.shielded || paidUncounterable) ? { ...xSpell, uncounterable: true } : xSpell; // + CAP-CAVERN: paid with "can't be countered" mana
   // ANOTHER PLAYER'S CARD (shelf D3): the spell's owner, when it isn't its controller. Stamped on the stack OBJECT
   // (not the payload) so a copy — built fresh by createStackObject — never inherits it (CR 707.10: the copier owns
   // the copy). counterSpellById sends a countered card here; the permanent resolvers stamp it on what enters.
@@ -1035,6 +1039,7 @@ function applyCastSpell(state, action) {
         ...(zoneOwner === action.playerId ? { [fromZone]: nextSrc } : {}),
         ...bumpCount,
         ...(shieldNext ? { nextSpellUncounterable: false } : {}),
+        ...(typedShield.shielded ? { nextTypedSpellUncounterable: typedShield.remaining } : {}),
       },
     },
     stack: [...working2.stack, stackObject],

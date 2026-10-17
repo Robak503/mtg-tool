@@ -2315,6 +2315,33 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
     }
   }
+  // ===== AN OPTIONAL SENTENCE, THEN A MANDATORY ONE (Mothman Cometh shelf, 2026-10-17 — Finality "You may put two +1/+1
+  // counters on a creature you control. Then all creatures get -4/-4 until end of turn.") ===== The α2 suffix rule
+  // (optionalsFormSuffix) refuses any optional atom followed by a mandatory one, because "you may X and Y" splits into
+  // [optional X, mandatory Y] and declining X must not leave Y's scope in doubt. Here the scope is not in doubt: the "you
+  // may" sentence ends at its period, and a sentence-leading bare "Then" is the next instruction in the written order
+  // (CR 608.2c) — it happens whether or not the optional one was taken. So the two sentences are parsed APART and joined:
+  // the first must be exactly one optional atom; the second must parse HIGH on its own and name nothing the first one
+  // produced ("that card", "it", "the rest", "this way" … — a referent would need the optional to have happened), and the
+  // joined sequence passes every other sequence gate the main split applies. Anything else falls through unchanged.
+  // ⓘ The referent refusal is DEFENSIVE today: every such sentence probed ("Exile them.", "Put the rest into your
+  // graveyard.", "It gains haste until end of turn.", "That player loses 2 life.") already parses LOW on its own, so the
+  // join never sees it (its mutant survives — measured 2026-10-17). It stays so that a parser which learns to bind those
+  // words can never bind them across a declined "you may".
+  {
+    const ot = oracle.match(/^(you may [^.]+)\.\s+then (?!if\b)(?!,)([^.]+\.?)\s*$/i);
+    if (ot && !/\b(?:that|those|it|them|they|the rest|this way|chosen|exiled|revealed|milled)\b/i.test(ot[2])) {
+      const first = parseEffectClauseImpl(ot[1].trim(), cardType, { hasX, sourceScoped });
+      const rest = parseEffectClauseImpl(ot[2].trim(), cardType, { hasX, sourceScoped });
+      if (first && rest && programConfidence(first) === "high" && programConfidence(rest) === "high"
+        && first.structure !== "modal" && rest.structure !== "modal") {
+        // Every consumer re-asks programConfidence of the JOINED program, so an atom that must be a program's last (a free
+        // cast — "You may cast … without paying its mana cost. Then draw a card.") parks the card exactly as the main split
+        // would; each half already passed its own sequence gates.
+        return makeProgram({ confidence: "high", atoms: [...first.atoms, ...rest.atoms], xSpell: !!(first.xSpell || rest.xSpell), unparsedTail: null });
+      }
+    }
+  }
   // ===== CONDITIONAL REPLACEMENT (CR 608.2) ===== "<base>. If <condition>, <alternative> instead."
   // Scute Swarm ("…create a token that's a copy of this creature instead") and Entish Restoration, which
   // prints the other word order ("…, instead search your library for up to three basic land cards").

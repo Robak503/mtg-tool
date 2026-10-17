@@ -40,9 +40,10 @@ describe("the parser — exactly the untyped sentence", () => {
     expect(nextSpellUncounterableClauseParser("The next spell you cast this turn can't be countered.")).toEqual({ op: "next-spell-uncounterable" });
   });
 
-  it("⛔ refuses the typed forms and a different subject", () => {
-    expect(nextSpellUncounterableClauseParser("The next creature spell you cast this turn can't be countered.")).toBeNull();
-    expect(nextSpellUncounterableClauseParser("The next instant or sorcery spell you cast this turn can't be countered.")).toBeNull();
+  // GRADUATED 2026-10-17: the creature and instant-or-sorcery typed forms are read now (Insist / Overmaster — their own
+  // per-type shields, nextTypedSpellUncounterable.test.js). An unread type and a different subject still refuse.
+  it("⛔ refuses an unread typed form and a different subject", () => {
+    expect(nextSpellUncounterableClauseParser("The next artifact spell you cast this turn can't be countered.")).toBeNull();
     expect(nextSpellUncounterableClauseParser("Spells you cast this turn can't be countered.")).toBeNull();
   });
 });
@@ -110,8 +111,9 @@ describe("runtime — activate, then the NEXT spell is shielded, and only that o
 });
 
 describe("classification", () => {
-  it("Mistrise Village is `land`; a typed variant stays land-partial", () => {
+  // GRADUATED 2026-10-17: the creature form is read now (Insist); the near-miss is a type the shields do not read.
+  it("Mistrise Village is `land`; an unread typed variant stays land-partial", () => {
     expect(classifyCard(MISTRISE)).toBe("land");
-    expect(classifyCard({ ...MISTRISE, oracle: MISTRISE.oracle.replace("The next spell", "The next creature spell") })).toBe("land-partial");
+    expect(classifyCard({ ...MISTRISE, oracle: MISTRISE.oracle.replace("The next spell", "The next artifact spell") })).toBe("land-partial");
   });
 });

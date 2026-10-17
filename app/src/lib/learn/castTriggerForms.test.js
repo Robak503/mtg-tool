@@ -28,8 +28,12 @@ describe("typed-list cast filter", () => {
     expect(castDescriptors("Whenever you cast an Aura, Equipment, or Vehicle spell, draw a card.")[0])
       .toMatchObject({ whose: "you", spellFilter: { kind: "typed", words: ["Aura", "Equipment", "Vehicle"] } });
   });
-  it("a denylisted word in the list (color / category) rejects the whole filter", () => {
-    expect(castDescriptors("Whenever you cast a red or blue spell, draw a card.")).toHaveLength(0);
+  // GRADUATED 2026-10-17: a list of single cast filters that are not all subtypes reads as the DISJUNCTIVE filter now
+  // ("a red or blue spell" — a red spell or a blue spell; firespitterWhelp.test.js). A list holding a word that is no cast
+  // filter at all ("legendary") still rejects the whole phrase.
+  it("a colour list reads as the disjunction; a word that is no cast filter rejects the whole phrase", () => {
+    expect(castDescriptors("Whenever you cast a red or blue spell, draw a card.")[0])
+      .toMatchObject({ spellFilter: { kind: "anyOf", filters: ["color:R", "color:U"] } });
     expect(castDescriptors("Whenever you cast a historic or legendary spell, draw a card.")).toHaveLength(0);
   });
   it("(unchanged) a single subtype still serializes as subtype:Name", () => {

@@ -57,7 +57,7 @@ import { permanentHasKeyword, permanentColors, permanentProtectionColors, perman
 import { applyDestroyEffect } from "./spellEffects.js"; // DG-1 — the shared destroy primitive (indestructible/shield/regen/totem + dies-triggers); spellEffects never imports this module (cycle-safe)
 import { protectionApplies } from "./protection.js";
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — combat damage to a player dealt to a creature instead (CR 614.9)
-import { selfDamagePrevention, selfDamagePreventionBy, attachedDamagePrevention, mayAssignAsUnblocked, attackerMinBlockers, counterShieldPrevention, attachedPreventPutCounters, selfPreventPutCounters } from "./combatEvasion.js";
+import { selfDamagePrevention, selfDamagePreventionBy, attachedDamagePrevention, mayAssignAsUnblocked, attackerMinBlockers, counterShieldPrevention, attachedPreventPutCounters, selfPreventPutCounters, groupPreventPutCounters } from "./combatEvasion.js"; // + groupPreventPutCounters (Vigor, 2026-10-17)
 import { boardHasDamageReplacement, consultDamageAmount, combatDamageUnpreventable } from "./damageReplacements.js"; // + SG-11 (Frenzied Baloth): "Combat damage can't be prevented."
 import { playerProtectedFromEverything, moveCardToZone } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player takes no combat damage; moveCardToZone — ④-AX end-of-combat self-bounce
 import { sacrificeCreatureEffect } from "./effects/atoms/removal.js"; // ④-AX — the shared sacrifice primitive for the end-of-combat self-sacrifice
@@ -289,6 +289,12 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     if (!lk) return false;
     // ATTACHED (Panther Habit): all damage, any source, "that many" = the amount about to be dealt.
     if (attachedPreventPutCounters(state, targetId)) {
+      if (amount > 0) pcAdditions.set(targetId, (pcAdditions.get(targetId) || 0) + amount);
+      return true;
+    }
+    // GROUP (Vigor, 2026-10-17): another permanent the target's controller controls prints the wall — all damage, "that
+    // many", the same payout as the attached form. Read off the pre-step board like every wall here.
+    if (groupPreventPutCounters(state, targetId)) {
       if (amount > 0) pcAdditions.set(targetId, (pcAdditions.get(targetId) || 0) + amount);
       return true;
     }

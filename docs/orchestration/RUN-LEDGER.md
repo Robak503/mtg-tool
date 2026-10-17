@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **8 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,463)**; engine gains since the tag: **+10** (+14 gained, −4 false credit removed). The next tag
+> **9 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,480)**; engine gains since the tag: **+27** (+31 gained, −4 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,72 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-17 — SHELF-90: Veyran Cantrips 88 → 91, Halfshell heroes 90 → 91, Mothman Cometh 89 → 90 (/98), Killer Turts held at 90 — Firespitter Whelp's "noncreature or Dragon" (the disjunctive cast list, + 9 twins), Visions of Beyond's "a graveyard has twenty or more cards", Overmaster's / Insist's typed next-spell shields, Vigor's group prevent-and-put wall, Finality's untargeted own-creature counters (+ Humiliate, Sword of Truth and Justice); Lunar Mystic's instant-only FP closed · **+17** · snapshot native 15,462 → 15,479
+> Suite **20,150 green (1 skipped) / 1,848 files** under the gate queue. Lint 0 (CR citations: 0 of 11,118 name no rule; keyword citations: 0 of
+> 2,321 cite a different keyword). Flip-diff **+17 / −0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of 6465a494; native
+> 15,462 → 15,479 of 34,584 snapshot names). Shelf (`measure-coverage`, MTG_APP_ROOT = the install): **Veyran Cantrips 88/100 → 91/100 ·
+> Halfshell heroes 90/100 → 91/100 · Mothman Cometh 89/98 → 90/98 · Killer Turts 90/100 → 90/100**; corpus 15,467 → 15,484 (44.7%); aggregate
+> 2,744 → 2,749 / 2,998. The brief's 89 for Halfshell and Killer Turts predates two of today's slices: Chromatic Lantern (2eafd7e7, in Halfshell)
+> and Mox Diamond (6a9782c4, in Killer Turts) had each put its deck back at 90 at 6465a494. Mothman Cometh was added mid-slice by the integrator:
+> the parallel honesty slice drops Vorinclex, Monstrous Raider's credit (89 → 88/98); with Finality the deck reads 89/98 (90.8%) after both land.
+> **Mutants 27/28** on assertions, each restored byte-identical (sha256); the survivor is the optional-then join's referent refusal, documented
+> in place as defensive (every referent sentence probed already parses LOW alone). Witnesses written first and seen to fail on the base engine on
+> assertions (45 of 57; the other 12 are controls). Old pins graduated with the date: nextSpellUncounterable (the typed forms are read now),
+> castTriggerForms ("a red or blue spell" is the disjunction), colorDisjunction (Mold Adder and Snake Pit leave the parked list). Committed on
+> `day/shelf90`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **Firespitter Whelp** ("Whenever you cast a noncreature or Dragon spell, this creature deals 1 damage to each opponent.") —
+>   `triggers.castSpellFilter` read one filter word or an all-subtype list; a list mixing a quality and a subtype read as nothing. The list
+>   grammar "A or B" / "A, B, or C" now reads as `{ kind: "anyOf", filters }` when EVERY item is a single cast filter the engine already enforces
+>   (`singleCastSpellFilter`: a card type, noncreature, historic, a colour, colorless, multicolored, a subtype); `spellMatchesFilter` matches any
+>   item, with the every-creature-type flag (a changeling creature spell is a Dragon spell, CR 702.73a). No "and", no two-word item:
+>   "multicolored instant or sorcery" (a conjunction) and "first instant or sorcery" stay unread. Twins, each audited whole-card: April O'Neil,
+>   Human Element; Snake Pit; Mold Adder; God-Pharaoh's Faithful; Umara Wizard // Umara Skyfalls; Windrider Wizard; Alela, Artful Provocateur;
+>   Rockslide Sorcerer; Umara Mystic.
+> · **Lunar Mystic — a live FP closed on the way:** "an instant spell" read as `instantSorcery`, so its pay-{1}-draw fired on every sorcery.
+>   "instant" and "sorcery" are their own filters now (CR 205.2a); the tier is unchanged (native-trigger).
+> · **Visions of Beyond** — `interveningIf` reads "a graveyard has N or more cards in it": any seat in `state.players`, the caster's included
+>   (CR 404.1); a player who left is gone from the map with their cards (CR 800.4a). The conditional-replacement arm already built draw 3 / draw 1;
+>   the condition is read once as it resolves (the bundled ruling).
+> · **Overmaster / Insist** — `nextSpellUncounterableClauseParser` reads "the next instant or sorcery spell …" and "the next creature spell …" as
+>   the same atom with `spellFilter`; the resolver arms the filter on `player.nextTypedSpellUncounterable` (a set — arming twice is one shield);
+>   `gameState.consumeTypedSpellShields` at the cast chokepoint consumes every filter the cast matches and stamps the stack object `uncounterable`,
+>   leaving the others armed (a creature cast first does not use Overmaster's); the untap reset clears the list (only when present, so no seat's
+>   state shape changes otherwise). The documented free-cast gap of the untyped flag applies here too.
+> · **Vigor** — `combatEvasion.groupPreventPutCountersOf` (the two sentences as the whole line; a rider after them is another wall, not read and so
+>   not enforced) and `groupPreventPutCounters` (another permanent the damaged creature's controller controls prints it), consulted at both funnels
+>   beside the attached wall: combat (consultCombat → the after-step payout through addCounter) and `spellEffects.dealDamageToCreature` (inline).
+>   "Another" and "you control" are pinned both ways; "Combat damage can't be prevented" (Frenzied Baloth) disables it in combat; two Vigors pay once.
+>   A new coverage classifier strips the line whole and requires the rest keyword-only or fully covered (Vigor's trample and its shuffle trigger).
+> · **Find // Finality** — Finality's "You may put two +1/+1 counters on a creature you control. Then all creatures get -4/-4 until end of turn."
+>   Two cells: (1) the counter parser reads the untargeted "put N +1/+1 counters on a creature you control" as add-counter on the `oneYouControl`
+>   scope (chosen as it resolves — the bundled ruling: not targeted, castable with no creature — by the shield-counter mode's house pick, the
+>   highest-power creature; +1/+1 only); (2) `parseEffectClauseImpl` joins a "you may" sentence and a following bare "Then" sentence parsed apart —
+>   the α2 suffix rule refuses optional-then-mandatory because "you may X and Y" is ambiguous, but a period and a bare "Then" make the scope plain
+>   (CR 608.2c). Each half must parse HIGH alone and the second names nothing the first produced; consumers re-ask programConfidence of the joined
+>   program, so a free cast first ("…without paying its mana cost. Then draw a card.") still parks. The join flipped nothing else in the corpus.
+>   Twins, audited whole-card: Humiliate (the counter after the discard, chosen after the reveal — its ruling) and Sword of Truth and Justice.
+> · **Gained, each witnessed on the real engine** (`firespitterWhelp.test.js` 21, `visionsOfBeyond.test.js` 5, `nextTypedSpellUncounterable.test.js` 8,
+>   `vigorGroupPreventPutCounters.test.js` 14, `findFinality.test.js` 9): Firespitter Whelp — casting Divination and Shivan Dragon each takes every
+>   opponent 40 → 39, a Bear deals nothing, a changeling counts; Visions — twenty cards in an opponent's or my own graveyard draws three, nineteen
+>   everywhere draws one; Overmaster — the next instant is uncounterable and the one after is not, a creature first leaves the shield armed; Insist
+>   the mirror; Vigor — a 3-damage hit on my Bears is three counters and no damage, Vigor itself and an opponent's creature take it, a 3/3 blocker
+>   of a Hill Giant grows by three; Finality — taken, my Hill Giant survives as a 1/1 with two counters while the Bears and the Wurm die; declined,
+>   everything dies; Humiliate — Divination discarded, then my Hill Giant gets the counter; the twins fire on a matching cast and not on another.
+> · **AI play:** no policy changed. Veyran's Whelp now really burns the table on each noncreature cast, Visions really draws three late, Overmaster
+>   really protects the next spell; Halfshell's Vigor really keeps its team alive and growing — but the AI's combat predictor does not read any
+>   prevention wall (none of the walls are read there), so it still values blocks and attacks as if the damage lands; Mothman's Finality is a
+>   native one-sided-ish sweeper the AI casts through its ordinary cast picker, with the counters going to its highest-power creature.
+> · **Killer Turts — at 90, what holds the other ten:** Lion's Eye Diamond (a mana ability with a discard-your-hand cost that may be activated
+>   only with priority, never inside a payment — needs a manual-only source the planner never taps, a discard-hand cost rider on the tap, and the
+>   priority gate; the AI never takes manual taps, so it would stay inert for the AI), Scroll Rack (an any-number hand choice and an ordering),
+>   Jeweled Amulet (the type of mana spent on the activation, stored and read back by the mana line), World War Hulk (chapter I's next-spell free
+>   cast, chapter III's doubled P/T), Great Train Heist (spree), Last Night Together and World at War (extra combats with restrictions; rebound),
+>   Tibalt's Trickery, Invasion of Ikoria (battles), Tezzeret, Cruel Captain (planeswalker — its own program).
+> · ⚠️ **Found, not fixed:** in combat the walls are consulted before the damage doublers, so Vigor's counters count the undoubled amount (the
+>   noncombat funnel doubles first) — both are orders CR 616.1 lets the creature's controller choose; and the banked lone-blocker lethal cap
+>   (preventDamagePutCounters.test.js) makes a 2/2 blocking a 3-power attacker earn two counters, not three. Stormwild Capridor (the self
+>   noncombat form) and Phyrexian Hydra (-1/-1) are sibling sentences left unread.
 
 > ## 🔧 2026-10-17 — FIX (false positive): every Aura that enchants a player is cast TARGETING a player — Paradox Haze, Curse of Bounty and 41 more were offered with no target, cast that way by the AI, and vanished; "Enchant opponent" targets only opponents; the AI's printed side reading · **±0** · snapshot native 15,462 unchanged
 > Suite **20,120 green (1 skipped) / 1,844 files** under the gate queue. Lint 0 (CR citations: 0 of 11,129 name no rule; keyword citations: 0 of 2,322 cite a

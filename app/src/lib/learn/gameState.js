@@ -3027,8 +3027,27 @@ export function resetSpellsCastAllPlayers(state) {
     // than the card, the forbidden direction. One reset site for per-turn player state means a new turn
     // cannot half-clear it.
     players[id] = { ...state.players[id], spellsCastThisTurn: 0, noncreatureSpellsCastThisTurn: 0, instantSorcerySpellsCastThisTurn: 0, spellColorsCastThisTurn: [], flashGrantsThisTurn: [], nextSpellUncounterable: false, createdTokenThisTurn: false }; // + P·11 — "you created a token this turn"
+    // The TYPED next-spell shields (Overmaster / Insist, 2026-10-17) end with the turn too. The list exists only once a
+    // shield was armed (no seat starts with it), so a player who never armed one keeps the same state shape.
+    if (state.players[id].nextTypedSpellUncounterable?.length) players[id].nextTypedSpellUncounterable = [];
   }
   return { ...state, players };
+}
+
+/**
+ * THE TYPED NEXT-SPELL SHIELDS (Overmaster "The next instant or sorcery spell you cast this turn can't be countered", Insist
+ * "The next creature spell …", 2026-10-17). `player.nextTypedSpellUncounterable` lists the armed filters; a cast consumes
+ * every filter its spell matches (each effect applies to the next spell of its type, CR 701.6a), and the rest stay armed for
+ * a later spell. The type is read off the spell's face as the cast-count chokepoint reads it (recordSpellCast). Pure:
+ * returns `{ shielded, remaining }`.
+ */
+export function consumeTypedSpellShields(player, spellCard) {
+  const armed = Array.isArray(player?.nextTypedSpellUncounterable) ? player.nextTypedSpellUncounterable : [];
+  if (!armed.length || !spellCard) return { shielded: false, remaining: armed };
+  const type = String(spellCard?.type || spellCard?.type_line || "").split(" // ")[0];
+  const matches = (f) => (f === "instantSorcery" ? /\b(?:instant|sorcery)\b/i.test(type) : f === "creature" ? /\bcreature\b/i.test(type) : false);
+  const remaining = armed.filter((f) => !matches(f));
+  return { shielded: remaining.length < armed.length, remaining };
 }
 
 /**

@@ -732,6 +732,13 @@ export function addCounterClauseParser(clause) {
   if (m) return { op: "add-counter", counterType: "+1/+1", amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "leastToughnessYouControl" };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature you control$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureYouControl" };
+  // UNTARGETED OWN CREATURE (Mothman Cometh shelf, 2026-10-17 — Finality "You may put two +1/+1 counters on a creature you
+  // control."; Humiliate, Choking Miasma's kicked line): no "target" — the creature is chosen as the effect resolves, so
+  // hexproof never stops it and an empty board makes it a clean no-op (Finality's ruling). The choice is the controller's,
+  // taken by the shield-counter mode's house pick (scope `oneYouControl`: the highest-power creature they control). +1/+1
+  // ONLY — a -1/-1 counter on "a creature you control" is a choice that pick does not make, so it stays unread.
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on a creature you control$/);
+  if (m) return { op: "add-counter", counterType: "+1/+1", amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "oneYouControl" };
   // ANOTHER-TARGET-YOU-CONTROL (CR 109.5, "another target creature you control" — Benevolent Hydra's
   // {T}, remove-a-counter activated ability). Same own-side chosen-target atom as the plain "target creature
   // you control" above, PLUS a self-exclusion marker (excludeSource): the source permanent (ctx.sourceId) is

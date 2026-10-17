@@ -1745,6 +1745,16 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     if (n == null) return null;
     return (state.players?.[controllerId]?.graveyard || []).length >= n;
   }
+  // ===== ANY GRAVEYARD (Veyran Cantrips shelf, 2026-10-17 — Visions of Beyond "If a graveyard has twenty or more cards in
+  // it, draw three cards instead"; Nightmares and Daydreams' chapter IV) ===== "a graveyard" is ANY player's graveyard, the
+  // controller's included (CR 404.1 — each player has one). True when at least one seat in `state.players` holds N or more
+  // cards there; a player who left the game is removed from the map with their cards (CR 800.4a), so they never count.
+  m = c.match(new RegExp(`^a graveyard has ${NUM_RE} or more cards in it$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    return Object.values(state.players || {}).some((p) => (p?.graveyard || []).length >= n);
+  }
   m = c.match(new RegExp(`^(?:there are )?${NUM_RE} or more card types among cards in your graveyard$`));
   if (m) {
     const n = parseCount(m[1]);

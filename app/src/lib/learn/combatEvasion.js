@@ -629,6 +629,32 @@ export function selfPreventPutCounters(card) {
   return reSelfPreventPutCounterCombat.test(selfOracle(card)) ? "combat-put-one" : null;
 }
 
+// GROUP  "If damage would be dealt to another creature you control, prevent that damage. Put a +1/+1 counter on that
+//        creature for each 1 damage prevented this way."  (Vigor — the only carrier; Halfshell heroes shelf, 2026-10-17)
+//        → ALL damage, any source, combat or not, to every creature the carrier's controller controls EXCEPT the carrier
+//          ("another"); N = the amount that would have been dealt, exactly as the attached wall pays. Stormwild
+//          Capridor's self NONCOMBAT form and Phyrexian Hydra's -1/-1 form are other sentences and are not read here.
+// The two sentences are the WHOLE line: a rider after them ("… this way. You lose 1 life.") is a different wall, not read.
+const reGroupPreventPutCounters =
+  /(?:^|\n)[ \t]*if damage would be dealt to another creature you control, prevent that damage\. put a \+1\/\+1 counter on that creature for each 1 damage prevented this way\.?[ \t]*(?:\n|$)/i;
+
+/** "another-you-control" | null — the GROUP prevent-and-put wall this CARD prints (Vigor). */
+export function groupPreventPutCountersOf(card) {
+  return reGroupPreventPutCounters.test(selfOracle(card)) ? "another-you-control" : null;
+}
+
+/**
+ * The GROUP prevent-and-put wall in force on a creature: true when ANOTHER permanent its controller controls prints it.
+ * Read off the live battlefield on every hit, so the wall appears and disappears with Vigor. Several carriers are still
+ * one prevention — once the damage is prevented there is nothing left for a second (CR 616.1) — so the payout is "that
+ * many" once.
+ */
+export function groupPreventPutCounters(state, permId) {
+  const lk = findPermanent(state, permId);
+  if (!lk?.permanent) return false;
+  return (state.players?.[lk.controller]?.battlefield || []).some((p) => p.id !== permId && !!groupPreventPutCountersOf(p.card));
+}
+
 /**
  * The ATTACHED prevent-and-put wall in force on a permanent, aggregated across its attachments —
  * "put-that-many" | null. Mirrors attachedDamagePrevention below (same scan, same live-attachment read),

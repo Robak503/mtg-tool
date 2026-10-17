@@ -3281,7 +3281,47 @@ const SPELL_COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green:
 function castSpellFilter(text) {
   const f = String(text).trim();
   if (f === "") return "any";                                  // "casts a spell"
-  if (/^(?:instant|sorcery|instant or sorcery)$/.test(f)) return "instantSorcery";
+  if (f === "instant or sorcery") return "instantSorcery";
+  const single = singleCastSpellFilter(f);
+  if (single) return single;
+  // TYPED-LIST — an "A, B, or C" list of type words ("Aura, Equipment, or Vehicle" — Sram). Split on
+  // commas / "or" / "and", strip a leftover leading "or "/"and " (the Oxford comma ", or" leaves "or
+  // vehicle" when the comma split fires first), and require EVERY word to be a real type/subtype token (NOT
+  // denylisted — same NON_SUBTYPE_CAST_WORDS gate as the single-word path, so a color/category word in the
+  // list rejects the whole filter → null → Arbiter). The cast spell matches if its type line carries ANY
+  // listed word (CR 205.2), exactly how "Aura, Equipment, or Vehicle" reads. Serialized as a typed object.
+  const words = f
+    .split(/\s*,\s*|\s+or\s+|\s+and\s+/)
+    .map((w) => w.trim().replace(/^(?:or|and)\s+/, ""))
+    .filter(Boolean);
+  if (words.length >= 2 && words.every((w) => /^[a-z]+$/.test(w) && !NON_SUBTYPE_CAST_WORDS.has(w))) {
+    return { kind: "typed", words: words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)) };
+  }
+  // ⭐ DISJUNCTIVE LIST (Veyran Cantrips shelf, 2026-10-17 — Firespitter Whelp "Whenever you cast a noncreature or Dragon
+  // spell"; also "artifact or creature", "blue or black", "instant, sorcery, or Wizard") — the list form "A or B" /
+  // "A, B, or C" whose items are NOT all subtypes, so the typed list above refused it. Each item must be ONE word that is
+  // itself a single cast filter (singleCastSpellFilter: a card type, noncreature, historic, a colour, colorless,
+  // multicolored, a subtype), and the spell matches when it satisfies ANY item (CR 205.2, CR 105.2 — spellMatchesFilter
+  // "anyOf"). ⛔ Only the comma/"or" list grammar is read: no "and" (a conjunction), no two-word item ("multicolored
+  // instant or sorcery" is a colour AND a type, "first instant or sorcery" an ordinal) — anything else leaves the phrase
+  // unread → undetected → Arbiter.
+  const list = f.match(/^([a-z]+(?:, [a-z]+)*),? or ([a-z]+)$/);
+  if (list) {
+    const items = [...list[1].split(", "), list[2]];
+    const filters = items.map(singleCastSpellFilter);
+    if (filters.every(Boolean)) return { kind: "anyOf", filters };
+  }
+  return null; // color / multi-word non-type / denylisted category → unmodeled
+}
+
+/** One cast-filter WORD (castSpellFilter's single-item vocabulary) → a modeled filter, or null. */
+function singleCastSpellFilter(f) {
+  // INSTANT / SORCERY each on its own (2026-10-17). "an instant spell" used to read as "instant or sorcery", so Lunar
+  // Mystic ("Whenever you cast an instant spell, you may pay {1}. If you do, draw a card.") offered its draw on every
+  // sorcery — a live false positive. Each is now the one card type it names (CR 205.2a); "instant or sorcery" is the
+  // castSpellFilter phrase above.
+  if (f === "instant") return "instant";
+  if (f === "sorcery") return "sorcery";
   if (f === "artifact") return "artifact";       // "Whenever you cast an artifact spell" (improvise/affinity payoffs)
   if (f === "enchantment") return "enchantment"; // "Whenever you cast an enchantment spell" (enchantress payoffs)
   if (f === "creature") return "creature";
@@ -3316,20 +3356,7 @@ function castSpellFilter(text) {
   // type line (Elf/Dog/Dragon/Adventure/Aura spells; tribal cast payoffs). A multi-word phrase, color, or
   // denylisted word → null → undetected → Arbiter (a SAFE false-negative). Serialized as "subtype:Name".
   if (/^[a-z]+$/.test(f) && !NON_SUBTYPE_CAST_WORDS.has(f)) return `subtype:${f.charAt(0).toUpperCase() + f.slice(1)}`;
-  // TYPED-LIST — an "A, B, or C" list of type words ("Aura, Equipment, or Vehicle" — Sram). Split on
-  // commas / "or" / "and", strip a leftover leading "or "/"and " (the Oxford comma ", or" leaves "or
-  // vehicle" when the comma split fires first), and require EVERY word to be a real type/subtype token (NOT
-  // denylisted — same NON_SUBTYPE_CAST_WORDS gate as the single-word path, so a color/category word in the
-  // list rejects the whole filter → null → Arbiter). The cast spell matches if its type line carries ANY
-  // listed word (CR 205.2), exactly how "Aura, Equipment, or Vehicle" reads. Serialized as a typed object.
-  const words = f
-    .split(/\s*,\s*|\s+or\s+|\s+and\s+/)
-    .map((w) => w.trim().replace(/^(?:or|and)\s+/, ""))
-    .filter(Boolean);
-  if (words.length >= 2 && words.every((w) => /^[a-z]+$/.test(w) && !NON_SUBTYPE_CAST_WORDS.has(w))) {
-    return { kind: "typed", words: words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)) };
-  }
-  return null; // color / multi-word non-type / denylisted category → unmodeled
+  return null;
 }
 
 // W4: the Phase-1 `parseTriggerEffect` naive substring vocabulary was DELETED with the TRIGGER_EFFECT
@@ -9872,12 +9899,19 @@ function spellMatchesFilter(filter, spellCard, every = false, mv = null) {
         if (!Number.isFinite(mv)) return false;
         return filter.op === "gte" ? mv >= filter.value : mv <= filter.value;
       }
+      // DISJUNCTIVE list (castSpellFilter, 2026-10-17 — Firespitter Whelp "a noncreature or Dragon spell"): the spell
+      // satisfies ANY item, each item read by this same function with the same every-creature-type flag (a changeling
+      // creature spell is a Dragon spell, CR 702.73a).
+      case "anyOf":
+        return Array.isArray(filter.filters) && filter.filters.some((f) => spellMatchesFilter(f, spellCard, every, mv));
       default: return false;
     }
   }
   switch (filter) {
     case "any": return true;
     case "instantSorcery": return /Instant|Sorcery/.test(t);
+    case "instant": return /\bInstant\b/.test(t);   // the one card type (CR 205.2a) — never a sorcery
+    case "sorcery": return /\bSorcery\b/.test(t);
     case "creature": return /Creature/.test(t);
     case "noncreature": return !/Creature/.test(t);
     case "artifact": return /Artifact/.test(t);

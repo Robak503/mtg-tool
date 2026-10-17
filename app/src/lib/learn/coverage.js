@@ -70,7 +70,7 @@ import { isControlAura } from "./controlAura.js"; // the control-Aura delivery c
 import { auraEnchantRestrictions } from "./staticAbilityParser.js"; // the qualified-subject host filter, shared with legalChoices' cast lane so offer + metric read ONE source
 import { isNativeKira } from "./kiraTargetCounter.js";
 import { chosenCardTypeReducer, chosenCardTypeResidue } from "./chosenCardType.js"; // CLOUD KEY — the card-type chooser + its reducer, the reader the cast lane's descriptor comes from (a leaf over the zero-import choicePolicy)
-import { isEnforcedEvasionClause, selfDamagePrevention, selfDamagePreventionBy, counterShieldPrevention, attachedPreventPutCountersOf, selfPreventPutCounters, attachedExceptByOf } from "./combatEvasion.js";
+import { isEnforcedEvasionClause, selfDamagePrevention, selfDamagePreventionBy, counterShieldPrevention, attachedPreventPutCountersOf, selfPreventPutCounters, groupPreventPutCountersOf, attachedExceptByOf } from "./combatEvasion.js";
 import { entersTappedUnlessCondition, paysLifeOrEntersTapped, revealLandTypes } from "./landEntersTapped.js"; // LANDS-TIER — the conditional enters-tapped reader BOTH enter sites consult (metric and runtime read one function)
 import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
 // OMNATH — ground the classifier on the two RUNTIME registries the engine actually consults (never a
@@ -4400,6 +4400,23 @@ registerCoverageClassifier((card) => {
     .split("\n").map((l) => l.trim()).filter((l) => l && !SELF_PREVENT_PUT_LINE_RE.test(normSelfName(l))).join("\n");
   if (!residue) return "native-static";
   return isKeywordOnly(residue, card?.name) ? "native-static" : null;
+});
+
+// PREVENT-AND-PUT, GROUP form (Halfshell heroes shelf, 2026-10-17 — Vigor: "If damage would be dealt to another creature you
+// control, prevent that damage. Put a +1/+1 counter on that creature for each 1 damage prevented this way."). Gated on
+// groupPreventPutCountersOf — the SAME reader both damage funnels consult (combatResolution's consultCombat,
+// spellEffects.dealDamageToCreature), so the metric cannot credit a wall the runtime does not enforce. The line is stripped
+// WHOLE; the rest of the card must be keyword-only or fully covered on its own (Vigor's trample and its put-into-a-graveyard
+// shuffle trigger) — all-or-nothing, so any other clause keeps the card body-only.
+const GROUP_PREVENT_PUT_LINE_RE = /^if damage would be dealt to another creature you control, prevent that damage\. put a \+1\/\+1 counter on that creature for each 1 damage prevented this way\.?$/i;
+registerCoverageClassifier((card) => {
+  if (!groupPreventPutCountersOf(card)) return null;
+  const lines = stripReminder(String(card?.oracle || card?.oracle_text || "")).split("\n").map((l) => l.trim()).filter(Boolean);
+  const residueLines = lines.filter((l) => !GROUP_PREVENT_PUT_LINE_RE.test(l.replace(/[’']/g, "'")));
+  if (residueLines.length === lines.length) return null; // the sentence sits inside a longer line — not this shape
+  const residue = residueLines.join("\n");
+  if (!residue || isKeywordOnly(residue, card?.name)) return "native-static";
+  return permanentFullyCovered({ ...card, oracle: residue }) ? "native-mixed" : null;
 });
 
 // GY EXILE-COST ABILITY (BLITZ GY-2, CR 602.2 — Seasoned Pyromancer / Runehorn Hellkite / the Soul

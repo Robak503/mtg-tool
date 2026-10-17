@@ -207,17 +207,16 @@ describe("⛔⛔ THE FAIL-CLOSED DEFAULT — found by a mutant, kept as a guard"
 });
 
 describe("⛔ what this slice deliberately does NOT claim", () => {
-  it("⛔ the other FIVE disjunction carriers stay parked — different consumers, not one cause", () => {
+  // GRADUATED 2026-10-17: the spell-cast trigger filter got its own slice — the disjunctive cast list (castSpellFilter
+  // `anyOf`, firespitterWhelp.test.js) — so Mold Adder and Snake Pit are native now and leave this list. The other three
+  // consumers (a counter's spellFilter, a board-state condition, a hand-zone card filter) are still unbuilt.
+  it("⛔ the other THREE disjunction carriers stay parked — different consumers, not one cause", () => {
     // ⛔⛔ THE GATE-20 LINE. The probe grouped these by SYMPTOM ("collapse the disjunction and it flips"),
     // and they do all share a missing concept. They do NOT share an evaluator: a spell-cast trigger filter,
     // a counter's spellFilter, a board-state condition and a hand-zone card filter are four separate
     // gates. Shipping them here on the strength of the symptom would be exactly the error this project
     // already recorded once. Each is worth 1-2 cards and needs its own slice.
     const OTHERS = [
-      { id: "c-ma", name: "Mold Adder", type: "Creature — Fungus Snake", mana: "{G}", power: "0", toughness: "1",
-        oracle: "Whenever an opponent casts a blue or black spell, you may put a +1/+1 counter on this creature." },
-      { id: "c-sp", name: "Snake Pit", type: "Enchantment", mana: "{3}{G}",
-        oracle: "Whenever an opponent casts a blue or black spell, you may create a 1/1 green Snake creature token." },
       { id: "c-ff", name: "Flashfreeze", type: "Instant", mana: "{1}{U}", oracle: "Counter target red or green spell." },
       { id: "c-wc", name: "Wandering Champion", type: "Creature — Human Monk", mana: "{1}{W}", power: "2", toughness: "1",
         oracle: "Whenever this creature deals combat damage to a player, if you control a blue or red permanent, you may discard a card. If you do, draw a card." },

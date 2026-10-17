@@ -1073,15 +1073,23 @@ export function grantUncounterableClauseParser(clause) {
  * turn can't be countered." — a per-player, per-turn FLAG (`nextSpellUncounterable`) rather than a stack
  * mark: nothing is on the stack yet. The cast chokepoint (actionDispatcher.applyCastSpell) consumes it on the
  * player's very next cast and stamps THAT spell's stack object `uncounterable: true` — the same mark the
- * make-uncounterable grant leaves and the counter-target enumeration already honours. The untyped sentence
- * ONLY: "the next creature spell …" / "the next instant or sorcery spell …" need a type gate at the
- * chokepoint this slice does not carry, so they return null and their cards stay parked (CREED FN-safe).
+ * make-uncounterable grant leaves and the counter-target enumeration already honours.
+ *
+ * THE TYPED FORMS (Veyran Cantrips shelf, 2026-10-17 — Overmaster "The next instant or sorcery spell you cast this
+ * turn can't be countered", Insist "The next creature spell …"): the same atom carrying `spellFilter`. Each is its own
+ * effect waiting for the next spell OF ITS TYPE, so it arms an entry on the player's `nextTypedSpellUncounterable`
+ * list instead of the untyped flag, and the chokepoint consumes it only on a matching cast
+ * (gameState.consumeTypedSpellShields). Only these two types are read; any other ("the next artifact spell …")
+ * returns null and stays parked (CREED FN-safe).
  */
+const NEXT_TYPED_SHIELD_FILTERS = { "instant or sorcery": "instantSorcery", creature: "creature" };
 export function nextSpellUncounterableClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "").trim();
   if (t === "the next spell you cast this turn can't be countered") {
     return { op: "next-spell-uncounterable" };
   }
+  const typed = t.match(/^the next (instant or sorcery|creature) spell you cast this turn can't be countered$/);
+  if (typed) return { op: "next-spell-uncounterable", spellFilter: NEXT_TYPED_SHIELD_FILTERS[typed[1]] };
   return null;
 }
 
@@ -2567,9 +2575,17 @@ export const stackResolvers = {
   // countered in response, in which case this fizzles rather than marking some unrelated stack object.
   // NEXT-SPELL UNCOUNTERABLE (Mistrise Village) — arm the controller's per-turn flag; the cast chokepoint
   // consumes it (see nextSpellUncounterableClauseParser). Idempotent: arming twice is one shield.
+  // A TYPED shield (Overmaster / Insist, 2026-10-17) arms its filter on `nextTypedSpellUncounterable` instead; the same
+  // filter armed twice is one shield (both effects name the same next spell of that type).
   "next-spell-uncounterable": (state, atom, ctx) => {
     const p = state.players?.[ctx.controller];
     if (!p) return state;
+    if (atom.spellFilter) {
+      const list = Array.isArray(p.nextTypedSpellUncounterable) ? p.nextTypedSpellUncounterable : [];
+      const nextList = list.includes(atom.spellFilter) ? list : [...list, atom.spellFilter];
+      const armedTyped = { ...state, players: { ...state.players, [ctx.controller]: { ...p, nextTypedSpellUncounterable: nextList } } };
+      return logEvent(armedTyped, { kind: "spell-effect", effect: "next-spell-uncounterable", spellFilter: atom.spellFilter, controller: ctx.controller });
+    }
     const armed = { ...state, players: { ...state.players, [ctx.controller]: { ...p, nextSpellUncounterable: true } } };
     return logEvent(armed, { kind: "spell-effect", effect: "next-spell-uncounterable", controller: ctx.controller });
   },

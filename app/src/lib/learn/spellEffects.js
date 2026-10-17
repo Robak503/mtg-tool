@@ -59,7 +59,7 @@ import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 �
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { spellMatchesCounterFilter } from "./spellOnStack.js"; // a counter's filter on a spell on the stack — the one read the resolution re-check (atoms/stack.applyCounter) shares; its mana value is the spell's there (CR 202.3). A zero-import leaf
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
-import { selfDamagePrevention, attachedDamagePrevention, counterShieldPrevention, attachedPreventPutCounters } from "./combatEvasion.js"; // FOG-1/AP-1 — the printed self + attached prevent-all walls (leaf-safe: combatEvasion never imports this module)
+import { selfDamagePrevention, attachedDamagePrevention, counterShieldPrevention, attachedPreventPutCounters, groupPreventPutCounters } from "./combatEvasion.js"; // FOG-1/AP-1 — the printed self + attached prevent-all walls (leaf-safe: combatEvasion never imports this module)
 import { armDamageToCreatureFlag } from "./wolverine.js";
 import { creatureSatisfiesRestrictions } from "./creatureRestrictions.js"; // the shared 16-kind restriction satisfier (leaf) — also read by effects/atoms/shared.massCreatureTargets
 import { TARGET_SUBTYPES } from "./effects/parseHelpers.js"; // SUBTYPE-TARGET — curated creature-subtype allowlist (leaf, cycle-safe)
@@ -1516,6 +1516,12 @@ export function dealDamageToCreature(s, event, dealer, permId, raw) {
   // creature, so it must NOT fire here — it takes the Bolt, exactly as printed.
   // Routed through addCounter so counter doublers / counters-placed watchers see the placement.
   if (lk && attachedPreventPutCounters(s, permId)) {
+    return addCounter(s, { permanentId: permId, type: "+1/+1", amount: dealt });
+  }
+  // GROUP PREVENT-AND-PUT (Vigor, 2026-10-17): another permanent this creature's controller controls prints "If damage would
+  // be dealt to another creature you control, prevent that damage. Put a +1/+1 counter on that creature for each 1 damage
+  // prevented this way." — all damage, the same inline payout as the attached wall directly above.
+  if (lk && groupPreventPutCounters(s, permId)) {
     return addCounter(s, { permanentId: permId, type: "+1/+1", amount: dealt });
   }
   // AP-1 (Inviolability / Heart of Light): an attached "…dealt TO enchanted creature" ALL wall blocks
