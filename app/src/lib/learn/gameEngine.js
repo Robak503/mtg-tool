@@ -72,12 +72,12 @@ import {
   checkTapTriggers, checkCounterTriggers,
   checkGraveyardEventTriggers,
   checkSagaChapterTriggers,
-  checkSacrificeTriggers,
   checkDiscardTriggers, // CR 514.1 — the cleanup hand-size discard is a discard (CR 701.9a)
   detectTriggers, // FLICKER TARGETS (shelf D21) — does a permanent carry an enters ability worth re-firing?
 } from "./triggers.js";
 import { checkAllStateBasedActions } from "./sba.js";
-import { expireContinuousEffects, maxHandSizeFor, sourceTriggerMultiplierCount, permanentTypes } from "./layers.js";
+import { expireContinuousEffects, maxHandSizeFor, sourceTriggerMultiplierCount } from "./layers.js";
+import { sacrificePermanentForCost } from "./costSacrifice.js"; // the finished Saga's sacrifice (CR 714.4) — THE sacrifice outside a resolution
 import {
   parseEffectClause,
   programConfidence,
@@ -1251,9 +1251,13 @@ export function finalizeStackResolution(state) {
 
 /**
  * CR 714.4 — sacrifice each finished Saga: lore ≥ sagaFinal AND none of its chapter abilities pending or
- * on the stack. The sacrifice mirrors the dispatcher's non-creature cost-sacrifice flow exactly
- * (moveCardToZone → checkLeavesTriggers → checkSacrificeTriggers), so LTB + "you sacrifice" watchers fire
- * like any other sacrifice. Pure; a board with no finished Saga is a no-op.
+ * on the stack. A state-based action that doesn't use the stack, so the sacrifice is THE one outside a
+ * resolution (costSacrifice.sacrificePermanentForCost — it drains its own leave event): its types read as it
+ * leaves, layer-aware (CR 603.10a), so a Saga some effect made a creature (Urza's Saga under Living Plane) is
+ * sacrificed AS one and dies through gameState.deathLookback — its dies triggers, the deaths tally, a
+ * replacement that keeps it out of the graveyard (CR 700.4) — where a Saga that is no creature fires only its
+ * leave and sacrifice watchers, as before. Until 2026-10-17 this assumed a Saga is never a creature and moved it
+ * by hand. Pure; a board with no finished Saga is a no-op.
  */
 function sweepFinishedSagas(state) {
   let next = state;
@@ -1269,17 +1273,11 @@ function sweepFinishedSagas(state) {
           o.payload?.params?.sourcePermanentId === perm.id,
       );
       if (pendingOwn || stackOwn) continue;
-      // The types it had as it left (CR 603.10a — the type-line audit), read while it is still on the battlefield: a Saga is no
-      // creature, whatever a double-faced card prints on its back face, so "Whenever you sacrifice a creature" never fires for it.
-      const lkiTypes = [...permanentTypes(next, perm.id).types];
-      next = moveCardToZone(next, {
-        playerId: pid,
-        fromZone: "battlefield",
-        toZone: "graveyard",
-        cardId: perm.id,
-      });
-      next = checkLeavesTriggers(next);
-      next = checkSacrificeTriggers(next, pid, { id: perm.id, controller: pid, card: perm.card, lkiTypes });
+      // The live permanent (an earlier Saga's sacrifice this sweep may have changed the board). Its types as it leaves are the
+      // helper's read: a printed Saga is no creature, whatever a double-faced card prints on its back face.
+      const live = findPermanent(next, perm.id);
+      if (!live) continue;
+      next = sacrificePermanentForCost(next, live.controller, live.permanent);
       next = logEvent(next, {
         kind: "saga-sacrificed",
         cardName: perm.card?.name,

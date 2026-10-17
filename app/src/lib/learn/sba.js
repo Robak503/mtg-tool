@@ -227,9 +227,10 @@ export function checkAllStateBasedActions(state) {
     const pw = destroyZeroLoyaltyPlaneswalkers(cur);
     cur = pw.dead.length > 0 ? checkPlaneswalkerDiesTriggers(pw.state, pw.dead) : pw.state;
 
-    // 704.5j — the legend rule.
+    // 704.5j — the legend rule. A planeswalker it puts into the graveyard dies too (CR 700.4) — the planeswalker dies dispatch.
     const legend = applyLegendRule(cur);
     cur = legend.dead.length > 0 ? checkDiesTriggers(legend.state, legend.dead) : legend.state;
+    if (legend.deadPw.length > 0) cur = checkPlaneswalkerDiesTriggers(cur, legend.deadPw);
 
     // 704.5m/n — attachment legality.
     cur = sweepAttachmentLegality(cur);

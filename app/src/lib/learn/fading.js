@@ -10,6 +10,7 @@
  * Both are SELF-CONTAINED and deterministic (no player choice): an ETB counter-add + an upkeep
  * remove-or-sacrifice. So the keyword body plays correctly end-to-end with two hooks — the ETB resolver
  * (adds the counters) and the upkeep step (this module's `applyFadeVanishUpkeep`). No stack/targeting.
+ * The sacrifice is the shared one (costSacrifice.sacrificePermanentForCost), never a hand-built move.
  *
  * The "when the last time counter is removed → sacrifice" ability is hard-coded into the upkeep removal
  * (the normal path). A time counter removed by some OTHER effect won't trigger the sacrifice here — a rare
@@ -18,8 +19,8 @@
  * Pure: regex + board reads; returns a new state.
  */
 
-import { findPermanent, moveCardToZone, removeCounter, logEvent, creaturePower, creatureBasePower, deathLookbackLinks } from "./gameState.js";
-import { checkDiesTriggers } from "./triggers.js";
+import { findPermanent, removeCounter, logEvent } from "./gameState.js";
+import { sacrificePermanentForCost } from "./costSacrifice.js"; // THE sacrifice outside a resolution (gameState, layers, triggers only — no cycle)
 
 // Keyword-position match (line start / keyword-list) so a reminder-text or granted mention can't false-fire.
 const FADING = /(?:^|\n|, |; )fading\s+(\d+)/i;
@@ -45,14 +46,23 @@ export function entersWithFadeCounters(card) {
  * At the ACTIVE player's upkeep (CR "your upkeep"), process every fading/vanishing permanent they control:
  *   fading    — remove a fade counter; if there are none, sacrifice it;
  *   vanishing — if it has a time counter, remove one; if that was the last, sacrifice it.
- * Sacrificed permanents go to their owner's graveyard and fire dies-triggers (look-back snapshot). Pure.
+ * Each sacrifice is its own trigger's resolution, so its own event, and it leaves through THE sacrifice sequence
+ * (costSacrifice.sacrificePermanentForCost — this one runs inline as the step begins, where no resolution finalizer follows,
+ * so it needs the sequence that drains its own leave event): the types it had as it left (CR 603.10a), the death look-back
+ * (gameState.deathLookback) for a creature, the death-specific exile as its destination, a creature a replacement kept out of
+ * the graveyard never died (CR 700.4 — Rest in Peace, a shuffle-instead), and the sacrifice watchers fire (CR 701.21a).
+ * Before 2026-10-17 this built its own death entry without the replacement flags: Blastoderm exiled by Rest in Peace still
+ * fired Blood Artist and counted a death, a death-specific exile (an opponent's Misery's Shadow) was not the destination, and
+ * Korvold never saw the sacrifice. The permanent is read off the live board at the sacrifice, after a vanishing counter came
+ * off (its look-back holds the counters it left with).
+ * Pure.
  */
 export function applyFadeVanishUpkeep(state) {
   const pid = state.activePlayer;
   const player = state.players?.[pid];
   if (!player) return state;
   let next = state;
-  const dead = [];
+  const sacrificed = [];
   // Snapshot the battlefield up front (we mutate `next` while iterating).
   for (const snapshot of [...player.battlefield]) {
     const fv = parseFadingVanishing(snapshot.card);
@@ -61,11 +71,8 @@ export function applyFadeVanishUpkeep(state) {
     if (!lk) continue; // already gone
     const count = lk.permanent.counters?.[fv.counterType] || 0;
     const sacrifice = () => {
-      // Power + base power captured pre-move (CR 603.6e) so a dies-payoff reading either LKI resolves.
-      const fvPw = creaturePower(lk.permanent, next);
-      const fvBpw = creatureBasePower(lk.permanent, next);
-      dead.push({ controller: pid, id: snapshot.id, name: snapshot.card?.name || "permanent", card: snapshot.card, ...deathLookbackLinks(lk.permanent), /* ③ · 43 */ counters: { ...(lk.permanent.counters || {}) }, power: Number.isFinite(fvPw) ? fvPw : null, basePower: Number.isFinite(fvBpw) ? fvBpw : null, diesExileAfter: !!lk.permanent.grantDiesExile });
-      next = moveCardToZone(next, { playerId: pid, fromZone: "battlefield", toZone: "graveyard", cardId: snapshot.id });
+      sacrificed.push(snapshot.card?.name || "permanent");
+      next = sacrificePermanentForCost(next, pid, findPermanent(next, snapshot.id).permanent);
     };
     if (fv.kind === "fading") {
       if (count > 0) next = removeCounter(next, { permanentId: snapshot.id, type: "fade", amount: 1 });
@@ -78,10 +85,7 @@ export function applyFadeVanishUpkeep(state) {
       // 0 time counters: "if it has a time counter" guard → no removal, no sacrifice (it left already).
     }
   }
-  if (dead.length) {
-    next = logEvent(next, { kind: "fade-vanish-sacrifice", turn: next.turn, controller: pid, names: dead.map((d) => d.name) });
-    next = checkDiesTriggers(next, dead);
-  }
+  if (sacrificed.length) next = logEvent(next, { kind: "fade-vanish-sacrifice", turn: next.turn, controller: pid, names: sacrificed });
   return next;
 }
 

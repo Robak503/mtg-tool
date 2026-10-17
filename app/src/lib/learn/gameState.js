@@ -2801,13 +2801,17 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
  * lets the controller pick either): keep the permanent with the HIGHEST timestamp (the most recent
  * arrival — matches the intent of casting/cloning a fresh copy). Legendary-ness and the name are read
  * off the permanent's CURRENT card (perm.card), so a clone that copied a legendary participates as the
- * copy it is. Returns `{ state, dead }` where `dead` carries the same look-back shape
+ * copy it is. Returns `{ state, dead, deadPw }` where `dead` carries the same look-back shape
  * destroyLethalCreatures emits — CREATURE entries only (feed to checkDiesTriggers); a non-creature
- * legend's graveyard trip still queues its leave events via moveCardToZone.
+ * legend's graveyard trip still queues its leave events via moveCardToZone. `deadPw` holds the legends
+ * among those that are planeswalkers (layer-aware, as they left — CR 603.10a), in the shape
+ * destroyZeroLoyaltyPlaneswalkers emits (feed to checkPlaneswalkerDiesTriggers): a planeswalker put into a
+ * graveyard from the battlefield dies (CR 700.4) — two Jace Belerens fired no Cruel Celebrant until 2026-10-17.
  */
 export function applyLegendRule(state) {
   const dead = [];
   const moves = []; // {controller, id, toZone} — non-creature legends move without a dies entry
+  const deadPw = []; // the planeswalkers among them — they die too (CR 700.4), through the planeswalker dies dispatch
   for (const [pid, player] of Object.entries(state.players)) {
     const byName = new Map();
     for (const perm of player.battlefield) {
@@ -2835,6 +2839,7 @@ export function applyLegendRule(state) {
           dead.push(deathLookback(state, perm, pid));
         } else {
           moves.push({ controller: pid, id: perm.id });
+          if (permanentTypes(state, perm.id).types.includes("Planeswalker")) deadPw.push({ controller: pid, id: perm.id, name: perm.card?.name || "planeswalker", card: perm.card });
         }
       }
     }
@@ -2848,7 +2853,7 @@ export function applyLegendRule(state) {
     next = moveCardToZone(next, { playerId: m.controller, fromZone: "battlefield", toZone: "graveyard", cardId: m.id });
     next = logEvent(next, { kind: "legend-rule", turn: next.turn, controller: m.controller });
   }
-  return { state: next, dead };
+  return { state: next, dead, deadPw };
 }
 
 /**

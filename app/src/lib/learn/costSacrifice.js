@@ -1,5 +1,6 @@
 /**
- * costSacrifice.js — THE SACRIFICE PAID AS A COST (CR 701.21a), one sequence for every cost site (2026-10-16).
+ * costSacrifice.js — THE SACRIFICE PAID AS A COST (CR 701.21a), one sequence for every cost site (2026-10-16), and for the two
+ * sacrifices the engine performs itself outside any resolving effect program (2026-10-17).
  *
  * Its callers: manaModel.commitManaTap (a mana ability's cost — a Treasure, a Lotus Petal, an Eldrazi Spawn, a Sliver granted Basal
  * Sliver's ability, the creature an Altar takes) and actionDispatcher (an activated ability's "Sacrifice a creature:" / self-sacrifice /
@@ -8,11 +9,17 @@
  * sides of its sacrifice watchers. The EFFECT-side twin (an edict — effects/atoms/removal.sacrificeCreatureEffect) follows the same death
  * rules inside a resolving spell, where the resolution finalizer drains the leave events.
  *
+ * The engine's own sacrifices call it too: each happens where no resolution finalizer runs after it, and this is the one sequence that
+ * drains its own leave event. fading.applyFadeVanishUpkeep (CR 702.32a / 702.63a — the upkeep trigger is applied inline as the step
+ * begins, never stacked) and gameEngine.sweepFinishedSagas (CR 714.4 — a state-based action that doesn't use the stack). Each built its
+ * own move before (2026-10-17): the Fading copy's death entry carried no replacement flags (a Blastoderm Rest in Peace exiled still
+ * "died") and neither fired the sacrifice watchers; the Saga copy assumed a Saga is never a creature.
+ *
  * Imports only gameState, layers and triggers — the modules manaModel already imports — so hosting the helper here adds no cycle.
  */
 import { moveCardToZone, logEvent, deathLookback, deathEventKind } from "./gameState.js";
 import { permanentTypes } from "./layers.js";
-import { checkDiesTriggers, checkLeavesTriggers, checkSacrificeTriggers } from "./triggers.js";
+import { checkDiesTriggers, checkLeavesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers } from "./triggers.js";
 
 /**
  * Sacrifice `perm` (a permanent `playerId` controls, read from `state`) as part of paying a cost, and fire what that event triggers:
@@ -25,6 +32,9 @@ import { checkDiesTriggers, checkLeavesTriggers, checkSacrificeTriggers } from "
  *     (gameState.deathEventKind, `via: "sacrifice"`), and its own and every watcher's dies triggers and the deaths-this-turn tally skip it;
  *   - the leave event drains FIRST (LEAVE-DRAIN, CR 603.3b), so the leave watchers stack in cost order, never at a later resolution
  *     against a changed board — checkDiesTriggers drains it on its first line for a creature, checkLeavesTriggers for anything else;
+ *   - a planeswalker that is no creature dies too (CR 700.4): it goes to the planeswalker dies dispatch after its leave event, as a
+ *     destroyed, combat-killed or batch-sacrificed one does (Cruel Celebrant's "creature or planeswalker you control dies"); one a
+ *     replacement exiled never died, which that dispatch reads off where the card went;
  *   - then every "whenever you sacrifice …" watcher (CR 701.21a), which reads the types it had from the look-back.
  * A permanent already gone makes moveCardToZone throw: a cost naming a permanent that left is a hard error, never a free payment.
  */
@@ -35,5 +45,6 @@ export function sacrificePermanentForCost(state, playerId, perm) {
   const deathKind = death ? deathEventKind(death) : null;
   if (deathKind && deathKind !== "creature-dies") next = logEvent(next, { kind: deathKind, turn: next.turn, cardName: perm.card?.name, controller: playerId, via: "sacrifice" });
   next = death ? checkDiesTriggers(next, [death]) : checkLeavesTriggers(next);
+  if (!death && lkiTypes.includes("Planeswalker")) next = checkPlaneswalkerDiesTriggers(next, [{ id: perm.id, controller: playerId, name: perm.card?.name, card: perm.card }]);
   return checkSacrificeTriggers(next, playerId, { id: perm.id, controller: playerId, card: perm.card, lkiTypes });
 }

@@ -8,7 +8,7 @@
 import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js";
 import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, diesExiledInstead, shufflesIntoLibraryInsteadOfGraveyard, addMana, deathLookback, deathEventKind, destructionReplacementFor, graveyardReplacementCarriersLast } from "../../gameState.js"; // + shufflesIntoLibraryInsteadOfGraveyard (#582): Saw in Half's "dies this way" verdict // + deathLookback: the death look-back every death site shares (the sacrifice sites included) // + deathEventKind: the event a death site logs, named by where the card goes // + graveyardReplacementCarriersLast: the batch sacrifice's move order (a carrier of a graveyard replacement last) // + destructionReplacementFor (#587): the destroy's own replacement ladder (its one copy, in gameState), read for "destroyed this way"
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // ④-BD — the counter rider's delayed "may draw up to N" (Arcane Denial); delayedTrigger imports only gameState (cycle-safe)
-import { checkDiesTriggers, checkLifegainTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers } from "../../triggers.js"; // + checkPlaneswalkerDiesTriggers (#639): a planeswalker sacrificed in a batch dies too (CR 700.4)
+import { checkDiesTriggers, checkLifegainTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers } from "../../triggers.js"; // + checkPlaneswalkerDiesTriggers (#639): a planeswalker sacrificed in a batch — or alone (2026-10-17) — dies too (CR 700.4)
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
 import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandCard, massCreatureTargets, nonlandPermanentsWithManaValueAtMost } from "./shared.js";
 import { applyCreateToken, applyCreateNamedToken, applyCreateTokenCopy } from "./tokens.js"; // + applyCreateTokenCopy (#582): Saw in Half's copies ride the shared token-copy minter
@@ -334,6 +334,11 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
   const deathKind = death ? deathEventKind(death) : null;
   if (deathKind && deathKind !== "creature-dies") next = logEvent(next, { kind: deathKind, turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
   if (death) next = checkDiesTriggers(next, [death]);
+  // A planeswalker that is no creature dies too (CR 700.4): the planeswalker dies dispatch, as the batch sacrifice and the destroy
+  // effect send theirs (Cruel Celebrant's "creature or planeswalker you control dies") — Sheoldred's Edict's planeswalker mode,
+  // Korvold's "sacrifice another permanent". One a replacement exiled never died; the dispatch reads where the card went. Missing
+  // until 2026-10-17: a lone planeswalker sacrificed by an effect fired no planeswalker-dies watcher.
+  else if (lkiTypes.includes("Planeswalker")) next = checkPlaneswalkerDiesTriggers(next, [{ id: permId, controller: playerId, name: lk.permanent.card?.name, card: lk.permanent.card }]);
   // TRIG-SACRIFICE: fire "Whenever you sacrifice a <permanent|creature|artifact>" for the sacrificing player. The perm has left the
   // battlefield, so its look-back carries its card and the types it had (sacScopeMatches' creature scope reads them).
   next = checkSacrificeTriggers(next, playerId, { id: permId, controller: playerId, card: lk.permanent.card, lkiTypes: [...lkiTypes] });
@@ -1555,6 +1560,26 @@ export function mintedLeaveClauseParser(clause) {
 }
 
 /**
+ * MOBILIZE's delayed half (CR 702.181a — "Sacrifice them at the beginning of the next end step"; the mint half and the scheduling are
+ * tokens.applyMobilize, which marks each Warrior `mobilizedToken`): every mobilized token the delayed ability's controller still
+ * controls (CR 701.21a — a player sacrifices only what they control; one already gone is simply absent), sacrificed TOGETHER as the
+ * one event "sacrifice them" is — sacrificeCreaturesTogether, the batch sacrifice every look-back reads from the board before any of
+ * them leaves: each Warrior's dies triggers and death, a "one or more creatures die" watcher once (CR 603.1), a replacement that keeps
+ * one out of the graveyard (Rest in Peace — CR 700.4, no death), and each sacrifice's watchers. Here, not in tokens.js, because
+ * removal imports tokens (the reverse edge would be a cycle). Until 2026-10-17 tokens.js moved the Warriors to the graveyard by hand
+ * and then asked the lethal-damage check, which could no longer see them: no dies trigger, no sacrifice trigger, no death.
+ */
+export function applyMobilizeSac(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state;
+  const victims = player.battlefield.filter((p) => p.mobilizedToken).map((p) => ({ playerId: controller, permId: p.id }));
+  if (victims.length === 0) return state;
+  const next = sacrificeCreaturesTogether(state, victims);
+  return logEvent(next, { kind: "spell-effect", effect: "mobilize-sac", controller, count: victims.length });
+}
+
+/**
  * The delayed half: each token still on the battlefield leaves. A SACRIFICE takes only a token the delayed ability's
  * controller still controls (CR 701.21a — a player can't sacrifice what they don't control); an EXILE takes it whoever
  * controls it. One already gone is left alone (CR 603.7c).
@@ -1573,6 +1598,7 @@ export function applyMintedLeave(state, atom, ctx) {
 export const removalResolvers = {
   "schedule-minted-leave": applyScheduleMintedLeave, // shelf D26 — "Sacrifice it at the beginning of the next end step" after a token copy
   "minted-leave": applyMintedLeave,                   // its sentinel — the minted tokens leave (sacrifice: only those you still control)
+  "mobilize-sac": applyMobilizeSac,                   // KW-MOBILIZE's delayed half (CR 702.181a) — the mobilized Warriors, sacrificed together
   "bounce-at-end-of-combat": applyBounceAtEndOfCombat, // ④-BB — "return that creature to its owner's hand at end of combat" (Wall of Tears)
   "self-at-end-of-combat": applySelfAtEndOfCombat, // ④-AX — "sacrifice it / return it to its owner's hand at end of combat" (the attacks-or-blocks self class)
   "champion": applyChampion, // ===== CHAMPION (CR 702.71a) ===== exile ANOTHER own nontoken creature of the named type, linked to the source via the shared detain resolver (so the return is the one already proven); sacrifice the source when no legal offering exists

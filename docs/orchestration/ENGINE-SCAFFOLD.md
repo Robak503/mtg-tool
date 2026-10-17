@@ -461,7 +461,15 @@ means "all permanents" (vacuous filter).
   activated-ability, additional, alternative and emerge cost in `actionDispatcher`
   calls too (2026-10-16: the two copies had drifted), so a creature dies through
   `gameState.deathLookback` like at every other death site, a replaced death is
-  logged, and the leave event drains before the sacrifice watchers.
+  logged, and the leave event drains before the sacrifice watchers. The engine's
+  own sacrifices outside a resolution call it too (2026-10-17): the Fading /
+  Vanishing upkeep (`fading.applyFadeVanishUpkeep`) and the finished-Saga
+  state-based action (`gameEngine.sweepFinishedSagas`). A sacrifice during a
+  resolution is `removal.sacrificeCreatureEffect` (one permanent) or
+  `sacrificeCreaturesTogether` (one event — the mobilized Warriors,
+  `removal.applyMobilizeSac`). Every one of them, and the legend rule, sends a
+  planeswalker that is no creature to `checkPlaneswalkerDiesTriggers`. A new
+  sacrifice site calls one of these three; it never moves the card by hand.
 - `planPayment(...)` is a **pure planner** returning exact `{taps, spend}`; the
   dispatcher commits it verbatim. Cost *legality* and cost *payment* always run
   the same planner — the "two-sites invariant" that stops the offered action and

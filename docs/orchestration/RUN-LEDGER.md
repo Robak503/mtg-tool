@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **57 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **±0** (+46 gained, −46 false credit removed). The next tag
+> **58 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **±0** (+46 gained, −46 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,79 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX: the death sites that bypassed the shared sacrifice — the Fading / Vanishing upkeep, the mobilized Warriors, a creature Saga, a sacrificed planeswalker · **±0** · corpus 15,494
+> Suite **19,573** green (1 skipped) / 1,814 files. Lint 0 (CR citations: 0 of 10,451 name no rule). Flip-diff **0 / 0 / 0**
+> (34,620 cards; before = 93250da2's code from an untouched git-archive copy, after = this tree), so every coverage count is
+> unchanged. **Mutants 11/11** on assertions, restore byte-identical (sha256 of the seven engine files compared after each).
+> Runtime only.
+> · **The bugs** (the 10-16 slice's four, each re-proved on 93250da2 on a real board: `nextStep` into the upkeep or the draw step, a
+>   declared attack run to the end step, `legalActionsForPlayer` + `dispatchAction`, `checkAllStateBasedActions`; every text from the
+>   bundled oracle index). ① **`fading.applyFadeVanishUpkeep`** (CR 702.32a / 702.63a) built its own death entry with no replacement
+>   flags: Blastoderm sacrificed at upkeep under Rest in Peace went to exile, yet Blood Artist triggered and a death was counted
+>   (CR 700.4 — FALSE POSITIVE); an opponent's Misery's Shadow (the death-specific exile; a Lava Coil stamp cannot be live at that
+>   upkeep) was not the destination; no sacrifice watcher fired (Korvold, and a noncreature's — Rejuvenation Chamber — FN).
+>   ② **`tokens.applyMobilizeSac`** moved the Warriors to the graveyard by hand, then asked `destroyLethalCreatures`, which could no
+>   longer see them: no dies trigger, no sacrifice trigger, no death (FN). ③ **`gameEngine.sweepFinishedSagas`** (CR 714.4) assumed a
+>   Saga is never a creature: Urza's Saga under Living Plane was sacrificed at chapter III with no dies trigger, no death, no replaced
+>   death logged under Rest in Peace (FN). ④ **A planeswalker sacrificed as a cost** (Claws of Gix, Spark Reaper) reached no
+>   `checkPlaneswalkerDiesTriggers` (Cruel Celebrant — FN); the audit found the same gap at the single effect sacrifice (Sheoldred's
+>   Edict's planeswalker mode) and at the legend rule (two Jace Belerens, CR 704.5j).
+> · **The fix.** ① and ③ call **`costSacrifice.sacrificePermanentForCost`**: both happen where no resolution finalizer follows (the
+>   Fading / Vanishing trigger is applied inline as the upkeep begins; CR 714.4 is a state-based action that doesn't use the stack),
+>   and it is the one sequence that drains its own leave event — the effect-side `removal.sacrificeCreatureEffect` leaves a
+>   noncreature's leave event to the finalizer, and fading.js cannot import removal.js anyway (removal → zones → enterReplacements →
+>   fading is a cycle). Each Fading / Vanishing sacrifice is its own event (each permanent's own trigger), read off the live board
+>   after a vanishing counter came off; the Saga is re-read live too. ② moves to **`removal.applyMobilizeSac`** (registered in
+>   `removalResolvers`; tokens.js keeps the mint half and the sentinel parser — tokens cannot import removal, removal imports tokens):
+>   the delayed trigger resolves inside a resolution, and "sacrifice them" is ONE event, so **`sacrificeCreaturesTogether`** — each
+>   Warrior's death and sacrifice, a "one or more creatures die" watcher once (CR 603.1). ④ `sacrificePermanentForCost` and
+>   `sacrificeCreatureEffect` send a planeswalker that is no creature (layer-aware types as it left, CR 603.10a) to
+>   `checkPlaneswalkerDiesTriggers` after its leave event and before the sacrifice watchers (the batch sacrifice's and the destroy
+>   effect's dispatch); `applyLegendRule` returns `deadPw` and `checkAllStateBasedActions` dispatches it. A planeswalker a
+>   replacement exiled never died (the dispatch reads where the card went). Two wrong citations in the mobilize block fixed on the way
+>   (CR 702.174 is Gift → 702.181a; 701.17 is Mill → 701.21a). ENGINE-SCAFFOLD §4.7 names the three sacrifice entry points.
+> · **Every battlefield → graveyard move in the engine (the audit — `moveCardToZone` from "battlefield" toward "graveyard", plus every
+>   `checkDiesTriggers` input):** the cost sacrifice (costSacrifice.js), the single and batch effect sacrifices (removal.js), the
+>   destroy effect (spellEffects.applyDestroyEffect), the lethal-damage SBA (destroyLethalCreatures) and the legend rule's creatures —
+>   all on `deathLookback`; the 0-loyalty SBA (destroyZeroLoyaltyPlaneswalkers → the planeswalker dispatch at all four callers);
+>   Fading / Vanishing, mobilize, the Saga sweep, the legend rule's planeswalkers — fixed here; the Aura moves (an orphaned Aura when
+>   its host leaves, gameState.detachPermanentFromAll; umbra armor's Aura, applyTotemArmor; CR 704.5m in sba.js twice; Animate Dead
+>   with nothing to return; a departed player's Curses, learnSession; the replaced Roles, CR 704.5y) — an Aura is no creature (a
+>   bestowed one is excluded), so no death is missed, and moveCardToZone records each leave event. `zones.applyZoneMove` only ever
+>   moves to hand, library or exile; runProgram's tutor move is from the library or hand. Every `checkDiesTriggers` input is now a
+>   `deathLookback` entry or `destroyLethalCreatures`' list — the Fading entry was the last hand-built one.
+> · **AI / self-play** (the 30 profile decks in AppData, read for these cards; no seeded batch was run). Voice of Victory (Otharri
+>   Test, Kellan of the west): its two Warriors now die and are sacrificed at the end step — neither deck has a death or sacrifice
+>   watcher of its own, but an opponent's do fire now: Syr Konrad, the Grim (Teval Test, Mothman Cometh — 1 damage to each of its
+>   opponents per Warrior), Mayhem Devil (Vihaan, Goldwaker — 1 damage per Warrior), and the any-seat deaths-this-turn tally counts
+>   them. Reality Acid (Brago Blink — body-only, but its Vanishing sacrifice runs at every upkeep) now fires sacrifice watchers (Mayhem
+>   Devil). Urza's Saga (Captain America, Wolverine, Earth Bent, cdh, Squirrel Girl) dies as a creature only when animated at its
+>   sacrifice — Earth Bent's earthbend can do that (its earthbend return already fired off the leave event; now the death counts and
+>   an opponent's Syr Konrad sees it). Planeswalkers: the only planeswalker-dies watchers in the decks are Carth the Lion (Atraxa
+>   Superfriends — no trigger detected, body-only) and Cruel Celebrant (Vihaan, Goldwaker — a deck with no planeswalker), so no
+>   profile game changes there. No profile deck holds a Fading / Vanishing creature.
+> · Witness **`sacrificeDeathSites.test.js`** (21; 14 red at 93250da2, every one an AssertionError; the 7 controls pass on both):
+>   Blastoderm under Rest in Peace / without it / beside an opponent's Misery's Shadow / with a fade counter left; Waning Wurm under
+>   Rest in Peace and without; Rejuvenation Chamber (Disciple below Korvold); Voice of Victory's Warriors (Blood Artist ×2, Korvold ×2,
+>   Vengeful Townsfolk ×1, two deaths) and under Rest in Peace; Urza's Saga under Living Plane, under Living Plane + Rest in Peace, and
+>   a plain Saga; Claws of Gix and Spark Reaper sacrificing Jace Beleren (Cruel Celebrant, then Korvold), under Rest in Peace, and a
+>   Sol Ring control; Sheoldred's Edict at the opponent's Jace and under Rest in Peace; the legend rule on two Jaces and under Rest in
+>   Peace; the 0-loyalty parity control. The 108 test files that touch these paths and the full suite stay green unchanged.
+> · The full suite ran before the last two edits (the witness's Misery's Shadow case replaced an unreachable Lava Coil-stamp case;
+>   one fading.js comment); the witness, the 108 related test files, lint and all eleven mutants re-ran on the committed bytes.
+> · Mutants (11): fading.js back on 93250da2 · the Fading sacrifice a bare graveyard move · the Warriors moved by hand · each Warrior
+>   its own event (the batch watcher fires twice) · gameEngine.js back on 93250da2 · no planeswalker dispatch in the cost sacrifice ·
+>   that dispatch after the sacrifice watchers · none in the effect sacrifice · the legend rule records no planeswalker · sba.js never
+>   dispatches them · the cost sacrifice reads the printed type line (the Living Plane Saga).
+> · ⚠️ Found, not fixed: ① **`removal.applyMintedLeave`** (Kiki-Jiki, Tempestra, Orthion, The Fire Crystal — "Sacrifice it at the
+>   beginning of the next end step") sacrifices a doubler's extra tokens one at a time: probed, two tokens make Vengeful Townsfolk
+>   trigger twice (a FALSE POSITIVE for a "one or more creatures die" watcher; `sacrificeCreaturesTogether` is the fix — not this
+>   slice's bug, it never bypassed `deathLookback`). ② Mobilize's marker sacrifices every mobilized token at the first delayed trigger,
+>   so two mobilize attackers make one batch, not two (an under-fire, FN). ③ The 0-loyalty SBA and the destroy effect read
+>   planeswalker-ness off the printed card, not layer-aware (a planeswalker that is also a creature at 0 loyalty never dies as a
+>   creature — FN). ④ CR 702.174 (Gift) is still cited for mobilize in coverage.js and triggers.js (×2), and for offspring (702.175)
+>   in coverage.js — comments only.
 
 > ## 🔧 2026-10-17 — FIX: a cast offer's `cmc` is the card's mana value — kicker, multikicker, bestow and strive no longer add to it, and a {2/X} pip counts 2 (CR 118.8d, 118.9c, 202.3f) · **±0** · corpus unchanged
 > Suite **19,518** green (1 skipped) / 1,812 files, under the gate queue. Lint 0 (CR citations: 0 of 10,429 name no rule). Flip-diff

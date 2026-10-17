@@ -2,7 +2,7 @@
  * effects/atoms/tokens.js — token-minting atoms (create-token, create-named-token).
  */
 
-import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintId, attachPermanent, moveCardToZone, opponentsOf } from "../../gameState.js"; // opponentsOf — PER-OPPONENT tokens (Endless Foot Assault)
+import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintId, attachPermanent, opponentsOf } from "../../gameState.js"; // opponentsOf — PER-OPPONENT tokens (Endless Foot Assault)
 import { tokenMultiplier, tokenAdditive, tokenExtraKinds, tokenOneOfEachPasses, applyCounterDoubling } from "../../replacementEffects.js"; // + tokenOneOfEachPasses — Academy Manufactor (Bumble F4) // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter; Xorn additive Treasure bonus
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
@@ -1201,11 +1201,10 @@ export const tokenResolvers = {
   "create-named-token": applyCreateNamedToken, // ===== TOKENS ===== T2 Treasure/Clue/Food/Gold
   "create-token-copy": applyCreateTokenCopy,   // ===== TOKEN-COPY ===== (Wave 5b) CR 707.1 — token that's a copy
   "create-token-copy-each": applyCreateTokenCopyEach, // ===== TOKEN-COPY-EACH ===== (COPY-RIDER) Second Harvest — copy each token you control
-  "mobilize": applyMobilize,        // KW-MOBILIZE (CR 702.174) — N tapped tokens that JOIN combat.attackers (see below)
-  "mobilize-sac": applyMobilizeSac, // the CR 603.7 delayed half, fired at the next end step
+  "mobilize": applyMobilize,        // KW-MOBILIZE (CR 702.181a) — N tapped tokens that JOIN combat.attackers (see below); the delayed sacrifice half is removal.js's "mobilize-sac"
 };
 
-// ─── KW-MOBILIZE (CR 702.174) ────────────────────────────────────────────────────
+// ─── KW-MOBILIZE (CR 702.181a) ────────────────────────────────────────────────────
 /**
  * The kind-tagged sentinel detectTriggers synthesizes from the printed keyword
  * ("[mobilize] create N tapped attacking warrior tokens"). Only this parser models that sentinel, so no
@@ -1233,7 +1232,8 @@ export function mobilizeClauseParser(clause) {
  * paper and inert in fact (CREED — never a half-modeled effect).
  *
  * The sacrifice is a genuine CR 603.7 delayed trigger through the shared scheduler, not a bespoke sweep.
- * Tokens carry `mobilizedToken` so the delayed clause can find exactly them at the next end step.
+ * Tokens carry `mobilizedToken` so the delayed clause can find exactly them at the next end step, where
+ * removal.applyMobilizeSac sacrifices them together through the shared batch sacrifice.
  */
 export function applyMobilize(state, atom, ctx) {
   const n = Math.max(0, atom.amount || 0);
@@ -1282,31 +1282,8 @@ export function applyMobilize(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "mobilize", controller, count: mintedIds.length, defender });
 }
 
-/** The delayed half's sentinel — only this parser models it. */
+/** The delayed half's sentinel — only this parser models it (its resolver is removal.applyMobilizeSac). */
 export function mobilizeSacClauseParser(clause) {
   return /^\[mobilize-sac\] sacrifice the mobilized tokens$/i.test(String(clause || "").trim())
     ? { op: "mobilize-sac", targetType: null } : null;
-}
-
-/**
- * Sacrifice every mobilized token the controller still has (CR 701.17). Reads the `mobilizedToken` marker
- * rather than remembering ids, so a token that already left the battlefield is simply absent — never a
- * sacrifice aimed at a stale id. Routed through moveCardToZone + checkDiesTriggers so death triggers and
- * the graveyard event log behave exactly as they do for any other sacrifice.
- */
-export function applyMobilizeSac(state, atom, ctx) {
-  const controller = ctx.controller;
-  const player = state.players?.[controller];
-  if (!player) return state;
-  const doomed = player.battlefield.filter((p) => p.mobilizedToken).map((p) => p.id);
-  if (doomed.length === 0) return state;
-  let next = state;
-  for (const id of doomed) {
-    const lk = findPermanent(next, id);
-    if (!lk) continue;
-    next = moveCardToZone(next, { playerId: controller, fromZone: "battlefield", toZone: "graveyard", cardId: id });
-  }
-  const r = destroyLethalCreatures(next);
-  next = checkDiesTriggers(r.state, r.dead);
-  return logEvent(next, { kind: "spell-effect", effect: "mobilize-sac", controller, count: doomed.length });
 }
