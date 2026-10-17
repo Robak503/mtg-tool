@@ -182,9 +182,11 @@ describe("A · a counter in the cost is paid — removed, or put on", () => {
     const dry = table([on("src", VIVID_CRAG)]);
     expect(castFrom(dry, "h-elves")).toBeUndefined();
     expect(castFrom(dry, "h-bolt")).toBeDefined();
-    // By hand only the plain line is offered (a permanent's extra line is planner-only — the action names a colour alone).
-    expect(taps(s).map((a) => a.color)).toEqual(["R"]);
+    // By hand {R} is the plain line (counters kept); since 2026-10-17 (the land lines) each other colour is the charge line, offered
+    // for the colours no earlier record makes, removing a counter (the extra line was planner-only).
+    expect(taps(s).map((a) => a.color)).toEqual(["R", "W", "U", "B", "G"]);
     expect(perm(dispatchAction(s, tapFor(s, "R")), "src").counters.charge).toBe(2);
+    expect(perm(dispatchAction(s, tapFor(s, "U")), "src").counters.charge).toBe(1);
   });
 
   it("Tendo Ice Bridge spends its one charge counter on a coloured pip and stays; Mirrodin's Core needs a counter first", () => {

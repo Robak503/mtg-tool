@@ -335,7 +335,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
       {manaPick && (
         <div className="lb-targetbar lb-manabar">Tap <b>{manaPick.name}</b> for which color?
           {manaPick.options.map((o, i) => (
-            <button key={i} className="btn btn-secondary btn-sm" onClick={() => { onAction(o); setManaPick(null); }}>{o.color}</button>
+            <button key={i} className="btn btn-secondary btn-sm" onClick={() => { onAction(o); setManaPick(null); }}>{o.bundle || o.color}</button>
           ))}
           <button className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={() => setManaPick(null)}>cancel</button>
         </div>

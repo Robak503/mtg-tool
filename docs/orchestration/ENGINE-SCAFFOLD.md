@@ -495,10 +495,26 @@ means "all permanents" (vacuous filter).
   counter on this land"; `landsCouldProduce`'s `subtype` (Plaza of Harmony's Gates). The planner tries a permanent's several
   costed records best first and retries each alternative (`costedActivationOrders`), and its generic tap takes a permanent's
   biggest plain colourless line when nothing covers the cost. `landFullyCovered` reads lines through `landLineMana` (the card's
-  extra records, the line alone, or the chosen-colour line of a chosen-colour main). ⚠️ Still open: a line that parses alone
-  but the whole card never makes (the filter lands' hybrid lines, "{1}, {T}: Add one mana of any color" beside a plain {C},
-  Phyrexian Tower's sacrifice line — 54 single-faced lands by a corpus probe, 12 in the play-weighted top 1,000) is still
-  credited through the single-line read. Witness: `landManaFallback.test.js`.
+  extra records, the line alone, or the chosen-colour line of a chosen-colour main). Witness: `landManaFallback.test.js`.
+- **A land's line read alone counts only when the main product makes it; the lines it hid are extra records (2026-10-17, the
+  land lines).** `landLineMana`'s single-line arm now asks `mainMakesProduct` (every colour the main's, no more mana, no cost or
+  gate the main has that the line lacks, the same mana cost) — 54 single-faced lands had been credited on a line no record made.
+  Land-only extra readers in `extraManaLineProducts`: `BUNDLE_CHOICE_MANA_LINE_RE` (the filter lands — one record per bundle,
+  `fixed`, behind the hybrid `activationCost`, named by `bundle`; the planner tries each bundle first in turn), `COSTED_MANA_LINE_RE`
+  (a mana-costed colour / any-colour / commander-identity line beside a plain one, with a known `spentRider` — Opal Palace's
+  `commanderCounters`, Guildmages' Forum's `multicoloredCreatureCounter`, made at the cast site as enters-with counters),
+  `MAX_SPEED_MANA_LINE_RE` (`requiresMaxSpeed`), `PAIN_PAIR_MANA_LINE_RE` (Murmuring Bosk), `OPPONENTS_GAIN_MANA_LINE_RE` (Grove of
+  the Burnwillows — `opponentsGainLife`, paid by commitManaTap through gainLife), `LAND_EXTRA_MANA_LINE_RE` (coloured / gated
+  pay-life, sacrifice-a-creature, The Grey Havens' graveyard colours, four restricted lines). `extraLineSources` carries and gates
+  them (a creature to sacrifice, Max speed, a board-derived set narrowed live, damage, life gain, the rider, the bundle). The
+  explicit tap offers a permanent's extra lines for what no earlier record of it offers (key: permanent + colour, or the
+  `bundle`; the dispatcher matches both). parseAddClause: the free any-colour arms read only an unqualified "any color" (Artist
+  Alley, Reflective Gate, The Big Top, Paliano, Blustering Barnyard make nothing from their joke/priced sets); a painful pair or
+  painful any-colour line read alone keeps its damage; a land's triggered "add" is not its tap (Crumbling Vestige, Branch of
+  Vitu-Ghazi). parseSpendRestriction: "a X spell or a Y spell" is one list (Maelstrom — `omen`, CR 205.3k), "a spell that has
+  <keyword>" is `castKeywords` (Brotherhood Headquarters — freerunning). ⚠️ The planner pays a {C} pip from a permanent's first
+  colourless record (tapForColor), so a land with a bigger second {C} line (Muraganda Raceway at max speed) pays its
+  {C}{C} toward generic but not toward two {C} pips — an under-read. Witness: `landLinesMade.test.js`.
 - `manaSources(state, player)` → the untapped permanents that can produce now
   (summoning-sickness aware). Granted mana abilities are counted by ONE read,
   `withGrantedMana`: a permanent with no mana ability of its own takes the granted spec

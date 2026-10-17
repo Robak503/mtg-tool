@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **13 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,478)**; engine gains since the tag: **+25** (+31 gained, −6 false credit removed). The next tag
+> **14 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.7% (15,475)**; engine gains since the tag: **+22** (+31 gained, −9 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,62 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX (false positive): the land lines — a land's mana line is credited only when the engine makes it; the 54 lines d6aee1ed's probe found (credited, never made) are now made: the ten filter lands' three bundles behind the hybrid pip, "{1}, {T}: any colour" beside a plain {C} (Talon Gates of Madara, Planar Nexus + 14; two more for {2}), the Homelands keeps, Crystal Quarry, Crypt of the Eternals, Phyrexian Tower's sacrifice line, Spire of Industry's gated pay-life line and the deserts', Opal Palace (with its commander counters), Guildmages' Forum (its counter), Muraganda Raceway, Murmuring Bosk, Grove of the Burnwillows, The Grey Havens, Power Depot, Tournament Grounds, Maelstrom of the Spirit Dragon, Brotherhood Headquarters, Crumbling Vestige · **−3** (false credit removed: Artist Alley, Reflective Gate, The Big Top) · snapshot native 15,473 → 15,470
+> Suite **20,352 green (1 skipped) / 1,854 files** under the gate queue (the final tree re-run below). Lint 0 (CR citations: 0 of 11,206 name no
+> rule; keyword citations: 0 of 2,328 cite a different keyword). Flip-diff **+0 / −3 / RETIERED 0** (34,620 cards; before = an untouched
+> `git archive` of d6aee1ed; native 15,473 → 15,470 of 34,584 snapshot names): **Artist Alley** (unranked), **Reflective Gate** (unranked) and
+> **The Big Top** (#29,105) land → land-partial — each was credited on a free any-colour read of a colour no reader holds (an art-box signature,
+> "shares a color with a permanent a player controls", "appears on your top"). Runtime fingerprint: 6 `manaProduction` reads change, every one a
+> phantom any-colour main removed (below). `measure-coverage` (MTG_APP_ROOT = the install): corpus 15,478 → 15,475 (44.7%); top 1,000 **903 →
+> 903**; top 2,500 1,741 → 1,741; top 5,000 2,738 → 2,738; top 10,000 4,533 → 4,533; every one of the 30 profile decks unchanged (aggregate
+> 2,747 / 2,998). **Mutants 38/38** on assertions, each restored byte-identical (sha256). Witness `landLinesMade.test.js` written first: 60 of 101
+> seen to fail on the base engine on assertions (the other 41 are controls). Old pins graduated with the date: explicitTapCost (Starting Town's
+> pay-life line by hand), extraManaLines (Hall of Oracles' costed line is a record), landManaFallback (Plaza of Harmony offers its {C} by hand),
+> manaPrintedCosts (a Vivid land's charge line by hand), planarNexus and talonGatesOfMadara (the {1} line is made). Committed on
+> `day/landlines`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The bug** (d6aee1ed's probe, reproduced: 54 single-faced lands, 12 in the play-weighted top 1,000 — Phyrexian Tower, Rugged Prairie,
+>   Cascade Bluffs, Flooded Grove, Fetid Heath, Twilight Mire, Spire of Industry, Graven Cairns, Talon Gates of Madara, Opal Palace, Mystic Gate,
+>   Sunken Ruins). `landLineMana`'s last arm read a line alone; the line parsed (the filter lines misparse alone as one mana of either colour),
+>   so `landFullyCovered` credited it, while the whole card's main product was its plain {C} and no extra record held the line.
+> · **The fix.** (1) The gate: the single-line read counts only when `mainMakesProduct` (every colour the main's, no more mana, no cost/gate the
+>   main has that the line lacks, the same mana cost). (2) Land-only extra readers (`extraManaLineProducts`): `BUNDLE_CHOICE_MANA_LINE_RE` —
+>   one `fixed` record per bundle behind the hybrid `activationCost` (CR 107.4e), named by `bundle`; the planner's costed-activation retry tries
+>   each first; `COSTED_MANA_LINE_RE` — the costed line read alone behind a bare {T}, its cost as `activationCost`, a known spend sentence as
+>   `spentRider`; `MAX_SPEED_MANA_LINE_RE` (CR 702.179e); `PAIN_PAIR_MANA_LINE_RE`; `OPPONENTS_GAIN_MANA_LINE_RE` (CR 119.3); and
+>   `LAND_EXTRA_MANA_LINE_RE` (coloured / gated pay-life, sacrifice a creature, The Grey Havens' set, four restricted lines). `extraLineSources`
+>   carries and gates them: a creature to sacrifice (CR 118.3), Max speed, a board-derived set narrowed live (Opal Palace's identity, the
+>   Havens' graveyard — new `colorsAmongFor` kind), damage, opponents' life gain (`opponentsGainLife` → commitManaTap → gainLife + lifegain
+>   triggers), the rider, the bundle. (3) The cast site: `manaSpentEnterCounters` — Opal Palace's `commanderCounters` (the commander's
+>   command-zone cast count, this cast included, CR 903.8) and Guildmages' Forum's `multicoloredCreatureCounter`, handed to the entry as
+>   enters-with counters (CR 614.1c; a doubler applies). (4) The explicit tap offers a permanent's extra lines for what no earlier record of it
+>   offers (key: permanent + colour, or the bundle; the dispatcher matches both; the board shows the bundle). A spent-rider record stays off
+>   the explicit tap (floating mana keeps no rider). (5) parseAddClause: the free any-colour arms read only an unqualified "any color"; a
+>   painful pair / painful any-colour line read alone keeps its damage (the painlands' lines stay credited through the new gate); a land's
+>   triggered "add" is no tap. (6) parseSpendRestriction: "a X spell or a Y spell" is one list, `omen` a spell-type word (CR 205.3k), "a spell
+>   that has freerunning" → `castKeywords`, honoured by `spendRestrictionAllows`.
+> · **Every land's verdict** (made faithfully unless said): the ten filter lands; Talon Gates of Madara, Planar Nexus, Capital City, Conduit
+>   Pylons, Hidden Grotto, Daily Bugle Building, Captivating Cave, Cave of Temptation, Unknown Shores, Artifact Unknown Shores, Rumble Arena,
+>   Surveillance Room, Painted Bluffs, Shimmering Grotto, Crystal Grotto, Hall of Tagsin ({1}: any colour); School of the Unseen, Henge of Ramos
+>   ({2}); Koskun Keep, An-Havva Township, Wizards' School, Aysen Abbey, Castle Sengir (both costed lines); Crystal Quarry; Crypt of the Eternals;
+>   Phyrexian Tower; Spire of Industry; Shefet Dunes, Ipnu Rivulet, Ramunap Ruins, Hashep Oasis; Opal Palace; Guildmages' Forum; Muraganda
+>   Raceway; Murmuring Bosk; Grove of the Burnwillows; The Grey Havens; Power Depot; Tournament Grounds; Maelstrom of the Spirit Dragon (Omen
+>   spells read, none castable as an Omen in this engine — omenPrepare.js); Brotherhood Headquarters; Crumbling Vestige (its {C} line is now its
+>   main — it tapped for any colour off its enter trigger). **Credit dropped:** Artist Alley, Reflective Gate (+ The Big Top) — no reader for
+>   their colour. 52 made, 2 dropped (+1 outside the 54).
+> · **Runtime reads changed** (fingerprint, 6): Crumbling Vestige and Branch of Vitu-Ghazi any colour → {C} (a triggered add read as the tap);
+>   Artist Alley any colour → {C}; The Big Top, Paliano, the High City, Blustering Barnyard any colour → nothing. Extra records gained on
+>   land-partial twins (no tier move): Abstergo Entertainment, Hall of Oracles, Heap Gate, The Mycosynth Gardens, Tarkir Omenpath, White Lotus
+>   Hideout ({1}: any colour), Ifnir Deadlands (pay-life {B}), Lazotep Quarry (sacrifice a creature: any colour).
+> · **Decks holding affected lands** (all unchanged in coverage): Kellan of the west (Mystic Gate, Wooded Bastion, Flooded Grove, Planar Nexus),
+>   Vihaan (Graven Cairns, Rugged Prairie, Fetid Heath), Slivers (Flooded Grove, Mystic Gate, Twilight Mire), Zaxara (Flooded Grove, Twilight
+>   Mire, Sunken Ruins), Test Rashmi (Flooded Grove), Veyran Cantrips (Cascade Bluffs), Otharri / Teval / cdh (Talon Gates), Earth Bent (Rumble
+>   Arena), Did you say Dragons? (Maelstrom), Killer Turts (Grove of the Burnwillows). AI play: the planner now activates a filter land's
+>   bundle, a {1} any-colour line or Maelstrom's Dragon mana when the free sources can't pay; Grove taps for {R}/{G} (each opponent gains 1)
+>   when a coloured pip needs it — basics first, as the least flexible source; Phyrexian Tower sacrifices a creature only when nothing else pays.
+> · **Open, not closed here:** the planner pays a {C} pip from a permanent's first colourless record, so Muraganda Raceway's {C}{C} pays generic
+>   but not two {C} pips; Tarkir Omenpath's "Spend this mana only to cast Omen spells" line now reads but no record admits it (land-partial, as
+>   before); a fixed bundle on an extra record is not scaled by a mana multiplier (an under-count, pre-existing).
 
 > ## 🧹 2026-10-17 — HYGIENE: the silent try/catch around parseAuraBonus is gone (CLAUDE.md §1.2) · **±0**
 > `auraEntry.bonusSide` caught any parseAuraBonus throw and returned null (the AI then held the Aura). A probe ran parseAuraBonus over all

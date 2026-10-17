@@ -61,7 +61,8 @@ describe("runtime", () => {
   it("mana: the honest {C} line is offered; no free any-colour main is conjured", () => {
     const src = manaSources(board(), "user").filter((x) => x.permanentId === "N");
     expect(src.some((x) => x.colors.join() === "C" && !x.restriction)).toBe(true);
-    expect(src.some((x) => x.colors.length > 1)).toBe(false); // the {1},{T} line is not offered (known under-offer, never an over-offer)
+    // GRADUATED 2026-10-17 (the land lines): the {1},{T} any-colour line is offered as its own record, behind its {1} — never free.
+    expect(src.filter((x) => x.colors.length > 1).map((x) => x.activationCost?.generic)).toEqual([1]);
   });
 });
 

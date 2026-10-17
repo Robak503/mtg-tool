@@ -289,10 +289,14 @@ describe("the mana abilities", () => {
       .toEqual({ pool: 1, tappedTalon: true, plan: [{ permanentId: "tg", color: "C", amount: 1 }] });
   });
 
-  it("THE UNDER-READ: the {1} filter line is read colorless-only, exactly as Unknown Shores (native) — never a free colored mana", () => {
+  // GRADUATED 2026-10-17 (the land lines): the {1} filter line was an under-read (colourless only); it is now made, behind its {1} —
+  // a Wastes funds it for {G}; alone the Gates still makes {C} only, never a free coloured mana.
+  it("the {1} filter line is made behind its {1}, exactly as Unknown Shores' — never a free colored mana", () => {
     const s = board({ user: [P("tg", TALON), P("w1", WASTES)], hand: [] });
-    const green = planPayment(s.players.user.manaPool, manaSources(s, "user"), { generic: 0, W: 0, U: 0, B: 0, R: 0, G: 1, C: 0, hybrid: [] });
-    expect({ talon: manaProduction(TALON), shores: manaProduction(UNKNOWN_SHORES), talonCost: manaActivationCost(TALON), shoresTier: classifyCard(UNKNOWN_SHORES), green })
-      .toEqual({ talon: { colors: ["C"], amount: 1, requiresTap: true }, shores: { colors: ["C"], amount: 1, requiresTap: true }, talonCost: null, shoresTier: "land", green: null });
+    const lone = board({ user: [P("tg", TALON)], hand: [] });
+    const G1 = { generic: 0, W: 0, U: 0, B: 0, R: 0, G: 1, C: 0, hybrid: [] };
+    const green = planPayment(s.players.user.manaPool, manaSources(s, "user"), G1);
+    expect({ talon: manaProduction(TALON), shores: manaProduction(UNKNOWN_SHORES), talonCost: manaActivationCost(TALON), shoresTier: classifyCard(UNKNOWN_SHORES), green: green !== null, lone: planPayment(lone.players.user.manaPool, manaSources(lone, "user"), G1) })
+      .toEqual({ talon: { colors: ["C"], amount: 1, requiresTap: true }, shores: { colors: ["C"], amount: 1, requiresTap: true }, talonCost: null, shoresTier: "land", green: true, lone: null });
   });
 });

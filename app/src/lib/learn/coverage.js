@@ -1917,7 +1917,9 @@ function landFullyCovered(card) {
   // (Cabal Stronghold's, Urza's Workshop's, Cascading Cataracts' and Baldur's Gate's second lines, Nykthos' devotion line, Great
   // Hall of the Citadel's and Sunken Citadel's restricted lines — none of them ever made). The fallback is gone, and the line is
   // read by manaModel.landLineMana: the card's own extra mana records, the line alone, or the chosen-colour line of a card whose
-  // main product is that colour (alone it has no chooser beside it).
+  // main product is that colour (alone it has no chooser beside it). Since the 2026-10-17 land-lines slice the line alone counts
+  // only when the card's main product makes it — 54 lands (the filter lands, Talon Gates of Madara, Phyrexian Tower …) were
+  // credited on a line that parsed alone but that no record made; those lines are extra records now.
   const isManaLine = (txt) => {
     if (/["“”]/.test(txt) || !/\badd\b/i.test(txt)) return false;
     const prod = landLineMana(card, txt);

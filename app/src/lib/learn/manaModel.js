@@ -30,10 +30,10 @@
  * legalChoices, and layers imports none of these modules so that edge is acyclic too.
  */
 
-import { MANA_COLORS, addMana, addCounter, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, removeCounter, setDoesNotUntapNext, opponentsOf } from "./gameState.js"; // + addCounter — 2026-10-17: Wall of Roots' -0/-1 counter cost // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
-import { checkTapForManaTriggers } from "./triggers.js"; // + ④-D: "tapped for mana" watchers fire at the one tap commit
+import { MANA_COLORS, addMana, addCounter, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, gainLife, logEvent, removeCounter, setDoesNotUntapNext, opponentsOf } from "./gameState.js"; // + gainLife (2026-10-17, the land lines): a mana ability that makes each opponent gain life (Grove of the Burnwillows); + addCounter — 2026-10-17: Wall of Roots' -0/-1 counter cost // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
+import { checkTapForManaTriggers, checkLifegainTriggers } from "./triggers.js"; // + checkLifegainTriggers (2026-10-17, the land lines): Grove of the Burnwillows' opponents gain life as its tap resolves; + ④-D: "tapped for mana" watchers fire at the one tap commit
 import { sacrificePermanentForCost } from "./costSacrifice.js"; // SG-3 / SAC-TREASURE: a permanent sacrificed to a mana cost leaves through THE cost sacrifice (dies, sacrifice watchers, the leave drain — CR 603.3b), the one the activated-ability and additional costs use
-import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, colorsOf, deriveCharacteristics, permIsEveryCreatureType, permanentColors, faceUpTypeLine, permanentSubtypes } from "./layers.js"; // + faceUpTypeLine: the face that is up of a combined "Front // Back" card — the derive's own read, shared by manaModel's face-up mana read; + permanentSubtypes: the land types an "instead" condition names (Urza's Tower)
+import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, colorsOf, deriveCharacteristics, permIsEveryCreatureType, permanentColors, faceUpTypeLine, permanentSubtypes, permanentPrintedColors } from "./layers.js"; // + permanentPrintedColors (2026-10-17, the land lines): a graveyard card's colours for The Grey Havens; + faceUpTypeLine: the face that is up of a combined "Front // Back" card — the derive's own read, shared by manaModel's face-up mana read; + permanentSubtypes: the land types an "instead" condition names (Urza's Tower)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // QUARTET Phase 4 step 3 (2026-09-06): the closed CR creature-type vocabulary for spend restrictions ("only to cast a Ninja or Turtle spell") — a zero-import leaf
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { COUNT_SUBTYPE } from "./effects/parseHelpers.js"; // #766 — the curated subtype allowlist for "for each <Subtype> on the battlefield" (parseHelpers imports only keywords.js; staticAbilityParser, imported below, already loads it)
@@ -470,7 +470,27 @@ function parseAddClause(oracle, card) {
       return { colors: ["W", "U", "B", "R", "G"], amount: 1, colorsAmongSpec: { kind, colorsOnly: true, ...(cp[1] ? { basicOnly: true } : {}) } };
     }
   }
-  let any = oracle.match(/add\b[^.]*?\b(\S+)\s+mana of any(?: one)? color/i);
+  // THE PAINFUL ANY-COLOUR LINE AS A WHOLE TEXT (2026-10-17 — the land lines; Grand Coliseum's and Tarnished Citadel's second line read
+  // alone by the land gate — the two-line arm at the top reads their whole text): "{T}: Add one mana of any color. This land deals N
+  // damage to you." The free any-colour arm below dropped the damage.
+  const painAnyLine = String(oracle || "").trim().match(/^\{T\}: Add one mana of any color\.[^\n]*? deals (\d+) damage to you\.$/i);
+  if (painAnyLine) return { colors: ["W", "U", "B", "R", "G"], amount: 1, painColors: ["W", "U", "B", "R", "G"], painAmount: parseInt(painAnyLine[1], 10) };
+  // THE GREY HAVENS (2026-10-17 — the land lines): "{T}: Add one mana of any color among legendary creature cards in your
+  // graveyard." One mana of a colour some legendary creature card in its controller's graveyard has (CR 202.2 — a card is the
+  // colours of its mana cost); resolved live by colorsAmongFor, none → no mana. The free any-colour arm below read it as all five.
+  if (/\badd one mana of any color among legendary creature cards in your graveyard\b/i.test(oracle)) {
+    return { colors: ["W", "U", "B", "R", "G"], amount: 1, colorsAmongSpec: { kind: "legendaryCreatureCardsInYourGraveyard" } };
+  }
+  // ⛔ THE FREE ANY-COLOUR ARMS READ ONLY AN UNQUALIFIED "any color" (2026-10-17 — the land lines). Each qualified set this parser
+  // reads has its own arm above; anything else written after "any (one) color" narrows or prices the mana — "signed in this
+  // card's art box …" (Artist Alley), "that shares a color with a permanent a player controls" (Reflective Gate), "that appears
+  // on your top" (The Big Top), "chosen as you drafted …" (Paliano, the High City), "and lose life equal to …" (Blustering
+  // Barnyard) — and reading it as all five was a free any-colour source. These arms skip such a clause (the arms below still read
+  // the card's other lines — Artist Alley's plain {C}); alone it makes nothing (FN-safe). After "any color" the sentence may end,
+  // or go on with a comma, an "instead" rider (manaProduction reads it) or a "for each" count.
+  const qualifiedAnyColor = (m) => !/^(?:\s*$|[.,]|\s+instead\b|\s+for each\b)/i.test(oracle.slice(m.index + m[0].length));
+  const firstUnqualified = (re) => { for (const m of oracle.matchAll(re)) if (!qualifiedAnyColor(m)) return m; return null; };
+  let any = firstUnqualified(/add\b[^.]*?\b(\S+)\s+mana of any(?: one)? color/gi);
   if (any) {
     const n = parseFixedQuantity(any[1]);
     return { colors: ["W", "U", "B", "R", "G"], amount: n == null ? 1 : n };
@@ -526,6 +546,14 @@ function parseAddClause(oracle, card) {
       const a = pain[1].toUpperCase(), b = pain[2].toUpperCase();
       return { colors: ["C", a, b], amount: 1, painColors: [a, b], painAmount: parseInt(pain[3], 10) };
     }
+    // THE PAINFUL PAIR AS A WHOLE TEXT (2026-10-17 — the land lines): "{T}: Add {W} or {B}. This land deals 1 damage to you." read by
+    // itself — a painland's second line probed alone by the land gate (landLineMana), Murmuring Bosk's second line read as its own
+    // record (PAIN_PAIR_MANA_LINE_RE). The bare arm below read the two colours and dropped the damage: a painless pair.
+    const painPair = String(oracle || "").trim().match(/^\{T\}: Add \{([WUBRG])\} or \{([WUBRG])\}\.[^\n]*? deals (\d+) damage to you\.$/i);
+    if (painPair) {
+      const a = painPair[1].toUpperCase(), b = painPair[2].toUpperCase();
+      return { colors: [a, b], amount: 1, painColors: [a, b], painAmount: parseInt(painPair[3], 10) };
+    }
     // ⭐ SINGLE-ABILITY PAINLAND (the Odyssey threshold cycle — Cabal Pit, Barbarian Ring, Cephalid
     // Coliseum, Centaur Garden, Nomad Stadium — plus Fogwell's Gym, Elves of Deep Shadow, Ancient Tomb). ONE ability whose
     // every activation deals damage to its controller:
@@ -567,10 +595,8 @@ function parseAddClause(oracle, card) {
       return { colors: cols, amount: 1, painColors: cols, painAmount: parseInt(blessingPain[4], 10), painUnlessCitysBlessing: true };
     }
   }
-  // The no-quantity form ("Add mana of any color") — keep the original FN-safe amount:1.
-  if (/add\b[^.]*\bmana of any(?: one)? color/i.test(oracle)) {
-    return { colors: ["W", "U", "B", "R", "G"], amount: 1 };
-  }
+  // The no-quantity form ("Add mana of any color") — keep the original FN-safe amount:1; unqualified only, as above.
+  if (firstUnqualified(/add\b[^.]*\bmana of any(?: one)? color/gi)) return { colors: ["W", "U", "B", "R", "G"], amount: 1 };
 
   // CHOSEN-COLOR LEG (LANDS-TIER slice 12, 2026-09-03) — "{T}: Add one mana of the chosen color." (Night Market,
   // Uncharted Haven, Crossroads Village …) and "{T}: Add {U} or one mana of the chosen color." (the Thriving
@@ -1279,6 +1305,75 @@ const TAP_OTHER_TAP_MANA_LINE_RE = /^\{T\}, Tap (?:an|a|two|three) untapped (?:l
 const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Pay \d life: Add one mana of any color\.|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell of the chosen type(?:, and that spell can't be countered)?(?: or (?:to )?activate an ability of an? (?:[a-z]+ )?source of the chosen type)?\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)? spells?(?: or (?:to )?activate an ability of an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)?(?: source)?)?\.|\{T\}: Add (?:\{[WUBRGC]\})+\. Spend this mana only to cast [^.]+\.(?: Activate only if [^.]+\.)?|\{T\}: Add one mana of any color among legendary permanents you control\.|\{T\}, Remove an? (?:charge|mining|depletion) counter from this land: Add (?:(?:\{[WUBRGC]\})+|one mana of any color)\.(?: If there are no (?:charge|mining|depletion) counters on this land, sacrifice it\.)?)$/i; // + 2026-10-17: the single-counter land line (the Vivid lands, Tendo Ice Bridge, Mirrodin's Core) rides as its own record, removing its counter (ONE_COUNTER_MANA_LINE_RE); + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals; + CAP-CAVERN: the chosen-type any-colour line (Cavern of Souls, Unclaimed Territory); + SHELF-85 S17: the fixed-type restricted any-colour line (Mech Hangar "Spend this mana only to cast a Pilot or Vehicle spell.") — the per-line product carries its restriction (restrictedManaProduction), never a free colour
 // A PLAIN tap line: complete, ungated, no sacrifice — the line a multi-line card can always tap for.
 const PLAIN_MANA_LINE_RE = /^\{T\}: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.$/i;
+/**
+ * A LAND'S SECOND MANA LINE THAT ITS SINGLE-LINE PRODUCT CARRIES WHOLE (2026-10-17 — the land lines). Each of these parsed alone
+ * and was credited by the land gate (coverage.landFullyCovered, through landLineMana's single-line read), but no record made it:
+ * the whole-card parse takes the land's plain line, and EXTRA_MANA_LINE_RE didn't admit the shape. Admitted on a LAND only, in its
+ * whole anchored form, and only where the line's own product carries every rider it prints:
+ *   · "{T}, Pay N life: Add <colour(s) | any colour>." with an optional "Activate only if …" — the Amonkhet deserts (Shefet Dunes,
+ *     Ipnu Rivulet, Ramunap Ruins, Hashep Oasis), Spire of Industry ("… Activate only if you control an artifact."): `payLife` and
+ *     the gate (an inexpressible gate drops the line before the parse — no product, nothing admitted);
+ *   · "{T}, Sacrifice a creature: Add …" — Phyrexian Tower: `sacrificesCreature` (CR 118.3 — no creature, no activation);
+ *   · The Grey Havens' graveyard colour set (`colorsAmongSpec`, read live by colorsAmongFor);
+ *   · four spend-restricted lines whose restriction parseSpendRestriction reads whole (CR 106.6): Power Depot's "artifact spells or
+ *     activate abilities of artifacts", Tournament Grounds' three-colour "Knight or Equipment spell", Maelstrom of the Spirit
+ *     Dragon's "a Dragon spell or an Omen spell" (an Omen is a spell type, CR 205.3k), Brotherhood Headquarters' "an Assassin spell
+ *     or a spell that has freerunning, or … an ability of an Assassin source".
+ * EXTRA_MANA_LINE_RE itself is untouched: honestMultiLineMain reads it to decide which merges are unsafe, and every one of these
+ * lines must keep the land's main product its plain line.
+ */
+const LAND_EXTRA_MANA_LINE_RE = /^(?:\{T\}, Pay \d+ life: Add (?:(?:\{[WUBRGC]\})+|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Sacrifice a creature: Add (?:(?:\{[WUBRGC]\})+|one mana of any color)\.|\{T\}: Add one mana of any color among legendary creature cards in your graveyard\.|\{T\}: Add one mana of any color\. Spend this mana only to cast [a-z]+ spells or activate abilities of [a-z]+s\.|\{T\}: Add \{[WUBRG]\}, \{[WUBRG]\}, or \{[WUBRG]\}\. Spend this mana only to cast an? [a-z]+ or [a-z]+ spell\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell or an? [a-z]+ spell\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell or a spell that has [a-z]+, or to activate an ability of an? [a-z]+ source\.)$/i;
+/**
+ * A MANA-COSTED LINE BESIDE THE LAND'S PLAIN LINE (2026-10-17 — the land lines): "{1}, {T}: Add one mana of any color." (Talon Gates
+ * of Madara, Planar Nexus, Hidden Grotto, Unknown Shores and 12 more), "{2}, {T}: …" (School of the Unseen, Henge of Ramos), the
+ * Homelands keeps' "{1}, {T}: Add {R}." / "{2}, {T}: Add {B} or {G}." (Koskun Keep, An-Havva Township, Wizards' School, Aysen
+ * Abbey, Castle Sengir), Crystal Quarry's "{5}, {T}: Add {W}{U}{B}{R}{G}.", Crypt of the Eternals' "{1}, {T}: Add {U}, {B}, or {R}.",
+ * Opal Palace's commander-identity line. Two abilities (CR 113.2c) sharing the land's one {T}; the whole-card parse takes the plain
+ * line, so the costed one was never made — and credited. It rides as its own record: the "Add" sentence read alone behind a bare
+ * {T}, its mana cost carried as `activationCost` (the free-activation fix — the planner funds it from other mana first, the explicit
+ * tap from the floating pool). A known "when that mana is spent" sentence after the add rides as `spentRider` (MANA_SPENT_RIDERS);
+ * any other text after it fails the anchor. The cost prefix admits mana pips only, so a non-mana cost item never drops on the way in.
+ */
+const COSTED_MANA_LINE_RE = /^((?:\{(?:\d+|[WUBRGC])\}, )+)\{T\}: (Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|\{[WUBRGC]\}, \{[WUBRGC]\}, or \{[WUBRGC]\}|one mana of any color(?: in your commander['’]s color identity)?)\.)(?: (.+))?$/;
+/**
+ * A CHOICE AMONG FIXED BUNDLES BEHIND A MANA COST (2026-10-17 — the filter lands: Rugged Prairie, Cascade Bluffs, Flooded Grove, Fetid
+ * Heath, Twilight Mire, Graven Cairns, Mystic Gate, Sunken Ruins, Fire-Lit Thicket, Wooded Bastion): "{R/W}, {T}: Add {R}{R}, {R}{W},
+ * or {W}{W}." Read alone the line misparsed as ONE mana of R or W, which the land gate credited; the whole card made its plain {C}
+ * alone. The ability makes two mana in one of the printed combinations, chosen as it resolves (CR 605.3b), behind a hybrid cost
+ * paid with either half (CR 107.4e). It rides as one record per bundle, each `fixed` to its tally (one colour twice is that colour,
+ * amount 2), all behind the same `activationCost` and sharing the land's one {T} — so the planner funds the hybrid from other mana
+ * and activates the bundle the payment needs (costedActivationOrders), and the explicit tap offers each bundle (`bundle` names it —
+ * the action's key beside the colour). Each bundle is two or more symbols; a one-symbol list is a colour choice, read above.
+ */
+const BUNDLE_CHOICE_MANA_LINE_RE = /^((?:\{(?:\d+|[WUBRGC]|[WUBRG]\/[WUBRG])\}, )+)\{T\}: Add ((?:\{[WUBRGC]\}){2,}(?:, (?:\{[WUBRGC]\}){2,})*,? or (?:\{[WUBRGC]\}){2,})\.$/;
+/**
+ * TWO LAND LINES WITH A RIDER ON THE ADD (2026-10-17 — the land lines), each beside the land's own main product:
+ *   · PAIN_PAIR_MANA_LINE_RE — Murmuring Bosk's "{T}: Add {W} or {B}. This land deals 1 damage to you." (its main is its Forest {G}):
+ *     the pair's own product carries the damage (parseAddClause's single-line pain pair), dealt as the ability resolves (`painColors`;
+ *     damage to a player from a source without infect is life lost, CR 120.3a). A painland's pair is covered by its merged main.
+ *   · OPPONENTS_GAIN_MANA_LINE_RE — Grove of the Burnwillows' "{T}: Add {R} or {G}. Each opponent gains 1 life.": the life gain is the
+ *     same ability's effect, done as it resolves (CR 605.3b, 119.3) — `opponentsGainLife`, paid by commitManaTap through gainLife
+ *     (a "can't gain life" or a gain replacement applies there). Its plain {C} gives nothing.
+ */
+const PAIN_PAIR_MANA_LINE_RE = /^\{T\}: Add \{([WUBRG])\} or \{([WUBRG])\}\. This land deals (\d+) damage to you\.$/i;
+const OPPONENTS_GAIN_MANA_LINE_RE = /^\{T\}: Add \{([WUBRG])\} or \{([WUBRG])\}\. Each opponent gains (\d+) life\.$/i;
+/**
+ * THE "WHEN THAT MANA IS SPENT" SENTENCES A COSTED LAND LINE MAY CARRY (2026-10-17 — the land lines), each made at the cast site
+ * (actionDispatcher) when the spell its mana paid for qualifies — the mana is spent from the plan's own taps, so floating mana (the
+ * explicit tap) keeps no rider and manualManaTaps never offers such a record (as Path of Ancestry's):
+ *   · Opal Palace — "If you spend this mana to cast your commander, it enters with a number of additional +1/+1 counters on it equal
+ *     to the number of times it's been cast from the command zone this game." — `commanderCounters`: the commander's command-zone
+ *     cast count after this cast (CR 903.8 counts those casts) as +1/+1 counters it enters with (CR 614.1c), per Palace tap spent;
+ *   · Guildmages' Forum — "If that mana is spent on a multicolored creature spell, that creature enters with an additional +1/+1
+ *     counter on it." — `multicoloredCreatureCounter`: one counter per Forum tap spent on a creature spell of two or more colours.
+ */
+const MANA_SPENT_RIDERS = [
+  [/^If you spend this mana to cast your commander, it enters with a number of additional \+1\/\+1 counters on it equal to the number of times it['’]s been cast from the command zone this game\.$/, { kind: "commanderCounters" }],
+  [/^If that mana is spent on a multicolored creature spell, that creature enters with an additional \+1\/\+1 counter on it\.$/, { kind: "multicoloredCreatureCounter" }],
+];
+// "Max speed — {T}: Add …" beside the land's plain line (Muraganda Raceway, 2026-10-17): the gated line rides as its own record, live
+// only while its controller's speed is 4 (CR 702.179e — the same gate manaSources applies to a max-speed main product).
+const MAX_SPEED_MANA_LINE_RE = /^Max speed\s*[—–-]\s*(\{T\}: Add (?:\{[WUBRGC]\})+\.)$/i;
 
 /**
  * HONEST MAIN PRODUCT for a multi-line card (STAGE ④-3 — two live FPs the whole-card merge produced, both found
@@ -1562,7 +1657,53 @@ export function extraManaLineProducts(card, mainProd) {
   // A complete line adding a colour the main lacks is an extra even when it is printed FIRST (a plain
   // "{T}: Add {C}." beside an any-colour line the merge chose — the free colourless tap the census counted).
   const out = [];
+  const isLand = /\bLand\b/.test(typeLineOf(face));
   for (const line of lines) {
+    // ── THE LAND LINES (2026-10-17): a land's costed, bundle, max-speed and rider-bearing second lines — each regex's note says
+    // what it admits. A land's only; a line the main product already makes at no more cost (mainMakesProduct) is not read twice.
+    if (isLand) {
+      const bc = BUNDLE_CHOICE_MANA_LINE_RE.exec(line);
+      if (bc) {
+        const activationCost = parseActivationManaCost(bc[1]);
+        if (activationCost && !activationCost.unpayable) {
+          for (const bundleText of bc[2].split(/,? or |, /)) {
+            const symbols = [...bundleText.matchAll(/\{([WUBRGC])\}/g)].map((x) => x[1]);
+            const fixed = {};
+            for (const c of symbols) fixed[c] = (fixed[c] || 0) + 1;
+            out.push({ colors: Object.keys(fixed), amount: symbols.length, fixed, requiresTap: true, activationCost, bundle: symbols.join(""), extraLine: line });
+          }
+        }
+        continue;
+      }
+      const cl = COSTED_MANA_LINE_RE.exec(line);
+      if (cl) {
+        const activationCost = parseActivationManaCost(cl[1]);
+        const rider = cl[3] ? MANA_SPENT_RIDERS.find(([re]) => re.test(cl[3]))?.[1] : null;
+        if (cl[3] && !rider) continue; // an unread sentence after the add: the line is not made (FN-safe)
+        const bare = `{T}: ${cl[2]}`;
+        const prod = activationCost && !activationCost.unpayable ? manaProduction({ ...face, oracle: bare, oracle_text: bare }) : null;
+        if (prod?.colors?.length && !mainMakesProduct(card, mainProd, prod, activationCost)) {
+          out.push({ ...prod, activationCost, ...(rider ? { spentRider: { ...rider } } : {}), extraLine: line });
+        }
+        continue;
+      }
+      const ms = MAX_SPEED_MANA_LINE_RE.exec(line);
+      if (ms) {
+        const prod = manaProduction({ ...face, oracle: ms[1], oracle_text: ms[1] });
+        if (prod?.colors?.length) out.push({ ...prod, requiresMaxSpeed: true, extraLine: line });
+        continue;
+      }
+      const pain = PAIN_PAIR_MANA_LINE_RE.test(line);
+      const gain = OPPONENTS_GAIN_MANA_LINE_RE.exec(line);
+      if (pain || gain || LAND_EXTRA_MANA_LINE_RE.test(line)) {
+        let prod = manaProduction({ ...face, oracle: line, oracle_text: line });
+        if (gain && prod) prod = { ...prod, opponentsGainLife: parseInt(gain[3], 10) };
+        // The pair's damage must ride its product (parseAddClause's single-line pain pair); a painless read is never offered.
+        if (pain && !prod?.painColors) continue;
+        if (prod?.colors?.length && !mainMakesProduct(card, mainProd, prod, null)) out.push({ ...prod, extraLine: line });
+        continue;
+      }
+    }
     // THREE TREE CITY (play-weighted P·7): "{2}, {T}: Choose a color. Add an amount of mana of that color equal to the number of
     // creatures you control of the chosen type." — any ONE colour, sized by the creatures of the type THIS permanent chose as
     // it entered (CR 614.12; manaSources resolves the count off the permanent's stamped chosenType), behind a mana cost the
@@ -1636,8 +1777,9 @@ export function extraManaLineProducts(card, mainProd) {
  *     beside it, so it parses to nothing (the chosen-colour arm needs the card's "As it enters, choose a color"), and the land
  *     {C} fallback used to answer for it — every chosen-colour land (Night Market, Big Apple, 3 a.m.) was credited on a {C}.
  * Reminder text is ignored when the line is matched (the gate reads lines with it stripped; the card's own lines keep it).
- * ⚠️ Not closed here: a line that parses alone but that the runtime never makes on the whole card (a filter land's hybrid line,
- * a "{1}, {T}: Add one mana of any color" beside a plain {C}) still reads through the single-line arm, as before.
+ * The line read alone counts only when the card's main product makes it (mainMakesProduct, 2026-10-17 — the land lines): a filter
+ * land's hybrid line, a "{1}, {T}: Add one mana of any color" beside a plain {C}, Phyrexian Tower's sacrifice line are extra records
+ * now, and a line no record makes is not credited.
  */
 const CHOSEN_COLOR_MANA_LINE_RE = /^\{T\}: Add (?:\{[WUBRG]\} or )?one mana of the chosen color\.$/i;
 export function landLineMana(card, line) {
@@ -1646,12 +1788,66 @@ export function landLineMana(card, line) {
   const want = norm(line);
   if (!want) return null;
   const main = manaProduction(card);
-  const extra = extraManaLineProducts(card, main).find((e) => norm(e.extraLine) === want);
+  // An extra record's line as printed, and a max-speed line also as effects/abilities.js rewrites it for parseActivatedAbilities
+  // ("Max speed — {T}: Add {C}{C}." → "{T}: Add {C}{C}. Activate only if your speed is 4.") — the land gate checks both spellings.
+  // An ability word is no rules text (CR 207.2c) and the activated-ability parser strips it ("Metalcraft — {T}: …" — Urza's
+  // Workshop's count line), so the label-less spelling is the record's too.
+  const keysOf = (e) => {
+    const ms = MAX_SPEED_MANA_LINE_RE.exec(e.extraLine);
+    if (ms) return [norm(e.extraLine), norm(`${ms[1].replace(/\.$/, "")}. Activate only if your speed is 4.`)];
+    return [norm(e.extraLine), norm(String(e.extraLine).replace(ABILITY_WORD_PREFIX_RE, ""))];
+  };
+  const extra = extraManaLineProducts(card, main).find((e) => keysOf(e).includes(want));
   if (extra) return extra;
   const face = faceUpManaCard(card);
-  const single = manaProduction({ name: face.name, type: typeLineOf(face), oracle: String(line).trim() });
-  if (single) return single;
+  const raw = String(line).trim();
+  const single = manaProduction({ name: face.name, type: typeLineOf(face), oracle: raw });
+  // ⛔ THE LINE READ ALONE COUNTS ONLY WHEN THE CARD'S MAIN PRODUCT MAKES IT (2026-10-17 — the land lines). Read alone, a line
+  // parses whether or not the whole card ever makes it: 54 single-faced lands (12 in the play-weighted top 1,000) were credited
+  // "land" on a line no record made — the filter lands' hybrid line (misread alone as one mana of either colour), a costed
+  // "{1}, {T}: Add one mana of any color" beside a plain {C}, Phyrexian Tower's sacrifice line, Spire of Industry's gated pay-life
+  // line. Each is now an extra record (read above) or not credited; the single-line read stands only for the main's own line.
+  if (single && mainMakesProduct(card, main, single, lineManaCost(raw))) return single;
   return main?.chosenColor && CHOSEN_COLOR_MANA_LINE_RE.test(want) ? main : null;
+}
+// The mana part of a line's own cost (before its colon), or null for a cost with no mana in it.
+function lineManaCost(line) {
+  const ci = String(line || "").indexOf(":");
+  return ci === -1 ? null : parseActivationManaCost(line.slice(0, ci));
+}
+/**
+ * DOES THE CARD'S MAIN PRODUCT MAKE WHAT THIS LINE MAKES, AT NO MORE COST? (2026-10-17 — the land lines.) True when every colour of
+ * `prod` is the main's (the same board-derived set, chosen colour or imprint, where either has one), its amount is no more (the same
+ * count or bundle where either has one), the main asks no cost or carries no condition the line doesn't — a sacrifice, a creature,
+ * a graveyard card, more life, a payer, counters, a gate, a spend restriction, a skipped untap, Max speed, damage on a colour the
+ * line makes, a per-turn limit, an opponent's life gain — and its mana cost (manaActivationCost) is none or the line's own. The
+ * land gate reads a line alone only when this holds (landLineMana), and extraManaLineProducts' land readers skip a line it holds
+ * for (it is the main's own line or one the main betters: a duplicate record would only be the costlier way to the same mana).
+ */
+function mainMakesProduct(card, main, prod, lineCost) {
+  if (!main || !prod) return false;
+  const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  if ((prod.colorsAmongSpec || main.colorsAmongSpec) && !same(prod.colorsAmongSpec, main.colorsAmongSpec)) return false;
+  if (!!prod.chosenColor !== !!main.chosenColor || !!prod.colorsFromImprint !== !!main.colorsFromImprint) return false;
+  if (!(prod.colors || []).every((c) => (main.colors || []).includes(c))) return false;
+  if (prod.amountSpec || main.amountSpec || prod.fixedSpec || main.fixedSpec) {
+    if (!same(prod.amountSpec, main.amountSpec) || !same(prod.fixedSpec, main.fixedSpec)) return false;
+  } else if ((prod.amount ?? 1) > (main.amount ?? 1)) return false;
+  if ((prod.fixed || main.fixed) && !same(prod.fixed, main.fixed)) return false;
+  for (const k of ["sacrifices", "sacrificesCreature", "exilesGyCard", "fromHand", "doesNotUntapNext", "requiresMaxSpeed"]) if (main[k] && !prod[k]) return false;
+  for (const k of ["extraTap", "removesCounters", "putsCounter", "activationCondition", "restriction", "opponentsGainLife"]) if (main[k] != null && !same(main[k], prod[k])) return false;
+  if (main.activationLimit && !same({ ...main.activationLimit, line: null }, prod.activationLimit ? { ...prod.activationLimit, line: null } : null)) return false;
+  if ((main.payLife ?? 0) > (prod.payLife ?? 0)) return false;
+  const pained = (main.painColors || []).filter((c) => (prod.colors || []).includes(c));
+  if (pained.length) {
+    if (!pained.every((c) => (prod.painColors || []).includes(c)) || (prod.painAmount || 0) < (main.painAmount || 0)) return false;
+    if (!main.painCondition && !main.painUnlessCitysBlessing && (prod.painCondition || prod.painUnlessCitysBlessing)) return false;
+  }
+  if (prod.requiresTap === false && main.requiresTap !== false) return false;
+  if (prod.insteadUpgrade && !same(prod.insteadUpgrade, main.insteadUpgrade)) return false;
+  const mainCost = manaActivationCost(card);
+  if (mainCost && !same(mainCost, lineCost)) return false;
+  return true;
 }
 
 export function manaProduction(card) {
@@ -1839,7 +2035,14 @@ const SPEND_CAST_TYPE_WORDS = new Set([
   // SHELF-85 S17 (2026-09-04 — Plaza of Heroes "Spend this mana only to cast a legendary spell"): a supertype word
   // (CR 205.4), verbatim on the type line, word-bounded like every sibling.
   "legendary",
+  // 2026-10-17 (the land lines — Maelstrom of the Spirit Dragon "… a Dragon spell or an Omen spell"): Omen is a spell type of instants
+  // and sorceries (CR 205.3k), on the type line of a card cast as an Omen. This engine casts an omen card only normally (omenPrepare.js),
+  // so no Omen spell reaches its stack yet; the word is read, never matched to a creature cast normally (CR 720.4).
+  "omen",
 ]);
+// The keywords a spend restriction may name a spell by — "a spell that has freerunning" (Brotherhood Headquarters, 2026-10-17): the
+// cast card's own keyword (spendRestrictionAllows reads its keyword list and its keyword line). A closed list; any other word refuses.
+const SPEND_CAST_KEYWORDS = new Set(["freerunning"]);
 /**
  * MANA-SPENT RIDER (SHELF-85 V11, 2026-09-04 — Path of Ancestry): "When that mana is spent to cast a creature spell that
  * shares a creature type with your commander, scry 1." — a reflexive trigger on the mana THIS source made. Parsed here
@@ -1876,7 +2079,19 @@ export function parseSpendRestriction(oracle) {
   // spendRestrictionAllows against context the sites pass (castCard / activatingColors).
   let castColorless = false;
   let abilityColorless = false;
-  for (const clause of clauses) {
+  const castKeywords = [];
+  for (const rawClause of clauses) {
+    // TWO "a <type> spell" ITEMS (2026-10-17 — Maelstrom of the Spirit Dragon "to cast a Dragon spell or an Omen spell"): the cast list
+    // below reads "cast <list> spell(s)" once, so the second item was dropped — a restriction narrower than printed. Folded into one
+    // list ("a Dragon or an Omen spell") before it is read; each word is still checked against the vocabulary.
+    const clause = rawClause.replace(/\b(an? [a-z]+) spell or (an? [a-z]+) spell\b/g, (m, x, y) => `${x} or ${y} spell`);
+    // "… OR A SPELL THAT HAS <keyword>" (2026-10-17 — Brotherhood Headquarters "to cast an Assassin spell or a spell that has freerunning,
+    // or to activate an ability of an Assassin source"): a cast permission by keyword (SPEND_CAST_KEYWORDS). It was dropped, and the
+    // record paid for Assassin spells only. An unlisted keyword refuses the whole restriction (a safe FN).
+    for (const km of clause.matchAll(/\bor a spell that has ([a-z]+)(?=$|[,.])/g)) {
+      if (!SPEND_CAST_KEYWORDS.has(km[1])) return null;
+      if (!castKeywords.includes(km[1])) castKeywords.push(km[1]);
+    }
     // ACTIVATION-ONLY (SG-18, 2026-09-03 — Shang-Chi "Spend this mana only to activate abilities of creature sources."):
     // the ONE permission is ACTIVATING a creature's ability — no cast at all. Modeled as `abilityOf: ["creature"]`;
     // spendRestrictionAllows honours it only when the payment site threads `activatingIsCreature` (the permanent
@@ -1974,8 +2189,8 @@ export function parseSpendRestriction(oracle) {
       }
     }
   }
-  if (!types.size && !abilityOf.length && !castColorless) return null;
-  return { castTypes: [...types], ...(abilityOf.length ? { abilityOf } : {}), ...(chosenType ? { chosenType: true } : {}), ...(uncounterableIfSpent ? { uncounterableIfSpent: true } : {}),
+  if (!types.size && !abilityOf.length && !castColorless && !castKeywords.length) return null;
+  return { castTypes: [...types], ...(castKeywords.length ? { castKeywords } : {}), ...(abilityOf.length ? { abilityOf } : {}), ...(chosenType ? { chosenType: true } : {}), ...(uncounterableIfSpent ? { uncounterableIfSpent: true } : {}),
     ...(castColorless ? { castColorless: true } : {}), ...(abilityColorless ? { abilityColorless: true } : {}) };
 }
 
@@ -2031,6 +2246,12 @@ export function spendRestrictionAllows(restriction, castCard, opts = {}) {
     // carries it) meets every CREATURE-type word (Cavern of Souls' chosen type, "only to cast a Dinosaur spell"); a card type or an
     // Aura / Equipment / Vehicle word is still read off the type line (CR 205.3d).
     if (t.split(/\s+/).every((word) => new RegExp(`\\b${word}\\b`).test(typeLine) || (opts.castEvery === true && CR_CREATURE_TYPES.has(word)))) return true;
+  }
+  // A KEYWORD PERMISSION ("a spell that has freerunning" — Brotherhood Headquarters, 2026-10-17): the cast card has the keyword — on its
+  // keyword list, or a line of its own text that starts with it (the keyword with its cost, "Freerunning {1}{B}").
+  for (const kw of restriction.castKeywords || []) {
+    if ((castCard.keywords || []).some((k) => String(k).toLowerCase() === kw)) return true;
+    if (new RegExp(`^${kw}\\b`, "im").test(String(castCard.oracle || castCard.oracle_text || ""))) return true;
   }
   return false;
 }
@@ -2142,6 +2363,12 @@ function manaProductionImpl(card) {
   // granter's own production — unless the granter self-includes in the grant scope (Gemhide). Lands stay
   // exempt with the rest of the raw-oracle land path above.
   if (!isLandCard) oracleForAdd = stripNonSelfQuotedGrants(oracleForAdd, typeLineOf(card));
+  // A LAND'S TRIGGERED "ADD" IS NO TAP (2026-10-17 — the land lines). A land keeps its raw oracle, and the parse below reads the first
+  // "Add" anywhere, so Crumbling Vestige's "When this land enters, add one mana of any color." was its standing tap — any colour
+  // every turn, where its only mana ability is "{T}: Add {C}." (Branch of Vitu-Ghazi's turned-face-up mana likewise). A triggered
+  // ability is no activated ability (CR 603.1, 605.1a); its one-shot mana is the trigger's to resolve. The nonland twin of this rule
+  // is the activated-line gate below.
+  if (isLandCard) oracleForAdd = oracleForAdd.split("\n").filter((l) => !(/^\s*(?:When|Whenever|At)\b/i.test(l) && /\badd\b/i.test(l))).join("\n");
   // UNTAP RESTRICTION — the guard's premise CHANGED, so the guard did (2026-07-27).
   //
   // It used to read: "'doesn't untap during your untap step' is not modeled (untapAll frees everything each
@@ -2672,6 +2899,12 @@ function colorsAmongFor(state, playerId, spec) {
       return commanderColorIdentityOf(state, playerId) || [];
     case "permanentsYouControl": // Meteor Crater (2026-10-17 evening) — the current colours of every permanent its controller controls
       return colorsOfEach(bf);
+    // The Grey Havens (2026-10-17, the land lines) — each legendary creature CARD in its controller's graveyard, its colours (CR
+    // 202.2; a double-faced card's front face, permanentPrintedColors). A card in a graveyard is no permanent: no layer reads it.
+    case "legendaryCreatureCardsInYourGraveyard":
+      return [...new Set((state?.players?.[playerId]?.graveyard || [])
+        .filter((c) => { const t = String(c?.type || c?.type_line || "").split(" // ")[0]; return /\bLegendary\b/.test(t) && /\bCreature\b/.test(t); })
+        .flatMap((c) => permanentPrintedColors(c)))].filter((c) => COLOR_SET.has(c));
     default:
       return [];
   }
@@ -3061,7 +3294,20 @@ function extraLineSources(state, playerId, player, perm, manaMult) {
     // live board by the main product's own reader; too few → no record (CR 118.3). Carried on the record, tapped by the commit.
     const exTaps = extra.extraTap ? tapOtherPayers(state, player, perm, extra) : null;
     if (extra.extraTap && !exTaps) continue;
-    out.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.activationCost ? { activationCost: extra.activationCost } : {}), ...(extra.payLife != null ? { payLife: extra.payLife } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: oneCounter ? 1 : crCount } } : {}), ...(extra.sacrificeIfNoCounters && extra.removesCounters ? { sacrificeIfNoCounters: true } : {}), ...(extra.requiresTap === false ? { noTap: true } : {}), ...(extra.putsCounter ? { putsCounter: { ...extra.putsCounter } } : {}), ...(extra.activationLimit?.perTurn != null ? { limitKey: manaLimitKey(perm.id, extra.activationLimit) } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), ...(exTaps ? { extraTaps: exTaps } : {}), ...(staysTapped ? { staysTapped: true } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
+    // THE LAND LINES (2026-10-17): Phyrexian Tower's creature to sacrifice — none but the source, no activation (CR 118.3); Muraganda
+    // Raceway's Max speed (CR 702.179e); a board-derived colour set read live (Opal Palace's commander identity, The Grey Havens'
+    // graveyard — empty, no record); a painful pair's damage (Murmuring Bosk), on the same terms as a main product's; Grove of the
+    // Burnwillows' opponents' life; a costed line's "when that mana is spent" rider; a bundle's name for the explicit tap.
+    if (extra.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && isCreatureNow(state, p))) continue;
+    if (extra.requiresMaxSpeed && (player.speed || 0) < 4) continue;
+    let exColors = exFixed ? Object.keys(exFixed) : extra.colors;
+    if (extra.colorsAmongSpec) {
+      exColors = colorsAmongFor(state, playerId, extra.colorsAmongSpec);
+      if (!exColors.length) continue;
+    }
+    const exPainOn = !!extra.painColors && !(extra.painUnlessCitysBlessing && player.citysBlessing === true)
+      && !(extra.painCondition && evaluateInterveningIf(state, extra.painCondition, playerId, { sourcePermanentId: perm.id }) === false);
+    out.push({ permanentId: perm.id, colors: exColors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(exPainOn ? { painColors: extra.painColors, painAmount: extra.painAmount } : {}), ...(extra.opponentsGainLife ? { opponentsGainLife: extra.opponentsGainLife } : {}), ...(extra.spentRider ? { spentRider: { ...extra.spentRider } } : {}), ...(extra.bundle ? { bundle: extra.bundle } : {}), ...(extra.activationCost ? { activationCost: extra.activationCost } : {}), ...(extra.payLife != null ? { payLife: extra.payLife } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: oneCounter ? 1 : crCount } } : {}), ...(extra.sacrificeIfNoCounters && extra.removesCounters ? { sacrificeIfNoCounters: true } : {}), ...(extra.requiresTap === false ? { noTap: true } : {}), ...(extra.putsCounter ? { putsCounter: { ...extra.putsCounter } } : {}), ...(extra.activationLimit?.perTurn != null ? { limitKey: manaLimitKey(perm.id, extra.activationLimit) } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), ...(exTaps ? { extraTaps: exTaps } : {}), ...(staysTapped ? { staysTapped: true } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
   }
   return out;
 }
@@ -3158,7 +3404,7 @@ export function castPaymentSources(state, action) {
 export function tapRecordFor(s, color, bonus = []) {
   const fixed = s.fixed && Object.keys(s.fixed).length > 1 ? s.fixed : null;
   const painHit = Array.isArray(s.painColors) && s.painColors.includes(color) ? (s.painAmount || 0) : 0;
-  return { permanentId: s.permanentId, color, amount: s.amount ?? 1, ...(Array.isArray(s.extraTaps) ? { extraTaps: [...s.extraTaps] } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(fixed && { fixed: { ...fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(s.sacrificeIfNoCounters && { sacrificeIfNoCounters: true }), ...(s.putsCounter && { putsCounter: { ...s.putsCounter } }), ...(s.limitKey && { limitKey: s.limitKey }), ...(s.noTap && { noTap: true }), /* ③ · 37 + 2026-10-17: every no-{T} line */ ...(s.doesNotUntapNext && { doesNotUntapNext: true }), ...(s.restriction?.uncounterableIfSpent && { uncounterableIfSpent: true }), ...(s.spentRider && { spentRider: s.spentRider }), /* SHELF-85 V11 (Path of Ancestry): the "when that mana is spent" rider rides the tap to the cast site */ ...(bonus.length && { bonus }) }; // + CAP-CAVERN: the cast site reads uncounterableIfSpent off the taps
+  return { permanentId: s.permanentId, color, amount: s.amount ?? 1, ...(Array.isArray(s.extraTaps) ? { extraTaps: [...s.extraTaps] } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(fixed && { fixed: { ...fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(s.sacrificeIfNoCounters && { sacrificeIfNoCounters: true }), ...(s.putsCounter && { putsCounter: { ...s.putsCounter } }), ...(s.limitKey && { limitKey: s.limitKey }), ...(s.noTap && { noTap: true }), /* ③ · 37 + 2026-10-17: every no-{T} line */ ...(s.doesNotUntapNext && { doesNotUntapNext: true }), ...(s.restriction?.uncounterableIfSpent && { uncounterableIfSpent: true }), ...(s.spentRider && { spentRider: s.spentRider }), /* SHELF-85 V11 (Path of Ancestry): the "when that mana is spent" rider rides the tap to the cast site */ ...(s.opponentsGainLife && { opponentsGainLife: s.opponentsGainLife }), ...(s.bundle && { bundle: s.bundle }), /* 2026-10-17, the land lines: Grove of the Burnwillows' opponents' life; a filter land's bundle, the explicit tap's key */ ...(bonus.length && { bonus }) }; // + CAP-CAVERN: the cast site reads uncounterableIfSpent off the taps
 }
 
 /**
@@ -3176,10 +3422,12 @@ export function tapRecordFor(s, color, bonus = []) {
  *     planner-only, as before. Any other no-{T} line (Ashnod's Altar, Kozilek's Translator, Wall of Roots) is offered, tapped or
  *     not, and the dispatcher doesn't tap it;
  *   · its mana is spend-restricted (CR 106.6) or carries a "when that mana is spent" rider: floating mana keeps neither;
- *   · it is a permanent's EXTRA mana line (Crystal Vein's sacrifice line, Starting Town's pay-life line, a storage land's
- *     counters) — the action names its colour only, so a costed line would look like the free one beside it. The one
- *     exception is a line that taps other permanents (Relic of Legends, 2026-10-17), offered for a colour no earlier record of
- *     its permanent makes — one option per permanent and colour, so the dispatcher's re-derivation finds that record alone;
+ *   · an earlier record of the same permanent already offers that colour (or bundle): the action names a permanent and a colour —
+ *     plus a filter land's `bundle` — so each pair is ONE option, the first record making it, and the dispatcher's re-derivation
+ *     finds that record alone. A permanent's main record comes first, so its EXTRA lines (Crystal Vein's sacrifice line, Starting
+ *     Town's pay-life line, a storage land's counters, Talon Gates' "{1}, {T}: any colour", a filter land's bundles) are offered
+ *     for what the plain line beside them can't make (2026-10-17, the land lines — before, only Relic of Legends' tap-other line
+ *     was; every other extra line was planner-only);
  *   · it makes nothing right now (Gaea's Cradle with no creatures).
  * An activation cost is left to the caller: the offer requires the floating pool to pay it, the dispatcher charges it.
  */
@@ -3189,16 +3437,20 @@ export function manualManaTaps(state, playerId) {
   for (const s of manaSources(state, playerId)) {
     if (s.fromHand || s.repeatable) continue;
     if (s.restriction || s.spentRider) continue;
-    // An extra line stays planner-only — except one that taps other permanents (Relic of Legends' tap-a-legend line,
-    // 2026-10-17): its record carries the payers it taps, and it is offered for a colour only when no earlier record of the
-    // same permanent makes that colour (`offered` below), so the colour the action names picks it alone. Relic untapped is
-    // offered its {T} line; Relic tapped, its tap-a-legend line.
-    if (s.extraLine && !s.extraTaps) continue;
+    // A PERMANENT'S EXTRA LINE IS OFFERED FOR WHAT NO EARLIER RECORD OF IT OFFERS (2026-10-17 — the land lines). The action names a
+    // permanent and a colour (and a bundle, below), and manaSources lists a permanent's main record before its extra lines, so the
+    // first record making a colour holds that colour (`offered`) — a costlier line never looks like the free one beside it — and
+    // the dispatcher's re-derivation finds that same record. An extra line used to be planner-only (the Relic of Legends slice
+    // opened its tap-other line): Talon Gates of Madara's "{1}, {T}: any colour", Phyrexian Tower's sacrifice line, Spire of
+    // Industry's and Starting Town's pay-life lines, a Vivid land's charge counter, a Verge's gated colour are now each offered
+    // for the colours the plain line beside it can't make, every cost charged (tapRecordFor; an activation cost from the pool).
+    // A FILTER LAND'S BUNDLES (`bundle` — "RR", "RW", "WW") are one option each: two share a first colour, so the bundle is the key.
     if (!((s.amount ?? 1) > 0)) continue;
     const fixed = s.fixed && Object.keys(s.fixed).length > 1 ? s.fixed : null;
     for (const color of fixed ? [Object.keys(fixed)[0]] : (s.colors || []).filter((c) => COLOR_SET.has(c))) {
-      if (offered.has(`${s.permanentId}:${color}`)) continue;
-      offered.add(`${s.permanentId}:${color}`);
+      const key = `${s.permanentId}:${s.bundle || color}`;
+      if (offered.has(key)) continue;
+      offered.add(key);
       // A bonus makes its own colour (an any-colour boost its first); a sameAsProduced one (Mana Flare) the colour this tap made.
       const bonus = (s.bonus || []).map((b) => ({ color: b.sameAsProduced ? color : b.colors[0], amount: b.amount }));
       out.push({ ...tapRecordFor(s, color, bonus), ...(s.activationCost ? { activationCost: s.activationCost } : {}) });
@@ -3350,6 +3602,8 @@ function costedActivationOrders(all, cost) {
     groups.get(s.permanentId).push(s);
   }
   const needs = (s) => ((s.colors || []).some((c) => c !== "C" && (cost?.[c] || 0) > 0) ? 1 : 0);
+  // (A filter land's three bundles — 2026-10-17 — are such alternatives: each is tried first in turn below, so the bundle a payment
+  // needs is found whichever is tried first.)
   for (const [id, g] of groups) if (g.length > 1) groups.set(id, [...g].sort((a, b) => (needs(b) - needs(a)) || ((b.amount ?? 1) - (a.amount ?? 1))));
   // Each permanent's records keep the slots they had in board order; only who fills them changes.
   const fill = (byId) => {
@@ -3491,6 +3745,8 @@ function planPaymentCore(pool, sources, cost, spendContext = null) {
       putsCounter: s.putsCounter || null,             // 2026-10-17 — Wall of Roots' -0/-1 counter, put on by the commit
       sacrificeIfNoCounters: !!s.sacrificeIfNoCounters, // 2026-10-17 — a depletion / mining land's last counter sacrifices it
       limitKey: s.limitKey || null,                   // 2026-10-17 — the per-turn activation ledger entry the commit stamps
+      opponentsGainLife: s.opponentsGainLife || 0,     // 2026-10-17 (the land lines) — Grove of the Burnwillows: each opponent gains this much as the tap resolves
+      bundle: s.bundle || null,                       // 2026-10-17 (the land lines) — a filter land's bundle (the explicit tap's key; the commit reads `fixed`)
       used: false,
     }))
     .filter(s => s.amount > 0)
@@ -3786,6 +4042,17 @@ export function commitManaTap(state, playerId, tap, { reserved = null } = {}) {
   // colour, so the free {C} half is unaffected.
   if (tap.painLife) {
     next = loseLife(next, { playerId, amount: tap.painLife });
+  }
+  // 2026-10-17 (the land lines) — "Each opponent gains N life." on the mana ability itself (Grove of the Burnwillows): the ability's own
+  // effect, done as it resolves (CR 605.3b, 119.3), through gainLife (a "can't gain life" or a gain replacement applies there); each
+  // opponent's "whenever you gain life" triggers fire for what it actually gained, as the each-opponent gain-life atom fires them.
+  if (tap.opponentsGainLife) {
+    for (const opp of opponentsOf(next, playerId)) {
+      const before = next.players[opp]?.life ?? 0;
+      next = gainLife(next, { playerId: opp, amount: tap.opponentsGainLife });
+      const gained = (next.players[opp]?.life ?? 0) - before;
+      if (gained > 0) next = checkLifegainTriggers(next, opp, gained);
+    }
   }
   // ⛔ TAP-OTHER: pay the printed extra cost by actually tapping the payers manaSources reserved. Without
   // this the source produces mana for free — the PHANTOM MANA the compound-cost guard refused these cards to

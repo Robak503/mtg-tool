@@ -453,7 +453,7 @@ export const RESOLVERS = Object.freeze({
   [RESOLVER_KEYS.PERMANENT_ETB]: (state, obj) => {
     // `printedCard` (V1 slice 3): the REAL two-face card behind a modal-DFC FACE cast — stamped on the entering permanent
     // so every zone move restores the whole card (moveCardToZone reads printedCard; the clone precedent).
-    const { card, controller, xValue, kicked, timesKicked, castFromZone, colorsSpent, grantDiesExile, printedCard, manaSpent, evoked, castDuringMainPhase, manaSpentByColor, escaped } = obj.payload?.params || {}; // + manaSpent (Satoru, BI-5) + evoked (Solitude) + castDuringMainPhase (Sentinel's Mark) + manaSpentByColor (shelf D4)
+    const { card, controller, xValue, kicked, timesKicked, castFromZone, colorsSpent, grantDiesExile, printedCard, manaSpent, evoked, castDuringMainPhase, manaSpentByColor, escaped, manaSpentCounters } = obj.payload?.params || {}; // + manaSpentCounters (2026-10-17, the land lines — Opal Palace / Guildmages' Forum mana spent on it) // + manaSpent (Satoru, BI-5) + evoked (Solitude) + castDuringMainPhase (Sentinel's Mark) + manaSpentByColor (shelf D4)
     if (!card || !controller) return resolveManual(state, obj);
     // Clone (CR 707.9): the permanent enters AS A COPY of a creature chosen as it enters. Suspend
     // on a resolution-time choice (the player picks which creature; Expert/AI auto-pick) — the
@@ -488,7 +488,7 @@ export const RESOLVERS = Object.freeze({
         return checkDiesTriggers(lethal.state, lethal.dead);
       }
     }
-    return enterPermanent(state, card, controller, { xValue, kicked, timesKicked, wasCast: true, castFromZone, castDuringMainPhase: !!castDuringMainPhase, colorsSpent, grantDiesExile, castForNoMana: manaSpent === false, evoked: !!evoked, escaped: !!escaped, ...(manaSpentByColor ? { manaSpentByColor } : {}), ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) }); // owner: shelf D3 — a spell cast from its owner's exile (the stack object's stamp)
+    return enterPermanent(state, card, controller, { xValue, kicked, timesKicked, wasCast: true, castFromZone, castDuringMainPhase: !!castDuringMainPhase, colorsSpent, grantDiesExile, castForNoMana: manaSpent === false, evoked: !!evoked, escaped: !!escaped, ...(manaSpentByColor ? { manaSpentByColor } : {}), ...(manaSpentCounters > 0 ? { extraCounter: { type: "+1/+1", n: manaSpentCounters } } : {}), ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) }); // owner: shelf D3 — a spell cast from its owner's exile (the stack object's stamp)
   },
 
   // Aura spell resolving (CR 303.4f): the Aura enters the battlefield attached to the

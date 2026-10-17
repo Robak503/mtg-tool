@@ -130,7 +130,8 @@ describe("Urza's Workshop, Baldur's Gate, Cascading Cataracts — the second lin
     const s = table([on("ph", PLAZA_HARMONY), on("gg", GUILDGATE), on("f", FOREST)]);
     const alone = table([on("ph", PLAZA_HARMONY)]);
     expect({ w2: affords(s, { W: 2 }), wu: affords(s, { W: 1, U: 1 }), g2: affords(s, { G: 2 }), aloneC: affords(alone, { C: 1 }), aloneW: affords(alone, { W: 1 }), taps: handTaps(s, "ph"), tier: classifyCard(PLAZA_HARMONY) })
-      .toEqual({ w2: true, wu: true, g2: false, aloneC: true, aloneW: false, taps: ["U", "W"], tier: "land" });
+      // + 2026-10-17 (the land lines): its plain {C} line, an extra record, is offered by hand too (no earlier record makes {C}).
+      .toEqual({ w2: true, wu: true, g2: false, aloneC: true, aloneW: false, taps: ["C", "U", "W"], tier: "land" });
   });
 
   it("Cascading Cataracts with five Forests: {5} buys five blue; its plain {C} is the main product and the explicit tap's", () => {

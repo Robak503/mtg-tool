@@ -82,7 +82,8 @@ describe("which second lines are admitted", () => {
   it("⛔ a mana-COSTED any-colour line never becomes a free main (Hall of Oracles keeps its plain {C})", () => {
     const hall = L("Hall of Oracles", "{T}: Add {C}.\n{1}, {T}: Add one mana of any color.\n{T}: Put a +1/+1 counter on target creature. Activate only as a sorcery and only if you've cast an instant or sorcery spell this turn.");
     expect(manaProduction(hall).colors).toEqual(["C"]);
-    expect(extraManaLineProducts(hall, manaProduction(hall))).toEqual([]);
+    // GRADUATED 2026-10-17 (the land lines): the costed line rides as its own record behind its {1} (activationCost) — never free.
+    expect(extraManaLineProducts(hall, manaProduction(hall))).toMatchObject([{ colors: ["W", "U", "B", "R", "G"], amount: 1, activationCost: { generic: 1 }, extraLine: "{1}, {T}: Add one mana of any color." }]);
   });
 
   it("a 'Sacrifice this land' ritual line is admitted with its sacrifice cost", () => {

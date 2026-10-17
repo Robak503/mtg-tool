@@ -211,11 +211,12 @@ describe("guards on the shared read (pinned for the mutation check)", () => {
     expect(legalActionsForPlayer(s, "user").some((a) => a.kind === "tap-for-mana")).toBe(false);
   });
 
-  it("Starting Town: its free {C} is offered by hand; its pay-life any-colour EXTRA line stays planner-only", () => {
+  // GRADUATED 2026-10-17 (the land lines): a permanent's extra line is offered by hand for the colours no earlier record of it makes —
+  // the pay-life line was planner-only. {C} stays the free plain line; each colour is the pay-life line, its life charged.
+  it("Starting Town: its free {C} is offered by hand, and each colour from its pay-life EXTRA line, costing 1 life", () => {
     const s = table([on("src", STARTING_TOWN)]);
     expect(manaSources(s, "user").filter((r) => r.permanentId === "src").map((r) => r.colors.length)).toEqual([1, 5]);
-    expect(taps(s)).toMatchObject([{ color: "C", amount: 1 }]);
-    expect(taps(s)).toHaveLength(1);
+    expect(taps(s).map((t) => [t.color, t.payLifeCost ?? 0])).toEqual([["C", 0], ["W", 1], ["U", 1], ["B", 1], ["R", 1], ["G", 1]]);
   });
 
   it("Gaea's Cradle with no creature makes nothing → no 0-mana tap is offered", () => {

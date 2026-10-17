@@ -996,6 +996,11 @@ function applyCastSpell(state, action) {
     if (manaSpentByColor) params.manaSpentByColor = manaSpentByColor; // shelf D4: "if {R}{R} was spent to cast it" reads it off the permanent
     params.evoked = !!(action.altCost && action.altCost.evoke); // EVOKE (Solitude): the entering permanent sacrifices itself after its ETB
     if (action.escapeCast) params.escaped = true; // ESCAPE (P·29, CR 702.138b): the permanent escaped — "sacrifice it unless it escaped" (Uro) reads it
+    // THE LAND LINES' "WHEN THAT MANA IS SPENT" COUNTERS (2026-10-17 — Opal Palace, Guildmages' Forum): the +1/+1 counters this
+    // permanent spell enters with because the plan spent a rider-bearing tap on it (manaSpentEnterCounters); the resolver hands them
+    // to the entry as an enters-with replacement (CR 614.1c), where a counter doubler applies.
+    const spentCounters = manaSpentEnterCounters(state, action, card, castCard, spentRiders);
+    if (spentCounters > 0) params.manaSpentCounters = spentCounters;
     payload = { resolver: RESOLVER_KEYS.PERMANENT_ETB, params };
   } else {
     payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: castCard.name, reason: "instant-or-sorcery (no recognized effect)" } };
@@ -1201,6 +1206,28 @@ function applyCastSpell(state, action) {
  * explicit action for Beginner teaching and floating-mana plays; casting
  * auto-taps without needing this.
  */
+/**
+ * THE +1/+1 COUNTERS A PERMANENT SPELL ENTERS WITH FOR THE MANA SPENT ON IT (2026-10-17 — the land lines). `spentRiders` are the plan's
+ * taps whose mana carries a "when that mana is spent" rider (manaModel's MANA_SPENT_RIDERS), each spent on THIS spell:
+ *   · "commanderCounters" (Opal Palace): when the spell is its caster's commander, the number of times it's been cast from the command
+ *     zone this game — the caster's count (CR 903.8 counts those casts), this cast included when it comes from the command zone;
+ *   · "multicoloredCreatureCounter" (Guildmages' Forum): one, when the spell is a creature spell of two or more colours (CR 105.2).
+ * Each tap adds its own counters (two Palaces spent on the commander, twice the count). Path of Ancestry's scry rider is a trigger,
+ * enqueued after the cast; it adds nothing here.
+ */
+function manaSpentEnterCounters(state, action, card, castCard, spentRiders) {
+  let n = 0;
+  for (const { rider } of spentRiders || []) {
+    if (rider?.kind === "commanderCounters" && (card?.isCommander || castCard?.isCommander)) {
+      const key = card?.commanderInstanceId || action.cardId;
+      n += (state.players[action.playerId]?.commanderCastCount?.[key] || 0) + (action.fromZone === "command" ? 1 : 0);
+    } else if (rider?.kind === "multicoloredCreatureCounter" && /\bCreature\b/.test(String(castCard?.type || castCard?.type_line || "")) && colorsOf(castCard).length >= 2) {
+      n += 1;
+    }
+  }
+  return n;
+}
+
 function applyTapForMana(state, action) {
   const player = state.players[action.playerId];
   if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
@@ -1212,7 +1239,8 @@ function applyTapForMana(state, action) {
   // permanents tapped, the creature sacrificed, the graveyard card exiled, the counters removed or put on). An action that names
   // a colour the permanent can't make now, or a source whose cost can't be paid or whose condition is false, is refused
   // outright: a partial payment isn't allowed (CR 601.2h), and an action that left its costs out used to get the mana for free.
-  const tap = manualManaTaps(state, action.playerId).find((t) => t.permanentId === action.permanentId && t.color === action.color);
+  // A filter land's bundle (`bundle` — "RR", "RW", "WW", 2026-10-17) is part of the key: two of its bundles share a first colour.
+  const tap = manualManaTaps(state, action.playerId).find((t) => t.permanentId === action.permanentId && t.color === action.color && (t.bundle || null) === (action.bundle || null));
   // A tapped permanent can't pay {T} (CR 107.5); a line with no {T} in its cost (`noTap` — Ashnod's Altar, Wall of Roots) is
   // activated tapped or not (2026-10-17).
   if (perm.tapped && !tap?.noTap) throw new DispatcherError("Mana source is already tapped", "ALREADY_TAPPED");
@@ -1237,6 +1265,7 @@ function applyTapForMana(state, action) {
     playerId: action.playerId,
     permanentId: action.permanentId,
     color: tap.color,
+    ...(tap.bundle ? { bundle: tap.bundle } : {}),
     amount: tap.amount ?? 1,
     sacrificed: !!tap.sacrifices,
     cardName: perm.card?.name,
