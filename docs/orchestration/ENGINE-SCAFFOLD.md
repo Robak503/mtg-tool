@@ -659,6 +659,12 @@ pass fixed four of these; they are the template for what to look for:
   a type in `targetTypes.js`'s closed vocabulary (non-chosen, or one of
   `enumerateTargets`' pools), checked in `programConfidence`, which every consumer
   re-asks — so the classifier and the flush cannot disagree.
+- **"this" is not a self-reference** (fixed 2026-10-16): `classifyCondition`'s `selfRef`
+  was `/\bthis\b/`, so "this turn" / "this way" made a condition the card's OWN event
+  (Maeve, Insidious Singer drew whenever she attacked). Fix: `SELF_THIS_RE`, a closed
+  self-noun list (CR 700.7) plus the noun-less "this <event verb>" subject; a trailing
+  "this turn" with no self is a delayed trigger's window (CR 603.7b) and is refused
+  (an ordinal count — "your second spell this turn" — excepted).
 
 **The generalizable rule for any new recognizer: validate an emitted
 selector/filter/subtype against a *closed* vocabulary (or corpus reality) before

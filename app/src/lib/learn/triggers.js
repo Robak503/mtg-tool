@@ -69,6 +69,22 @@ const NON_SUBTYPE_FILTER_WORDS = new Set(["creature", "creatures", "permanent", 
 // "the" self-refers by the full name, already matched). Articles only; a real first-word self-name (Smaug,
 // Gandalf, Atraxa-style space names) is never one of these. Lowercased (the candidate is lowercased upstream).
 const FIRST_WORD_SELF_STOPWORDS = new Set(["the", "a", "an", "of", "and"]);
+// SELF "THIS" (classifyCondition's selfRef) — "this [something]" names the object the ability is on only when [something]
+// is a characteristic or quality of that object (CR 700.7): "this creature", "this Aura", "this spell", "this card". The
+// bare word is NOT a self-reference: "this turn", "this way", "this mana", "this combat" name a time, a manner, mana —
+// never the source. selfRef used to be `/\bthis\b/`, so every "… this turn" condition read as the card's own event:
+// Maeve, Insidious Singer's "Whenever that creature attacks one of your opponents this turn" (inside her goad ability)
+// was an attacks/self trigger that drew a card each time MAEVE attacked. An ALLOWLIST, not a deny-list of non-self
+// phrases: a noun missing here makes the condition non-self, and a non-self condition no arm models still classifies
+// null. Every noun that followed "this" in a corpus trigger condition on 2026-10-16 is here (creature, artifact,
+// enchantment, land, battle, permanent, card, spell, token, aura, equipment, vehicle, class, case, door, siege,
+// spacecraft, contraption, plane, phenome-nom, boss; attraction on the Attraction cards the coverage corpus skips)
+// beside the printed self-nouns no condition carries yet (planeswalker, saga, room, fortification) — except the four
+// non-self ones, by design. The second alternative is the
+// re-worded self form with no noun, "this" as the SUBJECT of the event verb ("Whenever this deals combat damage to an
+// opponent" — the quoted ability The Sprinkler of Stardust grants): anchored to the condition's start and to an event
+// verb, so "this turn's next end of combat" and its kin never reach it.
+const SELF_THIS_RE = /\bthis (?:creature|artifact|enchantment|land|planeswalker|battle|permanent|card|spell|token|aura|equipment|vehicle|saga|class|case|room|door|siege|spacecraft|contraption|fortification|plane|phenome-nom|boss|attraction)\b|^this (?:enters|dies|attacks|blocks|deals|leaves|becomes|is)\b/;
 function parseSubtypeList(s) {
   const parts = String(s).split(/,|\bor\b|\band\b/).map((w) => w.trim()).filter(Boolean);
   if (!parts.length) return null;
@@ -980,7 +996,19 @@ function classifyCondition(condRaw, cardName, cardType) {
   const theEpithetName = /^\S+\s+the\s+\S/.test(nameL);
   const firstWordRef = firstWord.length >= (theEpithetName ? 3 : 4) && firstWord !== nameL && !FIRST_WORD_SELF_STOPWORDS.has(firstWord)
     && new RegExp(`\\b${firstWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(c);
-  const selfRef = /\bthis\b/.test(c) || (nameL && c.includes(nameL)) || shortNameRef || firstWordRef;
+  // "this" counts only as "this <self-noun>" (SELF_THIS_RE, CR 700.7): the "this" of "this turn" / "this way" / "this
+  // mana" / "this combat" names no object, and reading it as one made those conditions the card's own event.
+  const selfRef = SELF_THIS_RE.test(c) || (nameL && c.includes(nameL)) || shortNameRef || firstWordRef;
+  // ===== STATED-DURATION WINDOW (CR 603.7, 603.7b) ===== "Whenever a creature dies this turn, you gain 1 life" (Death
+  // Frenzy), "Whenever a creature you control enters this turn, …" (First Day of Class): a trailing "this turn" on a
+  // condition that names no self is the stated duration of a DELAYED triggered ability the spell or ability creates as
+  // it resolves — never a standing trigger of the card it is printed on. No arm below models that window, and without
+  // this refusal the plain event arms read the condition as permanent ("a creature dies" → eachCreature): on a permanent
+  // printing one inside an ability (Maeve's shape), a trigger that fires all game. Refused → Arbiter. Before every arm,
+  // so none can claim the shape. ("this combat" — Melee — is refused by the arms already; no card needs it here.)
+  // NOT an ordinal count: in "you cast your second spell this turn" / "an opponent draws their second card this turn" the
+  // "this turn" bounds the COUNT, not the trigger, and the cast/draw ordinal arms below read it as "each turn" — kept.
+  if (!selfRef && /\bthis turn$/.test(c) && !/\b(?:first|second|third) (?:card|spell) this turn$/.test(c)) return null;
   // ===== CYCLE-SELF (shelf D6, 2026-09-30 — CR 702.29c) ===== "When you cycle this card, …". It triggers as the cycling
   // ability is activated: actionDispatcher.applyCycle fires checkCycleSelfTriggers once the draw is on the stack, so the
   // flush puts it ABOVE the draw — it resolves first ("do this before you draw"). The bare self form ONLY: "When you cast

@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **52 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **±0** (+46 gained, −46 false credit removed). The next tag
+> **53 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **±0** (+46 gained, −46 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,63 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-16 — FIX: "this turn" is not "this creature" — a trigger condition's bare "this" no longer makes it the card's own event (Maeve, Insidious Singer drew whenever she attacked) · **±0** · corpus 15,494 (unchanged)
+> Suite **19,446** green (1 skipped) / 1,808 files. Lint 0 (CR citations: 0 of 10,373 name no rule). Flip-diff **0 / 0 / 0** (34,620 cards; before = an
+> untouched `git archive` of 86389b97); native 15,465 of 34,584 snapshot names before and after. Runtime fingerprint identical
+> (34,620 rows). **Mutants 5/5** on assertions, restore byte-identical.
+> · **The bug** (found by the 10-16 face-up-watcher session). `classifyCondition` computed `selfRef = /\bthis\b/.test(c) || <name>`,
+>   so any condition holding "this turn" or "this way" read as SELF-referential and the self arms claimed it: "Whenever that
+>   creature attacks one of your opponents this turn, you draw a card" — the rider inside Maeve's goad ability — was an
+>   attacks/self trigger, natively routed, so Maeve drew a card every time SHE attacked. Measured, not estimated: detectTriggers
+>   over all 34,620 real cards through two module graphs (the archive vs the fix) — **26 cards, 26 descriptors**, every one a
+>   bare self trigger (attacks/self 10, dies/self 12, etb/self 4; 12 routed native, 14 manual), every card already non-native
+>   (19 arbiter-spell, 6 body-only, 1 playable-pw). 14,885 → 14,859 descriptors, **0 gained, 0 re-scoped**; the 642 quoted
+>   abilities in the corpus run through the GroupGranted and Emblem probe shapes: 0 changed.
+> · **The fix** (`triggers.js`). ① `SELF_THIS_RE`: "this [something]" is a self-reference only when [something] is a quality
+>   of the object (CR 700.7) — a closed noun list (every noun that followed "this" in a corpus condition: creature, artifact,
+>   enchantment, land, battle, permanent, card, spell, token, aura, equipment, vehicle, class, case, door, siege, spacecraft,
+>   contraption, plane, phenome-nom, boss, attraction; plus planeswalker, saga, room, fortification). The non-self four ("this
+>   turn", "this way", "this mana", "this combat") are absent by design. ② The noun-less re-worded self form, "this" as the
+>   subject of an event verb at the condition's start — The Sprinkler of Stardust's quoted "Whenever this deals combat damage
+>   to an opponent" (the first draft dropped it; the quoted-ability probe caught it). ③ A trailing "this turn" on a condition
+>   that names no self is a DELAYED trigger's stated duration (CR 603.7, 603.7b) and is refused before every arm: without it,
+>   three conditions fell through to plain event scopes — Death Frenzy dies/eachCreature, Beck // Call etb/eachCreature, First
+>   Day of Class etb/creatureYouControl — standing triggers on a card that only creates one for a turn (on a permanent printing
+>   that shape in an ability, a trigger all game). An ORDINAL count bounded by "this turn" ("you cast your second spell this
+>   turn", "an opponent draws their second card this turn") is excepted: there "this turn" bounds the count, and the four
+>   cast/draw ordinal arms read it as "each turn" (the first suite run caught it — trigCast2 / trigDraw2 went red; zero corpus
+>   carriers either way). The name / short-name / first-word self-refs are untouched.
+>   effects/parseHelpers.js and effects/castModifiers.js do not share the shortcut: castModifiers' `selfRef` is a per-cost regex
+>   for the paid object ("sacrificed", "discarded"), parseHelpers' mention is a comment; no `\bthis\b` matcher is left in the engine.
+> · **The 26, and what each does now** — every one detects NO trigger for that condition (each now classifies null → the
+>   sentence stays unmodeled; no card was credited before or after):
+>   permanents — **Maeve, Insidious Singer** (was attacks/self, native: drew on Maeve's own attack), **Whirlwind, Killer Cyclone**
+>   (attacks/self, manual), **Shelob, Child of Ungoliant** (dies/self, manual), **Whippoorwill** (dies/self, manual), **Pharika's
+>   Spawn** ("when it enters this way": etb/self, manual, on every entry), **Pick Up the Pace** (attacks/self on an enchantment,
+>   native — fired only if animated), **Jaya, Fiery Negotiator** (the −2's "whenever you attack this turn": attacks/self on a
+>   planeswalker, manual); instants and sorceries (never on the battlefield, so their descriptors never fired) — Ondu Rising,
+>   Song of Blood, Indulge // Excess, Touch of the Horned God, Descend on the Prey, Consuming Rage (attacks/self); Gnawing
+>   Crescendo, Death Frenzy, Skeletonize, Fight for the Throne, Reckless Blaze, Graceful Reprieve, Turn Inside Out, Devouring
+>   Tendrils, Ghired's Belligerence, Desperate Measures (dies/self); Beck // Call, First Day of Class, Theoretical Duplication
+>   (etb/self).
+> · **⚑ Games can change** for a seat with Maeve (no draw on her attack), Whirlwind / Shelob / Whippoorwill / Pharika's Spawn
+>   (no manual trigger on their own attack, death or entry), and Pharika's Spawn in the AI's blink pick (`gameEngine` scores a
+>   permanent with an etb/self descriptor +3 for Brago-style blinks; it had one only through the misread). None of the 26 is in
+>   any profile deck (the three profiles' decks.local.json searched), so seeded profile-deck games are unaffected.
+> · Witness `nonSelfThisCondition.test.js` (15; 8 red at 86389b97, on assertions): Maeve's detection and a Maeve attack that
+>   draws nothing; Whirlwind attacking, Shelob dying, Pharika's Spawn entering — each fires nothing; all 26 real cards detect
+>   nothing and none is native; the three window cards refused; a probe permanent printing a "this turn" window in an ability
+>   does not fire when another creature enters. Controls: Library Larcenist ("this creature") and Svyelun (first-word name)
+>   each draw on attack, Boomerang, Blade Flinger (short name) drains 1, Sengir Vampire's "by this creature this turn" watcher,
+>   Choking Tethers' "this card" and Artisan of Kozilek's "this spell", The Sprinkler of Stardust's noun-less quoted grant,
+>   the three ordinal "this turn" counts.
+> · Mutants (witness file + trigCast2 + trigDraw2): selfRef back to `/\bthis\b/` (8 red) · the window refusal removed (3) ·
+>   the ordinal exception removed (3) · the noun-less subject form removed (1) · "creature" dropped from the noun list (2).
+> · ⚠️ Found, not fixed: the delayed "whenever … this turn" trigger a spell creates is not modeled (19 arbiter-spells above);
+>   Pharika's Spawn's escape-only ETB and Maeve's goad-rider draw need a "this way" / goaded-creature watcher; the
+>   for-the-first-time latch gate in `detectTriggers` (`ownWindow`) still tests `^(?:this|you)\b` — harmless today (no condition
+>   starts "this turn"; it can only add a latch), noted for the next pass.
 
 > ## 🎭 2026-10-16 — FIX: one Role per player per permanent (CR 704.5y) — Doubling Season no longer leaves two Roles on one creature · **±0** · corpus unchanged
 > Suite **19,441** green (1 skipped) / 1,808 files. Lint 0 (CR citations: 0 of 10,379 name no rule). Flip-diff **0 / 0 / 0**
