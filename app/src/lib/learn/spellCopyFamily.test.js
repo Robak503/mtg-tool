@@ -20,7 +20,7 @@
  * the stack: to its owner's hand, to exile if it was a flashback cast (CR 702.34a), to nowhere if it was a copy (CR 704.5e).
  * A spell that "can't be copied" is not copied (CR 101.2). Each copy is a "copy" event for magecraft.
  *
- * THE MANA VALUE (atoms/stack.stackSpellManaValue, CR 202.3): the half or Adventure actually cast (202.3d, 715.3b), the
+ * THE MANA VALUE (spellOnStack.stackSpellManaValue, CR 202.3): the half or Adventure actually cast (202.3d, 715.3b), the
  * printed cost under a flashback cast (118.9c), the chosen X once per {X} (202.3e). Mana Drain reads the same function.
  *
  * THE CHANGE OF TARGET (targeting.changeTargetAlternatives — Swerve's arm, CR 115.7a) now enumerates with the spell's own

@@ -116,6 +116,7 @@ import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, 
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, adventureFaceCard, permanentFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR 709) — cast either half; pure shape module
+import { spellManaValue } from "./spellOnStack.js"; // the mana value of the spell being cast (CR 202.3) — Bolas's Citadel's life payment per offered face; a zero-import leaf
 import { isModalDfc, mdfcLandFaces, mdfcFaceCards, parseSpellModalDfc, spellMdfcFaceCards } from "./modalDfc.js"; // MODAL DFC (CR 712.8, V1) — the land drop chooses a face; the spell front is cast as a face; pure shape module
 import { evaluateInterveningIf } from "./interveningIf.js"; // CR 602.5d "Activate only if <cond>" — the offer gate reads the SAME vocabulary as the trigger + spell lanes
 import { extractAdditionalCosts, extractAltCost } from "./effects/castModifiers.js"; // AC-PERMANENT — see permanentAdditionalCosts below; + extractAltCost (EVOKE on a permanent, Solitude)
@@ -1716,7 +1717,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // kicked:false explicitly so the dispatcher/AI distinguish it from the kicked variant. Null = not offered.
       const normalCast = (ch) => {
         const common = commonFor(ch);
-        // ⭐ STRIVE (an ability word, CR 207.2c — ④-AS, 2026-09-04): "this spell costs {N} more to cast for each target beyond the first"
+        // ⭐ STRIVE (an ability word, CR 207.2c; a cost increase, CR 601.2f — ④-AS, 2026-09-04): "this spell costs {N} more to cast for each target beyond the first"
         // rides the program as `strivePerTarget` (parseEffectProgram peels and stamps it). Each chosen subset pays the base
         // cost plus N × (targets − 1), and a subset the player cannot fund is simply not offered — the printed card's
         // own limit. A one-target (or zero-target) cast pays the base cost, exactly as printed.
@@ -3825,15 +3826,16 @@ function actionsPlayFromTopOfLibrary(state, playerId) {
     // mana cost. Built as a no-mana cast (so X is 0, CR 107.3b, and no other alternative cost stacks, CR 118.9a) and carried
     // as an altCost the dispatcher pays; a mana value of 0 pays nothing (and a card with no mana cost may still be cast,
     // CR 118.6a). The free-cast builder skips the casting-timing check, so the permission's own timing is enforced here: a
-    // spell cast this way follows its normal timing. Life is paid only if the total covers it (CR 119.4).
+    // spell cast this way follows its normal timing. Life is paid only if the total covers it (CR 119.4). The mana value is the
+    // SPELL's, per offer (spellOnStack.spellManaValue with X = 0): a modal double-faced card cast as its back face is that face's
+    // (CR 712.8f — Harnfel, Horn of Bounty is 5, not Birgi's 3).
     if (perm.lifeSpellFilter && castFromTopFilterAllows(perm.lifeSpellFilter, top, cardIsEveryCreatureType(state, top, playerId))
         && (isSorcerySpeed(top) ? canCastSorcerySpeed(state, playerId) : canCastInstantSpeed(state, playerId))) {
-      const mv = Math.max(0, Number(top.cmc) || 0);
-      if ((player.life ?? 0) >= mv) {
-        for (const a of castActionsFromZone(state, playerId, [top], "library", null, true)) {
-          const { freeCast: _paidInLife, ...cast } = a;
-          actions.push({ ...cast, altCost: mv > 0 ? { kind: "payLife", payLife: mv } : { kind: "free" }, lifeCostFromTop: true });
-        }
+      for (const a of castActionsFromZone(state, playerId, [top], "library", null, true)) {
+        const mv = Math.max(0, spellManaValue(a.faceCard || top, 0));
+        if ((player.life ?? 0) < mv) continue;
+        const { freeCast: _paidInLife, ...cast } = a;
+        actions.push({ ...cast, altCost: mv > 0 ? { kind: "payLife", payLife: mv } : { kind: "free" }, lifeCostFromTop: true });
       }
     }
   } else if (perm.lands && canCastSorcerySpeed(state, playerId) && player.landsPlayedThisTurn < landDropAllowance(state, playerId)) {

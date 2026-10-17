@@ -1,8 +1,8 @@
 /**
  * splitCard.js — SPLIT CARDS (CR 709). A split card is a single card with TWO halves printed side by side,
  * each with its own name, mana cost, type line, and rules text. While it isn't on the stack it's a single
- * object with the characteristics of BOTH halves (CR 709.3); when you cast it you choose ONE half and that
- * half's characteristics are what's on the stack (CR 709.4). A resolved split-card spell — like any
+ * object with the characteristics of BOTH halves (CR 709.4); when you cast it you choose ONE half and that
+ * half's characteristics are what's on the stack (CR 709.3, 709.3b). A resolved split-card spell — like any
  * instant/sorcery — goes to its owner's GRAVEYARD (there is no adventure-style exile dance).
  *
  * This module is the SINGLE source of truth for the split-card SHAPE, mirroring adventure.js:

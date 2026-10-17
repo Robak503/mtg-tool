@@ -5,6 +5,7 @@
 
 import { logEvent, opponentsOf, findPermanent, deterministicRng, shuffleSeededLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
 import { permanentIsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW
+import { manaCostValue } from "../../spellOnStack.js"; // a mana cost's symbols summed (CR 202.3) — tutorManaValue's fallback; a zero-import leaf
 import { controllerMetric } from "../../interveningIf.js"; // TITHE (O8, 2026-09-05) — "target opponent controls more lands than you" read at resolution (interveningIf → gameState only: cycle-free)
 import { cardIsEveryCreatureType } from "../../everyCreatureType.js"; // P·39b — a library card that is every creature type (Changeling, or Maskwood Nexus's grant): a leaf over keywords.js, cycle-safe
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // P·39b — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
@@ -46,19 +47,7 @@ import { applyDrawEffect } from "../../spellEffects.js";
 export function tutorManaValue(card) {
   if (typeof card?.cmc === "number") return card.cmc;
   if (typeof card?.mana_value === "number") return card.mana_value;
-  let mv = 0;
-  for (const sym of String(card?.mana || card?.mana_cost || "").matchAll(/\{([^}]+)\}/g)) {
-    const s = sym[1];
-    if (/^\d+$/.test(s)) mv += parseInt(s, 10);
-    else if (/^[XYZ]$/i.test(s)) mv += 0;
-    else {
-      // A 2-generic hybrid pip like {2/W} has mana value 2 (CR 202.3f — the largest
-      // component); a colored / colored-hybrid / phyrexian pip is 1.
-      const lead = s.match(/^(\d+)/);
-      mv += lead ? parseInt(lead[1], 10) : 1;
-    }
-  }
-  return mv;
+  return manaCostValue(card?.mana || card?.mana_cost || ""); // the symbols summed (CR 202.3, 202.3f/g) — the one sum spellOnStack keeps
 }
 /** Does a library card match a tutor's filter? A null filter (unfiltered "a card") matches ALL.
  *

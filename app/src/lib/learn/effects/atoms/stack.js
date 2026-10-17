@@ -12,7 +12,7 @@ import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
 import { expandCastChoices, changeTargetAlternatives, atomForStackTarget } from "../targeting.js"; // + CHANGE THE TARGET (shelf D14) — the other legal targets for a stack object's one target; STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c); + atomForStackTarget: the atom a copy's recorded target belongs to (its new-target pick). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
 import { atomTargetIntent } from "../programQueries.js"; // the side a copy's target slot wants (its new-target pick, CR 707.10c). A leaf (imports only targetTypes) — the one intent table, not a second mirror
-import { tutorManaValue } from "./library.js"; // a mana cost's symbols summed (CR 202.3, 202.3f/g) for a spell on the stack. Layering {tokens,library,zones} <- removal <- stack sanctions this edge (library's closure never reaches stack)
+import { spellMatchesCounterFilter, stackSpellManaValue } from "../../spellOnStack.js"; // THE read of a spell on the stack — its mana value (CR 202.3) and a counter's filter, shared with the enumeration (spellEffects) and the cast watchers (triggers). A zero-import leaf — cycle-free
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // COPY-A-CREATURE-SPELL (Double Major, CR 707.2): the chosen creature spell's copiable card. cloneCopy is a pure leaf (imports only gameState) — cycle-safe.
 import { checkCopyTriggers } from "../../triggers.js"; // MAGECRAFT COPY HALF (BLITZ MC-1, CR 707.10): fire "cast or copy" watchers at the copy-creation site. Cycle-safe — triggers.js's import closure (targeting→spellEffects→triggers, layers, keywords, saga, triggerScheduler) never reaches atoms/stack.js, so this edge adds no cycle; checkCopyTriggers is called only at runtime.
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // MANA DRAIN: schedule the delayed {C} payout on the CR 603.7 queue (leaf module — imports only gameState, cycle-free)
@@ -38,64 +38,8 @@ import { RESOLVER_KEYS } from "../../resolverKeys.js"; // P·23 — the self-cop
  * engine models no effect that grants uncounterability after a target is chosen, and
  * on-card text is immutable, so an uncounterable spell can never reach this atom.
  */
-// Front-face type only (CR 712.4a) — for a split/MDFC spell the enriched type line is the
-// combined "Front // Back", so the creature/noncreature filter must read the front half.
-const counterTypeLine = (card) => String(card?.type || card?.type_line || "").split(" // ")[0];
-// CNT-MV-EXACT (WAVE 2b) — Mental Misstep / Spell Snare: the target spell's mana value must EQUAL
-// atom.exactMv (NOT "or less"/"or greater"). A spell with no cmc reads 0 (CR 202.3 — an absent cost is MV 0).
-// CNT-MV-CMP (CROSS-COUNTER) — Disdainful Stroke / Minor Misstep / Thoughtbind: "mana value N or greater" /
-// "or less" is the INEQUALITY form (atom.minMv / atom.maxMv), checked alongside the exact form. The parser
-// emits at most one of {exactMv, minMv, maxMv} per atom, so testing each independently is correct.
-const counterMvOk = (card, atom) => {
-  if (atom == null) return true;
-  const mv = card?.cmc ?? card?.mana_value ?? 0; // CR 202.3 — an absent cost is MV 0
-  if (atom.exactMv != null && mv !== atom.exactMv) return false;
-  if (atom.minMv != null && !(mv >= atom.minMv)) return false;
-  if (atom.maxMv != null && !(mv <= atom.maxMv)) return false;
-  return true;
-};
-// CNT-COLOR (CROSS-COUNTER) — Gainsay / Frazzle / Ceremonious Rejection / Neutralizing Blast: the target's
-// COLOR. Reads the FRONT-face colors (CR 712.4a): a DFC's combined "Front // Back" type line signals a DFC, so
-// prefer card_faces[0].colors over the (often-stale) top-level field, mirroring spellEffects.colorNeg. FAIL-
-// CLOSED when colors are unresolvable (no array) — never offer/resolve a wrong-color counter (an illegal
-// target is the cardinal sin; a dropped legal target is a safe false-negative). Shared by both filter funcs.
-export function counterColorsOf(card) {
-  const isDfc = / \/\/ /.test(String(card?.type || card?.type_line || ""));
-  const colors = isDfc ? card?.card_faces?.[0]?.colors : card?.colors;
-  return Array.isArray(colors) ? colors : null;
-}
-function counterColorOk(card, atom) {
-  if (atom?.colorFilter == null) return true;
-  const cf = atom.colorFilter;
-  const colors = counterColorsOf(card);
-  if (colors == null) return false; // FAIL-CLOSED — unresolvable colors never match a color-restricted counter
-  if (cf.colorless) return colors.length === 0;       // "counter target colorless spell"
-  if (cf.multicolored) return colors.length >= 2;     // "counter target multicolored spell"
-  if (cf.color) return cf.negate ? !colors.includes(cf.color) : colors.includes(cf.color); // (non)blue, etc.
-  return true;
-}
-export function counterFilterMatches(card, filter, atom = null) {
-  const type = counterTypeLine(card);
-  if (!counterMvOk(card, atom)) return false; // CNT-MV-EXACT / CNT-MV-CMP — fails the MV test → not a legal target
-  if (!counterColorOk(card, atom)) return false; // CNT-COLOR — fails the color test → not a legal target
-  if (filter === "noncreature") return !/Creature/.test(type);
-  if (filter === "creature") return /Creature/.test(type);
-  // CNT-TYPE (CROSS-COUNTER) — single-type / 2-type-union hard counters (Dispel / Envelop / Artifact Blast /
-  // Annul / Nullify). Each is a word-bounded front-face type test; mirrored in spellMatchesCounterFilter.
-  if (filter === "instant") return /\bInstant\b/.test(type);
-  if (filter === "sorcery") return /\bSorcery\b/.test(type);
-  if (filter === "artifact") return /\bArtifact\b/.test(type);
-  if (filter === "artifactOrEnchantment") return /\b(?:Artifact|Enchantment)\b/.test(type);
-  if (filter === "creatureOrAura") return /\bCreature\b/.test(type) || /\bAura\b/.test(type);
-  // CNT-IS (Flusterstorm's soft-counter — "instant or sorcery spell") — the 2-type union (front-face).
-  if (filter === "instantSorcery") return /\b(?:Instant|Sorcery)\b/.test(type);
-  if (filter === "instantOrAura") return /\bInstant\b/.test(type) || /\bAura\b/.test(type); // Avoid Fate (KT-9)
-  // SOFT-COUNTER-RIDER — Swan Song's 3-way filter (mirrors spellMatchesCounterFilter for enumeration).
-  if (filter === "enchantmentInstantSorcery") return /\b(?:Enchantment|Instant|Sorcery)\b/.test(type);
-  // CNT-ACP (WAVE 2b) — Strix Serenade's 3-way "artifact, creature, or planeswalker" union (front-face).
-  if (filter === "artifactCreaturePlaneswalker") return /\b(?:Artifact|Creature|Planeswalker)\b/.test(type);
-  return true; // "any"
-}
+// The counter's filter — spell type, mana value, colour — is spellOnStack.spellMatchesCounterFilter, the ONE read the target
+// enumeration (spellEffects.enumerateTargets) uses too; applyCounter re-asks it at resolution (CR 608.2b).
 // CNT-ZONE-REDIRECT (CROSS-COUNTER) — the zone a countered SPELL is put into (CR 701.6a + the card's "instead
 // of into its owner's graveyard" rider). Default "graveyard"; "exile" (Deny Existence), "hand" (Remand —
 // returned to its owner's hand), "library-top" (Memory Lapse — put on top of its owner's library). Append for
@@ -174,26 +118,8 @@ export function counterSpellById(state, spellId, { via = null, exileInstead = fa
   return logEvent(next, { kind: "spell-effect", effect: "counter", targetId: spellId, cardName: card?.name, controller, ...(dest !== "graveyard" && { dest }), ...(dest === "exile" && { exiled: true }), ...(via && { via }) });
 }
 
-/**
- * THE MANA VALUE OF A SPELL ON THE STACK (CR 202.3), read off its stack object — the one answer for every effect that asks
- * for "that spell's mana value" (Mana Drain's delayed mana, Imp's Mischief's life loss).
- *  - The printed part is the source's `cmc`, except for a face that rides the stack as a projection of a multi-faced card: a
- *    split half (CR 202.3d — on the stack only the half being cast counts) and an Adventure (CR 715.3b — only its alternative
- *    characteristics) keep the WHOLE card's `cmc`, so their own mana cost is summed instead (a hybrid symbol by its largest
- *    component, CR 202.3f; a Phyrexian symbol as 1, CR 202.3g). A flashback cast's cost view is the opposite case: its `mana`
- *    is the flashback cost and its `cmc` the printed one, and an alternative cost doesn't change a spell's mana cost
- *    (CR 118.9c) — so the `cmc` is read there.
- *  - {X} is the chosen value while the spell is on the stack (CR 202.3e), once per {X} in the mana cost; `cmc` and the
- *    symbol sum both read X as 0. (An X flashback cost is never offered — legalChoices.parseFlashbackManaCost.)
- * A copy of a spell has its original's mana cost and its X (CR 707.10); its stack object carries the same source and xValue.
- */
-const FACE_COSTED_LAYOUTS = new Set(["split", "adventure"]);
-export function stackSpellManaValue(obj) {
-  const face = obj?.source;
-  const cost = String(face?.mana ?? face?.mana_cost ?? "");
-  const printed = FACE_COSTED_LAYOUTS.has(face?.layout) ? tutorManaValue({ mana: cost }) : Math.floor(face?.cmc ?? face?.mana_value ?? 0);
-  return printed + (cost.match(/\{X\}/gi) || []).length * Math.max(0, obj?.payload?.params?.xValue || 0);
-}
+// THE MANA VALUE OF A SPELL ON THE STACK (CR 202.3) — the half or Adventure actually cast, the announced X once per {X} — is
+// spellOnStack.stackSpellManaValue: Mana Drain's delayed mana, Imp's Mischief's life loss and the counter filter all read it.
 
 /**
  * COUNTER, ASKING CR 701.6a AT RESOLUTION — the entry every COUNTER path takes (2026-09-30). counterSpellById is the
@@ -224,9 +150,9 @@ function applyCounter(state, atom, ctx) {
     }
     const targetObj = next.stack[idx];
     const card = targetObj.source;
-    // The atom rides into the filter so CNT-MV-EXACT (Mental Misstep / Spell Snare) can re-check the
-    // target spell's mana value here, mirroring the enumeration-time check (spellMatchesCounterFilter).
-    if (!counterFilterMatches(card, atom.spellFilter, atom)) {
+    // The resolution re-check (CR 608.2b) asks the enumeration's own question of the stack OBJECT — its mana value there
+    // (the announced X, the half cast) and the atom's type, mana-value and colour restrictions.
+    if (!spellMatchesCounterFilter(targetObj, atom.spellFilter, atom)) {
       next = logEvent(next, { kind: "spell-effect", effect: "counter-fizzle", targetId: t.id });
       continue;
     }
@@ -817,7 +743,7 @@ export function counterClauseParser(clause) {
   if (/^counter target enchantment, instant, or sorcery spell$/.test(t)) return { op: "counter", spellFilter: "enchantmentInstantSorcery", targetType: "spell" };
   // CNT-TYPE (CROSS-COUNTER) — single-type / 2-type-union HARD counters, no rider (Dispel "instant", Envelop /
   // Extinguish "sorcery", Artifact Blast "artifact", Annul "artifact or enchantment", Nullify "creature or
-  // Aura"). spellFilter applied at enumeration (spellMatchesCounterFilter) + resolution (counterFilterMatches),
+  // Aura"). spellFilter applied at enumeration and at resolution by the one spellOnStack.spellMatchesCounterFilter,
   // the SAME two-sided discipline as the existing creature/noncreature/3-way filters. Anchored `$` — any tail
   // (rider/mode/unless-pay) fails → low → Arbiter (FN-safe).
   if (/^counter target instant spell$/.test(t)) return { op: "counter", spellFilter: "instant", targetType: "spell" };
@@ -1832,7 +1758,7 @@ function applyCopySelfSpell(state, atom, ctx) {
   const payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program: bodyProgram, controller: ctx.controller, targets } };
   const copyObj = createStackObject({ id, kind: "spell", source: sourceCard, controller: ctx.controller, targets, payload });
   let next = { ...s2, stack: [...s2.stack, { ...copyObj, isCopy: true }] };
-  next = checkCopyTriggers(next, { copiedSpellCard: sourceCard, controllerId: ctx.controller });
+  next = checkCopyTriggers(next, { copiedSpellCard: sourceCard, controllerId: ctx.controller, copyObj });
   return logEvent(next, { kind: "spell-effect", effect: "self-copy", controller: ctx.controller, cardName: ctx.cardName, targets: targets.map((t) => t.id) });
 }
 
@@ -1919,7 +1845,7 @@ function applyCopySpell(state, atom, ctx) {
       // Same chokepoint every copy-creation site funnels through. The copied object is a PERMANENT spell, so
       // magecraft's instantSorcery filter excludes it — this is a no-op here by construction, wired for
       // uniformity (identical to applyCopyCreatureSpell's note).
-      next = checkCopyTriggers(next, { copiedSpellCard: copyCard, controllerId: ctx.controller });
+      next = checkCopyTriggers(next, { copiedSpellCard: copyCard, controllerId: ctx.controller, copyObj });
     }
     return logEvent(next, { kind: "spell-effect", effect: "storm-copy", count: made, requested: n, controller: ctx.controller, cardName: sourceCard?.name });
   }
@@ -1958,7 +1884,7 @@ function applyCopySpell(state, atom, ctx) {
     // times, plus once for the original cast which checkCastTriggers already handled). Only firesOnCopy watchers
     // fire — a plain "whenever you cast" never does (a copy is not a cast). sourceCard carries the storm spell's
     // type, so the instantSorcery filter is satisfied for the always-instant/sorcery storm spell.
-    next = checkCopyTriggers(next, { copiedSpellCard: sourceCard, controllerId: ctx.controller });
+    next = checkCopyTriggers(next, { copiedSpellCard: sourceCard, controllerId: ctx.controller, copyObj });
   }
   return logEvent(next, { kind: "spell-effect", effect: "storm-copy", count: made, requested: n, controller: ctx.controller, cardName: sourceCard?.name });
 }
@@ -2093,7 +2019,7 @@ function applyCopyInstantOrSorcery(state, atom, ctx) {
       copyObj = { ...copyObj, targets, payload: { ...clonedPayload, params: { ...clonedPayload.params, targets } } };
     }
     next = { ...minted.state, stack: [...minted.state.stack, { ...copyObj, isCopy: true }] };
-    next = checkCopyTriggers(next, { copiedSpellCard: targetObj.source, controllerId: ctx.controller });
+    next = checkCopyTriggers(next, { copiedSpellCard: targetObj.source, controllerId: ctx.controller, copyObj });
   }
   if (atom.returnOriginal) next = counterSpellById(next, targetObj.id, { via: "return-to-hand", counterDest: "hand" });
   return logEvent(next, { kind: "spell-effect", effect: "copy-instant-or-sorcery", controller: ctx.controller, count: copyable ? 1 : 0, cardName: targetObj.source?.name });
@@ -2144,7 +2070,7 @@ function applyCopyCreatureSpell(state, atom, ctx) {
   // the storm site. The copied object is a CREATURE spell, so the magecraft instantSorcery filter EXCLUDES it
   // (checkCopyTriggers is a no-op here) — magecraft correctly never fires on a copied creature spell (CR 707.10f).
   // Wired uniformly so every copy-creation site funnels through one chokepoint; the filter guarantees no FP.
-  next = checkCopyTriggers(next, { copiedSpellCard: copyCard, controllerId: ctx.controller });
+  next = checkCopyTriggers(next, { copiedSpellCard: copyCard, controllerId: ctx.controller, copyObj });
   return logEvent(next, { kind: "spell-effect", effect: "copy-creature-spell", count: 1, controller: ctx.controller, cardName: sourceCard?.name });
 }
 

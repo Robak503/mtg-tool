@@ -1,5 +1,5 @@
 /**
- * strive.test.js — ④-AS (2026-09-04 night): STRIVE (CR 702.106) + "ANY NUMBER OF target creatures". The Strive cycle —
+ * strive.test.js — ④-AS (2026-09-04 night): STRIVE (an ability word, CR 207.2c — its "costs {N} more" is a cost increase, CR 601.2f) + "ANY NUMBER OF target creatures". The Strive cycle —
  * Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence,
  * Colossal Heroics, Harness by Force — "This spell costs {N} more to cast for each target beyond the first" over an
  * "any number of target creatures" effect. parseEffectProgram peels the cost sentence and STAMPS it on the program as

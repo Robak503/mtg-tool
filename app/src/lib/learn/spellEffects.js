@@ -57,6 +57,7 @@ import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClas
 import { protectionApplies } from "./protection.js";
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — damage to a player dealt to a creature instead (CR 614.9)
 import { isNonChosenTargetType } from "./targetTypes.js";
+import { spellMatchesCounterFilter } from "./spellOnStack.js"; // a counter's filter on a spell on the stack — the one read the resolution re-check (atoms/stack.applyCounter) shares; its mana value is the spell's there (CR 202.3). A zero-import leaf
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 import { selfDamagePrevention, attachedDamagePrevention, counterShieldPrevention, attachedPreventPutCounters } from "./combatEvasion.js"; // FOG-1/AP-1 — the printed self + attached prevent-all walls (leaf-safe: combatEvasion never imports this module)
 import { armDamageToCreatureFlag } from "./wolverine.js";
@@ -853,8 +854,8 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       // never sets it (its "target spell" is any controller), so counters are byte-identical.
       if (effect.spellController === "you" && obj.controller !== controllerId) continue;
       if (effect.spellController === "opponent" && obj.controller === controllerId) continue; // SINK INTO STUPOR (KN-6): an opponent's spell only
-      // `effect` rides in so CNT-MV-EXACT (Mental Misstep / Spell Snare) can require the target spell's mana
-      // value EQUAL effect.exactMv at enumeration — an MV-mismatched spell is simply not offered as a target.
+      // `effect` carries the counter's type, mana-value and colour restrictions (spellOnStack.spellMatchesCounterFilter — the
+      // spell's mana value on the stack, X included); a spell that fails them is not offered as a target (CR 601.2c).
       if (!spellMatchesCounterFilter(obj, effect.spellFilter, effect)) continue;
       // ⭐⭐ CNT-TARGETS-WHAT (Turn Aside / Intervene / Hindering Light class) — the counter is legal ONLY
       // against a spell that is POINTING AT something matching. Every other counter filter above reads the
@@ -1207,13 +1208,6 @@ export function handCardMatches(card, hf) {
 }
 
 /**
- * Does a spell on the stack match a counter's spellFilter (CR 701.6a)? `atom` carries the MV / color
- * restrictions (exactMv / minMv / maxMv / colorFilter). MIRRORS counterFilterMatches in atoms/stack.js EXACTLY
- * — the two are kept in lockstep by hand (not delegated) to avoid a spellEffects ↔ atoms/stack import cycle; any
- * filter added in one MUST be added here. spellEffects is the ENUMERATION side ("is this a legal target to
- * offer?"); counterFilterMatches is the RESOLUTION side ("does the counter still apply?").
- */
-/**
  * ⭐ CNT-TARGETS-WHAT — does `stackObj` (a spell on the stack) point at something the filter accepts?
  * `casterId` is the player casting the COUNTER, so "you" / "you control" resolve to them (CR 109.5-style
  * possessive: the counter's controller, never the countered spell's).
@@ -1252,46 +1246,6 @@ function spellTargetsMatchFilter(state, stackObj, filter, casterId) {
     const line = String(lk.permanent.card?.type || lk.permanent.card?.type_line || "").split(" // ")[0];
     return types.some((ty) => new RegExp(`\\b${ty}\\b`, "i").test(line));
   });
-}
-
-function spellMatchesCounterFilter(stackObj, filter, atom = null) {
-  const card = stackObj?.source;
-  // Front-face type only — a split/MDFC spell's enriched type line is "Front // Back".
-  const type = String(card?.type || card?.type_line || "").split(" // ")[0];
-  const mv = card?.cmc ?? card?.mana_value ?? 0; // CR 202.3 — an absent cost reads MV 0
-  // CNT-MV-EXACT (WAVE 2b — Mental Misstep / Spell Snare): equal. CNT-MV-CMP (CROSS-COUNTER — Disdainful Stroke /
-  // Minor Misstep / Thoughtbind): minMv (≥) / maxMv (≤). At most one is set per atom; test each independently.
-  if (atom?.exactMv != null && mv !== atom.exactMv) return false;
-  if (atom?.minMv != null && !(mv >= atom.minMv)) return false;
-  if (atom?.maxMv != null && !(mv <= atom.maxMv)) return false;
-  // CNT-COLOR (CROSS-COUNTER — Gainsay / Frazzle / Ceremonious Rejection / Neutralizing Blast): FRONT-face colors
-  // (CR 712.4a), FAIL-CLOSED when unresolvable (never offer a wrong-color counter target). Mirrors counterColorOf.
-  if (atom?.colorFilter != null) {
-    const cf = atom.colorFilter;
-    const isDfc = / \/\/ /.test(String(card?.type || card?.type_line || ""));
-    const colors = isDfc ? card?.card_faces?.[0]?.colors : card?.colors;
-    if (!Array.isArray(colors)) return false;                          // FAIL-CLOSED
-    if (cf.colorless && colors.length !== 0) return false;
-    if (cf.multicolored && colors.length < 2) return false;
-    if (cf.color && (cf.negate ? colors.includes(cf.color) : !colors.includes(cf.color))) return false;
-  }
-  if (filter === "noncreature") return !/Creature/.test(type);
-  if (filter === "creature") return /Creature/.test(type);
-  // CNT-TYPE (CROSS-COUNTER) — single-type / 2-type-union hard counters (Dispel / Envelop / Artifact Blast /
-  // Annul / Nullify). Word-bounded front-face type tests; mirrors counterFilterMatches at resolution.
-  if (filter === "instant") return /\bInstant\b/.test(type);
-  if (filter === "sorcery") return /\bSorcery\b/.test(type);
-  if (filter === "artifact") return /\bArtifact\b/.test(type);
-  if (filter === "artifactOrEnchantment") return /\b(?:Artifact|Enchantment)\b/.test(type);
-  if (filter === "creatureOrAura") return /\bCreature\b/.test(type) || /\bAura\b/.test(type);
-  // CNT-IS (Flusterstorm's soft-counter — "instant or sorcery spell") — mirrors counterFilterMatches.
-  if (filter === "instantSorcery") return /\b(?:Instant|Sorcery)\b/.test(type);
-  if (filter === "instantOrAura") return /\bInstant\b/.test(type) || /\bAura\b/.test(type); // Avoid Fate (KT-9)
-  // SOFT-COUNTER-RIDER — Swan Song's 3-way filter (mirrors counterFilterMatches at resolution).
-  if (filter === "enchantmentInstantSorcery") return /\b(?:Enchantment|Instant|Sorcery)\b/.test(type);
-  // CNT-ACP (WAVE 2b) — Strix Serenade's "artifact, creature, or planeswalker" union (front-face).
-  if (filter === "artifactCreaturePlaneswalker") return /\b(?:Artifact|Creature|Planeswalker)\b/.test(type);
-  return true; // "any"
 }
 
 // ─── AI target selection ──────────────────────────────────────────────────────

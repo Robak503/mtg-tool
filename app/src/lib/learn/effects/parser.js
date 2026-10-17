@@ -1419,7 +1419,7 @@ function stripDiscardCostAbilityForCast(oracle) {
   return kept.length === lines.length ? String(oracle || "") : kept.join("\n").trim();
 }
 
-/** STRIVE (CR 702.106 — ④-AS, 2026-09-04): "This spell costs {N} more to cast for each target beyond the first." The
+/** STRIVE (an ability word, CR 207.2c; the increase is a cost increase, CR 601.2f — ④-AS, 2026-09-04): "This spell costs {N} more to cast for each target beyond the first." The
  * ability-word label is already stripped (④-AK); this reads the cost sentence off the oracle and hands back the
  * per-extra-target cost string, or null. */
 const STRIVE_LINE = /^\s*this spell costs ((?:\{[^}]+\})+) more to cast for each target beyond the first\.?\s*$/im;

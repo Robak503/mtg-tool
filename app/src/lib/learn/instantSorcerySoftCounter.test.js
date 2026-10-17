@@ -1,15 +1,15 @@
 /**
  * instantSorcerySoftCounter.test.js — the "instant or sorcery" soft-counter filter (Flusterstorm class —
  * SHELF Phase 2). "Counter target instant or sorcery spell unless its controller pays {1}" → the existing
- * soft-counter atom with the NEW instantSorcery spellFilter (both filter sites mirrored: enumeration's
- * spellMatchesCounterFilter + resolution's counterFilterMatches). Flusterstorm's Storm half was already
+ * soft-counter atom with the NEW instantSorcery spellFilter (one filter for both sites since 2026-10-17 —
+ * spellOnStack.spellMatchesCounterFilter, read by the enumeration and by the resolution re-check). Flusterstorm's Storm half was already
  * modeled (the synthesized selfCast copy trigger). CREED FP = offering/countering a non-instant/sorcery.
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { _resetIdsForTests } from "./gameState.js";
 import { parseEffectClause, programConfidence } from "./effects/parser.js";
-import { counterFilterMatches } from "./effects/atoms/stack.js";
+import { spellMatchesCounterFilter } from "./spellOnStack.js";
 import { classifyCard } from "./coverage.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -29,9 +29,9 @@ describe("parse + classify", () => {
 
 describe("the filter (CREED core — both zones of the union, nothing else)", () => {
   it("matches an Instant and a Sorcery; never a creature/artifact spell", () => {
-    expect(counterFilterMatches({ type: "Instant" }, "instantSorcery")).toBe(true);
-    expect(counterFilterMatches({ type: "Sorcery" }, "instantSorcery")).toBe(true);
-    expect(counterFilterMatches({ type: "Creature — Bear" }, "instantSorcery")).toBe(false);
-    expect(counterFilterMatches({ type: "Artifact" }, "instantSorcery")).toBe(false);
+    expect(spellMatchesCounterFilter({ source: { type: "Instant" } }, "instantSorcery")).toBe(true);
+    expect(spellMatchesCounterFilter({ source: { type: "Sorcery" } }, "instantSorcery")).toBe(true);
+    expect(spellMatchesCounterFilter({ source: { type: "Creature — Bear" } }, "instantSorcery")).toBe(false);
+    expect(spellMatchesCounterFilter({ source: { type: "Artifact" } }, "instantSorcery")).toBe(false);
   });
 });

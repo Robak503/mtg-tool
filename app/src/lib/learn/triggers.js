@@ -38,6 +38,7 @@ import { CR_CREATURE_TYPES } from "./effects/targeting.js"; // BC-1: closed crea
 import { fireDiesWatches } from "./effects/atoms/delayedTrigger.js"; // DIES WATCH (shelf D25, CR 603.7) — "when that creature dies this turn" fires off the death chokepoint (a gameState-only leaf, no cycle)
 import { DISCARDED_CARD_EXILE_SENTINEL, DISCARDED_CARD_EXILE_PRINTED_RE, openDiscardExileWatch } from "./effects/atoms/discardedCardExile.js"; // Necropotence — the discarded-card referent (a gameState-only leaf, no cycle)
 import { parseMultikickerCost } from "./kicker.js"; // MULTIKICKER (P·15) — a multikicker permanent carries its kick count into its ETB self context (kicker.js imports only leaves)
+import { spellManaValue, stackSpellManaValue } from "./spellOnStack.js"; // the cast spell's mana value ON THE STACK (CR 202.3 — the announced X, the half or Adventure cast) for the mana-value cast filters, castSpellMv and cascade's cap; a zero-import leaf
 import { hasClassLevelBar, classTopView, classLiveCard } from "./classLevels.js"; // CLASS (CR 716) — the level-scoped view of a Class card; a zero-import leaf
 
 function oracleOf(card) {
@@ -9274,33 +9275,7 @@ export function checkBecomesMonarchTriggers(state, newMonarchId) {
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
-/** The cast spell's mana value: prefer a numeric cmc/mana_value, else 0 (a missing cost can't pass a >=N gate). */
-function spellManaValue(spellCard) {
-  if (typeof spellCard?.cmc === "number") return spellCard.cmc;
-  if (typeof spellCard?.mana_value === "number") return spellCard.mana_value;
-  return 0;
-}
-
-/**
- * CASCADE (CR 702.85a) — the cascading spell's OWN mana value, the cap the dig measures "costs less" against.
- * Prefers a numeric cmc/mana_value, else SUMS the pips of the printed mana cost (CR 202.3) so a test/runtime
- * card carrying only a `mana`/`mana_cost` string still resolves a correct cap — the same MV arithmetic
- * tutorManaValue (library.js) uses, replicated here so triggers.js stays a leaf (no library import / cycle).
- * {X}/{Y}/{Z} count 0 (CR 202.3e — X is 0 while the card is not on the stack); a 2-generic hybrid pip
- * ({2/W}) counts its largest component (CR 202.3f); a colored/phyrexian pip counts 1.
- */
-function cascadingSpellManaValue(spellCard) {
-  if (typeof spellCard?.cmc === "number") return spellCard.cmc;
-  if (typeof spellCard?.mana_value === "number") return spellCard.mana_value;
-  let mv = 0;
-  for (const sym of String(spellCard?.mana || spellCard?.mana_cost || "").matchAll(/\{([^}]+)\}/g)) {
-    const s = sym[1];
-    if (/^\d+$/.test(s)) mv += parseInt(s, 10);
-    else if (/^[XYZ]$/i.test(s)) mv += 0;
-    else { const lead = s.match(/^(\d+)/); mv += lead ? parseInt(lead[1], 10) : 1; }
-  }
-  return mv;
-}
+// The cast spell's mana value is spellOnStack.spellManaValue — its value on the stack (CR 202.3), read once per cast event below.
 
 /** MILL-ON-EVENT — front-face type line (CR 712.4a / 712.8a). A card in the library has ONLY its front-face
  * characteristics, so an MDFC whose BACK is a land (Malakir Rebirth // Malakir Mire) is a NONLAND when milled.
@@ -9802,7 +9777,9 @@ export function checkMilledTriggers(state, { milledByPlayer, milledCards } = {})
 // `every` (P·39b): the spell is every creature type — Changeling, or a creature spell its controller's Maskwood Nexus reaches
 // (everyCreatureType.cardIsEveryCreatureType, computed once by the caller, who knows the caster). It meets a CREATURE-type word
 // only (CR 205.3d): "an Aura, Equipment, or Vehicle spell" (Sram) never sees it.
-function spellMatchesFilter(filter, spellCard, every = false) {
+// `mv`: the spell's mana value ON THE STACK (spellOnStack — the announced X, the half or Adventure cast; CR 202.3d/e), read
+// once by the caller, who has the cast's X. A caller that passes none never matches a mana-value filter (an under-fire).
+function spellMatchesFilter(filter, spellCard, every = false, mv = null) {
   const t = typeStr(spellCard);
   const everyWord = (w) => every && CR_CREATURE_TYPES.has(String(w).toLowerCase());
   // CAST-SUBTYPE — "subtype:Name" → the cast spell's type line carries that subtype (word-bounded so
@@ -9824,7 +9801,7 @@ function spellMatchesFilter(filter, spellCard, every = false) {
       case "hasX":
         return /\{x\}/i.test(String(spellCard?.mana ?? spellCard?.mana_cost ?? ""));
       case "manaValue": {
-        const mv = spellManaValue(spellCard);
+        if (!Number.isFinite(mv)) return false;
         return filter.op === "gte" ? mv >= filter.value : mv <= filter.value;
       }
       default: return false;
@@ -9965,7 +9942,11 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
   // intervening-if reads it and stays unfired on null.
   // manaSpentAmount (④-Z, Opus): the plan's total, or null when unknown — read by the "N or more / fewer than N mana was
   // spent to cast that spell" conditions the Opus payoffs stamp on their atoms; null leaves both halves unfired.
-  const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard), castingPlayerId: casterId, castSpellMv: cascadingSpellManaValue(spellCard), castStackObjectId: stackObjectId, manaSpent, manaSpentAmount };
+  // castMv — the cast spell's mana value ON THE STACK (CR 202.3e: X is the announced number; CR 202.3d / 715.3b: the half or
+  // Adventure cast), read once: the mana-value cast filters ("a spell with mana value 3 or less" — Eidolon of the Great Revel),
+  // castSpellMv and cascade's cap (CR 702.85a — "this spell's mana value") all compare against it.
+  const castMv = spellManaValue(spellCard, xValue);
+  const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard), castingPlayerId: casterId, castSpellMv: castMv, castStackObjectId: stackObjectId, manaSpent, manaSpentAmount };
   let fired = [];
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {
@@ -10018,7 +9999,7 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
             const lk = t?.id ? findPermanent(state, t.id) : null;
             return !!lk && lk.controller === watcher.controller && isModifiedPermanent(state, lk.permanent);
           })) continue;
-        } else if (!spellMatchesFilter(d.spellFilter, spellCard, castEvery)) {
+        } else if (!spellMatchesFilter(d.spellFilter, spellCard, castEvery, castMv)) {
           continue;
         }
         fired.push(makePendingTrigger(d, watcher, null, context));
@@ -10037,7 +10018,7 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
       for (const d of detectTriggers(gyCard).filter(x => x.event === "cast" && x.functionsFromGraveyard)) {
         if (d.whose === "you" && casterId !== pid) continue;
         if (d.whose === "opponent" && !opponentsOf(state, pid).includes(casterId)) continue;
-        if (!spellMatchesFilter(d.spellFilter, spellCard)) continue;
+        if (!spellMatchesFilter(d.spellFilter, spellCard, false, castMv)) continue;
         const source = { id: `gy-${gyCard.id}`, controller: pid, card: gyCard };
         fired.push(makePendingTrigger(d, source, null, { ...context, sourceCardId: gyCard.id }));
       }
@@ -10148,10 +10129,10 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
   const stormStackObj = stackObjectId ? (state.stack || []).find((o) => o.id === stackObjectId) : null;
   // CASCADE (CR 702.85a) — the dig stops at the first nonland card that "costs less" than the CASCADING spell,
   // i.e. mana value STRICTLY LESS than the spell's own mana value (CR 702.85a — measured against the spell on
-  // the stack). Snapshot that mana value HERE at cast (off the spell card, the same MV reader the discover/tutor
-  // paths use) and thread it onto the cascade trigger's context so applyCascadeAtom reads a concrete cap at
-  // resolution — never re-derived, serialize-stable. A non-cascade self-cast trigger sets none → byte-identical.
-  const cascadeSpellMv = cascadingSpellManaValue(spellCard);
+  // the stack). Snapshot that mana value HERE at cast (castMv — the spell's mana value on the stack) and thread it onto the
+  // cascade trigger's context so applyCascadeAtom reads a concrete cap at resolution — never re-derived, serialize-stable. A
+  // non-cascade self-cast trigger sets none → byte-identical.
+  const cascadeSpellMv = castMv;
   for (const d of detectTriggers(spellCard).filter((x) => x.event === "selfCast")) {
     const extra = d.stormCopy
       ? { stormCount, stormSourcePayload: stormStackObj?.payload || null, stormSourceCard: { name: spellCard.name, type: typeStr(spellCard) }, ...(d.stormCountSource ? { stormCountSource: d.stormCountSource } : {}) }
@@ -10191,16 +10172,19 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
  * `copiedSpellCard` is the copiable card of the object being copied (carries at least a type line); the
  * instantSorcery filter is re-applied so a copied CREATURE spell (Double Major, CR 707.10f) never fires
  * magecraft — only an instant/sorcery copy does. `controllerId` is the copy's controller (you copy — CR 707.10),
- * the beneficiary the `whose:"you"` gate binds to. Pure — appends to pendingTriggers and returns new state
- * (flushed on the next priority pass by the same finalizeStackResolution path as any other pending trigger).
+ * the beneficiary the `whose:"you"` gate binds to. `copyObj` is the copy's stack object: its mana value is the copy's on the
+ * stack, X included (CR 707.10 — a copy copies "the value of X"; spellOnStack.stackSpellManaValue reads its cloned payload).
+ * Every copy site passes it; without it the copied card's printed value is read (X as 0). Pure — appends to pendingTriggers
+ * and returns new state (flushed on the next priority pass by the same finalizeStackResolution path as any other pending trigger).
  */
-export function checkCopyTriggers(state, { copiedSpellCard, controllerId }) {
+export function checkCopyTriggers(state, { copiedSpellCard, controllerId, copyObj = null }) {
   if (!copiedSpellCard || !state?.players?.[controllerId]) return state;
+  const copyMv = copyObj ? stackSpellManaValue(copyObj) : spellManaValue(copiedSpellCard);
   const context = {
     castSpellName: copiedSpellCard?.name,
     castSpellType: typeStr(copiedSpellCard),
     castingPlayerId: controllerId,
-    castSpellMv: cascadingSpellManaValue(copiedSpellCard),
+    castSpellMv: copyMv,
   };
   const fired = [];
   for (const pid of Object.keys(state.players)) {
@@ -10211,7 +10195,7 @@ export function checkCopyTriggers(state, { copiedSpellCard, controllerId }) {
         // copy"). "opponent" is honored for symmetry though no printed "cast or copy" trigger uses it.
         if (d.whose === "you" && controllerId !== watcher.controller) continue;
         if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(controllerId)) continue;
-        if (!spellMatchesFilter(d.spellFilter, copiedSpellCard)) continue;
+        if (!spellMatchesFilter(d.spellFilter, copiedSpellCard, false, copyMv)) continue;
         fired.push(makePendingTrigger(d, watcher, null, context));
       }
     }

@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **59 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,432)**; engine gains since the tag: **−35** (+46 gained, −81 false credit removed). The next tag
+> **60 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,432)**; engine gains since the tag: **−35** (+46 gained, −81 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,70 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX: a spell's mana value is read on the stack — the counter filters, the mana-value cast watchers, castSpellMv, the copy watchers, the forced trigger-target pick and Bolas's Citadel all read one leaf (`spellOnStack.js`): the announced X, the half or Adventure cast · **±0** · corpus 15,494 (unchanged)
+> Suite **19,579** green (1 skipped) / 1,815 files. Lint 0 (CR citations: 0 of 10,484 name no rule). Flip-diff **0 / 0 / 0** (34,620 cards;
+> before = 93250da2's code, after = this tree). **Mutants 15/15** on assertions (a 16th, cascade's cap, survives by construction — see
+> below), restore byte-identical (sha256 of the seven engine files compared after each).
+> · **The report (the kicked-mana-value slice's probe, 10-17), re-proved on 93250da2.** `stack.counterMvOk` (the counter's resolution
+>   re-check) and `spellEffects.spellMatchesCounterFilter` (its target enumeration — a hand-kept mirror of the first) read the CARD's
+>   printed `cmc`, and so did `triggers.spellManaValue` (the "cast a spell with mana value N or …" filter): Hungering Hydra cast for
+>   X = 5 (mana value 6 on the stack, CR 202.3e) was offered to Thoughtbind ("4 or less") and not to Disdainful Stroke; Fire from
+>   Fire // Ice (2 on the stack, CR 202.3d) was offered to Disdainful Stroke and not to Spell Snare; Fertile Footsteps (3, CR 715.3b)
+>   read as Beanstalk Giant's 7. `stack.stackSpellManaValue` already had the right number for Mana Drain and Imp's Mischief.
+> · **The fix.** New zero-import leaf `app/src/lib/learn/spellOnStack.js`: `manaCostValue` (the symbol sum — `library.tutorManaValue`
+>   delegates to it; triggers' `cascadingSpellManaValue` copy is gone), `spellManaValue(face, x)` (a split half / an Adventure sums its
+>   own cost — CR 202.3d, 709.3, 715.3; a cost that still names both halves is the whole card — a fused split spell, or an adventurer
+>   cast normally, CR 715.4 — and reads its `cmc`; everything else reads `cmc`; X once per {X}), `stackSpellManaValue(obj)` (X from the
+>   payload's params, else the stack object), `counterColorsOf`, and `spellMatchesCounterFilter(stackObj, …)` — THE counter filter:
+>   the two mirror copies are deleted and both sides call it with the stack object. `actionDispatcher.applyCastSpell` stamps the
+>   announced X on the stack object when its payload carries none (an Aura, a planeswalker, the Arbiter's no-op — Awakened Awareness
+>   is offered X = 1…10 and resolved as a no-op, so its X was lost). ENGINE-SCAFFOLD §6 names the leaf.
+> · **Every mana-value reader of a spell on the stack, and what it reads now:** the counter enumeration and resolution re-check
+>   (Thoughtbind, Disdainful Stroke, Spell Snare, Mental Misstep, Minor Misstep) → `spellMatchesCounterFilter` → stack MV; Mana Drain
+>   and Imp's Mischief → `stackSpellManaValue` (unchanged except the whole-card adventurer: Mana Drain on Monster Manual added 7, now
+>   4); `checkCastTriggers` → one `castMv = spellManaValue(spellCard, xValue)` for the mana-value filter (Eidolon of the Great Revel,
+>   Pyrostatic Pillar, Up the Beanstalk and the 20 other carriers), `castSpellMv` (Kellan, the Kid; Rashmi, Eternities Crafter) and
+>   cascade's cap; `checkCopyTriggers` → the copy's `stackSpellManaValue` (CR 707.10 — every copy site passes its stack object);
+>   `gameEngine.pickForcedTriggerCandidate` → a spell target costs its stack MV; Bolas's Citadel → the offered face's MV with X = 0
+>   (Harnfel, Horn of Bounty paid Birgi's 3 life; now 5). Kicked and bestowed spells keep the printed value (CR 118.8d, 118.9c).
+> · Also: the strive citation "CR 702.106" (hidden agenda) is CR 207.2c (strive is an ability word) + CR 601.2f (parser.js,
+>   legalChoices.js, strive.test.js); legalChoices' three "CR 202.3b" comments on the action's `cmc` (a mana-committed AI field, not
+>   the mana value) now cite CR 118.8d / 118.9c; splitCard.js's swapped 709.3/709.4.
+> · **AI / self-play.** No seeded batch was run; what can move, read off the 30 profile decks (every change is a target, a trigger
+>   or a cap the engine already offered, now at the stack value): **Mental Misstep** (Believe it!, Kinnan Mana Overload, cdh — the
+>   decks' only mana-value counter) stops seeing X spells printed at 1 and cast for X ≥ 1 (Green Sun's Zenith, Mockingbird, Ingenious
+>   Prodigy — at 93250da2 a Green Sun's Zenith for X = 3 was a legal Misstep target); **Up the Beanstalk** (Omnath, Locus of Mana)
+>   now draws for Gelatinous Genesis and Genesis Wave at X ≥ 2, Finale of Devastation and Awaken the Woods at X ≥ 3; **Kellan, the
+>   Kid** (Kellan of the west — Portent of Calamity) and **Rashmi, Eternities Crafter** (Test Rashmi — Chord of Calling; Kellan of
+>   the west) compare against an X spell's full value (larger caps); **Venser, Shaper Savant** (Test Rashmi, Brago Blink) — the one
+>   mandatory spell-targeting trigger in the decks — costs a wrong-side spell its stack value in the forced pick; **Mana Drain** (5
+>   decks) moves only against a whole-card Monster Manual (Did you say Dragons?, Jurassic Ramp): 4 {C}, not 7. The split cards in the
+>   decks (Dusk // Dawn, Find // Finality, Consign // Oblivion, Double Jump // Flying Kick) meet no mana-value reader in their own
+>   decks; cross-pod a half reads as itself. Magecraft (Veyran Cantrips) only gains a correct `castSpellMv` on its context (no payoff
+>   reads it); cascade (Sakashima's Protégé, Apex Devastator) is unchanged; no deck runs Bolas's Citadel. The AI's own counter pick
+>   (`opponentAI.pickCounterCast`) ranks targets by the PAID cost, not the mana value, and is unchanged — it chooses among the
+>   targets the filter now offers.
+> · Witness `stackManaValueReaders.test.js` (20; 16 red at 93250da2, every one an AssertionError; the 4 controls — Beanstalk Giant cast
+>   normally, Hill Giant, kicked Bloodchief's Thirst ×2 — pass on both) and `spellOnStack.test.js` (7, the leaf's arithmetic).
+>   `instantSorcerySoftCounter.test.js` calls the one filter; two test headers re-pointed.
+> · Mutants (16): the filter on printed `cmc` · applyCounter handed the card · the enumeration handed the card · no half / Adventure
+>   arm · no "//" guard · no X · no stack-object X · no X stamp at the cast · `castMv` without X · the cast filter on printed `cmc` ·
+>   `castSpellMv` printed · the copy trigger printed · the Twincast site without its copy object · the forced pick printed · Citadel
+>   printed — 15 killed; cascade's cap printed survives: no printed cascade card has an X or is a split/Adventure half, so the cap
+>   cannot differ (it reads the same `castMv` as the rest).
+> · ⚠️ Found, not fixed (each its own slice):
+>   ① **A split half and an Adventure keep the whole card's COLOURS** (`splitFaceCards` / `adventureFaceCard` spread the card):
+>   probed on this tree, Fire on the stack reads red AND blue, so **Gainsay** ("counter target blue spell") is offered against Fire
+>   and **Kor Firewalker** ("a player casts a red spell") triggers on Ice — FALSE POSITIVES (CR 709.3b: only the half's
+>   characteristics exist; its colour comes from its own cost, CR 202.2). Fix at the projection, then audit protection and the colour
+>   cast filters. ② **An adventurer-layout card the lane can't model is offered as the WHOLE card for both halves' cost** — Monster
+>   Manual // Zoological Study for {5}{G}{G}, Marang River Regent // Coil and Catch (an Omen) for {7}{U}{U}{U} — and so is a Room
+>   (Bottomless Pool // Locker Room, {4}{U}{U}): an illegal cast (CR 715.3, 709.3); skip them in `castActionsFromZone` as the
+>   modeled lanes are skipped. ③ 46 comments still cite **CR 712.4a** for the front-face rule; in the bundled CR 712.4a is meld (the
+>   rule is 712.8a/c/d) — the citation check only asks that the number exists. ④ `modalDfc.faceManaValue` counts {2/W} as 1
+>   (CR 202.3f: 2) — no corpus spell // spell face prints one. ⑤ Bolas's Citadel can't cast a split half, an Adventure or a
+>   land-backed modal face off the top (under-offers, safe).
 
 > ## 🔧 2026-10-17 — FIX: mana that is not the permanent's own — loyalty abilities, quoted abilities, targets, a count or condition ahead of the add, costs no record pays (Chandra, Torch of Defiance; Roxanne, Starfall Savant; Springjack Pasture; Selvala, Explorer Returned) · **−35** (false credit removed) · snapshot native 15,462 → 15,427
 > Suite **19,590** green (1 skipped) / 1,813 files. Lint 0 (CR citations: 0 of 10,441 name no rule). Flip-diff **0 gained / 35

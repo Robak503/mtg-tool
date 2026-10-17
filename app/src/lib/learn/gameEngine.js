@@ -100,6 +100,7 @@ import { applyTypeFilteredUntap } from "./typeFilteredUntap.js";
 import { applyWolverineEndStep, clearWolverineTurnFlags } from "./wolverine.js";
 import { evaluateWinThreshold } from "./effects/atoms/winGame.js";
 import { shuffleControllerLibrary, tutorManaValue } from "./effects/atoms/library.js"; // seeded opening shuffle (reuses the threaded-rngSeed mulberry32 path; library.js never imports gameEngine → no cycle); + the mana-value reader the forced trigger target ranks by
+import { stackSpellManaValue } from "./spellOnStack.js"; // a spell target's mana value ON THE STACK (CR 202.3 — the announced X, the half cast) for the forced trigger-target pick; a zero-import leaf
 import { drainDelayedTriggers, dropSkippedExtraTurnRecords } from "./effects/atoms/delayedTrigger.js"; // CR 603.7 scheduler drain (leaf atom module — imports only gameState, no cycle); + the skipped-extra-turn drop (CR 614.10a)
 import { rankBottomCandidates } from "./mulliganPolicy.js"; // London bottom-N picker (leaf module, no cycle)
 import { evaluateInterveningIf, interveningIfParseable } from "./interveningIf.js";
@@ -1815,7 +1816,8 @@ function pickFlickerCandidate(state, controller, safe, program) {
  * (found on shelf D18).
  *
  * The pick costs the controller least. A target on its atom's WRONG side costs its value — a permanent's mana value, then
- * its power (behind `usePolicyEval`, permanentValue), a spell's or graveyard card's mana value, an ability on the stack or a
+ * its power (behind `usePolicyEval`, permanentValue), a spell's mana value on the stack (the announced X, the half cast —
+ * spellOnStack.stackSpellManaValue) or a graveyard card's, an ability on the stack or a
  * player nothing — so the least valuable of your own permanents takes the harm and the least valuable of an opponent's takes
  * the help. A candidate whose damage could kill a wrong-side player — a fixed amount at least their life, or an amount that
  * isn't fixed — ranks after every other. Correct-side targets cost nothing; ties keep enumeration order (serialize-stable).
@@ -1849,7 +1851,8 @@ function pickForcedTriggerCandidate(state, controller, candidates, program, atom
         const n = Number(atom?.amount);
         if (atom?.op === "deal-damage" && !(Number.isFinite(n) && n < state.players[t.id].life)) cost[0] += 1;
       } else if (t.type === "spell") {
-        cost[1] += mv((state.stack || []).find((o) => o.id === t.id)?.source);
+        const spell = (state.stack || []).find((o) => o.id === t.id);
+        cost[1] += spell ? Math.max(0, stackSpellManaValue(spell)) : 0;
       } else if (t.type === "graveyardCard") {
         cost[1] += mv((state.players[t.controller]?.graveyard || []).find((card) => card.id === t.id));
       } else if (t.type !== "stackAbility") {

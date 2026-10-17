@@ -204,7 +204,7 @@ function atomTargetSpec(atom) {
   // P3.1 counter: a spell-target spec carries the spellFilter for stack-spell enumeration. The MV (exactMv —
   // Spell Snare / Mental Misstep; minMv/maxMv — Disdainful Stroke / Minor Misstep) and color (colorFilter —
   // Gainsay / Frazzle / Ceremonious Rejection / Neutralizing Blast) restrictions ride along too, so the cast-
-  // path enumerator (spellEffects.spellMatchesCounterFilter, which reads them off this spec) offers exactly the
+  // path enumerator (spellOnStack.spellMatchesCounterFilter, which reads them off this spec) offers exactly the
   // legal stack spells — never a wrong-MV/wrong-color target (CR 601.2c + CREED FP-forbidden). Only carry a
   // field when the atom set it (undefined keys are ignored by the matcher; this keeps the spec minimal).
   // VENSER — the STACK∪BATTLEFIELD union ("return target spell or permanent…"). `notCounter` MUST be

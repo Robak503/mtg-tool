@@ -723,6 +723,16 @@ on trust, because two other "mirrors" claims in this codebase turned out to be f
 judgement is needed by both the metric and the runtime, put it in a leaf module and import it twice; do
 not reimplement it on the second side, however small it looks.
 
+**A spell on the stack is read in one place (`spellOnStack.js`, 2026-10-17).** Its mana value (`stackSpellManaValue` —
+CR 202.3e's announced X once per {X}; CR 202.3d's half cast; CR 715.3b's Adventure; the card's `cmc` for anything else) and
+a counter's filter (`spellMatchesCounterFilter`) live in that zero-import leaf. The counter's enumeration (`spellEffects`)
+and its resolution re-check (`atoms/stack.applyCounter`) were a hand-kept mirror pair; both read the card's printed `cmc`,
+and so did the cast watchers. Every reader — the counters, Mana Drain, Imp's Mischief, the mana-value cast filters,
+`castSpellMv` (Kellan, Rashmi), cascade's cap, the copy watchers, the forced trigger-target pick, Bolas's Citadel — calls the
+leaf. A payload that resolves without X (an Aura, a planeswalker, the Arbiter's no-op) carries the announced X on the stack
+object (`applyCastSpell`). **A new effect that asks for "that spell's mana value" reads `stackSpellManaValue`, never
+`source.cmc`.** Witness: `stackManaValueReaders.test.js`.
+
 **How to CHECK a pair you inherit — the drift probe.** Two functions answering one question can be run
 against each other across the whole corpus: iterate real cards, call both, print disagreements. No fixture
 design needed. Three runs on 2026-07-25 found three real divergences (conditional no-untap statics, the

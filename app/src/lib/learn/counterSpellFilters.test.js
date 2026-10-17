@@ -9,9 +9,9 @@
  *
  * The hard-counter runtime is already complete (counterWiring.test.js): the user casts a counterspell in a
  * response window and the targeted stack spell goes to its controller's graveyard, unresolved. This slice only
- * widens WHICH spells each counter may target — applied at BOTH the enumeration side (spellMatchesCounterFilter,
- * "what's a legal target to offer?") and the resolution side (counterFilterMatches, "does the counter still
- * apply?"), kept in lockstep. So this file pins:
+ * widens WHICH spells each counter may target — applied at BOTH the enumeration side ("what's a legal target to
+ * offer?") and the resolution side ("does the counter still apply?") by ONE function since 2026-10-17
+ * (spellOnStack.spellMatchesCounterFilter). So this file pins:
  *   1. the parser — each clean shape parses HIGH to a counter atom carrying the right filter / mv / color field;
  *   2. native coverage — each card is native-spell (slim object), the riddered cousins stay arbiter-spell (CREED);
  *   3. the live cast path end-to-end — a legal target IS offered + countered to the graveyard;

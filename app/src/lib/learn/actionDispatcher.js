@@ -984,9 +984,13 @@ function applyCastSpell(state, action) {
     cost: action.cost,
     payload,
   });
+  // THE ANNOUNCED X IS ON THE STACK (CR 107.3a, 202.3e): a program or a permanent spell carries it in its payload's params, where
+  // its resolver reads it; a payload that resolves without X (an Aura, a planeswalker, the Arbiter's no-op — Awakened Awareness
+  // cast for X = 5) gets it on the stack object itself, so the spell's mana value there (spellOnStack.stackSpellManaValue) counts it.
+  const xSpell = action.xValue != null && payload?.params?.xValue == null ? { ...builtSpell, xValue: action.xValue } : builtSpell;
   // Stamped AFTER construction, exactly as the make-uncounterable atom marks a spell already on the stack —
   // createStackObject builds a fixed shape and would drop an extra field passed through it.
-  const shieldedSpell = (shieldNext || paidUncounterable) ? { ...builtSpell, uncounterable: true } : builtSpell; // + CAP-CAVERN: paid with "can't be countered" mana
+  const shieldedSpell = (shieldNext || paidUncounterable) ? { ...xSpell, uncounterable: true } : xSpell; // + CAP-CAVERN: paid with "can't be countered" mana
   // ANOTHER PLAYER'S CARD (shelf D3): the spell's owner, when it isn't its controller. Stamped on the stack OBJECT
   // (not the payload) so a copy — built fresh by createStackObject — never inherits it (CR 707.10: the copier owns
   // the copy). counterSpellById sends a countered card here; the permanent resolvers stamp it on what enters.

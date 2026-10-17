@@ -14,7 +14,7 @@
  * became one.
  *
  * WHAT WAS NEVER WRONG (pinned here as guards): a spell on the stack reads its mana value off its stack object's
- * source card (stack.counterMvOk / spellEffects.spellMatchesCounterFilter / stack.stackSpellManaValue /
+ * source card (spellOnStack (the shared counter filter and stackSpellManaValue) /
  * triggers.spellManaValue), and the dispatcher puts the CARD there, never the offer's `cmc`. The guards below cast the
  * kicked / bestowed / multikicked spell through the real dispatcher and read it back through real mana-value counters
  * (Thoughtbind, Disdainful Stroke, Spell Snare, Minor Misstep) and Mana Drain's payout.
@@ -29,7 +29,7 @@ import { legalActionsForPlayer, filterActions, parseManaCost, totalCmc } from ".
 import { dispatchAction } from "./actionDispatcher.js";
 import { resolveTopOfStack } from "./gameEngine.js";
 import { pickAction, __scoreCastActionForTests as scoreCast } from "./opponentAI.js";
-import { stackSpellManaValue } from "./effects/atoms/stack.js";
+import { stackSpellManaValue } from "./spellOnStack.js"; // moved here from effects/atoms/stack.js (the one stack mana-value reader)
 
 beforeEach(() => _resetIdsForTests());
 
