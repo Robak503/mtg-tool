@@ -23,6 +23,7 @@ summarizes the notable changes.
 - **Champion's Helm** — equipped creature gets +2/+2 and has hexproof while it is legendary; **Trailblazer's Boots** — equipped creature has nonbasic landwalk (it can't be blocked while the defending player controls a nonbasic land); also **Gimli's Axe**, **Hero's Heirloom** and **Dryad Sophisticate**
 
 ### Changed
+- The app's bundled Node.js runtime is updated to **v22.23.3**, the newest Node 22 LTS patch (it was v22.23.2).
 - When the AI picks a land to fill a color it is missing, it judges a modal double-faced card by the face it would play: each face of a Pathway counts for its own color (both used to count as the front face's)
 - **Copy Enchantment**, **Clever Impersonator** and **Sakashima's Protege** can now copy an Aura: the copy enchants something as it enters (copying an opponent's **Control Magic** takes one of their creatures), and a Copy Enchantment spell whose copy has nothing to enchant goes to your graveyard, as the rules say
 - **Banishing Light**, **Oblivion Ring** and the other "exile it until this leaves the battlefield" cards can now exile an Aura: when they leave, it returns under its owner's control enchanting something that was already on the battlefield (never a card returning at the same moment), or stays exiled if there is nothing it can enchant

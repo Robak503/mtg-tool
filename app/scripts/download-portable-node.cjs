@@ -24,12 +24,12 @@ const https = require("node:https");
 const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 
-// LTS as of 2026-08 — the standalone Next.js server runs on 18.17+ but we
+// LTS as of 2026-10 (v22.23.3, 2026-09-23 — the newest v22 LTS patch) — the standalone Next.js server runs on 18.17+ but we
 // bundle the CURRENT LTS. Staying current is load-bearing, not hygiene:
 // Cloudflare fingerprints the TLS ClientHello, and v22.12.0's older OpenSSL
 // handshake was 403'd by Moxfield's edge while v22.23.x passes (measured
 // 2026-08-02, byte-identical request through both binaries on one machine).
-const NODE_VERSION = "v22.23.2";
+const NODE_VERSION = "v22.23.3";
 const ARCHIVE_NAME = `node-${NODE_VERSION}-win-x64.zip`;
 const URL = `https://nodejs.org/dist/${NODE_VERSION}/${ARCHIVE_NAME}`;
 const SHASUMS_URL = `https://nodejs.org/dist/${NODE_VERSION}/SHASUMS256.txt`;

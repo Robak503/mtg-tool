@@ -160,7 +160,7 @@ a Mac?" — unused exceptions fail the suite and must be deleted.
 ### 3.1 Local build (`npm run tauri:build` from `app/`)
 
 `beforeBuildCommand` = `build:tauri-standalone`, which chains:
-1. `download-portable-node.cjs` — Node v22.23.2 (keep at CURRENT LTS: Cloudflare
+1. `download-portable-node.cjs` — Node v22.23.3 (keep at CURRENT LTS: Cloudflare
    fingerprints the TLS handshake and 403'd the outdated v22.12.0 bundle —
    Moxfield import broke 2026-08-02), **SHA-256 verified**, idempotent.
 2. `next build` (standalone output).
