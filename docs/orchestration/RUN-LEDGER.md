@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **55 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **±0** (+46 gained, −46 false credit removed). The next tag
+> **56 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **±0** (+46 gained, −46 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,49 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🏷️ 2026-10-17 — FIX: every Academy action reads as words (activate / crew / cycle / loyalty and the 13 other unlabelled kinds; the no-board prompt; "You's turn"; raw seat ids) · Stomp withheld on purpose · **±0** · corpus unchanged
+> Suite **19,518** green (1 skipped) / 1,814 files under the gate lock. Lint 0 (CR citations: 0 of 10,404 name no rule). Flip-diff
+> **0 / 0 / 0** (34,620 cards; before = an untouched `git archive` of b51c65d0); native 15,462 of 34,584 snapshot names before and
+> after. **Mutants 17/17** on assertions, restore byte-identical by sha256. Engine behaviour and AI play unchanged (the one engine
+> edit is an added export).
+> · **The bugs** (the cast-chooser entry's found-not-fixed list, 2026-10-16). ① `actionLabel` worded six kinds; activate-ability,
+>   crew-vehicle, cycle, activate-loyalty and 13 more dispatcher kinds fell to the de-kebabed kind ("activate ability"), so
+>   Prodigal Pyromancer's six targets read alike. ② LearnView's no-board `DecisionPrompt` labelled options `opt.name || opt.kind`:
+>   "pass-priority", "crew-vehicle", a cast without its target. ③ `boardContext` glued "'s" onto the seat label — "You's turn" in
+>   the text Ask Jace and the Arbiter read. The same pattern built from raw ids: LearnBoard's focused opponent board ("ai's
+>   Battlefield / Lands", "viewing ai", the summary's name fallback) and the hand-reveal panel ("ai's hand is revealed").
+>   ④ A single-defender attack read "Attack  with X" (double space).
+> · **The fix (UI, plus one export).** `actionLabel` words all 23 kinds of the new `actionDispatcher.ACTION_KINDS` (the HANDLERS
+>   keys) from each action's own fields: "Activate <card>: <abilityText> → <target> (<mana>, {T}, tap N untapped creatures,
+>   exile N cards from your graveyard, pay N life, {E}, sacrifice it / exile it, remove a counter)" — Equip's text carries its
+>   cost, so no parens; "Crew <Vehicle> (crew N, tap K creature(s))"; "Cycle <card> ({U})" or "(pay 2 life)"; "Activate <walker>
+>   <±N: text> → <target>"; suspend, plot, turn face up, the graveyard / hand / Doubling Cube abilities, companion, discover,
+>   free-cast / cascade / cast-from-among each get theirs. `manaCostText` writes a parsed cost back as pips (X dropped once
+>   folded into generic). `seatPossessive(id, { start })` in seatLabels.js is the one possessive ("your" / "Your", "<label>'s");
+>   boardContext, the LearnView turn line, LearnBoard and the hand-reveal panel use it. `DecisionPrompt` (now exported) uses
+>   `actionLabel`; its separate "→ seat" suffix is gone (the label names the defender). The bar's tooltip is the label, not the kind.
+> · **Stomp (Bonecrusher Giant) — withheld on purpose, left as is.** Real board (three Mountains, an opposing Grizzly Bears): the
+>   engine offers only "cast-spell Bonecrusher Giant", the live app too. `actionsCastAdventureFromHand` offers the Adventure only
+>   when the whole card is native (CR 715.3), and both halves are parked: Stomp's "Damage can't be prevented this turn." — the
+>   engine keeps prevention shields and models only the static "Combat damage can't be prevented", so resolving Stomp as plain
+>   2 damage would let a shield prevent it (an FP); its damage sentence alone IS native — and the Giant's "becomes the target of
+>   a spell … that spell's controller" trigger (the creature face is body-only). Pinned in `bonecrusherStomp.test.js`, seen to
+>   fail with the CREED gate line removed.
+> · **Live check** (`next dev -p 3107`, scratch data root with the AppData oracle as the reference dir, a seeded 1v1 puzzle): every
+>   label above rendered in the bar and the "+12 more" sheet; "Opponent's Battlefield / Lands", "viewing Opponent", "Your
+>   Battlefield", the summary "Opponent"; bar tooltips carry the label. Not reachable live: the no-board prompt (the API always
+>   sends a board) and Ask Jace's context (needs a model) — both covered by render / unit tests.
+> · Witnesses: `actionLabelKinds.test.jsx` (13 — engine-backed labels on real oracle text, the every-kind guard against
+>   `ACTION_KINDS`, the cost fields, the no-board prompt render, the hand-reveal seat), `seatLabels.test.js` (2),
+>   `boardContext.test.js` ("your turn"), `bonecrusherStomp.test.js` (3). Fingerprint snapshot: HandDiscardPanel "ai's" →
+>   "Opponent's" (the one intended line).
+> · ⚠️ Found, not fixed: `narrator.narrateAction` has no case for crew-vehicle ("Take action") or suspend / discard-ability /
+>   the graveyard and hand abilities / double-mana-pool ("Take action: <name>"), and its `formatCost` writes a zero cost as "0"
+>   ("Cycle [[Street Wraith]] for 0"). `LearnLogEntry` (the Recent actions feed and the replay scrubber) and LearnBoard's game log
+>   show the raw kind and seat id ("ai1 · activate-ability"). A crew label can't name the creatures it taps — the action carries
+>   ids only. The Adventure gate needs BOTH halves native although the permanent half already casts body-only from hand; relaxing
+>   it to "the Adventure half is native" is a design call (moot for Bonecrusher, whose Stomp is itself parked).
 
 > ## 🔧 2026-10-16 — FIX: one cost sacrifice — the activated-ability / additional-cost sacrifice and the mana-cost sacrifice are one helper (`costSacrifice.sacrificePermanentForCost`): a replaced death is logged, a noncreature's watchers stack in one order · **±0** · corpus 15,494
 > Suite **19,488** green (1 skipped) / 1,810 files. Lint 0 (CR citations: 0 of 10,372 name no rule). Flip-diff **0 / 0 / 0**

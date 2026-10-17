@@ -9,3 +9,12 @@ export const SEAT_LABELS = Object.freeze({ user: "You", ai: "Opponent", ai1: "Op
 export function seatLabel(id) {
   return SEAT_LABELS[id] || id;
 }
+
+/**
+ * A seat's possessive: the player's own seat is "your" ("Your" to open a sentence), every other seat is its label plus "'s"
+ * ("Opponent 1's"). The one place it's built, so no caller glues "'s" onto "You" ("You's turn").
+ */
+export function seatPossessive(id, { start = false } = {}) {
+  if (id === "user") return start ? "Your" : "your";
+  return `${seatLabel(id)}'s`;
+}

@@ -25,7 +25,7 @@
 
 import { useState } from "react";
 import { reasonToOutcome } from "../../lib/learn/learnOutcome.js";
-import { SEAT_LABELS } from "../../lib/learn/seatLabels.js";
+import { SEAT_LABELS, seatLabel, seatPossessive } from "../../lib/learn/seatLabels.js";
 
 // Full Magic card image (frame/border/text) — immersion. Cached local-first.
 const ART = (name) => `/api/card-image?name=${encodeURIComponent(name || "")}`;
@@ -96,7 +96,7 @@ export function castVariantClauses(o) {
 }
 
 // A target's controller as a possessive, for telling apart two targets that share a name.
-const controllerPossessive = (pid) => (pid === "user" ? "your" : `${SEAT_LABELS[pid] || pid}'s`);
+const controllerPossessive = (pid) => seatPossessive(pid);
 
 /**
  * Human labels for a list of targets: a player reads as its seat ("Opponent 1", never the engine's "ai1"), anything else by
@@ -140,11 +140,62 @@ function numberRepeats(labels) {
 }
 
 /**
+ * A parsed mana cost (legalChoices.parseManaCost's object) written back as pips — "{2}{R}", "{W/U}", "{U/P}"; a cost with no
+ * pips reads "{0}". `xPaid` drops the {X} pips of a cost whose X is already folded into its generic part (xResolvedCost).
+ */
+export function manaCostText(cost, { xPaid = false } = {}) {
+  if (!cost) return "";
+  const pips = [];
+  if (cost.hasX && !xPaid) for (let i = 0; i < (cost.xCount || 1); i++) pips.push("{X}");
+  if (cost.generic) pips.push(`{${cost.generic}}`);
+  for (const h of cost.hybrid || []) pips.push(`{${(Array.isArray(h) ? h : [h]).join("/")}}`);
+  for (const c of ["W", "U", "B", "R", "G", "C"]) for (let i = 0; i < (cost[c] || 0); i++) pips.push(`{${c}}`);
+  for (const c of cost.phyrexian || []) pips.push(`{${c}/P}`);
+  for (let i = 0; i < (cost.snow || 0); i++) pips.push("{S}");
+  return pips.join("") || "{0}";
+}
+
+// An ability's text as a button reads it: the action's own text, without its closing full stop.
+const abilityWords = (text) => String(text || "").trim().replace(/\.$/, "");
+
+// The cost an activated ability pays beyond what its text names: its mana, {T}, life, energy, and what happens to the
+// source. A victim the player picked (a sacrificed creature, a returned land) already leads the action's abilityText.
+function activationCostText(o) {
+  const parts = [];
+  const mana = manaCostText(o.cost, { xPaid: o.xValue != null });
+  if (mana && mana !== "{0}") parts.push(mana);
+  if (o.tapSelf) parts.push("{T}");
+  const tapN = o.tapCountIds?.length || 0;
+  if (tapN) parts.push(`tap ${tapN} untapped creature${tapN === 1 ? "" : "s"}`);
+  const exileN = o.exileGyIds?.length || 0;
+  if (exileN) parts.push(`exile ${exileN} card${exileN === 1 ? "" : "s"} from your graveyard`);
+  if (o.payLife > 0) parts.push(`pay ${o.payLife} life`);
+  if (o.payEnergy > 0) parts.push(`pay ${"{E}".repeat(o.payEnergy)}`);
+  if (o.sacSelf) parts.push("sacrifice it");
+  if (o.exileSelf) parts.push("exile it");
+  if (o.removeCounter?.type) {
+    const n = o.removeCounter.count || 1;
+    const t = o.removeCounter.type;
+    parts.push(n === 1 ? `remove ${/^[aeiou]/i.test(t) ? "an" : "a"} ${t} counter` : `remove ${n} ${t} counters`);
+  }
+  return parts.join(", ");
+}
+
+// "<head>: <text> → <target> (<cost>)" — the shape every activated-ability label shares; empty parts drop out.
+function abilityLabel(head, o, cost = "") {
+  const text = abilityWords(o.abilityText);
+  const target = castTargetText(o);
+  return `${head}${text ? `: ${text}` : ""}${target ? ` → ${target}` : ""}${cost ? ` (${cost})` : ""}`;
+}
+
+/**
  * Human label for a legal-action object — the ONE source of truth for how an
- * action reads, shared by the fallback action buttons AND the P3 post-game
- * debrief (so "you did X, the suggested play was Y" reads identically to the
- * button the player clicked). Falls back to the de-kebabed kind for anything
- * without a bespoke phrasing (pass-priority → "Pass", the rest spelled out).
+ * action reads, shared by the board's action buttons, the no-board decision
+ * prompt AND the P3 post-game debrief (so "you did X, the suggested play was Y"
+ * reads identically to the button the player clicked). Every kind the
+ * dispatcher handles has its own phrasing, built only from the action's data
+ * (actionLabelKinds.test.jsx holds that list); an unknown kind falls back to
+ * its de-kebabed name.
  */
 export function actionLabel(o) {
   if (!o || !o.kind) return "—";
@@ -154,10 +205,42 @@ export function actionLabel(o) {
       return `${head}${target ? ` → ${target}` : ""}${clauses.length ? ` (${clauses.join("; ")})` : ""}`;
     }
     case "play-land": return `Play ${o.name}`;
-    case "declare-attacker": return `Attack ${o.targetName || o.defenderName || SEAT_LABELS[o.defenderId] || ""} with ${o.name}`.trim();
+    case "declare-attacker": {
+      const at = o.targetName || o.defenderName || SEAT_LABELS[o.defenderId] || "";
+      return at ? `Attack ${at} with ${o.name}` : `Attack with ${o.name}`;
+    }
     case "declare-blocker": return `Block ${o.attackerName || "attacker"} with ${o.name}`;
     case "pass-priority": return "Pass";
     case "tap-for-mana": return `Tap ${o.name || "a land"} for mana`;
+    // An Equipment's equip text carries its own cost ("Equip {1}"), so it isn't repeated.
+    case "activate-ability": return abilityLabel(`Activate ${o.name}`, o, o.isEquipAbility ? "" : activationCostText(o));
+    case "activate-loyalty": {
+      const target = castTargetText(o);
+      const text = abilityWords(o.abilityText) || `${o.costDelta > 0 ? "+" : ""}${o.costDelta}`;
+      return `Activate ${o.name} ${text}${target ? ` → ${target}` : ""}`;
+    }
+    case "crew-vehicle": {
+      const n = Array.isArray(o.tapIds) ? o.tapIds.length : 0;
+      return `Crew ${o.vehicleName}${o.crew != null ? ` (crew ${o.crew}${n ? `, tap ${n} creature${n === 1 ? "" : "s"}` : ""})` : ""}`;
+    }
+    case "cycle": return `Cycle ${o.name} (${o.lifeCost != null ? `pay ${o.lifeCost} life` : manaCostText(o.cost)})`;
+    // These abilities' texts carry their own costs.
+    case "double-mana-pool": return abilityLabel(`Activate ${o.name}`, o);
+    case "activate-gy-recursion": return `${abilityLabel(`Activate ${o.name} from your graveyard`, o)}${o.tapName ? ` (tap ${o.tapName})` : ""}`;
+    case "activate-gy-exile": return abilityLabel(`Activate ${o.name} from your graveyard`, o);
+    case "activate-hand-self-put": return abilityLabel(`Activate ${o.name} from your hand`, o);
+    case "discard-ability": {
+      const mana = manaCostText(o.cost);
+      return abilityLabel(`Activate ${o.name} from your hand`, o, [mana !== "{0}" ? mana : "", "discard it"].filter(Boolean).join(", "));
+    }
+    case "suspend": return `Suspend ${o.name} (${manaCostText(o.cost)}, ${o.suspendCounters} time counter${o.suspendCounters === 1 ? "" : "s"})`;
+    case "plot": return `Plot ${o.name}${o.fromZone === "library" ? " from the top of your library" : ""} (${manaCostText(o.cost)})`;
+    case "turn-face-up": return `Turn ${o.name} face up (${manaCostText(o.cost)})`;
+    case "companion-to-hand": return `Put companion ${o.name} into your hand (${manaCostText(o.cost)})`;
+    case "discover-to-hand": return o.leaveExiled ? `Leave ${o.name || "it"} in exile` : `Put ${o.name || "it"} into your hand`;
+    case "free-cast-decline": return "Decline the free cast";
+    case "cascade-decline": return "Decline the cascade cast";
+    case "cast-from-among-done": return "Done casting from among the exiled cards";
     default: return o.kind.replace(/-/g, " ");
   }
 }
@@ -404,7 +487,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
       <style>{LB_CSS}</style>
 
       {viewingOpp && (
-        <button className="lb-backbar btn btn-secondary btn-sm" onClick={() => setFocusedId(me.id)}>← Back to your board (viewing {focused.id})</button>
+        <button className="lb-backbar btn btn-secondary btn-sm" onClick={() => setFocusedId(me.id)}>← Back to your board (viewing {seatLabel(focused.id)})</button>
       )}
       {castView && (
         <CastChooser card={casting.card} view={castView} onTarget={pickTarget} onCast={cast}
@@ -458,7 +541,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
             </div>
           )}
           <div className="lb-field">
-            <div className="lb-zl lb-corner">{focused.isUser ? "Your" : `${focused.id}'s`} Battlefield</div>
+            <div className="lb-zl lb-corner">{seatPossessive(focused.id, { start: true })} Battlefield</div>
             <div className="lb-row">
               {stackPermanents(focused.permanents).map(p => (
                 <Card key={p.ids[0]} card={p} count={p.count > 1 ? p.count : null}
@@ -469,7 +552,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
             </div>
           </div>
           <div className="lb-lands">
-            <div className="lb-zl lb-corner">{focused.isUser ? "Your" : `${focused.id}'s`} Lands</div>
+            <div className="lb-zl lb-corner">{seatPossessive(focused.id, { start: true })} Lands</div>
             <div className="lb-row">
               {stackPermanents(focused.lands).map(p => (
                 <Land key={p.ids[0]} card={p} count={p.count > 1 ? p.count : null}
@@ -487,7 +570,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
             <div key={o.id} className={`lb-osum ${focusedId === o.id ? "on" : ""} ${holdsTarget(o) ? "target" : ""}`} onClick={() => setFocusedId(o.id)}>
               {o.command?.[0] && <img className="lb-ct" src={ART(o.command[0].name)} alt="" />}
               <div className="lb-info">
-                <div className="lb-onm">{o.command?.[0]?.name || o.id}</div>
+                <div className="lb-onm">{o.command?.[0]?.name || seatLabel(o.id)}</div>
                 <div className="lb-ost">♥ <b>{o.life}</b> · ✋ <b>{o.handCount}</b> · ▦ <b>{o.permanents.length + o.lands.length}</b> · ⚰ <b>{o.graveyard.length}</b></div>
               </div>
               <div className="lb-go">view ↗</div>
@@ -539,7 +622,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
         </span>
         <div className="lb-actions">
           {barOptions.slice(0, BAR_ACTION_LIMIT).map((o, i) => (
-            <button key={i} className="btn btn-secondary btn-sm" onClick={() => act(o)} title={o.kind}>
+            <button key={i} className="btn btn-secondary btn-sm" onClick={() => act(o)} title={actionLabel(o)}>
               {actionLabel(o)}
             </button>
           ))}
@@ -566,7 +649,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
             <button className="btn btn-ghost btn-sm" onClick={() => setMoreOpen(false)}>close</button>
           </div>
           {numberRepeats(hiddenOptions.map(actionLabel)).map((label, i) => (
-            <button key={i} className="btn btn-secondary btn-sm" onClick={() => act(hiddenOptions[i])} title={hiddenOptions[i].kind}>
+            <button key={i} className="btn btn-secondary btn-sm" onClick={() => act(hiddenOptions[i])}>
               {label}
             </button>
           ))}

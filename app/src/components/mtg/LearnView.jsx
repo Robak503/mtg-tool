@@ -24,12 +24,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import useLearnSession from "../../hooks/useLearnSession";
-import LearnBoard from "./LearnBoard";
+import LearnBoard, { actionLabel } from "./LearnBoard";
 import StabilityBadge from "./StabilityBadge";
 import { stableActionKey } from "../../lib/learn/actionKey.js";
 import { LearnLogEntry } from "./LearnLogEntry.jsx";
 import { evaluatePuzzle, puzzleGoalLabel } from "../../lib/learn/puzzleGoal.js";
-import { seatLabel } from "../../lib/learn/seatLabels.js";
+import { seatLabel, seatPossessive } from "../../lib/learn/seatLabels.js";
 import {
   UnresolvedPanel,
   TutorSearchPanel,
@@ -652,7 +652,7 @@ export default function LearnView({
           )}
           <span style={{ fontSize: 11, color: "var(--ley-text-dim)" }}>
             Turn {session.turn} ·{" "}
-            {session.activePlayer === "user" ? "Your" : `${seatLabel(session.activePlayer)}'s`}{" "}
+            {seatPossessive(session.activePlayer, { start: true })}{" "}
             {session.step}
           </span>
         </span>
@@ -1412,7 +1412,8 @@ export function TableStrip({ table, activePlayer }) {
 
 // ─── Decision prompt ─────────────────────────────────────────────────────────
 
-function DecisionPrompt({
+// Exported for the render check (actionLabelKinds.test.jsx): its option buttons read through actionLabel, the board's words.
+export function DecisionPrompt({
   decision,
   onChoose,
   onContinue,
@@ -1626,10 +1627,7 @@ function DecisionPrompt({
               >
                 {i + 1}.
               </span>
-              {opt.name || opt.kind}
-              {opt.kind === "declare-attacker" && opt.defenderId && (
-                <span style={{ color: "var(--ley-text-dim)" }}> → {seatLabel(opt.defenderId)}</span>
-              )}
+              {actionLabel(opt)}
               {isRecommended && (
                 <span style={{ fontSize: 10, color: "var(--ley-green)", marginLeft: 8 }}>
                   (recommended)

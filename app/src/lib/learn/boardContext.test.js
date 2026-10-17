@@ -29,7 +29,9 @@ describe("buildBoardContext", () => {
       },
     };
     const ctx = buildBoardContext(state);
-    expect(ctx).toMatch(/turn 4, combat \/ declare-attackers, You's turn/);
+    // The player's own turn is "your turn" — never "You's turn", a possessive glued onto the seat label.
+    expect(ctx).toMatch(/turn 4, combat \/ declare-attackers, your turn/);
+    expect(ctx).not.toMatch(/You's/);
     expect(ctx).toMatch(/You \(active\): 38 life, 2 in hand, 2 on board/);
     expect(ctx).toMatch(/Opponent 2: 21 life.*commander damage from You 7/);
     expect(ctx).toMatch(/Your hand \(2\): Sol Ring, Counterspell/);

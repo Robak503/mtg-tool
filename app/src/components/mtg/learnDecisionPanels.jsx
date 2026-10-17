@@ -16,7 +16,7 @@
 import { useEffect, useState } from "react";
 
 import { fetchArbiterTrace } from "../../lib/arbiterUtils";
-import { seatLabel } from "../../lib/learn/seatLabels.js";
+import { seatLabel, seatPossessive } from "../../lib/learn/seatLabels.js";
 import { sectionLabelStyle } from "./learnViewStyles.js";
 
 /**
@@ -1087,7 +1087,7 @@ export function HandDiscardPanel({ decision, onChoose }) {
           🗯 Hand disruption{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
-          {decision.victim ? `${decision.victim}'s` : "Your opponent's"} hand is revealed. Choose a
+          {decision.victim ? seatPossessive(decision.victim, { start: true }) : "Your opponent's"} hand is revealed. Choose a
           card to discard ({candidates.length} eligible).
         </div>
       </div>

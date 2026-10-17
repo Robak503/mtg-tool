@@ -2389,6 +2389,9 @@ const HANDLERS = {
   "cast-from-among-done": applyCastFromAmongDone, // CAST FROM AMONG (P·16 — Etali): stop casting; the rest stay exiled
 };
 
+/** Every action kind dispatchAction handles — the list the UI's action labeller is held to (actionLabelKinds.test.jsx). */
+export const ACTION_KINDS = Object.freeze(Object.keys(HANDLERS));
+
 /**
  * Apply a single action to a state, returning the new state.
  *

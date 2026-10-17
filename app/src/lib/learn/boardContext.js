@@ -7,7 +7,7 @@
 import { tableSnapshot } from "./tableSnapshot.js";
 import { permanentPower, permanentToughness } from "./layers.js";
 // The board's own seat names, so a tutor or Arbiter answer names a seat the way the player sees it.
-import { seatLabel } from "./seatLabels.js";
+import { seatLabel, seatPossessive } from "./seatLabels.js";
 
 function permLabel(perm, state) {
   const card = perm?.card || {};
@@ -24,7 +24,7 @@ function permLabel(perm, state) {
 export function buildBoardContext(state) {
   if (!state || !state.players) return "";
   const lines = [];
-  lines.push(`## CURRENT GAME — turn ${state.turn}, ${[state.phase, state.step].filter(Boolean).join(" / ")}, ${seatLabel(state.activePlayer)}'s turn`);
+  lines.push(`## CURRENT GAME — turn ${state.turn}, ${[state.phase, state.step].filter(Boolean).join(" / ")}, ${seatPossessive(state.activePlayer)} turn`);
   lines.push("");
   lines.push("Seats:");
   for (const seat of tableSnapshot(state)) {
