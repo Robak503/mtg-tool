@@ -286,7 +286,17 @@ resolution; anything unmodeled → `manual` (Arbiter no-op). Targets are chosen 
 prompt) on the side each effect intends; when every legal target is on the wrong
 side, a MANDATORY ability still takes the least harmful one (CR 603.3d — Man-o'-War
 alone returns itself; logged `trigger-target-forced`), and an optional one is
-declined as the Arbiter no-op (logged `trigger-no-safe-target`).
+declined as the Arbiter no-op (logged `trigger-no-safe-target`). The forced pick
+(`pickForcedTriggerCandidate`) ranks a harm the target survives first — a creature
+that lives through the damage or the until-end-of-turn -X/-X (both end at cleanup,
+CR 514.2), a tap of a permanent already tapped (costs nothing) — then the least
+valuable (2026-10-17). The AI's cast picker runs the same flush in advance:
+`gameEngine.entersTriggerRemovesOwn` puts the permanent on a copy of the board, fires
+its enters triggers through `checkEnterTriggers` and routes each with
+`buildTriggerStack` + `chooseTriggerTargets`; `opponentAI.pickCastAction` holds the
+card when a trigger would be forced to remove the AI's own permanent or spell
+(Man-o'-War with no opposing creature, Mystic Snake over its own spell). Policy key
+`etbHold`.
 
 `triggerRoutesNatively(effectClause)` is the **shared gate** used by *both* the
 metric (coverage's `native-trigger`) and the runtime flush — it re-parses the
@@ -612,7 +622,11 @@ newly modeled player-Aura op holds until it has an entry; the non-cast entry sho
 read this table too, never a second one); every permanent host — a creature, or the
 "permanent" / "planeswalker" targets a wider Enchant line enumerates — takes
 `auraEntry.auraCastIntent`'s side, then power, then id. A side no reader can tell
-holds. Before this the own-lands rule took every offer without a "creature" target,
+holds. An untap-lock Aura reads ENEMY when the lock is the whole card — every line
+its Enchant line, Flash, "Enchanted creature/permanent doesn't untap during its
+controller's untap step" or "When this Aura enters, tap enchanted creature"
+(`isUntapLockAura`, 2026-10-17: Ice Over, Coma Veil, Claustrophobia); a lock printed
+beside anything else (Leaden Fists' +3/+3, Eternity Snare's draw) still holds. Before this the own-lands rule took every offer without a "creature" target,
 which put Fraying Sanity on the AI itself and Petrify on its own Mind Stone.
 Witness: `auraCastSide.test.js`.
 

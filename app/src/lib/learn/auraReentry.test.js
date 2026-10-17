@@ -40,6 +40,7 @@ beforeEach(() => _resetIdsForTests());
 const PACIFISM = {"name":"Pacifism","type":"Enchantment — Aura","mana":"{1}{W}","cmc":2,"colors":["W"],"keywords":["Enchant"],"oracle":"Enchant creature\nEnchanted creature can't attack or block."};
 const RANCOR = {"name":"Rancor","type":"Enchantment — Aura","mana":"{G}","cmc":1,"colors":["G"],"keywords":["Enchant"],"oracle":"Enchant creature\nEnchanted creature gets +2/+0 and has trample.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand."};
 const ARREST = {"name":"Arrest","type":"Enchantment — Aura","mana":"{2}{W}","cmc":3,"colors":["W"],"keywords":["Enchant"],"oracle":"Enchant creature\nEnchanted creature can't attack or block, and its activated abilities can't be activated."};
+const LEADEN_FISTS = {"name":"Leaden Fists","type":"Enchantment — Aura","mana":"{2}{U}","cmc":3,"colors":["U"],"keywords":["Enchant","Flash"],"oracle":"Flash (You may cast this spell any time you could cast an instant.)\nEnchant creature\nEnchanted creature gets +3/+3 and doesn't untap during its controller's untap step."}; // bundled oracle-index, 2026-10-17
 const CLAUSTROPHOBIA = {"name":"Claustrophobia","type":"Enchantment — Aura","mana":"{1}{U}{U}","cmc":3,"colors":["U"],"keywords":["Enchant"],"oracle":"Enchant creature\nWhen this Aura enters, tap enchanted creature.\nEnchanted creature doesn't untap during its controller's untap step."};
 const CURSE = {"name":"Curse of Opulence","type":"Enchantment — Aura Curse","mana":"{R}","cmc":1,"colors":["R"],"keywords":["Enchant"],"oracle":"Enchant player\nWhenever enchanted player is attacked, create a Gold token. Each opponent attacking that player does the same. (A Gold token is an artifact with \"Sacrifice this token: Add one mana of any color.\")"};
 const WILD_GROWTH = {"name":"Wild Growth","type":"Enchantment — Aura","mana":"{G}","cmc":1,"colors":["G"],"keywords":["Enchant"],"oracle":"Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional {G}."};
@@ -157,7 +158,7 @@ describe("CR 303.4f — an Aura that returns without being cast chooses what it 
     expect(findPermanent(after, "f2").permanent.attachments).toHaveLength(2);
   });
 
-  it("its own enters ability finds its creature: Claustrophobia comes back on the side it left (its side unread) and taps the Wurm", () => {
+  it("its own enters ability finds its creature: Claustrophobia comes back on the opponent's side (a curse — the untap lock, read since 2026-10-17) and taps the Wurm", () => {
     const [claus, wurm] = on(perm("claus", CLAUSTROPHOBIA, "user"), perm("wurm", WURM, "ai"));
     const after = resolveAll(flushTriggers(blink(board({ user: [claus, perm("bear", BEAR, "user")], ai: [wurm] }), ["claus"]), { chooseTargets: chooseTriggerTargets }));
     expect({ host: hostOf(after, "Claustrophobia"), wurmTapped: !!findPermanent(after, "wurm").permanent.tapped, bearTapped: !!findPermanent(after, "bear").permanent.tapped })
@@ -271,9 +272,18 @@ describe("the AI", () => {
     });
   });
 
-  it("the AI never flickers an Aura whose side it can't read: Brago leaves Claustrophobia where it is", () => {
+  it("the AI never flickers an Aura whose side it can't read: Brago leaves Leaden Fists (+3/+3 and doesn't untap, on one line) where it is", () => {
+    const [fists, wurm] = on(perm("fists", LEADEN_FISTS, "user"), perm("wurm", WURM, "ai"));
+    expect({ side: auraCastIntent(LEADEN_FISTS), chosen: chosen(bragoHits(board({ user: [perm("brago", BRAGO, "user", { tapped: true }), fists], ai: [wurm, perm("bear", BEAR, "ai")] }))) })
+      .toEqual({ side: null, chosen: ["Brago, King Eternal"] });
+  });
+
+  it("Claustrophobia's side is read (the untap lock is a curse, 2026-10-17): Brago flickers it, and it comes back on the same Craw Wurm — the opponent's biggest creature", () => {
     const [claus, wurm] = on(perm("claus", CLAUSTROPHOBIA, "user"), perm("wurm", WURM, "ai"));
-    expect(chosen(bragoHits(board({ user: [perm("brago", BRAGO, "user", { tapped: true }), claus], ai: [wurm, perm("bear", BEAR, "ai")] })))).toEqual(["Brago, King Eternal"]);
+    const s1 = bragoHits(board({ user: [perm("brago", BRAGO, "user", { tapped: true }), claus], ai: [wurm, perm("bear", BEAR, "ai")] }));
+    const s2 = resolveAll(flushTriggers(resolveAll(s1), { chooseTargets: chooseTriggerTargets }));
+    expect({ side: auraCastIntent(CLAUSTROPHOBIA), chosen: chosen(s1), host: hostOf(s2, "Claustrophobia"), wurmTapped: !!findPermanent(s2, "wurm").permanent.tapped })
+      .toEqual({ side: "enemy", chosen: ["Brago, King Eternal", "Claustrophobia"], host: "Craw Wurm", wurmTapped: true });
   });
 
   it("nor anything that would go home to its owner (\"under their owner's control\"): a Pacifism and an Elvish Visionary the opponent owns stay where they are", () => {

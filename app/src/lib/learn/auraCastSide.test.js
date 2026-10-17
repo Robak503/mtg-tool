@@ -144,10 +144,10 @@ describe("an Aura whose host is not only a creature takes its side from the shar
     expect(auraPick(s)).toBe("Hill Giant (user)");
   });
 
-  it("Ice Over (doesn't untap — a grant the intent reader does not read) is held, as Claustrophobia is on a creature", () => {
+  it("Ice Over (doesn't untap — a curse since 2026-10-17, auraEntry's untap-lock reading; aiEntersTriggerHold.test.js) locks the opponent's Craw Wurm — it used to be held", () => {
     const s = aiMain({ aura: ICE_OVER, mana: { U: 2 },
       board: [perm(MIND_STONE, "ai"), perm(BEARS, "ai")], oppBoard: [perm(MIND_STONE, "user"), perm(WURM, "user")] });
-    expect(auraPick(s)).toBe("held");
+    expect(auraPick(s)).toBe("Craw Wurm (user)");
   });
 });
 

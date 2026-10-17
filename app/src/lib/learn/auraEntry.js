@@ -33,7 +33,7 @@
  * reachable from effects/atoms/zones.js, and none imports an atoms module or the AI.
  */
 import { findPermanent } from "./gameState.js";
-import { auraEntryHostSpec, isNativeManaAura, parseAuraBonus } from "./staticAbilityParser.js";
+import { auraEntryHostSpec, isAttachedNoUntapLine, isNativeManaAura, parseAuraBonus } from "./staticAbilityParser.js";
 import { colorsOf, permanentHasCardType, permanentIsCreature, permanentPower, permanentProtectionColors, permanentTypes } from "./layers.js";
 import { protectionApplies } from "./protection.js";
 import { creatureSatisfiesRestrictions } from "./creatureRestrictions.js";
@@ -50,6 +50,27 @@ import { grantsControlWhenAttached } from "./controlAura.js";
 const RESTRICTION_KEYWORDS = new Set(["cantAttack", "cantBlock", "activatedAbilitiesLocked"]);
 
 /**
+ * THE UNTAP LOCK (2026-10-17). "Enchanted creature/permanent/artifact doesn't untap during its controller's untap step" keeps the
+ * host from untapping in the untap step (CR 502.3). gameState.untapAll enforces it off the attachment and parseAttachedBonus skips
+ * the line (it is no layer bonus), so the bonus below saw nothing and the AI held Ice Over, Coma Veil and Claustrophobia forever.
+ * It restricts the host, so it is a curse — read only when it is the whole card: every line is the Enchant line, Flash, the lock,
+ * or "When this Aura enters, tap enchanted creature/permanent." (Claustrophobia: the tap makes the lock bite at once). A lock
+ * printed with anything else — a buff on the same line (Leaden Fists' +3/+3), an enters draw (Eternity Snare), an untap ability
+ * granted to the host, an upkeep escape — keeps the old answer (null: hold), never a guess.
+ */
+const ENTERS_TAP_ENCHANTED_RE = /^when this aura enters, tap enchanted (?:creature|permanent)\.$/i;
+function isUntapLockAura(card) {
+  const lines = String(card?.oracle ?? card?.oracle_text ?? "").replace(/\([^)]*\)/g, "").split("\n").map((l) => l.trim()).filter(Boolean);
+  let lock = false;
+  for (const line of lines) {
+    if (isAttachedNoUntapLine(line)) { lock = true; continue; }
+    if (/^enchant [^.]+$/i.test(line) || /^flash$/i.test(line) || ENTERS_TAP_ENCHANTED_RE.test(line)) continue;
+    return false;
+  }
+  return lock;
+}
+
+/**
  * W7e (AI-F6) — which side should this Aura land on? Classified from parseAuraBonus — the SAME
  * parse the battlefield layer engine applies once the Aura attaches, so the AI's read of "what
  * this Aura does" can never disagree with what it WILL do. "own" = every granted descriptor is
@@ -57,7 +78,7 @@ const RESTRICTION_KEYWORDS = new Set(["cantAttack", "cantBlock", "activatedAbili
  * protection grant); "enemy" = every descriptor is harmful (a non-positive P/T mod, a keyword
  * removal, a restriction grant); null = HOLD — an empty parse (the bonus machinery couldn't model the grant), a
  * mixed +/- delta, a base-P/T set (could buff or shrink depending on the body), or any
- * mixed own/enemy combination. Mirrors atomTargetIntent's ambiguous→skip discipline (CREED:
+ * mixed own/enemy combination; an untap-lock Aura (isUntapLockAura) is "enemy". Mirrors atomTargetIntent's ambiguous→skip discipline (CREED:
  * never guess a side — a beneficial Aura on an enemy fatty is a live FP).
  * (Moved from opponentAI.js, 2026-10-16, so the non-cast entry reads the cast side's answer; the restriction grants are new.)
  */
@@ -68,6 +89,7 @@ export function auraCastIntent(card) {
   // control line poisoned the parse) and the AI HELD Mind Control forever; once the bonus survives, a control Aura
   // with a positive bonus would have read as an OWN buff and been cast on the AI's own creature.
   if (grantsControlWhenAttached(card)) return "enemy";
+  if (isUntapLockAura(card)) return "enemy"; // the untap lock alone (above) — the curse lane, like Pacifism's restriction grants
   let bonus;
   try { bonus = parseAuraBonus(card); } catch { return null; }
   if (!Array.isArray(bonus) || bonus.length === 0) return null;

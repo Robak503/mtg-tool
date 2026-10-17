@@ -49,6 +49,7 @@ import {
   addCounter,
   moveCardToZone,
   findPermanent,
+  createPermanent, // the enters-trigger preview (entersTriggerRemovesOwn) puts the entering permanent on a copy of the board
 } from "./gameState.js";
 import { phaseInAndExpireShield, expireNameCastLocks } from "./gameState.js"; // TEFERI'S PROTECTION - phase in + shield expiry at the active player's untap; B4 — the name cast locks expire there too
 import { withoutImpulseStamps, startingLoyalty } from "./gameState.js"; // the impulse lapse at cleanup strips the same stamp list the cast out of exile does
@@ -74,9 +75,10 @@ import {
   checkSagaChapterTriggers,
   checkDiscardTriggers, // CR 514.1 — the cleanup hand-size discard is a discard (CR 701.9a)
   detectTriggers, // FLICKER TARGETS (shelf D21) — does a permanent carry an enters ability worth re-firing?
+  checkEnterTriggers, // the enters-trigger preview fires the entering permanent's enters triggers exactly as enterPermanent does
 } from "./triggers.js";
 import { checkAllStateBasedActions } from "./sba.js";
-import { expireContinuousEffects, maxHandSizeFor, sourceTriggerMultiplierCount } from "./layers.js";
+import { expireContinuousEffects, maxHandSizeFor, sourceTriggerMultiplierCount, permanentIsCreature, permanentToughness, permanentHasKeyword } from "./layers.js"; // + the forced pick's survival read
 import { sacrificePermanentForCost } from "./costSacrifice.js"; // the finished Saga's sacrifice (CR 714.4) — THE sacrifice outside a resolution
 import {
   parseEffectClause,
@@ -1807,6 +1809,38 @@ function pickFlickerCandidate(state, controller, safe, program) {
   return best && (!empty || total(best) > 0) ? best : empty;
 }
 
+/** The harms whose survival the forced pick reads (forcedHarmSurvived) — damage and -X/-X; every other harm keeps the value order. */
+const SURVIVAL_READ_OPS = new Set(["deal-damage", "pump"]);
+
+/**
+ * Does a wrong-side PERMANENT survive this forced harm whole by the cleanup step? Damage and an until-end-of-turn -X/-X wear off
+ * there (CR 514.2), so a creature that lives through them has lost nothing that lasts. Read only where it is provable:
+ *   - damage of a FIXED amount below the creature's toughness minus the damage already marked (lethal damage, CR 704.5g), from a
+ *     source on the battlefield without deathtouch (any damage from one is lethal, CR 702.2b) — an amount that isn't fixed ("equal
+ *     to its power"), or a source the board doesn't hold, is read as lethal;
+ *   - an until-end-of-turn -X/-X that leaves the creature's toughness above 0 (CR 704.5f) and above the damage marked.
+ * A noncreature, a permanent change (-1/-1 counters), and every other harm are not read as survived.
+ */
+function forcedHarmSurvived(state, atom, perm, sourceId) {
+  if (!perm || !permanentIsCreature(state, perm.id)) return false;
+  const toughness = permanentToughness(state, perm.id);
+  const marked = Math.max(0, Number(perm.damageMarked) || 0);
+  if (atom?.op === "deal-damage") {
+    if (typeof atom.amount !== "number" || !Number.isFinite(atom.amount)) return false;
+    if (!sourceId || !findPermanent(state, sourceId) || permanentHasKeyword(state, sourceId, "Deathtouch")) return false;
+    return atom.amount < toughness - marked;
+  }
+  if (atom?.op === "pump") {
+    const t = Number(atom.ptDelta?.t);
+    if (!(t < 0) || atom.duration !== "endOfTurn") return false;
+    return toughness + t > 0 && marked < toughness + t;
+  }
+  return false;
+}
+
+/** A plain tap of a permanent that is already tapped does nothing (CR 701.26a). A tap that also locks it (noUntapNext / lockOnly) still bites. */
+const forcedTapDoesNothing = (atom, perm) => atom?.op === "tap" && !atom.noUntapNext && !atom.lockOnly && !!perm?.tapped;
+
 /**
  * FORCED TARGET (CR 603.3d, 601.2c) — the pick when NO candidate puts every target on its atom's intended side. A triggered
  * ability is removed from the stack only when no LEGAL choice can be made (CR 603.3d), so a MANDATORY one still takes a
@@ -1822,6 +1856,14 @@ function pickFlickerCandidate(state, controller, safe, program) {
  * the help. A candidate whose damage could kill a wrong-side player — a fixed amount at least their life, or an amount that
  * isn't fixed — ranks after every other. Correct-side targets cost nothing; ties keep enumeration order (serialize-stable).
  *
+ * A HARM THE TARGET SURVIVES COMES FIRST (2026-10-17). Damage and an until-end-of-turn -X/-X end in the cleanup step (CR 514.2),
+ * so a permanent that survives them loses nothing that lasts (forcedHarmSurvived): among the wrong-side permanents of a damage or
+ * -X/-X atom, every one that survives ranks before every one that dies, then value as above — Fire Imp beside your own Grizzly
+ * Bears and Craw Wurm deals its 2 to the Wurm, no longer killing the Bears because their mana value is lower. A tap of a
+ * permanent that is already tapped does nothing (only untapped permanents can be tapped, CR 701.26a), so it costs nothing:
+ * Network Disruptor with no opposing permanent taps your tapped land, not an untapped one. Every other harm (destroy, exile,
+ * bounce, a counter, -1/-1 counters, a tap that locks) keeps the plain value order.
+ *
  * Null (the chooser answers NO_SAFE_TARGET) when the choice isn't forced:
  *   - "choose up to one": choosing no mode is legal, and it removes the ability (CR 603.3c);
  *   - any candidate with an OPTIONAL targeted atom ("you may …", or an optional payment that wraps the payoff): the
@@ -1829,18 +1871,18 @@ function pickFlickerCandidate(state, controller, safe, program) {
  *     handed a wrong-side target to take;
  *   - a target whose side can't be read ("ambiguous" — only the choose-one modal partial reaches the chooser with one).
  */
-function pickForcedTriggerCandidate(state, controller, candidates, program, atomsFor, targetOk) {
+function pickForcedTriggerCandidate(state, controller, candidates, program, atomsFor, targetOk, sourceId = null) {
   if (program?.modal?.allowNone) return null;
   // A chosen-target atom is one with an intent (atomTargetIntent is null only for a non-chosen type — "self", "each …").
   const optionalTargeted = (a) => atomTargetIntent(a) != null && (!!a.optional || String(a.op || "").startsWith("optional-"));
   if (candidates.some((c) => atomsFor(c).some(optionalTargeted))) return null;
   const byValue = policyEvalEnabledFor(state, controller);
   const mv = (card) => (card ? Math.max(0, tutorManaValue(card)) : 0);
-  // [lethal, value, power], compared in that order; null when a target's side can't be read.
+  // [lethal, harmed, value, power], compared in that order; null when a target's side can't be read.
   const costOf = (c) => {
     const atoms = atomsFor(c);
     const onSide = targetOk(atoms);
-    const cost = [0, 0, 0];
+    const cost = [0, 0, 0, 0];
     for (const t of c.targets || []) {
       const atom = atoms[t.atomIndex];
       if (atomTargetIntent(atom) === "ambiguous") return null;
@@ -1852,18 +1894,23 @@ function pickForcedTriggerCandidate(state, controller, candidates, program, atom
         if (atom?.op === "deal-damage" && !(Number.isFinite(n) && n < state.players[t.id].life)) cost[0] += 1;
       } else if (t.type === "spell") {
         const spell = (state.stack || []).find((o) => o.id === t.id);
-        cost[1] += spell ? Math.max(0, stackSpellManaValue(spell)) : 0;
+        cost[2] += spell ? Math.max(0, stackSpellManaValue(spell)) : 0;
       } else if (t.type === "graveyardCard") {
-        cost[1] += mv((state.players[t.controller]?.graveyard || []).find((card) => card.id === t.id));
+        cost[2] += mv((state.players[t.controller]?.graveyard || []).find((card) => card.id === t.id));
       } else if (t.type !== "stackAbility") {
         const perm = findPermanent(state, t.id).permanent; // an enumerated permanent target is on the battlefield by construction
-        if (byValue) cost[1] += permanentValue(perm, state);
-        else { cost[1] += mv(perm.card); cost[2] += Number(perm.card?.power) || 0; }
+        // `harmed`: a damage / -X/-X target that does not survive it, or an untapped target of a plain tap (a tapped one costs
+        // nothing at all — the tap does nothing to it). Every other harm leaves it 0 for every candidate, so the value order decides.
+        if (forcedTapDoesNothing(atom, perm)) continue;
+        if (atom?.op === "tap" && !atom.noUntapNext && !atom.lockOnly) cost[1] += 1;
+        else if (SURVIVAL_READ_OPS.has(atom?.op) && atomTargetIntent(atom) === "enemy" && !forcedHarmSurvived(state, atom, perm, sourceId)) cost[1] += 1;
+        if (byValue) cost[2] += permanentValue(perm, state);
+        else { cost[2] += mv(perm.card); cost[3] += Number(perm.card?.power) || 0; }
       }
     }
     return cost;
   };
-  const cmp = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+  const cmp = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3];
   let best = null;
   let bestCost = null;
   for (const c of candidates) {
@@ -1944,7 +1991,11 @@ export function chooseTriggerTargets(candidates, info) {
   // above is untouched either way: this re-ranks only what was already provably safe (ranking-only,
   // THE CREED). Flag absent ⇒ first-correct-side, byte-identical.
   const safe = candidates.filter((c) => (c.targets || []).every(targetOk(atomsFor(c))));
-  if (!safe.length) return pickForcedTriggerCandidate(state, controller, candidates, program, atomsFor, targetOk) ?? NO_SAFE_TARGET;
+  if (!safe.length) {
+    // The trigger's source (a damage source's deathtouch decides whether a forced hit is survived — forcedHarmSurvived).
+    const sourceId = info?.trigger?.source?.permanentId ?? info?.trigger?.context?.sourcePermanentId ?? null;
+    return pickForcedTriggerCandidate(state, controller, candidates, program, atomsFor, targetOk, sourceId) ?? NO_SAFE_TARGET;
+  }
   // FLICKER (shelf D21 — Brago, King Eternal; Thassa, Deep-Dwelling; Displacer Kitten; Teleportation Circle): a blink's targets
   // are its controller's own permanents and WHICH is the whole decision. The expander orders subsets maximal-first, so the
   // first correct-side candidate was whatever permanent came first ("up to one") or every permanent you control, tokens
@@ -1958,6 +2009,77 @@ export function chooseTriggerTargets(candidates, info) {
     return s + (lk ? permanentValue(lk.permanent, state) : 0);
   }, 0);
   return safe.reduce((best, c) => (candValue(c) > candValue(best) ? c : best), safe[0]);
+}
+
+/** The harms that take a forced target of the controller's own off the battlefield (or the stack) for the cast-time hold. */
+const REMOVING_OPS = new Set(["destroy", "exile", "bounce", "tuck", "bounce-spell-or-permanent", "counter"]);
+/**
+ * Does this forced harm REMOVE the controller's own permanent? Destroy, exile, bounce and tuck do; damage, an until-end-of-turn
+ * -X/-X and -1/-1 counters do unless the permanent provably survives them (forcedHarmSurvived for the first two; for counters a
+ * fixed number below its toughness minus the damage marked, CR 704.5f / 704.5g). A tap, a goad, a "can't block" do not.
+ */
+function forcedHarmRemoves(state, atom, perm, sourceId) {
+  if (REMOVING_OPS.has(atom?.op)) return true;
+  if (atom?.op === "deal-damage" || atom?.op === "pump") return !forcedHarmSurvived(state, atom, perm, sourceId);
+  if (atom?.op === "add-counter" && String(atom.counterType || "").trim() === "-1/-1") {
+    if (typeof atom.amount !== "number" || !permanentIsCreature(state, perm.id)) return true;
+    const left = permanentToughness(state, perm.id) - atom.amount;
+    return !(left > 0 && Math.max(0, Number(perm.damageMarked) || 0) < left);
+  }
+  return false;
+}
+
+/**
+ * ENTERS-TRIGGER PREVIEW — the AI's cast-time hold (opponentAI.pickCastAction, 2026-10-17). Would the permanent `card`, entering
+ * the battlefield under `controller` now, put an enters trigger on the stack that is FORCED (CR 603.3d: a mandatory ability with
+ * no correct-side target still takes a legal one — pickForcedTriggerCandidate) onto one of `controller`'s own permanents or
+ * spells, and remove it (forcedHarmRemoves; a countered or bounced spell)? Man-o'-War with no opposing creature bounces your own
+ * creature or itself; Mystic Snake flashed in over only your own spell counters it.
+ *
+ * Read the way the game would do it: a copy of the board with the permanent on it (the stack as it stands — the permanent's own
+ * spell has resolved off it), its enters triggers fired by checkEnterTriggers (so a Torpor Orb, an Elesh Norn or a Panharmonicon
+ * counts as it would), and each one routed and targeted by buildTriggerStack with chooseTriggerTargets — the flush's own code.
+ * Nothing is minted (the preview permanent's id is fixed) and nothing is logged; `state` is never written.
+ *
+ * Returns { source, op, target: { id, name } } for the first own permanent or spell such a trigger would remove, else null — a
+ * correct-side target, no legal target (the ability is removed, CR 603.3d), an optional ability (declined, CR 603.5), a harm the
+ * target survives, or an intervening-if that isn't met all leave the cast alone. Cheap when the card has no self enters trigger
+ * that targets: that is read off the cached detectTriggers / parseEffectClause before any board is built.
+ */
+export function entersTriggerRemovesOwn(state, controller, card) {
+  const seat = state?.players?.[controller];
+  if (!card || !seat) return null;
+  const targeted = detectTriggers(card).some((d) => d.event === "etb" && d.scope === "self" && d.effectClause
+    && programNeedsChosenTarget(parseEffectClause(d.effectClause, "Instant", { hasX: !!d.effectHasX, sourceScoped: true })));
+  if (!targeted) return null;
+  const id = `${card.id ?? card.name}~entering`;
+  const entering = { ...createPermanent({ id, card, controller, summoningSick: true }), enteredOnTurn: state.turn ?? null };
+  const board = { ...state, pendingTriggers: [], players: { ...state.players, [controller]: { ...seat, battlefield: [...(seat.battlefield || []), entering] } } };
+  const own = (checkEnterTriggers(board, entering).pendingTriggers || []).filter((t) => t.source?.permanentId === id);
+  for (const trigger of own) {
+    const built = buildTriggerStack(board, trigger, chooseTriggerTargets);
+    if (!built?.forced) continue;
+    const params = built.payload?.params || {};
+    const program = params.program;
+    const modes = program?.modal?.modes || [];
+    const atoms = program?.structure !== "modal" ? program?.atoms || []
+      : Array.isArray(params.chosenMode) ? params.chosenMode.flatMap((k) => modes[k]?.atoms || []) : modes[params.chosenMode]?.atoms || [];
+    for (const t of built.targets || []) {
+      const atom = atoms[t.atomIndex];
+      if (atomTargetIntent(atom) !== "enemy") continue;
+      if (t.type === "spell") {
+        const spell = (board.stack || []).find((o) => o.id === t.id);
+        if (spell?.controller === controller && REMOVING_OPS.has(atom.op)) return { source: card.name, op: atom.op, target: { id: t.id, name: spell.source?.name ?? null } };
+        continue;
+      }
+      if (t.type === "player" || t.type === "graveyardCard" || t.type === "stackAbility") continue;
+      const lk = findPermanent(board, t.id);
+      if (lk?.controller === controller && forcedHarmRemoves(board, atom, lk.permanent, id)) {
+        return { source: card.name, op: atom.op, target: { id: t.id, name: lk.permanent.card?.name ?? null } };
+      }
+    }
+  }
+  return null;
 }
 
 /**

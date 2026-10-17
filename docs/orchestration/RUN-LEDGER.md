@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **67 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,451)**; engine gains since the tag: **−16** (+65 gained, −81 false credit removed). The next tag
+> **68 commits**, corpus **44.7% (15,467)** at the tag → **44.6% (15,451)**; engine gains since the tag: **−16** (+65 gained, −81 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,74 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🧠 2026-10-17 — AI: the cast picker reads a permanent's own enters trigger (Man-o'-War, Mystic Snake held when the trigger would be forced onto its own side), the forced trigger target prefers a harm its target survives, and an untap-lock Aura is a curse (Ice Over, Coma Veil, Claustrophobia) · **±0** · corpus unchanged
+> Suite **1,825 files / 19,785 green (1 skipped)** under the gate queue. Lint 0 (CR citations: 0 of 10,702 name no rule). Flip-diff **0 / 0 / 0 (34,620 cards)** (before = an untouched
+> `git archive` of dbc9db58). **Mutants 10/10** on assertions (+1 equivalent, below), each restored byte-identical (sha256). A/B **80 seeded commander games (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the dbc9db58 archive): **80 / 80 byte-identical** — every decision's full offered set, every pick, every log line, winner and turn count; 0 errors / stalls on both trees**.
+> · **The decisions** (the 10-16 forced-pick slice's found-not-fixed (1) and (2), and the untap-lock Auras). Since 10-16 a mandatory
+>   trigger with no correct-side target takes a legal one (CR 603.3d — `pickForcedTriggerCandidate`). That is the rule, and it
+>   exposed `opponentAI.pickCastAction`, which never read a permanent's own enters trigger: it cast Man-o'-War with no opposing
+>   creature (bouncing its own creature or itself), flashed Mystic Snake in over its own spell (countering it), cast Flametongue
+>   Kavu with only its own creatures to burn. And `auraEntry.auraCastIntent` had no reading for "doesn't untap during its
+>   controller's untap step" (the lock `gameState.untapAll` enforces; `parseAttachedBonus` skips the line), so the AI held Ice
+>   Over, Coma Veil, Claustrophobia and their kin forever.
+> · **Rule 1 — the cast-time hold** (`gameEngine.entersTriggerRemovesOwn`, called from `pickCastAction`, policy key `etbHold`):
+>   the permanent goes on a COPY of the board (the stack as it stands — its own spell has resolved off it), its enters triggers
+>   fire through `checkEnterTriggers` (Torpor Orb / Elesh Norn / Panharmonicon count as they would), and each is routed and
+>   targeted by `buildTriggerStack` + `chooseTriggerTargets` — the flush's own code. The card is HELD when a trigger comes back
+>   `forced` and would REMOVE one of the AI's own permanents or spells: destroy, exile, bounce, tuck, Venser's union bounce, a
+>   counter, or damage / an until-end-of-turn -X/-X / -1/-1 counters it does not survive. A correct-side target, no legal target
+>   (removed), an optional ability (declined, CR 603.5), an intervening-if that isn't met, or a forced harm its target survives
+>   (Farbog Boneflinger's -2/-2 on the AI's own 6/4) casts as before. Auras keep their lane. Nothing is minted (fixed preview id),
+>   nothing logged, `state` never written (witnessed). Cheap gate first: no self enters trigger that targets → no board built.
+> · **Rule 2 — the forced pick prefers a harm its target survives** (`forcedHarmSurvived`, both seats): the cost is now
+>   [lethal, harmed, value, power]. Among wrong-side permanents of a damage or -X/-X atom, one that survives (a FIXED amount below
+>   toughness minus damage marked, CR 704.5g, from a source on the battlefield without deathtouch, CR 702.2b; an until-end-of-turn
+>   -X/-X leaving toughness above 0 and above the damage, CR 704.5f — both end at cleanup, CR 514.2) ranks before every one that
+>   dies; a plain tap of an already-tapped permanent costs nothing (CR 701.26a). Every other harm keeps the plain value order.
+>   NOT done: "a nontoken for bounce" — bouncing a token loses it (CR 704.5d) but bouncing a nontoken costs its mana value again,
+>   and mana value can't say which is worse (a Treasure vs Man-o'-War itself); that needs a token valuation, so the value order
+>   stands. -1/-1 counters are not read as survived either (a 6/4 left a permanent 3/1 vs a dead 2/2 is not clear).
+> · **Rule 3 — the untap lock is a curse** (`auraEntry.isUntapLockAura`): "Enchanted creature/permanent/artifact doesn't untap
+>   during its controller's untap step" reads ENEMY when it is the whole card — every line its Enchant line, Flash, the lock, or
+>   "When this Aura enters, tap enchanted creature/permanent." A lock beside anything else (Leaden Fists' "+3/+3 and doesn't untap",
+>   Eternity Snare's enters draw, an untap ability granted to the host, an upkeep escape) keeps null — hold. The non-cast entry
+>   (`auraEntryIntent`) reads the same answer, so a returning Claustrophobia now chooses the opponent's biggest creature, and Brago
+>   now flickers one (its side is read; it returns on the same creature). Of the 73 bundled Auras that print a lock, 22 now read enemy (the rest print something beside it and still hold).
+> · Witness `aiEntersTriggerHold.test.js` (22): 14 red at dbc9db58, every one on an assertion; 8 controls pass on both (Man-o'-War
+>   beside an opposing Hill Giant, Elvish Visionary / Grizzly Bears on an empty board, Mystic Snake over the opponent's Divination
+>   — it counters it, FTK killing the Bears when nothing survives, the deathtouch control (Archetype of Finality), the
+>   damage-already-marked control, Ice Over / Pacifism held with only the AI's own creatures, Pacifism on the enemy). Updated pins
+>   that asserted the old reading: `auraCastSide` (Ice Over was held → now the opponent's Craw Wurm), `auraReentry` (Brago left
+>   Claustrophobia alone because its side was unread → the unread-side pin now uses Leaden Fists, and Claustrophobia's flicker is
+>   pinned on its own; the re-entry test's name said "its side unread").
+> · Mutants: hold off; survival rank ignored; tapped-tap rank removed; deathtouch guard removed; marked damage ignored; -X/-X
+>   always survived; the hold ignoring survival; the hold ignoring own spells; the untap-lock reading removed; its allowlist
+>   loosened — 10/10 killed on assertions. Equivalent (not counted): dropping the preview's own-side check on a target (a forced
+>   candidate's single target is wrong-side by construction; a mixed multi-target forced candidate has no corpus carrier among
+>   mandatory enters triggers).
+> · **⚑ Results (flag to Omnath):** the 80 games do not reach a hold, and the zero is a measurement: an instrumented scratch copy
+>   (counters only; its 80 games identical to the change tree's) shows the preview called 5,501 times, a board built for 291 casts
+>   (310 own enters triggers routed), 2 of them forced and neither a removal of the AI's own (0 holds); the forced pick ran 4
+>   times (previews and flushes together) with 0 picks moved by the new rank. The games' own logs hold 2 forced triggers, both
+>   Bumble Flower Combo's Guac & Marshmallow Pizza (a +2/+2 and untap forced onto an opponent's creature — see found-not-fixed (4)).
+>   user-wins 23 / ai-wins 57 on both trees, 0 non-completions; games per minute unchanged (173.5 s vs 174.8 s for
+>   the 80). No action-set change anywhere: legal actions never move, only the pick, and only where a permanent's own enters trigger
+>   would be forced onto its own side, a forced damage / -X/-X / tap has a survivor or a tapped target, or an untap-lock Aura is in
+>   hand. Whether that moves the epoch cut is Omnath's call.
+> · Profile decks holding an enters trigger the hold can fire on (an unrestricted mandatory removal target): Mothman Cometh
+>   (Contagion Clasp), Test Rashmi (Vedalken Aethermage — "target Sliver"). The other removal enters triggers in the 30 decks are
+>   restricted to opponents, "up to", optional, modal with an untargeted mode, or "any target" (always a correct-side player).
+>   No profile deck holds an untap-lock Aura. The forced-pick rank can move wherever a damage / -X/-X / tap trigger has no
+>   opposing target (19 such cards in the decks, e.g. Orcish Bowmasters, Terror of the Peaks, Skysovereign — mostly unreachable,
+>   since they offer players or are restricted to opponents).
+> · ⚠️ Found, not fixed: (1) a kicked enters trigger is previewed unkicked, so its intervening-if is not met and the kicked cast is
+>   not held (probed: Oran-Rief Recluse beside only the AI's own Wind Drake → null; a safe miss — the fix chooses kicked vs unkicked
+>   per action). (2) The bounce token-vs-nontoken refinement (above). (3) A lock Aura on an UNTAPPED creature only bites
+>   after it next taps; the pick still ranks by power, not by "already tapped" (Ice Over is best on a tapped attacker). (4) The
+>   mirror of rule 1: a trigger forced to HELP an opponent (Guac & Marshmallow Pizza's +2/+2 and untap on an opponent's creature when
+>   the AI has none — seen in A/B games 54 and 55) is not held; holding a creature body for a gifted counter isn't clearly right,
+>   a bodiless Food is — it needs a per-card value read.
 
 > ## 🔧 2026-10-17 — FIX: the Academy's narration and game logs read as words — every dispatcher kind narrates from its own data (crew names its crew, suspend, the discard / graveyard / hand abilities, Doubling Cube), costs as pips ("for 2 life", "for {0}"), and the Game Log / replay / Recent actions name the seat and label the action · **±0** · corpus unchanged
 > Suite **19,781 green (1 skipped) / 1,826 files** under the gate queue. Lint 0 (CR citations: 0 of 10,678 name no rule). Flip-diff **0 / 0 / 0** (34,620 cards; before = an untouched
