@@ -30,8 +30,8 @@
  */
 
 import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower, nameCastLocked, playerLifeLocked } from "./gameState.js"; // B4: the Reflector Mage name cast lock; playerLifeLocked — CR 119.8, a life total that can't change can't pay life
-import { canAfford, manaSources, manaProduction, manaActivationCost, payActivationFromPool, landAuraManaBonus, globalTapManaAugment, withGrantedMana, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources } from "./manaModel.js";
-import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
+import { canAfford, manaSources, manualManaTaps, payActivationFromPool, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources } from "./manaModel.js";
+import { countForSpec } from "./effects/atoms/shared.js"; // SELF-METRIC-COST-REDUCTION: a live count read at cast announce
 import { hasKeyword } from "./keywords.js";
 import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord } from "./layers.js"; // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell's every-creature-type answer for the cost readers; a leaf (keywords.js only)
@@ -2163,7 +2163,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
 // layer-aware type read only ever runs while a carrier is out). The Artifact test is the DERIVED types
 // (layers.permanentTypes, after layer 4): an animated artifact creature is still an artifact; a printed
 // check would also miss any future layer-4 Artifact add. Every enumeration site that offers an activated
-// ability of a BATTLEFIELD permanent gates through this one predicate: tap-for-mana + double-mana-pool
+// ability of a BATTLEFIELD permanent gates through this one predicate: double-mana-pool (tap-for-mana reads
+// manaModel.manualManaTaps, i.e. manaSources, which applies the same two locks — 2026-10-16)
 // (mana abilities ARE activated abilities, CR 605.1a — Sol Ring, Doubling Cube), activate-ability
 // (printed + aura/equipment-granted + group-granted + equip, CR 702.6a), crew (CR 702.122a), and loyalty
 // (CR 606.2 — Luxior / The Aetherspark are artifact planeswalkers). manaModel.manaSources carries the
@@ -2196,70 +2197,19 @@ function actionsTapForMana(state, playerId) {
   if (state.step !== "main") return [];
   const player = state.players[playerId];
   const actions = [];
-  const artLocked = artifactActivationsLocked(state); // NR-1: locks artifact mana abilities (CR 605.1a)
-  for (const perm of player.battlefield) {
-    if (perm.tapped) continue;
-    if (lockedActivationSource(state, artLocked, perm.id)) continue; // NR-1 artifact lock + AU-2 per-permanent lock
-    // GRANTED MANA: the SAME read manaSources makes (manaModel.withGrantedMana — the two-sites invariant as one function): a
-    // permanent with no own mana ability takes its granted one whole, so a granted self-sacrifice (Basal Sliver) offers an action
-    // that sacrifices this permanent; one with its own keeps it, upgraded in place by a dominating Aura / Equipment grant.
-    const prod = withGrantedMana(state, perm, manaProduction(perm.card));
-    if (!prod) continue;
-    // STAGE ③ · 37 — a no-{T} remove-a-counter source (Pentad Prism) is paid through the planner: manaSources gives it one
-    // record per counter and the commit removes the counter. This direct TAP action would add the mana without removing a
-    // counter and tap a permanent whose cost has no {T}, so it isn't offered here — a safe under-offer of manual floating,
-    // never free mana.
-    if (prod.removesCounters?.mode === "each") continue;
-    // Granted Haste counts here too (a lord that hastes your mana dorks). Layer-aware sickness (NV-1,
-    // CR 302.6): a MASS-ANIMATED land played this turn is a summoning-sick creature — its {T} mana
-    // ability is off until its controller's next turn (summoningSickNow; printed creatures read their
-    // stamped flag exactly as before).
-    if (summoningSickNow(state, perm) && !permanentHasKeyword(state, perm.id, "Haste") && !abilitiesAsThoughHasteFor(state, perm.controller)) continue; // + SG-18 (Shang-Chi)
-    // MANA-VARIABLE: a count-derived amount (Gaea's Cradle / Karametra / Bighorner) is resolved LIVE
-    // against the board (CR 608.2g), floored at 0. Skip the source entirely when it would tap for 0 —
-    // never offer a pointless 0-mana tap (e.g. Gaea's Cradle with no creatures).
-    const amount = prod.amountSpec
-      ? Math.max(0, countForSpec(state, { controller: playerId, source: perm }, prod.amountSpec))
-      : prod.amount;
-    if (amount <= 0) continue;
+  // THE PLANNER'S OWN SOURCES (manaModel.manualManaTaps — 2026-10-16). This used to rebuild each permanent's production from
+  // manaProduction and kept only the self-sacrifice of its costs: Ashnod's Altar made {C}{C} with no creature sacrificed, Mox
+  // Opal tapped without metalcraft, Birchlore Rangers tapped alone, Mana Confluence and the painlands made colours for no life.
+  // Every gate and cost now comes from manaSources, as for the planner — the artifact and per-permanent activation locks
+  // (lockedActivationSource's two halves), summoning sickness and haste, granted abilities, the condition, life, payer, victim
+  // and graveyard gates, a count read live and the 0-mana skip, the inline boosts — and each action IS the tap record the
+  // planner would commit (tapRecordFor), which applyTapForMana re-derives from the board rather than trusting this object.
+  for (const tap of manualManaTaps(state, playerId)) {
     // THE FREE-ACTIVATION FIX: a mana-costed ability (a Signet's "{1}, {T}: …") is offered only when the floating pool can pay
-    // its activation — applyTapForMana charges it; a cost the reader can't price is never offered.
-    const activationCost = manaActivationCost(perm.card);
-    if (activationCost && !payActivationFromPool(player.manaPool, activationCost)) continue;
-    // AURA-LAND-MANA-BOOST: a land carrying a mana-boost Aura yields extra mana INLINE when it taps
-    // (the Aura is NOT tapped). landAuraManaBonus is the SAME helper manaSources/planPayment use, so
-    // the explicit tap and the auto-pay planner can't drift (the CREED two-sites invariant). Each
-    // bonus entry chooses its color here (a fixed-color uses its color; an any-color picks its first —
-    // the explicit-tap learner play just floats the mana, no future-cost lookahead).
-    // GLOBAL-TAP-AUGMENT mirrors manaSources (the two-sites invariant): a controller-owned "Whenever you
-    // tap a <land|creature> for mana, add …" permanent adds extra fixed-color mana inline on this tap.
-    const bonusSources = [...landAuraManaBonus(state, perm), ...globalTapManaAugment(state, playerId, perm)];
-    // A FIXED BUNDLE (a karoo's "{T}: Add {G}{U}", a Signet's {U}{B}) makes its colours all at once — ONE action carrying the
-    // tally, which commitManaTap adds exactly. Offered per colour it made {G}{G} or {U}{U}, mana the card never makes.
-    if (prod.fixed && Object.keys(prod.fixed).length > 1) {
-      const first = Object.keys(prod.fixed)[0];
-      const bonus = bonusSources.map(b => ({ color: b.sameAsProduced ? first : b.colors[0], amount: b.amount }));
-      actions.push({ kind: "tap-for-mana", playerId, permanentId: perm.id, color: first, amount, fixed: { ...prod.fixed }, sacrifices: !!prod.sacrifices,
-        ...(bonus.length ? { bonus } : {}), ...(activationCost ? { activationCost } : {}), name: perm.card.name });
-      continue;
-    }
-    for (const color of prod.colors) {
-      // MANA FLARE (MF-1): a sameAsProduced bonus's color IS this action's chosen production color ("one
-      // mana of any type that land produced" — resolved per action, so tapping a dual for W carries a +1 W
-      // bonus and the U action a +1 U, never an off-type pip). Fixed-color bonuses keep their color.
-      const bonus = bonusSources.map(b => ({ color: b.sameAsProduced ? color : b.colors[0], amount: b.amount }));
-      actions.push({
-        kind: "tap-for-mana",
-        playerId,
-        permanentId: perm.id,
-        color,
-        amount,
-        sacrifices: !!prod.sacrifices,   // one-shot Treasure/Gold — applyTapForMana sacrifices it (TOK-2)
-        ...(bonus.length ? { bonus } : {}),
-        ...(activationCost ? { activationCost } : {}),
-        name: perm.card.name,
-      });
-    }
+    // its activation — applyTapForMana charges it.
+    if (tap.activationCost && !payActivationFromPool(player.manaPool, tap.activationCost)) continue;
+    const name = player.battlefield.find((p) => p.id === tap.permanentId)?.card?.name;
+    actions.push({ kind: "tap-for-mana", playerId, ...tap, sacrifices: !!tap.sacrifices, name });
   }
   return actions;
 }

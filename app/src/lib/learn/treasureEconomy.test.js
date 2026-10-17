@@ -81,7 +81,7 @@ describe("TRIG-SACRIFICE SUBTYPE — 'Whenever you sacrifice a Treasure'", () =>
   });
   it("end-to-end: cracking a Treasure for mana pumps Captain Lannery Storm +1/+0", () => {
     let s = board([lannery("cap"), treasureToken("t1")]);
-    s = dispatchAction(s, { kind: "tap-for-mana", playerId: "user", permanentId: "t1", color: "C", amount: 1, sacrifices: true });
+    s = dispatchAction(s, { kind: "tap-for-mana", playerId: "user", permanentId: "t1", color: "G", amount: 1, sacrifices: true });
     expect(s.players.user.battlefield.some((p) => p.id === "t1")).toBe(false); // sacrificed
     s = flush(s);
     const cap = s.players.user.battlefield.find((p) => p.id === "cap");
@@ -123,7 +123,7 @@ describe("TOKEN-CHANGE — 'Whenever you create or sacrifice a token' (Mirkwood 
   });
   it("SACRIFICE: cracking a Treasure token for mana drains each opponent (1 life)", () => {
     let s = board([bats("bats"), treasureToken("t1")]);
-    s = dispatchAction(s, { kind: "tap-for-mana", playerId: "user", permanentId: "t1", color: "C", amount: 1, sacrifices: true });
+    s = dispatchAction(s, { kind: "tap-for-mana", playerId: "user", permanentId: "t1", color: "G", amount: 1, sacrifices: true });
     expect((s.pendingTriggers || []).filter((t) => t.event === "tokenChange")).toHaveLength(1);
     s = flush(s);
     expect(s.players.ai.life).toBe(39);

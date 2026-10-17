@@ -34,7 +34,7 @@ const handIds = (s) => s.players.user.hand.map(c => c.id);
 describe("SAC-TREASURE — cracking a Treasure for mana fires sacrifice triggers", () => {
   it("the explicit crack-for-mana action sacrifices the Treasure and fires BOTH a permanent- and an artifact-scope watcher", () => {
     let s = board([watcher("k", KORVOLD()), watcher("aw", ARTWATCH()), treasure("treas")], lib(4));
-    s = dispatchAction(s, { kind: "tap-for-mana", playerId: "user", permanentId: "treas", color: "C", amount: 1, sacrifices: true });
+    s = dispatchAction(s, { kind: "tap-for-mana", playerId: "user", permanentId: "treas", color: "G", amount: 1, sacrifices: true });
     // the Treasure is gone (sacrificed, not just tapped)
     expect(s.players.user.battlefield.some(p => p.id === "treas")).toBe(false);
     s = resolveAll(flushTriggers(s));
@@ -46,7 +46,7 @@ describe("SAC-TREASURE — cracking a Treasure for mana fires sacrifice triggers
   it("a creature-scope watcher does NOT fire on a Treasure crack (it's not a creature)", () => {
     const beastWatch = watcher("bw", { id: "card-bw", name: "Beast Whisperer Jr", type: "Creature", power: 1, toughness: 1, oracle: "Whenever you sacrifice a creature, draw a card." });
     let s = board([beastWatch, treasure("treas")], lib(2));
-    s = dispatchAction(s, { kind: "tap-for-mana", playerId: "user", permanentId: "treas", color: "C", amount: 1, sacrifices: true });
+    s = dispatchAction(s, { kind: "tap-for-mana", playerId: "user", permanentId: "treas", color: "G", amount: 1, sacrifices: true });
     s = resolveAll(flushTriggers(s));
     expect(s.players.user.hand).toHaveLength(0); // creature-scope must NOT fire on an artifact sac
   });

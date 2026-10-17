@@ -421,11 +421,23 @@ means "all permanents" (vacuous filter).
   its records `staysTapped`.
 - `manaSources(state, player)` → the untapped permanents that can produce now
   (summoning-sickness aware). Granted mana abilities are counted by ONE read,
-  `withGrantedMana`, which the explicit tap (`legalChoices.actionsTapForMana`)
-  makes too: a permanent with no mana ability of its own takes the granted spec
+  `withGrantedMana`: a permanent with no mana ability of its own takes the granted spec
   WHOLE (`grantedManaSpecsFor` → `grantedManaProduction`, its `sacrifices` and a
   no-{T} cost's `requiresTap:false` included — Basal Sliver's grant is a one-shot
   sacrifice, never a repeatable tap). Never rebuild a granted record field by field.
+- **The explicit tap reads the planner's records (2026-10-16).** `manualManaTaps` is
+  the explicit tap's only source: `legalChoices.actionsTapForMana` offers its options
+  and `actionDispatcher.applyTapForMana` re-derives the one taken from it (never from
+  the action's fields). It reads `manaSources`, so every gate (an "Activate only if"
+  condition, life, payers, an Altar's victim, a graveyard card, Max speed, a colour set
+  read off the board) holds on both paths; each option is the tap record the planner
+  would commit, built by the ONE builder `tapRecordFor` (planPaymentCore's `tapSource`
+  calls it too) — so a new cost rider goes on the source record and in `tapRecordFor`,
+  and both paths pay it. By hand it skips hand cards, no-{T} counter sources,
+  spend-restricted mana and "when that mana is spent" riders (floating mana keeps
+  neither), and a permanent's extra mana lines. Before this, the explicit tap rebuilt
+  production from `manaProduction` and paid only a self-sacrifice: Ashnod's Altar made
+  {C}{C} with no creature sacrificed, Mox Opal tapped without metalcraft.
 - `commitManaTap` pays the costs a tap carries; a permanent sacrificed to a mana
   cost (the source itself, or an Altar's victim) leaves through
   `sacrificeForManaCost` — the canonical sacrifice, so a creature dies through

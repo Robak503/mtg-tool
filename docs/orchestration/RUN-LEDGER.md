@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **50 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **±0** (+46 gained, −46 false credit removed). The next tag
+> **51 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **±0** (+46 gained, −46 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,72 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-16 — FIX: the explicit tap-for-mana pays the printed cost and honours the condition (Ashnod's Altar, Mox Opal, Birchlore Rangers, Mana Confluence, the painlands) · **±0** · corpus 15,494
+> Suite **19,462** green (1 skipped) / 1,808 files. Lint 0 (CR citations: 0 of 10,368 name no rule). Flip-diff **0 / 0 / 0**
+> (34,620 cards; before = 86389b97's code, after = this tree), so every coverage count is unchanged. **Mutants 19/19** on
+> assertions, restore byte-identical (sha256 of the three engine files compared after each).
+> · **The bug** (reported 2026-10-16, re-proved on 86389b97 through `legalActionsForPlayer` + `dispatchAction`). The action a
+>   person takes on the Learn board (`legalChoices.actionsTapForMana` → `actionDispatcher.applyTapForMana` →
+>   `manaModel.commitManaTap`) rebuilt each permanent's production from `manaProduction` and carried only `sacrifices` and the
+>   activation cost; the dispatcher committed the action object itself. Every other flag `manaSources` resolves for the planner
+>   was ignored: Ashnod's Altar made {C}{C} alone, and beside a creature sacrificed none and tapped itself; Mox Opal tapped
+>   without metalcraft (`activationCondition`); Birchlore Rangers and Springleaf Drum tapped no payer (`extraTap`); Mana
+>   Confluence and the Horizon lands paid no life (`payLife`); Adarkar Wastes, Grand Coliseum and the Odyssey threshold lands
+>   (Cabal Pit, Cephalid Coliseum, Barbarian Ring…) dealt no damage (`painColors`); Molt Tender exiled nothing and was offered on an empty graveyard (`exilesGyCard`); Endrider
+>   Catalyzer made {R}{R} at speed 0 (`requiresMaxSpeed`); Plaza of Heroes and Incubation Druid made all five colours on any
+>   board (`colorsAmongSpec`); an Elvish Spirit Guide on the battlefield tapped for {G} (`fromHand`); Mishra's Workshop, Ancient
+>   Ziggurat and Untaidake floated restricted mana into the open pool (`restriction`, CR 106.6). A hand-built action that left
+>   its riders out got the mana free.
+> · **The fix — one source, one tap record.** `manaModel.manualManaTaps(state, player)` is the explicit tap's only source: it
+>   reads `manaSources` (so every gate is the planner's, at its one chokepoint) and returns, per (source, colour), the record
+>   `tapRecordFor` builds — the builder planPaymentCore's `tapSource` now calls too (byte-identical tap records; the parity
+>   witness compares the two). The offer pushes those records; the dispatcher re-derives the one taken by permanent and colour
+>   and commits it, refusing (`MANA_TAP_UNAVAILABLE`) a colour the permanent can't make now or a cost it can't pay (CR 601.2h —
+>   partial payments are not allowed; CR 602.5 for the condition). By hand it skips hand cards and no-{T} counter sources (as
+>   before), spend-restricted mana and "when that mana is spent" riders (floating mana keeps neither — Path of Ancestry is no
+>   longer offered by hand), a permanent's EXTRA lines (the action names only a colour, so Crystal Vein's sacrifice line would
+>   look like its free {C}), and 0-mana taps. Reading the record also corrects what the explicit tap MADE: doubled under Mana
+>   Reflection, Urborg / Yavimaya colours, a chosen colour, Chrome Mox's imprint, a copy's mana (Thespian's Stage), Birchlore
+>   Rangers usable the turn it lands. Five hand-built Treasure taps in three tests named {C}, a colour a Treasure can't make;
+>   they now name {G}. ENGINE-SCAFFOLD §4.7 carries the seam.
+> · **AI in self-play.** The default AI takes `tap-for-mana` at exactly one site: `manaUntapLine.manaUntapLineAction` (line 133,
+>   via `opponentAI.pickAction`), which floats the lands Candelabra of Tawnos / Magus of the Candelabra will untap, taking the
+>   FIRST tap offered for each planned land (a land worth ≥2 by `manaValueOf`). Every other pick filters by kind; the discover /
+>   cascade / free-cast `actions[0]` fallbacks run in windows that offer no tap. Probe over all 1,187 corpus lands (base vs this
+>   tree, the first tap offered): 28 change, 2 of them plannable (worth ≥2) — Untaidake, the Cloud Keeper and Mishra's
+>   Workshop, both restricted, now not offered (the line returns null and the AI moves on). Only the cdh profile deck holds the
+>   Candelabras, and it holds neither land (its ≥2 lands, Gaea's Cradle and Ancient Tomb, offer the same first tap), so no bench
+>   game should move; no seeded batch was run. An external pilot (omnath-tools) choosing among offered actions sees the
+>   corrected set.
+> · Witness `explicitTapCost.test.js` (31; 28 red at 86389b97, every one an AssertionError): the offer gate per card (Altar, Mox
+>   Opal, Rangers, Confluence at 1 life, Drum, Molt Tender, Endrider, Spirit Guide, Plaza, Incubation Druid, Workshop, Path), the
+>   payment per card (Altar's victim, Rangers' Elves, Confluence and Canopy life, Adarkar's {W}/{U} and free {C}, Drum's
+>   creature, Molt Tender's exile), three hand-built actions (Confluence still pays; Mox Opal and a lone Altar refused), the
+>   planner parity (six sources incl. Mana Reflection), and three guards (a Spirit Guide in hand, Starting Town's extra line,
+>   Gaea's Cradle at 0).
+> · Mutants (19): the old actionsTapForMana · the old applyTapForMana · the hand-card skip · the no-{T} counter skip · the
+>   restriction skip · the spent-rider skip · the extra-line skip · the 0-mana skip · painLife · payLifeCost · extraTaps ·
+>   sacrificesCreature · exilesGyCard (each out of tapRecordFor) · committing the action instead of the re-derived tap · the
+>   refusal (falling back to the action) · the offer's pool check for an activation cost · the dispatcher's activation charge ·
+>   Mana Flare's same-colour bonus · the fixed bundle offered once.
+> · ⚠️ Found, not fixed (both paths — the planner too):
+>   ① A no-{T} source is TAPPED by the commit (`commitManaTap` taps unless `sacrifices` / `noTap`): Ashnod's and Phyrexian Altar
+>   end tapped after one use and fire "tapped for mana" watchers (CR 106.12 needs a {T} in the cost); Birchlore Rangers is
+>   tapped on top of two OTHER Elves when the payer sort picks them (three tapped); Kozilek's Translator's "Activate only once
+>   each turn" is dropped by `manaProduction` and only that accidental tap enforces it (and it taps a creature that could attack
+>   or block). Needs a once-per-turn ledger for mana lines first; changes AI play.
+>   ② `globalTapManaAugment` credits a no-{T} source: Kinnan, Bonder Prodigy adds {C} to Ashnod's Altar's {C}{C} (probed) and to
+>   an Eldrazi Spawn's sacrifice — neither is tapped for mana. Phantom mana.
+>   ③ Ancient Tomb's "This land deals 2 damage to you" is dropped (a free {C}{C}, probed: life unchanged); Mox Amber's "among
+>   legendary creatures and planeswalkers" reads as any colour; Path of Ancestry's "in your commander's color identity" reads as
+>   any of five; Hall of the Bandit Lord's haste and Boseiju, Who Shelters All's can't-be-countered "if that mana is spent"
+>   riders are dropped (only Path of Ancestry's scry is a `spentRider`).
+>   ④ The mana-untap line values a land by its best record (`manaValueOf`) but taps its first offered action — for a storage land
+>   the plan counts the counters and the tap makes {C}.
+>   ⑤ UI: LearnBoard's colour picker shows only `o.color`, so a costed tap (a painland's {W}, Mana Confluence) shows no cost;
+>   extra lines stay planner-only until the label can show one. The payers and the Altar's victim are the house pick, never the
+>   person's.
 
 > ## 🔧 2026-10-16 — FIX: a quoted grant is never a land's own mana line (Forgotten Monument, Riftstone Portal, Command Power Plant) · **−3** (FPs removed) · corpus 15,467
 > Suite **19,444** green (1 skipped; 1,808 files). Lint 0 (CR citations: 0 of 10,366 name no rule). Flip-diff **0 / 3 / 0** over

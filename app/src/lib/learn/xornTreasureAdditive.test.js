@@ -95,7 +95,7 @@ describe("Xorn — end-to-end mint (the extra Treasure is REAL and taps for mana
     expect(treasures).toHaveLength(2);
     // Crack BOTH Treasures for mana; each is sacrificed on use → 0 remain (proves both are real, functioning sources).
     for (const t of treasures) {
-      s = dispatchAction(s, { kind: "tap-for-mana", playerId: "user", permanentId: t.id, color: "C", amount: 1, sacrifices: true });
+      s = dispatchAction(s, { kind: "tap-for-mana", playerId: "user", permanentId: t.id, color: "G", amount: 1, sacrifices: true });
     }
     expect(treasureCount(s, "user")).toBe(0); // both cracked → each was a valid tap-for-mana Treasure
   });

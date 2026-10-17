@@ -205,7 +205,7 @@ function parseManaMetric(tail, card) {
   // "Priest of Titania itself as well as Elves controlled by other players"): countForSpec's subtypeOnBattlefield, the count
   // Brightstone Ritual and Magma Sliver already read — each permanent's front-face type line, or, for a creature type, every
   // creature type (a changeling: layers.permIsEveryCreatureType). Read live as the mana ability resolves, by manaSources (the
-  // planner) and actionsTapForMana (the explicit tap) alike.
+  // planner, and the explicit tap through manualManaTaps).
   // THE VOCABULARY GATE: the word must be a COUNT_SUBTYPE entry — the curated, collision-free subtype allowlist parseCountSource
   // reads, irregular plurals included ("elves" is Elf). Any other word parks the card: a word no type line carries would count
   // nothing, a source that makes no mana while the card read native.
@@ -1817,8 +1817,8 @@ function manaProductionImpl(card) {
  * the LAND taps; the Aura is NOT tapped or consumed and fires every time. Reads the host's
  * `attachments` (permanent ids) and parses each attached Aura's boost clause. Pure.
  *
- * Used by BOTH read-sites (manaSources / legalChoices.actionsTapForMana) through this single helper
- * so the auto-pay planner and the explicit tap can't drift (the CREED two-sites invariant).
+ * Read by manaSources — the one read the auto-pay planner and the explicit tap (manualManaTaps) share — so the two
+ * can't drift (the CREED two-sites invariant).
  */
 export function landAuraManaBonus(state, landPerm) {
   const out = [];
@@ -1854,8 +1854,8 @@ export function landAuraManaBonus(state, landPerm) {
  * subject match reads the tapped source's TYPE LINE (a Land matches "land"; a Creature matches "creature"
  * — a creature-LAND like a manland matches both, exactly as the cards read). Pure.
  *
- * Shared by BOTH read-sites (manaSources / legalChoices.actionsTapForMana) through this single helper so
- * the auto-pay planner and the explicit tap can't drift (the CREED two-sites invariant).
+ * Read by manaSources — the one read the auto-pay planner and the explicit tap (manualManaTaps) share — so the two
+ * can't drift (the CREED two-sites invariant).
  */
 // The five basic land types (CR 305.6) a tap-augment may gate on. Anything else the parser emits as a
 // subject ("land"/"creature"/"nonland-permanent") is handled by its own gate above.
@@ -1923,8 +1923,8 @@ export function globalTapManaAugment(state, playerId, sourcePerm) {
  * (Gemhide self-include, unmarked) must NOT upgrade the granter's own source (it would mis-model a double).
  * The host still produces ONE record (one tap), so this never fabricates an extra tap. Pure.
  *
- * Shared by manaSources + legalChoices.actionsTapForMana (the CREED two-sites invariant — the auto-pay
- * planner and the explicit tap must read the same effective production).
+ * Read by manaSources, which the explicit tap reads too (manualManaTaps) — the CREED two-sites invariant: the auto-pay
+ * planner and the explicit tap must read the same effective production.
  */
 export function applyAuraManaGrantSupplement(state, perm, prod) {
   if (!prod || prod.amountSpec) return prod;          // only fixed-amount own producers (lands/rocks) supplement
@@ -1975,8 +1975,8 @@ export function grantedManaProduction(state, perm) {
 }
 
 /**
- * THE ONE READ of a permanent's production once the mana abilities granted to it are counted — made by both mana-source sites
- * (manaSources for the planner, legalChoices.actionsTapForMana for the explicit tap) so the two cannot drift. A permanent with a
+ * THE ONE READ of a permanent's production once the mana abilities granted to it are counted — made by manaSources, which both
+ * the planner and the explicit tap (manualManaTaps) read, so the two cannot drift. A permanent with a
  * mana ability of its own keeps it (upgraded in place by a dominating Aura / Equipment / `upgrade` grant — never a second tap: the
  * DEDUP that keeps a self-including granter like Gemhide Sliver from tapping twice); one without takes its granted ability whole.
  */
@@ -2087,7 +2087,7 @@ export function manaSources(state, playerId) {
         if (merged.length !== (prod.colors || []).length) prod = { ...prod, colors: merged };
       }
     }
-    // GRANTED MANA (withGrantedMana — the ONE read legalChoices.actionsTapForMana makes too): a permanent with NO own mana
+    // GRANTED MANA (withGrantedMana — read here for the planner and the explicit tap alike): a permanent with NO own mana
     // ability takes the ability a lord / Aura / Equipment grants it, every cost flag included (Basal Sliver's self-sacrifice).
     // DEDUP (the double-grant landmine): when the permanent ALREADY produces mana from its OWN card, keep the own source and
     // SKIP the grant — the granter (a Sliver) self-includes via "All Slivers", and manaModel already reads its quoted text as
@@ -2407,6 +2407,62 @@ export function castPaymentSources(state, action) {
   return sourcesExcludingOneShotVictim(sources, action.sacCreatureId);
 }
 
+/**
+ * THE TAP RECORD — what tapping source record `s` (a manaSources record, or the planner's copy of one) for `color` commits:
+ * the mana, the inline `bonus` picks, and every cost rider of the source, so commitManaTap pays the cost the source prints.
+ * Built here for BOTH taps — the planner's (planPaymentCore's tapSource) and the explicit one a person takes
+ * (manualManaTaps) — so the two can't drift: a rider added to the planner rides the explicit tap too. A mana ability is
+ * activated like any ability (CR 602.2b): its whole cost is paid, never part of it (CR 601.2h) — and the explicit tap used to
+ * skip every rider but the self-sacrifice.
+ *   · painLife — a painland's damage, only for a painful colour (its {C} half is free);
+ *   · payLifeCost / extraTaps / sacrificesCreature / exilesGyCard / removesCounters — the printed costs (pay life, tap
+ *     other permanents, sacrifice a creature, exile a graveyard card, remove counters);
+ *   · sacrifices / fromHand / noTap / doesNotUntapNext — how the source itself pays (sacrificed, exiled from hand, not
+ *     tapped, skips its next untap step);
+ *   · uncounterableIfSpent / spentRider — what the mana carries to the cast site.
+ * `fixed` (a karoo's / Signet's bundle) only when it names two or more colours, as the planner reads it.
+ */
+export function tapRecordFor(s, color, bonus = []) {
+  const fixed = s.fixed && Object.keys(s.fixed).length > 1 ? s.fixed : null;
+  const painHit = Array.isArray(s.painColors) && s.painColors.includes(color) ? (s.painAmount || 0) : 0;
+  return { permanentId: s.permanentId, color, amount: s.amount ?? 1, ...(Array.isArray(s.extraTaps) ? { extraTaps: [...s.extraTaps] } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(fixed && { fixed: { ...fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(s.noTap && { noTap: true }), /* ③ · 37 */ ...(s.doesNotUntapNext && { doesNotUntapNext: true }), ...(s.restriction?.uncounterableIfSpent && { uncounterableIfSpent: true }), ...(s.spentRider && { spentRider: s.spentRider }), /* SHELF-85 V11 (Path of Ancestry): the "when that mana is spent" rider rides the tap to the cast site */ ...(bonus.length && { bonus }) }; // + CAP-CAVERN: the cast site reads uncounterableIfSpent off the taps
+}
+
+/**
+ * THE EXPLICIT TAP'S OPTIONS — every tap a person may take by hand right now (legalChoices.actionsTapForMana offers them; the
+ * dispatcher's applyTapForMana re-derives the one taken from here and commits it, never trusting the action's fields). One
+ * per (source, colour), a fixed bundle once, each a tapRecordFor record plus the line's `activationCost`.
+ *
+ * Read off manaSources — the planner's own records — so every gate the planner applies holds here too, at the one
+ * chokepoint: an "Activate only if" condition (Mox Opal, CR 602.5), life the controller can't spare (Mana Confluence), too few
+ * untapped permanents to tap (Birchlore Rangers, Springleaf Drum), no creature to sacrifice (Ashnod's Altar), an empty
+ * graveyard (Molt Tender), Max speed, a colour set read off the board (Plaza of Heroes, Incubation Druid, Chrome Mox), the
+ * activation locks, summoning sickness, granted abilities, multipliers and boosts. The explicit path used to rebuild all of
+ * this from manaProduction and dropped the costs — free mana. A planner source is NOT offered by hand when:
+ *   · it is a card in hand (a Spirit Guide) or a no-{T} remove-a-counter source — planner-only, as before;
+ *   · its mana is spend-restricted (CR 106.6) or carries a "when that mana is spent" rider: floating mana keeps neither;
+ *   · it is a permanent's EXTRA mana line (Crystal Vein's sacrifice line, Starting Town's pay-life line, a storage land's
+ *     counters) — the action names its colour only, so a costed line would look like the free one beside it;
+ *   · it makes nothing right now (Gaea's Cradle with no creatures).
+ * An activation cost is left to the caller: the offer requires the floating pool to pay it, the dispatcher charges it.
+ */
+export function manualManaTaps(state, playerId) {
+  const out = [];
+  for (const s of manaSources(state, playerId)) {
+    if (s.fromHand || s.noTap) continue;
+    if (s.restriction || s.spentRider) continue;
+    if (s.extraLine) continue;
+    if (!((s.amount ?? 1) > 0)) continue;
+    const fixed = s.fixed && Object.keys(s.fixed).length > 1 ? s.fixed : null;
+    for (const color of fixed ? [Object.keys(fixed)[0]] : (s.colors || []).filter((c) => COLOR_SET.has(c))) {
+      // A bonus makes its own colour (an any-colour boost its first); a sameAsProduced one (Mana Flare) the colour this tap made.
+      const bonus = (s.bonus || []).map((b) => ({ color: b.sameAsProduced ? color : b.colors[0], amount: b.amount }));
+      out.push({ ...tapRecordFor(s, color, bonus), ...(s.activationCost ? { activationCost: s.activationCost } : {}) });
+    }
+  }
+  return out;
+}
+
 // ─── Payment planning ──────────────────────────────────────────────────────────
 
 /**
@@ -2720,10 +2776,8 @@ function planPaymentCore(pool, sources, cost, spendContext = null) {
       if (comp.primary) primaryColor = color;
       else bonusPicks.push({ color, amount: comp.amount });
     }
-    // PAINLAND: stamp the life cost ONLY when the chosen colour is one of the painful ones — a tap for
-    // the free {C} half costs nothing, exactly as printed.
-    const painHit = s.painColors && s.painColors.includes(primaryColor) ? s.painAmount : 0;
-    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(s.noTap && { noTap: true }), /* ③ · 37 */ ...(s.doesNotUntapNext && { doesNotUntapNext: true }), ...(s.restriction?.uncounterableIfSpent && { uncounterableIfSpent: true }), ...(s.spentRider && { spentRider: s.spentRider }), /* SHELF-85 V11 (Path of Ancestry): the "when that mana is spent" rider rides the tap to the cast site */ ...(bonusPicks.length && { bonus: bonusPicks }) }); // + CAP-CAVERN: the cast site reads uncounterableIfSpent off the taps
+    // The commit record (every cost rider of the source) is built by tapRecordFor — the one builder the explicit tap shares.
+    taps.push(tapRecordFor(s, primaryColor, bonusPicks));
     return wantColor && assigned ? wantColor : primaryColor;
   };
 

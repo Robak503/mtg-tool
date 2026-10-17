@@ -2542,8 +2542,8 @@ export function entersAsCreature(state, controller, card, bestowed = false) {
  * scope + subtype are all honored), and returns the serializable specs — `{colors, amount}` plus the quoted cost's
  * flags (`sacrifices`, `requiresTap: false`) and the grant's routing markers (`via`, `upgrade`) — parsed once by
  * staticAbilityParser.parseGrantedManaSpec; manaModel reads these, never re-parses, so the classifier and runtime can't
- * drift. Returns [] when no grant applies. Pure. Read by manaModel.withGrantedMana — the one read manaSources and
- * legalChoices.actionsTapForMana both make — to offer a recipient the mana ability it gained; kept HERE (not manaModel)
+ * drift. Returns [] when no grant applies. Pure. Read by manaModel.withGrantedMana — the one read manaSources makes for the planner
+ * and the explicit tap alike — to offer a recipient the mana ability it gained; kept HERE (not manaModel)
  * because only this module owns `effectAffects`/`matchesSelector`, and exposing the raw specs avoids a layers→manaModel
  * import cycle.
  */
