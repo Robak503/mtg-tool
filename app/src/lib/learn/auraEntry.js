@@ -128,10 +128,15 @@ const ENTRY_HOST_PREDICATES = {
 
 const oracleOf = (card) => String(card?.oracle ?? card?.oracle_text ?? "");
 const frontTypeLine = (card) => String(card?.type || card?.type_line || "").split(" // ")[0];
+/**
+ * Is `card` a Role (CR 303.7 — an Aura with the subtype Role), read off its front face? The one reading of "a Role" for the
+ * entry choice below, the token copy (tokens.applyCreateTokenCopy) and the CR 704.5y state-based check (sba.js).
+ */
+export const isRoleCard = (card) => /\bRole\b/.test(frontTypeLine(card));
 /** Does `perm` already carry a Role (CR 303.7) that `controller` controls? */
 const carriesRoleOf = (state, perm, controller) => (perm.attachments || []).some((id) => {
   const a = findPermanent(state, id);
-  return a?.controller === controller && /\bRole\b/.test(frontTypeLine(a.permanent?.card));
+  return a?.controller === controller && isRoleCard(a.permanent?.card);
 });
 
 // A protection quality layers.permanentProtectionColors does not read (protection.js reads colours and the "creatures" class).
@@ -165,16 +170,17 @@ function cantBeEnchanted(state, perm, controller) {
  *     A detainer's return (CR 610.3) is simultaneous with every other return its leave event set off (CR 610.3d), but the
  *     engine runs each as its own trigger, so a card another detainer returned is already on the battlefield — and an Aura
  *     can't enter attached to a permanent entering at the same time.
- * A ROLE (CR 303.7) never chooses a permanent that already carries a Role its controller controls. CR 704.5y would put the
- * older one into the graveyard, and sba.js does not run that check, so the pair would both stay: a missed host, never two Roles
- * of one player on one permanent.
+ * A ROLE (CR 303.7) never chooses a permanent that already carries a Role its controller controls: CR 704.5y (sba.js) would put
+ * the older of the two into its owner's graveyard at the next check, so the pick never spends a Role that way. The rules allow
+ * that choice, so this list is narrower than CR 303.4f's — a missed host (and, for a token with no other host, a token not
+ * created), never an illegal attachment.
  */
 export function auraEntryHosts(state, auraCard, controller, { onlyCreatures = false, excludeIds = null, presentIds = null } = {}) {
   const spec = auraEntryHostSpec(auraCard);
   const pred = spec ? ENTRY_HOST_PREDICATES[spec.targetType] : null;
   if (!pred) return null;
   const auraColors = colorsOf(auraCard);
-  const isRole = /\bRole\b/.test(frontTypeLine(auraCard));
+  const isRole = isRoleCard(auraCard);
   const out = [];
   for (const pid of Object.keys(state.players || {})) {
     for (const perm of state.players[pid]?.battlefield || []) {

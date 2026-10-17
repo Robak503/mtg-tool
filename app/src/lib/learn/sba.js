@@ -22,6 +22,9 @@
  *   - 704.5r   — +1/+1 and -1/-1 counter annihilation (previously unimplemented; invisible to
  *                layer-derived P/T but VISIBLE to counter-reading effects: undying's intervening-if,
  *                remove-a-counter costs, proliferate, requiresAnyCounter selectors).
+ *   - 704.5y   — Role uniqueness: of the Roles one player controls on one permanent, only the most
+ *                recently attached stays; the rest go to their owners' graveyards (a token ceases to
+ *                exist there, after its leaves triggers — the Wicked Role's drain fires).
  *
  * PLAYER-LOSS SBAs (704.5a-c life/poison/commander-damage) deliberately stay at the session layer
  * (learnSession.recordOutcomeIfChanged / isPlayerDead) — elimination is a session concern (CR 800.4
@@ -44,6 +47,7 @@ import {
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkLeavesTriggers, checkStateTriggers } from "./triggers.js";
 import { permanentIsCreature, permanentHasCardType } from "./layers.js";
 import { grantCitysBlessings } from "./ascend.js"; // shelf D5 — Ascend (CR 702.131b) at the same cadence
+import { isRoleCard } from "./auraEntry.js"; // the one reading of "a Role" (CR 303.7) — the entry choice and the token copy share it
 
 const MAX_PASSES = 10;
 
@@ -157,6 +161,56 @@ function sweepCounterAnnihilation(state) {
 }
 
 /**
+ * CR 704.5y (CR 303.7a) — "If a permanent has more than one Role controlled by the same player attached to it, each of those
+ * Roles except the one with the most recent timestamp is put into its owner's graveyard." Without it a token doubler (Doubling
+ * Season) with one Role creation left two Roles on one creature, both granting their bonus, and a second Role from the same
+ * player never replaced the first.
+ *
+ * THE TIMESTAMP. A Role is an Aura; it receives a new timestamp each time it becomes attached (CR 613.7e), and it enters attached,
+ * so its most recent timestamp is the moment it was last attached. Role tokens carry no `timestamp` field (the token mints never
+ * stamp one), but the engine records exactly that order: every attachment is formed by gameState.attachPermanent, which moves the
+ * attached id to the END of the host's `attachments` — so the newest Role of a player is the last of them in that list. Roles
+ * attached in one event (a doubled creation) come out in creation order; CR 613.7m lets their controller order them, and they
+ * are copies of one Role, so which stays changes nothing.
+ *
+ * Grouped per (permanent, Role controller): Roles of different players on one permanent all stay. A Role counts only while both
+ * links hold (its `attachedTo` names the host and the host lists it). The Role that goes leaves through moveCardToZone — owner
+ * routing, the token vanish (CR 111.7), the host's link teardown and the leave event the end of the sweep drains (the Wicked
+ * Role's "When this Aura is put into a graveyard from the battlefield" fires). Same-state when no permanent carries two Roles of
+ * one player; the quiescent scan reads only attached permanents' type lines and looks nothing up.
+ */
+function sweepRoleUniqueness(state) {
+  let groups = null; // `${hostId} ${controller}` -> { hostId, controller, roles: [permanent] }
+  for (const [pid, player] of Object.entries(state.players)) {
+    for (const perm of player.battlefield) {
+      if (!perm.attachedTo || !isRoleCard(perm.card)) continue;
+      const key = `${perm.attachedTo} ${pid}`;
+      groups ??= new Map();
+      if (!groups.has(key)) groups.set(key, { hostId: perm.attachedTo, controller: pid, roles: [] });
+      groups.get(key).roles.push(perm);
+    }
+  }
+  if (!groups) return state;
+  let next = state;
+  for (const { hostId, controller, roles } of groups.values()) {
+    if (roles.length < 2) continue;
+    const host = findPermanent(state, hostId)?.permanent;
+    if (!host) continue;
+    const order = host.attachments || [];
+    // Newest first: the higher a Role's place in the host's attachments, the later it was attached (CR 613.7e).
+    const ranked = roles.map((role) => ({ role, at: order.indexOf(role.id) })).filter((r) => r.at >= 0).sort((a, b) => b.at - a.at);
+    if (ranked.length < 2) continue;
+    const kept = ranked[0].role;
+    for (const { role } of ranked.slice(1)) {
+      if (!findPermanent(next, role.id)) continue;
+      next = moveCardToZone(next, { playerId: controller, fromZone: "battlefield", toZone: "graveyard", cardId: role.id });
+      next = logEvent(next, { kind: "role-replaced", turn: next.turn, cardName: role.card?.name, controller, hostName: host.card?.name, keptName: kept.card?.name, cause: "sba" });
+    }
+  }
+  return next;
+}
+
+/**
  * The CR 704.3 fixpoint. Pure; safe (and cheap) to call at every priority checkpoint — every arm
  * returns the identical state object when it has nothing to do, so the quiescent case is one scan.
  */
@@ -183,10 +237,13 @@ export function checkAllStateBasedActions(state) {
     // 704.5r — counter annihilation.
     cur = sweepCounterAnnihilation(cur);
 
+    // 704.5y — one Role per player per permanent.
+    cur = sweepRoleUniqueness(cur);
+
     if (cur === before) break; // fixpoint reached (CR 704.3 "repeated until no more are performed")
   }
   // Drain any leave events queued by non-death exits this sweep produced (aura falls-off / legend-rule
-  // non-creature moves when no dies-pass ran to drain them). No-op on an empty queue.
+  // non-creature moves / a replaced Role, when no dies-pass ran to drain them). No-op on an empty queue.
   if ((cur.pendingLeaveEvents || []).length > 0) cur = checkLeavesTriggers(cur);
   // ASCEND (CR 702.131b, shelf D5) — "any time you control ten or more permanents": checked on the settled board, before
   // the state triggers below so a trigger conditioned on the city's blessing sees it the moment it is granted.

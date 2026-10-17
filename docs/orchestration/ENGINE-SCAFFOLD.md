@@ -389,7 +389,14 @@ graveyard). Each runs through the same chooser; an effect's own limits are host 
 (`onlyCreatures`, `excludeIds`, `presentIds` — the detain return's CR 610.3d board), passed as `enterCardFromZone`'s
 `auraHostOpts`. An offer that would otherwise put an Aura nowhere reads `auraEntry.auraEntryHasHost` (the search, the milled
 pick, a clone's candidates); a targeted pool keeps an unlistable Enchant line out with the `auraEntryModeled` restriction. A
-Role never chooses a permanent already carrying a Role of its controller: sba.js does not run CR 704.5y.
+Role never chooses a permanent already carrying a Role of its controller (narrower than CR 303.4f allows, on purpose: the check
+below would discard one of the two).
+
+**One Role per player per permanent** (2026-10-16, CR 704.5y): `sba.js`'s `sweepRoleUniqueness` keeps, of the Roles one player
+controls on one permanent, only the most recently attached and puts the rest into their owners' graveyards (a token ceases to
+exist there, after its leaves triggers — the Wicked Role's drain fires). Role tokens carry no `timestamp`; the order is the host's
+`attachments` list, which `gameState.attachPermanent` (where every attachment is formed) keeps in attach order — CR 613.7e's new
+timestamp on attaching. "A Role" is one reading, `auraEntry.isRoleCard`. Witness: `roleUniqueness.test.js`.
 
 ### 4.6 Layers (`layers.js`, CR 613)
 

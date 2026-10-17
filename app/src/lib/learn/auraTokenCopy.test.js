@@ -12,8 +12,8 @@
  *     remains in its current zone … If the Aura is a token, it isn't created."
  *   · CR 707.2 — the copy takes the copiable values (an Aura's Enchant line among them), never the original's attachment.
  *   · CR 704.5y — "If a permanent has more than one Role controlled by the same player attached to it, each of those Roles except
- *     the one with the most recent timestamp is put into its owner's graveyard." sba.js does not run this check, so a copied Role
- *     never chooses a permanent that already carries a Role of its controller's (a missed host, never two Roles on one creature).
+ *     the one with the most recent timestamp is put into its owner's graveyard." sba.js runs it (roleUniqueness.test.js); a copied
+ *     Role still never chooses a permanent that already carries a Role of its controller's — the check would discard one of them.
  * A Saga copy stays unoffered: the token path does not give it its lore counter (CR 714.3a).
  *
  * Flash Photography is cast for real (legal action → dispatch → resolve); the Role is minted by the engine's own Role resolver.
@@ -124,12 +124,12 @@ describe("⭐ Flash Photography copies an Aura — the token chooses what it enc
   });
 });
 
-describe("⭐ Caretaker's Talent copies a Role — never onto a permanent that already has one of yours (CR 704.5y is not modeled)", () => {
+describe("⭐ Caretaker's Talent copies a Role — never onto a permanent that already has one of yours (CR 704.5y would discard one)", () => {
   const COPY = parseEffectClause("create a token that's a copy of target token you control", "Enchantment");
   /**
    * A Monster Role minted by the engine's own Role resolver onto your Craw Wurm, THEN the rest of your permanents arrive (a
-   * Doubling Season already out would double that first Role too — two on the Wurm, the CR 704.5y gap this file works around,
-   * not the copy under test), then the level-2 copy aimed at the Role.
+   * Doubling Season already out would double that first Role too — two on the Wurm until the CR 704.5y check, which
+   * roleUniqueness.test.js covers; not the copy under test), then the level-2 copy aimed at the Role.
    */
   function copyRole(extraUser = []) {
     let s = board({ user: [P("wurm", "user", WURM), P("bears", "user", BEARS)] });

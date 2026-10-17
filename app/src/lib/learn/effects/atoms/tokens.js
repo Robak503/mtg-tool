@@ -6,7 +6,7 @@ import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintI
 import { tokenMultiplier, tokenAdditive, tokenExtraKinds, tokenOneOfEachPasses, applyCounterDoubling } from "../../replacementEffects.js"; // + tokenOneOfEachPasses — Academy Manufactor (Bumble F4) // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter; Xorn additive Treasure bonus
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
-import { enteringAuraHost } from "../../auraEntry.js"; // CR 303.4f — what a token copy of an Aura enchants as it is created, asked of a seat a person plays (a leaf zones.js already imports)
+import { enteringAuraHost, isRoleCard } from "../../auraEntry.js"; // CR 303.4f — what a token copy of an Aura enchants as it is created, asked of a seat a person plays (a leaf zones.js already imports)
 import { chosenCardTypeOnEnter } from "../../chosenCardType.js"; // CLOUD KEY (CR 707.5 + 614.12a) — a token copy makes the copied "as this enters" card-type choice; a leaf over choicePolicy only
 import { addContinuousEffect } from "../../layers.js"; // MINTED-TOKEN HASTE (shelf D26) — "It gains haste." after a token copy is a lasting layer-6 grant (layers imports no atoms — cycle-free)
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec, halveAmount } from "./shared.js";
@@ -683,11 +683,11 @@ export function applyCreateTokenCopy(state, atom, ctx) {
   // is created (CR 303.4f — auraEntry.enteringAuraHost, nothing targeted), on the board as the creation began, so never
   // another token this call makes; with nothing it may enchant, "If the Aura is a token, it isn't created" (CR 303.4g). It is
   // attached before any enters trigger is checked (a copied Claustrophobia taps its creature). A copy of a ROLE never takes a
-  // host an earlier copy of this call took: two Roles of one player on one creature would wait on CR 704.5y, which sba.js does
-  // not run (auraEntry.js) — so a doubled Role copy with one free creature makes one token, not two on it.
+  // host an earlier copy of this call took: of two Roles of one player on one creature, CR 704.5y (sba.js) keeps only the newer,
+  // so the pick never spends a copy that way (auraEntry.js) — a doubled Role copy with one free creature makes one token.
   const copyType = String(copiable.type || copiable.type_line || "").split(" // ")[0];
   const copyIsAura = /\bAura\b/.test(copyType);
-  const copyIsRole = copyIsAura && /\bRole\b/.test(copyType);
+  const copyIsRole = copyIsAura && isRoleCard(copiable);
   const asCreated = next;
   const rolesTaken = [];
   for (let i = 0; i < count; i++) {

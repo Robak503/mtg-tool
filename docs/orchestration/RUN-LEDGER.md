@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.163.0** (tagged 2026-10-02, published 2026-10-02T19:06:27Z):
-> **51 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **±0** (+46 gained, −46 false credit removed). The next tag
+> **52 commits**, corpus **44.7% (15,467)** at the tag → **44.7% (15,467)**; engine gains since the tag: **±0** (+46 gained, −46 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,51 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎭 2026-10-16 — FIX: one Role per player per permanent (CR 704.5y) — Doubling Season no longer leaves two Roles on one creature · **±0** · corpus unchanged
+> Suite **19,441** green (1 skipped) / 1,808 files. Lint 0 (CR citations: 0 of 10,379 name no rule). Flip-diff **0 / 0 / 0**
+> (34,620 cards; before = 86389b97's code, after = this commit's). **Mutants 6/6** on assertions, restore byte-identical.
+> · **The bug.** `sba.js` had no CR 704.5y arm. A token doubler (Doubling Season, Parallel Lives, Anointed Procession) doubled a
+>   Role creation and `tokens.applyCreateNamedToken` attaches every minted copy to the one target: two Roles on one creature,
+>   both granting. A second Role from the same player stacked instead of replacing the first (Splashy Spellcaster once per
+>   instant or sorcery, Giant Inheritance once per attack, a second Charmed Clothier / Redtooth Genealogist, Eriette's Whisper,
+>   Shatter the Oath). The 10-16 Aura work guarded only the non-cast host choice (`auraEntry.auraEntryHosts`).
+> · **The fix.** `sweepRoleUniqueness`, an arm of the CR 704.3 fixpoint after 704.5r: Roles are grouped per (host, Role
+>   controller); of each group only the most recent stays and the rest go to their owners' graveyards through `moveCardToZone`
+>   (the token vanishes, CR 111.7; the host's link is torn down; the leave event is drained at the end of the sweep, so the
+>   Wicked Role's "When this Aura is put into a graveyard from the battlefield, each opponent loses 1 life" fires). **The
+>   timestamp:** Role tokens carry no `timestamp` field (no token mint in `tokens.js` stamps one), but an Aura's newest
+>   timestamp is its latest attachment (CR 613.7e) and `gameState.attachPermanent` — where every attachment is formed — moves
+>   the id to the end of the host's `attachments`, so the newest Role is the last of its controller's in that list. A doubled
+>   creation's two copies take creation order (CR 613.7m leaves it to their controller; they are identical). A Role counts only
+>   while both links hold. Logged `role-replaced` ({ cardName, controller, hostName, keptName, cause: "sba" }). "A Role" is one
+>   reading now, `auraEntry.isRoleCard` (the entry choice, the token copy and the check). The quiescent scan reads only attached
+>   permanents' type lines and looks nothing up.
+> · **⚑ Results:** games change only where a player's second Role reaches a permanent already carrying one of theirs — the 17
+>   native Role creators (Charmed Clothier, Charming Scoundrel, Cut In, Embereth Veteran, Eriette's Whisper, Giant Inheritance,
+>   Living Lectern, Protective Parents, Redtooth Genealogist, Shatter the Oath, Spiteful Hexmage, Splashy Spellcaster, The
+>   Witch's Vanity, Twisted Fealty, and the Adventures of Besotted Knight, Conceited Witch, Ferocious Werefox), with a token
+>   doubler or a repeat creation. No deck in the three profiles carries one (they carry doublers only: Doubling Season in Atraxa
+>   Superfriends, Earth Bent and Hulk Smash; Flash Photography in Kinnan), and the arm returns the state it was given when no
+>   permanent carries two Roles of one player, so bench games are byte-identical by construction. No epoch notice needed.
+> · Witness `roleUniqueness.test.js` (10; 6 red at 86389b97, all on assertions): Eriette's Whisper cast for real under Doubling
+>   Season — two Wicked Roles made, one stays (Bears 3/3, not 4/4), the newer one, the older in no zone at all, and its drain
+>   costs the opponent 1 life; Cursed then Monster (Cursed goes: Craw Wurm 7/5 trample) and Monster then Cursed (Monster goes:
+>   1/1, no trample); grouped per player (your Cursed goes, the opponent's Wicked between your two stays). Guards (green
+>   before and after): Roles of two players both stay; your Rancor beside your Monster Role stays; a single Role and one Role on
+>   each of two creatures return the very same state.
+> · Mutants: the arm removed (6 red) · the oldest kept (3) · one group for every controller (2) · every attachment counted as
+>   a Role (1) · the replaced Role exiled instead (1 — the Wicked drain) · `isRoleCard` false (9, the token-copy guard included).
+> · Suite note: the first full run (before the lookup-free rewrite) had one timeout — `crucibleRun.test.js` "plays EXACTLY N
+>   games" at 20,376 ms against the 20,000 ms limit under load; alone it runs ~12 s, and an A/B with and without the arm stayed
+>   inside the run-to-run noise (±0.8 s). The final run above is green.
+> · ⚠️ Found, not fixed: (1) `auraEntry.auraEntryHosts` still never lets a Role choose a permanent already carrying a Role of
+>   its controller — now narrower than CR 303.4f (a person can't pick it; a doubled token copy with one free creature makes one
+>   token where the rules make two and discard one, so its enters/leaves triggers — a Wicked drain — are missed). (2) A Role that
+>   phases in alone is re-appended to its host's `attachments` (`phaseInAndExpireShield`), so it reads as the newest though
+>   phasing gives no new timestamp — wrong only if the same player attached another Role to that host while it was phased out.
+>   (3) Tokens minted in `tokens.js` carry no `timestamp`, so their statics sort at 0 in the layer timestamp order whenever they
+>   entered.
 
 > ## 🔧 2026-10-16 — FIX: the explicit tap-for-mana pays the printed cost and honours the condition (Ashnod's Altar, Mox Opal, Birchlore Rangers, Mana Confluence, the painlands) · **±0** · corpus 15,494
 > Suite **19,462** green (1 skipped) / 1,808 files. Lint 0 (CR citations: 0 of 10,368 name no rule). Flip-diff **0 / 0 / 0**
