@@ -1336,7 +1336,9 @@ function applyActivateGyRecursion(state, action) {
   if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
   const card = (player.graveyard || []).find((c) => c.id === action.cardId);
   if (!card) throw new DispatcherError(`Card ${action.cardId} not in graveyard`, "CARD_NOT_FOUND");
-  const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
+  // The creature its tap cost taps (`tapIds`) can't also be an Altar's victim (2026-10-17 — the sources the offer reads, and the
+  // commit's `reserved`).
+  const plan = planPayment(player.manaPool, withoutUnfeedableSacSources(state, action.playerId, manaSources(state, action.playerId), costReservedPermanentIds(action)), action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
   let working = commitPaymentPlan(state, action.playerId, plan, { reserved: costReservedPermanentIds(action) });
   // GR-1 — the ", Discard N cards" cost rider (Stitchwing Skaab kin, CR 601.2h — costs pay BEFORE the

@@ -2132,8 +2132,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         const reducedGeneric = Math.max(0, (emergeCost.generic || 0) - manaValueOf(victim.card));
         const reducedCost = { ...emergeCost, generic: reducedGeneric };
         // Affordability EXCLUDES the victim from the mana sources — a sacrificed mana dork can't also tap to
-        // pay (the γ1 double-spend guard; the dispatcher applies the identical exclusion).
-        const sources = manaSources(state, playerId).filter((s) => s.permanentId !== victim.id);
+        // pay (the γ1 double-spend guard; the dispatcher applies the identical exclusion) — nor feed an Altar (2026-10-17: the
+        // payment's castPaymentSources narrows the Altars' victims by the emerge victim, so the offer does too).
+        const sources = withoutUnfeedableSacSources(state, playerId, manaSources(state, playerId).filter((s) => s.permanentId !== victim.id), new Set([victim.id]));
         if (!canAfford(player.manaPool, sources, reducedCost)) continue;
         actions.push({
           ...base,
@@ -3564,7 +3565,12 @@ function actionsActivateGraveyardRecursion(state, playerId) {
       const subRe = sub ? new RegExp(`\\b${String(sub).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i") : null;
       // P·39 — "Tap an untapped Rebel": every creature type (a changeling, Mirror Entity's activation) is one.
       const pool = (player.battlefield || []).filter((p) => !p.tapped && (subRe ? (subRe.test(String(p.card?.type || "")) || permIsEveryCreatureType(state, p.id)) : permanentIsCreature(state, p.id)));
-      for (const p of pool) out.push({ ...base, tapIds: [p.id], tapName: p.card?.name });
+      // The creature tapped for the cost can't also be an Altar's victim for the mana (2026-10-17 — manaModel's
+      // withoutUnfeedableSacSources, as the dispatcher's payment reads the sources).
+      for (const p of pool) {
+        if (!canAfford(player.manaPool, withoutUnfeedableSacSources(state, playerId, manaSources(state, playerId), new Set([p.id])), cost)) continue;
+        out.push({ ...base, tapIds: [p.id], tapName: p.card?.name });
+      }
       continue;
     }
     out.push(base);

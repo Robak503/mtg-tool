@@ -491,7 +491,13 @@ only beside `choosesCreatureTypeAsEnters`, the one chooser regex the enter site 
   record, in `tapRecordFor` AND in `PAID_MANA_COST_ITEMS` — otherwise its line makes nothing. A "Sacrifice a <kind>" cost is one
   victim kind behind `sacVictimTest` (`sacrificesCreature` — the Altars, Phyrexian Tower; `sacrificesFood` — Gilded Goose,
   2026-10-17): the offer gate, `withoutUnfeedableSacSources`, the one-shot planner pass and the commit (least valuable victim,
-  sacrificed last in the plan) all read it; a new kind is one predicate there plus its flag on the record.
+  sacrificed last in the plan) all read it; a new kind is one predicate there plus its flag on the record. **One victim per cost
+  (2026-10-17):** the record carries its eligible victims (`sacVictimIds`, narrowed by `withoutUnfeedableSacSources`); the planner
+  taps a sacrifice source only while every sacrifice of the payment can still get a DISTINCT victim (`assignSacVictims` — a
+  self-sacrificing tap's permanent leaves every list; a source that is another's victim pays first; the costed path's calls share
+  one claim list), canAfford with it, and a failed plan with contention is retried once without each contended record; the commit
+  assigns the same way on the live board and pays the sacrifice BEFORE it adds the mana (CR 605.3, 602.2b, 601.2h, 605.3b) — no
+  victim, no mana. Two Altars beside one creature make one mana, not two.
 - **Counter costs, no-{T} lines and per-turn limits (2026-10-17).** The two counter-cost lines a record pays are admitted only in
   their whole anchored line (`LAND_COUNTER_MANA_LINE_RE`, `PUT_COUNTER_MANA_LINE_RE` — manaLineRefused refuses the cost item in any
   other line): "{T}, Remove a <charge|mining|depletion> counter from this land: Add …" (`removesCounters` mode `"one"`: one

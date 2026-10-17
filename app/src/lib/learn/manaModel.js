@@ -882,6 +882,131 @@ function sacVictimTest(s) {
   return null;
 }
 
+/**
+ * ONE VICTIM PER SACRIFICE COST (2026-10-17). A mana ability is activated like any activated ability (CR 605.3, 602.2b): its whole
+ * cost is paid first (CR 601.2h — no partial payment; CR 118.3 — no resources, no payment) and only then does it resolve and add
+ * its mana (CR 605.3b). Two sources that each print "Sacrifice a creature" / "Sacrifice a Food" therefore can't share one victim:
+ * the first activation sacrifices it and the second has nothing to pay with. The planner (planPaymentCore's claims), affordability
+ * (canAfford runs the same planner) and the commit (commitPaymentPlan) all assign through assignSacVictims below.
+ *   · picksSacVictim — a record or tap whose cost sacrifices ANOTHER permanent of a kind (the Altars, Phyrexian Tower's and
+ *     Lazotep Quarry's second lines, Thermopod, Gilded Goose);
+ *   · leavesAsItPays — a record or tap whose own permanent leaves as it commits (a self-sacrifice — a Treasure, an Eldrazi Spawn
+ *     — or a depletion land's last counter): it commits before any victim is picked, so it can't be anyone's victim.
+ */
+const picksSacVictim = (s) => !!(s?.sacrificesCreature || s?.sacrificesFood);
+const leavesAsItPays = (s) => !!(s?.sacrifices || s?.sacrificeIfNoCounters);
+
+/** The ids of the permanents `player` controls that can feed source record `prod`'s sacrifice cost NOW (never the source), or
+ *  null when `prod` sacrifices no other permanent. manaSources stamps them on the record (`sacVictimIds`). */
+function sacVictimIdsFor(state, player, sourceId, prod) {
+  const isVictim = sacVictimTest(prod);
+  return isVictim ? (player.battlefield || []).filter((p) => p.id !== sourceId && isVictim(state, p)).map((p) => p.id) : null;
+}
+
+/**
+ * THE ORDER THE SACRIFICES COMMIT IN, for `entries` ([{ source, candidates }]) and the chosen `victims` (an id or null per entry):
+ * a source that is another entry's victim pays first (it is tapped or activated, then sacrificed — Gilded Goose eats its Food,
+ * then Phyrexian Altar eats the Goose); otherwise entry order. Null when two sources would each have to go first (each the
+ * other's victim — two Thermopods), which no order can pay.
+ */
+function sacCommitOrder(entries, victims) {
+  const n = entries.length;
+  const before = entries.map(() => new Set());
+  for (let i = 0; i < n; i++) {
+    if (victims[i] == null) continue;
+    for (let j = 0; j < n; j++) if (j !== i && entries[j].source === victims[i]) before[i].add(j);
+  }
+  const order = [];
+  const placed = new Set();
+  while (order.length < n) {
+    let next = -1;
+    for (let i = 0; i < n && next < 0; i++) if (!placed.has(i) && [...before[i]].every((j) => placed.has(j))) next = i;
+    if (next < 0) return null;
+    placed.add(next);
+    order.push(next);
+  }
+  return order;
+}
+
+/** The most entries a distinct-victim assignment can serve, order ignored (augmenting paths) — an upper bound for the search. */
+function sacMatchingBound(entries) {
+  const owner = new Map(); // victim id → entry index
+  const augment = (i, seen) => {
+    for (const v of entries[i].candidates) {
+      if (seen.has(v)) continue;
+      seen.add(v);
+      if (!owner.has(v) || augment(owner.get(v), seen)) { owner.set(v, i); return true; }
+    }
+    return false;
+  };
+  let n = 0;
+  for (let i = 0; i < entries.length; i++) if (augment(i, new Set())) n++;
+  return n;
+}
+
+/**
+ * ASSIGN ONE DISTINCT VICTIM TO EACH SACRIFICE COST. `entries` — [{ source, candidates }], the candidates in preference order (the
+ * commit lists the least valuable first). Returns { victims, order } — a victim id per entry and an order sacCommitOrder accepts —
+ * or null. Without `allowSkip` every entry must get a victim (the planner's question: can these claims all be paid?). With it
+ * (the commit, against the live board) an entry may get none — that cost is unpaid and its source makes nothing — and the
+ * assignment serving the most entries wins, the earlier entries taking their earlier candidates. Depth-first; the claims of one
+ * payment are a handful, and the search stops at the matching bound.
+ */
+function assignSacVictims(entries, { allowSkip = false } = {}) {
+  const n = entries.length;
+  if (!n) return { victims: [], order: [] };
+  const bound = sacMatchingBound(entries);
+  if (!allowSkip && bound < n) return null;
+  const pick = new Array(n).fill(null);
+  const used = new Set();
+  let best = null;
+  let bestCount = -1;
+  const dfs = (i, count) => {
+    if (bestCount === bound || count + (n - i) <= bestCount) return;
+    if (i === n) {
+      const order = sacCommitOrder(entries, pick);
+      if (order) { best = { victims: [...pick], order }; bestCount = count; }
+      return;
+    }
+    for (const v of entries[i].candidates) {
+      if (used.has(v)) continue;
+      used.add(v);
+      pick[i] = v;
+      dfs(i + 1, count + 1);
+      used.delete(v);
+      pick[i] = null;
+      if (bestCount === bound) return;
+    }
+    if (allowSkip) dfs(i + 1, count);
+  };
+  dfs(0, 0);
+  return best;
+}
+
+/** Can every sacrifice cost among these planner records (one payment's claims) be paid with its own victim? A record that leaves
+ *  as it pays takes its permanent out of every candidate list first. */
+function sacClaimsPayable(records) {
+  const gone = new Set(records.filter(leavesAsItPays).map((r) => r.permanentId));
+  const entries = records.filter(picksSacVictim).map((r) => ({ source: r.permanentId, candidates: (r.sacVictimIds || []).filter((id) => !gone.has(id)) }));
+  return assignSacVictims(entries) !== null;
+}
+
+/** The commit's victim preference: the least valuable first — lowest mana value, then name (SG-3, the house pick). */
+function victimValueOrder(a, b) {
+  const mvOf = (p) => { const cost = String(p.card?.mana_cost || p.card?.mana || ""); let n = 0; for (const m of cost.matchAll(/\{([^}]+)\}/g)) n += /^\d+$/.test(m[1]) ? parseInt(m[1], 10) : (m[1] === "X" ? 0 : 1); return n; };
+  return mvOf(a) - mvOf(b) || String(a.card?.name || "").localeCompare(String(b.card?.name || ""));
+}
+
+/** The live victims of tap `tap`'s sacrifice cost on `state`, least valuable first: the controller's permanents of its kind NOW,
+ *  never its source, never one the action's own costs still need (`reserved`). */
+function liveSacVictims(state, playerId, tap, reserved) {
+  const isVictim = sacVictimTest(tap);
+  if (!isVictim) return [];
+  return (state.players[playerId]?.battlefield || [])
+    .filter((p) => p.id !== tap.permanentId && !reserved?.has(p.id) && isVictim(state, p))
+    .sort(victimValueOrder);
+}
+
 /** Is this card a CREATURE by printed type? Used only to scope the payer-ordering sickness key. */
 function isCreatureCardType(card) {
   return new RegExp(`\\bcreature\\b`, "i").test(String(card?.type || card?.type_line || ""));
@@ -3271,10 +3396,12 @@ export function manaSources(state, playerId) {
     // availability half of the phantom-gate carve; commitManaTap is the payment half).
     if (prod.exilesGyCard && (player.graveyard || []).length === 0) continue;
     // SG-3 — a sacrifice-a-creature source needs ANOTHER creature to feed it (never the source itself, never
-    // offered on an empty board): no victim → no source (CR 601.2h — the cost cannot be paid).
-    if (prod.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && isCreatureNow(state, p))) continue; // a creature NOW (the type-line audit)
-    if (prod.sacrificesFood && !(player.battlefield || []).some((p) => p.id !== perm.id && isFoodNow(state, p))) continue; // Gilded Goose — a Food NOW, never the source (CR 118.3)
-    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(prod.sacrificesFood ? { sacrificesFood: true } : {}), ...(fixed ? { fixed } : {}), ...(painOn ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });
+    // offered on an empty board): no victim → no source (CR 601.2h — the cost cannot be paid). A creature NOW (the type-line
+    // audit); Gilded Goose's a Food NOW, never the source (CR 118.3). The victims ride the record (`sacVictimIds`) so the planner
+    // gives each sacrifice cost of a payment its own (assignSacVictims — two Altars can't share one creature).
+    const sacVictimIds = sacVictimIdsFor(state, player, perm.id, prod);
+    if (sacVictimIds && !sacVictimIds.length) continue;
+    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(prod.sacrificesFood ? { sacrificesFood: true } : {}), ...(sacVictimIds ? { sacVictimIds } : {}), ...(fixed ? { fixed } : {}), ...(painOn ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });
     // STAGE ④-3 — EXTRA MANA LINES (extraLineSources): each its own record on the SAME permanent.
     sources.push(...extraLineSources(state, playerId, player, perm, manaMult));
   }
@@ -3330,7 +3457,8 @@ function extraLineSources(state, playerId, player, perm, manaMult) {
     // Raceway's Max speed (CR 702.179e); a board-derived colour set read live (Opal Palace's commander identity, The Grey Havens'
     // graveyard — empty, no record); a painful pair's damage (Murmuring Bosk), on the same terms as a main product's; Grove of the
     // Burnwillows' opponents' life; a costed line's "when that mana is spent" rider; a bundle's name for the explicit tap.
-    if (extra.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && isCreatureNow(state, p))) continue;
+    const exVictimIds = sacVictimIdsFor(state, player, perm.id, extra); // its victims ride the record, as on a main product
+    if (exVictimIds && !exVictimIds.length) continue;
     if (extra.requiresMaxSpeed && (player.speed || 0) < 4) continue;
     let exColors = exFixed ? Object.keys(exFixed) : extra.colors;
     if (extra.colorsAmongSpec) {
@@ -3339,7 +3467,7 @@ function extraLineSources(state, playerId, player, perm, manaMult) {
     }
     const exPainOn = !!extra.painColors && !(extra.painUnlessCitysBlessing && player.citysBlessing === true)
       && !(extra.painCondition && evaluateInterveningIf(state, extra.painCondition, playerId, { sourcePermanentId: perm.id }) === false);
-    out.push({ permanentId: perm.id, colors: exColors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(exPainOn ? { painColors: extra.painColors, painAmount: extra.painAmount } : {}), ...(extra.opponentsGainLife ? { opponentsGainLife: extra.opponentsGainLife } : {}), ...(extra.spentRider ? { spentRider: { ...extra.spentRider } } : {}), ...(extra.bundle ? { bundle: extra.bundle } : {}), ...(extra.activationCost ? { activationCost: extra.activationCost } : {}), ...(extra.payLife != null ? { payLife: extra.payLife } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: oneCounter ? 1 : crCount } } : {}), ...(extra.sacrificeIfNoCounters && extra.removesCounters ? { sacrificeIfNoCounters: true } : {}), ...(extra.requiresTap === false ? { noTap: true } : {}), ...(extra.putsCounter ? { putsCounter: { ...extra.putsCounter } } : {}), ...(extra.activationLimit?.perTurn != null ? { limitKey: manaLimitKey(perm.id, extra.activationLimit) } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), ...(exTaps ? { extraTaps: exTaps } : {}), ...(staysTapped ? { staysTapped: true } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
+    out.push({ permanentId: perm.id, colors: exColors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(extra.sacrificesFood ? { sacrificesFood: true } : {}), ...(exVictimIds ? { sacVictimIds: exVictimIds } : {}), ...(exPainOn ? { painColors: extra.painColors, painAmount: extra.painAmount } : {}), ...(extra.opponentsGainLife ? { opponentsGainLife: extra.opponentsGainLife } : {}), ...(extra.spentRider ? { spentRider: { ...extra.spentRider } } : {}), ...(extra.bundle ? { bundle: extra.bundle } : {}), ...(extra.activationCost ? { activationCost: extra.activationCost } : {}), ...(extra.payLife != null ? { payLife: extra.payLife } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: oneCounter ? 1 : crCount } } : {}), ...(extra.sacrificeIfNoCounters && extra.removesCounters ? { sacrificeIfNoCounters: true } : {}), ...(extra.requiresTap === false ? { noTap: true } : {}), ...(extra.putsCounter ? { putsCounter: { ...extra.putsCounter } } : {}), ...(extra.activationLimit?.perTurn != null ? { limitKey: manaLimitKey(perm.id, extra.activationLimit) } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), ...(exTaps ? { extraTaps: exTaps } : {}), ...(staysTapped ? { staysTapped: true } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
   }
   return out;
 }
@@ -3363,15 +3491,22 @@ export function costReservedPermanentIds(action) {
  * cost permanents) is set aside. manaSources offers such a source while ANY other creature is there; when the only
  * other creature is the very one the action sacrifices or taps, the source cannot pay (CR 601.2h) and must not count
  * toward affordability. Shared by the offer and the payment so the two cannot diverge.
+ * Each kept source's victims (`sacVictimIds`) lose the reserved ones too (2026-10-17), so the planner never gives a reserved
+ * permanent to an Altar as its own victim: two Altars beside two creatures, one of them the action's, pay one mana, not two.
  */
 export function withoutUnfeedableSacSources(state, playerId, sources, reserved) {
   if (!reserved || !sources.some((s) => sacVictimTest(s))) return sources;
   const bf = state?.players?.[playerId]?.battlefield || [];
   // Each kind reads its own pool: a creature NOW for the Altars, a Food NOW for Gilded Goose (the type-line audit).
-  return sources.filter((s) => {
+  const out = [];
+  for (const s of sources) {
     const isVictim = sacVictimTest(s);
-    return !isVictim || bf.some((c) => c.id !== s.permanentId && !reserved.has(c.id) && isVictim(state, c));
-  });
+    if (!isVictim) { out.push(s); continue; }
+    const ids = (Array.isArray(s.sacVictimIds) ? s.sacVictimIds : bf.filter((c) => c.id !== s.permanentId && isVictim(state, c)).map((c) => c.id))
+      .filter((id) => !reserved.has(id));
+    if (ids.length) out.push({ ...s, sacVictimIds: ids });
+  }
+  return out;
 }
 
 /**
@@ -3558,13 +3693,40 @@ export function planPayment(pool, sources, cost, spendContext = null) {
   if (!plan || !boardJudgmentCanDiffer(all)) return plan;
   return planPaymentPasses(pool, all, cost, spendContext, all) ?? plan;
 }
-/** The one-shot two-pass above; `board` — null for each call's own judgment, else the list the generic tap judges by. */
+/**
+ * The one-shot two-pass above; `board` — null for each call's own judgment, else the list the generic tap judges by.
+ * + VICTIM CONTENTION (2026-10-17): the planner passes over a sacrifice source whose victim another source of the same payment
+ * already claimed, and the greedy order decides which one claims it — Phyrexian Altar first in board order took the one creature
+ * for one mana, and Ashnod's Altar, which makes {C}{C} from the same creature, could no longer pay {2}. So when no plan pays and
+ * the list holds such a contention (two sacrifice costs sharing a victim, or a self-sacrificing source that is a victim), the
+ * planner tries again without each contended record in turn (once each, never nested) and takes the first plan that pays. A
+ * board without contention plans exactly as before; affordability only grows by plans the board can make.
+ */
 function planPaymentPasses(pool, all, cost, spendContext, board) {
+  const plan = planPaymentPassesOnce(pool, all, cost, spendContext, board);
+  if (plan) return plan;
+  for (const r of victimContention(all)) {
+    const retry = planPaymentPassesOnce(pool, all.filter((s) => s !== r), cost, spendContext, board);
+    if (retry) return retry;
+  }
+  return null;
+}
+function planPaymentPassesOnce(pool, all, cost, spendContext, board) {
   if (all.some(isOneShotSource)) {
     const kept = planPaymentRemovalAware(pool, all.filter((s) => !isOneShotSource(s)), cost, spendContext, board);
     if (kept) return kept;
   }
   return planPaymentRemovalAware(pool, all, cost, spendContext, board);
+}
+/** The records a contention retry may leave out: every sacrifice source and every self-sacrificing victim, when two sacrifice
+ *  costs list the same victim or a victim leaves as it pays; none otherwise. */
+function victimContention(all) {
+  const pickers = all.filter(picksSacVictim);
+  if (!pickers.length) return [];
+  const listed = new Map(); // victim id → how many sacrifice records list it
+  for (const p of pickers) for (const id of p.sacVictimIds || []) listed.set(id, (listed.get(id) || 0) + 1);
+  const eaten = all.filter((s) => leavesAsItPays(s) && listed.has(s.permanentId));
+  return [...listed.values()].some((n) => n > 1) || eaten.length ? [...pickers, ...eaten] : [];
 }
 /**
  * STAGE ④-4 — TWO-PASS PLANNING around counter-removal sources. A storage land offers two records on one
@@ -3610,10 +3772,10 @@ function addTapMana(pool, tap) {
 }
 /** The tap record of an activated costed source, built by the core from the source alone (an empty pool, one pip of the colour
  *  the cost still needs most) — so every rider rides as on any tap; null when the core won't tap it with no spend context. */
-function activatedSourceTap(s, cost, curPool) {
+function activatedSourceTap(s, cost, curPool, claims = null) {
   const colors = (s.colors || []).filter((c) => COLOR_SET.has(c));
   const want = colors.find((c) => (cost?.[c] || 0) > (curPool[c] || 0)) || colors[0];
-  return want ? planPaymentCore(null, [s], { [want]: 1 }, null)?.taps?.[0] ?? null : null;
+  return want ? planPaymentCore(null, [s], { [want]: 1 }, null, null, claims)?.taps?.[0] ?? null : null;
 }
 /**
  * Pay a mana-costed source's activation out of the FLOATING POOL alone — the explicit tap (a manual mana ability: no auto-tap
@@ -3688,20 +3850,24 @@ function activateCostedInOrder(pool, free, order, cost, spendContext, board) {
   const preTaps = [];
   const activationSpend = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
   const spent = new Set();
+  // 2026-10-17 — the sacrifices this payment's earlier calls planned (each call appends its own on success): an Altar that funds a
+  // Signet and a second Altar in the rest call can't both take the one creature (planPaymentCore's `claims`).
+  const claims = [];
   for (const s of order) {
     if (!s?.activationCost || spent.has(s.permanentId)) continue; // (an unpriceable cost never reaches here — manaSources drops that record)
-    if (!activatedSourceTap(s, cost, curPool)) continue; // the core won't tap it (restricted / produces nothing) — don't fund it
-    const fund = planPaymentCore(curPool, remaining.filter((r) => r.permanentId !== s.permanentId), s.activationCost, null, board);
+    if (!activatedSourceTap(s, cost, curPool, [...claims])) continue; // the core won't tap it (restricted / produces nothing / no victim left) — don't fund it
+    const fund = planPaymentCore(curPool, remaining.filter((r) => r.permanentId !== s.permanentId), s.activationCost, null, board, claims);
     if (!fund) continue;
     for (const tap of fund.taps) curPool = addTapMana(curPool, tap);
     for (const c of MANA_COLORS) { curPool[c] -= fund.spend[c] || 0; activationSpend[c] += fund.spend[c] || 0; }
-    const tap = activatedSourceTap(s, cost, curPool);
+    const tap = activatedSourceTap(s, cost, curPool, claims);
+    if (!tap) return null; // its funding took the victim its own cost needed — this order pays nothing (no costed source sacrifices another today)
     curPool = addTapMana(curPool, tap);
     preTaps.push(...fund.taps, tap);
     const gone = new Set([s.permanentId, ...fund.taps.map((x) => x.permanentId)]);
     for (const id of gone) spent.add(id);
     remaining = remaining.filter((r) => !gone.has(r.permanentId));
-    const rest = planPaymentCore(curPool, remaining, cost, spendContext, board);
+    const rest = planPaymentCore(curPool, remaining, cost, spendContext, board, claims);
     if (rest) return { ...rest, taps: [...preTaps, ...rest.taps], activationSpend };
   }
   return null;
@@ -3745,6 +3911,9 @@ function plannerSourceRecord(s) {
     // (a planned Molt Tender tap exiled nothing; now it does).
     sacrificesCreature: !!s.sacrificesCreature,
     sacrificesFood: !!s.sacrificesFood, // play-weighted #803 — Gilded Goose's Food, sacrificed by the commit
+    // 2026-10-17 — the permanents that can feed that sacrifice (manaSources' `sacVictimIds`): the planner's claims give each
+    // sacrifice cost of one payment its own (assignSacVictims). A sacrificing record without the list has no victim it can claim.
+    sacVictimIds: picksSacVictim(s) ? (Array.isArray(s.sacVictimIds) ? [...s.sacVictimIds] : []) : null,
     exilesGyCard: !!s.exilesGyCard,
     fromHand: !!s.fromHand, // SG-6 — the source is a HAND card; the committer exiles it instead of tapping
     removesCounters: s.removesCounters || null, // STAGE ④-4 — the counters this tap removes (the commit removes exactly these)
@@ -3807,8 +3976,11 @@ function boardJudgmentCanDiffer(board) {
   return false;
 }
 
-/** `board` — null: the generic tap judges by this call's own records; else also by every line of the whole list (planPayment's plan 2). */
-function planPaymentCore(pool, sources, cost, spendContext = null, board = null) {
+/** `board` — null: the generic tap judges by this call's own records; else also by every line of the whole list (planPayment's plan 2).
+ *  `claims` — null, or the planner records an earlier call of the SAME payment already tapped (activateCostedInOrder's funding and
+ *  rest calls): this call's sacrifice costs and self-sacrifices must fit beside theirs (assignSacVictims), and on success this
+ *  call's own records are appended to it, so the next call sees them too. */
+function planPaymentCore(pool, sources, cost, spendContext = null, board = null, claims = null) {
   const spend = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
   if (!cost) return { taps: [], spend };
 
@@ -3877,6 +4049,17 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null)
   const taps = [];
   const spendOne = (color) => { working[color] -= 1; spend[color] += 1; };
 
+  // ONE VICTIM PER SACRIFICE COST (2026-10-17). `mine` — the records this call taps that sacrifice another permanent or leave as
+  // they pay. A source is tapped only if every sacrifice cost of the payment so far (the earlier calls' `claims`, `mine`, and it)
+  // can still be paid with its own victim: the second Altar beside one creature, an Eldrazi Spawn that is the Altar's only
+  // victim, Gilded Goose's only Food claimed twice — each is passed over, never planned for mana its cost can't pay.
+  const mine = [];
+  const victimsHold = (s) => {
+    if (!picksSacVictim(s) && !leavesAsItPays(s)) return true;
+    const all = [...(claims || []), ...mine, s];
+    return !all.some(picksSacVictim) || sacClaimsPayable(all);
+  };
+
   // AURA-LAND-MANA-BOOST: a source's full producible-color set = its OWN colors ∪ every boost-Aura
   // bonus's colors (the bonus mana appears INLINE when the land taps, CR 605.1b). So a Forest carrying
   // Fertile Ground ("additional one mana of any color") can satisfy an OFF-color pip via the bonus,
@@ -3893,6 +4076,7 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null)
   // mana the source genuinely produces — never fabricated; surplus floats.
   const tapSource = (s, wantColor) => {
     s.used = true;
+    if (picksSacVictim(s) || leavesAsItPays(s)) mine.push(s);
     // STAGE ④-3: a permanent's OTHER mana-line records are the same {T} — one tap, one line (CR 605.3a). Mark
     // every sibling record of this permanent used so the planner can never tap it twice through two lines.
     // + STAGE ③ · 37: records that are each their own ACTIVATION (a no-{T} remove-a-counter source — one record per counter)
@@ -3956,7 +4140,7 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null)
     let bestLen = Infinity;
     for (let i = 0; i < avail.length; i++) {
       const s = avail[i];
-      if (s.used || !sourceCanMake(s, color)) continue;
+      if (s.used || !sourceCanMake(s, color) || !victimsHold(s)) continue;
       // Constraint = how many distinct colors this source can make (own ∪ bonus); the least-flexible wins.
       const flex = new Set([...s.colors, ...s.bonus.flatMap(b => b.colors)]).size;
       if (flex < bestLen) { bestLen = flex; best = i; }
@@ -4014,7 +4198,7 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null)
     if (best) return tapSource(best, null);
     for (const preferSac of [false, true]) {
       for (const s of avail) {
-        if (s.used || s.colors.length === 0 || !!s.sacrifices !== preferSac) continue;
+        if (s.used || s.colors.length === 0 || !!s.sacrifices !== preferSac || !victimsHold(s)) continue;
         return tapSource(s, null);
       }
     }
@@ -4034,7 +4218,7 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null)
     let bestLen = Infinity;
     for (let i = 0; i < avail.length; i++) {
       const s = avail[i];
-      if (s.used || !s.snow) continue;
+      if (s.used || !s.snow || !victimsHold(s)) continue;
       const flex = new Set([...s.colors, ...s.bonus.flatMap(b => b.colors)]).size;
       if (flex < bestLen) { bestLen = flex; best = i; }
     }
@@ -4102,6 +4286,7 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null)
     }
   }
 
+  if (claims) claims.push(...mine); // the next call of the same payment sees this call's sacrifices (activateCostedInOrder)
   return { taps, spend, ...(entrySpends.length ? { entrySpends } : {}) };
 }
 
@@ -4125,8 +4310,29 @@ export function canAfford(pool, sources, cost, spendContext = null) {
  * against a battlefield that may have changed (the stale-scan FP window). Shared by every payment path — the
  * dispatcher's plan commits, applyTapForMana's explicit tap, and payManaCost's resolution-layer payment —
  * so the commit semantics can't drift.
+ * `victimId` (commitPaymentPlan's assignment, assignSacVictims): the permanent this tap's "Sacrifice a <kind>" cost takes — null for
+ * none — instead of the least valuable one found here (the explicit tap's single activation, a hand-built tap).
  */
-export function commitManaTap(state, playerId, tap, { reserved = null } = {}) {
+export function commitManaTap(state, playerId, tap, { reserved = null, victimId } = {}) {
+  // THE SACRIFICE-A-<KIND> COST FIRST (SG-3 — Ashnod's / Phyrexian Altar, Phyrexian Tower, Thermopod; play-weighted #803 — Gilded
+  // Goose's Food). A mana ability's costs are paid before it resolves and adds its mana (CR 605.3, 602.2b, 601.2h; CR 605.3b), so
+  // the victim is found and sacrificed before anything is added: the least valuable OTHER permanent of its kind (lowest mana
+  // value, then name — never the source, never one the action's own costs still need, `reserved`: feeding one of those to the
+  // Altar would leave that cost unpayable a moment later), or the one commitPaymentPlan assigned. It goes through the cost
+  // sacrifice, so its dies and sacrifice triggers fire (CR 700.4). NO VICTIM (one the same payment's other sacrifice already took,
+  // or one gone since the plan) → the cost can't be paid (CR 118.3), so the ability isn't activated: nothing is added, tapped or
+  // paid, and the unpaid cost is logged. Until 2026-10-17 the mana was added first and kept when the victim was missing — two
+  // Altars beside one creature made two mana from one sacrifice.
+  const isVictim = sacVictimTest(tap);
+  let paidVictim = null;
+  if (isVictim) {
+    const kind = tap.sacrificesCreature ? "creature" : "food";
+    const live = liveSacVictims(state, playerId, tap, reserved); // a creature / Food NOW (the type-line audit) — Ashnod's Altar never eats a God below its devotion
+    const victim = victimId === undefined ? live[0] : live.find((p) => p.id === victimId);
+    if (!victim) return logEvent(state, { kind: "mana", event: `sacrifice-${kind}-cost-unpaid`, permanentId: tap.permanentId, playerId });
+    state = sacrificePermanentForCost(state, playerId, victim);
+    paidVictim = { kind, victim };
+  }
   // MIXED FIXED BUNDLE (karoo / signet): the tap produces its exact per-color tally, so the commit adds each
   // color rather than `amount` of the single recorded `color`. Reading the plan's OWN breakdown is what keeps
   // "affordable per planPayment" == "actually paid" for these sources — the invariant this whole seam exists
@@ -4168,29 +4374,10 @@ export function commitManaTap(state, playerId, tap, { reserved = null } = {}) {
   // a play-quality upgrade, never a rules question. An empty graveyard here (a same-plan earlier tap
   // drained it) exiles nothing and the tap still resolves — logged distinctly so the under-pay is VISIBLE,
   // never silent; the offer gate makes this vanishingly rare.
-  // SG-3 — SACRIFICE-A-CREATURE cost (Ashnod's / Phyrexian Altar): the least-valuable OTHER creature (lowest
-  // mana value, then name — never the source) goes to the graveyard through the dies chokepoint, so its dies
-  // triggers fire like any sacrifice (CR 700.4). No victim at commit time (a race the offer gate already
-  // refused) → the tap is logged unpaid rather than fabricated, mirroring the exile-cost branch below.
-  // + SACRIFICE-A-FOOD (play-weighted #803, 2026-10-17 — Gilded Goose): the same commit with a Food victim pool (isFoodNow), the
-  // least valuable Food (a token before Tough Cookie) through the same cost sacrifice; its own log event names.
-  const isVictim = sacVictimTest(tap);
-  if (isVictim) {
-    const kind = tap.sacrificesCreature ? "creature" : "food";
-    const bf = next.players[playerId]?.battlefield || [];
-    // `reserved` = the permanents the action being paid for still needs for its OWN costs (its sacrifice victim, the
-    // creatures it taps, a source that taps or sacrifices itself): feeding one of those to the Altar would leave that
-    // cost unpayable a moment later ("Sacrifice victim … not on battlefield").
-    const victims = bf.filter((p) => p.id !== tap.permanentId && !reserved?.has(p.id) && isVictim(next, p)); // a creature / Food NOW (the type-line audit) — Ashnod's Altar never eats a God below its devotion
-    const mvOf = (p) => { const cost = String(p.card?.mana_cost || p.card?.mana || ""); let n = 0; for (const m of cost.matchAll(/\{([^}]+)\}/g)) n += /^\d+$/.test(m[1]) ? parseInt(m[1], 10) : (m[1] === "X" ? 0 : 1); return n; };
-    victims.sort((a, b) => mvOf(a) - mvOf(b) || String(a.card?.name || "").localeCompare(String(b.card?.name || "")));
-    const victim = victims[0];
-    if (victim) {
-      next = sacrificePermanentForCost(next, playerId, victim);
-      next = logEvent(next, { kind: "mana", event: `sacrifice-${kind}-cost`, permanentId: tap.permanentId, playerId, victimId: victim.id, victimName: victim.card?.name });
-    } else {
-      next = logEvent(next, { kind: "mana", event: `sacrifice-${kind}-cost-unpaid`, permanentId: tap.permanentId, playerId });
-    }
+  // The sacrifice-a-<kind> cost was paid at the top, before the mana; its log line keeps its place here.
+  if (paidVictim) {
+    const { kind, victim } = paidVictim;
+    next = logEvent(next, { kind: "mana", event: `sacrifice-${kind}-cost`, permanentId: tap.permanentId, playerId, victimId: victim.id, victimName: victim.card?.name });
   }
   if (tap.exilesGyCard) {
     const gy = next.players[playerId]?.graveyard || [];
@@ -4285,12 +4472,20 @@ export function commitPaymentPlan(state, playerId, plan, { reserved = null } = {
   // creature the same plan taps for mana (Cryptolith Rite, Enduring Vitality) is tapped first, and only then may one be
   // sacrificed. Committed in plan order, the Altar could sacrifice a creature a later tap of the plan still named
   // ("Permanent … not found"), ending the game in a dispatch error. A plan with no such source keeps its order.
+  // + Gilded Goose's Food (play-weighted #803): picked as it commits too.
+  // + ONE VICTIM EACH (2026-10-17): once the other taps are in, the sacrifices are assigned together on the live board
+  // (assignSacVictims — a distinct victim each, the least valuable first, never `reserved`), and a source that is another's victim
+  // pays first (Gilded Goose taps and eats its Food, then Phyrexian Altar eats the Goose; committed the other way the Goose's own
+  // tap found no permanent). A sacrifice left without a victim pays nothing and makes nothing (commitManaTap). The planner gives
+  // every sacrifice of its plan a victim the same way, so on a plan made from this board none is left out.
   const taps = plan?.taps || [];
-  const picksVictim = (t) => t.sacrificesCreature || t.sacrificesFood; // + Gilded Goose's Food (play-weighted #803): picked as it commits too
-  const ordered = taps.some(picksVictim)
-    ? [...taps.filter((t) => !picksVictim(t)), ...taps.filter(picksVictim)]
-    : taps;
-  for (const tap of ordered) next = commitManaTap(next, playerId, tap, { reserved });
+  const picking = taps.filter(picksSacVictim);
+  for (const tap of picking.length ? taps.filter((t) => !picksSacVictim(t)) : taps) next = commitManaTap(next, playerId, tap, { reserved });
+  if (picking.length) {
+    const entries = picking.map((t) => ({ source: t.permanentId, candidates: liveSacVictims(next, playerId, t, reserved).map((p) => p.id) }));
+    const { victims, order } = assignSacVictims(entries, { allowSkip: true });
+    for (const i of order) next = commitManaTap(next, playerId, picking[i], { reserved, victimId: victims[i] });
+  }
   const topped = next.players[playerId].manaPool;
   const nextPool = {};
   // + activationSpend (the free-activation fix): what funded a mana-costed source — paid out of the pool, never counted as spent on the spell.

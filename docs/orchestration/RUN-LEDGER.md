@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **21 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.8% (15,523)**; engine gains since the tag: **+70** (+79 gained, −9 false credit removed). The next tag
+> **22 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.8% (15,523)**; engine gains since the tag: **+70** (+79 gained, −9 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,83 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX (false positive): one victim per sacrifice cost — two sources that each print "Sacrifice a creature" (Phyrexian Altar, Ashnod's Altar, Phyrexian Tower's and Lazotep Quarry's second lines, Thermopod) or "Sacrifice a Food" (Gilded Goose) no longer share one victim: the planner gives each sacrifice of a payment its own, canAfford with it, and the commit pays the sacrifice BEFORE it adds the mana — no victim, no mana (CR 605.3, 602.2b, 601.2h, 605.3b); and the creature an action's own cost taps or sacrifices (Purple Pentapus's tap cost, emerge) is no Altar's victim in the offer either · **±0** · snapshot native 15,509 unchanged
+> Suite **20,613 green (1 skipped) / 1,870 files** under the gate queue (with the rules index built locally for the run, then deleted). Lint 0
+> (CR citations: 0 of 11,451 name no rule; keyword citations: 0 of 2,371 cite a different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620
+> cards; before = an untouched `git archive` of 6ebc7a70, snapshotted before the first edit; native 15,509 of 34,584 snapshot names on both;
+> every one of the 34,584 names has the same tier). **Mutants 9/9** on assertions, each restored byte-identical (sha256). Witness
+> `sacrificeVictimDistinct.test.js` (25): the first 23 written before any engine change — **15 fail on the 6ebc7a70 engine on assertions, 8
+> controls pass**; the final 25 on an untouched 6ebc7a70 archive — **17 fail on assertions, the 8 controls pass** (the two added while building:
+> Purple Pentapus, emerge). A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched
+> 6ebc7a70 archive): **80 / 80 byte-identical** (every decision row, the log, winner and turns), 0 errors on either tree, results unchanged
+> (ai-wins 57 / user-wins 23), 180 s / 173 s per batch. **No game changed an Altar's mana — and none made any:** not one sacrifice-a-creature
+> or sacrifice-a-Food mana payment (planned or explicit) on either tree, so this batch does not exercise the seam; the witness tests carry
+> the evidence.
+> Committed on `day/sacvictim`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The bug** (found while building the Gilded Goose slice; reproduced). manaSources gated each sacrifice source on "some other creature /
+>   Food exists" alone, and the planner tapped every such record it was handed: two Phyrexian Altars beside one Grizzly Bears planned two
+>   mana, canAfford said yes to {2}, and the cast was offered; commitManaTap added each tap's mana FIRST, then looked for a victim, found the
+>   second Altar's gone, logged `sacrifice-creature-cost-unpaid` and kept the mana. Measured on the base engine: two Altars + one creature
+>   pay {2} (and Grizzly Bears is offered and cast), Phyrexian + Ashnod's Altar + one creature pay {3}, two Gilded Geese + one Food pay {2},
+>   two Altars + Gilded Goose + Tough Cookie pay {3} (legal: 2; the commit then threw "Permanent goose not found"), Phyrexian Altar + an
+>   Eldrazi Spawn as its only victim pay {2} (the Spawn cracked for itself AND fed to the Altar), Phyrexian Tower's {B}{B} line + Phyrexian
+>   Altar + one creature pay {B}{B}{1}, two Altars + one creature fund Simic Signet and still pay {G}{U}{1}, and payGenericMana (the
+>   resolution layer) paid {2} off two Altars and one creature. The explicit taps were already right: after one Altar eats the only creature,
+>   manaSources offers the other no more (the board is re-read per tap).
+> · **The fix** (manaModel). Each sacrifice record carries its eligible victims (`sacVictimIds` — a creature / Food NOW, never the source;
+>   main products and extra lines alike; an extra line's `sacrificesFood` now rides its record too). `assignSacVictims` — a distinct victim
+>   per cost, depth-first under an augmenting-path bound; a record that leaves as it pays (a self-sacrifice, a depletion land's last counter)
+>   takes its permanent out of every list; a source that is another's victim commits first (`sacCommitOrder`: Gilded Goose taps and eats its
+>   Food, then Phyrexian Altar eats the Goose — two sources each the other's victim, two Thermopods, have no order). **Planner:**
+>   planPaymentCore taps a sacrifice source (or a self-sacrificing one) only while every sacrifice of the payment can still get its own
+>   victim (`victimsHold` at the snow, colour and generic picks); activateCostedInOrder's funding, activation and rest calls share one claim
+>   list. **Affordability** is the same planner. **Contention retry:** when no plan pays and two sacrifice records share a victim (or a
+>   victim sacrifices itself), planPaymentPasses tries once more without each contended record (never nested) — Phyrexian Altar first in
+>   board order took the creature, and Ashnod's Altar's {C}{C} from the same creature could no longer pay {2}; a board without contention
+>   plans exactly as before. **Commit:** commitPaymentPlan commits every other tap, then assigns the sacrifices on the live board (least
+>   valuable first, never `reserved`) and commits them in that order; commitManaTap pays the sacrifice before anything is added, and with no
+>   victim it adds, taps and pays nothing (`sacrifice-<kind>-cost-unpaid` logged). The explicit tap keeps its own least-valuable pick.
+>   `withoutUnfeedableSacSources` now also narrows each kept source's victims by the reserved permanents.
+> · **The action's own cost permanents.** The commit never feeds `reserved` to an Altar, so a planner that counted one left the payment short.
+>   Purple Pentapus's "{2}{B}, Tap an untapped creature you control" (graveyard recursion; Otharri the same) was offered, and paid, with
+>   Phyrexian Altar eating the very creature the cost taps — phantom mana on base. The offer now checks affordability per tapped creature
+>   through withoutUnfeedableSacSources, and applyActivateGyRecursion plans from the same narrowed sources. The emerge offer narrows the Altars'
+>   victims by the emerge victim as castPaymentSources already did (base: Wretched Gryff offered off three Islands + an Altar whose only
+>   victim was the emerge sacrifice, then MANA_SHORT on dispatch).
+> · **Reach** (manaSources over every bundled card with "sacrifice" and "add" — 894 — on a board with two creatures and two Foods): **7 carry a
+>   sacrifice-another record** — Phyrexian Altar, Ashnod's Altar, Thermopod, Everythingamajig (main, no {T}), Gilded Goose (a Food), Phyrexian
+>   Tower and Lazotep Quarry (extra lines). Profile decks: **none holds two or more**; one holds one beside a Food maker — The Unbeatable
+>   Squirrel Girl (Phyrexian Altar; Peregrin Took and The Cabbage Merchant make non-creature Foods, which the Altar can't eat). No profile deck
+>   holds Gilded Goose. So the reach in the profile decks is one Phyrexian Altar, whose single-victim payments
+>   are unchanged (the assignment's first pick is the old least-valuable pick) unless its only victim sacrifices itself for mana in the same
+>   payment or is a permanent the action's own cost claims.
+> · **Witness `sacrificeVictimDistinct.test.js`** (25, bundled oracle text): the planner (two Altars + one creature, Phyrexian + Ashnod's with
+>   Ashnod's alone still paying {2}, two Geese + one Food, two Altars + Goose + Tough Cookie, Altar + a lone Eldrazi Spawn, Phyrexian Tower's
+>   line + Altar, the Signet-funded costed path, a mana bound over {1}–{4}); the commit (no victim → no mana, a planned victim gone → that
+>   Altar makes nothing, the Goose pays before the Altar eats it, payGenericMana); runtime (Grizzly Bears not offered off two Altars / two
+>   Geese with one victim); the action's own permanents (Purple Pentapus, withoutUnfeedableSacSources' narrowing, emerge); controls (one Altar
+>   + one creature; two Altars + two creatures cast Grizzly Bears, each its own victim; two Altars + three creatures take the two least
+>   valuable; Goose + Altar + Tough Cookie pay {2}; a Forest is still tapped before the Altar; a creature tapped for mana may still be fed to
+>   the Altar afterwards; the explicit taps).
+> · **Mutants (9/9 on assertions):** the planner's claim check off; the commit adding the mana with no victim; the costed rest call without the
+>   earlier claims; the commit in plan order; no contention retry; withoutUnfeedableSacSources keeping reserved victims; a self-sacrificing
+>   source left in the victim lists; the Pentapus offer and the emerge offer un-narrowed. (The first build of the second mutant was itself
+>   malformed — a TypeError, not an assertion — and was rewritten before it counted.)
+> · **⚑ Judgment calls.** (1) Thermopod may sacrifice itself ("Sacrifice a creature" names no "another"); the engine keeps every sacrifice
+>   source's victim another permanent (as SG-3 did), so two Thermopods now pay one {R} where base paid two by an illegal sequence (the second
+>   Thermopod activated after it was sacrificed) — a safe false negative, unchanged in kind. (2) The contention retry is one level deep: a board
+>   needing two records left out to find its plan stays unpayable (FN-safe). (3) A sacrifice record without `sacVictimIds` (none is built
+>   outside manaSources) is planned as having no victim.
+> · ⚠️ **Found, not fixed:** (1) **The exile-from-graveyard cost has the same shape** — Molt Tender and Rubble Rouser ("{T}, Exile a card from your
+>   graveyard: Add …", the only two bundled carriers): two of them beside one graveyard card pay {2} (measured), since the planner counts no
+>   graveyard cards across sources and commitManaTap's exile branch logs `exile-gy-cost-unpaid` and keeps the mana (manaModel.js:4387). (2)
+>   The activated-ability offer's fast path (legalChoices.js:2783) doesn't narrow the Altars' victims by the activating permanent while the
+>   payment does (actionDispatcher.js:1545, costReservedPermanentIds): a "{1}, {T}:" creature ability with Phyrexian Altar as the only mana
+>   and that creature its only victim is offered, then throws MANA_SHORT (measured with a probe card) — an offer/payment divergence, not
+>   free mana. (3) Read, not reproduced: Purple Pentapus's tapped creature can still be planned as a mana source beside Cryptolith Rite, and
+>   the tap cost then throws COST_UNPAYABLE (actionDispatcher.js:1365). (4) `manaUntapLine.availableMana` (manaUntapLine.js:85, an AI
+>   estimate no legality reads) still sums two Altars sharing one victim twice.
 
 > ## 🎯 2026-10-17 — PLAY-WEIGHTED: the SNC family fetch lands — Riveteers Overlook (EDHREC #716), Cabaretti Courtyard (#969), Maestros Theater (#1284), Brokers Hideout (#1315), Obscura Storefront (#1671) — "sacrifice it. When you do, search …, then shuffle and you gain 1 life", the reflexive gated on the sacrifice and the gate carried across the search's pause; Castle Locthwain (#793) — "you lose life equal to the number of cards in your hand"; Oran-Rief, the Vastwood (#736) — "each green creature that entered this turn" (+ Novijen, Raucous Entertainer); the AI plays all three · **+9** · snapshot native 15,492 → 15,501
 > Suite **20,513 green (1 skipped) / 1,865 files** under the gate queue (with the rules index built locally, as CI does, then deleted). Lint 0 (CR citations: 0 of
