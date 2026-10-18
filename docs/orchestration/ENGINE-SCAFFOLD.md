@@ -1234,6 +1234,18 @@ lifelink, never dealt infect's counters, never fed Sengir Vampire or an enrage t
 through one of the two funnels.** An effect whose hits are simultaneous (both creatures of a fight) is ONE event: lock
 the amounts, deal every hit, then the single lethal pass.
 
+**The dealer** (`spellEffects.damageDealer`, 2026-10-17) is read the same way for every source — a pinger's or a trigger's
+own permanent ("This creature deals 1 damage" is dealt by the creature, CR 113.7a), a fighting creature, Warstorm Surge's
+entering creature, a spell. On the battlefield: the permanent now — lifelink, deathtouch, infect and wither printed or
+granted (Basilisk Collar), colours and creature-ness after the layers (what protection prevents by, CR 702.16e), and its
+controller (who a lifelink gain goes to, CR 702.15b — Rakdos Charm's "each creature deals 1 damage to its controller").
+Off it: its record — a spell's colours and card types with no damage keyword; a departed permanent's last known keywords,
+colours, types and controller (CR 702.15c, 702.2e, 702.80b), from `ctx.abilitySourceLki` (frozen on the ability by the
+dispatcher when the source leaves paying its own cost — a sacrifice, a self-exile, Walking Ballista's last counter — or
+written by `gameState.stampAbilitySourceLki` when it leaves while the ability is on the stack), `ctx.dyingQualities` (its
+own dies trigger) or `ctx.triggeringLki` (the entering-creature lane). A trigger created after its source already left has
+no record: plain damage, no protection by quality (the safe side).
+
 ### THE DAMAGE-REPLACEMENT CONSULT — one reader, the affected player's order (2026-10-17)
 
 Both funnels finalize every hit through `damageReplacements.consultDamageAmount` (the board gate keeps a board with no
@@ -1253,6 +1265,7 @@ replacement byte-identical). What it reads, and the seams a new carrier rides:
   condition read is Hellbent's "As long as you have no cards in hand" (Anthem of Rakdos).
 - **The source's qualities** (`sourceQualities`, CR 609.7c): a permanent's colours and types NOW (layers); a source off the
   battlefield through `event.sourceLki` — a spell's colours and types (`runEffectProgram` stamps `ctx.spellSource`), the
+  ability's own record (`ctx.abilitySourceLki` — see THE DEAL PATH's dealer), the
   sacrificed-for-cost record (`state.sacrificedSelfLki` carries colours/types), a dies trigger's own look-back
   (`ctx.dyingQualities` from `deathLookback.lkiColors`/`lkiTypes`), the entering-creature lane's `triggeringLki`. Atoms pass
   their source through `effects/atoms/shared.damageSourceFor`; anything else that left carries no record and a

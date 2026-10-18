@@ -1951,7 +1951,22 @@ function applyCdmgMassToDamagedPlayer(state, atom, ctx) {
  * non-combat trigger → no ctx.combatDamageAmount) is a clean no-op (0 amount). In a 1v1 game the only opponent
  * IS the damaged player, so the "other opponent" set is empty → a clean no-op (never a fabricated self-hit or a
  * double-hit on the already-damaged player). "each OTHER opponent" excludes ctx.damagedPlayerId (CR 113.7).
+ *
+ * THE DEALER is the creature that dealt the combat damage — the trigger's "it" (CR 608.2c): every bundled carrier reads
+ * "Whenever <a creature> deals combat damage to an opponent, it deals that much damage to each other opponent", and the
+ * combat-damage scan makes that creature the triggering permanent. On a creature's own trigger (Hydra Omnivore, Grenzo's
+ * Ruffians, Amarant Coral, Human Torch) that is the source; on Super State it is the enchanted creature, and on Kediss,
+ * Emberclaw Familiar the commander (its ruling: "The damage the commander deals as a result of Kediss's triggered
+ * ability"). So the dealer's lifelink, deathtouch, colours and controller are that creature's (spellEffects.damageDealer),
+ * never the Aura's or Kediss's — once it has left, its record (`ctx.triggeringLki`, stamped as it leaves); no record →
+ * plain damage (the safe side).
  */
+function combatDamageDealerSource(state, ctx) {
+  const id = ctx.triggeringPermanentId ?? null;
+  if (id == null || id === ctx.sourceId) return damageSourceFor(state, ctx);
+  if (findPermanent(state, id)) return { id };
+  return ctx.triggeringLki?.permanentId === id ? { id, lki: ctx.triggeringLki } : { id };
+}
 function applyCdmgToEachOtherOpponent(state, atom, ctx) {
   const amount = Math.max(0, resolveScaledAmount(state, atom, ctx) || 0);
   if (amount <= 0) {
@@ -1964,7 +1979,7 @@ function applyCdmgToEachOtherOpponent(state, atom, ctx) {
   if (targets.length === 0) {
     return logEvent(state, { kind: "spell-effect", effect: "cdmg-to-each-other-opponent", controller: ctx.controller, amount });
   }
-  return applyDamageEffect(state, { controller: ctx.controller, amount, targets, source: damageSourceFor(state, ctx) });
+  return applyDamageEffect(state, { controller: ctx.controller, amount, targets, source: combatDamageDealerSource(state, ctx) });
 }
 
 /**
@@ -2560,10 +2575,10 @@ export const stackResolvers = {
     // THE DAMAGE'S SOURCE is the ability's own permanent — except on the entering-creature lane (Warstorm Surge), where the
     // ENTERING creature deals it (CR 608.2h): that creature while it is on the battlefield, else the record written as it
     // left (ctx.triggeringLki — gameState.stampTriggeringLki). Its controller, then or now, is who a lifelink gain goes to
-    // (CR 702.15b) and whose damage replacements apply; `readsKeywords` asks the funnel for its lifelink, deathtouch and
-    // the target's protection from it.
+    // (CR 702.15b) and whose damage replacements apply; the funnel reads its lifelink, deathtouch and the target's protection
+    // from it, as it reads every source's (spellEffects.damageDealer).
     const source = atom.damageSource === "triggering"
-      ? { id: ctx.triggeringPermanentId, controller: ctx.triggeringLki?.controller ?? findPermanent(state, ctx.triggeringPermanentId)?.controller, lki: ctx.triggeringLki ?? null, readsKeywords: true }
+      ? { id: ctx.triggeringPermanentId, controller: ctx.triggeringLki?.controller ?? findPermanent(state, ctx.triggeringPermanentId)?.controller, lki: ctx.triggeringLki ?? null }
       : damageSourceFor(state, ctx);
     let next = applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType, amountPerOpponent: atom.amountPerOpponent ?? null, targets, source, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie });
     // LACCOLITH RIDER (④-AU — "If you do, this creature assigns no combat damage this turn"): the optional damage was

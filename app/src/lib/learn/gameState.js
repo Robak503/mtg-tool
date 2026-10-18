@@ -1407,6 +1407,63 @@ function stampTriggeringLeftPower(next, permanent, before) {
 }
 
 /**
+ * THE KEYWORDS THAT DECIDE WHAT A SOURCE'S DAMAGE DOES (CR 120.3): lifelink (CR 702.15b), deathtouch (CR 702.2b), infect
+ * (CR 702.90b, 702.90c) and wither (CR 702.80a) — each applies to any damage its source deals, combat or not. A record of a
+ * source that has left the battlefield carries the ones it had as it last existed (CR 702.15c, 702.2e, 702.80b).
+ */
+export const DAMAGE_RESULT_KEYWORDS = ["Lifelink", "Deathtouch", "Infect", "Wither"];
+/** The DAMAGE_RESULT_KEYWORDS the permanent `permanentId` has on `state`, printed or granted (layers.permanentHasKeyword). */
+export function damageResultKeywords(state, permanentId) {
+  return DAMAGE_RESULT_KEYWORDS.filter((k) => permanentHasKeyword(state, permanentId, k));
+}
+
+/**
+ * LAST KNOWN INFORMATION FOR AN ABILITY'S OWN SOURCE (CR 113.7a, 608.2h — 2026-10-17). "This creature deals 1 damage to any
+ * target" is dealt by the creature. An activated or triggered ability on the stack whose source leaves the battlefield
+ * before it resolves (destroyed in response; Walking Ballista's last counter removed and the 0/0 taken by the state-based
+ * check) still has that permanent deal the damage, as it last existed: its lifelink, deathtouch, infect and wither
+ * (CR 702.15c, 702.2e, 702.80b), its colours and card types, whether it was a creature, and who controlled it. The record is
+ * written onto each ability on the stack whose source is this permanent and whose program has its source deal damage
+ * (programHasItsSourceDealDamage), as `params.context.abilitySourceLki`; effects/atoms/shared.damageSourceFor reads it. An
+ * ability already stamped keeps its record. Called from stampTriggeringLki, so it runs at the same exits. A source that
+ * leaves while its own cost is paid — before the ability is on the stack (sacrificed, exiled, or a 0/0 after its last
+ * counter is removed) — gets the same record frozen onto the ability by the dispatcher (abilitySourceRecord). Nothing to
+ * stamp → the state is returned untouched.
+ */
+const ABILITY_SOURCE_DAMAGE_RE = /"op":"(?:deal-damage|cdmg-mass-to-damaged-player|cdmg-to-each-other-opponent|punisher)"|"damageRider":\{/;
+/** Does `program` have its source deal damage — a damage atom read through damageSourceFor, at any depth (a mode, a payment)? */
+export function programHasItsSourceDealDamage(program) {
+  return program != null && ABILITY_SOURCE_DAMAGE_RE.test(JSON.stringify(program));
+}
+/** The permanent `permanentId` as a damage source, read off `state` (null when it is not on the battlefield). */
+export function abilitySourceRecord(state, permanentId) {
+  const lk = findPermanent(state, permanentId);
+  if (!lk) return null;
+  return {
+    permanentId,
+    controller: lk.controller,
+    isCreature: permanentIsCreature(state, permanentId),
+    colors: [...permanentColors(state, permanentId)],
+    types: [...permanentTypes(state, permanentId).types],
+    keywords: damageResultKeywords(state, permanentId),
+  };
+}
+function stampAbilitySourceLki(state, permanentId) {
+  const stack = state.stack || [];
+  const wants = (o) => {
+    const params = o?.payload?.params;
+    return params?.sourceId === permanentId && !params.context?.abilitySourceLki && programHasItsSourceDealDamage(params.program);
+  };
+  if (!stack.some(wants)) return state;
+  const abilitySourceLki = abilitySourceRecord(state, permanentId);
+  if (!abilitySourceLki) return state;
+  return {
+    ...state,
+    stack: stack.map((o) => (wants(o) ? { ...o, payload: { ...o.payload, params: { ...o.payload.params, context: { ...(o.payload.params.context || {}), abilitySourceLki } } } } : o)),
+  };
+}
+
+/**
  * LAST KNOWN INFORMATION FOR A TRIGGER'S ENTERING CREATURE (CR 608.2h, CR 113.7a — play-weighted #731, Warstorm Surge:
  * "Whenever a creature you control enters, it deals damage equal to its power to any target"; Terror of the Peaks: "…this
  * creature deals damage equal to that creature's power…"). The effect reads the entering creature when it resolves; if that
@@ -1427,16 +1484,19 @@ function stampTriggeringLeftPower(next, permanent, before) {
  * trigger already stamped keeps its record, which is what lets that event-begin record stand when the per-move call
  * follows. Any other effect that moves several permanents at once (a mass sacrifice) is read at each move: a permanent of
  * that event which already moved no longer affects the ones after it.
- * No trigger reads the permanent → the state is returned untouched (every other game is byte-identical).
+ * The same exits write the ability-source record too (stampAbilitySourceLki above), in the same event-begin order.
+ * No trigger or ability reads the permanent → the state is returned untouched (every other game is byte-identical).
  */
-const TRIGGERING_LKI_KEYWORDS = ["Lifelink", "Deathtouch", "Infect", "Wither"];
 // + the turned-up dealer (Pyrotechnic Performer — the turned-face-up watcher slice): a flip that leaves the creature at lethal
 // damage takes it in the same state-based check, before its waiting trigger is put on the stack.
 // + the damaged dealer (Brash Taunter family, 2026-10-17): a creature the damage kills is taken by the lethal-damage check before
 // its waiting dealt-damage trigger is put on the stack (Boros Reckoner) — the trigger keeps the creature's record and it still deals the damage.
 const TRIGGERING_LKI_CLAUSE_RE = /\bthe (?:entering|turned-up) creature deals damage equal to its own power\b|\bthe triggering creature's power\b|\bthe damaged creature deals that much damage\b/i;
-const atomReadsTriggeringLki = (atom) => atom?.damageSource === "triggering" || atom?.amountCount?.kind === "triggeringPower" || atom?.amountCount?.kind === "triggeringToughness";
+// + the combat-damage relay (Super State, Kediss, Emberclaw Familiar — 2026-10-17): the creature that dealt the combat damage deals
+// "that much damage to each other opponent" (effects/atoms/stack.combatDamageDealerSource), as it last existed once it has left.
+const atomReadsTriggeringLki = (atom) => atom?.damageSource === "triggering" || atom?.op === "cdmg-to-each-other-opponent" || atom?.amountCount?.kind === "triggeringPower" || atom?.amountCount?.kind === "triggeringToughness";
 export function stampTriggeringLki(state, permanentId) {
+  state = stampAbilitySourceLki(state, permanentId);
   // A trigger context that names this permanent as its triggering permanent and carries no record yet.
   const unstamped = (context) => context?.triggeringPermanentId === permanentId && !context.triggeringLki;
   const stackWants = (o) => unstamped(o?.payload?.params?.context) && (o.payload.params.program?.atoms || []).some(atomReadsTriggeringLki);
@@ -1456,7 +1516,7 @@ export function stampTriggeringLki(state, permanentId) {
     isCreature: permanentIsCreature(state, permanentId),
     colors: [...permanentColors(state, permanentId)],
     types: [...permanentTypes(state, permanentId).types], // its card types (a source-type-filtered damage replacement reads them — Mechanized Warfare's "artifact source")
-    keywords: TRIGGERING_LKI_KEYWORDS.filter((k) => permanentHasKeyword(state, permanentId, k)),
+    keywords: damageResultKeywords(state, permanentId),
   };
   return {
     ...state,
@@ -2762,6 +2822,7 @@ export function deathLookback(state, perm, controller) {
     counters: { ...(perm.counters || {}) }, // undying / persist / modular and the counter-scoped watchers read the last-known bag
     lkiTypes: [...permanentTypes(state, perm.id).types],
     lkiColors: [...permanentColors(state, perm.id)], // its colours as it last existed (CR 113.7a) — a dies trigger's damage source for Torbran's "red source"
+    lkiKeywords: damageResultKeywords(state, perm.id), // its lifelink / deathtouch / infect / wither as it last existed (CR 702.15c, 702.2e, 702.80b) — its own dies trigger's damage
     // ATTACKING AS IT DIED (Kardur, Doomscourge — "Whenever an attacking creature dies"): it was a declared or put-in attacker in the
     // current combat (CR 506.4 — it is removed from combat only as it leaves). Stamped only when true, so every other look-back is
     // unchanged.

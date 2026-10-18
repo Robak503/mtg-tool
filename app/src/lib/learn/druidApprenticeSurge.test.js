@@ -21,7 +21,7 @@
  *   entering creature is the source of the DAMAGE (CR 608.2h) — its lifelink, deathtouch and infect apply, protection from
  *   creatures prevents it — and its power is read on resolution, or as it last existed on the battlefield once it has left.
  *   The entering-dealer lane: detectTriggers' sentinel → a deal-damage atom with damageSource "triggering" → the damage
- *   funnel reads the dealer's keywords, colors and creature-ness (spellEffects.applyDamageEffect, `source.readsKeywords`),
+ *   funnel reads the dealer's keywords, colors and creature-ness (spellEffects.damageDealer, as for every source),
  *   off the record gameState.stampTriggeringLki writes onto the waiting trigger as the creature leaves. Terror of the Peaks
  *   and Verdant Sun's Avatar read the same record for the entering creature's power / toughness (their bundled ruling).
  *
@@ -543,12 +543,12 @@ describe("Warstorm Surge — the entering creature deals damage equal to its pow
       .toEqual({ atoms: [{ op: "deal-damage", targetType: "creature", amountCount: { kind: "triggeringPower", per: 1 }, damageSource: "triggering" }], giant: false, tier: "body-only" });
   });
 
-  it("DOCUMENTED UNDER-READ (pre-existing, unchanged by this slice): an ability's OWN permanent source is still read for infect and wither only — Terror of the Peaks wearing Basilisk Collar deals 2 to a 3/3, which survives, and no life is gained", () => {
+  it("GRADUATED (2026-10-17 — abilityDamageSource.test.js): an ability's OWN permanent source is read like every source — Terror of the Peaks wearing Basilisk Collar deals 2 to a 3/3, which is destroyed (deathtouch, CR 702.2b), and its controller gains 2 (lifelink, CR 702.15b)", () => {
     const s0 = board({ user: { bf: [perm("tp", TERROR_OF_THE_PEAKS), perm("col", BASILISK_COLLAR), ...lands("f", FOREST, 2)], hand: [cardOf(BEARS, "c-b")] }, ai: { bf: [perm("hg", HILL_GIANT, "ai")] } });
     const collared = attachPermanent(s0, { equipId: "col", targetId: "tp" });
     const done = resolveOne(enterAimed(collared, "c-b", "hg"));
     expect({ collar: [permanentHasKeyword(collared, "tp", "Deathtouch"), permanentHasKeyword(collared, "tp", "Lifelink")], giant: [onBattlefield(done, "hg"), findPermanent(done, "hg")?.permanent.damageMarked], life: life(done) })
-      .toEqual({ collar: [true, true], giant: [true, 2], life: [40, 40] });
+      .toEqual({ collar: [true, true], giant: [false, undefined], life: [42, 40] });
   });
 
   it("CREED — only the leading 'it' of an ENTERS trigger over an entering creature is the dealer: the dies watcher, the self-enter form and the optional forms keep their own reads", () => {

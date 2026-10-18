@@ -58,24 +58,35 @@ export function spellSourceQualities(card) {
 
 /**
  * THE DAMAGE'S SOURCE for a spell's or an ability's damage (applyDamageEffect's `source`): the ability's own permanent
- * (`ctx.sourceId`), which the damage funnel reads live while it is on the battlefield. When it is not there, the source is
- * what it last was (CR 113.7a, 609.7c), carried as `qualities` ({ colors, types }) for the source-filtered damage replacements
- * (Torbran's "red source", Mechanized Warfare's "red or artifact source"):
- *   · a spell — no permanent; its colours and card types ride the program's context (`ctx.spellSource`, runEffectProgram);
- *   · the ability's permanent sacrificed to pay its cost (Mogg Fanatic) — the dispatcher's stamp (`state.sacrificedSelfLki`);
+ * (`ctx.sourceId` — CR 113.7a: "This creature deals 1 damage to any target" is dealt by the creature), which the damage funnel
+ * reads live while it is on the battlefield. When it is not there, the source is what it last was (CR 113.7a, 608.2h, 609.7c),
+ * carried as `qualities` — { colors, types } for the source-filtered damage replacements (Torbran's "red source", Mechanized
+ * Warfare's "red or artifact source") and for protection from it (CR 702.16e), plus, for a permanent, the lifelink /
+ * deathtouch / infect / wither it had and its controller (CR 702.15b, 702.15c, 702.2e, 702.80b; spellEffects.damageDealer):
+ *   · a spell — no permanent; its colours and card types ride the program's context (`ctx.spellSource`, runEffectProgram) and
+ *     no damage keyword (a keyword granted to a spell is not modeled — the safe side);
+ *   · an ability whose permanent left before it resolved — as its own cost was paid (sacrificed, exiled, a 0/0 after its last
+ *     counter is removed — the dispatcher's freeze) or while the ability was on the stack (gameState.stampAbilitySourceLki):
+ *     the record on the ability itself (`ctx.abilitySourceLki`), so another activation can't overwrite it;
+ *   · the ability's permanent sacrificed to pay its cost (Mogg Fanatic) — the dispatcher's shared stamp (`state.sacrificedSelfLki`,
+ *     colours and card types);
  *   · a dies trigger of the permanent itself (Mudbutton Torchrunner) — the death look-back (`ctx.dyingQualities`);
  *   · the entering-creature lane's record (`ctx.triggeringLki`) when it names this permanent.
- * Anything else that has left carries no record, and a quality-filtered replacement doesn't apply to it (a safe miss).
+ * Anything else that has left carries no record: its damage is plain, and a quality-filtered replacement doesn't apply to it
+ * (a safe miss).
  */
 export function damageSourceFor(state, ctx) {
   const id = ctx?.sourceId ?? null;
   if (id != null && findPermanent(state, id)) return { id };
   if (id == null) return ctx?.spellSource ? { id: null, qualities: ctx.spellSource } : { id: null };
+  const record = (r) => ({ colors: r.colors, types: r.types || [], keywords: r.keywords || [], ...(r.controller ? { controller: r.controller } : {}) });
+  const own = ctx?.abilitySourceLki;
+  if (own?.permanentId === id && Array.isArray(own.colors)) return { id, qualities: record(own) };
   const sac = state?.sacrificedSelfLki;
   if (sac?.permanentId === id && Array.isArray(sac.colors)) return { id, qualities: { colors: sac.colors, types: sac.types || [] } };
   if (ctx?.triggeringPermanentId === id && ctx?.dyingQualities) return { id, qualities: ctx.dyingQualities };
   const lki = ctx?.triggeringLki;
-  if (lki?.permanentId === id && Array.isArray(lki.colors)) return { id, qualities: { colors: lki.colors, types: lki.types || [] } };
+  if (lki?.permanentId === id && Array.isArray(lki.colors)) return { id, qualities: record(lki) };
   return { id };
 }
 

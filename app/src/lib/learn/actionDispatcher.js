@@ -54,6 +54,8 @@ import {
   recordGraveyardEvents,
   findPermanent,
   unattachEquipment,
+  abilitySourceRecord, // a source that leaves as its own cost is paid deals the ability's damage as it last existed (CR 113.7a)
+  programHasItsSourceDealDamage,
 } from "./gameState.js";
 import { deterministicRng, advanceRngSeed } from "./gameState.js"; // RG-7 (2026-09-05) — the seeded random-discard pick at payment
 import { withoutExileStamps } from "./gameState.js"; // shelf D3 — a card cast out of exile leaves every exile-only permission behind (CR 400.7)
@@ -1559,6 +1561,17 @@ function applyActivateAbility(state, action) {
   // source was already excluded from the mana plan above and can't be double-tapped).
   if (action.tapSelf) working = tapPermanent(working, action.permanentId);
 
+  // THE SOURCE THAT LEAVES AS ITS OWN COST IS PAID (CR 113.7a, 608.2h — "Sacrifice this creature: It deals 1 damage to any
+  // target", Walking Ballista's last counter): the permanent still deals the ability's damage, as it last existed — its
+  // lifelink, deathtouch, infect and wither (CR 702.15c, 702.2e, 702.80b), colours, card types and controller. Read just
+  // before it leaves (the sacrifice, the exile, the lethal sweep after the counter removal) and frozen onto this ability's
+  // context below — the record gameState.stampAbilitySourceLki writes for a source that leaves while its ability is on the
+  // stack. Only for a program that has its source deal damage, so every other activation keeps its params byte-for-byte.
+  let leavingSourceRecord = null;
+  const freezeLeavingSource = () => {
+    if (!leavingSourceRecord && programHasItsSourceDealDamage(action.program)) leavingSourceRecord = abilitySourceRecord(working, perm.id);
+  };
+
   // Pay the non-mana cost items, all BEFORE the ability is put on the stack (CR 602.2b): life first
   // (γ1, CR 119.4), then the self-sacrifice (γ1) and/or the chosen-victim sacrifice (γ1b), then the
   // self-exile (γ1c) and/or a self counter removal (γ1c).
@@ -1678,6 +1691,7 @@ function applyActivateAbility(state, action) {
     // + its COLOURS and CARD TYPES as it last existed (CR 113.7a): Mogg Fanatic's "Sacrifice this creature: It deals 1 damage to any
     // target" is a red source for Torbran (effects/atoms/shared.damageSourceFor reads them; the same id-keying).
     working = { ...working, sacrificedSelfLki: { permanentId: perm.id, counters: { ...(perm.counters || {}) }, power: Math.max(0, creaturePower(perm, working) ?? 0), colors: [...permanentColors(working, perm.id)], types: [...permanentTypes(working, perm.id).types] } };
+    freezeLeavingSource();
     working = sacrificePermanentForCost(working, action.playerId, perm);
   }
   if (action.sacCreatureId) {
@@ -1716,6 +1730,7 @@ function applyActivateAbility(state, action) {
     // Exile the source from the battlefield (CR 406). Exile is NOT "dies" (CR 700.4 — dies = to the
     // graveyard), so NO dies triggers fire; the offer-gate's leave-trigger fail-safe already excluded a
     // source with an LTB/exile trigger we couldn't fire, so nothing is silently dropped here.
+    freezeLeavingSource();
     working = moveCardToZone(working, { playerId: action.playerId, fromZone: "battlefield", toZone: "exile", cardId: perm.id });
     // LEAVE-DRAIN (CR 603.3b): the self-exile is a battlefield EXIT — drain at cost time (see the
     // sacrifice sites above; exile is not "dies", so only the leave watchers fire).
@@ -1731,6 +1746,7 @@ function applyActivateAbility(state, action) {
     working = removeCounter(working, { permanentId: action.permanentId, type: action.removeCounter.type, amount: action.removeCounter.count || 1 });
     // Removing a +1/+1 counter lowers derived toughness — a creature it drops to <= 0 dies as an SBA
     // (CR 704.5f). Run the lethal sweep + its dies triggers so that's never left until the next combat.
+    freezeLeavingSource();
     const lethal = destroyLethalCreatures(working);
     working = checkDiesTriggers(lethal.state, lethal.dead);
   }
@@ -1774,6 +1790,8 @@ function applyActivateAbility(state, action) {
     // overwrote it and this ability resolved reading THAT permanent's numbers. The copy rides params.context, the same
     // channel as unattachedEquipmentMv, and countForSpec / applyTutor read it before the shared one.
     if (action.sacCreatureId && working.sacrificedForCost) params.context = { ...(params.context || {}), sacrificedForCost: working.sacrificedForCost };
+    // The source that left as its own cost was paid (freezeLeavingSource above) — its record, frozen on this ability.
+    if (leavingSourceRecord && !findPermanent(working, perm.id)) params.context = { ...(params.context || {}), abilitySourceLki: leavingSourceRecord };
     payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params };
   }
 

@@ -768,10 +768,10 @@ export function applyDamageTargetPower(state0, atom, ctx) {
   const dealer = creatureDamageSource(fighter);
   // BITE-PW (BLITZ JB-1, CR 120.3c) — a PLANESWALKER dealee (the creature-or-planeswalker union): route the
   // locked power through the shared applyDamageEffect pw path (damage → loyalty loss, zero-loyalty SBA), the biting
-  // creature its source with its own keywords read (`readsKeywords` — its lifelink gains, a doubler scoped to it
+  // creature its source with its own keywords read (spellEffects.damageDealer — its lifelink gains, a doubler scoped to it
   // applies). Deathtouch/trample are creature concepts — irrelevant here (the union form carries no trampleExcess).
   if (/\bPlaneswalker\b/i.test(String(target.permanent.card?.type || target.permanent.card?.type_line || ""))) {
-    const afterPw = applyDamageEffect(state, { controller: ctx.controller, amount: pow, targetType: "planeswalker", targets: [{ type: "planeswalker", id: target.permanent.id }], source: { ...dealer, readsKeywords: true } });
+    const afterPw = applyDamageEffect(state, { controller: ctx.controller, amount: pow, targetType: "planeswalker", targets: [{ type: "planeswalker", id: target.permanent.id }], source: dealer });
     return logEvent(afterPw, { kind: "spell-effect", effect: "damage-target-power", targets: [target.permanent.id] });
   }
   let toCreature = pow, excess = 0;

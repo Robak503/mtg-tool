@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.165.0** (tagged 2026-10-18 on the `[0.165.0]` CHANGELOG cut):
-> **6 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.0% (15,567)**; engine gains since the tag: **+31**. The next tag
+> **7 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.0% (15,567)**; engine gains since the tag: **+31**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,76 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX (rules faithfulness): damage dealt by a permanent's OWN ability carries that permanent's lifelink, deathtouch, colours, creature-ness and controller (CR 702.15b, 702.2b, 702.16e, 113.7a) — Basilisk Collar on Prodigal Pyromancer kills a 9/9 and gains 1; Brion Stoutarm, Merciless Enforcers, Sanguinary Priest, Cat-Gator, Terror of the Peaks wearing the Collar gain; Pestilence no longer damages White Knight; a source that left deals as it last existed (CR 702.15c, 702.2e — a pinger killed in response, a sacrificed Mogg Fanatic, Walking Ballista's last counter, its own dies trigger); and FIX (false positive): a red spell's damage is prevented by protection from red (Pyroclasm killed Paladin en-Vec), Rakdos Charm's lifelink gain went to the caster; Super State's and Kediss's relay is dealt by the creature that dealt the combat damage · **±0** · snapshot native 15,562 unchanged
+> Suite **21,087 green (1 skipped) / 1,896 files** under the gate queue (with the rules index built for the run, then deleted; the first run failed the graduated pin below and the known `crucibleRun.test.js` 20 s load timeout, the second only that timeout while an A/B batch ran beside it). Lint 0 (CR citations: 0 of 11,861 name no rule;
+> keyword citations: 0 of 2,436 cite a different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of
+> 8fd9cda9, snapshotted before the first edit; native+land 15,562 of 34,584 snapshot names on both); program-fingerprint byte-identical over
+> 34,620 cards (no parser change). **Mutants 8/8** on assertions, each restored byte-identical (sha256) — the board's lifelink (12 tests) and
+> deathtouch (3), the source's controller (1, Rakdos Charm), a spell's colours (1), the on-the-stack stamp (2), the dispatcher's cost-time freeze
+> (4), the dies look-back's keywords (1), the relay's dealer (3). Witness tests written first: `abilityDamageSource.test.js` — the first 20 run on
+> the untouched archive (14 fail on assertions, the 6 controls pass on both); the 8 added while building (the second-Fanatic and
+> on-the-stack-trigger records, Cat-Gator, the Super State / Kediss relay, the Ferromancer, Pyroclasm-on-White-Knight and Kediss-Collar controls)
+> fail or pass there the same way — **28 tests, 19 fail on the archive on assertions, the 9 controls pass on both**. Graduated:
+> `druidApprenticeSurge.test.js`'s "DOCUMENTED UNDER-READ" pin (Terror of the Peaks wearing Basilisk Collar: the 3/3 lived, no life) now asserts
+> the 3/3 destroyed and 2 gained — it fails on the archive. A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks,
+> default AI; base = the untouched 8fd9cda9 archive): **80 / 80 byte-identical** (the sha256 of every game record — each decision row, the log,
+> result, winner, turns, ticks), 0 errors on either tree, results unchanged (ai-wins 58 / user-wins 22). Walking Ballista activated in games 13,
+> 15, 19, 58 without a granted keyword; Basilisk Collar was cast in 27 and equipped onto Thrun (no damage ability) in 62 and 67; Kediss was
+> cast in 33 and 45 and its trigger never fired. Committed on `day/abildmg`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The bug.** `spellEffects.damageDealer` read lifelink, deathtouch, colours and creature-ness only for a source that asked
+>   (`readsKeywords` — a fight, a bite, Warstorm Surge's entering creature); its own comment parked the rest as "a slice of its own". Every
+>   other non-combat damage — a pinger, an enters / dies / attack trigger, Walking Ballista's counter, Pestilence's {B}, Brion Stoutarm's fling,
+>   Sanguinary Priest — dealt plain damage: no lifelink gain (CR 702.15b, 120.3f), no deathtouch kill (CR 702.2b, 704.5h), no protection from
+>   its colour or from creatures (CR 702.16e). The source's controller was the effect's: Rakdos Charm's "each creature deals 1 damage to its
+>   controller" would have gained the CASTER the life of an opponent's lifelink creature. A spell's colours rode its record only for the
+>   damage replacements (Torbran), so protection from red never prevented a red sweep (Pyroclasm killed Paladin en-Vec — a false positive).
+>   The AI's pinger picker (opponentAI.js:1822) already counted a deathtouch pinger's ping as a kill; the engine now agrees with it.
+> · **The dealer, one read** (`damageDealer`). The flag is gone; every source reads the same way. On the battlefield: the permanent now —
+>   keywords printed or granted (layers), colours and creature-ness after the layers, and its controller (who a lifelink gain goes to). Off
+>   it: its record — a spell's colours and card types (`ctx.spellSource`) with no damage keyword (a keyword granted to a spell is not modeled;
+>   Puncture Blast's own wither stays unread — below); a departed permanent's last known keywords, colours, types and controller. A departed
+>   source with no record reads nothing (plain damage, no protection by quality — the safe side).
+> · **The records of a source that left** (CR 113.7a, 608.2h, 702.15c, 702.2e, 702.80b). `ctx.abilitySourceLki` — `gameState.abilitySourceRecord`
+>   (controller, creature-ness, colours, types, the four damage keywords): (1) frozen on the ability by the dispatcher when the source leaves
+>   paying its own cost — a self-sacrifice, a self-exile, or the lethal sweep after a counter removal (Walking Ballista's last counter: the
+>   engine runs that sweep before the ability is stacked); (2) written by `stampAbilitySourceLki` (called from `stampTriggeringLki`, the same
+>   exits — moveCardToZone and the three event-begin sites) when the source leaves while its ability is on the stack. Both only for a program
+>   that has its source deal damage (`programHasItsSourceDealDamage` — deal-damage / the two combat-damage relays / punisher / a damage rider,
+>   any depth), so every other ability keeps its params byte-for-byte. The record rides the ability, so a second Mogg Fanatic sacrificed in
+>   response no longer replaces the first one's (the shared `state.sacrificedSelfLki` stamp keeps its colour / type role). The dies look-back
+>   gains `lkiKeywords` → `ctx.dyingQualities.keywords` + its controller (Mudbutton Torchrunner wearing the Collar); the entering-creature
+>   record (`triggeringLki`) already carried keywords and now passes them and its controller through `damageSourceFor`.
+> · **The combat-damage relay** (`cdmg-to-each-other-opponent`). Every bundled carrier reads "Whenever <a creature> deals combat damage to an
+>   opponent, it deals that much damage to each other opponent": the dealer is the creature that dealt the combat damage (Kediss's ruling: "The
+>   damage the commander deals as a result of Kediss's triggered ability"), the triggering permanent of the combat-damage scan. It was the
+>   trigger's own permanent — harmless while that source read no lifelink, a new false positive the moment it did (Kediss wearing Basilisk
+>   Collar would have gained life off a commander without lifelink — the control pins it). `stack.combatDamageDealerSource` reads the triggering
+>   creature (its `triggeringLki` once it has left; `atomReadsTriggeringLki` now admits the op); on a creature's own trigger (Hydra Omnivore,
+>   Grenzo's Ruffians, Amarant Coral, Human Torch) nothing changes. Super State on a lifelink creature gains for the relay too.
+> · **Reach** (every bundled card, the high-confidence trigger and activated programs whose damage `damageSourceFor` deals): **831
+>   ability-damage carriers** — each now reads its source's colours / creature-ness for protection and its controller, and deals as it last
+>   existed once gone. **13 print lifelink or deathtouch** and change outright: Brion Stoutarm, Merciless Enforcers, Sanguinary Priest,
+>   Cat-Gator, Tor Wauki the Younger (lifelink); Black Waltz No. 3, the six Shadowheart printings (deathtouch, damage to players — no kill
+>   change; Shadowheart, Cleric of Graves also has lifelink); Archangel of Wrath (lifelink — but its kicked cast isn't offered, below). Every
+>   other carrier changes only beside a granter (Basilisk Collar, Akroma's Will, Shadowspear, Quietus Spike …; ~474 cards' text grants
+>   lifelink or deathtouch, a rough text count). Profile decks: **none holds a printed carrier**; 13 hold a granter beside a carrier, the live
+>   pairs being Shalai and Hallar Test (Walking Ballista and Shalai and Hallar's own trigger + Akroma's Will's lifelink mode), Captain America
+>   (Basilisk Collar; its carriers are Equipment / Super State — the Sword deals its own damage, Super State's relay now the creature's), Jurassic
+>   Ramp and Otharri Test (Akroma's Will + Marauding Raptor, Trumpeting Carnosaur, Zacama / Purphoros, Aurelia), Wolverine (Shadowspear + Kediss).
+>   The Scryfall `keywords` array `hasKeyword` reads can list a keyword a card only grants (Super State lists First strike and Trample): the 50
+>   cards whose array lists lifelink or deathtouch with no keyword line of their own were checked — none is an ability-damage carrier.
+> · ⚠️ **Found, not fixed:** (1) **Misattributed dealers** — the plain deal-damage resolver deals through the ability's own permanent
+>   (stack.js:2582 → `damageSourceFor`) where the text's dealer is another object: Dragon Tempest ("it" = the entering Dragon — its ruling:
+>   "that Dragon still deals damage"), Aether Charge (the Beast), Extra Arms, Kibo's Bananamobile, Dizzying Gaze ("Enchanted creature
+>   deals"). The real dealer's lifelink / deathtouch stay unread (FN) and protection now reads the enchantment's colour (an under-delivery
+>   where the dealer's colour differs); a new false positive needs the misattributed source itself to carry a granted lifelink / deathtouch —
+>   only the Bananamobile, crewed, could. (2) A trigger created after its source already left, or one waiting to be stacked when its source
+>   leaves (Sanguinary Priest dying in the same wipe as another creature), has no record — plain damage (triggers.js:7214
+>   makePendingTrigger carries none). (3) Puncture Blast's own wither (a spell keyword) is unread — `spellSourceQualities` (shared.js:53)
+>   carries colours and types only; its damage is marked, not -1/-1 counters. (4) Archangel of Wrath's "Kicker {B} and/or {R}" is offered only
+>   unkicked (probed), so its enters damage never happens.
+> · Witness: `abilityDamageSource.test.js` (28). Graduated: `druidApprenticeSurge.test.js` (the Terror of the Peaks under-read pin).
 
 > ## 🎯 2026-10-17 — PLAY-WEIGHTED: the value creatures — Wurmcoil Engine (EDHREC #1062) — one create naming several token kinds, created together (+ Triplicate Titan #2198, Wurmcoil Larva, Trostani's Summoner, Somberwald Beastmaster, Specimen Collector, Forbidden Friendship, Mascot Exhibition, Bestial Menace); Archon of Cruelty (#1077) — the edict's target discards and loses life as "the same target player" (+ Scarring Memories, Geth's Verdict, Umbral Juke); Noxious Gearhulk (#1002) — "if a creature is destroyed this way"; Angel of the Ruins (#1052) — the exile verb on "up to two target artifacts and/or enchantments" (+ Sylvan Reclamation); Portal to Phyrexia (#1066) — the each-opponent counted edict and the reanimated Phyrexian; Combustible Gearhulk (#1029), Charismatic Conqueror (#1045) — the punisher, another player's choice, with a damage-against-cards AI (+ Risk Factor); Kardur, Doomscourge (#987) — the group attack rule and "an attacking creature dies" · **+21** · snapshot native+land 15,531 → 15,552
 > Suite **20,987 green (1 skipped) / 1,891 files** under the gate queue (with the rules index built for the run, then deleted). Lint 0 (CR citations: 0 of 11,701 name no rule; keyword citations: 0 of 2,389 cite a different keyword). Flip-diff

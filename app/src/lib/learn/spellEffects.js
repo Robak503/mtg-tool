@@ -1407,37 +1407,45 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
 
 /**
  * THE DEALER — a damage event's source (CR 120.1), its qualities read ONCE, on the board as the event begins (CR 608.2h),
- * so no hit of the event changes how another hit of it is dealt. A source that has left the battlefield deals its damage
- * as it last existed there (CR 702.15c, 702.2e): `source.lki` — the record gameState.stampTriggeringLki wrote as it left —
- * answers for its keywords, colors and creature-ness instead of the board.
- *   - INFECT / WITHER (CR 120.3b, 120.3d): always read — damage to a creature as -1/-1 counters, infect's to a player as poison.
- *   - LIFELINK, DEATHTOUCH and the qualities PROTECTION prevents by (CR 120.3f, 704.5h, 702.16e): read only for a source
- *     that asks (`source.readsKeywords`) — a creature that deals the damage itself (a fight, a bite — dealSimultaneousDamage;
- *     Warstorm Surge's entering creature — effects/atoms/stack.js). The rules are the same for an ability's own permanent
- *     source and are NOT read for it yet: turning them on changes what every lifelink, deathtouch or protected-against
- *     permanent's ability damage does, so it is a slice of its own.
+ * so no hit of the event changes how another hit of it is dealt. Every source is read the same way, whatever deals the
+ * damage — an activated or triggered ability's own permanent (CR 113.7a: "This creature deals 1 damage to any target" is
+ * dealt by the creature), a creature dealing damage by an effect (a fight, a bite, Warstorm Surge's entering creature), a
+ * spell:
+ *   - ON THE BATTLEFIELD: the permanent as it is now — its keywords printed or granted (Basilisk Collar), its colours and
+ *     creature-ness after the layers, and its controller.
+ *   - OFF THE BATTLEFIELD: its record (`source.lki` — gameState.stampTriggeringLki's entering-creature record; `source.qualities`
+ *     — effects/atoms/shared.damageSourceFor: a spell's colours and card types, a departed permanent's last known keywords,
+ *     colours, card types and controller — CR 113.7a, 702.15c, 702.2e, 702.80b). A spell's record carries no damage keyword.
+ *     A departed source with no record reads nothing (plain damage, no protection by quality — the safe side).
+ * What the qualities do:
+ *   - INFECT / WITHER (CR 120.3b, 120.3d): damage to a creature as -1/-1 counters, infect's to a player as poison.
+ *   - LIFELINK (CR 702.15b, 120.3f): the source's CONTROLLER gains the damage it dealt (settleDamageEvent) — the permanent's
+ *     controller, or the controller in its record, not necessarily the effect's (Rakdos Charm's "each creature deals 1
+ *     damage to its controller": an opponent's lifelink creature gains its own controller the life).
+ *   - DEATHTOUCH (CR 702.2b, 704.5h): a creature it dealt any damage to is destroyed by the lethal pass.
+ *   - COLOURS / CREATURE-NESS: what PROTECTION prevents by (CR 702.16e — protectedFromDealer).
  *   - SILENCED (AP-1, Defang / Muzzle): an attached "Prevent all damage that would be dealt by enchanted creature" — every
  *     hit it makes is prevented.
- * `controller` is the effect's controller, used when the source names none.
+ * `controller` is the effect's controller, used when the source names none and has no record.
  */
 export function damageDealer(state, source, controller = null) {
-  const has = (kw) => (source?.lki ? source.lki.keywords.includes(kw) : source?.id ? permanentHasKeyword(state, source.id, kw) : false);
-  const reads = source?.readsKeywords === true;
+  const lk = source?.id != null && !source.lki ? findPermanent(state, source.id) : null;
+  const record = lk ? null : (source?.lki ?? source?.qualities ?? null);
+  const has = (kw) => (lk ? permanentHasKeyword(state, source.id, kw) : Array.isArray(record?.keywords) && record.keywords.includes(kw));
   return {
     source,
     id: source?.id ?? null,
-    controller: source?.controller ?? controller,
+    controller: lk ? lk.controller : (record?.controller ?? source?.controller ?? controller),
     infect: has("Infect"),
     wither: has("Wither"),
-    lifelink: reads && has("Lifelink"),
-    deathtouch: reads && has("Deathtouch"),
-    colors: !reads ? [] : source.lki ? source.lki.colors : permanentColors(state, source.id),
-    isCreature: reads && (source.lki ? source.lki.isCreature : permanentIsCreature(state, source.id)),
+    lifelink: has("Lifelink"),
+    deathtouch: has("Deathtouch"),
+    colors: lk ? permanentColors(state, source.id) : (record?.colors || []),
+    isCreature: lk ? permanentIsCreature(state, source.id) : (typeof record?.isCreature === "boolean" ? record.isCreature : (record?.types || []).includes("Creature")),
     silenced: source?.id ? attachedDamagePrevention(state, source.id).by === "all" : false,
     // THE SOURCE'S RECORD when it is not on the battlefield (CR 609.7c, 113.7a): a spell's colours and card types, or a departed
     // permanent's last known ones (`source.qualities` — effects/atoms/shared.damageSourceFor; the entering-creature lane's
-    // `source.lki`). Only the source-filtered damage replacements read it (damageReplacements.sourceQualities — Torbran's "red
-    // source"); the keyword and protection reads above are unchanged.
+    // `source.lki`). The source-filtered damage replacements read it (damageReplacements.sourceQualities — Torbran's "red source").
     sourceLki: source?.qualities ?? (source?.lki ? { colors: source.lki.colors || [], types: source.lki.types || (source.lki.isCreature ? ["Creature"] : []) } : null),
   };
 }
@@ -1586,9 +1594,9 @@ export function dealDamageToPlayer(s, event, dealer, pid, raw) {
   // DAMAGE REDIRECT (shelf D42, CR 614.9 — With Great Power . . ., Pariah, Empyrial Archangel): damage that would be dealt to
   // this player is dealt to the creature their redirect names instead — an ordinary hit on that creature (its own walls,
   // shields and doublers; the source's infect/wither; the lethal pass and dealt-damage watchers). Applied FIRST, a legal
-  // CR 616.1 order (the affected player picks which replacement applies). Never onto a creature with any protection: this
-  // funnel doesn't thread a spell's colours, so a prevention CR 702.16e owes can't be told apart — the damage stays with
-  // the player, an under-delivery.
+  // CR 616.1 order (the affected player picks which replacement applies). Never onto a creature with any protection: a
+  // departed dealer without a record carries no colours, so a prevention CR 702.16e owes can't always be told apart — the
+  // damage stays with the player (kept conservative).
   const redirectTo = playerDamageRedirectTarget(s, pid);
   if (redirectTo && !permanentProtectionColors(s, redirectTo).size && !permanentProtectionClasses(s, redirectTo).size) {
     return dealDamageToCreature(s, event, dealer, redirectTo, raw);
@@ -1653,7 +1661,7 @@ export function dealSimultaneousDamage(state, hits) {
   const event = beginDamageEvent(state);
   const dealers = new Map(); // source id → its dealer, read on the board as the event begins
   for (const h of hits) {
-    if (!dealers.has(h.source.id)) dealers.set(h.source.id, eventDealer(state, event, { ...h.source, readsKeywords: true }));
+    if (!dealers.has(h.source.id)) dealers.set(h.source.id, eventDealer(state, event, h.source));
   }
   let next = state;
   for (const h of hits) {
@@ -1672,9 +1680,9 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   const amount = Math.max(0, rawAmount || 0);
   // ONE DAMAGE EVENT, ONE SOURCE (damageDealer says what is read of it, and when): every target is hit through the shared
   // deal path and the event settles once, below. `source` is the permanent dealing the damage — an activated or triggered
-  // ability's own permanent, or the creature that deals it (Warstorm Surge's entering creature reads its keywords —
-  // `source.readsKeywords`); a spell has no permanent source, so a source-scoped doubler or a source's infect never
-  // matches it (a safe FN).
+  // ability's own permanent, or the creature that deals it (Warstorm Surge's entering creature) — read live, or its record
+  // once it has left; a spell has no permanent source, only its record (colours and card types — protection from them
+  // applies; it carries no damage keyword, and a permanent-scoped doubler never matches it).
   const event = beginDamageEvent(next);
   const dealer = eventDealer(next, event, source, controller);
   // `override` — a PER-PLAYER amount (Molten Psyche reads each opponent's own cards-drawn count) that replaces the shared

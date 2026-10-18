@@ -7714,8 +7714,9 @@ export function checkDiesTriggers(state, dead) {
     // THE DYING PERMANENT AS A DAMAGE SOURCE (CR 113.7a, 609.7c): its colours and card types as it last existed, for its own
     // "When this creature dies, it deals N damage …" — Torbran's "red source", Mechanized Warfare's "artifact source" read them
     // (effects/atoms/shared.damageSourceFor, only when the triggering permanent IS the source). Stamped only when the death
-    // look-back captured both.
-    if (Array.isArray(d.lkiColors) && Array.isArray(d.lkiTypes)) diesCtx.dyingQualities = { colors: [...d.lkiColors], types: [...d.lkiTypes] };
+    // look-back captured both. + its damage keywords and its controller as it last existed (CR 702.15b, 702.15c, 702.2e — its own
+    // dies-trigger damage keeps the lifelink or deathtouch it had, and the gain goes to that controller).
+    if (Array.isArray(d.lkiColors) && Array.isArray(d.lkiTypes)) diesCtx.dyingQualities = { colors: [...d.lkiColors], types: [...d.lkiTypes], keywords: [...(d.lkiKeywords || [])], controller: d.controller };
     // KW-UNDYING (CR 702.93a + 603.6e last-known-info): the undying intervening-if reads whether the DYING
     // object had any +1/+1 counters AS IT LAST EXISTED on the battlefield. Stamped ONLY when the death
     // look-back carried its `counters` snapshot (every modeled death constructor does) — an entry without
