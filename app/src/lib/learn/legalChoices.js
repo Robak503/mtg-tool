@@ -2623,6 +2623,16 @@ function actionsActivateAbility(state, playerId) {
         }
         if (best != null && best < totalCmc(cost)) cost = parseManaCost(best > 0 ? `{${best}}` : "");
       }
+      // "SPEND ONLY MANA OF THE CHOSEN COLOR TO ACTIVATE THIS ABILITY" (play-weighted #890, 2026-10-17 — Throne of Eldraine's draw):
+      // generic paid only with mana of the source's chosen colour is that many pips of the colour, so the action carries the pips
+      // and the dispatcher's planner pays nothing else (it pays action.cost as offered). Applied after the price is final. No colour
+      // chosen, or a pip no mana of that colour can pay (another colour, {C}, hybrid, Phyrexian, {X}) → not offered.
+      if (ab.spendOnlyChosenColor) {
+        const chosen = perm.chosenColor;
+        if (!["W", "U", "B", "R", "G"].includes(chosen) || cost.hasX || (cost.hybrid || []).length || (cost.phyrexian || []).length
+          || ["W", "U", "B", "R", "G", "C"].some((c) => c !== chosen && (cost[c] || 0) > 0)) continue;
+        cost = { ...cost, generic: 0, [chosen]: (cost[chosen] || 0) + (cost.generic || 0) };
+      }
       // NO-CHOICE cost affordability gates — X-INDEPENDENT, so they sit ABOVE the γ1f costX expansion and
       // gate EVERY enumeration path below (previously the costX branch `continue`d past them — an {X}
       // ability that also carried a pay-life / pay-energy / remove-counter item would have been offered

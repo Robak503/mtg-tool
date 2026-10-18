@@ -28,7 +28,7 @@ import { hasClassLevelBar, parseClassFrame, classCardModeled } from "../classLev
 // CONDITION rider (CR 602.5d) — the metric⇄runtime shared shape gate. interveningIf.js imports only
 // gameState.js (which does NOT import this module), so this edge is acyclic.
 import { activationConditionParseable } from "../interveningIf.js";
-import { selfNormalizeOracle } from "../staticAbilityParser.js"; // leaf-importing module — cycle-safe; the shared self-name grammar
+import { selfNormalizeOracle, choosesColorOnEnter } from "../staticAbilityParser.js"; // leaf-importing module — cycle-safe; the shared self-name grammar; + choosesColorOnEnter (2026-10-17): the chosen-colour payment rider needs the card's chooser
 import { CAST_ONLY_AFTER_ANOTHER_SPELL_PATTERN } from "./textNormalize.js"; // a zero-import leaf — the cast restriction's one pattern, shared with the classifier's strip
 import { SAC_TYPE_CANON } from "./castModifiers.js"; // the ONE sacrifice-union map both cost grammars read (castModifiers imports only parseHelpers — no cycle)
 
@@ -97,6 +97,12 @@ const COMBAT_STEP_RIDER = /\.?\s*Activate (?:this ability )?only during the (beg
  * without enforcement would hand the engine an unconditional ability the card never printed.
  */
 const CONDITION_RIDER = /\.?\s*Activate (?:this ability )?only if ([^.]+)\.\s*$/i;
+// A PAYMENT RESTRICTION ON THE ABILITY'S OWN MANA (play-weighted #890, 2026-10-17 — Throne of Eldraine "{3}, {T}: Draw two cards. Spend
+// only mana of the chosen color to activate this ability."): the {N} may be paid only with mana of the colour the source chose as it
+// entered, so it is N pips of that colour — what legalChoices bakes into the action's cost (the dispatcher pays exactly that, CR
+// 601.2h via 602.2b). Peeled first (it ends the line), carried as `spendOnlyChosenColor`, and honoured only on a card that prints the
+// colour chooser; anywhere else it stays in the effect text and parks the ability.
+const SPEND_ONLY_CHOSEN_COLOR_RIDER = /\.?\s*Spend only mana of the chosen color to activate this ability\.\s*$/i;
 // PER-COUNTER ACTIVATION DISCOUNT (SHELF-85 · Halfshell Q4, 2026-09-05 — Exploding Barrel "This ability costs {1} less to
 // activate for each pressure counter on this artifact."; Quest for the Necropolis, Vindictive Flamestoker, Diary of
 // Dreams print the same frame on their own noun): a COST modifier, not an effect — peeled off the effect text and carried
@@ -1414,7 +1420,9 @@ export function parseActivatedAbilities(cardIn) {
     // "Activate no more than N times each turn." (Pit Imp, Phyrexian Battleflies, Soul Kiss). activationLimit
     // is the COUNT, never a boolean — a boolean cannot express "twice", which is exactly the gap here. The
     // "only once" frame parses as 1, so its 56 native carriers keep byte-identical behavior.
-    const rawEffect = line.slice(ci + 1).trim();
+    const rawEffectLine = line.slice(ci + 1).trim();
+    const spendOnlyChosenColor = SPEND_ONLY_CHOSEN_COLOR_RIDER.test(rawEffectLine) && !!choosesColorOnEnter(card);
+    const rawEffect = spendOnlyChosenColor ? rawEffectLine.replace(SPEND_ONLY_CHOSEN_COLOR_RIDER, ".").trim() : rawEffectLine;
     // CONDITION rider (CR 602.5d) — peeled FIRST because it is end-anchored and can sit AFTER a timing
     // rider on the same line ("… Activate only once each turn. Activate only if a creature died this
     // turn."). Peeling it first is what lets the end-anchored LIMIT/PRECOMBAT riders below still see their
@@ -1552,6 +1560,7 @@ export function parseActivatedAbilities(cardIn) {
 
       boast: isBoast, // CR 702.135 — offer gate requires perm.attackedThisTurn (per-permanent, not per-seat)
       condition, // CR 602.5d "Activate only if <cond>" — legalChoices evaluates it; null when absent OR unreadable
+      ...(spendOnlyChosenColor ? { spendOnlyChosenColor: true } : {}), // Throne of Eldraine — legalChoices turns the generic into pips of the source's chosen colour
       reduction, // PER-COUNTER DISCOUNT — { perCounterOnSelf: { kind, amount } } or null; legalChoices.reduceActivatedAbilityCost prices it
       manaPips: cost?.manaPips ?? null,
       tapSelf: cost?.tapSelf ?? false,

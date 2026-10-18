@@ -2550,7 +2550,7 @@ function manaCardResidueModeled(card, oracle) {
   // accepts exactly the reader's set (measured: dropping the gate changes no verdict in the slice's tests); it stays so
   // that widening either one cannot credit a chooser the enter site never stamps.
   let text = stripModeledTriggerText(card, oracle);
-  if (choosesColorOnEnter(card)) text = text.replace(CHOOSE_COLOR_ON_ENTER_SENTENCE, (_m, lead) => lead);
+  if (choosesColorOnEnter(card)) text = stripChooseColorSentence(text, card);
   // COUNTER / TOKEN DOUBLER sentences (replacement effects, CR 614.1a — Doc Samson's and Kami of Whispered Hopes'
   // "that many plus one"): applied by the runtime at every counter placement and token mint regardless of tier
   // (doublerProfile → applyCounterDoubling), and stripped by the SAME single source of truth doublerCardTier uses
@@ -3301,6 +3301,21 @@ registerClassCardValidator(modeledClassCard);
 // ("This land enters tapped. As it enters, choose a color."); the tail must end the sentence, so a longer chooser
 // ("choose a color and an opponent") can never lose a prefix.
 const CHOOSE_COLOR_ON_ENTER_SENTENCE = /(^|[.!?][ \t]+)as (?:it|this (?:land|artifact|creature|permanent|enchantment)) enters, choose a color(?: other than (?:white|blue|black|red|green))?(?:\.|(?=\n|$))[ \t]*/gim;
+// The same sentence led by the card's own name (2026-10-17 — Throne of Eldraine "As Throne of Eldraine enters, choose a color.";
+// a legendary card's short name too), the form choosesColorOnEnter reads since then (CR 201.5).
+function stripChooseColorSentence(text, card) {
+  let out = text.replace(CHOOSE_COLOR_ON_ENTER_SENTENCE, (_m, lead) => lead);
+  const name = String(card?.name || "").split(" // ")[0].trim();
+  if (!name) return out;
+  const forms = [name];
+  if (/\bLegendary\b/i.test(String(card?.type || card?.type_line || "")) && name.includes(",")) forms.push(name.split(",")[0].trim());
+  for (const f of forms) {
+    const esc = f.replace(/[.*+?^${}()|[\]\\]/g, (ch) => `\\${ch}`);
+    const re = new RegExp(`(^|[.!?][ \\t]+)as ${esc} enters, choose a color(?: other than (?:white|blue|black|red|green))?(?:\\.|(?=\\n|$))[ \\t]*`, "gim");
+    out = out.replace(re, (_m, lead) => lead);
+  }
+  return out;
+}
 // The Borderposts' printed alternative cost, as one whole line (see the pre-strip in classifyCard).
 const BORDERPOST_ALT_COST_LINE = /^[ \t]*you may pay \{\d+\} and return a basic land you control to its owner['’]s hand rather than pay this spell['’]s mana cost\.?[ \t]*$/im;
 

@@ -636,6 +636,41 @@ leaving the game can tell a permanent they hold by default (exiled) from one an 
   903.4f), and the "could produce" lands (`landsCouldProduce`, CR 106.7 — the controller's or its opponents', `basicOnly`,
   `colorsOnly`; a land whose own set is board-derived is skipped, except a Command Tower's identity). A new "any color …
   <qualifier>" line gets an arm here, never the free any-colour arm.
+- **Tap augments: conditional, all-players subtype, until end of turn (2026-10-17, the mana-trigger slice).** A triggered mana
+  ability that adds mana when a source is tapped (CR 605.1b) is a `bonus` entry on the tapped source's record
+  (`globalTapManaAugment` → manaSources), credited by planPaymentCore's `tapSource`, offered by `manualManaTaps` and added by
+  commitManaTap — the three must agree, or the plan counts mana the commit never makes. New shapes in
+  `parseGlobalTapManaAugment` (each with its $-anchored line in `stripGlobalTapManaAugment` — the two lists must match, or the
+  coverage composite recurses): **`whenProduces`** — the extra mana only when the tap's own mana includes that colour
+  (Forsaken Monument / Event Horizon "tap a permanent for {C}", Ultima's land form; Caged Sun's land of the chosen colour,
+  controller-scoped; Gauntlet of Power's basic land of the chosen colour, any player — "chosen" resolved off the carrier's
+  `chosenColor`, and only on a card that prints the chooser). manaSources drops such a bonus from a record that can't make its
+  colour; `tapSource` credits it only when the primary's colour (or a fixed bundle) holds it, and a generic tap's primary prefers
+  a colour that triggers one; `manualManaTaps` attaches it per colour. **All-players subtype** — Vernal Bloom / Gauntlet of
+  Might "Whenever a Forest/Mountain is tapped for mana, its controller adds an additional {G}/{R}" (whatever the land was tapped
+  for — the Gauntlet of Might ruling); `basic-land` + sameAsProduced (Lavaleaper). **Until end of turn** — High Tide, Bubbling
+  Muck, Molten Tide: the `tap-mana-augment-eot` atom (effects/atoms/misc.js) records `{ controller, subject, allPlayers, colors,
+  amount, turn }` in `state.tapManaAugmentsEot`; globalTapManaAugment reads only this turn's entries (CR 514.2). A fixed-colour
+  bonus that makes the wanted colour takes it while the primary pays another still-needed colour (`bonusTakesWant` — Breeding
+  Pool under High Tide pays {G}{U}). Not modeled: a land's extra lines and no-{T} lines get no augment bonus (an under-read);
+  subtypes are read off the printed type line (Urborg's Swamps don't trigger Bubbling Muck).
+- **The restricted surplus (2026-10-17 — Throne of Eldraine).** A spend-restricted tap's mana the payment leaves unspent keeps
+  its restriction (CR 106.6): planPaymentCore attributes the spend to the restricted mana first (the payment may spend it — the
+  filter admitted the source), returns what is left of each restricted tap as `restrictedSurplus` `[{ pool, restriction }]`, and
+  commitPaymentPlan moves it out of the open pool into `player.restrictedMana` (the QUARTET Phase 4 entries — drained with the pool
+  at each step's end, read by the next payment's pre-pass). Before, when floating open mana paid part of the cost, a multi-mana
+  restricted tap's leftover stayed in the open pool as ordinary mana (a floating {R} spent on Darksteel Ingot beside Mishra's
+  Workshop left an open {C}; the filter below bounds the amount left, not its colour or restriction). The
+  generic pass spends restricted mana before the open pool (only mana already tapped — it doesn't tap a restricted source ahead of
+  spending floating mana, so the Workshop case keeps a restricted {C} where the best play keeps the {R}). The full-consumption filter (`amount ≤` the cost's pips) is unchanged,
+  so Throne pays only for monocolored spells of four or more pips — an under-offer. `parseSpendRestriction` reads "to cast
+  monocolored spells of that color" as `castMonocolored: "@chosenColor"` (resolveSourceRestriction → the permanent's colour;
+  spendRestrictionAllows → `colorsOfSpell` is exactly that colour). The chosen-colour mana leg reads "N mana of the chosen color"
+  and the name-led chooser (`choosesColorOnEnter` now reads "As <card name> enters, choose a color" — Throne, Hall of Triumph,
+  Iona, Captivating Crossroads — and `staticAbilitiesCoverCard` / coverage's mana tier admit the chooser sentence beside what reads
+  the colour). An activated ability's "Spend only mana of the chosen color to activate this ability." (abilities.js
+  `spendOnlyChosenColor`, only beside a chooser) turns the generic into pips of the source's colour in actionsActivateAbility, so
+  the action's cost is what the dispatcher pays.
 - **Damage on a mana line rides `painColors`** (`painAmount`, optional `painCondition` read live — Tomb of Urami): every tap
   that makes a painful colour deals it, the planner's and the explicit one (tapRecordFor → `painLife` → commitManaTap). A
   painful source is never "plain colourless" in `tapAny`, so Ancient Tomb is not tapped first for generic.

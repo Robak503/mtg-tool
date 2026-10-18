@@ -37,7 +37,8 @@ import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, permanentHasC
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // QUARTET Phase 4 step 3 (2026-09-06): the closed CR creature-type vocabulary for spend restrictions ("only to cast a Ninja or Turtle spell") — a zero-import leaf
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { COUNT_SUBTYPE } from "./effects/parseHelpers.js"; // #766 — the curated subtype allowlist for "for each <Subtype> on the battlefield" (parseHelpers imports only keywords.js; staticAbilityParser, imported below, already loads it)
-import { parseAuraLandManaBonus, parseGlobalTapManaAugment, artifactActivationsLocked, abilitiesAsThoughHasteFor } from "./staticAbilityParser.js"; // + SG-18: haste-for-abilities at the mana-source sick gate // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only); NR-1: the artifact-activation lock
+import { parseAuraLandManaBonus, parseGlobalTapManaAugment, artifactActivationsLocked, abilitiesAsThoughHasteFor, choosesColorOnEnter } from "./staticAbilityParser.js"; // + SG-18: haste-for-abilities at the mana-source sick gate // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only); NR-1: the artifact-activation lock; + choosesColorOnEnter (2026-10-17): the chosen-colour mana leg reads the name-led chooser (Throne of Eldraine)
+import { colorsOfSpell } from "./spellColors.js"; // a spell's colours, hybrid pips counted (CR 202.2d) — Throne of Eldraine's "monocolored spells of that color" (a zero-import leaf)
 import { PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // 2 life per Phyrexian symbol (CR 107.4f) — one constant for the cast, the activation and the attack tax (attackTax imports only parseHelpers: no cycle)
 import { manaMultiplier } from "./replacementEffects.js"; // MANA-MULTIPLIER: ×N tap-for-mana replacement (Mana Reflection/Nyxbloom; leaf, no cycle)
 import { evaluateInterveningIf } from "./interveningIf.js"; // CONDITION-GATED mana (CR 602.5) — interveningIf imports ONLY gameState, so this is a one-way edge with no cycle (checked before adding it)
@@ -101,6 +102,7 @@ const KNOWN_ROCKS = {
 };
 
 const COLOR_SET = new Set(MANA_COLORS);
+const CHOSEN_COLOR_AMOUNT_WORDS = { one: 1, two: 2, three: 3, four: 4, five: 5 };
 
 // The order GENERIC is paid from mana already made (the floating pool, a tap's surplus, a restricted entry): COLORLESS
 // FIRST, then W→U→B→R→G. Any type of mana pays generic (CR 107.4b), but a colored mana left floating can still pay a
@@ -609,9 +611,14 @@ function parseAddClause(oracle, card) {
   // sites stamp from. A mana line that names "the chosen color" with no choice on the card has no stamp to
   // read and must stay unparsed (an unreachable source credited native-mana is the FP the reachability pins
   // guard). The check is a local regex, not the static reader, to keep this module a leaf.
-  const cc = oracle.match(/\bAdd (?:\{([WUBRG])\} or )?one mana of the chosen color\b/i);
-  if (cc && /\bas (?:it|this [a-z]+) enters, choose a color\b/i.test(oracle)) {
-    return { colors: cc[1] ? [cc[1].toUpperCase()] : [], amount: 1, chosenColor: true };
+  // + THE AMOUNT AND THE NAME-LED CHOOSER (play-weighted #890, 2026-10-17 — Throne of Eldraine "{T}: Add four mana of the chosen
+  // color.", "As Throne of Eldraine enters, choose a color."): N mana of the one chosen colour, the chooser read by the static
+  // reader the enter sites stamp through (choosesColorOnEnter — it reads the card's own name too). A fixed option beside the
+  // chosen colour stays the one-mana form only.
+  const cc = oracle.match(/\bAdd (?:\{([WUBRG])\} or )?(one|two|three|four|five) mana of the chosen color\b/i);
+  if (cc && (cc[2].toLowerCase() === "one" || !cc[1])
+      && (/\bas (?:it|this [a-z]+) enters, choose a color\b/i.test(oracle) || choosesColorOnEnter(card))) {
+    return { colors: cc[1] ? [cc[1].toUpperCase()] : [], amount: CHOSEN_COLOR_AMOUNT_WORDS[cc[2].toLowerCase()], chosenColor: true };
   }
   const m = oracle.match(/Add ([^.]*)/i);
   if (!m) return null;
@@ -2266,6 +2273,7 @@ export function parseSpendRestriction(oracle) {
   let castColorless = false;
   let abilityColorless = false;
   const castKeywords = [];
+  let castMonocolored = null;
   for (const rawClause of clauses) {
     // TWO "a <type> spell" ITEMS (2026-10-17 — Maelstrom of the Spirit Dragon "to cast a Dragon spell or an Omen spell"): the cast list
     // below reads "cast <list> spell(s)" once, so the second item was dropped — a restriction narrower than printed. Folded into one
@@ -2306,6 +2314,11 @@ export function parseSpendRestriction(oracle) {
         continue;
       }
     }
+    // MONOCOLORED SPELLS OF THE CHOSEN COLOUR (play-weighted #890, 2026-10-17 — Throne of Eldraine "Spend this mana only to cast
+    // monocolored spells of that color."): a colour predicate on the cast spell, not a type word — exactly one colour (CR 105.2a:
+    // monocolored), the source's chosen one. "that color" is the colour the source chose as it entered: stamped `@chosenColor`
+    // here and resolved per permanent (resolveSourceRestriction); an unresolved one pays for nothing. Only the whole clause.
+    if (/^to cast monocolored spells of that color$/.test(clause.trim())) { castMonocolored = "@chosenColor"; continue; }
     // COMMANDER (CR 903.3) — a designation, not a type-line word, so it gets its own token rather than
     // riding SPEND_CAST_TYPE_WORDS where it could never match a printed line (the vacuous-filter failure).
     if (/\bto cast your commander\b/.test(clause)) { types.add("@commander"); continue; }
@@ -2375,8 +2388,11 @@ export function parseSpendRestriction(oracle) {
       }
     }
   }
-  if (!types.size && !abilityOf.length && !castColorless && !castKeywords.length) return null;
-  return { castTypes: [...types], ...(castKeywords.length ? { castKeywords } : {}), ...(abilityOf.length ? { abilityOf } : {}), ...(chosenType ? { chosenType: true } : {}), ...(uncounterableIfSpent ? { uncounterableIfSpent: true } : {}),
+  if (!types.size && !abilityOf.length && !castColorless && !castKeywords.length && !castMonocolored) return null;
+  // Monocolored-of-a-colour is the WHOLE permission (Throne of Eldraine): beside another permission the two would be read as one
+  // list (either pays), which no printed card says — refused (a safe FN).
+  if (castMonocolored && (types.size || abilityOf.length || castColorless || castKeywords.length)) return null;
+  return { castTypes: [...types], ...(castMonocolored ? { castMonocolored } : {}), ...(castKeywords.length ? { castKeywords } : {}), ...(abilityOf.length ? { abilityOf } : {}), ...(chosenType ? { chosenType: true } : {}), ...(uncounterableIfSpent ? { uncounterableIfSpent: true } : {}),
     ...(castColorless ? { castColorless: true } : {}), ...(abilityColorless ? { abilityColorless: true } : {}) };
 }
 
@@ -2388,6 +2404,12 @@ export function parseSpendRestriction(oracle) {
  * never laundered into unrestricted mana (null would mean UNRESTRICTED here — the forbidden direction).
  */
 export function resolveSourceRestriction(restriction, perm) {
+  // THE CHOSEN COLOUR (Throne of Eldraine, 2026-10-17): "@chosenColor" becomes the permanent's stamped colour; none stamped → a
+  // colour no spell has ("@unresolved"), so the record pays for nothing (manaSources drops such a source before this anyway).
+  if (restriction?.castMonocolored === "@chosenColor") {
+    const c = MANA_COLORS.includes(perm?.chosenColor) ? perm.chosenColor : "@unresolved";
+    return { ...restriction, castMonocolored: c };
+  }
   if (!restriction || !restriction.chosenType) return restriction;
   const chosen = String(perm?.chosenType || "").trim().toLowerCase();
   if (!chosen) return { ...restriction, castTypes: [], ...(restriction.abilityOf ? { abilityOf: [] } : {}), unresolvedChosenType: true };
@@ -2419,6 +2441,12 @@ export function spendRestrictionAllows(restriction, castCard, opts = {}) {
     return false;                                      // no context / no matching source ⇒ REFUSE (the default-deny posture)
   }
   if (!castCard) return false;                         // ⛔ NO CONTEXT ⇒ REFUSE (see planPayment)
+  // MONOCOLORED SPELLS OF A COLOUR (Throne of Eldraine, 2026-10-17): the cast spell has exactly one colour (CR 105.2a), that one.
+  // Read off the card being cast (colorsOfSpell — a hybrid pip counts each colour, so a {W/U} spell is multicolored, CR 202.2d).
+  if (restriction.castMonocolored != null) {
+    const cs = colorsOfSpell(castCard);
+    return cs.length === 1 && cs[0] === restriction.castMonocolored;
+  }
   // COLOUR WORDS (Shrine of the Forsaken Gods / Eldrazi Temple): a coloured spell never qualifies for a colourless-only record —
   // checked BEFORE the type walk so the bare "@any-spell" of "colorless spells" cannot short-circuit past it.
   if (restriction.castColorless && colorsOf(castCard).length) return false;
@@ -2865,6 +2893,20 @@ export function globalTapManaAugment(state, playerId, sourcePerm) {
       // Urborg does NOT trigger Crypt Ghast. That is an under-count, not a wrong fire: the safe direction,
       // and the honest note is cheaper than a layers import this leaf can't take without a cycle.
       if (BASIC_LAND_SUBTYPES.has(aug.subject) && !(srcIsLand && new RegExp(`\\b${aug.subject}\\b`, "i").test(srcType))) continue;
+      // A BASIC LAND (Gauntlet of Power, Lavaleaper — 2026-10-17): a land with the Basic supertype (CR 205.4c), read off the
+      // printed type line like the subtype gate above. "permanent" (Forsaken Monument) is any tapped source.
+      if (aug.subject === "basic-land" && !(srcIsLand && /\bBasic\b/.test(srcType))) continue;
+      // THE CONDITIONAL FORMS (2026-10-17): `whenProduces` — the colour the tap's own mana must include (Forsaken Monument's
+      // {C}; Caged Sun's and Gauntlet of Power's chosen colour, read off THIS carrier's stored `chosenColor` — none stored, no
+      // extra mana, never a guessed colour). The bonus carries it; the planner and the explicit tap add the extra mana only
+      // when the tap made that colour (planPaymentCore's tapSource, manualManaTaps), and manaSources drops it from a source
+      // that can't make that colour at all.
+      if (aug.whenProduces) {
+        const color = aug.whenProduces === "chosen" ? perm.chosenColor : aug.whenProduces;
+        if (!color || !MANA_COLORS.includes(color)) continue;
+        out.push({ colors: [color], whenProduces: color, amount: aug.amount });
+        continue;
+      }
       // sameAsProduced (MF-1): the bonus's TYPE is the type this tap produces — resolved by the consumer
       // (manaSources stamps the source's production colors; planPayment/actionsTapForMana credit the
       // PRIMARY chosen color), never an independent color pick (the off-type FP, CREED).
@@ -2872,6 +2914,15 @@ export function globalTapManaAugment(state, playerId, sourcePerm) {
         ? { sameAsProduced: true, amount: aug.amount }
         : { colors: [...aug.colors], amount: aug.amount });
     }
+  }
+  // THE AUGMENTS A SPELL CREATED UNTIL END OF TURN (2026-10-17 — High Tide, Bubbling Muck, Molten Tide; effects/atoms/misc.js
+  // applyTapManaAugmentEot): this turn's entries only (CR 514.2 — they end with the turn), "a player" for any tapper, "you" for the
+  // caster; the tapped land must carry the basic land type, read off the printed type line like the permanent augments above.
+  for (const e of state.tapManaAugmentsEot || []) {
+    if (e.turn !== state.turn) continue;
+    if (!e.allPlayers && e.controller !== playerId) continue;
+    if (!(srcIsLand && BASIC_LAND_SUBTYPES.has(e.subject) && new RegExp(`\\b${e.subject}\\b`, "i").test(srcType))) continue;
+    out.push({ colors: [...e.colors], amount: e.amount });
   }
   return out;
 }
@@ -3355,6 +3406,9 @@ export function manaSources(state, playerId) {
     // false` that keeps the multiplier off above.
     const bonus = (prod.requiresTap === false ? [] : [...landAuraManaBonus(state, perm), ...globalTapManaAugment(state, playerId, perm)])
       .map((b) => (b.sameAsProduced ? { sameAsProduced: true, colors: [...prod.colors], amount: b.amount } : b));
+    // A CONDITIONAL bonus (`whenProduces` — Forsaken Monument, Caged Sun, Gauntlet of Power; 2026-10-17) rides only a record that
+    // can make its colour — the record's final colours (or its fixed bundle), so a Forest never carries Forsaken Monument's {C}.
+    const bonusFor = (colors, fixedMap) => bonus.filter((b) => !b.whenProduces || (fixedMap ? (fixedMap[b.whenProduces] || 0) > 0 : (colors || []).includes(b.whenProduces)));
     // SNOW (SN-1, CR 107.4h): stamp sources produced by a snow permanent so planPayment can pay a {S} pip
     // with one mana from here (a {S} is NEVER paid from a non-snow source). The snow flag is the SOURCE
     // permanent's printed supertype — independent of what color/amount it makes.
@@ -3422,7 +3476,8 @@ export function manaSources(state, playerId) {
     if (prod.colorsFromImprint) {
       const imprintedColors = (perm.imprinted?.colors || []).filter((c) => MANA_COLORS.includes(c));
       if (!imprintedColors.length) continue;
-      sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife, lifeAvail: player.life ?? 0 } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });
+      const imprintBonus = bonusFor(imprintedColors, null);
+      sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(imprintBonus.length ? { bonus: imprintBonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife, lifeAvail: player.life ?? 0 } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });
       continue;
     }
     // EXILE-FROM-GY COST (Molt Tender): the source exists ONLY while the graveyard has a card to pay
@@ -3438,7 +3493,8 @@ export function manaSources(state, playerId) {
     // gives each sacrifice cost of a payment its own (assignSacVictims — two Altars can't share one creature).
     const sacVictimIds = sacVictimIdsFor(state, player, perm.id, prod);
     if (sacVictimIds && !sacVictimIds.length) continue;
-    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true, gyExileIds } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(prod.sacrificesFood ? { sacrificesFood: true } : {}), ...(sacVictimIds ? { sacVictimIds } : {}), ...(fixed ? { fixed } : {}), ...(painOn ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife, lifeAvail: player.life ?? 0 } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });
+    const mainBonus = bonusFor(fixed ? Object.keys(fixed) : prod.colors, fixed && Object.keys(fixed).length > 1 ? fixed : null);
+    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true, gyExileIds } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(prod.sacrificesFood ? { sacrificesFood: true } : {}), ...(sacVictimIds ? { sacVictimIds } : {}), ...(fixed ? { fixed } : {}), ...(painOn ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(mainBonus.length ? { bonus: mainBonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife, lifeAvail: player.life ?? 0 } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });
     // STAGE ④-3 — EXTRA MANA LINES (extraLineSources): each its own record on the SAME permanent.
     sources.push(...extraLineSources(state, playerId, player, perm, manaMult));
   }
@@ -3719,7 +3775,10 @@ export function manualManaTaps(state, playerId) {
       if (offered.has(key)) continue;
       offered.add(key);
       // A bonus makes its own colour (an any-colour boost its first); a sameAsProduced one (Mana Flare) the colour this tap made.
-      const bonus = (s.bonus || []).map((b) => ({ color: b.sameAsProduced ? color : b.colors[0], amount: b.amount }));
+      // A conditional bonus (`whenProduces`, 2026-10-17) only when this tap makes its colour (a fixed bundle: when the bundle holds it).
+      const bonus = (s.bonus || [])
+        .filter((b) => !b.whenProduces || (fixed ? (fixed[b.whenProduces] || 0) > 0 : b.whenProduces === color))
+        .map((b) => ({ color: b.sameAsProduced ? color : b.colors[0], amount: b.amount }));
       out.push({ ...tapRecordFor(s, color, bonus), ...(s.activationCost ? { activationCost: s.activationCost } : {}) });
     }
   }
@@ -4054,7 +4113,10 @@ function plannerSourceRecord(s) {
     // {colors, amount}. Credited on tap; the bonus is part of the land tap, never a separate tap.
     // MANA FLARE (MF-1): a sameAsProduced bonus keeps its marker — tapSource binds its color to the
     // PRIMARY's chosen color (the type this tap produced), never an independent pick (CREED, off-type FP).
-    bonus: Array.isArray(s.bonus) ? s.bonus.map(b => ({ colors: b.colors.filter(c => COLOR_SET.has(c)), amount: b.amount, ...(b.sameAsProduced && { sameAsProduced: true }) })).filter(b => b.amount > 0 && b.colors.length) : [],
+    // + a CONDITIONAL bonus (`whenProduces`, 2026-10-17 — Forsaken Monument, Caged Sun) keeps its colour: tapSource credits it only
+    //   when the tap's own mana is that colour. One whose colour the record can't make is dropped here too (a hand-built record).
+    bonus: Array.isArray(s.bonus) ? s.bonus.map(b => ({ colors: b.colors.filter(c => COLOR_SET.has(c)), amount: b.amount, ...(b.sameAsProduced && { sameAsProduced: true }), ...(b.whenProduces && { whenProduces: b.whenProduces }) }))
+      .filter(b => b.amount > 0 && b.colors.length && (!b.whenProduces || (s.fixed && Object.keys(s.fixed).length > 1 ? (s.fixed[b.whenProduces] || 0) > 0 : (s.colors || []).includes(b.whenProduces)))) : [],
     snow: !!s.snow,   // SNOW (SN-1): a source produced by a snow permanent — the only kind that can pay a {S} pip
     // SPEND-RESTRICTED (CR 106.6): the permission this source's mana carries. Filtered out entirely in planPaymentCore
     // unless the caller supplied a spend context that satisfies it — see the DEFAULT-DENY note.
@@ -4226,6 +4288,10 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
   // + the follow-up: a graveyard card per exile cost (the second Molt Tender beside one card) and the payment's life costs together
   // (the second Treasonous Ogre at 4 life) are claims of the same kind.
   const mine = [];
+  // THE RESTRICTED MANA THIS CALL MAKES (2026-10-17 — Throne of Eldraine): each spend-restricted tap's own mana and its restriction,
+  // so the part the payment leaves unspent keeps the restriction (restrictedSurplus, below). A bonus riding the tap is another
+  // ability's mana (a triggered mana ability, CR 605.1b) and carries no restriction.
+  const restrictedMade = [];
   const victimsHold = (s) => {
     if (!claimsResource(s) && !leavesAsItPays(s)) return true;
     const all = [...(claims || []), ...mine, s];
@@ -4271,16 +4337,32 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
         || (o.extraTaps || []).some((id) => tappedNow.has(id))) o.used = true;
     }
     // Components: the primary land mana (one chosen color from s.colors) + each bonus entry.
-    const components = [{ colors: s.colors, amount: s.amount, primary: true }, ...s.bonus.map(b => ({ colors: b.colors, amount: b.amount, primary: false, sameAsProduced: !!b.sameAsProduced }))];
+    const components = [{ colors: s.colors, amount: s.amount, primary: true }, ...s.bonus.map(b => ({ colors: b.colors, amount: b.amount, primary: false, sameAsProduced: !!b.sameAsProduced, whenProduces: b.whenProduces || null }))];
     let primaryColor = null;
     const bonusPicks = [];
     let assigned = false;
+    // A FIXED BONUS THAT MAKES THE WANTED COLOUR (2026-10-17 — Breeding Pool under High Tide or Vernal Bloom paying {G}{U}): when a
+    // bonus of fixed colours can make `wantColor` and the source's own mana can make another colour the cost still needs, the bonus
+    // takes `wantColor` and the primary that other colour — one tap, both pips. Taking `wantColor` with the primary left the bonus a
+    // second {U} and the {G} unpaid (a false "can't afford"). A conditional or same-type bonus follows the primary and can't do this.
+    const stillNeeded = (c) => (cost[c] || 0) - (spend[c] || 0) - (working[c] || 0) > 0;
+    const bonusTakesWant = !!wantColor && !s.fixed
+      && s.bonus.some((b) => !b.sameAsProduced && !b.whenProduces && b.colors.includes(wantColor))
+      && s.colors.some((c) => c !== wantColor && stillNeeded(c));
     const pickColor = (comp) => {
       // If we still owe `wantColor` and this component can make it, spend it there first.
-      if (!assigned && wantColor && comp.colors.includes(wantColor)) { assigned = true; return wantColor; }
+      if (!assigned && wantColor && comp.colors.includes(wantColor) && !(comp.primary && bonusTakesWant)) { assigned = true; return wantColor; }
+      if (comp.primary && bonusTakesWant) return comp.colors.find((c) => c !== wantColor && stillNeeded(c));
       // Else prefer a color the cost STILL needs (helps later pips), else the component's first color.
       const needed = comp.colors.find(c => (cost[c] || 0) - (spend[c] || 0) - (working[c] || 0) > 0);
-      return needed || comp.colors[0];
+      if (needed) return needed;
+      // Nothing owed in a colour (a generic tap): the source's own mana takes a colour that makes a conditional extra mana
+      // (2026-10-17 — Breeding Pool under a green Caged Sun taps for {G}{G}, not a bare {U}). A source with no such bonus is unchanged.
+      if (comp.primary) {
+        const boosted = comp.colors.find((c) => s.bonus.some((b) => b.whenProduces === c));
+        if (boosted) return boosted;
+      }
+      return comp.colors[0];
     };
     for (const comp of components) {
       // MIXED FIXED BUNDLE (karoo / signet): the primary component is NOT a color choice — it produces its
@@ -4293,6 +4375,17 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
         primaryColor = Object.keys(s.fixed)[0];
         continue;
       }
+      // A CONDITIONAL bonus (`whenProduces`, 2026-10-17): added only when THIS tap's own mana included its colour — the primary's
+      // chosen colour, or a fixed bundle holding it (Caged Sun: "causes you to add one or more mana of the chosen color"; Forsaken
+      // Monument's ruling: "only if it produces one or more {C}"). Otherwise the trigger never happened: nothing is credited or
+      // committed. The primary component comes first, so its colour is known here.
+      if (comp.whenProduces) {
+        const made = s.fixed ? (s.fixed[comp.whenProduces] || 0) > 0 : primaryColor === comp.whenProduces;
+        if (!made) continue;
+        working[comp.whenProduces] += comp.amount;
+        bonusPicks.push({ color: comp.whenProduces, amount: comp.amount });
+        continue;
+      }
       // MANA FLARE (MF-1, CR 106.1b): a sameAsProduced bonus is "one mana of any type THAT LAND PRODUCED" — its
       // color IS the primary's chosen color (the primary component is first, so primaryColor is already set),
       // NEVER an independent pick: one Adarkar Wastes tap under Mana Flare makes WW or UU, never W+U (CREED).
@@ -4303,6 +4396,7 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
     }
     // The commit record (every cost rider of the source) is built by tapRecordFor — the one builder the explicit tap shares.
     taps.push(tapRecordFor(s, primaryColor, bonusPicks));
+    if (s.restriction) restrictedMade.push({ restriction: s.restriction, made: s.fixed ? { ...s.fixed } : { [primaryColor]: s.amount } });
     return wantColor && assigned ? wantColor : primaryColor;
   };
 
@@ -4435,6 +4529,17 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
   // 3. Generic — any mana works. Spend the pool first, then tap. Colorless first, both here and after each tap
   // (GENERIC_SPEND_ORDER): the colored mana is what keeps floating for a later colored pip.
   let generic = cost.generic || 0;
+  // RESTRICTED MANA FIRST (2026-10-17 — Throne of Eldraine): mana a restricted tap made that no pip has taken pays the generic before
+  // the open pool does, so floating open mana stays open and less restricted mana is left over (restrictedSurplus, below). A play
+  // order only — any mana pays generic (CR 107.4b) and this payment may spend the restricted mana.
+  if (generic > 0 && restrictedMade.length) {
+    const made = {};
+    for (const r of restrictedMade) for (const [c, n] of Object.entries(r.made)) made[c] = (made[c] || 0) + n;
+    for (const c of GENERIC_SPEND_ORDER) {
+      let unspent = Math.max(0, (made[c] || 0) - (spend[c] || 0));
+      while (generic > 0 && unspent > 0 && working[c] > 0) { spendOne(c); generic -= 1; unspent -= 1; }
+    }
+  }
   if (generic > 0) {
     for (const c of GENERIC_SPEND_ORDER) {
       while (generic > 0 && working[c] > 0) { spendOne(c); generic -= 1; }
@@ -4459,7 +4564,32 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
   }
 
   if (claims) claims.push(...mine); // the next call of the same payment sees this call's sacrifices (activateCostedInOrder)
-  return { taps, spend, ...(entrySpends.length ? { entrySpends } : {}) };
+  // ⭐ THE RESTRICTED SURPLUS (2026-10-17 — Throne of Eldraine's four, "Spend this mana only to cast monocolored spells of that color").
+  // A restricted tap's mana that this payment does not spend keeps its restriction (CR 106.6): it goes to the restricted-mana pool as a
+  // tagged entry (player.restrictedMana — the QUARTET Phase 4 entries the next payment's pre-pass reads), never into the open pool.
+  // The payment may spend the restricted mana on any part of itself (the filter above admitted the source for it), so the spend is
+  // attributed to the restricted mana first, in tap order: what is left of each restricted tap is its entry. Before this, when
+  // floating open mana paid part of the cost, the restricted tap's leftover stayed in the open pool as ordinary mana — a floating
+  // {R} spent on Darksteel Ingot's {3} beside Mishra's Workshop left an open {C} the player never had (laundered; the full-
+  // consumption filter bounds the AMOUNT left, not its colour or its restriction). commitPaymentPlan moves each entry out of the
+  // open pool.
+  let restrictedSurplus = null;
+  if (restrictedMade.length) {
+    const unattributed = { ...spend };
+    restrictedSurplus = [];
+    for (const r of restrictedMade) {
+      const left = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+      let any = false;
+      for (const [c, n] of Object.entries(r.made)) {
+        const used = Math.min(n, unattributed[c] || 0);
+        unattributed[c] = (unattributed[c] || 0) - used;
+        if (n - used > 0) { left[c] = n - used; any = true; }
+      }
+      if (any) restrictedSurplus.push({ pool: left, restriction: r.restriction });
+    }
+    if (!restrictedSurplus.length) restrictedSurplus = null;
+  }
+  return { taps, spend, ...(entrySpends.length ? { entrySpends } : {}), ...(restrictedSurplus ? { restrictedSurplus } : {}) };
 }
 
 /**
@@ -4678,6 +4808,12 @@ export function commitPaymentPlan(state, playerId, plan, { reserved = null } = {
       for (const c of Object.keys(es.spend)) p[c] = Math.max(0, (p[c] || 0) - (es.spend[c] || 0));
       return { ...e, pool: p };
     }).filter((e) => Object.values(e.pool).some((n) => n > 0));
+  }
+  // THE RESTRICTED SURPLUS (2026-10-17): the restricted mana the payment left unspent leaves the open pool for a tagged entry with its
+  // restriction (planPaymentCore's restrictedSurplus) — the entries drain with the pool at each step's end (gameEngine).
+  if (plan?.restrictedSurplus?.length) {
+    for (const e of plan.restrictedSurplus) for (const c of Object.keys(e.pool)) nextPool[c] = (nextPool[c] || 0) - (e.pool[c] || 0);
+    restrictedMana = [...(Array.isArray(restrictedMana) ? restrictedMana : []), ...plan.restrictedSurplus.map((e) => ({ pool: { ...e.pool }, restriction: e.restriction }))];
   }
   // P·37 — the until-end-of-turn hold on "this mana" (Birgi) never exceeds what is left of its color: a payment that spent the held
   // mana lowers it, so mana added later in the step can't survive the drain on its account.

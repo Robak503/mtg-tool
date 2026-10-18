@@ -261,6 +261,18 @@ export function applyDivideDamage(state, atom, ctx) {
 export function miscClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   if (/^prevent all combat damage that would be dealt this turn$/.test(t)) return { op: "fog", targetType: null };
+  // A TAP-FOR-MANA AUGMENT UNTIL END OF TURN (play-weighted, 2026-10-17 — High Tide #798 "Until end of turn, whenever a player taps an
+  // Island for mana, that player adds an additional {U}.", Bubbling Muck #2219's Swamp, Molten Tide's "whenever you tap a Mountain
+  // for mana, add an additional {R}"): a delayed triggered mana ability (CR 603.7, 605.1b) the spell creates. The resolver records it
+  // for the rest of the turn and manaModel.globalTapManaAugment reads it at every tap, exactly like a permanent's augment ("a player"
+  // — any player's tap; "you" — the caster's). A fixed run of one colour only; any other wording stays unparsed.
+  {
+    const m = t.match(/^until end of turn, whenever (a player taps|you tap) an? (forest|island|swamp|mountain|plains) for mana, (?:that player adds|add) an additional ((?:\{[wubrgc]\})+)$/);
+    if (m && (m[1] === "a player taps") === /that player adds/.test(t)) {
+      const symbols = [...m[3].matchAll(/\{([wubrgc])\}/g)].map((x) => x[1].toUpperCase());
+      if (new Set(symbols).size === 1) return { op: "tap-mana-augment-eot", subject: m[2], allPlayers: m[1] === "a player taps", colors: [symbols[0]], amount: symbols.length, targetType: null };
+    }
+  }
   // SHELF-85 S11 (2026-09-04 — Permission Denied): "Your opponents can't cast noncreature spells this turn." — a
   // turn-stamped cast-type lock on every opponent (applyOpponentsCastLockTurn); the cast loop refuses non-creature cards
   // for a locked seat while the turn matches. + P·31 (Silence): "Your opponents can't cast spells this turn." — the same lock
@@ -1037,7 +1049,20 @@ export function applyDamageReplacementUntilNextTurn(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "damage-replacement-until-next-turn", controller: ctx.controller, player: pid, factor: effect.op.factor, applied: true });
 }
 
+/**
+ * TAP-MANA-AUGMENT-EOT (High Tide, Bubbling Muck, Molten Tide — 2026-10-17): record the delayed triggered mana ability the spell
+ * creates for the rest of this turn (state.tapManaAugmentsEot, each entry stamped with the turn — read only while `turn` matches,
+ * so it ends with the turn; CR 514.2). Entries from an earlier turn are dropped as a new one is added. manaModel.globalTapManaAugment
+ * reads them at every tap-for-mana, the planner's and the explicit one alike.
+ */
+function applyTapManaAugmentEot(state, atom, ctx) {
+  const entry = { controller: ctx.controller, subject: atom.subject, allPlayers: !!atom.allPlayers, colors: [...atom.colors], amount: atom.amount, turn: state.turn };
+  const kept = (state.tapManaAugmentsEot || []).filter((e) => e.turn === state.turn);
+  return logEvent({ ...state, tapManaAugmentsEot: [...kept, entry] }, { kind: "spell-effect", effect: "tap-mana-augment-eot", controller: ctx.controller, subject: atom.subject, allPlayers: entry.allPlayers, colors: entry.colors, amount: entry.amount });
+}
+
 export const miscResolvers = {
+  "tap-mana-augment-eot": applyTapManaAugmentEot, // High Tide / Bubbling Muck / Molten Tide — an until-end-of-turn tap-for-mana augment (manaModel.globalTapManaAugment reads it)
   "damage-replacement-until-next-turn": applyDamageReplacementUntilNextTurn, // Lightning, Army of One's Stagger — a stored replacement on one player and their permanents, until its controller's next turn
   "phase-out": applyPhaseOut, // shelf D7 — targeted phasing (attachments ride along, CR 702.26g)
   "player-protection-everything": applyPlayerProtectionEverything, // THE ONE RING — protection from everything until your next turn (no life lock)

@@ -6140,6 +6140,11 @@ export function staticAbilitiesCoverCard(card, isKeywordOnlyClause) {
   for (const clause of abilityClauses(oracle)) {
     if (hasPipReducer && /^this effect reduces only the amount of colored mana you pay$/i.test(clause.trim())) continue;
     if (parseLieutenantStatic(clause)) continue; // LIEUTENANT (CR 903) — a commander-gated compound handled outside parseClause; parseStaticAbilities emits its descriptors in the same loop
+    // THE COLOUR CHOOSER (2026-10-17 — Caged Sun's and Gauntlet of Power's remainders, Hall of Triumph): "As this … enters, choose a
+    // color." is a replacement the enter sites carry out (enterReplacements stamps `chosenColor` through choosesColorOnEnter), so
+    // it is no residue beside the static that reads the colour. It produces no descriptor of its own: a card with nothing else
+    // modeled still returns false above.
+    if (isChooseColorOnEnterClause(card, clause)) continue;
     const produced = [];
     parseClause(clause, produced, card?.name);
     if (keepChosenColorReadable(produced, card).length > 0) continue;          // a modeled static clause
@@ -6964,13 +6969,34 @@ const AURA_CHOOSE_COLOR_ETB_RE = /^as this aura enters, choose a color$/i;
 // permanent, the play-land path stamps the lands (the only permanents that enter through it).
 const LAND_CHOOSE_COLOR_RE = /^as (?:it|this (?:land|artifact|creature|permanent|enchantment)) enters, choose a color(?: other than (white|blue|black|red|green))?$/i;
 const COLOR_WORD_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+// THE NAME-LED FORM (play-weighted, 2026-10-17 — Throne of Eldraine "As Throne of Eldraine enters, choose a color.", Hall of
+// Triumph): the card's own name stands for the permanent (CR 201.5), so the sentence is the same chooser; a legendary card may
+// also use its short name (the part before the comma). The enter sites stamp through this reader, so the name-led chooser now
+// stamps a colour too.
+function nameLedChooserClause(card, clause) {
+  const name = String(card?.name || "").split(" // ")[0].trim();
+  if (!name) return null;
+  const forms = [name];
+  if (/\bLegendary\b/i.test(String(card?.type || card?.type_line || "")) && name.includes(",")) forms.push(name.split(",")[0].trim());
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  for (const f of forms) {
+    const m = clause.match(new RegExp(`^as ${esc(f)} enters, choose a color(?: other than (white|blue|black|red|green))?$`, "i"));
+    if (m) return m;
+  }
+  return null;
+}
 export function choosesColorOnEnter(card) {
   const oracle = String(card?.oracle || card?.oracle_text || "");
   for (const c of abilityClauses(oracle)) {
-    const m = c.trim().match(LAND_CHOOSE_COLOR_RE);
+    const m = c.trim().match(LAND_CHOOSE_COLOR_RE) || nameLedChooserClause(card, c.trim());
     if (m) return { exclude: m[1] ? COLOR_WORD_LETTER[m[1].toLowerCase()] : null };
   }
   return null;
+}
+/** Is `clause` (one abilityClauses clause, self-name normalized or not) the colour chooser choosesColorOnEnter reads on `card`? */
+export function isChooseColorOnEnterClause(card, clause) {
+  const t = String(clause || "").trim();
+  return !!choosesColorOnEnter(card) && (LAND_CHOOSE_COLOR_RE.test(t) || !!nameLedChooserClause(card, t));
 }
 
 export function auraChoosesColorOnEnter(card) {
@@ -7973,6 +7999,40 @@ function parseGlobalTapManaAugmentImpl(card) {
     if (/^whenever you tap a land for mana, add one mana of any type that land produced$/.test(clause.trim().toLowerCase())) {
       return { subject: "land", sameAsProduced: true, amount: 1 };
     }
+    // ⭐ THE CONDITIONAL FORMS (play-weighted, 2026-10-17 — the extra mana depends on WHAT the tap made). `whenProduces` names
+    // the colour the tapped source's own mana must include for the extra mana to be added (CR 605.1b — it triggers on the mana
+    // the ability produced as it resolved); "chosen" is resolved against the carrier's stored `chosenColor` at the tap site,
+    // and the card must print the colour chooser the enter site stamps from (no chooser, no colour, no parse).
+    //   • Forsaken Monument / Event Horizon "Whenever you tap a permanent for {C}, add an additional {C}." and Ultima "… a land
+    //     for {C} …" — the ruling: only a mana ability with {T} in its cost, only if it produces one or more {C}, and one
+    //     additional {C} however many it made.
+    //   • Caged Sun "Whenever a land's ability causes you to add one or more mana of the chosen color, add an additional one
+    //     mana of that color." — controller-scoped, a land's mana only.
+    //   • Gauntlet of Power "Whenever a basic land is tapped for mana of the chosen color, its controller adds an additional one
+    //     mana of that color." — any player's basic land (its controller is the tapper).
+    const lc = clause.trim().toLowerCase().replace(/[’]/g, "'");
+    const colorlessTap = lc.match(/^whenever you tap a (permanent|land) for \{c\}, add an additional \{c\}$/);
+    if (colorlessTap) return { subject: colorlessTap[1], whenProduces: "C", colors: ["C"], amount: 1 };
+    if (/^whenever a land's ability causes you to add one or more mana of the chosen color, add an additional one mana of that color$/.test(lc)) {
+      return choosesColorOnEnter(card) ? { subject: "land", chosenColor: true, whenProduces: "chosen", amount: 1 } : null;
+    }
+    if (/^whenever a basic land is tapped for mana of the chosen color, its controller adds an additional one mana of that color$/.test(lc)) {
+      return choosesColorOnEnter(card) ? { subject: "basic-land", allPlayers: true, chosenColor: true, whenProduces: "chosen", amount: 1 } : null;
+    }
+    // THE ALL-PLAYERS SUBTYPE FORMS (Vernal Bloom "Whenever a Forest is tapped for mana, its controller adds an additional {G}.",
+    // Gauntlet of Might's Mountain line): any player's land of that basic type, WHATEVER it was tapped for (the Gauntlet of Might
+    // ruling: a dual with Mountain among its types makes the extra {R} tapped for either colour) — a fixed pip run, one colour.
+    // Lavaleaper "Whenever a player taps a basic land for mana, that player adds one mana of any type that land produced." — the
+    // Mana Flare template on basic lands.
+    const subtypeTap = lc.match(/^whenever an? (forest|island|swamp|mountain|plains) is tapped for mana, its controller adds an additional ((?:\{[wubrgc]\})+)$/);
+    if (subtypeTap) {
+      const symbols = [...subtypeTap[2].matchAll(/\{([wubrgc])\}/g)].map((x) => x[1].toUpperCase());
+      const unique = [...new Set(symbols)];
+      return unique.length === 1 ? { subject: subtypeTap[1], allPlayers: true, colors: unique, amount: symbols.length } : null;
+    }
+    if (/^whenever a player taps a basic land for mana, that player adds one mana of any type that land produced$/.test(lc)) {
+      return { subject: "basic-land", allPlayers: true, sameAsProduced: true, amount: 1 };
+    }
     // The optional " while you're the monarch" condition rides between "for mana" and ", add" (Regal
     // Behemoth — the only monarch-gated tap-augment in the corpus). Captured as condition:"monarch"; the
     // runtime (globalTapManaAugment) adds the extra mana ONLY while `state.monarchId === playerId`.
@@ -8037,7 +8097,13 @@ export function stripGlobalTapManaAugment(card) {
       // exact rider-free form strips (the "you tap a (?:land|creature)" regex above never matches "nonland
       // permanent"). Kinnan's OTHER line — the {5}{G}{U} look-at-top-five activated ability — survives → not
       // keyword-only → the card stays body-only (a SAFE FN; Kinnan parks on its unmodeled activated ability).
-      && !/^\s*whenever you tap a nonland permanent for mana, add one mana of any type that permanent produced\.?\s*$/i.test(line))
+      && !/^\s*whenever you tap a nonland permanent for mana, add one mana of any type that permanent produced\.?\s*$/i.test(line)
+      // THE CONDITIONAL AND ALL-PLAYERS SUBTYPE FORMS (2026-10-17) — each $-anchored to the exact line its parse arm reads.
+      && !/^\s*whenever you tap a (?:permanent|land) for \{C\}, add an additional \{C\}\.?\s*$/i.test(line)
+      && !/^\s*whenever a land['’]s ability causes you to add one or more mana of the chosen color, add an additional one mana of that color\.?\s*$/i.test(line)
+      && !/^\s*whenever a basic land is tapped for mana of the chosen color, its controller adds an additional one mana of that color\.?\s*$/i.test(line)
+      && !/^\s*whenever an? (?:forest|island|swamp|mountain|plains) is tapped for mana, its controller adds an additional (?:\{[WUBRGC]\})+\.?\s*$/i.test(line)
+      && !/^\s*whenever a player taps a basic land for mana, that player adds one mana of any type that land produced\.?\s*$/i.test(line))
     .join("\n");
 }
 

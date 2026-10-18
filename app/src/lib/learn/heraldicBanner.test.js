@@ -61,11 +61,16 @@ describe("parse + classification", () => {
     expect(isNativeTier(classifyCard(BANNER))).toBe(true);
   });
 
-  it("CREED — without the colour chooser the chosen-colour anthem is not read; Gauntlet of Power (an unmodeled mana trigger) stays parked", () => {
+  it("CREED — without the colour chooser the chosen-colour anthem is not read", () => {
     const noChooser = { ...BANNER, oracle: "Creatures you control of the chosen color get +1/+0." };
     expect(parseStaticAbilities(noChooser).filter((e) => e.layer === 7)).toHaveLength(0);
     expect(isNativeTier(classifyCard(noChooser))).toBe(false);
-    expect(isNativeTier(classifyCard(GAUNTLET))).toBe(false);
+  });
+
+  it("Gauntlet of Power — its mana trigger was modeled 2026-10-17 (manaTriggerAugments.test.js), so it is native now; without its chooser it is not", () => {
+    expect(isNativeTier(classifyCard(GAUNTLET))).toBe(true);
+    const noChooser = { ...GAUNTLET, oracle: GAUNTLET.oracle.replace("As this artifact enters, choose a color.\n", "") };
+    expect(isNativeTier(classifyCard(noChooser))).toBe(false);
   });
 });
 

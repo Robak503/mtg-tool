@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.165.0** (tagged 2026-10-18 on the `[0.165.0]` CHANGELOG cut):
-> **4 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **44.9% (15,536)**; engine gains since the tag: **±0**. The next tag
+> **5 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **44.9% (15,546)**; engine gains since the tag: **+10**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,73 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-17 — PLAY-WEIGHTED: mana triggers and chosen-colour mana — High Tide (EDHREC #798), Forsaken Monument (#889), Throne of Eldraine (#890), Caged Sun (#936), Bubbling Muck (#2219) + Gauntlet of Power, Vernal Bloom, Gauntlet of Might, Lavaleaper, Hall of Triumph: the extra mana a tap-for-mana trigger adds when the tap made its colour, any player's land of a basic type, an augment a spell creates until end of turn; Throne's four restricted mana and its chosen-colour draw; and FIX (false positive): a restricted tap's unspent mana keeps its restriction (Shang-Chi, Dalakos, The Mightstone and Weakstone, Mishra's Workshop left theirs in the open pool) · **+10** · snapshot native+land 15,531 → 15,541
+> Suite **20,944 green (1 skipped) / 1,887 files** under the gate queue (with the rules index built for the run, then deleted; run 1 failed the
+> Caged Sun pin — graduated below — and crucibleRun.test.js timed out under load; run 2 is not counted, a temporary A/B probe was in the tree). Lint 0 (CR citations: 0 of 11,670 name no
+> rule; keyword citations: 0 of 2,378 cite a different keyword). Flip-diff **+10 / −0 / RETIERED 0** (34,620 cards; before = an untouched
+> `git archive` of fa91b6af, snapshotted before the first edit; native+land 15,531 → 15,541 of 34,584 snapshot names). `measure-coverage`
+> (MTG_APP_ROOT = the install): corpus 15,536 → 15,546 (44.9%); top 1,000 **920 → 924** (High Tide, Forsaken Monument, Throne of Eldraine,
+> Caged Sun); top 2,500 **1,770 → 1,775** (+ Bubbling Muck); the 30 profile decks 2,752 → 2,753 / 2,998 (Omnath, Locus of Mana 97 → 98 —
+> Throne of Eldraine). **Mutants 7/7** on assertions, each restored byte-identical (sha256). Witness tests written first and seen to fail on
+> the base engine on assertions (23 of the first 38; the 15 controls pass on both); every test added while building fails on base too (33
+> of the final 50, the 17 controls pass; the 2 graduated pins fail on base). A/B **80 seeded commander games** (base seed 7, 10 per
+> pod, the 30 profile decks, default AI, mulligan + time pressure; base = the untouched fa91b6af archive): **72 byte-identical**; 5 differ
+> only in decision-row features or one offered tap with the same picks and endings (games 24, 25, 26 — Dalakos, Crafter of Wonders' unspent
+> {C} is restricted mana, not floating mana; 62 — The Mightstone and Weakstone's, the same; 50 — a Breeding Pool under Utopia Sprawl pays
+> {U}{G} in one tap, so another land stays untapped); 3 change picks (13 — Shang-Chi, Master of Kung Fu's unspent creature-ability mana no
+> longer casts Manglehorn, the Squirrel Girl seat casts Green Sun's Zenith instead; 70 and 73 — Omnath, Locus of Mana activates Throne of
+> Eldraine's draw); 1 winner changes (70: Omnath → Nekusar Wheels); 0 errors on either tree; results ai-wins 59 / user-wins 21 → 58 / 22.
+> Committed on `day/manatrig`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The conditional tap augment** (`whenProduces` — staticAbilityParser.parseGlobalTapManaAugment → manaModel.globalTapManaAugment):
+>   Forsaken Monument ("Whenever you tap a permanent for {C}, add an additional {C}."), Caged Sun ("Whenever a land's ability causes you to
+>   add one or more mana of the chosen color, add an additional one mana of that color.", controller-scoped) and Gauntlet of Power
+>   ("Whenever a basic land is tapped for mana of the chosen color, its controller adds an additional one mana of that color.", any player):
+>   the extra mana is added only when the tap's own mana includes that colour (Forsaken Monument's rulings: a {T} mana ability only, only if
+>   it produces {C}, one additional {C} however many it made). "Chosen" resolves off the carrier's `chosenColor`, only on a card that prints
+>   the chooser. manaSources drops the bonus from a record that can't make its colour; planPaymentCore's `tapSource` credits it only when
+>   the primary's colour (or a fixed bundle) holds it, and a generic tap's primary prefers a colour that triggers one (Breeding Pool under a
+>   green Caged Sun taps {G}{G} for {2}); `manualManaTaps` attaches it per colour; commitManaTap adds exactly the plan's picks. Each new
+>   parse arm has its $-anchored line in `stripGlobalTapManaAugment`.
+> · **All-players subtype augments** — Vernal Bloom / Gauntlet of Might ("Whenever a Forest / Mountain is tapped for mana, its controller
+>   adds an additional {G} / {R}"), whatever the land was tapped for (the Gauntlet of Might ruling: a dual with Mountain among its types makes
+>   the extra {R} for either colour); Lavaleaper's basic-land Mana Flare line (`basic-land` + sameAsProduced). A fixed bonus that makes the
+>   wanted colour now takes it while the primary pays another still-needed colour (`bonusTakesWant`): one Breeding Pool under Vernal Bloom
+>   or Utopia Sprawl pays {U}{G} (it had refused under Vernal Bloom — a false "can't afford").
+> · **Until end of turn** — High Tide and Bubbling Muck ("Until end of turn, whenever a player taps an Island / a Swamp for mana, that player
+>   adds an additional {U} / {B}.") and Molten Tide's "you" form: the `tap-mana-augment-eot` atom (effects/atoms/misc.js) records
+>   `{ controller, subject, allPlayers, colors, amount, turn }` in `state.tapManaAugmentsEot`; globalTapManaAugment reads only this turn's
+>   entries (CR 514.2). Per the rulings, an Island that entered after it resolved counts, and so does any land with the Island type.
+> · **Throne of Eldraine** — `choosesColorOnEnter` reads the name-led chooser ("As Throne of Eldraine enters, choose a color."; a legendary
+>   card's short name too), so the enter sites stamp it; the chosen-colour mana leg reads "four mana of the chosen color";
+>   `parseSpendRestriction` reads "to cast monocolored spells of that color" (`castMonocolored: "@chosenColor"` → resolveSourceRestriction
+>   → the permanent's colour; spendRestrictionAllows: `colorsOfSpell` of the cast card is exactly that colour, a hybrid pip counting both).
+>   The draw line's "Spend only mana of the chosen color to activate this ability." is peeled by abilities.js (`spendOnlyChosenColor`, only
+>   beside a chooser) and actionsActivateAbility turns its {3} into three pips of the colour, so the action's cost is what the dispatcher
+>   pays. Coverage admits the chooser sentence (staticAbilitiesCoverCard; the mana tier's `stripChooseColorSentence`).
+> · **FIX (false positive): the restricted surplus.** A restricted tap's mana the payment leaves unspent keeps its restriction (CR 106.6):
+>   planPaymentCore attributes the spend to restricted mana first and returns the leftover per restricted tap as `restrictedSurplus`;
+>   commitPaymentPlan moves it from the open pool into `player.restrictedMana` (the QUARTET Phase 4 entries — drained at each step's end,
+>   read by the next payment's pre-pass); the generic pass spends already-tapped restricted mana before floating open mana. The
+>   full-consumption filter bounded the AMOUNT left, never its colour or restriction: a floating {R} spent on Darksteel Ingot's {3} beside
+>   Mishra's Workshop left an open {C} (a nonartifact {1} was then payable — witnessed on the base engine), and in the A/B Shang-Chi's
+>   leftover "activate abilities of creature sources" mana cast Manglehorn.
+> · **Not taken:** The Soul Stone (#912 — harness is a designation subsystem: an "Exile a creature you control" activation cost, the harnessed
+>   designation, and the ∞ ability that exists only once harnessed; with The Mind Stone, its own slice); Extraplanar Lens (#1696 — imprint
+>   from the battlefield, "exile target land you control", and a same-name land filter; imprint today is Chrome Mox's from-hand path only);
+>   Manabarbs (#2269 — no extra mana: a stack trigger on any player's land tap whose damage needs "that player" = the tapper). Nissa, Who
+>   Shakes the World's mana line was already modeled (its loyalty abilities park it).
+> · ⚠️ **Found, not fixed:** (1) Throne pays only for monocolored spells of four or more pips — the restricted filter's `amount ≤` the cost's
+>   pips (manaModel.js:4279) still applies; with the surplus tagged it could be relaxed (a play question: a four-mana Throne tapped for a
+>   one-drop strands three). (2) The generic pass spends floating open mana before tapping an admitted restricted source, so Mishra's
+>   Workshop beside a floating {R} keeps a restricted {C} where the best play keeps the {R} (legal, a play-quality loss; manaModel.js:4535
+>   reorders only mana already tapped). (3) Augment bonuses ride a permanent's main record only — a land's extra lines and no-{T} lines get
+>   none (manaModel.js:3520 extraLineSources) — and land types are read off the printed type line (Urborg's Swamps don't trigger Bubbling
+>   Muck; manaModel.js:2895): under-reads. (4) Captivating Crossroads now taps for its chosen colour (the name-led chooser is read) while its
+>   "enters tapped during your first three turns" line stays unmodeled — it stays land-partial; Iona now stamps a colour nothing reads.
+> · Witness: `manaTriggerAugments.test.js` (23), `throneOfEldraine.test.js` (18), `highTide.test.js` (9). Graduated: `coverage.test.js`
+>   (Caged Sun native-mixed; its augment line without the chooser stays body-only), `heraldicBanner.test.js` (Gauntlet of Power native;
+>   without the chooser it is not).
 
 > ## 🔧 2026-10-17 — FIX (engine rules): a player leaving a multiplayer game follows CR 800.4a — the control effects giving them control end first (a creature they took with Control Magic, Act of Treason or Sliver Overlord goes to the player beneath; it vanished with them), every object they own leaves the game wherever it is (a creature of theirs another player had stolen, their Aura on another player's creature, a card of theirs another player was casting — all stayed), their abilities, spell copies and waiting triggers cease to exist (CR 800.4d), and what they still control is exiled to its owners' exile (a creature they reanimated from another player's graveyard — it vanished); their Banishing Light returns the card it held (CR 610.3) while an Oblivion Ring's triggered return does not; other players' Equipment and Auras come off their creatures; the monarch passes to the active player (CR 725.4); an extra turn queued for them is skipped (CR 800.4k) · **±0** · snapshot native+land 15,531 unchanged
 > Suite **20,880 green (1 skipped) / 1,884 files** under the gate queue (with the rules index built for the run, then deleted). Lint 0
