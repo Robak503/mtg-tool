@@ -1186,6 +1186,13 @@ export function resolveTopOfStack(state) {
   // production stops using in PR-3 (kept thereafter for tests + the Arbiter
   // escape valve per D6). No production stack object sets payload.resolver until
   // PR-3, so existing behavior is byte-identical here.
+  //
+  // The two catches below are a reporting boundary, not a swallow (audited 2026-10-18): a resolver that throws
+  // becomes a "stack-resolve-error" log entry, which breakageReport.aggregateBreakages (the Sim Center's breakage
+  // table) and crucibleRun's breakage mining surface as a broken card, and which the resolver tests assert absent. A probe
+  // over the full suite and an 80-game seeded batch saw no throw but the two tests that pin this path. The entry
+  // names its card (`source`, the field the plain "stack-resolve" entry below carries) — without it the breakage
+  // report filed every resolver crash under "(unknown card)".
   const resolver = getResolver(top.payload?.resolver);
   if (resolver) {
     try {
@@ -1194,6 +1201,7 @@ export function resolveTopOfStack(state) {
       next = logEvent(next, {
         kind: "stack-resolve-error",
         objectId: top.id,
+        source: top.source?.name || top.source,
         error: String(error?.message || error),
       });
     }
@@ -1204,6 +1212,7 @@ export function resolveTopOfStack(state) {
       next = logEvent(next, {
         kind: "stack-resolve-error",
         objectId: top.id,
+        source: top.source?.name || top.source,
         error: String(error?.message || error),
       });
     }
@@ -2345,7 +2354,8 @@ export function applyMulliganShip(state, seat, priorShips = 0) {
  *   - `chooseBottom({ state, seat, count, hand }) -> cardIds[]` provided (the human London
  *     picker) ⇒ bottom exactly those, AFTER validation (an array of `count` distinct ids all
  *     present in hand). A malformed return silently falls back to the heuristic — a bad UI
- *     payload can never strand setup or bottom the wrong count.
+ *     payload can never strand setup or bottom the wrong count. A picker that THROWS is a
+ *     caller bug and propagates (no catch — see below).
  *   - absent (every bot / self-play caller) ⇒ rankBottomCandidates: the N WORST by the
  *     mulligan evaluator's rank. Byte-identical to the pre-seam engine.
  * `forcedFloor` only tags the log (a ship requested at the zero-hand floor, resolved as a keep).
@@ -2361,17 +2371,12 @@ export function applyMulliganKeep(
     const hand = next.players[seat]?.hand || [];
     let bottomIds = null;
     if (typeof chooseBottom === "function") {
-      let picked;
-      try {
-        picked = chooseBottom({ state: next, seat, count: ships, hand });
-      } catch (err) {
-        if (typeof console !== "undefined" && console.warn) {
-          console.warn(
-            `[learn] chooseBottom threw (falling back to heuristic): ${err?.message || err}`,
-          );
-        }
-        picked = null;
-      }
+      // No try/catch around the picker (removed 2026-10-18). Its one production caller is learnSession's
+      // human bottom step, `() => cardIds` over the UI payload, which cannot throw; a probe over the full
+      // suite reached this 8 times and saw no throw but the test's deliberate one (self-play never passes
+      // a picker). The old catch logged a console warning and bottomed the heuristic's cards instead of
+      // the player's (CLAUDE.md §1.2).
+      const picked = chooseBottom({ state: next, seat, count: ships, hand });
       // Validate: exactly `ships` distinct ids, every one currently in hand. Anything off ⇒ heuristic.
       const handIds = new Set(hand.map((c) => c.id));
       if (
@@ -2417,9 +2422,10 @@ export function applyMulliganKeep(
  * `[{kind:"mulligan-keep"},{kind:"mulligan-ship"}]`) until the seat keeps or hits the
  * zero-hand floor, composing applyMulliganShip / applyMulliganKeep for each step. A return
  * that isn't a clean "mulligan-ship" → KEEP (safe default; a garbage/learned-pilot value can
- * never strand setup or over-mulligan); a throw is swallowed → KEEP. `chooseBottom` (optional)
+ * never strand setup or over-mulligan); a throw is logged and read as KEEP. `chooseBottom` (optional)
  * is forwarded to the keep step so a caller can pick the bottomed cards; absent ⇒ the worst-N
- * heuristic (byte-identical). `recordMulligan` (optional) is invoked once per decision.
+ * heuristic (byte-identical). `recordMulligan` (optional) is invoked once per decision; a throw
+ * from it propagates.
  *
  * The HUMAN path does NOT use this — it can't block on a synchronous decider — and instead
  * drives applyMulliganShip / applyMulliganKeep one step per HTTP round-trip (learnSession).
@@ -2439,7 +2445,11 @@ function runMulliganPhaseForSeat(
     try {
       action = decideMulligan({ state: next, legalActions, seat, pilot });
     } catch (err) {
-      // A throwing pilot must never abort game setup — default to KEEP.
+      // A throwing pilot must never abort game setup — default to KEEP. This catch is the mulligan half of the
+      // pilot-seam contract: persona modules are hot-loaded from the writable pilots dir (pilotLoader.js), and a
+      // throwing one falls back to the default, exactly as learnSession.resolveDecideAction does for the in-game
+      // decide (scripts/pilots/example-pilot.mjs states it). Kept 2026-10-18: a probe over the full suite and an
+      // 80-game seeded batch (the engine's own decideMulliganForAI behind it) saw no throw but the test's deliberate one.
       if (typeof console !== "undefined" && console.warn) {
         console.warn(`[learn] decideMulligan threw (keeping): ${err?.message || err}`);
       }
@@ -2449,21 +2459,18 @@ function runMulliganPhaseForSeat(
     // out-of-set / learned-pilot return can never force an extra mulligan or strand setup).
     const wantsShip = action && action.kind === "mulligan-ship";
 
-    // Record the decision (opt-in, crash-isolated).
+    // Record the decision (opt-in). No try/catch (removed 2026-10-18): the one recorder is selfPlayRunner's row
+    // push, which a probe over the full suite and an 80-game seeded batch reached and never saw throw. The old
+    // catch logged a console warning and dropped the row, so a broken recorder left a trajectory missing its
+    // mulligan rows with nothing in the result to say so (CLAUDE.md §1.2).
     if (typeof recordMulligan === "function") {
-      try {
-        recordMulligan({
-          turn: 0,
-          seat,
-          pilot,
-          decision: wantsShip ? "ship" : "keep",
-          mulligans: ships,
-        });
-      } catch (err) {
-        if (typeof console !== "undefined" && console.warn) {
-          console.warn(`[learn] recordMulligan threw (ignored): ${err?.message || err}`);
-        }
-      }
+      recordMulligan({
+        turn: 0,
+        seat,
+        pilot,
+        decision: wantsShip ? "ship" : "keep",
+        mulligans: ships,
+      });
     }
 
     // KEEP (chosen, or forced at the zero-hand floor — CR 103.5: once shipped

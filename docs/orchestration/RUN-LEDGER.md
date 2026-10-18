@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.165.0** (tagged 2026-10-18 on the `[0.165.0]` CHANGELOG cut):
-> **13 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.1% (15,605)**; engine gains since the tag: **+69**. The next tag
+> **14 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.1% (15,605)**; engine gains since the tag: **+69**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,50 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🧹 2026-10-18 — HYGIENE: the rules-engine core's try/catch audit — three removed, three kept with reasons, and a resolver crash names its card in the breakage report (CLAUDE.md §1.2 / §8.2) · **±0**
+> Scope, in order: `triggers.js`, `gameEngine.js`, `staticAbilityParser.js`, `manaModel.js`, `coverage.js` — six try/catch blocks in all
+> (`triggers.js`, `staticAbilityParser.js` and `coverage.js` have none). **Probe**: a scratch copy of 6cc20920 with every try body counting
+> a reach and every catch logging its error and the running test, over the full suite (21,229 green; the one red is `engineBuild.test`'s
+> `git describe`, which an archive without `.git` cannot run), the 80-game batch, the tier snapshot (34,620 cards) and an exhaustive pass
+> calling `manaProduction` on all 34,620 real cards. The logger fired 5 times, every one a test that throws on purpose to pin its block;
+> no other throw anywhere. The instrumented copy played the 80 games byte-identical to the plain base and snapshot every card the same tier.
+> · **G1** `gameEngine.js:1191` (registry resolver) and **G2** `:1201` (legacy `onResolve` closure) in `resolveTopOfStack` — a throw becomes a
+>   `stack-resolve-error` log entry. Suite 15,372 / 4 reaches, 1 throw each (`resolveDispatch.test`, `gameEngine.test`, both deliberate);
+>   80 games 8,943 / 0 reaches, 0 throws (G2 unreached: no game stack object carries a closure). **Kept** — a reporting boundary, not a swallow:
+>   `breakageReport.aggregateBreakages` (the Sim Center's breakage table) and `crucibleRun`'s breakage mining surface the entry as a broken
+>   card, two tests pin it and 66 other test files fail on it. **FIX**: the entry carried only objectId + error, and the report reads
+>   `cardName || source` — so every resolver crash was filed under "(unknown card)"; `breakageReport.test` passed only because its hand-built
+>   entry carried a `cardName` the engine never wrote. The entry now carries `source` (the field the plain `stack-resolve` entry already has);
+>   that fixture now has the engine's shape.
+> · **G3** `gameEngine.js:2365` — `applyMulliganKeep`'s `chooseBottom` picker; a throw → console warning + the heuristic's bottom. Suite 8
+>   reaches, 1 throw (`mulligan.test`, deliberate); 80 games unreached (self-play passes no picker). Its one production caller is
+>   learnSession's human bottom step, `() => cardIds`, which cannot throw. **Removed**; a malformed RETURN still falls back (validation, not the catch).
+> · **G4** `gameEngine.js:2439` — `runMulliganPhaseForSeat`'s `decideMulligan`; a throw → console warning + KEEP. Suite 788 reaches, 2 throws
+>   (`mulligan.test`, deliberate, both seats); 80 games 416 / 0. **Kept** — the mulligan half of the pilot-seam contract: persona modules are
+>   hot-loaded from the writable pilots dir (`pilotLoader.js`) and a throwing one falls back to the default, as `learnSession.resolveDecideAction`
+>   does for the in-game decide (`scripts/pilots/example-pilot.mjs` states it). The comment now says so.
+> · **G5** `gameEngine.js:2454` — the `recordMulligan` recorder; a throw → console warning, row dropped. Suite 258 / 0, 80 games 416 / 0. The one
+>   recorder is selfPlayRunner's row push. **Removed** — a broken recorder left a trajectory missing its mulligan rows with nothing in the result to say so.
+> · **M1** `manaModel.js:67` — `conditionIsExpressible`; any throw → false (the card parked silently). Suite 167 / 0, 80 games 129 / 0, tier
+>   snapshot 227 / 0, the exhaustive pass 656 / 0. **Removed** — `evaluateInterveningIf` answers an unknown phrase with null; a throw would be
+>   a field `_PROBE_STATE` lacks, to add, not a card to park unseen.
+> Contract tests: `mulligan.test`'s throwing-picker case now asserts the throw propagates, plus a new throwing-recorder case — both fail on the
+> base on assertions (the base swallows), the other 16 pass on both. Witness (`resolveDispatch.test`, 3 new): a throwing resolver and a
+> throwing closure are filed under their card's name — fail on the base on assertions (`source` undefined); the control passes on both.
+> Suite **21,235 green (1 skipped) / 1,906 files** under the gate queue at the default timeout (rules index built for the run, then deleted). Lint 0 (CR citations: 0 of 11,938 name no rule;
+> keyword citations: 0 of 2,439 cite a different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an untouched
+> `git archive` of 6cc20920, snapshotted before the first edit; native+land 15,600 of 34,584 snapshot names on both; every name has the same
+> tier). A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched 6cc20920 archive):
+> **80 / 80 byte-identical** — every decision row (130,939), every log line (60,256), winner, turns and ticks; 0 errors and 0
+> `stack-resolve-error` on either tree (ai-wins 58 / user-wins 22). Found, not touched: `effects/parser.js:135` `conditionIsDecidable` is
+> M1's twin (any throw → false, on a probe state without M1's probe permanent) — the natural next slice; the other engine try/catch
+> blocks outside this scope: `layers.js` 6, `effects/atoms/stack.js` 2, `auraEntry.js`, `winClassifier.js`, `engineBuild.js`,
+> `boardSnapshot.js`, `arbiterPrepass.js`, `abBench.js` 1 each. A spell whose resolver throws is popped off the stack and put nowhere
+> (no zone holds the card afterward) — kept behaviour under G1/G2, never seen in the probe. G4 also covers the engine's own `decideMulliganForAI`;
+> narrowing it to the persona call would move it into the selfPlayRunner / gameApi adapters. CHANGELOG: one Fixed line (the
+> breakage table naming the card). Committed on `day/corecatch`, not pushed;
+> the release-batch line and the WAKE-REPORT are the integrator's.
 
 > ## 🔧 2026-10-18 — FIX (false positive): a double-faced card OFF the battlefield is its FRONT face's colour (CR 712.8a, 712.8c) — Mystic Forge's "colorless spells" no longer casts Delver of Secrets or Invasion of Vryn off the top, Forsaken Monument no longer gains on them, Shrine of the Forsaken Gods' colourless mana no longer pays for them, Skittering Cicada and Liberator, Urza's Battlethopter no longer give them flash, Journey to Eternity no longer enchants Stonecoil Serpent (protection from multicolored), Allosaurus Shepherd no longer protects a devoid green spell (Brood Monitor); they count as their colours (Sapphire Medallion, Yeva, Kor Firewalker, Force of Will, Gainsay, Throne of Eldraine, Chrome Mox, Summoner's Pact, Guildmages' Forum, the cast-colour record); and the opponents-enter-tapped impositions read the entering card's front face (Kismet no longer taps Growing Rites of Itlimoc, Imposing Sovereign no longer taps Westvale Abbey) · **±0** · snapshot native+land 15,584 unchanged
 > Suite **21,199 passed, 1 failed, 1 skipped / 1,904 files** under the gate queue (with the rules index built for the run, then deleted) — the one

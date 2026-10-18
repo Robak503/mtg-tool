@@ -61,13 +61,15 @@ const _PROBE_STATE = { turn: 0, players: { probe: { battlefield: [{ id: "probe-s
  * source could never be offered — a runtime-vacuous native, the same class as the vacuous subtype filter and
  * the aura grants that never applied. An inexpressible gate must PARK the card instead, which is what
  * manaProductionImpl does with this answer.
+ *
+ * No try/catch (removed 2026-10-18). The old one answered any throw with false, parking the card silently. A probe
+ * reached it 656 times running manaProduction over all 34,620 real cards, and again in the tier snapshot, the full
+ * suite and an 80-game seeded batch, and saw no throw: the evaluator answers a phrase it does not know with null. A
+ * throw here would be a field a real state has and _PROBE_STATE lacks, to add to the probe, not a card to park unseen
+ * (CLAUDE.md §1.2).
  */
 function conditionIsExpressible(condition) {
-  try {
-    return typeof evaluateInterveningIf(_PROBE_STATE, condition, "probe", { sourcePermanentId: "probe-src" }) === "boolean";
-  } catch {
-    return false;
-  }
+  return typeof evaluateInterveningIf(_PROBE_STATE, condition, "probe", { sourcePermanentId: "probe-src" }) === "boolean";
 }
 
 // ─── Card → mana production ────────────────────────────────────────────────────

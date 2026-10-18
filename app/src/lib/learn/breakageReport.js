@@ -13,7 +13,7 @@
  *
  * The breakage signals (all emitted by the engine, never by us):
  *   - spell-unresolved          (pendingArbiter.js) — per-card: cardName, controller, reason
- *   - stack-resolve-error       (gameEngine.js)     — a resolver threw; objectId + error
+ *   - stack-resolve-error       (gameEngine.js)     — a resolver threw; objectId + source (the card) + error
  *   - trigger-removed-no-target (gameEngine.js)     — a targeted trigger fizzled; source
  * Plus the terminal non-completions surfaced by advanceUntilDecision:
  *   - engine-stuck / dispatch-error / setup-error   (per-GAME, not per-card)
@@ -22,7 +22,7 @@
 // The per-card log kinds we mine. Each maps a log entry → the card name it blames.
 const CARD_BREAKAGE_KINDS = {
   "spell-unresolved": (e) => e.cardName,
-  "stack-resolve-error": (e) => e.cardName || e.source || null, // objectId-keyed; name when present
+  "stack-resolve-error": (e) => e.cardName || e.source || null, // the engine writes `source` (the card name, since 2026-10-18)
   "trigger-removed-no-target": (e) => e.source,
 };
 

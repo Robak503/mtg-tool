@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { resolveTopOfStack } from "./gameEngine.js";
 import { registerResolver, _clearExtensionsForTests, RESOLVER_KEYS } from "./resolvers.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
+import { aggregateBreakages } from "./breakageReport.js";
 
 function freshState() {
   // step "untap" doesn't grant priority, so resolveTopOfStack just resolves the
@@ -72,5 +73,33 @@ describe("resolveTopOfStack registry dispatch (Phase-7 PR-2)", () => {
     const out = resolveTopOfStack(state);
     expect(out.stack).toHaveLength(0);
     expect(out.log.some(l => l.kind === "stack-resolve")).toBe(true);
+  });
+});
+
+// The stack-resolve-error entry is a reporting boundary: the breakage report (the Sim Center's breakage table) files it
+// under the card it names. Before 2026-10-18 the entry carried only objectId + error, so every resolver crash read
+// "(unknown card)"; breakageReport.test passed only because its hand-built entry carried a cardName the engine never
+// wrote (that fixture now has the engine's own shape). These run the real resolveTopOfStack into the real report.
+describe("a resolver crash names its card in the breakage report", () => {
+  const reportOf = (out) => aggregateBreakages([{ result: "draw", turns: 1, log: out.log }]);
+
+  it("a throwing registered resolver is filed under its card's name", () => {
+    registerResolver("test.throws", () => { throw new Error("boom"); });
+    const out = resolveTopOfStack(withStack(freshState(), { resolver: "test.throws", params: {} }, { source: { name: "Broken Card" } }));
+    expect(out.log.find((l) => l.kind === "stack-resolve-error")?.source).toBe("Broken Card");
+    expect(reportOf(out).cards.map((c) => c.card)).toEqual(["Broken Card"]);
+  });
+
+  it("a throwing legacy onResolve closure is filed under its card's name", () => {
+    const out = resolveTopOfStack(withStack(freshState(), { onResolve: () => { throw new Error("boom"); } }, { source: { name: "Broken Closure" } }));
+    expect(out.log.find((l) => l.kind === "stack-resolve-error")?.source).toBe("Broken Closure");
+    expect(reportOf(out).cards.map((c) => c.card)).toEqual(["Broken Closure"]);
+  });
+
+  it("control: a resolver that does not throw writes no stack-resolve-error", () => {
+    registerResolver("test.fine", (s) => s);
+    const out = resolveTopOfStack(withStack(freshState(), { resolver: "test.fine", params: {} }, { source: { name: "Fine Card" } }));
+    expect(out.log.some((l) => l.kind === "stack-resolve-error")).toBe(false);
+    expect(reportOf(out).cards).toEqual([]);
   });
 });

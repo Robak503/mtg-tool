@@ -23,7 +23,7 @@ describe("aggregateBreakages", () => {
         log: [
           { turn: 3, kind: "spell-unresolved", cardName: "Akroma's Will", controller: "user", reason: "effect-program (low confidence)" },
           { turn: 5, kind: "spell-unresolved", cardName: "Akroma's Will", controller: "ai", reason: "effect-program (low confidence)" },
-          { turn: 7, kind: "stack-resolve-error", cardName: "Doomsday", error: "boom" },
+          { turn: 7, kind: "stack-resolve-error", objectId: "stk-9", source: "Doomsday", error: "boom" },
           { turn: 2, kind: "trigger-removed-no-target", source: "Mortuary Mire", controller: "ai" },
           { turn: 4, kind: "stack-resolve", objectId: "x" }, // NOT a breakage kind — ignored
         ],

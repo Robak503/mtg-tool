@@ -291,6 +291,26 @@ describe("mulligan — London keep/ship modeled correctly (CR 103.5)", () => {
     expect(s.state.players.user.hand.length).toBe(7);
     expect(s.state.players.user.mulligans).toBe(0);
   });
+
+  it("a THROWING recordMulligan propagates — a broken recorder surfaces, never a trajectory silently missing rows (CLAUDE.md §1.2)", () => {
+    // The one recorder is selfPlayRunner's row push; the catch that dropped the row behind a console warning was
+    // removed 2026-10-18. A throwing decider is still read as KEEP (the pilot seam, above); a throwing recorder is not.
+    expect(() =>
+      createLearnSession({
+        userDeck: uniqueDeck("u"),
+        opponentDeck: uniqueDeck("a"),
+        difficulty: "expert",
+        mode: "standard",
+        seed: 9,
+        mulligan: {
+          decide: () => ({ kind: "mulligan-keep" }),
+          recordMulligan: () => {
+            throw new Error("recorder blew up");
+          },
+        },
+      }),
+    ).toThrow("recorder blew up");
+  });
 });
 
 describe("mulligan — recorded into the trajectory by pilot, threaded through the runner", () => {
@@ -425,7 +445,7 @@ describe("mulligan — the chooseBottom seam (human London picker)", () => {
     ).toBe(true);
   });
 
-  it("a malformed / throwing chooseBottom silently falls back to the worst-N heuristic (never strands setup)", () => {
+  it("a malformed chooseBottom return silently falls back to the worst-N heuristic (never strands setup)", () => {
     const heuristic = applyMulliganKeep(dealt(), "user", { ships: 2 }); // no picker → heuristic
     const hHand = heuristic.players.user.hand.map((c) => c.id);
     const hLib = heuristic.players.user.library.map((c) => c.id);
@@ -434,9 +454,6 @@ describe("mulligan — the chooseBottom seam (human London picker)", () => {
     const badPickers = [
       () => ["not-in-hand-1", "not-in-hand-2"], // ids absent from hand
       () => [dealt().players.user.hand[0].id], // wrong count (1, not 2)
-      () => {
-        throw new Error("picker blew up");
-      }, // throws
       () => "garbage", // not an array
       (ctx) => [ctx.hand[0].id, ctx.hand[0].id], // duplicate id
     ];
@@ -445,6 +462,15 @@ describe("mulligan — the chooseBottom seam (human London picker)", () => {
       expect(out.players.user.hand.map((c) => c.id)).toEqual(hHand);
       expect(out.players.user.library.map((c) => c.id)).toEqual(hLib);
     }
+  });
+
+  it("a THROWING chooseBottom propagates — a caller bug surfaces, never a silent heuristic bottom (CLAUDE.md §1.2)", () => {
+    // The one production picker is learnSession's `() => cardIds`, which cannot throw; the catch that turned a throw
+    // into the heuristic's bottom (with only a console warning) was removed 2026-10-18.
+    const chooseBottom = () => {
+      throw new Error("picker blew up");
+    };
+    expect(() => applyMulliganKeep(dealt(), "user", { ships: 2, chooseBottom })).toThrow("picker blew up");
   });
 
   it("applyMulliganShip reshuffles + redraws 7, logs the ship, conserves the deck", () => {
