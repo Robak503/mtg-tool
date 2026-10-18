@@ -1149,6 +1149,12 @@ function classifyCondition(condRaw, cardName, cardType) {
     }
   }
 
+  // ===== AN ATTACKING CREATURE DIES (the play-weighted program, #987 Kardur, Doomscourge) ===== any player's creature that was
+  // attacking as it died (the death look-back's wasAttacking — CR 603.10a; the bundled ruling: "no matter who controlled the
+  // attacking creature and no matter who it was attacking"). The bare subject only: a controller ("you control") or any other
+  // qualifier stays undetected.
+  if (/^an attacking creature dies$/.test(c)) return { event: "dies", scope: "attackingCreature", whose: "any" };
+
   // ===== DEATH-DRAIN — creature-OR-PLANESWALKER union (Cruel Celebrant) ===== "this creature or another
   // creature OR PLANESWALKER you control dies" is the union { self } ∪ { other creatures you control } ∪
   // { planeswalkers you control }. The self ("this creature") is itself a creature you control, so the union
@@ -2068,6 +2074,14 @@ function classifyCondition(condRaw, cardName, cardType) {
       if (pm[1] === "another") desc.etbExcludeSelf = true;
       return desc;
     }
+  }
+  // CHARISMATIC CONQUEROR (the play-weighted program, #1045 — "Whenever an artifact or creature an opponent controls enters
+  // untapped, …"): the permanent-enters event over another player's artifact or creature (scopeMatches' artifactOrCreatureOpponentControls,
+  // read on the entering permanent as it entered) that entered UNTAPPED — the Amulet of Vigor gate inverted (`enteredUntapped`,
+  // the entering permanent's live `tapped`, set by every path that makes it enter tapped before the enters triggers are checked).
+  // Exact: the bare "enters" (no "untapped") or another controller phrase stays undetected.
+  if (/^an artifact or creature an opponent controls enters untapped$/.test(c)) {
+    return { event: "permanentEnters", scope: "artifactOrCreatureOpponentControls", whose: "any", enteredUntapped: true };
   }
   // TOKEN-ENTERS — "Whenever a token you control enters" (Junk Winder — the token-swarm tap payoff). Fires the
   // permanentEnters event (checkPermanentEntersTriggers is called on every minted token from tokens.js's
@@ -5235,6 +5249,13 @@ export function detectTriggers(cardIn) {
       if (cls.event === "landfall" && (cls.scope === "landOpponentControls" || cls.scope === "nonbasicLandOpponentControls")) {
         effectClause = effectClause.replace(/\bthat player\b/gi, "the triggering permanent's controller");
       }
+      // CHARISMATIC CONQUEROR (the play-weighted program, #1045 — "they may tap that permanent. If they don't, you create …"): on its
+      // watcher, "they" is the entering permanent's controller and "that permanent" the entering permanent — both bound by
+      // makePendingTrigger off checkPermanentEntersTriggers' entered permanent. The first sentence is matched whole and renamed to
+      // the sentinel the punisher matcher reads (atoms/punisher.js); no other reader keys on this scope.
+      if (cls.event === "permanentEnters" && cls.scope === "artifactOrCreatureOpponentControls") {
+        effectClause = effectClause.replace(/^they may tap that permanent\./i, "the triggering permanent's controller may tap the triggering permanent.");
+      }
       // SELF TO THE BOTTOM (the 09-06 plan's stage ③ · 24, 2026-09-30 — Murderous Rider, Fell Horseman: "When this creature
       // dies, put it on the bottom of its owner's library."): in a SELF dies trigger "it" is the dying creature, so the clause
       // is named ("this creature") for the self-tuck arm, which never takes a bare "it". Any other trigger's "it" is another
@@ -5964,6 +5985,7 @@ export function detectTriggers(cardIn) {
         nth: cls.nth,                         // TRIG-CASTNTH: 1|2|3 ("cast your Nth spell each turn"); else undefined
         firstEachTurn: cls.firstEachTurn,     // FIRST-<KIND>-SPELL-EACH-TURN (CR 603.2, Esper Sentinel): "any"|"noncreature", gating checkCastTriggers on the CASTER's per-turn count. ⚠️ Unlisted here = dropped = the descriptor keeps only its spellFilter and fires on EVERY matching spell — an OVER-FIRE. That is exactly what happened on the first attempt at this slice, and the trigger looked correctly detected while it did.
         permanentFilter: cls.permanentFilter, // PERM-ENTERS: "artifact"|"enchantment" (permanentEnters triggers only)
+        enteredUntapped: cls.enteredUntapped, // PERM-ENTERS "…enters UNTAPPED" (Charismatic Conqueror) — the inverse gate in scopeMatches. Unlisted here = dropped = fires on a tapped entry too, an over-fire.
         enteredTapped: cls.enteredTapped,     // PERM-ENTERS "…enters TAPPED" (Amulet of Vigor) — scopeMatches gates on the entering permanent's live `tapped`. Unlisted here = dropped = fires on EVERY entry, an over-fire.
         subtypeFilter: cls.subtypeFilter,     // SUBTYPE-ETB-SELF + SUBTYPE/outlaw BATCH combat-damage (e.g. "Dinosaur" for Pantlaza; outlaw list for Olivia)
         batchArtifact: cls.batchArtifact,     // SUBTYPE/PROPERTY BATCH combat-damage only — "artifact creatures" (Thopter Spy Network)
@@ -6777,6 +6799,9 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   // path, which is Amulet's signature use. A permanent that entered untapped simply doesn't match; no
   // descriptor without this flag is affected, same shape as nontokenFilter/tokenFilter above.
   if (descriptor.enteredTapped && !triggeringPermanent?.tapped) return false;
+  // ENTERED-UNTAPPED gate (Charismatic Conqueror "… enters UNTAPPED") — the inverse read, the same live state and the same fire-site
+  // order (a permanent that enters tapped is tapped before its enters triggers are checked).
+  if (descriptor.enteredUntapped && (!triggeringPermanent || triggeringPermanent.tapped)) return false;
   // BATCHED-ETB CHARACTERISTIC gate (Welcoming Vampire "with power 2 or less"; Tocasia's Welcome "with mana
   // value 3 or less"). Runs BEFORE the scope switch so it composes with whichever controller scope the
   // descriptor chose, exactly like nontokenFilter above.
@@ -6897,6 +6922,9 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       return true;
     case "eachCreature":
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent, state);
+    case "attackingCreature":
+      // KARDUR — "an attacking creature dies": a creature of any controller whose death look-back says it was attacking.
+      return !!triggeringPermanent && triggeringPermanent.wasAttacking === true && isCreaturePerm(triggeringPermanent, state);
     case "eachOtherCreature":
       return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id && isCreaturePerm(triggeringPermanent, state);
     case "creatureYouControl":
@@ -7011,6 +7039,11 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
         && triggeringPermanent.controller === sourcePermanent.controller;
     case "creatureOpponentControls":
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent, state) && triggeringPermanent.controller !== sourcePermanent.controller;
+    case "artifactOrCreatureOpponentControls":
+      // CHARISMATIC CONQUEROR — "an artifact or creature an opponent controls": another player's entering permanent that is an
+      // artifact (type-line word, CR 205.2 — an Artifact Creature too) or a creature (layer-aware, as the creature scopes read).
+      return !!triggeringPermanent && triggeringPermanent.controller !== sourcePermanent.controller
+        && (/\bArtifact\b/.test(typeStr(triggeringPermanent.card)) || isCreaturePerm(triggeringPermanent, state));
     case "landYouControl":
       // LANDFALL — the entering land must be controlled by the watcher's controller. checkLandfallTriggers
       // only fires on a land entry (triggeringPermanent is a land), but the isLandPerm guard keeps it exact.
@@ -7665,7 +7698,8 @@ export function checkDiesTriggers(state, dead) {
     // ("whenever one or more creatures die") has no member of this family.
     // lkiTypes (CR 603.10a): the types it had as it last existed — the creature scopes read them (isCreaturePerm), so a crewed
     // Vehicle or an animated land that died fires "whenever a creature dies".
-    const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {}, damagedBy: d.damagedBy || [], lkiTypes: d.lkiTypes };
+    // + wasAttacking (Kardur, Doomscourge — "an attacking creature dies"): carried only when the death look-back recorded it.
+    const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {}, damagedBy: d.damagedBy || [], lkiTypes: d.lkiTypes, ...(d.wasAttacking ? { wasAttacking: true } : {}) };
     // SELF-DIES "if it was a creature" (CR 603.4 + 603.6e last-known-info) — the "Enduring"/Glimmer dies-return
     // intervening-if reads whether the DYING object was a creature. Captured from the death look-back's card
     // type line (the object's last-known characteristics, fixed once it left the battlefield), so

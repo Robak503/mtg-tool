@@ -53,12 +53,13 @@ import { hideawayClauseParser } from "./atoms/hideaway.js";
 import { matchExileTopEachCastAny } from "./atoms/castFromAmong.js"; // P·16 — Etali, Primal Storm's whole effect (its "then" and comma would split it)
 import { matchVoidPlayGrant } from "./atoms/voidPlay.js"; // P·28 — Dauthi Voidwalker's two-sentence payoff (its "it" is the chosen card)
 import { matchLivingDeath } from "./atoms/livingDeath.js"; // P·35 — Living Death / Living End's whole effect (its "then"s are one ordered event)
-import { matchBraidsPunisher } from "./atoms/iteratedEdict.js"; // P·20 — Braids, Arisen Nightmare's whole effect (its "if you do" and "for each opponent who doesn't" span sentences)
+import { matchBraidsPunisher } from "./atoms/iteratedEdict.js";
+import { matchPunisher } from "./atoms/punisher.js"; // the play-weighted program — Combustible Gearhulk, Risk Factor, Charismatic Conqueror: another player chooses between two outcomes (CR 118.12), read whole before the splitter // P·20 — Braids, Arisen Nightmare's whole effect (its "if you do" and "for each opponent who doesn't" span sentences)
 import { animateDeadClauseParser } from "./atoms/animateDead.js"; // P·12 — Animate Dead's two synthesized sentinels // P·10 — HIDEAWAY (CR 702.75): the synthesized look-and-hide + "play the exiled card … if <condition>"
 import { freeCastClauseParser } from "./atoms/freeCast.js"; // FREE-CAST (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle)
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
-import { createNamedTokenClauseParser, createTokenClauseParser, attachSourceToLastTokenClauseParser, mobilizeClauseParser, mobilizeSacClauseParser } from "./atoms/tokens.js";
+import { createNamedTokenClauseParser, createTokenClauseParser, createTokensTogetherClauseParser, attachSourceToLastTokenClauseParser, mobilizeClauseParser, mobilizeSacClauseParser } from "./atoms/tokens.js";
 import { monarchClauseParser } from "./atoms/monarch.js"; // MONARCH (CR 725)
 import { sacrificeEdictClauseParser, destroyExileClauseParser, ordealThresholdSacClauseParser, mintedLeaveClauseParser, matchSacrificeAnotherForPower } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding) + OC-1 (Ordeal threshold-sac sentinel)
 import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP — "Sacrifice a land." controller self-sac (Roiling Regrowth / Cycle of Renewal)
@@ -68,7 +69,7 @@ import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tuto
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
 import { parseTokenKeywords, parseGrantedKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); parseGrantedKeywords (COUNTER-THEN-GRANT + the SAVAGE ORDER fetched-grants fold); SMALL_NUM for MULTI-COUNT damage count words; parseCountSource for FE-1 DRAIN-BY-COUNT fused matcher
 import { proliferateClauseParser, gainExperienceClauseParser, gainEnergyClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, removeNamedCounterSelfClauseParser, shieldCounterClauseParser, evolveCounterSelfClauseParser, renownClauseParser, endureClauseParser, transferCountersClauseParser, moveCounterClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + ARIXMETHES (remove named counter from self) + SHIELD-COUNTER (CR 122.1c protective counter) + KW-EVOLVE sentinel (SHELF S7)
-import { ALL_DAMAGE_SHIELD, earthbendClauseParser, goadClauseParser, detainClauseParser, combatKeywordClauseParser, massBlockLockClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, groupLoseKeywordsClauseParser, setBasePtTeamClauseParser, setBasePtTargetClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + FT-1 (mass-block-lock) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation) + SET-BASE-PT-TARGET (SU-1 — Diminish/Square Up)
+import { ALL_DAMAGE_SHIELD, earthbendClauseParser, goadClauseParser, matchOpponentsAttackOthers, detainClauseParser, combatKeywordClauseParser, massBlockLockClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, groupLoseKeywordsClauseParser, setBasePtTeamClauseParser, setBasePtTargetClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + FT-1 (mass-block-lock) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation) + SET-BASE-PT-TARGET (SU-1 — Diminish/Square Up)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser, phaseOutClauseParser, damageReplacementUntilNextTurnClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { distributeCountersClauseParser } from "./atoms/distributeCounters.js"; // distribute-counters (The Earth Crystal) — mirrors divide-bounded
 import { discardClauseParser, lookAtHandClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family) + the look-at-hand info clause
@@ -2950,6 +2951,17 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   if (bp && bp.atoms.every((a) => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: bp.atoms, xSpell: false, unparsedTail: null });
   }
+  // THE PUNISHER (the play-weighted program — Combustible Gearhulk, Risk Factor, Charismatic Conqueror): "<a player> may have
+  // <outcome A>. If that player doesn't, <outcome B>." — ONE optional atom another player decides (atoms/punisher.js). Both
+  // sentences belong to it, so it is read whole here; an outcome it doesn't list keeps the text unread.
+  // THE ATTACK RULE OVER A GROUP (the play-weighted program — Kardur, Doomscourge): one sentence the splitter would cut at its
+  // "and" (atoms/combat.matchOpponentsAttackOthers).
+  const oao = matchOpponentsAttackOthers(oracle);
+  if (oao && KNOWN.has(oao.op)) return makeProgram({ confidence: "high", atoms: [oao], xSpell: false, unparsedTail: null });
+  const pun = matchPunisher(oracle);
+  if (pun && KNOWN.has(pun.op)) {
+    return makeProgram({ confidence: "high", atoms: [pun], xSpell: false, unparsedTail: null });
+  }
   // ===== SELF-COPY WHEN CAST FROM A GRAVEYARD (the play-weighted program, P·23 — Sevinne's Reclamation) ===== "<effect>. If
   // this spell was cast from a graveyard, you may copy this spell and may choose a new target for the copy." → <effect>'s
   // atom, then an OPTIONAL copy-self-spell gated on the cast-from-a-graveyard read (interveningIf). The copy carries <effect>
@@ -4295,6 +4307,9 @@ registerClauseParser(createNamedTokenClauseParser);
 // "create N P/T … creature token" clauses match no earlier registered parser and (verified) no later
 // parseExtendedAtom branch → the inline→CLAUSE_PARSERS move is behavior-identical.
 registerClauseParser(createTokenClauseParser);
+// CREATE-TOKENS-TOGETHER (the play-weighted program — Wurmcoil Engine, Triplicate Titan) — one create naming two or three token
+// kinds, each read by the single-kind arm above; created in one event (atoms/tokens.applyCreateTokensTogether).
+registerClauseParser(createTokensTogetherClauseParser);
 // ATTACH-SOURCE-TO-LAST-TOKEN (Cori-Steel Cutter, W9) — the α2-peeled "attach this equipment to it"
 // (its "it" = the token the PRECEDING create-token minted). The attachLastTokenSequenceOk gate below
 // refuses the atom without that preceding create in the same program, so a stray printed sentence can

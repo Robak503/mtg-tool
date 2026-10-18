@@ -1624,6 +1624,10 @@ function effectAffects(effect, candidate, state) {
       if (effect.source?.kind === "emblem") sourcePerm = { controller: effect.source.controller };
       // A GRAVEYARD source (P·24) is a card, not a permanent; its "you control" resolves against its owner (CR 109.5).
       if (effect.source?.kind === "graveyard") sourcePerm = { controller: effect.source.controller };
+      // A RESOLUTION source that names no permanent but records its controller (Kardur, Doomscourge's group attack rule — "creatures
+      // your opponents control"): the group is read against that player, the ability's controller as it resolved. Without it the
+      // opponents scope would read an undefined controller and take every creature, the controller's own included.
+      if (effect.source?.kind === "resolution" && !sourcePerm && !effect.source.permanentId && effect.source.controller != null) sourcePerm = { controller: effect.source.controller };
       return matchesSelector(affects.selector, candidate, sourcePerm, state);
     }
     default:

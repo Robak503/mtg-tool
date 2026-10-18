@@ -2411,6 +2411,7 @@ export function OptionalChoicePanel({ decision, onChoose }) {
       counter: "counter the spell",
       sacrifice: "sacrifice a permanent",
       "copy-self-spell": "copy this spell (the copy picks a new target)",
+      punisher: "accept its first outcome (say no and its other outcome happens)",
     }[decision?.effectOp] || "apply this effect";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

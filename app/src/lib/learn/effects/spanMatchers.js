@@ -230,7 +230,13 @@ export function matchRemovalCasterGainLife(oracle, parseLead = null) {
   // life equal to that permanent's mana value."): the same capture, and the CASTER loses (life loss, CR 119.3 — not damage).
   // Its only printing, so only its exact referent and metric are read.
   const l = text.match(/^((?:exile|destroy) target .+?)\.\s+you lose life equal to that permanent's (mana value)\.?$/i);
-  const m = g || l;
+  // THE DESTROYED-THIS-WAY GATE (the play-weighted program, #1002 Noxious Gearhulk — "you may destroy another target creature. If
+  // a creature is destroyed this way, you gain life equal to its toughness."): the same capture, and the caster gains only when
+  // the destroy moved the creature off the battlefield (CR 701.8a; indestructible or regeneration keep it there — the bundled
+  // rulings). Its only printing: the optional "you may" lead (the program parser's peel stamps `optional`), "another" (the
+  // not-source restriction), the creature noun, and the toughness.
+  const d = text.match(/^((?:you may )?destroy another target creature)\.\s+if a creature is destroyed this way, you gain life equal to its (toughness)\.?$/i);
+  const m = g || l || d;
   if (!m) return null;
   let lead = destroyExileClauseParser(m[1].trim());
   if (!lead && parseLead) {
@@ -239,6 +245,7 @@ export function matchRemovalCasterGainLife(oracle, parseLead = null) {
   }
   if (!lead || (lead.op !== "exile" && lead.op !== "destroy")) return null;
   const metric = /mana value/i.test(m[2]) ? "mv" : "toughness";
+  if (d) return { atom: { ...lead, controllerRider: { kind: "casterGainLife", metric, onlyIfDestroyed: true } }, rest: "" };
   return { atom: { ...lead, controllerRider: { kind: g ? "casterGainLife" : "casterLoseLife", metric } }, rest: "" };
 }
 

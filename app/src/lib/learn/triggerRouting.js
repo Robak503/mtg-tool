@@ -178,6 +178,10 @@ export function combatDamageReferentSatisfied(program, event) {
     if (a?.damageSource === "triggering" && event !== "etb" && event !== "turnedFaceUp" && event !== "dealtDamage") return false;
     // "THAT MUCH" — the damage the creature was dealt (ctx.dealtDamageAmount), threaded ONLY by checkDealtDamageTriggers.
     if (a?.countContext === "dealtDamageAmount" && event !== "dealtDamage") return false;
+    // THE ENTERING PERMANENT AND ITS CONTROLLER (Charismatic Conqueror, the play-weighted program #1045): the punisher's decider and
+    // the permanent it may tap are the permanent-enters event's triggering permanent (ctx.triggeringPermanentId / Controller). The
+    // sentinel is written only on that watcher's scope (triggers.js); this pin is the belt on top of it.
+    if (a?.op === "punisher" && (a.optionalDecider === "triggeringPermanentController" || a.taken?.kind === "tapTriggering") && event !== "permanentEnters") return false;
   }
   return true;
 }

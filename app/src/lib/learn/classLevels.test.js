@@ -147,9 +147,11 @@ describe("classification — the targets, the corpus sweep, and the parked famil
   it("the token-copy sentence completes two non-Class cards (Esika's Chariot, Three Blind Mice); its riders still park the rest", () => {
     expect(classifyCard(ESIKAS_CHARIOT)).toBe("native-trigger");
     expect(classifyCard(THREE_BLIND_MICE)).toBe("native-trigger");
-    // Hazel ("If that token is a Squirrel, instead create two"), Dutiful Replicator ("not named …", a reflexive payment),
-    // Specimen Collector and the choose-three sorcery keep their tiers.
-    expect([HAZEL, DUTIFUL_REPLICATOR, SPECIMEN_COLLECTOR].map(classifyCard)).toEqual(["body-only", "body-only", "body-only"]);
+    // Hazel ("If that token is a Squirrel, instead create two"), Dutiful Replicator ("not named …", a reflexive payment) and the
+    // choose-three sorcery keep their tiers. GRADUATED 2026-10-17: Specimen Collector's other line — "create a 1/1 green Squirrel
+    // creature token and a 0/3 blue Crab creature token" — reads now (two token kinds created together, tokensTogether.test.js).
+    expect([HAZEL, DUTIFUL_REPLICATOR].map(classifyCard)).toEqual(["body-only", "body-only"]);
+    expect(classifyCard(SPECIMEN_COLLECTOR)).toBe("native-trigger");
     expect(classifyCard(ROOTCAST_APPRENTICESHIP)).toBe("arbiter-spell");
   });
 

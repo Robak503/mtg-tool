@@ -13,7 +13,7 @@ import { SMALL_NUM, parseCountSource } from "../parseHelpers.js"; // MULTI-COUNT
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // SUBTYPE RETURN (Atzocan Seer) — the closed CR subtype vocabulary (a zero-import leaf, cycle-free)
 import { shuffleControllerLibrary } from "./library.js";
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // the CR 603.7 queue (a sibling leaf)
-import { colorsOf, permanentProtectionColors, permanentIsCreature, permanentHasTypeWord } from "../../layers.js"; // shelf D41 — the host's live protection colours vs a returning card's colours (CR 702.16c/d); + permIsEveryCreatureType (P·39b — Essence Flux's returned Spirit)
+import { colorsOf, permanentProtectionColors, permanentIsCreature, permanentHasTypeWord, addContinuousEffect } from "../../layers.js"; // shelf D41 — the host's live protection colours vs a returning card's colours (CR 702.16c/d); + permIsEveryCreatureType (P·39b — Essence Flux's returned Spirit)
 import { protectionApplies } from "../../protection.js"; // shelf D41 — the shared colour-protection test (an import-free leaf)
 import { auraMayEnchantCreature } from "../../auraHost.js"; // shelf D41 — the shared Enchant-line reader (a leaf; stack.js reads it too)
 import { entersByDiscardingLand, applyDiscardLandToEnter } from "../../discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247, CR 614.1a / 614.12a) — whether it enters at all; a leaf over gameState / triggers / staticAbilityParser, which this file already reaches
@@ -570,8 +570,16 @@ export function applyReanimate(state, atom, ctx) {
     const fromPlayerId = crossZone ? (t.controller || ctx.controller) : ctx.controller;
     // entersTapped (Tato Farmer's milled-land reanimate — "…onto the battlefield under your control TAPPED"):
     // rides enterCardFromZone's tapped param; every existing reanimate leaves it unset → false (byte-identical).
-    const r = enterCardFromZone(next, { playerId: ctx.controller, cardId: t.id, fromZone: "graveyard", fromPlayerId, tapped: !!atom.entersTapped });
+    // THE TYPE RIDER (Portal to Phyrexia — "It's a Phyrexian in addition to its other types"): the permanent this effect made gets
+    // the creature type in layer 4 (CR 613.1d), lasting while it stays on the battlefield (a fixed effect on its new id — a later
+    // object is a new one, CR 400.7). Added before its enters triggers are checked, so they see the type the same effect gave it.
+    const r = enterCardFromZone(next, { playerId: ctx.controller, cardId: t.id, fromZone: "graveyard", fromPlayerId, tapped: !!atom.entersTapped, deferEnterTriggers: !!atom.addSubtype });
     next = r.state;
+    if (r.entered && atom.addSubtype) {
+      next = addContinuousEffect(next, { layer: 4, op: { subtypes: [atom.addSubtype] }, affects: { mode: "fixed", permanentIds: [r.permanentId] },
+        duration: { kind: "permanent" }, source: { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null } }).state;
+      next = fireEnterTriggers(next, findPermanent(next, r.permanentId)?.permanent || r.permanent);
+    }
     if (r.entered) reanimated.push(t.id); // skipped (entered:false) = target left the graveyard (CR 608.2b)
   }
   if (atom.stampMv) next = { ...next, revealedCardMV: lastMv }; // for the following drain (Reanimate); 0 if no card reanimated → clean no-op drain
@@ -1050,6 +1058,13 @@ export function graveyardReturnClauseParser(clause) {
   // the removal to the target's owner). CREATURE only; "tapped" / "with a +N counter" / a life-loss /
   // indestructible / proliferate rider fails the exact `$` anchor → low → Arbiter (CREED whole-card).
   if (/^put target creature card from a graveyard onto the battlefield under your control$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", anyGraveyard: true };
+  // + THE TYPE RIDER (the play-weighted program, #1066 Portal to Phyrexia — "… under your control. It's a Phyrexian in addition to
+  // its other types."): the sentinel tail splitClauses folds the second sentence into. The word must be a creature type (CR
+  // 205.3m — the closed vocabulary); applyReanimate adds it to the permanent in layer 4 (CR 613.1d) before its enters triggers.
+  const typeRider = t.match(/^put target creature card from a graveyard onto the battlefield under your control with the added creature type ([a-z]+)$/);
+  if (typeRider && CR_CREATURE_TYPES.has(typeRider[1])) {
+    return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", anyGraveyard: true, addSubtype: typeRider[1].charAt(0).toUpperCase() + typeRider[1].slice(1) };
+  }
   if (/^put target creature card from an opponent's graveyard onto the battlefield under your control$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", opponentGraveyard: true };
   // MASS REANIMATE FROM ALL GRAVEYARDS (play-weighted, EDHREC #492 — Rise of the Dark Realms; Liliana Vess's −8): "put all
   // creature cards from all graveyards onto the battlefield under your control". Non-targeted — applyMassReanimateAllGraveyards

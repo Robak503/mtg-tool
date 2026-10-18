@@ -52,6 +52,7 @@ const returnLandPoolMatch = (cost, p) =>
 import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the shared board-condition readers; runProgram → interveningIf → gameState is a leaf edge (no cycle)
 import { addContinuousEffect } from "../layers.js"; // SAVAGE ORDER — the fetched-permanent UEOT keyword grants; layers never imports runProgram (gameState itself imports layers), so this edge is cycle-free
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
+import { punisherTakeable, punisherAutoTake } from "./atoms/punisher.js"; // the punisher (CR 118.12) — whether its decider can take it, and the default AI decision (a sibling atom module; runProgram already reaches atoms through effectAtoms)
 import { landSearchPickOrder } from "../fetchLand.js"; // a land search takes the colour the searcher needs (a leaf over abilities, the tutor filter and manaModel — none imports runProgram)
 
 /**
@@ -347,6 +348,18 @@ export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacri
           ? (next.players?.[context?.triggeringPermanentController] ? context.triggeringPermanentController : null)
           : controller;
       if (decider == null) continue;
+      // THE PUNISHER the decider CAN'T take (atoms/punisher.js — Charismatic Conqueror's permanent already tapped or gone: the
+      // bundled ruling, "the opponent can't choose to tap it, so you'll create a Vampire token"): there is no choice to offer, so
+      // the declined outcome resolves here, unasked.
+      if (atom.op === "punisher" && !punisherTakeable(next, atom, { ...context, controller, targets: targetsForAtom(targets, i) })) {
+        const after = resolveAtomAsking(next, { ...atom, optional: false, declinedChoice: true }, { ...context, controller, targets: targetsForAtom(targets, i), cardName, xValue, sourceId });
+        if (after == null) return markPendingArbiter(next, stackObject, `effect-program (no resolver for atom "${atom?.op}")`);
+        next = after;
+        if (next.pendingChoice && !next.pendingChoice.resume) {
+          return { ...next, pendingChoice: { ...next.pendingChoice, resume: { program, controller, targets, xValue, sourceId, context, kicked, chosenMode: params.chosenMode ?? null, nextAtomIndex: i + 1, cardName, spellToGraveyard: params.spellToGraveyard ?? null } } };
+        }
+        continue;
+      }
       return {
         ...next,
         pendingChoice: {
@@ -1498,6 +1511,14 @@ export function optionalAutoTakeValue(state, pc) {
     const src = srcId ? findPermanent(state, srcId) : null;
     return !!src && !src.permanent.attachedTo;
   }
+  // THE PUNISHER (atoms/punisher.js): the decider is not the ability's controller, and "take" hands the controller its outcome, so
+  // the always-take default would give every punisher away. Its own policy weighs damage against cards from the decider's seat —
+  // with the policy evaluator on too, which would otherwise simulate the declined outcome and read the caster's hidden library.
+  if (pc?.effectOp === "punisher") {
+    const r = pc.resume || {};
+    const atom = programAtoms(r.program || { atoms: [] }, r.chosenMode)[pc.atomIndex];
+    return atom ? punisherAutoTake(state, who, r.controller, atom, r.context || {}) : true;
+  }
   if (!who || !policyEvalEnabledFor(state, who)) return true;
   const taken = resolveOptionalChoice(state, true);
   const declined = resolveOptionalChoice(state, false);
@@ -1555,6 +1576,17 @@ export function resolveOptionalChoice(state, doIt) {
     return resumeAfterChoice(next, { resume: { ...r, nextAtomIndex: i + 1 } }, { prevSacrificed: sacrificed });
   } else {
     next = logEvent(next, { kind: "spell-effect", effect: "optional", controller: r.controller, op: atom?.op, taken: false });
+    // THE PUNISHER'S NO (atoms/punisher.js, CR 118.12 — "If that player doesn't, <effect>"): declining is the other outcome, not
+    // nothing, so the atom resolves with `declinedChoice` and the program resumes after it.
+    if (atom?.op === "punisher") {
+      const ctx = { ...(r.context || {}), controller: r.controller, targets: targetsForAtom(r.targets, i), cardName: r.cardName, xValue: r.xValue, sourceId: r.sourceId };
+      const after = resolveAtomAsking(next, { ...atom, optional: false, declinedChoice: true }, ctx);
+      if (after == null) return markPendingArbiter(next, { source: { name: r.cardName }, payload: { params: r } }, `optional atom "${atom?.op}" had no resolver`);
+      if (after.pendingChoice && !after.pendingChoice.resume) {
+        return { ...after, pendingChoice: { ...after.pendingChoice, resume: { ...r, nextAtomIndex: i + 1 } } };
+      }
+      return resumeAfterChoice(after, { resume: { ...r, nextAtomIndex: i + 1 } });
+    }
     // ===== OPTIONAL-PRIMARY REFLEXIVE (CR 603.7) ===== the optional was DECLINED, so any immediately-following
     // `reflexiveGate` atoms (the "When you do, <reflexive>" payoff) must NOT fire — per CR 603.7 the reflexive
     // ability doesn't even trigger when the primary action didn't happen (Generous Plunderer: a declined "may

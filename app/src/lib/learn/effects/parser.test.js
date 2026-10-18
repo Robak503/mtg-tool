@@ -1130,12 +1130,12 @@ const MUST_DROP_TO_LOW = [
   "Target player sacrifices a creature you don't control.",                     // controller filter on the victim
   "Target player sacrifices a nonblack creature.",                              // color filter
   "Target opponent sacrifices a nonland permanent.",                            // non-creature victim
-  "Target player sacrifices a creature of their choice and loses 1 life.",      // Geth's Verdict — the TARGET loses life (deferred)
+  "Target player sacrifices two creatures of their choice and loses 2 life.",   // a count beside the loss (re-pointed 2026-10-17: Geth's Verdict's "a creature … and loses 1 life" is modeled — sharedSubjectEdict.test.js)
   // ED-2 boundary — each-player / each-opponent sacrifice OUTSIDE the modeled victim pools (creature / permanent
   // / the TYPED pools land·artifact·enchantment·artifact-or-enchantment) stays LOW (a count / "nontoken" / a
   // type-union with an unmodeled type / "all" would sacrifice the wrong thing — a forbidden false positive).
   // The bare TYPED pools ARE native now (see edicts.test.js TYPED-EDICT — Tremble / Simplify / Tribute to the Wild).
-  "Each opponent sacrifices two creatures of their choice.",                    // a count on the each-opponent form (re-pointed #509: the each-player creature count — Barter in Blood — is modeled, blasphemousEdict.test.js)
+  "Each opponent sacrifices X creatures of their choice.",                      // an X count on the each-opponent form (re-pointed 2026-10-17: the spelled each-opponent count — Portal to Phyrexia — is modeled, portalToPhyrexia.test.js; #509: the each-player count, blasphemousEdict.test.js)
   "Each player sacrifices two lands of their choice.",                          // a count on the TYPED land edict (still LOW)
   "Each opponent sacrifices a nontoken artifact of their choice.",              // "nontoken" qualifier — token-status not honored (LOW)
   "Each player sacrifices all permanents they control that are one or more colors.", // "all" (All Is Dust)
@@ -1461,7 +1461,7 @@ describe("parseEffectProgram — KWSTRIP-1 (vacuous cast-keyword line strip)", (
     // FIXTURE SWAPPED: this used the FLICKER body, which the blink slice now models — so it stopped testing
     // anything. Replaced with a body that is genuinely unmodeled (a counted edict, on the MUST_DROP_TO_LOW
     // list above), which keeps the assertion's real intent: rebound-stripping must never fabricate a flip.
-    const unmodeled = parseEffectProgram(I("Each opponent sacrifices two creatures of their choice.\nRebound")); // re-pointed #509 (the each-player count is modeled)
+    const unmodeled = parseEffectProgram(I("Each opponent sacrifices X creatures of their choice.\nRebound")); // re-pointed #509 (the each-player count is modeled) and 2026-10-17 (the spelled each-opponent count is modeled — Portal to Phyrexia)
     expect(programConfidence(unmodeled)).toBe("low");
     expect(unmodeled.selfExile).toBeUndefined();
   });

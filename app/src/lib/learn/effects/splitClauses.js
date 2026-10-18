@@ -181,6 +181,21 @@ export function splitClauses(oracle) {
     // rider (", and gets poison" / ", loses … and gets") doesn't match the contiguous "and loses \d+ life" → stays
     // Arbiter (FN-safe).
     .replace(/(target player draws \w+ cards?) and (loses \d+ life)/gi, "$1. The same target player $2")
+    // EDICT-DISCARD-LOSE-SUBJECT (the play-weighted program, #1077 Archon of Cruelty — "target opponent sacrifices a creature or
+    // planeswalker of their choice, discards a card, and loses 3 life"; Geth's Verdict — "Target player sacrifices a creature of
+    // their choice and loses 1 life"): one targeted player, the later verbs sharing the edict's subject. The same injection as
+    // DRAW-LOSE-SUBJECT above: each later verb becomes its own sentence on "the same target player" (the referent sentinel the
+    // discard and life atoms read, bound to the edict's target — one target, CR 115.1), in the printed order (CR 608.2c — the
+    // bundled Archon ruling: the sacrificed permanent is gone before the discard and the loss). Anchored to the exact verb list:
+    // a rider on any verb breaks the contiguous match and the sentence stays unread (FN-safe).
+    .replace(/(target (?:opponent|player) sacrifices a (?:creature or planeswalker|creature) of their choice), (discards (?:a|one|two) cards?),? and (loses \d+ life)/gi, "$1. The same target player $2. The same target player $3")
+    .replace(/(target (?:opponent|player) sacrifices a (?:creature or planeswalker|creature) of their choice) and (loses \d+ life)/gi, "$1. The same target player $2")
+    // REANIMATE-TYPE-RIDER (the play-weighted program, #1066 Portal to Phyrexia — "put target creature card from a graveyard onto
+    // the battlefield under your control. It's a Phyrexian in addition to its other types."): the second sentence is a rider on
+    // the permanent the first one makes (a card in a graveyard is a new object on the battlefield, CR 400.7 — no target to bind
+    // to), so it is folded onto the reanimate as a sentinel tail no printed card carries; the zones arm checks the word is a
+    // creature type. Anchored to the exact pair — a colour beside the type ("a black Zombie … colors and types") stays unread.
+    .replace(/(put target creature card from a graveyard onto the battlefield under your control)\.\s+it[’']s an? ([a-z]+) in addition to its other types(?=\.|$)/gi, "$1 with the added creature type $2")
     // NAME-LOCK BOUNCE (SHELF-85 B4, 2026-09-04 — Reflector Mage): "return target creature an opponent controls to its
     // owner's hand. That creature's owner can't cast spells with the same name as that creature until your next turn."
     // The second sentence is a RIDER on the bounce (the owner and the name are the bounced card's), so the sentence

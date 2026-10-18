@@ -103,10 +103,11 @@ describe("the cards and their parse", () => {
     expect({ confidence: programConfidence(p), atoms: p.atoms }).toEqual({ confidence: "high", atoms: [{ op: "sacrifice", who: "eachPlayer", what: "creature", count: 13 }] });
   });
 
-  it("near misses stay unparsed: another subject, another pool, an X count", () => {
+  it("near misses stay unparsed: a targeted subject, another pool, an X count (the each-opponent count graduated — Portal to Phyrexia, portalToPhyrexia.test.js)", () => {
     const atoms = (clause) => parseEffectClause(clause, "Sorcery")?.atoms ?? [];
+    expect(atoms("Each opponent sacrifices two creatures of their choice.")).toEqual([{ op: "sacrifice", who: "eachOpponent", what: "creature", count: 2 }]);
     expect({
-      eachOpponent: atoms("Each opponent sacrifices two creatures of their choice."),
+      eachOpponent: atoms("Each opponent sacrifices X creatures of their choice."),
       target: atoms("Target player sacrifices two creatures of their choice."),
       lands: atoms("Each player sacrifices two lands of their choice."),
       x: atoms("Each player sacrifices X creatures of their choice."),

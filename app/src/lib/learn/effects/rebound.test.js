@@ -145,7 +145,7 @@ describe("rebound — CREED near-misses (never a partial / over-fire)", () => {
     const unmodeledBody = {
       name: "Reboundless Edict",
       type: "Instant",
-      oracle: "Each opponent sacrifices two creatures of their choice.\n" + REBOUND_REMINDER, // re-pointed #509 (the each-player count is modeled)
+      oracle: "Each opponent sacrifices X creatures of their choice.\n" + REBOUND_REMINDER, // re-pointed #509 (the each-player count is modeled) and 2026-10-17 (the spelled each-opponent count is modeled — Portal to Phyrexia)
     };
     expect(classifyCard(unmodeledBody)).toBe("arbiter-spell");
     const p = parseEffectProgram(unmodeledBody);

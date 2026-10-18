@@ -330,6 +330,15 @@ controls" → `gain-control-all` (control.js: every permanent of the card type t
 `controlMove.moveControl`; an Equipment stays on its host, CR 301.5d). A new sentinel: rewrite only on a scope no other reader
 keys on (or anchor the whole clause), add the atom arm, and add the `who` to coverage's `REFERENT_WHOS` fence if it is new.
 
+**Two more watcher shapes (2026-10-17 — Charismatic Conqueror, Kardur).** `permanentEnters` has the scope
+`artifactOrCreatureOpponentControls` with the `enteredUntapped` gate (Amulet of Vigor's `enteredTapped` inverted — both read the
+entering permanent's live `tapped`, so every road that makes a permanent enter tapped must tap it before the enters triggers are
+checked; the field is on the descriptor whitelist). Its "they may tap that permanent." is renamed on that scope only to the
+sentinel "the triggering permanent's controller may tap the triggering permanent." for the punisher matcher. `dies` has the scope
+`attackingCreature` ("an attacking creature dies", any controller): `gameState.deathLookback` stamps `wasAttacking: true` when the
+creature is in `state.combat.attackers` as it dies, and checkDiesTriggers copies it onto the look-back object — a death site
+that bypasses `deathLookback` never fires it (a safe miss).
+
 #### 4.4b Trigger classes beyond the event trigger (added 2026-07-25)
 
 Three kinds of trigger do NOT fire off a discrete event, and each has its own lane:
@@ -393,6 +402,30 @@ reflexive at all. When a gated atom pauses (a search), the resume records `sacri
 — and `resumeAfterChoice` hands it back as `prevSacrificed`, so "…then shuffle and you gain 1 life" still runs after the pick; a
 settler that copies the record onto another index can't carry it. On a land, the reflexive sentence the trigger strip leaves as
 its own line is admitted by `landFullyCovered` only when it is the reflexive a detected (natively routing) trigger folded.
+
+**The punisher — another player decides** (`effects/atoms/punisher.js`, 2026-10-17, CR 118.12 — Combustible Gearhulk, Risk
+Factor, Charismatic Conqueror). ONE `punisher` atom carries both outcomes as closed descriptors (`taken` — the decider says yes;
+`declined` — no). It is an `optional` atom whose decider is not its controller (`optionalDeciderIsTarget` — the targeted
+opponent; or `optionalDecider: "triggeringPermanentController"`), so the ordinary optional-effect pause asks that player;
+`resolveOptionalChoice` runs the atom with `declinedChoice` on a no (for every other optional a no skips the atom). A decider
+who can't take it (`punisherTakeable` — the permanent to tap already tapped or gone) gets the declined outcome unasked, in
+runEffectProgram. The default AI answer is `punisherAutoTake` (via `optionalAutoTakeValue`, which never simulates a punisher —
+the declined Gearhulk outcome would read the caster's hidden library): damage against cards, at the 10-life floor
+(`PUNISHER_LIFE_FLOOR`, the value of opponentAI's `LIFE_PRUDENCE_FLOOR`); the Gearhulk's unseen total read at 4 a card; a draw
+the caster's library can't cover is always given (CR 121.4); the Conqueror's tap taken only when it costs nothing this turn.
+A new outcome kind needs its parse, its resolver arm, its `punisherTakeable` answer and its AI answer.
+
+**Several token kinds, one event** (`create-tokens-together`, 2026-10-17 — Wurmcoil Engine, Triplicate Titan). "create <kind> and
+<kind>" / "<kind>, <kind>, and <kind>" is cut only where a count word and a P/T begin the next kind; each kind is the single arm's
+plain fixed-count reading (keywords only), and `applyCreateTokensTogether` mints them all (each kind through `mintTokenKind`, the
+placement `applyCreateToken` shares; the doubler per kind) before ONE `fireTokenEnterTriggers` — so a "those tokens plus …"
+replacement adds once.
+
+**A creature type added by the effect that returns it** (2026-10-17 — Portal to Phyrexia: "… onto the battlefield under your
+control. It's a Phyrexian in addition to its other types."). splitClauses folds the second sentence into a sentinel tail
+("… with the added creature type <word>", the word a CR 205.3m creature type); the reanimate atom's `addSubtype` enters the card
+with its enters triggers deferred, adds a layer-4 subtype effect fixed to the new permanent id (a later object is a new id, CR
+400.7), then checks the enters triggers.
 
 **Entry replacements** (`enterReplacements.js`, 2026-10-02): `applyEnterReplacements` (enters tapped, the
 counters a permanent enters with, the as-enters choices: chosen creature type, colour, card type) and
@@ -472,6 +505,15 @@ Hellkite Tyrant, Homeward Path) clears the record. A new control effect with a d
 `moveControl` also stamps `defaultController` (CR 110.2 — the seat the permanent left on its first move), so a player
 leaving the game can tell a permanent they hold by default (exiled) from one an effect gave them (released —
 `releaseControlOnLeave`, §4.9).
+
+**A rule over a group, from a resolved ability** (2026-10-17 — Kardur, Doomscourge: "until your next turn, creatures your opponents
+control attack each combat if able and attack a player other than you if able"). Stored like the mass-block-lock — a layer-6
+grant over a DYNAMIC selector, so a creature that arrives later is affected too (CR 611.2c) — but with a controller scope: its
+source records the ability's controller and no permanent (`{kind: "resolution", permanentId: null, controller}`), and
+`effectAffects` reads the selector against that controller (without it "opponents" would read an undefined controller and take
+every creature). Its two keywords are goad's pseudo-keywords (`mustAttack`, `goaded` — `goaderControllersOf` resolves "you" to
+the recorded controller), marked `requirementOnly: true` on the op: it is not goad (CR 701.15), so a future reader of the goaded
+DESIGNATION ("a goaded creature") must skip those grants.
 
 ### 4.7 Mana (`manaModel.js`)
 

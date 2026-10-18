@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.165.0** (tagged 2026-10-18 on the `[0.165.0]` CHANGELOG cut):
-> **5 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **44.9% (15,546)**; engine gains since the tag: **+10**. The next tag
+> **6 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.0% (15,567)**; engine gains since the tag: **+31**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,104 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-17 — PLAY-WEIGHTED: the value creatures — Wurmcoil Engine (EDHREC #1062) — one create naming several token kinds, created together (+ Triplicate Titan #2198, Wurmcoil Larva, Trostani's Summoner, Somberwald Beastmaster, Specimen Collector, Forbidden Friendship, Mascot Exhibition, Bestial Menace); Archon of Cruelty (#1077) — the edict's target discards and loses life as "the same target player" (+ Scarring Memories, Geth's Verdict, Umbral Juke); Noxious Gearhulk (#1002) — "if a creature is destroyed this way"; Angel of the Ruins (#1052) — the exile verb on "up to two target artifacts and/or enchantments" (+ Sylvan Reclamation); Portal to Phyrexia (#1066) — the each-opponent counted edict and the reanimated Phyrexian; Combustible Gearhulk (#1029), Charismatic Conqueror (#1045) — the punisher, another player's choice, with a damage-against-cards AI (+ Risk Factor); Kardur, Doomscourge (#987) — the group attack rule and "an attacking creature dies" · **+21** · snapshot native+land 15,531 → 15,552
+> Suite **20,987 green (1 skipped) / 1,891 files** under the gate queue (with the rules index built for the run, then deleted). Lint 0 (CR citations: 0 of 11,701 name no rule; keyword citations: 0 of 2,389 cite a different keyword). Flip-diff
+> **+21 / −0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of fa91b6af, snapshotted before the first edit; native+land
+> 15,531 → 15,552 of 34,584 snapshot names); program-fingerprint (34,620 cards) moves 22 programs — the 21 gained and Invasion of Azgol //
+> Ashen Reaper (its Siege's "target player sacrifices a creature or planeswalker of their choice and loses 1 life" reads now; the card stays
+> body-only on its battle). `measure-coverage` (MTG_APP_ROOT = the install): corpus 15,536 → 15,557; top 1,000 **920 → 922** (Kardur,
+> Noxious Gearhulk); top 2,500 **1,770 → 1,779** (+ Combustible Gearhulk, Charismatic Conqueror, Angel of the Ruins, Wurmcoil Engine, Portal to
+> Phyrexia, Archon of Cruelty, Triplicate Titan); top 5,000 2,773 → 2,782; top 10,000 4,580 → 4,591 (+ Risk Factor, Sylvan Reclamation); the 30
+> profile decks unchanged (2,752 / 2,998 — none holds a gained card). **Mutants 13/13** on assertions, each restored byte-identical (sha256).
+> Witness files written before each mechanism's engine change and run on the untouched archive: **94 tests in seven files — 69 fail there on assertions, the 25 controls pass on both (each file's first version ran there before its mechanism's change; the tests added while building — the Scarring Memories, Umbral Juke and Somberwald Beastmaster twins, the Torbran source check, the Phantom Blade control — fail or pass there the same way). The first gated suite run failed 8 pins of the old reading (graduated below) and the known `crucibleRun.test.js` 20 s load timeout; the run above is the green of record**. A/B **80 seeded commander
+> games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched fa91b6af archive): **80 / 80 byte-identical** (the
+> sha256 of every game record — each decision row, the log, result, winner, turns, ticks), 0 errors on either tree, results unchanged (ai-wins
+> 59 / user-wins 21), 181.5 s / 176.3 s per batch — no profile deck holds a gained card (Peregrin Took appears in games 16, 17, 53, 57; no
+> several-kind create happens there). Committed on `day/valuecr`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **Several token kinds, one event** (Wurmcoil Engine: "create a 3/3 colorless Phyrexian Wurm artifact creature token with deathtouch and a
+>   3/3 colorless Phyrexian Wurm artifact creature token with lifelink"; the bundled ruling: "The two creature tokens enter at the same time.").
+>   `createTokensTogetherClauseParser` cuts "<kind> and <kind>" / "<kind>, <kind>, and <kind>" only where a count word and a P/T begin the next
+>   kind (a keyword list's commas stay inside), reads each with the single arm and keeps only a plain fixed-count reading (count, P/T,
+>   descriptor, enforced keywords) → ONE `create-tokens-together` atom. `applyCreateTokensTogether` mints every kind through `mintTokenKind`
+>   (the placement `applyCreateToken` now shares, byte-identical), the doubler per kind, then ONE `fireTokenEnterTriggers` — Peregrin Took adds
+>   one Food, not two. Twins: Triplicate Titan, Wurmcoil Larva, Trostani's Summoner, Somberwald Beastmaster (its "Creature tokens you control
+>   have deathtouch" was read), Specimen Collector (its dies copy was read — classLevels' pin graduated), Forbidden Friendship, Mascot
+>   Exhibition (two-colour kinds keep both colours), Bestial Menace. Still parked: Liberated Livestock (its Aura sentence), A Killer Among Us
+>   (the secret choice), Polukranos Reborn (the transform face).
+> · **One target, three instructions** (Archon of Cruelty: "target opponent sacrifices a creature or planeswalker of their choice, discards a
+>   card, and loses 3 life"; the ruling: the actions in the order listed, the sacrificed permanent gone before the discard and the loss).
+>   splitClauses' EDICT-DISCARD-LOSE-SUBJECT fold writes the later verbs as sentences on "the same target player" (Sign in Blood's sentinel);
+>   the new discard arm reads "the same target player discards N cards" bound to the edict's target (`bindPreviousTargets`, CR 608.2c, one
+>   target — CR 115.1), the loss arm already did; the targeted edict gains the creature-or-planeswalker pool (its own arm — Plaguecrafter's
+>   each-player batch arm untouched). Witnessed in a four-seat game: only the targeted opponent sacrifices, discards and loses 3. Twins:
+>   Geth's Verdict ("… and loses 1 life"), Scarring Memories (its flash permission was read), Umbral Juke (the edict mode).
+> · **Destroyed this way** (Noxious Gearhulk). The other/another removal arm writes the bare "destroy another target creature" atom (the legacy
+>   lane's `{destroy, creature}` plus not-source) for that exact phrase only — "destroy up to one other target creature" (Phantom Blade, where
+>   "other" is the ability's earlier target) stays unread. `matchRemovalCasterGainLife` reads "If a creature is destroyed this way, you gain life
+>   equal to its toughness." as `casterGainLife` with `onlyIfDestroyed`: `applyRemovalWithRider` skips the gain while the permanent is still on
+>   the battlefield (indestructible, a shield, regeneration, umbra armor — CR 701.8a) and pays it when the destroy moved it (into exile under
+>   Rest in Peace too — the ruling), the toughness as it last existed.
+> · **The exile verb** (Angel of the Ruins, Sylvan Reclamation): Force of Vigor's counted "up to N target artifacts and/or enchantments" arm takes
+>   either verb (the fixed counts; "any number of" stays the destroy verb's).
+> · **Portal to Phyrexia**: "each opponent sacrifices three creatures of their choice" → the N-count batch edict over the opponents (two..ten,
+>   the bare creature noun); "… under your control. It's a Phyrexian in addition to its other types." → splitClauses folds the rider onto the
+>   any-graveyard reanimate as a sentinel tail, the zones arm checks the word against the CR 205.3m vocabulary (`addSubtype`), and
+>   `applyReanimate` enters the card with its enters triggers deferred, adds a layer-4 subtype effect fixed to the new permanent (CR 613.1d,
+>   400.7), then checks them (witnessed: beside a "Phyrexian creatures you control get +1/+1" lord the Giant is 4/4).
+> · **The punisher** (CR 118.12 — `effects/atoms/punisher.js`). ONE `punisher` atom, `taken` / `declined` closed descriptors, riding the
+>   optional-effect pause with a decider who is not its controller (Combustible Gearhulk, Risk Factor: the targeted opponent —
+>   `optionalDeciderIsTarget`; Charismatic Conqueror: the entering permanent's controller — `optionalDecider`). `resolveOptionalChoice` runs
+>   `declined` on a no; runEffectProgram resolves `declined` unasked when the yes can't be chosen (`punisherTakeable` — the Conqueror ruling:
+>   a tapped or departed permanent can't be tapped, so the Vampire is made). The Gearhulk's total is the milled cards' mana values where they
+>   went (the mill's own stamp, a public zone — CR 701.17c; {X} counts 0, the ruling), dealt by the Gearhulk (witnessed with Torbran: 5 + 2).
+>   The Conqueror: a new `permanentEnters` scope `artifactOrCreatureOpponentControls` with the `enteredUntapped` gate (whitelisted), its first
+>   sentence renamed on that scope to the triggering-permanent sentinel; the referent pinned to `permanentEnters` in triggerRouting and fenced
+>   off spells in coverage. **The AI** (`punisherAutoTake`, the optional-effect fallback for a punisher — never the always-take default, never
+>   the board simulation, which would read the caster's hidden library): it takes damage only while that leaves it at 10 life or more
+>   (`PUNISHER_LIFE_FLOOR`, the value of opponentAI's LIFE_PRUDENCE_FLOOR) — Risk Factor's 4 exactly, the Gearhulk's unseen three cards at 4 a
+>   card (12); it always gives draws the caster's library can't cover (CR 121.4); the Conqueror's permanent is tapped only when that costs
+>   nothing this turn (a creature that entered on its controller's own turn without haste; a noncreature permanent with no {T} ability).
+>   Witnessed: at 20 life the opponent gives the Gearhulk's draws, at 40 it takes the 5; Risk Factor at 20 takes 4, at 12 gives three cards.
+>   The pause's panel label names it ("accept its first outcome (say no and its other outcome happens)").
+> · **Kardur, Doomscourge.** The enters sentence → `opponents-attack-others`: two layer-6 grants — goad's `mustAttack` and `goaded` (marked
+>   `requirementOnly`: not goad, CR 701.15) — over a DYNAMIC selector (creatures an opponent controls, read at each query — CR 611.2c, the
+>   ruling: new creatures too), until the controller's next turn (the goad duration), the source recording the controller and no permanent;
+>   `layers.effectAffects` reads such a source's group against that controller (the mass-block-lock had no controller scope, so nothing else
+>   moves). "an attacking creature dies" → the dies scope `attackingCreature` over `wasAttacking`, stamped by `deathLookback` when the creature
+>   is in `combat.attackers` (only when true) and copied onto checkDiesTriggers' look-back. Witnessed: a lone Grizzly Bears that holds back
+>   without Kardur attacks into 6/4s with it, and at a player other than Kardur's controller (four seats); in two seats it attacks that
+>   controller ("if able"); a creature arriving later is bound; the controller's creatures never, even after Kardur leaves; gone after the
+>   controller's next turn; any attacker's death drains (the user's own too), a blocker's or a non-combat death does not.
+> · **Tests changed on purpose (pins graduated):** parser.test.js MUST_DROP_TO_LOW (Geth's Verdict → "Target player sacrifices two creatures …
+>   and loses 2 life."; the each-opponent count → "X creatures"), its REBOUND near-miss and rebound.test.js (the unmodeled body → "Each opponent
+>   sacrifices X creatures …"), blasphemousEdict.test.js (the each-opponent count asserts the modeled atom; the near miss → X), edicts.test.js
+>   (Geth's Verdict now native-spell; the count pin → X), classLevels.test.js (Specimen Collector now native-trigger).
+> · **Judgement calls:** (1) The punisher policy's numbers — the 10 floor, 4 a card for an unseen mill — are heuristics of play, not rules; the
+>   Conqueror's tap rule leaves a summoning-sick creature tapped through the other players' turns (it can't block until its untap) rather than
+>   give a lasting 1/1 lifelinker. (2) Kardur rides goad's pseudo-keywords so the attack planner reads it; the `requirementOnly` mark is the
+>   fence for any future reader of the goaded DESIGNATION. (3) The Gearhulk's damage follows the engine's convention for an ability's own
+>   permanent source (lifelink / deathtouch not read — `spellEffects.damageDealer`'s documented open slice), so the witness uses Torbran to
+>   show the Gearhulk is the source. (4) Risk Factor's "may have <source> deal N damage to them" takes the subject as the effect's source (the
+>   damage parsers' convention), refusing a subject naming another object. (5) The several-kind create admits plain kinds only (no inline
+>   ability, name, tapped or attacking rider) — Liberated Livestock-style riders stay parked.
+> · ⚠️ **Found, not fixed:** (1) An ability's own permanent source deals its damage without its lifelink / deathtouch / colours
+>   (spellEffects.js:1423 `damageDealer` — `readsKeywords` is set only by fights and the triggering-creature lane); a Combustible Gearhulk with
+>   granted lifelink gains nothing — the same for every "this creature deals N damage" trigger. (2) The goaded defender filter
+>   (opponentAI.js:2460) keeps a non-goader's PLANESWALKER as an option and the walker-kill focus can take it, while goad (CR 701.15b) and
+>   Kardur (the ruling) require attacking a PLAYER other than you if able. (3) Attack requirements are enforced only by the AI's planner — a
+>   person's attack declaration is not checked (goad's standing limitation, now Kardur's too). (4) `gameState.millCards` (gameState.js:1207)
+>   applies the exile-instead replacement but not a card's own shuffle-into-library one, so a milled Darksteel Colossus goes to the graveyard
+>   (and would count toward the Gearhulk's total). (5) `PUNISHER_LIFE_FLOOR` repeats opponentAI's unexported `LIFE_PRUDENCE_FLOOR` (10) — one
+>   judgement in two places; move the floor to a leaf both import (another builder is in opponentAI.js today). (6) Not taken, each on its own
+>   text: Terrapact Intimidator (Landers or counters — a non-damage valuation), Palantír of Orthanc (an X mill by counters, the decider loses
+>   the total), Vexing Devil / Longhorn Firebeast / Browbeat / Breaking Point / Book Burning (ANY opponent or any player decides — a sequence of
+>   deciders), Bane, Lord of Darkness (a toughness-capped put from hand), Barrier Breach ("up to three target enchantments" — another noun),
+>   Protector of the Wastes ("controlled by different players"), Dusk Mangler (its additional cost; the each-opponent three-verb fold is not
+>   written), Phantom Blade ("other" = its earlier target).
+> · Witness: `tokensTogether.test.js` (17), `sharedSubjectEdict.test.js` (14), `noxiousGearhulk.test.js` (11), `exileUpToTwoArtifactsEnchantments.test.js`
+>   (7), `portalToPhyrexia.test.js` (11), `punisherChoice.test.js` (21), `kardurDoomscourge.test.js` (13). Graduated: `parser.test.js`,
+>   `rebound.test.js`, `blasphemousEdict.test.js`, `edicts.test.js`, `classLevels.test.js`.
 
 > ## 🎯 2026-10-17 — PLAY-WEIGHTED: mana triggers and chosen-colour mana — High Tide (EDHREC #798), Forsaken Monument (#889), Throne of Eldraine (#890), Caged Sun (#936), Bubbling Muck (#2219) + Gauntlet of Power, Vernal Bloom, Gauntlet of Might, Lavaleaper, Hall of Triumph: the extra mana a tap-for-mana trigger adds when the tap made its colour, any player's land of a basic type, an augment a spell creates until end of turn; Throne's four restricted mana and its chosen-colour draw; and FIX (false positive): a restricted tap's unspent mana keeps its restriction (Shang-Chi, Dalakos, The Mightstone and Weakstone, Mishra's Workshop left theirs in the open pool) · **+10** · snapshot native+land 15,531 → 15,541
 > Suite **20,944 green (1 skipped) / 1,887 files** under the gate queue (with the rules index built for the run, then deleted; run 1 failed the

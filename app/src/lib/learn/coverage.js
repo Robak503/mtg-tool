@@ -63,6 +63,7 @@ function atomCarriesEventReferent(a) {
   if (a?.op === "draw-or-counters-by-triggering-power") return true; // "if its power is 3 or greater" (Tribute to the World Tree) — only an enters watcher names the creature
   if (a?.op === "you-and-attacking-opponents") return true; // "each opponent attacking that player does the same" (Curse of Opulence) — only the enchanted-player-attacked trigger names the player
   if (a?.countContext === "dealtDamageAmount") return true; // "that much" (Brash Taunter) — only the dealt-damage trigger carries the amount
+  if (a?.op === "punisher" && (a.optionalDecider === "triggeringPermanentController" || a.taken?.kind === "tapTriggering")) return true; // "they may tap that permanent" (Charismatic Conqueror) — only its enters watcher names the permanent and its controller
   return (a?.restrictions || []).some((r) => REFERENT_WHOS.has(r?.who));
 }
 import { registerGrantTriggeredBodyValidator, registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant body gates

@@ -35,7 +35,7 @@ const INSTANT = "Instant";
 const DIABOLIC = { id: "de", name: "Diabolic Edict", type: INSTANT, mana: "{1}{B}", oracle: "Target player sacrifices a creature of their choice." };
 const CRUEL = { id: "ce", name: "Cruel Edict", type: SORCERY, mana: "{1}{B}", oracle: "Target opponent sacrifices a creature of their choice." };
 const GRAVE = { id: "gx", name: "Grave Exchange", type: SORCERY, mana: "{4}{B}", oracle: "Return target creature card from your graveyard to your hand. Target player sacrifices a creature of their choice." };
-const GETHS = "Target player sacrifices a creature of their choice and loses 1 life."; // Geth's Verdict — DEFERRED (target loses life)
+const GETHS = "Target player sacrifices a creature of their choice and loses 1 life."; // Geth's Verdict — modeled 2026-10-17 (the loss bound to the edict's target)
 
 // A creature CARD with a tunable mana value (drives tutorManaValue) + power (the least-valuable tiebreak).
 const creaCard = (id, name, cmc = 2, power = 2, oracle = "") => ({ id, name, type: "Creature — Bear", mana: `{${cmc}}`, cmc, power, toughness: 2, oracle });
@@ -82,11 +82,11 @@ describe("parser — the edict family is HIGH; the atom targets a PLAYER (victim
     low("Target player sacrifices a creature you don't control.");               // controller filter on the victim
     low("Target player sacrifices a nonblack creature.");                        // color filter
     low("Target opponent sacrifices a nonland permanent.");                      // non-creature victim
-    low(GETHS);                                                                  // Geth's Verdict — the TARGET loses life (deferred)
+    low("Target player sacrifices two creatures of their choice and loses 2 life."); // a count beside the loss (Geth's Verdict's "a creature … and loses 1 life" is modeled — below and sharedSubjectEdict.test.js)
     // ED-2 boundary: each-player/each-opponent are modeled for "a creature"/"a permanent"/the TYPED pools
     // (land/artifact/enchantment/artifact-or-enchantment). A count / unmodeled union stays LOW.
     // (Re-pointed #509: the EACH-PLAYER creature count is modeled now — blasphemousEdict.test.js — so the count pin moved to each opponent.)
-    low("Each opponent sacrifices two creatures of their choice.");              // a count
+    low("Each opponent sacrifices X creatures of their choice.");                // an X count (re-pointed 2026-10-17: the spelled each-opponent count is modeled — Portal to Phyrexia)
     low("Each opponent sacrifices a creature or planeswalker of their choice."); // type union incl. planeswalker (Dark Intimations) — NOT a modeled pool
     low("You sacrifice a creature.");                                            // controller "you sacrifice" — bare controller-sac deferred (α2 risk)
   });
@@ -96,9 +96,10 @@ describe("coverage — the edict family is native-spell; unmodeled variants are 
   it("Diabolic Edict / Cruel Edict / Grave Exchange classify native-spell", () => {
     for (const c of [DIABOLIC, CRUEL, GRAVE]) expect(classifyCard(c)).toBe("native-spell");
   });
-  it("a filtered / multi / target-loses-life edict is arbiter-spell", () => {
+  it("a counted targeted edict is arbiter-spell; Geth's Verdict (the loss bound to the edict's target) graduated to native", () => {
     expect(classifyCard({ type: SORCERY, name: "Dead Drop", oracle: "Target player sacrifices two creatures of their choice." })).toBe("arbiter-spell");
-    expect(classifyCard({ type: INSTANT, name: "Geth's Verdict", oracle: GETHS })).toBe("arbiter-spell");
+    // GRADUATED 2026-10-17 (sharedSubjectEdict.test.js): "…and loses 1 life" binds to the edict's one target ("the same target player").
+    expect(classifyCard({ type: INSTANT, name: "Geth's Verdict", oracle: GETHS })).toBe("native-spell");
   });
 });
 

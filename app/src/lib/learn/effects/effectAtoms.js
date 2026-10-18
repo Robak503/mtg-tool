@@ -41,6 +41,7 @@ import { voidPlayResolvers } from "./atoms/voidPlay.js"; // P·28 — Dauthi Voi
 import { livingDeathResolvers } from "./atoms/livingDeath.js"; // P·35 — Living Death / Living End's three-step mass swap
 import { animateDeadResolvers } from "./atoms/animateDead.js"; // P·12 — Animate Dead: the return-and-attach ETB and the leave sacrifice // P·10 — HIDEAWAY (CR 702.75): the look-and-hide ETB and the linked free play
 import { iteratedEdictResolvers } from "./atoms/iteratedEdict.js";
+import { punisherResolvers } from "./atoms/punisher.js"; // the play-weighted program (Combustible Gearhulk, Charismatic Conqueror) — another player chooses between two outcomes
 import { delayedTriggerResolvers } from "./atoms/delayedTrigger.js";
 import { faceDownExileResolvers } from "./atoms/faceDownExile.js"; // Necropotence — exile the top card face down + its card-bound delayed return
 import { discardedCardExileResolvers } from "./atoms/discardedCardExile.js"; // Necropotence — exile the discarded card from the graveyard (same object only)
@@ -93,6 +94,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...castFromAmongResolvers, // exile-top-each-cast-any (P·16) — parks pendingCastFromAmong for the action layer
   ...hideawayResolvers, // hideaway + hideaway-play (CR 702.75) — the impulse-dig hide, then the discover-lane free cast of the linked card
   ...freeCastResolvers, // free-cast (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle); park for the action-layer cast-free/decline decision
+  ...punisherResolvers, // punisher (CR 118.12) — the decider's yes runs `taken`, a no runs `declined` (runProgram's optional-effect pause asks them)
   ...iteratedEdictResolvers, // iterated-edict (Torment of Hailfire, CR 118.9) — X × per-opponent (lose 3 / sac nonland / discard) pausing edict chain; edict-shares-type (Braids, Arisen Nightmare)
   ...delayedTriggerResolvers, // schedule-delayed (CR 603.7) — queue an ability for a future step; gameEngine drains it into pendingTriggers at step entry
   ...faceDownExileResolvers, // face-down-exile-top + face-down-exile-return (Necropotence, CR 406.3 + 603.7) — exile face down, return that card at your next end step

@@ -59,6 +59,7 @@ export function applyRemovalWithRider(state, atom, ctx) {
       // destroy there is nothing left to measure). MV comes off the card (CR 202.3 — an absent cost is 0), so
       // it is valid for the artifact / enchantment leads too, not just creatures.
       captures.push({
+        id: lk.permanent?.id ?? t.id,
         controller: lk.controller,
         power: Math.max(0, creaturePower(lk.permanent, state)),
         toughness: Math.max(0, creatureToughness(lk.permanent, state)),
@@ -75,6 +76,11 @@ export function applyRemovalWithRider(state, atom, ctx) {
   // damageRider (Smash to Smithereens / Molten Rain) — never both in the corpus, but both are applied if present.
   for (const cap of captures) {
     if (!next.players?.[cap.controller]) continue; // controller eliminated mid-resolution → skip (CR 800.4a)
+    // "IF A CREATURE IS DESTROYED THIS WAY" (Noxious Gearhulk): the rider applies only to a permanent the removal moved off the
+    // battlefield — still there means indestructible, a shield counter, regeneration or umbra armor kept it (CR 701.8a); gone
+    // into exile under Rest in Peace still counts (the bundled ruling: "If it is destroyed but put into a zone other than a
+    // graveyard, you'll gain life").
+    if (atom.controllerRider?.onlyIfDestroyed && findPermanent(next, cap.id)) continue;
     if (atom.controllerRider) {
       next = applyControllerRider(next, atom.controllerRider, cap, ctx);
       // A rampBasic rider suspends the program (a tutor pending-choice scoped to that player); stop the loop
@@ -817,6 +823,12 @@ export function sacrificeEdictClauseParser(clause) {
   const CHOICE = "(?: of (?:their|his or her) choice)?";
   let m = t.match(new RegExp(`^target (player|opponent) sacrifices a ${EDICT_NOUN}${CHOICE}$`));
   if (m) return { op: "sacrifice", targetType: m[1] === "opponent" ? "opponent" : "player", what: EDICT_POOL[m[2]] };
+  // TARGETED CREATURE-OR-PLANESWALKER EDICT (the play-weighted program, #1077 Archon of Cruelty — "target opponent sacrifices a
+  // creature or planeswalker of their choice"): the one-permanent chain over the pool Plaguecrafter's each-player edict reads
+  // (sacrificePoolMatchNow — a creature or a planeswalker that player controls; CR 701.21a). Its own arm, the targeted subject
+  // only: the each-player form keeps Plaguecrafter's batch arm below.
+  m = t.match(new RegExp(`^target (player|opponent) sacrifices a creature or planeswalker${CHOICE}$`));
+  if (m) return { op: "sacrifice", targetType: m[1] === "opponent" ? "opponent" : "player", what: "creatureOrPlaneswalker" };
   m = t.match(new RegExp(`^each player sacrifices a ${EDICT_NOUN}${CHOICE}$`));
   if (m) return { op: "sacrifice", who: "eachPlayer", what: EDICT_POOL[m[1]] };
   // N-COUNT EACH-PLAYER EDICT (play-weighted #509 — Blasphemous Edict "Each player sacrifices thirteen creatures of their choice.";
@@ -825,6 +837,11 @@ export function sacrificeEdictClauseParser(clause) {
   // two..twenty over the bare creature noun only: a typed / filtered / "X" / "that many" victim set fails the anchor → Arbiter.
   m = t.match(new RegExp(`^each player sacrifices (two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty) creatures${CHOICE}$`));
   if (m) return { op: "sacrifice", who: "eachPlayer", what: "creature", count: NUM_WORD[m[1]] };
+  // + EACH OPPONENT (the play-weighted program, #1066 Portal to Phyrexia — "each opponent sacrifices three creatures of their
+  // choice"): the same N-count chain over the controller's opponents (applySacrifice's eachOpponent sacrificers, APNAP), the same
+  // bare creature noun and spelled count.
+  m = t.match(new RegExp(`^each (?:opponent|other player) sacrifices (two|three|four|five|six|seven|eight|nine|ten) creatures${CHOICE}$`));
+  if (m) return { op: "sacrifice", who: "eachOpponent", what: "creature", count: NUM_WORD[m[1]] };
   // EACH-PLAYER CREATURE-OR-PLANESWALKER EDICT (play-weighted #639 — Plaguecrafter, Demon's Disciple): one creature or planeswalker
   // apiece, each player choosing from their own (CR 701.21a) in APNAP order and every chosen permanent sacrificed at once (CR 101.4)
   // — the N-count chain with a count of one and the widened pool (advanceCreatureBatchSacrifice). A player with neither sacrifices
@@ -979,7 +996,14 @@ export function destroyExileClauseParser(clause) {
   // creature lane is several arms below; a recursive peel keeps every one of them untouched).
   const om = t.match(/^(destroy|exile) (up to one )?(?:other|another) target (creature.*)$/);
   if (om) {
-    const inner = destroyExileClauseParser(`${om[1]} target ${om[3]}`); // the plain form; "up to one" is stamped here (the program parser's peel does not reach a rider lead)
+    // The plain form; "up to one" is stamped here (the program parser's peel does not reach a rider lead). A bare "destroy target
+    // creature" is the legacy creature lane's, not this parser's, so its atom is written out here for the one printed form (the
+    // play-weighted program, #1002 Noxious Gearhulk — "destroy another target creature" on a creature's own trigger, where
+    // "another" is the source): exactly the atom that lane emits for the bare phrase. Not "up to one other target creature": its
+    // carriers (Phantom Blade — "attach it to up to one target creature you control. Destroy up to one other target creature.")
+    // mean a creature other than the ability's EARLIER target, which the not-source restriction does not say.
+    const anotherCreature = om[1] === "destroy" && !om[2] && om[3] === "creature" && /^destroy another target creature$/.test(t);
+    const inner = anotherCreature ? { op: "destroy", targetType: "creature" } : destroyExileClauseParser(`${om[1]} target ${om[3]}`);
     return inner ? { ...inner, restrictions: [...(inner.restrictions || []), { kind: "notSource" }], ...(om[2] ? { minTargets: 0, maxTargets: 1 } : {}) } : null;
   }
   // TRIG-PRONOUN destroy (the triggering permanent, CR 608.2c) — "destroy the triggering creature" (Toxin
@@ -1300,13 +1324,16 @@ export function destroyExileClauseParser(clause) {
   // (minTargets:0 → choosing zero is legal, CR 601.2c), same applyDestroyEffect over ctx.targets — with a
   // FIXED cap instead of the unbounded sentinel and no collective-MV constraint. "and/or" only: the plain
   // "artifacts or enchantments" print is a different wording that has not been probed → stays LOW (FN-safe).
-  const upM = t.match(/^destroy (up to (one|two|three|four)|any number of) target artifacts and\/or enchantments$/);
-  if (upM) {
+  // + THE EXILE VERB (the play-weighted program, #1052 Angel of the Ruins — "exile up to two target artifacts and/or
+  // enchantments"; Sylvan Reclamation): the same pool and count; the exile resolves through applyZoneMove over ctx.targets, as
+  // every targeted exile does. The fixed counts only — "any number of" stays the destroy verb's (its one carrier is Strive).
+  const upM = t.match(/^(destroy|exile) (up to (one|two|three|four)|any number of) target artifacts and\/or enchantments$/);
+  if (upM && (upM[1] === "destroy" || upM[3])) {
     const N = { one: 1, two: 2, three: 3, four: 4 };
     // ④-AT (2026-09-04): "any number of" (Consign to Dust — a STRIVE card; its per-target cost rides the cast lane off
     // program.strivePerTarget) — the unbounded sentinel with `anyNumber` so the expander offers the largest subsets first.
-    if (!upM[2]) return { op: "destroy", targetType: "artifactOrEnchantment", minTargets: 0, maxTargets: MULTI_COUNT_UNBOUNDED, anyNumber: true };
-    return { op: "destroy", targetType: "artifactOrEnchantment", minTargets: 0, maxTargets: N[upM[2]] };
+    if (!upM[3]) return { op: "destroy", targetType: "artifactOrEnchantment", minTargets: 0, maxTargets: MULTI_COUNT_UNBOUNDED, anyNumber: true };
+    return { op: upM[1], targetType: "artifactOrEnchantment", minTargets: 0, maxTargets: N[upM[3]] };
   }
   if (/^destroy all creatures$/.test(t)) return { op: "destroy", targetType: "eachCreature" };
   // FORCE OF DESPAIR (POD-SIM THREE · BI-3, 2026-09-05): "Destroy all creatures that entered this turn." — the mass destroy

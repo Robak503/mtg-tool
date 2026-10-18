@@ -181,25 +181,14 @@ export function fireTokenEnterTriggers(state, mintedIds) {
   return next;
 }
 
-export function applyCreateToken(state, atom, ctx) {
+/**
+ * Mint `count` tokens of ONE kind — the kind a create-token atom describes (its descriptor, P/T, keywords, inline ability, the
+ * counters it enters with, tapped) — onto `creatorId`'s battlefield. Placement only: the caller fires the enter triggers and runs
+ * the lethal check, so applyCreateToken (one kind) and applyCreateTokensTogether (several kinds in one event) share every minted
+ * field. Returns { state, mintedIds }.
+ */
+function mintTokenKind(state, atom, ctx, creatorId, count) {
   let next = state;
-  // ONCE-PER-TURN gate (Screeching Scorchbeast — "…create that many … tokens. Do this only once each turn.",
-  // SHELF M1b): the same per-source frequency latch discover/draw/gain-life honor (parser.js
-  // ONCE_PER_TURN_HONORED). Checked before any mint; marked after the mint (below), so a second same-turn
-  // firing is a clean logged no-op. Cleared each untap step with the rest of the ledger.
-  if (atom.oncePerTurn) {
-    const gateKey = `${ctx.sourceId || ""}_create-token`;
-    if ((state.onceTriggersFiredThisTurn || {})[gateKey]) {
-      return logEvent(state, { kind: "spell-effect", effect: "create-token", count: 0, oncePerTurnLatched: true, controller: ctx.controller });
-    }
-  }
-  // ④-F — TARGET-OPPONENT CREATES (CR 111.2): the effect names a different creator — the chosen opponent (the
-  // player target) mints, controls and owns the tokens, and THEIR doubler counts. An absent/gone target → nothing
-  // (no fabricated token). Every other create-token keeps ctx.controller, byte-identical.
-  const tokenCreatorId = atom.whoCreates === "target"
-    ? (ctx.targets?.find((t) => t.type === "player")?.id ?? null)
-    : ctx.controller;
-  if (tokenCreatorId == null || !state.players?.[tokenCreatorId]) return logEvent(state, { kind: "spell-effect", effect: "create-token", count: 0, controller: ctx.controller, noCreator: true });
   // An explicit type line (shelf D32 — the noncreature Vehicle token) wins over the creature-token derivation.
   const { type, name: derivedName } = atom.tokenType ? { type: atom.tokenType, name: "Token" } : tokenTypeLine(atom.descriptor);
   // NAMED-TOKEN (CR 111.4): a parsed "named X" suffix (atom.name) overrides the subtype-derived name (Koma's
@@ -218,24 +207,6 @@ export function applyCreateToken(state, atom, ctx) {
   // exactly like a printed permanent — the same pattern as the named Treasure/Gold tokens (T2). Falls
   // back to the keyword oracle (T1) when no inline ability is present.
   const oracle = atom.tokenOracle || keywords.join(", ");
-  // ===== TOKENS ===== T3 X-count: the count is the chosen {X} (ctx.xValue, bound at cast) for an
-  // X-token spell (Secure the Wastes). ===== FOR-EACH ===== (WALT-FOREACH-TOK) `countFor` is a BOARD count
-  // resolved at resolution ("a token for each creature you control" — Avenger of Zendikar). Both X=0 and a
-  // 0 board count mint zero tokens (CR 107.3 — a clean no-op, NOT forced to 1); a fixed count is floored at 1.
-  // MILLED-COUNT (Screeching Scorchbeast — "create that many … tokens" on a milled trigger, SHELF M1b):
-  // countContext reads a TRIGGER-context magnitude (ctx.nonlandMilledCount / ctx.milledCount, threaded by
-  // checkMilledTriggers). An absent context → 0 tokens — a clean under-fire, never a fabricated count.
-  // PER-OPPONENT (Endless Foot Assault): one token per LIVE opponent at resolution (CR 608.2h); zero opponents → zero tokens.
-  const perOpponentIds = atom.perOpponent ? opponentsOf(next, tokenCreatorId) : null;
-  const baseCount = atom.perOpponent ? perOpponentIds.length
-    : atom.countContext ? Math.max(0, ctx[atom.countContext] || 0)
-    : atom.countFor
-    ? Math.max(0, countForSpec(next, ctx, atom.countFor))
-    : atom.countX ? Math.max(0, ctx.xValue || 0) : Math.max(1, atom.count || 1);
-  // Wave-3 token doubler (CR 616 — Doubling Season / Parallel Lives / Anointed Procession / Primal Vigor /
-  // Mondrak): the NUMBER of tokens created under the controller's control is multiplied. Computed once here
-  // (a minted token is never itself a doubler), so the count doubles without per-token recursion.
-  const count = baseCount * tokenMultiplier(next, tokenCreatorId);
   // ENTERS-WITH-COUNTERS: a token that enters with N +1/+1 counters (Zaxara's "0/0 Hydra with X counters").
   // `amount` is a resolved count; `countX` reads the chosen {X} (ctx.xValue). Applied BEFORE the lethal SBA
   // so a 0/0 token with counters survives as a real N/N instead of dying immediately (CR 704.5f). The counters
@@ -244,7 +215,7 @@ export function applyCreateToken(state, atom, ctx) {
   const counterBase = ewc ? Math.max(0, ewc.countX ? (ctx.xValue || 0) : (ewc.amount || 0)) : 0;
   // The token is not on the battlefield yet: the typed counter replacements read its types as it enters (CR 614.12, 122.6 —
   // Ozolith's and Hardened Scales' extra counter on Zaxara's Hydra).
-  const counterN = counterBase > 0 ? applyCounterDoubling(next, tokenCreatorId, ewc.type || "+1/+1", counterBase, null, enteringTypeWords(next, tokenCreatorId, { name, type, oracle })) : 0;
+  const counterN = counterBase > 0 ? applyCounterDoubling(next, creatorId, ewc.type || "+1/+1", counterBase, null, enteringTypeWords(next, creatorId, { name, type, oracle })) : 0;
   // X/X P/T (DOUBLE-X subsystem): a token whose printed P/T is the spell's {X} (Gelatinous Genesis "X X/X",
   // Slime Molding "an X/X") mints at xValue/xValue. CR 107.3 — an X of 0 makes a 0/0 that dies to the lethal
   // SBA below (the countX path already mints zero tokens at X=0, so this only bites a fixed-count X/X token).
@@ -266,12 +237,55 @@ export function applyCreateToken(state, atom, ctx) {
     next = minted.state;
     const card = { id: `tok-${minted.id}`, name, type, power: tokPower, toughness: tokToughness, oracle, keywords, token: true, colors };
     // TAPPED (Tormod — "create a TAPPED 2/2…"): the same atom.tapped flag the Treasure-maker mints honored.
-    let perm = createPermanent({ id: minted.id, card, controller: tokenCreatorId, tapped: !!atom.tapped });
+    let perm = createPermanent({ id: minted.id, card, controller: creatorId, tapped: !!atom.tapped });
     if (counterN > 0) perm = { ...perm, counters: { ...perm.counters, [ewc.type || "+1/+1"]: (perm.counters?.[ewc.type || "+1/+1"] || 0) + counterN } };
-    const player = next.players[tokenCreatorId];
-    next = { ...next, players: { ...next.players, [tokenCreatorId]: { ...player, battlefield: [...player.battlefield, perm] } } };
+    const player = next.players[creatorId];
+    next = { ...next, players: { ...next.players, [creatorId]: { ...player, battlefield: [...player.battlefield, perm] } } };
     mintedIds.push(minted.id);
   }
+  return { state: next, mintedIds };
+}
+
+export function applyCreateToken(state, atom, ctx) {
+  let next = state;
+  // ONCE-PER-TURN gate (Screeching Scorchbeast — "…create that many … tokens. Do this only once each turn.",
+  // SHELF M1b): the same per-source frequency latch discover/draw/gain-life honor (parser.js
+  // ONCE_PER_TURN_HONORED). Checked before any mint; marked after the mint (below), so a second same-turn
+  // firing is a clean logged no-op. Cleared each untap step with the rest of the ledger.
+  if (atom.oncePerTurn) {
+    const gateKey = `${ctx.sourceId || ""}_create-token`;
+    if ((state.onceTriggersFiredThisTurn || {})[gateKey]) {
+      return logEvent(state, { kind: "spell-effect", effect: "create-token", count: 0, oncePerTurnLatched: true, controller: ctx.controller });
+    }
+  }
+  // ④-F — TARGET-OPPONENT CREATES (CR 111.2): the effect names a different creator — the chosen opponent (the
+  // player target) mints, controls and owns the tokens, and THEIR doubler counts. An absent/gone target → nothing
+  // (no fabricated token). Every other create-token keeps ctx.controller, byte-identical.
+  const tokenCreatorId = atom.whoCreates === "target"
+    ? (ctx.targets?.find((t) => t.type === "player")?.id ?? null)
+    : ctx.controller;
+  if (tokenCreatorId == null || !state.players?.[tokenCreatorId]) return logEvent(state, { kind: "spell-effect", effect: "create-token", count: 0, controller: ctx.controller, noCreator: true });
+  // ===== TOKENS ===== T3 X-count: the count is the chosen {X} (ctx.xValue, bound at cast) for an
+  // X-token spell (Secure the Wastes). ===== FOR-EACH ===== (WALT-FOREACH-TOK) `countFor` is a BOARD count
+  // resolved at resolution ("a token for each creature you control" — Avenger of Zendikar). Both X=0 and a
+  // 0 board count mint zero tokens (CR 107.3 — a clean no-op, NOT forced to 1); a fixed count is floored at 1.
+  // MILLED-COUNT (Screeching Scorchbeast — "create that many … tokens" on a milled trigger, SHELF M1b):
+  // countContext reads a TRIGGER-context magnitude (ctx.nonlandMilledCount / ctx.milledCount, threaded by
+  // checkMilledTriggers). An absent context → 0 tokens — a clean under-fire, never a fabricated count.
+  // PER-OPPONENT (Endless Foot Assault): one token per LIVE opponent at resolution (CR 608.2h); zero opponents → zero tokens.
+  const perOpponentIds = atom.perOpponent ? opponentsOf(next, tokenCreatorId) : null;
+  const baseCount = atom.perOpponent ? perOpponentIds.length
+    : atom.countContext ? Math.max(0, ctx[atom.countContext] || 0)
+    : atom.countFor
+    ? Math.max(0, countForSpec(next, ctx, atom.countFor))
+    : atom.countX ? Math.max(0, ctx.xValue || 0) : Math.max(1, atom.count || 1);
+  // Wave-3 token doubler (CR 616 — Doubling Season / Parallel Lives / Anointed Procession / Primal Vigor /
+  // Mondrak): the NUMBER of tokens created under the controller's control is multiplied. Computed once here
+  // (a minted token is never itself a doubler), so the count doubles without per-token recursion.
+  const count = baseCount * tokenMultiplier(next, tokenCreatorId);
+  const minted = mintTokenKind(next, atom, ctx, tokenCreatorId, count);
+  next = minted.state;
+  const mintedIds = minted.mintedIds;
   // ATTACKING JOIN (Otharri O1 — CR 508.1c): a token minted "tapped and attacking" must be REGISTERED in
   // state.combat.attackers to actually be attacking — the entersAttacking permanent flag alone is inert
   // (the dead-field warning on createTokenCopy names this exactly). The applyMobilize convention verbatim:
@@ -327,6 +341,33 @@ export function applyCreateToken(state, atom, ctx) {
   // Overwritten per create; plain JSON, serialize-safe; every other consumer ignores it.
   if (mintedIds.length) next = { ...next, _lastMintedTokenIds: [...mintedIds] };
   return logEvent(next, { kind: "spell-effect", effect: "create-token", count, power: atom.power, toughness: atom.toughness, controller: ctx.controller });
+}
+
+/**
+ * ===== CREATE-TOKENS-TOGETHER ===== (the play-weighted program — #1062 Wurmcoil Engine, #2198 Triplicate Titan) — ONE create
+ * naming several token kinds: "create a 3/3 … token with deathtouch and a 3/3 … token with lifelink". Every kind is minted
+ * first (`atom.specs`, each a fixed-count create-token reading, in printed order; a token doubler multiplies each kind's count,
+ * CR 111.2 — the controller creates, owns and controls them), and only then are the enter triggers checked, once, over all of
+ * them: ONE creation event (the bundled Wurmcoil ruling — "The two creature tokens enter at the same time."), so a replacement
+ * that adds to "those tokens" (Peregrin Took's Food) applies once and every enter watcher sees each token. Then the lethal
+ * check, as for a single kind. Returns the state with `_lastMintedTokenIds` naming every token made.
+ */
+export function applyCreateTokensTogether(state, atom, ctx) {
+  const creatorId = ctx.controller;
+  if (creatorId == null || !state.players?.[creatorId]) return logEvent(state, { kind: "spell-effect", effect: "create-tokens-together", count: 0, controller: ctx.controller, noCreator: true });
+  let next = state;
+  const mintedIds = [];
+  const mult = tokenMultiplier(next, creatorId);
+  for (const spec of atom.specs || []) {
+    const minted = mintTokenKind(next, spec, ctx, creatorId, Math.max(1, spec.count || 1) * mult);
+    next = minted.state;
+    mintedIds.push(...minted.mintedIds);
+  }
+  next = fireTokenEnterTriggers(next, mintedIds);
+  const r = destroyLethalCreatures(next);
+  next = checkDiesTriggers(r.state, r.dead);
+  if (mintedIds.length) next = { ...next, _lastMintedTokenIds: [...mintedIds] };
+  return logEvent(next, { kind: "spell-effect", effect: "create-tokens-together", count: mintedIds.length, kinds: (atom.specs || []).length, controller: ctx.controller });
 }
 
 // ===== TOKENS ===== T2 named artifact tokens — the canonical `token` key → { name, type, oracle }
@@ -948,6 +989,32 @@ export function createTokenClauseParser(clause) {
  * gate (attachLastTokenSequenceOk) refuses the atom without a preceding create-token in the SAME program,
  * so a stray printed sentence can never parse HIGH and silently no-op (the dropped-clause FP).
  */
+/**
+ * CREATE-TOKENS-TOGETHER clause parser (the play-weighted program — Wurmcoil Engine, Triplicate Titan, Forbidden Friendship,
+ * Mascot Exhibition, Bestial Menace, Trostani's Summoner, Wurmcoil Larva): "create <kind> and <kind>" / "create <kind>, <kind>,
+ * and <kind>", each kind led by its count and P/T ("a 3/3 colorless Phyrexian Wurm artifact creature token with deathtouch").
+ * The list is cut only where the next kind begins (a count word then a P/T), so a keyword list's own commas and "and"s
+ * ("with flying and vigilance") stay inside their kind. Each kind is read by the single-kind arm (createTokenClauseParserCore)
+ * and must come back a PLAIN fixed-count creature token — its count, P/T, descriptor and enforced keywords, nothing else (an
+ * inline ability, a name, a tapped or attacking rider, a dynamic count). Any kind outside that keeps the whole sentence unread.
+ * Two kinds at least; a single kind is the single arm's, unchanged. Pure.
+ */
+const TOGETHER_SPEC_KEYS = new Set(["op", "count", "power", "toughness", "descriptor", "keywords", "targetType"]);
+export function createTokensTogetherClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").trim().replace(/\.$/, "");
+  const m = t.match(/^create (.+)$/);
+  if (!m) return null;
+  const parts = m[1].split(/(?:,\s+and\s+|,\s+|\s+and\s+)(?=(?:a|an|one|two|three) \d+\/\d+ )/);
+  if (parts.length < 2) return null;
+  const specs = [];
+  for (const part of parts) {
+    const spec = createTokenClauseParserCore(`create ${part}`);
+    if (!spec || spec.op !== "create-token" || !Number.isInteger(spec.count) || !Object.keys(spec).every((k) => TOGETHER_SPEC_KEYS.has(k))) return null;
+    specs.push(spec);
+  }
+  return { op: "create-tokens-together", specs, targetType: null };
+}
+
 export function applyAttachSourceToLastToken(state, atom, ctx) {
   const ids = Array.isArray(state._lastMintedTokenIds) ? state._lastMintedTokenIds : [];
   const tokenId = ids.length === 1 ? ids[0] : null;
@@ -1236,6 +1303,7 @@ export function applyCreateTokenCopyEach(state, atom, ctx) {
 
 export const tokenResolvers = {
   "create-token": applyCreateToken,
+  "create-tokens-together": applyCreateTokensTogether, // the play-weighted program (Wurmcoil Engine) — several token kinds, one creation event
   "attach-source-to-last-token": applyAttachSourceToLastToken, // W9 (Cori-Steel Cutter) — the optional attach onto the just-minted token
   "create-named-token": applyCreateNamedToken, // ===== TOKENS ===== T2 Treasure/Clue/Food/Gold
   "create-token-copy": applyCreateTokenCopy,   // ===== TOKEN-COPY ===== (Wave 5b) CR 707.1 — token that's a copy

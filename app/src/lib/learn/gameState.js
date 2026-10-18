@@ -2762,6 +2762,10 @@ export function deathLookback(state, perm, controller) {
     counters: { ...(perm.counters || {}) }, // undying / persist / modular and the counter-scoped watchers read the last-known bag
     lkiTypes: [...permanentTypes(state, perm.id).types],
     lkiColors: [...permanentColors(state, perm.id)], // its colours as it last existed (CR 113.7a) — a dies trigger's damage source for Torbran's "red source"
+    // ATTACKING AS IT DIED (Kardur, Doomscourge — "Whenever an attacking creature dies"): it was a declared or put-in attacker in the
+    // current combat (CR 506.4 — it is removed from combat only as it leaves). Stamped only when true, so every other look-back is
+    // unchanged.
+    ...((state.combat?.attackers || []).some((a) => a.permanentId === perm.id) ? { wasAttacking: true } : {}),
     exileInstead: diesExiledInstead(state, perm),
     exileTo: deathExiledInstead(state, perm), // P·28 — where it goes; a graveyard replacement redirects inside moveCardToZone
     // The shuffle-instead is a replacement at the zone move, but the dead list is built before the move — without the flag every

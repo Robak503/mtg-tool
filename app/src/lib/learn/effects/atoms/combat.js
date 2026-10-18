@@ -856,6 +856,39 @@ export function applyGoad(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "goad", targets: targets.map(t => t.id) });
 }
 
+/**
+ * THE ATTACK RULE OVER A GROUP (the play-weighted program, #987 Kardur, Doomscourge — "until your next turn, creatures your
+ * opponents control attack each combat if able and attack a player other than you if able"): goad's two requirements (the wording
+ * of CR 701.15b) laid on a GROUP as a rule. It modifies no characteristic, so it applies to creatures that come under an
+ * opponent's control after it resolves as well (CR 611.2c; the bundled Kardur ruling). Whole sentence, exact: either half alone,
+ * another duration or another group stays unread. Returns the atom, or null.
+ */
+export function matchOpponentsAttackOthers(oracle) {
+  const s = String(oracle || "").toLowerCase().replace(/[’]/g, "'").trim().replace(/\.$/, "");
+  return s === "until your next turn, creatures your opponents control attack each combat if able and attack a player other than you if able"
+    ? { op: "opponents-attack-others", targetType: null } : null;
+}
+
+/**
+ * Resolve the group attack rule: two layer-6 grants over a DYNAMIC selector (every creature an opponent of the effect's controller
+ * controls, read at each query — the mass-block-lock shape, CR 611.2c) — `mustAttack` ("attacks each combat if able") and
+ * `goaded` ("attacks a player other than YOU if able"; layers.goaderControllersOf resolves YOU to the source's recorded
+ * controller, and the attack planner reads both). The source records the effect's controller and NO permanent: "you" is the player
+ * who controlled the ability as it resolved (Kardur leaving or changing control does not move it), and layers.effectAffects reads
+ * the group against that player. The op carries `requirementOnly` — this is not goad (no creature becomes "goaded", CR 701.15),
+ * so a future reader of the goaded designation must skip it. Until that player's next turn: the goad duration (untilOwnersNextTurn).
+ */
+export function applyOpponentsAttackOthers(state, atom, ctx) {
+  let next = state;
+  const selector = { controllerScope: "opponents", cardTypes: ["Creature"] };
+  const source = { kind: "resolution", permanentId: null, cardName: ctx.cardName || null, controller: ctx.controller };
+  const duration = { kind: "untilOwnersNextTurn", owner: ctx.controller, turn: state.turn };
+  for (const keyword of ["mustAttack", "goaded"]) {
+    next = addContinuousEffect(next, { layer: 6, op: { layerOp: "addKeyword", keyword, requirementOnly: true }, affects: { mode: "dynamic", selector }, duration, source }).state;
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "opponents-attack-others", controller: ctx.controller });
+}
+
 // ===== DETAIN (CR 701.35, ④-AZ 2026-09-04 — Azorius Arrester, Isperia's Skywatch, Soulsworn Spirit "When this creature
 // enters, detain target creature an opponent controls") ===== "Until your next turn, that creature can't attack or block
 // and its activated abilities can't be activated." Three layer-6 grants the engine already enforces — cantAttack (the
@@ -3209,6 +3242,7 @@ export const combatResolvers = {
   "cant-block": applyCantBlock,
   "cant-block-source": applyCantBlockSource, // PAIRWISE CANT-BLOCK (④-BA) — "target creature can't block THIS creature this turn"
   "must-block-source": applyMustBlockSource, // PAIRWISE MUST-BLOCK (③ · 13) — "target creature blocks THIS creature this turn if able"
+  "opponents-attack-others": applyOpponentsAttackOthers, // the play-weighted program (Kardur, Doomscourge) — the attack rule over creatures your opponents control until your next turn (CR 611.2c)
   "goad": applyGoad, // GOAD (CR 701.15, ④-AI) — mustAttack + goaded until the goader's next turn; the goader on the source
   "detain": applyDetain, // DETAIN (CR 701.35, ④-AZ) — cantAttack + cantBlock + activatedAbilitiesLocked until the detainer's next turn
   "become-color": applyBecomeColor,            // COLOUR CHANGE (CR 105.1) — setColor had only the animate writer

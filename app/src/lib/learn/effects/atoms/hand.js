@@ -328,6 +328,13 @@ export function discardClauseParser(clause) {
   // any other event leaves the referent unset → clean no-op → never native there). NON-targeted
   // (targetType:null — the referent is the event's, not a chosen target). The discarder chooses via the
   // chain (CR 701.9b); the at-random form pitches via the seeded primitive like every other atRandom.
+  // "THE SAME TARGET PLAYER DISCARDS N CARDS" — the referent sentinel splitClauses' EDICT-DISCARD-LOSE-SUBJECT fold writes for
+  // the later verb of "target opponent sacrifices …, discards a card, and loses N life" (the play-weighted program, #1077 Archon
+  // of Cruelty). The player is the edict's target, so the discard binds to it (bindPreviousTargets — runProgram reads the
+  // antecedent's target slice) and chooses no target of its own (CR 115.1); that player chooses the card (CR 701.9b). No printed
+  // card carries the phrase, so only that fold reaches this arm.
+  if ((rm = t.match(new RegExp(`^the same target player discards ${RN} cards?$`))))
+    return { op: "discard", amount: NUM_WORD[rm[1]] ?? parseInt(rm[1], 10), who: "target", targetType: null, bindPreviousTargets: true };
   if ((rm = t.match(new RegExp(`^the upkeep player discards ${RN} cards?( at random)?$`))))
     return { op: "discard", amount: NUM_WORD[rm[1]] ?? parseInt(rm[1], 10), who: "upkeepPlayer", targetType: null, ...(rm[2] ? { atRandom: true } : {}) };
   // ⭐⭐ DEFENDING-PLAYER DISCARD (DP-DISC, 2026-08-05 — Abyssal Nightstalker, The Haunt of Hightower,
