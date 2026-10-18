@@ -21,6 +21,9 @@
  *     (the self-shot over-fire the exclusion witness pins).
  *   · the count widening reverted → the reflexive's amount goes unreadable → parks.
  *
+ * Revised 2026-10-17 (reflexiveTriggerTargets.test.js): the damage atom is marked `reflexiveTrigger` — it is its own triggered
+ * ability and enumerates its targets from its own program at the flush after the counter, so the exclusion witness reads that.
+ *
  * Real oracle fixtures (bundled Scryfall, probed 2026-08-14 — full texts).
  */
 import { beforeEach, describe, expect, it } from "vitest";
@@ -49,7 +52,7 @@ describe("the family and the four pieces", () => {
     expect(p.confidence).toBe("high");
     expect(p.atoms).toEqual([
       { op: "add-counter", counterType: "+1/+1", amount: 1, target: "self" },
-      { op: "deal-damage", targetType: "any", amountCount: { kind: "plusCountersOnSource" }, excludeSource: true },
+      { op: "deal-damage", targetType: "any", amountCount: { kind: "plusCountersOnSource" }, excludeSource: true, reflexiveTrigger: true },
     ]);
   });
 
@@ -96,16 +99,21 @@ describe("⭐⭐ LAW 6 — the reflexive fires with the POST-counter amount, nev
     expect(row).toEqual({ counters: 3, foeDamage: 3 }); // the amount reads AFTER the counter lands (printed sequencing)
   });
 
+  // The damage is the reflexive's own triggered ability (2026-10-17): it chooses its target as it goes on the stack, from its own
+  // program — the marked atoms, as runProgram.enqueueReflexiveTrigger queues them (the parent's enumeration skips them).
+  const reflexiveOf = (p) => ({ structure: "sequence", atoms: p.atoms.filter((a) => a.reflexiveTrigger).map(({ reflexiveTrigger: _flag, ...a }) => a) });
+
   it("⛔ the 'other' binds: RED HULK'S OWN ID is never in the candidate pool (a plain any-target WOULD include him)", () => {
     const s = board();
     const prog = parseEffectClause(NORMALIZED, "Instant", { hasX: false });
-    const combos = expandCastChoices(s, "user", prog, [], { sourceId: "RH" });
+    expect(expandCastChoices(s, "user", prog, [], { sourceId: "RH" })).toEqual([{ targets: [] }]);
+    const combos = expandCastChoices(s, "user", reflexiveOf(prog), [], { sourceId: "RH" });
     const ids = combos.flatMap((c) => (c.targets || []).map((t) => t.id));
     expect(ids).toContain("FOE");
     expect(ids).not.toContain("RH");
     // Seen-to-fail control: the SAME board WITHOUT the exclusion offers Red Hulk to himself.
     const plain = parseEffectClause("put a +1/+1 counter on this creature. When you do, this creature deals damage equal to the number of +1/+1 counters on this creature to any target", "Instant", { hasX: false });
-    const plainIds = expandCastChoices(s, "user", plain, [], { sourceId: "RH" }).flatMap((c) => (c.targets || []).map((t) => t.id));
+    const plainIds = expandCastChoices(s, "user", reflexiveOf(plain), [], { sourceId: "RH" }).flatMap((c) => (c.targets || []).map((t) => t.id));
     expect(plainIds).toContain("RH");
   });
 });

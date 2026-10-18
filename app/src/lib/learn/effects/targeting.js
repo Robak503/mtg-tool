@@ -341,6 +341,10 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
   const kicked = ctx?.kicked === true;
   for (let i = 0; i < atoms.length; i++) {
     if ((atoms[i]?.kickedOnly && !kicked) || (atoms[i]?.nonKickedOnly && kicked)) continue;
+    // A REFLEXIVE TRIGGER'S ATOM (parser.matchReflexiveTrigger — "… When you do, <effect naming a target>") takes no target here: the
+    // reflexive is its own triggered ability, put on the stack after the action, and chooses its targets then (CR 603.12, 603.3d;
+    // runEffectProgram hands it to gameEngine.buildTriggerStack). Skipping keeps `i`, as for the kick above.
+    if (atoms[i]?.reflexiveTrigger) continue;
     const atom = targetingAtomOf(atoms[i]);
     const tagged = atomTargets(state, controllerId, atom, i, sourceColors, ctx);
     if (tagged === null) continue;            // non-targeted atom

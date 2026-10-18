@@ -32,7 +32,7 @@ import { ATOM_RESOLVERS, PAUSING_ATOM_OPS, YOU_AND_ATTACKING_OPPONENTS_INNER_OPS
 import { typeOf, isInstantOrSorcery, oracleOf, stripAbilityWordLabel, hasXCost, stripReminder, stripRegenerationRider, stripUncounterableRider, stripNoMaxHandSizeRider, stripCastKeywordLines, rewriteAmountX, readSpree, CANT_REGEN_TEST, DISCARD_COST_ABILITY_LINE } from "./textNormalize.js";
 import { CR_CREATURE_TYPES } from "./creatureTypes.js"; // SUBTYPE TARGET NOUN peel (SHELF-85 Phase 3, 2026-09-05) — the closed CR creature-type vocabulary (a zero-import leaf) // oracle-text normalization + card-field leaf (parser decomposition slice 1) — pure String|card→String|bool, no cycle
 import { splitClauses } from "./splitClauses.js"; // oracle → clause[] sentence splitter (parser decomposition slice 2) — leaf; sole caller is parser.js
-import { programNeedsChosenTarget, atomTargetSlotsKnown } from "./programQueries.js"; // program-shape query leaf (slice 3) — imported for the assembly-time call sites + programConfidence's target-slot gate; the full family is re-exported at the bottom of this file
+import { programNeedsChosenTarget, atomTargetSlotsKnown, programTriggerTargetsResolvable } from "./programQueries.js"; // program-shape query leaf (slice 3) — imported for the assembly-time call sites + programConfidence's target-slot gate; the full family is re-exported at the bottom of this file
 import { matchImprint, matchHandDisruption, matchRemovalControllerRider, matchRemovalCasterGainLife, matchRemovalDamageRider, matchCounterControllerRider, matchCounterExileInstead, matchCounterZoneRedirect, matchImpulseDig, matchReorderTop, matchDigLandToBattlefield, matchLookTopTake, matchChooseTypeDraw, matchChosenTypeRevealToHand, matchFixedTypeRevealToHand, matchDelayedTrigger } from "./spanMatchers.js"; // up-front multi-sentence span matchers (slice 4) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below (parseControllerRider now consumed by templateMatchers.js directly)
 import { extractAdditionalCosts, extractAltCost, stripSelfCostReduction, stripGiftPromise, stripStormKeywordLine, stripDevoidLine, stripSelfShuffleIntoLibrary, stripSelfExileSentence, stripReboundLine, SUPPORTED_ADDITIONAL_COST_KINDS, SUPPORTED_ALT_COST_KINDS } from "./castModifiers.js"; // cast-cost extraction + disposition strips (slice 5) — zero-import leaf; the SUPPORTED_* kind sets feed programConfidence's LOW-until-vetted cost gates
 import { matchChaosWarp, matchDiesGainDrawByPower, matchDrainEachOpponentX, matchDrainEachOpponent, matchIteratedEdict, matchRevealTopDrainByMv, matchReanimateDrain, matchSacThenReturnChosen, matchNamedTokenChoice, matchDrainByCount, matchFinaleOfRevelation, matchGenesisWave, matchRevealThatManyPutFiltered, matchAnimistAwakening, matchOpenTheWay, matchExileXControllerRider, matchRevealTopConditional, matchImpulseExilePlay, matchMassDestroyTreasurePerNontoken, matchMassDestroyManaPerDestroyed, matchDestroyNotChosenType, matchTutorMvCapFromSacrificed, matchWindfallMaxDiscard, matchEdictUnableDiscard, parseFixedManaPips, matchUpkeepSacUnlessPay, matchCumulativeUpkeep, matchEcho, matchDiscardHandDrawSame, matchTaxedDraw, matchTaxedLoseLife, matchTaxedEdict, matchLoseLifeUnlessDiscard, matchPeerIntoTheAbyss, matchTaxedTreasure, matchPumpThenFight, matchUntapThenPump, matchTwoTargetPump, matchDamagePowerTrampleExcess, matchCounterIfLegendaryThenFight, matchDrawOrCounterTriggering, matchRadOrProliferate, matchTimetwisterWheel, matchWindsOfChange, matchBlinkSubtypeCounter, matchDelayedBlink, matchAuraReturnCreaturesOnly, matchRadTargetOrTreasure, matchFreeCastOrLand, matchGyOwnerDrain, matchDoubleOrResetCounters, matchMetalcraftDamage, matchInsteadAmountUpgrade, matchSelfHitDamage, matchCounterThenGrant, matchSpringheartLandfall, matchSwordHearthAndHome, matchRevealTopCastIfLesser, matchEachPlayerMayWheel, matchEachPlayerMayDraw, matchDemonicConsultation, matchTaintedPact, matchDrawOrCountersByTriggeringPower } from "./templateMatchers.js"; // collapsed-template whole-oracle matchers (slice 6) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below
@@ -2057,11 +2057,13 @@ function matchOptionalDiscardPayment(oracle) {
  * ===== REFLEXIVE TRIGGER (CR 603.7) ===== "<primary>. When you do[ this/so], <reflexive>." — a reflexive
  * triggered ability set up by the resolution of the primary effect, triggering off the event that resolution
  * causes ("when you do" = "when the immediately-preceding instruction's action happens"). Per CR 603.7 the
- * reflexive goes on the stack as its OWN triggered ability; the self-play engine models that faithfully by
- * running its atoms as the SEQUENTIAL TAIL of the primary's program — which is behavior-identical here BECAUSE
- * the fold is gated to the safe sub-case (below): the primary ALWAYS happens, so the reflexive ALWAYS fires,
- * and the reflexive's target choice is independent of any window between the two (no intervening-priority
- * effect can change it). The roll-d20 reflexive (Ancient Bronze Dragon) is folded UPSTREAM in detectTriggers
+ * reflexive goes on the stack as its OWN triggered ability. A reflexive with NO target runs as the SEQUENTIAL TAIL
+ * of the primary's program — behavior-identical BECAUSE the fold is gated to the safe sub-case (below): the
+ * primary ALWAYS happens (or, a self-sacrifice, is gated on happening), so the reflexive fires when it should. A
+ * reflexive that TARGETS is marked `reflexiveTrigger` and becomes its own pending triggered ability at resolution,
+ * its targets chosen as it goes on the stack, after the action (CR 603.12, 603.3d — see the stamp below), because
+ * the action itself can change what is legal (Smoke Bomb's shroud leaves with it; a mill fills the graveyard).
+ * The roll-d20 reflexive (Ancient Bronze Dragon) is folded UPSTREAM in detectTriggers
  * (its halves are LOW alone — bare roll / orphan diceResult — and only the concatenation is HIGH, a distinct
  * shape); this matcher handles the GENERAL case where BOTH halves parse HIGH on their own (Faebloom Trick:
  * "Create two 1/1 blue Faerie tokens with flying. When you do, tap target creature an opponent controls.").
@@ -2112,7 +2114,17 @@ function matchReflexiveTrigger(oracle, cardType, hasX) {
   // doesn't trigger (CR 603.7 — "when you do" names the action). The reflexive atoms ride the `ifSacrificed` gate: runEffectProgram
   // runs them only when the sacrifice logged a real victim, and carries the gate along the run (and across a search's pause).
   const selfSacPrimary = (primary.atoms || []).length === 1 && primary.atoms[0].op === "sacrifice" && primary.atoms[0].target === "self" && !primary.atoms[0].unlessEscaped;
-  const reflexiveAtoms = selfSacPrimary ? (reflexive.atoms || []).map(a => ({ ...a, ifSacrificed: true })) : (reflexive.atoms || []);
+  // A REFLEXIVE THAT TARGETS CHOOSES ITS TARGET WHEN IT IS PUT ON THE STACK (2026-10-17 — Smoke Bomb, Primal Witchstalker, Faebloom
+  // Trick): it triggers during the parent's resolution, when the primary's action happens (CR 603.12), and goes on the stack the next
+  // time a player would receive priority, its targets chosen then (CR 603.3d) — against the game AFTER the action. Chosen with the
+  // parent's, Smoke Bomb's target met its own "All creatures have shroud" and the trigger was removed; "mill four cards. When you do,
+  // return target … card from your graveyard" was removed whole when nothing was in the graveyard before the mill. `reflexiveTrigger`
+  // tells the parent's target choice to skip the atom (targeting.expandAtoms) and runEffectProgram to hand the run of them to a pending
+  // triggered ability of their own (gameEngine.buildTriggerStack chooses its targets at the flush, or removes it). Only a reflexive the
+  // trigger chooser can place on a side (programTriggerTargetsResolvable): one it can't (Earth Rumble's fight) keeps the cast-time
+  // choice it had, rather than become an ability the flush would hand to the Arbiter. A reflexive with no target stays inline.
+  const splitReflexive = programNeedsChosenTarget(reflexive) && programTriggerTargetsResolvable(reflexive);
+  const reflexiveAtoms = (reflexive.atoms || []).map(a => ({ ...a, ...(selfSacPrimary ? { ifSacrificed: true } : {}), ...(splitReflexive ? { reflexiveTrigger: true } : {}) }));
   const atoms = [...(primary.atoms || []), ...reflexiveAtoms];
   if (!atoms.every(a => KNOWN.has(a.op)) || !optionalsFormSuffix(atoms)) return null;
   return { atoms };

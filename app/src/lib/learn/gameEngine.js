@@ -1430,6 +1430,7 @@ export const NO_SAFE_TARGET = Symbol("no-safe-trigger-target");
 const TRIGGER_CONDITION_NOT_MET = Object.freeze({ removed: "intervening-if-not-met" });
 
 function buildTriggerStack(state, trigger, chooseTargets) {
+  if (trigger.reflexiveProgram) return buildReflexiveTriggerStack(state, trigger, chooseTargets);
   const clause = trigger.descriptor?.effectClause;
 
   // ===== UPKEEP-WIN (Wave 3b, CR 603.4) ===== — the win-game intervening-if family ("At the beginning of
@@ -1736,6 +1737,30 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     return { payload: { resolver: "manual" }, targets: [] };
   }
   return { payload: trigger.payload || {}, targets: trigger.targets || [] };
+}
+
+/**
+ * A REFLEXIVE TRIGGERED ABILITY goes on the stack (CR 603.12 — runProgram.enqueueReflexiveTrigger queued it when the parent's action
+ * happened): its targets are chosen now, against the game after that action (CR 603.3d → 601.2c), by the same enumeration and
+ * chooser every targeted trigger uses; no legal target → removed (null — flushTriggers logs it). Its program is already parsed and
+ * vetted: the parent routed natively, and the parser marked only a reflexive whose every target the chooser can place on a side.
+ */
+function buildReflexiveTriggerStack(state, trigger, chooseTargets) {
+  const program = trigger.reflexiveProgram;
+  const sourceId = trigger.source?.permanentId ?? null;
+  const params = { program, controller: trigger.controller, context: trigger.context, sourceId, xValue: trigger.xValue ?? null };
+  const candidates = expandCastChoices(state, trigger.controller, program, [], { ...(trigger.context || {}), sourceId: trigger.context?.sourceId ?? sourceId });
+  if (candidates.length === 0) return null;
+  const picked = typeof chooseTargets === "function" ? chooseTargets(candidates, { trigger, program, state }) : undefined;
+  if (picked === NO_SAFE_TARGET) return { payload: { resolver: "manual" }, targets: [], noSafeTarget: true };
+  const choice =
+    typeof picked === "number" && candidates[picked]
+      ? candidates[picked]
+      : picked && Array.isArray(picked.targets)
+        ? picked
+        : firstLegalChoice(candidates);
+  const targets = choice?.targets || [];
+  return { payload: { resolver: "effect-program", params: { ...params, targets } }, targets, forced: !!choice?.forced };
 }
 
 /**

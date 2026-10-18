@@ -3,11 +3,12 @@
  *
  * A reflexive triggered ability is set up by the resolution of a prior effect and triggers off the event
  * that resolution causes ("when you do" = "when the immediately-preceding instruction's action happens",
- * CR 603.7). The self-play engine models it by folding the reflexive as the SEQUENTIAL TAIL of the primary's
- * effect program — behavior-identical to a separate stack object HERE because the fold is gated (parser
+ * CR 603.7). The self-play engine folds the reflexive into the primary's effect program, gated (parser
  * matchReflexiveTrigger / triggers detectTriggers) to the safe sub-case: the primary is MANDATORY (so the
- * reflexive ALWAYS fires) and the reflexive is self-contained, so no intervening-priority window can change
- * the outcome and the action always occurred.
+ * reflexive ALWAYS fires) and the reflexive is self-contained. A reflexive that names a TARGET is marked
+ * `reflexiveTrigger` (2026-10-17): at resolution it becomes its own triggered ability, put on the stack after
+ * the primary's action with its target chosen then (CR 603.12, 603.3d — reflexiveTriggerTargets.test.js).
+ * Revised that day: Faebloom Trick's tap and Dream Eater's bounce now target from that ability, not the parent.
  *
  * This file covers the GENERAL widening (BOTH halves independently HIGH):
  *   - Faebloom Trick (Instant)  — "Create two 1/1 blue Faerie tokens with flying. When you do, tap target
@@ -113,7 +114,7 @@ describe("REFLEXIVE — parser (the fold)", () => {
     expect(programConfidence(p)).toBe("high");
     expect(p.atoms).toEqual([
       { op: "create-named-token", token: "treasure", count: 1, targetType: null },
-      { op: "create-named-token", token: "treasure", count: 1, targetType: "opponent", whoCreates: "target", tapped: true },
+      { op: "create-named-token", token: "treasure", count: 1, targetType: "opponent", whoCreates: "target", tapped: true, reflexiveTrigger: true },
     ]);
   });
 
@@ -141,11 +142,17 @@ describe("REFLEXIVE — runtime (Faebloom spell)", () => {
   it("creates two 1/1 flying Faeries AND taps the targeted opponent creature", () => {
     let s = faebloomState();
     const program = parseEffectProgram({ type: "Instant", oracle: FAEBLOOM });
-    const obj = { source: { name: "Faebloom Trick" }, payload: { params: { program, controller: "user", targets: [{ type: "creature", id: "opp1", atomIndex: 1, controller: "ai" }] } } };
+    const obj = { source: { name: "Faebloom Trick" }, payload: { params: { program, controller: "user", targets: [] } } };
     s = runEffectProgram(s, obj);
     const faeries = s.players.user.battlefield.filter((p) => p.card.token);
     expect(faeries).toHaveLength(2);
     expect(faeries[0].card).toMatchObject({ power: 1, toughness: 1, keywords: ["Flying"] });
+    // The tap is the reflexive's: it triggered as the Faeries were created, and chooses its target as it goes on the stack.
+    expect(s.players.ai.battlefield.find((p) => p.id === "opp1").tapped).toBe(false);
+    expect((s.pendingTriggers || []).map((p) => p.event)).toEqual(["reflexive"]);
+    s = flushTriggers(s, { chooseTargets: chooseTriggerTargets });
+    expect(s.stack[0].targets).toEqual([expect.objectContaining({ id: "opp1", atomIndex: 0 })]);
+    s = resolveTopOfStack(s);
     expect(s.players.ai.battlefield.find((p) => p.id === "opp1").tapped).toBe(true); // the reflexive tap fired
   });
 });
@@ -164,10 +171,12 @@ describe("REFLEXIVE — runtime END-TO-END (Dream Eater ETB through the real flu
   // Drive the resolution loop: surveil pause (keep all) → optional bounce pause (take or decline).
   function drive(s, { takeBounce }) {
     let g = 0;
-    while (((s.stack || []).length || s.pendingChoice) && g++ < 40) {
+    while (((s.stack || []).length || s.pendingChoice || (s.pendingTriggers || []).length) && g++ < 40) {
       if (s.pendingChoice?.kind === "scry-surveil") { s = resolveScryChoice(s, s.pendingChoice.cards.map((c) => c.id)); continue; }
       if (s.pendingChoice?.kind === "optional-effect") { s = resolveOptionalChoice(s, takeBounce); continue; }
       if ((s.stack || []).length) { s = resolveTopOfStack(s); continue; }
+      // A settled pause resumes the program, which can queue the reflexive; the live settle flushes it (finalizeStackResolution).
+      if ((s.pendingTriggers || []).length) { s = flushTriggers(s, { chooseTargets: chooseTriggerTargets }); continue; }
       break;
     }
     return s;
@@ -178,8 +187,14 @@ describe("REFLEXIVE — runtime END-TO-END (Dream Eater ETB through the real flu
     s = checkEnterTriggers(s, s.players.user.battlefield[0]);
     expect((s.pendingTriggers || []).length).toBe(1);
     s = flushTriggers(s, { chooseTargets: chooseTriggerTargets });
-    // The trigger needs a target — the enemy/own chooser picked the OPPONENT's permanent (correct side).
-    expect(s.stack[0].targets).toEqual([expect.objectContaining({ id: "opp1", atomIndex: 1 })]);
+    // The enters trigger itself has no target (the bundled ruling): the reflexive chooses one after the surveil.
+    expect(s.stack[0].targets).toEqual([]);
+    s = resolveTopOfStack(s);
+    expect(s.pendingChoice?.kind).toBe("scry-surveil");
+    s = resolveScryChoice(s, s.pendingChoice.cards.map((c) => c.id));
+    s = flushTriggers(s, { chooseTargets: chooseTriggerTargets });
+    // The reflexive's own target — the enemy/own chooser picked the OPPONENT's permanent (correct side).
+    expect(s.stack[0].targets).toEqual([expect.objectContaining({ id: "opp1", atomIndex: 0 })]);
     s = drive(s, { takeBounce: true });
     expect(s.players.ai.battlefield.find((p) => p.id === "opp1")).toBeUndefined(); // bounced
     expect(s.players.ai.hand.find((c) => c.id === "c1")).toBeTruthy();             // → owner's hand

@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **23 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.9% (15,536)**; engine gains since the tag: **+83** (+92 gained, −9 false credit removed). The next tag
+> **24 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.9% (15,536)**; engine gains since the tag: **+83** (+92 gained, −9 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,72 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX (false positive): a reflexive trigger chooses its targets when IT goes on the stack (CR 603.12, 603.3d) — Smoke Bomb (EDHREC #4790, credited native, never did anything: its own "All creatures have shroud" met the follow-up's target at the parent's flush, so the upkeep trigger was removed and the artifact never sacrificed) now sacrifices itself and makes a creature unblockable; Primal Witchstalker and Yathan Roadwatcher mill even with nothing to return and can return what they milled; Dream Eater surveils with no opposing nonland permanent; Faebloom Trick is cast with no opposing creature; Red Hulk's and The Royal Scions' damage become abilities of their own · **±0** · snapshot native 15,518 unchanged
+> Suite **20,649 green (1 skipped) / 1,873 files** under the gate queue (with the rules index built for the run and deleted after). Lint 0 (CR citations: 0 of 11,475 name no rule; keyword citations: 0 of 2,374 cite a different keyword). Flip-diff
+> **0 / 0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of 33e3c9c6, snapshotted before the first edit; native+land
+> 15,518 of 34,584 snapshot names on both — no tier moved). `program-fingerprint`: 7 cards' parses move, each by the one new
+> `reflexiveTrigger` stamp — Smoke Bomb, Primal Witchstalker, Yathan Roadwatcher, Dream Eater, Faebloom Trick, Red Hulk, and The Last
+> Ronin's chapter II (body-only; chapter III unread); the loyalty parse, outside the fingerprint, moves The Royal Scions' −8 and Ajani,
+> Nacatl Avenger's 0 (body-only) the same way. **Mutants 8/8** on assertions, each restored byte-identical (sha256). Witness
+> `reflexiveTriggerTargets.test.js` written first: **13 of its 24 tests fail on the untouched 33e3c9c6 archive on assertions**, the 11
+> controls pass on both. A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the
+> untouched 33e3c9c6 archive): **80 / 80 byte-identical** (every decision row, log hash, winner and turn count), 0 errors on either tree,
+> results unchanged (ai-wins 57 / user-wins 23) — expected: of the changed cards only Red Hulk sits in a profile deck (Hulk Smash, seated
+> in games 40–49), and no game's log names it. The harness sees the engine (hollow-gate check): the same batch with one basic swapped for
+> Smoke Bomb in 27 decks — base: cast 46 times, its trigger removed 134 times, never sacrificed, no creature made unblockable; after: 32
+> sacrifices by its trigger, 24 creatures made unblockable, 8 reflexives removed for want of a creature; 49 games byte-identical, 31 change
+> picks (most first diverge at a priority pass where base took an action — read as the reflexive's own stack window, not traced
+> game by game), 7 winners change, 0 errors on either tree. Committed on
+> `day/reflextgt`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The bug** (found in the SNC fetch-land slice, reproduced on 33e3c9c6). `parser.matchReflexiveTrigger` folds "<primary>. When you do,
+>   <reflexive>." into ONE program, so a targeted reflexive atom was enumerated with the parent's targets — at the parent's flush (or cast,
+>   or activation), before the primary's action. A reflexive triggered ability triggers during the resolution, when the action happens
+>   (CR 603.12), and is put on the stack the next time a player would receive priority, its targets chosen then (CR 603.3d → 601.2c); the
+>   bundled rulings for Smoke Bomb, Yathan Roadwatcher, Faebloom Trick, Dream Eater and Awaken the Honored Dead say so in as many words.
+>   Smoke Bomb: no creature can be targeted while it is on the battlefield, so its upkeep trigger was removed (`trigger-removed-no-target`)
+>   every turn and it was never sacrificed. Primal Witchstalker / Yathan Roadwatcher: with no land / creature card in the graveyard before
+>   the mill, the whole enters trigger was removed — no mill, no return — and a milled card could never be the target. Dream Eater: no
+>   opponent nonland permanent → no surveil. Faebloom Trick: not castable without an opposing creature (the spell itself has no target).
+> · **The fix — one mechanism, four seams.** (1) `matchReflexiveTrigger` stamps `reflexiveTrigger` on the reflexive's atoms when the
+>   reflexive names a chosen target (`programNeedsChosenTarget`) the trigger chooser can place on a side (`programTriggerTargetsResolvable`).
+>   (2) `targeting.expandAtoms` skips a stamped atom (keeping its index, as for kicked-only atoms) — so the parent offers / locks no target
+>   for it at cast, activation or flush. (3) `runEffectProgram`, reaching the stamped run with its gate open (the `ifSacrificed` gate the
+>   SNC slice put on a self-sacrifice primary is checked first), hands the run to `enqueueReflexiveTrigger`: a pending trigger carrying its
+>   own program (the atoms, gates spent — it exists only because the action happened), the parent's controller and source (CR 603.7d,
+>   603.7e — the spell for a spell, the permanent for an ability) and context, less the parent's per-ability resolution key. (4)
+>   `gameEngine.buildTriggerStack` puts it on the stack at the next flush (`buildReflexiveTriggerStack`): the same `expandCastChoices` and
+>   `chooseTriggerTargets` every targeted trigger uses, on the board after the action; no legal target → removed and logged. The parent
+>   still sees the reflexive's atoms everywhere else (routing, tier, the α1 gate on the whole program), so no tier moves.
+> · **Reach** (corpus scan, every bundled card; text from oracle_cards.json). 236 cards print a "When you do" sentence naming a target, 34
+>   credited native. Behaviour changes for the 7 natives above (the five fixes; Red Hulk's damage and The Royal Scions' −8 damage now wait
+>   on the stack after the counter / the draw — same amount, same chooser, a priority window between). Untouched by design: the 13
+>   optional-primary natives (Fireblade Artist, Cornered Crook, Shrapnel Slinger, Selfcraft Mechan, General Traag, Unscrupulous Contractor,
+>   Tether Technician, Inti, Kappa Tech-Wrecker, Forgehammer Centurion, Sutina, Awaken the Honored Dead, Generous Plunderer) —
+>   below; Undead Butler and Paramecia Coloniex (the optional-exile-self payment wrapper: target at the flush with the
+>   exiled card excluded — the same pool the rule gives); Ancient Bronze Dragon (the roll fold upstream; the roll can't change what is
+>   legal); Earth Rumble (its fight pair is "ambiguous" to the chooser, so it keeps the cast-time pick it had rather than become a trigger
+>   the flush would hand to the Arbiter); the ten conspire / casualty spells (their "When you do, copy …" is the keyword's, read elsewhere).
+> · **Judgment calls.** (a) The optional-primary fold ("You may <cost>. When you do, <targeted payoff>", `matchOptionalReflexiveTrigger`)
+>   keeps its flush-time target: the AI's optional-effect autopilot always takes the "may" (learnSession's `optionalAutoTakeValue`
+>   fallback), so with the target moved after the action it would sacrifice / discard / bounce into a payoff with no legal target —
+>   today's flush removes that trigger before the question is asked. Splitting it needs a take/decline read of the payoff's targets first.
+>   (b) A human seat no longer picks the target of Faebloom Trick's tap or The Royal Scions' −8 damage at cast / activation: the reflexive
+>   is a trigger, and the engine has no interactive trigger-target choice for any seat — `chooseTriggerTargets` picks (enemy-side here),
+>   as it does for every other trigger. (c) A source-scoped trigger multiplier (Annie Joins Up, Katara, Cloud) now sees the reflexive as a
+>   triggered ability of its source (CR 603.7e) and can multiply it; folded inline it never could. No ruling in the bundled data settles
+>   it either way.
+> · ⚠️ **Found, not fixed:** (1) the optional-primary reflexives above — Awaken the Honored Dead's chapter III can't return the card it
+>   discards (the bundled ruling says it may) and is removed outright when the graveyard holds no creature or land card
+>   (parser.js `matchOptionalReflexiveTrigger`, ~line 2172; the autopilot at learnSession.js:1884). (2) The scaled-damage arms take any
+>   source phrase (`atoms/stack.js:532` "^.+? deals? damage to (.+?) equal to the number of", `:551` the modern word order), so a
+>   conditional lead is swallowed: Ajani, Nacatl Avenger's 0 ("When you do, if you control a red permanent other than Ajani, he deals
+>   damage …") parses HIGH with the "if" dropped. The card is body-only; whether the engine offers that loyalty line was not established.
+>   (3) Earth Rumble: the earthbent land can't be the fighter, and the spell can't be cast without an opposing creature (cast-time fight
+>   targets — the α1 gap above).
+> · Witness: `reflexiveTriggerTargets.test.js` (24). Revised: `reflexiveTrigger.test.js` (the fold's target-opponent payoff carries the
+>   stamp; Faebloom Trick's tap and Dream Eater's bounce now target from the reflexive ability, after the tokens / the surveil) and
+>   `redHulkReflexive.test.js` (the stamp; the "any other target" exclusion read from the reflexive's own program).
 
 > ## 🎯 2026-10-17 — PLAY-WEIGHTED: the opponent-scoped and source-filtered damage replacements — Bloodletter of Aclazotz (EDHREC #857), Solphim, Mayhem Dominus (#896), Torbran, Thane of Red Fell (#1004), Gisela, Blade of Goldnight (#1134), Lightning, Army of One (#2409) + Mechanized Warfare, Thor, Asgard's Avenger, Tomik, Izzet Sparkmage, Hawkeye, Young Avenger, Goldnight Castigator, Inquisitor's Flail, Zombie Infestation, Latulla, Keldon Overseer; the affected player orders them (CR 616.1); and FIX (false positive): Twinflame Tyrant (#780) doubled its controller's damage to its own creatures and to its controller, Anthem of Rakdos doubled without Hellbent, Cackling Witch activated without its discard · **+13** · snapshot native 15,498 → 15,511
 > Suite **20,584 green (1 skipped) / 1,867 files** under the gate queue (with the rules index built for the run and deleted after).

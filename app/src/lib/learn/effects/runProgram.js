@@ -170,6 +170,32 @@ export function finishSpellResolution(state, disposition, { selfExile = false, s
 const realSacrificeIn = (entries, controller) => entries.some((e) => sacrificesByIn(e, controller).length > 0);
 
 /**
+ * The REFLEXIVE TRIGGERED ABILITY a resolution creates (CR 603.12 — "When you do, …"): it follows the rules for delayed triggered
+ * abilities, so its source is the resolving ability's source (or the spell) and its controller the resolving one's (CR 603.7d,
+ * 603.7e). Queued as a pending trigger carrying its own program — the `reflexiveTrigger` atoms, their gates spent (the reflexive
+ * exists only because the action happened) — and the parent's context (the triggering objects its text can name), less the
+ * parent's per-ability resolution key: the reflexive is another ability. gameEngine.buildTriggerStack chooses its targets when the
+ * next flush puts it on the stack (CR 603.3d), or removes it if none is legal.
+ */
+function enqueueReflexiveTrigger(state, stackObject, params, reflexiveAtoms) {
+  const atoms = reflexiveAtoms.map(({ reflexiveTrigger: _flag, ifSacrificed: _gate, reflexiveGate: _optionalGate, ...atom }) => atom);
+  const { abilityKey: _parentAbilityKey, ...context } = params.context || {};
+  const src = stackObject?.source || {};
+  const trigger = {
+    event: "reflexive",
+    source: { permanentId: src.permanentId ?? params.sourceId ?? null, cardId: src.cardId ?? null, name: src.name ?? null },
+    controller: params.controller,
+    descriptor: { event: "reflexive" },
+    context,
+    targets: [],
+    reflexiveProgram: { structure: "sequence", atoms },
+    xValue: params.xValue ?? null,
+    payload: { resolver: "manual", params: { controller: params.controller, targets: [], context } },
+  };
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), trigger] };
+}
+
+/**
  * resolveAtom inside the ask (CR 303.4f — auraEntry.js): an atom that puts a person's Aura onto the battlefield with two or more
  * legal hosts does not keep its result. It returns the state it began from, paused on the aura-entry-host choice that carries the
  * atom and its ctx; the settle (resolveAuraEntryHostChoice) re-runs them with the answer, and the caller's own pause handling
@@ -255,6 +281,16 @@ export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacri
     const prevDidSacrifice = sacrificedByPrev;
     sacrificedByPrev = false;
     if (atom.ifSacrificed && !prevDidSacrifice) continue;
+    // A REFLEXIVE TRIGGER (CR 603.12 — parser.matchReflexiveTrigger's `reflexiveTrigger` atoms): the action happened (a gated one
+    // passed the gate above), so the reflexive triggers now. Its run of atoms leaves this resolution as a pending triggered ability
+    // of its own, put on the stack at the next flush with its targets chosen then, against the game after the action (CR 603.3d).
+    if (atom.reflexiveTrigger) {
+      let end = i;
+      while (end < atoms.length && atoms[end]?.reflexiveTrigger) end += 1;
+      next = enqueueReflexiveTrigger(next, stackObject, params, atoms.slice(i, end));
+      i = end - 1;
+      continue;
+    }
     // CONDITIONAL SPELL RIDER (BLITZ CD-1, CR 608.2) — a `condition`-gated rider ("If you control a Wizard,
     // draw a card") applies ONLY when the board condition holds AS this instruction resolves (CR 608.2, in
     // written order — so `next`, the state after earlier atoms, is the correct read). Reuses the intervening-if
