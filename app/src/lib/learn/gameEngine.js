@@ -109,6 +109,7 @@ import { rankBottomCandidates } from "./mulliganPolicy.js"; // London bottom-N p
 import { evaluateInterveningIf, interveningIfParseable } from "./interveningIf.js";
 import { registerGroupTriggeredBodyValidator, MODELLED_MAX_HAND_RE, lostManaBecomesColorless } from "./staticAbilityParser.js";
 import { isModeledGroupTriggeredBody, combatDamageReferentSatisfied } from "./triggerRouting.js";
+import { restrainOptionalFights, loopSpent, loopBreakingChoice } from "./triggerTargetRestraint.js"; // the optional-fight read and the loop backstop on the trigger-target chooser
 import { registerGrantTriggeredBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant body gate
 
 // GROUP-TRIGGERED grant (Tempered Sliver) — RUNTIME registration of the modeled-body gate into
@@ -2039,12 +2040,23 @@ export function chooseTriggerTargets(candidates, info) {
   // (neutral — candidate order breaks the tie, exactly the legacy pick among them). The side FILTER
   // above is untouched either way: this re-ranks only what was already provably safe (ranking-only,
   // THE CREED). Flag absent ⇒ first-correct-side, byte-identical.
-  const safe = candidates.filter((c) => (c.targets || []).every(targetOk(atomsFor(c))));
+  let safe = candidates.filter((c) => (c.targets || []).every(targetOk(atomsFor(c))));
   if (!safe.length) {
     // The trigger's source (a damage source's deathtouch decides whether a forced hit is survived — forcedHarmSurvived).
     const sourceId = info?.trigger?.source?.permanentId ?? info?.trigger?.context?.sourcePermanentId ?? null;
     return pickForcedTriggerCandidate(state, controller, candidates, program, atomsFor, targetOk, sourceId) ?? NO_SAFE_TARGET;
   }
+  // THE LOOP BACKSTOP (2026-10-18, triggerTargetRestraint): an ability that has resolved LOOP_ITERATIONS times this turn makes a
+  // different choice so its loop does not continue (CR 732.3; a loop with an optional action is never a draw, CR 104.4b) — its
+  // optional targets declined, else a player target over a permanent (two indestructible Spitemares).
+  if (loopSpent(state, info?.trigger)) {
+    const breaking = loopBreakingChoice(safe, atomsFor);
+    if (breaking) return breaking;
+  }
+  // "IT FIGHTS UP TO ONE TARGET CREATURE" (2026-10-18, triggerTargetRestraint): a fight that gains nothing is declined (CR 115.6,
+  // 601.2c) — the target must die and the fighter live, or the fight be a step of the fighter's own enrage chain that ends so.
+  // An indestructible Apex Altisaur fought the same Lumra 2,000 times in one turn on the first legal target.
+  safe = restrainOptionalFights(state, controller, safe, atomsFor, info?.trigger?.source?.permanentId ?? info?.trigger?.context?.sourceId ?? null);
   // FLICKER (shelf D21 — Brago, King Eternal; Thassa, Deep-Dwelling; Displacer Kitten; Teleportation Circle): a blink's targets
   // are its controller's own permanents and WHICH is the whole decision. The expander orders subsets maximal-first, so the
   // first correct-side candidate was whatever permanent came first ("up to one") or every permanent you control, tokens

@@ -36,6 +36,7 @@ import { dispatchAction } from "./actionDispatcher.js";
 import { chooseTriggerTargets, flushTriggers, resolveTopOfStack } from "./gameEngine.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { permanentHasKeyword } from "./layers.js";
+import { expandCastChoices } from "./effects/targeting.js";
 import { applyWolverineEndStep } from "./wolverine.js";
 import { _resetIdsForTests, attachPermanent, createGameState, createPermanent, findPermanent } from "./gameState.js";
 
@@ -125,12 +126,27 @@ const preyUpon = ({ user, ai, fighter, target, setup = (s) => s }) =>
 const bite = (spell, { user, ai, fighter, target }) => cast(board({ user, ai, hand: [spell] }), spell, pairPick(fighter, target));
 /** Justice Strike on `on`: that creature deals damage to itself equal to its power. */
 const justiceStrike = ({ user = [], ai = [], on }) => cast(board({ user, ai, hand: [IN_HAND.justice] }), IN_HAND.justice, (a) => aimsAt(a, on));
-/** Kogla enters (cast for real) and its "it fights up to one target creature you don't control" resolves. */
-function koglaEnters({ ai }) {
+/**
+ * Kogla enters (cast for real) and its "it fights up to one target creature you don't control" resolves. The engine's chooser
+ * picks the fight's target as the trigger goes on the stack; `target` instead records the controller choosing that creature —
+ * a legal choice for "up to one target" (CR 601.2c) even when the chooser declines the fight because it gains nothing
+ * (triggerTargetRestraint, 2026-10-18: Dawn Elemental takes none of the damage) — so the fight resolver itself is still driven.
+ */
+function koglaEnters({ ai, target = null }) {
   const s = board({ ai, hand: [IN_HAND.kogla] });
   const act = legalActionsForPlayer(s, "user").find((a) => a.kind === "cast-spell" && a.cardId === IN_HAND.kogla.id);
   expect(act, "Kogla is offered").toBeTruthy();
-  const out = settle(resolveTopOfStack(dispatchAction(s, act)));
+  let entered = resolveTopOfStack(dispatchAction(s, act));
+  if (target) {
+    const top = entered.stack.at(-1);
+    expect(top?.source?.name, "Kogla's enters trigger is on the stack").toBe(KOGLA.name);
+    const program = top.payload.params.program;
+    const chosen = expandCastChoices(entered, "user", program, [], { sourceId: top.source.permanentId }).find((c) => aimsAt(c, target));
+    expect(chosen, `${target} is a legal target`).toBeTruthy();
+    const stack = [...entered.stack.slice(0, -1), { ...top, targets: chosen.targets, payload: { ...top.payload, params: { ...top.payload.params, targets: chosen.targets } } }];
+    entered = { ...entered, stack };
+  }
+  const out = settle(entered);
   noResolveErrors(out);
   const kogla = out.players.user.battlefield.find((p) => p.card?.name === KOGLA.name);
   expect(kogla, "Kogla is on the battlefield").toBeTruthy();
@@ -157,11 +173,15 @@ describe("① a prevention wall stops fight damage — Dawn Elemental, through e
     expect(inZone(s, "ai", "graveyard", HILL_GIANT.name)).toBe(true);
   });
 
-  it("⭐ the source-bound fight (Kogla's ETB): Dawn Elemental takes none of Kogla's 7; Kogla takes its 3", () => {
-    const { s, koglaId } = koglaEnters({ ai: [P("dawn", DAWN_ELEMENTAL, "ai")] });
+  it("⭐ the source-bound fight (Kogla's ETB, Dawn Elemental chosen): Dawn Elemental takes none of Kogla's 7; Kogla takes its 3", () => {
+    const { s, koglaId } = koglaEnters({ ai: [P("dawn", DAWN_ELEMENTAL, "ai")], target: "dawn" });
     expect(alive(s, "dawn")).toBe(true);
     expect(damage(s, "dawn")).toBe(0);
     expect(damage(s, koglaId)).toBe(3); // the fight happened
+  });
+  it("the engine's own chooser declines that fight — Dawn Elemental would take none of the damage (triggerTargetRestraint)", () => {
+    const { s, koglaId } = koglaEnters({ ai: [P("dawn", DAWN_ELEMENTAL, "ai")] });
+    expect({ dawn: damage(s, "dawn"), kogla: damage(s, koglaId) }).toEqual({ dawn: 0, kogla: 0 });
   });
   it("CONTROL — Kogla's ETB against a Hill Giant: it dies", () => {
     const { s, koglaId } = koglaEnters({ ai: [P("giant", HILL_GIANT, "ai")] });

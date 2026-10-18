@@ -295,7 +295,16 @@ declined as the Arbiter no-op (logged `trigger-no-safe-target`). The forced pick
 (`pickForcedTriggerCandidate`) ranks a harm the target survives first — a creature
 that lives through the damage or the until-end-of-turn -X/-X (both end at cleanup,
 CR 514.2), a tap of a permanent already tapped (costs nothing) — then the least
-valuable (2026-10-17). The AI's cast picker runs the same flush in advance:
+valuable (2026-10-17). Two restraints sit on the correct-side pick (`triggerTargetRestraint.js`,
+2026-10-18): an OPTIONAL source-bound fight ("it fights up to one target creature" — Apex Altisaur,
+Kogla; CR 115.6 / 601.2c) is read by resolving it on a copy of the board with `fightCreature`, and is
+taken only when the target dies and the fighter lives, or as a step of the fighter's own enrage chain
+that ends so (the target killable by damage, out of toughness first) — every other candidate becomes
+its decline (synthesized when the expander's 64-candidate cap cut it off); and the LOOP BACKSTOP: once
+a triggered ability has resolved `LOOP_ITERATIONS` (300) times this turn (`abilityResolutionsThisTurn`),
+it makes a different choice so its loop does not continue (CR 732.3; a loop with an optional action is
+never a draw, CR 104.4b) — its optional targets declined, else a player target over a permanent (two
+indestructible Spitemares). The AI's cast picker runs the same flush in advance:
 `gameEngine.entersTriggerRemovesOwn` puts the permanent on a copy of the board, fires
 its enters triggers through `checkEnterTriggers` and routes each with
 `buildTriggerStack` + `chooseTriggerTargets`; `opponentAI.pickCastAction` holds the
