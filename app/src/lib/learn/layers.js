@@ -1684,6 +1684,8 @@ function makeEmptyChars(permanentId) {
     toughness: 0,
     basePower: 0,
     baseToughness: 0,
+    powerSized: false,
+    toughnessSized: false,
     keywords: new Set(),
     types: [],
     subtypes: [],
@@ -1697,11 +1699,26 @@ function makeEmptyChars(permanentId) {
  * Apply the layer-7 sublayers (7a CDA → 7b set → 7c modify+counters → 7d switch)
  * for one permanent, given the layer-7 effects that affect it. Counters (613.4c)
  * are folded into 7c. Additive 7c ops commute, so their fold order is immaterial;
- * 7b/7d are timestamp-ordered. Returns {power, toughness, basePower, baseToughness}.
+ * 7b/7d are timestamp-ordered. Returns {power, toughness, basePower, baseToughness,
+ * powerSized, toughnessSized}.
+ *
+ * SIZED (the `*` stats, CR 208.2): printedPower/printedToughness read a printed "*" (or "1+*", or no
+ * printed value) as 0, so a creature whose characteristic-defining ability the engine does NOT model
+ * would carry a toughness of 0 it never had. `toughnessSized` says the toughness came from a number:
+ * a printed one, a modeled layer-7a CDA that sets it (CR 613.4a, 604.3), or a layer-7b set (CR 613.4b);
+ * a 7d switch (CR 613.4d) swaps it with `powerSized`. The toughness state-based actions read it
+ * (gameState.destroyLethalCreatures) so an unsized creature is never destroyed by the 0 that stands in
+ * for its toughness, and a sized one is.
  */
+function printedStatIsNumber(perm, stat) {
+  const v = perm?.card?.[stat];
+  return v != null && v !== "" && Number.isFinite(Number(v));
+}
 function applyLayer7(state, perm, l7Effects) {
   let basePower = printedPower(perm);
   let baseToughness = printedToughness(perm);
+  let powerSized = printedStatIsNumber(perm, "power");
+  let toughnessSized = printedStatIsNumber(perm, "toughness");
 
   // 7a — characteristic-defining P/T (CR 613.4a; 604.3 — a CDA applies in layer 7a and is NEVER on the
   // stack). CDA-SELF-P/T-BY-COUNT: "[this creature]'s power [and toughness are each] equal to the number of
@@ -1717,8 +1734,8 @@ function applyLayer7(state, perm, l7Effects) {
   for (const e of l7Effects.filter(e => e.sublayer === "7a").sort(byTimestamp)) {
     if (e.op?.layerOp !== "ptSetDynamicCount") continue;
     const n = countForSpec(state, perm, e.op.countSpec);
-    if (e.op.setPower) basePower = n + (e.op.powerOffset || 0);
-    if (e.op.setToughness) baseToughness = n + (e.op.toughnessOffset || 0);
+    if (e.op.setPower) { basePower = n + (e.op.powerOffset || 0); powerSized = Number.isFinite(basePower); }
+    if (e.op.setToughness) { baseToughness = n + (e.op.toughnessOffset || 0); toughnessSized = Number.isFinite(baseToughness); }
   }
   // 7b — set base P/T ("base power/toughness becomes X/Y"). LEVEL-BAND (LV-1, CR 711.2a/b):
   // a leveler band's base-P/T set carries a level-counter gate — skip it while the gate is
@@ -1733,12 +1750,12 @@ function applyLayer7(state, perm, l7Effects) {
     // controller-scoped spec reads the right player.
     if (e.op.countSpec) {
       const n = countForSpec(state, perm, e.op.countSpec);
-      if (e.op.setPower) basePower = n;
-      if (e.op.setToughness) baseToughness = n;
+      if (e.op.setPower) { basePower = n; powerSized = Number.isFinite(n); }
+      if (e.op.setToughness) { baseToughness = n; toughnessSized = Number.isFinite(n); }
       continue;
     }
-    if (e.op.power != null) basePower = e.op.power;
-    if (e.op.toughness != null) baseToughness = e.op.toughness;
+    if (e.op.power != null) { basePower = e.op.power; powerSized = Number.isFinite(Number(e.op.power)); }
+    if (e.op.toughness != null) { baseToughness = e.op.toughness; toughnessSized = Number.isFinite(Number(e.op.toughness)); }
   }
 
   let power = basePower;
@@ -1828,9 +1845,12 @@ function applyLayer7(state, perm, l7Effects) {
     const t = power;
     power = toughness;
     toughness = t;
+    const ts = powerSized;
+    powerSized = toughnessSized;
+    toughnessSized = ts;
   }
 
-  return { power, toughness, basePower, baseToughness };
+  return { power, toughness, basePower, baseToughness, powerSized, toughnessSized };
 }
 
 /** Printed keyword set (the seed for layer 6), from the printed-keyword primitive. */
@@ -1906,6 +1926,8 @@ export function deriveCharacteristics(state, permanentId) {
       toughness: printedToughness(permBase) + counterToughnessDelta(perm),
       basePower: printedPower(permBase),
       baseToughness: printedToughness(permBase),
+      powerSized: printedStatIsNumber(permBase, "power"), // a printed "*" with nothing defining it is unsized (applyLayer7)
+      toughnessSized: printedStatIsNumber(permBase, "toughness"),
       keywords: keywordSet(permBase, []),
       types: cardTypesOf(permBase.card),
       subtypes: subtypesOf(permBase.card),
@@ -1927,6 +1949,8 @@ export function deriveCharacteristics(state, permanentId) {
       toughness: pt.toughness,
       basePower: pt.basePower,
       baseToughness: pt.baseToughness,
+      powerSized: pt.powerSized,
+      toughnessSized: pt.toughnessSized,
       keywords: keywordSet(permBase, l6, state),
       ...applyTypeColorLayers(permBase, l4, l5, state),
       appliedEffects: selfEffects.map(e => ({
@@ -2066,6 +2090,13 @@ export function permanentPower(state, permanentId) {
 /** Effective toughness (true CR value — can be ≤ 0; the SBA reads it raw). */
 export function permanentToughness(state, permanentId) {
   return deriveCharacteristics(state, permanentId).toughness;
+}
+
+/** Did the engine compute this permanent's toughness from a number — printed, a modeled layer-7a CDA, or a layer-7b set
+ * (applyLayer7's SIZED note)? False for a printed "*" whose characteristic-defining ability is not modeled: its
+ * permanentToughness is the 0 that stands in for the unread value (CR 208.2). */
+export function permanentToughnessSized(state, permanentId) {
+  return deriveCharacteristics(state, permanentId).toughnessSized;
 }
 
 /** BASE power (CR 613.4a — printed, or the layer-7b set value): the layer-7c/7d modifications (anthems,

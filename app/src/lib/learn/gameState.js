@@ -27,7 +27,7 @@
  */
 
 import { printedPower, printedToughness, counterPowerDelta, counterToughnessDelta } from "./ptPrimitive.js"; // per-axis counter deltas (Contagion, BI-4)
-import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, permanentColors, playerCantGainLife, playerEmptyDrawWins, legendRuleExemptFor, PERMANENT_TYPE_RE, enteringTypeWords } from "./layers.js";
+import { permanentPower, permanentToughness, permanentToughnessSized, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, permanentColors, playerCantGainLife, playerEmptyDrawWins, legendRuleExemptFor, PERMANENT_TYPE_RE, enteringTypeWords } from "./layers.js";
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
 import { faceUpTypeLine } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the look-back fallback and the legend rule read the front face's type line
@@ -2950,13 +2950,17 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
       // Layer-aware creature-ness (WALT-ANIMATE): an animated land/man-land is subject to the
       // lethal/0-toughness SBAs as the creature it has become, not just printed creatures.
       if (!permanentIsCreature(state, perm.id)) continue;
-      // Printed creatures keep the legacy guard EXACTLY: an unevaluable printed toughness
-      // ("*"/unknown) is skipped so the SBA never mis-sizes e.g. a CDA creature the engine
-      // can't size. A permanent that is a creature ONLY via a layer-4 effect (an animated land)
+      // A printed creature whose toughness the layer engine did NOT compute is skipped: a printed
+      // "*" (CR 208.2) whose characteristic-defining ability is not modeled reads toughness 0, and
+      // that 0 is a stand-in, not the creature's toughness — destroying it would be a death the
+      // card never had. Every other printed creature is checked: a printed number, a "*" a modeled
+      // layer-7a CDA sets (CR 613.4a, 604.3 — Lumra, Tarmogoyf, Boneyard Wurm; before this read a
+      // sized "*" creature never died to damage or to toughness 0), or one a layer-7b effect sets
+      // (CR 613.4b). A permanent that is a creature ONLY via a layer-4 effect (an animated land)
       // has no printed toughness — its toughness is supplied by the animating layer, so it's
       // read from the derived value below instead of being skipped here.
       const printedCreature = String(perm.card?.type || perm.card?.type_line || "").includes("Creature");
-      if (printedCreature && !Number.isFinite(Number(perm.card?.toughness))) continue;
+      if (printedCreature && !permanentToughnessSized(state, perm.id)) continue;
       const tough = creatureToughness(perm, state);
       if (!Number.isFinite(tough)) continue; // animated permanent whose derived toughness is unknown — skip
       const dmg = perm.damageMarked || 0;

@@ -597,6 +597,12 @@ timestamp on attaching. "A Role" is one reading, `auraEntry.isRoleCard`. Witness
 Continuous effects are derived in CR-613 layer order (7a CDA → 7b set → 7c
 counters+mods → 7d switch; plus layer 4/5/6 for types/colors/keywords), memoized
 per state object. `gameState.creaturePower/Toughness` delegate here.
+A printed `*` (CR 208.2) reads 0 until something defines it, so the derive also says whether each
+value was computed: `toughnessSized` / `powerSized` (read through `permanentToughnessSized`) are true
+for a printed number, a modeled layer-7a CDA that sets the value (CR 613.4a), or a layer-7b set, and a
+7d switch swaps them (2026-10-18). The toughness state-based actions (`destroyLethalCreatures`,
+CR 704.5f / 704.5g) skip a printed creature only while its toughness is unsized — the 0 is a stand-in,
+not its toughness; every sized `*` creature (Lumra, Tarmogoyf, Boneyard Wurm) dies like any other.
 `matchesSelector(candidate, selector, state, source)` is the chokepoint for "does
 this continuous effect apply to this permanent" — it is **layer-aware** (reads a
 permanent's *effective* type/subtype identity, so an animated Treasure is seen as
