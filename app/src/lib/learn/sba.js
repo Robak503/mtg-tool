@@ -10,7 +10,10 @@
  * to re-sweep) and never at the actual priority checkpoints.
  *
  * `checkAllStateBasedActions(state)` runs, in CR 704.5 order, each arm firing its owed triggers:
- *   - 704.5f/g — 0-toughness / lethal-damage creatures (destroyLethalCreatures + dies triggers)
+ *   - 704.5f/g/h — 0-toughness / lethal-damage / deathtouch-damaged creatures (destroyLethalCreatures + dies triggers). The
+ *                effects inside a resolution leave these to this check (gameState.destroyLethalCreaturesAfterEffect,
+ *                CR 704.4), so the resolution's own last step — an instant or sorcery into its owner's graveyard,
+ *                CR 608.2n — has happened when it runs.
  *   - 704.5i   — 0-loyalty planeswalkers (+ PW dies triggers)
  *   - 704.5j   — the LEGEND RULE (applyLegendRule — new in B2; + dies triggers for creatures)
  *   - 704.5m/n — attachment legality: an Equipment on a non-creature (or vanished host) becomes
@@ -221,8 +224,16 @@ export function checkAllStateBasedActions(state) {
   for (let pass = 0; pass < MAX_PASSES; pass++) {
     const before = cur;
 
-    // 704.5f/g — lethal/0-toughness creatures.
-    const lethal = destroyLethalCreatures(cur);
+    // 704.5f/g/h — lethal/0-toughness creatures, and each creature a deathtouch source dealt damage to during a resolution since
+    // the last check (remembered by gameState.destroyLethalCreaturesAfterEffect — the effects inside a resolution leave the
+    // destruction to this check, CR 704.4). Taken once: the record is about the time since the last check (CR 704.5h).
+    let deathtouched;
+    if (cur.deathtouchedSinceSba) {
+      deathtouched = new Set(cur.deathtouchedSinceSba);
+      const { deathtouchedSinceSba: _checked, ...rest } = cur;
+      cur = rest;
+    }
+    const lethal = destroyLethalCreatures(cur, deathtouched);
     cur = lethal.dead.length > 0 ? checkDiesTriggers(lethal.state, lethal.dead) : lethal.state;
 
     // 704.5i — 0-loyalty planeswalkers.

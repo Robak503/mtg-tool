@@ -18,7 +18,7 @@
  * and a whole-clause `^…$` anchor so any rider leaves residue → null → LOW → Arbiter. Pure leaf (no
  * parser.js import — cycle-safe).
  */
-import { logEvent, findPermanent, getCounter, addCounter, removeCounter, destroyLethalCreatures } from "../../gameState.js";
+import { logEvent, findPermanent, getCounter, addCounter, removeCounter, destroyLethalCreaturesAfterEffect } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js"; // the counter-move family's lethal sweeps (W1/W2) — the counters.js atoms already hold this edge (atoms→triggers is cycle-free)
 import { setPendingDistributeChoice } from "../../pendingChoice.js";
 import { permanentIsCreature } from "../../layers.js"; // the type-line audit: the recipients are the creatures there NOW (an animated land is one; a God below its devotion is not)
@@ -105,7 +105,7 @@ export function applyPutLeaveCountersOnSelf(state, atom, ctx) {
     next = addCounter(next, { permanentId: src.permanent.id, type, amount });
   }
   if (kinds.some(([type]) => type === "-1/-1")) {
-    const r = destroyLethalCreatures(next);
+    const r = destroyLethalCreaturesAfterEffect(next);
     next = checkDiesTriggers(r.state, r.dead);
   }
   return logEvent(next, { kind: "spell-effect", effect: "put-leave-counters-on-self", controller: ctx.controller, placed: kinds.reduce((n, [, a]) => n + a, 0), kinds: kinds.length });
@@ -134,7 +134,7 @@ export function applyMoveAllCountersToTarget(state, atom, ctx) {
     next = addCounter(next, { permanentId: target.permanent.id, type, amount });
     next = removeCounter(next, { permanentId: src.permanent.id, type, amount });
   }
-  const r = destroyLethalCreatures(next);
+  const r = destroyLethalCreaturesAfterEffect(next);
   next = checkDiesTriggers(r.state, r.dead);
   return logEvent(next, { kind: "spell-effect", effect: "move-all-counters-to-target", controller: ctx.controller, moved: pile.reduce((n, [, a]) => n + a, 0), target: target.permanent.card?.name });
 }

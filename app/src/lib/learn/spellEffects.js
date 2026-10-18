@@ -29,7 +29,8 @@ import {
   markCombatDamage,
   recordDamageSource,
   markExileIfDies,
-  destroyLethalCreatures,
+  destroyLethalCreaturesAfterEffect, // the lethal check an effect runs — left to the check after the resolution inside one (CR 704.4)
+  destroyZeroLoyaltyPlaneswalkersAfterEffect,
   logEvent,
   opponentsOf,
   creaturePower,
@@ -41,7 +42,6 @@ import {
   consumePreventionShields,
   applyTotemArmor,
   adjustLoyalty,
-  destroyZeroLoyaltyPlaneswalkers,
   isPlaneswalker,
   addCounter,
   removeCounter,
@@ -1676,7 +1676,8 @@ export function dealSimultaneousDamage(state, hits) {
     else if (findPermanent(next, h.to.id)) next = dealDamageToCreature(next, event, dealer, h.to.id, h.amount);
   }
   next = settleDamageEvent(next, event);
-  const lethal = destroyLethalCreatures(next, event.deathtouched);
+  // The lethal pass — inside a resolution left to the state-based check after it, deathtouch remembered (CR 704.4, 704.5h).
+  const lethal = destroyLethalCreaturesAfterEffect(next, event.deathtouched);
   return { state: checkDiesTriggers(lethal.state, lethal.dead), dealtTo: { ...event.toCreature } };
 }
 
@@ -1839,14 +1840,18 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   // creatures THIS effect actually damaged — `event.toCreature` is the per-creature hit set built above, so
   // this is correct for the single target AND the mass forms (any-target / each-creature) and NEVER marks a
   // creature the spell didn't hit. Done BEFORE the lethal SBA so destroyLethalCreatures reroutes them to
-  // exile; the marker self-expires by turn (applies whether lethal now or the creature dies later this turn).
+  // exile; the marker self-expires by turn (applies whether lethal now or the creature dies later this turn —
+  // inside a resolution the check after it, CR 704.4).
   if (exileIfWouldDie) {
     for (const permId of Object.keys(event.toCreature)) next = markExileIfDies(next, { permanentId: permId, turn: next.turn });
   }
-  const dmgResult = destroyLethalCreatures(next, event.deathtouched);
+  // The lethal pass. Inside a resolution it destroys nothing: the state-based check after the resolution does (CR 704.4), with
+  // the card already in its owner's graveyard (CR 608.2n — a 2/3 Tarmogoyf is 3/4 when Lightning Bolt's damage is judged).
+  const dmgResult = destroyLethalCreaturesAfterEffect(next, event.deathtouched);
   next = checkDiesTriggers(dmgResult.state, dmgResult.dead);
-  // PW-6: a planeswalker driven to 0 loyalty by the damage is put into the graveyard (CR 704.5i).
-  const pwSba = destroyZeroLoyaltyPlaneswalkers(next);
+  // PW-6: a planeswalker driven to 0 loyalty by the damage is put into the graveyard (CR 704.5i) — inside a resolution by the
+  // check after it.
+  const pwSba = destroyZeroLoyaltyPlaneswalkersAfterEffect(next);
   next = pwSba.state;
   // PLANESWALKER-DIES (CR 700.4) — fire the dead walker's dies-watchers (Cruel Celebrant's creature-or-PW drain).
   next = checkPlaneswalkerDiesTriggers(next, pwSba.dead);

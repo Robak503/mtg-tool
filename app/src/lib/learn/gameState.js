@@ -3012,6 +3012,50 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
 }
 
 /**
+ * THE RESOLUTION WINDOW (CR 704.3, 704.4, 608.2n). State-based actions are checked when a player would receive priority, never
+ * while a spell or ability resolves — "state-based actions pay no attention to what happens during the resolution of a spell or
+ * ability" (CR 704.4) — and an instant or sorcery's last step puts it into its owner's graveyard (CR 608.2n). The window is open
+ * from the moment gameEngine.resolveTopOfStack hands the top object to its resolver until finalizeStackResolution closes it, just
+ * before its state-based check. Inside it the effects that change damage or toughness (damage, fights, -X/-X, base P/T, counters,
+ * a 0/0 entering) leave a creature with lethal damage or toughness 0 on the battlefield, and the check after the resolution
+ * destroys it: Lightning Bolt is in its owner's graveyard when a 2/3 Tarmogoyf is judged (its bundled ruling — it is 3/4 then and
+ * survives), and a later step of the same resolution counts ("Draw a card" under Psychosis Crawler). Until 2026-10-18 each of
+ * those effects destroyed the creature on the spot. `resolutionWindow` is transient: it is on the state only inside
+ * resolveTopOfStack — never at a priority checkpoint, a pending choice (a resolution that pauses is finalized as it pauses) or a
+ * save.
+ */
+export function openResolutionWindow(state) {
+  return state.resolutionWindow ? state : { ...state, resolutionWindow: true };
+}
+
+export function closeResolutionWindow(state) {
+  if (!state.resolutionWindow) return state;
+  const { resolutionWindow: _closed, ...rest } = state;
+  return rest;
+}
+
+/**
+ * The lethal-damage and toughness check an EFFECT runs after it deals damage or changes toughness (CR 704.5f, 704.5g, 704.5h).
+ * Outside a resolution window (a cost, a special action, an effect applied outside the stack, a direct call) it is
+ * destroyLethalCreatures, performed now. Inside one nothing is destroyed (CR 704.4): the creatures a deathtouch source dealt
+ * damage to are remembered on the state (`deathtouchedSinceSba`) for the state-based check after the resolution
+ * (sba.checkAllStateBasedActions), which is where CR 704.5h asks its question — "since the last time state-based actions were
+ * checked". The same `{ state, dead }` shape; `dead` is empty inside the window.
+ */
+export function destroyLethalCreaturesAfterEffect(state, deathtouched = new Set(), cause = "sba") {
+  if (!state.resolutionWindow) return destroyLethalCreatures(state, deathtouched, cause);
+  if (!deathtouched.size) return { state, dead: [] };
+  const remembered = new Set(state.deathtouchedSinceSba || []);
+  for (const id of deathtouched) remembered.add(id);
+  return { state: { ...state, deathtouchedSinceSba: [...remembered] }, dead: [] };
+}
+
+/** The 0-loyalty check (CR 704.5i) an effect runs after it damages a planeswalker: performed now outside a resolution window, left to the check after the resolution inside one (CR 704.4). */
+export function destroyZeroLoyaltyPlaneswalkersAfterEffect(state) {
+  return state.resolutionWindow ? { state, dead: [] } : destroyZeroLoyaltyPlaneswalkers(state);
+}
+
+/**
  * State-based action: the LEGEND RULE (CR 704.5j, CR-remediation B2). If a player controls two or more
  * legendary permanents with the same name, that player chooses one and the rest are put into their
  * owners' graveyards ("put into", NOT "destroyed" — indestructible/regeneration/shield/totem-armor do

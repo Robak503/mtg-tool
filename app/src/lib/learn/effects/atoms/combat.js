@@ -5,7 +5,7 @@
 
 import { addContinuousEffect, permanentIsCreature, permanentHasCardType, permanentHasKeyword, permanentTypes, hasAuraAttached, permIsEveryCreatureType, permanentColors } from "../../layers.js"; // permanentHasCardType — #666, the nonland untap's layer-aware, face-up land read // permanentColors — the protection-color pick's layer-aware tally (applyGrantProtection) // permIsEveryCreatureType — P·39, the set-base-pt-team subtype filter (changeling / every creature type) // hasAuraAttached — KARAMETRA'S BLESSING's "enchanted creature" condition // permanentTypes — BLACKSMITH'S SKILL (O9): the "if it's an artifact creature" rider reads the LAYER-4 types (an animated artifact counts)
 import { applyDamageEffect, dealSimultaneousDamage } from "../../spellEffects.js"; // the shared deal path: a bite of a planeswalker (applyDamageEffect) and the fights, bites and self-fights (dealSimultaneousDamage) — call-time binding, cycle-safe (removal.js precedent)
-import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, setDoesNotUntapNext, updatePermanentSafe, addPreventionShield, addMana } from "../../gameState.js";
+import { logEvent, destroyLethalCreaturesAfterEffect, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, setDoesNotUntapNext, updatePermanentSafe, addPreventionShield, addMana } from "../../gameState.js";
 import { checkDiesTriggers, checkUntapTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
 import { autoPickCreatureType, autoPickProtectionColor } from "../../choicePolicy.js"; // BECOME-CREATURE-TYPE (CR 614.12) + PROTECTION-COLOR (vein #3, Mother/Giver) — the shared auto-choice policies; choicePolicy.js imports NOTHING, which is the only shape an atom can share with resolvers (resolvers -> runProgram -> effectAtoms -> here)
@@ -428,11 +428,12 @@ export function applyPumpEffect(state, atom, ctx) {
     }
   }
   // A negative pump (-X/-Y, e.g. Disfigure / Last Gasp / Dismember) can drop a
-  // creature's DERIVED toughness to <= 0 — run the lethal SBA so it dies at
-  // resolution (CR 704.5f), exactly as the damage atom does. A positive pump
-  // (Giant Growth) finds nothing lethal, so this is a no-op for it. Without this
-  // the creature would silently survive at 0 toughness until the next combat step.
-  const lethal = destroyLethalCreatures(next);
+  // creature's DERIVED toughness to <= 0 — the lethal check, exactly as the damage
+  // atom runs it (CR 704.5f): inside a resolution it is left to the state-based check
+  // after the resolution (CR 704.4 — Last Gasp is in the graveyard by then, so a 2/3
+  // Tarmogoyf is 3/4 -3/-3 and lives), outside one it destroys now. A positive pump
+  // (Giant Growth) finds nothing lethal, so this is a no-op for it.
+  const lethal = destroyLethalCreaturesAfterEffect(next);
   next = checkDiesTriggers(lethal.state, lethal.dead);
   return logEvent(next, { kind: "spell-effect", effect: "pump", power, toughness, targets: targets.map(t => t.id) });
 }
@@ -509,8 +510,8 @@ export function applyAnimateEffect(state, atom, ctx) {
       }).state;
     }
   }
-  // A 0/0 animate has toughness 0 → CR 704.5f puts it into the graveyard at resolution.
-  const lethal = destroyLethalCreatures(next);
+  // A 0/0 animate has toughness 0 → CR 704.5f puts it into the graveyard (inside a resolution, at the check after it — CR 704.4).
+  const lethal = destroyLethalCreaturesAfterEffect(next);
   next = checkDiesTriggers(lethal.state, lethal.dead);
   return logEvent(next, { kind: "spell-effect", effect: "animate", power: atom.ptCount ? basePower : atom.power, toughness: atom.ptCount ? baseToughness : atom.toughness, targets: targets.map(t => t.id) });
 }
@@ -545,10 +546,10 @@ export function applyEarthbend(state, atom, ctx) {
   if (n > 0) next = addCounter(next, { permanentId: land.id, type: "+1/+1", amount: n }); // → a real N/N before the SBA
   // EARTHBEND-RETURN (CR 603.7 delayed triggered ability) — tag the animated land so its "when it dies or is
   // exiled, return it to the battlefield tapped" rider fires (triggers.checkLeavesTriggers synthesizes the return
-  // off this flag when the land leaves to a graveyard/exile). Set BEFORE the lethal SBA so an X=0 earthbend (a
-  // 0/0 with no counters) that dies to the immediate SBA below still returns.
+  // off this flag when the land leaves to a graveyard/exile). Set BEFORE the lethal check so an X=0 earthbend (a
+  // 0/0 with no counters) that dies to it — inside a resolution, the state-based check after it — still returns.
   next = updatePermanentSafe(next, land.id, (p) => ({ ...p, earthbendReturn: true }));
-  const lethal = destroyLethalCreatures(next);
+  const lethal = destroyLethalCreaturesAfterEffect(next);
   next = checkDiesTriggers(lethal.state, lethal.dead);
   // EARTHBEND REFERENT — stamp WHICH land was animated so a following "…, then untap that land" can act on
   // it (Avatar Kyoshi, Earthbender). Same mid-resolution value-capture the corpus already uses for Yuriko's
@@ -823,7 +824,7 @@ export function applyPumpPair(state, atom, ctx) {
   if (target && (debuff.p || debuff.t)) {
     next = addContinuousEffect(next, { layer: 7, sublayer: "7c", op: { layerOp: "ptModify", power: debuff.p, toughness: debuff.t }, affects: { mode: "fixed", permanentIds: [target.permanent.id] }, duration: dur, source: src }).state;
   }
-  const lethal = destroyLethalCreatures(next); // a -toughness debuff can drop the debuffed creature to lethal
+  const lethal = destroyLethalCreaturesAfterEffect(next); // a -toughness debuff can drop the debuffed creature to lethal
   next = checkDiesTriggers(lethal.state, lethal.dead);
   return logEvent(next, { kind: "spell-effect", effect: "pump-pair", targets: [fighter?.permanent.id, target?.permanent.id].filter(Boolean) });
 }
@@ -2949,8 +2950,8 @@ export function applySetBasePtTeam(state, atom, ctx) {
       }).state;
     }
   }
-  // A 0/0 set (X=0) is lethal → run the SBA so those creatures die at resolution (CR 704.5f), mirroring pump/animate.
-  const lethal = destroyLethalCreatures(next);
+  // A 0/0 set (X=0) is lethal → the lethal check (CR 704.5f; inside a resolution, the check after it — CR 704.4), mirroring pump/animate.
+  const lethal = destroyLethalCreaturesAfterEffect(next);
   next = checkDiesTriggers(lethal.state, lethal.dead);
   return logEvent(next, { kind: "spell-effect", effect: "set-base-pt-team", value, targets });
 }
@@ -3015,7 +3016,7 @@ export function applySetBasePtTarget(state, atom, ctx) {
     }).state;
     applied.push(target.id);
   }
-  const lethal = destroyLethalCreatures(next); // marked damage ≥ the new toughness kills at resolution (CR 704.5g)
+  const lethal = destroyLethalCreaturesAfterEffect(next); // marked damage ≥ the new toughness is lethal (CR 704.5g; inside a resolution, at the check after it)
   next = checkDiesTriggers(lethal.state, lethal.dead);
   return logEvent(next, { kind: "spell-effect", effect: "set-base-pt-target", power: atom.power, toughness: atom.toughness, targets: applied });
 }

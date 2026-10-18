@@ -28,7 +28,7 @@ import { taintedPactStep, wheelOnePlayer } from "./atoms/library.js"; // K9 (Ste
 import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice, setPendingTemptingOfferChoice, setPendingAuraEntryHostChoice } from "../pendingChoice.js"; // + TEMPTING OFFER (Tempt with Discovery) // + SG-15b: the Sylvan Library per-card pause is chained by its own settler // + the aura-entry-host pause (CR 303.4f)
 import { withAuraEntryAsk } from "../auraEntry.js"; // CR 303.4f — the ask an atom runs in, so a person chooses what their entering Aura enchants (a leaf; zones.js already imports it)
 import { updatePermanentSafe, graveyardExileFor } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
-import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, gainLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
+import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, gainLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreaturesAfterEffect, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificeCreaturesTogether, sacrificePoolMatchNow, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, advanceCreatureBatchSacrifice, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, lockInEdictPick, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
 import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard, policyEvalEnabledFor } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
 import { programConfidence, atomTargetIntent } from "./parser.js"; // + atomTargetIntent — the change-target auto-pick reads the redirected slot's side (shelf D14)
@@ -1256,10 +1256,10 @@ export function resolveDistributeChoice(state, distribution) {
   }
   // The REMOVE half of the move (CR 122.5): the source loses exactly the CHOSEN total — placement-side
   // doublers (CR 616) inflate what lands, never what leaves. Removing +1/+1 counters can be lethal under a
-  // debuff static (a 0/3 alive only through its counters), so sweep SBAs right here (CR 704.5g).
+  // debuff static (a 0/3 alive only through its counters), so the lethal check runs (CR 704.5g).
   if (pc.moveFromId && spent > 0) {
     next = removeCounter(next, { permanentId: pc.moveFromId, type: pc.counterType || "+1/+1", amount: spent });
-    const r = destroyLethalCreatures(next);
+    const r = destroyLethalCreaturesAfterEffect(next);
     next = checkDiesTriggers(r.state, r.dead);
   }
   next = logEvent(next, { kind: "spell-effect", effect: "distribute-counters", controller: pc.controller, amount: pc.amount, spent, ...(pc.moveFromId ? { movedFrom: pc.moveFromId } : {}) });

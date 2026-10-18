@@ -16,7 +16,7 @@
  * registerClauseParser at parser.js-bottom (tests register it in-test, registrySeams.test.js precedent).
  */
 
-import { logEvent, destroyLethalCreatures, createPermanent, mintId, addCounter } from "../../gameState.js";
+import { logEvent, destroyLethalCreaturesAfterEffect, createPermanent, mintId, addCounter } from "../../gameState.js";
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): the new-Army mint stamps counters directly, bypassing addCounter
 import { checkDiesTriggers } from "../../triggers.js";
 import { permIsEveryCreatureType, enteringTypeWords } from "../../layers.js"; // + enteringTypeWords: the new Army's types for the typed counter replacements // P·39 — every creature type is an Army (layers is already reached through triggers.js; no new cycle)
@@ -107,7 +107,7 @@ export function applyAmass(state, atom, ctx) {
   // subtype-ETB), enqueued BEFORE the lethal SBA. Then the lethal SBA: a 0-amass token (X=0) is a 0/0
   // and dies; a 1+ token is a real N/N and survives.
   next = fireTokenEnterTriggers(next, [minted.id]);
-  const r = destroyLethalCreatures(next);
+  const r = destroyLethalCreaturesAfterEffect(next);
   next = checkDiesTriggers(r.state, r.dead);
   return logEvent(next, { kind: "spell-effect", effect: "amass", subtype, amount, reused: false });
 }

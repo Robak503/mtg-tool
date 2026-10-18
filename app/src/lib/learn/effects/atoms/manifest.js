@@ -28,7 +28,7 @@
  * bottom of parser.js. (See effectAtoms.js barrel + parser.js registry seam.)
  */
 
-import { logEvent, mintId, createPermanent, moveCardToZone, destroyLethalCreatures } from "../../gameState.js";
+import { logEvent, mintId, createPermanent, moveCardToZone, destroyLethalCreaturesAfterEffect } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js";
 import { fireTokenEnterTriggers } from "./tokens.js";
 
@@ -78,7 +78,7 @@ export function manifestCard(state, controller, realCard) {
   // a face-down has no subtypes so subtype-ETB scopes are gated out). Then the lethal SBA + dies triggers
   // (a -1/-1 counter or an anthem-down could matter), mirroring applyCreateToken's ordering.
   next = fireTokenEnterTriggers(next, [minted.id]);
-  const r = destroyLethalCreatures(next);
+  const r = destroyLethalCreaturesAfterEffect(next);
   return checkDiesTriggers(r.state, r.dead);
 }
 

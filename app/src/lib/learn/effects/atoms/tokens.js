@@ -2,7 +2,7 @@
  * effects/atoms/tokens.js — token-minting atoms (create-token, create-named-token).
  */
 
-import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintId, attachPermanent, opponentsOf } from "../../gameState.js"; // opponentsOf — PER-OPPONENT tokens (Endless Foot Assault)
+import { logEvent, destroyLethalCreaturesAfterEffect, findPermanent, createPermanent, mintId, attachPermanent, opponentsOf } from "../../gameState.js"; // opponentsOf — PER-OPPONENT tokens (Endless Foot Assault)
 import { tokenMultiplier, tokenAdditive, tokenExtraKinds, tokenOneOfEachPasses, applyCounterDoubling } from "../../replacementEffects.js"; // + tokenOneOfEachPasses — Academy Manufactor (Bumble F4) // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter; Xorn additive Treasure bonus
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
@@ -328,8 +328,8 @@ export function applyCreateToken(state, atom, ctx) {
     next = addContinuousEffect(next, { layer: 6, op: { layerOp: "addKeyword", keyword: "Haste" }, affects: { mode: "fixed", permanentIds: [...mintedIds] },
       duration: { kind: "endOfTurn", turn: next.turn }, source: { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null } }).state;
   }
-  // A 0/0 token with no other effect dies immediately (CR 704.5f) — run the lethal SBA (after ETB enqueue).
-  const r = destroyLethalCreatures(next);
+  // A 0/0 token with no other effect dies (CR 704.5f) — the lethal check after the ETB enqueue (inside a resolution, the check after it).
+  const r = destroyLethalCreaturesAfterEffect(next);
   next = checkDiesTriggers(r.state, r.dead);
   // Mark the once-per-turn latch (regardless of a 0-count whiff) — the effect ran, the gate is consumed.
   if (atom.oncePerTurn) {
@@ -366,7 +366,7 @@ export function applyCreateTokensTogether(state, atom, ctx) {
     mintedIds.push(...minted.mintedIds);
   }
   next = fireTokenEnterTriggers(next, mintedIds);
-  const r = destroyLethalCreatures(next);
+  const r = destroyLethalCreaturesAfterEffect(next);
   next = checkDiesTriggers(r.state, r.dead);
   if (mintedIds.length) next = { ...next, _lastMintedTokenIds: [...mintedIds] };
   return logEvent(next, { kind: "spell-effect", effect: "create-tokens-together", count: mintedIds.length, kinds: (atom.specs || []).length, controller: ctx.controller });
@@ -793,7 +793,7 @@ export function applyCreateTokenCopy(state, atom, ctx) {
   // on it (no re-trigger loop).
   next = fireTokenEnterTriggers(next, mintedIds);
   // A 0/0 copy dies to the lethal SBA (CR 704.5f), after the ETB enqueue — same ordering as applyCreateToken.
-  const r = destroyLethalCreatures(next);
+  const r = destroyLethalCreaturesAfterEffect(next);
   next = checkDiesTriggers(r.state, r.dead);
   return logEvent(next, { kind: "spell-effect", effect: "create-token-copy", copySource: atom.copySource, count, sourceName: sourcePerm.card?.name, controller: ctx.controller });
 }
@@ -1323,7 +1323,7 @@ export function applyCreateTokenCopyEach(state, atom, ctx) {
   // ETB (CR 603.6a) — each minted copy fires its own + every watcher's enter triggers (the copy is token:true,
   // so a nontoken-gated watcher is a no-op on it). Then the lethal SBA (a 0/0 copy dies), after the ETB enqueue.
   next = fireTokenEnterTriggers(next, mintedIds);
-  const r = destroyLethalCreatures(next);
+  const r = destroyLethalCreaturesAfterEffect(next);
   next = checkDiesTriggers(r.state, r.dead);
   return logEvent(next, { kind: "spell-effect", effect: "create-token-copy-each", count: mintedIds.length, controller: ctx.controller });
 }

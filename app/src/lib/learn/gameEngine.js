@@ -51,6 +51,8 @@ import {
   moveCardToZone,
   findPermanent,
   createPermanent, // the enters-trigger preview (entersTriggerRemovesOwn) puts the entering permanent on a copy of the board
+  openResolutionWindow, // CR 704.4 — no state-based action while the top object resolves; the check runs in finalizeStackResolution
+  closeResolutionWindow,
 } from "./gameState.js";
 import { phaseInAndExpireShield, expireNameCastLocks, expireDamageReplacementEffects } from "./gameState.js"; // TEFERI'S PROTECTION - phase in + shield expiry at the active player's untap; B4 — the name cast locks expire there too
 import { withoutImpulseStamps, startingLoyalty } from "./gameState.js"; // the impulse lapse at cleanup strips the same stamp list the cast out of exile does
@@ -1180,7 +1182,10 @@ export function resolveTopOfStack(state) {
   const top = state.stack[state.stack.length - 1];
   const remainingStack = state.stack.slice(0, -1);
 
-  let next = { ...state, stack: remainingStack };
+  // THE RESOLUTION WINDOW (gameState.openResolutionWindow, CR 704.4): while the resolver runs, an effect that leaves a creature with
+  // lethal damage or toughness 0 does not destroy it — finalizeStackResolution's state-based check below does, after the
+  // resolution's last step (an instant or sorcery into its owner's graveyard, CR 608.2n).
+  let next = openResolutionWindow({ ...state, stack: remainingStack });
 
   // Phase-7 data-driven path: payload.resolver -> serializable registry. This is
   // checked FIRST; the legacy closure branch below is the additive fallback that
@@ -1259,7 +1264,10 @@ export function finalizeStackResolution(state) {
   // the stack: a resolution's chain reactions (an anthem source dying dropping another creature to 0
   // toughness, a legend-rule duplicate, an orphaned Aura, +1/+1 / -1/-1 annihilation) settle here,
   // enqueueing their own triggers, which the flush below then stacks APNAP with the resolution's own.
-  let next = checkAllStateBasedActions(state);
+  // The resolution window closes first: this is the check the resolution's effects left the lethal-damage and toughness
+  // destruction to (CR 704.4). A resolution that paused on a choice is finalized here as it pauses, as before, so the check also
+  // runs at the pause and the atoms after it destroy on the spot again (not covered — ENGINE-SCAFFOLD §4.5).
+  let next = checkAllStateBasedActions(closeResolutionWindow(state));
   // SELF-LTB (Wave 4) — drain any LTB/leave events a resolution queued (gameState.detachPermanentFromAll
   // records them; the death paths drain via checkDiesTriggers, but a non-death battlefield exit — an Aura
   // bounced/exiled, or a direct Disenchant on an Aura whose effect path skipped checkDiesTriggers — reaches

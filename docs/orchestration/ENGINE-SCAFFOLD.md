@@ -474,6 +474,23 @@ ends in `finalizeStackResolution` (flush triggers + drain leave events). There a
 `pendingChoiceKinds.test.js` + `omnathSeam.test.js`; the PLAY-API-CONTRACT list is
 informative, the export is truth).
 
+**The resolution window — no state-based action mid-resolution** (2026-10-18, CR 704.3, 704.4, 608.2n). `resolveTopOfStack` opens
+`gameState.openResolutionWindow` before the resolver runs; `finalizeStackResolution` closes it just before its
+`checkAllStateBasedActions`. Every effect that changes damage or toughness inside a resolution runs
+`destroyLethalCreaturesAfterEffect` (and the damage path `destroyZeroLoyaltyPlaneswalkersAfterEffect`) instead of the bare SBA:
+inside the window it destroys nothing and remembers the creatures a deathtouch source dealt damage to (`deathtouchedSinceSba`,
+taken by the next check — CR 704.5h); outside it (a cost, a special action, combat damage, a direct call, an AI simulation on a
+copy of the board) it destroys at once, as before. So an instant or sorcery is in its owner's graveyard when its damage is judged
+(Lightning Bolt at a 2/3 Tarmogoyf: 3/4 by then, it lives — the bundled ruling), and a later step of the same resolution counts
+(Ember Shot's "Draw a card" under Psychosis Crawler). Sites: `spellEffects.applyDamageEffect` / `dealSimultaneousDamage`; the
+pump, animate, earthbend, pump-pair and base-P/T atoms (`effects/atoms/combat.js`); the -1/-1 counter, proliferate,
+leave-counters and move-counters atoms; manifest, persist, amass, the token atoms; the clone entries in `resolvers.js`; the
+distribute settle. **A new effect that can leave a creature at lethal damage or toughness 0 calls the after-effect check, never
+`destroyLethalCreatures` directly.** Both fields are transient (never on a state at a priority checkpoint or in a save). Not
+covered: a resolution that PAUSES on a choice is finalized as it pauses (resolveTopOfStack always finalizes), so the check runs
+at the pause and the atoms after it destroy on the spot; the session loop's own check also runs during a pause
+(`learnSession.advanceUntilDecision`).
+
 **"If you do" after a sacrifice, and the reflexive behind one** (`ifSacrificed`; the reflexive half 2026-10-17): an atom
 flagged `ifSacrificed` runs only when the atom before it logged a real sacrifice victim (`realSacrificeIn`), and a run of them
 shares the gate. `parser.matchReflexiveTrigger` tags a "When you do, …" reflexive with it when the primary is a lone

@@ -20,7 +20,7 @@
  * PR-2 and the cast path emits these payloads in PR-3.
  */
 
-import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, castsAsPlaneswalker, moveCardToZone, tapPermanent, recordGraveyardEvents, updatePermanentSafe } from "./gameState.js";
+import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreaturesAfterEffect, castsAsPlaneswalker, moveCardToZone, tapPermanent, recordGraveyardEvents, updatePermanentSafe } from "./gameState.js";
 import { queueEvokeSacrifice, checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLandfallTriggers } from "./triggers.js";
 import { entersByDiscardingLand, applyDiscardLandToEnter } from "./discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247) — "If this artifact would enter, you may discard a land card instead…" (CR 614.1a, 614.12a): whether it enters at all
 import { applyEnterReplacements, settleEnterReplacements, sagaEntryChapterTriggers } from "./enterReplacements.js"; // the entry replacements (CR 614.1c, 614.1d, 614.12) — the ONE reader the cast entry and the non-cast entry (zones.enterCardFromZone) share
@@ -390,9 +390,9 @@ export function resolveCloneChoice(state, chosenPermId) {
     // Declined, or the target is gone/illegal — the clone enters as itself (a 0/0).
     next = enterPermanent(next, cloneCard, controller, { ...(printedCard ? { printedCard } : {}), ...(owner ? { owner } : {}) });
   }
-  // A clone that copied nothing is a 0/0 and dies immediately (CR 704.5f) — run the lethal SBA
+  // A clone that copied nothing is a 0/0 and dies (CR 704.5f) — the lethal check (inside a resolution, the check after it)
   // (the copy case finds nothing lethal, so this is a no-op for it).
-  const lethal = destroyLethalCreatures(next);
+  const lethal = destroyLethalCreaturesAfterEffect(next);
   return checkDiesTriggers(lethal.state, lethal.dead);
 }
 
@@ -485,7 +485,7 @@ export const RESOLVERS = Object.freeze({
       // Mirror) has a body of its own: it enters as itself through the ordinary entry below, with the cast's facts.
       if (!spec.untilEndOfTurn) {
         const entered = enterPermanent(state, card, controller, { ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) });
-        const lethal = destroyLethalCreatures(entered);
+        const lethal = destroyLethalCreaturesAfterEffect(entered);
         return checkDiesTriggers(lethal.state, lethal.dead);
       }
     }

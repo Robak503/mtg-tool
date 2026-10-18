@@ -41,7 +41,7 @@
  * atoms module could race a direct `import triggers` + detectTriggers call and miss the WeakMap-cached card).
  */
 
-import { addCounter, logEvent, moveCardToZone, destroyLethalCreatures, findPermanent } from "../../gameState.js";
+import { addCounter, logEvent, moveCardToZone, destroyLethalCreaturesAfterEffect, findPermanent } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js"; // PS-1: a 1/1 persister returns 0/0 → the immediate lethal SBA (CR 704.5f) — cycle-safe (triggers doesn't import atoms/selfReturn)
 import { enterCardFromZone } from "./zones.js";
 
@@ -421,10 +421,10 @@ export function applyPersistReturn(state, atom, ctx) {
     const perm = (next.players[owner].battlefield || []).find((p) => p.card?.id === cardId);
     if (perm) {
       next = addCounter(next, { permanentId: perm.id, type: "-1/-1", amount: 1 });
-      // A 1-toughness persister returns 0/0 → dies IMMEDIATELY to the SBA (CR 704.5f) — and stays dead
-      // (its LKI now shows a -1/-1 counter, so the intervening-if blocks a second return). Run the sweep
-      // here so the zero-toughness body never lingers as a phantom blocker until some later chokepoint.
-      const lethal = destroyLethalCreatures(next);
+      // A 1-toughness persister returns 0/0 → dies to the toughness check (CR 704.5f; the persist trigger is resolving,
+      // so the state-based check right after it — CR 704.4) — and stays dead (its LKI now shows a -1/-1 counter, so the
+      // intervening-if blocks a second return).
+      const lethal = destroyLethalCreaturesAfterEffect(next);
       next = checkDiesTriggers(lethal.state, lethal.dead);
     }
   }

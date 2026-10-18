@@ -2,7 +2,7 @@
  * effects/atoms/counters.js — counter atoms (add-counter, proliferate, gain-experience, rad).
  */
 
-import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters, updatePermanentSafe, drawCards, creaturePower, creatureToughness, gainLife } from "../../gameState.js";
+import { logEvent, destroyLethalCreaturesAfterEffect, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters, updatePermanentSafe, drawCards, creaturePower, creatureToughness, gainLife } from "../../gameState.js";
 import { ENFORCED_KEYWORD_COUNTER_KINDS } from "../../staticAbilityParser.js"; // gate the keyword-counter PLACEMENT on the same set the grant reads (no duplicated list to drift)
 import { addContinuousEffect, permanentIsCreature } from "../../layers.js"; // COUNTER-THEN-GRANT rider (Snakeskin Veil) — layer-6 keyword grant, same seam combat.js pumps use
 import { checkDiesTriggers, checkCounterPlacedTriggers, checkEvolvesTriggers, checkBecomesMonstrousTriggers } from "../../triggers.js";
@@ -183,10 +183,10 @@ export function applyAddCounter(state, atom, ctx) {
       next = addCounter(next, { permanentId: t.id, type: atom.counterType, amount: addAmt });
     }
   }
-  // -1/-1 counters lower DERIVED toughness — run the lethal SBA so a creature it
-  // drops to 0 dies at resolution (the P2.3 negative-pump discipline).
+  // -1/-1 counters lower DERIVED toughness — the lethal check for a creature it drops to 0
+  // (the P2.3 negative-pump discipline; inside a resolution, the state-based check after it — CR 704.4).
   if (atom.counterType === "-1/-1") {
-    const r = destroyLethalCreatures(next);
+    const r = destroyLethalCreaturesAfterEffect(next);
     next = checkDiesTriggers(r.state, r.dead);
   }
   // COUNTER-THEN-GRANT rider (Snakeskin Veil — "Put a +1/+1 counter on target creature you control. It gains
@@ -263,7 +263,7 @@ export function applyProliferate(state, atom, ctx) {
     }
   }
   // A proliferated -1/-1 may drop an opponent's creature to lethal toughness (CR 704.5g).
-  const r = destroyLethalCreatures(next);
+  const r = destroyLethalCreaturesAfterEffect(next);
   next = checkDiesTriggers(r.state, r.dead);
   return logEvent(next, { kind: "spell-effect", effect: "proliferate", controller: me });
 }
