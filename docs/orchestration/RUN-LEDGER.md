@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.167.0** (tagged 2026-10-18 on the `[0.167.0]` CHANGELOG cut):
-> **2 commits**, corpus **45.4% (15,733)** at the tag (v0.166.0 → v0.167.0: +97 gained, −0 false credit removed, 11 commits) → **45.5% (15,745)**; engine gains since the tag: **+12**. The next tag
+> **3 commits**, corpus **45.4% (15,733)** at the tag (v0.166.0 → v0.167.0: +97 gained, −0 false credit removed, 11 commits) → **45.5% (15,745)**; engine gains since the tag: **+12**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,71 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-18 — FIX (rules faithfulness): the attacking player gets priority after blockers are declared — the declare blockers step's first lap of passes was both the defending players' block declaration and the step's last round of priority, so its passes ended the step: the attacker never held priority on the declared blocks (a trick after blocks was reachable only when another player acted first), in a pod the players seated before the defender never saw the blocks, the active player could cast spells before any block existed and a defender in the middle of its own declaration; now the declaration is open from the step's start until every player has passed once, only blocks and the pass are offered while it is open, and when it closes the block triggers go on the stack, the active player receives priority with the pass count reset, no block is offered any more, and the step ends only when the stack is empty and all players pass again (CR 509.1, 509.2, 509.2a, 117.4, 500.2) · **±0** · snapshot native+land 15,728 unchanged
+> Suite **21,610 green (1 skipped) / 1,930 files** under the gate queue (run 3, with the rules index built for the run, then deleted), on the
+> final code and test bytes (sha256 checked before and after the run). Run 1 had 2 red, both in `turnTickBudget.test.js` (below); run 2 was
+> green (21,609) before the no-late-block gate was added. Lint 0 (CR citations: 0 of 12,250 name no rule; keyword citations: 0 of 2,483 cite a
+> different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of 32865c89; native+land 15,728 of
+> 34,584 snapshot names on both). **Mutants 7/7** on assertions, each restored byte-identical (sha256): no close — the declaration lap ends
+> the step (8 tests red), the close hands priority to the seat after the active player (4), the close keeps the stale pass count (6), the
+> offers not narrowed during the declaration (3), the step's entry never opens the declaration (9), the close fires no block triggers (2), a
+> block still offered after the close (1). Witness `blockDeclarationPriority.test.js` (18), written before the engine change and run on the
+> untouched archive: **10 fail there on assertions, the 8 controls pass on both** (the first 16 written before any engine change, 9 / 7; the
+> defender-trick control and the no-late-block witness added while building, each run on the archive too). A/B **80 seeded commander games**
+> (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched 32865c89 archive; an observer copy of each run — every seat
+> given a pilot whose `decide` records the decision's context and returns no pick — play-identical to the plain run on 80 / 80 each, decision
+> rows aligned 1:1): every record differs (the declaration lap adds a lap of pass decisions and ticks to every combat), the **play log is
+> byte-identical in 74**, **6 change play — every first divergence an attacking AI's trick after blocks** where the base went on to the
+> first-strike damage step (games 40, 43, 48, 49, 52, 62: Ephemeral Shields, Divine Resilience, Blacksmith's Skill, Crumb and Get It,
+> Tamiyo's Safekeeping, Tyvar's Stand), 0 winners change, turn count moves in 1 (game 43, 34 → 32), 0 errors on either tree, results unchanged
+> (ai-wins 52 / user-wins 28), 212.8 s / 216.3 s. Committed on `day/blockprio`, not pushed; the release-batch line and the WAKE-REPORT are the
+> integrator's.
+> · **The bug (reproduced on 32865c89, the engine's own entry points).** Two seats, the user's Grizzly Bears attacking the AI's Hill Giant, the
+>   user holding Giant Growth: in declare blockers the user held priority with no block (Giant Growth offered), passed; the AI declared its
+>   block and passed — and the step ended (`first-strike-damage` next). In a pod (the user attacking ai2) the order was user (no block) → ai1 →
+>   ai2 blocks → ai3 → step over: neither the attacker nor ai1 ever saw the block in the step. The phantom first-strike damage step (found,
+>   not fixed (2)) was the only window where a human attacker could still pump; the AI's block-trick reader (`trickGain`) asks for the declare
+>   blockers step, so the AI attacker never did.
+> · **The fix** (`gameEngine.js`, `gameState.js`, `legalChoices.js`). Entering declare blockers marks `combat.blockDeclarationOpen`
+>   (`runStepActions`; `gameState.blockDeclarationOpen` is the one predicate). While it is open `legalActionsForPlayer` offers only
+>   `declare-blocker` and the pass — no spell, ability, special action or mana ability (CR 509.1: no player has priority during the turn-based
+>   action). `passPriority`: when the lap completes with the declaration open it calls `closeBlockDeclaration` instead of resolving or
+>   advancing — the block triggers fire (`fireBlockTriggers`, shared with `nextStep`'s forced advance; the mark goes, `_blockTriggersFired`
+>   set) and the active player gets priority, passes 0 (CR 509.2, 509.2a). The close happens once, so the next full lap with an empty stack
+>   ends the step — no loop. `actionsDeclareBlocker` returns nothing once `_blockTriggersFired` is set: before this gate the fixed tree offered a
+>   block in 463 post-close windows of the 80 games (the AI took none), now 0; the base offered one whenever a block trigger held the step (the
+>   witness shows it on the archive; no such window came up in the 80 base games). The
+>   reset is not in `applyDeclareBlocker`: a block is one action of the declaration, and a per-block reset would hand priority around between
+>   two blocks of one defender, leave the no-block case without the attacker's window, and still fire the block triggers after it. A state
+>   with neither mark (a test built inside the step, an older save) keeps the older shape. The wrong citation on the old `nextStep` comment
+>   ("CR 509.4" — a creature put onto the battlefield blocking) is now 509.2a.
+> · **Census (AI decisions in declare blockers, the observed runs; base → after).** Attacker windows with blocks declared **13 → 273** (43 with a
+>   cast offered), attacker casts there **0 → 6** (the six above); defender casts after its blocks 2 → 2 (game 54's Tamiyo's Safekeeping on
+>   Laboratory Maniac now comes after the attacker's pass, same log; game 52's left with that game's divergence; game 43's Tyvar's Stand is new,
+>   downstream); during the declaration (after) 1,339 attacker / 1,674 defender / 1,957 other windows, 0 casts offered; the base's attacker
+>   windows before any block (1,343, 201 with a cast offered) cast nothing, so no cast was lost. Karametra's Blessing was never offered to an
+>   attacker after blocks in the 80 games. Unchanged: first-strike damage step casts 1 → 1, combat damage step 16 → 16.
+> · **Steps checked for a missing pass-count reset.** Declare attackers: the active player declares while holding priority with the count at 0
+>   and its closing pass counts as its priority (CR 508.2) — correct. Combat damage, first-strike damage, end of combat: `grantPriority`
+>   resets — correct. Resolution: `resetPriorityLoop` — correct. Dispatcher handlers: play-land, cast, activate, hand self-put, cycle,
+>   discard-ability, plot, turn-face-up, loyalty, companion, suspend reset; the mid-resolution declines (discover, free cast, cascade, cast from
+>   among) sit inside a resolution that already reset; **GY-1 / GY-2 graveyard activations and crew do not** (found, not fixed (1)); mana
+>   abilities don't (judgment: nothing changes hands, left).
+> · **Tests changed with it.** `talonGatesOfMadara.test.js` (the phased-out-blocker case activated Talon Gates for the active player while the
+>   declaration was still open — the order this fix forbids; it now passes the declaration lap first, and passes on both trees).
+>   `turnTickBudget.test.js` (two fixtures at a per-turn budget of 30 — exactly the base's minimum for that game: its busiest turn spends 30
+>   empty-stack ticks, 34 raw; after, 32 and 36, one more lap of two passes; 33 is valid on both trees, measured).
+> · ⚠️ **Found, not fixed:** (1) `actionDispatcher.applyActivateGyRecursion` (actionDispatcher.js:1339) and `applyActivateGyExile` (:1495) put an
+>   ability on the stack without naming the activator the holder or resetting the count, and `applyCrewVehicle` (:1447) neither — and crew
+>   resolves at once instead of using the stack (CR 702.122a): after the activator passes, the object can resolve or the step end before every
+>   other player had priority (CR 117.3c, 117.4). Each wants its own witness; left out to keep this A/B attributable. (2) The first-strike
+>   damage step always exists (`gameState.STEPS`, gameState.js:126; `runStepActions`, gameEngine.js:696): every combat with attackers grants a
+>   priority lap there even when no creature has first strike or double strike — CR 510.4 makes that step exist only when one does. (3) The
+>   narrator's declare-blockers line ("… chooses which of their untapped creatures block …", narrator.js:114) is the same in the window after
+>   the blocks.
+> · Also: ENGINE-SCAFFOLD §4.3 gains the two-declarations paragraph; §4.8's targeted-spells line no longer says the attacker gets no priority
+>   after blocks.
 
 > ## 🔧 2026-10-18 — FIX (AI decision quality): one blocker blocks one attacker — the racer held every attacker some untapped blocker could kill for nothing, judging each as if every blocker could block it, so one big blocker vetoed a whole team (the planeswalker-attack entry's found-not-fixed (2): thirteen creatures with 34 power stayed home against Atraxa, Praetors' Voice alone); the held attackers now go as a group, cheapest first, when the face damage they add — the defender blocking the biggest with every blocker slot, menace taking two — is worth more than what its blockers can kill for nothing, at evaluateBoard's rate (the walker policy's 4 life per value point); never a land, never into a lethal crack-back, only as many as the attack tax can be paid for (Ghostly Prison, CR 508.1h), and a creature that must attack counts as already in the group · **±0** · snapshot native+land 15,728 unchanged
 > Suite **21,570 green (1 skipped) / 1,929 files** under the gate queue, first run (with the rules index built for the run, then deleted); it ran on the final code and test bytes (sha256 checked before and after the run) — the docs (this entry, CHANGELOG, ENGINE-SCAFFOLD) were written beside it, and no test reads them. Lint 0 (CR citations: 0 of 12,221 name no rule; keyword citations: 0 of 2,484 cite a different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of 79bbb347, snapshotted before the first edit; native+land 15,728 of 34,584 snapshot names on both). **Mutants 6/6** on assertions, each restored byte-identical (sha256): the capacity ignored — every attacker a blocker could kill counted lost (10 tests red), the crack-back guard dropped (1), menace slots ignored (1), the attack tax not funded (2), a must-attack creature left out of the group (1), most valuable first (1). Witness `aiRacerBlockCapacity.test.js` written before the engine change and run on the untouched engine: **18 tests — 11 fail there on assertions, the 7 controls pass on both** (16 written first, 9 of them failing; the cheapest-first and zero-power witnesses added while building, each run on an untouched copy, where both fail). Divergence tripwire (the full suite on an instrumented scratch copy that also computes the `racer: "v1"` plan at every `pickAttackPlan` call): **28 divergent calls in 11 tests — 10 in the witness file, 1 elsewhere**: `crucibleRun.test.js` "plays EXACTLY N games…" (one self-play combat declares an 8-creature group a tick at a time, each re-plan the rest of the same group; the test checks counts that reconcile, green); that run's one red test is `engineBuild.test.js` (`git describe` in a scratch copy that is no checkout), not a divergence. A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched 79bbb347 archive): **65 byte-identical, 15 change picks, 1 winner change** (game 44: ai2 → ai3), 0 errors on either tree, results unchanged (ai-wins 57 / user-wins 23); attacks declared 3,136 → 3,203; combat damage to players 12,042 → 10,509 — game 73 alone 1,619 → 65 (the base's turn-28 Omnath swing put ai3 at −1,549; after, that seat decked out on turn 28), the other 79 games 10,423 → 10,444; turns 2,628 → 2,638; 406.9 s / 187.9 s (the base pair ran beside my own targeted test runs). Committed on `day/racer`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.

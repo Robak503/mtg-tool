@@ -62,15 +62,17 @@ describe("the budget is spent on empty-stack ticks", () => {
   const loaded = (n) => { const s = expertGame(); return { ...s, state: { ...s.state, stack: Array.from({ length: n }, (_, i) => stackObject(i)) } }; };
 
   it("a turn busier than the budget is not a stall while the ticks over it were resolving the stack", () => {
-    // Twenty abilities wait on the stack on turn 1: that turn takes 59 ticks against a budget of 30.
-    const { session, decision } = advanceUntilDecision(loaded(20), { turnTickBudget: 30 });
+    // Twenty abilities wait on the stack on turn 1: that turn takes 59 ticks against a budget of 33.
+    const { session, decision } = advanceUntilDecision(loaded(20), { turnTickBudget: 33 });
     expect(decision.kind).toBe("game-over");
     expect(decision.maxTurnTicks).toBeGreaterThan(30);
     expect(session.state.players.user.life).toBe(60); // every one of the twenty resolved
   });
 
   it("a plain game's busiest turn may pass the budget in raw ticks too", () => {
-    const { decision } = advanceUntilDecision(expertGame(), { turnTickBudget: 30 });
+    // 33: this game's busiest turn spends 32 empty-stack ticks (36 raw) — the declare blockers step's declaration lap and its
+    // priority round are two laps (2026-10-18; 30 and 34 before, when the declaration lap ended the step).
+    const { decision } = advanceUntilDecision(expertGame(), { turnTickBudget: 33 });
     expect(decision.kind).toBe("game-over");
     expect(decision.maxTurnTicks).toBeGreaterThan(30);
   });

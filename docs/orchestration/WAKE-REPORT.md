@@ -9,7 +9,7 @@
 
 ## 🎯 2026-10-01 — **THE PLAY-WEIGHTED PROGRAM** (Colton's order) — runnable: the top-2,500 worklist (phase 2), in rank order
 
-> **NOW (2026-10-18 ~13:50Z) — v0.167.0 TAGGING · PHASE 2 RUNNABLE.** Top 1,000 **931 / 1,000**; top 2,500 **1,824 / 2,500
+> **NOW (2026-10-18 ~16:30Z) — v0.167.0 RELEASED · PHASE 2 RUNNABLE.** Top 1,000 **931 / 1,000**; top 2,500 **1,824 / 2,500
 > (73.0%) → +426 to 90%**; corpus 15,733 (45.4%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
 > scripts/measure-coverage.mjs --played=2500` (from `app/`), highest-ranked buildable miss first — read the last five play-weighted
 > RUN-LEDGER entries' "Not taken" lists before picking. Open play call for Colton: should the generic tap also hold back
@@ -75,7 +75,10 @@
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
 
-## 🚀 2026-10-18 — **v0.167.0 TAGGED** (release run watching) — 11 commits since v0.166.0, every push CI green
+## 🚀 2026-10-18 — **v0.167.0 RELEASED** (published 2026-10-18T14:34:50Z) — 11 commits since v0.166.0, every push CI green
+
+> **Verified:** release run 39134207232 green on its first attempt (no next/font retry needed); `releases/latest/download/latest.json`
+> reads version 0.167.0 with its signature; all five assets present.
 
 > **The release (early, CLAUDE.md §7.2 user-facing-fix exception, at +97 cards):** **planeswalkers work in game decks** — the deck
 > loader dropped every walker's printed loyalty, so each planeswalker cast from a deck resolved as nothing (25 of 26 in a measured

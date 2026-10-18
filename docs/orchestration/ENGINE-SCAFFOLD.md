@@ -282,6 +282,25 @@ flushes triggers. `passPriority`: when a full table lap passes
 (`consecutivePasses >= playerCount`) → resolve top of stack, or advance step.
 Untap/cleanup grant no priority (`NO_PRIORITY_STEPS`).
 
+The two combat declarations are turn-based actions the engine takes one action at
+a time. **Attackers** (CR 508.1, 508.2): the declaration closes at the first
+action of the declare attackers step that is not an attacker declaration
+(`closeAttackDeclaration`). **Blockers** (CR 509.1, 509.2, 509.2a, 2026-10-18):
+entering the declare blockers step marks `combat.blockDeclarationOpen`
+(`gameState.blockDeclarationOpen`); the step's first lap — the active player
+first, then turn order, each defending player declaring before it passes — offers
+only `declare-blocker` and the pass (`legalChoices`). When every player has passed
+once, `passPriority` closes it (`closeBlockDeclaration`): the block triggers go on
+the stack (`combat._blockTriggersFired` — from then on no block is offered), then
+the active player receives priority with the pass count reset, and the step ends
+only after the stack is empty and all players pass again. A state built inside
+the step with neither mark keeps the older shape (blocks and spells both offered,
+one lap of passes ends the step, `nextStep` fires the block triggers). Before
+this, the declaration lap itself ended the step: the attacking player never held
+priority on the declared blocks, the active player and the defender could cast
+spells before or during the declaration, and a block was still offered while the
+block triggers were on the stack. Witness: `blockDeclarationPriority.test.js`.
+
 ### 4.4 Triggers (`triggers.js` → `triggerRouting.js` → `gameEngine.flushTriggers`)
 
 Detection (`detectTriggers`, cached per card object in a WeakMap): anchor on
@@ -1221,8 +1240,9 @@ its main phase's mana), on an opponent's turn whenever it holds priority. A BUFF
 from the opponent's removal on the stack it defeats (`stackHarmsToSeat`, `buffSaves` — hexproof / shroud against any target,
 indestructible against destroy and damage, toughness against damage and -N/-N), a trick in a one-on-one block that changes the
 duel (`trickGain`), or in its own precombat main a pump that makes the swing lethal, flying / "can't be blocked" for a ready
-attacker the defender could block, haste for a summoning-sick creature. The attacker gets no priority after blocks unless another
-player acts (a block declaration doesn't reset the pass count), so its own after-blocks tricks are rare; the defender's are not. A
+attacker the defender could block, haste for a summoning-sick creature. The trick window is the declare blockers step after its
+declaration closes (§4.3): the attacker holds priority there first, then each other player in turn order (until 2026-10-18 the
+attacker got none after blocks unless another player acted first, and the defender cast its trick mid-declaration). A
 TOKEN COPY in its own main: a nonland, non-Aura permanent of value 3+, never its own legendary one, never one whose enters trigger
 would remove its own permanent. A BLINK of its own nontoken permanent: a save from any targeted removal (it returns a new object),
 or in its own main (postcombat, or precombat when it would not attack) an enters trigger worth firing again

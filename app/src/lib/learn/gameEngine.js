@@ -28,6 +28,7 @@ import {
   STEPS,
   MANA_COLORS,
   nextInTurnOrder,
+  blockDeclarationOpen, // CR 509.1, 509.2 — the declare blockers step's open declaration (closeBlockDeclaration)
   drawCards,
   putCardsOnBottom,
   resetTurnCounters,
@@ -849,9 +850,14 @@ export function runStepActions(state) {
     next = checkStepTriggers(next, "secondMain");
   if (next.step === "main" && (next.phase === "precombat-main" || next.phase === "postcombat-main"))
     next = checkStepTriggers(next, "anyMain"); // CARPET OF FLOWERS (KT-10a): "each of your main phases" — every main, extra ones included
-  // (The declare-blockers entry fires nothing of its own. Its block / becomes-blocked / bushido / rampage triggers fire in
-  // nextStep when LEAVING the step — blocks are declared DURING it — and the attack triggers and hooks have already
-  // resolved in the declare attackers step: closeAttackDeclaration.)
+  // THE BLOCK DECLARATION (CR 509.1). The declare blockers step begins with the defending players' block declaration, a
+  // turn-based action during which no player has priority; it fires nothing on entry (the attack triggers and hooks resolved
+  // in the declare attackers step: closeAttackDeclaration). The engine takes the declaration one declare-blocker action at a
+  // time inside the step's first lap — the active player first, then each player in turn order, a defending player declaring
+  // before it passes — and this mark keeps that lap a declaration: only blocks and the pass are offered (legalChoices). When
+  // the lap ends, passPriority closes it (closeBlockDeclaration): the block triggers go on the stack, then the active player
+  // receives priority (CR 509.2, 509.2a).
+  if (next.step === "declare-blockers") next = { ...next, combat: { ...(next.combat || EMPTY_COMBAT), blockDeclarationOpen: true } };
 
   if (grantsPriority(next.step)) {
     next = grantPriority(next);
@@ -1075,6 +1081,41 @@ export function closeAttackDeclaration(state) {
   return { state: s, held: stacked || resolved, resolved };
 }
 
+// ─── The block declaration (CR 509.1, 509.2, 509.2a) ─────────────────────────
+
+/**
+ * BLOCK TRIGGERS (CR 509.2a): the blocks are declared — fire the block / becomes-blocked / bushido / attacks-unblocked triggers
+ * (checkBlockTriggers, from combat.blockers as applyDeclareBlocker recorded them) and put them on the stack. Once per combat:
+ * combat._blockTriggersFired, dropped with the rest of combat at the end of combat. The open-declaration mark goes with it.
+ * Shared by the declaration's close (passPriority) and a forced advance out of the step (nextStep).
+ */
+function fireBlockTriggers(state) {
+  let s = state;
+  if (state.combat?.blockDeclarationOpen) {
+    const { blockDeclarationOpen: _closed, ...combat } = state.combat;
+    s = { ...state, combat };
+  }
+  s = checkBlockTriggers(s);
+  s = { ...s, combat: { ...(s.combat || {}), _blockTriggersFired: true } };
+  return flushTriggers(s, { chooseTargets: chooseTriggerTargets });
+}
+
+/**
+ * BLOCK DECLARATION CLOSE (CR 509.1, 509.2, 509.2a, 117.3a). In the rules the defending players declare blockers as ONE
+ * turn-based action at the start of the declare blockers step, no player holding priority; then the abilities that triggered
+ * on the declaration go on the stack and the active player gets priority. The engine takes the declaration one
+ * declare-blocker action at a time inside the step's first lap (blockDeclarationOpen — only blocks and the pass are offered),
+ * so it closes when every player has passed once since the step began (passPriority): each defending player has declared
+ * its blocks, or none, and passed. The block triggers go on the stack, and the active player receives priority with the
+ * pass count reset — the attacking player acts first on the declared blocks, then each other player in turn order, and the
+ * step ends only when the stack is empty and all players pass in succession again (CR 117.4, 500.2). Nothing resolves
+ * during the declaration: an object already on the stack when the step began is still there when priority opens.
+ */
+export function closeBlockDeclaration(state) {
+  const s = fireBlockTriggers(state);
+  return { ...s, priorityHolder: s.activePlayer, consecutivePasses: 0 };
+}
+
 /**
  * Advance one step and apply its automatic actions. The common
  * combination. Returns a fresh state at the new step with all
@@ -1090,17 +1131,13 @@ export function nextStep(state) {
     if (closed.held) return { ...closed.state, priorityHolder: closed.state.activePlayer, consecutivePasses: 0 };
     return runStepActions(advanceStep(closed.state));
   }
-  // BLOCK TRIGGERS (subsystem 2, CR 509.4): when LEAVING declare-blockers, blocks are now fully declared
-  // (combat.blockers populated by applyDeclareBlocker). Fire block / becomes-blocked / bushido / rampage
-  // triggers and flush them onto the stack BEFORE advancing — so they resolve (with priority) ahead of
-  // combat damage, exactly like attack triggers. Guard with combat._blockTriggersFired so it fires ONCE
-  // per combat (the flag rides combat state and is cleared when combat resets to EMPTY_COMBAT at end-of-
-  // combat). If any trigger enqueues, HOLD in declare-blockers (priority back to the active player) for
-  // resolution instead of advancing to the damage step; if none, advance from the flag-marked state.
+  // BLOCK TRIGGERS (CR 509.2a) on a FORCED advance out of the declare blockers step whose triggers have not fired (the
+  // session's no-priority path; a caller stepping the engine directly; a state built inside the step after its declaration).
+  // In play the declaration's close fires them (closeBlockDeclaration, from passPriority) and the step then ends here with the
+  // flag set. Fire them (fireBlockTriggers — an open declaration ends with it) BEFORE advancing, so they resolve ahead of combat
+  // damage: if any went on the stack, HOLD in declare-blockers with the active player's priority; if none, advance.
   if (state.step === "declare-blockers" && !state.combat?._blockTriggersFired) {
-    let s = checkBlockTriggers(state);
-    s = { ...s, combat: { ...(s.combat || {}), _blockTriggersFired: true } };
-    s = flushTriggers(s, { chooseTargets: chooseTriggerTargets });
+    const s = fireBlockTriggers(state);
     if ((s.stack?.length || 0) > (state.stack?.length || 0)) {
       return { ...s, priorityHolder: s.activePlayer, consecutivePasses: 0 };
     }
@@ -1145,6 +1182,10 @@ export function passPriority(state) {
   // full lap of the table with no one acting.
   const playerCount = Object.keys(current.players).length;
   if (passes >= playerCount) {
+    // THE BLOCK DECLARATION (CR 509.1, 509.2): the declare blockers step's first lap is the defending players' declaration,
+    // not a round of priority. When every player has passed once it closes — the block triggers go on the stack and the
+    // active player receives priority with the count reset (closeBlockDeclaration). Nothing resolves and the step goes on.
+    if (blockDeclarationOpen(current)) return closeBlockDeclaration({ ...current, consecutivePasses: 0 });
     // Every player passed in succession.
     if (current.stack.length === 0) {
       // CR 514.3a — a cleanup step that granted priority ends into ANOTHER cleanup step (the hand-size check, the 514.2

@@ -261,7 +261,9 @@ describe("⭐ the enters trigger (CR 702.26, 115.6)", () => {
     let s = board({ phase: "combat", step: "declare-attackers", user: [...wastes(4), P("mine", BEARS)] });
     s = dispatchAction(s, legalActionsForPlayer(s, "user").find((a) => a.kind === "declare-attacker" && a.permanentId === "mine"));
     for (let i = 0; i < 6 && s.step !== "declare-blockers"; i++) s = dispatchAction(s, { kind: "pass-priority", playerId: s.priorityHolder });
+    s = dispatchAction(s, { kind: "pass-priority", playerId: "user" }); // the active player's pass of the block declaration (CR 509.1)
     s = dispatchAction(s, legalActionsForPlayer(s, "ai").find((a) => a.kind === "declare-blocker" && a.permanentId === "theirs"));
+    s = dispatchAction(s, { kind: "pass-priority", playerId: "ai" }); // the declaration closes: the active player gets priority on the block (CR 509.2)
     const out = resolveTopOfStack(resolveTopOfStack(dispatchAction(s, putAction(s))));
     let end = out;
     for (let i = 0; i < 12 && end.phase === "combat"; i++) end = dispatchAction(end, { kind: "pass-priority", playerId: end.priorityHolder });

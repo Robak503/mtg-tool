@@ -705,6 +705,20 @@ export function nextInTurnOrder(state, playerId) {
   return order[(idx + 1) % order.length];
 }
 
+/**
+ * Is the declare blockers step's block declaration still open (CR 509.1 — a turn-based action during which no player has
+ * priority)? The engine takes the declaration one declare-blocker action at a time, each defending player in turn order,
+ * inside a lap that begins with the active player: the step's entry (gameEngine.runStepActions) marks combat
+ * `blockDeclarationOpen`, and the first time every player has passed in succession it closes (gameEngine.
+ * closeBlockDeclaration) — the block triggers go on the stack and the active player receives priority (CR 509.2, 509.2a).
+ * While it is open only blocks and the pass are offered (legalChoices); once it has closed (combat._blockTriggersFired) no
+ * block is. A state with neither mark — one built inside the step, or a save from before the marks existed — keeps the
+ * older shape: blocks and spells are both offered, and one lap of passes ends the step (nextStep fires the block triggers).
+ */
+export function blockDeclarationOpen(state) {
+  return state?.step === "declare-blockers" && state.combat?.blockDeclarationOpen === true;
+}
+
 // ─── Zone transitions ────────────────────────────────────────────────────────
 
 /**

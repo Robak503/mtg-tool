@@ -29,7 +29,7 @@
  * no fetch.
  */
 
-import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower, nameCastLocked, playerLifeLocked } from "./gameState.js"; // B4: the Reflector Mage name cast lock; playerLifeLocked — CR 119.8, a life total that can't change can't pay life
+import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower, nameCastLocked, playerLifeLocked, blockDeclarationOpen } from "./gameState.js"; // B4: the Reflector Mage name cast lock; playerLifeLocked — CR 119.8, a life total that can't change can't pay life; blockDeclarationOpen — CR 509.1
 import { canAfford, planPayment, manaSources, manualManaTaps, payActivationFromPool, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources, lifePaymentContext, tapCostPayerOrder } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // SELF-METRIC-COST-REDUCTION: a live count read at cast announce
 import { hasKeyword } from "./keywords.js";
@@ -4446,6 +4446,10 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
   if (state.activePlayer === playerId) return [];  // active player attacks, doesn't block
   if (state.step !== "declare-blockers") return [];
   if (declaredAttackers.length === 0) return [];
+  // THE DECLARATION IS OVER (CR 509.1, 509.2): blockers are declared once, as the step's turn-based action. Once it has
+  // closed — its block triggers fired (combat._blockTriggersFired, set by gameEngine.closeBlockDeclaration or a forced
+  // advance) — the priority that follows offers no block: a creature can't join a block after the attacker has acted on it.
+  if (state.combat?._blockTriggersFired) return [];
 
   // MULTI-BLOCK (BLITZ CS-1, CR 509.1a): a creature may block ONE attacker by default; a printed
   // "can block an additional creature each combat" (max 2 — Selesnya Sagittars class) or "can block
@@ -4768,7 +4772,13 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   // ATTACK REQUIREMENTS (CR 508.1d): while a creature that must attack can still be declared without paying a cost, the
   // declaration can't close — the pass, a spell, an ability and a mana ability would each close it (gameEngine.
   // closeAttackDeclaration) with that requirement disobeyed — so only the attacker declarations are offered.
-  return attack.required.size > 0 ? offered.filter((a) => a.kind === "declare-attacker") : offered;
+  if (attack.required.size > 0) return offered.filter((a) => a.kind === "declare-attacker");
+  // THE BLOCK DECLARATION (CR 509.1): while the declare blockers step's declaration is open no player has priority. The lap
+  // the engine takes it in offers each defending player its blocks and every player the pass that ends its part — no spell,
+  // ability, special action or mana ability before the blocks are declared. When the lap closes, the active player receives
+  // priority on the declared blocks (gameEngine.closeBlockDeclaration, CR 509.2).
+  if (blockDeclarationOpen(state)) return offered.filter((a) => a.kind === "declare-blocker" || a.kind === "pass-priority");
+  return offered;
 }
 
 /**
