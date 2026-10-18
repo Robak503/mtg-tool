@@ -9,16 +9,13 @@
 
 ## 🎯 2026-10-01 — **THE PLAY-WEIGHTED PROGRAM** (Colton's order) — runnable: the top-2,500 worklist (phase 2), in rank order
 
-> **NOW (2026-10-17 ~21:35Z) — PHASE 1 MET AGAIN, PHASE 2 RUNNABLE.** Top 1,000 **908 / 1,000** (back over 90% after the v0.164.0
-> false-credit removals); top 2,500 **1,750 / 2,500 (70.0%) → +500 to 90%**; corpus 15,497; shelf 29 / 30 ≥90 (Atraxa 74 deferred).
-> Runnable: `MTG_APP_ROOT=… node scripts/measure-coverage.mjs --played=2500` (from `app/`), highest-ranked buildable miss first.
-> Since the tag (16 commits, all in the RUN-LEDGER): play-weighted Mox Diamond / Chromatic Lantern / Ozolith / Cursed Mirror /
-> Midnight Clock; mana honesty; every Aura cast targeting a legal player or host; shelf-90 +17; the land {C} fallback removed; the
-> AI's clause-by-clause Aura side reader; the 54 hidden land lines made (filter lands, "{1}: any colour"); play-weighted +22 (Brash
-> Taunter, Heraldic Banner, Metallic Mimic, Ichor Wellspring, Chasm Skulker, Hangarback Walker…); the generic tap keeps Nykthos /
-> Three Tree City / filter lands for their bigger line (Omnath's [Q-NYK]). In build (`day-*` worktree): the Spree mechanic (21
-> cards, 8 in the top 2,500). Open play call: should the generic tap also hold back restricted-line lands (Cavern of Souls, Mech
-> Hangar — 27)? See the Nykthos RUN-LEDGER entry.
+> **NOW (2026-10-18 ~02:40Z) — v0.165.0 TAGGING · PHASE 2 RUNNABLE.** Top 1,000 **920 / 1,000**; top 2,500 **1,770 / 2,500
+> (70.8%) → +480 to 90%**; corpus 15,536 (44.9%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
+> scripts/measure-coverage.mjs --played=2500` (from `app/`), highest-ranked buildable miss first. The found-not-fixed list from the
+> 10-17 slices lives in their RUN-LEDGER entries (highlights: the AI's targeted activated abilities and the stale until-end-of-turn
+> theft record are in build; "target opponent or planeswalker" has no planeswalker pool; compleated is unmodeled; the land search
+> score is colour-only). Open play call for Colton: should the generic tap also hold back restricted-line lands (Cavern of Souls,
+> Mech Hangar — 27)? See the Nykthos RUN-LEDGER entry.
 
 > **Colton, 10-01:** "So 1k then 2.5k then we re assess from there." The steering metric is now PLAY-WEIGHTED coverage —
 > the most-played Commander cards by edhrec_rank, covered = a native tier or a plain land — not the corpus total.
@@ -79,6 +76,21 @@
 > creatures triggered only for itself — fixed (CR 603.10a look-back). Sims with board wipes under Aristocrats watchers under-counted.
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
+
+## 🚀 2026-10-18 — **v0.165.0 TAGGED** (release run watching) — 30 commits since v0.164.0, every push CI green
+
+> **The release:** tagged on the `[0.165.0]` CHANGELOG cut, under CLAUDE.md §7.2's user-facing-fix exception at +83 net cards: the
+> computer opponents now crack their fetch lands (they never did — 24 of the 30 profile decks hold one) and choose land drops and
+> land searches by the colours their hand needs; Phyrexian mana is paid (Dismember, Gitaxian Probe, Mental Misstep… cast their
+> Phyrexian symbols for free); free-mana and under-paid costs closed (one victim per sacrifice cost, one graveyard card per exile
+> cost, pay-life lines can't go below 1 or pay under a life lock, Fiend Artisan's sacrifice, "target opponent" names an opponent);
+> a reflexive trigger targets after its action (Smoke Bomb). Corpus at the tag **15,536 / 34,620 (44.9%)** — v0.164.0 → v0.165.0 is
+> +92 gained, −9 false credit removed (the land lines, the land {C} fallback). Play-weighted top 1,000 **920** · top 2,500 **1,770**.
+> Shelf **29 / 30 ≥90%** (Atraxa 74 deferred). Bundled Node v22.23.3 (the newest 22 LTS; Node 24 is Colton's call).
+> **How it was built:** Cindy integrating a rolling fleet of 3–4 subagent builders, one slice per worktree, each landed with the full
+> gate chain on the merged tree (lint, suite, tier flip-diff, 48 replay games) and CI before the next push. One incident: a
+> builder's Edit/Write guard pushed it into the integration worktree; recovered with no loss, and every brief now opens with
+> EnterWorktree (memory: project_parallel_shared_worktree_hazard).
 
 ## 🚀 2026-10-17 — **v0.164.0 RELEASED** (published 2026-10-17T14:57:40Z) — the 10-16 fleet wave + the 10-17 overnight run (72 commits since v0.163.0)
 
