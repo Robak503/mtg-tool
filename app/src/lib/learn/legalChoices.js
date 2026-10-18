@@ -2636,14 +2636,14 @@ function actionsActivateAbility(state, playerId) {
       // (never offer a cost we can't pay). `count` defaults to 1 for the singular form and for any pre-CC-2
       // serialized descriptor (back-compat with saved states).
       if (ab.removeCounter && !((perm.counters?.[ab.removeCounter.type] || 0) >= (ab.removeCounter.count || 1))) continue;
-      // LANDS-4 — the exile-from-graveyard cost is frozen (exileGyIds) ONLY by the single-action push below; the
-      // per-X lanes (γ1f costX, γ1e sacX) build their own actions and would carry no victims, and the dispatcher
-      // pays only what the action names. An ability combining the two shapes is refused here rather than
-      // activated for free (FN-safe; no corpus carrier prints the combination — the census found none).
-      if (ab.exileGyCount && (ab.costX || ab.sacX)) continue;
+      // LANDS-4 — the exile-from-graveyard cost is frozen (exileGyIds) by the shared action push below, which the
+      // {X} lane rides too (2026-10-17); the γ1e sacX lane builds its own actions and would carry no victims, and the
+      // dispatcher pays only what the action names. That combination is refused here rather than activated for free
+      // (FN-safe; no corpus carrier prints it — the census found none).
+      if (ab.exileGyCount && ab.sacX) continue;
       // COUNTED DISCARD COST ("Discard two cards" — Solphim, Mayhem Dominus; Latulla, Keldon Overseer's {X} form; 2026-10-17): the
       // N least valuable hand cards, frozen on the offer (leastValuableCardCmp — the count-of-N cost policy the spell side's
-      // "discard two cards" uses) and carried by the per-X lane and the single-action push alike; fewer than N in hand → the cost
+      // "discard two cards" uses) and carried by the shared action push (the {X} lane's actions too); fewer than N in hand → the cost
       // can't be paid → not offered. The sacX lane builds actions that carry no discard, so the two together are refused.
       let discardCountIds = null;
       if (ab.discardCount) {
@@ -2656,8 +2656,8 @@ function actionsActivateAbility(state, playerId) {
       // fungible — CR 601.2h pays with the object, and identical cards pay identically), capping the
       // combinatorics at the hand's name variety. Empty hand → the cost can't be paid → not offered. The
       // discard is a hand→graveyard move (no mana interaction, so no affordability filter is needed).
-      // (Computed here, above the per-X lane, since 2026-10-17: the {X} lane carries the pitch too — Cackling Witch's "{X}{B}, {T},
-      // Discard a card" was offered with an empty hand and activated without the discard.)
+      // (The {X} lane carries the pitch too since 2026-10-17 — Cackling Witch's "{X}{B}, {T}, Discard a card" was offered with an
+      // empty hand and activated without the discard.)
       let discardVictims = [null];
       if (ab.discardCard) {
         const seenNames = new Set();
@@ -2696,64 +2696,16 @@ function actionsActivateAbility(state, playerId) {
       // resolves amountX off ctx.xValue; the spell lane has done this since P2.5). The classifier gate
       // (abilities.js) admits xSpell beside targetCountX, so the metric and this lane cannot drift.
       const expandsMagnitudeX = ab.costX && !!ab.program?.xSpell && !expandsTargetsPerX;
-      if (ab.costX && (expandsTargetsPerX || expandsMagnitudeX)) {
-        // Mirror the dispatcher's payment sources: a source paying its own cost by tapping ({T}), sac, or exile
-        // can't ALSO tap for mana — exclude it from the affordable-X ceiling and the per-X target expansion's
-        // affordability. (Candelabra's {T} taps the artifact, which isn't a mana source anyway, but a future
-        // creature-with-{T} X ability needs this exclusion to be correct.)
-        const xSources = manaSources(state, playerId).filter((s) =>
-          !((ab.tapSelf || ab.sacSelf || ab.exileSelf) && s.permanentId === perm.id));
-        const poolTotal = totalAvailableMana(state, playerId);
-        const sourceTotal = xSources.reduce((sum, s) => sum + (s.amount || 1), 0);
-        const ceiling = Math.min(poolTotal + sourceTotal, X_CHOICE_CAP);
-        for (let x = 1; x <= ceiling; x++) {
-          const xCost = xResolvedCost(cost, x); // generic += xCount * X (CR 107.3; xCount = 1 for a single {X})
-          if (!canAfford(player.manaPool, xSources, xCost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id) })) break; // monotonic in X → stop at the first shortfall (SG-18: activation spend context)
-          // Per-X target enumeration: exactly X distinct legal lands (targetCountX → expandAtoms min=max=X). An X
-          // with too few legal lands (fewer than X untappable targets exist) yields no combos → that X is skipped.
-          // The SOURCE's colors are the permanent's CURRENT ones (CR 702.16b reads the source; CR 613.1e), as below.
-          // "Untap X target lands": the activating player's tapped lands come first, by the mana they add, so the
-          // best set to untap is the first one offered for each X (manaUntapLine.orderUntapTargets).
-          const xCtx = isManaUntapProgram(ab.program)
-            ? { xValue: x, orderTargets: (targets) => orderUntapTargets(state, playerId, targets) }
-            : { xValue: x };
-          const combos = expandCastChoices(state, playerId, ab.program, permanentColors(state, perm.id), xCtx);
-          for (const discardVictim of discardVictims) for (const ch of combos) { // γ1h — the pitch rides every X (Cackling Witch)
-            actions.push({
-              kind: "activate-ability",
-              playerId,
-              permanentId: perm.id,
-              name: perm.card.name,
-              abilityIndex: ab.index,
-              cost: xCost,
-              cmc: totalCmc(xCost),
-              tapSelf: ab.tapSelf,
-              payLife: ab.payLife || 0,
-              payEnergy: ab.payEnergy || 0,
-              sacSelf: ab.sacSelf || false,
-              exileSelf: ab.exileSelf || false,
-              removeCounter: ab.removeCounter || null,
-              sacCreatureId: null,
-              sacCreatureName: null,
-              sacCountIds: null,
-              xValue: x,                                  // γ1f — the chosen X threads into the effect (ctx.xValue)
-              ...(discardCountIds ? { discardIds: discardCountIds } : {}), // the N frozen hand cards a "Discard two cards" cost pays (Latulla)
-              ...(discardVictim ? { discardCardId: discardVictim.id ?? null, discardCardName: discardVictim.name ?? null } : {}), // γ1h — the chosen hand card to pitch (cost)
-              ...(discardVictim?.random ? { discardRandom: true } : {}), // RG-7 — the dispatcher picks the pitch with the seeded rng
-              ...(ab.discardCardFilter ? { discardCardFilter: ab.discardCardFilter } : {}), // γ1h-TYPED — the dispatcher re-validates the pitch's front-face type
-              ...(ab.activationLimit ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
-              program: ab.program,
-              targets: ch.targets,
-              chosenMode: ch.chosenMode ?? null,
-              needsTargets: ch.targets.length > 0,
-              targetName: ch.targets.map((t) => t.name).filter(Boolean).join(", ") || undefined,
-              abilityText: `X=${x}: ${ab.effectClause}`,
-            });
-          }
-        }
-        continue; // costX expanded its own per-X actions; skip the deferral + single-action push below
-      }
-      if (cost.hasX) continue; // X-cost activated abilities deferred (need the X-choice expansion)
+      // THE {X} LANE RIDES THE SHARED ONE (2026-10-17). It used to build its own actions here and carried only the costs it knew
+      // (life, energy, the self items, the discards): a "Sacrifice another creature" rode as sacCreatureId: null — Fiend Artisan was
+      // offered with no other creature and activated without a victim, Alquist Proft drew X without a Clue — and the tap-others,
+      // counted-sacrifice, return-a-land and unattach costs were dropped the same way. Now the X choice is one more dimension of the
+      // shared enumeration below: every victim pool, every per-victim affordability check and the one action push, with the cost
+      // resolved per X (CR 107.3a — X is chosen as the ability is activated; it changes the mana owed, never the rest of the cost,
+      // which is paid in full or not at all — CR 602.2b, 601.2h).
+      const xLane = !!ab.costX && (expandsTargetsPerX || expandsMagnitudeX);
+      if (cost.hasX && !xLane) continue; // any other X-cost activated ability is deferred (an unmodeled X body)
+      if (xLane && ab.sacX) continue; // two X choices in one cost — no lane chooses both (no bundled carrier; FN-safe)
       // γ1d — a "Sacrifice N <fungible subtype>" cost (Ruthless Knave "Sacrifice three Treasures", Olivia
       // "Sacrifice two Treasures"). The subtype is a FUNGIBLE value token (Treasure/Food/…), so the N victims
       // are interchangeable — no meaningful choice among them (CR 701.16). Gather every legal victim of the
@@ -2820,10 +2772,15 @@ function actionsActivateAbility(state, playerId) {
       const sources = manaSources(state, playerId).filter((s) =>
         !((ab.tapSelf || ab.sacSelf || ab.exileSelf) && s.permanentId === perm.id) &&
         !sacCountManaExcluded.has(s.permanentId));
+      // SG-18: the activation spend context every affordability check below passes.
+      const spendCtx = { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id) };
+      // The cheapest cost the lane can offer: the printed one, or X = 1 on the {X} lane (X = 0 is never offered). Every check
+      // above the X walk judges this one; affordability is monotonic in X, so a victim that can't pay it can't pay any X.
+      const gateCost = xLane ? xResolvedCost(cost, 1) : cost;
       // W3: a γ1b sacOther ability's affordability is PER-VICTIM (a one-shot mana victim can't also
       // be cracked for the {mana} part) — checked inside the victim loop below; non-sac abilities
       // keep this fast path.
-      if (!ab.sacOther && !canAfford(player.manaPool, sources, cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id) })) continue; // SG-18: activation spend context
+      if (!ab.sacOther && !canAfford(player.manaPool, sources, gateCost, spendCtx)) continue;
 
       // Equip {cost}: target a creature YOU control (CR 702.6a). Equip is SORCERY-SPEED
       // (CR 702.6a) — unlike other activated abilities (instant-speed, conservatively
@@ -2997,28 +2954,60 @@ function actionsActivateAbility(state, playerId) {
       // The source's COLORS are the permanent's current ones (permanentColors, CR 613.1e): protection refuses an ability
       // from a source with the stated quality (CR 702.16b), and Thrun's shield refuses one from a NONgreen source. A
       // Prodigal Sorcerer Crimson Wisps turned red can't ping a Kor Firewalker; a Wyluli Wolf turned blue can't reach Thrun.
-      const choices = expandCastChoices(state, playerId, ab.program, permanentColors(state, perm.id), { sourceId: perm.id });
-      if (choices.length === 0) continue; // a required target has no legal pick → uncastable
+      // (The {X} lane expands its targets per X, below.)
+      const choices = xLane ? null : expandCastChoices(state, playerId, ab.program, permanentColors(state, perm.id), { sourceId: perm.id });
+      if (!xLane && choices.length === 0) continue; // a required target has no legal pick → uncastable
+      // THE {X} WALK (γ1f / ④-AO): X from 1 up to what the pool and the mana sources could ever make (capped at X_CHOICE_CAP),
+      // each X's choices expanded with that X bound — a targetCountX atom takes exactly X distinct targets, and "untap X target
+      // lands" offers its best lands first (manaUntapLine.orderUntapTargets). Expanded once per X and shared by every victim; the
+      // source rides the context as on the printed-cost lane (CR 109.5 "another target"; the protection-from-creatures read).
+      const xCeiling = xLane ? Math.min(totalAvailableMana(state, playerId) + sources.reduce((sum, s) => sum + (s.amount || 1), 0), X_CHOICE_CAP) : 0;
+      const xChoicesByX = new Map();
+      const xChoicesFor = (x) => {
+        if (!xChoicesByX.has(x)) {
+          const orderTargets = isManaUntapProgram(ab.program) ? { orderTargets: (targets) => orderUntapTargets(state, playerId, targets) } : {};
+          xChoicesByX.set(x, expandCastChoices(state, playerId, ab.program, permanentColors(state, perm.id), { sourceId: perm.id, xValue: x, ...orderTargets }));
+        }
+        return xChoicesByX.get(x);
+      };
+      // THE PER-VICTIM AFFORDABILITY CHECKS, each judged at a cost — the printed one (gateCost), or one X's on the walk.
+      // W3 (two-sites invariant): exclude a ONE-SHOT mana victim from the sources for THIS victim's
+      // affordability — mirrors the dispatcher's payment filter exactly.
+      const affordsWithSacVictim = (c, victim) => canAfford(player.manaPool, withoutUnfeedableSacSources(state, playerId, sourcesExcludingOneShotVictim(sources, victim?.id), new Set([victim?.id, ...((ab.tapSelf || ab.sacSelf || ab.exileSelf) ? [perm.id] : [])].filter((id) => id != null))), c, spendCtx);
+      // γ1f — a "Tap an untapped creature you control" cost: the chosen creature to tap can't ALSO tap for
+      // mana (a mana-dork tapped for the cost is already tapped), so exclude it from THIS victim's mana
+      // sources for the affordability check — mirrors the dispatcher's payment filter exactly. Earthcraft's
+      // cost has no {mana} part, so this is trivially satisfied there, but the guard keeps a future
+      // mana+tap-creature ability payable-only-when-truly-affordable (never an unpayable offer, CREED).
+      const affordsWithTapVictim = (c, tapVictim) => canAfford(player.manaPool, sources.filter((s) => s.permanentId !== tapVictim?.id && !tapCountSet?.has(s.permanentId)), c, spendCtx);
+      // γ1g — a "Return a land you control to its owner's hand" cost: the land bounced for the cost can't ALSO
+      // tap for mana (it's gone before the {mana} is paid), so exclude it from THIS action's mana sources for
+      // the affordability check — mirrors the dispatcher's payment filter exactly. This is the real gate for
+      // Oboro: bouncing the land that would have paid the {2} must not be counted as still available.
+      const affordsWithReturnedLand = (c, returnLandVictim) => canAfford(player.manaPool, sources.filter((s) => s.permanentId !== returnLandVictim?.id), c, spendCtx);
       for (const victim of sacVictims) {
-        // W3 (two-sites invariant): exclude a ONE-SHOT mana victim from the sources for THIS victim's
-        // affordability — mirrors the dispatcher's payment filter exactly.
-        if (ab.sacOther && !canAfford(player.manaPool, withoutUnfeedableSacSources(state, playerId, sourcesExcludingOneShotVictim(sources, victim?.id), new Set([victim?.id, ...((ab.tapSelf || ab.sacSelf || ab.exileSelf) ? [perm.id] : [])].filter((id) => id != null))), cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id) })) continue;
+        if (ab.sacOther && !affordsWithSacVictim(gateCost, victim)) continue;
        for (const tapVictim of tapVictims) {
-        // γ1f — a "Tap an untapped creature you control" cost: the chosen creature to tap can't ALSO tap for
-        // mana (a mana-dork tapped for the cost is already tapped), so exclude it from THIS victim's mana
-        // sources for the affordability check — mirrors the dispatcher's payment filter exactly. Earthcraft's
-        // cost has no {mana} part, so this is trivially satisfied there, but the guard keeps a future
-        // mana+tap-creature ability payable-only-when-truly-affordable (never an unpayable offer, CREED).
-        if (ab.tapCreature && !canAfford(player.manaPool, sources.filter((s) => s.permanentId !== tapVictim?.id && !tapCountSet?.has(s.permanentId)), cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id) })) continue;
+        if (ab.tapCreature && !affordsWithTapVictim(gateCost, tapVictim)) continue;
        for (const unattachVictim of unattachVictims) {
        for (const returnLandVictim of returnLandVictims) {
-        // γ1g — a "Return a land you control to its owner's hand" cost: the land bounced for the cost can't ALSO
-        // tap for mana (it's gone before the {mana} is paid), so exclude it from THIS action's mana sources for
-        // the affordability check — mirrors the dispatcher's payment filter exactly. This is the real gate for
-        // Oboro: bouncing the land that would have paid the {2} must not be counted as still available.
-        if (ab.returnLand && !canAfford(player.manaPool, sources.filter((s) => s.permanentId !== returnLandVictim?.id), cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id) })) continue;
+        if (ab.returnLand && !affordsWithReturnedLand(gateCost, returnLandVictim)) continue;
+        // THE COSTS THIS VICTIM SET CAN PAY: the printed cost off the {X} lane; on it, one per X — every check above at that X
+        // (the fast path's sources when no sacrifice victim decides them), stopping at the first X they can't pay.
+        const variants = [];
+        if (!xLane) variants.push({ x: null, cost, choices });
+        else {
+          for (let x = 1; x <= xCeiling; x++) {
+            const xCost = xResolvedCost(cost, x); // generic += xCount * X (CR 107.3; xCount = 1 for a single {X})
+            if (!(ab.sacOther ? affordsWithSacVictim(xCost, victim) : canAfford(player.manaPool, sources, xCost, spendCtx))
+              || (ab.tapCreature && !affordsWithTapVictim(xCost, tapVictim))
+              || (ab.returnLand && !affordsWithReturnedLand(xCost, returnLandVictim))) break;
+            variants.push({ x, cost: xCost, choices: xChoicesFor(x) });
+          }
+        }
+        for (const variant of variants) {
         for (const discardVictim of discardVictims) { // γ1h (DC-1) — one action per distinct hand card to pitch
-        for (const ch of choices) {
+        for (const ch of variant.choices) {
           // Don't offer sacrificing the very permanent the effect targets — the victim is paid as a
           // cost (gone before the ability resolves), so the effect would fizzle to a no-op (CR 608.2b).
           // A clean no-op, but a pointless self-defeating action; drop it from the choice list.
@@ -3103,14 +3092,27 @@ function actionsActivateAbility(state, playerId) {
             }
             continue; // sacX expanded its own per-X actions; skip the single-action push below
           }
+          // SAC-N-CLASS (P·17): a class sacrifice has no subtype to pluralize — name the frozen victims instead, so the
+          // player sees exactly what goes (the spell-side count-sacrifice's sacName does the same).
+          const costText = ab.sacCount
+            ? (ab.sacCount.subtype
+              ? `Sacrifice ${ab.sacCount.count} ${ab.sacCount.subtype}s: ${ab.effectClause}`
+              : `Sacrifice ${sacCountPool.filter((v) => (sacCountIds || []).includes(v.id)).map((v) => v.card?.name).join(", ")}: ${ab.effectClause}`)
+            : ab.tapCreature && tapVictim ? `Tap ${tapVictim.card?.name}: ${ab.effectClause}`
+            : ab.returnLand && returnLandVictim ? `Return ${returnLandVictim.card?.name}: ${ab.effectClause}`
+            : ab.unattachEquipment && unattachVictim ? `Unattach ${unattachVictim.card?.name}: ${ab.effectClause}`
+            : ab.discardCard && discardVictim ? `Discard ${discardVictim.name}: ${ab.effectClause}`
+            : discardCountIds ? `Discard ${(player.hand || []).filter((c) => discardCountIds.includes(c.id)).map((c) => c.name).join(", ")}: ${ab.effectClause}`
+            : victim ? `Sacrifice ${victim.card?.name}: ${ab.effectClause}` : ab.effectClause;
           actions.push({
             kind: "activate-ability",
             playerId,
             permanentId: perm.id,
             name: perm.card.name,
             abilityIndex: ab.index,
-            cost,
-            cmc: totalCmc(cost),
+            cost: variant.cost,                          // γ1f — at the chosen X on the {X} lane
+            cmc: totalCmc(variant.cost),
+            ...(variant.x != null ? { xValue: variant.x } : {}), // γ1f — the chosen X threads into the effect (ctx.xValue)
             tapSelf: ab.tapSelf,
             payLife: ab.payLife || 0,
             payEnergy: ab.payEnergy || 0,
@@ -3139,21 +3141,11 @@ function actionsActivateAbility(state, playerId) {
             chosenMode: ch.chosenMode ?? null,
             needsTargets: ch.targets.length > 0,
             targetName: ch.targets.map((t) => t.name).filter(Boolean).join(", ") || undefined,
-            // SAC-N-CLASS (P·17): a class sacrifice has no subtype to pluralize — name the frozen victims instead, so the
-            // player sees exactly what goes (the spell-side count-sacrifice's sacName does the same).
-            abilityText: ab.sacCount
-              ? (ab.sacCount.subtype
-                ? `Sacrifice ${ab.sacCount.count} ${ab.sacCount.subtype}s: ${ab.effectClause}`
-                : `Sacrifice ${sacCountPool.filter((v) => (sacCountIds || []).includes(v.id)).map((v) => v.card?.name).join(", ")}: ${ab.effectClause}`)
-              : ab.tapCreature && tapVictim ? `Tap ${tapVictim.card?.name}: ${ab.effectClause}`
-              : ab.returnLand && returnLandVictim ? `Return ${returnLandVictim.card?.name}: ${ab.effectClause}`
-              : ab.unattachEquipment && unattachVictim ? `Unattach ${unattachVictim.card?.name}: ${ab.effectClause}`
-              : ab.discardCard && discardVictim ? `Discard ${discardVictim.name}: ${ab.effectClause}`
-              : discardCountIds ? `Discard ${(player.hand || []).filter((c) => discardCountIds.includes(c.id)).map((c) => c.name).join(", ")}: ${ab.effectClause}`
-              : victim ? `Sacrifice ${victim.card?.name}: ${ab.effectClause}` : ab.effectClause,
+            abilityText: variant.x != null ? `X=${variant.x}: ${costText}` : costText,
           });
         }
-       }
+        }
+        }
        }
        }
        }

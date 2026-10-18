@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **26 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.9% (15,536)**; engine gains since the tag: **+83** (+92 gained, −9 false credit removed). The next tag
+> **27 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.9% (15,536)**; engine gains since the tag: **+83** (+92 gained, −9 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,72 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX (false positive): the {X} activation lane pays the whole cost — Fiend Artisan (EDHREC #4,412) no longer activates without sacrificing another creature (it was offered with none on the battlefield) and Alquist Proft, Master Sleuth (#12,732) no longer draws X and gains X without sacrificing a Clue: the lane now rides the printed-cost lane's victim pools, per-victim affordability and action push (CR 602.2b, 601.2h, 107.3a), so a tap-others, counted-sacrifice, return-a-land, unattach or exile-from-graveyard cost rides beside an {X} too; and its targets know their source — Cackling Witch, Cinder Elemental, Goblin Dynamo, Pain Kami, Jiwari, the Earth Aflame and Latulla, Keldon Overseer no longer target a creature with protection from creatures (CR 702.16b) · **±0** · snapshot native 15,531 unchanged
+> Suite **20,731 green (1 skipped) / 1,877 files** under the gate queue (with the rules index built for the run, then deleted). Lint 0
+> (CR citations: 0 of 11,536 name no rule; keyword citations: 0 of 2,374 cite a different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620
+> cards; before = an untouched `git archive` of dac970ef, snapshotted before the first edit; native 15,531 of 34,584 snapshot names on both;
+> every name has the same tier). **Mutants 6/6** on assertions, each restored byte-identical (sha256). Witness `activatedXCostNonMana.test.js`
+> (22): the first 17 written before any engine change — **12 fail on the dac970ef engine on assertions, 5 controls pass**; the final 22 on an
+> untouched dac970ef archive — **16 fail on assertions, the 6 controls pass** (added while building: the Eldrazi Spawn and Llanowar Elves
+> victims, the per-X victim mana, Beloved Chaplain, the printed-cost Prodigal Pyromancer control). A/B **80 seeded commander games** (base
+> seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched dac970ef archive): **78 byte-identical; 2 (games 1 and 4) differ
+> only in the 6 decision rows that chose Candelabra of Tawnos's {X} ability** — the chosen action now carries the nine cost fields every other
+> activation carries, all null (identical once null-valued keys are dropped; same picks, same game log, winner and turn count) — 0 errors on
+> either tree, results unchanged (ai-wins 57 / user-wins 23), 170 s / 169 s per batch. No affected card is in a profile deck.
+> Committed on `day/xcostsac`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The bug** (found by the opponent-scoped damage slice; reproduced). The {X} lane in `legalChoices.actionsActivateAbility` built its
+>   own actions above the shared enumeration and carried only the costs it knew (life, energy, the self-sacrifice / self-exile / counter
+>   items, the two discards): "Sacrifice another creature" and "Sacrifice a Clue" rode as `sacCreatureId: null`, and the dispatcher pays
+>   only what the action names. Measured on the base engine: Fiend Artisan beside three Swamps and no other creature offered X = 1 and X = 2;
+>   with two other creatures it offered one action per X and none named a victim; Phyrexian Altar + the only other creature + one Swamp
+>   offered X = 1 (the Altar counted, its only food the Artisan's own victim); Alquist Proft with no Clue offered X = 1. The tap-others,
+>   counted-sacrifice, return-a-land and unattach costs were dropped the same way (probe texts — no bundled card carries one beside a
+>   modeled {X}), and the exile-from-graveyard cost refused the whole ability. The lane also expanded its targets without the source, so a
+>   creature's {X} ability could target a creature with protection from creatures (the printed-cost lane already passed it).
+> · **The fix** (legalChoices only; the dispatcher already paid every field). The X choice is one more dimension of the shared lane: the
+>   victim pools (sacOther, sacCount, tapCreature, returnLand, unattachEquipment, exileGyCount, the discards) are gathered for an {X}
+>   ability as for any other; each per-victim affordability check is a function of the cost it judges — the printed cost, or X = 1
+>   (`gateCost`) above the walk, then every X from 1 up to the pool-plus-sources ceiling (X_CHOICE_CAP) per victim set, stopping at the first
+>   X that set can't pay (monotonic); the targets are expanded once per X with `{ sourceId, xValue }` (the Candelabra ordering kept) and
+>   shared by every victim; one push builds every activation, `xValue` and the "X=N: " text prefix only on the {X} lane. A victim the effect
+>   targets is skipped as on the printed-cost lane. Refused, FN-safe, no bundled carrier: an {X} cost with a "Sacrifice X <subtype>" cost
+>   (two X choices), and exile-from-graveyard with "Sacrifice X" (the γ1e lane still builds its own action). The victim policy is the
+>   printed-cost lane's: one action per legal victim (the player's pick); each victim is its own (an Altar never eats it — the 151790b4
+>   reserved set — and a one-shot mana victim such as an Eldrazi Spawn is never also cracked); a repeatable mana creature may tap for mana
+>   and then be the victim (Llanowar Elves pays X = 1 and is sacrificed).
+> · **Reach** (the engine's own parse over every bundled card): 152 activated abilities with {X} in the cost; 25 parse a modeled cost with a
+>   non-mana item, 10 of them modeled (Fiend Artisan — sacrifice another creature; Alquist Proft — sacrifice a Clue; Cackling Witch —
+>   discard; Latulla — discard two; Cinder Elemental, Goblin Dynamo, Pain Kami, Mask of the Jadecrafter, Snake Basket, Treasure Vault —
+>   self-sacrifice), the other 15 parked by their effects (Tameshi, Lazotep Quarry, Hammer Mage …). Runtime offers on one fixed board, base
+>   vs this tree, over all 24 cards with a modeled {X} ability: **8 change** — Fiend Artisan and Alquist Proft gain their victims (Artisan 9
+>   offers → 18, one per creature per X; Alquist 7 → 7, each naming the Clue), Cackling Witch, Cinder Elemental, Goblin Dynamo, Pain Kami,
+>   Jiwari and Latulla lose only their Beloved Chaplain targets; the other 16 (Candelabra of Tawnos, Magus of the Candelabra, Kessig Wolf
+>   Run, Treasure Vault, Oracle of Nectars, Mirror Entity …) offer exactly the same set. Profile decks: none holds a changed card; the {X}
+>   abilities they hold are Candelabra of Tawnos and Magus (cdh), Kessig Wolf Run (Wolverine, Jurassic Ramp) and Treasure Vault (Kinnan).
+>   No tier moves: Fiend Artisan and Alquist Proft were credited native off the dropped cost and are now played faithfully, so the credit
+>   stands.
+> · **Mutants (6/6 on assertions):** the {X} walk judging a sacrifice ability on the fast path's sources; the {X} action dropping its
+>   victim; the exile-from-graveyard refusal restored on the {X} lane; the {X} targets without their source; the walk without the tap-victim
+>   check; without the returned-land check. (The first build of the first mutant survived — no witness reached an X above 1 where a victim's
+>   own mana mattered — and the per-X witness was written for it.)
+> · **⚑ Judgment calls.** (1) The {X} lane's actions take the shared action's shape — the nine cost fields an {X} action used to omit are
+>   present (null when unused). That is the A/B's only difference (Candelabra's rows); kept, so every activation has one shape. (2) The
+>   source id now rides the {X} targets as it rides the printed-cost lane's: no modeled {X} ability carries an "another target" restriction
+>   today, so the reach is the protection-from-creatures read alone. (3) Offer order on the {X} lane is victim set, then X, then discard,
+>   then targets — unchanged for every ability without a sacrifice, tap, unattach or return choice (Cackling Witch: X before the pitch, as
+>   before).
+> · ⚠️ **Found, not fixed:** (1) the γ1e "Sacrifice X <subtype>" lane still builds its own action (legalChoices.js:3055) and would drop a
+>   tap-others, return-a-land, unattach or sacrifice-a cost beside it; only the exile-from-graveyard and counted-discard combinations are
+>   refused — no bundled carrier (Grim Hireling, Lonis, Insatiable Frugivore print none), so a latent seam, not a live bug. (2) The
+>   tap-others affordability check (legalChoices.js:2982) doesn't narrow the Altars' victims by the action's own cost permanents while the
+>   dispatcher's payment does (actionDispatcher.js:1547): measured with a probe "{1}, Tap an untapped creature you control: …" beside
+>   Phyrexian Altar and one creature — offered, then MANA_SHORT on dispatch (the sacrifice-victim entry's fast-path divergence, one check
+>   over; no free mana). The {X} lane inherits it unchanged; the returned-land check is unaffected (a land is no Altar's food). (3) {X}
+>   costs the parser refuses stay unmodeled (FN-safe): "Remove X counters" (Talon of Pain, Chamber Sentry, Marath), "Exile X cards from
+>   your graveyard" (Necropolis Fiend, Ludevic), "Pay X life" (Krumar Initiate), "Tap X untapped artifacts" (Necron Overlord), a double {X}
+>   beside pips (Dauntless Dismantler, Barad-dûr).
+> · Witness: `activatedXCostNonMana.test.js` (22). No graduations — every existing test passes unchanged.
 
 > ## 🔧 2026-10-17 — FIX (false positive): every consumed mana cost is paid once — "Exile a card from your graveyard" (Molt Tender, Rubble Rouser) takes a DISTINCT, still-present card per activation and "Pay N life" (31 bundled lines) can't together outspend the life total (CR 119.4) nor be paid under a life lock (CR 119.8), in the plan, canAfford and the commit, each paid before the mana is added; the card cast or activated from the graveyard is no Molt Tender fodder (CR 601.2a); an offer is dropped when its payment would refuse it (Anaba Shaman fed to its own Altar), and Purple Pentapus's tapped creature no longer taps for mana too · **±0** · snapshot native 15,518 unchanged
 > Suite **20,671 green (1 skipped) / 1,874 files** under the gate queue (with the rules index built locally for the run, then deleted). Lint 0
