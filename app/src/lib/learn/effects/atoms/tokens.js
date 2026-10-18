@@ -1072,7 +1072,11 @@ function createTokenClauseParserCore(clause) {
   // blue Squid creature tokens with islandwalk, where X is the number of +1/+1 counters on this creature"): the fixed-count arm
   // below always read "with <keywords>"; the counted arms did not. The rider goes through the same reader (countedKeywordRider →
   // parseTokenKeywords: keywords the engine enforces, nothing else), so an unread rider still leaves the clause unread.
-  const mxw = t.match(/^create x (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?(?: with ([a-z ,]+?))?,? where x is (?:equal to )?(.+)$/);
+  // + TAPPED (play-weighted #1857's twin — Nested Shambler: "create X tapped 1/1 green Squirrel creature tokens, where X is this
+  // creature's power"): the fixed-count arm's "tapped" adjective (atom.tapped, honoured at the one mint chokepoint), peeled before
+  // the match so every index below reads as it did.
+  const mxwTapped = /^create x tapped /.test(t);
+  const mxw = (mxwTapped ? t.replace(/^create x tapped /, "create x ") : t).match(/^create x (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?(?: with ([a-z ,]+?))?,? where x is (?:equal to )?(.+)$/);
   if (mxw) {
     const toughness = parseInt(mxw[2], 10);
     if (toughness < 1) return null;
@@ -1081,7 +1085,7 @@ function createTokenClauseParserCore(clause) {
     const rider = countedKeywordRider(mxw[4]);
     if (!rider) return null;
     const countFor = parseCountSource(mxw[5].replace(/^the (?:total )?number of /, ""));
-    return countFor ? { op: "create-token", power: parseInt(mxw[1], 10), toughness, descriptor: mxw[3].trim(), countFor, targetType: null, ...rider.fields } : null;
+    return countFor ? { op: "create-token", power: parseInt(mxw[1], 10), toughness, descriptor: mxw[3].trim(), countFor, ...(mxwTapped ? { tapped: true } : {}), targetType: null, ...rider.fields } : null;
   }
   // ===== TAPPED-AND-ATTACKING FOR-EACH (Otharri, Suns' Glory — SHELF-TAIL O1, CR 508.1c) ===== "create a
   // <P>/<T> <desc> creature token that's tapped and attacking for each <count source>". The mobilize
@@ -1168,9 +1172,13 @@ function createTokenClauseParserCore(clause) {
   // (so the "with …" keyword list stays exactly what it was); `that are tapped and attacking` also taps. Combat state,
   // not a characteristic — applyCreateToken registers the minted tokens as attackers against ctx.defenderId (the
   // Otharri / mobilize convention); outside an attack context the flag is inert and the tokens simply enter.
+  // + the SINGULAR "that's tapped and attacking" (play-weighted #1976's twins — Skyknight Vanguard, Mardu Ascendancy, Suki, Captain's
+  // Claws: "create a 1/1 white Soldier creature token that's tapped and attacking"). Same rider, one token. A named defender ("…
+  // attacking that player") does not end the clause here and is never read by this arm. The defender is the attack trigger's
+  // (triggerRouting.combatDamageReferentSatisfied keeps the disposition to the attack events that supply ctx.defenderId).
   let attackingRider = null;
   {
-    const ar = t.match(/^(create .+?)( that are (tapped and )?attacking)$/);
+    const ar = t.match(/^(create .+?)( (?:that are|that's) (tapped and )?attacking)$/);
     if (ar) { attackingRider = { tapped: !!ar[3] }; t = ar[1]; }
   }
   // VEHICLE TOKEN (shelf D32 — Mu Yanling, Wind Rider; Chandra, Spark Hunter; Wish Good Luck; Spaghetti Junction: "create a 3/2

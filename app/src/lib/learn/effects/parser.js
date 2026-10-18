@@ -2341,6 +2341,8 @@ function rewriteEachPlayerLoot(oracle) {
   return `Each player draws ${m[1]} card${m[1] === "a" || m[1] === "an" || m[1] === "one" || m[1] === "1" ? "" : "s"}. Each player discards ${m[2]} card${m[2] === "a" || m[2] === "an" || m[2] === "one" || m[2] === "1" ? "" : "s"}.`;
 }
 
+// The card types "If it was a <type> card" names (runProgram.exiledCardIsType reads each; "permanent" is CR 110.4a's six).
+const EXILED_CARD_TYPES = new Set(["creature", "artifact", "enchantment", "land", "planeswalker", "instant", "sorcery", "permanent"]);
 function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScoped = false } = {}) {
   if (!oracle) return null;
   oracle = rewriteEachPlayerLoot(oracle);
@@ -2359,6 +2361,30 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // KWSTRIP-1 — drop a vacuous cast-keyword line (foretell / suspend / splice onto arcane / recover /
   // harmonize / basic landcycling) so the spell's BODY parses; the normal-cast resolution is identical.
   oracle = stripCastKeywordLines(oracle);
+  // ===== THE EXILED CARD'S TYPE DECIDES A PAYOFF (play-weighted #1607 — Scavenging Ooze: "Exile target card from a graveyard. If it
+  // was a creature card, put a +1/+1 counter on this creature and you gain 1 life."; Diregraf Scavenger, Raven Eagle: "exile up to one
+  // target card from a graveyard. If a creature card was / is exiled this way, …") ===== Collapsed here so the splitter never strands
+  // the payoff: split, "If it was a creature card, put a +1/+1 counter on this creature" and "you gain 1 life" would each read alone —
+  // the life unconditional. The exile is the plain graveyard-exile atom (never an optional one: a "you may" pauses before the payoff,
+  // and the gate reads what the exile just did); every payoff atom carries `ifExiledCardType` and runEffectProgram runs it only when
+  // that exile moved a card of the type (CR 608.2c, in the written order; a card in exile has its front face's characteristics,
+  // CR 712.8a). The payoff must parse HIGH on its own with no chosen target, no "you may", no pause and no other condition. Anything
+  // else that matches the shape is LOW (Lion Sash's "on this permanent" payoff), never a split with a free payoff.
+  {
+    const eg = oracle.match(/^(exile (?:up to one )?target card from a graveyard)\.\s*if (?:it was an? ([a-z]+) card|an? ([a-z]+) card (?:is|was) exiled this way),\s*(.+?)\.?\s*$/i);
+    if (eg) {
+      const type = String(eg[2] || eg[3]).toLowerCase();
+      const base = parseEffectClauseImpl(eg[1], cardType, { hasX, sourceScoped });
+      const pay = parseEffectClauseImpl(eg[4].trim(), cardType, { hasX, sourceScoped });
+      const exileAtom = base && base.atoms.length === 1 && base.atoms[0].op === "exile-from-graveyard" && !base.atoms[0].optional ? base.atoms[0] : null;
+      const payOk = !!pay && programConfidence(pay) === "high" && pay.structure !== "modal" && pay.atoms.length > 0
+        && pay.atoms.every((a) => (!a.targetType || isNonChosenTargetType(a.targetType)) && !a.optional && !PAUSING_ATOM_OPS.has(a.op) && !a.condition && !a.ifExiledCardType);
+      if (EXILED_CARD_TYPES.has(type) && exileAtom && payOk) {
+        return makeProgram({ confidence: "high", atoms: [exileAtom, ...pay.atoms.map((a) => ({ ...a, ifExiledCardType: type }))], unparsedTail: null });
+      }
+      return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
+    }
+  }
   // ===== "EACH OPPONENT ATTACKING THAT PLAYER DOES THE SAME" (Curse of Opulence, play-weighted #699; Curse of Verbosity, Curse of
   // Disturbance, Curse of Vitality) ===== "<effect>. Each opponent attacking that player does the same." — ONE atom
   // (you-and-attacking-opponents): the ability's controller performs <effect>, then each of the controller's opponents who

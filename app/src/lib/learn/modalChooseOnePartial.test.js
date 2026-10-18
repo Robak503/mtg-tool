@@ -1,8 +1,12 @@
 /**
  * MODAL CHOOSE-ONE PARTIAL RESOLVABILITY (BLITZ ML-1, CR 700.2 / 700.2b) — a single-pick "Choose one —"
  * TRIGGER whose every mode's EFFECT is modeled (parser HIGH modal) but ONE mode targets something the α1
- * flush chooser can't place on a provably-correct side (an "ambiguous" atom — here "exile target card from
- * A graveyard", which spans every player's graveyard). The prior gate demanded EVERY mode be resolvable
+ * flush chooser can't place on a provably-correct side (an "ambiguous" atom — here "put target card from a
+ * graveyard on the bottom of its owner's library", which spans every player's graveyard; RE-POINTED 2026-10-18: the
+ * mechanism's original example, "exile target card from a graveyard", reads "enemy" since the play-weighted #1356 slice —
+ * the CR 603.3d forced-target pick covers its own-graveyard case — so the synthetic modes here carry Vessel of Endless
+ * Rest's still-ambiguous instruction instead; Dawnbringer Cleric and Cleanup Crew keep their printed text and stay native).
+ * The prior gate demanded EVERY mode be resolvable
  * (programTriggerTargetsResolvable), so such a card parked on the Arbiter (body-only). CR 700.2b: the
  * controller chooses the mode as the ability goes on the stack and an illegal / un-choosable mode simply
  * isn't chosen — so for CHOOSE-ONE the AI declines the ambiguous mode and picks a fully-resolvable one, and
@@ -71,18 +75,18 @@ describe("coverage — a choose-one with ONE ambiguous mode routes when the rest
   });
 
   it("modalChooseOneRoutable is TRUE for a choose-one with ≥1 resolvable mode, FALSE when EVERY mode is ambiguous", () => {
-    const partial = parseEffectClause("choose one —\n• You gain 2 life.\n• Exile target card from a graveyard.", "Instant");
+    const partial = parseEffectClause("choose one —\n• You gain 2 life.\n• Put target card from a graveyard on the bottom of its owner's library.", "Instant");
     expect(partial.structure).toBe("modal");
     expect(modalChooseOneRoutable(partial)).toBe(true);
-    // every mode ambiguous (both exile-from-ANY-graveyard) → no safe fallback → NOT routable
-    const allAmbiguous = parseEffectClause("choose one —\n• Exile target card from a graveyard.\n• Exile target card from a graveyard.", "Instant");
+    // every mode ambiguous (both put-on-bottom from ANY graveyard) → no safe fallback → NOT routable
+    const allAmbiguous = parseEffectClause("choose one —\n• Put target card from a graveyard on the bottom of its owner's library.\n• Put target card from a graveyard on the bottom of its owner's library.", "Instant");
     expect(allAmbiguous.structure).toBe("modal");
     expect(modalChooseOneRoutable(allAmbiguous)).toBe(false);
   });
 
   it("triggerRoutesNatively mirrors: the partial-resolvable choose-one routes; a whole-mode-ambiguous one does not", () => {
-    const routable = detectTriggers(C("Creature — Bear", "When this creature enters, choose one —\n• You gain 2 life.\n• Exile target card from a graveyard."))[0];
-    const notRoutable = detectTriggers(C("Creature — Bear", "When this creature enters, choose one —\n• Exile target card from a graveyard.\n• Return target creature card from a graveyard to the battlefield."))[0];
+    const routable = detectTriggers(C("Creature — Bear", "When this creature enters, choose one —\n• You gain 2 life.\n• Put target card from a graveyard on the bottom of its owner's library."))[0];
+    const notRoutable = detectTriggers(C("Creature — Bear", "When this creature enters, choose one —\n• Put target card from a graveyard on the bottom of its owner's library.\n• Return target creature card from a graveyard to the battlefield."))[0];
     expect(triggerRoutesNatively(routable)).toBe(true);
     expect(triggerRoutesNatively(notRoutable)).toBe(false);
   });
@@ -90,7 +94,7 @@ describe("coverage — a choose-one with ONE ambiguous mode routes when the rest
 
 // ─── 2 + 3. runtime — the ambiguous mode is never chosen; only the chosen mode resolves ──
 describe("flush — the ambiguous graveyard mode is NEVER chosen; a resolvable mode resolves", () => {
-  const CLAUSE = "choose one —\n• You gain 2 life.\n• Exile target card from a graveyard.";
+  const CLAUSE = "choose one —\n• You gain 2 life.\n• Put target card from a graveyard on the bottom of its owner's library.";
 
   it("routes via EFFECT_PROGRAM carrying a RESOLVABLE mode (gain life, index 0), not the ambiguous one", () => {
     // A card sits in each graveyard so the ambiguous mode HAS legal targets — the chooser must still avoid it.
@@ -100,7 +104,7 @@ describe("flush — the ambiguous graveyard mode is NEVER chosen; a resolvable m
     s = { ...s, pendingTriggers: [modalTrigger(CLAUSE)] };
     const trig = flush(s).stack.find((o) => o.kind === "triggered-ability");
     expect(trig.payload.resolver).toBe("effect-program");
-    expect(trig.payload.params.chosenMode).toBe(0); // the resolvable gain-life mode, never mode 1 (exile-from-any-gy)
+    expect(trig.payload.params.chosenMode).toBe(0); // the resolvable gain-life mode, never mode 1 (the any-graveyard bottom-of-library mode)
   });
 
   it("CREED — the chosen gain-life mode resolves; the graveyard exile mode does NOT fire (no card leaves any graveyard)", () => {
@@ -121,7 +125,7 @@ describe("flush — the ambiguous graveyard mode is NEVER chosen; a resolvable m
     const myEnch = createPermanent({ id: "my-ench", card: { id: "c-e2", name: "MyEnch", type: "Enchantment" }, controller: "user" });
     s = { ...s, players: { ...s.players, ai: { ...s.players.ai, battlefield: [oppEnch] }, user: { ...s.players.user, battlefield: [myEnch] } } };
     s = withGraveyard(s, [{ id: "a-gy", name: "AiGY" }], "ai");
-    s = { ...s, pendingTriggers: [modalTrigger("choose one —\n• Destroy target enchantment.\n• Exile target card from a graveyard.")] };
+    s = { ...s, pendingTriggers: [modalTrigger("choose one —\n• Destroy target enchantment.\n• Put target card from a graveyard on the bottom of its owner's library.")] };
     const after = resolveTopOfStack(flush(s));
     expect(after.players.ai.battlefield.some((p) => p.id === "opp-ench")).toBe(false); // opponent's enchantment destroyed
     expect(after.players.user.battlefield.some((p) => p.id === "my-ench")).toBe(true);  // OWN enchantment untouched
@@ -135,7 +139,7 @@ describe("serialize — the flushed choose-one modal stack survives a JSON round
     const build = () => {
       let s = stateWith();
       s = withGraveyard(s, [{ id: "a-gy", name: "AiGY" }], "ai");
-      s = { ...s, pendingTriggers: [modalTrigger("choose one —\n• You gain 2 life.\n• Exile target card from a graveyard.")] };
+      s = { ...s, pendingTriggers: [modalTrigger("choose one —\n• You gain 2 life.\n• Put target card from a graveyard on the bottom of its owner's library.")] };
       return flush(s);
     };
     const live = resolveTopOfStack(build());
@@ -150,15 +154,15 @@ describe("serialize — the flushed choose-one modal stack survives a JSON round
 describe("CREED false-negative guards", () => {
   it("a choose-one whose EVERY mode is ambiguous stays body-only (no safe mode to fall back to)", () => {
     expect(classifyCard(C("Creature — Bear",
-      "When this creature enters, choose one —\n• Exile target card from a graveyard.\n• Return target creature card from a graveyard to the battlefield."))).toBe("body-only");
+      "When this creature enters, choose one —\n• Put target card from a graveyard on the bottom of its owner's library.\n• Return target creature card from a graveyard to the battlefield."))).toBe("body-only");
   });
 
   it("choose-TWO with one ambiguous mode stays parked — the single-pick relaxation does not apply", () => {
-    const two = parseEffectClause("choose two —\n• You gain 2 life.\n• Draw a card.\n• Exile target card from a graveyard.", "Instant");
+    const two = parseEffectClause("choose two —\n• You gain 2 life.\n• Draw a card.\n• Put target card from a graveyard on the bottom of its owner's library.", "Instant");
     expect(two.structure).toBe("modal");
     expect(modalChooseOneRoutable(two)).toBe(false);
     expect(classifyCard(C("Creature — Bear",
-      "When this creature enters, choose two —\n• You gain 2 life.\n• Draw a card.\n• Exile target card from a graveyard."))).toBe("body-only");
+      "When this creature enters, choose two —\n• You gain 2 life.\n• Draw a card.\n• Put target card from a graveyard on the bottom of its owner's library."))).toBe("body-only");
   });
 
   it("a fully-resolvable choose-one is unaffected (still native via the every-mode gate)", () => {

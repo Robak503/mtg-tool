@@ -65,6 +65,18 @@ const DEFENDING_PLAYER_EVENTS = new Set(["attacks", "becomesBlocked", "attacksAl
  * Shared by the trigger gate below AND coverage's two spell-path referent loops, so the
  * metric and the runtime read the same atom set.
  */
+/**
+ * Does this atom — or an atom it carries (an optional payment's payoff, a conditional's branches, a "does the same" inner) — create
+ * tokens put onto the battlefield attacking with no player named (Hero of Bladehold; Carefree Swinemaster's "you may pay {1}{G}. If
+ * you do, create … that's tapped and attacking")? Such tokens attack the attack trigger's defender (CR 508.4) and need one; the
+ * per-opponent form names each token's player. Read by the trigger gate below and coverage's spell gate.
+ */
+export function atomPutsTokensOntoBattlefieldAttacking(a) {
+  if (!a || typeof a !== "object") return false;
+  if (a.op === "create-token" && a.entersAttacking && !a.perOpponent) return true;
+  return [...(a.effectAtoms || []), ...(a.ifTrue || []), ...(a.ifFalse || []), ...(a.inner ? [a.inner] : [])].some(atomPutsTokensOntoBattlefieldAttacking);
+}
+
 export function programCombatReferentAtoms(program) {
   if (program?.structure === "modal") return (program.modal?.modes || []).flatMap((m) => m.atoms || []);
   return program?.atoms || [];
@@ -82,6 +94,12 @@ export function combatDamageReferentSatisfied(program, event) {
     if (a?.who === "damagedPlayer" && !DAMAGED_PLAYER_EVENTS.has(event)) return false;
     if (a?.countContext === "combatDamageAmount" && !COMBAT_DAMAGE_AMOUNT_EVENTS.has(event)) return false;
     if (a?.who === "defendingPlayer" && !DEFENDING_PLAYER_EVENTS.has(event)) return false;
+    // TOKENS PUT ONTO THE BATTLEFIELD ATTACKING (CR 508.4 — play-weighted #1976, Hero of Bladehold): with no player named, the
+    // tokens join combat against the attack trigger's defender (ctx.defenderId — applyCreateToken registers them in
+    // state.combat.attackers only when it is set). Only the attack events supply it; anywhere else ("whenever you attack" — Gut,
+    // True Soul Zealot) the tokens would enter tapped and never attack: a dropped half credited native. The per-opponent form
+    // names each token's own player and needs no defender (Endless Foot Assault, Adeline).
+    if (atomPutsTokensOntoBattlefieldAttacking(a) && !DEFENDING_PLAYER_EVENTS.has(event)) return false;
     // ⛔⛔ THE REFERENT CAN ALSO RIDE A **RESTRICTION**, NOT ONLY `atom.who` (DP-TGT, 2026-08-05). A
     // "target creature DEFENDING PLAYER CONTROLS" atom carries the referent as
     // `restrictions:[{kind:"controller",who:"defendingPlayer"}]` while its own `who` is undefined — so the

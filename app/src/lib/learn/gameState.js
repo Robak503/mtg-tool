@@ -1435,31 +1435,54 @@ const ABILITY_SOURCE_DAMAGE_RE = /"op":"(?:deal-damage|cdmg-mass-to-damaged-play
 export function programHasItsSourceDealDamage(program) {
   return program != null && ABILITY_SOURCE_DAMAGE_RE.test(JSON.stringify(program));
 }
-/** The permanent `permanentId` as a damage source, read off `state` (null when it is not on the battlefield). */
+/**
+ * THE SOURCE'S OWN POWER (play-weighted #1856 — Threefold Thunderhulk's and Krenko, Tin Street Kingpin's bundled rulings: if the
+ * creature leaves the battlefield while its ability is on the stack, the count uses its power as it last existed there, CR 608.2h).
+ * A program reads it through the sourcePower count (countForSpec — "create a number of … tokens equal to this creature's power",
+ * "… where X is this creature's power", a sourcePower damage amount). Such an ability gets the record too, with `power`, and the
+ * reader (effects/atoms/shared.countForSpec) answers from it for that id only. A trigger still waiting to be put on the stack is
+ * recognized by the phrase its effect clause carries (detectTriggers writes "this creature's power" for exactly this count).
+ */
+const ABILITY_SOURCE_POWER_RE = /"kind":"sourcePower"/;
+export function programReadsSourcePower(program) {
+  return program != null && ABILITY_SOURCE_POWER_RE.test(JSON.stringify(program));
+}
+const SOURCE_POWER_CLAUSE_RE = /\bthis (?:creature|permanent)['’]s power\b/i;
+/** The permanent `permanentId` as a damage source, read off `state` (null when it is not on the battlefield). + its power (a creature's,
+ * layer-aware; 0 for a noncreature — CR 208.3), for an ability that counts its source's power. */
 export function abilitySourceRecord(state, permanentId) {
   const lk = findPermanent(state, permanentId);
   if (!lk) return null;
+  const isCreature = permanentIsCreature(state, permanentId);
   return {
     permanentId,
     controller: lk.controller,
-    isCreature: permanentIsCreature(state, permanentId),
+    isCreature,
     colors: [...permanentColors(state, permanentId)],
     types: [...permanentTypes(state, permanentId).types],
     keywords: damageResultKeywords(state, permanentId),
+    power: isCreature ? creaturePower(lk.permanent, state) : 0,
   };
 }
 function stampAbilitySourceLki(state, permanentId) {
   const stack = state.stack || [];
+  const pendingTriggers = state.pendingTriggers || [];
   const wants = (o) => {
     const params = o?.payload?.params;
-    return params?.sourceId === permanentId && !params.context?.abilitySourceLki && programHasItsSourceDealDamage(params.program);
+    return params?.sourceId === permanentId && !params.context?.abilitySourceLki
+      && (programHasItsSourceDealDamage(params.program) || programReadsSourcePower(params.program));
   };
-  if (!stack.some(wants)) return state;
+  const pendingWants = (t) => t?.source?.permanentId === permanentId && !t.context?.abilitySourceLki
+    && SOURCE_POWER_CLAUSE_RE.test(String(t.descriptor?.effectClause || ""));
+  const stackHit = stack.some(wants);
+  const pendingHit = pendingTriggers.some(pendingWants);
+  if (!stackHit && !pendingHit) return state;
   const abilitySourceLki = abilitySourceRecord(state, permanentId);
   if (!abilitySourceLki) return state;
   return {
     ...state,
-    stack: stack.map((o) => (wants(o) ? { ...o, payload: { ...o.payload, params: { ...o.payload.params, context: { ...(o.payload.params.context || {}), abilitySourceLki } } } } : o)),
+    ...(stackHit ? { stack: stack.map((o) => (wants(o) ? { ...o, payload: { ...o.payload, params: { ...o.payload.params, context: { ...(o.payload.params.context || {}), abilitySourceLki } } } } : o)) } : {}),
+    ...(pendingHit ? { pendingTriggers: pendingTriggers.map((t) => (pendingWants(t) ? { ...t, context: { ...(t.context || {}), abilitySourceLki } } : t)) } : {}),
   };
 }
 

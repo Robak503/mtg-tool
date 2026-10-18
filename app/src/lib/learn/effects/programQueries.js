@@ -379,6 +379,13 @@ export function atomTargetIntent(atom) {
       // rationale — optional ("up to"), so the chooser is never forced onto its own graveyard, and the single-graveyard subset
       // constraint (targeting.expandAtoms) keeps every pick inside one opponent's graveyard.
       if (atom.anyGraveyard && atom.minTargets === 0 && (atom.maxTargets === 1 || atom.singleGraveyard)) return "enemy";
+      // + THE MANDATORY SINGLE FORM (play-weighted #1356 — Soul-Guide Lantern "When this artifact enters, exile target card from a
+      // graveyard."; Stonecloaker, Offalsnout, Ashnod's Harvester): parked as "it could be forced onto its own side" — and since the
+      // forced-target pick (gameEngine.pickForcedTriggerCandidate, 2026-10-16) that is exactly the rule: a mandatory triggered
+      // ability takes a legal target if there is one (CR 603.3d), and with only its controller's graveyard stocked the pick is the
+      // least valuable card there. With an opponent's card available the hate goes there, on the rationale above. No target at all
+      // (every graveyard empty) and the ability is removed from the stack. A multi-target mandatory form stays ambiguous below.
+      if (atom.anyGraveyard && atom.minTargets == null && (atom.maxTargets == null || atom.maxTargets === 1)) return "enemy";
       return (atom.opponentGraveyard || atom.damagedPlayerGraveyard) ? "enemy" : atom.anyGraveyard ? "ambiguous" : "own";
     case "self-attach":
       // ETB-EQUIP-ATTACH — the Equipment attaches to "target creature YOU CONTROL", so the trigger-flush

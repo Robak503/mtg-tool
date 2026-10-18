@@ -985,7 +985,11 @@ export function splitClauses(oracle) {
     // parser arm re-gates it); any variant splits normally, byte-identical. Same non-fail-safe class as
     // the blink guard above: the severed "…token that's tapped" half parses HIGH alone, describing a
     // token that enters tapped but never attacks — a silent drop of the whole combat-cheat.
-    if (/creature tokens? that's tapped and attacking\b/i.test(sentence)) {
+    // + the PLURAL disposition (play-weighted #1976 — Hero of Bladehold "create two 1/1 white Soldier creature tokens that are
+    // tapped and attacking"; Hanweir Garrison): with no "with …" keyword list in front of it the same internal " and " split it into
+    // "…tokens that are tapped" + an orphan "attacking". Leonin Warleader's "…with lifelink that are tapped and attacking" was kept
+    // whole only by accident of its keyword list.
+    if (/creature tokens? (?:that's|that are) tapped and attacking\b/i.test(sentence)) {
       clauses.push(sentence);
       continue;
     }

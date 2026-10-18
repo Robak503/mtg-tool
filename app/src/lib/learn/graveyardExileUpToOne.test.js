@@ -9,7 +9,7 @@
  * target intent, so the trigger flush could not promise a side and routed it to the Arbiter. The up-to-one form IS
  * side-provable, on the Endurance rationale already in atomTargetIntent: graveyard hate aimed at an OPPONENT never harms
  * the controller, and "up to one" hands the chooser the empty pick when no opponent's graveyard holds a card — so it is
- * never forced onto its own graveyard. The mandatory form stays ambiguous (pinned).
+ * never forced onto its own graveyard. The mandatory form stayed ambiguous until 2026-10-18 (graduated — graveyardCardExile.test.js).
  *
  * The expansion was machinery: this op already carries the up-to-N subset marker ("up to three … from a single
  * graveyard", "up to two … from that player's graveyard"), and targeting.expandAtoms offers [t] or [].
@@ -81,7 +81,7 @@ function entersAndResolves(card, board) {
 }
 const gyExileLog = (s) => (s.log || []).filter((e) => e.effect === "exile-from-graveyard");
 
-describe("classification — the up-to-one form is native, the mandatory form stays with the Arbiter", () => {
+describe("classification — the up-to-one form and (since 2026-10-18) the mandatory form are native", () => {
   it("Soul-Guide Gryff, Ambush Wolf → native-trigger; Crossroads Candleguide → native-mana; Mechanical Mobster → native-trigger", () => {
     expect(classifyCard(GRYFF)).toBe("native-trigger");
     expect(classifyCard(AMBUSH_WOLF)).toBe("native-trigger");
@@ -89,21 +89,24 @@ describe("classification — the up-to-one form is native, the mandatory form st
     expect(classifyCard(MOBSTER)).toBe("native-trigger");
   });
 
-  it("⛔ Diregraf Scavenger still parks on its 'if a creature card was exiled this way' drain", () => {
-    expect(classifyCard(DIREGRAF)).toBe("body-only");
+  // GRADUATED (play-weighted #1356 / #1607, 2026-10-18 — graveyardCardExile.test.js runs both): Diregraf Scavenger's "If a creature
+  // card was exiled this way, …" is read (the payoff atoms gated on the exiled card's type), and the MANDATORY form's intent is enemy
+  // — the CR 603.3d forced-target pick takes the controller's least valuable card when only its own graveyard is stocked.
+  it("Diregraf Scavenger is native now (its 'if a creature card was exiled this way' drain is read)", () => {
+    expect(classifyCard(DIREGRAF)).toBe("native-trigger");
   });
 
-  it("⛔ the MANDATORY 'exile target card from a graveyard' ETB stays with the Arbiter (it could be forced onto its own side)", () => {
+  it("the MANDATORY 'exile target card from a graveyard' ETB is native now (a forced target is the rule, CR 603.3d)", () => {
     const mandatory = { name: "Mandatory Probe", type: "Creature — Spirit", power: 1, toughness: 1,
       oracle: "When this creature enters, exile target card from a graveyard." };
-    expect(classifyCard(mandatory)).toBe("body-only");
+    expect(classifyCard(mandatory)).toBe("native-trigger");
   });
 
-  it("the parse and the intent: up to one → enemy; the mandatory form → ambiguous", () => {
+  it("the parse and the intent: up to one → enemy; the mandatory form → enemy", () => {
     const upTo = parseEffectClause("exile up to one target card from a graveyard").atoms[0];
     expect(upTo).toMatchObject({ op: "exile-from-graveyard", targetType: "graveyardCard", anyGraveyard: true, minTargets: 0, maxTargets: 1 });
     expect(atomTargetIntent(upTo)).toBe("enemy");
-    expect(atomTargetIntent(parseEffectClause("exile target card from a graveyard").atoms[0])).toBe("ambiguous");
+    expect(atomTargetIntent(parseEffectClause("exile target card from a graveyard").atoms[0])).toBe("enemy");
   });
 });
 

@@ -366,6 +366,20 @@ layers) or an artifact (its layered card types on the battlefield, else its type
 without the exclusion. "another nontoken creature dies" with no controller is `eachOtherCreature` + `nontokenFilter` — the
 pre-switch token gate composes with any scope, and the batch look-back fires it for a creature dying beside the source.
 
+**Tokens put onto the battlefield attacking, the nontoken attacker, another <Subtype> dying, the source's own power (2026-10-18 —
+Hero of Bladehold, Mardu Ascendancy, Diregraf Captain, Elenda, the Dusk Rose, Threefold Thunderhulk).** "create two … tokens that
+are tapped and attacking" (no keyword list) is kept whole by splitClauses (it used to split at the internal " and "), and the
+singular "… token that's tapped and attacking" is the fixed-count arm's attacking rider; the minted tokens join combat against
+the trigger's defender (`ctx.defenderId`). Only the attack events supply that defender, so `triggerRouting.
+atomPutsTokensOntoBattlefieldAttacking` — the atom or one it carries (an optional payment's payoff, a conditional branch) —
+refuses the disposition on any other event ("whenever you attack" — Gut, Undercellar Sweep) and on a spell (coverage's spell
+gate); the per-opponent form names its own players and is exempt. Such tokens were never declared attackers (CR 508.4): no attack
+trigger fires for them. "a nontoken creature you control attacks" is `creatureYouControl` + `nontokenFilter`. "another <Subtype>
+you control dies" is the enters scope `otherSubtypeYouControl` on the dies event (a changeling counts; the watcher's own death
+doesn't). On a SELF dies / enters / attack trigger, a token count of "its power" or "<own name>'s power" (the X-where and "a
+number of … equal to" grammars only) is rewritten to "this creature's power" — the sourcePower count (`rewriteSelfPowerTokenCount`;
+a non-self "its", Murder Investigation's enchanted creature, is never rewritten).
+
 #### 4.4b Trigger classes beyond the event trigger (added 2026-07-25)
 
 Three kinds of trigger do NOT fire off a discrete event, and each has its own lane:
@@ -447,6 +461,22 @@ A new outcome kind needs its parse, its resolver arm, its `punisherTakeable` ans
 plain fixed-count reading (keywords only), and `applyCreateTokensTogether` mints them all (each kind through `mintTokenKind`, the
 placement `applyCreateToken` shares; the doubler per kind) before ONE `fireTokenEnterTriggers` — so a "those tokens plus …"
 replacement adds once.
+
+**The source's power when the source has left** (2026-10-18, CR 608.2h — Threefold Thunderhulk's and Krenko, Tin Street
+Kingpin's bundled rulings). The sourcePower count (`countForSpec`) reads, in order: the live permanent; the sacrifice-cost stamp
+(`state.sacrificedSelfLki`); a self dies trigger's death look-back (`ctx.dyingPower`); and now the ability's own record
+(`ctx.abilitySourceLki.power`), which `gameState.stampAbilitySourceLki` writes as the permanent leaves onto every ability on the
+stack whose program reads sourcePower (`programReadsSourcePower`) and onto every trigger still waiting whose effect clause names
+"this creature's power". Before, a source removed in response counted 0 (Krenko made no Goblins).
+
+**"If it was a <type> card" after a graveyard exile** (2026-10-18 — Scavenging Ooze, Diregraf Scavenger, Raven Eagle, Ignis
+Scientia). parseEffectClauseImpl collapses "exile [up to one] target card from a graveyard. If it was a <type> card, <payoff>" /
+"If a <type> card is (was) exiled this way, <payoff>" into the exile atom plus payoff atoms carrying `ifExiledCardType` (the
+types in `EXILED_CARD_TYPES`; "permanent" is CR 110.4a's six). runEffectProgram records the cards that exile moved (its own log
+line) and runs a gated atom only when one of them, read in its owner's exile zone (front face, CR 712.8a), has the type. The
+payoff must be non-targeting, non-optional and non-pausing and the exile non-optional, so the gate never crosses a resume. The
+mandatory "exile target card from a graveyard" trigger's target intent is now "enemy" (programQueries): the forced-target pick
+covers the case with only its controller's graveyard stocked (CR 603.3d — the least valuable card there).
 
 **A creature type added by the effect that returns it** (2026-10-17 — Portal to Phyrexia: "… onto the battlefield under your
 control. It's a Phyrexian in addition to its other types."). splitClauses folds the second sentence into a sentinel tail

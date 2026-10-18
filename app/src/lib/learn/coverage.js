@@ -45,7 +45,7 @@ import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loy
 import { castsAsPlaneswalker, isPlaneswalker, shufflesIntoLibraryInsteadOfGraveyard } from "./gameState.js";
 // triggerRoutesNatively (+ the group-triggered-grant validator) extracted to triggerRouting.js — its
 // transitive deps (parseEffectClause / program* / winConditionParseable / interveningIfParseable) live there.
-import { triggerRoutesNatively, isModeledGroupTriggeredBody, programCombatReferentAtoms } from "./triggerRouting.js";
+import { triggerRoutesNatively, isModeledGroupTriggeredBody, programCombatReferentAtoms, atomPutsTokensOntoBattlefieldAttacking } from "./triggerRouting.js";
 
 // ⛔⛔ A REFERENT CAN RIDE A **RESTRICTION**, NOT ONLY `atom.who` — and the spell fence below had the same
 // blind spot triggerRouting's trigger gate did (found 2026-08-05, fixed there; found HERE 2026-08-06 by
@@ -63,6 +63,7 @@ function atomCarriesEventReferent(a) {
   if (a?.op === "draw-or-counters-by-triggering-power") return true; // "if its power is 3 or greater" (Tribute to the World Tree) — only an enters watcher names the creature
   if (a?.op === "you-and-attacking-opponents") return true; // "each opponent attacking that player does the same" (Curse of Opulence) — only the enchanted-player-attacked trigger names the player
   if (a?.countContext === "dealtDamageAmount") return true; // "that much" (Brash Taunter) — only the dealt-damage trigger carries the amount
+  if (atomPutsTokensOntoBattlefieldAttacking(a)) return true; // "…tapped and attacking" with no player named (Hero of Bladehold), also inside a payment or a branch — only an attack trigger supplies the defender (CR 508.4)
   if (a?.op === "punisher" && (a.optionalDecider === "triggeringPermanentController" || a.taken?.kind === "tapTriggering")) return true; // "they may tap that permanent" (Charismatic Conqueror) — only its enters watcher names the permanent and its controller
   return (a?.restrictions || []).some((r) => REFERENT_WHOS.has(r?.who));
 }

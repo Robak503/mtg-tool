@@ -897,6 +897,13 @@ export function countForSpec(state, ctx, spec) {
     if (!lk && spec.kind === "sourcePower" && refId && ctx?.triggeringPermanentId === refId && typeof ctx?.dyingPower === "number") {
       return Math.max(0, ctx.dyingPower);
     }
+    // THE SOURCE LEFT WHILE ITS ABILITY WAITED (play-weighted #1856 — Threefold Thunderhulk's and Krenko, Tin Street Kingpin's
+    // bundled rulings, CR 608.2h): the power it had as it last existed on the battlefield — the record gameState.stampAbilitySourceLki
+    // wrote onto this ability (on the stack, or still waiting to be put there) as the permanent left. Only for that permanent's id.
+    const ownLki = ctx?.abilitySourceLki;
+    if (!lk && spec.kind === "sourcePower" && refId && ownLki?.permanentId === refId && typeof ownLki.power === "number") {
+      return Math.max(0, ownLki.power);
+    }
     // A creature NOW (the type-line audit): a noncreature permanent has no power (CR 208.3) — a God below its devotion reads 0.
     if (!lk || !permanentIsCreature(state, lk.permanent.id)) return 0;
     return Math.max(0, stat.read(lk.permanent, state));

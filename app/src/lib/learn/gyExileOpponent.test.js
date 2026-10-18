@@ -23,8 +23,12 @@ describe("gy-exile from an opponent's graveyard — parse + intent", () => {
     expect(atom).toMatchObject({ op: "exile-from-graveyard", targetType: "graveyardCard", opponentGraveyard: true });
     expect(atomTargetIntent(atom)).toBe("enemy");
   });
-  it('CREED guard: "from a graveyard" (any) stays AMBIGUOUS → Arbiter (unchanged)', () => {
-    expect(atomTargetIntent(parseEffectClause("exile target card from a graveyard").atoms[0])).toBe("ambiguous");
+  // GRADUATED (play-weighted #1356, 2026-10-18 — graveyardCardExile.test.js): the mandatory "from a graveyard" form was ambiguous
+  // ("it could be forced onto its own side"); since the CR 603.3d forced-target pick that is the rule, and the intent is ENEMY with
+  // the forced pick as its fallback. A multi-target mandatory form ("two target cards") stays ambiguous.
+  it('"from a graveyard" (any, mandatory, one target) is ENEMY now; two mandatory targets stay AMBIGUOUS', () => {
+    expect(atomTargetIntent(parseEffectClause("exile target card from a graveyard").atoms[0])).toBe("enemy");
+    expect(atomTargetIntent({ op: "exile-from-graveyard", targetType: "graveyardCard", anyGraveyard: true, cardFilter: "any", maxTargets: 2, minTargets: 2 })).toBe("ambiguous");
   });
   it("Disposal Mummy classifies native", () => {
     expect(classifyCard({ name: "Disposal Mummy", type: "Creature — Zombie Jackal", mana: "{2}{W}", oracle: "When this creature enters, exile target card from an opponent's graveyard." })).toBe("native-trigger");

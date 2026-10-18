@@ -54,6 +54,27 @@ import { addContinuousEffect } from "../layers.js"; // SAVAGE ORDER — the fetc
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
 import { punisherTakeable, punisherAutoTake } from "./atoms/punisher.js"; // the punisher (CR 118.12) — whether its decider can take it, and the default AI decision (a sibling atom module; runProgram already reaches atoms through effectAtoms)
 import { landSearchPickOrder } from "../fetchLand.js"; // a land search takes the colour the searcher needs (a leaf over abilities, the tutor filter and manaModel — none imports runProgram)
+import { characteristicTypeLine } from "../faceUp.js"; // the exiled card's type for "If it was a <type> card" (faceUp imports only splitCard, a leaf)
+
+// "PERMANENT CARD" (CR 110.4a): an artifact, battle, creature, enchantment, land or planeswalker card.
+const PERMANENT_CARD_TYPES_RE = /\b(?:Artifact|Battle|Creature|Enchantment|Land|Planeswalker)\b/;
+/**
+ * Did the graveyard exile just before move a card of `type` (a lowercase card type, or "permanent")? `ids` are the cards it moved
+ * (its log line); each is found in its owner's exile zone, where a card has its front face's characteristics (CR 712.8a). None
+ * moved (the target left — the ability didn't resolve, CR 608.2b — or "up to one" chose none) → false.
+ */
+function exiledCardIsType(state, ids, type) {
+  if (!ids?.length) return false;
+  const want = new Set(ids);
+  for (const p of Object.values(state.players || {})) {
+    for (const card of p.exile || []) {
+      if (!want.has(card.id)) continue;
+      const cardTypes = characteristicTypeLine(card).split(" — ")[0];
+      if (type === "permanent" ? PERMANENT_CARD_TYPES_RE.test(cardTypes) : new RegExp(`\\b${type}\\b`, "i").test(cardTypes)) return true;
+    }
+  }
+  return false;
+}
 
 /**
  * The targets that belong to the atom at `atomIndex`. P2.5 multi-clause / modal /
@@ -278,11 +299,17 @@ export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacri
   // (templateMatchers.matchSacThenReturnChosen, atoms/iteratedEdict.matchBraidsPunisher) put it right after the CONTROLLER's
   // own sacrifice, which is what makes "you" in "if you do" the sacrificer here; a new producer must keep that shape.
   let sacrificedByPrev = prevSacrificed === true;
+  // "IF IT WAS A <TYPE> CARD" (play-weighted #1607 — Scavenging Ooze; parser's exiled-card-type template): the cards the last
+  // graveyard exile of THIS run moved, read off its own log line. The template puts its payoff right after a non-optional exile
+  // with no pause between, so the gate never has to survive a resume; a run that never reached the exile has none, and a gated
+  // atom skips (a dropped payoff, never a fabricated one).
+  let exiledFromGraveyard = null;
   for (let i = startIndex; i < atoms.length; i++) {
     const atom = atoms[i];
     const prevDidSacrifice = sacrificedByPrev;
     sacrificedByPrev = false;
     if (atom.ifSacrificed && !prevDidSacrifice) continue;
+    if (atom.ifExiledCardType && !exiledCardIsType(next, exiledFromGraveyard, atom.ifExiledCardType)) continue;
     // A REFLEXIVE TRIGGER (CR 603.12 — parser.matchReflexiveTrigger's `reflexiveTrigger` atoms): the action happened (a gated one
     // passed the gate above), so the reflexive triggers now. Its run of atoms leaves this resolution as a pending triggered ability
     // of its own, put on the stack at the next flush with its targets chosen then, against the game after the action (CR 603.3d).
@@ -403,6 +430,9 @@ export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacri
       return markPendingArbiter(next, stackObject, `effect-program (no resolver for atom "${atom?.op}")`);
     }
     next = after;
+    if (atom.op === "exile-from-graveyard") {
+      exiledFromGraveyard = (next.log || []).slice(logLenBefore).filter((e) => e?.kind === "spell-effect" && e.effect === "exile-from-graveyard").flatMap((e) => e.targets || []);
+    }
     // + P·36: "If you do, A and B" — an ifSacrificed atom that ran keeps the gate open for the next one (Disciple of Freyalise).
     sacrificedByPrev = realSacrificeIn((next.log || []).slice(logLenBefore), controller) || (atom.ifSacrificed === true && prevDidSacrifice);
     // An atom set a resolution-time CHOICE (tutor search) — suspend the program and

@@ -1833,6 +1833,17 @@ function classifyCondition(condRaw, cardName, cardType) {
     }
     const scope = creatureSubjectScope(subjectBefore(c, "dies"));
     if (scope) return { event: "dies", scope, whose: "any" };
+    // ANOTHER <SUBTYPE> dies (play-weighted #2326 — Diregraf Captain: "Whenever another Zombie you control dies, target opponent loses
+    // 1 life."; Plague Belcher, Tegwyll, Duke of Splendor, Boggart Cursecrafter): the enters scope otherSubtypeYouControl on the dies
+    // event — the dead creature's controller is the watcher's controller, it carries the subtype (a changeling is every creature
+    // type), and it is not the watcher itself (the scope's id check). "another creature you control" is creatureSubjectScope's above;
+    // parseSubtypeList refuses a card-type or non-subtype word (null → undetected → Arbiter). The bundled rulings: dying beside
+    // another one, the watcher still triggers for it — checkDiesTriggers' batch look-back (CR 603.10a).
+    const anotherDiesSub = c.match(/^another ([a-z]{3,}(?:(?:,\s*[a-z]{3,})*,?\s*(?:or|and)\s+[a-z]{3,})?) you control dies$/);
+    if (anotherDiesSub) {
+      const filter = parseSubtypeList(anotherDiesSub[1]);
+      if (filter) return { event: "dies", scope: "otherSubtypeYouControl", whose: "any", subtypeFilter: filter };
+    }
     // SUBTYPE dies (tribal payoffs — Laid to Rest / Slimefoot / Crossway Troublemakers). Single-word
     // subtype filter reusing subtypeYouControl; checkDiesTriggers threads the dead creature as
     // triggeringPermanent. The with/while/during/named/or-another guards above already rejected the
@@ -2781,6 +2792,11 @@ function classifyCondition(condRaw, cardName, cardType) {
     // twin of Kodama's combat-damage predicate; the same requiresModified gate (scopeMatches → layers.isModifiedPermanent),
     // LISTED in the descriptor assembly. An unmodified attacker never fires it (pinned).
     if (/^a modified creature you control attacks$/.test(c)) return { event: "attacks", scope: "creatureYouControl", whose: "any", requiresModified: true };
+    // NONTOKEN attacker (play-weighted #1976's twins — Mardu Ascendancy, Militia's Pride: "Whenever a nontoken creature you control
+    // attacks, …"): the bare controlled scope with the pre-switch nontokenFilter gate (scopeMatches — the attacker is not a token,
+    // CR 111.1). A token declared as an attacker never fires it; a token put onto the battlefield attacking was never declared
+    // (CR 508.4) and fires no attack trigger at all.
+    if (/^a nontoken creature you control attacks$/.test(c)) return { event: "attacks", scope: "creatureYouControl", whose: "any", nontokenFilter: true };
     // ANY-CREATURE attacks (Caltrops — "Whenever a creature attacks, this artifact deals 1 damage to it.").
     // The watcher can sit on ANY battlefield (a defender's Caltrops fires on the attacker's declaration), so
     // the fire site adds a non-attacking-players scan gated to exactly this scope (the subtypeGlobal
@@ -4056,6 +4072,26 @@ const STAT_PAYOFF_REF_RE = /\bdeals? damage equal to that creature's (?:power|to
 // ===== "ITS POWER" LIFEGAIN ===== the SELF-referential sibling of STAT_PAYOFF_REF_RE above. Whole-clause
 // anchored: any rider leaves residue → no rewrite → body-only (a SAFE FN), exactly like the sentinels below.
 const ITS_POWER_LIFEGAIN_RE = /^you gain life equal to its power$/i;
+// ===== THE SOURCE'S OWN POWER AS A TOKEN COUNT (play-weighted #1267 / #1856 / #1857 — Elenda, the Dusk Rose: "When Elenda dies,
+// create X 1/1 white Vampire creature tokens with lifelink, where X is Elenda's power."; Elenda's Hierophant "… where X is its
+// power."; Threefold Thunderhulk: "Whenever this creature enters or attacks, create a number of 1/1 colorless Gnome artifact creature
+// tokens equal to its power."). On a SELF trigger of these events "its" and the card's own name are the source, so the count is
+// rewritten to "this creature's power" — the sourcePower count the token arms already read (countForSpec): on a dies trigger the
+// death look-back's power (ctx.dyingPower — the source IS the triggering permanent there), on an enters or attack trigger the live
+// power, or the last known one when the source has left while the ability waited (gameState.stampAbilitySourceLki, CR 608.2h).
+// Whole-clause anchored on the two token-count grammars only ("create X … creature tokens[ with …], where X is …" and "create a
+// number of … creature tokens equal to …"); the arms re-gate the rewritten clause. A non-self trigger (Murder Investigation's
+// "When enchanted creature dies, … where X is its power" — the enchanted creature) is never rewritten.
+const SELF_POWER_TOKEN_EVENTS = new Set(["dies", "etb", "attacks"]);
+function rewriteSelfPowerTokenCount(effectClause, cardName) {
+  const eff = String(effectClause || "");
+  const fullName = String(cardName || "").trim();
+  const names = [fullName, fullName.split(",")[0].trim()].filter((n, i, a) => n.length >= 3 && a.indexOf(n) === i);
+  const ref = ["its", ...names.map((n) => `${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}['’]s`)].join("|");
+  const re = new RegExp(`^(create (?:x (?:tapped )?\\d+\\/\\d+ [a-z/ ]+? creature tokens?(?: with [a-z ,]+?)?,? where x is |a number of \\d+\\/\\d+ [a-z/ ]+? creature tokens equal to ))(?:${ref}) power$`, "i");
+  const m = eff.match(re);
+  return m ? `${m[1]}this creature's power` : effectClause;
+}
 // THE ENTERING CREATURE DEALS ITS OWN POWER (Warstorm Surge) — the clause-LEADING "it deals damage equal to its power to";
 // see the rewrite arm in detectTriggers (enters event + an entering-creature scope only).
 const ENTERING_DEALS_OWN_POWER_RE = /^it deals damage equal to its power to /i;
@@ -5103,6 +5139,8 @@ export function detectTriggers(cardIn) {
       // leads with the source's name + a modeled self-effect verb). Run BEFORE the "it" chain — a name and "it"
       // are different leading tokens, so they never conflict. The parser re-gates the effect (LOW → Arbiter).
       effectClause = rewriteSelfNameToThisCreature(effectClause, card.name);
+      // THE SOURCE'S OWN POWER AS A TOKEN COUNT (Elenda, Elenda's Hierophant, Threefold Thunderhulk) — see rewriteSelfPowerTokenCount.
+      if (cls.scope === "self" && SELF_POWER_TOKEN_EVENTS.has(cls.event)) effectClause = rewriteSelfPowerTokenCount(effectClause, card.name);
       // GY-OWNER REFERENT (Bloodchief Ascension — SHELF S7, CR 603.2): on a gyEnter trigger, "that player"
       // is the player whose graveyard received the card (ctx.gyOwnerId, threaded by
       // checkGraveyardEventTriggers). Rewrite to the SENTINEL "the graveyard's owner" so the parser's

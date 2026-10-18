@@ -212,16 +212,41 @@ describe("the intervening-if path (CR 603.4) takes the same pick", () => {
   });
 });
 
+// The flush is driven directly with a pending trigger carrying printed modes, the shape a modal trigger takes (detectTriggers'
+// "choose one —" clause). No native modal trigger in the corpus reached the forced pick when this was written: each had a
+// correct-side mode whenever anything was legal.
+const flushModal = (clause) => (s) => flushTriggers({ ...s, pendingTriggers: [{ event: "etb", source: { name: "Nature's Herald", permanentId: "src" }, controller: "user",
+  descriptor: { event: "etb", scope: "self", whose: "any", effectClause: clause, interveningIf: null }, context: {}, targets: [], payload: { resolver: "manual" } }] },
+{ chooseTargets: chooseTriggerTargets });
+const withGraveyard = (s, cards) => ({ ...s, players: { ...s.players, user: { ...s.players.user, graveyard: cards.map(([id, c]) => ({ ...c, id })) } } });
+
 describe("a modal trigger (CR 700.2) — Return to Nature's three modes as an enters trigger", () => {
-  // No native modal trigger in the corpus reaches the forced pick today: each has a correct-side mode whenever anything is
-  // legal. The flush is driven directly with a pending trigger carrying Return to Nature's real modes, the shape a modal
-  // trigger takes (detectTriggers' "choose one —" clause). Its third mode is "ambiguous" (any graveyard: no side to prove),
-  // so the choose-one partial gate routes it, and the forced pick must never fall back onto that mode.
-  const clause = RETURN_TO_NATURE.oracle.replace(/^Choose one —/, "choose one —");
-  const flushWith = (s) => flushTriggers({ ...s, pendingTriggers: [{ event: "etb", source: { name: "Nature's Herald", permanentId: "src" }, controller: "user",
-    descriptor: { event: "etb", scope: "self", whose: "any", effectClause: clause, interveningIf: null }, context: {}, targets: [], payload: { resolver: "manual" } }] },
-  { chooseTargets: chooseTriggerTargets });
-  const withGraveyard = (s, cards) => ({ ...s, players: { ...s.players, user: { ...s.players.user, graveyard: cards.map(([id, c]) => ({ ...c, id })) } } });
+  // GRADUATED (play-weighted #1356, 2026-10-18 — graveyardCardExile.test.js): the third mode, "Exile target card from a graveyard",
+  // was "ambiguous" (any graveyard, no side to prove) and the forced pick never took it. It reads "enemy" now — the forced pick is
+  // the rule for a mandatory target (CR 603.3d) — so it is a candidate like the others, costed by the card's mana value.
+  const flushWith = flushModal(RETURN_TO_NATURE.oracle.replace(/^Choose one —/, "choose one —"));
+
+  it("⭐ only your own artifacts, and a Forest in your graveyard: the least harmful forced pick is exiling the Forest (mana value 0), never destroying Sol Ring", () => {
+    const s0 = withGraveyard(board("user", { mine: [perm("stone", MIND_STONE, "user"), perm("ring", SOL_RING, "user")] }), [["gyf", FOREST]]);
+    const flushed = flushWith(s0);
+    const top = flushed.stack[flushed.stack.length - 1];
+    const s = settle(flushed);
+    expect({ mode: top.payload.params.chosenMode, targets: top.targets.map((t) => t.id), forced: forcedLog(s).map((e) => e.targets), battlefield: names(s.players.user.battlefield), graveyard: names(s.players.user.graveyard), exile: names(s.players.user.exile || []) })
+      .toEqual({ mode: 2, targets: ["gyf"], forced: [["gyf"]], battlefield: ["Mind Stone", "Sol Ring"], graveyard: [], exile: ["Forest"] });
+  });
+
+  it("only the graveyard mode has a target: it is forced onto your own Forest (CR 603.3d), logged `trigger-target-forced`", () => {
+    const s = settle(flushWith(withGraveyard(board("user"), [["gyf", FOREST]])));
+    expect({ graveyard: names(s.players.user.graveyard), exile: names(s.players.user.exile || []), noSafe: kinds(s).filter((k) => k === "trigger-no-safe-target").length, forced: forcedLog(s).map((e) => e.targets) })
+      .toEqual({ graveyard: [], exile: ["Forest"], noSafe: 0, forced: [["gyf"]] });
+  });
+});
+
+describe("a modal trigger with a mode whose side can't be read — the forced pick never takes it", () => {
+  // Return to Nature's two destroy modes with Vessel of Endless Rest's instruction ("put target card from a graveyard on the bottom
+  // of its owner's library" — any graveyard, still "ambiguous") as the third: the choose-one partial gate routes it, and the forced
+  // pick must never fall back onto that mode.
+  const flushWith = flushModal("choose one —\n• Destroy target artifact.\n• Destroy target enchantment.\n• Put target card from a graveyard on the bottom of its owner's library.");
 
   it("⭐ only your own artifacts, and a Forest in your graveyard: the artifact mode is forced onto Sol Ring (mana value 1, not Mind Stone's 2) — never the Forest", () => {
     const s0 = withGraveyard(board("user", { mine: [perm("stone", MIND_STONE, "user"), perm("ring", SOL_RING, "user")] }), [["gyf", FOREST]]);
