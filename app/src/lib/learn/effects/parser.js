@@ -29,13 +29,13 @@
 import { parseSpellEffect, parseCreatureTargetRestrictions } from "../spellEffects.js"; // parseGraveyardFilter moved to atoms/zones.graveyardReturnClauseParser (seam batch 16)
 import { isNonChosenTargetType } from "../targetTypes.js"; // MASS_WIPE_SCOPES (the centralized wipe partition) now consumed by ./programQueries.js (slice 3), not here
 import { ATOM_RESOLVERS, PAUSING_ATOM_OPS, YOU_AND_ATTACKING_OPPONENTS_INNER_OPS } from "./effectAtoms.js"; // PAUSING_ATOM_OPS (WI-3) — ops whose resolver can set pendingChoice; gates optional-payment payoffs
-import { typeOf, isInstantOrSorcery, oracleOf, stripAbilityWordLabel, hasXCost, stripReminder, stripRegenerationRider, stripUncounterableRider, stripNoMaxHandSizeRider, stripCastKeywordLines, rewriteAmountX, readSpree, CANT_REGEN_TEST, DISCARD_COST_ABILITY_LINE } from "./textNormalize.js";
+import { typeOf, isInstantOrSorcery, oracleOf, stripAbilityWordLabel, hasXCost, stripReminder, stripRegenerationRider, stripUncounterableRider, stripNoMaxHandSizeRider, stripCastKeywordLines, stripCycleSelfTriggerLine, rewriteAmountX, readSpree, CANT_REGEN_TEST, DISCARD_COST_ABILITY_LINE } from "./textNormalize.js";
 import { CR_CREATURE_TYPES } from "./creatureTypes.js"; // SUBTYPE TARGET NOUN peel (SHELF-85 Phase 3, 2026-09-05) — the closed CR creature-type vocabulary (a zero-import leaf) // oracle-text normalization + card-field leaf (parser decomposition slice 1) — pure String|card→String|bool, no cycle
 import { splitClauses } from "./splitClauses.js"; // oracle → clause[] sentence splitter (parser decomposition slice 2) — leaf; sole caller is parser.js
 import { programNeedsChosenTarget, atomTargetSlotsKnown, programTriggerTargetsResolvable } from "./programQueries.js"; // program-shape query leaf (slice 3) — imported for the assembly-time call sites + programConfidence's target-slot gate; the full family is re-exported at the bottom of this file
 import { matchImprint, matchHandDisruption, matchRemovalControllerRider, matchRemovalCasterGainLife, matchRemovalDamageRider, matchCounterControllerRider, matchCounterExileInstead, matchCounterZoneRedirect, matchImpulseDig, matchReorderTop, matchDigLandToBattlefield, matchLookTopTake, matchChooseTypeDraw, matchChosenTypeRevealToHand, matchFixedTypeRevealToHand, matchDelayedTrigger } from "./spanMatchers.js"; // up-front multi-sentence span matchers (slice 4) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below (parseControllerRider now consumed by templateMatchers.js directly)
 import { extractAdditionalCosts, extractAltCost, stripSelfCostReduction, stripGiftPromise, stripStormKeywordLine, stripDevoidLine, stripSelfShuffleIntoLibrary, stripSelfExileSentence, stripReboundLine, SUPPORTED_ADDITIONAL_COST_KINDS, SUPPORTED_ALT_COST_KINDS } from "./castModifiers.js"; // cast-cost extraction + disposition strips (slice 5) — zero-import leaf; the SUPPORTED_* kind sets feed programConfidence's LOW-until-vetted cost gates
-import { matchChaosWarp, matchDiesGainDrawByPower, matchDrainEachOpponentX, matchDrainEachOpponent, matchIteratedEdict, matchRevealTopDrainByMv, matchReanimateDrain, matchSacThenReturnChosen, matchNamedTokenChoice, matchDrainByCount, matchFinaleOfRevelation, matchGenesisWave, matchRevealThatManyPutFiltered, matchAnimistAwakening, matchOpenTheWay, matchExileXControllerRider, matchRevealTopConditional, matchImpulseExilePlay, matchMassDestroyTreasurePerNontoken, matchMassDestroyManaPerDestroyed, matchDestroyNotChosenType, matchTutorMvCapFromSacrificed, matchWindfallMaxDiscard, matchEdictUnableDiscard, parseFixedManaPips, matchUpkeepSacUnlessPay, matchCumulativeUpkeep, matchEcho, matchDiscardHandDrawSame, matchTaxedDraw, matchTaxedLoseLife, matchTaxedEdict, matchLoseLifeUnlessDiscard, matchPeerIntoTheAbyss, matchTaxedTreasure, matchPumpThenFight, matchUntapThenPump, matchTwoTargetPump, matchDamagePowerTrampleExcess, matchCounterIfLegendaryThenFight, matchDrawOrCounterTriggering, matchRadOrProliferate, matchTimetwisterWheel, matchWindsOfChange, matchBlinkSubtypeCounter, matchDelayedBlink, matchAuraReturnCreaturesOnly, matchRadTargetOrTreasure, matchFreeCastOrLand, matchGyOwnerDrain, matchDoubleOrResetCounters, matchMetalcraftDamage, matchInsteadAmountUpgrade, matchSelfHitDamage, matchCounterThenGrant, matchSpringheartLandfall, matchSwordHearthAndHome, matchRevealTopCastIfLesser, matchEachPlayerMayWheel, matchEachPlayerMayDraw, matchDemonicConsultation, matchTaintedPact, matchDrawOrCountersByTriggeringPower } from "./templateMatchers.js"; // collapsed-template whole-oracle matchers (slice 6) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below
+import { matchChaosWarp, matchDiesGainDrawByPower, matchDrainEachOpponentX, matchDrainEachOpponent, matchIteratedEdict, matchRevealTopDrainByMv, matchReanimateDrain, matchSacThenReturnChosen, matchNamedTokenChoice, matchDrainByCount, matchFinaleOfRevelation, matchGenesisWave, matchRevealThatManyPutFiltered, matchAnimistAwakening, matchOpenTheWay, matchExileXControllerRider, matchRevealTopConditional, matchImpulseExilePlay, matchMassDestroyTreasurePerNontoken, matchMassDestroyManaPerDestroyed, matchDestroyNotChosenType, matchNotChosenTypeSweep, matchMassDestroyPerDestroyed, matchTutorMvCapFromSacrificed, matchWindfallMaxDiscard, matchEdictUnableDiscard, parseFixedManaPips, matchUpkeepSacUnlessPay, matchCumulativeUpkeep, matchEcho, matchDiscardHandDrawSame, matchTaxedDraw, matchTaxedLoseLife, matchTaxedEdict, matchLoseLifeUnlessDiscard, matchPeerIntoTheAbyss, matchTaxedTreasure, matchPumpThenFight, matchUntapThenPump, matchTwoTargetPump, matchDamagePowerTrampleExcess, matchCounterIfLegendaryThenFight, matchDrawOrCounterTriggering, matchRadOrProliferate, matchTimetwisterWheel, matchWindsOfChange, matchBlinkSubtypeCounter, matchDelayedBlink, matchAuraReturnCreaturesOnly, matchRadTargetOrTreasure, matchFreeCastOrLand, matchGyOwnerDrain, matchDoubleOrResetCounters, matchMetalcraftDamage, matchInsteadAmountUpgrade, matchSelfHitDamage, matchCounterThenGrant, matchSpringheartLandfall, matchSwordHearthAndHome, matchRevealTopCastIfLesser, matchEachPlayerMayWheel, matchEachPlayerMayDraw, matchDemonicConsultation, matchTaintedPact, matchDrawOrCountersByTriggeringPower } from "./templateMatchers.js"; // collapsed-template whole-oracle matchers (slice 6) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below
 // WAVE 1 — clause parsers for the new-module atoms. Imported here (not self-registered from the atoms
 // module) because effects/atoms/*.js must NOT import parser.js: parser.js → effectAtoms.js → atoms/*.js is
 // a one-way edge, and an atoms-module importing parser.js back would TDZ-crash at load (registerClauseParser
@@ -397,6 +397,24 @@ function attachLastTokenSequenceOk(atoms) {
   for (const a of atoms) {
     if (a?.op === "create-token") { minted = true; continue; }
     if (a?.op === "attach-source-to-last-token" && !minted) return false;
+  }
+  return true;
+}
+
+// "THIS WAY" / "OTHER" SEQUENCES (the play-weighted arbiter-spell slice, 2026-10-18): two inter-atom stamps are honest only right
+// after the atom that writes them, in the same program —
+//   - a payoff counting "destroyedThisWay" (Fumigate's life, Decree of Pain's draw) needs a destroy carrying recordDestroyedThisWay
+//     before it (that destroy writes state.destroyedThisWay);
+//   - an exceptLastMinted destroy (Martial Coup's "all other creatures") needs, directly before it, the create-token that stamps
+//     what it made (`stampMinted`).
+// Otherwise the read would see nothing or an older effect's value — LOW, the attachLastTokenSequenceOk discipline.
+function thisWaySequenceOk(atoms) {
+  let recorded = false;
+  for (let i = 0; i < atoms.length; i++) {
+    const a = atoms[i];
+    if (a?.amountCount?.kind === "destroyedThisWay" && !recorded) return false;
+    if (a?.exceptLastMinted && !(atoms[i - 1]?.op === "create-token" && atoms[i - 1]?.stampMinted)) return false;
+    if (a?.op === "destroy" && a.recordDestroyedThisWay) recorded = true;
   }
   return true;
 }
@@ -1174,6 +1192,30 @@ function parseModal(cardType, oracle, hasX = false) {
 // (parseEffectClause + programConfidence), so moving it would force a cycle.
 
 /**
+ * ===== MARTIAL COUP (the play-weighted arbiter-spell slice, 2026-10-18 — EDHREC #1385) ===== "Create X 1/1 white Soldier creature
+ * tokens. If X is 5 or more, destroy all other creatures." Its rulings: it "checks the number you chose for X, not the amount of
+ * mana you actually spent", and "If X is 5 or more, you'll put the Soldier tokens onto the battlefield, then you'll destroy all
+ * other creatures." Two atoms:
+ *   1. the first sentence through the full clause pipeline — it must come back ONE plain {X}-count create-token (countX, a P/T, a
+ *      descriptor and enforced keywords, nothing else), stamped `stampMinted` so it records what it made even when that is nothing;
+ *   2. the mass destroy over every creature, gated `condX { min }` (nothing below the threshold) and sparing the tokens the first
+ *      atom made (`exceptLastMinted`) — removal.applyMassDestroyCounted.
+ * Here, not in templateMatchers, because the first sentence is re-parsed through parseEffectClause (a cycle from there). Anchored
+ * ^…$ on exactly the two sentences: a fixed count, any other token reading, another destroy, a rider (White Sun's Twilight's life
+ * and Mite token lead the destroy differently) → null → low. Returns { atoms }.
+ */
+const TOKEN_X_PLAIN_KEYS = new Set(["op", "countX", "power", "toughness", "descriptor", "keywords", "targetType"]);
+function matchTokensThenDestroyOthersAtX(oracle, cardType) {
+  const s = stripReminder(oracle).trim().replace(/\s+/g, " ").replace(/\.$/, "");
+  const m = s.match(/^(Create X [^.]+? creature tokens)\. If X is (\d+) or more, destroy all other creatures$/i);
+  if (!m) return null;
+  const first = parseEffectClause(`${m[1]}.`, cardType, { hasX: true });
+  const atom = programConfidence(first) === "high" && first.atoms?.length === 1 ? first.atoms[0] : null;
+  if (!atom || atom.op !== "create-token" || atom.countX !== true || !Object.keys(atom).every((k) => TOKEN_X_PLAIN_KEYS.has(k))) return null;
+  return { atoms: [{ ...atom, stampMinted: true }, { op: "destroy", targetType: "eachCreature", condX: { min: parseInt(m[2], 10) }, exceptLastMinted: true }] };
+}
+
+/**
  * ===== KICKED-SPELL-EFFECT (CR 702.33e) ===== an instant/sorcery with a clean single Kicker cost whose
  * kicked payoff is an ADDITIVE extra effect — "<base>. If this spell was kicked, <extra>." (Runic Shot
  * "Destroy target tapped creature. If this spell was kicked, scry 2.", Blink of an Eye, Dismantling Blow,
@@ -1566,8 +1608,12 @@ function parseEffectProgramInner(card) {
   // removing it, so the body arrives as "\nTarget player reveals…" — and every whole-oracle matcher below
   // is `^`-anchored, so it matched nothing and the strip bought exactly zero. Measured: identical text
   // parses HIGH once the leading blank is gone. Half a fix here is worth nothing at all.
-  const rawOracle = stripCastKeywordLines(stripDevoidLine(stripStormKeywordLine(stripSelfCostReduction(
-    INSTEAD_UPGRADE_HINT.test(labeled) ? labeled : stripAbilityWordLabel(labeled))))).replace(/^\s*\n/, "").trim();
+  // + THE CYCLE TRIGGER (the play-weighted arbiter-spell slice, 2026-10-18): a "When you cycle this card, …" line is the card's
+  // triggered ability, not the spell's effect (textNormalize.stripCycleSelfTriggerLine); the classifier credits the card only when
+  // that trigger is modeled (coverage.spellIsNative → triggerRouting.cycleSelfTriggersModeled).
+  // (Before the cast-keyword strip, which blanks the Cycling line this one looks for.)
+  const rawOracle = stripCastKeywordLines(stripCycleSelfTriggerLine(stripDevoidLine(stripStormKeywordLine(stripSelfCostReduction(
+    INSTEAD_UPGRADE_HINT.test(labeled) ? labeled : stripAbilityWordLabel(labeled)))))).replace(/^\s*\n/, "").trim();
   // SELF-SHUFFLE DISPOSITION (Green Sun's Zenith + the Sun's Zenith / Beacon family) — peel a trailing "Shuffle
   // <this> into its owner's library." sentence up front so the BODY parses through the normal pipeline, and stamp
   // the resulting program `selfShuffle` (runEffectProgram's GY-1 then tucks the spell into the library instead of
@@ -3545,6 +3591,20 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // atom by the parseEffectClause wrapper, as on every destroy. Not an X spell; programConfidence re-checks the op against KNOWN.
   const dnct = matchDestroyNotChosenType(oracle);
   if (dnct) return makeProgram({ confidence: "high", atoms: [dnct.atom], xSpell: false, unparsedTail: null });
+  // ===== RAISE THE PALISADE (#888), CRIPPLING FEAR (#2047) ===== the same two sentences with the bounce or the -N/-N in the
+  // destroy's place → ONE bounce-not-chosen-type / pump-not-chosen-type atom (templateMatchers.matchNotChosenTypeSweep; the choice
+  // and the set are Kindred Dominance's). Not an X spell; programConfidence re-checks the op against KNOWN.
+  const ncts = matchNotChosenTypeSweep(oracle);
+  if (ncts) return makeProgram({ confidence: "high", atoms: [ncts.atom], xSpell: false, unparsedTail: null });
+  // ===== FUMIGATE (#1003), DECREE OF PAIN (#1419) ===== "Destroy all creatures. <You gain N life | Draw a card> for each creature
+  // destroyed this way." → [the mass destroy recording what it destroyed, the payoff counting it] (templateMatchers.
+  // matchMassDestroyPerDestroyed). A stripped "can't be regenerated" rider is put back on the destroy by the wrapper. Not an X spell.
+  const mdpd = matchMassDestroyPerDestroyed(oracle);
+  if (mdpd) return makeProgram({ confidence: "high", atoms: mdpd.atoms, xSpell: false, unparsedTail: null });
+  // ===== MARTIAL COUP (#1385) ===== "Create X <token>. If X is N or more, destroy all other creatures." → [the X create stamping
+  // what it made, the X-gated destroy sparing exactly those] (matchTokensThenDestroyOthersAtX, below). An X spell.
+  const tdox = hasX ? matchTokensThenDestroyOthersAtX(oracle, cardType) : null;
+  if (tdox) return makeProgram({ confidence: "high", atoms: tdox.atoms, xSpell: true, unparsedTail: null });
   // ===== ELDRITCH EVOLUTION (play-weighted #756) ===== "Search your library for a creature card with mana value X or less,
   // where X is N plus the sacrificed creature's mana value. Put that card onto the battlefield, then shuffle." → ONE tutor atom
   // capped by the sacrificed creature's last-known mana value (the put is its own sentence, so the split would orphan it). The
@@ -4057,7 +4117,7 @@ export function programConfidence(program) {
   if (program.structure === "modal") {
     const modes = program.modal?.modes;
     if (!Array.isArray(modes) || modes.length < 2) return "low";
-    return modes.every(mode => Array.isArray(mode.atoms) && mode.atoms.length > 0 && mode.atoms.every(a => KNOWN.has(a.op)) && atomTargetSlotsKnown(mode.atoms) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms) && attachLastTokenSequenceOk(mode.atoms) && referentBindingOk(mode.atoms) && chooseTargetBoundOk(mode.atoms))
+    return modes.every(mode => Array.isArray(mode.atoms) && mode.atoms.length > 0 && mode.atoms.every(a => KNOWN.has(a.op)) && atomTargetSlotsKnown(mode.atoms) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms) && thisWaySequenceOk(mode.atoms) && attachLastTokenSequenceOk(mode.atoms) && referentBindingOk(mode.atoms) && chooseTargetBoundOk(mode.atoms))
       ? "high" : "low";
   }
   if (!Array.isArray(program.atoms) || program.atoms.length === 0) return "low";
@@ -4089,7 +4149,7 @@ export function programConfidence(program) {
   // These lived only at the two ASSEMBLY sites, so a program built through collapsed() / the reflexive
   // fold / any future early-return template bypassed them. programConfidence is the single authoritative
   // gate every consumer recomputes — hoisting the invariants here means every path inherits them.
-  if (!diceRollSequenceOk(program.atoms) || !revealTopSequenceOk(program.atoms)) return "low";
+  if (!diceRollSequenceOk(program.atoms) || !revealTopSequenceOk(program.atoms) || !thisWaySequenceOk(program.atoms)) return "low";
   // TARGET SLOTS — the closed vocabulary (targetTypes.js). A slot naming a type that is neither non-chosen nor a pool in
   // the enumerator is a target the engine can neither offer nor synthesize: the classifier would credit the program while
   // the flush found no candidates and dropped it. Every consumer asks this gate, so they all route it to the Arbiter.

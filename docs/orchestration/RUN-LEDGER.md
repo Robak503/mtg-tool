@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.166.0** (tagged 2026-10-18 on the `[0.166.0]` CHANGELOG cut):
-> **1 commit**, corpus **45.2% (15,636)** at the tag (v0.165.0 → v0.166.0: +100 gained, −0 false credit removed, 18 commits) → **45.2% (15,639)**; engine gains since the tag: **+3**. The next tag
+> **2 commits**, corpus **45.2% (15,636)** at the tag (v0.165.0 → v0.166.0: +100 gained, −0 false credit removed, 18 commits) → **45.2% (15,665)**; engine gains since the tag: **+29**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,95 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-18 — PLAY-WEIGHTED (arbiter-spell): six shared readers the most-played instants and sorceries still lacked — Kindred Dominance's chosen-type sweep with its bounce and -N/-N: Raise the Palisade (EDHREC #888), Crippling Fear (#2047); "for each creature destroyed this way" after a wipe: Fumigate (#1003), Decree of Pain (#1419) (+ Avenge); "If X is 5 or more, destroy all other creatures": Martial Coup (#1385); "When you cycle this card" on an instant or sorcery (shelf D6's trigger, credited on spells): Fractured Sanity (#2032), Decree of Pain (+ Renewed Faith, Stir the Sands, Solar Blast, Complicate, Primal Boost, Death Pulse, Deem Worthy, Sunfire Balm, Choking Tethers, Decree of Savagery, Resounding Wave / Thunder / Roar / Scream); counts above ten in the mill and token readers: Army of the Damned (#1800), Fractured Sanity (+ Necrotic Hex, Symbiotic Wurm); and the greatest-power edict: Crackling Doom (#2125) (+ Consumed by Greed); the AI casts an untargeted each-opponent edict · **+26** · snapshot native+land 15,600 → 15,626
+> Suite **21,289 green (1 skipped) / 1,912 files** under the gate queue (with the rules index built for the run, then deleted); run 1
+> failed only the two pins graduated below (Necrotic Hex in blasphemousEdict, Martial Coup's LOW pin in parser.test), run 2 on the final
+> code and test bytes was green — the docs (this entry, CHANGELOG, ENGINE-SCAFFOLD) were written after it; no test reads them. Lint 0
+> (CR citations: 0 of 12,022 name no rule; keyword citations: 0 of 2,460 cite a different keyword). Flip-diff
+> **+26 / −0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of b04974fe, snapshotted before the first edit; native+land
+> 15,600 → 15,626 of 34,584 snapshot names): the eight ranked above, Avenge, Necrotic Hex, Consumed by Greed, the 14 cycle-trigger spells
+> named above (arbiter-spell → native-spell) and Symbiotic Wurm (body-only → native-trigger); nothing else moved. program-fingerprint
+> (34,620 cards) moves 9 programs — 7 of the gained cards and 2 that stay parked (below); Martial Coup, Consumed by Greed, Avenge and the
+> cycle spells move in parses that tool does not take (the X parse, the cost-only strip, the spell-program strips). `measure-coverage`
+> (MTG_APP_ROOT = the install): corpus 15,605 → 15,631 (45.2%); top 1,000 **929 → 931** (Raise the Palisade, Fumigate); top 2,500
+> **1,801 → 1,809** (#888, #1003, #1385, #1419, #1800, #2032, #2047, #2125); top 5,000 2,806 → 2,814; top 10,000 4,621 → 4,631; the
+> 30 profile decks unchanged (2,753 / 2,998 — none holds a gained card; per-deck lines byte-identical). **Mutants 9/9** on assertions,
+> each restored byte-identical (sha256): the cycle line kept in the spell program (6 tests red), the classifier's cycle-trigger gate
+> dropped (1 — Resounding Silence / Decree of Justice would read native), the greatest-power narrowing dropped (5), the chosen type
+> ignored (4), Martial Coup sparing nothing (2), the destroyed count without the replacement ladder (2), the token count back to a..five
+> (4), the AI holding every untargeted each-opponent edict (1), the condX gate dropped (1). Witness files written before the engine
+> change and run on the untouched b04974fe tree: **35 tests in four files — 30 fail there on assertions, the 5 controls pass on both**
+> (failing / total: `chosenTypeSweeps` 7/8, `wipeReaders` 8/9, `greatestPowerEdict` 8/9, `cycleSelfSpell` 7/9; the first draft — 33 tests, 28 failing —
+> grew two twin tests while building, each seen to fail on base). Graduated (below; each fails on the archive on an assertion):
+> `kindredDominanceEvolution.test.js`, `blasphemousEdict.test.js`, `effects/parser.test.js`. A/B **80 seeded commander games** (base
+> seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched b04974fe archive): **79 / 80 byte-identical** (the
+> sha256 of every game record — each decision row, the log, result, winner, turns, ticks); game 32 changes picks: on turn 20 the
+> Believe it! seat casts Flare of Malice ("Each opponent sacrifices a creature or planeswalker with the greatest mana value …", an
+> untargeted each-opponent edict the AI never cast before — this slice's AI change) and Earth Bent sacrifices Toph, Earthbending
+> Master, the only opposing creature; same winner (Earth Bent), same 34 turns, 1,709 →
+> 1,808 decision rows. 0 errors on either tree, results unchanged (ai-wins 57 / user-wins 23), 402.4 s / 403.5 s (run concurrently).
+> No profile deck holds a gained card.
+> Committed on `day/arbspell`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The chosen-type sweep's other verbs** (`templateMatchers.matchNotChosenTypeSweep` → `bounce-not-chosen-type` /
+>   `pump-not-chosen-type`; `removal.notChosenTypeSet` now shared with Kindred Dominance's destroy). One choice — made as the spell
+>   resolves (CR 608.2d; both cards' rulings), one existing creature type (CR 205.3e), by `choicePolicy.autoPickCreatureTypeToSpare`
+>   for every seat (the Kindred Dominance / Distant Melody convention: no picker) — and one set: every creature now not of it by its
+>   current types (a changeling never, CR 702.73a). The bounce is `zones.applyZoneMove` as one event (each to its owner's hand, CR
+>   400.3; a token ceases to exist, CR 704.5d — witnessed with a stolen Giant and a Zombie token); the -N/-N is `combat.applyPumpEffect`
+>   over the fixed set (Crippling Fear's ruling — a creature entering later is not affected, witnessed; an indestructible Myr at 0
+>   toughness dies, CR 704.5f). Reductions only: the policy spares the caster's creatures. The AI holds both as creature wipes and
+>   casts them when clearly behind (witnessed: Crippling Fear wipes the opponent's board and spares its Elves).
+> · **"For each creature destroyed this way"** (`templateMatchers.matchMassDestroyPerDestroyed` → the shared destroy carrying
+>   `recordDestroyedThisWay`, then gain-life / draw with `amountCount { kind: "destroyedThisWay" }`). The count is read through the
+>   destroy's own replacement ladder (`destructionReplacementFor`, Culling Ritual's reading) — Fumigate's two rulings witnessed: an
+>   indestructible Myr and a regenerated Skeletons don't count, a creature exiled by Rest in Peace does; a token counts (unlike Blood
+>   Money's nontoken count); Decree of Pain's "can't be regenerated" is the wrapper's stamp, so the Skeletons die and count.
+>   `parser.thisWaySequenceOk` (in programConfidence) refuses the read without the recording destroy before it.
+> · **Martial Coup** (`parser.matchTokensThenDestroyOthersAtX`): the first sentence re-parsed through the clause pipeline must be ONE
+>   plain {X}-count create-token; it is stamped `stampMinted` (tokens.applyCreateToken writes `_lastMintedTokenIds` even when empty)
+>   and the destroy after it carries `condX { min: 5 }` and `exceptLastMinted` (its rulings: X as chosen; the Soldiers enter, then all
+>   other creatures are destroyed). Witnessed: X = 4 destroys nothing; X = 5 destroys the caster's own Bear too; Soldier tokens made
+>   earlier by Raise the Alarm die; under Doubling Season all ten tokens it made survive.
+> · **The cycle trigger on a spell** (`textNormalize.stripCycleSelfTriggerLine` in parseEffectProgramInner, before the cast-keyword
+>   strip; `coverage.spellIsNative` requires `cycleSelfTriggersModeled` whenever a "When you cycle …" line is printed). Shelf D6 built
+>   and vetted the trigger (detection, routing, `applyCycle` firing it above the draw, the gated cycling offer) for permanents; on a
+>   spell the line sat in the spell's own program text and parked all 22 carriers. A cycle trigger is the card's triggered ability,
+>   from wherever the card ends up (CR 702.29c), never the spell's effect. 16 carriers now read native; Dirge of Dread, Resounding
+>   Silence, Decree of Justice, Dismantling Wave, Decree of Annihilation, Slice and Dice and Radiant Smite stay parked (their trigger or
+>   body is unread) — Resounding Silence and Decree of Justice now parse their bodies HIGH, so a cast resolves the body natively (both
+>   read right — "Exile target attacking creature"; X 4/4 flying Angels, the {X}{X} cast priced 2X by the shared lane; read, not
+>   witnessed by a test), while their cycling stays unoffered and they stay uncredited.
+> · **Counts above ten** (`library.millClauseParser`'s you / each opponent / each player arms and `tokens`' fixed-count arm read every
+>   cardinal in `parseHelpers.NUM_WORD`, a..twenty; a word read before reads the same number). Programs that move on cards still parked:
+>   Josu Vess, Lich Knight (its kicked enters trigger now makes eight 2/2 menace Zombie Knights — read right; the card stays body-only)
+>   and Torsten, Founder of Benalia (its dies trigger's seven Soldiers; its enters reveal stays unread).
+> · **The greatest-power edict** (removal.sacrificeEdictClauseParser: "each opponent / target opponent sacrifices a creature with the
+>   greatest power among creatures that player controls / they control" → `greatestPower`; `advanceSacrificeChain` narrows each
+>   sacrificer's pool to their greatest power through the layers, ties a choice — the card's ruling; a sacrifice ignores
+>   indestructible). Witnessed: the Giant, not the Bear; under the opponent's Glorious Anthem; the user asked between two tied 3-power
+>   creatures and not the Bear. Consumed by Greed is the target-opponent form behind the shared gift reading (never promised).
+> · **The AI** (`opponentAI.chooseDisciplinedVariant`): an UNTARGETED each-opponent edict was held outright (the edict rule wanted one
+>   chosen player); it is now cast when some living opponent controls a creature, held otherwise.
+> · ⚠️ **Found, not fixed:** (1) White Sun's Twilight (#2003) parks on its Phyrexian Mite token ("1/1 colorless Phyrexian Mite artifact
+>   creature token with toxic 1 and "This token can't block.""), unread on all 13 carriers (Skrelv's Hive #2027, Mirrex, Crawling
+>   Chorus, Vishgraz, Mite Overseer, Charge of the Mites, Basilica Shepherd …) — most are body-only permanents, another builder's lane
+>   today; its gain-X lead also keeps it off this slice's Martial Coup matcher. (2) The AI still holds every targeted pump spell, every
+>   noncreature-only destroy (Disenchant class), targeted token copies and targeted blinks — chooseDisciplinedVariant's generic arm
+>   scores only a legacy damage/destroy effect on creatures (opponentAI.js:936-945, spellEffects.chooseAITarget at spellEffects.js:1289);
+>   that is why Unleash Fury / Bulk Up (double power), Fracture, Flicker of Fate / Planar Incision and Rite of Replication were not taken
+>   here. (3) Death Begets Life ("creatures and enchantments") and In Garruk's Wake (#1478, one-sided "creatures … and planeswalkers you
+>   don't control") need two-type mass scopes; the destroyed-this-way stamp reads Death Begets Life once its scope exists. (4) Martial
+>   Coup is held as a wipe even when the AI can only afford X < 5 (the hold reads the program, not the X). (5) The cycling offer is
+>   sorcery-speed only (legalChoices.actionsCycleFromHand: active player, main step) — pre-existing; Complicate's cycle-trigger counter
+>   mostly matters at instant speed. (6) Gix's Command (#6746) and Myrkul's Edict read their greatest-power edict now but park on other
+>   modes ("Put two +1/+1 counters on up to one creature. It gains lifelink …"; "Choose an opponent. That player sacrifices …").
+> · Witness: `chosenTypeSweeps.test.js` (8), `wipeReaders.test.js` (9), `greatestPowerEdict.test.js` (9), `cycleSelfSpell.test.js` (9).
+>   **Tests changed on purpose (pins graduated):** `kindredDominanceEvolution.test.js` — its "neighbours stay parked" pin now reads
+>   Crippling Fear and Raise the Palisade native (Harsh Mercy and Extinction still park); `blasphemousEdict.test.js` — "Necrotic Hex
+>   stays parked on its tapped-token line" was the count word "six", not the tapped token: native now; `effects/parser.test.js` (TOK-3)
+>   — Martial Coup's "If X is 5 or more, destroy all other creatures" was pinned LOW; it asserts the two atoms now (the board-derived
+>   X count stays LOW).
 
 > ## 🔧 2026-10-18 — FIX (false positive / rules faithfulness): a leaves-the-battlefield watcher that leaves in the SAME event as the permanents it watches still triggers for each of them (CR 603.10a, 603.6c) — Marionette Apprentice (EDHREC #566, credited native) wiped together with an Ornithopter drained nothing; every "put into a graveyard from the battlefield" and "leaves the battlefield" watcher (`permanentLeaves` — artifact, creature-or-artifact, any player's artifact, enchantment, land, token, nontoken, "another") now looks back the way the death watchers have since P·34; a flickered watcher's new object no longer sees the leave (CR 400.7 — Ghostly Flicker gave Ninth Bridge Patrol two counters); and the two cards this parked play: Marionette Master (#1567) — "target opponent loses life equal to this creature's power", the power it last had when it left — and Disciple of the Vault (#2482) — "you may have target opponent lose 1 life" (+ Quill-Slinger Boggart) · **+3** · snapshot native+land 15,631 → 15,634
 > Suite **21,353 green (1 skipped) / 1,913 files** under the gate queue (with the rules index built for the run, then deleted); it ran on the final code and test bytes — the docs (this entry, CHANGELOG, ENGINE-SCAFFOLD) were written beside it, and no test reads them. Lint 0 (CR citations: 0 of 12,059 name no rule; keyword citations: 0 of 2,448 cite a different keyword). Flip-diff **+3 / −0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of 68d2a979, snapshotted before the first edit; native+land 15,631 → 15,634 of 34,584 snapshot names): Marionette Master, Disciple of the Vault, Quill-Slinger Boggart (body-only → native-trigger). Program-fingerprint (34,620 cards) moves exactly those 3 programs. `measure-coverage` (MTG_APP_ROOT = the install): corpus 15,636 → 15,639; top 1,000 929 → 929; top 2,500 **1,808 → 1,810** (Marionette Master #1567, Disciple of the Vault #2482); top 5,000 2,819 → 2,821; top 10,000 4,639 → 4,641; the 30 profile decks unchanged (per-deck lines byte-identical). **Mutants 12/12** on assertions, each restored byte-identical (sha256): the group rule off (12 tests red), the board rule off (1), the orphan exclusion off (1), the battlefield gate off (1), the destroy event ungrouped (3), the death batch ungrouped (1), the source-power record unread (1), the causative targeted loss unread (5), the zone move ungrouped (2), no departed sources at all (13), the sourcePower loss unread (5), the orphan mark unwritten (1). Witness file written before the engine change and run on the untouched archive, extended with the Master / Disciple / Boggart lines (each run on the archive too): **27 tests — 18 fail there on assertions, the 9 controls pass on both**. A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched 68d2a979 archive): **78 / 80 byte-identical**, 2 differ, **0 change a winner**, 0 errors on either tree, results unchanged (ai-wins 57 / user-wins 23), 312.5 s / 294.1 s. Game 33: the eliminated player's The Ozolith, leaving the game together with that player's creatures (CR 800.4a), now triggers by looking back and is dropped at once as a trigger of a departed player (CR 800.4d — one log line, `trigger-controller-left`); nothing else in the game moves. Game 44 (Halfshell heroes): Game Over destroys Rat King, Tokka & Rahzar and three more of its nontoken creatures — Rat King makes five Rats (one before), Tokka & Rahzar triggers once (a Treasure; its counter has nowhere to go) and latches the other three; 125 later picks move. Committed on `day/gylookback`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.

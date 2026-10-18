@@ -109,6 +109,9 @@ nonbasic-text lands demoted; corpus native 41.2% → 39.4% — the honest number
 5.  Instant/Sorcery?         → spellIsNative:
        an {X} in the mana cost that the text never names → not native (the cast offer
        expands X only for a program that reads it — 2026-10-17, Sweep the Skies) ·
+       a printed "When you cycle …" line → not native unless cycleSelfTriggersModeled
+       (the spell program leaves the "When you cycle this card, …" line out —
+       textNormalize.stripCycleSelfTriggerLine; 2026-10-18, Fractured Sanity) ·
        storm/cascade keyword carve-outs (validated via detectTriggers +
        triggerRoutesNatively) · plot/convoke/affinity cost strips ·
        parseEffectProgram must be HIGH with NO combat-referent atoms
@@ -478,6 +481,21 @@ plain fixed-count reading (keywords only), and `applyCreateTokensTogether` mints
 placement `applyCreateToken` shares; the doubler per kind) before ONE `fireTokenEnterTriggers` — so a "those tokens plus …"
 replacement adds once.
 
+**"Destroyed this way" and "all other creatures" after a wipe** (2026-10-18 — Fumigate, Decree of Pain, Martial Coup). Two
+inter-atom stamps on the shared `destroy` op, each written only by its own template matcher: `recordDestroyedThisWay` makes the
+destroy (`removal.applyMassDestroyCounted`) write `state.destroyedThisWay` — the count read through the destroy's own replacement
+ladder (`destructionReplacementFor`, as Culling Ritual reads it: indestructible, regeneration, a shield counter and umbra armor keep
+a creature out; one exiled instead by Rest in Peace is in) — and the next atom reads it as `amountCount { kind: "destroyedThisWay" }`
+(countForSpec). `exceptLastMinted` spares the tokens the create-token atom directly before it made (`_lastMintedTokenIds`, which
+that atom writes even when empty when it carries `stampMinted`), and `condX { min }` gates the whole destroy on the cast X.
+`parser.thisWaySequenceOk` (in programConfidence) refuses either read without its writer right before it. Reuse the stamps for a
+new "for each … destroyed this way" payoff; a different set or count needs its own matcher.
+
+**The chosen-type sweep family** (`removal.notChosenTypeSet`, 2026-10-18): Kindred Dominance's destroy, Raise the Palisade's bounce
+and Crippling Fear's -N/-N share one choice (`choicePolicy.autoPickCreatureTypeToSpare`, made as the spell resolves, for every
+seat) and one set (every creature now not of the chosen type by its current types; a changeling is never in it). The bounce rides
+`zones.applyZoneMove`, the shrink `combat.applyPumpEffect` over the fixed set (a reduction only — the policy spares the caster's
+creatures). The AI holds all three as creature wipes (`programContainsCreatureMassRemoval`).
 **The source's power when the source has left** (2026-10-18, CR 608.2h — Threefold Thunderhulk's and Krenko, Tin Street
 Kingpin's bundled rulings). The sourcePower count (`countForSpec`) reads, in order: the live permanent; the sacrifice-cost stamp
 (`state.sacrificedSelfLki`); a self dies trigger's death look-back (`ctx.dyingPower`); and now the ability's own record

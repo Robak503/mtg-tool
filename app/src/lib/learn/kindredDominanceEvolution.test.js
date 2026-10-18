@@ -146,7 +146,9 @@ describe("the cards and their parse", () => {
     const row = Object.fromEntries(Object.entries({ KINDRED_DOMINANCE, KINDRED_JUDGMENT, ELDRITCH_EVOLUTION, NEOFORM, HARSH_MERCY, EXTINCTION, CRIPPLING_FEAR, RAISE_THE_PALISADE }).map(([k, c]) => [k, classifyCard(c)]));
     console.log("  WITNESS classify", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
     expect(row).toEqual({ KINDRED_DOMINANCE: "native-spell", KINDRED_JUDGMENT: "native-spell", ELDRITCH_EVOLUTION: "native-spell",
-      NEOFORM: "arbiter-spell", HARSH_MERCY: "arbiter-spell", EXTINCTION: "arbiter-spell", CRIPPLING_FEAR: "arbiter-spell", RAISE_THE_PALISADE: "arbiter-spell" });
+      // GRADUATED (the play-weighted arbiter-spell slice, 2026-10-18): Crippling Fear and Raise the Palisade read now — the same choice
+      // and set with the -3/-3 and the bounce (chosenTypeSweeps.test.js); Harsh Mercy and Extinction still park.
+      NEOFORM: "arbiter-spell", HARSH_MERCY: "arbiter-spell", EXTINCTION: "arbiter-spell", CRIPPLING_FEAR: "native-spell", RAISE_THE_PALISADE: "native-spell" });
   });
 
   it("the Kindred Dominance parse: ONE atom, no target, not an X spell — and both printings parse alike", () => {

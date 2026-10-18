@@ -860,6 +860,15 @@ function chooseDisciplinedVariant(state, aiPlayerId, actions) {
     // the extra target — which is safe (a miss only costs tempo). Bypasses the chooseAITarget hold below.
     const creatureCount = (pid) => (state.players?.[pid]?.battlefield || [])
       .filter(p => permanentIsCreature(state, p.id)).length;  // layer-aware: an animated man-land counts
+    // UNTARGETED EACH-OPPONENT EDICT (the play-weighted arbiter-spell slice, 2026-10-18 — Crackling Doom: "… Each opponent
+    // sacrifices a creature with the greatest power among creatures that player controls."): no player is chosen, so the pure
+    // single-target rule below never matched and every such spell was held. It never touches the caster's own board, so it is
+    // cast when some living opponent controls a creature to lose; with none it is held (only its other atoms would do anything).
+    const sacAtoms = (actions[0].program?.atoms || []).filter(a => a.op === "sacrifice");
+    if (actions.every(a => !(a.targets?.length)) && sacAtoms.length && sacAtoms.every(a => a.who === "eachOpponent")) {
+      const anyVictim = opponentsOf(state, aiPlayerId).some(pid => (state.players?.[pid]?.life ?? 0) > 0 && creatureCount(pid) > 0);
+      return anyVictim ? actions[0] : null;
+    }
     const oppActions = actions.filter(a => {
       if ((a.targets?.length || 0) !== 1) return false;       // pure single-target edict only
       const tid = a.targets[0]?.id;

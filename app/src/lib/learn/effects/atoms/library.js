@@ -2086,6 +2086,14 @@ export function applyWindsOfChange(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "winds-of-change", controller: ctx.controller });
 }
 
+// The count alternation of the three plain mill arms in millClauseParser: a digit string or any spelled cardinal in NUM_WORD.
+const MILL_COUNT_WORDS = `(\\d+|${Object.keys(NUM_WORD).join("|")})`;
+const MILL_COUNT_RE = {
+  controller: new RegExp(`^(?:you )?mill ${MILL_COUNT_WORDS} cards?$`),
+  eachOpponent: new RegExp(`^each opponent mills ${MILL_COUNT_WORDS} cards?$`),
+  eachPlayer: new RegExp(`^each player mills ${MILL_COUNT_WORDS} cards?$`),
+};
+
 export function millClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   // SACRIFICED REFERENT (SG-7, 2026-09-03 — Altar of Dementia "Sacrifice a creature: Target player mills cards
@@ -2097,11 +2105,14 @@ export function millClauseParser(clause) {
     const kind = sacM[1] === "power" ? "sacrificedPower" : sacM[1] === "toughness" ? "sacrificedToughness" : "sacrificedManaValue";
     return { op: "mill", who: "target", targetType: "player", amountCount: { kind, per: 1 } };
   }
-  let m = t.match(/^(?:you )?mill (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  // THE COUNT (the play-weighted arbiter-spell slice, 2026-10-18 — Fractured Sanity, EDHREC #2032: "Each opponent mills fourteen
+  // cards."): your own, each opponent's and each player's mill read every spelled cardinal in the shared table (NUM_WORD, a..twenty),
+  // not only a..ten. A word read before reads the same number now; the other mill arms keep their own lists.
+  let m = t.match(MILL_COUNT_RE.controller);
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "controller", targetType: null };
-  m = t.match(/^each opponent mills (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  m = t.match(MILL_COUNT_RE.eachOpponent);
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachOpponent", targetType: null };
-  m = t.match(/^each player mills (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  m = t.match(MILL_COUNT_RE.eachPlayer);
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   m = t.match(/^(?:that player|they) mills? (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "damagedPlayer", targetType: null };

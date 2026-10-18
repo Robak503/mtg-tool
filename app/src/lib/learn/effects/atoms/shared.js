@@ -1085,6 +1085,12 @@ export function countForSpec(state, ctx, spec) {
   // stamp (a spell / no discard ran) → 0 (a clean no-op, CR 107.3 — never a fabricated count). Read off STATE
   // (the inter-atom channel), not a player/board tally, so it's computed BEFORE the player lookup below.
   if (spec.kind === "maxDiscardedThisWay") return Math.max(0, state?.maxDiscardedThisWay || 0);
+  // ===== DESTROYED-THIS-WAY (the play-weighted arbiter-spell slice, 2026-10-18 — Fumigate, Decree of Pain) ===== the creatures the
+  // destroy atom right before this one actually destroyed (CR 701.8a). That destroy carries `recordDestroyedThisWay` and stamps
+  // state.destroyedThisWay as it resolves (removal.js); the parser emits the pair together in fixed order
+  // (templateMatchers.matchMassDestroyPerDestroyed) and its sequence gate refuses this read with no recording destroy before it, so
+  // the value is always the one just written. An absent stamp reads 0, never a fabricated count.
+  if (spec.kind === "destroyedThisWay") return Math.max(0, state?.destroyedThisWay || 0);
   // ===== OPPONENT-SCOPED ===== who:"target" counts the SPELL'S TARGET player ("…equal to the number of
   // cards in that player's hand" — Sudden Impact) OR, on a combat-damage trigger with no explicit target,
   // the DAMAGED player ("for each artifact that player controls" — Cavern-Hoard Dragon, where "that player"

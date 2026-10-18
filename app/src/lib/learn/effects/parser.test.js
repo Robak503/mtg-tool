@@ -659,9 +659,14 @@ describe("parseEffectProgram — X-count create-token (TOK-3)", () => {
     expect(parseEffectProgram(X("Create X 1/1 white Bird creature tokens with flying.")).atoms[0])
       .toMatchObject({ op: "create-token", power: 1, toughness: 1, descriptor: "white bird", keywords: ["Flying"], countX: true });
   });
-  it("MUST_DROP_TO_LOW: a BOARD-derived X count or an 'If X is N' rider stays low → Arbiter", () => {
+  it("MUST_DROP_TO_LOW: a BOARD-derived X count stays low → Arbiter (the 'If X is N' destroy rider graduated)", () => {
     expect(programConfidence(parseEffectProgram(X("Create X 1/1 green Saproling creature tokens, where X is the number of creatures you control.")))).toBe("low");
-    expect(programConfidence(parseEffectProgram(X("Create X 1/1 white Soldier creature tokens. If X is 5 or more, destroy all other creatures.")))).toBe("low");
+    // GRADUATED (the play-weighted arbiter-spell slice, 2026-10-18): Martial Coup's "If X is 5 or more, destroy all other creatures"
+    // reads now — the X create stamped, then the X-gated destroy sparing exactly those tokens (wipeReaders.test.js).
+    expect(parseEffectProgram(X("Create X 1/1 white Soldier creature tokens. If X is 5 or more, destroy all other creatures.")).atoms).toEqual([
+      { op: "create-token", power: 1, toughness: 1, descriptor: "white soldier", targetType: null, countX: true, stampMinted: true },
+      { op: "destroy", targetType: "eachCreature", condX: { min: 5 }, exceptLastMinted: true },
+    ]);
     // Without an {X} cost, a literal "Create X …" isn't a cost-X count → low (no mana → hasX false).
     expect(programConfidence(parseEffectProgram({ type: "Instant", oracle: "Create X 1/1 white Soldier creature tokens." }))).toBe("low");
     // A "land" token with NO basic-land subtype ("Saproling land") has no defined intrinsic mana color →

@@ -15,8 +15,9 @@ import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandC
 import { applyCreateToken, applyCreateNamedToken, applyCreateTokenCopy } from "./tokens.js"; // + applyCreateTokenCopy (#582): Saw in Half's copies ride the shared token-copy minter
 import { applyTutor, millOnePlayer } from "./library.js";
 import { applyZoneMove, applyExileUntilLeaves } from "./zones.js";
+import { applyPumpEffect } from "./combat.js"; // the chosen-type -N/-N (Crippling Fear) rides the shared pump over a fixed set (combat.js imports no removal module)
 import { manifestTopOf } from "./manifest.js"; // P·19 — Reality Shift's controller rider (manifest imports only gameState, triggers, tokens)
-import { permanentTypes, permIsEveryCreatureType, permanentHasCardType, permanentIsCreature, deriveCharacteristics, permanentCreatureTypes, permanentHasTypeWord } from "../../layers.js"; // + permanentHasTypeWord (the type-line audit): sacrificePoolMatchNow // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentHasCardType (#509, #639): the batch edict's layer-aware, face-up pool and a sacrificed planeswalker // + deriveCharacteristics (#582): the destroyed creature's copiable values (a layer-1 copy result) // + permanentIsCreature: the destroy ladder's layer-aware death look-backs
+import { permanentTypes, permIsEveryCreatureType, permanentHasCardType, permanentIsCreature, deriveCharacteristics, permanentCreatureTypes, permanentHasTypeWord, permanentPower } from "../../layers.js"; // + permanentHasTypeWord (the type-line audit): sacrificePoolMatchNow // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentHasCardType (#509, #639): the batch edict's layer-aware, face-up pool and a sacrificed planeswalker // + deriveCharacteristics (#582): the destroyed creature's copiable values (a layer-1 copy result) // + permanentIsCreature: the destroy ladder's layer-aware death look-backs
 import { NAMED_TOKENS } from "./tokens.js"; // NAMED-TOKEN sacrifice pool — same registry the mint side uses, so a pool can never name a token the engine cannot create
 import { autoPickCreatureTypeToSpare } from "../../choicePolicy.js"; // #701 — Kindred Dominance's resolution-time type choice (a zero-import leaf)
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // #701 — the closed creature-type vocabulary the choice is made from (a zero-import leaf)
@@ -574,8 +575,12 @@ export function advanceSacrificeChain(state, { queue, sourceName = null, chosen 
     // FLARE OF MALICE (BI-4): narrow to the sacrificer's GREATEST mana value (tokens are 0, CR 202.3); ties stay a choice.
     const mvOf = (c) => { let mv = 0; for (const x of String(c?.mana || c?.mana_cost || "").matchAll(/\{([^}]+)\}/g)) { const pip = x[1].trim().toUpperCase(); mv += /^\d+$/.test(pip) ? parseInt(pip, 10) : (/^[XYZ]$/.test(pip) ? 0 : 1); } return mv; };
     const topMv = head.greatestMv && poolAll.length ? Math.max(...poolAll.map((p) => mvOf(p.card))) : null;
+    // CRACKLING DOOM (the play-weighted arbiter-spell slice, 2026-10-18): narrow to the sacrificer's GREATEST POWER as it is now
+    // (layers.permanentPower — an anthem counts); ties stay a choice (the card's ruling).
+    const topPower = head.greatestPower && poolAll.length ? Math.max(...poolAll.map((p) => permanentPower(next, p.id))) : null;
     const candidates = poolAll
       .filter((p) => topMv == null || mvOf(p.card) === topMv)
+      .filter((p) => topPower == null || permanentPower(next, p.id) === topPower)
       .map((p) => ({ id: p.id, name: p.card?.name }));
     if (candidates.length === 0) { q = q.slice(1); continue; } // nothing to sacrifice → can't → skip
     if (candidates.length === 1) {
@@ -731,7 +736,7 @@ function applySacrifice(state, atom, ctx) {
   // excludeSource ("sacrifice ANOTHER permanent" — Korvold): the source is never a legal victim. Threaded
   // per head so a resolveSacrificeChoice re-entry (queue.slice(1)) preserves it, like `what`.
   const excludeId = atom.excludeSource ? (ctx.sourceId ?? null) : null;
-  return advanceSacrificeChain(state, { queue: apnap.map((pid) => ({ playerId: pid, what, ...(excludeId ? { excludeId } : {}), ...(atom.greatestMv ? { greatestMv: true } : {}) })), sourceName: ctx.cardName }); // + greatestMv (Flare of Malice, BI-4)
+  return advanceSacrificeChain(state, { queue: apnap.map((pid) => ({ playerId: pid, what, ...(excludeId ? { excludeId } : {}), ...(atom.greatestMv ? { greatestMv: true } : {}), ...(atom.greatestPower ? { greatestPower: true } : {}) })), sourceName: ctx.cardName }); // + greatestMv (Flare of Malice, BI-4), greatestPower (Crackling Doom)
 }
 
 /**
@@ -855,6 +860,15 @@ export function sacrificeEdictClauseParser(clause) {
   if (/^each opponent sacrifices a creature or planeswalker with the greatest mana value among creatures and planeswalkers they control$/.test(t)) {
     return { op: "sacrifice", who: "eachOpponent", what: "creatureOrPlaneswalker", greatestMv: true };
   }
+  // THE GREATEST-POWER EDICT (the play-weighted arbiter-spell slice, 2026-10-18 — Crackling Doom, EDHREC #2125: "Each opponent
+  // sacrifices a creature with the greatest power among creatures that player controls."): the creature edict narrowed PER
+  // SACRIFICER to their creatures of the greatest power as it is now (advanceSacrificeChain's greatestPower pool — layer-aware); a
+  // tie is the sacrificer's choice among the tied (the card's ruling). Each opponent or a target opponent; "that player controls"
+  // and "they control" both. A count, another pool, another sacrificer or another characteristic stays unread.
+  m = t.match(/^(each opponent|target opponent) sacrifices a creature with the greatest power among creatures (?:that player controls|they control)$/);
+  if (m) return m[1] === "each opponent"
+    ? { op: "sacrifice", who: "eachOpponent", what: "creature", greatestPower: true }
+    : { op: "sacrifice", targetType: "opponent", what: "creature", greatestPower: true };
   // PERMANENT-EDICT (CR 701.21) — "sacrifices a permanent of their choice" (Silverclad Ferocidons, Martyr's
   // Bond, Possessed Portal, the Rishadan pirates, Crack the Earth). The SACRIFICING player chooses ANY
   // permanent they control, not just a creature — so the victim pool is broadened to ALL their permanents in
@@ -1549,14 +1563,87 @@ function applyMassDestroyAddManaPerDestroyed(state, atom, ctx) {
  * cannotRegenerate (the parser's rider stamp covers this op).
  */
 function applyDestroyNotChosenType(state, atom, ctx) {
+  const { chosen, targets, ofType } = notChosenTypeSet(state, ctx);
+  const next = applyDestroyEffect(state, { controller: ctx.controller, targets, cannotRegenerate: atom.cannotRegenerate });
+  return logEvent(next, { kind: "spell-effect", effect: "destroy-not-chosen-type", controller: ctx.controller, chosenType: chosen, notOfType: targets.length, ofType });
+}
+
+/**
+ * ===== THE COUNTED / GATED MASS DESTROY (the play-weighted arbiter-spell slice, 2026-10-18) ===== a destroy over a mass set
+ * (atomTargets — eachCreature for every carrier) carrying one or more of three flags, each emitted only by its own template matcher:
+ *
+ *   recordDestroyedThisWay — Fumigate (#1003) "You gain 1 life for each creature destroyed this way", Decree of Pain (#1419) "Draw a
+ *     card for each creature destroyed this way": stamps state.destroyedThisWay — the number the destroy ACTUALLY destroyed (CR
+ *     701.8a), read the way Culling Ritual reads it: through the destroy's own replacement ladder (gameState.
+ *     destructionReplacementFor), on the board as the destroy begins, so indestructible (CR 702.12b), a regeneration shield
+ *     (CR 701.19a — unless "can't be regenerated"), a shield counter or umbra armor keeps a creature out of the count, and a creature
+ *     destroyed but exiled instead (Rest in Peace) is in it — Fumigate's two rulings. The next atom reads the stamp
+ *     (shared.countForSpec "destroyedThisWay"); always written, so it is never an older effect's.
+ *   condX { min } — Martial Coup (#1385) "If X is 5 or more, …": nothing at all unless the X chosen as the spell was cast reaches
+ *     min (its ruling: it "checks the number you chose for X"); `?? 0` never reads a missing X as met (the applyPumpEffect gate).
+ *   exceptLastMinted — Martial Coup's "destroy all OTHER creatures": every creature but the tokens the create-token atom right
+ *     before it made (its `_lastMintedTokenIds` stamp, which that atom writes even when it made none — `stampMinted`, so the set is
+ *     never an older effect's tokens). Its ruling: "you'll put the Soldier tokens onto the battlefield, then you'll destroy all
+ *     other creatures"; a token doubler's extras are tokens the spell created too.
+ *
+ * The destroy itself is the shared applyDestroyEffect, one event, with the "can't be regenerated" rider as every destroy takes it.
+ */
+function applyMassDestroyCounted(state, atom, ctx) {
+  if (atom.condX && (ctx.xValue ?? 0) < atom.condX.min) {
+    return logEvent(state, { kind: "spell-effect", effect: "destroy", controller: ctx.controller, condX: atom.condX.min, xValue: ctx.xValue ?? 0, destroyed: 0 });
+  }
+  const spared = atom.exceptLastMinted ? new Set(state._lastMintedTokenIds || []) : null;
+  const targets = atomTargets(state, atom, ctx).filter((t) => !spared || !spared.has(t.id));
+  const destroyed = targets.filter((t) => {
+    const lk = findPermanent(state, t.id);
+    return !!lk && !destructionReplacementFor(state, lk.permanent, atom.cannotRegenerate);
+  }).length;
+  let next = applyDestroyEffect(state, { controller: ctx.controller, targets, cannotRegenerate: atom.cannotRegenerate });
+  if (atom.recordDestroyedThisWay) next = { ...next, destroyedThisWay: destroyed };
+  return logEvent(next, { kind: "spell-effect", effect: "destroy", controller: ctx.controller, destroyed, ...(spared ? { spared: spared.size } : {}) });
+}
+
+/**
+ * THE CHOICE AND THE SET, shared by every "Choose a creature type. … creatures that aren't of the chosen type …" sweep (Kindred
+ * Dominance's destroy above, and the bounce and the -N/-N below): the type the caster chooses as the spell resolves (CR 608.2d) by
+ * the shared policy, and every creature on the battlefield right now that is not of it by its current types. A creature that is
+ * every creature type is of any chosen type and is never in the set. Read once, from the board as the effect begins (CR 608.2h).
+ */
+function notChosenTypeSet(state, ctx) {
   const creatures = massCreatureTargets(state).filter((t) => permanentIsCreature(state, t.id));
   const typed = creatures
     .filter((t) => !permIsEveryCreatureType(state, t.id))
     .map((t) => ({ target: t, controller: t.controller, types: permanentCreatureTypes(state, t.id) }));
   const chosen = autoPickCreatureTypeToSpare(typed, ctx.controller, CR_CREATURE_TYPES);
   const targets = typed.filter((row) => !row.types.includes(chosen)).map((row) => row.target);
-  const next = applyDestroyEffect(state, { controller: ctx.controller, targets, cannotRegenerate: atom.cannotRegenerate });
-  return logEvent(next, { kind: "spell-effect", effect: "destroy-not-chosen-type", controller: ctx.controller, chosenType: chosen, notOfType: targets.length, ofType: creatures.length - targets.length });
+  return { chosen, targets, ofType: creatures.length - targets.length };
+}
+
+/**
+ * ===== RAISE THE PALISADE (the play-weighted arbiter-spell slice, 2026-10-18 — EDHREC #888) ===== "Choose a creature type. Return
+ * all creatures that aren't of the chosen type to their owners' hands." The chosen-type set above, bounced through the shared zone
+ * move as ONE event (zones.applyZoneMove — each to its OWNER's hand, CR 400.3; a token returned ceases to exist, CR 111.7, 704.5d).
+ * The choice is the policy's for every seat, as Kindred Dominance's is.
+ */
+function applyBounceNotChosenType(state, atom, ctx) {
+  const { chosen, targets, ofType } = notChosenTypeSet(state, ctx);
+  const next = applyZoneMove(state, { op: "bounce", targetType: "creature" }, { ...ctx, targets }, "hand");
+  return logEvent(next, { kind: "spell-effect", effect: "bounce-not-chosen-type", controller: ctx.controller, chosenType: chosen, notOfType: targets.length, ofType });
+}
+
+/**
+ * ===== CRIPPLING FEAR (the play-weighted arbiter-spell slice, 2026-10-18 — EDHREC #2047) ===== "Choose a creature type. Creatures
+ * that aren't of the chosen type get -3/-3 until end of turn." The chosen-type set above, shrunk through the shared pump (combat.
+ * applyPumpEffect over exactly that set — one fixed-set layer-7c effect per creature, until end of turn, then the lethal check, so
+ * a creature at 0 toughness dies even when indestructible, CR 704.5f). The set is fixed as the spell resolves — the card's ruling:
+ * it "won't affect creatures that enter the battlefield later in the turn" and a creature that changes types later "won't start or
+ * stop" being affected. Only a reduction is read (the parser admits no positive delta): the policy's choice spares the caster's
+ * creatures, which is the right choice for a debuff only.
+ */
+function applyPumpNotChosenType(state, atom, ctx) {
+  const { chosen, targets, ofType } = notChosenTypeSet(state, ctx);
+  const next = applyPumpEffect(state, { op: "pump", targetType: "creature", ptDelta: atom.ptDelta }, { ...ctx, targets });
+  return logEvent(next, { kind: "spell-effect", effect: "pump-not-chosen-type", controller: ctx.controller, chosenType: chosen, notOfType: targets.length, ofType });
 }
 
 /**
@@ -1669,14 +1756,18 @@ export const removalResolvers = {
   "champion": applyChampion, // ===== CHAMPION (CR 702.72a) ===== exile ANOTHER own nontoken creature of the named type, linked to the source via the shared detain resolver (so the return is the one already proven); sacrifice the source when no legal offering exists
   "mass-destroy-treasure-per-nontoken": applyMassDestroyTreasurePerNontoken, // BLOOD-MONEY — destroy all creatures + a tapped Treasure per nontoken creature destroyed
   "destroy-not-chosen-type": applyDestroyNotChosenType, // KINDRED DOMINANCE (#701) — choose a creature type on resolution, destroy every creature that isn't of it
+  "bounce-not-chosen-type": applyBounceNotChosenType, // RAISE THE PALISADE (#888) — the same choice and set, returned to their owners' hands
+  "pump-not-chosen-type": applyPumpNotChosenType, // CRIPPLING FEAR (#2047) — the same choice and set, -N/-N until end of turn
   "mass-destroy-add-mana-per-destroyed": applyMassDestroyAddManaPerDestroyed, // CULLING RITUAL (#587) — destroy each nonland permanent with mana value N or less + one {X}-or-{Y} mana per permanent destroyed
   "destroy-at-end-of-combat": applyDestroyAtEndOfCombat, // BASILISK TOUCH (DG-1, CR 511) — enqueue a turn-stamped delayed destroy; combatResolution drains it
   "destroy": (state, atom, ctx) =>
     atom.diesCopyRider
       ? applyDestroyDiesCopy(state, atom, ctx) // DESTROY-DIES-COPY — Saw in Half (the copies only if it died this way)
-      : (atom.controllerRider || atom.damageRider)
-        ? applyRemovalWithRider(state, atom, ctx) // RIDER-REMOVAL — Beast Within / Generous Gift / Assassin's Trophy / Smash to Smithereens / Molten Rain
-        : applyDestroyEffect(state, { controller: ctx.controller, targets: atomTargets(state, atom, ctx), cannotRegenerate: atom.cannotRegenerate }), // MTG-001 — honor the "can't be regenerated" rider
+      : (atom.recordDestroyedThisWay || atom.condX || atom.exceptLastMinted)
+        ? applyMassDestroyCounted(state, atom, ctx) // Fumigate / Decree of Pain ("destroyed this way"), Martial Coup ("if X is 5 or more … all other creatures")
+        : (atom.controllerRider || atom.damageRider)
+          ? applyRemovalWithRider(state, atom, ctx) // RIDER-REMOVAL — Beast Within / Generous Gift / Assassin's Trophy / Smash to Smithereens / Molten Rain
+          : applyDestroyEffect(state, { controller: ctx.controller, targets: atomTargets(state, atom, ctx), cannotRegenerate: atom.cannotRegenerate }), // MTG-001 — honor the "can't be regenerated" rider
   "exile": (state, atom, ctx) =>
     atom.controllerRider
       ? applyRemovalWithRider(state, atom, ctx) // RIDER-REMOVAL — Path to Exile / Swords to Plowshares

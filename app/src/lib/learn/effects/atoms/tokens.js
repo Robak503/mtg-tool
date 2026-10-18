@@ -339,7 +339,9 @@ export function applyCreateToken(state, atom, ctx) {
   // LAST-MINTED stamp (Cori-Steel Cutter, W9 — the _lastMilledIds convention): the freshest mint is the
   // referent a following "attach this Equipment to IT" atom reads (∩ still-alive at its own resolution).
   // Overwritten per create; plain JSON, serialize-safe; every other consumer ignores it.
-  if (mintedIds.length) next = { ...next, _lastMintedTokenIds: [...mintedIds] };
+  // `stampMinted` (Martial Coup — the play-weighted arbiter-spell slice, 2026-10-18): written even when nothing was made, so the
+  // "all other creatures" destroy right after it (removal.applyMassDestroyCounted) never spares an older effect's tokens.
+  if (mintedIds.length || atom.stampMinted) next = { ...next, _lastMintedTokenIds: [...mintedIds] };
   return logEvent(next, { kind: "spell-effect", effect: "create-token", count, power: atom.power, toughness: atom.toughness, controller: ctx.controller });
 }
 
@@ -1032,6 +1034,9 @@ export function attachSourceToLastTokenClauseParser(clause) {
   return null;
 }
 
+// The fixed-count create-token anchor: a spelled cardinal from NUM_WORD (a..twenty) or a digit string, an optional "tapped", the
+// P/T, the descriptor, an optional name and an optional "with …" rider.
+const FIXED_TOKEN_COUNT_RE = new RegExp(`^create (${Object.keys(NUM_WORD).join("|")}|\\d+) (tapped )?(\\d+)\\/(\\d+) ([a-z/ ]+?) creature tokens?(?: named ([a-z' ]+?))?(?: with (.+))?$`);
 function createTokenClauseParserCore(clause) {
   // A leading "you " is a redundant subject — the token's controller is ALWAYS the effect's controller
   // (CR 111.1), so "you create …" ≡ "create …". The conjoined payload form ("you create a … token and …",
@@ -1190,7 +1195,9 @@ function createTokenClauseParserCore(clause) {
     return { op: "create-token", count: { a: 1, an: 1, one: 1, two: 2, three: 3 }[veh[1]], power: parseInt(veh[2], 10), toughness: parseInt(veh[3], 10),
       descriptor: "colorless vehicle artifact", tokenType: "Token Artifact — Vehicle", name: "Vehicle", tokenOracle: `Crew ${veh[4]}`, keywords: [], targetType: null };
   }
-  const m = t.match(/^create (a|an|one|two|three|four|five|\d+) (tapped )?(\d+)\/(\d+) ([a-z/ ]+?) creature tokens?(?: named ([a-z' ]+?))?(?: with (.+))?$/);
+  // THE COUNT (the play-weighted arbiter-spell slice, 2026-10-18 — Army of the Damned, EDHREC #1800: "Create thirteen tapped 2/2
+  // black Zombie creature tokens."): every spelled cardinal in the shared table (NUM_WORD, a..twenty), not only a..five.
+  const m = t.match(FIXED_TOKEN_COUNT_RE);
   if (m) {
     const entersTapped = !!m[2] || !!attackingRider?.tapped;
     m.splice(2, 1); // drop the tapped group so every existing index below reads unchanged
@@ -1214,7 +1221,7 @@ function createTokenClauseParserCore(clause) {
     // guards a hypothetical "Forest Dryad land creature token with flying".
     if (landMana.oracle && m[6] !== undefined) return null;
     const tokenName = m[5] ? m[5].trim().split(/\s+/).map(cap).join(" ") : null; // title-case the parsed name (it was lowercased upstream)
-    const base = { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power, toughness, descriptor: m[4].trim(), ...(entersTapped ? { tapped: true } : {}), ...(attackingRider ? { entersAttacking: true } : {}), ...(tokenName ? { name: tokenName } : {}), ...(landMana.oracle ? { tokenOracle: landMana.oracle } : {}), targetType: null };
+    const base = { op: "create-token", count: NUM_WORD[m[1]] ?? parseInt(m[1], 10), power, toughness, descriptor: m[4].trim(), ...(entersTapped ? { tapped: true } : {}), ...(attackingRider ? { entersAttacking: true } : {}), ...(tokenName ? { name: tokenName } : {}), ...(landMana.oracle ? { tokenOracle: landMana.oracle } : {}), targetType: null };
     if (m[6] === undefined) return base;
     // A QUOTED inline ability → the clean-mana-ability gate (T4) OR the curated self-dies TRIGGERED-ability gate
     // (T5: a Pest's dies→gain-life, a Devil's dies→deal-damage — both minted as real oracle so checkDiesTriggers

@@ -665,18 +665,69 @@ export function matchMassDestroyManaPerDestroyed(oracle) {
 }
 
 /**
+ * ===== "FOR EACH CREATURE DESTROYED THIS WAY" (the play-weighted arbiter-spell slice, 2026-10-18) =====
+ *   Fumigate (#1003)       — "Destroy all creatures. You gain 1 life for each creature destroyed this way."
+ *   Decree of Pain (#1419) — "Destroy all creatures. They can't be regenerated. Draw a card for each creature destroyed this way."
+ * The second sentence counts what the first destroyed — the Blood Money back-reference, which the sentence split would orphan.
+ * Collapsed to TWO atoms, the Windfall shape: the shared mass destroy carrying `recordDestroyedThisWay` (removal.
+ * applyMassDestroyCounted stamps the number it actually destroyed), then the shared gain-life or draw reading that stamp
+ * (shared.countForSpec "destroyedThisWay"; programConfidence's thisWaySequenceOk refuses the read without the recording destroy).
+ * The life and the draw go to the spell's controller; Decree's "can't be regenerated" is stripped upstream and put back on the
+ * destroy by the parseEffectClause wrapper, as on every destroy. Anchored ^…$: "all creatures" only, "creature" counted, exactly
+ * these two payoffs; a nontoken count (Blood Money's own matcher), another set (Death Begets Life's "creatures and enchantments"),
+ * another payoff or any rider → no match → low. Returns { atoms }.
+ */
+export function matchMassDestroyPerDestroyed(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  const m = s.match(/^destroy all creatures\. (?:you gain (one|two|three|four|five|\d+) life|(draw a card)) for each creature destroyed this way$/);
+  if (!m) return null;
+  const destroy = { op: "destroy", targetType: "eachCreature", recordDestroyedThisWay: true };
+  const payoff = m[2]
+    ? { op: "draw", amountCount: { kind: "destroyedThisWay", per: 1 }, targetType: null }
+    : { op: "gain-life", amountCount: { kind: "destroyedThisWay", per: SMALL_NUM[m[1]] ?? parseInt(m[1], 10) }, targetType: null };
+  return { atoms: [destroy, payoff] };
+}
+
+/**
  * ===== KINDRED DOMINANCE (play-weighted #701; Kindred Judgment) ===== "Choose a creature type. Destroy all creatures that
  * aren't of the chosen type." The second sentence reads the type the first one chooses, so the sentence split would orphan
  * both halves (a bare "choose a creature type" does nothing, and "the chosen type" has no source). Collapse the compound up
  * front to ONE destroy-not-chosen-type atom: the resolver makes the choice as the spell resolves and destroys the rest through
  * the shared destroy. The atom names no target (targetType null — nothing is chosen as the spell is cast). Anchored ^…$ on
  * exactly these two sentences: "each player chooses" (Harsh Mercy), "of the creature type of your choice" (Extinction), the
- * -3/-3 and bounce forms (Crippling Fear, Raise the Palisade) and any rider leave no match → low → Arbiter. Returns { atom }.
+ * -3/-3 and bounce forms (Crippling Fear, Raise the Palisade — their own matcher below) and any rider leave no match here. Returns
+ * { atom }.
  */
 export function matchDestroyNotChosenType(oracle) {
   const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
   if (!/^choose a creature type\. destroy all creatures that aren't of the chosen type$/.test(s)) return null;
   return { atom: { op: "destroy-not-chosen-type", targetType: null } };
+}
+
+/**
+ * ===== THE CHOSEN-TYPE SWEEP'S OTHER VERBS (the play-weighted arbiter-spell slice, 2026-10-18) ===== Kindred Dominance's two
+ * sentences with the bounce or the shrink in the destroy's place:
+ *   Raise the Palisade (#888) — "Choose a creature type. Return all creatures that aren't of the chosen type to their owners' hands."
+ *                               → bounce-not-chosen-type
+ *   Crippling Fear (#2047)    — "Choose a creature type. Creatures that aren't of the chosen type get -3/-3 until end of turn."
+ *                               → pump-not-chosen-type { ptDelta }
+ * The same back-reference (the second sentence reads the first one's choice), collapsed the same way; the resolvers share Kindred
+ * Dominance's choice and set (removal.notChosenTypeSet). The shrink is a REDUCTION only — no positive half, at least one negative —
+ * because the policy's choice spares the caster's creatures, which suits a debuff and nothing else. Anchored ^…$ on exactly these two
+ * sentences: "each player chooses", "of the chosen type" (not "aren't"), any other verb or duration, any rider → no match → low.
+ * Returns { atom }.
+ */
+export function matchNotChosenTypeSweep(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  if (/^choose a creature type\. return all creatures that aren't of the chosen type to their owners' hands$/.test(s)) {
+    return { atom: { op: "bounce-not-chosen-type", targetType: null } };
+  }
+  const m = s.match(/^choose a creature type\. creatures that aren't of the chosen type get ([+-]\d+)\/([+-]\d+) until end of turn$/);
+  if (!m) return null;
+  const p = parseInt(m[1], 10);
+  const t = parseInt(m[2], 10);
+  if (p > 0 || t > 0 || (p === 0 && t === 0)) return null;
+  return { atom: { op: "pump-not-chosen-type", ptDelta: { p, t }, targetType: null } };
 }
 
 /**

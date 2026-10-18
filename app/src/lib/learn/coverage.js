@@ -45,7 +45,7 @@ import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loy
 import { castsAsPlaneswalker, isPlaneswalker, shufflesIntoLibraryInsteadOfGraveyard } from "./gameState.js";
 // triggerRoutesNatively (+ the group-triggered-grant validator) extracted to triggerRouting.js — its
 // transitive deps (parseEffectClause / program* / winConditionParseable / interveningIfParseable) live there.
-import { triggerRoutesNatively, isModeledGroupTriggeredBody, programCombatReferentAtoms, atomPutsTokensOntoBattlefieldAttacking } from "./triggerRouting.js";
+import { triggerRoutesNatively, isModeledGroupTriggeredBody, programCombatReferentAtoms, atomPutsTokensOntoBattlefieldAttacking, cycleSelfTriggersModeled } from "./triggerRouting.js";
 
 // ⛔⛔ A REFERENT CAN RIDE A **RESTRICTION**, NOT ONLY `atom.who` — and the spell fence below had the same
 // blind spot triggerRouting's trigger gate did (found 2026-08-05, fixed there; found HERE 2026-08-06 by
@@ -1236,6 +1236,12 @@ export function spellIsNative(card) {
   // X = 0, so the X the caster chooses (CR 107.3a, 601.2b) — the whole point of these cards — is never offered. Not native. Every
   // carrier was already parked on its own text before this line; it keeps a widened reader from crediting one.
   if (/\{X\}/.test(String(card?.mana ?? card?.mana_cost ?? card?.manaCost ?? "")) && !/\bX\b/.test(stripReminder(String(card?.oracle ?? card?.oracle_text ?? "")))) return false;
+  // THE CYCLE TRIGGER (the play-weighted arbiter-spell slice, 2026-10-18 — Fractured Sanity, Decree of Pain): the spell's program
+  // leaves a "When you cycle this card, …" line out (textNormalize.stripCycleSelfTriggerLine), so the card is credited only when
+  // every printed "When you cycle …" line is the modeled trigger — detected, routing natively, fired by applyCycle — which is also
+  // exactly when the cycling offer exists (legalChoices.actionsCycleFromHand). Otherwise the cycling option, or the trigger, would
+  // be missing from a card called native.
+  if (/(?:^|\n)[ \t]*When you cycle /i.test(String(card?.oracle ?? card?.oracle_text ?? "")) && !cycleSelfTriggersModeled(card)) return false;
   // STORM (CR 702.40): an instant/sorcery can carry the "Storm" KEYWORD ("Storm (When you cast this spell, copy
   // it for each spell cast before it this turn. …)"). The keyword is a triggered ability modeled SEPARATELY from
   // the spell's own effect (triggers.detectTriggers synthesizes a selfCast copy-spell trigger; the runtime fires

@@ -321,6 +321,22 @@ export function stripCastKeywordLines(text) {
     .replace(FLASH_PERMISSION_LINE, " ");
 }
 
+// ===== THE CYCLE TRIGGER ON A SPELL (the play-weighted arbiter-spell slice, 2026-10-18) =====
+// "When you cycle this card, …" is the card's own triggered ability (CR 603.1): it triggers when the card is discarded to pay its
+// cycling cost, from whatever zone the card winds up in (CR 702.29c) — never part of what the spell does when it resolves. Shelf D6 modeled it (triggers.detectTriggers'
+// cycleSelf event, fired by actionDispatcher.applyCycle above the cycling draw; the cycling offer gated on
+// triggerRouting.cycleSelfTriggersModeled); on an instant or sorcery the line still sat in the SPELL's program text and parked
+// every carrier (Fractured Sanity, Decree of Pain, Renewed Faith …). The spell program leaves the line out — only on a card that
+// prints a plain or typed "Cycling {cost}" line, the trigger's carrier, and only the exact self form detectTriggers reads ("this
+// card"; a "When you cycle or discard …" line or a named form stays in the text and parks the card). The CLASSIFIER, not this strip,
+// decides whether the card is credited: coverage.spellIsNative requires cycleSelfTriggersModeled, the same two facts the offer reads.
+const CYCLE_SELF_TRIGGER_LINE = /^[ \t]*when you cycle this card, [^\n]*$/gim;
+const CYCLING_KEYWORD_LINE = /^[ \t]*(?:[a-z]+)?cycling\s*\{/im;
+export function stripCycleSelfTriggerLine(text) {
+  const s = String(text || "");
+  return CYCLING_KEYWORD_LINE.test(s) ? s.replace(CYCLE_SELF_TRIGGER_LINE, " ") : s;
+}
+
 // ===== SPREE (CR 702.172a, 700.2h) =====
 // "Spree (Choose one or more additional costs.)" followed by one line per mode, "+ {cost} — effect". Spree means "Choose one or
 // more modes. As an additional cost to cast this spell, pay the costs associated with those modes" (CR 702.172a); the plus sign
