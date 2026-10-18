@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.165.0** (tagged 2026-10-18 on the `[0.165.0]` CHANGELOG cut):
-> **11 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.1% (15,605)**; engine gains since the tag: **+69**. The next tag
+> **12 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.1% (15,605)**; engine gains since the tag: **+69**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,33 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🧹 2026-10-18 — HYGIENE: the 16 silent try/catch blocks in opponentAI.js are gone (CLAUDE.md §1.2 / §8.2) · **±0**
+> Every try/catch in `opponentAI.js` swallowed a throw into a fallback (null / false / 0 / 1 / "can block"): 5 around `opponentsOf`
+> (pickXCast, pickCounterCast, clearlyBehindOnBoard, pickAuraCast, loyaltyActionSafe) and 11 around the layer / evasion reads
+> (pickXCast's kill scan, clearlyBehindOnBoard's creature filter and power sum, wouldBeAttackerIds, pickAuraCast's and pickEquipAction's
+> power reads, hasDeathtouch, minBlockersFor, combatStatsOf, hasFirstStrike, eligibleBlockersFor). **Probe**: a scratch copy of 1eb3c727
+> with every try body counting a reach and every catch logging its error, run over the full suite (20,894 tests, through the gate queue)
+> and the 80-game batch: **0 throws in either**; every block reached in the suite (B1 pickXCast enemies 5 · B2 kill scan 8 · B3 counter 14
+> · B4–B6 clearlyBehindOnBoard 11 / 31 / 26 · B7 wouldBeAttackerIds 587 · B8–B9 pickAuraCast 51 / 42 · B10 hasDeathtouch 126,218 · B11
+> minBlockersFor 104,067 · B12 combatStatsOf 116,842 · B13 loyaltyActionSafe 2 · B14 pickEquipAction 96 · B15 hasFirstStrike 126,270 ·
+> B16 eligibleBlockersFor 36,486 — lower bounds), 14 of 16 in the 80 games (B2, B13 unreached there). The logger was seen to fire (an
+> invalid seat id into `pickLoyaltyAction` logged B13's `Invalid playerId`), and the instrumented copy played the 80 games byte-identical
+> to the plain one. Why none can throw on a real state: `opponentsOf` throws only for an id that is no seat (`assertPlayer`), and the
+> layer reads are total — an id not on the battlefield reads empty characteristics (false / 0 / not a creature), `attackerMinBlockers`
+> 1, `canBlockAttacker` true past its defender gate; `untappedDefenderBlockers` and `chooseDefender` already made the same reads
+> unguarded on the same paths. All 16 removed; one note above the policy flags records the probe; the "guarded against bad ids" doc
+> lines now say what an absent id reads. Suite **20,893 green (1 skipped) / 1,884 files** under the gate queue (rules index built
+> for the run, then deleted) with `--testTimeout=60000`; runs 1–3 at the default 20 s each failed only the known `crucibleRun.test.js`
+> "plays EXACTLY N games" timeout, which the base copy fails the same way under the gate (the probe run) and which takes the same time
+> alone on both trees under today's load (base 18.3 / 18.1 s, this tree 17.8 / 17.9 s, alternated). Lint 0 (CR citations: 0 of 11,650
+> name no rule; keyword citations: 0 of 2,378 cite a different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an
+> untouched `git archive` of 1eb3c727; native+land 15,531 of 34,584 snapshot names on both; every name has the same tier). A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default
+> AI; base = the untouched 1eb3c727 archive): **80 / 80 byte-identical** — every decision row with its offered-set histogram and pick
+> (131,245), every log line (60,510), winner, turns and ticks; 0 errors on either tree (ai-wins 59 / user-wins 21). No witness test: no
+> throw was found, so there was no bug to pin. Found, not touched (outside the AI layer): `manaModel.conditionIsExpressible` catches
+> any `evaluateInterveningIf` throw on its synthetic one-seat probe state as "not expressible" — a classifier-side probe, its own slice.
+> Committed on `day/aicatch`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
 
 > ## 🧹 2026-10-18 — HYGIENE: the Crucible game-playing tests get their own timeout (a load flake, not a bug) · **±0**
 > `crucibleRun.test.js`'s seven tests that play real commander games (up to eight games in a four-deck pod) inherited the suite-wide

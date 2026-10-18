@@ -51,6 +51,12 @@ import { colourNeed, fetchCrackAtom, fetchableLands, fetchLandAbility, landSearc
 import { permanentValue } from "./boardEval.js"; // pickTargetedActivation — the shared valuation breaks a power tie between two targets (a leaf over gameState)
 import { parseActivatedAbilities } from "./effects/abilities.js"; // pickTargetedActivation — a token whose one activated ability is the offered one exists to be spent
 
+// No try/catch around opponentsOf or the layer / evasion reads in this file. The 16 that used to wrap them (returning
+// null / false / 0 / "can block" on a throw) were removed 2026-10-18 after a probe over the full suite and an 80-game
+// seeded commander batch reached every one and saw none throw: opponentsOf throws only for an id that is no seat, and
+// the layer reads answer an id not on the battlefield with empty characteristics (false / 0 / 1 blocker). A throw here
+// would be an engine bug to surface, not a state to swallow (CLAUDE.md §1.2 — never hide errors).
+
 // ─── Play-policy flags (the A/B probe seam) ──────────────────────────────────
 
 /**
@@ -408,8 +414,7 @@ function pickXCast(state, aiPlayerId, actions) {
   if (!targeted) {
     return actions.reduce((best, a) => (xOf(a) > xOf(best) ? a : best), actions[0]);
   }
-  let enemies;
-  try { enemies = new Set(opponentsOf(state, aiPlayerId)); } catch { return null; }
+  const enemies = new Set(opponentsOf(state, aiPlayerId));
   let bestKill = null; // biggest-threat enemy creature, minimum lethal X
   let bestFace = null; // lowest-life enemy player, maximum X
   for (const a of actions) {
@@ -425,11 +430,8 @@ function pickXCast(state, aiPlayerId, actions) {
       continue;
     }
     if (!enemies.has(t.controller)) continue;
-    let pow, tou;
-    try {
-      pow = Math.max(0, permanentPower(state, t.id));
-      tou = permanentToughness(state, t.id);
-    } catch { continue; }
+    const pow = Math.max(0, permanentPower(state, t.id));
+    const tou = permanentToughness(state, t.id);
     if (tou <= 0 || xOf(a) < tou) continue; // this X doesn't kill it
     if (!bestKill
       || pow > bestKill.pow
@@ -474,8 +476,7 @@ function castCostTotal(cost) {
   return total;
 }
 function pickCounterCast(state, aiPlayerId, actions) {
-  let enemies;
-  try { enemies = new Set(opponentsOf(state, aiPlayerId)); } catch { return null; }
+  const enemies = new Set(opponentsOf(state, aiPlayerId));
   const spellById = new Map((state.stack || []).filter((o) => o?.kind === "spell").map((o) => [o.id, o]));
   let best = null;
   for (const a of actions) {
@@ -693,13 +694,9 @@ function filterAltCastVariants(state, aiPlayerId, actions) {
  * board vs one 7/7 qualifies, but 4-vs-2 or an empty table never does). Deterministic reads.
  */
 function clearlyBehindOnBoard(state, aiPlayerId) {
-  let enemies;
-  try { enemies = opponentsOf(state, aiPlayerId); } catch { return false; }
-  const boardOf = (pid) => (state.players?.[pid]?.battlefield || [])
-    .filter((p) => { try { return permanentIsCreature(state, p.id); } catch { return false; } });
-  const powerOf = (perms) => perms.reduce((s, p) => {
-    try { return s + Math.max(0, permanentPower(state, p.id)); } catch { return s; }
-  }, 0);
+  const enemies = opponentsOf(state, aiPlayerId);
+  const boardOf = (pid) => (state.players?.[pid]?.battlefield || []).filter((p) => permanentIsCreature(state, p.id));
+  const powerOf = (perms) => perms.reduce((s, p) => s + Math.max(0, permanentPower(state, p.id)), 0);
   const own = boardOf(aiPlayerId);
   let enemyCount = 0;
   let enemyPower = 0;
@@ -739,16 +736,12 @@ function unblockedIncomingFace(state, aiPlayerId) {
  */
 function wouldBeAttackerIds(state, aiPlayerId) {
   return (state.players?.[aiPlayerId]?.battlefield || [])
-    .filter((p) => {
-      try {
-        return permanentIsCreature(state, p.id)
-          && !p.tapped
-          // The as-though escape must be honored HERE too or the AI would never swing with a creature the
-          // rules let it attack with — legalChoices' twin site carries the full rationale.
-          && (!permanentHasKeyword(state, p.id, "Defender") || permanentHasKeyword(state, p.id, "attacksIgnoringDefender"))
-          && (!p.summoningSick || permanentHasKeyword(state, p.id, "Haste"));
-      } catch { return false; }
-    })
+    .filter((p) => permanentIsCreature(state, p.id)
+      && !p.tapped
+      // The as-though escape must be honored HERE too or the AI would never swing with a creature the
+      // rules let it attack with — legalChoices' twin site carries the full rationale.
+      && (!permanentHasKeyword(state, p.id, "Defender") || permanentHasKeyword(state, p.id, "attacksIgnoringDefender"))
+      && (!p.summoningSick || permanentHasKeyword(state, p.id, "Haste")))
     .map((p) => p.id);
 }
 
@@ -815,8 +808,7 @@ function pickAuraCast(state, aiPlayerId, actions, card) {
     const printedPower = (t) => Number(state.players?.[t.controller]?.graveyard?.find((c) => c.id === t.id)?.power) || 0;
     return [...opts].sort((x, y) => (printedPower(y.targets[0]) - printedPower(x.targets[0])) || byId(x, y))[0];
   }
-  let enemies;
-  try { enemies = new Set(opponentsOf(state, aiPlayerId)); } catch { return null; }
+  const enemies = new Set(opponentsOf(state, aiPlayerId));
   if (opts.every((a) => a.enchantsPlayer)) {
     const effect = playerAuraSide(card);
     if (!effect) return null;
@@ -827,7 +819,7 @@ function pickAuraCast(state, aiPlayerId, actions, card) {
   }
   const intent = auraCastIntent(card);
   if (!intent) return null;
-  const powerOf = (id) => { try { return Math.max(0, permanentPower(state, id)); } catch { return 0; } };
+  const powerOf = (id) => Math.max(0, permanentPower(state, id));
   const onSide = opts.filter((a) => {
     const t = a.targets[0];
     if (!PERMANENT_HOST_TYPES.has(t.type)) return false;
@@ -1163,30 +1155,28 @@ function pickAllAttackers(attackerActions) {
 
 // ─── Combat policy math (shared by the block plan + the attack filter) ────────
 
-/** Deathtouch on a permanent (layer-aware), guarded against bad ids. */
+/** Deathtouch on a permanent (layer-aware); false for an id not on the battlefield. */
 function hasDeathtouch(state, permanentId) {
-  try { return permanentHasKeyword(state, permanentId, "Deathtouch"); } catch { return false; }
+  return permanentHasKeyword(state, permanentId, "Deathtouch");
 }
 
 /** SET-level minimum block size for an attacker (menace's 2 / the printed "except by <N> or more creatures"
- * / the Howlbonder team static — attackerMinBlockers, layer-aware; BLITZ EV-3), guarded against bad ids.
- * 1 = unrestricted. */
+ * / the Howlbonder team static — attackerMinBlockers, layer-aware; BLITZ EV-3); 1 for an id not on the
+ * battlefield. 1 = unrestricted. */
 function minBlockersFor(state, permanentId) {
-  try { return attackerMinBlockers(state, permanentId); } catch { return 1; }
+  return attackerMinBlockers(state, permanentId);
 }
 
-/** Derived combat stats of a live permanent, or null when it can't be resolved. */
+/** Derived combat stats of a live permanent, or null when it is not on the battlefield. */
 function combatStatsOf(state, permanentId) {
-  try {
-    if (!findPermanent(state, permanentId)?.permanent) return null;
-    return {
-      id: permanentId,
-      power: Math.max(0, permanentPower(state, permanentId)),
-      toughness: permanentToughness(state, permanentId),
-      firstStrike: hasFirstStrike(state, permanentId),
-      deathtouch: hasDeathtouch(state, permanentId),
-    };
-  } catch { return null; }
+  if (!findPermanent(state, permanentId)?.permanent) return null;
+  return {
+    id: permanentId,
+    power: Math.max(0, permanentPower(state, permanentId)),
+    toughness: permanentToughness(state, permanentId),
+    firstStrike: hasFirstStrike(state, permanentId),
+    deathtouch: hasDeathtouch(state, permanentId),
+  };
 }
 
 /**
@@ -1437,8 +1427,7 @@ function loyaltyAtoms(action) {
 function loyaltyActionSafe(state, aiPlayerId, action) {
   const targets = action.targets || [];
   if (targets.length === 0) return true;
-  let enemies;
-  try { enemies = new Set(opponentsOf(state, aiPlayerId)); } catch { return false; }
+  const enemies = new Set(opponentsOf(state, aiPlayerId));
   const atoms = loyaltyAtoms(action);
   const sideOf = (t) => (t.type === "player" ? t.id : t.controller);
   return targets.every((t) => {
@@ -1486,7 +1475,7 @@ export function pickLoyaltyAction(state, aiPlayerId, loyaltyActions) {
 function pickEquipAction(state, aiPlayerId, equipActions) {
   if (!equipActions.length) return null;
   const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
-  const powerOf = (id) => { try { return Math.max(0, permanentPower(state, id)); } catch { return 0; } };
+  const powerOf = (id) => Math.max(0, permanentPower(state, id));
   const byEquip = new Map();
   for (const a of equipActions) {
     if ((a.targets?.length || 0) !== 1) continue;
@@ -2140,12 +2129,10 @@ function chooseDefender(state, aiPlayerId) {
   return living.slice().sort((a, b) => compareDefenders(state, a, b))[0]; // defenderOrder.js — the curse reading enchants the same opponent
 }
 
-/** First/double strike on a permanent (layer-aware), guarded against bad ids. */
+/** First/double strike on a permanent (layer-aware); false for an id not on the battlefield. */
 function hasFirstStrike(state, permanentId) {
-  try {
-    return permanentHasKeyword(state, permanentId, "First strike") ||
-      permanentHasKeyword(state, permanentId, "Double strike");
-  } catch { return false; }
+  return permanentHasKeyword(state, permanentId, "First strike") ||
+    permanentHasKeyword(state, permanentId, "Double strike");
 }
 
 /** Derived combat stats of a player's UNTAPPED creatures — its potential blockers. */
@@ -2167,12 +2154,11 @@ function untappedDefenderBlockers(state, defenderId) {
  * filtered through `canBlockAttacker` (combatEvasion), the SAME chokepoint the
  * block enumeration uses, so the attack model can never disagree with block
  * legality (a flyer over ground blockers, protection, fear, landwalk, …).
- * An unresolvable check counts as "can block" — the cautious direction.
+ * An attacker or blocker not on the battlefield reads "can block" (canBlockAttacker's
+ * own answer) — the cautious direction.
  */
 function eligibleBlockersFor(state, defenderId, attackerId, defenderBlockers) {
-  return defenderBlockers.filter((b) => {
-    try { return canBlockAttacker(state, b.id, attackerId, defenderId); } catch { return true; }
-  });
+  return defenderBlockers.filter((b) => canBlockAttacker(state, b.id, attackerId, defenderId));
 }
 
 /**
