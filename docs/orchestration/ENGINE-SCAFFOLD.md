@@ -267,7 +267,13 @@ a `containsFunction` guard that throws if anything non-serializable sneaks onto
 the stack.
 
 - **Push**: `actionDispatcher.applyCastSpell / applyActivateAbility /
-  applyActivateLoyalty / applyCycle` and `gameEngine.flushTriggers`.
+  applyActivateLoyalty / applyCycle / applyDiscardAbility / applyActivateGyRecursion /
+  applyActivateGyExile / applyActivateHandSelfPut / applyCrewVehicle` and
+  `gameEngine.flushTriggers`. Crew is an activated ability (CR 702.122a): the
+  dispatcher taps the crew (the cost) and pushes a `RESOLVER_KEYS.CREW` object; the
+  Vehicle becomes a creature — and "whenever this Vehicle becomes crewed" triggers
+  (CR 702.122d) — only when it resolves (2026-10-18; before, crew took effect at
+  once with no stack object).
 - **Resolve (pop)**: `gameEngine.resolveTopOfStack` dispatches `payload.resolver`
   through the `RESOLVERS` registry in `resolvers.js` (extend via
   `registerResolver`).
@@ -281,6 +287,15 @@ Ur-Dragon, Vihaan, Mothman, annihilator, radiation…), then grants priority and
 flushes triggers. `passPriority`: when a full table lap passes
 (`consecutivePasses >= playerCount`) → resolve top of stack, or advance step.
 Untap/cleanup grant no priority (`NO_PRIORITY_STEPS`).
+
+**After an action the actor keeps priority and the lap restarts** (CR 117.3c,
+117.4): every dispatcher handler that casts a spell, activates a non-mana ability
+or takes a special action returns `{ ...next, priorityHolder: action.playerId,
+consecutivePasses: 0 }` — the one mechanism; a new handler that puts something on
+the stack must end the same way, or an activation taken after some players passed
+resolves without them. Mana abilities (`tap-for-mana`, `double-mana-pool`) leave
+the count alone (they don't use the stack). The graveyard lanes (GY-1 / GY-2) and
+crew lacked the reset until 2026-10-18 (witness: `activationPriority.test.js`).
 
 The two combat declarations are turn-based actions the engine takes one action at
 a time. **Attackers** (CR 508.1, 508.2): the declaration closes at the first

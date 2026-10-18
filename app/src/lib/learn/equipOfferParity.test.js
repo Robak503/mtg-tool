@@ -320,7 +320,7 @@ describe("an Equip targets a creature as it is NOW (CR 608.2b / 704.5n)", () => 
   it("a crewed Vehicle is a creature now and may be equipped; uncrewed it may not", () => {
     const s = board({ user: [P("bears", BEARS, "user"), P("copter", COPTER, "user"), P("bone", BONESPLITTER, "user")] });
     expect(equipTargets(s, "user", "bone")).toEqual(["bears"]);
-    const crewed = dispatchAction(s, legalActionsForPlayer(s, "user").find((a) => a.kind === "crew-vehicle" && a.permanentId === "copter"));
+    const crewed = resolveTopOfStack(dispatchAction(s, legalActionsForPlayer(s, "user").find((a) => a.kind === "crew-vehicle" && a.permanentId === "copter"))); // crew uses the stack (CR 702.122a)
     expect(equipTargets(crewed, "user", "bone")).toEqual(["bears", "copter"]);
     const after = resolveAll(dispatchAction(crewed, equipOffers(crewed, "user", "bone").find((a) => a.targets[0].id === "copter")));
     expect(lastKind(after)).toBe("attach");

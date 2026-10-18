@@ -61,7 +61,8 @@ const logged = (s, pred) => (s.log || []).some(pred);
 describe("the Equip lane — CR 301.5c", () => {
   const equipAct = (s, source, host) => filterActions(legalActionsForPlayer(s, "user"), "activate-ability")
     .find((a) => a.permanentId === source && a.isEquipAbility && a.targets?.[0]?.id === host);
-  const crew = (s) => dispatchAction(s, legalActionsForPlayer(s, "user").find((a) => a.kind === "crew-vehicle" && a.permanentId === "rover"));
+  // Crew uses the stack (CR 702.122a): activate it, then let the crew ability resolve.
+  const crew = (s) => resolveTopOfStack(dispatchAction(s, legalActionsForPlayer(s, "user").find((a) => a.kind === "crew-vehicle" && a.permanentId === "rover")));
   const base = () => board([perm("rover", ROVER), perm("bear", BEAR), perm("giant", GIANT, { sick: true })]);
 
   it("VACUITY CONTROL — an uncrewed Rover Blades paying Equip {4} attaches to the Bear", () => {

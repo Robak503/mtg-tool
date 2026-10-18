@@ -6,9 +6,10 @@
  *    until end of turn.
  *    Crew 3"
  *
- * A new self-scoped event: the crew dispatch fires checkBecomesCrewedTriggers on the Vehicle that just became a
- * creature (routed through triggersForEvent, the becomes-tapped discipline), and the S6 animate arm gains the
- * "up to one other" form (the subset path + the source exclusion, printed P/T kept).
+ * A new self-scoped event: the crew ability's resolution (resolvers.js CREW, since 2026-10-18 — crew uses the stack, CR 702.122a,
+ * 702.122d) fires checkBecomesCrewedTriggers on the Vehicle that just became a creature (routed through triggersForEvent,
+ * the becomes-tapped discipline), and the S6 animate arm gains the "up to one other" form (the subset path + the source
+ * exclusion, printed P/T kept).
  *
  * Real oracle fixture (bundled Scryfall snapshot, verified in-session 2026-09-04).
  */
@@ -57,9 +58,13 @@ describe("runtime — crewing the Mech animates the Sled it could never crew", (
     expect(crew).toBeTruthy();
     expect(legalActionsForPlayer(s, "user").some((a) => a.kind === "crew-vehicle" && a.permanentId === "SLED")).toBe(false); // Crew 5 is out of reach
     s = dispatchAction(s, crew);
+    // Crew uses the stack (CR 702.122a), and "whenever this Vehicle becomes crewed" means "whenever a crew ability of this Vehicle
+    // resolves" (CR 702.122d): nothing has triggered yet. The resolution puts the trigger on the stack (finalizeStackResolution's flush).
+    expect(permanentIsCreature(s, "MECH")).toBe(false);
+    expect((s.pendingTriggers || []).length).toBe(0);
+    s = resolveTopOfStack(s);
     expect(permanentIsCreature(s, "MECH")).toBe(true);
-    expect((s.pendingTriggers || []).length).toBe(1);
-    s = flushTriggers(s, { chooseTargets: chooseTriggerTargets });
+    expect(s.stack.filter((o) => o.kind === "triggered-ability")).toHaveLength(1);
     const trig = s.stack.find((o) => o.kind === "triggered-ability");
     expect(trig.targets.map((t) => t.id)).toEqual(["SLED"]); // never the Mech itself
     s = resolveAll(s);

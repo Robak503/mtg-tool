@@ -18,6 +18,7 @@ import { parseStaticAbilities } from "./staticAbilityParser.js";
 import { crewCostWithOverrides, permanentIsCreature } from "./layers.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
+import { resolveTopOfStack } from "./gameEngine.js";
 import { classifyCard } from "./coverage.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 
@@ -61,7 +62,7 @@ describe("runtime — the crew number", () => {
     expect(acts).toHaveLength(1);
     expect(acts[0].crew).toBe(2);
     expect(acts[0].tapIds).toEqual(["B"]);
-    const after = dispatchAction(s, acts[0]);
+    const after = resolveTopOfStack(dispatchAction(s, acts[0])); // crew uses the stack (CR 702.122a): the ability resolves
     expect(permanentIsCreature(after, "V")).toBe(true);
     expect(after.players.user.battlefield.find((p) => p.id === "B").tapped).toBe(true);
   });

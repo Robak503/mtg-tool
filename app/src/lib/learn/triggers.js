@@ -1977,8 +1977,8 @@ function classifyCondition(condRaw, cardName, cardType) {
     if (selfRef && isSelfSubj) return { event: "becomesTapped", scope: "self", whose: "any" };
   }
   // BECOMES-CREWED SELF (SHELF-85 S7, 2026-09-04 — Mobilizer Mech "Whenever this Vehicle becomes crewed, …"): the
-  // crew dispatch (applyCrewVehicle) fires checkBecomesCrewedTriggers on the crewed Vehicle — self scope only, the
-  // becomes-tapped discipline. "this vehicle" joins the self nouns for this arm alone.
+  // crew ability's resolution (resolvers.js CREW — CR 702.122d) fires checkBecomesCrewedTriggers on the crewed Vehicle — self
+  // scope only, the becomes-tapped discipline. "this vehicle" joins the self nouns for this arm alone.
   if (/ becomes crewed$/.test(c)) {
     const subj = c.replace(/\s+becomes crewed\s*$/, "").trim();
     const isSelfSubj = subj === "this vehicle" || subj === "this permanent" || subj === "this artifact"
@@ -9827,11 +9827,12 @@ export function checkCounterTriggers(state) {
 }
 
 /**
- * SHELF-85 S7 (2026-09-04) — BECOMES CREWED (Mobilizer Mech "Whenever this Vehicle becomes crewed, …"): fired by the
- * crew dispatch on the Vehicle that just became a creature. Self-scoped by construction (the crewed Vehicle is both
- * the source and the triggering permanent; only scope:"self" descriptors match), routed through triggersForEvent
- * like every other event so a GRANTED becomes-crewed ability would be seen too. Queued onto pendingTriggers for the
- * normal flush → stack → resolve path.
+ * SHELF-85 S7 (2026-09-04) — BECOMES CREWED (Mobilizer Mech "Whenever this Vehicle becomes crewed, …"): fired as a crew
+ * ability resolves (resolvers.js CREW — CR 702.122d: "whenever a crew ability of [this Vehicle] resolves"; until 2026-10-18
+ * the crew dispatch fired it on activation) on the Vehicle that just became a creature. Self-scoped by construction (the
+ * crewed Vehicle is both the source and the triggering permanent; only scope:"self" descriptors match), routed through
+ * triggersForEvent like every other event so a GRANTED becomes-crewed ability would be seen too. Queued onto
+ * pendingTriggers for the normal flush → stack → resolve path.
  */
 export function checkBecomesCrewedTriggers(state, vehicleId) {
   const lk = findPermanent(state, vehicleId);

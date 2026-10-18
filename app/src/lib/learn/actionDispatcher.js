@@ -90,12 +90,12 @@ import { isNativeAura, isNativeManaAura, playerAuraSpellSubject, entersTapped, i
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
 import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.6b) — same reader the action gate uses · LANDS-5: the ONE discard-ability price reducer the offer uses too
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, crewCostWithOverrides, permanentColors, permIsEveryCreatureType, permanentManaValue, permanentTypes } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
+import { permanentHasKeyword, permanentIsCreature, crewCostWithOverrides, permanentColors, permIsEveryCreatureType, permanentManaValue, permanentTypes } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell / command-zone card that is every creature type (Changeling, Maskwood Nexus); a leaf over keywords.js
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39b — every creature type shares a creature type only (CR 205.3d); a zero-import leaf
 import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility, parseHandSelfPutAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch; S8 — the Pilot's crew boost; play-weighted #570 — the hand self-put, re-read from the card
 import { parseSagaChapters } from "./saga.js"; // SAGA LAND (play-weighted P·4 — Urza's Saga): the land drop gives a Saga its entry lore counter too (a pure leaf)
-import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers, checkBecomesCrewedTriggers, checkCycleSelfTriggers, checkCrimeTriggers, checkSagaChapterTriggers, checkTurnedFaceUpTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers; S7 — becomes-crewed; D9 — crime (CR 700.13); the flip's watchers (CR 701.40b)
+import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers, checkCycleSelfTriggers, checkCrimeTriggers, checkSagaChapterTriggers, checkTurnedFaceUpTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers; D9 — crime (CR 700.13); the flip's watchers (CR 701.40b)
 import { setPendingSoftCounterChoice, setPendingOptionalLifePaymentChoice } from "./pendingChoice.js"; // setPendingOptionalLifePaymentChoice — the shockland pause (LANDS-TIER slice 2), raised from the play-land path
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
 import { groupWardTaxForSpell, groupWardTaxForStackObject } from "./groupWard.js";
@@ -1384,14 +1384,17 @@ function applyActivateGyRecursion(state, action) {
       params: { cardId: action.cardId, controller: action.playerId, dest: action.dest, entersTapped: !!action.entersTapped },
     },
   });
-  let next = { ...working2, stack: [...working2.stack, stackObject] };
-  return logEvent(next, {
+  const next = logEvent({ ...working2, stack: [...working2.stack, stackObject] }, {
     kind: "activate-ability",
     playerId: action.playerId,
     permanentId: null,
     cardName: card.name,
     abilityText: action.abilityText,
   });
+  // CR 117.3c — the activator receives priority and the pass count restarts, as after any activation (applyActivateAbility):
+  // every other player gets priority before the ability can resolve (CR 117.4). Until 2026-10-18 the count was left where it
+  // was, so an activation taken after some players had passed resolved without them.
+  return { ...next, priorityHolder: action.playerId, consecutivePasses: 0 };
 }
 
 /**
@@ -1434,15 +1437,17 @@ function applyActivateHandSelfPut(state, action) {
 }
 
 /**
- * CREW (BLITZ VH-1, CR 702.122a) — a special activation with NO stack object in this engine (the tap is
- * the cost; the animation is the effect — modeled as an immediate resolution, the same simplification every
- * no-stack special action here uses). Re-verified live at dispatch (CREED — the action payload is untrusted):
- * the Vehicle must be a live, un-animated Vehicle with a printed Crew N; every tapped creature must be a
- * live, UNTAPPED creature the player controls; their total layer-aware power must still be ≥ N. Then: tap
- * them all (no untap events — tapping fires nothing here), add the layer-4 endOfTurn Creature type-add
- * (printed P/T + printed keyword lines apply once the type is on — no 7b/6 effects needed), and stamp
- * summoning sickness per CR 302.6: a Vehicle that entered THIS turn hasn't been controlled since the turn
- * began, so it can't attack even crewed (summoningSick true); an older Vehicle crews into a ready attacker.
+ * CREW (BLITZ VH-1, CR 702.122a) — "Crew N" is an activated ability: "Tap any number of other untapped creatures you control
+ * with total power N or greater: This permanent becomes an artifact creature until end of turn." Re-verified live at dispatch
+ * (CREED — the action payload is untrusted): the Vehicle must be a live, un-animated Vehicle with a printed Crew N; every
+ * tapped creature must be a live, UNTAPPED creature the player controls; their total layer-aware power must still be ≥ N.
+ * Then the COST is paid — the creatures tap (CR 602.2b; they crew the Vehicle, CR 702.122b) — and the ability goes ON THE
+ * STACK (kind "activated-ability", the CREW resolver), so every player can respond before the Vehicle becomes a creature.
+ * The effect — the layer-4 end-of-turn Creature type, the CR 302.6 summoning-sickness stamp, the CR 301.5c detach, and the
+ * becomes-crewed triggers (CR 702.122d: "whenever a crew ability of this Vehicle resolves") — is the resolver's
+ * (resolvers.js). Triggers the cost raised (a crewing creature's "becomes tapped") go on the stack above the ability before
+ * the activator receives priority (CR 117.5), as applyActivateAbility flushes them, and the activator receives priority with
+ * the pass count restarted (CR 117.3c). Until 2026-10-18 crew took effect at once, with no stack object and no priority reset.
  */
 function applyCrewVehicle(state, action) {
   const player = state.players[action.playerId];
@@ -1463,25 +1468,23 @@ function applyCrewVehicle(state, action) {
     power += Math.max(0, creaturePower(c.permanent, state) + crewPowerBonus(c.permanent.card)); // S8 — the Pilot's "as though its power were N greater"
   }
   if (power < n) throw new DispatcherError(`Crew total power ${power} < ${n}`, "CREW_SHORT");
-  let next = state;
-  for (const id of action.tapIds) next = tapPermanent(next, id);
-  // CR 301.5c — an EQUIPMENT-Vehicle (Rover Blades) that becomes a creature can't stay attached:
-  // detach in place (it remains on the battlefield; only the attachment link clears).
-  if (vehicle.attachedTo) {
-    const hostId = vehicle.attachedTo;
-    next = updatePermanentSafe(next, hostId, (p) => ({ ...p, attachments: (p.attachments || []).filter((id) => id !== vehicle.id) }));
-    next = updatePermanentSafe(next, vehicle.id, (p) => ({ ...p, attachedTo: null }));
-  }
-  next = addContinuousEffect(next, {
-    layer: 4,
-    op: { types: ["Creature"], subtypes: [] },
-    affects: { mode: "fixed", permanentIds: [vehicle.id] },
-    duration: { kind: "endOfTurn", turn: next.turn },
-    source: { kind: "resolution", permanentId: vehicle.id, cardName: vehicle.card?.name || null },
-  }).state;
-  next = updatePermanentSafe(next, vehicle.id, (p) => ({ ...p, summoningSick: p.enteredOnTurn === next.turn }));
-  next = checkBecomesCrewedTriggers(next, vehicle.id); // S7 — "whenever this Vehicle becomes crewed" (Mobilizer Mech)
-  return logEvent(next, { kind: "crew-vehicle", playerId: action.playerId, permanentId: vehicle.id, cardName: vehicle.card?.name, tapped: action.tapIds });
+  let working = state;
+  for (const id of action.tapIds) working = tapPermanent(working, id); // the cost (CR 602.2b)
+  const { id: stkId, state: working2 } = mintId(working, "stk");
+  const stackObject = createStackObject({
+    id: stkId,
+    kind: "activated-ability",
+    source: vehicle.card,
+    controller: action.playerId,
+    targets: [],
+    cost: null,
+    payload: { resolver: RESOLVER_KEYS.CREW, params: { vehicleId: vehicle.id, controller: action.playerId, sourceId: vehicle.id } },
+  });
+  let next = logEvent({ ...working2, stack: [...working2.stack, stackObject] }, {
+    kind: "crew-vehicle", playerId: action.playerId, permanentId: vehicle.id, cardName: vehicle.card?.name, tapped: action.tapIds,
+  });
+  next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
+  return { ...next, priorityHolder: action.playerId, consecutivePasses: 0 };
 }
 
 /**
@@ -1519,14 +1522,15 @@ function applyActivateGyExile(state, action) {
       params: { program: action.program, controller: action.playerId, targets: gyTargets, cardId: card.id, sourceId: null, ...(action.chosenMode != null ? { chosenMode: action.chosenMode } : {}) },
     },
   });
-  let next = { ...working2, stack: [...working2.stack, stackObject] };
-  return logEvent(next, {
+  const next = logEvent({ ...working2, stack: [...working2.stack, stackObject] }, {
     kind: "activate-ability",
     playerId: action.playerId,
     permanentId: null,
     cardName: card.name,
     abilityText: action.abilityText,
   });
+  // CR 117.3c — the activator receives priority with the pass count restarted (applyActivateGyRecursion's note).
+  return { ...next, priorityHolder: action.playerId, consecutivePasses: 0 };
 }
 
 function applyActivateAbility(state, action) {
@@ -2481,7 +2485,7 @@ const HANDLERS = {
   "activate-gy-recursion": applyActivateGyRecursion, // GY-1 (CR 602.2): "Return this card from your graveyard …" activated from the graveyard
   "activate-gy-exile": applyActivateGyExile, // GY-2 (CR 602.2): "<mana>, Exile this card from your graveyard: <effect>"
   "activate-hand-self-put": applyActivateHandSelfPut, // play-weighted #570 (CR 113.6m): "{N}: Put this card from your hand onto the battlefield."
-  "crew-vehicle": applyCrewVehicle, // CREW (VH-1, CR 702.122a): tap creatures totaling power ≥ N → the Vehicle animates until EOT
+  "crew-vehicle": applyCrewVehicle, // CREW (VH-1, CR 702.122a): tap creatures totaling power ≥ N (the cost) → the crew ability on the stack; the Vehicle animates until EOT as it resolves
   "cycle": applyCycle, // KW-CYCLING: discard a hand card to draw
   "discard-ability": applyDiscardAbility, // "<mana>, Discard this card: <effect>" — cycling generalized
   "plot": applyPlot,   // PLOT (CR 702.170a): exile a hand card face-up for the plot cost (special action)

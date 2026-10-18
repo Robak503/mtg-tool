@@ -84,7 +84,7 @@ describe("runtime — the loot, the Pilot, and the boosted crew", () => {
     const crew = legalActionsForPlayer(s, "user").find((a) => a.kind === "crew-vehicle" && a.permanentId === "SLED");
     expect(crew).toBeTruthy();
     expect(crew.tapIds).toEqual([pilot.id]);
-    s = dispatchAction(s, crew);
+    s = resolveTopOfStack(dispatchAction(s, crew)); // crew uses the stack (CR 702.122a): the ability resolves
     expect(permanentIsCreature(s, "SLED")).toBe(true);
     expect(s.players.user.battlefield.find((p) => p.id === pilot.id).tapped).toBe(true);
   });

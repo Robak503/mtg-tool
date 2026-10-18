@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.167.0** (tagged 2026-10-18 on the `[0.167.0]` CHANGELOG cut):
-> **6 commits**, corpus **45.4% (15,733)** at the tag (v0.166.0 → v0.167.0: +97 gained, −0 false credit removed, 11 commits) → **45.6% (15,774)**; engine gains since the tag: **+41**. The next tag
+> **7 commits**, corpus **45.4% (15,733)** at the tag (v0.166.0 → v0.167.0: +97 gained, −0 false credit removed, 11 commits) → **45.6% (15,774)**; engine gains since the tag: **+41**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,68 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-18 — FIX (rules faithfulness): after an activation the activator gets priority and the pass count restarts — the graveyard self-return (GY-1, Reassembling Skeleton) and the exile-from-graveyard ability (GY-2, Halo Scarab) put their ability on the stack without restarting the count, so an activation taken after some players had passed resolved once the players after the activator passed, and the players who had passed before it never held priority with it on the stack; crew restarted nothing either and took effect at once — no player could respond before the Vehicle was a creature, and "whenever this Vehicle becomes crewed" triggered on the activation; now all three end like every other activation (the activator holds priority, the count at 0), and crew is an activated ability on the stack: the crew taps as the cost, a trigger the cost raised goes on the stack above it, and the Vehicle becomes a creature — and its becomes-crewed triggers fire — when the ability resolves (CR 117.3c, 117.4, 117.5, 702.122a, 702.122d) · **±0** · snapshot native+land 15,740 unchanged
+> Suite **21,711 green (1 skipped) / 1,937 files** under the gate queue, first run (with the rules index built for the run, then deleted),
+> on the final code and test bytes (sha256 of all 14 changed code and test files checked before and after the run). Lint 0 (CR citations:
+> 0 of 12,385 name no rule; keyword citations: 0 of 2,519 cite a different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards;
+> before = an untouched `git archive` of 74c198d3; native+land 15,740 of 34,584 snapshot names on both). **Mutants 6/6** on assertions,
+> each restored byte-identical (sha256): GY-1 without the reset (3 tests red), GY-2 without it (2), crew without it (1), crew without the
+> activation-time trigger flush (1), crew offered again while its ability is pending (1), the CREW resolver firing no becomes-crewed trigger
+> (2). Witness `activationPriority.test.js` (15), written before the engine change (the crew-after-a-pass case and the Wanderbrine
+> Preacher case added while building) and run on the untouched archive: **11 fail there on assertions, the 4 controls pass on both** (a
+> spell, a normal activated ability, a mana ability, crew not offered twice). A/B **80 seeded commander games** (base seed 7, 10 per pod,
+> the 30 profile decks, default AI; base = the untouched 74c198d3 archive): **74 byte-identical**; **6 change play** — games 60, 63, 64,
+> 65, 66, 69, all the Shorikai Vehicles pod, and **every first divergence is an AI crew the base threw away** (below): Prodigy's
+> Prototype, Imposter Mech (entered as a copy of Thrun, Breaker of Silence), Shorikai, Genesis Engine, Nautiloid Ship, Mechtitan Core,
+> Smuggler's Copter. **1 winner changes** (game 69, ai2 → ai3); turns move in 4 (60: 36 → 32, 64: 33 → 35, 65: 47 → 32, 69: 57 → 51);
+> 0 errors on either tree; results unchanged (ai-wins 53 / user-wins 27); 204.0 s / 198.8 s. Committed on `day/actprio`, not pushed; the
+> release-batch line and the WAKE-REPORT are the integrator's.
+> · **The bug (reproduced on 74c198d3, the engine's own entry points).** Two seats, the user's main phase: the user passed, the AI activated
+>   Reassembling Skeleton from its graveyard — the AI held priority with the count still at 1, passed, and the ability resolved; the user,
+>   holding Scavenging Ooze, never had priority with it on the stack. In a pod (ai1 activating after the user passed) the holders while
+>   it waited were ai1, ai2, ai3 — never the user. Halo Scarab the same. Crew: the Vehicle was a creature on the dispatch itself — no stack
+>   object, so an opponent's Shatter could only meet a creature, Mobilizer Mech's becomes-crewed trigger was pending at once, and a crew
+>   taken with a pass already counted kept that count.
+> · **The fix** (`actionDispatcher.js`, `resolvers.js`, `resolverKeys.js`, `legalChoices.js`). `applyActivateGyRecursion` and
+>   `applyActivateGyExile` end `{ ...next, priorityHolder: action.playerId, consecutivePasses: 0 }` — the mechanism every other activation
+>   uses (applyActivateAbility, cycle, loyalty …), not a second one. `applyCrewVehicle` keeps its live re-verification, taps the crew (the
+>   cost, CR 602.2b), pushes an `activated-ability` object with the new `RESOLVER_KEYS.CREW` ("crew"), logs `crew-vehicle` as before,
+>   flushes triggers as applyActivateAbility does (a crewing creature's becomes-tapped trigger goes above the crew ability, CR 117.5), and
+>   resets priority. The CREW resolver does what the dispatcher did — the CR 301.5c detach, the layer-4 end-of-turn Creature type, the CR
+>   302.6 summoning-sickness stamp — then `checkBecomesCrewedTriggers` (CR 702.122d), flushed by finalizeStackResolution; a Vehicle gone
+>   in response is a logged fizzle (`spell-effect` / `crew` / `fizzled`), the crew stays tapped. `actionsCrewVehicle` no longer offers
+>   crew for a Vehicle whose crew ability is on the stack (legal, but it taps more creatures for nothing; an under-offer).
+> · **The AI's crews never happened before this.** The session driver's anti-loop latch (`learnSession.progressSignature`, :601; the latch
+>   at :2631) reads a non-pass action that changes none of turn, step, stack depth, active player's hand and pool, battlefield count,
+>   attackers, blockers as a no-op and passes from the state before it. The base's crew — creatures tapped, a continuous effect added,
+>   nothing on the stack — was always such an action: **22 AI crew picks in the base batch, 0 crew-vehicle log entries**. Now the crew
+>   ability changes the stack depth: **12 picks, 12 crews on the stack, 12 resolved** (none responded to). The human's crews (applyChoice,
+>   no latch) worked on both trees.
+> · **Handlers checked for the reset.** Reset already: play-land, cast-spell (incl. the discover free cast), activate-ability (equip
+>   included), activate-hand-self-put, cycle, discard-ability, plot, turn-face-up, activate-loyalty, companion-to-hand, suspend. Fixed:
+>   activate-gy-recursion, activate-gy-exile, crew-vehicle. Left: tap-for-mana and double-mana-pool (mana abilities — no stack; the prior
+>   slice's decision, a control pins it), declare-attacker / declare-blocker (the declarations' own machinery), the mid-resolution
+>   decisions (discover-to-hand, free-cast-decline, cascade-decline, cast-from-among-done). Ninjutsu is not an action (stripped as a
+>   cost-only line). The first-strike step (task item 3) was not taken: it changes every combat's laps, and the A/B would no longer be
+>   attributable.
+> · **Tests changed with it** (each encoded crew taking effect on the dispatch): `attachLegality`, `brassSquire` (2 sites), `crewVehicles`
+>   (2), `destroyEventLadder`, `equipOfferParity`, `kotoriPilotProdigy`, `shorikaiGenesisEngine` now resolve the crew ability before
+>   reading the creature; `mobilizerMech` asserts nothing has triggered on the activation and one trigger is on the stack after the
+>   resolution. `crewVehicles`' header cited CR 702.121 (melee) for crew — now 702.122.
+> · ⚠️ **Found, not fixed:** (1) The same latch throws away an AI's land-paid **turn-face-up** (P·19 manifest; a special action with no stack
+>   object): probed on a manifested Craw Wurm with six Forests — signature identical before and after, the creature face up after, so the
+>   driver discards it and passes (learnSession.js:601 / :2631). Any no-stack action that moves no counted field is at risk. (2) The
+>   first-strike damage step always exists (gameState.js:126, gameEngine.js:698) — CR 510.4; carried from the declare-blockers entry.
+>   (3) Triggers the costs of GY-1 (its discard / exile / tap riders, actionDispatcher.js:1357), GY-2 (the self-exile's graveyard-leave
+>   watchers), a plain cycle and a discard-ability raise still wait for the next checkpoint instead of going on the stack before the
+>   activator has priority (CR 117.5) — crew now flushes; these were left as they were. (4) Crew and the graveyard lanes never reach
+>   `checkAbilityActivatedTriggers` (called only at actionDispatcher.js:1847 and :2068): "whenever you activate an ability" watchers
+>   (Crackdown Construct, Rings of Brighthearth) miss a crew activation — an under-fire, unchanged. (5) Existing fixtures drift from the
+>   bundled oracle: `crewVehicles`' Sleek Schooner {2} (real {3}), `gyRecursionActivated`'s Reassembling Skeleton {B} (real {1}{B}),
+>   `mobilizerMech`'s Mech 4/3 (real 3/4); the new witness uses the bundled text.
+> · Also: ENGINE-SCAFFOLD §4.2's push list gains the graveyard, hand and crew lanes; §4.3 gains the after-an-action paragraph (the one
+>   reset mechanism, mana abilities excepted).
 
 > ## 🔧 2026-10-18 — FIX (rules / UX): a person chooses the targets of their own triggered ability as it goes on the stack (CR 603.3d → 601.2c) — the trigger-target pause; the automatic chooser aimed every seat's triggers, so in the Academy Ravenous Chupacabra destroyed the first legal creature, Twinshot Sniper shot the first opposing creature, an "up to one" target (Chomping Changeling) could not be declined and Knight of Autumn always took its first mode (CR 603.3c); now the person picks, and every AI seat keeps the automatic chooser · **±0** · snapshot native+land 15,740 unchanged
 > Suite **21,696 green (1 skipped) / 1,937 files** under the gate queue, first run (with the rules index built for the run, then deleted); it ran on the final code and test bytes (sha256 of src/lib/learn, src/components/mtg and src/hooks checked before and after the run) — the docs (this entry, CHANGELOG, ENGINE-SCAFFOLD, PLAY-API-CONTRACT) were written beside it, and no test reads them. Lint 0 (CR citations: 0 of 12,353 name no rule; keyword citations: 0 of 2,492 cite a different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of 31d97587; native+land 15,740 of 34,584 snapshot names on both). **Mutants 7/7** on assertions, each restored byte-identical (sha256; run in a scratch copy of the tree): the person never asked (9 tests red), the settle ignoring the pick (8), the topmost waiting ability asked first (1), a single legal choice asked too (1), the settle skipping the becomes-the-target events (1), the "up to one" decline not offered (1), the chosen mode not written (1). Witness `triggerTargetChoice.test.js` written before the engine change and run on the untouched engine: **12 tests — 9 fail there on assertions, the 3 controls pass on both** (a single legal target asks nothing; the AI's trigger at a table with a person is targeted exactly as at one without; the user seat at a table with no person is targeted by the chooser) — re-run there in final form, 9 fail / 3 pass; `triggerTargetPanel.test.jsx` (5 — the panel, the wire view, the hook payload) pins the new surface. A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched 31d97587 archive): **80 / 80 byte-identical** (the sha256 of every game record — each decision row, the log, result, winner, turns, ticks), 0 errors on either tree, results unchanged (ai-wins 53 / user-wins 27), 195.7 s / 192.2 s — self-play plays at Expert, which stamps no `humanSeats`. Live: `npm run dev` (port 3123, a scratch data root) — a saved beginner game resumed through `/api/learn/resume`, Ravenous Chupacabra cast through `/api/learn/step`: the sheet read "Choose targets for Ravenous Chupacabra's triggered ability" with the ability text and two buttons, Grizzly Bears (Opponent) and Hill Giant (Opponent); Hill Giant through `/api/learn/choose` destroyed the Giant (the opponent's graveyard 1, the Bears attacked the next turn); the only console errors were card-image 404s (no image cache in the scratch root). Committed on `day/trigtarget`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.

@@ -21,7 +21,7 @@
  */
 
 import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreaturesAfterEffect, castsAsPlaneswalker, moveCardToZone, tapPermanent, recordGraveyardEvents, updatePermanentSafe } from "./gameState.js";
-import { queueEvokeSacrifice, checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLandfallTriggers } from "./triggers.js";
+import { queueEvokeSacrifice, checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLandfallTriggers, checkBecomesCrewedTriggers } from "./triggers.js"; // + checkBecomesCrewedTriggers: the CREW resolver (CR 702.122d)
 import { entersByDiscardingLand, applyDiscardLandToEnter } from "./discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247) — "If this artifact would enter, you may discard a land card instead…" (CR 614.1a, 614.12a): whether it enters at all
 import { applyEnterReplacements, settleEnterReplacements, sagaEntryChapterTriggers } from "./enterReplacements.js"; // the entry replacements (CR 614.1c, 614.1d, 614.12) — the ONE reader the cast entry and the non-cast entry (zones.enterCardFromZone) share
 import { markPendingArbiter } from "./pendingArbiter.js";
@@ -33,7 +33,7 @@ import { bodyOnlyAuraHosts } from "./auraSpellHost.js"; // AURA_ETB's re-check f
 import { characteristicColors } from "./faceUp.js"; // the resolving Aura spell's colours — a double-faced spell is its front face's (CR 712.8c) (a leaf)
 import { auraEntryHasHost, enteringAuraHost, mayBeEnchantedBy } from "./auraEntry.js"; // mayBeEnchantedBy: AURA_ETB's re-check (CR 608.2b, 702.16c). A clone that enters as a copy of an Aura chooses what it enchants (CR 303.4f) — auraEntry reaches neither resolvers nor cloneCopy (checked 2026-10-16)
 import { isNativeManaAura, auraChoosesColorOnEnter, parseSoulbondBond } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) — the Aura spell's host re-check; SOULBOND (BLITZ SL-1) — the modeled bond reader
-import { equipmentBarredAsCreature, cannotEquipNow, permanentHasCardType, permanentHasTypeWord, permanentColors, permanentIsCreature } from "./layers.js"; // + permanentHasTypeWord (the type-line audit — the clone re-check's Equipment) // CR 301.5c / 701.3b (cannotEquipNow — a source that is no Equipment right now) — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types; + the colours the CR 608.2b re-checks judge protection against
+import { equipmentBarredAsCreature, cannotEquipNow, permanentHasCardType, permanentHasTypeWord, permanentColors, permanentIsCreature, addContinuousEffect } from "./layers.js"; // + addContinuousEffect: the CREW resolver's layer-4 type (CR 702.122a); // + permanentHasTypeWord (the type-line audit — the clone re-check's Equipment) // CR 301.5c / 701.3b (cannotEquipNow — a source that is no Equipment right now) — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types; + the colours the CR 608.2b re-checks judge protection against
 import { canBeTargetedBy, playerTargetableBy } from "./spellEffects.js"; // the ONE targetability predicate the Aura / Equip offers read — re-asked as those spells and abilities resolve (CR 608.2b, 608.3b)
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
@@ -743,6 +743,37 @@ export const RESOLVERS = Object.freeze({
     const bf = next.players[controller].battlefield;
     next = checkLandfallTriggers(next, bf[bf.length - 1]);
     return logEvent(next, { kind: "spell-effect", effect: "hand-self-put", controller, cardName: card.name });
+  },
+
+  // CREW (CR 702.122a): a crew ability resolving — "This permanent becomes an artifact creature until end of turn." The cost (the
+  // creatures tapped) was paid on activation (actionDispatcher.applyCrewVehicle); the effect waits here, on the stack, so every
+  // player can respond before the Vehicle is a creature (CR 117.3c, 117.4). A Vehicle that left the battlefield in response is a
+  // new object if it returns (CR 400.7): the ability does nothing — a logged fizzle; the crew stays tapped. Otherwise: an
+  // Equipment-Vehicle can't stay attached as a creature (CR 301.5c — detached in place), the layer-4 end-of-turn Creature type is
+  // added (its printed P/T and keyword lines apply once it is one), summoning sickness is stamped per CR 302.6 (a Vehicle that
+  // entered this turn can't attack even crewed), and "whenever this Vehicle becomes crewed" triggers now — on the crew ability's
+  // resolution (CR 702.122d) — for finalizeStackResolution's flush.
+  [RESOLVER_KEYS.CREW]: (state, obj) => {
+    const { vehicleId, controller } = obj.payload?.params || {};
+    const lk = findPermanent(state, vehicleId);
+    if (!lk) return logEvent(state, { kind: "spell-effect", effect: "crew", controller, cardName: obj.source?.name || null, fizzled: true });
+    const vehicle = lk.permanent;
+    let next = state;
+    if (vehicle.attachedTo) {
+      const hostId = vehicle.attachedTo;
+      next = updatePermanentSafe(next, hostId, (p) => ({ ...p, attachments: (p.attachments || []).filter((id) => id !== vehicle.id) }));
+      next = updatePermanentSafe(next, vehicle.id, (p) => ({ ...p, attachedTo: null }));
+    }
+    next = addContinuousEffect(next, {
+      layer: 4,
+      op: { types: ["Creature"], subtypes: [] },
+      affects: { mode: "fixed", permanentIds: [vehicle.id] },
+      duration: { kind: "endOfTurn", turn: next.turn },
+      source: { kind: "resolution", permanentId: vehicle.id, cardName: vehicle.card?.name || null },
+    }).state;
+    next = updatePermanentSafe(next, vehicle.id, (p) => ({ ...p, summoningSick: p.enteredOnTurn === next.turn }));
+    next = checkBecomesCrewedTriggers(next, vehicle.id);
+    return logEvent(next, { kind: "spell-effect", effect: "crew", controller, permanentId: vehicle.id, cardName: vehicle.card?.name || null });
   },
 
   [RESOLVER_KEYS.MANUAL]: resolveManual,

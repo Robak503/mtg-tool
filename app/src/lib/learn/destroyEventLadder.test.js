@@ -106,7 +106,8 @@ const activate = (s, permId, who = "user", pick = () => true) => {
 };
 // Mutavault's "{1}: This land becomes a 2/2 creature …" through its own activation, paid from a {C} put in the pool.
 const animate = (s, permId, who = "user") => activate(withPool(s, who, { C: 1 }), permId, who, (x) => x.cost?.generic === 1);
-const crew = (s, vehicleId) => dispatchAction(s, actionsOf(s, "user").find((a) => a.kind === "crew-vehicle" && a.permanentId === vehicleId));
+// Crew a Vehicle and resolve the crew ability (crew uses the stack — CR 702.122a).
+const crew = (s, vehicleId) => resolveTopOfStack(dispatchAction(s, actionsOf(s, "user").find((a) => a.kind === "crew-vehicle" && a.permanentId === vehicleId)));
 const perm = (s, id) => Object.values(s.players).flatMap((p) => p.battlefield).find((p) => p.id === id) || null;
 const names = (zone) => zone.map((c) => c.name).sort();
 const count = (zone, name) => zone.filter((c) => c.name === name).length;

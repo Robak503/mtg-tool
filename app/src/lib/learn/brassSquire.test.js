@@ -122,7 +122,7 @@ describe("resolution", () => {
     expect(onBoard(uncrewed, "rover").attachedTo).toBe("bear");
     // Crew it for real (the summoning-sick Giant pays, so the Squire stays untapped) — now it's an artifact creature.
     const crewAct = legalActionsForPlayer(base, "user").find((a) => a.kind === "crew-vehicle" && a.permanentId === "rover");
-    const crewed = dispatchAction(base, crewAct);
+    const crewed = resolveTopOfStack(dispatchAction(base, crewAct)); // crew uses the stack (CR 702.122a): the ability resolves
     expect({ creature: permanentIsCreature(crewed, "rover"), squireTapped: onBoard(crewed, "sq").tapped }).toEqual({ creature: true, squireTapped: false });
     const out = activate(crewed, "rover", "bear");
     const result = { attachedTo: onBoard(out, "rover").attachedTo ?? null, bearAttachments: onBoard(out, "bear").attachments || [],
@@ -143,7 +143,7 @@ describe("resolution", () => {
 
   it("the guard lives in the shared resolver: Codsworth's Aura-or-Equipment form refuses the crewed Rover Blades too", () => {
     const base = board([perm("rover", ROVER), perm("bear", BEAR), perm("giant", GIANT, { sick: true })]);
-    const crewed = dispatchAction(base, legalActionsForPlayer(base, "user").find((a) => a.kind === "crew-vehicle" && a.permanentId === "rover"));
+    const crewed = resolveTopOfStack(dispatchAction(base, legalActionsForPlayer(base, "user").find((a) => a.kind === "crew-vehicle" && a.permanentId === "rover"))); // crew uses the stack (CR 702.122a)
     const atom = parseEffectClause("attach target aura or equipment you control to target creature you control", "Instant").atoms[0];
     const targets = [{ type: "permanent", id: "rover", role: "attachment" }, { type: "creature", id: "bear", role: "host" }];
     expect(onBoard(resolveAtom(crewed, atom, { controller: "user", targets }), "rover").attachedTo ?? null).toBe(null);

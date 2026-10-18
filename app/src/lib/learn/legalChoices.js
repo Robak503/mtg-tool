@@ -123,7 +123,7 @@ import { isModalDfc, mdfcLandFaces, mdfcFaceCards, parseSpellModalDfc, spellMdfc
 import { characteristicTypeLine, characteristicColors } from "./faceUp.js"; // the face being cast's type line (CR 712.8c) — Rivaz's "Dragon creature spell" permission; the colours of the spell being cast or the zone card whose ability it is, for protection (CR 702.16b) and the pitch costs (a leaf)
 import { evaluateInterveningIf } from "./interveningIf.js"; // CR 602.5d "Activate only if <cond>" — the offer gate reads the SAME vocabulary as the trigger + spell lanes
 import { extractAdditionalCosts, extractAltCost } from "./effects/castModifiers.js"; // AC-PERMANENT — see permanentAdditionalCosts below; + extractAltCost (EVOKE on a permanent, Solitude)
-import { isPermanentSpell } from "./resolvers.js";
+import { isPermanentSpell, RESOLVER_KEYS } from "./resolvers.js"; // + RESOLVER_KEYS: the crew offer skips a Vehicle whose crew ability is on the stack
 import { commanderColorIdentityOf } from "./commanderIdentity.js";
 import { hideawayPlayOfferable } from "./effects/atoms/hideaway.js";
 import { isGraveyardReanimateAura } from "./animateDeadGate.js"; // P·12 — Animate Dead // P·10 — the linked free play is offered only when it can do something // P·6 — War Room's life cost (CR 903.4; a zero-import leaf)
@@ -2523,6 +2523,9 @@ function actionsCrewVehicle(state, playerId) {
     if (lockedActivationSource(state, artLocked, perm.id)) continue; // NR-1 lock, and AU-2: an ARRESTED Vehicle can't be crewed
     const n = crewCostWithOverrides(state, perm.id, parseCrewCost(perm.card)); // S17 — Kotori's "Vehicles you control have crew 2"
     if (n == null || permanentIsCreature(state, perm.id)) continue;
+    // Its own crew ability already waiting on the stack (CR 702.122a — crew uses the stack): a second crew is legal but taps
+    // more creatures for nothing the first doesn't give, so it isn't offered (an under-offer, never an illegal one).
+    if ((state.stack || []).some((o) => o.payload?.resolver === RESOLVER_KEYS.CREW && o.payload?.params?.vehicleId === perm.id)) continue;
     if (!crewPool) {
       const own = player.battlefield.filter((p) => !p.tapped && permanentIsCreature(state, p.id));
       const sick = own.filter((p) => p.summoningSick && !permanentHasKeyword(state, p.id, "Haste"))

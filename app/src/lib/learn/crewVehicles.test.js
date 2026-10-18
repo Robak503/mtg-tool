@@ -1,10 +1,11 @@
 /**
- * crewVehicles.test.js — BLITZ VH-1 (CR 702.121): CREW N. legalChoices.actionsCrewVehicle offers crewing
+ * crewVehicles.test.js — BLITZ VH-1 (CR 702.122): CREW N. legalChoices.actionsCrewVehicle offers crewing
  * (own turn + priority + main step — the engine's universal activation window) with a deterministic
  * auto-picked tap set (summoning-sick first, power desc — they can't attack anyway; then ready creatures
- * power asc); actionDispatcher.applyCrewVehicle re-verifies live (CREED), taps the set, and adds a layer-4
+ * power asc); actionDispatcher.applyCrewVehicle re-verifies live (CREED), taps the set (the cost) and puts the crew ability on
+ * the stack (since 2026-10-18 — CR 702.122a); its resolution (resolvers.js CREW) adds a layer-4
  * endOfTurn Creature type-add — printed P/T and printed keyword lines then apply through the normal layer /
- * keyword reads. CR 302.6: a Vehicle that ENTERED this turn is stamped summoning-sick at crew time (it
+ * keyword reads. CR 302.6: a Vehicle that ENTERED this turn is stamped summoning-sick as the crew ability resolves (it
  * can't attack even crewed); an older Vehicle crews into a ready attacker. The coverage side strips the
  * modeled Crew line (the plot/warp/enters-tapped precedent) so a Vehicle whose OTHER text is modeled
  * classifies native. Real oracle fixtures (bundled Scryfall, verified 2026-07-16).
@@ -14,6 +15,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createGameState, createPermanent, _resetIdsForTests } from "./gameState.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction, DispatcherError } from "./actionDispatcher.js";
+import { resolveTopOfStack } from "./gameEngine.js";
 import { permanentIsCreature } from "./layers.js";
 import { parseCrewCost } from "./effects/abilities.js";
 import { classifyCard } from "./coverage.js";
@@ -61,7 +63,11 @@ describe("runtime — the crew loop", () => {
     const offers = crewOffers(s);
     expect(offers).toHaveLength(1);
     expect(offers[0]).toMatchObject({ permanentId: "veh", crew: 1, tapIds: ["sick"], allSick: true });
+    // Crew uses the stack (CR 702.122a — activationPriority.test.js): the cost is paid on activation, the effect on resolution.
     let after = dispatchAction(s, offers[0]);
+    expect(after.players.user.battlefield.find((p) => p.id === "sick").tapped).toBe(true);
+    expect(permanentIsCreature(after, "veh")).toBe(false);
+    after = resolveTopOfStack(after);
     expect(permanentIsCreature(after, "veh")).toBe(true);
     expect(after.players.user.battlefield.find((p) => p.id === "sick").tapped).toBe(true);
     expect(after.players.user.battlefield.find((p) => p.id === "rdy").tapped).toBe(false);
@@ -75,7 +81,7 @@ describe("runtime — the crew loop", () => {
 
   it("CR 302.6 — a Vehicle that entered THIS turn crews summoning-sick and cannot attack", () => {
     const s = board({ vehicleEnteredTurn: 4, turn: 4 });
-    let after = dispatchAction(s, crewOffers(s)[0]);
+    let after = resolveTopOfStack(dispatchAction(s, crewOffers(s)[0]));
     expect(after.players.user.battlefield.find((p) => p.id === "veh").summoningSick).toBe(true);
     after = { ...after, step: "declare-attackers", combat: { attackers: [], blockers: [] } };
     expect(legalActionsForPlayer(after, "user").some((a) => a.kind === "declare-attacker" && a.permanentId === "veh")).toBe(false);
