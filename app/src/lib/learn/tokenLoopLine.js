@@ -41,7 +41,7 @@ export function isTokenLoopAbility(ability) {
   if (!ability || !ability.modeled || !ability.costModeled) return false;
   if (!ability.manaPips) return false;
   if (ability.tapSelf || ability.sacSelf || ability.exileSelf || ability.costX || ability.discardRandom) return false;
-  if (ability.payLife || ability.payEnergy || ability.discardCard) return false;
+  if (ability.payLife || ability.payEnergy || ability.discardCard || ability.discardCount) return false;
   if (ability.sacOther != null || ability.sacCount != null || ability.sacX != null || ability.removeCounter != null
     || ability.tapCreature != null || ability.exileGyCount != null || ability.discardCardFilter != null
     || ability.returnLand != null || ability.unattachEquipment != null) return false;

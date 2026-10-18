@@ -32,7 +32,7 @@ import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPowe
 import { hasKeyword } from "./keywords.js";
 import { faceUpTypeLine } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the look-back fallback and the legend rule read the front face's type line
 import { applyCounterDoubling, millMultiplier, playerCounterAdditive, applyLifeGainReplacement, drawMultiplier } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
-import { auraHasTotemArmor, grantsUmbraArmorToAuras, isAuraCard, othersEnterWithCounters, exilesCreaturesItDamaged, exilesOpponentCreaturesOnDeath, lifeFloorOf, graveyardExileSpecOf } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.89; + the Umbra Mystic grant, shelf D43) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
+import { auraHasTotemArmor, grantsUmbraArmorToAuras, isAuraCard, othersEnterWithCounters, exilesCreaturesItDamaged, exilesOpponentCreaturesOnDeath, lifeFloorOf, graveyardExileSpecOf, opponentLifeLossMultiplierOf } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.89; + the Umbra Mystic grant, shelf D43) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
 import { applyControlAuraAttach, revertControlAura } from "./controlAura.js"; // CR 613.1b control Auras — a ZERO-IMPORT leaf, so this lowest-layer module can call it without a cycle
 import { knownColorIdentityOfCards } from "./commanderIdentity.js"; // CR 903.4a — the seat's commander color identity, stamped at game start (a zero-import leaf)
 import { moveControl } from "./controlMove.js"; // THE one control move, shared by the control Auras and the gain-control atom; controlMove imports nothing, so this stays acyclic
@@ -1434,6 +1434,7 @@ export function stampTriggeringLki(state, permanentId) {
     toughness: creatureToughness(lk.permanent, state),
     isCreature: permanentIsCreature(state, permanentId),
     colors: [...permanentColors(state, permanentId)],
+    types: [...permanentTypes(state, permanentId).types], // its card types (a source-type-filtered damage replacement reads them — Mechanized Warfare's "artifact source")
     keywords: TRIGGERING_LKI_KEYWORDS.filter((k) => permanentHasKeyword(state, permanentId, k)),
   };
   return {
@@ -2181,6 +2182,19 @@ export function expireNameCastLocks(state, playerId) {
   return logEvent({ ...state, nameCastLocks: kept }, { kind: "name-cast-lock-expired", playerId, count: locks.length - kept.length });
 }
 
+/**
+ * STORED DAMAGE REPLACEMENTS END (Lightning, Army of One's Stagger — "until your next turn", CR 611.2a): at `playerId`'s untap step
+ * each one THAT player created on an earlier turn ends, and so does every one whose controller has left the game (CR 800.4a — the
+ * effect ends with its controller here, an early end rather than an outliving one). No stored effects → no cost.
+ */
+export function expireDamageReplacementEffects(state, playerId) {
+  const effects = state?.damageReplacementEffects;
+  if (!Array.isArray(effects) || effects.length === 0) return state;
+  const kept = effects.filter((e) => state.players?.[e.controller] && !(e.untilTurnOf === playerId && e.setTurn < state.turn));
+  if (kept.length === effects.length) return state;
+  return logEvent({ ...state, damageReplacementEffects: kept }, { kind: "damage-replacement-expired", playerId, count: effects.length - kept.length });
+}
+
 export function phaseInAndExpireShield(state, playerId) {
   assertPlayer(playerId);
   const player = state.players[playerId];
@@ -2248,9 +2262,18 @@ export function loseLife(state, { playerId, amount, combatDamage }) {
   // the floor gets no help at all (the printed rulings: "Does not affect damage if you are already at zero or negative
   // life. You still take it all."). Known under-application: a pain land's "deals 1 damage to you" reaches here unmarked,
   // so it is not floored.
+  //
+  // AN OPPONENT'S LIFE LOSS ON THEIR OPPONENT'S TURN (the play-weighted program, 2026-10-17 — Bloodletter of Aclazotz: "If an
+  // opponent would lose life during your turn, they lose twice that much life instead."): a replacement on the LIFE-LOSS event
+  // (CR 614.1a), applied here because every loss reaches this chokepoint — damage (CR 120.3a), drains, and paid life (paying life
+  // IS losing it, CR 119.4). Each such permanent the ACTIVE player controls applies once (CR 614.5; two make it four times) when
+  // the loser is not the active player. What doubles is the loss: `amount` stays the damage (damageTakenThisTurn below; the
+  // callers tally lifelink and commander damage from the damage dealt — the card's ruling), `loss` is what the life total gives
+  // up. The loser orders it before the life floor (CR 616.1 — the floor last leaves them the most life).
+  const loss = amount > 0 ? amount * opponentLifeLossMultiplierFor(state, playerId) : amount;
   const floor = combatDamage !== undefined && amount > 0 ? lifeFloorFor(state, playerId) : null;
   const lifeBefore = state.players[playerId].life;
-  const newLife = floor == null || lifeBefore < floor ? lifeBefore - amount : Math.max(lifeBefore - amount, floor);
+  const newLife = floor == null || lifeBefore < floor ? lifeBefore - loss : Math.max(lifeBefore - loss, floor);
   const lost = lifeBefore - newLife;
   let next = withPlayer(state, playerId, p => {
     return {
@@ -2282,8 +2305,23 @@ export function loseLife(state, { playerId, amount, combatDamage }) {
       next = withPlayer(next, active, (p) => ({ ...p, speed: (p.speed || 0) + 1, speedIncreasedThisTurn: true }));
     }
   }
-  if (lost < amount) next = logEvent(next, { kind: "life-floor", playerId, damage: amount, lifeLost: lost, floor });
+  if (loss > amount) next = logEvent(next, { kind: "life-loss-replaced", playerId, wouldLose: amount, loses: loss });
+  if (lost < loss) next = logEvent(next, { kind: "life-floor", playerId, damage: amount, lifeLost: lost, floor });
   return _lifeLossWatcher && lost > 0 ? _lifeLossWatcher(next, { playerId, amount: lost }) : next;
+}
+
+// THE OPPONENT-LIFE-LOSS MULTIPLIER (Bloodletter of Aclazotz): the product of every such static the ACTIVE player controls, when
+// `playerId` — the player losing life — is not the active player (an opponent, CR 102.2 / 102.3); 1 otherwise. Battlefields are keyed
+// by controller, so the active player's array is exactly "permanents you control" on "your turn".
+function opponentLifeLossMultiplierFor(state, playerId) {
+  const active = state.activePlayer;
+  if (!active || active === playerId || !state.players?.[active]) return 1;
+  let factor = 1;
+  for (const perm of state.players[active].battlefield || []) {
+    const m = opponentLifeLossMultiplierOf(perm.card);
+    if (m) factor *= m;
+  }
+  return factor;
 }
 
 // LIFE FLOOR reader (stage ③ · 10): the highest floor any permanent the player controls sets — battlefields are keyed by
@@ -2711,6 +2749,7 @@ export function deathLookback(state, perm, controller) {
     basePower: Number.isFinite(bpw) ? bpw : null,
     counters: { ...(perm.counters || {}) }, // undying / persist / modular and the counter-scoped watchers read the last-known bag
     lkiTypes: [...permanentTypes(state, perm.id).types],
+    lkiColors: [...permanentColors(state, perm.id)], // its colours as it last existed (CR 113.7a) — a dies trigger's damage source for Torbran's "red source"
     exileInstead: diesExiledInstead(state, perm),
     exileTo: deathExiledInstead(state, perm), // P·28 — where it goes; a graveyard replacement redirects inside moveCardToZone
     // The shuffle-instead is a replacement at the zone move, but the dead list is built before the move — without the flag every

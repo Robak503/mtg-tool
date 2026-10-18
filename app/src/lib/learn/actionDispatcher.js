@@ -88,7 +88,7 @@ import { isNativeAura, isNativeManaAura, playerAuraSpellSubject, entersTapped, i
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
 import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.6b) — same reader the action gate uses · LANDS-5: the ONE discard-ability price reducer the offer uses too
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf, crewCostWithOverrides, permanentColors, permIsEveryCreatureType, permanentManaValue } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
+import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf, crewCostWithOverrides, permanentColors, permIsEveryCreatureType, permanentManaValue, permanentTypes } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell / command-zone card that is every creature type (Changeling, Maskwood Nexus); a leaf over keywords.js
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39b — every creature type shares a creature type only (CR 205.3d); a zero-import leaf
 import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility, parseHandSelfPutAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch; S8 — the Pilot's crew boost; play-weighted #570 — the hand self-put, re-read from the card
@@ -1647,6 +1647,16 @@ function applyActivateAbility(state, action) {
     working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.discardCardId });
     working = checkDiscardTriggers(working, action.playerId, [action.discardCardId]);
   }
+  // COUNTED DISCARD COST ("Discard two cards" — Solphim, Mayhem Dominus): discard EACH of the N hand cards legalChoices froze on
+  // the offer, before the ability goes on the stack (CR 601.2h). A card no longer in hand is a hard error — a cost is never
+  // under-paid (CREED).
+  if (Array.isArray(action.discardIds) && action.discardIds.length) {
+    for (const cid of action.discardIds) {
+      if (!(working.players[action.playerId]?.hand || []).some((c) => c.id === cid)) throw new DispatcherError(`Discard-cost card ${cid} not in hand`, "CARD_NOT_FOUND");
+      working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: cid });
+      working = checkDiscardTriggers(working, action.playerId, [cid]);
+    }
+  }
   // LANDS-4 — "Exile N [<type>] cards from your graveyard" cost (Mines of Moria, Grim Lavamancer). Same
   // re-verification posture as the GR-2 recursion loop and the discard cost above: legalChoices froze
   // exactly N legal ids on `exileGyIds`; each must still be in the graveyard at dispatch, and a short list
@@ -1674,7 +1684,9 @@ function applyActivateAbility(state, action) {
     // this creature: It deals damage equal to its power to any target" (Skarrgan Skybreaker, Ghitu Fire-Eater) reads the
     // power the creature had as the cost was paid — counters and anthems included — never the 0 a live read of a gone
     // permanent would give. Same id-keying: countForSpec's sourcePower reader answers from it ONLY for this exact id.
-    working = { ...working, sacrificedSelfLki: { permanentId: perm.id, counters: { ...(perm.counters || {}) }, power: Math.max(0, creaturePower(perm, working) ?? 0) } };
+    // + its COLOURS and CARD TYPES as it last existed (CR 113.7a): Mogg Fanatic's "Sacrifice this creature: It deals 1 damage to any
+    // target" is a red source for Torbran (effects/atoms/shared.damageSourceFor reads them; the same id-keying).
+    working = { ...working, sacrificedSelfLki: { permanentId: perm.id, counters: { ...(perm.counters || {}) }, power: Math.max(0, creaturePower(perm, working) ?? 0), colors: [...permanentColors(working, perm.id)], types: [...permanentTypes(working, perm.id).types] } };
     working = sacrificePermanentForCost(working, action.playerId, perm);
   }
   if (action.sacCreatureId) {

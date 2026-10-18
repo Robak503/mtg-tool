@@ -52,7 +52,7 @@ import {
   findPermanent,
   createPermanent, // the enters-trigger preview (entersTriggerRemovesOwn) puts the entering permanent on a copy of the board
 } from "./gameState.js";
-import { phaseInAndExpireShield, expireNameCastLocks } from "./gameState.js"; // TEFERI'S PROTECTION - phase in + shield expiry at the active player's untap; B4 — the name cast locks expire there too
+import { phaseInAndExpireShield, expireNameCastLocks, expireDamageReplacementEffects } from "./gameState.js"; // TEFERI'S PROTECTION - phase in + shield expiry at the active player's untap; B4 — the name cast locks expire there too
 import { withoutImpulseStamps, startingLoyalty } from "./gameState.js"; // the impulse lapse at cleanup strips the same stamp list the cast out of exile does
 import { permanentValue, policyEvalEnabledFor } from "./boardEval.js"; // QUARTET PHASE 1 slice 3 — the shared evaluator (leaf-importing module, cycle-free)
 import { chooseAuraEntryHost, auraEntryHostScore } from "./auraEntry.js"; // the flicker policy reads where a returned Aura lands (CR 303.4f) — the choice the return makes (a leaf)
@@ -562,6 +562,8 @@ export function runStepActions(state) {
       next = phaseInAndExpireShield(next, state.activePlayer);
       // B4 (Reflector Mage — "until your next turn", CR 611.2b): the name cast locks THIS player set on an earlier turn end here.
       next = expireNameCastLocks(next, state.activePlayer);
+      // Lightning, Army of One's Stagger ("until your next turn", CR 611.2a): the stored damage replacements this player created end here.
+      next = expireDamageReplacementEffects(next, state.activePlayer);
       next = untapAll(next, { playerId: state.activePlayer });
       // The board as the "during each other player's untap step" family begins: those untaps happen at the same time as the active
       // player's (CR 502.3 — the bundled rulings), once per permanent per step, so the last pass below skips what an earlier one met.

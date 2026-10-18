@@ -1069,6 +1069,39 @@ lifelink, never dealt infect's counters, never fed Sengir Vampire or an enrage t
 through one of the two funnels.** An effect whose hits are simultaneous (both creatures of a fight) is ONE event: lock
 the amounts, deal every hit, then the single lethal pass.
 
+### THE DAMAGE-REPLACEMENT CONSULT — one reader, the affected player's order (2026-10-17)
+
+Both funnels finalize every hit through `damageReplacements.consultDamageAmount` (the board gate keeps a board with no
+replacement byte-identical). What it reads, and the seams a new carrier rides:
+
+- **The sentence grammar** (`readDamageSentence`): "If <source> would deal [combat|noncombat] damage [to <recipient>],
+  <result>." plus the "Double all damage <who> would deal." family, each sentence anchored whole on a static line of the face
+  that is up (`faceUp.faceUpView`; a Class at its level through `classLevels.classLiveCard`; no leveler band, no Room door).
+  Sources: any · you control · ANOTHER you control (Thor) · a <colour> source (Torbran) · a <colour> or artifact source
+  (Mechanized Warfare) · creature / counter / entered-this-turn / subtype · this creature · equipped creature · another
+  creature (Inquisitor's Flail). Recipients: a permanent or player · an opponent (players only) · **an opponent or a
+  permanent an opponent controls** (`targetSide: "opponent"` — a creature, a planeswalker or a battle) · you · you or a
+  permanent you control · this creature · a player · equipped creature · another <Subtype> you control. Results: double /
+  triple / twice that much / **that much plus N** (`op: "add"`) / plus X = its own power (Hawkeye) / **prevent half, rounded
+  up** (`op: "preventHalfUp"`, Gisela) / prevent all but N. A label is stripped only when it has no rules meaning (the shared
+  CR 207.2c list, plus "Unrivaled Lethality"); "Max speed —" and any unread condition keep the sentence unread. The one
+  condition read is Hellbent's "As long as you have no cards in hand" (Anthem of Rakdos).
+- **The source's qualities** (`sourceQualities`, CR 609.7c): a permanent's colours and types NOW (layers); a source off the
+  battlefield through `event.sourceLki` — a spell's colours and types (`runEffectProgram` stamps `ctx.spellSource`), the
+  sacrificed-for-cost record (`state.sacrificedSelfLki` carries colours/types), a dies trigger's own look-back
+  (`ctx.dyingQualities` from `deathLookback.lkiColors`/`lkiTypes`), the entering-creature lane's `triggeringLki`. Atoms pass
+  their source through `effects/atoms/shared.damageSourceFor`; anything else that left carries no record and a
+  quality-filtered replacement misses it (the safe side).
+- **The order** (CR 616.1, 616.1f): the applicable entries are run in the order that leaves the LEAST damage (every order up
+  to six entries) — the affected player shields themselves and their permanents — and a fully prevented event stops (no
+  addend on nothing: Torbran's ruling). Each entry applies once per event (614.5), keyed by permanent + entry index.
+- **Stored replacements** (CR 611.2a): `state.damageReplacementEffects` — created by a resolved ability (Lightning, Army of
+  One's Stagger: `effects/atoms/misc.applyDamageReplacementUntilNextTurn`, `recipientPlayerSide`), read beside the statics,
+  ended at the creator's next untap step (`gameState.expireDamageReplacementEffects`) or when the creator leaves the game.
+- **Not this seam:** a LIFE-LOSS replacement lives in `gameState.loseLife` (Bloodletter of Aclazotz — the active player's
+  `opponentLifeLossMultiplierOf` statics double an opponent's loss; the damage, lifelink and commander damage are unchanged).
+  The fixed-order prevention outside the consult (PV-1 shields, the walls) still applies after it, a known simplification.
+
 Other live seams (documented, mostly benign, listed so you don't rediscover them):
 the `land` tier is unconditional (§2.1); resolved instants/sorceries now reach their
 owner's graveyard (CR 608.2n — fixed in the overhaul pass; Arbiter-routed spells still

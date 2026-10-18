@@ -2641,6 +2641,45 @@ function actionsActivateAbility(state, playerId) {
       // pays only what the action names. An ability combining the two shapes is refused here rather than
       // activated for free (FN-safe; no corpus carrier prints the combination — the census found none).
       if (ab.exileGyCount && (ab.costX || ab.sacX)) continue;
+      // COUNTED DISCARD COST ("Discard two cards" — Solphim, Mayhem Dominus; Latulla, Keldon Overseer's {X} form; 2026-10-17): the
+      // N least valuable hand cards, frozen on the offer (leastValuableCardCmp — the count-of-N cost policy the spell side's
+      // "discard two cards" uses) and carried by the per-X lane and the single-action push alike; fewer than N in hand → the cost
+      // can't be paid → not offered. The sacX lane builds actions that carry no discard, so the two together are refused.
+      let discardCountIds = null;
+      if (ab.discardCount) {
+        const hand = player.hand || [];
+        if (hand.length < ab.discardCount || ab.sacX) continue;
+        discardCountIds = [...hand].sort(leastValuableCardCmp).slice(0, ab.discardCount).map((c) => c.id);
+      }
+      // γ1h (BLITZ DC-1) — a "Discard a card" cost (Rummaging Goblin / the granted looter interiors): the
+      // PLAYER picks WHICH hand card to pitch. Expand one action per DISTINCT-named hand card (copies are
+      // fungible — CR 601.2h pays with the object, and identical cards pay identically), capping the
+      // combinatorics at the hand's name variety. Empty hand → the cost can't be paid → not offered. The
+      // discard is a hand→graveyard move (no mana interaction, so no affordability filter is needed).
+      // (Computed here, above the per-X lane, since 2026-10-17: the {X} lane carries the pitch too — Cackling Witch's "{X}{B}, {T},
+      // Discard a card" was offered with an empty hand and activated without the discard.)
+      let discardVictims = [null];
+      if (ab.discardCard) {
+        const seenNames = new Set();
+        discardVictims = (player.hand || []).filter((c) => {
+          // γ1h-TYPED (Tortured Existence): a typed discard cost narrows the pool to hand cards whose
+          // FRONT-FACE type line carries the type (CR 712.8a, word-cased match — "creature" → Creature).
+          if (ab.discardCardFilter) {
+            const front = String(c?.type || c?.type_line || "").split(" // ")[0];
+            const word = ab.discardCardFilter[0].toUpperCase() + ab.discardCardFilter.slice(1);
+            if (!front.includes(word)) return false;
+          }
+          const k = c?.name || c?.id;
+          if (seenNames.has(k)) return false;
+          seenNames.add(k);
+          return true;
+        });
+        // RG-7 (2026-09-05): a RANDOM discard is not a choice — ONE pseudo-victim (the dispatcher picks the card at payment
+        // with the seeded rng); an empty hand still means the cost can't be paid.
+        if (ab.discardRandom) discardVictims = (player.hand || []).length ? [{ id: null, name: "a random card", random: true }] : [];
+        if (discardVictims.length === 0) continue; // nothing to discard → the cost can't be paid
+      }
+
       // γ1f — ACTIVATED-{X} (Candelabra of Tawnos "{X}, {T}: Untap X target lands."): a bare mana-{X} cost whose
       // effect's TARGET COUNT is the paid X (a targetCountX atom → program.xSpell). The PLAYER chooses X at
       // activation, so — exactly like the cast path's X-spell branch — enumerate every affordable X and, per X,
@@ -2679,7 +2718,7 @@ function actionsActivateAbility(state, playerId) {
             ? { xValue: x, orderTargets: (targets) => orderUntapTargets(state, playerId, targets) }
             : { xValue: x };
           const combos = expandCastChoices(state, playerId, ab.program, permanentColors(state, perm.id), xCtx);
-          for (const ch of combos) {
+          for (const discardVictim of discardVictims) for (const ch of combos) { // γ1h — the pitch rides every X (Cackling Witch)
             actions.push({
               kind: "activate-ability",
               playerId,
@@ -2698,6 +2737,10 @@ function actionsActivateAbility(state, playerId) {
               sacCreatureName: null,
               sacCountIds: null,
               xValue: x,                                  // γ1f — the chosen X threads into the effect (ctx.xValue)
+              ...(discardCountIds ? { discardIds: discardCountIds } : {}), // the N frozen hand cards a "Discard two cards" cost pays (Latulla)
+              ...(discardVictim ? { discardCardId: discardVictim.id ?? null, discardCardName: discardVictim.name ?? null } : {}), // γ1h — the chosen hand card to pitch (cost)
+              ...(discardVictim?.random ? { discardRandom: true } : {}), // RG-7 — the dispatcher picks the pitch with the seeded rng
+              ...(ab.discardCardFilter ? { discardCardFilter: ab.discardCardFilter } : {}), // γ1h-TYPED — the dispatcher re-validates the pitch's front-face type
               ...(ab.activationLimit ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
               program: ab.program,
               targets: ch.targets,
@@ -2948,33 +2991,6 @@ function actionsActivateAbility(state, playerId) {
         if (unattachVictims.length === 0) continue; // nothing attached → the cost can't be paid
       }
 
-      // γ1h (BLITZ DC-1) — a "Discard a card" cost (Rummaging Goblin / the granted looter interiors): the
-      // PLAYER picks WHICH hand card to pitch. Expand one action per DISTINCT-named hand card (copies are
-      // fungible — CR 601.2h pays with the object, and identical cards pay identically), capping the
-      // combinatorics at the hand's name variety. Empty hand → the cost can't be paid → not offered. The
-      // discard is a hand→graveyard move (no mana interaction, so no affordability filter is needed).
-      let discardVictims = [null];
-      if (ab.discardCard) {
-        const seenNames = new Set();
-        discardVictims = (player.hand || []).filter((c) => {
-          // γ1h-TYPED (Tortured Existence): a typed discard cost narrows the pool to hand cards whose
-          // FRONT-FACE type line carries the type (CR 712.8a, word-cased match — "creature" → Creature).
-          if (ab.discardCardFilter) {
-            const front = String(c?.type || c?.type_line || "").split(" // ")[0];
-            const word = ab.discardCardFilter[0].toUpperCase() + ab.discardCardFilter.slice(1);
-            if (!front.includes(word)) return false;
-          }
-          const k = c?.name || c?.id;
-          if (seenNames.has(k)) return false;
-          seenNames.add(k);
-          return true;
-        });
-        // RG-7 (2026-09-05): a RANDOM discard is not a choice — ONE pseudo-victim (the dispatcher picks the card at payment
-        // with the seeded rng); an empty hand still means the cost can't be paid.
-        if (ab.discardRandom) discardVictims = (player.hand || []).length ? [{ id: null, name: "a random card", random: true }] : [];
-        if (discardVictims.length === 0) continue; // nothing to discard → the cost can't be paid
-      }
-
       // Thread the SOURCE permanent id into target enumeration so an "another target …" restriction
       // (notSource — Formidable Speaker's "Untap another target permanent") excludes this very permanent
       // (CR 109.5). Non-"another" abilities ignore sourceId, so this is a no-op for every existing ability.
@@ -3115,6 +3131,7 @@ function actionsActivateAbility(state, playerId) {
             discardCardName: discardVictim?.name ?? null,
             ...(discardVictim?.random ? { discardRandom: true } : {}), // RG-7 — the dispatcher picks the pitch with the seeded rng
             ...(ab.discardCardFilter ? { discardCardFilter: ab.discardCardFilter } : {}), // γ1h-TYPED — the dispatcher re-validates the pitch's front-face type
+            ...(discardCountIds ? { discardIds: discardCountIds } : {}), // the N frozen hand cards a "Discard two cards" cost pays (the dispatcher re-verifies each)
             ...(exileGyIds ? { exileGyIds, exileGyCount: ab.exileGyCount } : {}), // LANDS-4 — the N graveyard cards to exile (cost); the dispatcher re-verifies each
             ...(ab.activationLimit ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
             program: ab.program,
@@ -3132,6 +3149,7 @@ function actionsActivateAbility(state, playerId) {
               : ab.returnLand && returnLandVictim ? `Return ${returnLandVictim.card?.name}: ${ab.effectClause}`
               : ab.unattachEquipment && unattachVictim ? `Unattach ${unattachVictim.card?.name}: ${ab.effectClause}`
               : ab.discardCard && discardVictim ? `Discard ${discardVictim.name}: ${ab.effectClause}`
+              : discardCountIds ? `Discard ${(player.hand || []).filter((c) => discardCountIds.includes(c.id)).map((c) => c.name).join(", ")}: ${ab.effectClause}`
               : victim ? `Sacrifice ${victim.card?.name}: ${ab.effectClause}` : ab.effectClause,
           });
         }

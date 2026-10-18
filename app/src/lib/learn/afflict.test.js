@@ -59,7 +59,9 @@ describe("AFFLICT (CR 702.130) — printed keyword synthesis + classification", 
 
   it("Merciless Eternal flips (DC-1 graduation — γ1h pays its discard); a COUNT-discard sibling still parks", () => {
     expect(classifyCard(cr("Merciless Eternal", "Afflict 2 (Whenever this creature becomes blocked, defending player loses 2 life.)\n{2}{B}, Discard a card: This creature gets +2/+2 until end of turn."))).toBe("native-activated");
-    expect(classifyCard(cr("Two-Pitch Eternal", "Afflict 2 (Whenever this creature becomes blocked, defending player loses 2 life.)\n{2}{B}, Discard two cards: This creature gets +2/+2 until end of turn."))).toBe("body-only");
+    // The COUNT discard GRADUATED 2026-10-17 (opponentScopedDamage.test.js — "Discard two cards" is a modeled cost); a TYPED count still parks.
+    expect(classifyCard(cr("Two-Pitch Eternal", "Afflict 2 (Whenever this creature becomes blocked, defending player loses 2 life.)\n{2}{B}, Discard two cards: This creature gets +2/+2 until end of turn."))).toBe("native-activated");
+    expect(classifyCard(cr("Two-Pitch Eternal", "Afflict 2 (Whenever this creature becomes blocked, defending player loses 2 life.)\n{2}{B}, Discard two creature cards: This creature gets +2/+2 until end of turn."))).toBe("body-only");
   });
 });
 

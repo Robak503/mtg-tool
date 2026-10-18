@@ -64,9 +64,11 @@ describe("parseActivatedAbilities — cost parsing (mana + {T} allowlist)", () =
     expect(a.discardCard).toBe(1);
     expect(a.costModeled).toBe(true);
     expect(a.modeled).toBe(true);
-    // The deferred boundary lives on for a COUNT; the TYPED filter GRADUATED 2026-08-15
-    // (γ1h-TYPED, torturedExistence.test.js) — a subtype filter ("a Dragon card") still defers there.
-    expect(one("{T}, Discard two cards: Draw a card.")[0]?.modeled).toBeFalsy();
+    // The TYPED filter GRADUATED 2026-08-15 (γ1h-TYPED, torturedExistence.test.js) — a subtype filter ("a Dragon card") still
+    // defers there. The COUNT GRADUATED 2026-10-17 (opponentScopedDamage.test.js — Solphim's "Discard two cards"); a TYPED count
+    // is the deferred boundary now.
+    expect(one("{T}, Discard two cards: Draw a card.")[0]).toMatchObject({ modeled: true, discardCount: 2 });
+    expect(one("{T}, Discard two creature cards: Draw a card.")[0]?.modeled).toBeFalsy();
     expect(one("{T}, Discard a creature card: Draw a card.")[0]?.modeled).toBe(true);
   });
   it("models an Exile-this cost (γ1c — no-choice self-exile)", () => {

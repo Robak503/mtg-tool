@@ -507,7 +507,9 @@ describe("classifyDamageReplacementBody — Twinflame Tyrant (the general double
   it("the modeled doubler is the SAME clause the runtime consult applies (parseDamageReplacements matches)", () => {
     const entries = parseDamageReplacements(twinflame("user").card);
     expect(entries).toHaveLength(1);
-    expect(entries[0]).toEqual({ op: { op: "multiply", factor: 2 }, scope: { side: "source", controller: "you" } });
+    // 2026-10-17 (opponentScopedDamage.test.js): the printed recipient — "an opponent or a permanent an opponent controls" — rides
+    // the scope; before it, the controller's own creatures and the controller were doubled too.
+    expect(entries[0]).toEqual({ op: { op: "multiply", factor: 2 }, scope: { side: "source", controller: "you", targetSide: "opponent" } });
   });
 
   it("RUNTIME: with Twinflame on the battlefield, its controller's damage to an opponent is DOUBLED", () => {

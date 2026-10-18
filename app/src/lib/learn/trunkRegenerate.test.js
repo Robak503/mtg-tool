@@ -68,7 +68,9 @@ describe("REGEN — coverage flips", () => {
   it("the discard-cost regen flips (DC-1 graduation); a COUNT discard still gates", () => {
     // (Patchwork Gnomes sat here as the unmodeled-cost example until γ1h paid the discard.)
     expect(classifyCard({ type: "Creature — Construct", name: "Patchwork Gnomes", mana: "{3}", oracle: "Discard a card: Regenerate this creature." })).toBe("native-activated");
-    expect(classifyCard({ type: "Creature — Construct", name: "Two-Pitch Probe", mana: "{3}", oracle: "Discard two cards: Regenerate this creature." })).toBe("body-only");
+    // The COUNT discard GRADUATED 2026-10-17 (opponentScopedDamage.test.js); a TYPED count still gates.
+    expect(classifyCard({ type: "Creature — Construct", name: "Two-Pitch Probe", mana: "{3}", oracle: "Discard two cards: Regenerate this creature." })).toBe("native-activated");
+    expect(classifyCard({ type: "Creature — Construct", name: "Two-Pitch Probe", mana: "{3}", oracle: "Discard two creature cards: Regenerate this creature." })).toBe("body-only");
   });
 });
 

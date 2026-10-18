@@ -6,7 +6,7 @@
 import { applyDamageEffect, parseCreatureTargetRestrictions, resolutionSourceColors } from "../../spellEffects.js"; // the SHARED creature-restriction grammar — massFilteredDamageClauseParser's general arm delegates its recipient phrase to it (no new module edge: applyDamageEffect already came from here); + resolutionSourceColors: a copy's own colours for its new-target pick (protection, CR 702.16b)
 import { graveyardExileFor, logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe, commanderCastsFromCommandZone, loseLife } from "../../gameState.js";
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingOptionalExileSelfChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice, setPendingChangeTargetChoice } from "../../pendingChoice.js";
-import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
+import { resolveScaledAmount, countForSpec, isCreatureCard, damageSourceFor } from "./shared.js"; // + damageSourceFor: a spell's or a departed source's colours and types for the source-filtered damage replacements
 import { permanentIsCreature, permanentTypes, cannotEquipNow, addContinuousEffect } from "../../layers.js"; // + addContinuousEffect (shelf D18 — Veil of Summer's end-of-turn target shields) // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
 import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
@@ -1937,7 +1937,7 @@ function applyCdmgMassToDamagedPlayer(state, atom, ctx) {
   if (targets.length === 0) {
     return logEvent(state, { kind: "spell-effect", effect: "cdmg-mass-to-damaged-player", controller: ctx.controller, amount });
   }
-  return applyDamageEffect(state, { controller: ctx.controller, amount, targets, source: { id: ctx.sourceId } });
+  return applyDamageEffect(state, { controller: ctx.controller, amount, targets, source: damageSourceFor(state, ctx) });
 }
 
 /**
@@ -1964,7 +1964,7 @@ function applyCdmgToEachOtherOpponent(state, atom, ctx) {
   if (targets.length === 0) {
     return logEvent(state, { kind: "spell-effect", effect: "cdmg-to-each-other-opponent", controller: ctx.controller, amount });
   }
-  return applyDamageEffect(state, { controller: ctx.controller, amount, targets, source: { id: ctx.sourceId } });
+  return applyDamageEffect(state, { controller: ctx.controller, amount, targets, source: damageSourceFor(state, ctx) });
 }
 
 /**
@@ -2564,7 +2564,7 @@ export const stackResolvers = {
     // the target's protection from it.
     const source = atom.damageSource === "triggering"
       ? { id: ctx.triggeringPermanentId, controller: ctx.triggeringLki?.controller ?? findPermanent(state, ctx.triggeringPermanentId)?.controller, lki: ctx.triggeringLki ?? null, readsKeywords: true }
-      : { id: ctx.sourceId };
+      : damageSourceFor(state, ctx);
     let next = applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType, amountPerOpponent: atom.amountPerOpponent ?? null, targets, source, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie });
     // LACCOLITH RIDER (④-AU — "If you do, this creature assigns no combat damage this turn"): the optional damage was
     // taken (a declined "may" never reaches this resolver), so the SOURCE is stamped for the current turn; the combat
@@ -2576,7 +2576,7 @@ export const stackResolvers = {
     // CONTROLLER through the same primitive, after the target damage (one sentence, resolved in print
     // order). Never conditional on the target damage landing — the sentence deals both unconditionally.
     if (atom.selfDamage > 0 && next.players?.[ctx.controller]) {
-      next = applyDamageEffect(next, { controller: ctx.controller, amount: atom.selfDamage, targetType: "player", targets: [{ type: "player", id: ctx.controller }], source: { id: ctx.sourceId } });
+      next = applyDamageEffect(next, { controller: ctx.controller, amount: atom.selfDamage, targetType: "player", targets: [{ type: "player", id: ctx.controller }], source: damageSourceFor(next, ctx) });
     }
     return next;
   },

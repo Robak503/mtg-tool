@@ -155,11 +155,14 @@ describe("UT-1 — parse + classify", () => {
     expect(classifyCard(SINGING_BELL_STRIKE)).toBe("native-activated");
     expect(classifyCard(HORSESHOE_CRAB)).toBe("native-activated");
     // (Immobilizing Ink sat here as the unmodeled-COST park until BLITZ DC-1's γ1h paid the discard —
-    // the runtime charges it now, pinned end-to-end in discardCost.test.js. The cost boundary lives on
-    // via a COUNT discard, still outside the vocabulary.)
+    // the runtime charges it now, pinned end-to-end in discardCost.test.js. The COUNT discard graduated 2026-10-17 — the granted
+    // "{1}, Discard two cards" is offered with the two least valuable hand cards frozen and paid; the cost boundary lives on via a
+    // TYPED count, still outside the vocabulary.)
     expect(classifyCard(IMMOBILIZING_INK)).toBe("native-activated");
     expect(classifyCard({ id: "ink2", name: "Two-Pitch Ink", type: "Enchantment — Aura", mana: "{1}{U}",
-      oracle: "Enchant creature\nEnchanted creature doesn't untap during its controller's untap step.\nEnchanted creature has \"{1}, Discard two cards: Untap this creature.\"" })).toBe("body-only");
+      oracle: "Enchant creature\nEnchanted creature doesn't untap during its controller's untap step.\nEnchanted creature has \"{1}, Discard two cards: Untap this creature.\"" })).toBe("native-activated");
+    expect(classifyCard({ id: "ink3", name: "Two-Pitch Typed Ink", type: "Enchantment — Aura", mana: "{1}{U}",
+      oracle: "Enchant creature\nEnchanted creature doesn't untap during its controller's untap step.\nEnchanted creature has \"{1}, Discard two creature cards: Untap this creature.\"" })).toBe("body-only");
   });
 });
 

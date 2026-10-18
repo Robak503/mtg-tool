@@ -3164,6 +3164,18 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
+  // ── AN OPPONENT'S LIFE LOSS, DOUBLED ON YOUR TURN (the play-weighted program, 2026-10-17 — Bloodletter of Aclazotz: "If an opponent
+  // would lose life during your turn, they lose twice that much life instead.") ──────────────────────────────────────────────────
+  // A replacement effect (CR 614.1a) on a LIFE-LOSS event, not on damage, and a coverage MARKER here. The enforcement is
+  // gameState.loseLife, the single life-loss chokepoint every loss reaches — damage (CR 120.3a), drains, and paid life (paying
+  // life IS losing it, CR 119.4): the losing player is an opponent of this permanent's controller and it is that controller's
+  // turn. The damage is unchanged (the card's ruling — lifelink gains what was dealt), and so are commander damage and the
+  // damage-taken tally. The exact sentence only; another multiplier, condition or scope stays residue.
+  if (c === "if an opponent would lose life during your turn, they lose twice that much life instead") {
+    out.push({ opponentLifeLossMultiplier: 2, duringYourTurn: true });
+    return;
+  }
+
   // ── LOST MANA BECOMES COLORLESS (the 09-06 plan's stage ③ · 20, 2026-09-30 — Horizon Stone, Kruphix, God of Horizons: "If you
   // would lose unspent mana, that mana becomes colorless instead.") ────────────────────────────────────────────────────────────
   // A replacement effect (CR 614.1a) on the controller's CR 500.4 mana loss, and a coverage MARKER here. The enforcement is
@@ -7179,6 +7191,12 @@ export function escapeGrantsFor(state, playerId) {
  *  asks it of the losing player's permanents for a damage loss. */
 export function lifeFloorOf(card) {
   return parseStaticAbilities(card).find((d) => Number.isInteger(d?.lifeFloor)) || null;
+}
+
+/** The multiplier this card's static applies to an OPPONENT's life loss during its controller's turn (Bloodletter of Aclazotz — 2),
+ *  or null. The SAME parse the classifier reads; gameState.loseLife asks it of the active player's permanents. */
+export function opponentLifeLossMultiplierOf(card) {
+  return parseStaticAbilities(card).find((d) => Number.isInteger(d?.opponentLifeLossMultiplier))?.opponentLifeLossMultiplier ?? null;
 }
 
 /** Does this card carry "If you would lose unspent mana, that mana becomes colorless instead." (Horizon Stone, Kruphix, God of

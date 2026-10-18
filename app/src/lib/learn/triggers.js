@@ -407,6 +407,9 @@ const FLAVOR_TRIGGER_LABELS = [
   "infesting spores", "dynastic advisor", "architect of deception", "natural recovery", "animate chains",
   "rosarius", "suppressing fire",
   "natural shelter", "lord of chaos", "rat tail", "devourer of souls", "hyperphase threshers", "enmitic exterminator", "tail spikes",
+  // 2026-10-17: Lightning, Army of One's "Stagger — Whenever Lightning deals combat damage to a player, …" (Marvel; CR 207.2d — one card
+  // in the corpus, verified against the bundled oracle; the trigger is written out in full after it).
+  "stagger",
 ];
 const FLAVOR_LABEL_RE = new RegExp(
   // optional leading "... " (Cap's "... Catch"), then a flavor label, then the dash before a trigger keyword.
@@ -7666,6 +7669,11 @@ export function checkDiesTriggers(state, dead) {
     // payment). The permanent is gone by then; the card id is the only stable key. Additive + inert.
     if (d.card?.id) diesCtx.triggeringCardId = d.card.id;
     if (d.power != null) diesCtx.dyingPower = d.power;
+    // THE DYING PERMANENT AS A DAMAGE SOURCE (CR 113.7a, 609.7c): its colours and card types as it last existed, for its own
+    // "When this creature dies, it deals N damage …" — Torbran's "red source", Mechanized Warfare's "artifact source" read them
+    // (effects/atoms/shared.damageSourceFor, only when the triggering permanent IS the source). Stamped only when the death
+    // look-back captured both.
+    if (Array.isArray(d.lkiColors) && Array.isArray(d.lkiTypes)) diesCtx.dyingQualities = { colors: [...d.lkiColors], types: [...d.lkiTypes] };
     // KW-UNDYING (CR 702.93a + 603.6e last-known-info): the undying intervening-if reads whether the DYING
     // object had any +1/+1 counters AS IT LAST EXISTED on the battlefield. Stamped ONLY when the death
     // look-back carried its `counters` snapshot (every modeled death constructor does) — an entry without

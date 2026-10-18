@@ -8,7 +8,7 @@ import { parseFlashCastFilter } from "../../staticAbilityParser.js"; // the STAT
 import { setPendingDivideChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, atomTargets } from "./shared.js";
 import { permanentIsCreature } from "../../layers.js"; // the type-line audit: the divide-damage creature recipients are the creatures there NOW
-import { findPermanent } from "../../gameState.js"; // ADD-RESTRICTED-MANA — the source card's color identity read (same leaf edge as line 6)
+import { findPermanent, mintId } from "../../gameState.js"; // ADD-RESTRICTED-MANA — the source card's color identity read (same leaf edge as line 6) // + mintId: a stored damage replacement's id (Lightning's Stagger)
 import { NUM_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 23 (NUM_WORD, each-player draw) + 26 (parseCountSource, for-each draw)
 import { parseSpendRestriction } from "../../manaModel.js"; // SARKHAN-FIREBLOOD restricted add — the planner's OWN restriction parser, reused so the arm can't drift from what the spender enforces (read only inside the clause parser — init-safe)
 
@@ -1006,7 +1006,39 @@ export function applyPhaseOut(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "phase-out", controller: ctx.controller, targets: ids });
 }
 
+/**
+ * ===== A DAMAGE REPLACEMENT UNTIL YOUR NEXT TURN (the play-weighted program, 2026-10-17 — Lightning, Army of One's Stagger:
+ * "Whenever Lightning deals combat damage to a player, until your next turn, if a source would deal damage to that player or a
+ * permanent that player controls, it deals double that damage instead.") ===== A continuous effect from a resolved ability
+ * (CR 611.2a — it lasts as long as it says), not a static: the replacement is stored on the state
+ * (`state.damageReplacementEffects`) for the player the trigger names — "that player", the damaged player, so this atom routes
+ * only off the combat-damage-to-a-player event (triggerRouting's damagedPlayer pin) — and damageReplacements.collectDamageReplacements
+ * reads it beside the battlefield's statics: any source, to that player or a permanent that player controls (read when the
+ * damage would be dealt), in the affected player's CR 616.1 order with the rest. It ends as its controller's next turn begins
+ * (gameState.expireDamageReplacementEffects, at the untap step), and with its controller if that player leaves the game first.
+ * Each resolution is its own effect (two triggers double twice). The exact sentence only.
+ */
+export function damageReplacementUntilNextTurnClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/\.$/, "").trim();
+  if (t === "until your next turn, if a source would deal damage to that player or a permanent that player controls, it deals double that damage instead") {
+    return { op: "damage-replacement-until-next-turn", who: "damagedPlayer", factor: 2, targetType: null };
+  }
+  return null;
+}
+export function applyDamageReplacementUntilNextTurn(state, atom, ctx) {
+  const pid = atom.who === "damagedPlayer" ? ctx.damagedPlayerId : null;
+  // No damaged player (a context without the referent), or either player gone: nothing to replace — never a guessed player.
+  if (!pid || !state.players?.[pid] || !state.players?.[ctx.controller]) {
+    return logEvent(state, { kind: "spell-effect", effect: "damage-replacement-until-next-turn", controller: ctx.controller, applied: false });
+  }
+  const { id, state: minted } = mintId(state, "dmgrepl");
+  const effect = { id, controller: ctx.controller, op: { op: "multiply", factor: atom.factor || 2 }, scope: { side: "any", recipientPlayerSide: pid }, untilTurnOf: ctx.controller, setTurn: state.turn, sourceName: ctx.cardName || null };
+  const next = { ...minted, damageReplacementEffects: [...(minted.damageReplacementEffects || []), effect] };
+  return logEvent(next, { kind: "spell-effect", effect: "damage-replacement-until-next-turn", controller: ctx.controller, player: pid, factor: effect.op.factor, applied: true });
+}
+
 export const miscResolvers = {
+  "damage-replacement-until-next-turn": applyDamageReplacementUntilNextTurn, // Lightning, Army of One's Stagger — a stored replacement on one player and their permanents, until its controller's next turn
   "phase-out": applyPhaseOut, // shelf D7 — targeted phasing (attachments ride along, CR 702.26g)
   "player-protection-everything": applyPlayerProtectionEverything, // THE ONE RING — protection from everything until your next turn (no life lock)
   "teferi-protection": applyTeferiProtection, // CAP — life lock + protection from everything + phase out all, until your next turn

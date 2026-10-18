@@ -468,6 +468,7 @@ export function parseAbilityCost(costStr, card = null) {
   let discardCard = 0;
   let discardCardFilter = null; // γ1h-TYPED — "Discard a creature card" (Tortured Existence)
   let discardRandom = false;    // RG-7 (2026-09-05) — "Discard a card at random": no choice; the dispatcher picks with the seeded rng
+  let discardCount = 0;         // "Discard two cards" (Solphim, Mayhem Dominus — 2026-10-17): N hand cards, frozen by the offer
   let exileGyCount = null;      // LANDS-4 — "Exile N [<type>] cards from your graveyard" (Mines of Moria, Grim Lavamancer)
   let payLifeCommanderColors = false; // play-weighted P·6 — War Room's life cost, sized at activation (legalChoices)
   for (const item of items) {
@@ -484,6 +485,15 @@ export function parseAbilityCost(costStr, card = null) {
     // and the dispatcher picks the card at payment with the game's seeded rng (replay-stable). Whole-item anchored.
     if (/^discard a card at random$/i.test(item)) { discardCard = 1; discardRandom = true; continue; }
     if (/^discard a card$/i.test(item)) { discardCard = 1; continue; }
+    // COUNTED DISCARD COST (2026-10-17 — Solphim, Mayhem Dominus "{1}{R/P}{R/P}, Discard two cards: …"): N hand cards, any N of
+    // them (CR 601.2h — paid before the ability is put on the stack). legalChoices freezes the N least valuable hand cards on
+    // `discardIds` (the count-of-N cost policy — leastValuableCardCmp, the spell side's "discard two cards" additional cost) and
+    // offers nothing with fewer in hand; the dispatcher discards each, firing the discard triggers. Whole-item anchored: a typed
+    // count ("discard two creature cards") stays unmodeled.
+    {
+      const dn = item.match(/^discard (two|three|four) cards$/i);
+      if (dn) { discardCount = { two: 2, three: 3, four: 4 }[dn[1].toLowerCase()]; continue; }
+    }
     // γ1h-TYPED (Tortured Existence "{B}, Discard a creature card: …", 2026-08-15): the TYPED discard
     // cost — same choice shape, the hand pool narrowed to cards whose FRONT-FACE type line carries the
     // type (CR 712.8a, the graveyard/tutor front-face discipline). legalChoices filters the victims;
@@ -735,7 +745,7 @@ export function parseAbilityCost(costStr, card = null) {
     if (!pips.every(pipIsMana)) return null;                      // {X}{X}/{Q}/{E}/… → unmodeled ({S} IS mana, SN-1)
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
-  return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, unattachEquipment, discardCard, discardCardFilter, discardRandom, costX, exileGyCount, ...(payLifeCommanderColors ? { payLifeCommanderColors } : {}) };
+  return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, unattachEquipment, discardCard, discardCardFilter, discardRandom, ...(discardCount ? { discardCount } : {}), costX, exileGyCount, ...(payLifeCommanderColors ? { payLifeCommanderColors } : {}) };
 }
 
 /** True when an ability's EFFECT is a mana ability ("Add …") — those use the no-stack path. */
@@ -1560,6 +1570,7 @@ export function parseActivatedAbilities(cardIn) {
       exileGyCount: cost?.exileGyCount ?? null, // LANDS-4 — "Exile N [<type>] cards from your graveyard": legalChoices freezes N victims (exileGyIds)
       discardCardFilter: cost?.discardCardFilter ?? null, // γ1h-TYPED — "Discard a creature card" (Tortured Existence): the victim pool narrows to the front-face type
       discardRandom: cost?.discardRandom ?? false,        // RG-7 — "Discard a card at random": ONE action; the dispatcher picks with the seeded rng
+      ...(cost?.discardCount ? { discardCount: cost.discardCount } : {}), // "Discard two cards" — legalChoices freezes the N least valuable (discardIds)
       returnLand: cost?.returnLand ?? null,    // γ1g — "Return a land you control to its owner's hand": legalChoices picks the land, dispatcher bounces it
       unattachEquipment: cost?.unattachEquipment ?? null, // γ1i (CAP14) — "Unattach an Equipment from <self>": legalChoices picks the Equipment, dispatcher unattaches it + threads its mana value
       costModeled: !!cost,

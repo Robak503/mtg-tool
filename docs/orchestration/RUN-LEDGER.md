@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **22 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.8% (15,523)**; engine gains since the tag: **+70** (+79 gained, −9 false credit removed). The next tag
+> **23 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.9% (15,536)**; engine gains since the tag: **+83** (+92 gained, −9 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,92 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-17 — PLAY-WEIGHTED: the opponent-scoped and source-filtered damage replacements — Bloodletter of Aclazotz (EDHREC #857), Solphim, Mayhem Dominus (#896), Torbran, Thane of Red Fell (#1004), Gisela, Blade of Goldnight (#1134), Lightning, Army of One (#2409) + Mechanized Warfare, Thor, Asgard's Avenger, Tomik, Izzet Sparkmage, Hawkeye, Young Avenger, Goldnight Castigator, Inquisitor's Flail, Zombie Infestation, Latulla, Keldon Overseer; the affected player orders them (CR 616.1); and FIX (false positive): Twinflame Tyrant (#780) doubled its controller's damage to its own creatures and to its controller, Anthem of Rakdos doubled without Hellbent, Cackling Witch activated without its discard · **+13** · snapshot native 15,498 → 15,511
+> Suite **20,584 green (1 skipped) / 1,867 files** under the gate queue (with the rules index built for the run and deleted after).
+> Lint 0 (CR citations: 0 of 11,452 name no rule; keyword citations: 0 of 2,366 cite a different keyword). Flip-diff **+13 / −0 / RETIERED 0**
+> (34,620 cards; before = an untouched `git archive` of 617e342d, snapshotted before the first edit; native+land 15,498 → 15,511 of 34,584
+> snapshot names). `measure-coverage` (MTG_APP_ROOT = the install): corpus 15,503 → 15,516 (44.8%); top 1,000 **908 → 911** (Bloodletter,
+> Solphim, Torbran); top 2,500 **1,753 → 1,758** (+ Gisela, Lightning); top 5,000 2,750 → 2,757; top 10,000 4,552 → 4,561; profile decks:
+> Nekusar Wheels 92 → 93 (Solphim), Veyran Cantrips 91 → 92 (Tomik), the other 28 unchanged; aggregate 2,749 → 2,751 / 2,998. **Mutants 6/6**
+> on assertions, each restored byte-identical (sha256) — the affected player's order (3 tests), Gisela's rounding (4), the recipient side (6),
+> a departed source's record (4), Bloodletter's turn gate (1), a fully prevented event taking an addend (1). Witness tests written first: 37 of
+> the first 49 seen to fail on the base engine on assertions (the 12 controls pass on both); with Lightning's Stagger, the counted discard's
+> other carriers and Cackling Witch added while building, 44 of the final 59 fail on the untouched 617e342d archive on assertions, the 15
+> controls pass on both. A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched
+> 617e342d archive): **80 / 80 byte-identical** (every decision row, the game log, winner and turn count; the breakage report identical, 175
+> lines — only its timestamp differs), 0 errors on either tree, results unchanged (ai-wins 57 / user-wins 23). Tomik was cast in games 14 and 18,
+> Temple Altisaur in 37, Solphim and Twinflame Tyrant offered but never cast — no board reached where the change moves a decision.
+> Committed on `day/dmgrepl`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The sentence grammar** (`damageReplacements.readDamageSentence`). The consult already modeled the UNSCOPED doublers; its parse was a
+>   set of partial regexes, and two of them read sentences wider than printed: "If a source you control would deal damage[^.]*deals double"
+>   took Twinflame Tyrant's "… to an opponent or a permanent an opponent controls, it deals double that damage instead" as every source you
+>   control, every recipient (probed: its controller's Prodigal Pyromancer dealt 2 to its own Grizzly Bears and 2 to its controller), and took
+>   Anthem of Rakdos' "Hellbent — As long as you have no cards in hand, if a source you control …" without the condition (a body-only card the
+>   consult still read off the battlefield). Each static sentence is now read WHOLE: "If <source> would deal [combat|noncombat] damage [to
+>   <recipient>], <result>." and the "Double all damage <who> would deal." family, off the face that is up (a Class at its level, no leveler band,
+>   no Room door — Torture Pit's door state isn't read), a label stripped only when it has no rules meaning (the shared CR 207.2c list, plus
+>   Wolverine's "Unrivaled Lethality"; "Max speed —" is the condition itself, CR 702.178a, so Far Fortune stays unread). New pieces: recipient
+>   **"an opponent or a permanent an opponent controls"** (`targetSide: "opponent"` — read when the damage would be dealt: an opponent, or a
+>   creature / planeswalker / battle an opponent controls), "you or a permanent you control", "this creature", "equipped creature"; sources
+>   "another source you control" (Thor), "a <colour> source you control" (Torbran) and "a <colour> or artifact source" (Mechanized Warfare),
+>   "another creature" (the Flail); "noncombat" (CR 120.2b); results **"that much damage plus N"** (`op: "add"`), "plus X, where X is <self>'s
+>   power" (Hawkeye — read live), **"prevent half that damage, rounded up"** (`op: "preventHalfUp"`, CR 107.1a); the Hellbent condition (hand
+>   empty, read live). Reach over every bundled card, base vs this tree: 9 new carriers (Gisela, Solphim, Torbran, Mechanized Warfare, Thor,
+>   Tomik, Hawkeye, Inquisitor's Flail; Goldnight Castigator's second sentence), 3 narrowed (Twinflame Tyrant; Anthem of Rakdos and the Lyzolda
+>   vanguard gain the Hellbent condition), 2 one-shot spells no longer read as a permanent's static (Isengard Unleashed, Insult // Injury — the
+>   consult reads battlefield permanents only; no tier moved). The coverage strip removes exactly the sentences read.
+> · **The source's colour, as it is now** (`sourceQualities`, CR 609.7c — a static's source filter applies to a source permanent with the
+>   quality and to a source off the battlefield with it). A permanent: the layers (a Llanowar Elves made red gets Torbran's +2, a Raging
+>   Goblin made green doesn't). A source off the battlefield: the record the damage event carries (`event.sourceLki`) — a resolving spell's
+>   colours and card types (`runEffectProgram` stamps `ctx.spellSource` from the stack object; Lightning Bolt cast for real deals 5), the
+>   sacrificed-for-cost stamp (`sacrificedSelfLki` now carries colours and types — Mogg Fanatic deals 3), a dies trigger's own look-back
+>   (`deathLookback.lkiColors` → `ctx.dyingQualities` — Mudbutton Torchrunner's 3 becomes 5, Perilous Myr is an artifact source for Mechanized
+>   Warfare), the entering-creature lane's `triggeringLki` (now with its types). Atoms pass their source through
+>   `effects/atoms/shared.damageSourceFor`; anything else that left carries no record and the quality-filtered replacement misses it (the
+>   safe side). The keyword and protection reads of the dealer are unchanged.
+> · **The order** (CR 616.1, 616.1e, 616.1f). The consult applied entries in battlefield order. The affected player — the player dealt the
+>   damage, or the controller of the permanent dealt it — now gets the order that leaves the least damage (every order up to six entries;
+>   ties keep battlefield order), and a fully prevented event stops: Torbran + Fiery Emancipation, 2 → 8 (not 12); your Gisela + Furnace of
+>   Rath, 3 to you → 2; your Torbran against the opponent's Gisela, 3 → 2 and 1 → 0 (the card's ruling: "If all of the damage is prevented,
+>   Torbran's effect no longer applies"); Temple Altisaur listed before Furnace of Rath, 3 → 1 (it was 2). Each entry applies once per event
+>   (614.5), keyed by permanent + entry index (Gisela and Goldnight Castigator carry two).
+> · **Bloodletter of Aclazotz** — a LIFE-LOSS replacement (CR 614.1a), not a damage one: the static parser marks the exact sentence
+>   (`opponentLifeLossMultiplier`) and `gameState.loseLife` — the chokepoint every loss reaches: damage, drains, paid life (paying life IS losing
+>   it, CR 119.4) — multiplies the loss by every such permanent the ACTIVE player controls when the loser is another player (two make it four
+>   times). The damage is unchanged: damageTakenThisTurn, commander damage and lifelink count it (the card's ruling — a lifelink 2 gains 2 while
+>   the opponent loses 4); lifeLostThisTurn and the life-loss watchers see the doubled loss; the life floor applies after it (the loser's order).
+> · **Lightning, Army of One's Stagger** — "Stagger" joins the trigger detector's flavor labels (CR 207.2d; one card). The effect clause
+>   parses to `damage-replacement-until-next-turn` (`who: "damagedPlayer"` — routed only off combat damage to a player): a replacement created
+>   by a resolved ability (CR 611.2a) stored on `state.damageReplacementEffects` and read beside the statics — any source, to that player or a
+>   permanent that player controls, in the same CR 616.1 order — until its controller's next untap step (`expireDamageReplacementEffects`), or
+>   until that controller leaves the game (an early end, never an outliving one). Each resolution is its own effect.
+> · **"Discard two cards" as an activation cost** (Solphim's second line). `parseAbilityCost` reads "Discard two|three|four cards"
+>   (`discardCount`); legalChoices freezes the N least valuable hand cards (leastValuableCardCmp, the spell side's count-of-N policy) on
+>   `discardIds`, carried by the per-X lane too (Latulla); fewer in hand → not offered; the dispatcher discards each and fires the discard
+>   triggers (the discard-site tripwire moves 14 → 15, none unwired). Completes Zombie Infestation and Latulla; Fae of Wishes' front face
+>   "{1}{U}, Discard two cards: Return this creature to its owner's hand." is offered now too (the card stays parked on its adventure).
+>   **Found while building (fixed):** the {X} lane dropped a single "Discard a card" — Cackling Witch's "{X}{B}, {T}, Discard a card: …" was
+>   offered with an EMPTY hand and activated without the discard (probed); the pitch choice now sits above the lane and rides every X.
+> · **Not taken:** Jeska, Thrice Reborn (a walker with an X-target −X and an enters-with count), The Sound of Drums (an Aura's goad and its
+>   cast lane), Fated Firepower ("enters with X fire counters" unread), Aether Revolt (revolt condition + an energy trigger), Artist's Talent
+>   (its +2 is a level-3 Class section — read only at that level, which the Class lane gates), Far Fortune (max speed), Rem Karolus (a
+>   spell-only source and a prevention for spells), Spiked Corridor // Torture Pit (Room doors), Goblin Goliath (an activated "this turn"
+>   replacement — the stored lane exists now, a duration "this turn" variant would take it), Isengard Unleashed / Insult // Injury (one-shot
+>   "this turn" replacements from spells).
+> · ⚠️ **Found, not fixed:** (1) the {X} lane also drops a SACRIFICE victim — Fiend Artisan's "{X}{B/G}, {T}, Sacrifice another creature: …" is
+>   offered with `sacCreatureId: null` (probed; legalChoices.js:2718), and Alquist Proft's "Sacrifice a Clue" shares the lane — an under-paid
+>   cost. (2) PV-1 prevention shields and the creature walls apply in a fixed order outside the consult (spellEffects.js:1606, the combat
+>   funnel's pvConsume): the affected player's CR 616.1 choice to apply a shield first isn't modeled (a doubler or an addend before a shield
+>   over-delivers — Torbran's +2 on a fully shielded 3). (3) Pain-land damage reaches loseLife without a damage event (manaModel.js:4106), so
+>   no damage replacement sees it (Gisela's halving, Furnace of Rath's doubling). (4) Gratuitous Violence, Absorbing Man and Titania,
+>   Calamity Bearer, Raphael and Uncivil Unrest read their source only on the battlefield (damageReplacements.js:493) — a departed creature's
+>   dies-trigger damage isn't doubled; the new source record could serve them. (5) A self-copied spell (Sevinne's Reclamation) carries no colours
+>   (stack.js:1784), so a red spell's copy is no red source for Torbran.
+> · Witness: `opponentScopedDamage.test.js` (45), `bloodletterLifeLoss.test.js` (9), `lightningStagger.test.js` (5). Graduated:
+>   `damageReplacements.test.js` (Twinflame's scope carries its recipient), `discardCost.test.js`, `effects/abilities.test.js`,
+>   `afflict.test.js`, `trunkRegenerate.test.js`, `auraTapLock.test.js` (the count discard is modeled; a TYPED count is the boundary now),
+>   `discardTrigger.test.js` (14 → 15 sites), `druidApprenticeSurge.test.js` (the triggering record carries its types).
 
 > ## 🔧 2026-10-17 — FIX (false positive): one victim per sacrifice cost — two sources that each print "Sacrifice a creature" (Phyrexian Altar, Ashnod's Altar, Phyrexian Tower's and Lazotep Quarry's second lines, Thermopod) or "Sacrifice a Food" (Gilded Goose) no longer share one victim: the planner gives each sacrifice of a payment its own, canAfford with it, and the commit pays the sacrifice BEFORE it adds the mana — no victim, no mana (CR 605.3, 602.2b, 601.2h, 605.3b); and the creature an action's own cost taps or sacrifices (Purple Pentapus's tap cost, emerge) is no Altar's victim in the offer either · **±0** · snapshot native 15,509 unchanged
 > Suite **20,613 green (1 skipped) / 1,870 files** under the gate queue (with the rules index built locally for the run, then deleted). Lint 0

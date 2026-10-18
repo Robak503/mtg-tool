@@ -11,7 +11,7 @@ import { applyScheduleDelayed } from "./delayedTrigger.js"; // ④-BD — the co
 import { checkDiesTriggers, checkLifegainTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers } from "../../triggers.js"; // + checkPlaneswalkerDiesTriggers (#639): a planeswalker sacrificed in a batch — or alone (2026-10-17) — dies too (CR 700.4)
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
 import { sacrificePermanentsTogether } from "../../costSacrifice.js"; // the batch sacrifice every group sacrifice shares (2026-10-17); costSacrifice imports only gameState, layers and triggers
-import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandCard, massCreatureTargets, nonlandPermanentsWithManaValueAtMost } from "./shared.js";
+import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandCard, massCreatureTargets, nonlandPermanentsWithManaValueAtMost, damageSourceFor } from "./shared.js"; // + damageSourceFor: the spell as the damage's source (its colours) for the source-filtered damage replacements
 import { applyCreateToken, applyCreateNamedToken, applyCreateTokenCopy } from "./tokens.js"; // + applyCreateTokenCopy (#582): Saw in Half's copies ride the shared token-copy minter
 import { applyTutor, millOnePlayer } from "./library.js";
 import { applyZoneMove, applyExileUntilLeaves } from "./zones.js";
@@ -97,7 +97,7 @@ export function applyRemovalWithRider(state, atom, ctx) {
  */
 export function applyDamageRider(state, rider, cap, ctx) {
   if ((rider.onlyIfNonbasic ?? false) && !cap.nonbasic) return state; // Molten Rain — basic land destroyed → no damage
-  return applyDamageEffect(state, { controller: ctx.controller, amount: rider.amount, targets: [{ type: "player", id: cap.controller }], source: { id: ctx.sourceId } });
+  return applyDamageEffect(state, { controller: ctx.controller, amount: rider.amount, targets: [{ type: "player", id: cap.controller }], source: damageSourceFor(state, ctx) });
 }
 
 /** Apply a single RIDER-REMOVAL controller-rider to the captured target-controller `cap`. */

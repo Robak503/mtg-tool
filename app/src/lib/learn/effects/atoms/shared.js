@@ -8,6 +8,7 @@
 
 import { findPermanent, creaturePower, creatureToughness, opponentsOf } from "../../gameState.js";
 import { characteristicTypeLine } from "../../faceUp.js"; // THE FACE THAT IS UP (CR 712.8a) — a graveyard card's type line for the counts
+import { colorsOfSpell } from "../../spellColors.js"; // a leaf (no imports): a spell's colours off its own data (CR 202.2) — the spell as a damage source
 import { MASS_WIPE_SCOPES } from "../../targetTypes.js"; // leaf module (pure strings) — no cycle; feeds the atomTargets drift guard below
 import { permanentIsCreature, permanentHasCardType, permanentHasTypeWord, permanentTypes, permanentCreatureTypes, domainCount, partyCount, permIsEveryCreatureType, deriveCharacteristics, permanentManaValue, permanentsShareCreatureType, permanentPrintedColors } from "../../layers.js"; // + permanentPrintedColors (2026-10-17): a graveyard card's front-face colours for the coloured creature-card count // + permanentsShareCreatureType (#684 — Shared Animosity's count) // + permanentHasTypeWord (the type-line audit): a subtype filter reads the permanent as it is now // + permanentHasCardType (#651): the layer-aware, face-up land read of the opponents' nonland set // + deriveCharacteristics (#587): a permanent's copiable values + layer-4 types for the nonland mana-value set // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import) // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
 import { creatureSatisfiesRestrictions } from "../../creatureRestrictions.js"; // the SHARED 16-kind restriction satisfier (leaf: gameState + layers + keywords only — every one of those edges already exists above, so no cycle)
@@ -41,6 +42,42 @@ export const isLandCard = (card) => /\bLand\b/.test(typeLineStr(card));
 // gated-graveyard static family. Word-anchored so a "Tribal Sorcery — Goblin" / "Instant — Adventure" still
 // counts, without a substring false match.
 export const isInstantOrSorceryCard = (card) => /\b(Instant|Sorcery)\b/.test(typeLineStr(card));
+
+/**
+ * A SPELL's colours and card types, as a damage source (CR 609.7c — a static's source filter applies to a source not on the
+ * battlefield that has the quality): the face being cast (the stack object's `source`), its colours (colorsOfSpell — the
+ * printed colours, else its mana cost's pips) and the card types on its type line. runEffectProgram stamps it on a resolving
+ * spell's context.
+ */
+const CARD_TYPE_WORDS = ["Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery", "Tribal"];
+export function spellSourceQualities(card) {
+  if (!card || typeof card !== "object") return null;
+  const front = characteristicTypeLine(card).split(" — ")[0];
+  return { colors: colorsOfSpell(card), types: CARD_TYPE_WORDS.filter((w) => new RegExp(`\\b${w}\\b`).test(front)) };
+}
+
+/**
+ * THE DAMAGE'S SOURCE for a spell's or an ability's damage (applyDamageEffect's `source`): the ability's own permanent
+ * (`ctx.sourceId`), which the damage funnel reads live while it is on the battlefield. When it is not there, the source is
+ * what it last was (CR 113.7a, 609.7c), carried as `qualities` ({ colors, types }) for the source-filtered damage replacements
+ * (Torbran's "red source", Mechanized Warfare's "red or artifact source"):
+ *   · a spell — no permanent; its colours and card types ride the program's context (`ctx.spellSource`, runEffectProgram);
+ *   · the ability's permanent sacrificed to pay its cost (Mogg Fanatic) — the dispatcher's stamp (`state.sacrificedSelfLki`);
+ *   · a dies trigger of the permanent itself (Mudbutton Torchrunner) — the death look-back (`ctx.dyingQualities`);
+ *   · the entering-creature lane's record (`ctx.triggeringLki`) when it names this permanent.
+ * Anything else that has left carries no record, and a quality-filtered replacement doesn't apply to it (a safe miss).
+ */
+export function damageSourceFor(state, ctx) {
+  const id = ctx?.sourceId ?? null;
+  if (id != null && findPermanent(state, id)) return { id };
+  if (id == null) return ctx?.spellSource ? { id: null, qualities: ctx.spellSource } : { id: null };
+  const sac = state?.sacrificedSelfLki;
+  if (sac?.permanentId === id && Array.isArray(sac.colors)) return { id, qualities: { colors: sac.colors, types: sac.types || [] } };
+  if (ctx?.triggeringPermanentId === id && ctx?.dyingQualities) return { id, qualities: ctx.dyingQualities };
+  const lki = ctx?.triggeringLki;
+  if (lki?.permanentId === id && Array.isArray(lki.colors)) return { id, qualities: { colors: lki.colors, types: lki.types || [] } };
+  return { id };
+}
 
 /**
  * Every creature on EVERY battlefield, as target descriptors `{type:"creature", id,

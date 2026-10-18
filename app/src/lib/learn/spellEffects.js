@@ -1434,6 +1434,11 @@ export function damageDealer(state, source, controller = null) {
     colors: !reads ? [] : source.lki ? source.lki.colors : permanentColors(state, source.id),
     isCreature: reads && (source.lki ? source.lki.isCreature : permanentIsCreature(state, source.id)),
     silenced: source?.id ? attachedDamagePrevention(state, source.id).by === "all" : false,
+    // THE SOURCE'S RECORD when it is not on the battlefield (CR 609.7c, 113.7a): a spell's colours and card types, or a departed
+    // permanent's last known ones (`source.qualities` — effects/atoms/shared.damageSourceFor; the entering-creature lane's
+    // `source.lki`). Only the source-filtered damage replacements read it (damageReplacements.sourceQualities — Torbran's "red
+    // source"); the keyword and protection reads above are unchanged.
+    sourceLki: source?.qualities ?? (source?.lki ? { colors: source.lki.colors || [], types: source.lki.types || (source.lki.isCreature ? ["Creature"] : []) } : null),
   };
 }
 
@@ -1460,7 +1465,7 @@ const tallyDealt = (event, dealer, n) => event.byDealer.set(dealer, (event.byDea
  * dealt (CR 120.8) and is not consulted. Exported for applyDamageEffect's planeswalker hits. */
 export function consultDealt(s, event, dealer, raw, targetKind, targetId) {
   return event.replacing && raw > 0
-    ? consultDamageAmount(s, { sourceId: dealer.id, sourceController: dealer.controller, amount: raw, targetKind, targetId, isCombat: false })
+    ? consultDamageAmount(s, { sourceId: dealer.id, sourceController: dealer.controller, amount: raw, targetKind, targetId, isCombat: false, sourceLki: dealer.sourceLki })
     : raw;
 }
 

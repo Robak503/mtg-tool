@@ -414,7 +414,7 @@ describe("Warstorm Surge — the entering creature deals damage equal to its pow
     const row = { gone: [onBattlefield(murdered, bears), onBattlefield(pumpedThenMurdered, bears), onBattlefield(sacrificed, bears)], record,
       murdered: life(resolveOne(murdered)), pumpedThenMurdered: life(resolveOne(pumpedThenMurdered)), sacrificed: life(resolveOne(sacrificed)) };
     console.log("  WITNESS surgeLeft", JSON.stringify(row));
-    expect(row).toEqual({ gone: [false, false, false], record: { permanentId: bears, controller: "user", power: 2, toughness: 2, isCreature: true, colors: ["G"], keywords: [] },
+    expect(row).toEqual({ gone: [false, false, false], record: { permanentId: bears, controller: "user", power: 2, toughness: 2, isCreature: true, colors: ["G"], types: ["Creature"], keywords: [] }, // + types (2026-10-17 — a source-type-filtered damage replacement reads them)
       murdered: [40, 38], pumpedThenMurdered: [40, 35], sacrificed: [40, 38] });
   });
 

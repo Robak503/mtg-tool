@@ -26,7 +26,11 @@ describe("parse + classify", () => {
     expect(ab.discardCard).toBe(1);
     expect(ab.costModeled).toBe(true);
     expect(ab.modeled).toBe(true);
-    expect(parseActivatedAbilities({ oracle: "{T}, Discard two cards: Draw a card.", type: "Creature", name: "X" })[0]?.modeled).toBeFalsy();
+    // GRADUATED 2026-10-17 (opponentScopedDamage.test.js — Solphim, Mayhem Dominus): the COUNTED discard ("Discard two cards") is
+    // modeled — legalChoices freezes the N least valuable hand cards, the dispatcher discards each. A typed count stays deferred.
+    const counted = parseActivatedAbilities({ oracle: "{T}, Discard two cards: Draw a card.", type: "Creature", name: "X" })[0];
+    expect({ modeled: counted?.modeled, discardCount: counted?.discardCount }).toEqual({ modeled: true, discardCount: 2 });
+    expect(parseActivatedAbilities({ oracle: "{T}, Discard two creature cards: Draw a card.", type: "Creature", name: "X" })[0]?.modeled).toBeFalsy();
     // GRADUATED 2026-08-15 (torturedExistence.test.js): the TYPED discard ("a creature card") is the
     // γ1h-TYPED filter now — modeled, with the filter riding the ability for the enumerator + dispatcher.
     const typed = parseActivatedAbilities({ oracle: "{T}, Discard a creature card: Draw a card.", type: "Creature", name: "Y" })[0];

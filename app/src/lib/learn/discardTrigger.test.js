@@ -173,7 +173,10 @@ describe("⭐ WIRING COMPLETENESS — the invariant behavioural tests cannot rea
     // 13 → 14 on 2026-09-05 (RG-7): actionDispatcher.pitchRandomHandCard — the seeded random-discard COST (Frenetic Ogre's
     // activated cost, Sonic Burst's additional cost). Tripwire fired; `unwired` stayed empty — the helper fires
     // checkDiscardTriggers on the line after its move. Count moves, invariant holds.
-    expect(sites).toBe(14);      // if this changes, a discard site was added or removed — read the diff
+    // 14 → 15 on 2026-10-17: actionDispatcher.applyActivateAbility's counted discard cost ("Discard two cards" — Solphim, Mayhem
+    // Dominus). Tripwire fired; `unwired` stayed empty — each card's move is followed by checkDiscardTriggers. Count moves,
+    // invariant holds.
+    expect(sites).toBe(15);      // if this changes, a discard site was added or removed — read the diff
     expect(unwired).toEqual([]);
   });
 });

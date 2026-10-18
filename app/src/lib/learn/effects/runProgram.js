@@ -36,7 +36,7 @@ import { moveStackTarget } from "./atoms/stack.js"; // CHANGE THE TARGET (shelf 
 import { changeTargetAlternatives, atomForStackTarget, resolutionTargetVerdicts } from "./targeting.js"; // CHANGE THE TARGET — the settle re-derives the alternatives; the auto-pick finds the redirected slot's atom; + the CR 608.2b target re-check
 import { checkDiscardTriggers, checkDiesTriggers, checkLibrarySearchTriggers, checkLifegainTriggers } from "../triggers.js"; // + checkLifegainTriggers — Kwain's per-drawer life (2026-09-05)
 import { applyDrawEffect } from "../spellEffects.js"; // Kwain (2026-09-05) — the trigger-threading draw for the each-player-may DRAW fold // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event; checkDiesTriggers — the move-from-self settle's lethal sweep (W1)
-import { isLandCard, sacrificesByIn } from "./atoms/shared.js"; // SAC-UNLESS-RETURN-LAND — shared.js is a strict leaf, so this edge is DAG-safe // + sacrificesByIn (2026-10-17): "if you do" reads the controller's victim, single or in a batch
+import { isLandCard, sacrificesByIn, spellSourceQualities } from "./atoms/shared.js"; // SAC-UNLESS-RETURN-LAND — shared.js is a strict leaf, so this edge is DAG-safe // + sacrificesByIn (2026-10-17): "if you do" reads the controller's victim, single or in a batch // + spellSourceQualities: a resolving spell's colours and types as a damage source
 import { grantVoidPlay } from "./atoms/voidPlay.js"; // P·28 — the playFree milled-pick settles into Dauthi Voidwalker's grant (voidPlay imports gameState + pendingChoice only)
 
 // SAC-UNLESS-RETURN-LAND (2026-08-12) — the ONE pool predicate for a return-a-land upkeep cost
@@ -186,7 +186,13 @@ function resolveAtomAsking(state, atom, ctx) {
 
 export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacrificed = false, recheckTargets = false } = {}) {
   const params = stackObject?.payload?.params || {};
-  const { program, controller, targets: recordedTargets = [], xValue = null, sourceId = null, context = {}, kicked = false } = params;
+  const { program, controller, targets: recordedTargets = [], xValue = null, sourceId = null, context: recordedContext = {}, kicked = false } = params;
+  // THE SPELL AS A DAMAGE SOURCE (CR 609.7c): a resolving spell has no permanent, so its colours and card types ride its context
+  // (`spellSource`) — every atom's ctx and every resume record of this program carry them — for the source-filtered damage
+  // replacements (Torbran's "red source"; effects/atoms/shared.damageSourceFor). An ability (a permanent's sourceId) gets none.
+  const context = stackObject?.kind === "spell" && sourceId == null && !recordedContext.spellSource && stackObject.source
+    ? { ...recordedContext, spellSource: spellSourceQualities(stackObject.source) }
+    : recordedContext;
   // The targets the atoms act on: the recorded ones, less any the CR 608.2b re-check below finds illegal. Every resume record
   // carries THIS list, so the judgment is made once, as the rule makes it, at the start of resolution.
   let targets = recordedTargets;
