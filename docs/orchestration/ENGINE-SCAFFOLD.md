@@ -462,6 +462,14 @@ from, so a chosen-X line without its chooser parks instead of reading native whi
 others-enter-with replacement's chosen-type form (Metallic Mimic — `othersEnterWithCounters` returns `chosenType: true`
 only beside `choosesCreatureTypeAsEnters`, the one chooser regex the enter site reads too).
 
+**Layer 2 (control, CR 613.1b) is not derived here** — control is where the permanent sits (`controlMove.moveControl`, the
+one move). Timestamp order (CR 613.7, 2026-10-17) lives in the permanent's control-effect record: `controlEffects` (the
+temporary effects on it, oldest first — `{to, until: "end-of-turn"}` from a threaten, `{to, aura}` from a control Aura, which
+re-enters the order on each attach, CR 613.7e) over `controlOriginal` (who controls it once they have all ended). Write it only
+through `addControlEffect` / `endControlEffects` / `gainControlIndefinitely`: ending an effect hands the permanent to the latest
+remaining effect's controller (the cleanup sweep, an Aura leaving or moving); an indefinite steal (CR 611.2a — Sliver Overlord,
+Hellkite Tyrant, Homeward Path) clears the record. A new control effect with a duration gets an entry kind and an end site.
+
 ### 4.7 Mana (`manaModel.js`)
 
 - `manaProduction(card)` → `{colors, amount, sacrifices?, requiresTap?, amountSpec?}`

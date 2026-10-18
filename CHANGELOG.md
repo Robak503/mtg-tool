@@ -8,6 +8,9 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- Stealing a creature that was already stolen now follows the rules: the most recent control effect decides who controls it. **Act of Treason** and then **Control Magic** (or **Mind Control**, **Treachery** and the other "You control enchanted creature" Auras) on the same creature keeps it under the Aura's controller after the turn ends; it used to go back to its owner at end of turn. A creature taken with Control Magic and then taken back with Act of Treason returns to the Control Magic player at end of turn, not to its owner. Act of Treason and then **Sliver Overlord**'s steal keeps the creature for good. With two control Auras on one creature, losing the newer one hands the creature to the older Aura's controller instead of sending it home, and if a control Aura is destroyed while an Act of Treason is still in effect, the Act of Treason player keeps the creature until end of turn. When **Illusory Gains** moves onto an opponent's new creature, the creature it held goes back to its controller, and the same goes for a control Aura moved by **Codsworth, Handy Helper**; the first creature used to stay stolen for good
+
 ## [0.165.0] - 2026-10-18
 
 ### Added

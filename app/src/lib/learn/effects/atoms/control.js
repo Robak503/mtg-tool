@@ -35,7 +35,7 @@
 import { findPermanent, logEvent, updatePermanentSafe } from "../../gameState.js";
 import { atomTargets } from "./shared.js";
 import { TARGET_SUBTYPES } from "../parseHelpers.js"; // curated creature-subtype allowlist (leaf, cycle-free)
-import { moveControl } from "../../controlMove.js"; // the ONE control move, shared with controlAura.js (a zero-import leaf — no cycle)
+import { addControlEffect, gainControlIndefinitely, controlEffectsOf, UNTIL_END_OF_TURN } from "../../controlMove.js"; // the ONE control move + the control-effect record (CR 613.7), shared with controlAura.js (imports only a zero-import leaf — no cycle)
 import { permanentHasCardType } from "../../layers.js"; // GAIN-CONTROL-ALL (Hellkite Tyrant): the card type as it is now — the import removal.js and the other atom modules make (the barrel imports both from the same place, so no new cycle)
 
 /**
@@ -72,8 +72,8 @@ export function gainControlClauseParser(clause) {
   //   · the riders were never the problem. splitClauses already yields the three sentences and the parser
   //     already binds "Untap THAT creature" / "IT gains haste" back to this atom's chosen target via
   //     `bindPreviousTargets`. Measured, not assumed.
-  //   · the revert is the new half, and it is the SAME stash the control Auras have always used
-  //     (`controlOriginal` + moveControl), expiring at the cleanup step under CR 514.2 instead of on detach.
+  //   · the revert is the new half, and it is the SAME control-effect record the control Auras write
+  //     (controlMove.js — timestamp order, CR 613.7), its entry ending at the cleanup step under CR 514.2 instead of on detach.
   // Emitted as a DISTINCT flag rather than a separate op so every downstream consumer of "gain-control"
   // (targeting, legality, the event log) keeps working unchanged.
   if (t === "gain control of target creature until end of turn") {
@@ -104,9 +104,9 @@ export function gainControlClauseParser(clause) {
  * indefinitely (CR 611.2a — no duration printed). Each permanent goes through the one control move (controlMove.moveControl —
  * it never leaves the battlefield: counters, tapped state and attachments ride; an artifact creature is summoning-sick under
  * its new controller, CR 302.6; an Equipment stays on the creature it equips, whose controller doesn't change, CR 301.5d).
- * A later control effect wins over an earlier one (CR 613.7), so a stolen permanent's until-end-of-turn stash (a threaten) is
- * cleared: nothing reverts it at cleanup. No referent (a non-combat event), the controller itself, or a seat that left the game
- * → nothing moves (CR 800.4a).
+ * A later control effect wins over an earlier one (CR 613.7), and this one never ends, so each permanent's control-effect record
+ * (a threaten, a control Aura — controlMove.gainControlIndefinitely) is cleared: nothing reverts it at cleanup or when an Aura
+ * leaves. No referent (a non-combat event), the controller itself, or a seat that left the game → nothing moves (CR 800.4a).
  */
 export function applyGainControlAll(state, atom, ctx) {
   const controller = ctx.controller;
@@ -120,7 +120,7 @@ export function applyGainControlAll(state, atom, ctx) {
   for (const id of ids) {
     const perm = (next.players[from]?.battlefield || []).find((p) => p.id === id);
     if (!perm) continue;
-    next = moveControl(next, id, controller, { controlOriginal: undefined, controlUntilEndOfTurn: undefined });
+    next = gainControlIndefinitely(next, id, controller);
     next = logEvent(next, { kind: "spell-effect", effect: "gain-control", controller, from, permanentId: id, name: perm.card?.name || null });
     // SOULBOND teardown (CR 702.95e) — the same rule as applyGainControl's: another player gaining control unpairs it.
     if (perm.soulbondPartner) {
@@ -141,12 +141,15 @@ export function applyGainControl(state, atom, ctx) {
     const lk = findPermanent(next, t.id);
     if (!lk) continue;                         // target left the battlefield → clean no-op (CR 608.2b)
     const from = lk.controller;
-    if (from === controller) continue;         // already ours → redundant, nothing to do
     const fromPlayer = next.players[from];
     const toPlayer = next.players[controller];
     if (!fromPlayer || !toPlayer) continue;    // a seat left the game → skip (CR 800.4a)
     const perm = fromPlayer.battlefield.find((p) => p.id === t.id);
     if (!perm) continue;                       // defensive: findPermanent said `from`, so this is always found
+    // Already ours: redundant only when no temporary control effect holds it. If one does (we threatened it, or hold it by
+    // an Aura that may yet leave), this later effect still applies over it (CR 613.7) — Act of Treason then Sliver
+    // Overlord keeps the creature past cleanup.
+    if (from === controller && !controlEffectsOf(next, perm).length) continue;
     // ⭐ THE MOVE IS SHARED (controlMove.moveControl) with the while-attached control Auras. It used to be
     // written out here and again in controlAura.js — a deliberate duplication taken to avoid destabilising
     // this atom mid-build, and closed here. Semantics unchanged: an array splice rather than moveCardToZone,
@@ -154,22 +157,23 @@ export function applyGainControl(state, atom, ctx) {
     // survive), keeping tapped state / counters / damage / attachments, summoning-sick under its new
     // controller (CR 302.6). What stays LOCAL is what belongs to this atom: the event log and the soulbond
     // teardown below.
-    // THREATEN (atom.untilEndOfTurn): stamp the SAME stash the control Auras use, so the cleanup-step revert
-    // knows where home is and who took it. `controlOriginal` is stamped ONCE — if the creature was already
-    // stolen, home stays the true original rather than the previous thief, matching controlAura's rule.
-    // ⛔ The revert is scheduled by the STAMP, not by this atom: nothing here has to run again for the
-    // creature to go home, which is what makes permanent theft unreachable via this path even if the spell's
-    // own resolution is interrupted afterwards.
+    // TIMESTAMPS (CR 613.1b, 613.7 — controlMove.js header). THREATEN (atom.untilEndOfTurn): the effect goes on the end of
+    // the permanent's control-effect record, the same record the control Auras write, so the cleanup sweep (CR 514.2)
+    // ends it and hands the creature to the latest effect still in force — an earlier Control Magic's controller, or home.
+    // ⛔ The revert is scheduled by the RECORD, not by this atom: nothing here has to run again for the creature to go
+    // home, which is what makes permanent theft unreachable via this path even if the spell's own resolution is
+    // interrupted afterwards. INDEFINITE (Sliver Overlord, CR 611.2a): later than every effect on it and never ending,
+    // so the record is cleared — no earlier threaten or Aura can take the creature back.
     next = atom.untilEndOfTurn
-      ? moveControl(next, t.id, controller, { controlOriginal: perm.controlOriginal ?? from, controlUntilEndOfTurn: true })
-      : moveControl(next, t.id, controller);
+      ? addControlEffect(next, t.id, { to: controller, until: UNTIL_END_OF_TURN })
+      : gainControlIndefinitely(next, t.id, controller);
     next = logEvent(next, { kind: "spell-effect", effect: "gain-control", controller, from, permanentId: t.id, name: perm.card?.name || null });
     // SOULBOND teardown (BLITZ SL-1, CR 702.95e) — another player gaining control of a paired creature unpairs
     // it. Clear the moved creature's back-reference AND its (still-under-the-old-controller) partner's, so
     // neither soulbond carrier keeps conferring the bond. The layers liveness guard would already suppress the
     // grant on the controller mismatch, but clearing makes the unpairing PERMANENT (they don't re-pair if
-    // control later reverts) — never a wrongly-persisting bond.
-    if (perm.soulbondPartner) {
+    // control later reverts) — never a wrongly-persisting bond. Only when control actually changed hands.
+    if (from !== controller && perm.soulbondPartner) {
       next = updatePermanentSafe(next, perm.soulbondPartner, (p) => ({ ...p, soulbondPartner: null }));
       next = updatePermanentSafe(next, t.id, (p) => ({ ...p, soulbondPartner: null }));
     }
@@ -183,8 +187,10 @@ export function applyGainControl(state, atom, ctx) {
  * battlefield whose stamped `owner` differs from its controller goes home through the shared control move
  * (an in-place splice — no leave/enter, no dies, attachments ride). A permanent with no `owner` stamp has
  * never changed hands (the owner-routing convention: absent ⇒ owner === controller) and is left alone.
- * A threaten's end-of-turn stash (`controlOriginal` / `controlUntilEndOfTurn`) is CLEARED on the way home:
- * the creature is where the cleanup revert would send it, so there is nothing left to revert.
+ * It is an INDEFINITE effect (CR 611.2a), later than every control effect on the creature, so the creature's
+ * control-effect record (a threaten, a control Aura — controlMove.js) is CLEARED on the way home: nothing earlier can
+ * take it back at cleanup or when an Aura leaves. That includes a creature its owner ALREADY controls through a
+ * temporary effect (an owner who threatened it back from a Control Magic keeps it past cleanup, CR 613.7).
  */
 export function regainOwnedCreaturesClauseParser(clause) {
   const t = String(clause || "").trim().toLowerCase();
@@ -197,7 +203,8 @@ export function applyRegainOwnedCreatures(state, atom, ctx) {
   const moves = [];
   for (const pid of Object.keys(next.players || {})) {
     for (const perm of next.players[pid]?.battlefield || []) {
-      if (!perm?.owner || perm.owner === pid) continue;
+      if (!perm?.owner) continue;
+      if (perm.owner === pid && !controlEffectsOf(next, perm).length) continue; // home, and nothing temporary holds it
       // A printed creature (type line). A layer-granted creature type (an animated land) is skipped — FN-safe,
       // and it keeps this atom off the layers module (control.js is a leaf under gameState's import order).
       if (!/\bCreature\b/i.test(String(perm.card?.type || perm.card?.type_line || ""))) continue;
@@ -206,7 +213,7 @@ export function applyRegainOwnedCreatures(state, atom, ctx) {
     }
   }
   for (const m of moves) {
-    next = moveControl(next, m.id, m.to, { controlOriginal: undefined, controlUntilEndOfTurn: undefined });
+    next = gainControlIndefinitely(next, m.id, m.to);
     next = logEvent(next, { kind: "spell-effect", effect: "regain-owned-creatures", controller: ctx.controller, from: m.from, to: m.to, permanentId: m.id, name: m.name });
   }
   return next;

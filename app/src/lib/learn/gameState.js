@@ -33,9 +33,9 @@ import { hasKeyword } from "./keywords.js";
 import { faceUpTypeLine } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the look-back fallback and the legend rule read the front face's type line
 import { applyCounterDoubling, millMultiplier, playerCounterAdditive, applyLifeGainReplacement, drawMultiplier } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
 import { auraHasTotemArmor, grantsUmbraArmorToAuras, isAuraCard, othersEnterWithCounters, exilesCreaturesItDamaged, exilesOpponentCreaturesOnDeath, lifeFloorOf, graveyardExileSpecOf, opponentLifeLossMultiplierOf } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.89; + the Umbra Mystic grant, shelf D43) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
-import { applyControlAuraAttach, revertControlAura } from "./controlAura.js"; // CR 613.1b control Auras — a ZERO-IMPORT leaf, so this lowest-layer module can call it without a cycle
+import { applyControlAuraAttach, revertControlAura, endControlAuraOn } from "./controlAura.js"; // CR 613.1b control Auras — a ZERO-IMPORT leaf, so this lowest-layer module can call it without a cycle
 import { knownColorIdentityOfCards } from "./commanderIdentity.js"; // CR 903.4a — the seat's commander color identity, stamped at game start (a zero-import leaf)
-import { moveControl } from "./controlMove.js"; // THE one control move, shared by the control Auras and the gain-control atom; controlMove imports nothing, so this stays acyclic
+import { controlEffectsOf, endControlEffects, UNTIL_END_OF_TURN } from "./controlMove.js"; // THE one control move + the control-effect record (CR 613.7), shared by the control Auras and the gain-control atom; controlMove imports only a zero-import leaf, so this stays acyclic
 import { withoutAttackerRecord } from "./combatRemoval.js"; // CR 506.4 — the one attacker-record drop (a zero-import leaf, so the lowest layer stays acyclic)
 
 // ─── ID generation ────────────────────────────────────────────────────────────
@@ -1258,6 +1258,10 @@ export function attachPermanent(state, { equipId, targetId }) {
   const prev = src.permanent.attachedTo;
   if (prev && prev !== targetId) {
     next = updatePermanentSafe(next, prev, p => ({ ...p, attachments: (p.attachments || []).filter(id => id !== equipId) }));
+    // A control Aura MOVED to another host (Illusory Gains' own trigger, Codsworth, Handy Helper) stops being attached to the old one, so its control
+    // effect there ends (CR 613.7) — the old host goes to the latest effect still in force, else home. Same state when
+    // this attachment holds no control over the old host.
+    next = endControlAuraOn(next, equipId, prev);
   }
   next = updatePermanentSafe(next, equipId, p => ({ ...p, attachedTo: targetId }));
   next = updatePermanentSafe(next, targetId, p => ({ ...p, attachments: [...(p.attachments || []).filter(id => id !== equipId), equipId] }));
@@ -2603,35 +2607,26 @@ export function diesExiledInstead(state, perm) {
  * left — the only way a creature stays stolen is if this function does not run at all, which is one call
  * site to verify rather than N.
  *
- * The stamp is the schedule: `controlUntilEndOfTurn` plus `controlOriginal` (stamped ONCE at the steal, so
- * home is the TRUE original even if the creature was already under a thief). Both are cleared on the way
- * home, so a creature cannot be sent home twice or drift on a later turn.
+ * The record is the schedule (controlMove.js header): every "until end of turn" entry in a permanent's control-effect
+ * record ends here, and the permanent goes to the LATEST control effect still in force (CR 613.7) — a Control Magic
+ * attached before or after the threaten, or else `controlOriginal` (the controller it entered under, or the one an
+ * indefinite steal gave it to). Ended entries are removed, so a creature cannot be sent back twice or drift on a later
+ * turn. An indefinite steal after the threaten has already cleared the record (CR 611.2a), so cleanup leaves it be.
  *
- * ⚠️ A seat that has left the game (CR 800.4a) has no battlefield to return to. That creature keeps its
- * current controller and the stamp is CLEARED anyway — leaving the stamp would make it a permanent
- * revert-candidate that never resolves, and re-checking it every cleanup forever is worse than the
- * simplification. Pinned.
+ * ⚠️ A seat that has left the game (CR 800.4a) has no battlefield to return to: its entries are skipped, and if no
+ * candidate is left the creature keeps its current controller with the ended entries removed anyway — leaving them
+ * would make it a permanent revert-candidate that never resolves. Pinned.
  *
- * Mirrors clearCombatDamage's shape: pure, and a no-op that allocates nothing when no creature is stolen.
+ * Mirrors clearCombatDamage's shape: pure, and a no-op that allocates nothing when no creature is threatened.
  */
 export function revertEndOfTurnControl(state) {
-  const stolen = [];
+  const threatened = [];
   for (const player of Object.values(state.players || {})) {
-    for (const p of player.battlefield || []) if (p.controlUntilEndOfTurn) stolen.push(p);
+    for (const p of player.battlefield || []) if (controlEffectsOf(state, p).some((e) => e.until === UNTIL_END_OF_TURN)) threatened.push(p.id);
   }
-  if (!stolen.length) return state;
+  if (!threatened.length) return state;
   let next = state;
-  for (const perm of stolen) {
-    const home = perm.controlOriginal;
-    // Clear the stamp FIRST and unconditionally, so an unreachable home (an eliminated seat) can never leave
-    // a permanent revert-candidate behind.
-    next = updatePermanentSafe(next, perm.id, (p) => {
-      const { controlUntilEndOfTurn: _drop, controlOriginal: _dropHome, ...rest } = p;
-      return rest;
-    });
-    if (home == null || !next.players?.[home]) continue;
-    next = moveControl(next, perm.id, home);
-  }
+  for (const id of threatened) next = endControlEffects(next, id, (e) => e.until === UNTIL_END_OF_TURN);
   return next;
 }
 

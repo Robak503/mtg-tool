@@ -153,8 +153,10 @@ describe("⭐ LAW 6 — the whole steal-and-return cycle on a real board", () =>
   });
 
   it("the steal stamps where home is, so the revert needs nothing else to have run", () => {
+    // 2026-10-17: the stamp is an entry in the permanent's control-effect record (controlMove.js, timestamp order —
+    // CR 613.7), the same record the control Auras write; it was a single `controlUntilEndOfTurn` flag.
     const p = permOf(steal(ACT_OF_TREASON, boardWithFoe()), "foe");
-    expect(p.controlUntilEndOfTurn).toBe(true);
+    expect(p.controlEffects).toEqual([{ to: "user", until: "end-of-turn" }]);
     expect(p.controlOriginal).toBe("ai");
   });
 

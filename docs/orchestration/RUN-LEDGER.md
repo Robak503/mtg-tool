@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.165.0** (tagged 2026-10-18 on the `[0.165.0]` CHANGELOG cut):
-> **0 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits); engine gains since the tag: **+0**. The next tag
+> **1 commit**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **44.9% (15,536)**; engine gains since the tag: **±0**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,78 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX (false positive): control changes apply in timestamp order (CR 613.1b, 613.7) — Act of Treason then Control Magic keeps the creature under the Aura past cleanup (it went home), Control Magic then a threaten-back returns it to the Control Magic player at cleanup (it went to the owner), Act of Treason then Sliver Overlord keeps it for good (the Hellkite Tyrant entry's found-not-fixed (4)), two control Auras hand the host to the earlier one when the later goes (the pinned simplification), a control Aura destroyed under a live threaten leaves the threatener holding it until cleanup, and Illusory Gains moving onto a new creature (or Codsworth moving a control Aura) releases the creature it held — it stayed stolen for good · **±0** · snapshot native+land 15,531 unchanged
+> Suite **20,844 green (1 skipped) / 1,882 files** under the gate queue (with the rules index built for the run, then deleted; the first full run, with a lint
+> running beside it, timed out `crucibleRun.test.js` "plays EXACTLY N games" at 20 s — 18.4 s alone on this tree, 19.9 s on the
+> archive — and passed on the gated rerun). Lint 0 (CR citations: 0 of 11,628 name no rule; keyword citations: 0 of 2,377 cite a
+> different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of d94d164b, snapshotted before
+> the first edit; native+land 15,531 of 34,584 snapshot names on both). **Mutants 6/6** on assertions, each restored byte-identical
+> (sha256): the record single-level (6 tests red), an ended effect straight home (9), an indefinite steal keeping the record (4), an
+> already-controlling effect never recorded (1), a moved Aura's old effect left in place (2 — Codsworth, Illusory Gains), Homeward Path
+> skipping an owner-held creature (1). Witness `controlTimestamps.test.js` written first: the first 15 run on the untouched d94d164b
+> archive — **10 fail on assertions, the 5 controls pass**; with the Illusory Gains case added while building, **11 of the final 16 fail
+> on the archive on assertions, the 5 controls pass on both**. A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile
+> decks, default AI; base = the untouched d94d164b archive): **80 / 80 byte-identical** (every decision row, the log, winner and turn
+> count; the two 127 MB result files differ only in their wall-clock field), 0 errors on either tree, results unchanged (ai-wins 60 / user-wins 20), 176 s / 176 s per batch — no control change happens in
+> any of the 80 games (the only theft-text card cast is Eriette's Tempting Apple, games 51 and 59, whose steal is unmodelled).
+> Committed on `day/theftrec`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The bug.** Every control change goes through `controlMove.moveControl`, but the history of WHY a permanent was held was one
+>   level deep: `controlOriginal` plus either `controlUntilEndOfTurn: true` (the threaten, 1760fe36) or `controlStolenBy: <Aura>` (the
+>   control Auras, 0c19d9c0). The cleanup sweep sent anything flagged straight to `controlOriginal`, the Aura revert likewise, and the
+>   indefinite steal and the Aura attach carried the other's flag along untouched. Probed on d94d164b (all through real casts): Act of
+>   Treason then Control Magic — at cleanup the creature went home with the Aura still attached (same player or another; the Aura's
+>   attach was a no-op for the same player, so the threaten's flag decided); Control Magic then Act of Treason — at cleanup it went to the
+>   owner (the sweep sent it to `controlOriginal`, the owner, past the Aura still attached); Act of Treason then Sliver Overlord — the
+>   atom skipped an already-controlled target (`from === controller`) or moved it with the flag, and cleanup reverted the permanent
+>   steal (the Hellkite Tyrant entry's found-not-fixed (4): effects/atoms/control.js:165); Control Magic, a third player's Act of Treason,
+>   the Aura destroyed — the creature went home at once instead of staying with the threatener until cleanup (and the reverse order the
+>   same); two control Auras — removing the later sent the host home past the earlier (pinned in controlAura.test.js as a known
+>   simplification since 2026-07-29); **Illusory Gains** ("Whenever a creature an opponent controls enters, attach this Aura to that
+>   creature.", native-trigger) and a control Aura moved by Codsworth — `attachPermanent` detached the Aura from its old host
+>   without ending its effect, so the first creature stayed stolen for good and the second was stolen too.
+> · **The fix (CR 613.1b, 613.7).** controlMove.js owns a control-effect record per permanent: `controlEffects` — the temporary effects
+>   on it, oldest first, `{to, until: "end-of-turn"}` (a threaten, ends in the cleanup step, CR 514.2) or `{to, aura}` (a control Aura,
+>   ends when it stops being attached; a re-attach is a new timestamp, CR 613.7e) — over `controlOriginal` (who controls it once they
+>   have all ended). Three writers, nothing else touches the fields: `addControlEffect` (a threaten, an Aura attaching — its player
+>   controls it now; not recorded when nothing beneath it can end and its player already has it), `endControlEffects` (the cleanup sweep,
+>   an Aura leaving through the battlefield-exit chokepoint, an Aura moved off by `attachPermanent` — the permanent goes to the latest
+>   remaining effect's controller, else home; a player who has left is skipped, CR 800.4a; if none is left it stays), and
+>   `gainControlIndefinitely` (Sliver Overlord, Hellkite Tyrant, Homeward Path / Trostani Discordant — no duration, CR 611.2a, later
+>   than everything on the permanent, so the record is cleared). The single-target atom no longer skips a target it already controls
+>   when a temporary effect holds it, and Homeward Path also takes a creature its owner holds only through a temporary effect (an owner
+>   who threatened it back from a Control Magic keeps it past cleanup — the base got this right by accident, and the record would
+>   otherwise have handed it to the Aura's controller). A pre-record save's `controlUntilEndOfTurn` / `controlStolenBy` is read as the
+>   equivalent list (pinned). `playability-sweep.mjs` counts Aura entries instead of `controlStolenBy`.
+> · **Reach.** The bundled cards whose modelled control change now behaves differently in these interactions — 34 native: the 15
+>   native threatens (Act of Treason, Traitorous Blood, Turn Against, Portent of Betrayal, Vengeful Possession, Pack's Betrayal, Lose
+>   Calm, Involuntary Employment, Song-Mad Treachery, Limits of Solidarity, Bloody Betrayal, Twisted Fealty, Press into Service,
+>   Tentative Connection, Sarkhan Vol), the 14 control Auras (Control Magic, Mind Control, Treachery, Persuasion, Corrupted Conscience,
+>   Mind Harness, Threads of Disloyalty, Yavimaya's Embrace, Spirit Away, Biting Tether, Binding Grasp, Vapor Snare, Mark of the Oni,
+>   Illusory Gains) and Hypnotic Siren (bestowed), Sliver Overlord, Hellkite Tyrant (no visible change: its clear already made a later
+>   Aura revert a no-op), Homeward Path and Trostani Discordant; plus Codsworth, Handy Helper as the mover. No tier moves (flip-diff 0).
+>   Profile decks: The Unbeatable Squirrel Girl holds Homeward Path; Captain America and Light-Paws hold Codsworth but no control Aura;
+>   Bumble Flower Combo holds Eriette's Tempting Apple, whose steal is unmodelled (body-only). No theft deck is added (the 08-15 veto).
+> · **Tests changed on purpose:** `controlAura.test.js`'s "⚠️ KNOWN SIMPLIFICATION" pin (two Auras → home) now asserts the CR answer (the
+>   first Aura's controller, then home when it goes too) — fails on the archive; `threatenControl.test.js`'s stamp assertion reads
+>   `controlEffects` instead of `controlUntilEndOfTurn`.
+> · **Judgement calls:** (1) Act of Treason stands in for "Threaten" — Threaten's own text ("Untap target creature and gain control of it
+>   until end of turn") is not read (arbiter-spell), Act of Treason is the native member. (2) The indefinite single-target steal is
+>   witnessed with Sliver Overlord — Agent of Treachery ("gain control of target permanent") is body-only. (3) The pod cases make the
+>   casting seat active for its sorcery-speed cast. (4) An effect that gives control to whoever already has it, with nothing beneath it,
+>   is not recorded — equivalent at every later point, and it keeps an Aura on its own controller's creature stash-free. (5) The Aura
+>   revert no longer asks `isControlAuraPermanent`: only an Aura that took the host has an entry there.
+> · ⚠️ **Found, not fixed:** (1) `removePlayerFromGame` (learnSession.js:414) drops the leaving player's whole battlefield — a creature
+>   they had stolen vanishes instead of reverting (CR 800.4a's own examples: Mind Control, Act of Treason), and what they OWN under
+>   another player's control stays in the game. (2) A control Aura's entry keeps the player who controlled it at attach: if control of
+>   the Aura itself changed, the host would not follow (no modelled effect gains control of an Aura today). (3) A bestowed Aura on a host
+>   that becomes illegal stays attached (sba.js:77 — CR 702.103f: it becomes unattached), so a bestowed Hypnotic Siren keeps a host that
+>   gained protection from blue. (4) Not modelled, so nothing to agree with yet: "for as long as" control (Old Man of the Sea, Rubinia
+>   Soulsinger), exchange of control (Switcheroo, CR 701.12), "gain control of target permanent" (Agent of Treachery), Threaten's and
+>   Besmirch's own wordings. 48 bundled cards whose control clause parses stay parked for other reasons (21 threatens — Goatnap, Mark of
+>   Mutiny, Traitorous Instinct …; 12 control Auras — Enslave, Domestication, Krovikan Whispers …; Keiga, the Tide Star, Piper of the
+>   Swarm …). A new control duration needs an entry kind and an end site.
+> · Witness: `controlTimestamps.test.js` (16 — 11 witnesses, 5 controls). Updated: `controlAura.test.js`, `threatenControl.test.js`.
 
 > ## 🔧 2026-10-17 — FIX (false positive): Phyrexian mana is paid — each Phyrexian symbol in a spell's or an activated ability's cost ({B/P}, the hybrid {G/U/P}) costs one mana of its colour or 2 life (CR 107.4f), planned in the planner and canAfford with the whole payment's life (at least 1 left; none under a life lock, CR 119.8) and charged by the commit; the attack tax's Phyrexian pips use the same payment; the AI pays Phyrexian life only at LIFE_PRUDENCE_FLOOR or more; 29 credited cards (Dismember, Gitaxian Probe, Mental Misstep, Birthing Pod, Norn's Annex, the Souleaters, the Dominuses, Lashwrithe …) now pay faithfully · **±0** · snapshot native 15,518 unchanged
 > Suite **20,794 green (1 skipped) / 1,880 files** under the gate queue (with the rules index built locally for the run, then deleted; a first gated run had one

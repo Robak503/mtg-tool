@@ -243,7 +243,7 @@ for (let g = 0; g < GAMES; g++) {
       for (const pid of Object.keys(stx?.players || {})) {
         for (const perm of stx.players[pid].battlefield || []) {
           if (!perm) continue;
-          if (perm.controlStolenBy) controlObservations++;
+          if ((perm.controlEffects || []).some((e) => e.aura)) controlObservations++; // held by a control Aura (controlMove.js record)
           if (perm.controller != null && perm.controller !== pid) {
             if (controllerMismatches.length < 25) controllerMismatches.push(`${perm.card?.name || perm.id}: field=${perm.controller} array=${pid}`);
           }

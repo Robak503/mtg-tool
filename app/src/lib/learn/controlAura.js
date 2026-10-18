@@ -20,18 +20,19 @@
  * would be a cycle. Every function takes `state` and ids and does the array splice inline — the same shape
  * choicePolicy.js uses for the same reason.
  *
- * The MOVE mirrors effects/atoms/control.js's applyGainControl exactly (array splice, not moveCardToZone, so
- * the creature never LEAVES the battlefield and no dies/LTB fires; identity, tapped state, counters, damage
- * and attachments all preserved; summoning-sick under its new controller per CR 302.6). ⚠️ That mirroring
- * is a deliberate duplication of MECHANISM to avoid destabilising a proven atom — unifying the two movers is
- * a follow-up, noted in the queue.
+ * The MOVE is the shared one (controlMove.moveControl — array splice, not moveCardToZone, so the creature never LEAVES
+ * the battlefield and no dies/LTB fires; identity, tapped state, counters, damage and attachments all preserved;
+ * summoning-sick under its new controller per CR 302.6).
  *
- * ⚠️ KNOWN SIMPLIFICATION, pinned in controlAura.test.js: the stash is single-level. A creature stolen by TWO
- * control Auras remembers only its ORIGINAL controller, so removing either Aura sends it all the way home
- * rather than to the other Aura's controller. Rare enough to defer, wrong enough to write down.
+ * ⭐ TIMESTAMPS (CR 613.1b, 613.7). The Aura's effect is one entry in the host's control-effect record (controlMove.js
+ * header), in timestamp order with every threaten and other control Aura on it — an Aura gets a new timestamp each time
+ * it becomes attached (CR 613.7e). When it stops being attached its entry ends and the host goes to the latest effect
+ * still in force: a second control Aura, a threaten that has not reached cleanup, or else home. Before 2026-10-17 the
+ * record was one level deep, so removing either of two control Auras sent the host all the way home, and a threaten
+ * applied before or after the Aura decided cleanup wrongly (controlTimestamps.test.js).
  */
 
-import { moveControl, controllerOfPermanent } from "./controlMove.js"; // the ONE control move, shared with the gain-control atom (controlMove.js imports nothing, so gameState -> controlAura -> controlMove stays acyclic)
+import { addControlEffect, endControlEffects } from "./controlMove.js"; // the ONE control move + the control-effect record, shared with the gain-control atom (controlMove.js imports only combatRemoval.js, a zero-import leaf, so gameState -> controlAura -> controlMove stays acyclic)
 
 const CONTROL_LINE = /^you control enchanted creature\.$/im;
 
@@ -59,43 +60,29 @@ export function isControlAuraPermanent(perm) {
 }
 
 /**
- * ATTACH side — called after the link is formed. Moves the host under the Aura's controller and stamps the
- * two fields the revert needs. No-op unless `auraPerm` really is a control Aura and the host is elsewhere.
+ * ATTACH side — called after the link is formed. The Aura's effect begins with the latest timestamp (CR 613.7e): its
+ * controller controls the host now, over every earlier control effect on it. No-op unless `auraPerm` really is a
+ * control Aura.
  */
 export function applyControlAuraAttach(state, auraPerm, hostId) {
   if (!auraPerm || !hostId || !isControlAuraPermanent(auraPerm)) return state;
   const to = auraPerm.controller;
   if (!to) return state;
-  const hostController = controllerOfPermanent(state, hostId);
-  if (hostController == null || hostController === to) return state;
-  const hostPerm = state.players[hostController].battlefield.find((p) => p.id === hostId);
-  if (!hostPerm) return state;
-  // Remember the ORIGINAL controller, not the current one: if a second control Aura ever attaches, home is
-  // still home. Only stamp it once — see the known-simplification note in the header.
-  const original = hostPerm.controlOriginal ?? hostController;
-  return moveControl(state, hostId, to, { controlOriginal: original, controlStolenBy: auraPerm.id });
+  return addControlEffect(state, hostId, { to, aura: auraPerm.id });
 }
 
 /**
- * DETACH side — called from the battlefield-exit chokepoint as the Aura leaves, BEFORE the links are torn
- * down (so `attachedTo` is still readable). Sends the host home if and only if THIS Aura is the one that
- * took it.
+ * DETACH side — called from the battlefield-exit chokepoint as the Aura leaves, BEFORE the links are torn down (so
+ * `attachedTo` is still readable), and from attachPermanent when the Aura moves to another host. The Aura's entry on
+ * its host ends; the host goes to the latest control effect still in force (CR 613.7). ⛔ Only this Aura's entry: an
+ * Aura that never took the host (or whose effect a later indefinite steal has outlasted) has none, and moves nothing.
  */
 export function revertControlAura(state, auraPerm) {
-  if (!auraPerm || !isControlAuraPermanent(auraPerm)) return state;
-  const hostId = auraPerm.attachedTo;
-  if (!hostId) return state;
-  const hostAt = controllerOfPermanent(state, hostId);
-  const host = hostAt == null ? null : state.players[hostAt].battlefield.find((p) => p.id === hostId);
-  // ⛔ Only revert what THIS Aura took. Without the stolenBy check, an unrelated control Aura leaving would
-  // send home a creature it never took — theft in the other direction.
-  if (!host || host.controlStolenBy !== auraPerm.id || host.controlOriginal == null) return state;
-  const home = host.controlOriginal;
-  if (!state.players?.[home]) return state;                 // original controller left the game (CR 800.4a)
-  const next = moveControl(state, hostId, home);
-  if (next === state) return state;
-  // Clear the stash on the way home so a later re-steal starts clean.
-  const bf = next.players[home].battlefield.map((p) =>
-    p.id === hostId ? { ...p, controlOriginal: undefined, controlStolenBy: undefined } : p);
-  return { ...next, players: { ...next.players, [home]: { ...next.players[home], battlefield: bf } } };
+  if (!auraPerm?.attachedTo) return state;
+  return endControlAuraOn(state, auraPerm.id, auraPerm.attachedTo);
+}
+
+/** End Aura `auraId`'s control effect on `hostId` (see revertControlAura). Same state when it has none there. */
+export function endControlAuraOn(state, auraId, hostId) {
+  return endControlEffects(state, hostId, (e) => e.aura === auraId);
 }

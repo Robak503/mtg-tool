@@ -136,17 +136,19 @@ describe("⛔ REVERT — the host goes home by EVERY route the Aura can leave", 
   });
 });
 
-describe("⚠️ KNOWN SIMPLIFICATION — pinned, not hidden", () => {
-  it("two control Auras: removing the second sends the host all the way HOME, not to the first", () => {
-    // The stash is single-level: the host remembers only its ORIGINAL controller. CR would hand it to the
-    // remaining Aura's controller. Rare enough to defer, wrong enough to write down — if this test ever
-    // starts failing because someone made the stash a stack, that is an improvement, not a regression.
+describe("two control Auras — the later one ending hands the host to the earlier (CR 613.7)", () => {
+  it("removing the second sends the host to the FIRST Aura's controller, not home", () => {
+    // Pinned until 2026-10-17 as a KNOWN SIMPLIFICATION (the stash was single-level, so the host went all the way
+    // home). The control-effect record is now in timestamp order (controlMove.js), so the remaining Aura — still
+    // attached, its effect still in force — decides. controlTimestamps.test.js drives the same case through real casts.
     let st = attached(MIND_CONTROL);                       // user steals from ai
     const second = createPermanent({ id: "A2", controller: "ai", card: { ...MIND_CONTROL, id: "ca2", name: "Second Control" } });
     st = { ...st, players: { ...st.players, ai: { ...st.players.ai, battlefield: [...st.players.ai.battlefield, second] } } };
     st = attachPermanent(st, { equipId: "A2", targetId: "H" });   // ai steals it back
     expect(controllerOf(st, "H")).toBe("ai");
     st = moveCardToZone(st, { playerId: "ai", fromZone: "battlefield", toZone: "graveyard", cardId: "A2" });
-    expect(controllerOf(st, "H")).toBe("ai");               // home is the ORIGINAL owner, not the first thief
+    expect(controllerOf(st, "H")).toBe("user");             // the first Aura still holds it
+    st = moveCardToZone(st, { playerId: "user", fromZone: "battlefield", toZone: "graveyard", cardId: "A" });
+    expect(controllerOf(st, "H")).toBe("ai");               // and once it goes too, home
   });
 });
