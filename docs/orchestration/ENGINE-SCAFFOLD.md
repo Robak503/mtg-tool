@@ -1153,13 +1153,37 @@ It That Heralds the End, Animar).** `staticAbilityParser.parseCastCostModifier` 
 ("Spells cost {1} less to cast.") is `everyCaster`: the cast site collects it from EVERY battlefield, the others only from the
 caster's. A tax with `exceptCasterTurn` (Defense Grid) skips a spell cast on its caster's own turn — `costTaxForSpell` takes the
 active player as a fourth argument (absent → the tax applies). A tax with `cardTypes` (Aura of Silence) is one union. A reducer
-with `minManaValue` reads `castContext.manaValue` — the printed mana value the cast site hands in (X as 0, so an X spell under the
-floor gets no discount: an under-read) — and fails closed without it; `colorless` is the spell's colours as cast. A scaled reducer
+with `minManaValue` reads `castContext.manaValue` — the mana value the cast site hands in (since 2026-10-18 the chosen X counted,
+CR 202.3e, and never an alternative cost's, CR 118.9c) — and fails closed without it; `colorless` is the spell's colours as cast. A scaled reducer
 carries `per` with `amount: 0` until stamped: `perCounterOnSource` (Animar, Herald of War, Mindsplice Apparatus) by
 `collectCostReducers` off the source permanent's counters, `perEachCount` (Temur Battlecrier, Sami's granted affinity, Sokka) by
 `resolveCastSiteReducers` at the cast site through `countForSpec` for the caster — only a `permanentsYouControl` count with no `who`
 and no `excludeSelf` (the cast site has no source to exclude) — which also drops a `duringYourTurn` reducer on another player's
 turn. Witnesses: `symmetricCostReducer`, `costTaxTurnAndUnion`, `manaValueFloorReducer`, `scaledCostReducer`.
+
+**The total cost is assembled in one order (2026-10-18 — CR 601.2f, 118.9d, 118.9c, 202.3e).** `legalChoices.assembleTotalCost` is
+the only place a spell's cost is put together: the mana cost or the alternative cost being paid, with any additional mana merged
+in (kicker, multikicker, an additional "pay {3}{B}", strive, Spree modes), the chosen X folded into the generic part, then the
+increases (commander tax, static taxes), then every reduction — generic only, the total floored at {0} — and the coloured
+reductions. `castActionsFromZone` reads the spell's modifiers once per card (`costMods`: `increase`, `reduceAt(manaValue)`,
+`pips`) and every lane builds on the unreduced mana cost through `totalCost(base, { x, extraReduction })` — the normal cast, the
+kicked / multikicked / kicker-creature / kicker-Aura casts, the additional-cost "pay" option, strive and Spree (`normalCast`),
+every X lane (`xCostAt`, the mana value a floor reads including X; `affordableXValues` takes the cost function, its ceiling raised
+by the most the reductions can take off, and keeps looking past a failed X while a reduction applies — a floor the next X crosses
+can make that total smaller), the fixed-mana alternative cost (own pips, Fist of Suns, a trap), bestow (against the spell as
+cast) and emerge (the sacrificed creature's mana value as `extraReduction`, the taxes included). The flashback lane hands the
+builder the card's own mana value (`{ manaValue }` option), so a floor never reads the flashback cost's. A free cast ("without paying
+its mana cost") and a printed alternative cost that pays no mana (Force of Will's pitch, Fireblast's sacrifice) are an alternative
+cost of {0}: the dispatcher pays no mana for either, so one whose {0} still owes mana after the increases and reductions
+(`zeroAltOwes` — Thalia over a cascaded noncreature spell, Sphere of Resistance over anything) is not offered, the target-mana-tax
+pass's posture; and a free cast is offered no cost it can't charge: no bestow (one alternative cost), no additional "pay" option,
+no strive increase, no Spree modes; and a cast whose cost carries additional mana (`carriesAdditionalMana`) is never twinned with an
+alternative cost that would drop it. **Board-granted {0} alternatives** (`grantedZeroAltCost` — Rooftop Storm, Dracogenesis,
+Darksteel Monolith, As Foretold): `grantedZeroAltCosts` collects them from the caster's battlefield, `zeroAltCostGrantAllows`
+reads the face being cast, and each becomes one more fixed-mana variant of the twin pass (`wubrgSpecs` now holds a list), priced
+by `totalCost` (under Sphere of Resistance it is {1}); a once-each-turn grant stamps `altCostOnceSourceId`, which the dispatcher
+latches (`<sourceId>_zeroAltCostOnce`, cleared at untap). Hand casts only, never an X spell. Witnesses: `castCostOrder`,
+`grantedZeroAltCost`.
 
 **An X/X animation and an any-controller "another" grant (2026-10-17 — Destiny Spinner, Heliod, Sun-Crowned).** The land
 animation's "becomes an X/X …, where X is <count>" carries `ptCount` (the shared count vocabulary); `applyAnimateEffect` counts it
@@ -1195,8 +1219,8 @@ costs.)" then one "+ {cost} — effect" line per mode. There is no parallel moda
 Phyrexian costs read nothing), `parseEffectProgramInner` re-reads the modes as the existing "Choose one or more —" modal
 (parseModal's `atLeastOne`: every non-empty subset, each mode through the full clause machinery, one unmodeled mode → LOW → the
 card stays on the Arbiter) and STAMPS `modal.spreeCosts` (printed order, parallel to `modes`). The stamp is what makes it safe:
-the cast lane (`legalChoices`, the program lane's `normalCast`, beside strive) charges the base cost — taxed and reduced as
-computed — plus every chosen mode's cost (CR 601.2f) as the action's own `cost`, which the dispatcher pays, and offers only a set
+the cast lane (`legalChoices`, the program lane's `normalCast`, beside strive) charges the mana cost plus every chosen mode's
+cost, then the taxes and reductions (CR 601.2f — `assembleTotalCost`), as the action's own `cost`, which the dispatcher pays, and offers only a set
 the caster can fund; `expandCastChoices` already drops a mode whose targets can't be chosen (CR 700.2a) and `programAtoms` runs
 the chosen modes in printed order (CR 608.2c). Not offered: under a free-cast permission (the dispatcher pays no mana for
 `freeCast`, so the modes' costs could not be paid — every free-cast window has its own decline), and the Fist of Suns

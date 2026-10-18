@@ -626,20 +626,28 @@ const X_CHOICE_CAP = 10;
  * Affordable X values for an {X}-cost spell, as a bounded ascending list [1..maxX].
  * maxX = total available mana (pool + untapped sources) minus the fixed cost. Each
  * candidate is verified through the real `canAfford` planner (so colored-pip
- * constraints are exact, not estimated); since adding +1 generic only ever makes the
- * cost harder, affordability is monotonic in X — the first failure ends the list.
- * X=0 is legal but never useful here (a 0 X-spell does nothing), so we start at 1.
+ * constraints are exact, not estimated). X=0 is legal but never useful here (a 0 X-spell
+ * does nothing), so we start at 1.
+ * `costAtX(x)` is the spell's total cost with that X chosen (castActionsFromZone's `xCostAt` — the X folded in before the
+ * reductions, CR 601.2f), so a reduction reaches the X, and a mana-value floor applies once the X lifts the spell's mana value
+ * over it (CR 202.3e). `reductionSlack` — the most generic mana the spell's reductions can take off — raises the mana ceiling by
+ * that much (under Helm of Awakening three mana pays X=4 for Endless One), and while it is above 0 a failed X does not end the
+ * list: a floor the next X crosses can make that total smaller (Krosan Drover's {2}: Primordial Hydra at X=4, mana value 6, costs
+ * {2}{G}{G} — less than X=3's {3}{G}{G}). With no reduction the total rises with X, and the first failure ends the list.
  */
-function affordableXValues(state, playerId, cost) {
+function affordableXValues(state, playerId, costAtX, reductionSlack = 0) {
   const player = state.players[playerId];
   const sources = manaSources(state, playerId);
   const poolTotal = totalAvailableMana(state, playerId);
   const sourceTotal = sources.reduce((sum, s) => sum + (s.amount || 1), 0);
-  const ceiling = Math.min(poolTotal + sourceTotal, X_CHOICE_CAP);
+  const ceiling = Math.min(poolTotal + sourceTotal + reductionSlack, X_CHOICE_CAP);
   const out = [];
   for (let x = 1; x <= ceiling; x++) {
-    const xCost = xResolvedCost(cost, x);
-    if (!canAfford(player.manaPool, sources, xCost, lifePaymentContext(state, playerId))) break; // monotonic in X (+ the caster's life: Corrosive Gale's {G/P})
+    const xCost = costAtX(x);
+    if (!canAfford(player.manaPool, sources, xCost, lifePaymentContext(state, playerId))) { // (+ the caster's life: Corrosive Gale's {G/P})
+      if (reductionSlack > 0) continue;
+      break;
+    }
     out.push(x);
   }
   return out;
@@ -1099,13 +1107,72 @@ function bestowedSpellView(card) {
   return { ...card, type, type_line: type };
 }
 
-function applyColoredPipReduction(cost, costReducers, card, everyType = false) {
-  const pips = coloredPipReductionForSpell(costReducers, card, everyType);
-  const colors = Object.keys(pips);
+/**
+ * THE TOTAL COST OF A SPELL (CR 601.2f): "the mana cost or alternative cost …, plus all additional costs and cost increases, and
+ * minus all cost reductions", the mana component never below {0}. One assembly for every cast lane, so no lane can apply a reduction
+ * before a cost it should have seen:
+ *   `base`  — the mana cost or the alternative cost being paid (CR 118.9d: increases and reductions apply to an alternative cost),
+ *             with any additional mana already merged in (kicker, multikicker, "pay {3}{B}", strive, Spree modes — CR 118.8, 702.33a);
+ *   `x`     — the chosen X, folded into the generic part first (CR 107.3a: on the stack the X in the mana cost is that number);
+ *   `mods`  — the spell's cost modifiers, read once per spell: `increase` (the commander tax, CR 903.8, and the static taxes — generic),
+ *             `reduceAt(manaValue)` (the generic reductions; a mana-value floor reads the spell's mana value, X included on the stack,
+ *             CR 202.3e — never the alternative cost's, CR 118.9c) and `pips` (the coloured reductions, each floored at none);
+ *             null for a free cast (the dispatcher pays no mana for one);
+ *   `extraReduction` — a reduction priced with the cast's own choice (a sacrificed creature's mana value for emerge, CR 702.119a; a
+ *             target-conditional reduction).
+ * A reduction is generic only (CR 118.7a); the coloured part is reduced only by a coloured reduction. Pure: returns `base` itself
+ * when nothing applies, a fresh object otherwise.
+ */
+function assembleTotalCost(base, mods, { x = null, manaValue = 0, extraReduction = 0 } = {}) {
+  let cost = x == null ? base : xResolvedCost(base, x);
+  if (!mods) return cost;
+  if (mods.increase) cost = { ...cost, generic: (cost.generic || 0) + mods.increase };
+  const reduction = mods.reduceAt(manaValue) + extraReduction;
+  if (reduction) cost = { ...cost, generic: Math.max(0, (cost.generic || 0) - reduction) };
+  const colors = Object.keys(mods.pips || {});
   if (!colors.length) return cost;
   const next = { ...cost };
-  for (const color of colors) next[color] = Math.max(0, (next[color] || 0) - pips[color]);
+  for (const color of colors) next[color] = Math.max(0, (next[color] || 0) - mods.pips[color]);
   return next;
+}
+
+/** Does this cast's cost carry ADDITIONAL MANA beyond the mana cost — a Spree mode's cost, an additional "pay {3}{B}", a strive
+ *  increase for a second target (CR 118.8, 702.172a, 601.2f)? Read by the alternative-cost twin passes, which never twin one. */
+function carriesAdditionalMana(a) {
+  return !!a.spreeCost || !!a.payManaCost || (!!a.program?.strivePerTarget && (a.targets?.length || 0) > 1);
+}
+
+/**
+ * THE BOARD-GRANTED {0} ALTERNATIVE COSTS this player's permanents give its spells (staticAbilityParser `grantedZeroAltCost` — Rooftop
+ * Storm, Dracogenesis, Darksteel Monolith, As Foretold; CR 118.9). A once-each-turn grant whose source was used this turn is spent
+ * (the dispatcher latches `${sourceId}_zeroAltCostOnce` on the cast; the latch clears at untap, like every once-per-turn latch). As
+ * Foretold's grant carries its source's time counters as the cost is determined.
+ */
+function grantedZeroAltCosts(state, playerId) {
+  const out = [];
+  for (const perm of state.players[playerId]?.battlefield || []) {
+    for (const d of parseStaticAbilities(perm.card)) {
+      const g = d.grantedZeroAltCost;
+      if (!g) continue;
+      if (g.oncePerTurn && state.onceTriggersFiredThisTurn?.[`${perm.id}_zeroAltCostOnce`]) continue;
+      out.push({ ...g, sourceId: perm.id, sourceName: perm.card?.name ?? perm.id,
+        ...(g.maxManaValueCounter ? { counters: Math.max(0, Number(perm.counters?.[g.maxManaValueCounter]) || 0) } : {}) });
+    }
+  }
+  return out;
+}
+
+/** Does a {0} grant reach this spell? Read off the face being cast (CR 712.8c): a subtype word on its type line (a creature type also
+ *  when the spell is every creature type — a changeling, CR 702.73a), a card type, no colour (CR 105.2c; a devoid card), or its mana
+ *  value against the source's counters (CR 202.3 — X spells never reach this lane). */
+function zeroAltCostGrantAllows(g, card, everyType, manaValue) {
+  const tl = String(characteristicTypeLine(card) || "").split(" // ")[0];
+  const [types, subtypes = ""] = tl.split(/\s+[—–-]\s+/);
+  if (g.cardType && !new RegExp(`\\b${g.cardType}\\b`).test(types)) return false;
+  if (g.subtype && !new RegExp(`\\b${g.subtype}\\b`).test(subtypes) && !(everyType && CR_CREATURE_TYPES.has(g.subtype.toLowerCase()))) return false;
+  if (g.colorless && characteristicColors(card).length) return false;
+  if (g.maxManaValueCounter && !(Number.isFinite(manaValue) && manaValue <= (g.counters ?? -1))) return false;
+  return true;
 }
 
 // below). When false (every normal hand/command cast) behavior is byte-identical.
@@ -1113,7 +1180,10 @@ function applyColoredPipReduction(cost, costReducers, card, everyType = false) {
 // simply can't choose a larger count (a narrower option set, never a wrong one).
 const MULTIKICK_OFFER_CAP = 20;
 
-function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast = false) {
+// `manaValue` (options): the spell's mana value when the card handed in carries an ALTERNATIVE cost as its mana cost — the flashback
+// lane projects a face whose `mana` is the flashback cost — so the cost readers judge the card's own mana value (CR 118.9c), never
+// the alternative cost's. Omitted, the mana value is the handed-in card's mana cost.
+function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast = false, { manaValue: manaValueOverride = null } = {}) {
   const player = state.players[playerId];
   const actions = [];
   // ALT-COST OFFER: cardId → { alt, payments, affordable } for every alt-carrier in this enumeration.
@@ -1126,10 +1196,16 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
   // only when IT is payable (CR 118.9 — the caster picks one).
   const wubrgAlt = grantsWubrgAltCost(state, playerId);
   const WUBRG_COST = wubrgAlt ? parseManaCost("{W}{U}{B}{R}{G}") : null;
+  // cardId → { baseAffordable, variants: [{ cost, altManaCost, altName, altCostOnceSourceId? }] } — every fixed-mana alternative
+  // cost a hand card may be cast for (the card's own pips or Fist of Suns', and each board-granted {0}); the twin post-pass emits one
+  // cast per variant.
   const wubrgSpecs = new Map();
+  // A BOARD-GRANTED {0} ALTERNATIVE COST (Rooftop Storm, Dracogenesis, Darksteel Monolith, As Foretold — grantedZeroAltCosts): the
+  // grants this player's permanents give its hand casts, read once. Never inside a free cast (one alternative cost at most).
+  const zeroGrants = (!freeCast && fromZone === "hand") ? grantedZeroAltCosts(state, playerId) : [];
 
   // STATIC-COST-REDUCTION: the subtype cost-reducers this player controls, gathered ONCE (each zone is
-  // invariant across the loop). Skipped for a free-cast (it pays no mana). costReductionForSpell matches each
+  // invariant across the loop). A free cast reads them too: they can offset a tax on its {0} (below). costReductionForSpell matches each
   // castable card's type line against them below. CR 601.2f. Three sources:
   //   • battlefield permanents — every reducer ("Dragon spells you cast cost {2} less" — Dragonspeaker Shaman).
   //   • the command zone — ONLY EMINENCE reducers (The Ur-Dragon's "as long as ~ is in the command zone or on
@@ -1140,9 +1216,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
   //     Awakening names no "you", so an opponent's Helm discounts this player's spells too).
   // Then resolveCastSiteReducers drops a "during your turn" reducer on another player's turn and counts a board-scaled one for
   // this player (Temur Battlecrier's creatures with power 4 or greater; Sami's artifacts) as the cost is determined (CR 601.2f).
-  const costReducers = freeCast
-    ? []
-    : resolveCastSiteReducers([
+  const costReducers = resolveCastSiteReducers([
         // Pass the battlefield PERMANENTS (not bare cards) so a CHOSEN-TYPE reducer (Urza's Incubator) can pair
         // with its source permanent's stored chosenType; collectCostReducers reads `.card` + `.chosenType`.
         ...collectCostReducers(player.battlefield || []),
@@ -1154,10 +1228,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
   // STATIC-COST-TAX (CR 601.2f — the increase twin): taxes read EVERY battlefield (Sphere of Resistance
   // taxes everyone; Thalia taxes her own controller too; a "your opponents cast" tax skips its controller
   // via the stamped controller vs playerId check in costTaxForSpell). Gathered ONCE like the reducers.
-  // A free-cast pays no mana, so no tax applies (CR 601.2f adjusts a cost that is being paid).
-  const costTaxers = freeCast
-    ? []
-    : collectCostTaxers(Object.entries(state.players || {}).map(([pid, p]) => ({ controller: pid, battlefield: p.battlefield }))); 
+  // A free cast reads them too: "without paying its mana cost" is an alternative cost of {0}, and the increases apply to it (CR 118.9d).
+  const costTaxers = collectCostTaxers(Object.entries(state.players || {}).map(([pid, p]) => ({ controller: pid, battlefield: p.battlefield }))); 
 
   // FLASH-CAST-PERMISSION (CR 601.3b): the flash-cast statics this player controls ("You may cast <FILTER>
   // spells as though they had flash" — Yeva, Vedalken Orrery, …), gathered ONCE (invariant across the loop).
@@ -1260,33 +1332,49 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // untouched; `freeCast` is the legitimate effect-granted permission path and is deliberately exempt (that
     // IS "unless an effect allows it"). Lands never reach here (skipped above).
     if (!freeCast && !String(manaCostOf(card) || "").trim()) continue;
-    let cost = parseManaCost(manaCostOf(card));
-    // Mana value is a card characteristic the commander tax does NOT change (CR 118.8d) — capture it from
-    // the PRINTED cost before the tax is folded into `cost` (which becomes the payable amount).
-    const printedCmc = totalCmc(cost);
-    let staticTax = 0; // hoisted (#509): the fixed-mana alternative cost below pays the same static tax (CR 118.9d)
-    if (freeCast) {
-      cost = { generic: 0 }; // waived — the dispatcher pays no mana for a free-cast (additional costs still apply)
-    } else {
-      const tax = taxFn ? taxFn(card) : 0;
-      if (tax) cost = { ...cost, generic: (cost.generic || 0) + tax };
-      // STATIC-COST-REDUCTION (CR 601.2f): subtype / color / chosen-type reducers ("Dragon spells you cast
-      // cost {2} less" — Dragonspeaker; "red or green" — Goblin Anarchomancer; "of the chosen type" — Urza's
-      // Incubator) reduce the GENERIC portion only, floored at {0}. SELF-METRIC reduction ("This spell costs
-      // {X} less to cast, where X is <board metric>" — Ghalta, The Great Henge, Cavern-Hoard Dragon, Excalibur)
-      // is the spell discounting ITS OWN cast by a LIVE board count, read here at cast announce (CR 601.2f).
-      // Both are generic-only (the colored pips are NEVER reduced — Math.max(0, …) floors the generic, the pips
-      // are untouched). Applied AFTER the commander tax (both adjust the cost to pay) and BEFORE affordability +
-      // the {X} branch, so an X-spell's base is reduced before {X}. printedCmc (the mana value) is untouched (CR
-      // 202.3). The self-metric reads the casting player's board (creature power / artifact counts / historic MV).
-      // STATIC-COST-TAX first (CR 601.2f — cost increases apply before decreases), then the reductions
-      // floor the GENERIC at 0. The pips and the mana value are never touched (CR 202.3).
-      staticTax = costTaxForSpell(costTaxers, card, playerId, state.activePlayer);
-      if (staticTax) cost = { ...cost, generic: (cost.generic || 0) + staticTax };
-      const reduction = costReductionForSpell(costReducers, card, fromZone, { spellsCastThisTurn: player.spellsCastThisTurn || 0, manaValue: printedCmc }, everyType) + selfCostReductionForSpell(state, playerId, card);
-      if (reduction) cost = { ...cost, generic: Math.max(0, (cost.generic || 0) - reduction) };
-      cost = applyColoredPipReduction(cost, costReducers, card, everyType);
-    }
+    // THE MANA COST — or, for a projected flashback face, the alternative cost it pays (its mana value then comes in as
+    // `manaValueOverride`).
+    const manaCost = parseManaCost(manaCostOf(card));
+    // Mana value is a card characteristic the commander tax, an additional cost or an alternative cost does NOT change (CR 118.8d,
+    // 118.9c) — the printed cost's, X as 0 (CR 202.3e — the X lanes below add the chosen X for the spell on the stack).
+    const printedCmc = Number.isFinite(manaValueOverride) ? manaValueOverride : totalCmc(manaCost);
+    // THE COST MODIFIERS that affect this spell (CR 601.2f), read ONCE; every cost this card is offered at is assembled from them by
+    // assembleTotalCost — the mana cost or an alternative cost, plus the additional costs, plus `increase`, minus the reductions —
+    // so a reduction never meets a cost before an additional cost, the chosen X or a tax has joined it. None for a free cast (the
+    // dispatcher pays no mana for one).
+    //   • increase — the commander tax (CR 903.8, `taxFn`) and the static taxes (Sphere of Resistance, Thalia; CR 601.2f): generic.
+    //   • reduceAt(manaValue) — the static reducers (subtype / colour / chosen-type / every-caster / scaled — Dragonspeaker Shaman,
+    //     Goblin Anarchomancer, Urza's Incubator, Helm of Awakening, Animar) and the spell's SELF-METRIC reduction ("This spell
+    //     costs {X} less to cast, where X is <board metric>" — Ghalta, The Great Henge; read on the live board as the cost is
+    //     determined): generic only, the total floored at {0}. A mana-value floor (Spectacle Mage) reads the mana value it is
+    //     handed — the printed one, plus the chosen X in the X lanes.
+    //   • pips — the coloured reductions (Edgewalker's {W}{B}), each colour floored at none.
+    const selfReduction = selfCostReductionForSpell(state, playerId, card);
+    const spellMods = {
+      increase: (taxFn ? taxFn(card) : 0) + costTaxForSpell(costTaxers, card, playerId, state.activePlayer),
+      reduceAt: (manaValue) => costReductionForSpell(costReducers, card, fromZone, { spellsCastThisTurn: player.spellsCastThisTurn || 0, manaValue }, everyType) + selfReduction,
+      pips: coloredPipReductionForSpell(costReducers, card, everyType),
+    };
+    const costMods = freeCast ? null : spellMods;
+    // ⛔ WHAT A {0} ALTERNATIVE COST STILL OWES. "Without paying its mana cost" (a free cast — discover, cascade, a free-cast
+    // permission, plot, suspend) is an alternative cost of {0}, and so is a printed alternative cost that pays no mana (Force of
+    // Will's pitch, Fireblast's sacrifice — the twin post-pass below): the cost increases apply to it, and the reductions too
+    // (CR 118.9d) — Thalia, Guardian of Thraben's {1} applies to a cascaded noncreature spell. The engine pays no mana for either
+    // (the dispatcher skips the plan for `freeCast` and `altCost`), so a cast whose {0} still owes mana after them is not offered —
+    // a safe under-offer (every free-cast window keeps its decline), the posture the target-mana-tax pass already takes; under
+    // Thalia AND Helm of Awakening the {1} is cancelled and the cast is offered. X is 0 (CR 107.3b), so the printed mana value.
+    const zeroAltOwes = (assembleTotalCost(parseManaCost("{0}"), spellMods, { manaValue: printedCmc }).generic || 0) > 0;
+    if (freeCast && zeroAltOwes) continue;
+    // The total cost of a cast of this card whose base is `base` (the mana cost, an alternative cost, either with additional mana
+    // merged in) — or, with `x`, the X chosen too: the X joins the cost and the mana value (CR 107.3a, 202.3e).
+    const totalCost = (base, { x = null, extraReduction = 0 } = {}) => assembleTotalCost(base, costMods,
+      { x, extraReduction, manaValue: x == null ? printedCmc : printedCmc + (manaCost.xCount ?? 1) * x });
+    // A free cast pays no mana: its cost is {0} and carries no {X} (CR 107.3b — X is 0).
+    let cost = freeCast ? { generic: 0 } : totalCost(manaCost);
+    // The total with X chosen (the X lanes below): the free cast's {0} stays {0}. The affordable X values are judged on it, the
+    // mana ceiling raised by the most the reductions can take off.
+    const xCostAt = (x) => (freeCast ? xResolvedCost(cost, x) : totalCost(manaCost, { x }));
+    const affordableX = () => affordableXValues(state, playerId, xCostAt, costMods ? costMods.reduceAt(Number.MAX_SAFE_INTEGER) : 0);
     // Castable if the pool PLUS what untapped lands/rocks/dorks could produce
     // covers the cost — the dispatcher auto-taps to pay. (Pool-only would
     // never be castable since nothing pre-fills it.) A free-cast skips this (no mana paid).
@@ -1311,14 +1399,33 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     const unconditionalPips = (!freeCast && fromZone === "hand") ? fixedManaAltCostOf(card) : null;
     const trapAlt = (!freeCast && fromZone === "hand" && !unconditionalPips) ? conditionalFixedManaAltCostOf(card) : null;
     const ownPips = unconditionalPips || (trapAlt && evaluateInterveningIf(state, trapAlt.condition, playerId) === true ? trapAlt.pips : null);
-    // CR 118.9d — a cost increase that affects the spell applies to its alternative cost too (Thalia, Guardian of Thraben's
-    // "Noncreature spells cost {1} more"): the pip variant carries the same static tax as the printed cost, so it is never offered
-    // for less than the rules charge. (A reduction is not carried over: the variant may then cost more than it could, never less.)
+    // CR 118.9d — the cost increases AND the cost reductions that affect the spell apply to its alternative cost: the pip variant
+    // is assembled exactly like the mana cost (Thalia's {1} more, Helm of Awakening's {1} less — under both, Fist of Suns' five pips
+    // cost five), against the card's own mana value (CR 118.9c).
     const fixedAltPips = ownPips ? parseManaCost(ownPips) : (wubrgAlt ? WUBRG_COST : null);
-    const fixedAltCost = fixedAltPips ? { ...fixedAltPips, generic: fixedAltPips.generic + staticTax } : null; // parseManaCost always sets `generic`
-    const wubrgAffordable = !!fixedAltCost && !freeCast && fromZone === "hand" && !cost.hasX
-      && canAfford(player.manaPool, manaSources(state, playerId), fixedAltCost, spendContext);
-    if (wubrgAffordable) wubrgSpecs.set(card.id, { baseAffordable: affordable, cost: fixedAltCost, altManaCost: ownPips ? "own" : "wubrg", altName: `pay ${ownPips || "{W}{U}{B}{R}{G}"} rather than its mana cost` });
+    const fixedAltCost = fixedAltPips ? totalCost({ ...fixedAltPips }) : null; // (a copy: WUBRG_COST is shared by every card of the call)
+    const fixedAltVariants = [];
+    if (!!fixedAltCost && !freeCast && fromZone === "hand" && !cost.hasX
+      && canAfford(player.manaPool, manaSources(state, playerId), fixedAltCost, spendContext)) {
+      fixedAltVariants.push({ cost: fixedAltCost, altManaCost: ownPips ? "own" : "wubrg", altName: `pay ${ownPips || "{W}{U}{B}{R}{G}"} rather than its mana cost` });
+    }
+    // A BOARD-GRANTED {0} (Rooftop Storm's Zombie creature spells, Dracogenesis' Dragon spells, Darksteel Monolith's colourless
+    // spell from the hand, As Foretold's spell with mana value up to its time counters): the alternative cost {0}, assembled like any
+    // other (CR 118.9d — under Sphere of Resistance it is {1}); never for an {X} spell (X would be 0, CR 107.3b — a cast this lane
+    // doesn't offer). One variant per granting card (two Rooftop Storms grant one choice); a once-each-turn grant names its source,
+    // which the cast latches for the turn (the dispatcher's `altCostOnceSourceId`).
+    if (zeroGrants.length && !cost.hasX) {
+      const named = new Set();
+      for (const g of zeroGrants) {
+        if (named.has(g.sourceName) || !zeroAltCostGrantAllows(g, card, everyType, printedCmc)) continue;
+        const zeroCost = totalCost(parseManaCost("{0}"));
+        if (!canAfford(player.manaPool, manaSources(state, playerId), zeroCost, spendContext)) continue;
+        named.add(g.sourceName);
+        fixedAltVariants.push({ cost: zeroCost, altManaCost: "granted", altName: `pay {0} rather than its mana cost (${g.sourceName})`, ...(g.oncePerTurn ? { altCostOnceSourceId: g.sourceId } : {}) });
+      }
+    }
+    const wubrgAffordable = fixedAltVariants.length > 0;
+    if (wubrgAffordable) wubrgSpecs.set(card.id, { baseAffordable: affordable, variants: fixedAltVariants });
     // EMERGE (CR 702.119): the whole POINT of emerge is casting the Eldrazi when the FULL printed cost is out
     // of reach — sacrificing a creature cuts the cost by its mana value. So when the normal cast is NOT
     // affordable, do NOT skip the card outright (the old `if (!affordable) continue`): an emerge cast may
@@ -1332,7 +1439,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // carriers are instants/sorceries; command/exile/free-cast enumerations never dual-offer), and NEVER
     // inside a freeCast (Discover/Cascade/pendingFreeCast) enumeration — those windows' clearing invariant
     // must only ever see action.freeCast casts. The oracle pre-screen keeps non-carriers parse-free here.
-    const altSpec = (!freeCast && fromZone === "hand" && ALT_COST_OFFER_HINT.test(String(card?.oracle ?? card?.oracle_text ?? "")))
+    // The alternative pays no mana, so while a cost increase leaves its {0} owing mana it is not offered (`zeroAltOwes`, CR 118.9d).
+    const altSpec = (!freeCast && !zeroAltOwes && fromZone === "hand" && ALT_COST_OFFER_HINT.test(String(card?.oracle ?? card?.oracle_text ?? "")))
       ? computeAltCastSpec(state, playerId, card)
       : null;
     if (altSpec) altSpecs.set(card.id, { ...altSpec, affordable });
@@ -1394,7 +1502,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       const kStr = parseKickerCost(card); // clean single mana cost (kicker.js gate); the program only carries kickedOnly atoms when this is non-null
       if (kStr) {
         const kCost = parseManaCost(kStr);
-        kickedSpellCost = mergeManaCost(cost, kCost);       // base (already taxed/reduced) + the kicker pips
+        // The kicker is an additional cost (CR 702.33a): it joins the mana cost BEFORE the reductions (CR 601.2f; Herald of War's
+        // ruling) — Burst Lightning kicked under Helm of Awakening is {R} + {4} − {1} = {3}{R}.
+        kickedSpellCost = totalCost(mergeManaCost(manaCost, kCost));
         kickedSpellAffordable = canAfford(player.manaPool, manaSources(state, playerId), kickedSpellCost);
       } else {
         // TEAMWORK N — no extra mana: tap creatures with total power ≥ N (the printed reminder). The same mana cost, paid
@@ -1478,9 +1588,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     if (isBodyOnlyAuraSpell(card)) {
       if (addCost0 || lifeXAddCost) continue;
       const hosts = bodyOnlyAuraHosts(state, card, playerId);
-      const xValues = cost.hasX ? affordableXValues(state, playerId, cost) : [null];
+      const xValues = cost.hasX ? affordableX() : [null];
       for (const x of xValues) {
-        const xFields = x == null ? {} : { cost: xResolvedCost(cost, x), cmc: printedCmc + (cost.xCount ?? 1) * x, xValue: x, xName: `X=${x}` };
+        const xFields = x == null ? {} : { cost: xCostAt(x), cmc: printedCmc + (cost.xCount ?? 1) * x, xValue: x, xName: `X=${x}` };
         for (const t of hosts) actions.push({ ...base, ...xFields, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
       }
       continue;
@@ -1598,8 +1708,14 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // ⛔ Every other branch's `if (!affordable) continue` is correct for its kind — those costs are not
         // mana, so the printed check is the whole mana question. This one is the exception BECAUSE the cost
         // is itself mana. Do not "tidy" this into the shared guard.
-        const mergedCost = addExtraManaCost(cost, addCost.pips);
-        if (!freeCast && !canAfford(player.manaPool, manaSources(state, playerId), mergedCost, spendContext)) continue;
+        // ⛔ A FREE CAST PAYS NO MANA AT ALL — the dispatcher skips the payment for `freeCast` — so it could not pay this option's
+        // mana: under a free-cast permission the option is not offered (CR 601.2f still adds it to the total; the same safe
+        // under-offer as a Spree spell's modes below). Its other options (a sacrifice) stay.
+        if (freeCast) continue;
+        // The additional mana joins the mana cost BEFORE the taxes and reductions are applied (CR 601.2f): Spark Harvest's
+        // "pay {3}{B}" under Helm of Awakening is {B} + {3}{B} − {1} = {2}{B}{B}.
+        const mergedCost = totalCost(addExtraManaCost(manaCost, addCost.pips));
+        if (!canAfford(player.manaPool, manaSources(state, playerId), mergedCost, spendContext)) continue;
         // ⭐⭐ THE CHARGE IS THE SAME OBJECT AS THE OFFER, and that is the entire safety argument. The
         // dispatcher pays `action.cost` through planPayment; stamping the MERGED cost here means the
         // additional mana is charged with NO dispatcher change at all, and offer and payment cannot drift
@@ -1724,7 +1840,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // CR 601.2b — a spell cast without paying its mana cost has X = 0. Otherwise enumerate affordable X.
       const xValues = freeCast ? [0]
         : lifeX ? Array.from({ length: Math.max(0, Math.min((state.players[playerId]?.life ?? 0) - 1, X_CHOICE_CAP)) }, (_, i) => i + 1)
-        : affordableXValues(state, playerId, cost);
+        : affordableX();
       if (xValues.length === 0) continue;
       // Two reasons the legal target set can DEPEND on the chosen X, BOTH requiring PER-X enumeration:
       //   • targetCountX (Curse of the Swine "Exile X target creatures") — the NUMBER of targets is X.
@@ -1740,7 +1856,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       const combosOnce = expandsTargetsPerX ? null : expandCastChoices(state, playerId, program, characteristicColors(card));
       if (!expandsTargetsPerX && combosOnce.length === 0) continue;
       for (const x of xValues) {
-        const xCost = lifeX ? cost : xResolvedCost(cost, x); // PAY-X-LIFE: the mana half is the fixed printed cost (the X is life, charged at the dispatcher)
+        // The chosen X joins the cost before the reductions and counts toward the mana value a floor reads (CR 601.2f, 202.3e).
+        const xCost = lifeX ? cost : xCostAt(x); // PAY-X-LIFE: the mana half is the fixed printed cost (the X is life, charged at the dispatcher)
         const xCmc = lifeX ? printedCmc : printedCmc + (cost.xCount ?? 1) * x; // MV stays printed for a life-X (CR 202.3e counts only mana-{X})
         // Per-X target enumeration for an X-count-target (min=max=X distinct) OR an X-MV-bound target; otherwise
         // the hoisted X-independent combos. An X with too few / no legal targets yields no combos → that X skipped.
@@ -1810,45 +1927,38 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // kicked:false explicitly so the dispatcher/AI distinguish it from the kicked variant. Null = not offered.
       const normalCast = (ch) => {
         const common = commonFor(ch);
-        // ⭐ STRIVE (an ability word, CR 207.2c; a cost increase, CR 601.2f — ④-AS, 2026-09-04): "this spell costs {N} more to cast for each target beyond the first"
-        // rides the program as `strivePerTarget` (parseEffectProgram peels and stamps it). Each chosen subset pays the base
-        // cost plus N × (targets − 1), and a subset the player cannot fund is simply not offered — the printed card's
-        // own limit. A one-target (or zero-target) cast pays the base cost, exactly as printed.
-        let striven = common;
-        // TARGET-CONDITIONAL REDUCTION (KT-9b): the reduction bites only when the chosen target itself targets a
-        // creature you control with power ≥ N (layer-aware). MV stays PRINTED (CR 202.3 — a reduction never changes
-        // mana value); a subset the player cannot fund at its settled cost is not offered.
-        if (program.targetConditionalReduction) {
-          const hit = targetConditionalReductionHits(state, playerId, ch.targets, program.targetConditionalReduction);
-          const tcrCost = hit ? { ...base.cost, generic: Math.max(0, (base.cost.generic || 0) - program.targetConditionalReduction.amount) } : base.cost;
-          if (!freeCast && !canAfford(player.manaPool, manaSources(state, playerId), tcrCost, spendContext)) return null;
-          striven = { ...common, cost: tcrCost };
-        }
-        if (program.strivePerTarget && ch.targets.length > 1) {
+        // Three things this cast's own choices add to or take from its total cost, each assembled with the rest (CR 601.2f — the
+        // additional costs and the increases join the mana cost, then every reduction applies; `cmc` stays the printed mana value,
+        // CR 202.3, 118.8d):
+        //   ⭐ STRIVE (an ability word, CR 207.2c; a cost increase — ④-AS, 2026-09-04): "this spell costs {N} more to cast for each
+        //     target beyond the first" rides the program as `strivePerTarget` (parseEffectProgram peels and stamps it): N × (targets
+        //     − 1). A one-target (or zero-target) cast pays the mana cost, exactly as printed.
+        //   ⭐ SPREE (CR 702.172a, 700.2h): each chosen mode's cost (`program.modal.spreeCosts`, stamped by the parser) is an
+        //     additional cost — Phantom Interference's + {3} under Goblin Electromancer is {U} + {3} − {1} = {2}{U}.
+        //   TARGET-CONDITIONAL REDUCTION (KT-9b): {N} less only when the chosen target itself targets a creature you control with
+        //     power ≥ N (layer-aware).
+        // A subset or mode set the caster can't fund at its total is not offered — the printed card's own limit. The charge is this
+        // action's own `cost`, which the dispatcher pays through planPayment: the offer and the payment are one object.
+        // ⛔ A FREE CAST PAYS NO MANA AT ALL (the dispatcher skips the plan for `freeCast`), so it could not pay a strive increase or a
+        // Spree mode's cost: under a free-cast permission neither is offered — a one-target strive cast still is (a safe under-offer;
+        // every free-cast window carries its own decline).
+        const tcr = program.targetConditionalReduction;
+        const striveExtra = program.strivePerTarget ? Math.max(0, ch.targets.length - 1) : 0;
+        const spreeCost = program.modal?.spreeCosts
+          ? (Array.isArray(ch.chosenMode) ? ch.chosenMode : [ch.chosenMode]).map((k) => program.modal.spreeCosts[k]).join("")
+          : null;
+        if (!tcr && !striveExtra && spreeCost == null) return kickedSpell ? { ...common, kicked: false } : common;
+        if (freeCast && (striveExtra || spreeCost != null)) return null;
+        let withAdditions = manaCost;
+        if (striveExtra) {
           const per = parseManaCost(program.strivePerTarget);
-          let cost = base.cost;
-          for (let i = 1; i < ch.targets.length; i++) cost = mergeManaCost(cost, per);
-          if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) return null;
-          // `cmc` stays the printed mana value: the increase is part of the total cost (CR 601.2f), not the mana cost (CR 202.3).
-          striven = { ...common, cost };
+          for (let i = 0; i < striveExtra; i++) withAdditions = mergeManaCost(withAdditions, per);
         }
-        // ⭐ SPREE (CR 702.172a, 700.2h): each chosen mode's cost (`program.modal.spreeCosts`, stamped by the parser) is an
-        // additional cost, so the cast pays the base cost — taxed and reduced as computed above — plus every chosen mode's
-        // cost (CR 601.2f), and a mode set the caster can't fund is not offered. The charge is this action's own `cost`, which
-        // the dispatcher pays through planPayment: the offer and the payment are one object. `cmc` stays printed (CR 202.3 —
-        // an additional cost is not part of the mana cost). A generic reduction the base cost alone could not absorb (Phantom
-        // Interference's {U} under "instant and sorcery spells cost {1} less") is not carried onto the modes' costs: the total
-        // can cost more than the rules ask, never less. A free cast pays no mana at all (the dispatcher skips the plan for
-        // `freeCast`), so it could not pay these costs: under a free-cast permission a Spree spell is not offered (a safe
-        // under-offer — every free-cast window carries its own decline).
-        if (program.modal?.spreeCosts) {
-          if (freeCast) return null;
-          const chosen = Array.isArray(ch.chosenMode) ? ch.chosenMode : [ch.chosenMode];
-          const spreeCost = chosen.map((k) => program.modal.spreeCosts[k]).join("");
-          const cost = mergeManaCost(striven.cost ?? base.cost, parseManaCost(spreeCost));
-          if (!canAfford(player.manaPool, manaSources(state, playerId), cost, spendContext)) return null;
-          striven = { ...striven, cost, spreeCost };
-        }
+        if (spreeCost != null) withAdditions = mergeManaCost(withAdditions, parseManaCost(spreeCost));
+        const hit = !!tcr && targetConditionalReductionHits(state, playerId, ch.targets, tcr);
+        const cost = freeCast ? base.cost : totalCost(withAdditions, { extraReduction: hit ? tcr.amount : 0 });
+        if (!freeCast && !canAfford(player.manaPool, manaSources(state, playerId), cost, spendContext)) return null;
+        const striven = { ...common, cost, ...(spreeCost != null ? { spreeCost } : {}) };
         return kickedSpell ? { ...striven, kicked: false } : striven;
       };
       for (let k = 0; k < Math.max(choices.length, kickedChoices.length); k++) {
@@ -1878,12 +1988,14 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // underpayment FP) and the cap would be wrong. Same per-X emission as a hydra; resolveCloneChoice reads
     // xValue from the resume. (X≥1 here; X=0 — copy a 1-drop — is a safe false-negative, never surfaced.)
     if (cost.hasX && (entersWithXCounters(card) || etbUsesX(card) || isCloneCard(card))) { // + etbUsesX (Wan Shi Tong, KN-5b)
-      const xValues = affordableXValues(state, playerId, cost);
+      const xValues = affordableX();
       if (xValues.length === 0) continue; // can't afford even X=1 → not usefully castable
       for (const x of xValues) {
         actions.push({
           ...base,
-          cost: xResolvedCost(cost, x), // DOUBLE-X (CR 107.3): {X}{X} (Walking Ballista) owes 2X; xValue stays X for the counters
+          // DOUBLE-X (CR 107.3): {X}{X} (Walking Ballista) owes 2X; xValue stays X for the counters. The X joins the cost before the
+          // reductions and the mana value a floor reads (CR 601.2f, 202.3e — under It That Heralds the End, X=4 is {8} − {1}).
+          cost: xCostAt(x),
           cmc: printedCmc + (cost.xCount ?? 1) * x,
           xValue: x,
           targets: [],
@@ -1940,7 +2052,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         const auraKicker = parseKickerCost(card);
         if (auraKicker) {
           const auraKickerCost = parseManaCost(auraKicker);
-          const auraKickedCost = mergeManaCost(cost, auraKickerCost);
+          const auraKickedCost = totalCost(mergeManaCost(manaCost, auraKickerCost)); // the kicker before the reductions (CR 601.2f)
           if (canAfford(player.manaPool, manaSources(state, playerId), auraKickedCost)) {
             for (const t of targets) {
               actions.push({ ...base, cost: auraKickedCost, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true, kicked: true, kickedName: "kicked" }); // `cmc` stays printed (CR 118.8d)
@@ -1964,31 +2076,27 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // leaves, vs the normal Aura falls-off-to-graveyard SBA). Only offered for a fully-native bestow card
     // (isNativeBestow — both modes clean, CREED). The bestow cost is paid INSTEAD of the printed cost, so
     // it's parsed + affordability-checked independently of the creature-mode `base.cost` above.
-    const bestowCostStr = isNativeBestow(card) ? parseBestowCost(card) : null;
+    // ⛔ NOT UNDER A FREE CAST: bestow is an alternative cost, and a spell takes one alternative cost at most (CR 601.2b, 118.9a) — a
+    // spell cast "without paying its mana cost" (discover, cascade, a free-cast permission) is not cast bestowed (Boon Satyr's ruling).
+    const bestowCostStr = !freeCast && isNativeBestow(card) ? parseBestowCost(card) : null;
     if (bestowCostStr) {
-      let bestowCost = parseManaCost(bestowCostStr);
       // The bestow cost is paid INSTEAD of the mana cost, which it doesn't change (CR 702.103a, 118.9c): the cast keeps the
-      // card's printed mana value (`base.cmc`).
-      // The commander tax + static cost-reducers apply to the alt-cast too (CR 601.2f / 903.8) — mirror
-      // the creature-mode cost adjustments above so a taxed/discounted bestow cast is priced correctly.
-      const tax = freeCast ? 0 : (taxFn ? taxFn(card) : 0);
-      if (tax) bestowCost = { ...bestowCost, generic: (bestowCost.generic || 0) + tax };
-      if (!freeCast) {
-        // THE SPELL AS CAST (2026-10-17): a spell cast bestowed becomes an Aura enchantment (CR 702.103b) — its card types set to
-        // Enchantment, the old ones replaced, and the creature subtypes gone with the creature type (CR 205.1a); its supertypes
-        // stay. Every cost effect reads that spell, not the printed "Enchantment Creature": an Aura reducer (Danitha, Transcendent
-        // Envoy) reduces it, a creature reducer (Marauding Raptor) and a creature-type reducer don't, a noncreature tax (Thalia)
-        // taxes it — and it is no creature type at all (`every` false). The card's own text (selfCostReductionForSpell) is unchanged.
-        const asCast = bestowedSpellView(card);
-        const staticTax = costTaxForSpell(costTaxers, asCast, playerId, state.activePlayer);   // increases before decreases (CR 601.2f)
-        if (staticTax) bestowCost = { ...bestowCost, generic: (bestowCost.generic || 0) + staticTax };
-        // `bestowed` (CLOUD KEY): the chosen-card-type reducer reads it as an enchantment spell and no creature spell. The mana value
-        // is the card's printed one (a bestow cost is paid instead of the mana cost, CR 702.103a, 118.9c).
-        const reduction = costReductionForSpell(costReducers, asCast, fromZone, { spellsCastThisTurn: player.spellsCastThisTurn || 0, bestowed: true, manaValue: printedCmc }, false) + selfCostReductionForSpell(state, playerId, card);
-        if (reduction) bestowCost = { ...bestowCost, generic: Math.max(0, (bestowCost.generic || 0) - reduction) };
-        bestowCost = applyColoredPipReduction(bestowCost, costReducers, asCast, false);
-      }
-      const canAffordBestow = freeCast || canAfford(player.manaPool, manaSources(state, playerId), bestowCost);
+      // card's printed mana value (`base.cmc`). The commander tax, the static taxes and the reductions apply to it (CR 118.9d,
+      // 903.8), assembled in the one order (assembleTotalCost).
+      // THE SPELL AS CAST (2026-10-17): a spell cast bestowed becomes an Aura enchantment (CR 702.103b) — its card types set to
+      // Enchantment, the old ones replaced, and the creature subtypes gone with the creature type (CR 205.1a); its supertypes
+      // stay. Every cost effect reads that spell, not the printed "Enchantment Creature": an Aura reducer (Danitha, Transcendent
+      // Envoy) reduces it, a creature reducer (Marauding Raptor) and a creature-type reducer don't, a noncreature tax (Thalia)
+      // taxes it — and it is no creature type at all (`every` false). The card's own text (selfCostReductionForSpell) is unchanged.
+      // `bestowed` (CLOUD KEY): the chosen-card-type reducer reads it as an enchantment spell and no creature spell.
+      const asCast = bestowedSpellView(card);
+      const bestowMods = {
+        increase: (taxFn ? taxFn(card) : 0) + costTaxForSpell(costTaxers, asCast, playerId, state.activePlayer),
+        reduceAt: (manaValue) => costReductionForSpell(costReducers, asCast, fromZone, { spellsCastThisTurn: player.spellsCastThisTurn || 0, bestowed: true, manaValue }, false) + selfReduction,
+        pips: coloredPipReductionForSpell(costReducers, asCast, false),
+      };
+      const bestowCost = assembleTotalCost(parseManaCost(bestowCostStr), bestowMods, { manaValue: printedCmc });
+      const canAffordBestow = canAfford(player.manaPool, manaSources(state, playerId), bestowCost);
       // X-cost bestow (Nyxborn Hydra is gated out by isNativeBestow today — its dynamic per-counter bonus
       // isn't modeled) — so a clean bestow card here never has {X} in its bestow cost; no X enumeration.
       if (canAffordBestow && !bestowCost.hasX) {
@@ -2087,10 +2195,13 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     if (multikickPips && isNativeTier(classifyCard(card))) {
       actions.push({ ...base, targets: [], needsTargets: false, kicked: false, kickCount: 0 });
       if (!freeCast) {
+        // Each kick joins the mana cost BEFORE the reductions (CR 601.2f): Everflowing Chalice under Helm of Awakening is {1} kicked
+        // once, {3} twice. The total still rises with every kick, so the first count the mana can't pay ends the list.
         const unit = parseManaCost(multikickPips);
-        let folded = cost;
+        let kicks = manaCost;
         for (let k = 1; k <= MULTIKICK_OFFER_CAP; k++) {
-          folded = mergeManaCost(folded, unit);
+          kicks = mergeManaCost(kicks, unit);
+          const folded = totalCost(kicks);
           if (!canAfford(player.manaPool, manaSources(state, playerId), folded, spendContext)) break;
           actions.push({ ...base, cost: folded, targets: [], needsTargets: false,
             kicked: true, kickCount: k, kickedName: `kicked ×${k}` });
@@ -2105,7 +2216,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       actions.push({ ...base, targets: [], needsTargets: false, kicked: false });
       if (!freeCast) {
         const kickerCost = parseManaCost(kickerSpec.kickerCost);
-        const kickedCost = mergeManaCost(cost, kickerCost); // base (already taxed/reduced) + the kicker pips
+        const kickedCost = totalCost(mergeManaCost(manaCost, kickerCost)); // the kicker joins the mana cost before the reductions (CR 601.2f)
         if (canAfford(player.manaPool, manaSources(state, playerId), kickedCost)) {
           actions.push({
             ...base,
@@ -2123,9 +2234,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // EMERGE (CR 702.119) — a creature with a clean "Emerge {cost}" (or "Emerge from artifact {cost}") line
     // whose BODY is native (parseEmergeCard re-classifies the keyword-line-stripped body — the SAME gate the
     // coverage classifier uses, so the metric and the runtime can't drift). For each legal sacrifice victim
-    // of the emerge sac-type, emit an EMERGE cast whose `cost` is the emerge cost with its GENERIC portion
-    // reduced by that victim's mana value (floored at {0}; the colored pips are never reduced — mirrors the
-    // static-cost-reduction floor above). The cast carries `sacCreatureId` (the victim) + `emerge:true`; the
+    // of the emerge sac-type, emit an EMERGE cast whose `cost` is the emerge cost plus the taxes, its GENERIC
+    // portion reduced by that victim's mana value and the static reductions (floored at {0}; the colored pips are
+    // never reduced — assembleTotalCost). The cast carries `sacCreatureId` (the victim) + `emerge:true`; the
     // dispatcher sacrifices the victim (excluded from the mana sources, so a sacrificed dork can't also tap)
     // and pays the reduced mana, then the body's self-cast / ETB trigger fires through the normal cast path.
     // This block does NOT `continue` — the normal hard-cast (full printed cost, gated on `affordable`) still
@@ -2143,11 +2254,11 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         return !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || "");
       });
       for (const victim of victims) {
-        // CR 702.119a — the emerge cost is reduced by the sacrificed creature's MANA VALUE (generic only,
-        // floored at {0}); the colored pips stay. parseManaCost returns a fresh object, but build a new one
-        // per victim so each emerge cast carries its own reduced cost.
-        const reducedGeneric = Math.max(0, (emergeCost.generic || 0) - manaValueOf(victim.card));
-        const reducedCost = { ...emergeCost, generic: reducedGeneric };
+        // CR 702.119a — the emerge cost is an alternative cost whose total is reduced by the sacrificed creature's MANA VALUE (generic
+        // only, floored at {0}); the colored pips stay. As an alternative cost it takes the commander tax, the static taxes and the
+        // static reductions too (CR 118.9d), assembled in the one order: under Sphere of Resistance, sacrificing Grizzly Bears makes
+        // Elder Deep-Fiend {5}{U}{U} + {1} − 2 = {4}{U}{U}. Each emerge cast carries its own cost object.
+        const reducedCost = totalCost({ ...emergeCost }, { extraReduction: manaValueOf(victim.card) });
         // Affordability EXCLUDES the victim from the mana sources — a sacrificed mana dork can't also tap to
         // pay (the γ1 double-spend guard; the dispatcher applies the identical exclusion) — nor feed an Altar (2026-10-17: the
         // payment's castPaymentSources narrows the Altars' victims by the emerge victim, so the offer does too).
@@ -2222,18 +2333,22 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
   // hand-cast shape only — alt carriers are instants/sorceries, so the emerge/bestow/kicked/X/additional-cost
   // shapes are naturally exclusive; the guards make that structural.
   if (wubrgSpecs.size) {
-    // FIST OF SUNS (RG-5): duplicate each plain hand-cast action with the five-pip cost; drop the printed-cost action when it
-    // was not itself payable (it was admitted past the affordability gate only for this variant's sake).
-    // A SPREE cast (`spreeCost`) is not twinned: its cost carries the chosen modes' additional costs, which apply to an
-    // alternative cost too (CR 118.9d), and the variant's cost is the five pips alone — a safe under-offer.
+    // FIST OF SUNS (RG-5): duplicate each plain hand-cast action once per fixed-mana alternative cost it may be cast for (the
+    // five pips, the card's own pips, a board-granted {0}); drop the printed-cost action when it was not itself payable (it was
+    // admitted past the affordability gate only for a variant's sake).
+    // A cast whose cost carries ADDITIONAL MANA is not twinned — a SPREE cast (`spreeCost`), an additional "pay {3}{B}"
+    // (`payManaCost` — Spark Harvest), a strive cast with more than one target: those costs apply to an alternative cost too
+    // (CR 118.9d), and the variant's cost is the five pips alone — a safe under-offer, where the twin would drop them.
     const out = [];
     for (const a of actions) {
       const spec = (a.kind === "cast-spell" && a.fromZone === "hand" && !a.freeCast && !a.altCost && !a.faceCard
         && !a.emerge && !a.bestow && a.kicked === undefined && a.xValue == null
-        && !a.sacCreatureId && !a.payLifeCost && !a.discardCardId && !a.spreeCost) ? wubrgSpecs.get(a.cardId) : undefined;
+        && !a.sacCreatureId && !a.payLifeCost && !a.discardCardId && !carriesAdditionalMana(a)) ? wubrgSpecs.get(a.cardId) : undefined;
       if (!spec) { out.push(a); continue; }
       if (spec.baseAffordable) out.push(a);
-      out.push({ ...a, cost: spec.cost, altManaCost: spec.altManaCost, altName: spec.altName });
+      for (const v of spec.variants) {
+        out.push({ ...a, cost: v.cost, altManaCost: v.altManaCost, altName: v.altName, ...(v.altCostOnceSourceId ? { altCostOnceSourceId: v.altCostOnceSourceId } : {}) });
+      }
     }
     actions.length = 0;
     actions.push(...out);
@@ -2241,9 +2356,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
   if (altSpecs.size) {
     const out = [];
     for (const a of actions) {
+      // (The twin pays no mana, so a cast whose cost carries additional mana is not twinned either — the twin would drop it.)
       const spec = (a.kind === "cast-spell" && a.fromZone === "hand" && !a.freeCast && !a.faceCard
         && !a.emerge && !a.bestow && a.kicked === undefined && a.xValue == null
-        && !a.sacCreatureId && !a.payLifeCost && !a.discardCardId) ? altSpecs.get(a.cardId) : undefined;
+        && !a.sacCreatureId && !a.payLifeCost && !a.discardCardId && !carriesAdditionalMana(a)) ? altSpecs.get(a.cardId) : undefined;
       if (!spec) { out.push(a); continue; }
       if (spec.affordable) out.push(a); // the normal hard-cast survives only when genuinely payable
       for (const pay of spec.payments) {
@@ -3791,10 +3907,12 @@ function actionsCastFlashbackFromGraveyard(state, playerId) {
     // Project the flashback cost as the payable cost; body/type/oracle are unchanged (the builder's
     // parseCastProgram strips the flashback line to parse the body, and manaCostOf reads the overridden cost —
     // set BOTH `mana` and `mana_cost` since manaCostOf prefers `mana`). The mana VALUE stays the PRINTED cost
-    // (CR 118.9c — an alternative cost doesn't change mana value), so it's restamped after the builder runs.
+    // (CR 118.9c — an alternative cost doesn't change mana value): the builder is handed it, so a mana-value floor judges the card
+    // (Moan of the Unhallowed is a mana-value-4 sorcery under Spectacle Mage, not its {5}{B}{B} flashback cost's 7), and it is
+    // restamped after the builder runs.
     const face = { ...card, mana: fbCost, mana_cost: fbCost };
     const printedMv = totalCmc(parseManaCost(manaCostOf(card)));
-    for (const a of castActionsFromZone(state, playerId, [face], "graveyard", null, false)) {
+    for (const a of castActionsFromZone(state, playerId, [face], "graveyard", null, false, { manaValue: printedMv })) {
       actions.push({ ...a, flashbackCast: true, faceCard: face, cmc: printedMv });
     }
   }

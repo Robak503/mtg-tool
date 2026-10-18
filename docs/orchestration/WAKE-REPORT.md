@@ -9,8 +9,8 @@
 
 ## 🎯 2026-10-01 — **THE PLAY-WEIGHTED PROGRAM** (Colton's order) — runnable: the top-2,500 worklist (phase 2), in rank order
 
-> **NOW (2026-10-18 ~15:30Z) — v0.167.0 RELEASED · PHASE 2 RUNNABLE.** Top 1,000 **931 / 1,000**; top 2,500 **1,838 / 2,500
-> (73.5%) → +412 to 90%**; corpus 15,770 (45.6%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
+> **NOW (2026-10-18 ~15:30Z) — v0.167.0 RELEASED · PHASE 2 RUNNABLE.** Top 1,000 **931 / 1,000**; top 2,500 **1,842 / 2,500
+> (73.7%) → +408 to 90%**; corpus 15,774 (45.6%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
 > scripts/measure-coverage.mjs --played=2500` (from `app/`), highest-ranked buildable miss first — read the last five play-weighted
 > RUN-LEDGER entries' "Not taken" lists before picking. Open play call for Colton: should the generic tap also hold back
 > restricted-line lands (Cavern of Souls, Mech Hangar — 27)? See the Nykthos RUN-LEDGER entry.

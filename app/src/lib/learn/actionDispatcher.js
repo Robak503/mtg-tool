@@ -2310,6 +2310,14 @@ function applyCastSpellMaybeDiscover(state, action) {
       onceTriggersFiredThisTurn: { ...(next.onceTriggersFiredThisTurn || {}), [`${action.freeCastOnceSourceId}_freeCastOnce`]: true },
     };
   }
+  // A {0} ALTERNATIVE COST ONCE EACH TURN (2026-10-18 — Darksteel Monolith, As Foretold; legalChoices.grantedZeroAltCosts): the
+  // granting permanent's per-turn latch, cleared at untap — the grant is spent for the rest of this turn.
+  if (action.altCostOnceSourceId) {
+    return {
+      ...next,
+      onceTriggersFiredThisTurn: { ...(next.onceTriggersFiredThisTurn || {}), [`${action.altCostOnceSourceId}_zeroAltCostOnce`]: true },
+    };
+  }
   return next;
 }
 

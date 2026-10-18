@@ -364,7 +364,8 @@ const COST_REDUCTION_CARDTYPE_WORDS = new Set(["artifact", "creature", "enchantm
 //   • "<A> and <B> spells [your opponents cast] cost {N} more to cast."  (Aura of Silence) — ONE tax over the union of two card
 //     types (`cardTypes`): an artifact enchantment pays it once. Card types only; any other word leaves the clause unread.
 //   • "<filter> spells you cast with mana value N or greater cost {M} less to cast."  (It That Heralds the End, Krosan Drover,
-//     Spectacle Mage) — `minManaValue`, judged on the mana value the cast site hands in (the printed mana cost, X as 0).
+//     Spectacle Mage) — `minManaValue`, judged on the mana value the cast site hands in (the card's mana cost, with the chosen X on
+//     the stack — CR 202.3e; never an alternative cost's, CR 118.9c).
 //   • "[During your turn, ]<filter> spells you cast cost {M} less to cast for each <count>."  — per counter of a kind on the
 //     source itself (Animar, Herald of War, Mindsplice Apparatus: `perCounterOnSource`, stamped by collectCostReducers off the
 //     permanent's counters), or per a board count (Temur Battlecrier: `perEachCount`, counted at the cast site). `amount` is 0
@@ -3743,6 +3744,34 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ wubrgAltCost: true });
     return;
   }
+  // ── A BOARD-GRANTED {0} ALTERNATIVE COST (2026-10-18 — the cast-cost order): "pay {0} rather than pay the mana cost" for the
+  // spells the line names, and its "cast … without paying their mana costs" twin — an alternative cost of {0} (CR 118.9). The
+  // hand-cast enumeration (legalChoices.grantedZeroAltCosts) offers it beside the mana cost, assembled like any alternative cost:
+  // the commander tax, the static taxes and the reductions apply (CR 118.9d — under Sphere of Resistance it is {1}), X is 0
+  // (CR 107.3b — an {X} spell is not offered it), an additional cost is not dropped (such a cast is not offered it). The spell
+  // filter is read off the face being cast. Exact lines only (a safe FN otherwise):
+  //   Rooftop Storm — "You may pay {0} rather than pay the mana cost for Zombie creature spells you cast."
+  //   Dracogenesis — "You may cast Dragon spells without paying their mana costs."
+  //   Darksteel Monolith — "Once each turn, you may pay {0} rather than pay the mana cost for a colorless spell you cast from your
+  //     hand." (once per turn per source — the cast latches the source; CR 105.2c colourless)
+  //   As Foretold — "Once each turn, you may pay {0} rather than pay the mana cost for a spell you cast with mana value X or less,
+  //     where X is the number of time counters on this enchantment." (the spell's mana value against the source's time counters)
+  if (/^you may pay \{0\} rather than pay the mana cost for zombie creature spells you cast$/.test(c)) {
+    out.push({ grantedZeroAltCost: { subtype: "Zombie", cardType: "Creature" } });
+    return;
+  }
+  if (/^you may cast dragon spells without paying their mana costs$/.test(c)) {
+    out.push({ grantedZeroAltCost: { subtype: "Dragon" } });
+    return;
+  }
+  if (/^once each turn, you may pay \{0\} rather than pay the mana cost for a colorless spell you cast from your hand$/.test(c)) {
+    out.push({ grantedZeroAltCost: { colorless: true, oncePerTurn: true } });
+    return;
+  }
+  if (/^once each turn, you may pay \{0\} rather than pay the mana cost for a spell you cast with mana value x or less, where x is the number of time counters on this enchantment$/.test(c)) {
+    out.push({ grantedZeroAltCost: { maxManaValueCounter: "time", oncePerTurn: true } });
+    return;
+  }
 
   // ── MASS LAND ANIMATION (BLITZ NV-1 — Nature's Revolt "All lands are 2/2 creatures that are still
   // lands." / Living Plane "…1/1…"): TWO real layer descriptors on a dynamic selector over EVERY land,
@@ -5750,7 +5779,8 @@ export function costReductionForSpell(reducers, spellCard, fromZone = "hand", ca
     if (r.excludeSelf && r.sourceName && spellName && r.sourceName === spellName) continue;
     // MANA-VALUE FLOOR (It That Heralds the End, Krosan Drover, Spectacle Mage — "with mana value N or greater"): an AND with the
     // filter below, on the spell's mana value — its mana cost, not the cost being paid (CR 202.3; Spectacle Mage's ruling). The cast
-    // site hands it in (castContext.manaValue — the printed cost, X as 0). FAIL-CLOSED: no mana value, no discount.
+    // site hands it in (castContext.manaValue — the card's mana cost with the chosen X counted, CR 202.3e; an alternative cost never
+    // changes it, CR 118.9c). FAIL-CLOSED: no mana value, no discount.
     if (r.minManaValue != null && !(Number.isFinite(castContext?.manaValue) && castContext.manaValue >= r.minManaValue)) continue;
     // COLORLESS (It That Heralds the End): the spell's colours as cast are none (CR 105.2c — a devoid card is colourless, CR
     // 702.114a; characteristicColors reads it).

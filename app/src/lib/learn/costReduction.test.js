@@ -15,7 +15,7 @@
  *   3. collectCostReducers / costReductionForSpell: type-line (not name) word-bounded match, stacking.
  *   4. Coverage flip: Dragonspeaker → "native-static"; Ruby Medallion (color) → not native.
  *   5. Engine: legalActionsForPlayer trims the cast action's cost.generic (MV/cmc untouched), floors
- *      at {0}, leaves off-subtype spells alone, and reduces an {X}-spell's fixed base before {X}.
+ *      at {0}, leaves off-subtype spells alone, and reduces an {X}-spell's total with the chosen X in it (CR 601.2f).
  *   6. EMINENCE (The Ur-Dragon — Joe's deck; Efteekay): a command-zone cost-reducer that discounts
  *      OTHER subtype spells from the command zone, NEVER the source's own cast (the literal "other"),
  *      and does NOT flip the carrier native (its attack/ETB trigger is still on the Arbiter tail).
@@ -241,20 +241,21 @@ describe("STATIC-COST-REDUCTION — engine cast actions", () => {
     expect(a.cost.generic).toBe(0); // max(0, 4 - 4); the {R}{R} pips are never reduced
   });
 
-  it("an {X}-spell's fixed base is reduced before {X} is added (Hydra {3}{X}{G}, reducer {1})", () => {
+  it("an {X}-spell is reduced with the chosen X in its cost (Hydra {3}{X}{G}, reducer {1})", () => {
     const hydra = { id: "hyd1", name: "Test Hydra", type: "Creature — Hydra", mana: "{3}{X}{G}", oracle: "This creature enters the battlefield with X +1/+1 counters on it.", keywords: [] };
     const reducer = createPermanent({ card: { type: "Creature — Hydra", oracle: "Hydra spells you cast cost {1} less to cast.", mana: "{2}{G}" }, controller: "user" });
     const withR = castActions(mkState({ hand: [hydra], battlefield: [reducer], mana: { G: 12 } }), "hyd1").find((a) => a.xValue === 1);
     const noR = castActions(mkState({ hand: [hydra], mana: { G: 12 } }), "hyd1").find((a) => a.xValue === 1);
     expect(noR.cost.generic).toBe(4); // base 3 + X(1)
-    expect(withR.cost.generic).toBe(3); // base 3→2, + X(1)
+    expect(withR.cost.generic).toBe(3); // base 3 + X(1), − 1
   });
 
-  it("documented safe-FN: a pure {X}{G} spell (base 0) floors the reduction away (under-delivery, not misplay)", () => {
+  it("a pure {X}{G} spell (base 0): the chosen X is in the cost the reduction sees (CR 601.2f, 107.3a) — X=1 pays {G}", () => {
+    // Graduated 2026-10-18 (castCostOrder): this pinned the old safe-FN — the reduction floored away on the X-less base, X=1 paid {1}{G}.
     const pure = { id: "hyd2", name: "Pure Hydra", type: "Creature — Hydra", mana: "{X}{G}", oracle: "This creature enters the battlefield with X +1/+1 counters on it.", keywords: [] };
     const reducer = createPermanent({ card: { type: "Creature — Hydra", oracle: "Hydra spells you cast cost {1} less to cast.", mana: "{2}{G}" }, controller: "user" });
     const withR = castActions(mkState({ hand: [pure], battlefield: [reducer], mana: { G: 12 } }), "hyd2").find((a) => a.xValue === 1);
-    expect(withR.cost.generic).toBe(1); // base 0 floored, reduction lost; pays X(1) in full — exact X-cost reduction is a follow-up
+    expect(withR.cost.generic).toBe(0); // {1}{G} with X=1, − {1}
   });
 });
 
