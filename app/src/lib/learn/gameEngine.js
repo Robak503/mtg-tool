@@ -58,8 +58,8 @@ import {
 import { phaseInAndExpireShield, expireNameCastLocks, expireDamageReplacementEffects } from "./gameState.js"; // TEFERI'S PROTECTION - phase in + shield expiry at the active player's untap; B4 — the name cast locks expire there too
 import { withoutImpulseStamps, startingLoyalty } from "./gameState.js"; // the impulse lapse at cleanup strips the same stamp list the cast out of exile does
 import { permanentValue, policyEvalEnabledFor } from "./boardEval.js"; // QUARTET PHASE 1 slice 3 — the shared evaluator (leaf-importing module, cycle-free)
-import { chooseAuraEntryHost, auraEntryHostScore } from "./auraEntry.js"; // the flicker policy reads where a returned Aura lands (CR 303.4f) — the choice the return makes (a leaf)
-import { setPendingCleanupDiscardChoice } from "./pendingChoice.js";
+import { chooseAuraEntryHost, auraEntryHostScore, seatIsHuman } from "./auraEntry.js"; // the flicker policy reads where a returned Aura lands (CR 303.4f) — the choice the return makes (a leaf); + who is a person (the trigger-target pause)
+import { setPendingCleanupDiscardChoice, setPendingTriggerTargetChoice, clearPendingChoice } from "./pendingChoice.js";
 import { skipsDrawStep, extraTurnSkipped } from "./effects/textNormalize.js"; // SKIP YOUR DRAW STEP (RG-4, 2026-09-05) — a leaf reader, controller-scoped; + the opponent-scoped extra-turn skip (Trouble in Pairs, #626)
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
@@ -1221,6 +1221,9 @@ export function passPriority(state) {
 export function resolveTopOfStack(state) {
   if (state.stack.length === 0) throw new Error("Stack is empty — nothing to resolve");
   const top = state.stack[state.stack.length - 1];
+  // A person's triggered ability still waiting for its targets has not finished being put on the stack (CR 601.2a–c via 603.3d):
+  // the session driver asks before anyone receives priority, so reaching it here is an engine bug — surfaced, never resolved blind.
+  if (top.awaitingTargets) throw new Error(`resolveTopOfStack: ${top.source?.name || "a triggered ability"} is still waiting for its controller to choose its targets`);
   const remainingStack = state.stack.slice(0, -1);
 
   // THE RESOLUTION WINDOW (gameState.openResolutionWindow, CR 704.4): while the resolver runs, an effect that leaves a creature with
@@ -1464,6 +1467,22 @@ function firstLegalChoice(candidates) {
 export const NO_SAFE_TARGET = Symbol("no-safe-trigger-target");
 
 /**
+ * A PERSON CHOOSES (CR 603.3d → 601.2c; CR 603.3c / 700.2b for a mode): the triggered ability's controller announces its targets
+ * as it is put on the stack. For a seat a person plays (auraEntry.seatIsHuman — state.humanSeats, stamped by createLearnSession
+ * below Expert), flushTriggers hands buildTriggerStack askControllerChooser instead of the automatic chooser. When there is a real
+ * choice — two or more legal candidates, or a modal "choose up to one" with any — it answers ASK_CONTROLLER, and buildTriggerStack
+ * returns the ability's payload with no target yet plus `ask: { candidates }`: the ability goes on the stack in its APNAP place
+ * carrying `awaitingTargets` (CR 601.2a — an object is on the stack while its choices are made), and the session driver asks
+ * (raiseTriggerTargetChoice → the trigger-target pause → settleTriggerTargetChoice). One candidate is no choice: the automatic
+ * chooser takes it, as before. Every seat the AI plays never meets this sentinel, so its path is the one it took before.
+ */
+const ASK_CONTROLLER = Symbol("ask-trigger-controller");
+function askControllerChooser(candidates, info) {
+  if (candidates.length > 1 || (info?.program?.modal?.allowNone && candidates.length > 0)) return ASK_CONTROLLER;
+  return chooseTriggerTargets(candidates, info);
+}
+
+/**
  * Build the serializable stack payload + chosen targets a pending trigger goes on the
  * stack with — or `null` to DROP it (CR 603.3d: a triggered ability that needs a target
  * with no legal target is removed from the stack, it never resolves).
@@ -1587,6 +1606,7 @@ function buildTriggerStack(state, trigger, chooseTargets) {
           typeof chooseTargets === "function"
             ? chooseTargets(candidates, { trigger, program: condProgram, state })
             : undefined;
+        if (picked === ASK_CONTROLLER) return { payload: { resolver: "effect-program", params: { ...baseParams, targets: [] } }, targets: [], ask: { candidates } };
         if (picked === NO_SAFE_TARGET) return { payload: { resolver: "manual" }, targets: [], noSafeTarget: true };
         const choice =
           typeof picked === "number" && candidates[picked]
@@ -1679,7 +1699,8 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       // controller declines, CR 603.5) → the Arbiter no-op, logged by flushTriggers. A MANDATORY ability
       // with only wrong-side targets never gets here: the chooser returns its least harmful legal
       // candidate marked `forced` (CR 603.3d). A numeric index or a candidate object is honored; anything
-      // else (a generic / absent chooser) keeps the legacy first-legal pick.
+      // else (a generic / absent chooser) keeps the legacy first-legal pick. ASK_CONTROLLER: a person's seat chooses (above).
+      if (picked === ASK_CONTROLLER) return { payload: { resolver: "effect-program", params: { ...baseParams, targets: [] } }, targets: [], ask: { candidates } };
       if (picked === NO_SAFE_TARGET) return { payload: { resolver: "manual" }, targets: [], noSafeTarget: true };
       const choice =
         typeof picked === "number" && candidates[picked]
@@ -1744,6 +1765,14 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       // controller declines (CR 603.5) or only modes whose side can't be read → the Arbiter no-op, logged by flushTriggers.
       // CHOOSE UP TO ONE (play-weighted P·18 — Hullbreaker Horror): "none" is a legal choice, and it is the right one when every
       // candidate would hit your own side — no mode is chosen, so the ability is removed from the stack (CR 603.3c).
+      // ASK_CONTROLLER: a person's seat chooses the mode and its targets (above); `chosenMode` is filled with the answer.
+      if (picked === ASK_CONTROLLER) {
+        return {
+          payload: { resolver: "effect-program", params: { program, controller: trigger.controller, context: trigger.context, sourceId: trigger.source?.permanentId, chosenMode: null, targets: [] } },
+          targets: [],
+          ask: { candidates, allowNone: !!program.modal?.allowNone },
+        };
+      }
       if (picked === NO_SAFE_TARGET) return program.modal?.allowNone ? null : { payload: { resolver: "manual" }, targets: [], noSafeTarget: true };
       const choice =
         typeof picked === "number" && candidates[picked]
@@ -1814,6 +1843,7 @@ function buildReflexiveTriggerStack(state, trigger, chooseTargets) {
   const candidates = expandCastChoices(state, trigger.controller, program, [], { ...(trigger.context || {}), sourceId: trigger.context?.sourceId ?? sourceId });
   if (candidates.length === 0) return null;
   const picked = typeof chooseTargets === "function" ? chooseTargets(candidates, { trigger, program, state }) : undefined;
+  if (picked === ASK_CONTROLLER) return { payload: { resolver: "effect-program", params: { ...params, targets: [] } }, targets: [], ask: { candidates } };
   if (picked === NO_SAFE_TARGET) return { payload: { resolver: "manual" }, targets: [], noSafeTarget: true };
   const choice =
     typeof picked === "number" && candidates[picked]
@@ -2032,8 +2062,9 @@ function pickForcedTriggerCandidate(state, controller, candidates, program, atom
  * `forced` (pickForcedTriggerCandidate, CR 603.3d); otherwise (optional, "choose up to one", or a side
  * that can't be read) it returns the NO_SAFE_TARGET sentinel and buildTriggerStack routes the trigger to
  * the Arbiter no-op. Ambiguous atoms never reach here on the non-modal path — buildTriggerStack gates
- * them to the Arbiter too. Pure function of `info.state`. Both seats' triggers are targeted here: there
- * is no separate human target prompt for a triggered ability.
+ * them to the Arbiter too. Pure function of `info.state`. Every AI seat's triggers are targeted here; a seat a
+ * person plays chooses its own whenever there is a real choice (ASK_CONTROLLER — the trigger-target pause),
+ * and this chooser keeps only its single-candidate abilities.
  *
  * (Restriction-pinned triggers — "…an opponent controls" / "…you control" — are already correct-side
  * via enumeration; this additionally fixes UNRESTRICTED harmful triggers that first-legal could aim at
@@ -2198,7 +2229,9 @@ export function entersTriggerRemovesOwn(state, controller, card) {
  * stack (CR 603.3d → 601.2c); pass `{ chooseTargets }` to override the default first-legal
  * pick (an AI/Beginner-interactive chooser). A targeted trigger with no legal target
  * is dropped (logged, not silent); one whose legal targets are all on the wrong side is
- * logged too — `trigger-target-forced` or `trigger-no-safe-target`.
+ * logged too — `trigger-target-forced` or `trigger-no-safe-target`. At a live flush (the
+ * automatic chooser passed), the ability of a seat a person plays with a real choice goes on
+ * the stack waiting for that person (`awaitingTargets` — ASK_CONTROLLER, raiseTriggerTargetChoice).
  */
 export { phaseInAndExpireShield as _phaseInAndExpireShieldForTests }; // TEFERI'S PROTECTION — the untap-step hook, re-exported for the witness
 export function flushTriggers(state, { chooseTargets } = {}) {
@@ -2278,7 +2311,10 @@ export function flushTriggers(state, { chooseTargets } = {}) {
     // ledger (`abilityResolutionsThisTurn`, bumped in resolveTopOfStack) and the intervening-if word can meet.
     const abilityKey = trigger.source?.permanentId && trigger.descriptor?.sourceText ? `${trigger.source.permanentId}:${trigger.descriptor.sourceText}` : null;
     const keyed = abilityKey ? { ...trigger, context: { ...(trigger.context || {}), abilityKey } } : trigger;
-    const built = buildTriggerStack(s, keyed, chooseTargets);
+    // A PERSON CHOOSES (ASK_CONTROLLER, CR 603.3d): a seat a person plays announces its own ability's targets — at a live flush
+    // (the automatic chooser in play), never in a caller that passes a chooser of its own.
+    const asking = chooseTargets === chooseTriggerTargets && seatIsHuman(s, trigger.controller);
+    const built = buildTriggerStack(s, keyed, asking ? askControllerChooser : chooseTargets);
     if (built === TRIGGER_CONDITION_NOT_MET) {
       // CR 603.4 — the intervening-if condition was false at trigger time; the ability CORRECTLY never goes on
       // the stack. This is EXPECTED (e.g. Garruk's Uprising's ETB "if you control a creature with power 4+, draw"
@@ -2333,6 +2369,10 @@ export function flushTriggers(state, { chooseTargets } = {}) {
       targets: built.targets,
       cost: null,
       payload: built.payload,
+      // Waiting for its controller (a person) to choose: the engine's own legal choices, kept on the object the answer settles.
+      ...(built.ask
+        ? { awaitingTargets: { candidates: built.ask.candidates, abilityText: trigger.descriptor?.sourceText ?? null, ...(built.ask.allowNone ? { allowNone: true } : {}) } }
+        : {}),
     });
   }
 
@@ -2350,6 +2390,7 @@ export function flushTriggers(state, { chooseTargets } = {}) {
   // sacrifice-it trigger targets nothing, so its own stack object never re-triggers this. No-op (no re-flush)
   // when no new triggered ability targeted a becomes-target permanent — the common case, byte-identical to before.
   for (const so of newStackObjects) {
+    if (so.awaitingTargets) continue; // no target yet — its target events run when its controller chooses (settleTriggerTargetChoice)
     out = checkBecomesTargetTriggers(out, so);
     // CRIME (CR 700.13): putting a triggered ability on the stack that targets an opponent's side is a crime by its
     // controller. Its watchers join the recursion below. No crime watcher in the corpus targets an opponent's side
@@ -2367,6 +2408,118 @@ export function flushTriggers(state, { chooseTargets } = {}) {
     return flushTriggers(out, { chooseTargets });
   }
   return out;
+}
+
+/**
+ * THE TRIGGER-TARGET PAUSE (CR 603.3d, 601.2c, 603.3c) — raise the question for the first ability on the stack still waiting for its
+ * controller's choice (flushTriggers' `awaitingTargets`, a person's seat only): the lowest such object, the first put on the stack —
+ * each simultaneous ability is put on the stack, its targets announced, in that order (CR 603.3b). The session driver calls this
+ * before anyone receives priority. Returns the same state when a choice is already pending or nothing waits (every game with no
+ * person at it, always).
+ */
+export function raiseTriggerTargetChoice(state) {
+  if (state.pendingChoice) return state;
+  const obj = (state.stack || []).find((o) => o.awaitingTargets);
+  if (!obj) return state;
+  const { candidates = [], abilityText = null, allowNone = false } = obj.awaitingTargets;
+  return setPendingTriggerTargetChoice(state, {
+    controller: obj.controller,
+    stackObjectId: obj.id,
+    sourceName: obj.source?.name ?? null,
+    abilityText,
+    candidates: candidates.map((c, i) => triggerChoiceView(state, c, i)),
+    allowNone,
+  });
+}
+
+/** A legal choice as the panel reads it: its index, a mode's text, each target by id, kind, name and controller. A face-down permanent's name never shows (CR 708.2). */
+function triggerChoiceView(state, c, i) {
+  return {
+    id: String(i),
+    ...(c.label ? { label: c.label } : {}),
+    targets: (c.targets || []).map((t) => {
+      const perm = t.type === "player" ? null : findPermanent(state, t.id)?.permanent;
+      return { id: t.id, type: t.type, name: perm?.faceDown ? "Face-down creature" : t.name ?? null, controller: t.type === "player" ? t.id : t.controller ?? null };
+    }),
+  };
+}
+
+/**
+ * Settle the trigger-target pause with the person's answer — `candidateId`, a choice's index in the waiting object's own list, or
+ * "none" for a modal "choose up to one". The chosen targets (and mode) are written onto the ability exactly where the automatic chooser
+ * writes them (`targets`, `payload.params.targets` / `.chosenMode`); then the events of choosing a target run — becomes-the-target
+ * triggers, a crime, Kira's counter — which flushTriggers skipped for an object with no target yet. No mode chosen removes the
+ * ability (CR 603.3c, 700.2b). An answer that is no legal choice decides nothing: the question stands. The triggers those events and
+ * any state-based check enqueued are put on the stack once the last waiting ability of the batch is answered (they all went on the
+ * stack together, CR 603.3b). "no-safe-target" (the automatic answer only — autoPickTriggerTarget) makes it the Arbiter no-op the
+ * flush gives an AI seat's ability with no correct-side target.
+ */
+export function settleTriggerTargetChoice(state, candidateId) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "trigger-target") return state;
+  const at = (state.stack || []).findIndex((o) => o.id === pc.stackObjectId && o.awaitingTargets);
+  if (at < 0) {
+    // Nothing on the stack waits under that id any more (its controller left the game, CR 800.4a): nothing to choose.
+    return logEvent(clearPendingChoice(state), { kind: "trigger-target-gone", stackObjectId: pc.stackObjectId ?? null, controller: pc.controller ?? null });
+  }
+  const obj = state.stack[at];
+  const { candidates = [], allowNone = false } = obj.awaitingTargets;
+  const { awaitingTargets: _answered, ...rest } = obj;
+  const source = obj.source?.name || obj.source;
+  const replaced = (next) => ({ ...clearPendingChoice(state), stack: state.stack.map((o, i) => (i === at ? next : o)) });
+  if (candidateId === "none" && allowNone) {
+    const removed = { ...clearPendingChoice(state), stack: state.stack.filter((_, i) => i !== at) };
+    return finishTriggerTargets(logEvent(removed, { kind: "trigger-removed-no-mode", source, controller: obj.controller }));
+  }
+  if (candidateId === "no-safe-target") {
+    const manual = replaced({ ...rest, targets: [], payload: { resolver: "manual" } });
+    return finishTriggerTargets(logEvent(manual, { kind: "trigger-no-safe-target", source, controller: obj.controller }));
+  }
+  const choice = typeof candidateId === "string" && /^\d+$/.test(candidateId) ? candidates[Number(candidateId)] : undefined;
+  if (!choice) return state;
+  const targets = choice.targets || [];
+  const params = obj.payload?.params || {};
+  const chosen = {
+    ...rest,
+    targets,
+    payload: { ...obj.payload, params: { ...params, ...(choice.chosenMode !== undefined ? { chosenMode: choice.chosenMode } : {}), targets } },
+  };
+  let out = logEvent(replaced(chosen), {
+    kind: "trigger-target-chosen",
+    source,
+    controller: obj.controller,
+    targets: targets.map((t) => t.id),
+    ...(choice.chosenMode !== undefined ? { mode: choice.chosenMode } : {}),
+  });
+  // The events of choosing a target — flushTriggers' fourth target-choice site, run now that there is a target.
+  out = checkBecomesTargetTriggers(out, chosen);
+  out = checkCrimeTriggers(out, chosen);
+  out = applyKiraTargetCounter(out, chosen);
+  return finishTriggerTargets(out);
+}
+
+/** Once no ability of the batch waits for its controller, put what triggered meanwhile on the stack (the flush the batch's own would have run). */
+function finishTriggerTargets(state) {
+  if ((state.stack || []).some((o) => o.awaitingTargets)) return state;
+  return flushTriggers(state, { chooseTargets: chooseTriggerTargets });
+}
+
+/**
+ * The automatic answer to a trigger-target pause — the contract's settle-in-one-tick path (a pause the driver doesn't hold for a
+ * person). The pause is raised only for a person's seat, so a real game never takes it: the automatic chooser's pick among the waiting
+ * object's own choices, as the flush would have made it — its index (the first legal when the chooser has no preference),
+ * "no-safe-target" when it declines, "none" when it declines a modal "choose up to one". Null when nothing waits.
+ */
+export function autoPickTriggerTarget(state, pc) {
+  const obj = (state.stack || []).find((o) => o.id === pc?.stackObjectId && o.awaitingTargets);
+  if (!obj) return null;
+  const { candidates = [], allowNone = false } = obj.awaitingTargets;
+  const params = obj.payload?.params || {};
+  const picked = chooseTriggerTargets(candidates, { trigger: { controller: obj.controller, source: obj.source, context: params.context }, program: params.program, state });
+  if (picked === NO_SAFE_TARGET) return allowNone ? "none" : "no-safe-target";
+  const key = (c) => JSON.stringify([c?.chosenMode ?? null, (c?.targets || []).map((t) => [t.type, t.id, t.atomIndex ?? null, t.role ?? null])]);
+  const at = picked ? candidates.findIndex((c) => key(c) === key(picked)) : -1;
+  return String(at >= 0 ? at : 0);
 }
 
 // ─── Game start helper ───────────────────────────────────────────────────────

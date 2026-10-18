@@ -55,6 +55,7 @@ export const PENDING_CHOICE_KINDS = [
   "each-player-may", // K9 (Step Between Worlds) — a per-seat yes/no, raised seat by seat; the effect applies to the seats that said yes
   "change-target", // shelf D14 (Misdirection) — the redirector picks which other legal target a single-target spell or ability moves to
   "aura-entry-host", // CR 303.4f — a person picks what their Aura enchants as it enters without being cast (asked of a human seat only)
+  "trigger-target", // CR 603.3d / 601.2c — a person picks the targets (and mode, CR 603.3c) of their own triggered ability as it goes on the stack (asked of a human seat only)
 ];
 
 /**
@@ -738,6 +739,33 @@ export function setPendingAuraEntryHostChoice(state, { controller, cardId, cardN
       ...(answers && Object.keys(answers).length ? { answers } : {}),
       ...(step ? { step } : {}),
       ...(resume !== undefined ? { resume } : {}),
+    },
+  };
+}
+
+/**
+ * ===== TRIGGER TARGET (CR 603.3d, 601.2c, 603.3c) ===== — suspend while the person playing `controller` chooses the targets (and,
+ * for a modal ability, the mode) of their own triggered ability `stackObjectId`, which is on the stack waiting for them
+ * (gameEngine.flushTriggers puts it there with `awaitingTargets`; gameEngine.raiseTriggerTargetChoice raises this pause). Raised only
+ * for a seat a person plays and only when there is a real choice (two or more legal choices, or a modal "choose up to one"), so the
+ * AI never sees it. `candidates` are the legal choices as `{ id, label?, targets: [{ id, type, name, controller }] }` — `id` is the
+ * choice's index in the engine's own list on the stack object (the settler reads that list, never these), `label` a mode's text,
+ * an empty `targets` the "up to" decline. `allowNone` — a modal "choose up to one": choosing no mode removes the ability (CR
+ * 603.3c). `abilityText` is the printed sentence, for the panel. Plain JSON.
+ */
+export function setPendingTriggerTargetChoice(state, { controller, stackObjectId, sourceName = null, abilityText = null, candidates = [], allowNone = false }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "trigger-target-pending", controller, stackObjectId, count: candidates.length, sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "trigger-target",
+      controller,
+      stackObjectId,
+      sourceName,
+      abilityText,
+      candidates,
+      ...(allowNone ? { allowNone: true } : {}),
     },
   };
 }

@@ -48,6 +48,7 @@ import {
   setPendingCleanupDiscardChoice,
   setPendingChangeTargetChoice,
   setPendingAuraEntryHostChoice,
+  setPendingTriggerTargetChoice,
 } from "./pendingChoice.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
 
@@ -130,6 +131,9 @@ const FIXTURES = {
   // AURA ENTRY HOST (CR 303.4f) — raised only for a seat a person plays, so an AI controller is the contract's auto path: the
   // fallback is the house pick (`suggestedId` — none here), nothing re-runs (no `step`), and the choice clears in one tick.
   "aura-entry-host": (s) => setPendingAuraEntryHostChoice(s, { controller: "ai", cardId: "gone", cardName: "Pacifism", candidates: [] }),
+  // TRIGGER TARGET (CR 603.3d) — raised only for a seat a person plays, so an AI controller is the contract's auto path: nothing waits
+  // on the stack under that id (the autopick returns null), the settle logs "gone", and the choice clears in one tick.
+  "trigger-target": (s) => setPendingTriggerTargetChoice(s, { controller: "ai", stackObjectId: "gone", sourceName: "Ravenous Chupacabra", candidates: [] }),
 };
 
 describe("PENDING_CHOICE_KINDS is exhaustive against the FIXTURES map (this test file itself)", () => {

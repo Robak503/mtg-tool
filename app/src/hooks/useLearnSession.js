@@ -62,6 +62,15 @@ export function auraEntryHostChoicePayload(hostId) {
   return { kind: "aura-entry-host", hostId: typeof hostId === "string" ? hostId : null };
 }
 
+/**
+ * The /api/learn/choose payload for the targets of your own triggered ability (CR 603.3d — chosen as it goes on the stack): the
+ * picked choice's id ("none" for a modal "choose up to one"), with the `kind` echo the server checks (WI-5). Pure, so it is
+ * tested without React.
+ */
+export function triggerTargetChoicePayload(candidateId) {
+  return { kind: "trigger-target", candidateId: typeof candidateId === "string" ? candidateId : null };
+}
+
 export default function useLearnSession() {
   const [state, setState] = useState(INITIAL_STATE);
   const inFlightRef = useRef(false);
@@ -1125,6 +1134,12 @@ export default function useLearnSession() {
     [submitPendingChoice],
   );
 
+  /** TRIGGER TARGET (CR 603.3d) — choose the targets (or mode) of your own triggered ability as it goes on the stack. */
+  const applyTriggerTargetChoice = useCallback(
+    (candidateId) => submitPendingChoice("trigger-target", triggerTargetChoicePayload(candidateId)),
+    [submitPendingChoice],
+  );
+
   /** SAC-UNLESS-PAY — INVERTED polarity: paying KEEPS the permanent, declining sacrifices it. */
   const applySacUnlessPayChoice = useCallback(
     (pay) => submitPendingChoice("sac-unless-pay", { pay: pay === true }),
@@ -1796,6 +1811,7 @@ export default function useLearnSession() {
     applyOptionalSacChoice,
     applyChangeTargetChoice,
     applyAuraEntryHostChoice, // CR 303.4f — what your entering Aura enchants
+    applyTriggerTargetChoice, // CR 603.3d — the targets of your own triggered ability
     applyCommanderReturnChoice,
     mulligan,
     reset,

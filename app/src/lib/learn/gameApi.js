@@ -306,7 +306,15 @@ export function observe(state, seat) {
 //     enters without being cast; answer `{ kind, hostId }`, hostId ∈ candidates[].id, no decline.
 //     Raised only for a seat in state.humanSeats (createLearnSession stamps the user seat below
 //     Expert), so an Expert/self-play driver never meets it; one action per host if it does.
-export const PLAY_API_VERSION = "1.3.0";
+// 1.4.0 (additive MINOR — a new decision kind, 2026-10-18):
+//   - "trigger-target" (CR 603.3d, 601.2c, 603.3c): the person playing a seat chooses the targets (or
+//     mode) of their own triggered ability as it goes on the stack; answer `{ kind, candidateId }`,
+//     candidateId ∈ candidates[].id, or "none" when `allowNone` (a modal "choose up to one"). An "up to"
+//     decline is a candidate with no targets. Raised only for a seat in state.humanSeats and only when
+//     there is a real choice; an answer that is no candidate is asked again. A pilot is offered one
+//     action per choice. The ability waits on the stack meanwhile (additive stack-object field
+//     `awaitingTargets`, engine-internal).
+export const PLAY_API_VERSION = "1.4.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

@@ -24,7 +24,7 @@ import { ATOM_RESOLVERS } from "./effects/effectAtoms.js";
 import { checkCastTriggers, checkCombatDamageTriggers, checkDiesTriggers, checkEnterTriggers } from "./triggers.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { chooseTriggerTargets, flushTriggers, resolveTopOfStack } from "./gameEngine.js";
+import { autoPickTriggerTarget, chooseTriggerTargets, flushTriggers, raiseTriggerTargetChoice, resolveTopOfStack, settleTriggerTargetChoice } from "./gameEngine.js";
 import { resolveAuraEntryHostChoice, resolveOptionalChoice } from "./effects/runProgram.js";
 import { setPendingImpulseDigChoice, setPendingTutorChoice } from "./pendingChoice.js";
 import { advanceUntilDecision, applyPendingChoice, createLearnSession } from "./learnSession.js";
@@ -68,8 +68,21 @@ const named = (s, name) => Object.values(s.players).flatMap((p) => p.battlefield
 const hostOf = (s, name) => { const p = named(s, name)[0]; return p?.attachedTo ? findPermanent(s, p.attachedTo)?.permanent.card?.name ?? null : null; };
 const events = (s, kind) => (s.log || []).filter((e) => e.kind === kind);
 const offered = (pc) => (pc?.candidates || []).map((c) => `${c.name}/${c.controller}`).sort();
-const kittenSees = (s, caster = "user") => resolveAll(flushTriggers(checkCastTriggers(s, { spellCard: { ...OPT, id: "c-opt" }, casterId: caster }), { chooseTargets: chooseTriggerTargets }));
-const bragoHits = (s) => resolveAll(flushTriggers(checkCombatDamageTriggers(s, [{ kind: "combat-damage-player", attackerId: "brago", attackingPlayer: "user", defender: "ai", amount: 2 }]), { chooseTargets: chooseTriggerTargets }));
+/**
+ * A person chooses the targets of their own triggered ability as it goes on the stack (the trigger-target pause, CR 603.3d —
+ * triggerTargetChoice.test.js): the Kitten's and Brago's are the person's here, so the person answers with the permanents `ids`
+ * before the blink resolves. An AI's ability, or one at a table with no person, asks nothing and passes through.
+ */
+const aimTrigger = (s, ids) => {
+  const asked = raiseTriggerTargetChoice(s);
+  if (asked.pendingChoice?.kind !== "trigger-target") return s;
+  const want = [...ids].sort().join(",");
+  const pick = asked.pendingChoice.candidates.find((c) => c.targets.map((x) => x.id).sort().join(",") === want);
+  expect(pick, `a legal choice of ${want}`).toBeTruthy();
+  return settleTriggerTargetChoice(asked, pick.id);
+};
+const kittenSees = (s, caster = "user", ids = ["aura"]) => resolveAll(aimTrigger(flushTriggers(checkCastTriggers(s, { spellCard: { ...OPT, id: "c-opt" }, casterId: caster }), { chooseTargets: chooseTriggerTargets }), ids));
+const bragoHits = (s, ids) => resolveAll(aimTrigger(flushTriggers(checkCombatDamageTriggers(s, [{ kind: "combat-damage-player", attackerId: "brago", attackingPlayer: "user", defender: "ai", amount: 2 }]), { chooseTargets: chooseTriggerTargets }), ids));
 const withoutHumanSeats = (s) => { const { humanSeats: _h, ...rest } = s; return rest; };
 
 /** The Kitten board: your Pacifism on the opponent's Bear, the opponent's Craw Wurm beside it. The house would take the Wurm. */
@@ -153,7 +166,7 @@ describe("one event — \"The Aura can't enter the battlefield enchanting a perm
   };
 
   it("⭐ Brago returns Rancor with the Visionary and Brago itself: neither is offered, only what stays — and your pick (your Bear) wins over the house's (the Giant)", () => {
-    const paused = bragoHits(bragoBoard());
+    const paused = bragoHits(bragoBoard(), ["brago", "vis", "rancor"]); // the person blinks Brago, the Visionary and Rancor
     const pc = paused.pendingChoice;
     const after = resolveAuraEntryHostChoice(paused, "mybear");
     const row = { asked: pc?.cardName, offered: offered(pc), houseWouldTake: pc?.suggestedId, host: hostOf(after, "Rancor"), myBearPower: permanentPower(after, "mybear"),
@@ -167,7 +180,7 @@ describe("one event — \"The Aura can't enter the battlefield enchanting a perm
     const [rancor, vis] = on(perm("rancor", RANCOR, "user"), perm("vis", VISIONARY, "user"));
     const s = board({ user: [perm("brago", BRAGO, "user", { tapped: true }), vis, perm("giant", GIANT, "user", { counters: { "+1/+1": 1 } }), perm("mybear", BEAR, "user", { counters: { "+1/+1": 1 } }), pac, rancor],
       ai: [bear, perm("wurm", WURM, "ai")] });
-    const first = bragoHits(s);
+    const first = bragoHits(s, ["brago", "vis", "pac", "rancor"]); // the person blinks Brago, the Visionary and both Auras
     const second = resolveAuraEntryHostChoice(first, "bear");
     const after = resolveAuraEntryHostChoice(second, "mybear");
     const row = {
@@ -207,13 +220,15 @@ describe("every seat the AI plays keeps the house pick — the same path, byte f
     expect({ pending: after.pendingChoice ?? null, host: hostOf(after, "Pacifism") }).toEqual({ pending: null, host: "Craw Wurm" });
   });
 
-  it("the AI's flicker read is unchanged by a person at the table: Brago's chosen targets are the same with and without humanSeats", () => {
+  it("the AI's flicker read is unchanged by a person at the table: a person's Brago waits for its controller, and the automatic answer to that question is the set a table without a person blinks", () => {
     const [rancor, vis] = on(perm("rancor", RANCOR, "user"), perm("vis", VISIONARY, "user"));
     const s = (humans) => board({ user: [perm("brago", BRAGO, "user", { tapped: true }), vis, perm("giant", GIANT, "user", { counters: { "+1/+1": 1 } }), rancor], humans });
-    const chosen = (humans) => (flushTriggers(checkCombatDamageTriggers(s(humans), [{ kind: "combat-damage-player", attackerId: "brago", attackingPlayer: "user", defender: "ai", amount: 2 }]), { chooseTargets: chooseTriggerTargets })
-      .stack.at(-1)?.targets || []).map((t) => t.id).sort();
-    expect(chosen(["user"])).toEqual(chosen(null));
-    expect(chosen(["user"])).toEqual(["brago", "rancor", "vis"]);
+    const flushed = (humans) => flushTriggers(checkCombatDamageTriggers(s(humans), [{ kind: "combat-damage-player", attackerId: "brago", attackingPlayer: "user", defender: "ai", amount: 2 }]), { chooseTargets: chooseTriggerTargets });
+    const without = (flushed(null).stack.at(-1)?.targets || []).map((t) => t.id).sort();
+    const asked = raiseTriggerTargetChoice(flushed(["user"]));
+    const auto = asked.pendingChoice.candidates[Number(autoPickTriggerTarget(asked, asked.pendingChoice))].targets.map((t) => t.id).sort();
+    expect({ asked: asked.pendingChoice.kind, waiting: asked.stack.at(-1)?.targets, auto }).toEqual({ asked: "trigger-target", waiting: [], auto: without });
+    expect(without).toEqual(["brago", "rancor", "vis"]);
   });
 });
 

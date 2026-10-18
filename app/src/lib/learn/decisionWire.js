@@ -63,6 +63,8 @@ const PENDING_WIRE_FIELDS = [
   "restTo",
   "from", // change-target (shelf D14) — the redirected object's current target, { id, name, type, controller }, for the panel's "from" line
   "toZone", // milled-pick — MilledPickPanel's banner switch ("exile": exile from your graveyard; "playFree": Dauthi Voidwalker's free play, P·28)
+  "abilityText", // trigger-target (CR 603.3d) — the printed sentence of the triggered ability whose targets you choose
+  "allowNone", // trigger-target — a modal "choose up to one": the panel offers choosing no mode (CR 603.3c)
 ];
 
 /**

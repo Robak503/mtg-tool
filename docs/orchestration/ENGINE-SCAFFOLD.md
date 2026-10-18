@@ -311,8 +311,8 @@ chosen-type). At flush, `buildTriggerStack` orders APNAP and routes each trigger
 HIGH non-modal programs get an `effect-program` stack payload with flush-time
 target choice; intervening-ifs are checked at flush *and* re-checked at
 resolution; anything unmodeled → `manual` (Arbiter no-op). Targets are chosen by
-`chooseTriggerTargets` (the α1 chooser, both seats — a trigger has no human target
-prompt) on the side each effect intends; when every legal target is on the wrong
+`chooseTriggerTargets` (the α1 chooser — every AI seat, and a person's single-choice
+abilities; a person chooses the rest, below) on the side each effect intends; when every legal target is on the wrong
 side, a MANDATORY ability still takes the least harmful one (CR 603.3d — Man-o'-War
 alone returns itself; logged `trigger-target-forced`), and an optional one is
 declined as the Arbiter no-op (logged `trigger-no-safe-target`). The forced pick
@@ -335,6 +335,21 @@ its enters triggers through `checkEnterTriggers` and routes each with
 card when a trigger would be forced to remove the AI's own permanent or spell
 (Man-o'-War with no opposing creature, Mystic Snake over its own spell). Policy key
 `etbHold`.
+
+**A person chooses their own trigger's targets** (the `trigger-target` pause, 2026-10-18, CR 603.3d → 601.2c;
+CR 603.3c / 700.2b for a mode). At a live flush (the automatic chooser passed), a trigger controlled by a seat in
+`state.humanSeats` is routed with `askControllerChooser`: with two or more legal candidates (or a modal "choose up
+to one") it answers the private `ASK_CONTROLLER` sentinel at any of `buildTriggerStack`'s four choose sites
+(intervening-if, non-modal, modal, reflexive), and the ability goes on the stack in its APNAP place with its
+payload, no target yet, and `awaitingTargets: { candidates, abilityText, allowNone? }` — the engine's own
+candidates (CR 601.2a: an object is on the stack while its choices are made). The flush skips its target events
+(becomes-the-target, crime, Kira). The session driver, before the pendingChoice block, raises the question for the
+LOWEST waiting object (`raiseTriggerTargetChoice` → `setPendingTriggerTargetChoice`, the order each was put on the
+stack); `settleTriggerTargetChoice` writes the pick where the chooser writes it (`targets`, `payload.params.targets`
+/ `.chosenMode`), runs the target events, and once no object of the batch waits, flushes what they enqueued. An
+answer that is no candidate decides nothing; "none" (allowNone) removes the ability (CR 603.3c). `resolveTopOfStack`
+throws on a waiting object — the driver asks before anyone receives priority, so reaching one there is a bug. Every
+AI seat, and every table with no person (Expert, self-play), never meets the sentinel: byte-identical.
 
 `triggerRoutesNatively(effectClause)` is the **shared gate** used by *both* the
 metric (coverage's `native-trigger`) and the runtime flush — it re-parses the

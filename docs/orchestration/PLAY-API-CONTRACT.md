@@ -10,7 +10,16 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.3.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.4.0"`
+
+> **v1.4.0 (additive MINOR, 2026-10-18 — a new decision kind):**
+> - **`trigger-target`** (CR 603.3d, 601.2c; CR 603.3c for a mode): the person playing a seat chooses the
+>   targets — or the mode — of their own triggered ability as it goes on the stack. Asked only of a seat in
+>   `state.humanSeats` and only when there is a real choice (two or more legal choices, or a modal "choose up
+>   to one"); a single legal choice is taken unasked and every AI seat keeps the automatic chooser,
+>   byte-identical. While it is asked, the ability sits on the stack in its APNAP place with no target yet
+>   (engine-internal stack-object field `awaitingTargets`; the board snapshot never shows it). Answer
+>   `{ kind, candidateId }` (row in §1.1a); a pilot is offered one action per choice.
 
 > **v1.3.0 (additive MINOR, 2026-10-16 — a new decision kind):**
 > - **`aura-entry-host`** (CR 303.4f): the person playing a seat picks what their Aura enchants as
@@ -144,6 +153,7 @@ General rules, all kinds:
 | `sac-unless-pay` | `{ kind, pay: boolean }` | pay `cost` keeps the permanent (`sourceId`); decline / unaffordable sacrifices it. |
 | `taxed-payment` | `{ kind, pay: boolean }` | the answering seat is the PAYER (`controller === payer`, Rhystic-style); decline / can't-pay gives `beneficiary` the `declinePayoff` (`"draw"` \| `"treasure"`). |
 | `edict-mode` | `{ kind, mode: "life"\|"sacrifice"\|"discard", permId?, cardId? }` | `mode` must be ∈ the decision's `modes` (anything else coerces to `"life"`); `permId` picks from the `sac` pool, `cardId` from the `disc` pool; chains via `queue`. |
+| `trigger-target` | `{ kind, candidateId }` | v1.4.0, CR 603.3d / 601.2c / 603.3c — the controller of a triggered ability chooses its targets (or mode) as it goes on the stack; `candidateId` ∈ `candidates[].id` (`{ id, label?, targets: [{ id, type, name, controller }] }` — `label` is a mode's text; an empty `targets` is the "up to" decline), or `"none"` when `allowNone` (a modal "choose up to one" — the ability is removed, CR 603.3c). `abilityText` is the printed sentence. An id that is no candidate decides nothing (the question is asked again). Asked only of a `state.humanSeats` seat, one ability at a time in stack order (the first put on the stack first). |
 | `aura-entry-host` | `{ kind, hostId }` | v1.3.0, CR 303.4f — the Aura's controller picks what it enchants as it enters without being cast; `hostId` ∈ `candidates[].id` (`{ id, name, controller }` — the legal hosts on the board it enters; nothing is targeted, so hexproof doesn't exclude one, protection does). No decline: an id that isn't a candidate takes the house pick. Asked only of a `state.humanSeats` seat; another of that seat's Auras entering in the same event asks again. |
 
 (Shape source of truth: the `apply*Choice` settlers in `app/src/lib/learn/learnSession.js` —

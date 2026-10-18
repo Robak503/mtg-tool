@@ -44,6 +44,9 @@ import {
   nextStep,
   finalizeStackResolution,
   settleCleanupDiscardChoice,
+  raiseTriggerTargetChoice,
+  settleTriggerTargetChoice,
+  autoPickTriggerTarget,
 } from "./gameEngine.js";
 
 // The human seat id (createGameState always names the player's seat "user"; opponents are
@@ -1680,6 +1683,14 @@ export function advanceUntilDecision(
       continue;
     }
 
+    // TRIGGER TARGET (CR 603.3d, 601.2c) — a person's own triggered ability waits on the stack for its targets (or mode): raise the
+    // question before anyone receives priority; the pendingChoice block below surfaces it. The same state, no allocation, when
+    // nothing waits — every game with no person at it.
+    if (!current.state.pendingChoice) {
+      const raised = raiseTriggerTargetChoice(current.state);
+      if (raised !== current.state) current = { ...current, state: raised };
+    }
+
     // Interactive resolution-time choice (a tutor's library search). The player's OWN
     // tutor at beginner/intermediate surfaces a card PICKER; Expert autopilot and an
     // opponent's tutor AUTO-PICK the best candidate with no panel (the same pause-or-
@@ -2280,6 +2291,33 @@ export function advanceUntilDecision(
           },
         });
         current = { ...current, state: settleAuraEntryHostChoice(current.state, picked.value) };
+        continue;
+      }
+      // ===== TRIGGER TARGET ===== (CR 603.3d, 601.2c, 603.3c) — the person playing pc.controller chooses the targets (or mode) of
+      // their own triggered ability as it goes on the stack. Raised only for a seat a person plays (gameEngine.raiseTriggerTargetChoice),
+      // so `pause` is the path it takes; the rest is the contract's settle-in-one-tick path (and a pilot's offer): one action per
+      // legal choice, plus "none" for a modal "choose up to one", the automatic chooser's pick as the fallback.
+      if (pc.kind === "trigger-target") {
+        if (pause) {
+          return { session: current, decision: { kind: "trigger-target", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
+          buildOffered: () => [
+            ...(pc.candidates || []).map((c) => ({ kind: "pending-choice", choiceKind: pc.kind, candidateId: c.id })),
+            ...(pc.allowNone ? [{ kind: "pending-choice", choiceKind: pc.kind, candidateId: "none" }] : []),
+          ],
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            candidateId: autoPickTriggerTarget(current.state, pc),
+          },
+        });
+        current = { ...current, state: settleTriggerTargetChoice(current.state, picked.candidateId) };
         continue;
       }
       if (pc.kind === "optional-draw-discard") {
@@ -3479,6 +3517,47 @@ export function applyAuraEntryHostChoice(session, choice, opts = {}) {
 }
 
 /**
+ * ===== TRIGGER TARGET ===== (CR 603.3d, 601.2c, 603.3c) — the player chose the targets (or mode) of their own triggered ability
+ * (`choice.candidateId`, one of the pause's candidates' ids, or "none" for a modal "choose up to one"). settleTriggerTargetChoice
+ * writes them onto the waiting ability and runs the events of choosing a target; an answer that is no legal choice decides nothing
+ * and the question is asked again. A double-submit (nothing pending) re-derives. Mirrors applyAuraEntryHostChoice.
+ */
+export function applyTriggerTargetChoice(session, choice, opts = {}) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "trigger-target") {
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
+  }
+  const candidateId = typeof choice?.candidateId === "string" ? choice.candidateId : null;
+  let newState;
+  try {
+    newState = settleTriggerTargetChoice(session.state, candidateId);
+  } catch (error) {
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
+  }
+  if (newState === session.state) return advanceUntilDecision(session, opts); // not a legal choice — ask again
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "trigger-target-choice", stackObjectId: pc.stackObjectId, candidateId },
+    auto: false,
+    reasoning: "user-chose-trigger-target",
+  };
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
+}
+
+/**
  * ===== OPTIONAL DRAW-THEN-DISCARD ===== — the player chose to draw (and then discard) or not, for a "you may
  * draw a card. If you do, discard a card." `choice.draw` is the yes/no. resolveOptionalDrawDiscardChoice runs the
  * [draw, discard] on yes (or nothing on decline), then resumes + re-derives. Mirrors applyOptionalSacChoice.
@@ -4373,6 +4452,7 @@ export function applyPendingChoice(session, choice, opts = {}) {
   if (kind === "optional-sac-payment") return applyOptionalSacChoice(session, choice, opts);
   if (kind === "change-target") return applyChangeTargetChoice(session, choice, opts); // shelf D14 (Misdirection)
   if (kind === "aura-entry-host") return applyAuraEntryHostChoice(session, choice, opts); // CR 303.4f — what a person's entering Aura enchants
+  if (kind === "trigger-target") return applyTriggerTargetChoice(session, choice, opts); // CR 603.3d — the targets of a person's own triggered ability
   if (kind === "optional-draw-discard")
     return applyOptionalDrawDiscardChoice(session, choice, opts);
   if (kind === "optional-discard-payment")

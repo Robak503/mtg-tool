@@ -3080,3 +3080,55 @@ export function AuraEntryHostPanel({ decision, onChoose }) {
     </div>
   );
 }
+
+/** A legal choice for your triggered ability as you read it: its mode (if it has one), then each target by name and whose; none reads "No target". */
+export function triggerChoiceLabel(c) {
+  const targets = (c?.targets || []).map(changeTargetLabel).join(", ");
+  if (c?.label) return targets ? `${c.label} — ${targets}` : c.label;
+  return targets || "No target";
+}
+
+/**
+ * TRIGGER TARGET (CR 603.3d, 601.2c; CR 603.3c for a mode): a triggered ability of yours is going on the stack and you choose its
+ * targets — or its mode — now. One button per legal choice; an "up to one" target offers "No target", and a modal "choose up to
+ * one" offers choosing no mode (the ability is removed). The engine asks only when there is a real choice.
+ */
+export function TriggerTargetPanel({ decision, onChoose }) {
+  const [submitting, setSubmitting] = useState(false);
+  const submit = async (candidateId) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onChoose?.(candidateId);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  const source = decision.sourceName || "your permanent";
+  const modal = (decision.candidates || []).some((c) => c.label);
+  const choices = [
+    ...(decision.candidates || []).map((c) => ({ id: c.id, text: triggerChoiceLabel(c) })),
+    ...(decision.allowNone ? [{ id: "none", text: "Choose no mode (the ability is removed)" }] : []),
+  ];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <ChoiceBanner icon="🎯" title={`${modal ? "Choose a mode" : "Choose targets"} for ${source}’s triggered ability`}>
+        {decision.abilityText ? `“${decision.abilityText}” — ` : ""}it is going on the stack, and you choose {modal ? "its mode and targets" : "its targets"} now.
+      </ChoiceBanner>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
+        {choices.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            className="ley-glass ley-card"
+            style={{ textAlign: "left", padding: "10px 14px", cursor: "pointer", color: "var(--ley-text)" }}
+            onClick={() => submit(c.id)}
+            disabled={submitting}
+          >
+            <strong>{c.text}</strong>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
