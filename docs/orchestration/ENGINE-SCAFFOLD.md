@@ -339,6 +339,23 @@ sentinel "the triggering permanent's controller may tap the triggering permanent
 creature is in `state.combat.attackers` as it dies, and checkDiesTriggers copies it onto the look-back object — a death site
 that bypasses `deathLookback` never fires it (a safe miss).
 
+**A played land is not a land entering (2026-10-17 — Burgeoning, Horn of Greed, City of Traitors).** "Whenever an opponent plays
+a land" / "a player plays a land" are the landfall event with `playedOnly` (the play-land dispatcher is the only caller that
+passes `played: true` to checkLandfallTriggers — an effect-put land never fires them, the bundled rulings) on the scopes
+`landOpponentControls` / `landAnyPlayer`; "that player" is the land's controller (the sentinel above). Because the trigger event
+is the special action, not the entering (Ancient Greenwarden's ruling: such an ability "won't trigger an additional time"),
+checkLandfallTriggers lets a `playedOnly` instance past the enters silencer (Elesh Norn, Mother of Machines) and keeps it out of
+the enters multiplier (`multiplyTriggers`' optional `unmultiplied` predicate) — in batch order, unmultiplied. City of Traitors
+was doubled and silenced before.
+
+**A colour on the entering creature (2026-10-17 — Ayara, the Denizens, Sylvan Anthem).** "a/another <colour> creature you
+control enters" is the creature scope (`creatureYouControl` / `otherCreatureYouControl`) plus `etbColor` (one WUBRG letter,
+on the descriptor whitelist); scopeMatches reads `layers.permanentColors` of the entering permanent (its colours as it enters,
+the as-it-enters read the power cap makes) and fails closed off the battlefield. "<self> or another <colour> creature you
+control" (a creature card naming itself) adds `etbColorSelfExempt`: the source's own entry skips the colour gate. Its
+sacrifice-cost twin is `sacOther.color` (abilities.parseAbilityCost — "Sacrifice another black creature"), read by the
+activation offer the same way.
+
 #### 4.4b Trigger classes beyond the event trigger (added 2026-07-25)
 
 Three kinds of trigger do NOT fire off a discrete event, and each has its own lane:
@@ -911,6 +928,18 @@ printed card with its type line set to its supertypes + "Enchantment — Aura" (
 "<A> and <B> spells" reducer is two descriptors only over a provably disjoint pair (instant/sorcery); any other admissible pair
 (Danitha's "Aura and Equipment", Starnheim Courser's "Artifact and enchantment") is ONE `subtypes` union, reduced once, and the
 union's every-creature-type shortcut holds for creature-type words only.
+
+**Historic, and two types that can't be countered (2026-10-17 — Jhoira's Familiar, Destiny Spinner).** "Historic spells you cast
+cost {1} less" is `costReduction.historic` — a predicate (legendary / artifact / Saga on the FRONT face of the spell being cast,
+CR 700.6), never the word scan, which keeps "historic" excluded. "Creature and enchantment spells you control can't be countered"
+(and Sphinx of the Final Word's "Instant and sorcery") is two `cantBeCountered` card-type entries on one controller: unlike a cost
+reducer, the answer is a boolean, so an object with both types is not counted twice.
+
+**An X/X animation and an any-controller "another" grant (2026-10-17 — Destiny Spinner, Heliod, Sun-Crowned).** The land
+animation's "becomes an X/X …, where X is <count>" carries `ptCount` (the shared count vocabulary); `applyAnimateEffect` counts it
+once as it resolves, before animating (CR 608.2h), and sets that number as the 7b base. splitClauses keeps the sentence whole (its
+"trample and haste" is one rider). "Another target creature gains <keywords> until end of turn" is the pump on the any-creature
+pool with `excludeSource`; a subtype target ("another target Cleric") reaches it through the subtype-target wrapper.
 
 **Every other Aura is cast targeting a host too (2026-10-17, `auraSpellHost.js`).** An Aura that
 enchants a permanent and has no modeled lane (`isBodyOnlyAuraSpell` — the face being cast is an Aura,

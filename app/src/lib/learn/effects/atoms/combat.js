@@ -457,6 +457,10 @@ export function applyAnimateEffect(state, atom, ctx) {
     : atomTargets(state, atom, ctx).filter(t => t.type === "permanent" && findPermanent(next, t.id));
   const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
   const dur = () => ({ kind: "endOfTurn", turn: next.turn });
+  // THE X/X FORM (Destiny Spinner): X counted ONCE, as the ability resolves and before anything is animated (CR 608.2h) — the base
+  // P/T it sets is a number, so it doesn't follow the count later in the turn (the bundled rulings).
+  const basePower = atom.ptCount ? Math.max(0, countForSpec(state, ctx, atom.ptCount)) : (atom.power || 0);
+  const baseToughness = atom.ptCount ? basePower : (atom.toughness || 0);
   // Layer-4 types: Creature plus any printed card type the animate adds — a man-land that becomes an
   // "artifact creature" (Mishra's Factory). Additive: the Land type is never stripped (still a land).
   const animateTypes = ["Creature", ...(atom.cardTypes || [])];
@@ -485,7 +489,7 @@ export function applyAnimateEffect(state, atom, ctx) {
     if (!keepPrintedPt) {
       next = addContinuousEffect(next, {
         layer: 7, sublayer: "7b",
-        op: { layerOp: "ptSet", power: atom.power || 0, toughness: atom.toughness || 0 },
+        op: { layerOp: "ptSet", power: basePower, toughness: baseToughness },
         affects: { mode: "fixed", permanentIds: [target.id] },
         duration: dur(), source: src,
       }).state;
@@ -502,7 +506,7 @@ export function applyAnimateEffect(state, atom, ctx) {
   // A 0/0 animate has toughness 0 → CR 704.5f puts it into the graveyard at resolution.
   const lethal = destroyLethalCreatures(next);
   next = checkDiesTriggers(lethal.state, lethal.dead);
-  return logEvent(next, { kind: "spell-effect", effect: "animate", power: atom.power, toughness: atom.toughness, targets: targets.map(t => t.id) });
+  return logEvent(next, { kind: "spell-effect", effect: "animate", power: atom.ptCount ? basePower : atom.power, toughness: atom.ptCount ? baseToughness : atom.toughness, targets: targets.map(t => t.id) });
 }
 
 /**
@@ -2271,6 +2275,15 @@ export function pumpClauseParser(clause) {
     const kws = parseGrantedKeywords(anotherKw[1]);
     return kws ? { op: "pump", targetType: "creatureYouControl", excludeSource: true, ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
+  // ANOTHER-TARGET, ANY CONTROLLER (the play-weighted program, #1028 — Heliod, Sun-Crowned: "{1}{W}: Another target creature gains
+  // lifelink until end of turn."): the same grant on the any-creature pool, "another" excluding the ability's own permanent
+  // (enumerateTargets' addCreatures drops ctx.sourceId for an excludeSource atom). A pure grant, so the side is the grant's
+  // (atomTargetIntent: own). A subtype target rides the shared subtype-target wrapper ("another target Cleric" — Attended Healer).
+  const anotherAnyKw = t.match(/^another target creature gains (.+) until end of turn$/);
+  if (anotherAnyKw) {
+    const kws = parseGrantedKeywords(anotherAnyKw[1]);
+    return kws ? { op: "pump", targetType: "creature", excludeSource: true, ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
   // ANOTHER-TARGET-YOU-CONTROL pt bonus (CR 109.5) — "another target creature you control gets +P/+T[ and gains
   // KW] until end of turn" (Gladiolus Amicitia's landfall, Hardened Escort / Imperial Aerosaur / Yotian
   // Frontliner attack triggers). The P/T sibling of the keyword-grant shape above: same "creatureYouControl" +
@@ -2790,6 +2803,25 @@ export function animateClauseParser(clause) {
     const subtypes = anm[5] ? [anm[5].charAt(0).toUpperCase() + anm[5].slice(1)] : [];
     const atom = { op: "animate", targetType: "land", power: parseInt(anm[3], 10), toughness: parseInt(anm[4], 10), subtypes, grantKeywords, duration: "endOfTurn" };
     if (anm[2]) atom.restrictions = [{ kind: "controller", who: "you" }]; // "land you control" — enumerate own lands only
+    return atom;
+  }
+  // THE X/X FORM (the play-weighted program, #1006 — Destiny Spinner: "Target land you control becomes an X/X Elemental creature with
+  // trample and haste until end of turn, where X is the number of enchantments you control."; Vastwood Animist "… where X is the
+  // number of Allies you control"): the same animation, its base P/T the count as the ability resolves (CR 608.2h — the bundled
+  // rulings: fixed then, it doesn't change later in the turn; a 0/0 dies). The count is the shared count vocabulary
+  // (parseCountSource, the "where X is" reader the create-token X arm uses); an unread count → null → the clause stays LOW. The rest
+  // of the shape is the N/N arm's, until end of turn required (the suffix form, ahead of the "where" tail).
+  const anmX = t.match(/^target land( you control)? becomes an x\/x(?: ([a-z]+))? creature(?: with ([a-z, ]+?))? until end of turn, where x is (.+)$/);
+  if (anmX) {
+    const COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "multicolored"]);
+    if (anmX[2] && COLOR_WORDS.has(anmX[2])) return null;
+    const grantKeywords = anmX[3] ? parseGrantedKeywords(anmX[3]) : [];
+    if (anmX[3] && !grantKeywords) return null;
+    const ptCount = parseCountSource(anmX[4].replace(/^the (?:total )?number of /, ""));
+    if (!ptCount) return null;
+    const subtypes = anmX[2] ? [anmX[2].charAt(0).toUpperCase() + anmX[2].slice(1)] : [];
+    const atom = { op: "animate", targetType: "land", power: 0, toughness: 0, ptCount, subtypes, grantKeywords, duration: "endOfTurn" };
+    if (anmX[1]) atom.restrictions = [{ kind: "controller", who: "you" }];
     return atom;
   }
   // SHELF-85 V14 (2026-09-04 — Tough Cookie "{2}{G}: Until end of turn, target noncreature artifact you control becomes

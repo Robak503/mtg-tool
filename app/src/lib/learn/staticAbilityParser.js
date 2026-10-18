@@ -2618,6 +2618,15 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ costReduction: { nthSpellThisTurn: 2, amount: parseInt(crNthM[1], 10) } });
     return;
   }
+  // HISTORIC SPELLS (the play-weighted program, #1056 — Jhoira's Familiar: "Historic spells you cast cost {1} less to cast."): a
+  // spell with the legendary supertype, the artifact card type or the Saga subtype (CR 700.6). No type line carries the word, so it
+  // is a predicate of its own (costReductionForSpell — the front face being cast), never the word scan, which keeps it excluded.
+  // "You cast" only — the one printed carrier.
+  const crHistM = c.match(/^historic spells you cast cost \{(\d+)\} less to cast$/);
+  if (crHistM) {
+    out.push({ costReduction: { historic: true, amount: parseInt(crHistM[1], 10) } });
+    return;
+  }
   const crGyM = c.match(/^spells you cast from your graveyard cost \{(\d+)\} less to cast$/);
   if (crGyM) {
     out.push({ costReduction: { castFromZones: ["graveyard"], amount: parseInt(crGyM[1], 10) } });
@@ -3226,6 +3235,14 @@ function parseClause(clause, out, selfName, selfType) {
   const cbcTypeM = c.match(/^(creature|artifact|enchantment|instant|sorcery) spells you control can't be countered$/);
   if (cbcTypeM) {
     out.push({ cantBeCountered: { scope: "youControl", cardType: cbcTypeM[1].charAt(0).toUpperCase() + cbcTypeM[1].slice(1) } });
+    return;
+  }
+  // TWO CARD TYPES (the play-weighted program, #1006 — Destiny Spinner: "Creature and enchantment spells you control can't be
+  // countered."): a spell of EITHER type (an enchantment creature is both — CR 205.2b). One entry per type on the same controller:
+  // uncounterablePlayersOnBattlefield collects them into that player's filter set, which uncounterableCoversSpell reads as a union.
+  const cbcTwoTypesM = c.match(/^(creature|artifact|enchantment|instant|sorcery) and (creature|artifact|enchantment|instant|sorcery) spells you control can't be countered$/);
+  if (cbcTwoTypesM && cbcTwoTypesM[1] !== cbcTwoTypesM[2]) {
+    for (const w of [cbcTwoTypesM[1], cbcTwoTypesM[2]]) out.push({ cantBeCountered: { scope: "youControl", cardType: w.charAt(0).toUpperCase() + w.slice(1) } });
     return;
   }
   // ⭐ CONTROLLER × COLOUR (SG-14, 2026-09-03 — Allosaurus Shepherd "GREEN spells you control can't be
@@ -5617,6 +5634,14 @@ export function costReductionForSpell(reducers, spellCard, fromZone = "hand", ca
       continue;
     }
     if (r.plot) continue;
+    // HISTORIC (Jhoira's Familiar — CR 700.6): the legendary supertype, the artifact card type or the Saga subtype, on the FRONT face —
+    // the face being cast (the cast lane projects a split, modal or Adventure face before it gets here; a flip card is cast unflipped
+    // and a transforming card front face up — CR 710.2, 712.8c), so a back face's types never count. FAIL-CLOSED on no type line.
+    if (r.historic) {
+      if (!/\b(?:legendary|artifact|saga)\b/.test(typeLine.split(" // ")[0])) continue;
+      total += r.amount || 0;
+      continue;
+    }
     // CHOSEN CARD TYPE (Cloud Key): the spell has the card type the SOURCE chose as it entered (`sourceChosenCardType`, stamped by
     // collectCostReducers) — judged on the face being cast, any of a multi-typed spell's card types counting (CR 205.2b), and a
     // spell cast bestowed as the enchantment it is (castContext.bestowed — CR 702.103b). A source with no choice matches nothing.

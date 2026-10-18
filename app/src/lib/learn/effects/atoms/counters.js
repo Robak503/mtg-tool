@@ -667,6 +667,12 @@ export function addCounterClauseParser(clause) {
   // kind — no corpus card prints it, so it stays LOW. Whole-clause anchored; any rider → LOW → Arbiter.
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on target artifact or creature you control$/);
   if (m) return { op: "add-counter", counterType: "+1/+1", amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "artifactOrCreatureYouControl" };
+  // CREATURE-OR-ENCHANTMENT YOU CONTROL (the play-weighted program, #1028 — Heliod, Sun-Crowned: "Whenever you gain life, put a +1/+1
+  // counter on target creature or enchantment you control."): the enumerator's `creatureOrEnchantment` pool (the types the permanent
+  // has now — a God below its devotion is an enchantment, not a creature) narrowed to the controller's own permanents by the shared
+  // controller restriction (CR 115.1). +1/+1 only, for the reason the artifact-or-creature arm above gives.
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on target creature or enchantment you control$/);
+  if (m) return { op: "add-counter", counterType: "+1/+1", amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureOrEnchantment", restrictions: [{ kind: "controller", who: "you" }] };
   // ENTERED-THIS-TURN target (Cathedral Acolyte's activated — "put a +1/+1 counter on target creature that
   // entered this turn"): the chosen-creature atom narrowed by the enteredThisTurn enumeration gate
   // (perm.enteredOnTurn === state.turn — the field every enter path stamps). ANY controller's creature

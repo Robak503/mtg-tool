@@ -36,7 +36,7 @@ import { permanentIsCreature, permanentPower } from "./layers.js";
 export const OUTLET_BOARD_CAP = 600;
 
 const onlySacrificesACreature = (ability) => !!ability && ability.modeled && ability.costModeled && !ability.manaPips
-  && ability.sacOther?.type === "creature" && !ability.sacOther.another
+  && ability.sacOther?.type === "creature" && !ability.sacOther.another && !ability.sacOther.color
   && !ability.sacSelf && !ability.exileSelf && !ability.costX && !ability.discardRandom && !ability.payLife && !ability.payEnergy
   && !ability.discardCard && !ability.discardCount && ability.sacCount == null && ability.sacX == null && ability.removeCounter == null
   && ability.tapCreature == null && ability.exileGyCount == null && ability.discardCardFilter == null

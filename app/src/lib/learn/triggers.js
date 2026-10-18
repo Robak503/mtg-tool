@@ -1189,6 +1189,33 @@ function classifyCondition(condRaw, cardName, cardType) {
     }
   }
 
+  // ===== COLOUR-QUALIFIED CREATURE ENTERS (the play-weighted program — #847 Ayara, First of Locthwain "Whenever Ayara or another
+  // black creature you control enters"; #2474 Ivy Lane Denizen "another green creature you control"; #2828 Sylvan Anthem "a green
+  // creature you control"; Court Street / Foundry Street / Sage's Row / Shadow Alley Denizen) ===== the creature scopes with an
+  // `etbColor` gate: scopeMatches reads the entering creature's colours as it enters, through the layers (layers.permanentColors —
+  // the read the power gate beside it makes). One colour word, exactly as printed; a colour pair, an opponent's creature or a subject
+  // without "you control" stays undetected (Arbiter).
+  //   · "<self> or another <colour> creature you control" (Ayara): the union of the source and the other such creatures. The source's
+  //     half is named outright, so it is exempt from the colour gate (`etbColorSelfExempt` — Ayara made non-black still triggers on
+  //     her own entry); only a CREATURE card's own name makes the reduction to the creature scope. Placed above the generic
+  //     "or another" refusal below.
+  //   · "another <colour> creature you control" → otherCreatureYouControl (never the source's own entry); "a <colour> creature you
+  //     control" → creatureYouControl (the source's own entry counts when it is that colour — Sylvan Anthem is no creature).
+  if (/\benters(?:\s+the battlefield)?\s*$/.test(c)) {
+    const COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+    const colSubj = subjectBefore(c, "enters");
+    const colUnion = colSubj.match(/^(.+?) or another (white|blue|black|red|green) creature you control$/);
+    if (colUnion && selfRef) {
+      const lead = colUnion[1].trim();
+      const leadIsSelf = lead === "this creature" || (!!nameL && lead === nameL) || (shortName.length >= 3 && lead === shortName);
+      if (leadIsSelf && /\bCreature\b/.test(String(cardType || ""))) {
+        return { event: "etb", scope: "creatureYouControl", whose: "any", etbColor: COLOR_LETTER[colUnion[2]], etbColorSelfExempt: true };
+      }
+    }
+    const colOne = colSubj.match(/^(a|another) (white|blue|black|red|green) creature you control$/);
+    if (colOne) return { event: "etb", scope: colOne[1] === "another" ? "otherCreatureYouControl" : "creatureYouControl", whose: "any", etbColor: COLOR_LETTER[colOne[2]] };
+  }
+
   // ===== POWER-THRESHOLD ETB (Garruk's Uprising, Elemental Bond, Temur Ascendancy) ===== "a creature you
   // control with power N or greater enters" — the "with" here is a SCOPE-EXPRESSIBLE restriction (the
   // entering creature's layer-resolved power ≥ N, checked at ETB), UNLIKE the generic unmodeled "with <…>"
@@ -2039,6 +2066,15 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^you play another land$/.test(c)) {
     return { event: "landfall", scope: "landYouControl", whose: "any", playedOnly: true, landfallExcludeSelf: true };
   }
+  // ANOTHER PLAYER'S LAND PLAY (the play-weighted program, #901 Burgeoning — "Whenever an opponent plays a land", Dirtcowl Wurm;
+  // #2127 Horn of Greed — "Whenever a player plays a land", Pangosaur): City of Traitors' PLAYED-only gate on the opponent's and
+  // any player's land. The bundled rulings: "Playing a land will trigger it, but putting a land onto the battlefield as part of an
+  // effect will not." — the play-land dispatcher is the only source of the `played` marker. A played land enters under the player
+  // who played it, so the land's controller IS that player ("that player" is rewritten to the triggering-permanent's-controller
+  // sentinel below). Bare "a land" only: a land type ("plays a Desert"), a qualifier ("a nonbasic land") or a zone ("from exile")
+  // stays undetected → Arbiter.
+  if (/^an opponent plays a land$/.test(c)) return { event: "landfall", scope: "landOpponentControls", whose: "any", playedOnly: true };
+  if (/^a player plays a land$/.test(c)) return { event: "landfall", scope: "landAnyPlayer", whose: "any", playedOnly: true };
   // PERM-ENTERS — "Whenever an artifact you control enters" (affinity/improvise payoffs — Reckless
   // Fireweaver, Salivating Gremlins, Thopter Architect) and "Whenever an enchantment you control
   // enters" (Constellation payoffs — Setessan Champion, Nexus Wardens, Favored of Iroas). The
@@ -5245,8 +5281,9 @@ export function detectTriggers(cardIn) {
       // Harvester, Sire of Stagnation "that player exiles the top two cards of their library …"): "that player" is the entering
       // land's controller — the triggering permanent's, bound by makePendingTrigger off checkLandfallTriggers' entered land. These
       // two scopes are new and no matcher reads their raw phrase, so the swap renames nothing another reader keys on; a clause
-      // the sentinel arms don't read stays LOW (the card parks).
-      if (cls.event === "landfall" && (cls.scope === "landOpponentControls" || cls.scope === "nonbasicLandOpponentControls")) {
+      // the sentinel arms don't read stays LOW (the card parks). + "a player plays a land" (Horn of Greed — "that player draws a
+      // card"): the player who played it, who controls the land it played (the any-player scope).
+      if (cls.event === "landfall" && (cls.scope === "landOpponentControls" || cls.scope === "nonbasicLandOpponentControls" || cls.scope === "landAnyPlayer")) {
         effectClause = effectClause.replace(/\bthat player\b/gi, "the triggering permanent's controller");
       }
       // CHARISMATIC CONQUEROR (the play-weighted program, #1045 — "they may tap that permanent. If they don't, you create …"): on its
@@ -6048,6 +6085,8 @@ export function detectTriggers(cardIn) {
         excludeFromBattlefield: cls.excludeFromBattlefield, // GY-EVENT gyEnter only: skip from-battlefield entries (the dies clause covers those)
         gyFromZone: cls.gyFromZone,           // GY-ENTER-BATCH: the ORIGIN zone the printed trigger names ("library" — Sidisi's mill payoff; absent = "from anywhere"). MUST be listed here or it is silently dropped and the trigger fires on EVERY origin — a live over-fire, not a missed one.
         etbMaxPower: cls.etbMaxPower,         // ENTERS POWER CAP ("with power 2 or less" — Welcoming Vampire's batched form, Mentor of the Meek's singular one), read through the layers as the creature enters. Same warning as gyFromZone: unlisted here = silently dropped = the filter never applies.
+        etbColor: cls.etbColor,               // COLOUR-QUALIFIED ENTERS ("another green creature you control" — Ivy Lane Denizen; Ayara): the entering creature's colour gate. ⚠️ Unlisted here = dropped = the watcher fires on every creature of its scope.
+        etbColorSelfExempt: cls.etbColorSelfExempt, // Ayara's "<self> or another <colour> creature": the source's own entry passes the colour gate.
         etbMaxMv: cls.etbMaxMv,               // BATCHED-ETB FILTER: printed mana-value cap ("with mana value 3 or less" — Tocasia's Welcome).
         etbMinMv: cls.etbMinMv,               // ETB FILTER: printed mana-value FLOOR ("with mana value 6 or greater" — Dragon Fangs). ⚠️ Unlisted here = dropped = the Aura returns on ANY creature entering, which is the whole restriction gone while the trigger still looks correctly detected.
         tokenFilter: cls.tokenFilter,         // "a CREATURE TOKEN you control …" (Curiosity Crafter, Anointer Priest). Unlisted here = silently dropped = the trigger fires on every creature, token or not.
@@ -6816,6 +6855,14 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   // Load-bearing: without this the trigger fires for ANY entering creature — a confident wrong fire on every
   // big creature, and invisible in the tier because the card would still classify native.
   if (descriptor.etbMaxPower != null && !(creaturePower(triggeringPermanent, state) <= descriptor.etbMaxPower)) return false;
+  // COLOUR-QUALIFIED ENTERS (Ayara, the Denizens, Sylvan Anthem — "a/another <colour> creature you control enters"): the entering
+  // creature's colours as it enters, through the layers (CR 105.2, 613.1e — the same as-it-enters read as the power cap above). A
+  // permanent that is not on the battlefield reads no colour and never fires (fail closed). Ayara's own entry is exempt
+  // (`etbColorSelfExempt` — "Ayara or another …" names her outright).
+  if (descriptor.etbColor && !(descriptor.etbColorSelfExempt && triggeringPermanent?.id === sourcePermanent?.id)) {
+    const enteringColors = state && triggeringPermanent?.id ? permanentColors(state, triggeringPermanent.id) : null;
+    if (!Array.isArray(enteringColors) || !enteringColors.some((x) => String(x).toUpperCase() === descriptor.etbColor)) return false;
+  }
   // POWER-CAPPED ATTACKER (stage ③ · 26 — Raid Bombardment, Cavalcade of Calamity): the attacker's CURRENT, layer-aware power at
   // declaration — the enters gate above reads the same power as the creature enters. No state or no attacker → no fire.
   if (descriptor.attackMaxPower != null && !(state && triggeringPermanent?.id && permanentPower(state, triggeringPermanent.id) <= descriptor.attackMaxPower)) return false;
@@ -7051,6 +7098,9 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
     case "landOpponentControls":
       // OPPONENT'S LAND (Archaeomancer's Map) — the twin of the arm above: the entering land is controlled by another player.
       return !!triggeringPermanent && isLandPerm(triggeringPermanent) && triggeringPermanent.controller !== sourcePermanent.controller;
+    case "landAnyPlayer":
+      // ANY PLAYER'S LAND (Horn of Greed, Pangosaur — "a player plays a land", PLAYED only): the land's controller is unconstrained.
+      return !!triggeringPermanent && isLandPerm(triggeringPermanent);
     case "nonbasicLandOpponentControls":
       // …and NONBASIC (Spectrum Sentinel): no basic supertype on the entering land's type line (CR 205.4c).
       return !!triggeringPermanent && isLandPerm(triggeringPermanent) && triggeringPermanent.controller !== sourcePermanent.controller
@@ -7536,15 +7586,23 @@ export function checkEnterTriggers(state, enteredPerm) {
 export function checkLandfallTriggers(state, enteredLand, { played = false } = {}) {
   if (!enteredLand) return state;
   let fired = [];
+  // A PLAYED-LAND trigger (`playedOnly` — City of Traitors' "When you play another land", Burgeoning's "Whenever an opponent plays a
+  // land", Horn of Greed's "a player plays a land") triggers on the special action (CR 305.1), not on a permanent entering, so
+  // neither the enters silencer below nor the enters multiplier further down reaches it (Ancient Greenwarden's ruling: "An ability
+  // that triggers whenever you play a land won't trigger an additional time.").
   const silenced = entersSilencer(state); // ELESH NORN (shelf D20) — a land entering is a permanent entering
   for (const pid of Object.keys(state.players)) {
-    for (const watcher of entersWatchersOf(state, pid, silenced)) {
+    const silencedHere = silenced(pid);
+    for (const watcher of triggerSourcesOf(state, pid)) {
       // A GY-FUNCTIONING landfall descriptor (Bloodghast) never fires from the battlefield —
       // the Radroach/milled discipline: the flag routes the two scans off one detectTriggers cache.
       // CITY OF TRAITORS (KT-5): a `playedOnly` descriptor needs the play-land path's marker (fails closed on the effect
       // path); a `landfallExcludeSelf` descriptor never fires on the watcher's own entry.
       const descriptorFilter = (d) => !d.functionsFromGraveyard && !(d.playedOnly && !played) && !(d.landfallExcludeSelf && watcher.id === enteredLand.id);
-      fired = fired.concat(triggersForEvent(state, { event: "landfall", sourcePermanent: watcher, triggeringPermanent: enteredLand, descriptorFilter }));
+      // A silenced player's permanents (entersWatchersOf's rule) still see a played land: only their enters-caused triggers stop.
+      const entersOk = !silencedHere || watcher.isEmblem;
+      const raw = triggersForEvent(state, { event: "landfall", sourcePermanent: watcher, triggeringPermanent: enteredLand, descriptorFilter });
+      for (const t of raw) if (entersOk || t.descriptor?.playedOnly) fired.push(t);
     }
     // GRAVEYARD scan (Bloodghast — CR 603.3d): the landfall self-return functions FROM the graveyard;
     // the card itself is the source, sourceCardId threads the exact card for the battlefield return.
@@ -7568,7 +7626,8 @@ export function checkLandfallTriggers(state, enteredLand, { played = false } = {
   // ENTERS-TRIGGER MULTIPLIER applies HERE TOO, and forgetting it would be the quiet half of the bug: a
   // landfall trigger is a triggered ability that triggered because a permanent entered, so Ancient
   // Greenwarden (land filter) and Yarok (any permanent) double it exactly as they double an ETB.
-  fired = multiplyTriggers(state, fired, (st, ctrl) => etbTriggerMultiplierCount(st, ctrl, enteredLand.card, enteredLand.id)); // + the permanent (the type-line audit)
+  // A played-land instance is not enters-caused (above): it keeps its place in the batch, unmultiplied.
+  fired = multiplyTriggers(state, fired, (st, ctrl) => etbTriggerMultiplierCount(st, ctrl, enteredLand.card, enteredLand.id), (t) => !!t.descriptor?.playedOnly); // + the permanent (the type-line audit)
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
@@ -7609,22 +7668,24 @@ const multiplyDiesTriggers = (state, fired) => multiplyTriggers(state, fired, di
 // ATTACK-TRIGGER MULTIPLIER (Isshin, Two Heavens as One) — the same expansion keyed on the attack
 // statics instead. One shared body so the two can never diverge on the distinct-instance rule.
 const multiplyAttackTriggers = (state, fired) => multiplyTriggers(state, fired, attackTriggerMultiplierCount);
-function multiplyTriggers(state, fired, countFor) {
+function multiplyTriggers(state, fired, countFor, unmultiplied = null) {
   if (!fired.length) return fired;
   const countByController = new Map();
-  const multFor = (controller) => {
-    if (controller == null) return 0;
+  // `unmultiplied` (optional): a trigger the multiplier's event does not cause — checkLandfallTriggers' played-land instances.
+  const multFor = (t) => {
+    const controller = t.controller;
+    if (controller == null || (unmultiplied && unmultiplied(t))) return 0;
     if (!countByController.has(controller)) countByController.set(controller, countFor(state, controller));
     return countByController.get(controller);
   };
   // Fast path: no multiplier anywhere → return the original list untouched.
   let anyExtra = false;
-  for (const t of fired) { if (multFor(t.controller) > 0) { anyExtra = true; break; } }
+  for (const t of fired) { if (multFor(t) > 0) { anyExtra = true; break; } }
   if (!anyExtra) return fired;
   const out = [];
   for (const t of fired) {
     out.push(t);
-    const extra = multFor(t.controller);
+    const extra = multFor(t);
     for (let i = 0; i < extra; i++) out.push({ ...t }); // a distinct additional instance
   }
   return out;

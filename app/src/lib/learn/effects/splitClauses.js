@@ -700,6 +700,9 @@ export function splitClauses(oracle) {
     // the clause parse binds the P/T-set + every granted keyword to the same animate atom (all-or-nothing
     // anchored — an un-grantable keyword / color-set / permanent duration just fails to match → low → Arbiter).
     if (/^(?:until end of turn, )?(?:target|this) land(?: you control)? becomes a \d+\/\d+\b.*\bcreature\b/i.test(sentence)) { clauses.push(sentence); continue; }
+    // + THE X/X FORM (Destiny Spinner — "target land you control becomes an X/X Elemental creature with trample and haste until end
+    // of turn, where X is …"): the same one instruction, its "where X" tail defining the P/T (atoms/combat.js reads it whole).
+    if (/^target land(?: you control)? becomes an x\/x\b[^,]*\bcreature\b[^,]* until end of turn, where x is /i.test(sentence)) { clauses.push(sentence); continue; }
     // OVERRUN-X — a COUNT-SCALED team pump ("[Until end of turn,] creatures you control gain trample and
     // get +X/+X[ until end of turn], where X is the greatest power among / the number of creatures you
     // control" — Overwhelming Stampede, Craterhoof Behemoth's ETB). The " and " between the keyword grant

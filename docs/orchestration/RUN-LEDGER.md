@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.165.0** (tagged 2026-10-18 on the `[0.165.0]` CHANGELOG cut):
-> **7 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.0% (15,567)**; engine gains since the tag: **+31**. The next tag
+> **8 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.0% (15,589)**; engine gains since the tag: **+53**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,87 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-17 — PLAY-WEIGHTED: triggers and statics the most-played still lacked — Ayara, First of Locthwain (EDHREC #847) — a colour on the entering creature, "<self> or another black creature you control", and "Sacrifice another black creature" (+ Ivy Lane Denizen #2474, Sylvan Anthem #2828, Court Street / Foundry Street / Sage's Row / Shadow Alley Denizen, Homarid Spawning Bed); Burgeoning (#901) — "an opponent plays a land", PLAYED only (+ Horn of Greed #2127, Dirtcowl Wurm, Pangosaur); Destiny Spinner (#1006) — two card types that can't be countered and the X/X land fixed as it resolves (+ Sphinx of the Final Word, Vastwood Animist); Heliod, Sun-Crowned (#1028) — "target creature or enchantment you control" and "another target creature gains" (+ Trailblazing Historian, Hotfoot Gnome, Torch Courier, Gravity Negator, Attended Healer); Jhoira's Familiar (#1056) — the historic cost reducer; and FIX: a played-land trigger is not an entering — City of Traitors was doubled by Ancient Greenwarden / Yarok and silenced by an opponent's Elesh Norn, Mother of Machines · **+22** · snapshot native+land 15,562 → 15,584
+> Suite **21,129 green (1 skipped) / 1,900 files** under the gate queue (with the rules index built for the run, then deleted; run 1 failed
+> one pin of the old reading — graduated below — and the known `crucibleRun.test.js` load timeout; run 2 is the green of record). Lint 0
+> (CR citations: 0 of 11,825 name no rule; keyword citations: 0 of 2,394 cite a different keyword). Flip-diff **+22 / −0 / RETIERED 0**
+> (34,620 cards; before = an untouched `git archive` of 8fd9cda9, snapshotted before the first edit; native+land 15,562 → 15,584 of 34,584
+> snapshot names); program-fingerprint (34,620 cards) moves 25 programs — 19 of the gained (Jhoira's Familiar, Sphinx of the Final Word
+> and Homarid Spawning Bed move in their static or cost parse, not their programs) and 6 that stay parked (below). `measure-coverage`
+> (MTG_APP_ROOT = the install): corpus 15,567 → 15,589; top 1,000 **926 → 929** (Ayara, Burgeoning, Destiny Spinner); top 2,500
+> **1,784 → 1,791** (+ Heliod, Jhoira's Familiar, Horn of Greed, Ivy Lane Denizen); top 5,000 2,788 → 2,796 (+ Sylvan Anthem); top 10,000
+> 4,598 → 4,610 (+ Shadow Alley Denizen, Court Street Denizen, Torch Courier, Sphinx of the Final Word); the 30 profile decks unchanged
+> (2,753 / 2,998 — none holds a gained card). **Mutants 7/7** on assertions, each restored byte-identical (sha256): the played-land
+> instance silenced again (2 tests red), multiplied again (2), the historic predicate on the whole type line (1 — the flip card's legendary
+> back), the colour gate off (4), X read as the printed 0 (3), "another" without `excludeSource` (5), the sacrifice colour filter off (3).
+> Witness files written before each mechanism's engine change and run on the untouched archive: the first versions — **46 of 65 fail there
+> on assertions, the 19 controls pass on both**; the five twin tests added after the flip-diff named them (Trailblazing Historian / Hotfoot
+> Gnome / Torch Courier, Attended Healer, Gravity Negator, Homarid Spawning Bed, Sphinx of the Final Word) fail there too — **51 of the final
+> 70**. (One first-version test dispatched an action the base never offers and failed there on a TypeError; it now asserts the offer first
+> and fails on that assertion.) A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the
+> untouched 8fd9cda9 archive): **80 / 80 byte-identical** (the sha256 of every game record — each decision row, the log, result, winner,
+> turns, ticks), 0 errors on either tree, results unchanged (ai-wins 58 / user-wins 22), 300.2 s / 287.9 s — no profile deck holds a gained
+> card, and the City of Traitors fix needs Killer Turts' City beside Earth Bent's Ancient Greenwarden or Brago Blink's Elesh Norn on one
+> board, which these games never reached. Committed on `day/played25c`, not pushed; the release-batch line and the WAKE-REPORT are the
+> integrator's.
+> · **A colour on the entering creature** (Ayara: "Whenever Ayara or another black creature you control enters, each opponent loses 1 life
+>   and you gain 1 life."). No enters watcher read a colour — "a/another <colour> creature you control" fell through every subject arm, and
+>   Ayara's union hit the compound "or another" refusal. classifyCondition now reads it as `creatureYouControl` / `otherCreatureYouControl`
+>   with `etbColor` (whitelisted): scopeMatches reads `layers.permanentColors` of the entering permanent as it enters (the power cap's
+>   as-it-enters read), failing closed off the battlefield. The union (a creature card naming itself) adds `etbColorSelfExempt` — her own
+>   entry needs no colour. One colour word only: a colour pair, an opponent's creature or a subject without "you control" stays undetected.
+>   "{T}, Sacrifice another black creature: Draw a card." → `sacOther.color`, read by the activation offer through the layers. Twins:
+>   Ivy Lane Denizen, Sylvan Anthem (its anthem was modeled), Court Street / Foundry Street / Sage's Row / Shadow Alley Denizen, Homarid
+>   Spawning Bed ("Sacrifice a blue creature" — X is the sacrificed creature's mana value, already read).
+> · **A played land** (Burgeoning: "Whenever an opponent plays a land, you may put a land card from your hand onto the battlefield.";
+>   Horn of Greed: "Whenever a player plays a land, that player draws a card."). City of Traitors' `playedOnly` gate on the scopes
+>   `landOpponentControls` and the new `landAnyPlayer`; "that player" is the land's controller (the triggering-permanent's-controller
+>   sentinel). The bundled rulings: an effect-put land never triggers it (witnessed — while the same land does trigger Polluted Bonds).
+>   Twins: Dirtcowl Wurm, Pangosaur.
+> · **FIX — the played-land trigger is not an entering.** checkLandfallTriggers multiplied every landfall instance by the enters multiplier
+>   and dropped every silenced player's watchers, so City of Traitors' sacrifice trigger went on the stack twice beside Ancient Greenwarden
+>   or Yarok and not at all under an opponent's Elesh Norn, Mother of Machines (Greenwarden's ruling: an ability that triggers whenever you
+>   play a land "won't trigger an additional time"). A `playedOnly` instance now passes the silencer and is excluded from the multiplier
+>   (`multiplyTriggers`' optional `unmultiplied` predicate), keeping its place in the batch; enters-caused landfall is unchanged (witnessed:
+>   Polluted Bonds is still doubled by Yarok and silenced by Elesh Norn).
+> · **Destiny Spinner**: "Creature and enchantment spells you control can't be countered." → two `cantBeCountered` card-type entries on the
+>   controller (a boolean answer, so an enchantment creature is not counted twice); twin: Sphinx of the Final Word's "Instant and sorcery".
+>   "Target land you control becomes an X/X Elemental creature with trample and haste until end of turn, where X is the number of
+>   enchantments you control." → the land animation with `ptCount` (the shared count vocabulary), counted once as it resolves and set as
+>   the 7b base (CR 608.2h; the rulings — it doesn't grow later; a 0/0 dies); splitClauses keeps the sentence whole. Twin: Vastwood Animist.
+> · **Heliod, Sun-Crowned**: "put a +1/+1 counter on target creature or enchantment you control" → the `creatureOrEnchantment` pool with the
+>   controller restriction (a God below its devotion is an enchantment there); "Another target creature gains lifelink until end of turn" →
+>   the pump on the any-creature pool with `excludeSource`. Twins: Trailblazing Historian, Hotfoot Gnome, Torch Courier, Gravity Negator
+>   (its "you may pay {C}" payoff), Attended Healer ("another target Cleric", through the subtype-target wrapper).
+> · **Jhoira's Familiar**: "Historic spells you cast cost {1} less to cast." → `costReduction.historic`, a predicate on the FRONT face of the
+>   spell being cast (legendary / artifact / Saga — CR 700.6; a flip card's legendary back face does not count).
+> · **Tests changed on purpose (pin graduated):** optionalPaymentSelfPronoun.test.js — "'ANOTHER target creature' is not rewritten" asserted
+>   `confidence !== "high"` as a proxy for "not rewritten to the source"; the clause reads now (Gravity Negator's payoff), so it asserts the
+>   claim directly: a chosen creature with the source excluded, never `target: "self"`.
+> · **Programs that move on cards still parked** (each a correct partial read; the card's other text keeps it body-only): Auntie Flint (its
+>   attack trigger's fear grant reads; Mono Eminence does not), Ghost-Lit Drifter (the {2}{U} grant reads; its channel X does not), Heroism
+>   (the "Sacrifice a white creature" cost reads; its prevention does not), Dire Undercurrents, Hidden Stag, Yorvo, Lord of Garenbrig (their
+>   colour / played-land triggers are now detected — they route to the Arbiter instead of never firing; the effects stay unread).
+> · **Not taken:** Delney, Streetwise Lookout (#845 — the multiplier must read the source's power at trigger time and its last-known power
+>   for a leaves trigger, and its evasion line is a second block restriction); Boromir, Warden of the Tower (#862 — "The Ring tempts you" is
+>   the ring-bearer subsystem); Scrap Trawler (#870 — "with lesser mana value" than the triggering artifact's last-known value, a target
+>   restriction no pool reads, and the compound dies-or-put-into-a-graveyard event); Descent into Avernus (#891 — "each player creates X
+>   Treasure tokens" and damage to each player on one X); Blade of Selves (#898 — myriad is credited only as declined today; granting it
+>   honestly needs the copies made, sent at each other opponent and exiled at end of combat); Coat of Arms (#953 — a per-creature
+>   shares-a-creature-type count the layer engine has no selector for); Kodama of the East Tree (#991 — "if it wasn't put onto the
+>   battlefield with this ability", a provenance stamp); Chatterfang (#1051 — a "those tokens plus that many Squirrels" replacement and a
+>   "Sacrifice X Squirrels" cost); Anim Pakal (#1097 — a batched attack trigger has no defender to send its tapped-and-attacking Gnomes at,
+>   and X needs its last-known counters).
+> · ⚠️ **Found, not fixed:** (1) The subtype / card-type cost reducers read the whole "Front // Back" type line (staticAbilityParser.js:5603
+>   — the `typeLine` costReductionForSpell's subtype arm matches): Foundry Inspector's "Artifact spells" discounts Invasion of New Capenna
+>   (a Battle — Siege whose back face is an Artifact — Equipment) by 1 — measured on the pure function. (2) The same for the controller's
+>   can't-be-countered card types (staticAbilityParser.js:5990 — `uncounterableCoversSpell`): Prowling Serpopard's "Creature spells" covers
+>   Invasion of Ikoria (Battle // Legendary Creature). The historic arm reads the front face; both older reads should too. (3) The engine
+>   removes an uncounterable spell from a counterspell's targets; the Destiny Spinner ruling says a counterspell may still target it (its
+>   other effects still happen) — an under-offer of the opponent's options, the family's standing simplification.
+> · Witness: `landPlayedTriggers.test.js` (17), `historicCostReduction.test.js` (9), `heliodSunCrowned.test.js` (13), `destinySpinner.test.js`
+>   (13), `colorCreatureEnters.test.js` (18). Graduated: `optionalPaymentSelfPronoun.test.js`.
 
 > ## 🔧 2026-10-17 — FIX (rules faithfulness): damage dealt by a permanent's OWN ability carries that permanent's lifelink, deathtouch, colours, creature-ness and controller (CR 702.15b, 702.2b, 702.16e, 113.7a) — Basilisk Collar on Prodigal Pyromancer kills a 9/9 and gains 1; Brion Stoutarm, Merciless Enforcers, Sanguinary Priest, Cat-Gator, Terror of the Peaks wearing the Collar gain; Pestilence no longer damages White Knight; a source that left deals as it last existed (CR 702.15c, 702.2e — a pinger killed in response, a sacrificed Mogg Fanatic, Walking Ballista's last counter, its own dies trigger); and FIX (false positive): a red spell's damage is prevented by protection from red (Pyroclasm killed Paladin en-Vec), Rakdos Charm's lifelink gain went to the caster; Super State's and Kediss's relay is dealt by the creature that dealt the combat damage · **±0** · snapshot native 15,562 unchanged
 > Suite **21,087 green (1 skipped) / 1,896 files** under the gate queue (with the rules index built for the run, then deleted; the first run failed the graduated pin below and the known `crucibleRun.test.js` 20 s load timeout, the second only that timeout while an A/B batch ran beside it). Lint 0 (CR citations: 0 of 11,861 name no rule;

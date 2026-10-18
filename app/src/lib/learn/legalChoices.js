@@ -2875,6 +2875,8 @@ function actionsActivateAbility(state, playerId) {
           // ⛔ Offering a token here would let Thopter Foundry sacrifice its own Thopters in a loop the card
           // is explicitly printed to forbid — an illegal payment, the forbidden direction.
           (!ab.sacOther.nontoken || !v.card?.token) &&
+          // COLOUR (Ayara — "Sacrifice another black creature"): the victim's colours now, through the layers (CR 105.2).
+          (!ab.sacOther.color || permanentColors(state, v.id).some((col) => String(col).toUpperCase() === ab.sacOther.color)) &&
           !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""),
         );
         if (sacVictims.length === 0) continue; // no legal sacrifice available → the cost can't be paid

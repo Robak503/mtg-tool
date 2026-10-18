@@ -52,9 +52,15 @@ describe("CREED — the allowlist refuses every ambiguous pronoun", () => {
     expect(r.confidence).not.toBe("high");
   });
 
-  it("'ANOTHER target creature' is not rewritten", () => {
+  it("'ANOTHER target creature' is not rewritten (the proxy changed; the claim did not)", () => {
+    // GRADUATED (2026-10-17, the play-weighted program — Heliod, Sun-Crowned): this asserted `confidence !== "high"` as a PROXY
+    // for "the allowlist did not rewrite this". "Another target creature gains <keyword> until end of turn" now reads on its own
+    // (any creature but the source — Gravity Negator's exact payoff), so the claim is asserted directly: the payoff targets a
+    // CHOSEN creature with the source excluded, never the source itself.
     const r = parseEffectClause("you may pay {C}. If you do, another target creature gains flying until end of turn", "Creature");
-    expect(r.confidence).not.toBe("high");
+    const inner = r.atoms[0]?.effectAtoms?.[0];
+    expect(inner).toMatchObject({ op: "pump", targetType: "creature", excludeSource: true, grantKeywords: ["Flying"] });
+    expect(inner.target).not.toBe("self");
   });
 
   it("a CHOSEN target payoff is not rewritten to SELF (the proxy changed; the claim did not)", () => {

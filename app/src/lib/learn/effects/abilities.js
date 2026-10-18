@@ -655,6 +655,15 @@ export function parseAbilityCost(costStr, card = null) {
         ...(sacOtherM[2] ? { nontoken: true } : {}) };
       continue;
     }
+    // COLOUR-QUALIFIED VICTIM (the play-weighted program, #847 — Ayara, First of Locthwain: "{T}, Sacrifice another black creature:
+    // Draw a card."): the same choice cost with the victim's colour as it is now (legalChoices reads layers.permanentColors — the
+    // read the spell-side "sacrifice a green creature" additional cost makes, CR 105.2). One colour word only.
+    const sacColorM = /^sacrifice (a|another) (white|blue|black|red|green) creature$/i.exec(item);
+    if (sacColorM) {
+      sacOther = { type: "creature", another: /^another$/i.test(sacColorM[1]),
+        color: { white: "W", blue: "U", black: "B", red: "R", green: "G" }[sacColorM[2].toLowerCase()] };
+      continue;
+    }
     // γ1b-SUBTYPE — "Sacrifice a/an/another <Subtype>" (Koma "Sacrifice another Serpent"; Goblin Sledder
     // "Sacrifice a Goblin"; Strands of Night "Sacrifice a Swamp"; Wand of the Elements "Sacrifice an Island"):
     // a CHOICE cost scoped to a SUBTYPE rather than a base card type. The victim is any PERMANENT you control
