@@ -34,7 +34,7 @@ import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCre
 import { auraCastIntent } from "./auraEntry.js"; // W7e — which side an Aura lands on (a control Aura is ENEMY, a restriction grant too); shared with the non-cast entry (CR 303.4f)
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction, manaSources, canAfford } from "./manaModel.js";
-import { attackerMinBlockers, canBlockAttacker, lureFilterOf, mustBeBlockedIfAble } from "./combatEvasion.js";
+import { attackerMinBlockers, canBlockAttacker, lureFilterOf, mustBeBlockedIfAble, maxBlocksFor, selfCantAttackNow } from "./combatEvasion.js";
 import { selfMustAttack, requiredAttackerIds, obeyingAttackOptions } from "./attackRequirements.js"; // ATTACK REQUIREMENTS (CR 508.1d) — the check legalChoices keeps every seat to
 import { attackTaxDetail } from "./attackTax.js"; // the planeswalker attack policy — what one more attack at a planeswalker costs (CR 508.1h), per target
 import { parseLoyaltyAbilities } from "./effects/loyaltyAbilities.js"; // the planeswalker attack policy — an opposing walker's ultimate (the runtime's own loyalty reader)
@@ -74,7 +74,7 @@ import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell �
  * Accepted shapes:
  *   null / undefined                        → all-current (the shipping behavior)
  *   "v1"                                    → every subsystem legacy
- *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker|spellTarget: "v1" } → per-subsystem legacy
+ *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker|spellTarget|racer: "v1" } → per-subsystem legacy
  *
  * The DEFAULT is always the new behavior (the Academy and self-play improve
  * automatically); "v1" exists only so the probe can measure old-vs-new inside one
@@ -85,7 +85,7 @@ import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell �
  * Exported so the A/B probe derives its legacy-key list from THIS array (AI-F11:
  * a hand-copied list silently drops every new subsystem from `--legacy=all`).
  */
-export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget"];
+export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget", "racer"];
 function normalizePolicy(policy) {
   if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
   if (policy && typeof policy === "object") return policy;
@@ -2584,13 +2584,16 @@ function eligibleBlockersFor(state, defenderId, attackerId, defenderBlockers) {
  * eating a clearly bigger body (the 5/5-into-1/1-deathtouch suicide).
  */
 function attackerDiesForNothingV2(att, eligibleBlockers) {
-  return eligibleBlockers.some((b) => {
-    const { attackerDies, blockerDies } = combatDuel(att, b);
-    if (!attackerDies) return false;
-    if (!blockerDies) return true;                 // dies and kills nothing back
-    if (b.deathtouch && att.power + att.toughness > b.power + b.toughness) return true;
-    return false;                                  // mutual kill — a real trade
-  });
+  return eligibleBlockers.some((b) => blockKillsForNothing(att, b));
+}
+
+/** Does blocker `b` kill attacker `att` for nothing — attackerDiesForNothingV2's test for one blocker? */
+function blockKillsForNothing(att, b) {
+  const { attackerDies, blockerDies } = combatDuel(att, b);
+  if (!attackerDies) return false;
+  if (!blockerDies) return true;                 // dies and kills nothing back
+  if (b.deathtouch && att.power + att.toughness > b.power + b.toughness) return true;
+  return false;                                  // mutual kill — a real trade
 }
 
 /**
@@ -2665,11 +2668,14 @@ function swingIsLethal(attackerPowers, blockerCount, defenderLife) {
 }
 
 /**
- * "Competent racer" attack policy: return the SET of attacker permanentIds the AI
+ * "Competent racer" attack policy: return `{ chosen, extras }` — `chosen` the SET of attacker permanentIds the AI
  * should commit against `defenderId`. Swing the whole team when it's lethal or the
  * defender has no blockers (free damage); otherwise swing only creatures that
- * won't just die for nothing to a free-kill block. Returns null when the board
- * can't be evaluated (no defender / unknown seat), signalling "attack with all".
+ * won't just die for nothing to a free-kill block, plus the group `outnumberingAttackers`
+ * adds: one blocker blocks one attacker, so attackers the blockers can't all eat may go
+ * together. `extras` lists that group (also in `chosen`) in the order it is declared, after
+ * the rest. `chosen` is null when the board can't be evaluated (no defender / unknown
+ * seat), signalling "attack with all". `forced`: the creatures that must attack (CR 508.1d).
  *
  * Lethality is judged over the FULL swing — attackers already declared THIS combat
  * (state.combat.attackers, tapped + excluded from the shrinking legal set) PLUS the
@@ -2678,8 +2684,8 @@ function swingIsLethal(attackerPowers, blockerCount, defenderLife) {
  * status after the first attacker taps and the rest would (correctly, for a
  * non-lethal swing) be held — fizzling the kill. (Found in adversarial review.)
  */
-function selectProfitableAttackers(state, aiPlayerId, attackerActions, defenderId, pol = {}) {
-  if (!defenderId || !state.players?.[defenderId]) return null;
+function selectProfitableAttackers(state, aiPlayerId, attackerActions, defenderId, pol = {}, forced = new Set()) {
+  if (!defenderId || !state.players?.[defenderId]) return { chosen: null, extras: [] };
   const blockers = untappedDefenderBlockers(state, defenderId);
   const defenderLife = state.players[defenderId].life ?? 0;
   const permIds = [...new Set(attackerActions.map(a => a.permanentId))];
@@ -2705,7 +2711,7 @@ function selectProfitableAttackers(state, aiPlayerId, attackerActions, defenderI
         chosen.add(id);
       }
     }
-    return chosen;
+    return { chosen, extras: [] };
   }
 
   // W4 — legality-aware profitability. Each attacker is judged against the
@@ -2747,7 +2753,166 @@ function selectProfitableAttackers(state, aiPlayerId, attackerActions, defenderI
       chosen.add(id);
     }
   }
-  return chosen;
+  // ONE BLOCKER BLOCKS ONE ATTACKER (2026-10-18): the per-attacker hold above judges each attacker as if every blocker could
+  // block it. The attackers it holds may still go as a group (outnumberingAttackers). Policy `racer: "v1"` keeps the hold.
+  if (lethal || pol.racer === "v1") return { chosen, extras: [] };
+  const extras = outnumberingAttackers(state, aiPlayerId, attackerActions, defenderId, { blockers, stats, committed, chosen, forced });
+  for (const id of extras) chosen.add(id);
+  return { chosen, extras };
+}
+
+// ─── The racer's group judgment: one blocker blocks one attacker (2026-10-18) ─────────────────────────────────────────
+
+/** One permanentValue point in life points: boardEval.evaluateBoard counts a point of life as 0.25. */
+const LIFE_PER_VALUE = 4;
+
+/**
+ * The defender's blocker slots: one per untapped creature, more for one that "can block an additional creature each combat"
+ * or "any number of creatures" (CR 509.1a; combatEvasion.maxBlocksFor), at most `attackerCount` each. Each slot is the
+ * blocker's id.
+ */
+function blockSlots(state, defenderId, blockers, attackerCount) {
+  const slots = [];
+  for (const b of blockers) {
+    const perm = findPermanent(state, b.id)?.permanent;
+    const cap = perm ? Math.min(maxBlocksFor(state, perm, defenderId), Math.max(1, attackerCount)) : 1;
+    for (let k = 0; k < cap; k++) slots.push(b.id);
+  }
+  return slots;
+}
+
+/**
+ * The most value `rows` can lose to blocks that kill for nothing: each slot blocks one attacker, such a block needs one of the
+ * attacker's `killers`, and an attacker with menace or "except by N or more" takes N slots (CR 702.111b). Two bounds, the
+ * smaller kept: the one-slot matching, greedy by value (exact — the attackers a set of slots can be matched to form a
+ * transversal matroid), and a fractional knapsack of N-slot attackers over every slot. An attacker no block can reach is safe.
+ */
+function worstCaseLoss(rows, slots) {
+  const byId = (x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
+  const order = rows.filter((r) => r.killers.length && r.eligibleCount >= r.minBlockers).sort((x, y) => (y.value - x.value) || byId(x, y));
+  if (!order.length || !slots.length) return 0;
+  const owner = new Array(slots.length).fill(-1);
+  const augment = (i, seen) => {
+    for (let j = 0; j < slots.length; j++) {
+      if (seen[j] || !order[i].killers.includes(slots[j])) continue;
+      seen[j] = true;
+      if (owner[j] < 0 || augment(owner[j], seen)) { owner[j] = i; return true; }
+    }
+    return false;
+  };
+  // An attacker whose killers could not take one more is never matched later either: the matched set only grows.
+  const stuck = new Set();
+  let matched = 0;
+  let matching = 0;
+  for (let i = 0; i < order.length && matched < slots.length; i++) {
+    if (stuck.has(order[i].killerKey)) continue;
+    if (augment(i, new Array(slots.length).fill(false))) { matched += 1; matching += order[i].value; }
+    else stuck.add(order[i].killerKey);
+  }
+  let room = slots.length;
+  let knapsack = 0;
+  for (const r of [...order].sort((x, y) => (y.value / y.minBlockers - x.value / x.minBlockers) || byId(x, y))) {
+    if (room <= 0) break;
+    const share = Math.min(1, room / r.minBlockers);
+    knapsack += share * r.value;
+    room -= share * r.minBlockers;
+  }
+  return Math.min(matching, knapsack);
+}
+
+/**
+ * What the AI's living opponents could deal it on their next turns if each attacks with every creature that can attack, each
+ * blocked biggest-first (unavoidableDamage) by the AI's creatures still untapped after this combat: an attacker stays tapped
+ * until its controller's next untap step unless it has vigilance (CR 508.1f, 702.20b). Summed over the opponents, the same
+ * home blockers against each. Returns a reader of the planned attackers (`away`: the ids that tap to attack).
+ */
+function crackBackReader(state, aiPlayerId) {
+  const home = (state.players?.[aiPlayerId]?.battlefield || []).filter((p) => permanentIsCreature(state, p.id) && !p.tapped).map((p) => p.id);
+  const opponents = opponentsOf(state, aiPlayerId)
+    .filter((o) => (state.players?.[o]?.life ?? 0) > 0)
+    .map((o) => (state.players[o].battlefield || [])
+      .filter((p) => permanentIsCreature(state, p.id))
+      .filter((p) => !permanentHasKeyword(state, p.id, "Defender") || permanentHasKeyword(state, p.id, "attacksIgnoringDefender"))
+      .filter((p) => !permanentHasKeyword(state, p.id, "cantAttack") && !selfCantAttackNow(state, p))
+      .map((p) => ({ power: Math.max(0, permanentPower(state, p.id)), minBlockers: minBlockersFor(state, p.id), blockedBy: new Set(home.filter((h) => canBlockAttacker(state, h, p.id, aiPlayerId))) })));
+  return (away) => {
+    const left = home.filter((h) => !away.has(h));
+    let total = 0;
+    for (const attackers of opponents) {
+      total += unavoidableDamage(attackers.map((a) => ({ power: a.power, minBlockers: a.minBlockers, eligibleCount: left.filter((h) => a.blockedBy.has(h)).length })), left.length);
+    }
+    return total;
+  };
+}
+
+/**
+ * ONE BLOCKER BLOCKS ONE ATTACKER (2026-10-18; AI decision quality). The racer holds every attacker some untapped blocker of
+ * the defender's can kill for nothing, judging each as if every blocker could block it — so one big blocker vetoed a whole
+ * team (13 creatures with 34 power stayed home against one untapped creature in a self-play game). But each blocker blocks
+ * one attacker (CR 509.1a): against the group, the defender can kill only as many attackers for nothing as it has blocker
+ * slots with a killer for them, and the rest connect. This returns the held attackers that go anyway, in declaration order:
+ *   · Only attackers that face `defenderId` itself with power above 0 (one with none adds no damage), never a land (a land
+ *     creature dies a mana source; its value reads 0) and never one that must attack anyway (it is part of the group already).
+ *   · Cheapest first (boardEval.permanentValue, then power, then id): the group is the cheapest k held attackers, beside the
+ *     attackers that go at that face whatever this decides — declared already, the racer's safe ones, the ones that must.
+ *   · Worth it when the face damage the group adds is worth more than the value it adds to what the defender can kill for
+ *     nothing, both at the defender's best: the damage as unavoidableDamage (the biggest blockable attackers blocked, every
+ *     slot used), the loss as worstCaseLoss (the most valuable killed). Damage in life points, weighted up below 20 life as
+ *     the planeswalker policy weighs it (FACE_URGENCY_LIFE); value at LIFE_PER_VALUE (evaluateBoard's rate). The best k wins.
+ *   · Never when the crack-back is then lethal (crackBackReader against the AI's life), and only as many as the seat can pay
+ *     the defender's attack tax for (CR 508.1h), the attackers that go anyway paid first — the mana from the attackers that
+ *     tap to attack excluded (CR 508.1f, 508.1i).
+ * The per-tick driver re-plans with the declared attackers counted in, so a group declared cheapest first re-plans to itself.
+ */
+function outnumberingAttackers(state, aiPlayerId, attackerActions, defenderId, { blockers, stats, committed, chosen, forced }) {
+  if (blockers.length === 0) return [];
+  const facing = new Set(attackerActions.filter((a) => !a.defenderId || (a.defenderId === defenderId && !a.defenderPlaneswalkerId)).map((a) => a.permanentId));
+  const held = [...facing].filter((id) => stats.get(id)?.power > 0 && !chosen.has(id) && !forced.has(id) && !permanentHasCardType(state, id, "Land"));
+  if (held.length === 0) return [];
+  const read = (s) => {
+    const killers = s.eligible.filter((b) => blockKillsForNothing(s, b)).map((b) => b.id);
+    return {
+      id: s.id, power: s.power, minBlockers: s.minBlockers || 1, eligibleCount: s.eligibleCount, killers, killerKey: [...killers].sort().join(" "),
+      value: permanentValue(findPermanent(state, s.id)?.permanent, state), vigilance: permanentHasKeyword(state, s.id, "Vigilance"),
+    };
+  };
+  const declared = new Set(committed.map((c) => c.id));
+  const pending = [...facing].filter((id) => stats.get(id) && !declared.has(id) && (chosen.has(id) || forced.has(id))).map((id) => read(stats.get(id)));
+  const fixed = [...committed.map(read), ...pending];
+  const byId = (x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
+  const pool = held.map((id) => read(stats.get(id))).sort((x, y) => (x.value - y.value) || (y.power - x.power) || byId(x, y));
+
+  const slots = blockSlots(state, defenderId, blockers, fixed.length + pool.length);
+  const dmgRow = (r) => ({ power: r.power, minBlockers: r.minBlockers, eligibleCount: r.eligibleCount });
+  const damage0 = unavoidableDamage(fixed.map(dmgRow), slots.length);
+  const loss0 = worstCaseLoss(fixed, slots);
+  const life = state.players?.[defenderId]?.life ?? 0;
+  const faceWeight = life > 0 && life < FACE_URGENCY_LIFE ? FACE_URGENCY_LIFE / life : 1;
+  const ranked = [];
+  for (let k = 1; k <= pool.length; k++) {
+    const group = [...fixed, ...pool.slice(0, k)];
+    const gain = faceWeight * (unavoidableDamage(group.map(dmgRow), slots.length) - damage0) - LIFE_PER_VALUE * (worstCaseLoss(group, slots) - loss0);
+    if (gain > 0) ranked.push({ k, gain });
+  }
+  if (ranked.length === 0) return [];
+  ranked.sort((x, y) => (y.gain - x.gain) || (x.k - y.k));
+
+  const crackBack = crackBackReader(state, aiPlayerId);
+  const aiLife = state.players?.[aiPlayerId]?.life ?? 0;
+  const tax = attackTaxDetail(state, defenderId, null);
+  const taxed = tax.generic > 0 || tax.phyrexian.length > 0;
+  for (const { k } of ranked) {
+    const planned = [...pending, ...pool.slice(0, k)];
+    const away = new Set(planned.filter((r) => !r.vigilance).map((r) => r.id));
+    if (crackBack(away) >= aiLife) continue;
+    if (taxed) {
+      const sources = manaSources(state, aiPlayerId).filter((src) => !away.has(src.permanentId));
+      const cost = { generic: tax.generic * planned.length, phyrexian: planned.flatMap(() => tax.phyrexian) };
+      if (!canAfford(state.players?.[aiPlayerId]?.manaPool, sources, cost, lifePaymentContext(state, aiPlayerId))) continue;
+    }
+    return pool.slice(0, k).map((r) => r.id);
+  }
+  return [];
 }
 
 // MUST-ATTACK (subsystem 4, CR 508.1a) — selfMustAttack moved to attackRequirements.js (the requirement check every seat
@@ -2776,7 +2941,6 @@ export function pickAttackPlan(state, aiPlayerId, attackerActions, { policy = nu
   }
   const target = chooseDefender(state, aiPlayerId);
   const pol = normalizePolicy(policy);
-  const chosen = selectProfitableAttackers(state, aiPlayerId, attackerActions, target, pol);
   // MUST-ATTACK (subsystem 4, CR 508.1a) — a creature that "attacks each combat/turn if able" MUST be
   // declared if it can. It's already in attackerActions (the eligible set, i.e. "able"), so force-include
   // it regardless of the profitability filter (the racer would otherwise illegally hold back an
@@ -2795,11 +2959,18 @@ export function pickAttackPlan(state, aiPlayerId, attackerActions, { policy = nu
   // attackRequirements.requiredAttackerIds — the check legalChoices keeps every seat's declaration to — which also leaves out a
   // creature whose every offered attack costs mana: its controller isn't forced to pay (CR 508.1d).
   const forced = requiredAttackerIds(state, aiPlayerId, attackerActions);
+  // The racer reads the requirements: a creature that must attack is part of the group it judges (outnumberingAttackers).
+  const { chosen, extras } = selectProfitableAttackers(state, aiPlayerId, attackerActions, target, pol, forced);
+  // The group the racer adds is declared last, cheapest first: each re-plan then counts the declared ones in and re-plans to the
+  // same group, and the attackers that go anyway pay any attack tax first (CR 508.1h).
+  const extraRank = new Map(extras.map((id, i) => [id, i]));
+  const byExtraRank = (x, y) => extraRank.get(x.permanentId) - extraRank.get(y.permanentId);
 
   if (!hasDefenderChoice) {
     // Standard: one action per creature, no defenderId. Can't evaluate → swing all.
     if (chosen === null) return pickAllAttackers(attackerActions);
-    return attackerActions.filter(a => chosen.has(a.permanentId) || forced.has(a.permanentId));
+    const plan = attackerActions.filter(a => chosen.has(a.permanentId) || forced.has(a.permanentId));
+    return [...plan.filter((a) => !extraRank.has(a.permanentId)), ...plan.filter((a) => extraRank.has(a.permanentId)).sort(byExtraRank)];
   }
 
   // Commander: focus the chosen target, one action per attacking creature. While an opposing planeswalker is offered (the
@@ -2838,26 +3009,27 @@ export function pickAttackPlan(state, aiPlayerId, attackerActions, { policy = nu
       }
       plan.push((target && pool.find(o => o.defenderId === target && !o.defenderPlaneswalkerId)) || pool[0]);
     }
-    return plan;
+    return [...plan.filter((a) => !extraRank.has(a.permanentId)), ...plan.filter((a) => extraRank.has(a.permanentId)).sort(byExtraRank)];
   }
 
   const atWalker = walkerOffered ? planWalkerAttacks(state, aiPlayerId, pools, attacking, target) : new Map();
   const walkerPlan = [];
   const facePlan = [];
+  const extraPlan = [];
   for (const [id, pool] of pools) {
     const walkerId = atWalker.get(id);
     if (walkerId) { walkerPlan.push(pool.find((o) => o.defenderPlaneswalkerId === walkerId)); continue; }
     if (!attacking(id)) continue;
-    facePlan.push((target && pool.find(o => o.defenderId === target && !o.defenderPlaneswalkerId)) || pool[0]);
+    (extraRank.has(id) ? extraPlan : facePlan).push((target && pool.find(o => o.defenderId === target && !o.defenderPlaneswalkerId)) || pool[0]);
   }
   // The planeswalker attacks are declared first, so each pays its attack tax before a face attack spends the mana (CR 508.1h).
-  return [...walkerPlan, ...facePlan];
+  return [...walkerPlan, ...facePlan, ...extraPlan.sort(byExtraRank)];
 }
 
 // ─── The planeswalker attack policy (2026-10-18) ──────────────────────────────
 
 /** One permanentValue point in life points: boardEval.evaluateBoard counts a point of life as 0.25. */
-const WALKER_LIFE_PER_VALUE = 4;
+const WALKER_LIFE_PER_VALUE = LIFE_PER_VALUE;
 /** Below this life, a point of face damage counts FACE_URGENCY_LIFE / life points: the defender is closer to dying. */
 const FACE_URGENCY_LIFE = 20;
 

@@ -983,6 +983,18 @@ would have dealt the focused player, weighted up below 20 life. Each planned att
 target), funded from mana the attackers don't tap; the walker attacks are declared first. Greedy across walkers; the per-tick driver
 re-plans with the attackers already declared counted in. Policy `walker: "v1"` restores the old clean-kill focus (`chooseWalkerToKill`).
 
+**The racer's group judgment (`opponentAI.outnumberingAttackers`, added 2026-10-18 — AI decision quality).** `selectProfitableAttackers`
+holds every attacker some untapped blocker of the focused player can kill for nothing, judging each as if every blocker could block it.
+One blocker blocks one attacker (CR 509.1a), so the held attackers that face that player may still go as a group: cheapest first
+(`boardEval.permanentValue`), beside the attackers that go anyway (declared, the racer's safe ones, the ones that must attack), when the
+face damage the group adds (`unavoidableDamage` over the defender's blocker slots — `combatEvasion.maxBlocksFor`) is worth more than the
+value it adds to what the blockers can kill for nothing (`worstCaseLoss`: a one-slot matching greedy by value, a menace / "≥N" attacker
+taking N slots), both at the defender's best, at evaluateBoard's rate (`LIFE_PER_VALUE` = 4 life per value point — the walker policy's)
+with the face weight below 20 life. Never a land creature; never when the crack-back is then lethal (`crackBackReader`: each living
+opponent's creatures that can attack, blocked by the AI's creatures still untapped); only as many as the defender's attack tax can be
+paid for, the attackers that go anyway first. The group is declared last, cheapest first, so each per-tick re-plan reproduces it.
+Policy `racer: "v1"` restores the per-attacker hold.
+
 **The default AI's combo line (`tokenLoopLine.js`, added 2026-10-03).** The rule
 (Colton): a combo deck plays to ITS line — build the resource only to "enough",
 then forgo every other choice, then execute the finish. Slice one knows one line:
