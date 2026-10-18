@@ -83,7 +83,9 @@ describe("STATIC-COST-REDUCTION — excluded subjects stay body-only (safe FN)",
     // single union descriptor; the dual-subtype over-reduction it was guarding against is pinned directly in
     // staticResidueST2.test.js (a spell matching BOTH halves is reduced ONCE).
     ["'{X} less' (non-numeric)", "Dragon spells you cast cost {X} less to cast."],
-    ["a trailing rider breaks the anchor", "Dragon spells you cast cost {1} less to cast for each Mountain you control."],
+    // GRADUATED 2026-10-18: "… for each Mountain you control" is a board-scaled reducer now (parseCastCostModifier — a count of
+    // the caster's own permanents, pinned below), so the trailing rider that breaks the anchor is an UNREAD count instead.
+    ["a trailing rider breaks the anchor", "Dragon spells you cast cost {1} less to cast for each card in your hand."],
   ];
   for (const [label, oracle] of cases) {
     it(`${label} → no cost-reduction marker`, () => {
@@ -91,6 +93,10 @@ describe("STATIC-COST-REDUCTION — excluded subjects stay body-only (safe FN)",
       expect(descriptors.some((d) => d.costReduction)).toBe(false);
     });
   }
+  it("graduated: \"for each Mountain you control\" reads as a board-scaled reducer, amount 0 until the cast site counts", () => {
+    const descriptors = parseStaticAbilities({ type: "Artifact", oracle: "Dragon spells you cast cost {1} less to cast for each Mountain you control." });
+    expect(descriptors).toEqual([{ costReduction: { subtype: "Dragon", amount: 0, per: 1, perEachCount: { kind: "permanentsYouControl", subtype: "Mountain" } } }]);
+  });
 });
 
 // ─── 2b. card-TYPE reducers (Foundry Inspector, Marauding Raptor) ────────────────

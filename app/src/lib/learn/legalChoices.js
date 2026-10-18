@@ -38,7 +38,7 @@ import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — 
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
 import { grantsWubrgAltCost, fixedManaAltCostOf, conditionalFixedManaAltCostOf } from "./effects/textNormalize.js"; // + the trap form (shelf D17) // FIST OF SUNS (RG-5) — the board-granted WUBRG alternative cost; + RG-8 — the spell's OWN fixed-mana alternative cost (the Bringers); leaf readers
-import { collectCostReducers, playLandFromGraveyardPermission, plotFromLibraryTopGranted, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, landDropAllowance, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
+import { collectCostReducers, resolveCastSiteReducers, playLandFromGraveyardPermission, plotFromLibraryTopGranted, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, landDropAllowance, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksFor, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxDetail } from "./attackTax.js"; // ATTACK TAX (CR 508.1h) — withhold the attack the tax can't fund, per attack target (+ the Phyrexian life lane, Norn's Annex)
 import { obeyingAttackOptions, attackDeclarationOffer } from "./attackRequirements.js"; // ATTACK REQUIREMENTS (CR 508.1d) — the one check, shared with the AI planner
@@ -1130,20 +1130,27 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
 
   // STATIC-COST-REDUCTION: the subtype cost-reducers this player controls, gathered ONCE (each zone is
   // invariant across the loop). Skipped for a free-cast (it pays no mana). costReductionForSpell matches each
-  // castable card's type line against them below. CR 601.2f. Two sources:
+  // castable card's type line against them below. CR 601.2f. Three sources:
   //   • battlefield permanents — every reducer ("Dragon spells you cast cost {2} less" — Dragonspeaker Shaman).
   //   • the command zone — ONLY EMINENCE reducers (The Ur-Dragon's "as long as ~ is in the command zone or on
   //     the battlefield, other Dragon spells you cast cost {1} less"), so a commander discounts its tribe while
   //     it sits in the command zone (the normal pattern), not only once it has been cast onto the battlefield.
   //     command entries are BARE card objects (no { card } wrapper), unlike battlefield permanents.
+  //   • every OTHER player's battlefield — ONLY the reducers that reach every caster ("Spells cost {1} less to cast." — Helm of
+  //     Awakening names no "you", so an opponent's Helm discounts this player's spells too).
+  // Then resolveCastSiteReducers drops a "during your turn" reducer on another player's turn and counts a board-scaled one for
+  // this player (Temur Battlecrier's creatures with power 4 or greater; Sami's artifacts) as the cost is determined (CR 601.2f).
   const costReducers = freeCast
     ? []
-    : [
+    : resolveCastSiteReducers([
         // Pass the battlefield PERMANENTS (not bare cards) so a CHOSEN-TYPE reducer (Urza's Incubator) can pair
         // with its source permanent's stored chosenType; collectCostReducers reads `.card` + `.chosenType`.
         ...collectCostReducers(player.battlefield || []),
         ...collectCostReducers(player.command || [], { commandZone: true }),
-      ];
+        ...Object.entries(state.players || {})
+          .filter(([pid]) => pid !== playerId)
+          .flatMap(([, p]) => collectCostReducers(p?.battlefield || []).filter((r) => r.everyCaster)),
+      ], { casterIsActive: state.activePlayer === playerId, countFor: (spec) => countForSpec(state, { controller: playerId }, spec) });
   // STATIC-COST-TAX (CR 601.2f — the increase twin): taxes read EVERY battlefield (Sphere of Resistance
   // taxes everyone; Thalia taxes her own controller too; a "your opponents cast" tax skips its controller
   // via the stamped controller vs playerId check in costTaxForSpell). Gathered ONCE like the reducers.
@@ -1274,9 +1281,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // 202.3). The self-metric reads the casting player's board (creature power / artifact counts / historic MV).
       // STATIC-COST-TAX first (CR 601.2f — cost increases apply before decreases), then the reductions
       // floor the GENERIC at 0. The pips and the mana value are never touched (CR 202.3).
-      staticTax = costTaxForSpell(costTaxers, card, playerId);
+      staticTax = costTaxForSpell(costTaxers, card, playerId, state.activePlayer);
       if (staticTax) cost = { ...cost, generic: (cost.generic || 0) + staticTax };
-      const reduction = costReductionForSpell(costReducers, card, fromZone, { spellsCastThisTurn: player.spellsCastThisTurn || 0 }, everyType) + selfCostReductionForSpell(state, playerId, card);
+      const reduction = costReductionForSpell(costReducers, card, fromZone, { spellsCastThisTurn: player.spellsCastThisTurn || 0, manaValue: printedCmc }, everyType) + selfCostReductionForSpell(state, playerId, card);
       if (reduction) cost = { ...cost, generic: Math.max(0, (cost.generic || 0) - reduction) };
       cost = applyColoredPipReduction(cost, costReducers, card, everyType);
     }
@@ -1973,10 +1980,11 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // Envoy) reduces it, a creature reducer (Marauding Raptor) and a creature-type reducer don't, a noncreature tax (Thalia)
         // taxes it — and it is no creature type at all (`every` false). The card's own text (selfCostReductionForSpell) is unchanged.
         const asCast = bestowedSpellView(card);
-        const staticTax = costTaxForSpell(costTaxers, asCast, playerId);   // increases before decreases (CR 601.2f)
+        const staticTax = costTaxForSpell(costTaxers, asCast, playerId, state.activePlayer);   // increases before decreases (CR 601.2f)
         if (staticTax) bestowCost = { ...bestowCost, generic: (bestowCost.generic || 0) + staticTax };
-        // `bestowed` (CLOUD KEY): the chosen-card-type reducer reads it as an enchantment spell and no creature spell.
-        const reduction = costReductionForSpell(costReducers, asCast, fromZone, { spellsCastThisTurn: player.spellsCastThisTurn || 0, bestowed: true }, false) + selfCostReductionForSpell(state, playerId, card);
+        // `bestowed` (CLOUD KEY): the chosen-card-type reducer reads it as an enchantment spell and no creature spell. The mana value
+        // is the card's printed one (a bestow cost is paid instead of the mana cost, CR 702.103a, 118.9c).
+        const reduction = costReductionForSpell(costReducers, asCast, fromZone, { spellsCastThisTurn: player.spellsCastThisTurn || 0, bestowed: true, manaValue: printedCmc }, false) + selfCostReductionForSpell(state, playerId, card);
         if (reduction) bestowCost = { ...bestowCost, generic: Math.max(0, (bestowCost.generic || 0) - reduction) };
         bestowCost = applyColoredPipReduction(bestowCost, costReducers, asCast, false);
       }

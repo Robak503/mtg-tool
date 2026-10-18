@@ -4,8 +4,8 @@
  * The unfiltered reducer. The static cost-reduction family (CR 601.2f) needed a word before "spells" — a subtype, a colour,
  * a card type — so the bare form never parsed. It is now `{ costReduction: { allSpells: true } }`, and costReductionForSpell
  * applies it to every spell its controller casts: generic mana only, floored at {0}, the mana value untouched (CR 202.3).
- * The symmetric "Spells cost {1} less to cast." (Helm of Awakening) reaches every player's spells, which the caster-only
- * reducer collection can't express, so it stays parked.
+ * The symmetric "Spells cost {1} less to cast." (Helm of Awakening) reaches every player's spells — read since 2026-10-18 as an
+ * `everyCaster` reducer (symmetricCostReducer.test.js); the pin below graduated with it.
  *
  * Real oracle fixtures (bundled Scryfall, probed 2026-09-30).
  */
@@ -38,9 +38,9 @@ function board({ hand = [LAVA_AXE], userBf = [], aiBf = [], pool = {} } = {}) {
 const castOf = (s, cardId) => legalActionsForPlayer(s, "user").find((a) => a.kind === "cast-spell" && a.cardId === cardId);
 
 describe("the clause", () => {
-  it("⭐ the bare reducer parses to allSpells and Stone Calendar reads native; the symmetric Helm of Awakening stays parked", () => {
+  it("⭐ the bare reducer parses to allSpells and Stone Calendar reads native; the symmetric Helm of Awakening reads native too (graduated 2026-10-18)", () => {
     expect(parseStaticAbilities(STONE_CALENDAR)).toEqual([{ costReduction: { allSpells: true, amount: 1 } }]);
-    expect({ calendar: isNativeTier(classifyCard(STONE_CALENDAR)), helm: isNativeTier(classifyCard(HELM_OF_AWAKENING)) }).toEqual({ calendar: true, helm: false });
+    expect({ calendar: isNativeTier(classifyCard(STONE_CALENDAR)), helm: isNativeTier(classifyCard(HELM_OF_AWAKENING)) }).toEqual({ calendar: true, helm: true });
   });
 });
 

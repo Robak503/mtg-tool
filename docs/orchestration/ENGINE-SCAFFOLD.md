@@ -1097,6 +1097,20 @@ CR 700.6), never the word scan, which keeps "historic" excluded. "Creature and e
 (and Sphinx of the Final Word's "Instant and sorcery") is two `cantBeCountered` card-type entries on one controller: unlike a cost
 reducer, the answer is a boolean, so an object with both types is not counted twice.
 
+**Cast-cost modifiers the most-played lacked (2026-10-18 — Helm of Awakening, Defense Grid, Aura of Silence, Temur Battlecrier,
+It That Heralds the End, Animar).** `staticAbilityParser.parseCastCostModifier` reads six shapes onto the existing lane (CR 601.2f
+— increases, then reductions, generic mana floored at {0}; CR 202.3 — the mana value untouched). A reducer that names no "you"
+("Spells cost {1} less to cast.") is `everyCaster`: the cast site collects it from EVERY battlefield, the others only from the
+caster's. A tax with `exceptCasterTurn` (Defense Grid) skips a spell cast on its caster's own turn — `costTaxForSpell` takes the
+active player as a fourth argument (absent → the tax applies). A tax with `cardTypes` (Aura of Silence) is one union. A reducer
+with `minManaValue` reads `castContext.manaValue` — the printed mana value the cast site hands in (X as 0, so an X spell under the
+floor gets no discount: an under-read) — and fails closed without it; `colorless` is the spell's colours as cast. A scaled reducer
+carries `per` with `amount: 0` until stamped: `perCounterOnSource` (Animar, Herald of War, Mindsplice Apparatus) by
+`collectCostReducers` off the source permanent's counters, `perEachCount` (Temur Battlecrier, Sami's granted affinity, Sokka) by
+`resolveCastSiteReducers` at the cast site through `countForSpec` for the caster — only a `permanentsYouControl` count with no `who`
+and no `excludeSelf` (the cast site has no source to exclude) — which also drops a `duringYourTurn` reducer on another player's
+turn. Witnesses: `symmetricCostReducer`, `costTaxTurnAndUnion`, `manaValueFloorReducer`, `scaledCostReducer`.
+
 **An X/X animation and an any-controller "another" grant (2026-10-17 — Destiny Spinner, Heliod, Sun-Crowned).** The land
 animation's "becomes an X/X …, where X is <count>" carries `ptCount` (the shared count vocabulary); `applyAnimateEffect` counts it
 once as it resolves, before animating (CR 608.2h), and sets that number as the 7b base. splitClauses keeps the sentence whole (its

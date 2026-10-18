@@ -34,7 +34,7 @@ import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // the closed cr
 // team-pump scope already share it). Imported straight from parseHelpers, which imports only keywords.js —
 // a zero-import leaf this file ALREADY imports — so the edge adds no new module-init ordering (verified with
 // the mandatory `node -e "import './src/lib/learn/legalChoices.js'"` graph check, per the run ledger).
-import { COUNT_SUBTYPE, TARGET_SUBTYPES } from "./effects/parseHelpers.js"; // TARGET_SUBTYPES: othersEnterWithCounters (H8) vets its "<Subtype> creature" word
+import { COUNT_SUBTYPE, TARGET_SUBTYPES, parseCountSource } from "./effects/parseHelpers.js"; // TARGET_SUBTYPES: othersEnterWithCounters (H8) vets its "<Subtype> creature" word; parseCountSource: the cast-cost lane's board counts (costScale)
 import { chosenCardTypeReducer, spellHasChosenCardType } from "./chosenCardType.js"; // CLOUD KEY — the chosen-card-type reducer's reader + spell match (a leaf over the zero-import choicePolicy)
 
 // The closed vocabulary a "cast <X> spells from the top of your library" filter word must belong to. Card
@@ -354,6 +354,97 @@ function parseSubtypeListSubject(phrase) {
 // DELIBERATELY EXCLUDES "permanent"/"noncreature"/"historic"/"spell" — those are NOT type-line tokens, so a
 // word-bound match would reduce nothing (a false positive) → they stay in NON_SUBTYPE_COST_FILTER_WORDS.
 const COST_REDUCTION_CARDTYPE_WORDS = new Set(["artifact", "creature", "enchantment", "instant", "sorcery"]);
+
+// ─── CAST-COST MODIFIERS THE MOST-PLAYED STILL LACKED (the play-weighted program, 2026-10-18) ───────────────────────────────
+// Six shapes on the cast-cost lane (CR 601.2f — increases, then reductions, generic mana only and floored at {0}; the mana value
+// untouched, CR 202.3), each a descriptor the existing cast site reads:
+//   • "Spells cost {N} less to cast."  (Helm of Awakening) — names no "you": every player's spells. `everyCaster` — the cast site
+//     collects it from every battlefield, not only the caster's.
+//   • "Each spell costs {N} more to cast except during its controller's turn."  (Defense Grid) — a tax with `exceptCasterTurn`.
+//   • "<A> and <B> spells [your opponents cast] cost {N} more to cast."  (Aura of Silence) — ONE tax over the union of two card
+//     types (`cardTypes`): an artifact enchantment pays it once. Card types only; any other word leaves the clause unread.
+//   • "<filter> spells you cast with mana value N or greater cost {M} less to cast."  (It That Heralds the End, Krosan Drover,
+//     Spectacle Mage) — `minManaValue`, judged on the mana value the cast site hands in (the printed mana cost, X as 0).
+//   • "[During your turn, ]<filter> spells you cast cost {M} less to cast for each <count>."  — per counter of a kind on the
+//     source itself (Animar, Herald of War, Mindsplice Apparatus: `perCounterOnSource`, stamped by collectCostReducers off the
+//     permanent's counters), or per a board count (Temur Battlecrier: `perEachCount`, counted at the cast site). `amount` is 0
+//     until stamped, so a reader that never resolves the scale reduces nothing.
+//   • "<filter> spells you cast have affinity for artifacts."  (Sami, Wildcat Captain) — CR 702.41a: {1} less for each artifact
+//     you control, the board count of the same lane.
+// The <filter> is one of: nothing (every spell), "colorless" (the spell's colour as cast, CR 105.2c), one card type or subtype,
+// or a pair ("instant and sorcery", "Angel spells and Human") as ONE union that reduces a spell carrying both words once.
+function costSpellSubject(subject) {
+  const s = String(subject || "").trim();
+  if (!s) return { allSpells: true };
+  if (s === "colorless") return { colorless: true };
+  const ok = (w) => COST_REDUCTION_CARDTYPE_WORDS.has(w)
+    || (!NON_SUBTYPE_ANTHEM_WORDS.has(w) && !COLOR_WORDS[w] && !NON_SUBTYPE_COST_FILTER_WORDS.has(w) && !/^non/.test(w));
+  let m = s.match(/^([a-z]+)$/);
+  if (m) return ok(m[1]) ? { subtype: normalizeSubtype(m[1]) } : null;
+  m = s.match(/^([a-z]+) and ([a-z]+)$/) || s.match(/^([a-z]+) spells and ([a-z]+)$/);
+  if (m && m[1] !== m[2] && ok(m[1]) && ok(m[2])) return { subtypes: [normalizeSubtype(m[1]), normalizeSubtype(m[2])] };
+  return null;
+}
+// The scale of a "for each <count>" reducer. A counter of a named kind on the SOURCE ("… on this creature" — the self-name is
+// normalized to that upstream), or a count of the caster's own permanents (parseCountSource's `permanentsYouControl`, every
+// qualifier countForSpec reads — a power floor, a +1/+1 counter, tapped). Refused: another player's permanents (`who`) and an
+// "other" count (`excludeSelf` — the cast site counts with no source to exclude, so it would count the source too); any other
+// count has no reader here.
+function costScale(phrase) {
+  const m = String(phrase).match(/^(\+1\/\+1|[a-z]+) counters? on this (?:creature|artifact|enchantment|permanent)$/);
+  if (m) return { perCounterOnSource: m[1] };
+  const spec = parseCountSource(phrase);
+  if (spec && spec.kind === "permanentsYouControl" && !spec.who && !spec.excludeSelf) return { perEachCount: spec };
+  return null;
+}
+function parseCastCostModifier(c) {
+  let m = c.match(/^spells cost \{(\d+)\} less to cast$/);
+  if (m) return { costReduction: { allSpells: true, amount: parseInt(m[1], 10), everyCaster: true } };
+  m = c.match(/^each spell costs \{(\d+)\} more to cast except during its controller's turn$/);
+  if (m) return { costTax: { amount: parseInt(m[1], 10), oppOnly: false, exceptCasterTurn: true } };
+  m = c.match(/^([a-z]+) and ([a-z]+) spells (your opponents cast )?cost \{(\d+)\} more to cast$/);
+  if (m) {
+    if (m[1] === m[2] || !COST_REDUCTION_CARDTYPE_WORDS.has(m[1]) || !COST_REDUCTION_CARDTYPE_WORDS.has(m[2])) return null;
+    return { costTax: { amount: parseInt(m[4], 10), oppOnly: !!m[3], cardTypes: [m[1], m[2]] } };
+  }
+  m = c.match(/^(?:(.+?) )?spells you cast with mana value (\d+) or greater cost \{(\d+)\} less to cast$/);
+  if (m) {
+    const subject = costSpellSubject(m[1]);
+    return subject ? { costReduction: { ...subject, amount: parseInt(m[3], 10), minManaValue: parseInt(m[2], 10) } } : null;
+  }
+  m = c.match(/^(during your turn, )?(?:(.+?) )?spells you cast cost \{(\d+)\} less to cast for each (.+)$/);
+  if (m) {
+    const subject = costSpellSubject(m[2]);
+    const scale = subject ? costScale(m[4]) : null;
+    if (!scale) return null;
+    return { costReduction: { ...subject, amount: 0, per: parseInt(m[3], 10), ...scale, ...(m[1] ? { duringYourTurn: true } : {}) } };
+  }
+  m = c.match(/^(?:(.+?) )?spells you cast have affinity for artifacts$/);
+  if (m) {
+    const subject = costSpellSubject(m[1]);
+    return subject ? { costReduction: { ...subject, amount: 0, per: 1, perEachCount: parseCountSource("artifacts you control") } } : null;
+  }
+  return null;
+}
+
+/**
+ * The cast site's half of the scaled reducers: drop a "during your turn" reducer on any other turn, and stamp a board-count
+ * reducer's amount — `per` × the count, read through `countFor` (the cast site's countForSpec for the caster) as the cost is
+ * determined (CR 601.2f). Every other reducer passes through unchanged, so a board without one is byte-identical. Pure.
+ */
+export function resolveCastSiteReducers(reducers, { casterIsActive = false, countFor = null } = {}) {
+  const out = [];
+  for (const r of reducers || []) {
+    if (r.duringYourTurn && !casterIsActive) continue;
+    if (r.perEachCount) {
+      const n = typeof countFor === "function" ? Number(countFor(r.perEachCount)) : 0;
+      out.push({ ...r, amount: (r.per || 0) * (Number.isFinite(n) ? Math.max(0, n) : 0) });
+      continue;
+    }
+    out.push(r);
+  }
+  return out;
+}
 
 // COLOR-COST-REDUCTION — parse a color cost-reducer clause into { colors:[WUBRG…], amount } | null. Two shapes:
 //   • "each spell you cast that's <color>[ or <color>]… costs {N} less to cast"  (Goblin Anarchomancer — red or green)
@@ -2546,6 +2637,13 @@ function parseClause(clause, out, selfName, selfType) {
   //
   // The SUBTYPE arm reuses the same word-vetting guard as the generic reducer directly below — an unvetted
   // word would match no type line, so the card would classify native while never reducing.
+  // The six cast-cost shapes of parseCastCostModifier (above COST_REDUCTION_CARDTYPE_WORDS): each is anchored on a wording no arm
+  // below reads, so trying them first moves no clause another arm parses today.
+  const castCostMod = parseCastCostModifier(c);
+  if (castCostMod) {
+    out.push(castCostMod);
+    return;
+  }
   const pipCrM = c.match(/^([a-z]+) spells (?:you cast )?cost ((?:\{[wubrg]\})+) less to cast$/i);
   if (pipCrM) {
     const word = pipCrM[1];
@@ -2623,7 +2721,7 @@ function parseClause(clause, out, selfName, selfType) {
   // ALL SPELLS (stage ③ · 53 — Stone Calendar, The Immortal Sun: "Spells you cast cost {1} less to cast."): the unfiltered
   // reducer — every spell its controller casts, generic mana only, floored at {0} at the cast site like every reducer
   // (CR 601.2f; the mana value is untouched, CR 202.3). "You cast" only: the symmetric "Spells cost {1} less to cast." (Helm of
-  // Awakening) reaches every player's spells, which the caster-only reducer collection can't express — it stays residue.
+  // Awakening) reaches every player's spells: parseCastCostModifier reads it as an `everyCaster` reducer (2026-10-18).
   const crAllM = c.match(/^spells you cast cost \{(\d+)\} less to cast$/);
   if (crAllM) {
     out.push({ costReduction: { allSpells: true, amount: parseInt(crAllM[1], 10) } });
@@ -5525,9 +5623,10 @@ export function collectCostTaxers(players) {
  * `casterId` (CR 601.2f — applied with the reducers at the cast site; increases then decreases, generic
  * floored by the caller's reduction step; the mana value is never touched, CR 202.3). A "your opponents
  * cast" tax skips the taxer's own controller. Filter matching mirrors costReductionForSpell (word-bound
- * type line); "noncreature" is the negated check. Pure; 0 when nothing applies.
+ * type line); "noncreature" is the negated check; `cardTypes` is a union (Aura of Silence). `activePlayerId` is the
+ * turn's active player, read by an `exceptCasterTurn` tax (Defense Grid). Pure; 0 when nothing applies.
  */
-export function costTaxForSpell(taxers, spellCard, casterId) {
+export function costTaxForSpell(taxers, spellCard, casterId, activePlayerId = null) {
   if (!taxers?.length || !spellCard) return 0;
   // The face being cast (spellTypeLine): a battle whose back face is a creature is a noncreature spell — Thalia taxes Invasion of
   // Ikoria — and one whose back face is an artifact is a nonartifact spell (Lodestone Golem taxes Invasion of Vryn).
@@ -5535,9 +5634,15 @@ export function costTaxForSpell(taxers, spellCard, casterId) {
   let total = 0;
   for (const t of taxers) {
     if (t.oppOnly && t.controller === casterId) continue;
+    // EXCEPT DURING ITS CONTROLLER'S TURN (Defense Grid): a spell cast on its caster's own turn is untaxed — the spell's controller
+    // is the player who cast it. With no active player named the tax applies: the full cost, never a discount.
+    if (t.exceptCasterTurn && activePlayerId != null && activePlayerId === casterId) continue;
     if (t.notCardType) {
       // NEGATED filter (Thalia "noncreature", Lodestone Golem "nonartifact"): skip when the type IS present.
       if (new RegExp(`\\b${t.notCardType}\\b`).test(typeLine)) continue;
+    } else if (Array.isArray(t.cardTypes)) {
+      // A UNION of card types (Aura of Silence "Artifact and enchantment spells"): a spell carrying either is taxed, once.
+      if (!typeLine || !t.cardTypes.some((w) => new RegExp(`\\b${String(w).toLowerCase()}\\b`).test(typeLine))) continue;
     } else if (t.cardType || t.subtype) {
       const w = String(t.cardType || t.subtype).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       if (!typeLine || !new RegExp(`\\b${w}\\b`).test(typeLine)) continue;
@@ -5562,6 +5667,13 @@ export function collectCostReducers(permanents, { commandZone = false } = {}) {
       // caster's own battlefield here, so the count is read at cost determination (CR 601.2f).
       if (d.costReduction.perAuraYouControl) {
         reducers.push({ ...d.costReduction, amount: (permanents || []).filter((p) => isAuraCard(p?.card || p)).length });
+        continue;
+      }
+      // PER COUNTER ON THE SOURCE (Animar "for each +1/+1 counter on Animar", Herald of War, Mindsplice Apparatus's oil counters):
+      // the source permanent's own counters of that kind as the cost is determined (CR 601.2f). A bare card (no counters) is 0.
+      if (d.costReduction.perCounterOnSource) {
+        const n = Number(entry?.counters?.[d.costReduction.perCounterOnSource]) || 0;
+        reducers.push({ ...d.costReduction, amount: (d.costReduction.per || 0) * Math.max(0, n) });
         continue;
       }
       // Stamp the source's chosenType onto a chosen-type reducer so costReductionForSpell can match the spell's
@@ -5632,6 +5744,18 @@ export function costReductionForSpell(reducers, spellCard, fromZone = "hand", ca
   for (const r of reducers) {
     // EMINENCE "OTHER <subtype> spells": never reduce the source card's own cast (The Ur-Dragon casting itself).
     if (r.excludeSelf && r.sourceName && spellName && r.sourceName === spellName) continue;
+    // MANA-VALUE FLOOR (It That Heralds the End, Krosan Drover, Spectacle Mage — "with mana value N or greater"): an AND with the
+    // filter below, on the spell's mana value — its mana cost, not the cost being paid (CR 202.3; Spectacle Mage's ruling). The cast
+    // site hands it in (castContext.manaValue — the printed cost, X as 0). FAIL-CLOSED: no mana value, no discount.
+    if (r.minManaValue != null && !(Number.isFinite(castContext?.manaValue) && castContext.manaValue >= r.minManaValue)) continue;
+    // COLORLESS (It That Heralds the End): the spell's colours as cast are none (CR 105.2c — a devoid card is colourless, CR
+    // 702.114a; characteristicColors reads it).
+    if (r.colorless) {
+      if (spellColors === null) spellColors = characteristicColors(spellCard);
+      if (spellColors.length) continue;
+      total += r.amount || 0;
+      continue;
+    }
     // ALL SPELLS (stage ③ · 53 — Stone Calendar): no filter to test.
     if (r.allSpells) {
       total += r.amount || 0;
