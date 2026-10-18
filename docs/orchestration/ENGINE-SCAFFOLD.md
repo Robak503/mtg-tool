@@ -898,6 +898,21 @@ hypothetical permanent through `manaSources`, never written back), then the colo
 then name. The colour gap ranks above untapped: when the untapped mana casts nothing this turn, the colour the hand lacks is worth
 more. Witness: `fetchLandDrop.test.js`.
 
+**Targeted activations in the main phase (2026-10-17, `opponentAI.pickTargetedActivation`).** The generic picker skips every
+activation with a target; Equip (`pickEquipAction`), the combat-role abilities (`pickCombatRoleActivation`, combat steps) and the
+Candelabra line take their own. Everything else targeted goes through this picker, in the ability block before the generic one:
+own main phase, stack empty, one targeted atom (riders: gains only — gain life, each opponent loses life, draw, scry, surveil, a
++1/+1 counter on the source; an "Add" rider holds), costs the source's tap and/or mana (plus one +1/+1 counter off a source that
+survives it, for a kill or removal; a single-ability noncreature token sacrificed, for a +1/+1 counter). Taken: a damage / -N/-N
+/ -1/-1 counter / destroy / exile that kills or removes an opponent's creature, planeswalker or permanent (biggest power, then
+`permanentValue`); a fight-pair its creature wins and survives (`chooseDisciplinedVariant`, the cast path's reader); a +1/+1
+counter on its own biggest creature; an opponent's graveyard card exiled beside a gain rider, or alone when its owner could use it
+(creature card, graveyard keyword); precombat only, haste for its own summoning-sick creature and "can't be blocked" for its own
+ready attacker while the defender has an untapped creature; postcombat only, a shot that kills nothing at an opponent's
+planeswalker, then the opponent with the least life (a creature source holds it under `LIFE_PRUDENCE_FLOOR` or while
+`clearlyBehindOnBoard`). A +N/+N pump holds (its worth is after blocks; no activation is offered there). Policy key `target`.
+Witness: `aiTargetedActivation.test.js`.
+
 **An activation that resolves to nothing must not be the AI's pick (added 2026-10-03).**
 A free activation the resolver refuses is a turn that never ends: the equip pick
 (`pickEquipAction`) stops only when its Equipment sits on the best body, and

@@ -27,10 +27,10 @@
 
 import { detectArchetype } from "../goldfish.js";
 import { filterActions, parseManaCost } from "./legalChoices.js";
-import { opponentsOf, findPermanent, createPermanent } from "./gameState.js";
+import { opponentsOf, findPermanent, createPermanent, isIndestructible } from "./gameState.js";
 import { atomTargets } from "./effects/atoms/shared.js"; // the mass-counter side read (Oran-Rief) — the set the resolution itself reads
 import { lookupPlayHint } from "./cardPlayHints.js"; // PLAY-HINTS (2026-08-12) — a zero-import leaf, cycle-safe
-import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, goaderControllersOf, cannotEquipNow } from "./layers.js";
+import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, permanentHasCardType, goaderControllersOf, cannotEquipNow } from "./layers.js";
 import { auraCastIntent } from "./auraEntry.js"; // W7e — which side an Aura lands on (a control Aura is ENEMY, a restriction grant too); shared with the non-cast entry (CR 303.4f)
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction, manaSources, canAfford } from "./manaModel.js";
@@ -48,6 +48,8 @@ import { compareDefenders, untappedCreatureCount } from "./defenderOrder.js"; //
 import { entersByDiscardingLand, pickEnterDiscardLand } from "./discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247) — the entry replacement's policy, read before the cast (a leaf; no AI module)
 import { entersTriggerRemovesOwn } from "./gameEngine.js"; // the cast-time hold — what a permanent's own enters trigger would be forced to remove (gameEngine imports no AI module: no cycle)
 import { colourNeed, fetchCrackAtom, fetchableLands, fetchLandAbility, landSearchOrder } from "./fetchLand.js"; // the fetch lands — which offered activation is one, what it can find, what one in hand would fetch — and the one colour-need reader (a leaf: no AI module)
+import { permanentValue } from "./boardEval.js"; // pickTargetedActivation — the shared valuation breaks a power tie between two targets (a leaf over gameState)
+import { parseActivatedAbilities } from "./effects/abilities.js"; // pickTargetedActivation — a token whose one activated ability is the offered one exists to be spent
 
 // ─── Play-policy flags (the A/B probe seam) ──────────────────────────────────
 
@@ -60,7 +62,7 @@ import { colourNeed, fetchCrackAtom, fetchableLands, fetchLandAbility, landSearc
  * Accepted shapes:
  *   null / undefined                        → all-current (the shipping behavior)
  *   "v1"                                    → every subsystem legacy
- *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch: "v1" } → per-subsystem legacy
+ *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target: "v1" } → per-subsystem legacy
  *
  * The DEFAULT is always the new behavior (the Academy and self-play improve
  * automatically); "v1" exists only so the probe can measure old-vs-new inside one
@@ -71,7 +73,7 @@ import { colourNeed, fetchCrackAtom, fetchableLands, fetchLandAbility, landSearc
  * Exported so the A/B probe derives its legacy-key list from THIS array (AI-F11:
  * a hand-copied list silently drops every new subsystem from `--legacy=all`).
  */
-export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch"];
+export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target"];
 function normalizePolicy(policy) {
   if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
   if (policy && typeof policy === "object") return policy;
@@ -1713,6 +1715,192 @@ function pickFetchCrack(state, aiPlayerId, actions, { sourceMakesMana }) {
   return ranked[0].a;
 }
 
+/**
+ * TARGETED ACTIVATIONS IN THE AI'S OWN MAIN PHASE (2026-10-17). The generic picker above skips every activation with a target;
+ * only Equip, the combat-role abilities (in a combat step) and the Candelabra mana line took one, so over the 80-game A/B batch
+ * the default AI never activated a targeted damage, destroy, shrink, counter, grant or graveyard ability in a main phase
+ * (Deathrite Shaman was offered in its own main phase 79 times). This picker takes an offered activation only when its effect
+ * is clearly good on the side it lands, read off the parsed program — never the text:
+ *   · DAMAGE, a -N/-N, a -1/-1 counter that kills an opponent's creature (lethal against its toughness and the damage already
+ *     marked; destroy-by-damage not against indestructible) or planeswalker; DESTROY / EXILE of an opponent's permanent (not an
+ *     indestructible one for destroy); a FIGHT its own creature wins and survives (the cast path's two-target discipline,
+ *     chooseDisciplinedVariant) — the biggest threat first (power, then permanentValue);
+ *   · in the POSTCOMBAT main only, a damage shot that kills nothing goes at an opponent's planeswalker, else the living opponent
+ *     with the least life (the attack is over, so a creature source's tap costs no attack; it does cost the source's blocks until
+ *     its untap step, so a creature source holds that shot under LIFE_PRUDENCE_FLOOR or while clearlyBehindOnBoard);
+ *   · a +1/+1 COUNTER on its own biggest creature;
+ *   · EXILE FROM A GRAVEYARD, an opponent's card only: beside a drain or a life gain (Deathrite Shaman), any card the filter
+ *     admits; alone (Intrepid Paleontologist), only a card its owner could use from there — a creature card, or one with a
+ *     graveyard keyword;
+ *   · in the PRECOMBAT main only, HASTE for its own summoning-sick creature and "CAN'T BE BLOCKED" for its own ready attacker
+ *     while the defender has an untapped creature — grants that matter at the declaration, which this main phase precedes.
+ *     A +N/+N pump is left alone: its worth is after blocks, and the engine offers no activation there.
+ * The one targeted atom may ride beside gains only (gain life, each opponent loses life, draw, scry, surveil, a +1/+1 counter on
+ * the source); an "Add" beside it (Deathrite's first ability) holds — the mana would empty unused after the casts.
+ * Costs: the source's tap and/or mana. Two more, each only where it clearly pays: removing ONE +1/+1 counter from the source for
+ * a kill or a removal, when the source survives it (Walking Ballista, Steelbane Hydra); sacrificing a NONCREATURE TOKEN whose one
+ * activated ability is this one (a Mutagen) for a +1/+1 counter on its own creature. Life, energy, X, other permanents, cards,
+ * other counters, exiling the source: skipped, as in the generic picker. Termination: each pick taps the source, spends mana or
+ * spends its counter / token, and every kill or removal shrinks the pool of targets.
+ * Only in the AI's own main phase with the stack empty (the engine offers non-combat activations there only). Deterministic:
+ * tier, then value, then name, permanent id, ability index, target id. Policy key `target` ("v1" = the old skip).
+ */
+const TARGETED_GRAVEYARD_KEYWORDS = new Set(["Flashback", "Escape", "Unearth", "Embalm", "Eternalize", "Jump-start", "Retrace", "Aftermath", "Disturb", "Encore", "Scavenge", "Dredge"]);
+function targetedGainRider(atom) {
+  if (!atom || atom.targetType) return false;
+  if (atom.op === "gain-life") return !atom.who || atom.who === "controller";
+  if (atom.op === "lose-life") return atom.who === "eachOpponent";
+  if (atom.op === "draw") return !atom.who || atom.who === "controller";
+  if (atom.op === "scry" || atom.op === "surveil") return true;
+  return atom.op === "add-counter" && atom.counterType === "+1/+1" && atom.target === "self";
+}
+const fixedAmount = (atom) => Number.isInteger(atom?.amount) && atom.amount > 0 && !atom.amountX && !atom.amountCount && !atom.countContext && !atom.countFor;
+function pickTargetedActivation(state, aiPlayerId, actions) {
+  if (!state || state.activePlayer !== aiPlayerId || state.step !== "main" || (state.stack || []).length > 0) return null;
+  const precombat = state.phase === "precombat-main";
+  const postcombat = state.phase === "postcombat-main";
+  const enemies = new Set(opponentsOf(state, aiPlayerId));
+  const lk = (id) => findPermanent(state, id)?.permanent || null;
+  const powerOf = (id) => Math.max(0, permanentPower(state, id) ?? 0);
+  const threat = (perm) => (permanentIsCreature(state, perm.id) ? powerOf(perm.id) * 100 : 0) + permanentValue(perm, state);
+  const attackers = precombat ? new Set(wouldBeAttackerIds(state, aiPlayerId)) : new Set();
+  const ranked = [];
+  const fightGroups = new Map();
+  for (const a of actions) {
+    if (a.kind !== "activate-ability" || a.isEquipAbility || !(a.targets?.length) || !a.program) continue;
+    if (a.program.structure === "modal" || a.chosenMode != null || a.xValue != null) continue;
+    if (a.exileSelf || a.sacCreatureId || (a.sacCountIds?.length) || (a.payLife || 0) > 0 || (a.payEnergy || 0) > 0 || a.tapCreatureId
+      || (a.tapCountIds?.length) || a.returnLandId || a.unattachEquipmentId || a.discardCardId || (a.discardIds?.length) || (a.exileGyIds?.length)) continue;
+    const rc = a.removeCounter;
+    if (rc && !(rc.type === "+1/+1" && rc.count === 1)) continue;
+    if (!a.tapSelf && (a.cmc || 0) < 1 && !rc && !a.sacSelf) continue; // termination bound: a tap, a mana cost, or a spent counter / token
+    const atoms = a.program.atoms || [];
+    const slots = new Set(a.targets.map((t) => t.atomIndex));
+    if (slots.size !== 1) continue;
+    const slot = [...slots][0];
+    const atom = atoms[slot];
+    if (!atom || atoms.some((x, i) => i !== slot && !targetedGainRider(x))) continue;
+    const source = lk(a.permanentId);
+    if (!source) continue;
+    // A removed +1/+1 counter is paid only for a kill or a removal, and only when the source survives it (CR 704.5f / 704.5g).
+    const survivesCounter = () => {
+      const left = (permanentToughness(state, source.id) ?? 0) - 1;
+      return left > 0 && Math.max(0, Number(source.damageMarked) || 0) < left;
+    };
+    // A sacrificed source is paid only when it is a noncreature token whose one activated ability is this one (a Mutagen).
+    const spentToken = () => !!source.card?.token && !permanentIsCreature(state, source.id) && parseActivatedAbilities(source.card).length === 1;
+    // The source's tap must not cost a better attacker than the creature a grant serves.
+    const tapCostsAttacker = (targetPower) => a.tapSelf && attackers.has(source.id) && powerOf(source.id) >= targetPower;
+    // A shot that kills nothing taps a creature source through the opponents' turns (no block until its untap step): held while
+    // the AI is under the life floor or clearly behind on the board.
+    const shotCostsBlocker = () => a.tapSelf && permanentIsCreature(state, source.id)
+      && (!((state.players?.[aiPlayerId]?.life ?? 0) >= LIFE_PRUDENCE_FLOOR) || clearlyBehindOnBoard(state, aiPlayerId));
+    const push = (tier, value, t) => ranked.push({ a, tier, value, tid: String(t?.id ?? "") });
+    if (atom.op === "fight-pair") {
+      if (rc || a.sacSelf) continue;
+      const key = `${a.permanentId}:${a.abilityIndex}`;
+      if (!fightGroups.has(key)) fightGroups.set(key, []);
+      fightGroups.get(key).push(a);
+      continue;
+    }
+    if (a.targets.length !== 1) continue;
+    const t = a.targets[0];
+    const perm = t.type === "player" || t.type === "graveyardCard" || t.type === "spell" ? null : lk(t.id);
+    const enemyPerm = !!perm && enemies.has(perm.controller);
+    const ownCreature = !!perm && perm.controller === aiPlayerId && permanentIsCreature(state, perm.id);
+    if (atom.op === "deal-damage") {
+      if (!fixedAmount(atom) || atom.divided || atom.dividedAs || atom.selfDamage || atom.damageSource || atom.amountPerOpponent || a.sacSelf) continue;
+      const n = atom.amount;
+      if (t.type === "player") {
+        if (rc || !postcombat || !enemies.has(t.id) || !((state.players?.[t.id]?.life ?? 0) > 0) || shotCostsBlocker()) continue;
+        push(1, -(state.players[t.id].life), t);
+        continue;
+      }
+      if (!enemyPerm) continue;
+      if (permanentIsCreature(state, perm.id)) {
+        const left = (permanentToughness(state, perm.id) ?? 0) - Math.max(0, Number(perm.damageMarked) || 0);
+        const deathtouch = permanentHasKeyword(state, source.id, "Deathtouch");
+        if (isIndestructible(perm, state) || !(left <= n || deathtouch)) continue;
+        if (rc && !survivesCounter()) continue;
+        push(4, threat(perm), t);
+      } else if (permanentHasCardType(state, perm.id, "planeswalker")) {
+        const loyalty = Number(perm.counters?.loyalty) || 0;
+        if (loyalty <= n) { if (rc && !survivesCounter()) continue; push(4, threat(perm), t); }
+        else if (postcombat && !rc && !shotCostsBlocker()) push(1.5, -loyalty, t);
+      }
+      continue;
+    }
+    if (atom.op === "destroy" || atom.op === "exile") {
+      // A rider that compensates the controller (Beast Within's token) or copies the dead card is not "clearly good": skipped.
+      if (a.sacSelf || atom.controllerRider || atom.diesCopyRider || !enemyPerm || (atom.op === "destroy" && isIndestructible(perm, state))) continue;
+      if (rc && !survivesCounter()) continue;
+      push(4, threat(perm), t);
+      continue;
+    }
+    if (atom.op === "pump") {
+      if (rc || a.sacSelf || atom.amountX) continue;
+      const dp = atom.ptDelta?.p ?? 0, dt = atom.ptDelta?.t ?? 0;
+      if (dt < 0) {
+        if (!enemyPerm || !permanentIsCreature(state, perm.id)) continue;
+        const after = (permanentToughness(state, perm.id) ?? 0) + dt;
+        if (after <= 0 || (!isIndestructible(perm, state) && after <= Math.max(0, Number(perm.damageMarked) || 0))) push(4, threat(perm), t);
+        continue;
+      }
+      const kws = atom.grantKeywords || [];
+      if (!precombat || dp !== 0 || dt !== 0 || kws.length !== 1 || kws[0] !== "Haste" || !ownCreature) continue;
+      if (!perm.summoningSick || perm.tapped || permanentHasKeyword(state, perm.id, "Haste")
+        || (permanentHasKeyword(state, perm.id, "Defender") && !permanentHasKeyword(state, perm.id, "attacksIgnoringDefender"))) continue;
+      const p = powerOf(perm.id);
+      if (p < 1 || tapCostsAttacker(p)) continue;
+      push(2, p, t);
+      continue;
+    }
+    if (atom.op === "add-counter") {
+      if (!fixedAmount(atom)) continue;
+      if (atom.counterType === "+1/+1") {
+        if (rc || (a.sacSelf && !spentToken()) || !ownCreature) continue;
+        push(2, powerOf(perm.id), t);
+      } else if (atom.counterType === "-1/-1") {
+        if (rc || a.sacSelf || !enemyPerm || !permanentIsCreature(state, perm.id)) continue;
+        const after = (permanentToughness(state, perm.id) ?? 0) - atom.amount;
+        if (after <= 0 || (!isIndestructible(perm, state) && after <= Math.max(0, Number(perm.damageMarked) || 0))) push(4, threat(perm), t);
+      }
+      continue;
+    }
+    if (atom.op === "exile-from-graveyard") {
+      if (rc || a.sacSelf || t.type !== "graveyardCard") continue;
+      const owner = t.controller ?? t.owner;
+      if (!enemies.has(owner)) continue;
+      const card = (state.players?.[owner]?.graveyard || []).find((c) => c.id === t.id);
+      if (!card) continue;
+      const mv = Number(card.cmc) || 0;
+      if (atoms.length > 1) { push(3, mv, t); continue; }
+      const usable = /\bCreature\b/.test(String(card.type || card.type_line || "")) || (card.keywords || []).some((k) => TARGETED_GRAVEYARD_KEYWORDS.has(k));
+      if (usable) push(2, mv, t);
+      continue;
+    }
+    if (atom.op === "cant-be-blocked") {
+      if (rc || a.sacSelf || !precombat || atom.exceptByKeyword || !ownCreature || !attackers.has(perm.id) || permanentHasKeyword(state, perm.id, "unblockable")) continue;
+      const p = powerOf(perm.id);
+      const defender = chooseDefender(state, aiPlayerId);
+      const blockerReady = defender && (state.players?.[defender]?.battlefield || []).some((q) => !q.tapped && permanentIsCreature(state, q.id));
+      if (p < 1 || !blockerReady || tapCostsAttacker(p)) continue;
+      push(2, p, t);
+    }
+  }
+  for (const group of fightGroups.values()) {
+    const chosen = chooseDisciplinedVariant(state, aiPlayerId, group);
+    if (!chosen) continue;
+    const victim = lk(chosen.targets.find((t) => t.role === "target")?.id);
+    if (victim) ranked.push({ a: chosen, tier: 4, value: threat(victim), tid: String(victim.id) });
+  }
+  if (ranked.length === 0) return null;
+  const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
+  ranked.sort((x, y) => (y.tier - x.tier) || (y.value - x.value) || cmp(String(x.a.name || ""), String(y.a.name || ""))
+    || cmp(String(x.a.permanentId), String(y.a.permanentId)) || ((x.a.abilityIndex ?? 0) - (y.a.abilityIndex ?? 0)) || cmp(x.tid, y.tid));
+  return ranked[0].a;
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -1896,6 +2084,13 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
       if (pol.fetch !== "v1") {
         const crack = pickFetchCrack(state, aiPlayerId, abilities, { sourceMakesMana: true });
         if (crack) return crack;
+      }
+      // TARGETED activations in its own main phase (pickTargetedActivation) — a kill, a removal, a graveyard card denied, a
+      // +1/+1 counter, an attack-time grant, a postcombat shot — before the untargeted leftovers below. policy 'v1' (`target`)
+      // recovers the skip.
+      if (pol.target !== "v1") {
+        const targeted = pickTargetedActivation(state, aiPlayerId, abilities);
+        if (targeted) return targeted;
       }
       // Slice 2 — cost-safe generic abilities (a.program non-null; equip is program:null, so the
       // two slices are disjoint by construction).

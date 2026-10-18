@@ -2447,9 +2447,9 @@ function actionsActivateAbility(state, playerId) {
   // the day the damage lane learned the phrase. The narrowest honest lane: in a combat step, EITHER player holding
   // priority (the defender uses these on the attacker's turn — CR 602.2 instant speed) may activate ONLY the
   // combat-role abilities; every other activation keeps the v1 main-phase window byte-for-byte. The spam concern
-  // does not apply — the pool is exactly the attackers / blockers. The AI's picker (pickAction →
-  // pickSafeAbilityActivation) skips every TARGETED activation, so the AI's play is unchanged: an AI archer still
-  // never shoots (a safe FN, PR-later — the human learner is who this window is for).
+  // does not apply — the pool is exactly the attackers / blockers. The AI takes these through
+  // opponentAI.pickCombatRoleActivation (④-AP); its other targeted activations, in its own main phase, through
+  // opponentAI.pickTargetedActivation (2026-10-17).
   const combatWindow = COMBAT_WINDOW_STEPS.has(state.step);
   const mainWindow = state.activePlayer === playerId && state.step === "main";
   // THE STACK WINDOW (SHELF-85 V6): open only while the stack holds an ability THIS player controls — the sole moment a

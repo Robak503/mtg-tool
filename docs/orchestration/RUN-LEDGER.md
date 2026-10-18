@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.165.0** (tagged 2026-10-18 on the `[0.165.0]` CHANGELOG cut):
-> **1 commit**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **44.9% (15,536)**; engine gains since the tag: **±0**. The next tag
+> **2 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **44.9% (15,536)**; engine gains since the tag: **±0**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,72 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX (AI decision quality): the AI uses its targeted activated abilities in its own main phase — the generic activation picker skips every activation with a target, and only Equip, the combat-role abilities and the Candelabra line took one, so the default AI never activated a targeted damage, destroy, shrink, counter, grant or graveyard ability in a main phase (Deathrite Shaman offered 79 times, Walking Ballista 109, Simic Ascendancy 31, Mutagen 50, Steelbane Hydra 20, Ulvenwald Tracker 45 — 0 activations); `pickTargetedActivation` now takes an offered one when its one targeted effect is clearly good on the side it lands (a kill or removal of an opponent's creature / planeswalker / permanent, the biggest threat first; a fight its creature wins and survives; an opponent's graveyard card exiled beside a gain, or alone when usable; a +1/+1 counter on its own creature; precombat haste / "can't be blocked" for its own attacker; a postcombat shot at a planeswalker or the opponent with the least life), never a harmful one at its own side · **±0** · snapshot native 15,531 unchanged
+> Suite **20,835 green (1 skipped) / 1,881 files** under the gate queue (with the rules index built for the run, then deleted). Runs 1 and 2
+> each failed one test, the known `crucibleRun.test.js` "plays EXACTLY N games" 20 s load timeout (6.8 s alone on this tree, 7.0 s on the
+> base; its Forest / Grizzly Bears decks are offered no activated ability, so the picker is never reached); run 3, same input hashes, is the
+> green of record. Lint 0 (CR citations: 0 of 11,588 name no rule; keyword citations: 0 of 2,377 cite a different keyword). Flip-diff **0 / 0 / RETIERED
+> 0** (34,620 cards; before = an untouched `git archive` of 6661f114, snapshotted before the first edit; native+land 15,531 of 34,584 snapshot
+> names on both; every name has the same tier). **Mutants 6/6** on assertions, each restored byte-identical (sha256): a damage shot on any
+> side, the kill check dropped, a non-kill shot in the precombat main, an "Add" rider admitted (Deathrite's mana ability), the removed
+> counter's survival check dropped, a bare graveyard exile of any card. Witness `aiTargetedActivation.test.js` (34) written before any engine
+> change: on the untouched 6661f114 archive **20 fail on assertions, the 14 controls pass** (the life-floor control added while building;
+> the first 33 ran 20 / 13). **Divergence tripwire** (a temporary patch logging every call where the new pick differs from the `target: 'v1'`
+> pick, by test line, over the full suite; restored byte-identical): 19 rows, every one in the new witness file — no other test's AI pick
+> moved. A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched 6661f114 archive;
+> an instrumented copy of each tree, byte-identical to the plain one on all 80 games, counted the offers): **62 byte-identical, 18 change
+> picks — every first divergence is pass-priority → a targeted activation**, 1 winner changes (game 64: Thrun Voltron → Shorikai Vehicles),
+> turn counts move in 6, 0 errors on either tree, results unchanged (ai-wins 54 / user-wins 26), 236 s / 229 s per batch.
+> Committed on `day/aitarget`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The measurement (6661f114).** Census: the 30 profile decks hold 1,668 distinct cards with 93 printed targeted activated abilities (all
+>   modeled): damage 10, destroy/exile 6, pump/grant 14, tap/untap 14, counters 7, bounce 3, graveyard 4 (Deathrite's three, Intrepid
+>   Paleontologist), other 35. The base batch (one row per targeted ability per AI decision; own main with the stack empty in brackets →
+>   activated): damage 496 (195) → 4, all Balduvian Trading Post in combat (`pickCombatRoleActivation`); destroy/exile 130 (83) → 0;
+>   pump/grant 539 (355) → 0; tap/untap 555 (255) → 3 (Candelabra of Tawnos ×2, the mana-untap line; Maze of Ith, combat); counters 354
+>   (177) → 0; bounce 59 (35) → 0; graveyard 135 (91) → 0; Equip 1,155 → 95 (`pickEquipAction`); other 1,029 (462) → 0. So the reported gap
+>   was real for every main-phase kind; the AI already used Equip, combat-role and Candelabra activations.
+> · **The policy** — `opponentAI.pickTargetedActivation`, in the ability block after the fetch crack and before the generic picker; own main
+>   phase, stack empty (the engine offers non-combat activations there only); the program's one targeted atom read off the parse, its other
+>   atoms gains only (gain life, each opponent loses life, draw, scry, surveil, a +1/+1 counter on the source — an "Add" holds). Costs: tap
+>   and/or mana; one +1/+1 counter off a source that survives it, for a kill or removal only (Walking Ballista, Steelbane Hydra); a
+>   noncreature token whose one activated ability this is, sacrificed for a +1/+1 counter only (Mutagen). Tiers: (4) damage / -N/-N / -1/-1
+>   counter that kills an opponent's creature (toughness against the damage marked; an indestructible creature only when its toughness reaches 0) or
+>   planeswalker, destroy / exile of an opponent's permanent (no compensating `controllerRider`, no `diesCopyRider`), a fight-pair through
+>   the cast path's `chooseDisciplinedVariant` — biggest power, then `permanentValue`; (3) an opponent's graveyard card exiled beside a gain
+>   rider; (2) a +1/+1 counter on its own biggest creature, an opponent's graveyard card alone when its owner could use it (a creature card or
+>   a graveyard keyword), and in the precombat main haste for its own summoning-sick creature and "can't be blocked" for its own ready
+>   attacker while the defender has an untapped creature (the source's tap never costs a bigger attacker); (1.5 / 1) postcombat only, a shot
+>   that kills nothing at an opponent's planeswalker, then the living opponent with the least life — a creature source holds it under
+>   `LIFE_PRUDENCE_FLOOR` (10) or while `clearlyBehindOnBoard` (the tap costs its blocks until its untap step). Deterministic: tier, value,
+>   name, permanent id, ability index, target id. Policy key `target` ("v1" = the old skip) joins POLICY_KEYS.
+> · **After (the same 80 games, instrumented):** damage 4 → 15 (Ulvenwald Tracker 7 — its fighter 6/6 to 37/26 against targets of toughness 1–5, each a fight it wins and survives;
+>   Walking Ballista 4 — Squirrel, Birds of Paradise, Halfling, Rosie Cotton, the Ballista 4/4 or bigger; Balduvian Trading Post 4),
+>   destroy/exile 0 → 6 (Steelbane Hydra: Talisman of Creativity, Mind Stone, Aggravated Assault, Branching Evolution, Everflowing Chalice,
+>   Esper Sentinel — the Hydra 2/2 or bigger), counters 0 → 21 (Simic Ascendancy 11 on Ms. Bumbleflower, Mutagen 10), graveyard 0 → 10
+>   (Deathrite 9 — drains over Akroma's Will, Three Steps Ahead, Riot Control, Dispel …, gains over Seedborn Muse, Kogla, Spore Frog;
+>   Paleontologist 1 — Neyith of the Dire Hunt), pump/grant 0 → 3 (Otepec Huntmaster: Kinjalli's Sunwing, Wayward Swordtooth; Manifold Key:
+>   Blightsteel Colossus), tap/untap 3 → 3, Equip 95 → 95, bounce and other 0 → 0. Every new activation landed on the right side (damage,
+>   removal and graveyard at an opponent's; counters and grants on its own): 51 new, 0 at its own permanents.
+> · ⚠️ **Found, not fixed:** (1) Every non-combat activation is offered in its controller's own main phase only (legalChoices.js:2448
+>   `mainWindow`): no end-of-turn ping, no pump after blocks — so the +N/+N and keyword pumps stay skipped (Nylea 15, Kessig Wolf Run 27 on
+>   the {X} lane, Hidden Hideout 35, Herd Heirloom 67 own-main offers). (2) Deathrite's mana ability ({T}: exile a land card, add one mana —
+>   33 own-main offers) holds: after the casts its mana would empty; the shape is a ramp reading before the casts (activate when its mana
+>   casts a held card), as `pickFetchCrack` does for lands. (3) Walking Ballista shoots only to kill (a face ping would spend its body); a
+>   counter-rich Ballista's postcombat face ping is the follow-up. (4) Self-sacrifice, life and other costs stay skipped: Haywire Mite,
+>   Thrashing Brontodon, Demolition Field, Selfless Savior, Plaza of Heroes (exile), Cryogen Relic, Arcade Cabinet and Jason Bright
+>   (sacrifice another), Exploding Barrel, Aetherflux Reservoir (50 life), Eriette's Tempting Apple, Atzocan Seer, Grim Hireling (X
+>   Treasures). (5) Tap / untap: Thassa, Deep-Dwelling (45) and Staff of Domination (21) could tap the defender's best blocker precombat;
+>   the land-untap lines (Deserted Temple, Arbor Elf, Earthcraft, Minamo, Oboro Breezecaller, Formidable Speaker, Manifold Key's untap)
+>   need the mana-untap line's reading (manaUntapLine.js reads Candelabra only). (6) Bounce is offered on its own creatures only (Dour
+>   Port-Mage 32, Chulane 3) — an enters-trigger re-buy valuation. (7) Protection grants (Giver / Mother of Runes) need a threat on the
+>   stack, which the main-phase-only offer never shows; Codex Shredder's mill, Loran's symmetric draw, Eiganjo Castle's prevention, the
+>   graveyard-to-top recursion (Volrath's Stronghold, Academy Ruins), copy-ability and animate lines each need their own valuation. (8)
+>   Abomination, Terrifying Titan's "fight up to one target creature an opponent controls" (op `fight`, after a +1/+1 counter on itself) is
+>   not read. (9) Pre-existing silent catches in opponentAI.js the picker reads through — `clearlyBehindOnBoard` (:613–617) and
+>   `wouldBeAttackerIds` (:659) — plus a dozen more in the file (CLAUDE.md §1.2), unchanged.
+> · Also: the stale legalChoices.js combat-window comment ("an AI archer still never shoots") names the two pickers now; ENGINE-SCAFFOLD
+>   §4.8 gains the paragraph.
 
 > ## 🔧 2026-10-17 — FIX (false positive): control changes apply in timestamp order (CR 613.1b, 613.7) — Act of Treason then Control Magic keeps the creature under the Aura past cleanup (it went home), Control Magic then a threaten-back returns it to the Control Magic player at cleanup (it went to the owner), Act of Treason then Sliver Overlord keeps it for good (the Hellkite Tyrant entry's found-not-fixed (4)), two control Auras hand the host to the earlier one when the later goes (the pinned simplification), a control Aura destroyed under a live threaten leaves the threatener holding it until cleanup, and Illusory Gains moving onto a new creature (or Codsworth moving a control Aura) releases the creature it held — it stayed stolen for good · **±0** · snapshot native+land 15,531 unchanged
 > Suite **20,844 green (1 skipped) / 1,882 files** under the gate queue (with the rules index built for the run, then deleted; the first full run, with a lint
