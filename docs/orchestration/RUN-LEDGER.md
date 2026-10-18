@@ -16,6 +16,83 @@
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
 
+> ## 🔧 2026-10-18 — FIX (AI decision quality): the AI casts the targeted spells its generic chooser could not score — `chooseDisciplinedVariant` read only a legacy damage / destroy-a-creature effect and held every other targeted spell, so over the 80-game batch the default AI never cast Swords to Plowshares (offered in 2,278 AI decisions), Path to Exile (1,571), Submerge (1,027), Generous Gift (1,020), Nature's Claim (487), Assassin's Trophy (367), Beast Within (367), Anguished Unmaking (274), Dismember (101), Tamiyo's Safekeeping (1,273), Tyvar's Stand (1,129), Enter the Avatar State (508), Leap (312) or Ephemerate (377) — no targeted exile, noncreature removal, -N/-N, pump, grant, blink or token copy at all; `pickTargetedSpell` now casts one when its one targeted atom is clearly good on the side it lands — removal of an opponent's nonland permanent worth a card (the biggest threat first, never one a compensating token outweighs, on its own turn only in a main phase), a save of its own permanent from the opponent's removal on the stack (hexproof, indestructible, toughness, or a blink), a block trick that turns the duel, a precombat pump that makes the swing lethal, flying / "can't be blocked" for a ready attacker the defender could block, haste for a summoning-sick creature, a token copy of its best non-legendary permanent, a blink that re-buys an enters trigger — never a harmful effect on its own side · **±0** · snapshot native+land 15,660 unchanged
+> Suite **21,460 green (1 skipped) / 1,919 files** under the gate queue (with the rules index built for the run, then deleted), on the
+> final code and test bytes. Lint 0 (CR citations: 0 of 12,125 name no rule; keyword citations: 0 of 2,474 cite a different keyword).
+> Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of e194ffb9, snapshotted before the first edit;
+> native+land 15,660 of 34,584 snapshot names on both). **Mutants 10/10** on assertions, each restored byte-identical (sha256): the
+> removal side check dropped, the worth-a-card floor dropped (2 tests), the compensating-token bar back to permanentValue 4, indestructible
+> saving from every harm, a trick that only trades taken, its own legendary copied (2), a precombat blink of a ready attacker, removal in
+> its own upkeep, the buff side check dropped (an opponent's creature hasted), the life floor for a "you lose N life" rider dropped.
+> Witness `aiTargetedSpells.test.js` (40) written before any engine change: on the untouched e194ffb9 archive **22 fail on assertions, the
+> 18 controls pass**; the first draft ran 33 tests, 19 / 14, and grew while building — the trade, token-trick, opponent-haste and upkeep
+> controls, the Mind Stone and bounce-save witnesses, and a legendary-copy witness that replaced a hollow control (Isamaru's value 2.2 is
+> under the copy floor, so it held with the legend check removed; Ghalta beside Grizzly Bears now proves it). **Divergence tripwire** (a
+> temporary patch logging every pickAction call whose default pick differs from its `spellTarget: "v1"` pick, by test frame, over the
+> full suite — green, 21,460; restored byte-identical): 22 rows, every one in the new witness file — no other test's AI pick moved. A/B
+> **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched e194ffb9 archive; an
+> instrumented copy of each tree, byte-identical to the plain one on all 80 games, counted the offers): **12 byte-identical, 3 differ
+> only in a cast-score row** (games 41, 67, 70: Swords to Plowshares, Enter the Avatar State, Vindicate scored, not picked), **65 change
+> picks — every first divergence is a targeted cast this picker approves** (46 pass-priority → cast, 19 another cast → cast; Swords to
+> Plowshares 16, Path to Exile 8, Generous Gift 4, Assassin's Trophy 4, Vandalblast, Submerge, Nature's Claim, Beast Within 3 each …),
+> 22 winners change, turn counts move in 43, 0 errors on either tree, results ai-wins 57 / user-wins 23 → 53 / 27.
+> Committed on `day/aispells`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The measurement (e194ffb9).** Census: the 30 profile decks hold 370 distinct instants and sorceries, 145 with a chosen target —
+>   counters 28, noncreature removal 16, modal 14, keyword grants 13, creature removal 10 (5 legacy destroys), blinks 5, bounce 4, pumps
+>   4, damage 3 (legacy), -N/-N 1, token copy 1, other 46 (graveyard returns, phase-out, player-targeted draws / mills / looks, redirects,
+>   spell copies, fights, two-slot spells); MDFC and split faces are outside the census (the combined card parses LOW) but in the batch.
+>   Base batch (one row per targeted card per AI decision, offered → cast): creature removal 5,469 → 14, all legacy (Pongify 6, Damn 5,
+>   Snuff Out 2, Rapid Hybridization 1); noncreature removal 3,449 → 0 (17 cards); keyword grants 3,607 → 0 (11); blinks 570 → 0 (4);
+>   -N/-N 575 → 0; +N/+N pumps 166 → 0; +1/+1 counters 86 → 0; the two-slot token copy 20 → 0; bounce 2,266 → 0; graveyard returns
+>   1,847 → 0; phase-out 520 → 0. Counters (70), Auras (150), fights and damage were already taken by their own choosers.
+> · **The policy** — `opponentAI.pickTargetedSpell`, reached from the generic arm of `chooseDisciplinedVariant` when chooseAITarget has no
+>   answer (and from `pickXCast`'s fallback for a targeted X pump — Tyvar's Stand, each X its own cast). A non-modal HIGH program with
+>   one targeted atom; the other atoms gains (targetedGainRider), a proliferate, a rider bound to the same target, or "you lose N life"
+>   leaving `LIFE_PRUDENCE_FLOOR`; a kicker atom counts on its own cast only. REMOVAL (destroy / exile / tuck, a killing -N/-N or -1/-1
+>   counters): an opponent's nonland permanent that is `worthACard` (a creature with 2+ power or permanentValue 2+ — not a 1/1 token, not
+>   a Treasure), never indestructible for destroy; a compensating creature token (Beast Within, Generous Gift; a manifest as a 2/2) only
+>   for their creature bigger than the token or their noncreature valued above the body (0.8 × its power + toughness — 4.8 for a 3/3: a
+>   Mind Stone no, a Smothering Tithe yes); `targetThreat` order (power, then permanentValue — the activation picker's reader, now
+>   shared); on its own turn only in a main phase, on an opponent's turn whenever it holds priority. A BUFF on its own permanent: a save
+>   (tier 5) from the opponent's removal on the stack it defeats (`stackHarmsToSeat`: a destroy, exile / tuck / bounce, lethal damage, a
+>   killing -N/-N; `buffSaves`: hexproof / shroud against any, indestructible against destroy and damage, toughness against damage and
+>   -N/-N); a trick (tier 3) in a one-on-one block that saves its creature or kills the enemy without losing its own (`trickGain`, each
+>   half only for a creature worth a card); in its own precombat main, a pump that makes the swing lethal (tier 4,
+>   `singlePumpFlipsLethal`), flying / "can't be blocked" for a ready attacker the defender could block (`evasionConnects`), haste for a
+>   summoning-sick creature (tier 2). A TOKEN COPY (tier 2, own main, stack empty): a nonland, non-Aura permanent of value 3+, any side
+>   the card allows, never its own legendary one (CR 704.5j), never one whose enters trigger would remove its own permanent. A BLINK of
+>   its own nontoken permanent: a save (tier 5) from any harm on the stack, or a re-buy (tier 2, own main, postcombat or precombat when it
+>   would not attack) of an enters trigger worth firing again (`entersTriggerWorthRebuy`: no intervening "if", HIGH, gains or enemy-aimed
+>   harms only, an affordable life loss, never a forced own-side removal) or an opponent's Aura falling off, never losing +1/+1 counters
+>   or its own attachments. A permanent its own pending spell already targets is skipped. Deterministic: tier, value, cheaper X and mana,
+>   name, target ids. Policy key `spellTarget` ("v1" = the old hold) joins POLICY_KEYS.
+> · **After (the same 80 games, instrumented):** creature removal 14 → 64 (the picker's 49: Swords to Plowshares 25, Path to Exile 16,
+>   Reality Shift 3, Submerge 3, Deadly Rollick 2; legacy 15), noncreature removal 0 → 50 (Generous Gift 9, Assassin's Trophy 7,
+>   Nature's Claim 7, Anguished Unmaking 5, Beast Within 4, Vandalblast 3, Vindicate 3, Withering Torment 3, Atomize 2, Erode 2, Putrefy 2,
+>   Bitter Triumph, Broken Wings, Force of Vigor), -N/-N 0 → 2 (Dismember), keyword grants 0 → 14 (Tamiyo's Safekeeping 3 — two block
+>   tricks, one save; Leap, Slip Through Space, Enter the Avatar State, Tyvar's Stand 2 each; Enter the Enigma, Pym Particles, Ephemeral
+>   Shields), blinks 0 → 6 (Ephemerate 3, Cloudshift 2, Essence Flux 1). Every one landed on the right side: removal 116 at opponents',
+>   buffs and blinks 20 at its own, 0 the other way. Before the main-phase rule, 64 of the picker's 111 removal casts landed in its own
+>   upkeep or draw step, spending its main phase's mana; after it, none (the legacy Pongify / Snuff Out keep 5 there).
+> · ⚠️ **Found, not fixed:** (1) The cards the gap report named don't parse, so no AI policy reaches them and each needs a reader (a tier
+>   move, outside an AI-only slice): Fracture ("Destroy target artifact, enchantment, or planeswalker." — no artifact-or-enchantment-or-
+>   planeswalker target type), Unleash Fury / Bulk Up ("Double the power of target creature"), Rite of Replication (kicker "instead" five
+>   copies), Flicker of Fate ("target creature or enchantment" blink), Planar Incision (a blink returning with a +1/+1 counter) — all
+>   LOW with no atoms. (2) The attacker gets no priority after blocks: `actionDispatcher.applyDeclareBlocker` keeps the pass count, so the
+>   passes after the block end the step unless another player acts — an attacker's after-blocks trick is reached only then; the
+>   defender's is not affected (Crumb and Get It, Karametra's Blessing: 0 casts). (3) Bounce stays held (base offers: Cyclonic Rift 985,
+>   Snap 759, Consign 291, Sink into Stupor 214) — it needs a tempo valuation (a token is removed, a commander costs tax, a high-mana-value
+>   permanent costs a turn). (4) Graveyard returns (Noxious Revival 1,151 base offers, Peerless Recycling 622, Revive the Shire, Life from
+>   the Loam), phase-out (Galadriel's Dismissal, Clever Concealment), Chaos Warp, Tithe, player-targeted cantrips (Thought Scour, Peek,
+>   Gitaxian Probe, Braingeyser, Soul's Majesty), Sejiri Shelter's chosen-color protection, the +1/+1-counter spells outside saves and
+>   tricks (Study the Classics, Take Up the Shield) and every modal spell (Archdruid's Charm, HULK SMASH!, Untimely Malfunction, Mystic
+>   Confluence) keep the hold. (5) The legacy chooseAITarget path (Pongify, Snuff Out, burn) still casts in its own upkeep / draw step —
+>   the flaw this picker avoids; left unchanged here to keep the legacy picks byte-identical. (6) No "hold for a better target": Swords /
+>   Path took mana dorks (Llanowar Elves, Avacyn's Pilgrim, Delighted Halfling) when nothing bigger was on the table. (7) Land destruction
+>   (Sundering Eruption, Vindicate on a utility land) never targets a land. (8) Divine Resilience's kicked "any number" and Displace's
+>   two-target blink are taken only when every target qualifies; Ghostly Flicker (exactly two) rarely is.
+> · Also: ENGINE-SCAFFOLD §4.8 gains the paragraph.
+
 > ## 🔧 2026-10-18 — FIX (AI decision quality): the default AI attacks an opposing planeswalker when removing it is worth more than the face damage those attackers give up — a kill that connects even if the walker's controller chump-blocks with every untapped creature (evasion, more attackers than blockers, a creature the racer holds back from the focused player), two walkers in one combat, and a walker whose loyalty already pays for its ultimate brought below it; never while the swing is lethal on the focused player, and a taxed attack (Onakke Oathkeeper, Sphere of Safety, CR 508.1h) only when every planned tax is paid; and the old focus's per-tick re-plan no longer abandons a two-attacker kill after the first declaration · **±0** · snapshot native+land 15,661 unchanged
 > Suite **21,489 green (1 skipped) / 1,921 files** under the gate queue, first run (with the rules index built for the run, then deleted); it ran on the final code and test bytes (sha256 checked before and after the run) — the docs (this entry, CHANGELOG, ENGINE-SCAFFOLD) were written beside it, and no test reads them. Lint 0 (CR citations: 0 of 12,171 name no rule; keyword citations: 0 of 2,479 cite a different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of 9a5238ef, snapshotted before the first edit; native+land 15,661 of 34,584 snapshot names on both). **Mutants 6/6** on assertions, each restored byte-identical (sha256): the ultimate goal dropped (2 tests red), blocker-blind reach (5), tax-blind funding (1), the face damage given up ignored (1), the lethal face swing ignored (1 — it SURVIVED the first run, where the user-on-4 and user-on-3 controls are also decided by the face weight; the four-Giants-at-10 control was added, run on the archive (passes there), then it failed), held-back creatures excluded (1). Witness `aiPlaneswalkerAttack.test.js` written before the engine change and run on the untouched archive: **21 tests — 10 fail there on assertions, the 11 controls pass on both** (the 20 written first; the lethal-only-with-every-attacker control added after the mutant pass, run on the archive too). Divergence tripwire (the full suite on an instrumented scratch copy that also computes the `walker: "v1"` plan at every `pickAttackPlan` call): **11 divergent calls, every one in the witness file** (its 9 ⭐ planner and engine-loop tests; no other test in the 1,921 files sees a different target map or first pick); that run's one red test is `engineBuild.test.js` (`git describe` in a scratch copy that is no checkout), not a divergence. A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched 9a5238ef archive): **80 / 80 byte-identical** (the sha256 of every game record), 0 errors on either tree, results unchanged (ai-wins 57 / user-wins 23), 277.2 s / 259.9 s — no planeswalker ever reaches the battlefield in self-play (found-not-fixed (1)), so the A/B cannot exercise the policy. **Supplement** (not the A/B of record): the same 80 games on scratch copies of both trees whose deck enrichment carries the printed loyalty (one identical patch to `learnDeckEnrich.enrichDeckCard`), every declaration censused through a pure hook — **77 byte-identical, 3 change picks, 0 winner changes**, 0 errors, results unchanged (57 / 23), 583.5 s / 581.5 s; 12 of 23 planeswalker casts entered; combats with an opposing planeswalker offered 26 → 18 (walkers die sooner), combats with an attack at a planeswalker 4 → 4, declarations at a planeswalker 6 → 7. Committed on `day/pwattack`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
 > · **The measurement** (the A/B of record's base, every `pickAttackPlan` call censused through a pure hook in a scratch copy — 80 / 80 byte-identical to the untouched archive): 1,496 combats, 3,125 declarations, **0 combats with an opposing planeswalker offered**, so 0 attacks at one — not the planner: 25 of the batch's 26 planeswalker casts resolved as `spell-unresolved` ("planeswalker (unmodeled static/triggered ability)") and the 26th was countered. With loyalty carried (the supplement's base): 26 combats offered a planeswalker (Tamiyo, Field Researcher 13, Sarkhan, Fireblood 4, Vraska the Unseen 3, Ajani Steadfast 3, Sorin Markov 3, Teferi, Hero of Dominaria 1, Kaya, Orzhov Usurper 1; loyalty 1–10, mostly 4); in 21 the offered attackers could kill one under the worst case, in 10 with the racer's safe attackers only; in 4 a walker could fire its ultimate next turn; in 18 its controller was the focused player, in 5 it had no untapped creature (the only boards the old focus read). The AI attacked a planeswalker in 4.

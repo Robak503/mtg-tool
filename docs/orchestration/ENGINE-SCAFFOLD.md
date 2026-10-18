@@ -1167,6 +1167,26 @@ planeswalker, then the opponent with the least life (a creature source holds it 
 `clearlyBehindOnBoard`). A +N/+N pump holds (its worth is after blocks; no activation is offered there). Policy key `target`.
 Witness: `aiTargetedActivation.test.js`.
 
+**Targeted spells the legacy chooser can't score (2026-10-18, `opponentAI.pickTargetedSpell`).** `chooseDisciplinedVariant`'s
+generic arm scores only a legacy damage / destroy-a-creature effect (`spellEffects.chooseAITarget`); every other targeted spell
+goes through this picker (a targeted X pump through `pickXCast`'s fallback), read off its program: one targeted atom, the other
+atoms gains, a same-target rider, a proliferate or a "you lose N life" that leaves `LIFE_PRUDENCE_FLOOR`. REMOVAL (destroy /
+exile / tuck, a -N/-N or -1/-1 counters that kill) of an opponent's nonland permanent worth a card (`worthACard`: a creature with
+2+ power or `permanentValue` 2+), never an indestructible one for destroy, never one a compensating creature token outweighs; the
+biggest `targetThreat` first (the activation picker's reader); on its own turn only in a main phase (cast in its upkeep it spent
+its main phase's mana), on an opponent's turn whenever it holds priority. A BUFF on its own permanent: a save
+from the opponent's removal on the stack it defeats (`stackHarmsToSeat`, `buffSaves` — hexproof / shroud against any target,
+indestructible against destroy and damage, toughness against damage and -N/-N), a trick in a one-on-one block that changes the
+duel (`trickGain`), or in its own precombat main a pump that makes the swing lethal, flying / "can't be blocked" for a ready
+attacker the defender could block, haste for a summoning-sick creature. The attacker gets no priority after blocks unless another
+player acts (a block declaration doesn't reset the pass count), so its own after-blocks tricks are rare; the defender's are not. A
+TOKEN COPY in its own main: a nonland, non-Aura permanent of value 3+, never its own legendary one, never one whose enters trigger
+would remove its own permanent. A BLINK of its own nontoken permanent: a save from any targeted removal (it returns a new object),
+or in its own main (postcombat, or precombat when it would not attack) an enters trigger worth firing again
+(`entersTriggerWorthRebuy`) or an opponent's Aura shed. A permanent its own pending spell already targets is left alone. Bounce,
+phase-out, graveyard returns, player-targeted draws and mills, and modal spells stay held. Policy key `spellTarget`. Witness:
+`aiTargetedSpells.test.js`.
+
 **An activation that resolves to nothing must not be the AI's pick (added 2026-10-03).**
 A free activation the resolver refuses is a turn that never ends: the equip pick
 (`pickEquipAction`) stops only when its Equipment sits on the best body, and

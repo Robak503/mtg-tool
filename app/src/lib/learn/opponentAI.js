@@ -55,6 +55,7 @@ import { entersTriggerRemovesOwn } from "./gameEngine.js"; // the cast-time hold
 import { colourNeed, fetchCrackAtom, fetchableLands, fetchLandAbility, landSearchOrder } from "./fetchLand.js"; // the fetch lands — which offered activation is one, what it can find, what one in hand would fetch — and the one colour-need reader (a leaf: no AI module)
 import { permanentValue } from "./boardEval.js"; // pickTargetedActivation — the shared valuation breaks a power tie between two targets (a leaf over gameState)
 import { parseActivatedAbilities } from "./effects/abilities.js"; // pickTargetedActivation — a token whose one activated ability is the offered one exists to be spent
+import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell — which atom a legacy cast's target belongs to (a leaf)
 
 // No try/catch around opponentsOf or the layer / evasion reads in this file. The 16 that used to wrap them (returning
 // null / false / 0 / "can block" on a throw) were removed 2026-10-18 after a probe over the full suite and an 80-game
@@ -73,7 +74,7 @@ import { parseActivatedAbilities } from "./effects/abilities.js"; // pickTargete
  * Accepted shapes:
  *   null / undefined                        → all-current (the shipping behavior)
  *   "v1"                                    → every subsystem legacy
- *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker: "v1" } → per-subsystem legacy
+ *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker|spellTarget: "v1" } → per-subsystem legacy
  *
  * The DEFAULT is always the new behavior (the Academy and self-play improve
  * automatically); "v1" exists only so the probe can measure old-vs-new inside one
@@ -84,7 +85,7 @@ import { parseActivatedAbilities } from "./effects/abilities.js"; // pickTargete
  * Exported so the A/B probe derives its legacy-key list from THIS array (AI-F11:
  * a hand-copied list silently drops every new subsystem from `--legacy=all`).
  */
-export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker"];
+export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget"];
 function normalizePolicy(policy) {
   if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
   if (policy && typeof policy === "object") return policy;
@@ -413,7 +414,7 @@ function pickLandAction(state, aiPlayerId, landActions, pol = {}) {
  * Returns the chosen action or null (hold). Deterministic (stable action order +
  * strict-improvement comparisons with id tiebreaks).
  */
-function pickXCast(state, aiPlayerId, actions) {
+function pickXCast(state, aiPlayerId, actions, pol = {}) {
   const xOf = (a) => a.xValue ?? 0;
   const targeted = actions.some((a) => (a.targets?.length || 0) > 0);
   if (!targeted) {
@@ -447,6 +448,13 @@ function pickXCast(state, aiPlayerId, actions) {
   }
   if (bestKill) return bestKill.action;
   if (bestFace) return bestFace.action;
+  // A TARGETED X PUMP / GRANT (2026-10-18 — Tyvar's Stand: "Target creature you control gets +X/+X and gains hexproof and
+  // indestructible until end of turn."): read by pickTargetedSpell like every other targeted spell, each X its own cast — a save
+  // takes the cheapest X that saves. policy 'v1' (`spellTarget`) keeps the hold.
+  if (pol.spellTarget !== "v1") {
+    const spellPick = pickTargetedSpell(state, aiPlayerId, actions.filter((a) => a.targets?.length));
+    if (spellPick) return spellPick;
+  }
   // AI-F12 — MIXED-TARGET X GROUP: one targeted variant used to flip the WHOLE group
   // into the damage-only scorer, holding groups whose "up to …" DECLINE variant is
   // pure castable value (draw X / token X with an optional rider target). When the
@@ -840,8 +848,9 @@ function pickAuraCast(state, aiPlayerId, actions, card) {
  * choosers (hand disruption / edicts / fights / generic targeted) and returns the
  * approved action, or null to HOLD (no good enemy target / unscorable effect).
  * Untargeted groups with no special shape return their first action unchanged.
+ * A targeted spell the legacy chooser can't score goes to pickTargetedSpell (policy key `spellTarget`; "v1" = the old hold).
  */
-function chooseDisciplinedVariant(state, aiPlayerId, actions) {
+function chooseDisciplinedVariant(state, aiPlayerId, actions, pol = {}) {
   if (!actions.length) return null;
   const effect = actions[0].effect;
   let chosen = actions[0];
@@ -940,15 +949,404 @@ function chooseDisciplinedVariant(state, aiPlayerId, actions) {
     chosen = good.sort((x, y) => (y.enemyPow - x.enemyPow) || (y.buffPow - x.buffPow))[0].a; // kill the biggest, buff our biggest
   } else if (actions.some(a => a.targets?.length)) {
     // A targeted spell: only cast on a good ENEMY target. chooseAITarget filters to
-    // enemies for the scorable legacy effects (damage/destroy); for spells it can't
-    // score yet (effect == null — the P2.7 extended atoms tap/bounce/exile/counters)
-    // it returns null, so the AI HOLDS them rather than aim removal at its own board.
+    // enemies for the scorable legacy effects (damage/destroy of a creature). Every
+    // other targeted spell — exile, noncreature removal, a -N/-N, a pump or grant, a
+    // token copy, a blink (2026-10-18) — is read off its program by pickTargetedSpell,
+    // which casts it only on the side its effect is good for, or HOLDS it.
     const options = actions.map(a => a.targets?.[0]).filter(Boolean);
     const target = effect ? chooseAITarget(state, aiPlayerId, effect, options) : null;
-    if (!target) return null;
+    if (!target) return pol.spellTarget === "v1" ? null : pickTargetedSpell(state, aiPlayerId, actions);
     chosen = actions.find(a => a.targets?.[0]?.id === target.id) || actions[0];
   }
   return chosen;
+}
+
+// ─── Targeted spells the legacy chooser can't score (2026-10-18) ──────────────
+//
+// Measured over the 80-game A/B batch (e194ffb9): every targeted spell outside the legacy damage / destroy-creature effect was
+// held — Swords to Plowshares offered in 2,278 AI decisions and cast 0 times, Path to Exile 1,571, Generous Gift 1,020, Nature's
+// Claim 487, Tamiyo's Safekeeping 1,273, Tyvar's Stand 1,129, Ephemerate 377, Leap 312. pickTargetedSpell reads the program's ONE
+// targeted atom (the riders beside it gains, same-target riders, a proliferate, or a "you lose N life" the AI can afford) and casts
+// only where that atom is clearly good on the side it lands. Choice only: every candidate was offered (legalChoices), and the
+// resolution is the program's own.
+
+/** What a permanent is worth as a target — the activation picker's reader: a creature's power first, then permanentValue. */
+function targetThreat(state, perm) {
+  return (permanentIsCreature(state, perm.id) ? Math.max(0, permanentPower(state, perm.id) ?? 0) * 100 : 0) + permanentValue(perm, state);
+}
+/** Is this permanent worth a card spent on it? A creature with 2+ power, or permanentValue 2+ (a 1/1 token, a Treasure: no). */
+const SPELL_WORTH_FLOOR = 2;
+function worthACard(state, perm) {
+  if (permanentIsCreature(state, perm.id) && Math.max(0, permanentPower(state, perm.id) ?? 0) >= 2) return true;
+  return permanentValue(perm, state) >= SPELL_WORTH_FLOOR;
+}
+/**
+ * A noncreature permanent is worth giving its controller an N/M creature token for (Beast Within, Generous Gift, a manifest) only when
+ * its permanentValue is above the body's, read as a creature card of that size: 0.8 × (N + M) — 4.8 for a 3/3. A Mind Stone (4) or a
+ * Sol Ring (3) is not; a Smothering Tithe (6) is.
+ */
+const BODY_VALUE_PER_STAT = 0.8;
+const lower = (k) => String(k || "").toLowerCase();
+const isLandOnly = (state, perm) => permanentHasCardType(state, perm.id, "land") && !permanentIsCreature(state, perm.id);
+
+/** The atom index a target belongs to: its own atomIndex, or (a legacy single-effect cast) the first atom that takes a chosen target. */
+function spellTargetSlot(atoms, t) {
+  if (t?.atomIndex != null) return t.atomIndex;
+  return atoms.findIndex((a) => a?.targetType && !isNonChosenTargetType(a.targetType));
+}
+
+/**
+ * THE HARMS AIMED AT THIS SEAT'S PERMANENTS ON THE STACK: for each opponent's spell or ability, each recorded target that is a
+ * permanent this seat controls and the targeted atom that would remove it as the board stands — a destroy (not of an
+ * indestructible permanent), an exile / tuck / bounce, damage that is lethal (its toughness minus the damage marked; an amount the
+ * board decides read as lethal), a -N/-N or -1/-1 counters that take its toughness to 0 (or under the damage marked). A harm it
+ * survives is no harm to answer. A bounce counts whatever side its atom reads (atomTargetIntent calls bounce ambiguous): an
+ * opponent's bounce aimed at this seat's permanent removes it. Map permanentId → [{ kind: "destroy" | "remove" | "damage" | "shrink", amount }].
+ */
+function stackHarmsToSeat(state, aiPlayerId) {
+  const enemies = new Set(opponentsOf(state, aiPlayerId));
+  const harms = new Map();
+  for (const obj of state.stack || []) {
+    if (!enemies.has(obj?.controller)) continue;
+    for (const t of obj.payload?.params?.targets || obj.targets || []) {
+      if (!t || t.type === "player" || t.type === "spell" || t.type === "stackAbility" || t.type === "graveyardCard") continue;
+      const lk = findPermanent(state, t.id);
+      if (!lk || lk.controller !== aiPlayerId) continue;
+      const atom = atomForStackTarget(obj, t);
+      if (!atom || (atom.op !== "bounce" && atomTargetIntent(atom) !== "enemy")) continue;
+      const perm = lk.permanent;
+      const toughness = permanentToughness(state, perm.id) ?? 0;
+      const marked = Math.max(0, Number(perm.damageMarked) || 0);
+      let harm = null;
+      if (atom.op === "destroy") {
+        if (!isIndestructible(perm, state)) harm = { kind: "destroy" };
+      } else if (atom.op === "exile" || atom.op === "tuck" || atom.op === "bounce") {
+        harm = { kind: "remove" };
+      } else if (atom.op === "deal-damage" && permanentIsCreature(state, perm.id)) {
+        const n = fixedAmount(atom) ? atom.amount : Infinity; // an amount the board decides is read as lethal
+        if (!isIndestructible(perm, state) && toughness - marked <= n) harm = { kind: "damage", amount: n };
+      } else if ((atom.op === "pump" && (atom.ptDelta?.t ?? 0) < 0) || (atom.op === "add-counter" && String(atom.counterType || "").trim() === "-1/-1" && fixedAmount(atom))) {
+        const d = atom.op === "pump" ? atom.ptDelta.t : -atom.amount;
+        const after = toughness + d;
+        if (after <= 0 || (!isIndestructible(perm, state) && after <= marked)) harm = { kind: "shrink", amount: -d };
+      }
+      if (!harm) continue;
+      if (!harms.has(perm.id)) harms.set(perm.id, []);
+      harms.get(perm.id).push(harm);
+    }
+  }
+  return harms;
+}
+
+/** The permanent ids this seat's own spells and abilities on the stack already target — an answer already on its way. */
+function ownPendingTargets(state, aiPlayerId) {
+  const ids = new Set();
+  for (const obj of state.stack || []) {
+    if (obj?.controller !== aiPlayerId) continue;
+    for (const t of obj.payload?.params?.targets || obj.targets || []) if (t?.id != null) ids.add(t.id);
+  }
+  return ids;
+}
+
+/**
+ * Does a buff save this permanent from every harm aimed at it? Hexproof or shroud: each opponent's target becomes illegal (CR 702.11b,
+ * 702.18a — the spell does nothing to it, CR 608.2b); indestructible: a destroy and lethal damage don't destroy it (CR 702.12b); more
+ * toughness: damage that is no longer lethal, a -N/-N it now survives.
+ */
+function buffSaves(state, perm, harms, { dt, grants }) {
+  const toughness = (permanentToughness(state, perm.id) ?? 0) + dt;
+  const marked = Math.max(0, Number(perm.damageMarked) || 0);
+  if (grants.has("hexproof") || grants.has("shroud")) return true;
+  const indestructible = grants.has("indestructible") || isIndestructible(perm, state);
+  return harms.every((h) => {
+    if (h.kind === "destroy") return indestructible;
+    if (h.kind === "damage") return indestructible || toughness - marked > h.amount;
+    if (h.kind === "shrink") return toughness - h.amount > 0 && (indestructible || toughness - h.amount > marked);
+    return false;
+  });
+}
+
+/** One duel (combatDuel's math) with indestructible on either side: an indestructible creature isn't destroyed by lethal damage. */
+function trickDuel(att, blk) {
+  const aHit = (att.deathtouch && att.power > 0) || (blk.toughness > 0 && att.power >= blk.toughness);
+  const bHit = (blk.deathtouch && blk.power > 0) || (att.toughness > 0 && blk.power >= att.toughness);
+  const aDies = bHit && !att.indestructible;
+  const bDies = aHit && !blk.indestructible;
+  if (blk.firstStrike && !att.firstStrike) return { attackerDies: aDies, blockerDies: aDies ? false : bDies };
+  if (att.firstStrike && !blk.firstStrike) return { attackerDies: bDies ? false : aDies, blockerDies: bDies };
+  return { attackerDies: aDies, blockerDies: bDies };
+}
+function trickStats(state, id, { dp = 0, dt = 0, grants = new Set() } = {}) {
+  const s = combatStatsOf(state, id);
+  if (!s) return null;
+  const lk = findPermanent(state, id)?.permanent;
+  return {
+    ...s,
+    power: Math.max(0, s.power + dp),
+    toughness: s.toughness + dt,
+    firstStrike: s.firstStrike || grants.has("first strike") || grants.has("double strike"),
+    deathtouch: s.deathtouch || grants.has("deathtouch"),
+    indestructible: grants.has("indestructible") || (!!lk && isIndestructible(lk, state)),
+  };
+}
+
+/**
+ * A COMBAT TRICK on its own creature in a one-on-one block (the declare-blockers step): its blocker, the only one on the attacker
+ * it blocks, or its attacker blocked by exactly one creature. Worth it only when the buff changes the duel in its favour — its
+ * creature survives where it died, or it survives and now kills the enemy. Returns the value gained (the threats saved and
+ * killed, each only when worthACard), or 0.
+ */
+function trickGain(state, aiPlayerId, perm, buff) {
+  if (state.step !== "declare-blockers" || (state.stack || []).length > 0) return 0;
+  const blockers = state.combat?.blockers || [];
+  let ownAttacks = false, enemyId = null;
+  const asBlocker = blockers.filter((b) => b.blockerId === perm.id);
+  if (asBlocker.length === 1) {
+    enemyId = asBlocker[0].attackerId;
+    if (blockers.filter((b) => b.attackerId === enemyId).length !== 1) return 0;
+  } else if (asBlocker.length === 0 && (state.combat?.attackers || []).some((a) => a.permanentId === perm.id && a.attackingPlayer === aiPlayerId)) {
+    const onIt = blockers.filter((b) => b.attackerId === perm.id);
+    if (onIt.length !== 1) return 0;
+    enemyId = onIt[0].blockerId;
+    ownAttacks = true;
+  } else return 0;
+  const enemyPerm = findPermanent(state, enemyId)?.permanent;
+  if (!enemyPerm || enemyPerm.controller === aiPlayerId) return 0;
+  const enemy = trickStats(state, enemyId);
+  const before = trickStats(state, perm.id);
+  const after = trickStats(state, perm.id, buff);
+  if (!enemy || !before || !after) return 0;
+  const outcome = (own) => {
+    const r = ownAttacks ? trickDuel(own, enemy) : trickDuel(enemy, own);
+    return ownAttacks ? { ownDies: r.attackerDies, enemyDies: r.blockerDies } : { ownDies: r.blockerDies, enemyDies: r.attackerDies };
+  };
+  const b = outcome(before), a = outcome(after);
+  if (a.ownDies) return 0; // a trick that only turns a loss into a trade spends a card for nothing
+  // Each half counts only for a creature worth a card (a 1/1 token saved, or killed, is not).
+  return (b.ownDies && worthACard(state, perm) ? targetThreat(state, perm) : 0)
+    + (a.enemyDies && !b.enemyDies && worthACard(state, enemyPerm) ? targetThreat(state, enemyPerm) : 0);
+}
+
+/**
+ * Would +dp power on ONE of its would-be attackers turn this turn's swing lethal on the defender it would attack (the W4 lethality
+ * model teamPumpFlipsLethal runs for a team pump)? Already lethal → false: the pump would be wasted.
+ */
+function singlePumpFlipsLethal(state, aiPlayerId, permId, dp) {
+  const defenderId = chooseDefender(state, aiPlayerId);
+  if (!defenderId || !state.players?.[defenderId] || dp <= 0) return false;
+  const atkIds = wouldBeAttackerIds(state, aiPlayerId);
+  if (!atkIds.includes(permId)) return false;
+  const blockers = untappedDefenderBlockers(state, defenderId);
+  const rows = atkIds.map((id) => {
+    const s = combatStatsOf(state, id);
+    return s ? { id, power: s.power, minBlockers: minBlockersFor(state, id), eligibleCount: eligibleBlockersFor(state, defenderId, id, blockers).length } : null;
+  }).filter(Boolean);
+  const life = state.players[defenderId].life ?? 0;
+  if (swingIsLethalV2(rows, blockers.length, life)) return false;
+  return swingIsLethalV2(rows.map((r) => (r.id === permId ? { ...r, power: r.power + dp } : r)), blockers.length, life);
+}
+
+/** Flying or "can't be blocked" granted to its ready attacker: the defender could block it now and could not after. */
+function evasionConnects(state, aiPlayerId, perm, { unblockable, grants }) {
+  if (!unblockable && !grants.has("flying")) return false;
+  if (!wouldBeAttackerIds(state, aiPlayerId).includes(perm.id) || Math.max(0, permanentPower(state, perm.id) ?? 0) < 1) return false;
+  if (permanentHasKeyword(state, perm.id, "unblockable")) return false;
+  const defenderId = chooseDefender(state, aiPlayerId);
+  if (!defenderId) return false;
+  const eligible = eligibleBlockersFor(state, defenderId, perm.id, untappedDefenderBlockers(state, defenderId));
+  if (eligible.length === 0) return false;
+  if (unblockable) return true;
+  return !eligible.some((b) => permanentHasKeyword(state, b.id, "Flying") || permanentHasKeyword(state, b.id, "Reach"));
+}
+
+// The enters-trigger atoms a re-buy is worth: a gain for its controller, or a harm the trigger chooser aims at an opponent.
+const REBUY_GAIN_OPS = new Set(["draw", "create-token", "create-named-token", "gain-life", "scry", "surveil", "tutor", "return-from-graveyard", "investigate", "proliferate", "explore", "connive"]);
+const REBUY_ENEMY_OPS = new Set(["deal-damage", "destroy", "exile", "lose-life", "tap", "cant-block", "goad", "detain", "sacrifice", "discard-chosen", "mill"]);
+/**
+ * Is this permanent's own enters trigger worth firing again (a blink re-buy)? Its "When this enters" abilities with no intervening
+ * "if" (a cast-only condition would not hold), each parsed HIGH, every atom a gain for its controller (a draw, a token, life, a
+ * search, a card back …), a harm aimed at an opponent (the trigger chooser places it — atomTargetIntent "enemy"; "each opponent"),
+ * or a fixed "you lose N life" the AI can afford, with at least one gain or harm; and never one whose forced target would remove
+ * the AI's own permanent (gameEngine.entersTriggerRemovesOwn — the cast-time hold's preview).
+ */
+function entersTriggerWorthRebuy(state, aiPlayerId, perm) {
+  const card = perm.card;
+  const etbs = detectTriggers(card).filter((d) => d.event === "etb" && d.scope === "self");
+  if (etbs.length === 0 || etbs.some((d) => d.interveningIf || !d.effectClause || d.effectHasX)) return false;
+  const life = state.players?.[aiPlayerId]?.life ?? 0;
+  let loss = 0;
+  let gains = 0;
+  for (const d of etbs) {
+    const prog = parseEffectClause(d.effectClause, "Instant", { sourceScoped: true }); // a trigger's effect reads like a spell's (entersTriggerRemovesOwn's parse)
+    if (!prog || prog.structure === "modal" || programConfidence(prog) !== "high") return false;
+    for (const atom of prog.atoms || []) {
+      if (atom.op === "lose-life" && atom.who === "controller" && fixedAmount(atom)) { loss += atom.amount; continue; }
+      const intent = atomTargetIntent(atom);
+      if (REBUY_GAIN_OPS.has(atom.op) && intent !== "enemy" && (!atom.who || atom.who === "controller" || atom.who === "you")) { gains++; continue; }
+      if (atom.op === "add-counter" && atom.counterType === "+1/+1" && (atom.target === "self" || intent === "own")) { gains++; continue; }
+      if (REBUY_ENEMY_OPS.has(atom.op) && (intent === "enemy" || atom.who === "eachOpponent")) { gains++; continue; }
+      return false;
+    }
+  }
+  if (gains === 0 || life - loss < LIFE_PRUDENCE_FLOOR) return false;
+  return !entersTriggerRemovesOwn(state, aiPlayerId, card);
+}
+
+/**
+ * PICK A TARGETED SPELL'S CAST (2026-10-18) — for a program the legacy chooser can't score. One targeted atom (a cast's targets all
+ * belong to it; "up to two" lands each on it), the other atoms riders only: a gain (targetedGainRider), a proliferate, a rider
+ * bound to the same target, or "you lose N life" that leaves the AI at LIFE_PRUDENCE_FLOOR. A kicker atom counts only on its own
+ * cast. By the targeted atom:
+ *   · REMOVAL — destroy / exile / tuck, a -N/-N or -1/-1 counters that kill: an opponent's nonland permanent worth a card
+ *     (worthACard), never an indestructible one for destroy, never one the compensation outweighs (a creature token for its
+ *     controller: their creature must be bigger than the token, their noncreature worth more than the body; a manifest is a
+ *     2/2); the biggest threat first (targetThreat — power, then permanentValue). On its own turn only in a main phase; on an
+ *     opponent's turn whenever it holds priority.
+ *   · A BUFF on its own permanent (+N/+N, a +1/+1 counter, keyword grants, "can't be blocked"):
+ *       – a SAVE (tier 5) from the opponent's removal on the stack it defeats (stackHarmsToSeat, buffSaves), of a permanent worth a card;
+ *       – a TRICK (tier 3) in a one-on-one block it turns (trickGain);
+ *       – in its own precombat main with the stack empty: a pump that makes the swing lethal (tier 4), flying / "can't be blocked"
+ *         for a ready attacker the defender could otherwise block, haste for a summoning-sick creature (tier 2).
+ *     A +N/+N is otherwise held: the attacker gets no priority after blocks in this engine unless something else happened.
+ *   · A TOKEN COPY (tier 2) in its own main with the stack empty: a nonland, non-Aura permanent of value 3+ (any side the card
+ *     allows), never its own legendary one (CR 704.5j), never one whose enters trigger would remove its own permanent.
+ *   · A BLINK of its own nontoken permanent it owns (or one returned under its control): a SAVE (tier 5) from any removal aimed at
+ *     it (it returns a new object, CR 400.7 — the spell's target is gone), or a RE-BUY (tier 2) in its own main with the stack empty
+ *     (postcombat, or precombat when it would not attack): an enters trigger worth firing again, or an opponent's Aura falling off;
+ *     never one that would lose +1/+1 counters or its own attachments.
+ * A permanent its own pending spell or ability already targets is left alone (no second answer to the same threat). Deterministic:
+ * tier, value, the cheaper cast (X, mana), name, target ids. Null = hold.
+ */
+function pickTargetedSpell(state, aiPlayerId, actions) {
+  const program = actions[0]?.program;
+  if (!program || program.structure === "modal" || programConfidence(program) !== "high") return null;
+  const atoms = program.atoms || [];
+  const enemies = new Set(opponentsOf(state, aiPlayerId));
+  const life = state.players?.[aiPlayerId]?.life ?? 0;
+  const ownTurnMain = state.activePlayer === aiPlayerId && state.step === "main" && (state.stack || []).length === 0;
+  const precombat = ownTurnMain && state.phase === "precombat-main";
+  const pending = ownPendingTargets(state, aiPlayerId);
+  let harms = null;
+  const harmsOn = (id) => (harms ??= stackHarmsToSeat(state, aiPlayerId)).get(id) || null;
+  const ranked = [];
+  for (const a of actions) {
+    if (!(a.targets?.length) || a.chosenMode != null) continue;
+    const live = atoms.map((atom, i) => ((a.kicked ? atom.nonKickedOnly : atom.kickedOnly) ? null : { atom, i })).filter(Boolean);
+    const slots = new Set(a.targets.map((t) => spellTargetSlot(atoms, t)));
+    if (slots.size !== 1) continue;
+    const slot = [...slots][0];
+    const atom = atoms[slot];
+    if (!atom || !live.some((x) => x.i === slot)) continue;
+    let loss = 0;
+    const ridersOk = live.every(({ atom: r, i }) => {
+      if (i === slot) return true;
+      if (targetedGainRider(r) || (r.op === "proliferate" && !r.targetType)) return true;
+      if (r.op === "lose-life" && r.who === "controller" && !r.targetType && fixedAmount(r)) { loss += r.amount; return true; }
+      return !!r.bindPreviousTargets && !r.targetType && (r.op === "gain-life" || r.op === "pump" || (r.op === "add-counter" && r.counterType === "+1/+1"));
+    });
+    if (!ridersOk || (loss > 0 && life - loss < LIFE_PRUDENCE_FLOOR)) continue;
+    const perms = a.targets.map((t) => (t.type === "player" || t.type === "spell" || t.type === "stackAbility" || t.type === "graveyardCard" ? null : findPermanent(state, t.id)?.permanent || null));
+    if (perms.some((p) => !p || pending.has(p.id))) continue;
+    const push = (tier, value) => ranked.push({ a, tier, value });
+    const op = atom.op;
+    const dt0 = atom.ptDelta?.t ?? 0, dp0 = atom.ptDelta?.p ?? 0;
+    // ── REMOVAL ──
+    if (op === "destroy" || op === "exile" || op === "tuck" || (op === "pump" && dt0 < 0)
+      || (op === "add-counter" && String(atom.counterType || "").trim() === "-1/-1")) {
+      if (atom.diesCopyRider || atom.targetCountX || atom.amountX) continue;
+      // On its own turn, only in a main phase, where the cast ranking weighs it against the rest of the hand: cast in its upkeep or
+      // draw step, it spends the mana its main phase would have had.
+      if (state.activePlayer === aiPlayerId && state.step !== "main") continue;
+      let total = 0;
+      const ok = perms.every((perm) => {
+        if (!enemies.has(perm.controller) || isLandOnly(state, perm) || !worthACard(state, perm)) return false;
+        if (op === "destroy" && isIndestructible(perm, state)) return false;
+        if (op === "pump" || op === "add-counter") {
+          if (!permanentIsCreature(state, perm.id) || (op === "add-counter" && !fixedAmount(atom))) return false;
+          const after = (permanentToughness(state, perm.id) ?? 0) + (op === "pump" ? dt0 : -atom.amount);
+          if (!(after <= 0 || (!isIndestructible(perm, state) && after <= Math.max(0, Number(perm.damageMarked) || 0)))) return false;
+        }
+        const r = atom.controllerRider;
+        if (r && r.kind !== "gainLifePower" && r.kind !== "rampBasic" && r.kind !== "casterGainLife" && r.kind !== "loseLife") {
+          if (r.kind !== "createToken" && r.kind !== "manifestTop") return false;
+          const body = r.kind === "manifestTop" ? 4 : (Number(r.power) || 0) + (Number(r.toughness) || 0);
+          if (permanentIsCreature(state, perm.id)) {
+            if (Math.max(0, permanentPower(state, perm.id) ?? 0) + Math.max(0, permanentToughness(state, perm.id) ?? 0) <= body) return false;
+          } else if (permanentValue(perm, state) <= BODY_VALUE_PER_STAT * body) return false;
+        }
+        total += targetThreat(state, perm);
+        return true;
+      });
+      if (ok) push(4, total);
+      continue;
+    }
+    // ── A BUFF ON ITS OWN PERMANENT ──
+    const plusCounter = op === "add-counter" && atom.counterType === "+1/+1" && fixedAmount(atom);
+    if ((op === "pump" && dp0 >= 0 && dt0 >= 0) || op === "cant-be-blocked" || plusCounter) {
+      if (perms.length !== 1) continue;
+      const perm = perms[0];
+      if (perm.controller !== aiPlayerId) continue;
+      const n = plusCounter ? atom.amount : 0;
+      const x = atom.amountX ? Math.max(0, Number(a.xValue) || 0) : 0;
+      const buff = { dp: dp0 + n + x, dt: dt0 + n + x, grants: new Set((atom.grantKeywords || []).map(lower)), unblockable: op === "cant-be-blocked" };
+      if (buff.dp === 0 && buff.dt === 0 && buff.grants.size === 0 && !buff.unblockable) continue;
+      const onPerm = harmsOn(perm.id);
+      if (onPerm) {
+        if (worthACard(state, perm) && buffSaves(state, perm, onPerm, buff)) push(5, targetThreat(state, perm));
+        continue;
+      }
+      if (!permanentIsCreature(state, perm.id)) continue;
+      const trick = trickGain(state, aiPlayerId, perm, buff);
+      if (trick > 0) { push(3, trick); continue; }
+      if (!precombat) continue;
+      if (singlePumpFlipsLethal(state, aiPlayerId, perm.id, buff.dp)) { push(4, buff.dp); continue; }
+      if (evasionConnects(state, aiPlayerId, perm, buff)) { push(2, Math.max(0, permanentPower(state, perm.id) ?? 0)); continue; }
+      if (buff.grants.has("haste") && perm.summoningSick && !perm.tapped && !permanentHasKeyword(state, perm.id, "Haste")
+        && (!permanentHasKeyword(state, perm.id, "Defender") || permanentHasKeyword(state, perm.id, "attacksIgnoringDefender"))
+        && Math.max(0, permanentPower(state, perm.id) ?? 0) >= 1) push(2, Math.max(0, permanentPower(state, perm.id) ?? 0));
+      continue;
+    }
+    // ── A TOKEN COPY ──
+    if (op === "create-token-copy" && atom.copySource === "target") {
+      if (!ownTurnMain || perms.length !== 1) continue;
+      const perm = perms[0];
+      const typeLine = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0];
+      if (isLandOnly(state, perm) || /\bAura\b/.test(typeLine) || permanentValue(perm, state) < 3) continue;
+      if (perm.controller === aiPlayerId && /\bLegendary\b/.test(typeLine)) continue;
+      if (entersTriggerRemovesOwn(state, aiPlayerId, perm.card)) continue;
+      push(2, targetThreat(state, perm));
+      continue;
+    }
+    // ── A BLINK ──
+    if (op === "blink") {
+      let total = 0;
+      let tier = 5;
+      const ok = perms.every((perm) => {
+        if (perm.controller !== aiPlayerId || perm.card?.token || perm.token) return false;
+        if (atom.returnTo === "owner" && (perm.owner ?? perm.controller) !== aiPlayerId) return false;
+        if (harmsOn(perm.id)) {
+          if (!worthACard(state, perm)) return false;
+          total += targetThreat(state, perm);
+          return true;
+        }
+        tier = 2;
+        if (!ownTurnMain || (precombat && wouldBeAttackerIds(state, aiPlayerId).includes(perm.id))) return false;
+        if ((perm.counters?.["+1/+1"] || 0) > 0) return false;
+        const attached = (perm.attachments || []).map((id) => findPermanent(state, id)).filter(Boolean);
+        if (attached.some((x) => x.controller === aiPlayerId)) return false;
+        if (!entersTriggerWorthRebuy(state, aiPlayerId, perm) && !attached.some((x) => enemies.has(x.controller))) return false;
+        total += permanentValue(perm, state);
+        return true;
+      });
+      if (ok) push(tier, total);
+    }
+  }
+  if (ranked.length === 0) return null;
+  const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
+  const ids = (a) => a.targets.map((t) => String(t.id)).sort().join(",");
+  ranked.sort((x, y) => (y.tier - x.tier) || (y.value - x.value) || ((x.a.xValue ?? 0) - (y.a.xValue ?? 0))
+    || (castCostTotal(x.a.cost) - castCostTotal(y.a.cost)) || cmp(String(x.a.name || ""), String(y.a.name || "")) || cmp(ids(x.a), ids(y.a)));
+  return ranked[0].a;
 }
 
 /**
@@ -1109,7 +1507,7 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     // group's first action (the smallest X), so sizing changes WHICH X is cast,
     // never where the card ranks against the rest of the hand.
     if (pol.xSizing !== "v1" && actions.some((a) => a.xValue != null)) {
-      const xChosen = pickXCast(state, aiPlayerId, actions);
+      const xChosen = pickXCast(state, aiPlayerId, actions, pol);
       if (!xChosen) continue; // no killable threat / no legal face → hold
       scored.push({ action: xChosen, score: scoreCastAction(actions[0], card, archetype, hint, state, aiPlayerId), cmc: actions[0].cmc || 0 });
       continue;
@@ -1137,13 +1535,13 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
       // the unkicked remainder; when neither is approved (e.g. bounce — no scorer yet) the card is HELD,
       // the same safe hold the unkicked path already took.
       const unkicked = actions.filter(a => a.kicked !== true);
-      const chosen = chooseDisciplinedVariant(state, aiPlayerId, kickedActions)
-        ?? chooseDisciplinedVariant(state, aiPlayerId, unkicked);
+      const chosen = chooseDisciplinedVariant(state, aiPlayerId, kickedActions, pol)
+        ?? chooseDisciplinedVariant(state, aiPlayerId, unkicked, pol);
       if (!chosen) continue;
       scored.push({ action: chosen, score: scoreCastAction(chosen, card, archetype, hint, state, aiPlayerId), cmc: chosen.cmc || 0 });
       continue;
     }
-    const chosen = chooseDisciplinedVariant(state, aiPlayerId, actions);
+    const chosen = chooseDisciplinedVariant(state, aiPlayerId, actions, pol);
     if (!chosen) continue;
     scored.push({ action: chosen, score: scoreCastAction(actions[0], card, archetype, hint, state, aiPlayerId), cmc: actions[0].cmc || 0 });
   }
@@ -1768,7 +2166,7 @@ function pickTargetedActivation(state, aiPlayerId, actions) {
   const enemies = new Set(opponentsOf(state, aiPlayerId));
   const lk = (id) => findPermanent(state, id)?.permanent || null;
   const powerOf = (id) => Math.max(0, permanentPower(state, id) ?? 0);
-  const threat = (perm) => (permanentIsCreature(state, perm.id) ? powerOf(perm.id) * 100 : 0) + permanentValue(perm, state);
+  const threat = (perm) => targetThreat(state, perm);
   const attackers = precombat ? new Set(wouldBeAttackerIds(state, aiPlayerId)) : new Set();
   const ranked = [];
   const fightGroups = new Map();
