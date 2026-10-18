@@ -70,6 +70,9 @@ export function mergeCardData(deckCard, full) {
     cmc: deckCard.cmc ?? full.cmc ?? 0,
     power: deckCard.power ?? full.power ?? null,
     toughness: deckCard.toughness ?? full.toughness ?? null,
+    // CR 306.5b — a planeswalker enters with loyalty counters equal to its printed loyalty. Until 2026-10-18 this field was
+    // dropped here, so every planeswalker in a game deck reached the engine without one and its cast resolved as a no-op.
+    loyalty: deckCard.loyalty ?? full.loyalty ?? null,
     keywords: (Array.isArray(deckCard.keywords) && deckCard.keywords.length)
       ? deckCard.keywords
       : (full.keywords || []),
@@ -92,12 +95,15 @@ export function enrichDeckCard(card, lookup = defaultCardLookup) {
     // a modal DFC in a saved deck reaches the engine with its gate intact. Nothing else is overwritten.
     // The color identity is backfilled the same way (2026-10-03): a saved commander without it stamped an EMPTY commander
     // identity, and Commander's Plate then gave protection from all five colors.
-    if (card.layout != null && Array.isArray(card.colorIdentity)) return card;
+    // The printed loyalty is backfilled the same way (2026-10-18): a saved planeswalker without it never entered play.
+    const needsLoyalty = card.loyalty == null && /\bPlaneswalker\b/.test(String(card.type || ""));
+    if (card.layout != null && Array.isArray(card.colorIdentity) && !needsLoyalty) return card;
     const full = lookup(card.name);
     if (!full) return card;
     const layout = card.layout == null && full.layout ? { layout: full.layout } : null;
     const identity = identityOf(card, full);
-    return layout || Object.keys(identity).length ? { ...card, ...layout, ...identity } : card;
+    const loyalty = needsLoyalty && full.loyalty != null ? { loyalty: full.loyalty } : null;
+    return layout || loyalty || Object.keys(identity).length ? { ...card, ...layout, ...identity, ...loyalty } : card;
   }
   return mergeCardData(card, lookup(card.name));
 }
