@@ -26,7 +26,7 @@ import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword, hasKeyword } from ".
 import { colorsOfSpell } from "./spellColors.js"; // a leaf (no imports) — the face builders read it without this module
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — Root Sliver's "Sliver spells": a spell's every-creature-type answer; a leaf (keywords.js only)
 import { isLevelerFrame } from "./leveler.js"; // LV-1 — the leveler frame detector (leaf module, no cycle)
-import { faceUpView } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — a multi-face card's statics are its front face's
+import { faceUpView, characteristicTypeLine } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — a multi-face card's statics are its front face's; a spell's type line is the face being cast's (spellTypeLine)
 import { classLiveCard } from "./classLevels.js"; // CLASS (CR 716.2a) — the play-from-top permission reads a modeled Class's level view (a zero-import leaf)
 import { isAttackTaxClause, parseAttackTax } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — a pure leaf, shared with the runtime so metric and game agree
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // the closed creature-subtype vocabulary, imported from the LEAF (never through targeting.js — that edge crashes module init; see creatureTypes.js)
@@ -1951,6 +1951,26 @@ export function parseFlashCastFilter(filter) {
  * TYPE-CHANGE (Arixmethes) knows whether the source is a printed Creature (→ pair the
  * "it's a land" grant with the implied "not a creature" removal).
  */
+/**
+ * THE TYPE LINE OF A SPELL — being cast or on the stack — for every static here that asks "is this spell a <type> / <subtype>?":
+ * the cost reducers and taxes, the chosen-type matches, the flash and cast-from-top permissions and the uncounterable statics.
+ * It is the face being cast. In-game multi-face cards carry Scryfall's COMBINED line ("Battle — Siege // Artifact — Equipment"),
+ * and a nonmodal double-faced spell has its front face up on the stack with only that face's characteristics (CR 712.8c), as a
+ * meld card does (CR 712.8b) — a double-faced spell is cast front face up by default (CR 712.11; the engine casts no card
+ * transformed); a flip card has its normal characteristics (CR 710.2) and an adventurer cast normally its normal ones (CR 715.4).
+ * The cast lane projects a split half, an Adventure and a modal face before a static reads it (CR 709.3b, 715.3b, 712.8f), so a
+ * projected face carries no " // "; a combined split card on the stack can only be a fused spell, which has its two halves'
+ * characteristics combined (CR 709.4d). That is exactly faceUp.characteristicTypeLine — the read the cast triggers already use
+ * (triggers.typeStr) — so a "creature spell" is one thing to a cost reducer, a counter shield and a cast trigger.
+ *
+ * Until 2026-10-17 these readers read the WHOLE combined line: Foundry Inspector's "Artifact spells" discounted Invasion of New
+ * Capenna (its back face is an Artifact — Equipment), Prowling Serpopard's "Creature spells" protected Invasion of Ikoria (its back
+ * face is a Legendary Creature), Thalia's "Noncreature spells" did not tax it, and a creature-flash permission cast it at instant speed.
+ */
+function spellTypeLine(card) {
+  return characteristicTypeLine(card);
+}
+
 // COLORED-PIP COST-REDUCTION (CR 601.2f) — "{W}{B}" → { W: 1, B: 1 }. Repeats accumulate ("{R}{R}" → 2),
 // which no printed card does today but costs nothing to get right.
 function parseColorPips(str) {
@@ -1973,7 +1993,7 @@ function parseColorPips(str) {
 // spellMatchesFlashFilter and castFromTopFilterAllows.
 export function coloredPipReductionForSpell(reducers, spellCard, every = false) {
   if (!reducers?.length || !spellCard) return {};
-  const typeLine = String(spellCard?.type || spellCard?.type_line || "").toLowerCase();
+  const typeLine = spellTypeLine(spellCard).toLowerCase(); // the face being cast (spellTypeLine)
   const spellName = spellCard?.name;
   const out = {};
   for (const r of reducers) {
@@ -5508,7 +5528,9 @@ export function collectCostTaxers(players) {
  */
 export function costTaxForSpell(taxers, spellCard, casterId) {
   if (!taxers?.length || !spellCard) return 0;
-  const typeLine = String(spellCard?.type || spellCard?.type_line || "").toLowerCase();
+  // The face being cast (spellTypeLine): a battle whose back face is a creature is a noncreature spell — Thalia taxes Invasion of
+  // Ikoria — and one whose back face is an artifact is a nonartifact spell (Lodestone Golem taxes Invasion of Vryn).
+  const typeLine = spellTypeLine(spellCard).toLowerCase();
   let total = 0;
   for (const t of taxers) {
     if (t.oppOnly && t.controller === casterId) continue;
@@ -5562,7 +5584,7 @@ export function collectCostReducers(permanents, { commandZone = false } = {}) {
 // a bare /changeling/ match on the oracle also took Springleaf Parade, which only MAKES changeling tokens, as every creature type).
 function spellHasChosenType(spellCard, chosenType) {
   if (!chosenType || !spellCard) return false;
-  const ts = String(spellCard.type || spellCard.type_line || "");
+  const ts = spellTypeLine(spellCard); // the face being cast — Invasion of Tarkir is no Dragon spell (its back face is the Dragon)
   const dash = ts.indexOf("—");
   if (dash === -1) return false;
   const esc = String(chosenType).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -5600,7 +5622,9 @@ function creatureSpellPower(spellCard, castContext) {
  */
 export function costReductionForSpell(reducers, spellCard, fromZone = "hand", castContext = null, every = false) { // `every` — P·39b, see coloredPipReductionForSpell
   if (!reducers?.length || !spellCard) return 0;
-  const typeLine = String(spellCard?.type || spellCard?.type_line || "").toLowerCase();
+  // Every type arm reads the face being cast (spellTypeLine): Foundry Inspector's "Artifact spells" does not discount Invasion of
+  // New Capenna, whose BACK face is the artifact (CR 712.8c).
+  const typeLine = spellTypeLine(spellCard).toLowerCase();
   const spellName = spellCard?.name;
   let spellColors = null; // lazily derived only when a color reducer is present
   let total = 0;
@@ -5634,11 +5658,11 @@ export function costReductionForSpell(reducers, spellCard, fromZone = "hand", ca
       continue;
     }
     if (r.plot) continue;
-    // HISTORIC (Jhoira's Familiar — CR 700.6): the legendary supertype, the artifact card type or the Saga subtype, on the FRONT face —
-    // the face being cast (the cast lane projects a split, modal or Adventure face before it gets here; a flip card is cast unflipped
+    // HISTORIC (Jhoira's Familiar — CR 700.6): the legendary supertype, the artifact card type or the Saga subtype, on the face being
+    // cast (spellTypeLine — the cast lane projects a split, modal or Adventure face before it gets here; a flip card is cast unflipped
     // and a transforming card front face up — CR 710.2, 712.8c), so a back face's types never count. FAIL-CLOSED on no type line.
     if (r.historic) {
-      if (!/\b(?:legendary|artifact|saga)\b/.test(typeLine.split(" // ")[0])) continue;
+      if (!/\b(?:legendary|artifact|saga)\b/.test(typeLine)) continue;
       total += r.amount || 0;
       continue;
     }
@@ -5897,7 +5921,9 @@ export function flashCastPermissionsOf(card) {
 export function spellMatchesFlashFilter(spec, spellCard, every = false) { // `every` — P·39b, see coloredPipReductionForSpell
   if (!spec || !spellCard) return false;
   if (spec.any) return true;
-  const typeLine = String(spellCard?.type || spellCard?.type_line || "");
+  // The face being cast (spellTypeLine; CR 601.3b — the permission asks about the spell): a creature-flash permission does not cast
+  // Invasion of Ikoria, a battle whose back face is a creature, at instant speed.
+  const typeLine = spellTypeLine(spellCard);
   const typeLineLc = typeLine.toLowerCase();
   const dash = typeLine.indexOf("—");
   const subtypeStr = (dash >= 0 ? typeLine.slice(dash + 1) : "").toLowerCase();
@@ -5978,7 +6004,7 @@ function cardColorLetters(card) {
 }
 
 /** Does `playerId`'s uncounterable-static coverage protect a spell with this type line (and, for a colour-
- *  scoped static — SG-14 — with this card's colours)? */
+ *  scoped static — SG-14 — with this card's colours)? `typeLine` is the spell's — the face being cast (spellTypeLine). */
 export function uncounterableCoversSpell(uncounterablePlayers, playerId, typeLine, card = null) {
   const filters = uncounterablePlayers?.get?.(playerId);
   if (!filters) return false;
@@ -6007,7 +6033,10 @@ export function uncounterableCoversSpell(uncounterablePlayers, playerId, typeLin
  * ability" — atoms/stack.js), so the two paths cannot drift. Pure.
  */
 export function stackSpellIsUncounterable(state, obj, pre = null) {
-  if (/can't be countered/i.test(String(obj?.source?.oracle || obj?.source?.oracle_text || ""))) return true;
+  // 1 and 3–4 read the face being cast (faceUpView / spellTypeLine — CR 712.8c): a back face's text is not the spell's (Malevolent
+  // Hermit's back face, Benevolent Geist, prints "Noncreature spells you control can't be countered"), nor are its types.
+  const face = faceUpView(obj?.source);
+  if (/can't be countered/i.test(String(face?.oracle || face?.oracle_text || ""))) return true;
   if (obj?.uncounterable) return true;
   // VEIL OF SUMMER (shelf D18): "Spells you control can't be countered this turn" — the controller's turn stamp.
   if (state?.players?.[obj?.controller]?.spellsUncounterableTurn != null && state.players[obj.controller].spellsUncounterableTurn === state.turn) return true;
@@ -6015,7 +6044,7 @@ export function stackSpellIsUncounterable(state, obj, pre = null) {
     Object.values(state?.players || {}).flatMap((p) => (p?.battlefield || []).map((perm) => perm?.card).filter(Boolean)),
   );
   if (subs.size) {
-    const typeLine = String(obj?.source?.type || obj?.source?.type_line || "").toLowerCase();
+    const typeLine = spellTypeLine(obj?.source).toLowerCase();
     for (const sub of subs) {
       if (new RegExp(`\\b${sub.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(typeLine)) return true;
     }
@@ -6024,7 +6053,7 @@ export function stackSpellIsUncounterable(state, obj, pre = null) {
     if (cardIsEveryCreatureType(state, obj?.source, obj?.controller) && [...subs].some((s) => CR_CREATURE_TYPES.has(String(s).toLowerCase()))) return true;
   }
   const players = pre?.uncounterablePlayers ?? uncounterablePlayersOnBattlefield(state);
-  return uncounterableCoversSpell(players, obj?.controller, obj?.source?.type || obj?.source?.type_line, obj?.source);
+  return uncounterableCoversSpell(players, obj?.controller, spellTypeLine(obj?.source), obj?.source);
 }
 
 /**
@@ -6058,7 +6087,9 @@ function mergeSpellFilters(a, b) {
 export function castFromTopFilterAllows(spellFilter, card, every = false) { // `every` — P·39b, see coloredPipReductionForSpell
   if (!spellFilter) return false;
   if (spellFilter === "any") return true;
-  const tl = `${card?.type || card?.type_line || ""}`;
+  // The face being cast (spellTypeLine): "creature spells" from the top is not Invasion of Ikoria, whose back face is the creature.
+  // A modal face is judged on its own — the offer passes each projected face (legalChoices.actionsPlayFromTopOfLibrary).
+  const tl = spellTypeLine(card);
   // "colorless" (Mystic Forge) is a COLOUR test, not a type-line word: a card with no colour — read off its printed
   // colours, else its cost pips — passes; a land is never a spell and is refused by the caller's lands gate.
   return spellFilter.some((w) => (w === "colorless" ? cardIsColorless(card)

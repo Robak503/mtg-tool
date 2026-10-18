@@ -119,6 +119,7 @@ import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR
 import { normalFaceCard } from "./omenPrepare.js"; // OMEN (CR 720) / PREPARATION (CR 722) cards — cast normally, as the creature; pure shape module
 import { spellManaValue } from "./spellOnStack.js"; // the mana value of the spell being cast (CR 202.3) — Bolas's Citadel's life payment per offered face; a zero-import leaf
 import { isModalDfc, mdfcLandFaces, mdfcFaceCards, parseSpellModalDfc, spellMdfcFaceCards } from "./modalDfc.js"; // MODAL DFC (CR 712.8, V1) — the land drop chooses a face; the spell front is cast as a face; pure shape module
+import { characteristicTypeLine } from "./faceUp.js"; // the face being cast's type line (CR 712.8c) — Rivaz's "Dragon creature spell" permission (a leaf: splitCard.js only)
 import { evaluateInterveningIf } from "./interveningIf.js"; // CR 602.5d "Activate only if <cond>" — the offer gate reads the SAME vocabulary as the trigger + spell lanes
 import { extractAdditionalCosts, extractAltCost } from "./effects/castModifiers.js"; // AC-PERMANENT — see permanentAdditionalCosts below; + extractAltCost (EVOKE on a permanent, Solitude)
 import { isPermanentSpell } from "./resolvers.js";
@@ -3876,12 +3877,16 @@ function actionsCastDragonCreatureFromGraveyard(state, playerId) {
     && !state.onceTriggersFiredThisTurn?.[`${p.id}_dragonGyCast`]);
   if (!source) return [];
   // P·39b — a creature card that is every creature type (a changeling, or one under its owner's Maskwood Nexus) is a Dragon card.
-  const eligible = (player.graveyard || []).filter((c) => {
-    const t = String(c?.type || c?.type_line || "");
-    return (/\bDragon\b/.test(t) || cardIsEveryCreatureType(state, c, playerId)) && /\bCreature\b/.test(t);
-  });
+  // The permission names a SPELL, so it is judged on the face being cast (CR 712.11c, 601.3e): a double-faced card on its front face
+  // (characteristicTypeLine — Invasion of Tarkir is a battle, its back face the Dragon, CR 712.8c), a modal face offered as itself.
+  const isDragonCreatureSpell = (face) => {
+    const t = characteristicTypeLine(face);
+    return (/\bDragon\b/.test(t) || cardIsEveryCreatureType(state, face, playerId)) && /\bCreature\b/.test(t);
+  };
+  const eligible = (player.graveyard || []).filter((c) => isDragonCreatureSpell(c) || (spellMdfcFaceCards(c) || []).some(isDragonCreatureSpell));
   if (!eligible.length) return [];
   return castActionsFromZone(state, playerId, eligible, "graveyard", null, false)
+    .filter((a) => isDragonCreatureSpell(a.faceCard || eligible.find((c) => c.id === a.cardId)))
     .map((a) => ({ ...a, dragonGyCastSourceId: source.id }));
 }
 
@@ -3949,7 +3954,14 @@ function actionsPlayFromTopOfLibrary(state, playerId) {
     // card's type line here. This check is the ENFORCEMENT half of the credited static — without it a
     // filtered permission would offer ANY top card, which is a bigger card than the one printed and exactly
     // the false positive the lands-only gate below already exists to prevent.
-    if (castFromTopFilterAllows(perm.spellFilter, top, cardIsEveryCreatureType(state, top, playerId))) actions.push(...castActionsFromZone(state, playerId, [top], "library", null, false));
+    // The filter asks about the SPELL — the face being cast (CR 712.11c, 601.3e): a modal double-faced card is offered as each of its
+    // faces (Birgi, God of Storytelling // Harnfel, Horn of Bounty), so each offer is judged on its own face; any other card on its
+    // front face (castFromTopFilterAllows). Judged on the whole card, Mystic Forge's "artifact spells" cast Birgi's creature face off
+    // the top because Harnfel is an artifact.
+    const allows = (filter, face) => castFromTopFilterAllows(filter, face, cardIsEveryCreatureType(state, face, playerId));
+    const anyFaceAllowed = (filter) => allows(filter, top) || (spellMdfcFaceCards(top) || []).some((face) => allows(filter, face));
+    const allowedFace = (filter) => (a) => allows(filter, a.faceCard || top);
+    if (perm.spellFilter && anyFaceAllowed(perm.spellFilter)) actions.push(...castActionsFromZone(state, playerId, [top], "library", null, false).filter(allowedFace(perm.spellFilter)));
     // BOLAS'S CITADEL (P·17 — CR 118.9): the LIFE-COST permission — pay life equal to the spell's mana value rather than its
     // mana cost. Built as a no-mana cast (so X is 0, CR 107.3b, and no other alternative cost stacks, CR 118.9a) and carried
     // as an altCost the dispatcher pays; a mana value of 0 pays nothing (and a card with no mana cost may still be cast,
@@ -3957,9 +3969,9 @@ function actionsPlayFromTopOfLibrary(state, playerId) {
     // spell cast this way follows its normal timing. Life is paid only if the total covers it (CR 119.4). The mana value is the
     // SPELL's, per offer (spellOnStack.spellManaValue with X = 0): a modal double-faced card cast as its back face is that face's
     // (CR 712.8f — Harnfel, Horn of Bounty is 5, not Birgi's 3).
-    if (perm.lifeSpellFilter && castFromTopFilterAllows(perm.lifeSpellFilter, top, cardIsEveryCreatureType(state, top, playerId))
+    if (perm.lifeSpellFilter && anyFaceAllowed(perm.lifeSpellFilter)
         && (isSorcerySpeed(top) ? canCastSorcerySpeed(state, playerId) : canCastInstantSpeed(state, playerId))) {
-      for (const a of castActionsFromZone(state, playerId, [top], "library", null, true)) {
+      for (const a of castActionsFromZone(state, playerId, [top], "library", null, true).filter(allowedFace(perm.lifeSpellFilter))) {
         const mv = Math.max(0, spellManaValue(a.faceCard || top, 0));
         if ((player.life ?? 0) < mv) continue;
         const { freeCast: _paidInLife, ...cast } = a;

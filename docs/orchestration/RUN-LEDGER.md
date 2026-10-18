@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.165.0** (tagged 2026-10-18 on the `[0.165.0]` CHANGELOG cut):
-> **8 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.0% (15,589)**; engine gains since the tag: **+53**. The next tag
+> **9 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.0% (15,589)**; engine gains since the tag: **+53**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,81 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-18 — FIX (false positive): a double-faced SPELL is its front face to every static that asks what it is (CR 712.8c) — Foundry Inspector's "Artifact spells" no longer discounts Invasion of New Capenna, Invasion of Vryn or Edgar, Charmed Groom (their BACK faces are artifacts); The Ur-Dragon, Dragonspeaker Shaman, Urza's Incubator, Herald's Horn and Morophon no longer discount Invasion of Tarkir; Prowling Serpopard, Rhythm of the Wild and Leyline of Lifeforce no longer protect Invasion of Ikoria, Thalia taxes it, Sally Sparrow's flash, Garruk's Horde's / Eladamri's / Elven Chorus's cast-from-top and Cavern of Souls' mana no longer reach it; Mishra's Workshop no longer pays for Invasion of Vryn, Rivaz no longer casts Invasion of Tarkir from the graveyard; Malevolent Hermit and Goldbug are counterable (a back face's "can't be countered" line); Mystic Forge casts only Birgi's artifact face off the top · **±0** · snapshot native+land 15,584 unchanged
+> Suite **21,176 green (1 skipped) / 1,902 files** under the gate queue (with the rules index built for the run, then deleted; run 1 failed
+> only the known `crucibleRun.test.js` 20 s load timeout; run 2 is the green of record). Lint 0 (CR citations: 0 of 11,915 name no rule; keyword
+> citations: 0 of 2,436 cite a different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of
+> 24af8dc8, snapshotted before the first edit; native+land 15,584 of 34,584 snapshot names on both). **Mutants 6/6** on assertions, each
+> restored byte-identical (sha256): the reducer on the whole line (4 tests red), the flash filter (1), the controller's uncounterable static
+> (3), the spell's own "can't be countered" on both faces' text (1), the cast-from-top filter on the whole card instead of each offered face
+> (2), the spend restriction (2). Witness `spellFaceStatics.test.js` (19) written before the engine change and run on the untouched archive:
+> **16 fail there on assertions, the 3 controls pass on both**. A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile
+> decks, default AI; base = the untouched 24af8dc8 archive): **77 byte-identical, 3 differ** — all three in the pod holding Did you say
+> Dragons?, all on Invasion of Tarkir under its commander The Ur-Dragon (game 23: cast for {R} on base, not castable for {1}{R} on this
+> tree; game 28: cast for {1}{R}, one more land tapped; game 26: one cast offer fewer in 12 rows, log identical); winners and results
+> unchanged (ai-wins 58 / user-wins 22), 0 errors on either tree (300.5 s / 329.6 s, the second partly concurrent with the first).
+> Committed on `day/backface`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The bug** (slice #5's found-not-fixed (1) and (2), measured there on the pure functions; re-proved here through the cast lane on
+>   24af8dc8). In-game multi-face cards carry Scryfall's COMBINED type line and both faces' text. The 10-17 face-up sweep moved every
+>   reader of a PERMANENT or a zone card to `faceUp.js`, and the cast triggers read a spell through it (`triggers.typeStr`); the statics
+>   that ask what a SPELL is still read the raw line: `costReductionForSpell` (every type arm but slice #5's historic one),
+>   `coloredPipReductionForSpell`, `spellHasChosenType` (the subtypes after the FIRST dash — the back face's too), `costTaxForSpell`,
+>   `spellMatchesFlashFilter`, `castFromTopFilterAllows`, `stackSpellIsUncounterable` (the spell's own text, the subtype arm and the
+>   controller arm), Rivaz's graveyard lane (legalChoices) and `manaModel.spendRestrictionAllows`. On base, through the real offers:
+>   Foundry Inspector priced Edgar at {1}{W}{B} and Invasion of Vryn at {2}{U}; under an opponent's Thalia, Invasion of New Capenna cost
+>   {W}{B} (taxed, then discounted) and Invasion of Ikoria was untaxed; Dragonspeaker Shaman / The Ur-Dragon / Urza's Incubator priced
+>   Invasion of Tarkir at {R} and Morophon at {1}; Counterspell had no target in an Invasion of Ikoria cast beside Prowling
+>   Serpopard; Malevolent Hermit (its back face prints "Noncreature spells you control can't be countered") was uncounterable; Sally
+>   Sparrow cast Invasion of Ikoria in its controller's upkeep; Garruk's Horde cast it off the top; Cavern of Souls naming Dinosaur and a
+>   Forest paid for it; Mishra's Workshop paid for Invasion of Vryn; Rivaz offered Invasion of Tarkir from the graveyard; and Garruk's
+>   Horde / Mystic Forge offered BOTH faces of Birgi, God of Storytelling off the top (each permission judged the whole card).
+> · **The rules** (bundled CR, cited exactly). A nonmodal double-faced spell has its front face up on the stack and only that face's
+>   characteristics (CR 712.8c; cast transformed, its back face's — the engine casts nothing transformed); a meld card on the stack, its
+>   front face's (CR 712.8b); a double-faced spell is cast front face up by default (CR 712.11); a modal face is chosen before the card
+>   goes on the stack and only that face is evaluated to see if it can be cast (CR 712.11b, 712.11c, 601.3e); a flip card has its normal
+>   characteristics (CR 710.2), an adventurer cast normally its normal ones (CR 715.4); a split half has only its own (CR 709.3b), and a
+>   combined split card on the stack can only be a fused spell, which has both halves' combined (CR 709.4d).
+> · **The fix** — one read, `faceUp.characteristicTypeLine` (front face of a combined card; a split card whole; a projected face as it is),
+>   named `staticAbilityParser.spellTypeLine`. Sites changed: staticAbilityParser.js — `coloredPipReductionForSpell`, `costTaxForSpell`,
+>   `spellHasChosenType`, `costReductionForSpell` (one read for every arm; the historic arm's `split(" // ")[0]` folded into it),
+>   `spellMatchesFlashFilter`, `stackSpellIsUncounterable` (own text through `faceUpView`; subtype arm; the type line it hands
+>   `uncounterableCoversSpell`), `castFromTopFilterAllows`; legalChoices.js — `actionsPlayFromTopOfLibrary` (both the cast and Bolas's
+>   Citadel life lane judge each offer on `a.faceCard || top`, pre-gated on any face passing) and `actionsCastDragonCreatureFromGraveyard`
+>   (the same per-face read); manaModel.js — `spendRestrictionAllows`' cast-type walk. ENGINE-SCAFFOLD's face-up bullet names the rule.
+> · **Reach** (every bundled carrier × the 458 combined cards the engine casts as one object — transform, flip and the parked spell // spell
+>   modal DFCs; a chosen type enumerated over all 114 back-face subtypes, so chosen-type pair counts are an upper bound): 317 spells and
+>   203 carriers change some answer. Removed — discounts 2,433 pairs (69 reducers: Foundry Inspector, Etherium Sculptor, Herald's Horn,
+>   Urza's Incubator, Goblin Electromancer, Danitha Capashen, the Bannerets …), taxes skipped 495 now applied (Thalia, Thalia the
+>   Survivor, Thorn of Amethyst, Lodestone Golem, Glowrider, Vryn Wingmare, Charitable Levy), flash 477 (16 permissions: Sally Sparrow,
+>   Prophet of Kruphix, Shimmer Myr, Sigarda's Aid …), protections 543 (Prowling Serpopard, Rhythm of the Wild, Destiny Spinner, Frenzied
+>   Baloth, Surrak, Leyline of Lifeforce, Gaea's Herald, Root Sliver, Sphinx of the Final Word …) plus 2 own-text (Malevolent Hermit,
+>   Goldbug), cast-from-top 702 (16: Eladamri, Elven Chorus, Garruk's Horde, Vizier of the Menagerie, Korlessa …), spend 3,452 (77
+>   restricted mana lines: Cavern of Souls, Secluded Courtyard, Unclaimed Territory, Plaza of Heroes, Mishra's Workshop …), Rivaz 6.
+>   Added (the rules-correct direction, a battle being a noncreature spell): discounts 474 (Longshot, Valeria Richards, Iron Lad, Lyse
+>   Hext, Blood Funnel, Geist of Saint Thalia — "noncreature spells"), flash 79 (Valley Floodcaller), taxes lifted 89 (Feroz's Ban's
+>   creature tax, Squeeze's sorcery tax on a sorcery back face).
+> · **Profile decks holding a changed pair** (spell and carrier both in the 99 or the command zone): Did you say Dragons? (Invasion of Tarkir
+>   × The Ur-Dragon, Dragonspeaker Shaman, Urza's Incubator, Sarkhan, Soul Aflame, Morophon, Herald's Horn, Maelstrom of the Spirit Dragon,
+>   Rivaz — the A/B's three games); The Unbeatable Squirrel Girl (Invasion of Ikoria × Frenzied Baloth, Elven Chorus, Cavern of Souls);
+>   Killer Turts (Invasion of Ikoria × Cavern of Souls); cdh (Invasion of Ikoria × Valley Floodcaller — now flash-permitted, correctly);
+>   Shorikai Vehicles (Cosima, God of the Voyage — parked, cast as its front — × Foundry Inspector, Etherium Sculptor, Shimmer Myr, Mech
+>   Hangar, Vedalken Engineer); Captain America (Halvar, Tony Stark × Sigarda's Aid, Dalakos, Codsworth); Kellan (The Legend of Yangchen ×
+>   Eladamri); Earth Bent (The Legend of Kyoshi × Herd Heirloom).
+> · ⚠️ **Found, not fixed:** (1) **A combined double-faced spell is colourless** — in-game transform and modal cards carry `colors: []` (the
+>   faces hold the colours), the queued "off the battlefield a double-faced card is still colourless" item, and it reaches these same
+>   readers: Mystic Forge's "colorless spells" (`cardIsColorless`, staticAbilityParser.js:6098) still casts Delver of Secrets or Invasion of
+>   Vryn off the top (FP, measured on this tree); colourless-only spend restrictions (`colorsOf(castCard)`, manaModel.js:2453) read the same
+>   []; the colour reducer arm (staticAbilityParser.js:5715, 5720), the flash colour qualifiers (5931) and Throne of Eldraine's monocolored
+>   spend (manaModel.js:2448) under-read (FN). One spell-colour leaf (the front face's `card_faces[0].colors`, the shape
+>   `layers.permanentPrintedColors` and `spellOnStack.counterColorsOf` already read) closes the family. (2) A restricted multi-mana source
+>   pays only a cost that takes all of it — Mishra's Workshop alone casts no {2} artifact (Mind Stone), only a {3} one (FN, the planner).
+>   (3) The Master of Keys' "Each enchantment card in your graveyard has escape" reads the whole line (`typeLineOf`, legalChoices.js:3808) —
+>   a card in the graveyard has its front face's characteristics (CR 712.8a), so a transform card with an enchantment back face gets escape
+>   (FP; the graveyard-card family, not a spell read). (4) `isSorcerySpeed` (legalChoices.js:480) reads "Instant" off the whole line — no
+>   combined card the engine casts as one object has an instant back face (only the preparation cards, which are projected), so unobservable
+>   today. (5) `spendRestrictionAllows`' keyword permission reads the whole combined oracle (manaModel.js:2471).
+> · Witness: `spellFaceStatics.test.js` (19).
 
 > ## 🎯 2026-10-17 — PLAY-WEIGHTED: triggers and statics the most-played still lacked — Ayara, First of Locthwain (EDHREC #847) — a colour on the entering creature, "<self> or another black creature you control", and "Sacrifice another black creature" (+ Ivy Lane Denizen #2474, Sylvan Anthem #2828, Court Street / Foundry Street / Sage's Row / Shadow Alley Denizen, Homarid Spawning Bed); Burgeoning (#901) — "an opponent plays a land", PLAYED only (+ Horn of Greed #2127, Dirtcowl Wurm, Pangosaur); Destiny Spinner (#1006) — two card types that can't be countered and the X/X land fixed as it resolves (+ Sphinx of the Final Word, Vastwood Animist); Heliod, Sun-Crowned (#1028) — "target creature or enchantment you control" and "another target creature gains" (+ Trailblazing Historian, Hotfoot Gnome, Torch Courier, Gravity Negator, Attended Healer); Jhoira's Familiar (#1056) — the historic cost reducer; and FIX: a played-land trigger is not an entering — City of Traitors was doubled by Ancient Greenwarden / Yarok and silenced by an opponent's Elesh Norn, Mother of Machines · **+22** · snapshot native+land 15,562 → 15,584
 > Suite **21,129 green (1 skipped) / 1,900 files** under the gate queue (with the rules index built for the run, then deleted; run 1 failed

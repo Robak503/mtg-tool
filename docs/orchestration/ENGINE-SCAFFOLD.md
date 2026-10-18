@@ -1185,6 +1185,12 @@ pass fixed four of these; they are the template for what to look for:
   Enchant-land host. No tier moved (flip-diff 0 / 0 / 0). A new reader of a
   permanent's or a zone card's type, text or keywords goes through a parser or one of the three, never raw
   `card.type` / `card.oracle` / `card.keywords`. Witness: `dfcFaceUpSweep.test.js`.
+  A SPELL is read the same way (fixed 2026-10-18): a double-faced spell is its front face on the stack (CR 712.8c),
+  so every static that asks what a spell is — the cost reducers, taxes and chosen-type matches, the flash and
+  cast-from-top permissions, the uncounterable statics (type and the spell's own "can't be countered" text), Rivaz's
+  graveyard permission and the spend restrictions — reads `characteristicTypeLine` (`staticAbilityParser.spellTypeLine`;
+  `faceUpView` for the text), the read the cast triggers already used. A modal face offered by the cast-from-top and
+  Rivaz lanes is judged on its own face (`a.faceCard`). Witness: `spellFaceStatics.test.js`.
 - **A counter replacement keyed on WHO PUTS the counters** (credit removed 2026-10-17): "If you would put …" / "If an
   opponent would put …" (Vorinclex, Monstrous Raider; Lae'zel, Vlaakith's Champion; Doc Samson) describes the putter (CR
   614.1a; wither / infect counters are put by the source's controller, CR 120.3d), but `gameState.addCounter` carries no

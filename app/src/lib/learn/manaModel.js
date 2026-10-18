@@ -44,6 +44,7 @@ import { manaMultiplier } from "./replacementEffects.js"; // MANA-MULTIPLIER: ×
 import { evaluateInterveningIf } from "./interveningIf.js"; // CONDITION-GATED mana (CR 602.5) — interveningIf imports ONLY gameState, so this is a one-way edge with no cycle (checked before adding it)
 import { commanderColorIdentityOf } from "./commanderIdentity.js"; // "your commander's color identity" (CR 903.4) — the shared read off the seat's stamp (a zero-import leaf)
 import { parseFaceBlock } from "./splitCard.js"; // THE FACE THAT IS UP — the front face's own text, its "<name> - <type> {mana}" header peeled (splitCard imports nothing)
+import { characteristicTypeLine } from "./faceUp.js"; // the spell being cast's type line — the face being cast (CR 712.8c), for the spend restrictions (a leaf: splitCard.js only)
 
 // A board with one seat and empty zones — enough for evaluateInterveningIf to ANSWER a condition or admit it
 // cannot. Used only by conditionIsExpressible, never for a real verdict.
@@ -2450,7 +2451,10 @@ export function spendRestrictionAllows(restriction, castCard, opts = {}) {
   // COLOUR WORDS (Shrine of the Forsaken Gods / Eldrazi Temple): a coloured spell never qualifies for a colourless-only record —
   // checked BEFORE the type walk so the bare "@any-spell" of "colorless spells" cannot short-circuit past it.
   if (restriction.castColorless && colorsOf(castCard).length) return false;
-  const typeLine = String(castCard.type || castCard.type_line || "").toLowerCase();
+  // The SPELL's type line — the face being cast (CR 712.8c; the cast lane hands over a projected split, Adventure or modal face, and
+  // any other double-faced card is cast front face up): Cavern of Souls naming Dinosaur does not pay for Invasion of Ikoria, whose
+  // back face is the Dinosaur, nor Mishra's Workshop for Invasion of Vryn, whose back face is the artifact.
+  const typeLine = characteristicTypeLine(castCard).toLowerCase();
   for (const t of restriction.castTypes || []) {
     if (t === "@commander") { if (opts.isCommander) return true; continue; }
     if (t === "@any-spell") return true; // bare "cast spells" — any castCard qualifies (context presence IS the spell-ness)
