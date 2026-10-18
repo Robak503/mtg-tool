@@ -1201,18 +1201,28 @@ function parseModal(cardType, oracle, hasX = false) {
  *   2. the mass destroy over every creature, gated `condX { min }` (nothing below the threshold) and sparing the tokens the first
  *      atom made (`exceptLastMinted`) — removal.applyMassDestroyCounted.
  * Here, not in templateMatchers, because the first sentence is re-parsed through parseEffectClause (a cycle from there). Anchored
- * ^…$ on exactly the two sentences: a fixed count, any other token reading, another destroy, a rider (White Sun's Twilight's life
- * and Mite token lead the destroy differently) → null → low. Returns { atoms }.
+ * ^…$ on exactly those sentences: a fixed count, any other token reading, another destroy, a rider → null → low. Returns { atoms }.
+ * + WHITE SUN'S TWILIGHT (the play-weighted program, EDHREC #2003): "You gain X life. Create X 1/1 colorless Phyrexian Mite artifact
+ *   creature tokens with toxic 1 and "This token can't block." If X is 5 or more, destroy all other creatures." — the same two
+ *   sentences after a leading "You gain X life." (a gain-life atom of the chosen X, first, in printed order — CR 608.2c), its token a
+ *   minted static ability (`tokenOracle`, tokens.js — the token sentence ends inside its closing quote). The destroy reads as Martial
+ *   Coup's: the only creatures the text has named before "all other creatures" are the tokens it just made.
  */
-const TOKEN_X_PLAIN_KEYS = new Set(["op", "countX", "power", "toughness", "descriptor", "keywords", "targetType"]);
+const TOKEN_X_PLAIN_KEYS = new Set(["op", "countX", "power", "toughness", "descriptor", "keywords", "tokenOracle", "targetType"]);
 function matchTokensThenDestroyOthersAtX(oracle, cardType) {
   const s = stripReminder(oracle).trim().replace(/\s+/g, " ").replace(/\.$/, "");
-  const m = s.match(/^(Create X [^.]+? creature tokens)\. If X is (\d+) or more, destroy all other creatures$/i);
+  const m = s.match(/^(?:(You gain X life)\. )?(Create X .+? creature tokens(?: with .+?)?)\.? If X is (\d+) or more, destroy all other creatures$/i);
   if (!m) return null;
-  const first = parseEffectClause(`${m[1]}.`, cardType, { hasX: true });
+  let lead = null;
+  if (m[1]) {
+    const gain = parseEffectClause(`${m[1]}.`, cardType, { hasX: true });
+    lead = programConfidence(gain) === "high" && gain.atoms?.length === 1 ? gain.atoms[0] : null;
+    if (!lead || lead.op !== "gain-life" || lead.amountX !== true) return null;
+  }
+  const first = parseEffectClause(/"$/.test(m[2]) ? m[2] : `${m[2]}.`, cardType, { hasX: true });
   const atom = programConfidence(first) === "high" && first.atoms?.length === 1 ? first.atoms[0] : null;
   if (!atom || atom.op !== "create-token" || atom.countX !== true || !Object.keys(atom).every((k) => TOKEN_X_PLAIN_KEYS.has(k))) return null;
-  return { atoms: [{ ...atom, stampMinted: true }, { op: "destroy", targetType: "eachCreature", condX: { min: parseInt(m[2], 10) }, exceptLastMinted: true }] };
+  return { atoms: [...(lead ? [lead] : []), { ...atom, stampMinted: true }, { op: "destroy", targetType: "eachCreature", condX: { min: parseInt(m[3], 10) }, exceptLastMinted: true }] };
 }
 
 /**

@@ -53,7 +53,10 @@ describe("parse", () => {
   });
   it("the static gate takes only the crew-boost line; the reader prices it", () => {
     expect(parseTokenStaticAbility("\"This token crews Vehicles as though its power were 2 greater.\"")).toBe("This creature crews Vehicles as though its power were 2 greater.");
-    expect(parseTokenStaticAbility("\"This token can't block.\"")).toBeNull();
+    // "This token can't block." is read too since 2026-10-18 (the play-weighted can't-block token — cantBlockTokenStatic.test.js); a quoted line no
+    // reader takes still parks.
+    expect(parseTokenStaticAbility("\"This token can't block.\"")).toBe("This creature can't block.");
+    expect(parseTokenStaticAbility("\"This token can't attack.\"")).toBeNull();
     expect(crewPowerBonus({ oracle: "This creature crews Vehicles as though its power were 2 greater." })).toBe(2);
     expect(crewPowerBonus({ oracle: "Flying" })).toBe(0);
   });

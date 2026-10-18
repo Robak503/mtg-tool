@@ -181,6 +181,11 @@ export function splitClauses(oracle) {
     // rider (", and gets poison" / ", loses … and gets") doesn't match the contiguous "and loses \d+ life" → stays
     // Arbiter (FN-safe).
     .replace(/(target player draws \w+ cards?) and (loses \d+ life)/gi, "$1. The same target player $2")
+    // + EACH PLAYER (the play-weighted program — Stormfist Crusader, EDHREC #1975: "At the beginning of your upkeep, each player draws
+    // a card and loses 1 life."): the same shared subject, untargeted, so the second half takes the subject itself — "each player"
+    // — and both halves parse as their who:"eachPlayer" atoms, the draws first, then the losses (CR 608.2c, printed order). The same
+    // contiguous anchor: a rider on either verb stays unread.
+    .replace(/(each player draws (?:a card|\w+ cards)) and (loses \d+ life)(?=\.|$)/gi, "$1. Each player $2")
     // EDICT-DISCARD-LOSE-SUBJECT (the play-weighted program, #1077 Archon of Cruelty — "target opponent sacrifices a creature or
     // planeswalker of their choice, discards a card, and loses 3 life"; Geth's Verdict — "Target player sacrifices a creature of
     // their choice and loses 1 life"): one targeted player, the later verbs sharing the edict's subject. The same injection as
@@ -673,6 +678,16 @@ export function splitClauses(oracle) {
     // MULTI-COLOR descriptor ("black and green Insect") carries an internal " and " that must not be
     // split off, so keep the whole "create … creature token (with|for each) …" sentence together.
     if (/^create .*\bcreature tokens?\b (?:with|for each) .+$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // A LEADING INSTRUCTION, THEN SUCH A TOKEN (the play-weighted program — Bitterbloom Bearer "you lose 1 life and create a 1/1
+    // blue and black Faerie creature token with flying"; Skrelv's Hive's Phyrexian Mite "with toxic 1 and 'This token can't
+    // block.'"): the first " and " is the boundary between the two instructions; the token half carries its own internal " and "
+    // (two colours, a keyword list, a quoted ability), so it is handed over whole, exactly as the keep-whole above hands over a
+    // sentence that begins with it. Only when the lead has no " and " of its own and the token half has one — without one,
+    // the split below gives the same two pieces.
+    {
+      const leadCreate = sentence.match(/^([^,]+?) and (create (?:a|an|one|two|three|four|five|\d+) (?:tapped )?\d+\/\d+ .*\bcreature tokens?\b.*)$/i);
+      if (leadCreate && !/\band\b/i.test(leadCreate[1]) && /\band\b/i.test(leadCreate[2])) { clauses.push(leadCreate[1].trim(), leadCreate[2].trim()); continue; }
+    }
     // ===== TREASURE-MAKER ===== a DYNAMIC-count named artifact token ("Create X Treasure tokens, where X
     // is the number of artifacts and enchantments your opponents control" — Dockside; "Create a Treasure
     // token for each artifact that player controls" — Cavern-Hoard) carries an internal " and " (the

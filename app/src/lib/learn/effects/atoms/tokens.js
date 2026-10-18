@@ -1251,6 +1251,21 @@ function createTokenClauseParserCore(clause) {
     // as all creature types. Any OTHER keywords alongside ("with flying and changeling") still go through
     // parseTokenKeywords; an unmodeled companion keyword → null → low (CREED — whole token or nothing).
     const withPhrase = m[6];
+    // KEYWORDS AND A QUOTED STATIC (the play-weighted program — The Raven Man's Bird "with flying and 'This token can't block.'",
+    // the Phyrexian Mite "with toxic 1 and 'This token can't block.'" of White Sun's Twilight, Basilica Shepherd, Crawling
+    // Chorus): the keyword list before the last " and " goes through the keyword reader above (keywords the engine enforces),
+    // the quoted sentence through parseTokenStaticAbility; either unread → null, the whole token unread. Toxic carries its N
+    // (CR 702.164a), which combatResolution.toxicValue reads off the token's own text — so the keyword line is minted as text
+    // ("Toxic 1"), as a printed toxic creature prints it, ahead of the static.
+    const kwAndStatic = withPhrase.match(/^([a-z0-9 ,]+?),? and (["“'].+)$/);
+    if (kwAndStatic) {
+      const staticLine = parseTokenStaticAbility(kwAndStatic[2]);
+      if (!staticLine) return null;
+      const toxic = kwAndStatic[1].trim().match(/^toxic (\d+)$/);
+      if (toxic) return { ...base, keywords: ["Toxic"], tokenOracle: `Toxic ${toxic[1]}\n${staticLine}` };
+      const kwList = parseTokenKeywords(kwAndStatic[1]);
+      return kwList ? { ...base, keywords: kwList, tokenOracle: `${kwList.join(", ")}\n${staticLine}` } : null;
+    }
     // PROWESS TOKEN (Cori-Steel Cutter's Monk, W9): prowess is a TRIGGERED keyword — not a grantable
     // static — so it can't ride parseTokenKeywords (that would stamp an inert word the runtime ignores).
     // The changeling convention: mint the token with "Prowess" as its ORACLE, so the real prowess

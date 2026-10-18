@@ -4958,7 +4958,11 @@ function parseCreatureSelector(c) {
   // scope only; any other property word falls through unmodeled (FN-safe). The verb anchor accepts the
   // anthem verbs, but a keyword-granting tail rides the SAME all-or-nothing machinery as every anthem —
   // matchesSelector's re-entry guard makes even a pathological keyword-reads-keyword pair terminate.
-  const withKwM = c.match(/^(all|other|each)?\s*creatures? you control with (flying) (?:gets?|gains?|has|have)\b/);
+  // + TOXIC (the play-weighted program — Skrelv's Hive: "Corrupted — As long as an opponent has three or more poison counters,
+  // creatures you control with toxic have lifelink."): a creature has toxic when it prints it (CR 702.164a — its Scryfall
+  // keyword "Toxic", or the "Toxic N" its text leads with) or is a token minted with it (the Phyrexian Mite); the engine grants
+  // toxic nowhere (keywords.GRANTABLE_STATIC_KEYWORDS leaves it out), so permanentHasKeyword's printed read is the whole test.
+  const withKwM = c.match(/^(all|other|each)?\s*creatures? you control with (flying|toxic) (?:gets?|gains?|has|have)\b/);
   if (withKwM) {
     return { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"], withKeyword: withKwM[2], excludeSelf: withKwM[1] === "other" } };
   }

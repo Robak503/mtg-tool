@@ -212,8 +212,27 @@ export function fireDiesWatches(state, dead) {
 
 /** The sentinel's parser — case-preserving on the card id, like the blink-return sentinel's. */
 export function diedCardToHandClauseParser(clause) {
-  const m = String(clause || "").trim().match(/^\[died-card-to-hand (\S+)\]$/i);
+  const s = String(clause || "").trim();
+  if (/^\[died-card-to-hand at the next end step\]$/i.test(s)) return { op: "schedule-died-card-to-hand", fireStep: "end", fireScope: "any", targetType: null };
+  const m = s.match(/^\[died-card-to-hand (\S+)\]$/i);
   return m ? { op: "died-card-to-hand", cardId: m[1] } : null;
+}
+
+/**
+ * "When this creature dies, return it to its owner's hand at the beginning of the next end step." (The Locust God; Liesa's
+ * "return that card" for another nontoken creature — the play-weighted program). The dies trigger, resolving, creates the
+ * delayed ability (CR 603.7a): one record keyed on the dead card's id — ctx.triggeringCardId, which checkDiesTriggers threads
+ * for every singular dies fire — carrying the shelf-D25 `[died-card-to-hand <cardId>]` payoff, so at the next end step
+ * applyDiedCardToHand returns that card from its graveyard, or does nothing when the card has left it (CR 603.7c; The Locust God's ruling:
+ * "If this creature dies but leaves your graveyard before the next end step, it will remain in its new zone."). "The next end
+ * step" is the next one to begin, this turn's if the death came before it (its ruling); the drain fires at step entry, so a
+ * death during an end step waits for the next turn's. No dead card id (a token is never in a graveyard to find, CR 111.7) → a
+ * logged no-op, never a fabricated return.
+ */
+export function applyScheduleDiedCardToHand(state, atom, ctx) {
+  const cardId = ctx.triggeringCardId;
+  if (!cardId) return logEvent(state, { kind: "spell-effect", effect: "schedule-died-card-to-hand", scheduled: false, controller: ctx.controller });
+  return applyScheduleDelayed(state, { fireStep: atom.fireStep, fireScope: atom.fireScope, delayedClause: `[died-card-to-hand ${cardId}]` }, ctx);
 }
 
 /**
@@ -244,5 +263,6 @@ export const delayedTriggerResolvers = Object.freeze({
   "schedule-delayed": applyScheduleDelayed,
   "watch-dies-this-turn": applyWatchDiesThisTurn, // shelf D25 — the event-keyed watch
   "died-card-to-hand": applyDiedCardToHand,       // its "return that card to its owner's hand" sentinel
+  "schedule-died-card-to-hand": applyScheduleDiedCardToHand, // a dies trigger's "return it to its owner's hand at the beginning of the next end step"
   "choose-target": applyChooseTarget,             // "Choose target creature …" — the antecedent the watch binds to
 });

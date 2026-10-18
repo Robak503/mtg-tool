@@ -818,5 +818,11 @@ export function parseTokenStaticAbility(quotedWithQuotes) {
   // static parser reads the creature form as a self P/T bonus counting the artifacts its controller controls — the token
   // itself among them (CR 613.4c, layer 7c).
   if (/^this token gets \+1\/\+1 for each artifact you control$/i.test(inner)) return "This creature gets +1/+1 for each artifact you control.";
+  // THE CAN'T-BLOCK TOKEN (the play-weighted program — Lord Skitter, Sewer King; Song of Totentanz; the Phyrexian Mite of
+  // White Sun's Twilight and Basilica Shepherd: a token "with 'This token can't block.'"). A restriction on its own blocks
+  // (CR 509.1b): minted as "This creature can't block.", the wording both block gates read — combatEvasion.canBlockAttacker
+  // (isSelfCantBlock) and legalChoices' declare-blockers filter (selfCantBlockNow). Exactly that sentence: a longer one
+  // ("This token can't block or be blocked by non-Spirit creatures.") is not this restriction and stays unread.
+  if (/^this token can't block$/i.test(inner)) return "This creature can't block.";
   return null;
 }

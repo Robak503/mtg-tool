@@ -423,6 +423,20 @@ with `countContext: "combatDamageAmount"` — the combat-damage events set it, a
 `combatDamageReferentSatisfied` (manual at the flush, unread in the metric); a spell or activated body is refused by coverage's
 referent gates.
 
+**The can't-block token, keywords beside a quoted static, a token after a leading instruction (2026-10-18 — Lord Skitter, Song of
+Totentanz, White Sun's Twilight, Skrelv's Hive, Bitterbloom Bearer, Stormfist Crusader).** `parseHelpers.parseTokenStaticAbility`
+reads "This token can't block." and mints it as "This creature can't block." — the wording both block gates read
+(`combatEvasion.isSelfCantBlock` inside `canBlockAttacker`, and legalChoices' `selfCantBlockNow` filter); any longer sentence
+(the Spirit's "… or be blocked by non-Spirit creatures") stays unread. The fixed-count token arm (and the {X} arm, which re-enters
+it) reads "with <keywords> and '<quoted static>'": the keywords through `parseTokenKeywords`, "toxic N" as the text line "Toxic N"
+(combatResolution's `toxicValue` reads the token's own text) with `keywords: ["Toxic"]`, the static as above — one tokenOracle,
+keyword line first. `splitClauses` splits "<lead> and create <token>" at its FIRST " and " when the token half carries its own
+(two colours, a keyword list, a quoted ability) and the lead has none, handing the token half over whole as the sentence-initial
+keep-whole does. "each player draws <n> and loses <m> life" takes its subject twice (the draws, then the losses — the Sign in
+Blood fold's untargeted twin). The with-keyword creature selector reads `toxic` beside `flying` (nothing grants toxic, so
+`permanentHasKeyword`'s printed read is the whole test). Martial Coup's matcher (`parser.matchTokensThenDestroyOthersAtX`) takes a
+leading "You gain X life." and a token that carries `tokenOracle`.
+
 **Leaves-the-battlefield watchers look back in time (CR 603.10a — deaths 2026-10-01, P·34; leaves 2026-10-18).** A watcher that
 leaves in the same event as the permanents it watches still triggers for each of them. Deaths: `deadLookBackSources` offers the
 `dead` batch's departed creatures to every other death in it. Leaves (`permanentLeaves` — every "put into a graveyard from the
@@ -450,6 +464,11 @@ Three kinds of trigger do NOT fire off a discrete event, and each has its own la
   serializable on purpose — self-play trajectories round-trip through JSON.
   ⚠️ The matcher must split the IMMEDIATE half from the delayed half: a greedy match folded a spell's
   own draw into the delayed clause and would have deferred it.
+  A DIES trigger's "return it / that card to its owner's hand at the beginning of the next end step" (The Locust God, Liesa,
+  2026-10-18) is rewritten in `detectTriggers` — singular dies event, self or a single-creature watcher scope — to the sentinel
+  `[died-card-to-hand at the next end step]`; its atom `schedule-died-card-to-hand` bakes the dead card's id
+  (`ctx.triggeringCardId`) into the shelf-D25 `[died-card-to-hand <cardId>]` payoff as it resolves, so the record returns that
+  card from its graveyard at the next end step to begin, or does nothing once it has left (CR 603.7c).
 - **STATE triggers (CR 603.8)** — `checkStateTriggers` in `triggers.js`, run from the CR 704.3 SBA
   fixpoint in `sba.js`. "When you control no Islands, sacrifice this creature" is a continuously-checked
   CONDITION, not an event. ⚠️ The fixpoint runs several times per priority window, so the condition

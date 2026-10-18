@@ -3981,6 +3981,15 @@ const MILLED_TOKEN_PAYOFF_RE = /^(?:you may )?create that many \d+\/\d+ [a-z/ ]+
 // residue → the marker isn't applied → the program stays LOW → Arbiter (a SAFE false-negative).
 const SELF_RETURN_IT_RE = /^return it to its owner's hand$/i;
 
+// DIES → BACK TO HAND AT THE NEXT END STEP (the play-weighted program — The Locust God, EDHREC #1730: "When The Locust God dies,
+// return it to its owner's hand at the beginning of the next end step."; Liesa, Forgotten Archangel, #2107: "Whenever another
+// nontoken creature you control dies, return that card to its owner's hand at the beginning of the next end step."; The Scarab
+// God, The Scorpion God). A delayed triggered ability (CR 603.7) that names the DEAD card: the pronoun is the object the ability
+// triggered on (CR 608.2c), now a new object in its owner's graveyard (CR 400.7); once it has left that zone, the delayed
+// ability doesn't affect it (CR 603.7c). Whole-clause anchored — a "you may", a "tapped", another zone or another timing leaves
+// the raw text, which stays unread.
+const DIES_RETURN_HAND_NEXT_END_RE = /^return (?:it|that card) to its owner's hand at the beginning of the next end step$/i;
+
 // SELF-DIES-RETURN-AS-ENCHANTMENT (the "Enduring"/Glimmer cycle — Enduring Curiosity, Tenacity, Vitality,
 // Innocence, Courage, …) — the EXACT self-dies effect "return it to the battlefield under its owner's control.
 // It's an enchantment." (the "(It's not a creature.)" reminder is stripped in detectTriggers before the
@@ -5386,6 +5395,13 @@ export function detectTriggers(cardIn) {
         // TURNED-FACE-UP REFERENT — the flipped permanent named by the watcher's effect (rewriteTurnedFaceUpReferent). First in
         // the chain, so no later arm reads the raw pronoun.
         effectClause = turnedFaceUpReferent;
+      } else if (cls.event === "dies" && (cls.scope === "self" || NONSELF_TRIGGERING_SCOPES.has(cls.scope)) && DIES_RETURN_HAND_NEXT_END_RE.test(effectClause)) {
+        // DIES → BACK TO HAND AT THE NEXT END STEP (see DIES_RETURN_HAND_NEXT_END_RE). One dying object per fire — the singular dies
+        // event (a "one or more … die" batch is its own event, diesBatch) — whose card id checkDiesTriggers threads as
+        // ctx.triggeringCardId, for the source's own death (scope self, "it") and a watched creature's ("it" / "that card"). The
+        // sentinel's atom (atoms/delayedTrigger.js) schedules the shelf-D25 [died-card-to-hand <cardId>] payoff for the next end
+        // step as the trigger resolves; a phrase in no printed text, so only this dies gate makes it.
+        effectClause = "[died-card-to-hand at the next end step]";
       } else if (cls.event === "dies" && cls.scope === "self" && SELF_RETURN_IT_RE.test(effectClause)) {
         // SELF-DIES-RETURN (frontier round 4, the Phoenix shape) — "When this creature dies, return it to its
         // owner's hand." (Shivan Phoenix, Immortal Phoenix, Mortus Strider, Weatherseed Treefolk). The
