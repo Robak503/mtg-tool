@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **24 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.9% (15,536)**; engine gains since the tag: **+83** (+92 gained, −9 false credit removed). The next tag
+> **25 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.9% (15,536)**; engine gains since the tag: **+83** (+92 gained, −9 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,69 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX (AI decision quality): the AI cracks its fetch lands — Evolving Wilds, Terramorphic Expanse, Fabled Passage, Prismatic Vista, Escape Tunnel, Vibrant Cityscape and the ten Zendikar / Onslaught fetches were never activated (the generic activation picker skips every sacrifice-self cost), so 24 of the 30 profile decks played a dead land each time they drew one; and a fetch's search now takes the land that makes the colour the hand and commander need most, not the alphabetically first · **±0** · snapshot native+land 15,518 unchanged
+> Suite **20,650 green (1 skipped) / 1,873 files** under the gate queue (with the rules index built for the run, then deleted). Lint 0 (CR citations: 0 of
+> 11,457 name no rule; keyword citations: 0 of 2,375 cite a different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an
+> untouched `git archive` of 33e3c9c6, snapshotted before the first edit; native+land 15,518 of 34,584 snapshot names on both). **Mutants 6/6**
+> on assertions, each restored byte-identical (sha256): no crack before the casts, the life floor dropped, the library check dropped, no
+> colour pick, a mana cost admitted, unmet colours not weighted first; the first build's "mana cost admitted" survived (the Terminal Moraine
+> control had an empty hand, so the Landscape rule never asked) — a control with a colour the hand lacks closes it. Witness
+> `fetchLandCrack.test.js` written first: 12 of the first 23 seen to fail on the base engine on assertions (the 11 controls pass on both);
+> with the two tests added while building, 13 of the final 25 fail on the untouched 33e3c9c6 archive on assertions, the 12 controls pass on
+> both. A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched 33e3c9c6 archive):
+> fetch activations **0 → 207** (172 life paid; every search found a land), **11 byte-identical, 69 change picks — every first divergence is a
+> fetch crack**, 29 winners change, turn counts move in 57, 0 errors on either tree (80 / 80 completed), results ai-wins 57 → 54 / user-wins
+> 23 → 26 (an outcome, not the grade); 180 s / 331 s per batch (the after batch ran beside the lint; an identical instrumented rerun took
+> 196 s). Committed on `day/fetchcrack`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The cause (probed on 33e3c9c6).** `pickSafeAbilityActivation` (opponentAI.js:1582 at the base) skips every activation with `sacSelf`
+>   or a life cost, and nothing else in `pickAction` took a fetch: with Evolving Wilds and a basic in the library the AI passed. At scale, the
+>   base batch: 0 fetch activations in 80 games while the AI played 207 fetch lands as land drops (the land drop reads one as an untapped land).
+> · **The timing the engine allows.** Every activated ability is offered on its controller's own main phase only (legalChoices.js
+>   `actionsActivateAbility`, `mainWindow`; the combat and stack windows admit only combat-role and stack-copy abilities), so there is no
+>   opponent's-end-step crack to choose: the AI cracks in its own main phase.
+> · **The policy** — `fetchLand.js` (new, a leaf over the parser, the tutor filter and manaModel) + `opponentAI.pickFetchCrack`. A fetch land
+>   is an offered activation of a land on the battlefield that taps and sacrifices it, costs no mana and nothing but life, targets nothing,
+>   and runs exactly one search for ONE card to the battlefield whose every filter group names a land (`fetchCrackAtom` over the action,
+>   `fetchLandAbility` over the card — the parsed ability, never the text). Corpus: 32 lands (the Zendikar / Onslaught ten and Prismatic
+>   Vista, the five Mirage fetches, the ten MH3 Landscapes, Evolving Wilds, Terramorphic Expanse, Fabled Passage, Escape Tunnel, Hobbit
+>   Hole, Vibrant Cityscape); every other sacrifice-self ability stays skipped (Sakura-Tribe Elder, Mind Stone, the Panoramas, Terminal
+>   Moraine — pinned). Cracked only in the AI's own main phase with the stack empty; only while the library holds a land the search finds
+>   (the search's own `cardMatchesTutorFilter`); and a life cost only when it leaves the AI at `LIFE_PRUDENCE_FLOOR` (10) or more — the floor
+>   Castle Locthwain's loss and the alternative-cost life payments use (life 11 pays, life 10 holds). A fetch land that makes no mana of its
+>   own is cracked right after the land drop and BEFORE the casts (an untapped fetched land pays for this turn's spells; a tapped one costs
+>   nothing to fetch now); one that taps for mana (the Landscapes' "{T}: Add {C}.") only from the ability block, after the casts, while it
+>   is untapped, and only when it finds a colour the hand needs and no battlefield source makes. Deterministic: untapped delivery first, then
+>   name, then id. The policy key `fetch` ("v1" = the old hold) joins POLICY_KEYS.
+> · **The search** — `runProgram.autoPickTutorCandidate` asks `fetchLand.fetchedLandScore`, which answers only for a fetch land's own search
+>   (a one-card search to the battlefield, resumed from an ability whose program is a fetch's search, its source — sacrificed to pay for it —
+>   a fetch land by name in a graveyard or exile): per candidate, the hand's and command zone's pips in the colours it makes (manaProduction)
+>   that no battlefield source makes, then all their pips in those colours; the old order (highest mana value, then name, then id) breaks
+>   ties. Every other search keeps the old order (Rampant Growth pinned). `colourNeed` is the one reader: `pickLandAction` takes its `needed`
+>   set from it, moved byte-identical. In the batch (an instrumented rerun in a scratch copy, its 80 games byte-identical to the after
+>   batch): 207 fetch searches, **114 take a different land than the old order** (44 for more unmet pips, 70 for the colour the hand asks
+>   most — Marsh Flats: Blood Crypt → Savai Triome; Scalding Tarn: Island → Steam Vents; Misty Rainforest: Forest → Overgrown Tomb;
+>   Bloodstained Mire: Mountain → Taiga), 93 the same; held 17 turns at the life floor (life 1–10) and 3 with no findable land left.
+> · **Decks** (each holds at least one fetch land; cracks in the batch): Earth Bent 23, Believe it! 15, Halfshell heroes 15, Did you say
+>   Dragons? 13, Teval 13, Atraxa Superfriends 13, Shalai and Hallar 12, Killer Turts 10, Captain America 10, cdh 9, Wolverine 8, Vihaan 7,
+>   Jurassic Ramp 7, Kinnan 7, Nekusar Wheels 7, Kellan 6, Squirrel Girl 5, Zaxara 5, Otharri 5, Hulk Smash 5, Test Rashmi 5, Veyran 3,
+>   Mothman 2, Brago Blink 2 — all 24. Not holding one: Omnath, Locus of Mana, Slivers, Bumble Flower Combo, Shorikai, Thrun, Light-Paws.
+> · ⚠️ **Found, not fixed:** (1) The land drop still reads every fetch land as an UNTAPPED land that makes no colour (`pickLandAction`,
+>   opponentAI.js:278 — `landEntersTapped`, :236, matches only "enters tapped"; manaProduction reads nothing), so a tapped-delivery fetch
+>   (Evolving Wilds, Terramorphic Expanse, Fabled Passage, Escape Tunnel, Vibrant Cityscape) was the land drop 34 times in the after batch,
+>   21 of them with another land offered — now cracked for a tapped land, where it was a dead land. Next: read a fetch land as what it
+>   fetches (tapped delivery → tapped, its findable colours toward the gap, under the life floor → a land that makes nothing), then give the
+>   SNC family its deferred tapped reading (the SNC entry below). (2) Every other land search still takes the highest mana value, then the
+>   alphabetically first name (runProgram.js:384) — Rampant Growth, Cultivate, Kodama's Reach, Farseek, Nature's Lore, Three Visits,
+>   Sakura-Tribe Elder, Wood Elves, the SNC family's enters trigger; the reader is in place, widening `fetchedLandScore`'s gate is the change,
+>   measured on its own. (3) Fetch lands with a mana cost are not cracked — the Panoramas, Promising Vein, Shire Terrace, Terminal Moraine,
+>   Warped Landscape, Urza's Cave (each also taps for {C}: cracking trades a source and a mana for a tapped land; a leftover-mana rule like
+>   the Landscapes' is the shape), Myriad Landscape and Blighted Woodland (two lands). (4) No instant-speed crack for anyone: the engine offers
+>   activated abilities on the controller's own main phase only (legalChoices.js:2447). (5) Fabled Passage's "Then if you control four or
+>   more lands, untap that land" stays a recorded under-delivery (effects/abilities.js:137), so the AI reads it as a tapped-delivery fetch.
+>   (6) The AI can cast an instant while its own fetch ability is on the stack (game 59: Worldly Tutor above its Flooded Strand) —
+>   pickCastAction's timing, unchanged.
+> · Witness: `fetchLandCrack.test.js` (25 — 13 witnesses, 12 controls).
 
 > ## 🔧 2026-10-17 — FIX (false positive): a reflexive trigger chooses its targets when IT goes on the stack (CR 603.12, 603.3d) — Smoke Bomb (EDHREC #4790, credited native, never did anything: its own "All creatures have shroud" met the follow-up's target at the parent's flush, so the upkeep trigger was removed and the artifact never sacrificed) now sacrifices itself and makes a creature unblockable; Primal Witchstalker and Yathan Roadwatcher mill even with nothing to return and can return what they milled; Dream Eater surveils with no opposing nonland permanent; Faebloom Trick is cast with no opposing creature; Red Hulk's and The Royal Scions' damage become abilities of their own · **±0** · snapshot native 15,518 unchanged
 > Suite **20,649 green (1 skipped) / 1,873 files** under the gate queue (with the rules index built for the run and deleted after). Lint 0 (CR citations: 0 of 11,475 name no rule; keyword citations: 0 of 2,374 cite a different keyword). Flip-diff

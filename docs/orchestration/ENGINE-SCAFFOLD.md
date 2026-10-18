@@ -849,6 +849,18 @@ permanent targets; nothing worth it → hold. Native: Requisition Raid, Insatiab
 Interference, Trash the Town, Three Steps Ahead (its copy mode: `artifactOrCreatureYouControl`, Sagas kept out). The other 15
 Spree cards each have a mode no reader resolves. Witness: `spree.test.js`.
 
+**Fetch lands (2026-10-17, `fetchLand.js`, `opponentAI.pickFetchCrack`).** The generic activation picker skips every
+sacrifice-self cost, so a fetch land is taken by its own picker: an offered activation of a land that taps and sacrifices it,
+costs no mana and nothing but life, targets nothing, and runs one search for ONE card to the battlefield whose every filter group
+names a land (`fetchCrackAtom`; `fetchLandAbility` over a card — 32 corpus lands: the Zendikar / Onslaught ten, Prismatic Vista,
+the Mirage five, the MH3 Landscapes, Evolving Wilds and kin). It cracks in its own main phase with the stack empty (the only window
+the engine offers), only while the library holds a land the search finds and a life cost leaves it at `LIFE_PRUDENCE_FLOOR` (10);
+a source that makes no mana right after the land drop and before the casts, a source that taps for mana (the Landscapes) only
+after the casts and only for a colour the hand lacks. Its search takes the land that makes the colour the hand and command zone
+need most (`fetchedLandScore` inside `runProgram.autoPickTutorCandidate`, gated to a fetch land's own search — every other search
+keeps highest mana value, then name). `colourNeed` is the one colour-need reader; `pickLandAction` reads it too. Policy key
+`fetch`. Witness: `fetchLandCrack.test.js`.
+
 **An activation that resolves to nothing must not be the AI's pick (added 2026-10-03).**
 A free activation the resolver refuses is a turn that never ends: the equip pick
 (`pickEquipAction`) stops only when its Equipment sits on the best body, and

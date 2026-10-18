@@ -47,6 +47,7 @@ import { playerAuraSide } from "./playerAuraEffect.js"; // pickAuraCast — whic
 import { compareDefenders, untappedCreatureCount } from "./defenderOrder.js"; // the defender order — chooseDefender and the curse reading (Curse of Opulence) read one comparator
 import { entersByDiscardingLand, pickEnterDiscardLand } from "./discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247) — the entry replacement's policy, read before the cast (a leaf; no AI module)
 import { entersTriggerRemovesOwn } from "./gameEngine.js"; // the cast-time hold — what a permanent's own enters trigger would be forced to remove (gameEngine imports no AI module: no cycle)
+import { colourNeed, fetchCrackAtom, fetchableLands } from "./fetchLand.js"; // the fetch lands — which offered activation is one, what it can find — and the one colour-need reader (a leaf: no AI module)
 
 // ─── Play-policy flags (the A/B probe seam) ──────────────────────────────────
 
@@ -59,7 +60,7 @@ import { entersTriggerRemovesOwn } from "./gameEngine.js"; // the cast-time hold
  * Accepted shapes:
  *   null / undefined                        → all-current (the shipping behavior)
  *   "v1"                                    → every subsystem legacy
- *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree: "v1" } → per-subsystem legacy
+ *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch: "v1" } → per-subsystem legacy
  *
  * The DEFAULT is always the new behavior (the Academy and self-play improve
  * automatically); "v1" exists only so the probe can measure old-vs-new inside one
@@ -70,7 +71,7 @@ import { entersTriggerRemovesOwn } from "./gameEngine.js"; // the cast-time hold
  * Exported so the A/B probe derives its legacy-key list from THIS array (AI-F11:
  * a hand-copied list silently drops every new subsystem from `--legacy=all`).
  */
-export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree"];
+export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch"];
 function normalizePolicy(policy) {
   if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
   if (policy && typeof policy === "object") return policy;
@@ -263,18 +264,6 @@ function landFetchesTappedBasicOnEnter(card) {
 }
 
 /**
- * Colored pips in a mana cost string ({W}{U}{B}{R}{G}; each half of a hybrid pip
- * counts as needing that color — a payable-either-way pip is a soft need).
- */
-function coloredPips(mana) {
-  const out = [];
-  for (const m of String(mana || "").matchAll(/\{([^}]+)\}/g)) {
-    for (const ch of m[1].toUpperCase()) if ("WUBRG".includes(ch)) out.push(ch);
-  }
-  return out;
-}
-
-/**
  * Pick the best play-land action (W1 — land sequencing). Rank by:
  *   1. enters UNTAPPED first — an enters-tapped land costs a mana turn;
  *   2. fills a COLOR GAP — produces a color that hand/command-zone pips need and
@@ -292,20 +281,9 @@ function pickLandAction(state, aiPlayerId, landActions, pol = {}) {
   // LAND-V1 (legacy, probe-only): pure codepoint-alphabetical pick.
   if (pol.land === "v1") return [...landActions].sort(byName)[0];
 
-  const player = state.players?.[aiPlayerId];
-  // Colors the AI's battlefield can already produce (any owned source, tapped or
-  // not — the gap question is "do I own a source of this color at all").
-  const producible = new Set();
-  for (const perm of player?.battlefield || []) {
-    for (const c of manaProduction(perm?.card)?.colors || []) producible.add(c);
-  }
-  // Colors its hand + command zone still need but can't produce yet.
-  const needed = new Set();
-  for (const card of [...(player?.hand || []), ...(player?.command || [])]) {
-    for (const pip of coloredPips(card?.mana || card?.mana_cost)) {
-      if (!producible.has(pip)) needed.add(pip);
-    }
-  }
+  // Colors its hand + command zone still need but no battlefield source (tapped or not) can make — fetchLand.colourNeed, the
+  // one reader the fetch land's search shares.
+  const { needed } = colourNeed(state, aiPlayerId);
 
   const ranked = landActions.map((action) => {
     // The FACE the drop plays (a modal DFC's land face — legalChoices.actionsPlayLand projects it): the hand holds the whole
@@ -1580,7 +1558,7 @@ function pickSafeAbilityActivation(abilityActions, { state = null, aiPlayerId = 
     if (!a.program || a.program.structure === "modal") continue;
     if ((a.targets?.length || 0) > 0) continue;
     if (a.sacSelf || a.exileSelf || a.sacCreatureId || (a.sacCountIds?.length) || a.removeCounter
-      || (a.payLife || 0) > 0 || a.tapCreatureId || (a.tapCountIds?.length) || a.returnLandId || a.xValue != null || a.chosenMode != null) continue; // V6 slice 2: a counted tap cost taps real bodies — never auto-spent
+      || (a.payLife || 0) > 0 || a.tapCreatureId || (a.tapCountIds?.length) || a.returnLandId || a.xValue != null || a.chosenMode != null) continue; // V6 slice 2: a counted tap cost taps real bodies — never auto-spent; a fetch land's sacrifice is pickFetchCrack's
     if (!a.tapSelf && (a.cmc || 0) < 1) continue;         // termination bound: tap or a real mana cost
     const atoms = a.program.atoms || [];
     if (atoms.length === 0) continue;                     // nothing runnable — activating burns the cost
@@ -1605,6 +1583,50 @@ function pickSafeAbilityActivation(abilityActions, { state = null, aiPlayerId = 
     || cmp(String(x.a.permanentId), String(y.a.permanentId))
     || ((x.a.abilityIndex ?? 0) - (y.a.abilityIndex ?? 0)));
   return safe[0].a;
+}
+
+/**
+ * CRACK A FETCH LAND (2026-10-17). The generic picker above skips every sacrifice-self cost, so the AI never activated
+ * Evolving Wilds, Fabled Passage, Prismatic Vista or a Zendikar fetch: each sat on the battlefield as a land that makes nothing
+ * (24 of the 30 profile decks hold one). This picker takes exactly the fetch lands' activations (fetchLand.fetchCrackAtom — "{T},
+ * [Pay N life,] Sacrifice this land: Search your library for a … land card, put it onto the battlefield …", no mana, no other
+ * cost) and nothing else; every other sacrifice-self ability stays skipped. Cracked only:
+ *   · in the AI's own main phase with the stack empty (the engine offers the activation in that main phase only, so there is
+ *     no opponent's-end-step crack to choose);
+ *   · when the library still holds a land the search can find (the AI knows its own library's contents, not its order);
+ *   · when a life cost leaves the AI at LIFE_PRUDENCE_FLOOR or more (the floor its other life payments use).
+ * `sourceMakesMana` splits the timing: a fetch land that makes no mana of its own is cracked BEFORE the casts (pickAction calls
+ * this right after the land drop) — an untapped fetched land pays for this turn's spells, and a tapped one costs nothing to fetch
+ * now; a fetch land that also taps for mana (the Landscapes' "{T}: Add {C}.") only from the ability block, after the casts,
+ * while it is still untapped, and only when it can find a colour the hand or command zone needs that no battlefield source
+ * makes (otherwise it trades a mana source for a tapped land of a colour already made). Which land the search takes is the
+ * search's own pick (runProgram.autoPickTutorCandidate → fetchLand.fetchedLandScore). Deterministic: an untapped-delivery fetch
+ * first, then name, then permanent id.
+ */
+function pickFetchCrack(state, aiPlayerId, actions, { sourceMakesMana }) {
+  if (!state || state.activePlayer !== aiPlayerId || (state.stack || []).length > 0) return null;
+  const life = state.players?.[aiPlayerId]?.life;
+  let need = null;
+  const ranked = [];
+  for (const a of actions) {
+    const atom = fetchCrackAtom(state, a);
+    if (!atom) continue;
+    const source = findPermanent(state, a.permanentId)?.permanent?.card;
+    if ((manaProduction(source) != null) !== sourceMakesMana) continue;
+    if ((a.payLife || 0) > 0 && !(Number.isFinite(life) && life - a.payLife >= LIFE_PRUDENCE_FLOOR)) continue;
+    const finds = fetchableLands(state, aiPlayerId, atom);
+    if (finds.length === 0) continue;
+    if (sourceMakesMana) {
+      need ??= colourNeed(state, aiPlayerId).needed;
+      if (!finds.some((c) => (manaProduction(c)?.colors || []).some((col) => need.has(col)))) continue;
+    }
+    ranked.push({ a, untapped: atom.entersTapped ? 0 : 1 });
+  }
+  if (ranked.length === 0) return null;
+  const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
+  ranked.sort((x, y) => (y.untapped - x.untapped) || cmp(String(x.a.name || ""), String(y.a.name || ""))
+    || cmp(String(x.a.permanentId), String(y.a.permanentId)) || ((x.a.abilityIndex ?? 0) - (y.a.abilityIndex ?? 0)));
+  return ranked[0].a;
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -1731,6 +1753,13 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
     if (land) return land;
   }
 
+  // FETCH LANDS (pickFetchCrack) — a fetch land that makes no mana of its own is cracked after the land drop and BEFORE the
+  // casts, so an untapped fetched land pays for this turn's spells. policy 'v1' (`fetch`) recovers the never-crack hold.
+  if (pol.fetch !== "v1") {
+    const crack = pickFetchCrack(state, aiPlayerId, filterActions(actions, "activate-ability"), { sourceMakesMana: false });
+    if (crack) return crack;
+  }
+
   const casts = filterActions(actions, "cast-spell");
   if (casts.length > 0) {
     // Resolve archetype lazily if not supplied. Caller usually passes
@@ -1771,6 +1800,11 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
       // the AI; the pumper pumps its own biggest attacker/blocker. Side-checked, so never a wrong play.
       const combatRole = pickCombatRoleActivation(state, aiPlayerId, abilities.filter(a => !a.isEquipAbility));
       if (combatRole) return combatRole;
+      // A fetch land that also taps for mana (the Landscapes) — only now, after the casts, while it is still untapped.
+      if (pol.fetch !== "v1") {
+        const crack = pickFetchCrack(state, aiPlayerId, abilities, { sourceMakesMana: true });
+        if (crack) return crack;
+      }
       // Slice 2 — cost-safe generic abilities (a.program non-null; equip is program:null, so the
       // two slices are disjoint by construction).
       // The token loop is held while its own copy is on the stack (X is read on resolution) and once there is enough.
