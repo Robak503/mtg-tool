@@ -36,6 +36,10 @@ import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction, manaSources, canAfford } from "./manaModel.js";
 import { attackerMinBlockers, canBlockAttacker, lureFilterOf, mustBeBlockedIfAble } from "./combatEvasion.js";
 import { selfMustAttack, requiredAttackerIds, obeyingAttackOptions } from "./attackRequirements.js"; // ATTACK REQUIREMENTS (CR 508.1d) — the check legalChoices keeps every seat to
+import { attackTaxDetail } from "./attackTax.js"; // the planeswalker attack policy — what one more attack at a planeswalker costs (CR 508.1h), per target
+import { parseLoyaltyAbilities } from "./effects/loyaltyAbilities.js"; // the planeswalker attack policy — an opposing walker's ultimate (the runtime's own loyalty reader)
+import { startingLoyalty } from "./gameState.js"; // the planeswalker attack policy — an ultimate costs more than the printed starting loyalty
+import { lifePaymentContext } from "./manaModel.js"; // the planeswalker attack policy — a Phyrexian attack tax paid with life, as legalChoices.canPayAttackTax pays it
 import { programContainsCounter, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog, atomTargetIntent, programConfidence, parseEffectClause } from "./effects/parser.js";
 import { detectTriggers } from "./triggers.js"; // the land-drop ranking reads an SNC fetch land's enters trigger (triggers.js imports no AI module)
 import { changeTargetAlternatives, atomForStackTarget } from "./effects/targeting.js"; // CHANGE THE TARGET (shelf D14) — where a redirect could send an opponent's spell; the redirected slot's atom
@@ -69,7 +73,7 @@ import { parseActivatedAbilities } from "./effects/abilities.js"; // pickTargete
  * Accepted shapes:
  *   null / undefined                        → all-current (the shipping behavior)
  *   "v1"                                    → every subsystem legacy
- *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target: "v1" } → per-subsystem legacy
+ *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker: "v1" } → per-subsystem legacy
  *
  * The DEFAULT is always the new behavior (the Academy and self-play improve
  * automatically); "v1" exists only so the probe can measure old-vs-new inside one
@@ -80,7 +84,7 @@ import { parseActivatedAbilities } from "./effects/abilities.js"; // pickTargete
  * Exported so the A/B probe derives its legacy-key list from THIS array (AI-F11:
  * a hand-copied list silently drops every new subsystem from `--legacy=all`).
  */
-export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target"];
+export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker"];
 function normalizePolicy(policy) {
   if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
   if (policy && typeof policy === "object") return policy;
@@ -2205,6 +2209,15 @@ function attackerDiesForNothingV2(att, eligibleBlockers) {
  */
 function swingIsLethalV2(attackers, blockerCount, defenderLife) {
   if (defenderLife <= 0) return false;
+  return unavoidableDamage(attackers, blockerCount) >= defenderLife;
+}
+
+/**
+ * The damage `attackers` connect with when the defender spends its `blockerCount` untapped creatures blocking the biggest
+ * blockable ones (swingIsLethalV2's worst case, and the planeswalker attack policy's — a defender protects its walker the
+ * same way it protects its life).
+ */
+function unavoidableDamage(attackers, blockerCount) {
   let budget = blockerCount;
   let unavoidable = 0;
   const blockable = [];
@@ -2218,7 +2231,7 @@ function swingIsLethalV2(attackers, blockerCount, defenderLife) {
     if (budget >= cost) budget -= cost;
     else unavoidable += a.power;
   }
-  return unavoidable >= defenderLife;
+  return unavoidable;
 }
 
 /**
@@ -2314,8 +2327,10 @@ function selectProfitableAttackers(state, aiPlayerId, attackerActions, defenderI
   // Attackers ALREADY committed this combat vs this defender fold into the
   // lethality sum (the per-tick driver declares one attacker per tick — without
   // this the alpha strike loses lethal status after the first declaration).
+  // An attack on one of the defender's planeswalkers deals none of it to the player (CR 508.1b, 306.8) — left out since the
+  // planeswalker attack policy (policy `walker: "v1"` keeps the old sum).
   const committed = (state.combat?.attackers || [])
-    .filter(a => a.attackingPlayer === aiPlayerId && a.defender === defenderId)
+    .filter(a => a.attackingPlayer === aiPlayerId && a.defender === defenderId && (pol.walker === "v1" || !a.defenderPlaneswalkerId))
     .map(a => describe(a.permanentId))
     .filter(Boolean);
   const candidates = [...stats.values()].filter(Boolean);
@@ -2362,7 +2377,8 @@ export function pickAttackPlan(state, aiPlayerId, attackerActions, { policy = nu
     if (finish) return finish;
   }
   const target = chooseDefender(state, aiPlayerId);
-  const chosen = selectProfitableAttackers(state, aiPlayerId, attackerActions, target, normalizePolicy(policy));
+  const pol = normalizePolicy(policy);
+  const chosen = selectProfitableAttackers(state, aiPlayerId, attackerActions, target, pol);
   // MUST-ATTACK (subsystem 4, CR 508.1a) — a creature that "attacks each combat/turn if able" MUST be
   // declared if it can. It's already in attackerActions (the eligible set, i.e. "able"), so force-include
   // it regardless of the profitability filter (the racer would otherwise illegally hold back an
@@ -2388,39 +2404,219 @@ export function pickAttackPlan(state, aiPlayerId, attackerActions, { policy = nu
     return attackerActions.filter(a => chosen.has(a.permanentId) || forced.has(a.permanentId));
   }
 
-  // Commander: focus the chosen target, one action per attacking creature.
+  // Commander: focus the chosen target, one action per attacking creature. While an opposing planeswalker is offered (the
+  // planeswalker attack policy below), every offered creature is read, not only the attacking ones: a creature the racer holds
+  // back from the focused player may still remove a walker whose controller can't punish it.
+  const attacking = (id) => chosen === null || chosen.has(id) || forced.has(id);
+  const walkerOffered = pol.walker !== "v1" && attackerActions.some((a) => a.defenderPlaneswalkerId);
   const byPermanent = new Map();
   for (const a of attackerActions) {
-    if (chosen !== null && !chosen.has(a.permanentId) && !forced.has(a.permanentId)) continue;
+    if (!walkerOffered && !attacking(a.permanentId)) continue;
     if (!byPermanent.has(a.permanentId)) byPermanent.set(a.permanentId, []);
     byPermanent.get(a.permanentId).push(a);
   }
 
-  // PW-3: remove an enemy planeswalker when it's a clean, worthwhile kill. Focus the whole chosen
-  // swing on the most dangerous enemy walker the AI can kill this combat — but only when the swing
-  // isn't lethal on the focused player (kill the player first) and the walker's controller has no
-  // untapped blockers (a clean hit, no wasted attack). Overkill is fine for v1.
   // ⭐ ATTACK REQUIREMENTS (CR 508.1d, 701.15b): each creature's defenders, narrowed to the ones obeying the most of its
   // "attacks a player other than X if able" requirements (goad, Kardur's rule) — attackRequirements.obeyingAttackOptions, the
   // same narrowing legalChoices applies to the offer (so this is a no-op on an offered set). A planeswalker is not a player:
   // a goaded creature goes at one only when no player other than its goaders can be attacked without paying a cost (the
   // rulings). "If able", not "never": goaded by every opponent, it still attacks one of them.
   const pools = new Map([...byPermanent].map(([id, opts]) => [id, obeyingAttackOptions(state, aiPlayerId, id, opts)]));
-  // Only a creature that may attack a planeswalker counts toward the walker kill.
-  const chosenPowers = [...pools.values()]
-    .filter((pool) => pool.some((o) => o.defenderPlaneswalkerId))
-    .map((pool) => Math.max(0, permanentPower(state, pool[0].permanentId)));
-  const walkerTarget = chooseWalkerToKill(state, aiPlayerId, attackerActions, target, chosenPowers);
 
-  const plan = [];
-  for (const pool of pools.values()) {
-    if (walkerTarget) {
-      const atWalker = pool.find(o => o.defenderPlaneswalkerId === walkerTarget.walkerId);
-      if (atWalker) { plan.push(atWalker); continue; }
+  if (pol.walker === "v1") {
+    // PW-3 (legacy, policy `walker: "v1"`): remove an enemy planeswalker when it's a clean, worthwhile kill. Focus the whole
+    // chosen swing on the most dangerous enemy walker the AI can kill this combat — but only when the swing isn't lethal on
+    // the focused player (kill the player first) and the walker's controller has no untapped blockers. Overkill is fine.
+    // Only a creature that may attack a planeswalker counts toward the walker kill.
+    const chosenPowers = [...pools.values()]
+      .filter((pool) => pool.some((o) => o.defenderPlaneswalkerId))
+      .map((pool) => Math.max(0, permanentPower(state, pool[0].permanentId)));
+    const walkerTarget = chooseWalkerToKill(state, aiPlayerId, attackerActions, target, chosenPowers);
+    const plan = [];
+    for (const pool of pools.values()) {
+      if (walkerTarget) {
+        const atWalker = pool.find(o => o.defenderPlaneswalkerId === walkerTarget.walkerId);
+        if (atWalker) { plan.push(atWalker); continue; }
+      }
+      plan.push((target && pool.find(o => o.defenderId === target && !o.defenderPlaneswalkerId)) || pool[0]);
     }
-    plan.push((target && pool.find(o => o.defenderId === target && !o.defenderPlaneswalkerId)) || pool[0]);
+    return plan;
   }
-  return plan;
+
+  const atWalker = walkerOffered ? planWalkerAttacks(state, aiPlayerId, pools, attacking, target) : new Map();
+  const walkerPlan = [];
+  const facePlan = [];
+  for (const [id, pool] of pools) {
+    const walkerId = atWalker.get(id);
+    if (walkerId) { walkerPlan.push(pool.find((o) => o.defenderPlaneswalkerId === walkerId)); continue; }
+    if (!attacking(id)) continue;
+    facePlan.push((target && pool.find(o => o.defenderId === target && !o.defenderPlaneswalkerId)) || pool[0]);
+  }
+  // The planeswalker attacks are declared first, so each pays its attack tax before a face attack spends the mana (CR 508.1h).
+  return [...walkerPlan, ...facePlan];
+}
+
+// ─── The planeswalker attack policy (2026-10-18) ──────────────────────────────
+
+/** One permanentValue point in life points: boardEval.evaluateBoard counts a point of life as 0.25. */
+const WALKER_LIFE_PER_VALUE = 4;
+/** Below this life, a point of face damage counts FACE_URGENCY_LIFE / life points: the defender is closer to dying. */
+const FACE_URGENCY_LIFE = 20;
+
+/**
+ * An opposing planeswalker as the attack planner reads it: its loyalty, its value in life points (boardEval.permanentValue
+ * — mana value, role, commander), its ultimate — the most expensive loyalty cost above its printed starting loyalty, so it
+ * can't be its first activation — and whether its loyalty already pays for the ultimate. Then its controller activates it
+ * on their next turn (CR 606.3), before this seat's next combat: only damage removes loyalty in between (CR 306.8).
+ */
+function walkerThreat(state, perm) {
+  const loyalty = Number(perm?.counters?.loyalty) || 0;
+  const start = startingLoyalty(perm?.card);
+  let ultimate = null;
+  for (const ability of parseLoyaltyAbilities(perm?.card)) {
+    const cost = -ability.costDelta;
+    if (start != null && cost > start && (ultimate == null || cost > ultimate)) ultimate = cost;
+  }
+  return { loyalty, ultimate, ultimateNext: ultimate != null && loyalty >= ultimate, value: WALKER_LIFE_PER_VALUE * permanentValue(perm, state) };
+}
+
+/** Is the swing of `ids` (beside the face attacks already declared) lethal on `defenderId`, under swingIsLethalV2's worst case? */
+function faceSwingIsLethal(state, aiPlayerId, defenderId, ids) {
+  const blockers = untappedDefenderBlockers(state, defenderId);
+  const read = (id) => {
+    const s = combatStatsOf(state, id);
+    return s && { power: s.power, minBlockers: minBlockersFor(state, id), eligibleCount: eligibleBlockersFor(state, defenderId, id, blockers).length };
+  };
+  const committed = (state.combat?.attackers || [])
+    .filter((a) => a.attackingPlayer === aiPlayerId && a.defender === defenderId && !a.defenderPlaneswalkerId)
+    .map((a) => read(a.permanentId));
+  return swingIsLethalV2([...committed, ...ids.map(read)].filter(Boolean), blockers.length, state.players?.[defenderId]?.life ?? 0);
+}
+
+/**
+ * The cheapest set of `avail` attackers — the least face damage given up — that connect for `need` beside the attackers
+ * already `committed` at a planeswalker, when its controller blocks the biggest blockable ones with its `blockerCount`
+ * untapped creatures (unavoidableDamage). [] when the committed attackers already reach; null when even all of them fall
+ * short. A greedy trim (the attacker giving up the most first, dropped while the rest still reach), then the cheapest
+ * single attacker that reaches alone — whichever gives up less.
+ */
+function cheapestReach(need, avail, committed, blockerCount) {
+  const reaches = (set) => unavoidableDamage([...committed, ...set], blockerCount) >= need;
+  if (reaches([])) return [];
+  if (!reaches(avail)) return null;
+  const byId = (x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
+  let keep = [...avail].sort((x, y) => (y.forgone - x.forgone) || (y.power - x.power) || byId(x, y));
+  for (const c of [...keep]) {
+    const without = keep.filter((x) => x !== c);
+    if (reaches(without)) keep = without;
+  }
+  const forgoneOf = (set) => set.reduce((s, x) => s + x.forgone, 0);
+  let single = null;
+  for (const c of avail) if (reaches([c]) && (!single || c.forgone < single.forgone)) single = c;
+  return single && single.forgone < forgoneOf(keep) ? [single] : keep;
+}
+
+/**
+ * THE PLANESWALKER ATTACK POLICY (2026-10-18): which creatures attack which opposing planeswalker this combat. Returns
+ * Map<permanentId, planeswalkerId>; every other creature keeps the racer's face target. The rule: attack a walker when
+ * removing it is worth more than the face damage the attackers give up.
+ *   · Never while the swing is lethal on the focused player — kill the player first.
+ *   · The kill: the walker's loyalty in damage that connects even if its controller chump-blocks the biggest blockable
+ *     attackers with every untapped creature it has (unavoidableDamage — legal blockers, menace and "≥N" block sizes, the
+ *     racer's worst case). An attacker counts only when that controller's blockers can't kill it for nothing (the racer's
+ *     duel math: first strike, deathtouch), so one the racer holds back from the focused player still may.
+ *   · The ultimate: a walker whose loyalty already pays for its ultimate is worth twice its value dead, and its value once
+ *     brought below the ultimate's cost (it can't fire it next turn).
+ *   · Worth: the walker's value in life points (WALKER_LIFE_PER_VALUE); the cost: the power each attacker would have
+ *     dealt the focused player — 0 for a creature the racer wasn't sending — weighted up as that player nears death
+ *     (FACE_URGENCY_LIFE).
+ *   · Attack taxes: every attack at a walker pays its controller's tax for it (attackTax.attackTaxDetail, per target, CR
+ *     508.1h); a plan goes ahead only when this seat's mana (less the attackers that tap to attack) pays every tax planned.
+ * Greedy: the walker with the largest gain first, then the next with the creatures left. Deterministic (offer order, ids).
+ */
+function planWalkerAttacks(state, aiPlayerId, pools, attacking, target) {
+  const assigned = new Map();
+  const walkers = new Map(); // planeswalker id → its controller: the walkers some creature may attack, in offer order
+  for (const pool of pools.values()) {
+    for (const o of pool) if (o.defenderPlaneswalkerId && !walkers.has(o.defenderPlaneswalkerId)) walkers.set(o.defenderPlaneswalkerId, o.defenderId);
+  }
+  if (walkers.size === 0) return assigned;
+  const facesTarget = (id) => pools.get(id).some((o) => o.defenderId === target && !o.defenderPlaneswalkerId);
+  if (target && faceSwingIsLethal(state, aiPlayerId, target, [...pools.keys()].filter((id) => attacking(id) && facesTarget(id)))) return assigned;
+
+  const targetLife = state.players?.[target]?.life ?? 0;
+  const faceWeight = targetLife > 0 && targetLife < FACE_URGENCY_LIFE ? FACE_URGENCY_LIFE / targetLife : 1;
+  // Per walker controller: its untapped creatures, and each attacker read against them.
+  const controllers = new Map();
+  const controllerRead = (controller) => {
+    if (!controllers.has(controller)) controllers.set(controller, { blockers: untappedDefenderBlockers(state, controller), byId: new Map() });
+    return controllers.get(controller);
+  };
+  const attackerRead = (controller, id) => {
+    const c = controllerRead(controller);
+    if (!c.byId.has(id)) {
+      const s = combatStatsOf(state, id);
+      const eligible = s ? eligibleBlockersFor(state, controller, id, c.blockers) : [];
+      const minBlockers = minBlockersFor(state, id);
+      c.byId.set(id, s && {
+        id, power: s.power, minBlockers, eligibleCount: eligible.length,
+        safe: eligible.length < minBlockers || !attackerDiesForNothingV2(s, eligible),
+        forgone: attacking(id) ? s.power * faceWeight : 0,
+        vigilance: permanentHasKeyword(state, id, "Vigilance"),
+      });
+    }
+    return c.byId.get(id);
+  };
+
+  // The taxes the planned walker attacks pay in all. An attacker taps before its controller activates mana abilities to pay
+  // (CR 508.1f, 508.1i), so a planned attacker without vigilance is no source.
+  let taxGeneric = 0;
+  const taxPhyrexian = [];
+  const tapped = new Set();
+  const canFund = (detail, picks) => {
+    if (detail.generic <= 0 && detail.phyrexian.length === 0) return true;
+    const taps = new Set([...tapped, ...picks.filter((p) => !p.vigilance).map((p) => p.id)]);
+    const sources = manaSources(state, aiPlayerId).filter((src) => !taps.has(src.permanentId));
+    const cost = { generic: taxGeneric + detail.generic * picks.length, phyrexian: [...taxPhyrexian, ...picks.flatMap(() => detail.phyrexian)] };
+    return canAfford(state.players?.[aiPlayerId]?.manaPool, sources, cost, lifePaymentContext(state, aiPlayerId));
+  };
+
+  const done = new Set();
+  for (;;) {
+    let best = null;
+    for (const [walkerId, controller] of walkers) {
+      if (done.has(walkerId)) continue;
+      const threat = walkerThreat(state, findPermanent(state, walkerId)?.permanent);
+      if (threat.loyalty <= 0) continue;
+      const committed = (state.combat?.attackers || [])
+        .filter((a) => a.attackingPlayer === aiPlayerId && a.defenderPlaneswalkerId === walkerId)
+        .map((a) => attackerRead(controller, a.permanentId))
+        .filter(Boolean);
+      const avail = [...pools]
+        .filter(([id, pool]) => !assigned.has(id) && pool.some((o) => o.defenderPlaneswalkerId === walkerId))
+        .map(([id]) => attackerRead(controller, id))
+        .filter((r) => r && r.safe);
+      const blockerCount = controllerRead(controller).blockers.length;
+      const detail = attackTaxDetail(state, controller, walkerId);
+      const goals = [{ need: threat.loyalty, worth: threat.ultimateNext ? 2 * threat.value : threat.value }];
+      if (threat.ultimateNext) goals.push({ need: threat.loyalty - threat.ultimate + 1, worth: threat.value });
+      for (const goal of goals) {
+        const picks = cheapestReach(goal.need, avail, committed, blockerCount);
+        if (!picks || !canFund(detail, picks)) continue;
+        const gain = goal.worth - picks.reduce((s, p) => s + p.forgone, 0);
+        if (gain > 0 && (!best || gain > best.gain)) best = { walkerId, picks, gain, detail };
+      }
+    }
+    if (!best) break;
+    done.add(best.walkerId);
+    for (const p of best.picks) {
+      assigned.set(p.id, best.walkerId);
+      if (!p.vigilance) tapped.add(p.id);
+      taxGeneric += best.detail.generic;
+      taxPhyrexian.push(...best.detail.phyrexian);
+    }
+  }
+  return assigned;
 }
 
 /**

@@ -954,6 +954,18 @@ Absolution, Sphere of Safety, Norn's Annex), "planeswalkers you control" → the
 (`legalChoices.canPayAttackTax`), the declaration's payment (`applyDeclareAttacker`) and `attackRequirements.attackCostsNothing`
 all pass the attack's planeswalker id. A new tax wording extends the reader's sentence (the clause check reads the same pieces).
 
+**The AI's planeswalker attacks (`opponentAI.planWalkerAttacks`, added 2026-10-18 — AI decision quality).** `pickAttackPlan` keeps the
+racer's face target for every creature except those this policy sends at an opposing planeswalker: when removing the walker is worth
+more than the face damage the attackers give up. Never while the swing is lethal on the focused player. A kill is the walker's
+loyalty in damage that connects even if its controller chump-blocks the biggest blockable attackers with every untapped creature
+(`unavoidableDamage`, the worst case `swingIsLethalV2` already used — block legality, menace / "≥N"); an attacker counts only when that
+controller's blockers can't kill it for nothing, so a creature the racer holds back from the focused player may still go. A walker whose
+loyalty already pays for its ultimate (the most expensive cost above its printed loyalty) is worth twice its value dead and its value
+once brought below the ultimate. Worth = 4 × `boardEval.permanentValue` (evaluateBoard's life rate); cost = the power the attackers
+would have dealt the focused player, weighted up below 20 life. Each planned attack at a walker pays its tax (`attackTaxDetail` per
+target), funded from mana the attackers don't tap; the walker attacks are declared first. Greedy across walkers; the per-tick driver
+re-plans with the attackers already declared counted in. Policy `walker: "v1"` restores the old clean-kill focus (`chooseWalkerToKill`).
+
 **The default AI's combo line (`tokenLoopLine.js`, added 2026-10-03).** The rule
 (Colton): a combo deck plays to ITS line — build the resource only to "enough",
 then forgo every other choice, then execute the finish. Slice one knows one line:
