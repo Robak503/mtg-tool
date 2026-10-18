@@ -9,13 +9,11 @@
 
 ## 🎯 2026-10-01 — **THE PLAY-WEIGHTED PROGRAM** (Colton's order) — runnable: the top-2,500 worklist (phase 2), in rank order
 
-> **NOW (2026-10-18 ~03:45Z) — v0.165.0 RELEASED · PHASE 2 RUNNABLE.** Top 1,000 **920 / 1,000**; top 2,500 **1,770 / 2,500
-> (70.8%) → +480 to 90%**; corpus 15,536 (44.9%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
-> scripts/measure-coverage.mjs --played=2500` (from `app/`), highest-ranked buildable miss first. The found-not-fixed list from the
-> 10-17 slices lives in their RUN-LEDGER entries (highlights: the AI's targeted activated abilities and the stale until-end-of-turn
-> theft record are in build; "target opponent or planeswalker" has no planeswalker pool; compleated is unmodeled; the land search
-> score is colour-only). Open play call for Colton: should the generic tap also hold back restricted-line lands (Cavern of Souls,
-> Mech Hangar — 27)? See the Nykthos RUN-LEDGER entry.
+> **NOW (2026-10-18 ~10:30Z) — v0.166.0 TAGGING · PHASE 2 RUNNABLE.** Top 1,000 **929 / 1,000**; top 2,500 **1,808 / 2,500
+> (72.3%) → +442 to 90%**; corpus 15,636 (45.2%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
+> scripts/measure-coverage.mjs --played=2500` (from `app/`), highest-ranked buildable miss first — the parked list grows in each
+> play-weighted RUN-LEDGER entry ("Not taken"), so read the last three before picking. Open play call for Colton: should the
+> generic tap also hold back restricted-line lands (Cavern of Souls, Mech Hangar — 27)? See the Nykthos RUN-LEDGER entry.
 
 > **Colton, 10-01:** "So 1k then 2.5k then we re assess from there." The steering metric is now PLAY-WEIGHTED coverage —
 > the most-played Commander cards by edhrec_rank, covered = a native tier or a plain land — not the corpus total.
@@ -76,6 +74,19 @@
 > creatures triggered only for itself — fixed (CR 603.10a look-back). Sims with board wipes under Aristocrats watchers under-counted.
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
+
+## 🚀 2026-10-18 — **v0.166.0 TAGGED** (release run watching) — 18 commits since v0.165.0, every push CI green
+
+> **The release:** the ~100-card batch (CLAUDE.md §7.2): **+100** native since v0.165.0 — corpus **15,636 / 34,620 (45.2%)**; top
+> 1,000 **929**; top 2,500 **1,808**; shelf 29 / 30. Play-weighted slices: mana triggers (Throne of Eldraine, Caged Sun, Forsaken
+> Monument, High Tide…), value creatures (Wurmcoil Engine, Archon of Cruelty, Noxious Gearhulk, Kardur, Portal to Phyrexia…), Ayara /
+> Burgeoning / Destiny Spinner / Heliod / Jhoira's Familiar, prevention walls / Thalia Heretic Cathar / Harvester of Souls, Hero of
+> Bladehold / Elenda / Scavenging Ooze / Soul-Guide Lantern. Rules fixes: control timestamps (CR 613.7), leaving the game (CR 800.4),
+> ability damage carries its source's lifelink / deathtouch, a DFC is its front face as a spell (types and colours), goad and
+> must-attack requirements for every seat (CR 508.1d), restricted mana stays restricted, Krenko's last-known power. AI: it uses its
+> targeted activated abilities. Hygiene: 23 silent try/catch blocks removed across the AI and engine core (each probed first;
+> none ever threw), the Sim Center breakage table names a crashed card, the Crucible tests' load flake fixed. The release build
+> now retries the transient Google Fonts fetch on its own.
 
 ## 🚀 2026-10-18 — **v0.165.0 RELEASED** (published 2026-10-18T03:29:50Z) — 30 commits since v0.164.0, every push CI green
 
