@@ -87,11 +87,16 @@ describe("RUNTIME — {W} when the mana is there, 2 life when it is not, and no 
     expect(after.log.some((e) => e.kind === "attack-tax-paid" && e.lifePaid === 2 && e.generic === 0)).toBe(true);
   });
 
-  it("no white source at 1 life: withheld (CR 119.4); at exactly 2 life: offered, and the attacker goes to 0", () => {
+  // 2026-10-17 (the Phyrexian cast slice): the pip is paid by the one Phyrexian payment every cost uses (manaModel.planWithPhyrexian),
+  // under the engine's policy for every life payment — the payment leaves at least 1 life. Paying down to exactly 0 is legal
+  // (CR 119.4) but loses the game, so at 2 life the attack is now withheld; at 3 it is offered and leaves 1. (Pinned before as
+  // "at exactly 2 life: offered, and the attacker goes to 0".)
+  it("no white source at 1 or 2 life: withheld (CR 119.4; the payment keeps a life point); at 3 life: offered, and the attacker goes to 1", () => {
     expect(attackActions(combatBoard({ defenders: [ANNEX], life: 1 }))).toHaveLength(0);
-    const s = combatBoard({ defenders: [ANNEX], life: 2 });
+    expect(attackActions(combatBoard({ defenders: [ANNEX], life: 2 }))).toHaveLength(0);
+    const s = combatBoard({ defenders: [ANNEX], life: 3 });
     expect(attackActions(s)).toHaveLength(1);
-    expect(declare(s).players.user.life).toBe(0);
+    expect(declare(s).players.user.life).toBe(1);
   });
 
   it("Annex + Propaganda with two Wastes: {2} in mana and the pip in life; with a Plains as well, all in mana", () => {

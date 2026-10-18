@@ -72,11 +72,11 @@ function pitchRandomHandCard(working, playerId, excludeId, kind) {
 }
 import { tutorManaValue } from "./effects/atoms/library.js"; // γ1i (CAP14) — the shared MV reader the tutor / free-cast paths use, so "mana value" means ONE thing engine-wide
 import { passPriority, flushTriggers, chooseTriggerTargets, attackDeclarationOpen, closeAttackDeclaration } from "./gameEngine.js";
-import { manaSources, planPayment, castPaymentSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources, commitPaymentPlan, commitManaTap, payManaCost, manualManaTaps, payActivationFromPool } from "./manaModel.js";
+import { manaSources, planPayment, castPaymentSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources, commitPaymentPlan, commitManaTap, payManaCost, manualManaTaps, payActivationFromPool, lifePaymentContext } from "./manaModel.js";
 import { conditionalEntersTapped, paysLifeOrEntersTapped, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>" + the shockland pay-life clause (a leaf over interveningIf; cycle-free)
 import { sacrificePermanentForCost, sacrificePermanentsForCost } from "./costSacrifice.js"; // + sacrificePermanentsForCost (2026-10-17): a cost of N permanents, one event // every cost sacrifice (activated-ability costs, additional and alternative costs, emerge) — the ONE sequence the mana-cost sacrifice uses too
 import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT dispatch hook (audit.js imports only the delayed-trigger leaf, cycle-free)
-import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — the payment half; legalChoices holds the restriction half (+ the Phyrexian life lane, Norn's Annex)
+import { attackTaxDetail } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — the payment half; legalChoices holds the restriction half (+ the Phyrexian life lane, Norn's Annex)
 import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only — strip before the cast-effect parse so the runtime resolves the body natively (matches the classifier; fixes a classifier↔runtime pendingArbiter mismatch)
 import { RESOLVER_KEYS, isPermanentSpell, autoPickManaColor, choosesCreatureTypeOnEnter } from "./resolvers.js"; // LANDS-12: the ONE color auto-pick both enter sites stamp with; + CAP-CAVERN: the chosen-type chooser for a land drop
@@ -448,7 +448,7 @@ function applyCastSpell(state, action) {
     // "Spend this mana only to cast a creature spell" is offered here and nowhere else. Must MATCH the
     // affordability context in legalChoices exactly — an offer the payment then refuses is a MANA_SHORT
     // throw on a legal-looking action.
-    const plan = planPayment(pool, castSources, action.cost, { castCard, isCommander: action.fromZone === "command", restrictedEntries: state.players[action.playerId]?.restrictedMana || [], castEvery: cardIsEveryCreatureType(state, castCard, action.playerId) }); // P·39b — castEvery, the same answer legalChoices' affordability context gives
+    const plan = planPayment(pool, castSources, action.cost, { castCard, isCommander: action.fromZone === "command", restrictedEntries: state.players[action.playerId]?.restrictedMana || [], castEvery: cardIsEveryCreatureType(state, castCard, action.playerId), ...lifePaymentContext(state, action.playerId) }); // P·39b — castEvery, the same answer legalChoices' affordability context gives; + the payer's life — a Phyrexian symbol may be paid with 2 life (CR 107.4f, 2026-10-17)
     if (!plan) {
       throw new DispatcherError("Cannot pay the spell's mana cost", "MANA_SHORT");
     }
@@ -1550,7 +1550,7 @@ function applyActivateAbility(state, action) {
   // creature sources" is offered here iff the activating permanent is a creature (layer-aware). Must MATCH legalChoices.
   // `activatingPermanentId` only orders the taps (manaModel tapAny never promotes the permanent whose ability this pays
   // for: Mutavault's {1} would tap Mutavault and animate it tapped); affordability is order-free, so legalChoices omits it.
-  const plan = planPayment(pool, sources, action.cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id), activatingPermanentId: perm.id });
+  const plan = planPayment(pool, sources, action.cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id), activatingPermanentId: perm.id, ...lifePaymentContext(state, action.playerId) }); // + the payer's life — a Phyrexian symbol (Birthing Pod's {G/P}, an Equip {B/P}) may be paid with 2 life (2026-10-17)
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
 
   let working = commitPaymentPlan(state, action.playerId, plan, { reserved: costReservedPermanentIds(action) });
@@ -2103,25 +2103,14 @@ function applyDeclareAttacker(state, action) {
   // would put it back.
   const detail = attackTaxDetail(next, defender);
   if (detail.generic > 0 || detail.phyrexian.length > 0) {
-    // ALL-MANA first (the generic plus one coloured pip per Phyrexian entry); when that plan fails, the PHYREXIAN LIFE
-    // LANE (Norn's Annex, CR 107.4f + 119.4): the generic in mana and every pip in 2 life through the one life-loss
-    // chokepoint — the same primitive the pay-life mana lines use. All-mana or all-life per declaration (a house policy;
-    // both are exactly what the printed card allows). legalChoices withholds on the same two lanes.
-    let paid = false;
-    let lifePaid = 0;
-    const mana = payManaCost(next, action.playerId, attackTaxManaCost(detail));
-    if (mana.paid) {
-      next = mana.state;
-      paid = true;
-    } else if (detail.phyrexian.length > 0) {
-      const gen = payManaCost(next, action.playerId, { generic: detail.generic });
-      const lifeNeeded = detail.phyrexian.length * PHYREXIAN_LIFE_PER_PIP;
-      if (gen.paid && (next.players[action.playerId]?.life ?? 0) >= lifeNeeded) {
-        next = loseLife(gen.state, { playerId: action.playerId, amount: lifeNeeded });
-        lifePaid = lifeNeeded;
-        paid = true;
-      }
-    }
+    // THE PHYREXIAN PIPS (Norn's Annex, CR 107.4f + 119.4) are paid by the one Phyrexian payment every cost uses (2026-10-17 —
+    // manaModel.planWithPhyrexian, through payManaCost): each pip in mana of its colour when the board can, else 2 life, the generic
+    // in mana, the payment's life costs together leaving at least 1. It used to be a second copy here (all-mana, else all-life).
+    // legalChoices withholds on the same planner.
+    const tax = payManaCost(next, action.playerId, { generic: detail.generic, phyrexian: detail.phyrexian });
+    const paid = tax.paid;
+    const lifePaid = tax.lifePaid || 0;
+    if (paid) next = tax.state;
     if (!paid) {
       throw new DispatcherError(
         `Can't declare ${creature.card?.name || action.permanentId} as an attacker: the {${detail.generic}}${detail.phyrexian.map((c) => `{${c}/P}`).join("")} attack tax is unpayable`,

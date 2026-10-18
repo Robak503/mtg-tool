@@ -38,6 +38,7 @@ import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // QUARTET Phase
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { COUNT_SUBTYPE } from "./effects/parseHelpers.js"; // #766 — the curated subtype allowlist for "for each <Subtype> on the battlefield" (parseHelpers imports only keywords.js; staticAbilityParser, imported below, already loads it)
 import { parseAuraLandManaBonus, parseGlobalTapManaAugment, artifactActivationsLocked, abilitiesAsThoughHasteFor } from "./staticAbilityParser.js"; // + SG-18: haste-for-abilities at the mana-source sick gate // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only); NR-1: the artifact-activation lock
+import { PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // 2 life per Phyrexian symbol (CR 107.4f) — one constant for the cast, the activation and the attack tax (attackTax imports only parseHelpers: no cycle)
 import { manaMultiplier } from "./replacementEffects.js"; // MANA-MULTIPLIER: ×N tap-for-mana replacement (Mana Reflection/Nyxbloom; leaf, no cycle)
 import { evaluateInterveningIf } from "./interveningIf.js"; // CONDITION-GATED mana (CR 602.5) — interveningIf imports ONLY gameState, so this is a one-way edge with no cycle (checked before adding it)
 import { commanderColorIdentityOf } from "./commanderIdentity.js"; // "your commander's color identity" (CR 903.4) — the shared read off the seat's stamp (a zero-import leaf)
@@ -3743,7 +3744,7 @@ export function manualManaTaps(state, playerId) {
  * first) from the most-constrained source, so the sole source of a color isn't
  * wasted on a more-flexible pip. Hybrid pips pay the cheapest colored side;
  * generic is paid last, colorless first (GENERIC_SPEND_ORDER), so the colored
- * mana is what floats; phyrexian pips are assumed paid with life (not mana); X counts as 0.
+ * mana is what floats; Phyrexian symbols are paid with their mana or 2 life (planWithPhyrexian — mana first); X counts as 0.
  * Pathological multicolor costs
  * fall to "can't afford" (null) — never to fabricated mana.
  */
@@ -3784,9 +3785,67 @@ export function manualManaTaps(state, playerId) {
 const isOneShotSource = (s) => !!(s && (s.sacrifices || s.sacrificesCreature || s.sacrificesFood || s.fromHand || (s.noTap && s.payLife != null)));
 export function planPayment(pool, sources, cost, spendContext = null) {
   const all = sources || [];
-  const plan = planPaymentPasses(pool, all, cost, spendContext, null);
-  if (!plan || !boardJudgmentCanDiffer(all)) return plan;
-  return planPaymentPasses(pool, all, cost, spendContext, all) ?? plan;
+  return planWithPhyrexian(cost, spendContext, (manaCost, base) => {
+    const plan = planPaymentPasses(pool, all, manaCost, spendContext, null, base);
+    if (!plan || !boardJudgmentCanDiffer(all)) return plan;
+    return planPaymentPasses(pool, all, manaCost, spendContext, all, base) ?? plan;
+  });
+}
+
+/**
+ * PHYREXIAN MANA (CR 107.4f, 2026-10-17). Each Phyrexian symbol of a cost (`cost.phyrexian` — "B" for {B/P}, "G/U" for the hybrid
+ * Phyrexian {G/U/P}) is paid with one mana of its colour (either colour) OR 2 life. Until this slice the planner skipped them
+ * ("assumed paid with life") and no payment charged the life: Dismember cost {1}, Gitaxian Probe nothing.
+ * The planner pays them with MANA FIRST: it tries the fewest symbols in life — none, then one, then two … (each set of that size in
+ * symbol order) — turning every other symbol into its coloured pip (a hybrid one into a hybrid pip) and planning the rest as any
+ * cost; the first plan that pays wins, and `phyrexianLife` on the plan is the life it pays (commitPaymentPlan charges it).
+ * The life is a claim of the payment like a pay-life source's (planPaymentCore's `claims`, consumedClaimsPayable): together the
+ * payment's life costs must leave at least 1 life — the engine's policy, CR 119.4 allowing payment down to 0 — and none is paid
+ * while the life total can't change (CR 119.8). The payer's life comes in `spendContext` (`lifePaymentContext`: `life`,
+ * `lifeLocked`); with none, a symbol is paid with its mana only (the safe direction — never a free symbol).
+ * `attempt(manaCost, baseClaims)` plans one conversion.
+ */
+function planWithPhyrexian(cost, spendContext, attempt) {
+  const pips = cost?.phyrexian || [];
+  if (!pips.length) return attempt(cost, null);
+  const life = spendContext?.life;
+  const lifeOk = Number.isFinite(life) && !spendContext?.lifeLocked;
+  for (let k = 0; k <= (lifeOk ? pips.length : 0); k++) {
+    const lifeAmount = k * PHYREXIAN_LIFE_PER_PIP;
+    if (k > 0 && !(life > lifeAmount)) break;
+    for (const lifeSet of combinationsOf(pips.length, k)) {
+      const plan = attempt(phyrexianAsMana(cost, lifeSet), k > 0 ? [{ permanentId: "phyrexian-life", payLife: lifeAmount, lifeAvail: life }] : null);
+      if (plan) return k > 0 ? { ...plan, phyrexianLife: lifeAmount } : plan;
+    }
+  }
+  return null;
+}
+/** Every k-element subset of 0..n-1, as index sets, in lexicographic order. */
+function combinationsOf(n, k) {
+  const out = [];
+  const walk = (start, picked) => {
+    if (picked.length === k) { out.push(new Set(picked)); return; }
+    for (let i = start; i < n; i++) walk(i + 1, [...picked, i]);
+  };
+  walk(0, []);
+  return out;
+}
+/** The cost with its Phyrexian symbols paid in mana except those in `lifeSet` (indices): a {B/P} becomes a {B} pip, a {G/U/P} a
+ *  {G/U} hybrid pip; the symbols paid with life are gone from it (their life is the plan's base claim). */
+function phyrexianAsMana(cost, lifeSet) {
+  const next = { ...cost, phyrexian: [], hybrid: [...(cost.hybrid || [])] };
+  (cost.phyrexian || []).forEach((p, i) => {
+    if (lifeSet.has(i)) return;
+    const colors = String(p).split("/").filter((c) => COLOR_SET.has(c));
+    if (colors.length === 1) next[colors[0]] = (next[colors[0]] || 0) + 1;
+    else if (colors.length > 1) next.hybrid.push(colors);
+  });
+  return next;
+}
+
+/** The payer's life for the Phyrexian life lane (planWithPhyrexian): spread into a payment's `spendContext`. */
+export function lifePaymentContext(state, playerId) {
+  return { life: state?.players?.[playerId]?.life ?? 0, lifeLocked: playerLifeLocked(state, playerId) };
 }
 /**
  * The one-shot two-pass above; `board` — null for each call's own judgment, else the list the generic tap judges by.
@@ -3797,27 +3856,28 @@ export function planPayment(pool, sources, cost, spendContext = null) {
  * planner tries again without each contended record in turn (once each, never nested) and takes the first plan that pays. A
  * board without contention plans exactly as before; affordability only grows by plans the board can make.
  */
-function planPaymentPasses(pool, all, cost, spendContext, board) {
-  const plan = planPaymentPassesOnce(pool, all, cost, spendContext, board);
+function planPaymentPasses(pool, all, cost, spendContext, board, base = null) {
+  const plan = planPaymentPassesOnce(pool, all, cost, spendContext, board, base);
   if (plan) return plan;
-  for (const r of victimContention(all)) {
-    const retry = planPaymentPassesOnce(pool, all.filter((s) => s !== r), cost, spendContext, board);
+  for (const r of victimContention(all, base)) {
+    const retry = planPaymentPassesOnce(pool, all.filter((s) => s !== r), cost, spendContext, board, base);
     if (retry) return retry;
   }
   return null;
 }
-function planPaymentPassesOnce(pool, all, cost, spendContext, board) {
+// `base` (every pass below): the payment's claims before any source is tapped — the Phyrexian symbols paid with life (planWithPhyrexian).
+function planPaymentPassesOnce(pool, all, cost, spendContext, board, base = null) {
   if (all.some(isOneShotSource)) {
-    const kept = planPaymentRemovalAware(pool, all.filter((s) => !isOneShotSource(s)), cost, spendContext, board);
+    const kept = planPaymentRemovalAware(pool, all.filter((s) => !isOneShotSource(s)), cost, spendContext, board, base);
     if (kept) return kept;
   }
-  return planPaymentRemovalAware(pool, all, cost, spendContext, board);
+  return planPaymentRemovalAware(pool, all, cost, spendContext, board, base);
 }
 /** The records a contention retry may leave out: every sacrifice source and every self-sacrificing victim, when two sacrifice
  *  costs list the same victim or a victim leaves as it pays; every pay-life source, when their life costs together don't fit
  *  (2026-10-17, the follow-up — Boseiju taken first spent 2 of 3 life where two Mana Confluences pay {2} for 2); none otherwise.
  *  (Exile-a-graveyard-card sources need no retry: any card pays any of them, so passing over the one without a card loses nothing.) */
-function victimContention(all) {
+function victimContention(all, base = null) {
   const out = [];
   const pickers = all.filter(picksSacVictim);
   if (pickers.length) {
@@ -3827,7 +3887,9 @@ function victimContention(all) {
     if ([...listed.values()].some((n) => n > 1) || eaten.length) out.push(...pickers, ...eaten);
   }
   const lifers = all.filter((s) => paysLife(s) && s.lifeAvail != null);
-  if (lifers.length > 1 && !(Math.min(...lifers.map((s) => s.lifeAvail)) > lifers.reduce((n, s) => n + s.payLife, 0))) out.push(...lifers);
+  const baseLife = (base || []).filter((s) => paysLife(s) && s.lifeAvail != null); // + the Phyrexian symbols' life (planWithPhyrexian)
+  const budget = [...lifers, ...baseLife];
+  if (lifers.length > (baseLife.length ? 0 : 1) && !(Math.min(...budget.map((s) => s.lifeAvail)) > budget.reduce((n, s) => n + s.payLife, 0))) out.push(...lifers);
   return [...new Set(out)];
 }
 /**
@@ -3841,13 +3903,13 @@ function victimContention(all) {
  * 2026-10-17) waits for pass B too: each one shrinks it for good.
  */
 const spendsCounter = (s) => !!(s && (s.removesCounters || s.putsCounter));
-function planPaymentRemovalAware(pool, sources, cost, spendContext = null, board = null) {
+function planPaymentRemovalAware(pool, sources, cost, spendContext = null, board = null, base = null) {
   const hasRemoval = (sources || []).some(spendsCounter);
-  if (!hasRemoval) return planPaymentOnce(pool, sources, cost, spendContext, board);
-  const passA = planPaymentOnce(pool, (sources || []).filter((s) => !spendsCounter(s)), cost, spendContext, board);
+  if (!hasRemoval) return planPaymentOnce(pool, sources, cost, spendContext, board, base);
+  const passA = planPaymentOnce(pool, (sources || []).filter((s) => !spendsCounter(s)), cost, spendContext, board, base);
   if (passA) return passA;
   const ordered = [...(sources || [])].sort((a, b) => (a.permanentId === b.permanentId ? (b.amount || 0) - (a.amount || 0) : 0));
-  return planPaymentOnce(pool, ordered, cost, spendContext, board);
+  return planPaymentOnce(pool, ordered, cost, spendContext, board, base);
 }
 
 /**
@@ -3933,19 +3995,20 @@ function costedActivationOrders(all, cost) {
   }
   return orders;
 }
-function planPaymentOnce(pool, sources, cost, spendContext = null, board = null) {
+function planPaymentOnce(pool, sources, cost, spendContext = null, board = null, base = null) {
   const all = sources || [];
-  if (!all.some((s) => s?.activationCost)) return planPaymentCore(pool, all, cost, spendContext, board);
+  const claims = () => (base ? [...base] : null); // each call starts from the payment's own base claims (planPaymentCore appends)
+  if (!all.some((s) => s?.activationCost)) return planPaymentCore(pool, all, cost, spendContext, board, claims());
   const free = all.filter((s) => !s?.activationCost);
-  const direct = planPaymentCore(pool, free, cost, spendContext, board);
+  const direct = planPaymentCore(pool, free, cost, spendContext, board, claims());
   if (direct || !cost) return direct;
   for (const order of costedActivationOrders(all, cost)) {
-    const plan = activateCostedInOrder(pool, free, order, cost, spendContext, board);
+    const plan = activateCostedInOrder(pool, free, order, cost, spendContext, board, base);
     if (plan) return plan;
   }
   return null;
 }
-function activateCostedInOrder(pool, free, order, cost, spendContext, board) {
+function activateCostedInOrder(pool, free, order, cost, spendContext, board, base = null) {
   let curPool = {};
   for (const c of MANA_COLORS) curPool[c] = pool?.[c] || 0;
   let remaining = free;
@@ -3953,8 +4016,9 @@ function activateCostedInOrder(pool, free, order, cost, spendContext, board) {
   const activationSpend = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
   const spent = new Set();
   // 2026-10-17 — the sacrifices this payment's earlier calls planned (each call appends its own on success): an Altar that funds a
-  // Signet and a second Altar in the rest call can't both take the one creature (planPaymentCore's `claims`).
-  const claims = [];
+  // Signet and a second Altar in the rest call can't both take the one creature (planPaymentCore's `claims`). It starts from the
+  // payment's base claims (the Phyrexian symbols paid with life).
+  const claims = [...(base || [])];
   for (const s of order) {
     if (!s?.activationCost || spent.has(s.permanentId)) continue; // (an unpriceable cost never reaches here — manaSources drops that record)
     if (!activatedSourceTap(s, cost, curPool, [...claims])) continue; // the core won't tap it (restricted / produces nothing / no victim left) — don't fund it
@@ -4403,7 +4467,7 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
  * legalChoices uses this for cast-spell legality. planPayment's plan 1 decides affordability, so it alone is run here.
  */
 export function canAfford(pool, sources, cost, spendContext = null) {
-  return planPaymentPasses(pool, sources || [], cost, spendContext, null) !== null;
+  return planWithPhyrexian(cost, spendContext, (manaCost, base) => planPaymentPasses(pool, sources || [], manaCost, spendContext, null, base)) !== null;
 }
 
 /**
@@ -4619,7 +4683,15 @@ export function commitPaymentPlan(state, playerId, plan, { reserved = null } = {
   // mana lowers it, so mana added later in the step can't survive the drain on its account.
   const holdEot = next.players[playerId].manaHoldEot;
   const clamped = holdEot ? Object.fromEntries(Object.entries(holdEot).map(([c, n]) => [c, Math.min(n, nextPool[c] || 0)])) : holdEot;
-  return { ...next, players: { ...next.players, [playerId]: { ...next.players[playerId], manaPool: nextPool, ...(holdEot ? { manaHoldEot: clamped } : {}), ...(restrictedMana !== next.players[playerId].restrictedMana ? { restrictedMana } : {}) } } };
+  let out = { ...next, players: { ...next.players, [playerId]: { ...next.players[playerId], manaPool: nextPool, ...(holdEot ? { manaHoldEot: clamped } : {}), ...(restrictedMana !== next.players[playerId].restrictedMana ? { restrictedMana } : {}) } } };
+  // PHYREXIAN MANA PAID WITH LIFE (CR 107.4f, 119.4 — 2026-10-17): the 2 life per symbol the planner chose (planWithPhyrexian),
+  // through the one life-loss chokepoint the pay-life mana lines and the attack tax's Phyrexian pips use. Part of the total cost
+  // (CR 601.2h); the planner already held it beside the payment's other life costs, so the life is there to pay.
+  if (plan?.phyrexianLife > 0) {
+    out = loseLife(out, { playerId, amount: plan.phyrexianLife });
+    out = logEvent(out, { kind: "mana", event: "phyrexian-life", playerId, amount: plan.phyrexianLife });
+  }
+  return out;
 }
 
 /**
@@ -4653,13 +4725,15 @@ export function payManaCost(state, playerId, cost) {
   const empty =
     !(c.generic > 0) &&
     !MANA_COLORS.some((col) => (c[col] || 0) > 0) && // MANA_COLORS includes C (colorless pip)
-    !(Array.isArray(c.hybrid) && c.hybrid.length);
-  if (empty) return { state, paid: true };
+    !(Array.isArray(c.hybrid) && c.hybrid.length) &&
+    !(Array.isArray(c.phyrexian) && c.phyrexian.length); // 2026-10-17 — a lone {W/P} is a cost, never a free payment
+  if (empty) return { state, paid: true, lifePaid: 0 };
   const player = state?.players?.[playerId];
   if (!player) return { state, paid: false };
-  const plan = planPayment(player.manaPool, manaSources(state, playerId), c);
+  // The payer's life rides the context, so a Phyrexian symbol may be paid with 2 life (planWithPhyrexian — mana first).
+  const plan = planPayment(player.manaPool, manaSources(state, playerId), c, lifePaymentContext(state, playerId));
   if (!plan) return { state, paid: false };
-  return { state: commitPaymentPlan(state, playerId, plan), paid: true };
+  return { state: commitPaymentPlan(state, playerId, plan), paid: true, lifePaid: plan.phyrexianLife || 0 };
 }
 
 // Internal exports for tests.

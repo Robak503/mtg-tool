@@ -505,6 +505,15 @@ only beside `choosesCreatureTypeAsEnters`, the one chooser regex the enter site 
   cast from the graveyard — on the stack, CR 601.2a — the card whose graveyard ability is activated, the cards its cost exiles);
   `activationPaymentSources` / `graveyardActivationPaymentSources` are the payments' source derivations, and the offer
   (`withPayableConsumedCosts`) asks them whenever a consumed-cost source lists something the action's own cost needs.
+- **Phyrexian mana (2026-10-17).** `cost.phyrexian` holds one entry per Phyrexian symbol — "B" for {B/P}, "G/U" for the hybrid
+  {G/U/P} (parseManaCost; it used to drop the "P" of a hybrid one). `planWithPhyrexian` wraps planPayment and canAfford: the fewest
+  symbols in life first (none, one, two … — each set in symbol order), every other symbol turned into its coloured (or hybrid) pip;
+  the life is a base claim of the payment (`consumedClaimsPayable`: the payment's life costs together leave at least 1) and needs
+  the payer's life in the spend context (`lifePaymentContext` — `life`, `lifeLocked`, CR 119.8); with none, a symbol is paid with
+  mana only. The plan's `phyrexianLife` is charged by commitPaymentPlan. The cast, the activation, payManaCost (and through it the
+  attack tax — Norn's Annex) pass the life; the offer's last pass (`withPhyrexianPayment`) prices each Phyrexian cast/activation
+  with the payment's own plan, drops the unpayable and stamps `phyrexianLife`, which opponentAI.pickAction holds below
+  LIFE_PRUDENCE_FLOOR. Compleated (CR 702.150a) is unmodeled: those planeswalkers pay the cost but don't resolve yet.
 - **Counter costs, no-{T} lines and per-turn limits (2026-10-17).** The two counter-cost lines a record pays are admitted only in
   their whole anchored line (`LAND_COUNTER_MANA_LINE_RE`, `PUT_COUNTER_MANA_LINE_RE` — manaLineRefused refuses the cost item in any
   other line): "{T}, Remove a <charge|mining|depletion> counter from this land: Add …" (`removesCounters` mode `"one"`: one

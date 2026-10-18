@@ -1750,6 +1750,14 @@ export function takeLastCastRanking() {
 export function pickAction(state, aiPlayerId, actions, { archetype = null, policy = null } = {}) {
   _lastCastRanking = null; // tick boundary — a previous tick's cast ranking must never leak forward
   if (!Array.isArray(actions) || actions.length === 0) return null;
+  // PHYREXIAN MANA PAID WITH LIFE (2026-10-17): the offer stamps `phyrexianLife` when no mana of a symbol's colour is left to pay
+  // it (legalChoices.withPhyrexianPayment — mana first). The AI pays that life only while it stays at LIFE_PRUDENCE_FLOOR or more,
+  // the floor its other life payments use; below it the cast or activation is held (dropped here, before every chooser).
+  const life = state?.players?.[aiPlayerId]?.life;
+  if (actions.some((a) => a?.phyrexianLife > 0)) {
+    actions = actions.filter((a) => !(a?.phyrexianLife > 0) || (Number.isFinite(life) && life - a.phyrexianLife >= LIFE_PRUDENCE_FLOOR));
+    if (actions.length === 0) return null;
+  }
   const pol = normalizePolicy(policy);
 
   // DISCOVER (LCI) — a pending discover decision short-circuits everything (legalChoices offers ONLY the

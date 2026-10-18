@@ -30,7 +30,7 @@
  */
 
 import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower, nameCastLocked, playerLifeLocked } from "./gameState.js"; // B4: the Reflector Mage name cast lock; playerLifeLocked — CR 119.8, a life total that can't change can't pay life
-import { canAfford, manaSources, manualManaTaps, payActivationFromPool, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources } from "./manaModel.js";
+import { canAfford, planPayment, manaSources, manualManaTaps, payActivationFromPool, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources, lifePaymentContext } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // SELF-METRIC-COST-REDUCTION: a live count read at cast announce
 import { hasKeyword } from "./keywords.js";
 import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord, cannotEquipNow } from "./layers.js"; // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
@@ -40,7 +40,7 @@ import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatu
 import { grantsWubrgAltCost, fixedManaAltCostOf, conditionalFixedManaAltCostOf } from "./effects/textNormalize.js"; // + the trap form (shelf D17) // FIST OF SUNS (RG-5) — the board-granted WUBRG alternative cost; + RG-8 — the spell's OWN fixed-mana alternative cost (the Bringers); leaf readers
 import { collectCostReducers, playLandFromGraveyardPermission, plotFromLibraryTopGranted, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, landDropAllowance, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksFor, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
-import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund (+ the Phyrexian life lane, Norn's Annex)
+import { attackTaxDetail } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund (+ the Phyrexian life lane, Norn's Annex)
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, legacyTargetingEffect, canBeTargetedBy, playerTargetableBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence, parseEffectClause, programNeedsChosenTarget } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
@@ -250,7 +250,13 @@ export function parseManaCost(costString) {
       cost.phyrexian.push(pip[0]);
       continue;
     }
-    // Hybrid — "{W/U}" or "{2/W}" or rare "{B/G/P}"
+    // HYBRID PHYREXIAN — "{G/U/P}" (CR 107.4f: one mana of either colour OR 2 life — the compleated planeswalkers, 2026-10-17). It
+    // used to fall into the hybrid arm below with its "P" dropped: payable with mana only. Kept as one Phyrexian entry, "G/U".
+    if (/^[WUBRG]\/[WUBRG]\/P$/.test(pip)) {
+      cost.phyrexian.push(pip.slice(0, 3));
+      continue;
+    }
+    // Hybrid — "{W/U}" or "{2/W}"
     if (pip.includes("/")) {
       const parts = pip.split("/").filter(p => p && p !== "P");
       cost.hybrid.push(parts);
@@ -631,7 +637,7 @@ function affordableXValues(state, playerId, cost) {
   const out = [];
   for (let x = 1; x <= ceiling; x++) {
     const xCost = xResolvedCost(cost, x);
-    if (!canAfford(player.manaPool, sources, xCost)) break; // monotonic in X
+    if (!canAfford(player.manaPool, sources, xCost, lifePaymentContext(state, playerId))) break; // monotonic in X (+ the caster's life: Corrosive Gale's {G/P})
     out.push(x);
   }
   return out;
@@ -1281,7 +1287,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // POOL-RESTRICTED SUB-POOL (QUARTET Phase 4): thread the tagged entries so a qualifying cast can
     // spend them (restricted-first in the planner). The ability-activation path threads NONE — Klauth's
     // "only to cast spells" is enforced by absence (the default-deny posture).
-    const spendContext = { castCard: card, isCommander: fromZone === "command", restrictedEntries: player.restrictedMana || [], castEvery: everyType }; // P·39b — castEvery: Cavern-style "creature spell of the chosen type" mana sees every creature type
+    const spendContext = { castCard: card, isCommander: fromZone === "command", restrictedEntries: player.restrictedMana || [], castEvery: everyType, ...lifePaymentContext(state, playerId) }; // P·39b — castEvery: Cavern-style "creature spell of the chosen type" mana sees every creature type; + the caster's life — a Phyrexian symbol may be paid with 2 life (CR 107.4f, 2026-10-17)
     const affordable = freeCast || canAfford(player.manaPool, manaSources(state, playerId), cost, spendContext);
     // FIST OF SUNS (RG-5): the five-pip alternative — hand casts only, never a free cast, never an X spell (the X would be 0
     // under an alternative cost — a different, unmodeled line), payable right now.
@@ -2773,7 +2779,7 @@ function actionsActivateAbility(state, playerId) {
         !((ab.tapSelf || ab.sacSelf || ab.exileSelf) && s.permanentId === perm.id) &&
         !sacCountManaExcluded.has(s.permanentId));
       // SG-18: the activation spend context every affordability check below passes.
-      const spendCtx = { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id) };
+      const spendCtx = { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id), ...lifePaymentContext(state, playerId) }; // + the activator's life — a Phyrexian symbol may be paid with 2 life (CR 107.4f)
       // The cheapest cost the lane can offer: the printed one, or X = 1 on the {X} lane (X = 0 is never offered). Every check
       // above the X walk judges this one; affordability is monotonic in X, so a victim that can't pay it can't pay any X.
       const gateCost = xLane ? xResolvedCost(cost, 1) : cost;
@@ -3062,7 +3068,7 @@ function actionsActivateAbility(state, playerId) {
               const sourcesForX = manaSources(state, playerId).filter((s) =>
                 !((ab.tapSelf || ab.sacSelf || ab.exileSelf) && s.permanentId === perm.id) &&
                 !sacXExcluded.has(s.permanentId));
-              if (!canAfford(player.manaPool, sourcesForX, cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id) })) continue; // this X starves the {mana} part
+              if (!canAfford(player.manaPool, sourcesForX, cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id), ...lifePaymentContext(state, playerId) })) continue; // this X starves the {mana} part
               actions.push({
                 kind: "activate-ability",
                 playerId,
@@ -4322,10 +4328,9 @@ function actionsDeclareAttacker(state, playerId) {
     const keepsSelf = permanentHasKeyword(state, p.id, "Vigilance");
     const sources = manaSources(state, playerId).filter((s) => keepsSelf || s.permanentId !== p.id);
     const pool = state.players[playerId]?.manaPool;
-    if (canAfford(pool, sources, attackTaxManaCost(detail))) return true;
-    // PHYREXIAN LIFE LANE (Norn's Annex, CR 107.4f + 119.4): the generic in mana, every pip in 2 life — payable only from
-    // a life total at least that large. The dispatcher pays exactly this way when the all-mana plan fails.
-    return detail.phyrexian.length > 0 && canAfford(pool, sources, { generic: detail.generic }) && (state.players[playerId]?.life ?? 0) >= detail.phyrexian.length * PHYREXIAN_LIFE_PER_PIP;
+    // THE PHYREXIAN PIPS (Norn's Annex, CR 107.4f + 119.4) through the one Phyrexian payment (manaModel.planWithPhyrexian, 2026-10-17):
+    // each pip in its mana when the board can, else 2 life — the dispatcher pays the attack the same way (payManaCost).
+    return canAfford(pool, sources, { generic: detail.generic, phyrexian: detail.phyrexian }, lifePaymentContext(state, playerId));
   };
 
   const allowedTargetsFor = (p) => {
@@ -4699,7 +4704,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   actions.push(...actionsDeclareAttacker(state, playerId));
   actions.push(...actionsDeclareBlocker(state, playerId, attackerIds));
 
-  return applyTargetTaxes(state, playerId, withPayableConsumedCosts(state, playerId, actions));
+  return applyTargetTaxes(state, playerId, withPhyrexianPayment(state, playerId, withPayableConsumedCosts(state, playerId, actions)));
 }
 
 /**
@@ -4718,23 +4723,54 @@ function withPayableConsumedCosts(state, playerId, actions) {
   const listed = new Set();
   for (const s of sources) for (const id of [...(s.sacVictimIds || []), ...(s.gyExileIds || [])]) listed.add(id);
   if (!listed.size) return actions;
-  const player = state.players[playerId];
   return actions.filter((a) => {
-    if (!a?.cost || a.freeCast || a.altCost) return true;
-    if (a.kind !== "cast-spell" && a.kind !== "activate-ability" && a.kind !== "activate-gy-recursion" && a.kind !== "activate-gy-exile") return true;
+    if (!PAID_ACTION_KINDS.has(a?.kind) || !a.cost || a.freeCast || a.altCost) return true;
     if (![...costReservedPermanentIds(a)].some((id) => listed.has(id))) return true;
-    if (a.kind === "cast-spell") {
-      const fromZone = a.fromZone || "hand";
-      const castCard = a.faceCard || (player?.[fromZone] || []).find((c) => c.id === a.cardId) || null; // the dispatcher's castCard
-      return canAfford(player.manaPool, castPaymentSources(state, a), a.cost, { castCard, isCommander: fromZone === "command", restrictedEntries: player?.restrictedMana || [], castEvery: cardIsEveryCreatureType(state, castCard, playerId) });
-    }
-    if (a.kind === "activate-ability") {
-      const perm = player.battlefield.find((p) => p.id === a.permanentId);
-      if (!perm) return true;
-      return canAfford(player.manaPool, activationPaymentSources(state, a), a.cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id) });
-    }
-    return canAfford(player.manaPool, graveyardActivationPaymentSources(state, a), a.cost);
+    return offeredPaymentPlan(state, playerId, a) !== null;
   });
+}
+
+/** The action kinds whose mana cost the dispatcher pays from a source derivation shared with the offer (offeredPaymentPlan). */
+const PAID_ACTION_KINDS = new Set(["cast-spell", "activate-ability", "activate-gy-recursion", "activate-gy-exile"]);
+
+/**
+ * THE PLAN THE DISPATCHER WOULD PAY THIS ACTION WITH — its own sources (castPaymentSources / activationPaymentSources /
+ * graveyardActivationPaymentSources) and its own spend context, the payer's life included (a Phyrexian symbol). null when the
+ * payment would refuse. Shared by the two offer passes below so the offer asks exactly the payment's question.
+ */
+function offeredPaymentPlan(state, playerId, a) {
+  const player = state.players[playerId];
+  const life = lifePaymentContext(state, playerId);
+  if (a.kind === "cast-spell") {
+    const fromZone = a.fromZone || "hand";
+    const castCard = a.faceCard || (player?.[fromZone] || []).find((c) => c.id === a.cardId) || null; // the dispatcher's castCard
+    return planPayment(player.manaPool, castPaymentSources(state, a), a.cost, { castCard, isCommander: fromZone === "command", restrictedEntries: player?.restrictedMana || [], castEvery: cardIsEveryCreatureType(state, castCard, playerId), ...life });
+  }
+  if (a.kind === "activate-ability") {
+    const perm = player.battlefield.find((p) => p.id === a.permanentId);
+    if (!perm) return null;
+    return planPayment(player.manaPool, activationPaymentSources(state, a), a.cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id), ...life });
+  }
+  return planPayment(player.manaPool, graveyardActivationPaymentSources(state, a), a.cost);
+}
+
+/**
+ * PHYREXIAN MANA, OFFERED AS PAID (CR 107.4f, 2026-10-17). Each cast or activation whose cost holds a Phyrexian symbol is priced by
+ * the payment's own plan (offeredPaymentPlan — mana first, else 2 life per symbol, the payment's life costs together leaving at
+ * least 1, none under a life lock): dropped when it can't be paid, and stamped `phyrexianLife` — the life it will pay — when it pays
+ * any, so the AI (LIFE_PRUDENCE_FLOOR) and a person see the price before choosing it. The builders' own checks priced the
+ * symbols the same way where they had the caster's life; this pass makes every offer of the shape agree with its payment.
+ */
+function withPhyrexianPayment(state, playerId, actions) {
+  if (!actions.some((a) => a?.cost?.phyrexian?.length)) return actions;
+  const out = [];
+  for (const a of actions) {
+    if (!a?.cost?.phyrexian?.length || !PAID_ACTION_KINDS.has(a.kind) || a.freeCast || a.altCost) { out.push(a); continue; }
+    const plan = offeredPaymentPlan(state, playerId, a);
+    if (!plan) continue;
+    out.push(plan.phyrexianLife > 0 ? { ...a, phyrexianLife: plan.phyrexianLife } : a);
+  }
+  return out;
 }
 
 // TARGET TAXES — ONE choke over the assembled list instead of edits at the cast-push sites. Two statics feed
@@ -4784,7 +4820,7 @@ function applyTargetTaxes(state, playerId, actions) {
       const cost = { ...a.cost, generic: (a.cost?.generic || 0) + manaTax };
       const fromZone = a.fromZone || "hand";
       const castCard = a.faceCard || (player?.[fromZone] || []).find((c) => c.id === a.cardId) || null; // the dispatcher's castCard
-      const spendContext = { castCard, isCommander: fromZone === "command", restrictedEntries: player?.restrictedMana || [], castEvery: cardIsEveryCreatureType(state, castCard, playerId) };
+      const spendContext = { castCard, isCommander: fromZone === "command", restrictedEntries: player?.restrictedMana || [], castEvery: cardIsEveryCreatureType(state, castCard, playerId), ...lifePaymentContext(state, playerId) };
       if (!canAfford(player.manaPool, castPaymentSources(state, a), cost, spendContext)) continue;
       taxed = { ...taxed, cost, targetManaTax: manaTax };
     }

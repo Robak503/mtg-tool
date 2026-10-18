@@ -32,6 +32,8 @@ export function castVariantClauses(o) {
   // Bolas's Citadel's library-top cast carries its life payment as an altCost with no altName (P·17).
   else if (o.lifeCostFromTop && o.altCost) out.push(o.altCost.payLife ? `pay ${o.altCost.payLife} life rather than its mana cost` : "without paying its mana cost");
   for (const key of ADDITIONAL_COST_NAMES) if (o[key]) out.push(o[key]);
+  // Phyrexian symbols the payment covers with life (legalChoices.withPhyrexianPayment's stamp, 2026-10-17): the price is named.
+  if (o.phyrexianLife > 0) out.push(`pay ${o.phyrexianLife} life for its Phyrexian mana`);
   return out;
 }
 
@@ -100,6 +102,7 @@ export function activationCostText(o, seat = "user") {
   const exileN = o.exileGyIds?.length || 0;
   if (exileN) parts.push(`exile ${exileN} card${exileN === 1 ? "" : "s"} from ${seatPossessive(seat)} graveyard`);
   if (o.payLife > 0) parts.push(`pay ${o.payLife} life`);
+  if (o.phyrexianLife > 0) parts.push(`pay ${o.phyrexianLife} life for its Phyrexian mana`); // 2026-10-17 — the symbols paid with life
   if (o.payEnergy > 0) parts.push(`pay ${"{E}".repeat(o.payEnergy)}`);
   if (o.sacSelf) parts.push("sacrifice it");
   if (o.exileSelf) parts.push("exile it");

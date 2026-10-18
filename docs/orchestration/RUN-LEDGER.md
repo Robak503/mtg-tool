@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **28 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.9% (15,536)**; engine gains since the tag: **+83** (+92 gained, −9 false credit removed). The next tag
+> **29 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.9% (15,536)**; engine gains since the tag: **+83** (+92 gained, −9 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,70 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX (false positive): Phyrexian mana is paid — each Phyrexian symbol in a spell's or an activated ability's cost ({B/P}, the hybrid {G/U/P}) costs one mana of its colour or 2 life (CR 107.4f), planned in the planner and canAfford with the whole payment's life (at least 1 left; none under a life lock, CR 119.8) and charged by the commit; the attack tax's Phyrexian pips use the same payment; the AI pays Phyrexian life only at LIFE_PRUDENCE_FLOOR or more; 29 credited cards (Dismember, Gitaxian Probe, Mental Misstep, Birthing Pod, Norn's Annex, the Souleaters, the Dominuses, Lashwrithe …) now pay faithfully · **±0** · snapshot native 15,518 unchanged
+> Suite **20,794 green (1 skipped) / 1,880 files** under the gate queue (with the rules index built locally for the run, then deleted; a first gated run had one
+> failure — crucibleRun's "plays EXACTLY N games" over its 20 s timeout under the suite's load; alone it runs 8.8 s on this tree and 8.8 s
+> on the base, three runs each, so it is load, not this change — and the rerun is the number above). Lint 0 (CR citations: 0 of 11,598
+> name no rule; keyword citations: 0 of 2,378 cite a different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an
+> untouched `git archive` of ee70e7d9, snapshotted before the first edit; native 15,518 of 34,584 snapshot names on both). **Mutants
+> 11/11** on assertions, run on the final code, each restored byte-identical (sha256). Witness `phyrexianMana.test.js` (15), written before
+> any engine change: **12 fail on the ee70e7d9 engine on assertions, the 3 controls pass** (two Tamiyo tests were reworked before the first
+> engine edit — her compleated static is unmodeled, so the spell never resolves; they check the cost only — and one label assertion was
+> added while building); `nornsAnnex.test.js`' pin "at exactly 2 life: offered, and the attacker goes to 0" graduated (below). A/B **80
+> seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched ee70e7d9 archive): **71
+> byte-identical, 6 differ only in offered sets or scores** (games 1, 10, 46, 59, 74, 76: offered casts, an activation or a
+> tap-for-mana fewer — 4 and 15 casts withheld in games 10 and 59 — or cast scores moved; no pick changes), **3 carry the new `phyrexianLife` stamp in
+> their pick rows** (games 4, 41, 43 — Phyrexian Metamorph cast with 2 life, no blue to spare), of which **1 changes a real pick**
+> (game 41: with Kinnan 2 life lower, Hulk Smash declares no turn-9 attack on Halfshell heroes where base did; turns 32 → 35, same
+> winner), **0 winners change**, 0 errors on either tree, results unchanged (ai-wins 54 /
+> user-wins 26), 174 s / 187 s per batch.
+> Committed on `day/phyrexian`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The bug** (found in the graveyard-exile slice; measured on ee70e7d9). The planner skipped `cost.phyrexian` ("assumed paid with
+>   life") and no cast or activation charged the life: Dismember off one Island cost the Island and nothing else, Gitaxian Probe was free,
+>   Immolating Souleater pumped for nothing, Lashwrithe equipped for nothing. A hybrid Phyrexian symbol ({G/U/P}) was parsed as plain
+>   hybrid — payable with mana only. Only the attack tax's Norn's Annex lane charged the life, in its own copy.
+> · **Reach** (every bundled card, the mana cost and every activated cost read): **74 cards** hold a Phyrexian symbol — 38 in a mana cost
+>   (4 of them hybrid Phyrexian: the compleated walkers Ajani, Sleeper Agent; Lukka, Bound to Ruin; Nahiri, the Unforgiving; Tamiyo,
+>   Compleated Sage), 39 in an activated cost (35 only there — the transform DFCs, the Souleaters, the Dominuses, Spellskite, Hex
+>   Parasite …), 4 in both (Birthing Pod, Moltensteel Dragon, Spike, Synthesis Pod), and Lashwrithe's Equip {B/P}{B/P}. **29 are credited
+>   native**: casts — Corrosive Gale, Dismember, Gitaxian Probe, Gut Shot, Marrow Shards, Mental Misstep, Mutagenic Growth, Norn's Annex,
+>   Noxious Revival, Phyrexian Metamorph, Pith Driller, Porcelain Legionnaire, Slash Panther, Spined Thopter, Tezzeret's Gambit, Thundering
+>   Tanadon, Vault Skirge; cast + ability — Birthing Pod, Moltensteel Dragon; ability — Blinding, Immolating, Insatiable, Pestilent and
+>   Trespassing Souleater, Drivnod, Mondrak, Solphim, Zopandrel; Lashwrithe's equip. **Every one now pays faithfully** — swept on a board
+>   whose Wastes pay only the generic part, at 20 life: each was offered, stamped, and took 2 life per symbol (base: 0 life for all 30
+>   offers); Mental Misstep checked on the stack against a Lightning Bolt (2 life). The 7 compleated walkers are arbiter-pw (their cost is
+>   paid; they don't resolve yet). Profile decks: Mondrak (Vihaan), Skrelv, Defector Mite (Shalai and Hallar — body-only), Solphim
+>   (Nekusar), Zopandrel (Thrun), Dismember (Believe it!), Gitaxian Probe (Veyran), Mental Misstep (cdh, Believe it!, Kinnan), Norn's Annex
+>   (Atraxa), Noxious Revival (Killer Turts, Squirrel Girl, Test Rashmi), Phyrexian Metamorph (cdh, Kinnan).
+> · **The fix** (manaModel). `planWithPhyrexian` wraps planPayment and canAfford: the fewest symbols in life first (none, one, two … —
+>   each set of that size in symbol order), every other symbol turned into its coloured pip (a hybrid one into a hybrid pip), so mana pays
+>   whenever it can; the life is a base claim of the payment (consumedClaimsPayable — beside a Mana Confluence's life, at least 1 left; the
+>   claims ride the passes into the core and the costed path); it needs the payer's life in the spend context (`lifePaymentContext` —
+>   `life`, `lifeLocked`), and with none a symbol needs its mana (never free). The plan's `phyrexianLife` is charged by commitPaymentPlan
+>   (loseLife, a `phyrexian-life` log line). payManaCost passes the life and no longer reads a lone {W/P} as an empty cost. parseManaCost
+>   keeps a hybrid Phyrexian symbol as one Phyrexian entry ("G/U").
+> · **The paths.** The dispatcher's cast and activation (Equip included) pass the payer's life; the attack tax pays Norn's Annex through
+>   payManaCost — the second copy (all-mana, else all-life) is gone, and legalChoices withholds on the same planner. The offer's cast and
+>   activation contexts carry the life (X spells too); the new last pass `withPhyrexianPayment` prices each Phyrexian cast/activation with
+>   the payment's own plan (`offeredPaymentPlan`, shared with withPayableConsumedCosts), drops the unpayable and stamps `phyrexianLife`;
+>   the label names it ("pay 4 life for its Phyrexian mana"); opponentAI.pickAction drops a stamped action that would leave it below
+>   LIFE_PRUDENCE_FLOOR (10) — held, as the coordinator's policy asks: mana when it has the colour, life above the floor, else hold.
+> · **Graduated:** `nornsAnnex.test.js` "no white source at 1 life: withheld; at exactly 2 life: offered, and the attacker goes to 0" →
+>   "at 1 or 2 life withheld; at 3 offered, the attacker goes to 1": the Annex pip now follows the engine's policy for every life payment
+>   (paying to exactly 0 is legal, CR 119.4, and loses the game).
+> · **Mutants (11/11 on assertions):** the planner skipping the symbols; no life lane; the commit not charging; the life no claim of the
+>   payment; the life lock ignored; life paid down to 0; hybrid Phyrexian read as hybrid; the AI paying below the floor; a lone pip read
+>   as an empty cost (killed by the Norn's Annex tests); no stamp; life tried before mana.
+> · **⚑ Judgment calls.** (1) Mana first, fewest life — the engine never pays life a board could pay in mana; a person who wants to keep a
+>   land up can't choose life instead (auto-payment only). (2) The policy keeps 1 life per payment, Phyrexian life included: Dismember
+>   off an Island at 4 life is not offered (legal per CR 119.4, but it loses the game). (3) The AI's floor (10) is its existing life floor;
+>   at 11 life it holds Vault Skirge off an Island. (4) Compleated (CR 702.150a: two fewer loyalty counters per symbol paid with life) is
+>   not modeled — those walkers don't resolve today, so paying their cost with life grants nothing; it must come with their resolution.
+> · ⚠️ **Found, not fixed:** (1) Compleated, above (7 planeswalkers). (2) The other cost sites without the payer's life — cycling,
+>   "discard this card" abilities, plot, suspend, turn face up, companion, the hand self-put — pay a Phyrexian symbol with mana only (none
+>   in the bundle prints one there today). (3) Cast variants priced without the caster's life (kicker, bestow, emerge, the sacrifice-cost
+>   cast lanes) need the symbol's mana — a false negative where a Phyrexian card has such a variant.
 
 > ## 🔧 2026-10-17 — FIX (AI decision quality): the land drop reads a fetch land as the land it fetches — Evolving Wilds, Terramorphic Expanse, Fabled Passage, Escape Tunnel and Vibrant Cityscape bring a TAPPED basic, a fetch held under the life floor or with nothing left to find makes nothing, the SNC family land is the tapped basic it becomes (the reading its slice deferred) — and the drop asks whether a land's untapped mana casts something THIS turn before it ranks "untapped" over the colour the hand lacks; and every land search the AI makes for itself (Rampant Growth, Cultivate, Kodama's Reach, Farseek, Nature's Lore, Three Visits, Sakura-Tribe Elder, Crop Rotation, the SNC trigger …) takes the colour the hand needs, not the alphabetically first land · **±0** · snapshot native+land 15,531 unchanged
 > Suite **20,785 green (1 skipped) / 1,879 files** under the gate queue (with the rules index built for the run, then deleted). Lint 0 (CR citations: 0 of 11,558 name no rule; keyword citations: 0 of 2,377 cite a different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an
