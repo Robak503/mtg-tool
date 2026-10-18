@@ -864,6 +864,15 @@ self-play (Omnath's pilots drive it); it validates the returned action against t
 offered set with a canonical-key deep compare (`actionInOfferedSet`). A pilot's
 optional `decideMulligan` (same shape) fires at keep/ship windows.
 
+**Attack requirements (`attackRequirements.js`, added 2026-10-18 — CR 508.1d).** The one requirement check, read by the offer
+for every seat (a person's included) and by the AI's `pickAttackPlan`. `obeyingAttackOptions` narrows a creature's defenders to
+those obeying the most of its "attacks a player other than X if able" requirements (`layers.attackOtherThanRequirementsOf`: one
+per goader, CR 701.15c–d; one per Kardur-style `requirementOnly` effect) among the options that cost nothing — a planeswalker obeys
+none; a taxed option never raises the bar but stays offered when it ties. `requiredAttackerIds` names the creatures that must still
+be declared (a live "attacks each combat if able" and a free option); while one remains, `legalActionsForPlayer` offers only
+attacker declarations (no pass, spell or ability — each would close the declaration), and under an attack cap the last slots go to
+them. A new attack requirement or restriction reads or extends this module, never a seat-specific copy.
+
 **The default AI's combo line (`tokenLoopLine.js`, added 2026-10-03).** The rule
 (Colton): a combo deck plays to ITS line — build the resource only to "enough",
 then forgo every other choice, then execute the finish. Slice one knows one line:

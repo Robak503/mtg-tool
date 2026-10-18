@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.165.0** (tagged 2026-10-18 on the `[0.165.0]` CHANGELOG cut):
-> **15 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.2% (15,636)**; engine gains since the tag: **+100**. The next tag
+> **16 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.2% (15,636)**; engine gains since the tag: **+100**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,82 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-18 — FIX (rules faithfulness): attack requirements are one check for every seat (CR 508.1d) — a goaded creature (Shiny Impetus, Coercive Impetus, Jeering Homunculus …) and a creature under Kardur, Doomscourge's rule attack a PLAYER other than the goader whenever one can be attacked without paying a cost (CR 701.15b–d; the bundled rulings): the AI's walker-kill focus no longer sends one at a planeswalker, and a person's declaration is held to the same requirements — a goaded creature is offered only its legal defenders, and the declaration can't close while a creature that must attack (Bloodrock Cyclops, goad, Kardur, Bident of Thassa's turn) is still at home; under Silent Arbiter / Dueling Grounds the one attack goes to the creature that must attack (the CR 508.1d example — Toski stayed home in one A/B game); and FIX (false positive): a must-attack creature whose every attack is taxed (Propaganda) is no longer forced to pay · **±0** · snapshot native+land 15,600 unchanged
+> Suite **21,260 green (1 skipped) / 1,907 files** under the gate queue, first run (with the rules index built for the run, then deleted).
+> Lint 0 (CR citations: 0 of 11,970 name no rule; keyword citations: 0 of 2,450 cite a different keyword). Flip-diff **0 / 0 / RETIERED 0**
+> (34,620 cards; before = an untouched `git archive` of 6cc20920, snapshotted before the first edit; native+land 15,600 of 34,584 snapshot
+> names on both). **Mutants 11/11** on assertions, each restored byte-identical (sha256): a planeswalker counted as obeying "other than X"
+> (10 tests red), no CR 701.15d dedupe (1), Kardur's grant deduped like a goad (1), a taxed-only creature required (2), a paid option raising
+> the bar (1), no cap restriction (2), the declaration allowed to close (4), the offer not narrowed (8), the planner's pools not narrowed (1),
+> the walker-kill power counting every creature (1), the planner forcing nothing (5). Witness `attackRequirements.test.js` (30) written
+> before the engine change and run on the untouched archive: **19 fail there on assertions, the 11 controls pass on both** (the first 27
+> before the change; the 3 added while building — the CR 701.15d and Kardur-count rows, the planner handed every pair, the walker-kill
+> power — fail there too). A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the
+> untouched 6cc20920 archive): **75 byte-identical, 4 differ only in offered-set rows** (games 43, 47 — Hulk, Brutal Brawler / Bruce
+> Banner; 61, 67 — Thrun Voltron's Toski: the pass and casts withheld while a must-attack creature was undeclared, 2–10 rows each, log and
+> picks identical), **1 changes picks** (game 62: Silent Arbiter on the table, Thrun Voltron declared Seedborn Muse and left Toski, Bearer
+> of Secrets home on base; here Toski is the one attacker — winner ai2 → ai3, both AI seats); results unchanged (ai-wins 58 / user-wins
+> 22), 0 errors on either tree (515.1 s / 510.3 s, run concurrently). **Goaded / Kardur creatures attacking a planeswalker: 0 → 0** — and no
+> goaded creature attacked at all: the one goad card in the profile decks, Halfshell heroes' Fast Forward, resolved in games 44 and 49, but
+> a wipe followed it in 44 and game 49 ended that turn (census of every declared attack through a pure hook in scratch copies of both trees;
+> the instrumented runs are 80 / 80 byte-identical to the plain ones; must-attack attacks 9 → 11, taxed must-attack attacks 0 → 0).
+> Supplement (not the A/B of record): the same 80 games with Kardur, Doomscourge, Shiny Impetus, Coercive Impetus and Jeering Homunculus
+> appended to every deck but Atraxa Superfriends — **205 goaded / Kardur-bound attacks on both trees, 0 at a planeswalker on both** (the
+> base planner reaches a walker with a goaded creature only through the walker-kill focus, which never arose in these games), 14 at a
+> goader on both, each with no other player attackable for free; 22 byte-identical, 58 differ only in offered-set rows, 0 picks or winners
+> change; one game engine-stuck identically on both trees (found-not-fixed (6)).
+> Committed on `day/goadreq`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The bug** (the value-creature entry's found-not-fixed (2) and (3), re-proved on 6cc20920 through the real offers). `pickAttackPlan`
+>   filtered a goaded creature's options by the goader's seat id (`!goaders.has(o.defenderId)`), which keeps a non-goader's planeswalker,
+>   and `chooseWalkerToKill` then took it: ai1's Bears wearing the user's Shiny Impetus attacked ai2's Jace (Kardur's rule the same);
+>   goaded by every opponent, the filter fell back to every option and the walker kill took Jace again. The requirements lived only in the
+>   planner, so the offer gave a person's goaded creature every target (the goader, a planeswalker), the play API accepted the attack at
+>   the goader, intermediate difficulty's automatic attack took the first target (the goader), and the declaration could close with a
+>   Bloodrock Cyclops or a goaded creature at home. Under Silent Arbiter the planner declared its listed-first creature, the cap closed the
+>   declaration, and a must-attack creature never attacked (the A/B's game 62). And the planner forced a must-attack creature whose only
+>   attacks were taxed: its controller paid Propaganda's {2} to send a 3/3 into a 6/4.
+> · **The rules** (bundled CR and rulings, cited exactly). CR 508.1d — a declaration obeying fewer requirements than the maximum possible
+>   without disobeying a restriction is illegal; a player is not required to pay a cost to obey one. Goad is CR 701.15 in the bundled rules
+>   (the brief's 701.38b names no goad rule): 701.15b — "attacks each combat if able and attacks a player other than the controller of the
+>   permanent, spell, or ability that caused it to be goaded if able"; 701.15c — several goaders, additional requirements; 701.15d — the
+>   same player again, none. The goad rulings (Shiny Impetus, Disrupt Decorum, Agitator Ant, 2023-06-30): it must attack a player other
+>   than the goader if able, else "a planeswalker an opponent controls, a battle an opponent controls, or a player who goaded it"; goaded
+>   by each opponent, "the creature must attack an opponent (rather than a planeswalker or battle)"; a cost to attack a player is never
+>   forced. Kardur's ruling (2021-02-05) is the same shape ("it must attack you or an opposing planeswalker").
+> · **The fix** — `attackRequirements.js` (new leaf over layers, combatEvasion, attackTax, gameState), the one check: `obeyingAttackOptions`
+>   (a creature's defenders narrowed to the ones obeying the most "other than X" requirements among the free options — a planeswalker obeys
+>   none; a taxed option never raises the bar, stays offered when it ties), `requiredAttackerIds` (a live "attacks each combat if able" —
+>   printed less its unless, the layer-6 grant, a forced-attack turn — and a free offered attack), `attackDeclarationOffer` (under an attack
+>   cap with no more slots than owed creatures, only those). `layers.attackOtherThanRequirementsOf` counts the requirements (one per goader,
+>   one per `requirementOnly` effect); `goaderControllersOf` reads the same grants, unchanged. legalChoices: every attacker's targets go
+>   through `obeyingAttackOptions`, and while `required` is non-empty `legalActionsForPlayer` offers only attacker declarations (the pass,
+>   a spell, an ability or a mana tap would each close the declaration). opponentAI: the forced set is `requiredAttackerIds`, the per-creature
+>   pools are `obeyingAttackOptions` (a no-op on an offered set), the walker kill counts only creatures that may attack a planeswalker;
+>   `selfMustAttack` moved to the leaf (re-exported). ENGINE-SCAFFOLD §4.8 names the module.
+> · **Reach** (bundled Commander-legal cards by printed text): goad 82 (17 played natively — Shiny / Coercive / Parasitic Impetus, Jeering
+>   Homunculus, Taunting Kobold, Alela, Cunning Conqueror, Redemption Arc, Fast Forward, Coronation of Chaos, Taunting Sliver …), Kardur's
+>   rule 1, a self or granted "attacks each combat if able" 99 (53 native), a forced-attack turn 10, an attack cap 3 (Silent Arbiter,
+>   Dueling Grounds, Caverns of Despair). Profile decks: Slivers (Bident of Thassa), Veyran Cantrips (Dragon's Rage
+>   Channeler), Hulk Smash (Hulk, Brutal Brawler; Hulk, Always Angry), Thrun Voltron (Toski), Halfshell heroes (Fast Forward); caps in
+>   Light-Paws Voltron, Nekusar Wheels, Atraxa Superfriends; taxes in Nekusar Wheels and Atraxa Superfriends.
+> · ⚠️ **Found, not fixed:** (1) **A "can't attack you" tax is charged on attacks at that player's planeswalkers** — `attackTaxDetail` /
+>   `attackTaxToDeclare` (attackTax.js:116, :96) are keyed on the defending player, so Propaganda, Ghostly Prison and Windborn Muse price an
+>   attack on their controller's planeswalker as well (legalChoices `canPayAttackTax`, actionDispatcher `applyDeclareAttacker`'s payment);
+>   only the "you or planeswalkers you control" printing (Baird, Archon of Absolution, Sphere of Safety) reaches one. The planeswalker
+>   attack is withheld when the tax is unaffordable (FN) or charged when it should be free. (2) Per-defender attack caps (Crawlspace) are
+>   not modelled (staticAbilityParser.js:3235); if one is, the module's creature-by-creature narrowing (each creature's defender choice
+>   independent of the others') no longer holds and needs a joint check. (3) Safe misses, documented in the module: a must-attack creature
+>   that "can't attack alone" isn't offered until a teammate is declared, so it doesn't hold the declaration open; under a cap the required
+>   creatures aren't ranked by how many requirements each obeys. (4) `applyDeclareAttacker` doesn't check requirements itself — every play
+>   path gates on the offered set (`learnSession.applyChoice` → `resolveChoice`, `gameApi.applyAction`, the decide seam's
+>   `actionInOfferedSet`); a direct `dispatchAction` (tests, previews) is unchecked. (5) The attack-tax comments cite CR 508.1g (optional
+>   costs to attack); the tax is a cost to attack, CR 508.1h (legalChoices.js:43, attackTax.js:2). (6) Pre-existing turn stall, seen only in
+>   the supplement (seed 3724842652; Wolverine, claws out! / Jurassic Ramp / Earth Bent / Believe it!), identical on 6cc20920: Jurassic
+>   Ramp's Apex Altisaur, put onto the battlefield by Savage Order, fights the same Earth Bent creature (perm-104) 2,000 times in turn 32 —
+>   each fight enrages it again, neither dies, and the AI keeps choosing a target where "up to one target" lets it stop; engine-stuck at
+>   20,001 ticks.
+> · Witness: `attackRequirements.test.js` (30).
 
 > ## 🎯 2026-10-18 — PLAY-WEIGHTED: four readers the most-played still lacked — tokens put onto the battlefield attacking with no player named: Hero of Bladehold (EDHREC #1976) "create two 1/1 white Soldier creature tokens that are tapped and attacking" (+ Skyknight Vanguard, Hanweir Garrison, Mardu Ascendancy, Suki, Captain's Claws, Falconer Adept, Carefree Swinemaster, Militia's Pride, Inexorable Blob, Launch the Fleet); the source's own power as a token count: Elenda, the Dusk Rose (#1267), Threefold Thunderhulk (#1856), Elenda's Hierophant (#1857) (+ Nested Shambler, Wickersmith's Tools) and FIX: the count uses the power the source last had when it leaves before the ability resolves (Krenko, Tin Street Kingpin made no Goblins); "exile target card from a graveyard" as a mandatory trigger and the exiled card's type deciding a payoff: Soul-Guide Lantern (#1356), Scavenging Ooze (#1607) (+ Stonecloaker, Offalsnout, Ashnod's Harvester, Armored Scrapgorger, Grixis Sojourners, Diregraf Scavenger, Raven Eagle, Ignis Scientia); "another <Subtype> you control dies": Diregraf Captain (#2326) (+ Plague Belcher, Tegwyll, Boggart Cursecrafter) · **+31** · snapshot native+land 15,600 → 15,631
 > Suite **21,295 green (1 skipped) / 1,910 files** under the gate queue (with the rules index built for the run, then deleted). Run 1 (21,289 green / 1,910 files) failed four tests that pinned the old reading of the graveyard mode — graduated and re-pointed below; run 2 is the green of record. The suite ran on the final code and test bytes; the docs (this entry, CHANGELOG, ENGINE-SCAFFOLD) were written beside it — no test reads them. Lint 0 (CR citations: 0 of 11,972 name no rule; keyword citations: 0 of 2,439 cite a different keyword). Flip-diff **+31 / −0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of b36e1ff3, snapshotted before the first edit; native+land 15,600 → 15,631 of 34,584 snapshot names); program-fingerprint (34,620 cards) moves 40 programs — 24 of the gained (the other 7 move in their target intent, not their programs: Soul-Guide Lantern, Stonecloaker, Offalsnout, Ashnod's Harvester, Armored Scrapgorger, Grixis Sojourners; Launch the Fleet in its granted trigger) and 16 that stay parked (below).

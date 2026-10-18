@@ -2095,8 +2095,31 @@ export function permanentBasePower(state, permanentId) {
  * goad the same creature — it must then avoid BOTH if it can.
  */
 export function goaderControllersOf(state, permanentId) {
+  return new Set(liveGoadedGrants(state, permanentId).map((g) => g.player));
+}
+
+/**
+ * "ATTACKS A PLAYER OTHER THAN X IF ABLE" — the requirements of that shape on this permanent right now, one entry (X's
+ * player id) per requirement, for CR 508.1d's count. Goad (CR 701.15b) makes one per goader: a second goad by the same
+ * player creates no additional requirement (CR 701.15d), while each other goader adds its own (CR 701.15c). A
+ * `requirementOnly` grant (Kardur, Doomscourge's rule — not goad) is a requirement of its own for each effect.
+ */
+export function attackOtherThanRequirementsOf(state, permanentId) {
+  const out = [];
+  const goaders = new Set();
+  for (const g of liveGoadedGrants(state, permanentId)) {
+    if (g.requirementOnly) { out.push(g.player); continue; }
+    if (goaders.has(g.player)) continue;
+    goaders.add(g.player);
+    out.push(g.player);
+  }
+  return out;
+}
+
+/** The live `goaded` grants on a permanent, each resolved to the player it names ({ player, requirementOnly }). */
+function liveGoadedGrants(state, permanentId) {
   const perm = findPerm(state, permanentId);
-  const out = new Set();
+  const out = [];
   if (!perm) return out;
   const grants = l6IndexOf(state).byKeyword.get("goaded");
   if (!grants || grants.length === 0) return out;
@@ -2108,10 +2131,10 @@ export function goaderControllersOf(state, permanentId) {
     }
     if (e.op.layerOp !== "addKeyword") continue;
     const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
-    if (src?.controller) out.add(src.controller);
     // ④-AI (goad as an EFFECT): a spell's resolution has no source permanent, so the goad atom records the goader on
     // the source as `controller`. Read only when no permanent resolves — an Aura's goad keeps resolving live.
-    else if (e.source?.controller) out.add(e.source.controller);
+    const player = src?.controller || e.source?.controller || null;
+    if (player) out.push({ player, requirementOnly: !!e.op.requirementOnly });
   }
   return out;
 }

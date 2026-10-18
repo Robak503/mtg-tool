@@ -41,6 +41,7 @@ import { grantsWubrgAltCost, fixedManaAltCostOf, conditionalFixedManaAltCostOf }
 import { collectCostReducers, playLandFromGraveyardPermission, plotFromLibraryTopGranted, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, landDropAllowance, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksFor, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxDetail } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund (+ the Phyrexian life lane, Norn's Annex)
+import { obeyingAttackOptions, attackDeclarationOffer } from "./attackRequirements.js"; // ATTACK REQUIREMENTS (CR 508.1d) — the one check, shared with the AI planner
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, legacyTargetingEffect, canBeTargetedBy, playerTargetableBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence, parseEffectClause, programNeedsChosenTarget } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
@@ -4248,16 +4249,21 @@ function actionsActivateLoyalty(state, playerId) {
   return actions;
 }
 
+/**
+ * The attacker declarations offered to `playerId` now, and the creatures that must still be declared before the declaration
+ * closes ({ actions, required } — attackRequirements.attackDeclarationOffer).
+ */
 function actionsDeclareAttacker(state, playerId) {
+  const none = { actions: [], required: new Set() };
   // Only the active player declares attackers, and only in the
   // declare-attackers step. legalChoices doesn't enforce step phase
   // hard — the caller passes the step intent. We check explicitly.
-  if (state.activePlayer !== playerId) return [];
-  if (state.step !== "declare-attackers") return [];
+  if (state.activePlayer !== playerId) return none;
+  if (state.step !== "declare-attackers") return none;
   // CR 508.1 — attackers are declared ONCE, as the step's turn-based action. The declaration closes at the first action of
   // the step that is not an attacker declaration (gameEngine.closeAttackDeclaration records combat.declaredAttackerCount
   // there); no creature is declared after it — not once the attack triggers are on the stack, not after a spell resolves.
-  if (state.combat?.declaredAttackerCount != null) return [];
+  if (state.combat?.declaredAttackerCount != null) return none;
 
   // Creatures already attacking this combat can't be re-declared. Tapping on
   // attack already excludes most, but a Vigilance attacker stays untapped —
@@ -4266,7 +4272,7 @@ function actionsDeclareAttacker(state, playerId) {
   // COMBAT CAP (Dueling Grounds / Silent Arbiter, CR 508.1a): once the lowest "no more than N creatures can attack each
   // combat" on any battlefield is met, no further attacker is offered — sequential declaration makes the cap exact.
   const attackCap = combatCapFor(state, "attack");
-  if (attackCap != null && declared.size >= attackCap) return [];
+  if (attackCap != null && declared.size >= attackCap) return none;
   const player = state.players[playerId];
   const attackers = player.battlefield
     // Layer-aware (WALT-ANIMATE): a permanent granted the Creature type — an animated
@@ -4358,25 +4364,33 @@ function actionsDeclareAttacker(state, playerId) {
     return canAfford(pool, sources, { generic: detail.generic, phyrexian: detail.phyrexian }, lifePaymentContext(state, playerId));
   };
 
+  // ATTACK REQUIREMENTS (CR 508.1d — attackRequirements.js, the check the AI planner reads too): a creature that "attacks a
+  // player other than X if able" (goad, CR 701.15b; Kardur, Doomscourge's rule) is offered only the defenders that obey the
+  // most of those requirements — a player other than X when one can be attacked without paying a cost, never a planeswalker
+  // then — so no seat, a person's included, can declare it elsewhere.
   const allowedTargetsFor = (p) => {
     const req = attackDefenderRequirementOf(p.card);
-    return targets.filter((t) =>
+    return obeyingAttackOptions(state, playerId, p.id, targets.filter((t) =>
       canPayAttackTax(p, t.defenderId)
-      && (!req || defenderMeetsAttackRequirement(state, t.defenderId, req, p)));
+      && (!req || defenderMeetsAttackRequirement(state, t.defenderId, req, p))));
   };
+  // The creatures that "attack each combat if able" and can still attack without paying a cost must be declared before the
+  // declaration closes (legalActionsForPlayer withholds every other action while one remains); under an attack cap the last
+  // slots go to them (attackDeclarationOffer).
+  const offer = (actions) => attackDeclarationOffer(state, playerId, actions, { cap: attackCap, declaredCount: declared.size });
 
   // Standard fast path (a lone opponent, no enemy planeswalkers → exactly one target): the
   // dispatcher auto-fills the defender, so emit one action per creature — unchanged shape.
   // An islandhome attacker whose lone defender fails the requirement gets NO attack action (SM-1).
   if (targets.length <= 1) {
-    return attackers
+    return offer(attackers
       .filter(p => allowedTargetsFor(p).length > 0)
       .map(p => ({
         kind: "declare-attacker",
         playerId,
         permanentId: p.id,
         name: p.card.name,
-      }));
+      })));
   }
 
   // Multiple targets (Commander, OR any game with an enemy planeswalker): each attacker contributes
@@ -4405,7 +4419,7 @@ function actionsDeclareAttacker(state, playerId) {
       });
     }
   }
-  return actions;
+  return offer(actions);
 }
 
 function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
@@ -4726,10 +4740,15 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   }
 
   // Combat actions.
-  actions.push(...actionsDeclareAttacker(state, playerId));
+  const attack = actionsDeclareAttacker(state, playerId);
+  actions.push(...attack.actions);
   actions.push(...actionsDeclareBlocker(state, playerId, attackerIds));
 
-  return applyTargetTaxes(state, playerId, withPhyrexianPayment(state, playerId, withPayableConsumedCosts(state, playerId, actions)));
+  const offered = applyTargetTaxes(state, playerId, withPhyrexianPayment(state, playerId, withPayableConsumedCosts(state, playerId, actions)));
+  // ATTACK REQUIREMENTS (CR 508.1d): while a creature that must attack can still be declared without paying a cost, the
+  // declaration can't close — the pass, a spell, an ability and a mana ability would each close it (gameEngine.
+  // closeAttackDeclaration) with that requirement disobeyed — so only the attacker declarations are offered.
+  return attack.required.size > 0 ? offered.filter((a) => a.kind === "declare-attacker") : offered;
 }
 
 /**

@@ -30,11 +30,12 @@ import { filterActions, parseManaCost } from "./legalChoices.js";
 import { opponentsOf, findPermanent, createPermanent, isIndestructible } from "./gameState.js";
 import { atomTargets } from "./effects/atoms/shared.js"; // the mass-counter side read (Oran-Rief) — the set the resolution itself reads
 import { lookupPlayHint } from "./cardPlayHints.js"; // PLAY-HINTS (2026-08-12) — a zero-import leaf, cycle-safe
-import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, permanentHasCardType, goaderControllersOf, cannotEquipNow } from "./layers.js";
+import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, permanentHasCardType, cannotEquipNow } from "./layers.js";
 import { auraCastIntent } from "./auraEntry.js"; // W7e — which side an Aura lands on (a control Aura is ENEMY, a restriction grant too); shared with the non-cast entry (CR 303.4f)
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction, manaSources, canAfford } from "./manaModel.js";
-import { attackerMinBlockers, canBlockAttacker, lureFilterOf, mustBeBlockedIfAble, mustAttackUnlessOf, controllerMeetsBoardPredicate } from "./combatEvasion.js";
+import { attackerMinBlockers, canBlockAttacker, lureFilterOf, mustBeBlockedIfAble } from "./combatEvasion.js";
+import { selfMustAttack, requiredAttackerIds, obeyingAttackOptions } from "./attackRequirements.js"; // ATTACK REQUIREMENTS (CR 508.1d) — the check legalChoices keeps every seat to
 import { programContainsCounter, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog, atomTargetIntent, programConfidence, parseEffectClause } from "./effects/parser.js";
 import { detectTriggers } from "./triggers.js"; // the land-drop ranking reads an SNC fetch land's enters trigger (triggers.js imports no AI module)
 import { changeTargetAlternatives, atomForStackTarget } from "./effects/targeting.js"; // CHANGE THE TARGET (shelf D14) — where a redirect could send an opponent's spell; the redirected slot's atom
@@ -2324,6 +2325,10 @@ function selectProfitableAttackers(state, aiPlayerId, attackerActions, defenderI
   return chosen;
 }
 
+// MUST-ATTACK (subsystem 4, CR 508.1a) — selfMustAttack moved to attackRequirements.js (the requirement check every seat
+// shares); re-exported here for the legendShortName unit pins.
+export { selfMustAttack };
+
 /**
  * Batch-decision picker for declare-attackers: returns the array of attacker
  * actions the AI commits to, after the "competent racer" profitability filter
@@ -2335,29 +2340,6 @@ function selectProfitableAttackers(state, aiPlayerId, attackerActions, defenderI
  * attacker. Standard: the actions carry no defenderId (the dispatcher fills the
  * lone opponent), so this returns the profitable subset.
  */
-// MUST-ATTACK (subsystem 4, CR 508.1a) — does THIS card carry a self "attacks each combat/turn if able"
-// requirement? Normalize the card name → "this creature" (so "Crazed Goblin attacks each combat if able"
-// matches), then require the bare self subject — a GROUP form ("creatures you control attack…", "each
-// creature attacks…", "attacking creatures…") is excluded (it's not a self requirement on this permanent).
-export function selfMustAttack(card) { // exported for the legendShortName unit pins
-  const o = String(card?.oracle || card?.oracle_text || "");
-  if (!/attacks each (?:combat|turn) if able/i.test(o)) return false;
-  // ATTACK-RESTRICTION RIDER (skeptic-flagged): a must-attacker that ALSO carries a "can't attack …"
-  // restriction (Xantcha "…can't attack its owner…", Alexios) would be force-declared at a target the
-  // restriction forbids — pickAttackPlan models no attack restrictions. Don't force those (the pre-slice
-  // status quo for them; an under-enforced requirement is the safe direction, a forbidden attack is not).
-  if (/can't attack/i.test(o)) return false;
-  const name = String(card?.name || "").split(" //")[0].trim();
-  let t = name ? o.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), "this creature") : o;
-  // LEGENDARY SHORT NAME: a comma-carrying legend self-references by its pre-comma short name ("Toski
-  // attacks each combat if able" on "Toski, Bearer of Secrets") — normalize that form too, mirroring
-  // coverage.isKeywordOnly so recognition and ENFORCEMENT flip together (the subsystem's own both-halves
-  // rule). The group forms stay excluded (plural "attack" never matches the singular anchor).
-  const shortName = name.split(",")[0].trim();
-  if (shortName && shortName !== name) t = t.replace(new RegExp(`\\b${shortName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g"), "this creature");
-  return /\bthis creature attacks each (?:combat|turn) if able\b/i.test(t);
-}
-
 export function pickAttackPlan(state, aiPlayerId, attackerActions, { policy = null } = {}) {
   if (!Array.isArray(attackerActions) || attackerActions.length === 0) return [];
   const hasDefenderChoice = attackerActions.some(a => a.defenderId);
@@ -2381,34 +2363,12 @@ export function pickAttackPlan(state, aiPlayerId, attackerActions, { policy = nu
   // compare (no stale carry-over). ONE action per creature is in attackerActions in Standard; in Commander the
   // per-(creature,defender) fan-out means force-including every action for a forced permanent, which the
   // byPermanent focus below collapses back to one attack per creature — correct either way.
-  const forcedSeat = (state.forcedToAttackTurn || {})[aiPlayerId] === state.turn;
-  // MUST-ATTACK-UNLESS (BLITZ CS-1, CR 508.1d — Reckless Cohort / Marauding Maulhorn): "attacks each
-  // combat if able UNLESS you control <predicate>" is a CONDITIONAL requirement — live only while the
-  // predicate FAILS. selfMustAttack matches the sentence prefix, so without this read the two carriers
-  // were force-declared unconditionally (over-enforcement); the shared predicate grammar
-  // (parseControllerBoardPredicate — the same parser the classifier mirror credits) releases the
-  // requirement the moment the controller's board satisfies the unless.
-  const selfMustAttackNow = (permanent) => {
-    const card = permanent?.card;
-    // ⭐ GRANTED must-attack (CR 508.1a) — an AURA can hand the requirement to a creature whose own card
-    // says nothing ("Enchanted creature attacks each combat if able" — Bloodshed Fever, Furor of the
-    // Bitten, Infectious Bloodlust). selfMustAttack reads the CARD's printed text, so it structurally
-    // cannot see those; the layer-6 `mustAttack` pseudo-keyword is the granted twin, read layer-aware
-    // here so the requirement lifts the instant the Aura leaves.
-    // ⓘ The "unless" release below is deliberately NOT consulted for the granted form: no Aura in the
-    // corpus grants a CONDITIONAL requirement, and mustAttackUnlessOf reads printed text anyway. If one
-    // ever prints, the parser must carry the predicate onto the grant rather than this line assuming none.
-    if (permanent && permanentHasKeyword(state, permanent.id, "mustAttack")) return true;
-    if (!selfMustAttack(card)) return false;
-    const unless = mustAttackUnlessOf(card);
-    if (unless && controllerMeetsBoardPredicate(state, aiPlayerId, permanent.id, unless)) return false;
-    return true;
-  };
-  const forced = new Set(
-    attackerActions
-      .filter(a => forcedSeat || selfMustAttackNow(state.players?.[aiPlayerId]?.battlefield?.find(p => p.id === a.permanentId)))
-      .map(a => a.permanentId),
-  );
+  // MUST-ATTACK-UNLESS (BLITZ CS-1, CR 508.1d — Reckless Cohort / Marauding Maulhorn): a printed requirement is released while
+  // its "unless you control <predicate>" holds; the GRANTED form (an Aura's "Enchanted creature attacks each combat if able",
+  // goad, Kardur's rule) rides the layer-6 `mustAttack` pseudo-keyword, read layer-aware. All of it is
+  // attackRequirements.requiredAttackerIds — the check legalChoices keeps every seat's declaration to — which also leaves out a
+  // creature whose every offered attack costs mana: its controller isn't forced to pay (CR 508.1d).
+  const forced = requiredAttackerIds(state, aiPlayerId, attackerActions);
 
   if (!hasDefenderChoice) {
     // Standard: one action per creature, no defenderId. Can't evaluate → swing all.
@@ -2428,24 +2388,20 @@ export function pickAttackPlan(state, aiPlayerId, attackerActions, { policy = nu
   // swing on the most dangerous enemy walker the AI can kill this combat — but only when the swing
   // isn't lethal on the focused player (kill the player first) and the walker's controller has no
   // untapped blockers (a clean hit, no wasted attack). Overkill is fine for v1.
-  const chosenPowers = [...byPermanent.values()].map(opts => Math.max(0, permanentPower(state, opts[0].permanentId)));
+  // ⭐ ATTACK REQUIREMENTS (CR 508.1d, 701.15b): each creature's defenders, narrowed to the ones obeying the most of its
+  // "attacks a player other than X if able" requirements (goad, Kardur's rule) — attackRequirements.obeyingAttackOptions, the
+  // same narrowing legalChoices applies to the offer (so this is a no-op on an offered set). A planeswalker is not a player:
+  // a goaded creature goes at one only when no player other than its goaders can be attacked without paying a cost (the
+  // rulings). "If able", not "never": goaded by every opponent, it still attacks one of them.
+  const pools = new Map([...byPermanent].map(([id, opts]) => [id, obeyingAttackOptions(state, aiPlayerId, id, opts)]));
+  // Only a creature that may attack a planeswalker counts toward the walker kill.
+  const chosenPowers = [...pools.values()]
+    .filter((pool) => pool.some((o) => o.defenderPlaneswalkerId))
+    .map((pool) => Math.max(0, permanentPower(state, pool[0].permanentId)));
   const walkerTarget = chooseWalkerToKill(state, aiPlayerId, attackerActions, target, chosenPowers);
 
   const plan = [];
-  for (const opts of byPermanent.values()) {
-    // ⭐ GOAD, SECOND HALF (CR 701.15): "attacks a player other than YOU if able" — YOU being the GOADER,
-    // which is normally NOT this creature's controller. The must-attack half rides the shared `mustAttack`
-    // keyword and is already handled above; this is the defender restriction.
-    // ⛔ "IF ABLE", NOT "NEVER" — the trap this whole feature turns on. If the goader is the ONLY player
-    // this creature can attack, it MUST still attack them. Filtering the goader out unconditionally would
-    // produce a creature that attacks nobody while carrying a must-attack requirement: an illegal board
-    // state, and a false positive rather than a safe miss. So the filter is applied ONLY when it leaves at
-    // least one option, and the unfiltered list is used otherwise.
-    // ⓘ Vacuous in two-player (the sole opponent IS the goader, and hasDefenderChoice is false there
-    // anyway) — this branch is multiplayer-only, which is exactly where goad is printed to matter.
-    const goaders = goaderControllersOf(state, opts[0].permanentId);
-    const legal = goaders.size ? opts.filter(o => !goaders.has(o.defenderId)) : opts;
-    const pool = legal.length ? legal : opts;
+  for (const pool of pools.values()) {
     if (walkerTarget) {
       const atWalker = pool.find(o => o.defenderPlaneswalkerId === walkerTarget.walkerId);
       if (atWalker) { plan.push(atWalker); continue; }
