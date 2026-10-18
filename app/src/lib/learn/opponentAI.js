@@ -26,14 +26,14 @@
  */
 
 import { detectArchetype } from "../goldfish.js";
-import { filterActions } from "./legalChoices.js";
-import { opponentsOf, findPermanent } from "./gameState.js";
+import { filterActions, parseManaCost } from "./legalChoices.js";
+import { opponentsOf, findPermanent, createPermanent } from "./gameState.js";
 import { atomTargets } from "./effects/atoms/shared.js"; // the mass-counter side read (Oran-Rief) — the set the resolution itself reads
 import { lookupPlayHint } from "./cardPlayHints.js"; // PLAY-HINTS (2026-08-12) — a zero-import leaf, cycle-safe
 import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, goaderControllersOf, cannotEquipNow } from "./layers.js";
 import { auraCastIntent } from "./auraEntry.js"; // W7e — which side an Aura lands on (a control Aura is ENEMY, a restriction grant too); shared with the non-cast entry (CR 303.4f)
 import { chooseAITarget } from "./spellEffects.js";
-import { manaProduction } from "./manaModel.js";
+import { manaProduction, manaSources, canAfford } from "./manaModel.js";
 import { attackerMinBlockers, canBlockAttacker, lureFilterOf, mustBeBlockedIfAble, mustAttackUnlessOf, controllerMeetsBoardPredicate } from "./combatEvasion.js";
 import { programContainsCounter, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog, atomTargetIntent, programConfidence, parseEffectClause } from "./effects/parser.js";
 import { detectTriggers } from "./triggers.js"; // the land-drop ranking reads an SNC fetch land's enters trigger (triggers.js imports no AI module)
@@ -47,7 +47,7 @@ import { playerAuraSide } from "./playerAuraEffect.js"; // pickAuraCast — whic
 import { compareDefenders, untappedCreatureCount } from "./defenderOrder.js"; // the defender order — chooseDefender and the curse reading (Curse of Opulence) read one comparator
 import { entersByDiscardingLand, pickEnterDiscardLand } from "./discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247) — the entry replacement's policy, read before the cast (a leaf; no AI module)
 import { entersTriggerRemovesOwn } from "./gameEngine.js"; // the cast-time hold — what a permanent's own enters trigger would be forced to remove (gameEngine imports no AI module: no cycle)
-import { colourNeed, fetchCrackAtom, fetchableLands } from "./fetchLand.js"; // the fetch lands — which offered activation is one, what it can find — and the one colour-need reader (a leaf: no AI module)
+import { colourNeed, fetchCrackAtom, fetchableLands, fetchLandAbility, landSearchOrder } from "./fetchLand.js"; // the fetch lands — which offered activation is one, what it can find, what one in hand would fetch — and the one colour-need reader (a leaf: no AI module)
 
 // ─── Play-policy flags (the A/B probe seam) ──────────────────────────────────
 
@@ -241,14 +241,8 @@ function landEntersTapped(card) {
  * A land that, as it enters, sacrifices itself and puts a TAPPED basic onto the battlefield in its place (2026-10-17 — the SNC
  * family fetch lands: "When this land enters, sacrifice it. When you do, search your library for a basic Swamp, Mountain, or
  * Forest card, put it onto the battlefield tapped, …"). Read off the enters trigger's own program (the one the runtime resolves):
- * a self-sacrifice, then a search for basic land types to the battlefield tapped. Returns the colours those basic types make, or
- * null. The land-drop ranking counts those colours toward the colour the hand needs (it makes no mana itself, so manaProduction
- * reads nothing). It is NOT ranked as a tapped land, though that is what it becomes: measured on 80 seeded games with the family
- * lands swapped into the profile decks, that reading made the AI drop an uncracked fetch land (Scalding Tarn, Windswept Heath,
- * Prismatic Vista — the AI never activates a sacrifice-self fetch, yet the ranking reads it as an untapped land) ahead of the
- * family land in 8 games. The tapped reading waits for that fetch-land fix.
+ * a self-sacrifice, then a search for basic land types to the battlefield tapped. Returns that search atom, or null.
  */
-const BASIC_TYPE_COLOR = { plains: "W", island: "U", swamp: "B", mountain: "R", forest: "G" };
 function landFetchesTappedBasicOnEnter(card) {
   if (!/\bwhen you do\b/i.test(String(card?.oracle || card?.oracle_text || ""))) return null;
   for (const d of detectTriggers(card)) {
@@ -257,21 +251,106 @@ function landFetchesTappedBasicOnEnter(card) {
     const [sac, tutor] = atoms;
     if (sac?.op !== "sacrifice" || sac.target !== "self" || tutor?.op !== "tutor" || tutor.destination !== "battlefield" || !tutor.entersTapped) continue;
     const groups = tutor.filter?.groups || [];
-    const colors = groups.map((g) => (g.length === 2 && g[0] === "basic" ? BASIC_TYPE_COLOR[g[1]] : null));
-    if (colors.length && colors.every(Boolean)) return colors;
+    if (groups.length && groups.every((g) => g.length === 2 && g[0] === "basic")) return tutor;
   }
   return null;
 }
 
 /**
- * Pick the best play-land action (W1 — land sequencing). Rank by:
- *   1. enters UNTAPPED first — an enters-tapped land costs a mana turn;
- *   2. fills a COLOR GAP — produces a color that hand/command-zone pips need and
- *      no battlefield source can already make. Colors come from `manaProduction`
- *      (the shared mana gate), so the ranking can never disagree with what the
- *      engine will actually tap the land for;
- *   3. codepoint name order (the engine's replay-stable tiebreak —
- *      localeCompare is environment/ICU-dependent).
+ * WHAT A LAND DROP YIELDS (2026-10-17). Most lands yield themselves: enters untapped unless its text says otherwise
+ * (landEntersTapped), the colours manaProduction reads. A fetch land yields the land it fetches:
+ *   · an ACTIVATED fetch land that makes no mana itself (fetchLand.fetchLandAbility — Evolving Wilds, Prismatic Vista, the
+ *     Zendikar fetches; pickFetchCrack cracks it right after the land drop, before the casts) yields the land its search would
+ *     take — fetchLand.landSearchOrder, the order the search itself resolves in — untapped only when the search delivers it
+ *     untapped and that land doesn't enter tapped by its own text; it counts the colours of every land it can find. Under the
+ *     life floor (a life cost leaving the AI below LIFE_PRUDENCE_FLOOR — pickFetchCrack holds it) or with no land in the library
+ *     its search can find, it yields NOTHING: a land that makes no mana;
+ *   · an activated fetch land that taps for mana itself (the Landscapes' "{T}: Add {C}.") yields itself now — it is cracked
+ *     only after the casts — and counts the colours it can find (pickFetchCrack cracks it for exactly those);
+ *   · an SNC family land (landFetchesTappedBasicOnEnter) yields a TAPPED basic of a type the library still holds, its colours
+ *     those basics'; with none left it is sacrificed for nothing.
+ * Returns { untapped, colours, makesMana, manaCard } — `manaCard` the land whose mana arrives untapped THIS turn (null when
+ * none does), for the cast-now reading.
+ */
+const NOTHING_YIELDED = { untapped: false, colours: [], makesMana: false, manaCard: null };
+function landDropYield(state, aiPlayerId, card) {
+  if (!card) return NOTHING_YIELDED;
+  const own = manaProduction(card);
+  const ownColours = own?.colors || [];
+  const fetch = fetchLandAbility(card);
+  if (fetch) {
+    const atom = fetch.program.atoms[0];
+    const life = state.players?.[aiPlayerId]?.life;
+    const lifeAllows = !((fetch.payLife || 0) > 0) || (Number.isFinite(life) && life - fetch.payLife >= LIFE_PRUDENCE_FLOOR);
+    const finds = lifeAllows ? fetchableLands(state, aiPlayerId, atom) : [];
+    const findColours = finds.flatMap((c) => manaProduction(c)?.colors || []);
+    if (own) {
+      const untapped = !landEntersTapped(card);
+      return { untapped, colours: [...ownColours, ...findColours], makesMana: true, manaCard: untapped ? card : null };
+    }
+    if (finds.length === 0) return NOTHING_YIELDED;
+    const fetched = [...finds].sort(landSearchOrder(state, aiPlayerId))[0];
+    const untapped = !atom.entersTapped && !landEntersTapped(fetched);
+    return { untapped, colours: findColours, makesMana: true, manaCard: untapped ? fetched : null };
+  }
+  const enters = landFetchesTappedBasicOnEnter(card);
+  if (enters) {
+    const finds = fetchableLands(state, aiPlayerId, enters);
+    if (finds.length === 0) return NOTHING_YIELDED;
+    return { untapped: false, colours: finds.flatMap((c) => manaProduction(c)?.colors || []), makesMana: true, manaCard: null };
+  }
+  const untapped = !landEntersTapped(card);
+  return { untapped, colours: ownColours, makesMana: !!own, manaCard: untapped && own ? card : null };
+}
+
+/**
+ * THE CARDS A LAND'S MANA COULD CAST THIS TURN: the nonland cards in hand and the commanders in the command zone (with the
+ * commander tax, CR 903.8) that the AI's untapped sources can't pay for now. Each carries its printed mana cost (front face; an
+ * {X} counted at 1 — the least worth casting) and the spend context the cast lane uses. A ranking read, never legality: cost
+ * reductions, taxes and alternative costs are left out (the offer still decides what is cast).
+ */
+function castsOutOfReach(state, aiPlayerId) {
+  const player = state.players?.[aiPlayerId];
+  if (!player) return { pool: null, out: [] };
+  const sources = manaSources(state, aiPlayerId);
+  const counts = player.commanderCastCount || {};
+  const out = [];
+  const consider = (card, isCommander) => {
+    if (!card || /\bLand\b/.test(String(card.type || card.type_line || "").split(" // ")[0])) return;
+    const printed = String(card.mana || card.mana_cost || "").split(" // ")[0].trim();
+    if (!printed) return;
+    let cost = parseManaCost(printed);
+    if (cost.hasX) cost = { ...cost, generic: (cost.generic || 0) + (cost.xCount || 1) };
+    if (isCommander) cost = { ...cost, generic: (cost.generic || 0) + 2 * (counts[card.commanderInstanceId || card.id] || 0) };
+    const spendContext = { castCard: card, isCommander, restrictedEntries: player.restrictedMana || [] };
+    if (!canAfford(player.manaPool, sources, cost, spendContext)) out.push({ cost, spendContext });
+  };
+  for (const card of player.hand || []) consider(card, false);
+  for (const card of player.command || []) consider(card, true);
+  return { pool: player.manaPool, out };
+}
+
+/** Would `manaCard`, entering untapped under the AI's control, pay for one of `reach.out`? A hypothetical battlefield, never written back. */
+function landCastsNow(state, aiPlayerId, manaCard, reach) {
+  if (!manaCard || reach.out.length === 0) return false;
+  const player = state.players[aiPlayerId];
+  const hypothetical = createPermanent({ id: "land-drop-hypothetical", card: manaCard, controller: aiPlayerId, tapped: false });
+  const withLand = { ...state, players: { ...state.players, [aiPlayerId]: { ...player, battlefield: [...(player.battlefield || []), hypothetical] } } };
+  const sources = manaSources(withLand, aiPlayerId);
+  return reach.out.some(({ cost, spendContext }) => canAfford(reach.pool, sources, cost, spendContext));
+}
+
+/**
+ * Pick the best play-land action (W1 — land sequencing; what a land YIELDS, 2026-10-17 — landDropYield). Rank by:
+ *   1. CASTS NOW — its mana arrives untapped and pays for a card in hand or the command zone the untapped sources can't pay
+ *      for yet: an enters-tapped land costs a mana turn exactly when that mana would be spent;
+ *   2. fills a COLOR GAP — yields a color that hand/command-zone pips need and no battlefield source can already make
+ *      (fetchLand.colourNeed). Colors come from `manaProduction` (the shared mana gate), so the ranking can never disagree
+ *      with what the engine will actually tap the land for. Above "untapped": when the untapped mana casts nothing this turn,
+ *      the colour the hand lacks a turn later is worth more than a mana of a colour it already makes;
+ *   3. enters UNTAPPED;
+ *   4. makes mana at all — a fetch land with nothing to find, or held under the life floor, yields nothing;
+ *   5. codepoint name order (the engine's replay-stable tiebreak — localeCompare is environment/ICU-dependent).
  * Deterministic + read-only over state. `pol.land === "v1"` recovers the legacy
  * pure-alphabetical pick (the A/B probe's OLD side).
  */
@@ -280,24 +359,29 @@ function pickLandAction(state, aiPlayerId, landActions, pol = {}) {
   const byName = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
   // LAND-V1 (legacy, probe-only): pure codepoint-alphabetical pick.
   if (pol.land === "v1") return [...landActions].sort(byName)[0];
+  if (landActions.length === 1) return landActions[0]; // nothing to rank
 
   // Colors its hand + command zone still need but no battlefield source (tapped or not) can make — fetchLand.colourNeed, the
-  // one reader the fetch land's search shares.
+  // one reader the land searches share.
   const { needed } = colourNeed(state, aiPlayerId);
+  const reach = castsOutOfReach(state, aiPlayerId);
 
   const ranked = landActions.map((action) => {
     // The FACE the drop plays (a modal DFC's land face — legalChoices.actionsPlayLand projects it): the hand holds the whole
     // card, whose mana is its front face's (manaModel's face-up read) — a spell // land would read as no land at all, and both
     // faces of a Pathway would read as its front.
     const card = action.faceCard || cardFromHand(state, aiPlayerId, action.cardId);
-    const fetched = card ? landFetchesTappedBasicOnEnter(card) : null; // an SNC fetch land: a basic of one of these colours
+    const yielded = landDropYield(state, aiPlayerId, card);
     return {
       action,
-      untapped: card && !landEntersTapped(card) ? 1 : 0,
-      fillsGap: [...(manaProduction(card)?.colors || []), ...(fetched || [])].some((c) => needed.has(c)) ? 1 : 0,
+      castsNow: landCastsNow(state, aiPlayerId, yielded.manaCard, reach) ? 1 : 0,
+      fillsGap: yielded.colours.some((c) => needed.has(c)) ? 1 : 0,
+      untapped: yielded.untapped ? 1 : 0,
+      makesMana: yielded.makesMana ? 1 : 0,
     };
   });
-  ranked.sort((a, b) => (b.untapped - a.untapped) || (b.fillsGap - a.fillsGap) || byName(a.action, b.action));
+  ranked.sort((a, b) => (b.castsNow - a.castsNow) || (b.fillsGap - a.fillsGap) || (b.untapped - a.untapped) || (b.makesMana - a.makesMana)
+    || byName(a.action, b.action));
   return ranked[0].action;
 }
 
@@ -1600,7 +1684,7 @@ function pickSafeAbilityActivation(abilityActions, { state = null, aiPlayerId = 
  * now; a fetch land that also taps for mana (the Landscapes' "{T}: Add {C}.") only from the ability block, after the casts,
  * while it is still untapped, and only when it can find a colour the hand or command zone needs that no battlefield source
  * makes (otherwise it trades a mana source for a tapped land of a colour already made). Which land the search takes is the
- * search's own pick (runProgram.autoPickTutorCandidate → fetchLand.fetchedLandScore). Deterministic: an untapped-delivery fetch
+ * search's own pick (runProgram.autoPickTutorCandidate → fetchLand.landSearchPickOrder). Deterministic: an untapped-delivery fetch
  * first, then name, then permanent id.
  */
 function pickFetchCrack(state, aiPlayerId, actions, { sourceMakesMana }) {

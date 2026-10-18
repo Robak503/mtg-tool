@@ -17,7 +17,8 @@
  *   · a fetch land that also taps for mana (the Landscapes' "{T}: Add {C}.") is cracked only after the casts, while it is still
  *     untapped, and only when it can find a colour the hand or command zone needs and no battlefield source makes;
  *   · the search takes the land that makes the colour the AI needs most: the unmet pips of the hand and command zone first,
- *     then all their pips, then the old order (highest mana value, then name). Only a fetch land's own search reads it.
+ *     then all their pips, then the old order (highest mana value, then name). Only a fetch land's own search read it here;
+ *     since 2026-10-17 every search for a land card does (fetchLandDrop.test.js).
  *
  * Oracle text copied from the bundled Scryfall snapshot (oracle_cards.json, read 2026-10-17).
  */
@@ -232,11 +233,13 @@ describe("the fetch's search takes the colour the AI needs", () => {
     expect(crackAndPick(s, "wilds").pick).toBe("l2");
   });
 
-  it("control — a search that is not a fetch land's keeps the old order: Rampant Growth takes the Forest though the hand asks for black", () => {
+  // 2026-10-17 (fetchLandDrop.test.js): every search for a land card now reads the colour, not only a fetch land's — this was
+  // the control pinning Rampant Growth's old order (the Forest).
+  it("⭐ a search that is not a fetch land's reads the colour too: Rampant Growth takes the Swamp the hand asks for", () => {
     const s = table({ bf: [["f1", FOREST], ["f2", FOREST]], hand: [["rg", RAMPANT_GROWTH], ["h1", VAMPIRE_NIGHTHAWK]], library: [["l1", SWAMP], ["l2", FOREST]] });
     const cast = legalActionsForPlayer(s, "ai").find((a) => a.kind === "cast-spell" && a.cardId === "rg");
     const n = resolveTopOfStack(dispatchAction(s, cast));
     expect(n.pendingChoice?.kind).toBe("tutor-search");
-    expect(autoPickTutorCandidate(n, n.pendingChoice)).toBe("l2");
+    expect(autoPickTutorCandidate(n, n.pendingChoice)).toBe("l1");
   });
 });

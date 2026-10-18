@@ -171,14 +171,14 @@ describe("the reflexive gate on a self-sacrifice primary (CR 603.7)", () => {
   });
 });
 
-describe("the AI's land drop counts the colours the family land can fetch", () => {
+describe("the AI's land drop reads the family land as the tapped basic it fetches from the library", () => {
   const DIMIR_GUILDGATE = { ...L("Dimir Guildgate", "This land enters tapped.\n{T}: Add {U} or {B}."), type: "Land — Gate" };
   const ARID_MESA = L("Arid Mesa", "{T}, Pay 1 life, Sacrifice this land: Search your library for a Mountain or Plains card, put it onto the battlefield, then shuffle.");
   function aiHand(hand, { needs = "{1}{G}" } = {}) {
     const s0 = createGameState({ userDeck: [], aiDeck: [] });
     const spell = { id: "spell", name: "Needs Mana", type: "Creature — Bear", mana: needs, cmc: 2, colors: ["G"], keywords: [], power: "2", toughness: "2", oracle: "" };
     return { ...s0, turn: 2, phase: "precombat-main", step: "main", activePlayer: "ai", priorityHolder: "ai", consecutivePasses: 0, stack: [],
-      players: { ...s0.players, ai: { ...s0.players.ai, hand: [...hand.map(([id, c]) => ({ ...c, id })), spell], battlefield: [], landsPlayedThisTurn: 0, library: [basic("lib-f", "Forest")] } } };
+      players: { ...s0.players, ai: { ...s0.players.ai, hand: [...hand.map(([id, c]) => ({ ...c, id })), spell], battlefield: [], landsPlayedThisTurn: 0, library: [basic("lib-f", "Forest"), basic("lib-s", "Swamp")] } } };
   }
   const landPick = async (s) => {
     const { pickAction } = await import("./opponentAI.js");
@@ -186,12 +186,12 @@ describe("the AI's land drop counts the colours the family land can fetch", () =
     return pickAction(s, "ai", legalActionsForPlayer(s, "ai").filter((a) => a.kind === "play-land"));
   };
 
-  it("⭐ Maestros Theater (it finds a Swamp) over a Forest when the hand needs {B} — the Forest was first by name", async () => {
+  it("⭐ Maestros Theater (it finds a Swamp) over a Forest when the hand needs {B} and the Forest's mana casts nothing — the Forest was first by name", async () => {
     const a = await landPick(aiHand([["theater", MAESTROS], ["forest", basic("forest", "Forest")]], { needs: "{1}{B}" }));
     expect(a.cardId).toBe("theater");
   });
 
-  it("⭐ Maestros Theater over Arid Mesa when the hand needs {B} (the Mesa finds no Swamp, and the AI never cracks a fetch)", async () => {
+  it("⭐ Maestros Theater over Arid Mesa when the hand needs {B} (the Mesa finds nothing in the library: a land that makes no mana)", async () => {
     const a = await landPick(aiHand([["mesa", ARID_MESA], ["theater", MAESTROS]], { needs: "{1}{B}" }));
     expect(a.cardId).toBe("theater");
   });
@@ -201,8 +201,10 @@ describe("the AI's land drop counts the colours the family land can fetch", () =
     expect(a.cardId).toBe("forest");
   });
 
-  it("control — it is not ranked as the tapped land it becomes (opponentAI landFetchesTappedBasicOnEnter: measured, the uncracked fetch lands would win): the Overlook over Dimir Guildgate even when the hand needs {U}", async () => {
+  // 2026-10-17 (the land drop reads what a fetch yields — opponentAI.landDropYield): the deferred tapped reading. Before, the
+  // Overlook was read as an untapped land and went down over the Guildgate the hand needed.
+  it("⭐ it is ranked as the tapped land it becomes: Dimir Guildgate (the {U} the hand needs) over the Overlook (a tapped Forest or Swamp)", async () => {
     const a = await landPick(aiHand([["gate", DIMIR_GUILDGATE], ["overlook", RIVETEERS]], { needs: "{1}{U}" }));
-    expect(a.cardId).toBe("overlook");
+    expect(a.cardId).toBe("gate");
   });
 });

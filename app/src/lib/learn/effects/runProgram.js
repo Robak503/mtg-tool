@@ -52,7 +52,7 @@ const returnLandPoolMatch = (cost, p) =>
 import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the shared board-condition readers; runProgram → interveningIf → gameState is a leaf edge (no cycle)
 import { addContinuousEffect } from "../layers.js"; // SAVAGE ORDER — the fetched-permanent UEOT keyword grants; layers never imports runProgram (gameState itself imports layers), so this edge is cycle-free
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
-import { fetchedLandScore } from "../fetchLand.js"; // a fetch land's search takes the colour the searcher needs (a leaf over abilities, the tutor filter and manaModel — none imports runProgram)
+import { landSearchPickOrder } from "../fetchLand.js"; // a land search takes the colour the searcher needs (a leaf over abilities, the tutor filter and manaModel — none imports runProgram)
 
 /**
  * The targets that belong to the atom at `atomIndex`. P2.5 multi-clause / modal /
@@ -419,8 +419,8 @@ export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacri
 /**
  * Deterministically auto-pick a tutor candidate (Expert autopilot / an opponent — no
  * picker shown): the highest-mana-value match, locale-free codepoint tie-break by name
- * then id (serialize-stable); a fetch land's own search ranks the colour the searcher
- * needs ahead of that (fetchLand.fetchedLandScore). Returns the chosen card id, or null
+ * then id (serialize-stable); a search for a LAND card ranks the colour the searcher
+ * needs ahead of that (fetchLand.landSearchPickOrder). Returns the chosen card id, or null
  * when there's no candidate (a search that finds nothing, CR 701.23b / 701.23d).
  */
 export function autoPickTutorCandidate(state, pendingChoice) {
@@ -445,15 +445,14 @@ export function autoPickTutorCandidate(state, pendingChoice) {
     .filter((c) => cardMatchesTutorFilter(c, pendingChoice.filter, state, pendingChoice.controller));
   if (cards.length === 0) return null;
   const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
-  // A FETCH LAND's own search (2026-10-17 — Evolving Wilds, Prismatic Vista, the Zendikar fetches) takes the land that makes the
-  // colour the searcher needs most (fetchLand.fetchedLandScore); null for every other search, whose order is unchanged.
-  const need = fetchedLandScore(state, pendingChoice);
-  return [...cards].sort((a, b) =>
-    (need ? need(b) - need(a) : 0) ||
+  // A search for a LAND card (2026-10-17 — a fetch land's crack, Rampant Growth, Cultivate, Farseek, Sakura-Tribe Elder, the SNC
+  // family's trigger …) takes the land that makes the colour the searcher needs most, then the old order
+  // (fetchLand.landSearchPickOrder → landSearchOrder); null for every other search, whose order is unchanged.
+  const order = landSearchPickOrder(state, pendingChoice) || ((a, b) =>
     tutorManaValue(b) - tutorManaValue(a) ||
     cmp(String(a.name || ""), String(b.name || "")) ||
-    cmp(String(a.id || ""), String(b.id || "")),
-  )[0].id;
+    cmp(String(a.id || ""), String(b.id || "")));
+  return [...cards].sort(order)[0].id;
 }
 
 /**

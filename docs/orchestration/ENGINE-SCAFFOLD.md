@@ -863,10 +863,23 @@ names a land (`fetchCrackAtom`; `fetchLandAbility` over a card — 32 corpus lan
 the Mirage five, the MH3 Landscapes, Evolving Wilds and kin). It cracks in its own main phase with the stack empty (the only window
 the engine offers), only while the library holds a land the search finds and a life cost leaves it at `LIFE_PRUDENCE_FLOOR` (10);
 a source that makes no mana right after the land drop and before the casts, a source that taps for mana (the Landscapes) only
-after the casts and only for a colour the hand lacks. Its search takes the land that makes the colour the hand and command zone
-need most (`fetchedLandScore` inside `runProgram.autoPickTutorCandidate`, gated to a fetch land's own search — every other search
-keeps highest mana value, then name). `colourNeed` is the one colour-need reader; `pickLandAction` reads it too. Policy key
-`fetch`. Witness: `fetchLandCrack.test.js`.
+after the casts and only for a colour the hand lacks. Its search — and, since the same day, every search for a LAND card the AI
+makes for itself (`fetchLand.landSearchPickOrder`: each filter alternative names a land, from the library, not to the graveyard —
+Rampant Growth, Cultivate / Kodama's Reach pick by pick, Farseek, Sakura-Tribe Elder, the SNC family's trigger) — takes the land
+that makes the colour the hand and command zone need most, then the old order (`landSearchOrder` inside
+`runProgram.autoPickTutorCandidate`; every other search keeps highest mana value, then name). `colourNeed` is the one colour-need
+reader and `landSearchOrder` the one land-search order; the land drop reads both. Policy key `fetch`. Witness:
+`fetchLandCrack.test.js`.
+
+**The land drop reads what a land yields (2026-10-17, `opponentAI.landDropYield` → `pickLandAction`).** A fetch land in hand is
+read as the land it fetches: an activated one that makes no mana yields the land its search would take (`landSearchOrder`),
+untapped only when the search delivers untapped and that land has no enters-tapped text; its colours are every land it can find
+in the library; under `LIFE_PRUDENCE_FLOOR` or with nothing to find it yields nothing. A Landscape (it taps for {C}) yields itself
+plus the colours it can find. An SNC family land yields a TAPPED basic of a type the library still holds. The ranking: CASTS NOW
+(its untapped mana pays for a hand / command-zone card the untapped sources can't — printed cost, commander tax, {X} as 1; a
+hypothetical permanent through `manaSources`, never written back), then the colour gap, then untapped, then makes mana at all,
+then name. The colour gap ranks above untapped: when the untapped mana casts nothing this turn, the colour the hand lacks is worth
+more. Witness: `fetchLandDrop.test.js`.
 
 **An activation that resolves to nothing must not be the AI's pick (added 2026-10-03).**
 A free activation the resolver refuses is a turn that never ends: the equip pick

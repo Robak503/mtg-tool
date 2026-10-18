@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **27 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.9% (15,536)**; engine gains since the tag: **+83** (+92 gained, −9 false credit removed). The next tag
+> **28 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.9% (15,536)**; engine gains since the tag: **+83** (+92 gained, −9 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,75 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX (AI decision quality): the land drop reads a fetch land as the land it fetches — Evolving Wilds, Terramorphic Expanse, Fabled Passage, Escape Tunnel and Vibrant Cityscape bring a TAPPED basic, a fetch held under the life floor or with nothing left to find makes nothing, the SNC family land is the tapped basic it becomes (the reading its slice deferred) — and the drop asks whether a land's untapped mana casts something THIS turn before it ranks "untapped" over the colour the hand lacks; and every land search the AI makes for itself (Rampant Growth, Cultivate, Kodama's Reach, Farseek, Nature's Lore, Three Visits, Sakura-Tribe Elder, Crop Rotation, the SNC trigger …) takes the colour the hand needs, not the alphabetically first land · **±0** · snapshot native+land 15,531 unchanged
+> Suite **20,785 green (1 skipped) / 1,879 files** under the gate queue (with the rules index built for the run, then deleted). Lint 0 (CR citations: 0 of 11,558 name no rule; keyword citations: 0 of 2,377 cite a different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an
+> untouched `git archive` of 0e1626b1, snapshotted before the first edit; native+land 15,531 of 34,584 snapshot names on both). **Mutants 9/9** on assertions, each restored byte-identical (sha256):
+> tapped delivery ignored, the life floor dropped, the library check dropped, the cast-now reading off, the SNC land read untapped, untapped
+> ranked above the colour gap, every search read as a land search, a land put from the hand read as a search, the fetched land's own
+> enters-tapped text ignored. Witness `fetchLandDrop.test.js` written first: 16 of the first 24 seen to fail on the base engine on
+> assertions (the 8 controls pass); final **17 of 27 fail on the untouched 0e1626b1 archive on assertions, the 10 controls pass on both**;
+> two pinned controls flip to witnesses (below), both failing on the archive. A/B **80 seeded commander games** (base seed 7, 10 per pod,
+> the 30 profile decks, default AI; base = the untouched 0e1626b1 archive), run twice as asked, plus an instrumented copy of each tree (hooks
+> only — 80 / 80 byte-identical to its plain run) that asks the BASE code the same question on the same state:
+>   · **part 1 alone (the land drop):** 18 byte-identical, **62 change picks — every first divergence a land drop**, 26 winners change,
+>     turn counts move in 49, 0 errors on either tree (80 / 80 completed). Counterfactual: of 1,293 land drops with a choice, **169 pick
+>     differently from the base rule** (62 games) — 110 with a fetch or SNC land offered, 59 among ordinary lands only; a tapped-delivery
+>     fetch picked with another land offered **40 → 12** on the same states; searches 0 / 528 changed (part 1 leaves them alone).
+>   · **both parts:** 13 byte-identical, **67 change picks (59 first at a land drop, 8 at a search)**, 25 winners change, turn counts move
+>     in 53, 0 errors. Counterfactual: land drops 164 of 1,290 (61 games; 108 fetch/SNC, 56 ordinary), tapped-delivery fetch with another
+>     land offered 38 → 11; **searches: 42 of 389 land searches take a different land** (Farseek 9 of 11, Nature's Lore 7 of 15, Cultivate
+>     5 of 20, Three Visits 5 of 11, Crop Rotation 4 of 4, Sylvan Scrying 3 of 4, Sowing Mycospawn 3 of 3, Kodama's Reach 2 of 10, Rampant
+>     Growth 2 of 14, Everything Pizza 2 of 3), **0 of 137 non-land searches**, and 0 fetch-land searches (they already read this order).
+>   · **part 2 on top of part 1:** 55 byte-identical, 25 change picks — every first divergence a search — 7 winners change, 0 errors.
+>   · Observed in the batches (not counterfactual): a tapped-delivery fetch played as the land drop 34 (21 with another land offered) → 31
+>     (12) → 31 (11); untapped-delivery fetches dropped 179 → 166 → 161; fetch cracks 207 → 189 → 186 (fewer dead fetches played). Results
+>     ai-wins 54 → 59 → 60 / user-wins 26 → 21 → 20 (an outcome, not the grade); 171 / 173 / 168 s per batch. No profile deck holds an SNC
+>     family land, so its tapped reading is witnessed by the unit tests only. Committed on `day/landseq`, not pushed; the release-batch line
+>     and the WAKE-REPORT are the integrator's.
+> · **The cause (0e1626b1).** `pickLandAction` ranked untapped first, then the colour gap, then the name — and read every fetch land through
+>   `landEntersTapped` (no "enters tapped" text → untapped) and `manaProduction` (no mana ability → no colour): Evolving Wilds was "an
+>   untapped land that makes nothing", Polluted Delta at 10 life the same though the AI never cracks it there, Evolving Wilds with no basic
+>   left the same. The SNC family land counted its filter's basic types as colours whether or not the library held one, and was
+>   deliberately read untapped (its entry: the tapped reading lost to uncracked fetches read untapped — gone now that fetches are read).
+> · **Part 1 — what a land drop yields** (`opponentAI.landDropYield`). An activated fetch land that makes no mana yields the land its search
+>   would take — `fetchLand.landSearchOrder`, the comparator the search itself resolves in (exported, one place) — untapped only when the
+>   search delivers untapped and that land has no enters-tapped text (Bloodstained Mire finding only Savai Triome is tapped); its colours are
+>   every land it can find (`fetchableLands`, the search's own filter); a life cost below `LIFE_PRUDENCE_FLOOR` or nothing to find → it yields
+>   nothing (pickFetchCrack's own two holds). A Landscape (it taps for {C}, cracked after the casts) yields itself plus the colours it can
+>   find. An SNC family land yields a TAPPED basic of a type the library holds; none → nothing. Ranking: **casts now** (`castsOutOfReach` +
+>   `landCastsNow`: the land's mana, arriving untapped, pays for a hand or command-zone card the untapped sources can't — printed cost,
+>   commander tax, {X} as 1; a hypothetical permanent through `manaSources`, minted with an explicit id so no id counter moves, never written
+>   back), then **the colour gap**, then untapped, then makes mana at all, then the name. ⚑ Judgement call: the gap now ranks above
+>   "untapped" when no land's mana casts anything this turn — that is what "an untapped dual over a tapped-delivery fetch when it needs to
+>   cast this turn; the fetch when it finds a colour it lacks and the dual doesn't" asks, and it applies to every land, not only fetches
+>   (the comparison is fair only if it is one rule): the 56 ordinary-land flips are 29 untapped → tapped (a land of a colour already made,
+>   or one that makes nothing now — Glacial Chasm, Temple of the False God — giving way to a tapland of the missing colour) and 27 untapped →
+>   untapped (Gaea's Cradle with no creatures, a summoning-sick Dryad Arbor, Dark Depths, Serra's Sanctum, Arena giving way to a land whose
+>   mana casts now or fills the gap). With nothing to cast and no gap, untapped still goes first (the old tie order — see found-not-fixed).
+>   ~71 ms of a 16 s two-game profile is the land drop.
+> · **Part 2 — every land search** (`fetchLand.landSearchPickOrder`, replacing the fetch-only `isFetchLandSearch` gate). A tutor-search from
+>   the library (Demonic Consultation's name pick is not one) whose every filter alternative names a land ("basic land", "Forest", "Plains,
+>   Island, Swamp, or Mountain", "snow land", "land"), to the battlefield, hand or top — not the graveyard — takes `landSearchOrder`: the
+>   unmet pips of the hand and command zone in the colours it makes, then all their pips, then the old order. Each pick is read afresh, so
+>   Cultivate / Kodama's Reach put the most-needed colour onto the battlefield and the next need into the hand. Kept on the old order: any
+>   non-land alternative ("a creature or land card" — Archdruid's Charm, Moonsilver Key), "a card", a graveyard destination, a land put
+>   from the hand (Growth Spiral, Uro — the same choice kind, no search).
+> · **Tests changed on purpose:** `fetchLandCrack.test.js`'s control "Rampant Growth takes the Forest" is now the witness "takes the Swamp";
+>   `sncFetchLands.test.js`'s control "the Overlook over Dimir Guildgate (it is not ranked as the tapped land it becomes)" is now the witness
+>   "Dimir Guildgate over the Overlook", and its land-drop fixture's library gained a Swamp (the family land's colours are now the
+>   library's — with only a Forest, Maestros Theater finds nothing).
+> · ⚠️ **Found, not fixed:** (1) The land-search score weighs colours only: it takes a land that enters tapped over one that doesn't
+>   (Nature's Lore: Breeding Pool → Spara's Headquarters; Three Visits → Ketria / Indatha Triome; the fetch's Marsh Flats → Savai Triome),
+>   and a colour land over a utility one with every colour already made (Sowing Mycospawn / Crop Rotation: Ancient Tomb → Forest, City of
+>   Brass) — fetchLand.js:155 `colourScore`. (2) `landEntersTapped` (opponentAI.js:236) reads shocklands and check lands
+>   ("… enters tapped unless …", "If you don't, it enters tapped") as tapped, though the AI's shock policy pays 2 life above 12: such a land
+>   never "casts now", and a fetch whose best find is a shock reads tapped (Misty Rainforest → Breeding Pool, both read tapped, decided by
+>   name). (3) With nothing to cast this turn and no colour gap, an untapped land still goes ahead of a tapland — the tapland should go
+>   first then (the untapped one keeps for a turn that needs it); the old tie order, left for its own slice. (4) "Casts now" checks one card
+>   at a time at its printed cost (no reductions, alternative costs, or a second spell the extra mana would add). (5) A land put from the
+>   hand (Growth Spiral, Uro, Arboreal Grazer) keeps highest mana value, then name.
+> · Witness: `fetchLandDrop.test.js` (27 — 17 witnesses, 10 controls). Updated: `fetchLandCrack.test.js` (25), `sncFetchLands.test.js` (16).
 
 > ## 🔧 2026-10-17 — FIX (false positive): the {X} activation lane pays the whole cost — Fiend Artisan (EDHREC #4,412) no longer activates without sacrificing another creature (it was offered with none on the battlefield) and Alquist Proft, Master Sleuth (#12,732) no longer draws X and gains X without sacrificing a Clue: the lane now rides the printed-cost lane's victim pools, per-victim affordability and action push (CR 602.2b, 601.2h, 107.3a), so a tap-others, counted-sacrifice, return-a-land, unattach or exile-from-graveyard cost rides beside an {X} too; and its targets know their source — Cackling Witch, Cinder Elemental, Goblin Dynamo, Pain Kami, Jiwari, the Earth Aflame and Latulla, Keldon Overseer no longer target a creature with protection from creatures (CR 702.16b) · **±0** · snapshot native 15,531 unchanged
 > Suite **20,731 green (1 skipped) / 1,877 files** under the gate queue (with the rules index built for the run, then deleted). Lint 0
