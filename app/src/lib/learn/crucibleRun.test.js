@@ -32,6 +32,11 @@ function deck(name) {
 }
 const POD = () => [deck("Alpha"), deck("Bravo"), deck("Charlie"), deck("Delta")];
 
+// These tests play real commander games (a pod of four, up to eight games), so they get their own budget: the
+// suite-wide 20 s testTimeout (vitest.config) is tuned for unit tests and timed out here under a loaded box while
+// the tests were sound (6–9 s alone). The budget covers awaitDone's 40 s plus the training replay's 60 s wait.
+const CRUCIBLE_GAMES_TIMEOUT_MS = 120000;
+
 async function awaitDone(maxMs = 40000) {
   const t0 = Date.now();
   while (crucibleStatus().running && Date.now() - t0 < maxMs) {
@@ -79,7 +84,7 @@ describe("startCrucibleRun — bounded pod power-read", () => {
     // Most-wins is called out separately and is a real deck.
     expect(res.mostWins).not.toBeNull();
     expect(res.standings.some((r) => r.name === res.mostWins.name)).toBe(true);
-  });
+  }, CRUCIBLE_GAMES_TIMEOUT_MS);
 
   it("exposes live tiles + a capped synopsis stream", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -96,7 +101,7 @@ describe("startCrucibleRun — bounded pod power-read", () => {
     expect(status.recent.length).toBeGreaterThan(0);
     expect(status.recent.length).toBeLessThanOrEqual(12); // RECENT_CAP
     expect(status.recent[0]).toMatch(/won by|Draw|No result/);
-  });
+  }, CRUCIBLE_GAMES_TIMEOUT_MS);
 
   it("refuses a second concurrent run", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -125,13 +130,13 @@ describe("startCrucibleRun — bounded pod power-read", () => {
     expect(status.running).toBe(false);
     expect(status.played).toBeLessThan(100);
     expect(status.played).toBeGreaterThanOrEqual(1);
-  });
+  }, CRUCIBLE_GAMES_TIMEOUT_MS);
 
   it("refuses a pod with too few decks", () => {
     const res = startCrucibleRun({ decks: [deck("Solo"), deck("Duo")], mode: "commander", target: 5 });
     expect(res.started).toBe(false);
     expect(res.reason).toMatch(/need 4 decks/);
-  });
+  }, CRUCIBLE_GAMES_TIMEOUT_MS);
 });
 
 describe("crucibleReportText + bank guard", () => {
@@ -200,7 +205,7 @@ describe("crucibleReportText + bank guard", () => {
       else process.env.MTG_APP_ROOT = originalAppRoot;
       fs.rmSync(sandbox, { recursive: true, force: true });
     }
-  });
+  }, CRUCIBLE_GAMES_TIMEOUT_MS);
 });
 
 describe("replayCrucibleGame — feature C: deterministic watch-it replay", () => {
@@ -235,7 +240,7 @@ describe("replayCrucibleGame — feature C: deterministic watch-it replay", () =
     expect(allLines.length).toBeGreaterThan(0);
     expect(allLines.some((l) => /Alpha|Bravo|Charlie|Delta/.test(l))).toBe(true); // seat ids humanized to deck names
     expect(allLines.some((l) => l.includes("?"))).toBe(false);                     // no un-narrated residue
-  });
+  }, CRUCIBLE_GAMES_TIMEOUT_MS);
 
   it("refuses honestly: no run in memory, and an out-of-range game index", async () => {
     const none = await replayCrucibleGame(0);
@@ -253,5 +258,5 @@ describe("replayCrucibleGame — feature C: deterministic watch-it replay", () =
     expect(out.error).toMatch(/No game #99/);
     const bad = await replayCrucibleGame(-1);
     expect(bad.ok).toBe(false);
-  });
+  }, CRUCIBLE_GAMES_TIMEOUT_MS);
 });

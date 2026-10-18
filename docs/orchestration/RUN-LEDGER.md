@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.165.0** (tagged 2026-10-18 on the `[0.165.0]` CHANGELOG cut):
-> **10 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.1% (15,605)**; engine gains since the tag: **+69**. The next tag
+> **11 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.1% (15,605)**; engine gains since the tag: **+69**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,13 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🧹 2026-10-18 — HYGIENE: the Crucible game-playing tests get their own timeout (a load flake, not a bug) · **±0**
+> `crucibleRun.test.js`'s seven tests that play real commander games (up to eight games in a four-deck pod) inherited the suite-wide
+> 20 s testTimeout (vitest.config) and timed out in builders' full-suite runs whenever the box was loaded (A/B batches beside the
+> suite), while passing alone in 6–9 s on both the base and the slice trees — slices #5 and #6 and several others re-ran their suites
+> for it. They now carry CRUCIBLE_GAMES_TIMEOUT_MS = 120 s (awaitDone's 40 s budget plus the training replay's 60 s wait). A timeout
+> only bites on failure, so passing runs are unchanged; the assertions are untouched.
 
 > ## 🎯 2026-10-18 — PLAY-WEIGHTED: four small readers the most-played still lacked — the group prevention wall: Dolmen Gate (EDHREC #1348) "Prevent all combat damage that would be dealt to attacking creatures you control.", Iroas, God of Victory (#1456) all damage to them, Crystal Barricade (#2001) noncombat damage to the other creatures you control (+ Tajic, Legion's Edge, Mark of Asylum, Inner Sanctum, Bubble Matrix, Light of Sanction); the opponents-enter-tapped imposition over NONBASIC lands: Thalia, Heretic Cathar (#1476), Archon of Emeria (#2115); "another nontoken creature dies" with no controller: Harvester of Souls (#1910), Ogre Slumlord (#1998); and two enters subjects: "another creature or artifact you control" — Weftstalker Ardent (#1378), Haliya, Guided by Light (#1479) — and "another colorless creature you control" — Glaring Fleshraker (#1211) (+ Flayer Drone) · **+16** · snapshot native+land 15,584 → 15,600
 > Suite **21,210 green (1 skipped) / 1,905 files + the known `crucibleRun.test.js` 20 s load timeout** under the gate queue (with the rules
