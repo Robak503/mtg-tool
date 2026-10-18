@@ -9,11 +9,11 @@
 
 ## 🎯 2026-10-01 — **THE PLAY-WEIGHTED PROGRAM** (Colton's order) — runnable: the top-2,500 worklist (phase 2), in rank order
 
-> **NOW (2026-10-18 ~11:40Z) — v0.166.0 RELEASED · PHASE 2 RUNNABLE.** Top 1,000 **929 / 1,000**; top 2,500 **1,808 / 2,500
-> (72.3%) → +442 to 90%**; corpus 15,636 (45.2%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
-> scripts/measure-coverage.mjs --played=2500` (from `app/`), highest-ranked buildable miss first — the parked list grows in each
-> play-weighted RUN-LEDGER entry ("Not taken"), so read the last three before picking. Open play call for Colton: should the
-> generic tap also hold back restricted-line lands (Cavern of Souls, Mech Hangar — 27)? See the Nykthos RUN-LEDGER entry.
+> **NOW (2026-10-18 ~13:50Z) — v0.167.0 TAGGING · PHASE 2 RUNNABLE.** Top 1,000 **931 / 1,000**; top 2,500 **1,824 / 2,500
+> (73.0%) → +426 to 90%**; corpus 15,733 (45.4%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
+> scripts/measure-coverage.mjs --played=2500` (from `app/`), highest-ranked buildable miss first — read the last five play-weighted
+> RUN-LEDGER entries' "Not taken" lists before picking. Open play call for Colton: should the generic tap also hold back
+> restricted-line lands (Cavern of Souls, Mech Hangar — 27)? See the Nykthos RUN-LEDGER entry.
 
 > **Colton, 10-01:** "So 1k then 2.5k then we re assess from there." The steering metric is now PLAY-WEIGHTED coverage —
 > the most-played Commander cards by edhrec_rank, covered = a native tier or a plain land — not the corpus total.
@@ -74,6 +74,18 @@
 > creatures triggered only for itself — fixed (CR 603.10a look-back). Sims with board wipes under Aristocrats watchers under-counted.
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
+
+## 🚀 2026-10-18 — **v0.167.0 TAGGED** (release run watching) — 11 commits since v0.166.0, every push CI green
+
+> **The release (early, CLAUDE.md §7.2 user-facing-fix exception, at +97 cards):** **planeswalkers work in game decks** — the deck
+> loader dropped every walker's printed loyalty, so each planeswalker cast from a deck resolved as nothing (25 of 26 in a measured
+> batch; the Academy too). Also: the AI casts the targeted spells it never did (Swords to Plowshares, Path to Exile, noncreature
+> removal, saves, blinks) and attacks opposing planeswalkers; state-based actions wait until a spell has resolved (Tarmogoyf survives
+> Lightning Bolt); creatures with a printed `*` toughness die when they should; the Apex Altisaur fight soft-lock is fixed; attack
+> taxes charge only the attacks they name; leave watchers look back (Marionette). Play-weighted: +67 (Clock of Omens, Cryptbreaker,
+> Lathril, Resplendent Angel… and the Voltaic Key untap fix), +26 Arbiter spells (Fumigate, Martial Coup, Crackling Doom…), +3,
+> +1. Corpus **15,733 / 34,620 (45.4%)**; top 1,000 **931**; top 2,500 **1,824**; shelf 29 / 30. Gate queue now v3
+> (`C:/Projects/.mtg-gate-fifo3.sh`) — v2 deleted a lock it no longer owned on exit.
 
 ## 🚀 2026-10-18 — **v0.166.0 RELEASED** (published 2026-10-18T11:23:36Z) — 18 commits since v0.165.0, every push CI green
 
