@@ -2,7 +2,7 @@
  * spellOnStack.js — what an effect reads off a SPELL ON THE STACK: its mana value (CR 202.3) and whether it passes a
  * counterspell's filter.
  *
- * A leaf (it imports nothing), so every place that asks gets ONE answer and none can drift: the counter's target
+ * A leaf (it imports only faceUp.js, itself a leaf), so every place that asks gets ONE answer and none can drift: the counter's target
  * enumeration (spellEffects.enumerateTargets), the counter's resolution re-check (effects/atoms/stack.applyCounter),
  * the delayed mana and life loss sized by "that spell's mana value" (Mana Drain, Imp's Mischief), the cast and copy
  * watchers (triggers.checkCastTriggers / checkCopyTriggers — "whenever a player casts a spell with mana value 3 or
@@ -13,6 +13,7 @@
  * X = 5 (mana value 6 on the stack) was a legal target for Thoughtbind ("mana value 4 or less") and not for Disdainful
  * Stroke ("4 or greater"), and Fire cast from Fire // Ice read as the whole card's 4.
  */
+import { characteristicColors } from "./faceUp.js"; // a spell's colours — the face being cast (CR 712.8c); a leaf
 
 /**
  * The mana value of a mana cost string (CR 202.3): a generic number counts its value, a hybrid symbol its largest component
@@ -74,15 +75,14 @@ export function stackSpellManaValue(obj) {
 const frontTypeLine = (card) => String(card?.type || card?.type_line || "").split(" // ")[0];
 
 /**
- * A counter's COLOR read (Gainsay, Frazzle, Ceremonious Rejection, Neutralizing Blast): the front face's colors on a
- * double-faced card (CR 712.8c — the top-level field is often stale there), else the card's. Null when unresolvable (no
- * array), and a null never matches a colour-restricted counter: an illegal target is the cardinal sin, a dropped legal one
- * a safe false negative.
+ * A counter's COLOR read (Gainsay, Frazzle, Ceremonious Rejection, Neutralizing Blast): the spell's colours — the face being
+ * cast's (faceUp.characteristicColors: a double-faced spell's front face, CR 712.8c, whose top-level field is Scryfall's empty
+ * placeholder). Null when unresolvable (no colours array at all), and a null never matches a colour-restricted counter: an
+ * illegal target is the cardinal sin, a dropped legal one a safe false negative. Before 2026-10-18 the front face was read off
+ * `card_faces` only, which the enriched game deck does not carry: Gainsay could not target Delver of Secrets in a game.
  */
 export function counterColorsOf(card) {
-  const isDfc = / \/\/ /.test(String(card?.type || card?.type_line || ""));
-  const colors = isDfc ? card?.card_faces?.[0]?.colors : card?.colors;
-  return Array.isArray(colors) ? colors : null;
+  return Array.isArray(card?.colors) ? characteristicColors(card) : null;
 }
 
 /**

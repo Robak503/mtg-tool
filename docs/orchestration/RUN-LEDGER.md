@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.165.0** (tagged 2026-10-18 on the `[0.165.0]` CHANGELOG cut):
-> **12 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.1% (15,605)**; engine gains since the tag: **+69**. The next tag
+> **13 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.1% (15,605)**; engine gains since the tag: **+69**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,98 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-18 — FIX (false positive): a double-faced card OFF the battlefield is its FRONT face's colour (CR 712.8a, 712.8c) — Mystic Forge's "colorless spells" no longer casts Delver of Secrets or Invasion of Vryn off the top, Forsaken Monument no longer gains on them, Shrine of the Forsaken Gods' colourless mana no longer pays for them, Skittering Cicada and Liberator, Urza's Battlethopter no longer give them flash, Journey to Eternity no longer enchants Stonecoil Serpent (protection from multicolored), Allosaurus Shepherd no longer protects a devoid green spell (Brood Monitor); they count as their colours (Sapphire Medallion, Yeva, Kor Firewalker, Force of Will, Gainsay, Throne of Eldraine, Chrome Mox, Summoner's Pact, Guildmages' Forum, the cast-colour record); and the opponents-enter-tapped impositions read the entering card's front face (Kismet no longer taps Growing Rites of Itlimoc, Imposing Sovereign no longer taps Westvale Abbey) · **±0** · snapshot native+land 15,584 unchanged
+> Suite **21,199 passed, 1 failed, 1 skipped / 1,904 files** under the gate queue (with the rules index built for the run, then deleted) — the one
+> failure is the known `crucibleRun.test.js` 20 s timeout, in all 5 gated runs (20.4–20.9 s); the untouched 5444c56d archive under the same gate
+> fails it too (22.0 s), and run alone it plays the same 8 games in the same CPU time on both trees (7.7–8.1 s, turns identical) — no green of
+> record today; master's b36e1ff3 addresses that timeout. Lint 0 (CR citations: 0 of 11,971 name no rule; keyword citations: 0 of 2,445 cite a
+> different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an untouched
+> `git archive` of 5444c56d, snapshotted before the first edit; native+land 15,584 of 34,584 snapshot names on both). **Mutants 6/6** on
+> assertions, each restored byte-identical (sha256): the front-face read dropped from the shared colour read (15 tests red), its game-deck
+> fallback (the front face's mana symbols) dropped (17), the face-up view's front colours dropped (1 — Journey to Eternity), the colour
+> uncounterability back on the old "colours, else pips" read (1 — Brood Monitor), the impositions back on the whole line (2), Mystic Forge's
+> colourless test back on the raw array (1). Witness `dfcSpellColors.test.js` (21) and `dfcEntersTapped.test.js` (3) written before the engine
+> change and run on the untouched archive: **18 fail there on assertions, the 6 controls pass on both**. A/B **80 seeded commander games** (base
+> seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched 5444c56d archive): **73 byte-identical, 7 differ** — games 4 and 73
+> change picks (Yeva, Nature's Herald's "green creature spells as though they had flash" now reaches Ojer Kaslem, Deepest Growth in the Omnath,
+> Locus of Mana deck, cast while Selvala sits on the stack; game 4's winner changes, ai3 → Omnath); game 11's log differs in one line
+> (Woodland Bellower's green-creature search pool 13 → 14 in The Unbeatable Squirrel Girl — Duskwatch Recruiter; same pick); games 46, 53, 55
+> and 56 differ only in one more cast offer in a few decision rows, picks and logs identical (by deck contents, the pitch costs — Force of
+> Will / Force of Negation in Kinnan, Solitude / Endurance in Shalai and Hallar — over a coloured modal double-faced card in hand; inferred,
+> not traced); ai-wins 58 → 57 / user-wins 22 → 23, 0 errors on either tree (476.5 s / 304.5 s, run concurrently). Committed on
+> `day/dfccolor`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The bug** (the back-face slice's found-not-fixed (1), measured on 5444c56d through the real lanes). In-game transform and modal
+>   double-faced cards carry Scryfall's EMPTY top-level `colors` (Scryfall keeps the colours on the faces, and the enriched game deck —
+>   learnDeckEnrich.mergeCardData — carries no `card_faces` at all), and every reader of a card's or a spell's colour off the battlefield
+>   read that array: Delver of Secrets and Invasion of Vryn were COLOURLESS. False positives: Mystic Forge cast both off the top; Forsaken
+>   Monument triggered on Delver; Shrine of the Forsaken Gods' colourless-only {C}{C} paid for Invasion of Vryn; Skittering Cicada's
+>   "colorless spells as though they had flash" cast Delver in its controller's upkeep; Journey to Eternity (black and green) was offered on
+>   Stonecoil Serpent (protection from multicolored — the colour-count protection read the Aura's colours as none). Under-reads: Sapphire
+>   Medallion priced Invasion of Vryn at {3}{U}; Yeva didn't give Kessig Prowler flash; Kor Firewalker missed Village Messenger; Force of Will
+>   couldn't pitch Delver; Throne of Eldraine's blue mana didn't pay for Invasion of Vryn; casting Delver recorded no blue spell (Ricochet
+>   Trap); Gainsay had no target in Delver in the game-deck shape (spellOnStack read only `card_faces`); Guildmages' Forum gave Edgar, Charmed
+>   Groom no counter; Chrome Mox imprinting Delver made nothing; Summoner's Pact didn't find Kessig Prowler. Beside it, in the same reader:
+>   Allosaurus Shepherd's colour uncounterability took the mana cost's pips whenever the colours array was empty, so a DEVOID green spell
+>   (Brood Monitor) was uncounterable. And (the integrator's add) `impositionEntersTapped` tested the whole "Front // Back" line: Kismet tapped
+>   an entering Growing Rites of Itlimoc (its back face is the land), Imposing Sovereign an entering Westvale Abbey (its back face is the
+>   creature).
+> · **The rules** (bundled CR, cited exactly). An object is the colour of the mana symbols in its mana cost (CR 105.2, 202.2; a hybrid symbol
+>   is each of its colours, CR 202.2d); Devoid makes it colourless everywhere (CR 702.114a). A double-faced card outside the battlefield and
+>   the stack has only its front face's characteristics (CR 712.8a); a nonmodal double-faced spell has its front face up (CR 712.8c); a
+>   modal one the face being cast (CR 712.8f, 712.11b — the cast lane projects it); a double-faced card put onto the battlefield enters front
+>   face up (CR 712.14). A fused split spell has its two halves' combined characteristics (CR 709.4d, 702.102b). Protection: CR 702.16b, 702.16c.
+> · **The fix** — one read, `faceUp.characteristicColors` (the front face's colours of a combined transform / modal card — `frontFaceColors`:
+>   the face's own `colors`, else its mana symbols and Devoid line, the shape `layers.permanentPrintedColors` already read, now delegating to
+>   it — else `colorsOfSpell`); `faceUpView` carries the front colours. Sites changed: staticAbilityParser.js — `costReductionForSpell`'s two
+>   colour arms, `spellMatchesFlashFilter`'s colour / colourless qualifiers, `uncounterableCoversSpell` (the "colours, else pips"
+>   `cardColorLetters` removed), `castFromTopFilterAllows`' "colorless" (`cardIsColorless` removed), `impositionEntersTapped`'s type line
+>   (`characteristicTypeLine`); manaModel.js — `spendRestrictionAllows`' monocolored and colourless arms, Chrome Mox's imprinted colours, The
+>   Grey Havens' graveyard colours; triggers.js — the cast filters' multicolored / colorless / colour arms; actionDispatcher.js — the per-turn
+>   cast-colour record and Guildmages' Forum's rider (its type test now `characteristicTypeLine` too); legalChoices.js — the pitch candidates
+>   and the 14 spell / zone-card colour reads handed to target enumeration (cast lanes, Aura lanes, bestow, counters, the discard and
+>   graveyard abilities); resolvers.js — the Aura re-check's two; spellEffects.js — `resolutionSourceColors`; spellOnStack.js —
+>   `counterColorsOf`; auraEntry.js — `mayBeEnchantedBy` and the colour-count protection; auraSpellHost.js — the body-only lane's spell
+>   colours; effects/atoms/shared.js — `spellSourceQualities` and the coloured graveyard count; effects/atoms/zones.js — the return-attached
+>   protection check; effects/atoms/library.js — the tutor colour gate. splitHalfColors.test.js's fused control now pins the CR answer: a
+>   combined split card on the stack reads both halves' colours (CR 709.4d) — it read fail-closed before. ENGINE-SCAFFOLD's face-up bullet
+>   names the rule.
+> · **Reach** (the bundled corpus, the game-deck shape): 454 combined cards change their off-battlefield colour answer, colourless → their
+>   front face's (368 transform, 86 modal); the uncounterable read also changes 134 devoid cards. Carriers that read it (engine parsers;
+>   oracle patterns where marked): Mystic Forge (408 coloured non-artifact fronts removed from the top); Eldrazi Temple, Shrine of the
+>   Forsaken Gods (454 removed); Throne of Eldraine (383 monocolored added); 101 colour / colourless / multicolored cast triggers — 11
+>   colourless ones (Forsaken Monument, Kozilek's Sentinel, Molten Nursery, Glaring Fleshraker, Thought Harvester, Echoes of Eternity, Ugin,
+>   Eye of the Storms, Skittering Cicada, Nettle Drone, Sky Scourer: 4,540 pairs removed), colour ones 9,881 pairs added, multicolored 1,491;
+>   22 colour cost reducers (3,086 added — the Medallions, the Monuments, the Familiars, the Crystals, Goblin Anarchomancer, Grand Arbiter
+>   Augustin IV); flash — Liberator and Skittering Cicada (colourless: 408 / 454 removed), Yeva (68 added); 23 pitch costs (2,492 added — the
+>   Forces, Solitude, Endurance, Subtlety, Grief, Misdirection, Contagion …); Chrome Mox (408); Guildmages' Forum (39); Allosaurus Shepherd
+>   (30 devoid green spells now counterable); the colour counters (17: Gainsay, Pyroblast, Red / Blue Elemental Blast …), colour tutors (15:
+>   Green Sun's Zenith, Natural Order, Summoner's Pact …), Ricochet Trap and Seedtime, and the 11 colour-count protections (Stonecoil Serpent,
+>   Spectrum Sentinel, Guardian of the Guildpact …) against the four transform Auras. Impositions: 10 carriers (Kismet, Frozen Aether,
+>   Imposing Sovereign, Authority of the Consuls, Urabrask the Hidden, Blind Obedience, Manglehorn, Dauntless Dismantler, Loxodon Gatekeeper,
+>   Kinjalli's Sunwing) × 180 combined cards whose back face adds an Artifact / Creature / Land type the front lacks.
+> · **Profile decks holding a pair** (a changed card and a carrier in the 99 or the command zone whose answer flips; impositions bite only
+>   across seats, so none within a deck): Omnath, Locus of Mana (Ojer Kaslem, Deepest Growth × Yeva, Throne of Eldraine — the A/B's games 4
+>   and 73); The Unbeatable Squirrel Girl (Duskwatch Recruiter, Growing Rites of Itlimoc, Invasion of Ikoria × Green Sun's Zenith, Natural
+>   Order, Endurance, Chrome Mox; Sowing Mycospawn, devoid, × Allosaurus Shepherd — game 11); cdh (Invasion of Ikoria, Growing Rites × Green
+>   Sun's Zenith, Chrome Mox); Killer Turts (Invasion of Ikoria × Chrome Mox); Believe it! (Sea Gate Restoration, Sink into Stupor,
+>   Hydroelectric Specimen × Force of Will, Force of Negation, Misdirection, Subtlety; Agadeem's Awakening, Fell the Profane, Boggart Trawler ×
+>   Force of Despair, Contagion; all × Chrome Mox); Kinnan Mana Overload (Sink into Stupor, Hydroelectric Specimen × Force of Will, Force of
+>   Negation, Misdirection, Chrome Mox — game 46); Hulk Smash (Bruce Banner × Force of Will, Force of Negation); Shalai and Hallar Test
+>   (Bridgeworks Battle, Miles Morales × Endurance; Witch Enchanter × Solitude — games 53, 55, 56); Otharri Test (Sejiri Shelter, Witch
+>   Enchanter × Solitude); Test Rashmi (Bridgeworks Battle × Endurance); Kellan of the west (Aang, Swift Savior, The Legend of Yangchen ×
+>   Mystic Forge — removed); Wolverine, claws out! (Stump Stomp, Bridgeworks Battle, Pinnacle Monk × Goblin Anarchomancer, The Earth Crystal);
+>   Earth Bent (The Legend of Kyoshi × The Earth Crystal); Nekusar Wheels (Ojer Axonil, Deepest Might × Nightscape Familiar).
+> · ⚠️ **Found, not fixed:** (1) `entersTapped` (staticAbilityParser.js:1360) reads the whole combined oracle — 36 combined cards' back face
+>   "enters tapped" line taxes the front: Eye of Ojer Taq (its back face, Apex Observatory, enters tapped) is cast and enters tapped, a modal
+>   card put onto the battlefield whole by an effect (Kazandu Mammoth — measured on enterPermanent) enters tapped (FN, the safe side; the coverage
+>   strip reads it too, so a fix needs a flip-diff). (2) `opponentsEnterTappedTypesOf(perm.card)` (staticAbilityParser.js:7460) reads the
+>   imposing permanent's whole oracle — no back face in the corpus prints an imposition, unobservable. (3) effects/atoms/misc.js:784
+>   (`anyColorChoice`) and choicePolicy.js:205 (`printedPermanentColors`, the default the engine overrides) read a battlefield permanent's raw
+>   `card.colors` — a double-faced source reads none (the any-colour mana pick; a battlefield read, not this family). (4) The native Aura cast
+>   lanes, the Aura re-check and the targeted-spell lanes now read `characteristicColors`, but no combined double-faced card reaches them
+>   today (the four transform Auras are body-only, whose lane already read the front; the transform sorcery fronts are arbiter-spells).
+> · Witness: `dfcSpellColors.test.js` (21), `dfcEntersTapped.test.js` (3).
 
 > ## 🧹 2026-10-18 — HYGIENE: the 16 silent try/catch blocks in opponentAI.js are gone (CLAUDE.md §1.2 / §8.2) · **±0**
 > Every try/catch in `opponentAI.js` swallowed a throw into a fallback (null / false / 0 / 1 / "can block"): 5 around `opponentsOf`

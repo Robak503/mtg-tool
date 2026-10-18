@@ -124,11 +124,13 @@ describe("a counter's colour filter reads the half on the stack (CR 709.3b, 715.
   });
 
   it("control: a fused split spell (both halves' colours, CR 702.102b, 709.4d) is never offered — Turn // Burn casts as no combined object", () => {
-    // The engine does not offer fuse (fuseSplitCard.test.js); a combined split card on the stack reads fail-closed through
-    // spellOnStack.counterColorsOf (no front-face colours on a split card) — a colour counter never targets it, the safe side.
+    // The engine does not offer fuse (fuseSplitCard.test.js). Were a combined split card on the stack, it would be a fused split spell,
+    // which has its two halves' combined characteristics (CR 709.4d, 702.102b): spellOnStack.counterColorsOf reads the card's own
+    // colours (faceUp.characteristicColors — a split card is no double-faced card), so it is blue and red, a legal Gainsay target.
+    // (Until 2026-10-18 the read took any " // " card's front face off `card_faces` and failed closed without them.)
     const offers = castsOf(board({ active: "user", user: { hand: [H("tb", TURN_BURN)], pool: { U: 2, R: 2, C: 4 } } }), "user", "tb");
     expect(offers.filter((a) => !a.faceCard)).toEqual([]);
-    expect(spellMatchesCounterFilter({ kind: "spell", source: H("tb", TURN_BURN) }, "any", { colorFilter: { color: "U" } })).toBe(false);
+    expect(spellMatchesCounterFilter({ kind: "spell", source: H("tb", TURN_BURN) }, "any", { colorFilter: { color: "U" } })).toBe(true);
   });
 });
 

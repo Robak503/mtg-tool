@@ -35,10 +35,10 @@ import {
   counterToughnessDelta,
 } from "./ptPrimitive.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
-import { faceUpTypeLine, faceUpView, characteristicTypeLine } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the type line the derive reads, and the face-up card the host-keyword gate reads
+import { faceUpTypeLine, faceUpView, characteristicTypeLine, frontFaceColors } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the type line the derive reads, the face-up card the host-keyword gate reads, and a double-faced permanent's front-face colours (permanentPrintedColors)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type matches only a CREATURE type (CR 205.3d); a zero-import leaf
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a graveyard card that is every creature type (Changeling, its owner's Maskwood Nexus) for the subtype counts; a leaf over keywords.js
-import { parseStaticAbilities, parseAttachedBonus, parseAuraGrantedManaAbility, parseSoulbondBond, colorsOfSpell } from "./staticAbilityParser.js"; // + colorsOfSpell: a double-faced permanent's front-face colours (permanentPrintedColors)
+import { parseStaticAbilities, parseAttachedBonus, parseAuraGrantedManaAbility, parseSoulbondBond } from "./staticAbilityParser.js";
 import { classLiveCard } from "./classLevels.js"; // CLASS (CR 716.2a) — a modeled Class's statics are read off its level view (a zero-import leaf)
 import { isGraveyardReanimateAura, animateDeadBonusView } from "./animateDeadGate.js"; // P·12 — Animate Dead's -1/-0 (a zero-import leaf)
 import { commanderColorIdentityOf } from "./commanderIdentity.js"; // CR 903.4 — the shared read (stamp + command zone); a zero-import leaf
@@ -858,8 +858,9 @@ function _isDevoidCard(card) {
   if ((card?.keywords || []).some(k => String(k).toLowerCase() === "devoid")) return true;
   return /^[ \t]*devoid\b[ \t]*(?:\([^)]*\))?[ \t]*$/im.test(String(card?.oracle || card?.oracle_text || ""));
 }
-/** A card's colors (the Scryfall `colors` array, else derived from mana-cost pips). Exported so the
- * targeting/protection path can read a SPELL's colors (CR 702.16b protection-from-color). */
+/** A card's RAW colors (the Scryfall `colors` array, else derived from mana-cost pips) — the non-double-faced seed of
+ * permanentPrintedColors. Not a spell's or a zone card's colour read: a transform or modal double-faced card's top-level
+ * array is Scryfall's empty placeholder, so those readers use faceUp.characteristicColors (its front face, CR 712.8a, 712.8c). */
 export function colorsOf(card) {
   if (Array.isArray(card?.colors)) return card.colors.map(String);
   // DEVOID (CR 702.114) is a CHARACTERISTIC-DEFINING ability: the card is colorless in EVERY zone regardless of
@@ -880,35 +881,12 @@ export function colorsOf(card) {
  * characteristics of its front face"). The bundled data carries an EMPTY top-level `colors` on every transform and modal
  * double-faced card (Scryfall keeps those colors on the faces), so colorsOf read a black Graveyard Trespasser as colorless:
  * Ascendant Evincar shrank it as "nonblack", and an anthem for black creatures skipped it. The engine never turns a
- * permanent's back face up, so the combined card is read with its front face up:
- *   · the front face's own `colors` when the card carries its faces (the publicCard shape) — Scryfall's per-face data;
- *   · else, for a TRANSFORM or MODAL double-faced card (the two layouts whose top-level colors are that placeholder), the
- *     colors of the front face's mana symbols (CR 202.2), read from the front face's own block, so its own Devoid line
- *     counts (Drowner of Truth's {G/U} front is colorless, CR 702.114a) and the back face's keywords never do.
- * Corpus check (2026-10-01, the bundled data, this function as written): equal to Scryfall's front-face colors on all 394
- * transform and 98 modal double-faced cards in both card shapes, and on every other combined card with empty top-level colors
- * in the publicCard shape.
- *
- * ⛔ NOT THE MANA FALLBACK FOR ANY OTHER LAYOUT. An adventurer, a split or a flip card carries its real colors at the top
- * level, so an empty array there means colorless — and its `mana` is not the front face's: Lindblum, Industrial Regency (a
- * Town land with an Adventure) has the empty top-level colors of a land and the {2}{R} of its Adventure half. Those cards,
- * and every single-faced card, a face view the engine projected (a modal face, an adventurer's creature half) and a stamped
- * token, are colorsOf, unchanged. (A double-faced TOKEN card from the data, without its faces, still reads colorless — its
- * color comes from a color indicator, not a mana cost; the engine mints its own tokens with stamped colors instead.)
+ * permanent's back face up, so the combined card is read with its front face up — faceUp.frontFaceColors, the one front-face
+ * read the zone and spell colour read (faceUp.characteristicColors) shares (its corpus check and the layouts it refuses are
+ * documented there). Every other card is colorsOf, unchanged.
  */
-const PLACEHOLDER_COLOR_LAYOUTS = new Set(["transform", "modal_dfc"]);
 export function permanentPrintedColors(card) {
-  if (Array.isArray(card?.colors) && card.colors.length === 0 && / \/\/ /.test(typeLineOf(card))) {
-    const front = Array.isArray(card.card_faces) ? card.card_faces[0] : null;
-    if (Array.isArray(front?.colors)) return front.colors.map(String);
-    if (PLACEHOLDER_COLOR_LAYOUTS.has(String(card.layout || ""))) {
-      return colorsOfSpell({
-        mana: String(front?.mana_cost ?? card.mana ?? card.mana_cost ?? "").split(" // ")[0],
-        oracle: String(card.oracle || card.oracle_text || "").split(/\n\/\/\n/)[0],
-      });
-    }
-  }
-  return colorsOf(card);
+  return frontFaceColors(card) ?? colorsOf(card);
 }
 
 /** The color layer (CR 613.1e) applied to a seed: SET replaces every color (CR 105.3), "in addition" ADDs, in timestamp

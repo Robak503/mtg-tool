@@ -33,18 +33,17 @@
 import { MANA_COLORS, addMana, addCounter, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, gainLife, logEvent, removeCounter, setDoesNotUntapNext, opponentsOf, playerLifeLocked } from "./gameState.js"; // + gainLife (2026-10-17, the land lines): a mana ability that makes each opponent gain life (Grove of the Burnwillows); + addCounter — 2026-10-17: Wall of Roots' -0/-1 counter cost // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
 import { checkTapForManaTriggers, checkLifegainTriggers } from "./triggers.js"; // + checkLifegainTriggers (2026-10-17, the land lines): Grove of the Burnwillows' opponents gain life as its tap resolves; + ④-D: "tapped for mana" watchers fire at the one tap commit
 import { sacrificePermanentForCost } from "./costSacrifice.js"; // SG-3 / SAC-TREASURE: a permanent sacrificed to a mana cost leaves through THE cost sacrifice (dies, sacrifice watchers, the leave drain — CR 603.3b), the one the activated-ability and additional costs use
-import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, colorsOf, deriveCharacteristics, permIsEveryCreatureType, permanentColors, faceUpTypeLine, permanentSubtypes, permanentPrintedColors } from "./layers.js"; // + permanentPrintedColors (2026-10-17, the land lines): a graveyard card's colours for The Grey Havens; + faceUpTypeLine: the face that is up of a combined "Front // Back" card — the derive's own read, shared by manaModel's face-up mana read; + permanentSubtypes: the land types an "instead" condition names (Urza's Tower)
+import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, deriveCharacteristics, permIsEveryCreatureType, permanentColors, faceUpTypeLine, permanentSubtypes } from "./layers.js"; // + faceUpTypeLine: the face that is up of a combined "Front // Back" card — the derive's own read, shared by manaModel's face-up mana read; + permanentSubtypes: the land types an "instead" condition names (Urza's Tower)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // QUARTET Phase 4 step 3 (2026-09-06): the closed CR creature-type vocabulary for spend restrictions ("only to cast a Ninja or Turtle spell") — a zero-import leaf
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { COUNT_SUBTYPE } from "./effects/parseHelpers.js"; // #766 — the curated subtype allowlist for "for each <Subtype> on the battlefield" (parseHelpers imports only keywords.js; staticAbilityParser, imported below, already loads it)
 import { parseAuraLandManaBonus, parseGlobalTapManaAugment, artifactActivationsLocked, abilitiesAsThoughHasteFor, choosesColorOnEnter } from "./staticAbilityParser.js"; // + SG-18: haste-for-abilities at the mana-source sick gate // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only); NR-1: the artifact-activation lock; + choosesColorOnEnter (2026-10-17): the chosen-colour mana leg reads the name-led chooser (Throne of Eldraine)
-import { colorsOfSpell } from "./spellColors.js"; // a spell's colours, hybrid pips counted (CR 202.2d) — Throne of Eldraine's "monocolored spells of that color" (a zero-import leaf)
 import { PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // 2 life per Phyrexian symbol (CR 107.4f) — one constant for the cast, the activation and the attack tax (attackTax imports only parseHelpers: no cycle)
 import { manaMultiplier } from "./replacementEffects.js"; // MANA-MULTIPLIER: ×N tap-for-mana replacement (Mana Reflection/Nyxbloom; leaf, no cycle)
 import { evaluateInterveningIf } from "./interveningIf.js"; // CONDITION-GATED mana (CR 602.5) — interveningIf imports ONLY gameState, so this is a one-way edge with no cycle (checked before adding it)
 import { commanderColorIdentityOf } from "./commanderIdentity.js"; // "your commander's color identity" (CR 903.4) — the shared read off the seat's stamp (a zero-import leaf)
 import { parseFaceBlock } from "./splitCard.js"; // THE FACE THAT IS UP — the front face's own text, its "<name> - <type> {mana}" header peeled (splitCard imports nothing)
-import { characteristicTypeLine } from "./faceUp.js"; // the spell being cast's type line — the face being cast (CR 712.8c), for the spend restrictions (a leaf: splitCard.js only)
+import { characteristicTypeLine, characteristicColors } from "./faceUp.js"; // the spell being cast's type line and colours — the face being cast (CR 712.8c), for the spend restrictions; a zone card's colours (the imprinted card, The Grey Havens' graveyard) (a leaf)
 
 // A board with one seat and empty zones — enough for evaluateInterveningIf to ANSWER a condition or admit it
 // cannot. Used only by conditionIsExpressible, never for a real verdict.
@@ -2443,14 +2442,16 @@ export function spendRestrictionAllows(restriction, castCard, opts = {}) {
   }
   if (!castCard) return false;                         // ⛔ NO CONTEXT ⇒ REFUSE (see planPayment)
   // MONOCOLORED SPELLS OF A COLOUR (Throne of Eldraine, 2026-10-17): the cast spell has exactly one colour (CR 105.2a), that one.
-  // Read off the card being cast (colorsOfSpell — a hybrid pip counts each colour, so a {W/U} spell is multicolored, CR 202.2d).
+  // Read off the face being cast (characteristicColors — a hybrid pip counts each colour, so a {W/U} spell is multicolored, CR 202.2d;
+  // a double-faced spell is its front face's colour, CR 712.8c, so Invasion of Vryn is a monocolored blue spell).
   if (restriction.castMonocolored != null) {
-    const cs = colorsOfSpell(castCard);
+    const cs = characteristicColors(castCard);
     return cs.length === 1 && cs[0] === restriction.castMonocolored;
   }
   // COLOUR WORDS (Shrine of the Forsaken Gods / Eldrazi Temple): a coloured spell never qualifies for a colourless-only record —
-  // checked BEFORE the type walk so the bare "@any-spell" of "colorless spells" cannot short-circuit past it.
-  if (restriction.castColorless && colorsOf(castCard).length) return false;
+  // checked BEFORE the type walk so the bare "@any-spell" of "colorless spells" cannot short-circuit past it. The face being cast's
+  // colours (characteristicColors): Delver of Secrets is a blue spell, though its combined card carries an empty top-level array.
+  if (restriction.castColorless && characteristicColors(castCard).length) return false;
   // The SPELL's type line — the face being cast (CR 712.8c; the cast lane hands over a projected split, Adventure or modal face, and
   // any other double-faced card is cast front face up): Cavern of Souls naming Dinosaur does not pay for Invasion of Ikoria, whose
   // back face is the Dinosaur, nor Mishra's Workshop for Invasion of Vryn, whose back face is the artifact.
@@ -3142,11 +3143,11 @@ function colorsAmongFor(state, playerId, spec) {
     case "permanentsYouControl": // Meteor Crater (2026-10-17 evening) — the current colours of every permanent its controller controls
       return colorsOfEach(bf);
     // The Grey Havens (2026-10-17, the land lines) — each legendary creature CARD in its controller's graveyard, its colours (CR
-    // 202.2; a double-faced card's front face, permanentPrintedColors). A card in a graveyard is no permanent: no layer reads it.
+    // 202.2; a double-faced card's front face, characteristicColors). A card in a graveyard is no permanent: no layer reads it.
     case "legendaryCreatureCardsInYourGraveyard":
       return [...new Set((state?.players?.[playerId]?.graveyard || [])
         .filter((c) => { const t = String(c?.type || c?.type_line || "").split(" // ")[0]; return /\bLegendary\b/.test(t) && /\bCreature\b/.test(t); })
-        .flatMap((c) => permanentPrintedColors(c)))].filter((c) => COLOR_SET.has(c));
+        .flatMap((c) => characteristicColors(c)))].filter((c) => COLOR_SET.has(c));
     default:
       return [];
   }
@@ -3478,7 +3479,9 @@ export function manaSources(state, playerId) {
     // empty-colors source, so it is never offered, never tapped, and never fabricates a color. This is the
     // gate the whole imprint build order existed to make possible.
     if (prod.colorsFromImprint) {
-      const imprintedColors = (perm.imprinted?.colors || []).filter((c) => MANA_COLORS.includes(c));
+      // The exiled card's colours (characteristicColors — a double-faced card in exile is its front face's, CR 712.8a: Delver of Secrets
+      // makes {U}; its combined card carries Scryfall's empty top-level colours).
+      const imprintedColors = (perm.imprinted ? characteristicColors(perm.imprinted) : []).filter((c) => MANA_COLORS.includes(c));
       if (!imprintedColors.length) continue;
       const imprintBonus = bonusFor(imprintedColors, null);
       sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(imprintBonus.length ? { bonus: imprintBonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife, lifeAvail: player.life ?? 0 } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });

@@ -29,13 +29,14 @@
  * controller's. When the side it wants has no legal host the Aura still must enter (CR 303.4f), so it takes the other side's
  * least-harmful one. A seat a person plays is asked instead (enteringAuraHost, below).
  *
- * LEAF: staticAbilityParser, layers, protection, creatureRestrictions, controlAura, gameState and auraPrintedSide (which imports only
+ * LEAF: staticAbilityParser, layers, faceUp, protection, creatureRestrictions, controlAura, gameState and auraPrintedSide (which imports only
  * faceUp and staticAbilityParser) — every one of them is reachable from effects/atoms/zones.js, and none imports an atoms module or
  * the AI.
  */
 import { findPermanent } from "./gameState.js";
 import { abilityClauses, auraEntryHostSpec, isAttachedNoUntapLine, isNativeManaAura, parseAuraBonus } from "./staticAbilityParser.js";
-import { colorsOf, permanentHasCardType, permanentIsCreature, permanentPower, permanentProtectionColors, permanentTypes } from "./layers.js";
+import { permanentHasCardType, permanentIsCreature, permanentPower, permanentProtectionColors, permanentTypes } from "./layers.js";
+import { characteristicColors } from "./faceUp.js"; // the Aura card's colours — a double-faced Aura is its front face's (CR 712.8a, 712.8c)
 import { protectionApplies } from "./protection.js";
 import { creatureSatisfiesRestrictions } from "./creatureRestrictions.js";
 import { grantsControlWhenAttached } from "./controlAura.js";
@@ -194,7 +195,7 @@ const CANT_BE_ENCHANTED_RE = /can['’]t be enchanted/i;
 
 /** Does `perm`'s own printed text give it a protection that would keep `auraCard` out (CR 702.16b, 702.16c)? Fails closed. */
 function printedProtectionKeepsOut(perm, auraCard) {
-  const n = colorsOf(auraCard).length;
+  const n = characteristicColors(auraCard).length; // Journey to Eternity is a black and green Aura (its combined card's colours are empty)
   return abilityClauses(oracleOf(perm.card)).some((clause) => {
     const own = clause.replace(PROTECTION_GRANTED_ELSEWHERE_RE, "$1shielding from");
     return UNREAD_PROTECTION_RE.test(own) || COLOUR_COUNT_PROTECTION.some(([re, applies]) => re.test(own) && applies(n));
@@ -226,7 +227,7 @@ function cantBeEnchanted(state, perm, controller) {
  * any mention kept the permanent out, so widening this to the native lanes would have withdrawn legal casts.
  */
 export function mayBeEnchantedBy(state, perm, pid, auraCard) {
-  if (protectionApplies(permanentProtectionColors(state, perm.id), colorsOf(auraCard))) return false; // CR 702.16c
+  if (protectionApplies(permanentProtectionColors(state, perm.id), characteristicColors(auraCard))) return false; // CR 702.16c
   if (printedProtectionKeepsOut(perm, auraCard)) return false;
   return !cantBeEnchanted(state, perm, pid);
 }

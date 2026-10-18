@@ -3108,7 +3108,7 @@ export function recordSpellCast(state, { playerId, spellCard = null, colors = nu
     ...(isNoncreature ? { noncreatureSpellsCastThisTurn: (p.noncreatureSpellsCastThisTurn || 0) + 1 } : {}),
     ...(isInstantOrSorcery ? { instantSorcerySpellsCastThisTurn: (p.instantSorcerySpellsCastThisTurn || 0) + 1 } : {}),
     // TRAP CONDITIONS (shelf D17 — Ricochet Trap "if an opponent cast a blue spell this turn"): the colors this seat's spells
-    // had this turn. The cast site threads layers.colorsOf(castCard) (gameState can't read layers); an unthreaded caller
+    // had this turn. The cast site threads faceUp.characteristicColors(castCard) (the face being cast's colours, CR 712.8c); an unthreaded caller
     // records none, so a color condition under-reads, never over.
     ...(Array.isArray(colors) && colors.length ? { spellColorsCastThisTurn: [...new Set([...(p.spellColorsCastThisTurn || []), ...colors])] } : {}),
   }));

@@ -13,11 +13,12 @@ import { SMALL_NUM, parseCountSource } from "../parseHelpers.js"; // MULTI-COUNT
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // SUBTYPE RETURN (Atzocan Seer) — the closed CR subtype vocabulary (a zero-import leaf, cycle-free)
 import { shuffleControllerLibrary } from "./library.js";
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // the CR 603.7 queue (a sibling leaf)
-import { colorsOf, permanentProtectionColors, permanentIsCreature, permanentHasTypeWord, addContinuousEffect } from "../../layers.js"; // shelf D41 — the host's live protection colours vs a returning card's colours (CR 702.16c/d); + permIsEveryCreatureType (P·39b — Essence Flux's returned Spirit)
+import { permanentProtectionColors, permanentIsCreature, permanentHasTypeWord, addContinuousEffect } from "../../layers.js"; // shelf D41 — the host's live protection colours vs a returning card's colours (CR 702.16c/d); + permIsEveryCreatureType (P·39b — Essence Flux's returned Spirit)
 import { protectionApplies } from "../../protection.js"; // shelf D41 — the shared colour-protection test (an import-free leaf)
 import { auraMayEnchantCreature } from "../../auraHost.js"; // shelf D41 — the shared Enchant-line reader (a leaf; stack.js reads it too)
 import { entersByDiscardingLand, applyDiscardLandToEnter } from "../../discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247, CR 614.1a / 614.12a) — whether it enters at all; a leaf over gameState / triggers / staticAbilityParser, which this file already reaches
 import { temporaryEntryCopySpec, cloneCandidates, pickTemporaryCopy, snapshotCopiedCard } from "../../cloneCopy.js"; // CURSED MIRROR (play-weighted #448, CR 614.1c / 614.12) — the as-enters copy until end of turn on a put; a leaf over gameState / layers / keywords / staticAbilityParser (becomeCopy.js, a sibling atom, already imports it)
+import { characteristicColors } from "../../faceUp.js"; // a graveyard card's colours — a double-faced card is its front face's (CR 712.8a) (a leaf)
 import { enteringAuraHost } from "../../auraEntry.js"; // CR 303.4f — what an Aura entering without being cast enchants, asked of a seat a person plays (a leaf over modules this file already reaches)
 // CZ-COMMANDER-VISIT cross-layer doors — INJECTED, never imported: a static resolvers.js/layers.js
 // import from this atoms leaf TDZ-crashed 56 suites (zones sits under effectAtoms → parser, and
@@ -2199,7 +2200,7 @@ function applyReturnAttachedFromGraveyard(state, atom, ctx) {
   let next = state;
   const returned = [];
   for (const card of [...picked.filter((c) => !isAura(c)), ...picked.filter(isAura)]) {
-    if (protectionApplies(permanentProtectionColors(next, hostId), colorsOf(card))) continue; // CR 702.16c/d
+    if (protectionApplies(permanentProtectionColors(next, hostId), characteristicColors(card))) continue; // CR 702.16c/d
     if (isAura(card) && !auraMayEnchantCreature(next, card, findPermanent(next, hostId), owner)) continue; // CR 303.4i
     // "…to the battlefield attached to enchanted creature": the effect names the host, so it enters attached to it (CR 303.4f).
     const r = enterCardFromZone(next, { playerId: owner, cardId: card.id, fromZone: "graveyard", attachTo: hostId });

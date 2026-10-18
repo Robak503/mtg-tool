@@ -28,8 +28,8 @@ import {
   lastKnownIsCreature, // CR 603.10a — a look-back's creature-ness as it last existed (its layer-aware types), the one reader
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
-import { characteristicTypeLine, faceUpView } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8a / 712.8d) — every type scope reads the front face of a multi-face card
-import { grantedTriggeredQuotedFor, permanentHasKeyword, permanentPower, permanentBasePower, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, colorsOf, isModifiedPermanent, permIsEveryCreatureType, permanentIsCreature } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition; permanentIsCreature — the flipped permanent's creature-ness at the flip (checkTurnedFaceUpTriggers)
+import { characteristicTypeLine, faceUpView, characteristicColors } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8a / 712.8d) — every type scope reads the front face of a multi-face card; a cast spell's colours are the face being cast's (CR 712.8c)
+import { grantedTriggeredQuotedFor, permanentHasKeyword, permanentPower, permanentBasePower, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, isModifiedPermanent, permIsEveryCreatureType, permanentIsCreature } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition; permanentIsCreature — the flipped permanent's creature-ness at the flip (checkTurnedFaceUpTriggers)
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 import { applyLifeGainReplacement } from "./replacementEffects.js"; // LIFE-GAIN replacement (CR 614.1) — read by checkLifegainTriggers so a trigger sees the life ACTUALLY gained. replacementEffects imports nothing at all, so this edge is one-way and cycle-free.
 import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
@@ -3358,7 +3358,7 @@ const NON_SUBTYPE_ETB_WORDS = new Set([
 
 /** Map the words between "cast a[n]" and "spell" to a MODELED spell filter, or null. */
 // Colour words admissible as a CAST-SPELL quality filter (CR 105.1). Kept beside castSpellFilter rather than
-// imported so the cast lane's vocabulary stays readable in one place; the letters match colorsOf()'s output.
+// imported so the cast lane's vocabulary stays readable in one place; the letters match characteristicColors()'s output.
 const SPELL_COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
 
 function castSpellFilter(text) {
@@ -3418,7 +3418,7 @@ function singleCastSpellFilter(f) {
   if (f === "historic") return "historic";
   // MULTICOLORED (BLITZ TR-3, CR 105.2b) — "a multicolored object is two or more of the five colors." Like
   // historic, a COLOR-count quality, not a subtype/type-line token (the denylist rejects it below), so it's
-  // an exact filter enforced on the cast spell's colorsOf() (≥2 colors). Mana Cannons, Hero of Precinct One,
+  // an exact filter enforced on the cast spell's characteristicColors() (≥2 colors). Mana Cannons, Hero of Precinct One,
   // the multicolor-matters payoffs. The color of a spell is fixed by its mana cost / color indicator at cast
   // (CR 105.2b + 500.4-agnostic), so the printed colorsOf reading is CR-faithful for the cast event.
   if (f === "multicolored") return "multicolored";
@@ -10151,17 +10151,19 @@ function spellMatchesFilter(filter, spellCard, every = false, mv = null) {
     // Creature / Legendary Instant / Enchantment — Saga all read historic, exactly as the rule reads.
     case "historic": return /\b(?:Legendary|Artifact|Saga)\b/.test(t);
     // MULTICOLORED (BLITZ TR-3, CR 105.2b) — two or more of the five colors, read from the cast spell's colors
-    // (colorsOf: Scryfall's baked colors array, or a mana-cost pip derivation; devoid → colorless, never multi).
-    case "multicolored": return colorsOf(spellCard).length >= 2;
+    // (faceUp.characteristicColors: the face being cast — a double-faced spell is its front face's, CR 712.8c — Scryfall's baked
+    // colors array, or a mana-cost pip derivation; devoid → colorless, never multi).
+    case "multicolored": return characteristicColors(spellCard).length >= 2;
     // ⭐ COLORLESS (CR 105.2c) — the ABSENCE of colour, so an empty colour set. Not a sixth colour: folding it
-    // into the colour test below would make every colourless spell match every colour filter. `colorsOf`
-    // returns [] for a devoid spell, which is exactly right here (Kozilek's Sentinel, Molten Nursery).
-    case "colorless": return colorsOf(spellCard).length === 0;
+    // into the colour test below would make every colourless spell match every colour filter. `characteristicColors`
+    // returns [] for a devoid spell, which is exactly right here (Kozilek's Sentinel, Molten Nursery) — and the front face's
+    // colours for a double-faced one (Delver of Secrets is blue: Forsaken Monument's "colorless spell" is not it).
+    case "colorless": return characteristicColors(spellCard).length === 0;
     default:
-      // ⭐ SINGLE COLOUR — "color:R" etc. Read from the same colorsOf() the multicolored branch trusts, so a
+      // ⭐ SINGLE COLOUR — "color:R" etc. Read from the same characteristicColors() the multicolored branch trusts, so a
       // devoid spell (no colours) correctly matches NO colour filter.
       if (typeof filter === "string" && filter.startsWith("color:")) {
-        return colorsOf(spellCard).includes(filter.slice(6));
+        return characteristicColors(spellCard).includes(filter.slice(6));
       }
       return false;
   }

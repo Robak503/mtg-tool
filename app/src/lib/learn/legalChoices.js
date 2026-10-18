@@ -33,7 +33,7 @@ import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower,
 import { canAfford, planPayment, manaSources, manualManaTaps, payActivationFromPool, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources, lifePaymentContext } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // SELF-METRIC-COST-REDUCTION: a live count read at cast announce
 import { hasKeyword } from "./keywords.js";
-import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord, cannotEquipNow } from "./layers.js"; // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
+import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord, cannotEquipNow } from "./layers.js"; // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell's every-creature-type answer for the cost readers; a leaf (keywords.js only)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
@@ -119,7 +119,7 @@ import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR
 import { normalFaceCard } from "./omenPrepare.js"; // OMEN (CR 720) / PREPARATION (CR 722) cards — cast normally, as the creature; pure shape module
 import { spellManaValue } from "./spellOnStack.js"; // the mana value of the spell being cast (CR 202.3) — Bolas's Citadel's life payment per offered face; a zero-import leaf
 import { isModalDfc, mdfcLandFaces, mdfcFaceCards, parseSpellModalDfc, spellMdfcFaceCards } from "./modalDfc.js"; // MODAL DFC (CR 712.8, V1) — the land drop chooses a face; the spell front is cast as a face; pure shape module
-import { characteristicTypeLine } from "./faceUp.js"; // the face being cast's type line (CR 712.8c) — Rivaz's "Dragon creature spell" permission (a leaf: splitCard.js only)
+import { characteristicTypeLine, characteristicColors } from "./faceUp.js"; // the face being cast's type line (CR 712.8c) — Rivaz's "Dragon creature spell" permission; the colours of the spell being cast or the zone card whose ability it is, for protection (CR 702.16b) and the pitch costs (a leaf)
 import { evaluateInterveningIf } from "./interveningIf.js"; // CR 602.5d "Activate only if <cond>" — the offer gate reads the SAME vocabulary as the trigger + spell lanes
 import { extractAdditionalCosts, extractAltCost } from "./effects/castModifiers.js"; // AC-PERMANENT — see permanentAdditionalCosts below; + extractAltCost (EVOKE on a permanent, Solitude)
 import { isPermanentSpell } from "./resolvers.js";
@@ -951,14 +951,15 @@ function altCostConditionHolds(state, playerId, condition) {
 }
 
 // Pitch candidates ("exile a <color> card from your hand"): the card's COLOR (CR 105.2 — the Scryfall
-// `colors` array, indicators included, mana-cost pips fallback via layers.colorsOf), NEVER color identity
+// `colors` array, indicators included, mana-cost pips fallback; a double-faced card in hand is its front face's, CR 712.8a — all
+// via faceUp.characteristicColors, so Delver of Secrets is a blue card), NEVER color identity
 // (CR 903.4 is deck-construction only — identity would illegally offer a colorless card with a rules-text
 // {U} pip). The spell being cast is on its way to the stack and is NOT a legal pitch (mirror the
 // additional-cost discard exclusion).
 function altPitchCandidates(player, card, color) {
   const letter = ALT_COST_COLOR_LETTER[color];
   if (!letter) return [];
-  return (player.hand || []).filter((h) => h.id !== card.id && colorsOf(h).includes(letter));
+  return (player.hand || []).filter((h) => h.id !== card.id && characteristicColors(h).includes(letter));
 }
 
 // Enumerate every legal way to pay the alt cost, as plain payment fields for the action's `altCost` marker.
@@ -1480,7 +1481,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // A permanent has no effect atoms to enumerate, so it has exactly ONE (empty) target combo. Asking
       // expandCastChoices for it would return [] (it early-returns on a null program) and the `continue`
       // below would make every one of these cards uncastable — a dead card in hand instead of a paid cast.
-      const combos = program ? expandCastChoices(state, playerId, program, colorsOf(card)) : [{ targets: [] }];
+      const combos = program ? expandCastChoices(state, playerId, program, characteristicColors(card)) : [{ targets: [] }];
       if (combos.length === 0) continue;                  // a required effect target has no legal pick
       // AC-OR (CR 601.2f) — an OR cost expands into one WAY-TO-PAY per option, which is exactly what this
       // block already does for each victim/hand-card within a single cost kind. So the choice needs no new
@@ -1728,7 +1729,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // by expandAtoms' optionalTarget decline.
       const expandsTargetsPerX = (program.atoms || []).some((a) =>
         a.targetCountX || a.mvCapX || (Array.isArray(a.restrictions) && a.restrictions.some((r) => r.valueX)));
-      const combosOnce = expandsTargetsPerX ? null : expandCastChoices(state, playerId, program, colorsOf(card));
+      const combosOnce = expandsTargetsPerX ? null : expandCastChoices(state, playerId, program, characteristicColors(card));
       if (!expandsTargetsPerX && combosOnce.length === 0) continue;
       for (const x of xValues) {
         const xCost = lifeX ? cost : xResolvedCost(cost, x); // PAY-X-LIFE: the mana half is the fixed printed cost (the X is life, charged at the dispatcher)
@@ -1736,7 +1737,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // Per-X target enumeration for an X-count-target (min=max=X distinct) OR an X-MV-bound target; otherwise
         // the hoisted X-independent combos. An X with too few / no legal targets yields no combos → that X skipped.
         const combos = expandsTargetsPerX
-          ? expandCastChoices(state, playerId, program, colorsOf(card), { xValue: x })
+          ? expandCastChoices(state, playerId, program, characteristicColors(card), { xValue: x })
           : combosOnce;
         if (combos.length === 0) continue; // this X yields no legal cast (e.g. MV≤X excludes every creature and the copy target is mandatory — never here, "up to one" always has the decline)
         // AI safety: parseSpellEffect returns null for the literal "X", so base.effect
@@ -1784,9 +1785,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // and a PLAYER kicked; Probe targets nobody unkicked and a player kicked. For an additive payoff with no target of
       // its own the two lists are identical, and the interleave below keeps the order the casts were always offered in
       // (normal, kicked, normal, kicked …).
-      const choices = expandCastChoices(state, playerId, program, colorsOf(card));
+      const choices = expandCastChoices(state, playerId, program, characteristicColors(card));
       const kickedChoices = kickedSpell && kickedSpellAffordable
-        ? expandCastChoices(state, playerId, program, colorsOf(card), { kicked: true })
+        ? expandCastChoices(state, playerId, program, characteristicColors(card), { kicked: true })
         : [];
       if (choices.length === 0 && kickedChoices.length === 0) continue; // no legal cast (a required target is missing)
       const commonFor = (ch) => ({
@@ -1897,7 +1898,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // ANIMATE DEAD (play-weighted P·12, CR 303.4a): "Enchant creature card in a graveyard" — the Aura spell TARGETS a creature
     // card in ANY graveyard (the reanimate enumerator's anyGraveyard pool; each target carries its owner). None → can't cast.
     if (isGraveyardReanimateAura(card)) {
-      const targets = enumerateTargets(state, playerId, { targetType: "graveyardCard", cardFilter: "creature", anyGraveyard: true }, colorsOf(card));
+      const targets = enumerateTargets(state, playerId, { targetType: "graveyardCard", cardFilter: "creature", anyGraveyard: true }, characteristicColors(card));
       for (const t of targets) actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true, enchantsGraveyardCard: true });
       continue;
     }
@@ -1916,7 +1917,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // MAY BE ENCHANTED (2026-10-17, auraSpellHost.enchantableHosts): targeting alone let Pacifism target Azorius First-Wing
       // ("protection from enchantments" — CR 702.16b, 702.16c); every Aura lane now narrows its hosts to what it may enchant.
       const hostSpec = auraEnchantHostSpec(card) || { targetType: "creature", restrictions: [] };
-      const targets = enchantableHosts(state, enumerateTargets(state, playerId, { targetType: hostSpec.targetType, restrictions: hostSpec.restrictions }, colorsOf(card)), card);
+      const targets = enchantableHosts(state, enumerateTargets(state, playerId, { targetType: hostSpec.targetType, restrictions: hostSpec.restrictions }, characteristicColors(card)), card);
       if (targets.length === 0) continue;
       for (const t of targets) {
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
@@ -1982,7 +1983,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // X-cost bestow (Nyxborn Hydra is gated out by isNativeBestow today — its dynamic per-counter bonus
       // isn't modeled) — so a clean bestow card here never has {X} in its bestow cost; no X enumeration.
       if (canAffordBestow && !bestowCost.hasX) {
-        const targets = enchantableHosts(state, enumerateTargets(state, playerId, { targetType: "creature" }, colorsOf(card)), card); // a bestowed spell is an Aura spell (CR 702.103b)
+        const targets = enchantableHosts(state, enumerateTargets(state, playerId, { targetType: "creature" }, characteristicColors(card)), card); // a bestowed spell is an Aura spell (CR 702.103b)
         for (const t of targets) {
           actions.push({
             ...base,
@@ -2010,7 +2011,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // subtype). A bare "Enchant land" mana Aura offers any own land. Honoring the subtype at the target site
       // is what keeps the boost faithful to "enchant Forest" — the Aura only ever attaches to (and boosts) a Forest.
       const targetType = auraEnchantSubject(card) === "forest" ? "forest" : "land";
-      const targets = enchantableHosts(state, enumerateTargets(state, playerId, { targetType, restrictions: [{ kind: "controller", who: "you" }] }, colorsOf(card)), card);
+      const targets = enchantableHosts(state, enumerateTargets(state, playerId, { targetType, restrictions: [{ kind: "controller", who: "you" }] }, characteristicColors(card)), card);
       if (targets.length === 0) continue;
       for (const t of targets) {
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
@@ -2038,7 +2039,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         const restrictions = grantHost.host === "creature"
           ? (auraEnchantRestrictions(card) || [])
           : (grantHost.ownOnly ? [{ kind: "controller", who: "you" }] : []);
-        const targets = enchantableHosts(state, enumerateTargets(state, playerId, { targetType: grantHost.host, restrictions }, colorsOf(card)), card);
+        const targets = enchantableHosts(state, enumerateTargets(state, playerId, { targetType: grantHost.host, restrictions }, characteristicColors(card)), card);
         if (targets.length === 0) continue;         // no legal host → can't cast (CR 303.4a)
         for (const t of targets) {
           actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
@@ -2177,7 +2178,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       const targetingEffect = legacyTargetingEffect(card, effect);
       // KW-PROTECTION (CR 702.16b): the spell's colors gate targeting — a creature with protection from
       // a color the spell is can't be targeted by it (removal/burn immunity), even by its own controller.
-      const targets = enumerateTargets(state, playerId, targetingEffect, colorsOf(card));
+      const targets = enumerateTargets(state, playerId, targetingEffect, characteristicColors(card));
       if (targets.length === 0) continue;
       for (const t of targets) {
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true });
@@ -2192,7 +2193,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // nothing. (HIGH counters never reach here — they `continue` from the program branch above.)
       const counterFilter = counterSpellTargetFilter(card);
       if (counterFilter != null) {
-        const stackTargets = enumerateTargets(state, playerId, { kind: "counter", targetType: "spell", spellFilter: counterFilter }, colorsOf(card));
+        const stackTargets = enumerateTargets(state, playerId, { kind: "counter", targetType: "spell", spellFilter: counterFilter }, characteristicColors(card));
         if (stackTargets.length === 0) continue;       // no legal spell on the stack → can't cast (CR 601.2c)
         for (const t of stackTargets) {
           actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true });
@@ -3343,7 +3344,7 @@ function actionsDiscardAbilityFromHand(state, playerId) {
     // no legal target is unactivatable, CR 602.2b/601.2c — never a discarded card and a fizzled effect).
     // Non-targeted abilities emit the single bare action, byte-identical to before.
     if (programNeedsChosenTarget(program)) {
-      for (const choice of expandCastChoices(state, playerId, program, colorsOf(card))) {
+      for (const choice of expandCastChoices(state, playerId, program, characteristicColors(card))) {
         actions.push({ kind: "discard-ability", playerId, cardId: card.id, name: card.name, cost, cmc: totalCmc(cost), targets: choice.targets || [] });
       }
       continue;
@@ -3629,7 +3630,7 @@ function actionsActivateGraveyardExile(state, playerId) {
     // GY-3 (④-T): a targeted program expands through the SAME helper the battlefield activated lane uses; the
     // card's own id rides as sourceId so an "another target … card from your graveyard" restriction (notSource)
     // never offers the card that is being exiled as its own cost. No legal target → not offered (CR 601.2c).
-    const choices = rec.targeted ? expandCastChoices(state, playerId, rec.program, colorsOf(card), { sourceId: card.id }) : [{ targets: [] }];
+    const choices = rec.targeted ? expandCastChoices(state, playerId, rec.program, characteristicColors(card), { sourceId: card.id }) : [{ targets: [] }];
     if (choices.length === 0) continue;
     for (const ch of choices) {
       // The card is exiled as the COST before the ability resolves, so a combo that targets the card ITSELF

@@ -1204,6 +1204,15 @@ pass fixed four of these; they are the template for what to look for:
   graveyard permission and the spend restrictions — reads `characteristicTypeLine` (`staticAbilityParser.spellTypeLine`;
   `faceUpView` for the text), the read the cast triggers already used. A modal face offered by the cast-from-top and
   Rivaz lanes is judged on its own face (`a.faceCard`). Witness: `spellFaceStatics.test.js`.
+  COLOURS follow the same rule (fixed 2026-10-18): a transform or modal double-faced card carries Scryfall's EMPTY
+  top-level `colors` (the enriched game deck carries no faces), so a card in a zone or a spell reads
+  `faceUp.characteristicColors` — the front face's colours (`frontFaceColors`: the face's own `colors`, else its mana
+  symbols and Devoid line), else the card's own (`colorsOfSpell`). Every off-battlefield colour reader goes through it
+  (cost reducers, flash / cast-from-top permissions, colour uncounterability, spend restrictions, cast triggers and the
+  per-turn record, counter filters, targeting / enchanting protection, pitch, imprint, tutor gates); `faceUpView` carries
+  the front colours; a permanent's colours stay `layers.permanentColors` (seeded by the same `frontFaceColors`).
+  `layers.colorsOf` is the raw array — never a zone or spell read. The opponents-enter-tapped impositions read the
+  entering card's `characteristicTypeLine` too. Witness: `dfcSpellColors.test.js`, `dfcEntersTapped.test.js`.
 - **A counter replacement keyed on WHO PUTS the counters** (credit removed 2026-10-17): "If you would put …" / "If an
   opponent would put …" (Vorinclex, Monstrous Raider; Lae'zel, Vlaakith's Champion; Doc Samson) describes the putter (CR
   614.1a; wither / infect counters are put by the source's controller, CR 120.3d), but `gameState.addCounter` carries no

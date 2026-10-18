@@ -53,7 +53,7 @@ import {
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers, checkLifegainTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, stackSpellIsUncounterable } from "./staticAbilityParser.js";
 import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
-import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentHasCardType, permanentHasTypeWord, permanentColors, colorsOf } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
+import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentHasCardType, permanentHasTypeWord, permanentColors } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
 import { protectionApplies } from "./protection.js";
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — damage to a player dealt to a creature instead (CR 614.9)
 import { isNonChosenTargetType } from "./targetTypes.js";
@@ -63,6 +63,7 @@ import { selfDamagePrevention, attachedDamagePrevention, counterShieldPrevention
 import { armDamageToCreatureFlag } from "./wolverine.js";
 import { creatureSatisfiesRestrictions } from "./creatureRestrictions.js"; // the shared 16-kind restriction satisfier (leaf) — also read by effects/atoms/shared.massCreatureTargets
 import { TARGET_SUBTYPES } from "./effects/parseHelpers.js"; // SUBTYPE-TARGET — curated creature-subtype allowlist (leaf, cycle-safe)
+import { characteristicColors } from "./faceUp.js"; // a resolving spell's colours — the face being cast (CR 712.8c) (a leaf)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39b — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a graveyard card that is every creature type (Changeling, Maskwood Nexus); a leaf over keywords.js
 
@@ -696,14 +697,14 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceC
 
 /**
  * CR 608.2b — the colours a resolving spell's or ability's SOURCE has for the re-check's protection and colour-shield
- * judgments (CR 702.16b, 702.11d): a spell's own, read off its card exactly as the cast offer reads them (colorsOf); an
+ * judgments (CR 702.16b, 702.11d): a spell's own, read off its card exactly as the cast offer reads them (characteristicColors); an
  * ability's, its source permanent's CURRENT colours (layer 5). An ability whose source has left the battlefield is judged
  * by last known information (CR 608.2b) the engine does not keep, so it reads no colour (the layer engine derives a missing
  * permanent as colourless) — and an empty list never makes a target illegal at the re-check (canBeTargetedBy /
  * playerTargetableBy).
  */
 export function resolutionSourceColors(state, stackObject, sourceId) {
-  if (stackObject?.kind === "spell") return colorsOf(stackObject.source);
+  if (stackObject?.kind === "spell") return characteristicColors(stackObject.source);
   return permanentColors(state, sourceId);
 }
 

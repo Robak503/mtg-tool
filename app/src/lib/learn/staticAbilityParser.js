@@ -26,7 +26,7 @@ import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword, hasKeyword } from ".
 import { colorsOfSpell } from "./spellColors.js"; // a leaf (no imports) — the face builders read it without this module
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — Root Sliver's "Sliver spells": a spell's every-creature-type answer; a leaf (keywords.js only)
 import { isLevelerFrame } from "./leveler.js"; // LV-1 — the leveler frame detector (leaf module, no cycle)
-import { faceUpView, characteristicTypeLine } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — a multi-face card's statics are its front face's; a spell's type line is the face being cast's (spellTypeLine)
+import { faceUpView, characteristicTypeLine, characteristicColors } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — a multi-face card's statics are its front face's; a spell's type line and colours are the face being cast's (spellTypeLine, characteristicColors)
 import { classLiveCard } from "./classLevels.js"; // CLASS (CR 716.2a) — the play-from-top permission reads a modeled Class's level view (a zero-import leaf)
 import { isAttackTaxClause, parseAttackTax } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — a pure leaf, shared with the runtime so metric and game agree
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // the closed creature-subtype vocabulary, imported from the LEAF (never through targeting.js — that edge crashes module init; see creatureTypes.js)
@@ -5627,7 +5627,7 @@ export function costReductionForSpell(reducers, spellCard, fromZone = "hand", ca
   // New Capenna, whose BACK face is the artifact (CR 712.8c).
   const typeLine = spellTypeLine(spellCard).toLowerCase();
   const spellName = spellCard?.name;
-  let spellColors = null; // lazily derived only when a color reducer is present
+  let spellColors = null; // lazily derived only when a color reducer is present — the face being cast's (characteristicColors, CR 712.8c)
   let total = 0;
   for (const r of reducers) {
     // EMINENCE "OTHER <subtype> spells": never reduce the source card's own cast (The Ur-Dragon casting itself).
@@ -5713,12 +5713,12 @@ export function costReductionForSpell(reducers, spellCard, fromZone = "hand", ca
       // colors-only branch below, which is a union across the listed colors. Without this the if/else-if
       // dispatch would take the subtype branch alone and Bontu's Monument would shave WHITE creatures too.
       if (Array.isArray(r.colors)) {
-        if (spellColors === null) spellColors = colorsOfSpell(spellCard);
+        if (spellColors === null) spellColors = characteristicColors(spellCard);
         if (!r.colors.some((col) => spellColors.includes(col))) continue;
       }
       total += r.amount || 0;
     } else if (Array.isArray(r.colors)) {
-      if (spellColors === null) spellColors = colorsOfSpell(spellCard);
+      if (spellColors === null) spellColors = characteristicColors(spellCard);
       if (r.colors.some((col) => spellColors.includes(col))) total += r.amount || 0;
     } else if (r.chosenType) {
       // The reducer applies only to its CONTROLLER's spells (the "you cast" framing); the cast site only ever
@@ -5916,7 +5916,7 @@ export function flashCastPermissionsOf(card) {
  *   • colorless  — the spell has NO colors;
  *   • nonCreature — the spell's type line has NO "Creature";
  *   • subtype    — the subtype appears (word-bounded, after the em dash) in the spell's type line.
- * Pure; no engine import (reuses the leaf colorsOfSpell). CREED: a spec that ever failed to reduce to a modeled
+ * Pure; no engine import (the leaf faceUp.characteristicColors). CREED: a spec that ever failed to reduce to a modeled
  * filter is null upstream (never reaches here), so this only ever tests a faithfully-evaluable predicate.
  */
 export function spellMatchesFlashFilter(spec, spellCard, every = false) { // `every` — P·39b, see coloredPipReductionForSpell
@@ -5928,8 +5928,10 @@ export function spellMatchesFlashFilter(spec, spellCard, every = false) { // `ev
   const typeLineLc = typeLine.toLowerCase();
   const dash = typeLine.indexOf("—");
   const subtypeStr = (dash >= 0 ? typeLine.slice(dash + 1) : "").toLowerCase();
+  // The face being cast's colours (characteristicColors — CR 712.8c): Yeva's "green creature spells" reaches Kessig Prowler, whose
+  // combined card carries Scryfall's empty top-level colours.
   let spellColors = null; // lazily derived only when a color / colorless qualifier is present
-  const colorsOf = () => (spellColors ??= colorsOfSpell(spellCard));
+  const colorsOf = () => (spellColors ??= characteristicColors(spellCard));
   for (const q of spec.qualifiers || []) {
     let ok = true;
     if (q.types) {
@@ -5994,16 +5996,6 @@ export function uncounterablePlayersOnBattlefield(state) {
   return players;
 }
 
-/** A card's colours as letters: its printed `colors`, else the coloured letters of its mana cost (hybrid
- *  halves included). Leaf — no layers read (a spell on the stack has no layer-derived colour anyway). */
-function cardColorLetters(card) {
-  if (Array.isArray(card?.colors) && card.colors.length) return card.colors.map((x) => String(x).toUpperCase());
-  const cost = String(card?.mana_cost ?? card?.mana ?? "");
-  const out = new Set();
-  for (const m of cost.matchAll(/\{([^}]+)\}/g)) for (const ch of m[1].toUpperCase().split("/")) if ("WUBRG".includes(ch)) out.add(ch);
-  return [...out];
-}
-
 /** Does `playerId`'s uncounterable-static coverage protect a spell with this type line (and, for a colour-
  *  scoped static — SG-14 — with this card's colours)? `typeLine` is the spell's — the face being cast (spellTypeLine). */
 export function uncounterableCoversSpell(uncounterablePlayers, playerId, typeLine, card = null) {
@@ -6011,7 +6003,9 @@ export function uncounterableCoversSpell(uncounterablePlayers, playerId, typeLin
   if (!filters) return false;
   if (filters.has(null)) return true;                     // the unfiltered Chimil form covers everything
   const tl = String(typeLine || "");
-  const colors = card ? cardColorLetters(card) : [];
+  // The spell's colours (characteristicColors — the face being cast, CR 712.8c; Devoid none, CR 702.114a). The old read took the
+  // mana cost's pips whenever the colours array was empty, so a devoid green spell (Brood Monitor) was green to Allosaurus Shepherd.
+  const colors = card ? characteristicColors(card) : [];
   for (const t of filters) {
     if (t && typeof t === "object") { if (t.color && colors.includes(t.color)) return true; continue; }
     if (t && new RegExp(`\\b${t}\\b`, "i").test(tl)) return true;
@@ -6091,15 +6085,11 @@ export function castFromTopFilterAllows(spellFilter, card, every = false) { // `
   // The face being cast (spellTypeLine): "creature spells" from the top is not Invasion of Ikoria, whose back face is the creature.
   // A modal face is judged on its own — the offer passes each projected face (legalChoices.actionsPlayFromTopOfLibrary).
   const tl = spellTypeLine(card);
-  // "colorless" (Mystic Forge) is a COLOUR test, not a type-line word: a card with no colour — read off its printed
-  // colours, else its cost pips — passes; a land is never a spell and is refused by the caller's lands gate.
-  return spellFilter.some((w) => (w === "colorless" ? cardIsColorless(card)
+  // "colorless" (Mystic Forge) is a COLOUR test, not a type-line word: a card with no colour passes — the face being cast's colours
+  // (characteristicColors, CR 712.8c), so Delver of Secrets, whose combined card carries Scryfall's empty top-level colours, is the
+  // blue spell it is; a land is never a spell and is refused by the caller's lands gate.
+  return spellFilter.some((w) => (w === "colorless" ? characteristicColors(card).length === 0
     : new RegExp(`\\b${w}\\b`, "i").test(tl) || (every && CR_CREATURE_TYPES.has(String(w).toLowerCase()))));
-}
-function cardIsColorless(card) {
-  if (Array.isArray(card?.colors)) return card.colors.length === 0;
-  const cost = String(card?.mana ?? card?.mana_cost ?? "");
-  return !/\{[^}]*[WUBRG][^}]*\}/i.test(cost);
 }
 
 export function playFromTopPermission(state, playerId) {
@@ -7461,7 +7451,9 @@ export function opponentsEnterTappedOf(card) {
  * imposition can't be dodged through a side door.
  */
 export function impositionEntersTapped(state, card, controller) {
-  const tl = String(card?.type || card?.type_line || "");
+  // The entering permanent's types are its FRONT face's (characteristicTypeLine — a double-faced card enters front face up, CR 712.14,
+  // 712.8d): Kismet does not tap Growing Rites of Itlimoc, whose back face is the land, nor Imposing Sovereign Westvale Abbey.
+  const tl = characteristicTypeLine(card);
   if (!/\b(?:Artifact|Creature|Land)\b/i.test(tl)) return false;
   for (const [pid, pl] of Object.entries(state?.players || {})) {
     if (pid === controller) continue; // "your opponents" — the controller's own Kismet never taxes them

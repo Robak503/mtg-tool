@@ -27,14 +27,13 @@
  *
  * Imports only modules legalChoices, actionDispatcher and resolvers already reach; none of them imports those three.
  */
-import { faceUpView } from "./faceUp.js";
+import { faceUpView, characteristicColors } from "./faceUp.js";
 import { isAuraCard, isNativeAura, isNativeManaAura, playerAuraSpellSubject, auraSpellHostSpec } from "./staticAbilityParser.js";
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
 import { isGraveyardReanimateAura } from "./animateDeadGate.js";
 import { enumerateTargets } from "./spellEffects.js";
 import { mayBeEnchantedBy } from "./auraEntry.js";
 import { findPermanent } from "./gameState.js";
-import { permanentPrintedColors } from "./layers.js";
 
 /** An Aura spell with a modeled cast lane of its own (each the gate its lane offers and routes on). */
 function hasModeledAuraLane(card) {
@@ -54,8 +53,8 @@ export function isBodyOnlyAuraSpell(card) {
 export function bodyOnlyAuraHosts(state, card, controller, { recheck = false } = {}) {
   const spec = auraSpellHostSpec(card);
   if (!spec) return [];
-  // The spell's colours are its front face's (layers.permanentPrintedColors — a transform card's top-level colours are empty).
-  const targets = enumerateTargets(state, controller, { targetType: spec.targetType, restrictions: spec.restrictions }, permanentPrintedColors(card), recheck ? { recheck: true } : null);
+  // The spell's colours are its front face's (faceUp.characteristicColors, CR 712.8c — a transform card's top-level colours are empty).
+  const targets = enumerateTargets(state, controller, { targetType: spec.targetType, restrictions: spec.restrictions }, characteristicColors(card), recheck ? { recheck: true } : null);
   return enchantableHosts(state, targets, faceUpView(card));
 }
 

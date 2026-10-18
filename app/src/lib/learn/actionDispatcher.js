@@ -90,7 +90,7 @@ import { isNativeAura, isNativeManaAura, playerAuraSpellSubject, entersTapped, i
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
 import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.6b) — same reader the action gate uses · LANDS-5: the ONE discard-ability price reducer the offer uses too
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf, crewCostWithOverrides, permanentColors, permIsEveryCreatureType, permanentManaValue, permanentTypes } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
+import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, crewCostWithOverrides, permanentColors, permIsEveryCreatureType, permanentManaValue, permanentTypes } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell / command-zone card that is every creature type (Changeling, Maskwood Nexus); a leaf over keywords.js
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39b — every creature type shares a creature type only (CR 205.3d); a zero-import leaf
 import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility, parseHandSelfPutAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch; S8 — the Pilot's crew boost; play-weighted #570 — the hand self-put, re-read from the card
@@ -103,6 +103,7 @@ import { applyKiraTargetCounter } from "./kiraTargetCounter.js";
 import { entersWithFadeCounters } from "./fading.js";
 import { applyXCastTokenTriggers } from "./xCastToken.js";
 import { applyElseLandFromHand } from "./effects/atoms/freeCast.js"; // KELLAN else-arm: decline the free cast → the optional land put (CR 601.2b "If you don't, …")
+import { characteristicColors, characteristicTypeLine } from "./faceUp.js"; // the face being cast's colours and type line (CR 712.8c) — the per-turn cast record, Guildmages' Forum's rider (a leaf)
 import { extractAdditionalCosts, extractAltCost } from "./effects/castModifiers.js"; // AC-PERMANENT — a permanent's cost lives beside its (null) program; + extractAltCost: the sacrifice-lands payment is checked against the PRINTED count/subtype
 
 export class DispatcherError extends Error {
@@ -1081,7 +1082,7 @@ function applyCastSpell(state, action) {
   // opponent casts a … spell" watchers trigger and go on the stack ABOVE it (flush here,
   // not at a later checkpoint, so they resolve BEFORE the spell — correct order, and the
   // right thing for any future referential effect).
-  next = recordSpellCast(next, { playerId: action.playerId, spellCard: castCard, colors: colorsOf(castCard) }); // + the spell's colors (shelf D17 — the trap conditions); TRIG-CAST2: count this cast BEFORE firing, so "your second spell each turn" sees the running total
+  next = recordSpellCast(next, { playerId: action.playerId, spellCard: castCard, colors: characteristicColors(castCard) }); // + the spell's colors (shelf D17 — the trap conditions; the face being cast's, so Delver of Secrets is a blue spell cast — CR 712.8c); TRIG-CAST2: count this cast BEFORE firing, so "your second spell each turn" sees the running total
   // SHELF-85 V11 (2026-09-04 — Path of Ancestry): mana with a "when that mana is spent to cast a creature spell that
   // shares a creature type with your commander, scry 1" rider was spent on THIS cast (read off the same plan the commit
   // deducted). A qualifying spell — a creature sharing a printed creature type with one of the caster's commanders
@@ -1223,7 +1224,9 @@ function manaSpentEnterCounters(state, action, card, castCard, spentRiders) {
     if (rider?.kind === "commanderCounters" && (card?.isCommander || castCard?.isCommander)) {
       const key = card?.commanderInstanceId || action.cardId;
       n += (state.players[action.playerId]?.commanderCastCount?.[key] || 0) + (action.fromZone === "command" ? 1 : 0);
-    } else if (rider?.kind === "multicoloredCreatureCounter" && /\bCreature\b/.test(String(castCard?.type || castCard?.type_line || "")) && colorsOf(castCard).length >= 2) {
+    } else if (rider?.kind === "multicoloredCreatureCounter" && /\bCreature\b/.test(characteristicTypeLine(castCard)) && characteristicColors(castCard).length >= 2) {
+      // The face being cast's types and colours (CR 712.8c): Edgar, Charmed Groom is a white and black creature spell, though its
+      // combined card carries an empty top-level colour array; a battle whose BACK face is a creature is no creature spell.
       n += 1;
     }
   }

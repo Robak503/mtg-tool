@@ -5,7 +5,8 @@
 
 import { logEvent, opponentsOf, findPermanent, deterministicRng, shuffleSeededLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
 import { permanentIsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW
-import { manaCostValue } from "../../spellOnStack.js"; // a mana cost's symbols summed (CR 202.3) — tutorManaValue's fallback; a zero-import leaf
+import { manaCostValue } from "../../spellOnStack.js"; // a mana cost's symbols summed (CR 202.3) — tutorManaValue's fallback; a leaf
+import { characteristicColors } from "../../faceUp.js"; // a library / hand card's colours — a double-faced card is its front face's (CR 712.8a); a leaf
 import { controllerMetric } from "../../interveningIf.js"; // TITHE (O8, 2026-09-05) — "target opponent controls more lands than you" read at resolution (interveningIf → gameState only: cycle-free)
 import { cardIsEveryCreatureType } from "../../everyCreatureType.js"; // P·39b — a library card that is every creature type (Changeling, or Maskwood Nexus's grant): a leaf over keywords.js, cycle-safe
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // P·39b — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
@@ -148,7 +149,9 @@ export function cardMatchesTutorFilter(card, filter, state = null, holderId = nu
   // must hold (currently only a single color is ever produced; the loop keeps it future-proof).
   if (Array.isArray(filter.colors) && filter.colors.length) {
     const COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
-    const cardColors = Array.isArray(card?.colors) ? card.colors : null;
+    // The card's colours (characteristicColors — a double-faced card in a library or a hand is its front face's, CR 712.8a: Summoner's
+    // Pact finds Kessig Prowler, whose combined card carries Scryfall's empty top-level array). No colours array → unknown, as before.
+    const cardColors = Array.isArray(card?.colors) ? characteristicColors(card) : null;
     for (const spec of filter.colors) {
       const neg = spec.startsWith("non");
       const colorWord = neg ? spec.slice(3) : spec;

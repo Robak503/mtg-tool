@@ -30,9 +30,10 @@ import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate, cloneWidenedCopiable, enteredThisTurnCopiable } from "./cloneCopy.js"; // + cloneWidenedCopiable (KN-2) + enteredThisTurnCopiable (shelf D36)
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { bodyOnlyAuraHosts } from "./auraSpellHost.js"; // AURA_ETB's re-check for an Aura no modeled lane casts — the host list its cast was offered from (CR 608.2b)
+import { characteristicColors } from "./faceUp.js"; // the resolving Aura spell's colours — a double-faced spell is its front face's (CR 712.8c) (a leaf)
 import { auraEntryHasHost, enteringAuraHost, mayBeEnchantedBy } from "./auraEntry.js"; // mayBeEnchantedBy: AURA_ETB's re-check (CR 608.2b, 702.16c). A clone that enters as a copy of an Aura chooses what it enchants (CR 303.4f) — auraEntry reaches neither resolvers nor cloneCopy (checked 2026-10-16)
 import { isNativeManaAura, auraChoosesColorOnEnter, parseSoulbondBond } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) — the Aura spell's host re-check; SOULBOND (BLITZ SL-1) — the modeled bond reader
-import { equipmentBarredAsCreature, cannotEquipNow, permanentHasCardType, permanentHasTypeWord, colorsOf, permanentColors, permanentIsCreature } from "./layers.js"; // + permanentHasTypeWord (the type-line audit — the clone re-check's Equipment) // CR 301.5c / 701.3b (cannotEquipNow — a source that is no Equipment right now) — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types; + the colours the CR 608.2b re-checks judge protection against
+import { equipmentBarredAsCreature, cannotEquipNow, permanentHasCardType, permanentHasTypeWord, permanentColors, permanentIsCreature } from "./layers.js"; // + permanentHasTypeWord (the type-line audit — the clone re-check's Equipment) // CR 301.5c / 701.3b (cannotEquipNow — a source that is no Equipment right now) — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types; + the colours the CR 608.2b re-checks judge protection against
 import { canBeTargetedBy, playerTargetableBy } from "./spellEffects.js"; // the ONE targetability predicate the Aura / Equip offers read — re-asked as those spells and abilities resolve (CR 608.2b, 608.3b)
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
@@ -527,7 +528,7 @@ export const RESOLVERS = Object.freeze({
       // CR 608.3b / 608.2b — still in the game AND still targetable by this Aura spell: the offer's playerTargetableBy (shroud,
       // hexproof, protection from everything, hexproof from colours), read against the Aura's own colours, which are definite
       // here — the offer, threading none, refuses every hexproof-from-colours player.
-      if (!state.players?.[targetId] || !playerTargetableBy(state, targetId, controller, colorsOf(card))) {
+      if (!state.players?.[targetId] || !playerTargetableBy(state, targetId, controller, characteristicColors(card))) {
         return logEvent(finishSpellResolution(state, { playerId: obj.owner || controller, card }), { kind: "spell-fizzle", source: card?.name, reason: "enchanted player gone", controller });
       }
       return enterPermanent(state, card, controller, { enchantedPlayerId: targetId, ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) });
@@ -576,7 +577,7 @@ export const RESOLVERS = Object.freeze({
     // And a host the Aura may not enchant at all (2026-10-17 — auraEntry.mayBeEnchantedBy, the narrowing every Aura offer now
     // reads through auraSpellHost.enchantableHosts): protection from enchantments (CR 702.16b, 702.16c), "can't be enchanted".
     if (!tgt || layerLandBreaksNonland || !(requiredType.test(tgtType) || layerArtifactHost)
-      || !canBeTargetedBy(state, tgt.permanent, tgt.controller, controller, colorsOf(card))
+      || !canBeTargetedBy(state, tgt.permanent, tgt.controller, controller, characteristicColors(card))
       || !mayBeEnchantedBy(state, tgt.permanent, tgt.controller, card)) {
       // BESTOW (CR 702.103e, 608.3b): a bestowed Aura spell whose target is illegal as it begins resolving — gone, or no
       // longer targetable — ceases to be bestowed and continues resolving as a CREATURE spell: it enters unattached, a
