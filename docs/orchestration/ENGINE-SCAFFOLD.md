@@ -356,6 +356,16 @@ control" (a creature card naming itself) adds `etbColorSelfExempt`: the source's
 sacrifice-cost twin is `sacOther.color` (abilities.parseAbilityCost — "Sacrifice another black creature"), read by the
 activation offer the same way.
 
+**Colorless, creature-or-artifact, and the bare nontoken death (2026-10-17 — Glaring Fleshraker, Weftstalker Ardent, Haliya,
+Harvester of Souls).** "another colorless creature you control enters" is `otherCreatureYouControl` plus `etbColorless` (on the
+whitelist): the entering permanent must be on the battlefield and read NO colour through `layers.permanentColors` (an empty
+read is also what a missing permanent gives, so the presence check is load-bearing). "another creature or artifact you control
+enters" is the `creatureOrArtifactYouControl` scope with `etbExcludeSelf` — one entering permanent that is a creature (after the
+layers) or an artifact (its layered card types on the battlefield, else its type line): an artifact creature fires once; the
+"<self> or another creature or artifact you control" union (a creature or artifact card naming itself) is the same scope
+without the exclusion. "another nontoken creature dies" with no controller is `eachOtherCreature` + `nontokenFilter` — the
+pre-switch token gate composes with any scope, and the batch look-back fires it for a creature dying beside the source.
+
 #### 4.4b Trigger classes beyond the event trigger (added 2026-07-25)
 
 Three kinds of trigger do NOT fire off a discrete event, and each has its own lane:
@@ -451,7 +461,10 @@ Servos) are the ONE reader both entries share: `resolvers.enterPermanent` (a per
 the cast facts: X, kicks, colours spent) and `zones.enterCardFromZone` (every put, reanimation, blink return and
 mass return; a permanent that wasn't cast has X = 0). A one-event entry (Living Death, Rise of the Dark Realms,
 Genesis Wave, a multi-pick put) passes `replacementState`, the board as the event began (CR 614.12). A new
-"enters with" / "as this enters" ability goes in this leaf, never at an entry site.
+"enters with" / "as this enters" ability goes in this leaf, never at an entry site. The opponents-enter-tapped imposition
+(`staticAbilityParser.impositionEntersTapped`, read here and at the land drop) takes a type set of bare words plus one
+qualified entry, `NonbasicLand` (2026-10-17 — Thalia, Heretic Cathar; Archon of Emeria): a land without the basic
+supertype, read off the face that is up (`faceUp.faceUpView` — a transform card enters front face up).
 
 **An Aura entering without being cast** (2026-10-16, CR 303.4f/g): `enterCardFromZone` attaches it as it enters —
 to `attachTo` when the effect names the host ("…attached to that creature": Dragon Fangs, Mantle of the Ancients),
@@ -1308,6 +1321,15 @@ replacement byte-identical). What it reads, and the seams a new carrier rides:
 - **The order** (CR 616.1, 616.1f): the applicable entries are run in the order that leaves the LEAST damage (every order up
   to six entries) — the affected player shields themselves and their permanents — and a fully prevented event stops (no
   addend on nothing: Torbran's ruling). Each entry applies once per event (614.5), keyed by permanent + entry index.
+- **The group prevention wall** (2026-10-17 — Dolmen Gate, Iroas, Crystal Barricade, Tajic, Mark of Asylum, Inner Sanctum,
+  Bubble Matrix, Light of Sanction): "Prevent all [combat|noncombat] damage that would be dealt to [attacking|other]
+  creatures[ you control][ by sources you control]." → `op: "prevent"` with the recipient gate `targetCreature` ("you" /
+  "any") + `targetAttacking` (in `state.combat.attackers` as the damage would be dealt) + `targetOther` (not the carrier),
+  the damage kind as `combatOnly` / `noncombatOnly`, and "by sources you control" as the source-controller side. The
+  recipient must be a creature on the battlefield after the layers. It is a prevention op, so Frenzied Baloth switches its
+  combat half off and the affected player orders it first beside a doubler. A prevented hit deals nothing: no mark, no
+  lifelink gain, no deathtouch kill (both funnels skip a 0). An "attacking" or "other" group with no controller, a duration,
+  or any other qualifier stays unread.
 - **Stored replacements** (CR 611.2a): `state.damageReplacementEffects` — created by a resolved ability (Lightning, Army of
   One's Stagger: `effects/atoms/misc.applyDamageReplacementUntilNextTurn`, `recipientPlayerSide`), read beside the statics,
   ended at the creator's next untap step (`gameState.expireDamageReplacementEffects`) or when the creator leaves the game.

@@ -14,9 +14,10 @@
  * a creature-only Imposing Sovereign would have started tapping opponents' LANDS. That is the failure this
  * file exists to prevent, and it is tested per type, in both directions.
  *
- * CREED — a QUALIFIED subject is a DIFFERENT rule and must stay unread, because matching it would silently
- * drop the qualifier and over-apply:
- *   - "creatures and NONBASIC lands …" (Thalia, Heretic Cathar) — basics must still enter untapped
+ * CREED — a QUALIFIED subject is a DIFFERENT rule and must stay unread unless the qualifier itself is read, because
+ * matching it would silently drop the qualifier and over-apply:
+ *   - "creatures and NONBASIC lands …" (Thalia, Heretic Cathar) — READ since 2026-10-17: the qualifier is its own entry
+ *                                                                  (a basic land still enters untapped)
  *   - "SNOW lands …"                   (Reidane)                — non-snow lands must still enter untapped
  *   - "creatures PLAYED BY your opponents …" (Uphill Battle)    — a different subject clause
  */
@@ -96,12 +97,16 @@ describe("ENFORCEMENT — the imposition applies to its OWN types and no others"
   });
 });
 
-describe("CREED — a qualified subject is a different rule and stays unread", () => {
-  it("'creatures and NONBASIC lands' (Thalia, Heretic Cathar)", () => {
+describe("CREED — a qualified subject is a different rule; only the one the reader models is read", () => {
+  // GRADUATED (2026-10-17, the play-weighted program): "nonbasic lands" is now read as its own entry — a land without the
+  // basic supertype (nonbasicLandsEnterTapped.test.js). The qualifier is enforced, not dropped: the basic Forest below still
+  // enters untapped, which is what this pin guarded.
+  it("'creatures and NONBASIC lands' (Thalia, Heretic Cathar) — the qualifier is read: a basic land is untouched", () => {
     const thalia = { ...SOVEREIGN, name: "Thalia, Heretic Cathar", oracle: "Creatures and nonbasic lands your opponents control enter tapped." };
-    expect(opponentsEnterTappedTypesOf(thalia)).toBeNull();
-    expect(classifyCard(thalia)).not.toMatch(/^native/);
-    expect(taps(thalia, LAND)).toBe(false);   // and it imposes NOTHING rather than half the rule
+    expect([...(opponentsEnterTappedTypesOf(thalia) || [])].sort()).toEqual(["Creature", "NonbasicLand"]);
+    expect(classifyCard(thalia)).toMatch(/^native/);
+    expect(taps(thalia, LAND)).toBe(false);   // a BASIC land still enters untapped
+    expect(taps(thalia, { id: "nb", name: "Command Tower", type: "Land" })).toBe(true);
   });
 
   it("'SNOW lands' (Reidane)", () => {

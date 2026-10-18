@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.165.0** (tagged 2026-10-18 on the `[0.165.0]` CHANGELOG cut):
-> **9 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.0% (15,589)**; engine gains since the tag: **+53**. The next tag
+> **10 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.1% (15,605)**; engine gains since the tag: **+69**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,72 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🎯 2026-10-18 — PLAY-WEIGHTED: four small readers the most-played still lacked — the group prevention wall: Dolmen Gate (EDHREC #1348) "Prevent all combat damage that would be dealt to attacking creatures you control.", Iroas, God of Victory (#1456) all damage to them, Crystal Barricade (#2001) noncombat damage to the other creatures you control (+ Tajic, Legion's Edge, Mark of Asylum, Inner Sanctum, Bubble Matrix, Light of Sanction); the opponents-enter-tapped imposition over NONBASIC lands: Thalia, Heretic Cathar (#1476), Archon of Emeria (#2115); "another nontoken creature dies" with no controller: Harvester of Souls (#1910), Ogre Slumlord (#1998); and two enters subjects: "another creature or artifact you control" — Weftstalker Ardent (#1378), Haliya, Guided by Light (#1479) — and "another colorless creature you control" — Glaring Fleshraker (#1211) (+ Flayer Drone) · **+16** · snapshot native+land 15,584 → 15,600
+> Suite **21,210 green (1 skipped) / 1,905 files + the known `crucibleRun.test.js` 20 s load timeout** under the gate queue (with the rules
+> index built for the run, then deleted). Run 1 also failed kismet.test.js's old pin (graduated below); runs 2 and 3 failed only the crucible
+> test ("plays EXACTLY N games …", 20.0 s). Root-caused before a fourth run: it passes alone on this tree (10/10, that test 6.9 s; 6.7 s on
+> the archive), and the untouched 24af8dc8 archive's own gated full-suite run fails the same test the same way (its file 75.6 s) — pre-existing
+> ()=>"under full-suite load, not this slice; the test was not changed. The suite ran on the final code and test bytes; the docs\n> (this entry, CHANGELOG, ENGINE-SCAFFOLD) were written after it — no test reads them." Lint 0 (CR citations: 0 of
+> 11,909 name no rule; keyword citations: 0 of 2,439 cite a different keyword). Flip-diff **+16 / −0 / RETIERED 0** (34,620 cards; before = an
+> untouched `git archive` of 24af8dc8, snapshotted before the first edit; native+land 15,584 → 15,600 of 34,584 snapshot names); program-fingerprint (34,620 cards) moves 9 programs — the 6 gained
+> trigger cards and 3 that stay parked (below); the 10 static gains move in their static or damage-replacement read, not their programs.
+> `measure-coverage` (MTG_APP_ROOT = the install): corpus 15,589 → 15,605; top 1,000 929 → 929; top 2,500 **1,791 → 1,801** (Glaring
+> Fleshraker #1211, Dolmen Gate #1348, Weftstalker Ardent #1378, Iroas #1456, Thalia #1476, Haliya #1479, Harvester of Souls #1910, Ogre
+> Slumlord #1998, Crystal Barricade #2001, Archon of Emeria #2115); top 5,000 2,796 → 2,806; top 10,000 4,610 → 4,621 (+ Tajic #7984); the
+> 30 profile decks unchanged (2,753 / 2,998 — none holds a gained card; per-deck lines byte-identical). **Mutants 8/8** on assertions, each
+> restored byte-identical (sha256): the attacking gate off (3 tests red), the "you control" gate off (3), the "other" gate off (2), the
+> basic supertype unread (2), the whole type line for the face that is up (1 — Thaumatic Compass), the dies nontoken gate dropped (3), the
+> "another" exclusion dropped (2), the colorless gate admitting colours (2). Witness files written before each mechanism's engine change
+> and run on the untouched archive: **54 tests in four files — 34 fail there on assertions, the 20 controls pass on both** (the final
+> versions; two first-version assertions read 0 marked damage off a creature that had died and passed on base — `marked` now reads "gone"
+> for a departed permanent and the twins use a 3/3; Iroas's first combat test was dropped by its own menace grant — it now blocks with
+> two creatures; the Rat-token control first relied on a Rat the trigger made and failed on base — it now places its own token).
+> Graduated: `entersTappedTypeScope.test.js` and `kismet.test.js` (below — each fails on the archive on an assertion). A/B **80 seeded commander games** (base seed 7,
+> 10 per pod, the 30 profile decks, default AI; base = the untouched 24af8dc8 archive): **80 / 80 byte-identical** (the sha256 of every game record — each decision row, the log,
+> result, winner, turns, ticks), 0 errors on either tree, results unchanged (ai-wins 58 / user-wins 22), 649.2 s / 388.0 s (the base batch ran
+> beside the first gated suite run) — no profile deck holds a gained card and none of the 16 appears in the 80 game logs. Committed on `day/played25d`, not pushed; the
+> release-batch line and the WAKE-REPORT are the integrator's.
+> · **The group prevention wall** (damageReplacements.readDamageSentence). "Prevent all [combat |noncombat ]damage that would be dealt to
+>   [attacking |other ]creatures[ you control][ by sources you control]." → `op: "prevent"` (CR 615.1a) with a recipient gate in
+>   extraGates: `targetCreature` "you" / "any" (a creature on the battlefield after the layers — a God below its devotion is none),
+>   `targetAttacking` (in `state.combat.attackers` as the damage would be dealt), `targetOther` (not the carrier); the damage kind as
+>   `combatOnly` / `noncombatOnly`; Light of Sanction's "by sources you control" as the source-controller side. It rides the existing
+>   consult at both funnels, so the CR 616.1 order applies (beside an opposing Torbran the prevention goes first — witnessed), Frenzied
+>   Baloth switches its combat half off (CR 615.12 — witnessed), and a prevented hit deals nothing: no mark, no lifelink gain, no
+>   deathtouch kill (a Vampire Nighthawk blocking under Dolmen Gate — witnessed). The bundled rulings witnessed: Iroas prevents noncombat
+>   damage to an attacking creature too; Crystal Barricade's (and Tajic's) protection holds for the other creatures when the same sweep
+>   deals lethal damage to the Barricade. Credited through `classifyDamageReplacementBody` (no coverage change). An "attacking" or
+>   "other" group with no controller, a duration, "blocking", "with flying" or "you and creatures you control" stays unread. Twins:
+>   Tajic, Mark of Asylum, Inner Sanctum (its cumulative upkeep was read), Bubble Matrix, Light of Sanction.
+> · **Nonbasic lands enter tapped** (staticAbilityParser.opponentsEnterTappedTypesOf / impositionEntersTapped). "nonbasic lands" is its own
+>   entry, `NonbasicLand`: a land without the basic supertype (CR 205.4c — a snow basic is basic), read off the face that is up
+>   (`faceUpView` — Thaumatic Compass // Spires of Orazca enters as an artifact). ()=>"Witnessed at the land drop and at the shared enter\n>   replacements (an effect putting the land in). The rulings\x27 \"enters tapped unless … even if that condition is met\" holds by\n>   construction (the imposition is OR\x27d with the conditional read at both chokepoints) — not separately witnessed."
+> · **"another nontoken creature dies"** (no controller) → `eachOtherCreature` + `nontokenFilter` (the pre-switch token gate; the old note
+>   said the scope "can't carry" the check — it has run before the scope switch since wave3b). Harvester of Souls' ruling witnessed:
+>   dying beside another nontoken creature, it still draws for it (the batch look-back).
+> · **"another creature or artifact you control enters"** → the new `creatureOrArtifactYouControl` scope with `etbExcludeSelf` (a creature
+>   after the layers, or an artifact by its layered card types while on the battlefield; an artifact creature fires once — witnessed);
+>   Haliya's "<self> or another …" union (a creature or artifact card naming itself) → the scope without the exclusion. **"another
+>   colorless creature you control enters"** → `otherCreatureYouControl` + `etbColorless` (whitelisted): the entering permanent on the
+>   battlefield reads no colour through `layers.permanentColors` (CR 105.2c); Glaring Fleshraker's own Eldrazi Spawn fires it.
+> · **Tests changed on purpose (pins graduated):** entersTappedTypeScope.test.js — the CREED pin "'creatures and NONBASIC lands' (Thalia)
+>   stays unread" now asserts the reading: the types {Creature, NonbasicLand}, Thalia native, the basic Forest still untapped (what the pin
+>   guarded), a Command Tower tapped. kismet.test.js — its qualified-subject boundary ("Creatures and nonbasic lands …" unread) now asserts
+>   the line reads, and the boundary moves to "Snow lands …" (still unread).
+> · **Programs that move on cards still parked:** Eldrazi Mimic (its colorless watcher is detected; "base power and toughness become
+>   equal to that creature's" stays unread), High-Society Hunter (its dies watcher reads; the attack trigger's optional sacrifice does
+>   not), Koh, the Face Stealer (its dies watcher is detected; "you may exile it" and the rest stay unread).
+> · ⚠️ **Found, not fixed:** (1) impositionEntersTapped's bare type arms read the WHOLE "Front // Back" type line (staticAbilityParser.js:7433
+>   — `tl`): Kismet taps an opponent's entering Growing Rites of Itlimoc (a Legendary Enchantment whose back face is a land) and Imposing
+>   Sovereign an entering Westvale Abbey (a land whose back face is a creature) — measured on the pure function. The new NonbasicLand
+>   entry reads the face that is up; the old arms should too (the back-face family another builder is closing in the cost reducers).
+>   (2) Minotaur, Roxxon CEO's "<self> or another nontoken creature dies" (no controller) stays undetected (triggers.js:1823 reads only
+>   the bare "another" form). (3) opponentAI.js reads no damage replacement or prevention wall (it imports neither damageReplacements nor
+>   combatEvasion's walls), so its attack, block and burn evaluations ignore the new walls as they ignore the old ones — an AI-quality
+>   matter, not a rules one.
+> · Witness: `groupDamagePrevention.test.js` (21), `nonbasicLandsEnterTapped.test.js` (11), `anotherNontokenCreatureDies.test.js` (9),
+>   `creatureOrArtifactEnters.test.js` (13). Graduated: `entersTappedTypeScope.test.js`, `kismet.test.js`.
 
 > ## 🔧 2026-10-18 — FIX (false positive): a double-faced SPELL is its front face to every static that asks what it is (CR 712.8c) — Foundry Inspector's "Artifact spells" no longer discounts Invasion of New Capenna, Invasion of Vryn or Edgar, Charmed Groom (their BACK faces are artifacts); The Ur-Dragon, Dragonspeaker Shaman, Urza's Incubator, Herald's Horn and Morophon no longer discount Invasion of Tarkir; Prowling Serpopard, Rhythm of the Wild and Leyline of Lifeforce no longer protect Invasion of Ikoria, Thalia taxes it, Sally Sparrow's flash, Garruk's Horde's / Eladamri's / Elven Chorus's cast-from-top and Cavern of Souls' mana no longer reach it; Mishra's Workshop no longer pays for Invasion of Vryn, Rivaz no longer casts Invasion of Tarkir from the graveyard; Malevolent Hermit and Goldbug are counterable (a back face's "can't be countered" line); Mystic Forge casts only Birgi's artifact face off the top · **±0** · snapshot native+land 15,584 unchanged
 > Suite **21,176 green (1 skipped) / 1,902 files** under the gate queue (with the rules index built for the run, then deleted; run 1 failed

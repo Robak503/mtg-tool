@@ -34,7 +34,11 @@ describe("reader + classify", () => {
     // form is now read and enforced, so the pin moves to the boundary that still matters — a QUALIFIED
     // subject, where matching would silently drop the qualifier and over-apply the imposition.
     expect(opponentsEnterTappedOf({ oracle: "Creatures your opponents control enter tapped." })).toBe(true);
-    expect(opponentsEnterTappedOf({ oracle: "Creatures and nonbasic lands your opponents control enter tapped." })).toBe(false);
+    // PIN MOVED 2026-10-17 (the play-weighted program — Thalia, Heretic Cathar): "nonbasic lands" is now READ as its own
+    // entry and enforced (a basic land still enters untapped — nonbasicLandsEnterTapped.test.js), so the qualified-subject
+    // boundary moves to a qualifier the reader still doesn't model: "snow lands".
+    expect(opponentsEnterTappedOf({ oracle: "Creatures and nonbasic lands your opponents control enter tapped." })).toBe(true);
+    expect(opponentsEnterTappedOf({ oracle: "Snow lands your opponents control enter tapped." })).toBe(false);
     expect(classifyCard(KISMET)).toBe("native-static");
   });
 });

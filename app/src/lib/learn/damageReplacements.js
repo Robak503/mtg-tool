@@ -59,7 +59,9 @@ import { ABILITY_WORD_LABEL_RE } from "./effects/textNormalize.js"; // CR 207.2c
 //   recipient filters    targetSide:"opponent" ("an opponent or a permanent an opponent controls" — a planeswalker or a battle
 //                        counts) · targetSide:"you" ("you or a permanent you control") · targetSide:"opponentPlayer" /
 //                        "youPlayer" (the player alone) · targetPlayerOnly ("a player") · targetSelf ("this creature") ·
-//                        targetHost ("equipped creature") · affectedOpponent · targetSubtype + excludeSelf
+//                        targetHost ("equipped creature") · affectedOpponent · targetSubtype + excludeSelf ·
+//                        targetCreature:"you"|"any" (a creature on the battlefield — its controller the replacement's, or anyone's)
+//                        + targetAttacking (a declared attacker) + targetOther (not this permanent) — the group prevention walls
 //   damage filters       combatOnly · noncombatOnly ("noncombat damage" — CR 120.2b, damage dealt as an effect)
 //   condition            "hellbent" — "As long as you have no cards in hand, …" (Anthem of Rakdos)
 // The entries are read from the permanent's CARD (its face that is up; a Class at its level) so they are synthesized-on-read
@@ -156,6 +158,30 @@ function readDamageSentence(sentence, card) {
   // THE HOST (Mjölnir, Hammer of Thor): the source must be the permanent this Equipment is attached to — read live.
   if (/^double all damage equipped creature would deal$/i.test(s)) {
     return withCond({ op: { op: "multiply", factor: 2 }, scope: { side: "source", hostOfSelf: true } });
+  }
+
+  // ── THE GROUP PREVENTION WALL (the play-weighted program — Dolmen Gate #1348, Iroas, God of Victory #1456, Crystal Barricade
+  // #2001; Tajic, Legion's Edge, Mark of Asylum, Inner Sanctum, Bubble Matrix, Light of Sanction): "Prevent all [combat |
+  // noncombat ]damage that would be dealt to [attacking |other ]creatures[ you control][ by sources you control]." A prevention
+  // effect (CR 615.1a) whose recipient is a creature on the battlefield: "you control" is this permanent's controller's, "attacking"
+  // a declared attacker as the damage would be dealt (Iroas's ruling: all damage, "not just combat damage"), "other" any but this
+  // permanent (Crystal Barricade's ruling: the damage to the other creatures is prevented even when the same event deals lethal
+  // damage to the Barricade — the event's hits are all dealt before the state-based actions). "by sources you control" (Light of
+  // Sanction) is the source-controller filter. An "attacking" or "other" group with no controller is printed by no card and is
+  // refused, as is any other qualifier (a duration, "blocking", "with flying", "you and …") — the regex is the whole sentence.
+  {
+    const pv = s.match(/^prevent all (combat |noncombat )?damage that would be dealt to (attacking |other )?creatures( you control)?( by sources you control)?$/i);
+    if (pv) {
+      const [, kind, which, youControl, bySources] = pv;
+      if (!youControl && (which || bySources)) return null;
+      const scope = bySources ? { side: "source", controller: "you" } : { side: "any" };
+      scope.targetCreature = youControl ? "you" : "any";
+      if (/^attacking/i.test(which || "")) scope.targetAttacking = true;
+      if (/^other/i.test(which || "")) scope.targetOther = true;
+      if (/^combat/i.test(kind || "")) scope.combatOnly = true;
+      if (/^noncombat/i.test(kind || "")) scope.noncombatOnly = true;
+      return withCond({ op: { op: "prevent" }, scope });
+    }
   }
 
   // ── "If <source> would deal [combat|noncombat] damage [to <recipient>], <result>." ──
@@ -391,6 +417,22 @@ function extraGates(entry, state) {
   if (scope.excludeSelfSource) gates.push((e) => e?.sourceId == null || e.sourceId !== self);
   if (scope.sourceCreatureOther) gates.push((e) => { const h = hostOf(); return e?.sourceId != null && e.sourceId !== h && !!onBattlefield(state, e.sourceId) && permanentIsCreature(state, e.sourceId); });
   if (scope.condition === "hellbent") gates.push(() => (state?.players?.[ctrl]?.hand || []).length === 0);
+  // THE GROUP PREVENTION WALL's recipient (Dolmen Gate, Iroas, Crystal Barricade …): a creature on the battlefield as the damage
+  // would be dealt — after the layers (a God below its devotion is no creature), controlled by this permanent's controller when
+  // the sentence says "you control", one of the combat's declared attackers when it says "attacking" (a creature removed from
+  // combat is no longer one — CR 506.4), never this permanent when it says "other". A player, or a recipient that can't be
+  // found, is never a creature.
+  if (scope.targetCreature) {
+    gates.push((e) => {
+      if (e?.targetKind === "player" || e?.targetId == null) return false;
+      const here = onBattlefield(state, e.targetId);
+      if (!here || !permanentIsCreature(state, here.perm.id)) return false;
+      if (scope.targetCreature === "you" && here.controller !== ctrl) return false;
+      if (scope.targetOther && here.perm.id === self) return false;
+      if (scope.targetAttacking && !(state?.combat?.attackers || []).some((a) => a?.permanentId === here.perm.id)) return false;
+      return true;
+    });
+  }
   // ONE PLAYER'S SIDE (Lightning's Stagger — "that player or a permanent that player controls"): the stored effect names the player.
   if (scope.recipientPlayerSide != null) {
     gates.push((e) => (e?.targetKind === "player" ? e.targetId === scope.recipientPlayerSide : onBattlefield(state, e?.targetId)?.controller === scope.recipientPlayerSide));

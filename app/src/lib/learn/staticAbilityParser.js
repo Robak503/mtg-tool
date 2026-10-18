@@ -3714,8 +3714,9 @@ function parseClause(clause, out, selfName, selfType) {
   // printings are the SAME rule (Imposing Sovereign / Authority of the Consuls / Urabrask the Hidden;
   // Manglehorn / Dauntless Dismantler). Credit is read from the SAME parser the runtime uses
   // (opponentsEnterTappedTypesOf), so a card is credited exactly when its type set is enforced — the two
-  // can't drift. A QUALIFIED subject ("nonbasic lands", "snow lands", "played by your opponents") returns
-  // null there, leaves residue here, and stays body-only → Arbiter (safe FN).
+  // can't drift. "Nonbasic lands" is read there as its own entry (Thalia, Heretic Cathar; Archon of Emeria — 2026-10-17);
+  // any other QUALIFIED subject ("snow lands", "played by your opponents") returns null there, leaves residue here, and
+  // stays body-only → Arbiter (safe FN).
   if (opponentsEnterTappedTypesOf({ oracle: c })) {
     out.push({ entersTappedImposition: true });
     return;
@@ -7425,12 +7426,16 @@ export function artifactActivationsLocked(state) {
 //
 // BARE TYPE WORDS ONLY, which is what keeps this safe. A QUALIFIED subject is a different rule and must not
 // match, because the qualifier would be silently dropped and the imposition would over-apply:
-//   • "creatures and NONBASIC lands …"  (Thalia, Heretic Cathar) — basics must still enter untapped
 //   • "SNOW lands …"                    (Reidane) — non-snow lands must still enter untapped
 //   • "creatures PLAYED BY your opponents" (Uphill Battle) — a different subject clause entirely
-// The alternation admits only artifacts/creatures/lands, so each of those fails closed → body-only.
-const RE_OPP_ENTER_TAPPED = /(?:^|[\n.;])\s*((?:artifacts|creatures|lands)(?:,?\s+(?:and\s+)?(?:artifacts|creatures|lands))*) your opponents control enter (?:the battlefield )?tapped\s*(?:\.|$)/i;
-const ENTER_TAPPED_TYPE_WORD = { artifacts: "Artifact", creatures: "Creature", lands: "Land" };
+// The alternation admits only artifacts/creatures/lands — and "nonbasic lands", read as its own entry (below) — so each
+// of those fails closed → body-only.
+// NONBASIC LANDS (the play-weighted program — Thalia, Heretic Cathar #1476 "Creatures and nonbasic lands your opponents
+// control enter tapped."; Archon of Emeria #2115 "Nonbasic lands your opponents control enter tapped."): the qualifier is
+// read, not dropped — the "NonbasicLand" entry, a land WITHOUT the basic supertype (CR 205.4c; a snow basic is basic),
+// matched by impositionEntersTapped against the face that is up.
+const RE_OPP_ENTER_TAPPED = /(?:^|[\n.;])\s*((?:artifacts|creatures|nonbasic lands|lands)(?:,?\s+(?:and\s+)?(?:artifacts|creatures|nonbasic lands|lands))*) your opponents control enter (?:the battlefield )?tapped\s*(?:\.|$)/i;
+const ENTER_TAPPED_TYPE_WORD = { artifacts: "Artifact", creatures: "Creature", lands: "Land", "nonbasic lands": "NonbasicLand" };
 
 /**
  * The TYPE SET an opponents-enter-tapped imposition covers, or null when the card prints none.
@@ -7439,7 +7444,7 @@ const ENTER_TAPPED_TYPE_WORD = { artifacts: "Artifact", creatures: "Creature", l
 export function opponentsEnterTappedTypesOf(card) {
   const m = RE_OPP_ENTER_TAPPED.exec(String(card?.oracle || card?.oracle_text || ""));
   if (!m) return null;
-  const words = m[1].toLowerCase().match(/artifacts|creatures|lands/g) || [];
+  const words = m[1].toLowerCase().match(/artifacts|creatures|nonbasic lands|lands/g) || [];
   const types = new Set(words.map((w) => ENTER_TAPPED_TYPE_WORD[w]));
   return types.size > 0 ? types : null;
 }
@@ -7468,6 +7473,15 @@ export function impositionEntersTapped(state, card, controller) {
       const types = opponentsEnterTappedTypesOf(perm.card);
       if (!types) continue;
       for (const t of types) {
+        // NONBASIC LANDS (Thalia, Heretic Cathar; Archon of Emeria): a land without the basic supertype (CR 205.4c), read off
+        // the face that is up — a transform card enters front face up (CR 712.14), so Thaumatic Compass // Spires of Orazca
+        // enters as an artifact, not a land.
+        if (t === "NonbasicLand") {
+          const view = faceUpView(card);
+          const face = String(view?.type || view?.type_line || "");
+          if (/\bLand\b/.test(face) && !/\bBasic\b/.test(face)) return true;
+          continue;
+        }
         if (new RegExp(`\\b${t}\\b`, "i").test(tl)) return true;
       }
     }

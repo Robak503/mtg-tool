@@ -1214,6 +1214,23 @@ function classifyCondition(condRaw, cardName, cardType) {
     }
     const colOne = colSubj.match(/^(a|another) (white|blue|black|red|green) creature you control$/);
     if (colOne) return { event: "etb", scope: colOne[1] === "another" ? "otherCreatureYouControl" : "creatureYouControl", whose: "any", etbColor: COLOR_LETTER[colOne[2]] };
+    // "another COLORLESS creature you control" (the play-weighted program — Glaring Fleshraker #1211; Flayer Drone): the same
+    // creature scope with `etbColorless` — the entering creature has no colour as it enters (CR 105.2c; devoid, CR 702.114a),
+    // read through the layers like the colour gate above. The "another" form only; no controller or a "a colorless" form stays
+    // undetected.
+    if (colSubj === "another colorless creature you control") return { event: "etb", scope: "otherCreatureYouControl", whose: "any", etbColorless: true };
+    // "another CREATURE OR ARTIFACT you control" (Weftstalker Ardent #1378) and "<self> or another creature or artifact you control"
+    // (Haliya, Guided by Light #1479): ONE entering permanent of the watcher's controller that is a creature or an artifact
+    // (creatureOrArtifactYouControl — an artifact creature is one permanent, one trigger). "another" excludes the source
+    // (etbExcludeSelf); the union names the source outright, and a creature or artifact card naming itself is one of that set,
+    // so it reduces to the scope without the exclusion. Placed above the generic "or another" refusal below.
+    if (colSubj === "another creature or artifact you control") return { event: "etb", scope: "creatureOrArtifactYouControl", whose: "any", etbExcludeSelf: true };
+    const coaUnion = colSubj.match(/^(.+?) or another creature or artifact you control$/);
+    if (coaUnion && selfRef) {
+      const lead = coaUnion[1].trim();
+      const leadIsSelf = lead === "this creature" || lead === "this artifact" || (!!nameL && lead === nameL) || (shortName.length >= 3 && lead === shortName);
+      if (leadIsSelf && /\b(?:Creature|Artifact)\b/.test(String(cardType || ""))) return { event: "etb", scope: "creatureOrArtifactYouControl", whose: "any" };
+    }
   }
 
   // ===== POWER-THRESHOLD ETB (Garruk's Uprising, Elemental Bond, Temur Ascendancy) ===== "a creature you
@@ -1783,10 +1800,10 @@ function classifyCondition(condRaw, cardName, cardType) {
     // restriction (the dead permanent must NOT be a token, CR 111.1 — checked via card.token in
     // scopeMatches), so it's carved out HERE rather than rejected. nontokenFilter:true GATES firing on
     // the dead permanent's token-ness; without the gate a token of the matching kind dying would fire
-    // (the #1 FP — Lazotep's own amass-minted Sliver Army token dying would re-fire its amass). Anchored
-    // controller-scoped ONLY ("you control"): the scope below enforces both the controller AND the
-    // nontoken gate; a no-controller form ("a nontoken creature dies", Mimic Vat) stays UNDETECTED (its
-    // eachCreature scope can't carry the controller-agnostic nontoken check cleanly) → Arbiter (SAFE FN).
+    // (the #1 FP — Lazotep's own amass-minted Sliver Army token dying would re-fire its amass). The scope
+    // below enforces the controller and the pre-switch gate the token-ness. "a nontoken creature dies" (Mimic
+    // Vat — its effect is a card-linked exile) stays undetected; the "ANOTHER nontoken creature dies" form is
+    // read below (Harvester of Souls, Ogre Slumlord).
     // Checked BEFORE the bare creatureSubjectScope / subtype matchers because those don't see "nontoken".
     const ntCreatureDies = c.match(/^a nontoken creature you control dies$/);
     if (ntCreatureDies) return { event: "dies", scope: "creatureYouControl", whose: "any", nontokenFilter: true };
@@ -1799,6 +1816,12 @@ function classifyCondition(condRaw, cardName, cardType) {
     // source itself. Checked BEFORE creatureSubjectScope (which returns null for the "nontoken"-carrying subject).
     if (subjectBefore(c, "dies") === "another nontoken creature you control")
       return { event: "dies", scope: "otherCreatureYouControl", whose: "any", nontokenFilter: true };
+    // "ANOTHER nontoken creature dies" with NO controller (the play-weighted program — Harvester of Souls #1910, Ogre Slumlord
+    // #1998): any player's creature but the source (eachOtherCreature — the "another creature dies" scope), with the same
+    // pre-switch nontoken gate on the dead permanent's look-back (CR 111.1). The batch look-back fires it for a creature that
+    // dies together with the source (Harvester of Souls' ruling; checkDiesTriggers' deadLookBackSources, CR 603.10a).
+    if (subjectBefore(c, "dies") === "another nontoken creature")
+      return { event: "dies", scope: "eachOtherCreature", whose: "any", nontokenFilter: true };
     // The NON_SUBTYPE_ETB_WORDS denylist (shared with the ETB path) rejects a meta-word subject
     // ("permanent"/"planeswalker"/a color) whose typeStr-substring scope check would silently never fire —
     // claiming native on a do-nothing trigger is a CREED FP. "artifact"/"enchantment" are NOT denylisted
@@ -6087,6 +6110,7 @@ export function detectTriggers(cardIn) {
         etbMaxPower: cls.etbMaxPower,         // ENTERS POWER CAP ("with power 2 or less" — Welcoming Vampire's batched form, Mentor of the Meek's singular one), read through the layers as the creature enters. Same warning as gyFromZone: unlisted here = silently dropped = the filter never applies.
         etbColor: cls.etbColor,               // COLOUR-QUALIFIED ENTERS ("another green creature you control" — Ivy Lane Denizen; Ayara): the entering creature's colour gate. ⚠️ Unlisted here = dropped = the watcher fires on every creature of its scope.
         etbColorSelfExempt: cls.etbColorSelfExempt, // Ayara's "<self> or another <colour> creature": the source's own entry passes the colour gate.
+        etbColorless: cls.etbColorless,       // "another COLORLESS creature you control" (Glaring Fleshraker, Flayer Drone): the entering creature has no colour. ⚠️ Unlisted here = dropped = the watcher fires on every creature you control.
         etbMaxMv: cls.etbMaxMv,               // BATCHED-ETB FILTER: printed mana-value cap ("with mana value 3 or less" — Tocasia's Welcome).
         etbMinMv: cls.etbMinMv,               // ETB FILTER: printed mana-value FLOOR ("with mana value 6 or greater" — Dragon Fangs). ⚠️ Unlisted here = dropped = the Aura returns on ANY creature entering, which is the whole restriction gone while the trigger still looks correctly detected.
         tokenFilter: cls.tokenFilter,         // "a CREATURE TOKEN you control …" (Curiosity Crafter, Anointer Priest). Unlisted here = silently dropped = the trigger fires on every creature, token or not.
@@ -6863,6 +6887,14 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
     const enteringColors = state && triggeringPermanent?.id ? permanentColors(state, triggeringPermanent.id) : null;
     if (!Array.isArray(enteringColors) || !enteringColors.some((x) => String(x).toUpperCase() === descriptor.etbColor)) return false;
   }
+  // COLORLESS ENTERS (Glaring Fleshraker, Flayer Drone — "another colorless creature you control enters"): the entering creature
+  // has NO colour as it enters, through the same layered read (CR 105.2c; devoid, CR 702.114a). "No colour" is also what a
+  // permanent that can't be found would read, so the gate first requires the entering permanent on the battlefield (fail closed).
+  if (descriptor.etbColorless) {
+    const here = state && triggeringPermanent?.id != null ? findPermanent(state, triggeringPermanent.id) : null;
+    const enteringColors = here ? permanentColors(state, triggeringPermanent.id) : null;
+    if (!Array.isArray(enteringColors) || enteringColors.length > 0) return false;
+  }
   // POWER-CAPPED ATTACKER (stage ③ · 26 — Raid Bombardment, Cavalcade of Calamity): the attacker's CURRENT, layer-aware power at
   // declaration — the enters gate above reads the same power as the creature enters. No state or no attacker → no fire.
   if (descriptor.attackMaxPower != null && !(state && triggeringPermanent?.id && permanentPower(state, triggeringPermanent.id) <= descriptor.attackMaxPower)) return false;
@@ -7108,6 +7140,16 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
     case "artifactYouControl":
       // PERM-ENTERS artifact — type-line substring (CR 205.2) catches Artifact Creature; controller gate.
       return !!triggeringPermanent && /Artifact/.test(typeStr(triggeringPermanent.card)) && triggeringPermanent.controller === sourcePermanent.controller;
+    case "creatureOrArtifactYouControl":
+      // CREATURE OR ARTIFACT enters (Weftstalker Ardent, Haliya, Guided by Light): one entering permanent of the watcher's
+      // controller that is a creature (after the layers — isCreaturePerm) or an artifact (its card types after the layers while
+      // it is on the battlefield, else its type line). An artifact creature is one permanent: one trigger. etbExcludeSelf is the
+      // "another" form — the source's own entry never fires it.
+      if (!triggeringPermanent || triggeringPermanent.controller !== sourcePermanent.controller) return false;
+      if (descriptor.etbExcludeSelf && triggeringPermanent.id === sourcePermanent.id) return false;
+      if (isCreaturePerm(triggeringPermanent, state)) return true;
+      if (state && triggeringPermanent.id != null && findPermanent(state, triggeringPermanent.id)) return [...(permanentTypes(state, triggeringPermanent.id)?.types || [])].includes("Artifact");
+      return /\bArtifact\b/.test(typeStr(triggeringPermanent.card));
     case "enchantmentYouControl":
       // PERM-ENTERS enchantment — Enchantment Creature / Aura matches too; controller gate.
       return !!triggeringPermanent && /Enchantment/.test(typeStr(triggeringPermanent.card)) && triggeringPermanent.controller === sourcePermanent.controller;
