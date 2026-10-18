@@ -74,9 +74,12 @@ function defenderOf(state, seat, option) {
   return option.defenderId || opponentsOf(state, seat)[0];
 }
 
-/** Can a creature attack `defenderId` (the player or a planeswalker they control) without paying an attack tax (CR 508.1h)? */
-export function attackCostsNothing(state, defenderId) {
-  const detail = attackTaxDetail(state, defenderId);
+/**
+ * Can a creature attack `defenderId` — or, with `defenderPlaneswalkerId`, that planeswalker they control — without paying an
+ * attack tax (CR 508.1h)? Per target: a "can't attack you" tax leaves the planeswalker free (attackTax.attackTaxDetail).
+ */
+export function attackCostsNothing(state, defenderId, defenderPlaneswalkerId = null) {
+  const detail = attackTaxDetail(state, defenderId, defenderPlaneswalkerId);
   return detail.generic <= 0 && detail.phyrexian.length === 0;
 }
 
@@ -99,14 +102,15 @@ export function obeyingAttackOptions(state, seat, permanentId, options) {
   const otherThan = attackOtherThanRequirementsOf(state, permanentId);
   if (otherThan.length === 0) return options;
   const free = new Map();
-  const costsNothing = (d) => {
-    if (!free.has(d)) free.set(d, attackCostsNothing(state, d));
-    return free.get(d);
+  const costsNothing = (d, o) => {
+    const key = `${d}${o.defenderPlaneswalkerId ? ":planeswalker" : ""}`; // the tax reads the target kind, never which walker
+    if (!free.has(key)) free.set(key, attackCostsNothing(state, d, o.defenderPlaneswalkerId));
+    return free.get(key);
   };
   let most = -1;
   for (const o of options) {
     const d = defenderOf(state, seat, o);
-    if (costsNothing(d)) most = Math.max(most, otherThanObeyed(otherThan, o, d));
+    if (costsNothing(d, o)) most = Math.max(most, otherThanObeyed(otherThan, o, d));
   }
   if (most < 0) return options;
   return options.filter((o) => otherThanObeyed(otherThan, o, defenderOf(state, seat, o)) >= most);
@@ -128,7 +132,7 @@ export function requiredAttackerIds(state, seat, attackActions) {
   const battlefield = state.players?.[seat]?.battlefield || [];
   for (const [id, opts] of byPermanent) {
     if (!mustAttackNow(state, seat, battlefield.find((p) => p.id === id))) continue;
-    if (opts.some((o) => attackCostsNothing(state, defenderOf(state, seat, o)))) out.add(id);
+    if (opts.some((o) => attackCostsNothing(state, defenderOf(state, seat, o), o.defenderPlaneswalkerId))) out.add(id);
   }
   return out;
 }

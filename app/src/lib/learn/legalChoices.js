@@ -40,7 +40,7 @@ import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatu
 import { grantsWubrgAltCost, fixedManaAltCostOf, conditionalFixedManaAltCostOf } from "./effects/textNormalize.js"; // + the trap form (shelf D17) // FIST OF SUNS (RG-5) — the board-granted WUBRG alternative cost; + RG-8 — the spell's OWN fixed-mana alternative cost (the Bringers); leaf readers
 import { collectCostReducers, playLandFromGraveyardPermission, plotFromLibraryTopGranted, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, landDropAllowance, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksFor, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
-import { attackTaxDetail } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund (+ the Phyrexian life lane, Norn's Annex)
+import { attackTaxDetail } from "./attackTax.js"; // ATTACK TAX (CR 508.1h) — withhold the attack the tax can't fund, per attack target (+ the Phyrexian life lane, Norn's Annex)
 import { obeyingAttackOptions, attackDeclarationOffer } from "./attackRequirements.js"; // ATTACK REQUIREMENTS (CR 508.1d) — the one check, shared with the AI planner
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, legacyTargetingEffect, canBeTargetedBy, playerTargetableBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence, parseEffectClause, programNeedsChosenTarget } from "./effects/parser.js";
@@ -4337,24 +4337,28 @@ function actionsDeclareAttacker(state, playerId) {
   // poisoned, Crown-Hunter Hireling's monarch) only pairs with defenders who meet the requirement —
   // the same live per-defender board read landwalk uses (4P-correct). Unrestricted creatures see the
   // full target list (identical by construction).
-  // ATTACK TAX (CR 508.1g — Propaganda / Ghostly Prison / Windborn Muse): "Creatures can't attack you
+  // ATTACK TAX (CR 508.1h — Propaganda / Ghostly Prison / Windborn Muse): "Creatures can't attack you
   // unless their controller pays {2} for each creature they control that's attacking you." The action is
   // WITHHELD when the tax is unaffordable, and actionDispatcher.applyDeclareAttacker actually pays it on
   // declaration. Offering the attack without charging for it would make the card classify native while
   // doing nothing — the exact false positive attackTax.js exists to prevent — so this filter and that
-  // payment are one change, never two.
+  // payment are one change, never two. The tax is read per TARGET (attackTaxDetail with the planeswalker id): a "can't attack
+  // you" tax charges the attack at the player and not the one at their planeswalker, a "… or planeswalkers you control" tax
+  // charges both, Onakke Oathkeeper's "can't attack planeswalkers you control" the planeswalker only.
   //
   // The SOURCE EXCLUSION is the fiddly part and it is load-bearing: CR 508.1 taps attackers (f) BEFORE
-  // mana abilities are activated (h), so a non-vigilance attacker cannot be tapped for mana to pay its
+  // mana abilities are activated (i), so a non-vigilance attacker cannot be tapped for mana to pay its
   // own tax. Counting it here would offer an attack the dispatcher then can't fund. A VIGILANCE attacker
   // stays untapped and genuinely can pay with itself, so it keeps its own source.
   const taxCache = new Map();
-  const taxFor = (defenderId) => {
-    if (!taxCache.has(defenderId)) taxCache.set(defenderId, attackTaxDetail(state, defenderId));
-    return taxCache.get(defenderId);
+  const taxFor = (t) => {
+    // the tax depends on whether the attack is at a planeswalker, never on which one (each is the defender's — CR 506.2)
+    const key = `${t.defenderId}${t.defenderPlaneswalkerId ? ":planeswalker" : ""}`;
+    if (!taxCache.has(key)) taxCache.set(key, attackTaxDetail(state, t.defenderId, t.defenderPlaneswalkerId));
+    return taxCache.get(key);
   };
-  const canPayAttackTax = (p, defenderId) => {
-    const detail = taxFor(defenderId);
+  const canPayAttackTax = (p, t) => {
+    const detail = taxFor(t);
     if (detail.generic <= 0 && detail.phyrexian.length === 0) return true; // the overwhelmingly common case — one board scan, then out
     const keepsSelf = permanentHasKeyword(state, p.id, "Vigilance");
     const sources = manaSources(state, playerId).filter((s) => keepsSelf || s.permanentId !== p.id);
@@ -4371,7 +4375,7 @@ function actionsDeclareAttacker(state, playerId) {
   const allowedTargetsFor = (p) => {
     const req = attackDefenderRequirementOf(p.card);
     return obeyingAttackOptions(state, playerId, p.id, targets.filter((t) =>
-      canPayAttackTax(p, t.defenderId)
+      canPayAttackTax(p, t)
       && (!req || defenderMeetsAttackRequirement(state, t.defenderId, req, p))));
   };
   // The creatures that "attack each combat if able" and can still attack without paying a cost must be declared before the

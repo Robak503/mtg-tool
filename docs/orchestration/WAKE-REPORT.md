@@ -9,7 +9,7 @@
 
 ## 🎯 2026-10-01 — **THE PLAY-WEIGHTED PROGRAM** (Colton's order) — runnable: the top-2,500 worklist (phase 2), in rank order
 
-> **NOW (2026-10-18 ~10:30Z) — v0.166.0 TAGGING · PHASE 2 RUNNABLE.** Top 1,000 **929 / 1,000**; top 2,500 **1,808 / 2,500
+> **NOW (2026-10-18 ~11:40Z) — v0.166.0 RELEASED · PHASE 2 RUNNABLE.** Top 1,000 **929 / 1,000**; top 2,500 **1,808 / 2,500
 > (72.3%) → +442 to 90%**; corpus 15,636 (45.2%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
 > scripts/measure-coverage.mjs --played=2500` (from `app/`), highest-ranked buildable miss first — the parked list grows in each
 > play-weighted RUN-LEDGER entry ("Not taken"), so read the last three before picking. Open play call for Colton: should the
@@ -75,8 +75,10 @@
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
 
-## 🚀 2026-10-18 — **v0.166.0 TAGGED** (release run watching) — 18 commits since v0.165.0, every push CI green
+## 🚀 2026-10-18 — **v0.166.0 RELEASED** (published 2026-10-18T11:23:36Z) — 18 commits since v0.165.0, every push CI green
 
+> **Verified:** release run 39120648320 green on its first attempt (the bash build step with the next/font retry ran clean; the
+> retry did not fire); `latest.json` verified BY CONTENT (version 0.166.0, a 420-character signature, the v0.166.0 setup URL).
 > **The release:** the ~100-card batch (CLAUDE.md §7.2): **+100** native since v0.165.0 — corpus **15,636 / 34,620 (45.2%)**; top
 > 1,000 **929**; top 2,500 **1,808**; shelf 29 / 30. Play-weighted slices: mana triggers (Throne of Eldraine, Caged Sun, Forsaken
 > Monument, High Tide…), value creatures (Wurmcoil Engine, Archon of Cruelty, Noxious Gearhulk, Kardur, Portal to Phyrexia…), Ayara /

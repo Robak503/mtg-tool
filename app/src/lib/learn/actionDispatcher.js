@@ -78,7 +78,7 @@ import { manaSources, planPayment, castPaymentSources, costReservedPermanentIds,
 import { conditionalEntersTapped, paysLifeOrEntersTapped, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>" + the shockland pay-life clause (a leaf over interveningIf; cycle-free)
 import { sacrificePermanentForCost, sacrificePermanentsForCost } from "./costSacrifice.js"; // + sacrificePermanentsForCost (2026-10-17): a cost of N permanents, one event // every cost sacrifice (activated-ability costs, additional and alternative costs, emerge) — the ONE sequence the mana-cost sacrifice uses too
 import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT dispatch hook (audit.js imports only the delayed-trigger leaf, cycle-free)
-import { attackTaxDetail } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — the payment half; legalChoices holds the restriction half (+ the Phyrexian life lane, Norn's Annex)
+import { attackTaxDetail } from "./attackTax.js"; // ATTACK TAX (CR 508.1h) — the payment half; legalChoices holds the restriction half (+ the Phyrexian life lane, Norn's Annex)
 import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only — strip before the cast-effect parse so the runtime resolves the body natively (matches the classifier; fixes a classifier↔runtime pendingArbiter mismatch)
 import { RESOLVER_KEYS, isPermanentSpell, autoPickManaColor, choosesCreatureTypeOnEnter } from "./resolvers.js"; // LANDS-12: the ONE color auto-pick both enter sites stamp with; + CAP-CAVERN: the chosen-type chooser for a land drop
@@ -2109,11 +2109,13 @@ function applyDeclareAttacker(state, action) {
   // Standard the dispatcher fills the lone opponent.
   const defender = action.defenderId || opponentsOf(state, action.playerId)[0];
 
-  // ATTACK TAX (CR 508.1g — Propaganda / Ghostly Prison / Windborn Muse): pay {N} per taxing permanent the
-  // defender controls, for THIS attacker. Declaration here is sequential, so N attackers pay N × {2} —
+  // ATTACK TAX (CR 508.1h — Propaganda / Ghostly Prison / Windborn Muse): pay {N} per taxing permanent the
+  // defender controls whose printed subject names THIS attack's target — the player, or the planeswalker
+  // `action.defenderPlaneswalkerId` (a "can't attack you" tax doesn't reach it; a "… or planeswalkers you control"
+  // one does) — for THIS attacker. Declaration here is sequential, so N attackers pay N × {2} —
   // the printed total, one step at a time (see attackTax.js).
   //
-  // PAID FROM `next`, i.e. AFTER the tap above, and that ordering is CR 508.1 f→h rather than a detail:
+  // PAID FROM `next`, i.e. AFTER the tap above, and that ordering is CR 508.1 f→i rather than a detail:
   // attackers tap before mana abilities are activated, so a non-vigilance attacker is already tapped and
   // is not among its own funding sources. A vigilance attacker is still untapped here and may pay with
   // itself, which is correct and is why the read happens on the post-tap state instead of a filter.
@@ -2122,7 +2124,7 @@ function applyDeclareAttacker(state, action) {
   // board moved between enumeration and dispatch. That THROWS rather than declaring a free attack — an
   // unfunded attacker is exactly the false positive this whole slice exists to prevent, and swallowing it
   // would put it back.
-  const detail = attackTaxDetail(next, defender);
+  const detail = attackTaxDetail(next, defender, action.defenderPlaneswalkerId);
   if (detail.generic > 0 || detail.phyrexian.length > 0) {
     // THE PHYREXIAN PIPS (Norn's Annex, CR 107.4f + 119.4) are paid by the one Phyrexian payment every cost uses (2026-10-17 —
     // manaModel.planWithPhyrexian, through payManaCost): each pip in mana of its colour when the board can, else 2 life, the generic

@@ -1,9 +1,9 @@
 /**
  * attackTaxPlaneswalkers.test.js — ④-AM (2026-09-03 night): the "creatures can't attack you OR PLANESWALKERS YOU CONTROL
- * unless their controller pays {N} for each of THOSE creatures" printing of the attack tax (CR 508.1g) — Baird, Steward of
- * Argive; Archon of Absolution. The same tax as Ghostly Prison's wording: the declare action's `defender` is the PLAYER
- * whether the attack is at them or at their planeswalker, so attackTaxToDeclare already charges both; only the regex (one
- * copy for the parser and the clause check) needed the second printing. Real oracle fixtures (bundled Scryfall snapshot,
+ * unless their controller pays {N} for each of THOSE creatures" printing of the attack tax (CR 508.1h) — Baird, Steward of
+ * Argive; Archon of Absolution. The same tax as Ghostly Prison's wording, except whom it protects: its subject names the
+ * player AND their planeswalkers, so it also charges an attack on a planeswalker they control (readAttackTax's `defends`,
+ * 2026-10-18 — the "can't attack you" printing does not; attackTaxDefender.test.js). Real oracle fixtures (bundled Scryfall snapshot,
  * read in-session 2026-09-03).
  */
 

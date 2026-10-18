@@ -916,6 +916,15 @@ be declared (a live "attacks each combat if able" and a free option); while one 
 attacker declarations (no pass, spell or ability — each would close the declaration), and under an attack cap the last slots go to
 them. A new attack requirement or restriction reads or extends this module, never a seat-specific copy.
 
+**Attack taxes (`attackTax.js` — CR 508.1h, a cost to attack; per attack target since 2026-10-18).** `readAttackTax(card)` is the one
+reader: `{ tax, defends }` — the amount per attacker (`{ generic }`, a counted `{ countSource }`, a `{ phyrexian }` pip) and whom the
+printed subject protects: "can't attack you" → the player only (Propaganda, Ghostly Prison, Windborn Muse, Koskun Falls — the
+bundled rulings: a planeswalker you control may still be attacked), "you or planeswalkers you control" → both (Baird, Archon of
+Absolution, Sphere of Safety, Norn's Annex), "planeswalkers you control" → the planeswalkers only (Onakke Oathkeeper).
+`attackTaxDetail(state, defenderId, defenderPlaneswalkerId)` sums the defender's taxers that name the target; the offer's withhold
+(`legalChoices.canPayAttackTax`), the declaration's payment (`applyDeclareAttacker`) and `attackRequirements.attackCostsNothing`
+all pass the attack's planeswalker id. A new tax wording extends the reader's sentence (the clause check reads the same pieces).
+
 **The default AI's combo line (`tokenLoopLine.js`, added 2026-10-03).** The rule
 (Colton): a combo deck plays to ITS line — build the resource only to "enough",
 then forgo every other choice, then execute the finish. Slice one knows one line:

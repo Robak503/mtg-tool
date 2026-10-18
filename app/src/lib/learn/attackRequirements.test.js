@@ -192,9 +192,11 @@ describe("⭐ the offer (every seat — a person included): only declarations th
     expect(pairsFor(s, "user", "bears")).toEqual(["ai", "ai:jace"]);
   });
 
-  it("control — the other players behind Propaganda and nothing to pay with: the goader is offered (not forced to pay)", () => {
+  it("control — the other players behind Propaganda and nothing to pay with: the goader is offered (not forced to pay), and so is ai2's Jace, which Propaganda's \"can't attack you\" doesn't tax (attackTaxDefender.test.js)", () => {
+    // Graduated 2026-10-18: this pinned ["ai1"] while every tax was keyed on the defending player. The ruling's fallback order —
+    // "a planeswalker an opponent controls, a battle an opponent controls, or a player who goaded it" — admits both.
     const s = game({ seat: "user", boards: POD({ ai2: [walker("jace", "ai2", 3), P("prop2", PROPAGANDA, "ai2")], ai3: [P("prop3", PROPAGANDA, "ai3")] }), goads: [["ai1", "bears"]] });
-    expect(pairsFor(s, "user", "bears")).toEqual(["ai1"]);
+    expect(pairsFor(s, "user", "bears")).toEqual(["ai1", "ai2:jace"]);
   });
 
   it("control — the same with two Mountains: paying to attack ai2 stays a legal choice beside the free attack at ai1", () => {

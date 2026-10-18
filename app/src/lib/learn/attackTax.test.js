@@ -1,5 +1,5 @@
 /**
- * attackTax.test.js — THE ATTACK TAX (CR 508.1g): Propaganda #115 · Ghostly Prison #161 · Windborn Muse #1011.
+ * attackTax.test.js — THE ATTACK TAX (CR 508.1h): Propaganda #115 · Ghostly Prison #161 · Windborn Muse #1011.
  *
  *   "Creatures can't attack you unless their controller pays {2} for each creature they control
  *    that's attacking you."
@@ -15,7 +15,7 @@
  * total. This engine declares attackers one at a time, so it charges {2} per declaration — same total,
  * reached one step at a time.
  *
- * THE ORDERING PIN (CR 508.1 f→h) is the subtle one: attackers TAP before mana abilities are activated,
+ * THE ORDERING PIN (CR 508.1 f→i) is the subtle one: attackers TAP before mana abilities are activated,
  * so a non-vigilance attacker can't be tapped for mana to pay its own tax — but a VIGILANCE attacker
  * stays untapped and genuinely can. Both directions are pinned; getting this wrong offers attacks that
  * can't be funded, or refuses ones that can.
@@ -156,7 +156,7 @@ describe("THE PAYMENT HALF — declaring actually spends the mana", () => {
   });
 });
 
-describe("THE ORDERING PIN (CR 508.1 f→h) — an attacker can't fund itself unless it has vigilance", () => {
+describe("THE ORDERING PIN (CR 508.1 f→i) — an attacker can't fund itself unless it has vigilance", () => {
   const dork = (keywords) => createPermanent({
     id: "atk", controller: "user", summoningSick: false,
     card: { id: "c-dork", name: "Mana Bear", type: "Creature — Bear", power: 2, toughness: 2, keywords, oracle: `${keywords.join(", ")}\n{T}: Add {G}{G}.`.trim() },

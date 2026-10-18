@@ -28,7 +28,7 @@ import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — 
 import { isLevelerFrame } from "./leveler.js"; // LV-1 — the leveler frame detector (leaf module, no cycle)
 import { faceUpView, characteristicTypeLine, characteristicColors } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — a multi-face card's statics are its front face's; a spell's type line and colours are the face being cast's (spellTypeLine, characteristicColors)
 import { classLiveCard } from "./classLevels.js"; // CLASS (CR 716.2a) — the play-from-top permission reads a modeled Class's level view (a zero-import leaf)
-import { isAttackTaxClause, parseAttackTax } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — a pure leaf, shared with the runtime so metric and game agree
+import { isAttackTaxClause, parseAttackTax } from "./attackTax.js"; // ATTACK TAX (CR 508.1h) — a pure leaf, shared with the runtime so metric and game agree
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // the closed creature-subtype vocabulary, imported from the LEAF (never through targeting.js — that edge crashes module init; see creatureTypes.js)
 // COUNT_SUBTYPE — the ONE curated, collision-free permanent-subtype allowlist (parseCountSource and the
 // team-pump scope already share it). Imported straight from parseHelpers, which imports only keywords.js —
@@ -3216,7 +3216,7 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
-  // ── ATTACK TAX (CR 508.1g — Propaganda / Ghostly Prison / Windborn Muse) ────────────────────────────
+  // ── ATTACK TAX (CR 508.1h — Propaganda / Ghostly Prison / Windborn Muse) ────────────────────────────
   // "Creatures can't attack you unless their controller pays {N} for each creature they control that's
   // attacking you." A coverage MARKER only (no `affects`/`op`, so the layer engine ignores it — the
   // cantBeCountered precedent directly above). The enforcement is NOT here and must not be: legalChoices
