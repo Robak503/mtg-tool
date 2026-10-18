@@ -95,7 +95,11 @@ export function moveControl(state, permId, toController, extra = {}) {
   // else the seat it is leaving. Last, so `extra` can't replace it.
   // A BLOCKER is stamped out of combat (CR 506.4, see the header); its block records stay.
   const blocking = hasBlockerRecord(state, permId) ? { removedFromCombat: true } : {};
-  const moved = { ...perm, controller: toController, summoningSick: true, ...blocking, ...extra, owner: perm.owner ?? perm.controlOriginal ?? from };
+  // DEFAULT CONTROLLER (CR 110.2 — the player under whose control it entered the battlefield): every control change passes
+  // through here, so on its FIRST move the seat it is leaving is the one it entered under. Kept on every later move, so a
+  // player leaving the game (CR 800.4a) can tell a permanent they control by default (exiled) from one an effect gave them
+  // (released to the player beneath). A pre-stamp save falls back to the stashed original controller.
+  const moved = { ...perm, controller: toController, summoningSick: true, ...blocking, ...extra, owner: perm.owner ?? perm.controlOriginal ?? from, defaultController: perm.defaultController ?? perm.controlOriginal ?? from };
   // An ATTACKER's record leaves state.combat.attackers (CR 506.4, see the header).
   return withoutAttackerRecord({
     ...state,
@@ -181,6 +185,36 @@ export function endControlEffects(state, permId, ends) {
   const latest = [...remaining].reverse().find((e) => players[e.to]);
   const to = latest ? latest.to : (players[home] ? home : at.pid);
   return restamp(to === at.pid ? state : moveControl(state, permId, to), permId, home, remaining);
+}
+
+/**
+ * A PLAYER LEAVES THE GAME (CR 800.4a — "any effects which give that player control of any objects … end"): every control
+ * effect giving `leaverId` control of `permId` ends, while the leaver is still seated (the caller removes them afterwards).
+ * The permanent goes to the latest remaining effect's controller (CR 613.7), else to the player it returns to once its
+ * temporary effects have ended — `controlOriginal`, unless that is the leaver (their indefinite steal ends too), then its
+ * default controller (CR 110.2), unless that is the leaver as well. A player who has already left is skipped.
+ * If nobody else can control it, it stays on the leaver's battlefield: they control it by default, and the caller exiles
+ * it (CR 800.4a's last step). A permanent no effect of the leaver's touches is returned untouched (same state).
+ * ⚠️ When the leaver was the permanent's default controller but another player's temporary effect still holds it, the
+ * record keeps the leaver as `controlOriginal`; when that effect ends the permanent stays with its holder (endControlEffects'
+ * pinned fallback) — CR 800.4c would exile it. Not modelled.
+ */
+export function releaseControlOnLeave(state, permId, leaverId) {
+  const at = locate(state, permId);
+  if (!at) return state;
+  const players = state.players || {};
+  const effects = controlEffectsOf(state, at.perm);
+  const stashedHome = effects.length ? (at.perm.controlOriginal ?? at.pid) : at.pid;
+  if (at.pid !== leaverId && stashedHome !== leaverId && !effects.some((e) => e.to === leaverId)) return state;
+  const remaining = effects.filter((e) => e.to !== leaverId);
+  const seated = (pid) => pid != null && pid !== leaverId && !!players[pid];
+  const defaultController = at.perm.defaultController ?? (effects.length ? at.perm.controlOriginal : null) ?? at.pid;
+  const home = stashedHome !== leaverId ? stashedHome : (defaultController !== leaverId ? defaultController : null);
+  const latest = [...remaining].reverse().find((e) => seated(e.to));
+  const to = latest ? latest.to : (seated(home) ? home : null);
+  if (to == null) return at.pid === leaverId ? restamp(state, permId, null, []) : state;
+  const moved = to === at.pid ? state : moveControl(state, permId, to);
+  return restamp(moved, permId, home ?? leaverId, remaining);
 }
 
 /**

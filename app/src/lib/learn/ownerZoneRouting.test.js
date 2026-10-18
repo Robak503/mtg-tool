@@ -470,8 +470,9 @@ describe("\"shuffle this into its owner's library\" on a permanent another playe
   });
 
   it("⛔ an owner who has left the game: the card falls back to its controller's library, and THAT library is the one shuffled", () => {
-    // The board removePlayerFromGame leaves behind (learnSession — the seat's record is dropped; a permanent it owned on another
-    // battlefield keeps its stamp): ai2's Fblthp under the user's control, ai2 gone.
+    // A permanent stamped with an owner who has left the game, under the user's control: ai2's Fblthp, ai2 gone. Leaving the game
+    // takes every permanent its owner owns with them (CR 800.4a — playerLeavesGame.js), so this board is built by hand; the fallback
+    // it pins stays as the never-throw guard.
     const s0 = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
     const { ai2: _gone, ...players } = s0.players;
     let s = { ...s0, turn: 4, activePlayer: "user", priorityHolder: "ai1", phase: "precombat-main", step: "main", consecutivePasses: 0, stack: [], pendingTriggers: [],

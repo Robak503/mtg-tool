@@ -42,10 +42,8 @@ import {
   applyMulliganShip,
   applyMulliganKeep,
   nextStep,
-  runStepActions,
   finalizeStackResolution,
   settleCleanupDiscardChoice,
-  finishCleanupActions,
 } from "./gameEngine.js";
 
 // The human seat id (createGameState always names the player's seat "user"; opponents are
@@ -61,7 +59,7 @@ import { takeLastCastRanking } from "./opponentAI.js"; // M5.1 — the tick-scop
 import { stableActionKey as _stableActionKey } from "./actionKey.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { createLoopWatch } from "./mandatoryLoop.js"; // CR 104.4b / 732.4 — a loop of only mandatory actions is a draw (a zero-import leaf)
-import { isLandCard } from "./effects/atoms/shared.js"; // death capture: count lands stuck in the eliminated player's hand
+import { removePlayerFromGame } from "./playerLeavesGame.js"; // CR 800.4a — a player leaving a multiplayer game (the eliminated seat)
 import { checkAllStateBasedActions } from "./sba.js"; // CR 704.3 (B2) — the comprehensive permanent-SBA fixpoint at the priority checkpoint
 import { resolveAtom } from "./effects/effectAtoms.js"; // Arbiter-in-runner: apply a cached verdict's atoms (applyArbiterVerdict)
 import { featurizeState } from "./gameFeatures.js";
@@ -397,144 +395,11 @@ function hasWonGame(state, playerId) {
 }
 
 /**
- * Remove an eliminated player from the game (CR 800.4a — objects they own
- * leave with them). We drop their whole player record plus the references
- * other state holds to them: their objects on the stack, their combat
- * involvement, and the commander damage they dealt to survivors. turnOrder
- * shrinks so nextInTurnOrder / opponentsOf / the priority-pass threshold
- * all adapt automatically.
- *
- * Two cases:
- *   - Bystander leaves → keep the current turn going; reassign priority
- *     only if they held it (or it now points at a removed seat).
- *   - The ACTIVE player leaves → their turn ends now; we start the next
- *     surviving seat's turn cleanly from untap (via runStepActions) so no
- *     one inherits a half-finished turn.
+ * Players who leave at once leave simultaneously (CR 800.4a); they are processed one at a time, the ACTIVE player last, so the
+ * turn that ends with the active player is handed to the next player still in the game — never to a seat about to leave.
  */
-function removePlayerFromGame(state, playerId) {
-  const oldOrder = state.turnOrder || Object.keys(state.players);
-  const { [playerId]: _gone, ...players } = state.players;
-  const turnOrder = oldOrder.filter((id) => id !== playerId);
-
-  // Strip commander damage the leaving player's commander(s) dealt to survivors (CR 800.4a — their
-  // objects leave with them). Damage is keyed PER-COMMANDER, so collect the leaving player's commander
-  // card ids across every zone and drop those entries from each survivor's tracker.
-  const goneCommanderIds = new Set();
-  for (const zone of ["command", "battlefield", "graveyard", "exile", "hand", "library"]) {
-    for (const entry of _gone?.[zone] || []) {
-      const card = entry?.card || entry; // battlefield holds permanents (entry.card); other zones hold cards
-      if (card?.isCommander) goneCommanderIds.add(card.commanderInstanceId || card.id);
-    }
-  }
-  for (const id of turnOrder) {
-    const dmg = players[id]?.commanderDamageFrom;
-    if (dmg && Object.keys(dmg).some((k) => goneCommanderIds.has(k))) {
-      players[id] = {
-        ...players[id],
-        commanderDamageFrom: Object.fromEntries(
-          Object.entries(dmg).filter(([k]) => !goneCommanderIds.has(k)),
-        ),
-      };
-    }
-  }
-
-  // Drop their objects on the stack and their combat involvement so later
-  // resolution / combat steps never dereference a removed seat.
-  const stack = (state.stack || []).filter((obj) => obj.controller !== playerId);
-  let combat = state.combat;
-  if (combat) {
-    combat = {
-      ...combat,
-      attackers: (combat.attackers || []).filter(
-        (a) => a.attackingPlayer !== playerId && a.defender !== playerId,
-      ),
-      blockers: (combat.blockers || []).filter((b) => b.blockingPlayer !== playerId),
-    };
-  }
-
-  // EPOCH-2 instrumentation: carry the eliminated player's terminal vitals on the event —
-  // read PRE-removal, they're gone after this — so the runner can derive finishRank,
-  // eliminatedAtTurn, and the winCondition taxonomy without archaeology.
-  const goneVitals = _gone
-    ? {
-        life: _gone.life ?? null,
-        poison: _gone.poison ?? null,
-        // The honest CR 120.3 stamp first (set at the drawCards chokepoint); the died-while-empty
-        // heuristic stays as the fallback for deaths where the empty library was the real story.
-        decked: !!_gone.triedToDrawFromEmpty || (_gone.library || []).length === 0,
-        commanderLethal: Object.values(_gone.commanderDamageFrom || {}).some((n) => n >= 21),
-        // Source of the lethal blow (loseLife stamped it on the killing damage): true = combat, false =
-        // non-combat (burn/ability), null = a non-damage finish (drain/pay-life) → the "damage" win-con
-        // stays generic. Lets epochStats split "damage" into combat / burn honestly (CREED — never guessed).
-        lethalByCombat: _gone.lethalDamageCombat ?? null,
-        // Lands stranded in hand at death — a "true flood" signal (a full grip of lands you never got to use),
-        // richer than the by-turn-5 landsByT5 count. Read PRE-removal like the rest of goneVitals.
-        landsInHand: (_gone.hand || []).filter(isLandCard).length,
-      }
-    : {};
-  const log = [
-    ...state.log,
-    { turn: state.turn, kind: "player-eliminated", player: playerId, ...goneVitals },
-  ];
-  let base = { ...state, players, turnOrder, stack, combat, log };
-  // PLAYER-AURA sweep (Fraying Sanity / the Curse class — SHELF S7, CR 704.5n analog): an Aura enchanting
-  // the departed player has nothing legal to enchant — it's put into its controller's graveyard. Routed
-  // through moveCardToZone so the leave/GY events record normally.
-  for (const pid of Object.keys(base.players)) {
-    for (const perm of [...(base.players[pid]?.battlefield || [])]) {
-      if (perm.enchantedPlayerId === playerId) {
-        base = moveCardToZone(base, {
-          playerId: pid,
-          fromZone: "battlefield",
-          toZone: "graveyard",
-          cardId: perm.id,
-        });
-      }
-    }
-  }
-
-  if (state.activePlayer === playerId) {
-    // Active player left mid-turn: end the turn and start the next
-    // surviving seat's turn from untap, rather than splicing a survivor
-    // into the dead player's phase/step.
-    //
-    // CR 800.4j (CR-remediation B3, bounded): the rule actually says the turn CONTINUES to completion
-    // without an active player. The full null-active-player machinery (priority rotation, step
-    // automatics, legality — all anchored on activePlayer today) is a deep rebuild the narrow gap
-    // doesn't justify yet; what IS closed here is the truncated turn's END-OF-TURN HOUSEKEEPING:
-    // before this fix the jump skipped cleanup outright, so marked damage and "until end of turn"
-    // effects LEAKED into the next player's whole turn (creatures dying to stale damage, pumps
-    // outliving their turn — wrong-play grade). finishCleanupActions runs damage wear-off, UEOT
-    // expiry, and the SBA fixpoint at the truncation point. The 514.1 hand-size discard is correctly
-    // NOT run (it belongs to the active player, who is gone). Residual, documented gap vs the full
-    // rule: surviving seats still lose their remaining priority windows / end-step triggers of the
-    // truncated turn — parked pending the 104.4b loop-detection state-machine work it composes with.
-    const idx = oldOrder.indexOf(playerId);
-    let nextActive = turnOrder[0] || null;
-    for (let k = 1; k <= oldOrder.length; k++) {
-      const cand = oldOrder[(idx + k) % oldOrder.length];
-      if (cand !== playerId && players[cand]) {
-        nextActive = cand;
-        break;
-      }
-    }
-    return runStepActions({
-      ...finishCleanupActions(base),
-      activePlayer: nextActive,
-      turn: state.turn + 1,
-      phase: "beginning",
-      step: "untap",
-      priorityHolder: null,
-      consecutivePasses: 0,
-    });
-  }
-
-  // Bystander left — keep the current turn going.
-  let priorityHolder = state.priorityHolder;
-  if (priorityHolder === playerId || (priorityHolder && !players[priorityHolder])) {
-    priorityHolder = players[state.activePlayer] ? state.activePlayer : turnOrder[0] || null;
-  }
-  return { ...base, priorityHolder, consecutivePasses: 0 };
+function leavingOrder(state, seats) {
+  return [...seats.filter((id) => id !== state.activePlayer), ...seats.filter((id) => id === state.activePlayer)];
 }
 
 /**
@@ -590,7 +455,7 @@ function recordOutcomeIfChanged(session) {
     const deadSeats = order.filter((id) => isPlayerDead(state, id));
     if (deadSeats.length > 0) {
       let cleaned = state;
-      for (const id of deadSeats) cleaned = removePlayerFromGame(cleaned, id);
+      for (const id of leavingOrder(state, deadSeats)) cleaned = removePlayerFromGame(cleaned, id);
       return { ...session, state: cleaned };
     }
     return session;
@@ -616,7 +481,7 @@ function recordOutcomeIfChanged(session) {
   // eliminated seats and keep playing.
   if (deadOpponents.length > 0) {
     let cleaned = state;
-    for (const id of deadOpponents) cleaned = removePlayerFromGame(cleaned, id);
+    for (const id of leavingOrder(state, deadOpponents)) cleaned = removePlayerFromGame(cleaned, id);
     return { ...session, state: cleaned };
   }
 
@@ -1693,8 +1558,16 @@ export function advanceUntilDecision(
     // PERMANENT-level fixpoint (lethal/0-toughness, 0-loyalty, legend rule, attachment legality,
     // counter annihilation — each firing its owed triggers), THEN the player-loss read below —
     // so an elimination caused by a chain-reaction SBA is seen at this same checkpoint, not a turn late.
-    current = { ...current, state: checkAllStateBasedActions(current.state) };
-    current = recordOutcomeIfChanged(current);
+    // A PLAYER LEAVING changes the board (CR 800.4a — their objects leave, what they stole goes back, what they still held is
+    // exiled), so the check runs again before anyone receives priority (CR 704.3): an Aura left on nothing goes, and the
+    // leaves-the-battlefield triggers of the objects that left are put on the stack first (CR 603.3). A tick with no
+    // elimination runs it once, as before; the seats can only shrink, so the repeat ends.
+    for (;;) {
+      current = { ...current, state: checkAllStateBasedActions(current.state) };
+      const seatsBefore = Object.keys(current.state.players || {}).length;
+      current = recordOutcomeIfChanged(current);
+      if (current.status !== "active" || Object.keys(current.state.players || {}).length === seatsBefore) break;
+    }
     if (current.status !== "active") {
       return {
         session: current,

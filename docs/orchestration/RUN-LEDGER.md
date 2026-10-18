@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.165.0** (tagged 2026-10-18 on the `[0.165.0]` CHANGELOG cut):
-> **3 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **44.9% (15,536)**; engine gains since the tag: **±0**. The next tag
+> **4 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **44.9% (15,536)**; engine gains since the tag: **±0**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,79 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX (engine rules): a player leaving a multiplayer game follows CR 800.4a — the control effects giving them control end first (a creature they took with Control Magic, Act of Treason or Sliver Overlord goes to the player beneath; it vanished with them), every object they own leaves the game wherever it is (a creature of theirs another player had stolen, their Aura on another player's creature, a card of theirs another player was casting — all stayed), their abilities, spell copies and waiting triggers cease to exist (CR 800.4d), and what they still control is exiled to its owners' exile (a creature they reanimated from another player's graveyard — it vanished); their Banishing Light returns the card it held (CR 610.3) while an Oblivion Ring's triggered return does not; other players' Equipment and Auras come off their creatures; the monarch passes to the active player (CR 725.4); an extra turn queued for them is skipped (CR 800.4k) · **±0** · snapshot native+land 15,531 unchanged
+> Suite **20,880 green (1 skipped) / 1,884 files** under the gate queue (with the rules index built for the run, then deleted). Lint 0
+> (CR citations: 0 of 11,727 name no rule; keyword citations: 0 of 2,383 cite a different keyword). Flip-diff **0 / 0 / RETIERED 0**
+> (34,620 cards; before = an untouched `git archive` of 80b09e9e, snapshotted before the first edit; native+land 15,531 of 34,584 snapshot
+> names on both). **Mutants 6/6** on assertions, each restored byte-identical (sha256): `releaseControlOnLeave` keeping the leaver's own
+> stashed home (2 tests red), no `defaultController` stamp in `moveControl` (2), only the leaver's own battlefield leaving (2 — the
+> stolen Griffin, the stolen Drone token), stack spells judged by controller alone (2), no CR 800.4d gate in `flushTriggers` (1 — the
+> logged drop), the two-trigger detain return handed to a seated player too (1 — Oblivion Ring). Witness `playerLeavesGame.test.js`
+> written first: the first 18 run on the untouched 80b09e9e archive — **14 fail on assertions, the 4 controls pass**; with the three added
+> while building (the stolen Drone token, the leaver's own Drone token, Oblivion Ring), **16 of the final 21 fail on the archive on
+> assertions, the 5 controls pass on both**. A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI;
+> base = the untouched 80b09e9e archive): **74 / 80 byte-identical**; the other **6 change no decision** (every row's action, the winner,
+> result and turn count identical) — 4 log a dropped leaves trigger of the departed player's own permanent (Watcher for Tomorrow, Cryogen
+> Relic, Detention Sphere, Skyclave Apparition; base never recorded the leave, and `orderTriggersAPNAP` would have dropped them silently),
+> and in 2 a survivor's Aura on the departed player's creature (Swift Reconfiguration and Detainment Spell; Kenrith's Transformation) goes
+> to the graveyard as they leave instead of at the next state-based check (one decision row's `own_permanents` feature differs). 0 errors
+> on either tree, results unchanged (ai-wins 60 / user-wins 20), 185 s / 179 s. **158 eliminations** on both trees; **in none was a stolen
+> or borrowed object involved** — measured on base with a scratch instrumentation at each elimination (80 / 80 games reproduced): no
+> permanent the leaver owned on another battlefield, none another player owned on theirs, no control effect giving them control, no
+> cross-owner spell on the stack. No profile deck casts a theft card the engine models (the control-timestamp entry's census).
+> Committed on `day/leavegame`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **The bug.** `learnSession.removePlayerFromGame` deleted the leaving player's record — their whole battlefield with it — and filtered
+>   the stack by controller. Reproduced on 80b09e9e through the session's real elimination (advanceUntilDecision): a creature the leaver
+>   held with Control Magic, Act of Treason or Sliver Overlord vanished (CR 800.4a's own examples: it reverts); the leaver's creature
+>   another player stole with Mind Control stayed, the Aura on it; the leaver's Pacifism left a dangling id in its host's `attachments`
+>   (read by Reyav-style "enchanted or equipped" gates); another player's Bonesplitter on the leaver's creature kept `attachedTo` pointing
+>   at nothing and their Pacifism on it stayed on the battlefield until a later check; a card of the leaver's that another player was
+>   casting (Ragavan's permission) stayed on the stack, and another player's card the leaver was casting vanished; a creature the leaver
+>   reanimated from another player's graveyard vanished (owned by that player: CR 800.4a exiles it); the leaver's waiting trigger stayed
+>   queued; a card their Banishing Light held stayed exiled for good; the monarch stayed with the departed seat (nobody could take the
+>   crown again); an extra turn queued for them began with them as the active player.
+> · **The fix** (`playerLeavesGame.js`, new — learnSession imports it). In CR 800.4a's order: ① the control effects giving the leaver
+>   control end first, while they are still seated (`controlMove.releaseControlOnLeave`: the latest remaining effect's controller, else
+>   `controlOriginal` unless it is the leaver, else the default controller unless it is the leaver; nobody → it stays for ③). The default
+>   controller (CR 110.2) is a new stamp, `defaultController`, that `moveControl` writes on a permanent's first move — the seat it left —
+>   so a permanent the leaver controls by default (exiled) is told apart from one an effect gave them (released). Then every permanent the
+>   leaver owns, on any battlefield, leaves through `gameState.removePermanentFromGame` (the battlefield exit without a landing: the
+>   nonland-left stamp, the trigger look-backs, `detachPermanentFromAll` — attachments fall off, a control Aura releases its host, leave
+>   events record so leaves-the-battlefield abilities trigger, CR 603.6c), attachments first; each spell they own leaves the stack. ② Their
+>   abilities and spell copies on the stack cease to exist; their waiting and delayed triggers go; `flushTriggers` drops (and logs) any
+>   later trigger a departed player would control (CR 800.4d). ③ What they still control is exiled to its owners' exile by the ordinary
+>   zone move; a spell they are casting that another player owns goes to its owner's exile. Phased-out permanents: theirs leave every
+>   list (CR 702.26k), another player's on their list is exiled. Then the seat (turn order, combat, commander damage — now also from a
+>   commander of theirs on another battlefield or the stack — the player-Aura sweep, the monarch via `becomeMonarch`, priority to the next
+>   seat in turn order, CR 800.4a). The driver re-runs the SBA check after a removal before anyone gets priority (CR 704.3 — the leave
+>   triggers reach the queue first); simultaneous leavers go active player last; `advanceStep` skips an extra turn of a departed player
+>   (CR 800.4k). A detainer's return (CR 610.3 — a one-shot, not a trigger) whose controller has left goes to the active player
+>   (`checkLeavesTriggers`); the two-trigger printing `foldTwoTriggerDetain` rewrites (Oblivion Ring, Journey to Nowhere) returns with a
+>   triggered ability, so it keeps its departed controller and is dropped (`triggers.detainReturnIsTriggered`). A `left-game-objects`
+>   log entry names what crossed between players (none in a plain elimination).
+> · **Reach.** Every 4-player game with an elimination (158 in the 80 A/B games). The cards whose leave behaviour changes: the 14 control
+>   Auras and 15 native threatens of the control-timestamp entry, Sliver Overlord, Hellkite Tyrant, Homeward Path (what they took goes
+>   back), every reanimation of another player's creature, every Banishing-Light-style "until" detainer (its card returns) and every
+>   leaves-the-battlefield watcher a survivor controls. No tier moves (flip-diff 0).
+> · **Tests changed on purpose:** none. Comments updated where they named the old location (`adelineResplendentCathar.test.js`,
+>   `ownerZoneRouting.test.js` — its stale-owner board is now built by hand; the fallback it pins stays as the never-throw guard).
+> · **Judgement calls:** (1) The leaver's own leave triggers and an Oblivion Ring's return are dropped (CR 800.4d) — the A/B shows
+>   `orderTriggersAPNAP` already dropped such triggers silently; the gate makes the drop visible. (2) An attack on the leaver is still
+>   removed from combat (base behaviour; CR 800.4e only says no damage is assigned to them). (3) Priority the leaver held passes to the
+>   next seat (CR 800.4a); the pass count still restarts, so players who had passed are asked again. (4) The Ragavan permission stamp and
+>   a pre-attached Bonesplitter are staged; every other steal, cast and elimination goes through the engine's real entry points. (5) The
+>   detain return's stack controller, when its own has left, is the active player (CR 610.3c makes the controller irrelevant to where the
+>   card goes). (6) Survivor-controlled leaves triggers of the leaver's objects now fire (the stolen Drone token's drain), per CR 603.6c.
+> · ⚠️ **Found, not fixed:** (1) CR 800.4c — a permanent the leaver controlled by default, held by another player's temporary effect when
+>   they leave, stays with its holder when that effect ends (`controlMove.endControlEffects`' pinned fallback); the rule exiles it.
+>   (2) CR 800.4g — a pending resolution-time choice of the leaver's (`state.pendingDiscover` / `state.pendingChoice`, settled in
+>   learnSession.advanceUntilDecision) is not handed to another player; the settlers assume the seat exists. (3) CR 800.4j — the active
+>   player leaving still cuts the turn short (`playerLeavesGame.js` active branch, the B3 simplification). (4) CR 800.4m — the leaver's
+>   "until your next turn" effects end at once (`gameState.expireDamageReplacementEffects`). (5) Another player's Aura or Equipment that
+>   phased out with a leaver's permanent (a CR 702.26g rider) is lost with the leaver's phased-out list (CR 702.26n). (6) The initiative
+>   (CR 726.4) is not modelled.
+> · Witness: `playerLeavesGame.test.js` (21 — 16 witnesses, 5 controls).
 
 > ## 🚀 2026-10-18 — v0.165.0 RELEASED (published 2026-10-18T03:29:50Z) + CI: the release build retries the transient next/font fetch · **±0**
 > Release run 39091854651: the test gate green; attempt 1's build died in next/font's Google Fonts loader ("An error occurred in `next/font`.

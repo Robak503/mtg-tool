@@ -1010,6 +1010,23 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
 }
 
 /**
+ * A PERMANENT LEAVES THE GAME (CR 800.4a — its owner left a multiplayer game): it leaves the battlefield for no zone. It
+ * takes the battlefield exit every move takes, minus the landing: the turn's nonland-left stamp, the last-known records of
+ * the triggers that read it, and detachPermanentFromAll — its attachments fall off or unattach, a control Aura's host is
+ * released, and a leave event is recorded (leaves-the-battlefield abilities trigger, CR 603.6c; a trigger its departed
+ * controller would control is never put on the stack, CR 800.4d — gameEngine.flushTriggers). Nothing goes to any zone, so
+ * nothing dies. Same state when the permanent is not on `playerId`'s battlefield.
+ */
+export function removePermanentFromGame(state, { playerId, cardId }) {
+  const permanent = (state.players?.[playerId]?.battlefield || []).find((p) => p.id === cardId);
+  if (!permanent) return state;
+  let next = permanentTypes(state, permanent.id).types.includes("Land") ? state : { ...state, nonlandLeftBattlefieldTurn: state.turn };
+  next = stampTriggeringLki(next, cardId);
+  const removed = withPlayer(next, playerId, (p) => ({ ...p, battlefield: p.battlefield.filter((x) => x.id !== cardId) }));
+  return detachPermanentFromAll(stampTriggeringLeftPower(removed, permanent, next), permanent, false, null, next);
+}
+
+/**
  * Draw N cards from the top of library to hand. If the library is empty mid-draw, draws as many as are
  * available AND the shortfall is the CR 120.3 deck-out: the player is stamped `triedToDrawFromEmpty`
  * and loses at the next state-based check (learnSession.isPlayerDead reads the stamp — before this
@@ -2253,7 +2270,7 @@ export function loseLife(state, { playerId, amount, combatDamage }) {
   // WIN-CON ATTRIBUTION (combat vs burn): `combatDamage` is passed ONLY by the two damage callers —
   // true from combat resolution, false from the burn/ability damage atom — and is undefined for every
   // non-damage loss (pay-life, drains). We stamp `lethalDamageCombat` on the player ONLY when THIS loss
-  // is the killing blow (newLife <= 0) and it came from damage, so removePlayerFromGame can split the
+  // is the killing blow (newLife <= 0) and it came from damage, so playerLeavesGame.removePlayerFromGame can split the
   // "damage" win-con into combat / burn. Stamping only on the lethal blow means it can never go stale (a
   // player at <=0 is removed by the very next SBA) and a drain/pay-life finish never mislabels as either.
   //

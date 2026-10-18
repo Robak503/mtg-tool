@@ -4703,6 +4703,14 @@ export function foldTwoTriggerDetain(oracle, card) {
   return folded.join("\n");
 }
 
+/** Does this detainer return its card with a TRIGGERED ability — the old two-trigger printing the fold above rewrites — rather
+ *  than with the one-shot effect of an "until" duration (CR 610.3)? Read with the same preparation detectTriggers gives the
+ *  fold. Only a player leaving the game tells the two apart (CR 800.4d — checkLeavesTriggers). */
+function detainReturnIsTriggered(card) {
+  const text = splitCompoundTriggerSentences(stripTriggerAbilityLabel(String(oracleOf(card) || "")));
+  return foldTwoTriggerDetain(text, card) !== text;
+}
+
 /**
  * CUMULATIVE UPKEEP — PAY N LIFE (CR 702.24a, stage ③ · 45): the printed keyword LINE "Cumulative upkeep—Pay N life."
  * over reminder-stripped text (newlines kept); group 1 = N. One definition for the two readers that must agree —
@@ -7927,8 +7935,17 @@ export function checkLeavesTriggers(state) {
     // re-enters each card from its owner's exile zone (a gone card is a clean no-op).
     if (e.detainedExile?.length) {
       const desc = { event: "detainReturn", scope: "self", whose: "any", optional: false, effectClause: "[detain-return] return the exiled cards to the battlefield" };
+      // A DETAINER WHOSE CONTROLLER LEFT THE GAME (CR 800.4a — Banishing Light leaves with its owner): the return is a one-shot
+      // effect of the "until" duration ending (CR 610.3), not a triggered ability, so CR 800.4d does not stop it — the engine
+      // carries it on the stack, and a stack object needs a controller in the game: the active player, else the first player
+      // in turn order. The returned cards come back under their owners' control either way (CR 610.3c). The OLD two-trigger
+      // printing (Oblivion Ring, Journey to Nowhere — folded into this mechanism by foldTwoTriggerDetain) returns the card with
+      // a triggered ability of the departed player's, which is never put on the stack (CR 800.4d): it keeps its controller,
+      // and flushTriggers drops it — the card stays exiled.
+      const seated = cleared.players[e.controller] || detainReturnIsTriggered(e.card) ? null
+        : (cleared.players[cleared.activePlayer] ? cleared.activePlayer : (cleared.turnOrder || Object.keys(cleared.players)).find((p) => cleared.players[p]) ?? null);
       // `detainBoardIds`: the battlefield as the detainer left — what a returning Aura may enchant (CR 610.3d; auraEntry.js).
-      fired = fired.concat(makePendingTrigger(desc, lookBack, lookBack, { detainedExile: e.detainedExile, ...(e.boardIds ? { detainBoardIds: e.boardIds } : {}) }));
+      fired = fired.concat(makePendingTrigger(desc, lookBack, lookBack, { detainedExile: e.detainedExile, ...(e.boardIds ? { detainBoardIds: e.boardIds } : {}) }, seated));
     }
     // SELF-PiG ("ltb") — the Aura self-PiG-return (Rancor), printed "is put INTO A GRAVEYARD from the
     // battlefield" (CR 700.4 — NOT a bounce/exile). Fire "ltb" ONLY for a graveyard exit; a bounce/exile leave

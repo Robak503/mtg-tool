@@ -58,7 +58,7 @@ const P = (id, card, controller, over = {}) => ({ ...createPermanent({ id, card:
 /**
  * A table at the declare-attackers step of `active` (the user by default), Adeline on the user's battlefield. Four seats (user →
  * ai1 → ai2 → ai3) by default; `seats: 2` is a standard game (user, ai). `boards` adds permanents per seat. `gone` removes a seat
- * the way the session's elimination does (CR 800.4a — learnSession.removePlayerFromGame drops the player record and the
+ * the way the session's elimination does (CR 800.4a — playerLeavesGame.removePlayerFromGame drops the player record and the
  * turn-order slot).
  */
 function table({ seats = 4, boards = {}, gone = null, active = "user" } = {}) {

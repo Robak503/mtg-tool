@@ -489,13 +489,16 @@ export function advanceStep(state) {
   // queued extra turn is considered in its place. When every queued turn is skipped, the normal rotation below runs from the
   // player whose turn just ended — the turn that comes next once the skipped ones are gone. The carrier's own controller's
   // extra turns are untouched.
+  // A PLAYER WHO HAS LEFT THE GAME (CR 800.4k — "If a player who has left the game would begin a turn, that turn doesn't
+  // begin"): an extra turn queued for them is popped untaken the same way, with its "that turn" records.
   let xt = state.extraTurns || [];
   let afterSkips = emptied;
-  while (xt.length > 0 && extraTurnSkipped(afterSkips, xt[xt.length - 1].player)) {
+  while (xt.length > 0 && (!afterSkips.players?.[xt[xt.length - 1].player] || extraTurnSkipped(afterSkips, xt[xt.length - 1].player))) {
     const skipped = xt[xt.length - 1];
+    const departed = !afterSkips.players?.[skipped.player];
     afterSkips = dropSkippedExtraTurnRecords(afterSkips, xt.length - 1);
     xt = xt.slice(0, -1);
-    afterSkips = logEvent({ ...afterSkips, extraTurns: xt }, { kind: "extra-turn-skipped", player: skipped.player });
+    afterSkips = logEvent({ ...afterSkips, extraTurns: xt }, { kind: "extra-turn-skipped", player: skipped.player, ...(departed ? { reason: "left the game" } : {}) });
   }
   if (xt.length > 0) {
     const taker = xt[xt.length - 1];
@@ -2143,8 +2146,19 @@ export function flushTriggers(state, { chooseTargets } = {}) {
   // priority-grant checkpoint. BEFORE the empty-pending early return so a lone counter trigger isn't
   // stranded. Idempotent (empty queue → no-op), so re-entrant flushes can't double-fire.
   state = checkCounterTriggers(state);
-  const pending = state.pendingTriggers || [];
+  let pending = state.pendingTriggers || [];
   if (pending.length === 0) return state;
+  // A PLAYER WHO HAS LEFT THE GAME (CR 800.4d): "If a triggered ability that would be controlled by a player who has left the
+  // game would be put onto the stack, it isn't put on the stack." Their own permanents' leaves triggers (recorded as those
+  // permanents left with them — playerLeavesGame.js) and their delayed triggers reach this universal chokepoint after their
+  // seat is gone; each is dropped here, logged. A trigger with no controller field is not judged.
+  if (pending.some((t) => typeof t?.controller === "string" && !state.players?.[t.controller])) {
+    const dropped = pending.filter((t) => typeof t?.controller === "string" && !state.players?.[t.controller]);
+    pending = pending.filter((t) => !dropped.includes(t));
+    for (const t of dropped) state = logEvent(state, { kind: "trigger-controller-left", source: t.source?.name || t.source, controller: t.controller });
+    state = { ...state, pendingTriggers: pending };
+    if (pending.length === 0) return state;
+  }
 
   // SOURCE-SCOPED TRIGGER MULTIPLIER (the 5th axis — Katara / Harmonic Prodigy / Cloud / Annie Joins Up,
   // CR 603.x). The other four multipliers are scoped by what CAUSED the trigger and are applied at that

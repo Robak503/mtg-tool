@@ -469,6 +469,9 @@ re-enters the order on each attach, CR 613.7e) over `controlOriginal` (who contr
 through `addControlEffect` / `endControlEffects` / `gainControlIndefinitely`: ending an effect hands the permanent to the latest
 remaining effect's controller (the cleanup sweep, an Aura leaving or moving); an indefinite steal (CR 611.2a — Sliver Overlord,
 Hellkite Tyrant, Homeward Path) clears the record. A new control effect with a duration gets an entry kind and an end site.
+`moveControl` also stamps `defaultController` (CR 110.2 — the seat the permanent left on its first move), so a player
+leaving the game can tell a permanent they hold by default (exiled) from one an effect gave them (released —
+`releaseControlOnLeave`, §4.9).
 
 ### 4.7 Mana (`manaModel.js`)
 
@@ -953,7 +956,28 @@ trigger from a permanent whose text offers no choice) or a BYSTANDER (its
 resolution changed nothing). The game then ends `game-over` / `draw` with
 `decision.mandatoryLoop`. Deliberately narrow: anything else falls to the guards
 above. A new guard or result here needs the same care — a wrong `draw` is a
-labelled training row, a missed one only an unlabelled game. Instrumentation
+labelled training row, a missed one only an unlabelled game.
+
+**A player leaving the game** (`playerLeavesGame.removePlayerFromGame`, 2026-10-17 — every elimination, CR 104.5) follows
+CR 800.4a in order: the control effects giving the leaver control end first, while they are still seated
+(`controlMove.releaseControlOnLeave` — the permanent goes to the latest remaining effect's controller, else
+`controlOriginal`, else its **default controller**, the `defaultController` stamp `moveControl` writes on a permanent's
+first move, CR 110.2); then every object they own leaves the game — each permanent on any battlefield through
+`gameState.removePermanentFromGame` (the battlefield exit without a landing: attachments fall off, a control Aura releases
+its host, leave events record, CR 603.6c), each spell they own on the stack; their abilities, spell copies, waiting
+triggers and delayed triggers cease to exist (CR 800.4d — `flushTriggers` also drops any later trigger whose controller
+has left); what they still control is exiled to its owners' exile (a creature they reanimated from another player's
+graveyard). A detainer's return (Banishing Light, CR 610.3) is not a trigger: when its controller has left, the
+synthesized return goes to the active player — but the old two-trigger printing that `foldTwoTriggerDetain` rewrites
+(Oblivion Ring, Journey to Nowhere) returns the card with a TRIGGERED ability, so that return is dropped (CR 800.4d;
+`triggers.detainReturnIsTriggered`). Then the seat goes (turn order, combat, commander damage, player Auras,
+the monarch — CR 725.4 — and priority — next player in turn order). The driver re-runs the SBA check after a removal
+before anyone gets priority; simultaneous leavers go active player last; an extra turn queued for a departed player is
+skipped (CR 800.4k, `advanceStep`). Not modelled: CR 800.4c (an effect ending when the default controller has left —
+the permanent stays with its holder), CR 800.4g (a pending choice of the leaver's), CR 800.4j (the active player's
+turn is cut short instead of continuing), CR 800.4m.
+
+Instrumentation
 opts (`decide`/`recordDecision`/`timePressure`/`onTurnStart`) are threaded through
 `act()` and every pending-choice settler, so caller-driven v1 games are fully
 instrumented end-to-end (`gameApiInstrumentation.test.js` pins it). `selfPlayRunner`
