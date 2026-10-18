@@ -839,8 +839,10 @@ export function createNamedTokenClauseParser(clause) {
   // tokens" with no "rounded up/down" is ambiguous and stays unmatched → Arbiter (mirrors radClauseParser).
   m = t.match(/^create half x (treasure|clue|food|gold|blood) tokens, rounded (up|down)$/);
   if (m) return { op: "create-named-token", token: m[1], countX: true, halve: m[2] === "up" ? "ceil" : "floor", targetType: null };
-  m = t.match(/^create that many (treasure|clue|food|gold|blood) tokens$/);
-  if (m) return { op: "create-named-token", token: m[1], countContext: "combatDamageAmount", targetType: null };
+  // + TAPPED (the play-weighted program, 2026-10-18 — Prosperous Bandit: "Whenever this creature deals combat damage to a player, create
+  // that many tapped Treasure tokens."): the fixed-count arm's "tapped" adjective (atom.tapped, honoured at the one mint chokepoint).
+  m = t.match(/^create that many (tapped )?(treasure|clue|food|gold|blood) tokens$/);
+  if (m) return { op: "create-named-token", token: m[2], countContext: "combatDamageAmount", ...(m[1] ? { tapped: true } : {}), targetType: null };
   m = t.match(/^create a number of (tapped )?(treasure|clue|food|gold|blood) tokens equal to its power$/);
   if (m) {
     const atom = { op: "create-named-token", token: m[2], countContext: "dyingPower", targetType: null };
@@ -1197,7 +1199,16 @@ function createTokenClauseParserCore(clause) {
   }
   // THE COUNT (the play-weighted arbiter-spell slice, 2026-10-18 — Army of the Damned, EDHREC #1800: "Create thirteen tapped 2/2
   // black Zombie creature tokens."): every spelled cardinal in the shared table (NUM_WORD, a..twenty), not only a..five.
-  const m = t.match(FIXED_TOKEN_COUNT_RE);
+  // "THAT MANY" (the play-weighted program, 2026-10-18 — Lathril, Blade of the Elves: "Whenever Lathril deals combat damage to a player,
+  // create that many 1/1 green Elf Warrior creature tokens."; Living Hive, Elsha, Tervigon; Hornet Nest's dealt-damage form): the
+  // count is the damage just dealt — countContext "combatDamageAmount", the Old Gnawbone Treasure arm's magnitude (the dealt-damage
+  // event threads it as its alias). triggerRouting.combatDamageReferentSatisfied admits it only on the events that set it, and the
+  // spell / activated gates in coverage refuse it, so any other "that many" (attackers, sacrificed creatures, discarded cards) stays
+  // unread. Read on this arm as the count word, so every P/T, colour, keyword and quoted-ability rule below applies unchanged; not
+  // with an attacking rider (no printed carrier on a damage event) nor on a land token (its intrinsic mana and a dynamic count are
+  // unprinted — the counted arms' rule).
+  const thatMany = !attackingRider && /^create that many /.test(t);
+  const m = (thatMany ? t.replace(/^create that many /, "create one ") : t).match(FIXED_TOKEN_COUNT_RE);
   if (m) {
     const entersTapped = !!m[2] || !!attackingRider?.tapped;
     m.splice(2, 1); // drop the tapped group so every existing index below reads unchanged
@@ -1220,8 +1231,9 @@ function createTokenClauseParserCore(clause) {
     // rider is parked (whole card or nothing — CREED). Awaken's tokens have no "with" clause, so this only
     // guards a hypothetical "Forest Dryad land creature token with flying".
     if (landMana.oracle && m[6] !== undefined) return null;
+    if (thatMany && landMana.oracle) return null; // a land token's intrinsic mana + a dynamic count is unprinted — park (CREED)
     const tokenName = m[5] ? m[5].trim().split(/\s+/).map(cap).join(" ") : null; // title-case the parsed name (it was lowercased upstream)
-    const base = { op: "create-token", count: NUM_WORD[m[1]] ?? parseInt(m[1], 10), power, toughness, descriptor: m[4].trim(), ...(entersTapped ? { tapped: true } : {}), ...(attackingRider ? { entersAttacking: true } : {}), ...(tokenName ? { name: tokenName } : {}), ...(landMana.oracle ? { tokenOracle: landMana.oracle } : {}), targetType: null };
+    const base = { op: "create-token", ...(thatMany ? { countContext: "combatDamageAmount" } : { count: NUM_WORD[m[1]] ?? parseInt(m[1], 10) }), power, toughness, descriptor: m[4].trim(), ...(entersTapped ? { tapped: true } : {}), ...(attackingRider ? { entersAttacking: true } : {}), ...(tokenName ? { name: tokenName } : {}), ...(landMana.oracle ? { tokenOracle: landMana.oracle } : {}), targetType: null };
     if (m[6] === undefined) return base;
     // A QUOTED inline ability → the clean-mana-ability gate (T4) OR the curated self-dies TRIGGERED-ability gate
     // (T5: a Pest's dies→gain-life, a Devil's dies→deal-damage — both minted as real oracle so checkDiesTriggers

@@ -82,6 +82,12 @@ export function applyTapEffect(state, atom, ctx, tap) {
       // CREATURE-OR-LAND union (Saryth) — act on EITHER, read off the permanent's live type line (the same
       // source `isLand` uses), so a land target isn't dropped by the creature-only fallback below.
       : atom?.targetType === "creatureOrLand" ? (isLand || /\bcreature\b/i.test(tl))
+      // FIX (false positive, 2026-10-18) — "Untap target artifact" / "… enchantment" (Voltaic Key, Manifold Key, Sonic Screwdriver,
+      // Filigree Sages, Galvanic Key, Voltaic Servant; Clock of Omens): the parse emits targetType "artifact" / "enchantment" and the
+      // enumerator offers any such permanent, but this gate fell to the creature-only fallback, so a noncreature target (Sol Ring) was
+      // logged as untapped and stayed tapped. The live card type it has now (layer 4 — permanentHasCardType), as the target was chosen.
+      : atom?.targetType === "artifact" ? permanentHasCardType(next, t.id, "Artifact")
+      : atom?.targetType === "enchantment" ? permanentHasCardType(next, t.id, "Enchantment")
       : wantsLand ? isLand : wantsPermanent ? true : t.type === "creature";
     if (!ok) continue;
     // ⭐ LOCK-ONLY (Barl's Cage / Elvish Hunter / House Guildmage — "Target creature doesn't untap during its
@@ -935,13 +941,17 @@ export function applyCantBlock(state, atom, ctx) {
   let next = state;
   const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
   const dur = { kind: "endOfTurn", turn: next.turn };
+  // "can't attack or block this turn" (atom.cantAttack — Endbringer): both pseudo-keywords, the same duration and source.
+  const keywords = atom.cantAttack ? ["cantBlock", "cantAttack"] : ["cantBlock"];
   for (const target of targets) {
     if (target.type !== "creature" || !findPermanent(next, target.id)) continue;
-    next = addContinuousEffect(next, {
-      layer: 6, op: { layerOp: "addKeyword", keyword: "cantBlock" },
-      affects: { mode: "fixed", permanentIds: [target.id] },
-      duration: dur, source: src,
-    }).state;
+    for (const keyword of keywords) {
+      next = addContinuousEffect(next, {
+        layer: 6, op: { layerOp: "addKeyword", keyword },
+        affects: { mode: "fixed", permanentIds: [target.id] },
+        duration: dur, source: src,
+      }).state;
+    }
   }
   return logEvent(next, { kind: "spell-effect", effect: "cant-block", targets: targets.map(t => t.id) });
 }
@@ -1775,6 +1785,11 @@ export function combatKeywordClauseParser(clause) {
     if (eb) return { op: "cant-be-blocked", target: "self", targetType: null, exceptByKeyword: eb[1].charAt(0).toUpperCase() + eb[1].slice(1) };
   }
   if (/^target creature can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature" };
+  // ...and its CAN'T-ATTACK half (the play-weighted program, 2026-10-18 — Endbringer "{C}, {T}: Target creature can't attack or block this
+  // turn."; Thundersong Trumpeter, Alchemist's Vial): the same end-of-turn grant plus `cantAttack` (applyCantBlock — the attack-declaration
+  // gate reads the Pacifism class's pseudo-keyword). A creature already attacking or blocking stays in combat (the Endbringer and
+  // Alchemist's Vial rulings — a restriction is checked as attackers and blockers are declared, CR 508.1c / 509.1b).
+  if (/^target creature can't attack or block this turn$/.test(t)) return { op: "cant-block", targetType: "creature", cantAttack: true };
   // "One or two target creatures can't block this turn" (shelf D14 — Untimely Malfunction's third mode): the same grant on each
   // chosen creature (applyCantBlock loops them); CR 601.2c — at least one target, at most two.
   if (/^one or two target creatures can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature", minTargets: 1, maxTargets: 2 };

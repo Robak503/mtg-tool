@@ -65,9 +65,13 @@ describe("parser — the counted tap cost", () => {
     expect(k.modeled).toBe(true);
     expect(parseActivatedAbilities(SIEGE_ZOMBIE)[0].tapCreature).toEqual({ another: false, count: 3 });
   });
-  it("CREED near-miss: a subtype-filtered count still defers", () => {
+  // GRADUATED 2026-10-18 (play-weighted — filteredTapCost.test.js): a creature-type payer reads now (Cryptbreaker's Zombies, Lathril's
+  // Elves); the near-miss moves to a colour-qualified payer, which still defers.
+  it("a subtype-filtered count reads (the payer filter); CREED near-miss: a colour-qualified count still defers", () => {
     const ab = parseActivatedAbilities({ id: "c-x", name: "Probe", type: "Creature — Elf", oracle: "Tap two untapped Elves you control: Draw a card." })[0];
-    expect(ab?.costModeled ?? false).toBe(false);
+    expect(ab?.tapCreature).toEqual({ another: false, count: 2, type: "permanent", subtype: "elf", noun: "Elves" });
+    const near = parseActivatedAbilities({ id: "c-y", name: "Probe", type: "Creature — Elf", oracle: "Tap two untapped green creatures you control: Draw a card." })[0];
+    expect(near?.costModeled ?? false).toBe(false);
   });
 });
 

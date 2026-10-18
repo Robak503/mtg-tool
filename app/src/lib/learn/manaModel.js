@@ -3177,19 +3177,27 @@ function tapOtherPayers(state, player, perm, prod) {
   // of the tapping rather than needing its own rule.)
   const payers = (player.battlefield || [])
     .filter((p) => (prod.requiresTap ? p.id !== perm.id : true) && !p.tapped && matchesTapOtherFilter(state, p, prod.extraTap.filter))
-    // Payer preference, cheapest-first: a SUMMONING-SICK permanent has nothing else to do this turn, and
-    // among the rest a NON-MANA-SOURCE is preferred. ⚠️ That second key matters as soon as "permanent" is an
-    // allowed payer noun (Gene Pollinator): tapping a LAND to make one mana is a legal but pointless play
-    // that nets zero, and the sim would have made it on every activation. This is a policy, not a rule —
-    // both orderings are legal — so it is stated as one.
-    // ⚠️ THE SICKNESS KEY IS CREATURE-SCOPED. `createPermanent` stamps summoningSick on EVERY fresh
-    // permanent, lands included, and sickness is meaningless for a land tapped as a COST — so an
-    // unscoped key sorted a just-played Forest ahead of a ready creature and picked the land. Caught by
-    // asserting which payer was chosen rather than only that one was.
-    .sort((a, b) =>
-      (Number(isCreatureCardType(b.card) && !!b.summoningSick) - Number(isCreatureCardType(a.card) && !!a.summoningSick))
-      || (Number(!!manaProduction(a.card)) - Number(!!manaProduction(b.card))));
+    .sort(tapCostPayerOrder);
   return payers.length < prod.extraTap.count ? null : payers.slice(0, prod.extraTap.count).map((p) => p.id);
+}
+
+/**
+ * THE TAP-COST PAYER ORDER — a comparator over battlefield permanents, cheapest payer first. One policy for the tap-other mana payers
+ * above and the activated "Tap N untapped <filter> you control" cost's frozen set (legalChoices, the filtered payers — Clock of Omens,
+ * Cryptbreaker, Whirler Rogue, 2026-10-18).
+ * Payer preference, cheapest-first: a SUMMONING-SICK permanent has nothing else to do this turn, and
+ * among the rest a NON-MANA-SOURCE is preferred. ⚠️ That second key matters as soon as "permanent" is an
+ * allowed payer noun (Gene Pollinator): tapping a LAND to make one mana is a legal but pointless play
+ * that nets zero, and the sim would have made it on every activation. This is a policy, not a rule —
+ * both orderings are legal — so it is stated as one. A stable sort keeps battlefield order within a key.
+ * ⚠️ THE SICKNESS KEY IS CREATURE-SCOPED. `createPermanent` stamps summoningSick on EVERY fresh
+ * permanent, lands included, and sickness is meaningless for a land tapped as a COST — so an
+ * unscoped key sorted a just-played Forest ahead of a ready creature and picked the land. Caught by
+ * asserting which payer was chosen rather than only that one was.
+ */
+export function tapCostPayerOrder(a, b) {
+  return (Number(isCreatureCardType(b.card) && !!b.summoningSick) - Number(isCreatureCardType(a.card) && !!a.summoningSick))
+    || (Number(!!manaProduction(a.card)) - Number(!!manaProduction(b.card)));
 }
 
 export function manaSources(state, playerId) {

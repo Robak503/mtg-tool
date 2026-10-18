@@ -31,6 +31,7 @@ import { activationConditionParseable } from "../interveningIf.js";
 import { selfNormalizeOracle, choosesColorOnEnter } from "../staticAbilityParser.js"; // leaf-importing module — cycle-safe; the shared self-name grammar; + choosesColorOnEnter (2026-10-17): the chosen-colour payment rider needs the card's chooser
 import { CAST_ONLY_AFTER_ANOTHER_SPELL_PATTERN } from "./textNormalize.js"; // a zero-import leaf — the cast restriction's one pattern, shared with the classifier's strip
 import { SAC_TYPE_CANON } from "./castModifiers.js"; // the ONE sacrifice-union map both cost grammars read (castModifiers imports only parseHelpers — no cycle)
+import { singularCreatureType } from "./creatureTypes.js"; // the closed-vocabulary singularizer (a zero-import leaf) — the tap cost's payer noun
 
 /** Strip reminder text (parens) but PRESERVE newlines so per-ability line splitting works. */
 function stripReminder(text) {
@@ -433,6 +434,36 @@ function execUnattachFromSelfName(item, card) {
  * parseManaCost records it as `cost.snow`, which planPayment can satisfy ONLY from a snow source's mana
  * (never fake-paid from non-snow mana — THE CREED). So a cost carrying {S} is no longer dropped to null.
  */
+/** The payer count a "Tap N untapped … you control" cost prints (one through ten — Lathril's ten Elves is the corpus's largest). */
+const TAP_COST_COUNT = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+
+/**
+ * THE PAYER NOUN of a "Tap N untapped <noun> you control" cost → the sacrifice pools' `{ type, subtype? }`, `{}` for creatures (the
+ * original creature cost's shape), or null. Read nouns, each number-agreeing with its count (`plural` — two or more):
+ *   · "creature(s)" → {} — legalChoices' creature path, unchanged;
+ *   · "artifact(s)" → { type: "artifact" }; "token(s)" → { type: "token" };
+ *   · "artifacts and/or creatures" → { type: "artifactOrCreature" } (the sacrifice union key — Sunshot Militia);
+ *   · one creature type, singular or plural, validated against the closed CR 205.3m vocabulary (singularCreatureType — "Elves" →
+ *     elf, "Merfolk" → merfolk) → { type: "permanent", subtype } — a permanent with that creature type as it is now (a changeling
+ *     counts; layers.permanentHasTypeWord), the reading the "Sacrifice a Goblin" cost already makes.
+ * Anything else — a colour ("blue creatures"), a supertype ("legendary permanent"), "nontoken", a land or artifact subtype ("Gate",
+ * "Desert"), a list of types — is null, and the whole cost stays unread.
+ */
+function tapCostPayerFilter(noun, plural) {
+  const n = String(noun || "").trim().toLowerCase();
+  if (n === (plural ? "creatures" : "creature")) return {};
+  if (n === (plural ? "artifacts" : "artifact")) return { type: "artifact" };
+  if (n === (plural ? "tokens" : "token")) return { type: "token" };
+  if (plural && n === "artifacts and/or creatures") return { type: "artifactOrCreature" };
+  if (!/^[a-z'-]+$/.test(n)) return null;
+  const subtype = singularCreatureType(n);
+  if (!subtype) return null;
+  // Number agreement: a singular count names the singular type itself ("an untapped Wizard"); a plural count may print the plural or an
+  // invariant type ("three untapped Zombies", "three untapped Merfolk").
+  if (!plural && subtype !== n) return null;
+  return { type: "permanent", subtype };
+}
+
 function pipIsMana(pipRaw) {
   const P = String(pipRaw).trim().toUpperCase();
   return /^\d+$/.test(P) ||
@@ -523,8 +554,23 @@ export function parseAbilityCost(costStr, card = null) {
     // (the counted-sacrifice precedent — a written policy, summoning-sick bodies first) onto `tapCountIds`; the
     // dispatcher taps every one of them before the ability goes on the stack and none of them may tap for mana.
     // Whole-item anchored: a subtype filter ("two untapped Elves") or a compound still falls through → null (deferred).
-    const tapNM = item.match(/^tap (two|three|four) untapped creatures you control$/i);
-    if (tapNM) { tapCreature = { another: false, count: { two: 2, three: 3, four: 4 }[tapNM[1].toLowerCase()] }; continue; }
+    const tapNM = item.match(/^tap (two|three|four|five|six|seven|eight|nine|ten) untapped creatures you control$/i);
+    if (tapNM) { tapCreature = { another: false, count: TAP_COST_COUNT[tapNM[1].toLowerCase()] }; continue; }
+    // THE PAYER FILTER (the play-weighted program, 2026-10-18 — Clock of Omens "Tap two untapped artifacts you control: Untap target
+    // artifact.", Cryptbreaker "Tap three untapped Zombies you control: …", Whirler Rogue, Lathril "{T}, Tap ten untapped Elves you
+    // control: …", Azami "Tap an untapped Wizard you control: …", Kumena "Tap another untapped Merfolk you control: …", Sunshot Militia
+    // "Tap two untapped artifacts and/or creatures you control: …"): the same cost with another payer noun, read by
+    // tapCostPayerFilter into the sacrifice pools' vocabulary (`type` / `subtype` — legalChoices.sacTypeMatchesNow asks it of each
+    // permanent as it is now, CR 601.2h). The plain creature forms above keep their shape byte-for-byte; a noun the filter doesn't
+    // read (a colour, "legendary", "nontoken", a land subtype) falls through → the whole cost parks (deferred, a safe FN).
+    const tapFM = item.match(/^tap (another|an|a|one|two|three|four|five|six|seven|eight|nine|ten) untapped (.+) you control$/i);
+    if (tapFM) {
+      const word = tapFM[1].toLowerCase();
+      const count = word === "another" ? 1 : TAP_COST_COUNT[word];
+      const filter = count ? tapCostPayerFilter(tapFM[2], count > 1) : null;
+      // `noun` — the printed payer noun of a filtered counted cost, for the action label ("tap 3 untapped Zombies"); no rules reader.
+      if (filter) { tapCreature = { another: word === "another", ...(count > 1 ? { count } : {}), ...filter, ...(count > 1 && filter.type ? { noun: tapFM[2] } : {}) }; continue; }
+    }
     // γ1g — RETURN-A-LAND cost (Oboro Breezecaller "{2}, Return a land you control to its owner's hand:
     // Untap target land."): a CHOICE cost — the player picks WHICH land they control to bounce to its owner's
     // hand (CR 601.2b / 118 — returning a permanent you control to hand as an activation cost). The parser only

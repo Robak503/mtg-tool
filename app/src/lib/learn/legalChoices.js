@@ -30,7 +30,7 @@
  */
 
 import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower, nameCastLocked, playerLifeLocked } from "./gameState.js"; // B4: the Reflector Mage name cast lock; playerLifeLocked — CR 119.8, a life total that can't change can't pay life
-import { canAfford, planPayment, manaSources, manualManaTaps, payActivationFromPool, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources, lifePaymentContext } from "./manaModel.js";
+import { canAfford, planPayment, manaSources, manualManaTaps, payActivationFromPool, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources, lifePaymentContext, tapCostPayerOrder } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // SELF-METRIC-COST-REDUCTION: a live count read at cast announce
 import { hasKeyword } from "./keywords.js";
 import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord, cannotEquipNow } from "./layers.js"; // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
@@ -2905,20 +2905,27 @@ function actionsActivateAbility(state, playerId) {
       // {T}, and CR 302.6 restricts only {T}/{Q}, so a summoning-sick body may pay it). Auto-picked like the counted
       // sacrifice: summoning-sick creatures first (they can't attack this turn anyway), then battlefield order — a
       // written policy, never a wrong play. Fewer than N untapped creatures → the cost can't be paid → not offered.
+      // THE PAYER FILTER (play-weighted, 2026-10-18 — Clock of Omens' artifacts, Cryptbreaker's Zombies, Sunshot Militia's artifacts
+      // and/or creatures): a cost carrying `type` (abilities.tapCostPayerFilter) admits the permanents sacTypeMatchesNow admits — the type
+      // each has now, a creature type through every creature type (a changeling is a Zombie). With no `type` it is the creature cost
+      // as it always was. A filtered counted set is ordered by manaModel.tapCostPayerOrder (the tap-other mana payers' policy: a
+      // summoning-sick creature first, then a permanent that makes no mana — Clock of Omens taps itself and an Ornithopter before a
+      // Sol Ring); the plain creature set keeps its order.
+      const tapPayerOk = (v) => (ab.tapCreature.type ? sacTypeMatchesNow(state, v, ab.tapCreature.type, ab.tapCreature.subtype || null) : permanentIsCreature(state, v.id));
       let tapCountIds = null;
       if (ab.tapCreature && ab.tapCreature.count > 1) {
         const selfExcluded = ab.tapSelf || ab.tapCreature.another;
-        const pool = player.battlefield.filter((v) => !v.tapped && permanentIsCreature(state, v.id) && !(selfExcluded && v.id === perm.id)); // a creature NOW (the type-line audit)
-        const ordered = [...pool.filter((v) => v.summoningSick), ...pool.filter((v) => !v.summoningSick)];
+        const pool = player.battlefield.filter((v) => !v.tapped && tapPayerOk(v) && !(selfExcluded && v.id === perm.id)); // the payer type NOW (the type-line audit)
+        const ordered = ab.tapCreature.type ? [...pool].sort(tapCostPayerOrder) : [...pool.filter((v) => v.summoningSick), ...pool.filter((v) => !v.summoningSick)];
         if (ordered.length < ab.tapCreature.count) continue;
         tapCountIds = ordered.slice(0, ab.tapCreature.count).map((v) => v.id);
       } else if (ab.tapCreature) {
         const selfExcluded = ab.tapSelf || ab.tapCreature.another;
         tapVictims = player.battlefield.filter((v) =>
-          !v.tapped && permanentIsCreature(state, v.id) && // a creature NOW (the type-line audit — Earthcraft taps no God below its devotion)
+          !v.tapped && tapPayerOk(v) && // the payer type NOW (the type-line audit — Earthcraft taps no God below its devotion)
           !(selfExcluded && v.id === perm.id),
         );
-        if (tapVictims.length === 0) continue; // no untapped creature to tap → the cost can't be paid
+        if (tapVictims.length === 0) continue; // no untapped payer to tap → the cost can't be paid
       }
       const tapCountSet = tapCountIds ? new Set(tapCountIds) : null;
 
@@ -3146,6 +3153,7 @@ function actionsActivateAbility(state, playerId) {
             tapCreatureId: tapVictim?.id ?? null,        // γ1f — the chosen untapped creature to tap (cost)
             tapCreatureName: tapVictim?.card?.name ?? null,
             tapCountIds,                                  // V6 slice 2 — the N frozen untapped creatures to tap (cost)
+            ...(tapCountIds && ab.tapCreature.noun ? { tapCountNoun: ab.tapCreature.noun } : {}), // the printed payer noun of a filtered counted cost (the label)
             returnLandId: returnLandVictim?.id ?? null,  // γ1g — the chosen land to return to owner's hand (cost)
             returnLandName: returnLandVictim?.card?.name ?? null,
             unattachEquipmentId: unattachVictim?.id ?? null,     // γ1i (CAP14) — the chosen attached Equipment (cost)

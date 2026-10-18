@@ -98,7 +98,7 @@ export function activationCostText(o, seat = "user") {
   if (mana && mana !== "{0}") parts.push(mana);
   if (o.tapSelf) parts.push("{T}");
   const tapN = o.tapCountIds?.length || 0;
-  if (tapN) parts.push(`tap ${tapN} untapped creature${tapN === 1 ? "" : "s"}`);
+  if (tapN) parts.push(o.tapCountNoun ? `tap ${tapN} untapped ${o.tapCountNoun}` : `tap ${tapN} untapped creature${tapN === 1 ? "" : "s"}`); // a filtered cost prints its own noun ("artifacts", "Zombies")
   const exileN = o.exileGyIds?.length || 0;
   if (exileN) parts.push(`exile ${exileN} card${exileN === 1 ? "" : "s"} from ${seatPossessive(seat)} graveyard`);
   if (o.payLife > 0) parts.push(`pay ${o.payLife} life`);

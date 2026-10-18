@@ -57,7 +57,7 @@ const REVERBERATE = {"name":"Reverberate","type":"Instant","mana":"{R}{R}","cmc"
 const FORK = {"name":"Fork","type":"Instant","mana":"{R}{R}","cmc":2,"keywords":[],"colors":["R"],"oracle":"Copy target instant or sorcery spell, except that the copy is red. You may choose new targets for the copy."}; // arbiter-spell
 const DIVERT = {"name":"Divert","type":"Instant","mana":"{U}","cmc":1,"keywords":[],"colors":["U"],"oracle":"Change the target of target spell with a single target unless that spell's controller pays {2}."}; // arbiter-spell
 const NARU_MEHA = {"name":"Naru Meha, Master Wizard","type":"Legendary Creature — Human Wizard","mana":"{2}{U}{U}","cmc":4,"power":"3","toughness":"3","keywords":["Flash"],"colors":["U"],"oracle":"Flash\nWhen Naru Meha enters, copy target instant or sorcery spell you control. You may choose new targets for the copy.\nOther Wizards you control get +1/+1."}; // body-only
-const SIGIL_TRACER = {"name":"Sigil Tracer","type":"Creature — Merfolk Wizard","mana":"{1}{U}{U}","cmc":3,"power":"2","toughness":"2","keywords":[],"colors":["U"],"oracle":"{1}{U}, Tap two untapped Wizards you control: Copy target instant or sorcery spell. You may choose new targets for the copy."}; // body-only
+const SIGIL_TRACER = {"name":"Sigil Tracer","type":"Creature — Merfolk Wizard","mana":"{1}{U}{U}","cmc":3,"power":"2","toughness":"2","keywords":[],"colors":["U"],"oracle":"{1}{U}, Tap two untapped Wizards you control: Copy target instant or sorcery spell. You may choose new targets for the copy."}; // native since 2026-10-18 (the tap cost's payer filter)
 const SWORDS = {"name":"Swords to Plowshares","type":"Instant","mana":"{W}","cmc":1,"keywords":[],"colors":["W"],"oracle":"Exile target creature. Its controller gains life equal to its power."}; // native-spell
 const BOLT = {"name":"Lightning Bolt","type":"Instant","mana":"{R}","cmc":1,"keywords":[],"colors":["R"],"oracle":"Lightning Bolt deals 3 damage to any target."}; // native-spell
 const COUNTERSPELL = {"name":"Counterspell","type":"Instant","mana":"{U}{U}","cmc":2,"keywords":[],"colors":["U"],"oracle":"Counter target spell."}; // native-spell
@@ -143,7 +143,8 @@ describe("the cards and their parse", () => {
       fork: classifyCard(FORK), divert: classifyCard(DIVERT), naruMeha: classifyCard(NARU_MEHA), sigilTracer: classifyCard(SIGIL_TRACER) };
     console.log("  WITNESS classify", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
     expect(row).toEqual({ narset: "native-spell", dualcaster: "native-trigger", imps: "native-spell", reverberate: "native-spell", twincast: "native-spell",
-      fork: "arbiter-spell", divert: "arbiter-spell", naruMeha: "body-only", sigilTracer: "body-only" });
+      // sigilTracer GRADUATED 2026-10-18 (play-weighted — filteredTapCost.test.js): "Tap two untapped Wizards you control" reads now.
+      fork: "arbiter-spell", divert: "arbiter-spell", naruMeha: "body-only", sigilTracer: "native-activated" });
   });
 
   it("Narset's Reversal: one copy atom — new targets allowed, the original returned; Reverberate: the same atom without the return", () => {

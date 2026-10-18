@@ -37,6 +37,7 @@ import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.j
 import { ABILITY_WORD_LABEL_RE, creatureEntersSuppressed, entersSilencer } from "./effects/textNormalize.js"; // + entersSilencer (shelf D20 — Elesh Norn's opponent-scoped enters silence) // + TORPOR ORB (RG-2, 2026-09-05): the enters-event suppression reader // CR 207.2c label list — the SINGLE copy, shared with the spell path (textNormalize is a zero-import leaf, so no cycle)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell's every-creature-type answer (Changeling; its caster's Maskwood Nexus); a leaf (keywords.js only)
 import { CR_CREATURE_TYPES } from "./effects/targeting.js"; // BC-1: closed creature-subtype vocabulary for the NEGATED-SUBTYPE batch filter (read ONLY inside parseBatchSubjectFilter — a function — so the triggers→targeting→spellEffects→triggers cycle stays init-safe: CR_CREATURE_TYPES is never referenced at module-init time)
+import { singularCreatureType } from "./effects/creatureTypes.js"; // the closed-vocabulary singularizer (a zero-import leaf)
 import { fireDiesWatches } from "./effects/atoms/delayedTrigger.js"; // DIES WATCH (shelf D25, CR 603.7) — "when that creature dies this turn" fires off the death chokepoint (a gameState-only leaf, no cycle)
 import { DISCARDED_CARD_EXILE_SENTINEL, DISCARDED_CARD_EXILE_PRINTED_RE, openDiscardExileWatch } from "./effects/atoms/discardedCardExile.js"; // Necropotence — the discarded-card referent (a gameState-only leaf, no cycle)
 import { parseMultikickerCost } from "./kicker.js"; // MULTIKICKER (P·15) — a multikicker permanent carries its kick count into its ETB self context (kicker.js imports only leaves)
@@ -98,39 +99,8 @@ function parseSubtypeList(s) {
   const caps = parts.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
   return caps.length === 1 ? caps[0] : caps;
 }
-/**
- * A plural (or already-singular) creature-type word → the REAL CR subtype, or null.
- *
- * ⚠️ WHY THIS EXISTS INSTEAD OF `word.replace(/s$/, "")`. That naive strip was the shipped behaviour and it
- * is wrong for every irregular plural in the game: "Allies" → "Allie", "Elves" → "Elve", "Oxen" → "Oxen".
- * None of those is a printed subtype, so the resulting filter is a gate NO CARD CAN SATISFY — the card
- * classifies native and the trigger silently never fires. Invasion Tactics #13305 shipped exactly that way
- * ("Allie"), found by `probe-vacuous-subtype-filters.mjs`.
- *
- * The fix is NOT a hand-written plural dictionary — that would just move the fabrication. Candidate
- * singular forms are GENERATED and then VALIDATED against `CR_CREATURE_TYPES`, the closed 317-word
- * vocabulary (ENGINE-SCAFFOLD §6: validate against a closed set, never a loose word). A word that resolves
- * to nothing in that set returns null, and every caller treats null as "don't build a filter" → the trigger
- * stays with the Arbiter (a SAFE false-negative). So an unrecognised or newly-printed type degrades to
- * undetected rather than to a vacuous native.
- *
- * Order matters only in that the first hit wins; the candidates are disjoint in practice ("wolves" → "wolf"
- * via -ves→-f, "knives" → "knife" via -ves→-fe, "allies" → "ally" via -ies→-y, "oxen" → "ox" via -en).
- */
-function singularCreatureType(word) {
-  const w = String(word).toLowerCase();
-  if (CR_CREATURE_TYPES.has(w)) return w; // already singular ("merfolk", "dinosaur")
-  const candidates = [
-    w.replace(/ies$/, "y"),   // allies → ally
-    w.replace(/ves$/, "f"),   // elves → elf · wolves → wolf · dwarves → dwarf
-    w.replace(/ves$/, "fe"),  // knives → knife
-    w.replace(/en$/, ""),     // oxen → ox
-    w.replace(/es$/, ""),     // foxes → fox
-    w.replace(/s$/, ""),      // goblins → goblin (the regular case)
-  ];
-  for (const cand of candidates) if (cand !== w && CR_CREATURE_TYPES.has(cand)) return cand;
-  return null;
-}
+// singularCreatureType — the closed-vocabulary singularizer — lives in the creatureTypes.js leaf (imported above), shared with
+// the activated tap cost's payer filter (effects/abilities.js).
 
 /**
  * A BATCHED trigger subject ("one or more <X>") → the equivalent SINGULAR subject phrase, or null.

@@ -190,8 +190,10 @@ describe("classification — what flips and what honestly doesn't", () => {
     expect(classifyCard(INFANTRY)).toMatch(/^native-/);
   });
 
-  it("Endbringer stays parked — its '{C}, {T}: Target creature can't attack or block this turn.' is unmodeled", () => {
-    expect(classifyCard(ENDBRINGER)).toBe("body-only");
+  // GRADUATED 2026-10-18 (play-weighted — cantAttackOrBlockTarget.test.js): "Target creature can't attack or block this turn." reads
+  // (the can't-block grant with its can't-attack half), so the card's last line is modeled.
+  it("Endbringer is native — its '{C}, {T}: Target creature can't attack or block this turn.' reads now", () => {
+    expect(classifyCard(ENDBRINGER)).toBe("native-activated");
   });
 
   it("Victory Chimes stays parked — its mana goes to a player of your choice, unmodeled", () => {

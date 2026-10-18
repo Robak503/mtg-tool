@@ -2408,6 +2408,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // KWSTRIP-1 — drop a vacuous cast-keyword line (foretell / suspend / splice onto arcane / recover /
   // harmonize / basic landcycling) so the spell's BODY parses; the normal-cast resolution is identical.
   oracle = stripCastKeywordLines(oracle);
+  // ===== THE DURATION LEADS THE SELF PUMP (the play-weighted program, 2026-10-18 — Resplendent Angel: "{3}{W}{W}{W}: Until end of turn,
+  // this creature gets +2/+2 and gains lifelink.") ===== The same instruction as "This creature gets +2/+2 and gains lifelink until end
+  // of turn." — the duration covers both halves either way — so the one sentence is reordered to the trailing form the self pump reads.
+  // Exactly that shape: the source as subject, a fixed +N/+N (or -N/-N) and one keyword. A count ("+1/+1 for each …" — Gran Pulse Ochu),
+  // a choice ("your choice of flying, …" — Argivian Avenger) or another subject is left as printed (unread).
+  oracle = oracle.replace(/^until end of turn, (this creature) (gets [+-]\d+\/[+-]\d+ and gains [a-z]+(?: strike)?)\.?$/i, (whole, subject, rest) => `${subject.charAt(0).toUpperCase()}${subject.slice(1)} ${rest} until end of turn.`);
   // ===== THE EXILED CARD'S TYPE DECIDES A PAYOFF (play-weighted #1607 — Scavenging Ooze: "Exile target card from a graveyard. If it
   // was a creature card, put a +1/+1 counter on this creature and you gain 1 life."; Diregraf Scavenger, Raven Eagle: "exile up to one
   // target card from a graveyard. If a creature card was / is exiled this way, …") ===== Collapsed here so the splitter never strands

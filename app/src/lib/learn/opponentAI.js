@@ -1570,6 +1570,9 @@ function pickCombatRoleActivation(state, aiPlayerId, abilityActions) {
   for (const a of abilityActions) {
     const atoms = a.program?.atoms || [];
     if (atoms.length !== 1 || a.program.structure === "modal" || (a.targets?.length || 0) !== 1) continue;
+    // A tap cost on other permanents (Catapult Squad's "Tap two untapped Soldiers you control", 2026-10-18 — the filtered tap cost)
+    // taps real bodies, possibly the blockers this combat needs: never auto-spent, the other pickers' rule.
+    if (a.tapCreatureId || (a.tapCountIds?.length)) continue;
     const atom = atoms[0];
     if (!(atom.restrictions || []).some((r) => r.kind === "combat")) continue;
     const t = a.targets[0];

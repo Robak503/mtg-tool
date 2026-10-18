@@ -64,9 +64,11 @@ describe("EARTHCRAFT — parser", () => {
   // CREED — a COUNT / qualified tap-creature cost stays unmodeled (deferred), never mis-paid.
   it("a qualified tap-creature cost stays unmodeled → null (safe FN); the COUNTED form graduated (SHELF-85 V6 slice 2, 2026-09-04)", () => {
     // "Tap two untapped creatures you control" is modeled now — countedTapCost.test.js owns its pins (Kirol and eleven
-    // twins). A SUBTYPE-qualified tap cost still defers.
+    // twins). A SUBTYPE-qualified tap cost reads too since 2026-10-18 (the payer filter — filteredTapCost.test.js); a colour-qualified
+    // one still defers.
     expect(parseAbilityCost("Tap two untapped creatures you control")).toMatchObject({ tapCreature: { another: false, count: 2 } });
-    expect(parseAbilityCost("Tap an untapped Elf you control")).toBeNull();
+    expect(parseAbilityCost("Tap an untapped Elf you control")).toMatchObject({ tapCreature: { another: false, type: "permanent", subtype: "elf" } });
+    expect(parseAbilityCost("Tap an untapped green creature you control")).toBeNull();
     // A bare "untap target basic land" under a qualified target stays low (Arbiter).
     expect(parseEffectClause("untap target basic land you control.", "Enchantment").confidence).toBe("low");
   });

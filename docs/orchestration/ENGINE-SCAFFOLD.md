@@ -175,6 +175,11 @@ bullet guard → splitClauses (split on sentences / ";" / top-level " and ", wit
      isCleanClause / UNMODELED_MARKERS)
 ```
 
+A word-order rewrite runs among the strips (2026-10-18): "Until end of turn, this creature gets +N/+N and gains <keyword>."
+(Resplendent Angel) becomes the trailing-duration sentence the self pump reads — that exact shape only (a count, a choice or another
+subject stays as printed). "Target creature can't attack or block this turn." is the `cant-block` atom with `cantAttack: true`
+(two end-of-turn grants; Endbringer, Off Balance).
+
 ### 3.3 The CLAUSE_PARSERS registry (the atom seam)
 
 `effects/atoms/*.js` (22 modules + colocated tests) each export **pure clause parsers** — functions
@@ -391,6 +396,13 @@ you control dies" is the enters scope `otherSubtypeYouControl` on the dies event
 doesn't). On a SELF dies / enters / attack trigger, a token count of "its power" or "<own name>'s power" (the X-where and "a
 number of … equal to" grammars only) is rewritten to "this creature's power" — the sourcePower count (`rewriteSelfPowerTokenCount`;
 a non-self "its", Murder Investigation's enchanted creature, is never rewritten).
+
+**"That many" tokens are the damage just dealt (2026-10-18 — Lathril, Living Hive, Hornet Nest, Prosperous Bandit).** The
+creature-token arm reads "create that many <P/T> … creature tokens" (and the named arm "create that many [tapped] Treasure tokens")
+with `countContext: "combatDamageAmount"` — the combat-damage events set it, and the dealt-damage event threads it as its alias. A
+"that many" on any other event (attackers, discarded cards, an exiled board) parses the same way and is refused by
+`combatDamageReferentSatisfied` (manual at the flush, unread in the metric); a spell or activated body is refused by coverage's
+referent gates.
 
 **Leaves-the-battlefield watchers look back in time (CR 603.10a — deaths 2026-10-01, P·34; leaves 2026-10-18).** A watcher that
 leaves in the same event as the permanents it watches still triggers for each of them. Deaths: `deadLookBackSources` offers the
@@ -916,6 +928,17 @@ be declared (a live "attacks each combat if able" and a free option); while one 
 attacker declarations (no pass, spell or ability — each would close the declaration), and under an attack cap the last slots go to
 them. A new attack requirement or restriction reads or extends this module, never a seat-specific copy.
 
+**A cost that taps other permanents (`tapCreature`, the payer filter added 2026-10-18 — Clock of Omens, Cryptbreaker, Lathril).**
+`abilities.parseAbilityCost` reads "Tap <an|another|one…ten> untapped <noun> you control": a plain creature noun keeps the original
+shape (`{ another, count? }`); any other noun goes through `tapCostPayerFilter` into the sacrifice pools' vocabulary — `type`
+(artifact, token, `artifactOrCreature`) or `type: "permanent"` + `subtype` (a creature type checked against the closed CR 205.3m list
+through `creatureTypes.singularCreatureType`), plus the printed `noun` of a counted form for the label. legalChoices admits a payer
+by `sacTypeMatchesNow` (the type it has now; a changeling is every creature type), the single form as one action per payer, the
+counted form as one frozen set ordered by `manaModel.tapCostPayerOrder` (the tap-other mana payers' policy: a summoning-sick
+creature first, a mana source last; the plain creature set keeps its old order). The source pays unless the cost also taps it or
+says "another"; summoning sickness never stops a payer (CR 302.6). The payers can't also pay the mana part, and no AI picker spends
+such a cost (the safe, targeted and combat-role pickers all skip `tapCreatureId` / `tapCountIds`). A new payer noun is one arm of
+`tapCostPayerFilter` (a colour, a supertype, "nontoken" and land subtypes are unread today).
 **Attack taxes (`attackTax.js` — CR 508.1h, a cost to attack; per attack target since 2026-10-18).** `readAttackTax(card)` is the one
 reader: `{ tax, defends }` — the amount per attacker (`{ generic }`, a counted `{ countSource }`, a `{ phyrexian }` pip) and whom the
 printed subject protects: "can't attack you" → the player only (Propaganda, Ghostly Prison, Windborn Muse, Koskun Falls — the
@@ -1304,6 +1327,12 @@ pass fixed four of these; they are the template for what to look for:
   the front colours; a permanent's colours stay `layers.permanentColors` (seeded by the same `frontFaceColors`).
   `layers.colorsOf` is the raw array — never a zone or spell read. The opponents-enter-tapped impositions read the
   entering card's `characteristicTypeLine` too. Witness: `dfcSpellColors.test.js`, `dfcEntersTapped.test.js`.
+- **A resolver gate that doesn't know a target type the parser emits** (fixed 2026-10-18): "untap target artifact" parsed to the
+  untap atom with `targetType: "artifact"` and the enumerator offered every artifact, but `applyTapEffect`'s type gate knew only
+  creatures, lands and permanents and fell back to `t.type === "creature"` — an enumerated artifact arrives as a permanent, so
+  Voltaic Key, Manifold Key, Sonic Screwdriver and Voltaic Servant (all credited native) logged "untap" and left the artifact
+  tapped. The gate now reads the live card type for "artifact" / "enchantment". A new targetType on an op whose resolver re-checks
+  the target's type must reach that check too. Witness: `untapTargetArtifact.test.js`.
 - **A counter replacement keyed on WHO PUTS the counters** (credit removed 2026-10-17): "If you would put …" / "If an
   opponent would put …" (Vorinclex, Monstrous Raider; Lae'zel, Vlaakith's Champion; Doc Samson) describes the putter (CR
   614.1a; wither / infect counters are put by the source's controller, CR 120.3d), but `gameState.addCounter` carries no
