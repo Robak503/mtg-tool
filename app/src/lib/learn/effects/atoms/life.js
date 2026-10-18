@@ -374,6 +374,15 @@ export function lifeClauseParser(clause) {
   if (m) return { op: "gain-life", amount: parseInt(m[1], 10), who: "eachOpponent", targetType: null };
   m = t.match(/^target (player|opponent) loses (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[2], 10), who: "target", targetType: m[1] };
+  // MARIONETTE MASTER (EDHREC #1567) — "target opponent loses life equal to this creature's power": the arm above sized by the
+  // ability's own permanent's power (countForSpec sourcePower, read as it resolves; when the permanent has left, its power as it
+  // last existed — its 2016-09-20 ruling, CR 608.2h; a negative power loses nothing).
+  m = t.match(/^target (player|opponent) loses life equal to this creature's power$/);
+  if (m) return { op: "lose-life", amountCount: { kind: "sourcePower", per: 1 }, who: "target", targetType: m[1] };
+  // DISCIPLE OF THE VAULT (EDHREC #2482) — the causative "you may have target opponent lose 1 life" once the optional wrapper has
+  // peeled its "you may" (the triggering-controller causative below is the same shape): the same targeted loss.
+  m = t.match(/^have target (player|opponent) lose (\d+) life$/);
+  if (m) return { op: "lose-life", amount: parseInt(m[2], 10), who: "target", targetType: m[1] };
   // DRAW-LOSE-SUBJECT's second half — "the same target player loses M life", the sentinel splitClauses injects into
   // "Target player draws N cards and loses M life" (Sign in Blood). The player is the draw's target, so the loss binds to
   // it (bindPreviousTargets — runProgram reads the antecedent's target slice) and chooses no target of its own (CR 115.1).

@@ -22,7 +22,7 @@
  *
  * Imports only gameState, layers and triggers — the modules manaModel already imports — so hosting the helper here adds no cycle.
  */
-import { moveCardToZone, logEvent, deathLookback, deathEventKind, findPermanent, graveyardReplacementCarriersLast } from "./gameState.js";
+import { moveCardToZone, logEvent, deathLookback, deathEventKind, findPermanent, graveyardReplacementCarriersLast, groupLeaveEvents } from "./gameState.js";
 import { permanentTypes, permanentIsCreature, permanentHasCardType } from "./layers.js";
 import { checkDiesTriggers, checkLeavesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers } from "./triggers.js";
 
@@ -87,6 +87,8 @@ export function sacrificePermanentsTogether(state, victims) {
     const deathKind = death ? deathEventKind(death) : null;
     if (deathKind && deathKind !== "creature-dies") next = logEvent(next, { kind: deathKind, turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
   }
+  // One event (CR 603.10a): every victim leaves together, creature or not — a leave watcher among them saw the others go.
+  next = groupLeaveEvents(next, batch.map((v) => v.permId));
   next = checkDiesTriggers(next, dead);
   next = checkPlaneswalkerDiesTriggers(next, deadPw);
   // The sacrifice look-backs carry the types each had as it left (sacrificePermanentForCost's shape), for the creature scope.

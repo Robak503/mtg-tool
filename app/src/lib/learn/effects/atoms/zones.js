@@ -3,7 +3,7 @@
  * reanimate). Also hosts the shared enterCardFromZone helper (reanimation + library ramp).
  */
 
-import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf, shuffleSeededLibrary, deterministicRng, advanceRngSeed, attachPermanent, withoutExileStamps, stampTriggeringLki } from "../../gameState.js"; // deterministicRng / advanceRngSeed — ENDURANCE's "in a random order" (seeded, never Math.random) // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
+import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf, shuffleSeededLibrary, deterministicRng, advanceRngSeed, attachPermanent, withoutExileStamps, stampTriggeringLki, groupLeaveEvents } from "../../gameState.js"; // deterministicRng / advanceRngSeed — ENDURANCE's "in a random order" (seeded, never Math.random) // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
 import { applyEnterReplacements, settleEnterReplacements, sagaEntryChapterTriggers } from "../../enterReplacements.js"; // the entry replacements (CR 614.1c, 614.1d, 614.12) — the ONE reader resolvers.enterPermanent shares; a leaf that reaches neither resolvers.js nor any atom importing this file
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
@@ -52,6 +52,8 @@ export function applyZoneMove(state, atom, ctx, toZone, toTop = false, libraryIn
       next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone, cardId: t.id, toTop, libraryIndex });
     }
   }
+  // …and their leaves are one event (CR 603.10a): a leave watcher moved with the others saw them go (checkLeavesTriggers).
+  next = groupLeaveEvents(next, targets.map((t) => t.id));
   // Exile is NOT "dies" (CR 700.4 — dies = to graveyard), so no dies triggers fire. Tuck → library.
   const effect = toZone === "exile" ? "exile" : toZone === "library" ? "tuck" : "bounce";
   return logEvent(next, { kind: "spell-effect", effect, targets: targets.map(t => t.id) });
@@ -236,6 +238,9 @@ export function applyBlink(state, atom, ctx) {
     const lk = findPermanent(next, l.permId);
     if (lk) next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "exile", cardId: l.permId });
   }
+  // The exile is one event (CR 603.10a): a leave watcher among the targets saw the others go; the cards coming back are new objects
+  // that saw nothing (CR 400.7 — checkLeavesTriggers reads each leave's board).
+  next = groupLeaveEvents(next, leaving.map((l) => l.permId));
   // `returnTo` picks the controller: "controller" for "under your control", "owner" for "under its owner's control". An Aura
   // whose side its reading can't tell goes back to the side it left (`auraSideHint` — auraEntry.auraEntryHostScore).
   const back = enterCardsTogether(next, leaving.map((l) => {

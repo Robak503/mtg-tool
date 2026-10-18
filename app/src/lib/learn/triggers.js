@@ -26,6 +26,7 @@ import {
   recordSacrificeThisTurn, // SACRIFICED-THIS-TURN (Elanor Gardner, 2026-09-05) — stamped at the sacrifice chokepoint below
   graveyardExiledFor, // P·27 — a planeswalker exiled instead (Rest in Peace and kin) never died
   lastKnownIsCreature, // CR 603.10a — a look-back's creature-ness as it last existed (its layer-aware types), the one reader
+  groupLeaveEvents, // CR 603.10a — a death batch is one leave event (checkLeavesTriggers' departed look-back)
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { characteristicTypeLine, faceUpView, characteristicColors } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8a / 712.8d) — every type scope reads the front face of a multi-face card; a cast spell's colours are the face being cast's (CR 712.8c)
@@ -7793,7 +7794,9 @@ export function checkDiesTriggers(state, dead) {
   const orphanedAuras = (state.pendingLeaveEvents || [])
     .filter((e) => e?.card && e.toGraveyard && /\bAura\b/.test(String(e.card.type || e.card.type_line || "")))
     .map((e) => ({ id: e.id, controller: e.controller, card: e.card, attachedTo: null }));
-  let state2 = checkLeavesTriggers(state);
+  // The batch's creatures left the battlefield in ONE event (CR 603.10a): marked so a leave watcher among them sees the others go
+  // (checkLeavesTriggers' departed look-back) — an event already grouped by its operation (a wipe) keeps that wider group.
+  let state2 = checkLeavesTriggers(dead && dead.length > 1 ? groupLeaveEvents(state, dead.map((d) => d?.id)) : state);
   if (!dead || !dead.length) return state2;
   // DEATHS-THIS-TURN (CR 700.4): bump each dying creature's controller's per-turn death tally BEFORE firing
   // dies-triggers, so a dies-triggered "for each creature that died this turn" payoff (and the "if a creature
@@ -8087,6 +8090,7 @@ export function checkLeavesTriggers(state) {
   if (!events.length) return state;
   // Always clear the queue, whether or not anything matched, so events never leak across SBA checks.
   const cleared = { ...state, pendingLeaveEvents: [] };
+  const departed = departedLeaveSources(cleared, events);
   let fired = [];
   for (const e of events) {
     if (!e?.card) continue;
@@ -8158,10 +8162,25 @@ export function checkLeavesTriggers(state) {
     // an "another …" scope (excludeSelf) skips itself via the id check, so a self-excluding watcher never
     // mis-fires on its own death. The battlefield scan below then covers every OTHER (surviving) watcher.
     fired = fired.concat(triggersForEvent(cleared, { event: "permanentLeaves", sourcePermanent: lookBack, triggeringPermanent: lookBack, triggeringContext: leaveCtx }));
+    // ⭐ The battlefield's watchers that were THERE as it left (CR 603.10a — `boardBeforeIds`, recorded by gameState.recordLeaveEvent):
+    // a permanent that entered after it left — a flickered watcher back as a new object (CR 400.7) — never saw it go. An orphaned
+    // Aura's leave is the state-based action after the event (every watcher on the battlefield then sees it), an emblem is no
+    // permanent, and a leave recorded without the board offers every watcher, as before.
+    const sawFromBattlefield = (w) => w.isEmblem || e.orphaned || !Array.isArray(e.boardBeforeIds) || e.boardBeforeIds.includes(w.id);
     for (const pid of Object.keys(cleared.players)) {
       for (const watcher of triggerSourcesOf(cleared, pid)) {
+        if (!sawFromBattlefield(watcher)) continue;
         fired = fired.concat(triggersForEvent(cleared, { event: "permanentLeaves", sourcePermanent: watcher, triggeringPermanent: lookBack, triggeringContext: leaveCtx }));
       }
+    }
+    // ⭐ …and the watchers that LEFT in this drain and saw it go (CR 603.10a — departedLeaveSources): Marionette Apprentice wiped with
+    // an Ornithopter still drains for it (Marionette Master's and Disciple of the Vault's rulings). Its own leave is the self fire above.
+    // A watcher that counts its own power reads the power it had as it left (`sourceLki` → abilitySourceLki, countForSpec's
+    // sourcePower look-back — Marionette Master's ruling, CR 608.2h).
+    for (const w of departed) {
+      if (w.id === e.id || !departedSaw(w, e)) continue;
+      const ctx = w.event.sourceLki ? { ...leaveCtx, abilitySourceLki: w.event.sourceLki } : leaveCtx;
+      fired = fired.concat(triggersForEvent(cleared, { event: "permanentLeaves", sourcePermanent: w.lookBack, triggeringPermanent: lookBack, triggeringContext: ctx }));
     }
   }
   // BATCHED LEAVES (shelf D20 — Dour Port-Mage) — a `permanentLeavesBatch` watcher fires ONCE per batch however many members
@@ -8184,6 +8203,35 @@ export function checkLeavesTriggers(state) {
   }
   if (!fired.length) return cleared;
   return { ...cleared, pendingTriggers: [...(cleared.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * DEPARTED LEAVE WATCHERS LOOK BACK (CR 603.10a, 603.6c) — the permanents this drain's leaves took off the battlefield, offered as
+ * trigger sources for the OTHER leaves of the drain: "Whenever [another] <thing> is put into a graveyard from the battlefield" and
+ * "Whenever <thing> leaves the battlefield" are leaves-the-battlefield abilities, checked against the game as it stood immediately
+ * before the event, so a watcher that left in the same event still triggers. The bundled rulings: Marionette Master ("If Marionette
+ * Master and an artifact you control are put into a graveyard at the same time, Marionette Master's ability triggers.") and Disciple
+ * of the Vault ("its ability triggers for that artifact"). The twin of the death watchers' deadLookBackSources (P·34). A permanent
+ * still on the battlefield is the battlefield sweep's — never twice. Each entry carries its leave record (for departedSaw) and the
+ * look-back source, the same shape as the leave's own.
+ */
+function departedLeaveSources(state, events) {
+  return events
+    .filter((e) => e?.card && !findPermanent(state, e.id))
+    .map((e) => ({ id: e.id, event: e, lookBack: { id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}) } }));
+}
+
+/**
+ * Did the departed watcher `w` see the leave `e`? Yes when it was still on the battlefield as `e` left (`e.boardBeforeIds` — it
+ * left later, in this drain), or when both left in ONE event (`group`, gameState.groupLeaveEvents: a wipe, a mass bounce or
+ * exile, a blink, a group sacrifice, a death batch — the engine moves their permanents one at a time, so the board a later member
+ * left no longer holds an earlier one). An ORPHANED Aura's leave (CR 704.5m) is the state-based action after its host's event, when
+ * a watcher that left is gone — seen only when the Aura was itself a member of the event (Akroma's Vengeance destroys it too). A
+ * watcher that left in an earlier, separate event never saw a later leave.
+ */
+function departedSaw(w, e) {
+  if (w.event.group != null && w.event.group === e.group) return true;
+  return !e.orphaned && Array.isArray(e.boardBeforeIds) && e.boardBeforeIds.includes(w.id);
 }
 
 /**

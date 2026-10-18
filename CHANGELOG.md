@@ -8,6 +8,12 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Marionette Master**, **Disciple of the Vault** and **Quill-Slinger Boggart** now play their whole text. Marionette Master makes the opponent you target lose life equal to its power whenever an artifact you control is put into a graveyard — including when the Master goes to the graveyard at the same time (a board wipe), or is removed before the ability resolves, using the power it last had. Disciple of the Vault lets you have the opponent you target lose 1 life whenever any artifact is put into a graveyard, even one destroyed together with it, and Quill-Slinger Boggart does the same whenever a player casts a Kithkin spell.
+
+### Fixed
+- A card that triggers whenever something is put into a graveyard from the battlefield, or leaves the battlefield, now triggers for everything that leaves at the same time as it does, as the rules say. **Marionette Apprentice** destroyed by a board wipe together with an artifact creature drained nothing; it now drains for each of your other creatures and artifacts that went with it. The same goes for **Fangren Marauder**, **Moriok Rigger**, **Molder Beast**, **Summoning Station**, **Tablet of Epityr**, **Charforger**, **Exuberant Fuseling**, **Necrosquito**, **Forgehammer Centurion**, **Vat of Rebirth**, the enchantment watchers (**Wicked Visitor**, **Ashiok's Reaper**, **Knight of Doves**, **Savior of the Sleeping**, **Starfield Mystic**, **Neva, Stalked by Nightmares**), **Titania, Protector of Argoth**, and the "leaves the battlefield" watchers (**Nadier's Nightblade**, **Boomer Scrapper**, **Ninth Bridge Patrol**, **Flaming Fist Officer**, **The Ozolith**, **Rat King, Pale Piper**, **Splinter, the Mentor**, **Tokka & Rahzar, Unsupervised**) — Rat King returned to your hand with another creature now makes a Rat for each. A permanent that is flickered back is a new object that didn't see anything leave: **Ghostly Flicker** on Ninth Bridge Patrol and another creature used to give the returned Patrol two counters, and now gives it none. An Aura that falls off a creature bounced with the watcher still isn't counted, since it goes to the graveyard after the watcher has left.
+
 ## [0.166.0] - 2026-10-18
 
 ### Added

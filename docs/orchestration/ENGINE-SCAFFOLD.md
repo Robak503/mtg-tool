@@ -380,6 +380,22 @@ doesn't). On a SELF dies / enters / attack trigger, a token count of "its power"
 number of … equal to" grammars only) is rewritten to "this creature's power" — the sourcePower count (`rewriteSelfPowerTokenCount`;
 a non-self "its", Murder Investigation's enchanted creature, is never rewritten).
 
+**Leaves-the-battlefield watchers look back in time (CR 603.10a — deaths 2026-10-01, P·34; leaves 2026-10-18).** A watcher that
+leaves in the same event as the permanents it watches still triggers for each of them. Deaths: `deadLookBackSources` offers the
+`dead` batch's departed creatures to every other death in it. Leaves (`permanentLeaves` — every "put into a graveyard from the
+battlefield" and "leaves the battlefield" watcher): `checkLeavesTriggers` offers each leave to the departed watchers of the drain
+(`departedLeaveSources`) that saw it — the watcher was on the battlefield as it left (each leave event records `boardBeforeIds`,
+the battlefield immediately before it, in `gameState.recordLeaveEvent`), or both left in ONE event (`group`). The engine moves a
+wipe's permanents one at a time, so the board a later member left no longer holds an earlier one: an operation that moves several
+permanents in one event marks them with `gameState.groupLeaveEvents(state, ids)` before the drain — today `applyDestroyEffect`,
+`applyZoneMove` (mass bounce / exile / tuck), `applyBlink`'s exile, `costSacrifice.sacrificePermanentsTogether`, and every
+`checkDiesTriggers` death batch. **A new multi-permanent exit site must call it too** — without it a watcher among the members
+sees only the ones that left after it (a safe miss, order-dependent). The battlefield sweep is gated the same way: a watcher not on
+that board — a flickered permanent back as a new object (CR 400.7) — never saw the leave. An Aura that falls off a departed host
+(`orphaned`, CR 704.5m) leaves after the event, so a watcher that left in the event never sees it unless the event moved the Aura
+itself. A departed watcher that counts its own power reads the record its leave event carries (`sourceLki` →
+`abilitySourceLki`, Marionette Master). `permanentLeavesBatch` (Dour Port-Mage) keeps its own pass, the whole drain as one batch.
+
 #### 4.4b Trigger classes beyond the event trigger (added 2026-07-25)
 
 Three kinds of trigger do NOT fire off a discrete event, and each has its own lane:

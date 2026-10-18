@@ -1567,6 +1567,17 @@ function recordLeaveEvent(state, permanent, toGraveyard, toZone = null, before =
   // board it was still on (deathLookback's field, so lastKnownIsCreature answers every leave scope the same way): a God below its
   // devotion leaving is not a creature leaving (The Ozolith, Ninth Bridge Patrol); an animated land is one.
   if (before && findPermanent(before, permanent.id)) ev.lkiTypes = [...permanentTypes(before, permanent.id).types];
+  // `boardBeforeIds` — the permanents on the battlefield immediately before it left (CR 603.10a: a leaves-the-battlefield ability
+  // looks back to the game as it stood just before the event). triggers.checkLeavesTriggers offers this leave only to the watchers
+  // that were there: a watcher that left earlier, or entered later (a flickered permanent's new object, CR 400.7), never saw it.
+  ev.boardBeforeIds = Object.values((before || state).players || {}).flatMap((p) => (p.battlefield || []).map((x) => x.id));
+  // `sourceLki` — for a permanent whose text counts its own power ("this creature's power" — Marionette Master), the record of it
+  // as it last existed (abilitySourceRecord, read off the board it left): a leave watcher of it that triggers by looking back
+  // (checkLeavesTriggers' departed look-back) reads that power when it resolves (CR 608.2h — the Master's ruling).
+  if (before && SOURCE_POWER_CLAUSE_RE.test(String(permanent.card.oracle || permanent.card.oracle_text || ""))) {
+    const lki = abilitySourceRecord(before, permanent.id);
+    if (lki) ev.sourceLki = lki;
+  }
   // EARTHBEND-RETURN (CR 603.7): carry the animated land's flag + destination zone so triggers.checkLeavesTriggers
   // can synthesize the "when it dies or is exiled, return it to the battlefield tapped" delayed trigger. Only a
   // graveyard (dies) or exile exit qualifies — a bounce to hand / tuck to library does NOT (the rider is dies-or-exiled).
@@ -1580,6 +1591,22 @@ function recordLeaveEvent(state, permanent, toGraveyard, toZone = null, before =
     ev.boardIds = Object.values(state.players || {}).flatMap((p) => (p.battlefield || []).map((x) => x.id));
   }
   return { ...state, pendingLeaveEvents: [...(state.pendingLeaveEvents || []), ev] };
+}
+
+/**
+ * ONE LEAVE EVENT (CR 603.10a) — mark the pending leave events of `memberIds` as one simultaneous event: a wipe, a mass bounce or
+ * exile, a blink's exile, a group sacrifice, a death batch. The engine moves such permanents one at a time, so the board a later
+ * member left no longer holds an earlier one; the shared `group` tells triggers.checkLeavesTriggers that every member left at the
+ * same time, so a watcher among them saw the others go. An event already in a group keeps it (the enclosing operation is the
+ * wider event — a destroy's death batch is part of the destroy). Fewer than two members is no batch. Pure.
+ */
+export function groupLeaveEvents(state, memberIds) {
+  const ids = new Set(memberIds);
+  const evs = state.pendingLeaveEvents || [];
+  const members = evs.filter((e) => ids.has(e.id) && e.group == null);
+  if (members.length < 2) return state;
+  const group = `leave:${members[0].id}`;
+  return { ...state, pendingLeaveEvents: evs.map((e) => (ids.has(e.id) && e.group == null ? { ...e, group } : e)) };
 }
 
 /**
@@ -1633,6 +1660,12 @@ export function detachPermanentFromAll(state, permanent, toGy = false, toZone = 
       // moveCardToZone(→ graveyard) invokes on it (the top-of-function recordLeaveEvent) — so do NOT record
       // it here too (that double-fired Rancor's PiG-return). The single chokepoint is the recursion.
       next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "graveyard", cardId: attId });
+      // ORPHANED (CR 704.5m): the rules put this Aura into the graveyard AFTER the event that took its host, as a state-based
+      // action — the engine does it now. A watcher that left in that event was gone by then, so the leave is marked for
+      // checkLeavesTriggers' look-back; a battlefield watcher still sees it as before.
+      const evs = next.pendingLeaveEvents || [];
+      const at = evs.findLastIndex((e) => e.id === attId);
+      if (at !== -1) next = { ...next, pendingLeaveEvents: evs.map((e, i) => (i === at ? { ...e, orphaned: true } : e)) };
     } else {
       // Equipment OR a bestowed permanent: just unattach (CR 702.103e — bestow becomes a creature again,
       // which it does automatically once attachedTo is null: layers stops emitting its Creature-type removal).

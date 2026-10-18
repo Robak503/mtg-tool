@@ -121,12 +121,17 @@ describe("KW-FABRICATE — coverage: the full card flips native", () => {
     expect(classifyCard({ type: "Creature — Aetherborn", name: "Ambitious Aetherborn", mana: "{3}{B}", power: 1, toughness: 4, oracle: FAB1 })).toBe("native-body");
     expect(classifyCard({ type: "Creature — Beast", name: "Iron League Steed", mana: "{3}", power: 3, toughness: 3, oracle: `Haste\n${FAB1}` })).toBe("native-body");
   });
-  it("CREED near-miss: Fabricate + an UNMODELED drain (Marionette Master's 'loses life equal to power') stays body-only", () => {
-    // Master's PiG effect ("target opponent loses life equal to this creature's power") does NOT route native,
-    // so even though Fabricate is now modeled, the card's OTHER text is unmodeled → body-only (a SAFE FN, CREED:
-    // no over-claim on a card the engine can't fully resolve).
+  it("Marionette Master (Fabricate 3 + 'target opponent loses life equal to this creature's power') → native-trigger (2026-10-18)", () => {
+    // The drain reads since 2026-10-18 (life.js — the sourcePower loss; its look-back when the Master leaves with the artifact is
+    // leaveLookBack.test.js). It was this file's CREED near-miss until then; the near-miss moves to the still-unread form below.
     const master = { type: "Creature — Construct", name: "Marionette Master", mana: "{5}{B}", power: 0, toughness: 4, oracle: `${FAB3}\nWhenever an artifact you control is put into a graveyard from the battlefield, target opponent loses life equal to this creature's power.` };
-    expect(classifyCard(master)).toBe("body-only");
+    expect(classifyCard(master)).toBe("native-trigger");
+  });
+  it("CREED near-miss: Fabricate + an UNMODELED drain ('loses life equal to this creature's toughness') stays body-only", () => {
+    // Synthetic: the toughness form has no reader, so even though Fabricate is modeled, the card's OTHER text is unmodeled →
+    // body-only (a SAFE FN, CREED: no over-claim on a card the engine can't fully resolve).
+    const synthetic = { type: "Creature — Construct", name: "Synthetic Marionette", mana: "{5}{B}", power: 0, toughness: 4, oracle: `${FAB3}\nWhenever an artifact you control is put into a graveyard from the battlefield, target opponent loses life equal to this creature's toughness.` };
+    expect(classifyCard(synthetic)).toBe("body-only");
   });
 });
 

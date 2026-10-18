@@ -239,8 +239,14 @@ describe("TR-3 broad artifact-PiG — 'an artifact is put into a graveyard from 
     const creatureDies = checkLeavesTriggers(moveCardToZone(s2, { playerId: "ai", fromZone: "battlefield", toZone: "graveyard", cardId: "bear2" }));
     expect(pigPendings(creatureDies)).toHaveLength(0);
   });
-  it("FN guard — Disciple of the Vault's targeted OPTIONAL drain is unmodeled → parks", () => {
-    expect(classifyCard(DISCIPLE_OF_THE_VAULT)).toBe("body-only");
+  it("Disciple of the Vault's targeted OPTIONAL drain reads (2026-10-18 — 'you may have target opponent lose 1 life') → native-trigger", () => {
+    // It parked here until the causative "have target opponent lose N life" read and the leave watchers got their look-back
+    // (leaveLookBack.test.js — its ruling: an artifact put into a graveyard at the same time as Disciple of the Vault).
+    expect(classifyCard(DISCIPLE_OF_THE_VAULT)).toBe("native-trigger");
+  });
+  it("FN guard — a targeted OPTIONAL drain with an unread amount still parks (synthetic: 'lose X life')", () => {
+    const synthetic = { ...DISCIPLE_OF_THE_VAULT, name: "Synthetic Disciple", oracle: "Whenever an artifact is put into a graveyard from the battlefield, you may have target opponent lose X life." };
+    expect(classifyCard(synthetic)).toBe("body-only");
   });
 });
 

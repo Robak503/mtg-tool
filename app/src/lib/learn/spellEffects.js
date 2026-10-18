@@ -49,6 +49,7 @@ import {
   addPoison,
   gainLife, // a lifelink source's gain (CR 702.15b) — the entering-creature damage lane
   stampTriggeringLki, // the destroy event records a waiting trigger's entering creature on the board as the event began
+  groupLeaveEvents, // CR 603.10a — the permanents one destroy takes leave in one event (checkLeavesTriggers' departed look-back)
 } from "./gameState.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers, checkLifegainTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, stackSpellIsUncounterable } from "./staticAbilityParser.js";
@@ -1393,6 +1394,9 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
     // A creature a replacement kept out of the graveyard logs where it went instead; a death is the spell-effect event below.
     if (m.deathKind && m.deathKind !== "creature-dies") next = logEvent(next, { kind: m.deathKind, turn: next.turn, cardName: m.name, controller: m.controller, via: "destroy" });
   }
+  // ONE EVENT (CR 608.2f, 603.10a): everything this destroys leaves together, creature or not — a leave watcher among them (Marionette
+  // Apprentice, Disciple of the Vault) sees the others go.
+  next = groupLeaveEvents(next, moves.map((m) => m.id));
   next = checkDiesTriggers(next, dead);
   next = checkPlaneswalkerDiesTriggers(next, deadPw);
   return logEvent(next, { kind: "spell-effect", effect: "destroy", controller, targets: targets.map(t => t.id), prevented: saved.map((s) => s.id) });
