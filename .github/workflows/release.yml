@@ -212,12 +212,36 @@ jobs:
         # paged /cards sync (bracket data) inside the same 12-minute bound.
         run: node scripts/sync-spellbook.cjs
 
+      # The Next build fetches the four Google Fonts (app/src/app/layout.jsx, next/font/google) at build time. That fetch has failed
+      # transiently on the first attempt of two releases in a row (v0.164.0 and v0.165.0: "An error occurred in `next/font`.
+      # TypeError: Cannot read properties of null (reading '1')"), and a re-run passed both times. So this step retries ONLY that
+      # failure, up to three attempts a minute apart; any other build failure fails at once with its own exit code. Bash, not
+      # pwsh: the runner's pwsh sets $ErrorActionPreference = 'stop', which a redirected native stderr can trip.
       - name: Build signed Tauri release
         working-directory: app
+        shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npm run tauri:build:release
+        run: |
+          attempts=3
+          for i in $(seq 1 "$attempts"); do
+            set +e
+            npm run tauri:build:release 2>&1 | tee build.log
+            code=${PIPESTATUS[0]}
+            set -e
+            if [ "$code" -eq 0 ]; then exit 0; fi
+            if ! grep -q 'An error occurred in `next/font`' build.log; then
+              echo "build failed (exit $code) on something other than the next/font Google Fonts fetch: no retry"
+              exit "$code"
+            fi
+            if [ "$i" -lt "$attempts" ]; then
+              echo "::warning::next/font could not fetch Google Fonts (attempt $i of $attempts); retrying in 60s"
+              sleep 60
+            fi
+          done
+          echo "::error::next/font could not fetch Google Fonts in $attempts attempts"
+          exit 1
 
       - name: Build latest.json + stable-name installer copy
         shell: pwsh

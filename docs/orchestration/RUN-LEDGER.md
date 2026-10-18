@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.165.0** (tagged 2026-10-18 on the `[0.165.0]` CHANGELOG cut):
-> **2 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **44.9% (15,536)**; engine gains since the tag: **±0**. The next tag
+> **3 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **44.9% (15,536)**; engine gains since the tag: **±0**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,16 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🚀 2026-10-18 — v0.165.0 RELEASED (published 2026-10-18T03:29:50Z) + CI: the release build retries the transient next/font fetch · **±0**
+> Release run 39091854651: the test gate green; attempt 1's build died in next/font's Google Fonts loader ("An error occurred in `next/font`.
+> TypeError: Cannot read properties of null (reading '1')"), the same transient failure as v0.164.0's attempt 1; a re-run of the failed job
+> passed. `latest.json` verified by content (0.165.0, 420-character signature, the v0.165.0 setup URL). Two releases in a row, so the "Build
+> signed Tauri release" step now retries ONLY that failure (a grep of the build log), three attempts a minute apart; any other failure exits
+> at once with its own code. Bash, not pwsh (the runner's pwsh sets $ErrorActionPreference = 'stop'). The loop was tested locally with four
+> stand-in builds: clean → exit 0; another error → its own code, no retry; the font error every time → three attempts, exit 1; the font error
+> once → recovers on attempt 2. The YAML parses and the step script passes `bash -n`. The lasting fix is vendoring the four fonts
+> (next/font/local) — a download, so Colton's call.
 
 > ## 🔧 2026-10-17 — FIX (AI decision quality): the AI uses its targeted activated abilities in its own main phase — the generic activation picker skips every activation with a target, and only Equip, the combat-role abilities and the Candelabra line took one, so the default AI never activated a targeted damage, destroy, shrink, counter, grant or graveyard ability in a main phase (Deathrite Shaman offered 79 times, Walking Ballista 109, Simic Ascendancy 31, Mutagen 50, Steelbane Hydra 20, Ulvenwald Tracker 45 — 0 activations); `pickTargetedActivation` now takes an offered one when its one targeted effect is clearly good on the side it lands (a kill or removal of an opponent's creature / planeswalker / permanent, the biggest threat first; a fight its creature wins and survives; an opponent's graveyard card exiled beside a gain, or alone when usable; a +1/+1 counter on its own creature; precombat haste / "can't be blocked" for its own attacker; a postcombat shot at a planeswalker or the opponent with the least life), never a harmful one at its own side · **±0** · snapshot native 15,531 unchanged
 > Suite **20,835 green (1 skipped) / 1,881 files** under the gate queue (with the rules index built for the run, then deleted). Runs 1 and 2

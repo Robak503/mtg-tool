@@ -74,6 +74,8 @@ but everything else does — fine for iterating UI.
    git push origin v0.162.0
    ```
 4. Wait for CI (~30 min: the two-shard test gate ~10, then the build + reference-data sync ~20)
+   (the build step retries the transient next/font Google Fonts fetch failure on its own, up to three attempts a minute
+   apart — any other build failure stops it at once; if all three fail, re-run the failed job)
 5. Verify the release page lists the `.exe`, `.exe.sig`, and `latest.json`
 6. Open MTG Tool, click "⟳ Updates" in the header, click "Check for updates"
 7. The "Download & install" button appears; click it; app restarts on

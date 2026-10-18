@@ -9,7 +9,7 @@
 
 ## 🎯 2026-10-01 — **THE PLAY-WEIGHTED PROGRAM** (Colton's order) — runnable: the top-2,500 worklist (phase 2), in rank order
 
-> **NOW (2026-10-18 ~02:40Z) — v0.165.0 TAGGING · PHASE 2 RUNNABLE.** Top 1,000 **920 / 1,000**; top 2,500 **1,770 / 2,500
+> **NOW (2026-10-18 ~03:45Z) — v0.165.0 RELEASED · PHASE 2 RUNNABLE.** Top 1,000 **920 / 1,000**; top 2,500 **1,770 / 2,500
 > (70.8%) → +480 to 90%**; corpus 15,536 (44.9%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
 > scripts/measure-coverage.mjs --played=2500` (from `app/`), highest-ranked buildable miss first. The found-not-fixed list from the
 > 10-17 slices lives in their RUN-LEDGER entries (highlights: the AI's targeted activated abilities and the stale until-end-of-turn
@@ -77,8 +77,11 @@
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
 
-## 🚀 2026-10-18 — **v0.165.0 TAGGED** (release run watching) — 30 commits since v0.164.0, every push CI green
+## 🚀 2026-10-18 — **v0.165.0 RELEASED** (published 2026-10-18T03:29:50Z) — 30 commits since v0.164.0, every push CI green
 
+> **Verified:** release run 39091854651 green on attempt 2 (attempt 1's build died in next/font's Google Fonts loader, the same transient
+> failure as v0.164.0's first attempt; the release step now retries exactly that failure, up to three times); `latest.json` verified BY
+> CONTENT at the updater endpoint (version 0.165.0, a 420-character signature, the v0.165.0 setup URL); all five assets present.
 > **The release:** tagged on the `[0.165.0]` CHANGELOG cut, under CLAUDE.md §7.2's user-facing-fix exception at +83 net cards: the
 > computer opponents now crack their fetch lands (they never did — 24 of the 30 profile decks hold one) and choose land drops and
 > land searches by the colours their hand needs; Phyrexian mana is paid (Dismember, Gitaxian Probe, Mental Misstep… cast their
