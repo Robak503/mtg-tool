@@ -1707,8 +1707,10 @@ export function spellCopyPayload(payload) {
 function freshCopyTargets(s, controller, bodyProgram, originalTargets) {
   const bodyHasChosenTarget = (bodyProgram?.atoms || []).some((a) => !!a.targetType) || originalTargets.length > 0;
   if (!bodyHasChosenTarget) return [];
-  let combos;
-  try { combos = expandCastChoices(s, controller, bodyProgram) || []; } catch { combos = []; }
+  // No try/catch (removed 2026-10-18): a probe saw no throw here over the full suite and an 80-game seeded batch, and the
+  // re-aim of a copy of another spell (newTargetsForCopy, below) makes the same read unguarded. A throw is an engine bug,
+  // not "no legal target".
+  const combos = expandCastChoices(s, controller, bodyProgram) || [];
   if (combos.length === 0) {
     // No fresh legal target. CR 707.10c default = keep the original targets — but only if they're STILL legal-
     // shaped (present). If the original is also empty the copy has no target → remove it (null).
@@ -2232,9 +2234,10 @@ function applyRetarget(state, atom, ctx) {
       next = logEvent(next, { kind: "spell-effect", effect: "retarget-decline", targetId: t.id, cardName: obj.source?.name || null, reason: "not-aimed-at-me" });
       continue;
     }
-    let combos;
     // A kicked spell keeps the kicked cast's targets (CR 601.2c — its alternative targets exist only because it was kicked).
-    try { combos = expandCastChoices(next, obj.controller, program, [], { kicked: params.kicked === true }) || []; } catch { combos = []; }
+    // No try/catch (removed 2026-10-18): a probe saw no throw here over the full suite and an 80-game seeded batch, and
+    // applyRedirectToSource (below) makes the same read unguarded; a throw read as "no-safe-combo" hid an engine bug.
+    let combos = expandCastChoices(next, obj.controller, program, [], { kicked: params.kicked === true }) || [];
     if (params.chosenMode != null) combos = combos.filter((c) => c.chosenMode === params.chosenMode);
     // The object is on the stack while it is re-enumerated, so a spell-targeting spell would be offered ITSELF — an illegal
     // target for itself (CR 115.5). (Shelf D14: a Counterspell aimed at your spell was deflected onto the Counterspell.)

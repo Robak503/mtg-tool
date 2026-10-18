@@ -120,9 +120,10 @@ describe("warmArbiterCache — the off-loop pre-pass (pluggable verdict source)"
   });
   it("a resolver THROW is skipped + counted, never fabricated", async () => {
     const resolve = () => { throw new Error("ollama down"); };
-    const { resolved, errors, cache } = await warmArbiterCache([{ cardName: "X" }], { resolve });
+    const { resolved, errors, failures, cache } = await warmArbiterCache([{ cardName: "X" }], { resolve });
     expect(resolved).toBe(0);
     expect(errors).toBe(1);
+    expect(failures).toEqual([{ cardName: "X", error: "ollama down" }]); // the cause travels with the count
     expect(getVerdict(cache, "X")).toBeNull();
   });
   it("skips a card already in the cache (reuse a prior warm, don't re-query)", async () => {

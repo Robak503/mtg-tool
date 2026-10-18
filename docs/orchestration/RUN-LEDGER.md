@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.165.0** (tagged 2026-10-18 on the `[0.165.0]` CHANGELOG cut):
-> **16 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.2% (15,636)**; engine gains since the tag: **+100**. The next tag
+> **17 commits**, corpus **44.9% (15,536)** at the tag (v0.164.0 → v0.165.0: +92 gained, −9 false credit removed, 30 commits) → **45.2% (15,636)**; engine gains since the tag: **+100**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,53 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🧹 2026-10-18 — HYGIENE: the try/catch audit's third pass — the parser's condition probe, the copy and retarget target enumerations and the board's keyword badges lose their catches, the combo loader's narrows to an absent snapshot, the arbiter warm keeps its with the cause attached (CLAUDE.md §1.2 / §8.2) · **±0**
+> Scope, in order: `effects/parser.js`, `layers.js`, `effects/atoms/stack.js`, `auraEntry.js`, `winClassifier.js`, `boardSnapshot.js`,
+> `arbiterPrepass.js` — thirteen try blocks, seven of them try/finally with no catch (`layers.js`' six recursion guards and
+> `auraEntry.withAuraEntryAsk`). **Probe**: a scratch copy of aa83055e with every try body counting a reach and every catch logging
+> its error and the running test (the seven finally blocks given a log-and-rethrow catch), over the full suite (21,258 green; the one
+> red is `engineBuild.test`'s `git describe`, which an archive without `.git` cannot run), the 80-game batch, the tier snapshot
+> (34,620 cards), an exhaustive parser pass (`parseEffectProgram` + `parseEffectClause` on every card, and every "if / as long as /
+> unless / only if" phrase in the corpus — 3,803 distinct — into `evaluateInterveningIf` on P1's exact probe state), and a
+> supplementary 80-game run that renders `boardSnapshot` at every decision (130,385 boards) and then loads the real Spellbook
+> snapshot. Two throws in all, both expected: W1's ENOENT in crucibleRun.test's sandbox and arbiterInRunner.test's deliberate
+> "ollama down". The instrumented copy played the 80 games byte-identical to the plain base and snapshot every card the same tier.
+> · **P1** `effects/parser.js:136` `conditionIsDecidable` — any throw → false (the spell parked silently). Suite 45 reaches / 0
+>   throws, 80 games 8 / 0, tier snapshot 66 / 0, parser pass 32 / 0; the 3,803 phrases 0 throws (400 boolean, 3,403 null).
+>   **Removed** (M1's twin). Its probe board holds no "probe-src" permanent, unlike manaModel's: a condition about the source reads
+>   null there and parks — never a throw.
+> · **L1–L6** `layers.js:171 / 1445 / 1508 / 1528 / 1554 / 1576` — try/finally recursion guards (chosen type, colour, power-or-toughness
+>   at most, toughness > power, with keyword, without keyword). Suite 21 / 168 / 6 / 8 / 4 / 20, 80 games 788 / 0 / 2,739 / 0 / 0 / 0;
+>   nothing thrown through any. **Kept** — class (c): no catch, the finally only releases the guard; the reason is already in place.
+> · **S1** `effects/atoms/stack.js:1711` `freshCopyTargets` (storm and self-copies) — a throw → no fresh target (originals kept, or the
+>   copy removed). Suite 11 / 0, 80 games unreached. **Removed** — `newTargetsForCopy` makes the same read unguarded.
+> · **S2** `stack.js:2237` `applyRetarget` — a throw → `retarget-decline` "no-safe-combo". Suite 4 / 0, 80 games unreached. **Removed** —
+>   `applyRedirectToSource` makes the same read unguarded.
+> · **A1** `auraEntry.js:353` `withAuraEntryAsk` — try/finally that closes the open ask. Suite 49 / 0, 80 games unreached. **Kept** (c).
+> · **W1** `winClassifier.js:115` `loadComboData` — any failure → null, cached ("absent/unreadable"). Suite 1 / 1 (ENOENT in
+>   crucibleRun.test's sandbox — the documented absent snapshot, a legal state); the real snapshot 1 / 0. **Narrowed** to ENOENT, with
+>   the reason in place: a file that cannot be read or parsed, or a `buildComboLookup` bug, now rejects, uncached.
+> · **B1** `boardSnapshot.js:81` — the keyword badges; a throw → no badge. Suite 132 / 0, 80 games unreached (self-play renders no
+>   board), the supplementary run 13,088,892 / 0. **Removed** — the layer reads just above it are unguarded on the same permanent.
+> · **AP1** `arbiterPrepass.js:52` `warmArbiterCache` — a resolver throw → `errors += 1`. Suite 4 / 1 (the deliberate "ollama down"); no
+>   production caller yet. **Kept** — class (d): the per-card boundary around an injected LLM verdict source, one card's failure must not
+>   abandon the rest; the reason is written in place and the result now carries `failures` ({ cardName, error }), not only the count.
+> Witness (`winClassifier.test`, 2 new): an absent snapshot reads null (passes on both); an unparseable one rejects and a later good one
+> loads — fails on the base on its assertion ("promise resolved null instead of rejecting"). `arbiterInRunner.test`'s throw case now
+> asserts `failures`. Suite **21,261 green (1 skipped) / 1,908 files** under the gate queue at the default timeout (rules index built
+> for the run, then deleted). Lint 0 (CR citations: 0 of 11,994 name no rule; keyword citations: 0 of 2,448 cite a different keyword).
+> Flip-diff **0 / 0 / RETIERED 0** (34,620 cards; before = an untouched `git archive` of aa83055e; native+land 15,600 of 34,584 snapshot
+> names on both; every name has the same tier). A/B **80 seeded commander games** (base seed 7, 10 per pod, the 30 profile decks,
+> default AI; base = the untouched aa83055e archive): **80 / 80 byte-identical** — every decision row (130,801), every log line
+> (60,211), winner, turns and ticks; 0 errors and 0 `stack-resolve-error` on either tree (ai-wins 57 / user-wins 23). Found, not
+> touched: `crucibleRun.js:191` `loadComboData().catch(() => null)` re-swallows what W1 now raises (the harness layer, out of scope) —
+> its own slice decides whether a corrupt snapshot fails the run or logs. Giving the parser's probe manaModel's "probe-src" would
+> make 44 corpus phrases decidable ("this creature is tapped", "its power is 2 or less", …) — not hygiene: in a spell "its" names a
+> target, not the source, so that is a classification slice with its own flip-diff. Out of scope and already (b) with the reason in
+> place: `engineBuild.js:55` (warns, stamps "+nogit") and `abBench.js:192` (records `state.error`; one engine error never kills a run).
+> No CHANGELOG line (nothing user-visible changes). Committed on `day/catch3`, not pushed; the release-batch line and the WAKE-REPORT
+> are the integrator's.
 
 > ## 🔧 2026-10-18 — FIX (rules faithfulness): attack requirements are one check for every seat (CR 508.1d) — a goaded creature (Shiny Impetus, Coercive Impetus, Jeering Homunculus …) and a creature under Kardur, Doomscourge's rule attack a PLAYER other than the goader whenever one can be attacked without paying a cost (CR 701.15b–d; the bundled rulings): the AI's walker-kill focus no longer sends one at a planeswalker, and a person's declaration is held to the same requirements — a goaded creature is offered only its legal defenders, and the declaration can't close while a creature that must attack (Bloodrock Cyclops, goad, Kardur, Bident of Thassa's turn) is still at home; under Silent Arbiter / Dueling Grounds the one attack goes to the creature that must attack (the CR 508.1d example — Toski stayed home in one A/B game); and FIX (false positive): a must-attack creature whose every attack is taxed (Propaganda) is no longer forced to pay · **±0** · snapshot native+land 15,600 unchanged
 > Suite **21,260 green (1 skipped) / 1,907 files** under the gate queue, first run (with the rules index built for the run, then deleted).

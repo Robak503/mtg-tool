@@ -4,8 +4,11 @@
  * incidental piece-holding never get tagged. Small fixtures — no 99MB file, no network.
  */
 
-import { describe, expect, it } from "vitest";
-import { producesToWincons, buildComboLookup, classifyComboWin } from "./winClassifier.js";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { producesToWincons, buildComboLookup, classifyComboWin, loadComboData, _resetComboCacheForTests } from "./winClassifier.js";
 
 const RAW = [
   { id: "1", cards: ["Exquisite Blood", "Sanguine Bond"], produces: ["Infinite life loss", "Infinite life gain"], popularity: 100 },
@@ -67,5 +70,38 @@ describe("classifyComboWin (CREED — no false combo)", () => {
     const r = classifyComboWin({ comboData: data, log: castLog("user", "Thassa's Oracle", "Demonic Consultation"), winnerSeat: "user", winCondition: "win-game-effect" });
     expect(r.isCombo).toBe(true);
     expect(r.name).toBe("Thassa's Oracle + Demonic Consultation");
+  });
+});
+
+// The loader's one quiet answer is an ABSENT snapshot (a dev tree, a test sandbox): null, and combo tagging is skipped. It used
+// to answer every failure that way, so a corrupt snapshot or a lookup-builder bug read as "no combo data" with nothing said.
+describe("loadComboData — only an absent snapshot reads null", () => {
+  let tmp;
+  let prevRoot;
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "win-classifier-test-"));
+    fs.mkdirSync(path.join(tmp, "data"));
+    prevRoot = process.env.MTG_APP_ROOT;
+    process.env.MTG_APP_ROOT = tmp;
+    _resetComboCacheForTests();
+  });
+  afterEach(() => {
+    if (prevRoot === undefined) delete process.env.MTG_APP_ROOT;
+    else process.env.MTG_APP_ROOT = prevRoot;
+    _resetComboCacheForTests();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("an absent snapshot reads null", async () => {
+    expect(await loadComboData()).toBeNull();
+  });
+
+  it("a snapshot that cannot be parsed rejects instead of reading as no combo data, and is not cached", async () => {
+    const file = path.join(tmp, "data", "spellbook-combos.local.json");
+    fs.writeFileSync(file, "{ truncated");
+    await expect(loadComboData()).rejects.toThrow(SyntaxError);
+    fs.writeFileSync(file, JSON.stringify(RAW));
+    const data = await loadComboData();
+    expect(data.combos.map((c) => c.name)).toEqual(["Exquisite Blood + Sanguine Bond", "Thassa's Oracle + Demonic Consultation"]);
   });
 });

@@ -107,6 +107,8 @@ let _loading = null;
  * Load + cache the combo lookup from the bundled Spellbook snapshot. Lazy (first call parses the 99MB
  * file, derives the bounded lookup, drops the raw), cached thereafter. Returns null if the snapshot is
  * absent (e.g. a dev tree without it) — the caller then simply skips combo tagging (no fabrication).
+ * Any other failure (a file that cannot be read or parsed, a lookup-builder bug) rejects, uncached, so
+ * the next call reads again.
  */
 export async function loadComboData() {
   if (_cache !== null) return _cache || null;
@@ -114,15 +116,24 @@ export async function loadComboData() {
   _loading = (async () => {
     try {
       const fs = await import("node:fs/promises");
-      const raw = await fs.readFile(dataPath("spellbook-combos.local.json"), "utf8");
+      let raw;
+      try {
+        raw = await fs.readFile(dataPath("spellbook-combos.local.json"), "utf8");
+      } catch (e) {
+        // Only an ABSENT snapshot is the documented null (narrowed 2026-10-18 from a catch-all that also turned a corrupt
+        // file or a buildComboLookup bug into a silent "no combo data"). Absent is a legal state: the probe's one throw
+        // here was this ENOENT, in crucibleRun.test's sandbox; the real snapshot loaded without one (CLAUDE.md §1.2).
+        if (e?.code !== "ENOENT") throw e;
+        _cache = false; // absent → cache the miss so we don't retry every game
+        return null;
+      }
       const parsed = JSON.parse(raw);
       const arr = Array.isArray(parsed) ? parsed : (parsed.combos || parsed.variants || Object.values(parsed).find(Array.isArray) || []);
       _cache = buildComboLookup(arr);
-    } catch {
-      _cache = false; // absent/unreadable → cache the miss so we don't retry every game
+      return _cache;
+    } finally {
+      _loading = null;
     }
-    _loading = null;
-    return _cache || null;
   })();
   return _loading;
 }

@@ -34,7 +34,8 @@ export function verdictLooksApplyable(verdict) {
  * Warm the verdict cache for a set of gated pendingArbiter descriptors. DEDUPES by card-only key first (Garruk's
  * Uprising × 307 → ONE resolve call), so the repeat-heavy corpus is cheap. `resolve` may be async (an LLM call).
  * A resolver throw / null / un-applyable verdict is skipped (never cached, never fabricated). Returns
- * { cache, resolved, skipped, errors } — pure bookkeeping; the caller persists via saveVerdictCache.
+ * { cache, resolved, skipped, errors, failures } — pure bookkeeping (failures: { cardName, error } per resolver throw);
+ * the caller persists via saveVerdictCache.
  *
  * @param {Array<{cardName:string,...}>} gatedPAs  pendingArbiter-shaped descriptors of the gated cards
  * @param {{ resolve:(pa)=>Promise<object|null>|object|null, cache?:object, validate?:(v,pa)=>boolean }} opts
@@ -42,6 +43,7 @@ export function verdictLooksApplyable(verdict) {
 export async function warmArbiterCache(gatedPAs, { resolve, cache = {}, validate = verdictLooksApplyable } = {}) {
   if (typeof resolve !== "function") throw new Error("warmArbiterCache: opts.resolve must be a function (pa)->verdict|null");
   let resolved = 0, skipped = 0, errors = 0;
+  const failures = [];
   const seen = new Set();
   for (const pa of Array.isArray(gatedPAs) ? gatedPAs : []) {
     const name = pa?.cardName;
@@ -49,10 +51,14 @@ export async function warmArbiterCache(gatedPAs, { resolve, cache = {}, validate
     seen.add(name);
     if (getVerdict(cache, name)) continue; // already cached from a prior warm — reuse, don't re-query
     let verdict;
+    // KEPT (audited 2026-10-18): the per-card boundary around an injected verdict source — an LLM call that can fail for
+    // reasons outside the engine (Ollama down, a timeout). One card's failure must not abandon the warm of the rest, and
+    // nothing is cached for it. The failure is returned with its message, not only counted (CLAUDE.md §1.2).
     try {
       verdict = await resolve(pa);
-    } catch {
+    } catch (e) {
       errors += 1;
+      failures.push({ cardName: name, error: String(e?.message || e) });
       continue;
     }
     if (verdict && (!validate || validate(verdict, pa))) {
@@ -62,5 +68,5 @@ export async function warmArbiterCache(gatedPAs, { resolve, cache = {}, validate
       skipped += 1;
     }
   }
-  return { cache, resolved, skipped, errors };
+  return { cache, resolved, skipped, errors, failures };
 }

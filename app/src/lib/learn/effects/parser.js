@@ -131,13 +131,14 @@ const ONCE_PER_TURN_HONORED = new Set(["discover", "draw", "gain-life", "create-
 // Used only by conditionIsDecidable, never for a real verdict. (Same probe trick manaModel uses for
 // condition-gated mana; both exist so an UNDECIDABLE condition parks the card at PARSE time rather than
 // producing a program that would reject at resolution — the metric and the runtime must agree.)
+// No try/catch (removed 2026-10-18, as in manaModel.conditionIsExpressible). The old one answered any throw with false. A
+// probe reached it in the full suite, an 80-game seeded batch and the tier snapshot (34,620 cards), and fed every
+// "if / as long as / unless" phrase in the corpus (3,803 distinct) to the evaluator on this exact state: no throw. Unlike
+// manaModel's probe this board holds no "probe-src" permanent, so a condition about the source ("this creature is
+// tapped") reads null here and parks — a throw would be an evaluator bug to surface (CLAUDE.md §1.2).
 const _CONDITION_PROBE_STATE = { players: { probe: { battlefield: [], graveyard: [], hand: [], library: [], life: 40 } } };
 function conditionIsDecidable(condition) {
-  try {
-    return typeof evaluateInterveningIf(_CONDITION_PROBE_STATE, condition, "probe", { sourcePermanentId: "probe-src" }) === "boolean";
-  } catch {
-    return false;
-  }
+  return typeof evaluateInterveningIf(_CONDITION_PROBE_STATE, condition, "probe", { sourcePermanentId: "probe-src" }) === "boolean";
 }
 
 /** Map a legacy effect descriptor to a single EffectProgram atom (or null). */

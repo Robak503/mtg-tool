@@ -77,9 +77,10 @@ function permanentView(state, perm) {
   if (isCreature) {
     view.power = creaturePower(perm, state);
     view.toughness = creatureToughness(perm, state);
-    view.keywords = BADGE_KEYWORDS.filter(kw => {
-      try { return permanentHasKeyword(state, perm.id, kw); } catch { return false; }
-    });
+    // No try/catch (removed 2026-10-18): it showed a missing badge for any throw. A probe rendering this snapshot at every
+    // decision of an 80-game seeded batch (130,385 boards, 13 million keyword reads) and over the full suite saw none;
+    // the layer reads just above (permanentIsCreature, creaturePower) are unguarded on the same permanent.
+    view.keywords = BADGE_KEYWORDS.filter(kw => permanentHasKeyword(state, perm.id, kw));
   }
   return view;
 }
