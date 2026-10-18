@@ -30,7 +30,7 @@
  * legalChoices, and layers imports none of these modules so that edge is acyclic too.
  */
 
-import { MANA_COLORS, addMana, addCounter, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, gainLife, logEvent, removeCounter, setDoesNotUntapNext, opponentsOf } from "./gameState.js"; // + gainLife (2026-10-17, the land lines): a mana ability that makes each opponent gain life (Grove of the Burnwillows); + addCounter — 2026-10-17: Wall of Roots' -0/-1 counter cost // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
+import { MANA_COLORS, addMana, addCounter, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, gainLife, logEvent, removeCounter, setDoesNotUntapNext, opponentsOf, playerLifeLocked } from "./gameState.js"; // + gainLife (2026-10-17, the land lines): a mana ability that makes each opponent gain life (Grove of the Burnwillows); + addCounter — 2026-10-17: Wall of Roots' -0/-1 counter cost // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
 import { checkTapForManaTriggers, checkLifegainTriggers } from "./triggers.js"; // + checkLifegainTriggers (2026-10-17, the land lines): Grove of the Burnwillows' opponents gain life as its tap resolves; + ④-D: "tapped for mana" watchers fire at the one tap commit
 import { sacrificePermanentForCost } from "./costSacrifice.js"; // SG-3 / SAC-TREASURE: a permanent sacrificed to a mana cost leaves through THE cost sacrifice (dies, sacrifice watchers, the leave drain — CR 603.3b), the one the activated-ability and additional costs use
 import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, colorsOf, deriveCharacteristics, permIsEveryCreatureType, permanentColors, faceUpTypeLine, permanentSubtypes, permanentPrintedColors } from "./layers.js"; // + permanentPrintedColors (2026-10-17, the land lines): a graveyard card's colours for The Grey Havens; + faceUpTypeLine: the face that is up of a combined "Front // Back" card — the derive's own read, shared by manaModel's face-up mana read; + permanentSubtypes: the land types an "instead" condition names (Urza's Tower)
@@ -895,6 +895,19 @@ function sacVictimTest(s) {
  */
 const picksSacVictim = (s) => !!(s?.sacrificesCreature || s?.sacrificesFood);
 const leavesAsItPays = (s) => !!(s?.sacrifices || s?.sacrificeIfNoCounters);
+/**
+ * + THE OTHER RESOURCES A COST CONSUMES (2026-10-17, the follow-up). The same rule holds two more shared resources:
+ *   · picksGyCard — "Exile a card from your graveyard" (Molt Tender, Rubble Rouser): one DISTINCT graveyard card per activation
+ *     (`gyExileIds` on the record, the graveyard's cards; the same assignment as the sacrifices — a card is never a permanent, so
+ *     the two pools never meet);
+ *   · paysLife — "Pay N life" (Treasonous Ogre, Mana Confluence, the horizon lands and 28 more): a player may pay life only up to
+ *     their life total (CR 119.4), so the payment's life costs together must fit; the engine keeps its per-source policy for the
+ *     whole payment — at least 1 life left (`lifeAvail`, the controller's life when manaSources read the record).
+ * `claimsResource` — a record whose cost takes from one of these pools (or a sacrifice victim).
+ */
+const picksGyCard = (s) => !!s?.exilesGyCard;
+const paysLife = (s) => s?.payLife != null && s.payLife > 0;
+const claimsResource = (s) => picksSacVictim(s) || picksGyCard(s) || paysLife(s);
 
 /** The ids of the permanents `player` controls that can feed source record `prod`'s sacrifice cost NOW (never the source), or
  *  null when `prod` sacrifices no other permanent. manaSources stamps them on the record (`sacVictimIds`). */
@@ -983,12 +996,23 @@ function assignSacVictims(entries, { allowSkip = false } = {}) {
   return best;
 }
 
-/** Can every sacrifice cost among these planner records (one payment's claims) be paid with its own victim? A record that leaves
- *  as it pays takes its permanent out of every candidate list first. */
-function sacClaimsPayable(records) {
+/** Can every consumed cost among these planner records (one payment's claims) be paid? Each sacrifice its own victim (a record that
+ *  leaves as it pays takes its permanent out of every candidate list first), each graveyard exile its own card, and the life costs
+ *  together leave at least 1 life (CR 119.4; the per-source policy, for the whole payment). A life record whose `lifeAvail` is
+ *  unknown (a hand-built record) adds no budget check. */
+function consumedClaimsPayable(records) {
   const gone = new Set(records.filter(leavesAsItPays).map((r) => r.permanentId));
-  const entries = records.filter(picksSacVictim).map((r) => ({ source: r.permanentId, candidates: (r.sacVictimIds || []).filter((id) => !gone.has(id)) }));
-  return assignSacVictims(entries) !== null;
+  const entries = [
+    ...records.filter(picksSacVictim).map((r) => ({ source: r.permanentId, candidates: (r.sacVictimIds || []).filter((id) => !gone.has(id)) })),
+    ...records.filter(picksGyCard).map((r) => ({ source: r.permanentId, candidates: r.gyExileIds || [] })),
+  ];
+  if (entries.length && assignSacVictims(entries) === null) return false;
+  const lifeRecords = records.filter((r) => paysLife(r) && r.lifeAvail != null);
+  if (lifeRecords.length) {
+    const life = Math.min(...lifeRecords.map((r) => r.lifeAvail));
+    if (!(life > lifeRecords.reduce((n, r) => n + r.payLife, 0))) return false;
+  }
+  return true;
 }
 
 /** The commit's victim preference: the least valuable first — lowest mana value, then name (SG-3, the house pick). */
@@ -1005,6 +1029,12 @@ function liveSacVictims(state, playerId, tap, reserved) {
   return (state.players[playerId]?.battlefield || [])
     .filter((p) => p.id !== tap.permanentId && !reserved?.has(p.id) && isVictim(state, p))
     .sort(victimValueOrder);
+}
+
+/** The live graveyard cards tap `tap`'s exile cost may take on `state`, oldest first (Molt Tender's house pick): never one the
+ *  action's own costs still need (`reserved` — the card it exiles, the card cast or activated from the graveyard). */
+function liveGyCards(state, playerId, reserved) {
+  return (state.players[playerId]?.graveyard || []).filter((c) => !reserved?.has(c.id));
 }
 
 /** Is this card a CREATURE by printed type? Used only to scope the payer-ordering sickness key. */
@@ -3289,6 +3319,9 @@ export function manaSources(state, playerId) {
     // move no player would make and a corrupted training game. Declining that last point of life is a
     // DELIBERATE narrowing (a safe FN on a line the sim should never want), not a rules claim.
     if (prod.payLife != null && !((player.life ?? 0) > prod.payLife)) continue;
+    // A life total that can't change pays no life (CR 119.8 — Teferi's Protection's lock, the gate activated abilities already have;
+    // 2026-10-17): loseLife leaves the total where it is, so the line would have made its mana for nothing.
+    if (prod.payLife != null && playerLifeLocked(state, playerId)) continue;
     let extraTaps = null;
     if (prod.extraTap) {
       extraTaps = tapOtherPayers(state, player, perm, prod); // the payers, resolved off the live board (one reader, main and extra lines)
@@ -3388,20 +3421,23 @@ export function manaSources(state, playerId) {
     if (prod.colorsFromImprint) {
       const imprintedColors = (perm.imprinted?.colors || []).filter((c) => MANA_COLORS.includes(c));
       if (!imprintedColors.length) continue;
-      sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });
+      sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife, lifeAvail: player.life ?? 0 } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });
       continue;
     }
     // EXILE-FROM-GY COST (Molt Tender): the source exists ONLY while the graveyard has a card to pay
     // with — an empty graveyard means the cost can't be paid, so the source is never offered (the
     // availability half of the phantom-gate carve; commitManaTap is the payment half).
     if (prod.exilesGyCard && (player.graveyard || []).length === 0) continue;
+    // + 2026-10-17 — its candidate cards ride the record (`gyExileIds`, oldest first) so the planner gives each exile cost of a payment
+    // its own card (assignSacVictims — two Molt Tenders can't share one).
+    const gyExileIds = prod.exilesGyCard ? (player.graveyard || []).map((c) => c.id) : null;
     // SG-3 — a sacrifice-a-creature source needs ANOTHER creature to feed it (never the source itself, never
     // offered on an empty board): no victim → no source (CR 601.2h — the cost cannot be paid). A creature NOW (the type-line
     // audit); Gilded Goose's a Food NOW, never the source (CR 118.3). The victims ride the record (`sacVictimIds`) so the planner
     // gives each sacrifice cost of a payment its own (assignSacVictims — two Altars can't share one creature).
     const sacVictimIds = sacVictimIdsFor(state, player, perm.id, prod);
     if (sacVictimIds && !sacVictimIds.length) continue;
-    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(prod.sacrificesFood ? { sacrificesFood: true } : {}), ...(sacVictimIds ? { sacVictimIds } : {}), ...(fixed ? { fixed } : {}), ...(painOn ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });
+    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true, gyExileIds } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(prod.sacrificesFood ? { sacrificesFood: true } : {}), ...(sacVictimIds ? { sacVictimIds } : {}), ...(fixed ? { fixed } : {}), ...(painOn ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife, lifeAvail: player.life ?? 0 } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });
     // STAGE ④-3 — EXTRA MANA LINES (extraLineSources): each its own record on the SAME permanent.
     sources.push(...extraLineSources(state, playerId, player, perm, manaMult));
   }
@@ -3448,7 +3484,7 @@ function extraLineSources(state, playerId, player, perm, manaMult) {
     // pay-life extra line carries its life cost onto the record (the planner and commitPaymentPlan already honour
     // `payLife` on a source — the painland/City-of-Brass lane) and is gated exactly like the main product: no life,
     // no source. Without both halves the any-colour tap would be free — the forbidden direction.
-    if (extra.payLife != null && !((player.life ?? 0) > extra.payLife)) continue;
+    if (extra.payLife != null && (!((player.life ?? 0) > extra.payLife) || playerLifeLocked(state, playerId))) continue; // + CR 119.8, as on a main product
     // A TAP-OTHER line (Relic of Legends' "Tap an untapped legendary creature you control", 2026-10-17): its payers resolved off the
     // live board by the main product's own reader; too few → no record (CR 118.3). Carried on the record, tapped by the commit.
     const exTaps = extra.extraTap ? tapOtherPayers(state, player, perm, extra) : null;
@@ -3459,6 +3495,9 @@ function extraLineSources(state, playerId, player, perm, manaMult) {
     // Burnwillows' opponents' life; a costed line's "when that mana is spent" rider; a bundle's name for the explicit tap.
     const exVictimIds = sacVictimIdsFor(state, player, perm.id, extra); // its victims ride the record, as on a main product
     if (exVictimIds && !exVictimIds.length) continue;
+    // An exile-a-graveyard-card line (none is an extra line in the bundle today) is gated and carried like a main product's.
+    if (extra.exilesGyCard && !(player.graveyard || []).length) continue;
+    const exGyIds = extra.exilesGyCard ? (player.graveyard || []).map((c) => c.id) : null;
     if (extra.requiresMaxSpeed && (player.speed || 0) < 4) continue;
     let exColors = exFixed ? Object.keys(exFixed) : extra.colors;
     if (extra.colorsAmongSpec) {
@@ -3467,7 +3506,7 @@ function extraLineSources(state, playerId, player, perm, manaMult) {
     }
     const exPainOn = !!extra.painColors && !(extra.painUnlessCitysBlessing && player.citysBlessing === true)
       && !(extra.painCondition && evaluateInterveningIf(state, extra.painCondition, playerId, { sourcePermanentId: perm.id }) === false);
-    out.push({ permanentId: perm.id, colors: exColors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(extra.sacrificesFood ? { sacrificesFood: true } : {}), ...(exVictimIds ? { sacVictimIds: exVictimIds } : {}), ...(exPainOn ? { painColors: extra.painColors, painAmount: extra.painAmount } : {}), ...(extra.opponentsGainLife ? { opponentsGainLife: extra.opponentsGainLife } : {}), ...(extra.spentRider ? { spentRider: { ...extra.spentRider } } : {}), ...(extra.bundle ? { bundle: extra.bundle } : {}), ...(extra.activationCost ? { activationCost: extra.activationCost } : {}), ...(extra.payLife != null ? { payLife: extra.payLife } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: oneCounter ? 1 : crCount } } : {}), ...(extra.sacrificeIfNoCounters && extra.removesCounters ? { sacrificeIfNoCounters: true } : {}), ...(extra.requiresTap === false ? { noTap: true } : {}), ...(extra.putsCounter ? { putsCounter: { ...extra.putsCounter } } : {}), ...(extra.activationLimit?.perTurn != null ? { limitKey: manaLimitKey(perm.id, extra.activationLimit) } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), ...(exTaps ? { extraTaps: exTaps } : {}), ...(staysTapped ? { staysTapped: true } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
+    out.push({ permanentId: perm.id, colors: exColors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(extra.sacrificesFood ? { sacrificesFood: true } : {}), ...(exVictimIds ? { sacVictimIds: exVictimIds } : {}), ...(exGyIds ? { exilesGyCard: true, gyExileIds: exGyIds } : {}), ...(exPainOn ? { painColors: extra.painColors, painAmount: extra.painAmount } : {}), ...(extra.opponentsGainLife ? { opponentsGainLife: extra.opponentsGainLife } : {}), ...(extra.spentRider ? { spentRider: { ...extra.spentRider } } : {}), ...(extra.bundle ? { bundle: extra.bundle } : {}), ...(extra.activationCost ? { activationCost: extra.activationCost } : {}), ...(extra.payLife != null ? { payLife: extra.payLife, lifeAvail: player.life ?? 0 } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: oneCounter ? 1 : crCount } } : {}), ...(extra.sacrificeIfNoCounters && extra.removesCounters ? { sacrificeIfNoCounters: true } : {}), ...(extra.requiresTap === false ? { noTap: true } : {}), ...(extra.putsCounter ? { putsCounter: { ...extra.putsCounter } } : {}), ...(extra.activationLimit?.perTurn != null ? { limitKey: manaLimitKey(perm.id, extra.activationLimit) } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), ...(exTaps ? { extraTaps: exTaps } : {}), ...(staysTapped ? { staysTapped: true } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
   }
   return out;
 }
@@ -3476,13 +3515,21 @@ function extraLineSources(state, playerId, player, perm, manaMult) {
  * creatures and lands it taps or returns, the Equipment it unattaches, and its source when the source taps, is sacrificed
  * or is exiled as part of the cost. commitPaymentPlan keeps a sacrifice-a-creature mana source off these, and
  * withoutUnfeedableSacSources keeps such a source out of the plan when nothing else could feed it.
+ * + THE GRAVEYARD CARDS IT STILL NEEDS (2026-10-17 — the exile-a-graveyard-card mana cost, Molt Tender): the cards its own cost
+ * exiles (`exileGyIds`, `exileGyCardId(s)`, escape's `escapeCast.exileIds`), the card CAST from the graveyard (it is on the stack
+ * while the costs are paid, CR 601.2a — no card to exile), and the card whose graveyard ability is activated (exiling it pays for an
+ * ability that then does nothing, or — "Exile this card from your graveyard" — leaves its own cost unpayable). Card ids and
+ * permanent ids never collide, so one set carries both.
  */
 export function costReservedPermanentIds(action) {
   const ids = new Set();
   const add = (v) => { if (Array.isArray(v)) v.forEach(add); else if (v != null) ids.add(v); };
   for (const key of ["sacCreatureId", "sacCountIds", "sacXIds", "sacLandIds", "sacId", "tapCreatureId", "tapCountIds", "tapIds",
-    "teamworkTapIds", "returnLandId", "returnLandIds", "returnPermId", "unattachEquipmentId"]) add(action?.[key]);
+    "teamworkTapIds", "returnLandId", "returnLandIds", "returnPermId", "unattachEquipmentId",
+    "exileGyIds", "exileGyCardId", "exileGyCardIds"]) add(action?.[key]);
   if (action?.permanentId != null && (action.tapSelf || action.sacSelf || action.exileSelf)) ids.add(action.permanentId);
+  add(action?.escapeCast?.exileIds);
+  if (action?.cardId != null && (action.fromZone === "graveyard" || action.kind === "activate-gy-recursion" || action.kind === "activate-gy-exile")) ids.add(action.cardId);
   return ids;
 }
 
@@ -3493,20 +3540,68 @@ export function costReservedPermanentIds(action) {
  * toward affordability. Shared by the offer and the payment so the two cannot diverge.
  * Each kept source's victims (`sacVictimIds`) lose the reserved ones too (2026-10-17), so the planner never gives a reserved
  * permanent to an Altar as its own victim: two Altars beside two creatures, one of them the action's, pay one mana, not two.
+ * + An exile-a-graveyard-card source (Molt Tender) the same way (2026-10-17): its cards (`gyExileIds`) lose the reserved ones — the
+ * card cast from the graveyard, the cards the action's own cost exiles — and with none left it is no source.
  */
 export function withoutUnfeedableSacSources(state, playerId, sources, reserved) {
-  if (!reserved || !sources.some((s) => sacVictimTest(s))) return sources;
+  if (!reserved || !sources.some((s) => sacVictimTest(s) || picksGyCard(s))) return sources;
   const bf = state?.players?.[playerId]?.battlefield || [];
+  const gy = state?.players?.[playerId]?.graveyard || [];
   // Each kind reads its own pool: a creature NOW for the Altars, a Food NOW for Gilded Goose (the type-line audit).
   const out = [];
   for (const s of sources) {
     const isVictim = sacVictimTest(s);
-    if (!isVictim) { out.push(s); continue; }
-    const ids = (Array.isArray(s.sacVictimIds) ? s.sacVictimIds : bf.filter((c) => c.id !== s.permanentId && isVictim(state, c)).map((c) => c.id))
-      .filter((id) => !reserved.has(id));
-    if (ids.length) out.push({ ...s, sacVictimIds: ids });
+    let next = s;
+    if (isVictim) {
+      const ids = (Array.isArray(s.sacVictimIds) ? s.sacVictimIds : bf.filter((c) => c.id !== s.permanentId && isVictim(state, c)).map((c) => c.id))
+        .filter((id) => !reserved.has(id));
+      if (!ids.length) continue;
+      next = { ...next, sacVictimIds: ids };
+    }
+    if (picksGyCard(s)) {
+      const cards = (Array.isArray(s.gyExileIds) ? s.gyExileIds : gy.map((c) => c.id)).filter((id) => !reserved.has(id));
+      if (!cards.length) continue;
+      next = { ...next, gyExileIds: cards };
+    }
+    out.push(next);
   }
   return out;
+}
+
+/**
+ * The mana sources an ACTIVATED ability's payment may draw on — the dispatcher's own derivation (applyActivateAbility), moved here
+ * (2026-10-17) so the offer can ask the same question: a source paying part of the ability's own cost (its {T}, its sacrifice, its
+ * exile; the creature it taps; the land it returns; the N it sacrifices) can't also tap for mana, a one-shot victim can't be cracked,
+ * and no Altar or Molt Tender may take a permanent or card the ability's own costs need (withoutUnfeedableSacSources).
+ */
+export function activationPaymentSources(state, action) {
+  const sacCountExcluded = new Set(action.sacCountIds || []);
+  return withoutUnfeedableSacSources(state, action.playerId, sourcesExcludingOneShotVictim(
+    manaSources(state, action.playerId).filter((s) =>
+      !((action.tapSelf || action.sacSelf || action.exileSelf) && s.permanentId === action.permanentId) &&
+      !(action.tapCreatureId && s.permanentId === action.tapCreatureId) &&
+      !(action.tapCountIds || []).includes(s.permanentId) && // V6 slice 2 — the N frozen tap victims can't tap for mana either
+      // γ1g: a LAND returned to hand for a "Return a land you control" cost (Oboro) can't ALSO tap for mana — it's gone before the
+      // {mana} is paid.
+      !(action.returnLandId && s.permanentId === action.returnLandId) &&
+      !sacCountExcluded.has(s.permanentId)),
+    action.sacCreatureId,
+  ), costReservedPermanentIds(action));
+}
+
+/**
+ * The mana sources a GRAVEYARD ability's payment may draw on (Purple Pentapus's return, Seasoned Pyromancer's exile — 2026-10-17):
+ * every source, less a creature its "Tap an untapped creature you control" cost taps (`tapIds` — it can't also tap for mana: beside
+ * Cryptolith Rite the planner tapped it for {B} and the tap cost then found it tapped, COST_UNPAYABLE) and any source whose own
+ * tap-other payers include it, with no Altar or Molt Tender taking what the ability's own costs need (the tapped creature, the card
+ * itself, the cards it exiles). Shared by the offer and the dispatcher.
+ */
+export function graveyardActivationPaymentSources(state, action) {
+  const tapped = new Set(action.tapIds || []);
+  const sources = tapped.size
+    ? manaSources(state, action.playerId).filter((s) => !tapped.has(s.permanentId) && !(s.extraTaps || []).some((id) => tapped.has(id)))
+    : manaSources(state, action.playerId);
+  return withoutUnfeedableSacSources(state, action.playerId, sources, costReservedPermanentIds(action));
 }
 
 /**
@@ -3719,14 +3814,21 @@ function planPaymentPassesOnce(pool, all, cost, spendContext, board) {
   return planPaymentRemovalAware(pool, all, cost, spendContext, board);
 }
 /** The records a contention retry may leave out: every sacrifice source and every self-sacrificing victim, when two sacrifice
- *  costs list the same victim or a victim leaves as it pays; none otherwise. */
+ *  costs list the same victim or a victim leaves as it pays; every pay-life source, when their life costs together don't fit
+ *  (2026-10-17, the follow-up — Boseiju taken first spent 2 of 3 life where two Mana Confluences pay {2} for 2); none otherwise.
+ *  (Exile-a-graveyard-card sources need no retry: any card pays any of them, so passing over the one without a card loses nothing.) */
 function victimContention(all) {
+  const out = [];
   const pickers = all.filter(picksSacVictim);
-  if (!pickers.length) return [];
-  const listed = new Map(); // victim id → how many sacrifice records list it
-  for (const p of pickers) for (const id of p.sacVictimIds || []) listed.set(id, (listed.get(id) || 0) + 1);
-  const eaten = all.filter((s) => leavesAsItPays(s) && listed.has(s.permanentId));
-  return [...listed.values()].some((n) => n > 1) || eaten.length ? [...pickers, ...eaten] : [];
+  if (pickers.length) {
+    const listed = new Map(); // victim id → how many sacrifice records list it
+    for (const p of pickers) for (const id of p.sacVictimIds || []) listed.set(id, (listed.get(id) || 0) + 1);
+    const eaten = all.filter((s) => leavesAsItPays(s) && listed.has(s.permanentId));
+    if ([...listed.values()].some((n) => n > 1) || eaten.length) out.push(...pickers, ...eaten);
+  }
+  const lifers = all.filter((s) => paysLife(s) && s.lifeAvail != null);
+  if (lifers.length > 1 && !(Math.min(...lifers.map((s) => s.lifeAvail)) > lifers.reduce((n, s) => n + s.payLife, 0))) out.push(...lifers);
+  return [...new Set(out)];
 }
 /**
  * STAGE ④-4 — TWO-PASS PLANNING around counter-removal sources. A storage land offers two records on one
@@ -3915,6 +4017,10 @@ function plannerSourceRecord(s) {
     // sacrifice cost of one payment its own (assignSacVictims). A sacrificing record without the list has no victim it can claim.
     sacVictimIds: picksSacVictim(s) ? (Array.isArray(s.sacVictimIds) ? [...s.sacVictimIds] : []) : null,
     exilesGyCard: !!s.exilesGyCard,
+    // 2026-10-17 (the follow-up) — the graveyard cards that exile cost may take (`gyExileIds`; none known → none claimable) and the
+    // life a pay-life line is paid from (`lifeAvail`): the planner's claims hold both, as they hold the sacrifice victims.
+    gyExileIds: s.exilesGyCard ? (Array.isArray(s.gyExileIds) ? [...s.gyExileIds] : []) : null,
+    lifeAvail: s.payLife != null && s.lifeAvail != null ? s.lifeAvail : null,
     fromHand: !!s.fromHand, // SG-6 — the source is a HAND card; the committer exiles it instead of tapping
     removesCounters: s.removesCounters || null, // STAGE ④-4 — the counters this tap removes (the commit removes exactly these)
     doesNotUntapNext: !!s.doesNotUntapNext, // STAGE ④-5 — the tapped land skips its controller's next untap step
@@ -4053,11 +4159,13 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
   // they pay. A source is tapped only if every sacrifice cost of the payment so far (the earlier calls' `claims`, `mine`, and it)
   // can still be paid with its own victim: the second Altar beside one creature, an Eldrazi Spawn that is the Altar's only
   // victim, Gilded Goose's only Food claimed twice — each is passed over, never planned for mana its cost can't pay.
+  // + the follow-up: a graveyard card per exile cost (the second Molt Tender beside one card) and the payment's life costs together
+  // (the second Treasonous Ogre at 4 life) are claims of the same kind.
   const mine = [];
   const victimsHold = (s) => {
-    if (!picksSacVictim(s) && !leavesAsItPays(s)) return true;
+    if (!claimsResource(s) && !leavesAsItPays(s)) return true;
     const all = [...(claims || []), ...mine, s];
-    return !all.some(picksSacVictim) || sacClaimsPayable(all);
+    return !all.some(claimsResource) || consumedClaimsPayable(all);
   };
 
   // AURA-LAND-MANA-BOOST: a source's full producible-color set = its OWN colors ∪ every boost-Aura
@@ -4076,7 +4184,7 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
   // mana the source genuinely produces — never fabricated; surplus floats.
   const tapSource = (s, wantColor) => {
     s.used = true;
-    if (picksSacVictim(s) || leavesAsItPays(s)) mine.push(s);
+    if (claimsResource(s) || leavesAsItPays(s)) mine.push(s);
     // STAGE ④-3: a permanent's OTHER mana-line records are the same {T} — one tap, one line (CR 605.3a). Mark
     // every sibling record of this permanent used so the planner can never tap it twice through two lines.
     // + STAGE ③ · 37: records that are each their own ACTIVATION (a no-{T} remove-a-counter source — one record per counter)
@@ -4323,16 +4431,34 @@ export function commitManaTap(state, playerId, tap, { reserved = null, victimId 
   // or one gone since the plan) → the cost can't be paid (CR 118.3), so the ability isn't activated: nothing is added, tapped or
   // paid, and the unpaid cost is logged. Until 2026-10-17 the mana was added first and kept when the victim was missing — two
   // Altars beside one creature made two mana from one sacrifice.
+  // + THE OTHER CONSUMED COSTS FIRST TOO (2026-10-17, the follow-up): "Exile a card from your graveyard" (Molt Tender, Rubble Rouser)
+  // takes the oldest graveyard card the action doesn't need, and "Pay N life" needs that much
+  // life (CR 119.4 — a player may pay life only up to their life total). Every one is checked before any is paid (CR 601.2h — no
+  // partial payment): one that can't be paid leaves the ability unactivated — nothing added, tapped or paid, the unpaid cost logged.
+  // Until then the graveyard exile and the life came after the mana: an empty graveyard logged `exile-gy-cost-unpaid` and kept the
+  // mana, and life went below 0.
   const isVictim = sacVictimTest(tap);
-  let paidVictim = null;
+  let victim = null;
   if (isVictim) {
-    const kind = tap.sacrificesCreature ? "creature" : "food";
     const live = liveSacVictims(state, playerId, tap, reserved); // a creature / Food NOW (the type-line audit) — Ashnod's Altar never eats a God below its devotion
-    const victim = victimId === undefined ? live[0] : live.find((p) => p.id === victimId);
-    if (!victim) return logEvent(state, { kind: "mana", event: `sacrifice-${kind}-cost-unpaid`, permanentId: tap.permanentId, playerId });
-    state = sacrificePermanentForCost(state, playerId, victim);
-    paidVictim = { kind, victim };
+    victim = victimId === undefined ? live[0] : live.find((p) => p.id === victimId);
+    if (!victim) return logEvent(state, { kind: "mana", event: `sacrifice-${tap.sacrificesCreature ? "creature" : "food"}-cost-unpaid`, permanentId: tap.permanentId, playerId });
   }
+  let gyCard = null;
+  if (tap.exilesGyCard) {
+    gyCard = liveGyCards(state, playerId, reserved)[0] || null;
+    if (!gyCard) return logEvent(state, { kind: "mana", event: "exile-gy-cost-unpaid", permanentId: tap.permanentId, playerId });
+  }
+  if (tap.payLifeCost && (!((state.players[playerId]?.life ?? 0) >= tap.payLifeCost) || playerLifeLocked(state, playerId))) { // CR 119.4, 119.8
+    return logEvent(state, { kind: "mana", event: "pay-life-cost-unpaid", permanentId: tap.permanentId, playerId, amount: tap.payLifeCost });
+  }
+  let paidVictim = null;
+  if (victim) {
+    state = sacrificePermanentForCost(state, playerId, victim);
+    paidVictim = { kind: tap.sacrificesCreature ? "creature" : "food", victim };
+  }
+  if (gyCard) state = moveCardToZone(state, { playerId, fromZone: "graveyard", toZone: "exile", cardId: gyCard.id });
+  if (tap.payLifeCost) state = loseLife(state, { playerId, amount: tap.payLifeCost });
   // MIXED FIXED BUNDLE (karoo / signet): the tap produces its exact per-color tally, so the commit adds each
   // color rather than `amount` of the single recorded `color`. Reading the plan's OWN breakdown is what keeps
   // "affordable per planPayment" == "actually paid" for these sources — the invariant this whole seam exists
@@ -4364,28 +4490,12 @@ export function commitManaTap(state, playerId, tap, { reserved = null, victimId 
   // prevent, reintroduced one layer down. Done BEFORE the source's own tap/sacrifice so a failure here
   // cannot leave the source spent with the cost unpaid.
   for (const id of tap.extraTaps || []) next = tapPermanent(next, id);
-  // ⛔ PAY-LIFE: spend the printed cost. Named `payLifeCost` and NOT `painLife` on purpose — painlands
-  // already own that field, and folding the two would make a painland's colour choice and an ability's
-  // printed cost indistinguishable in the plan.
-  if (tap.payLifeCost) next = loseLife(next, { playerId, amount: tap.payLifeCost });
-  // EXILE-FROM-GY COST (Molt Tender) — PAY the printed cost for real: exile a graveyard card as the tap
-  // commits (the payment half of the phantom-gate carve; manaSources' non-empty gate is the offer half).
-  // Deterministic house pick, the riot discipline: the FIRST (oldest) graveyard card — a smarter pick is
-  // a play-quality upgrade, never a rules question. An empty graveyard here (a same-plan earlier tap
-  // drained it) exiles nothing and the tap still resolves — logged distinctly so the under-pay is VISIBLE,
-  // never silent; the offer gate makes this vanishingly rare.
-  // The sacrifice-a-<kind> cost was paid at the top, before the mana; its log line keeps its place here.
+  // ⛔ PAY-LIFE (`payLifeCost` — named apart from a painland's `painLife` so the two never fold together) and the EXILE-FROM-GY
+  // cost (Molt Tender — the oldest graveyard card, the riot discipline's deterministic house pick) were paid at the top, before the
+  // mana (2026-10-17). The sacrifice-a-<kind> cost too; its log line keeps its place here.
   if (paidVictim) {
-    const { kind, victim } = paidVictim;
-    next = logEvent(next, { kind: "mana", event: `sacrifice-${kind}-cost`, permanentId: tap.permanentId, playerId, victimId: victim.id, victimName: victim.card?.name });
-  }
-  if (tap.exilesGyCard) {
-    const gy = next.players[playerId]?.graveyard || [];
-    if (gy.length) {
-      next = moveCardToZone(next, { playerId, fromZone: "graveyard", toZone: "exile", cardId: gy[0].id });
-    } else {
-      next = logEvent(next, { kind: "mana", event: "exile-gy-cost-unpaid", permanentId: tap.permanentId, playerId });
-    }
+    const { kind, victim: v } = paidVictim;
+    next = logEvent(next, { kind: "mana", event: `sacrifice-${kind}-cost`, permanentId: tap.permanentId, playerId, victimId: v.id, victimName: v.card?.name });
   }
   // SG-6 — EXILE-FROM-HAND source (the Spirit Guides): the "permanent" is a hand card; the cost is exiling it.
   // Nothing taps. If the card has already left the hand (a race the offer can't see) the tap is logged unpaid
@@ -4478,6 +4588,8 @@ export function commitPaymentPlan(state, playerId, plan, { reserved = null } = {
   // pays first (Gilded Goose taps and eats its Food, then Phyrexian Altar eats the Goose; committed the other way the Goose's own
   // tap found no permanent). A sacrifice left without a victim pays nothing and makes nothing (commitManaTap). The planner gives
   // every sacrifice of its plan a victim the same way, so on a plan made from this board none is left out.
+  // + An exile-a-graveyard-card tap (Molt Tender) commits with the other taps, each taking the oldest card the action doesn't need
+  // (any card pays it, so taking them in turn is the distinct assignment); the planner counted one card per exile, so none runs dry.
   const taps = plan?.taps || [];
   const picking = taps.filter(picksSacVictim);
   for (const tap of picking.length ? taps.filter((t) => !picksSacVictim(t)) : taps) next = commitManaTap(next, playerId, tap, { reserved });

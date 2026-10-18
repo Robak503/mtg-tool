@@ -497,7 +497,14 @@ only beside `choosesCreatureTypeAsEnters`, the one chooser regex the enter site 
   self-sacrificing tap's permanent leaves every list; a source that is another's victim pays first; the costed path's calls share
   one claim list), canAfford with it, and a failed plan with contention is retried once without each contended record; the commit
   assigns the same way on the live board and pays the sacrifice BEFORE it adds the mana (CR 605.3, 602.2b, 601.2h, 605.3b) — no
-  victim, no mana. Two Altars beside one creature make one mana, not two.
+  victim, no mana. Two Altars beside one creature make one mana, not two. **The same for every consumed cost (2026-10-17, the
+  follow-up):** "Exile a card from your graveyard" (Molt Tender, Rubble Rouser — `gyExileIds`, a distinct card each, the oldest the
+  action doesn't need) and "Pay N life" (31 bundled lines — `lifeAvail`; the payment's life costs together keep at least 1 life, the
+  per-source policy for the whole payment, CR 119.4; none under a life lock, CR 119.8) are claims beside the sacrifice victims (`consumedClaimsPayable`), checked
+  and paid before the mana in commitManaTap. `costReservedPermanentIds` also names the graveyard cards an action needs (the card
+  cast from the graveyard — on the stack, CR 601.2a — the card whose graveyard ability is activated, the cards its cost exiles);
+  `activationPaymentSources` / `graveyardActivationPaymentSources` are the payments' source derivations, and the offer
+  (`withPayableConsumedCosts`) asks them whenever a consumed-cost source lists something the action's own cost needs.
 - **Counter costs, no-{T} lines and per-turn limits (2026-10-17).** The two counter-cost lines a record pays are admitted only in
   their whole anchored line (`LAND_COUNTER_MANA_LINE_RE`, `PUT_COUNTER_MANA_LINE_RE` — manaLineRefused refuses the cost item in any
   other line): "{T}, Remove a <charge|mining|depletion> counter from this land: Add …" (`removesCounters` mode `"one"`: one

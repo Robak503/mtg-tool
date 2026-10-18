@@ -30,7 +30,7 @@
  */
 
 import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower, nameCastLocked, playerLifeLocked } from "./gameState.js"; // B4: the Reflector Mage name cast lock; playerLifeLocked — CR 119.8, a life total that can't change can't pay life
-import { canAfford, manaSources, manualManaTaps, payActivationFromPool, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources } from "./manaModel.js";
+import { canAfford, manaSources, manualManaTaps, payActivationFromPool, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // SELF-METRIC-COST-REDUCTION: a live count read at cast announce
 import { hasKeyword } from "./keywords.js";
 import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord, cannotEquipNow } from "./layers.js"; // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
@@ -3583,10 +3583,10 @@ function actionsActivateGraveyardRecursion(state, playerId) {
       const subRe = sub ? new RegExp(`\\b${String(sub).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i") : null;
       // P·39 — "Tap an untapped Rebel": every creature type (a changeling, Mirror Entity's activation) is one.
       const pool = (player.battlefield || []).filter((p) => !p.tapped && (subRe ? (subRe.test(String(p.card?.type || "")) || permIsEveryCreatureType(state, p.id)) : permanentIsCreature(state, p.id)));
-      // The creature tapped for the cost can't also be an Altar's victim for the mana (2026-10-17 — manaModel's
-      // withoutUnfeedableSacSources, as the dispatcher's payment reads the sources).
+      // The creature tapped for the cost can't also tap for mana (Cryptolith Rite) or be an Altar's victim, and Molt Tender can't
+      // exile this card (2026-10-17 — manaModel.graveyardActivationPaymentSources, the sources the dispatcher's payment reads).
       for (const p of pool) {
-        if (!canAfford(player.manaPool, withoutUnfeedableSacSources(state, playerId, manaSources(state, playerId), new Set([p.id])), cost)) continue;
+        if (!canAfford(player.manaPool, graveyardActivationPaymentSources(state, { ...base, tapIds: [p.id] }), cost)) continue;
         out.push({ ...base, tapIds: [p.id], tapName: p.card?.name });
       }
       continue;
@@ -4707,7 +4707,42 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   actions.push(...actionsDeclareAttacker(state, playerId));
   actions.push(...actionsDeclareBlocker(state, playerId, attackerIds));
 
-  return applyTargetTaxes(state, playerId, actions);
+  return applyTargetTaxes(state, playerId, withPayableConsumedCosts(state, playerId, actions));
+}
+
+/**
+ * OFFERED ⇒ PAYABLE, FOR THE CONSUMED COSTS (2026-10-17). A mana source whose cost takes another permanent or a graveyard card
+ * (Phyrexian Altar, Gilded Goose, Molt Tender — manaSources' `sacVictimIds` / `gyExileIds`) may not take one the action's OWN costs
+ * still need (costReservedPermanentIds): the creature an ability taps or sacrifices, the card cast or activated from the graveyard,
+ * the cards a cost exiles. Each payment derives its sources so (castPaymentSources, activationPaymentSources,
+ * graveyardActivationPaymentSources), but most offers price the cost off every source — so Anaba Shaman with Phyrexian Altar as its
+ * only mana and itself the Altar's only victim was offered and then refused (MANA_SHORT), and Think Twice was flashed back off a
+ * Molt Tender whose only card was Think Twice. Here, only for an action whose own cost permanents or cards such a source lists,
+ * the offer asks the payment's own question with the payment's own sources and drops the action when the answer is no. A board
+ * with no such source returns the list untouched.
+ */
+function withPayableConsumedCosts(state, playerId, actions) {
+  const sources = manaSources(state, playerId);
+  const listed = new Set();
+  for (const s of sources) for (const id of [...(s.sacVictimIds || []), ...(s.gyExileIds || [])]) listed.add(id);
+  if (!listed.size) return actions;
+  const player = state.players[playerId];
+  return actions.filter((a) => {
+    if (!a?.cost || a.freeCast || a.altCost) return true;
+    if (a.kind !== "cast-spell" && a.kind !== "activate-ability" && a.kind !== "activate-gy-recursion" && a.kind !== "activate-gy-exile") return true;
+    if (![...costReservedPermanentIds(a)].some((id) => listed.has(id))) return true;
+    if (a.kind === "cast-spell") {
+      const fromZone = a.fromZone || "hand";
+      const castCard = a.faceCard || (player?.[fromZone] || []).find((c) => c.id === a.cardId) || null; // the dispatcher's castCard
+      return canAfford(player.manaPool, castPaymentSources(state, a), a.cost, { castCard, isCommander: fromZone === "command", restrictedEntries: player?.restrictedMana || [], castEvery: cardIsEveryCreatureType(state, castCard, playerId) });
+    }
+    if (a.kind === "activate-ability") {
+      const perm = player.battlefield.find((p) => p.id === a.permanentId);
+      if (!perm) return true;
+      return canAfford(player.manaPool, activationPaymentSources(state, a), a.cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id) });
+    }
+    return canAfford(player.manaPool, graveyardActivationPaymentSources(state, a), a.cost);
+  });
 }
 
 // TARGET TAXES — ONE choke over the assembled list instead of edits at the cast-push sites. Two statics feed

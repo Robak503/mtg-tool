@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.164.0** (tagged 2026-10-17 on the `[0.164.0]` CHANGELOG cut, published 2026-10-17T14:57:40Z):
-> **25 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.9% (15,536)**; engine gains since the tag: **+83** (+92 gained, −9 false credit removed). The next tag
+> **26 commits**, corpus **44.6% (15,453)** at the tag (v0.163.0 → v0.164.0: +68 gained, −82 false credit removed, 72 commits) → **44.9% (15,536)**; engine gains since the tag: **+83** (+92 gained, −9 false credit removed). The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >
@@ -15,6 +15,81 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🔧 2026-10-17 — FIX (false positive): every consumed mana cost is paid once — "Exile a card from your graveyard" (Molt Tender, Rubble Rouser) takes a DISTINCT, still-present card per activation and "Pay N life" (31 bundled lines) can't together outspend the life total (CR 119.4) nor be paid under a life lock (CR 119.8), in the plan, canAfford and the commit, each paid before the mana is added; the card cast or activated from the graveyard is no Molt Tender fodder (CR 601.2a); an offer is dropped when its payment would refuse it (Anaba Shaman fed to its own Altar), and Purple Pentapus's tapped creature no longer taps for mana too · **±0** · snapshot native 15,518 unchanged
+> Suite **20,671 green (1 skipped) / 1,874 files** under the gate queue (with the rules index built locally for the run, then deleted). Lint 0
+> (CR citations: 0 of 11,491 name no rule; keyword citations: 0 of 2,373 cite a different keyword). Flip-diff **0 / 0 / RETIERED 0** (34,620
+> cards; before = an untouched `git archive` of 151790b4, snapshotted before the first edit; native 15,518 of 34,584 snapshot names on both;
+> every one of the 34,584 names has the same tier). **Mutants 11/11** on assertions, each restored byte-identical (sha256). Witness
+> `consumedManaCosts.test.js` (21): the first 19 written before any engine change — **15 fail on the 151790b4 engine on assertions, 4
+> controls pass**; the final 21 on an untouched 151790b4 archive — **17 fail on assertions, the 4 controls pass** (the two added while
+> building: Boseiju and two Mana Confluences — the life retry; Mana Confluence under Teferi's Protection — the life lock). A/B **80
+> seeded commander games** (base seed 7, 10 per pod, the 30 profile decks, default AI; base = the untouched 151790b4 archive; the after
+> batch rerun on the final code against the same base batch): **80 / 80 byte-identical** (every decision row, the log, winner and turns), 0 errors on either tree, results unchanged (ai-wins 57 / user-wins 23), 169 s / 176 s
+> per batch. The log has a line for an UNPAID life or graveyard cost only, so the batch can't count how often Mana Confluence, Boseiju or
+> Teval's Molt Tender paid; it shows no game changed — no unpaid cost on either tree, and every log byte the same.
+> Committed on `day/gyexile`, not pushed; the release-batch line and the WAKE-REPORT are the integrator's.
+> · **Reach** (manaSources over every bundled card that says "add" — 3,018 — on a board with creatures, a Food, two graveyard cards and 20
+>   life): **graveyard exile 2** (Molt Tender, Rubble Rouser — both main lines); **pay life 31** (Mana Confluence, Treasonous Ogre, Boseiju,
+>   Untaidake, Horizon Canopy and the five Modern Horizons horizon lands, Starting Town, Spire of Industry, the five deserts' 1-life
+>   lines, Hall of the Bandit Lord (3), Staff of Compleation, Yawgmoth's Day Planner, Myr Convert, Ronin, Kozilek's Translator, Blood Celebrant, Vesper Ghoul, Gnarlroot
+>   Trapper, Blightsoil Druid, Eumidian Hatchery, Phyrexian Lens, Standing Stones, Mount Doom); **sacrifice another 7** (the last slice);
+>   **tap other 15** (Birchlore Rangers, Springleaf Drum, Heritage Druid … — already safe: a permanent the plan taps is tapped once, probed:
+>   two Rangers with four Elves pay one mana where two are legal — a false negative, left). Profile decks: Teval holds Molt Tender; twelve hold
+>   a pay-life line (Vihaan and Otharri and Shalai and Hallar three each — Mana Confluence, Boseiju, Mount Doom, Sunbaked Canyon, Starting
+>   Town, Horizon Canopy; Killer Turts Mana Confluence + Treasonous Ogre; Kinnan, Test Rashmi, Teval two; cdh, Veyran, Squirrel Girl, Kellan,
+>   Believe it! one).
+> · **The bugs** (measured on 151790b4). Two Molt Tenders beside one graveyard card paid {2} (and Molt Tender + Rubble Rouser {R}{1}):
+>   manaSources gated each on a non-empty graveyard, the planner tapped both, and commitManaTap added the second Tender's mana before finding
+>   the graveyard empty (`exile-gy-cost-unpaid`, mana kept). Two Treasonous Ogres at 4 life paid {R}{R} — 6 life, leaving −2 (CR 119.4:
+>   a player may pay life only up to their life total); Boseiju + Mana Confluence at 3 life paid {C}{1} down to 0, past the engine's own
+>   per-source policy (never pay the last life point). Think Twice flashed back off two Islands and a Molt Tender whose only card was Think
+>   Twice itself: the Tender exiled the spell being cast and it ended up on the stack AND in exile. Purple Pentapus with Molt Tender exiled
+>   the Pentapus to pay for its own return. Anaba Shaman ({R}, {T}) with Phyrexian Altar as its only mana and itself the Altar's only victim
+>   was offered, then MANA_SHORT. Purple Pentapus + Cryptolith Rite with one creature was offered, the planner tapped that creature for
+>   {B}, and the tap cost threw COST_UNPAYABLE.
+> · **The fix** (manaModel). The planner's claims (151790b4's sacrifice victims) now hold every consumed resource: an exile record carries
+>   its graveyard cards (`gyExileIds`, extra lines too) and joins the distinct assignment; a pay-life record carries the life it is paid from
+>   (`lifeAvail`) and the payment's life costs together must leave at least 1 (`consumedClaimsPayable`); a life total that can't change
+>   pays no life at all (CR 119.8 — Teferi's Protection's lock, the gate activated abilities already had: manaSources offers no pay-life
+>   line under it, and the commit refuses one; loseLife left the total untouched, so the line made its mana free); a failed plan whose
+>   life costs don't fit retries once without each pay-life record (Boseiju first spent 2 of 3 life where two Mana Confluences pay {2} for 2).
+>   commitManaTap checks every consumed cost before paying any (CR 601.2h) and pays the sacrifice, the graveyard card (the oldest one the
+>   action doesn't need) and the life before the mana; one that can't be paid adds, taps and pays nothing (`exile-gy-cost-unpaid`, new
+>   `pay-life-cost-unpaid`). `costReservedPermanentIds` names the graveyard cards an action needs — the cards its cost exiles (`exileGyIds`,
+>   `exileGyCardId(s)`, escape's `escapeCast.exileIds`), the card cast from the graveyard (on the stack, CR 601.2a), the card whose
+>   graveyard ability is activated — and withoutUnfeedableSacSources narrows the exile records by them.
+> · **Payment = offer.** The dispatcher's activated-ability source derivation moved to manaModel (`activationPaymentSources`, verbatim), and
+>   the graveyard abilities read `graveyardActivationPaymentSources` (the tapped creature's own records and any record that would tap it are
+>   out — the γ1f guard the battlefield path already had; applyActivateGyExile planned from every source before). The offer's new last
+>   pass (`withPayableConsumedCosts`) re-asks each cast / activation whose own cost permanents or cards a consumed-cost source lists, with
+>   the payment's own sources and spend context, and drops it when the payment would refuse — Anaba Shaman, the lone Think Twice, the lone
+>   Pentapus; a board with no such source is untouched. That one pass covers the activated-ability fast path (legalChoices.js:2783) and
+>   every other offer of the shape.
+> · **Witness `consumedManaCosts.test.js`** (21, bundled oracle text): graveyard (two Molt Tenders + one card; Molt + Rouser; empty
+>   graveyard and a planned card gone → no mana; Grizzly Bears not offered; payGenericMana; the lone Think Twice; Think Twice paid with the
+>   other card; the lone Pentapus); life (two Ogres at 4; Boseiju + Confluence at 3; the life retry; commitManaTap at 2 life); offers
+>   (Anaba Shaman alone with the Altar; Pentapus + Rite with one creature, and with two — the other creature pays); the life lock (Mana
+>   Confluence under Teferi's Protection); controls (two Tenders + two cards; the explicit Molt tap exiles the oldest; two Confluences at 3
+>   life leave 1; Anaba with a second creature).
+> · **Mutants (11/11 on assertions, run on the final code):** no graveyard claim; no life budget; the empty-graveyard commit keeping the
+>   mana; the commit paying life it lacks; the graveyard cast card unreserved; the Pentapus's tapped creature left as a mana source; no
+>   offered-is-payable pass; reserved graveyard cards kept on the exile records; no life retry; the life lock off in manaSources; the life
+>   lock off in the commit. (The life-retry mutant first failed by a TypeError — the test had no null guard; `expect(p).toBeTruthy()`
+>   was added and it fails on its assertion.)
+> · **⚑ Judgment calls.** (1) The life budget keeps 1 life per PAYMENT (the per-source policy, "never pay the last life point", extended):
+>   two Mana Confluences at 2 life now pay {1}, not {2} — paying to 0 is legal (CR 119.4) but loses the game; a safe false negative.
+>   (2) Molt Tender may not exile the card whose graveyard ability is being activated (Purple Pentapus): legal (the card stays in the
+>   graveyard while its ability is activated, CR 602.2a) but it pays for an ability that then does nothing — dropped as self-defeating,
+>   like the engine's other self-defeating-cost guards; for "Exile this card from your graveyard" and a card cast from the graveyard it is
+>   the rule. (3) The offer pass re-checks only actions whose own cost permanents or cards a consumed-cost source lists.
+> · ⚠️ **Found, not fixed:** (1) **Phyrexian mana on a cast is never charged** (measured): Dismember ({1}{B/P}{B/P}) cast off Mana
+>   Confluence at 4 life leaves 3 — the planner treats each {B/P} as paid with 2 life and no cast path charges it (the attack tax's Phyrexian
+>   lane does, actionDispatcher.js:2106). 34 bundled cards print a Phyrexian pip in their mana cost, 19 of them native-tier (Dismember,
+>   Gitaxian Probe, Mutagenic Growth, Gut Shot, Snuff Out, Mental Misstep, Birthing Pod …): a false positive for its own slice. (2) Rubble
+>   Rouser's reflexive "When you do, this creature deals 1 damage to each opponent" is not made (the mana line works without it; the card is
+>   body-only, so not credited). (3) Two Birchlore Rangers beside two Elves pay one mana where two are legal (a record whose frozen tap-other
+>   payers overlap a tapped permanent is spent) — a false negative.
 
 > ## 🔧 2026-10-17 — FIX (AI decision quality): the AI cracks its fetch lands — Evolving Wilds, Terramorphic Expanse, Fabled Passage, Prismatic Vista, Escape Tunnel, Vibrant Cityscape and the ten Zendikar / Onslaught fetches were never activated (the generic activation picker skips every sacrifice-self cost), so 24 of the 30 profile decks played a dead land each time they drew one; and a fetch's search now takes the land that makes the colour the hand and commander need most, not the alphabetically first · **±0** · snapshot native+land 15,518 unchanged
 > Suite **20,650 green (1 skipped) / 1,873 files** under the gate queue (with the rules index built for the run, then deleted). Lint 0 (CR citations: 0 of

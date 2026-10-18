@@ -72,7 +72,7 @@ function pitchRandomHandCard(working, playerId, excludeId, kind) {
 }
 import { tutorManaValue } from "./effects/atoms/library.js"; // γ1i (CAP14) — the shared MV reader the tutor / free-cast paths use, so "mana value" means ONE thing engine-wide
 import { passPriority, flushTriggers, chooseTriggerTargets, attackDeclarationOpen, closeAttackDeclaration } from "./gameEngine.js";
-import { manaSources, planPayment, sourcesExcludingOneShotVictim, castPaymentSources, costReservedPermanentIds, withoutUnfeedableSacSources, commitPaymentPlan, commitManaTap, payManaCost, manualManaTaps, payActivationFromPool } from "./manaModel.js";
+import { manaSources, planPayment, castPaymentSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources, commitPaymentPlan, commitManaTap, payManaCost, manualManaTaps, payActivationFromPool } from "./manaModel.js";
 import { conditionalEntersTapped, paysLifeOrEntersTapped, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>" + the shockland pay-life clause (a leaf over interveningIf; cycle-free)
 import { sacrificePermanentForCost, sacrificePermanentsForCost } from "./costSacrifice.js"; // + sacrificePermanentsForCost (2026-10-17): a cost of N permanents, one event // every cost sacrifice (activated-ability costs, additional and alternative costs, emerge) — the ONE sequence the mana-cost sacrifice uses too
 import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT dispatch hook (audit.js imports only the delayed-trigger leaf, cycle-free)
@@ -1336,9 +1336,10 @@ function applyActivateGyRecursion(state, action) {
   if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
   const card = (player.graveyard || []).find((c) => c.id === action.cardId);
   if (!card) throw new DispatcherError(`Card ${action.cardId} not in graveyard`, "CARD_NOT_FOUND");
-  // The creature its tap cost taps (`tapIds`) can't also be an Altar's victim (2026-10-17 — the sources the offer reads, and the
+  // The creature its tap cost taps (`tapIds`) can't also tap for mana or be an Altar's victim, and Molt Tender can't exile this
+  // card or the cards its own cost exiles (2026-10-17 — manaModel.graveyardActivationPaymentSources, the sources the offer reads; the
   // commit's `reserved`).
-  const plan = planPayment(player.manaPool, withoutUnfeedableSacSources(state, action.playerId, manaSources(state, action.playerId), costReservedPermanentIds(action)), action.cost);
+  const plan = planPayment(player.manaPool, graveyardActivationPaymentSources(state, action), action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
   let working = commitPaymentPlan(state, action.playerId, plan, { reserved: costReservedPermanentIds(action) });
   // GR-1 — the ", Discard N cards" cost rider (Stitchwing Skaab kin, CR 601.2h — costs pay BEFORE the
@@ -1491,7 +1492,8 @@ function applyActivateGyExile(state, action) {
   if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
   const card = (player.graveyard || []).find((c) => c.id === action.cardId);
   if (!card) throw new DispatcherError(`Card ${action.cardId} not in graveyard`, "CARD_NOT_FOUND");
-  const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
+  // Molt Tender can't exile this card to pay for it: its own "Exile this card from your graveyard" would be left unpayable (2026-10-17).
+  const plan = planPayment(player.manaPool, graveyardActivationPaymentSources(state, action), action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
   let working = commitPaymentPlan(state, action.playerId, plan, { reserved: costReservedPermanentIds(action) });
   // The exile-self cost item (CR 602.2b — costs are paid before the ability is put on the stack).
@@ -1537,24 +1539,13 @@ function applyActivateAbility(state, action) {
   // Treasure cracked to pay the sac can't ALSO be cracked for the {mana} part (the double-spend that would
   // otherwise leave the victim already gone when the sac runs below).
   const pool = player.manaPool;
-  const sacCountExcluded = new Set(action.sacCountIds || []);
   // W3: the γ1b chosen victim, when a ONE-SHOT mana source, is excluded exactly like legalChoices'
   // per-victim affordability (the two-sites invariant — offered ⇒ payable without cracking the victim).
-  // γ1f: a creature TAPPED for a "Tap an untapped creature you control" cost can't ALSO tap for mana —
-  // exclude it from the mana sources (mirrors legalChoices' per-victim affordability filter exactly).
-  // A sacrifice-a-creature source (the Altars) needs a creature this activation's own costs do not already claim
-  // (withoutUnfeedableSacSources — mirrors legalChoices' per-victim affordability).
-  const sources = withoutUnfeedableSacSources(state, action.playerId, sourcesExcludingOneShotVictim(
-    manaSources(state, action.playerId).filter(s =>
-      !((action.tapSelf || action.sacSelf || action.exileSelf) && s.permanentId === action.permanentId) &&
-      !(action.tapCreatureId && s.permanentId === action.tapCreatureId) &&
-      !(action.tapCountIds || []).includes(s.permanentId) && // V6 slice 2 — the N frozen tap victims can't tap for mana either
-      // γ1g: a LAND returned to hand for a "Return a land you control" cost (Oboro) can't ALSO tap for mana —
-      // it's gone before the {mana} is paid. Exclude it from the mana sources (mirrors legalChoices exactly).
-      !(action.returnLandId && s.permanentId === action.returnLandId) &&
-      !sacCountExcluded.has(s.permanentId)),
-    action.sacCreatureId,
-  ), costReservedPermanentIds(action));
+  // γ1f: a creature TAPPED for a "Tap an untapped creature you control" cost can't ALSO tap for mana.
+  // γ1g: a land returned to hand for the cost can't either. No Altar or Molt Tender takes what this activation's own costs
+  // claim (withoutUnfeedableSacSources). The derivation lives in manaModel.activationPaymentSources (2026-10-17), the one the
+  // offer's consumed-cost check reads too.
+  const sources = activationPaymentSources(state, action);
   // SG-18 (Shang-Chi): the activation spend context — a source printed "Spend this mana only to activate abilities of
   // creature sources" is offered here iff the activating permanent is a creature (layer-aware). Must MATCH legalChoices.
   // `activatingPermanentId` only orders the taps (manaModel tapAny never promotes the permanent whose ability this pays
