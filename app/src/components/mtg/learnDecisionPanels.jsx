@@ -3167,3 +3167,104 @@ export function TriggerTargetPanel({ decision, onChoose }) {
     </div>
   );
 }
+
+/** Where an ability sits in the order you are building: the first resolves first, the last resolves last. */
+export function triggerOrderPlaceLabel(i, n) {
+  if (i === 0) return "Resolves first";
+  if (i === n - 1) return "Resolves last";
+  const k = i + 1;
+  const suffix = k % 10 === 2 && k % 100 !== 12 ? "nd" : k % 10 === 3 && k % 100 !== 13 ? "rd" : "th";
+  return `Resolves ${k}${suffix}`;
+}
+
+/** What one of your ordered abilities aims at: its targets by name and whose, or that you choose them right after the order. */
+export function triggerOrderTargetsLabel(c) {
+  if (c?.targetsNext) return "You choose its targets after the order";
+  const targets = (c?.targets || []).map(changeTargetLabel).join(", ");
+  return targets ? `Targets ${targets}` : "";
+}
+
+/**
+ * TRIGGER ORDER (CR 603.3b, 405.3): two or more of your triggered abilities triggered at the same time, and you choose the order they
+ * go on the stack. The list reads in the order they will RESOLVE — the top one resolves first (it is put on the stack last). ▲▼ move
+ * an ability; Done sends the order. It opens in the order they triggered, so Done alone keeps it. The engine asks only when the
+ * abilities are not all identical copies.
+ */
+export function TriggerOrderPanel({ decision, onChoose }) {
+  const abilities = decision.candidates || [];
+  const key = abilities.map((c) => c.id).join("|");
+  const [order, setOrder] = useState(() => abilities.map((c) => c.id));
+  const [submitting, setSubmitting] = useState(false);
+  // A new question (another batch) starts from its own standing order, as the scry panel resets on new cards.
+  useEffect(() => {
+    setOrder(abilities.map((c) => c.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  const byId = (id) => abilities.find((c) => c.id === id);
+  const move = (id, dir) =>
+    setOrder((o) => {
+      const i = o.indexOf(id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= o.length) return o;
+      const n = [...o];
+      [n[i], n[j]] = [n[j], n[i]];
+      return n;
+    });
+  const submit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onChoose?.(order);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <ChoiceBanner icon="🔀" title={`Order your ${abilities.length} triggered abilities`}>
+        They triggered at the same time, and you choose the order they go on the stack. The top of this list resolves first — it goes
+        on the stack last. Move them with ▲▼, then Done.
+      </ChoiceBanner>
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+        {order.map((id, i) => {
+          const c = byId(id);
+          if (!c) return null;
+          const targets = triggerOrderTargetsLabel(c);
+          return (
+            <div
+              key={id}
+              className="ley-glass ley-card"
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", color: "var(--ley-text)" }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={sectionLabelStyle()}>{triggerOrderPlaceLabel(i, order.length)}</div>
+                <strong>{c.sourceName || "Triggered ability"}</strong>
+                {c.abilityText ? <div style={{ fontSize: 12, lineHeight: 1.4 }}>“{c.abilityText}”</div> : null}
+                {targets ? <div style={{ fontSize: 12, color: "var(--ley-text-dim)" }}>{targets}</div> : null}
+              </div>
+              <button
+                className="btn btn-ghost btn-sm btn-icon"
+                onClick={() => move(id, -1)}
+                disabled={submitting || i <= 0}
+                title="Resolve earlier"
+              >
+                ▲
+              </button>
+              <button
+                className="btn btn-ghost btn-sm btn-icon"
+                onClick={() => move(id, 1)}
+                disabled={submitting || i >= order.length - 1}
+                title="Resolve later"
+              >
+                ▼
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <button className="btn btn-primary btn-sm" onClick={submit} disabled={submitting}>
+        {submitting ? "…" : "Done"}
+      </button>
+    </div>
+  );
+}

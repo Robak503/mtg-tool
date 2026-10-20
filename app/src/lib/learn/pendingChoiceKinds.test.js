@@ -49,6 +49,7 @@ import {
   setPendingChangeTargetChoice,
   setPendingAuraEntryHostChoice,
   setPendingTriggerTargetChoice,
+  setPendingTriggerOrderChoice,
 } from "./pendingChoice.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
 
@@ -134,6 +135,9 @@ const FIXTURES = {
   // TRIGGER TARGET (CR 603.3d) — raised only for a seat a person plays, so an AI controller is the contract's auto path: nothing waits
   // on the stack under that id (the autopick returns null), the settle logs "gone", and the choice clears in one tick.
   "trigger-target": (s) => setPendingTriggerTargetChoice(s, { controller: "ai", stackObjectId: "gone", sourceName: "Ravenous Chupacabra", candidates: [] }),
+  // TRIGGER ORDER (CR 603.3b) — raised only for a seat a person plays, so an AI controller is the contract's auto path: nothing waits
+  // on the stack under that batch (the standing order is empty), the settle logs "gone", and the choice clears in one tick.
+  "trigger-order": (s) => setPendingTriggerOrderChoice(s, { controller: "ai", batch: "gone", candidates: [] }),
 };
 
 describe("PENDING_CHOICE_KINDS is exhaustive against the FIXTURES map (this test file itself)", () => {

@@ -47,6 +47,9 @@ import {
   raiseTriggerTargetChoice,
   settleTriggerTargetChoice,
   autoPickTriggerTarget,
+  raiseTriggerOrderChoice,
+  settleTriggerOrderChoice,
+  autoPickTriggerOrder,
   raiseWardOwed,
   returnPriorityAfterWard,
 } from "./gameEngine.js";
@@ -1655,6 +1658,14 @@ export function advanceUntilDecision(
       continue;
     }
 
+    // TRIGGER ORDER (CR 603.3b, 405.3) — two or more of a person's own simultaneous triggered abilities wait on the stack for the order
+    // they go on it: asked before their targets (each ability's targets are chosen as it is put on the stack, CR 603.3d), so the
+    // trigger-target question below follows in the order chosen. The same state, no allocation, when nothing waits — every game with
+    // no person at it.
+    if (!current.state.pendingChoice) {
+      const raised = raiseTriggerOrderChoice(current.state);
+      if (raised !== current.state) current = { ...current, state: raised };
+    }
     // TRIGGER TARGET (CR 603.3d, 601.2c) — a person's own triggered ability waits on the stack for its targets (or mode): raise the
     // question before anyone receives priority; the pendingChoice block below surfaces it. The same state, no allocation, when
     // nothing waits — every game with no person at it.
@@ -2304,6 +2315,28 @@ export function advanceUntilDecision(
           },
         });
         current = { ...current, state: settleTriggerTargetChoice(current.state, picked.candidateId) };
+        continue;
+      }
+      // ===== TRIGGER ORDER ===== (CR 603.3b, 405.3) — the person playing pc.controller chooses the order their own simultaneous
+      // triggered abilities go on the stack. Raised only for a seat a person plays (gameEngine.raiseTriggerOrderChoice), so `pause` is
+      // the path it takes; the rest is the contract's settle-in-one-tick path (and a pilot's offer): one order per ability resolving
+      // first with the rest as they stand, the standing order — the order they triggered in — as the fallback.
+      if (pc.kind === "trigger-order") {
+        if (pause) {
+          return { session: current, decision: { kind: "trigger-order", ...pc } };
+        }
+        const standing = autoPickTriggerOrder(current.state, pc);
+        const picked = decidePendingChoice({
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
+          buildOffered: () =>
+            standing.map((first) => ({ kind: "pending-choice", choiceKind: pc.kind, resolveOrder: [first, ...standing.filter((id) => id !== first)] })),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, resolveOrder: standing },
+        });
+        current = { ...current, state: settleTriggerOrderChoice(current.state, picked.resolveOrder) };
         continue;
       }
       if (pc.kind === "optional-draw-discard") {
@@ -3547,6 +3580,39 @@ export function applyTriggerTargetChoice(session, choice, opts = {}) {
 }
 
 /**
+ * ===== TRIGGER ORDER ===== (CR 603.3b, 405.3) — the player chose the order their own simultaneous triggered abilities go on the stack
+ * (`choice.resolveOrder`, the abilities' ids with the one that resolves FIRST first). settleTriggerOrderChoice places them; an answer
+ * that is not an order of exactly those abilities decides nothing and the question is asked again. A double-submit (nothing pending)
+ * re-derives. Mirrors applyTriggerTargetChoice.
+ */
+export function applyTriggerOrderChoice(session, choice, opts = {}) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "trigger-order") {
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
+  }
+  const resolveOrder = Array.isArray(choice?.resolveOrder) ? choice.resolveOrder : null;
+  const newState = settleTriggerOrderChoice(session.state, resolveOrder);
+  if (newState === session.state) return advanceUntilDecision(session, opts); // not an order of exactly those abilities — ask again
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "trigger-order-choice", resolveOrder },
+    auto: false,
+    reasoning: "user-chose-trigger-order",
+  };
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
+}
+
+/**
  * ===== OPTIONAL DRAW-THEN-DISCARD ===== — the player chose to draw (and then discard) or not, for a "you may
  * draw a card. If you do, discard a card." `choice.draw` is the yes/no. resolveOptionalDrawDiscardChoice runs the
  * [draw, discard] on yes (or nothing on decline), then resumes + re-derives. Mirrors applyOptionalSacChoice.
@@ -4442,6 +4508,7 @@ export function applyPendingChoice(session, choice, opts = {}) {
   if (kind === "change-target") return applyChangeTargetChoice(session, choice, opts); // shelf D14 (Misdirection)
   if (kind === "aura-entry-host") return applyAuraEntryHostChoice(session, choice, opts); // CR 303.4f — what a person's entering Aura enchants
   if (kind === "trigger-target") return applyTriggerTargetChoice(session, choice, opts); // CR 603.3d — the targets of a person's own triggered ability
+  if (kind === "trigger-order") return applyTriggerOrderChoice(session, choice, opts); // CR 603.3b — the order of a person's own simultaneous triggered abilities
   if (kind === "optional-draw-discard")
     return applyOptionalDrawDiscardChoice(session, choice, opts);
   if (kind === "optional-discard-payment")

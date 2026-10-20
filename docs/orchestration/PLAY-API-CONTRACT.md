@@ -10,7 +10,18 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.5.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.6.0"`
+
+> **v1.6.0 (additive MINOR, 2026-10-20 — a new decision kind):**
+> - **`trigger-order`** (CR 603.3b, 405.3): the person playing a seat chooses the order in which two or more of
+>   their own simultaneous triggered abilities go on the stack. Asked only of a seat in `state.humanSeats`, and not
+>   when the abilities are all identical copies (the same ability of the same source for the same trigger event —
+>   Panharmonicon's extra instance); every AI seat keeps the order its abilities triggered in, byte-identical. It is
+>   asked before the batch's `trigger-target` questions, which then follow in the order chosen (each ability's targets
+>   are chosen as it is put on the stack, CR 603.3d). While it is asked, the abilities sit on the stack in their APNAP
+>   place, in the order they triggered (engine-internal stack-object field `awaitingOrder`; the board snapshot never
+>   shows it). Answer `{ kind, resolveOrder }` (row in §1.1a); a pilot is offered one order per ability resolving
+>   first, the rest as they stand.
 
 > **v1.5.0 (additive MINOR, 2026-10-20 — the ward costs):**
 > - **`soft-counter`** decisions carry `objectKind` (`"spell"` | `"ability"` — what is threatened) and, for a ward with
@@ -163,6 +174,7 @@ General rules, all kinds:
 | `sac-unless-pay` | `{ kind, pay: boolean }` | pay `cost` keeps the permanent (`sourceId`); decline / unaffordable sacrifices it. |
 | `taxed-payment` | `{ kind, pay: boolean }` | the answering seat is the PAYER (`controller === payer`, Rhystic-style); decline / can't-pay gives `beneficiary` the `declinePayoff` (`"draw"` \| `"treasure"`). |
 | `edict-mode` | `{ kind, mode: "life"\|"sacrifice"\|"discard", permId?, cardId? }` | `mode` must be ∈ the decision's `modes` (anything else coerces to `"life"`); `permId` picks from the `sac` pool, `cardId` from the `disc` pool; chains via `queue`. |
+| `trigger-order` | `{ kind, resolveOrder: string[] }` | v1.6.0, CR 603.3b / 405.3 — the controller of two or more simultaneous triggered abilities chooses the order they go on the stack; `resolveOrder` is every `candidates[].id` exactly once, the one that resolves FIRST first (it is put on the stack last). `candidates` (`{ id, sourceName, abilityText, targets: [{ id, type, name, controller }], targetsNext? }`) list the abilities as they stand, the topmost first — so answering them in the order given keeps the order they triggered in; `id` is the ability's stack id, `targetsNext` marks one whose targets are asked after the order. The abilities are permuted among their own stack positions, so other players' abilities keep their APNAP places. Anything else — not a list, an id missing, twice or not of the batch — decides nothing (the question is asked again). Asked only of a `state.humanSeats` seat, and not when every ability is an identical copy of the same ability from the same source for the same event. |
 | `trigger-target` | `{ kind, candidateId }` | v1.4.0, CR 603.3d / 601.2c / 603.3c — the controller of a triggered ability chooses its targets (or mode) as it goes on the stack; `candidateId` ∈ `candidates[].id` (`{ id, label?, targets: [{ id, type, name, controller }] }` — `label` is a mode's text; an empty `targets` is the "up to" decline), or `"none"` when `allowNone` (a modal "choose up to one" — the ability is removed, CR 603.3c). `abilityText` is the printed sentence. An id that is no candidate decides nothing (the question is asked again). Asked only of a `state.humanSeats` seat, one ability at a time in stack order (the first put on the stack first). |
 | `aura-entry-host` | `{ kind, hostId }` | v1.3.0, CR 303.4f — the Aura's controller picks what it enchants as it enters without being cast; `hostId` ∈ `candidates[].id` (`{ id, name, controller }` — the legal hosts on the board it enters; nothing is targeted, so hexproof doesn't exclude one, protection does). No decline: an id that isn't a candidate takes the house pick. Asked only of a `state.humanSeats` seat; another of that seat's Auras entering in the same event asks again. |
 

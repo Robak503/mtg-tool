@@ -377,6 +377,29 @@ answer that is no candidate decides nothing; "none" (allowNone) removes the abil
 throws on a waiting object — the driver asks before anyone receives priority, so reaching one there is a bug. Every
 AI seat, and every table with no person (Expert, self-play), never meets the sentinel: byte-identical.
 
+**A person orders their own simultaneous triggers** (the `trigger-order` pause, 2026-10-20, CR 603.3b — "each player, in
+APNAP order, puts each triggered ability they control … on the stack in any order they choose"; CR 405.3). `orderTriggersAPNAP`
+still places every batch APNAP with each controller's abilities in the order they triggered — the order an AI seat keeps.
+At a live flush, after the batch's target events, `markTriggerOrder` stamps the abilities a `state.humanSeats` seat put
+on the stack in that batch (flushTriggers' `asking`, collected as `personAbilities`) with `awaitingOrder: { batch,
+abilityText }` — `batch` the id of the lowest — when two or more of them are still there and they are NOT all
+interchangeable. Interchangeable = identical copies: the stack object minus its id, plus the printed sentence, is the
+same JSON — the same ability of the same source for the same trigger event (Panharmonicon's extra instance, CR 603.2d);
+copies resolve the same in any order, so a batch of nothing else asks nothing. Two sources with the same text (two
+Chupacabras, a board of identical tokens) are asked — one Done keeps the standing order. The session driver raises the
+question BEFORE the trigger-target raise (`raiseTriggerOrderChoice` → `setPendingTriggerOrderChoice`): the order comes
+first because each ability's targets are chosen as it is put on the stack (CR 603.3d → 601.2c), so the trigger-target
+questions then follow in the order chosen (the lowest waiting object first). An ability of an EARLIER batch still waiting
+for its targets (it went on the stack first) is asked before a later batch's order. `candidates` list the abilities top
+first (`{ id: stack id, sourceName, abilityText, targets, targetsNext? }`); the answer is `resolveOrder`, every id once,
+the first to resolve first. `settleTriggerOrderChoice` permutes the abilities among the batch's OWN stack positions
+(bottom-up = the reverse of `resolveOrder`) and strips the stamp, so other players' abilities keep their APNAP places;
+anything that is not such an order decides nothing (asked again). The settle needs no flush: the batch's target events
+ran in the flush, and what they triggered is already the next batch above. The automatic answer (`autoPickTriggerOrder`,
+the contract path) is the standing order. `resolveTopOfStack` does not refuse an `awaitingOrder` object (it is complete;
+the driver asks before anyone receives priority). Every AI seat, and every table with no person, never collects a
+`personAbilities` entry: byte-identical. Witness: `triggerOrderChoice.test.js`; panel `TriggerOrderPanel`.
+
 **Ward on a triggered ability** (2026-10-18, CR 702.21a). A triggered ability an opponent controls that targets a ward
 permanent raises the question a spell (the cast path) or an activated ability (the ability path) raises — the soft-counter
 pause: its controller pays the ward cost or it is countered (`setPendingSoftCounterChoice` → `resolveSoftCounterChoice`; an AI

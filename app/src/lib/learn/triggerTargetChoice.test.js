@@ -151,17 +151,20 @@ describe("CR 603.3b — simultaneous triggers: APNAP, and a person's own in the 
   it("two of your enters triggers at once: each is asked in stack order (the first put on the stack first), and each takes its own pick", () => {
     const s0 = board({ user: [P("c1", RAVENOUS_CHUPACABRA, "user"), P("c2", RAVENOUS_CHUPACABRA, "user")], ai: [P("bear", GRIZZLY_BEARS, "ai"), P("giant", HILL_GIANT, "ai"), P("bear2", GRIZZLY_BEARS, "ai")] });
     const flushed = flushTriggers(enter(s0, "c1", "c2"), { chooseTargets: chooseTriggerTargets });
-    const first = advanceUntilDecision(session(flushed));
+    // Two abilities of two sources: their order is asked first (CR 603.3b — triggerOrderChoice.test.js); the order they stand in is kept here.
+    const ordering = advanceUntilDecision(session(flushed));
+    const first = applyPendingChoice(ordering.session, { kind: "trigger-order", resolveOrder: (ordering.decision.candidates || []).map((c) => c.id) });
     const second = choose(first, idFor(first.decision, "creature:giant"));
     const third = choose(second, idFor(second.decision, "creature:bear2"));
     const row = {
+      orderAsked: ordering.decision.kind,
       firstAsked: [first.decision.kind, first.decision.stackObjectId === first.session.state.stack[0]?.id],
       secondAsked: [second.decision.kind, second.decision.stackObjectId === second.session.state.stack[1]?.id],
       stackAfterAnswers: second.session.state.stack.map((o) => o.targets.map((t) => t.id)),
       aiBoard: names(third.session.state, "ai"),
     };
     console.log(`  WITNESS two-triggers ${JSON.stringify(row)}`);
-    expect(row).toEqual({ firstAsked: ["trigger-target", true], secondAsked: ["trigger-target", true], stackAfterAnswers: [["giant"], []], aiBoard: ["Grizzly Bears"] });
+    expect(row).toEqual({ orderAsked: "trigger-order", firstAsked: ["trigger-target", true], secondAsked: ["trigger-target", true], stackAfterAnswers: [["giant"], []], aiBoard: ["Grizzly Bears"] });
   });
 
   it("your trigger and the opponent's at once on your turn: yours goes on the stack first (APNAP) and waits for your choice; the opponent's is targeted by the automatic chooser, unasked", () => {

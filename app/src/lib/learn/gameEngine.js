@@ -59,7 +59,7 @@ import { phaseInAndExpireShield, expireNameCastLocks, expireDamageReplacementEff
 import { withoutImpulseStamps, startingLoyalty } from "./gameState.js"; // the impulse lapse at cleanup strips the same stamp list the cast out of exile does
 import { permanentValue, policyEvalEnabledFor } from "./boardEval.js"; // QUARTET PHASE 1 slice 3 — the shared evaluator (leaf-importing module, cycle-free)
 import { chooseAuraEntryHost, auraEntryHostScore, seatIsHuman } from "./auraEntry.js"; // the flicker policy reads where a returned Aura lands (CR 303.4f) — the choice the return makes (a leaf); + who is a person (the trigger-target pause)
-import { setPendingCleanupDiscardChoice, setPendingTriggerTargetChoice, setPendingSoftCounterChoice, clearPendingChoice } from "./pendingChoice.js";
+import { setPendingCleanupDiscardChoice, setPendingTriggerTargetChoice, setPendingTriggerOrderChoice, setPendingSoftCounterChoice, clearPendingChoice } from "./pendingChoice.js";
 import { wardTaxForStackObject } from "./ward.js"; // ward on a triggered ability's target (CR 702.21a) — the cast and ability paths' own detector (a leaf)
 import { autoPickSoftCounterPay } from "./effects/runProgram.js"; // the AI's pay-or-decline answer to a ward — read by the trigger-target chooser so it never aims where it won't pay
 import { skipsDrawStep, extraTurnSkipped } from "./effects/textNormalize.js"; // SKIP YOUR DRAW STEP (RG-4, 2026-09-05) — a leaf reader, controller-scoped; + the opponent-scoped extra-turn skip (Trouble in Pairs, #626)
@@ -1391,22 +1391,6 @@ export function enqueueTrigger(state, trigger) {
 }
 
 /**
- * Move every pending trigger onto the stack. Each trigger's controller
- * orders their own triggers, then APNAP (active player first) interleaves
- * — for v1 we just put them on the stack in (active-player triggers,
- * non-active triggers) order, preserving FIFO within each group. That's
- * a close-enough approximation for the common case; complex orderings
- * (Sundial of the Infinite, conflict between multiple "your triggers")
- * are an Arbiter case.
- */
-/**
- * Order simultaneous triggers APNAP across ALL seats (CR 603.3b): active player
- * first, then the rest in turn order; FIFO within each controller. Triggers
- * whose controller has left the game (eliminated, CR 800.4a) are dropped because
- * the rotation only walks live seats. Generalizes the old 2-bucket split to the
- * Commander 4-seat pod.
- */
-/**
  * SOURCE-SCOPED TRIGGER MULTIPLIER (CR 603.x) — repeat each pending trigger once per matching static, keyed
  * on the trigger's SOURCE permanent rather than on the event that caused it. See the note at the call site
  * in flushTriggers for why this family is enforced here and not at the enqueue sites.
@@ -1438,6 +1422,15 @@ function multiplySourceScopedTriggers(state, pending) {
   return out;
 }
 
+/**
+ * Order simultaneous triggers APNAP across ALL seats (CR 603.3b): active player
+ * first, then the rest in turn order; FIFO within each controller — the order an
+ * AI seat puts its own on the stack. A person chooses the order of theirs after
+ * the batch is placed (markTriggerOrder → the trigger-order pause), among their
+ * own positions, so APNAP across players stands. Triggers whose controller has
+ * left the game (eliminated, CR 800.4a) are dropped because the rotation only
+ * walks live seats. Generalizes the old 2-bucket split to the Commander 4-seat pod.
+ */
 function orderTriggersAPNAP(state, pending) {
   const order = state.turnOrder || Object.keys(state.players);
   const startIdx = order.indexOf(state.activePlayer);
@@ -2304,6 +2297,7 @@ export function flushTriggers(state, { chooseTargets } = {}) {
   // so every simultaneous trigger chooses against the same flush-time board.
   let s = state;
   const newStackObjects = [];
+  const personAbilities = []; // a person's own abilities of this batch, for the order question (markTriggerOrder) — at a live flush only
   for (const trigger of ordered) {
     // ONCE-PER-TURN TRIGGER (M1a — "This ability triggers only once each turn.", Mirelurk Queen): the
     // ability does not trigger a second time within a turn. Enforced HERE, the universal flush chokepoint,
@@ -2394,6 +2388,7 @@ export function flushTriggers(state, { chooseTargets } = {}) {
         ? { awaitingTargets: { candidates: built.ask.candidates, abilityText: trigger.descriptor?.sourceText ?? null, ...(built.ask.allowNone ? { allowNone: true } : {}) } }
         : {}),
     });
+    if (asking) personAbilities.push({ id, controller: trigger.controller, abilityText: trigger.descriptor?.sourceText ?? null });
   }
 
   let out = {
@@ -2429,10 +2424,110 @@ export function flushTriggers(state, { chooseTargets } = {}) {
     // second ward in this batch, or the spell's own ward on the cast path that flushed this, never meets an occupied choice slot.
     out = markWardOwed(out, so);
   }
+  // A PERSON ORDERS THEIR OWN (CR 603.3b, 405.3): two or more of a person's abilities in this batch that are not all identical copies
+  // wait, in the order they triggered, for that person to choose the order (raiseTriggerOrderChoice). Before the recursion below, whose
+  // abilities triggered as this batch went on the stack and form the next batch, above this one.
+  out = markTriggerOrder(out, personAbilities);
   if ((out.pendingTriggers || []).length) {
     return flushTriggers(out, { chooseTargets });
   }
   return out;
+}
+
+/**
+ * THE TRIGGER-ORDER QUESTION, RECORDED (CR 603.3b — "each player, in APNAP order, puts each triggered ability they control … on the
+ * stack in any order they choose"; CR 405.3). `abilities` are the abilities a person's seat put on the stack in this batch at a live
+ * flush (flushTriggers' `asking`), in the order they triggered. When two or more of one person's are still on the stack and they are
+ * not all interchangeable, each is stamped `awaitingOrder: { batch, abilityText }` — `batch` the id of the lowest — and the session
+ * driver asks the order before anyone receives priority (raiseTriggerOrderChoice). They already stand in their APNAP place, lowest
+ * first in the order they triggered; the answer only permutes them among their own positions, so every other player's abilities keep
+ * theirs. INTERCHANGEABLE: identical copies — the same ability of the same source for the same trigger event (Panharmonicon's extra
+ * instance, CR 603.2d) — carry the same object apart from their id, and copies resolve the same in any order, so a batch of nothing
+ * else asks nothing. Every AI seat, and every table with no person, never reaches the stamp: `abilities` is empty there.
+ */
+function markTriggerOrder(state, abilities) {
+  if (abilities.length < 2) return state;
+  let out = state;
+  for (const seat of [...new Set(abilities.map((a) => a.controller))]) {
+    const mine = abilities.filter((a) => a.controller === seat && (out.stack || []).some((o) => o.id === a.id)); // still there (Kira's counter removes one)
+    if (mine.length < 2) continue;
+    const key = (a) => {
+      const { id: _id, ...rest } = out.stack.find((o) => o.id === a.id);
+      return JSON.stringify([rest, a.abilityText]);
+    };
+    if (new Set(mine.map(key)).size < 2) continue;
+    const marks = new Map(mine.map((a) => [a.id, { batch: mine[0].id, abilityText: a.abilityText }]));
+    out = { ...out, stack: out.stack.map((o) => (marks.has(o.id) ? { ...o, awaitingOrder: marks.get(o.id) } : o)) };
+  }
+  return out;
+}
+
+/**
+ * THE TRIGGER-ORDER PAUSE (CR 603.3b, 405.3) — raise the question for the lowest batch of a person's abilities waiting for their order
+ * (markTriggerOrder). The order comes before any of the batch's targets: each ability's targets are chosen as it is put on the stack
+ * (CR 603.3d → 601.2c), so the trigger-target question follows in the order chosen. An ability put on the stack before this batch
+ * that still waits for its targets is asked first (it went on the stack first). `candidates` list the abilities as they stand, the
+ * topmost — the one that resolves first — first. The session driver calls this before the trigger-target raise; the same state when a
+ * choice is pending or nothing waits (every game with no person at it, always).
+ */
+export function raiseTriggerOrderChoice(state) {
+  if (state.pendingChoice) return state;
+  const stack = state.stack || [];
+  const at = stack.findIndex((o) => o.awaitingOrder);
+  if (at < 0) return state;
+  const targetsFirst = stack.findIndex((o) => o.awaitingTargets);
+  if (targetsFirst >= 0 && targetsFirst < at) return state;
+  const { batch } = stack[at].awaitingOrder;
+  const members = stack.filter((o) => o.awaitingOrder?.batch === batch);
+  return setPendingTriggerOrderChoice(state, {
+    controller: stack[at].controller,
+    batch,
+    candidates: members.reverse().map((o) => ({
+      id: o.id,
+      sourceName: o.source?.name ?? null,
+      abilityText: o.awaitingOrder.abilityText ?? null,
+      targets: (o.targets || []).map((t) => triggerTargetView(state, t)),
+      ...(o.awaitingTargets ? { targetsNext: true } : {}),
+    })),
+  });
+}
+
+/**
+ * Settle the trigger-order pause with the person's answer — `resolveOrder`, the ids of the batch's abilities with the one that resolves
+ * FIRST first. The last to resolve is put on the stack first (CR 603.3b): the abilities take the batch's own positions bottom-up in the
+ * reverse of `resolveOrder`, and are no longer waiting. Anything that is not an order of exactly those abilities — not a list, one
+ * missing, one twice, an id not of the batch — decides nothing: the question stands.
+ */
+export function settleTriggerOrderChoice(state, resolveOrder) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "trigger-order") return state;
+  const stack = state.stack || [];
+  const at = [];
+  stack.forEach((o, i) => { if (o.awaitingOrder?.batch === pc.batch) at.push(i); });
+  if (at.length === 0) {
+    // Nothing on the stack waits under that batch any more (the fixture's auto path; a controller who left the game): nothing to order.
+    return logEvent(clearPendingChoice(state), { kind: "trigger-order-gone", batch: pc.batch ?? null, controller: pc.controller ?? null });
+  }
+  const ids = at.map((i) => stack[i].id);
+  if (!Array.isArray(resolveOrder) || resolveOrder.length !== ids.length || new Set(resolveOrder).size !== ids.length || !resolveOrder.every((id) => ids.includes(id))) {
+    return state;
+  }
+  const byId = new Map(at.map((i) => [stack[i].id, stack[i]]));
+  const bottomUp = [...resolveOrder].reverse();
+  const next = stack.slice();
+  at.forEach((pos, k) => {
+    const { awaitingOrder: _ordered, ...placed } = byId.get(bottomUp[k]);
+    next[pos] = placed;
+  });
+  return logEvent({ ...clearPendingChoice(state), stack: next }, { kind: "trigger-order-chosen", controller: pc.controller, resolveOrder: [...resolveOrder] });
+}
+
+/**
+ * The automatic answer to a trigger-order pause — the contract's settle-in-one-tick path (a pause the driver doesn't hold for a
+ * person): the order the abilities stand in, the order they triggered in (every AI seat's order). Empty when nothing waits.
+ */
+export function autoPickTriggerOrder(state, pc) {
+  return (state.stack || []).filter((o) => o.awaitingOrder && o.awaitingOrder.batch === pc?.batch).map((o) => o.id).reverse();
 }
 
 /**
@@ -2462,11 +2557,14 @@ function triggerChoiceView(state, c, i) {
   return {
     id: String(i),
     ...(c.label ? { label: c.label } : {}),
-    targets: (c.targets || []).map((t) => {
-      const perm = t.type === "player" ? null : findPermanent(state, t.id)?.permanent;
-      return { id: t.id, type: t.type, name: perm?.faceDown ? "Face-down creature" : t.name ?? null, controller: t.type === "player" ? t.id : t.controller ?? null };
-    }),
+    targets: (c.targets || []).map((t) => triggerTargetView(state, t)),
   };
+}
+
+/** A target as a panel reads it: id, kind, name and controller (a player's controller is the player). Shared by the trigger-target and trigger-order questions. */
+function triggerTargetView(state, t) {
+  const perm = t.type === "player" ? null : findPermanent(state, t.id)?.permanent;
+  return { id: t.id, type: t.type, name: perm?.faceDown ? "Face-down creature" : t.name ?? null, controller: t.type === "player" ? t.id : t.controller ?? null };
 }
 
 /**

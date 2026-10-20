@@ -156,7 +156,10 @@ describe("CR 702.21a — ward triggers when an opponent's TRIGGERED ability targ
   it("two of your triggers at once: the first one's ward is asked only after the second has its targets — the batch goes on the stack before the ward triggers do (CR 603.3, 603.3b)", () => {
     const s0 = board({ user: [P("c1", RAVENOUS_CHUPACABRA, "user"), P("c2", RAVENOUS_CHUPACABRA, "user")], ai: [P("light", LEONIN_LIGHTBRINGER, "ai"), P("bear", GRIZZLY_BEARS, "ai")] });
     const flushed = flushTriggers(enter(s0, "c1", "c2"), { chooseTargets: chooseTriggerTargets });
-    const first = advanceUntilDecision(session(flushed));
+    // Two abilities of two sources: their order is asked first (CR 603.3b — triggerOrderChoice.test.js); the order they stand in is kept here.
+    const ordering = advanceUntilDecision(session(flushed));
+    expect(ordering.decision.kind).toBe("trigger-order");
+    const first = applyPendingChoice(ordering.session, { kind: "trigger-order", resolveOrder: (ordering.decision.candidates || []).map((c) => c.id) });
     const second = applyPendingChoice(first.session, { kind: "trigger-target", candidateId: idFor(first.decision, "creature:light") });
     const third = second.decision.kind === "trigger-target" ? applyPendingChoice(second.session, { kind: "trigger-target", candidateId: idFor(second.decision, "creature:bear") }) : second;
     const row = {

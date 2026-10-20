@@ -323,7 +323,17 @@ export function observe(state, seat) {
 //     `{ kind, pay, option? }` grew the optional `option` — the index in `cost.options` paid; absent,
 //     the house pick (an affordable alternative that discards nothing first). A pilot ignoring both
 //     answers exactly as before.
-export const PLAY_API_VERSION = "1.5.0";
+// 1.6.0 (additive MINOR — a new decision kind, 2026-10-20):
+//   - "trigger-order" (CR 603.3b, 405.3): the person playing a seat chooses the order in which two or
+//     more of their own simultaneous triggered abilities go on the stack; answer `{ kind, resolveOrder }`,
+//     resolveOrder = every candidates[].id once, the one that resolves FIRST first (the last put on the
+//     stack). Raised only for a seat in state.humanSeats, and not when the abilities are all identical
+//     copies (the same ability of the same source for the same event); anything that is not such an
+//     order is asked again. Asked before the batch's trigger-target questions, which then follow in the
+//     order chosen. A pilot is offered one order per ability resolving first (the rest as they stand).
+//     The abilities wait on the stack meanwhile, in their APNAP place (additive stack-object field
+//     `awaitingOrder`, engine-internal).
+export const PLAY_API_VERSION = "1.6.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

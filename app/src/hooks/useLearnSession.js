@@ -71,6 +71,16 @@ export function triggerTargetChoicePayload(candidateId) {
   return { kind: "trigger-target", candidateId: typeof candidateId === "string" ? candidateId : null };
 }
 
+/**
+ * The /api/learn/choose payload for the order of your own simultaneous triggered abilities (CR 603.3b): their ids with the one that
+ * resolves FIRST first, with the `kind` echo the server checks (WI-5). Anything but a list of ids posts null, which the server asks
+ * again. Pure, so it is tested without React.
+ */
+export function triggerOrderChoicePayload(resolveOrder) {
+  const ok = Array.isArray(resolveOrder) && resolveOrder.every((id) => typeof id === "string");
+  return { kind: "trigger-order", resolveOrder: ok ? [...resolveOrder] : null };
+}
+
 export default function useLearnSession() {
   const [state, setState] = useState(INITIAL_STATE);
   const inFlightRef = useRef(false);
@@ -1141,6 +1151,12 @@ export default function useLearnSession() {
     [submitPendingChoice],
   );
 
+  /** TRIGGER ORDER (CR 603.3b) — the order your simultaneous triggered abilities go on the stack (the first to resolve first). */
+  const applyTriggerOrderChoice = useCallback(
+    (resolveOrder) => submitPendingChoice("trigger-order", triggerOrderChoicePayload(resolveOrder)),
+    [submitPendingChoice],
+  );
+
   /** SAC-UNLESS-PAY — INVERTED polarity: paying KEEPS the permanent, declining sacrifices it. */
   const applySacUnlessPayChoice = useCallback(
     (pay) => submitPendingChoice("sac-unless-pay", { pay: pay === true }),
@@ -1813,6 +1829,7 @@ export default function useLearnSession() {
     applyChangeTargetChoice,
     applyAuraEntryHostChoice, // CR 303.4f — what your entering Aura enchants
     applyTriggerTargetChoice, // CR 603.3d — the targets of your own triggered ability
+    applyTriggerOrderChoice, // CR 603.3b — the order of your own simultaneous triggered abilities
     applyCommanderReturnChoice,
     mulligan,
     reset,

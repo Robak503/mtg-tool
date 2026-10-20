@@ -58,6 +58,7 @@ import {
   ChangeTargetPanel,
   AuraEntryHostPanel,
   TriggerTargetPanel,
+  TriggerOrderPanel,
   SacrificeChoicePanel,
   DiscardChoicePanel,
   HandToLibraryTopPanel,
@@ -756,6 +757,7 @@ export default function LearnView({
               onChangeTargetChoose={session.applyChangeTargetChoice}
               onAuraEntryHostChoose={session.applyAuraEntryHostChoice}
               onTriggerTargetChoose={session.applyTriggerTargetChoice}
+              onTriggerOrderChoose={session.applyTriggerOrderChoice}
               onCommanderReturnChoose={session.applyCommanderReturnChoice}
             />
           </main>
@@ -1030,6 +1032,12 @@ export default function LearnView({
       {session.board && decision?.kind === "trigger-target" && (
         <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
           <TriggerTargetPanel decision={decision} onChoose={session.applyTriggerTargetChoice} />
+        </div>
+      )}
+      {/* TRIGGER ORDER (CR 603.3b) — several of your abilities triggered at once; choose the order they go on the stack. */}
+      {session.board && decision?.kind === "trigger-order" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <TriggerOrderPanel decision={decision} onChoose={session.applyTriggerOrderChoice} />
         </div>
       )}
       {/* Engine OR transport error as a floating banner over the board (never drops
@@ -1458,6 +1466,7 @@ export function DecisionPrompt({
   onChangeTargetChoose,
   onAuraEntryHostChoose,
   onTriggerTargetChoose,
+  onTriggerOrderChoose,
   onCommanderReturnChoose,
 }) {
   if (!decision) {
@@ -1567,6 +1576,9 @@ export function DecisionPrompt({
   }
   if (decision.kind === "trigger-target") {
     return <TriggerTargetPanel decision={decision} onChoose={onTriggerTargetChoose} />;
+  }
+  if (decision.kind === "trigger-order") {
+    return <TriggerOrderPanel decision={decision} onChoose={onTriggerOrderChoose} />;
   }
   if (decision.kind === "commander-return") {
     return <CommanderReturnPanel decision={decision} onChoose={onCommanderReturnChoose} />;

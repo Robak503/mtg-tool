@@ -56,6 +56,7 @@ export const PENDING_CHOICE_KINDS = [
   "change-target", // shelf D14 (Misdirection) — the redirector picks which other legal target a single-target spell or ability moves to
   "aura-entry-host", // CR 303.4f — a person picks what their Aura enchants as it enters without being cast (asked of a human seat only)
   "trigger-target", // CR 603.3d / 601.2c — a person picks the targets (and mode, CR 603.3c) of their own triggered ability as it goes on the stack (asked of a human seat only)
+  "trigger-order", // CR 603.3b / 405.3 — a person picks the order their own simultaneous triggered abilities go on the stack (asked of a human seat only)
 ];
 
 /**
@@ -772,6 +773,20 @@ export function setPendingTriggerTargetChoice(state, { controller, stackObjectId
       ...(allowNone ? { allowNone: true } : {}),
     },
   };
+}
+
+/**
+ * ===== TRIGGER ORDER (CR 603.3b, 405.3) ===== — suspend while the person playing `controller` chooses the order in which two or more
+ * of their own simultaneous triggered abilities go on the stack (gameEngine.flushTriggers stamps them `awaitingOrder`;
+ * gameEngine.raiseTriggerOrderChoice raises this pause). Raised only for a seat a person plays and only when the abilities are not all
+ * identical copies, so the AI never sees it. `batch` names the abilities (the settler reads the stack, never these); `candidates` are
+ * `{ id, sourceName, abilityText, targets: [{ id, type, name, controller }], targetsNext? }` — `id` the ability's stack id, the topmost
+ * (the one that resolves first) first; `targetsNext` an ability whose targets the person chooses after the order. Plain JSON.
+ */
+export function setPendingTriggerOrderChoice(state, { controller, batch, candidates = [] }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "trigger-order-pending", controller, batch, count: candidates.length });
+  return { ...next, pendingChoice: { kind: "trigger-order", controller, batch, candidates } };
 }
 
 /**
