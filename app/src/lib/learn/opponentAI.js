@@ -74,7 +74,7 @@ import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell �
  * Accepted shapes:
  *   null / undefined                        → all-current (the shipping behavior)
  *   "v1"                                    → every subsystem legacy
- *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker|spellTarget|racer|racerTrade|costVariant: "v1" } → per-subsystem legacy
+ *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker|spellTarget|racer|racerTrade|costVariant|combatDamage|walkerTrade: "v1" } → per-subsystem legacy
  *
  * The DEFAULT is always the new behavior (the Academy and self-play improve
  * automatically); "v1" exists only so the probe can measure old-vs-new inside one
@@ -85,7 +85,7 @@ import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell �
  * Exported so the A/B probe derives its legacy-key list from THIS array (AI-F11:
  * a hand-copied list silently drops every new subsystem from `--legacy=all`).
  */
-export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget", "racer", "racerTrade", "costVariant"];
+export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget", "racer", "racerTrade", "costVariant", "combatDamage", "walkerTrade"];
 function normalizePolicy(policy) {
   if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
   if (policy && typeof policy === "object") return policy;
@@ -2647,11 +2647,12 @@ function blockKillsForNothing(att, b) {
  * "except by <N> or more creatures" — BLITZ EV-3). An attacker with zero eligible
  * blockers (or a ≥N attacker with fewer than N — the declaration gate never
  * offers that block, CR 509.1b / 702.111b) always connects; a blockable ≥N
- * attacker consumes N blockers from the budget. The defender chumps the biggest
- * blockable attackers first. Approximation: eligibility is per-attacker but the
- * budget is the global untapped-creature count (exact optimal assignment is a
- * matching problem); trample-through damage is ignored (a safe underestimate of
- * the swing). `attackers`: [{ power, minBlockers, eligibleCount }].
+ * attacker consumes N blockers from the budget. Approximation: eligibility is
+ * per-attacker but the budget is the global untapped-creature count (exact optimal
+ * assignment is a matching problem). Trample and double strike count since
+ * 2026-10-20 (unavoidableDamage over damageRow), on the side that never overstates
+ * the swing. `attackers`: damageRow rows ([{ power, minBlockers, eligibleCount,
+ * strikes?, trample?, stops? }]).
  */
 function swingIsLethalV2(attackers, blockerCount, defenderLife) {
   if (defenderLife <= 0) return false;
@@ -2659,26 +2660,153 @@ function swingIsLethalV2(attackers, blockerCount, defenderLife) {
 }
 
 /**
- * The damage `attackers` connect with when the defender spends its `blockerCount` untapped creatures blocking the biggest
- * blockable ones (swingIsLethalV2's worst case, and the planeswalker attack policy's — a defender protects its walker the
- * same way it protects its life).
+ * How much of attacker `a`'s combat damage blocker `b`, blocking it alone, keeps off the player or planeswalker `a` attacks,
+ * for an attacker with TRAMPLE (CR 702.19b): its controller assigns lethal damage to the blocker first and the excess goes
+ * through. Lethal damage is 1 from a deathtouch attacker (CR 702.2c) and the blocker's toughness otherwise (damage already
+ * marked on it is not subtracted: the larger figure, the safe side of a lethal call — and gone by the crack-back's turn). A
+ * blocker that strikes first and kills an attacker without first strike stops all of it: the attacker is dead before it deals
+ * damage (CR 510.4). A DOUBLE STRIKER (`strikes` 2, CR 702.4b) assigns in both combat damage steps: a blocker its first-strike
+ * damage kills leaves the regular step's damage all to the player (CR 702.19d); a survivor (toughness above the power, or
+ * indestructible) needs the rest of its lethal damage again, at least 1 (combatResolution's lethal need); a blocker that strikes
+ * first and kills it in the first step leaves no second. `a` and `b` are combatStatsOf / untappedDefenderBlockers reads (power,
+ * toughness, firstStrike — double strike included —, deathtouch); `b.id` is read for indestructible.
  */
-function unavoidableDamage(attackers, blockerCount) {
-  let budget = blockerCount;
-  let unavoidable = 0;
-  const blockable = [];
-  for (const a of attackers) {
-    if (a.eligibleCount >= (a.minBlockers || 1)) blockable.push(a);
-    else unavoidable += a.power;
-  }
-  blockable.sort((x, y) => y.power - x.power);
-  for (const a of blockable) {
-    const cost = a.minBlockers || 1;
-    if (budget >= cost) budget -= cost;
-    else unavoidable += a.power;
-  }
-  return unavoidable;
+function trampleStop(state, a, b, strikes) {
+  const power = a.power;
+  const lethal = a.deathtouch && power > 0 ? 1 : Math.max(1, b.toughness);
+  const blockerKills = (b.deathtouch && b.power > 0) || (a.toughness > 0 && b.power >= a.toughness);
+  if (b.firstStrike && !a.firstStrike && blockerKills) return power * strikes;
+  const first = Math.min(power, lethal);
+  if (strikes === 1) return first;
+  if (b.firstStrike && blockerKills) return power + first;
+  if (power >= lethal && !isIndestructible(findPermanent(state, b.id)?.permanent, state)) return lethal;
+  const again = a.deathtouch && power > 0 ? 1 : Math.max(1, b.toughness - first);
+  return first + Math.min(power, again);
 }
+
+/**
+ * One attacker as the combat damage readers see it (unavoidableDamage): its power, its block size (menace / "≥N", read from
+ * `s.minBlockers` or minBlockersFor) and how many of the defender's creatures may legally block it; and, since 2026-10-20,
+ * `strikes` — 2 for double strike, which deals its power in both combat damage steps (CR 702.4b) — and, for a creature with
+ * trample, `stops`: what each of the `eligible` blockers (`stopIds`), blocking it alone, keeps off the player (trampleStop), and
+ * `gangKill`: the eligible first strikers that can't kill it alone together deal at least its toughness before it deals its
+ * damage — before it deals any (no first strike) or its regular-step damage (double strike) — so a gang of them stops more
+ * than they stop alone (CR 510.4: two Halberdiers kill Knuckles the Echidna in the first-strike step, though neither does
+ * alone; a lone killer's stop already counts it). `s` is a combatStatsOf read (with its id); keywords are read layer-aware.
+ * Policy `combatDamage: "v1"` keeps the old row: the power once, a blocked attacker dealing nothing.
+ */
+function damageRow(state, s, eligible, pol = {}) {
+  const row = { power: s.power, minBlockers: s.minBlockers ?? minBlockersFor(state, s.id), eligibleCount: eligible.length };
+  if (pol.combatDamage === "v1") return row;
+  const strikes = permanentHasKeyword(state, s.id, "Double strike") ? 2 : 1;
+  const trample = permanentHasKeyword(state, s.id, "Trample");
+  if (strikes === 1 && !trample) return row;
+  if (!trample) return { ...row, strikes, trample, stops: null };
+  // A first striker without double strike deals all its damage in the first-strike step, beside first-striking blockers.
+  const struckFirst = strikes === 2 || !s.firstStrike;
+  const killsAlone = (b) => (b.deathtouch && b.power > 0) || b.power >= s.toughness;
+  const firstDamage = eligible.reduce((sum, b) => sum + (b.firstStrike && !killsAlone(b) ? b.power : 0), 0);
+  const gangKill = struckFirst && s.toughness > 0 && firstDamage >= s.toughness;
+  return { ...row, strikes, trample, stops: eligible.map((b) => trampleStop(state, s, b, strikes)), stopIds: eligible.map((b) => b.id), gangKill };
+}
+
+/**
+ * unavoidableDamage's `over` reading of the trample term — a block the defender can really make. The tramplers, the most damage
+ * first (then their order), each take the strongest eligible blockers still free (`stopIds`, by what each stops alone), N of
+ * them for a block size N, and are credited with what the best of those stops alone; one left without N free blockers is
+ * credited with nothing. Returns Map<row index, stop>.
+ */
+function feasibleTrampleStops(attackers) {
+  const used = new Set();
+  const stops = new Map();
+  const byId = (x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
+  const order = attackers.map((a, row) => ({ a, row })).filter(({ a }) => a.trample)
+    .sort((x, y) => (y.a.power * (y.a.strikes || 1) - x.a.power * (x.a.strikes || 1)) || (x.row - y.row));
+  for (const { a, row } of order) {
+    const n = a.minBlockers || 1;
+    const free = a.stopIds.map((id, i) => ({ id, stop: a.stops[i] })).filter((c) => !used.has(c.id)).sort((x, y) => (y.stop - x.stop) || byId(x, y));
+    if (free.length < n) { stops.set(row, 0); continue; }
+    for (const c of free.slice(0, n)) used.add(c.id);
+    stops.set(row, free[0].stop);
+  }
+  return stops;
+}
+
+/**
+ * The damage `attackers` (damageRow rows) connect with when the defender spends its `blockerCount` blocker slots as well as it
+ * can — swingIsLethalV2's worst case, and the planeswalker attack policy's (a defender protects its walker the same way it
+ * protects its life). An attacker deals its power times `strikes` unblocked; one the defender can't legally block (no eligible
+ * blocker, or fewer than its block size — CR 509.1b, 702.111b) always connects. A blocked attacker deals nothing, unless it
+ * has trample: then what its blockers don't stop (CR 702.19b). The defender's choice is read in slots, as before — any slot may
+ * block any attacker it is eligible for; blockers are not told apart. Each block is a piece: an attacker without trample takes
+ * N slots (its block size) for all its damage; a trampler N slots for what its N best blockers stop, then one slot for each
+ * further blocker for what that one adds (a gang block, capped at its damage). The pieces are taken biggest first while slots
+ * remain. With every block size 1 that greedy is the defender's best over the pieces, and no real block stops more than its
+ * pieces — a gang stops at most what its blockers stop alone, summed (trampleStop), except when first strikers that can't kill
+ * the trampler alone kill it together before it deals its damage (`gangKill`): such a trampler reads as one a single slot
+ * stops entirely, as if it had no trample. So the damage is never above what the defender's best block lets through: the safe
+ * side for "is it lethal" (with a block size above 1 the slots are spent greedily, as before — not exact). Pinned against the
+ * engine's own combat damage (aiTrampleDoubleStrike.test.js). `over` (the crack-back guard: the AI's own life, the other side)
+ * reads the trample term on a block the defender can really make: the tramplers, the most damage first, each take their own
+ * blocker(s) — the strongest still free, N for a block size N, credited with what the best of them stops alone — and no gang,
+ * so each blocked trampler's damage is never below what that block lets through (a further blocker only adds lethal damage to
+ * assign). Rows without `strikes` or `trample` read exactly as before 2026-10-20.
+ */
+function unavoidableDamage(attackers, blockerCount, { over = false } = {}) {
+  const overStops = over && attackers.some((a) => a.trample) ? feasibleTrampleStops(attackers) : null;
+  let total = 0;
+  const pieces = [];
+  attackers.forEach((a, row) => {
+    const full = a.power * (a.strikes || 1);
+    total += full;
+    const n = a.minBlockers || 1;
+    if (a.eligibleCount < n) return; // no legal block: all of it connects
+    if (!a.trample || (a.gangKill && !over)) { pieces.push({ row, cost: n, value: full, lead: true }); return; }
+    if (over) { pieces.push({ row, cost: n, value: Math.min(full, overStops.get(row) ?? 0), lead: true }); return; }
+    const stops = [...a.stops].sort((x, y) => y - x);
+    const sum = (xs) => xs.reduce((acc, x) => acc + x, 0);
+    let left = full;
+    const lead = Math.min(left, sum(stops.slice(0, n)));
+    pieces.push({ row, cost: n, value: lead, lead: true });
+    left -= lead;
+    for (const stop of stops.slice(n)) {
+      if (left <= 0) break;
+      const value = Math.min(left, stop);
+      pieces.push({ row, cost: 1, value, lead: false });
+      left -= value;
+    }
+  });
+  pieces.sort((x, y) => y.value - x.value); // stable: equal pieces keep the attackers' order
+  let budget = blockerCount;
+  let stopped = 0;
+  const blocked = new Set();
+  for (const p of pieces) {
+    if (!p.lead && !blocked.has(p.row)) continue; // a further blocker joins only a block that was made
+    if (budget < p.cost) continue;
+    budget -= p.cost;
+    stopped += p.value;
+    if (p.lead) blocked.add(p.row);
+  }
+  return total - stopped;
+}
+
+/** The rows of `ids` attacking `defenderId` as unavoidableDamage reads them (eligible blockers: `blockers`, the defender's untapped creatures). */
+function swingRows(state, defenderId, ids, blockers, pol = {}) {
+  return ids.map((id) => {
+    const s = combatStatsOf(state, id);
+    return s && damageRow(state, { ...s, minBlockers: minBlockersFor(state, id) }, eligibleBlockersFor(state, defenderId, id, blockers), pol);
+  }).filter(Boolean);
+}
+
+/**
+ * Test-only handle on the damage reading: what `attackerIds` connect with against `defenderId`'s untapped creatures — `lower`
+ * (the lethal side) and `over` (the crack-back side). Pinned against the engine's own combat damage (aiTrampleDoubleStrike.test.js).
+ */
+export const __combatDamageForTests = (state, defenderId, attackerIds, pol = {}) => {
+  const blockers = untappedDefenderBlockers(state, defenderId);
+  const rows = swingRows(state, defenderId, attackerIds, blockers, pol);
+  return { lower: unavoidableDamage(rows, blockers.length), over: unavoidableDamage(rows, blockers.length, { over: true }) };
+};
 
 /**
  * Would this attacker die "for nothing"? True when some untapped blocker can kill
@@ -2783,8 +2911,10 @@ function selectProfitableAttackers(state, aiPlayerId, attackerActions, defenderI
     .map(a => describe(a.permanentId))
     .filter(Boolean);
   const candidates = [...stats.values()].filter(Boolean);
+  // Trample and double strike count (damageRow, 2026-10-20; policy `combatDamage: "v1"` reads the power once, a blocked
+  // attacker dealing nothing), never overstating the swing.
   const lethal = swingIsLethalV2(
-    [...committed, ...candidates].map(s => ({ power: s.power, minBlockers: s.minBlockers, eligibleCount: s.eligibleCount })),
+    [...committed, ...candidates].map((s) => damageRow(state, s, s.eligible, pol)),
     blockers.length,
     defenderLife,
   );
@@ -2988,24 +3118,34 @@ export const __tradeLossPrefixesForTests = (rows, slots, baseCount = 0) => trade
 
 /**
  * What the AI's living opponents could deal it on their next turns if each attacks with every creature that can attack, each
- * blocked biggest-first (unavoidableDamage) by the AI's creatures still untapped after this combat: an attacker stays tapped
- * until its controller's next untap step unless it has vigilance (CR 508.1f, 702.20b). Summed over the opponents, the same
- * home blockers against each. Returns a reader of the planned attackers (`away`: the ids that tap to attack).
+ * blocked (unavoidableDamage) by the AI's creatures still untapped after this combat: an attacker stays tapped until its
+ * controller's next untap step unless it has vigilance (CR 508.1f, 702.20b). Summed over the opponents, the same home blockers
+ * against each. A double striker deals its power twice and a blocked trampler what its blocker doesn't stop (damageRow), read
+ * on the over-estimate side (`over`: each trampler its own blocker, no gang) — the guard keeps the AI alive, so a crack-back
+ * read too high only holds a creature home. Returns a reader of the planned attackers (`away`: the ids that tap to attack).
  */
-function crackBackReader(state, aiPlayerId) {
-  const home = (state.players?.[aiPlayerId]?.battlefield || []).filter((p) => permanentIsCreature(state, p.id) && !p.tapped).map((p) => p.id);
+function crackBackReader(state, aiPlayerId, pol = {}) {
+  const homeStats = (state.players?.[aiPlayerId]?.battlefield || []).filter((p) => permanentIsCreature(state, p.id) && !p.tapped).map((p) => combatStatsOf(state, p.id));
+  const home = homeStats.map((h) => h.id);
   const opponents = opponentsOf(state, aiPlayerId)
     .filter((o) => (state.players?.[o]?.life ?? 0) > 0)
     .map((o) => (state.players[o].battlefield || [])
       .filter((p) => permanentIsCreature(state, p.id))
       .filter((p) => !permanentHasKeyword(state, p.id, "Defender") || permanentHasKeyword(state, p.id, "attacksIgnoringDefender"))
       .filter((p) => !permanentHasKeyword(state, p.id, "cantAttack") && !selfCantAttackNow(state, p))
-      .map((p) => ({ power: Math.max(0, permanentPower(state, p.id)), minBlockers: minBlockersFor(state, p.id), blockedBy: new Set(home.filter((h) => canBlockAttacker(state, h, p.id, aiPlayerId))) })));
+      .map((p) => {
+        const eligible = homeStats.filter((h) => canBlockAttacker(state, h.id, p.id, aiPlayerId));
+        return { row: damageRow(state, { ...combatStatsOf(state, p.id), minBlockers: minBlockersFor(state, p.id) }, eligible, pol), blockedBy: eligible.map((h) => h.id) };
+      }));
   return (away) => {
     const left = home.filter((h) => !away.has(h));
     let total = 0;
     for (const attackers of opponents) {
-      total += unavoidableDamage(attackers.map((a) => ({ power: a.power, minBlockers: a.minBlockers, eligibleCount: left.filter((h) => a.blockedBy.has(h)).length })), left.length);
+      total += unavoidableDamage(attackers.map(({ row, blockedBy }) => {
+        const stays = blockedBy.map((h) => !away.has(h));
+        if (!row.trample) return { ...row, eligibleCount: stays.filter(Boolean).length };
+        return { ...row, eligibleCount: stays.filter(Boolean).length, stops: row.stops.filter((_, i) => stays[i]), stopIds: row.stopIds.filter((_, i) => stays[i]) };
+      }), left.length, { over: true });
     }
     return total;
   };
@@ -3061,7 +3201,11 @@ function outnumberingAttackers(state, aiPlayerId, attackerActions, defenderId, {
   const life = state.players?.[defenderId]?.life ?? 0;
   const faceWeight = life > 0 && life < FACE_URGENCY_LIFE ? FACE_URGENCY_LIFE / life : 1;
   const ranked = [];
-  const dmgRow = (r) => ({ power: r.power, minBlockers: r.minBlockers, eligibleCount: r.eligibleCount });
+  const damageRows = new Map();
+  const dmgRow = (r) => {
+    if (!damageRows.has(r.id)) damageRows.set(r.id, damageRow(state, r, r.eligible, pol));
+    return damageRows.get(r.id);
+  };
   const damage0 = unavoidableDamage(fixed.map(dmgRow), slots.length);
   // The loss, in life points: the defender's best trades and free kills (tradeLossPrefixes), or under policy
   // `racerTrade: "v1"` the most valuable attackers a blocker kills "for nothing" (worstCaseLoss).
@@ -3077,7 +3221,7 @@ function outnumberingAttackers(state, aiPlayerId, attackerActions, defenderId, {
   if (ranked.length === 0) return [];
   ranked.sort((x, y) => (y.gain - x.gain) || (x.k - y.k));
 
-  const crackBack = crackBackReader(state, aiPlayerId);
+  const crackBack = crackBackReader(state, aiPlayerId, pol);
   const aiLife = state.players?.[aiPlayerId]?.life ?? 0;
   const tax = attackTaxDetail(state, defenderId, null);
   const taxed = tax.generic > 0 || tax.phyrexian.length > 0;
@@ -3192,7 +3336,7 @@ export function pickAttackPlan(state, aiPlayerId, attackerActions, { policy = nu
     return [...plan.filter((a) => !extraRank.has(a.permanentId)), ...plan.filter((a) => extraRank.has(a.permanentId)).sort(byExtraRank)];
   }
 
-  const atWalker = walkerOffered ? planWalkerAttacks(state, aiPlayerId, pools, attacking, target) : new Map();
+  const atWalker = walkerOffered ? planWalkerAttacks(state, aiPlayerId, pools, attacking, target, pol) : new Map();
   const walkerPlan = [];
   const facePlan = [];
   const extraPlan = [];
@@ -3230,40 +3374,44 @@ function walkerThreat(state, perm) {
   return { loyalty, ultimate, ultimateNext: ultimate != null && loyalty >= ultimate, value: WALKER_LIFE_PER_VALUE * permanentValue(perm, state) };
 }
 
-/** Is the swing of `ids` (beside the face attacks already declared) lethal on `defenderId`, under swingIsLethalV2's worst case? */
-function faceSwingIsLethal(state, aiPlayerId, defenderId, ids) {
+/**
+ * Is the swing of `ids` (beside the face attacks already declared) lethal on `defenderId`, under swingIsLethalV2's worst case —
+ * the racer's own lethal reading (damageRow: trample and double strike), so the two agree on when to stand down?
+ */
+function faceSwingIsLethal(state, aiPlayerId, defenderId, ids, pol = {}) {
   const blockers = untappedDefenderBlockers(state, defenderId);
-  const read = (id) => {
-    const s = combatStatsOf(state, id);
-    return s && { power: s.power, minBlockers: minBlockersFor(state, id), eligibleCount: eligibleBlockersFor(state, defenderId, id, blockers).length };
-  };
   const committed = (state.combat?.attackers || [])
     .filter((a) => a.attackingPlayer === aiPlayerId && a.defender === defenderId && !a.defenderPlaneswalkerId)
-    .map((a) => read(a.permanentId));
-  return swingIsLethalV2([...committed, ...ids.map(read)].filter(Boolean), blockers.length, state.players?.[defenderId]?.life ?? 0);
+    .map((a) => a.permanentId);
+  return swingIsLethalV2(swingRows(state, defenderId, [...committed, ...ids], blockers, pol), blockers.length, state.players?.[defenderId]?.life ?? 0);
 }
 
+/** The face damage a set of walker attackers gives up (planWalkerAttacks' `forgone`, summed): the cost under policy `walkerTrade: "v1"`. */
+const forgoneOf = (set) => set.reduce((s, x) => s + x.forgone, 0);
+
 /**
- * The cheapest set of `avail` attackers — the least face damage given up — that connect for `need` beside the attackers
- * already `committed` at a planeswalker, when its controller blocks the biggest blockable ones with its `blockerCount`
- * untapped creatures (unavoidableDamage). [] when the committed attackers already reach; null when even all of them fall
- * short. A greedy trim (the attacker giving up the most first, dropped while the rest still reach), then the cheapest
- * single attacker that reaches alone — whichever gives up less.
+ * The cheapest set of `avail` attackers — the least `costOf` — that connect for `need` beside the attackers already
+ * `committed` at a planeswalker, when its controller blocks the biggest blockable ones with its `blockerCount` untapped
+ * creatures (unavoidableDamage). [] when the committed attackers already reach; null when even all of them fall short. A
+ * greedy trim (the attacker costing the most alone first, dropped while the rest still reach), then the cheapest single
+ * attacker that reaches alone — whichever costs less. `costOf` (a set → life points) is the face damage given up
+ * (forgoneOf), plus, by default since 2026-10-20, what the walker's controller can take from the set by blocking it (the
+ * racer's trade valuation — planWalkerAttacks).
  */
-function cheapestReach(need, avail, committed, blockerCount) {
+function cheapestReach(need, avail, committed, blockerCount, costOf = forgoneOf) {
   const reaches = (set) => unavoidableDamage([...committed, ...set], blockerCount) >= need;
   if (reaches([])) return [];
   if (!reaches(avail)) return null;
   const byId = (x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
-  let keep = [...avail].sort((x, y) => (y.forgone - x.forgone) || (y.power - x.power) || byId(x, y));
+  const alone = new Map(avail.map((c) => [c.id, costOf([c])]));
+  let keep = [...avail].sort((x, y) => (alone.get(y.id) - alone.get(x.id)) || (y.power - x.power) || byId(x, y));
   for (const c of [...keep]) {
     const without = keep.filter((x) => x !== c);
     if (reaches(without)) keep = without;
   }
-  const forgoneOf = (set) => set.reduce((s, x) => s + x.forgone, 0);
   let single = null;
-  for (const c of avail) if (reaches([c]) && (!single || c.forgone < single.forgone)) single = c;
-  return single && single.forgone < forgoneOf(keep) ? [single] : keep;
+  for (const c of avail) if (reaches([c]) && (!single || alone.get(c.id) < alone.get(single.id))) single = c;
+  return single && alone.get(single.id) < costOf(keep) ? [single] : keep;
 }
 
 /**
@@ -3273,18 +3421,27 @@ function cheapestReach(need, avail, committed, blockerCount) {
  *   · Never while the swing is lethal on the focused player — kill the player first.
  *   · The kill: the walker's loyalty in damage that connects even if its controller chump-blocks the biggest blockable
  *     attackers with every untapped creature it has (unavoidableDamage — legal blockers, menace and "≥N" block sizes, the
- *     racer's worst case). An attacker counts only when that controller's blockers can't kill it for nothing (the racer's
- *     duel math: first strike, deathtouch), so one the racer holds back from the focused player still may.
+ *     racer's worst case; a trampler's excess over its blockers reaches the walker, CR 702.19b, and a double striker deals
+ *     its power twice, CR 702.4b — damageRow, 2026-10-20).
  *   · The ultimate: a walker whose loyalty already pays for its ultimate is worth twice its value dead, and its value once
  *     brought below the ultimate's cost (it can't fire it next turn).
- *   · Worth: the walker's value in life points (WALKER_LIFE_PER_VALUE); the cost: the power each attacker would have
- *     dealt the focused player — 0 for a creature the racer wasn't sending — weighted up as that player nears death
- *     (FACE_URGENCY_LIFE).
+ *   · Worth: the walker's value in life points (WALKER_LIFE_PER_VALUE). The cost: the face damage each attacker would have
+ *     dealt the focused player — its power, twice for double strike; 0 for a creature the racer wasn't sending — weighted up
+ *     as that player nears death (FACE_URGENCY_LIFE), plus what the walker's controller can take from the attackers by
+ *     blocking them: the racer's TRADE VALUATION (2026-10-20 — tradeEdgeValue, each block worth the attacker it kills less
+ *     the blocker it loses; the controller's best a maximum-weight matching of its blocker slots, tradeLossPrefixes). Only
+ *     what the plan adds is charged: the attackers already attacking that controller — declared at it or one of its walkers,
+ *     the racer's face attackers when it is the focused player, those this plan already sent at its walkers — face its blocks
+ *     wherever they attack. So a deathtouch creature that would die trading with a bigger attacker no longer vetoes it, and one
+ *     blocker vetoes no more than the one attacker it can block (CR 509.1a). Both worst cases at once, as the racer's. Policy
+ *     `walkerTrade: "v1"` keeps the old gate instead: an attacker counts only when no blocker of that controller kills it for
+ *     nothing (blockKillsForNothing — a smaller deathtouch blocker's trade counted free), at no charge. A land creature keeps
+ *     that gate either way (its value reads 0, so no trade can be valued — the racer's group leaves lands out too).
  *   · Attack taxes: every attack at a walker pays its controller's tax for it (attackTax.attackTaxDetail, per target, CR
  *     508.1h); a plan goes ahead only when this seat's mana (less the attackers that tap to attack) pays every tax planned.
  * Greedy: the walker with the largest gain first, then the next with the creatures left. Deterministic (offer order, ids).
  */
-function planWalkerAttacks(state, aiPlayerId, pools, attacking, target) {
+function planWalkerAttacks(state, aiPlayerId, pools, attacking, target, pol = {}) {
   const assigned = new Map();
   const walkers = new Map(); // planeswalker id → its controller: the walkers some creature may attack, in offer order
   for (const pool of pools.values()) {
@@ -3292,10 +3449,17 @@ function planWalkerAttacks(state, aiPlayerId, pools, attacking, target) {
   }
   if (walkers.size === 0) return assigned;
   const facesTarget = (id) => pools.get(id).some((o) => o.defenderId === target && !o.defenderPlaneswalkerId);
-  if (target && faceSwingIsLethal(state, aiPlayerId, target, [...pools.keys()].filter((id) => attacking(id) && facesTarget(id)))) return assigned;
+  const faceAttackers = [...pools.keys()].filter((id) => attacking(id) && facesTarget(id));
+  if (target && faceSwingIsLethal(state, aiPlayerId, target, faceAttackers, pol)) return assigned;
 
   const targetLife = state.players?.[target]?.life ?? 0;
   const faceWeight = targetLife > 0 && targetLife < FACE_URGENCY_LIFE ? FACE_URGENCY_LIFE / targetLife : 1;
+  const trades = pol.walkerTrade !== "v1";
+  const values = new Map();
+  const valueOf = (id) => {
+    if (!values.has(id)) values.set(id, permanentValue(findPermanent(state, id)?.permanent, state));
+    return values.get(id);
+  };
   // Per walker controller: its untapped creatures, and each attacker read against them.
   const controllers = new Map();
   const controllerRead = (controller) => {
@@ -3308,14 +3472,35 @@ function planWalkerAttacks(state, aiPlayerId, pools, attacking, target) {
       const s = combatStatsOf(state, id);
       const eligible = s ? eligibleBlockersFor(state, controller, id, c.blockers) : [];
       const minBlockers = minBlockersFor(state, id);
+      const row = s && damageRow(state, { ...s, minBlockers }, eligible, pol);
       c.byId.set(id, s && {
-        id, power: s.power, minBlockers, eligibleCount: eligible.length,
+        id, ...row,
         safe: eligible.length < minBlockers || !attackerDiesForNothingV2(s, eligible),
-        forgone: attacking(id) ? s.power * faceWeight : 0,
+        gated: !trades || permanentHasCardType(state, id, "Land"),
+        forgone: attacking(id) ? s.power * (row.strikes || 1) * faceWeight : 0,
         vigilance: permanentHasKeyword(state, id, "Vigilance"),
+        // The racer's trade valuation reads this row (tradeLossPrefixes): the duel stats and each eligible blocker's value.
+        trade: { id, power: s.power, toughness: s.toughness, firstStrike: s.firstStrike, deathtouch: s.deathtouch, minBlockers, eligibleCount: eligible.length, eligible: eligible.map((b) => ({ ...b, value: valueOf(b.id) })), value: valueOf(id) },
       });
     }
     return c.byId.get(id);
+  };
+  // The cost of sending `picks` at a walker `controller` controls: the face damage they give up, plus what the controller's best
+  // blocks take from them beyond what they take from the attackers already attacking it (the marginal of the trade matching).
+  const costOf = (controller) => {
+    if (!trades) return forgoneOf;
+    const facing = new Set((state.combat?.attackers || []).filter((a) => a.attackingPlayer === aiPlayerId && a.defender === controller).map((a) => a.permanentId));
+    if (controller === target) for (const id of faceAttackers) facing.add(id);
+    for (const [id, walkerId] of assigned) if (walkers.get(walkerId) === controller) facing.add(id);
+    const base = [...facing].map((id) => attackerRead(controller, id)?.trade).filter(Boolean);
+    const { blockers } = controllerRead(controller);
+    return (picks) => {
+      const added = picks.filter((p) => !facing.has(p.id)).map((p) => p.trade);
+      if (added.length === 0 || blockers.length === 0) return forgoneOf(picks);
+      const rows = [...base, ...added];
+      const best = tradeLossPrefixes(rows, blockSlots(state, controller, blockers, rows.length), base.length);
+      return forgoneOf(picks) + best[rows.length - 1] - (base.length ? best[base.length - 1] : 0);
+    };
   };
 
   // The taxes the planned walker attacks pay in all. An attacker taps before its controller activates mana abilities to pay
@@ -3345,15 +3530,16 @@ function planWalkerAttacks(state, aiPlayerId, pools, attacking, target) {
       const avail = [...pools]
         .filter(([id, pool]) => !assigned.has(id) && pool.some((o) => o.defenderPlaneswalkerId === walkerId))
         .map(([id]) => attackerRead(controller, id))
-        .filter((r) => r && r.safe);
+        .filter((r) => r && (r.safe || !r.gated));
       const blockerCount = controllerRead(controller).blockers.length;
       const detail = attackTaxDetail(state, controller, walkerId);
+      const cost = costOf(controller);
       const goals = [{ need: threat.loyalty, worth: threat.ultimateNext ? 2 * threat.value : threat.value }];
       if (threat.ultimateNext) goals.push({ need: threat.loyalty - threat.ultimate + 1, worth: threat.value });
       for (const goal of goals) {
-        const picks = cheapestReach(goal.need, avail, committed, blockerCount);
+        const picks = cheapestReach(goal.need, avail, committed, blockerCount, cost);
         if (!picks || !canFund(detail, picks)) continue;
-        const gain = goal.worth - picks.reduce((s, p) => s + p.forgone, 0);
+        const gain = goal.worth - cost(picks);
         if (gain > 0 && (!best || gain > best.gain)) best = { walkerId, picks, gain, detail };
       }
     }

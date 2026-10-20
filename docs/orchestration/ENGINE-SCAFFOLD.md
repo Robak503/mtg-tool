@@ -1152,13 +1152,39 @@ all pass the attack's planeswalker id. A new tax wording extends the reader's se
 racer's face target for every creature except those this policy sends at an opposing planeswalker: when removing the walker is worth
 more than the face damage the attackers give up. Never while the swing is lethal on the focused player. A kill is the walker's
 loyalty in damage that connects even if its controller chump-blocks the biggest blockable attackers with every untapped creature
-(`unavoidableDamage`, the worst case `swingIsLethalV2` already used — block legality, menace / "≥N"); an attacker counts only when that
-controller's blockers can't kill it for nothing, so a creature the racer holds back from the focused player may still go. A walker whose
-loyalty already pays for its ultimate (the most expensive cost above its printed loyalty) is worth twice its value dead and its value
-once brought below the ultimate. Worth = 4 × `boardEval.permanentValue` (evaluateBoard's life rate); cost = the power the attackers
-would have dealt the focused player, weighted up below 20 life. Each planned attack at a walker pays its tax (`attackTaxDetail` per
+(`unavoidableDamage`, the worst case `swingIsLethalV2` already used — block legality, menace / "≥N", trample's excess and double strike
+since 2026-10-20). A walker whose loyalty already pays for its ultimate (the most expensive cost above its printed loyalty) is worth
+twice its value dead and its value once brought below the ultimate. Worth = 4 × `boardEval.permanentValue` (evaluateBoard's life rate);
+cost = the face damage the attackers would have dealt the focused player (power, twice for double strike), weighted up below 20 life,
+plus — since 2026-10-20 — what the walker's controller can take from them by blocking: the racer's trade valuation (`tradeEdgeValue`,
+the controller's best a `tradeLossPrefixes` matching), charged only for what the plan adds beyond the attackers already attacking
+that controller (declared at it or its walkers, the racer's face attackers when it is the focused player). It replaced the gate "an
+attacker counts only when no blocker of that controller kills it for nothing" (`blockKillsForNothing`, which counted a smaller
+deathtouch blocker's trade as free and let one blocker veto every attacker it could block); a land creature keeps that gate (its value
+reads 0). `cheapestReach` takes the cost as a function. Each planned attack at a walker pays its tax (`attackTaxDetail` per
 target), funded from mana the attackers don't tap; the walker attacks are declared first. Greedy across walkers; the per-tick driver
-re-plans with the attackers already declared counted in. Policy `walker: "v1"` restores the old clean-kill focus (`chooseWalkerToKill`).
+re-plans with the attackers already declared counted in. Policy `walker: "v1"` restores the old clean-kill focus (`chooseWalkerToKill`);
+`walkerTrade: "v1"` the old gate at no charge.
+
+**The AI's combat damage reading (`opponentAI.unavoidableDamage` over `damageRow`, trample and double strike since 2026-10-20 — AI
+decision quality).** One reader of "what this swing connects with at the defender's best" serves the racer's lethal call, the group
+judgment's damage, the planeswalker policy's reach and stand-down (`faceSwingIsLethal`) and the crack-back guard (`crackBackReader`).
+The pump readers (`teamPumpFlipsLethal`, `singlePumpFlipsLethal`) still pass the old rows (no trample or double strike): counting it
+there exposed that they count as attackers the creatures their pump's own cost taps (an X pump paid by mana creatures), which made
+a self-play choice worse — that needs the cast's payment plan first. `damageRow` reads each attacker: power, block size, eligible
+blockers, `strikes` (2 for double strike, CR 702.4b) and, for a trampler, `stops` — what each eligible blocker alone keeps off the
+player (`trampleStop`: lethal damage first, 1 from a deathtouch attacker, CR 702.19b / 702.2c; a first striker that kills it first stops
+all of it, CR 510.4; a double striker's second step tramples over a blocker its first step killed, CR 702.19d, and re-pays a survivor's
+remaining lethal damage) — and `gangKill`, first strikers that kill it only together. The defender's choice stays a slot budget
+(blockers interchangeable), each block a piece: a non-trampler all its damage for its block size, a trampler what its best blockers
+stop, then one slot per further blocker (a gang) — taken biggest first. Two sides, each conservative in its own direction: the default
+(lethal side) never exceeds the defender's best block (with every block size 1: a gang stops at most its members' stops summed, a
+gang-killable trampler reads as fully stopped); `over` (the crack-back, the AI's own life) gives each trampler its own blocker — the
+strongest free, biggest trampler first — and no gang, a block the defender can really make. Both are pinned against the engine's own
+combat damage (`aiTrampleDoubleStrike.test.js`: every attacker kind × every blocker kind exact; random boards with every legal block
+and declaration order enumerated). Rows without trample or double strike read exactly as before. Not modelled: damage already marked
+on a blocker (lethal read from toughness — the safe side), protection / prevention / damage doublers, and a "≥N" block size beyond the
+greedy (not exact, as before). Policy `combatDamage: "v1"` reads the power once and a blocked attacker as dealing nothing.
 
 **The racer's group judgment (`opponentAI.outnumberingAttackers`, added 2026-10-18 — AI decision quality).** `selectProfitableAttackers`
 holds every attacker some untapped blocker of the focused player can kill for nothing, judging each as if every blocker could block it.
