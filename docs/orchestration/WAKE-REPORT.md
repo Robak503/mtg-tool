@@ -9,7 +9,7 @@
 
 ## 🎯 2026-10-01 — **THE PLAY-WEIGHTED PROGRAM** (Colton's order) — runnable: the top-2,500 worklist (phase 2), in rank order
 
-> **NOW (2026-10-20 ~19:30Z) — v0.167.0 RELEASED · PHASE 2 RUNNABLE.** Top 1,000 **932 / 1,000**; top 2,500 **1,864 / 2,500
+> **NOW (2026-10-20 ~20:00Z) — v0.168.0 TAGGING · PHASE 2 RUNNABLE.** Top 1,000 **932 / 1,000**; top 2,500 **1,864 / 2,500
 > (74.6%) → +386 to 90%**; corpus 15,829 (45.7%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
 > scripts/measure-coverage.mjs --played=2500` (from `app/`), highest-ranked buildable miss first — read the last five play-weighted
 > RUN-LEDGER entries' "Not taken" lists before picking. Open play call for Colton: should the generic tap also hold back
@@ -74,6 +74,23 @@
 > creatures triggered only for itself — fixed (CR 603.10a look-back). Sims with board wipes under Aristocrats watchers under-counted.
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
+
+## 🚀 2026-10-20 — **v0.168.0 TAGGED** (release run watching) — 20 commits since v0.167.0, every push CI green
+
+> **The release (+96 cards, and a run of user-facing rules fixes):** in the Academy **you choose the targets and the order of your
+> own triggered abilities** (the AI's chooser used to pick for you); **activated abilities and cycling work at instant speed**
+> (every printed timing restriction kept; Grand Abolisher's lock enforced; the AI keeps its measured windows); **the attacking
+> player gets priority after blockers** (combat tricks after blocks); **ward is complete** — triggered and loyalty abilities, multi-target spells, copies and redirects all ask it,
+> every printed ward cost is read (330 cards), and a ward the engine can't take counters rather than passing free; **crew uses the
+> stack** and graveyard / crew activations hand priority on correctly; **spell costs are assembled in the rules' order** (kicked
+> Burst Lightning under Helm of Awakening = {3}{R}; taxes before reductions; a taxed free cast can pay its tax). The AI no longer has
+> real moves silently undone (crews, manifests, Etali's "done" — a soft-lock), values a deathtouch block as a trade, counts trample
+> and double strike, casts Dragons for Dracogenesis' {0}, and stops aiming removal at wards it won't pay. Play-weighted: +12
+> (cast-cost modifiers), +25 (#11), +4 (the {0} cost family), +20 (#12 — damage-dealt lifegain; a "creature you control" type-
+> restriction false positive closed; the CR-citation lint widened), +11 (#13 — blink nouns, Soulherder), +24 (#14 — The Gitrog
+> Monster, Prismari Command, Drana…). Corpus **15,829 / 34,620 (45.7%)**; top 1,000 **932**; top 2,500 **1,864**; shelf 29 / 30.
+> Bundled Node v22.23.3 (still the newest 22 LTS on 10-20). PLAY_API 1.6.0 (trigger-target 1.4.0, ward costs 1.5.0, trigger-order
+> 1.6.0). The fleet stopped 10-18 → 10-20 on the weekly usage limit and resumed on Colton's "try again"; nothing was lost.
 
 ## 🚀 2026-10-18 — **v0.167.0 RELEASED** (published 2026-10-18T14:34:50Z) — 11 commits since v0.166.0, every push CI green
 
