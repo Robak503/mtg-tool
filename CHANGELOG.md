@@ -8,6 +8,9 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- **The computer opponents no longer pump an attack with mana from the creatures that were going to attack, and they now use their blink abilities.** Before combat, a computer opponent casts a pump spell only when it makes its attack lethal, but it counted the creatures its own payment would tap: with **Thrun, Breaker of Silence**, **Birds of Paradise** and **Fanatic of Rhonas** out, it cast **Tyvar's Stand** paying for X with the Birds and the Fanatic, and Thrun attacked alone, 1 short. Now it judges the attack the cast leaves behind: it picks an X that keeps the attacker it needs untapped (X=2 from three Forests with a **Paradise Druid** still attacking, where X=3 would tap the Druid), and keeps the pump when no X is enough. It also counts trample and double strike for these pumps, as it already did for its attacks. And it now activates **Distinguished Conjurer**, **Eldrazi Displacer**, **Nephalia Smuggler**, **Lilysplash Mentor** and **Emiel the Blessed** on its own creature when that creature's enters ability is worth repeating — **Mulldrifter**'s two cards, **Flametongue Kavu**'s 4 damage to one of your creatures — after combat, or before it on a creature that wasn't going to attack; never a token, a creature that would lose its +1/+1 counters, or one that would go back to you, and each creature at most once a turn.
+
 ## [0.168.0] - 2026-10-20
 
 ### Added

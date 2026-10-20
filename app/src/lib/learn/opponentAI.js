@@ -77,7 +77,7 @@ import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell �
  * Accepted shapes:
  *   null / undefined                        → all-current (the shipping behavior)
  *   "v1"                                    → every subsystem legacy
- *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker|spellTarget|racer|racerTrade|costVariant|combatDamage|walkerTrade|ward: "v1" } → per-subsystem legacy
+ *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker|spellTarget|racer|racerTrade|costVariant|combatDamage|walkerTrade|ward|pumpCost|blink: "v1" } → per-subsystem legacy
  *
  * The DEFAULT is always the new behavior (the Academy and self-play improve
  * automatically); "v1" exists only so the probe can measure old-vs-new inside one
@@ -88,7 +88,7 @@ import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell �
  * Exported so the A/B probe derives its legacy-key list from THIS array (AI-F11:
  * a hand-copied list silently drops every new subsystem from `--legacy=all`).
  */
-export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget", "racer", "racerTrade", "costVariant", "combatDamage", "walkerTrade", "ward"];
+export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget", "racer", "racerTrade", "costVariant", "combatDamage", "walkerTrade", "ward", "pumpCost", "blink"];
 function normalizePolicy(policy) {
   if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
   if (policy && typeof policy === "object") return policy;
@@ -455,7 +455,7 @@ function pickXCast(state, aiPlayerId, actions, pol = {}) {
   // indestructible until end of turn."): read by pickTargetedSpell like every other targeted spell, each X its own cast — a save
   // takes the cheapest X that saves. policy 'v1' (`spellTarget`) keeps the hold.
   if (pol.spellTarget !== "v1") {
-    const spellPick = pickTargetedSpell(state, aiPlayerId, actions.filter((a) => a.targets?.length));
+    const spellPick = pickTargetedSpell(state, aiPlayerId, actions.filter((a) => a.targets?.length), pol);
     if (spellPick) return spellPick;
   }
   // AI-F12 — MIXED-TARGET X GROUP: one targeted variant used to flip the WHOLE group
@@ -547,7 +547,7 @@ function pickSpreeCast(state, aiPlayerId, actions, pol = {}) {
     if (intent === "own") return sideOf(t) === aiPlayerId;
     return intent === "any";
   };
-  const modeWorth = (atoms, targets) => {
+  const modeWorth = (atoms, targets, cast) => {
     const prog = { structure: "sequence", atoms };
     if (programContainsCounter(prog)) return !!pickCounterCast(state, aiPlayerId, [{ targets }]);
     if (atoms.length && atoms.every((a) => a.op === "change-target")) return !!pickChangeTargetCast(state, aiPlayerId, [{ targets }]);
@@ -556,7 +556,7 @@ function pickSpreeCast(state, aiPlayerId, actions, pol = {}) {
     if (programContainsTeamPump(prog)) {
       if (pol.pump === "v1" || state.activePlayer !== aiPlayerId || state.phase !== "precombat-main") return false;
       const pumpPower = teamPumpAmount(prog);
-      if (pumpPower == null || pumpPower <= 0 || !teamPumpFlipsLethal(state, aiPlayerId, pumpPower)) return false;
+      if (pumpPower == null || pumpPower <= 0 || !pumpFlipsLethal(state, aiPlayerId, cast, () => ({ dp: pumpPower }), pol)) return false;
     }
     if (programContainsFog(prog)) {
       if (pol.fog === "v1" || (state.step !== "declare-blockers" && state.step !== "combat-damage")) return false;
@@ -590,7 +590,7 @@ function pickSpreeCast(state, aiPlayerId, actions, pol = {}) {
       const targets = (a.targets || []).filter((t) => t.atomIndex >= offset && t.atomIndex < offset + atoms.length)
         .map((t) => ({ ...t, atomIndex: t.atomIndex - offset }));
       offset += atoms.length;
-      if (!modeWorth(atoms, targets)) { worth = false; break; }
+      if (!modeWorth(atoms, targets, a)) { worth = false; break; }
     }
     if (!worth) continue;
     const key = [chosen.length, -castCostTotal(a.cost), weightOf(a)];
@@ -804,29 +804,51 @@ function wouldBeAttackerIds(state, aiPlayerId) {
 }
 
 /**
- * W7d (AI-F7) — would a flat +N team pump FLIP this turn's swing from non-lethal to lethal on
- * the chosen defender? Runs the SAME per-attacker describe pipeline the W4 attack filter uses
- * (block legality via eligibleBlockersFor, menace in the budget, swingIsLethalV2), once at the
- * printed powers and once at power+N. Already-lethal → false (never waste the pump); trample
- * riders ignored (a safe underestimate — the unpumped lethality check would have fired anyway).
+ * The board a precombat pump's own cast leaves (afterOwnCosts — the plan the dispatcher pays it with, legalChoices.offeredPaymentPlan:
+ * the mana creatures it taps, the permanents its other costs tap or sacrifice). Its mana abilities are activated and its cost paid as it
+ * is cast (CR 601.2g, 601.2h), before combat, and a tapped creature can't be declared as an attacker (CR 508.1a). Policy
+ * `pumpCost: "v1"` (or no action) reads the board as it is — the old count, which took the creatures the payment taps as attackers.
  */
-function teamPumpFlipsLethal(state, aiPlayerId, pumpPower) {
-  const defenderId = chooseDefender(state, aiPlayerId);
-  if (!defenderId || !state.players?.[defenderId]) return false;
-  const atkIds = wouldBeAttackerIds(state, aiPlayerId);
-  if (atkIds.length === 0) return false; // no attackers — nothing to pump into
-  const blockers = untappedDefenderBlockers(state, defenderId);
-  const rows = atkIds.map((id) => {
+function boardAfterPumpCost(state, aiPlayerId, action, pol = {}) {
+  if (pol.pumpCost === "v1" || !action) return state;
+  return afterOwnCosts(state, aiPlayerId, action).state;
+}
+
+/** The rows of `ids` attacking `defenderId` with a pump — `pumpOf(id)` → { dp, dt } on its power and toughness, or null — as the racer reads them (damageRow). */
+function pumpedSwingRows(state, defenderId, ids, blockers, pumpOf, pol = {}) {
+  return ids.map((id) => {
     const s = combatStatsOf(state, id);
     if (!s) return null;
-    const eligible = eligibleBlockersFor(state, defenderId, id, blockers);
-    return { power: s.power, minBlockers: minBlockersFor(state, id), eligibleCount: eligible.length };
+    const pump = pumpOf(id);
+    const stats = pump ? { ...s, power: s.power + (pump.dp || 0), toughness: s.toughness + (pump.dt || 0) } : s;
+    return damageRow(state, { ...stats, minBlockers: minBlockersFor(state, id) }, eligibleBlockersFor(state, defenderId, id, blockers), pol);
   }).filter(Boolean);
-  if (rows.length === 0) return false;
+}
+
+/**
+ * W7d (AI-F7) — would this precombat PUMP turn this turn's swing from non-lethal to lethal on the defender it would attack? `action` is
+ * the cast whose cost is paid; `pumpOf(id)` → { dp, dt } for each creature the pump reaches, null for the rest (a team pump reaches
+ * every creature, a targeted one its target). Without the pump the swing is the board as it is (not casting it pays nothing); already
+ * lethal there → false (never waste the pump). With it, the swing is the one its own cast leaves (boardAfterPumpCost): a creature the
+ * payment taps for mana — or its costs tap or sacrifice — doesn't attack, and a pump on one of them reaches no attacker. Both sides are
+ * read as the racer reads a swing (damageRow: trample and double strike, on the lethal side never above the defender's best block;
+ * policy `combatDamage: "v1"` the old rows). A trample grant riding on the pump (Overrun) is not added — the safe underestimate.
+ * Until 2026-10-20 both sides were read on the board as it is, with the old rows: an A/B game cast Tyvar's Stand at X=7 on Thrun
+ * counting Birds of Paradise and Fanatic of Rhonas, whose mana paid for X — Thrun swung alone and fell 1 short.
+ */
+function pumpFlipsLethal(state, aiPlayerId, action, pumpOf, pol = {}) {
+  const defenderId = chooseDefender(state, aiPlayerId);
+  if (!defenderId || !state.players?.[defenderId]) return false;
+  const now = wouldBeAttackerIds(state, aiPlayerId);
+  // No attacker it reaches — nothing to pump into (the cast's costs only take attackers away, never add one).
+  if (!now.some((id) => pumpOf(id))) return false;
+  const blockers = untappedDefenderBlockers(state, defenderId);
   const defenderLife = state.players[defenderId].life ?? 0;
-  if (swingIsLethalV2(rows, blockers.length, defenderLife)) return false; // already lethal — don't waste it
-  const pumped = rows.map((r) => ({ ...r, power: r.power + pumpPower }));
-  return swingIsLethalV2(pumped, blockers.length, defenderLife);
+  if (swingIsLethalV2(pumpedSwingRows(state, defenderId, now, blockers, () => null, pol), blockers.length, defenderLife)) return false; // already lethal — don't waste it
+  const after = boardAfterPumpCost(state, aiPlayerId, action, pol);
+  const ids = wouldBeAttackerIds(after, aiPlayerId);
+  if (!ids.some((id) => pumpOf(id))) return false;
+  return swingIsLethalV2(pumpedSwingRows(after, defenderId, ids, blockers, pumpOf, pol), blockers.length, defenderLife);
 }
 
 // The target types a permanent host comes enumerated as: "creature" (addCreatures), "permanent" (addPermanents — an
@@ -1000,7 +1022,7 @@ function chooseDisciplinedVariant(state, aiPlayerId, actions, pol = {}) {
     // which casts it only on the side its effect is good for, or HOLDS it.
     const options = actions.map(a => a.targets?.[0]).filter(Boolean);
     const target = effect ? chooseAITarget(state, aiPlayerId, effect, options) : null;
-    if (!target) return pol.spellTarget === "v1" ? null : pickTargetedSpell(state, aiPlayerId, actions);
+    if (!target) return pol.spellTarget === "v1" ? null : pickTargetedSpell(state, aiPlayerId, actions, pol);
     chosen = actions.find(a => a.targets?.[0]?.id === target.id) || actions[0];
   }
   return chosen;
@@ -1173,28 +1195,14 @@ function trickGain(state, aiPlayerId, perm, buff) {
 }
 
 /**
- * Would +dp power on ONE of its would-be attackers turn this turn's swing lethal on the defender it would attack (the W4 lethality
- * model teamPumpFlipsLethal runs for a team pump)? Already lethal → false: the pump would be wasted.
+ * Flying or "can't be blocked" granted to its ready attacker: the defender could block it now and could not after. The attacker is
+ * read on the board the grant's own cast leaves (boardAfterPumpCost): a creature its payment taps doesn't attack.
  */
-function singlePumpFlipsLethal(state, aiPlayerId, permId, dp) {
-  const defenderId = chooseDefender(state, aiPlayerId);
-  if (!defenderId || !state.players?.[defenderId] || dp <= 0) return false;
-  const atkIds = wouldBeAttackerIds(state, aiPlayerId);
-  if (!atkIds.includes(permId)) return false;
-  const blockers = untappedDefenderBlockers(state, defenderId);
-  const rows = atkIds.map((id) => {
-    const s = combatStatsOf(state, id);
-    return s ? { id, power: s.power, minBlockers: minBlockersFor(state, id), eligibleCount: eligibleBlockersFor(state, defenderId, id, blockers).length } : null;
-  }).filter(Boolean);
-  const life = state.players[defenderId].life ?? 0;
-  if (swingIsLethalV2(rows, blockers.length, life)) return false;
-  return swingIsLethalV2(rows.map((r) => (r.id === permId ? { ...r, power: r.power + dp } : r)), blockers.length, life);
-}
-
-/** Flying or "can't be blocked" granted to its ready attacker: the defender could block it now and could not after. */
-function evasionConnects(state, aiPlayerId, perm, { unblockable, grants }) {
+function evasionConnects(state, aiPlayerId, perm, { unblockable, grants }, action = null, pol = {}) {
   if (!unblockable && !grants.has("flying")) return false;
   if (!wouldBeAttackerIds(state, aiPlayerId).includes(perm.id) || Math.max(0, permanentPower(state, perm.id) ?? 0) < 1) return false;
+  const after = boardAfterPumpCost(state, aiPlayerId, action, pol);
+  if (!wouldBeAttackerIds(after, aiPlayerId).includes(perm.id)) return false;
   if (permanentHasKeyword(state, perm.id, "unblockable")) return false;
   const defenderId = chooseDefender(state, aiPlayerId);
   if (!defenderId) return false;
@@ -1238,6 +1246,19 @@ function entersTriggerWorthRebuy(state, aiPlayerId, perm) {
 }
 
 /**
+ * A BLINK RE-BUY of its own permanent — the one reading the spell arm (pickTargetedSpell: Cloudshift, Ephemerate) and the activation
+ * arm (pickTargetedActivation: Distinguished Conjurer, Eldrazi Displacer) share. It returns as a new object (CR 400.7): nothing it
+ * would lose — a +1/+1 counter, an attachment of its own — and something it gains: its enters trigger fires again
+ * (entersTriggerWorthRebuy), or an opponent's Aura falls off. Ownership, tokens and timing are the caller's.
+ */
+function blinkRebuyWorth(state, aiPlayerId, perm, enemies) {
+  if ((perm.counters?.["+1/+1"] || 0) > 0) return false;
+  const attached = (perm.attachments || []).map((id) => findPermanent(state, id)).filter(Boolean);
+  if (attached.some((x) => x.controller === aiPlayerId)) return false;
+  return entersTriggerWorthRebuy(state, aiPlayerId, perm) || attached.some((x) => enemies.has(x.controller));
+}
+
+/**
  * PICK A TARGETED SPELL'S CAST (2026-10-18) — for a program the legacy chooser can't score. One targeted atom (a cast's targets all
  * belong to it; "up to two" lands each on it), the other atoms riders only: a gain (targetedGainRider), a proliferate, a rider
  * bound to the same target, or "you lose N life" that leaves the AI at LIFE_PRUDENCE_FLOOR. A kicker atom counts only on its own
@@ -1251,7 +1272,8 @@ function entersTriggerWorthRebuy(state, aiPlayerId, perm) {
  *       – a SAVE (tier 5) from the opponent's removal on the stack it defeats (stackHarmsToSeat, buffSaves), of a permanent worth a card;
  *       – a TRICK (tier 3) in a one-on-one block it turns (trickGain);
  *       – in its own precombat main with the stack empty: a pump that makes the swing lethal (tier 4), flying / "can't be blocked"
- *         for a ready attacker the defender could otherwise block, haste for a summoning-sick creature (tier 2).
+ *         for a ready attacker the defender could otherwise block, haste for a summoning-sick creature (tier 2) — the attackers read
+ *         on the board the cast's own cost leaves (pumpFlipsLethal, evasionConnects: a creature its payment taps doesn't attack).
  *     A +N/+N is otherwise held: the attacker gets no priority after blocks in this engine unless something else happened.
  *   · A TOKEN COPY (tier 2) in its own main with the stack empty: a nonland, non-Aura permanent of value 3+ (any side the card
  *     allows), never its own legendary one (CR 704.5j), never one whose enters trigger would remove its own permanent.
@@ -1262,7 +1284,7 @@ function entersTriggerWorthRebuy(state, aiPlayerId, perm) {
  * A permanent its own pending spell or ability already targets is left alone (no second answer to the same threat). Deterministic:
  * tier, value, the cheaper cast (X, mana), name, target ids. Null = hold.
  */
-function pickTargetedSpell(state, aiPlayerId, actions) {
+function pickTargetedSpell(state, aiPlayerId, actions, pol = {}) {
   const program = actions[0]?.program;
   if (!program || program.structure === "modal" || programConfidence(program) !== "high") return null;
   const atoms = program.atoms || [];
@@ -1344,8 +1366,8 @@ function pickTargetedSpell(state, aiPlayerId, actions) {
       const trick = trickGain(state, aiPlayerId, perm, buff);
       if (trick > 0) { push(3, trick); continue; }
       if (!precombat) continue;
-      if (singlePumpFlipsLethal(state, aiPlayerId, perm.id, buff.dp)) { push(4, buff.dp); continue; }
-      if (evasionConnects(state, aiPlayerId, perm, buff)) { push(2, Math.max(0, permanentPower(state, perm.id) ?? 0)); continue; }
+      if (buff.dp > 0 && pumpFlipsLethal(state, aiPlayerId, a, (id) => (id === perm.id ? buff : null), pol)) { push(4, buff.dp); continue; }
+      if (evasionConnects(state, aiPlayerId, perm, buff, a, pol)) { push(2, Math.max(0, permanentPower(state, perm.id) ?? 0)); continue; }
       if (buff.grants.has("haste") && perm.summoningSick && !perm.tapped && !permanentHasKeyword(state, perm.id, "Haste")
         && (!permanentHasKeyword(state, perm.id, "Defender") || permanentHasKeyword(state, perm.id, "attacksIgnoringDefender"))
         && Math.max(0, permanentPower(state, perm.id) ?? 0) >= 1) push(2, Math.max(0, permanentPower(state, perm.id) ?? 0));
@@ -1376,10 +1398,7 @@ function pickTargetedSpell(state, aiPlayerId, actions) {
         }
         tier = 2;
         if (!ownTurnMain || (precombat && wouldBeAttackerIds(state, aiPlayerId).includes(perm.id))) return false;
-        if ((perm.counters?.["+1/+1"] || 0) > 0) return false;
-        const attached = (perm.attachments || []).map((id) => findPermanent(state, id)).filter(Boolean);
-        if (attached.some((x) => x.controller === aiPlayerId)) return false;
-        if (!entersTriggerWorthRebuy(state, aiPlayerId, perm) && !attached.some((x) => enemies.has(x.controller))) return false;
+        if (!blinkRebuyWorth(state, aiPlayerId, perm, enemies)) return false;
         total += permanentValue(perm, state);
         return true;
       });
@@ -1422,7 +1441,7 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     const altFiltered = (pol.altCost === "v1"
       ? groupActions.filter((a) => !a.altCost)
       : filterAltCastVariants(state, aiPlayerId, groupActions)).filter((a) => !a.teamworkTapIds || a.teamworkFree);
-    const actions = pol.costVariant === "v1" ? altFiltered : preferCheapestCostVariant(altFiltered, castActions);
+    let actions = pol.costVariant === "v1" ? altFiltered : preferCheapestCostVariant(altFiltered, castActions);
     if (actions.length === 0) continue; // every variant filtered (e.g. an imprudent alt-only paid cast) → hold
     // ADVENTURE: an adventure action projects the half actually being cast as `faceCard`
     // (creature half from hand/exile, or the Adventure spell half) — score THAT face, not
@@ -1511,15 +1530,18 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     }
     // W7d (AI-F7) — TEAM PUMP (Overrun / Trumpet Blast): cast it in the AI's OWN precombat
     // main ONLY when the flat +N flips this turn's swing from non-lethal to LETHAL on the
-    // chosen defender (the W4 describe pipeline at power+N; already-lethal → keep holding, the
-    // pump would be wasted). A dynamic/filtered/X pump (teamPumpAmount null) is unevaluable →
-    // keep holding, the legacy-safe direction. policy 'v1' recovers hold-always for the probe.
+    // chosen defender (pumpFlipsLethal; already-lethal → keep holding, the pump would be
+    // wasted). Only the cost variants whose own payment leaves the swing lethal stay (a variant
+    // that taps a needed attacker for mana is not that swing). A dynamic/filtered/X pump
+    // (teamPumpAmount null) is unevaluable → keep holding, the legacy-safe direction. policy
+    // 'v1' recovers hold-always for the probe.
     if (programContainsTeamPump(actions[0].program)) {
       if (pol.pump === "v1") continue;
       if (state.activePlayer !== aiPlayerId || state.phase !== "precombat-main") continue;
       const pumpPower = teamPumpAmount(actions[0].program);
       if (pumpPower == null || pumpPower <= 0) continue;
-      if (!teamPumpFlipsLethal(state, aiPlayerId, pumpPower)) continue;
+      actions = actions.filter((a) => pumpFlipsLethal(state, aiPlayerId, a, () => ({ dp: pumpPower }), pol));
+      if (actions.length === 0) continue;
     }
     // W7b (AI-F5) — FOG: cast it exactly when it saves the game — mid-combat (declare-blockers
     // / combat-damage) with the UNBLOCKED power aimed at this seat's face ≥ its life. Counting
@@ -2186,7 +2208,16 @@ function pickFetchCrack(state, aiPlayerId, actions, { sourceMakesMana }) {
  *     graveyard keyword;
  *   · in the PRECOMBAT main only, HASTE for its own summoning-sick creature and "CAN'T BE BLOCKED" for its own ready attacker
  *     while the defender has an untapped creature — grants that matter at the declaration, which this main phase precedes.
- *     A +N/+N pump is left alone: its worth is after blocks, a window the AI does not decide activations in (inDefaultAIActivationWindow).
+ *     A +N/+N pump is left alone: its worth is after blocks, a window the AI does not decide activations in (inDefaultAIActivationWindow);
+ *   · a BLINK of its own nontoken creature that comes back to it (2026-10-20 — Distinguished Conjurer, Eldrazi Displacer,
+ *     Nephalia Smuggler, Lilysplash Mentor, Emiel the Blessed): the spell arm's re-buy (blinkRebuyWorth — an enters trigger worth
+ *     firing again, or an opponent's Aura shed; nothing of its own lost). It returns summoning-sick (CR 302.6), so in the precombat
+ *     main only a creature that would not attack, and only from a source whose tap costs no attacker; a blink that returns it
+ *     tapped (Eldrazi Displacer — CR 110.5b) only a creature tapped already, so no untapped blocker is spent; a creature source's
+ *     tap is held as the postcombat shot's is (shotCostsBlocker); a creature already back from exile this turn is not blinked
+ *     again (each creature at most once a turn — the bound a repeatable blink needs: Emiel the Blessed re-buying Brood Monitor
+ *     pays each {3} with the Scions the last one made). Policy key `blink` ("v1" = the old skip). The SAVE a blink spell makes
+ *     (removal on the stack) needs a window this picker never runs in (the stack is empty here).
  * The one targeted atom may ride beside gains only (gain life, each opponent loses life, draw, scry, surveil, a +1/+1 counter on
  * the source); an "Add" beside it (Deathrite's first ability) holds — the mana would empty unused after the casts.
  * Costs: the source's tap and/or mana. Two more, each only where it clearly pays: removing ONE +1/+1 counter from the source for
@@ -2207,7 +2238,7 @@ function targetedGainRider(atom) {
   return atom.op === "add-counter" && atom.counterType === "+1/+1" && atom.target === "self";
 }
 const fixedAmount = (atom) => Number.isInteger(atom?.amount) && atom.amount > 0 && !atom.amountX && !atom.amountCount && !atom.countContext && !atom.countFor;
-function pickTargetedActivation(state, aiPlayerId, actions) {
+function pickTargetedActivation(state, aiPlayerId, actions, pol = {}) {
   if (!state || state.activePlayer !== aiPlayerId || state.step !== "main" || (state.stack || []).length > 0) return null;
   const precombat = state.phase === "precombat-main";
   const postcombat = state.phase === "postcombat-main";
@@ -2260,6 +2291,18 @@ function pickTargetedActivation(state, aiPlayerId, actions) {
     const perm = t.type === "player" || t.type === "graveyardCard" || t.type === "spell" ? null : lk(t.id);
     const enemyPerm = !!perm && enemies.has(perm.controller);
     const ownCreature = !!perm && perm.controller === aiPlayerId && permanentIsCreature(state, perm.id);
+    if (atom.op === "blink") {
+      if (pol.blink === "v1" || rc || a.sacSelf || !ownCreature || perm.card?.token || perm.token) continue;
+      if (atom.returnTo === "owner" && (perm.owner ?? perm.controller) !== aiPlayerId) continue; // it would go home
+      if (atom.returnTapped && !perm.tapped) continue; // it would come back tapped and miss its blocks
+      // Each creature at most once a turn: one already back from exile this turn is left alone, so a repeatable blink ends (Emiel the
+      // Blessed on Brood Monitor: the three Scions it makes pay the next {3}, without end).
+      if (perm.enteredOnTurn === state.turn && perm.enteredFromZone === "exile") continue;
+      if (precombat && (attackers.has(perm.id) || (a.tapSelf && attackers.has(source.id)))) continue;
+      if (shotCostsBlocker() || !blinkRebuyWorth(state, aiPlayerId, perm, enemies)) continue;
+      push(2, permanentValue(perm, state), t);
+      continue;
+    }
     if (atom.op === "deal-damage") {
       if (!fixedAmount(atom) || atom.divided || atom.dividedAs || atom.selfDamage || atom.damageSource || atom.amountPerOpponent || a.sacSelf) continue;
       const n = atom.amount;
@@ -2672,7 +2715,7 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
       // +1/+1 counter, an attack-time grant, a postcombat shot — before the untargeted leftovers below. policy 'v1' (`target`)
       // recovers the skip.
       if (pol.target !== "v1") {
-        const targeted = pickTargetedActivation(state, aiPlayerId, abilities);
+        const targeted = pickTargetedActivation(state, aiPlayerId, abilities, pol);
         if (targeted) return targeted;
       }
       // Slice 2 — cost-safe generic abilities (a.program non-null; equip is program:null, so the

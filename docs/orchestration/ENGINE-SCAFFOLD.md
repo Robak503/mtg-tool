@@ -1234,9 +1234,8 @@ re-plans with the attackers already declared counted in. Policy `walker: "v1"` r
 **The AI's combat damage reading (`opponentAI.unavoidableDamage` over `damageRow`, trample and double strike since 2026-10-20 — AI
 decision quality).** One reader of "what this swing connects with at the defender's best" serves the racer's lethal call, the group
 judgment's damage, the planeswalker policy's reach and stand-down (`faceSwingIsLethal`) and the crack-back guard (`crackBackReader`).
-The pump readers (`teamPumpFlipsLethal`, `singlePumpFlipsLethal`) still pass the old rows (no trample or double strike): counting it
-there exposed that they count as attackers the creatures their pump's own cost taps (an X pump paid by mana creatures), which made
-a self-play choice worse — that needs the cast's payment plan first. `damageRow` reads each attacker: power, block size, eligible
+The precombat pump reader (`pumpFlipsLethal`, since 2026-10-20 — it replaced `teamPumpFlipsLethal` / `singlePumpFlipsLethal`) reads it
+too, on the board the pump's own cast leaves (below). `damageRow` reads each attacker: power, block size, eligible
 blockers, `strikes` (2 for double strike, CR 702.4b) and, for a trampler, `stops` — what each eligible blocker alone keeps off the
 player (`trampleStop`: lethal damage first, 1 from a deathtouch attacker, CR 702.19b / 702.2c; a first striker that kills it first stops
 all of it, CR 510.4; a double striker's second step tramples over a blocker its first step killed, CR 702.19d, and re-pays a survivor's
@@ -1250,6 +1249,22 @@ combat damage (`aiTrampleDoubleStrike.test.js`: every attacker kind × every blo
 and declaration order enumerated). Rows without trample or double strike read exactly as before. Not modelled: damage already marked
 on a blocker (lethal read from toughness — the safe side), protection / prevention / damage doublers, and a "≥N" block size beyond the
 greedy (not exact, as before). Policy `combatDamage: "v1"` reads the power once and a blocked attacker as dealing nothing.
+
+**The precombat pump reads the swing its own cast leaves (`opponentAI.pumpFlipsLethal`, 2026-10-20 — AI decision quality).** One reader
+for the team pump (`pickCastAction`, a Spree mode — `pickSpreeCast`) and the targeted pump (`pickTargetedSpell`'s tier-4 lethal pump,
+an X pump through `pickXCast`): given the cast whose cost is paid and `pumpOf(id)` → { dp, dt }, is the swing lethal with the pump and
+not without it? Without, the board as it is (already lethal → hold, never waste the pump). With, the board `boardAfterPumpCost`
+leaves — `afterOwnCosts`, the ward read's preview: the dispatcher's payment plan (`legalChoices.offeredPaymentPlan` →
+`commitPaymentPlan`) and the permanents its other costs tap or sacrifice (CR 601.2g–h: the mana is made while casting, before
+combat; CR 508.1a: a tapped creature can't attack) — so a creature the payment taps for mana is no attacker, and a pump on it reaches
+none. Both read as the racer reads a swing (`damageRow`: trample and double strike, the lethal side). Each X and each target is its
+own cast, so the X chosen is one whose payment leaves the swing lethal (Paradise Druid still attacking at X=2 where X=3 taps it); the
+team pump keeps only the cost variants that do. `evasionConnects` (flying / "can't be blocked" for a ready attacker) reads its
+attacker on the same board. Until then both sides read the board as it was: an A/B game cast Tyvar's Stand at X=7 on Thrun counting
+Birds of Paradise and Fanatic of Rhonas, whose mana paid X, and Thrun swung alone 1 short. Not read: a trample grant riding on the
+pump (Overrun — the safe underestimate); which sources the plan taps is the payment planner's choice (it may tap a mana creature
+where a land would do — the board order decides), so the AI picks among X and targets, never the sources. Policy `pumpCost: "v1"`
+reads the board before the cost; `combatDamage: "v1"` keeps the old rows here too. Witness: `aiPumpCostAttackers.test.js`.
 
 **The racer's group judgment (`opponentAI.outnumberingAttackers`, added 2026-10-18 — AI decision quality).** `selectProfitableAttackers`
 holds every attacker some untapped blocker of the focused player can kill for nothing, judging each as if every blocker could block it.
@@ -1527,7 +1542,15 @@ counter on its own biggest creature; an opponent's graveyard card exiled beside 
 ready attacker while the defender has an untapped creature; postcombat only, a shot that kills nothing at an opponent's
 planeswalker, then the opponent with the least life (a creature source holds it under `LIFE_PRUDENCE_FLOOR` or while
 `clearlyBehindOnBoard`). A +N/+N pump holds (its worth is after blocks; no activation is offered there). Policy key `target`.
-Witness: `aiTargetedActivation.test.js`.
+Witness: `aiTargetedActivation.test.js`. **A BLINK (2026-10-20)** of its own nontoken creature that comes back to it (Distinguished
+Conjurer, Eldrazi Displacer, Nephalia Smuggler, Lilysplash Mentor, Emiel the Blessed — every bundled activated blink): the spell arm's
+re-buy reading, now one helper both arms call (`blinkRebuyWorth`: no +1/+1 counter or own attachment to lose; an enters trigger worth
+firing again — `entersTriggerWorthRebuy` — or an opponent's Aura shed), tier 2 by `permanentValue`. Precombat only a creature that
+would not attack (it returns summoning-sick, CR 302.6) and only from a source whose tap costs no attacker; a source whose cost taps a
+creature holds as the postcombat shot does (`shotCostsBlocker`); a return "tapped" (Displacer, CR 110.5b) only a creature tapped
+already; a creature already back from exile this turn (`enteredFromZone` "exile", `enteredOnTurn`) is not blinked again — the bound a
+repeatable blink needs (Emiel on Brood Monitor pays each {3} with the Scions the last one made). No save lane: this picker runs with
+the stack empty only. Policy key `blink`. Witness: `aiActivatedBlink.test.js`.
 
 **Targeted spells the legacy chooser can't score (2026-10-18, `opponentAI.pickTargetedSpell`).** `chooseDisciplinedVariant`'s
 generic arm scores only a legacy damage / destroy-a-creature effect (`spellEffects.chooseAITarget`); every other targeted spell
@@ -1539,7 +1562,7 @@ biggest `targetThreat` first (the activation picker's reader); on its own turn o
 its main phase's mana), on an opponent's turn whenever it holds priority. A BUFF on its own permanent: a save
 from the opponent's removal on the stack it defeats (`stackHarmsToSeat`, `buffSaves` — hexproof / shroud against any target,
 indestructible against destroy and damage, toughness against damage and -N/-N), a trick in a one-on-one block that changes the
-duel (`trickGain`), or in its own precombat main a pump that makes the swing lethal, flying / "can't be blocked" for a ready
+duel (`trickGain`), or in its own precombat main a pump that makes the swing lethal (`pumpFlipsLethal`, above), flying / "can't be blocked" for a ready
 attacker the defender could block, haste for a summoning-sick creature. The trick window is the declare blockers step after its
 declaration closes (§4.3): the attacker holds priority there first, then each other player in turn order (until 2026-10-18 the
 attacker got none after blocks unless another player acted first, and the defender cast its trick mid-declaration). A
