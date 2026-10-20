@@ -578,6 +578,9 @@ export function runStepActions(state) {
       next = resetBecameTargetThisTurnAllPlayers(next); // KIRA: "for the first time each turn" — clear every permanent's became-target flag at untap
       next = resetBecameTappedThisTurnAllPlayers(next); // CAP LIVING LEGEND: "first time that creature has become tapped this turn" — clear the per-permanent tap flag at untap
       next = { ...next, onceTriggersFiredThisTurn: {}, manaAddedByAbilityThisTurn: {} }; // ONCE-PER-TURN: clear per-source discover gates (Pantlaza, etc.) + the mana-added latch (Carpet of Flowers, KT-10a)
+      // "UNTIL YOUR NEXT TURN" (goad CR 701.15a, detain CR 701.35a, CR 611.2a): the stored effects of this player's end as
+      // their turn begins — before anything untaps — with the shield, the name locks and the damage replacements below.
+      next = expireContinuousEffects(next, { atTurnBegin: { playerId: state.activePlayer, turn: state.turn } });
       // TEFERI'S PROTECTION (CR 702.26c / "until your next turn"): the active player's phased-out permanents phase
       // in BEFORE they untap (they return in the state they left, untapped by this same step if they were untapped),
       // and the player's shield expires at the same moment.
@@ -968,7 +971,8 @@ export function finishCleanupActions(state) {
   next = clearWolverineTurnFlags(next); // WOLVERINE clause 2: reset the per-turn dealt-damage flag (CR 514.2)
   next = clearImpulsePlayPermissions(next); // IMPULSE-EXILE (CR 514.2): the "play that card this turn" permission lapses
   // "Until end of turn" continuous effects wear off here (CR 514.2) — pump
-  // (Giant Growth etc.) registered as endOfTurn-duration layer effects expire.
+  // (Giant Growth etc.) registered as endOfTurn-duration layer effects expire. ("Until your next turn" does not: it ends
+  // as that turn begins, in the untap step's sweep.)
   next = expireContinuousEffects(next, { atCleanupOfTurn: next.turn });
   // THREATEN (CR 514.2) — an "until end of turn" control change ends here too, with the pump it usually
   // travels with (Act of Treason grants haste in the same breath). Placed BEFORE the SBA fixpoint below

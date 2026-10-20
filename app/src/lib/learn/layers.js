@@ -3185,10 +3185,12 @@ export function removeContinuousEffect(state, effectId) {
 
 /**
  * CR 514.2 / 500.4: drop expired-duration resolution effects. Called at cleanup
- * (atCleanupOfTurn) and step begin (atStepBegin {phase, step}). Static-ability
- * effects are never stored, so this only filters state.continuousEffects. Pure.
+ * (atCleanupOfTurn), at step begin (atStepBegin {phase, step}) and as a turn
+ * begins (atTurnBegin {playerId, turn} — the new turn's active player and number).
+ * Static-ability effects are never stored, so this only filters
+ * state.continuousEffects. Pure.
  */
-export function expireContinuousEffects(state, { atCleanupOfTurn = null, atStepBegin = null } = {}) {
+export function expireContinuousEffects(state, { atCleanupOfTurn = null, atStepBegin = null, atTurnBegin = null } = {}) {
   const list = state.continuousEffects || [];
   if (list.length === 0) return state;
   const kept = list.filter(e => {
@@ -3204,18 +3206,21 @@ export function expireContinuousEffects(state, { atCleanupOfTurn = null, atStepB
     if (d.kind === "endOfStep") {
       return !(atStepBegin && d.phase === atStepBegin.phase && d.step === atStepBegin.step);
     }
-    // SAVAGE ORDER (2026-08-14) — "until your next turn" (CR 514.2's named-point sibling): the effect
-    // survives THROUGH other players' turns and expires at the CLEANUP of the first LATER turn — a
-    // deliberate one-step approximation of "as your next turn begins" (the gap: the effect also covers
-    // your own next turn's body; for indestructible-class grants that is strictly closer to printed
-    // than endOfTurn's early drop, and the owner-turn-begin hook doesn't exist yet to do it exactly).
-    // Expiry: any cleanup of a turn AFTER the stamp turn where the OWNER is the active player — the
-    // caller threads activePlayer; without it (a legacy call) the effect survives (fail-open toward the
-    // printed longer duration, never a premature strip of a protection the player paid for).
+    // "UNTIL YOUR NEXT TURN" (goad CR 701.15a, detain CR 701.35a, Kardur's rule, Savage Order's grant — CR 611.2a): the
+    // effect lasts through every other player's turn and ends AS ITS OWNER'S NEXT TURN BEGINS (CR 800.4m's "until that
+    // turn would have begun"), before that turn's untap step does anything — so a detained creature can block on the
+    // detainer's turn, and a goad or a granted indestructible is gone for it. Only the turn-begin sweep
+    // (gameEngine.runStepActions' untap step) ends it; a cleanup never does. The first turn of the owner's that BEGINS
+    // after the stamp turn ends it: an extra turn they take counts (it is a turn of theirs, CR 500.7); the turn the effect
+    // was created in never does. Until 2026-10-20 it ended in the cleanup of that turn instead, holding through all of it.
+    // A player who leaves the game hands each of these to the next seat (playerLeavesGame — CR 800.4m: it lasts until the
+    // turn the leaver would have taken would have begun); one whose owner is gone without that hand-over (a state saved
+    // before it) ends as the next turn begins, never lasting for good.
     if (d.kind === "untilOwnersNextTurn") {
-      if (atCleanupOfTurn == null) return true;
+      if (atTurnBegin == null) return true;
       if (d.turn == null || !Number.isFinite(d.turn)) return false; // malformed → expirable (the endOfTurn discipline)
-      return !(atCleanupOfTurn > d.turn && state.activePlayer === d.owner);
+      if (!state.players?.[d.owner]) return false;
+      return !(d.owner === atTurnBegin.playerId && atTurnBegin.turn > d.turn);
     }
     return true; // permanent / unhandled durations survive
   });

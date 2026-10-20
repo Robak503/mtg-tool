@@ -32,8 +32,9 @@
  * in turn order) and priority (CR 800.4a — the next player in turn order).
  *
  * ⛔ What does NOT end: continuous effects the leaver's spells and abilities created on other players' objects (CR 800.4a
- * ends only the effects that give them control). A pending resolution-time choice of theirs (state.pendingChoice and its
- * siblings) is not re-assigned (CR 800.4g) — not modelled.
+ * ends only the effects that give them control). One that lasts "until your next turn" lasts until the turn the leaver would
+ * have taken would have begun (CR 800.4m — handOverUntilNextTurnEffects). A pending resolution-time choice of theirs
+ * (state.pendingChoice and its siblings) is not re-assigned (CR 800.4g) — not modelled.
  */
 import { moveCardToZone, removePermanentFromGame, findPermanent } from "./gameState.js";
 import { releaseControlOnLeave, controllerOfPermanent } from "./controlMove.js";
@@ -127,6 +128,32 @@ function phasedOutLeave(state, playerId, record) {
     if (touched && pid !== playerId) players = { ...players, [pid]: { ...players[pid], phasedOut: kept } };
   }
   return players === state.players ? state : { ...state, players };
+}
+
+/**
+ * "UNTIL YOUR NEXT TURN" WHEN ITS CONTROLLER LEAVES (CR 800.4m — "any continuous effects with durations that last
+ * until that player's next turn … will last until that turn would have begun. They neither expire immediately nor last
+ * indefinitely."; Azorius Arrester's and Martial Law's own rulings): the leaver's stored `untilOwnersNextTurn` effects (detain,
+ * goad, Kardur's rule, Savage Order's grant) are handed to the next seat still in the game, `successor`. The leaver's next turn
+ * would have begun just before the successor's next one — the turn order passes the leaver's seat there (CR 800.4k: that turn
+ * doesn't begin, the successor's does) — so each effect now ends as the successor's next turn begins (layers.expireContinuousEffects):
+ *   · a bystander leaving (another player's turn): the successor's first turn that begins after this one;
+ *   · the ACTIVE player leaving: their turn ends now and the successor's begins at once (removePlayerFromGame) — that turn is not
+ *     the one the leaver would have taken next, so the stamp moves past it: the successor's turn after that one.
+ * An effect of another player's that was handed to the leaver earlier moves on the same way (the seats it passed are still
+ * passed). Extra turns are not followed: a successor's extra turn taken before the leaver's would-be turn ends it early.
+ * `prior` is the state as the leaver left (its turn and active player).
+ */
+function handOverUntilNextTurnEffects(state, playerId, successor, prior) {
+  const list = state.continuousEffects || [];
+  if (!successor || !list.some((e) => e.duration?.kind === "untilOwnersNextTurn" && e.duration.owner === playerId)) return state;
+  const turn = prior.activePlayer === playerId ? prior.turn + 1 : prior.turn;
+  return {
+    ...state,
+    continuousEffects: list.map((e) => (e.duration?.kind === "untilOwnersNextTurn" && e.duration.owner === playerId
+      ? { ...e, duration: { ...e.duration, owner: successor, turn, leftGame: [...(e.duration.leftGame || []), playerId] } }
+      : e)),
+  };
 }
 
 /**
@@ -233,7 +260,7 @@ export function removePlayerFromGame(state, playerId) {
   if (record.crossed > 0 || record.exiled.length > 0) {
     log = [...log, { turn: state.turn, kind: "left-game-objects", player: playerId, leftTheGame: record.leftTheGame, controlReleased: record.controlReleased, exiled: record.exiled, ceased: record.ceased }];
   }
-  let base = { ...s, players, turnOrder, combat, log };
+  let base = handOverUntilNextTurnEffects({ ...s, players, turnOrder, combat, log }, playerId, nextSeatedAfter(oldOrder, playerId, players), state);
   // PLAYER-AURA sweep (CR 303.4c — "the player it was attached to has left the game"): an Aura enchanting the departed
   // player is put into its owner's graveyard, through moveCardToZone so the leave and graveyard events record normally.
   for (const pid of Object.keys(base.players)) {

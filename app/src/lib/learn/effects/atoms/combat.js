@@ -843,8 +843,8 @@ export function applyPumpPair(state, atom, ctx) {
  * slice already grants and the attack planner already reads layer-aware: `mustAttack` ("attacks each combat if
  * able") and `goaded` ("attacks a player other than the goader if able", the goader resolved by
  * layers.goaderControllersOf off the effect's SOURCE). Duration "until your next turn" = the SAVAGE ORDER kind
- * `untilOwnersNextTurn` with the GOADER as owner (expires at the cleanup of the goader's next turn — the same
- * documented one-step approximation).
+ * `untilOwnersNextTurn` with the GOADER as owner (CR 701.15a — it ends as the goader's next turn begins, the
+ * turn-begin sweep in layers.expireContinuousEffects).
  * ⛔ The goader is recorded on the source as `controller` too: a SPELL has no source permanent, and without it
  * goaderControllersOf would resolve nobody — the must-attack half would hold and the "not at me" half silently vanish,
  * the half-credit goad.test.js exists to forbid. goaderControllersOf falls back to source.controller.

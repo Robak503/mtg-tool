@@ -899,6 +899,27 @@ every creature). Its two keywords are goad's pseudo-keywords (`mustAttack`, `goa
 the recorded controller), marked `requirementOnly: true` on the op: it is not goad (CR 701.15), so a future reader of the goaded
 DESIGNATION ("a goaded creature") must skip those grants.
 
+**Durations — where each one ends** (`expireContinuousEffects`, 2026-10-20). A stored effect's `duration.kind` decides which sweep
+ends it; the sweeps run at fixed points of the turn, and a new duration gets a kind and a sweep point, never arithmetic on the
+turn counter (`state.turn` counts every player's turns).
+
+| Printed wording | Stored as | Ends |
+|---|---|---|
+| "until end of turn", "this turn" | `endOfTurn` `{turn}` | the cleanup of that turn (CR 514.2 — `finishCleanupActions`) |
+| "until your next turn" — goad, detain, Kardur's rule, Savage Order's grant | `untilOwnersNextTurn` `{owner, turn}` | as the owner's first turn after the stamp turn BEGINS — `runStepActions`' untap step, before anything untaps (CR 701.15a, 701.35a, 611.2a); a cleanup never ends it |
+| "until your next turn" — Teferi's Protection, The One Ring, The Stasis Coffin (the player shield); phasing | player `teferiShield`; `phasedOut` | the same untap step (`phaseInAndExpireShield`) |
+| "until your next turn" — Reflector Mage's name lock; Lightning's damage replacement | `nameCastLocks`; `damageReplacementEffects` | the same untap step (`expireNameCastLocks`, `expireDamageReplacementEffects`) |
+| "until the end of your next turn" — the extended impulse (Light Up the Stage) | the exiled card's `_impulseExtended` stamp | the cleanup of the owner's first turn after the stamp (`clearImpulsePlayPermissions`) |
+
+Until 2026-10-20 `untilOwnersNextTurn` ended in the cleanup of the owner's next turn, so it covered that whole turn: a detained
+creature could not block on the detainer's turn, and its activated abilities stayed locked. **A player who leaves the game**
+(CR 800.4m — the effect lasts until the turn they would have taken would have begun, neither ending at once nor lasting for good):
+`playerLeavesGame.handOverUntilNextTurnEffects` hands the leaver's `untilOwnersNextTurn` effects to the next seat still in the
+game — the leaver's turn would have come just before that seat's next one — with the stamp moved one turn on when the leaver was
+the active player (their successor's turn begins at once and is not the turn they would have taken). Extra turns are not followed
+(a successor's extra turn ends it early); an effect whose owner is gone with no hand-over ends as the next turn begins. The name
+locks and the damage replacements do not get the hand-over (see the run ledger's found-not-fixed).
+
 ### 4.7 Mana (`manaModel.js`)
 
 - `manaProduction(card)` → `{colors, amount, sacrifices?, requiresTap?, amountSpec?}`

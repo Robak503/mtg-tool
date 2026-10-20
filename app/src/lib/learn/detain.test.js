@@ -73,12 +73,13 @@ describe("runtime", () => {
     const userCombat = { ...s, phase: "combat", step: "declare-blockers", combat: { attackers: [{ permanentId: arrester.id, defender: "ai" }], blockers: [] } };
     expect(canBlockAttacker(userCombat, "bear", arrester.id, "ai")).toBe(false);
   });
-  it("⭐ 'until your next turn': the locks survive the casting turn's cleanup and the bear's controller's turn, and lift at the cleanup of the detainer's next turn", () => {
+  it("⭐ 'until your next turn': the locks survive the casting turn's cleanup, the bear's controller's turn and the cleanup before the detainer's next turn, and lift as that turn begins (CR 701.35a)", () => {
     const s = detained();
     const has = (st) => permanentHasKeyword(st, "bear", "cantAttack");
     expect(has(expireContinuousEffects({ ...s, activePlayer: "user" }, { atCleanupOfTurn: 6 }))).toBe(true);
+    expect(has(expireContinuousEffects({ ...s, turn: 7, activePlayer: "ai" }, { atTurnBegin: { playerId: "ai", turn: 7 } }))).toBe(true);
     expect(has(expireContinuousEffects({ ...s, activePlayer: "ai" }, { atCleanupOfTurn: 7 }))).toBe(true);
-    expect(has(expireContinuousEffects({ ...s, activePlayer: "user" }, { atCleanupOfTurn: 8 }))).toBe(false);
+    expect(has(expireContinuousEffects({ ...s, turn: 8, activePlayer: "user" }, { atTurnBegin: { playerId: "user", turn: 8 } }))).toBe(false);
   });
   it("an undetained bear is untouched (the locks are per-target, not board-wide)", () => {
     const s = detained();

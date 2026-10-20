@@ -132,10 +132,10 @@ describe("RUNTIME — the attack rule", () => {
     expect(planFor(s, "ai").map((x) => [x.permanentId, x.defenderId ?? "user"])).toEqual([["bears", "user"]]);
   });
 
-  it("until Kardur's controller's next turn: gone after the cleanup of that turn", () => {
+  it("until Kardur's controller's next turn: gone as that turn begins", () => {
     let s = podAfterKardur({ ai1: [P("bears", BEARS, "ai1")] });
     const later = s.turn + 4;
-    s = expireContinuousEffects({ ...s, turn: later, activePlayer: "user" }, { atCleanupOfTurn: later });
+    s = expireContinuousEffects({ ...s, turn: later, activePlayer: "user" }, { atTurnBegin: { playerId: "user", turn: later } });
     expect(permanentHasKeyword(s, "bears", "mustAttack")).toBe(false);
   });
 

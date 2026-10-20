@@ -76,11 +76,12 @@ describe("runtime — a four-seat board, where goad's two halves are visible", (
     expect(["ai2", "ai3"]).toContain(plan[0].defenderId);
   });
 
-  it("⭐ 'until your next turn': survives the goader's own cleanup and the Bear's controller's turn; expires at the cleanup of the goader's NEXT turn", () => {
+  it("⭐ 'until your next turn': survives the goader's own cleanup and the Bear's controller's turn; ends as the goader's NEXT turn begins (CR 701.15a)", () => {
     const s = goaded();
     const has = (st) => permanentHasKeyword(st, "gd", "goaded");
     expect(has(expireContinuousEffects({ ...s, activePlayer: "user" }, { atCleanupOfTurn: 5 }))).toBe(true);   // the casting turn's cleanup
-    expect(has(expireContinuousEffects({ ...s, activePlayer: "ai1" }, { atCleanupOfTurn: 6 }))).toBe(true);    // the Bear's controller's turn
-    expect(has(expireContinuousEffects({ ...s, activePlayer: "user" }, { atCleanupOfTurn: 9 }))).toBe(false);  // the goader's next turn
+    expect(has(expireContinuousEffects({ ...s, turn: 6, activePlayer: "ai1" }, { atTurnBegin: { playerId: "ai1", turn: 6 } }))).toBe(true); // the Bear's controller's turn begins
+    expect(has(expireContinuousEffects({ ...s, activePlayer: "ai1" }, { atCleanupOfTurn: 6 }))).toBe(true);    // …and ends
+    expect(has(expireContinuousEffects({ ...s, turn: 9, activePlayer: "user" }, { atTurnBegin: { playerId: "user", turn: 9 } }))).toBe(false); // the goader's next turn begins
   });
 });

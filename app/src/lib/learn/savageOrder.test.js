@@ -9,8 +9,8 @@
  * guaranteed-CREATURE admission arm · the fetched-grants fold (tutor + "It gains <kw> until <dur>") ·
  * the fetchedGrants/Until threading through the pending-choice whitelist (its own warning says
  * unlisted = dropped) · the resolveTutorChoice battlefield grant · the untilOwnersNextTurn duration
- * (a documented one-step approximation: expires at the OWNER's next cleanup — covers the opponents'
- * turns as printed; the gap is the owner's own next turn body, strictly closer than endOfTurn).
+ * (it covers the opponents' turns and ends as the OWNER's next turn begins — until 2026-10-20 it ran
+ * on to that turn's cleanup, a one-step approximation; untilYourNextTurn.test.js walks it turn by turn).
  *
  * ⛔ THE FIXTURE LESSON, recorded: the first build matched "until end of turn" from a TRUNCATED probe
  * of the oracle — the real card says "until your next turn", and the fold's FN-safety correctly
@@ -68,7 +68,7 @@ describe("⭐⭐ LAW 6 — the cost refuses small victims; the fetched Dino arri
     expect(row).toEqual({ with4: true, with3: false });
   });
 
-  it("⭐⭐ the fetched Dinosaur enters WITH indestructible, holds through the OPPONENT's cleanup, drops at the owner's", () => {
+  it("⭐⭐ the fetched Dinosaur enters WITH indestructible, holds through the OPPONENT's turn, drops as the owner's next turn begins", () => {
     const g = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
     const s0 = { ...g, players: { ...g.players, user: { ...g.players.user,
       library: [{ id: "DINO", name: "Regisaur", type: "Creature — Dinosaur", power: "4", toughness: "4", oracle: "" }] } } };
@@ -77,12 +77,13 @@ describe("⭐⭐ LAW 6 — the cost refuses small victims; the fetched Dino arri
     s = resolveTutorChoice(s, "DINO");
     const perm = s.players.user.battlefield.find((p) => p.card?.id === "DINO");
     const rows = { entered: !!perm, indestructible: permanentHasKeyword(s, perm?.id, "indestructible") };
-    // the OPPONENT's cleanup (activePlayer ai1, a later turn) must NOT strip it…
-    const afterOppCleanup = expireContinuousEffects({ ...s, activePlayer: "ai1", turn: s.turn + 1 }, { atCleanupOfTurn: s.turn + 1 });
+    // the OPPONENT's turn (activePlayer ai1, a later turn) — its beginning and its cleanup — must NOT strip it…
+    const oppTurn = { ...s, activePlayer: "ai1", turn: s.turn + 1 };
+    const afterOppCleanup = expireContinuousEffects(expireContinuousEffects(oppTurn, { atTurnBegin: { playerId: "ai1", turn: s.turn + 1 } }), { atCleanupOfTurn: s.turn + 1 });
     rows.holdsThroughOppTurn = permanentHasKeyword(afterOppCleanup, perm?.id, "indestructible");
-    // …and the OWNER's next cleanup must.
-    const afterOwnCleanup = expireContinuousEffects({ ...afterOppCleanup, activePlayer: "user", turn: s.turn + 4 }, { atCleanupOfTurn: s.turn + 4 });
-    rows.dropsAtOwnersNext = !permanentHasKeyword(afterOwnCleanup, perm?.id, "indestructible");
+    // …and the OWNER's next turn beginning must.
+    const ownTurnBegins = expireContinuousEffects({ ...afterOppCleanup, activePlayer: "user", turn: s.turn + 4 }, { atTurnBegin: { playerId: "user", turn: s.turn + 4 } });
+    rows.dropsAtOwnersNext = !permanentHasKeyword(ownTurnBegins, perm?.id, "indestructible");
     console.log("  WITNESS savageFetch", JSON.stringify(rows)); // vitest 4 needs --disable-console-intercept
     expect(rows).toEqual({ entered: true, indestructible: true, holdsThroughOppTurn: true, dropsAtOwnersNext: true });
   });
