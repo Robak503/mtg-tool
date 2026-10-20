@@ -23,7 +23,10 @@
  *     has >= N life (CR 119.4); declined otherwise → countered. No card/permanent CHOICE is involved, so
  *     it threads through the binary soft-counter pay-or-decline pause unchanged.
  *   - ABILITY targeting (vs only spell targeting). Activated/triggered abilities go on the stack with
- *     targets, so an opponent's ABILITY targeting a ward permanent now raises the ward tax too.
+ *     targets, so an opponent's ABILITY targeting a ward permanent now raises the ward tax too — an
+ *     activated ability as it is activated (actionDispatcher), a TRIGGERED ability as it is put on the
+ *     stack (2026-10-18: gameEngine.flushTriggers and the trigger-target settle record it on the
+ *     ability, and the session driver asks it before anyone receives priority — gameEngine.raiseWardOwed).
  *
  * STILL OUT (safe false-negatives, returned as null = unenforced, never mis-resolved):
  *   - DISCARD / SACRIFICE ward ("Ward—Discard a card" / "Ward—Sacrifice a creature") — paying these

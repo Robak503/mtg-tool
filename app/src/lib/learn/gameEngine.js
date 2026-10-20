@@ -59,7 +59,9 @@ import { phaseInAndExpireShield, expireNameCastLocks, expireDamageReplacementEff
 import { withoutImpulseStamps, startingLoyalty } from "./gameState.js"; // the impulse lapse at cleanup strips the same stamp list the cast out of exile does
 import { permanentValue, policyEvalEnabledFor } from "./boardEval.js"; // QUARTET PHASE 1 slice 3 — the shared evaluator (leaf-importing module, cycle-free)
 import { chooseAuraEntryHost, auraEntryHostScore, seatIsHuman } from "./auraEntry.js"; // the flicker policy reads where a returned Aura lands (CR 303.4f) — the choice the return makes (a leaf); + who is a person (the trigger-target pause)
-import { setPendingCleanupDiscardChoice, setPendingTriggerTargetChoice, clearPendingChoice } from "./pendingChoice.js";
+import { setPendingCleanupDiscardChoice, setPendingTriggerTargetChoice, setPendingSoftCounterChoice, clearPendingChoice } from "./pendingChoice.js";
+import { wardTaxForStackObject } from "./ward.js"; // ward on a triggered ability's target (CR 702.21a) — the cast and ability paths' own detector (a leaf)
+import { autoPickSoftCounterPay } from "./effects/runProgram.js"; // the AI's pay-or-decline answer to a ward — read by the trigger-target chooser so it never aims where it won't pay
 import { skipsDrawStep, extraTurnSkipped } from "./effects/textNormalize.js"; // SKIP YOUR DRAW STEP (RG-4, 2026-09-05) — a leaf reader, controller-scoped; + the opponent-scoped extra-turn skip (Trouble in Pairs, #626)
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
@@ -2053,6 +2055,20 @@ function pickForcedTriggerCandidate(state, controller, candidates, program, atom
 }
 
 /**
+ * The candidates whose ward (CR 702.21a) `controller` would pay — the ward the flush records for the chosen targets (markWardOwed,
+ * wardTaxForStackObject) answered as the driver will answer it (autoPickSoftCounterPay) — when at least one candidate carries a
+ * ward it would not pay and at least one does not; otherwise the candidates unchanged. Order is kept, so a ranking after it reads
+ * the same list minus those. Ranking only: every candidate here is already on its correct side.
+ */
+function withoutUnpaidWard(state, controller, candidates) {
+  const paid = candidates.filter((c) => {
+    const tax = wardTaxForStackObject(state, { controller, targets: c.targets || [] });
+    return !tax || autoPickSoftCounterPay(state, { controller, cost: tax.cost });
+  });
+  return paid.length && paid.length < candidates.length ? paid : candidates;
+}
+
+/**
  * α1 — the enemy/own-aware trigger-target chooser. Injected at the LIVE flush call-sites so a
  * targeted triggered ability picks a target on the side the card intends instead of blind first-legal:
  * removal / damage / counter / tap / -X-X → an OPPONENT's permanent / spell / the opponent; a buff /
@@ -2126,6 +2142,10 @@ export function chooseTriggerTargets(candidates, info) {
     const sourceId = info?.trigger?.source?.permanentId ?? info?.trigger?.context?.sourcePermanentId ?? null;
     return pickForcedTriggerCandidate(state, controller, candidates, program, atomsFor, targetOk, sourceId) ?? NO_SAFE_TARGET;
   }
+  // WARD (CR 702.21a): a target an opponent's ward protects counters the ability unless its controller pays the cost, and the
+  // controller answers that question as it will be asked (autoPickSoftCounterPay — pays when it can). A correct-side candidate
+  // whose ward it won't pay is passed over while another is free of it; when every one carries such a ward, nothing changes.
+  safe = withoutUnpaidWard(state, controller, safe);
   // THE LOOP BACKSTOP (2026-10-18, triggerTargetRestraint): an ability that has resolved LOOP_ITERATIONS times this turn makes a
   // different choice so its loop does not continue (CR 732.3; a loop with an optional action is never a draw, CR 104.4b) — its
   // optional targets declined, else a player target over a permanent (two indestructible Spitemares).
@@ -2403,6 +2423,11 @@ export function flushTriggers(state, { chooseTargets } = {}) {
     // removes the just-created triggered-ability stack object (no zone change — it's not a card), so the
     // recursion below never re-flushes a countered object.
     out = applyKiraTargetCounter(out, so);
+    // WARD (CR 702.21a): a triggered ability an opponent controls that targets a ward permanent is countered unless its controller
+    // pays the ward cost — the question the cast and ability paths raise for a spell and an activated ability (actionDispatcher).
+    // Recorded on the ability (`wardOwed`) and asked by the session driver before anyone receives priority (raiseWardOwed), so a
+    // second ward in this batch, or the spell's own ward on the cast path that flushed this, never meets an occupied choice slot.
+    out = markWardOwed(out, so);
   }
   if ((out.pendingTriggers || []).length) {
     return flushTriggers(out, { chooseTargets });
@@ -2495,7 +2520,45 @@ export function settleTriggerTargetChoice(state, candidateId) {
   out = checkBecomesTargetTriggers(out, chosen);
   out = checkCrimeTriggers(out, chosen);
   out = applyKiraTargetCounter(out, chosen);
+  out = markWardOwed(out, chosen); // ward (CR 702.21a) — asked by the driver once no ability of the batch waits (raiseWardOwed)
   return finishTriggerTargets(out);
+}
+
+/**
+ * WARD ON A TRIGGERED ABILITY (CR 702.21a) — "Whenever this permanent becomes the target of a spell or ability an opponent controls,
+ * counter that spell or ability unless that player pays [cost]." A triggered ability's targets are chosen as it is put on the stack
+ * (CR 603.3d → 601.2c); when it targets a ward permanent an opponent of its controller controls, record the ward on the ability:
+ * `wardOwed: { cost, wardName }`, the cost and the ward's name as wardTaxForStackObject reads them now, as the ward triggers (the same
+ * detector the cast and ability paths use — a single ward target, the mana, life and discard costs; no ward, an own permanent, or a
+ * cost it can't express records nothing). The question itself is raised by raiseWardOwed. An ability already gone (Kira's counter)
+ * records nothing.
+ */
+function markWardOwed(state, so) {
+  const tax = wardTaxForStackObject(state, so);
+  if (!tax) return state;
+  const at = (state.stack || []).findIndex((o) => o.id === so.id);
+  if (at < 0) return state;
+  return { ...state, stack: state.stack.map((o, i) => (i === at ? { ...o, wardOwed: { cost: tax.cost, wardName: tax.wardName } } : o)) };
+}
+
+/**
+ * Raise the ward question for a triggered ability whose target's ward has triggered (markWardOwed): the soft-counter pause the cast
+ * and ability paths raise — that ability's controller pays the cost, or it is countered (runProgram.resolveSoftCounterChoice; an AI
+ * pays when it can, autoPickSoftCounterPay). The session driver calls this before anyone receives priority, right after it raises the
+ * trigger-target pause, so a ward is asked only once no ability of its batch waits for its targets (the batch is put on the stack
+ * before the ward triggers are, CR 603.3); never while a choice is pending. The lowest such ability first (the order they were put on
+ * the stack); one question per call, the record cleared as it is asked. Returns the same state when nothing is owed — every game in
+ * which no triggered ability aimed at an opponent's ward permanent.
+ */
+export function raiseWardOwed(state) {
+  if (state.pendingChoice) return state;
+  const stack = state.stack || [];
+  const at = stack.findIndex((o) => o.wardOwed);
+  if (at < 0) return state;
+  const obj = stack[at];
+  const { wardOwed, ...rest } = obj;
+  const asked = { ...state, stack: stack.map((o, i) => (i === at ? rest : o)) };
+  return setPendingSoftCounterChoice(asked, { controller: obj.controller, cost: wardOwed.cost, spellId: obj.id, spellName: obj.source?.name ?? null, sourceName: wardOwed.wardName });
 }
 
 /** Once no ability of the batch waits for its controller, put what triggered meanwhile on the stack (the flush the batch's own would have run). */

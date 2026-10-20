@@ -366,6 +366,21 @@ answer that is no candidate decides nothing; "none" (allowNone) removes the abil
 throws on a waiting object — the driver asks before anyone receives priority, so reaching one there is a bug. Every
 AI seat, and every table with no person (Expert, self-play), never meets the sentinel: byte-identical.
 
+**Ward on a triggered ability** (2026-10-18, CR 702.21a). A triggered ability an opponent controls that targets a ward
+permanent raises the question a spell (the cast path) or an activated ability (the ability path) raises — the soft-counter
+pause: its controller pays the ward cost or it is countered (`setPendingSoftCounterChoice` → `resolveSoftCounterChoice`; an AI
+pays when it can, `autoPickSoftCounterPay`). The flush's target-event loop (after becomes-the-target, crime and Kira) and
+`settleTriggerTargetChoice` (a person's answer) RECORD it on the ability — `markWardOwed` stamps `wardOwed: { cost, wardName }`
+as `ward.wardTaxForStackObject` reads it when the ward triggers (one ward target; the mana, life and discard costs) — and the
+session driver ASKS it before anyone receives priority, right after the trigger-target raise (`raiseWardOwed`: never over a
+pending choice, so never while an ability of the batch waits for its targets; the lowest owed ability first; the record cleared
+as it is asked). Recorded rather than raised at the flush because the choice slot is single: a second ward in one batch, or on
+the cast path the spell's own ward (raised after its cast triggers flush — Murder and Weaver of Lightning's ping at one ward
+creature ask twice), would otherwise be dropped; and a flush inside a resolution never sets a choice. A caller that resolves the
+stack without the session driver skips an owed ward, as before. The automatic chooser passes over a correct-side candidate whose
+ward its controller would not pay (`withoutUnpaidWard`, ahead of its other restraints) while another candidate is free of it.
+Witness: `wardTriggeredAbility.test.js`.
+
 `triggerRoutesNatively(effectClause)` is the **shared gate** used by *both* the
 metric (coverage's `native-trigger`) and the runtime flush — it re-parses the
 effect and requires HIGH + resolvable targets + combat-referent satisfied + a

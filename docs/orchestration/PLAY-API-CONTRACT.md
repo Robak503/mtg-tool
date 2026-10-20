@@ -145,7 +145,7 @@ General rules, all kinds:
 | `discard` | `{ kind, cardId }` | the DISCARDER picks from their own hand (CR 701.8); chains via `remaining` + `queue`; no decline. |
 | `divide-damage` | `{ kind, distribution: [{ id, type: "creature"\|"player", amount }] }` | FULL assignment required (CR 601.2d): when candidates exist and the capped sum < `amount`, the same decision re-surfaces (WI-5 guard). |
 | `distribute-counters` | `{ kind, distribution: [{ id, amount }] }` | same full-assignment guard; applied via the add-counter atom so counter doublers compose (CR 616). |
-| `soft-counter` | `{ kind, pay: boolean }` | the targeted SPELL'S controller pays `amount` / structured `cost` to save it; decline / unaffordable ⇒ countered. Decision carries `affordable`. |
+| `soft-counter` | `{ kind, pay: boolean }` | the threatened spell's or ability's controller pays `amount` / structured `cost` to save it — a soft counterspell, or a ward on a spell, an activated ability or (since 2026-10-18) a triggered ability (CR 702.21a; `spellName` names the ability's source); decline / unaffordable ⇒ countered. Decision carries `affordable`. |
 | `optional-mana-payment` | `{ kind, pay: boolean }` | CR 603.7c "you may pay {cost}. If you do, …"; pay runs `effectAtoms`. Decision carries `affordable`. |
 | `optional-sac-payment` | `{ kind, sac: boolean }` | sacrifice a `subtype` permanent to run the payoff; `available:false` ⇒ only decline has effect. |
 | `optional-draw-discard` | `{ kind, draw: boolean }` | loot yes/no; yes chains into a `discard` which-card pick. |

@@ -1857,8 +1857,9 @@ function applyActivateAbility(state, action) {
   next = checkCrimeTriggers(next, stackObject); // CRIME (CR 700.13) — the same target-choice moment; queued for the same flush
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   // KW-WARD-PR2 (CR 702.21a): ward triggers on a spell OR an ABILITY an opponent controls — so an
-  // opponent's activated/triggered ability targeting a single ward permanent raises the same pay-or-be-
-  // countered choice as the cast path. An Equip ability targets the activator's OWN creature (controller
+  // opponent's activated ability targeting a single ward permanent raises the same pay-or-be-countered
+  // choice as the cast path (a TRIGGERED ability's ward is recorded at the trigger flush and asked by the
+  // session driver — gameEngine.markWardOwed / raiseWardOwed). An Equip ability targets the activator's OWN creature (controller
   // == caster), so wardTaxForStackObject returns null there — no false ward on equipping your own creature.
   // Skipped if a trigger above already set a pendingChoice (no-ops on an occupied slot — safe FN).
   // WI-6 REACHABILITY NOTE: same as the cast path above — advanceUntilDecision settles any pendingChoice

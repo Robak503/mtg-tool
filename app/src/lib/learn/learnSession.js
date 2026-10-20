@@ -47,6 +47,7 @@ import {
   raiseTriggerTargetChoice,
   settleTriggerTargetChoice,
   autoPickTriggerTarget,
+  raiseWardOwed,
 } from "./gameEngine.js";
 
 // The human seat id (createGameState always names the player's seat "user"; opponents are
@@ -1688,6 +1689,13 @@ export function advanceUntilDecision(
     // nothing waits — every game with no person at it.
     if (!current.state.pendingChoice) {
       const raised = raiseTriggerTargetChoice(current.state);
+      if (raised !== current.state) current = { ...current, state: raised };
+    }
+    // WARD ON A TRIGGERED ABILITY (CR 702.21a) — a triggered ability an opponent controls aimed at a ward permanent (flushTriggers /
+    // settleTriggerTargetChoice record it): its controller pays the ward cost or it is countered — the soft-counter pause below, the
+    // question a spell or an activated ability raises. Asked once no ability waits for its targets; the same state when none is owed.
+    if (!current.state.pendingChoice) {
+      const raised = raiseWardOwed(current.state);
       if (raised !== current.state) current = { ...current, state: raised };
     }
 
