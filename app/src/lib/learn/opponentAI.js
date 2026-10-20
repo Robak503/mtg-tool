@@ -74,7 +74,7 @@ import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell �
  * Accepted shapes:
  *   null / undefined                        → all-current (the shipping behavior)
  *   "v1"                                    → every subsystem legacy
- *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker|spellTarget|racer: "v1" } → per-subsystem legacy
+ *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker|spellTarget|racer|racerTrade: "v1" } → per-subsystem legacy
  *
  * The DEFAULT is always the new behavior (the Academy and self-play improve
  * automatically); "v1" exists only so the probe can measure old-vs-new inside one
@@ -85,7 +85,7 @@ import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell �
  * Exported so the A/B probe derives its legacy-key list from THIS array (AI-F11:
  * a hand-copied list silently drops every new subsystem from `--legacy=all`).
  */
-export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget", "racer"];
+export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget", "racer", "racerTrade"];
 function normalizePolicy(policy) {
   if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
   if (policy && typeof policy === "object") return policy;
@@ -2756,7 +2756,7 @@ function selectProfitableAttackers(state, aiPlayerId, attackerActions, defenderI
   // ONE BLOCKER BLOCKS ONE ATTACKER (2026-10-18): the per-attacker hold above judges each attacker as if every blocker could
   // block it. The attackers it holds may still go as a group (outnumberingAttackers). Policy `racer: "v1"` keeps the hold.
   if (lethal || pol.racer === "v1") return { chosen, extras: [] };
-  const extras = outnumberingAttackers(state, aiPlayerId, attackerActions, defenderId, { blockers, stats, committed, chosen, forced });
+  const extras = outnumberingAttackers(state, aiPlayerId, attackerActions, defenderId, { blockers, stats, committed, chosen, forced, pol });
   for (const id of extras) chosen.add(id);
   return { chosen, extras };
 }
@@ -2786,6 +2786,7 @@ function blockSlots(state, defenderId, blockers, attackerCount) {
  * attacker's `killers`, and an attacker with menace or "except by N or more" takes N slots (CR 702.111b). Two bounds, the
  * smaller kept: the one-slot matching, greedy by value (exact — the attackers a set of slots can be matched to form a
  * transversal matroid), and a fractional knapsack of N-slot attackers over every slot. An attacker no block can reach is safe.
+ * Policy `racerTrade: "v1"` only (the group judgment's first valuation); the default values each block as a trade below.
  */
 function worstCaseLoss(rows, slots) {
   const byId = (x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
@@ -2820,6 +2821,126 @@ function worstCaseLoss(rows, slots) {
   return Math.min(matching, knapsack);
 }
 
+// ─── The racer's trade valuation (2026-10-18): each block an edge, the defender's best kills a matching ──────────────────
+
+/** Above this many attacker rows in the loss matching, the defender's best is bounded instead of solved (tradeLossPrefixes). */
+const TRADE_MATCH_ROW_CAP = 64;
+
+/**
+ * What blocking attacker `r` with blocker `b` takes from the attacking seat, in life points: the attacker it kills less the
+ * blocker it loses, both at LIFE_PER_VALUE (combatDuel — first strike and deathtouch on both sides, damage simultaneous
+ * otherwise, CR 510.2, 702.2b). A deathtouch blocker that kills a bigger attacker and dies to it is a trade, worth the
+ * difference between the two creatures — no free kill; a trade the defender would lose by is worth nothing to it.
+ */
+function tradeEdgeValue(r, b) {
+  const { attackerDies, blockerDies } = combatDuel(r, b);
+  return LIFE_PER_VALUE * ((attackerDies ? r.value : 0) - (blockerDies ? b.value : 0));
+}
+
+/**
+ * The most value the defender's blocks can take from each prefix of `rows` (the racer's trade valuation, 2026-10-18 — it
+ * replaces worstCaseLoss's "killers"). `rows` are the attackers in the order the group grows ({ power, toughness,
+ * firstStrike, deathtouch, minBlockers, eligibleCount, eligible: the blockers that may legally block it, each with its
+ * `value`, value }); `slots` the defender's blocker slots (blockSlots — a blocker id per slot, each slot read as its own
+ * blocker, as the damage side reads them). Returns `best`, where best[i] is the defender's best against rows[0..i]: a
+ * maximum-weight matching of slots to attackers under tradeEdgeValue (CR 509.1a — each slot blocks one attacker, so one
+ * deathtouch blocker can take only one), a block that takes nothing left unmade. An attacker with menace or "except by N or
+ * more" (CR 702.111b) is N rows, each worth 1/N of its best single-blocker trade (worstCaseLoss's reading — a gang block
+ * that kills what no one blocker kills is not modelled, as before). Exact otherwise: the Hungarian method adds one row at a
+ * time and keeps the matching of the rows so far optimal (the dual stays feasible and tight on the matched edges, and every
+ * unmatched column keeps potential 0), so one pass gives every prefix, O(R² · (S + R)) for R rows and S slots. Above
+ * TRADE_MATCH_ROW_CAP rows the prefixes are bounded so the GAIN is never overstated: the first `baseCount` rows (the
+ * attackers that go anyway) from below by a greedy matching, every longer prefix from above by the smaller of each slot's
+ * best edge summed and each row's best edge summed. (An upper bound on the base would understate what the group adds.)
+ */
+function tradeLossPrefixes(rows, slots, baseCount = 0) {
+  // Each matching row: the index of the attacker it belongs to, and its weight on every slot (0: no block worth making).
+  const matrix = [];
+  rows.forEach((r, index) => {
+    const n = r.minBlockers || 1;
+    if (r.eligibleCount < n || !r.eligible.length) return; // no legal block (CR 509.1b): nothing to lose
+    const byId = new Map(r.eligible.map((b) => [b.id, b]));
+    let weights;
+    if (n === 1) {
+      weights = slots.map((id) => (byId.has(id) ? Math.max(0, tradeEdgeValue(r, byId.get(id))) : 0));
+    } else {
+      const share = Math.max(0, ...r.eligible.map((b) => tradeEdgeValue(r, b))) / n;
+      weights = slots.map((id) => (byId.has(id) ? share : 0));
+    }
+    if (!weights.some((w) => w > 0)) return;
+    for (let k = 0; k < n; k++) matrix.push({ index, weights });
+  });
+  const best = new Array(rows.length).fill(0);
+  const S = slots.length;
+  const R = matrix.length;
+  if (R === 0 || S === 0) return best;
+  const record = (from, value) => { for (let i = from; i < rows.length; i++) best[i] = value; };
+
+  if (R > TRADE_MATCH_ROW_CAP) {
+    // The base, from below: the heaviest edges first, each slot and row used once — a matching, so never above the best.
+    const edges = [];
+    matrix.forEach((row, i) => { if (row.index < baseCount) row.weights.forEach((w, j) => { if (w > 0) edges.push({ i, j, w }); }); });
+    edges.sort((x, y) => (y.w - x.w) || (x.i - y.i) || (x.j - y.j));
+    const rowUsed = new Set();
+    const slotUsed = new Set();
+    let base = 0;
+    for (const e of edges) {
+      if (rowUsed.has(e.i) || slotUsed.has(e.j)) continue;
+      rowUsed.add(e.i); slotUsed.add(e.j); base += e.w;
+    }
+    if (baseCount > 0) record(baseCount - 1, base);
+    // Every longer prefix, from above.
+    const slotBest = new Array(S).fill(0);
+    let rowSum = 0;
+    matrix.forEach((row, i) => {
+      for (let j = 0; j < S; j++) if (row.weights[j] > slotBest[j]) slotBest[j] = row.weights[j];
+      rowSum += Math.max(...row.weights);
+      if (row.index >= baseCount && (i === R - 1 || matrix[i + 1].index !== row.index)) record(row.index, Math.min(rowSum, slotBest.reduce((sum, w) => sum + w, 0)));
+    });
+    return best;
+  }
+
+  // Hungarian method, minimising cost = −weight: columns 1..S are the slots, S+1..S+R one "unblocked" column per row (cost 0).
+  const m = S + R;
+  const cost = (i, j) => (j <= S ? -matrix[i - 1].weights[j - 1] : 0);
+  const u = new Array(R + 1).fill(0);
+  const v = new Array(m + 1).fill(0);
+  const owner = new Array(m + 1).fill(0); // owner[j]: the row matched to column j (0: none)
+  const way = new Array(m + 1).fill(0);
+  for (let i = 1; i <= R; i++) {
+    owner[0] = i;
+    let j0 = 0;
+    const minv = new Array(m + 1).fill(Infinity);
+    const used = new Array(m + 1).fill(false);
+    do {
+      used[j0] = true;
+      const i0 = owner[j0];
+      let delta = Infinity;
+      let j1 = 0;
+      for (let j = 1; j <= m; j++) {
+        if (used[j]) continue;
+        const cur = cost(i0, j) - u[i0] - v[j];
+        if (cur < minv[j]) { minv[j] = cur; way[j] = j0; }
+        if (minv[j] < delta) { delta = minv[j]; j1 = j; }
+      }
+      for (let j = 0; j <= m; j++) {
+        if (used[j]) { u[owner[j]] += delta; v[j] -= delta; } else minv[j] -= delta;
+      }
+      j0 = j1;
+    } while (owner[j0] !== 0);
+    do { const j1 = way[j0]; owner[j0] = owner[j1]; j0 = j1; } while (j0);
+    if (i === R || matrix[i].index !== matrix[i - 1].index) {
+      let total = 0;
+      for (let j = 1; j <= S; j++) if (owner[j]) total += matrix[owner[j] - 1].weights[j - 1];
+      record(matrix[i - 1].index, total);
+    }
+  }
+  return best;
+}
+
+/** Test-only handle on the trade matching — pinned against an exhaustive search (aiRacerDeathtouchTrade.test.js). */
+export const __tradeLossPrefixesForTests = (rows, slots, baseCount = 0) => tradeLossPrefixes(rows, slots, baseCount);
+
 /**
  * What the AI's living opponents could deal it on their next turns if each attacks with every creature that can attack, each
  * blocked biggest-first (unavoidableDamage) by the AI's creatures still untapped after this combat: an attacker stays tapped
@@ -2849,31 +2970,40 @@ function crackBackReader(state, aiPlayerId) {
  * ONE BLOCKER BLOCKS ONE ATTACKER (2026-10-18; AI decision quality). The racer holds every attacker some untapped blocker of
  * the defender's can kill for nothing, judging each as if every blocker could block it — so one big blocker vetoed a whole
  * team (13 creatures with 34 power stayed home against one untapped creature in a self-play game). But each blocker blocks
- * one attacker (CR 509.1a): against the group, the defender can kill only as many attackers for nothing as it has blocker
- * slots with a killer for them, and the rest connect. This returns the held attackers that go anyway, in declaration order:
+ * one attacker (CR 509.1a): against the group, the defender can take only as many attackers as it has blocker slots, and
+ * the rest connect. This returns the held attackers that go anyway, in declaration order:
  *   · Only attackers that face `defenderId` itself with power above 0 (one with none adds no damage), never a land (a land
  *     creature dies a mana source; its value reads 0) and never one that must attack anyway (it is part of the group already).
  *   · Cheapest first (boardEval.permanentValue, then power, then id): the group is the cheapest k held attackers, beside the
  *     attackers that go at that face whatever this decides — declared already, the racer's safe ones, the ones that must.
- *   · Worth it when the face damage the group adds is worth more than the value it adds to what the defender can kill for
- *     nothing, both at the defender's best: the damage as unavoidableDamage (the biggest blockable attackers blocked, every
- *     slot used), the loss as worstCaseLoss (the most valuable killed). Damage in life points, weighted up below 20 life as
- *     the planeswalker policy weighs it (FACE_URGENCY_LIFE); value at LIFE_PER_VALUE (evaluateBoard's rate). The best k wins.
+ *   · Worth it when the face damage the group adds is worth more than the value it adds to what the defender's blocks can
+ *     take, both at the defender's best: the damage as unavoidableDamage (the biggest blockable attackers blocked, every slot
+ *     used), the loss as tradeLossPrefixes (2026-10-18) — each block an edge worth the attacker it kills less the blocker it
+ *     loses, the defender's best a maximum-weight matching of its slots, so a deathtouch blocker that dies blocking a bigger
+ *     attacker is a trade, not a free kill, and takes one attacker only. Damage in life points, weighted up below 20 life as
+ *     the planeswalker policy weighs it (FACE_URGENCY_LIFE); value at LIFE_PER_VALUE (evaluateBoard's rate). Both worst
+ *     cases at once (a slot that chumps for the damage also blocks for the loss), which no single block achieves —
+ *     conservative; a single assignment that charged a chump its blocker would assume the defender chumps, and reward feeding
+ *     it a small attacker instead. The best k wins. Policy `racerTrade: "v1"` keeps the first loss: worstCaseLoss (the most
+ *     valuable attackers a blocker kills "for nothing" — blockKillsForNothing, a smaller deathtouch blocker included).
  *   · Never when the crack-back is then lethal (crackBackReader against the AI's life), and only as many as the seat can pay
  *     the defender's attack tax for (CR 508.1h), the attackers that go anyway paid first — the mana from the attackers that
  *     tap to attack excluded (CR 508.1f, 508.1i).
  * The per-tick driver re-plans with the declared attackers counted in, so a group declared cheapest first re-plans to itself.
  */
-function outnumberingAttackers(state, aiPlayerId, attackerActions, defenderId, { blockers, stats, committed, chosen, forced }) {
+function outnumberingAttackers(state, aiPlayerId, attackerActions, defenderId, { blockers, stats, committed, chosen, forced, pol = {} }) {
   if (blockers.length === 0) return [];
   const facing = new Set(attackerActions.filter((a) => !a.defenderId || (a.defenderId === defenderId && !a.defenderPlaneswalkerId)).map((a) => a.permanentId));
   const held = [...facing].filter((id) => stats.get(id)?.power > 0 && !chosen.has(id) && !forced.has(id) && !permanentHasCardType(state, id, "Land"));
   if (held.length === 0) return [];
+  const valueOf = (id) => permanentValue(findPermanent(state, id)?.permanent, state);
+  const blockerValue = new Map(blockers.map((b) => [b.id, valueOf(b.id)]));
   const read = (s) => {
     const killers = s.eligible.filter((b) => blockKillsForNothing(s, b)).map((b) => b.id);
     return {
-      id: s.id, power: s.power, minBlockers: s.minBlockers || 1, eligibleCount: s.eligibleCount, killers, killerKey: [...killers].sort().join(" "),
-      value: permanentValue(findPermanent(state, s.id)?.permanent, state), vigilance: permanentHasKeyword(state, s.id, "Vigilance"),
+      id: s.id, power: s.power, toughness: s.toughness, firstStrike: s.firstStrike, deathtouch: s.deathtouch,
+      minBlockers: s.minBlockers || 1, eligibleCount: s.eligibleCount, eligible: s.eligible.map((b) => ({ ...b, value: blockerValue.get(b.id) ?? 0 })),
+      killers, killerKey: [...killers].sort().join(" "), value: valueOf(s.id), vigilance: permanentHasKeyword(state, s.id, "Vigilance"),
     };
   };
   const declared = new Set(committed.map((c) => c.id));
@@ -2883,15 +3013,20 @@ function outnumberingAttackers(state, aiPlayerId, attackerActions, defenderId, {
   const pool = held.map((id) => read(stats.get(id))).sort((x, y) => (x.value - y.value) || (y.power - x.power) || byId(x, y));
 
   const slots = blockSlots(state, defenderId, blockers, fixed.length + pool.length);
-  const dmgRow = (r) => ({ power: r.power, minBlockers: r.minBlockers, eligibleCount: r.eligibleCount });
-  const damage0 = unavoidableDamage(fixed.map(dmgRow), slots.length);
-  const loss0 = worstCaseLoss(fixed, slots);
   const life = state.players?.[defenderId]?.life ?? 0;
   const faceWeight = life > 0 && life < FACE_URGENCY_LIFE ? FACE_URGENCY_LIFE / life : 1;
   const ranked = [];
+  const dmgRow = (r) => ({ power: r.power, minBlockers: r.minBlockers, eligibleCount: r.eligibleCount });
+  const damage0 = unavoidableDamage(fixed.map(dmgRow), slots.length);
+  // The loss, in life points: the defender's best trades and free kills (tradeLossPrefixes), or under policy
+  // `racerTrade: "v1"` the most valuable attackers a blocker kills "for nothing" (worstCaseLoss).
+  const rows = [...fixed, ...pool];
+  const trades = pol.racerTrade === "v1" ? null : tradeLossPrefixes(rows, slots, fixed.length);
+  const lossOf = (count) => (trades ? (count > 0 ? trades[count - 1] : 0) : LIFE_PER_VALUE * worstCaseLoss(rows.slice(0, count), slots));
+  const loss0 = lossOf(fixed.length);
   for (let k = 1; k <= pool.length; k++) {
-    const group = [...fixed, ...pool.slice(0, k)];
-    const gain = faceWeight * (unavoidableDamage(group.map(dmgRow), slots.length) - damage0) - LIFE_PER_VALUE * (worstCaseLoss(group, slots) - loss0);
+    const group = rows.slice(0, fixed.length + k);
+    const gain = faceWeight * (unavoidableDamage(group.map(dmgRow), slots.length) - damage0) - (lossOf(fixed.length + k) - loss0);
     if (gain > 0) ranked.push({ k, gain });
   }
   if (ranked.length === 0) return [];

@@ -1071,12 +1071,22 @@ holds every attacker some untapped blocker of the focused player can kill for no
 One blocker blocks one attacker (CR 509.1a), so the held attackers that face that player may still go as a group: cheapest first
 (`boardEval.permanentValue`), beside the attackers that go anyway (declared, the racer's safe ones, the ones that must attack), when the
 face damage the group adds (`unavoidableDamage` over the defender's blocker slots — `combatEvasion.maxBlocksFor`) is worth more than the
-value it adds to what the blockers can kill for nothing (`worstCaseLoss`: a one-slot matching greedy by value, a menace / "≥N" attacker
-taking N slots), both at the defender's best, at evaluateBoard's rate (`LIFE_PER_VALUE` = 4 life per value point — the walker policy's)
-with the face weight below 20 life. Never a land creature; never when the crack-back is then lethal (`crackBackReader`: each living
-opponent's creatures that can attack, blocked by the AI's creatures still untapped); only as many as the defender's attack tax can be
-paid for, the attackers that go anyway first. The group is declared last, cheapest first, so each per-tick re-plan reproduces it.
-Policy `racer: "v1"` restores the per-attacker hold.
+value it adds to what the defender's blocks can take, both at the defender's best and both at once, at evaluateBoard's rate
+(`LIFE_PER_VALUE` = 4 life per value point — the walker policy's) with the face weight below 20 life. The loss is the TRADE VALUATION
+(`tradeLossPrefixes`, 2026-10-18): each block an edge worth the attacker it kills less the blocker it loses (`combatDuel` — so a
+deathtouch blocker that dies blocking a bigger attacker is a trade worth the difference, not a free kill), and the defender's best is a
+maximum-weight matching of its slots to the attackers (one blocker takes one attacker), solved exactly by the Hungarian method one
+attacker at a time — every cheapest-first prefix in one pass, O(R²·(S+R)) — up to 64 matching rows; beyond, the gain is bounded so it
+is never overstated (the attackers that go anyway from below by a greedy matching, every longer prefix from above by the smaller of
+each slot's best edge summed and each row's best edge summed — an upper bound on the base would understate what the group adds). A
+menace / "≥N" attacker is N rows of 1/N its best single-blocker trade (worstCaseLoss's reading: a gang block that kills what no one
+blocker kills is not modelled). The damage stays off the edges on purpose: a single assignment that charged a chump its blocker
+would assume the defender chumps, and then reward feeding it a small attacker.
+Never a land creature; never when the crack-back is then lethal (`crackBackReader`: each living opponent's creatures that
+can attack, blocked by the AI's creatures still untapped); only as many as the defender's attack tax can be paid for, the attackers
+that go anyway first. The group is declared last, cheapest first, so each per-tick re-plan reproduces it. Policy `racer: "v1"`
+restores the per-attacker hold; `racerTrade: "v1"` the first loss (`worstCaseLoss`: the most valuable attackers a blocker kills "for
+nothing", a smaller deathtouch blocker's trade counted free).
 
 **The default AI's combo line (`tokenLoopLine.js`, added 2026-10-03).** The rule
 (Colton): a combo deck plays to ITS line — build the resource only to "enough",
