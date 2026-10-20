@@ -297,7 +297,7 @@ export function parseCloneSpec(card) {
   const nameL = card?.name ? String(card.name).toLowerCase() : null;
   if (nameL) {
     t = t.replace(new RegExp(escapeRegex(nameL), "g"), "~");
-    // Legendary cards refer to themselves by their SHORT name in their own text (CR 201.4) — the pre-comma
+    // Legendary cards refer to themselves by their SHORT name in their own text (CR 201.5c) — the pre-comma
     // part ("Pantlaza") or, for the comma-less "<First> …" style, the FIRST word ("Sakashima of a Thousand
     // Faces" → "Sakashima"). The full-name elision above misses those, so also elide the short/first-word
     // form for legends (word-bounded, ≥3 chars, distinct from the full name) — mirrors triggers.js's

@@ -1,7 +1,7 @@
 /**
  * thrunTargetShield.test.js — ④-V (2026-09-03 night): THRUN, BREAKER OF SILENCE — Colton's Thrun Voltron commander,
  * the deck's last slot to the 90 bar. "Thrun can't be the target of nongreen spells your opponents control or
- * abilities from nongreen sources your opponents control." — hexproof-from-quality in all but name (CR 702.11c),
+ * abilities from nongreen sources your opponents control." — hexproof-from-quality in all but name (CR 702.11d),
  * scoped to opponents; Gaea's Revenge prints the everyone-form. An inert layer-6 `targetShield` op (the playerHexproof
  * family) read by the single targetability seam, which already threads the source spell's colours for protection. A
  * colourless source is nongreen and refused; a path that threads no colours is refused too (an under-offer, never an

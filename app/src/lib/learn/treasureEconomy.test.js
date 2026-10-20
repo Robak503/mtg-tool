@@ -3,7 +3,7 @@
  * existing token + trigger + mana machinery (the combat-damage/attack/ETB → create-Treasure path and the
  * Treasure mana ability already ship):
  *
- *   1. SELF-NAME-REF (CR 201.4) — a trigger that names its OWN source in the effect ("… Captain Lannery
+ *   1. SELF-NAME-REF (CR 201.5) — a trigger that names its OWN source in the effect ("… Captain Lannery
  *      Storm gets +1/+0 …") resolves the self atom against the source, for ANY scope. (triggers.js
  *      rewriteSelfNameToThisCreature)
  *   2. TRIG-SACRIFICE SUBTYPE — "Whenever you sacrifice a Treasure" (Captain Lannery Storm's 2nd ability) —
@@ -40,14 +40,14 @@ function board(userBf, aiLife = 40) {
 
 // ─── BUILD 1: Captain Lannery Storm (self-name pump + subtype sac) ──────────────────────────────────────
 
-describe("SELF-NAME-REF (CR 201.4) — a trigger that names its own source resolves the self atom", () => {
+describe("SELF-NAME-REF (CR 201.5) — a trigger that names its own source resolves the self atom", () => {
   it("rewrites a leading full/short self-name + self-effect verb → 'this creature'", () => {
     const cap = { name: "Captain Lannery Storm", type: "Legendary Creature — Human Pirate",
       oracle: "Whenever you sacrifice a Treasure, Captain Lannery Storm gets +1/+0 until end of turn." };
     const d = detectTriggers(cap).find((x) => x.event === "sacrifice");
     expect(d.effectClause).toBe("this creature gets +1/+0 until end of turn"); // name → this creature
   });
-  it("rewrites the LEGENDARY SHORT name too (CR 201.4 — text before the first comma)", () => {
+  it("rewrites the LEGENDARY SHORT name too (CR 201.5c — text before the first comma)", () => {
     const olivia = { name: "Olivia, Mobilized for War", type: "Legendary Creature — Vampire",
       oracle: "Whenever this creature attacks, Olivia gets +2/+0 until end of turn." };
     const d = detectTriggers(olivia).find((x) => x.event === "attacks");

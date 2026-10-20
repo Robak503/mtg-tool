@@ -5,8 +5,8 @@
  * NAME as the from-object instead of "this <noun>/~/it" — "Remove a charge counter from Umezawa's Jitte",
  * the Myojin cycle's "Remove a divinity counter from Myojin of Cleansing Fire", and the legendary
  * SHORT-name convention ("Remove a +1/+1 counter from Mikaeus" on "Mikaeus, the Lunarch"). CR 201.5 —
- * text that refers to the object it's on by name means just that particular object (the engine's older
- * comments cite the same rule under its legacy 201.4 number) — so the cost is byte-identical in meaning
+ * text that refers to the object it's on by name means just that particular object
+ * — so the cost is byte-identical in meaning
  * to the CC-2 "from this" form and rides the SAME shipped seam end to end:
  *
  *   • PARSE (effects/abilities.js parseAbilityCost, now `(costStr, card)`): the from-tail must equal the

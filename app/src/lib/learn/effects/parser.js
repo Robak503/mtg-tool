@@ -2445,6 +2445,24 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // Exactly that shape: the source as subject, a fixed +N/+N (or -N/-N) and one keyword. A count ("+1/+1 for each …" — Gran Pulse Ochu),
   // a choice ("your choice of flying, …" — Argivian Avenger) or another subject is left as printed (unread).
   oracle = oracle.replace(/^until end of turn, (this creature) (gets [+-]\d+\/[+-]\d+ and gains [a-z]+(?: strike)?)\.?$/i, (whole, subject, rest) => `${subject.charAt(0).toUpperCase()}${subject.slice(1)} ${rest} until end of turn.`);
+  // ===== THE DURATION LEADS THE TEAM PUMP (play-weighted, 2026-10-20 — Triumph of the Hordes, EDHREC #1180: "Until end of turn, creatures
+  // you control get +1/+1 and gain trample and infect."; Titanic Ultimatum: "… get +5/+5 and gain first strike, trample, and lifelink.")
+  // ===== The self pump's twin above, with the team as subject: the one sentence is the instruction "Creatures you control get +N/+N and
+  // gain <keywords> until end of turn." (the duration covers both halves either way), so it is reordered to that trailing form and the
+  // team pump reads it — its keyword allowlist decides what is granted, and the set is fixed as it resolves (CR 611.2c; Titanic
+  // Ultimatum's ruling). Exactly that shape: one sentence, a fixed +N/+N (or -N/-N), plain words after "gain" — a quoted ability (Root
+  // Manipulation, Storm the Citadel), a second subject (Zealous Persecution) or another sentence is left as printed. A trailing reminder
+  // parenthetical (Triumph's infect reminder — no game function, CR 207.2, 207.2a) comes off with the reorder.
+  oracle = oracle.replace(/^until end of turn, (creatures you control) (get [+-]\d+\/[+-]\d+ and gain [a-z][a-z ,]*[a-z])\.?(?:\s*\([^()]*\))?$/i, (whole, subject, rest) => `${subject.charAt(0).toUpperCase()}${subject.slice(1)} ${rest} until end of turn.`);
+  // ===== THE COUNT LEADS THE TOKEN (play-weighted, 2026-10-20 — Brass's Bounty, EDHREC #1352: "For each land you control, create a
+  // Treasure token."; Moogles' Valor: "For each creature you control, create a 1/2 white Moogle creature token with lifelink. Then …")
+  // ===== The same instruction as "Create a Treasure token for each land you control." — one count, read as the effect resolves (CR
+  // 608.2h), one creation of that many — so the FIRST sentence is reordered to that trailing form and the token creators' "for each"
+  // count reads it; any later sentence is untouched and parses on its own. Exactly that shape: "<noun> you control" as the count, and a
+  // creation that names no object of the count ("that permanent", "it", "a copy" — Second Harvest, Clone Legion, Multiversal Incursion:
+  // one token PER object, a different instruction) and no other count ("different"). Another subject ("each creature your opponents
+  // control" — Ezuri's Predation, "each opponent") is left as printed.
+  oracle = oracle.replace(/^for each ([a-z][a-z -]*? you control), (create (?:a|an|one) (?![^.]*\b(?:that|those|it|its|copy|copies|different)\b)[^.]*\btokens?\b[^.]*)\.(?=\s|$)/i, (whole, counted, create) => `${create.charAt(0).toUpperCase()}${create.slice(1)} for each ${counted}.`);
   // ===== THE EXILED CARD'S TYPE DECIDES A PAYOFF (play-weighted #1607 — Scavenging Ooze: "Exile target card from a graveyard. If it
   // was a creature card, put a +1/+1 counter on this creature and you gain 1 life."; Diregraf Scavenger, Raven Eagle: "exile up to one
   // target card from a graveyard. If a creature card was / is exiled this way, …") ===== Collapsed here so the splitter never strands

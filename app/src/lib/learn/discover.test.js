@@ -220,7 +220,7 @@ describe("discover X = that creature's toughness (Pantlaza piece [b])", () => {
 // ─── Pantlaza piece [a] — subtype-ETB-self trigger scope ───────────────────────────────────────
 
 // The EXACT real LCI printed oracle for Pantlaza, Sun-Favored (verified against the bundled Scryfall data).
-// Note: self-reference by the SHORT name "Pantlaza" (CR 201.4, the part before the comma), the OPTIONAL
+// Note: self-reference by the SHORT name "Pantlaza" (CR 201.5c, the part before the comma), the OPTIONAL
 // "you may discover", and the bare "enters". Pinning the real form guards the actual corpus commander —
 // an earlier draft modeled a misremembered "Sun's Vanguard" / mandatory-discover variant that did NOT
 // match this card (the short-name self-ref went undetected → body-only). Reminder text stripped by the parser.
@@ -280,11 +280,11 @@ describe("Pantlaza piece [a] — subtype-ETB-self trigger detection + scope", ()
   });
 });
 
-// ─── SHORT-NAME self-reference (CR 201.4) — the fix that detects Pantlaza's real oracle ─────────
+// ─── SHORT-NAME self-reference (CR 201.5c) — the fix that detects Pantlaza's real oracle ─────────
 // A legendary card refers to itself by the part of its name before the first comma ("Pantlaza" for
 // "Pantlaza, Sun-Favored"). Without this, the real card's self-trigger went UNDETECTED → body-only.
 // The fix is GENERAL (corpus flip-diff: +11 legends correctly flip native-trigger, 0 regressions).
-describe("short-name self-reference (CR 201.4)", () => {
+describe("short-name self-reference (CR 201.5c)", () => {
   const detect = (name, type, oracle) => detectTriggers({ name, type, oracle, mana: "{3}" });
 
   it("detects a legend's self-trigger templated with its SHORT name (real Pantlaza shape)", () => {

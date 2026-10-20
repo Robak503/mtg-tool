@@ -95,6 +95,7 @@ export const PERMANENT_TARGET_TYPES = new Set([
   "planeswalker", "creatureOrPlaneswalker", // PW-7 — gate triggered destroy/exile-PW out of first-legal flush
   "artifactOrEnchantmentOrFlyingCreature", // BW-1 triple union (Broken Wings / Shoot Down) — chosen-permanent removal, same flush gate
   "artifactCreatureOrPlaneswalker", // SHELF-85 N8 (Bedevil) — the plain three-type union, same flush gate
+  "artifactEnchantmentOrPlaneswalker", "artifactCreatureOrEnchantment", // the play-weighted triples (Fracture, Angelic Purge — 2026-10-20)
 ]);
 
 /**
@@ -484,6 +485,10 @@ export function atomTargetIntent(atom) {
       // wrong target. A non-"player" gain-life target has no card in the corpus → the ambiguous default.
       if (tt === "player") return "own";
       return "ambiguous";
+    case "extra-turn":
+      // "Target player takes an extra turn after this one." (Time Warp — play-weighted 2026-10-20): a turn is a benefit, so a chooser
+      // gives it to its own controller; a person casting it may still choose any player.
+      return "own";
     case "draw":
       // "target player draws N cards" (Saltwater Stalwart: combatDamage → target player draws) —
       // beneficial draw, own-side: the controller always targets themselves to draw.

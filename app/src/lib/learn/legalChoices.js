@@ -3271,6 +3271,7 @@ function actionsActivateAbility(state, playerId) {
                 sacSelf: ab.sacSelf || false,
                 exileSelf: ab.exileSelf || false,
                 removeCounter: ab.removeCounter || null,
+                ...(ab.putCounter ? { putCounter: ab.putCounter } : {}), // Devoted Druid — the counter the dispatcher puts on the source
                 sacCreatureId: null,
                 sacCreatureName: null,
                 sacCountIds: sacXIds,                       // γ1e — the X fungible victims to sacrifice (cost)
@@ -3313,6 +3314,7 @@ function actionsActivateAbility(state, playerId) {
             sacSelf: ab.sacSelf || false,
             exileSelf: ab.exileSelf || false,            // γ1c — exile the source from the battlefield
             removeCounter: ab.removeCounter || null,     // γ1c — remove a counter of this type from the source
+            ...(ab.putCounter ? { putCounter: ab.putCounter } : {}), // Devoted Druid — the -1/-1 counter the dispatcher puts on the source (cost)
             sacCreatureId: victim?.id ?? null,           // γ1b — the chosen victim to sacrifice (cost)
             sacCreatureName: victim?.card?.name ?? null,
             sacCountIds,                                  // γ1d — the N fungible victims to sacrifice (cost)

@@ -2,7 +2,7 @@
  * playerShroud.test.js — "You have shroud." (the 09-06 plan's stage ③ · 48, 2026-09-30 — Ivory Mask, True Believer), and the
  * Curse offer that skipped player targetability altogether.
  *
- * CR 702.18 — shroud: "can't be the target of spells or abilities." For a PLAYER it is ABSOLUTE — unlike hexproof (CR 702.11d,
+ * CR 702.18 — shroud: "can't be the target of spells or abilities." For a PLAYER it is ABSOLUTE — unlike hexproof (CR 702.11c,
  * opponents only), the player can't target themself either. It rides player hexproof's shape: an inert layer-6 op
  * (`playerShroud`) whose one reader, layers.playerHasShroud, feeds the ONE player-targetability predicate
  * (spellEffects.playerTargetableBy) that target enumeration uses.

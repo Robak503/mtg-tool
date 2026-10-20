@@ -485,8 +485,8 @@ export function advanceStep(state) {
   // EXTRA TURN (BLITZ XT-1, CR 500.7): if any extra turns are queued, the MOST RECENTLY created one is
   // taken next (a LIFO pop — CR 500.7's "taken … in the reverse of the order they were created") instead
   // of rotating. The extra turn is a full normal turn (turn counter still advances — CR: it IS a turn);
-  // once the stack drains, the pop-less branch below rotates from the LAST taker, which lands on the
-  // normally-scheduled seat with no extra bookkeeping.
+  // once the stack drains, the pop-less branch below rotates from the rotation anchor — the player whose
+  // normal turn the extra turns followed (2026-10-20; it used to rotate from the last taker).
   // SKIPPED EXTRA TURN (play-weighted #626 — Trouble in Pairs, CR 614.10): "If an opponent would begin an extra turn, that player
   // skips that turn instead." A skip is a replacement effect applied as the turn would begin, and this is the one place an
   // extra turn begins: while the top entry's taker has an opponent controlling a carrier (textNormalize.extraTurnSkipped, a
@@ -497,6 +497,16 @@ export function advanceStep(state) {
   // extra turns are untouched.
   // A PLAYER WHO HAS LEFT THE GAME (CR 800.4k — "If a player who has left the game would begin a turn, that turn doesn't
   // begin"): an extra turn queued for them is popped untaken the same way, with its "that turn" records.
+  // THE ROTATION ANCHOR (CR 500.7 — "They do this by adding the turns directly after the specified turn"): an extra turn is
+  // inserted after the turn that created it, and the turn order then resumes where it was — after the player whose NORMAL turn the
+  // extra turns followed, not after whoever took the last extra turn. That player is the active player at the end of a normal
+  // turn, and is carried through every extra turn as `rotationAnchor`. Before 2026-10-20 the rotation ran from the last taker, which
+  // is the same player only when a player gives themself an extra turn on their own turn: an opponent's extra turn (Time Warp aimed
+  // at ai2, Perch Protection's gift) or one taken after another player's turn (Nexus of Fate cast in an opponent's turn) handed the
+  // next normal turn to the wrong seat. A state saved mid-extra-turn before the anchor existed (no `rotationAnchor`), or an anchor
+  // who has since left the game (CR 800.4a; the engine drops them from the turn order), rotates from the active player as before.
+  const anchorKept = state.extraTurnOf != null && state.rotationAnchor && (state.turnOrder || Object.keys(state.players || {})).includes(state.rotationAnchor);
+  const anchor = anchorKept ? state.rotationAnchor : state.activePlayer;
   let xt = state.extraTurns || [];
   let afterSkips = emptied;
   while (xt.length > 0 && (!afterSkips.players?.[xt[xt.length - 1].player] || extraTurnSkipped(afterSkips, xt[xt.length - 1].player))) {
@@ -513,6 +523,7 @@ export function advanceStep(state) {
       extraTurns: xt.slice(0, -1),
       activePlayer: taker.player,
       extraTurnOf: taker.player, // SHELF-85 V12: THIS turn is an extra turn of that player ("that turn's end step" delayed triggers read it)
+      rotationAnchor: anchor, // CR 500.7 — the normal turn the rotation resumes after, once the extra turns are taken
       turn: state.turn + 1,
       normalCombatOwed: false, currentExtraCombat: null, // AFTER-MAIN FIDELITY (KT-7b): per-turn flags reset
       phase: "beginning",
@@ -522,10 +533,12 @@ export function advanceStep(state) {
     };
   }
 
-  // End of turn — next player's turn begins at (beginning, untap).
-  const nextActive = nextInTurnOrder(state, state.activePlayer);
+  // End of turn — next player's turn begins at (beginning, untap): the player after the rotation anchor (above). The extra turns
+  // are over, so the normal turn carries no anchor.
+  const nextActive = nextInTurnOrder(state, anchor);
+  const { rotationAnchor: _spentAnchor, ...rotated } = afterSkips;
   return {
-    ...afterSkips,
+    ...rotated,
     activePlayer: nextActive,
     extraTurnOf: null, // SHELF-85 V12: a normal rotation is nobody's extra turn
     turn: state.turn + 1,

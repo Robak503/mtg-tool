@@ -3,7 +3,7 @@
  *
  * clauseProducesStatic's grammar is anchored on the MODERN self reference ("this creature's power and
  * toughness are each equal to …"). staticAbilitiesCoverCard normalizes an oracle with selfNormalizeOracle
- * before parsing, so a legacy printing that names ITSELF (CR 201.4 — "Mortivore's power and toughness …")
+ * before parsing, so a legacy printing that names ITSELF (CR 201.5 — "Mortivore's power and toughness …")
  * is credited by the single-mechanism static tier. permanentFullyCovered — the COMPOSITE tier — did not
  * normalize, so it saw the same line as unmodeled residue.
  *

@@ -1148,6 +1148,15 @@ export function destroyExileClauseParser(clause) {
   if (acpM) {
     return { op: acpM[1] === "destroy" ? "destroy" : "exile", targetType: "artifactCreatureOrPlaneswalker", restrictions: [] };
   }
+  // Two more plain three-type unions (play-weighted, 2026-10-20 — Fracture, EDHREC #1255: "Destroy target artifact, enchantment, or
+  // planeswalker."; Angelic Purge: "Exile target artifact, creature, or enchantment."; Status // Statue's Statue half), each its own
+  // PERMANENT_PREDICATES entry (spellEffects) so the enumerator offers exactly the three types as each permanent is now — never a
+  // land, and never the fourth type the card leaves out (a planeswalker for Angelic Purge, a creature for Fracture; an artifact
+  // creature is an artifact, so Fracture may take it). Exactly these sentences: a controller scope or a mana-value cap stays unread.
+  const triM = t.match(/^(destroy|exile) target (artifact, enchantment, or planeswalker|artifact, creature, or enchantment)$/);
+  if (triM) {
+    return { op: triM[1] === "destroy" ? "destroy" : "exile", targetType: triM[2] === "artifact, enchantment, or planeswalker" ? "artifactEnchantmentOrPlaneswalker" : "artifactCreatureOrEnchantment", restrictions: [] };
+  }
   // The two-type UNION list admits BOTH printed word-orders for the artifact/creature union — "creature or
   // artifact" (the order most cards print) AND "artifact or creature" (Putrefy: "Destroy target artifact or
   // creature. It can't be regenerated." — the cannotRegenerate rider is re-stamped by the parseEffectClause

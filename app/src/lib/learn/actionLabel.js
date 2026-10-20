@@ -117,6 +117,7 @@ export function activationCostText(o, seat = "user") {
     const t = o.removeCounter.type;
     parts.push(n === 1 ? `remove ${/^[aeiou]/i.test(t) ? "an" : "a"} ${t} counter` : `remove ${n} ${t} counters`);
   }
+  if (o.putCounter?.type) parts.push(`put a ${o.putCounter.type} counter on it`); // Devoted Druid's cost
   return parts.join(", ");
 }
 

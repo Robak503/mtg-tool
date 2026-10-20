@@ -2902,7 +2902,7 @@ export function assignsCombatDamageWithToughness(state, permanentId) {
 }
 
 /**
- * ⭐ PLAYER HEXPROOF (CR 702.11d — "You have hexproof" means you can't be the target of spells or abilities
+ * ⭐ PLAYER HEXPROOF (CR 702.11c — "You have hexproof" means you can't be the target of spells or abilities
  * your OPPONENTS control): Leyline of Sanctity, Witchbane Orb, Aegis of the Gods, Orbs of Warding,
  * Metropolis Reformer, Keen-Eared Sentry, Spirit of the Hearth, Crystal Barricade.
  *

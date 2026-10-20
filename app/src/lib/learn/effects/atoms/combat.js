@@ -1357,7 +1357,11 @@ export function goadClauseParser(clause) {
   // MASS GOAD (SHELF-85 · Halfshell Q4 Fast Forward, 2026-09-05; Taunt from the Rampart, Kaima): "Goad all creatures your
   // opponents control" — the MASS-DEBUFF scope every opponent's creatures resolve under (atomTargets enumerates
   // eachOpponentCreature at resolution, CR 608.2h); applyGoad's per-target loop and duration are untouched.
-  if (/^goad (?:all|each) creatures? your opponents control$/.test(t)) return { op: "goad", targetType: "eachOpponentCreature" };
+  // "… you don't control" (play-weighted, 2026-10-20 — Disrupt Decorum, EDHREC #892: "Goad all creatures you don't control."): the
+  // same set in this engine's games — Free-for-All with no teams (CR 806.1, Commander's default, CR 903.2), so every other player is
+  // an opponent (CR 102.2, 102.3) and opponentCreatureTargets reads exactly the creatures another player controls, fixed as it
+  // resolves (a creature entering later is not goaded — the card's ruling). The destroy twin reads the phrase the same way.
+  if (/^goad (?:all|each) creatures? (?:your opponents control|you don't control)$/.test(t)) return { op: "goad", targetType: "eachOpponentCreature" };
   const m = t.match(/^goad (up to one )?target creature( an opponent controls| you don't control)?$/);
   if (!m) return null;
   return {
@@ -2642,6 +2646,14 @@ export function pumpClauseParser(clause) {
   // (Exponential Growth) all fail the anchor → null → low → Arbiter (FN-safe, CREED — never a wrong partial).
   if (/^double the power and toughness of each creature you control until end of turn$/.test(t))
     return { op: "pump", scope: "youControl", doublePt: "pt" };
+  //   • TARGET (play-weighted, 2026-10-20 — Bulk Up, EDHREC #1442: "Double target creature's power until end of turn."; Unleash Fury,
+  //     #1635: "Double the power of target creature until end of turn."; Mr. Orfeo's attack trigger; The Skullspore Nexus's
+  //     activation) → a chosen creature, any controller (CR 115.1), the same per-target doubling as it resolves (applyPumpEffect's
+  //     loop — CR 701.10b; a creature with negative power gets that much more negative, CR 701.10c). A "you control" scope
+  //     (Mightform Harmonizer), "X times" (Exponential Growth) or a rider sentence fails the anchor; "… power and toughness" never
+  //     reaches here whole (the splitter cuts it at " and ").
+  if (/^double (?:target creature's power|the power of target creature) until end of turn$/.test(t))
+    return { op: "pump", targetType: "creature", doublePt: "p" };
   // BECOME-CREATURE-TYPE (CR 205.1b + 614.12 — the Mistform cycle, 13 corpus carriers): "{1}: This creature
   // becomes the creature type of your choice until end of turn." A layer-4 type change on the SOURCE, not a
   // pump — it REPLACES the printed creature types (Mistform Sliver's "in addition to its other types" is a

@@ -34,7 +34,9 @@ describe("parse + classify", () => {
     expect(classifyCard({ id: "sc", name: "Second Chance", type: "Enchantment", mana: "{1}{U}{U}",
       oracle: "At the beginning of your upkeep, if you have 5 or less life, sacrifice this enchantment and take an extra turn after this one." })).toBe("native-trigger");
     // FN guards: a wrong-player form and a multi-turn form must never parse into the atom.
-    expect(classifyCard({ id: "x1", name: "Hypo Gift", type: "Sorcery", mana: "{U}", oracle: "Target player takes an extra turn after this one." })).toBe("arbiter-spell");
+    // ("Target player takes an extra turn after this one." was this row until 2026-10-20: the chosen player's extra turn reads now —
+    // Time Warp, extraTurnTargetPlayer.test.js. The opponent-only form stays unread.)
+    expect(classifyCard({ id: "x1", name: "Hypo Gift", type: "Sorcery", mana: "{U}", oracle: "Target opponent takes an extra turn after this one." })).toBe("arbiter-spell");
     expect(classifyCard({ id: "x2", name: "Hypo Double", type: "Sorcery", mana: "{U}", oracle: "Take two extra turns after this one." })).toBe("arbiter-spell");
   });
 });

@@ -328,7 +328,7 @@ export function parseHandSelfPutAbility(card) {
 }
 
 /**
- * Self-name normalization (CR 201.4 — a card referring to itself by name means THIS object). An activated
+ * Self-name normalization (CR 201.5 — a card referring to itself by name means THIS object). An activated
  * effect like "Regenerate Wolverine." means "Regenerate this permanent" — the engine's effect parser anchors
  * the self-regen / self-pump atoms on "this creature"/"this permanent", so map the card's OWN name (full and
  * the pre-comma short name, e.g. "Wolverine, Best There Is" → "Wolverine") onto "this creature" before
@@ -366,8 +366,8 @@ const RC_SELF_RE = new RegExp(
 /**
  * CC-3 (BLITZ SELF-NAME COUNTER COSTS) — the SAME γ1c/CC-2 remove-counter cost item, with the from-object
  * printed as the card's OWN NAME instead of "this <noun>/~/it" (CR 201.5 — text that refers to the object
- * it's on by name means just that particular object; the older comments in this file cite the same rule
- * under its legacy 201.4 number): "Remove a charge counter from Umezawa's Jitte: …", the Myojin cycle's "Remove a
+ * it's on by name means just that particular object; CR 201.5c — a legend's shortened name means the same):
+ * "Remove a charge counter from Umezawa's Jitte: …", the Myojin cycle's "Remove a
  * divinity counter from Myojin of Cleansing Fire: …", and the legendary SHORT-name convention ("Remove a
  * +1/+1 counter from Mikaeus" on "Mikaeus, the Lunarch" — the pre-comma short form, the SAME two forms
  * normalizeSelfName maps on the effect side, so cost and effect self-name handling can't disagree).
@@ -527,6 +527,7 @@ export function parseAbilityCost(costStr, card = null) {
   let discardCount = 0;         // "Discard two cards" (Solphim, Mayhem Dominus — 2026-10-17): N hand cards, frozen by the offer
   let exileGyCount = null;      // LANDS-4 — "Exile N [<type>] cards from your graveyard" (Mines of Moria, Grim Lavamancer)
   let payLifeCommanderColors = false; // play-weighted P·6 — War Room's life cost, sized at activation (legalChoices)
+  let putCounter = null;        // play-weighted 2026-10-20 — "Put a -1/-1 counter on this creature" (Devoted Druid): the dispatcher puts it on the source
   for (const item of items) {
     if (/^\{t\}$/i.test(item)) { tapSelf = true; continue; }
     // γ1h — DISCARD-A-CARD cost (BLITZ DC-1 — Rummaging Goblin "{T}, Discard a card: Draw a card."; the
@@ -652,6 +653,14 @@ export function parseAbilityCost(costStr, card = null) {
     // Entertainment: …"; The Stasis Coffin): the same exile-self cost, the printed name anchored exactly as the "Sacrifice <name>"
     // item is (execSacrificeSelfName — CR 201.5, the full name or a legend's comma short name, never a substring).
     if (execExileSelfName(item, card)) { exileSelf = true; continue; }
+    // PUT A -1/-1 COUNTER ON THE SOURCE (play-weighted, 2026-10-20 — Devoted Druid, EDHREC #967: "Put a -1/-1 counter on this creature:
+    // Untap this creature."; Cinderhaze Wretch, Barrenton Medic): a NO-CHOICE self cost, the remove-counter item's mirror. The
+    // dispatcher puts the counter on the source as the ability is activated (CR 601.2h via 602.2b — a cost, not a resolution: the
+    // cards' rulings), through gameState.addCounter, the counter chokepoint every effect uses (its replacements and its counters-put
+    // event, CR 122.6); a source the counter takes to 0 toughness dies before the ability resolves (CR 704.5f — "before you can untap
+    // it", the rulings). Exactly this item: another creature ("a creature you control" — Hatchet Bully, Wandering Mage), another kind
+    // of counter (Mazemind Tome's page counter) or a count stays unmodeled.
+    if (/^put a -1\/-1 counter on this creature$/i.test(item)) { putCounter = { type: "-1/-1", count: 1 }; continue; }
     // The item MUST END after the optional permanent-type noun ($) — like the exileSelf allowlist — so a
     // COMPOUND cost ("Remove a quest counter from this enchantment AND SACRIFICE IT") doesn't match the
     // prefix and silently drop its trailing cost (a partial-payment false-positive); it routes to the Arbiter.
@@ -829,7 +838,7 @@ export function parseAbilityCost(costStr, card = null) {
     if (!pips.every(pipIsMana)) return null;                      // {X}{X}/{Q}/{E}/… → unmodeled ({S} IS mana, SN-1)
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
-  return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, unattachEquipment, discardCard, discardCardFilter, discardRandom, ...(discardCount ? { discardCount } : {}), costX, exileGyCount, ...(payLifeCommanderColors ? { payLifeCommanderColors } : {}) };
+  return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, unattachEquipment, discardCard, discardCardFilter, discardRandom, ...(discardCount ? { discardCount } : {}), costX, exileGyCount, ...(payLifeCommanderColors ? { payLifeCommanderColors } : {}), ...(putCounter ? { putCounter } : {}) };
 }
 
 /** True when an ability's EFFECT is a mana ability ("Add …") — those use the no-stack path. */
@@ -1537,7 +1546,7 @@ export function parseActivatedAbilities(cardIn) {
     let effectClause = stripBonusUntapRider(stripEnforcedTimingRider(beforeTimingStrip));
     // SELF-NAME + GENDERED-SUBJECT normalization (the Power-up bodies, 2026-08-14 — She-Hulk "Put a
     // +1/+1 counter on She-Hulk", Abomination "… He fights up to one target creature an opponent
-    // controls"): a legend's ability body names itself (CR 201.4 — the name means "this object") and the
+    // controls"): a legend's ability body names itself (CR 201.5, 201.5c — the name means "this object") and the
     // Marvel printings use gendered subject pronouns for the follow-up sentence. Route the name through
     // the SAME selfNormalizeOracle grammar the static path trusts (longest-form-first, tribe-word guard),
     // then rewrite a SENTENCE-LEADING "He/She " — on a creature's own activated body that subject is
@@ -1591,7 +1600,7 @@ export function parseActivatedAbilities(cardIn) {
     let program = null;
     let effectHigh = false;
     if (cost && !isManaEffect) {
-      // CR 201.4: rewrite the card's own name → "this creature" so a self-referential effect
+      // CR 201.5: rewrite the card's own name → "this creature" so a self-referential effect
       // ("Regenerate Wolverine.") matches the engine's self-anchored atoms.
       program = parseEffectClause(normalizeSelfName(effectClause, card), "Instant", { hasX: !!sacX || costX });
       // (④-AU's CREED guard — "refuse a sourcePower amount under a sacrifice-self cost, the live reader would say 0" —
@@ -1657,6 +1666,7 @@ export function parseActivatedAbilities(cardIn) {
       costX,                            // γ1f — "{X}" mana cost item: player chooses X, X = the effect's target count
       exileSelf: cost?.exileSelf ?? false,     // γ1c — "Exile this": exile the source from the battlefield
       removeCounter: cost?.removeCounter ?? null, // γ1c — "Remove a <type> counter from this"
+      ...(cost?.putCounter ? { putCounter: cost.putCounter } : {}), // "Put a -1/-1 counter on this creature" (Devoted Druid) — the dispatcher puts it on the source
       tapCreature: cost?.tapCreature ?? null,  // γ1f — "Tap an untapped creature you control": legalChoices picks the creature
       discardCard: cost?.discardCard ?? 0,     // γ1h — "Discard a card": legalChoices expands per distinct hand card (DC-1)
       exileGyCount: cost?.exileGyCount ?? null, // LANDS-4 — "Exile N [<type>] cards from your graveyard": legalChoices freezes N victims (exileGyIds)
@@ -1682,10 +1692,11 @@ export function parseActivatedAbilities(cardIn) {
       // counter type cannot make the source leave (named, non-P/T, non-time/fade) skips the fail-safe
       // entirely — nothing leaves the battlefield when it is paid, so no trigger can be dropped
       // (runtime-probed on Vat of Rebirth). A lethal (+1/+1) or vanishing (time) removal keeps it.
+      // A PUT-COUNTER cost (Devoted Druid's -1/-1) can be lethal too, so it keeps the blanket refusal, like a +1/+1 removal.
       modeled: !!cost && !isManaEffect && effectHigh
-        && !((cost.sacSelf || cost.exileSelf || cost.removeCounter)
-          && (cost.sacSelf && !cost.exileSelf && !cost.removeCounter ? sacUnsafeIgnoringSelfLtb
-            : !cost.sacSelf && !cost.exileSelf && removeCounterCostCannotLeave(cost.removeCounter) ? false
+        && !((cost.sacSelf || cost.exileSelf || cost.removeCounter || cost.putCounter)
+          && (cost.sacSelf && !cost.exileSelf && !cost.removeCounter && !cost.putCounter ? sacUnsafeIgnoringSelfLtb
+            : !cost.sacSelf && !cost.exileSelf && !cost.putCounter && removeCounterCostCannotLeave(cost.removeCounter) ? false
             : sacUnsafe)),
       needsTarget: effectHigh && !!program && programNeedsChosenTarget(program),
     });

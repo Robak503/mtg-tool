@@ -120,6 +120,7 @@ export const CHOSEN_TARGET_TYPES = new Set([
   "artifactCreatureEnchantmentOrPlaneswalker", "artifactEnchantmentOrLand", "noncreatureArtifact", "noncreatureEnchantment",
   "noncreatureArtifactOrEnchantment", "creatureOrEnchantment", "creatureOrLand", "creatureOrArtifact", "artifactOrLand",
   "creatureOrVehicle", "vehicle", "artifactCreatureOrPlaneswalker", "enchantmentOrLand",
+  "artifactEnchantmentOrPlaneswalker", "artifactCreatureOrEnchantment", // the play-weighted triples (Fracture, Angelic Purge — 2026-10-20)
 ]);
 
 // Load-time drift guard — the halves must PARTITION (an entry in two sets means someone classified a type twice with

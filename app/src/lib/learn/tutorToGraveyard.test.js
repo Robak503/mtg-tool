@@ -43,9 +43,10 @@ describe("parsing — the graveyard destination", () => {
   });
 
   it("⛔ an unmodelled FILTER still parks (CREED) — the destination doesn't loosen the search", () => {
-    // Unmarked Grave's "a nonlegendary card" is not in parseTutorFilter's vocabulary, so it stays on the
-    // Arbiter even though its destination is now understood. A safe FN.
-    expect(atomOf("search your library for a nonlegendary card, put that card into your graveyard, then shuffle")).toBeNull();
+    // "a multicolored card" is not in parseTutorFilter's vocabulary, so it stays on the Arbiter even though its
+    // destination is understood. A safe FN. (Unmarked Grave's "a nonlegendary card" — the example this pin
+    // used to hold — reads since the play-weighted slice of 2026-10-20: unmarkedGraveNonlegendary.test.js.)
+    expect(atomOf("search your library for a multicolored card, put that card into your graveyard, then shuffle")).toBeNull();
   });
 });
 
@@ -112,9 +113,10 @@ describe("tier", () => {
       oracle: "Deathtouch\nWhen this creature enters, search your library for a card, put that card into your graveyard, then shuffle." })).toBe("native-trigger");
   });
 
-  it("⛔ Unmarked Grave stays PARKED — its 'nonlegendary' filter is still unmodelled", () => {
-    // The destination landing does not widen the search vocabulary, and this is the pin that proves it.
-    expect(classifyCard({ name: "Unmarked Grave", type: "Sorcery", mana: "{1}{B}",
-      oracle: "Search your library for a nonlegendary card, put that card into your graveyard, then shuffle." })).toBe("arbiter-spell");
+  it("⛔ an unread filter stays PARKED — the destination does not widen the search vocabulary", () => {
+    // Unmarked Grave was this pin until 2026-10-20, when its "nonlegendary" filter became the bare excludeLegendary gate
+    // (unmarkedGraveNonlegendary.test.js); the destination still loosens nothing, so the pin holds on a filter no gate reads.
+    expect(classifyCard({ name: "Unmarked Grave (multicolored)", type: "Sorcery", mana: "{1}{B}",
+      oracle: "Search your library for a multicolored card, put that card into your graveyard, then shuffle." })).toBe("arbiter-spell");
   });
 });

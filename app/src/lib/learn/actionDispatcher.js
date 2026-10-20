@@ -1764,6 +1764,17 @@ function applyActivateAbility(state, action) {
     const lethal = destroyLethalCreatures(working);
     working = checkDiesTriggers(lethal.state, lethal.dead);
   }
+  if (action.putCounter) {
+    // PUT A -1/-1 COUNTER ON THE SOURCE (play-weighted, 2026-10-20 — Devoted Druid: "Put a -1/-1 counter on this creature: Untap this
+    // creature."): paid as the ability is activated (CR 601.2h via 602.2b), through addCounter — the counter chokepoint every effect
+    // uses, so a counter replacement applies and the counters-put event is recorded (CR 122.6). The remove-counter cost's mirror: a
+    // source the counter takes to 0 toughness dies here (CR 704.5f), before the ability resolves — the cards' rulings ("it's put
+    // into your graveyard before you can untap it"); the ability on the stack then finds no source to untap.
+    working = addCounter(working, { permanentId: action.permanentId, type: action.putCounter.type, amount: action.putCounter.count || 1 });
+    freezeLeavingSource();
+    const lethal = destroyLethalCreatures(working);
+    working = checkDiesTriggers(lethal.state, lethal.dead);
+  }
 
   // Build the serializable payload. An Equip ability ATTACHES (the ATTACH resolver moves
   // the equipment onto the target creature); every other activated ability runs its effect

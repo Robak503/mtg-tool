@@ -12,7 +12,7 @@
  *     the 7c count-buff uses (a plain type-line board scan — recursion-safe, never deriveCharacteristics) and
  *     SETS the base, so the P/T tracks the board BOTH directions and counters/anthems (7c) add ON TOP.
  *   • SELF-REF NORMALIZATION (selfNormalizeOracle) — extended to the legendary short-name (pre-comma) and
- *     first-word forms (CR 201.4), with a TRIBE-WORD GUARD so a tribe name that is the card's own subtype
+ *     first-word forms (CR 201.5c), with a TRIBE-WORD GUARD so a tribe name that is the card's own subtype
  *     ("Sliver" for Sliver Legion) is never mistaken for a self-reference.
  *
  * Cross-deck motivation (Toph deck): Lumra / Ashaya / Toph the Blind Bandit all carry this CDA but PARK on

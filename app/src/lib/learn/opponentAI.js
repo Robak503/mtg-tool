@@ -2117,7 +2117,7 @@ function pickSafeAbilityActivation(abilityActions, { state = null, aiPlayerId = 
   for (const a of abilityActions) {
     if (!a.program || a.program.structure === "modal") continue;
     if ((a.targets?.length || 0) > 0) continue;
-    if (a.sacSelf || a.exileSelf || a.sacCreatureId || (a.sacCountIds?.length) || a.removeCounter
+    if (a.sacSelf || a.exileSelf || a.sacCreatureId || (a.sacCountIds?.length) || a.removeCounter || a.putCounter // a -1/-1 counter on the source (Devoted Druid) shrinks it and can kill it: never auto-spent
       || (a.payLife || 0) > 0 || a.tapCreatureId || (a.tapCountIds?.length) || a.returnLandId || a.xValue != null || a.chosenMode != null) continue; // V6 slice 2: a counted tap cost taps real bodies — never auto-spent; a fetch land's sacrifice is pickFetchCrack's
     if (!a.tapSelf && (a.cmc || 0) < 1) continue;         // termination bound: tap or a real mana cost
     const atoms = a.program.atoms || [];
@@ -2253,7 +2253,7 @@ function pickTargetedActivation(state, aiPlayerId, actions, pol = {}) {
     if (a.kind !== "activate-ability" || a.isEquipAbility || !(a.targets?.length) || !a.program) continue;
     if (a.program.structure === "modal" || a.chosenMode != null || a.xValue != null) continue;
     if (a.exileSelf || a.sacCreatureId || (a.sacCountIds?.length) || (a.payLife || 0) > 0 || (a.payEnergy || 0) > 0 || a.tapCreatureId
-      || (a.tapCountIds?.length) || a.returnLandId || a.unattachEquipmentId || a.discardCardId || (a.discardIds?.length) || (a.exileGyIds?.length)) continue;
+      || (a.tapCountIds?.length) || a.returnLandId || a.unattachEquipmentId || a.discardCardId || (a.discardIds?.length) || (a.exileGyIds?.length) || a.putCounter) continue;
     const rc = a.removeCounter;
     if (rc && !(rc.type === "+1/+1" && rc.count === 1)) continue;
     if (!a.tapSelf && (a.cmc || 0) < 1 && !rc && !a.sacSelf) continue; // termination bound: a tap, a mana cost, or a spent counter / token

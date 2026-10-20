@@ -474,7 +474,7 @@ const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
  *
  * The subject anchors MIRROR selfPreventsUntap exactly and deliberately:
  *   - "this <noun>"     — the modern self reference;
- *   - the CARD'S OWN NAME — legacy printings templated it (Goblin Sharpshooter, Mana Vault; CR 201.4).
+ *   - the CARD'S OWN NAME — legacy printings templated it (Goblin Sharpshooter, Mana Vault; CR 201.5).
  * It must NOT match "Enchanted creature doesn't untap …" (the ATTACHED form, a different runtime path) nor
  * the "your NEXT untap step" wording (a one-shot rider on a mana ability that the runtime refuses).
  */
@@ -763,7 +763,7 @@ export function isKeywordOnly(oracle, name) {
   if (name) {
     const n = String(name).toLowerCase().replace(/[’']/g, "'").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (n) t = t.replace(new RegExp(`\\b${n}\\b`, "g"), "this creature");
-    // LEGENDARY SHORT NAME (CR 201.4b-adjacent oracle convention): a comma-carrying legend refers to
+    // LEGENDARY SHORT NAME (CR 201.5c): a comma-carrying legend refers to
     // itself by its PRE-COMMA short name ("Toski attacks each combat if able" on "Toski, Bearer of
     // Secrets"), so normalize that form too. FN-safe by construction: a mangled non-self clause just
     // fails the keyword allowlist below (body-only), never credits anything new.
@@ -2143,7 +2143,7 @@ export function permanentActivatedCovered(card) {
  * lifegain +1/+1 counters", "[gy-self-return:hand] …") no longer matches its printed text, so the
  * replace simply doesn't fire and the card keeps its old verdict. Short fragments (<8 chars) are
  * skipped rather than risk matching something unrelated. Self-name normalized first so a legacy card
- * printing its own name (CR 201.4) still matches the normalized clause.
+ * printing its own name (CR 201.5) still matches the normalized clause.
  */
 function stripTriggerEffectTails(text, card) {
   const trigs = detectTriggers(card);
@@ -2326,7 +2326,7 @@ function remainingClausesModeled(card, text) {
   // SELF-NAME NORMALIZATION (census slice 21) — normalize the residue EXACTLY as staticAbilitiesCoverCard
   // does before splitting it. clauseProducesStatic's grammar is anchored on the modern self reference
   // ("this creature's power and toughness are each equal to …"), so a legacy printing that names ITSELF
-  // (Mortivore, Psychosis Crawler — CR 201.4) read as unmodeled residue here while the single-mechanism
+  // (Mortivore, Psychosis Crawler — CR 201.5) read as unmodeled residue here while the single-mechanism
   // static tier credited the very same line. That mismatch is why a card with a modeled STATIC plus a
   // modeled ACTIVATED ability fell between both tiers and landed in body-only despite every piece being
   // understood. Same normalizer, same grammar, both paths.

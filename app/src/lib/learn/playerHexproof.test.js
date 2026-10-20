@@ -1,5 +1,5 @@
 /**
- * playerHexproof.test.js — "You have hexproof." (CR 702.11d): Leyline of Sanctity, Aegis of the Gods,
+ * playerHexproof.test.js — "You have hexproof." (CR 702.11c): Leyline of Sanctity, Aegis of the Gods,
  * Spirit of the Hearth, Metropolis Reformer, Witchbane Orb, Orbs of Warding, Keen-Eared Sentry,
  * Crystal Barricade.
  *

@@ -70,7 +70,7 @@ describe("The Ozolith — detection + routing (both triggers)", () => {
   it("CREED near-misses: an unlisted subject / a foreign name / a non-creature move target all stay parked", () => {
     // "a creature leaves the battlefield" (no "you control") — no subject arm → undetected → body-only.
     expect(classifyCard({ ...OZOLITH, name: "Wide Watcher", oracle: "Whenever a creature leaves the battlefield, if it had counters on it, put those counters on Wide Watcher." })).toBe("body-only");
-    // A DIFFERENT card's name in the condition slot must NOT rewrite (CR 201.4 is self-reference only).
+    // A DIFFERENT card's name in the condition slot must NOT rewrite (CR 201.5 is self-reference only).
     const foreign = detectTriggers({ name: "Not Ozolith", type_line: "Artifact", oracle_text: "At the beginning of combat on your turn, if The Ozolith has counters on it, you may move all counters from The Ozolith onto target creature." });
     expect(foreign[0]?.interveningIf).toBe("The Ozolith has counters on it");      // raw → unparseable → not native
     expect(foreign[0] ? triggerRoutesNatively(foreign[0]) : false).toBe(false);

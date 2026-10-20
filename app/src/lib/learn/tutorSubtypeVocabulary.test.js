@@ -59,14 +59,14 @@ describe("the carriers", () => {
     // out, which makes it a stable negative. An invented word must obviously still park.
     row.beast_realTypeNoCarrier = parseTutorFilter("beast");
     row.invented = parseTutorFilter("zzzqcreature");
-    row.nonlegendary = parseTutorFilter("nonlegendary");
+    row.multicolored = parseTutorFilter("multicolored"); // a quality no gate reads ("nonlegendary" was this row until 2026-10-20 — the bare gate reads now)
     console.log("  WITNESS tutorSubtypeVocabulary", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
     expect(row.human).toEqual({ groups: [["human"]] });
     expect(row.giant).toEqual({ groups: [["giant"]] });
     expect(row.pirate).toEqual({ groups: [["pirate"]] });
     expect(row.beast_realTypeNoCarrier).toBeNull();
     expect(row.invented).toBeNull();
-    expect(row.nonlegendary).toBeNull();
+    expect(row.multicolored).toBeNull();
   });
 });
 

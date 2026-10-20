@@ -641,10 +641,11 @@ export function parseTutorFilter(phrase) {
   // or less") — a SUPERTYPE exclusion gate (`filter.excludeLegendary`), peeled first so the color peel below
   // still sees "green creature". Like the color and permanent gates it is enforced in cardMatchesTutorFilter;
   // never a group word (no type line contains "nonlegendary" — the vacuous-filter FP).
+  // The word alone ("a nonlegendary card" — Unmarked Grave) peels too and leaves no groups: the bare-gate return below.
   let excludeLegendary = false;
-  if (/^nonlegendary\s+/i.test(rest)) {
+  if (/^nonlegendary(?:\s+|$)/i.test(rest)) {
     excludeLegendary = true;
-    rest = rest.replace(/^nonlegendary\s+/i, "").trim();
+    rest = rest.replace(/^nonlegendary(?:\s+|$)/i, "").trim();
   }
   let colors = null;
   const cm = rest.match(/^((?:white|blue|black|red|green)(?:\s+or\s+(?:white|blue|black|red|green))+)\s+(.+)$/i);
@@ -680,8 +681,11 @@ export function parseTutorFilter(phrase) {
 
   if (!rest) {
     // A bare "permanent card" / "historic card" (optionally color-qualified) — no type groups to match, just the gates.
-    if (!permanentOnly && !historic) return null;
-    return { groups: [], ...(permanentOnly ? { permanentOnly } : {}), ...(historic ? { historic } : {}), ...(colors ? { colors } : {}) };
+    // + a bare "nonlegendary card" (play-weighted, 2026-10-20 — Unmarked Grave, EDHREC #1623: "Search your library for a
+    // nonlegendary card, put that card into your graveyard, then shuffle."): any card whose front face lacks the Legendary supertype
+    // (CR 205.4a), the excludeLegendary gate alone — a card of any type, a land included.
+    if (!permanentOnly && !historic && !excludeLegendary) return null;
+    return { groups: [], ...(permanentOnly ? { permanentOnly } : {}), ...(historic ? { historic } : {}), ...(colors ? { colors } : {}), ...(excludeLegendary ? { excludeLegendary } : {}) };
   }
 
   const groups = rest.split(/,\s*or\s+|,\s*|\s+or\s+/).map((g) => g.trim().split(/\s+/).filter(Boolean));

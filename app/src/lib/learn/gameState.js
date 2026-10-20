@@ -2000,7 +2000,7 @@ export function cardSelfPreventsUntap(card) {
   if (!oracle) return false;
   if (RE_SELF_NO_UNTAP_THIS.test(oracle)) return true;
   // Legacy printings name the card explicitly ("Mana Vault doesn't untap during your untap step."). Still a SELF
-  // reference (CR 201.4 — a permanent's rules text referring to itself by name means itself). Escape the name.
+  // reference (CR 201.5 — a permanent's rules text referring to itself by name means itself). Escape the name.
   const name = String(card.name || "");
   if (name) {
     const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/'/g, "['’]");

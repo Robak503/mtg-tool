@@ -38,7 +38,7 @@ describe("PARITY — the same static, credited the same way, whatever else the c
   it("with a modeled TRIGGER → native-trigger (unchanged — this path always worked)", () => {
     expect(classifyCard(golem(`${STATIC}\nWhen this creature enters, draw a card.`))).toBe("native-trigger");
   });
-  it("the LEGACY name-templated printing is credited too (CR 201.4 self-reference)", () => {
+  it("the LEGACY name-templated printing is credited too (CR 201.5 self-reference)", () => {
     expect(classifyCard(golem("Mana Vault doesn't untap during your untap step.\n{2}: This creature gets +1/+1 until end of turn.", "Mana Vault"))).toBe("native-activated");
   });
 });

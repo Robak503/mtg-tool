@@ -98,7 +98,7 @@ export function fetchLandAbility(card) {
   if (!isLandFront(card)) return null;
   for (const ab of parseActivatedAbilities(card)) {
     if (!ab.modeled || ab.costModeled === false || !ab.tapSelf || !ab.sacSelf || ab.manaPips || ab.needsTarget) continue;
-    if (ab.sacOther || ab.sacCount || ab.sacX || ab.costX || ab.exileSelf || ab.removeCounter || ab.tapCreature || ab.discardCard
+    if (ab.sacOther || ab.sacCount || ab.sacX || ab.costX || ab.exileSelf || ab.removeCounter || ab.putCounter || ab.tapCreature || ab.discardCard
       || ab.exileGyCount || ab.discardCardFilter || ab.discardRandom || ab.returnLand || ab.unattachEquipment || ab.payEnergy
       || ab.payLifeCommanderColors || ab.condition || ab.activationLimit) continue;
     if (fetchSearchAtom(ab.program)) return ab;
@@ -116,7 +116,7 @@ const costHasMana = (cost) => !!cost && (cost.hasX || (cost.hybrid?.length || 0)
 export function fetchCrackAtom(state, action) {
   if (action?.kind !== "activate-ability" || !action.sacSelf || !action.tapSelf) return null;
   if ((action.cmc || 0) !== 0 || costHasMana(action.cost)) return null;
-  if (action.exileSelf || action.sacCreatureId || (action.sacCountIds?.length) || action.removeCounter || action.tapCreatureId
+  if (action.exileSelf || action.sacCreatureId || (action.sacCountIds?.length) || action.removeCounter || action.putCounter || action.tapCreatureId
     || (action.tapCountIds?.length) || (action.tapIds?.length) || action.returnLandId || action.unattachEquipmentId || action.discardCardId
     || (action.discardIds?.length) || (action.exileGyIds?.length) || (action.payEnergy || 0) > 0 || action.xValue != null
     || action.chosenMode != null || (action.targets?.length || 0) > 0) return null;

@@ -290,6 +290,11 @@ export function miscClauseParser(clause) {
   // extra turn" / "take two extra turns" / a skip-step rider never matches) → low → Arbiter (FN-safe —
   // an extra turn credited to the wrong player would be a catastrophic FP).
   if (/^take an extra turn after this one$/.test(t)) return { op: "extra-turn", targetType: null };
+  // THE CHOSEN PLAYER'S EXTRA TURN (play-weighted, 2026-10-20 — Time Warp, EDHREC #1985: "Target player takes an extra turn after
+  // this one."; Walk the Aeons, Beacon of Tomorrows, Karn's Temporal Sundering): the same entry on the extra-turn stack, for the
+  // player chosen as the spell is cast (CR 115.1 — any player, the caster included; CR 500.7 — added after this turn, the most
+  // recent taken first). applyExtraTurn reads the target; an illegal target as it resolves gives nobody a turn (CR 608.2b).
+  if (/^target player takes an extra turn after this one$/.test(t)) return { op: "extra-turn", targetType: "player" };
   // TURN-SCOPED FLASH GRANT (CR 601.3b) — "You may cast [<FILTER>] spells this turn as though they had
   // flash." The STATIC form is modeled in staticAbilityParser (Yeva, Vedalken Orrery) and its matcher
   // comment names this very gap: "Anchored ^…$ so any rider variant ('… this turn') never matches."
@@ -860,8 +865,15 @@ export function applyGrantFlashThisTurn(state, atom, ctx) {
 }
 
 export function applyExtraTurn(state, atom, ctx) {
-  const next = { ...state, extraTurns: [...(state.extraTurns || []), { player: ctx.controller }] };
-  return logEvent(next, { kind: "spell-effect", effect: "extra-turn", controller: ctx.controller, queued: next.extraTurns.length });
+  // "Target player takes …" (Time Warp): the chosen player, still in the game as it resolves; none → no turn is added.
+  let taker = ctx.controller;
+  if (atom?.targetType === "player") {
+    const t = (ctx.targets || []).find((x) => x.type === "player" && state.players?.[x.id]);
+    if (!t) return logEvent(state, { kind: "spell-effect", effect: "extra-turn", controller: ctx.controller, queued: (state.extraTurns || []).length, skipped: "no legal target" });
+    taker = t.id;
+  }
+  const next = { ...state, extraTurns: [...(state.extraTurns || []), { player: taker }] };
+  return logEvent(next, { kind: "spell-effect", effect: "extra-turn", controller: ctx.controller, ...(taker !== ctx.controller ? { player: taker } : {}), queued: next.extraTurns.length });
 }
 
 /**

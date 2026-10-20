@@ -88,7 +88,7 @@ describe("⛔ the existing vocabulary is unchanged", () => {
     // "beast" below is deliberately a real creature type that is NOT curated (zero tutor carriers in the
     // corpus, so criterion (a) keeps it out), which makes it a stable negative rather than a lucky one.
     expect(parseTutorFilter("beast")).toBeNull();         // a real subtype, but no tutor carrier → not curated
-    expect(parseTutorFilter("nonlegendary")).toBeNull(); // Unmarked Grave, still out
+    expect(parseTutorFilter("multicolored")).toBeNull(); // a quality no gate reads (Unmarked Grave's "nonlegendary" was this row until 2026-10-20 — it reads now, unmarkedGraveNonlegendary.test.js)
   });
 });
 

@@ -177,7 +177,11 @@ bullet guard → splitClauses (split on sentences / ";" / top-level " and ", wit
 
 A word-order rewrite runs among the strips (2026-10-18): "Until end of turn, this creature gets +N/+N and gains <keyword>."
 (Resplendent Angel) becomes the trailing-duration sentence the self pump reads — that exact shape only (a count, a choice or another
-subject stays as printed). "Target creature can't attack or block this turn." is the `cant-block` atom with `cantAttack: true`
+subject stays as printed). Two siblings (play-weighted 2026-10-20): "Until end of turn, creatures you control get +N/+N and gain
+<words>." becomes the team pump's trailing form (Triumph of the Hordes, Titanic Ultimatum — a trailing reminder parenthetical comes off;
+the group grant's keyword allowlist decides what is granted); and a FIRST sentence "For each <noun> you control, create <token>." becomes
+"Create <token> for each <noun> you control." (Brass's Bounty, Moogles' Valor) — never when the creation names an object of the count
+("that", "it", "a copy", "different": one token per object is another instruction — Second Harvest, Clone Legion). "Target creature can't attack or block this turn." is the `cant-block` atom with `cantAttack: true`
 (two end-of-turn grants; Endbringer, Off Balance).
 
 **The blink sentence is kept whole** ("exile …, then return … to the battlefield …"): its ", then" split is NOT fail-safe — the
@@ -298,6 +302,14 @@ Ur-Dragon, Vihaan, Mothman, annihilator, radiation…), then grants priority and
 flushes triggers. `passPriority`: when a full table lap passes
 (`consecutivePasses >= playerCount`) → resolve top of stack, or advance step.
 Untap/cleanup grant no priority (`NO_PRIORITY_STEPS`).
+
+**Extra turns** (CR 500.7): `applyExtraTurn` pushes `{ player }` onto `state.extraTurns` — the controller, or the chosen
+player for "Target player takes an extra turn after this one." (Time Warp, Beacon of Tomorrows; 2026-10-20); `advanceStep`'s
+end-of-turn branch pops the most recent (skipped ones — Trouble in Pairs, a departed player — first) and stamps `extraTurnOf`.
+The normal rotation resumes after the **rotation anchor** — the player whose normal turn the extra turns followed, carried
+through them as `rotationAnchor` — never after the last taker (until 2026-10-20 it ran from the last taker, so an opponent's
+extra turn or one taken after another player's turn — Nexus of Fate in an opponent's turn, Perch Protection's gift — handed the
+next normal turn to the wrong seat). An anchor that has left the game rotates from the active player.
 
 **After an action the actor keeps priority and the lap restarts** (CR 117.3c,
 117.4): every dispatcher handler that casts a spell, activates a non-mana ability
@@ -740,6 +752,23 @@ of their turns." is the extra-land marker with `everyPlayer` — `landDropAllowa
 Flourishing). Eldrazi Monument's "sacrifice a creature. If you can't, sacrifice this artifact." is one atom
 (`templateMatchers.matchSacrificeCreatureOrSelf`): the controller's creature edict with `orSacrificeSource`, the source sacrificed
 only when the controller has no creature as it resolves.
+
+**Ten more readers the most-played lacked (play-weighted 2026-10-20, the next slice).** "Goad all creatures you don't control."
+(Disrupt Decorum) is the `eachOpponentCreature` goad — every other player is an opponent in these games, the destroy twin's reading.
+Two word-order rewrites in parseEffectClauseImpl beside the self pump's (§3.2). Two more plain triples on destroy / exile (removal.js,
+beside Bedevil's): `artifactEnchantmentOrPlaneswalker` (Fracture) and `artifactCreatureOrEnchantment` (Angelic Purge, Status // Statue),
+each a `spellEffects.PERMANENT_PREDICATES` entry plus `targetTypes.CHOSEN_TARGET_TYPES` and `PERMANENT_TARGET_TYPES` — a new
+union is those four places. The single-target reanimate (zones.js `rbM`) takes "nonlegendary" (a `cardFilter` object with
+`nonlegendary: true`, read by `cardMatchesGraveyardFilter` on the front face) and "with a <kind> counter on it" (`entersWithCounter`
+{ type, n } → `enterCardFromZone`'s `extraCounter`, the blink return's road): a -1/-1 counter or a keyword counter the engine enforces
+(`ENFORCED_KEYWORD_COUNTER_KINDS`) — Persist, Unbreakable Bond; a +1/+1 counter, finality, mannequin or two counters stay unread.
+`parseTutorFilter` peels a bare "nonlegendary" and returns the `excludeLegendary` gate alone (Unmarked Grave); the bare-gate return
+now carries the gate beside `permanentOnly` / `historic` too. Shalai's "You, planeswalkers you control, and other creatures you control
+have hexproof." is one staticAbilityParser arm: the inert `playerHexproof` op plus each group's own "<group> have hexproof" grant,
+all-or-nothing, hexproof only. "Double target creature's power until end of turn." / "Double the power of target creature …" (Bulk Up,
+Unleash Fury, Mr. Orfeo's attack trigger) is the double-P/T pump (`doublePt: "p"`) on a chosen creature of either side; the "power and
+toughness" sentence is cut by the splitter before it reaches the arm. "Target player takes an extra turn after this one." is the
+extra-turn atom with a player target (§4.3).
 
 **The chosen-type sweep family** (`removal.notChosenTypeSet`, 2026-10-18): Kindred Dominance's destroy, Raise the Palisade's bounce
 and Crippling Fear's -N/-N share one choice (`choicePolicy.autoPickCreatureTypeToSpare`, made as the spell resolves, for every
@@ -1204,6 +1233,14 @@ creature first, a mana source last; the plain creature set keeps its old order).
 says "another"; summoning sickness never stops a payer (CR 302.6). The payers can't also pay the mana part, and no AI picker spends
 such a cost (the safe, targeted and combat-role pickers all skip `tapCreatureId` / `tapCountIds`). A new payer noun is one arm of
 `tapCostPayerFilter` (a colour, a supertype, "nontoken" and land subtypes are unread today).
+**A cost that puts a counter on its source (`putCounter`, 2026-10-20 — Devoted Druid, Cinderhaze Wretch, Barrenton Medic; Sinking
+Feeling's granted ability).** `abilities.parseAbilityCost` reads exactly "Put a -1/-1 counter on this creature" as `putCounter { type,
+count }`; legalChoices carries it onto the action and the dispatcher puts it on the source with `gameState.addCounter` (the counter
+chokepoint — replacements, the counters-put event) as the ability is activated, then runs the lethal sweep like the remove-counter
+cost: a source taken to 0 toughness dies before the ability resolves (the cards' rulings). The cost can be lethal, so the card-level
+leave fail-safe applies to it like a +1/+1 removal. No {T}: a summoning-sick source pays it. No AI picker spends it (the safe and
+targeted pickers skip `putCounter`; fetchLand and the outlet finish line exclude it). Another creature, another counter kind or a
+count is unread.
 **Attack taxes (`attackTax.js` — CR 508.1h, a cost to attack; per attack target since 2026-10-18).** `readAttackTax(card)` is the one
 reader: `{ tax, defends }` — the amount per attacker (`{ generic }`, a counted `{ countSource }`, a `{ phyrexian }` pip) and whom the
 printed subject protects: "can't attack you" → the player only (Propaganda, Ghostly Prison, Windborn Muse, Koskun Falls — the

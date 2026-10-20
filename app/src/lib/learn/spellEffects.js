@@ -54,7 +54,7 @@ import {
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers, checkLifegainTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, stackSpellIsUncounterable } from "./staticAbilityParser.js";
 import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
-import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentHasCardType, permanentHasTypeWord, permanentColors } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
+import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentHasCardType, permanentHasTypeWord, permanentColors } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11c, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
 import { protectionApplies } from "./protection.js";
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — damage to a player dealt to a creature instead (CR 614.9)
 import { isNonChosenTargetType } from "./targetTypes.js";
@@ -147,6 +147,9 @@ export function cardMatchesGraveyardFilter(card, cardFilter, state = null, holde
     // NEGATED SUBTYPE ("non-Avatar creature" — shelf D27): the same front-face, word-bounded read as the subtype gate above,
     // and a card that is every creature type is that type too, so it is excluded (the producer negates a creature type only).
     if (cardFilter.notSubtype && (new RegExp(`\\b${String(cardFilter.notSubtype).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(front) || cardIsEveryCreatureType(state, card, holderId))) return false;
+    // NONLEGENDARY (Persist — play-weighted, 2026-10-20): the front face must not carry the Legendary supertype (CR 205.4a), the
+    // same front-face read as every gate here.
+    if (cardFilter.nonlegendary && /\bLegendary\b/.test(front)) return false;
     // BASE CARD-TYPE gate (BLITZ PW-1 — the reanimate-MV filter {cardType:"creature", mvMax:N}): front-face
     // type-line containment (CR 712.8a, same front-face read as the string-token branch below). An unknown
     // cardType word can never pass → the card is rejected (never a mis-scoped return; whole-or-nothing).
@@ -675,7 +678,7 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceC
   // false-negative — trigger/ability targeting). Read LAYER-AWARE so protection GRANTED by an attached
   // Equipment/Aura (the Captain America Swords) is honored, not just printed protection.
   if (sourceColors.length && protectionApplies(permanentProtectionColors(state, perm.id), sourceColors)) return false;
-  // ④-V TARGET SHIELD BY SOURCE COLOUR (Thrun, Breaker of Silence; Gaea's Revenge — CR 702.11c in all but name): the
+  // ④-V TARGET SHIELD BY SOURCE COLOUR (Thrun, Breaker of Silence; Gaea's Revenge — CR 702.11d in all but name): the
   // shield refuses a source that is NOT the named colour, colourless included; Thrun's form only against opponents.
   // A path that does not thread `sourceColors` (triggers / abilities) is refused outright — an under-offer, never an
   // illegal targeting (a colourless spell and an untracked path both read as []; both are refused, both correctly
@@ -719,7 +722,7 @@ export function resolutionSourceColors(state, stackObject, sourceId) {
  * May `controllerId`'s spell or ability target the player `playerId`? The ONE player-targetability predicate — target
  * enumeration below and the "Enchant player" Aura offer in legalChoices both read it, so the two can't disagree.
  * · SHROUD (CR 702.18, stage ③ · 48): absolute — nobody may target the player, the player included.
- * · HEXPROOF (CR 702.11d): opponent-scoped — the player may still target themself (Leyline of Sanctity).
+ * · HEXPROOF (CR 702.11c): opponent-scoped — the player may still target themself (Leyline of Sanctity).
  * · PROTECTION FROM EVERYTHING (Teferi's Protection, CR 702.16b): nothing another player controls may target them.
  * `recheck` — the CR 608.2b resolution re-check: an empty colour list never refuses there (canBeTargetedBy's colour shields).
  */
@@ -938,7 +941,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // but that's pointless, so opponents-only never offers an illegal or self-defeating target). The card
   // to strip is picked at RESOLUTION from THAT opponent's revealed hand (applyDiscardChosen →
   // pendingChoice), so in 4P there is no cross-opponent cherry-pick and no leak of the other hands.
-  // ⭐ PLAYER HEXPROOF (CR 702.11d) is enforced HERE, at the single target-enumeration seam, and nowhere
+  // ⭐ PLAYER HEXPROOF (CR 702.11c) is enforced HERE, at the single target-enumeration seam, and nowhere
   // else — hexproof stops TARGETING only, so damage, edicts and "each player discards" stay untouched.
   // ⛔ IT IS OPPONENT-SCOPED, NOT ABSOLUTE. "You can't be the target of spells or abilities your OPPONENTS
   // control" — a player with hexproof may still target THEMSELF (Leyline of Sanctity does not stop you
@@ -1035,6 +1038,11 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     // ENCHANTMENT the printed card cannot touch (the same no-narrowing/no-widening discipline as the
     // artifactEnchantmentOrLand entry above).
     artifactCreatureOrPlaneswalker: (tl, perm, has) => has("Artifact") || has("Creature") || has("Planeswalker"),
+    // Fracture's "artifact, enchantment, or planeswalker" and Angelic Purge's "artifact, creature, or enchantment" (play-weighted,
+    // 2026-10-20 — removal.js): the printed triples, read as the types each permanent has now, the same no-widening discipline as
+    // the two triples above (neither is nonlandPermanent, which would add the fourth type the card leaves out).
+    artifactEnchantmentOrPlaneswalker: (tl, perm, has) => has("Artifact") || has("Enchantment") || has("Planeswalker"),
+    artifactCreatureOrEnchantment: (tl, perm, has) => has("Artifact") || has("Creature") || has("Enchantment"),
     enchantmentOrLand: (tl, perm, has) => has("Enchantment") || has("Land"),
   };
   const addPermanents = (pred) => {

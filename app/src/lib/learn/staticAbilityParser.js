@@ -799,7 +799,7 @@ const FIRST_WORD_SELF_STOPWORDS_STATIC = new Set(["the", "a", "an", "of", "and"]
  * …", common on older cards) reads the same as modern "This creature gets …" templating. Word-bounded on
  * the FULL name (never a partial), so it can't touch an unrelated card's name in the text.
  *
- * SHORT-NAME / FIRST-WORD self-ref (CR 201.4) — a LEGENDARY card refers to itself by the part of its name
+ * SHORT-NAME / FIRST-WORD self-ref (CR 201.5c) — a LEGENDARY card refers to itself by the part of its name
  * before the first comma ("Molimo" for "Molimo, Maro-Sorcerer") or, when its name has no comma but does have
  * a space, by its first word ("Braulios" for "Braulios of Pheres Band"). The full-name rewrite alone misses
  * those, so a self-static templated with the short/first-word form (the standard for legends — every CDA-self
@@ -819,7 +819,7 @@ const FIRST_WORD_SELF_STOPWORDS_STATIC = new Set(["the", "a", "an", "of", "and"]
 // Exported (census slice 21) so coverage.permanentFullyCovered can normalize its residue EXACTLY the way
 // staticAbilitiesCoverCard does. The composite tier was passing RAW clauses to clauseProducesStatic, whose
 // CDA anchor is "^this creature's power and toughness …" — so a legacy printing that names itself
-// ("Mortivore's power and toughness …", CR 201.4) read as unmodeled residue in the composite while the
+// ("Mortivore's power and toughness …", CR 201.5) read as unmodeled residue in the composite while the
 // single-mechanism static tier credited it fine. Two paths, one grammar: they must normalize identically.
 export function selfNormalizeOracle(oracle, name, type) {
   // Strip parenthetical reminder text (CR 207.2 — reminder text is never functional) so a fully-modeled
@@ -2461,7 +2461,7 @@ function parseClause(clause, out, selfName, selfType) {
   // defender" / "with defender" compounds (Arcades/High Alert/Felothar), the ATTACHED "enchanted/equipped
   // creature …" grants (the parseAttachedClause path, not this splitter), and the TEMPORARY "target creature
   // … this turn" activated/triggered grants — none is an unconditional board static, so none is matched here.
-  // ⭐ PLAYER HEXPROOF (CR 702.11d) — "You have hexproof." Leyline of Sanctity, Witchbane Orb, Aegis of the
+  // ⭐ PLAYER HEXPROOF (CR 702.11c) — "You have hexproof." Leyline of Sanctity, Witchbane Orb, Aegis of the
   // Gods, Orbs of Warding, Metropolis Reformer, Keen-Eared Sentry, Spirit of the Hearth, Crystal Barricade.
   // The FIRST player-scoped static in the engine: every continuous effect before this affected a PERMANENT,
   // so this family had nowhere to live and parked wholesale.
@@ -2488,7 +2488,7 @@ function parseClause(clause, out, selfName, selfType) {
   // parks: it needs a subtype test this op doesn't carry, and guessing would over-exempt.
   // ⭐ TARGET SHIELD BY SOURCE COLOUR (④-V, 2026-09-03 — Thrun, Breaker of Silence: "Thrun can't be the target of nongreen
   // spells your opponents control or abilities from nongreen sources your opponents control."; Gaea's Revenge: the
-  // everyone-form). Hexproof-from-quality in all but name (CR 702.11c): the shield refuses a targeting source that is
+  // everyone-form). Hexproof-from-quality in all but name (CR 702.11d): the shield refuses a targeting source that is
   // NOT the named colour — a colourless source included. Same INERT layer-6 op family as playerHexproof: the layer
   // engine skips it, and exactly one consumer reads it — spellEffects.canBeTargetedBy, the single targetability seam,
   // which already carries the source spell's colours for protection. On a path that does not thread colours
@@ -2567,6 +2567,25 @@ function parseClause(clause, out, selfName, selfType) {
   }
   if (/^you have hexproof$/.test(c)) {
     out.push({ layer: 6, op: { layerOp: "playerHexproof" }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+    return;
+  }
+  // ⭐ THE PLAYER AND TWO GROUPS (play-weighted, 2026-10-20 — Shalai, Voice of Plenty, EDHREC #1148: "You, planeswalkers you control,
+  // and other creatures you control have hexproof."): one sentence, three subjects, each riding a lane already read — the player half
+  // the inert playerHexproof op above (CR 702.11c), each group half exactly what "<group> have hexproof." emits on its own (a
+  // layer-6 grant over a dynamic selector; "other" leaves the source out, so Shalai herself is targetable — CR 702.11b). ALL-OR-
+  // NOTHING: a group whose own sentence doesn't read as that one grant parks the whole clause; hexproof only (no other keyword has a
+  // player-scoped op to ride — "You and permanents you control have protection from Salamanders" stays residue).
+  const youAndGroups = c.match(/^you, (.+?), and (.+?) have hexproof$/);
+  if (youAndGroups) {
+    const grants = [];
+    for (const group of [youAndGroups[1], youAndGroups[2]]) {
+      const one = [];
+      parseClause(`${group} have hexproof`, one, selfName, selfType);
+      const d = one[0];
+      if (one.length !== 1 || d.layer !== 6 || d.op?.layerOp !== "addKeyword" || d.op.keyword !== "hexproof" || d.affects?.mode !== "dynamic" || d.op.gate || d.zone) return;
+      grants.push(d);
+    }
+    out.push({ layer: 6, op: { layerOp: "playerHexproof" }, affects: { mode: "self" }, duration: { kind: "permanent" } }, ...grants);
     return;
   }
   // ⭐ PLAYER SHROUD (CR 702.18, stage ③ · 48 — Ivory Mask, True Believer): "You have shroud." The same inert-op shape as

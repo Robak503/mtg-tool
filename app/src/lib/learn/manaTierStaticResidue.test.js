@@ -63,8 +63,10 @@ describe("genuine static / replacement residue parks the card — one pin per sh
     // (relicOfLegends.test.js). The shape stays pinned on its synthetic twin: a payer noun the reader doesn't read.
     ["Relic of Legends (a blue-creature payer)", "Artifact", "{3}", "{T}: Add one mana of any color.\nTap an untapped blue creature you control: Add one mana of any color.",
       "a SECOND mana ability the runtime's mana parser cannot read (a tap-a-blue-creature cost)"],
-    ["Devoted Druid", "Creature — Elf Druid", "{1}{G}", "{T}: Add {G}.\nPut a -1/-1 counter on this creature: Untap this creature.",
-      "an activated ability the parser never detects (a -1/-1 counter cost), so the untap is never offered"],
+    // Devoted Druid was this row until 2026-10-20, when its "Put a -1/-1 counter on this creature" cost became one the dispatcher
+    // pays (putCounterSelfCost.test.js). The shape stays pinned on its synthetic twin: a counted counter cost the reader doesn't read.
+    ["Devoted Druid (two counters)", "Creature — Elf Druid", "{1}{G}", "{T}: Add {G}.\nPut two -1/-1 counters on this creature: Untap this creature.",
+      "an activated ability whose cost the parser doesn't read (two -1/-1 counters), so the untap is never offered"],
     ["Phyrexian Atlas", "Artifact", "{3}", "{T}: Add one mana of any color.\nCorrupted — Whenever this artifact becomes tapped, each opponent who has three or more poison counters loses 1 life.",
       "a labeled trigger the trigger count never saw ('Corrupted —' hides the 'Whenever'); detectTriggers finds none"],
     ["Invasion of Zendikar // Awakened Skyclave", "Battle — Siege // Creature — Elemental", "{3}{G}", "Invasion of Zendikar - Battle — Siege {3}{G}\n(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.\n//\nAwakened Skyclave - Creature — Elemental \nVigilance, haste\nAs long as this creature is on the battlefield, it's a land in addition to its other types.\n{T}: Add one mana of any color.",

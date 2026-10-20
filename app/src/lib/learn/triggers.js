@@ -951,7 +951,7 @@ function classifyCondition(condRaw, cardName, cardType) {
   // Handled below (after selfRef is computed): the SELF form detects; every other monstrous shape
   // (another-creature watchers etc.) still parks via the explicit null there.
   const nameL = String(cardName || "").toLowerCase();
-  // SHORT-NAME SELF-REF (CR 201.4) — a LEGENDARY card refers to itself by the portion of its name before
+  // SHORT-NAME SELF-REF (CR 201.5c) — a LEGENDARY card refers to itself by the portion of its name before
   // the first comma ("Pantlaza" for "Pantlaza, Sun-Favored"). The full-name match below misses that, so a
   // self-trigger templated with the short name (the standard for legends) goes UNDETECTED → the whole card
   // wrongly routes to the Arbiter. Match the short name word-bounded (len >= 3), gated to legendary to keep
@@ -961,7 +961,7 @@ function classifyCondition(condRaw, cardName, cardType) {
   const shortName = isLegendary ? nameL.split(",")[0].trim() : "";
   const shortNameRef = shortName.length >= 3 && shortName !== nameL
     && new RegExp(`\\b${shortName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(c);
-  // FIRST-WORD SELF-REF (CR 201.4) — a LEGENDARY whose name has NO comma but DOES have a space (the
+  // FIRST-WORD SELF-REF (CR 201.5c) — a LEGENDARY whose name has NO comma but DOES have a space (the
   // "<First> the <Epithet>" style — "Smaug the Magnificent", "Gandalf the Grey") refers to itself by its
   // FIRST word ("Whenever Smaug attacks, he deals …"). The comma-short-name branch above can't see it (its
   // split is comma-only, so shortName === full name → no match), so such a self-trigger goes UNDETECTED →
@@ -2481,7 +2481,7 @@ function classifyCondition(condRaw, cardName, cardType) {
   // subject ("you sacrifice it" mid-compound, a named subject) stays UNDETECTED → Arbiter (SAFE FN).
   // SELF-SACRIFICE, widened (SHELF-85 · Bumble F6 Heaped Harvest, 2026-09-05 — "When this artifact enters and when you
   // sacrifice it, …"; Carrot Cake prints the same head): the compound-head splitter hands over "you sacrifice it", and
-  // in a trigger CONDITION "it" can only be the source (CR 201.4 — the card refers to itself). Every self-noun joins the
+  // in a trigger CONDITION "it" can only be the source (the card refers to itself). Every self-noun joins the
   // aura/enchantment form; the checker (checkSacrificeTriggers) already fires youSacrificeThis from the sacrificed card
   // regardless of its type, including a cost-sacrifice (the Food's own "{2}, {T}, Sacrifice this artifact" line).
   if (/^you sacrifice (?:this (?:aura|enchantment|artifact|creature|permanent|token|land)|it)$/.test(c)) return { event: "youSacrificeThis", scope: "self", whose: "any" };
@@ -2855,7 +2855,7 @@ function classifyCondition(condRaw, cardName, cardType) {
     // precedent): it fires ONCE for a creature declared as a blocker AND ONCE for an attacker that becomes
     // blocked, deduped per creature per declaration (blocking two attackers is still one "blocks" event —
     // CR 509.3c's once-per-combat reading). SUBJECT-EXACT: only the pure self subjects ("this creature" /
-    // "this permanent" / the card's own full/short/first-word name per CR 201.4) classify — a restricted
+    // "this permanent" / the card's own full/short/first-word name per CR 201.5, 201.5c) classify — a restricted
     // ("…by a creature" → the blocksOrBlockedByCreature contact family; "…by one or more X creatures" —
     // Serra Inquisitors; "equipped/enchanted creature blocks or becomes blocked" — Dead-Iron Sledge/Ferocity,
     // whose attached-watcher fire site doesn't exist at the block seam) or compound-subject form falls
@@ -4229,10 +4229,10 @@ const CONNIVE_IT_RE = /^(?:it|he|she) connives$/i;
 // never matches → stays LOW → Arbiter (CREED — the exact FP this anchor exists to forbid).
 const SUSPECT_IT_LEAD_RE = /^suspect it(?=\.|$)/i;
 
-// SELF-NAME-REF (CR 201.4) — a SELF-scope trigger that names its OWN source by name in the effect rather than
+// SELF-NAME-REF (CR 201.5) — a SELF-scope trigger that names its OWN source by name in the effect rather than
 // the pronoun "it" ("Whenever you sacrifice a Treasure, Captain Lannery Storm gets +1/+0 until end of turn";
 // "Whenever this creature attacks, <Name> gets +2/+2 …"). The full name AND the legendary short name (the
-// portion before the first comma, CR 201.4) both refer to the source. detectTriggers rewrites a LEADING
+// portion before the first comma, CR 201.5c) both refer to the source. detectTriggers rewrites a LEADING
 // self-name → "this creature" so the parser's self atom (target:"self") models it, exactly like the "it"
 // rewrite. SELF SCOPE ONLY — a non-self trigger never names the SOURCE in this slot. Anchored on a leading
 // name + a self-effect VERB (gets/gains/deals/fights — the modeled self-effect shapes), so a name appearing
@@ -4258,7 +4258,7 @@ const SELF_NAME_EFFECT_VERB_RE = /^(?:gets [+-]\d+\/[+-]\d+|gains |deals |fights
 // — a "for each art counter" scaled mana source read as a flat amount) slip through the leaky mana gate — an FP.
 // Two trailing-self-name head grammars: the Arixmethes remove-from form, and the Strong-class
 // "[<lead conjunct> and ]put N +1/+1 counters on <Name>" form (SHELF S7 — a self-name in the SECOND
-// conjunct of a compound payoff; CR 201.4 makes the name unambiguous, and the parser re-gates the
+// conjunct of a compound payoff; CR 201.5 makes the name unambiguous, and the parser re-gates the
 // rewritten compound anyway — an unmodeled lead conjunct still drops the whole program LOW).
 // ("that many" joined the put-counter number slot 2026-08-14 — Abomination, Irradiated Brute "put THAT
 // MANY +1/+1 counters on Abomination" off a combat-damage batch; the amount sentinel re-gates downstream.)
@@ -4271,7 +4271,7 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
   const shortName = fullName.split(",")[0].trim();
   const candidates = shortName && shortName !== fullName ? [fullName, shortName] : [fullName];
   // SHELF-85 V7 (2026-09-04 — Rosie Cotton of South Lane "… other than Rosie Cotton"): the "<Name> of <Place>" legends
-  // (the LTR / Middle-earth naming) refer to themselves by the part BEFORE " of " (CR 201.4's short-name convention for
+  // (the LTR / Middle-earth naming) refer to themselves by the part BEFORE " of " (CR 201.5c's short-name convention for
   // a name without a comma). One more exact candidate for the anchored arms below — never a global rename.
   const ofPrefix = fullName.split(/\s+of\s+/)[0].trim();
   if (ofPrefix && ofPrefix !== fullName && !candidates.includes(ofPrefix)) candidates.push(ofPrefix);
@@ -4371,7 +4371,7 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
     if (new RegExp(`^sacrifice ${esc} unless you (?:pay (?:\\{[^}]+\\})+|sacrifice (?:a land|two lands|an enchantment)|discard a card(?: at random)?)\\.?$`, "i").test(eff))
       return eff.replace(new RegExp(`\\b${esc}\\b`, "i"), "this creature");
     // OZOLITH LEAVE-COUNTERS PAYOFF (W2) — "put those counters on <Name>": the trailing self-name is the
-    // SOURCE (CR 201.4); "those counters" is the leave event's snapshot (ctx.triggeringLeaveCounters).
+    // SOURCE (CR 201.5); "those counters" is the leave event's snapshot (ctx.triggeringLeaveCounters).
     // "this permanent" (not "creature") — the carrier is an artifact; my parser arm matches exactly this
     // rewritten form. Whole-clause anchored (any rider → unmatched → the card parks, CREED).
     if (new RegExp(`^put those counters on ${esc}$`, "i").test(eff))
@@ -4385,7 +4385,7 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
   return effectClause;
 }
 
-// INTERVENING-IF SELF-NAME (W2, CR 201.4) — the same allowlist discipline as rewriteSelfNameToThisCreature,
+// INTERVENING-IF SELF-NAME (W2, CR 201.5) — the same allowlist discipline as rewriteSelfNameToThisCreature,
 // for the CONDITION slot: "The Ozolith has counters on it" names its own source, and the interveningIf
 // vocabulary (metric-side interveningIfParseable is pure text, no card in hand) needs the normalized
 // "this permanent" form. ONE anchored grammar; anything else passes through untouched → unparseable → the
@@ -5062,7 +5062,7 @@ export function detectTriggers(cardIn) {
         // rewrite (rewriteSelfNameToThisCreature) is an allowlist of WHOLE-CLAUSE grammars — a global rename measured
         // −25/−29 twice — so a self-name INSIDE a bullet never met them and the whole modal parked. Each bullet is its own
         // clause: its BODY runs through the same allowlist with the period peeled and restored, one bullet at a time. A
-        // printed self-name is unambiguous for any scope (CR 201.4), so no event gate — the parser re-gates every mode.
+        // printed self-name is unambiguous for any scope (CR 201.5), so no event gate — the parser re-gates every mode.
         if (/\n\s*•/.test(effectClause)) {
           effectClause = effectClause.split("\n").map((line) => {
             const bm = line.match(/^(\s*•\s*)(.+?)(\.?)\s*$/);
@@ -5132,7 +5132,7 @@ export function detectTriggers(cardIn) {
       // ("Whenever a creature you control attacks, it gets…") the "it" is the OTHER triggering
       // creature, not the source — rewriting there would mis-pump the source, a forbidden false
       // positive. The whole-clause anchor leaves any rider/compound untouched (→ stays LOW → Arbiter).
-      // SELF-NAME-REF (CR 201.4) — the source names ITSELF in the effect ("Whenever you sacrifice a Treasure,
+      // SELF-NAME-REF (CR 201.5) — the source names ITSELF in the effect ("Whenever you sacrifice a Treasure,
       // Captain Lannery Storm gets +1/+0 …"; "Whenever this creature attacks, <Name> gets +2/+2 …"). UNLIKE the
       // pronoun "it" (whose referent depends on scope — the SOURCE for a self trigger, the TRIGGERING permanent
       // otherwise), a literal self-NAME is UNAMBIGUOUS: it always refers to the named permanent = the SOURCE,

@@ -19,6 +19,7 @@ import { auraMayEnchantCreature } from "../../auraHost.js"; // shelf D41 — the
 import { entersByDiscardingLand, applyDiscardLandToEnter } from "../../discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247, CR 614.1a / 614.12a) — whether it enters at all; a leaf over gameState / triggers / staticAbilityParser, which this file already reaches
 import { temporaryEntryCopySpec, cloneCandidates, pickTemporaryCopy, snapshotCopiedCard } from "../../cloneCopy.js"; // CURSED MIRROR (play-weighted #448, CR 614.1c / 614.12) — the as-enters copy until end of turn on a put; a leaf over gameState / layers / keywords / staticAbilityParser (becomeCopy.js, a sibling atom, already imports it)
 import { characteristicColors } from "../../faceUp.js"; // a graveyard card's colours — a double-faced card is its front face's (CR 712.8a) (a leaf)
+import { ENFORCED_KEYWORD_COUNTER_KINDS } from "../../staticAbilityParser.js"; // PERSIST — the keyword-counter kinds the engine enforces (CR 122.1b); counters.js gates on the same set
 import { enteringAuraHost } from "../../auraEntry.js"; // CR 303.4f — what an Aura entering without being cast enchants, asked of a seat a person plays (a leaf over modules this file already reaches)
 // CZ-COMMANDER-VISIT cross-layer doors — INJECTED, never imported: a static resolvers.js/layers.js
 // import from this atoms leaf TDZ-crashed 56 suites (zones sits under effectAtoms → parser, and
@@ -586,7 +587,8 @@ export function applyReanimate(state, atom, ctx) {
     // THE TYPE RIDER (Portal to Phyrexia — "It's a Phyrexian in addition to its other types"): the permanent this effect made gets
     // the creature type in layer 4 (CR 613.1d), lasting while it stays on the battlefield (a fixed effect on its new id — a later
     // object is a new one, CR 400.7). Added before its enters triggers are checked, so they see the type the same effect gave it.
-    const r = enterCardFromZone(next, { playerId: ctx.controller, cardId: t.id, fromZone: "graveyard", fromPlayerId, tapped: !!atom.entersTapped, deferEnterTriggers: !!atom.addSubtype });
+    // PERSIST's "with a -1/-1 counter on it" (`entersWithCounter`) rides the entry as its own enters-with counter (CR 614.1c, 122.6).
+    const r = enterCardFromZone(next, { playerId: ctx.controller, cardId: t.id, fromZone: "graveyard", fromPlayerId, tapped: !!atom.entersTapped, deferEnterTriggers: !!atom.addSubtype, ...(atom.entersWithCounter ? { extraCounter: atom.entersWithCounter } : {}) });
     next = r.state;
     if (r.entered && atom.addSubtype) {
       next = addContinuousEffect(next, { layer: 4, op: { subtypes: [atom.addSubtype] }, affects: { mode: "fixed", permanentIds: [r.permanentId] },
@@ -1026,14 +1028,25 @@ export function graveyardReturnClauseParser(clause) {
   // go, so every carrier parked. Thirteenth "built engine, partial ignition" of this run.
   // ⛔ AN OPTIONAL GROUP, so the bare form matches exactly as before and every existing reanimate emits a
   // byte-identical atom (`entersTapped` is only added when the rider actually matched, not as a `false`).
-  const rbM = /^return target (.*?)card from your graveyard to the battlefield( tapped)?$/.exec(t);
+  // PERSIST (play-weighted, 2026-10-20 — EDHREC #1355: "Return target nonlegendary creature card from your graveyard to the battlefield
+  // with a -1/-1 counter on it."; Unbreakable Bond: "… with a lifelink counter on it."): two more optional pieces on the same arm.
+  // "nonlegendary" is the supertype exclusion (CR 205.4a) on the card's front face, read by cardMatchesGraveyardFilter at enumeration
+  // and again at resolution; "with a <kind> counter on it" is the effect's own enters-with counter (CR 614.1c, 122.6 — on it as it
+  // enters, before any state-based action looks: a 1/1 returned with a -1/-1 counter dies at once), handed to enterCardFromZone's
+  // `extraCounter`, the blink return's road. A -1/-1 counter or a keyword counter the engine enforces (CR 122.1b); a finality, a
+  // mannequin or two counters (Rite of the Moth, Makeshift Mannequin, Perennation) stay unread, and so does a +1/+1 counter (no card
+  // prints it on this return). Absent both, the atom is unchanged.
+  const rbM = /^return target (.*?)card from your graveyard to the battlefield( tapped)?(?: with an? (-1\/-1|[a-z]+(?: strike)?) counter on it)?$/.exec(t);
   if (rbM) {
-    const word = rbM[1].trim();
+    const nonlegendary = /^nonlegendary /.test(rbM[1].trim());
+    const word = rbM[1].trim().replace(/^nonlegendary /, "");
     const tap = rbM[2] ? { entersTapped: true } : {};
-    if (word === "creature") return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", ...tap };
+    if (rbM[3] && rbM[3] !== "-1/-1" && !ENFORCED_KEYWORD_COUNTER_KINDS.has(rbM[3])) return null;
+    const rider = { ...tap, ...(rbM[3] ? { entersWithCounter: { type: rbM[3], n: 1 } } : {}) };
+    if (word === "creature") return { op: "reanimate", targetType: "graveyardCard", cardFilter: nonlegendary ? { cardType: "creature", nonlegendary: true } : "creature", ...rider };
     const typeFilter = parseGraveyardFilter(word);
     if (typeFilter && typeFilter !== "any" && isPermanentReanimateFilter(typeFilter)) {
-      return { op: "reanimate", targetType: "graveyardCard", cardFilter: { typeFilter }, ...tap };
+      return { op: "reanimate", targetType: "graveyardCard", cardFilter: { typeFilter, ...(nonlegendary ? { nonlegendary: true } : {}) }, ...rider };
     }
     return null; // unmodeled / non-permanent filter → the whole clause parks (never a mis-reanimate)
   }

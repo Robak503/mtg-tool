@@ -32,7 +32,7 @@ const MONOLITH = {
   oracle: "This artifact doesn't untap during your untap step.\n{T}: Add {C}{C}{C}.\n{3}: Untap this artifact.",
 };
 const VAULT_LEGACY = {
-  // Older printings self-reference BY NAME rather than "this artifact" — CR 201.4, still a self reference.
+  // Older printings self-reference BY NAME rather than "this artifact" — CR 201.5, still a self reference.
   name: "Mana Vault", type: "Artifact", mana: "{1}",
   oracle: "Mana Vault doesn't untap during your untap step.\n{T}: Add {C}{C}{C}.",
 };

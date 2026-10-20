@@ -3,7 +3,7 @@
  * search your library for a basic land card, put it onto the battlefield tapped, then shuffle." The compound head
  * already split into two triggers; the second, "you sacrifice it", had no condition arm (the self-sacrifice form was
  * gated to auras/enchantments). Widened: every self-noun and the bare "it" (in a trigger condition it can only be the
- * source, CR 201.4). The sacrifice checker fires youSacrificeThis from the sacrificed card regardless of type — a
+ * source). The sacrifice checker fires youSacrificeThis from the sacrificed card regardless of type — a
  * cost sacrifice (the Food's own "{2}, {T}, Sacrifice this artifact" line) included.
  *
  * Mutation-checked: see the run ledger (docs-sk64).
