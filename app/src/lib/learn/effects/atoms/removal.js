@@ -713,6 +713,14 @@ function applySacrifice(state, atom, ctx) {
   if (sacrificers.length === 0) {
     return logEvent(state, { kind: "spell-effect", effect: "sacrifice", who: atom.who || "target", sacrificers: 0 });
   }
+  // "If you can't, sacrifice this artifact" (`orSacrificeSource` — Eldrazi Monument): the controller controls no creature as it
+  // resolves, so the source is sacrificed instead; with one, the edict below runs and the source is never a choice (its ruling).
+  if (atom.orSacrificeSource && atom.who === "controller"
+    && !(state.players[ctx.controller]?.battlefield || []).some((p) => sacrificePoolMatchNow("creature", state, p))) {
+    return ctx.sourceId && findPermanent(state, ctx.sourceId)
+      ? sacrificeCreatureEffect(state, ctx.controller, ctx.sourceId)
+      : logEvent(state, { kind: "spell-effect", effect: "sacrifice", controller: ctx.controller, sacrificed: null, reason: "source-gone" });
+  }
   // The sacrificers choose in APNAP order — the active player, then turn order (CR 101.4) — and nothing leaves until the last has
   // chosen, both chains. Until 2026-10-17 the one-permanent chain asked the controller first (CR 101.4's example has the active
   // player choose first, whoever controls the spell).

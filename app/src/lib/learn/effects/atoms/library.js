@@ -123,6 +123,7 @@ export function cardMatchesTutorFilter(card, filter, state = null, holderId = nu
   if (filter.mv) {
     const mv = tutorManaValue(card);
     if (typeof filter.mv.max === "number" && mv > filter.mv.max) return false;
+    if (typeof filter.mv.min === "number" && mv < filter.mv.min) return false; // "N or greater" (Fierce Empath)
     if (typeof filter.mv.exact === "number" && mv !== filter.mv.exact) return false;
   }
   // PRINTED MANA COST (play-weighted P·4 — Urza's Saga's "an artifact card with mana cost {0} or {1}"): the printed cost
@@ -141,6 +142,7 @@ export function cardMatchesTutorFilter(card, filter, state = null, holderId = nu
     const v = raw === undefined || raw === null || raw === "" ? NaN : Number(raw);
     if (!Number.isFinite(v)) return false;
     if (typeof cap.max === "number" && v > cap.max) return false;
+    if (typeof cap.min === "number" && v < cap.min) return false;
     if (typeof cap.exact === "number" && v !== cap.exact) return false;
   }
   // COLOR gate (PUT-FROM-HAND) — applied upstream like MV so applyTutor's candidate pool is already
@@ -1789,12 +1791,25 @@ export function applyShuffleGraveyardIntoLibrary(state, atom, ctx) {
   if (atom?.condX && (ctx.xValue ?? 0) < atom.condX.min) {
     return logEvent(state, { kind: "spell-effect", effect: "shuffle-graveyard-into-library", controller, moved: 0 });
   }
-  const player = state.players?.[controller];
-  if (!player) return state;
+  if (!state.players?.[controller]) return state;
+  // THE SOURCE WITH IT (`withSource` — Elixir of Immortality): the source still on the battlefield goes into its OWNER's library
+  // first, through the battlefield-exit chokepoint (CR 400.3 — it routes by the permanent's owner); its owner's library is then
+  // shuffled too, if that isn't this player's. A source already gone is no longer this object (CR 400.7): in this player's
+  // graveyard it goes in with the graveyard, anywhere else it stays (the bundled rulings).
+  let sourceOwner = null;
+  if (atom?.withSource) {
+    const lk = ctx?.sourceId ? findPermanent(state, ctx.sourceId) : null;
+    if (lk) {
+      sourceOwner = (lk.permanent.owner && state.players[lk.permanent.owner]) ? lk.permanent.owner : lk.controller;
+      state = moveCardToZone(state, { playerId: lk.controller, fromZone: "battlefield", toZone: "library", cardId: lk.permanent.id });
+    }
+  }
+  const alsoShuffle = (s) => (sourceOwner && sourceOwner !== controller ? shuffleControllerLibrary(s, sourceOwner) : s);
+  const player = state.players[controller];
   const graveyard = player.graveyard || [];
   if (graveyard.length === 0) {
     // Empty graveyard — still shuffle the library (CR: you shuffle regardless), a logged near-no-op.
-    const shuffled = shuffleControllerLibrary(state, controller);
+    const shuffled = alsoShuffle(shuffleControllerLibrary(state, controller));
     return logEvent(shuffled, { kind: "spell-effect", effect: "shuffle-graveyard-into-library", controller, moved: 0 });
   }
   // Move all graveyard cards into the library (order is irrelevant — the shuffle randomizes), empty the GY.
@@ -1807,7 +1822,7 @@ export function applyShuffleGraveyardIntoLibrary(state, atom, ctx) {
   };
   // GY-EVENT (SHELF S7): every folded card LEAVES the controller's graveyard for the library.
   merged = recordGraveyardEvents(merged, graveyard.map((card) => ({ dir: "leave", card, gyOwner: controller, zone: "library" })));
-  const shuffled = shuffleControllerLibrary(merged, controller);
+  const shuffled = alsoShuffle(shuffleControllerLibrary(merged, controller));
   return logEvent(shuffled, { kind: "spell-effect", effect: "shuffle-graveyard-into-library", controller, moved: graveyard.length });
 }
 
@@ -1914,6 +1929,9 @@ export function libraryKeywordClauseParser(clause) {
   // as a plain clause. The Eldrazi titans reach it through their graveyard trigger's owner rewrite (triggers.js). Only the
   // controller's own graveyard: "each player shuffles …" and "shuffle this artifact and your graveyard …" stay unmatched.
   if (/^shuffle your graveyard into your library$/.test(t)) return { op: "shuffle-graveyard-into-library", targetType: null };
+  // + THE SOURCE WITH IT (play-weighted, 2026-10-20 — Elixir of Immortality, EDHREC #1445: "Shuffle this artifact and your graveyard
+  // into their owner's library."): the same atom, `withSource` — the source goes from the battlefield to its owner's library first.
+  if (/^shuffle this artifact and your graveyard into their owner's library$/.test(t)) return { op: "shuffle-graveyard-into-library", withSource: true, targetType: null };
   // + TARGET PLAYER (stage ③ · 51 — Clear the Mind, Reminisce, Learn from the Past, Thran Foundry, Cranial Archive): the same
   // atom on the chosen player's graveyard and library. Cast and activation paths choose the player; as a trigger its side
   // is unprovable (shuffling your own graveyard back vs an opponent's away), so atomTargetIntent's default "ambiguous" parks
@@ -2516,7 +2534,8 @@ export function tutorClauseParser(clause, ctx = {}) {
     if (!base) return null; // an unmodeled filter word → LOW → Arbiter (never an over-fetch)
     return { op: "tutor", filter: base, filterLabel: `${tth[1]} card`, destination: "hand", targetType: "opponent", remaining: 1, extraIfTargetControlsMore: { metric: tth[2], count: 1 } };
   }
-  const tm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?(?: with (mana value|toughness|power) (\d+(?: or less)?))?,?(?: reveal (?:it|that card|the card),?)?(?: and)? put (?:it|that card|the card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  // + "N or greater" (play-weighted, 2026-10-20 — Fierce Empath, Treasure Mage): parseTutorMv's floor ({ min }).
+  const tm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?(?: with (mana value|toughness|power) (\d+(?: or (?:less|greater))?))?,?(?: reveal (?:it|that card|the card),?)?(?: and)? put (?:it|that card|the card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (tm) {
     const phrase = tm[1]; // undefined for an unfiltered "a card"
     const stat = tm[2]; // "mana value" | "toughness" | "power" | undefined

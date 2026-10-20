@@ -686,6 +686,14 @@ export function addCounterClauseParser(clause) {
   // enteredOnTurn stamp every enter path writes), the colour as the creature is now (layer-aware, CR 105.2), and "you control" (the
   // ability's controller). With no "you control" the set holds every player's creatures, as printed. +1/+1 only (the printed
   // carriers); whole-clause anchored, so any other qualifier or rider stays unread.
+  // EACH ATTACKING CREATURE YOU CONTROL (play-weighted, 2026-10-20 — Drana, Liberator of Malakir, EDHREC #1535: "… put a +1/+1 counter
+  // on each attacking creature you control."): the same untargeted eachCreature set, narrowed to the creatures attacking as it resolves
+  // (the combat restriction — CR 506.4, a creature removed from combat is not attacking) and to the ability's controller's.
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on each attacking creature you control$/);
+  if (m) {
+    return { op: "add-counter", counterType: "+1/+1", amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "eachCreature",
+      restrictions: [{ kind: "combat", value: "attacking" }, { kind: "controller", who: "you" }] };
+  }
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on each (?:(white|blue|black|red|green) )?creature (you control )?that entered this turn$/);
   if (m) {
     const COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };

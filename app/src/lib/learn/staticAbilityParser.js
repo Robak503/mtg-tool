@@ -1276,6 +1276,15 @@ function parseMetricCountSource(phrase) {
   // stamp a spell cast in response would have overwritten. It read zero on every cast until P·15 (2026-10-01)
   // began offering multikicked casts; modelled as a count rather than stripped, it went live with no edit here.
   if (/^times? it was kicked$/.test(p)) return { kind: "timesKicked", excludeSelf };
+  // CARDS IN YOUR GRAVEYARD (play-weighted, 2026-10-20 — Golgari Grave-Troll, EDHREC #2784: "… for each creature card in your
+  // graveyard"; Diregraf Colossus, #2118: "… for each Zombie card in your graveyard"): the controller's graveyard as the permanent
+  // enters — a creature card, or a card with one creature type (CR 205.3m; a changeling card has every creature type, CR 702.73a).
+  // Read before the entry (CR 614.12 — the entering card returned from that graveyard counts itself, the rulings). No "other".
+  if (!excludeSelf) {
+    if (/^creature cards? in your graveyard$/.test(p)) return { kind: "cardsInGraveyard", cardType: "creature" };
+    const gm = p.match(/^([a-z]+) cards? in your graveyard$/);
+    if (gm && CR_CREATURE_TYPES.has(gm[1])) return { kind: "cardsInGraveyard", subtype: gm[1].charAt(0).toUpperCase() + gm[1].slice(1) };
+  }
   return null;
 }
 
@@ -3191,12 +3200,14 @@ function parseClause(clause, out, selfName, selfType) {
   // library, Dryad's type-changing static, Wayward Swordtooth's ascend) lands here for ITS extra-land clause
   // but the OTHER clause is unmodeled residue → staticAbilitiesCoverCard returns false → the whole card stays
   // body-only (CREED all-or-nothing). "an"/"one".."ten" + a numeric "2 additional" are all parsed to N.
-  const eldM = c.match(/^you may play (an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) additional lands? on each of your turns$/);
+  // + THE SYMMETRIC FORM (play-weighted, 2026-10-20 — Rites of Flourishing, EDHREC #1519: "Each player may play an additional land on
+  // each of their turns."): `everyPlayer` — landDropAllowance counts it for every player, from whichever battlefield it is on.
+  const eldM = c.match(/^(?:you may play (an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) additional lands? on each of your turns|each player may play (an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) additional lands? on each of their turns)$/);
   if (eldM) {
-    const w = eldM[1];
+    const w = eldM[1] ?? eldM[2];
     const NWORDS = { an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
     const n = /^\d+$/.test(w) ? parseInt(w, 10) : (NWORDS[w] || 0);
-    if (n > 0) out.push({ extraLandDrops: n });
+    if (n > 0) out.push(eldM[2] ? { extraLandDrops: n, everyPlayer: true } : { extraLandDrops: n });
     return; // an extra-land-drop clause — handled (or intentionally dropped to body-only when n is unparsed)
   }
 
@@ -6020,6 +6031,14 @@ export function extraLandDropsOf(card) {
   }
   return n;
 }
+/** The part of extraLandDropsOf a card grants EVERY player ("Each player may play an additional land …" — Rites of Flourishing). */
+function everyPlayerExtraLandDropsOf(card) {
+  let n = 0;
+  for (const d of parseStaticAbilities(card)) {
+    if (d.everyPlayer && typeof d.extraLandDrops === "number") n += d.extraLandDrops;
+  }
+  return n;
+}
 
 /**
  * EXTRA-LAND-DROPS (CR 305.2 / 505.6b) — the number of lands `playerId` may play THIS turn = the base one
@@ -6039,6 +6058,12 @@ export function landDropAllowance(state, playerId) {
   // Command-zone entries are BARE card objects (no { card } wrapper), like the cost-reducer scan. No modeled
   // extra-land card functions from the command zone today, so this contributes 0 — but kept for symmetry.
   for (const card of player.command || []) extra += extraLandDropsOf(card);
+  // Every OTHER player's "each player may play an additional land …" (Rites of Flourishing) — its controller's own grant is
+  // already in the battlefield sum above.
+  for (const [pid, other] of Object.entries(state.players)) {
+    if (pid === playerId) continue;
+    for (const perm of other?.battlefield || []) extra += everyPlayerExtraLandDropsOf(perm.card);
+  }
   // ONE-SHOT-EXTRA-LAND (CR 505.6b): a resolving "you may play [N] additional land[s] this turn" effect
   // (Explore → +1, Summer Bloom → +3) bumps the player's per-turn budget (play-extra-land-this-turn atom →
   // player.extraLandsThisTurn). It's reset each of the player's turns (resetTurnCounters) so it never persists

@@ -529,7 +529,10 @@ export function atomTargetIntent(atom) {
       // controller's opponents — the flush chooser picks any opponent (always a legal, provably-correct
       // "enemy"-side pick; there is no self-target hazard because a controller can never be their own
       // opponent). Every OTHER create-named-token form is non-targeted (targetType null → null above), so
-      // this case is reached ONLY for the opponent-creates shape.
+      // this case is reached ONLY for the opponent-creates shape — and its either-player sibling below.
+      // TARGET-PLAYER-CREATES (play-weighted, 2026-10-20 — Prismari Command, Brigid's Command, The Ancient Dingus): any player
+      // may be chosen; the token is a gift to whoever creates it, so a chooser aims it at its own side — its controller.
+      if (tt === "player") return "own";
       return "enemy";
     case "become-copy":
       // BECOME-COPY (CR 613.1a / 707.9) — "~ becomes a copy of another target creature until end of turn".

@@ -828,6 +828,19 @@ export function matchWindfallMaxDiscard(oracle) {
  *   2. discard who:"couldNotSacrifice" — each of those players discards a card of their choice (CR 701.9b), in that order.
  * Anchored on the exact two-sentence shape; any other wording stays on the Arbiter. Returns { atoms }.
  */
+/**
+ * THE CONTROLLER'S EDICT WITH THE SOURCE AS ITS FALLBACK (play-weighted, 2026-10-20 — Eldrazi Monument, EDHREC #1461: "At the beginning
+ * of your upkeep, sacrifice a creature. If you can't, sacrifice this artifact."). ONE atom — the controller's creature edict
+ * (removal.applySacrifice, who:"controller") carrying `orSacrificeSource`: with no creature to sacrifice, the source is sacrificed instead
+ * (the ruling: "You sacrifice the Monument only if you had no creatures to sacrifice"). Collapsed before the clause splitter, which
+ * would otherwise leave the "If you can't" back-reference on its own. Exactly this printing.
+ */
+export function matchSacrificeCreatureOrSelf(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  if (!/^sacrifice a creature\. if you can't, sacrifice this artifact$/.test(s)) return null;
+  return { atom: { op: "sacrifice", who: "controller", what: "creature", orSacrificeSource: true } };
+}
+
 export function matchEdictUnableDiscard(oracle) {
   const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
   if (!/^each player sacrifices a creature or planeswalker of their choice\. each player who can't discards a card$/.test(s)) return null;

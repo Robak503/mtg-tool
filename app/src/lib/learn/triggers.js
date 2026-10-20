@@ -1620,8 +1620,13 @@ function classifyCondition(condRaw, cardName, cardType) {
   // when interveningIf.js can read the condition (the shared strict vocabulary; anything else falls to
   // the blanket reject below → Arbiter, FN-safe). Placed above the qualifier guard for the Military
   // Intelligence reason: that guard eats every "while".
+  // + the SELF-NAME subject (play-weighted, 2026-10-20 — Ruby, Daring Tracker, EDHREC #2157: "Whenever Ruby attacks while you
+  // control a creature with power 4 or greater"; Moon-Boy, Kirk): the card's full name, or a legend's comma short name (CR 201.5, 201.5c),
+  // as the whole subject — the same self-attack the "this creature" spelling names.
   {
-    const awM = c.match(/^this creature attacks while (.+)$/);
+    const awSubj = ["this creature", nameL, shortName.length >= 3 ? shortName : ""].filter(Boolean)
+      .map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+    const awM = c.match(new RegExp(`^(?:${awSubj}) attacks while (.+)$`));
     if (awM && interveningIfParseable(awM[1])) {
       return { event: "attacks", scope: "self", whose: "any", attacksWhileIf: awM[1] };
     }
@@ -4359,7 +4364,11 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
     // tail, and the parser re-gates the rewritten form anyway.
     // ⓘ "this creature" is right for every carrier — all 8 in the corpus are Legendary Creatures (censused
     // 2026-08-05), so the noun cannot be wrong here the way it was in the global attempt.
-    if (new RegExp(`^sacrifice ${esc} unless you pay (?:\\{[^}]+\\})+\\.?$`, "i").test(eff))
+    // + the NON-MANA costs the same seam settles (play-weighted, 2026-10-20 — The Gitrog Monster, EDHREC #906: "sacrifice The
+    // Gitrog Monster unless you sacrifice a land"): exactly the victim and discard forms matchUpkeepSacUnlessPay reads for "this
+    // creature" (Bog Elemental, Masticore). The tail is an alternation of those printed forms, never a free "(.+)", so a cost the
+    // seam cannot pay leaves the name in place and the card parked.
+    if (new RegExp(`^sacrifice ${esc} unless you (?:pay (?:\\{[^}]+\\})+|sacrifice (?:a land|two lands|an enchantment)|discard a card(?: at random)?)\\.?$`, "i").test(eff))
       return eff.replace(new RegExp(`\\b${esc}\\b`, "i"), "this creature");
     // OZOLITH LEAVE-COUNTERS PAYOFF (W2) — "put those counters on <Name>": the trailing self-name is the
     // SOURCE (CR 201.4); "those counters" is the leave event's snapshot (ctx.triggeringLeaveCounters).
@@ -4391,6 +4400,11 @@ function rewriteSelfNameInterveningIf(ifText, cardName) {
     const esc = nm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (new RegExp(`^${esc} has counters on it$`, "i").test(ifText.trim()))
       return "this permanent has counters on it";
+    // The source's own tap state (play-weighted, 2026-10-20 — Kona, Rescue Beastie, EDHREC #2387: "Survival — At the beginning of
+    // your second main phase, if Kona is tapped, …"): interveningIf's self tap-state grammar, the same check "if this creature is
+    // tapped" makes at the trigger and again on resolution (CR 603.4).
+    const tm = ifText.trim().match(new RegExp(`^${esc} is (un)?tapped$`, "i"));
+    if (tm) return `this permanent is ${tm[1] ? "un" : ""}tapped`;
   }
   return ifText;
 }

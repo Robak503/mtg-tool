@@ -573,6 +573,16 @@ exiled from the battlefield" — any player's creature, a token too, a death Res
 recurses with toZone "exile", so the record is written at the same chokepoint). A new destination-gated watcher reads one of
 these two flags; a bounce, a tuck and leaving the game carry neither.
 
+**A card's own name where the engine reads "this <noun>" (CR 201.5, 201.5c — play-weighted 2026-10-20: The Gitrog Monster, Abstergo
+Entertainment, Ruby, Daring Tracker, Kona, Rescue Beastie).** The self-name stays an allowlist of exact grammars (a global rename was
+measured −25 and −29 in 2026-08); each arm admits the full name or a legend's comma short name, never a substring. Four arms:
+`triggers.rewriteSelfNameToThisCreature`'s "sacrifice <Name> unless you …" takes every cost `matchUpkeepSacUnlessPay` settles (mana,
+"a land" / "two lands" / "an enchantment", "a card [at random]") — still an alternation, never a free tail; `classifyCondition`'s
+attacks-while carve takes "<Name> attacks while <cond>" (Ruby, Moon-Boy, Kirk); `rewriteSelfNameInterveningIf` takes "<Name> is
+[un]tapped" → "this permanent is [un]tapped" (Kona's survival); `abilities.execExileSelfName` reads the "Exile <Name>" cost item as
+`exileSelf`, the twin of `execSacrificeSelfName` (Abstergo, The Stasis Coffin, The Echoverse Fulcrum). A new self-name shape is one
+more anchored arm beside these. (About 22 older comments cite "CR 201.4" for this; 201.4 is choosing a card name — 201.5 is the rule.)
+
 #### 4.4b Trigger classes beyond the event trigger (added 2026-07-25)
 
 Three kinds of trigger do NOT fire off a discrete event, and each has its own lane:
@@ -711,6 +721,25 @@ the Beast) and "target Merfolk you control" (Sygg) offered every creature their 
 that creature's power." is `removal.matchSacrificeAnotherForPower` without the "may" — the payoffs keep `ifSacrificed` (no creature
 sacrificed, nothing happens — its ruling). Twilight Prophet's "Each opponent loses X life and you gain X life, where X is that card's
 mana value." is `matchRevealTopDrainByMv`'s third drain: both halves read the one `revealedCardMV` stamp.
+
+**Seven readers the most-played lacked (play-weighted 2026-10-20).** "Target player creates <token>" (Prismari Command, Brigid's
+Command, Gravedig) is both token arms' "target opponent creates" with `targetType: "player"` — `whoCreates: "target"` puts the token
+under the chosen player (CR 111.2); `atomTargetIntent` answers "own" for the player form (a trigger chooser gives the token to its
+controller), "enemy" for the opponent form; `splitClauses`' bare-create keep-whole takes "target opponent|player creates …" so a
+two-colour descriptor stays whole. Elixir of Immortality's "Shuffle this artifact and your graveyard into their owner's library." is
+`shuffle-graveyard-into-library` with `withSource` (one splitter keep-whole, one library.js arm): the source still on the
+battlefield goes to its owner's library first and that library is shuffled too; a source already in the graveyard goes with it,
+anywhere else stays (its rulings). "Put a +1/+1 counter on each attacking creature you control." (Drana, Fuss) is the eachCreature
+`add-counter` with the `combat: attacking` and controller restrictions. The metric enters-with reader (`parseMetricCountSource`) takes
+"creature card(s) in your graveyard" and "<creature type> card(s) in your graveyard" (Golgari Grave-Troll, Golgari Raiders, Diregraf
+Colossus); `countForSpec`'s `cardsInGraveyard` now honours `subtype` the way its layers.js twin (`countGraveyardSpec`) already did — a
+changeling card counts — and the entry reads the graveyard before the card leaves it, so a reanimated Troll counts itself (its
+ruling). `parseTutorMv` reads "N or greater" as `{ min }` and `cardMatchesTutorFilter` enforces it for mana value and the printed
+stats; only the to-hand tutor (`tm`) captures it today (Fierce Empath, Treasure Mage). "Each player may play an additional land on each
+of their turns." is the extra-land marker with `everyPlayer` — `landDropAllowance` adds it from every other battlefield (Rites of
+Flourishing). Eldrazi Monument's "sacrifice a creature. If you can't, sacrifice this artifact." is one atom
+(`templateMatchers.matchSacrificeCreatureOrSelf`): the controller's creature edict with `orSacrificeSource`, the source sacrificed
+only when the controller has no creature as it resolves.
 
 **The chosen-type sweep family** (`removal.notChosenTypeSet`, 2026-10-18): Kindred Dominance's destroy, Raise the Palisade's bounce
 and Crippling Fear's -N/-N share one choice (`choicePolicy.autoPickCreatureTypeToSpare`, made as the spell resolves, for every

@@ -59,9 +59,12 @@ describe("EXTRA-LAND-DROPS — parser", () => {
     expect(extraLandDropsOf(AZUSA)).toBe(2);
   });
   it("rejects symmetric / one-shot / 'any number' forms (no extra-land marker)", () => {
-    // SYMMETRIC ("each player … each of their turns") — grants opponents too; unmodeled scope → safe FN.
-    expect(parseStaticAbilities(RITES).some((d) => d.extraLandDrops)).toBe(false);
-    expect(parseStaticAbilities(GHIRAPUR).some((d) => d.extraLandDrops)).toBe(false);
+    // SYMMETRIC ("each player … each of their turns") GRADUATED (play-weighted, 2026-10-20 — Rites of Flourishing): the marker
+    // carries everyPlayer, and landDropAllowance adds it for every player (eachPlayerExtraLand.test.js). Storm Cauldron's "during
+    // each of their turns" spelling stays unread.
+    expect(parseStaticAbilities(RITES).filter((d) => d.extraLandDrops)).toEqual([{ extraLandDrops: 1, everyPlayer: true }]);
+    expect(parseStaticAbilities(GHIRAPUR).filter((d) => d.extraLandDrops)).toEqual([{ extraLandDrops: 1, everyPlayer: true }]);
+    expect(parseStaticAbilities({ id: "c-cauldron", name: "Storm Cauldron", type: "Artifact", oracle: "Each player may play an additional land during each of their turns." }).some((d) => d.extraLandDrops)).toBe(false);
     // "any number of lands" (Fastbond) — not a fixed +N.
     expect(parseStaticAbilities(FASTBOND).some((d) => d.extraLandDrops)).toBe(false);
     // one-shot sorcery "this turn" (Summer Bloom) — not a permanent static.
@@ -101,8 +104,9 @@ describe("EXTRA-LAND-DROPS — classifyCard", () => {
     // modeled now (ascendCitysBlessing.test.js). The rider guard keeps its shape on a designation still unmodeled.
     expect(classifyCard(WAYWARD)).toBe("native-static");
     expect(classifyCard({ ...WAYWARD, id: "c-way-i", oracle: "You may play an additional land on each of your turns.\nThis creature can't attack or block unless you have the initiative." })).toBe("body-only");
-    // SYMMETRIC ("each player …") + their own riders → never native.
-    expect(classifyCard(RITES)).toBe("body-only");
+    // SYMMETRIC: Rites of Flourishing GRADUATED (play-weighted, 2026-10-20 — its draw-step trigger was already read); Ghirapur
+    // Orrery keeps its unread upkeep rider ("if that player has no cards in hand, that player draws three cards").
+    expect(classifyCard(RITES)).toBe("native-mixed");
     expect(classifyCard(GHIRAPUR)).toBe("body-only");
     expect(classifyCard(FASTBOND)).toBe("body-only");
     // Summer Bloom (the one-shot "play up to three additional lands this turn" sorcery) is NO LONGER an

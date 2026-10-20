@@ -66,10 +66,15 @@ describe("the proper noun stops blocking a finished subsystem", () => {
   });
 
   it("⛔ the arm is ANCHORED — a differently-shaped sacrifice clause is untouched", () => {
-    // Not the sac-unless-pay grammar: no mana cost tail. Must stay unrewritten rather than be coerced.
+    // Not a sac-unless-pay cost the seam settles ("a creature" is no victim form it reads). Must stay unrewritten rather than be
+    // coerced. (Graduated 2026-10-20: "unless you discard a card" — the seam's discard cost — was the pin here; The Gitrog
+    // Monster's slice admits every cost matchUpkeepSacUnlessPay settles, so that form is now rewritten, asserted below.)
     const other = { ...PALLADIA_MORS, id: "c-x", name: "Palladia-Mors",
-      oracle: "At the beginning of your upkeep, sacrifice Palladia-Mors unless you discard a card." };
+      oracle: "At the beginning of your upkeep, sacrifice Palladia-Mors unless you sacrifice a creature." };
     expect(String(detectTriggers(other)[0]?.effectClause || "")).toContain("Palladia-Mors");
+    const discard = { ...PALLADIA_MORS, id: "c-y", name: "Palladia-Mors",
+      oracle: "At the beginning of your upkeep, sacrifice Palladia-Mors unless you discard a card." };
+    expect(String(detectTriggers(discard)[0]?.effectClause || "")).toBe("sacrifice this creature unless you discard a card");
   });
 });
 

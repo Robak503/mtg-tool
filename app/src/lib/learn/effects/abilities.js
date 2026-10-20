@@ -402,6 +402,17 @@ function execSacrificeSelfName(item, card) {
   return new RegExp(`^sacrifice (?:${alt})$`, "i").exec(item);
 }
 
+/** The "Exile <its own name>" cost item — execSacrificeSelfName's twin for the exile-self cost (CR 201.5). */
+function execExileSelfName(item, card) {
+  if (!/^exile /i.test(item)) return null;
+  const name = String(card?.name || "").trim();
+  if (!name) return null;
+  const forms = [name];
+  const short = name.split(",")[0].trim();
+  if (short && short !== name) forms.push(short);
+  return new RegExp(`^exile (?:${forms.map(escapeRe).join("|")})$`, "i").exec(item);
+}
+
 /**
  * γ1i (SHELF CAP14) — the "Unattach an Equipment from <SELF>" cost item, self-name anchored EXACTLY as
  * execRemoveCounterFromSelfName above is, and for the same reason: the printed card names itself (CR 201.5),
@@ -629,6 +640,10 @@ export function parseAbilityCost(costStr, card = null) {
     //                                      graveyard" (a graveyard ability) and "…from exile" variants.
     //   "Remove a <type> counter from this" → remove one counter of <type> from the SOURCE (no choice).
     if (/^exile (?:this|~)(?: creature| permanent| artifact| enchantment| land)?$/i.test(item)) { exileSelf = true; continue; }
+    // "Exile <its own name>" (play-weighted, 2026-10-20 — Abstergo Entertainment, EDHREC #2060: "{3}, {T}, Exile Abstergo
+    // Entertainment: …"; The Stasis Coffin): the same exile-self cost, the printed name anchored exactly as the "Sacrifice <name>"
+    // item is (execSacrificeSelfName — CR 201.5, the full name or a legend's comma short name, never a substring).
+    if (execExileSelfName(item, card)) { exileSelf = true; continue; }
     // The item MUST END after the optional permanent-type noun ($) — like the exileSelf allowlist — so a
     // COMPOUND cost ("Remove a quest counter from this enchantment AND SACRIFICE IT") doesn't match the
     // prefix and silently drop its trailing cost (a partial-payment false-positive); it routes to the Arbiter.

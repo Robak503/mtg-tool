@@ -87,8 +87,11 @@ describe("WAVE-2b parser — new tutor shapes flip HIGH with correct atoms", () 
 describe("WAVE-2b parser — CREED false-positive guards (must stay LOW → Arbiter)", () => {
   const low = (oracle, type) => programConfidence(parseEffectClause(oracle, type)) === "low";
 
-  it("an unmodeled MV comparator ('mana value 3 or greater') drops to low", () => {
-    expect(low("search your library for an artifact card with mana value 3 or greater, reveal it, put it into your hand, then shuffle", "Creature")).toBe(true);
+  it("an unmodeled MV comparator ('mana value 3 or more') drops to low", () => {
+    // "or greater" GRADUATED (play-weighted, 2026-10-20 — Fierce Empath, Treasure Mage): it is the { min } floor now
+    // (tutorManaValueFloor.test.js). A comparator no card prints still drops the tutor.
+    expect(low("search your library for an artifact card with mana value 3 or more, reveal it, put it into your hand, then shuffle", "Creature")).toBe(true);
+    expect(low("search your library for an artifact card with mana value 3 or greater, reveal it, put it into your hand, then shuffle", "Creature")).toBe(false);
   });
   it("a multi-card 'any number … on top' (Goblin Recruiter) drops to low", () => {
     expect(low("search your library for any number of goblin cards, reveal them, then shuffle and put those cards on top in any order", "Creature")).toBe(true);

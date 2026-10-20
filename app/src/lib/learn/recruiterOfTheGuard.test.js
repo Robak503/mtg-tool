@@ -52,7 +52,11 @@ describe("parse", () => {
   });
   it("seen-to-fail: a stat cap with no type word has no printed stat to read; an unmodeled comparator parks", () => {
     expect(parseEffectClause("Search your library for a card with toughness 2 or less, reveal it, put it into your hand, then shuffle.", "Creature").atoms).toEqual([]);
-    expect(parseEffectClause("Search your library for a creature card with toughness 2 or greater, reveal it, put it into your hand, then shuffle.", "Creature").atoms).toEqual([]);
+    expect(parseEffectClause("Search your library for a creature card with toughness 2 or more, reveal it, put it into your hand, then shuffle.", "Creature").atoms).toEqual([]);
+    // "or greater" GRADUATED (play-weighted, 2026-10-20): the { min } floor, enforced on the printed stat like the cap.
+    expect(parseEffectClause("Search your library for a creature card with toughness 2 or greater, reveal it, put it into your hand, then shuffle.", "Creature").atoms.map((a) => a.filter)).toEqual([{ groups: [["creature"]], toughness: { min: 2 } }]);
+    expect(cardMatchesTutorFilter(SMALL, { groups: [["creature"]], toughness: { min: 2 } })).toBe(false);
+    expect(cardMatchesTutorFilter(WIDE, { groups: [["creature"]], toughness: { min: 2 } })).toBe(true);
   });
   it("the matcher reads the PRINTED stat: a '*' toughness is never a candidate; a non-creature has none", () => {
     const f = { groups: [["creature"]], toughness: { max: 2 } };

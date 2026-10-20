@@ -905,7 +905,7 @@ const MUST_DROP_TO_LOW = [
   // (WAVE-2b modeled the Dragon-subtype, the "mana value N [or less]" cap, and the bare up-to-three
   //  land-to-battlefield fetch — those are now pinned HIGH in the WAVE-2b describe block; the near-miss
   //  neighbors below remain LOW.)
-  "Search your library for an artifact card with mana value 3 or greater, reveal it, put it into your hand, then shuffle.", // WAVE-2b: an UNMODELED MV comparator ("or greater") stays low (CREED — never a wrong cap)
+  "Search your library for an artifact card with mana value 3 or more, reveal it, put it into your hand, then shuffle.", // WAVE-2b: an UNMODELED MV comparator stays low (CREED — never a wrong cap). ("or greater" GRADUATED 2026-10-20 — the { min } floor, Fierce Empath; tutorManaValueFloor.test.js)
   "Search your library for a creature card with mana value x or less, put it into your hand, then shuffle.", // WAVE-2b: a non-numeric MV ("X") stays low
   "Search your library for any number of Goblin cards, reveal them, then shuffle and put those cards on top in any order.", // WAVE-2b FETCH-TO-TOP is single-card; "any number" (Goblin Recruiter) stays low
   "Search your library for a card, then shuffle and put that card on the bottom.", // WAVE-2b: an unmodeled "on the bottom" destination stays low

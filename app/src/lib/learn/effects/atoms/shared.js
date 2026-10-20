@@ -12,6 +12,8 @@ import { MASS_WIPE_SCOPES } from "../../targetTypes.js"; // leaf module (pure st
 import { permanentIsCreature, permanentHasCardType, permanentHasTypeWord, permanentTypes, permanentCreatureTypes, domainCount, partyCount, permIsEveryCreatureType, deriveCharacteristics, permanentManaValue, permanentsShareCreatureType } from "../../layers.js"; // + permanentsShareCreatureType (#684 — Shared Animosity's count) // + permanentHasTypeWord (the type-line audit): a subtype filter reads the permanent as it is now // + permanentHasCardType (#651): the layer-aware, face-up land read of the opponents' nonland set // + deriveCharacteristics (#587): a permanent's copiable values + layer-4 types for the nonland mana-value set // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import) // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
 import { creatureSatisfiesRestrictions } from "../../creatureRestrictions.js"; // the SHARED 16-kind restriction satisfier (leaf: gameState + layers + keywords only — every one of those edges already exists above, so no cycle)
 import { isBlockingCreature } from "../../combatRemoval.js"; // CR 506.4 — the one "is it a blocking creature" read (a zero-import leaf)
+import { cardIsEveryCreatureType } from "../../everyCreatureType.js"; // a graveyard card that is every creature type (changeling; Maskwood Nexus) — the leaf library.js reads too
+import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // only a creature type is answered by an every-creature-type card (CR 205.3d) — a zero-import leaf
 import { evaluateInterveningIf } from "../../interveningIf.js"; // INSTEAD-AMOUNT (BLITZ INST-1) — the shared board-condition readers for a condition-gated amountUpgrade; interveningIf → gameState is a leaf edge (gameState imports neither shared.js nor interveningIf), so no cycle
 
 export const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
@@ -1176,6 +1178,14 @@ export function countForSpec(state, ctx, spec) {
     return (player.battlefield || []).filter((p) => permanentIsCreature(state, p.id) && permanentHasTypeWord(state, p.id, type)).length;
   }
   // ===== FOR-EACH ===== cards in the controller's graveyard (raw card objects), optionally one card type.
+  // + ONE CREATURE TYPE (play-weighted, 2026-10-20 — Diregraf Colossus: "… for each Zombie card in your graveyard"): a card with that
+  // type on its face-up type line (CR 712.8a), or a card that is every creature type — a changeling (CR 702.73a), or a creature card
+  // under its owner's Maskwood Nexus — the same read layers.countGraveyardSpec makes for its twin of this count.
+  if (spec.kind === "cardsInGraveyard" && spec.subtype) {
+    const subRe = new RegExp(`\\b${spec.subtype}\\b`, "i");
+    const every = CR_CREATURE_TYPES.has(String(spec.subtype).toLowerCase());
+    return (player.graveyard || []).filter((c) => subRe.test(characteristicTypeLine(c)) || (every && cardIsEveryCreatureType(state, c, playerId))).length;
+  }
   if (spec.kind === "cardsInGraveyard") return (player.graveyard || []).filter((c) => (spec.cardType ? countMatches(c, spec) : true)).length;
   // ===== TWO LAND MANA COUNTS (2026-10-17 — the land {C} fallback; manaModel.parseManaMetric emits them, the mana path reads them
   // here). Their own kinds, so no other count evaluator can read them without the qualifier — an unknown kind counts 0.

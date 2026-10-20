@@ -60,7 +60,10 @@ describe("ETB-XCOUNTERS-FROM-METRIC — parser (serializable spec, mutually excl
       "This creature enters with a +1/+1 counter on it for each color of mana spent to cast it.",      // Sunburst
       // ⚠️ "for each time it was kicked" MOVED OUT of this list on 2026-08-05 — it is now a modelled count
       // (timesKicked), asserted positively below. The guard's job is unchanged; only this example was earned.
-      "This creature enters with a +1/+1 counter on it for each creature card in your graveyard.",      // graveyard
+      // ⚠️ "for each creature card in your graveyard" MOVED OUT on 2026-10-20 — now a modelled count (cardsInGraveyard, Golgari
+      // Grave-Troll; entersWithGraveyardCount.test.js drives it). Every graveyard and a non-creature-type word stay refused:
+      "This creature enters with a +1/+1 counter on it for each creature card in all graveyards.",      // every graveyard
+      "This creature enters with a +1/+1 counter on it for each other creature card in your graveyard.", // "other"
       "Aeve enters with a +1/+1 counter on it for each other Ooze you control.",                        // creature subtype
       "This creature enters with a +1/+1 counter on it for each other creature you control with a +1/+1 counter on it.", // qualified
       "Stag Beetle enters with X +1/+1 counters on it, where X is the number of other creatures on the battlefield.",    // not greatest-P/T

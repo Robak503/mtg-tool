@@ -711,10 +711,12 @@ export const UP_TO_N_WORD = { two: 2, three: 3, four: 4, five: 5 };
  */
 export function parseTutorMv(capture) {
   if (capture === undefined || capture === null) return null;
-  const m = String(capture).match(/^(\d+)( or less)?$/);
+  const m = String(capture).match(/^(\d+)( or less| or greater)?$/);
   if (!m) return null; // an unmodeled comparator → caller drops the tutor to low
   const n = parseInt(m[1], 10);
-  return m[2] ? { max: n } : { exact: n };
+  // "N or greater" (play-weighted, 2026-10-20 — Fierce Empath, Treasure Mage: "a creature card with mana value 6 or greater"): the
+  // floor, enforced beside the cap in library.cardMatchesTutorFilter for every stat it gates.
+  return m[2] === " or less" ? { max: n } : m[2] === " or greater" ? { min: n } : { exact: n };
 }
 
 // ===== TOKEN HELPERS (seam batch 19 — moved from parser.js so atoms/tokens.js can import them cycle-free) =====

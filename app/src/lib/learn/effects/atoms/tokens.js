@@ -895,10 +895,12 @@ export function createNamedTokenClauseParser(clause) {
   if (m) {
     return { op: "create-named-token", token: m[1], count: 1, targetType: m[2] ? "creatureYouControl" : "creature" };
   }
-  m = t.match(/^target opponent creates? (?:a|an|one) (tapped )?(treasure|clue|food|gold|blood) token$/);
+  // + TARGET PLAYER (play-weighted, 2026-10-20 — Prismari Command, EDHREC #1109: "• Target player creates a Treasure token."): any
+  // player may be chosen, the caster included (CR 115.1); the chosen player creates the token under their own control (CR 111.2).
+  m = t.match(/^target (opponent|player) creates? (?:a|an|one) (tapped )?(treasure|clue|food|gold|blood) token$/);
   if (m) {
-    const atom = { op: "create-named-token", token: m[2], count: 1, targetType: "opponent", whoCreates: "target" };
-    if (m[1]) atom.tapped = true;
+    const atom = { op: "create-named-token", token: m[3], count: 1, targetType: m[1], whoCreates: "target" };
+    if (m[2]) atom.tapped = true;
     return atom;
   }
   m = t.match(/^investigate(?: (twice|(?:two|three|four|five|six|seven|eight|nine|ten) times))?$/);
@@ -1168,10 +1170,12 @@ function createTokenClauseParserCore(clause) {
   // creator (whoCreates:"target" — applyCreateToken mints under THAT player, their doubler applies). A rider the
   // general arm can't read ("with protection from black" — Hunted Horror) returns null → the whole clause stays
   // LOW → Arbiter, never a stub token.
-  const toc = t.match(/^target opponent creates? (.+)$/);
+  // + TARGET PLAYER (play-weighted, 2026-10-20 — Brigid's Command: "• Target player creates a 1/1 green and white Kithkin creature
+  // token."): the same recursion with any player as the target (CR 115.1, 111.2).
+  const toc = t.match(/^target (opponent|player) creates? (.+)$/);
   if (toc) {
-    const inner = createTokenClauseParser("create " + toc[1]);
-    if (inner && inner.op === "create-token") return { ...inner, targetType: "opponent", whoCreates: "target" };
+    const inner = createTokenClauseParser("create " + toc[2]);
+    if (inner && inner.op === "create-token") return { ...inner, targetType: toc[1], whoCreates: "target" };
     return null;
   }
   // SHELF-85 S4 (2026-09-04 — Parhelion II "create two 4/4 white Angel creature tokens with flying and vigilance THAT ARE

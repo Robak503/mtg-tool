@@ -703,7 +703,12 @@ export function splitClauses(oracle) {
     // Keep the whole bare-create sentence so the create-token regex matches the full color+type descriptor;
     // `parseClauseToAtom` then peels the "you may" wrapper before matching. Anchored to $ so
     // "…token and draw a card" (ending "card") still splits at " and " — only the bare form is protected.
-    if (/^(?:you may )?create\b.*\bcreature tokens?$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // + the chosen-creator form (play-weighted, 2026-10-20 — Brigid's Command: "Target player creates a 1/1 green and white Kithkin
+    // creature token."): the same one instruction with "target opponent|player creates" in place of "create".
+    if (/^(?:(?:you may )?create|target (?:opponent|player) creates)\b.*\bcreature tokens?$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ONE SHUFFLE OF TWO OBJECTS (play-weighted, 2026-10-20 — Elixir of Immortality, EDHREC #1445: "Shuffle this artifact and your
+    // graveyard into their owner's library."): the " and " joins the two things shuffled in, not two instructions.
+    if (/^shuffle this artifact and your graveyard into their owner[’']s library$/i.test(sentence)) { clauses.push(sentence); continue; }
     // DIES WATCH (shelf D25 — CR 603.7): "When that creature dies this turn, <payoff>" is ONE delayed ability; its payoff
     // is re-parsed whole by the watch's clause parser, so nothing inside it ("a 2/2 black and green Elf") is a boundary.
     if (/^when that creature dies this turn, .+$/i.test(sentence)) { clauses.push(sentence); continue; }
