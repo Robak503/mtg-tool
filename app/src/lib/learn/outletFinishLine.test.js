@@ -361,7 +361,9 @@ describe("the driver takes the route (real sessions)", () => {
     // With enough Squirrels already there, the loop is not run at all.
     const ready = run({ outlets: [DEMENTIA], n: 60, sick: true });
     expect(ready.fired).toEqual({ "t1 Altar of Dementia": ready.startLibrary });
-    expect(ready.tokens).toBe(60 - ready.startLibrary);
+    // 60 + the Squirrel she makes attacking: the two Grizzly Bears cast first are paid with Forests, and since the auto-tap spares
+    // creatures (2026-10-20) she is no longer tapped through Cryptolith Rite for one of them — not one more sacrificed than the library held.
+    expect(ready.tokens).toBe(61 - ready.startLibrary);
   });
 
   it("Blasting Station: the loop is run until the untaps cover the life total, then one shot a point of life — on turn 1", () => {

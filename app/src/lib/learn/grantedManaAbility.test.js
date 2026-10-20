@@ -135,7 +135,8 @@ describe("on a board — Basal Sliver's grant sacrifices the Sliver that uses it
     const sac = board([["basal", BASAL, { tapped: true }], ["metal", METALLIC], ["refl", REFLECTION]]);
     expect(recordOf(sac, "metal")).toEqual([{ permanentId: "metal", colors: ["B"], amount: 2, sacrifices: true, noTap: true }]);
     const tap = board([["gem", GEMHIDE, { tapped: true }], ["metal", METALLIC], ["refl", REFLECTION]]);
-    expect(recordOf(tap, "metal")).toEqual([{ permanentId: "metal", colors: WUBRG, amount: 2, sacrifices: false }]);
+    // (tapsCreatures — 2026-10-20: the Sliver's granted line taps the Sliver, a creature; the sacrifice line above has no {T})
+    expect(recordOf(tap, "metal")).toEqual([{ permanentId: "metal", colors: WUBRG, amount: 2, sacrifices: false, tapsCreatures: ["metal"] }]);
   });
 });
 

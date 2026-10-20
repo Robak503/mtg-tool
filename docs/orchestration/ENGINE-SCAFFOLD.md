@@ -1171,6 +1171,21 @@ DESIGNATION ("a goaded creature") must skip those grants.
   when it also pays; the first (each call's own judgment, as before) decides affordability,
   and `canAfford` runs it alone. The second plan alone is not safe: the costed pass is greedy,
   and what its funding call taps decides the colors left for the rest.
+  **Creatures are tapped last (2026-10-20).** `manaSources` stamps `tapsCreatures` on a record
+  whose activation taps a creature — the source itself when it is a creature now (layer 4: a
+  mana dork, an earthbent or animated land) and the line has {T}, and any creature among its
+  tap-other payers (Springleaf Drum); a no-{T} line (Wall of Roots) taps none. When the plan taps
+  one and a source that taps none is left, `planPayment` plans once more with those records
+  `spare` (`withCreaturesSpared`): the core takes a spared record only after every other source
+  that can do the same job — a colored or snow pip whatever the others' flexibility, a hybrid
+  pip's other option first, generic after every other repeatable source and before a sacrifice,
+  never promoted as plain colorless (Palladium Myr) — under the second plan's whole-board
+  judgment, and that plan is returned only when it pays and taps fewer creatures. The first plan
+  still decides affordability; spend-restricted lines are judged as before — a restricted
+  creature line (Codsworth's Equipment mana) is never spared: when the payment may spend it,
+  its narrow mana goes where it can. Every plan is still
+  made by the same core, so a new rider or pass gets the sparing for free; a new preference of
+  this kind (a land with a non-mana ability worth keeping up) is another mark the same way.
 
 ### 4.8 Combat, legal choices, the pilot seam
 

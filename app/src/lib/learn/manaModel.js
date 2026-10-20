@@ -3522,7 +3522,29 @@ export function manaSources(state, playerId) {
     if (!prod || !prod.fromHand) continue;
     sources.push({ permanentId: card.id, colors: prod.colors, amount: prod.amount ?? 1, sacrifices: false, fromHand: true });
   }
+  stampCreatureTaps(state, player, sources);
   return sources;
+}
+
+/**
+ * THE CREATURES A RECORD'S ACTIVATION TAPS (`tapsCreatures`, 2026-10-20): the source itself when it is a creature right now (layer 4 —
+ * an earthbent or animated land, a mana dork) and its line has {T}, and every creature among its tap-other payers (Springleaf Drum's,
+ * Birchlore Rangers'). Set only when there is one. A tapped creature can't attack or block (CR 508.1a, 509.1a) until it untaps, so
+ * planPayment's creature-sparing plan pays with other sources first (withCreaturesSpared). A line with no {T} (Wall of Roots, an
+ * Eldrazi Spawn's sacrifice) taps nothing; a card in hand is no permanent. A fact about the board, not a cost: plan 1 never reads it.
+ */
+function stampCreatureTaps(state, player, sources) {
+  const byId = new Map((player.battlefield || []).map((p) => [p.id, p]));
+  const memo = new Map();
+  const creature = (id) => {
+    if (!memo.has(id)) memo.set(id, isCreatureNow(state, byId.get(id)));
+    return memo.get(id);
+  };
+  for (const s of sources) {
+    if (s.fromHand) continue;
+    const ids = [...(!s.noTap && creature(s.permanentId) ? [s.permanentId] : []), ...(s.extraTaps || []).filter(creature)];
+    if (ids.length) s.tapsCreatures = ids;
+  }
 }
 
 /**
@@ -3886,15 +3908,58 @@ export function manualManaTaps(state, playerId) {
  * rest — funding a Signet from a Swamp where a {C} paid before stranded a {B} pip (alone, on 20,000 random boards of real mana
  * cards, it lost 33 payable costs and found 65 the old order misses). A board with no such permanent plans once (both plans are
  * the same there). canAfford runs plan 1 alone.
+ * + THE CREATURES IT SPARES (2026-10-20): when the plan taps a creature for mana and another source is left, one more plan with the
+ * creatures' records spared, taken only when it pays and taps fewer creatures (withCreaturesSpared, below).
  */
 const isOneShotSource = (s) => !!(s && (s.sacrifices || s.sacrificesCreature || s.sacrificesFood || s.fromHand || (s.noTap && s.payLife != null)));
 export function planPayment(pool, sources, cost, spendContext = null) {
   const all = sources || [];
   return planWithPhyrexian(cost, spendContext, (manaCost, base) => {
     const plan = planPaymentPasses(pool, all, manaCost, spendContext, null, base);
-    if (!plan || !boardJudgmentCanDiffer(all)) return plan;
-    return planPaymentPasses(pool, all, manaCost, spendContext, all, base) ?? plan;
+    if (!plan) return plan;
+    const best = boardJudgmentCanDiffer(all) ? (planPaymentPasses(pool, all, manaCost, spendContext, all, base) ?? plan) : plan;
+    return withCreaturesSpared(pool, all, manaCost, spendContext, base, best);
   });
+}
+
+/**
+ * THE CREATURES A PAYMENT SPARES (2026-10-20). Every pass above orders by color and board position only, so the auto-tap tapped a
+ * creature for mana as readily as a land: an A/B game paid a pump spell with five animated Forests (42 power it meant to attack
+ * with) while nine plain lands stayed untapped, and Fanatic of Rhonas paid a cast and could not attack. A tapped creature can't
+ * attack or block until it untaps (CR 508.1a, 509.1a); a land tapped for the same mana loses nothing comparable.
+ * So when the plan taps a creature (a record's `tapsCreatures`, stamped by manaSources: the source itself, or a creature its cost
+ * taps — Springleaf Drum) and another source is left, planPayment plans once more with those records SPARED (`spare`): the core
+ * takes a spared record only after every other source that can do the same job — for a colored or snow pip, whatever the others'
+ * flexibility (a hybrid pip tries each option without one first); for generic, after every other repeatable source and before a
+ * sacrifice; never promoted as plain colorless (Palladium Myr) — under the same whole-board judgment as plan 2 (holdsBack, a
+ * spend-restricted line judged per payment as before). That plan is returned only when it pays AND taps fewer creatures than the
+ * plan it would replace; otherwise that plan stands.
+ * A SPEND-RESTRICTED record is never spared: when this payment may spend its mana (the core admits it only then) the creature's tap
+ * is judged as before. Its mana pays a narrow set of spells and this payment is one — sparing Codsworth, Handy Helper ("Spend this
+ * mana only to cast Aura and/or Equipment spells") for an Equipment spell spent a land the turn's equip {2} then lacked (an A/B game). A play order only — each pip is paid by a source that makes its mana, as in
+ * every plan (any mana pays generic, CR 107.4b): the first plan still decides affordability (canAfford runs it alone), so no cost
+ * becomes payable or unpayable.
+ */
+function withCreaturesSpared(pool, all, cost, spendContext, base, best) {
+  const creatureIds = new Set();
+  for (const s of all) for (const id of s.tapsCreatures || []) creatureIds.add(id);
+  if (!creatureIds.size) return best;
+  const tappedCreatures = (plan) => {
+    const hit = new Set();
+    for (const t of plan.taps) {
+      if (!t.noTap && !t.fromHand && creatureIds.has(t.permanentId)) hit.add(t.permanentId);
+      for (const id of t.extraTaps || []) if (creatureIds.has(id)) hit.add(id);
+    }
+    return hit.size;
+  };
+  const before = tappedCreatures(best);
+  if (!before) return best;
+  // Only worth a plan when a source that taps no creature is left over (the common board — every land tapped — plans once).
+  const usedIds = new Set(best.taps.flatMap((t) => [t.permanentId, ...(t.extraTaps || [])]));
+  if (!all.some((s) => !s.tapsCreatures && !usedIds.has(s.permanentId))) return best;
+  const marked = all.map((s) => (s.tapsCreatures && !s.restriction ? { ...s, spare: true } : s));
+  const spared = planPaymentPasses(pool, marked, cost, spendContext, marked, base);
+  return spared && tappedCreatures(spared) < before ? spared : best;
 }
 
 /**
@@ -4204,6 +4269,10 @@ function plannerSourceRecord(s) {
     limitKey: s.limitKey || null,                   // 2026-10-17 — the per-turn activation ledger entry the commit stamps
     opponentsGainLife: s.opponentsGainLife || 0,     // 2026-10-17 (the land lines) — Grove of the Burnwillows: each opponent gains this much as the tap resolves
     bundle: s.bundle || null,                       // 2026-10-17 (the land lines) — a filter land's bundle (the explicit tap's key; the commit reads `fixed`)
+    // 2026-10-20 — set only by planPayment's creature-sparing plan (withCreaturesSpared) on a record that taps a creature: the core
+    // taps it after every other source that can do the same job. Never on a manaSources record, so every other plan ignores it; a
+    // rider like any other here, so a spared record is never promoted as plain colorless (isPlainColorless).
+    spare: !!s.spare,
     used: false,
   };
 }
@@ -4447,15 +4516,18 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
   };
 
   // Tap the most-constrained untapped source that can make `color` (via own mana OR a boost-Aura bonus).
-  const tapForColor = (color) => {
+  // A SPARED record (`spare` — planPayment's creature-sparing plan only) goes after every other source that can make it, whatever
+  // their flexibility; with `spareOk` false it is not taken at all (the hybrid pips below try every option without one first).
+  const tapForColor = (color, spareOk = true) => {
     let best = -1;
     let bestLen = Infinity;
+    let bestSpare = true;
     for (let i = 0; i < avail.length; i++) {
       const s = avail[i];
-      if (s.used || !sourceCanMake(s, color) || !victimsHold(s)) continue;
+      if (s.used || !sourceCanMake(s, color) || !victimsHold(s) || (s.spare && !spareOk)) continue;
       // Constraint = how many distinct colors this source can make (own ∪ bonus); the least-flexible wins.
       const flex = new Set([...s.colors, ...s.bonus.flatMap(b => b.colors)]).size;
-      if (flex < bestLen) { bestLen = flex; best = i; }
+      if (best === -1 || (bestSpare && !s.spare) || (s.spare === bestSpare && flex < bestLen)) { bestLen = flex; best = i; bestSpare = s.spare; }
     }
     if (best === -1) return false;
     tapSource(avail[best], color);
@@ -4482,7 +4554,8 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
   //      payment spends it first, so within the step the colored source kept untapped pays everything the rock would
   //      have, and a colored pip besides. It loses only when the surplus goes unspent AND a later step wants more mana
   //      than color — the planner sees the cost, not the hand.
-  //   2. then any other REPEATABLE source, board order;
+  //   2. then any other REPEATABLE source, board order (in planPayment's creature-sparing plan a spared record — one that taps a
+  //      creature — after every other);
   //   3. then a one-shot sacrifice source (Treasure/Gold) — never crack a Treasure while an untapped land/rock could pay.
   const tapAny = (owed) => {
     if (!plainIds) {
@@ -4508,10 +4581,13 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
       }
     }
     if (best) return tapSource(best, null);
+    // A spared record (planPayment's creature-sparing plan) after every other repeatable source, and before any sacrifice source.
     for (const preferSac of [false, true]) {
-      for (const s of avail) {
-        if (s.used || s.colors.length === 0 || !!s.sacrifices !== preferSac || !victimsHold(s)) continue;
-        return tapSource(s, null);
+      for (const spared of [false, true]) {
+        for (const s of avail) {
+          if (s.used || s.colors.length === 0 || !!s.sacrifices !== preferSac || s.spare !== spared || !victimsHold(s)) continue;
+          return tapSource(s, null);
+        }
       }
     }
     return null;
@@ -4528,11 +4604,13 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
   while (snowNeeded > 0) {
     let best = -1;
     let bestLen = Infinity;
+    let bestSpare = true;
     for (let i = 0; i < avail.length; i++) {
       const s = avail[i];
       if (s.used || !s.snow || !victimsHold(s)) continue;
       const flex = new Set([...s.colors, ...s.bonus.flatMap(b => b.colors)]).size;
-      if (flex < bestLen) { bestLen = flex; best = i; }
+      // A spared record (the creature-sparing plan) after every other snow source, as in tapForColor.
+      if (best === -1 || (bestSpare && !s.spare) || (s.spare === bestSpare && flex < bestLen)) { bestLen = flex; best = i; bestSpare = s.spare; }
     }
     if (best === -1) return null;                 // no untapped snow source → {S} unpayable
     const color = tapSource(avail[best], null);   // tap it; its mana enters `working`
@@ -4558,15 +4636,18 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
   }
 
   // 2. Hybrid pips — pay one colored option.
+  // An option a source that isn't spared can pay before any spared one (the creature-sparing plan: {G/W} off a Plains, not
+  // Llanowar Elves); with no spared record on the list the second round never runs (the first found what it could).
   for (const options of cost.hybrid || []) {
     const colored = options.filter(o => COLOR_SET.has(o));
     let paid = false;
     for (const opt of colored) {
       if (working[opt] > 0) { spendOne(opt); paid = true; break; }
     }
-    if (!paid) {
+    for (const spareOk of [false, true]) {
+      if (paid) break;
       for (const opt of colored) {
-        if (tapForColor(opt)) { spendOne(opt); paid = true; break; }
+        if (tapForColor(opt, spareOk)) { spendOne(opt); paid = true; break; }
       }
     }
     if (!paid) return null;
