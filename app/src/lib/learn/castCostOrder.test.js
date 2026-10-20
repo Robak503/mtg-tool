@@ -246,7 +246,7 @@ describe("⛔ a cost the engine's free or alternative-cost payment can't charge 
   });
 });
 
-describe("⛔ a {0} alternative cost takes the increases too — and the engine's no-mana payment can't charge them (CR 118.9d)", () => {
+describe("⛔ a {0} alternative cost takes the increases too, and owed mana the caster can't pay withholds the cast (CR 118.9d)", () => {
   const FIREBLAST = card("Fireblast", "Instant", "{4}{R}{R}", 6, "You may sacrifice two Mountains rather than pay this spell's mana cost.\nFireblast deals 4 damage to any target.", { colors: ["R"] });
   const MOUNTAIN = card("Mountain", "Basic Land — Mountain", "", 0, "({T}: Add {R}.)");
   const discover = (c, extra = {}) => board({ exile: [{ ...c, id: "x" }], ...extra, over: { pendingDiscover: { controller: "user", cardId: "x" } } });
@@ -264,12 +264,15 @@ describe("⛔ a {0} alternative cost takes the increases too — and the engine'
   it("Thalia's {1} cancelled by Helm of Awakening's {1} less: the discovered Divination is cast free", () => {
     expect(freeCasts(discover(DIVINATION, { aiBf: [perm(THALIA, "t", "ai")], bf: [perm(HELM, "h")] }))).toBe(1);
   });
-  it("⛔ Fireblast's sacrifice of two Mountains pays no mana: under Thalia it owes {1} and is not offered; under Thalia and Helm it is", () => {
+  // (Graduated 2026-10-20: under Thalia the sacrifice was withheld — the engine paid no mana for an alternative cost. The {1} is paid now,
+  //  and a Mountain the cost sacrifices may tap for it first — mana abilities come before the costs are paid, CR 601.2g, 601.2h.)
+  it("Fireblast's sacrifice of two Mountains under Thalia owes {1}, paid by tapping one of them first; under Thalia and Helm it owes nothing", () => {
     const mountains = [perm(MOUNTAIN, "m1"), perm(MOUNTAIN, "m2")];
-    const alt = (extra) => casts(board({ hand: [{ ...FIREBLAST, id: "fb" }], bf: [...mountains, ...(extra.bf || [])], aiBf: extra.aiBf || [] }), "fb").filter((a) => a.altCost).length > 0;
-    const row = { bare: alt({}), thalia: alt({ aiBf: [perm(THALIA, "t", "ai")] }), thaliaAndHelm: alt({ aiBf: [perm(THALIA, "t", "ai")], bf: [perm(HELM, "h")] }) };
+    const alt = (extra) => casts(board({ hand: [{ ...FIREBLAST, id: "fb" }], bf: [...mountains, ...(extra.bf || [])], aiBf: extra.aiBf || [] }), "fb").find((a) => a.altCost);
+    const owed = (a) => (a ? pips(a.cost) : null);
+    const row = { bare: owed(alt({})), thalia: owed(alt({ aiBf: [perm(THALIA, "t", "ai")] })), thaliaAndHelm: owed(alt({ aiBf: [perm(THALIA, "t", "ai")], bf: [perm(HELM, "h")] })) };
     console.log(`WITNESS pitchUnderThalia ${JSON.stringify(row)}`);
-    expect(row).toEqual({ bare: true, thalia: false, thaliaAndHelm: true });
+    expect(row).toEqual({ bare: "{0}", thalia: "{1}", thaliaAndHelm: "{0}" });
   });
 });
 

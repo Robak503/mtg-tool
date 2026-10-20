@@ -6,9 +6,10 @@
  * assembled action list (legalChoices.applyTargetTaxes). A cast whose chosen targets include the taxed permanent carries
  * the {N} in its generic cost, which the dispatcher pays like any cast's, and is not offered when the caster can't fund
  * the taxed total from the sources the payment will read (manaModel.castPaymentSources). The mana value is untouched
- * (CR 202.3). A free cast pays no mana on the engine's side while the tax still applies, so a free cast aimed at the
- * taxed permanent is not offered. The free-cast windows (a pending free cast, cascade, discover) now run through the
- * choke too, which also makes a free cast at Terror of the Peaks pay its 3 life — before, those windows skipped it.
+ * (CR 202.3). A free cast or a no-mana alternative cost is an alternative cost of {0} the tax applies to (CR 118.9d): since
+ * 2026-10-20 it pays the tax with mana like any cast (it was withheld while the engine paid no mana for those casts). The
+ * free-cast windows (a pending free cast, cascade, discover) run through the choke too, which also makes a free cast at
+ * Terror of the Peaks pay its 3 life.
  *
  * Real oracle fixtures (bundled Scryfall, probed 2026-09-30).
  */
@@ -106,9 +107,10 @@ describe("⭐ the offer: a cast aimed at the taxed creature costs {2} more and m
     const list = casts(board({ taxer: ELENORA }));
     expect({ elenora: at(list, "TAX")?.targetManaTax, bear: at(list, "BEAR")?.targetManaTax ?? null }).toEqual({ elenora: 2, bear: null });
   });
-  it("⭐ an alternative cost pays no mana, so Snuff Out's pay-4-life cast is not offered at the Sphinx; at the Bear it is", () => {
+  // (Graduated 2026-10-20: the alternative cost was withheld at the Sphinx — the engine paid no mana for it.)
+  it("⭐ an alternative cost takes the tax onto its {0} (CR 118.9d): Snuff Out's pay-4-life cast at the Sphinx costs {2} and is offered from five Swamps; at the Bear it costs nothing", () => {
     const alts = casts(board({ hand: [SNUFF_OUT] }), "snuff").filter((a) => a.altCost);
-    expect({ sphinx: !!at(alts, "TAX"), bear: !!at(alts, "BEAR") }).toEqual({ sphinx: false, bear: true });
+    expect({ sphinx: at(alts, "TAX")?.cost?.generic ?? null, bear: at(alts, "BEAR")?.cost?.generic ?? null }).toEqual({ sphinx: 2, bear: 0 });
   });
   it("⭐ the re-check reads the payment's own sources: Bone Splinters sacrificing the Eldrazi Spawn can't also crack it for the tax", () => {
     // The Spawn is the AI's only creature, so it is the sacrifice. Two Swamps fund {B} but not {2}{B} once the Spawn is spoken for.
@@ -131,26 +133,35 @@ describe("⭐ the payment: the dispatcher spends the taxed total", () => {
   });
 });
 
-describe("⭐ free casts owe the tax too (CR 601.2f)", () => {
+describe("⭐ free casts owe the tax too (CR 601.2f, 118.9d) — and pay it with mana", () => {
   const FREE = { pendingFreeCast: { controller: "ai", candidateIds: ["murder"], maxMv: 5, typeFilter: null, sourceName: "Expertise" } };
   const windowActions = (s) => legalActionsForPlayer(s, "ai");
-  // Two Swamps stay open in each window: the {2} could be funded, so only the free-cast rule keeps the cast off the list.
-  it("⭐ a pending free cast: Murder at the Sphinx is not offered even with {2} open (no mana is paid on that path); Murder at the Bear and the decline are", () => {
-    const acts = windowActions({ ...board({ swamps: 2 }), ...FREE });
-    expect({ sphinx: !!at(acts, "TAX"), bear: !!at(acts, "BEAR"), decline: acts.some((a) => a.kind === "free-cast-decline") })
-      .toEqual({ sphinx: false, bear: true, decline: true });
+  // (Graduated 2026-10-20: each window withheld the free cast at the Sphinx even with {2} open — the engine paid no mana for a free
+  //  cast. Two Swamps fund the {2} now; one Swamp does not, and the cast is withheld.)
+  it("⭐ a pending free cast: Murder at the Sphinx costs {2} — offered with two Swamps open, not with one; Murder at the Bear and the decline are", () => {
+    const two = windowActions({ ...board({ swamps: 2 }), ...FREE });
+    const one = windowActions({ ...board({ swamps: 1 }), ...FREE });
+    expect({ sphinx: at(two, "TAX")?.cost?.generic ?? null, oneSwamp: !!at(one, "TAX"), bear: at(two, "BEAR")?.cost?.generic ?? null, decline: two.some((a) => a.kind === "free-cast-decline") })
+      .toEqual({ sphinx: 2, oneSwamp: false, bear: 0, decline: true });
   });
-  it("⭐ cascade: a cascaded Murder at the Sphinx is not offered; at the Bear it is, and the decline stays", () => {
+  it("⭐ … and the dispatcher pays it: the free Murder at the Sphinx taps both Swamps and destroys it", () => {
+    const s = { ...board({ swamps: 2 }), ...FREE };
+    const cast = at(windowActions(s), "TAX");
+    const out = cast ? dispatchAction(s, cast) : null;
+    expect({ tapped: out ? tappedLands(out) : null, gone: out ? !resolveTopOfStack(out).players.user.battlefield.some((p) => p.id === "TAX") : null })
+      .toEqual({ tapped: 2, gone: true });
+  });
+  it("⭐ cascade: a cascaded Murder at the Sphinx costs {2}; at the Bear nothing, and the decline stays", () => {
     const s = { ...board({ swamps: 2, hand: [], zones: { exile: [MURDER] } }), pendingCascade: { controller: "ai", cardId: "murder" } };
     const acts = windowActions(s);
-    expect({ sphinx: !!at(acts, "TAX"), bear: !!at(acts, "BEAR"), decline: acts.some((a) => a.kind === "cascade-decline") })
-      .toEqual({ sphinx: false, bear: true, decline: true });
+    expect({ sphinx: at(acts, "TAX")?.cost?.generic ?? null, bear: at(acts, "BEAR")?.cost?.generic ?? null, decline: acts.some((a) => a.kind === "cascade-decline") })
+      .toEqual({ sphinx: 2, bear: 0, decline: true });
   });
-  it("⭐ discover: a discovered Murder at the Sphinx is not offered; at the Bear it is, and to-hand stays", () => {
+  it("⭐ discover: a discovered Murder at the Sphinx costs {2}; at the Bear nothing, and to-hand stays", () => {
     const s = { ...board({ swamps: 2, hand: [], zones: { exile: [MURDER] } }), pendingDiscover: { controller: "ai", cardId: "murder" } };
     const acts = windowActions(s);
-    expect({ sphinx: !!at(acts, "TAX"), bear: !!at(acts, "BEAR"), toHand: acts.some((a) => a.kind === "discover-to-hand") })
-      .toEqual({ sphinx: false, bear: true, toHand: true });
+    expect({ sphinx: at(acts, "TAX")?.cost?.generic ?? null, bear: at(acts, "BEAR")?.cost?.generic ?? null, toHand: acts.some((a) => a.kind === "discover-to-hand") })
+      .toEqual({ sphinx: 2, bear: 0, toHand: true });
   });
   it("⭐ Terror of the Peaks' LIFE tax now binds a free cast: the free Murder at Terror is stamped and costs 3 life (it skipped the tax before)", () => {
     const s = { ...board({ taxer: TERROR, swamps: 0 }), ...FREE };

@@ -74,7 +74,7 @@ import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell �
  * Accepted shapes:
  *   null / undefined                        → all-current (the shipping behavior)
  *   "v1"                                    → every subsystem legacy
- *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker|spellTarget|racer|racerTrade: "v1" } → per-subsystem legacy
+ *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker|spellTarget|racer|racerTrade|costVariant: "v1" } → per-subsystem legacy
  *
  * The DEFAULT is always the new behavior (the Academy and self-play improve
  * automatically); "v1" exists only so the probe can measure old-vs-new inside one
@@ -85,7 +85,7 @@ import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell �
  * Exported so the A/B probe derives its legacy-key list from THIS array (AI-F11:
  * a hand-copied list silently drops every new subsystem from `--legacy=all`).
  */
-export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget", "racer", "racerTrade"];
+export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget", "racer", "racerTrade", "costVariant"];
 function normalizePolicy(policy) {
   if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
   if (policy && typeof policy === "object") return policy;
@@ -698,6 +698,48 @@ function filterAltCastVariants(state, aiPlayerId, actions) {
   }
   return out;
 }
+
+// ─── THE CHEAPEST COST FOR THE SAME CAST (CR 118.9 — the caster pays the mana cost or one alternative cost; ranking only) ──
+//
+// legalChoices offers a plain hand cast once at its mana cost and once per fixed-mana alternative it may be cast for — Fist of Suns'
+// five pips, a Bringer's own pips, a board-granted {0} (Dracogenesis, Rooftop Storm, Darksteel Monolith, As Foretold) — each variant
+// stamped `altManaCost`. The variants are the same spell with the same targets, modes and additional costs; only the mana differs, so
+// the cheapest strictly dominates and the AI keeps it alone (ties keep the earliest offered — the mana cost first). Before this every
+// chooser took the group's first action: the AI cast Goldspan Dragon for its printed cost with Dracogenesis on the battlefield.
+// ⛔ A ONCE-EACH-TURN grant (`altCostOnceSourceId`) is spent by the cast, so it competes only on the costliest spell (mana value) the
+// AI is offered it for right now — on any other card that variant is dropped while the card has another way to pay.
+// Casts that differ in anything but the cost variant — kicked, a different X, mode or target, a no-mana alternative (`altCost`) — are
+// different casts and are never compared. pol.costVariant === "v1" recovers the first-offered pick for the A/B probe.
+const COST_VARIANT_FIELDS = new Set(["cost", "altManaCost", "altName", "altCostOnceSourceId", "phyrexianLife"]);
+function costVariantKey(a) {
+  return JSON.stringify(Object.keys(a).filter((k) => !COST_VARIANT_FIELDS.has(k)).sort().map((k) => [k, a[k]]));
+}
+function manaSymbolCount(cost) {
+  if (!cost || typeof cost !== "object") return 0;
+  return castCostTotal(cost) + (cost.hybrid?.length || 0) + (cost.phyrexian?.length || 0) + (cost.snow || 0) + (cost.anyColor || 0);
+}
+function preferCheapestCostVariant(actions, allCastActions = actions) {
+  if (!actions.some((a) => a.altManaCost)) return actions;
+  // The costliest card each once-each-turn grant is offered for (mana value, the printed characteristic — CR 202.3).
+  const latchMax = new Map();
+  for (const a of allCastActions) if (a.altCostOnceSourceId) latchMax.set(a.altCostOnceSourceId, Math.max(latchMax.get(a.altCostOnceSourceId) ?? -1, a.cmc || 0));
+  const groups = new Map();
+  for (const a of actions) {
+    const k = costVariantKey(a);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(a);
+  }
+  const keep = new Set();
+  for (const group of groups.values()) {
+    if (group.length === 1) { keep.add(group[0]); continue; }
+    const eligible = group.filter((a) => !a.altCostOnceSourceId || (a.cmc || 0) >= (latchMax.get(a.altCostOnceSourceId) ?? -1));
+    const pool = eligible.length ? eligible : group;
+    keep.add(pool.reduce((best, a) => (manaSymbolCount(a.cost) < manaSymbolCount(best.cost) ? a : best), pool[0]));
+  }
+  return actions.filter((a) => keep.has(a));
+}
+/** Test-only handle on the cost-variant filter (castCostOwed.test.js). */
+export const __preferCheapestCostVariantForTests = (...args) => preferCheapestCostVariant(...args);
 
 /**
  * W7c (AI-F4) — is the AI CLEARLY behind on the creature board? Layer-aware counts + power
@@ -1372,9 +1414,12 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     // TEAMWORK (shelf D16): tapping creatures is a real cost — they can't attack, or block on the next turn — so the AI pays
     // teamwork only when every creature it taps is summoning-sick (crew's take-it signal, `teamworkFree`); any other teamwork
     // variant is dropped here, before every chooser below, and the card is cast plain.
-    const actions = (pol.altCost === "v1"
+    // + THE CHEAPEST COST FOR THE SAME CAST (preferCheapestCostVariant): of a cast offered at its mana cost and at fixed-mana
+    // alternatives (Fist of Suns, Dracogenesis' {0}), only the cheapest survives.
+    const altFiltered = (pol.altCost === "v1"
       ? groupActions.filter((a) => !a.altCost)
       : filterAltCastVariants(state, aiPlayerId, groupActions)).filter((a) => !a.teamworkTapIds || a.teamworkFree);
+    const actions = pol.costVariant === "v1" ? altFiltered : preferCheapestCostVariant(altFiltered, castActions);
     if (actions.length === 0) continue; // every variant filtered (e.g. an imprudent alt-only paid cast) → hold
     // ADVENTURE: an adventure action projects the half actually being cast as `faceCard`
     // (creature half from hand/exile, or the Adventure spell half) — score THAT face, not

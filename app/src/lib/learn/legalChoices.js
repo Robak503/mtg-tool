@@ -30,7 +30,7 @@
  */
 
 import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower, nameCastLocked, playerLifeLocked, blockDeclarationOpen } from "./gameState.js"; // B4: the Reflector Mage name cast lock; playerLifeLocked — CR 119.8, a life total that can't change can't pay life; blockDeclarationOpen — CR 509.1
-import { canAfford, planPayment, manaSources, manualManaTaps, payActivationFromPool, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources, lifePaymentContext, tapCostPayerOrder } from "./manaModel.js";
+import { canAfford, planPayment, manaSources, manualManaTaps, payActivationFromPool, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources, lifePaymentContext, tapCostPayerOrder, costOwesMana } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // SELF-METRIC-COST-REDUCTION: a live count read at cast announce
 import { hasKeyword } from "./keywords.js";
 import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord, cannotEquipNow } from "./layers.js"; // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
@@ -1108,6 +1108,15 @@ function bestowedSpellView(card) {
 }
 
 /**
+ * THE PART OF A GENERIC REDUCTION THE {0} FLOOR SET ASIDE, per assembled cost object (CR 601.2f: the mana component "can't be reduced
+ * to less than {0}"). A cost increase that only the chosen targets decide — a target tax, applyTargetTaxes — joins the total after the
+ * cast is enumerated; it is still an increase, applied BEFORE the reductions (Boreal Elemental's ruling), so the reduction the floor
+ * set aside absorbs it first. Keyed by the object assembleTotalCost returned (a lane that copies the cost loses the entry and the tax
+ * is added in full — an over-charge, never an under-charge). A WeakMap, so the action's own fields are unchanged.
+ */
+const UNUSED_GENERIC_REDUCTION = new WeakMap();
+
+/**
  * THE TOTAL COST OF A SPELL (CR 601.2f): "the mana cost or alternative cost …, plus all additional costs and cost increases, and
  * minus all cost reductions", the mana component never below {0}. One assembly for every cast lane, so no lane can apply a reduction
  * before a cost it should have seen:
@@ -1117,23 +1126,49 @@ function bestowedSpellView(card) {
  *   `mods`  — the spell's cost modifiers, read once per spell: `increase` (the commander tax, CR 903.8, and the static taxes — generic),
  *             `reduceAt(manaValue)` (the generic reductions; a mana-value floor reads the spell's mana value, X included on the stack,
  *             CR 202.3e — never the alternative cost's, CR 118.9c) and `pips` (the coloured reductions, each floored at none);
- *             null for a free cast (the dispatcher pays no mana for one);
+ *             null when nothing modifies the cost;
  *   `extraReduction` — a reduction priced with the cast's own choice (a sacrificed creature's mana value for emerge, CR 702.119a; a
  *             target-conditional reduction).
- * A reduction is generic only (CR 118.7a); the coloured part is reduced only by a coloured reduction. Pure: returns `base` itself
- * when nothing applies, a fresh object otherwise.
+ * A reduction is generic only (CR 118.7a); the coloured part is reduced only by a coloured reduction. Returns `base` itself when
+ * nothing applies, a fresh object otherwise; when the {0} floor set part of a generic reduction aside, that part is recorded for the
+ * object (UNUSED_GENERIC_REDUCTION) so a target tax added later meets it first.
  */
 function assembleTotalCost(base, mods, { x = null, manaValue = 0, extraReduction = 0 } = {}) {
   let cost = x == null ? base : xResolvedCost(base, x);
   if (!mods) return cost;
   if (mods.increase) cost = { ...cost, generic: (cost.generic || 0) + mods.increase };
   const reduction = mods.reduceAt(manaValue) + extraReduction;
-  if (reduction) cost = { ...cost, generic: Math.max(0, (cost.generic || 0) - reduction) };
+  let unused = 0;
+  if (reduction) {
+    unused = Math.max(0, reduction - (cost.generic || 0));
+    cost = { ...cost, generic: Math.max(0, (cost.generic || 0) - reduction) };
+  }
   const colors = Object.keys(mods.pips || {});
-  if (!colors.length) return cost;
-  const next = { ...cost };
-  for (const color of colors) next[color] = Math.max(0, (next[color] || 0) - mods.pips[color]);
+  if (colors.length) {
+    const next = { ...cost };
+    for (const color of colors) next[color] = Math.max(0, (next[color] || 0) - mods.pips[color]);
+    cost = next;
+  }
+  if (unused) UNUSED_GENERIC_REDUCTION.set(cost, unused);
+  return cost;
+}
+
+/** A cost increase decided after the cast was assembled (a target tax, generic — CR 601.2f), folded in before the reductions: the
+ *  reduction the floor set aside takes it first. Returns a fresh cost object carrying what is still set aside. */
+function withLateIncrease(cost, amount) {
+  const unused = UNUSED_GENERIC_REDUCTION.get(cost) || 0;
+  const next = { ...cost, generic: (cost.generic || 0) + Math.max(0, amount - unused) };
+  if (unused > amount) UNUSED_GENERIC_REDUCTION.set(next, unused - amount);
   return next;
+}
+
+/** A cost that owes no mana as the free and no-mana alternative casts have always carried it (`{ generic: 0 }`), keeping what the floor
+ *  set aside on the assembled {0}. */
+function owedNothing(assembled) {
+  const zero = { generic: 0 };
+  const unused = UNUSED_GENERIC_REDUCTION.get(assembled);
+  if (unused) UNUSED_GENERIC_REDUCTION.set(zero, unused);
+  return zero;
 }
 
 /** Does this cast's cost carry ADDITIONAL MANA beyond the mana cost — a Spree mode's cost, an additional "pay {3}{B}", a strive
@@ -1340,8 +1375,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     const printedCmc = Number.isFinite(manaValueOverride) ? manaValueOverride : totalCmc(manaCost);
     // THE COST MODIFIERS that affect this spell (CR 601.2f), read ONCE; every cost this card is offered at is assembled from them by
     // assembleTotalCost — the mana cost or an alternative cost, plus the additional costs, plus `increase`, minus the reductions —
-    // so a reduction never meets a cost before an additional cost, the chosen X or a tax has joined it. None for a free cast (the
-    // dispatcher pays no mana for one).
+    // so a reduction never meets a cost before an additional cost, the chosen X or a tax has joined it. A free cast is priced once, as
+    // the alternative cost of {0} it is (`zeroAltCost` below); no lane prices it again.
     //   • increase — the commander tax (CR 903.8, `taxFn`) and the static taxes (Sphere of Resistance, Thalia; CR 601.2f): generic.
     //   • reduceAt(manaValue) — the static reducers (subtype / colour / chosen-type / every-caster / scaled — Dragonspeaker Shaman,
     //     Goblin Anarchomancer, Urza's Incubator, Helm of Awakening, Animar) and the spell's SELF-METRIC reduction ("This spell
@@ -1356,28 +1391,30 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       pips: coloredPipReductionForSpell(costReducers, card, everyType),
     };
     const costMods = freeCast ? null : spellMods;
-    // ⛔ WHAT A {0} ALTERNATIVE COST STILL OWES. "Without paying its mana cost" (a free cast — discover, cascade, a free-cast
+    // ⭐ WHAT A {0} ALTERNATIVE COST STILL OWES. "Without paying its mana cost" (a free cast — discover, cascade, a free-cast
     // permission, plot, suspend) is an alternative cost of {0}, and so is a printed alternative cost that pays no mana (Force of
     // Will's pitch, Fireblast's sacrifice — the twin post-pass below): the cost increases apply to it, and the reductions too
-    // (CR 118.9d) — Thalia, Guardian of Thraben's {1} applies to a cascaded noncreature spell. The engine pays no mana for either
-    // (the dispatcher skips the plan for `freeCast` and `altCost`), so a cast whose {0} still owes mana after them is not offered —
-    // a safe under-offer (every free-cast window keeps its decline), the posture the target-mana-tax pass already takes; under
-    // Thalia AND Helm of Awakening the {1} is cancelled and the cast is offered. X is 0 (CR 107.3b), so the printed mana value.
-    const zeroAltOwes = (assembleTotalCost(parseManaCost("{0}"), spellMods, { manaValue: printedCmc }).generic || 0) > 0;
-    if (freeCast && zeroAltOwes) continue;
+    // (CR 118.9d; Force of Will's and Thalia's rulings) — Thalia, Guardian of Thraben's {1} applies to a cascaded noncreature spell;
+    // under Thalia AND Helm of Awakening it is cancelled. The caster pays what the {0} still owes like any mana cost (CR 601.2g,
+    // 601.2h): the cast carries it as its `cost`, which the dispatcher pays through the normal plan (a `freeCast` / `altCost` cast
+    // whose cost owes nothing pays nothing, exactly as before). One the caster can't pay is not offered — every free-cast window
+    // keeps its decline — and withPayableOwedMana asks each such cast the payment's own question. X is 0 (CR 107.3b), so the
+    // printed mana value. Owing nothing, the cost is the `{ generic: 0 }` these casts have always carried.
+    const zeroAltTotal = assembleTotalCost(parseManaCost("{0}"), spellMods, { manaValue: printedCmc });
+    const zeroAltCost = costOwesMana(zeroAltTotal) ? zeroAltTotal : owedNothing(zeroAltTotal);
     // The total cost of a cast of this card whose base is `base` (the mana cost, an alternative cost, either with additional mana
     // merged in) — or, with `x`, the X chosen too: the X joins the cost and the mana value (CR 107.3a, 202.3e).
     const totalCost = (base, { x = null, extraReduction = 0 } = {}) => assembleTotalCost(base, costMods,
       { x, extraReduction, manaValue: x == null ? printedCmc : printedCmc + (manaCost.xCount ?? 1) * x });
-    // A free cast pays no mana: its cost is {0} and carries no {X} (CR 107.3b — X is 0).
-    let cost = freeCast ? { generic: 0 } : totalCost(manaCost);
-    // The total with X chosen (the X lanes below): the free cast's {0} stays {0}. The affordable X values are judged on it, the
-    // mana ceiling raised by the most the reductions can take off.
-    const xCostAt = (x) => (freeCast ? xResolvedCost(cost, x) : totalCost(manaCost, { x }));
+    // A free cast pays what its {0} still owes, and carries no {X} (CR 107.3b — X is 0).
+    let cost = freeCast ? zeroAltCost : totalCost(manaCost);
+    // The total with X chosen (the X lanes below): the free cast's cost stays its {0}'s (X is 0). The affordable X values are judged
+    // on it, the mana ceiling raised by the most the reductions can take off.
+    const xCostAt = (x) => (freeCast ? (x ? xResolvedCost(cost, x) : cost) : totalCost(manaCost, { x }));
     const affordableX = () => affordableXValues(state, playerId, xCostAt, costMods ? costMods.reduceAt(Number.MAX_SAFE_INTEGER) : 0);
     // Castable if the pool PLUS what untapped lands/rocks/dorks could produce
     // covers the cost — the dispatcher auto-taps to pay. (Pool-only would
-    // never be castable since nothing pre-fills it.) A free-cast skips this (no mana paid).
+    // never be castable since nothing pre-fills it.) A free cast that owes nothing skips this (no mana paid).
     // SPEND-RESTRICTED (CR 106.6): the affordability half of the pair. This context MUST match the one the
     // dispatcher passes to planPayment for the same cast, or the two halves disagree and the sim offers a
     // cast whose payment then throws MANA_SHORT — a legal-looking action that cannot be taken. `fromZone` is
@@ -1386,7 +1423,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // spend them (restricted-first in the planner). The ability-activation path threads NONE — Klauth's
     // "only to cast spells" is enforced by absence (the default-deny posture).
     const spendContext = { castCard: card, isCommander: fromZone === "command", restrictedEntries: player.restrictedMana || [], castEvery: everyType, ...lifePaymentContext(state, playerId) }; // P·39b — castEvery: Cavern-style "creature spell of the chosen type" mana sees every creature type; + the caster's life — a Phyrexian symbol may be paid with 2 life (CR 107.4f, 2026-10-17)
-    const affordable = freeCast || canAfford(player.manaPool, manaSources(state, playerId), cost, spendContext);
+    const affordable = (freeCast && !costOwesMana(cost)) || canAfford(player.manaPool, manaSources(state, playerId), cost, spendContext);
     // FIST OF SUNS (RG-5): the five-pip alternative — hand casts only, never a free cast, never an X spell (the X would be 0
     // under an alternative cost — a different, unmodeled line), payable right now.
     // RG-8 (2026-09-05 — the Bringers): the card's OWN "You may pay <pips> rather than pay this spell's mana cost" is the
@@ -1439,11 +1476,13 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // carriers are instants/sorceries; command/exile/free-cast enumerations never dual-offer), and NEVER
     // inside a freeCast (Discover/Cascade/pendingFreeCast) enumeration — those windows' clearing invariant
     // must only ever see action.freeCast casts. The oracle pre-screen keeps non-carriers parse-free here.
-    // The alternative pays no mana, so while a cost increase leaves its {0} owing mana it is not offered (`zeroAltOwes`, CR 118.9d).
-    const altSpec = (!freeCast && !zeroAltOwes && fromZone === "hand" && ALT_COST_OFFER_HINT.test(String(card?.oracle ?? card?.oracle_text ?? "")))
+    // The alternative pays no mana of its own, but what a cost increase leaves on its {0} is owed (`zeroAltCost`, CR 118.9d): the twin
+    // carries it as its cost and pays it with the mana; while the caster can't fund it the alternative is not offered.
+    const altSpec = (!freeCast && fromZone === "hand" && ALT_COST_OFFER_HINT.test(String(card?.oracle ?? card?.oracle_text ?? ""))
+        && (!costOwesMana(zeroAltCost) || canAfford(player.manaPool, manaSources(state, playerId), zeroAltCost, spendContext)))
       ? computeAltCastSpec(state, playerId, card)
       : null;
-    if (altSpec) altSpecs.set(card.id, { ...altSpec, affordable });
+    if (altSpec) altSpecs.set(card.id, { ...altSpec, affordable, owed: zeroAltCost });
     // CAST-RESTRICTION (the Fallen Empires combat-trick cycle): "Cast this spell only during the declare
     // attackers step and only if you've been attacked this step." A TIMING + STATE gate printed as a whole
     // sentence. Enforced HERE, at the single cast-offer chokepoint, so the card simply is not offered outside
@@ -1491,8 +1530,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // dispatcher threads `kicked` onto the EFFECT_PROGRAM payload; runEffectProgram runs the kickedOnly atoms only
     // on the kicked cast. We compute the kicker cost here (parseKickerCost = the kicker.js source of truth) +
     // whether it's affordable on TOP of the base; the multi-atom emission below offers {kicked:false} casts and
-    // (when affordable) {kicked:true} casts. A free-cast (Discover) pays nothing, so the kicker is never paid (only
-    // the normal cast offered — the base still resolves; a SAFE limitation).
+    // (when affordable) {kicked:true} casts. A free-cast (Discover) is priced only as its {0} (what a tax leaves on it), so the
+    // kicker is never offered (only the normal cast — the base still resolves; a SAFE limitation).
     // + TEAMWORK's "choose both instead" modal (shelf D16): its kicked cast is the both-modes one.
     const kickedSpell = isHigh && ((program.atoms || []).some((a) => a.kickedOnly) || !!program.modal?.conditionalBothKicked);
     // The kicked cast keeps the printed mana value (`base.cmc`): a kicker is paid, never part of the mana cost (CR 118.8d).
@@ -1708,9 +1747,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // ⛔ Every other branch's `if (!affordable) continue` is correct for its kind — those costs are not
         // mana, so the printed check is the whole mana question. This one is the exception BECAUSE the cost
         // is itself mana. Do not "tidy" this into the shared guard.
-        // ⛔ A FREE CAST PAYS NO MANA AT ALL — the dispatcher skips the payment for `freeCast` — so it could not pay this option's
-        // mana: under a free-cast permission the option is not offered (CR 601.2f still adds it to the total; the same safe
-        // under-offer as a Spree spell's modes below). Its other options (a sacrifice) stay.
+        // ⛔ A FREE CAST IS PRICED ONLY AS THE {0} IT IS — the mana a tax leaves on it (`zeroAltCost`); no lane adds additional mana to it —
+        // so under a free-cast permission this option is not offered (CR 601.2f still adds it to the total, and the caster could pay
+        // it — Dracogenesis' ruling: "You can, however, pay additional costs"; a safe under-offer, the same as a Spree spell's modes
+        // below). Its other options (a sacrifice) stay.
         if (freeCast) continue;
         // The additional mana joins the mana cost BEFORE the taxes and reductions are applied (CR 601.2f): Spark Harvest's
         // "pay {3}{B}" under Helm of Awakening is {B} + {3}{B} − {1} = {2}{B}{B}.
@@ -1939,9 +1979,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         //     power ≥ N (layer-aware).
         // A subset or mode set the caster can't fund at its total is not offered — the printed card's own limit. The charge is this
         // action's own `cost`, which the dispatcher pays through planPayment: the offer and the payment are one object.
-        // ⛔ A FREE CAST PAYS NO MANA AT ALL (the dispatcher skips the plan for `freeCast`), so it could not pay a strive increase or a
-        // Spree mode's cost: under a free-cast permission neither is offered — a one-target strive cast still is (a safe under-offer;
-        // every free-cast window carries its own decline).
+        // ⛔ A FREE CAST IS PRICED ONLY AS THE {0} IT IS (what a tax leaves on it — `zeroAltCost`), so a strive increase or a Spree mode's
+        // cost is not added to it: under a free-cast permission neither is offered — a one-target strive cast still is (a safe
+        // under-offer; every free-cast window carries its own decline).
         const tcr = program.targetConditionalReduction;
         const striveExtra = program.strivePerTarget ? Math.max(0, ch.targets.length - 1) : 0;
         const spreeCost = program.modal?.spreeCosts
@@ -2328,8 +2368,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
   // targeted / no-target) and a per-branch dual-offer is exactly the duplicated-exclusion-list drift trap
   // this repo has been burned by. Every normal-cost cast action of an alt-carrier is twinned once per legal
   // payment; the alt twin carries `altCost` (NEVER `freeCast` — the pendingFreeCast/pendingCascade clearing
-  // invariant in the dispatcher is keyed off freeCast and must keep its single producer) and pays no mana
-  // (`cost: {generic: 0}`; `cmc` stays the printed mana value, CR 202.3). Guards keep the twin to the plain
+  // invariant in the dispatcher is keyed off freeCast and must keep its single producer) and pays no mana of its own — its `cost` is
+  // what a cost increase leaves on its {0} (`zeroAltCost`, CR 118.9d; `{generic: 0}` when nothing), paid with the mana; `cmc` stays
+  // the printed mana value, CR 202.3. Guards keep the twin to the plain
   // hand-cast shape only — alt carriers are instants/sorceries, so the emerge/bestow/kicked/X/additional-cost
   // shapes are naturally exclusive; the guards make that structural.
   if (wubrgSpecs.size) {
@@ -2356,7 +2397,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
   if (altSpecs.size) {
     const out = [];
     for (const a of actions) {
-      // (The twin pays no mana, so a cast whose cost carries additional mana is not twinned either — the twin would drop it.)
+      // (The twin pays only what its {0} owes, so a cast whose cost carries additional mana is not twinned either — the twin would drop it.)
       const spec = (a.kind === "cast-spell" && a.fromZone === "hand" && !a.freeCast && !a.faceCard
         && !a.emerge && !a.bestow && a.kicked === undefined && a.xValue == null
         && !a.sacCreatureId && !a.payLifeCost && !a.discardCardId && !carriesAdditionalMana(a)) ? altSpecs.get(a.cardId) : undefined;
@@ -2366,7 +2407,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // Never sacrifice the very permanent the spell targets — the cost is paid before resolution, so the
         // target would fizzle (CR 608.2b). Mirrors the additional-cost sacrifice exclusion.
         if (pay.sacId && (a.targets || []).some((t) => t.id === pay.sacId)) continue;
-        out.push({ ...a, cost: { generic: 0 }, altCost: { kind: spec.alt.kind, ...(spec.alt.evoke ? { evoke: true } : {}), ...pay }, altName: altCastName(spec.alt, pay) }); // + evoke flag (Solitude)
+        out.push({ ...a, cost: spec.owed, altCost: { kind: spec.alt.kind, ...(spec.alt.evoke ? { evoke: true } : {}), ...pay }, altName: altCastName(spec.alt, pay) }); // + evoke flag (Solitude)
       }
     }
     return out;
@@ -4746,27 +4787,28 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   // player acts, and ONLY to resolve it (it's made mid-resolution, CR — no one else gets to act). Return
   // exactly the two discover actions for the controller; an empty list for everyone else.
   if (state.pendingDiscover) {
-    return state.pendingDiscover.controller === playerId ? applyTargetTaxes(state, playerId, actionsDiscoverDecision(state, playerId)) : [];
+    return state.pendingDiscover.controller === playerId ? castCostPasses(state, playerId, actionsDiscoverDecision(state, playerId)) : [];
   }
   // FREE-CAST (CR 601.2b) — a pending free-cast decision short-circuits normal priority IDENTICALLY to
   // discover: the casting choice is made mid-resolution (no one else acts), so return ONLY the free-cast /
   // decline actions for the controller; an empty list for everyone else. (Both pendings are FIFO — the
   // free-cast atom is the last atom of its program, so a discover and a free-cast never coexist.)
-  // All three windows pass through the target taxes (applyTargetTaxes, stage ③ · 44): a free cast aimed at a
-  // taxed permanent still owes the tax (CR 601.2f). Each window keeps its decline, so a drop never strands it.
+  // All three windows pass through the target taxes and the owed-mana check (castCostPasses — applyTargetTaxes, stage ③ · 44, and
+  // withPayableOwedMana): a free cast aimed at a taxed permanent still owes the tax (CR 601.2f, 118.9d), paid with the mana. Each
+  // window keeps its decline, so a drop never strands it.
   if (state.pendingFreeCast) {
-    return state.pendingFreeCast.controller === playerId ? applyTargetTaxes(state, playerId, actionsFreeCastDecision(state, playerId)) : [];
+    return state.pendingFreeCast.controller === playerId ? castCostPasses(state, playerId, actionsFreeCastDecision(state, playerId)) : [];
   }
   // CASCADE (CR 702.85) — a pending cascade decision short-circuits normal priority IDENTICALLY to discover /
   // free-cast: the cast-it-free / decline choice is made mid-resolution (no one else acts), so return ONLY the
   // cascade actions for the controller; an empty list for everyone else. All three pendings are FIFO — each
   // parking atom is the last atom of its program — so a cascade never coexists with a discover or a free-cast.
   if (state.pendingCascade) {
-    return state.pendingCascade.controller === playerId ? applyTargetTaxes(state, playerId, actionsCascadeDecision(state, playerId)) : [];
+    return state.pendingCascade.controller === playerId ? castCostPasses(state, playerId, actionsCascadeDecision(state, playerId)) : [];
   }
   // CAST FROM AMONG (P·16 — Etali): the same mid-resolution short-circuit — only the controller's free casts and "done".
   if (state.pendingCastFromAmong) {
-    return state.pendingCastFromAmong.controller === playerId ? applyTargetTaxes(state, playerId, actionsCastFromAmongDecision(state, playerId)) : [];
+    return state.pendingCastFromAmong.controller === playerId ? castCostPasses(state, playerId, actionsCastFromAmongDecision(state, playerId)) : [];
   }
   // Default the declared-attackers list from live combat state, so the
   // session driver gets blocker candidates without threading it explicitly.
@@ -4889,7 +4931,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   actions.push(...attack.actions);
   actions.push(...actionsDeclareBlocker(state, playerId, attackerIds));
 
-  const offered = applyTargetTaxes(state, playerId, withPhyrexianPayment(state, playerId, withPayableConsumedCosts(state, playerId, actions)));
+  const offered = castCostPasses(state, playerId, withPhyrexianPayment(state, playerId, withPayableConsumedCosts(state, playerId, actions)));
   // ATTACK REQUIREMENTS (CR 508.1d): while a creature that must attack can still be declared without paying a cost, the
   // declaration can't close — the pass, a spell, an ability and a mana ability would each close it (gameEngine.
   // closeAttackDeclaration) with that requirement disobeyed — so only the attacker declarations are offered.
@@ -4974,12 +5016,15 @@ function withPhyrexianPayment(state, playerId, actions) {
 //   · the LIFE tax (Terror of the Peaks, 2026-08-14 — "an additional 3 life"): the action is stamped
 //     `targetLifeTax` (the dispatcher pays it with the other cost items) and DROPPED when the caster's life
 //     can't cover it (CR 119.4 — a cost you can't pay makes the cast illegal, never a cast-then-die);
-//   · the MANA tax (stage ③ · 44 — Sphinx of New Prahv, Boreal Elemental, Syr Elenora — "{2} more"): folded
-//     into the action's generic `cost` (the mana value is untouched, CR 202.3), which the dispatcher pays like
-//     any cast's, and the cast DROPPED when the taxed total can't be funded from the very sources and spend
-//     context the payment will use (manaModel.castPaymentSources). A free or alternative-cost cast pays no
-//     mana on the engine's side, while CR 601.2f still adds the tax — so one aimed at a mana-taxed permanent
-//     is not offered (FN-safe).
+//   · the MANA tax (stage ③ · 44 — Sphinx of New Prahv, Boreal Elemental, Syr Elenora — "{2} more"): a cost
+//     INCREASE, so it joins the total before the reductions (CR 601.2f; Boreal Elemental's ruling — "add any cost
+//     increases (such as that of Boreal Elemental), then apply any cost reductions"): folded into the action's
+//     generic `cost` through withLateIncrease, where a reduction the {0} floor set aside when the cast was
+//     assembled takes it first (Unsummon at Boreal Elemental under two Goblin Electromancers is {U}, not {2}{U}).
+//     The mana value is untouched (CR 202.3). The dispatcher pays the cost like any cast's, and the cast is
+//     DROPPED when the taxed total can't be funded from the very sources and spend context the payment will use
+//     (manaModel.castPaymentSources). A free or no-mana alternative-cost cast takes the tax onto the {0} it is
+//     (CR 118.9d) and pays it the same way.
 // Taxed permanents are read off each OPPONENT's battlefield (the array a permanent sits in IS its controller —
 // controlMove.js). A spell pays each taxing permanent's tax once however many of its targets name it — the
 // tax is on the spell ("spells … that target this creature") — so target ids are de-duplicated. Spells only:
@@ -5011,8 +5056,7 @@ function applyTargetTaxes(state, playerId, actions) {
     if (life < lifeTax) continue; // can't pay the added life → this cast is not offered
     let taxed = lifeTax ? { ...a, targetLifeTax: lifeTax } : a;
     if (manaTax) {
-      if (a.freeCast || a.altCost) continue; // these paths pay no mana, so the tax can't be charged → no offer
-      const cost = { ...a.cost, generic: (a.cost?.generic || 0) + manaTax };
+      const cost = withLateIncrease(a.cost || { generic: 0 }, manaTax);
       const fromZone = a.fromZone || "hand";
       const castCard = a.faceCard || (player?.[fromZone] || []).find((c) => c.id === a.cardId) || null; // the dispatcher's castCard
       const spendContext = { castCard, isCommander: fromZone === "command", restrictedEntries: player?.restrictedMana || [], castEvery: cardIsEveryCreatureType(state, castCard, playerId), ...lifePaymentContext(state, playerId) };
@@ -5022,6 +5066,22 @@ function applyTargetTaxes(state, playerId, actions) {
     out.push(taxed);
   }
   return out;
+}
+
+/**
+ * WHAT A FREE OR NO-MANA ALTERNATIVE CAST STILL OWES IS PAYABLE (CR 118.9d, 601.2g, 601.2h): a `freeCast` or `altCost` cast whose cost
+ * owes mana — what a tax leaves on its {0} — is offered only when the dispatcher's own plan (offeredPaymentPlan — its sources, its spend
+ * context) pays it: the creature an additional cost sacrifices, the creature the alternative cost taps and the card it exiles can't
+ * also pay. Every other action passes untouched, and a list with no such cast is returned as it is.
+ */
+function withPayableOwedMana(state, playerId, actions) {
+  if (!actions.some((a) => a?.kind === "cast-spell" && (a.freeCast || a.altCost) && costOwesMana(a.cost))) return actions;
+  return actions.filter((a) => !(a?.kind === "cast-spell" && (a.freeCast || a.altCost) && costOwesMana(a.cost)) || offeredPaymentPlan(state, playerId, a) !== null);
+}
+
+/** The cost passes every offered list takes last: the target taxes, then the owed-mana check on the free and no-mana casts. */
+function castCostPasses(state, playerId, actions) {
+  return withPayableOwedMana(state, playerId, applyTargetTaxes(state, playerId, actions));
 }
 
 /**

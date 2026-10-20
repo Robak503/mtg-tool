@@ -32,6 +32,12 @@ export function castVariantClauses(o) {
   // Bolas's Citadel's library-top cast carries its life payment as an altCost with no altName (P·17).
   else if (o.lifeCostFromTop && o.altCost) out.push(o.altCost.payLife ? `pay ${o.altCost.payLife} life rather than its mana cost` : "without paying its mana cost");
   for (const key of ADDITIONAL_COST_NAMES) if (o[key]) out.push(o[key]);
+  // What a free cast or a no-mana alternative cost still owes — a tax on its {0}, paid with mana (CR 118.9d): the price is named, so
+  // "without paying its mana cost" never hides it.
+  if (o.freeCast || o.altCost) {
+    const owed = manaCostText(o.cost);
+    if (owed && owed !== "{0}") out.push(`pay ${owed}`);
+  }
   // Phyrexian symbols the payment covers with life (legalChoices.withPhyrexianPayment's stamp, 2026-10-17): the price is named.
   if (o.phyrexianLife > 0) out.push(`pay ${o.phyrexianLife} life for its Phyrexian mana`);
   return out;

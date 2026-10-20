@@ -267,8 +267,8 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
 
     case "cast-spell": {
       const ref = cardRef(action.name || card?.name, "the spell");
-      // A free cast pays nothing, and an alternative cost names its own payment among the clauses (the engine stores {0} as
-      // that cast's mana cost) — neither reads "for {0}".
+      // A free cast pays no mana cost, and an alternative cost names its own payment among the clauses (the engine stores {0} as
+      // that cast's mana cost) — neither reads "for {0}"; what a tax leaves owing on either is a clause too ("pay {1}").
       const costPart = action.freeCast
         ? " without paying its mana cost"
         : (action.altName || action.altCost) ? "" : forManaCost(action.cost, { xPaid: action.xValue != null });

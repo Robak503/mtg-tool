@@ -1254,16 +1254,33 @@ can make that total smaller), the fixed-mana alternative cost (own pips, Fist of
 cast) and emerge (the sacrificed creature's mana value as `extraReduction`, the taxes included). The flashback lane hands the
 builder the card's own mana value (`{ manaValue }` option), so a floor never reads the flashback cost's. A free cast ("without paying
 its mana cost") and a printed alternative cost that pays no mana (Force of Will's pitch, Fireblast's sacrifice) are an alternative
-cost of {0}: the dispatcher pays no mana for either, so one whose {0} still owes mana after the increases and reductions
-(`zeroAltOwes` — Thalia over a cascaded noncreature spell, Sphere of Resistance over anything) is not offered, the target-mana-tax
-pass's posture; and a free cast is offered no cost it can't charge: no bestow (one alternative cost), no additional "pay" option,
-no strive increase, no Spree modes; and a cast whose cost carries additional mana (`carriesAdditionalMana`) is never twinned with an
-alternative cost that would drop it. **Board-granted {0} alternatives** (`grantedZeroAltCost` — Rooftop Storm, Dracogenesis,
+cost of {0} (CR 118.9d): `zeroAltCost` is that {0} assembled with the spell's modifiers — what Thalia leaves on a cascaded
+noncreature spell, Sphere of Resistance on anything — and **since 2026-10-20 it is paid**: the free cast and the no-mana twin carry
+it as their `cost` (`{ generic: 0 }` when nothing is owed, as before), the dispatcher pays a `freeCast` / `altCost` cast's cost
+through the normal plan whenever `manaModel.costOwesMana` says it owes any (before the alternative cost's own payment — mana
+abilities come first, CR 601.2g–h, so a Mountain Fireblast sacrifices may tap for the tax), and one the caster can't pay is not
+offered. `castPaymentSources` reads the alternative cost's payment: the creature it taps (and another source's tap of it) and the card
+it exiles from the hand are no source, a one-shot source it sacrifices or returns is none either, and `costReservedPermanentIds`
+lists its permanents so a sacrifice-a-creature source never eats them. `withPayableOwedMana` (in `castCostPasses`, after the target
+taxes, on every offered list and the four free-cast windows) asks each such cast the dispatcher's own plan question. A free cast is
+still priced only as its {0}: no bestow (one alternative cost), no additional "pay" option, no strive increase, no Spree modes, no
+kicker (a safe under-offer — the caster could pay them); and a cast whose cost carries additional mana (`carriesAdditionalMana`) is
+never twinned with an alternative cost that would drop it. **A target tax joins before the reductions (2026-10-20 — CR 601.2f;
+Boreal Elemental's ruling).** The target taxes (Sphinx of New Prahv, Boreal Elemental, Syr Elenora) are decided by the chosen targets,
+so `applyTargetTaxes` adds them to the enumerated action; `assembleTotalCost` records, per returned cost object, the part of a
+generic reduction the {0} floor set aside (`UNUSED_GENERIC_REDUCTION`, a WeakMap — the action's fields are unchanged), and
+`withLateIncrease` lets that part absorb the tax first (Unsummon at Boreal Elemental under two Goblin Electromancers is {U}, not
+{2}{U}). A lane that copied the cost would lose the record and over-charge, never under-charge. **Board-granted {0} alternatives** (`grantedZeroAltCost` — Rooftop Storm, Dracogenesis,
 Darksteel Monolith, As Foretold): `grantedZeroAltCosts` collects them from the caster's battlefield, `zeroAltCostGrantAllows`
 reads the face being cast, and each becomes one more fixed-mana variant of the twin pass (`wubrgSpecs` now holds a list), priced
 by `totalCost` (under Sphere of Resistance it is {1}); a once-each-turn grant stamps `altCostOnceSourceId`, which the dispatcher
-latches (`<sourceId>_zeroAltCostOnce`, cleared at untap). Hand casts only, never an X spell. Witnesses: `castCostOrder`,
-`grantedZeroAltCost`.
+latches (`<sourceId>_zeroAltCostOnce`, cleared at untap). Hand casts only, never an X spell. **The AI pays the cheapest
+(2026-10-20).** `opponentAI.preferCheapestCostVariant` (in `pickCastAction`, after `filterAltCastVariants`) groups a card's casts by
+everything but the cost variant (`cost`, `altManaCost`, `altName`, `altCostOnceSourceId`, `phyrexianLife`) and keeps the one with
+the fewest mana symbols — Dracogenesis' {0} over a Dragon's printed cost, Fist of Suns' pips over a six-drop; ties keep the
+printed cost. A once-each-turn grant competes only on the costliest card (mana value) it is offered for in that decision.
+`pol.costVariant === "v1"` recovers the first-offered pick. Witnesses: `castCostOrder`, `grantedZeroAltCost`, `castCostOwed`,
+`targetManaTax`.
 
 **An X/X animation and an any-controller "another" grant (2026-10-17 — Destiny Spinner, Heliod, Sun-Crowned).** The land
 animation's "becomes an X/X …, where X is <count>" carries `ptCount` (the shared count vocabulary); `applyAnimateEffect` counts it

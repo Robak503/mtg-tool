@@ -239,7 +239,9 @@ describe("every kind the dispatcher handles narrates as words, never the generic
       leaveExiledBeginner: say({ ...SAMPLES["discover-to-hand"], leaveExiled: true }, empty(), "beginner"),
       cascadeUnnamed: say(SAMPLES["cascade-decline"]),
       cascadeFromExile: say(SAMPLES["cascade-decline"], withExiled),
-      freeCast: say({ kind: "cast-spell", cardId: "c1", name: "Grizzly Bears", cost: cost({ generic: 1, G: 1 }), freeCast: true, targets: [] }),
+      // A free cast carries what its {0} still owes (legalChoices, CR 118.9d): nothing here, {1} under a tax.
+      freeCast: say({ kind: "cast-spell", cardId: "c1", name: "Grizzly Bears", cost: { generic: 0 }, freeCast: true, targets: [] }),
+      freeCastTaxed: say({ kind: "cast-spell", cardId: "c1", name: "Grizzly Bears", cost: cost({ generic: 1 }), freeCast: true, targets: [] }),
       pitch: say({ kind: "cast-spell", cardId: "c1", name: "Force of Will", cost: { generic: 0 }, altCost: { kind: "pitch", payLife: 1, exilePitchId: "h2" },
         altName: "pay 1 life, exile Brainstorm from hand", targets: [{ id: "s1", name: "Lightning Bolt", type: "spell" }] }),
       kicked: say({ ...SAMPLES["cast-spell"], cost: cost({ R: 2 }), kicked: true, kickedName: "kicked" }),
@@ -251,6 +253,7 @@ describe("every kind the dispatcher handles narrates as words, never the generic
       cascadeUnnamed: "Decline the cascade cast.",
       cascadeFromExile: "Decline to cast [[Grizzly Bears]].",
       freeCast: "Cast [[Grizzly Bears]] without paying its mana cost.",
+      freeCastTaxed: "Cast [[Grizzly Bears]] without paying its mana cost (pay {1}).",
       // The alternative cost names the payment; the {0} the engine stores as the mana cost is not "for 0".
       pitch: "Cast [[Force of Will]] targeting [[Lightning Bolt]] (pay 1 life, exile Brainstorm from hand).",
       kicked: "Cast [[Lightning Bolt]] for {R}{R} targeting [[Hill Giant]] (kicked).",

@@ -74,7 +74,7 @@ function pitchRandomHandCard(working, playerId, excludeId, kind) {
 }
 import { tutorManaValue } from "./effects/atoms/library.js"; // γ1i (CAP14) — the shared MV reader the tutor / free-cast paths use, so "mana value" means ONE thing engine-wide
 import { passPriority, flushTriggers, chooseTriggerTargets, attackDeclarationOpen, closeAttackDeclaration } from "./gameEngine.js";
-import { manaSources, planPayment, castPaymentSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources, commitPaymentPlan, commitManaTap, payManaCost, manualManaTaps, payActivationFromPool, lifePaymentContext } from "./manaModel.js";
+import { manaSources, planPayment, castPaymentSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources, commitPaymentPlan, commitManaTap, payManaCost, manualManaTaps, payActivationFromPool, lifePaymentContext, costOwesMana } from "./manaModel.js";
 import { conditionalEntersTapped, paysLifeOrEntersTapped, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>" + the shockland pay-life clause (a leaf over interveningIf; cycle-free)
 import { sacrificePermanentForCost, sacrificePermanentsForCost } from "./costSacrifice.js"; // + sacrificePermanentsForCost (2026-10-17): a cost of N permanents, one event // every cost sacrifice (activated-ability costs, additional and alternative costs, emerge) — the ONE sequence the mana-cost sacrifice uses too
 import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT dispatch hook (audit.js imports only the delayed-trigger leaf, cycle-free)
@@ -401,14 +401,18 @@ function applyCastSpell(state, action) {
     if (!legal) throw new DispatcherError(`${castCard?.name} is an Aura spell: it must target a permanent its enchant ability allows (CR 303.4a)`, "AURA_TARGET_REQUIRED");
   }
 
-  // DISCOVER / free-cast (CR 601.2b — "cast without paying its mana cost"): skip the mana plan + payment
-  // entirely when `action.freeCast` is set. ONLY the mana cost is waived — the ADDITIONAL costs below
-  // (sacrifice / pay-life / discard) still apply, exactly as CR requires. Otherwise pay normally.
+  // DISCOVER / free-cast (CR 601.2b — "cast without paying its mana cost"): the mana cost is waived — the ADDITIONAL costs
+  // below (sacrifice / pay-life / discard) still apply, exactly as CR requires. Otherwise pay normally.
   // ALT-COST (CR 601.2b / 118.9): a printed-alternative-cost cast (`action.altCost`, the legalChoices twin
-  // post-pass) likewise pays NO mana — its own payment (life / pitch / sac / return-lands) is applied
+  // post-pass) likewise pays NO mana of its own — its own payment (life / pitch / sac / return-lands) is applied
   // atomically in step 2b' below, before the card leaves its zone. Deliberately a SEPARATE marker from
   // freeCast: the pendingFreeCast/pendingCascade clears further down are keyed off action.freeCast under a
   // single-producer invariant an overloaded flag would silently corrupt.
+  // ⭐ WHAT THEIR {0} STILL OWES IS PAID (CR 118.9d, 601.2g, 601.2h): both are alternative costs of {0}, and the cost increases (and
+  // reductions) apply to them — a cascaded noncreature spell under Thalia, Guardian of Thraben owes {1}. legalChoices prices that onto
+  // the cast's `cost` and offers it only when it can be paid; such a cast pays it here through the normal plan, before the
+  // alternative cost's own payment (mana abilities are activated before the costs are paid — a Mountain Fireblast sacrifices may tap
+  // for it first). One whose cost owes nothing skips the plan, as before.
   let working;
   // ⭐ COLOURS SPENT (CR 202.2 / 105.1) — SUNBURST (CR 702.44) and CONVERGE both ask "how many COLOURS of
   // mana were spent to cast this?", and the answer has always existed here and been discarded: planPayment
@@ -416,9 +420,9 @@ function applyCastSpell(state, action) {
   // commit and threaded onto the spell's params, the same way `castFromZone` is a few hundred lines down.
   // ⛔ C IS NOT A COLOUR (CR 105.1) — colourless mana is excluded from the count. Counting it would give
   // every Sol-Ring-funded sunburst creature a free counter.
-  // ⛔ A FREE / ALT-COST CAST SPENDS NO MANA, so this stays 0 — which is CR-correct (sunburst counts mana
+  // ⛔ A FREE / ALT-COST CAST THAT OWES NOTHING SPENDS NO MANA, so this stays 0 — which is CR-correct (sunburst counts mana
   // actually spent, and a cascade or "without paying its mana cost" cast spends none), and it is also the
-  // safe direction: an under-count can only ever under-size the payoff.
+  // safe direction: an under-count can only ever under-size the payoff. One that pays a tax its {0} owes reads the plan.
   let colorsSpent = 0;
   // SG-13 (Vexing Bauble, 2026-09-03): "if no mana was spent to cast it" — a definite boolean where the engine
   // KNOWS (a paid plan: any mana at all; a free cast: none), null where it does not (an alternative cost may
@@ -434,7 +438,7 @@ function applyCastSpell(state, action) {
   let manaSpentByColor = null;
   let paidUncounterable = false; // CAP-CAVERN: the plan spent mana printed "…and that spell can't be countered" (Cavern of Souls)
   let spentRiders = []; // SHELF-85 V11 (Path of Ancestry): taps whose mana carries a "when that mana is spent" rider
-  if (action.freeCast || action.altCost) {
+  if ((action.freeCast || action.altCost) && !costOwesMana(action.cost)) {
     working = state;
     if (action.freeCast) { manaSpent = false; manaSpentAmount = 0; manaSpentByColor = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 }; }
   } else {

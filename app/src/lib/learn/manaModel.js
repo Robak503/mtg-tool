@@ -3601,6 +3601,10 @@ export function costReservedPermanentIds(action) {
   for (const key of ["sacCreatureId", "sacCountIds", "sacXIds", "sacLandIds", "sacId", "tapCreatureId", "tapCountIds", "tapIds",
     "teamworkTapIds", "returnLandId", "returnLandIds", "returnPermId", "unattachEquipmentId",
     "exileGyIds", "exileGyCardId", "exileGyCardIds"]) add(action?.[key]);
+  // A printed alternative cost's payment (the legalChoices twin's `altCost` — the creature it sacrifices or taps, the lands it
+  // sacrifices or returns) is the cast's own cost too; it is paid after the mana (actionDispatcher step 2b') when a cost increase
+  // leaves its {0} owing mana (CR 118.9d).
+  for (const key of ["sacId", "tapCreatureId", "sacLandIds", "returnLandIds"]) add(action?.altCost?.[key]);
   if (action?.permanentId != null && (action.tapSelf || action.sacSelf || action.exileSelf)) ids.add(action.permanentId);
   add(action?.escapeCast?.exileIds);
   if (action?.cardId != null && (action.fromZone === "graveyard" || action.kind === "activate-gy-recursion" || action.kind === "activate-gy-exile")) ids.add(action.cardId);
@@ -3719,9 +3723,34 @@ export function castPaymentSources(state, action) {
     const tw = new Set(action.teamworkTapIds);
     sources = sources.filter((s) => !tw.has(s.permanentId));
   }
+  // · A PRINTED ALTERNATIVE COST THAT STILL OWES MANA (a tax on its {0}, CR 118.9d): mana abilities are activated before the costs
+  //   are paid, and the costs are paid in any order (CR 601.2g, 601.2h), so a land the alternative cost sacrifices or returns may tap
+  //   for the mana first (Fireblast's Mountains, Gush's Islands), and so may a creature it sacrifices — unless tapping it for mana
+  //   would itself remove it (a one-shot source). The creature it TAPS can't also tap for mana, nor be tapped by another source's
+  //   cost, and the card it exiles from the hand can't also be exiled for mana.
+  const alt = action.altCost;
+  if (alt) {
+    const tapped = alt.tapCreatureId ?? null;
+    const removed = new Set([alt.sacId, ...(alt.sacLandIds || []), ...(alt.returnLandIds || [])].filter((id) => id != null));
+    sources = sources.filter((s) => !(tapped != null && (s.permanentId === tapped || (Array.isArray(s.extraTaps) && s.extraTaps.includes(tapped))))
+      && !(alt.exilePitchId != null && s.permanentId === alt.exilePitchId)
+      && !(s.sacrifices && removed.has(s.permanentId)));
+  }
   // · A sacrifice-a-creature source (the Altars) needs a creature the cast's own costs do not already claim.
   sources = withoutUnfeedableSacSources(state, action.playerId, sources, costReservedPermanentIds(action));
   return sourcesExcludingOneShotVictim(sources, action.sacCreatureId);
+}
+
+/**
+ * Does this cost still owe mana — any generic, coloured, colourless, hybrid, Phyrexian, snow or any-colour symbol? A free cast or a
+ * printed alternative cost that pays no mana (`freeCast` / `altCost`) carries the mana its {0} still owes after the cost increases and
+ * reductions (CR 118.9d); the dispatcher pays a cast's cost only when this is true for one of those.
+ */
+export function costOwesMana(cost) {
+  if (!cost) return false;
+  if ((cost.generic || 0) > 0 || (cost.snow || 0) > 0 || (cost.anyColor || 0) > 0) return true;
+  if ((cost.hybrid || []).length || (cost.phyrexian || []).length) return true;
+  return ["W", "U", "B", "R", "G", "C"].some((c) => (cost[c] || 0) > 0);
 }
 
 /**
