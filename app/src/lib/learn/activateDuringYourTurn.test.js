@@ -1,15 +1,15 @@
 /**
  * activateDuringYourTurn.test.js — BLITZ AA-1: the "Activate only during your turn." timing restriction
  * (the Disrupting Scepter / Vona / Steadfast Unicorn frame). The sibling of ONCE-1's frequency rider: the
- * sentence is stripped for the EFFECT parse ONLY because the runtime enforces an at-least-as-strict window —
- * legalChoices.actionsActivateAbility offers an activated ability solely when it is the controller's OWN main
- * step (activePlayer === controller && priorityHolder === controller && step === "main"). Own MAIN is a strict
- * SUBSET of "your turn", so stripping can only ever UNDER-offer (never at instant speed on your turn, which the
- * card would allow) — a safe false-negative, never an FP.
+ * sentence is stripped for the EFFECT parse ONLY because the runtime enforces it. Until 2026-10-20 that was the
+ * offer's own window (activated abilities only in the controller's OWN main step, a strict subset of "your turn");
+ * activated abilities open whenever their controller holds priority now (CR 117.1b), so the rider is read into the
+ * `yourTurnOnly` flag first and legalChoices.activationTimingAllows requires the controller to be the active player
+ * (instantSpeedActivation.test.js pins every step of the controller's turn).
  *
  * CREED FP guard: a rider that carries an EXTRA, un-enforced condition — "…during your turn, before attackers
- * are declared." / "…only if <condition>." — must NOT strip, because offering it in the engine's main-step
- * window would VIOLATE that extra constraint. Real oracle fixtures (bundled Scryfall, verified 2026-07-17).
+ * are declared." / "…only if <condition>." — must NOT strip without its own reader, because offering it in the
+ * engine's window would VIOLATE that extra constraint. Real oracle fixtures (bundled Scryfall, verified 2026-07-17).
  *
  * The test is "does the runtime enforce it", not "is it a rider": "…no more than twice each turn." was in
  * that list until census slice 11 built the counted cap, and it GRADUATED out (see the case below). A guard
@@ -111,12 +111,12 @@ describe("AA-1 — CREED FP guards: an extra UN-ENFORCED condition must NOT stri
 });
 
 describe("AA-1 — runtime: offered ONLY on the controller's own turn, and the effect resolves", () => {
-  function board({ active = "user" } = {}) {
+  function board({ active = "user", holder = active } = {}) {
     const v = createPermanent({ id: "v", card: VONA, controller: "user", summoningSick: false });
     const bear = createPermanent({ id: "bear", card: { name: "Grizzly Bears", type: "Creature — Bear", power: "2", toughness: "2", oracle: "" }, controller: "ai" });
     const base = createGameState({ userDeck: [], aiDeck: [] });
     return {
-      ...base, activePlayer: active, priorityHolder: active, phase: "precombat-main", step: "main",
+      ...base, activePlayer: active, priorityHolder: holder, phase: "precombat-main", step: "main",
       players: {
         ...base.players,
         user: { ...base.players.user, battlefield: [v], life: 40 },
@@ -132,8 +132,10 @@ describe("AA-1 — runtime: offered ONLY on the controller's own turn, and the e
     expect(acts.some((a) => a.targetName === "Grizzly Bears")).toBe(true);
   });
 
-  it("NOT offered on the opponent's turn — the runtime honors \"during your turn\" via the main-step/activePlayer gate", () => {
-    expect(vonaActs(board({ active: "ai" }))).toHaveLength(0);
+  // Changed 2026-10-20: the user holds priority on the AI's turn here (it used to be the AI's, so the case passed on priority
+  // alone). Activated abilities open whenever their controller holds priority now, so the yourTurnOnly flag is what holds.
+  it("NOT offered on the opponent's turn with the user holding priority — the runtime honors \"during your turn\" via the yourTurnOnly flag", () => {
+    expect(vonaActs(board({ active: "ai", holder: "user" }))).toHaveLength(0);
   });
 
   it("cost is paid (7 life + tap) and the effect resolves — the targeted permanent is destroyed", () => {

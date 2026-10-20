@@ -122,9 +122,12 @@ describe("runtime — the combat window for activated abilities", () => {
     expect(resolved.players.ai.battlefield.find((p) => p.id === "atk").damageMarked).toBe(1);
   });
 
-  it("⛔ the window is for combat-role abilities ONLY — a plain pump activation still waits for its main phase; and in a main phase the Veteran has no pool", () => {
+  // Changed 2026-10-20 (activated abilities at instant speed, CR 117.1b): this case pinned the old offer, whose combat window
+  // admitted combat-role abilities only, so the plain pump waited for its controller's main phase. Every activated ability is
+  // offered whenever its controller holds priority now; the plain pump is offered here on any creature.
+  it("a plain pump activation is offered in the declare-blockers step too (CR 117.1b); in a main phase the Veteran has no pool", () => {
     const s = blockersStep([], [createPermanent({ id: "pm", card: PUMPER, controller: "user", summoningSick: false }), createPermanent({ id: "vet", card: VETERAN, controller: "user", summoningSick: false })]);
-    expect(activations(s, "pm")).toEqual([]);
+    expect(activations(s, "pm").map((a) => a.targets?.[0]?.id).sort()).toEqual(["atk", "blk", "idle-a", "idle-u", "pm", "vet"]);
     const main = { ...s, phase: "precombat-main", step: "main", activePlayer: "user", combat: null };
     expect(activations(main, "pm").length).toBeGreaterThan(0);
     expect(activations(main, "vet")).toEqual([]);

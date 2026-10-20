@@ -27,7 +27,7 @@ import { triggerRoutesNatively } from "./triggerRouting.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { finalizeStackResolution, flushTriggers, nextStep, passPriority, resolveTopOfStack, runStepActions, settleCleanupDiscardChoice } from "./gameEngine.js";
-import { advanceUntilDecision, applyCleanupDiscardChoice } from "./learnSession.js";
+import { advanceUntilDecision, applyChoice, applyCleanupDiscardChoice } from "./learnSession.js";
 import { pickAction } from "./opponentAI.js";
 import { applyScheduleDelayed } from "./effects/atoms/delayedTrigger.js";
 import { _resetIdsForTests, createGameState, createPermanent, createStackObject, grantTeferiShield, millCards, moveCardToZone } from "./gameState.js";
@@ -329,7 +329,13 @@ describe("RUNTIME — the cleanup discard (CR 514.1) and the cleanup priority wi
     expect(decision).toMatchObject({ kind: "cleanup-discard", count: 2 });
     ({ session, decision } = applyCleanupDiscardChoice(session, { kind: "cleanup-discard", cardId: "h-2" }));
     expect(decision).toMatchObject({ kind: "cleanup-discard", count: 1 });
-    ({ session } = applyCleanupDiscardChoice(session, { kind: "cleanup-discard", cardId: "h-3" }));
+    ({ session, decision } = applyCleanupDiscardChoice(session, { kind: "cleanup-discard", cardId: "h-3" }));
+    // Changed 2026-10-20 (activated abilities at instant speed, CR 117.1b): with the discard triggers on the stack in the cleanup
+    // window the person holds priority with Necropotence's own "Pay 1 life" offered, so the beginner is asked there now (it used
+    // to be an automatic pass). The walk passes each ask until the turn moves on; the assertions below are unchanged.
+    for (let g = 0; g < 10 && decision?.kind === "ask" && session.state.turn === 5; g++) {
+      ({ session, decision } = applyChoice(session, decision.options.find((o) => o.kind === "pass-priority")));
+    }
     const exiles = session.state.log.filter((e) => e.effect === "exile-discarded-card");
     const firstUntapOfTurn6 = session.state.log.findIndex((e) => e.kind === "step" && e.step === "untap" && e.turn === 6);
     const row = { exiled: exiles.map((e) => `${e.turn}:${e.exiled}`), beforeNextTurn: exiles.every((e) => session.state.log.indexOf(e) < firstUntapOfTurn6),

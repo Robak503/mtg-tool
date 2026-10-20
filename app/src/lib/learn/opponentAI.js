@@ -26,7 +26,7 @@
  */
 
 import { detectArchetype } from "../goldfish.js";
-import { filterActions, parseManaCost, offeredPaymentPlan } from "./legalChoices.js"; // + offeredPaymentPlan: the plan the dispatcher pays an action with — the AI's ward read pays it first (wardCountersAction)
+import { filterActions, parseManaCost, offeredPaymentPlan, abilityTargetsCombatRole, abilityTargetsStackAbility, COMBAT_WINDOW_STEPS } from "./legalChoices.js"; // + offeredPaymentPlan: the plan the dispatcher pays an action with — the AI's ward read pays it first (wardCountersAction)
 import { opponentsOf, findPermanent, createPermanent, isIndestructible, consumeTypedSpellShields } from "./gameState.js"; // + consumeTypedSpellShields: a pure read — would this spell be shielded from countering (the ward read)
 import { atomTargets } from "./effects/atoms/shared.js"; // the mass-counter side read (Oran-Rief) — the set the resolution itself reads
 import { lookupPlayHint } from "./cardPlayHints.js"; // PLAY-HINTS (2026-08-12) — a zero-import leaf, cycle-safe
@@ -57,7 +57,7 @@ import { entersByDiscardingLand, pickEnterDiscardLand } from "./discardLandToEnt
 import { entersTriggerRemovesOwn } from "./gameEngine.js"; // the cast-time hold — what a permanent's own enters trigger would be forced to remove (gameEngine imports no AI module: no cycle)
 import { colourNeed, fetchCrackAtom, fetchableLands, fetchLandAbility, landSearchOrder } from "./fetchLand.js"; // the fetch lands — which offered activation is one, what it can find, what one in hand would fetch — and the one colour-need reader (a leaf: no AI module)
 import { permanentValue } from "./boardEval.js"; // pickTargetedActivation — the shared valuation breaks a power tie between two targets (a leaf over gameState)
-import { parseActivatedAbilities } from "./effects/abilities.js"; // pickTargetedActivation — a token whose one activated ability is the offered one exists to be spent
+import { parseActivatedAbilities, parseDiscardCostAbility } from "./effects/abilities.js"; // pickTargetedActivation — a token whose one activated ability is the offered one exists to be spent; + the discard abilities' combat window (inDefaultAIActivationWindow)
 import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell — which atom a legacy cast's target belongs to (a leaf)
 
 // No try/catch around opponentsOf or the layer / evasion reads in this file. The 16 that used to wrap them (returning
@@ -2129,8 +2129,8 @@ function pickSafeAbilityActivation(abilityActions, { state = null, aiPlayerId = 
  * (24 of the 30 profile decks hold one). This picker takes exactly the fetch lands' activations (fetchLand.fetchCrackAtom — "{T},
  * [Pay N life,] Sacrifice this land: Search your library for a … land card, put it onto the battlefield …", no mana, no other
  * cost) and nothing else; every other sacrifice-self ability stays skipped. Cracked only:
- *   · in the AI's own main phase with the stack empty (the engine offers the activation in that main phase only, so there is
- *     no opponent's-end-step crack to choose);
+ *   · in the AI's own main phase with the stack empty (the AI's activation windows, inDefaultAIActivationWindow — the offer has
+ *     it at every priority since 2026-10-20, but an opponent's-end-step crack is not a choice this picker was measured for);
  *   · when the library still holds a land the search can find (the AI knows its own library's contents, not its order);
  *   · when a life cost leaves the AI at LIFE_PRUDENCE_FLOOR or more (the floor its other life payments use).
  * `sourceMakesMana` splits the timing: a fetch land that makes no mana of its own is cracked BEFORE the casts (pickAction calls
@@ -2186,7 +2186,7 @@ function pickFetchCrack(state, aiPlayerId, actions, { sourceMakesMana }) {
  *     graveyard keyword;
  *   · in the PRECOMBAT main only, HASTE for its own summoning-sick creature and "CAN'T BE BLOCKED" for its own ready attacker
  *     while the defender has an untapped creature — grants that matter at the declaration, which this main phase precedes.
- *     A +N/+N pump is left alone: its worth is after blocks, and the engine offers no activation there.
+ *     A +N/+N pump is left alone: its worth is after blocks, a window the AI does not decide activations in (inDefaultAIActivationWindow).
  * The one targeted atom may ride beside gains only (gain life, each opponent loses life, draw, scry, surveil, a +1/+1 counter on
  * the source); an "Add" beside it (Deathrite's first ability) holds — the mana would empty unused after the casts.
  * Costs: the source's tap and/or mana. Two more, each only where it clearly pays: removing ONE +1/+1 counter from the source for
@@ -2194,7 +2194,7 @@ function pickFetchCrack(state, aiPlayerId, actions, { sourceMakesMana }) {
  * activated ability is this one (a Mutagen) for a +1/+1 counter on its own creature. Life, energy, X, other permanents, cards,
  * other counters, exiling the source: skipped, as in the generic picker. Termination: each pick taps the source, spends mana or
  * spends its counter / token, and every kill or removal shrinks the pool of targets.
- * Only in the AI's own main phase with the stack empty (the engine offers non-combat activations there only). Deterministic:
+ * Only in the AI's own main phase with the stack empty (the AI's activation windows keep it there). Deterministic:
  * tier, then value, then name, permanent id, ability index, target id. Policy key `target` ("v1" = the old skip).
  */
 const TARGETED_GRAVEYARD_KEYWORDS = new Set(["Flashback", "Escape", "Unearth", "Embalm", "Eternalize", "Jump-start", "Retrace", "Aftermath", "Disturb", "Encore", "Scavenge", "Dredge"]);
@@ -2478,10 +2478,46 @@ export function takeLastCastRanking() {
   return r;
 }
 
+/**
+ * THE DEFAULT AI'S ACTIVATION WINDOWS (2026-10-20). The offer opens every activated ability whenever its controller holds
+ * priority (CR 117.1b — legalChoices.activationTimingAllows). Every picker below was written for, and measured in, the windows
+ * the offer had before: the seat's own main phase; in a combat step, an ability that targets a creature by combat role
+ * (pickCombatRoleActivation, ④-AP); while one of its own abilities waits on the stack, an ability that copies it (V6); Equip
+ * and the printed attaches in its own main phase with an empty stack; crew, cycling and the discard-this-card abilities in its
+ * own main phase (a discard ability that targets by combat role in a combat step too). Read in another window, those pickers
+ * would spend a Vehicle's blockers on the opponent's turn, crack a fetch land in the upkeep or tap a creature the seat needs
+ * to block with, so until a picker is written and measured for a new window the AI decides in these, exactly as before: an
+ * activation offered outside them is not one of its choices (true for every other kind of action).
+ */
+export function inDefaultAIActivationWindow(state, seat, action) {
+  const kind = action?.kind;
+  if (kind !== "activate-ability" && kind !== "crew-vehicle" && kind !== "cycle" && kind !== "discard-ability") return true;
+  const ownMain = state?.activePlayer === seat && state?.step === "main";
+  if (kind === "crew-vehicle" || kind === "cycle") return ownMain;
+  if (kind === "discard-ability") {
+    if (ownMain) return true;
+    if (!COMBAT_WINDOW_STEPS.has(state?.step)) return false;
+    const card = (state.players?.[seat]?.hand || []).find((c) => c?.id === action.cardId);
+    const ab = card ? parseDiscardCostAbility(card) : null;
+    return !!ab && abilityTargetsCombatRole({ program: parseEffectClause(ab.effectText, "Instant") });
+  }
+  if (action.isEquipAbility) return ownMain && (state.stack || []).length === 0;
+  if (ownMain) return true;
+  if (COMBAT_WINDOW_STEPS.has(state?.step) && abilityTargetsCombatRole(action)) return true;
+  const ownAbilityWaiting = (state.stack || []).some((o) => (o.kind === "triggered-ability" || o.kind === "activated-ability") && o.controller === seat);
+  return ownAbilityWaiting && abilityTargetsStackAbility(action);
+}
+
 export function pickAction(state, aiPlayerId, actions, { archetype = null, policy = null } = {}) {
   _lastCastRanking = null; // tick boundary — a previous tick's cast ranking must never leak forward
   if (!Array.isArray(actions) || actions.length === 0) return null;
   const pol = normalizePolicy(policy);
+  // THE ACTIVATION WINDOWS (inDefaultAIActivationWindow, 2026-10-20): an activation offered outside the windows the pickers were
+  // measured in is not one of the AI's choices. A no-op wherever the offer has nothing more than it had before.
+  if (actions.some((a) => !inDefaultAIActivationWindow(state, aiPlayerId, a))) {
+    actions = actions.filter((a) => inDefaultAIActivationWindow(state, aiPlayerId, a));
+    if (actions.length === 0) return null;
+  }
   // PHYREXIAN MANA PAID WITH LIFE (2026-10-17): the offer stamps `phyrexianLife` when no mana of a symbol's colour is left to pay
   // it (legalChoices.withPhyrexianPayment — mana first). The AI pays that life only while it stays at LIFE_PRUDENCE_FLOOR or more,
   // the floor its other life payments use; below it the cast or activation is held (dropped here, before every chooser).

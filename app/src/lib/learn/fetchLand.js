@@ -12,8 +12,8 @@
  * Terminal Moraine's "{2}, {T}, Sacrifice"-fetch, the Panoramas, Myriad Landscape) is outside it and stays skipped by the generic
  * activation picker.
  *
- * Nothing here decides legality: the engine offers the activation (CR 602.2 — in the engine, on its controller's own main
- * phase only), pays the costs (CR 118.3, 119.4; the sacrifice, CR 701.21a) and runs the search (CR 701.23a). This module only
+ * Nothing here decides legality: the engine offers the activation (CR 602.2 — whenever its controller holds priority since
+ * 2026-10-20; the AI cracks in its own main phase only), pays the costs (CR 118.3, 119.4; the sacrifice, CR 701.21a) and runs the search (CR 701.23a). This module only
  * answers AI questions — is this offered activation a fetch land's, what a fetch land in hand would fetch, and which of a land
  * search's candidates the AI takes (every search for a land card, not only a fetch's) — and owns the one colour-need reader and
  * the one land-search order the AI's land drop and its searches share (ENGINE-SCAFFOLD §6: a judgement implemented in one place).

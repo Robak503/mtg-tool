@@ -74,7 +74,7 @@ describe("⭐ THE OFFER GATE — all four windows", () => {
     expect(activations(SORC, { activePlayer: "ai", phase: "combat", step: "declare-attackers" })).toBe(0);
   });
 
-  it("⛔ NOT offered in the controller's own combat — though the CONTROL below shows why that one is weak", () => {
+  it("⛔ NOT offered in the controller's own combat (the plain ability below is, since 2026-10-20)", () => {
     expect(activations(SORC, { phase: "combat", step: "declare-attackers" })).toBe(0);
   });
 });
@@ -86,14 +86,11 @@ describe("⛔ CONTROL — the change NARROWS only the cards that print the rider
     expect(activations(PLAIN, BUSY)).toBe(1);
   });
 
-  it("⚠️ but NOT in combat — and that is a SEPARATE, pre-existing approximation", () => {
-    // Measured, and it corrects the reason the "own combat" case above passes: the generic lane offers
-    // activated abilities ONLY at the main step, for every ability, sorcery-restricted or not. So that case
-    // was never evidence of sorcery-speed enforcement — the empty-stack case is the only one that is.
-    //
-    // The engine therefore UNDER-offers instant-speed activations generally (no activating a pump in
-    // combat). That is a false negative, the safe direction, and out of scope here — recorded so the next
-    // reader does not mistake this file's green for "activation timing is fully modelled".
-    expect(activations(PLAIN, { phase: "combat", step: "declare-attackers" })).toBe(0);
+  // Changed 2026-10-20 (activated abilities at instant speed, CR 117.1b): this case recorded the old approximation — the
+  // generic lane offered every activated ability ONLY at the main step, so the "own combat" case above was never evidence of
+  // sorcery-speed enforcement. The plain ability is offered in combat now, which is what makes that case load-bearing: the
+  // rider alone keeps SORC out of combat.
+  it("and in combat — so the \"own combat\" case above is now evidence of the sorcery-speed rider", () => {
+    expect(activations(PLAIN, { phase: "combat", step: "declare-attackers" })).toBe(1);
   });
 });

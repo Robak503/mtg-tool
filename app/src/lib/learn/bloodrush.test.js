@@ -86,13 +86,16 @@ describe("in combat", () => {
 });
 
 describe("the window", () => {
-  it("a discard ability that does not target by combat role keeps the main phase only: Trumpeting Carnosaur", () => {
+  // Changed 2026-10-20 (activated abilities at instant speed, CR 117.1b): this case pinned the old offer, which opened a discard
+  // ability that does not target by combat role in its controller's own main phase only. It prints no timing instruction, so it
+  // is offered whenever its controller holds priority now — in combat and on an opponent's turn as well.
+  it("a discard ability that does not target by combat role is offered whenever its controller holds priority: Trumpeting Carnosaur", () => {
     const hand = [["carno", CARNOSAUR]], pool = { R: 3 };
     expect({
       yourMain: offers(table({ step: "main", hand, pool }), "carno").length > 0,
-      yourCombat: offers(table({ hand, pool }), "carno").length,
-      theirMain: offers(table({ attacker: "ai", holder: "user", step: "main", hand, pool }), "carno").length,
-    }).toEqual({ yourMain: true, yourCombat: 0, theirMain: 0 });
+      yourCombat: offers(table({ hand, pool }), "carno").length > 0,
+      theirMain: offers(table({ attacker: "ai", holder: "user", step: "main", hand, pool }), "carno").length > 0,
+    }).toEqual({ yourMain: true, yourCombat: true, theirMain: true });
   });
 
   it("on the battlefield the bloodrush line is not an ability of the permanent: Maaka offers nothing there", () => {

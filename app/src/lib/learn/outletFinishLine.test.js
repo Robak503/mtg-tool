@@ -287,9 +287,12 @@ describe("the loop and the pick", () => {
     expect({ kind: pick.kind, name: pick.name }).toEqual({ kind: "activate-ability", name: "Goblin Bombardment" });
   });
 
-  it("UNDER-OFFER (documented): on an opponent's turn the engine offers no activated ability, so the outlet waits", () => {
+  // Changed 2026-10-20 (activated abilities at instant speed, CR 117.1b): this case pinned the old offer, which had no
+  // activated ability on an opponent's turn. The outlet is offered there now; the default AI keeps the windows its pickers
+  // were measured in (opponentAI.inDefaultAIActivationWindow), so the outlet still waits for the seat's own main phase.
+  it("on an opponent's turn the outlet is offered, and the default AI still waits for its own main phase (its activation windows)", () => {
     const state = wide([perm(BOMBARDMENT, "bomb")], { activePlayer: "ai1" });
-    expect(outletOffers(state, "Goblin Bombardment")).toEqual([]);
+    expect(outletOffers(state, "Goblin Bombardment").length).toBeGreaterThan(0);
     expect(pickAction(state, "user", legalActionsForPlayer(state, "user"))).toMatchObject({ kind: "pass-priority" });
   });
 

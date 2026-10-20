@@ -47,10 +47,13 @@ describe("activated abilities — legal actions", () => {
     expect(activateActions(s)).toHaveLength(0);
   });
 
-  it("does NOT surface an ability outside the player's main phase", () => {
+  // Changed 2026-10-20 (activated abilities at instant speed): this case pinned the old offer, which surfaced activated abilities
+  // only in the player's own main phase. A player may activate an activated ability any time they have priority (CR 117.1b); an
+  // ability with no timing instruction is offered in the upkeep too (instantSpeedActivation.test.js pins the restricted ones).
+  it("surfaces an ability with no timing instruction outside the player's main phase (CR 117.1b)", () => {
     const drawer = createPermanent({ id: "perm-d", card: creature("Drawer", "{T}: Draw a card."), controller: "user", summoningSick: false });
     const s = withBattlefield(mainState({ step: "upkeep", phase: "beginning" }), "user", [drawer]);
-    expect(activateActions(s)).toHaveLength(0);
+    expect(activateActions(s)).toHaveLength(1);
   });
 
   it("does NOT surface a targeted ability with no legal target (drop)", () => {

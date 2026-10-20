@@ -2490,11 +2490,10 @@ function actionsTapForMana(state, playerId) {
  * offered (`effects/abilities.parseActivatedAbilities`); MANA abilities (`{T}: Add …`)
  * are handled by `actionsTapForMana`, not here.
  *
- * v1 gates to the player's OWN main phase with priority (same window as
- * `actionsTapForMana`) — activated abilities are instant-speed (CR 602.2), but
- * surfacing them at every priority window would spam the learner; the AI auto-pickers
- * ignore this kind (like tap-for-mana) so they never loop on it. Instant-speed timing
- * is a later refinement.
+ * TIMING (2026-10-20): offered whenever the player holds priority (CR 117.1b — "A player may activate an activated
+ * ability any time they have priority"), each ability narrowed by the timing its own text states
+ * (activationTimingAllows). Until then this lane opened only in the player's own main phase (plus two narrow combat /
+ * stack windows), so a sacrifice outlet, a pump after blocks or Mother of Runes in response was never offered.
  */
 // GRANTED-ACTIVATED (subsystem 1 phase 1b): the activated abilities an Aura confers on its host creature.
 // Walks the host's attachments (mirroring landAuraManaBonus) and parses each grant's quoted ability via
@@ -2552,9 +2551,9 @@ function teamworkTapSet(state, playerId, n) {
 }
 
 function actionsCrewVehicle(state, playerId) {
-  if (state.activePlayer !== playerId) return [];
+  // Whenever the player holds priority (CR 117.1b — crew prints no timing instruction, CR 702.122a); until 2026-10-20 only in
+  // the player's own main phase, so a Vehicle could never be crewed to block.
   if (state.priorityHolder !== playerId) return [];
-  if (state.step !== "main") return [];
   const player = state.players[playerId];
   const out = [];
   const artLocked = artifactActivationsLocked(state); // NR-1: crew is an activated ability of an artifact (CR 702.122a)
@@ -2591,43 +2590,55 @@ function actionsCrewVehicle(state, playerId) {
 }
 
 /** An activated ability whose effect targets a creature BY COMBAT ROLE ("target attacking creature", "target attacking
- * or blocking creature") — the ④-AE combat window below exists for exactly these and nothing else. */
-function abilityTargetsCombatRole(ab) {
+ * or blocking creature" — ④-AE). Read by the default AI's activation windows (opponentAI.inDefaultAIActivationWindow). */
+export function abilityTargetsCombatRole(ab) {
   return (ab?.program?.atoms || []).some((a) => Array.isArray(a.restrictions) && a.restrictions.some((r) => r.kind === "combat"));
 }
 
 /** An activated ability whose effect targets an ABILITY ON THE STACK ("copy target triggered ability you control" —
- * Strionic Resonator, Peter Parker's Camera; SHELF-85 V6). Its only useful window is while such an ability is on the
- * stack, which is never an empty-stack main phase — so, like the combat window above, it gets the narrowest honest
- * lane: any step, the priority holder, ONLY while the stack holds an ability they control. */
-function abilityTargetsStackAbility(ab) {
+ * Strionic Resonator, Peter Parker's Camera; SHELF-85 V6). Read by the default AI's activation windows. */
+export function abilityTargetsStackAbility(ab) {
   return (ab?.program?.atoms || []).some((a) => a.targetType === "abilityYouControl");
 }
 
-/** The combat steps in which a player holding priority may activate a COMBAT-ROLE ability (④-AE). */
-const COMBAT_WINDOW_STEPS = new Set(["beginning-of-combat", "declare-attackers", "declare-blockers", "combat-damage", "end-of-combat"]);
+/** The combat steps in which the offer opened COMBAT-ROLE abilities before 2026-10-20 (④-AE) — the default AI's combat window. */
+export const COMBAT_WINDOW_STEPS = new Set(["beginning-of-combat", "declare-attackers", "declare-blockers", "combat-damage", "end-of-combat"]);
+
+/**
+ * THE PRINTED TIMING OF AN ACTIVATED ABILITY (2026-10-20). An activated ability may be activated whenever its controller
+ * holds priority (CR 117.1b) unless its own text restricts when (CR 602.1b — an activation instruction). Every restriction a
+ * reader has turned into a flag is enforced here, in ONE place, for the battlefield lane (actionsActivateAbility):
+ *   · `sorceryOnly` — "Activate only as a sorcery" (CR 602.5d, 307.5), level up (CR 702.87a), a Class level (CR 716.2a):
+ *     own main phase, priority, empty stack (canCastSorcerySpeed).
+ *   · `isEquipAbility` without `anyTimeAttach` — Equip and its quality variants (CR 702.6a), Reconfigure (CR 702.151a):
+ *     sorcery timing. A printed "{cost}: Attach this Equipment / Aura to target creature" has no timing instruction and
+ *     carries `anyTimeAttach`, so it opens whenever the player holds priority.
+ *   · `yourTurnOnly` — "Activate only during your turn": the player is the active player.
+ *   · `preCombatOnly` — "Activate only [during your turn,] before attackers are declared": the player's own turn, in the
+ *     beginning phase or the precombat main phase (the first main phase — CR 505.1a; the beginning of combat step is left
+ *     out because an additional combat phase has one after attackers were declared — an under-offer).
+ *   · `combatStepOnly` — "Activate only during the <step> step": exactly that step, on either player's turn.
+ * The frequency limits (activationLimit), the conditions ("Activate only if …"), boast and the level / Class bars are read
+ * where they were. A rider no reader knows stays in the effect text and parks the ability (programs parse LOW on it), so an
+ * unread restriction is never offered looser than printed. Loyalty abilities (CR 606.3) are their own lane, unchanged; mana
+ * abilities (actionsTapForMana, actionsDoubleManaPool) keep their window.
+ */
+function activationTimingAllows(state, playerId, ab) {
+  if (ab.sorceryOnly && !canCastSorcerySpeed(state, playerId)) return false;
+  if (ab.isEquipAbility && !ab.anyTimeAttach && !canCastSorcerySpeed(state, playerId)) return false;
+  if (ab.yourTurnOnly && state.activePlayer !== playerId) return false;
+  if (ab.preCombatOnly && !(state.activePlayer === playerId && (state.phase === "beginning" || state.phase === "precombat-main"))) return false;
+  if (ab.combatStepOnly && state.step !== ab.combatStepOnly) return false;
+  return true;
+}
 
 function actionsActivateAbility(state, playerId) {
+  // Whenever the player holds priority (CR 117.1b); each ability's own timing is activationTimingAllows'. Until 2026-10-20
+  // this lane opened in the player's own main phase, plus two narrow windows for the abilities that main phase could never
+  // use: in a combat step, an ability that targets a creature by combat role (④-AE — D'Avenant Archer); while the player's
+  // own ability waits on the stack, an ability that copies it (SHELF-85 V6 — Strionic Resonator). Both are inside the
+  // priority window now; the default AI still decides in exactly those windows (opponentAI.inDefaultAIActivationWindow).
   if (state.priorityHolder !== playerId) return [];
-  // ⭐ THE COMBAT WINDOW (④-AE, 2026-09-03 — Infantry Veteran "{T}: Target attacking creature gets +1/+1", D'Avenant
-  // Archer "{T}: This creature deals 1 damage to target attacking or blocking creature", Serra Advocate, Harpoon
-  // Sniper, Kithkin Shielddare … 41 cards). The v1 gate above this function surfaces activations only on the
-  // player's OWN main phase — deliberately, so the learner isn't spammed at every priority window. But an ability
-  // that targets a creature BY COMBAT ROLE is useless there (nothing is attacking or blocking in a main phase) and
-  // was being credited native with a pool that could never be non-empty — 28 archers and their kin, hollow since
-  // the day the damage lane learned the phrase. The narrowest honest lane: in a combat step, EITHER player holding
-  // priority (the defender uses these on the attacker's turn — CR 602.2 instant speed) may activate ONLY the
-  // combat-role abilities; every other activation keeps the v1 main-phase window byte-for-byte. The spam concern
-  // does not apply — the pool is exactly the attackers / blockers. The AI takes these through
-  // opponentAI.pickCombatRoleActivation (④-AP); its other targeted activations, in its own main phase, through
-  // opponentAI.pickTargetedActivation (2026-10-17).
-  const combatWindow = COMBAT_WINDOW_STEPS.has(state.step);
-  const mainWindow = state.activePlayer === playerId && state.step === "main";
-  // THE STACK WINDOW (SHELF-85 V6): open only while the stack holds an ability THIS player controls — the sole moment a
-  // "copy target … ability you control" activation has a legal target. Gated per ability below (abilityTargetsStackAbility),
-  // so every other activation keeps its main / combat window byte-for-byte.
-  const stackWindow = (state.stack || []).some((o) => (o.kind === "triggered-ability" || o.kind === "activated-ability") && o.controller === playerId);
-  if (!mainWindow && !combatWindow && !stackWindow) return [];
   const player = state.players[playerId];
   const actions = [];
   // ACTIVATED-ABILITY COST-REDUCTION (Training Grounds, Biomancer's Familiar): the controller's battlefield may
@@ -2679,8 +2690,9 @@ function actionsActivateAbility(state, playerId) {
         if (!identity) continue;
         ab = { ...ab, payLife: (ab.payLife || 0) + identity.length };
       }
-      // ④-AE: the combat window is for combat-role abilities ONLY; V6: the stack window for stack-ability copiers ONLY.
-      if (!mainWindow && !(combatWindow && abilityTargetsCombatRole(ab)) && !(stackWindow && abilityTargetsStackAbility(ab))) continue;
+      // THE PRINTED TIMING (CR 602.1b): sorcery, Equip / Reconfigure, during your turn, before attackers are declared, one
+      // combat step — every timing flag, one reader.
+      if (!activationTimingAllows(state, playerId, ab)) continue;
       // PER-TURN ACTIVATION LIMIT (BLITZ ONCE-1, generalized to a count): an ability already activated its
       // limit-many times THIS turn is not offered again. Keyed permId:rawLine (raw is unique per ability,
       // printed OR granted — an index would collide across the two lists). The ledger records { turn, n };
@@ -2710,23 +2722,10 @@ function actionsActivateAbility(state, playerId) {
       }
       // CLASS LEVEL BAR (CR 716.2a): "Activate only if this Class is level N-1" — read off the permanent's own level
       // designation (classLevelOf: absent = 1, CR 716.2d). Exactly one bar is ever live, so a level is never skipped
-      // and a reached level is never re-bought. The "only as a sorcery" half is the sorceryOnly gate just below.
+      // and a reached level is never re-bought. The "only as a sorcery" half is the sorceryOnly flag (activationTimingAllows).
       if (ab.classLevelUp != null && classLevelOf(perm) !== ab.classLevelUp - 1) continue;
-      // LEVEL UP is sorcery-only by definition (CR 702.87a "Activate only as a sorcery" = own main,
-      // empty stack, priority — CR 307.5). The main-step gate above already covers own-main+priority;
-      // canCastSorcerySpeed adds the empty-stack requirement the generic lane approximates away.
-      if (ab.sorceryOnly && !canCastSorcerySpeed(state, playerId)) continue;
-      // PRECOMBAT-ONLY ("Activate only during your turn, before attackers are declared") — a NARROWING of
-      // this lane's window, not a strip. The gate above is `step === "main"`, which covers BOTH main
-      // phases, and the POSTCOMBAT main is after attackers are declared. Treating this rider as implied —
-      // the way "only as a sorcery" and "only during your turn" legitimately are — would let the engine
-      // activate the ability in a window the card forbids. Narrowing to the precombat main can only ever
-      // under-offer, which is the safe direction.
-      if (ab.preCombatOnly && state.phase !== "precombat-main") continue;
-      // COMBAT-STEP RIDER (SHELF-85 Phase 3 · Desert, 2026-09-05 — "Activate only during the end of combat step"): open in
-      // EXACTLY the printed step of the combat window (the defender holds priority there on the attacker's turn, CR 602.2);
-      // never the main phase, never another combat step.
-      if (ab.combatStepOnly && state.step !== ab.combatStepOnly) continue;
+      // LEVEL UP (CR 702.87a), PRECOMBAT-ONLY ("… before attackers are declared") and the COMBAT-STEP rider (Desert — "Activate
+      // only during the end of combat step") are timing flags too, read with the rest by activationTimingAllows above.
       // BOAST (CR 702.142) — "only if THIS CREATURE attacked this turn". Read off the PERMANENT, never the
       // seat: the seat-level attackedThisTurn (Raid) would offer boast whenever ANY of your creatures
       // attacked, which is a materially different card. The other half of the reminder — once each turn —
@@ -2969,12 +2968,11 @@ function actionsActivateAbility(state, playerId) {
       // keep this fast path.
       if (!ab.sacOther && !canAfford(player.manaPool, sources, gateCost, spendCtx)) continue;
 
-      // Equip {cost}: target a creature YOU control (CR 702.6a). Equip is SORCERY-SPEED
-      // (CR 702.6a) — unlike other activated abilities (instant-speed, conservatively
-      // main-gated here), it also needs an EMPTY stack, or the player could illegally equip
-      // in response to a spell already on the stack. One action per legal creature target.
+      // Equip {cost}: target a creature YOU control (CR 702.6a). Equip and Reconfigure are SORCERY-SPEED (own main phase,
+      // priority, an EMPTY stack — enforced with every other timing flag by activationTimingAllows); a printed attach with no
+      // timing instruction (`anyTimeAttach` — Cranial Plating, Detainment Spell) opens whenever the player holds priority.
+      // One action per legal creature target.
       if (ab.isEquipAbility) {
-        if ((state.stack?.length || 0) > 0) continue;
         // CR 301.5c / 701.3b — an Equip whose source can't equip a creature right now is not offered: the resolver refuses it
         // (resolvers.ATTACH) and the AI's pick skips it, both through layers.cannotEquipNow, so the offer asks the same read —
         // a source that is no Equipment now (a multi-face permanent whose back face is the Equipment) or an Equipment that is a
@@ -3407,13 +3405,11 @@ function actionsDoubleManaPool(state, playerId) {
  * KW-CYCLING (CR 702.29) — cycling is an activated ability usable only from a player's HAND
  * ("[Cost], Discard this card: Draw a card"). Offer one `cycle` action per hand card whose plain,
  * fully-modeled cycling cost (parseCyclingCost — null for typecycling + cycle-trigger cards) the
- * player can afford. Conservatively main + priority gated like the other activated abilities (cycling
- * is instant-speed per CR 702.29a, but under-offering it at instant speed is a safe false-negative).
+ * player can afford. Offered whenever the player holds priority (CR 117.1b — cycling is an activated ability with no
+ * timing instruction, CR 702.29a); until 2026-10-20 only in the player's own main phase.
  */
 function actionsCycleFromHand(state, playerId) {
-  if (state.activePlayer !== playerId) return [];
   if (state.priorityHolder !== playerId) return [];
-  if (state.step !== "main") return [];
   const player = state.players[playerId];
   const actions = [];
   for (const card of player.hand) {
@@ -3482,22 +3478,18 @@ export function reduceDiscardAbilityCost(state, playerId, cost, reduction) {
 }
 
 function actionsDiscardAbilityFromHand(state, playerId) {
+  // Whenever the player holds priority (CR 117.1b — 2026-10-20). Until then the own main phase, plus a combat step for a
+  // bloodrush-style ability that targets a creature by combat role ("{R}, Discard this card: Target attacking creature gets
+  // +3/+3 until end of turn" — residue census 2026-10-01); both are inside the priority window now.
   if (state.priorityHolder !== playerId) return [];
-  // THE COMBAT WINDOW, FROM HAND (residue census 2026-10-01 — bloodrush: "{R}, Discard this card: Target attacking creature
-  // gets +3/+3 until end of turn"). The ④-AE window of actionsActivateAbility, for the same reason: an ability that targets a
-  // creature BY COMBAT ROLE has no target in a main phase, so its only honest window is a combat step, where EITHER player
-  // holding priority may activate it (CR 602.2 — instant speed). Every other discard ability keeps the own-main-phase
-  // window byte-for-byte; the per-ability gate is below, once the program is read.
-  const mainWindow = state.activePlayer === playerId && state.step === "main";
-  if (!mainWindow && !COMBAT_WINDOW_STEPS.has(state.step)) return [];
   const player = state.players[playerId];
   const actions = [];
   for (const card of player.hand) {
     const ab = parseDiscardCostAbility(card);
     if (!ab) continue;
-    // T8 — transmute is "Activate only as a sorcery" (CR 702.53a): main phase + priority are gated above; the
-    // remaining sorcery-timing condition is an EMPTY stack (CR 307.1 via 602.5d).
-    if (ab.sorceryOnly && (state.stack || []).length) continue;
+    // T8 — transmute is "Activate only as a sorcery" (CR 702.53a): own main phase, priority, an EMPTY stack (CR 307.5 via
+    // 602.5d). Any other timing sentence stays in the effect text, which then parses LOW and is never offered.
+    if (ab.sorceryOnly && !canCastSorcerySpeed(state, playerId)) continue;
     const cost = reduceDiscardAbilityCost(state, playerId, parseManaCost(ab.cost), ab.reduction);
     if (cost.hasX) continue;                       // an X cost needs the X-choice expansion
     if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
@@ -3514,7 +3506,6 @@ function actionsDiscardAbilityFromHand(state, playerId) {
     // moment the parser gains partial results (atoms present, confidence low). Do not read it as the gate.
     if (!program || programConfidence(program) !== "high") continue;
     if (!(program.atoms || []).length) continue;
-    if (!mainWindow && !abilityTargetsCombatRole({ program })) continue; // a combat step admits combat-role targeting only
     // TARGETED LANE (2026-08-14 — Trumpeting Carnosaur, Steel Wrecking Ball): a chosen-target program
     // expands one action per legal target combo, exactly like the cast path (expandCastChoices with the
     // card's colors for KW-PROTECTION, CR 702.16b). ZERO combos → no action (a target requirement with
@@ -3534,7 +3525,7 @@ function actionsDiscardAbilityFromHand(state, playerId) {
 /**
  * HAND SELF-PUT (play-weighted #570 — Talon Gates of Madara): "{N}: Put this card from your hand onto the battlefield." —
  * an activated ability of a card in HAND (CR 113.6m), offered one action per carrier whose generic cost the player can
- * afford. Unlike the other from-hand lanes (cycling, the discard abilities — own main phase only, a documented under-offer),
+ * afford. Like the other from-hand lanes (cycling, the discard abilities — opened to every priority window 2026-10-20),
  * this one is offered WHENEVER the player holds priority (CR 117.1b): the ability's whole use is the instant-speed entry,
  * and the AI picker never selects this kind, so its play is unchanged. Not a cast (no cast restriction suppresses it) and
  * not a land play (no land drop is read or spent, CR 305.4) — but it is an activated ability that isn't a mana ability, so
@@ -4718,29 +4709,35 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
  * parse time, so an unattached Flail imposes nothing. The controller is never restricted by their OWN
  * source (we only suppress the active player's opponents), so this never locks your own casts.
  *
- * Only cast suppression is returned: the activated-ability half (Grand Abolisher) is already enforced by
- * the engine's own-turn-only activation gating — see the call site in legalActionsForPlayer.
+ * `cantActivate` (2026-10-20) — the activated-ability half (Grand Abolisher, Myrel: "… or activate abilities of
+ * artifacts, creatures, or enchantments", the descriptor's `includeActivated`). Until activated abilities opened to every
+ * priority window it needed no enforcement: they were offered only in their controller's own main phase, never during the
+ * lock's turn. Now it is enforced at the call site in legalActionsForPlayer.
  */
 function opponentsCantActAgainst(state, playerId) {
+  const none = { cantCast: false, cantActivate: false };
   const active = state.activePlayer;
   // The window is the active player's turn; only the ACTIVE opponent's source can restrict us right now.
-  if (!active || active === playerId) return { cantCast: false };
+  if (!active || active === playerId) return none;
   const activePlayer = state.players?.[active];
-  if (!activePlayer) return { cantCast: false };
+  if (!activePlayer) return none;
   // `playerId` must be one of the active player's opponents for the "your opponents" scope to apply.
-  if (!opponentsOf(state, active).includes(playerId)) return { cantCast: false };
+  if (!opponentsOf(state, active).includes(playerId)) return none;
 
   // A static "your opponents can't cast …" ability functions ONLY while its source is on the battlefield
   // (CR 113.6) — NOT from the command zone. So scan only the battlefield: a creature-commander carrying this
   // clause (Dragonlord Dromoka, Kutzil, Myrel) imposes nothing while it sits in the command zone. None of the
   // cant-cast cards have command-zone-functioning wording, so the command zone is never scanned here.
+  let cantCast = false;
+  let cantActivate = false;
   for (const perm of (activePlayer.battlefield || [])) {
     const d = cantCastDescriptorOf(perm.card);
     if (!d) continue;
     if (d.attachedGated && !perm.attachedTo) continue; // an unattached Conqueror's Flail imposes nothing
-    return { cantCast: true };
+    cantCast = true;
+    if (d.includeActivated) cantActivate = true;
   }
-  return { cantCast: false };
+  return { cantCast, cantActivate };
 }
 
 // ─── SPLIT SECOND (CR 702.61a) ────────────────────────────────────────────────
@@ -4820,17 +4817,16 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   // Conqueror's Flail) forbids THIS player from doing right now (CR 604.2). `cantCast` drops every cast
   // action (spells + command-zone casts) while it is the controller's turn.
   //
-  // CREED — the activated-ability half (Grand Abolisher's "or activate abilities of artifacts, creatures,
-  // or enchantments") is ALREADY fully enforced, NOT silently dropped: the engine offers activated/mana/
-  // loyalty/cycling abilities ONLY on the acting player's own main phase (every such generator early-returns
-  // when state.activePlayer !== playerId — see actionsTapForMana/actionsActivateAbility/actionsActivateLoyalty/
-  // actionsCycleFromHand). So during the abolisher controller's turn an opponent can ONLY cast spells (and act
-  // in combat) — they already cannot activate ANY ability of ANY permanent. Grand Abolisher's lock is thus a
-  // strict subset of a restriction the engine already imposes; honoring it needs only the cast suppression
-  // here, and both clauses of the card are respected. (`includeActivated` on the descriptor remains the
-  // record of the modeled scope and gates the coverage flip.) The hand self-put lane (play-weighted #570) is
-  // offered at any priority window, and that is outside the lock too: it is an ability of a CARD in hand, and
-  // "abilities of artifacts, creatures, or enchantments" names permanents on the battlefield only (CR 109.2).
+  // `cantActivate` — the activated-ability half (Grand Abolisher's / Myrel's "or activate abilities of artifacts,
+  // creatures, or enchantments", the descriptor's `includeActivated`). Until 2026-10-20 the engine offered non-mana
+  // activations only in the acting player's own main phase, never during the lock's turn, so the half needed no code;
+  // activations open whenever their controller holds priority now (CR 117.1b), so the lock is enforced below: while it
+  // holds, the locked player is offered no battlefield activation, crew, cycling or discard-this-card ability. That is
+  // wider than the printed lock on purpose (an under-offer): a land's ability is legal under it, and cycling or a channel
+  // ability is an ability of a CARD in hand (CR 109.2), but the payment planner can't keep their mana away from the mana
+  // abilities of artifacts and creatures the lock forbids, so they are withheld rather than paid illegally. Mana abilities
+  // and loyalty abilities are never offered on another player's turn. The hand self-put lane (play-weighted #570) keeps
+  // its window — it predates this and is outside the lock's scope.
   // CAST-LIMIT (BLITZ RL-1, CR 604.2 — Rule of Law / Arcane Laboratory / Eidolon of Rhetoric): while ANY
   // battlefield carries the symmetric one-spell-per-turn static, a player who already cast this turn is
   // offered NO cast-family actions (spellsCastThisTurn is stamped at the cast chokepoint and reset at
@@ -4841,7 +4837,8 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   // Special actions are untouched (playing a land, plotting, the companion {3}): the rule names casting and
   // activating, and CR 116.2 special actions are neither.
   const splitSecondLock = splitSecondOnStack(state);
-  const cantCast = opponentsCantActAgainst(state, playerId).cantCast || castLimited || splitSecondLock;
+  const cantAct = opponentsCantActAgainst(state, playerId);
+  const cantCast = cantAct.cantCast || castLimited || splitSecondLock;
 
   // Pass priority — always available IF the player has priority.
   if (state.priorityHolder === playerId) {
@@ -4918,10 +4915,13 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   // …every OTHER activated ability does not. Crew (CR 702.122a), cycling (702.29a) and loyalty (606.1) are
   // all activated abilities, so they go dark with the rest while a split-second spell is on the stack.
   if (!splitSecondLock) {
-    actions.push(...actionsActivateAbility(state, playerId));
-    actions.push(...actionsCrewVehicle(state, playerId)); // CREW (VH-1, CR 702.122a): tap creatures totaling power ≥ N → the Vehicle animates until EOT
-    actions.push(...actionsCycleFromHand(state, playerId)); // KW-CYCLING: discard a hand card to draw
-    actions.push(...actionsDiscardAbilityFromHand(state, playerId)); // the GENERAL form: "<mana>, Discard this card: <effect>"
+    // Grand Abolisher / Myrel (`cantActivate`, see above): during the lock's turn the locked player is offered none of these four.
+    if (!cantAct.cantActivate) {
+      actions.push(...actionsActivateAbility(state, playerId));
+      actions.push(...actionsCrewVehicle(state, playerId)); // CREW (VH-1, CR 702.122a): tap creatures totaling power ≥ N → the Vehicle animates until EOT
+      actions.push(...actionsCycleFromHand(state, playerId)); // KW-CYCLING: discard a hand card to draw
+      actions.push(...actionsDiscardAbilityFromHand(state, playerId)); // the GENERAL form: "<mana>, Discard this card: <effect>"
+    }
     actions.push(...actionsActivateHandSelfPut(state, playerId)); // play-weighted #570 — "{N}: Put this card from your hand onto the battlefield." (any priority window)
     actions.push(...actionsActivateLoyalty(state, playerId));
   }

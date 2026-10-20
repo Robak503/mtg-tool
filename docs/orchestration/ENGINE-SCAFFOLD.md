@@ -1159,6 +1159,31 @@ self-play (Omnath's pilots drive it); it validates the returned action against t
 offered set with a canonical-key deep compare (`actionInOfferedSet`). A pilot's
 optional `decideMulligan` (same shape) fires at keep/ship windows.
 
+**Activation timing (`legalChoices.activationTimingAllows`, 2026-10-20 — CR 117.1b, 602.1b).** Every non-mana activated ability is
+offered whenever its controller holds priority: the battlefield lane (`actionsActivateAbility`), crew, cycling and the
+discard-this-card abilities from hand (channel, bloodrush, transmute). Until 2026-10-20 they were offered only in the controller's own
+main phase (plus a combat-step window for combat-role targets, ④-AE, and a stack window for stack-ability copiers, V6), so there was
+no sacrifice outlet in response, no pump after blocks, no Mother of Runes in response, no cycling at an end step. A printed timing
+instruction is a FLAG read by the parser and enforced in one function: `sorceryOnly` ("Activate only as a sorcery", level up, a Class
+level, Outlast — own main, priority, empty stack: `canCastSorcerySpeed`), `isEquipAbility` without `anyTimeAttach` (Equip, its
+quality variants and Reconfigure — sorcery timing; a printed "{cost}: Attach this Equipment / Aura to target creature" carries
+`anyTimeAttach` and opens at instant speed — Cranial Plating, Detainment Spell), `yourTurnOnly` ("Activate only during your turn" — read
+into a flag for the first time; it used to be stripped with none, safe only while the window was the own main phase),
+`preCombatOnly` (own turn, beginning phase or precombat main), `combatStepOnly` (that step, either side's turn). Transmute's
+`sorceryOnly` (from hand) reads `canCastSorcerySpeed` too. Frequency limits, "Activate only if …" conditions, boast and the level /
+Class bars are unchanged. A timing sentence no reader knows stays in the effect text, which then parses LOW and parks the ability —
+an unread restriction is never offered looser than printed (the census: every modelled ability's instruction sentences are one of
+the read forms). Unchanged: mana abilities (`actionsTapForMana`, `actionsDoubleManaPool` — own main phase), loyalty abilities
+(CR 606.3), the graveyard lanes, the closed windows (the pending decisions, the attack requirement, the block declaration — CR
+509.1). Grand Abolisher / Myrel's activation half (`opponentsCantActAgainst().cantActivate`, the descriptor's `includeActivated`)
+needed no code while the window was the own main phase; it is enforced now — during the lock's turn the locked player is offered no
+battlefield activation, crew, cycling or discard ability (wider than printed on purpose: the payment planner can't keep a land's or a
+card-in-hand's mana away from the mana abilities the lock forbids). **The default AI keeps its windows**
+(`opponentAI.inDefaultAIActivationWindow`, applied at the top of `pickAction`): its own main phase; combat-role abilities in the
+④-AE combat steps; stack copiers while its own ability waits; Equip and the printed attaches in its own main with an empty stack;
+crew and cycling in its own main; a combat-role discard ability in a combat step. Every picker was measured in those windows; a new
+window for the AI is a new picker with its own witnesses and A/B. Witness: `instantSpeedActivation.test.js`.
+
 **Attack requirements (`attackRequirements.js`, added 2026-10-18 — CR 508.1d).** The one requirement check, read by the offer
 for every seat (a person's included) and by the AI's `pickAttackPlan`. `obeyingAttackOptions` narrows a creature's defenders to
 those obeying the most of its "attacks a player other than X if able" requirements (`layers.attackOtherThanRequirementsOf`: one
@@ -1468,8 +1493,8 @@ Spree cards each have a mode no reader resolves. Witness: `spree.test.js`.
 sacrifice-self cost, so a fetch land is taken by its own picker: an offered activation of a land that taps and sacrifices it,
 costs no mana and nothing but life, targets nothing, and runs one search for ONE card to the battlefield whose every filter group
 names a land (`fetchCrackAtom`; `fetchLandAbility` over a card — 32 corpus lands: the Zendikar / Onslaught ten, Prismatic Vista,
-the Mirage five, the MH3 Landscapes, Evolving Wilds and kin). It cracks in its own main phase with the stack empty (the only window
-the engine offers), only while the library holds a land the search finds and a life cost leaves it at `LIFE_PRUDENCE_FLOOR` (10);
+the Mirage five, the MH3 Landscapes, Evolving Wilds and kin). It cracks in its own main phase with the stack empty (the AI's
+activation window — the engine offers the crack whenever the AI holds priority since 2026-10-20), only while the library holds a land the search finds and a life cost leaves it at `LIFE_PRUDENCE_FLOOR` (10);
 a source that makes no mana right after the land drop and before the casts, a source that taps for mana (the Landscapes) only
 after the casts and only for a colour the hand lacks. Its search — and, since the same day, every search for a LAND card the AI
 makes for itself (`fetchLand.landSearchPickOrder`: each filter alternative names a land, from the library, not to the graveyard —

@@ -39,41 +39,43 @@ function stripReminder(text) {
 }
 
 /**
- * Strip a trailing RUNTIME-ENFORCED timing restriction from an activated ability's EFFECT clause before it is
- * parsed. Such a rider governs WHEN the ability may be activated, never WHAT it does; when the runtime ALREADY
- * enforces at-least-as-strict a window, dropping the sentence can NEVER let the engine play an ability sooner
- * or more often than the card allows (THE CREED — a strict, safe simplification, exactly like the cost-only
- * keyword strips). Without the strip the trailing sentence is swept into the effect program and drags an
- * otherwise-HIGH effect ("Put two +1/+1 counters on each creature you control. Activate only as a sorcery.")
- * to LOW, silently parking a fully-modelable ability. Single-sourced here so the parser and the coverage metric
- * strip identically. Two riders are stripped, BOTH implied by the offer gate (legalChoices.actionsActivate-
- * Ability offers activated abilities ONLY when it is the controller's own main step, they hold priority, and —
- * for a sorceryOnly ability — the stack is empty):
- *   • "Activate [this ability] only as a sorcery." (CR 602.5d) — own main + empty stack, already the gate.
- *   • "Activate [this ability] only during your turn." (BLITZ AA-1) — own MAIN step is a STRICT SUBSET of
- *     "your turn", so the engine's window is always inside the printed one; stripping only ever UNDER-offers
- *     (never at instant speed on your turn, which the card would allow) — a safe false-negative, never an FP.
+ * Strip a trailing timing restriction from an activated ability's EFFECT clause before it is parsed, once the
+ * restriction has been read into a FLAG the offer enforces. Such a rider is an activation instruction (CR 602.1b —
+ * text after the colon that restricts when the ability may be activated; it is not part of the effect), so it
+ * governs WHEN the ability may be activated, never WHAT it does. Without the strip the trailing sentence is swept
+ * into the effect program and drags an otherwise-HIGH effect ("Put two +1/+1 counters on each creature you control.
+ * Activate only as a sorcery.") to LOW, silently parking a fully-modelable ability. Single-sourced here so the
+ * parser and the coverage metric strip identically. Two riders are stripped, each read FIRST into its flag:
+ *   • "Activate [this ability] only as a sorcery." (CR 602.5d, 307.5) → `sorceryOnly`: the offer requires the
+ *     player's own main phase, priority and an empty stack (legalChoices.canCastSorcerySpeed).
+ *   • "Activate [this ability] only during your turn." (BLITZ AA-1) → `yourTurnOnly`: the offer requires the
+ *     player to be the active player.
+ * ⛔ THE FLAG IS THE WHOLE SAFETY PROPERTY (2026-10-20). Until then the offer opened activated abilities only in
+ * the controller's own main phase, so the your-turn rider was stripped with NO flag — "already enforced" by a
+ * window strictly inside the printed one. Activated abilities are offered whenever their controller has priority
+ * now (CR 117.1b), so a strip without its flag would be an ability activated on an opponent's turn the card forbids.
  * BOTH are whole-clause anchored ($ after the phrase) so a rider carrying an EXTRA, un-enforced condition —
- * "…during your turn, before attackers are declared." (Capricious Sorcerer), "…no more than twice each turn."
- * (Pit Imp), "…only if <condition>." (Cinder Crawler) — does NOT match and the ability stays parked, because
- * offering it in the engine's main-step window WOULD violate that extra constraint (a forbidden FP).
+ * "…no more than twice each turn." (Pit Imp, before its cap was built), "…only if <condition>." (Cinder Crawler) —
+ * does NOT match unless its own reader peeled it first, and an unread rider stays in the effect text, where it
+ * parks the ability (a false negative, the safe direction).
  */
 /**
  * PRECOMBAT-ONLY rider (census slice, 2026-07-28) — "Activate only during your turn, before attackers are
  * declared." (26 corpus carriers) and the bare "Activate only before attackers are declared." (2 more).
  *
- * NOT strippable like the two riders below it, and that distinction is the whole slice. The offer gate's
- * window is `step === "main"`, which covers BOTH main phases — and the postcombat main is AFTER attackers
- * are declared. So stripping this rider would let the engine activate the ability in a window the card
- * forbids: a false positive, not a safe simplification. It is flagged instead, and legalChoices NARROWS
- * the window to the precombat main for a flagged ability. Narrowing can only ever under-offer.
+ * Flagged `preCombatOnly`; legalChoices offers a flagged ability only in its controller's own turn, in the
+ * beginning phase or the precombat main phase — every step of the turn before the first combat (CR 505.1a — every
+ * main phase after the first is a postcombat main, so an additional combat never comes before the precombat main).
+ * The beginning of combat step is left out: an additional combat phase has one too, after attackers were declared
+ * (Capricious Sorcerer's ruling — "before the beginning of the declare attackers step of the first combat phase"),
+ * and leaving it out can only under-offer.
  *
  * The bare form ("only before attackers are declared", no turn clause) legally allows an OPPONENT'S turn
- * too; the engine never offers on an opponent's turn, so treating it identically is an under-offer — safe.
+ * too; the offer reads both forms as own-turn only, an under-offer — safe.
  *
  * DELIBERATELY UNMATCHED: "Activate only during an OPPONENT'S turn, before attackers are declared."
- * (Nettling Imp). The engine's window and the card's are DISJOINT — it could never be legally offered at
- * all, so it must stay parked rather than be credited into a window the card forbids.
+ * (Nettling Imp). No reader models an opponent's-turn window, so it stays parked rather than be credited into a
+ * window the card forbids.
  */
 const PRECOMBAT_RIDER = /\.?\s*Activate (?:this ability )?only (?:during your turn, )?before attackers are declared\.?\s*$/i;
 // COMBAT-STEP RIDER (SHELF-85 Phase 3 · Desert, 2026-09-05 — "{T}: This land deals 1 damage to target attacking creature.
@@ -117,15 +119,21 @@ const SPEND_ONLY_CHOSEN_COLOR_RIDER = /\.?\s*Spend only mana of the chosen color
 const PER_COUNTER_REDUCTION_RIDER = /(\.)?\s*This ability costs \{(\d+)\} less to activate for each ([a-z][a-z+/0-9-]*) counter on this (?:artifact|creature|enchantment|land|permanent|planeswalker)\.(?=\s|$)/i;
 const OPPONENT_TURN_RIDER = /Activate (?:this ability )?only during an opponent's turn/i;
 
-// CR 602.5d / 307.5 — "Activate only as a sorcery" means own main, priority, AND AN EMPTY STACK. The generic offer
-// gate covers own-turn + main step but NOT the empty-stack half, so the rider cannot simply be stripped as
-// "already enforced": the engine would offer the ability in response to a spell on the stack, which the card
-// forbids. Measured 2026-07-29 on a plain "{2}: Draw a card. Activate only as a sorcery." — correctly
-// withheld on an opponent's turn and in the controller's own combat, and WRONGLY offered with a non-empty
-// stack. Same literal as the strip below so the flag and the strip can never disagree about the phrase.
+// CR 602.5d / 307.5 — "Activate only as a sorcery" means own main, priority, AND AN EMPTY STACK. The rider cannot
+// simply be stripped: the offer opens every activated ability whenever its controller has priority (CR 117.1b), so
+// the flag is what keeps it to the sorcery window (legalChoices.canCastSorcerySpeed). Measured 2026-07-29, when the
+// generic gate was still own-turn + main step only: a plain "{2}: Draw a card. Activate only as a sorcery." was
+// WRONGLY offered with a non-empty stack until the flag existed. Same literal as the strip below so the flag and the
+// strip can never disagree about the phrase.
 const SORCERY_TIMING_RIDER = /\.?\s*Activate (?:this ability )?only as a sorcery\.?\s*$/i;
 export function abilityIsSorcerySpeedOnly(clause) {
   return SORCERY_TIMING_RIDER.test(String(clause || ""));
+}
+// "Activate only during your turn." (BLITZ AA-1; read into `yourTurnOnly` 2026-10-20) — the same literal the strip below
+// removes, so the flag and the strip can never disagree about the phrase.
+const YOUR_TURN_TIMING_RIDER = /\.?\s*Activate (?:this ability )?only during your turn\.?\s*$/i;
+export function abilityIsYourTurnOnly(clause) {
+  return YOUR_TURN_TIMING_RIDER.test(String(clause || ""));
 }
 
 // FABLED PASSAGE's trailing bonus (CR 701.23 fetch + a conditional untap) — "…, then shuffle. THEN IF YOU
@@ -148,8 +156,8 @@ function stripBonusUntapRider(clause) {
 
 function stripEnforcedTimingRider(clause) {
   return String(clause || "")
-    .replace(/\.?\s*Activate (?:this ability )?only as a sorcery\.?\s*$/i, "")
-    .replace(/\.?\s*Activate (?:this ability )?only during your turn\.?\s*$/i, "")
+    .replace(SORCERY_TIMING_RIDER, "")
+    .replace(YOUR_TURN_TIMING_RIDER, "")
     .trim();
 }
 
@@ -1325,13 +1333,16 @@ export function parseActivatedAbilities(cardIn) {
     // Equip — a mana cost, the ATTACH resolver (the Aura moves to the chosen host), no effect program. Rides the equip
     // lane (isEquipAbility) with `isAuraAttach`: the offer enumerates ANY creature (an Aura may be moved onto an
     // opponent's creature — "Enchant creature"), and the resolver waives Equip's own-creature rule for it.
+    // `anyTimeAttach` (2026-10-20): unlike Equip (CR 702.6a, "Activate only as a sorcery") the printed line has no timing
+    // instruction, so it is activated whenever its controller has priority (CR 117.1b — Detainment Spell's ruling moves it
+    // in response to an activation).
     const aam = line.match(/^((?:\{[^}]+\})+):\s*attach this aura to target creature\.?$/i);
     if (aam) {
       const cost = parseAbilityCost(aam[1]);
       out.push({
         index: index++, raw: line, costStr: aam[1], effectClause: "Attach this Aura to target creature.",
         manaPips: cost?.manaPips ?? null, tapSelf: false, costModeled: !!cost,
-        isManaEffect: false, program: null, modeled: !!cost, needsTarget: true, isEquipAbility: true, isAuraAttach: true,
+        isManaEffect: false, program: null, modeled: !!cost, needsTarget: true, isEquipAbility: true, isAuraAttach: true, anyTimeAttach: true,
       });
       continue;
     }
@@ -1407,11 +1418,11 @@ export function parseActivatedAbilities(cardIn) {
     // branches above can't see it. Carrying isEquipAbility routes it to the SAME ATTACH resolver — no new
     // runtime lane, no new resolver, no new legality path.
     //
-    // TIMING IS THE ONE REAL DIFFERENCE, and it lands on the safe side. The printed ability has NO
-    // sorcery-speed restriction (instant-speed re-equipping is the entire reason this cycle exists), while
-    // the engine offers activated abilities only in the controller's own main step. Own-main is a strict
-    // SUBSET of "whenever you have priority", so the engine can only ever UNDER-offer it — a safe false
-    // negative, the same argument AA-1 makes for "Activate only during your turn."
+    // TIMING IS THE ONE REAL DIFFERENCE. The printed ability has NO sorcery-speed restriction (instant-speed
+    // re-equipping is the entire reason this cycle exists — Cranial Plating's ruling: activated at instant speed, even
+    // during another player's turn), so it carries `anyTimeAttach` and the offer
+    // opens it whenever its controller has priority (CR 117.1b, 2026-10-20); the keyword Equip keeps the sorcery
+    // timing CR 702.6a gives it.
     //
     // Mana-only cost, anchored whole-line ($): a typed or additional cost, or any trailing rider, falls
     // through to the generic parse and lands wherever its effect really parses (CREED — whole line or nothing).
@@ -1421,7 +1432,7 @@ export function parseActivatedAbilities(cardIn) {
       out.push({
         index: index++, raw: line, costStr: am[1], effectClause: "",
         manaPips: cost?.manaPips ?? null, tapSelf: false, costModeled: !!cost,
-        isManaEffect: false, program: null, modeled: !!cost, needsTarget: true, isEquipAbility: true,
+        isManaEffect: false, program: null, modeled: !!cost, needsTarget: true, isEquipAbility: true, anyTimeAttach: true,
       });
       continue;
     }
@@ -1478,8 +1489,8 @@ export function parseActivatedAbilities(cardIn) {
     // carriers. Never strip a restriction the runtime doesn't enforce.
     const isExhaust = /^exhaust\s*[—–-]\s*/i.test(costStr);
     if (isExhaust) costStr = costStr.replace(/^exhaust\s*[—–-]\s*/i, "").trim();
-    // Strip a trailing "Activate only as a sorcery" timing rider (CR 602.5d) — a WHEN restriction the runtime
-    // already enforces (activated abilities are offered only at main / sorcery speed), never a WHAT, so the
+    // Strip a trailing "Activate only as a sorcery" / "Activate only during your turn" timing rider (CR 602.5d) — a WHEN
+    // restriction read first into its flag (sorceryOnly / yourTurnOnly, enforced at the offer), never a WHAT, so the
     // effect parses on its real payload instead of being dragged LOW by the trailing sentence.
     // PER-TURN ACTIVATION LIMIT (BLITZ ONCE-1, generalized from a boolean to a COUNT): a FREQUENCY
     // restriction printed as a trailing rider (Hollow Scavenger / Drillworks Mole class). Strippable for the
@@ -1520,8 +1531,9 @@ export function parseActivatedAbilities(cardIn) {
     const afterPrecombat = preCombatOnly ? afterCondition.replace(PRECOMBAT_RIDER, "").trim() : afterCondition;
     const beforeTimingStrip = activationLimit ? afterPrecombat.replace(LIMIT_RIDER, "").trim()
       : onceEver ? afterPrecombat.replace(ONCE_EVER_RIDER, "").trim() : afterPrecombat;
-    // Read the flag off the PRE-strip text — after the strip the phrase is gone by construction.
+    // Read the flags off the PRE-strip text — after the strip the phrase is gone by construction.
     const sorceryOnly = abilityIsSorcerySpeedOnly(beforeTimingStrip);
+    const yourTurnOnly = abilityIsYourTurnOnly(beforeTimingStrip);
     let effectClause = stripBonusUntapRider(stripEnforcedTimingRider(beforeTimingStrip));
     // SELF-NAME + GENDERED-SUBJECT normalization (the Power-up bodies, 2026-08-14 — She-Hulk "Put a
     // +1/+1 counter on She-Hulk", Abomination "… He fights up to one target creature an opponent
@@ -1626,7 +1638,8 @@ export function parseActivatedAbilities(cardIn) {
       ...(isPowerUp ? { powerUp: true } : {}), // the powerUpOnly cost reducer (Hulk, Gamma Goliath) gates on this — Exhaust must NOT ride it
       preCombatOnly, // "before attackers are declared" — legalChoices narrows the window to the PRECOMBAT main
       combatStepOnly, // COMBAT-STEP RIDER (Desert) — "Activate only during the <step> step": legalChoices offers it in exactly that step, or null
-      sorceryOnly,   // CR 602.5d "Activate only as a sorcery" — legalChoices adds the EMPTY-STACK half the generic main-step gate does not cover
+      sorceryOnly,   // CR 602.5d "Activate only as a sorcery" — legalChoices requires the player's own main phase, priority and an empty stack
+      ...(yourTurnOnly ? { yourTurnOnly: true } : {}), // "Activate only during your turn" — legalChoices requires the player to be the active player
 
       boast: isBoast, // CR 702.135 — offer gate requires perm.attackedThisTurn (per-permanent, not per-seat)
       condition, // CR 602.5d "Activate only if <cond>" — legalChoices evaluates it; null when absent OR unreadable
@@ -1760,7 +1773,7 @@ function computeModeledLeveler(card) {
   const stamped = abilities.map((ab) => {
     if (ab.raw === levelUpLine) {
       // CR 702.87a "Activate only as a sorcery": enforced at the offer gate (legalChoices requires
-      // canCastSorcerySpeed — own main, empty stack), not just the main-step approximation.
+      // canCastSorcerySpeed — own main, priority, empty stack).
       return { ...ab, isLevelUp: true, sorceryOnly: true };
     }
     return { ...ab, levelGate: gateByRaw.get(ab.raw) };
