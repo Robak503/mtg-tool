@@ -314,7 +314,16 @@ export function observe(state, seat) {
 //     there is a real choice; an answer that is no candidate is asked again. A pilot is offered one
 //     action per choice. The ability waits on the stack meanwhile (additive stack-object field
 //     `awaitingTargets`, engine-internal).
-export const PLAY_API_VERSION = "1.4.0";
+// 1.5.0 (additive MINOR — the ward costs, 2026-10-20):
+//   - "soft-counter" decisions gain `objectKind` ("spell" | "ability" — what is threatened) and, for a
+//     ward with alternatives (`cost.kind` "any" — "Discard a card or pay {2}"), `optionsAffordable`
+//     (one boolean per `cost.options`). New `cost` kinds: "all" (`parts`, every one paid), "any"
+//     (`options`, one paid), "discard-random" (`count`), "unpayable" (`text` — a ward cost the engine
+//     can't take: paying is impossible, so the spell or ability is countered). The answer
+//     `{ kind, pay, option? }` grew the optional `option` — the index in `cost.options` paid; absent,
+//     the house pick (an affordable alternative that discards nothing first). A pilot ignoring both
+//     answers exactly as before.
+export const PLAY_API_VERSION = "1.5.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

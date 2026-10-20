@@ -65,6 +65,8 @@ const PENDING_WIRE_FIELDS = [
   "toZone", // milled-pick — MilledPickPanel's banner switch ("exile": exile from your graveyard; "playFree": Dauthi Voidwalker's free play, P·28)
   "abilityText", // trigger-target (CR 603.3d) — the printed sentence of the triggered ability whose targets you choose
   "allowNone", // trigger-target — a modal "choose up to one": the panel offers choosing no mode (CR 603.3c)
+  "objectKind", // soft-counter (2026-10-20) — "spell" | "ability": SoftCounterPanel names an ability's threat as the ability
+  "optionsAffordable", // soft-counter — per alternative of a ward cost with alternatives (`cost.options`): which the payer can pay
 ];
 
 /**

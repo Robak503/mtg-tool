@@ -2529,9 +2529,9 @@ export function settleTriggerTargetChoice(state, candidateId) {
  * counter that spell or ability unless that player pays [cost]." A triggered ability's targets are chosen as it is put on the stack
  * (CR 603.3d → 601.2c); when it targets a ward permanent an opponent of its controller controls, record the ward on the ability:
  * `wardOwed: { cost, wardName }`, the cost and the ward's name as wardTaxForStackObject reads them now, as the ward triggers (the same
- * detector the cast and ability paths use — a single ward target, the mana, life and discard costs; no ward, an own permanent, or a
- * cost it can't express records nothing). The question itself is raised by raiseWardOwed. An ability already gone (Kira's counter)
- * records nothing.
+ * detector the cast, ability and loyalty paths use — every ward target and every ward instance on it, in one cost; a cost the
+ * engine can't take is recorded as unpayable, never dropped; no ward or an own permanent records nothing). The question itself is
+ * raised by raiseWardOwed. An ability already gone (Kira's counter) records nothing.
  */
 function markWardOwed(state, so) {
   const tax = wardTaxForStackObject(state, so);
@@ -2558,7 +2558,25 @@ export function raiseWardOwed(state) {
   const obj = stack[at];
   const { wardOwed, ...rest } = obj;
   const asked = { ...state, stack: stack.map((o, i) => (i === at ? rest : o)) };
-  return setPendingSoftCounterChoice(asked, { controller: obj.controller, cost: wardOwed.cost, spellId: obj.id, spellName: obj.source?.name ?? null, sourceName: wardOwed.wardName });
+  // `priorityAfter`: the player who holds priority now — the one who receives it once the ward is settled (CR 117.5, returnPriorityAfterWard).
+  return setPendingSoftCounterChoice(asked, { controller: obj.controller, cost: wardOwed.cost, spellId: obj.id, spellName: obj.source?.name ?? null, sourceName: wardOwed.wardName, priorityAfter: state.priorityHolder ?? null });
+}
+
+/**
+ * PRIORITY AFTER A WARD (CR 117.3c, 117.5) — a ward (or Diffusion Sliver's tax) triggers as a spell is cast or an ability is
+ * activated or put on the stack, and goes on the stack the next time a player would receive priority; then "the player who would
+ * have received priority does so" — the caster or activator (CR 117.3c), or whoever the trigger's flush handed it to. The engine
+ * asks the ward at once instead (an immediate pay-or-counter, no ward object on the stack), and its settle runs
+ * finalizeStackResolution, which restarts priority at the active player as after a resolution (CR 117.3b). This returns it to
+ * `holder` — the player who held it when the ward was raised (`pendingChoice.priorityAfter`) — with the pass count restarted.
+ * Unchanged when there is no holder, the holder has left the game (the finalize's pick stands), the step grants no priority, or
+ * nobody holds it. Before 2026-10-20 a non-active player who cast a spell at a ward permanent lost the priority the cast gave
+ * them: the active player acted first.
+ */
+export function returnPriorityAfterWard(state, holder) {
+  if (!holder || !state.players?.[holder] || !state.priorityHolder || !grantsPriority(state.step)) return state;
+  if (state.priorityHolder === holder && (state.consecutivePasses || 0) === 0) return state;
+  return { ...state, priorityHolder: holder, consecutivePasses: 0 };
 }
 
 /** Once no ability of the batch waits for its controller, put what triggered meanwhile on the stack (the flush the batch's own would have run). */

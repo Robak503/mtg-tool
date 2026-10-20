@@ -13,41 +13,53 @@
  * spell/ability's controller as the payer and the ward cost as the cost — so the decision, the AI
  * heuristic, the UI panel, and the counter are all inherited, not rebuilt.
  *
- * SCOPE — PR1 (shipped): all-generic mana ward ({2}, {1}, {3}, {4}). PR2 (this slice) adds:
- *   - COLORED / HYBRID mana ward ({1}{U}, {W/U}) — parsed to a full mana cost and paid via payManaCost
- *     (the soft-counter settle now carries a structured `cost`, not a bare generic). No corpus card uses
- *     this today (the only non-all-generic mana ward is Minthara's `Ward {X}`, which stays null), but
- *     the path is COMPLETE so such a card resolves correctly the moment it appears — never a generic
- *     approximation that mis-charges a color (a CREED false positive).
- *   - LIFE ward ("Ward—Pay N life") — 19 corpus cards. Paid deterministically (loseLife) when the payer
- *     has >= N life (CR 119.4); declined otherwise → countered. No card/permanent CHOICE is involved, so
- *     it threads through the binary soft-counter pay-or-decline pause unchanged.
- *   - ABILITY targeting (vs only spell targeting). Activated/triggered abilities go on the stack with
- *     targets, so an opponent's ABILITY targeting a ward permanent now raises the ward tax too — an
- *     activated ability as it is activated (actionDispatcher), a TRIGGERED ability as it is put on the
- *     stack (2026-10-18: gameEngine.flushTriggers and the trigger-target settle record it on the
- *     ability, and the session driver asks it before anyone receives priority — gameEngine.raiseWardOwed).
+ * WHERE IT IS RAISED — every way a spell or ability gets a target: a spell as it is cast and an activated ability as it is
+ * activated (actionDispatcher), a LOYALTY ability as it is activated (a loyalty ability is an activated ability, CR 606.1 —
+ * 2026-10-20), a TRIGGERED ability as it is put on the stack (gameEngine.flushTriggers and the trigger-target settle record it on
+ * the ability; the session driver asks it before anyone receives priority — gameEngine.raiseWardOwed). After the question is
+ * settled, priority stays with the player who held it when the spell was cast or the ability activated or put on the stack
+ * (CR 117.3c, 117.5 — the ward trigger goes on the stack before that player receives priority; the engine asks it at once
+ * instead): the pending choice carries `priorityAfter`, and learnSession's settle returns priority to it.
  *
- * STILL OUT (safe false-negatives, returned as null = unenforced, never mis-resolved):
- *   - DISCARD / SACRIFICE ward ("Ward—Discard a card" / "Ward—Sacrifice a creature") — paying these
- *     requires the payer to CHOOSE a card/permanent, which the binary soft-counter pay-or-decline pause
- *     cannot express without a second nested pending-choice (high-blast-radius shared-infra change for 0
- *     in-deck and ~20 corpus cards). Left unenforced rather than half-built.
- *   - {X} ward (Minthara) — the cost is a value the ATTACKER would choose; no soft-counter shape for it.
- *   - A spell/ability targeting 2+ opponent ward permanents (each ward is its own trigger, CR 702.21a).
+ * THE COST — every ward instance the targets carry (wardTaxForStackObject):
+ *   · each ward permanent a spell or ability targets has its own ward trigger (CR 702.21a), and each instance of ward on one
+ *     permanent triggers separately (CR 113.2c — a printed ward and one an Equipment grants both trigger); "If that player
+ *     doesn't pay for all of them, the spell will be countered" (the bundled ruling on the ward cards). The engine asks ONE
+ *     question for all of them: pay every ward, or the spell or ability is countered — the outcome of every answer to the
+ *     separate questions except paying some and declining others, which counters it all the same and only spends what was paid;
+ *   · the printed cost, read off the face that is up (faceUp.faceUpView — a back face's ward is never read), reminder text
+ *     stripped (CR 207.2a):
+ *       - mana: "Ward {2}", "Flying, ward {1}", "Ward {1}{U}", "Ward {W/U}" — a full mana cost, colored and hybrid included;
+ *       - life: "Ward—Pay 3 life" (CR 119.4); "Ward—Pay life equal to this creature's power" — the power when it is asked
+ *         (Phyrexian Fleshgorger, Raubahn; their rulings: the power as the ward resolves);
+ *       - discard: "Ward—Discard a card" (the payer chooses, CR 701.9b) and "Ward—Discard a card at random" (no choice);
+ *       - several parts: "Ward—{2}, Pay 2 life" — every part is paid (Captain Howler, Gisa, Ovika);
+ *       - alternatives: "Ward—Discard a card or pay {2}" — the payer pays either one (Titania, Rugged Rumbler);
+ *       - a ward its card grants itself under a condition: "Iymrith has ward {4} as long as it's untapped", "The Tarrasque has
+ *         haste and ward {10} as long as it was cast", "Minthara has ward {X}, where X is the number of experience counters
+ *         you have" (CR 702.21b — X is read when it is asked);
+ *   · a granted ward (layers.permanentGrantedWardCosts — Cathedral Acolyte, Plate Armor, Hexing Squelcher): each grant is an
+ *     instance of its own.
+ * A COST THE ENGINE CAN'T TAKE — a sacrifice ("Ward—Sacrifice a creature", Vein Ripper), poison counters, collect evidence,
+ * waterbend, blight, a discard of a certain card type, a ward whose cost no form above reads — is `{ kind: "unpayable", text }`:
+ * the question is asked and can't be paid, so the spell or ability is countered, exactly what declining to pay does (CR
+ * 118.12a — "unless" a player does something: declining is always a legal answer). Before 2026-10-20 such a ward was returned
+ * as null and the spell resolved without it — a free pass no answer to the question allows.
  *
  * Pure: regex + board reads, no mutation.
  */
 
 import { findPermanent } from "./gameState.js";
-import { permanentHasKeyword, permanentGrantedWardCosts } from "./layers.js";
+import { permanentHasKeyword, permanentGrantedWardCosts, permanentPower } from "./layers.js";
+import { faceUpView } from "./faceUp.js";
 
 const SINGLE_COLORS = new Set(["W", "U", "B", "R", "G"]);
+const COUNTS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 
 /**
  * Parse the pips of a mana ward cost (everything after "Ward ") into the planPayment cost shape, or null
- * if ANY pip isn't a known mana symbol (digit / single color / C / hybrid). {X}/{Y}/{Z} → null (the
- * attacker-chosen value is unmodeled). Mirrors legalChoices.parseManaCost's grammar but is inlined to keep
+ * if ANY pip isn't a known mana symbol (digit / single color / C / hybrid). {X}/{Y}/{Z} → null (an X ward is
+ * read by the caller, which knows what X is). Mirrors legalChoices.parseManaCost's grammar but is inlined to keep
  * ward.js a leaf (importing legalChoices would pull the whole cast graph + risk a cycle).
  */
 function parseWardManaPips(pipStrings) {
@@ -67,102 +79,247 @@ function parseWardManaPips(pipStrings) {
       }
       return null; // unrecognized hybrid option
     }
-    return null; // {X}, snow {S}, or any unknown symbol → unmodeled ward
+    return null; // {X}, snow {S}, or any unknown symbol
   }
   return cost;
 }
 
-/**
- * The ward cost printed on a card, as a STRUCTURED descriptor — or null when it's a form this slice does
- * not enforce (discard/sacrifice/{X} ward, or no ward at all).
- *   - mana: { kind: "mana", mana: <planPayment cost> }    ("Ward {2}", "Ward {1}{U}", "Ward {W/U}")
- *   - life: { kind: "life", life: N }                      ("Ward—Pay 3 life")
- * Discard / sacrifice / {X} → null (a safe false-negative; see the file header).
- */
-export function parseWardCost(card) {
-  const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
+const pipsOf = (s) => (String(s).match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
+const unpayable = (text) => ({ kind: "unpayable", text: String(text).trim() });
 
-  // NON-MANA forms use an em-dash or hyphen: "Ward—Pay 3 life" / "Ward — Discard a card".
-  // LIFE is the one non-mana form this slice pays (no card/permanent choice). Anchor on the digit+life.
-  const lifeM = oracle.match(/\bward\s*[—-]\s*pay\s+(\d+)\s+life/i);
-  if (lifeM) return { kind: "life", life: parseInt(lifeM[1], 10) };
-  // ⭐ DISCARD ward ("Ward—Discard a card." — Mighty Servant of Leuk-o, Graveyard Trespasser, Tragedy
-  // Feaster, Maha Its Feathers Night and 8 more). This note used to read "recognized but UNENFORCED (needs
-  // a payer choice)" and that WAS true — a mana or life ward is a single yes/no, while a discard needs a
-  // second decision (which card).
-  // ⭐ WHAT MAKES IT PAYABLE: unlike mana, a discard with a non-empty hand ALWAYS succeeds, so the SPELL'S
-  // FATE is settled at the "pay?" answer and the card pick is a follow-up that cannot change it. The
-  // settlement therefore marks the spell saved, then hands off to advanceDiscardChain — which already
-  // discards inline when the hand is small enough to leave no real choice, and pauses for a pick otherwise.
-  // ⛔ An EMPTY hand is "can't pay" → the spell is countered, NOT a free pass (canAffordWardCost).
-  // ⓘ SACRIFICE ward stays null: choosing which permanent to sacrifice has no equivalent "always succeeds"
-  // shortcut (the choice can matter enormously), and there is no sacrifice-chain helper with this shape yet.
-  const discardM = oracle.match(/\bward\s*[—-]\s*discard\s+(a|an|one|two|three|\d+)\s+cards?\b/i);
-  if (discardM) {
-    const w = discardM[1].toLowerCase();
-    const n = { a: 1, an: 1, one: 1, two: 2, three: 3 }[w] ?? parseInt(w, 10);
-    if (Number.isInteger(n) && n > 0) return { kind: "discard", n };
+/** The card's own name as its rules text says it — the full name, "this creature", or a shortened name (CR 201.5c — "Raubahn", "Iymrith"). */
+function namesSelf(card, subject) {
+  const s = String(subject || "").trim().toLowerCase();
+  const name = String(card?.name || "").toLowerCase();
+  return s === "this creature" || s === "this permanent" || (!!name && (s === name || s === name.split(",")[0].trim()));
+}
+
+/** One cost phrase of a "Ward—…" line → a descriptor, or null when it is no form the engine pays. */
+function parseCostPhrase(phrase, card) {
+  const p = String(phrase).trim().replace(/\.$/, "").trim();
+  let m = p.match(/^pay (\d+) life$/i);
+  if (m) return { kind: "life", life: parseInt(m[1], 10) };
+  m = p.match(/^pay life equal to (.+)'s power$/i);
+  if (m && namesSelf(card, m[1])) return { kind: "life-power" };
+  m = p.match(/^discard (a|an|one|two|three|four|five|\d+) cards?( at random)?$/i);
+  if (m) {
+    const n = COUNTS[m[1].toLowerCase()] ?? parseInt(m[1], 10);
+    if (!Number.isInteger(n) || n < 1) return null;
+    return m[2] ? { kind: "discard-random", count: n } : { kind: "discard", n };
   }
-  if (/\bward\s*[—-]\s*sacrifice/i.test(oracle)) return null;
+  m = p.match(/^(?:pay )?((?:\{[^}]+\})+)$/i);
+  if (m) {
+    const mana = parseWardManaPips(pipsOf(m[1]));
+    return mana ? { kind: "mana", mana } : null;
+  }
+  return null;
+}
 
-  // MANA form: "Ward {…}". Pips must be DIRECTLY adjacent ({1}{U}) — no `\s*` between them, or a greedy
-  // match would cross the newline after "Ward {2}" and swallow the NEXT ability's mana ("{1}{R}{G},
-  // Exile…" → a false colored read on Wilson, Ardent Bear / Pippin). A mana cost never has whitespace
-  // inside it, so this is exact.
-  const m = oracle.match(/\bward\s+(\{[^}]+\}(?:\{[^}]+\})*)/i);
-  if (!m) return null;
-  const pips = (m[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
-  if (!pips.length) return null;
+/** The cost after "Ward—": one phrase, parts joined by commas (all paid), or alternatives joined by "or" (one paid). */
+function parseWardCostText(text, card) {
+  const t = String(text).trim().replace(/\.$/, "").trim();
+  const alternatives = t.split(/\s+or\s+/i);
+  if (alternatives.length > 1) {
+    const options = alternatives.map((s) => parseCostPhrase(s, card));
+    return options.every(Boolean) ? { kind: "any", options } : unpayable(t);
+  }
+  const parts = t.split(/\s*,\s*/);
+  if (parts.length > 1) {
+    const read = parts.map((s) => parseCostPhrase(s, card));
+    return read.every(Boolean) ? { kind: "all", parts: read } : unpayable(t);
+  }
+  return parseCostPhrase(t, card) ?? unpayable(t);
+}
+
+/** A mana ward's pips ("{2}", "{X}") → its cost; {X} reads as an X ward the caller sizes (`x`), any other unread pip as unpayable. */
+function manaInstance(pipText, xFrom = null) {
+  const pips = pipsOf(pipText);
+  if (pips.length === 1 && pips[0].toUpperCase() === "X") return xFrom ? { cost: { kind: "mana-x" }, xFrom } : { cost: unpayable(`Ward ${pipText}`) };
   const mana = parseWardManaPips(pips);
-  if (!mana) return null; // {X} / unknown symbol → unmodeled
-  return { kind: "mana", mana };
+  return { cost: mana ? { kind: "mana", mana } : unpayable(`Ward ${pipText}`) };
+}
+
+// "<self> has [haste and] ward {N}[ as long as it's untapped | as long as it was cast][, where X is the number of experience
+// counters you have]." — a ward the card grants itself (Iymrith, The Tarrasque, Minthara).
+const SELF_GRANT = /^(.+?) has (?:[a-z]+(?:, [a-z]+)*,? and )?ward ((?:\{[^}]+\})+)( as long as it's untapped| as long as it was cast)?(, where X is the number of experience counters you have)?\.?$/i;
+
+/**
+ * The ward instances printed on a card, in text order: `{ cost, form, condition?, xFrom? }`. `form` is "keyword" (a "Ward …"
+ * line or a "ward {…}" in a keyword line — present while the permanent has the keyword) or "self" (a "<this> has ward" sentence,
+ * present while its condition holds: `condition` "untapped" | "cast"). A cost the engine can't read is `{ kind: "unpayable" }`;
+ * "life-power" and "mana-x" are sized against the permanent by wardInstancesOn.
+ */
+export function readPrintedWards(card) {
+  const face = faceUpView(card);
+  const text = String(face?.oracle ?? face?.oracle_text ?? "").replace(/\([^)]*\)/g, "");
+  const out = [];
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    // "Ward—<cost>" (the em-dash form is always a line of its own).
+    const dash = line.match(/^ward\s*[—–-]\s*(.+)$/i);
+    if (dash) { out.push({ cost: parseWardCostText(dash[1], card), form: "keyword" }); continue; }
+    // A keyword line: "Ward {2}", "Flying, ward {2}", "Ward {1}, haste", "Trample, ward {2}, prowess".
+    const segments = line.split(/,\s*/);
+    const kw = segments.map((s) => s.trim().match(/^ward\s+((?:\{[^}]+\})+)\.?$/i)).filter(Boolean);
+    if (kw.length) { for (const m of kw) out.push({ ...manaInstance(m[1]), form: "keyword" }); continue; }
+    const self = line.match(SELF_GRANT);
+    if (self && namesSelf(card, self[1])) {
+      const condition = /untapped/i.test(self[3] || "") ? "untapped" : /cast/i.test(self[3] || "") ? "cast" : null;
+      out.push({ ...manaInstance(self[2], self[4] ? "experience" : null), form: "self", ...(condition ? { condition } : {}) });
+    }
+  }
+  return out;
 }
 
 /**
- * If `stackObj` (a stack object — spell OR activated/triggered ability) targets EXACTLY ONE permanent
- * that (a) is controlled by an opponent of the object's controller and (b) has ward with a cost this
- * slice can pay (mana or life), return { cost, wardName }; otherwise null. Used to raise a soft-counter
- * (pay-or-be-countered) against the object's controller. CR 702.21a: ward fires on a spell OR an ability
- * an opponent controls — both go on the stack with `controller` + `targets` here.
+ * The ward cost printed on a card, as a STRUCTURED descriptor — or null when the card prints no ward of its own
+ * (the conditions of a self-granted ward aren't read here: see wardInstancesOn). Several printed instances combine as
+ * combineWardCosts does.
+ *   - mana: { kind: "mana", mana: <planPayment cost> }   ("Ward {2}", "Ward {1}{U}", "Ward {W/U}")
+ *   - life: { kind: "life", life: N }                     ("Ward—Pay 3 life")
+ *   - discard: { kind: "discard", n } / { kind: "discard-random", count }
+ *   - all: { kind: "all", parts } / any: { kind: "any", options }
+ *   - unpayable: { kind: "unpayable", text }              (a sacrifice, poison counters, {X} with no X, …)
+ */
+export function parseWardCost(card) {
+  const printed = readPrintedWards(card);
+  if (!printed.length) return null;
+  return combineWardCosts(printed.map((p) => (p.cost.kind === "mana-x" || p.cost.kind === "life-power" ? unpayable("Ward") : p.cost)));
+}
+
+/** A granted ward (layers.permanentGrantedWardCosts) → its cost descriptor. */
+function grantedCost(g) {
+  if (typeof g.generic === "number") return { kind: "mana", mana: { generic: g.generic, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } };
+  if (typeof g.life === "number") return { kind: "life", life: g.life };
+  return unpayable("Ward");
+}
+
+/**
+ * Every ward instance on `permanentId` right now, each a cost descriptor: the printed keyword wards while the permanent has the
+ * keyword (layers.permanentHasKeyword — a ward an effect removed doesn't trigger), the self-granted ones whose condition holds
+ * (untapped; it was cast — `wasCast`, stamped as it entered), X and "its power" read now, and each granted ward. A permanent that
+ * has the keyword but prints no ward cost the engine finds (a ward granted by a source it doesn't read) has one unpayable instance.
+ */
+function wardInstancesOn(state, permanentId) {
+  const lk = findPermanent(state, permanentId);
+  if (!lk?.permanent) return [];
+  const perm = lk.permanent;
+  const hasKeyword = permanentHasKeyword(state, permanentId, "Ward");
+  const out = [];
+  let printedKeyword = 0;
+  for (const inst of readPrintedWards(perm.card)) {
+    if (inst.form === "keyword") {
+      printedKeyword++;
+      if (!hasKeyword) continue;
+    } else if (inst.condition === "untapped" ? perm.tapped : inst.condition === "cast" ? perm.wasCast !== true : false) {
+      continue;
+    }
+    if (inst.cost.kind === "mana-x") {
+      const x = Math.max(0, Number(state.players?.[lk.controller]?.experience) || 0);
+      out.push({ kind: "mana", mana: { generic: x, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } });
+    } else if (inst.cost.kind === "life-power") {
+      out.push({ kind: "life", life: Math.max(0, permanentPower(state, permanentId)) });
+    } else out.push(inst.cost);
+  }
+  const granted = permanentGrantedWardCosts(state, permanentId).map(grantedCost);
+  if (hasKeyword && printedKeyword === 0 && out.length === 0 && granted.length === 0) out.push(looseWardCost(perm.card));
+  return [...out, ...granted];
+}
+
+/**
+ * The keyword without a ward line the reader knows (three cards in the bundled data: Emerin, Shivan Angel's "Angels and Dragons
+ * you control have … ward 2", Catch of the Day's chosen "ward {3}", Squishy Sphinx Ninja's "{TK}{TK} — Ward {2}"): the first mana
+ * ward its text names — what the reader before 2026-10-20 took for any card, so these keep that cost — else a cost the engine
+ * can't take. Never nothing: the permanent has ward.
+ */
+function looseWardCost(card) {
+  const text = String(faceUpView(card)?.oracle ?? "").replace(/\([^)]*\)/g, "");
+  const m = text.match(/\bward\s+(?:(\{[^}]+\}(?:\{[^}]+\})*)|(\d+)\b)/i);
+  const mana = m ? (m[1] ? parseWardManaPips(pipsOf(m[1])) : parseWardManaPips([m[2]])) : null;
+  return mana ? { kind: "mana", mana } : unpayable("Ward");
+}
+
+// ─── combining the instances into the one question ──────────────────────────────────────────────────────────────────────────
+
+/** A cost as its alternatives, each a list of plain parts (mana | life | discard | discard-random | unpayable). */
+function alternativesOf(cost) {
+  if (cost.kind === "any") return cost.options.flatMap(alternativesOf);
+  if (cost.kind === "all") return cost.parts.map(alternativesOf).reduce((acc, alts) => acc.flatMap((a) => alts.map((b) => [...a, ...b])), [[]]);
+  return [[cost]];
+}
+
+const ZERO_MANA = () => ({ generic: 0, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] });
+const manaIsZero = (m) => !m.generic && !m.W && !m.U && !m.B && !m.R && !m.G && !m.C && !(m.hybrid || []).length;
+
+/** One alternative's parts merged: the mana summed, the life summed, the discards counted — in that order; unpayable if any part is. */
+function mergeParts(parts) {
+  const bad = parts.filter((p) => p.kind === "unpayable");
+  if (bad.length) return unpayable(bad.map((p) => p.text).join(" and "));
+  const mana = ZERO_MANA();
+  let sawMana = false;
+  let life = 0;
+  let discard = 0;
+  let random = 0;
+  for (const p of parts) {
+    if (p.kind === "mana") {
+      sawMana = true;
+      for (const k of ["generic", "W", "U", "B", "R", "G", "C"]) mana[k] += p.mana?.[k] || 0;
+      mana.hybrid.push(...(p.mana?.hybrid || []));
+    } else if (p.kind === "life") life += p.life;
+    else if (p.kind === "discard") discard += p.n || 1;
+    else if (p.kind === "discard-random") random += p.count || 1;
+  }
+  const out = [];
+  if (sawMana && (!manaIsZero(mana) || parts.length === 1)) out.push({ kind: "mana", mana });
+  if (life > 0) out.push({ kind: "life", life });
+  if (discard > 0) out.push({ kind: "discard", n: discard });
+  if (random > 0) out.push({ kind: "discard-random", count: random });
+  if (!out.length) return { kind: "mana", mana };
+  return out.length === 1 ? out[0] : { kind: "all", parts: out };
+}
+
+/**
+ * The one pay-or-be-countered question for every ward instance at once: pay every instance (CR 113.2c; the ward cards' ruling —
+ * "If that player doesn't pay for all of them, the spell will be countered"), choosing for each instance with alternatives which
+ * one. As the alternatives of the whole — each a merged list of parts — with an alternative the engine can't pay dropped while
+ * another is payable; a single alternative is returned as itself. Exported for the tests.
+ */
+export function combineWardCosts(costs) {
+  const alternatives = costs.map(alternativesOf).reduce((acc, alts) => acc.flatMap((a) => alts.map((b) => [...a, ...b])), [[]]).map(mergeParts);
+  const payable = alternatives.filter((c) => c.kind !== "unpayable");
+  const kept = [];
+  for (const c of payable.length ? payable : alternatives.slice(0, 1)) if (!kept.some((k) => JSON.stringify(k) === JSON.stringify(c))) kept.push(c);
+  return kept.length === 1 ? kept[0] : { kind: "any", options: kept };
+}
+
+const joinNames = (names) => (names.length <= 1 ? names[0] ?? null : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`);
+
+/**
+ * The ward a spell or ability (`stackObj` — any stack object with `controller` + `targets`) owes as it targets: every permanent
+ * it targets that an OPPONENT of its controller controls (CR 702.21a — a player's own permanent never asks) and that has ward,
+ * each counted once however many of its targets name it. Returns `{ cost, wardName }` — the combined cost (combineWardCosts) and
+ * the ward permanents' names — or null when no target has ward. Used by every place a ward is raised (actionDispatcher's cast,
+ * activation and loyalty paths; gameEngine's triggered-ability record) and by the AI's trigger-target chooser.
  */
 export function wardTaxForStackObject(state, stackObj) {
   const caster = stackObj?.controller;
   if (!caster) return null;
-  const wardTargets = (stackObj.targets || []).filter((t) => {
-    if (!t || (t.type !== "creature" && t.type !== "permanent" && t.type !== "planeswalker")) return false;
+  const seen = new Set();
+  const costs = [];
+  const names = [];
+  for (const t of stackObj.targets || []) {
+    if (!t || (t.type !== "creature" && t.type !== "permanent" && t.type !== "planeswalker") || seen.has(t.id)) continue;
+    seen.add(t.id);
     const lk = findPermanent(state, t.id);
-    // GRANTED ward (Cathedral Acolyte, layer-6 addWard) counts alongside a printed/keyword-granted Ward.
-    return lk && lk.controller !== caster
-      && (permanentHasKeyword(state, t.id, "Ward") || permanentGrantedWardCosts(state, t.id).length > 0);
-  });
-  if (wardTargets.length !== 1) return null; // 0 → no ward; 2+ → separate triggers (CR 702.21a), safe FN
-  const lk = findPermanent(state, wardTargets[0].id);
-  const printed = parseWardCost(lk?.permanent?.card);
-  // GRANTED ward costs (CR 113.2c — each instance triggers separately; for all-MANA costs, "pay each or
-  // the spell is countered" is outcome-identical to one combined tax, so the generic pips are SUMMED into
-  // the soft-counter). A printed NON-mana ward (life) plus a grant can't be combined into one binary tax —
-  // fall back to the printed cost alone (an under-tax, FN-safe — never a fabricated combined cost).
-  const granted = permanentGrantedWardCosts(state, wardTargets[0].id);
-  const grantedGeneric = granted.reduce((s, g) => s + (g.generic || 0), 0);
-  const grantedLife = granted.reduce((s, g) => s + (g.life || 0), 0);
-  let cost = printed;
-  // GRANTED LIFE WARD (CR 113.2c — each ward instance triggers separately; for costs of a SINGLE kind,
-  // "pay each or the spell is countered" is outcome-identical to one combined tax, which is the same
-  // argument the generic-mana branch below already makes). Handled BEFORE the mana branch so a
-  // mixed board falls through to it and keeps today's behaviour exactly.
-  if (grantedLife > 0 && grantedGeneric === 0) {
-    if (!printed) cost = { kind: "life", life: grantedLife };
-    else if (printed.kind === "life") cost = { kind: "life", life: printed.life + grantedLife };
-    // printed MANA + a granted LIFE ward cannot become one binary choice → keep the printed cost alone
-    // (an under-tax, FN-safe — never a fabricated combined cost). Mirrors the documented case below.
+    if (!lk || lk.controller === caster) continue;
+    const instances = wardInstancesOn(state, t.id);
+    if (!instances.length) continue;
+    costs.push(...instances);
+    names.push(lk.permanent.card?.name || null);
   }
-  if (grantedGeneric > 0) {
-    if (!printed) cost = { kind: "mana", mana: { generic: grantedGeneric, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } };
-    else if (printed.kind === "mana") cost = { kind: "mana", mana: { ...printed.mana, generic: (printed.mana.generic || 0) + grantedGeneric } };
-    // printed non-mana (life) + a grant → keep the printed cost alone (documented under-tax above)
-  }
-  if (!cost) return null; // discard/sacrifice/{X} ward → unenforced
-  return { cost, wardName: lk.permanent.card?.name || null };
+  if (!costs.length) return null;
+  return { cost: combineWardCosts(costs), wardName: joinNames(names) };
 }
 
 /**

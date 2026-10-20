@@ -45,12 +45,12 @@ const TRESPASSER = { id: "c-gt", name: "Graveyard Trespasser", type: "Creature �
   oracle: "Ward—Discard a card.\nWhenever this creature enters or attacks, exile up to one target card from a graveyard." };
 
 describe("the cost parses, and the refusals hold", () => {
-  it("⭐ discard forms read; sacrifice and collect-evidence still refuse", () => {
+  it("⭐ discard forms read; sacrifice and collect-evidence can't be paid (unpayable since 2026-10-20 — they were refused as null)", () => {
     const w = (o) => parseWardCost({ id: "p", name: "P", type: "Creature — Horror", oracle: o });
     expect(w("Ward—Discard a card.")).toEqual({ kind: "discard", n: 1 });
     expect(w("Ward—Discard two cards.")).toEqual({ kind: "discard", n: 2 });
-    expect(w("Ward—Sacrifice a creature.")).toBeNull();
-    expect(w("Ward—Collect evidence 4.")).toBeNull();
+    expect(w("Ward—Sacrifice a creature.")).toEqual({ kind: "unpayable", text: "Sacrifice a creature" });
+    expect(w("Ward—Collect evidence 4.")).toEqual({ kind: "unpayable", text: "Collect evidence 4" });
     // The already-modelled forms are untouched.
     expect(w("Ward—Pay 3 life.")).toEqual({ kind: "life", life: 3 });
   });

@@ -371,7 +371,7 @@ permanent raises the question a spell (the cast path) or an activated ability (t
 pause: its controller pays the ward cost or it is countered (`setPendingSoftCounterChoice` → `resolveSoftCounterChoice`; an AI
 pays when it can, `autoPickSoftCounterPay`). The flush's target-event loop (after becomes-the-target, crime and Kira) and
 `settleTriggerTargetChoice` (a person's answer) RECORD it on the ability — `markWardOwed` stamps `wardOwed: { cost, wardName }`
-as `ward.wardTaxForStackObject` reads it when the ward triggers (one ward target; the mana, life and discard costs) — and the
+as `ward.wardTaxForStackObject` reads it when the ward triggers (every ward target and every ward instance — see below) — and the
 session driver ASKS it before anyone receives priority, right after the trigger-target raise (`raiseWardOwed`: never over a
 pending choice, so never while an ability of the batch waits for its targets; the lowest owed ability first; the record cleared
 as it is asked). Recorded rather than raised at the flush because the choice slot is single: a second ward in one batch, or on
@@ -380,6 +380,31 @@ creature ask twice), would otherwise be dropped; and a flush inside a resolution
 stack without the session driver skips an owed ward, as before. The automatic chooser passes over a correct-side candidate whose
 ward its controller would not pay (`withoutUnpaidWard`, ahead of its other restraints) while another candidate is free of it.
 Witness: `wardTriggeredAbility.test.js`.
+
+**Ward, finished** (2026-10-20, CR 702.21a/b, 113.2c, 117.3c, 117.5, 118.12a, 606.1, 115.7a). One reader for every place a spell or
+ability gets a target: `ward.wardTaxForStackObject(state, obj)` → `{ cost, wardName }` or null. It is raised by the cast path, the
+activated-ability path, the LOYALTY path (`applyActivateLoyalty` — a loyalty ability is an activated ability, CR 606.1; Diffusion
+Sliver's tax too), recorded on a triggered ability (`markWardOwed`) and on a spell or ability whose target an effect CHANGES onto a
+ward permanent (`atoms/stack.moveStackTarget` — the new target becomes the target; a spell that can't be countered records nothing),
+both asked by `raiseWardOwed`. **The cost** is every ward instance on every targeted permanent an opponent of the controller
+controls (each permanent once): a spell aimed at two ward permanents owes both, and a printed ward plus a granted one (Owlin
+Shieldmage under Plate Armor) both — ONE question, "pay all or the spell is countered" (`combineWardCosts`; the ward cards' ruling
+"If that player doesn't pay for all of them, the spell will be countered"). Printed costs are read off the face that is up
+(`readPrintedWards`): mana (`Ward {2}`, `Flying, ward {1}`, colored/hybrid), life (`Pay 3 life`; `Pay life equal to this
+creature's power`, read now), discard (chosen; `at random` → `discard-random`, `pitchRandomDiscard`), several parts (`{2}, Pay 2
+life` → `{ kind: "all", parts }`), alternatives (`Discard a card or pay {2}` → `{ kind: "any", options }` — the payer picks; the
+house pick prefers an alternative that discards nothing), and a ward the card grants itself under a condition (Iymrith untapped,
+The Tarrasque `wasCast`, Minthara's X = her controller's experience counters, CR 702.21b). **A cost the engine can't take** (a
+sacrifice, poison counters, collect evidence, waterbend, blight, a typed discard; a Ward keyword whose cost no form reads and that
+names no mana ward) is `{ kind: "unpayable", text }` — asked, never payable, so the spell or ability is COUNTERED, exactly as an
+unpaid ward counters it (declining is always legal, CR 118.12a); before, these returned null and resolved free. **Priority** after
+the settle stays where the cast, activation or flush left it: the raise stamps `priorityAfter` (the caster / activator, or the
+holder when the driver raises an owed ward) and `learnSession.settleSoftCounterChoice` (and `settleDiscardChoice`, when a discard
+payment paused) runs `gameEngine.returnPriorityAfterWard` after `finalizeStackResolution`'s reset to the active player (CR 117.3c,
+117.5 — the ward goes on the stack before that player receives priority; a soft counterspell, asked as it resolves, carries no
+`priorityAfter` and keeps CR 117.3b). The person's panel (`SoftCounterPanel`) names an ability's threat as the ability
+(`decision.objectKind`) and offers one button per alternative (`decision.optionsAffordable`; the answer's `option`). Witnesses:
+`wardCompleteness.test.js`, `softCounterPanelWording.test.jsx`.
 
 `triggerRoutesNatively(effectClause)` is the **shared gate** used by *both* the
 metric (coverage's `native-trigger`) and the runtime flush — it re-parses the

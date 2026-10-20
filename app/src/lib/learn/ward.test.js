@@ -36,8 +36,9 @@ describe("parseWardCost", () => {
     expect(parseWardCost({ oracle: "Ward — Pay 5 life" })).toEqual({ kind: "life", life: 5 });
   });
 
-  it("returns null for {X} ward (attacker-chosen value, unmodeled)", () => {
-    expect(parseWardCost({ oracle: "Ward {X}" })).toBeNull();
+  it("an {X} ward with no X defined is a cost the engine can't take — unpayable, never a free pass (2026-10-20; it was null)", () => {
+    // Minthara's "ward {X}, where X is the number of experience counters you have" is read with its X — wardCompleteness.test.js.
+    expect(parseWardCost({ oracle: "Ward {X}" })).toEqual({ kind: "unpayable", text: "Ward {X}" });
   });
 
   it("⭐ DISCARD ward is PAYABLE now; SACRIFICE ward still refuses (guard job intact)", () => {
@@ -47,9 +48,10 @@ describe("parseWardCost", () => {
     // See wardDiscard.test.js for the stack drive.
     expect(parseWardCost({ oracle: "Ward—Discard a card." })).toEqual({ kind: "discard", n: 1 });
     expect(parseWardCost({ oracle: "Ward—Discard two cards." })).toEqual({ kind: "discard", n: 2 });
-    // ⛔ THE GUARD'S JOB, UNCHANGED: sacrifice has no equivalent "always succeeds" shortcut — WHICH
-    // permanent you sacrifice can matter enormously — so it stays a safe FN.
-    expect(parseWardCost({ oracle: "Ward—Sacrifice a creature." })).toBeNull();
+    // A sacrifice still has no payment here — WHICH permanent you sacrifice can matter enormously, and there is no payer
+    // choice for it — but since 2026-10-20 it is no longer a free pass: it reads as a cost the engine can't take, so the
+    // question is asked and the spell is countered, as an unpaid ward would counter it (CR 118.12a).
+    expect(parseWardCost({ oracle: "Ward—Sacrifice a creature." })).toEqual({ kind: "unpayable", text: "Sacrifice a creature" });
   });
 
   it("returns null when there is no ward", () => {
@@ -99,20 +101,23 @@ describe("wardTaxForSpell / wardTaxForStackObject", () => {
     expect(wardTaxForSpell(stateWith(v), spell("user", v.id))).toBeNull();
   });
 
-  it("leaves a spell targeting 2+ ward permanents unenforced (each ward is its own trigger — CR 702.21a)", () => {
+  it("a spell targeting 2+ ward permanents owes every ward — one question for them all (each ward triggers, CR 113.2c; 2026-10-20 — it was unenforced)", () => {
     const w1 = wardCreature("S1", "ai", "Ward {2}");
     const w2 = wardCreature("S2", "ai", "Ward {1}");
-    expect(wardTaxForSpell(stateWith(w1, w2), spell("user", w1.id, w2.id))).toBeNull();
+    expect(wardTaxForSpell(stateWith(w1, w2), spell("user", w1.id, w2.id))).toEqual({ cost: { kind: "mana", mana: manaCost({ generic: 3 }) }, wardName: "S1 and S2" });
   });
 
-  it("⭐ a DISCARD ward now TAXES; {X} and sacrifice stay unenforced (safe false-negative)", () => {
-    expect(wardTaxForSpell(stateWith(wardCreature("Minthara", "ai", "Ward {X}")), spell("user", "Minthara-card-perm"))).toBeNull();
+  it("⭐ a DISCARD ward now TAXES; {X} with no X and a sacrifice can't be paid (unpayable — 2026-10-20; they were unenforced)", () => {
+    // (This line used to aim at an id no permanent has — "Minthara-card-perm" — so its null proved nothing; it aims at the
+    // permanent now. A bare "Ward {X}" defines no X: unpayable.)
+    const x = wardCreature("Minthara", "ai", "Ward {X}");
+    expect(wardTaxForSpell(stateWith(x), spell("user", x.id))).toEqual({ cost: { kind: "unpayable", text: "Ward {X}" }, wardName: "Minthara" });
     // ⭐ The discard ward was SILENTLY IGNORED before — an opponent targeted these creatures for free.
     const d = wardCreature("Pitcher", "ai", "Ward—Discard a card.");
     expect(wardTaxForSpell(stateWith(d), spell("user", d.id))).toEqual({ cost: { kind: "discard", n: 1 }, wardName: "Pitcher" });
-    // ⛔ Guard re-armed on the form that genuinely still parks.
+    // The form the engine can't pay is asked as unpayable — the spell is countered, never waved through.
     const sac = wardCreature("Butcher", "ai", "Ward—Sacrifice a creature.");
-    expect(wardTaxForSpell(stateWith(sac), spell("user", sac.id))).toBeNull();
+    expect(wardTaxForSpell(stateWith(sac), spell("user", sac.id))).toEqual({ cost: { kind: "unpayable", text: "Sacrifice a creature" }, wardName: "Butcher" });
   });
 
   it("a single ward target alongside a non-ward target still taxes (one ward = enforced)", () => {

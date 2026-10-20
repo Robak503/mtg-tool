@@ -31,10 +31,20 @@ import { sectionLabelStyle } from "./learnViewStyles.js";
 export function wardCostLabel(decision) {
   const cost = decision?.cost;
   if (cost?.kind === "life") return `Pay ${cost.life} life`;
+  // The ward forms of 2026-10-20 (ward.js): a cost of several parts reads as all of them ("Pay {2} and 2 life" — the second "Pay"
+  // dropped, the rest lowercased); alternatives read joined by "or" (the panel offers one button per alternative); a cost the game
+  // can't take reads as printed.
+  if (cost?.kind === "all") {
+    const labels = (cost.parts || []).map((p) => wardCostLabel({ cost: p }));
+    return labels.map((l, i) => (i === 0 ? l : /^Pay /.test(labels[0]) && /^Pay /.test(l) ? l.slice(4) : l.charAt(0).toLowerCase() + l.slice(1))).join(" and ");
+  }
+  if (cost?.kind === "any") return (cost.options || []).map((o, i) => { const l = wardCostLabel({ cost: o }); return i === 0 ? l : l.charAt(0).toLowerCase() + l.slice(1); }).join(" or ");
+  if (cost?.kind === "unpayable") return String(cost.text || "Its ward cost");
   // NON-MANA sac-unless-pay kinds (2026-08-12) — the discard kind shipped 08-07 with its engine arms but
   // NOT this label, so the human panel read "Pay {0}" for Masticore. Never let a new cost kind fall to the
   // numeric fallback: it renders a lie.
-  if (cost?.kind === "discard") return (cost.count || 1) === 1 ? "Discard a card" : `Discard ${cost.count} cards`;
+  // (A ward's discard counts its cards in `n` — ward.js — the sacrifice-unless lane's in `count`.)
+  if (cost?.kind === "discard") return (cost.count || cost.n || 1) === 1 ? "Discard a card" : `Discard ${cost.count || cost.n} cards`;
   // 2026-09-30 — two more kinds that fell to the numeric fallback and read "Pay {0}": the random discard (Apathy's optional
   // payment, and now the Minotaur Explorer family's sacrifice-unless) and energy (the optional-payment lane's {E} costs).
   if (cost?.kind === "discard-random") return (cost.count || 1) === 1 ? "Discard a card at random" : `Discard ${cost.count} cards at random`;
@@ -1663,20 +1673,29 @@ export function DivideDamagePanel({ decision, onChoose }) {
 }
 
 /**
- * ===== SOFT-CNT ===== — soft-counter pay-or-be-countered picker (Force Spike / Mana Leak / Spell Pierce).
- * Shown to the player whose spell is targeted: pay {N} to save it, or let it be countered. "Pay" is disabled
+ * ===== SOFT-CNT ===== — soft-counter pay-or-be-countered picker (Force Spike / Mana Leak / Spell Pierce / ward).
+ * Shown to the player whose spell or ability is targeted: pay {N} to save it, or let it be countered. "Pay" is disabled
  * when `decision.affordable` is false (not enough untapped mana). Submits the boolean via applySoftCounterChoice.
+ * 2026-10-20: an ability's ward names the ability (`decision.objectKind` "ability" — "<source>’s ability will be countered"),
+ * not the card; a ward with alternatives (`cost.kind` "any" — "Discard a card or pay {2}") is one button per alternative, each
+ * enabled by `decision.optionsAffordable` and submitting its index (`onChoose(true, index)`); a cost the game can't take
+ * (`cost.kind` "unpayable") says so.
  */
 export function SoftCounterPanel({ decision, onChoose }) {
   const costLabel = wardCostLabel(decision);
   const affordable = decision.affordable !== false;
   const [submitting, setSubmitting] = useState(false);
+  const alternatives = decision.cost?.kind === "any" ? decision.cost.options || [] : null;
+  const unpayable = decision.cost?.kind === "unpayable";
+  const threatened = decision.spellName
+    ? decision.objectKind === "ability" ? <><b>{decision.spellName}</b>’s ability</> : <b>{decision.spellName}</b>
+    : decision.objectKind === "ability" ? "Your ability" : "Your spell";
 
-  const submit = async (pay) => {
+  const submit = async (pay, option) => {
     if (submitting) return;
     setSubmitting(true);
     try {
-      await onChoose?.(pay);
+      await (option === undefined ? onChoose?.(pay) : onChoose?.(pay, option));
     } finally {
       setSubmitting(false);
     }
@@ -1696,22 +1715,38 @@ export function SoftCounterPanel({ decision, onChoose }) {
           🛡️ {costLabel} or be countered{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
-          {decision.spellName ? <b>{decision.spellName}</b> : "Your spell"} will be countered unless
+          {threatened} will be countered unless
           you {costLabel.toLowerCase()}.
-          {!affordable && (
+          {unpayable ? (
+            <span style={{ color: "var(--ley-gold)" }}> This game can’t take that payment yet.</span>
+          ) : !affordable && (
             <span style={{ color: "var(--ley-gold)" }}> You don’t have that available.</span>
           )}
         </div>
       </div>
       <div style={{ display: "flex", gap: 8 }}>
-        <button
-          className="btn btn-primary btn-sm"
-          style={{ flex: 1 }}
-          onClick={() => submit(true)}
-          disabled={submitting || !affordable}
-        >
-          {costLabel}
-        </button>
+        {alternatives ? (
+          alternatives.map((option, i) => (
+            <button
+              key={i}
+              className="btn btn-primary btn-sm"
+              style={{ flex: 1 }}
+              onClick={() => submit(true, i)}
+              disabled={submitting || decision.optionsAffordable?.[i] === false}
+            >
+              {wardCostLabel({ cost: option })}
+            </button>
+          ))
+        ) : (
+          <button
+            className="btn btn-primary btn-sm"
+            style={{ flex: 1 }}
+            onClick={() => submit(true)}
+            disabled={submitting || !affordable}
+          >
+            {costLabel}
+          </button>
+        )}
         <button
           className="btn btn-ghost btn-sm"
           style={{ flex: 1 }}

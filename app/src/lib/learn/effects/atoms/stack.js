@@ -21,6 +21,7 @@ import { stackSpellIsUncounterable } from "../../staticAbilityParser.js"; // the
 import { auraMayEnchantCreature } from "../../auraHost.js"; // ATTACH-ON-ENTER AURAS (Shielded by Faith): the Aura's own Enchant line, honoured at the move — the shared reader (a leaf; zones.js reads it too)
 import { evaluateInterveningIf } from "../../interveningIf.js"; // FEROCIOUS HARD-COUNTER (Stubborn Denial): the resolution-time condition read. interveningIf imports only gameState — leaf edge, cycle-free.
 import { RESOLVER_KEYS } from "../../resolverKeys.js"; // P·23 — the self-copy builds a fresh effect-program payload (a zero-import leaf; resolvers.js re-exports it)
+import { wardTaxForStackObject } from "../../ward.js"; // WARD ON A CHANGED TARGET (moveStackTarget, CR 702.21a). ward.js imports gameState, layers and faceUp — the first two already imported here, faceUp a leaf — so this edge adds no cycle
 
 /**
  * P3.1 counter (CR 701.6a) — counter the target spell(s) on the stack. The targeted
@@ -2349,11 +2350,18 @@ export function moveStackTarget(state, objId, target, controller) {
   const params = obj.payload?.params || {};
   const from = (params.targets || [])[0];
   const moved = [target];
+  // WARD ON THE NEW TARGET (CR 702.21a, 115.7a — 2026-10-20): the permanent the target changes to BECOMES the target of the spell
+  // or ability, so its ward triggers when an opponent of the object's controller controls it — the object's controller pays or it
+  // is countered. Recorded on the object (`wardOwed`, as gameEngine.markWardOwed records a triggered ability's) and asked by the
+  // session driver before anyone receives priority (gameEngine.raiseWardOwed). Before, a spell redirected onto an opponent's
+  // ward permanent resolved without the ward ever being asked. A spell that can't be countered is asked nothing, as on the cast path
+  // (CR 701.6a — the ward would counter nothing).
+  const owed = obj.kind === "spell" && stackSpellIsUncounterable(state, obj) ? null : wardTaxForStackObject(state, { controller: obj.controller, targets: moved });
   const next = {
     ...state,
     stack: [
       ...state.stack.slice(0, idx),
-      { ...obj, ...(Array.isArray(obj.targets) ? { targets: moved } : {}), payload: { ...obj.payload, params: { ...params, targets: moved } } },
+      { ...obj, ...(Array.isArray(obj.targets) ? { targets: moved } : {}), payload: { ...obj.payload, params: { ...params, targets: moved } }, ...(owed ? { wardOwed: { cost: owed.cost, wardName: owed.wardName } } : {}) },
       ...state.stack.slice(idx + 1),
     ],
   };

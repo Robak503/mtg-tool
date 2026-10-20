@@ -10,7 +10,17 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.4.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.5.0"`
+
+> **v1.5.0 (additive MINOR, 2026-10-20 — the ward costs):**
+> - **`soft-counter`** decisions carry `objectKind` (`"spell"` | `"ability"` — what is threatened) and, for a ward with
+>   alternatives, `optionsAffordable` (one boolean per `cost.options`). New `cost` kinds: `all` (`parts` — every one is paid:
+>   "Ward—{2}, Pay 2 life", or two ward permanents targeted at once), `any` (`options` — one is paid: "Ward—Discard a card or
+>   pay {2}"), `discard-random` (`count`), `unpayable` (`text` — a ward cost the engine can't take, a sacrifice or poison
+>   counters: paying is impossible, so the spell or ability is countered, as declining does). The answer grew the optional
+>   `option` — the index in `cost.options` of the alternative paid; absent, the house pick (an affordable alternative that
+>   discards nothing first). A driver that ignores the new fields answers exactly as before. The question is also asked for a
+>   loyalty ability and for a spell whose target is changed onto a ward permanent.
 
 > **v1.4.0 (additive MINOR, 2026-10-18 — a new decision kind):**
 > - **`trigger-target`** (CR 603.3d, 601.2c; CR 603.3c for a mode): the person playing a seat chooses the
@@ -145,7 +155,7 @@ General rules, all kinds:
 | `discard` | `{ kind, cardId }` | the DISCARDER picks from their own hand (CR 701.8); chains via `remaining` + `queue`; no decline. |
 | `divide-damage` | `{ kind, distribution: [{ id, type: "creature"\|"player", amount }] }` | FULL assignment required (CR 601.2d): when candidates exist and the capped sum < `amount`, the same decision re-surfaces (WI-5 guard). |
 | `distribute-counters` | `{ kind, distribution: [{ id, amount }] }` | same full-assignment guard; applied via the add-counter atom so counter doublers compose (CR 616). |
-| `soft-counter` | `{ kind, pay: boolean }` | the threatened spell's or ability's controller pays `amount` / structured `cost` to save it — a soft counterspell, or a ward on a spell, an activated ability or (since 2026-10-18) a triggered ability (CR 702.21a; `spellName` names the ability's source); decline / unaffordable ⇒ countered. Decision carries `affordable`. |
+| `soft-counter` | `{ kind, pay: boolean, option?: number }` | the threatened spell's or ability's controller pays `amount` / structured `cost` to save it — a soft counterspell, or a ward on a spell, an activated ability, a loyalty ability (since 2026-10-20), a triggered ability (since 2026-10-18) or a spell or ability whose target was changed onto a ward permanent (CR 702.21a; `spellName` names the ability's source; `objectKind` says spell or ability); every ward the targets carry is one cost (`all` / `any` — v1.5.0); `option` picks an `any` cost's alternative; decline / unaffordable / `unpayable` ⇒ countered. Decision carries `affordable` (and `optionsAffordable` for `any`). After a ward is settled, priority stays with the player who held it when it was raised (CR 117.3c). |
 | `optional-mana-payment` | `{ kind, pay: boolean }` | CR 603.7c "you may pay {cost}. If you do, …"; pay runs `effectAtoms`. Decision carries `affordable`. |
 | `optional-sac-payment` | `{ kind, sac: boolean }` | sacrifice a `subtype` permanent to run the payoff; `available:false` ⇒ only decline has effect. |
 | `optional-draw-discard` | `{ kind, draw: boolean }` | loot yes/no; yes chains into a `discard` which-card pick. |

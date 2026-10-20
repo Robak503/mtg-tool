@@ -479,10 +479,11 @@ export default function useLearnSession() {
   /**
    * SOFT-CNT — submit the pay-or-be-countered decision for a `soft-counter` (Force Spike / Mana Leak /
    * Spell Pierce): `pay` is true to pay {N} and save the spell, false to let it be countered. Charges the
-   * mana + resumes server-side and returns the next decision.
+   * mana + resumes server-side and returns the next decision. `option` (a ward with alternatives — "Discard a card or pay
+   * {2}") is the index of the alternative paid, in `decision.cost.options`.
    */
   const applySoftCounterChoice = useCallback(
-    async (pay) => {
+    async (pay, option) => {
       if (inFlightRef.current || !state.sessionId) return null;
       inFlightRef.current = true;
 
@@ -492,7 +493,7 @@ export default function useLearnSession() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             sessionId: state.sessionId,
-            choice: { kind: "soft-counter", pay: pay === true },
+            choice: { kind: "soft-counter", pay: pay === true, ...(Number.isInteger(option) ? { option } : {}) },
           }),
         });
         const data = await response.json().catch(() => ({}));

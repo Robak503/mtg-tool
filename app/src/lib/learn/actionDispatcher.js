@@ -1139,11 +1139,12 @@ function applyCastSpell(state, action) {
   // with X +1/+1 counters" permanents makes its Hydra token (a real X/X). The general trigger compiler
   // doesn't model the token-with-X effect, so it's a targeted hook reading the chosen X (action.xValue).
   next = applyXCastTokenTriggers(next, { spellCard: card, casterId: action.playerId, xValue: action.xValue });
-  // KW-WARD (CR 702.21): if this spell targets a single opponent-controlled ward permanent, the ward
-  // triggers — counter the spell unless the caster pays the ward cost. Reuses the SOFT-COUNTER
+  // KW-WARD (CR 702.21): if this spell targets opponent-controlled ward permanents, their wards
+  // trigger — counter the spell unless the caster pays every ward cost (one question for them all — ward.js). Reuses the SOFT-COUNTER
   // pay-or-be-countered machinery (the pendingChoice decision + AI settle + UI + counter already exist),
   // raised "above" the spell after the cast triggers. Skipped if a trigger already set a pendingChoice
-  // (setPendingSoftCounterChoice no-ops on an occupied slot — a safe FN for that rare overlap).
+  // (setPendingSoftCounterChoice no-ops on an occupied slot — a safe FN for that rare overlap). Once it is settled, the caster
+  // holds priority as the cast left them (`priorityAfter` — CR 117.3c, 117.5; gameEngine.returnPriorityAfterWard).
   // WI-6 REACHABILITY NOTE: state.pendingChoice is FIFO-guarded and the advanceUntilDecision driver
   // settles any pending choice BEFORE the next priority window (a pause blocks dispatchAction from being
   // called again until it clears), so within a single driver-run game this "occupied slot" branch is
@@ -1162,10 +1163,11 @@ function applyCastSpell(state, action) {
   } else if (wardTax) {
     next = setPendingSoftCounterChoice(next, {
       controller: action.playerId,
-      cost: wardTax.cost, // KW-WARD-PR2: structured cost (mana | life); settle pays it by kind
+      cost: wardTax.cost, // KW-WARD-PR2: structured cost (mana | life | …); settle pays it by kind
       spellId: stkId,
       spellName: card.name,
       sourceName: wardTax.wardName,
+      priorityAfter: action.playerId,
     });
   }
   // DIFFUSION SLIVER (group-ward analogue): an opponent's spell targeting a single Sliver creature the
@@ -1185,6 +1187,7 @@ function applyCastSpell(state, action) {
       spellId: stkId,
       spellName: card.name,
       sourceName: diffusionTax.wardName,
+      priorityAfter: action.playerId,
     });
   }
   // KIRA, GREAT GLASS-SPINNER (a HARD-counter group-ward analogue, kiraTargetCounter.js): if this spell
@@ -1861,9 +1864,10 @@ function applyActivateAbility(state, action) {
   next = checkCrimeTriggers(next, stackObject); // CRIME (CR 700.13) — the same target-choice moment; queued for the same flush
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   // KW-WARD-PR2 (CR 702.21a): ward triggers on a spell OR an ABILITY an opponent controls — so an
-  // opponent's activated ability targeting a single ward permanent raises the same pay-or-be-countered
+  // opponent's activated ability targeting ward permanents raises the same pay-or-be-countered
   // choice as the cast path (a TRIGGERED ability's ward is recorded at the trigger flush and asked by the
-  // session driver — gameEngine.markWardOwed / raiseWardOwed). An Equip ability targets the activator's OWN creature (controller
+  // session driver — gameEngine.markWardOwed / raiseWardOwed; a LOYALTY ability's in applyActivateLoyalty). An Equip ability
+  // targets the activator's OWN creature (controller
   // == caster), so wardTaxForStackObject returns null there — no false ward on equipping your own creature.
   // Skipped if a trigger above already set a pendingChoice (no-ops on an occupied slot — safe FN).
   // WI-6 REACHABILITY NOTE: same as the cast path above — advanceUntilDecision settles any pendingChoice
@@ -1878,6 +1882,7 @@ function applyActivateAbility(state, action) {
       spellId: stkId,
       spellName: perm.card?.name,
       sourceName: abilityWardTax.wardName,
+      priorityAfter: action.playerId, // the activator keeps priority once it is settled (CR 117.3c, 117.5)
     });
   }
   // DIFFUSION SLIVER (group-ward analogue) — an opponent's ABILITY targeting a single Sliver the Diffusion
@@ -1891,6 +1896,7 @@ function applyActivateAbility(state, action) {
       spellId: stkId,
       spellName: perm.card?.name,
       sourceName: abilityDiffusionTax.wardName,
+      priorityAfter: action.playerId,
     });
   }
   // KIRA (kiraTargetCounter.js): an ABILITY targeting an eligible-and-fresh Kira-protected creature is countered
@@ -2079,6 +2085,33 @@ function applyActivateLoyalty(state, action) {
   next = checkBecomesTargetTriggers(next, stackObject);
   next = checkCrimeTriggers(next, stackObject); // CRIME (CR 700.13) — the same target-choice moment; queued for the same flush
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
+  // WARD (CR 702.21a) and DIFFUSION SLIVER (groupWard.js): a loyalty ability IS an activated ability (CR 606.1), so an opponent's
+  // loyalty ability aimed at a ward permanent is countered unless its controller pays the ward — the question the activated-ability
+  // path above raises, raised here as well (2026-10-20; before, Chandra, Torch of Defiance's −3 at a Leonin Lightbringer resolved
+  // without the {2}). The same occupied-slot precedence as there (Diffusion's no-ops when a ward was raised); the activator keeps
+  // priority once it is settled (CR 117.3c, 117.5).
+  const loyaltyWardTax = wardTaxForStackObject(next, stackObject);
+  if (loyaltyWardTax) {
+    next = setPendingSoftCounterChoice(next, {
+      controller: action.playerId,
+      cost: loyaltyWardTax.cost,
+      spellId: stkId,
+      spellName: perm.card?.name,
+      sourceName: loyaltyWardTax.wardName,
+      priorityAfter: action.playerId,
+    });
+  }
+  const loyaltyDiffusionTax = groupWardTaxForStackObject(next, stackObject);
+  if (loyaltyDiffusionTax) {
+    next = setPendingSoftCounterChoice(next, {
+      controller: action.playerId,
+      cost: loyaltyDiffusionTax.cost,
+      spellId: stkId,
+      spellName: perm.card?.name,
+      sourceName: loyaltyDiffusionTax.wardName,
+      priorityAfter: action.playerId,
+    });
+  }
   // KIRA (kiraTargetCounter.js): a loyalty ability IS an activated ability (CR 606.1), so "a spell or ability"
   // covers it — a loyalty ability targeting an eligible-and-fresh Kira-protected creature is countered outright.
   // Placed BEFORE the zero-loyalty SBA sweep (like the becomes-target flush above) so the counter lands while
