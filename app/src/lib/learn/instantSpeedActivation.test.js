@@ -18,7 +18,8 @@
  * for the first time — it used to be stripped with no flag), "before attackers are declared" and "during the end of combat
  * step". Grand Abolisher's activation half, which the old window enforced by accident, is now enforced. The default AI keeps
  * the windows it decided in before (its own main phase, a combat-role ability in a combat step, a stack-copy ability while
- * its own ability waits) — offered more, it takes nothing new.
+ * its own ability waits) — offered more, it takes nothing new there; its own new windows (a save in response, a pump after
+ * blocks, a mana sink at the end step before its turn — 2026-10-20) each have a picker of their own (aiActivationWindows.test.js).
  *
  * Real oracle fixtures (bundled Scryfall data via cardIndex.publicCard, generated 2026-10-20; the trailing comment is the tier
  * at generation). Per-test instance ids only.
@@ -339,12 +340,18 @@ describe("Grand Abolisher's activation half (CR 604.2) — the old window enforc
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-describe("the default AI keeps the windows it decided in before (offered more, it takes nothing new)", () => {
-  it("Archivist: the AI draws with it in its own main phase, and passes with it untapped at its opponent's end step although the draw is offered there", () => {
+describe("the default AI keeps the windows it decided in before (offered more, it takes nothing new outside its own windows)", () => {
+  // The default AI's activation windows (inDefaultAIActivationWindow) plus the new windows' own pickers (2026-10-20 —
+  // aiActivationWindows.test.js): the end step of the player right before its turn is one of them (pickEndStepSink), so Archivist's
+  // draw is taken there now; the opponent's main phase is no window of the AI's.
+  it("Archivist: the AI draws with it in its own main phase and at the end step before its own turn, and passes with it untapped in its opponent's main phase although the draw is offered there", () => {
     const own = duel({ ai: [P("arch", ARCHIVIST, "ai")], aiLib: [C("l1", GRIZZLY_BEARS)] }, { active: "ai" });
     expect(pickAction(own, "ai", legalActionsForPlayer(own, "ai"))).toMatchObject({ kind: "activate-ability", permanentId: "arch" });
     const oppEnd = duel({ ai: [P("arch", ARCHIVIST, "ai")], aiLib: [C("l1", GRIZZLY_BEARS)] }, { active: "user", phase: "ending", step: "end", holder: "ai" });
-    expect(pickAction(oppEnd, "ai", legalActionsForPlayer(oppEnd, "ai"))).toMatchObject({ kind: "pass-priority" });
+    expect(pickAction(oppEnd, "ai", legalActionsForPlayer(oppEnd, "ai"))).toMatchObject({ kind: "activate-ability", permanentId: "arch" });
+    const oppMain = duel({ ai: [P("arch", ARCHIVIST, "ai")], aiLib: [C("l1", GRIZZLY_BEARS)] }, { active: "user", holder: "ai" });
+    expect(legalActionsForPlayer(oppMain, "ai").some((a) => a.kind === "activate-ability" && a.permanentId === "arch")).toBe(true);
+    expect(pickAction(oppMain, "ai", legalActionsForPlayer(oppMain, "ai"))).toMatchObject({ kind: "pass-priority" });
   });
 
   it("a zero-cost crew: the AI crews in its own main phase and not on its opponent's turn", () => {

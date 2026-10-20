@@ -27,10 +27,11 @@
 
 import { detectArchetype } from "../goldfish.js";
 import { filterActions, parseManaCost, offeredPaymentPlan, abilityTargetsCombatRole, abilityTargetsStackAbility, COMBAT_WINDOW_STEPS } from "./legalChoices.js"; // + offeredPaymentPlan: the plan the dispatcher pays an action with — the AI's ward read pays it first (wardCountersAction)
-import { opponentsOf, findPermanent, createPermanent, isIndestructible, consumeTypedSpellShields } from "./gameState.js"; // + consumeTypedSpellShields: a pure read — would this spell be shielded from countering (the ward read)
+import { opponentsOf, findPermanent, createPermanent, isIndestructible, consumeTypedSpellShields, nextInTurnOrder, cardSelfPreventsUntap } from "./gameState.js"; // + consumeTypedSpellShields: a pure read — would this spell be shielded from countering (the ward read); + nextInTurnOrder: whose turn comes next, cardSelfPreventsUntap: a source that stays tapped (the end-step sink)
 import { atomTargets } from "./effects/atoms/shared.js"; // the mass-counter side read (Oran-Rief) — the set the resolution itself reads
 import { lookupPlayHint } from "./cardPlayHints.js"; // PLAY-HINTS (2026-08-12) — a zero-import leaf, cycle-safe
-import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, permanentHasCardType, cannotEquipNow } from "./layers.js";
+import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, permanentHasCardType, cannotEquipNow, permanentColors } from "./layers.js"; // + permanentColors: an ability source's colour against a protection colour (pickSaveInResponse)
+import { autoPickProtectionColor } from "./choicePolicy.js"; // the colour a "protection from the color of your choice" grant takes at resolution — previewed by pickSaveInResponse (a leaf: imports nothing)
 import { auraCastIntent } from "./auraEntry.js"; // W7e — which side an Aura lands on (a control Aura is ENEMY, a restriction grant too); shared with the non-cast entry (CR 303.4f)
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction, manaSources, canAfford, commitPaymentPlan, costReservedPermanentIds, costOwesMana } from "./manaModel.js"; // + the ward read's cost preview: the dispatcher's commit, its set-aside permanents, its owes-mana test
@@ -85,7 +86,7 @@ import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell �
  * Accepted shapes:
  *   null / undefined                        → all-current (the shipping behavior)
  *   "v1"                                    → every subsystem legacy
- *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker|spellTarget|racer|racerTrade|costVariant|combatDamage|walkerTrade|ward|pumpCost|blink|defendDamage|doomedHold: "v1" } → per-subsystem legacy
+ *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker|spellTarget|racer|racerTrade|costVariant|combatDamage|walkerTrade|ward|pumpCost|blink|defendDamage|doomedHold|afterBlocks|endStep|inResponse: "v1" } → per-subsystem legacy
  *
  * The DEFAULT is always the new behavior (the Academy and self-play improve
  * automatically); "v1" exists only so the probe can measure old-vs-new inside one
@@ -96,7 +97,7 @@ import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell �
  * Exported so the A/B probe derives its legacy-key list from THIS array (AI-F11:
  * a hand-copied list silently drops every new subsystem from `--legacy=all`).
  */
-export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget", "racer", "racerTrade", "costVariant", "combatDamage", "walkerTrade", "ward", "pumpCost", "blink", "defendDamage", "doomedHold"];
+export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget", "racer", "racerTrade", "costVariant", "combatDamage", "walkerTrade", "ward", "pumpCost", "blink", "defendDamage", "doomedHold", "afterBlocks", "endStep", "inResponse"];
 function normalizePolicy(policy) {
   if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
   if (policy && typeof policy === "object") return policy;
@@ -1137,7 +1138,9 @@ function spellTargetSlot(atoms, t) {
  * indestructible permanent), an exile / tuck / bounce, damage that is lethal (its toughness minus the damage marked; an amount the
  * board decides read as lethal), a -N/-N or -1/-1 counters that take its toughness to 0 (or under the damage marked). A harm it
  * survives is no harm to answer. A bounce counts whatever side its atom reads (atomTargetIntent calls bounce ambiguous): an
- * opponent's bounce aimed at this seat's permanent removes it. Map permanentId → [{ kind: "destroy" | "remove" | "damage" | "shrink", amount }].
+ * opponent's bounce aimed at this seat's permanent removes it. Map permanentId → [{ kind: "destroy" | "remove" | "damage" | "shrink", amount,
+ * obj, atom }] — the stack object and its atom ride along for the readers that need the source (a protection colour) or a rider
+ * ("can't be regenerated").
  */
 function stackHarmsToSeat(state, aiPlayerId) {
   const enemies = new Set(opponentsOf(state, aiPlayerId));
@@ -1168,7 +1171,7 @@ function stackHarmsToSeat(state, aiPlayerId) {
       }
       if (!harm) continue;
       if (!harms.has(perm.id)) harms.set(perm.id, []);
-      harms.get(perm.id).push(harm);
+      harms.get(perm.id).push({ ...harm, obj, atom });
     }
   }
   return harms;
@@ -2318,7 +2321,7 @@ function pickFetchCrack(state, aiPlayerId, actions, { sourceMakesMana }) {
  *     graveyard keyword;
  *   · in the PRECOMBAT main only, HASTE for its own summoning-sick creature and "CAN'T BE BLOCKED" for its own ready attacker
  *     while the defender has an untapped creature — grants that matter at the declaration, which this main phase precedes.
- *     A +N/+N pump is left alone: its worth is after blocks, a window the AI does not decide activations in (inDefaultAIActivationWindow);
+ *     A +N/+N pump is left alone here: its worth is after blocks, where pickPumpAfterBlocks reads it (2026-10-20);
  *   · a BLINK of its own nontoken creature that comes back to it (2026-10-20 — Distinguished Conjurer, Eldrazi Displacer,
  *     Nephalia Smuggler, Lilysplash Mentor, Emiel the Blessed): the spell arm's re-buy (blinkRebuyWorth — an enters trigger worth
  *     firing again, or an opponent's Aura shed; nothing of its own lost). It returns summoning-sick (CR 302.6), so in the precombat
@@ -2506,6 +2509,368 @@ function pickTargetedActivation(state, aiPlayerId, actions, pol = {}) {
   return ranked[0].a;
 }
 
+// ─── THE AI'S NEW ACTIVATION WINDOWS (2026-10-20) ─────────────────────────────────────────────────────────────────────────────
+//
+// The offer opens every activated ability whenever its controller holds priority (CR 117.1b); the pickers above decide in the
+// windows they were measured in (inDefaultAIActivationWindow). An activation offered outside those windows reaches only the pickers
+// below (the save reads every offered activation: in its own main phase the default windows hold them too, and none of their pickers
+// answers a removal), each for one narrow window with its own reading: a save in response to an opponent's removal on the stack
+// (pickSaveInResponse), a pump after blocks that changes the combat (pickPumpAfterBlocks), and a mana sink at the end step of the
+// player whose turn comes right before the AI's (pickEndStepSink). Everything else offered outside the default windows is still not
+// one of the AI's choices.
+
+/** The keys an atom may carry for the new windows' reading (activationEffectOf) — anything else (a board-scaled, conditional or filtered
+ * pump, a fixed protection colour list) is not read, and the activation is held. */
+const WINDOW_ATOM_KEYS = new Set(["op", "ptDelta", "grantKeywords", "duration", "targetType", "target", "scope", "amountX", "amountXSlot", "excludeSource", "restrictions", "counterType", "amount", "colorChoice", "orColorless"]);
+/** How many times one repeatable pump (a mana cost, no tap) is read as activated: the bound on the after-blocks reading's repeats. */
+const PUMP_REPEAT_CAP = 10;
+
+/**
+ * What one activation does, as the new windows read it: a single atom that reaches one target (`targets[0]` — Nylea, God of the Hunt's
+ * "Target creature gets +2/+2"), the source itself (Scourge of Valkas's "This creature gets +1/+0") or every creature its controller
+ * controls (Purphoros, God of the Forge's "Creatures you control get +1/+0", Selfless Spirit's "Creatures you control gain
+ * indestructible") — `{ ids }` or `{ team: true }` — and is one of:
+ *   · a BUFF `{ dp, dt, grants }` — "+N/+N" (an X pump at the action's X: Kessig Wolf Run's "+X/+0"), keyword grants, N +1/+1 counters;
+ *   · a REGENERATION shield (`regenerate` — Wolverine, Best There Is; Asceticism);
+ *   · PROTECTION from the color of its controller's choice (`protection` — Mother of Runes; Giver of Runes, "or from colorless").
+ * Null for anything else (a debuff, a board-scaled or conditional pump, a filtered team pump, a modal or multi-atom program). The
+ * costs are each window's to read.
+ */
+function activationEffectOf(a) {
+  if (a.kind !== "activate-ability" || a.isEquipAbility || !a.program || a.program.structure === "modal" || a.chosenMode != null) return null;
+  const atoms = a.program.atoms || [];
+  if (atoms.length !== 1) return null;
+  const atom = atoms[0];
+  if (Object.keys(atom).some((k) => !WINDOW_ATOM_KEYS.has(k))) return null;
+  let effect;
+  if (atom.op === "pump" || (atom.op === "add-counter" && atom.counterType === "+1/+1" && fixedAmount(atom)) || atom.op === "grant-keywords-group") {
+    let dp = 0, dt = 0;
+    if (atom.op === "pump") {
+      const x = atom.amountX ? Number(a.xValue) : 0;
+      if (atom.amountX && !(x > 0)) return null;
+      dp = atom.amountX && (!atom.amountXSlot || atom.amountXSlot === "p") ? x : (atom.ptDelta?.p ?? 0);
+      dt = atom.amountX && (!atom.amountXSlot || atom.amountXSlot === "t") ? x : (atom.ptDelta?.t ?? 0);
+    } else if (atom.op === "add-counter") dp = dt = atom.amount;
+    if (dp < 0 || dt < 0) return null;
+    const grants = new Set((atom.grantKeywords || []).map(lower));
+    if (dp === 0 && dt === 0 && grants.size === 0) return null;
+    effect = { buff: { dp, dt, grants } };
+  } else if (atom.op === "regenerate") {
+    effect = { regenerate: true };
+  } else if (atom.op === "grant-protection" && atom.colorChoice) {
+    effect = { protection: { orColorless: !!atom.orColorless } };
+  } else return null;
+  const targets = a.targets || [];
+  if (targets.length === 1 && atom.targetType && !atom.scope && !atom.target) {
+    const t = targets[0];
+    return t.type === "player" || t.type === "spell" || t.type === "stackAbility" || t.type === "graveyardCard" ? null : { ...effect, ids: [t.id] };
+  }
+  if (targets.length || atom.targetType || atom.restrictions?.length) return null;
+  if (atom.target === "self" && !atom.scope) return { ...effect, ids: [a.permanentId] };
+  if ((atom.scope === "youControl" || atom.scope === "creaturesYouControl") && !atom.target && effect.buff) return { ...effect, team: true };
+  return null;
+}
+
+/**
+ * One activation's pump as the after-blocks window reads it (activationEffectOf's BUFF), paid with mana and the source's tap only.
+ * Null for anything else (a regeneration or protection, a sacrifice or any other cost).
+ */
+function afterBlocksPumpOf(a) {
+  if (a.sacSelf || a.exileSelf || a.sacCreatureId || (a.sacCountIds?.length) || a.removeCounter || (a.payLife || 0) > 0 || (a.payEnergy || 0) > 0
+    || a.tapCreatureId || (a.tapCountIds?.length) || a.returnLandId || a.unattachEquipmentId || a.discardCardId || (a.discardIds?.length) || (a.exileGyIds?.length)) return null;
+  if (!a.tapSelf && (a.cmc || 0) < 1) return null; // termination bound: a tap or a real mana cost
+  const effect = activationEffectOf(a);
+  return effect?.buff ? effect : null;
+}
+
+/**
+ * The combat damage one attacker deals to the PLAYER it attacks, as the blocks were declared (the declare blockers step, the
+ * declaration closed), with `buff` on it: unblocked, its power (CR 510.1a–b) — twice for double strike (CR 702.4b); blocked, nothing
+ * (CR 510.1c) — unless it has trample, which assigns its blockers lethal damage and the rest to the player (CR 702.19b), all of it when
+ * no creature is blocking it any more (CR 702.19d), none when first strikers kill it before it deals damage (CR 510.4); what each
+ * blocker stops is the damage readers' trampleStop (its toughness, the damage already marked not subtracted — the larger figure, so
+ * the damage only errs low). An attacker at a planeswalker deals its damage to the planeswalker (CR 510.1b), an infect attacker gives
+ * poison counters instead (CR 702.90b), and under a fog — every combat damage prevented this turn, or the damage to players (CR 615.1a,
+ * 615.6) — none reaches the player.
+ */
+function connectsAfterBlocks(state, entry, buff = null) {
+  if (entry.defenderPlaneswalkerId || state.preventCombatDamageTurn === state.turn || state.preventCombatPlayersTurn === state.turn) return 0;
+  const id = entry.permanentId;
+  const s = trickStats(state, id, buff || undefined);
+  if (!s || s.power <= 0) return 0;
+  const has = (k) => permanentHasKeyword(state, id, k) || !!buff?.grants?.has(k.toLowerCase());
+  if (has("Infect")) return 0;
+  const strikes = has("Double strike") ? 2 : 1;
+  const full = s.power * strikes;
+  const declared = (state.combat?.blockers || []).filter((b) => b.attackerId === id);
+  if (declared.length === 0) return full;
+  if (!has("Trample")) return 0;
+  const live = declared.map((b) => combatStatsOf(state, b.blockerId)).filter(Boolean);
+  if (live.length === 0) return full;
+  if (!s.firstStrike && !s.indestructible) {
+    const first = live.filter((b) => b.firstStrike && b.power > 0);
+    if (first.some((b) => b.deathtouch) || first.reduce((sum, b) => sum + b.power, 0) >= s.toughness) return 0;
+  }
+  return Math.max(0, full - live.reduce((sum, b) => sum + trampleStop(state, s, b, strikes), 0));
+}
+
+/**
+ * THE COMBAT AS DECLARED, with `buffs` (Map creature id → buff) on the AI's creatures: the defending players its attackers' damage
+ * kills (connectsAfterBlocks, summed per player, against that player's life and the life their lifelink blockers gain in the same
+ * damage — CR 510.2, 702.15b: every lifelink blocker of the AI's attackers counted, whether or not it deals its damage, so a kill is
+ * never over-read), and what the buffs win in the one-on-one duels (the spell arm's trick reading, trickGain — its creature survives
+ * where it died, or survives and kills the enemy, each half only for a creature worth a card).
+ */
+function combatAsDeclared(state, aiPlayerId, buffs) {
+  const toPlayer = new Map();
+  const attacking = new Set();
+  for (const entry of state.combat?.attackers || []) {
+    if (findPermanent(state, entry.permanentId)?.controller !== aiPlayerId) continue;
+    attacking.add(entry.permanentId);
+    const n = connectsAfterBlocks(state, entry, buffs.get(entry.permanentId) || null);
+    if (n > 0) toPlayer.set(entry.defender, (toPlayer.get(entry.defender) || 0) + n);
+  }
+  const gained = new Map();
+  for (const b of state.combat?.blockers || []) {
+    const lk = findPermanent(state, b.blockerId);
+    if (!lk || !attacking.has(b.attackerId) || !permanentHasKeyword(state, b.blockerId, "Lifelink")) continue;
+    const strikes = permanentHasKeyword(state, b.blockerId, "Double strike") ? 2 : 1;
+    gained.set(lk.controller, (gained.get(lk.controller) || 0) + Math.max(0, permanentPower(state, b.blockerId) ?? 0) * strikes);
+  }
+  let kills = 0;
+  for (const [pid, n] of toPlayer) {
+    const life = state.players?.[pid]?.life;
+    if (Number.isFinite(life) && life > 0 && n >= life + (gained.get(pid) || 0)) kills++;
+  }
+  let duel = 0;
+  for (const [id, buff] of buffs) {
+    const perm = findPermanent(state, id)?.permanent;
+    if (perm) duel += trickGain(state, aiPlayerId, perm, buff);
+  }
+  return { kills, duel };
+}
+
+/**
+ * The boards this activation's payments leave, one entry per payment (while offeredPaymentPlan pays it, up to PUMP_REPEAT_CAP; one for a
+ * tap, a frequency limit or an X): `board` — the dispatcher's payment plan committed (manaModel.commitPaymentPlan: the mana pool spent,
+ * the lands tapped), every permanent still there, the board the combat reading reads (a creature whose power counts the mana in the
+ * pool — Omnath, Locus of Mana — is read at the power the payment leaves it); `held` — the same payment with the action's own cost
+ * permanents set aside as well (afterOwnCosts), the board the held-up reading reads (a land tapped by the cost pays nothing more).
+ */
+function pumpPayments(state, aiPlayerId, a) {
+  const once = a.tapSelf || a.oncePerTurnKey || a.xValue != null;
+  const owes = !!a.cost && costOwesMana(a.cost);
+  const out = [];
+  let s = state;
+  while (out.length < (once ? 1 : PUMP_REPEAT_CAP)) {
+    const plan = owes ? offeredPaymentPlan(s, aiPlayerId, a) : null;
+    if (out.length > 0 && !plan) break;
+    const held = afterOwnCosts(s, aiPlayerId, a).state;
+    const board = plan ? commitPaymentPlan(s, aiPlayerId, plan, { reserved: costReservedPermanentIds(a) }) : s;
+    out.push({ board, held });
+    s = board;
+  }
+  return out;
+}
+
+/**
+ * Does the board `after` a payment still pay every instant-speed card the AI could pay for now (heldUpCosts — an instant, or a card with
+ * flash, in its hand)? A spell it holds up keeps its mana.
+ */
+function keepsHeldUp(state, aiPlayerId, after) {
+  const held = heldUpCosts(state, aiPlayerId);
+  if (held.length === 0) return true;
+  const pool = state.players?.[aiPlayerId]?.manaPool;
+  const now = manaSources(state, aiPlayerId);
+  const payable = held.filter((h) => canAfford(pool, now, h.cost, h.spendContext));
+  if (payable.length === 0) return true;
+  const sources = manaSources(after, aiPlayerId);
+  return payable.every((h) => canAfford(after.players[aiPlayerId].manaPool, sources, h.cost, h.spendContext));
+}
+
+/**
+ * PUMP AFTER BLOCKS (2026-10-20 — the declare blockers step once the block declaration has closed, CR 509.2: the active player
+ * receives priority, then each other player). An offered pump on the AI's own creature in combat (afterBlocksPumpOf — Nylea, God of
+ * the Hunt, Kessig Wolf Run, Scourge of Valkas, Purphoros, God of the Forge, Castle Embereth) is activated when it changes the
+ * combat as declared (combatAsDeclared, read on the board its own payments leave — pumpPayments: Omnath, Locus of Mana shrinks as its
+ * green mana pays): its attackers' damage now kills a defending player it did not kill (tier 2 — an unblocked
+ * attacker's power, a blocked trampler's excess, a trample grant), or it wins a one-on-one duel it did not (tier 1 — only when the
+ * payment leaves every instant-speed card it holds up still payable, keepsHeldUp — a duel waits on a card held up, a kill does
+ * not). A repeatable pump (a mana cost, no tap) is read as activated k times, the fewest that change
+ * the result within the payments the board affords (pumpPayments): one activation is taken, the rest are read again once it has
+ * resolved (the window needs an empty stack). An X pump is the fewest X that changes it (the cheaper action). Never with something on
+ * the stack, never while a fog prevents this turn's combat damage, never when the result does not change. Deterministic: tier, value,
+ * total mana, name, permanent id, ability index, target. Policy key `afterBlocks` ("v1" = the old pass).
+ */
+function pickPumpAfterBlocks(state, aiPlayerId, actions, pol = {}) {
+  if (pol.afterBlocks === "v1" || state.step !== "declare-blockers" || !state.combat?._blockTriggersFired || (state.stack || []).length > 0) return null;
+  const inCombat = new Set();
+  for (const entry of state.combat.attackers || []) if (findPermanent(state, entry.permanentId)?.controller === aiPlayerId) inCombat.add(entry.permanentId);
+  for (const b of state.combat.blockers || []) if (findPermanent(state, b.blockerId)?.controller === aiPlayerId) inCombat.add(b.blockerId);
+  if (inCombat.size === 0) return null;
+  let before = null;
+  const ranked = [];
+  for (const a of actions) {
+    const pump = afterBlocksPumpOf(a);
+    if (!pump) continue;
+    const reached = (pump.team ? [...inCombat] : pump.ids).filter((id) => inCombat.has(id));
+    if (reached.length === 0) continue;
+    before ??= combatAsDeclared(state, aiPlayerId, new Map());
+    const payments = pumpPayments(state, aiPlayerId, a);
+    for (let k = 1; k <= payments.length; k++) {
+      const buff = { dp: pump.buff.dp * k, dt: pump.buff.dt * k, grants: pump.buff.grants };
+      const after = combatAsDeclared(payments[k - 1].board, aiPlayerId, new Map(reached.map((id) => [id, buff])));
+      if (after.kills > before.kills) { ranked.push({ a, tier: 2, value: after.kills, mana: k * (a.cmc || 0) }); break; }
+      if (after.duel > 0) {
+        if (keepsHeldUp(state, aiPlayerId, payments[k - 1].held)) ranked.push({ a, tier: 1, value: after.duel, mana: k * (a.cmc || 0) });
+        break;
+      }
+    }
+  }
+  if (ranked.length === 0) return null;
+  const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
+  const tid = (a) => String(a.targets?.[0]?.id ?? "");
+  ranked.sort((x, y) => (y.tier - x.tier) || (y.value - x.value) || (x.mana - y.mana) || cmp(String(x.a.name || ""), String(y.a.name || ""))
+    || cmp(String(x.a.permanentId), String(y.a.permanentId)) || ((x.a.abilityIndex ?? 0) - (y.a.abilityIndex ?? 0)) || cmp(tid(x.a), tid(y.a)));
+  return ranked[0].a;
+}
+
+/**
+ * A MANA SINK AT THE END STEP BEFORE ITS OWN TURN (2026-10-20). The lands and creatures the AI leaves untapped through the end step of
+ * the player whose turn comes right before its own (nextInTurnOrder — no extra turn waiting) untap in its untap step a moment later
+ * (CR 502.3), and no combat is left in that turn, so what they could still pay is spent on the activations its own main phase spends
+ * leftover mana on (pickSafeAbilityActivation — a draw, a token, a scry or surveil, life; a mana cost and / or the source's tap, nothing
+ * else) — Biogenic Ooze's token, Spectral Sailor's draw, Archivist's tap. Only a gain for the AI alone: every atom its own (no "each
+ * player draws" — Faerie Mastermind, Mikokoro), no discard or energy cost; and a payment its untap step gives back (paymentUntapsBack —
+ * taps only: never a Treasure or a Food sacrificed, a pain land's life, a source that doesn't untap). Held when the payment would leave
+ * unpayable an instant-speed card it holds (heldUpCosts — an instant or a flash card in its hand whose printed cost the board pays
+ * now: Counterspell is held up for the rest of the step though nothing is on the stack to target yet). Policy key `endStep` ("v1" =
+ * the old pass).
+ */
+function pickEndStepSink(state, aiPlayerId, extra, pol = {}) {
+  if (pol.endStep === "v1" || state.phase !== "ending" || state.step !== "end" || (state.stack || []).length > 0) return null;
+  if (state.activePlayer === aiPlayerId || (state.extraTurns || []).length > 0 || nextInTurnOrder(state, state.activePlayer) !== aiPlayerId) return null;
+  const ownGain = (atom) => !atom.who || atom.who === "controller" || atom.who === "you";
+  const sinks = extra.filter((a) => a.kind === "activate-ability" && !a.isEquipAbility && !a.discardCardId && !(a.discardIds?.length) && !((a.payEnergy || 0) > 0)
+    && !a.unattachEquipmentId && !(a.exileGyIds?.length) && (a.program?.atoms || []).every(ownGain) && paymentUntapsBack(state, aiPlayerId, a));
+  if (sinks.length === 0) return null;
+  return pickSafeAbilityActivation(sinks.filter((a) => keepsHeldUp(state, aiPlayerId, afterOwnCosts(state, aiPlayerId, a).state)), { state, aiPlayerId });
+}
+
+/**
+ * Is everything this activation's payment spends back by the AI's next untap step (CR 502.3)? The plan the dispatcher pays it with
+ * (offeredPaymentPlan) only taps: no one-shot source (a Treasure, a Food, a creature for an Altar, a card from the hand), no counter
+ * removed or put, no life (a pain land, a Phyrexian symbol), no source that doesn't untap (gameState.cardSelfPreventsUntap, or
+ * "doesn't untap during your next untap step"); and its own tap, if any, is of a permanent that untaps. Mana already in the pool
+ * empties at the end of the step anyway.
+ */
+function paymentUntapsBack(state, aiPlayerId, a) {
+  const card = (id) => findPermanent(state, id)?.permanent?.card;
+  if (a.tapSelf && cardSelfPreventsUntap(card(a.permanentId))) return false;
+  if (!a.cost || !costOwesMana(a.cost)) return true;
+  const plan = offeredPaymentPlan(state, aiPlayerId, a);
+  if (!plan || (plan.phyrexianLife || 0) > 0) return false;
+  return (plan.taps || []).every((t) => !t.sacrifices && !t.sacrificesCreature && !t.sacrificesFood && !t.exilesGyCard && !t.fromHand && !t.removesCounters
+    && !t.sacrificeIfNoCounters && !t.putsCounter && !t.doesNotUntapNext && !((t.payLifeCost || 0) > 0) && !((t.painLife || 0) > 0) && !cardSelfPreventsUntap(card(t.permanentId)));
+}
+
+/**
+ * A SAVE IN RESPONSE (2026-10-20). An opponent's spell or ability on the stack aims a harm at a permanent the AI controls
+ * (stackHarmsToSeat — a destroy, an exile / bounce / tuck, lethal damage, a -N/-N it doesn't survive), and an offered activation
+ * (activationEffectOf) defeats every harm aimed at it:
+ *   · a BUFF (buffSaves — hexproof or shroud make the target illegal, CR 702.11b, 702.18a, 608.2b; indestructible survives a destroy
+ *     and lethal damage, CR 702.12b; toughness survives damage or a -N/-N): Selfless Savior's and Selfless Spirit's indestructible,
+ *     Plaza of Heroes's hexproof and indestructible, a +N/+N against a burn spell;
+ *   · a REGENERATION shield (CR 701.19a — the next time it would be destroyed it is tapped and removed from combat instead): against a
+ *     destroy and lethal damage only (CR 704.5g — regeneration can replace that destruction), never a harm that says it can't be
+ *     regenerated (Wolverine, Best There Is; Asceticism);
+ *   · PROTECTION from a colour (CR 702.16b — a spell of that colour, or an ability from a source of that colour, can't target it, so
+ *     the harm's target is illegal as it resolves, CR 608.2b): "the color of your choice" is chosen as the grant resolves by the
+ *     shared policy (choicePolicy.autoPickProtectionColor — the colour most common among the opponents' nonland permanents), read
+ *     here first; the grant saves only when that colour is a colour of every source aiming a harm at it (Mother of Runes, Giver of
+ *     Runes).
+ * The saved permanent must be worth a card (worthACard — the spell arm's save bar). Costs: mana and the source's tap, or the source
+ * itself (sacrificed or exiled — Selfless Savior, Selfless Spirit, Plaza of Heroes) only when what it saves is a bigger threat than
+ * the source (targetThreat) and is not the source — or when the source is the target of a harm too, a bounce aside (it goes either
+ * way, so spending it costs nothing). One answer per harm: nothing while an object of its own sits above the topmost
+ * harm on the stack (it resolves first). Deterministic: a save that spends no permanent first, then the threat saved, the mana, name,
+ * permanent id, ability index, target. Policy key `inResponse` ("v1" = the old pass).
+ */
+function pickSaveInResponse(state, aiPlayerId, actions, pol = {}) {
+  const stack = state.stack || [];
+  if (pol.inResponse === "v1" || stack.length === 0) return null;
+  const harms = stackHarmsToSeat(state, aiPlayerId);
+  if (harms.size === 0) return null;
+  const harmObjs = new Set([...harms.values()].flat().map((h) => h.obj));
+  const topHarm = stack.reduce((top, obj, i) => (harmObjs.has(obj) ? i : top), -1);
+  if (stack.slice(topHarm + 1).some((obj) => obj?.controller === aiPlayerId)) return null;
+  const sourceColours = (obj) => {
+    const sid = obj.payload?.params?.sourceId;
+    if (obj.kind !== "spell" && sid != null && findPermanent(state, sid)) return permanentColors(state, sid) || [];
+    return obj.source?.colors || [];
+  };
+  let protectionColour;
+  const ranked = [];
+  for (const a of actions) {
+    if (a.kind !== "activate-ability" || a.sacCreatureId || (a.sacCountIds?.length) || a.removeCounter || (a.payLife || 0) > 0 || (a.payEnergy || 0) > 0 || (a.phyrexianLife || 0) > 0
+      || a.tapCreatureId || (a.tapCountIds?.length) || a.returnLandId || a.unattachEquipmentId || a.discardCardId || (a.discardIds?.length) || (a.exileGyIds?.length)) continue;
+    const effect = activationEffectOf(a);
+    if (!effect) continue;
+    const harmed = (effect.team ? [...harms.keys()] : effect.ids).filter((id) => harms.has(id));
+    const spendsSource = a.sacSelf || a.exileSelf;
+    let threat = 0;
+    for (const id of harmed) {
+      const perm = findPermanent(state, id)?.permanent;
+      const hs = harms.get(id);
+      if (!perm || !worthACard(state, perm) || (spendsSource && id === a.permanentId)) continue;
+      if (effect.team && !permanentIsCreature(state, id)) continue;
+      let saves;
+      if (effect.buff) saves = buffSaves(state, perm, hs, effect.buff);
+      else if (effect.regenerate) saves = hs.every((h) => (h.kind === "destroy" || h.kind === "damage") && !h.atom?.cannotRegenerate);
+      else {
+        protectionColour ??= autoPickProtectionColor(state, aiPlayerId, { orColorless: effect.protection.orColorless, colorsOfPermanent: (p) => permanentColors(state, p.id) });
+        saves = protectionColour !== "C" && hs.every((h) => sourceColours(h.obj).includes(protectionColour));
+      }
+      if (saves) threat += targetThreat(state, perm);
+    }
+    if (threat <= 0) continue;
+    if (spendsSource) {
+      // A source that is itself the target of a harm other than a bounce (a bounce returns the card to its hand) is lost either way:
+      // spending it costs nothing.
+      const source = findPermanent(state, a.permanentId)?.permanent;
+      const doomed = (harms.get(a.permanentId) || []).some((h) => h.atom?.op !== "bounce");
+      if (!source || threat <= (doomed ? 0 : targetThreat(state, source))) continue;
+    }
+    ranked.push({ a, tier: spendsSource ? 1 : 2, value: threat });
+  }
+  if (ranked.length === 0) return null;
+  const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
+  const tid = (a) => String(a.targets?.[0]?.id ?? "");
+  ranked.sort((x, y) => (y.tier - x.tier) || (y.value - x.value) || ((x.a.cmc || 0) - (y.a.cmc || 0)) || cmp(String(x.a.name || ""), String(y.a.name || ""))
+    || cmp(String(x.a.permanentId), String(y.a.permanentId)) || ((x.a.abilityIndex ?? 0) - (y.a.abilityIndex ?? 0)) || cmp(tid(x.a), tid(y.a)));
+  return ranked[0].a;
+}
+
+/**
+ * The instant-speed cards in its hand — an instant, or a card with flash (the front face) — each with its printed mana cost (an {X}
+ * counted at 1) and the spend context the cast lane uses: what the end-step sink keeps mana up for. A ranking read, never legality
+ * (cost reductions and alternative costs are left out, as castsOutOfReach leaves them).
+ */
+function heldUpCosts(state, aiPlayerId) {
+  const player = state.players?.[aiPlayerId];
+  const out = [];
+  for (const card of player?.hand || []) {
+    const face = String(card.type || card.type_line || "").split(" // ")[0];
+    if (!/\bInstant\b/.test(face) && !(card.keywords || []).includes("Flash")) continue;
+    const printed = String(card.mana || card.mana_cost || "").split(" // ")[0].trim();
+    if (!printed) continue;
+    let cost = parseManaCost(printed);
+    if (cost.hasX) cost = { ...cost, generic: (cost.generic || 0) + (cost.xCount || 1) };
+    out.push({ cost, spendContext: { castCard: card, isCommander: false, restrictedEntries: player.restrictedMana || [] } });
+  }
+  return out;
+}
+
 // ─── WARD (CR 702.21a) — the AI's own spells and abilities aimed at an opponent's ward permanent (2026-10-20) ─────────────────
 //
 // Ward is a tax, not a shield: an opponent's ward permanent is a legal target (legalChoices offers it), and its ward — "counter that
@@ -2640,7 +3005,10 @@ export function takeLastCastRanking() {
  * own main phase (a discard ability that targets by combat role in a combat step too). Read in another window, those pickers
  * would spend a Vehicle's blockers on the opponent's turn, crack a fetch land in the upkeep or tap a creature the seat needs
  * to block with, so until a picker is written and measured for a new window the AI decides in these, exactly as before: an
- * activation offered outside them is not one of its choices (true for every other kind of action).
+ * activation offered outside them is not one of their choices (true for every other kind of action). The new windows each have a
+ * picker of their own (2026-10-20), read on those activations (pickAction's `extra`): a save in response to an opponent's removal
+ * (pickSaveInResponse — every offered activation), a pump after blocks that changes the combat (pickPumpAfterBlocks) and a mana sink
+ * at the end step before its own turn (pickEndStepSink).
  */
 export function inDefaultAIActivationWindow(state, seat, action) {
   const kind = action?.kind;
@@ -2666,8 +3034,12 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
   if (!Array.isArray(actions) || actions.length === 0) return null;
   const pol = normalizePolicy(policy);
   // THE ACTIVATION WINDOWS (inDefaultAIActivationWindow, 2026-10-20): an activation offered outside the windows the pickers were
-  // measured in is not one of the AI's choices. A no-op wherever the offer has nothing more than it had before.
+  // measured in is not one of their choices. A no-op wherever the offer has nothing more than it had before. Those activations
+  // (`extra`) reach only the new windows' own pickers below (pickSaveInResponse, pickPumpAfterBlocks, pickEndStepSink); none of
+  // them pays Phyrexian mana with life.
+  let extra = [];
   if (actions.some((a) => !inDefaultAIActivationWindow(state, aiPlayerId, a))) {
+    extra = actions.filter((a) => !inDefaultAIActivationWindow(state, aiPlayerId, a));
     actions = actions.filter((a) => inDefaultAIActivationWindow(state, aiPlayerId, a));
     if (actions.length === 0) return null;
   }
@@ -2679,6 +3051,7 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
     actions = actions.filter((a) => !(a?.phyrexianLife > 0) || (Number.isFinite(life) && life - a.phyrexianLife >= LIFE_PRUDENCE_FLOOR));
     if (actions.length === 0) return null;
   }
+  if (extra.length) extra = extra.filter((a) => !(a?.phyrexianLife > 0));
   // WARD (CR 702.21a — 2026-10-20): a spell, ability or loyalty ability a ward would counter — one the AI can't pay once the action's
   // own costs are paid (wardCountersAction) — is dropped here, before every chooser below: the windows, the casts, the loyalty and the
   // activated abilities all pick among the rest. policy 'v1' (`ward`) recovers the old pick for the A/B probe.
@@ -2762,6 +3135,20 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
   // complete, fire it — at any priority window, an opponent's turn included — and do nothing else until it is done.
   const outletStep = loop ? outletFinishAction(loop.outlet, actions) : null;
   if (outletStep) return outletStep;
+
+  // A SAVE IN RESPONSE (pickSaveInResponse, 2026-10-20): an opponent's removal on the stack aimed at its own permanent, answered by
+  // an activation that defeats it — read on every offered activation (in its own main phase they are the default windows' too, and
+  // none of those pickers answers a removal) and before the casts, so an activation is spent before a protection spell.
+  // PUMP AFTER BLOCKS (pickPumpAfterBlocks, 2026-10-20): a pump on its own creature that changes the combat as declared — read
+  // before the casts, so an activation is spent before a combat trick from the hand.
+  if (pol.ability !== "v1" && (state.stack || []).length > 0 && (extra.length || actions.some((a) => a.kind === "activate-ability"))) {
+    const save = pickSaveInResponse(state, aiPlayerId, [...filterActions(actions, "activate-ability"), ...extra], pol);
+    if (save) return save;
+  }
+  if (extra.length && pol.ability !== "v1") {
+    const pump = pickPumpAfterBlocks(state, aiPlayerId, extra, pol);
+    if (pump) return pump;
+  }
 
   const lands = filterActions(actions, "play-land");
   if (lands.length > 0) {
@@ -2851,6 +3238,13 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
     };
     const turnUps = filterActions(actions, "turn-face-up").filter((a) => sizeOf(a) > 4);
     if (turnUps.length) return turnUps.reduce((best, a) => (sizeOf(a) > sizeOf(best) ? a : best), turnUps[0]);
+  }
+
+  // THE END-STEP SINK (pickEndStepSink, 2026-10-20): at the end step of the player right before its own turn, the mana that untaps
+  // a moment later goes to a draw, a token, a scry or life — after the casts, never past a spell it holds up.
+  if (extra.length && pol.ability !== "v1") {
+    const sink = pickEndStepSink(state, aiPlayerId, extra, pol);
+    if (sink) return sink;
   }
 
   // No active-window action — pass priority. (The engine's combat

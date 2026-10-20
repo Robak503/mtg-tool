@@ -1247,7 +1247,37 @@ card-in-hand's mana away from the mana abilities the lock forbids). **The defaul
 (`opponentAI.inDefaultAIActivationWindow`, applied at the top of `pickAction`): its own main phase; combat-role abilities in the
 ④-AE combat steps; stack copiers while its own ability waits; Equip and the printed attaches in its own main with an empty stack;
 crew and cycling in its own main; a combat-role discard ability in a combat step. Every picker was measured in those windows; a new
-window for the AI is a new picker with its own witnesses and A/B. Witness: `instantSpeedActivation.test.js`.
+window for the AI is a new picker with its own witnesses and A/B (three since 2026-10-20 — the next paragraph). Witness:
+`instantSpeedActivation.test.js`.
+
+**The AI's own activation windows (2026-10-20 — AI decision quality).** The activations offered outside the default windows
+(`pickAction`'s `extra`; none pays Phyrexian mana with life) reach three pickers of their own, each one narrow window with its own
+reading, all reading the program through `activationEffectOf` (one atom: a +N/+N, keyword grants or +1/+1 counters — X at the
+action's X —, a regeneration shield, or protection from "the color of your choice"; on one target, the source itself, or every
+creature its controller controls): (1) **a save in response** (`pickSaveInResponse`, before the casts, read on every offered activation
+— in its own main phase they are the default windows' too, and none of those pickers answers a removal): an opponent's spell or
+ability on the stack aims a harm at its own permanent worth a card (`stackHarmsToSeat`, whose harm records now carry their stack
+object and atom), and the activation defeats every harm aimed at it — a buff by `buffSaves` (hexproof / shroud, indestructible,
+toughness), regeneration against a destroy or lethal damage without "can't be regenerated" (CR 701.19a, 704.5g), protection when the
+colour `choicePolicy.autoPickProtectionColor` will choose as the grant resolves is a colour of every source aiming a harm at it (CR
+702.16b, 608.2b); a source spent for it (Selfless Savior, Selfless Spirit, Plaza of Heroes) only for a bigger threat than itself, or
+for anything when the source is itself the target of a harm other than a bounce (it goes either way), and one answer per harm
+(nothing while an object of its own sits above the topmost harm); (2) **a pump after blocks**
+(`pickPumpAfterBlocks`, before the casts — the declare blockers step once the declaration has closed, `combat._blockTriggersFired`, the
+stack empty): a pump on its own creature in combat, paid with mana and the source's tap only, taken when it changes the combat as
+declared (`combatAsDeclared`, read on the board its own payments leave — `pumpPayments`: the plan committed, so Omnath, Locus of Mana
+shrinks as its floating green pays) — its attackers' damage to a defending player (`connectsAfterBlocks`: unblocked power, double strike
+twice, a blocked trampler's excess over `trampleStop`, none at a planeswalker, from infect or under a fog) now reaches that player's
+life plus what their lifelink blockers gain, or a one-on-one duel turns (`trickGain`, the spell arm's trick reading — held when the
+payment would leave unpayable an instant-speed card it holds, `keepsHeldUp`); a repeatable pump is read activated the fewest times
+that change the result (`pumpPayments`, ≤ 10), an X pump at the fewest X; (3) **a mana sink at the end step before its own turn**
+(`pickEndStepSink`, after the casts — the end step of the player `nextInTurnOrder` names, no extra turn queued, the stack empty):
+`pickSafeAbilityActivation`'s draws, tokens, scry / surveil and life, every atom the AI's own (no "Each player draws"), no discard or
+energy cost, a payment the untap step gives back (`paymentUntapsBack` — taps only: no Treasure or Food, no pain land, no source that
+doesn't untap), and never past an instant-speed card it holds up (`keepsHeldUp` over `heldUpCosts`). Policy keys `inResponse`,
+`afterBlocks`, `endStep` ("v1" = the old pass). Not read: a sacrifice outlet for value in response (the doomed creature fed to Viscera
+Seer), the colour choice itself (it is still the board-shaped auto-pick, so Mother of Runes saves only when that colour happens to be
+the removal's), a combat-role pump (still `pickCombatRoleActivation`'s, unconditional). Witness: `aiActivationWindows.test.js`.
 
 **Attack requirements (`attackRequirements.js`, added 2026-10-18 — CR 508.1d).** The one requirement check, read by the offer
 for every seat (a person's included) and by the AI's `pickAttackPlan`. `obeyingAttackOptions` narrows a creature's defenders to
