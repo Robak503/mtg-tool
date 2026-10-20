@@ -180,6 +180,17 @@ A word-order rewrite runs among the strips (2026-10-18): "Until end of turn, thi
 subject stays as printed). "Target creature can't attack or block this turn." is the `cant-block` atom with `cantAttack: true`
 (two end-of-turn grants; Endbringer, Off Balance).
 
+**The blink sentence is kept whole** ("exile …, then return … to the battlefield …"): its ", then" split is NOT fail-safe — the
+first half parses HIGH alone as an exile that never returns. Every target noun the blink atom reads (`zones.graveyardReturnClauseParser`)
+needs its shape in `splitClauses`' blink guards, or it never reaches the arm. Nouns read (play-weighted 2026-10-20 adds the last
+four): creature / nonland permanent / artifact or creature / the Ghostly Flicker triple you control; a creature-type exclusion
+("target non-Angel creature you control" — a negated `subtype` restriction, CR 205.3m words only); "another target creature /
+permanent you control" (`notSource`; the permanent pool takes lands); either side's "target creature or enchantment" / "target
+artifact or creature" and Eldrazi Displacer's "another target creature" — returned under the OWNER's control only ("under your
+control" on a permanent you may not control is a theft and stays unread). `atomTargetIntent` answers "own" for a blink scoped to
+you (a *YouControl pool, a controller or owner "you" restriction) and "ambiguous" for an either-side one, so a trigger carrying
+one stays on the Arbiter; spells and activated abilities choose their targets and never ask.
+
 ### 3.3 The CLAUSE_PARSERS registry (the atom seam)
 
 `effects/atoms/*.js` (22 modules + colocated tests) each export **pure clause parsers** — functions
@@ -522,6 +533,11 @@ that board — a flickered permanent back as a new object (CR 400.7) — never s
 (`orphaned`, CR 704.5m) leaves after the event, so a watcher that left in the event never sees it unless the event moved the Aura
 itself. A departed watcher that counts its own power reads the record its leave event carries (`sourceLki` →
 `abilitySourceLki`, Marionette Master). `permanentLeavesBatch` (Dour Port-Mage) keeps its own pass, the whole drain as one batch.
+Each leave record says where it went when that is graveyard (`toGraveyard` → the look-back's `leftToGraveyard`, the PiG scopes)
+or exile (`toExile` → `leftToExile`, play-weighted 2026-10-20): the `creatureExiled` scope is Soulherder's "Whenever a creature is
+exiled from the battlefield" — any player's creature, a token too, a death Rest in Peace turned into an exile (moveCardToZone
+recurses with toZone "exile", so the record is written at the same chokepoint). A new destination-gated watcher reads one of
+these two flags; a bounce, a tuck and leaving the game carry neither.
 
 #### 4.4b Trigger classes beyond the event trigger (added 2026-07-25)
 
@@ -708,7 +724,12 @@ of a larger event, so never a permanent entering with it). Nothing is targeted (
 line, protection and "can't be enchanted" do). No legal host, or an Enchant line `staticAbilityParser.auraEntryHostSpec`
 can't list (a Curse, Animate Dead), and it stays in its zone (`entered: false`, logged `aura-stays`). Every seat the AI
 plays takes the house pick (`chooseAuraEntryHost` — the cast side's `auraCastIntent`). A blink exiles every target,
-then returns them as one event (`enterCardsTogether`). `sba.js` puts an Aura attached to nothing into its owner's
+then returns them as one event (`enterCardsTogether`). The blink atom's own return riders (play-weighted 2026-10-20):
+`returnTapped` (Eldrazi Displacer — `enterCardFromZone`'s `tapped`) and `returnCounter` ({ type, n } — Planar Incision,
+Spaceshift, Lilysplash Mentor: "with a +1/+1 counter on it"), handed to `enterCardFromZone` as `extraCounter` and on to
+`applyEnterReplacements`' `extraCounter` (the clone's additional-counter slot), so the counter is an enters-with counter
+(CR 614.1c, 122.6) that a counter replacement doubles. An effect's own "returns with N counters" belongs there, never in an
+`addCounter` after the entry. `sba.js` puts an Aura attached to nothing into its owner's
 graveyard (CR 704.5m) — a Curse (`enchantedPlayerId`), Animate Dead before its trigger (`enchantedGraveyardCard`) and a
 bestowed creature are attached to something, and exempt.
 

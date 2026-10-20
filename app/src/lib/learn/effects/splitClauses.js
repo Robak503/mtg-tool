@@ -993,6 +993,15 @@ export function splitClauses(oracle) {
       clauses.push(sentence);
       continue;
     }
+    // + the blink nouns of play-weighted 2026-10-20 (zones.graveyardReturnClauseParser): a creature-type exclusion (Restoration
+    // Angel's "target non-Angel creature you control"), "another target creature / permanent you control" (Felidar Guardian,
+    // Soulherder, Wispweaver Angel), either side's "target creature or enchantment" / "target artifact or creature" (Flicker of
+    // Fate, Planar Incision), Eldrazi Displacer's "another target creature", and the return's "tapped" and "with a +1/+1 counter
+    // on it". The severed first halves would exile and never return. A shape the parser doesn't read stays whole and LOW.
+    if (/^(?:you may )?exile (?:(?:up to one )?target non-[a-z']+ creature you control|another target (?:creature|permanent) you control|target (?:creature or enchantment|artifact or creature)|another target creature), then return (?:that card|it) to the battlefield(?: tapped)? under (?:your|its owner's) control(?: with a \+1\/\+1 counter on it)?\.?$/i.test(sentence)) {
+      clauses.push(sentence);
+      continue;
+    }
     // TAPPED-AND-ATTACKING TOKEN keep-whole (Otharri, Suns' Glory — O1). The token disposition
     // "…creature token that's tapped and attacking …" carries an INTERNAL " and " (tapped ∧ attacking)
     // that the split below would sever into "…token that's tapped" + "attacking for each …" — a bare

@@ -2266,6 +2266,15 @@ function classifyCondition(condRaw, cardName, cardType) {
     // (the self-inclusive union "<Name> or another nontoken creature you control" is detected ABOVE the generic
     // "or another" refusal — see the NONTOKEN LEAVES UNION arm.)
   }
+  // EXILED FROM THE BATTLEFIELD (play-weighted 2026-10-20 — Soulherder, EDHREC #1690: "Whenever a creature is exiled from the
+  // battlefield, put a +1/+1 counter on this creature."): a leaves-the-battlefield ability (CR 603.6c — it looks back, CR 603.10a)
+  // on ANY player's creature whose exit went to exile — Swords to Plowshares, a blink's exile, a token (it reaches exile before
+  // it ceases to exist, CR 111.7), a creature that would die under Rest in Peace (exiled instead, CR 614.1a). Never a death, a
+  // bounce or a tuck. The bare subject self-includes (Soulherder exiled looks back and triggers; its counter has nowhere to go).
+  // Only "a creature": another subject, a controller, or a "dies or is put into exile" pair stays UNDETECTED → Arbiter.
+  if (/^a creature is exiled from the battlefield$/.test(c)) {
+    return { event: "permanentLeaves", scope: "creatureExiled", whose: "any" };
+  }
   // "Leaves the battlefield" (LTB) for OTHER subjects is intentionally NOT detected here: a self-LTB / un-scoped
   // form whose effect the engine can't fire would be a false positive (the whole ability silently does nothing,
   // e.g. City Pigeon's "When this leaves the battlefield, create a Food token"). Those stay UNDETECTED → Arbiter.
@@ -7128,6 +7137,11 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // above: NO self exclusion (the bare subject self-includes, the same convention as the bare PiG scopes).
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent, state)
         && triggeringPermanent.controller === sourcePermanent.controller;
+    case "creatureExiled":
+      // Soulherder (play-weighted 2026-10-20) — "a creature is exiled from the battlefield": ANY player's creature (no controller
+      // gate), an exile exit only (`leftToExile`, recorded by gameState.recordLeaveEvent). Creature-ness as it left (the look-back
+      // types, CR 603.10a). Self-inclusive, like the bare subjects above.
+      return !!triggeringPermanent && !!triggeringPermanent.leftToExile && isCreaturePerm(triggeringPermanent, state);
     case "otherNontokenCreatureYouControlLeaves":
       // Tokka & Rahzar — "another nontoken creature you control leaves the battlefield": the "another" arm above with
       // a NONTOKEN gate on the leaving permanent (card.token — the token-factory convention; a token leaving never fires).
@@ -8084,7 +8098,8 @@ export function checkLeavesTriggers(state) {
     // graveyard exit from a bounce/exile; the LEAVES watcher (Nadier's token-leaves) ignores it (fires on any exit).
     // + `lkiTypes`: the types it had as it left (CR 603.10a — recorded by gameState.recordLeaveEvent; the type-line audit), so a
     // God below its devotion leaving is not "another creature you control" leaving (Ninth Bridge Patrol, The Ozolith).
-    const lookBack = { id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}) };
+    // + `leftToExile` (play-weighted 2026-10-20 — Soulherder's "a creature is exiled from the battlefield"): the exit went to exile.
+    const lookBack = { id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(e.toExile ? { leftToExile: true } : {}), ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}) };
     // EARTHBEND-RETURN (CR 603.7) — the animated land's "when it dies or is exiled, return it to the battlefield
     // tapped" delayed trigger. Flag-driven (combat.applyEarthbend set `earthbendReturn`; gameState.recordLeaveEvent
     // carried it + the destination zone onto this look-back). Fire ONLY on a graveyard (dies) or exile exit — never

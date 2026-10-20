@@ -243,10 +243,14 @@ export function applyBlink(state, atom, ctx) {
   next = groupLeaveEvents(next, leaving.map((l) => l.permId));
   // `returnTo` picks the controller: "controller" for "under your control", "owner" for "under its owner's control". An Aura
   // whose side its reading can't tell goes back to the side it left (`auraSideHint` — auraEntry.auraEntryHostScore).
+  // The return's own riders (play-weighted 2026-10-20): "tapped" (Eldrazi Displacer — CR 110.5b, the effect says otherwise) and
+  // "with a +1/+1 counter on it" (Planar Incision, Spaceshift, Lilysplash Mentor) — an enters-with counter (CR 614.1c), put on as
+  // the card enters, so a counter replacement applies (Hardened Scales) and it is a counter put on the permanent (CR 122.6).
   const back = enterCardsTogether(next, leaving.map((l) => {
     const playerId = atom.returnTo === "owner" ? l.owner : ctx.controller;
     const auraSideHint = l.hostController ? (l.hostController === playerId ? "own" : "enemy") : null;
-    return { playerId, cardId: l.cardId, fromZone: "exile", fromPlayerId: l.owner, auraSideHint };
+    return { playerId, cardId: l.cardId, fromZone: "exile", fromPlayerId: l.owner, auraSideHint,
+      ...(atom.returnTapped && { tapped: true }), ...(atom.returnCounter && { extraCounter: atom.returnCounter }) };
   }));
   next = back.state;
   const blinked = [];
@@ -343,7 +347,7 @@ export function applyExileGraveyard(state, atom, ctx) {
  * stays in its zone (CR 303.4g) — entered:false, logged `aura-stays`. An Equipment the effect attaches enters attached too.
  * `auraHostOpts` are the effect's own limits on that choice (auraEntry.auraEntryHosts — Retether's "only creatures").
  */
-export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = false, fromPlayerId = playerId, deferEnterTriggers = false, replacementState = null, attachTo = null, auraSideHint = null, auraHostOpts = null }) {
+export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = false, fromPlayerId = playerId, deferEnterTriggers = false, replacementState = null, attachTo = null, auraSideHint = null, auraHostOpts = null, extraCounter = null }) {
   const owner = state.players[fromPlayerId];
   const controllerPlayer = state.players[playerId];
   if (!owner || !controllerPlayer) return { state, entered: false };
@@ -425,7 +429,10 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   // battlefield, and it is still in the zone it is leaving — a Golgari Grave-Troll returned from the graveyard counts itself
   // (its bundled ruling); for one card of a larger event, against the board as that event began (`replacementState`,
   // CR 614.12): a permanent entering at the same time as Renata gets no counter from her (Renata's bundled ruling).
-  const { perm, settle } = applyEnterReplacements(replacementState || s2, base);
+  // `extraCounter` ({ type, n }) is the EFFECT's own enters-with counter — "return it to the battlefield … with a +1/+1 counter on
+  // it" (a blink's `returnCounter`) — handed to the same reader as the clone's additional counter (CR 614.1c, 122.6; doubled by a
+  // counter replacement like any other enters-with counter). Absent, the entry reads exactly as before.
+  const { perm, settle } = applyEnterReplacements(replacementState || s2, base, extraCounter ? { extraCounter } : {});
   // Remove the card from its OWNER's source zone (fromPlayerId), then add the new permanent to the
   // CONTROLLER's battlefield (playerId). Build both player updates from s2 so a same-player move (the
   // common case, fromPlayerId === playerId) composes into one object and a cross-player move (reanimation
@@ -1254,6 +1261,42 @@ export function graveyardReturnClauseParser(clause) {
   // untap-exact-lands arm documents (one legal target ⇒ uncastable, never a half-cast).
   const blink3M = t.match(/^exile two target artifacts, creatures, and\/or lands you control, then return those cards to the battlefield under (your|their owner's) control$/);
   if (blink3M) return { op: "blink", targetType: "artifactCreatureOrLandYouControl", restrictions: [], returnTo: blink3M[1] === "your" ? "controller" : "owner", maxTargets: 2, minTargets: 2 };
+  // THE BLINK NOUNS THE MOST-PLAYED STILL LACKED (play-weighted 2026-10-20). Each arm is anchored whole; the splitter keeps
+  // each sentence whole (splitClauses' blink guard), or its ", then" split would orphan the return.
+  // · A CREATURE-TYPE EXCLUSION — Restoration Angel (EDHREC #1390) "exile target non-Angel creature you control, then return
+  //   that card to the battlefield under your control"; Icewind Stalwart's "up to one target non-Warrior creature". The word
+  //   must be a creature type (CR 205.3m); the restriction is the negated subtype every other pool reads, so a changeling (every
+  //   creature type, CR 702.73a) is an Angel and is never offered. A word that is not a creature type stays unread.
+  const blinkNonM = t.match(/^exile (up to one )?target non-([a-z']+) creature you control, then return (?:that card|it) to the battlefield under (your|its owner's) control$/);
+  if (blinkNonM && CR_CREATURE_TYPES.has(blinkNonM[2])) {
+    return { op: "blink", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }, { kind: "subtype", subtype: blinkNonM[2], negate: true }], returnTo: blinkNonM[3] === "your" ? "controller" : "owner", ...(blinkNonM[1] && { maxTargets: 1, minTargets: 0 }) };
+  }
+  // · ANOTHER, ONE MANDATORY TARGET — "exile another target creature you control" (Wispweaver Angel, Soulherder's end step,
+  //   Distinguished Conjurer, Nephalia Smuggler, Lilysplash Mentor, Emiel the Blessed) and "another target PERMANENT you
+  //   control" (Felidar Guardian, #1686 — a land, an artifact, a planeswalker too). Thassa's notSource restriction (fail-closed
+  //   without a source id), the permanent pool with the flicker's Aura gate (an Aura comes back choosing what it enchants,
+  //   CR 303.4f). "with a +1/+1 counter on it" (Lilysplash Mentor) is the return's own enters-with counter (`returnCounter`).
+  const blinkAnotherM = t.match(/^exile another target (creature|permanent) you control, then return (?:that card|it) to the battlefield under (your|its owner's) control( with a \+1\/\+1 counter on it)?$/);
+  if (blinkAnotherM) {
+    const permanent = blinkAnotherM[1] === "permanent";
+    return { op: "blink", targetType: permanent ? "permanent" : "creature",
+      restrictions: [{ kind: "controller", who: "you" }, { kind: "notSource" }, ...(permanent ? [{ kind: "auraEntryModeled" }] : [])],
+      returnTo: blinkAnotherM[2] === "your" ? "controller" : "owner", ...(blinkAnotherM[3] && { returnCounter: { type: "+1/+1", n: 1 } }) };
+  }
+  // · EITHER SIDE, HOME TO ITS OWNER — Flicker of Fate (#2091) "exile target creature or enchantment, then return it to the
+  //   battlefield under its owner's control"; Planar Incision (#2259) and Spaceshift "target artifact or creature … with a
+  //   +1/+1 counter on it". Any player's permanent; it comes back under its OWNER's control, so a stolen one goes home. Only the
+  //   owner return is read: "under your control" on a permanent you may not control is a theft, and stays unread.
+  const blinkEitherSideM = t.match(/^exile target (creature or enchantment|artifact or creature), then return (?:that card|it) to the battlefield under its owner's control( with a \+1\/\+1 counter on it)?$/);
+  if (blinkEitherSideM) {
+    return { op: "blink", targetType: blinkEitherSideM[1] === "creature or enchantment" ? "creatureOrEnchantment" : "creatureOrArtifact", restrictions: [{ kind: "auraEntryModeled" }],
+      returnTo: "owner", ...(blinkEitherSideM[2] && { returnCounter: { type: "+1/+1", n: 1 } }) };
+  }
+  // · Eldrazi Displacer — "exile another target creature, then return it to the battlefield tapped under its owner's control":
+  //   any player's creature but the source, returned tapped (CR 110.5b — untapped unless an effect says otherwise).
+  if (/^exile another target creature, then return it to the battlefield tapped under its owner's control$/.test(t)) {
+    return { op: "blink", targetType: "creature", restrictions: [{ kind: "notSource" }], returnTo: "owner", returnTapped: true };
+  }
   // ④-P (2026-09-03 night) — "Target player exiles a card from their graveyard." (Relic of Progenitus / Scrabbling
   // Claws / Merrow Bonegnawer): the TARGET PLAYER chooses the card (CR 601.2c targets; the choice is theirs at
   // resolution). Resolved by applyExileGraveyardPick — a milled-pick pause aimed at THAT player with toZone "exile"

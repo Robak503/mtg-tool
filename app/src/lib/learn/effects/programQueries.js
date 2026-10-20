@@ -419,11 +419,16 @@ export function atomTargetIntent(atom) {
       if (tt.includes("YouControl") || tt.includes("youControl") || tt === "self") return "own";
       return "enemy";
     case "blink":
-      // BLINK (2026-08-14 — Displacer Kitten, the family's first TRIGGER carrier): every corpus blink
-      // arm prints "you control" (the restriction enforces legality), and blinking your own permanent
-      // for value/ETB re-use is the card's entire purpose — own-side, never a mis-target. The spell
-      // carriers (Displace, Ghostly Flicker) never consulted intent; this case exists for the flush.
-      return "own";
+      // BLINK (2026-08-14 — Displacer Kitten, the family's first TRIGGER carrier): a blink arm that prints "you control" (the
+      // restriction or a *YouControl pool enforces legality) or "you own" (Sword of Hearth and Home) blinks your own permanent
+      // for value/ETB re-use — own-side, never a mis-target. The spell carriers (Displace, Ghostly Flicker) never consulted
+      // intent; this case exists for the flush.
+      // + EITHER SIDE (play-weighted 2026-10-20 — Flicker of Fate, Planar Incision, Eldrazi Displacer): a blink of any player's
+      // permanent has no side to prove (resetting an opponent's creature or removing its token is play too) → "ambiguous", so a
+      // TRIGGER carrying one stays on the Arbiter; the spells and the activated ability are cast or activated with their targets
+      // chosen, and never ask.
+      return (tt.endsWith("YouControl") || (atom.restrictions || []).some((r) => (r.kind === "controller" || r.kind === "owner") && r.who === "you"))
+        ? "own" : "ambiguous";
     case "bounce-spell-or-permanent":
       // VENSER — the STACK∪BATTLEFIELD union bounce. Same enemy-side tempo intent as the ETB-bounce
       // family above (bounce their spell as a pseudo-counter, or their permanent as tempo — the

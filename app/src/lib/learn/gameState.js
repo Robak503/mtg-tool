@@ -1577,6 +1577,10 @@ function recordLeaveEvent(state, permanent, toGraveyard, toZone = null, before =
   // look-back, the markDead precedent): The Ozolith's "if it had counters on it, put THOSE counters on ~"
   // reads this last-known state (checkLeavesTriggers threads it as trigger context). Plain JSON, serialize-safe.
   const ev = { id: permanent.id, controller: permanent.controller, card: permanent.card, toGraveyard: !!toGraveyard, counters: { ...(permanent.counters || {}) } };
+  // `toExile` — the exit went to exile (play-weighted 2026-10-20 — Soulherder's "a creature is exiled from the battlefield",
+  // triggers.checkLeavesTriggers' `leftToExile`): a Swords to Plowshares, a blink's exile, a token's exit, a death Rest in Peace
+  // turned into an exile (moveCardToZone recurses with toZone "exile").
+  if (toZone === "exile") ev.toExile = true;
   // `lkiTypes` — the card types it had as it last existed (CR 603.10a, layer 4 — the type-line audit), read off `before`, the
   // board it was still on (deathLookback's field, so lastKnownIsCreature answers every leave scope the same way): a God below its
   // devotion leaving is not a creature leaving (The Ozolith, Ninth Bridge Patrol); an animated land is one.
