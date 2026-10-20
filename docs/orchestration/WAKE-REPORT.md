@@ -9,7 +9,7 @@
 
 ## 🎯 2026-10-01 — **THE PLAY-WEIGHTED PROGRAM** (Colton's order) — runnable: the top-2,500 worklist (phase 2), in rank order
 
-> **NOW (2026-10-20 ~20:00Z) — v0.168.0 TAGGING · PHASE 2 RUNNABLE.** Top 1,000 **934 / 1,000**; top 2,500 **1,875 / 2,500
+> **NOW (2026-10-20 ~20:00Z) — v0.168.0 RELEASED · PHASE 2 RUNNABLE.** Top 1,000 **934 / 1,000**; top 2,500 **1,875 / 2,500
 > (75.0%) → +375 to 90%**; corpus 15,852 (45.8%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
 > scripts/measure-coverage.mjs --played=2500` (from `app/`), highest-ranked buildable miss first — read the last five play-weighted
 > RUN-LEDGER entries' "Not taken" lists before picking. Open play call for Colton: should the generic tap also hold back
@@ -75,7 +75,10 @@
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
 
-## 🚀 2026-10-20 — **v0.168.0 TAGGED** (release run watching) — 20 commits since v0.167.0, every push CI green
+## 🚀 2026-10-20 — **v0.168.0 RELEASED** (published 2026-10-20T19:25:32Z) — 20 commits since v0.167.0, every push CI green
+
+> **Verified:** release run 39478149226 green on its first attempt (no next/font retry); `releases/latest/download/latest.json`
+> reads version 0.168.0 with its signature; all five assets present.
 
 > **The release (+96 cards, and a run of user-facing rules fixes):** in the Academy **you choose the targets and the order of your
 > own triggered abilities** (the AI's chooser used to pick for you); **activated abilities and cycling work at instant speed**

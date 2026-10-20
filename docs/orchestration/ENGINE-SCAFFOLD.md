@@ -1275,8 +1275,9 @@ The precombat pump reader (`pumpFlipsLethal`, since 2026-10-20 — it replaced `
 too, on the board the pump's own cast leaves (below). `damageRow` reads each attacker: power, block size, eligible
 blockers, `strikes` (2 for double strike, CR 702.4b) and, for a trampler, `stops` — what each eligible blocker alone keeps off the
 player (`trampleStop`: lethal damage first, 1 from a deathtouch attacker, CR 702.19b / 702.2c; a first striker that kills it first stops
-all of it, CR 510.4; a double striker's second step tramples over a blocker its first step killed, CR 702.19d, and re-pays a survivor's
-remaining lethal damage) — and `gangKill`, first strikers that kill it only together. The defender's choice stays a slot budget
+all of it, CR 510.4 — never an indestructible one, CR 702.12b, since 2026-10-20; a double striker's second step tramples over a
+blocker its first step killed, CR 702.19d, and re-pays a survivor's remaining lethal damage) — and `gangKill`, first strikers that
+kill it only together (never an indestructible one). The defender's choice stays a slot budget
 (blockers interchangeable), each block a piece: a non-trampler all its damage for its block size, a trampler what its best blockers
 stop, then one slot per further blocker (a gang) — taken biggest first. Two sides, each conservative in its own direction: the default
 (lethal side) never exceeds the defender's best block (with every block size 1: a gang stops at most its members' stops summed, a
@@ -1287,6 +1288,22 @@ and declaration order enumerated). Rows without trample or double strike read ex
 on a blocker (lethal read from toughness — the safe side), protection / prevention / damage doublers, and a "≥N" block size beyond the
 greedy (not exact, as before). Policy `combatDamage: "v1"` reads the power once and a blocked attacker as dealing nothing.
 
+**The AI defending: what is still incoming (`opponentAI.incomingFaceDamage` over `incomingFaceFrom`, 2026-10-20 — AI decision
+quality).** One reading serves the fog timing (cast a Fog-class spell only when the damage aimed at the seat's face is lethal) and the
+chump stage of the block plan (`pickBlockers`: chump only under lethal pressure). Each attacker at the seat's face, with the blockers
+declared on it: unblocked, its power — twice for a double striker before the first-strike damage step (`strikesLeft`, CR 702.4b);
+blocked, nothing (CR 509.1h) — unless it has trample, then what its best blocker alone doesn't stop (`trampleStop`, the lethal damage
+counting the damage already marked on the blocker, CR 702.19b; more blockers never stop less; every blocker gone, all of it, CR
+702.19d), or unless it assigns its damage as though it weren't blocked (Thorn Elemental), then all of it but what a first striker that
+kills it first keeps off. Read on the side that never understates the damage — for "am I dead?" the larger figure is the safe one —
+and pinned against the engine's own combat damage (`aiDefendTrampleDoubleStrike.test.js`: random declared blocks, never below the
+engine, exact whenever no attacker has two blockers). The chump stage reads it only when a face attacker has trample or double strike
+(or assigns as though unblocked): then each chump is worth what it keeps off the player — all of a non-trampler's damage, only what that
+blocker stops of a trampler's — a chump that alone ends the lethal pressure is taken first (the smallest such blocker, then the most it
+saves), else the smallest spare blocker where it saves the most, until the damage is below the seat's life. So a 1/1 no longer chumps
+Colossal Dreadmaw (it keeps 1 off) while a Hill Giant beside it deals the lethal 3, and a double striker's lethal is blocked. Without
+such an attacker the old stage runs unchanged (the smallest spare blocker soaks the biggest attacker). Policy `defendDamage: "v1"`
+keeps the old reading (each unblocked attacker's power once, a blocked one nothing) in both.
 **The precombat pump reads the swing its own cast leaves (`opponentAI.pumpFlipsLethal`, 2026-10-20 — AI decision quality).** One reader
 for the team pump (`pickCastAction`, a Spree mode — `pickSpreeCast`) and the targeted pump (`pickTargetedSpell`'s tier-4 lethal pump,
 an X pump through `pickXCast`): given the cast whose cost is paid and `pumpOf(id)` → { dp, dt }, is the swing lethal with the pump and
@@ -1320,10 +1337,27 @@ menace / "≥N" attacker is N rows of 1/N its best single-blocker trade (worstCa
 blocker kills is not modelled). The damage stays off the edges on purpose: a single assignment that charged a chump its blocker
 would assume the defender chumps, and then reward feeding it a small attacker.
 Never a land creature; never when the crack-back is then lethal (`crackBackReader`: each living opponent's creatures that
-can attack, blocked by the AI's creatures still untapped); only as many as the defender's attack tax can be paid for, the attackers
-that go anyway first. The group is declared last, cheapest first, so each per-tick re-plan reproduces it. Policy `racer: "v1"`
-restores the per-attacker hold; `racerTrade: "v1"` the first loss (`worstCaseLoss`: the most valuable attackers a blocker kills "for
-nothing", a smaller deathtouch blocker's trade counted free).
+can attack, blocked by the AI's creatures still untapped) — unless the seat is dead to the crack-back whatever it holds (below);
+only as many as the defender's attack tax can be paid for, the attackers that go anyway first. The group is declared last, cheapest
+first, so each per-tick re-plan reproduces it. Policy `racer: "v1"` restores the per-attacker hold; `racerTrade: "v1"` the first loss
+(`worstCaseLoss`: the most valuable attackers a blocker kills "for nothing", a smaller deathtouch blocker's trade counted free).
+**The doomed hold (`seatDoomedAnyway` over `crackBackFloor`, 2026-10-20).** The guard holds a group only when holding it can save
+the seat: read once, the first time the guard would hold, it lets the group go when one living opponent's next attack is lethal
+through the best blocks every creature the seat has untapped now can make — a sound LOWER bound on that one opponent's crack-back
+(`crackBackFloor`), compared with the seat's life plus all the life its blockers' lifelink could gain. The floor reads the board the
+attack finds — the seat's turn over (`gameEngine.finishCleanupActions`: "until end of turn" effects end, CR 514.2) and the opponent's
+untap step done (`gameState.untapAll`: a lock or a stun counter keeps an attacker home, CR 502.3) — and counts only attackers nothing
+may keep home or send elsewhere (printed creatures; no defender, "can't attack", "can't attack alone", "can't attack unless …", goad;
+no infect, no "prevent all damage dealt by" wall), each its damage amount (power, or toughness where it assigns by toughness), twice
+with double strike. The blocks: each blocker slot keeps off at most the most it stops of any one attacker it may block — a
+non-trampler all its damage over its block size, a trampler what that blocker alone stops (`trampleStop`; a gang never stops more than
+its members alone, summed — CR 702.19b), all of it for a first striker in a first-strike gang kill, of a Thorn Elemental only what a
+first striker that kills it first keeps off — and never more in all than the blockable attackers deal. Every real block is within
+those caps, so the damage is never below the floor (pinned against the engine's best block, `aiDoomedHold.test.js`). No judgment
+(the guard holds as before) under an attack tax on attacking the seat, an attack cap, a damage replacement anywhere, the seat's "until
+your next turn" protection or a damage redirect, or a permanent of the seat's that untaps during another player's untap step or could
+become a creature to block (Crew, "becomes a … creature"). The hand, the stack, other triggers and the turns between are not read —
+the guard's own model. Policy `doomedHold: "v1"` keeps the hold.
 
 **The default AI's combo line (`tokenLoopLine.js`, added 2026-10-03).** The rule
 (Colton): a combo deck plays to ITS line — build the resource only to "enough",

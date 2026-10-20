@@ -41,6 +41,7 @@ const HALBERDIER = {"name":"Halberdier","type":"Creature — Human Barbarian","m
 const RATS = {"name":"Typhoid Rats","type":"Creature — Rat","mana":"{B}","cmc":1,"power":"1","toughness":"1","keywords":["Deathtouch"],"colors":["B"],"oracle":"Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)"}; // EDHREC #5683
 const ZOMBIE = {"name":"Zombie","type":"Token Creature — Zombie","power":"2","toughness":"2","keywords":[],"colors":["B"],"oracle":"","token":true};
 const VINDICATOR = {"name":"Swiftblade Vindicator","type":"Creature — Human Soldier","mana":"{R}{W}","cmc":2,"power":"1","toughness":"1","keywords":["Vigilance","Trample","Double strike"],"colors":["R","W"],"oracle":"Double strike (This creature deals both first-strike and regular combat damage.)\nVigilance (Attacking doesn't cause this creature to tap.)\nTrample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)"}; // EDHREC #7319
+const OGRE = {"name":"Wrecking Ogre","type":"Creature — Ogre Warrior","mana":"{4}{R}","cmc":5,"power":"3","toughness":"3","keywords":["Bloodrush","Double strike"],"colors":["R"],"oracle":"Double strike\nBloodrush — {3}{R}{R}, Discard this card: Target attacking creature gets +3/+3 and gains double strike until end of turn."}; // EDHREC #22809
 const ACE = {"name":"Fencing Ace","type":"Creature — Human Soldier","mana":"{1}{W}","cmc":2,"power":"1","toughness":"1","keywords":["Double strike"],"colors":["W"],"oracle":"Double strike (This creature deals both first-strike and regular combat damage.)"}; // EDHREC #14566
 const MYR = {"name":"Darksteel Myr","type":"Artifact Creature — Myr","mana":"{3}","cmc":3,"power":"0","toughness":"1","keywords":["Indestructible"],"colors":[],"oracle":"Indestructible (Damage and effects that say \"destroy\" don't destroy this creature. If its toughness is 0 or less, it still dies.)"}; // EDHREC #6697
 const BRUTE = {"name":"Boggart Brute","type":"Creature — Goblin Warrior","mana":"{2}{R}","cmc":3,"power":"3","toughness":"2","keywords":["Menace"],"colors":["R"],"oracle":"Menace (This creature can't be blocked except by two or more creatures.)"}; // EDHREC #18929
@@ -150,16 +151,25 @@ describe("the crack-back guard counts an opponent's trampler and double striker"
     expect(planned(crackBack(6, DREADMAW))).toEqual(["z1", "z2"]);
   });
 
-  it("⭐ a tapped Skyspear Cavalry (flying, double strike) untaps next turn: with the AI at 4 the Zombies stay home — it deals 4 over the Bears", () => {
-    expect(planned(crackBack(4, CAVALRY))).toEqual([]);
+  // (Changed 2026-10-20 with the doomed hold, aiDoomedHold.test.js: the Cavalry board at 4 is lethal whatever the AI holds —
+  // nothing of its blocks a flyer — so the Zombies now attack there. The witness of the double strike reading moved to a
+  // board where holding saves the seat.)
+  it("⭐ two tapped Wrecking Ogres (double strike) untap next turn: with the AI at 6 the Zombies stay home — the Bears block one Ogre, the other deals 6 (with the Zombies home all three attackers are blocked)", () => {
+    const s = game({ life: { ai: 6 }, boards: {
+      ai: [...many(2, "z", ZOMBIE, "ai"), P("home", BEARS, "ai", { summoningSick: true })],
+      user: [P("rats", RATS, "user"), P("o1", OGRE, "user", { tapped: true }), P("o2", OGRE, "user", { tapped: true })],
+    } });
+    expect([planned(s), planned(s, "ai", { policy: { combatDamage: "v1" } })]).toEqual([[], ["z1", "z2"]]);
   });
 
   it("control — the Cavalry board with the AI at 5: the Zombies attack", () => {
     expect(planned(crackBack(5, CAVALRY))).toEqual(["z1", "z2"]);
   });
 
-  it("control — a crack-back lethal without trample still holds the team home: the AI at 1 against the Rats", () => {
-    expect(planned(crackBack(1, DREADMAW))).toEqual([]);
+  // (Changed 2026-10-20: against Dreadmaw the AI at 1 is dead whatever it holds — 7 to block, at most 6 stopped — so the
+  // threat is a Hill Giant, which the AI can block when it holds.)
+  it("control — a crack-back lethal without trample still holds the team home: the AI at 1 against the Rats and a Hill Giant", () => {
+    expect(planned(crackBack(1, GIANT))).toEqual([]);
   });
 
   it("control — the guard reads a block the AI can make: with a summoning-sick Craw Wurm home beside the Bears (the AI at 4) the Zombies attack — the Wurm blocks Dreadmaw (2 trample over), the Bears the Rats", () => {

@@ -34,7 +34,7 @@ import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCre
 import { auraCastIntent } from "./auraEntry.js"; // W7e — which side an Aura lands on (a control Aura is ENEMY, a restriction grant too); shared with the non-cast entry (CR 303.4f)
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction, manaSources, canAfford, commitPaymentPlan, costReservedPermanentIds, costOwesMana } from "./manaModel.js"; // + the ward read's cost preview: the dispatcher's commit, its set-aside permanents, its owes-mana test
-import { attackerMinBlockers, canBlockAttacker, lureFilterOf, mustBeBlockedIfAble, maxBlocksFor, selfCantAttackNow } from "./combatEvasion.js";
+import { attackerMinBlockers, canBlockAttacker, lureFilterOf, mustBeBlockedIfAble, maxBlocksFor, selfCantAttackNow, mayAssignAsUnblocked } from "./combatEvasion.js";
 import { selfMustAttack, requiredAttackerIds, obeyingAttackOptions } from "./attackRequirements.js"; // ATTACK REQUIREMENTS (CR 508.1d) — the check legalChoices keeps every seat to
 import { attackTaxDetail } from "./attackTax.js"; // the planeswalker attack policy — what one more attack at a planeswalker costs (CR 508.1h), per target
 import { parseLoyaltyAbilities } from "./effects/loyaltyAbilities.js"; // the planeswalker attack policy — an opposing walker's ultimate (the runtime's own loyalty reader)
@@ -55,6 +55,14 @@ import { playerAuraSide } from "./playerAuraEffect.js"; // pickAuraCast — whic
 import { compareDefenders, untappedCreatureCount } from "./defenderOrder.js"; // the defender order — chooseDefender and the curse reading (Curse of Opulence) read one comparator
 import { entersByDiscardingLand, pickEnterDiscardLand } from "./discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247) — the entry replacement's policy, read before the cast (a leaf; no AI module)
 import { entersTriggerRemovesOwn } from "./gameEngine.js"; // the cast-time hold — what a permanent's own enters trigger would be forced to remove (gameEngine imports no AI module: no cycle)
+// The doomed-hold reading (seatDoomedAnyway, 2026-10-20) — the board as the opponent's next attack finds it, and what it can't read.
+import { finishCleanupActions } from "./gameEngine.js"; // CR 514.2 — this turn's "until end of turn" effects end before the next turn
+import { untapAll } from "./gameState.js"; // CR 502.3 — what the opponent's untap step leaves tapped (a lock, a stun counter) can't attack
+import { combatCapFor } from "./staticAbilityParser.js"; // "no more than N creatures can attack each combat"
+import { boardHasDamageReplacement } from "./damageReplacements.js"; // a damage replacement anywhere (doublers, reducers)
+import { playerDamageRedirectTarget } from "./damageRedirect.js"; // damage to the seat dealt to a creature instead (CR 614.9)
+import { selfDamagePreventionBy, attachedDamagePrevention, cantAttackAlone, attackControllerRequirementOf, attackDefenderRequirementOf } from "./combatEvasion.js";
+import { attackOtherThanRequirementsOf, assignsCombatDamageWithToughness } from "./layers.js";
 import { colourNeed, fetchCrackAtom, fetchableLands, fetchLandAbility, landSearchOrder } from "./fetchLand.js"; // the fetch lands — which offered activation is one, what it can find, what one in hand would fetch — and the one colour-need reader (a leaf: no AI module)
 import { permanentValue } from "./boardEval.js"; // pickTargetedActivation — the shared valuation breaks a power tie between two targets (a leaf over gameState)
 import { parseActivatedAbilities, parseDiscardCostAbility } from "./effects/abilities.js"; // pickTargetedActivation — a token whose one activated ability is the offered one exists to be spent; + the discard abilities' combat window (inDefaultAIActivationWindow)
@@ -77,7 +85,7 @@ import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell �
  * Accepted shapes:
  *   null / undefined                        → all-current (the shipping behavior)
  *   "v1"                                    → every subsystem legacy
- *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker|spellTarget|racer|racerTrade|costVariant|combatDamage|walkerTrade|ward|pumpCost|blink: "v1" } → per-subsystem legacy
+ *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker|spellTarget|racer|racerTrade|costVariant|combatDamage|walkerTrade|ward|pumpCost|blink|defendDamage|doomedHold: "v1" } → per-subsystem legacy
  *
  * The DEFAULT is always the new behavior (the Academy and self-play improve
  * automatically); "v1" exists only so the probe can measure old-vs-new inside one
@@ -88,7 +96,7 @@ import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell �
  * Exported so the A/B probe derives its legacy-key list from THIS array (AI-F11:
  * a hand-copied list silently drops every new subsystem from `--legacy=all`).
  */
-export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget", "racer", "racerTrade", "costVariant", "combatDamage", "walkerTrade", "ward", "pumpCost", "blink"];
+export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget", "racer", "racerTrade", "costVariant", "combatDamage", "walkerTrade", "ward", "pumpCost", "blink", "defendDamage", "doomedHold"];
 function normalizePolicy(policy) {
   if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
   if (policy && typeof policy === "object") return policy;
@@ -561,7 +569,7 @@ function pickSpreeCast(state, aiPlayerId, actions, pol = {}) {
     if (programContainsFog(prog)) {
       if (pol.fog === "v1" || (state.step !== "declare-blockers" && state.step !== "combat-damage")) return false;
       const life = state.players?.[aiPlayerId]?.life ?? 0;
-      if (life <= 0 || unblockedIncomingFace(state, aiPlayerId) < life) return false;
+      if (life <= 0 || incomingFaceDamage(state, aiPlayerId, pol) < life) return false;
     }
     for (const t of targets) {
       const atom = atoms[t.atomIndex];
@@ -769,21 +777,82 @@ function clearlyBehindOnBoard(state, aiPlayerId) {
 }
 
 /**
- * W7b (AI-F5) — the total UNBLOCKED attacking power currently aimed at this seat's FACE:
- * attackers in state.combat attacking aiPlayerId (walker-directed rows excluded — they don't
- * hit the life total) minus every attacker already blocked (state.combat.blockers). The same
- * math pickBlockers' chump stage runs over its local structures — kept as one shared read so
- * the fog timing can never disagree with the block plan about what is incoming. Zero when the
- * AI isn't the defender in this combat.
+ * W7b (AI-F5) — the combat damage still aimed at this seat's FACE this combat: the attackers in state.combat attacking
+ * aiPlayerId (walker-directed rows excluded — they don't hit the life total), each read with the blockers declared on it
+ * (state.combat.blockers) by incomingFaceFrom. pickBlockers' chump stage runs the same reading over its own plan — one
+ * shared read, so the fog timing can never disagree with the block plan about what is incoming. Zero when the AI isn't the
+ * defender in this combat. Since 2026-10-20 a double striker and a blocked trampler count (policy `defendDamage: "v1"`: the
+ * unblocked attackers' power, once).
  */
-function unblockedIncomingFace(state, aiPlayerId) {
-  const blocked = new Set((state.combat?.blockers || []).map((b) => b.attackerId));
+function incomingFaceDamage(state, aiPlayerId, pol = {}) {
+  const declaredOn = declaredBlockersByAttacker(state);
+  return faceAttackersOf(state, aiPlayerId).reduce((sum, s) => sum + incomingFaceFrom(state, s, declaredOn.get(s.id) || [], pol), 0);
+}
+
+/** Test-only handle on the defender's reading (aiDefendTrampleDoubleStrike.test.js — pinned against the engine's own combat damage). */
+export const __incomingFaceDamageForTests = (state, aiPlayerId, pol = {}) => incomingFaceDamage(state, aiPlayerId, pol);
+
+/** The attackers in this combat attacking `aiPlayerId` itself (not one of its planeswalkers), as combatStatsOf reads. */
+function faceAttackersOf(state, aiPlayerId) {
   return (state.combat?.attackers || [])
     .filter((a) => a.attackingPlayer !== aiPlayerId && a.defender === aiPlayerId && !a.defenderPlaneswalkerId)
-    .filter((a) => !blocked.has(a.permanentId))
     .map((a) => combatStatsOf(state, a.permanentId))
-    .filter(Boolean)
-    .reduce((s, a) => s + a.power, 0);
+    .filter(Boolean);
+}
+
+/** The blockers declared in this combat (state.combat.blockers), by attacker: Map<attackerId, blockerId[]>. */
+function declaredBlockersByAttacker(state) {
+  const on = new Map();
+  for (const b of state.combat?.blockers || []) {
+    if (!on.has(b.attackerId)) on.set(b.attackerId, []);
+    on.get(b.attackerId).push(b.blockerId);
+  }
+  return on;
+}
+
+/** The combat damage steps attacker `id` still deals in this combat: 2 for a double striker until the first-strike damage step has passed (CR 702.4b, 510.4), else 1. */
+function strikesLeft(state, id) {
+  if (!permanentHasKeyword(state, id, "Double strike")) return 1;
+  return state.step === "first-strike-damage" || state.step === "combat-damage" ? 1 : 2;
+}
+
+/** Does attacker `id` assign its combat damage as though it weren't blocked (Thorn Elemental — the printed may, which the engine always takes; or the granted form)? */
+function assignsAsUnblocked(state, id) {
+  return mayAssignAsUnblocked(findPermanent(state, id)?.permanent?.card) || permanentHasKeyword(state, id, "assignsCombatDamageAsUnblocked");
+}
+
+/**
+ * What attacker `s` (a combatStatsOf read) still deals the player it attacks with `blockerIds` blocking it, read on the side that
+ * never understates it — for "am I dead?" the larger figure is the safe side. Unblocked: its power, twice for a double striker
+ * before the first-strike damage step (strikesLeft — CR 702.4b). Blocked: nothing (CR 509.1h, 510.1c) — unless it has trample,
+ * then what its best blocker alone doesn't stop (trampleStop, CR 702.19b: each blocker must be assigned lethal damage first, so
+ * more blockers never stop less; the lethal damage counts the damage already marked on the blocker, as combatResolution's
+ * lethal need does; with every blocker gone, all of it — CR 702.19d); or unless it assigns its damage as though it weren't
+ * blocked (Thorn Elemental), then all of it but what a blocker that strikes first and kills it first keeps off. Policy
+ * `defendDamage: "v1"` keeps the old reading: the power once unblocked, nothing blocked.
+ */
+function incomingFaceFrom(state, s, blockerIds, pol = {}) {
+  if (pol.defendDamage === "v1") return blockerIds.length ? 0 : s.power;
+  const strikes = strikesLeft(state, s.id);
+  const full = s.power * strikes;
+  if (!blockerIds.length) return full;
+  if (assignsAsUnblocked(state, s.id)) {
+    // All of it reaches the player, unless a blocker that strikes first kills it before it deals its damage (CR 510.4): then
+    // nothing, or a double striker's first-strike half.
+    const killedFirst = !isIndestructible(findPermanent(state, s.id)?.permanent, state) && blockerIds.some((id) => {
+      const b = combatStatsOf(state, id);
+      return b?.firstStrike && ((b.deathtouch && b.power > 0) || (s.toughness > 0 && b.power >= s.toughness));
+    });
+    return !killedFirst ? full : !s.firstStrike ? 0 : strikes === 2 ? s.power : full;
+  }
+  if (!permanentHasKeyword(state, s.id, "Trample")) return 0;
+  const stops = blockerIds.map((id) => {
+    const b = combatStatsOf(state, id);
+    if (!b) return 0;
+    const marked = findPermanent(state, id)?.permanent?.damageMarked || 0;
+    return trampleStop(state, s, { ...b, toughness: b.toughness - marked }, strikes);
+  });
+  return Math.max(0, full - Math.max(0, ...stops));
 }
 
 /**
@@ -1544,7 +1613,7 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
       if (actions.length === 0) continue;
     }
     // W7b (AI-F5) — FOG: cast it exactly when it saves the game — mid-combat (declare-blockers
-    // / combat-damage) with the UNBLOCKED power aimed at this seat's face ≥ its life. Counting
+    // / combat-damage) with the combat damage aimed at this seat's face ≥ its life (incomingFaceDamage). Counting
     // only attacks on THIS seat's face makes "the AI is the defender" implicit, so the own-turn
     // self-fog risk the old blanket hold guarded against can't arise (the AI's own attack never
     // aims at itself). Below-lethal pressure keeps holding — the card is worth more at the
@@ -1553,7 +1622,7 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
       if (pol.fog === "v1") continue;
       if (state.step !== "declare-blockers" && state.step !== "combat-damage") continue;
       const life = state.players?.[aiPlayerId]?.life ?? 0;
-      if (life <= 0 || unblockedIncomingFace(state, aiPlayerId) < life) continue;
+      if (life <= 0 || incomingFaceDamage(state, aiPlayerId, pol) < life) continue;
     }
     // W7e (AI-F6) — AURAS: cast on-intent only. A permanent host's side comes from parseAuraBonus
     // (the SAME parse the layer engine applies on attach, so the read can't drift): a beneficial
@@ -1690,7 +1759,9 @@ function combatDuel(att, blk) {
  *   2. TRADE block — kills it but dies: taken only when trading up or even
  *      (attacker power ≥ blocker power — never feed a bigger body to a smaller one);
  *   3. CHUMP — ONLY under lethal pressure (total unblocked incoming face damage
- *      ≥ our life): soak the biggest attackers with the smallest spare blockers;
+ *      ≥ our life): soak the biggest attackers with the smallest spare blockers
+ *      (with a trampler or double striker attacking: the damage as incomingFaceFrom
+ *      reads it, each chump worth what it keeps off the player — 2026-10-20);
  *   4. otherwise NO BLOCK — take the damage. (The legacy policy chump-blocked
  *      EVERY attacker with its smallest creature, feeding the whole board away
  *      one 1/1 at a time; `pol.block === "v1"` recovers it for the A/B probe.)
@@ -1864,9 +1935,48 @@ function pickBlockers(blockerActions, state, aiPlayerId, pol = {}) {
     }
   }
 
-  // CHUMP stage — only when the remaining unblocked FACE damage is lethal.
-  // Walker-directed attacks don't hit our life total; already-declared blocks
-  // (state.combat.blockers — earlier ticks) and this plan's blocks are excluded.
+  // CHUMP stage — only when the face damage still incoming is lethal. Walker-directed attacks don't hit our life total.
+  // TRAMPLE AND DOUBLE STRIKE (2026-10-20): when a face attacker has either (or assigns its damage as though it weren't
+  // blocked), the damage is read as incomingFaceFrom reads it — a double striker's power twice, a blocked trampler what its
+  // blocker doesn't stop, the earlier ticks' blocks (state.combat.blockers) and this plan's included — and a chump is worth
+  // what it keeps off the player: all of a non-trampler's damage, only what that blocker stops of a trampler's. A chump that
+  // alone ends the lethal pressure comes first (the smallest such blocker, then the most it saves); otherwise the smallest
+  // spare blocker where it saves the most; until the damage is below our life or no chump saves anything (a board still
+  // lethal after every chump keeps chumping, as before: the reading is the larger figure, so a chump may yet save it).
+  // Without such an attacker, or under policy `defendDamage: "v1"`, the stage below runs as before: the smallest spare
+  // blocker soaks the biggest attacker, each chump worth its full power.
+  const faceRows = faceAttackersOf(state, aiPlayerId);
+  if (pol.defendDamage !== "v1"
+    && faceRows.some((s) => strikesLeft(state, s.id) > 1 || permanentHasKeyword(state, s.id, "Trample") || assignsAsUnblocked(state, s.id))) {
+    const lifeNow = state.players?.[aiPlayerId]?.life ?? 0;
+    const declaredOn = declaredBlockersByAttacker(state);
+    const blockersOf = (id) => [...(declaredOn.get(id) || []), ...plan.filter((a) => a.attackerId === id).map((a) => a.permanentId)];
+    const keyLess = (x, y) => {
+      for (let i = 0; i < x.length; i++) {
+        if (x[i] < y[i]) return true;
+        if (x[i] > y[i]) return false;
+      }
+      return false;
+    };
+    let incomingNow = faceRows.reduce((sum, s) => sum + incomingFaceFrom(state, s, blockersOf(s.id), pol), 0);
+    while (lifeNow > 0 && incomingNow >= lifeNow) {
+      let best = null;
+      for (const t of faceRows) {
+        if (blockersOf(t.id).length || minBlockersFor(state, t.id) > 1) continue; // a lone chump on a menace/≥N attacker absorbs nothing
+        const open = incomingFaceFrom(state, t, [], pol);
+        for (const c of candidatesFor(t.id)) {
+          const save = open - incomingFaceFrom(state, t, [c.action.permanentId], pol);
+          if (save <= 0) continue;
+          const key = [incomingNow - save < lifeNow ? 0 : 1, c.stats.power, c.stats.id, -save, t.id];
+          if (!best || keyLess(key, best.key)) best = { key, c, t, save };
+        }
+      }
+      if (!best) break;
+      take(best.c, best.t.id);
+      incomingNow -= best.save;
+    }
+    return plan;
+  }
   const alreadyBlocked = new Set((state.combat?.blockers || []).map((b) => b.attackerId));
   const faceAttackers = (state.combat?.attackers || [])
     .filter((a) => a.attackingPlayer !== aiPlayerId && a.defender === aiPlayerId && !a.defenderPlaneswalkerId)
@@ -2845,13 +2955,16 @@ function swingIsLethalV2(attackers, blockerCount, defenderLife) {
  * damage (CR 510.4). A DOUBLE STRIKER (`strikes` 2, CR 702.4b) assigns in both combat damage steps: a blocker its first-strike
  * damage kills leaves the regular step's damage all to the player (CR 702.19d); a survivor (toughness above the power, or
  * indestructible) needs the rest of its lethal damage again, at least 1 (combatResolution's lethal need); a blocker that strikes
- * first and kills it in the first step leaves no second. `a` and `b` are combatStatsOf / untappedDefenderBlockers reads (power,
- * toughness, firstStrike — double strike included —, deathtouch); `b.id` is read for indestructible.
+ * first and kills it in the first step leaves no second. An INDESTRUCTIBLE attacker is not destroyed by lethal damage or by
+ * deathtouch damage (CR 702.12b), so no blocker kills it first (2026-10-20). `a` and `b` are combatStatsOf /
+ * untappedDefenderBlockers reads (power, toughness, firstStrike — double strike included —, deathtouch); `a.id` and `b.id` are
+ * read for indestructible.
  */
 function trampleStop(state, a, b, strikes) {
   const power = a.power;
   const lethal = a.deathtouch && power > 0 ? 1 : Math.max(1, b.toughness);
-  const blockerKills = (b.deathtouch && b.power > 0) || (a.toughness > 0 && b.power >= a.toughness);
+  const blockerKills = !isIndestructible(findPermanent(state, a.id)?.permanent, state)
+    && ((b.deathtouch && b.power > 0) || (a.toughness > 0 && b.power >= a.toughness));
   if (b.firstStrike && !a.firstStrike && blockerKills) return power * strikes;
   const first = Math.min(power, lethal);
   if (strikes === 1) return first;
@@ -2869,7 +2982,8 @@ function trampleStop(state, a, b, strikes) {
  * `gangKill`: the eligible first strikers that can't kill it alone together deal at least its toughness before it deals its
  * damage — before it deals any (no first strike) or its regular-step damage (double strike) — so a gang of them stops more
  * than they stop alone (CR 510.4: two Halberdiers kill Knuckles the Echidna in the first-strike step, though neither does
- * alone; a lone killer's stop already counts it). `s` is a combatStatsOf read (with its id); keywords are read layer-aware.
+ * alone; a lone killer's stop already counts it; an indestructible trampler is killed by no gang). `s` is a combatStatsOf read
+ * (with its id); keywords are read layer-aware.
  * Policy `combatDamage: "v1"` keeps the old row: the power once, a blocked attacker dealing nothing.
  */
 function damageRow(state, s, eligible, pol = {}) {
@@ -2883,7 +2997,7 @@ function damageRow(state, s, eligible, pol = {}) {
   const struckFirst = strikes === 2 || !s.firstStrike;
   const killsAlone = (b) => (b.deathtouch && b.power > 0) || b.power >= s.toughness;
   const firstDamage = eligible.reduce((sum, b) => sum + (b.firstStrike && !killsAlone(b) ? b.power : 0), 0);
-  const gangKill = struckFirst && s.toughness > 0 && firstDamage >= s.toughness;
+  const gangKill = struckFirst && s.toughness > 0 && firstDamage >= s.toughness && !isIndestructible(findPermanent(state, s.id)?.permanent, state);
   return { ...row, strikes, trample, stops: eligible.map((b) => trampleStop(state, s, b, strikes)), stopIds: eligible.map((b) => b.id), gangKill };
 }
 
@@ -3329,6 +3443,104 @@ function crackBackReader(state, aiPlayerId, pol = {}) {
 }
 
 /**
+ * A sound LOWER bound on the combat damage `opponentId` deals `aiPlayerId` attacking it with every creature that can, whatever
+ * the seat blocks with `blockers` (its creatures that may block then, combatStatsOf reads) — the doomed-hold reading
+ * (seatDoomedAnyway). `next` is the board as that attack finds it (the seat's turn over, the opponent's untap step done).
+ * The attackers: the opponent's untapped creatures — printed creatures only (a land or Vehicle animated until end of turn may
+ * not be one then) — with no restriction that might keep them home or send them elsewhere (defender, "can't attack", "can't
+ * attack alone", a "can't attack unless …" requirement, "attacks a player other than X" — goad), and dealing the seat damage
+ * (no infect — poison is no life, CR 702.90b; no "prevent all damage dealt by" wall). Each deals its combat damage amount
+ * (power, or toughness where it assigns by toughness — CR 510.1a), twice with double strike (CR 702.4b).
+ * The blocks: each blocker slot (blockSlots — more for a creature that blocks more) keeps off at most the most it stops of any
+ * one attacker it may block — a non-trampler: all its damage, shared by its block size (CR 702.111b); a trampler: what that
+ * blocker alone stops (trampleStop; a gang never stops more than its members alone, summed — every blocker must be assigned
+ * lethal damage first, CR 702.19b), all of it for a first striker in a first-strike gang kill (damageRow's gangKill); one that
+ * assigns as though unblocked (its printed text sets CR 510.1c aside — Thorn Elemental), only what a first striker that kills it first — alone or with others — keeps off
+ * (CR 510.4) — and the blocks together never more than the blockable attackers deal. Every real
+ * block — gangs, any declaration order — is within those caps (CR 509.1a), so the damage is never below the floor.
+ */
+function crackBackFloor(next, aiPlayerId, opponentId, blockers) {
+  const attackers = (next.players?.[opponentId]?.battlefield || []).filter((p) => !p.tapped
+    && permanentIsCreature(next, p.id) && /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || ""))
+    && (!permanentHasKeyword(next, p.id, "Defender") || permanentHasKeyword(next, p.id, "attacksIgnoringDefender"))
+    && !permanentHasKeyword(next, p.id, "cantAttack") && !selfCantAttackNow(next, p) && !cantAttackAlone(p.card)
+    && !attackControllerRequirementOf(p.card) && !attackDefenderRequirementOf(p.card)
+    && attackOtherThanRequirementsOf(next, p.id).length === 0
+    && !permanentHasKeyword(next, p.id, "Infect") && !selfDamagePreventionBy(p.card) && !attachedDamagePrevention(next, p.id).by);
+  const slotStop = new Map(); // blocker id → the most it stops of one attacker
+  let total = 0;
+  let blockable = 0;
+  for (const p of attackers) {
+    const s = combatStatsOf(next, p.id);
+    const amount = Math.max(0, assignsCombatDamageWithToughness(next, p.id) ? permanentToughness(next, p.id) : s.power);
+    const strikes = permanentHasKeyword(next, p.id, "Double strike") ? 2 : 1;
+    const full = amount * strikes;
+    total += full;
+    const n = minBlockersFor(next, p.id);
+    const eligible = blockers.filter((b) => canBlockAttacker(next, b.id, p.id, aiPlayerId));
+    if (full <= 0 || eligible.length < n) continue;
+    blockable += full;
+    const row = damageRow(next, { ...s, power: amount, minBlockers: n }, eligible);
+    let stopOf;
+    if (assignsAsUnblocked(next, p.id)) {
+      // Its damage reaches the seat blocked or not — unless first strikers, alone or together, kill it before it deals it
+      // (CR 510.4): then all of it, or a double striker's regular half (a first striker without double strike deals its
+      // damage beside them).
+      const killsAlone = (b) => (b.deathtouch && b.power > 0) || (s.toughness > 0 && b.power >= s.toughness);
+      const struckFirst = strikes === 2 || !s.firstStrike;
+      const gang = struckFirst && !isIndestructible(p, next)
+        && eligible.reduce((sum, b) => sum + (b.firstStrike ? b.power : 0), 0) >= Math.max(1, s.toughness);
+      const killed = !s.firstStrike ? full : strikes === 2 ? amount : 0;
+      stopOf = (b) => (b.firstStrike && !isIndestructible(p, next) && (killsAlone(b) || gang) ? killed : 0);
+    } else {
+      stopOf = (b, i) => (!row.trample ? full / n : (row.gangKill && b.firstStrike ? full : row.stops[i]));
+    }
+    eligible.forEach((b, i) => slotStop.set(b.id, Math.max(slotStop.get(b.id) ?? 0, stopOf(b, i))));
+  }
+  const slots = blockSlots(next, aiPlayerId, blockers, attackers.length);
+  const stopped = Math.min(blockable, slots.reduce((sum, id) => sum + (slotStop.get(id) ?? 0), 0));
+  return total - stopped;
+}
+
+/**
+ * Is the seat dead to the crack-back WHATEVER it holds home (2026-10-20)? True when some living opponent, attacking it next
+ * turn with every creature that can, deals at least its life — plus all the life its blockers' lifelink could gain — through
+ * the best blocks every creature it has untapped now can make (crackBackFloor). Then holding the group home saves nothing,
+ * and the crack-back guard lets it go. Read on the board as that attack finds it: this turn's "until end of turn" effects over
+ * (finishCleanupActions, CR 514.2) and the opponent's untap step done (untapAll, CR 502.3). No judgment (false) when the floor
+ * would not read something that could change the damage: an attack tax on attacking the seat (CR 508.1h), an attack cap, a
+ * damage replacement on any battlefield, the seat's "until your next turn" protection or a redirect of its damage, or a
+ * permanent of its that untaps during another player's untap step or could become a creature to block (Crew, "becomes a …
+ * creature"). The hand, the stack, other triggers and the turns of the players between are not read — the guard's model.
+ */
+function seatDoomedAnyway(state, aiPlayerId) {
+  const life = state.players?.[aiPlayerId]?.life ?? 0;
+  if (life <= 0) return false;
+  const next = finishCleanupActions(state);
+  const tax = attackTaxDetail(next, aiPlayerId, null);
+  if (tax.generic > 0 || tax.phyrexian.length > 0 || combatCapFor(next, "attack") != null || boardHasDamageReplacement(next)) return false;
+  const seat = next.players?.[aiPlayerId];
+  if (!seat || seat.teferiShield || playerDamageRedirectTarget(next, aiPlayerId)) return false;
+  const own = seat.battlefield || [];
+  const textOf = (p) => String(p.card?.oracle || p.card?.oracle_text || "");
+  if (own.some((p) => /during each other player'?s untap step/i.test(textOf(p)))) return false;
+  if (own.some((p) => !p.tapped && !permanentIsCreature(next, p.id) && /\bCrew \d|\bbecomes? an? [^.]*\bcreature\b/i.test(textOf(p)))) return false;
+  const blockers = own.filter((p) => !p.tapped && permanentIsCreature(next, p.id)).map((p) => combatStatsOf(next, p.id));
+  const lifelink = blockers.filter((b) => permanentHasKeyword(next, b.id, "Lifelink"))
+    .reduce((sum, b) => sum + Math.max(0, assignsCombatDamageWithToughness(next, b.id) ? b.toughness : b.power) * (permanentHasKeyword(next, b.id, "Double strike") ? 2 : 1), 0);
+  return opponentsOf(state, aiPlayerId).some((o) => (state.players?.[o]?.life ?? 0) > 0
+    && crackBackFloor(untapAll(next, { playerId: o }), aiPlayerId, o, blockers) >= life + lifelink);
+}
+
+/** Test-only handle on the doomed-hold reading: { doomed, floors: { [opponentId]: crackBackFloor } } on `state` (aiDoomedHold.test.js). */
+export const __crackBackFloorForTests = (state, aiPlayerId) => {
+  const next = finishCleanupActions(state);
+  const blockers = (next.players[aiPlayerId].battlefield || []).filter((p) => !p.tapped && permanentIsCreature(next, p.id)).map((p) => combatStatsOf(next, p.id));
+  const floors = Object.fromEntries(opponentsOf(state, aiPlayerId).map((o) => [o, crackBackFloor(untapAll(next, { playerId: o }), aiPlayerId, o, blockers)]));
+  return { doomed: seatDoomedAnyway(state, aiPlayerId), floors };
+};
+
+/**
  * ONE BLOCKER BLOCKS ONE ATTACKER (2026-10-18; AI decision quality). The racer holds every attacker some untapped blocker of
  * the defender's can kill for nothing, judging each as if every blocker could block it — so one big blocker vetoed a whole
  * team (13 creatures with 34 power stayed home against one untapped creature in a self-play game). But each blocker blocks
@@ -3348,9 +3560,11 @@ function crackBackReader(state, aiPlayerId, pol = {}) {
  *     conservative; a single assignment that charged a chump its blocker would assume the defender chumps, and reward feeding
  *     it a small attacker instead. The best k wins. Policy `racerTrade: "v1"` keeps the first loss: worstCaseLoss (the most
  *     valuable attackers a blocker kills "for nothing" — blockKillsForNothing, a smaller deathtouch blocker included).
- *   · Never when the crack-back is then lethal (crackBackReader against the AI's life), and only as many as the seat can pay
- *     the defender's attack tax for (CR 508.1h), the attackers that go anyway paid first — the mana from the attackers that
- *     tap to attack excluded (CR 508.1f, 508.1i).
+ *   · Never when the crack-back is then lethal (crackBackReader against the AI's life) — unless the seat is dead to it
+ *     whatever it holds (seatDoomedAnyway, 2026-10-20: one opponent's attack is lethal through the best blocks every creature
+ *     it has untapped can make), when holding saves nothing (policy `doomedHold: "v1"` keeps the hold) — and only as many as
+ *     the seat can pay the defender's attack tax for (CR 508.1h), the attackers that go anyway paid first — the mana from the
+ *     attackers that tap to attack excluded (CR 508.1f, 508.1i).
  * The per-tick driver re-plans with the declared attackers counted in, so a group declared cheapest first re-plans to itself.
  */
 function outnumberingAttackers(state, aiPlayerId, attackerActions, defenderId, { blockers, stats, committed, chosen, forced, pol = {} }) {
@@ -3402,10 +3616,15 @@ function outnumberingAttackers(state, aiPlayerId, attackerActions, defenderId, {
   const aiLife = state.players?.[aiPlayerId]?.life ?? 0;
   const tax = attackTaxDetail(state, defenderId, null);
   const taxed = tax.generic > 0 || tax.phyrexian.length > 0;
+  // The guard holds a group only when holding it can save the seat (2026-10-20): read once, the first time it would hold.
+  let doomed = null;
   for (const { k } of ranked) {
     const planned = [...pending, ...pool.slice(0, k)];
     const away = new Set(planned.filter((r) => !r.vigilance).map((r) => r.id));
-    if (crackBack(away) >= aiLife) continue;
+    if (crackBack(away) >= aiLife) {
+      if (doomed === null) doomed = pol.doomedHold !== "v1" && seatDoomedAnyway(state, aiPlayerId);
+      if (!doomed) continue;
+    }
     if (taxed) {
       const sources = manaSources(state, aiPlayerId).filter((src) => !away.has(src.permanentId));
       const cost = { generic: tax.generic * planned.length, phyrexian: planned.flatMap(() => tax.phyrexian) };
