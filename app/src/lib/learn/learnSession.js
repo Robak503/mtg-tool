@@ -62,6 +62,7 @@ import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { takeLastCastRanking } from "./opponentAI.js"; // M5.1 — the tick-scoped cast-ranking side-channel (nearTie/top-k rows)
 import { stableActionKey as _stableActionKey } from "./actionKey.js";
 import { dispatchAction } from "./actionDispatcher.js";
+import { actionChangedGame } from "./antiLoopLatch.js"; // the anti-loop latch: did an auto-decided non-pass action change the game? (a zero-import leaf)
 import { createLoopWatch } from "./mandatoryLoop.js"; // CR 104.4b / 732.4 — a loop of only mandatory actions is a draw (a zero-import leaf)
 import { removePlayerFromGame } from "./playerLeavesGame.js"; // CR 800.4a — a player leaving a multiplayer game (the eliminated seat)
 import { checkAllStateBasedActions } from "./sba.js"; // CR 704.3 (B2) — the comprehensive permanent-SBA fixpoint at the priority checkpoint
@@ -585,46 +586,6 @@ function applyTimePressure(state, cfg) {
   const amount = k * cfg.lifeLossStep;
   const next = loseLife(state, { playerId: active, amount });
   return logEvent(next, { kind: "time-pressure", player: active, turn: state.turn, amount });
-}
-
-/**
- * A cheap fingerprint of "meaningful progress." If an actor takes a non-pass
- * action that leaves this unchanged, the action did nothing and the driver
- * would risk spinning — so we force a pass instead. Uses DISTINCT combat
- * permanent counts (not raw lengths) so a re-declare-style loop, which would
- * grow a raw length, is still caught as no-progress.
- *
- * The mid-resolution pending windows (free-cast / cascade / discover) are part
- * of the signature: RESOLVING one (e.g. a free-cast DECLINE, which may change
- * nothing else) IS progress — without these bits the latch would roll a decline
- * back to a force-pass on the pre-decline state, resurrecting the pending flag
- * forever (the livelock this guards against). A pending flag is one-way per
- * window (cleared by exactly one action, re-set only by a new spell that also
- * changes the stack), so it can never make a genuine no-op loop look live.
- */
-function progressSignature(state) {
-  const active = state.players[state.activePlayer];
-  const handCount = active ? active.hand.length : 0;
-  const poolTotal = active ? Object.values(active.manaPool).reduce((a, b) => a + b, 0) : 0;
-  const bfCount = Object.values(state.players).reduce((sum, p) => sum + p.battlefield.length, 0);
-  const distinctAttackers = new Set((state.combat?.attackers || []).map((a) => a.permanentId)).size;
-  const distinctBlockers = new Set((state.combat?.blockers || []).map((b) => b.blockerId)).size;
-  const pendings =
-    (state.pendingFreeCast ? 1 : 0) +
-    (state.pendingCascade ? 2 : 0) +
-    (state.pendingDiscover ? 4 : 0);
-  return [
-    state.turn,
-    state.phase,
-    state.step,
-    distinctAttackers,
-    distinctBlockers,
-    state.stack.length,
-    handCount,
-    poolTotal,
-    bfCount,
-    pendings,
-  ].join("|");
 }
 
 /** Strip the transient P2.1 unresolved→Arbiter flag from a state (pure). */
@@ -1428,7 +1389,7 @@ export function advanceUntilDecision(
   // long game. The anti-loop latch below + the per-turn budget are the primary guards.
   const SAFETY_CAP = 50000;
   // PER-TURN TICK BUDGET (grind server-hang root fix, 2026-07-14). The anti-loop latch
-  // (progressSignature) only force-passes an action that changes NOTHING — a loop that
+  // (antiLoopLatch.actionChangedGame) only force-passes an action that changes NOTHING — a loop that
   // produces mana/tokens each pass (poolTotal/bfCount move) slips past it and grinds a
   // single turn to SAFETY_CAP: ~tens of seconds of blocked event loop + an O(n²)
   // decisionLog balloon that OOM'd the machine. No legit game exceeds 70 turns and no
@@ -2668,14 +2629,15 @@ export function advanceUntilDecision(
 
     try {
       const newState = dispatchAction(state, chosenAction);
-      // Anti-loop latch (defense-in-depth behind the combat exclusion fix): a
-      // non-pass action that leaves the progress signature unchanged did
-      // nothing meaningful. Rather than re-applying the same no-op forever,
-      // force a pass to move the game forward.
-      if (
-        chosenAction.kind !== "pass-priority" &&
-        progressSignature(newState) === progressSignature(state)
-      ) {
+      // Anti-loop latch (defense-in-depth behind the combat exclusion fix): a non-pass action
+      // that changed nothing would be chosen again on the same state for ever, so pass priority
+      // from the state before it instead. "Changed nothing" is antiLoopLatch.actionChangedGame:
+      // the progress signature first, then the whole state outside the bookkeeping fields, with
+      // exact repeats folded (a re-declared attacker). Before 2026-10-20 only the signature was
+      // read, and an action that moved none of its fields was thrown away although it changed the
+      // game — an AI crew that took effect at once, a turn-face-up paid by tapping lands, a second
+      // block by a creature that can block more than one, "done" in Etali's cast-from-among window.
+      if (chosenAction.kind !== "pass-priority" && !actionChangedGame(state, newState)) {
         current = {
           ...current,
           state: dispatchAction(state, { kind: "pass-priority", playerId: actor }),

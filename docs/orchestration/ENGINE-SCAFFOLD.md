@@ -1363,7 +1363,21 @@ five colors in every real game while hand-built fixtures stayed green.
 
 `learnSession.advanceUntilDecision` is the real driver loop (SBA check →
 eliminations → pending-* settlement → turn cap → priority window → `makeDecision`
-→ `dispatchAction`, with a progress-signature anti-loop latch). Three guards end a
+→ `dispatchAction`, with the anti-loop latch). **The anti-loop latch** (`antiLoopLatch.js`, a
+leaf; 2026-10-20): after an auto-decided non-pass action, `actionChangedGame(before, after)` asks
+whether the game changed — `progressSignature` first (turn, step, distinct attackers / blockers,
+stack depth, the active player's hand and pool, battlefield count, the free-cast / cascade /
+discover windows), then, when that is equal, the whole state outside the bookkeeping fields
+(`LATCH_BOOKKEEPING_KEYS`: `log`, `priorityHolder`, `consecutivePasses`, `idSeq`,
+`timestampCounter`, `rngSeed`), arrays compared with exact repeats folded (PR 10.3's re-declared
+attacker). An action that changed nothing is replaced by a pass from the state before it. Until
+2026-10-20 only the signature was read, and real actions no signature field moves were thrown
+away: an AI crew while crew took effect at once, a turn-face-up paid by tapping lands, a second
+block by a creature that can block more than one (Palace Guard), and "done" in Etali's
+cast-from-among window (the window never closed). A new state field needs nothing here (the
+whole-state read sees it); a new field that an action RESTATES without changing the game must join
+`LATCH_BOOKKEEPING_KEYS`, or a true no-op that touches it is kept and loops to the tick budget.
+Three guards end a
 game `engine-stuck` instead of letting it spin: the 50,000-tick cap, the per-turn
 tick budget (2,000), and the runaway SIZE guard (`RUNAWAY_LIMITS`: more than 500
 objects on the stack or 2,000 permanents under one seat — a board that grows makes
