@@ -26,14 +26,14 @@
  */
 
 import { detectArchetype } from "../goldfish.js";
-import { filterActions, parseManaCost } from "./legalChoices.js";
-import { opponentsOf, findPermanent, createPermanent, isIndestructible } from "./gameState.js";
+import { filterActions, parseManaCost, offeredPaymentPlan } from "./legalChoices.js"; // + offeredPaymentPlan: the plan the dispatcher pays an action with — the AI's ward read pays it first (wardCountersAction)
+import { opponentsOf, findPermanent, createPermanent, isIndestructible, consumeTypedSpellShields } from "./gameState.js"; // + consumeTypedSpellShields: a pure read — would this spell be shielded from countering (the ward read)
 import { atomTargets } from "./effects/atoms/shared.js"; // the mass-counter side read (Oran-Rief) — the set the resolution itself reads
 import { lookupPlayHint } from "./cardPlayHints.js"; // PLAY-HINTS (2026-08-12) — a zero-import leaf, cycle-safe
 import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, permanentHasCardType, cannotEquipNow } from "./layers.js";
 import { auraCastIntent } from "./auraEntry.js"; // W7e — which side an Aura lands on (a control Aura is ENEMY, a restriction grant too); shared with the non-cast entry (CR 303.4f)
 import { chooseAITarget } from "./spellEffects.js";
-import { manaProduction, manaSources, canAfford } from "./manaModel.js";
+import { manaProduction, manaSources, canAfford, commitPaymentPlan, costReservedPermanentIds, costOwesMana } from "./manaModel.js"; // + the ward read's cost preview: the dispatcher's commit, its set-aside permanents, its owes-mana test
 import { attackerMinBlockers, canBlockAttacker, lureFilterOf, mustBeBlockedIfAble, maxBlocksFor, selfCantAttackNow } from "./combatEvasion.js";
 import { selfMustAttack, requiredAttackerIds, obeyingAttackOptions } from "./attackRequirements.js"; // ATTACK REQUIREMENTS (CR 508.1d) — the check legalChoices keeps every seat to
 import { attackTaxDetail } from "./attackTax.js"; // the planeswalker attack policy — what one more attack at a planeswalker costs (CR 508.1h), per target
@@ -46,7 +46,10 @@ import { changeTargetAlternatives, atomForStackTarget } from "./effects/targetin
 import { manaUntapLineAction, pickManaAuraTarget } from "./manaUntapLine.js"; // "untap X target lands" as a mana line; mana Auras stack on one land
 import { outletFinishAction } from "./outletFinishLine.js"; // E7.2 — the token loop's finishes that are not combat (a sacrifice outlet)
 import { tokenLoopState, isTokenLoopAction, tokenLoopAttackPlan } from "./tokenLoopLine.js"; // THE COMBO LINE for a self-scaling token loop: enough, then nothing else, then the finish
-import { isNativeManaAura } from "./staticAbilityParser.js"; // pickAuraCast — the mana-boost lane, offered on the caster's own lands only
+import { isNativeManaAura, stackSpellIsUncounterable } from "./staticAbilityParser.js"; // pickAuraCast — the mana-boost lane, offered on the caster's own lands only; + the one can't-be-countered predicate (a spell no ward can counter)
+import { wardTaxForStackObject } from "./ward.js"; // WARD (CR 702.21a) — the one reader every ward path shares (a leaf over gameState, layers, faceUp)
+import { groupWardTaxForStackObject } from "./groupWard.js"; // Diffusion Sliver's tax — asked by the dispatcher when no ward is (a leaf)
+import { autoPickSoftCounterPay } from "./effects/runProgram.js"; // the AI's answer to a ward question — read before aiming, so it never aims where it can't pay (gameEngine already imports runProgram: no new cycle)
 import { grantAuraCastHostType } from "./coverage.js"; // pickAuraCast — the granted-ability lane, offered on the caster's own lands when its host is a land
 import { playerAuraSide } from "./playerAuraEffect.js"; // pickAuraCast — which player an "Enchant player" Aura belongs on (the curse reading, then the printed reading)
 import { compareDefenders, untappedCreatureCount } from "./defenderOrder.js"; // the defender order — chooseDefender and the curse reading (Curse of Opulence) read one comparator
@@ -74,7 +77,7 @@ import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell �
  * Accepted shapes:
  *   null / undefined                        → all-current (the shipping behavior)
  *   "v1"                                    → every subsystem legacy
- *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker|spellTarget|racer|racerTrade|costVariant|combatDamage|walkerTrade: "v1" } → per-subsystem legacy
+ *   { land|block|attack|xSizing|counter|unresolvable|…|etbHold|discardEnterHold|spree|fetch|target|walker|spellTarget|racer|racerTrade|costVariant|combatDamage|walkerTrade|ward: "v1" } → per-subsystem legacy
  *
  * The DEFAULT is always the new behavior (the Academy and self-play improve
  * automatically); "v1" exists only so the probe can measure old-vs-new inside one
@@ -85,7 +88,7 @@ import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell �
  * Exported so the A/B probe derives its legacy-key list from THIS array (AI-F11:
  * a hand-copied list silently drops every new subsystem from `--legacy=all`).
  */
-export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget", "racer", "racerTrade", "costVariant", "combatDamage", "walkerTrade"];
+export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget", "racer", "racerTrade", "costVariant", "combatDamage", "walkerTrade", "ward"];
 function normalizePolicy(policy) {
   if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
   if (policy && typeof policy === "object") return policy;
@@ -2350,6 +2353,97 @@ function pickTargetedActivation(state, aiPlayerId, actions) {
   return ranked[0].a;
 }
 
+// ─── WARD (CR 702.21a) — the AI's own spells and abilities aimed at an opponent's ward permanent (2026-10-20) ─────────────────
+//
+// Ward is a tax, not a shield: an opponent's ward permanent is a legal target (legalChoices offers it), and its ward — "counter that
+// spell or ability unless that player pays [cost]" — is asked as the cast or activation completes, after the action's own costs are
+// paid (actionDispatcher: the cast, ability and loyalty paths). The AI answers it by autoPickSoftCounterPay (pay when able), and a cost
+// the engine can't take (Vein Ripper's "Ward—Sacrifice a creature") is asked as unpayable. Until 2026-10-20 the spell, ability and
+// loyalty choosers never read it: Murder went at Vein Ripper (the biggest creature) and was countered with a Grizzly Bears beside it;
+// four Swamps cast Murder at a Leonin Lightbringer whose {2} the payment had just spent; Ob Nixilis spent three loyalty on a −3 the ward
+// countered. The trigger chooser already read it (gameEngine.withoutUnpaidWard).
+const WARD_RAISING_KINDS = new Set(["cast-spell", "activate-ability", "activate-loyalty"]); // the dispatcher's three ward raises
+const WARD_TARGET_TYPES = new Set(["creature", "permanent", "planeswalker"]); // the target types wardTaxForStackObject reads
+
+/**
+ * The board an action's own costs leave — the one its ward question meets. The mana is paid by the plan the dispatcher pays it with
+ * (legalChoices.offeredPaymentPlan → manaModel.commitPaymentPlan, the action's own cost permanents set aside — a Phyrexian symbol's life
+ * included); a free or alternative cast that owes no mana pays none. The cards it takes from the hand leave it (the spell itself, a
+ * discard, a pitched card; a random discard counts one); the permanents its other costs sacrifice, tap, return or exile
+ * (costReservedPermanentIds) leave the battlefield, so none of them pays the ward. A life payment beside the mana (an alternative
+ * cost's, an additional cost's, a target's life tax) is not taken off — the AI pays an alternative cost's life only while it stays at
+ * LIFE_PRUDENCE_FLOOR or more (filterAltCastVariants), above every printed life ward but one sized by a creature's power; missing one
+ * reads a ward as paid, the old aim. A preview only — never dispatched, never returned to the game.
+ */
+function afterOwnCosts(state, aiPlayerId, action) {
+  let next = state;
+  let plan = null;
+  if ((action.kind === "cast-spell" || action.kind === "activate-ability") && action.cost && !((action.freeCast || action.altCost) && !costOwesMana(action.cost))) {
+    plan = offeredPaymentPlan(state, aiPlayerId, action);
+    if (plan) next = commitPaymentPlan(next, aiPlayerId, plan, { reserved: costReservedPermanentIds(action) });
+  }
+  const leaving = new Set([action.discardCardId, ...(action.discardIds || []), action.altCost?.exilePitchId].filter((id) => id != null));
+  if (action.kind === "cast-spell" && (action.fromZone || "hand") === "hand") leaving.add(action.cardId);
+  const gone = costReservedPermanentIds(action);
+  const p = next.players[aiPlayerId];
+  let hand = (p.hand || []).filter((c) => !leaving.has(c.id));
+  if (action.discardRandom) hand = hand.slice(1); // one card at random — which one does not change a count
+  const battlefield = (p.battlefield || []).filter((perm) => !gone.has(perm.id));
+  return { state: { ...next, players: { ...next.players, [aiPlayerId]: { ...p, hand, battlefield } } }, plan };
+}
+
+/**
+ * WOULD A WARD COUNTER THIS ACTION? Its targets' wards (ward.wardTaxForStackObject — every ward instance on every opponent-controlled
+ * target), or Diffusion Sliver's tax when no ward is asked (the dispatcher asks Diffusion's only then), answered as the AI will answer
+ * the question (autoPickSoftCounterPay) on the board the action's own costs leave (afterOwnCosts): a ward it can't pay after paying
+ * the spell is a ward that counters it. A spell that can't be countered is asked nothing (CR 701.6a — the dispatcher's
+ * stackSpellIsUncounterable read, with the marks a cast stamps: Mistrise Village's armed flag, a typed shield, mana that makes it
+ * uncounterable). No target with a ward → false.
+ */
+function wardCountersAction(state, aiPlayerId, action) {
+  const obj = { controller: aiPlayerId, targets: action.targets || [] };
+  const tax = wardTaxForStackObject(state, obj) ?? groupWardTaxForStackObject(state, obj);
+  if (!tax) return false;
+  const { state: after, plan } = afterOwnCosts(state, aiPlayerId, action);
+  if (action.kind === "cast-spell") {
+    const player = state.players[aiPlayerId];
+    const castCard = action.faceCard || cardFromHand(state, aiPlayerId, action.cardId, action.fromPlayerId);
+    const rEntries = player?.restrictedMana || [];
+    const paidUncounterable = (plan?.taps || []).some((t) => t.uncounterableIfSpent) || (plan?.entrySpends || []).some(({ entry }) => !!rEntries[entry]?.restriction?.uncounterableIfSpent);
+    const shielded = !!player?.nextSpellUncounterable || consumeTypedSpellShields(player, castCard).shielded || paidUncounterable;
+    if (stackSpellIsUncounterable(after, { kind: "spell", source: castCard, controller: aiPlayerId, uncounterable: shielded })) return false;
+  }
+  return !autoPickSoftCounterPay(after, { controller: aiPlayerId, cost: tax.cost });
+}
+
+/**
+ * The offered actions without every spell, ability or loyalty ability a ward would counter (wardCountersAction) — read before every
+ * chooser, so each picks among the rest: another target of the same card or ability, a different play, or none (a card whose only
+ * targets would counter it is held). A ward the AI can pay stays a choice (the chooser may still take that target when it is the
+ * best). Each targeted permanent is read once per decision; the same array when nothing is dropped (every decision with no opponent's
+ * ward permanent among the targets), and the actions unchanged if every one of them would be countered (a window with no pass —
+ * never a decision left empty). Ranking only: nothing offered is changed. Policy key `ward` ("v1" = the old pick).
+ */
+function withoutWardCounteredActions(state, aiPlayerId, actions) {
+  const raises = new Map();
+  const mayRaise = (t) => {
+    if (!t || !WARD_TARGET_TYPES.has(t.type)) return false;
+    if (!raises.has(t.id)) {
+      const one = { controller: aiPlayerId, targets: [t] };
+      raises.set(t.id, !!(wardTaxForStackObject(state, one) || groupWardTaxForStackObject(state, one)));
+    }
+    return raises.get(t.id);
+  };
+  let countered = null;
+  for (const a of actions) {
+    if (!WARD_RAISING_KINDS.has(a?.kind) || !a.targets?.length || !a.targets.some(mayRaise)) continue;
+    if (wardCountersAction(state, aiPlayerId, a)) (countered ??= new Set()).add(a);
+  }
+  if (!countered) return actions;
+  const kept = actions.filter((a) => !countered.has(a));
+  return kept.length ? kept : actions;
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -2387,6 +2481,7 @@ export function takeLastCastRanking() {
 export function pickAction(state, aiPlayerId, actions, { archetype = null, policy = null } = {}) {
   _lastCastRanking = null; // tick boundary — a previous tick's cast ranking must never leak forward
   if (!Array.isArray(actions) || actions.length === 0) return null;
+  const pol = normalizePolicy(policy);
   // PHYREXIAN MANA PAID WITH LIFE (2026-10-17): the offer stamps `phyrexianLife` when no mana of a symbol's colour is left to pay
   // it (legalChoices.withPhyrexianPayment — mana first). The AI pays that life only while it stays at LIFE_PRUDENCE_FLOOR or more,
   // the floor its other life payments use; below it the cast or activation is held (dropped here, before every chooser).
@@ -2395,7 +2490,10 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
     actions = actions.filter((a) => !(a?.phyrexianLife > 0) || (Number.isFinite(life) && life - a.phyrexianLife >= LIFE_PRUDENCE_FLOOR));
     if (actions.length === 0) return null;
   }
-  const pol = normalizePolicy(policy);
+  // WARD (CR 702.21a — 2026-10-20): a spell, ability or loyalty ability a ward would counter — one the AI can't pay once the action's
+  // own costs are paid (wardCountersAction) — is dropped here, before every chooser below: the windows, the casts, the loyalty and the
+  // activated abilities all pick among the rest. policy 'v1' (`ward`) recovers the old pick for the A/B probe.
+  if (pol.ward !== "v1") actions = withoutWardCounteredActions(state, aiPlayerId, actions);
 
   // DISCOVER (LCI) — a pending discover decision short-circuits everything (legalChoices offers ONLY the
   // free-cast options + put-to-hand). Cast the found card free if pickCastAction likes a cast (a free

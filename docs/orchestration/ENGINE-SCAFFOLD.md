@@ -440,6 +440,17 @@ payment paused) runs `gameEngine.returnPriorityAfterWard` after `finalizeStackRe
 (`decision.objectKind`) and offers one button per alternative (`decision.optionsAffordable`; the answer's `option`). Witnesses:
 `wardCompleteness.test.js`, `softCounterPanelWording.test.jsx`.
 
+**Ward on a copy** (2026-10-20, CR 702.21a, 707.10, 707.10c). A copy of a spell or ability is put onto the stack with its targets —
+the original's, or the new ones its controller chose — and is a spell or ability that player controls, so each permanent it targets
+becomes the target of it (the bundled Blue Ribbon ruling: "If you copy the spell, the second creature becomes the target of the
+copy") and an opponent's ward triggers, kept target or new. Every copy site in `atoms/stack.js` that gives a copy targets records it
+through `withWardOwed` — the redirect path's recorder (`moveStackTarget`), one detector (`wardTaxForStackObject`), nothing for a spell
+that can't be countered — and `raiseWardOwed` asks it: the instant/sorcery copy (Twincast, Reverberate, Fork — re-aimed or kept),
+the storm copies (each its own question, the lowest first), the self-copy (Sevinne's Reclamation — its only target is a graveyard
+card, so nothing is ever owed there today), and the copied activated or triggered ability (Illusionist's Bracers, Strionic
+Resonator, Peter Parker's Camera). A creature-spell copy and a permanent-spell storm copy take no targets. Witness:
+`wardCopies.test.js`.
+
 `triggerRoutesNatively(effectClause)` is the **shared gate** used by *both* the
 metric (coverage's `native-trigger`) and the runtime flush — it re-parses the
 effect and requires HIGH + resolvable targets + combat-referent satisfied + a
@@ -1484,6 +1495,20 @@ or in its own main (postcombat, or precombat when it would not attack) an enters
 (`entersTriggerWorthRebuy`) or an opponent's Aura shed. A permanent its own pending spell already targets is left alone. Bounce,
 phase-out, graveyard returns, player-targeted draws and mills, and modal spells stay held. Policy key `spellTarget`. Witness:
 `aiTargetedSpells.test.js`.
+
+**Ward in the AI's own aim (2026-10-20, `opponentAI.withoutWardCounteredActions`).** Before every chooser in `pickAction` (after the
+Phyrexian-life filter), a cast, activated ability or loyalty ability a ward would counter is dropped: its targets' wards
+(`ward.wardTaxForStackObject`, or Diffusion Sliver's tax when no ward is asked — the dispatcher's order), answered as the AI will answer
+the question (`autoPickSoftCounterPay`) on the board the action's OWN costs leave (`afterOwnCosts`: the dispatcher's payment plan —
+`legalChoices.offeredPaymentPlan` → `manaModel.commitPaymentPlan` — the spell, a discard or a pitched card out of the hand, the
+permanents its other costs sacrifice, tap or return gone). A spell that can't be countered is asked no ward (CR 701.6a — the cast's
+own marks included). So each chooser picks among the rest: Murder goes at the Grizzly Bears beside a Vein Ripper (an unpayable
+ward), four Swamps send Murder at the Bears and not a Leonin Lightbringer whose {2} the payment just spent, a card whose only targets
+would counter it is held, Ob Nixilis takes its +1 over a −3 the ward would counter. A ward it can pay stays a choice, so the best
+target is still taken and paid for. Each targeted permanent is read once per decision; with no opponent's ward permanent among the
+targets the array is returned unchanged. The trigger chooser's twin is `gameEngine.withoutUnpaidWard`. A life payment beside the mana
+is not taken off (the AI pays an alternative cost's life only while it stays at `LIFE_PRUDENCE_FLOOR`, above every printed life ward
+but a power-sized one). Policy key `ward`. Witness: `wardAiTargeting.test.js`.
 
 **An activation that resolves to nothing must not be the AI's pick (added 2026-10-03).**
 A free activation the resolver refuses is a turn that never ends: the equip pick

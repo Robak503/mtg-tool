@@ -4973,9 +4973,10 @@ const PAID_ACTION_KINDS = new Set(["cast-spell", "activate-ability", "activate-g
 /**
  * THE PLAN THE DISPATCHER WOULD PAY THIS ACTION WITH — its own sources (castPaymentSources / activationPaymentSources /
  * graveyardActivationPaymentSources) and its own spend context, the payer's life included (a Phyrexian symbol). null when the
- * payment would refuse. Shared by the two offer passes below so the offer asks exactly the payment's question.
+ * payment would refuse. Shared by the two offer passes below so the offer asks exactly the payment's question, and by the AI's ward
+ * read (opponentAI.wardCountersAction — what the board holds once the action's own cost is paid).
  */
-function offeredPaymentPlan(state, playerId, a) {
+export function offeredPaymentPlan(state, playerId, a) {
   const player = state.players[playerId];
   const life = lifePaymentContext(state, playerId);
   if (a.kind === "cast-spell") {

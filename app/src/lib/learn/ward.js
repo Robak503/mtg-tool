@@ -16,7 +16,9 @@
  * WHERE IT IS RAISED — every way a spell or ability gets a target: a spell as it is cast and an activated ability as it is
  * activated (actionDispatcher), a LOYALTY ability as it is activated (a loyalty ability is an activated ability, CR 606.1 —
  * 2026-10-20), a TRIGGERED ability as it is put on the stack (gameEngine.flushTriggers and the trigger-target settle record it on
- * the ability; the session driver asks it before anyone receives priority — gameEngine.raiseWardOwed). After the question is
+ * the ability; the session driver asks it before anyone receives priority — gameEngine.raiseWardOwed), a target CHANGED onto a ward
+ * permanent and a COPY put onto the stack with targets (CR 707.10c — atoms/stack.withWardOwed records it; raiseWardOwed asks it). The
+ * default AI reads the same detector before it aims a spell or ability of its own (opponentAI.wardCountersAction). After the question is
  * settled, priority stays with the player who held it when the spell was cast or the ability activated or put on the stack
  * (CR 117.3c, 117.5 — the ward trigger goes on the stack before that player receives priority; the engine asks it at once
  * instead): the pending choice carries `priorityAfter`, and learnSession's settle returns priority to it.
@@ -300,7 +302,8 @@ const joinNames = (names) => (names.length <= 1 ? names[0] ?? null : `${names.sl
  * it targets that an OPPONENT of its controller controls (CR 702.21a — a player's own permanent never asks) and that has ward,
  * each counted once however many of its targets name it. Returns `{ cost, wardName }` — the combined cost (combineWardCosts) and
  * the ward permanents' names — or null when no target has ward. Used by every place a ward is raised (actionDispatcher's cast,
- * activation and loyalty paths; gameEngine's triggered-ability record) and by the AI's trigger-target chooser.
+ * activation and loyalty paths; gameEngine's triggered-ability record; atoms/stack's changed-target and copy record) and by the AI's
+ * trigger-target chooser and its own aim (opponentAI.wardCountersAction).
  */
 export function wardTaxForStackObject(state, stackObj) {
   const caster = stackObj?.controller;

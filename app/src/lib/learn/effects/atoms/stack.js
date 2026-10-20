@@ -1768,6 +1768,23 @@ function newTargetsForCopy(state, controller, copyObj, avoidId) {
 }
 
 /**
+ * WARD ON THE TARGETS A STACK OBJECT IS GIVEN AFTER IT WAS CAST OR ACTIVATED (CR 702.21a) — a copy put onto the stack with its targets
+ * (CR 707.10, 707.10c: a copy copies the targets, or takes the new ones its controller chose, and "the copy is put onto the stack with
+ * those targets"; the copy is a spell or ability its copier controls — the bundled Blue Ribbon ruling: "If you copy the spell, the
+ * second creature becomes the target of the copy"), and a target changed onto a permanent (moveStackTarget, CR 115.7a): each
+ * permanent it now targets becomes the target of a spell or ability that player controls, so an opponent's ward triggers and the
+ * object is countered unless its controller pays. Recorded on the object — `wardOwed: { cost, wardName }`, as
+ * gameEngine.markWardOwed records a triggered ability's — and asked by the session driver before anyone receives priority
+ * (gameEngine.raiseWardOwed). Read by the one detector every ward path shares (ward.wardTaxForStackObject: every ward instance on
+ * every opponent-controlled target). A spell that can't be countered is asked nothing, as on the cast path (CR 701.6a — the ward
+ * would counter nothing). No ward → the object unchanged.
+ */
+function withWardOwed(state, obj, targets = obj.targets || []) {
+  const owed = obj.kind === "spell" && stackSpellIsUncounterable(state, obj) ? null : wardTaxForStackObject(state, { controller: obj.controller, targets });
+  return owed ? { ...obj, wardOwed: { cost: owed.cost, wardName: owed.wardName } } : obj;
+}
+
+/**
  * ===== SELF-COPY (the play-weighted program, P·23 — Sevinne's Reclamation) ===== "you may copy this spell and may choose a
  * new target for the copy": the resolving spell puts ONE copy of itself on the stack (CR 707.10), above anything below it.
  * The copy's program is `atom.body` — the effect the parser bound. The printed copy also carries the copy sentence, but a
@@ -1787,7 +1804,7 @@ function applyCopySelfSpell(state, atom, ctx) {
   const sourceCard = { name: ctx.cardName, type: atom.spellType, token: true, isCopy: true };
   const payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program: bodyProgram, controller: ctx.controller, targets } };
   const copyObj = createStackObject({ id, kind: "spell", source: sourceCard, controller: ctx.controller, targets, payload });
-  let next = { ...s2, stack: [...s2.stack, { ...copyObj, isCopy: true }] };
+  let next = { ...s2, stack: [...s2.stack, withWardOwed(s2, { ...copyObj, isCopy: true })] }; // its targets' wards (CR 702.21a, 707.10c)
   next = checkCopyTriggers(next, { copiedSpellCard: sourceCard, controllerId: ctx.controller, copyObj });
   return logEvent(next, { kind: "spell-effect", effect: "self-copy", controller: ctx.controller, cardName: ctx.cardName, targets: targets.map((t) => t.id) });
 }
@@ -1907,7 +1924,7 @@ function applyCopySpell(state, atom, ctx) {
       targets: copyTargets, // the copy's chosen targets (empty for a non-targeted body)
       payload: clonedPayload,
     });
-    next = { ...next, stack: [...next.stack, { ...copyObj, isCopy: true }] };
+    next = { ...next, stack: [...next.stack, withWardOwed(next, { ...copyObj, isCopy: true })] }; // each copy's targets' wards (CR 702.21a, 707.10c)
     made++;
     // MAGECRAFT COPY HALF (BLITZ MC-1, CR 707.10) — each copy of an instant/sorcery is a distinct "copy" event, so
     // a magecraft "cast or copy" watcher fires ONCE PER COPY (CR ruling: storm making N copies triggers magecraft N
@@ -2063,7 +2080,7 @@ function applyCopyInstantOrSorcery(state, atom, ctx) {
       const targets = newTargetsForCopy(minted.state, ctx.controller, copyObj, atom.returnOriginal ? targetObj.id : null);
       copyObj = { ...copyObj, targets, payload: { ...clonedPayload, params: { ...clonedPayload.params, targets } } };
     }
-    next = { ...minted.state, stack: [...minted.state.stack, { ...copyObj, isCopy: true }] };
+    next = { ...minted.state, stack: [...minted.state.stack, withWardOwed(minted.state, { ...copyObj, isCopy: true })] }; // its targets' wards, new or kept (CR 702.21a, 707.10c)
     next = checkCopyTriggers(next, { copiedSpellCard: targetObj.source, controllerId: ctx.controller, copyObj });
   }
   if (atom.returnOriginal) next = counterSpellById(next, targetObj.id, { via: "return-to-hand", counterDest: "hand" });
@@ -2352,16 +2369,14 @@ export function moveStackTarget(state, objId, target, controller) {
   const moved = [target];
   // WARD ON THE NEW TARGET (CR 702.21a, 115.7a — 2026-10-20): the permanent the target changes to BECOMES the target of the spell
   // or ability, so its ward triggers when an opponent of the object's controller controls it — the object's controller pays or it
-  // is countered. Recorded on the object (`wardOwed`, as gameEngine.markWardOwed records a triggered ability's) and asked by the
-  // session driver before anyone receives priority (gameEngine.raiseWardOwed). Before, a spell redirected onto an opponent's
-  // ward permanent resolved without the ward ever being asked. A spell that can't be countered is asked nothing, as on the cast path
-  // (CR 701.6a — the ward would counter nothing).
-  const owed = obj.kind === "spell" && stackSpellIsUncounterable(state, obj) ? null : wardTaxForStackObject(state, { controller: obj.controller, targets: moved });
+  // is countered. Recorded on the object by withWardOwed (the copies' recorder too) and asked by the session driver before anyone
+  // receives priority (gameEngine.raiseWardOwed). Before, a spell redirected onto an opponent's ward permanent resolved without the
+  // ward ever being asked. A spell that can't be countered is asked nothing, as on the cast path (CR 701.6a).
   const next = {
     ...state,
     stack: [
       ...state.stack.slice(0, idx),
-      { ...obj, ...(Array.isArray(obj.targets) ? { targets: moved } : {}), payload: { ...obj.payload, params: { ...params, targets: moved } }, ...(owed ? { wardOwed: { cost: owed.cost, wardName: owed.wardName } } : {}) },
+      withWardOwed(state, { ...obj, ...(Array.isArray(obj.targets) ? { targets: moved } : {}), payload: { ...obj.payload, params: { ...params, targets: moved } } }, moved),
       ...state.stack.slice(idx + 1),
     ],
   };
@@ -2449,7 +2464,7 @@ function applyCopyActivatedAbility(state, atom, ctx) {
   const original = abilityId ? (state.stack || []).find((o) => o.id === abilityId && o.kind === "activated-ability") : null;
   if (!original) return logEvent(state, { kind: "spell-effect", effect: "copy-activated-ability-fizzle", targetId: null, controller: ctx?.controller });
   const { id: copyId, state: s2 } = mintId(state, "stk");
-  const copy = { ...original, id: copyId, isCopy: true, payload: { ...original.payload, params: { ...(original.payload?.params || {}) } } };
+  const copy = withWardOwed(s2, { ...original, id: copyId, isCopy: true, payload: { ...original.payload, params: { ...(original.payload?.params || {}) } } }); // the targets' wards again (CR 702.21a, 707.10)
   const next = { ...s2, stack: [...s2.stack, copy] };
   return logEvent(next, { kind: "copy-ability", controller: original.controller, originalId: abilityId, copyId, sourceName: original.source?.name || null, via: ctx?.cardName || null });
 }
@@ -2466,7 +2481,7 @@ function applyCopyTargetAbility(state, atom, ctx) {
   const original = t ? (state.stack || []).find((o) => o.id === t.id && /-ability$/.test(String(o.kind || ""))) : null;
   if (!original) return logEvent(state, { kind: "spell-effect", effect: "copy-ability-fizzle", targetId: t?.id || null, controller: ctx?.controller });
   const { id: copyId, state: s2 } = mintId(state, "stk");
-  const copy = { ...original, id: copyId, isCopy: true, payload: { ...original.payload, params: { ...(original.payload?.params || {}) } } };
+  const copy = withWardOwed(s2, { ...original, id: copyId, isCopy: true, payload: { ...original.payload, params: { ...(original.payload?.params || {}) } } }); // the targets' wards again (CR 702.21a, 707.10)
   const next = { ...s2, stack: [...s2.stack, copy] };
   return logEvent(next, { kind: "copy-ability", controller: original.controller, originalId: original.id, copyId, sourceName: original.source?.name || null, via: ctx?.cardName || null });
 }
