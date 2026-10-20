@@ -76,7 +76,7 @@ describe("KW-POISON — poison-counter track + loss SBA", () => {
 });
 
 describe("KW-POISON — infect/wither/toxic combat integration", () => {
-  it("infect attacker deals -1/-1 counters to its blocker, NOT marked damage (CR 702.90b)", () => {
+  it("infect attacker deals -1/-1 counters to its blocker, NOT marked damage (CR 702.90c)", () => {
     const att = kwCreature("Plague Stinger", 2, 2, "user", INFECT);
     const blk = kwCreature("Wall", 0, 5, "ai");
     const out = resolveCombatDamage(combatState({ userBf: [att], aiBf: [blk] }, {
@@ -88,7 +88,7 @@ describe("KW-POISON — infect/wither/toxic combat integration", () => {
     expect(wall.damageMarked || 0).toBe(0);   // and NOT marked damage
   });
 
-  it("infect attacker unblocked gives the defender poison counters, NOT life loss (CR 702.90a — replacement)", () => {
+  it("infect attacker unblocked gives the defender poison counters, NOT life loss (CR 702.90b — replacement)", () => {
     const att = kwCreature("Core Prowler", 3, 3, "user", INFECT);
     const out = resolveCombatDamage(combatState({ userBf: [att] }, {
       attackers: [{ permanentId: att.id, attackingPlayer: "user", defender: "ai" }], blockers: [],
@@ -97,7 +97,7 @@ describe("KW-POISON — infect/wither/toxic combat integration", () => {
     expect(out.players.ai.life).toBe(40);   // NO life lost — infect REPLACES the life damage
   });
 
-  it("toxic N attacker unblocked deals normal life loss PLUS N poison (CR 702.180a — additive)", () => {
+  it("toxic N attacker unblocked deals normal life loss PLUS N poison (CR 702.164c — additive)", () => {
     const att = kwCreature("Tyrranax", 2, 2, "user",
       "Toxic 3 (Players dealt combat damage by this creature also get three poison counters.)");
     const out = resolveCombatDamage(combatState({ userBf: [att] }, {
@@ -214,7 +214,7 @@ describe("KW-POISON — non-combat (ability) damage routing", () => {
   const abilityStack = (atoms, { controller = "user", targets = [], sourceId = null }) =>
     ({ id: "stk-poison", kind: "ability", source: { name: "Pinger" }, controller, targets, payload: { params: { program: program(atoms), controller, targets, sourceId } } });
 
-  it("an infect source's ability damage to a creature is -1/-1 counters, not marked damage (CR 702.90b)", () => {
+  it("an infect source's ability damage to a creature is -1/-1 counters, not marked damage (CR 702.90c)", () => {
     const src = kwCreature("Fallen Ferromancer", 1, 1, "user", INFECT);
     const tgt = kwCreature("Ogre", 2, 4, "ai");
     const out = runEffectProgram(stateWith([src], [tgt]),
@@ -224,7 +224,7 @@ describe("KW-POISON — non-combat (ability) damage routing", () => {
     expect(ogre.damageMarked || 0).toBe(0);
   });
 
-  it("an infect source's ability damage to a player is poison, not life loss (CR 702.90a)", () => {
+  it("an infect source's ability damage to a player is poison, not life loss (CR 702.90b)", () => {
     const src = kwCreature("Fallen Ferromancer", 1, 1, "user", INFECT);
     let state = stateWith([src], []);
     const lifeBefore = state.players.ai.life;

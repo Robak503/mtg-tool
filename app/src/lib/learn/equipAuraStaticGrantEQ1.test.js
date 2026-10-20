@@ -5,7 +5,7 @@
  * GRANTABLE_STATIC_KEYWORDS. Five more keywords are now grantable — each already a COVERED_KEYWORDS native on
  * a vanilla creature AND read at its enforcement site via the LAYER-AWARE permanentHasKeyword, so a layer-6
  * addKeyword grant switches it on/off with the attachment exactly like a printed one:
- *   - infect / wither (CR 702.90b/702.80a) — combatResolution reroutes combat damage (creature → -1/-1,
+ *   - infect / wither (CR 702.90b/702.90c/702.80a) — combatResolution reroutes combat damage (creature → -1/-1,
  *     infect player → poison).
  *   - intimidate / skulk / horsemanship (CR 702.13b/702.118b/702.31b) — canBlockAttacker block restrictions.
  *   - basic landwalk (plains/island/swamp/mountain/forest-walk, CR 702.14) — canBlockAttacker unblockable

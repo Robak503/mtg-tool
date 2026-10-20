@@ -611,6 +611,31 @@ a creature out; one exiled instead by Rest in Peace is in) — and the next atom
 that atom writes even when empty when it carries `stampMinted`), and `condX { min }` gates the whole destroy on the cast X.
 `parser.thisWaySequenceOk` (in programConfidence) refuses either read without its writer right before it. Reuse the stamps for a
 new "for each … destroyed this way" payoff; a different set or count needs its own matcher.
+Since the play-weighted slice of 2026-10-18 (Bane of Progress, Whiptongue Hydra, Fracturing Gust, Paraselene, Righteous Fury)
+`templateMatchers.matchMassDestroyPerDestroyed` takes the destroy sentence from the DESTROY GRAMMAR itself — parser.js hands it
+`parseClauseToAtom` — and admits one mass set the count can read (`MASS_DESTROY_KINDS`: the creature wipe with the restrictions
+`massCreatureTargets` reads, or the artifact / enchantment / mixed sets, which read none, so a restricted one is refused). The counted
+noun must cover the set ("permanent", or the set's one card type). Payoffs: gain N life, draw a card, or "Put a +1/+1 counter on this
+creature" (an `add-counter` on its source with `countFor { kind: "destroyedThisWay" }` — the sequence gate reads `countFor` too).
+
+**"You gain life equal to the damage dealt this way"** (2026-10-18 — Creeping Bloodsucker, Corrupt, Rite of Consumption, Enter the
+God-Eternals, Syphon Soul). An assembly-time fold in parseEffectClauseImpl's split loop: directly after a deal-damage atom that always
+runs (`damageThisWayRecordable` — no "may", condition, kicker gate, "if you do", reflexive trigger or self-hit rider), the sentence
+becomes `gain-life { amountCount: { kind: "damageDealtThisWay" } }` and the damage atom a copy flagged `recordDamageDealtThisWay`.
+The deal-damage resolver passes `recordDealtThisWay` to `applyDamageEffect`, which stamps `state.damageDealtThisWay` =
+`spellEffects.damageDealtByEvent(event)` after the settlement — always written (0 for an illegal target, a prevented hit, a silenced
+source), so the read is never stale. `thisWaySequenceOk` refuses the read anywhere but directly after its writer. Reuse it for
+another "… equal to the damage dealt this way" payoff (Spiteful Repossession's Treasures need its conditional set first); the
+"excess damage" readers (Razor Rings, Nahiri's Warcrafting) are a different number (CR 120.10) and stay unread.
+
+**Smaller readers of the same slice.** A target noun listing three or more creature types ("target Insect, Rat, Spider, or Squirrel" —
+Swarmyard, Accursed Duneyard, Animal Sanctuary) is the subtype target noun's union (parser.js, beside the referent peel); every word
+must be in `CR_CREATURE_TYPES`. The own-side pool (`spellEffects.enumerateTargets`' `creatureYouControl` branch — also the
+CR 608.2b re-check) now reads the atom's `restrictions` like every other pool; before, "target Beast creature you control" (Advocate of
+the Beast) and "target Merfolk you control" (Sygg) offered every creature their controller had. Disciple of Bolas's mandatory "sacrifice another creature. You gain X life and draw X cards, where X is
+that creature's power." is `removal.matchSacrificeAnotherForPower` without the "may" — the payoffs keep `ifSacrificed` (no creature
+sacrificed, nothing happens — its ruling). Twilight Prophet's "Each opponent loses X life and you gain X life, where X is that card's
+mana value." is `matchRevealTopDrainByMv`'s third drain: both halves read the one `revealedCardMV` stamp.
 
 **The chosen-type sweep family** (`removal.notChosenTypeSet`, 2026-10-18): Kindred Dominance's destroy, Raise the Palisade's bounce
 and Crippling Fear's -N/-N share one choice (`choicePolicy.autoPickCreatureTypeToSpare`, made as the spell resolves, for every
@@ -1621,7 +1646,9 @@ infect and wither, the damage-source record (`damagedBy`), lifelink, deathtouch,
 `gameState.markCombatDamage` — despite its name it marks all damage — is the LAST step of that path, never a substitute
 for it: the four fight atoms called it directly, and for months a fight ignored Dawn Elemental's wall and never gained
 lifelink, never dealt infect's counters, never fed Sengir Vampire or an enrage trigger. **A new "deals damage" atom deals
-through one of the two funnels.** An effect whose hits are simultaneous (both creatures of a fight) is ONE event: lock
+through one of the two funnels.** What an event dealt in total — after protection, replacement and prevention, uncapped by
+toughness or life, an en-Kor redirection included (CR 614.9: the same source dealt it) — is `damageDealtByEvent(event)`
+(2026-10-18; "the damage dealt this way"). An effect whose hits are simultaneous (both creatures of a fight) is ONE event: lock
 the amounts, deal every hit, then the single lethal pass.
 
 **The dealer** (`spellEffects.damageDealer`, 2026-10-17) is read the same way for every source — a pinger's or a trigger's

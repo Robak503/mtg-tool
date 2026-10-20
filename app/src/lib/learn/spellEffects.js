@@ -195,6 +195,10 @@ export function parseSpellEffect(card) {
     // all). Anything qualified falls through to null → the EffectProgram rates it
     // low → Arbiter, rather than hitting the wrong set of creatures.
     if (/^each opponent('s)?$/.test(tgt)) return { kind: "damage", amount, targetType: "eachOpponent" };
+    // "each OTHER player" (Syphon Soul, play-weighted 2026-10-18): every player but the caster. The engine plays Free-for-All
+    // with no teams (CR 806.1, Commander's default, CR 903.2), so every other player is an opponent (CR 102.2, 102.3) and the
+    // set is exactly eachOpponent's — opponentsOf is every other seat in turn order. A team variant would need its own set.
+    if (/^each other player$/.test(tgt)) return { kind: "damage", amount, targetType: "eachOpponent" };
     if (/^each creature$/.test(tgt)) return { kind: "damage", amount, targetType: "eachCreature" };
     // SYMBURN-1: symmetric burn — "each creature AND each player" hits every creature AND every player
     // INCLUDING the caster ("each player" ≠ "each opponent"). Bare form only — a qualifier ("…you
@@ -1125,7 +1129,11 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       // missing ctx.sourceId simply doesn't exclude (the plain form is unaffected — excludeSource is unset).
       if (effect.excludeSource && ctx?.sourceId && perm.id === ctx.sourceId) continue;
       // A creature NOW (the type-line audit, CR 613.1d): Mother of Runes can't target a God below its devotion; an animated land is one.
-      if (permanentHasCardType(state, perm.id, "Creature") && targetable(perm, controllerId)) {
+      // + ITS RESTRICTIONS (play-weighted 2026-10-18, a false positive): "target Beast creature you control" (Advocate of the Beast),
+      // "target Merfolk you control" (Sygg) carry the subtype as a restriction, read by every other pool here; this one offered every
+      // creature its controller had (Advocate's counter landed on a Hill Giant). CR 115.1, 601.2c — and the CR 608.2b re-check reads
+      // this same pool.
+      if (permanentHasCardType(state, perm.id, "Creature") && targetable(perm, controllerId) && creatureSatisfiesRestrictions(state, perm, controllerId, controllerId, restrictions, ctx)) {
         out.push({ type: "creature", id: perm.id, controller: controllerId, name: perm.card?.name });
       }
     }
@@ -1462,7 +1470,19 @@ export function damageDealer(state, source, controller = null) {
  * triggers and lifelink) and the creatures a deathtouch source dealt damage to (CR 704.5h).
  */
 export function beginDamageEvent(state) {
-  return { replacing: boardHasDamageReplacement(state), toCreature: {}, byDealer: new Map(), deathtouched: new Set() };
+  return { replacing: boardHasDamageReplacement(state), toCreature: {}, byDealer: new Map(), deathtouched: new Set(), redirectedDealt: 0 };
+}
+
+/**
+ * THE DAMAGE AN EVENT DEALT (play-weighted 2026-10-18 — "You gain life equal to the damage dealt this way"): every hit its dealers
+ * dealt, after protection, the damage replacements and prevention (a prevented hit is never tallied — CR 615, 702.16e), uncapped by
+ * a creature's toughness or a player's life (Corrupt's ruling), plus what a redirection moved to another creature — the same source
+ * still dealt it (CR 614.9; the en-Kor shields mark it beside the tally, see dealDamageToCreature).
+ */
+export function damageDealtByEvent(event) {
+  let total = event.redirectedDealt || 0;
+  for (const n of event.byDealer.values()) total += n;
+  return total;
 }
 
 /** The dealer of `source` in `event` (damageDealer), read on `state` and registered with the event (its total starts at 0). */
@@ -1566,6 +1586,7 @@ export function dealDamageToCreature(s, event, dealer, permId, raw) {
   for (const r of pv.redirects || []) {
     if (!findPermanent(s, r.to) || r.amount <= 0) continue;
     event.toCreature[r.to] = (event.toCreature[r.to] || 0) + r.amount;
+    event.redirectedDealt += r.amount; // still dealt by this source (CR 614.9) — "the damage dealt this way" counts it (damageDealtByEvent)
     s = markCombatDamage(s, { permanentId: r.to, amount: r.amount });
   }
   if (dealt <= 0) return s;
@@ -1681,7 +1702,7 @@ export function dealSimultaneousDamage(state, hits) {
   return { state: checkDiesTriggers(lethal.state, lethal.dead), dealtTo: { ...event.toCreature } };
 }
 
-export function applyDamageEffect(state, { controller, amount: rawAmount, targetType, targets = [], source = null, restrictions = [], exileIfWouldDie = false, amountPerOpponent = null }) {
+export function applyDamageEffect(state, { controller, amount: rawAmount, targetType, targets = [], source = null, restrictions = [], exileIfWouldDie = false, amountPerOpponent = null, recordDealtThisWay = false }) {
   let next = state;
   const amount = Math.max(0, rawAmount || 0);
   // ONE DAMAGE EVENT, ONE SOURCE (damageDealer says what is read of it, and when): every target is hit through the shared
@@ -1835,6 +1856,11 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   // once with its total, the source's dealt-by links once with its total (players, creatures and planeswalkers), and its
   // lifelink gain — all BEFORE the lethal pass, so their sources bind while still on the battlefield.
   next = settleDamageEvent(next, event);
+  // "THE DAMAGE DEALT THIS WAY" (play-weighted 2026-10-18 — Creeping Bloodsucker, Corrupt): the atom right after reads what this
+  // event dealt (damageDealtByEvent) off state.damageDealtThisWay, the inter-atom stamp the Fumigate count uses. Written whenever
+  // asked — 0 when nothing was dealt (an illegal target, a prevented hit, a silenced source) — so the read is never an older
+  // effect's. Only a deal-damage atom carrying recordDamageDealtThisWay asks (parser.js's fold and its sequence gate).
+  if (recordDealtThisWay) next = { ...next, damageDealtThisWay: damageDealtByEvent(event) };
   // EXILE-IF-DIES (subsystem 3): "If that creature would die this turn, exile it instead." (single-target)
   // / "If a creature dealt damage this way would die this turn, exile it instead." (mass). Flag exactly the
   // creatures THIS effect actually damaged — `event.toCreature` is the per-creature hit set built above, so

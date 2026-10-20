@@ -41,6 +41,15 @@ describe("citationsIn — every form a citation takes", () => {
     expect(read("  // a layer-7b set (CR 613.4b /\n  // 613.4c) on top")).toEqual(["613.4b@1", "613.4c@2"]);
   });
 
+  it("reads a list whose items each carry the keyword they cite (\"CR 702.90b infect / 702.80a wither\") — only before a slash", () => {
+    expect(read("// KW-POISON (CR 702.90b infect / 702.80a wither): -1/-1 counters")).toEqual(["702.90b@1", "702.80a@1"]);
+    expect(read("// (CR 702.33 kicker / 702.175 offspring)")).toEqual(["702.33@1", "702.175@1"]);
+    expect(read("// (CR 508.1a attack restriction / 509.1b)")).toEqual(["508.1a@1", "509.1b@1"]);
+    // CONTROL — words before anything but a slash, or more than three of them, end the list
+    expect(read("// CR 702.90b infect, 702.80a wither")).toEqual(["702.90b@1"]);
+    expect(read("// CR 601.2f the whole total cost / 117.3")).toEqual(["601.2f@1"]);
+  });
+
   it("does not read a word suffix as a second number", () => {
     expect(read("// a deterministic CR 701.24a-style shuffle")).toEqual(["701.24a@1"]);
   });

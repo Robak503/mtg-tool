@@ -82,6 +82,15 @@ describe("keywordFindings — a citation must cite the keyword its comment names
     ].join("\n"))).toEqual([]);
   });
 
+  it("reads every number of a list whose items each name their keyword (\"CR 702.90a infect / 702.180a toxic\")", () => {
+    // 702.180 is Harmonize; toxic is 702.164. The second number of this form used to be no citation at all, so the
+    // mis-numbered toxic in combatResolution.js passed a clean lint (found 2026-10-18).
+    expect(read("// KW-POISON (CR 702.90a infect / 702.180a toxic). Infect replaces the life loss.")).toEqual(["702.180a>702.164:named@1"]);
+    expect(read("// MASS-EXILE PARITY (CR 701.8a destroy / 701.10a exile) — the typed mass list")).toEqual(["701.10a>701.13:named@1"]);
+    // CONTROL — the same lists, numbered right
+    expect(read("// KW-POISON (CR 702.90b infect / 702.164c toxic): poison counters.\n// MASS-EXILE PARITY (CR 701.8a destroy / 701.13a exile).")).toEqual([]);
+  });
+
   it("gives a keyword right after one citation to that citation, not to the next", () => {
     expect(read("// (CR 701.18 reveal, CR 701.16 put-onto-the-battlefield-from-a-library)")).toEqual(["701.18>701.20:named@1"]);
   });

@@ -20,7 +20,8 @@
  *   board count. Reuses the eachCreature deal-damage path verbatim; only the target-allowlist entry is new.
  *
  * FN guards: Corrupt (its lifegain is "the damage DEALT this way" — a different, prevention-sensitive
- * mechanism, NOT the count) parks; an unmodeled count (Clerics on the battlefield) parks; an opponent-scoped
+ * mechanism, NOT the count) is never this matcher's (since 2026-10-18 it reads natively through the deal's own
+ * "damage dealt this way" stamp); an unmodeled count (Clerics on the battlefield) parks; an opponent-scoped
  * count ("creatures they control") has no anaphoric referent on a controller drain → parks.
  */
 import { beforeEach, describe, expect, it } from "vitest";
@@ -214,9 +215,10 @@ describe("MASS-SCALE — Gates Ablaze (eachCreature by count)", () => {
 // FN GUARDS — the un-modeled siblings STAY parked (false-neg safe, never a wrong native)
 // ────────────────────────────────────────────────────────────────────────────
 describe("DRAIN-BY-COUNT — FN guards (never a wrong native)", () => {
-  it("Corrupt PARKS: its lifegain is 'the damage DEALT this way' (a different, prevention-sensitive mechanism), NOT the count", () => {
-    expect(classifyCard(realCard("Corrupt"))).toBe("arbiter-spell");
-    expect(conf(I("Corrupt deals damage to any target equal to the number of Swamps you control. You gain life equal to the damage dealt this way."))).toBe("low");
+  it("Corrupt is NOT a drain-by-count: its lifegain is 'the damage DEALT this way' (prevention-sensitive), read since 2026-10-18 off the deal's own stamp, never the Swamp count (damageDealtThisWay.test.js)", () => {
+    expect(classifyCard(realCard("Corrupt"))).toBe("native-spell");
+    const p = prog(realCard("Corrupt"));
+    expect(p.atoms.map((a) => [a.op, a.amountCount?.kind])).toEqual([["deal-damage", "permanentsYouControl"], ["gain-life", "damageDealtThisWay"]]);
   });
 
   it("an UNMODELED count ('Clerics on the battlefield' — Profane Prayers) PARKS → Arbiter", () => {

@@ -381,13 +381,19 @@ export function sacrificeCreaturesTogether(state, victims) {
  * then two payoffs under the one "if you do" (runProgram carries the gate across consecutive ifSacrificed atoms), each sized by the
  * sacrificed creature's last-known power off its sacrifice log (the countForSpec kind sacrificedThisWayPower). Whole, because the
  * payoff's "that creature" reads across the sentence boundary. Returns { atoms } | null.
+ *
+ * + DISCIPLE OF BOLAS (play-weighted 2026-10-18, EDHREC #1515): "sacrifice another creature. You gain X life and draw X cards, where X
+ * is that creature's power." — the same effect with a mandatory sacrifice. Its rulings: with another creature you must sacrifice one;
+ * with none "the ability won't do anything" — so the payoffs keep the ifSacrificed gate (no creature this ability sacrificed, no
+ * "that creature", never an older sacrifice's power), and X is the last-known power, as on Freyalise.
  */
 export function matchSacrificeAnotherForPower(oracle) {
   const s = String(oracle || "").toLowerCase();
-  if (!/^you may sacrifice another creature\. if you do, you gain x life and draw x cards, where x is that creature's power\.?$/.test(s)) return null;
+  const m = s.match(/^(?:(you may )sacrifice another creature\. if you do, you gain|sacrifice another creature\. you gain) x life and draw x cards, where x is that creature's power\.?$/);
+  if (!m) return null;
   const x = { kind: "sacrificedThisWayPower", per: 1 };
   return { atoms: [
-    { op: "sacrifice", who: "controller", what: "creature", excludeSource: true, optional: true },
+    { op: "sacrifice", who: "controller", what: "creature", excludeSource: true, ...(m[1] ? { optional: true } : {}) },
     { op: "gain-life", amountCount: x, ifSacrificed: true, targetType: null },
     { op: "draw", amountCount: x, ifSacrificed: true, targetType: null },
   ] };
@@ -1354,7 +1360,7 @@ export function destroyExileClauseParser(clause) {
   // narrowed by the shared entered-this-turn restriction (the `enteredOnTurn` stamp the damage doubler already reads).
   if (/^destroy all creatures that entered (?:the battlefield )?this turn$/.test(t)) return { op: "destroy", targetType: "eachCreature", restrictions: [{ kind: "enteredThisTurn" }] };
   if (/^exile all creatures$/.test(t)) return { op: "exile", targetType: "eachCreature" };
-  // MASS-EXILE PARITY (CR 701.8a destroy / 701.10a exile) — the typed mass list was bound to the DESTROY verb
+  // MASS-EXILE PARITY (CR 701.8a destroy / 701.13a exile) — the typed mass list was bound to the DESTROY verb
   // while exile only ever got "all creatures", so "Exile all artifacts" (Farewell, EDHREC #163) parsed low even
   // though BOTH halves already shipped: "destroy all artifacts" is HIGH and "exile all creatures" is HIGH. The
   // two were simply never crossed. The verb becomes a capture group; the targetType and its resolution path are

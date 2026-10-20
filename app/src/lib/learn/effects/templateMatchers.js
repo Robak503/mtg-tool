@@ -147,12 +147,20 @@ export function matchRevealTopDrainByMv(oracle) {
   // Dark Tutelage — "you lose life equal to its mana value" → the CONTROLLER loses, applyLoseLife's default
   // branch). Whole-clause-anchored ^…$ like every fused matcher here — any rider ("unless you pay", an Offspring
   // keyword line, a "then" follow-on) leaves residue → null → low → Arbiter (CREED whole-effect).
-  const m = s.match(/^reveal the top card of your library and put (?:that card|the card|it) into your hand\. (each opponent loses|you lose) life equal to (?:that card's|the card's|its) mana value$/);
+  // + TWILIGHT PROPHET (play-weighted 2026-10-18, EDHREC #1137): "Each opponent loses X life and you gain X life, where X is that
+  // card's mana value." — one X for both halves, the same captured value: each opponent loses it, the controller gains it once.
+  const m = s.match(/^reveal the top card of your library and put (?:that card|the card|it) into your hand\. (?:(each opponent loses|you lose) life equal to (?:that card's|the card's|its) mana value|(each opponent loses x life and you gain x life), where x is (?:that card's|the card's|its) mana value)$/);
   if (!m) return null;
+  const mv = { kind: "revealedCardMV", per: 1 };
+  if (m[2]) return { atoms: [
+    { op: "reveal-top-to-hand", targetType: null },
+    { op: "lose-life", who: "eachOpponent", amountCount: mv, targetType: null },
+    { op: "gain-life", amountCount: mv, targetType: null },
+  ] };
   const who = m[1] === "you lose" ? "controller" : "eachOpponent";
   return { atoms: [
     { op: "reveal-top-to-hand", targetType: null },
-    { op: "lose-life", who, amountCount: { kind: "revealedCardMV", per: 1 }, targetType: null },
+    { op: "lose-life", who, amountCount: mv, targetType: null },
   ] };
 }
 
@@ -676,15 +684,39 @@ export function matchMassDestroyManaPerDestroyed(oracle) {
  * destroy by the parseEffectClause wrapper, as on every destroy. Anchored ^…$: "all creatures" only, "creature" counted, exactly
  * these two payoffs; a nontoken count (Blood Money's own matcher), another set (Death Begets Life's "creatures and enchantments"),
  * another payoff or any rider → no match → low. Returns { atoms }.
+ *
+ * WIDENED (play-weighted 2026-10-18 — Bane of Progress #1239, Whiptongue Hydra, Fracturing Gust, Paraselene, Multani's Decree,
+ * Righteous Fury): the destroy sentence is any "destroy all …" the DESTROY GRAMMAR itself reads (`parseDestroy` — the caller's own
+ * clause parser, so the set is never typed twice) to one mass destroy over a set the count can read (MASS_DESTROY_KINDS: the
+ * creature wipe with its restrictions — "with flying", "tapped" — or the artifact / enchantment / mixed permanent sets, whose
+ * resolver reads no restriction, so a restricted one is refused); the third payoff is "Put a +1/+1 counter on this creature"
+ * (an add-counter on its source counting the stamp, `countFor`). The counted noun must cover the whole set — "permanent" always,
+ * otherwise the set's one card type — so a narrower count ("for each artifact destroyed" after artifacts AND enchantments) stays
+ * unread. Bane of Progress's rulings are Fumigate's: an indestructible or regenerated permanent doesn't count; one destroyed but
+ * exiled instead (Rest in Peace) does. Without `parseDestroy`, only "destroy all creatures" is read, as before.
  */
-export function matchMassDestroyPerDestroyed(oracle) {
+const MASS_DESTROY_KINDS = {
+  eachCreature: ["creature"], eachArtifact: ["artifact"], eachEnchantment: ["enchantment"],
+  eachArtifactOrEnchantment: ["artifact", "enchantment"], eachArtifactCreatureOrEnchantment: ["artifact", "creature", "enchantment"],
+};
+export function matchMassDestroyPerDestroyed(oracle, parseDestroy = null) {
   const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
-  const m = s.match(/^destroy all creatures\. (?:you gain (one|two|three|four|five|\d+) life|(draw a card)) for each creature destroyed this way$/);
+  const m = s.match(/^(destroy all [a-z ,]+)\. (?:you gain (one|two|three|four|five|\d+) life|(draw a card)|(put a \+1\/\+1 counter on this creature)) for each (creature|permanent|artifact|enchantment) destroyed this way$/);
   if (!m) return null;
-  const destroy = { op: "destroy", targetType: "eachCreature", recordDestroyedThisWay: true };
-  const payoff = m[2]
+  const read = m[1] === "destroy all creatures" ? { op: "destroy", targetType: "eachCreature" } : (parseDestroy ? parseDestroy(m[1]) : null);
+  const kinds = MASS_DESTROY_KINDS[read?.targetType];
+  if (read?.op !== "destroy" || !kinds) return null;
+  // Nothing on the destroy but its set (and, on the creature wipe, the restrictions massCreatureTargets reads) — any other flag is a
+  // rider this count would have to know about.
+  const { op: _op, targetType: _tt, restrictions, ...rest } = read;
+  if (Object.keys(rest).length || (restrictions?.length && read.targetType !== "eachCreature")) return null;
+  if (m[5] !== "permanent" && !(kinds.length === 1 && kinds[0] === m[5])) return null;
+  const destroy = { ...read, recordDestroyedThisWay: true };
+  const payoff = m[3]
     ? { op: "draw", amountCount: { kind: "destroyedThisWay", per: 1 }, targetType: null }
-    : { op: "gain-life", amountCount: { kind: "destroyedThisWay", per: SMALL_NUM[m[1]] ?? parseInt(m[1], 10) }, targetType: null };
+    : m[4]
+      ? { op: "add-counter", counterType: "+1/+1", target: "self", countFor: { kind: "destroyedThisWay" } }
+      : { op: "gain-life", amountCount: { kind: "destroyedThisWay", per: SMALL_NUM[m[2]] ?? parseInt(m[2], 10) }, targetType: null };
   return { atoms: [destroy, payoff] };
 }
 

@@ -46,7 +46,7 @@ const ENFORCED_KEYWORDS = new Set([
   "shadow",
   // KW-POISON (#294): combatResolution reroutes infect/wither CREATURE damage → -1/-1 counters and infect/toxic
   // PLAYER damage → poison counters (toxic N adds on top), with the 10-poison loss SBA (gameState.addPoison,
-  // CR 704.5c / 702.90b infect / 702.79b wither / 702.180a toxic). Engine-first — Hans-verified board-loop.
+  // CR 704.5c / 702.90b infect / 702.80a wither / 702.164c toxic). Engine-first — Hans-verified board-loop.
   "infect", "wither", "toxic",
   // KW-FADING / KW-VANISHING (#311): fading.js enforces enters-with-N-fade/time-counters (entersWithFadeCounters,
   // wired in actionDispatcher ETB) + the upkeep remove-or-sacrifice (applyFadeVanishUpkeep via gameEngine),

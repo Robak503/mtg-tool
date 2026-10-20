@@ -401,6 +401,18 @@ function attachLastTokenSequenceOk(atoms) {
   return true;
 }
 
+// "You gain life equal to the damage dealt this way" — the whole clause as splitClauses hands it over (a sentence, or the second half
+// of "deals 4 damage to target creature and you gain life …"). The excess form (Razor Rings) and every other payoff stay unread.
+const DAMAGE_DEALT_THIS_WAY_GAIN_RE = /^you gain life equal to the damage dealt this way\.?$/i;
+// A deal-damage atom whose damage IS "the damage dealt this way": it always runs when its turn comes (no "you may", no condition,
+// no kicker gate, no "if you do", no reflexive trigger — any of those can skip it and leave the stamp unwritten, so the gain would
+// read an older effect's), and it deals only the damage its sentence names (a self-hit rider, "and 3 damage to you", is dealt in a
+// second event the stamp would not include).
+function damageThisWayRecordable(a) {
+  return a?.op === "deal-damage" && !a.optional && !a.condition && !a.kickedOnly && !a.nonKickedOnly && !a.ifSacrificed
+    && !a.reflexiveTrigger && !a.oncePerTurn && !(a.selfDamage > 0);
+}
+
 // "THIS WAY" / "OTHER" SEQUENCES (the play-weighted arbiter-spell slice, 2026-10-18): two inter-atom stamps are honest only right
 // after the atom that writes them, in the same program —
 //   - a payoff counting "destroyedThisWay" (Fumigate's life, Decree of Pain's draw) needs a destroy carrying recordDestroyedThisWay
@@ -408,11 +420,16 @@ function attachLastTokenSequenceOk(atoms) {
 //   - an exceptLastMinted destroy (Martial Coup's "all other creatures") needs, directly before it, the create-token that stamps
 //     what it made (`stampMinted`).
 // Otherwise the read would see nothing or an older effect's value — LOW, the attachLastTokenSequenceOk discipline.
+//   - a payoff counting "damageDealtThisWay" (Creeping Bloodsucker's, Corrupt's life) must come DIRECTLY after the deal-damage that
+//     records it (recordDamageDealtThisWay, written by the assembly fold below) — that atom deals the damage the sentence names, and
+//     nothing between them may deal more or be skipped (damageThisWayRecordable).
 function thisWaySequenceOk(atoms) {
   let recorded = false;
   for (let i = 0; i < atoms.length; i++) {
     const a = atoms[i];
-    if (a?.amountCount?.kind === "destroyedThisWay" && !recorded) return false;
+    const reads = (kind) => a?.amountCount?.kind === kind || a?.countFor?.kind === kind;
+    if (reads("damageDealtThisWay") && !(atoms[i - 1]?.recordDamageDealtThisWay && damageThisWayRecordable(atoms[i - 1]))) return false;
+    if (reads("destroyedThisWay") && !recorded) return false;
     if (a?.exceptLastMinted && !(atoms[i - 1]?.op === "create-token" && atoms[i - 1]?.stampMinted)) return false;
     if (a?.op === "destroy" && a.recordDestroyedThisWay) recorded = true;
   }
@@ -573,10 +590,14 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
   // ⛔ The noun must END the target phrase: "target Cleric CARD from your graveyard" (Misery Charm), "target Elf SPELL",
   // "target Goblin TOKEN" name a card / spell / token, not a creature on the battlefield — reducing them to "target creature
   // card" would widen a Cleric-only return to any creature card (a forbidden FP). The lookahead refuses those tails.
-  const subM = /\b[Tt]arget ([A-Z][a-z]+)(?: or ([A-Z][a-z]+))?(?: creature)?( you control)?\b(?!\s+(?:creature )?(?:cards?|spells?|permanents?|tokens?)\b)/.exec(s);
-  if (subM && CR_CREATURE_TYPES.has(subM[1].toLowerCase()) && (!subM[2] || CR_CREATURE_TYPES.has(subM[2].toLowerCase()))) {
-    const subs = [subM[1].toLowerCase(), ...(subM[2] ? [subM[2].toLowerCase()] : [])];
-    const inner = parseClauseToAtomCore(cardType, s.replace(subM[0], `target creature${subM[3] || ""}`), hasX, sourceScoped);
+  // + A LIST (play-weighted 2026-10-18 — Swarmyard "Regenerate target Insect, Rat, Spider, or Squirrel.", Accursed Duneyard's seven,
+  // Animal Sanctuary's six): "A, B, …, or Z" is the same union, every word a CR creature type; a list without its "or", or with one
+  // word that is not a creature type, does not peel.
+  const subM = /\b[Tt]arget ((?:[A-Z][a-z]+, )+[A-Z][a-z]+,? or [A-Z][a-z]+|[A-Z][a-z]+(?: or [A-Z][a-z]+)?)(?: creature)?( you control)?\b(?!\s+(?:creature )?(?:cards?|spells?|permanents?|tokens?)\b)/.exec(s);
+  const subWords = subM ? subM[1].split(/,? or |, /).map((w) => w.toLowerCase()) : [];
+  if (subM && subWords.every((w) => CR_CREATURE_TYPES.has(w))) {
+    const subs = subWords;
+    const inner = parseClauseToAtomCore(cardType, s.replace(subM[0], `target creature${subM[2] || ""}`), hasX, sourceScoped);
     const plainCreature = inner && KNOWN.has(inner.op) && (inner.targetType === "creature" || inner.targetType === "creatureYouControl")
       && !(inner.role || inner.secondaryRole || inner.fighter || Array.isArray(inner.targets));
     if (plainCreature) return { ...inner, restrictions: [...(inner.restrictions || []), { kind: "subtype", subtype: subs[0], subtypes: subs }] };
@@ -3615,7 +3636,9 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // ===== FUMIGATE (#1003), DECREE OF PAIN (#1419) ===== "Destroy all creatures. <You gain N life | Draw a card> for each creature
   // destroyed this way." → [the mass destroy recording what it destroyed, the payoff counting it] (templateMatchers.
   // matchMassDestroyPerDestroyed). A stripped "can't be regenerated" rider is put back on the destroy by the wrapper. Not an X spell.
-  const mdpd = matchMassDestroyPerDestroyed(oracle);
+  // + play-weighted 2026-10-18 (Bane of Progress, Fracturing Gust, Paraselene …): any mass destroy this clause parser reads to one
+  // countable set — the matcher is handed the parser itself, so the set has one grammar.
+  const mdpd = matchMassDestroyPerDestroyed(oracle, (clause) => parseClauseToAtom(cardType, clause, false, sourceScoped));
   if (mdpd) return makeProgram({ confidence: "high", atoms: mdpd.atoms, xSpell: false, unparsedTail: null });
   // ===== MARTIAL COUP (#1385) ===== "Create X <token>. If X is N or more, destroy all other creatures." → [the X create stamping
   // what it made, the X-gated destroy sparing exactly those] (matchTokensThenDestroyOthersAtX, below). An X spell.
@@ -3955,6 +3978,17 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       // CREATED-TOKEN HASTE UNTIL END OF TURN (Loyal Apprentice) — see CREATED_TOKEN_HASTE_EOT_RE. Only directly after the
       // create-token atom whose tokens it names; the atom is replaced by a flagged copy (a parsed atom may be shared).
       if (prev?.op === "create-token" && CREATED_TOKEN_HASTE_EOT_RE.test(clause)) { atoms[atoms.length - 1] = { ...prev, hasteUntilEot: true }; continue; }
+      // "YOU GAIN LIFE EQUAL TO THE DAMAGE DEALT THIS WAY" (play-weighted 2026-10-18 — Creeping Bloodsucker #1543, Corrupt, Rite of
+      // Consumption, Enter the God-Eternals, Syphon Soul): the life is what the damage sentence right before it actually dealt
+      // (Corrupt's ruling — prevented damage gains nothing; a 2/2 dealt 6 gains 6), never the amount it set out to deal. Only
+      // directly after a deal-damage atom that always runs (damageThisWayRecordable); that atom is replaced by a copy flagged
+      // recordDamageDealtThisWay (a parsed atom may be shared) and the gain reads its stamp (countForSpec "damageDealtThisWay").
+      // Anywhere else the sentence is unread and the whole program stays low.
+      if (DAMAGE_DEALT_THIS_WAY_GAIN_RE.test(clause) && damageThisWayRecordable(prev)) {
+        atoms[atoms.length - 1] = { ...prev, recordDamageDealtThisWay: true };
+        atoms.push({ op: "gain-life", amountCount: { kind: "damageDealtThisWay", per: 1 }, targetType: null });
+        continue;
+      }
       allParsed = false; break;
     }
     // A BARE "IT" AFTER A TARGET names that target, not the source (see bareItAfterTarget).

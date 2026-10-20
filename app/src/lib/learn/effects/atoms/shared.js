@@ -504,7 +504,7 @@ export const atomTargets = (state, atom, ctx) => {
   // combat state lives in state.combat.attackers (permanentId) / .blockers (blockerId), the same source
   // creatureSatisfiesRestrictions reads for the "attacking"/"blocking" target restriction.
   if (atom.scope === "attackingCreatures") {
-    // BATTLE CRY (BC-1): excludeSource drops the trigger's own source (CR 702.90a "each OTHER attacking
+    // BATTLE CRY (BC-1): excludeSource drops the trigger's own source (CR 702.91a "each OTHER attacking
     // creature"); absent (Trumpet Blast), every attacker is included — byte-identical to before.
     return massCreatureTargets(state)
       .filter((t) => (state.combat?.attackers || []).some((a) => a.permanentId === t.id))
@@ -1091,6 +1091,12 @@ export function countForSpec(state, ctx, spec) {
   // (templateMatchers.matchMassDestroyPerDestroyed) and its sequence gate refuses this read with no recording destroy before it, so
   // the value is always the one just written. An absent stamp reads 0, never a fabricated count.
   if (spec.kind === "destroyedThisWay") return Math.max(0, state?.destroyedThisWay || 0);
+  // ===== DAMAGE-DEALT-THIS-WAY (play-weighted 2026-10-18 — Creeping Bloodsucker, Corrupt, Rite of Consumption) ===== the damage the
+  // deal-damage atom right before this one actually dealt (spellEffects.damageDealtByEvent — after replacement and prevention,
+  // uncapped by toughness or life, a redirection included). That atom carries `recordDamageDealtThisWay` and stamps
+  // state.damageDealtThisWay; the parser folds the pair together and programConfidence's thisWaySequenceOk refuses this read
+  // anywhere else, so the value is always the one just written. An absent stamp reads 0, never a fabricated count.
+  if (spec.kind === "damageDealtThisWay") return Math.max(0, state?.damageDealtThisWay || 0);
   // ===== OPPONENT-SCOPED ===== who:"target" counts the SPELL'S TARGET player ("…equal to the number of
   // cards in that player's hand" — Sudden Impact) OR, on a combat-damage trigger with no explicit target,
   // the DAMAGED player ("for each artifact that player controls" — Cavern-Hoard Dragon, where "that player"

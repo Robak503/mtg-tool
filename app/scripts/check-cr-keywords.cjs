@@ -105,8 +105,10 @@ function keywordMap(rules) {
 // ── what the source says ─────────────────────────────────────────────────────────────────────────────────────────
 
 const NUM = String.raw`\d{3}\.\d+[a-z]?`;
+// A list item may carry up to three lower-case words before a "/" — the keyword it cites ("CR 702.90b infect / 702.164c toxic").
+const ITEM_WORDS = String.raw`(?:\s+[a-z][a-z'’-]*(?:\s+[a-z][a-z'’-]*){0,2}(?=\s*\/))?`;
 // The citation grammar of check-cr-citations.cjs: "CR <num>" / "CR-<num>", then a "/ , + & - – and or" list.
-const CITE = new RegExp(String.raw`\bCR(?:\s+|-)(${NUM}(?:\s*(?:\/|,|\+|&|-|–|\band\b|\bor\b)\s*(?:CR\s+)?${NUM})*)`, "g");
+const CITE = new RegExp(String.raw`\bCR(?:\s+|-)(${NUM}(?:${ITEM_WORDS}\s*(?:\/|,|\+|&|-|–|\band\b|\bor\b)\s*(?:CR\s+)?${NUM})*)`, "g");
 const ONE = new RegExp(NUM, "g");
 
 /** [{ start, end, nums: [{ rule, start, end }] }] — each citation (list) in `text`, offsets into `text`. */

@@ -38,9 +38,12 @@ function walk(dir, out = []) {
 }
 
 const NUM = String.raw`\d{3}\.\d+[a-z]?`;
+// Up to three lower-case words a list item may carry before a "/" — the keyword it cites ("CR 702.90b infect / 702.80a wither").
+// Without it the number after the slash was no citation at all, and "702.180a toxic" (702.180 is Harmonize) passed both gates.
+const ITEM_WORDS = String.raw`(?:\s+[a-z][a-z'’-]*(?:\s+[a-z][a-z'’-]*){0,2}(?=\s*\/))?`;
 // "CR <num>" or "CR-<num>", then any run of "/ , + & - – and or"-separated numbers (an optional repeated "CR" allowed
 // between them).
-const CITE = new RegExp(String.raw`\bCR(?:\s+|-)(${NUM}(?:\s*(?:\/|,|\+|&|-|–|\band\b|\bor\b)\s*(?:CR\s+)?${NUM})*)`, "g");
+const CITE = new RegExp(String.raw`\bCR(?:\s+|-)(${NUM}(?:${ITEM_WORDS}\s*(?:\/|,|\+|&|-|–|\band\b|\bor\b)\s*(?:CR\s+)?${NUM})*)`, "g");
 const ONE = new RegExp(NUM, "g");
 // A line's leading comment marker — dropped when the lines are joined, so a wrapped citation reads as one.
 const LEADER = /^\s*(?:\/\/+|\/?\*+\/?)?\s*/;

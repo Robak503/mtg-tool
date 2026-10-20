@@ -91,7 +91,7 @@ export const GRANTABLE_COMBAT_KEYWORDS = new Set(
 // reads it via the LAYER-AWARE permanentHasKeyword, so a layer-6 addKeyword grant switches it on/off with the
 // attachment). This admits the "Equipped/Enchanted creature has <kw>" grants (Executioner's Hood's intimidate,
 // Segovian Sword's skulk, Phyresis's infect) plus the anthem/token/pump forms:
-//   - "infect" (CR 702.90b/a) + "wither" (CR 702.80a): combatResolution reads permanentHasKeyword(Infect/Wither)
+//   - "infect" (CR 702.90b/702.90c) + "wither" (CR 702.80a): combatResolution reads permanentHasKeyword(Infect/Wither)
 //     — creature combat damage → -1/-1 counters, infect player damage → poison (the identical model already
 //     credited on every printed infect/wither creature; combat-only, matching the printed baseline). NOTE:
 //     "toxic" is deliberately NOT here — toxicValue reads the PRINTED oracle text, so a granted toxic isn't

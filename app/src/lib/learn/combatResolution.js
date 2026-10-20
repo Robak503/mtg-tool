@@ -354,7 +354,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   const recordCreatureDamage = (sourcePerm, damagedCreatureId, dealt) => {
     if (dealt > 0 && sourcePerm?.id != null) creatureDamagePairs.push({ dealerId: sourcePerm.id, dealerController: sourcePerm.controller, damagedCreatureId });
   };
-  // KW-POISON (CR 702.90b infect / 702.80a wither): when the SOURCE has infect or wither, combat
+  // KW-POISON (CR 702.90c infect / 702.80a wither): when the SOURCE has infect or wither, combat
   // damage to a creature is dealt as that many -1/-1 counters, NOT as marked damage (`minus=true`).
   // The damage is still "dealt", so deathtouch (if also present) still marks the creature — no real
   // card has infect/wither AND deathtouch (corpus-verified 0), so this is a harmless guard.
@@ -527,7 +527,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
         // the 21-rule reads playerEvents.amount). The toxic-N rider is added AFTER and is NOT doubled.
         const amount = consultCombat(rawAmount, lookup.permanent, "player", defender);
         if (amount <= 0) return 0;
-        // KW-POISON (CR 702.90a infect / 702.180a toxic). Infect REPLACES the life loss with that many
+        // KW-POISON (CR 702.90b infect / 702.164c toxic). Infect REPLACES the life loss with that many
         // poison counters (the player loses NO life). Otherwise normal life loss, PLUS — if the attacker
         // has toxic N — a fixed N poison on top (additive). N is per damage EVENT, so a double-striker
         // poisons in BOTH combat steps (each is its own resolveCombatDamage call), matching CR. The event
@@ -741,14 +741,14 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
     if (amount > 0 && playerProtectedFromEverything(next, pid)) { next = logEvent(next, { kind: "combat-damage-prevented", playerId: pid, amount, via: "protection from everything" }); continue; }
     if (amount > 0) next = loseLife(next, { playerId: pid, amount, combatDamage: true });
   }
-  // KW-POISON (CR 702.90b infect / 702.80a wither): infect/wither combat damage to a creature is dealt
+  // KW-POISON (CR 702.90c infect / 702.80a wither): infect/wither combat damage to a creature is dealt
   // as -1/-1 counters. Applied BEFORE the lethal SBA below so a creature dropped to 0 toughness is
   // destroyed in the SAME step (CR 704.5f) and fires its dies-triggers — exactly like marked lethal
   // damage. The +1/+1 ⟷ -1/-1 annihilation (CR 122.3) is handled by the net counterPtDelta math.
   for (const [id, amount] of Object.entries(minusCounters)) {
     if (amount > 0 && findPermanent(next, id)) next = addCounter(next, { permanentId: id, type: "-1/-1", amount });
   }
-  // KW-POISON (CR 702.90a infect / 702.180a toxic): poison counters from combat damage to a player.
+  // KW-POISON (CR 702.90b infect / 702.164c toxic): poison counters from combat damage to a player.
   for (const [pid, amount] of Object.entries(poisonGain)) {
     if (amount > 0 && next.players[pid]) next = addPoison(next, { playerId: pid, amount });
   }
@@ -810,7 +810,7 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
   // ENRAGE / DAMAGE-RECEIVED (CR 603.2 — "Whenever this creature is dealt damage, …"). The step IS the
   // damage event (CR 510.2 — all combat damage is dealt simultaneously), so each creature fires EXACTLY
   // ONCE with its TOTAL this step — never once per attacking/blocking source. dmgToPermanent (marked
-  // damage) and minusCounters (infect/wither — still "damage dealt", CR 120.3 / 702.90b) are the per-
+  // damage) and minusCounters (infect/wither — still "damage dealt", CR 120.3 / 702.90c) are the per-
   // creature tallies, already keyed by creature id (a creature blocked by TWO creatures has ONE summed
   // entry). Both are post-consult (the Wave-5a doubler already applied), and every recorded amount is > 0
   // (addDmg's `n > 0` guard), so prevented/0 damage (protection/fog) never produced an entry (CR 120.8).

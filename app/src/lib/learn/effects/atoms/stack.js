@@ -2583,7 +2583,9 @@ export const stackResolvers = {
     const source = atom.damageSource === "triggering"
       ? { id: ctx.triggeringPermanentId, controller: ctx.triggeringLki?.controller ?? findPermanent(state, ctx.triggeringPermanentId)?.controller, lki: ctx.triggeringLki ?? null }
       : damageSourceFor(state, ctx);
-    let next = applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType, amountPerOpponent: atom.amountPerOpponent ?? null, targets, source, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie });
+    // recordDamageDealtThisWay (play-weighted 2026-10-18): the "You gain life equal to the damage dealt this way" right after this
+    // atom reads what it dealt — applyDamageEffect stamps state.damageDealtThisWay (parser.js folds the pair; never with a self-hit).
+    let next = applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType, amountPerOpponent: atom.amountPerOpponent ?? null, targets, source, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie, recordDealtThisWay: !!atom.recordDamageDealtThisWay });
     // LACCOLITH RIDER (④-AU — "If you do, this creature assigns no combat damage this turn"): the optional damage was
     // taken (a declined "may" never reaches this resolver), so the SOURCE is stamped for the current turn; the combat
     // damage step's dealsThisStep gate reads the stamp. A source already gone is a clean no-op (updatePermanentSafe).
