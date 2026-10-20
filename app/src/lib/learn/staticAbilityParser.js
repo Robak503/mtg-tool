@@ -125,7 +125,11 @@ export function abilityClauses(oracle) {
   for (const ch of text) {
     // QUOTE-AWARE (see above): a quoted granted ability keeps its internal punctuation. Checked FIRST so a
     // paren INSIDE a quote (rare) is treated as quoted text, not reminder.
-    if (ch === '"' || ch === "“" || ch === "”") { inQuote = ch === "”" ? false : (ch === "“" ? true : !inQuote); buf += ch; continue; }
+    // A quote INSIDE a reminder (play-weighted 2026-10-20 — the token reminders "(It's an artifact with \"{T}, Sacrifice this
+    // token: Add one mana of any color.\")" after Diamond Pick-Axe's and Sticky Fingers' quoted grants) is tracked, so a ")"
+    // within it does not end the reminder, but never kept: the reminder is dropped whole (CR 207.2a). Keeping the marks left a
+    // stray `""` on the grant clause, which parsed as residue and dropped the attachment's whole static bonus.
+    if (ch === '"' || ch === "“" || ch === "”") { inQuote = ch === "”" ? false : (ch === "“" ? true : !inQuote); if (parenDepth === 0) buf += ch; continue; }
     // PAREN-AWARE reminder drop (CR 207.2). Reminder text is parenthetical and must be removed BEFORE the
     // sentence split — a MULTI-sentence reminder ("…your opponents control. It can attack and {T}…" —
     // Swiftfoot Boots) has internal periods that would otherwise shred the clause and orphan the 2nd reminder

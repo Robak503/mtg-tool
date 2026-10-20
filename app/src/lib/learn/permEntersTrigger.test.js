@@ -75,9 +75,12 @@ describe("PERM-ENTERS — detection", () => {
     expect(classifyCard(beanstalk)).toBe("native-trigger");
   });
 
-  it("does NOT detect bare 'an artifact enters' (no controller gate)", () => {
-    const ds = triggers("Whenever an artifact enters the battlefield, put a +1/+1 counter on this creature.");
-    expect(ds).toHaveLength(0);
+  // GRADUATED 2026-10-20: the bare "an artifact enters" is any player's artifact — the permanent-enters event is checked for every
+  // player's watchers on every entry, so the scope is the artifact test alone (artifactAny; artifactEntersWatcher.test.js plays it).
+  it("detects bare 'an artifact enters' as any player's artifact (artifactAny); a controller phrase it doesn't read stays undetected", () => {
+    expect(triggers("Whenever an artifact enters the battlefield, put a +1/+1 counter on this creature.")[0])
+      .toMatchObject({ event: "permanentEnters", permanentFilter: "artifact", scope: "artifactAny" });
+    expect(triggers("Whenever an artifact an opponent controls enters, put a +1/+1 counter on this creature.")).toHaveLength(0);
   });
 });
 

@@ -2096,6 +2096,15 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^an artifact you control enters(?: the battlefield)?$/.test(c)) {
     return { event: "permanentEnters", permanentFilter: "artifact", scope: "artifactYouControl", whose: "any" };
   }
+  // ANY PLAYER'S ARTIFACT (play-weighted 2026-10-20 — Grinding Station #2174 "Whenever an artifact enters, you may untap this
+  // artifact."; Leonin Elder, Battered Golem, Vermiculos, Karstoderm): the bare subject covers every player's artifact — the
+  // watcher's controller's, an opponent's, a token, the watcher itself when it is one (CR 603.6a). The permanent-enters event is
+  // checked for every player's watchers on every entry (checkPermanentEntersTriggers), so the scope is the artifact test alone
+  // (scopeMatches' artifactAny — the card types it has as it entered). "Another", a controller phrase or a qualifier stays
+  // undetected.
+  if (/^an artifact enters(?: the battlefield)?$/.test(c)) {
+    return { event: "permanentEnters", permanentFilter: "artifact", scope: "artifactAny", whose: "any" };
+  }
   if (/^an enchantment you control enters(?: the battlefield)?$/.test(c)) {
     return { event: "permanentEnters", permanentFilter: "enchantment", scope: "enchantmentYouControl", whose: "any" };
   }
@@ -4201,6 +4210,9 @@ const NONSELF_SAC_REF_RE = /^sacrifice it$/i;
 // triggering creature (the rewrite below names it for the doubling arm). The self form has no modeled carrier yet (War-Trained
 // Slasher's is an "attacks a battle" trigger, parked), so it isn't rewritten.
 const DOUBLE_ITS_RE = /^double its power until end of turn$/i;
+// THE EQUIPPED ATTACKER'S "UNTAP IT" (play-weighted 2026-10-20 — Genji Glove): the bare untap, or the untap followed by exactly the
+// extra-combat sentence (CR 500.8). Whole-clause anchored; any other rider keeps the raw pronoun → LOW → body-only.
+const EQUIPPED_ATTACKER_UNTAP_RE = /^untap it(?:\. after this phase, there is an additional combat phase)?$/i;
 
 // EXPLORE (CR 701.44) — "it explores" / "it explores, then it explores again". "it" is the SOURCE for a
 // SELF trigger (Merfolk Branchwalker's ETB, Emperor's Vanguard's combat-damage) and the TRIGGERING creature
@@ -5533,6 +5545,13 @@ export function detectTriggers(cardIn) {
         // anchored: no other trigger family reaches this branch, and any rider on the clause stays
         // unrewritten → LOW → Arbiter (a safe FN).
         effectClause = "untap the triggering permanent";
+      } else if (cls.event === "attacks" && cls.scope === "equippedCreature" && EQUIPPED_ATTACKER_UNTAP_RE.test(effectClause)) {
+        // THE EQUIPPED ATTACKER'S "UNTAP IT" (play-weighted 2026-10-20 — Genji Glove: "Whenever equipped creature attacks, if it's
+        // the first combat phase of the turn, untap it. After this phase, there is an additional combat phase."): "it" is the
+        // attacking creature, the triggering permanent checkAttackTriggers threads for this scope (CR 608.2c) — the Amulet
+        // sentinel above. Only the leading pronoun is rewritten; the anchor admits nothing but the bare untap and Genji Glove's
+        // extra-combat sentence.
+        effectClause = effectClause.replace(/^untap it\b/i, "untap the triggering permanent");
       } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope)
         && (NONSELF_COUNTER_REF_RE.test(effectClause) || NONSELF_DOUBLE_COUNTER_REF_RE.test(effectClause))) {
         // WAVE 3b COUNTERS-ON-EVENT: a NON-self attack/combat-damage trigger's "…put a +1/+1 counter on IT
@@ -5548,10 +5567,13 @@ export function detectTriggers(cardIn) {
         // target:"thatCreature". Same scope gate + whole-clause anchor as COUNTERS-ON-EVENT (a spell
         // anaphor never reaches here; a rider stays LOW). The parser re-gates the keyword set.
         effectClause = effectClause.replace(/^it /i, "the triggering creature ");
-      } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && DOUBLE_ITS_RE.test(effectClause)) {
+      } else if ((NONSELF_TRIGGERING_SCOPES.has(cls.scope) || (cls.event === "attacks" && cls.scope === "equippedCreature"))
+        && DOUBLE_ITS_RE.test(effectClause)) {
         // DOUBLE ITS POWER (shelf D15 — Wolverine, Claws Out "Whenever a Mutant you control attacks, double its power until
         // end of turn"): the possessive twin of TRIG-PRONOUN-IT — "its" is the TRIGGERING creature (CR 608.2c). Same scope
         // gate + whole-clause anchor; the sentinel binds target:"thatCreature" in the doubling arm.
+        // + the equipped attacker (play-weighted 2026-10-20 — Two-Handed Axe: "Whenever equipped creature attacks, double its
+        // power until end of turn."): the attack watcher of an attachment binds the attacker as the triggering permanent.
         effectClause = effectClause.replace(/^double its /i, "double the triggering creature's ");
       } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && THAT_CREATURE_PUMP_RE.test(effectClause)) {
         // THAT-CREATURE PUMP (BLITZ TR-2): the same non-self pump with the "that creature" subject
@@ -7193,6 +7215,14 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
     case "artifactYouControl":
       // PERM-ENTERS artifact — type-line substring (CR 205.2) catches Artifact Creature; controller gate.
       return !!triggeringPermanent && /Artifact/.test(typeStr(triggeringPermanent.card)) && triggeringPermanent.controller === sourcePermanent.controller;
+    case "artifactAny": {
+      // ANY PLAYER'S ARTIFACT entering (Grinding Station): the entering permanent's card types after the layers while it is on the
+      // battlefield (an animated or copied artifact as it is now), else its type line — creatureOrArtifactYouControl's read, no
+      // controller gate.
+      if (!triggeringPermanent) return false;
+      if (state && triggeringPermanent.id != null && findPermanent(state, triggeringPermanent.id)) return [...(permanentTypes(state, triggeringPermanent.id)?.types || [])].includes("Artifact");
+      return /\bArtifact\b/.test(typeStr(triggeringPermanent.card));
+    }
     case "creatureOrArtifactYouControl":
       // CREATURE OR ARTIFACT enters (Weftstalker Ardent, Haliya, Guided by Light): one entering permanent of the watcher's
       // controller that is a creature (after the layers — isCreaturePerm) or an artifact (its card types after the layers while

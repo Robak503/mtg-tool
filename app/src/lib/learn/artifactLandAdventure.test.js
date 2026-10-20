@@ -19,8 +19,9 @@
  * FLIPS (both halves modeled, every one played end to end below): The Arkenstone // Seek the Heart, Horn of Valhalla //
  * Ysgard's Call, Jidoor, Aristocratic Capital // Overture, Value Town // Take a Trip to….
  * PARKED (one half unmodeled; the permanent half still casts or plays, the Adventure is never offered): Altar of Bhaal, My
- * Precious, Ghost Lantern, Two-Handed Axe (the artifact half), Monster Manual (Zoological Study), Glamdring (both halves);
- * Lindblum, Midgar, Ishgard, Zanarkand (the Adventure half).
+ * Precious, Ghost Lantern, Monster Manual (Zoological Study), Glamdring (both halves); Lindblum, Midgar, Ishgard, Zanarkand (the
+ * Adventure half). Two-Handed Axe was parked on its artifact half until 2026-10-20 (its equipped-attacker "double its power" reads
+ * now) and flips.
  *
  * Real oracle fixtures (bundled Scryfall snapshot, publicCard shape, copied 2026-10-17). Every runtime witness drives the real
  * paths: legalActionsForPlayer → dispatchAction → resolveTopOfStack, the tutor settle, and the step path for the end step.
@@ -170,8 +171,12 @@ describe("the metric — both halves modeled flips native-mixed; an unmodeled ha
     expect(verdict(GLAMDRING)).toEqual({ card: "body-only", permanentNative: false, adventureNative: false });
     expect(verdict(PRECIOUS)).toEqual({ card: "body-only", permanentNative: false, adventureNative: true });
     expect(verdict(LANTERN)).toEqual({ card: "body-only", permanentNative: false, adventureNative: true });
-    expect(verdict(AXE)).toEqual({ card: "body-only", permanentNative: false, adventureNative: true });
     expect(verdict(MANUAL)).toEqual({ card: "body-only", permanentNative: true, adventureNative: false });
+  });
+  // GRADUATED 2026-10-20 out of the parked list: the artifact half's "Whenever equipped creature attacks, double its power until end of
+  // turn." reads now (the equipped attacker's pronoun — equippedAttackerPronoun.test.js plays it), so both halves are modeled.
+  it("⭐ Two-Handed Axe flips — both halves modeled", () => {
+    expect(verdict(AXE)).toEqual({ card: "native-mixed", permanentNative: true, adventureNative: true });
   });
   it("⛔ the parked Towns stay land-partial (the land still plays), never body-only", () => {
     for (const c of [MIDGAR, ISHGARD, ZANARKAND, LINDBLUM]) {
@@ -352,10 +357,13 @@ describe("RUNTIME — Value Town: Take a Trip to… draws two and deals 2 to eac
 });
 
 describe("CREED — a parked half is never offered; the permanent half casts (or plays) as itself, never as the combined card", () => {
-  it("⛔ Two-Handed Axe: only the artifact at {2}{R}, sorcery speed — no Sweeping Cleave, no combined card at instant speed", () => {
+  // GRADUATED 2026-10-20: both halves are modeled now, so Sweeping Cleave is offered too — at its own {1}{R} and, an Instant, in another
+  // player's turn — and the artifact still only at {2}{R} at sorcery speed. Never the combined card.
+  it("⭐ Two-Handed Axe: the artifact at {2}{R} at sorcery speed, Sweeping Cleave at {1}{R} at instant speed — never the combined card", () => {
     const s = main({ hand: [AXE], battlefield: [...lands(mountain, 5, "m"), bear("my-bear")] });
-    expect(casts(s).filter((a) => a.cardId === "c-axe").map((a) => ({ name: a.name, generic: a.cost.generic, R: a.cost.R }))).toEqual([{ name: "Two-Handed Axe", generic: 2, R: 1 }]);
-    expect(casts({ ...s, activePlayer: "ai", priorityHolder: "user" }).filter((a) => a.cardId === "c-axe")).toEqual([]);
+    const row = (acts) => [...new Map(acts.filter((a) => a.cardId === "c-axe").map((a) => [a.name, { name: a.name, adventure: !!a.adventureCast, generic: a.cost.generic, R: a.cost.R }])).values()].sort(byNameOrder);
+    expect(row(casts(s))).toEqual([{ name: "Sweeping Cleave", adventure: true, generic: 1, R: 1 }, { name: "Two-Handed Axe", adventure: false, generic: 2, R: 1 }]);
+    expect(row(casts({ ...s, activePlayer: "ai", priorityHolder: "user" }))).toEqual([{ name: "Sweeping Cleave", adventure: true, generic: 1, R: 1 }]);
   });
   it("⛔ Monster Manual: only the artifact at {3}{G} (never the summed {5}{G}{G}); it enters as Monster Manual", () => {
     let s = main({ hand: [MANUAL], battlefield: lands(forest, 7, "f") });

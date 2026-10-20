@@ -648,7 +648,10 @@ export function programContainsMassRemoval(program) {
   // Armageddon-class mass removal.
   // KINDRED DOMINANCE (#701) — every creature that isn't of the type chosen on resolution, on every battlefield. It names no
   // targetType either, so it is held by op; it IS a creature wipe for the behind-on-board unlock below.
+  // MASS -1/-1 COUNTERS (play-weighted 2026-10-20 — Black Sun's Zenith, Darkness Descends): the counter twin of the -X/-X pump
+  // wipe, every creature on every battlefield, held like it.
   return atoms.some(a => (MASS_WIPE_SCOPES.has(a.targetType) && ["destroy", "exile", "pump", "mass-destroy-treasure-per-nontoken"].includes(a.op))
+    || (a.targetType === "eachCreature" && a.op === "add-counter" && a.counterType === "-1/-1")
     || a.op === "mass-destroy-add-mana-per-destroyed" || a.op === "destroy-not-chosen-type"
     // RAISE THE PALISADE (#888), CRIPPLING FEAR (#2047) — the same chosen-type set, bounced or shrunk on every battlefield; held
     // like Kindred Dominance (the policy spares the caster's best type, but a blind cast still sweeps its other creatures).
@@ -680,7 +683,8 @@ export function programContainsCreatureMassRemoval(program) {
     (a.targetType === "eachArtifactCreatureOrEnchantment" && (a.op === "destroy" || a.op === "exile")) ||
     (a.targetType === "eachCreature" && (
       a.op === "destroy" || a.op === "exile" ||
-      (a.op === "pump" && (a.amountX || (a.ptDelta?.p ?? 0) < 0 || (a.ptDelta?.t ?? 0) < 0))
+      (a.op === "pump" && (a.amountX || (a.ptDelta?.p ?? 0) < 0 || (a.ptDelta?.t ?? 0) < 0)) ||
+      (a.op === "add-counter" && a.counterType === "-1/-1") // Black Sun's Zenith, Darkness Descends (2026-10-20)
     )));
 }
 

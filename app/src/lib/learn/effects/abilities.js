@@ -1027,6 +1027,11 @@ export function parseCyclingCost(card, { cycleSelfModeled = false } = {}) {
   // the unmodeled trigger this gate exists to refuse. Only those lines come out; any other cycle/discard trigger on the
   // card still refuses it below.
   if (cycleSelfModeled) oracle = oracle.replace(/(?:^|\n)[ \t]*When you cycle [^,\n]+,[^\n]*/gi, "\n");
+  // A BATTLEFIELD discard watcher on the card itself (play-weighted 2026-10-20 — Archfiend of Ifnir "Whenever you cycle or discard
+  // another card, …"; Curator of Mysteries, Horror of the Broken Lands): an ability of a permanent, which does nothing while the card
+  // is in a hand (CR 113.6), so cycling the card from the hand fires none of it — it is not a trigger of this cycle. Only this
+  // exact watcher subject comes out; every other cycle trigger keeps the refusal below.
+  oracle = oracle.replace(/(?:^|\n)[ \t]*Whenever you (?:cycle or discard|discard) (?:a|another) card,[^\n]*/gi, "\n");
   // ANY "When/Whenever … cycle[d]" trigger within a single clause (until the period) is an unmodeled
   // cycle trigger — gate the whole card. BROAD on purpose (a false-negative is safe): catches the
   // bare "When you cycle this card …" AND the split form "When you cast OR cycle ~, create a token …"

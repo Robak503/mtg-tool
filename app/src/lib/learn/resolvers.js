@@ -339,6 +339,7 @@ export function resolveCloneChoice(state, chosenPermId) {
     if (scope === "anyEquipment") return is("Artifact") && permanentHasTypeWord(next, id, "Equipment");
     if (scope === "anyArtifact") return is("Artifact");
     if (scope === "anyEnchantment" || scope === "anyNonlandPermanent") return cloneWidenedCopiable(c.permanent.card, scope); // KN-2
+    if (scope === "anyArtifactOrEnchantment") return is("Artifact") || cloneWidenedCopiable(c.permanent.card, "anyEnchantment"); // Mirrormade — cloneCandidates' read
     if (scope === "anyPermanentEnteredThisTurn") return enteredThisTurnCopiable(next, c.permanent); // shelf D36 (Sakashima's Protege)
     if (scope === "opponentCreature") return is("Creature") && c.permanent.controller !== controller; // KN-3 (Imposter Mech): never your own
     return is("Creature") || (scope === "youControlCreatureOrPw" && is("Planeswalker")) || (scope === "anyArtifactOrCreature" && is("Artifact"));

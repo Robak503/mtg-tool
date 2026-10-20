@@ -510,7 +510,7 @@ export function cdmgPayoffClauseParser(clause) {
  * The resolution-time +1/+1 DOUBLER (applyCounterDoubling) and the WAVE-3b "on the triggering creature" parser
  * (counterClausesParser) are SEPARATE — no overlap with these anchors. Pure. Registered via registerClauseParser.
  */
-export function addCounterClauseParser(clause) {
+export function addCounterClauseParser(clause, ctx) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   // ===== DYNAMIC-COUNT (keystone) ===== "put X/a number of +1/+1 counters on <target / target you control /
   // each you control>, where X is [equal to] the number of <src>" / "… equal to the number of <src>" — the
@@ -832,6 +832,23 @@ export function addCounterClauseParser(clause) {
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureYouControl", optionalTarget: true };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each creature you control$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl" };
+  // ===== MASS -1/-1 COUNTERS (play-weighted 2026-10-20 — Archfiend of Ifnir #1287 "put a -1/-1 counter on each creature your
+  // opponents control"; Black Sun's Zenith #1933 "Put X -1/-1 counters on each creature."; Soul Snuffers, Harbinger of Night
+  // "… on each creature"; Darkness Descends "Put two -1/-1 counters on each creature."; Carnifex Demon "… on each other
+  // creature") ===== the recipients are a set read as the effect is applied (CR 608.2h), nothing targeted: every creature on every
+  // battlefield (`eachCreature` — massCreatureTargets, layer-aware, the caster's own and the source itself included), every
+  // creature an opponent controls (`eachOpponentCreature` — "you don't control" names the same set: this engine seats no teams,
+  // every other player is an opponent), or every creature but the source ("other", excludeSource). applyAddCounter puts them
+  // through addCounter (the doublers and the +1/+1 / -1/-1 annihilation, CR 704.5q) and runs the lethal check after (CR 704.5f).
+  // -1/-1 ONLY: no clean carrier prints a symmetric +1/+1 form, so it stays unread. The X form reads the spell's X (gated on an
+  // {X} in the cost, like the rad arms).
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) -1\/-1 counters? on each (other )?creature( your opponents control| you don't control)?$/);
+  if (m && !(m[2] && m[3])) {
+    const amount = SMALL_NUM[m[1]] ?? parseInt(m[1], 10);
+    if (m[3]) return { op: "add-counter", counterType: "-1/-1", amount, targetType: "eachOpponentCreature" };
+    return { op: "add-counter", counterType: "-1/-1", amount, targetType: "eachCreature", ...(m[2] ? { excludeSource: true } : {}) };
+  }
+  if (ctx?.hasX && /^put x -1\/-1 counters on each creature$/.test(t)) return { op: "add-counter", counterType: "-1/-1", amountX: true, targetType: "eachCreature" };
   // "… on EACH OF THOSE CREATURES" (shelf D22 — Heroes in a Half Shell): the creatures a batch combat-damage trigger names —
   // the dealers checkBatchCombatDamageTriggers stamps as ctx.batchDealerIds. Only that event supplies them, so the referent
   // gates (triggerRouting.combatDamageReferentSatisfied; coverage's spell fence) refuse this atom anywhere else.

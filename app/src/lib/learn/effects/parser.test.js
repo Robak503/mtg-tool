@@ -1109,13 +1109,14 @@ const MUST_DROP_TO_LOW = [
   // (Voja's "…on each creature you control, where X is the number of Elves you control" is now MODELED by the
   // DYNAMIC-COUNT keystone — a board-count countFor via the shared countForSpec; see dynamicCount.test.js.)
   "Put a +1/+1 counter on each creature you control with toughness 3 or greater.", // toughness-filtered subset (still LOW)
-  "Put a -1/-1 counter on each creature you don't control.",                // Liliana's Influence — WRONG scope ("don't control")
+  // (Liliana's Influence's "…on each creature you don't control" is now MODELED, 2026-10-20 — the eachOpponentCreature set; moved to
+  // MUST_STAY_HIGH below, positive pins in massMinusOneCounters.test.js.)
   // (Practiced Offense's "…on each creature target player controls" is now MODELED — the chosen-player
   // mass expansion, eachCreatureOfTargetPlayer; see eachCreatureTargetPlayer.test.js. The neighboring
   // "target OPPONENT controls" wording and a subtype-filtered variant must still drop.)
   "Put a +1/+1 counter on each creature target opponent controls.",         // target-OPPONENT wording — not the modeled "target player" anchor
   "Put a -1/-1 counter on each Zombie creature target player controls.",    // subtype-filtered subset of the modeled shape
-  "Put a -1/-1 counter on each creature.",                                  // Soul Snuffers — ALL creatures (not "you control"); not this slice
+  // (Soul Snuffers' "Put a -1/-1 counter on each creature." is now MODELED, 2026-10-20 — the eachCreature set; moved to MUST_STAY_HIGH.)
   // ===== COUNTERS ===== OPTIONAL single target ("…on up to one target creature") — the bare form AND the
   // "you control" own-side form are now modeled (addCounterClauseParser); a creature-SUBTYPE filter OR the
   // OPPONENT-controlled form OR the multi-target "each of up to two" / "distribute" forms leave trailing text
@@ -1174,6 +1175,11 @@ describe("parseEffectProgram — MUST drop to low (the CI merge gate)", () => {
 // The other side of the gate — oracles the P2.5 adversarial review CONFIRMED are
 // legitimately HIGH. Pinned so a future tightening can't over-correct and drop them.
 const MUST_STAY_HIGH = [
+  // GRADUATED 2026-10-20 out of MUST_DROP_TO_LOW — the mass -1/-1 counter on every creature and on every creature an opponent
+  // controls ("you don't control": every other seat is an opponent in these games) is an untargeted set now (eachCreature /
+  // eachOpponentCreature, addCounterClauseParser). Moved here so the pin protects the flip.
+  "Put a -1/-1 counter on each creature you don't control.",
+  "Put a -1/-1 counter on each creature.",
   // GRADUATED 2026-07-30 out of MUST_DROP_TO_LOW — "its controller <payload>" is modeled now (the
   // player-referent slice: the recipient is the target's CONTROLLER, projected at the bind site). Moved
   // here rather than deleted so the pin protects the FLIP instead of the refusal.

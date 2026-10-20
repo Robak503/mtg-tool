@@ -770,6 +770,31 @@ Unleash Fury, Mr. Orfeo's attack trigger) is the double-P/T pump (`doublePt: "p"
 toughness" sentence is cut by the splitter before it reaches the arm. "Target player takes an extra turn after this one." is the
 extra-turn atom with a player target (§4.3).
 
+**Seven more readers and one false credit (play-weighted 2026-10-20, the slice after).** `staticAbilityParser.abilityClauses` tracks
+a quote inside a reminder but never keeps it (CR 207.2a): a token reminder that quotes the token's ability ("(It's an artifact with
+\"{T}, Sacrifice this token: …\")") left a stray `""` on the grant clause before it, and the attached-bonus parse dropped the whole
+static half (Diamond Pick-Axe's +1/+1, Sticky Fingers' menace). The attack watcher of an attachment (`attacks` / `equippedCreature`)
+binds the attacker as the triggering permanent, so its "double its power until end of turn" takes the doubling sentinel (Two-Handed
+Axe) and its "untap it[. After this phase, there is an additional combat phase]" the Amulet sentinel "untap the triggering
+permanent" (Genji Glove) — triggers.js, beside the non-self pronoun rewrites. `addCounterClauseParser` (now `(clause, ctx)`) reads
+"put N -1/-1 counter(s) on each [other] creature [your opponents control | you don't control]" as an untargeted set — `eachCreature`
+(excludeSource for "other") or `eachOpponentCreature` — and "Put X -1/-1 counters on each creature." with an {X} in the cost
+(`amountX`); -1/-1 only. The symmetric form is a held wipe (`programContainsMassRemoval`, and `programContainsCreatureMassRemoval`
+for the behind-on-board unlock), the -X/-X pump's twin. A clone scope `anyArtifactOrEnchantment` (Mirrormade) is the union of the
+anyArtifact and anyEnchantment pools — cloneCandidates, the resolveCloneChoice re-check and isCloneCard, the three places a clone
+scope lives. "target <permanent noun> you own" on destroy / exile (removal.js `rm`) and "Put target permanent you own on the bottom of
+your library" (zones.js tuck) carry the `owner` restriction (CR 108.3), never a controller one. "Whenever an artifact enters" is the
+permanentEnters watcher with scope `artifactAny` — any player's artifact as it entered, the watcher itself included (CR 603.6a).
+The land-from-hand put (`lfh`) takes "basic land card" (`["basic", "land"]`, Terrain Generator, Elvish Pioneer). `parseCyclingCost`
+no longer refuses a card whose only cycle mention is its own battlefield discard watcher ("Whenever you cycle or discard [an]other
+card, …" — Archfiend of Ifnir, Curator of Mysteries): an ability of a permanent does nothing from the hand (CR 113.6), so cycling
+the card fires none of it. **The dealt-by event fires one payoff:** checkDealtByTriggers synthesizes only the printed lifegain link
+("you gain that much life", read off the dealer's card and its Auras); `triggerRoutesNatively` now refuses any other effect on a
+`dealtBy` descriptor, and any granted one (`d.granted`; `isModeledGroupTriggeredBody` for group and until-end-of-turn grants) —
+Drinker of Sorrow, Olivia's Attendants, Angel of Deliverance and Stir the Pride read native while their trigger never fired (false
+credits removed), and Ceremonial Knife's granted body stays parked. Firing every dealt-by descriptor (printed and granted, with a
+combat-only flag and the "that many" amount) through the flush is the open seam that would let them play.
+
 **The chosen-type sweep family** (`removal.notChosenTypeSet`, 2026-10-18): Kindred Dominance's destroy, Raise the Palisade's bounce
 and Crippling Fear's -N/-N share one choice (`choicePolicy.autoPickCreatureTypeToSpare`, made as the spell resolves, for every
 seat) and one set (every creature now not of the chosen type by its current types; a changeling is never in it). The bounce rides

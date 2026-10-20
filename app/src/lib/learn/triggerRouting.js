@@ -225,8 +225,20 @@ export function cycleSelfTriggersModeled(card) {
   return detected.length === printed && detected.every((d) => triggerRoutesNatively(d));
 }
 
+// DEALT-BY (SL-1): the one dealt-by trigger the runtime fires is the printed lifegain link — checkDealtByTriggers reads
+// dealtByLinkOf off the dealer's own card (and its attached Auras) and synthesizes "you gain that much life"; no other
+// "Whenever this creature deals [combat] damage, …" descriptor is ever handed to the flush. Any other payoff on this event
+// (Drinker of Sorrow's sacrifice, Olivia's Attendants' Blood tokens, Angel of Deliverance's exile, a granted body like
+// Ceremonial Knife's) parsed HIGH and was credited native while it never triggered (play-weighted 2026-10-20, a false credit
+// removed on purpose). It routes only when it is the lifegain link.
+const DEALT_BY_FIRED_EFFECT_RE = /^you gain that much life$/i;
+
 export function triggerRoutesNatively(d) {
   if (!d.effectClause) return false;
+  if (d.event === "dealtBy" && !DEALT_BY_FIRED_EFFECT_RE.test(String(d.effectClause).trim())) return false;
+  // …and only off the dealer's own card: a quoted grant (an Equipment's or Aura's 'has "Whenever this creature deals damage, …"') is
+  // never read by dealtByLinkOf, so it never fires either.
+  if (d.event === "dealtBy" && d.granted) return false;
   if (d.interveningIf) {
     const cp = parseEffectClause(d.effectClause, "Instant", { hasX: !!d.effectHasX, sourceScoped: true });
     const a = cp?.atoms?.length === 1 ? cp.atoms[0] : null;
@@ -292,5 +304,9 @@ export function isModeledGroupTriggeredBody(quoted) {
   // the Glasskite slice, for every quoted grant of it (a narrower "Sliver creatures you control have …" stays the safe FN
   // it was). The PRINTED Glasskites never pass through this gate.
   if (dets.some((d) => /^counter the targeting spell or ability\.?$/i.test(String(d.effectClause || "").trim()))) return false;
+  // ⛔ A GRANTED DEALT-BY BODY NEVER FIRES (play-weighted 2026-10-20): checkDealtByTriggers reads the lifegain link off the dealer's
+  // printed card (and its Auras) only, so a group or until-end-of-turn grant of "Whenever this creature deals damage, you gain that
+  // much life." (Stir the Pride's second mode) was credited and did nothing — declined here, at the metric and the emission gate alike.
+  if (dets.some((d) => d.event === "dealtBy")) return false;
   return dets.length > 0 && dets.every(triggerRoutesNatively);
 }

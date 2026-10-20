@@ -169,9 +169,13 @@ describe("Green Sun's Zenith — CREED near-misses stay non-native (→ Arbiter)
     expect(isHighX("Search your library for a white or blue creature card with mana value X or less, put it onto the battlefield, then shuffle.")).toBe(false);
   });
 
-  it("a family member whose BODY is unmodeled stays arbiter-spell (Black Sun's -1/-1-each, Beacon of Immortality)", () => {
-    expect(classifyCard(C("Sorcery", "Put X -1/-1 counters on each creature. Shuffle Black Sun's Zenith into its owner's library.", "{X}{B}{B}", "Black Sun's Zenith"))).toBe("arbiter-spell");
+  it("a family member whose BODY is unmodeled stays arbiter-spell (Beacon of Immortality)", () => {
     expect(classifyCard(C("Instant", "Double target player's life total. Shuffle Beacon of Immortality into its owner's library.", "{5}{W}", "Beacon of Immortality"))).toBe("arbiter-spell");
+  });
+  // GRADUATED 2026-10-20: Black Sun's Zenith's body ("Put X -1/-1 counters on each creature.") is modeled now — the mass -1/-1 counter
+  // with the cast X (massMinusOneCounters.test.js plays it) — so the family's self-shuffle tail credits it like Green Sun's.
+  it("Black Sun's Zenith — its body modeled now — is native-spell", () => {
+    expect(classifyCard(C("Sorcery", "Put X -1/-1 counters on each creature. Shuffle Black Sun's Zenith into its owner's library.", "{X}{B}{B}", "Black Sun's Zenith"))).toBe("native-spell");
   });
 
   it("a 'shuffle it into its owner's library' that names something ELSE (a permanent ability) does NOT set selfShuffle", () => {

@@ -1225,7 +1225,7 @@ export function destroyExileClauseParser(clause) {
   // enchantment": choosing ZERO is legal, CR 601.2c. The optional prefix group stamps maxTargets:1 +
   // minTargets:0 — the exact "up to ONE target" subset path targeting already documents (subsets [t] or
   // []). Absent, every previously-parsed card emits a byte-identical atom.)
-  const rm = t.match(/^(destroy|exile) (up to one )?target (?:((?:white|blue|black|red|green) or (?:white|blue|black|red|green)|white|blue|black|red|green|multicolored) )?(artifact, enchantment, or nonbasic land|noncreature artifact or noncreature enchantment|noncreature artifact|noncreature enchantment|artifact, enchantment, or land|artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|creature or vehicle|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls|that player controls))?(?: (that (?:was|were) dealt damage this turn))?$/);
+  const rm = t.match(/^(destroy|exile) (up to one )?target (?:((?:white|blue|black|red|green) or (?:white|blue|black|red|green)|white|blue|black|red|green|multicolored) )?(artifact, enchantment, or nonbasic land|noncreature artifact or noncreature enchantment|noncreature artifact|noncreature enchantment|artifact, enchantment, or land|artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|creature or vehicle|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls|that player controls|you own))?(?: (that (?:was|were) dealt damage this turn))?$/);
   if (rm) {
     const TT = {
       "artifact": "artifact", "enchantment": "enchantment", "land": "land", "permanent": "permanent",
@@ -1253,7 +1253,11 @@ export function destroyExileClauseParser(clause) {
       : /^defending player controls$/.test(controlScope || "") ? "defendingPlayer"
       : /^that player controls$/.test(controlScope || "") ? "damagedPlayer"
       : "opponent";
-    const restrictions = controlScope ? [{ kind: "controller", who: controllerWho }] : [];
+    // "YOU OWN" (play-weighted 2026-10-20 — Staff of Compleation #1353 "{T}, Pay 1 life: Destroy target permanent you own.";
+    // Despotic Scepter): an OWNER scope (CR 108.3), not a controller one — a permanent of yours another player controls is one
+    // you own, and one you control but don't own is not. creatureRestrictions' owner kind, which every permanent pool reads.
+    const restrictions = controlScope === "you own" ? [{ kind: "owner", who: "you" }]
+      : controlScope ? [{ kind: "controller", who: controllerWho }] : [];
     // DD-1 — same restriction kind and same order the creature lane emits, so the two paths stay pin-compatible.
     if (rm[6]) restrictions.push({ kind: "dealtDamageThisTurn", value: true });
     // COLOR-POS: prepend the colour restriction when the optional adjective matched (rm[2]). Absent → the

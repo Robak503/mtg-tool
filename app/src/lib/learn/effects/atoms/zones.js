@@ -724,6 +724,12 @@ export function tuckClauseParser(clause) {
   if (scoped) {
     return { op: "tuck", targetType: TT[scoped[1]], where: scoped[2] === "top" ? "top" : "bottom", restrictions: [{ kind: "controller", who: "you" }] };
   }
+  // "YOU OWN" (play-weighted 2026-10-20 — Tel-Jilad Stylus "{T}: Put target permanent you own on the bottom of your library."): the
+  // owner scope (CR 108.3) — and so "your library" is the permanent's owner's library, the tuck's own destination.
+  const owned = t.match(/^put target (nonland permanent|creature|permanent) you own on (top|the bottom) of your library$/);
+  if (owned) {
+    return { op: "tuck", targetType: TT[owned[1]], where: owned[2] === "top" ? "top" : "bottom", restrictions: [{ kind: "owner", who: "you" }] };
+  }
   const combat = t.match(/^put target attacking or blocking creature on (top|the bottom) of its owner's library$/);
   if (combat) {
     return { op: "tuck", targetType: "creature", where: combat[1] === "top" ? "top" : "bottom", restrictions: [{ kind: "combat", value: "either" }] };

@@ -2806,9 +2806,13 @@ export function tutorClauseParser(clause, ctx = {}) {
     return null; // a non-land / unmodeled-filter / ambiguous-basic split-fetch → low → Arbiter
   }
   // lfh — LAND-FROM-HAND optional put (Growth Spiral).
-  const lfh = t.match(/^(?:you may )?put a land card from your hand onto the battlefield( tapped)?\.?$/);
+  // + a BASIC land card (play-weighted 2026-10-20 — Terrain Generator #1877 "{2}, {T}: You may put a basic land card from your hand
+  // onto the battlefield tapped."; Elvish Pioneer, Firebrand Ranger, Murasa Rootgrazer): the basic supertype (CR 205.4c) as the
+  // library basic-land search reads it, the ["basic", "land"] group. Put by an effect, never played (CR 305.4).
+  const lfh = t.match(/^(?:you may )?put a (basic )?land card from your hand onto the battlefield( tapped)?\.?$/);
   if (lfh) {
-    return { op: "tutor", sourceZone: "hand", filter: { groups: [["land"]] }, filterLabel: "land card from your hand", destination: "battlefield", entersTapped: !!lfh[1], targetType: null };
+    if (lfh[1]) return { op: "tutor", sourceZone: "hand", filter: { groups: [["basic", "land"]] }, filterLabel: "basic land card from your hand", destination: "battlefield", entersTapped: !!lfh[2], targetType: null };
+    return { op: "tutor", sourceZone: "hand", filter: { groups: [["land"]] }, filterLabel: "land card from your hand", destination: "battlefield", entersTapped: !!lfh[2], targetType: null };
   }
   return null;
 }

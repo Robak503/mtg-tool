@@ -350,7 +350,7 @@ export function parseCloneSpec(card) {
   // artifact/Equipment scopes are runtime-safe; enchantment / nonland-permanent scopes are NOT modeled yet →
   // they don't match here → PARK (Copy Enchantment, Clever Impersonator stay Arbiter, a safe false-negative).
   const m = t.match(
-    /^(?:you may have (?:~|this (?:creature|artifact|equipment|enchantment|vehicle)) enter|(?:~|this (?:creature|artifact|equipment|enchantment|vehicle)) enters?)(?: the battlefield)? as a copy of (any creature on the battlefield|any artifact or creature on the battlefield|any artifact on the battlefield|any equipment on the battlefield|any nonland permanent on the battlefield|any enchantment on the battlefield|any permanent that entered this turn|a creature an opponent controls|a creature you control|another creature you control|a creature or planeswalker you control)( with mana value less than or equal to the amount of mana spent to cast this creature)?(?:, except (.+?))?\.?$/,
+    /^(?:you may have (?:~|this (?:creature|artifact|equipment|enchantment|vehicle)) enter|(?:~|this (?:creature|artifact|equipment|enchantment|vehicle)) enters?)(?: the battlefield)? as a copy of (any creature on the battlefield|any artifact or creature on the battlefield|any artifact on the battlefield|any equipment on the battlefield|any nonland permanent on the battlefield|any enchantment on the battlefield|any artifact or enchantment on the battlefield|any permanent that entered this turn|a creature an opponent controls|a creature you control|another creature you control|a creature or planeswalker you control)( with mana value less than or equal to the amount of mana spent to cast this creature)?(?:, except (.+?))?\.?$/,
   );
   if (!m) return parseTemporaryEntryCopy(card);
 
@@ -394,6 +394,8 @@ export function parseCloneSpec(card) {
                 // IMPOSTER MECH (KN-3): "a creature an opponent controls" — creatures only, never your own.
                 : m[1] === "a creature an opponent controls" ? "opponentCreature"
                 : m[1] === "any enchantment on the battlefield" ? "anyEnchantment"
+                // MIRRORMADE (play-weighted 2026-10-20, #1149): "any artifact or enchantment" — the union of the two pools above.
+                : m[1] === "any artifact or enchantment on the battlefield" ? "anyArtifactOrEnchantment"
                 // shelf D36 (Sakashima's Protege): the widened nonland pool narrowed to what entered this turn.
                 : m[1] === "any permanent that entered this turn" ? "anyPermanentEnteredThisTurn"
                   : "any",
@@ -555,7 +557,10 @@ export function isCloneCard(card) {
   // + KN-3 (Imposter Mech): a NON-creature card copying a creature is native only when a become-Vehicle rider keeps the
   // copy a non-creature artifact (the creature-becoming case above stays parked).
   if (spec.scope === "opponentCreature") return (spec.riders || []).some((r) => r.kind === "becomeVehicle" && r.crew != null);
-  return spec.scope === "anyArtifact" || spec.scope === "anyEquipment" || spec.scope === "anyEnchantment" || spec.scope === "anyNonlandPermanent";
+  // + Mirrormade (play-weighted 2026-10-20): the artifact-or-enchantment union — an enchantment card copying either stays a non-creature
+  // unless what it copies is a creature, which every scope here already admits (an artifact creature under anyArtifact).
+  return spec.scope === "anyArtifact" || spec.scope === "anyEquipment" || spec.scope === "anyEnchantment" || spec.scope === "anyNonlandPermanent"
+    || spec.scope === "anyArtifactOrEnchantment";
 }
 
 /** Mana value of a mana-cost string (CR 202.3): each `{N}` digit pip adds N; `{X}`/`{Y}`/`{Z}`
@@ -615,6 +620,7 @@ export function cloneCandidates(state, controller, scope, mvCap = null) {
   const equipmentOnly = scope === "anyEquipment";
   const nonlandAny = scope === "anyNonlandPermanent"; // KN-2 (Clever Impersonator)
   const enchantmentOnly = scope === "anyEnchantment"; // KN-2 (Copy Enchantment)
+  const artifactOrEnchantment = scope === "anyArtifactOrEnchantment"; // Mirrormade (play-weighted 2026-10-20)
   const enteredThisTurn = scope === "anyPermanentEnteredThisTurn"; // shelf D36 (Sakashima's Protege)
   for (const pid of Object.keys(state.players)) {
     if (youControlOnly && pid !== controller) continue;
@@ -622,6 +628,10 @@ export function cloneCandidates(state, controller, scope, mvCap = null) {
     for (const perm of state.players[pid].battlefield) {
       const copiable = enteredThisTurn
         ? enteredThisTurnCopiable(state, perm)
+        // MIRRORMADE: an artifact as the anyArtifact pool reads it (the types it has now) OR an enchantment as the anyEnchantment pool
+        // does (never a Saga; an Aura only with a listable Enchant line) — one permanent offered once.
+        : artifactOrEnchantment
+        ? (permanentHasCardType(state, perm.id, "Artifact") || cloneWidenedCopiable(perm.card, "anyEnchantment"))
         : (nonlandAny || enchantmentOnly)
         ? cloneWidenedCopiable(perm.card, scope)
         // The types it has NOW, its face that is up (the type-line audit — CR 613.1d): Clone may copy an animated Mutavault (a
