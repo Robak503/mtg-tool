@@ -27,7 +27,7 @@
  */
 
 import { printedPower, printedToughness, counterPowerDelta, counterToughnessDelta } from "./ptPrimitive.js"; // per-axis counter deltas (Contagion, BI-4)
-import { permanentPower, permanentToughness, permanentToughnessSized, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, permanentColors, playerCantGainLife, playerEmptyDrawWins, legendRuleExemptFor, PERMANENT_TYPE_RE, enteringTypeWords } from "./layers.js";
+import { permanentPower, permanentToughness, permanentToughnessSized, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, permanentColors, playerCantGainLife, playerEmptyDrawWins, legendRuleExemptFor, PERMANENT_TYPE_RE, enteringTypeWords, untilNextTurnEndsNow } from "./layers.js";
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
 import { faceUpTypeLine } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the look-back fallback and the legend rule read the front face's type line
@@ -2321,7 +2321,9 @@ export function phaseOutPermanents(state, directIds, { playerId = null } = {}) {
  * NAME CAST LOCK (SHELF-85 B4, 2026-09-04 — Reflector Mage "that creature's owner can't cast spells with the same name
  * as that creature until your next turn"): state.nameCastLocks = [{ playerId, name, lockedBy, setTurn }]. A lock
  * refuses `playerId` casting any spell named `name` (case-insensitive exact name, CR 201.2) and expires at the start of
- * `lockedBy`'s next turn (the untap step, beside the Teferi shield expiry — CR 611.2b). No locks → no cost.
+ * `lockedBy`'s next turn (the untap step, beside the Teferi shield expiry — CR 611.2a). No locks → no cost.
+ * A setter who has left the game: the lock lasts until the turn they would have taken would have begun (CR 800.4m —
+ * layers.untilNextTurnEndsNow); until 2026-10-21 it never ended, the setter never being the active player again.
  */
 export function nameCastLocked(state, playerId, name) {
   const locks = state?.nameCastLocks;
@@ -2332,20 +2334,22 @@ export function nameCastLocked(state, playerId, name) {
 export function expireNameCastLocks(state, playerId) {
   const locks = state?.nameCastLocks;
   if (!Array.isArray(locks) || locks.length === 0) return state;
-  const kept = locks.filter((l) => !(l.lockedBy === playerId && l.setTurn < state.turn));
+  const kept = locks.filter((l) => !untilNextTurnEndsNow(state, { owner: l.lockedBy, setTurn: l.setTurn, activePlayer: playerId }));
   if (kept.length === locks.length) return state;
   return logEvent({ ...state, nameCastLocks: kept }, { kind: "name-cast-lock-expired", playerId, count: locks.length - kept.length });
 }
 
 /**
  * STORED DAMAGE REPLACEMENTS END (Lightning, Army of One's Stagger — "until your next turn", CR 611.2a): at `playerId`'s untap step
- * each one THAT player created on an earlier turn ends, and so does every one whose controller has left the game (CR 800.4a — the
- * effect ends with its controller here, an early end rather than an outliving one). No stored effects → no cost.
+ * each one THAT player created on an earlier turn ends. One whose controller has left the game lasts until the turn they would have
+ * taken would have begun, and keeps applying until then (CR 800.4m — "They neither expire immediately nor last indefinitely.";
+ * layers.untilNextTurnEndsNow); until 2026-10-21 it stopped applying as its controller left and was dropped as the next turn began.
+ * No stored effects → no cost.
  */
 export function expireDamageReplacementEffects(state, playerId) {
   const effects = state?.damageReplacementEffects;
   if (!Array.isArray(effects) || effects.length === 0) return state;
-  const kept = effects.filter((e) => state.players?.[e.controller] && !(e.untilTurnOf === playerId && e.setTurn < state.turn));
+  const kept = effects.filter((e) => !untilNextTurnEndsNow(state, { owner: e.untilTurnOf, setTurn: e.setTurn, activePlayer: playerId }));
   if (kept.length === effects.length) return state;
   return logEvent({ ...state, damageReplacementEffects: kept }, { kind: "damage-replacement-expired", playerId, count: effects.length - kept.length });
 }

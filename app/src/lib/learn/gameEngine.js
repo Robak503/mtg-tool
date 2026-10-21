@@ -482,6 +482,23 @@ export function advanceStep(state) {
     };
   }
 
+  return beginNextTurn(state, emptied);
+}
+
+/**
+ * THE NEXT TURN BEGINS — the end of the turn in `state` (its cleanup done) and the start of the next one at (beginning, untap):
+ * advanceStep's end of every turn, and playerLeavesGame's when the active player leaves (their turn ends there — the same queue,
+ * the same rotation). `emptied` is `state` with its mana pools emptied (advanceStep's step-end empty; the leaver's cleanup has
+ * already emptied them). Returns the new turn's state; runStepActions runs its untap step.
+ *
+ * THE DEPARTED TURNS (CR 800.4k — "If a player who has left the game would begin a turn, that turn doesn't begin"): every player
+ * whose turn the transition reaches and does not begin — an extra turn queued for a departed player, popped untaken, and a departed
+ * seat the rotation passes on its way to the next seat still in the game (`state.seatOrder`, the turn order every seat began with,
+ * written as the first player leaves) — is named in the new turn's `turnsNotBegun`. That is the moment the turn they would have
+ * taken would have begun, when their "until your next turn" effects end (CR 800.4m — the untap step's sweeps, which consume the
+ * list; layers.untilNextTurnEndsNow).
+ */
+export function beginNextTurn(state, emptied = state) {
   // EXTRA TURN (BLITZ XT-1, CR 500.7): if any extra turns are queued, the MOST RECENTLY created one is
   // taken next (a LIFO pop — CR 500.7's "taken … in the reverse of the order they were created") instead
   // of rotating. The extra turn is a full normal turn (turn counter still advances — CR: it IS a turn);
@@ -503,27 +520,38 @@ export function advanceStep(state) {
   // turn, and is carried through every extra turn as `rotationAnchor`. Before 2026-10-20 the rotation ran from the last taker, which
   // is the same player only when a player gives themself an extra turn on their own turn: an opponent's extra turn (Time Warp aimed
   // at ai2, Perch Protection's gift) or one taken after another player's turn (Nexus of Fate cast in an opponent's turn) handed the
-  // next normal turn to the wrong seat. A state saved mid-extra-turn before the anchor existed (no `rotationAnchor`), or an anchor
-  // who has since left the game (CR 800.4a; the engine drops them from the turn order), rotates from the active player as before.
-  const anchorKept = state.extraTurnOf != null && state.rotationAnchor && (state.turnOrder || Object.keys(state.players || {})).includes(state.rotationAnchor);
+  // next normal turn to the wrong seat. A state saved mid-extra-turn before the anchor existed (no `rotationAnchor`) rotates from the
+  // active player as before. AN ANCHOR WHO HAS LEFT THE GAME (CR 800.4a; the engine drops them from the turn order) stays the anchor
+  // (2026-10-21): the rotation resumes after their SEAT, read in the seat record (`seatOrder`) — until then it went on from the active
+  // player, handing the next normal turn to the seat after whoever took the last extra turn. The active player who has just left
+  // (playerLeavesGame's end of their turn) is the anchor the same way.
+  const order = state.turnOrder || Object.keys(state.players || {});
+  const seatOrder = Array.isArray(state.seatOrder) ? state.seatOrder : null;
+  const knownSeat = (id) => !!id && (order.includes(id) || !!seatOrder?.includes(id));
+  const anchorKept = state.extraTurnOf != null && knownSeat(state.rotationAnchor);
   const anchor = anchorKept ? state.rotationAnchor : state.activePlayer;
+  const notBegun = []; // CR 800.4k — the departed players whose turn this transition reaches and does not begin (the doc above)
   let xt = state.extraTurns || [];
   let afterSkips = emptied;
   while (xt.length > 0 && (!afterSkips.players?.[xt[xt.length - 1].player] || extraTurnSkipped(afterSkips, xt[xt.length - 1].player))) {
     const skipped = xt[xt.length - 1];
     const departed = !afterSkips.players?.[skipped.player];
+    if (departed) notBegun.push(skipped.player);
     afterSkips = dropSkippedExtraTurnRecords(afterSkips, xt.length - 1);
     xt = xt.slice(0, -1);
     afterSkips = logEvent({ ...afterSkips, extraTurns: xt }, { kind: "extra-turn-skipped", player: skipped.player, ...(departed ? { reason: "left the game" } : {}) });
   }
+  const { turnsNotBegun: _spentNotBegun, ...fresh } = afterSkips;
+  const withNotBegun = (extra) => (extra.length ? { turnsNotBegun: extra } : {});
   if (xt.length > 0) {
     const taker = xt[xt.length - 1];
     return {
-      ...afterSkips,
+      ...fresh,
       extraTurns: xt.slice(0, -1),
       activePlayer: taker.player,
       extraTurnOf: taker.player, // SHELF-85 V12: THIS turn is an extra turn of that player ("that turn's end step" delayed triggers read it)
       rotationAnchor: anchor, // CR 500.7 — the normal turn the rotation resumes after, once the extra turns are taken
+      ...withNotBegun(notBegun),
       turn: state.turn + 1,
       normalCombatOwed: false, currentExtraCombat: null, // AFTER-MAIN FIDELITY (KT-7b): per-turn flags reset
       phase: "beginning",
@@ -534,13 +562,26 @@ export function advanceStep(state) {
   }
 
   // End of turn — next player's turn begins at (beginning, untap): the player after the rotation anchor (above). The extra turns
-  // are over, so the normal turn carries no anchor.
-  const nextActive = nextInTurnOrder(state, anchor);
-  const { rotationAnchor: _spentAnchor, ...rotated } = afterSkips;
+  // are over, so the normal turn carries no anchor. With a seat record, the rotation walks it from the anchor's seat to the next
+  // seat still in the game, and every departed seat it passes is a turn that doesn't begin (CR 800.4k).
+  let nextActive = null;
+  if (seatOrder && seatOrder.includes(anchor)) {
+    const at = seatOrder.indexOf(anchor);
+    for (let k = 1; k < seatOrder.length && nextActive == null; k++) {
+      const seat = seatOrder[(at + k) % seatOrder.length];
+      if (order.includes(seat)) nextActive = seat;
+      else notBegun.push(seat);
+    }
+    // Every other seat is gone: the anchor's own turn again when they are still in the game (a one-seat order, nextInTurnOrder's
+    // answer), else the turn order's first seat.
+    if (nextActive == null) nextActive = order.includes(anchor) ? anchor : (order[0] ?? null);
+  } else nextActive = nextInTurnOrder(state, anchor);
+  const { rotationAnchor: _spentAnchor, ...rotated } = fresh;
   return {
     ...rotated,
     activePlayer: nextActive,
     extraTurnOf: null, // SHELF-85 V12: a normal rotation is nobody's extra turn
+    ...withNotBegun(notBegun),
     turn: state.turn + 1,
     normalCombatOwed: false, currentExtraCombat: null, // AFTER-MAIN FIDELITY (KT-7b): per-turn flags reset
     phase: "beginning",
@@ -585,10 +626,13 @@ export function runStepActions(state) {
       // in BEFORE they untap (they return in the state they left, untapped by this same step if they were untapped),
       // and the player's shield expires at the same moment.
       next = phaseInAndExpireShield(next, state.activePlayer);
-      // B4 (Reflector Mage — "until your next turn", CR 611.2b): the name cast locks THIS player set on an earlier turn end here.
+      // B4 (Reflector Mage — "until your next turn", CR 611.2a): the name cast locks THIS player set on an earlier turn end here.
       next = expireNameCastLocks(next, state.activePlayer);
       // Lightning, Army of One's Stagger ("until your next turn", CR 611.2a): the stored damage replacements this player created end here.
       next = expireDamageReplacementEffects(next, state.activePlayer);
+      // The three sweeps above end a departed player's "until your next turn" effects when beginNextTurn named them in
+      // `turnsNotBegun` (CR 800.4m — the turn they would have taken would have begun just now); the list is spent here.
+      if (next.turnsNotBegun) { const { turnsNotBegun: _spent, ...rest } = next; next = rest; }
       next = untapAll(next, { playerId: state.activePlayer });
       // The board as the "during each other player's untap step" family begins: those untaps happen at the same time as the active
       // player's (CR 502.3 — the bundled rulings), once per permanent per step, so the last pass below skips what an earlier one met.

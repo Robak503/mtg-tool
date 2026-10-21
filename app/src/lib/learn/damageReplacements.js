@@ -316,9 +316,10 @@ export function collectDamageReplacements(state) {
   }
   // THE STORED ONES (CR 611.2a — a replacement created by a resolved ability, lasting as long as it says: Lightning, Army of One's
   // Stagger, effects/atoms/misc.applyDamageReplacementUntilNextTurn). Each is its own entry (its id for the 614.5 key); its
-  // controller is the ability's. Expiry is gameState.expireDamageReplacementEffects'.
+  // controller is the ability's. Expiry is gameState.expireDamageReplacementEffects'. One whose controller has left the game still
+  // applies until it expires (CR 800.4m — it lasts until the turn they would have taken would have begun; CR 800.4a ends only the
+  // effects that give the leaver control).
   for (const e of state?.damageReplacementEffects || []) {
-    if (!state.players?.[e.controller]) continue;
     out.push({ op: e.op, scope: e.scope, permanentId: `effect:${e.id}`, permanentController: e.controller, entryIndex: 0 });
   }
   return out;

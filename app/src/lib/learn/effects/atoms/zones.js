@@ -1609,7 +1609,7 @@ export function bounceClauseParser(clause) {
   // NAME-LOCK BOUNCE (SHELF-85 B4, 2026-09-04 — Reflector Mage): the splitter's sentinel for "… to its owner's hand.
   // That creature's owner can't cast spells with the same name as that creature until your next turn." The bounce is
   // the plain opponent-scoped creature bounce; the rider records a per-player NAME cast lock (gameState.nameCastLocks)
-  // that legalChoices' cast loop refuses and the lock-setter's next untap step expires (CR 611.2b — "until your next
+  // that legalChoices' cast loop refuses and the lock-setter's next untap step expires (CR 611.2a — "until your next
   // turn" ends as that turn begins).
   if (/^return target creature an opponent controls to its owner's hand with a name lock until your next turn$/.test(t)) {
     return { op: "bounce", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], nameLockUntilNextTurn: true };

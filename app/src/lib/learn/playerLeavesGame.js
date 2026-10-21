@@ -32,13 +32,17 @@
  * in turn order) and priority (CR 800.4a — the next player in turn order).
  *
  * ⛔ What does NOT end: continuous effects the leaver's spells and abilities created on other players' objects (CR 800.4a
- * ends only the effects that give them control). One that lasts "until your next turn" lasts until the turn the leaver would
- * have taken would have begun (CR 800.4m — handOverUntilNextTurnEffects). A pending resolution-time choice of theirs
+ * ends only the effects that give them control). One that lasts "until your next turn" — goad, detain, Kardur's rule, Savage
+ * Order's grant, Reflector Mage's name lock, Lightning's damage replacement — lasts until the turn the leaver would have taken
+ * would have begun (CR 800.4m): the turn transition names the leaver when it passes their seat or pops an extra turn queued for
+ * them (gameEngine.beginNextTurn, CR 800.4k), and the untap step's sweeps end those effects then (layers.untilNextTurnEndsNow).
+ * Until 2026-10-21 the goad family was handed to the next seat (ending at any turn of theirs, an extra one included), the name
+ * lock never ended and the damage replacement stopped applying at once. A pending resolution-time choice of theirs
  * (state.pendingChoice and its siblings) is not re-assigned (CR 800.4g) — not modelled.
  */
 import { moveCardToZone, removePermanentFromGame, findPermanent } from "./gameState.js";
 import { releaseControlOnLeave, controllerOfPermanent } from "./controlMove.js";
-import { finishCleanupActions, runStepActions } from "./gameEngine.js";
+import { finishCleanupActions, runStepActions, beginNextTurn } from "./gameEngine.js";
 import { becomeMonarch } from "./effects/atoms/monarch.js";
 import { isLandCard } from "./effects/atoms/shared.js";
 
@@ -131,37 +135,17 @@ function phasedOutLeave(state, playerId, record) {
 }
 
 /**
- * "UNTIL YOUR NEXT TURN" WHEN ITS CONTROLLER LEAVES (CR 800.4m — "any continuous effects with durations that last
- * until that player's next turn … will last until that turn would have begun. They neither expire immediately nor last
- * indefinitely."; Azorius Arrester's and Martial Law's own rulings): the leaver's stored `untilOwnersNextTurn` effects (detain,
- * goad, Kardur's rule, Savage Order's grant) are handed to the next seat still in the game, `successor`. The leaver's next turn
- * would have begun just before the successor's next one — the turn order passes the leaver's seat there (CR 800.4k: that turn
- * doesn't begin, the successor's does) — so each effect now ends as the successor's next turn begins (layers.expireContinuousEffects):
- *   · a bystander leaving (another player's turn): the successor's first turn that begins after this one;
- *   · the ACTIVE player leaving: their turn ends now and the successor's begins at once (removePlayerFromGame) — that turn is not
- *     the one the leaver would have taken next, so the stamp moves past it: the successor's turn after that one.
- * An effect of another player's that was handed to the leaver earlier moves on the same way (the seats it passed are still
- * passed). Extra turns are not followed: a successor's extra turn taken before the leaver's would-be turn ends it early.
- * `prior` is the state as the leaver left (its turn and active player).
- */
-function handOverUntilNextTurnEffects(state, playerId, successor, prior) {
-  const list = state.continuousEffects || [];
-  if (!successor || !list.some((e) => e.duration?.kind === "untilOwnersNextTurn" && e.duration.owner === playerId)) return state;
-  const turn = prior.activePlayer === playerId ? prior.turn + 1 : prior.turn;
-  return {
-    ...state,
-    continuousEffects: list.map((e) => (e.duration?.kind === "untilOwnersNextTurn" && e.duration.owner === playerId
-      ? { ...e, duration: { ...e.duration, owner: successor, turn, leftGame: [...(e.duration.leftGame || []), playerId] } }
-      : e)),
-  };
-}
-
-/**
  * Remove `playerId` from the game (CR 800.4a — see the header). Two cases for the turn:
  *   - a bystander leaves → the current turn goes on; priority passes on if they held it;
- *   - the ACTIVE player leaves → their turn ends now and the next surviving seat's turn starts from untap (CR 800.4j says the
- *     turn continues without an active player — a documented, bounded simplification: finishCleanupActions runs the
- *     truncated turn's end-of-turn housekeeping so nothing "until end of turn" leaks into the next turn).
+ *   - the ACTIVE player leaves → their turn ends now and the next turn starts from untap (CR 800.4j says the turn continues
+ *     without an active player — a documented, bounded simplification: finishCleanupActions runs the truncated turn's end-of-turn
+ *     housekeeping so nothing "until end of turn" leaks into the next turn). The next turn is the one that follows theirs
+ *     (gameEngine.beginNextTurn, as at any end of turn): an extra turn queued is taken first (CR 500.7 — one queued for the leaver
+ *     doesn't begin, CR 800.4k), else the rotation resumes after the anchor — the leaver's seat, or the player whose normal turn
+ *     the leaver's extra turn followed. Until 2026-10-21 the next seat's turn began at once whatever was queued, carrying the
+ *     leaver's extra-turn marks, so the rotation could hand that seat a second turn in a row.
+ * THE SEAT RECORD: `seatOrder` keeps every seat the game began with, in turn order, the departed ones included — written as the first
+ * player leaves (the turn order then still holds them all). The turn transition reads it to see a departed seat it passes.
  */
 export function removePlayerFromGame(state, playerId) {
   const gone = state.players?.[playerId];
@@ -260,7 +244,7 @@ export function removePlayerFromGame(state, playerId) {
   if (record.crossed > 0 || record.exiled.length > 0) {
     log = [...log, { turn: state.turn, kind: "left-game-objects", player: playerId, leftTheGame: record.leftTheGame, controlReleased: record.controlReleased, exiled: record.exiled, ceased: record.ceased }];
   }
-  let base = handOverUntilNextTurnEffects({ ...s, players, turnOrder, combat, log }, playerId, nextSeatedAfter(oldOrder, playerId, players), state);
+  let base = { ...s, players, turnOrder, seatOrder: state.seatOrder || oldOrder, combat, log };
   // PLAYER-AURA sweep (CR 303.4c — "the player it was attached to has left the game"): an Aura enchanting the departed
   // player is put into its owner's graveyard, through moveCardToZone so the leave and graveyard events record normally.
   for (const pid of Object.keys(base.players)) {
@@ -278,20 +262,13 @@ export function removePlayerFromGame(state, playerId) {
   }
 
   if (state.activePlayer === playerId) {
-    // The ACTIVE player left: their turn ends now and the next surviving seat's turn starts from untap (see the doc comment —
-    // CR 800.4j's turn-without-an-active-player is not modelled). The truncated turn's end-of-turn housekeeping runs first
-    // (damage wears off, "until end of turn" effects end, the SBA fixpoint); its hand-size discard belonged to the leaver.
-    // Surviving seats lose the truncated turn's remaining priority windows and end-step triggers — parked.
-    const nextActive = nextSeatedAfter(oldOrder, playerId, base.players) || turnOrder[0] || null;
-    return runStepActions({
-      ...finishCleanupActions(base),
-      activePlayer: nextActive,
-      turn: state.turn + 1,
-      phase: "beginning",
-      step: "untap",
-      priorityHolder: null,
-      consecutivePasses: 0,
-    });
+    // The ACTIVE player left: their turn ends now and the next turn starts from untap (see the doc comment — CR 800.4j's
+    // turn-without-an-active-player is not modelled). The truncated turn's end-of-turn housekeeping runs first (damage wears off,
+    // "until end of turn" effects end, the SBA fixpoint); its hand-size discard belonged to the leaver. Then the turn that follows
+    // theirs begins, chosen as at any end of turn (gameEngine.beginNextTurn — the extra-turn queue, then the rotation from the
+    // anchor, which reads the leaver's seat in the seat record). Surviving seats lose the truncated turn's remaining priority
+    // windows and end-step triggers — parked.
+    return runStepActions(beginNextTurn(finishCleanupActions(base)));
   }
 
   // A bystander left — the turn goes on. Priority they held passes to the next player in turn order still in the game

@@ -15,7 +15,8 @@
  * indestructible on the controller's own next turn. An effect whose controller had left the game was never swept at all.
  * THE FIX. The duration is swept as a turn begins (gameEngine.runStepActions' untap step — the moment the Teferi shield, the
  * name-cast locks and the stored damage replacements already end): it ends as its controller's next turn begins. A player who
- * leaves hands their effects to the seat after them (playerLeavesGame), so each ends as the turn they would have taken begins.
+ * leaves keeps theirs until the turn they would have taken would have begun (as of 2026-10-21 the turn transition names that moment,
+ * gameEngine.beginNextTurn — the extra-turn cases are leaverWouldBeTurn.test.js'; this slice handed them to the next seat).
  *
  * Every turn here is walked through the engine's own step driver (nextStep: the untap, draw, combat and cleanup actions of
  * every seat in turn), never a hand-set turn counter. Real oracle fixtures (bundled Scryfall snapshot, read 2026-10-20).
@@ -248,7 +249,7 @@ describe("⭐ the sweep itself (layers.expireContinuousEffects)", () => {
     const s = pod({ battlefield: { ai1: [bears("bear", "ai1")] } });
     return { ...s, continuousEffects: [{ ...effect, id: "ceff-1", timestamp: 0, isCDA: false, sublayer: null }] };
   };
-  it("⭐ an effect whose owner is gone with no hand-over (a state saved before it) ends as the next turn begins — never for good", () => {
+  it("⭐ an effect whose owner is gone with no seat record (a state saved before it) ends as the next turn begins — never for good", () => {
     const s0 = board(goadBy("ai2", 5));
     const { ai2: _gone, ...players } = s0.players;
     const s = { ...s0, players, turnOrder: ["user", "ai1", "ai3"], turn: 6, activePlayer: "ai1" };

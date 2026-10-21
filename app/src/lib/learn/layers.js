@@ -2162,9 +2162,14 @@ function liveGoadedGrants(state, permanentId) {
     }
     if (e.op.layerOp !== "addKeyword") continue;
     const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
-    // ④-AI (goad as an EFFECT): a spell's resolution has no source permanent, so the goad atom records the goader on
-    // the source as `controller`. Read only when no permanent resolves — an Aura's goad keeps resolving live.
-    const player = src?.controller || e.source?.controller || null;
+    // THE GOADER (CR 701.15b — "a player other than the controller of the permanent, spell, or ability that caused it to be
+    // goaded"; Jeering Homunculus's ruling: "the controller of the spell or ability that goaded it"). A RESOLVED goad (a spell, or
+    // a permanent's triggered or activated ability) names the controller the goad atom recorded on its source as it resolved —
+    // whoever controls that permanent later (Act of Treason on the Homunculus) is not the goader; until 2026-10-21 the live
+    // permanent's controller was read first. A STATIC goad (an Aura's or Equipment's "is goaded") names the permanent's
+    // controller, read live; so does a stored goad with no recorded controller (a state saved before the record).
+    const recorded = e.source?.kind === "resolution" ? e.source.controller : null;
+    const player = recorded || src?.controller || e.source?.controller || null;
     if (player) out.push({ player, requirementOnly: !!e.op.requirementOnly });
   }
   return out;
@@ -3184,6 +3189,26 @@ export function removeContinuousEffect(state, effectId) {
 }
 
 /**
+ * DOES AN "UNTIL <OWNER>'S NEXT TURN" DURATION END AS THIS TURN BEGINS? The one reading shared by every store of that duration —
+ * the stored continuous effects (expireContinuousEffects below), gameState's name cast locks and stored damage replacements — called
+ * from the untap step's turn-begin sweep (gameEngine.runStepActions) with `activePlayer` the player whose turn is beginning and
+ * `turn` its number.
+ *   · An owner still in the game: their first turn that begins after the stamp turn (`setTurn`) ends it — an extra turn of theirs
+ *     counts (it is a turn of theirs, CR 500.7); the stamp turn itself never does.
+ *   · An owner who has LEFT the game (CR 800.4m — "will last until that turn would have begun. They neither expire immediately nor
+ *     last indefinitely."): it ends as the turn they would have taken would have begun. The turn transition names them in
+ *     `state.turnsNotBegun` when the turn order passes their seat, or when it pops an extra turn queued for them, untaken (CR 800.4k
+ *     — gameEngine.beginNextTurn). The seat record (`state.seatOrder`, written as the first player leaves — playerLeavesGame) is
+ *     what lets the rotation see a departed seat; a departed owner it does not know (a state saved before it) ends as the next turn
+ *     begins, never lasting for good.
+ */
+export function untilNextTurnEndsNow(state, { owner, setTurn, activePlayer, turn = state?.turn }) {
+  if (state?.players?.[owner]) return owner === activePlayer && turn > setTurn;
+  if (!(state?.seatOrder || []).includes(owner)) return true;
+  return (state?.turnsNotBegun || []).includes(owner);
+}
+
+/**
  * CR 514.2 / 500.4: drop expired-duration resolution effects. Called at cleanup
  * (atCleanupOfTurn), at step begin (atStepBegin {phase, step}) and as a turn
  * begins (atTurnBegin {playerId, turn} — the new turn's active player and number).
@@ -3213,14 +3238,12 @@ export function expireContinuousEffects(state, { atCleanupOfTurn = null, atStepB
     // (gameEngine.runStepActions' untap step) ends it; a cleanup never does. The first turn of the owner's that BEGINS
     // after the stamp turn ends it: an extra turn they take counts (it is a turn of theirs, CR 500.7); the turn the effect
     // was created in never does. Until 2026-10-20 it ended in the cleanup of that turn instead, holding through all of it.
-    // A player who leaves the game hands each of these to the next seat (playerLeavesGame — CR 800.4m: it lasts until the
-    // turn the leaver would have taken would have begun); one whose owner is gone without that hand-over (a state saved
-    // before it) ends as the next turn begins, never lasting for good.
+    // An owner who has left the game keeps their effects until the turn they would have taken would have begun (CR 800.4m —
+    // untilNextTurnEndsNow, above).
     if (d.kind === "untilOwnersNextTurn") {
       if (atTurnBegin == null) return true;
       if (d.turn == null || !Number.isFinite(d.turn)) return false; // malformed → expirable (the endOfTurn discipline)
-      if (!state.players?.[d.owner]) return false;
-      return !(d.owner === atTurnBegin.playerId && atTurnBegin.turn > d.turn);
+      return !untilNextTurnEndsNow(state, { owner: d.owner, setTurn: d.turn, activePlayer: atTurnBegin.playerId, turn: atTurnBegin.turn });
     }
     return true; // permanent / unhandled durations survive
   });

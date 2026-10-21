@@ -924,6 +924,13 @@ every creature). Its two keywords are goad's pseudo-keywords (`mustAttack`, `goa
 the recorded controller), marked `requirementOnly: true` on the op: it is not goad (CR 701.15), so a future reader of the goaded
 DESIGNATION ("a goaded creature") must skip those grants.
 
+**The goader** (`goaderControllersOf` / `attackOtherThanRequirementsOf`, CR 701.15b — "the controller of the permanent, spell, or
+ability that caused it to be goaded"). A resolved goad (a spell, or a permanent's triggered or activated ability — `applyGoad`)
+names the controller recorded on its `{kind: "resolution"}` source as it resolved; the permanent's later controller is not the
+goader (Jeering Homunculus taken with Act of Treason — its ruling: "the controller of the spell or ability that goaded it"). A static
+goad (an Aura's or Equipment's "is goaded", `{kind: "static"}`) names the permanent's controller, read live. Until 2026-10-21 a
+resolved goad with a source permanent read that permanent's live controller first.
+
 **Durations — where each one ends** (`expireContinuousEffects`, 2026-10-20). A stored effect's `duration.kind` decides which sweep
 ends it; the sweeps run at fixed points of the turn, and a new duration gets a kind and a sweep point, never arithmetic on the
 turn counter (`state.turn` counts every player's turns).
@@ -933,17 +940,32 @@ turn counter (`state.turn` counts every player's turns).
 | "until end of turn", "this turn" | `endOfTurn` `{turn}` | the cleanup of that turn (CR 514.2 — `finishCleanupActions`) |
 | "until your next turn" — goad, detain, Kardur's rule, Savage Order's grant | `untilOwnersNextTurn` `{owner, turn}` | as the owner's first turn after the stamp turn BEGINS — `runStepActions`' untap step, before anything untaps (CR 701.15a, 701.35a, 611.2a); a cleanup never ends it |
 | "until your next turn" — Teferi's Protection, The One Ring, The Stasis Coffin (the player shield); phasing | player `teferiShield`; `phasedOut` | the same untap step (`phaseInAndExpireShield`) |
-| "until your next turn" — Reflector Mage's name lock; Lightning's damage replacement | `nameCastLocks`; `damageReplacementEffects` | the same untap step (`expireNameCastLocks`, `expireDamageReplacementEffects`) |
+| "until your next turn" — Reflector Mage's name lock; Lightning's damage replacement | `nameCastLocks` `{lockedBy, setTurn}`; `damageReplacementEffects` `{untilTurnOf, setTurn}` | the same untap step (`expireNameCastLocks`, `expireDamageReplacementEffects`) |
+| "until your next turn" — the three stores above (`untilOwnersNextTurn`, `nameCastLocks`, `damageReplacementEffects`), their owner gone from the game | the same records, the owner departed | as the turn the owner would have taken would have begun (CR 800.4m): the turn transition names them in `turnsNotBegun` and the same untap step ends it — see below. A departed controller's damage replacement keeps applying until then |
 | "until the end of your next turn" — the extended impulse (Light Up the Stage) | the exiled card's `_impulseExtended` stamp | the cleanup of the owner's first turn after the stamp (`clearImpulsePlayPermissions`) |
 
+The three "until your next turn" stores share one reading, `layers.untilNextTurnEndsNow(state, {owner, setTurn, activePlayer})`.
 Until 2026-10-20 `untilOwnersNextTurn` ended in the cleanup of the owner's next turn, so it covered that whole turn: a detained
-creature could not block on the detainer's turn, and its activated abilities stayed locked. **A player who leaves the game**
-(CR 800.4m — the effect lasts until the turn they would have taken would have begun, neither ending at once nor lasting for good):
-`playerLeavesGame.handOverUntilNextTurnEffects` hands the leaver's `untilOwnersNextTurn` effects to the next seat still in the
-game — the leaver's turn would have come just before that seat's next one — with the stamp moved one turn on when the leaver was
-the active player (their successor's turn begins at once and is not the turn they would have taken). Extra turns are not followed
-(a successor's extra turn ends it early); an effect whose owner is gone with no hand-over ends as the next turn begins. The name
-locks and the damage replacements do not get the hand-over (see the run ledger's found-not-fixed).
+creature could not block on the detainer's turn, and its activated abilities stayed locked.
+
+**A player who leaves the game** (CR 800.4m — "will last until that turn would have begun. They neither expire immediately nor
+last indefinitely."; CR 800.4k — "If a player who has left the game would begin a turn, that turn doesn't begin."). The effects
+keep their departed owner. `playerLeavesGame` writes the seat record `state.seatOrder` as the first player leaves (every seat the
+game began with, in turn order); `gameEngine.beginNextTurn` — the end of every turn, the active leaver's included — names in the
+new turn's `turnsNotBegun` each departed player whose turn it reaches and does not begin: an extra turn queued for them, popped
+untaken, and a departed seat the rotation passes on its way from the anchor to the next seat still in the game. The untap step's
+three sweeps end a departed owner's effects when they are named there, and spend the list. So the moment is exact around extra
+turns: another seat's extra turn taken first is not it, an extra turn already queued for the leaver is it (it would have been their
+next turn), and a leaver whose own normal turn just passed waits for the next round. A departed owner the seat record does not know
+(a state saved before it) ends as the next turn begins. Until 2026-10-21 the goad family was handed to the next seat and ended at any
+turn of theirs (an extra one included), the name lock never ended, and the damage replacement stopped applying at once.
+
+**The turn order around a departure** (`beginNextTurn`, CR 500.7). The active player who leaves ends their turn through the same
+transition as any end of turn: a queued extra turn comes first, else the rotation resumes after the anchor (their seat, or the
+player whose normal turn their extra turn followed). A rotation anchor who has left stays the anchor — the rotation resumes after
+their seat in the seat record. Until 2026-10-21 the active leaver's next seat began at once, whatever was queued, keeping the
+leaver's extra-turn marks (a seat could then take two turns in a row), and a departed anchor sent the rotation on from the active
+player.
 
 ### 4.7 Mana (`manaModel.js`)
 

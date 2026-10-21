@@ -1039,7 +1039,8 @@ export function applyPhaseOut(state, atom, ctx) {
  * only off the combat-damage-to-a-player event (triggerRouting's damagedPlayer pin) — and damageReplacements.collectDamageReplacements
  * reads it beside the battlefield's statics: any source, to that player or a permanent that player controls (read when the
  * damage would be dealt), in the affected player's CR 616.1 order with the rest. It ends as its controller's next turn begins
- * (gameState.expireDamageReplacementEffects, at the untap step), and with its controller if that player leaves the game first.
+ * (gameState.expireDamageReplacementEffects, at the untap step); if that player leaves the game first, as the turn they would have
+ * taken would have begun (CR 800.4m), applying until then.
  * Each resolution is its own effect (two triggers double twice). The exact sentence only.
  */
 export function damageReplacementUntilNextTurnClauseParser(clause) {
