@@ -5,10 +5,10 @@
  *   1. A LOYALTY ability raised no ward. A loyalty ability is an activated ability (CR 606.1) and ward triggers on "a spell or
  *      ability an opponent controls" (CR 702.21a), yet actionDispatcher.applyActivateLoyalty never asked it: Chandra, Torch of
  *      Defiance's −3 at an opponent's Leonin Lightbringer resolved without the {2}.
- *   2. Every ward settle handed priority to the ACTIVE player. The caster of a spell (or the activator of an ability) receives
- *      priority after casting it (CR 117.3c), and a ward trigger goes on the stack before that player receives it (CR 117.5) — the
- *      engine asks the ward at once instead, so the settle must leave priority where the cast left it. Before, a non-active player
- *      who cast at a ward permanent lost the priority the cast gave them: the active player acted first.
+ *   2. Priority after a ward is settled. This slice handed it back to the caster (CR 117.3c, 117.5); the ward-leftovers slice
+ *      (2026-10-21, wardLeftovers.test.js §5) restored the ACTIVE player (CR 117.3b): the question is the ward trigger's resolution,
+ *      and the caster's own priority comes before it, with the ward on the stack — the window the immediate question skips. The
+ *      section-2 tests below were changed on purpose with it and pin the active player.
  *   3. A spell or ability with two or more ward targets asked no ward at all (ward.js returned null for 2+). Each ward triggers
  *      (CR 113.2c; the bundled ruling on a ward card: "If a player casts a spell that targets multiple permanents their opponent
  *      controls with ward, each of those ward abilities will trigger. If that player doesn't pay for all of them, the spell will be
@@ -153,38 +153,38 @@ describe("1 · a loyalty ability is an activated ability (CR 606.1) — ward tri
   });
 });
 
-describe("2 · after a ward settles, priority is where the cast left it (CR 117.3c, 117.5) — not handed to the active player", () => {
-  it("⭐ the opponent's turn: you (holding priority) Murder their Lightbringer and pay the {2} — you still hold priority, the pass count at 0; before, the active player took priority first and passed", () => {
+describe("2 · after a ward settles, the active player receives priority (CR 117.3b — the ward trigger has resolved; changed on purpose 2026-10-21)", () => {
+  it("⭐ the opponent's turn: you (holding priority) Murder their Lightbringer and pay the {2} — the active player receives priority and passes; you are asked with the count at 1", () => {
     const start = board({ active: "ai", holder: "user", passes: 1, ai: [P("light", LEONIN_LIGHTBRINGER, "ai")], hand: [H("murder", MURDER), H("opt", OPT)] });
     const asked = castAt(start, "murder", ["light"]);
     const after = answer(asked, { pay: true });
     const s = after.session.state;
     const row = { ask: asked.decision.kind, next: after.decision.kind, holder: s.priorityHolder, passes: s.consecutivePasses, stack: s.stack.map((o) => o.source?.name) };
     console.log(`  WITNESS priority-person-nap ${JSON.stringify(row)}`);
-    expect(row).toEqual({ ask: "soft-counter", next: "ask", holder: "user", passes: 0, stack: ["Murder"] });
+    expect(row).toEqual({ ask: "soft-counter", next: "ask", holder: "user", passes: 1, stack: ["Murder"] });
   });
 
-  it("⭐ your turn: the AI (holding priority) Murders your Lightbringer and pays from its pool — the AI keeps priority and passes it to you (count 1); before, you were handed priority by the ward's settle (count 0)", () => {
+  it("⭐ your turn: the AI (holding priority) Murders your Lightbringer and pays from its pool — you, the active player, receive priority (count 0)", () => {
     const start = board({ active: "user", holder: "ai", passes: 1, user: [P("light", LEONIN_LIGHTBRINGER, "user")], aiHand: [H("aimurder", MURDER)], aiPool: FULL, hand: [H("opt", OPT)] });
     const cast = aiAct(start, (a) => a.kind === "cast-spell" && a.cardId === "aimurder" && targetsOf(a) === "light");
     const r = advanceUntilDecision(session(cast));
     const s = r.session.state;
     const row = { asked: wardAsks(s), next: r.decision.kind, holder: s.priorityHolder, passes: s.consecutivePasses, stack: s.stack.map((o) => o.source?.name) };
     console.log(`  WITNESS priority-ai-nap ${JSON.stringify(row)}`);
-    expect(row).toEqual({ asked: [["ai", "Leonin Lightbringer"]], next: "ask", holder: "user", passes: 1, stack: ["Murder"] });
+    expect(row).toEqual({ asked: [["ai", "Leonin Lightbringer"]], next: "ask", holder: "user", passes: 0, stack: ["Murder"] });
   });
 
-  it("the ward on a triggered ability too: in the opponent's turn you cast Opt, your Weaver of Lightning's ping aims at their Lightbringer, you pay the {2} — you still hold priority", () => {
+  it("the ward on a triggered ability too: in the opponent's turn you cast Opt, your Weaver of Lightning's ping aims at their Lightbringer, you pay the {2} — the active player receives priority and passes; you are asked with the count at 1", () => {
     const start = board({ active: "ai", holder: "user", passes: 1, user: [P("weaver", WEAVER_OF_LIGHTNING, "user")], ai: [P("light", LEONIN_LIGHTBRINGER, "ai")], hand: [H("opt", OPT), H("opt2", OPT)] });
     const asked = act(start, (a) => a.kind === "cast-spell" && a.cardId === "opt");
     const after = answer(asked, { pay: true });
     const s = after.session.state;
     const row = { ask: [asked.decision.kind, asked.decision.spellName], next: after.decision.kind, holder: s.priorityHolder, passes: s.consecutivePasses };
     console.log(`  WITNESS priority-trigger-nap ${JSON.stringify(row)}`);
-    expect(row).toEqual({ ask: ["soft-counter", "Weaver of Lightning"], next: "ask", holder: "user", passes: 0 });
+    expect(row).toEqual({ ask: ["soft-counter", "Weaver of Lightning"], next: "ask", holder: "user", passes: 1 });
   });
 
-  it("a ward paid by a discard you pick: in the opponent's turn you Murder their Spectral Snatcher, pay by discarding (you choose which), and still hold priority once the card is gone", () => {
+  it("a ward paid by a discard you pick: in the opponent's turn you Murder their Spectral Snatcher, pay by discarding (you choose which) — once the card is gone the active player receives priority and passes; you are asked with the count at 1", () => {
     const start = board({ active: "ai", holder: "user", passes: 1, ai: [P("snatch", SPECTRAL_SNATCHER, "ai")], hand: [H("murder", MURDER), H("opt", OPT), H("spare", GRIZZLY_BEARS)] });
     const asked = castAt(start, "murder", ["snatch"]);
     const pick = answer(asked, { pay: true });
@@ -192,16 +192,16 @@ describe("2 · after a ward settles, priority is where the cast left it (CR 117.
     const s = after.session.state;
     const row = { pick: pick.decision.kind, next: after.decision.kind, holder: s.priorityHolder, passes: s.consecutivePasses, graveyard: s.players.user.graveyard.map((c) => c.id) };
     console.log(`  WITNESS priority-discard-pick ${JSON.stringify(row)}`);
-    expect(row).toEqual({ pick: "discard", next: "ask", holder: "user", passes: 0, graveyard: ["spare"] });
+    expect(row).toEqual({ pick: "discard", next: "ask", holder: "user", passes: 1, graveyard: ["spare"] });
   });
 
-  it("Diffusion Sliver's tax the same way: in the opponent's turn you Murder their Diffusion Sliver and pay its {2} — you still hold priority", () => {
+  it("Diffusion Sliver's tax the same way: in the opponent's turn you Murder their Diffusion Sliver and pay its {2} — the active player receives priority and passes; you are asked with the count at 1", () => {
     const start = board({ active: "ai", holder: "user", passes: 1, ai: [P("diff", DIFFUSION_SLIVER, "ai")], hand: [H("murder", MURDER), H("opt", OPT)] });
     const asked = castAt(start, "murder", ["diff"]);
     const after = answer(asked, { pay: true });
     const row = { ask: [asked.decision.kind, asked.decision.sourceName], next: after.decision.kind, holder: after.session.state.priorityHolder, passes: after.session.state.consecutivePasses };
     console.log(`  WITNESS priority-diffusion ${JSON.stringify(row)}`);
-    expect(row).toEqual({ ask: ["soft-counter", "Diffusion Sliver"], next: "ask", holder: "user", passes: 0 });
+    expect(row).toEqual({ ask: ["soft-counter", "Diffusion Sliver"], next: "ask", holder: "user", passes: 1 });
   });
 
   it("control: on your own turn your Murder at their Lightbringer, paid — you hold priority, count 0 (the active player IS the caster; both trees)", () => {

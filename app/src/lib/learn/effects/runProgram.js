@@ -53,6 +53,7 @@ const returnLandPoolMatch = (cost, p) =>
 import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the shared board-condition readers; runProgram → interveningIf → gameState is a leaf edge (no cycle)
 import { addContinuousEffect } from "../layers.js"; // SAVAGE ORDER — the fetched-permanent UEOT keyword grants; layers never imports runProgram (gameState itself imports layers), so this edge is cycle-free
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
+import { canPayWardCost } from "../ward.js"; // the ward-cost affordability the soft-counter settle and autoPickSoftCounterPay read (ward.js never reaches runProgram)
 import { punisherTakeable, punisherAutoTake } from "./atoms/punisher.js"; // the punisher (CR 118.12) — whether its decider can take it, and the default AI decision (a sibling atom module; runProgram already reaches atoms through effectAtoms)
 import { landSearchPickOrder } from "../fetchLand.js"; // a land search takes the colour the searcher needs (a leaf over abilities, the tutor filter and manaModel — none imports runProgram)
 import { characteristicTypeLine } from "../faceUp.js"; // the exiled card's type for "If it was a <type> card" (faceUp imports only splitCard, a leaf)
@@ -1333,14 +1334,10 @@ export function resolveDiscardChoice(state, cardId) {
   const r = advanceDiscardChain(next, { queue, sourceName: pc.sourceName });
   if (r.pendingChoice) {
     // The chain re-paused (more picks). Carry the original caster-resume onto the new choice so the
-    // program resumes once the whole chain settles (advanceDiscardChain never sets a resume itself) —
-    // and a ward payment's `priorityAfter` (resolveSoftCounterChoice), returned to once the chain settles.
-    const carried = r.pendingChoice.resume || !pc.resume
+    // program resumes once the whole chain settles (advanceDiscardChain never sets a resume itself).
+    return r.pendingChoice.resume || !pc.resume
       ? r
       : { ...r, pendingChoice: { ...r.pendingChoice, resume: pc.resume } };
-    return pc.priorityAfter && !carried.pendingChoice.priorityAfter
-      ? { ...carried, pendingChoice: { ...carried.pendingChoice, priorityAfter: pc.priorityAfter } }
-      : carried;
   }
   // Chain done → resume the caster's suspended program (its riders).
   const casterId = pc.resume?.controller;
@@ -1703,32 +1700,6 @@ export function resolveProtectionColorChoice(state, color) {
 }
 
 /**
- * KW-WARD-PR2 — can `playerId` afford the soft-counter's STRUCTURED ward cost? Mirrors the affordability
- * half of settleSoftCounterCost (below) without mutating, so autoPick and settle never disagree.
- */
-function canAffordWardCost(state, playerId, cost) {
-  const player = state.players?.[playerId];
-  if (!player) return false;
-  if (cost.kind === "life") return (player.life ?? 0) >= cost.life; // CR 119.4 — pay life only if you have it
-  if (cost.kind === "mana") return canAfford(player.manaPool, manaSources(state, playerId), cost.mana);
-  // ⛔ DISCARD ward — an EMPTY hand is "CAN'T PAY", so the spell is countered rather than waved through.
-  // Tokens are excluded to match advanceDiscardChain, which filters them from the discardable hand: an
-  // affordability check that counted them would promise a payment the chain then couldn't make.
-  if (cost.kind === "discard") return (player.hand || []).filter((c) => !c.token).length >= (cost.n || 1);
-  // AT RANDOM (2026-10-20 — Alpharael, Stonechosen): the same hand, pitched by pitchRandomDiscard (no token either).
-  if (cost.kind === "discard-random") return (player.hand || []).filter((c) => !c.token).length >= (cost.count || 1);
-  // SEVERAL PARTS (ward.combineWardCosts — "{2}, Pay 2 life", or two wards on one spell): every part, and the cards of both
-  // discards from the one hand (CR 118.3 — a cost is paid in full or not at all).
-  if (cost.kind === "all") {
-    const cards = cost.parts.reduce((n, p) => n + (p.kind === "discard" ? p.n || 1 : p.kind === "discard-random" ? p.count || 1 : 0), 0);
-    return cost.parts.every((p) => canAffordWardCost(state, playerId, p)) && (player.hand || []).filter((c) => !c.token).length >= cards;
-  }
-  // ALTERNATIVES ("Discard a card or pay {2}"): any one of them.
-  if (cost.kind === "any") return cost.options.some((o) => canAffordWardCost(state, playerId, o));
-  return false; // "unpayable" — a cost the engine can't take (ward.js) — and any kind not read here
-}
-
-/**
  * The alternative of an "any" ward cost that is paid: the payer's `option` when it names one, else the house pick — the first
  * the payer can afford, an alternative that discards no card ahead of one that does (a card is worth keeping over mana or life),
  * then printed order. Null when none can be paid. A cost of any other kind is itself.
@@ -1738,12 +1709,12 @@ export function wardCostOption(state, playerId, cost, option) {
   if (Number.isInteger(option) && cost.options[option]) return cost.options[option];
   const discards = (c) => c.kind === "discard" || c.kind === "discard-random" || (c.kind === "all" && c.parts.some(discards));
   const ranked = cost.options.map((c, i) => ({ c, i })).sort((a, b) => Number(discards(a.c)) - Number(discards(b.c)) || a.i - b.i);
-  return ranked.find(({ c }) => canAffordWardCost(state, playerId, c))?.c ?? null;
+  return ranked.find(({ c }) => canPayWardCost(state, playerId, c))?.c ?? null;
 }
 
 /** For each alternative of an "any" ward cost, whether `playerId` can pay it now — the person's panel enables its buttons by it. */
 export function wardOptionsAffordable(state, playerId, cost) {
-  return cost?.kind === "any" ? cost.options.map((o) => canAffordWardCost(state, playerId, o)) : null;
+  return cost?.kind === "any" ? cost.options.map((o) => canPayWardCost(state, playerId, o)) : null;
 }
 
 /** The cards a paid ward cost still has its payer choose and discard (the discard chain picks them after the payment). */
@@ -1786,7 +1757,7 @@ function settleSoftCounterCost(state, playerId, cost) {
   // SEVERAL PARTS — all or nothing (CR 118.3): checked whole first, then paid life, mana, the random discard (the chosen discard
   // is the caller's, after: chosenDiscardOf). A part that fails anyway returns the state as it was — nothing half-paid.
   if (cost.kind === "all") {
-    if (!canAffordWardCost(state, playerId, cost)) return { state, paid: false };
+    if (!canPayWardCost(state, playerId, cost)) return { state, paid: false };
     const order = { life: 0, mana: 1, "discard-random": 2, discard: 3 };
     let next = state;
     for (const part of [...cost.parts].sort((a, b) => (order[a.kind] ?? 9) - (order[b.kind] ?? 9))) {
@@ -1810,7 +1781,7 @@ function settleSoftCounterCost(state, playerId, cost) {
 export function autoPickSoftCounterPay(state, pc) {
   const player = state.players?.[pc?.controller];
   if (!player) return false; // controller gone → can't pay → countered
-  if (pc.cost) return canAffordWardCost(state, pc.controller, pc.cost);
+  if (pc.cost) return canPayWardCost(state, pc.controller, pc.cost);
   return canAfford(player.manaPool, manaSources(state, pc.controller), { generic: pc.amount || 0 });
 }
 
@@ -1851,14 +1822,12 @@ export function resolveSoftCounterChoice(state, pay, option) {
     // ⛔ WHEN IT PAUSES WE MUST NOT RESUME HERE. The soft-counter's own `resume` is carried ONTO the discard
     // choice, so the suspended caster program fires exactly once — after the discard settles — instead of
     // twice or not at all. resolveDiscardChoice already implements that carry for chained discards; this
-    // reuses it rather than inventing a second resume path. A ward's `priorityAfter` (the holder its settle returns priority
-    // to — learnSession.settleSoftCounterChoice) rides the same way, to the discard's settle.
+    // reuses it rather than inventing a second resume path.
     const chosen = chosenDiscardOf(paidCost);
     if (chosen > 0) {
       next = advanceDiscardChain(next, { queue: [{ playerId: pc.controller, remaining: chosen }], sourceName: pc.sourceName || pc.spellName || null });
       if (next.pendingChoice) {
-        const carry = { ...(pc.resume ? { resume: pc.resume } : {}), ...(pc.priorityAfter ? { priorityAfter: pc.priorityAfter } : {}) };
-        return Object.keys(carry).length ? { ...next, pendingChoice: { ...next.pendingChoice, ...carry } } : next;
+        return pc.resume ? { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } } : next;
       }
       // No pause (the whole hand was forced) — fall through to the normal resume below.
     }

@@ -14,14 +14,17 @@
  * heuristic, the UI panel, and the counter are all inherited, not rebuilt.
  *
  * WHERE IT IS RAISED — every way a spell or ability gets a target: a spell as it is cast and an activated ability as it is
- * activated (actionDispatcher), a LOYALTY ability as it is activated (a loyalty ability is an activated ability, CR 606.1 —
- * 2026-10-20), a TRIGGERED ability as it is put on the stack (gameEngine.flushTriggers and the trigger-target settle record it on
- * the ability; the session driver asks it before anyone receives priority — gameEngine.raiseWardOwed), a target CHANGED onto a ward
- * permanent and a COPY put onto the stack with targets (CR 707.10c — atoms/stack.withWardOwed records it; raiseWardOwed asks it). The
- * default AI reads the same detector before it aims a spell or ability of its own (opponentAI.wardCountersAction). After the question is
- * settled, priority stays with the player who held it when the spell was cast or the ability activated or put on the stack
- * (CR 117.3c, 117.5 — the ward trigger goes on the stack before that player receives priority; the engine asks it at once
- * instead): the pending choice carries `priorityAfter`, and learnSession's settle returns priority to it.
+ * activated (actionDispatcher — from the battlefield, a channel-style ability from the hand and an exile-cost ability from the
+ * graveyard, CR 602.2b), a LOYALTY ability as it is activated (a loyalty ability is an activated ability, CR 606.1), a TRIGGERED
+ * ability as it is put on the stack (gameEngine.flushTriggers and the trigger-target settle record it on the ability; the session
+ * driver asks it before anyone receives priority — gameEngine.raiseWardOwed), a target CHANGED or CHOSEN AGAIN onto a ward permanent
+ * (CR 115.7a, 115.7d — Misdirection, Deflecting Swat, Hydroelectric Specimen) and a COPY put onto the stack with targets (CR 707.10c —
+ * atoms/stack.withWardOwed records both; raiseWardOwed asks them). Every raise asks targetTaxForStackObject: the wards AND Diffusion
+ * Sliver's tax (groupWard.js), one question. The default AI reads the same detector before it aims a spell or ability of its own
+ * (opponentAI.wardCountersAction), and the engine's own pick of a copy's new targets passes over a ward its controller can't pay
+ * (canPayWardCost). The question is the ward's resolution, so once it is settled the active player receives priority (CR 117.3b — the
+ * settle's finalizeStackResolution); the caster's own priority with the ward on the stack (CR 117.3c, 117.5) is the window the
+ * immediate question skips.
  *
  * THE COST — every ward instance the targets carry (wardTaxForStackObject):
  *   · each ward permanent a spell or ability targets has its own ward trigger (CR 702.21a), and each instance of ward on one
@@ -54,6 +57,8 @@
 import { findPermanent } from "./gameState.js";
 import { permanentHasKeyword, permanentGrantedWardCosts, permanentPower } from "./layers.js";
 import { faceUpView } from "./faceUp.js";
+import { groupWardInstancesFor } from "./groupWard.js"; // Diffusion Sliver's tax joins the wards' one question (imports gameState + layers: no cycle)
+import { canAfford, manaSources } from "./manaModel.js"; // canPayWardCost — manaModel's closure never reaches ward.js or any module that imports it
 
 const SINGLE_COLORS = new Set(["W", "U", "B", "R", "G"]);
 const COUNTS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
@@ -306,11 +311,18 @@ const joinNames = (names) => (names.length <= 1 ? names[0] ?? null : `${names.sl
  * trigger-target chooser and its own aim (opponentAI.wardCountersAction).
  */
 export function wardTaxForStackObject(state, stackObj) {
+  const { costs, names } = wardInstancesFor(state, stackObj);
+  if (!costs.length) return null;
+  return { cost: combineWardCosts(costs), wardName: joinNames(names) };
+}
+
+/** Every ward instance on every permanent `stackObj` targets that an opponent of its controller controls, each permanent once — `{ costs, names }`. */
+function wardInstancesFor(state, stackObj) {
   const caster = stackObj?.controller;
-  if (!caster) return null;
-  const seen = new Set();
   const costs = [];
   const names = [];
+  if (!caster) return { costs, names };
+  const seen = new Set();
   for (const t of stackObj.targets || []) {
     if (!t || (t.type !== "creature" && t.type !== "permanent" && t.type !== "planeswalker") || seen.has(t.id)) continue;
     seen.add(t.id);
@@ -321,8 +333,49 @@ export function wardTaxForStackObject(state, stackObj) {
     costs.push(...instances);
     names.push(lk.permanent.card?.name || null);
   }
+  return { costs, names };
+}
+
+/**
+ * EVERY "COUNTER IT UNLESS ITS CONTROLLER PAYS" THAT TRIGGERS ON BECOMING A TARGET — the one question a spell or ability is asked
+ * as it targets (CR 702.21a; Diffusion Sliver, CR 603.2): every ward instance on every opponent-controlled target
+ * (wardTaxForStackObject) and every Diffusion-style trigger each targeted permanent raises (groupWard.groupWardInstancesFor — one
+ * per targeted Sliver per Diffusion Sliver its controller controls), combined as the wards are (combineWardCosts — each trigger
+ * is its own, and paying some but not all of them counters the object all the same). `{ cost, wardName }` — wardName the ward
+ * permanents' names, then the Diffusion sources', each once — or null when nothing triggers. Every place a ward is raised asks
+ * this (actionDispatcher's activation and cast paths, gameEngine.markWardOwed, atoms/stack.withWardOwed), and so do the AI's
+ * readers (opponentAI.wardCountersAction, gameEngine.withoutUnpaidWard, the copy-target picks).
+ */
+export function targetTaxForStackObject(state, stackObj) {
+  const ward = wardInstancesFor(state, stackObj);
+  const group = groupWardInstancesFor(state, stackObj);
+  const costs = [...ward.costs, ...group.costs];
   if (!costs.length) return null;
+  const names = [...new Set([...ward.names, ...group.names])];
   return { cost: combineWardCosts(costs), wardName: joinNames(names) };
+}
+
+/**
+ * Can `playerId` pay this ward cost now (a descriptor of combineWardCosts' shapes)? Mana over the pool and every source
+ * (manaModel.canAfford); life only while they have it (CR 119.4); a discard only with that many cards in hand, tokens not counted
+ * (the discard chain never offers them); several parts together, the discards from the one hand (CR 118.3); alternatives, any one.
+ * "unpayable" never. The soft-counter settle (runProgram.settleSoftCounterCost) pays exactly what this admits, and the AI's answer
+ * (runProgram.autoPickSoftCounterPay) is this; moved here from runProgram on 2026-10-21 so the copy-target picks in atoms/stack can
+ * read the same answer without an import cycle.
+ */
+export function canPayWardCost(state, playerId, cost) {
+  const player = state.players?.[playerId];
+  if (!player || !cost) return false;
+  if (cost.kind === "life") return (player.life ?? 0) >= cost.life;
+  if (cost.kind === "mana") return canAfford(player.manaPool, manaSources(state, playerId), cost.mana);
+  if (cost.kind === "discard") return (player.hand || []).filter((c) => !c.token).length >= (cost.n || 1);
+  if (cost.kind === "discard-random") return (player.hand || []).filter((c) => !c.token).length >= (cost.count || 1);
+  if (cost.kind === "all") {
+    const cards = cost.parts.reduce((n, p) => n + (p.kind === "discard" ? p.n || 1 : p.kind === "discard-random" ? p.count || 1 : 0), 0);
+    return cost.parts.every((p) => canPayWardCost(state, playerId, p)) && (player.hand || []).filter((c) => !c.token).length >= cards;
+  }
+  if (cost.kind === "any") return cost.options.some((o) => canPayWardCost(state, playerId, o));
+  return false;
 }
 
 /**

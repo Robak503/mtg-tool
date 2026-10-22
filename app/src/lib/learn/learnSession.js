@@ -51,7 +51,6 @@ import {
   settleTriggerOrderChoice,
   autoPickTriggerOrder,
   raiseWardOwed,
-  returnPriorityAfterWard,
 } from "./gameEngine.js";
 
 // The human seat id (createGameState always names the player's seat "user"; opponents are
@@ -718,15 +717,14 @@ function settleDistributeChoice(state, distribution) {
 // Spell Pierce): the targeted spell's controller pays {N} (spell survives) or it's countered, then the
 // caster's program resumes. finalizeStackResolution then continues the stack (the now-uncountered spell
 // resolves on its own when reached, or the counter's own program finishes). Mirrors settleDivideChoice.
-// A WARD (or Diffusion Sliver) carries `priorityAfter`: it was raised as a spell was cast or an ability activated or put on the
-// stack, not as anything resolved, so once it is settled priority returns to the player who held it then (CR 117.3c, 117.5 —
-// gameEngine.returnPriorityAfterWard), not to the active player finalizeStackResolution restarts it at (CR 117.3b — right for a
-// soft counterspell, whose question comes as it resolves). A discard payment that pauses carries it to the discard's settle.
+// A WARD (or Diffusion Sliver) is settled the same way: its question is the ward trigger's resolution, and after a spell or ability
+// resolves the ACTIVE player receives priority (CR 117.3b) — which finalizeStackResolution gives. (2026-10-20 → 10-21 a ward's settle
+// handed priority back to the caster; the caster's own priority, CR 117.3c, comes before the ward resolves, with the ward on the
+// stack, CR 117.5 — the window the immediate question skips — never after it.)
 // `option` picks the way to pay a ward with alternatives ("Discard a card or pay {2}"); absent, the house pick.
 function settleSoftCounterChoice(state, pay, option) {
-  const priorityAfter = state.pendingChoice?.kind === "soft-counter" ? state.pendingChoice.priorityAfter ?? null : null;
   const next = resolveSoftCounterChoice(state, pay, option);
-  return next.pendingChoice ? next : returnPriorityAfterWard(finalizeStackResolution(next), priorityAfter);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
 // ===== OPTIONAL-MANA-PAYMENT ===== (CR 603.7c) — settle a "you may pay {cost}. If you do, <effect>" pay-or-
@@ -1019,10 +1017,8 @@ function settleSacrificeChoice(state, permId) {
  * resumed atom enqueued (CR 603.3) — the same finalize the other choice paths run.
  */
 function settleDiscardChoice(state, cardId) {
-  // A ward's discard payment (resolveSoftCounterChoice) carries the ward's `priorityAfter` — see settleSoftCounterChoice.
-  const priorityAfter = state.pendingChoice?.kind === "discard" ? state.pendingChoice.priorityAfter ?? null : null;
   const next = resolveDiscardChoice(state, cardId);
-  return next.pendingChoice ? next : returnPriorityAfterWard(finalizeStackResolution(next), priorityAfter);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
 /** HAND→LIBRARY-TOP (the Brainstorm put-back) — same settle shape as the discard chain. */
@@ -2070,8 +2066,7 @@ export function advanceUntilDecision(
           const threatened = (current.state.stack || []).find((o) => o.id === pc.spellId);
           const objectKind = threatened ? (threatened.kind === "spell" ? "spell" : "ability") : null;
           const optionsAffordable = wardOptionsAffordable(current.state, pc.controller, pc.cost);
-          const { priorityAfter: _engineOnly, ...shown } = pc;
-          return { session: current, decision: { kind: "soft-counter", ...shown, affordable, objectKind, ...(optionsAffordable ? { optionsAffordable } : {}) } };
+          return { session: current, decision: { kind: "soft-counter", ...pc, affordable, objectKind, ...(optionsAffordable ? { optionsAffordable } : {}) } };
         }
         // Default = pay iff affordable (byte-identical). A pilot may decline an affordable pay (let the
         // spell be countered) or "pay" when broke — settleSoftCounterChoice never fabricates mana, so an

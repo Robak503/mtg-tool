@@ -98,8 +98,7 @@ import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility, parseHandSelfPu
 import { parseSagaChapters } from "./saga.js"; // SAGA LAND (play-weighted P·4 — Urza's Saga): the land drop gives a Saga its entry lore counter too (a pure leaf)
 import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers, checkCycleSelfTriggers, checkCrimeTriggers, checkSagaChapterTriggers, checkTurnedFaceUpTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers; D9 — crime (CR 700.13); the flip's watchers (CR 701.40b)
 import { setPendingSoftCounterChoice, setPendingOptionalLifePaymentChoice } from "./pendingChoice.js"; // setPendingOptionalLifePaymentChoice — the shockland pause (LANDS-TIER slice 2), raised from the play-land path
-import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
-import { groupWardTaxForSpell, groupWardTaxForStackObject } from "./groupWard.js";
+import { targetTaxForStackObject } from "./ward.js"; // ward AND Diffusion Sliver (groupWard.js), one pay-or-be-countered question (raiseTargetTax)
 import { applyKiraTargetCounter } from "./kiraTargetCounter.js";
 import { entersWithFadeCounters } from "./fading.js";
 import { applyXCastTokenTriggers } from "./xCastToken.js";
@@ -344,6 +343,21 @@ function applyPlayLand(state, action) {
  *  another player's turn. One reader for every cast branch (permanent spells and Auras alike), so they can never disagree. */
 export function castDuringMainPhaseNow(state, playerId) {
   return state.activePlayer === playerId && /main/i.test(String(state.phase || ""));
+}
+
+/**
+ * WARD AND DIFFUSION SLIVER AS A SPELL OR ABILITY IS PUT ON THE STACK WITH ITS TARGETS (CR 702.21a, 601.2c, 602.2b): every ward on
+ * every opponent-controlled target and every Diffusion Sliver trigger, as ONE pay-or-be-countered question
+ * (ward.targetTaxForStackObject) — the soft-counter pause, `playerId` the payer, `name` the spell's or the ability's source card. A
+ * spell that can't be countered (`uncounterable`, CR 701.6a) is asked nothing: the triggers would counter nothing, so the event is
+ * logged as the counter entry logs it. Nothing triggers → the state unchanged. Every activation and cast path calls this — from the
+ * battlefield, a loyalty ability, a channel-style ability from the hand and an exile-cost ability from the graveyard.
+ */
+function raiseTargetTax(state, stackObject, { playerId, name, uncounterable = false }) {
+  const tax = targetTaxForStackObject(state, stackObject);
+  if (!tax) return state;
+  if (uncounterable) return logEvent(state, { kind: "spell-effect", effect: "counter-uncounterable", targetId: stackObject.id, cardName: name, controller: playerId, via: tax.wardName });
+  return setPendingSoftCounterChoice(state, { controller: playerId, cost: tax.cost, spellId: stackObject.id, spellName: name, sourceName: tax.wardName });
 }
 
 function applyCastSpell(state, action) {
@@ -1141,11 +1155,12 @@ function applyCastSpell(state, action) {
   // doesn't model the token-with-X effect, so it's a targeted hook reading the chosen X (action.xValue).
   next = applyXCastTokenTriggers(next, { spellCard: card, casterId: action.playerId, xValue: action.xValue });
   // KW-WARD (CR 702.21): if this spell targets opponent-controlled ward permanents, their wards
-  // trigger — counter the spell unless the caster pays every ward cost (one question for them all — ward.js). Reuses the SOFT-COUNTER
+  // trigger — counter the spell unless the caster pays every ward cost — and so does Diffusion Sliver for each targeted Sliver (one
+  // question for them all — raiseTargetTax / ward.targetTaxForStackObject). Reuses the SOFT-COUNTER
   // pay-or-be-countered machinery (the pendingChoice decision + AI settle + UI + counter already exist),
   // raised "above" the spell after the cast triggers. Skipped if a trigger already set a pendingChoice
-  // (setPendingSoftCounterChoice no-ops on an occupied slot — a safe FN for that rare overlap). Once it is settled, the caster
-  // holds priority as the cast left them (`priorityAfter` — CR 117.3c, 117.5; gameEngine.returnPriorityAfterWard).
+  // (setPendingSoftCounterChoice no-ops on an occupied slot — a safe FN for that rare overlap). Once it is settled, the active player
+  // receives priority (CR 117.3b — the question is the ward's resolution; learnSession.settleSoftCounterChoice).
   // WI-6 REACHABILITY NOTE: state.pendingChoice is FIFO-guarded and the advanceUntilDecision driver
   // settles any pending choice BEFORE the next priority window (a pause blocks dispatchAction from being
   // called again until it clears), so within a single driver-run game this "occupied slot" branch is
@@ -1157,40 +1172,7 @@ function applyCastSpell(state, action) {
   // counter nothing, so the only rational answer is not to pay — and asking would let the AI (or a player) spend
   // mana for nothing. Logged as the counter entry logs it (counter-uncounterable). The same predicate the counter
   // entry reads, so a Cavern of Souls / Mistrise Village mark on this stack object counts.
-  const cantBeCountered = stackSpellIsUncounterable(next, stackObject);
-  const wardTax = wardTaxForSpell(next, stackObject);
-  if (wardTax && cantBeCountered) {
-    next = logEvent(next, { kind: "spell-effect", effect: "counter-uncounterable", targetId: stkId, cardName: card.name, controller: action.playerId, via: wardTax.wardName });
-  } else if (wardTax) {
-    next = setPendingSoftCounterChoice(next, {
-      controller: action.playerId,
-      cost: wardTax.cost, // KW-WARD-PR2: structured cost (mana | life | …); settle pays it by kind
-      spellId: stkId,
-      spellName: card.name,
-      sourceName: wardTax.wardName,
-      priorityAfter: action.playerId,
-    });
-  }
-  // DIFFUSION SLIVER (group-ward analogue): an opponent's spell targeting a single Sliver creature the
-  // Diffusion controller controls raises the SAME pay-{2}-or-be-countered soft-counter (groupWard.js).
-  // setPendingSoftCounterChoice no-ops on an occupied slot, so a ward tax already raised above takes
-  // precedence (the rarer overlap under-applies one tax — a safe FN). No-op when no Diffusion is in play.
-  // This IS reachable within a single dispatch (the ward tax above may already have occupied the slot on
-  // the SAME call) — the FN is real, just rare (both a printed ward AND a controlled Diffusion Sliver
-  // simultaneously targeted by one spell).
-  const diffusionTax = groupWardTaxForSpell(next, stackObject);
-  if (diffusionTax && cantBeCountered) {
-    next = logEvent(next, { kind: "spell-effect", effect: "counter-uncounterable", targetId: stkId, cardName: card.name, controller: action.playerId, via: diffusionTax.wardName });
-  } else if (diffusionTax) {
-    next = setPendingSoftCounterChoice(next, {
-      controller: action.playerId,
-      cost: diffusionTax.cost,
-      spellId: stkId,
-      spellName: card.name,
-      sourceName: diffusionTax.wardName,
-      priorityAfter: action.playerId,
-    });
-  }
+  next = raiseTargetTax(next, stackObject, { playerId: action.playerId, name: card.name, uncounterable: stackSpellIsUncounterable(next, stackObject) });
   // KIRA, GREAT GLASS-SPINNER (a HARD-counter group-ward analogue, kiraTargetCounter.js): if this spell
   // targets a creature whose controller controls a Kira source AND that creature has not become a target yet
   // this turn (CR 603.2 — "for the first time each turn"), COUNTER the spell outright (no pay). Marks every
@@ -1530,13 +1512,17 @@ function applyActivateGyExile(state, action) {
       params: { program: action.program, controller: action.playerId, targets: gyTargets, cardId: card.id, sourceId: null, ...(action.chosenMode != null ? { chosenMode: action.chosenMode } : {}) },
     },
   });
-  const next = logEvent({ ...working2, stack: [...working2.stack, stackObject] }, {
+  let next = logEvent({ ...working2, stack: [...working2.stack, stackObject] }, {
     kind: "activate-ability",
     playerId: action.playerId,
     permanentId: null,
     cardName: card.name,
     abilityText: action.abilityText,
   });
+  // WARD (CR 702.21a, 602.2b — 2026-10-21): the targets were chosen as it was activated, so an opponent's ward permanent among them
+  // triggers its ward (and Diffusion Sliver its tax) as on the battlefield activation path. Before, Cryotheory Adept's "Tap target
+  // creature and put a stun counter on it" stunned a Leonin Lightbringer without the {2}.
+  next = raiseTargetTax(next, stackObject, { playerId: action.playerId, name: card.name });
   // CR 117.3c — the activator receives priority with the pass count restarted (applyActivateGyRecursion's note).
   return { ...next, priorityHolder: action.playerId, consecutivePasses: 0 };
 }
@@ -1882,37 +1868,14 @@ function applyActivateAbility(state, action) {
   // choice as the cast path (a TRIGGERED ability's ward is recorded at the trigger flush and asked by the
   // session driver — gameEngine.markWardOwed / raiseWardOwed; a LOYALTY ability's in applyActivateLoyalty). An Equip ability
   // targets the activator's OWN creature (controller
-  // == caster), so wardTaxForStackObject returns null there — no false ward on equipping your own creature.
+  // == caster), so targetTaxForStackObject returns null there — no false ward on equipping your own creature.
   // Skipped if a trigger above already set a pendingChoice (no-ops on an occupied slot — safe FN).
   // WI-6 REACHABILITY NOTE: same as the cast path above — advanceUntilDecision settles any pendingChoice
   // before the next dispatch, so a pre-existing occupied slot from an EARLIER action is ~unreachable
   // within driver-run play; the real (rarer) overlap is ward + Diffusion Sliver on the SAME dispatch (see
   // below), not a stale leftover choice from a prior turn.
-  const abilityWardTax = wardTaxForStackObject(next, stackObject);
-  if (abilityWardTax) {
-    next = setPendingSoftCounterChoice(next, {
-      controller: action.playerId,
-      cost: abilityWardTax.cost,
-      spellId: stkId,
-      spellName: perm.card?.name,
-      sourceName: abilityWardTax.wardName,
-      priorityAfter: action.playerId, // the activator keeps priority once it is settled (CR 117.3c, 117.5)
-    });
-  }
-  // DIFFUSION SLIVER (group-ward analogue) — an opponent's ABILITY targeting a single Sliver the Diffusion
-  // controller controls raises the same soft-counter (CR: Diffusion fires on a spell OR ability). Same
-  // occupied-slot no-op precedence as the cast path. No-op when no Diffusion is in play.
-  const abilityDiffusionTax = groupWardTaxForStackObject(next, stackObject);
-  if (abilityDiffusionTax) {
-    next = setPendingSoftCounterChoice(next, {
-      controller: action.playerId,
-      cost: abilityDiffusionTax.cost,
-      spellId: stkId,
-      spellName: perm.card?.name,
-      sourceName: abilityDiffusionTax.wardName,
-      priorityAfter: action.playerId,
-    });
-  }
+  // DIFFUSION SLIVER fires on a spell OR ability too — the same one question (raiseTargetTax).
+  next = raiseTargetTax(next, stackObject, { playerId: action.playerId, name: perm.card?.name });
   // KIRA (kiraTargetCounter.js): an ABILITY targeting an eligible-and-fresh Kira-protected creature is countered
   // outright too (CR 603.2 — "a spell or ability"; an ability off the stack has no zone change on counter). Same
   // last-placement / rare-overlap reasoning as the cast path. No-op when no Kira source is in play.
@@ -1985,8 +1948,8 @@ function applyCycle(state, action) {
  *
  * ⛔ THE COST IS PAID BEFORE THE ABILITY GOES ON THE STACK (CR 601.2h/602.2b), which is why the discard
  * happens here and not in the resolver: the card is in the graveyard while the ability resolves, exactly as
- * printed. legalChoices already refused anything whose program is low-confidence or needs a chosen target,
- * so by this point the program is known-resolvable with no targets.
+ * printed. legalChoices already refused anything whose program is low-confidence; a program that takes a chosen
+ * target arrives with the targets frozen at activation (the targeted lane below).
  */
 function applyDiscardAbility(state, action) {
   const player = state.players[action.playerId];
@@ -2024,6 +1987,10 @@ function applyDiscardAbility(state, action) {
   });
   let next = { ...working2, stack: [...working2.stack, stackObject] };
   next = logEvent(next, { kind: "discard-ability", playerId: action.playerId, cardName: card.name });
+  // WARD (CR 702.21a, 602.2b — 2026-10-21): the targeted lane's targets were chosen as it was activated, so an opponent's ward
+  // permanent among them triggers its ward (and Diffusion Sliver its tax). Before, Ghost-Lit Raider's channel ability dealt its 4
+  // damage to a Leonin Lightbringer without the {2}.
+  next = raiseTargetTax(next, stackObject, { playerId: action.playerId, name: card.name });
   return { ...next, priorityHolder: action.playerId, consecutivePasses: 0 };
 }
 
@@ -2102,30 +2069,8 @@ function applyActivateLoyalty(state, action) {
   // WARD (CR 702.21a) and DIFFUSION SLIVER (groupWard.js): a loyalty ability IS an activated ability (CR 606.1), so an opponent's
   // loyalty ability aimed at a ward permanent is countered unless its controller pays the ward — the question the activated-ability
   // path above raises, raised here as well (2026-10-20; before, Chandra, Torch of Defiance's −3 at a Leonin Lightbringer resolved
-  // without the {2}). The same occupied-slot precedence as there (Diffusion's no-ops when a ward was raised); the activator keeps
-  // priority once it is settled (CR 117.3c, 117.5).
-  const loyaltyWardTax = wardTaxForStackObject(next, stackObject);
-  if (loyaltyWardTax) {
-    next = setPendingSoftCounterChoice(next, {
-      controller: action.playerId,
-      cost: loyaltyWardTax.cost,
-      spellId: stkId,
-      spellName: perm.card?.name,
-      sourceName: loyaltyWardTax.wardName,
-      priorityAfter: action.playerId,
-    });
-  }
-  const loyaltyDiffusionTax = groupWardTaxForStackObject(next, stackObject);
-  if (loyaltyDiffusionTax) {
-    next = setPendingSoftCounterChoice(next, {
-      controller: action.playerId,
-      cost: loyaltyDiffusionTax.cost,
-      spellId: stkId,
-      spellName: perm.card?.name,
-      sourceName: loyaltyDiffusionTax.wardName,
-      priorityAfter: action.playerId,
-    });
-  }
+  // without the {2}) — the ward and Diffusion's tax in one question (raiseTargetTax).
+  next = raiseTargetTax(next, stackObject, { playerId: action.playerId, name: perm.card?.name });
   // KIRA (kiraTargetCounter.js): a loyalty ability IS an activated ability (CR 606.1), so "a spell or ability"
   // covers it — a loyalty ability targeting an eligible-and-fresh Kira-protected creature is countered outright.
   // Placed BEFORE the zero-loyalty SBA sweep (like the becomes-target flush above) so the counter lands while

@@ -16,10 +16,15 @@
  * cost shape ward uses ({ kind:"mana", mana }). A colored/{X}/life/non-generic variant, a non-"you control"
  * scope, or any rider → null (the card stays body-only — a safe false-negative, never a half-modeled flip).
  *
- * Like ward, this fires for a stack object targeting EXACTLY ONE matching permanent (a 2+-target spell would
- * trigger once PER target, CR — the binary soft-counter can't express two nested taxes, so 2+ → null, a safe
- * FN). The targeted permanent must be controlled by an OPPONENT of the spell/ability's controller (the source
- * permanent's controller is that opponent), so a player targeting their own Sliver is never taxed.
+ * EVERY TRIGGER (2026-10-21): each targeted matching creature an opponent of the object's controller controls triggers each
+ * Diffusion-style source ITS controller controls (each is "a Sliver creature you control" to that source; CR 603.2c — an ability
+ * triggers repeatedly when one event contains multiple occurrences) — two targeted Slivers under one Diffusion Sliver are two
+ * triggers, one Sliver under two Diffusion Slivers is two. groupWardInstancesFor returns one {N} instance per trigger, and ward.targetTaxForStackObject joins them to the wards'
+ * one pay-or-be-countered question (paying some but not all counters the object all the same), so a ward on the same spell no
+ * longer crowds Diffusion out, and every path that asks a ward — a spell, an activated, loyalty or triggered ability, a copy, a
+ * changed target — asks this too. Before, only one targeted Sliver and the first Diffusion Sliver were read (2+ targets → nothing),
+ * only at the cast and activation paths, and not at all when a ward took the question first. A player targeting their own
+ * Sliver is never taxed.
  *
  * Pure: regex + board reads, no mutation.
  */
@@ -62,48 +67,51 @@ function permIsSubtypeCreature(state, permId, subtype) {
 }
 
 /**
- * If `stackObj` (a spell OR an activated/triggered ability) targets EXACTLY ONE permanent that is a
- * matching-subtype creature whose controller (a) is an OPPONENT of the object's controller and (b) controls a
- * Diffusion-style group-ward source for that subtype, return { cost, wardName } (the soft-counter the object's
- * controller must pay or be countered); otherwise null. Mirrors ward.wardTaxForStackObject so the same cast /
- * ability chokepoints raise it. CR: Diffusion triggers per target an opponent's spell/ability chooses; the
- * binary soft-counter models the single-target case (2+ → null, a safe FN).
+ * Every Diffusion-style trigger `stackObj` (a spell, or an activated, loyalty or triggered ability, or a copy) raises as it targets:
+ * for each permanent it targets (each once) that an OPPONENT of its controller controls, each group-ward source that permanent's
+ * controller controls whose subtype the permanent carries as a creature ("a Sliver creature you control becomes the target"). One
+ * `{ kind: "mana" }` instance of the source's {N} per trigger — `{ costs, names }`, names the sources', each once. The combined
+ * question is ward.targetTaxForStackObject's.
  */
-export function groupWardTaxForStackObject(state, stackObj) {
+export function groupWardInstancesFor(state, stackObj) {
   const caster = stackObj?.controller;
-  if (!caster) return null;
-  // The single permanent this object targets (creature/permanent/planeswalker), if exactly one.
-  const targets = (stackObj.targets || []).filter(
-    (t) => t && (t.type === "creature" || t.type === "permanent" || t.type === "planeswalker"),
-  );
-  if (targets.length !== 1) return null; // 0 → no target; 2+ → separate triggers, safe FN (matches ward)
-  const lk = findPermanent(state, targets[0].id);
-  if (!lk?.permanent) return null;
-  const targetController = lk.controller;
-  if (targetController === caster) return null; // a player targeting their own creature is never taxed
-  // Find a Diffusion-style source the TARGET'S controller controls, whose subtype the targeted creature
-  // carries (the targeted permanent must itself be a matching-subtype creature — "a Sliver creature you
-  // control becomes the target"). The source's controller (targetController) must be an OPPONENT of the caster
-  // — already guaranteed by targetController !== caster (2-player) and re-affirmed structurally below.
-  for (const perm of state.players?.[targetController]?.battlefield || []) {
-    const gw = parseGroupWard(perm?.card);
-    if (!gw) continue;
-    if (!permIsSubtypeCreature(state, targets[0].id, gw.subtype)) continue;
-    return { cost: genericCost(gw.generic), wardName: perm.card?.name || null };
+  const costs = [];
+  const names = [];
+  if (!caster) return { costs, names };
+  const seen = new Set();
+  for (const t of stackObj.targets || []) {
+    if (!t || (t.type !== "creature" && t.type !== "permanent" && t.type !== "planeswalker") || seen.has(t.id)) continue;
+    seen.add(t.id);
+    const lk = findPermanent(state, t.id);
+    if (!lk?.permanent || lk.controller === caster) continue; // a player targeting their own creature is never taxed
+    for (const perm of state.players?.[lk.controller]?.battlefield || []) {
+      const gw = parseGroupWard(perm?.card);
+      if (!gw || !permIsSubtypeCreature(state, t.id, gw.subtype)) continue;
+      costs.push(genericCost(gw.generic));
+      const name = perm.card?.name || null;
+      if (!names.includes(name)) names.push(name);
+    }
   }
-  return null;
+  return { costs, names };
 }
 
-/** Back-compat-style alias for the spell-cast path (a spell IS a stack object). Mirrors ward.wardTaxForSpell. */
-export function groupWardTaxForSpell(state, spellObj) {
-  return groupWardTaxForStackObject(state, spellObj);
+/**
+ * The Diffusion-style tax alone, as one cost: `{ cost, wardName }` — every trigger's {N} summed (each is generic mana) — or null when
+ * nothing triggers. The raise sites ask ward.targetTaxForStackObject, which joins this to the wards; kept for the direct reads.
+ */
+export function groupWardTaxForStackObject(state, stackObj) {
+  const { costs, names } = groupWardInstancesFor(state, stackObj);
+  if (!costs.length) return null;
+  const total = costs.reduce((n, c) => n + c.mana.generic, 0);
+  const wardName = names.length <= 1 ? names[0] ?? null : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return { cost: genericCost(total), wardName };
 }
 
 /**
  * Is this card a DIFFUSION-style native group-ward card? Its WHOLE non-reminder text must be EXACTLY the one
  * modeled group-ward sentence (parseGroupWard matched) and nothing else — any rider / extra ability leaves
- * residue → body-only (CREED all-or-nothing). The runtime (groupWardTaxForStackObject at the cast/ability
- * chokepoints) enforces it, so crediting it native is honest. Pure.
+ * residue → body-only (CREED all-or-nothing). The runtime (ward.targetTaxForStackObject at every place a ward is
+ * raised) enforces it, so crediting it native is honest. Pure.
  */
 export function isNativeGroupWard(card) {
   const gw = parseGroupWard(card);

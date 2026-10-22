@@ -60,7 +60,7 @@ import { withoutImpulseStamps, startingLoyalty } from "./gameState.js"; // the i
 import { permanentValue, policyEvalEnabledFor } from "./boardEval.js"; // QUARTET PHASE 1 slice 3 — the shared evaluator (leaf-importing module, cycle-free)
 import { chooseAuraEntryHost, auraEntryHostScore, seatIsHuman } from "./auraEntry.js"; // the flicker policy reads where a returned Aura lands (CR 303.4f) — the choice the return makes (a leaf); + who is a person (the trigger-target pause)
 import { setPendingCleanupDiscardChoice, setPendingTriggerTargetChoice, setPendingTriggerOrderChoice, setPendingSoftCounterChoice, clearPendingChoice } from "./pendingChoice.js";
-import { wardTaxForStackObject } from "./ward.js"; // ward on a triggered ability's target (CR 702.21a) — the cast and ability paths' own detector (a leaf)
+import { targetTaxForStackObject } from "./ward.js"; // ward and Diffusion Sliver on a triggered ability's target (CR 702.21a) — the cast and ability paths' own detector (ward.js reaches gameState, layers, faceUp, groupWard and manaModel; none imports gameEngine)
 import { autoPickSoftCounterPay } from "./effects/runProgram.js"; // the AI's pay-or-decline answer to a ward — read by the trigger-target chooser so it never aims where it won't pay
 import { skipsDrawStep, extraTurnSkipped } from "./effects/textNormalize.js"; // SKIP YOUR DRAW STEP (RG-4, 2026-09-05) — a leaf reader, controller-scoped; + the opponent-scoped extra-turn skip (Trouble in Pairs, #626)
 import { resolveCombatDamage } from "./combatResolution.js";
@@ -2110,13 +2110,13 @@ function pickForcedTriggerCandidate(state, controller, candidates, program, atom
 
 /**
  * The candidates whose ward (CR 702.21a) `controller` would pay — the ward the flush records for the chosen targets (markWardOwed,
- * wardTaxForStackObject) answered as the driver will answer it (autoPickSoftCounterPay) — when at least one candidate carries a
- * ward it would not pay and at least one does not; otherwise the candidates unchanged. Order is kept, so a ranking after it reads
- * the same list minus those. Ranking only: every candidate here is already on its correct side.
+ * targetTaxForStackObject: the wards and Diffusion Sliver's tax) answered as the driver will answer it (autoPickSoftCounterPay) —
+ * when at least one candidate carries a ward it would not pay and at least one does not; otherwise the candidates unchanged. Order
+ * is kept, so a ranking after it reads the same list minus those. Ranking only: every candidate here is already on its correct side.
  */
 function withoutUnpaidWard(state, controller, candidates) {
   const paid = candidates.filter((c) => {
-    const tax = wardTaxForStackObject(state, { controller, targets: c.targets || [] });
+    const tax = targetTaxForStackObject(state, { controller, targets: c.targets || [] });
     return !tax || autoPickSoftCounterPay(state, { controller, cost: tax.cost });
   });
   return paid.length && paid.length < candidates.length ? paid : candidates;
@@ -2687,13 +2687,13 @@ export function settleTriggerTargetChoice(state, candidateId) {
  * WARD ON A TRIGGERED ABILITY (CR 702.21a) — "Whenever this permanent becomes the target of a spell or ability an opponent controls,
  * counter that spell or ability unless that player pays [cost]." A triggered ability's targets are chosen as it is put on the stack
  * (CR 603.3d → 601.2c); when it targets a ward permanent an opponent of its controller controls, record the ward on the ability:
- * `wardOwed: { cost, wardName }`, the cost and the ward's name as wardTaxForStackObject reads them now, as the ward triggers (the same
- * detector the cast, ability and loyalty paths use — every ward target and every ward instance on it, in one cost; a cost the
- * engine can't take is recorded as unpayable, never dropped; no ward or an own permanent records nothing). The question itself is
- * raised by raiseWardOwed. An ability already gone (Kira's counter) records nothing.
+ * `wardOwed: { cost, wardName }`, the cost and the ward's name as targetTaxForStackObject reads them now, as the ward triggers (the
+ * same detector the cast, ability and loyalty paths use — every ward target and every ward instance on it, and every Diffusion Sliver
+ * trigger, in one cost; a cost the engine can't take is recorded as unpayable, never dropped; no ward or an own permanent records
+ * nothing). The question itself is raised by raiseWardOwed. An ability already gone (Kira's counter) records nothing.
  */
 function markWardOwed(state, so) {
-  const tax = wardTaxForStackObject(state, so);
+  const tax = targetTaxForStackObject(state, so);
   if (!tax) return state;
   const at = (state.stack || []).findIndex((o) => o.id === so.id);
   if (at < 0) return state;
@@ -2717,25 +2717,7 @@ export function raiseWardOwed(state) {
   const obj = stack[at];
   const { wardOwed, ...rest } = obj;
   const asked = { ...state, stack: stack.map((o, i) => (i === at ? rest : o)) };
-  // `priorityAfter`: the player who holds priority now — the one who receives it once the ward is settled (CR 117.5, returnPriorityAfterWard).
-  return setPendingSoftCounterChoice(asked, { controller: obj.controller, cost: wardOwed.cost, spellId: obj.id, spellName: obj.source?.name ?? null, sourceName: wardOwed.wardName, priorityAfter: state.priorityHolder ?? null });
-}
-
-/**
- * PRIORITY AFTER A WARD (CR 117.3c, 117.5) — a ward (or Diffusion Sliver's tax) triggers as a spell is cast or an ability is
- * activated or put on the stack, and goes on the stack the next time a player would receive priority; then "the player who would
- * have received priority does so" — the caster or activator (CR 117.3c), or whoever the trigger's flush handed it to. The engine
- * asks the ward at once instead (an immediate pay-or-counter, no ward object on the stack), and its settle runs
- * finalizeStackResolution, which restarts priority at the active player as after a resolution (CR 117.3b). This returns it to
- * `holder` — the player who held it when the ward was raised (`pendingChoice.priorityAfter`) — with the pass count restarted.
- * Unchanged when there is no holder, the holder has left the game (the finalize's pick stands), the step grants no priority, or
- * nobody holds it. Before 2026-10-20 a non-active player who cast a spell at a ward permanent lost the priority the cast gave
- * them: the active player acted first.
- */
-export function returnPriorityAfterWard(state, holder) {
-  if (!holder || !state.players?.[holder] || !state.priorityHolder || !grantsPriority(state.step)) return state;
-  if (state.priorityHolder === holder && (state.consecutivePasses || 0) === 0) return state;
-  return { ...state, priorityHolder: holder, consecutivePasses: 0 };
+  return setPendingSoftCounterChoice(asked, { controller: obj.controller, cost: wardOwed.cost, spellId: obj.id, spellName: obj.source?.name ?? null, sourceName: wardOwed.wardName });
 }
 
 /** Once no ability of the batch waits for its controller, put what triggered meanwhile on the stack (the flush the batch's own would have run). */

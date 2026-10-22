@@ -537,16 +537,13 @@ export function setPendingDiscardChoice(state, { controller, remaining, candidat
  * (and can afford it), the spell SURVIVES; otherwise it's countered. The caster's continuation rides on
  * `pendingChoice.resume` (attached by runProgram). FIFO: one choice at a time.
  */
-export function setPendingSoftCounterChoice(state, { controller, amount, cost = null, spellId, spellName = null, sourceName = null, counterDest = null, priorityAfter = null }) {
+export function setPendingSoftCounterChoice(state, { controller, amount, cost = null, spellId, spellName = null, sourceName = null, counterDest = null }) {
   if (state.pendingChoice) return state;
   // `amount` is the legacy FIXED-GENERIC cost (Force Spike / Mana Leak / generic-mana ward). `cost` is the
   // KW-WARD-PR2 STRUCTURED cost descriptor ({kind:"mana",mana} | {kind:"life",life} | … — ward.js) — when present it
   // overrides `amount` at settle (resolveSoftCounterChoice branches on it). `counterDest` (CS-1 —
   // Syncopate / No More Lies) is the decline path's zone redirect ("exile"), threaded through to
   // counterSpellById so the suspend can't drop it. For logging, surface the headline number either way.
-  // `priorityAfter` (2026-10-20) — a ward or Diffusion Sliver raised as a spell is cast or an ability activated or put on the
-  // stack: the player who holds priority then, returned to once the question is settled (learnSession.settleSoftCounterChoice —
-  // CR 117.3c, 117.5). Absent for a soft counterspell, whose question is asked as it resolves (CR 117.3b — the active player).
   const logAmount = cost ? wardCostHeadline(cost) : amount;
   const next = logEvent(state, { kind: "soft-counter-pending", controller, amount: logAmount, spellName, sourceName });
   return {
@@ -560,7 +557,6 @@ export function setPendingSoftCounterChoice(state, { controller, amount, cost = 
       spellId,
       spellName,
       sourceName,
-      ...(priorityAfter ? { priorityAfter } : {}),
     },
   };
 }

@@ -319,6 +319,8 @@ the stack must end the same way, or an activation taken after some players passe
 resolves without them. Mana abilities (`tap-for-mana`, `double-mana-pool`) leave
 the count alone (they don't use the stack). The graveyard lanes (GY-1 / GY-2) and
 crew lacked the reset until 2026-10-18 (witness: `activationPriority.test.js`).
+A ward or Diffusion Sliver question the action raises is settled at once as that trigger's resolution, so once it is answered
+the active player receives priority (CR 117.3b — "Ward, the leftovers" below), as after any resolution.
 
 The two combat declarations are turn-based actions the engine takes one action at
 a time. **Attackers** (CR 508.1, 508.2): the declaration closes at the first
@@ -516,11 +518,8 @@ The Tarrasque `wasCast`, Minthara's X = her controller's experience counters, CR
 sacrifice, poison counters, collect evidence, waterbend, blight, a typed discard; a Ward keyword whose cost no form reads and that
 names no mana ward) is `{ kind: "unpayable", text }` — asked, never payable, so the spell or ability is COUNTERED, exactly as an
 unpaid ward counters it (declining is always legal, CR 118.12a); before, these returned null and resolved free. **Priority** after
-the settle stays where the cast, activation or flush left it: the raise stamps `priorityAfter` (the caster / activator, or the
-holder when the driver raises an owed ward) and `learnSession.settleSoftCounterChoice` (and `settleDiscardChoice`, when a discard
-payment paused) runs `gameEngine.returnPriorityAfterWard` after `finalizeStackResolution`'s reset to the active player (CR 117.3c,
-117.5 — the ward goes on the stack before that player receives priority; a soft counterspell, asked as it resolves, carries no
-`priorityAfter` and keeps CR 117.3b). The person's panel (`SoftCounterPanel`) names an ability's threat as the ability
+the settle: this slice handed it back to the caster (`priorityAfter` / `returnPriorityAfterWard`, CR 117.3c); the leftovers slice
+(2026-10-21, below) removed both — the active player receives it, as after any resolution (CR 117.3b). The person's panel (`SoftCounterPanel`) names an ability's threat as the ability
 (`decision.objectKind`) and offers one button per alternative (`decision.optionsAffordable`; the answer's `option`). Witnesses:
 `wardCompleteness.test.js`, `softCounterPanelWording.test.jsx`.
 
@@ -534,6 +533,26 @@ the storm copies (each its own question, the lowest first), the self-copy (Sevin
 card, so nothing is ever owed there today), and the copied activated or triggered ability (Illusionist's Bracers, Strionic
 Resonator, Peter Parker's Camera). A creature-spell copy and a permanent-spell storm copy take no targets. Witness:
 `wardCopies.test.js`.
+
+**Ward, the leftovers** (2026-10-21, CR 702.21a, 115.7a, 115.7d, 602.2b, 603.2c, 707.10c, 117.3b). **One question for every
+counter-unless-pay that triggers on a target**: `ward.targetTaxForStackObject(state, obj)` → `{ cost, wardName }` — every ward
+instance on every opponent-controlled target (`wardTaxForStackObject`, unchanged) plus every Diffusion-style trigger
+(`groupWard.groupWardInstancesFor`: one {N} per targeted matching creature per group-ward source its controller controls, CR
+603.2c), combined by `combineWardCosts`. Every raise asks it: `actionDispatcher.raiseTargetTax` (the cast path — a spell that can't
+be countered logs `counter-uncounterable` instead — the battlefield activation, the loyalty ability, and now the channel-style hand
+ability `applyDiscardAbility` and the graveyard exile-cost ability `applyActivateGyExile`, whose targeted lanes raised nothing),
+`gameEngine.markWardOwed` (a triggered ability) and `atoms/stack.withWardOwed` (a copy, Misdirection's `moveStackTarget`, and now
+Deflecting Swat's `applyRetarget` and Hydroelectric Specimen's `applyRedirectToSource`). So Diffusion Sliver is no longer
+single-target, first-source, cast-and-activation-only, or crowded out when a ward took the choice slot first. **The copy picks**
+(`freshCopyTargets` — storm, the self-copy; `newTargetsForCopy` — "you may choose new targets for the copy") take, among the target
+sets on the wanted side, the first whose ward the copier would pay or that has none (`copyKeepsTargets`: `targetTaxForStackObject`
+answered by `ward.canPayWardCost` — moved from runProgram, the AI's pay-if-able answer); kept targets on the wanted side are
+re-aimed only to such a set; when every set carries a ward it won't pay, the old pick stands. **Priority** after a ward or Diffusion
+question is the active player's (CR 117.3b — the question is the trigger's resolution; `settleSoftCounterChoice` /
+`settleDiscardChoice` → `finalizeStackResolution`); the caster's own priority with the ward on the stack (CR 117.3c, 117.5) is the
+window the immediate question skips. The AI's aim (`opponentAI.wardCountersAction`) and the trigger chooser
+(`withoutUnpaidWard`) read `targetTaxForStackObject` too, and the AI's read covers the two new activation kinds. Witness:
+`wardLeftovers.test.js`; `wardCompleteness.test.js` §2 pins the active player.
 
 `triggerRoutesNatively(effectClause)` is the **shared gate** used by *both* the
 metric (coverage's `native-trigger`) and the runtime flush — it re-parses the
@@ -1961,8 +1980,8 @@ phase-out, graveyard returns, player-targeted draws and mills, and modal spells 
 `aiTargetedSpells.test.js`.
 
 **Ward in the AI's own aim (2026-10-20, `opponentAI.withoutWardCounteredActions`).** Before every chooser in `pickAction` (after the
-Phyrexian-life filter), a cast, activated ability or loyalty ability a ward would counter is dropped: its targets' wards
-(`ward.wardTaxForStackObject`, or Diffusion Sliver's tax when no ward is asked — the dispatcher's order), answered as the AI will answer
+Phyrexian-life filter), a cast, an activated, loyalty, channel-style or graveyard exile-cost ability a ward would counter is dropped: its
+targets' wards and Diffusion Sliver's tax (`ward.targetTaxForStackObject`, the dispatcher's one question), answered as the AI will answer
 the question (`autoPickSoftCounterPay`) on the board the action's OWN costs leave (`afterOwnCosts`: the dispatcher's payment plan —
 `legalChoices.offeredPaymentPlan` → `manaModel.commitPaymentPlan` — the spell, a discard or a pitched card out of the hand, the
 permanents its other costs sacrifice, tap or return gone). A spell that can't be countered is asked no ward (CR 701.6a — the cast's

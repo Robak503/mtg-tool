@@ -22,7 +22,7 @@ import { protectionApplies } from "../../protection.js"; // ATTACH-ON-ENTER EQUI
 import { auraMayEnchantCreature } from "../../auraHost.js"; // ATTACH-ON-ENTER AURAS (Shielded by Faith): the Aura's own Enchant line, honoured at the move — the shared reader (a leaf; zones.js reads it too)
 import { evaluateInterveningIf } from "../../interveningIf.js"; // FEROCIOUS HARD-COUNTER (Stubborn Denial): the resolution-time condition read. interveningIf imports only gameState — leaf edge, cycle-free.
 import { RESOLVER_KEYS } from "../../resolverKeys.js"; // P·23 — the self-copy builds a fresh effect-program payload (a zero-import leaf; resolvers.js re-exports it)
-import { wardTaxForStackObject } from "../../ward.js"; // WARD ON A CHANGED TARGET (moveStackTarget, CR 702.21a). ward.js imports gameState, layers and faceUp — the first two already imported here, faceUp a leaf — so this edge adds no cycle
+import { targetTaxForStackObject, canPayWardCost } from "../../ward.js"; // WARD ON A CHANGED TARGET OR A COPY (withWardOwed, CR 702.21a), and the copy-target picks' "would its controller pay" (canPayWardCost). ward.js reaches gameState, layers, faceUp, groupWard and manaModel — none reaches atoms/stack — so this edge adds no cycle
 
 /**
  * P3.1 counter (CR 701.6a) — counter the target spell(s) on the stack. The targeted
@@ -1725,8 +1725,10 @@ export function spellCopyPayload(payload) {
 
 /**
  * STORM-COPY-TARGET (CR 707.10c) — a fresh legal target combo for ONE copy of a spell whose body is `bodyProgram`, picked
- * off the LIVE state `s`: prefer all-enemy-side (per copyAtomIntent), else first legal, else the original spell's targets
- * (the CR 707.10c default). Shared by the storm copies and the self-copy (P·23).
+ * off the LIVE state `s`: prefer all-enemy-side (per copyAtomIntent) — among those, the first whose ward and Diffusion Sliver
+ * triggers its controller would pay or that has none (copyKeepsTargets; 2026-10-21 — before, a copy went at a ward permanent its
+ * controller couldn't pay for while another enemy target was free of it, and was countered for nothing) — else first legal, else the
+ * original spell's targets (the CR 707.10c default). Shared by the storm copies and the self-copy (P·23).
  * Whether ANY atom in the body takes a chosen target drives the re-enumeration: a targeting atom OR carried original targets
  * both signal a targeted spell; a non-targeted body (no targeting atom, no original targets) gets empty targets
  * (byte-identical to the pre-targeted STORM behavior for Empty the Warrens / Chatterstorm / Weather the Storm). Returns null
@@ -1750,7 +1752,7 @@ function freshCopyTargets(s, controller, bodyProgram, originalTargets) {
     if (intent === "own") return copyTargetSide(s, t) === controller;
     return true; // null intent (non-side-constrained atom) — any legal target is fine
   });
-  const chosen = combos.find(sideOk) || combos[0];
+  const chosen = combos.find((c) => sideOk(c) && copyKeepsTargets(s, controller, c.targets || [])) || combos.find(sideOk) || combos[0];
   return chosen?.targets || [];
 }
 
@@ -1769,6 +1771,9 @@ function freshCopyTargets(s, controller, bodyProgram, originalTargets) {
  *    aimed at a spell that then leaves does nothing.
  *  - No such set → the original targets stand (CR 707.10c), legal or not; an illegal one is dropped at the copy's own
  *    resolution (CR 608.2b).
+ *  - WARD (2026-10-21): a set whose ward and Diffusion Sliver triggers the copier would pay, or that has none (copyKeepsTargets), is
+ *    taken before one it wouldn't — kept targets that sit on the wanted side are re-aimed only to such a set, and stand otherwise.
+ *    Before, a Twincast copy went at a Leonin Lightbringer its controller couldn't pay {2} for while a Hill Giant was free of ward.
  */
 function newTargetsForCopy(state, controller, copyObj, avoidId) {
   const params = copyObj.payload.params;
@@ -1780,7 +1785,10 @@ function newTargetsForCopy(state, controller, copyObj, avoidId) {
     if (intent === "own") return copyTargetSide(state, t) === controller;
     return true;
   };
-  if (originals.every(sideOk)) return originals;
+  const uncounterable = copyObj.kind === "spell" && stackSpellIsUncounterable(state, copyObj);
+  const keeps = (ts) => copyKeepsTargets(state, controller, ts, uncounterable);
+  const keepable = originals.every(sideOk);
+  if (keepable && keeps(originals)) return originals;
   // The slot signature: how many targets each atom takes. A target recorded by the single-effect cast path names no atom —
   // its one slot is the only one — so there the signature is the count alone. (A two-target atom's roles need no entry of
   // their own: every such atom reads "ambiguous" above, so its targets are never the reason for a re-aim, and at most one
@@ -1792,24 +1800,42 @@ function newTargetsForCopy(state, controller, copyObj, avoidId) {
   const mode = JSON.stringify(params.chosenMode ?? null);
   const fits = combos.filter((c) => JSON.stringify(c.chosenMode ?? null) === mode).map((c) => c.targets)
     .filter((ts) => slots(ts) === slots(originals) && ts.every(sideOk));
-  return fits.find((ts) => !ts.some((t) => t.id === avoidId)) || fits[0] || originals;
+  const avoids = (ts) => !ts.some((t) => t.id === avoidId);
+  const free = fits.filter(keeps);
+  const pick = free.find(avoids) || free[0];
+  if (keepable) return pick || originals;
+  return pick || fits.find(avoids) || fits[0] || originals;
 }
 
 /**
  * WARD ON THE TARGETS A STACK OBJECT IS GIVEN AFTER IT WAS CAST OR ACTIVATED (CR 702.21a) — a copy put onto the stack with its targets
  * (CR 707.10, 707.10c: a copy copies the targets, or takes the new ones its controller chose, and "the copy is put onto the stack with
  * those targets"; the copy is a spell or ability its copier controls — the bundled Blue Ribbon ruling: "If you copy the spell, the
- * second creature becomes the target of the copy"), and a target changed onto a permanent (moveStackTarget, CR 115.7a): each
+ * second creature becomes the target of the copy"), and a target changed or chosen again onto a permanent (CR 115.7a, 115.7d —
+ * moveStackTarget for Misdirection, applyRetarget for Deflecting Swat, applyRedirectToSource for Hydroelectric Specimen): each
  * permanent it now targets becomes the target of a spell or ability that player controls, so an opponent's ward triggers and the
  * object is countered unless its controller pays. Recorded on the object — `wardOwed: { cost, wardName }`, as
  * gameEngine.markWardOwed records a triggered ability's — and asked by the session driver before anyone receives priority
- * (gameEngine.raiseWardOwed). Read by the one detector every ward path shares (ward.wardTaxForStackObject: every ward instance on
- * every opponent-controlled target). A spell that can't be countered is asked nothing, as on the cast path (CR 701.6a — the ward
- * would counter nothing). No ward → the object unchanged.
+ * (gameEngine.raiseWardOwed). Read by the one detector every ward path shares (ward.targetTaxForStackObject: every ward instance on
+ * every opponent-controlled target, and every Diffusion Sliver trigger). A spell that can't be countered is asked nothing, as on the
+ * cast path (CR 701.6a — the ward would counter nothing). No ward → the object unchanged.
  */
 function withWardOwed(state, obj, targets = obj.targets || []) {
-  const owed = obj.kind === "spell" && stackSpellIsUncounterable(state, obj) ? null : wardTaxForStackObject(state, { controller: obj.controller, targets });
+  const owed = obj.kind === "spell" && stackSpellIsUncounterable(state, obj) ? null : targetTaxForStackObject(state, { controller: obj.controller, targets });
   return owed ? { ...obj, wardOwed: { cost: owed.cost, wardName: owed.wardName } } : obj;
+}
+
+/**
+ * Would `controller` keep a copy put onto the stack with `targets` — no ward or Diffusion Sliver triggers on them (withWardOwed's read),
+ * or it can pay what does (canPayWardCost: the AI's answer to the question, runProgram.autoPickSoftCounterPay), or the copy can't be
+ * countered (`uncounterable`)? The copy-target picks below take such a set first (CR 707.10c — the new targets are its controller's
+ * choice): a copy aimed where a ward its controller won't pay counters it does nothing (CR 701.6a). Each pick reads the board as it is,
+ * before any ward is paid.
+ */
+function copyKeepsTargets(state, controller, targets, uncounterable = false) {
+  if (uncounterable) return true;
+  const owed = targetTaxForStackObject(state, { controller, targets });
+  return !owed || canPayWardCost(state, controller, owed.cost);
 }
 
 /**
@@ -2256,6 +2282,10 @@ function applyBounceSpellOrPermanent(state, atom, ctx) {
  * Both payload.params.targets AND the top-level obj.targets (when present) are rewritten in sync, so
  * resolution (runProgram reads params.targets) and the CR 608.2b fizzle check see the same picture.
  * A target already gone from the stack logs a distinct fizzle line (CR 608.2b), never a silent skip.
+ * WARD (CR 702.21a — 2026-10-21): each permanent among the new targets becomes the target of the object, so a ward (or Diffusion
+ * Sliver) an opponent of its controller controls triggers — recorded on the object by withWardOwed and asked by the session driver,
+ * as for Misdirection's change (moveStackTarget). Before, ai1's Murder deflected off your creature onto ai2's Leonin Lightbringer
+ * destroyed it without the {2}.
  */
 function applyRetarget(state, atom, ctx) {
   let next = state;
@@ -2297,7 +2327,7 @@ function applyRetarget(state, atom, ctx) {
       ...next,
       stack: [
         ...next.stack.slice(0, idx),
-        { ...obj, ...(Array.isArray(obj.targets) ? { targets: newTargets } : {}), payload: { ...obj.payload, params: { ...params, targets: newTargets } } },
+        withWardOwed(next, { ...obj, ...(Array.isArray(obj.targets) ? { targets: newTargets } : {}), payload: { ...obj.payload, params: { ...params, targets: newTargets } } }, newTargets),
         ...next.stack.slice(idx + 1),
       ],
     };
@@ -2318,7 +2348,8 @@ function applyRetarget(state, atom, ctx) {
  * the spell's problem, not the redirector's), in the same target slot (atomIndex / role), with the spell's own kick and mode
  * (CR 115.8 — a mode is never re-chosen). The source must still be on the battlefield. Anything else logs why and changes
  * nothing. Both the stack object's targets and its payload's are rewritten, as applyRetarget does, so the CR 608.2b check and
- * the resolution read the same target.
+ * the resolution read the same target. A ward (or Diffusion Sliver) the source carries triggers as it becomes the target — recorded
+ * by withWardOwed (CR 702.21a — 2026-10-21; before, a Specimen with Hexing Squelcher's granted ward took the spell free).
  */
 function applyRedirectToSource(state, atom, ctx) {
   const t = (ctx?.targets || []).find((x) => x?.type === "spell");
@@ -2346,7 +2377,7 @@ function applyRedirectToSource(state, atom, ctx) {
     ...state,
     stack: [
       ...state.stack.slice(0, idx),
-      { ...obj, ...(Array.isArray(obj.targets) ? { targets: moved } : {}), payload: { ...obj.payload, params: { ...params, targets: moved } } },
+      withWardOwed(state, { ...obj, ...(Array.isArray(obj.targets) ? { targets: moved } : {}), payload: { ...obj.payload, params: { ...params, targets: moved } } }, moved),
       ...state.stack.slice(idx + 1),
     ],
   };

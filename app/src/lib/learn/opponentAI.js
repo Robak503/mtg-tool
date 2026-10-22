@@ -48,8 +48,7 @@ import { manaUntapLineAction, pickManaAuraTarget } from "./manaUntapLine.js"; //
 import { outletFinishAction } from "./outletFinishLine.js"; // E7.2 — the token loop's finishes that are not combat (a sacrifice outlet)
 import { tokenLoopState, isTokenLoopAction, tokenLoopAttackPlan } from "./tokenLoopLine.js"; // THE COMBO LINE for a self-scaling token loop: enough, then nothing else, then the finish
 import { isNativeManaAura, stackSpellIsUncounterable } from "./staticAbilityParser.js"; // pickAuraCast — the mana-boost lane, offered on the caster's own lands only; + the one can't-be-countered predicate (a spell no ward can counter)
-import { wardTaxForStackObject } from "./ward.js"; // WARD (CR 702.21a) — the one reader every ward path shares (a leaf over gameState, layers, faceUp)
-import { groupWardTaxForStackObject } from "./groupWard.js"; // Diffusion Sliver's tax — asked by the dispatcher when no ward is (a leaf)
+import { targetTaxForStackObject } from "./ward.js"; // WARD (CR 702.21a) and Diffusion Sliver — the one reader every ward raise shares (ward.js reaches gameState, layers, faceUp, groupWard and manaModel; none imports opponentAI)
 import { autoPickSoftCounterPay } from "./effects/runProgram.js"; // the AI's answer to a ward question — read before aiming, so it never aims where it can't pay (gameEngine already imports runProgram: no new cycle)
 import { grantAuraCastHostType } from "./coverage.js"; // pickAuraCast — the granted-ability lane, offered on the caster's own lands when its host is a land
 import { playerAuraSide } from "./playerAuraEffect.js"; // pickAuraCast — which player an "Enchant player" Aura belongs on (the curse reading, then the printed reading)
@@ -2883,8 +2882,10 @@ function heldUpCosts(state, aiPlayerId) {
 // loyalty choosers never read it: Murder went at Vein Ripper (the biggest creature) and was countered with a Grizzly Bears beside it;
 // four Swamps cast Murder at a Leonin Lightbringer whose {2} the payment had just spent; Ob Nixilis spent three loyalty on a −3 the ward
 // countered. The trigger chooser already read it (gameEngine.withoutUnpaidWard).
-const WARD_RAISING_KINDS = new Set(["cast-spell", "activate-ability", "activate-loyalty"]); // the dispatcher's three ward raises
-const WARD_TARGET_TYPES = new Set(["creature", "permanent", "planeswalker"]); // the target types wardTaxForStackObject reads
+// The dispatcher's ward raises (raiseTargetTax): a cast, an activated or loyalty ability, and — since 2026-10-21 — a channel-style
+// ability from the hand and an exile-cost ability from the graveyard.
+const WARD_RAISING_KINDS = new Set(["cast-spell", "activate-ability", "activate-loyalty", "discard-ability", "activate-gy-exile"]);
+const WARD_TARGET_TYPES = new Set(["creature", "permanent", "planeswalker"]); // the target types targetTaxForStackObject reads
 
 /**
  * The board an action's own costs leave — the one its ward question meets. The mana is paid by the plan the dispatcher pays it with
@@ -2894,17 +2895,19 @@ const WARD_TARGET_TYPES = new Set(["creature", "permanent", "planeswalker"]); //
  * (costReservedPermanentIds) leave the battlefield, so none of them pays the ward. A life payment beside the mana (an alternative
  * cost's, an additional cost's, a target's life tax) is not taken off — the AI pays an alternative cost's life only while it stays at
  * LIFE_PRUDENCE_FLOOR or more (filterAltCastVariants), above every printed life ward but one sized by a creature's power; missing one
- * reads a ward as paid, the old aim. A preview only — never dispatched, never returned to the game.
+ * reads a ward as paid, the old aim. An exile-cost graveyard ability pays by the dispatcher's plan too; a channel-style ability's card
+ * leaves the hand, but its mana (priced live under a reduction rider by the dispatcher) is not taken off — read as paid, the old aim.
+ * A preview only — never dispatched, never returned to the game.
  */
 function afterOwnCosts(state, aiPlayerId, action) {
   let next = state;
   let plan = null;
-  if ((action.kind === "cast-spell" || action.kind === "activate-ability") && action.cost && !((action.freeCast || action.altCost) && !costOwesMana(action.cost))) {
+  if ((action.kind === "cast-spell" || action.kind === "activate-ability" || action.kind === "activate-gy-exile") && action.cost && !((action.freeCast || action.altCost) && !costOwesMana(action.cost))) {
     plan = offeredPaymentPlan(state, aiPlayerId, action);
     if (plan) next = commitPaymentPlan(next, aiPlayerId, plan, { reserved: costReservedPermanentIds(action) });
   }
   const leaving = new Set([action.discardCardId, ...(action.discardIds || []), action.altCost?.exilePitchId].filter((id) => id != null));
-  if (action.kind === "cast-spell" && (action.fromZone || "hand") === "hand") leaving.add(action.cardId);
+  if ((action.kind === "cast-spell" && (action.fromZone || "hand") === "hand") || action.kind === "discard-ability") leaving.add(action.cardId);
   const gone = costReservedPermanentIds(action);
   const p = next.players[aiPlayerId];
   let hand = (p.hand || []).filter((c) => !leaving.has(c.id));
@@ -2914,8 +2917,8 @@ function afterOwnCosts(state, aiPlayerId, action) {
 }
 
 /**
- * WOULD A WARD COUNTER THIS ACTION? Its targets' wards (ward.wardTaxForStackObject — every ward instance on every opponent-controlled
- * target), or Diffusion Sliver's tax when no ward is asked (the dispatcher asks Diffusion's only then), answered as the AI will answer
+ * WOULD A WARD COUNTER THIS ACTION? Its targets' wards and Diffusion Sliver's tax (ward.targetTaxForStackObject — every ward instance
+ * on every opponent-controlled target and every Diffusion trigger, the one question the dispatcher asks), answered as the AI will answer
  * the question (autoPickSoftCounterPay) on the board the action's own costs leave (afterOwnCosts): a ward it can't pay after paying
  * the spell is a ward that counters it. A spell that can't be countered is asked nothing (CR 701.6a — the dispatcher's
  * stackSpellIsUncounterable read, with the marks a cast stamps: Mistrise Village's armed flag, a typed shield, mana that makes it
@@ -2923,7 +2926,7 @@ function afterOwnCosts(state, aiPlayerId, action) {
  */
 function wardCountersAction(state, aiPlayerId, action) {
   const obj = { controller: aiPlayerId, targets: action.targets || [] };
-  const tax = wardTaxForStackObject(state, obj) ?? groupWardTaxForStackObject(state, obj);
+  const tax = targetTaxForStackObject(state, obj);
   if (!tax) return false;
   const { state: after, plan } = afterOwnCosts(state, aiPlayerId, action);
   if (action.kind === "cast-spell") {
@@ -2951,7 +2954,7 @@ function withoutWardCounteredActions(state, aiPlayerId, actions) {
     if (!t || !WARD_TARGET_TYPES.has(t.type)) return false;
     if (!raises.has(t.id)) {
       const one = { controller: aiPlayerId, targets: [t] };
-      raises.set(t.id, !!(wardTaxForStackObject(state, one) || groupWardTaxForStackObject(state, one)));
+      raises.set(t.id, !!targetTaxForStackObject(state, one));
     }
     return raises.get(t.id);
   };
