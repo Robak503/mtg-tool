@@ -1535,6 +1535,10 @@ function applyActivateAbility(state, action) {
   if (action.tapSelf && perm.tapped) {
     throw new DispatcherError("Ability source is already tapped", "ALREADY_TAPPED");
   }
+  // The card types the source has as the ability is activated, read before any cost is paid (CR 602.2b, 613.1d) — the
+  // ability-activated watchers that name a card type read them (Runic Armasaur, play-weighted 2026-10-22), so a source that
+  // leaves as its own cost is paid (Mogg Fanatic) is still the creature it was.
+  const activatedTypes = permanentTypes(state, perm.id).types.map((t) => String(t).toLowerCase());
 
   // Plan + commit mana payment. A source paying its own cost by tapping ({T}), being sacrificed, OR being
   // exiled can't ALSO tap for mana — exclude it from the available sources (matches legalChoices exactly).
@@ -1851,7 +1855,7 @@ function applyActivateAbility(state, action) {
   // copy resolves first — CR 603.3b). The pre-cost `perm` is the triggering permanent (its type line and id are
   // what the watchers read); the equipment linkage is read live, so a host that sacrificed itself as the cost no
   // longer carries its equipment and the watcher stays quiet (a safe under-fire).
-  next = checkAbilityActivatedTriggers(next, { permanent: perm, activatorId: action.playerId, stackObjectId: stkId });
+  next = checkAbilityActivatedTriggers(next, { permanent: perm, activatorId: action.playerId, stackObjectId: stkId, activatedTypes });
   // γ1 — a self-sacrifice cost (above) enqueues dies triggers in pendingTriggers; flush them onto
   // the stack now (ABOVE the ability, so they resolve first — CR 603.3b), exactly as the cast path
   // flushes cast triggers. A no-op when nothing triggered (the pre-γ1 common case).
@@ -2010,6 +2014,7 @@ function applyActivateLoyalty(state, action) {
   if (!perm) throw new DispatcherError(`Permanent ${action.permanentId} not on battlefield`, "PERM_NOT_FOUND");
   if (!isPlaneswalker(perm.card)) throw new DispatcherError("Not a planeswalker", "NOT_PLANESWALKER");
   if (perm.loyaltyActivatedThisTurn) throw new DispatcherError("A loyalty ability of this planeswalker was already activated this turn", "LOYALTY_USED");
+  const activatedTypes = permanentTypes(state, perm.id).types.map((t) => String(t).toLowerCase()); // before the loyalty cost (CR 602.2b) — see applyActivateAbility
   const loyalty = perm.counters?.loyalty ?? 0;
   if (!Number.isInteger(action.costDelta)) throw new DispatcherError("Loyalty cost delta missing", "BAD_ACTION");
   if (action.costDelta < 0 && loyalty + action.costDelta < 0) {
@@ -2057,7 +2062,7 @@ function applyActivateLoyalty(state, action) {
   });
   // ABILITY-ACTIVATED (CAP-BRACERS): a loyalty ability IS an activated ability (CR 606.1) — "whenever you activate an
   // ability [of a planeswalker]" watchers fire here too; flushed by the becomes-target flush just below.
-  next = checkAbilityActivatedTriggers(next, { permanent: perm, activatorId: action.playerId, stackObjectId: stkId });
+  next = checkAbilityActivatedTriggers(next, { permanent: perm, activatorId: action.playerId, stackObjectId: stkId, activatedTypes });
   // BECOMES-TARGET (CR 603.2 — the Phantasmal Illusion family): a loyalty ability that TARGETS a permanent
   // carrying the sac trigger fires it too — a loyalty ability IS an activated ability (CR 606.1), so "a spell or
   // ability" covers it. Enqueued + flushed ABOVE the loyalty ability so it resolves first (CR 603.3b). No-op

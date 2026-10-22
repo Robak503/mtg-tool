@@ -27,8 +27,14 @@ describe("the production flag — exactly 'Sacrifice a creature'", () => {
   it("reads both Altars with sacrificesCreature; a self-sac, a typed sac and a rider are not carved out", () => {
     expect(manaProduction(ASHNOD)).toMatchObject({ colors: ["C"], amount: 2, sacrificesCreature: true });
     expect(manaProduction(PHYREXIAN)).toMatchObject({ colors: ["W", "U", "B", "R", "G"], amount: 1, sacrificesCreature: true });
-    expect(manaProduction({ name: "Probe Artifact Sac", type: "Artifact", oracle: "Sacrifice an artifact: Add {C}{C}." })).toBeFalsy();
-    expect(manaProduction({ name: "Probe Saproling Sac", type: "Artifact", oracle: "Sacrifice a Saproling: Add {C}{C}." })).toBeFalsy();
+    // GRADUATED 2026-10-22 (play-weighted — Krark-Clan Ironworks, Skirk Prospector): "Sacrifice an artifact" and "Sacrifice a
+    // <creature type>" are paid for real now, as `sacrificesKind` (sacKindMana.test.js) — never as the Altars' creature flag. Another
+    // victim noun (a land, a named token) still reads nothing.
+    expect(manaProduction({ name: "Probe Artifact Sac", type: "Artifact", oracle: "Sacrifice an artifact: Add {C}{C}." })).toMatchObject({ sacrificesKind: "artifact" });
+    expect(manaProduction({ name: "Probe Artifact Sac", type: "Artifact", oracle: "Sacrifice an artifact: Add {C}{C}." }).sacrificesCreature).toBeFalsy();
+    expect(manaProduction({ name: "Probe Saproling Sac", type: "Artifact", oracle: "Sacrifice a Saproling: Add {C}{C}." })).toMatchObject({ sacrificesKind: "saproling" });
+    expect(manaProduction({ name: "Probe Land Sac", type: "Artifact", oracle: "Sacrifice a land: Add {C}{C}." })).toBeFalsy();
+    expect(manaProduction({ name: "Probe Token Sac", type: "Artifact", oracle: "Sacrifice a token named Wood: Add {C}{C}." })).toBeFalsy();
   });
 
   it("⛔ a card with a FREE tap beside a sacrifice line keeps the free tap and is NOT stamped (Phyrexian Tower)", () => {
@@ -212,9 +218,9 @@ describe("the Altar and the rest of the payment", () => {
 });
 
 describe("classification", () => {
-  it("both Altars are native-mana; the artifact-sac and typed-sac probes stay body-only", () => {
+  it("both Altars are native-mana; the land-sac probe stays body-only (the artifact-sac probe graduated 2026-10-22 — sacKindMana.test.js)", () => {
     expect(classifyCard(ASHNOD)).toBe("native-mana");
     expect(classifyCard(PHYREXIAN)).toBe("native-mana");
-    expect(classifyCard({ name: "Probe Artifact Sac", type: "Artifact", mana: "{3}", oracle: "Sacrifice an artifact: Add {C}{C}." })).toBe("body-only");
+    expect(classifyCard({ name: "Probe Land Sac", type: "Artifact", mana: "{3}", oracle: "Sacrifice a land: Add {C}{C}." })).toBe("body-only");
   });
 });

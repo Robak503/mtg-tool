@@ -976,6 +976,41 @@ Stormrider Rig, Ronin Warclub, Inventor's Goggles, Quintessential Katana): the E
 (attach iff unattached). An Equipment watching any player's creatures (Cloak and Dagger's "a Rogue creature enters") keeps its raw
 pronoun and stays parked.
 
+**Eight readers the most-played lacked (play-weighted 2026-10-22).** Taunt from the Rampart: `splitClauses`' TAUNT FOLD keeps "Goad
+all creatures your opponents control. Until your next turn, those creatures can't block." one clause; `combat.goadClauseParser` reads
+it as the mass goad with `alsoCantBlock`, and `applyGoad` lays `cantBlock` beside the two goad grants on the same fixed set, for the
+goad span (`untilOwnersNextTurn`, ended as the caster's next turn begins). A Kindred spell's "Changeling (…)" line leaves the spell
+program (`castModifiers.stripChangelingLine`, devoid's twin in parseEffectProgramInner's strip chain); the spell stays every creature
+type for the cast watchers, which read the keyword (`everyCreatureType.cardIsEveryCreatureType`). The removal rider grammar
+(`spanMatchers.parseControllerRider`) takes "creates a N/N colorless <subtype> creature token[ with changeling]" (`color: "colorless"`,
+`changeling` → the create-token atom's flag — Crib Swap). The target-creature count-scaled pump (atoms/combat.js, after the subtype
+arm): "[Until end of turn, ](another )?target creature( you control)? [gains <keywords> and ]gets ±X/±N[ until end of turn], where X
+is <count>" — exactly one duration; X through parseCountSource (allowBattlefield), its sign on `ptDeltaCount.per`, `ptDeltaCountSlot`
+for a single X pip. It composes with parseClauseToAtom's subject peels (a creature-type noun, "attacking", "another", "up to one" —
+each restriction enforced by the enumerator and the resolver: Rubblehulk's bloodrush, Wildwood Mentor, Gold Rush). Refused: +X/-X (two
+signed slots), a count of the source's own counters (abilitySourceRecord keeps the departed
+source's power, not its counters — Bloodthirsty Ogre and War Dance park), a die result, the previous target's counters. Its "for
+each" twin reads the two orders the plain for-each arm can't see — a leading duration or a keyword grant first (Fists of Flame;
+parseCountSource's cards-drawn count takes the singular a for-each hands over). `splitClauses` keeps both whole;
+`programQueries.atomTargetIntent` reads a negative `per` as the enemy side. ⚠️ Four beginning-of-combat triggers credit through this
+arm (Brambleguard Captain, three Sarevoks) — the extra-combat double setup (the 2026-10-21 paragraph above) fires them twice in an
+additional combat until it is fixed. The devotion CDA (`staticAbilityParser`, beside the count CDAs): "this creature's
+power|toughness is equal to your devotion to <colour>" → `ptSetDynamicCount` with `{ kind: "devotion", color }`, read by layers'
+`countForSpec` through `devotionToColors`, the Gods' pip count (Daxos, Blessed by the Sun; Renata). The sacrifice-a-kind mana cost
+(`manaModel.manaAbilitySacrificesKind` → `sacrificesKind`: "artifact" or a creature type; the victim test `isSacKindNow` — the card
+types now, or the subtype now / every creature type) is wired wherever `sacrificesFood` is: sacVictimTest, picksSacVictim, the source
+and plan records, isOneShotSource, the commit's log label, PAID_MANA_COST_ITEMS and the AI's no-consumable plan check (Krark-Clan
+Ironworks, Skirk Prospector, Krark-Clan Stoker, Kykar, Utopia Mycon). Unlike its twins, a source of its own kind is its own last
+candidate (`sacrificesItselfToo` — Skirk Prospector's bundled ruling; alone, Krark-Clan Ironworks pays with itself); the Altars and the
+Goose keep their "another" pools. The ability-activated event takes an opponent form (`whose: "opponent"`, `activatedTypesNow` — "a creature", "a land", "a creature or
+land" — Runic Armasaur), gated on the card types the dispatcher reads BEFORE the cost (`activatedTypes`, in applyActivateAbility and
+applyActivateLoyalty), never the printed type line. ⚠️ `applyCrewVehicle` fires no ability-activated event, so the artifact and
+permanent forms (Harsh Mentor, Immolation Shaman, Wizened Mentor) stay undetected — and the "you activate" watchers (Rings of
+Brighthearth) never see a crew activation. The cast watcher takes "you cast a spell that targets a creature you control"
+(`spellFilter: { kind: "targetsCreatureYouControl" }`, beside Pearl-Ear's target read — Season of Growth, Mockingbird, Ace Agent). The
+counted creature-token arm (atoms/tokens.js) takes "where X is half the number of <count>, rounded down|up" (`halve`; applyCreateToken
+halves `countFor` through `halveAmount`, a no-op when unset — Endless Ranks of the Dead).
+
 **The chosen-type sweep family** (`removal.notChosenTypeSet`, 2026-10-18): Kindred Dominance's destroy, Raise the Palisade's bounce
 and Crippling Fear's -N/-N share one choice (`choicePolicy.autoPickCreatureTypeToSpare`, made as the spell resolves, for every
 seat) and one set (every creature now not of the chosen type by its current types; a changeling is never in it). The bounce rides

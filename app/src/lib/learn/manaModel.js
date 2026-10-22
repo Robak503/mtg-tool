@@ -751,6 +751,35 @@ function manaAbilitySacrificesFood(oracle) {
 }
 
 /**
+ * SACRIFICE-AN-ARTIFACT / SACRIFICE-A-<CREATURE TYPE> MANA COST (play-weighted 2026-10-22 — Krark-Clan Ironworks "Sacrifice an
+ * artifact: Add {C}{C}.", Skirk Prospector "Sacrifice a Goblin: Add {R}."). The Altars' and Gilded Goose's twin with another victim
+ * kind, paid for real the same way: manaSources offers the source only while its controller controls another permanent of that
+ * kind (CR 118.3), and commitManaTap sacrifices the least valuable one through the cost sacrifice before the mana is added (CR
+ * 605.3b). The kind is the one it has NOW (the type-line audit): an artifact by its card types after layer 4; a creature type by its
+ * subtypes after layer 4 or every creature type (Changeling, CR 702.73a). Returns "artifact", the lowercase creature type, or null.
+ * Every activated mana line must carry exactly this one cost (optionally after "{T},") — the creature twin's all-lines rule; the
+ * creature and Food forms keep their own readers, and any other sacrifice ("a land", "a Swamp", "a Prism token") stays refused.
+ * Unlike the twins, the source may be its own victim when it is of the kind — the last candidate (sacrificesItselfToo; Skirk
+ * Prospector's bundled ruling).
+ */
+const SAC_KIND_CREATURE_TYPES = [...CR_CREATURE_TYPES].filter((w) => /^[a-z]+$/.test(w) && w !== "creature");
+const SAC_KIND_COST_RE = new RegExp(`^(?:\\{t\\},\\s*)?sacrifice (?:an (artifact)|an? (${SAC_KIND_CREATURE_TYPES.join("|")}))\\s*$`, "i");
+function manaAbilitySacrificesKind(oracle) {
+  const manaLines = String(oracle || "").split(/\n+/).filter((line) => {
+    const ci = line.indexOf(":");
+    return ci !== -1 && /\badd\b/i.test(line.slice(ci + 1));
+  });
+  if (!manaLines.length) return null;
+  const kinds = new Set();
+  for (const line of manaLines) {
+    const m = SAC_KIND_COST_RE.exec(line.slice(0, line.indexOf(":")).trim());
+    if (!m) return null;
+    kinds.add((m[1] || m[2]).toLowerCase());
+  }
+  return kinds.size === 1 ? [...kinds][0] : null;
+}
+
+/**
  * EXILE-FROM-HAND MANA (SG-6, 2026-09-03 — Elvish Spirit Guide "Exile this card from your hand: Add {G}", Simian
  * Spirit Guide "… Add {R}"; 2 corpus cards). A mana ability of a card IN HAND (CR 605.1a — a mana ability may
  * be activated from any zone its cost allows): the production carries `fromHand`, manaSources walks the HAND
@@ -885,10 +914,21 @@ function isFoodNow(state, perm) {
   return !!perm && permanentSubtypes(state, perm.id).some((st) => String(st).toLowerCase() === "food");
 }
 
-/** The victim test of a source's "Sacrifice a <kind>" cost (a creature for the Altars, a Food for Gilded Goose), or null. */
+/** Is this battlefield permanent of kind `kind` right now — "artifact" (its card types after layer 4) or a creature type (its subtypes
+ *  after layer 4, or every creature type — Changeling, CR 702.73a)? Krark-Clan Ironworks' and Skirk Prospector's victim pool
+ *  (play-weighted 2026-10-22, `sacrificesKind`). */
+function isSacKindNow(state, perm, kind) {
+  if (!perm || !kind) return false;
+  if (kind === "artifact") return permanentHasCardType(state, perm.id, "Artifact");
+  return permanentSubtypes(state, perm.id).some((st) => String(st).toLowerCase() === kind) || permIsEveryCreatureType(state, perm.id);
+}
+
+/** The victim test of a source's "Sacrifice a <kind>" cost (a creature for the Altars, a Food for Gilded Goose, an artifact or a
+ *  creature type for Krark-Clan Ironworks and Skirk Prospector), or null. */
 function sacVictimTest(s) {
   if (s?.sacrificesCreature) return isCreatureNow;
   if (s?.sacrificesFood) return isFoodNow;
+  if (s?.sacrificesKind) return (state, perm) => isSacKindNow(state, perm, s.sacrificesKind);
   return null;
 }
 
@@ -903,7 +943,9 @@ function sacVictimTest(s) {
  *   · leavesAsItPays — a record or tap whose own permanent leaves as it commits (a self-sacrifice — a Treasure, an Eldrazi Spawn
  *     — or a depletion land's last counter): it commits before any victim is picked, so it can't be anyone's victim.
  */
-const picksSacVictim = (s) => !!(s?.sacrificesCreature || s?.sacrificesFood);
+const picksSacVictim = (s) => !!(s?.sacrificesCreature || s?.sacrificesFood || s?.sacrificesKind);
+/** The log label of a tap's sacrifice-a-<kind> cost: "creature", "food", or the kind ("artifact", "goblin"). */
+const sacKindLabel = (t) => (t?.sacrificesCreature ? "creature" : t?.sacrificesKind ? t.sacrificesKind : "food");
 const leavesAsItPays = (s) => !!(s?.sacrifices || s?.sacrificeIfNoCounters);
 /**
  * + THE OTHER RESOURCES A COST CONSUMES (2026-10-17, the follow-up). The same rule holds two more shared resources:
@@ -919,11 +961,28 @@ const picksGyCard = (s) => !!s?.exilesGyCard;
 const paysLife = (s) => s?.payLife != null && s.payLife > 0;
 const claimsResource = (s) => picksSacVictim(s) || picksGyCard(s) || paysLife(s);
 
-/** The ids of the permanents `player` controls that can feed source record `prod`'s sacrifice cost NOW (never the source), or
- *  null when `prod` sacrifices no other permanent. manaSources stamps them on the record (`sacVictimIds`). */
+/** The ids of the permanents `player` controls that can feed source record `prod`'s sacrifice cost NOW (never the source — except a
+ *  `sacrificesKind` source of its own kind, last: sacrificesItselfToo), or null when `prod` sacrifices no other permanent. manaSources
+ *  stamps them on the record (`sacVictimIds`). */
 function sacVictimIdsFor(state, player, sourceId, prod) {
   const isVictim = sacVictimTest(prod);
-  return isVictim ? (player.battlefield || []).filter((p) => p.id !== sourceId && isVictim(state, p)).map((p) => p.id) : null;
+  if (!isVictim) return null;
+  const others = (player.battlefield || []).filter((p) => p.id !== sourceId && isVictim(state, p)).map((p) => p.id);
+  const self = sacrificesItselfToo(state, player.battlefield, sourceId, prod, isVictim);
+  return self ? [...others, sourceId] : others;
+}
+
+/**
+ * THE SOURCE AS ITS OWN VICTIM, LAST (play-weighted 2026-10-22 — the `sacrificesKind` sources only). "Sacrifice a Goblin" can be
+ * paid with the Goblin whose ability it is: Skirk Prospector's bundled ruling — "You can sacrifice any Goblin you control to activate
+ * Skirk Prospector’s activated ability, including Skirk Prospector itself." — and Krark-Clan Ironworks is an artifact. The source is
+ * the last candidate (every other permanent of the kind first), so the house pick spends it only when nothing else can pay. The Altars
+ * and Gilded Goose keep their "another" pools (a Thermopod that is its own creature stays an under-offer, as before).
+ */
+function sacrificesItselfToo(state, battlefield, sourceId, s, isVictim) {
+  if (!s?.sacrificesKind) return false;
+  const self = (battlefield || []).find((p) => p.id === sourceId);
+  return !!self && isVictim(state, self);
 }
 
 /**
@@ -1032,13 +1091,15 @@ function victimValueOrder(a, b) {
 }
 
 /** The live victims of tap `tap`'s sacrifice cost on `state`, least valuable first: the controller's permanents of its kind NOW,
- *  never its source, never one the action's own costs still need (`reserved`). */
+ *  never its source (save a `sacrificesKind` source of its own kind, last), never one the action's own costs still need (`reserved`). */
 function liveSacVictims(state, playerId, tap, reserved) {
   const isVictim = sacVictimTest(tap);
   if (!isVictim) return [];
-  return (state.players[playerId]?.battlefield || [])
-    .filter((p) => p.id !== tap.permanentId && !reserved?.has(p.id) && isVictim(state, p))
-    .sort(victimValueOrder);
+  const bf = state.players[playerId]?.battlefield || [];
+  const others = bf.filter((p) => p.id !== tap.permanentId && !reserved?.has(p.id) && isVictim(state, p)).sort(victimValueOrder);
+  // + the source itself, last (a `sacrificesKind` source of its own kind — sacrificesItselfToo)
+  return !reserved?.has(tap.permanentId) && sacrificesItselfToo(state, bf, tap.permanentId, tap, isVictim)
+    ? [...others, bf.find((p) => p.id === tap.permanentId)] : others;
 }
 
 /** The live graveyard cards tap `tap`'s exile cost may take on `state`, oldest first (Molt Tender's house pick): never one the
@@ -1130,6 +1191,7 @@ const PAID_MANA_COST_ITEMS = [
   /\btap (?:an|a|two|three) untapped (?:legendary creatures?|[a-z]+) you control\b/gi, // + "legendary creature" (Relic of Legends, 2026-10-17)
   /\bsacrifice a creature\b/gi,
   /\bsacrifice a food\b/gi, // play-weighted #803 (Gilded Goose) — `sacrificesFood`
+  new RegExp(`\\bsacrifice (?:an artifact|an? (?:${SAC_KIND_CREATURE_TYPES.join("|")}))\\b`, "gi"), // play-weighted 2026-10-22 (Krark-Clan Ironworks, Skirk Prospector) — `sacrificesKind`
   /\bexile a card from your graveyard\b/gi,
   /\bexile this (?:card|creature) from your hand\b/gi,
   /\bremove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature)\b/gi,
@@ -2030,6 +2092,7 @@ function mainMakesProduct(card, main, prod, lineCost) {
   } else if ((prod.amount ?? 1) > (main.amount ?? 1)) return false;
   if ((prod.fixed || main.fixed) && !same(prod.fixed, main.fixed)) return false;
   for (const k of ["sacrifices", "sacrificesCreature", "sacrificesFood", "exilesGyCard", "fromHand", "doesNotUntapNext", "requiresMaxSpeed"]) if (main[k] && !prod[k]) return false;
+  if (main.sacrificesKind && main.sacrificesKind !== prod.sacrificesKind) return false; // play-weighted 2026-10-22 — the kind a sacrifice takes
   for (const k of ["extraTap", "removesCounters", "putsCounter", "activationCondition", "restriction", "opponentsGainLife"]) if (main[k] != null && !same(main[k], prod[k])) return false;
   if (main.activationLimit && !same({ ...main.activationLimit, line: null }, prod.activationLimit ? { ...prod.activationLimit, line: null } : null)) return false;
   if ((main.payLife ?? 0) > (prod.payLife ?? 0)) return false;
@@ -2734,9 +2797,10 @@ function manaProductionImpl(card) {
   const exilesGyCard = manaAbilityExilesGyCard(oracleForAdd);
   const sacrificesCreature = manaAbilitySacrificesCreature(oracleForAdd); // SG-3 — paid for real (see the helper)
   const sacrificesFood = manaAbilitySacrificesFood(oracleForAdd); // play-weighted #803 — Gilded Goose, paid for real (see the helper)
+  const sacrificesKind = manaAbilitySacrificesKind(oracleForAdd); // play-weighted 2026-10-22 — Krark-Clan Ironworks, Skirk Prospector, paid for real (see the helper)
   const exilesSelfFromHand = manaAbilityExilesSelfFromHand(oracleForAdd); // SG-6 — a hand-zone source (see the helper)
   const isActivatedSource =
-    isLandCard || (activatedManaText(oracleForAdd) != null && (!manaAbilityCostUnpayable(oracleForAdd) || exilesGyCard || sacrificesCreature || sacrificesFood || exilesSelfFromHand));
+    isLandCard || (activatedManaText(oracleForAdd) != null && (!manaAbilityCostUnpayable(oracleForAdd) || exilesGyCard || sacrificesCreature || sacrificesFood || sacrificesKind || exilesSelfFromHand));
   // STAGE ④-5 (2026-09-03): the PAY-LIFE cost is read HERE, before the activated-source return, so a LAND's
   // "{T}, Pay 1 life: Add …" carries it (Horizon Canopy / Silent Clearing / the Horizon cycle / Mana Confluence
   // used to return from this block with their colours and NO cost — a free Mana Confluence, measured).
@@ -2746,7 +2810,7 @@ function manaProductionImpl(card) {
     const lifeRider = payLife ? { payLife: payLife.amount } : {};
     return manaAbilitySacrificesSelf(oracleForAdd)
       ? { ...fromOracle, sacrifices: true, requiresTap, ...lifeRider }
-      : { ...fromOracle, requiresTap, ...(exilesGyCard ? { exilesGyCard: true } : {}), ...(sacrificesCreature ? { sacrificesCreature: true } : {}), ...(sacrificesFood ? { sacrificesFood: true } : {}), ...(exilesSelfFromHand ? { fromHand: true } : {}), ...lifeRider };
+      : { ...fromOracle, requiresTap, ...(exilesGyCard ? { exilesGyCard: true } : {}), ...(sacrificesCreature ? { sacrificesCreature: true } : {}), ...(sacrificesFood ? { sacrificesFood: true } : {}), ...(sacrificesKind ? { sacrificesKind } : {}), ...(exilesSelfFromHand ? { fromHand: true } : {}), ...lifeRider };
   }
 
   // ===== TAP-OTHER COST (CR 118.4 / 302.6) =====================================================
@@ -3506,12 +3570,13 @@ export function manaSources(state, playerId) {
     const gyExileIds = prod.exilesGyCard ? (player.graveyard || []).map((c) => c.id) : null;
     // SG-3 — a sacrifice-a-creature source needs ANOTHER creature to feed it (never the source itself, never
     // offered on an empty board): no victim → no source (CR 601.2h — the cost cannot be paid). A creature NOW (the type-line
-    // audit); Gilded Goose's a Food NOW, never the source (CR 118.3). The victims ride the record (`sacVictimIds`) so the planner
+    // audit); Gilded Goose's a Food NOW, never the source (CR 118.3); Krark-Clan Ironworks' and Skirk Prospector's kind, the source
+    // itself last (sacrificesItselfToo — alone, it pays with itself). The victims ride the record (`sacVictimIds`) so the planner
     // gives each sacrifice cost of a payment its own (assignSacVictims — two Altars can't share one creature).
     const sacVictimIds = sacVictimIdsFor(state, player, perm.id, prod);
     if (sacVictimIds && !sacVictimIds.length) continue;
     const mainBonus = bonusFor(fixed ? Object.keys(fixed) : prod.colors, fixed && Object.keys(fixed).length > 1 ? fixed : null);
-    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true, gyExileIds } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(prod.sacrificesFood ? { sacrificesFood: true } : {}), ...(sacVictimIds ? { sacVictimIds } : {}), ...(fixed ? { fixed } : {}), ...(painOn ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(mainBonus.length ? { bonus: mainBonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife, lifeAvail: player.life ?? 0 } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });
+    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true, gyExileIds } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(prod.sacrificesFood ? { sacrificesFood: true } : {}), ...(prod.sacrificesKind ? { sacrificesKind: prod.sacrificesKind } : {}), ...(sacVictimIds ? { sacVictimIds } : {}), ...(fixed ? { fixed } : {}), ...(painOn ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(mainBonus.length ? { bonus: mainBonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife, lifeAvail: player.life ?? 0 } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });
     // STAGE ④-3 — EXTRA MANA LINES (extraLineSources): each its own record on the SAME permanent.
     sources.push(...extraLineSources(state, playerId, player, perm, manaMult));
   }
@@ -3602,7 +3667,7 @@ function extraLineSources(state, playerId, player, perm, manaMult) {
     }
     const exPainOn = !!extra.painColors && !(extra.painUnlessCitysBlessing && player.citysBlessing === true)
       && !(extra.painCondition && evaluateInterveningIf(state, extra.painCondition, playerId, { sourcePermanentId: perm.id }) === false);
-    out.push({ permanentId: perm.id, colors: exColors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(extra.sacrificesFood ? { sacrificesFood: true } : {}), ...(exVictimIds ? { sacVictimIds: exVictimIds } : {}), ...(exGyIds ? { exilesGyCard: true, gyExileIds: exGyIds } : {}), ...(exPainOn ? { painColors: extra.painColors, painAmount: extra.painAmount } : {}), ...(extra.opponentsGainLife ? { opponentsGainLife: extra.opponentsGainLife } : {}), ...(extra.spentRider ? { spentRider: { ...extra.spentRider } } : {}), ...(extra.bundle ? { bundle: extra.bundle } : {}), ...(extra.activationCost ? { activationCost: extra.activationCost } : {}), ...(extra.payLife != null ? { payLife: extra.payLife, lifeAvail: player.life ?? 0 } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: oneCounter ? 1 : crCount } } : {}), ...(extra.sacrificeIfNoCounters && extra.removesCounters ? { sacrificeIfNoCounters: true } : {}), ...(extra.requiresTap === false ? { noTap: true } : {}), ...(extra.putsCounter ? { putsCounter: { ...extra.putsCounter } } : {}), ...(extra.activationLimit?.perTurn != null ? { limitKey: manaLimitKey(perm.id, extra.activationLimit) } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), ...(exTaps ? { extraTaps: exTaps } : {}), ...(staysTapped ? { staysTapped: true } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
+    out.push({ permanentId: perm.id, colors: exColors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(extra.sacrificesFood ? { sacrificesFood: true } : {}), ...(extra.sacrificesKind ? { sacrificesKind: extra.sacrificesKind } : {}), ...(exVictimIds ? { sacVictimIds: exVictimIds } : {}), ...(exGyIds ? { exilesGyCard: true, gyExileIds: exGyIds } : {}), ...(exPainOn ? { painColors: extra.painColors, painAmount: extra.painAmount } : {}), ...(extra.opponentsGainLife ? { opponentsGainLife: extra.opponentsGainLife } : {}), ...(extra.spentRider ? { spentRider: { ...extra.spentRider } } : {}), ...(extra.bundle ? { bundle: extra.bundle } : {}), ...(extra.activationCost ? { activationCost: extra.activationCost } : {}), ...(extra.payLife != null ? { payLife: extra.payLife, lifeAvail: player.life ?? 0 } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: oneCounter ? 1 : crCount } } : {}), ...(extra.sacrificeIfNoCounters && extra.removesCounters ? { sacrificeIfNoCounters: true } : {}), ...(extra.requiresTap === false ? { noTap: true } : {}), ...(extra.putsCounter ? { putsCounter: { ...extra.putsCounter } } : {}), ...(extra.activationLimit?.perTurn != null ? { limitKey: manaLimitKey(perm.id, extra.activationLimit) } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), ...(exTaps ? { extraTaps: exTaps } : {}), ...(staysTapped ? { staysTapped: true } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
   }
   return out;
 }
@@ -3795,7 +3860,7 @@ export function costOwesMana(cost) {
 export function tapRecordFor(s, color, bonus = []) {
   const fixed = s.fixed && Object.keys(s.fixed).length > 1 ? s.fixed : null;
   const painHit = Array.isArray(s.painColors) && s.painColors.includes(color) ? (s.painAmount || 0) : 0;
-  return { permanentId: s.permanentId, color, amount: s.amount ?? 1, ...(Array.isArray(s.extraTaps) ? { extraTaps: [...s.extraTaps] } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(fixed && { fixed: { ...fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.sacrificesFood && { sacrificesFood: true }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(s.sacrificeIfNoCounters && { sacrificeIfNoCounters: true }), ...(s.putsCounter && { putsCounter: { ...s.putsCounter } }), ...(s.limitKey && { limitKey: s.limitKey }), ...(s.noTap && { noTap: true }), /* ③ · 37 + 2026-10-17: every no-{T} line */ ...(s.doesNotUntapNext && { doesNotUntapNext: true }), ...(s.restriction?.uncounterableIfSpent && { uncounterableIfSpent: true }), ...(s.spentRider && { spentRider: s.spentRider }), /* SHELF-85 V11 (Path of Ancestry): the "when that mana is spent" rider rides the tap to the cast site */ ...(s.opponentsGainLife && { opponentsGainLife: s.opponentsGainLife }), ...(s.bundle && { bundle: s.bundle }), /* 2026-10-17, the land lines: Grove of the Burnwillows' opponents' life; a filter land's bundle, the explicit tap's key */ ...(bonus.length && { bonus }) }; // + CAP-CAVERN: the cast site reads uncounterableIfSpent off the taps
+  return { permanentId: s.permanentId, color, amount: s.amount ?? 1, ...(Array.isArray(s.extraTaps) ? { extraTaps: [...s.extraTaps] } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(fixed && { fixed: { ...fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.sacrificesFood && { sacrificesFood: true }), ...(s.sacrificesKind && { sacrificesKind: s.sacrificesKind }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(s.sacrificeIfNoCounters && { sacrificeIfNoCounters: true }), ...(s.putsCounter && { putsCounter: { ...s.putsCounter } }), ...(s.limitKey && { limitKey: s.limitKey }), ...(s.noTap && { noTap: true }), /* ③ · 37 + 2026-10-17: every no-{T} line */ ...(s.doesNotUntapNext && { doesNotUntapNext: true }), ...(s.restriction?.uncounterableIfSpent && { uncounterableIfSpent: true }), ...(s.spentRider && { spentRider: s.spentRider }), /* SHELF-85 V11 (Path of Ancestry): the "when that mana is spent" rider rides the tap to the cast site */ ...(s.opponentsGainLife && { opponentsGainLife: s.opponentsGainLife }), ...(s.bundle && { bundle: s.bundle }), /* 2026-10-17, the land lines: Grove of the Burnwillows' opponents' life; a filter land's bundle, the explicit tap's key */ ...(bonus.length && { bonus }) }; // + CAP-CAVERN: the cast site reads uncounterableIfSpent off the taps
 }
 
 /**
@@ -3914,7 +3979,7 @@ export function manualManaTaps(state, playerId) {
  * spend (Cavern of Souls for a non-matching spell, Mech Hangar for anything but a Pilot or Vehicle) — spent last, after every
  * unrestricted source (restrictedHeldPermanents); a board with such a permanent plans twice for that alone.
  */
-const isOneShotSource = (s) => !!(s && (s.sacrifices || s.sacrificesCreature || s.sacrificesFood || s.fromHand || (s.noTap && s.payLife != null)));
+const isOneShotSource = (s) => !!(s && (s.sacrifices || s.sacrificesCreature || s.sacrificesFood || s.sacrificesKind || s.fromHand || (s.noTap && s.payLife != null)));
 export function planPayment(pool, sources, cost, spendContext = null) {
   const all = sources || [];
   return planWithPhyrexian(cost, spendContext, (manaCost, base) => {
@@ -4282,6 +4347,7 @@ function plannerSourceRecord(s) {
     // (a planned Molt Tender tap exiled nothing; now it does).
     sacrificesCreature: !!s.sacrificesCreature,
     sacrificesFood: !!s.sacrificesFood, // play-weighted #803 — Gilded Goose's Food, sacrificed by the commit
+    ...(s.sacrificesKind ? { sacrificesKind: s.sacrificesKind } : {}), // play-weighted 2026-10-22 — Krark-Clan Ironworks' artifact, Skirk Prospector's Goblin
     // 2026-10-17 — the permanents that can feed that sacrifice (manaSources' `sacVictimIds`): the planner's claims give each
     // sacrifice cost of one payment its own (assignSacVictims). A sacrificing record without the list has no victim it can claim.
     sacVictimIds: picksSacVictim(s) ? (Array.isArray(s.sacVictimIds) ? [...s.sacVictimIds] : []) : null,
@@ -4828,7 +4894,7 @@ export function commitManaTap(state, playerId, tap, { reserved = null, victimId 
   // THE SACRIFICE-A-<KIND> COST FIRST (SG-3 — Ashnod's / Phyrexian Altar, Phyrexian Tower, Thermopod; play-weighted #803 — Gilded
   // Goose's Food). A mana ability's costs are paid before it resolves and adds its mana (CR 605.3, 602.2b, 601.2h; CR 605.3b), so
   // the victim is found and sacrificed before anything is added: the least valuable OTHER permanent of its kind (lowest mana
-  // value, then name — never the source, never one the action's own costs still need, `reserved`: feeding one of those to the
+  // value, then name — never the source (a `sacrificesKind` source of its own kind last), never one the action's own costs still need, `reserved`: feeding one of those to the
   // Altar would leave that cost unpayable a moment later), or the one commitPaymentPlan assigned. It goes through the cost
   // sacrifice, so its dies and sacrifice triggers fire (CR 700.4). NO VICTIM (one the same payment's other sacrifice already took,
   // or one gone since the plan) → the cost can't be paid (CR 118.3), so the ability isn't activated: nothing is added, tapped or
@@ -4852,7 +4918,7 @@ export function commitManaTap(state, playerId, tap, { reserved = null, victimId 
   if (isVictim) {
     const live = liveSacVictims(state, playerId, tap, reserved); // a creature / Food NOW (the type-line audit) — Ashnod's Altar never eats a God below its devotion
     victim = victimId === undefined ? live[0] : live.find((p) => p.id === victimId);
-    if (!victim) return logEvent(state, { kind: "mana", event: `sacrifice-${tap.sacrificesCreature ? "creature" : "food"}-cost-unpaid`, permanentId: tap.permanentId, playerId });
+    if (!victim) return logEvent(state, { kind: "mana", event: `sacrifice-${sacKindLabel(tap)}-cost-unpaid`, permanentId: tap.permanentId, playerId });
   }
   let gyCard = null;
   if (tap.exilesGyCard) {
@@ -4865,7 +4931,7 @@ export function commitManaTap(state, playerId, tap, { reserved = null, victimId 
   let paidVictim = null;
   if (victim) {
     state = sacrificePermanentForCost(state, playerId, victim);
-    paidVictim = { kind: tap.sacrificesCreature ? "creature" : "food", victim };
+    paidVictim = { kind: sacKindLabel(tap), victim };
   }
   if (gyCard) state = moveCardToZone(state, { playerId, fromZone: "graveyard", toZone: "exile", cardId: gyCard.id });
   if (tap.payLifeCost) state = loseLife(state, { playerId, amount: tap.payLifeCost });

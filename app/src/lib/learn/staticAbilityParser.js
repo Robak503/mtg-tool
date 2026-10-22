@@ -4232,6 +4232,21 @@ function parseClause(clause, out, selfName, selfType) {
       }
       return; // a power-only CDA — handled (or dropped to body-only on an unmodeled count)
     }
+    // • DEVOTION (play-weighted 2026-10-22 — Daxos, Blessed by the Sun, EDHREC #1758: "Daxos's toughness is equal to your devotion
+    //   to white."; Renata, Called to the Hunt's power, devotion to green): a characteristic-defining ability (CR 604.3) setting ONE
+    //   stat from the controller's devotion to a colour (CR 700.5 — the mana symbols of that colour among the mana costs of the
+    //   permanents they control, a hybrid symbol counting toward each of its colours; the creature's own cost counts). Read every P/T
+    //   computation through layers.countForSpec's devotion case — the same pip count the Theros Gods' creature gate reads. The
+    //   other stat keeps its printed value. One colour only; a two-colour devotion stays unread.
+    if ((cdaM = c.match(/^this creature's (power|toughness) is equal to your devotion to (white|blue|black|red|green)$/))) {
+      const color = { white: "W", blue: "U", black: "B", red: "R", green: "G" }[cdaM[2]];
+      out.push({
+        layer: 7, sublayer: "7a", isCDA: true,
+        op: { layerOp: "ptSetDynamicCount", countSpec: { kind: "devotion", color }, setPower: cdaM[1] === "power", setToughness: cdaM[1] === "toughness" },
+        affects: { mode: "self" }, duration: { kind: "permanent" },
+      });
+      return; // a devotion CDA — handled
+    }
   }
 
   // ── TRUNK-SELFBUFF: a STATIC self-buff scaled by a board count (layer 7c dynamic) ──

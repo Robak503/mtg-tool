@@ -70,8 +70,12 @@ describe("cards the engine CANNOT tap are no longer tiered native-mana", () => {
     // reachable and native-mana. The unpayable pin moves to a sacrifice the engine still does not feed.
     expect(classifyCard(card({ name: "Altar-like", type: "Artifact", mana: "{2}",
       oracle: "Sacrifice a creature: Add {C}{C}." }))).toBe("native-mana");
+    // GRADUATED 2026-10-22 (play-weighted — sacKindMana.test.js): "Sacrifice an artifact" is paid for real too now (Krark-Clan
+    // Ironworks, `sacrificesKind`); the unpayable pin moves to a sacrifice the engine still does not feed — a land.
     expect(classifyCard(card({ name: "Artifact-Altar-like", type: "Artifact", mana: "{2}",
-      oracle: "Sacrifice an artifact: Add {C}{C}." }))).not.toBe("native-mana");
+      oracle: "Sacrifice an artifact: Add {C}{C}." }))).toBe("native-mana");
+    expect(classifyCard(card({ name: "Land-Altar-like", type: "Artifact", mana: "{2}",
+      oracle: "Sacrifice a land: Add {C}{C}." }))).not.toBe("native-mana");
   });
 });
 

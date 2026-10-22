@@ -561,6 +561,10 @@ function countForSpec(state, perm, spec) {
     case "cardsInAllGraveyards":
     case "cardTypesInAllGraveyards":
       return countGraveyardSpec(state, perm, spec);
+    case "devotion":
+      // DEVOTION CDA (play-weighted 2026-10-22 — Daxos, Blessed by the Sun; Renata, Called to the Hunt): the controller's devotion to
+      // one colour (CR 700.5), the Gods' own pip count. shared.js's ctx-shaped twin has read the same kind since Karametra's Acolyte.
+      return devotionToColors(state, perm?.controller, [spec.color]);
     default:
       return countSelfSpecOnBoard(state, perm, spec);
   }

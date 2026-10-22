@@ -131,7 +131,15 @@ export function parseControllerRider(t) {
   // a one-colour one. Only this RIDER copy of the grammar was single-colour, so "Its controller creates a 3/2
   // red and white Spirit creature token." (Reduce to Memory, Harsh Annotation) parked while the identical
   // sentence as a card's own effect went native. Downstream built for it, one arm never handed it over.
-  let m = t.match(/^creates a (\d+)\/(\d+) ((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) ([a-z]+) creature token(?: with (.+))?$/);
+  // + A COLORLESS TOKEN "WITH CHANGELING" (play-weighted 2026-10-22 — Crib Swap: "Its controller creates a 1/1 colorless Shapeshifter
+  // creature token with changeling."): the colorless token (CR 105.2c, 111.3 — no colour word, colors []) the create-token atom already
+  // mints from a "colorless <subtype>" descriptor, and changeling (CR 702.73a) carried as the atom's `changeling` flag — the token is
+  // every creature type — exactly as the main create-token arm reads it. Changeling alone; another keyword beside it stays unread.
+  let m = t.match(/^creates a (\d+)\/(\d+) colorless ([a-z]+) creature token(?: with (changeling))?$/);
+  if (m) {
+    return { kind: "createToken", power: parseInt(m[1], 10), toughness: parseInt(m[2], 10), color: "colorless", subtype: m[3], ...(m[4] ? { changeling: true } : {}) };
+  }
+  m = t.match(/^creates a (\d+)\/(\d+) ((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) ([a-z]+) creature token(?: with (.+))?$/);
   if (m) {
     const keywords = m[5] ? parseTokenKeywords(m[5]) : [];
     if (m[5] && !keywords) return null;                       // unmodeled token keyword → low → Arbiter

@@ -47,8 +47,10 @@ describe("the cost is parsed", () => {
     // sacrifices that creature through the dies chokepoint (altarManaSac.test.js). Every OTHER non-self
     // sacrifice is still phantom mana and still refused.
     expect(manaProduction({ name: "Ashnod's Altar", type: "Artifact", oracle: "Sacrifice a creature: Add {C}{C}." })).toMatchObject({ sacrificesCreature: true });
-    expect(manaProduction({ name: "Artifact Altar", type: "Artifact", oracle: "Sacrifice an artifact: Add {C}{C}." })).toBe(null);
-    expect(manaProduction({ name: "Utopia Mycon-like", type: "Creature — Fungus", oracle: "Sacrifice a Saproling: Add {C}{C}." })).toBe(null);
+    // GRADUATED 2026-10-22 (play-weighted — sacKindMana.test.js): an artifact and a creature type are paid for real too (`sacrificesKind`).
+    expect(manaProduction({ name: "Artifact Altar", type: "Artifact", oracle: "Sacrifice an artifact: Add {C}{C}." })).toMatchObject({ sacrificesKind: "artifact" });
+    expect(manaProduction({ name: "Utopia Mycon-like", type: "Creature — Fungus", oracle: "Sacrifice a Saproling: Add {C}{C}." })).toMatchObject({ sacrificesKind: "saproling" });
+    expect(manaProduction({ name: "Land Altar", type: "Artifact", oracle: "Sacrifice a land: Add {C}{C}." })).toBe(null);
   });
 
   it("⛔ an unmodeled PAYER FILTER refuses the card — never a tap of something the card didn't allow", () => {

@@ -82,6 +82,14 @@ export function splitClauses(oracle) {
       /(becomes an artifact creature and gains [a-z ,]+?)\.\s+(if it[’']s not a vehicle, it has base power and toughness \d+\/\d+ until end of turn)/gi,
       "$1, $2",
     )
+    // TAUNT FOLD (play-weighted 2026-10-22 — Taunt from the Rampart: "Goad all creatures your opponents control. Until your next
+    // turn, those creatures can't block."). The second sentence restricts the creatures the first goaded, for the same span; split
+    // apart, the restriction has no antecedent. Fold the period to a comma so the pair is ONE clause; the goad arm (atoms/combat.js
+    // goadClauseParser) matches the folded form exactly. Taunt from the Rampart is the only carrier.
+    .replace(
+      /(goad all creatures your opponents control)\.\s+(until your next turn, those creatures can[’']t block)/gi,
+      "$1, $2",
+    )
     // REVEAL-THEN-PUT FOLD (shelf D37 — Eladamri, Korvecdal: "Reveal a card from your hand or the top card of your library.
     // If you reveal a creature card this way, put it onto the battlefield."). The second sentence acts on the card the first
     // revealed; split apart, the reveal is a no-op and the put has no antecedent. Fold the period to a comma so the pair is
@@ -515,6 +523,14 @@ export function splitClauses(oracle) {
     // control gains haste and gets +X/+X until end of turn, where X is that creature's power"): the pump parser owns the
     // whole sentence (a keyword grant + the power-scaled pump on one target); its " and " would otherwise sever the two.
     if (/^another target creature you control gains [a-z ,]+ and gets \+x\/\+x until end of turn, where x is that creature's power$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // THE TARGET-CREATURE COUNT-SCALED PUMP (play-weighted 2026-10-22 — Summon: Titan "Until end of turn, another target creature you
+    // control gains trample and gets +X/+X, where X is the number of lands you control."; Hare Raising, Treeguard Duo, Strength in
+    // Numbers): the pump parser's target X arm (atoms/combat.js) owns the whole sentence — a keyword grant, the count-scaled pump and
+    // its count on one target; its " and " (and a count's own " and ") would otherwise sever them.
+    if (/^(?:until end of turn, )?(?:another )?target creature(?: you control)? (?:gains [a-z ,]+ and )?gets [+-](?:x|\d+)\/[+-](?:x|\d+)(?: until end of turn)?, where x is .+$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // …and its "for each" twin in the same two orders (Fists of Flame: "Until end of turn, target creature gains trample and gets +1/+0
+    // for each card you've drawn this turn.") — a leading duration or a keyword grant first, the shapes the plain for-each arm can't see.
+    if (/^(?:until end of turn, (?:another )?target creature(?: you control)? (?:gains [a-z ,]+ and )?gets [+-]\d+\/[+-]\d+ for each .+|(?:another )?target creature(?: you control)? gains [a-z ,]+ and gets [+-]\d+\/[+-]\d+ until end of turn for each .+)$/i.test(sentence)) { clauses.push(sentence); continue; }
     // BECOMES-A-SUBTYPE-AND-GAINS (SHELF-85 · Light-Paws L5 Enter the Avatar State, 2026-09-05 — "Until end of turn, target
     // creature you control becomes an Avatar in addition to its other types and gains flying, first strike, lifelink, and
     // hexproof."): the pump parser owns the whole sentence (a keyword pump with a subtype-add rider); its two internal

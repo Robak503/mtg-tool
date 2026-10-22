@@ -61,7 +61,9 @@ describe("cast-trigger detection", () => {
   });
 
   it("does NOT detect a cast trigger with an unmodeled RIDER (anchored — no over-fire)", () => {
-    expect(castDescriptors("Whenever you cast a spell that targets a creature you control, draw a card.")).toHaveLength(0);
+    // GRADUATED 2026-10-22 (play-weighted — castTargetsYourCreature.test.js): "a spell that targets a creature you control" reads now
+    // (Season of Growth); the rider pin moves to a target description it still refuses.
+    expect(castDescriptors("Whenever you cast a spell that targets a creature an opponent controls, draw a card.")).toHaveLength(0);
     expect(castDescriptors("Whenever you cast your second spell each turn, draw a card.")).toHaveLength(0);
     expect(castDescriptors("Whenever you cast a creature spell with power 4 or greater, draw a card.")).toHaveLength(0);
     expect(castDescriptors("Whenever you cast a spell from your graveyard, draw a card.")).toHaveLength(0);

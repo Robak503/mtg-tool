@@ -35,7 +35,7 @@ const GHOULTREE = { id: "c-gt", name: "Ghoultree", type: "Creature — Zombie Tr
   oracle: "This spell costs {1} less to cast for each creature card in your graveyard." };
 
 describe("the parser and the metric", () => {
-  it("the mass goad reads to the every-opponent-creature scope; the discount metric is a per-each count of attacked opponents; Fast Forward flips native; Taunt (an extra can't-block sentence) still parks", () => {
+  it("the mass goad reads to the every-opponent-creature scope; the discount metric is a per-each count of attacked opponents; Fast Forward flips native; Taunt flips too (graduated 2026-10-22 — its can't-block sentence reads, tauntFromTheRampart.test.js)", () => {
     const p = parseEffectClause("Goad all creatures your opponents control.", "Sorcery");
     const row = { conf: programConfidence(p), atom: p.atoms[0], metric: selfCostReductionMetric(FF), tier: classifyCard(FF), taunt: classifyCard(TAUNT), ghoultree: classifyCard(GHOULTREE) };
     console.log("  WITNESS fastForward", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
@@ -43,7 +43,7 @@ describe("the parser and the metric", () => {
     expect(row.atom).toEqual({ op: "goad", targetType: "eachOpponentCreature" });
     expect(row.metric).toEqual({ kind: "perEachCount", per: 1, countSpec: { kind: "opponentsAttackedThisTurn" } });
     expect(row.tier).toBe("native-spell");
-    expect(row.taunt).not.toMatch(/^native/);
+    expect(row.taunt).toBe("native-spell"); // GRADUATED 2026-10-22 (play-weighted): "Until your next turn, those creatures can't block." reads with the goad
     expect(row.ghoultree).toBe("native-body"); // the per-each frame stripped by the classifier — the runtime already priced it
   });
 });

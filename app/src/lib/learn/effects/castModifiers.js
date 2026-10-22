@@ -468,6 +468,18 @@ export function stripDevoidLine(oracle) {
     : oracle;
 }
 
+// CHANGELING ON A KINDRED SPELL (play-weighted 2026-10-22 — Crib Swap, EDHREC #2456) — devoid's twin. "Changeling (This card is every
+// creature type.)" is a characteristic-defining ability that works in every zone (CR 702.73a); on an instant or sorcery it is no part
+// of what the spell does as it resolves. What it does do — the spell is every creature type while it is cast and on the stack — is read
+// off the card's keyword wherever a creature type is asked (everyCreatureType.cardIsEveryCreatureType, the cast watchers' P·39b), not
+// off the program. Without the strip the keyword line welded onto the body and dragged it LOW. The same WHOLE-line anchor as devoid (a
+// grant or a "spell with changeling" reference is never touched); byte-identical body for a spell without the line.
+export function stripChangelingLine(oracle) {
+  return /^[ \t]*changeling\b[ \t]*(?:\([^)]*\))?[ \t]*$/im.test(String(oracle || ""))
+    ? String(oracle).replace(/(?:^|\n)[ \t]*changeling\b[ \t]*(?:\([^)]*\))?[ \t]*(?=\n|$)/i, "\n")
+    : oracle;
+}
+
 /**
  * ===== SELF-SHUFFLE DISPOSITION ===== (Green Sun's Zenith + the whole Sun's Zenith / Beacon family) — a spell
  * whose LAST sentence is "Shuffle <this> into its owner's library." shuffles ITSELF into its owner's library on

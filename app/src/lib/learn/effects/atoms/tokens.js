@@ -277,7 +277,7 @@ export function applyCreateToken(state, atom, ctx) {
   const baseCount = atom.perOpponent ? perOpponentIds.length
     : atom.countContext ? Math.max(0, ctx[atom.countContext] || 0)
     : atom.countFor
-    ? Math.max(0, countForSpec(next, ctx, atom.countFor))
+    ? Math.max(0, halveAmount(countForSpec(next, ctx, atom.countFor), atom.halve)) // + atom.halve (Endless Ranks of the Dead) — a no-op when unset
     : atom.countX ? Math.max(0, ctx.xValue || 0) : Math.max(1, atom.count || 1);
   // Wave-3 token doubler (CR 616 — Doubling Season / Parallel Lives / Anointed Procession / Primal Vigor /
   // Mondrak): the NUMBER of tokens created under the controller's control is multiplied. Computed once here
@@ -1101,8 +1101,12 @@ function createTokenClauseParserCore(clause) {
     if (!landMana.ok || landMana.oracle) return null; // a land token's intrinsic mana + a dynamic count is unprinted — park (CREED)
     const rider = countedKeywordRider(mxw[4]);
     if (!rider) return null;
-    const countFor = parseCountSource(mxw[5].replace(/^the (?:total )?number of /, ""));
-    return countFor ? { op: "create-token", power: parseInt(mxw[1], 10), toughness, descriptor: mxw[3].trim(), countFor, ...(mxwTapped ? { tapped: true } : {}), targetType: null, ...rider.fields } : null;
+    // + HALF THE COUNT (play-weighted 2026-10-22 — Endless Ranks of the Dead, EDHREC #2437: "create X 2/2 black Zombie creature tokens,
+    // where X is half the number of Zombies you control, rounded down."): the same board count halved with the rounding the card
+    // states (CR 107.1a) — atom.halve, the shared halveAmount the countX path already applies. An unstated rounding stays unread.
+    const half = mxw[5].match(/^half the (?:total )?number of (.+), rounded (down|up)$/);
+    const countFor = parseCountSource((half ? half[1] : mxw[5]).replace(/^the (?:total )?number of /, ""));
+    return countFor ? { op: "create-token", power: parseInt(mxw[1], 10), toughness, descriptor: mxw[3].trim(), countFor, ...(half ? { halve: half[2] === "up" ? "ceil" : "floor" } : {}), ...(mxwTapped ? { tapped: true } : {}), targetType: null, ...rider.fields } : null;
   }
   // ===== TAPPED-AND-ATTACKING FOR-EACH (Otharri, Suns' Glory — SHELF-TAIL O1, CR 508.1c) ===== "create a
   // <P>/<T> <desc> creature token that's tapped and attacking for each <count source>". The mobilize

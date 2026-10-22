@@ -22,6 +22,7 @@ import { dispatchAction } from "./actionDispatcher.js";
 import { resolveTopOfStack } from "./gameEngine.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 import { classifyCard } from "./coverage.js";
+import { parseEffectClause } from "./effects/parser.js";
 import { creaturePower, creatureToughness } from "./gameState.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -110,10 +111,15 @@ describe("Magma Sliver — CREED near-miss (unmodeled count source stays parked)
     expect(classifyCard(sliver("Fake Magma", fake))).toBe("body-only");
   });
 
-  it("an X-pump targeting a NON-curated subtype stays body-only → Arbiter", () => {
-    // "target Wurm creature" — Wurm is not in TARGET_SUBTYPES, so the subtype-target matcher rejects it → the
-    // body is unmodeled → body-only. (Guards against a target-anything FP on an un-enforced subtype filter.)
+  // GRADUATED 2026-10-22 (play-weighted — targetCountPump.test.js): "target Wurm creature" is read through the subtype-target noun
+  // peel (parser.parseClauseToAtom — a CR creature type, enforced as a restriction by the enumerator and the resolver) and the
+  // target-creature X arm, so the Wurm-only pump plays; the never-a-target-anything guard moves to a word that is no creature type.
+  it("an X-pump targeting a creature type outside the subtype arm's list reads with the type ENFORCED (the noun peel); a non-type word stays body-only", () => {
     const fake = 'All Slivers have "{T}: Target Wurm creature gets +X/+0 until end of turn, where X is the number of Slivers on the battlefield."';
-    expect(classifyCard(sliver("Wurm Magma", fake))).toBe("body-only");
+    expect(classifyCard(sliver("Wurm Magma", fake))).toBe("native-static");
+    expect(parseEffectClause("Target Wurm creature gets +X/+0 until end of turn, where X is the number of Slivers on the battlefield.", "Creature")?.atoms?.[0]?.restrictions)
+      .toEqual([{ kind: "subtype", subtype: "wurm", subtypes: ["wurm"] }]);
+    const notAType = 'All Slivers have "{T}: Target Equipment creature gets +X/+0 until end of turn, where X is the number of Slivers on the battlefield."';
+    expect(classifyCard(sliver("Equipment Magma", notAType))).toBe("body-only");
   });
 });

@@ -119,7 +119,8 @@ export function applyControllerRider(state, rider, cap, ctx) {
   if (rider.kind === "createToken") {
     // A token (vanilla OR keyworded — Swan Song's flying Bird) under the captured controller; reuse
     // applyCreateToken with the controller swapped and any modeled keywords threaded.
-    const tokenAtom = { op: "create-token", count: 1, power: rider.power, toughness: rider.toughness, descriptor: `${rider.color} ${rider.subtype}`, keywords: rider.keywords || [], targetType: null };
+    // + `changeling` (Crib Swap's colorless Shapeshifter): the token is every creature type, minted as the create-token atom mints it.
+    const tokenAtom = { op: "create-token", count: 1, power: rider.power, toughness: rider.toughness, descriptor: `${rider.color} ${rider.subtype}`, keywords: rider.keywords || [], ...(rider.changeling ? { changeling: true } : {}), targetType: null };
     return applyCreateToken(state, tokenAtom, { ...ctx, controller: cap.controller });
   }
   if (rider.kind === "createNamedToken") {

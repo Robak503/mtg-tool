@@ -2607,6 +2607,17 @@ function classifyCondition(condRaw, cardName, cardType) {
       return { event: "abilityActivated", scope: "you", whose: "you", ...(filt ? { activatedTypeFilter: filt } : {}) };
     }
   }
+  // AN OPPONENT'S ACTIVATION (play-weighted 2026-10-22 — Runic Armasaur, EDHREC #2461: "Whenever an opponent activates an ability of a
+  // creature or land that isn't a mana ability, you may draw a card."): the same event, gated in checkAbilityActivatedTriggers on an
+  // OPPONENT of the watcher's controller as the activator. "A creature or land" is a permanent with that card type (CR 109.2) — the
+  // types it has as the ability is activated (CR 613.1d), read by the dispatcher before the cost is paid (`activatedTypes`, CR 602.2b)
+  // into `activatedTypesNow` — never the printed type line the "you" form's filter reads: a God below its devotion is no creature.
+  // Only these card-type nouns: an artifact's or a permanent's activation would need the crew activation fired too (applyCrewVehicle
+  // fires no ability-activated event), so those forms stay undetected (Harsh Mentor, Immolation Shaman, Wizened Mentor).
+  {
+    const oa = /^an opponent activates an ability of (a creature or land|a creature|a land) that isn't a mana ability$/.exec(c);
+    if (oa) return { event: "abilityActivated", scope: "you", whose: "opponent", activatedTypesNow: oa[1] === "a creature or land" ? ["creature", "land"] : [oa[1].slice(2)] };
+  }
   // ===== COUNTERS-PLACED (CR 122.1 / 121.6) ===== "Whenever you put one or more +1/+1 counters on a
   // creature you control" (Terrasymbiosis, Stocking the Pantry, Casey Jones) / "…on a creature" (Earth
   // Kingdom General — ANY creature, not just yours). The TRIGGERING player is YOU (the source's controller),
@@ -3207,6 +3218,12 @@ function classifyCondition(condRaw, cardName, cardType) {
   // type or target description stays undetected.
   if (/^you cast an aura spell that targets a modified permanent you control$/.test(c))
     return { event: "cast", scope: "castWatcher", whose: "you", spellFilter: { kind: "auraTargetsYourModified" } };
+  // + ANY SPELL THAT TARGETS A CREATURE YOU CONTROL (play-weighted 2026-10-22 — Season of Growth, EDHREC #2218: "Whenever you cast a
+  // spell that targets a creature you control, draw a card."): Pearl-Ear's target read with heroic's subject widened (heroic is an
+  // ability word, CR 207.2c — a spell its watcher's controller casts, CR 601.2i): one of the chosen targets is a creature that player
+  // controls as it is cast — the creature it is now (CR 613.1d). One cast is one event, however many such creatures it targets. Anchored.
+  if (/^you cast a spell that targets a creature you control$/.test(c))
+    return { event: "cast", scope: "castWatcher", whose: "you", spellFilter: { kind: "targetsCreatureYouControl" } };
 
   // MAGECRAFT (CR 207.2c ability word — no individual 702 keyword entry) — "Whenever you cast or copy an
   // instant or sorcery spell, <effect>". Routes to the existing cast event + instantSorcery filter; the CAST
@@ -6206,6 +6223,7 @@ export function detectTriggers(cardIn) {
         creatureTokensOnly: cls.creatureTokensOnly, // TOKEN-CHANGE (Staff of the Storyteller): fires only for a CREATURE token — unlisted = dropped = fires for a Treasure
         winOnly: cls.winOnly,                 // CLASH (STAGE ④-2): "whenever you clash AND WIN" fires only for the clash's winner
         tappedFilter: cls.tappedFilter,       // TAPPED-FOR-MANA (④-D): "a land" — checkTapForManaTriggers matches it against the tapped permanent's type line. ⚠️ Unlisted = dropped = Vorinclex locks a tapped CREATURE too.
+        activatedTypesNow: cls.activatedTypesNow, // AN OPPONENT'S ACTIVATION (Runic Armasaur): the card types the activated permanent must have as it is activated. ⚠️ Unlisted = dropped = an artifact's activation would draw too.
         activatedTypeFilter: cls.activatedTypeFilter, // ABILITY-ACTIVATED (CAP-BRACERS): "of an artifact or creature" / "of a creature" / "of an <Subtype>" — checkAbilityActivatedTriggers matches it against the ACTIVATED permanent's type line. ⚠️ Unlisted here = dropped = Crackdown Construct fires on a LAND's ability too (an over-fire), with the detector looking correct.
         onSacrifice: cls.onSacrifice,         // TOKEN-CHANGE: responds to a token being sacrificed
         selfReturnKind: cls.selfReturnKind,   // SELF-LTB: "self" (Aura PiG) | "attached" (equipped-creature-dies)
@@ -10454,7 +10472,7 @@ export function checkTapForManaTriggers(state, { permanentId, tapperId }) {
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
-export function checkAbilityActivatedTriggers(state, { permanent, activatorId, stackObjectId }) {
+export function checkAbilityActivatedTriggers(state, { permanent, activatorId, stackObjectId, activatedTypes = null }) {
   if (!permanent || !activatorId) return state;
   const typeLine = String(permanent.card?.type || "").toLowerCase();
   const passesFilter = (filt) => {
@@ -10473,6 +10491,10 @@ export function checkAbilityActivatedTriggers(state, { permanent, activatorId, s
       fired = fired.concat(raw.filter((t) => {
         const d = t?.descriptor || t;
         if (d?.whose === "you" && activatorId !== watcher.controller) return false;
+        // AN OPPONENT'S ACTIVATION (Runic Armasaur): an opponent of the watcher's controller activated it, of a permanent with one of
+        // the card types as it was activated (the dispatcher's pre-cost `activatedTypes`; none passed → no trigger, never a guess).
+        if (d?.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(activatorId)) return false;
+        if (d?.activatedTypesNow && !d.activatedTypesNow.some((t) => (activatedTypes || []).includes(t))) return false;
         return passesFilter(d?.activatedTypeFilter);
       }));
     }
@@ -10556,6 +10578,13 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
           if (!targets.some((t) => {
             const lk = t?.id ? findPermanent(state, t.id) : null;
             return !!lk && lk.controller === watcher.controller && isModifiedPermanent(state, lk.permanent);
+          })) continue;
+        } else if (d.spellFilter && d.spellFilter.kind === "targetsCreatureYouControl") {
+          // SEASON OF GROWTH (play-weighted 2026-10-22): any spell with a chosen target that is a creature the watcher's controller
+          // controls as it is cast (the creature it is now — CR 613.1d); one cast fires it once.
+          if (!targets.some((t) => {
+            const lk = t?.id ? findPermanent(state, t.id) : null;
+            return !!lk && lk.controller === watcher.controller && permanentIsCreature(state, lk.permanent.id);
           })) continue;
         } else if (!spellMatchesFilter(d.spellFilter, spellCard, castEvery, castMv)) {
           continue;

@@ -252,7 +252,9 @@ export function atomTargetIntent(atom) {
       // chooser and needlessly kept edict TRIGGERS (Custodi Lich's become-monarch payoff) on the Arbiter.
       return "enemy";
     case "pump":
-      return (atom.ptDelta && ((atom.ptDelta.p || 0) < 0 || (atom.ptDelta.t || 0) < 0)) ? "enemy" : "own";
+      // + a count-scaled shrink ("-X/-X, where X is …" — play-weighted 2026-10-22, the target X arm): its sign rides
+      // ptDeltaCount.per, its printed ptDelta is 0/0.
+      return ((atom.ptDelta && ((atom.ptDelta.p || 0) < 0 || (atom.ptDelta.t || 0) < 0)) || (atom.ptDeltaCount?.per ?? 1) < 0) ? "enemy" : "own";
     case "gy-cast-permission":
       // GRAVEYARD CAST PERMISSION (shelf D30 — Silas Renn, Heiko Yamazaki): the target is a card in the controller's OWN graveyard
       // that they may then cast — own-side, like return-from-graveyard.

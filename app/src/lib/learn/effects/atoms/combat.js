@@ -855,9 +855,11 @@ export function applyGoad(state, atom, ctx) {
   let next = state;
   const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null, controller: ctx.controller || null };
   const dur = { kind: "untilOwnersNextTurn", owner: ctx.controller, turn: next.turn };
+  // Taunt from the Rampart (`alsoCantBlock`): "those creatures can't block" until the same turn begins (CR 509.1a; the goad span).
+  const keywords = atom.alsoCantBlock ? ["mustAttack", "goaded", "cantBlock"] : ["mustAttack", "goaded"];
   for (const target of targets) {
     if (target.type !== "creature" || !findPermanent(next, target.id)) continue;
-    for (const keyword of ["mustAttack", "goaded"]) {
+    for (const keyword of keywords) {
       next = addContinuousEffect(next, {
         layer: 6, op: { layerOp: "addKeyword", keyword },
         affects: { mode: "fixed", permanentIds: [target.id] },
@@ -1364,6 +1366,14 @@ export function goadClauseParser(clause) {
   // an opponent (CR 102.2, 102.3) and opponentCreatureTargets reads exactly the creatures another player controls, fixed as it
   // resolves (a creature entering later is not goaded — the card's ruling). The destroy twin reads the phrase the same way.
   if (/^goad (?:all|each) creatures? (?:your opponents control|you don't control)$/.test(t)) return { op: "goad", targetType: "eachOpponentCreature" };
+  // + THE SAME CREATURES CAN'T BLOCK (play-weighted 2026-10-22 — Taunt from the Rampart, EDHREC #1978: "Goad all creatures your
+  // opponents control. Until your next turn, those creatures can't block.", the two sentences folded by splitClauses' TAUNT FOLD):
+  // "those creatures" are the ones goaded, fixed as it resolves (CR 608.2h), and "until your next turn" is goad's own span (CR
+  // 701.15a), so applyGoad lays `cantBlock` beside the two goad grants on each, with the goad duration. Exact folded wording only:
+  // another span ("this turn") or another subject stays unread.
+  if (t === "goad all creatures your opponents control, until your next turn, those creatures can't block") {
+    return { op: "goad", targetType: "eachOpponentCreature", alsoCantBlock: true };
+  }
   const m = t.match(/^goad (up to one )?target creature( an opponent controls| you don't control)?$/);
   if (!m) return null;
   return {
@@ -2390,6 +2400,62 @@ export function pumpClauseParser(clause) {
       ...(slot ? { ptDeltaCountSlot: slot } : {}),
       ptDelta: fixed,
     };
+  }
+  // ===== TARGET-CREATURE COUNT-SCALED PUMP (play-weighted 2026-10-22 — Summon: Titan, EDHREC #1982, chapter III: "Until end of
+  // turn, another target creature you control gains trample and gets +X/+X, where X is the number of lands you control."; Strength
+  // of Cedars, Basilisk Gate, Timberwatch Elf, Elder of Laurels, Gnarlroot Pallbearer, Feeding Frenzy and kin) ===== the
+  // subtype-target arm above with the plain creature subjects it never read: "target creature", "target creature you control" and
+  // "another target creature you control" (the source excluded, as the anotherPt arm reads "another"). X is
+  // read once as the pump is applied (CR 608.2h) through the same count vocabulary (parseCountSource, allowBattlefield) and the
+  // same count-scaled pump path (applyPumpEffect's ptDeltaCount); a negative X pip ("-X/-X") scales by -1 — the clamp is on the
+  // count, never the sign. An optional keyword grant in the printed "gains <keywords> and gets" order rides the same pump
+  // (grantKeywords, the enforced vocabulary). The duration is "until end of turn", printed trailing or leading ("Until end of
+  // turn, …, where X is …"): exactly one of the two. Refused (null): no X pip, two X pips of opposite signs ("+X/-X" needs two
+  // signed slots), a count the vocabulary doesn't read, a count bound to a referent this arm doesn't carry (the previous
+  // target's counters, a die result), a count of the source's counters (the source's last known information carries its power
+  // — abilitySourceRecord — but not its counters, so a source that left in response would read 0, where CR 608.2h reads it as it
+  // last existed: Bloodthirsty Ogre, War Dance stay parked), a keyword outside the grant vocabulary.
+  {
+    const tx = t.match(/^(until end of turn, )?(another target creature you control|target creature you control|target creature) (?:gains ([a-z ,]+?) and )?gets ([+-]x|[+-]\d+)\/([+-]x|[+-]\d+)( until end of turn)?, where x is (?:the )?(.+)$/);
+    if (tx && !!tx[1] !== !!tx[6]) {
+      const pIsX = tx[4].endsWith("x"), tIsX = tx[5].endsWith("x");
+      const sign = (pip) => (pip[0] === "-" ? -1 : 1);
+      const xSigns = [pIsX ? sign(tx[4]) : null, tIsX ? sign(tx[5]) : null].filter((v) => v != null);
+      const countSpec = xSigns.length && new Set(xSigns).size === 1 ? parseCountSource(tx[7].replace(/^number of /, ""), { allowBattlefield: true }) : null;
+      const kws = tx[3] ? parseGrantedKeywords(tx[3]) : null;
+      if (countSpec && !["plusCountersOnTarget", "diceResult", "countersOnSource", "plusCountersOnSource", "namedCountersOnSource"].includes(countSpec.kind) && (!tx[3] || kws)) {
+        const per = xSigns[0];
+        const slot = pIsX && tIsX ? null : (pIsX ? "p" : "t");
+        const subject = tx[2] === "another target creature you control" ? { targetType: "creatureYouControl", excludeSource: true }
+          : tx[2] === "target creature you control" ? { targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] }
+          : { targetType: "creature" };
+        return {
+          op: "pump", ...subject,
+          ptDeltaCount: per === -1 ? { ...countSpec, per: -1 } : countSpec,
+          ...(slot ? { ptDeltaCountSlot: slot } : {}),
+          ptDelta: { p: pIsX ? 0 : parseInt(tx[4], 10), t: tIsX ? 0 : parseInt(tx[5], 10) },
+          ...(kws ? { grantKeywords: kws } : {}),
+        };
+      }
+    }
+    // + THE "FOR EACH" FORM IN THE SAME ORDERS (Fists of Flame, EDHREC #1868: "Draw a card. Until end of turn, target creature gains
+    // trample and gets +1/+0 for each card you've drawn this turn."): the per-unit pump the "target creature gets ±N/±N until end of
+    // turn for each …" arm below reads (one non-zero pip scales, or both by the same N), here only where that arm can't see it — a
+    // leading duration or a keyword grant first. The same subjects, counts and refusals as above.
+    const tf = t.match(/^(until end of turn, )?(another target creature you control|target creature you control|target creature) (?:gains ([a-z ,]+?) and )?gets ([+-]\d+)\/([+-]\d+)( until end of turn)? for each (.+)$/);
+    if (tf && !!tf[1] !== !!tf[6] && (tf[1] || tf[3])) {
+      const pv = parseInt(tf[4], 10), tv = parseInt(tf[5], 10);
+      const per = pv === 0 ? tv : pv;
+      const slot = pv !== 0 && tv !== 0 ? null : (pv !== 0 ? "p" : "t");
+      const countSpec = per !== 0 && (slot !== null || pv === tv) ? parseCountSource(tf[7]) : null;
+      const kws = tf[3] ? parseGrantedKeywords(tf[3]) : null;
+      if (countSpec && !["plusCountersOnTarget", "diceResult", "countersOnSource", "plusCountersOnSource", "namedCountersOnSource"].includes(countSpec.kind) && (!tf[3] || kws)) {
+        const subject = tf[2] === "another target creature you control" ? { targetType: "creatureYouControl", excludeSource: true }
+          : tf[2] === "target creature you control" ? { targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] }
+          : { targetType: "creature" };
+        return { op: "pump", ...subject, ptDeltaCount: { ...countSpec, per }, ...(slot ? { ptDeltaCountSlot: slot } : {}), ...(kws ? { grantKeywords: kws } : {}) };
+      }
+    }
   }
   // SAME-NAME MASS PUMP (BLITZ BB-1, CR 611.2c) — "target creature and all other creatures with the same name as
   // that creature get ±N/±N until end of turn" (Bile Blight -3/-3, Echoing Decay -2/-2, Echoing Courage +2/+2).

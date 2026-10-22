@@ -66,11 +66,17 @@ describe("production + classification", () => {
     expect(isNativeTier(classifyCard(GOOSE))).toBe(true);
   });
 
-  it("CREED — Utopia Mycon's \"Sacrifice a Saproling\" and Krark-Clan Ironworks' \"Sacrifice an artifact\" stay refused", () => {
-    expect(manaProduction(MYCON)).toBeNull();
-    expect(manaProduction(KCI)).toBeNull();
-    expect(isNativeTier(classifyCard(MYCON))).toBe(false);
-    expect(isNativeTier(classifyCard(KCI))).toBe(false);
+  // GRADUATED 2026-10-22 (play-weighted — sacKindMana.test.js): Utopia Mycon's "Sacrifice a Saproling" and Krark-Clan Ironworks'
+  // "Sacrifice an artifact" are paid for real now, the Goose's twins with another victim kind (`sacrificesKind`, never the Food flag).
+  it("Utopia Mycon's \"Sacrifice a Saproling\" and Krark-Clan Ironworks' \"Sacrifice an artifact\" read as their own kinds, never as a Food", () => {
+    expect(manaProduction(MYCON)).toMatchObject({ sacrificesKind: "saproling" });
+    expect(manaProduction(KCI)).toMatchObject({ sacrificesKind: "artifact" });
+    expect(manaProduction(MYCON).sacrificesFood || manaProduction(KCI).sacrificesFood || false).toBe(false);
+    expect(isNativeTier(classifyCard(MYCON))).toBe(true);
+    expect(isNativeTier(classifyCard(KCI))).toBe(true);
+  });
+  it("CREED — another sacrifice noun stays refused (\"Sacrifice a land\")", () => {
+    expect(manaProduction({ ...KCI, name: "Probe", oracle: "Sacrifice a land: Add {C}{C}." })).toBeNull();
   });
 });
 

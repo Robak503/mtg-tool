@@ -42,8 +42,12 @@ describe("x-pump-asym — parser", () => {
     expect(atoms[0].amountX).toBe(true);
     expect(atoms[0].amountXSlot).toBeUndefined();
   });
-  it("a BOARD-derived X ('where X is …') stays low → Arbiter (Ghoul's Feast)", () => {
-    expect(programConfidence(parseEffectProgram({ type: "Sorcery", mana: "{1}{B}", oracle: "Target creature gets +X/+0 until end of turn, where X is the number of creature cards in your graveyard." }))).toBe("low");
+  // GRADUATED 2026-10-22 (play-weighted — targetCountPump.test.js): the board-derived X reads now, as a count-scaled pump on the
+  // power slot — never the cast-time X (no amountX).
+  it("a BOARD-derived X ('where X is …') reads as the count-scaled pump, not the chosen X (Ghoul's Feast)", () => {
+    const p = parseEffectProgram({ type: "Sorcery", mana: "{1}{B}", oracle: "Target creature gets +X/+0 until end of turn, where X is the number of creature cards in your graveyard." });
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms).toEqual([{ op: "pump", targetType: "creature", ptDeltaCount: { kind: "cardsInGraveyard", cardType: "creature" }, ptDeltaCountSlot: "p", ptDelta: { p: 0, t: 0 } }]);
   });
   it("a clean asymmetric X-pump is native-spell (Enrage)", () => {
     expect(classifyCard({ name: "Enrage", type: "Sorcery", mana: "{X}{R}", oracle: "Target creature gets +X/+0 until end of turn." })).toBe("native-spell");

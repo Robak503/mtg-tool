@@ -2771,7 +2771,7 @@ function paymentUntapsBack(state, aiPlayerId, a) {
   if (!a.cost || !costOwesMana(a.cost)) return true;
   const plan = offeredPaymentPlan(state, aiPlayerId, a);
   if (!plan || (plan.phyrexianLife || 0) > 0) return false;
-  return (plan.taps || []).every((t) => !t.sacrifices && !t.sacrificesCreature && !t.sacrificesFood && !t.exilesGyCard && !t.fromHand && !t.removesCounters
+  return (plan.taps || []).every((t) => !t.sacrifices && !t.sacrificesCreature && !t.sacrificesFood && !t.sacrificesKind && !t.exilesGyCard && !t.fromHand && !t.removesCounters
     && !t.sacrificeIfNoCounters && !t.putsCounter && !t.doesNotUntapNext && !((t.payLifeCost || 0) > 0) && !((t.painLife || 0) > 0) && !cardSelfPreventsUntap(card(t.permanentId)));
 }
 
