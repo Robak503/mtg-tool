@@ -11,11 +11,22 @@
  *     nothing to activate, the loop itself is the finish.
  *
  * WHAT THIS LEAF DOES, for a seat that has a token loop (tokenLoopLine.js asks; no other seat is touched):
- *   - `wantsMore`: an outlet is on the battlefield and no route is complete — the loop keeps going past the combat
- *     threshold, because an outlet kill needs no attack step and cannot be blocked;
+ *   - `wantsMore`: an outlet is on the battlefield, no route is complete, a route CAN complete, and the board the loop's next
+ *     activation leaves stays under OUTLET_BOARD_CAP — the loop keeps going past the combat threshold, because an outlet kill
+ *     needs no attack step and cannot be blocked;
  *   - `complete`: there is enough. Either the shots ready and waiting cover every opponent's life, or the tokens' power
  *     covers every opponent's library, or the libraries are (about to be) empty. The loop stops, and the seat does
  *     nothing else: it fires the outlet, one offered activation a tick, and passes priority while its own work resolves.
+ *   - `canComplete` (2026-10-22 — by Colton's rule, "'Enough' = lethal by ANY route on board, and the AI must take that
+ *     route", a route that cannot finish never outbids enough by combat): a mill route cannot finish against a living
+ *     opponent whose graveyard a reshuffle has put back into their library this game — Kozilek, Butcher of Truth's "When
+ *     Kozilek is put into a graveyard from anywhere, its owner shuffles their graveyard into their library.", the other
+ *     Eldrazi titans, Elixir of Immortality. The engine's log line for that reshuffle is the public record the seat reads
+ *     (the player and how many cards moved, never which cards); a reshuffle of an empty graveyard refilled nothing. Against
+ *     such a library a mill route is neither live nor done, so it is never fired and never asks the loop for more: with
+ *     enough by combat on the battlefield, the loop holds. A shot route has no such read and can always complete. (The
+ *     Squirrel Girl batch's game 29: the Altar of the Brood kept milling the Omnath seat's Kozilek, every doubling refilled
+ *     that library, and the route outbid enough-by-combat up to the cap.)
  * What is already on the stack counts: a shot or a mill the seat has activated, and each passive mill waiting to
  * resolve, is taken off the opponent's life or library before anything more is sacrificed — never more than enough.
  * Only TOKEN creatures are sacrificed, lowest power first for a shot (power is wasted on it), highest first for a mill
@@ -32,7 +43,11 @@ import { detectTriggers } from "./triggers.js";
 import { opponentsOf } from "./gameState.js";
 import { permanentIsCreature, permanentPower } from "./layers.js";
 
-/** Past this many permanents the outlet routes stop asking the loop for more (the combat threshold stands). */
+/**
+ * The outlet routes ask the loop for more only while the board its next activation would leave stays under this many
+ * permanents (then the combat threshold stands). Counted on the board AFTER that activation (2026-10-22): read before it, a
+ * board of 593 asked for one more doubling and got 1,169 permanents and 576 Altar of the Brood triggers.
+ */
 export const OUTLET_BOARD_CAP = 600;
 
 const onlySacrificesACreature = (ability) => !!ability && ability.modeled && ability.costModeled && !ability.manaPips
@@ -106,6 +121,23 @@ export function outletSources(state, playerId) {
 
 const byId = (a, b) => (String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0);
 
+/**
+ * The players among `playerIds` whose graveyard a reshuffle has put back into their library this game: the engine's log line
+ * for "shuffle your graveyard into your library" (effects/atoms/library.js, applyShuffleGraveyardIntoLibrary — Kozilek's and the
+ * other Eldrazi titans' trigger, Elixir of Immortality, Finale of Revelation), with at least one card moved. Public: the line
+ * names the player and the count, never the cards. One is enough: the line does not say whether its source comes back, so a
+ * one-shot (Finale of Revelation) reads like a repeating one (Kozilek) — the cautious side, where enough by combat wins.
+ */
+export function refilledLibraries(state, playerIds) {
+  const wanted = new Set(playerIds);
+  const refilled = new Set();
+  if (wanted.size === 0) return refilled;
+  for (const entry of state?.log || []) {
+    if (entry?.effect === "shuffle-graveyard-into-library" && entry.moved > 0 && wanted.has(entry.controller)) refilled.add(entry.controller);
+  }
+  return refilled;
+}
+
 /** The seat's token creatures as { id, power } — the only things an outlet is fed. */
 export function fodderOf(state, playerId) {
   const out = [];
@@ -153,9 +185,12 @@ function pendingOn(state, sources) {
  *   done — every living opponent's library is empty, counting what is already on the stack
  *   pending — the seat's own outlet work is on the stack
  *   complete — a route is live, or a mill route has emptied every library: there is enough
- *   wantsMore — no route is complete and the board is under the cap: the loop should keep going
+ *   canComplete — a route can still get there: a shot route always, a mill route only while no living opponent's library has
+ *                 been refilled from their graveyard this game (refilledLibraries); a blocked mill route is never live or done
+ *   wantsMore — no route is complete, one can complete, and the board the loop's next activation leaves (`nextYield` more
+ *               permanents — tokenLoopLine.loopYield) stays under the cap: the loop should keep going past the combat threshold
  */
-export function outletState(state, playerId) {
+export function outletState(state, playerId, { nextYield = 0 } = {}) {
   const sources = outletSources(state, playerId);
   if (!sources.mills.length && !sources.shots.length && !sources.entersMill.length) return null;
   const pending = pendingOn(state, sources);
@@ -168,6 +203,9 @@ export function outletState(state, playerId) {
     }));
   if (!opponents.length) return null;
   const fodder = fodderOf(state, playerId);
+  // A MILL ROUTE THAT CANNOT FINISH (2026-10-22): a living opponent whose library a reshuffle has refilled blocks every mill route.
+  const millRoute = sources.mills.length > 0 || sources.entersMill.length > 0;
+  const millBlocked = millRoute && refilledLibraries(state, opponents.map((o) => o.id)).size > 0;
 
   // SHOTS — each outlet fires once per untap (or freely with no tap), each shot one token.
   let shot = { live: false, ready: [], target: null, victim: null };
@@ -205,13 +243,15 @@ export function outletState(state, playerId) {
       }
       if (!covered) break;
     }
-    mill = { live: covered, outlet: sources.mills[0], target: stocked[0].id, victim: pool[0]?.id ?? null };
+    mill = { live: covered && !millBlocked, outlet: sources.mills[0], target: stocked[0].id, victim: pool[0]?.id ?? null };
   }
 
-  // A shot-only board has no use for `done`; a board with any mill route is complete once the libraries are empty.
-  const complete = shot.live || mill.live || (done && (sources.mills.length > 0 || sources.entersMill.length > 0));
-  const boardSize = (state.players[playerId].battlefield || []).length;
-  return { shot, mill, done, pending: pending.any, complete, wantsMore: !complete && boardSize < OUTLET_BOARD_CAP };
+  // A shot-only board has no use for `done`; a board with any mill route is complete once the libraries are empty — unless a
+  // library has been refilled from its graveyard: its "empty" is not the end of it.
+  const complete = shot.live || mill.live || (done && millRoute && !millBlocked);
+  const canComplete = sources.shots.length > 0 || (millRoute && !millBlocked);
+  const boardAfter = (state.players[playerId].battlefield || []).length + Math.max(0, nextYield);
+  return { shot, mill, done, pending: pending.any, complete, canComplete, wantsMore: !complete && canComplete && boardAfter < OUTLET_BOARD_CAP };
 }
 
 /**

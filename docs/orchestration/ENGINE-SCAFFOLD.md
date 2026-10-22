@@ -1717,11 +1717,25 @@ Station, Goblin Bombardment), a MILL outlet ("Sacrifice a creature: Target playe
 mills cards equal to the sacrificed creature's power" — Altar of Dementia) and a
 PASSIVE MILL ("Whenever another permanent you control enters, each opponent mills
 a card" — Altar of the Brood), recognised by parsed shape. `wantsMore` keeps the
-loop going past the combat threshold while no route is complete (to
-`OUTLET_BOARD_CAP`); `complete` stops it — shots ready and waiting cover every
-life total, token power covers every library, or the libraries are empty — and
-`outletFinishAction` then fires the outlet from the offered actions, or passes
-while the seat's own outlet work resolves. The seat's work already on the stack
+loop going past the combat threshold while no route is complete, a route CAN
+complete, and the board the loop's next activation leaves stays under
+`OUTLET_BOARD_CAP` (600 — counted after the activation: `tokenLoopLine.loopYield`
+is X as the create-token atom counts it, plus Peregrin Took's extra token, times
+the token doublers; 2026-10-22). `canComplete` is the owner's rule that a route
+which cannot finish never outbids enough by combat: a mill route is blocked by a
+living opponent whose graveyard a reshuffle has put back into their library this
+game — Kozilek, Butcher of Truth's trigger, Elixir of Immortality — read off the
+engine's public log line (`refilledLibraries`: the player and the count, never the
+cards; a one-shot reads like a repeating one, the cautious side). A blocked mill
+route is neither live nor done, so it is never fired and never asks for more; a
+shot route can always complete. (The Squirrel Girl batch's game 29 doubled to
+1,169 permanents against an Omnath seat whose Kozilek the Altar of the Brood kept
+milling; witness `outletRouteCanComplete.test.js`.) `complete` stops it — shots
+ready and waiting cover every life total, token power covers every library, or the
+libraries are empty — and `outletFinishAction` then fires the outlet from the
+offered actions, or passes while the seat's own outlet work resolves. It reads the
+default windows' actions only (its own main phase): an outlet activation offered on
+another player's turn is `extra`, so there the finish waits for its main phase. The seat's work already on the stack
 (its shots, its mills, each passive mill and untap waiting) is counted, so nothing
 more is sacrificed than the kill needs. Only token creatures are fed to an outlet.
 The offer side changed once for it: a required target with more than 64

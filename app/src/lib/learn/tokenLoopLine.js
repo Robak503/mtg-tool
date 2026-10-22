@@ -26,12 +26,15 @@
  * activation, passes priority, or picks which opponent an offered attacker attacks. It never adds an action.
  * A seat with no loop ability gets `null` from tokenLoopState and plays exactly as before.
  *
- * Pure reads of game state. Imports the ability parser and the layer reads; nothing imports it but opponentAI.
+ * Pure reads of game state. Imports the ability parser, the layer reads, the engine's own count for the loop's X and its token
+ * replacements; nothing imports it but opponentAI.
  */
 import { parseActivatedAbilities } from "./effects/abilities.js";
+import { countForSpec } from "./effects/atoms/shared.js"; // the count the create-token atom reads on resolution — the loop's X, read the same way
 import { opponentsOf } from "./gameState.js";
 import { permanentIsCreature, permanentPower, permanentHasKeyword, summoningSickNow, goaderControllersOf } from "./layers.js";
 import { outletState } from "./outletFinishLine.js"; // E7.2 — the finishes that are not combat: a sacrifice outlet on the battlefield
+import { tokenExtraKinds, tokenMultiplier } from "./replacementEffects.js"; // the token replacements a creation event meets (CR 614.1, 616) — Parallel Lives, Peregrin Took
 
 /** How many times over the board must be lethal before the loop stops when the swing is a turn away. */
 export const NEXT_TURN_MARGIN = 2;
@@ -67,6 +70,25 @@ export function tokenLoopSources(state, playerId) {
     if (indexes.length) sources.set(perm.id, new Set(indexes));
   }
   return sources;
+}
+
+/**
+ * How many permanents the loop's next activation would add right now: the larger of its abilities' X (countForSpec on the
+ * atom's own count, as the create-token atom reads it on resolution), plus one per "an additional … token" replacement (Peregrin
+ * Took's Food), times the token doublers (Parallel Lives, Doubling Season) — the same replacements effects/atoms/tokens.js
+ * applies. The outlet line's cap is read on the board this leaves (outletFinishLine.outletState's `nextYield`).
+ */
+export function loopYield(state, playerId, sources) {
+  let x = 0;
+  for (const [permanentId, indexes] of sources) {
+    const perm = (state.players?.[playerId]?.battlefield || []).find((p) => p.id === permanentId);
+    if (!perm) continue;
+    for (const ability of parseActivatedAbilities(perm.card)) {
+      if (!indexes.has(ability.index)) continue;
+      x = Math.max(x, countForSpec(state, { controller: playerId, sourceId: permanentId }, ability.program.atoms[0].countFor));
+    }
+  }
+  return (Math.max(0, x) + tokenExtraKinds(state, playerId).length) * tokenMultiplier(state, playerId);
 }
 
 const livingOpponents = (state, playerId) => opponentsOf(state, playerId).filter((id) => (state.players?.[id]?.life ?? 0) > 0);
@@ -146,6 +168,8 @@ const beforeAttackers = (state, playerId) => state.activePlayer === playerId
  *                  there is already enough) — in ANY window: opponentAI.pickAction takes the loop out of every
  *                  picker's actions while it holds, the end-step sink's included (2026-10-21)
  *   outlet       — outletFinishLine.outletState: the sacrifice-outlet routes, or null with no outlet on the battlefield
+ * "Enough" is lethal by ANY route on the battlefield (Colton 2026-10-03): enough by combat holds the loop unless an outlet route
+ * that can still complete wants more (`outlet.wantsMore` — never a route that cannot finish, never a doubling past the cap).
  */
 export function tokenLoopState(state, playerId) {
   const sources = tokenLoopSources(state, playerId);
@@ -163,7 +187,9 @@ export function tokenLoopState(state, playerId) {
     && (state.combat?.attackers || []).some((a) => a.attackingPlayer === playerId);
   // E7.2 — an outlet on the battlefield (Blasting Station, Altar of Dementia, Altar of the Brood) is a finish that needs no
   // attack step: while its route is incomplete the loop goes on past the combat threshold; once it is complete, stop.
-  const outlet = outletState(state, playerId);
+  // 2026-10-22 — only while that route CAN complete (a mill route is blocked by a library a reshuffle refills) and only while the
+  // board the next activation leaves stays under the outlet cap: otherwise enough by combat holds the loop as with no outlet.
+  const outlet = outletState(state, playerId, { nextYield: loopYield(state, playerId, sources) });
   const holdLoop = ownLoopActivationOnStack(state, playerId, sources) || finishNow || swinging || !!outlet?.complete
     || (enoughNextTurn && !outlet?.wantsMore);
   return { sources, finishNow, holdLoop, outlet };

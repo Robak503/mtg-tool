@@ -3149,7 +3149,9 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
     if (pass) return pass;
   }
   // E7.2 — "enough" is lethal by ANY route on the battlefield (Colton 2026-10-03): with a sacrifice outlet whose route is
-  // complete, fire it — at any priority window, an opponent's turn included — and do nothing else until it is done.
+  // complete, fire it and do nothing else until it is done. It reads the default windows' actions only (its own main phase —
+  // inDefaultAIActivationWindow): an outlet activation offered on an opponent's turn or in response is in `extra`, which this does
+  // not read, so the outlet is not fired there and the finish waits for its own main phase (outletFinishLine.test.js pins it).
   const outletStep = loop ? outletFinishAction(loop.outlet, actions) : null;
   if (outletStep) return outletStep;
 
