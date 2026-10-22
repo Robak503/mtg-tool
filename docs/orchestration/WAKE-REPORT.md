@@ -9,11 +9,11 @@
 
 ## 🎯 2026-10-01 — **THE PLAY-WEIGHTED PROGRAM** (Colton's order) — runnable: the top-2,500 worklist (phase 2), in rank order
 
-> **NOW (2026-10-21 ~00:30Z) — v0.168.0 RELEASED · PHASE 2 RUNNABLE.** Top 1,000 **934 / 1,000**; top 2,500 **1,885 / 2,500
-> (75.4%) → +365 to 90%**; corpus 15,874 (45.9%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
+> **NOW (2026-10-22 ~02:10Z) — v0.168.0 RELEASED · PHASE 2 RUNNABLE.** Top 1,000 **934 / 1,000**; top 2,500 **1,885 / 2,500
+> (75.4%) → +365 to 90%**; corpus 15,882 (45.9%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
 > scripts/measure-coverage.mjs --played=2500` (from `app/`), highest-ranked buildable miss first — read the last five play-weighted
-> RUN-LEDGER entries' "Not taken" lists before picking. Open play call for Colton: should the generic tap also hold back
-> restricted-line lands (Cavern of Souls, Mech Hangar — 27)? See the Nykthos RUN-LEDGER entry.
+> RUN-LEDGER entries' "Not taken" lists before picking. **Decided (Colton, 10-21):** the automatic payment holds back
+> restricted-line lands (Cavern of Souls, Mech Hangar — 27) — spent last, "play with reason", until reasoned mana tapping exists.
 
 > **Colton, 10-01:** "So 1k then 2.5k then we re assess from there." The steering metric is now PLAY-WEIGHTED coverage —
 > the most-played Commander cards by edhrec_rank, covered = a native tier or a plain land — not the corpus total.
@@ -164,8 +164,8 @@
 > Three integration breaks were caught by the batch gate, never by a slice alone (a moved helper's test import, a test that cast
 > the old combined Monster Manual, and a keywords → faceUp → splitCard → staticAbilityParser import cycle). A Windows Update restart
 > at ~10:27Z stopped the run for ~2.5 h; recovery recipe in memory (reference_windows_update_reboot_overnight).
-> **Open for Colton:** Rover Blades' crewed Equip offer (now hidden) · relax the Adventure gate to "the Adventure half native"? ·
-> archive the 10-16 fleet sessions · Node 24 (the newest LTS line) as its own change. Full found-not-fixed list: the slices' RUN-LEDGER entries.
+> **Open for Colton:** ~~Rover Blades' crewed Equip offer~~ (decided 10-21: keep it hidden — "we want played right") · relax the Adventure gate to "the Adventure half native"? ·
+> archive the 10-16 fleet sessions · ~~Node 24~~ (decided 10-20: move to the Node 24 LTS line as its own change). Full found-not-fixed list: the slices' RUN-LEDGER entries.
 
 ## 🛰️ 2026-10-16 — **THE FLEET WAVE LANDED** — 27 commits from 19 parallel sessions, integrated in 6 batches (master 4463487c → batch 8) · corpus 15,470 (+46 gained, −43 false credit removed)
 
