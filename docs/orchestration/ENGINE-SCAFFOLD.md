@@ -1254,6 +1254,24 @@ player.
   its narrow mana goes where it can. Every plan is still
   made by the same core, so a new rider or pass gets the sparing for free; a new preference of
   this kind (a land with a non-mana ability worth keeping up) is another mark the same way.
+  **A permanent is tapped once per payment (2026-10-20).** Inside one core call a tap marks used
+  every record that needs a permanent it taps (`tapSource` — its source unless the line has no
+  {T}, and its tap-other payers; one reader, `permanentsItTaps` / `tapsAnyOf`). The costed pass
+  (`activateCostedInOrder`) carries the same rule across its calls: the permanents its earlier
+  calls tapped ride into each later call as `tappedIds` (a record that would tap one stays on the
+  list, unusable, so the generic tap's per-permanent judgment reads the same records), the funding
+  call also holds out the records that tap what the costed source's own activation taps (Urza,
+  Lord High Artificer can't tap a Signet for that Signet's {1}), and a costed source already
+  tapped as a payer is not activated. The planner and `canAfford` run the same calls, and the
+  commit refuses a tap whose cost names a permanent that is already tapped (`tap-cost-unpaid` —
+  nothing added, nothing paid; CR 107.5, 118.3). A record's payers are fixed when `manaSources`
+  reads the board: a record whose payer the payment taps is lost, never re-pointed at another
+  permanent, so a payment the board could make with other payers or with the costed sources in
+  another order is a safe miss. A no-{T} line of a permanent already tapped as a payer is still
+  usable (a tapped creature can activate it). Open: `commitPaymentPlan` commits in plan order,
+  so a plan that spends a self-sacrificing no-{T} source (Rith's Attendant's "{1}, Sacrifice",
+  Wild Cantor) before a later tap names it as a payer throws "Permanent … not found" — the board
+  can pay (tap it as the payer first, then sacrifice it); the commit order is what is wrong.
 
 ### 4.8 Combat, legal choices, the pilot seam
 

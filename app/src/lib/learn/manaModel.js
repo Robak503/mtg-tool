@@ -4178,6 +4178,31 @@ function planPaymentOnce(pool, sources, cost, spendContext = null, board = null,
   }
   return null;
 }
+/**
+ * THE PERMANENTS A TAP TAPS (2026-10-20): its source, unless its line has no {T} (CR 107.5 — only the tap symbol taps it) or it is a
+ * card in hand, and its tap-other payers (`extraTaps`). One reader for a source record, a planner record and a tap record (the fields
+ * are the same on all three), so the planner's calls and the commit agree on what a tap taps.
+ */
+const permanentsItTaps = (t) => [...(t.noTap || t.fromHand ? [] : [t.permanentId]), ...(t.extraTaps || [])];
+/** Does this record's activation tap one of `ids` — need it untapped, as its own {T} or as a tap-other payer (CR 107.5, 118.3)? */
+const tapsAnyOf = (r, ids) => ids.size > 0 && permanentsItTaps(r).some((id) => ids.has(id));
+
+/**
+ * ONE PAYMENT, SEVERAL CALLS, EACH PERMANENT TAPPED ONCE (2026-10-20 — CR 107.5: "A permanent that's already tapped can't be tapped
+ * again to pay the cost"; CR 118.3). The calls of one costed order — each costed source's funding, its own tap, the rest of the cost —
+ * are one payment. A call marks the records a tap of its own leaves unusable (planPaymentCore's tapSource); across calls only the
+ * records of a permanent a call USED were dropped (`gone`), so a record whose tap-other payers an earlier call tapped stayed:
+ * Urza, Lord High Artificer's "Tap an untapped artifact you control: Add {U}." re-tapped the Gruul Signet the pass had just activated,
+ * Supportive Parents the animated lands that had funded Rumble Arena's "{1}, {T}" line, Survivors' Encampment Loot, the Pathfinder
+ * after its exhaust mana; and the funding call could pay a costed source with a record that taps that very source (Urza tapping the
+ * Signet for the Signet's own {1}). canAfford counted that mana — an unpayable cost offered — and the commit tapped a tapped
+ * permanent again for it. Now `tapped` holds every permanent the payment's calls have tapped so far (each tap's source and payers,
+ * permanentsItTaps): a costed source that would tap one is not activated, the funding call also holds out the records that tap what
+ * the source's own activation taps, and each later call gets the set (planPaymentCore's `tappedIds` — such a record stays on its
+ * list, unusable, so the generic tap's per-permanent judgment reads the same records as before). A payer is fixed per record
+ * (manaSources picks it off the untapped board), so a record whose payer is gone is not re-pointed at another permanent — as inside
+ * one call.
+ */
 function activateCostedInOrder(pool, free, order, cost, spendContext, board, base = null) {
   let curPool = {};
   for (const c of MANA_COLORS) curPool[c] = pool?.[c] || 0;
@@ -4185,14 +4210,17 @@ function activateCostedInOrder(pool, free, order, cost, spendContext, board, bas
   const preTaps = [];
   const activationSpend = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
   const spent = new Set();
+  const tapped = new Set(); // every permanent the payment's calls so far tap (permanentsItTaps of each tap)
   // 2026-10-17 — the sacrifices this payment's earlier calls planned (each call appends its own on success): an Altar that funds a
   // Signet and a second Altar in the rest call can't both take the one creature (planPaymentCore's `claims`). It starts from the
   // payment's base claims (the Phyrexian symbols paid with life).
   const claims = [...(base || [])];
   for (const s of order) {
     if (!s?.activationCost || spent.has(s.permanentId)) continue; // (an unpriceable cost never reaches here — manaSources drops that record)
+    if (tapsAnyOf(s, tapped)) continue; // its own {T} or a payer is a permanent this payment already tapped
     if (!activatedSourceTap(s, cost, curPool, [...claims])) continue; // the core won't tap it (restricted / produces nothing / no victim left) — don't fund it
-    const fund = planPaymentCore(curPool, remaining.filter((r) => r.permanentId !== s.permanentId), s.activationCost, null, board, claims);
+    const fundBlocked = new Set([...tapped, ...permanentsItTaps(s)]); // nor can the funding tap what the source's own activation taps
+    const fund = planPaymentCore(curPool, remaining.filter((r) => r.permanentId !== s.permanentId), s.activationCost, null, board, claims, fundBlocked);
     if (!fund) continue;
     for (const tap of fund.taps) curPool = addTapMana(curPool, tap);
     for (const c of MANA_COLORS) { curPool[c] -= fund.spend[c] || 0; activationSpend[c] += fund.spend[c] || 0; }
@@ -4202,8 +4230,9 @@ function activateCostedInOrder(pool, free, order, cost, spendContext, board, bas
     preTaps.push(...fund.taps, tap);
     const gone = new Set([s.permanentId, ...fund.taps.map((x) => x.permanentId)]);
     for (const id of gone) spent.add(id);
+    for (const t of [...fund.taps, tap]) for (const id of permanentsItTaps(t)) tapped.add(id);
     remaining = remaining.filter((r) => !gone.has(r.permanentId));
-    const rest = planPaymentCore(curPool, remaining, cost, spendContext, board, claims);
+    const rest = planPaymentCore(curPool, remaining, cost, spendContext, board, claims, tapped);
     if (rest) return { ...rest, taps: [...preTaps, ...rest.taps], activationSpend };
   }
   return null;
@@ -4326,8 +4355,11 @@ function boardJudgmentCanDiffer(board) {
 /** `board` — null: the generic tap judges by this call's own records; else also by every line of the whole list (planPayment's plan 2).
  *  `claims` — null, or the planner records an earlier call of the SAME payment already tapped (activateCostedInOrder's funding and
  *  rest calls): this call's sacrifice costs and self-sacrifices must fit beside theirs (assignSacVictims), and on success this
- *  call's own records are appended to it, so the next call sees them too. */
-function planPaymentCore(pool, sources, cost, spendContext = null, board = null, claims = null) {
+ *  call's own records are appended to it, so the next call sees them too.
+ *  `tappedIds` — null, or the permanents the SAME payment's other calls tap (activateCostedInOrder, 2026-10-20: what its earlier
+ *  calls tapped, and for a funding call also what the funded source's own activation taps): a record whose activation taps one of
+ *  them (tapsAnyOf) is on the list but unusable, as if a tap of this call had taken it. */
+function planPaymentCore(pool, sources, cost, spendContext = null, board = null, claims = null, tappedIds = null) {
   const spend = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
   if (!cost) return { taps: [], spend };
 
@@ -4393,6 +4425,9 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
         + (Array.isArray(cost.hybrid) ? cost.hybrid.length : 0);
       return s.amount <= totalPips;
     });
+  // A PERMANENT THE PAYMENT ALREADY TAPPED (2026-10-20 — CR 107.5, 118.3): a record that would tap it again is used up before this call
+  // starts — kept on the list, so the generic tap's per-permanent judgment (plainColorlessPermanents) reads the records it always read.
+  if (tappedIds) for (const s of avail) if (tapsAnyOf(s, tappedIds)) s.used = true;
   const taps = [];
   const spendOne = (color) => { working[color] -= 1; spend[color] += 1; };
 
@@ -4441,15 +4476,14 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
     // no {T}) and its tap-other payers (`extraTaps`); afterwards none of them can pay a {T} record of its own or be another
     // record's payer. Before this, Springleaf Drum beside a lone Llanowar Elves paid {2}: the Elves tapped for {G} AND as the
     // Drum's payer — mana a board can't make. (manaSources resolves each record's payers against the untapped board alone;
-    // only the plan sees two records claim one permanent.)
-    const tappedNow = new Set([...(s.noTap || s.fromHand ? [] : [s.permanentId]), ...(s.extraTaps || [])]);
+    // only the plan sees two records claim one permanent.) Across the calls of one payment, activateCostedInOrder carries the same
+    // rule (`tappedIds`, 2026-10-20) — one reader for both (permanentsItTaps / tapsAnyOf).
+    const tappedNow = new Set(permanentsItTaps(s));
     for (const o of avail) {
       if (o === s || o.used) continue;
       const sameTap = o.permanentId === s.permanentId && !o.fromHand && !s.fromHand && !(o.repeatable && s.repeatable)
         && ((!o.noTap && !s.noTap) || o.sacrifices || s.sacrifices);
-      if (sameTap
-        || (!o.noTap && !o.fromHand && tappedNow.has(o.permanentId))
-        || (o.extraTaps || []).some((id) => tappedNow.has(id))) o.used = true;
+      if (sameTap || tapsAnyOf(o, tappedNow)) o.used = true;
     }
     // Components: the primary land mana (one chosen color from s.colors) + each bonus entry.
     const components = [{ colors: s.colors, amount: s.amount, primary: true }, ...s.bonus.map(b => ({ colors: b.colors, amount: b.amount, primary: false, sameAsProduced: !!b.sameAsProduced, whenProduces: b.whenProduces || null }))];
@@ -4758,6 +4792,13 @@ export function commitManaTap(state, playerId, tap, { reserved = null, victimId 
   // partial payment): one that can't be paid leaves the ability unactivated — nothing added, tapped or paid, the unpaid cost logged.
   // Until then the graveyard exile and the life came after the mana: an empty graveyard logged `exile-gy-cost-unpaid` and kept the
   // mana, and life went below 0.
+  // + A PERMANENT ALREADY TAPPED CAN'T BE TAPPED TO PAY THE COST (2026-10-20 — CR 107.5; CR 118.3; CR 701.26a, "Only untapped permanents
+  // can be tapped"): every permanent this tap's cost taps — its source unless the line has no {T}, its tap-other payers — must be
+  // untapped, or the ability isn't activated (nothing added, tapped or paid; the unpaid cost logged), checked first like the costs
+  // below. A plan made from the board names none (the planner taps each permanent once per payment); until 2026-10-20 the costed pass
+  // could, and this commit tapped the tapped permanent again for mana the board couldn't make.
+  const alreadyTapped = permanentsItTaps(tap).filter((id) => findPermanent(state, id)?.permanent?.tapped);
+  if (alreadyTapped.length) return logEvent(state, { kind: "mana", event: "tap-cost-unpaid", permanentId: tap.permanentId, playerId, tappedIds: alreadyTapped });
   const isVictim = sacVictimTest(tap);
   let victim = null;
   if (isVictim) {
