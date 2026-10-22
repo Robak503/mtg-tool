@@ -1000,13 +1000,24 @@ function classifyCondition(condRaw, cardName, cardType) {
   // Radiant Smite, behind an unmodeled "if you weren't the starting player" — is not admitted.
   if (c === "you cycle this card") return { event: "cycleSelf", scope: "self", whose: "any" };
 
-  // ===== DEALT-BY LIFEGAIN LINK (BLITZ SL-1 — Zebra Unicorn / Sunhome Enforcer) ===== the SELF forms
-  // "this creature deals [combat] damage" (payoff "you gain that much life"). COVERAGE-ONLY like rampage:
-  // checkDealtByTriggers is the sole firing site (reading dealtByLinkOf per damage event at BOTH damage
-  // paths); this descriptor exists so the sentence counts + routes. The combat-only variant is honored at
-  // the fire sites (combatOnly rides the reader, not this descriptor).
-  if (/^this creature deals (?:combat )?damage$/.test(c)) {
-    return { event: "dealtBy", scope: "self", whose: "any" };
+  // ===== DEALT-BY (BLITZ SL-1; every payoff since 2026-10-20) ===== "Whenever <this creature | its own name> deals [combat]
+  // damage, …" (scope self — Drinker of Sorrow, Olivia's Attendants, Exalted Angel; a quoted grant's "this creature" is its host)
+  // and "Whenever <equipped | enchanted> creature deals [combat] damage, …" (scope equippedCreature — the watcher is the Equipment
+  // or Aura, the dealer its host: Spirit Link, Umezawa's Jitte). No recipient: any damage the source deals, to any player,
+  // planeswalker or creature (CR 120.1). checkDealtByTriggers fires it at both damage funnels, once per damage event with the
+  // source's total for the event (CR 120.4b, 603.2c — Angel of Deliverance's and Vessel of the All-Consuming's rulings: dealing
+  // damage to several objects at once triggers it once); `combatOnly` ("deals combat damage") fires only from the combat damage
+  // step. A recipient ("… to a player", "… to a creature") is another shape, never this one.
+  {
+    const db = c.match(/^(.+?) deals (combat )?damage$/);
+    if (db) {
+      const subj = db[1];
+      const combatOnly = !!db[2];
+      const selfSubj = subj === "this creature"
+        || (selfRef && ((nameL && subj === nameL) || (shortName && subj === shortName) || (firstWord && subj === firstWord)));
+      if (selfSubj) return { event: "dealtBy", scope: "self", whose: "any", combatOnly };
+      if (subj === "equipped creature" || subj === "enchanted creature") return { event: "dealtBy", scope: "equippedCreature", whose: "any", combatOnly };
+    }
   }
 
   // ===== LEAVES-SELF (BLITZ LV-1, CR 603.6c "leaves the battlefield" — ANY exit) ===== the SELF form
@@ -3035,7 +3046,9 @@ function classifyCondition(condRaw, cardName, cardType) {
     // (The Reaver Cleaver's GRANTED ability, Beamtown Beatstick "…or battle") never enters this block →
     // UNDETECTED → Arbiter (a SAFE false-negative, never an over-fire). whose:"any" like the per-attacker
     // self/creatureYouControl forms above.
-    if (/^equipped creature deals combat damage to (?:a player|an opponent)$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any" };
+    // "TO AN OPPONENT" on an attachment (2026-10-20): an opponent of the ATTACHMENT's controller (the ability's), which an Aura or
+    // Equipment on another player's creature can differ from (Curiosity's ruling) — `toOpponent`, checked in triggersForEvent.
+    if (/^equipped creature deals combat damage to (?:a player|an opponent)$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any", ...(/an opponent$/.test(c) ? { toOpponent: true } : {}) };
     // AURA-RIDER combat-damage (SUPER STATE) — "Whenever ENCHANTED CREATURE deals combat damage to a player,
     // <effect>". An Aura's OWN triggered ability keyed off its host: the watcher is the AURA, the connecting
     // attacker is the triggering permanent, so the SAME "equippedCreature" attached-linkage scope fires ONLY
@@ -3043,7 +3056,7 @@ function classifyCondition(condRaw, cardName, cardType) {
     // the identical `attachedTo` field, and the per-host correctness relies on ATTACH permitting only an
     // own-creature host (resolvers.js), exactly like the Equipment rider above. The "to an opponent" object is
     // handled in the sibling block below (the outer guard here is END-anchored on "a player"). whose:"any".
-    if (/^enchanted creature deals combat damage to (?:a player|an opponent)$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any" };
+    if (/^enchanted creature deals combat damage to (?:a player|an opponent)$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any", ...(/an opponent$/.test(c) ? { toOpponent: true } : {}) };
     // SUBTYPE combat-damage (tribal payoffs — Curious Altisaur "Whenever a Dinosaur you control deals
     // combat damage to a player, draw a card"). A single-word creature SUBTYPE filter, reusing the
     // subtypeYouControl scope (controller + type-line substring; the attacker is threaded as
@@ -3093,23 +3106,32 @@ function classifyCondition(condRaw, cardName, cardType) {
       if (f) return { event: "combatDamageBatch", scope: "you", whose: "any", ...f };
     }
   }
-  // TRIG-DMG-TO-OPPONENT — "Whenever <self> deals damage to a player / an opponent" without "combat".
-  // Cards like Vedalken Heretic, Thieving Magpie, Reef Pirates: in the simulator all creature damage
-  // is combat damage, so the combatDamageToPlayer event fires correctly when this creature attacks and
-  // connects. BARE end-anchored form only; a trailing qualifier ("…to a player or planeswalker",
-  // "…to an opponent who controls…") leaves residue → UNDETECTED → Arbiter (safe false-negative).
-  if (/\bdeals? damage to (?:a player|an opponent)$/.test(c) && selfRef) {
-    return { event: "combatDamageToPlayer", scope: "self", whose: "any" };
+  // TRIG-DMG-TO-OPPONENT — "Whenever <self> deals damage to a player / an opponent" without "combat" (Vedalken Heretic, Thieving
+  // Magpie, Hypnotic Specter, Niv-Mizzet, Dracogenius). ANY damage, not only combat damage (the rulings of Vedalken Heretic, Warren
+  // Instigator, Odylic Wraith, Wei Night Raiders): the combatDamageToPlayer event from the combat damage step, plus `anyDamage` —
+  // checkNoncombatDamageToPlayerTriggers fires it from the non-combat funnel too, once per player the source dealt damage to
+  // (2026-10-20; until then a ping or a fight never fired it). "An opponent" is an opponent of the ability's controller
+  // (`toOpponent`): damage to its own controller is not. The subject is the source itself, exactly — "this creature", its name,
+  // a legend's short name. A compound subject (Syr Carah's "Syr Carah or an instant or sorcery spell you control") used to pass
+  // on the bare self-reference and fire for one half of what it says; it now falls through undetected (a safe FN). A trailing
+  // qualifier ("…to a player or planeswalker", "…to an opponent who controls…") leaves residue → undetected → Arbiter.
+  {
+    const dp = selfRef ? c.match(/^(.+?) deals damage to (a player|an opponent)$/) : null;
+    const subj = dp ? dp[1] : null;
+    if (subj && (subj === "this creature" || (nameL && subj === nameL) || (shortName && subj === shortName) || (firstWord && subj === firstWord))) {
+      return { event: "combatDamageToPlayer", scope: "self", whose: "any", anyDamage: true, ...(dp[2] === "an opponent" ? { toOpponent: true } : {}) };
+    }
   }
-  // AURA-RIDER damage-to-a-player WITHOUT "combat" (BLITZ SB-1 — Sigil of Sleep "Whenever enchanted creature
-  // deals damage to a player, return target creature that player controls to its owner's hand"). The same
-  // in-simulator equivalence as the self form directly above (all creature damage to a player is combat
-  // damage here), routed through the SAME "equippedCreature" attached-linkage scope as the aura/equipment
-  // combat-damage riders (the watcher is the AURA; the trigger fires ONLY when the connecting attacker IS
-  // this aura's host — sourcePermanent.attachedTo). Anchored bare-object; a qualifier ("…or planeswalker",
-  // a rider) leaves residue → UNDETECTED → Arbiter (a SAFE false-negative, never an over-fire).
-  if (/^enchanted creature deals damage to (?:a player|an opponent)$/.test(c)) {
-    return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any" };
+  // AURA-RIDER damage-to-a-player WITHOUT "combat" (BLITZ SB-1 — Sigil of Sleep "Whenever enchanted creature deals damage to a
+  // player, return target creature that player controls to its owner's hand"), through the SAME "equippedCreature" attached-linkage
+  // scope as the aura/equipment combat-damage riders (the watcher is the AURA; it fires only when the dealer IS this aura's host).
+  // ANY damage, like the self form above (`anyDamage` — Curiosity's ruling: "not just combat damage"), and "an opponent" is an
+  // opponent of the Aura's controller (`toOpponent` — "If you control Curiosity and it's enchanting an opponent's creature, you won't
+  // draw a card when that creature deals damage to you."). "Equipped creature" is the same shape on an Equipment (Neko-Te).
+  // Anchored bare-object; a qualifier ("…or planeswalker", a rider) leaves residue → UNDETECTED → Arbiter.
+  {
+    const ap = c.match(/^(?:enchanted|equipped) creature deals damage to (a player|an opponent)$/);
+    if (ap) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any", anyDamage: true, ...(ap[1] === "an opponent" ? { toOpponent: true } : {}) };
   }
   // AURA-RIDER combat-damage TO AN OPPONENT (SUPER STATE) — "Whenever ENCHANTED CREATURE deals combat damage
   // to an opponent, <effect>". The "to an opponent" object is equivalent to "to a player" for this event: the
@@ -3118,7 +3140,7 @@ function classifyCondition(condRaw, cardName, cardType) {
   // is always an opponent — the same equivalence the SUBTYPE-BATCH block above relies on. Reuses the
   // "equippedCreature" attached-linkage scope; the per-host correctness is identical to the "to a player"
   // sibling above. Anchored bare-object ("…to an opponent$"); a qualifier leaves residue → undetected → Arbiter.
-  if (/^enchanted creature deals combat damage to an opponent$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any" };
+  if (/^enchanted creature deals combat damage to an opponent$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any", toOpponent: true };
   // COMMANDER combat-damage (CR 903.3) — "Whenever a commander you control deals combat damage to an
   // opponent, <effect>" (Kediss, Emberclaw Familiar). Reuses the per-attacker combatDamageToPlayer event
   // that combatResolution already fires off real player damage; the ONLY new thing is the subject scope,
@@ -4478,6 +4500,28 @@ function detectSubtypeGlobalCombatDamageToCreature(condRaw, _cardName, _typeLine
 }
 
 /**
+ * THE DEALER OF A "… DEALS [COMBAT] DAMAGE TO A CREATURE" TRIGGER — the subject the three payoff detectors below share (destroy,
+ * exile, tap-lock; "that creature" is the damaged creature, threaded as the triggering permanent): the watcher itself ("this
+ * creature", "this permanent", "this land" where admitted, its name, a comma short name) → selfDealerToCreature; "equipped
+ * creature" / "enchanted creature" → attachedDealerToCreature (the dealer is the watcher's host — Sword of Kaldra). "Deals combat
+ * damage" fires from the combat damage step only; "deals damage" is ANY damage (2026-10-20 — the Sword of Kaldra and Mephidross
+ * Vampire rulings) and carries `anyDamage`, so the non-combat funnel fires it too (checkCombatDamageToCreatureTriggers with
+ * isCombat false). A "you control" subject or any other wording → null (undetected, a safe FN).
+ */
+function dealerToCreatureShape(c, cardName, { allowLand = false } = {}) {
+  const m = c.match(/^(.+) deals (combat )?damage to a creature$/);
+  if (!m || /\byou control\b/.test(c)) return null;
+  const subj = m[1].trim();
+  const any = m[2] ? {} : { anyDamage: true };
+  const nm = String(cardName || "").toLowerCase();
+  const isSelf = subj === "this creature" || subj === "this permanent" || (allowLand && subj === "this land")
+    || (nm && subj === nm) || (nm && subj === nm.split(",")[0].trim());
+  if (isSelf) return { scope: "selfDealerToCreature", ...any };
+  if (subj === "equipped creature" || subj === "enchanted creature") return { scope: "attachedDealerToCreature", ...any };
+  return null;
+}
+
+/**
  * ⭐ THE SELF TWIN (Voracious Cobra, Mephitic Ooze, Bane of the Living's kin) — "Whenever THIS CREATURE
  * deals combat damage to a creature, destroy that creature."
  *
@@ -4505,15 +4549,8 @@ function detectSelfCombatDamageToCreatureDestroy(condRaw, cardName, _typeLine, e
   // admitted is the regeneration rider, which the shared parseEffectClause wrapper re-detects and stamps
   // onto the destroy atom (CANT_REGEN_TEST), so it is modeled rather than dropped.
   if (!/^destroy that creature\.?(?:\s+(?:it|that creature) can'?t be regenerated\.?)?$/.test(eff)) return null;
-  const m = c.match(/^(.+) deals combat damage to a creature$/);
-  if (!m) return null;
-  if (/\byou control\b/.test(c)) return null;
-  const subj = m[1].trim();
-  const nm = String(cardName || "").toLowerCase();
-  const isSelf = subj === "this creature" || subj === "this permanent" || (nm && subj === nm)
-    || (nm && subj === nm.split(",")[0].trim());
-  if (!isSelf) return null;
-  return { event: "combatDamageToCreature", scope: "selfDealerToCreature", whose: "any", destroyThatCreature: true };
+  const shape = dealerToCreatureShape(c, cardName);
+  return shape ? { event: "combatDamageToCreature", whose: "any", ...shape, destroyThatCreature: true } : null;
 }
 
 /**
@@ -4528,15 +4565,8 @@ function detectSelfCombatDamageToCreatureExile(condRaw, cardName, _typeLine, eff
   const c = String(condRaw || "").toLowerCase().trim();
   const eff = String(effectRaw || "").toLowerCase().trim();
   if (!/^exile that creature\.?$/.test(eff)) return null;
-  const m = c.match(/^(.+) deals combat damage to a creature$/);
-  if (!m) return null;
-  if (/\byou control\b/.test(c)) return null;
-  const subj = m[1].trim();
-  const nm = String(cardName || "").toLowerCase();
-  const isSelf = subj === "this creature" || subj === "this permanent" || (nm && subj === nm)
-    || (nm && subj === nm.split(",")[0].trim());
-  if (!isSelf) return null;
-  return { event: "combatDamageToCreature", scope: "selfDealerToCreature", whose: "any", exileThatCreature: true };
+  const shape = dealerToCreatureShape(c, cardName);
+  return shape ? { event: "combatDamageToCreature", whose: "any", ...shape, exileThatCreature: true } : null;
 }
 
 /**
@@ -4563,15 +4593,8 @@ function detectSelfCombatDamageToCreatureTapLock(condRaw, cardName, _typeLine, e
   const c = String(condRaw || "").toLowerCase().trim();
   const eff = String(effectRaw || "").toLowerCase().trim();
   if (!/^tap that creature and it doesn't untap during its controller's next untap step\.?$/.test(eff)) return null;
-  const m = c.match(/^(.+) deals combat damage to a creature$/);
-  if (!m) return null;
-  if (/\byou control\b/.test(c)) return null; // a you-control watcher is a different scope, not modeled here
-  const subj = m[1].trim();
-  const nm = String(cardName || "").toLowerCase();
-  const isSelf = subj === "this creature" || subj === "this permanent" || subj === "this land"
-    || (nm && subj === nm) || (nm && subj === nm.split(",")[0].trim());
-  if (!isSelf) return null;
-  return { event: "combatDamageToCreature", scope: "selfDealerToCreature", whose: "any", tapLockThatCreature: true };
+  const shape = dealerToCreatureShape(c, cardName, { allowLand: true });
+  return shape ? { event: "combatDamageToCreature", whose: "any", ...shape, tapLockThatCreature: true } : null;
 }
 
 // GLOBAL SUBTYPE damage → controller-lifegain (Essence Sliver) — "Whenever a <Subtype> deals damage, ITS
@@ -5408,6 +5431,11 @@ export function detectTriggers(cardIn) {
         // it was never reasoned about — but the gate here is honest about being untested, not silently strong.
         effectClause = effectClause.replace(/^(double the number of [+-]1\/[+-]1 counters) on it\./i, "$1 on this creature.");
       }
+      // THE DEALER'S OWN "UNTAP IT" (2026-10-20 — Quintessential Katana's grant: "Whenever this creature deals combat damage, untap
+      // it and you gain 2 life."): on a self dealt-by trigger "it" is the source, the creature that dealt the damage (CR 608.2c) —
+      // the untap arm reads "this creature". The leading pronoun only, before the end or an " and "; the parser's all-or-nothing
+      // gate judges the rest.
+      if (cls.event === "dealtBy" && cls.scope === "self") effectClause = effectClause.replace(/^untap it(?=$| and )/i, "untap this creature");
       if (cls.event === "etb" && cls.scope === "self" && SELF_SAC_IT_UNLESS_RE.test(effectClause)) {
         // SELF-SAC-IT-UNLESS (LANDS-11, the Karoos / "sacrifice it unless you pay {1}" lands) — see the
         // constant's note: "it" is the source of a self-scope ETB; the sac-unless-pay matcher re-gates the cost.
@@ -6109,6 +6137,9 @@ export function detectTriggers(cardIn) {
         spellFilter: cls.spellFilter,         // cast triggers only (undefined otherwise)
         exceptFirstDrawStepDraw: cls.exceptFirstDrawStepDraw, // V4 (Orcish Bowmasters, Leela): opponentDraw watcher that SKIPS the draw-step's stamped first draw. ⚠️ Unlisted here = dropped = fires on every draw, an over-fire (the flag was lost here first — read the built descriptor, not the arm)
         firesOnCopy: cls.firesOnCopy,         // MAGECRAFT COPY HALF (BLITZ MC-1): magecraft's "cast OR copy" descriptor alone carries this; checkCopyTriggers fires ONLY firesOnCopy watchers at a copy site (a plain "whenever you cast" never fires on a copy — CR 707.10)
+        anyDamage: cls.anyDamage,             // "deals DAMAGE to a player / to a creature" (no "combat" — Curiosity, Niv-Mizzet, Matsu-Tribe Sniper): the non-combat funnel fires it too (checkNoncombatDamageToPlayerTriggers; checkCombatDamageToCreatureTriggers with isCombat false). Unlisted = dropped = a ping or a fight never fires it (a miss).
+        toOpponent: cls.toOpponent,           // "… to AN OPPONENT": the damaged player must be an opponent of the ability's controller (triggersForEvent). ⚠️ Unlisted here = dropped = Curiosity on an opponent's creature draws when that creature hits you, an over-fire.
+        combatOnly: cls.combatOnly,           // DEALT-BY "deals COMBAT damage" (Drinker of Sorrow, Ceremonial Knife's grant): checkDealtByTriggers fires it only from the combat damage step. ⚠️ Unlisted here = dropped = it fires on a ping or a fight too, an over-fire.
         alsoPlaneswalker: cls.alsoPlaneswalker, // PLAYER-OR-PLANESWALKER union (CAP5 — The Reaver Cleaver): the pw pass fires ONLY marked descriptors. Unlisted here = dropped = the union under-fires to player-only (a safe FN, but the modeled semantics is the full union).
         castNotFromHand: cls.castNotFromHand, // CAST-FROM-NONHAND (Vega, K1): checkCastTriggers gates on the cast's source zone
         castFromZoneOnly: cls.castFromZoneOnly, // CAST-FROM-EXACT-ZONE (Rivaz): fires ONLY when the cast's threaded source zone equals this. ⚠️ Unlisted here = dropped = the descriptor fires on EVERY matching cast from anywhere — an over-fire, the forbidden direction.
@@ -7269,6 +7300,11 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // ev.dealerId to the watcher). Here we confirm only that the triggering object is a creature, which is
       // the same division of labour the subtypeGlobal twin below uses.
       return !!triggeringPermanent;
+    case "attachedDealerToCreature":
+      // ATTACHED-DEALER damage-to-a-creature (2026-10-20 — Sword of Kaldra: "Whenever equipped creature deals damage to a creature,
+      // exile that creature."). The selfDealerToCreature twin with the dealer being the watcher's HOST — checked at the firing site
+      // (ev.dealerId === watcher.attachedTo); the triggering permanent is the damaged creature, as above.
+      return !!triggeringPermanent;
     case "anyPermanent":
       // BECOMES-UNTAPPED (Mesmeric Orb) — ANY permanent's transition fires the watcher; the triggering
       // permanent is the one that untapped (checkUntapTriggers threads it). No controller/type gate — the
@@ -7574,6 +7610,11 @@ export function triggersForEvent(state, { event, sourcePermanent, triggeringPerm
     // checkCombatDamageTriggers = the dealing creature's controller). Every other descriptor passes null →
     // makePendingTrigger falls back to the source's controller, so this is inert for all existing scopes.
     const ben = (d.scope === "subtypeGlobal" && d.itsController) ? beneficiary : null;
+    // "… DEALS DAMAGE TO AN OPPONENT" (2026-10-20): the damaged player must be an opponent of the ability's controller — the
+    // Aura's or Equipment's for its own trigger, the creature's for a granted one (the Curiosity, Snake Umbra and Helm of the
+    // Ghastlord rulings). Only a descriptor carrying the flag, and only on an event that names a damaged player.
+    if (d.toOpponent && triggeringContext?.damagedPlayerId != null
+      && !opponentsOf(state, ben || sourcePermanent.controller).includes(triggeringContext.damagedPlayerId)) continue;
     out.push(makePendingTrigger(d, sourcePermanent, triggeringPermanent, triggeringContext, ben));
   }
   return out;
@@ -9046,7 +9087,7 @@ export function checkCombatDamageTriggers(state, playerEvents) {
  * its own subtype is checked the same way). Called BEFORE the lethal SBA at the call site, like the player path
  * (a trading dealer is still present to bind to). Pure — appends to pendingTriggers.
  */
-export function checkCombatDamageToCreatureTriggers(state, creatureDamageEvents) {
+export function checkCombatDamageToCreatureTriggers(state, creatureDamageEvents, { isCombat = true } = {}) {
   const hits = (creatureDamageEvents || []).filter((e) => e && e.dealerId != null && e.damagedCreatureId != null);
   if (!hits.length) return state;
   let fired = [];
@@ -9056,45 +9097,124 @@ export function checkCombatDamageToCreatureTriggers(state, creatureDamageEvents)
     if (!dealerLk || !damagedLk) continue; // dealer/target already left the battlefield → no binding
     const dealerPerm = dealerLk.permanent;
     const damagedPerm = damagedLk.permanent;
-    for (const pid of Object.keys(state.players || {})) {
-      for (const watcher of triggerSourcesOf(state, pid)) {
-        // SUBTYPE gate on the DEALER (authoritative): only fire watchers whose subtype filter the dealing
-        // creature carries. detectTriggers caches descriptors, so read them once per watcher.
-        // ⭐ GRANTED descriptors merged (SHELF CAP4 — Kaldra Compleat: the Equipment grants its HOST
-        // "Whenever this creature deals combat damage to a creature, exile that creature"). This site
-        // reads printed cards directly (it bypasses triggersForEvent for the dealer-identity reasons
-        // below), so an attached/group grant was structurally INVISIBLE here — Kaldra classified native
-        // while its granted trigger could never fire, the recurring runtime-vacuous trap (the
-        // checkTapTriggers comment documents the same catch). The host is the dealer, so the granted
-        // selfDealerToCreature descriptor's identity gate below works unchanged.
-        const descriptors = [
-          ...detectTriggers(classLiveCard(watcher)),
-          ...grantedTriggersForHost(state, watcher),
-          ...grantedTriggersForGroup(state, watcher),
-        ].filter((d) => d.event === "combatDamageToCreature"
-          && (d.scope === "subtypeGlobalToCreature" || d.scope === "selfDealerToCreature"));
-        if (!descriptors.length) continue;
-        for (const d of descriptors) {
-          // TWO WAYS TO PICK THE DEALER, and each scope uses exactly one.
-          //   subtypeGlobalToCreature — the dealer must CARRY the printed subtype (Toxin Sliver).
-          //   self (Voracious Cobra)  — the dealer must BE this watcher. Identity, not subtype, which is why
-          //     the self descriptor carries no subtypeFilter; running it through subtypeFilterMatches with an
-          //     absent filter would match EVERY dealer and fire the Cobra's destroy off an unrelated
-          //     creature's combat damage — the widest possible over-fire.
-          if (d.scope === "selfDealerToCreature") {
-            if (ev.dealerId !== watcher.id) continue;
-          } else if (!permMatchesSubtypeFilter(state, dealerPerm, d.subtypeFilter)) continue; // a non-member dealer → no fire (P·39 — every creature type is a member)
-          // triggeringPermanent = the DAMAGED creature (the destroy target → ctx.triggeringPermanentId).
-          // scopeMatches("subtypeGlobalToCreature") confirms it's a creature; the SUBTYPE gate above (on the
-          // DEALER) is the authoritative one. We call makePendingTrigger DIRECTLY (not via triggersForEvent) for
-          // two reasons: (1) the subtype here is checked on the DEALER, not the triggeringPermanent, so
-          // triggersForEvent's scope path can't carry it; (2) the 5th arg sets `controller` = the DEALER's
-          // controller (CR 608.2c — "that creature" resolves for the dealing creature's controller). The
-          // dealingPermanentId rides the context for completeness. One descriptor per push (a distinct object).
-          if (!scopeMatches(d, watcher, damagedPerm, state)) continue;
-          fired.push(makePendingTrigger(d, watcher, damagedPerm, { dealingPermanentId: ev.dealerId }, ev.dealerController));
-        }
+    // The watchers: in combat every player's sources (the global subtype watcher is anyone's); outside combat only the dealer and
+    // what is attached to it — the only descriptors that fire there are the "deals damage to a creature" (anyDamage) self and
+    // attached forms, never a global one (Toxin Sliver's wording is combat damage).
+    const watchers = isCombat
+      ? Object.keys(state.players || {}).flatMap((pid) => triggerSourcesOf(state, pid))
+      : [dealerPerm, ...(dealerPerm.attachments || []).map((id) => findPermanent(state, id)?.permanent).filter(Boolean)];
+    for (const watcher of watchers) {
+      // SUBTYPE gate on the DEALER (authoritative): only fire watchers whose subtype filter the dealing
+      // creature carries. detectTriggers caches descriptors, so read them once per watcher.
+      // ⭐ GRANTED descriptors merged (SHELF CAP4 — Kaldra Compleat: the Equipment grants its HOST
+      // "Whenever this creature deals combat damage to a creature, exile that creature"). This site
+      // reads printed cards directly (it bypasses triggersForEvent for the dealer-identity reasons
+      // below), so an attached/group grant was structurally INVISIBLE here — Kaldra classified native
+      // while its granted trigger could never fire, the recurring runtime-vacuous trap (the
+      // checkTapTriggers comment documents the same catch). The host is the dealer, so the granted
+      // selfDealerToCreature descriptor's identity gate below works unchanged.
+      const descriptors = [
+        ...detectTriggers(classLiveCard(watcher)),
+        ...grantedTriggersForHost(state, watcher),
+        ...grantedTriggersForGroup(state, watcher),
+      ].filter((d) => d.event === "combatDamageToCreature"
+        && (d.scope === "subtypeGlobalToCreature" || d.scope === "selfDealerToCreature" || d.scope === "attachedDealerToCreature")
+        && (isCombat || d.anyDamage)); // outside combat, only "deals damage to a creature" (no "combat") fires
+      if (!descriptors.length) continue;
+      for (const d of descriptors) {
+        // TWO WAYS TO PICK THE DEALER, and each scope uses exactly one.
+        //   subtypeGlobalToCreature — the dealer must CARRY the printed subtype (Toxin Sliver).
+        //   self (Voracious Cobra)  — the dealer must BE this watcher. Identity, not subtype, which is why
+        //     the self descriptor carries no subtypeFilter; running it through subtypeFilterMatches with an
+        //     absent filter would match EVERY dealer and fire the Cobra's destroy off an unrelated
+        //     creature's combat damage — the widest possible over-fire.
+        if (d.scope === "selfDealerToCreature") {
+          if (ev.dealerId !== watcher.id) continue;
+        } else if (d.scope === "attachedDealerToCreature") {
+          // ATTACHED (2026-10-20 — Sword of Kaldra: "Whenever equipped creature deals damage to a creature, exile that
+          // creature."): the dealer must be this Equipment's or Aura's host; the ability is the attachment's, its controller's.
+          if (ev.dealerId !== watcher.attachedTo) continue;
+        } else if (!permMatchesSubtypeFilter(state, dealerPerm, d.subtypeFilter)) continue; // a non-member dealer → no fire (P·39 — every creature type is a member)
+        // triggeringPermanent = the DAMAGED creature (the destroy target → ctx.triggeringPermanentId).
+        // scopeMatches("subtypeGlobalToCreature") confirms it's a creature; the SUBTYPE gate above (on the
+        // DEALER) is the authoritative one. We call makePendingTrigger DIRECTLY (not via triggersForEvent) for
+        // two reasons: (1) the subtype here is checked on the DEALER, not the triggeringPermanent, so
+        // triggersForEvent's scope path can't carry it; (2) the 5th arg sets `controller` = the DEALER's
+        // controller (CR 608.2c — "that creature" resolves for the dealing creature's controller). The
+        // dealingPermanentId rides the context for completeness. One descriptor per push (a distinct object).
+        if (!scopeMatches(d, watcher, damagedPerm, state)) continue;
+        fired.push(makePendingTrigger(d, watcher, damagedPerm, { dealingPermanentId: ev.dealerId }, d.scope === "attachedDealerToCreature" ? null : ev.dealerController));
       }
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * DEALT-BY (BLITZ SL-1; every payoff since 2026-10-20) — fire the dealt-by triggers for a batch of damage-DEALING sources
+ * ({sourceId, amount}, one entry per source per damage event: a combat damage step's total — CR 510.2, every combat damage in the
+ * step is dealt at once — or one spell's or ability's resolution total; the amount is what the source DEALT, after protection,
+ * replacement and prevention, so a fully prevented source has no entry — CR 120.8). Damage to several objects at once is one event
+ * for the source, so each ability triggers once with the total (CR 603.2c; the Angel of Deliverance and Vessel of the All-Consuming
+ * rulings). For each source, through triggersForEvent like every other event:
+ *   · its own "Whenever this creature deals [combat] damage" — printed, granted by an attached Equipment's or Aura's quoted line
+ *     (Ceremonial Knife, Quintessential Katana), or by a group or until-end-of-turn grant (Stir the Pride); its controller's;
+ *   · each attachment's "Whenever equipped/enchanted creature deals [combat] damage" (scope equippedCreature — Spirit Link,
+ *     Umezawa's Jitte), whoever controls the attachment (an Aura on an opponent's creature feeds its own controller).
+ * A `combatOnly` descriptor fires only when `isCombat`. ctx.combatDamageAmount / ctx.dealtDamageAmount = the total, the "that
+ * much" / "that many" the payoff reads. A source no longer on the battlefield has no ability left to trigger: a dealt-by ability
+ * is not a look-back trigger (CR 603.10), so the call sites fire before the lethal-damage pass, while a source dealt lethal damage
+ * in the same event is still there (the Angel of Deliverance ruling).
+ */
+export function checkDealtByTriggers(state, events, { isCombat = false } = {}) {
+  const hits = (events || []).filter((e) => e && e.sourceId != null && e.amount > 0);
+  if (!hits.length) return state;
+  const fires = (d) => !d.combatOnly || isCombat;
+  let fired = [];
+  for (const ev of hits) {
+    const lk = findPermanent(state, ev.sourceId);
+    if (!lk) continue;
+    const dealer = lk.permanent;
+    const context = { combatDamageAmount: ev.amount, dealtDamageAmount: ev.amount };
+    fired = fired.concat(triggersForEvent(state, { event: "dealtBy", sourcePermanent: dealer, triggeringPermanent: dealer, triggeringContext: context, descriptorFilter: fires }));
+    for (const attId of dealer.attachments || []) {
+      const att = findPermanent(state, attId);
+      if (!att) continue;
+      fired = fired.concat(triggersForEvent(state, { event: "dealtBy", sourcePermanent: att.permanent, triggeringPermanent: dealer, triggeringContext: context, descriptorFilter: fires }));
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * "… DEALS DAMAGE TO A PLAYER / TO AN OPPONENT" OUTSIDE COMBAT (2026-10-20) — the non-combat half of the to-a-player triggers whose
+ * wording is any damage, not combat damage (`anyDamage` — Curiosity, Keen Sense, Snake Umbra's grant, Vedalken Heretic, Hypnotic
+ * Specter, Niv-Mizzet, Dracogenius; each card's ruling: "not just combat damage"). The combat damage step fires them through
+ * checkCombatDamageTriggers as the combatDamageToPlayer event; spellEffects.settleDamageEvent fires them here for a spell's or an
+ * ability's damage, a fight or a bite. `hits` — [{ sourceId, playerId, amount }]: one entry per source per player it dealt damage
+ * to in the event (after replacement and prevention; a redirect to a creature is not damage to the player), so a source damaging
+ * two players triggers once for each (CR 603.2c; Syr Carah's ruling). The same context as the combat fire: ctx.damagedPlayerId
+ * ("that player") and ctx.combatDamageAmount ("that many"). The dealer's own descriptors (printed, or granted to it) and each
+ * attachment's "enchanted / equipped creature deals damage to …" — only `anyDamage` ones. "An opponent" is gated in
+ * triggersForEvent (`toOpponent`). Pure — appends to pendingTriggers.
+ */
+export function checkNoncombatDamageToPlayerTriggers(state, hits) {
+  const list = (hits || []).filter((h) => h && h.sourceId != null && h.playerId != null && h.amount > 0);
+  if (!list.length) return state;
+  const anyDamage = (d) => !!d.anyDamage;
+  let fired = [];
+  for (const h of list) {
+    const lk = findPermanent(state, h.sourceId);
+    if (!lk) continue;
+    const dealer = lk.permanent;
+    const context = { damagedPlayerId: h.playerId, combatDamageAmount: h.amount };
+    fired = fired.concat(triggersForEvent(state, { event: "combatDamageToPlayer", sourcePermanent: dealer, triggeringPermanent: dealer, triggeringContext: context, descriptorFilter: anyDamage }));
+    for (const attId of dealer.attachments || []) {
+      const att = findPermanent(state, attId);
+      if (!att) continue;
+      fired = fired.concat(triggersForEvent(state, { event: "combatDamageToPlayer", sourcePermanent: att.permanent, triggeringPermanent: dealer, triggeringContext: context, descriptorFilter: anyDamage }));
     }
   }
   if (!fired.length) return state;
@@ -9117,62 +9237,6 @@ export function checkCombatDamageToCreatureTriggers(state, creatureDamageEvents)
  * the source left), which IS the "(It must survive the damage to get the counter)" reminder (CR 704.5g
  * order). Pure — appends to pendingTriggers.
  */
-/**
- * SPIRIT LINK (BLITZ SL-1) — the DEALT-BY lifelink-trigger family: "Whenever this creature deals
- * [combat] damage, you gain that much life." (Zebra Unicorn / Warrior Angel / Exalted Angel's line /
- * Sunhome Enforcer's combat-only form) and the ATTACHED form "Whenever enchanted creature deals damage,
- * you gain that much life." (Spirit Link / Vampiric Link / Spirit Loop / Armadillo Cloak's line — the
- * GAIN goes to the AURA's controller, not the host's). Returns {subject, combatOnly} or null.
- * One reader shared by detectTriggers (the coverage-only descriptor), the aura residue admission, and
- * checkDealtByTriggers (the runtime fire) — no drift.
- */
-const RE_DEALT_BY_SELF = /(?:^|[\n.;])\s*whenever this creature deals (combat )?damage, you gain that much life\s*(?:\.|$)/i;
-const RE_DEALT_BY_ENCH = /(?:^|[\n.;])\s*whenever enchanted creature deals (combat )?damage, you gain that much life\s*(?:\.|$)/i;
-export function dealtByLinkOf(card) {
-  const o = String(card?.oracle || card?.oracle_text || "");
-  let m = o.match(RE_DEALT_BY_SELF);
-  if (m) return { subject: "self", combatOnly: !!m[1] };
-  m = o.match(RE_DEALT_BY_ENCH);
-  if (m) return { subject: "enchanted", combatOnly: !!m[1] };
-  return null;
-}
-
-/**
- * SL-1 — fire the dealt-by links for a batch of damage-DEALING sources ({sourceId, amount}, per damage
- * event: one combat-damage step total per source — CR 510.2 simultaneity — or one spell/ability
- * resolution total). For each source: its OWN self link fires for its controller; each ATTACHMENT
- * carrying the enchanted link fires for the ATTACHMENT's controller (CR — the Aura's "you"). A
- * combat-only link fires only when isCombat. The descriptor is the rampage-style synthesized shape
- * (the coverage-only detectTriggers twin never fires generically — this is the sole site); the payoff
- * "you gain that much life" resolves through the standard flush with ctx.combatDamageAmount = the total.
- */
-export function checkDealtByTriggers(state, events, { isCombat = false } = {}) {
-  const hits = (events || []).filter((e) => e && e.sourceId != null && e.amount > 0);
-  if (!hits.length) return state;
-  let fired = [];
-  for (const ev of hits) {
-    const lk = findPermanent(state, ev.sourceId);
-    if (!lk) continue; // the dealer already left — CR 603.6d look-back is out of scope for this family (FN-safe)
-    const context = { combatDamageAmount: ev.amount, dealtDamageAmount: ev.amount };
-    const selfLink = dealtByLinkOf(lk.permanent.card);
-    if (selfLink && selfLink.subject === "self" && (!selfLink.combatOnly || isCombat)) {
-      const desc = { event: "dealtBy", scope: "self", whose: "any", effect: null, effectClause: "you gain that much life", optional: false, sourceText: "dealt-by lifegain link" };
-      fired.push(makePendingTrigger(desc, lk.permanent, lk.permanent, context));
-    }
-    for (const attId of lk.permanent.attachments || []) {
-      const att = findPermanent(state, attId);
-      if (!att) continue;
-      const link = dealtByLinkOf(att.permanent.card);
-      if (link && link.subject === "enchanted" && (!link.combatOnly || isCombat)) {
-        const desc = { event: "dealtBy", scope: "self", whose: "any", effect: null, effectClause: "you gain that much life", optional: false, sourceText: "attached dealt-by lifegain link" };
-        fired.push(makePendingTrigger(desc, att.permanent, lk.permanent, context)); // the AURA's controller gains
-      }
-    }
-  }
-  if (!fired.length) return state;
-  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
-}
-
 export function checkDealtDamageTriggers(state, events) {
   const hits = (events || []).filter((e) => e && e.creatureId != null && e.amount > 0);
   if (!hits.length) return state;

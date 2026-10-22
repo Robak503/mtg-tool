@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createGameState, createPermanent, _resetIdsForTests } from "./gameState.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { applyDamageEffect } from "./spellEffects.js";
-import { dealtByLinkOf } from "./triggers.js";
+import { detectTriggers } from "./triggers.js";
 import { flushTriggers, resolveTopOfStack } from "./gameEngine.js";
 import { classifyCard } from "./coverage.js";
 
@@ -25,13 +25,18 @@ const SPIRIT_LINK = { id: "sl", name: "Spirit Link", type: "Enchantment — Aura
 
 function resolveAll(s) { s = flushTriggers(s, {}); let g = 0; while ((s.stack || []).length && g++ < 12) s = resolveTopOfStack(s); return s; }
 
+// GRADUATED (the dealt-by slice, 2026-10-20): the dealtByLinkOf reader is gone — the links are ordinary dealt-by descriptors that
+// checkDealtByTriggers fires through the flush like every other payoff (dealtByEveryPayoff.test.js). Spirit Link's own trigger is
+// now detected, so the Aura reads native-trigger (it read native-aura through the aura lane's lifegain allowlist).
+const dealtBy = (card) => detectTriggers(card).filter((d) => d.event === "dealtBy").map((d) => ({ scope: d.scope, combatOnly: d.combatOnly, effectClause: d.effectClause }));
 describe("reader + classify", () => {
   it("both forms read (combat-only flagged); the family flips", () => {
-    expect(dealtByLinkOf(ZEBRA_UNICORN)).toEqual({ subject: "self", combatOnly: false });
-    expect(dealtByLinkOf({ oracle: "Whenever this creature deals combat damage, you gain that much life." })).toEqual({ subject: "self", combatOnly: true });
-    expect(dealtByLinkOf(SPIRIT_LINK)).toEqual({ subject: "enchanted", combatOnly: false });
+    expect(dealtBy(ZEBRA_UNICORN)).toEqual([{ scope: "self", combatOnly: false, effectClause: "you gain that much life" }]);
+    expect(dealtBy({ name: "Sunhome Enforcer", type: "Creature", oracle: "Whenever this creature deals combat damage, you gain that much life." }))
+      .toEqual([{ scope: "self", combatOnly: true, effectClause: "you gain that much life" }]);
+    expect(dealtBy(SPIRIT_LINK)).toEqual([{ scope: "equippedCreature", combatOnly: false, effectClause: "you gain that much life" }]);
     expect(classifyCard(ZEBRA_UNICORN)).toBe("native-trigger");
-    expect(classifyCard(SPIRIT_LINK)).toBe("native-aura");
+    expect(classifyCard(SPIRIT_LINK)).toBe("native-trigger");
   });
 });
 

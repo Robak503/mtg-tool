@@ -788,12 +788,34 @@ permanentEnters watcher with scope `artifactAny` — any player's artifact as it
 The land-from-hand put (`lfh`) takes "basic land card" (`["basic", "land"]`, Terrain Generator, Elvish Pioneer). `parseCyclingCost`
 no longer refuses a card whose only cycle mention is its own battlefield discard watcher ("Whenever you cycle or discard [an]other
 card, …" — Archfiend of Ifnir, Curator of Mysteries): an ability of a permanent does nothing from the hand (CR 113.6), so cycling
-the card fires none of it. **The dealt-by event fires one payoff:** checkDealtByTriggers synthesizes only the printed lifegain link
-("you gain that much life", read off the dealer's card and its Auras); `triggerRoutesNatively` now refuses any other effect on a
-`dealtBy` descriptor, and any granted one (`d.granted`; `isModeledGroupTriggeredBody` for group and until-end-of-turn grants) —
-Drinker of Sorrow, Olivia's Attendants, Angel of Deliverance and Stir the Pride read native while their trigger never fired (false
-credits removed), and Ceremonial Knife's granted body stays parked. Firing every dealt-by descriptor (printed and granted, with a
-combat-only flag and the "that many" amount) through the flush is the open seam that would let them play.
+the card fires none of it. (The dealt-by event fired only the printed lifegain link here; the dealt-by slice below closed that.)
+
+**The dealt-by event fires every payoff, and the recipient forms fire on any damage (2026-10-20).** "Whenever <this creature | its
+name | equipped creature | enchanted creature> deals [combat] damage, …" is the `dealtBy` event: scope `self` or `equippedCreature`,
+`combatOnly` for "combat damage" (on the descriptor whitelist). `triggers.checkDealtByTriggers` — called by both funnels with one
+`{ sourceId, amount }` per source per damage event, the amount what it DEALT after protection, replacement and prevention — fires
+every such descriptor through `triggersForEvent`: the dealer's own (printed, granted by an attachment's quoted line, granted by a
+group or until-end-of-turn grant) and each attachment's, `combatOnly` only when `isCombat`, with ctx.combatDamageAmount /
+ctx.dealtDamageAmount = the total ("that much", "that many"). Damage to several objects at once is ONE event (CR 603.2c; the Angel
+of Deliverance, Vessel of the All-Consuming and Captain Rex Nebula rulings), and a source dealt lethal damage in the same event
+still triggers (fired before the lethal pass). A source no longer on the battlefield has no ability to trigger (not a look-back,
+CR 603.10). The old synthesized link (`dealtByLinkOf`) is gone; `triggerRoutesNatively` and `isModeledGroupTriggeredBody` judge a
+dealt-by body like any other. On a self dealt-by trigger "untap it" reads "untap this creature" (Quintessential Katana's grant).
+The RECIPIENT forms ("… deals damage to a player / to an opponent / to a creature") are ANY damage too: the self and attached
+"to a player / to an opponent" arms carry `anyDamage` (still the `combatDamageToPlayer` event, fired by the combat step as before)
+and `spellEffects.settleDamageEvent` fires them for non-combat damage through `checkNoncombatDamageToPlayerTriggers` — once per
+player the source dealt damage to (ctx.damagedPlayerId, ctx.combatDamageAmount = that player's amount); "to an opponent" carries
+`toOpponent`, checked in `triggersForEvent` against the ability's controller (the Aura's for its own trigger, the creature's for a
+granted one — the Curiosity, Snake Umbra and Helm of the Ghastlord rulings). "… deals [combat] damage to a creature" with the
+destroy / exile / tap-lock "that creature" payoffs reads its subject through `dealerToCreatureShape` (self → `selfDealerToCreature`,
+equipped / enchanted → `attachedDealerToCreature`, the dealer being the watcher's host), and `checkCombatDamageToCreatureTriggers`
+takes `{ isCombat }`: outside combat it scans only the dealer and its attachments and fires only `anyDamage` descriptors. The event
+records what each dealer dealt to each player and creature (`event.dealtTo`, `tallyRecipient`) beside its total. The self "deals
+damage to a player" subject is exact now — a compound subject (Syr Carah's "Syr Carah or an instant or sorcery spell you control")
+is undetected rather than fired for half of what it says. ⚠️ Open seam: the combat funnel deals a blocked attacker without trample
+only its blockers' lethal share (`combatResolution`, after the blocker loop — the excess is dropped, not assigned), so a 5/5 blocked
+by a 1/1 deals 1, where CR 510.1c has it deal all 5 (Vampiric Link's ruling: "you still gain 5 life"); every "that much" read off the
+combat tally — the dealt-by payoffs, lifelink, the dealt-damage amount — inherits the shortfall.
 
 **The chosen-type sweep family** (`removal.notChosenTypeSet`, 2026-10-18): Kindred Dominance's destroy, Raise the Palisade's bounce
 and Crippling Fear's -N/-N share one choice (`choicePolicy.autoPickCreatureTypeToSpare`, made as the spell resolves, for every
@@ -2058,7 +2080,8 @@ Damage reaches a creature or a player through exactly two funnels: combat damage
 or an ability's damage, `dealSimultaneousDamage` for damage a creature deals itself (a fight, a bite, a self-fight). The
 two non-combat funnels deal every hit through the same `dealDamageToCreature` / `dealDamageToPlayer` and settle once
 through `settleDamageEvent`: protection from the source, the damage replacements, the prevention walls and shields,
-infect and wither, the damage-source record (`damagedBy`), lifelink, deathtouch, the dealt-damage and dealt-by triggers.
+infect and wither, the damage-source record (`damagedBy`), lifelink, deathtouch, the dealt-damage and dealt-by triggers, and
+(2026-10-20) the "deals damage to a player / to a creature" triggers, once per recipient (`event.dealtTo`).
 `gameState.markCombatDamage` — despite its name it marks all damage — is the LAST step of that path, never a substitute
 for it: the four fight atoms called it directly, and for months a fight ignored Dawn Elemental's wall and never gained
 lifelink, never dealt infect's counters, never fed Sengir Vampire or an enrage trigger. **A new "deals damage" atom deals

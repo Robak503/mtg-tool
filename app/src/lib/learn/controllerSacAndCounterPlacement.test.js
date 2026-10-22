@@ -106,12 +106,11 @@ describe("⭐ carriers classify native", () => {
   ]) {
     it(`${card.name}`, () => expect(isNativeTier(classifyCard(card)), classifyCard(card)).toBe(true));
   }
-  // GRADUATED (play-weighted 2026-10-20): Drinker of Sorrow parks. Its sacrifice still parses (the atom above), but its event —
-  // "Whenever this creature deals combat damage" — is fired only for the lifegain link (triggers.checkDealtByTriggers), so the
-  // trigger never happened while the card read native: a false credit, removed (triggerRouting's dealt-by gate;
-  // dealtByOnlyLifegain.test.js).
-  it("⛔ Drinker of Sorrow parks — its dealt-by trigger is never fired", () => {
+  // GRADUATED twice: play-weighted 2026-10-20 parked Drinker of Sorrow (its dealt-by event fired only the lifegain link); the
+  // dealt-by slice (2026-10-20) fires every dealt-by payoff through the flush, so "Whenever this creature deals combat damage,
+  // sacrifice a permanent." triggers again and the card reads native (dealtByEveryPayoff.test.js plays it).
+  it("Drinker of Sorrow — its dealt-by trigger fires", () => {
     expect(classifyCard({ name: "Drinker of Sorrow", type: "Creature — Horror", mana: "{2}{B}", power: 5, toughness: 3,
-      oracle: "This creature can't block.\nWhenever this creature deals combat damage, sacrifice a permanent." })).toBe("body-only");
+      oracle: "This creature can't block.\nWhenever this creature deals combat damage, sacrifice a permanent." })).toBe("native-trigger");
   });
 });

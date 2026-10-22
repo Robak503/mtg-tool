@@ -331,7 +331,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   const deathtouched = new Set();
   const lifeLoss = {};         // playerId -> amount
   const lifeGain = {};         // playerId -> amount (lifelink)
-  const dealtBySources = {};   // permId -> total dealt this step (SL-1 — the dealt-by lifegain links)
+  const dealtBySources = {};   // permId -> total dealt this step (SL-1 — the dealt-by triggers)
   const minusCounters = {};    // permanentId -> count (KW-POISON: infect/wither creature damage → -1/-1)
   const poisonGain = {};       // playerId -> count (KW-POISON: infect/toxic combat damage → poison)
   const loyaltyLoss = {};      // planeswalker permanentId -> loyalty removed by combat damage (PW-1)
@@ -610,7 +610,7 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
       dealt += spillToDefender(power, false);
     }
     if (lifelink && dealt > 0) lifeGain[att.attackingPlayer] = (lifeGain[att.attackingPlayer] || 0) + dealt;
-    // SL-1: record the attacker's DEALT total for the dealt-by lifegain links (one CR 510.2 event per source).
+    // SL-1: record the attacker's DEALT total for the dealt-by triggers (one CR 510.2 event per source).
     if (dealt > 0) dealtBySources[att.permanentId] = (dealtBySources[att.permanentId] || 0) + dealt;
   }
 
@@ -821,7 +821,7 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
   for (const [id, amount] of Object.entries(dmgToPermanent)) dealtDamageTotals[id] = (dealtDamageTotals[id] || 0) + amount;
   for (const [id, amount] of Object.entries(minusCounters)) dealtDamageTotals[id] = (dealtDamageTotals[id] || 0) + amount;
   next = checkDealtDamageTriggers(next, Object.entries(dealtDamageTotals).map(([creatureId, amount]) => ({ creatureId, amount })));
-  // SL-1 — the DEALT-BY lifegain links (Spirit Link / Zebra Unicorn): one event per dealing source with
+  // SL-1 — the DEALT-BY triggers (Spirit Link, Drinker of Sorrow, a granted body): one event per dealing source with
   // its CR 510.2 step total, fired before the lethal SBA (the source + its attachments bind live).
   next = checkDealtByTriggers(next, Object.entries(dealtBySources).map(([sourceId, amount]) => ({ sourceId, amount })), { isCombat: true });
 

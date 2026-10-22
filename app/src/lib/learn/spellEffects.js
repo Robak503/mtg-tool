@@ -51,7 +51,7 @@ import {
   stampTriggeringLki, // the destroy event records a waiting trigger's entering creature on the board as the event began
   groupLeaveEvents, // CR 603.10a — the permanents one destroy takes leave in one event (checkLeavesTriggers' departed look-back)
 } from "./gameState.js";
-import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers, checkLifegainTriggers } from "./triggers.js";
+import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers, checkLifegainTriggers, checkNoncombatDamageToPlayerTriggers, checkCombatDamageToCreatureTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, stackSpellIsUncounterable } from "./staticAbilityParser.js";
 import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
 import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentHasCardType, permanentHasTypeWord, permanentColors } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11c, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
@@ -1478,7 +1478,7 @@ export function damageDealer(state, source, controller = null) {
  * triggers and lifelink) and the creatures a deathtouch source dealt damage to (CR 704.5h).
  */
 export function beginDamageEvent(state) {
-  return { replacing: boardHasDamageReplacement(state), toCreature: {}, byDealer: new Map(), deathtouched: new Set(), redirectedDealt: 0 };
+  return { replacing: boardHasDamageReplacement(state), toCreature: {}, byDealer: new Map(), dealtTo: new Map(), deathtouched: new Set(), redirectedDealt: 0 };
 }
 
 /**
@@ -1501,6 +1501,13 @@ export function eventDealer(state, event, source, controller = null) {
 }
 
 const tallyDealt = (event, dealer, n) => event.byDealer.set(dealer, (event.byDealer.get(dealer) || 0) + n);
+/** What each dealer dealt to each player and each creature in the event — the recipients a "deals damage to a player / to a creature"
+ * trigger reads (settleDamageEvent). Recorded beside tallyDealt at the two hit sites, after every prevention. */
+function tallyRecipient(event, dealer, kind, id, n) {
+  let rec = event.dealtTo.get(dealer);
+  if (!rec) { rec = { players: {}, creatures: {} }; event.dealtTo.set(dealer, rec); }
+  rec[kind][id] = (rec[kind][id] || 0) + n;
+}
 
 /** DAMAGE REPLACEMENT (CR 614 — the doublers, Furnace of Rath) on one hit, on the board as the hit is dealt. A hit of 0 is not
  * dealt (CR 120.8) and is not consulted. Exported for applyDamageEffect's planeswalker hits. */
@@ -1600,6 +1607,7 @@ export function dealDamageToCreature(s, event, dealer, permId, raw) {
   if (dealt <= 0) return s;
   event.toCreature[permId] = (event.toCreature[permId] || 0) + dealt;
   tallyDealt(event, dealer, dealt); // SL-1
+  tallyRecipient(event, dealer, "creatures", permId, dealt);
   if (dealer.deathtouch) event.deathtouched.add(permId); // CR 704.5h — any damage it dealt destroys the creature (the lethal pass)
   let out = (dealer.infect || dealer.wither)
     ? addCounter(s, { permanentId: permId, type: "-1/-1", amount: dealt })
@@ -1649,6 +1657,7 @@ export function dealDamageToPlayer(s, event, dealer, pid, raw) {
   s = pv.state; dealt = pv.amount;
   if (dealt <= 0) return s;
   tallyDealt(event, dealer, dealt); // SL-1: the source's dealt-by tally (players count — "deals damage" is any)
+  tallyRecipient(event, dealer, "players", pid, dealt);
   return dealer.infect
     ? addPoison(s, { playerId: pid, amount: dealt })
     : loseLife(s, { playerId: pid, amount: dealt, combatDamage: false }); // non-combat (spell/ability) damage → burn win-con
@@ -1657,15 +1666,27 @@ export function dealDamageToPlayer(s, event, dealer, pid, raw) {
 /**
  * A DAMAGE EVENT'S SETTLEMENT — what its hits owe once every one of them is dealt, before the lethal-damage pass (the
  * abilities trigger as the damage is dealt, CR 120.4b, and bind while their sources are still on the battlefield):
- *   1. ENRAGE / DAMAGE-RECEIVED (CR 603.2): each creature dealt damage triggers ONCE, with its total for the event. Every
+ *   1. DEALS DAMAGE TO A PLAYER / TO A CREATURE (2026-10-20 — Curiosity, Niv-Mizzet, Matsu-Tribe Sniper, Sword of Kaldra): each
+ *      source, once per player and once per creature it dealt damage to, fires the triggers whose wording is any damage
+ *      (`anyDamage`) — the combat funnel's order (player, then creature) and its referents (the damaged player, the damaged
+ *      creature). A combat-only wording stays silent here.
+ *   2. ENRAGE / DAMAGE-RECEIVED (CR 603.2): each creature dealt damage triggers ONCE, with its total for the event. Every
  *      entry is > 0, so prevented damage never fires (CR 120.8). A creature that then dies to the lethal pass self-no-ops
  *      at resolution (the "must survive" reminder).
- *   2. DEALT-BY (SL-1 — Zebra Unicorn, Spirit Link): each source that dealt damage, once, with its total. Not combat damage,
- *      so a combat-only link (Sunhome Enforcer) stays silent.
- *   3. LIFELINK (CR 120.3f): each dealer with lifelink makes its controller gain its total, and that player's lifegain
+ *   3. DEALT-BY (Zebra Unicorn, Spirit Link, Olivia's Attendants): each source that dealt damage, once, with its total. Not
+ *      combat damage, so a combat-only form (Sunhome Enforcer, Drinker of Sorrow) stays silent.
+ *   4. LIFELINK (CR 120.3f): each dealer with lifelink makes its controller gain its total, and that player's lifegain
  *      watchers see it. Nothing dealt (all of it prevented) is a gain of 0: no life, no watcher (both callees read 0 as no event).
  */
 export function settleDamageEvent(s, event) {
+  const toPlayers = [], toCreatures = [];
+  for (const [dealer, rec] of event.dealtTo) {
+    if (!dealer.id) continue; // a spell has no permanent source, so no ability of its own to trigger
+    for (const [playerId, amount] of Object.entries(rec.players)) toPlayers.push({ sourceId: dealer.id, playerId, amount });
+    for (const damagedCreatureId of Object.keys(rec.creatures)) toCreatures.push({ dealerId: dealer.id, dealerController: dealer.controller, damagedCreatureId });
+  }
+  if (toPlayers.length) s = checkNoncombatDamageToPlayerTriggers(s, toPlayers);
+  if (toCreatures.length) s = checkCombatDamageToCreatureTriggers(s, toCreatures, { isCombat: false });
   s = checkDealtDamageTriggers(s, Object.entries(event.toCreature).map(([creatureId, dealt]) => ({ creatureId, amount: dealt })));
   const dealtBy = [];
   for (const [dealer, total] of event.byDealer) if (dealer.id && total > 0) dealtBy.push({ sourceId: dealer.id, amount: total });
