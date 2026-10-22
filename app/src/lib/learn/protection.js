@@ -2,15 +2,18 @@
  * protection.js — KW-PROTECTION enforcement (CR 702.16), quality = COLOR.
  *
  * "Protection from [quality]" is DEBT: the permanent can't be Damaged by / Enchanted-or-Equipped by /
- * Blocked by / Targeted by a source with the quality. For the common quality (a color), THREE of the four
- * sub-rules are enforced:
+ * Blocked by / Targeted by a source with the quality. The colour qualities are WUBRG and COLORLESS ("C" — a source with no
+ * colour, CR 105.2c; only ever granted, by "protection from colorless or from the color of your choice": protectionApplies).
+ * For the common quality (a color), THREE of the four sub-rules are enforced:
  *   - DAMAGE (702.16e): combat damage from a source of the stated color is PREVENTED → 0 dealt.
  *   - BLOCK  (702.16f): an ATTACKING creature with protection from a color can't be blocked by a
  *                       creature of that color.
  *   - TARGET (702.16b): can't be targeted by a spell of that color (the spell's color is threaded into
  *                       the targeting check via legalChoices → enumerateTargets → canBeTargetedBy).
- * The ENCHANT/EQUIP axis (702.16c/d — a same-color Aura/Equipment can't legally attach) is NOT enforced
- * (a safe false-negative; no in-deck consumer needs it). Non-color qualities (artifacts, creatures,
+ * The ENCHANT/EQUIP axis (702.16c/d) is enforced where an attachment is made — an Aura's hosts (auraEntry.mayBeEnchantedBy, the
+ * Aura spell's targeting), Equip's targeting, a card returned attached (effects/atoms/zones) — but the state-based action that
+ * drops an Aura or unattaches an Equipment whose host GAINS the protection (CR 704.5m, 704.5n) is not applied (sba.js reads no
+ * protection; a safe false-negative). Non-color qualities (artifacts, creatures,
  * "everything", a card name, instants/sorceries, a dynamic "chosen"/"commander color identity") are NOT
  * parsed here → unenforced, also safe.
  *
@@ -102,10 +105,19 @@ export function parseProtectionClasses(card) {
   return set;
 }
 
-/** True if any of `sourceColors` (array/iterable of color letters) is in the protected-from Set. */
+/**
+ * Does protection from a quality in `protColors` (WUBRG letters, and "C" — PROTECTION FROM COLORLESS, granted by Giver of Runes
+ * and Angelic Intervention's choice) apply to a source of `sourceColors` (CR 702.16)? A coloured quality applies when the source
+ * has that colour. Colorless applies when the source has NO colour (CR 105.2c — "A colorless object has no color"): an EMPTY
+ * list is a colourless source. `sourceColors` null / undefined means the caller can't tell the source's colours (a departed
+ * source with no last known information kept, a path that threads none): nothing applies — never read as colourless, the
+ * false-negative side. Callers holding a definite reading pass the array; callers that can't tell pass null.
+ */
 export function protectionApplies(protColors, sourceColors) {
-  if (!protColors || protColors.size === 0) return false;
-  for (const c of sourceColors || []) {
+  if (!protColors || protColors.size === 0 || sourceColors == null) return false;
+  const colors = [...sourceColors];
+  if (colors.length === 0) return protColors.has("C");
+  for (const c of colors) {
     if (protColors.has(String(c).toUpperCase())) return true;
   }
   return false;

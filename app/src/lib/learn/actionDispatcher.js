@@ -56,6 +56,7 @@ import {
   unattachEquipment,
   abilitySourceRecord, // a source that leaves as its own cost is paid deals the ability's damage as it last existed (CR 113.7a)
   programHasItsSourceDealDamage,
+  abilityHasChosenTargets, // a targeted ability keeps its departed source's record too: the CR 608.2b re-check judges its targets by it
 } from "./gameState.js";
 import { deterministicRng, advanceRngSeed } from "./gameState.js"; // RG-7 (2026-09-05) — the seeded random-discard pick at payment
 import { withoutExileStamps } from "./gameState.js"; // shelf D3 — a card cast out of exile leaves every exile-only permission behind (CR 400.7)
@@ -1580,10 +1581,12 @@ function applyActivateAbility(state, action) {
   // lifelink, deathtouch, infect and wither (CR 702.15c, 702.2e, 702.80b), colours, card types and controller. Read just
   // before it leaves (the sacrifice, the exile, the lethal sweep after the counter removal) and frozen onto this ability's
   // context below — the record gameState.stampAbilitySourceLki writes for a source that leaves while its ability is on the
-  // stack. Only for a program that has its source deal damage, so every other activation keeps its params byte-for-byte.
+  // stack. Only for a program that has its source deal damage, or an ability with chosen targets (2026-10-21 — the CR 608.2b
+  // re-check judges them by the source's last known colours and creature-ness: Executioner's Capsule's destroy is a black
+  // ability's, CR 608.2b, 702.16b), so every other activation keeps its params byte-for-byte.
   let leavingSourceRecord = null;
   const freezeLeavingSource = () => {
-    if (!leavingSourceRecord && programHasItsSourceDealDamage(action.program)) leavingSourceRecord = abilitySourceRecord(working, perm.id);
+    if (!leavingSourceRecord && (programHasItsSourceDealDamage(action.program) || abilityHasChosenTargets(action.targets))) leavingSourceRecord = abilitySourceRecord(working, perm.id);
   };
 
   // Pay the non-mana cost items, all BEFORE the ability is put on the stack (CR 602.2b): life first

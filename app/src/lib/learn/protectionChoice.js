@@ -15,23 +15,24 @@
  * one that targets the protected permanent (CR 702.16b: it can't be targeted by a spell of that colour or an ability from a source
  * of that colour, so as the spell or ability resolves its target is illegal, CR 608.2b), and one that deals damage to it without
  * targeting it ("2 damage to each creature" — CR 702.16e: the damage is prevented). Their colours are the ones the CR 608.2b
- * re-check judges protection by (spellEffects.resolutionSourceColors — a spell's own, the face being cast; an ability's source
- * permanent's, layer-aware). The threats' colour comes first; with none, the board read (choicePolicy.autoPickProtectionColor).
+ * re-check judges protection by (spellEffects.resolutionSource — a spell's own, the face being cast; an ability's source
+ * permanent's, layer-aware; a source that has left the battlefield, its last known colours, CR 608.2b). The threats' colour comes
+ * first; with none, the board read (choicePolicy.autoPickProtectionColor).
  *
  * ONLY WHAT THE ENGINE ENFORCES IS READ (false-negative safe): a threat is read only where the colour picked for it really stops
- * it here, so neither the AI's save nor a person's suggestion promises a save the game won't give. Two reads stay out until the
- * engine enforces them: a colourless threat (protection from colourless is not enforced — protection.protectionApplies reads
- * colour letters, and a colourless source has none), and an ability whose source has left the battlefield doing anything but
- * deal damage (the re-check keeps no last known colours, so its target stays legal; only its damage is prevented).
+ * it here, so neither the AI's save nor a person's suggestion promises a save the game won't give. Since 2026-10-21 the re-check
+ * reads a departed source's last known colours (Executioner's Capsule, sacrificed, is black) and protection from colorless is
+ * enforced (CR 105.2c — Rod of Ruin is a colourless threat, Giver of Runes' colorless stops it); a source whose colours the engine
+ * can't tell (a departed one with no record kept) is still left out — never read as colourless.
  */
 
 import { findPermanent, opponentsOf } from "./gameState.js";
 import { permanentColors, permanentHasCardType } from "./layers.js";
-import { resolutionSourceColors } from "./spellEffects.js";
+import { resolutionSource } from "./spellEffects.js";
 import { creatureSatisfiesRestrictions } from "./creatureRestrictions.js";
 import { autoPickProtectionColor } from "./choicePolicy.js";
 import { seatIsHuman } from "./auraEntry.js"; // who is a person: state.humanSeats (a leaf over layers and gameState)
-import { atomTargets, damageSourceFor } from "./effects/atoms/shared.js"; // the permanents the grant reaches — the resolver's own read; + a departed ability source's last known colours
+import { atomTargets } from "./effects/atoms/shared.js"; // the permanents the grant reaches — the resolver's own read
 
 /** The five colours (CR 105.1) in WUBRG order, and "C" — colourless — for a grant that offers it (Giver of Runes). */
 export const PROTECTION_COLOR_ORDER = ["W", "U", "B", "R", "G"];
@@ -49,25 +50,19 @@ function stackObjectAtoms(obj) {
 
 /**
  * The colours protection judges a stack object by (CR 702.16b — a spell's colours, or the colours of an ability's source), as the
- * engine enforces it: the CR 608.2b re-check's own read (resolutionSourceColors) — a spell's, the face being cast; an ability's, its
- * source permanent's, layer-aware. An ability whose source has left the battlefield: the re-check reads no colour for it (the engine
- * keeps no last known colours there, so protection doesn't make its target illegal), and only the damage it deals is stopped — by
- * the last known colours the damage path keeps (effects/atoms/shared.damageSourceFor — the ability's own record, the
- * sacrificed-as-a-cost record; CR 702.16e). So such an object is read only when all it does is deal damage (Mogg Fanatic's ping);
- * anything else (Executioner's Capsule's destroy), or no record kept, is null — the engine can't tell, so it is never read as
- * colourless or as stopped here.
+ * engine enforces it: the CR 608.2b re-check's own read (spellEffects.resolutionSource) — a spell's, the face being cast; an
+ * ability's, its source permanent's, layer-aware; an ability whose source has left the battlefield, its last known colours (CR 608.2b
+ * — the record gameState.departedSourceLki reads, the one the damage path reads too: Executioner's Capsule's destroy and Mogg
+ * Fanatic's ping alike). An empty list is a colourless source (protection from colorless stops it, CR 105.2c). Null when the engine
+ * can't tell — no source, or a departed one with no record kept: never read as colourless or as stopped here.
  */
 export function stackObjectProtectionColors(state, obj) {
   if (!obj) return null;
-  if (obj.kind === "spell") return resolutionSourceColors(state, obj, null);
   const params = obj.payload?.params || {};
-  const sourceId = params.context?.sourceId ?? params.sourceId ?? null;
-  if (sourceId == null) return null;
-  if (findPermanent(state, sourceId)) return resolutionSourceColors(state, obj, sourceId);
-  const atoms = stackObjectAtoms(obj);
-  if (atoms.length === 0 || atoms.some((a) => a?.op !== "deal-damage")) return null;
-  const source = damageSourceFor(state, { ...(params.context || {}), sourceId });
-  return Array.isArray(source?.qualities?.colors) ? [...source.qualities.colors] : null;
+  const sourceId = obj.kind === "spell" ? null : (params.context?.sourceId ?? params.sourceId ?? null);
+  if (obj.kind !== "spell" && sourceId == null) return null;
+  const source = resolutionSource(state, obj, sourceId);
+  return source.known ? [...source.colors] : null;
 }
 
 const NOT_A_PERMANENT_TARGET = new Set(["player", "spell", "stackAbility", "graveyardCard"]);
@@ -110,9 +105,9 @@ function damagesOneOf(state, obj, ids) {
  * The opponents' spells and abilities on the stack that threaten one of the permanents `permIds` in a way protection from a colour
  * stops: one that targets it (CR 702.16b), one that deals damage to it without targeting it (CR 702.16e). A non-targeted destroy,
  * exile or -N/-N is not read — protection doesn't stop it. Topmost (the next to resolve) first, each `{ id, name, colors, how }`:
- * `colors` the ones protection judges it by, `how` "targets" | "damage". An object whose colours the engine can't tell is left out
- * (stackObjectProtectionColors), and so is a colourless one: protection from colourless is not enforced (protection.protectionApplies
- * reads colour letters), so naming it — or picking colourless for it — would promise a save the game doesn't give.
+ * `colors` the ones protection judges it by (empty — a colourless threat, which protection from colorless stops, CR 105.2c), `how`
+ * "targets" | "damage". An object whose colours the engine can't tell is left out (stackObjectProtectionColors) — naming it would
+ * promise a save the game doesn't give.
  */
 export function protectionThreats(state, controller, permIds) {
   const ids = new Set(permIds || []);
@@ -126,7 +121,7 @@ export function protectionThreats(state, controller, permIds) {
     const how = targetsOneOf(obj, ids) ? "targets" : damagesOneOf(state, obj, ids) ? "damage" : null;
     if (!how) continue;
     const colors = stackObjectProtectionColors(state, obj);
-    if (colors == null || colors.length === 0) continue;
+    if (colors == null) continue;
     out.push({ id: obj.id ?? null, name: obj.source?.name ?? null, colors: [...colors], how });
   }
   return out;

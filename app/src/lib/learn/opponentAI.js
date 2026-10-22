@@ -2788,8 +2788,9 @@ function paymentUntapsBack(state, aiPlayerId, a) {
  *     the harm's target is illegal as it resolves, CR 608.2b): "the color of your choice" is chosen as the grant resolves by the
  *     shared pick (protectionChoice.protectionColorPick — the colour of the opponents' spells and abilities on the stack that target or
  *     damage that permanent, else the colour most common among the opponents' nonland permanents), read here first, per permanent;
- *     the grant saves only when that colour is a colour of every source aiming a harm at it, judged as the CR 608.2b re-check judges
- *     it (protectionChoice.stackObjectProtectionColors) — Mother of Runes, Giver of Runes.
+ *     the grant saves only when that colour is a colour of every source aiming a harm at it (colorless: every such source has no colour,
+ *     CR 105.2c), judged as the CR 608.2b re-check judges it (protectionChoice.stackObjectProtectionColors — a departed source by its
+ *     last known colours) — Mother of Runes, Giver of Runes.
  * The saved permanent must be worth a card (worthACard — the spell arm's save bar). Costs: mana and the source's tap, or the source
  * itself (sacrificed or exiled — Selfless Savior, Selfless Spirit, Plaza of Heroes) only when what it saves is a bigger threat than
  * the source (targetThreat) and is not the source — or when the source is the target of a harm too, a bounce aside (it goes either
@@ -2825,7 +2826,11 @@ function pickSaveInResponse(state, aiPlayerId, actions, pol = {}) {
       else {
         // The colour the grant will take as it resolves — the shared pick, on this permanent (the threats aimed at it first).
         const colour = protectionColorPick(state, aiPlayerId, [id], { orColorless: effect.protection.orColorless });
-        saves = colour !== "C" && hs.every((h) => (stackObjectProtectionColors(state, h.obj) || []).includes(colour));
+        // Colorless ("C", Giver of Runes) saves from a harm whose source has no colour (CR 105.2c) — known, never an unread one.
+        saves = hs.every((h) => {
+          const colors = stackObjectProtectionColors(state, h.obj);
+          return colors != null && (colour === "C" ? colors.length === 0 : colors.includes(colour));
+        });
       }
       if (saves) threat += targetThreat(state, perm);
     }

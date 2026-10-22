@@ -15,7 +15,7 @@
  * Leaf-ish: imports only `spellEffects.enumerateTargets`. No gameState, no runner.
  */
 
-import { enumerateTargets, legacyTargetingEffect, resolutionSourceColors } from "../spellEffects.js"; // + the CR 608.2b re-check's two reads (resolutionTargetVerdicts)
+import { enumerateTargets, legacyTargetingEffect, resolutionSource } from "../spellEffects.js"; // + the CR 608.2b re-check's two reads (resolutionTargetVerdicts); resolutionSource — the source's colours, whether they are known, its creature-ness (a departed source's last known information)
 import { isNonChosenTargetType } from "../targetTypes.js";
 import { targetingAtomOf } from "./programQueries.js"; // the enumerated slot of an optional-payment wrapper — shared with programConfidence's target-slot gate
 import { findPermanent } from "../gameState.js";
@@ -599,7 +599,7 @@ const offerSourceId = (params) => params.context?.sourceId ?? params.sourceId;
  * target of target spell [or ability] with a single target" effect may move it. Enumerated from the object's controller's side
  * (hexproof, protection and "can't be the target" are the spell's problem, not the redirector's), in the same slot (atomIndex /
  * role), with the object's own kick and mode (CR 115.8 — a mode is never re-chosen) and its own colours — a spell's, or an
- * ability's source's (resolutionSourceColors, the read the CR 608.2b re-check judges with): a permanent with protection
+ * ability's source's (resolutionSource, the read the CR 608.2b re-check judges with): a permanent with protection
  * from one of them is not a legal target (CR 702.16b), so the target can't be changed to it. The current target is not
  * "another" target, and an object on the stack is never a legal target for itself (CR 115.5).
  * Returns null when the object can't be re-enumerated (no effect program, or not exactly one recorded target), else the
@@ -610,9 +610,10 @@ export function changeTargetAlternatives(state, obj) {
   const originals = Array.isArray(params?.targets) ? params.targets : [];
   if (!params?.program || originals.length !== 1) return null;
   const orig = originals[0];
-  const colors = resolutionSourceColors(state, obj, offerSourceId(params));
+  const source = resolutionSource(state, obj, offerSourceId(params));
   // (`xValue`: a spell whose target count is its X — "exile X target creatures" cast for X = 1 — enumerates at that X.)
-  let combos = expandCastChoices(state, obj.controller, params.program, colors, { kicked: params.kicked === true, xValue: params.xValue });
+  // (`sourceColorsKnown`: a definite reading — a colourless source is one protection from colorless refuses, CR 105.2c.)
+  let combos = expandCastChoices(state, obj.controller, params.program, source.colors, { kicked: params.kicked === true, xValue: params.xValue, ...(source.known ? { sourceColorsKnown: true } : {}) });
   if (params.chosenMode != null) combos = combos.filter((c) => JSON.stringify(c.chosenMode) === JSON.stringify(params.chosenMode));
   const out = [];
   for (const c of combos) {
@@ -685,7 +686,7 @@ function offeredTargetSlot(obj, t) {
  * resolver. `legality: true` (the EFFECT_PROGRAM resolver) also re-asks the predicate that OFFERED the target: the same
  * enumerateTargets pool (offeredTargetSlot), from the same controller, with the cast-time context rebuilt from the payload
  * (the trigger's context, the ability's source as ctx.sourceId, X). Two inputs are read as they are NOW, which is what the
- * rule asks: the board, and the source's colours (resolutionSourceColors). `ctx.recheck` turns off the offer-side refusals
+ * rule asks: the board, and the source's colours (resolutionSource — a departed source's last known ones, CR 608.2b). `ctx.recheck` turns off the offer-side refusals
  * of what the engine can't judge (spellEffects.enumerateTargets), so every rejection is a definite reading of a rule the
  * cast-time offer also enforces. A target whose slot can't be rebuilt is judged by its zone alone.
  */
@@ -699,8 +700,12 @@ export function resolutionTargetVerdicts(state, obj, { legality = false } = {}) 
     // The flush enumeration's source (gameEngine.buildTriggerStack: `context.sourceId ?? source.permanentId`; an activation's
     // params.sourceId), and the cast's X — a trigger's own X already rides its context.
     const sourceId = offerSourceId(params);
-    ctx = { ...(params.context || {}), sourceId, ...(params.xValue != null ? { xValue: params.xValue } : {}), recheck: true };
-    colors = resolutionSourceColors(state, obj, sourceId);
+    // The source's colours as the rule reads them (resolutionSource): a departed source's last known ones (CR 608.2b), and whether
+    // they are known — a known empty list is a colourless source (protection from colorless, CR 105.2c); an unknown one is not.
+    // Its creature-ness for protection from creatures is read off the same context (spellEffects.enumerateTargets).
+    const source = resolutionSource(state, obj, sourceId);
+    ctx = { ...(params.context || {}), sourceId, ...(params.xValue != null ? { xValue: params.xValue } : {}), recheck: true, ...(source.known ? { sourceColorsKnown: true } : {}) };
+    colors = source.colors;
   }
   // Membership is by id: ids are minted per object (perm-, stk-, a card's own, a seat's), so within one slot's pool an id is
   // one object — read as a creature or as a planeswalker, a Gideon that stopped being a creature is still that target.

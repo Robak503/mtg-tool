@@ -1355,9 +1355,13 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   // Protection from a color (CR 702.16f): an ATTACKING creature with protection from a color can't be
   // blocked by a creature of that color. Layer-aware on BOTH sides: the attacker's protection (printed OR
   // granted by an attached Equipment/Aura) AND the blocker's colors (a granted/removed color counts).
+  // + PROTECTION FROM COLORLESS ("C" — Giver of Runes): a blocker with no colour (CR 105.2c) can't block it — an artifact
+  // creature, an Eldrazi. The blocker is on the battlefield, so its colours are definite.
   const attProtColors = permanentProtectionColors(state, attackerId);
   if (attProtColors.size > 0) {
-    for (const c of permColorSet(state, blockerId)) {
+    const blockerColors = permColorSet(state, blockerId);
+    if (blockerColors.size === 0 && attProtColors.has("C")) return false;
+    for (const c of blockerColors) {
       if (attProtColors.has(c)) return false;
     }
   }

@@ -2252,6 +2252,8 @@ export function keywordInstanceCount(state, permanentId, keyword, printedCount =
  * enforcement sites (combat damage / block / targeting) — so a grant via an attached Equipment/Aura is
  * honored exactly like printed protection, and DISAPPEARS the instant the equipment unattaches (the
  * staticEffectsOf bonus is keyed on attachedTo). Short-circuits to the printed set on an effect-free board.
+ * The set may also hold "C" — protection from COLORLESS, granted only by "protection from colorless or from the color of your choice"
+ * (Giver of Runes' choice); protection.protectionApplies reads it against a source with no colour (CR 105.2c).
  */
 export function permanentProtectionColors(state, permanentId) {
   const perm = findPerm(state, permanentId);

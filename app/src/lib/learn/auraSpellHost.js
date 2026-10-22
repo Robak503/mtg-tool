@@ -54,7 +54,7 @@ export function bodyOnlyAuraHosts(state, card, controller, { recheck = false } =
   const spec = auraSpellHostSpec(card);
   if (!spec) return [];
   // The spell's colours are its front face's (faceUp.characteristicColors, CR 712.8c — a transform card's top-level colours are empty).
-  const targets = enumerateTargets(state, controller, { targetType: spec.targetType, restrictions: spec.restrictions }, characteristicColors(card), recheck ? { recheck: true } : null);
+  const targets = enumerateTargets(state, controller, { targetType: spec.targetType, restrictions: spec.restrictions }, characteristicColors(card), { sourceColorsKnown: true, ...(recheck ? { recheck: true } : {}) }); // the colours are the card's own — definite (protection from colorless refuses a colourless Aura, CR 105.2c)
   return enchantableHosts(state, targets, faceUpView(card));
 }
 

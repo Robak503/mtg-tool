@@ -421,12 +421,12 @@ suggestion: the THREATS first — `protectionThreats`, the opponents' spells and
 permanent (CR 702.16b — its target is illegal as it resolves, CR 608.2b) or deal damage to it without targeting (a `deal-damage`
 sweep that reaches it, read as `applyDamageEffect` reads it — CR 702.16e prevents the damage); a non-targeted destroy, exile or
 -N/-N is not read (protection doesn't stop it), nor a gated atom. Their colours are the CR 608.2b re-check's
-(`stackObjectProtectionColors` = `spellEffects.resolutionSourceColors`: a spell's own, the face being cast; an ability's source
-permanent's, layer-aware). ONLY WHAT THE ENGINE ENFORCES IS READ (FN-safe — neither the AI's save nor a person's suggestion may
-promise a save the game won't give): an ability whose source has left the battlefield is read only when all it does is deal damage
-(Mogg Fanatic's ping — prevented by the last known colours `shared.damageSourceFor` keeps, CR 702.16e), because the re-check keeps
-no last known colours and its target stays legal (Executioner's Capsule's destroy goes through protection from black — not read);
-and a colourless threat is not read (protection from colourless is not enforced). The colour the most threats share wins (WUBRG
+(`stackObjectProtectionColors` = `spellEffects.resolutionSource`: a spell's own, the face being cast; an ability's source
+permanent's, layer-aware; since 2026-10-21 a departed source's last known colours — the next paragraph). ONLY WHAT THE ENGINE
+ENFORCES IS READ (FN-safe — neither the AI's save nor a person's suggestion may promise a save the game won't give): a source whose
+colours the engine can't tell (a departed one with no record kept) is not read. A colourless threat is read (protection from
+colorless is enforced since 2026-10-21 — Giver of Runes takes colorless against Rod of Ruin), and so is a departed source's
+(Executioner's Capsule's destroy, black as it last existed — protection from black makes its target illegal). The colour the most threats share wins (WUBRG
 tiebreak); with none, the old board read (`choicePolicy.autoPickProtectionColor` — the most common colour among the opponents'
 nonland permanents, unchanged). A PERSON is asked:
 `runProgram.resolveAtomAsking` (every atom a program resolves, the optional settle included) meets the atom for a
@@ -442,10 +442,47 @@ Midvast Protector's and Sejiri Steppe's enters trigger parses to the atom, but `
 `grant-protection` case (the "ambiguous" default), so `programTriggerTargetsResolvable` is false and the trigger grants nothing
 natively; Aven
 Liberator's turned-face-up trigger is not detected at all. The other "choose a color" protection cards (Apostle's Blessing's "artifacts or the color of your
-choice", Brave the Elements, Knight of Dawn's self-grant …) are not native and never reach the atom. Not enforced anywhere:
-protection from colourless (`protection.protectionApplies` reads colour letters, and a colourless source has none), and an
-ability's departed source's colours at the re-check (`spellEffects.resolutionSourceColors`). Witness:
+choice", Brave the Elements, Knight of Dawn's self-grant …) are not native and never reach the atom (Midvast Protector is
+body-only and Sejiri Steppe land-partial — neither is credited native, so no false credit). Witness:
 `protectionColorChoice.test.js`; panel `ProtectionColorPanel`.
+
+**Protection: a departed source's last known information, and protection from colorless** (2026-10-21, CR 608.2b — "If the
+source of an ability has left the zone it was in, its last known information is used during this process"; CR 113.7a, 105.2c,
+702.16b–f). The two are one change because they are coupled: the re-check used to read an ability whose source had left the
+battlefield as COLOURLESS (the layer engine derives a missing permanent with no colour), so protection never made its target
+illegal (Executioner's Capsule, sacrificed to activate it, destroyed a creature that gained protection from black in response) —
+and enforcing protection from colorless on that read would have let colorless stop the black Capsule. So a source's colours are
+either KNOWN (an empty list is then colourless) or not known (never read as colourless):
+- **The record** — `gameState.departedSourceLki(state, ctx, id)` is the ONE reader, in one order, for the damage path
+  (`shared.damageSourceFor`) and the re-check: the ability's own record (`ctx.abilitySourceLki`), the shared sacrifice stamp
+  (`state.sacrificedSelfLki`), a self dies trigger's look-back (`ctx.dyingQualities`), the entering-creature lane's
+  `ctx.triggeringLki`; each answers only for its own permanent id. Captured as the source leaves: the dispatcher's freeze when it
+  leaves paying its own cost (sacrifice, self-exile, the last counter) and `gameState.stampAbilitySourceLki` when it leaves while
+  the ability waits on the stack — both now for an ability with chosen targets (`abilityHasChosenTargets`) as well as one that
+  deals damage or reads its power (a second sacrifice in response can no longer leave the Capsule unread: its record rides the
+  ability, not the shared stamp).
+- **The readers** — `spellEffects.resolutionSource(state, obj, sourceId)` → `{ colors, known }` (a spell's card — known; a source
+  on the battlefield — known; a departed source — its record, known; nothing kept — `known: false`), read by the re-check
+  (`targeting.resolutionTargetVerdicts`), the change-target alternatives, a copy's new targets and
+  `protectionChoice.stackObjectProtectionColors`. `enumerateTargets` reads a departed source's creature-ness off the same record
+  (protection from creatures: Perilous Myr's dies trigger is never offered Beloved Chaplain).
+- **Known vs unknown** — `protection.protectionApplies(prot, colors)`: an empty array is a colourless source ("C" in the protected
+  set — Giver of Runes' choice, `layers.permanentProtectionColors` — applies to it); `null` is a source the caller can't read
+  (nothing applies). `canBeTargetedBy(…, sourceColorsKnown)` / `ctx.sourceColorsKnown` is set only where the colours are definite:
+  every cast offer (the card's colours), the activated-ability and Equip offers (the source on the battlefield), the Aura host
+  lanes, the Aura and Equip resolvers' re-checks, and the re-check / change-target / copy when `resolutionSource` says known.
+  `damageDealer.colorsKnown` does the same for damage (a departed dealer's record counts). Colorless is enforced at every site
+  protection from a colour is: targeting (offer and re-check), damage (`protectedFromDealer`; combat's `protectionPrevents` — a
+  combat source is always on the battlefield), blocking (`combatEvasion.canBlockAttacker`), enchanting / equipping where the
+  attachment is made (`auraEntry.mayBeEnchantedBy`, the Aura and Equip targeting, a card returned attached). The AI's save preview
+  and a person's suggestion read colourless and departed threats now (`protectionThreats`; `pickSaveInResponse`: colorless saves
+  from a harm whose source has no colour).
+- **Not done (FN-safe)** — trigger and loyalty-ability target offers thread no source colours (protection by colour is judged at
+  the re-check only: the `gameEngine` trigger offers, the `legalChoices` loyalty lane); the state-based action that drops an Aura or
+  unattaches an Equipment whose host GAINS the protection (CR 704.5m, 704.5n — `sba.sweepAttachmentLegality` reads no
+  protection, for any quality); damage to a planeswalker checks no protection (Angelic Intervention's grant to a planeswalker —
+  not native); a departed source with no record (an LTB trigger's, a graveyard card's ability) stays unknown. Witness:
+  `protectionLastKnownColorless.test.js`.
 
 **Ward on a triggered ability** (2026-10-18, CR 702.21a). A triggered ability an opponent controls that targets a ward
 permanent raises the question a spell (the cast path) or an activated ability (the ability path) raises — the soft-counter
@@ -1435,7 +1472,7 @@ ability on the stack aims a harm at its own permanent worth a card (`stackHarmsT
 object and atom), and the activation defeats every harm aimed at it — a buff by `buffSaves` (hexproof / shroud, indestructible,
 toughness), regeneration against a destroy or lethal damage without "can't be regenerated" (CR 701.19a, 704.5g), protection when the
 colour the grant will take as it resolves (`protectionChoice.protectionColorPick` on that permanent — the threats' colour first) is a
-colour of every source aiming a harm at it, as the re-check judges it (`stackObjectProtectionColors`; CR 702.16b, 608.2b); a source spent for it (Selfless Savior, Selfless Spirit, Plaza of Heroes) only for a bigger threat than itself, or
+colour of every source aiming a harm at it (colorless: every such source has no colour, CR 105.2c), as the re-check judges it (`stackObjectProtectionColors` — a departed source by its last known colours; CR 702.16b, 608.2b); a source spent for it (Selfless Savior, Selfless Spirit, Plaza of Heroes) only for a bigger threat than itself, or
 for anything when the source is itself the target of a harm other than a bounce (it goes either way), and one answer per harm
 (nothing while an object of its own sits above the topmost harm); (2) **a pump after blocks**
 (`pickPumpAfterBlocks`, before the casts — the declare blockers step once the declaration has closed, `combat._blockTriggersFired`, the
@@ -2186,8 +2223,9 @@ Off it: its record — a spell's colours and card types with no damage keyword; 
 colours, types and controller (CR 702.15c, 702.2e, 702.80b), from `ctx.abilitySourceLki` (frozen on the ability by the
 dispatcher when the source leaves paying its own cost — a sacrifice, a self-exile, Walking Ballista's last counter — or
 written by `gameState.stampAbilitySourceLki` when it leaves while the ability is on the stack), `ctx.dyingQualities` (its
-own dies trigger) or `ctx.triggeringLki` (the entering-creature lane). A trigger created after its source already left has
-no record: plain damage, no protection by quality (the safe side).
+own dies trigger) or `ctx.triggeringLki` (the entering-creature lane) — read through `gameState.departedSourceLki`, the one reader
+the CR 608.2b re-check shares (2026-10-21). A trigger created after its source already left has no record: plain damage, no
+protection by quality (the safe side — `damageDealer.colorsKnown` is false, so it is never read as colourless either).
 
 ### THE DAMAGE-REPLACEMENT CONSULT — one reader, the affected player's order (2026-10-17)
 

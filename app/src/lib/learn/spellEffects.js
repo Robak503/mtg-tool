@@ -54,6 +54,7 @@ import {
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers, checkLifegainTriggers, checkNoncombatDamageToPlayerTriggers, checkCombatDamageToCreatureTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, stackSpellIsUncounterable } from "./staticAbilityParser.js";
 import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
+import { departedSourceLki, lkiRecordIsCreature } from "./gameState.js"; // a departed ability source's last known information (CR 113.7a, 608.2b) — the re-check's colours and creature-ness, the damage path's one reader
 import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentHasCardType, permanentHasTypeWord, permanentColors } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11c, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
 import { protectionApplies } from "./protection.js";
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — damage to a player dealt to a creature instead (CR 614.9)
@@ -663,7 +664,10 @@ export function legacyTargetingEffect(card, effect = parseSpellEffect(card)) {
 // a false positive; ward stays an interim-FP until its tax/counter is modeled exactly.
 // `recheck` — the CR 608.2b resolution re-check (effects/targeting.resolutionTargetVerdicts): the same judgment, except that
 // an EMPTY colour list never refuses a target there (see the colour shields below).
-export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceColors = [], sourceIsCreature = false, recheck = false) {
+// `sourceColorsKnown` — the caller holds a definite reading of the source's colours (a spell's card, a source on the battlefield, a
+// departed source's last known information), so an EMPTY list is a colourless source (CR 105.2c) and protection from colorless refuses
+// it. Unset, an empty list is a path that threads no colours: never read as colourless (the false-negative side).
+export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceColors = [], sourceIsCreature = false, recheck = false, sourceColorsKnown = false) {
   if (permanentHasKeyword(state, perm.id, "Shroud")) return false;
   if (permanentHasKeyword(state, perm.id, "Hexproof") && casterId !== controllerOfPerm) return false;
   // SHELF-85 B7 — PROTECTION FROM CREATURES (CR 702.16b): can't be targeted by an ability whose SOURCE is a creature.
@@ -677,7 +681,8 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceC
   // spell's colors (threaded from the cast-target enumeration); empty for paths not yet threaded (a safe
   // false-negative — trigger/ability targeting). Read LAYER-AWARE so protection GRANTED by an attached
   // Equipment/Aura (the Captain America Swords) is honored, not just printed protection.
-  if (sourceColors.length && protectionApplies(permanentProtectionColors(state, perm.id), sourceColors)) return false;
+  // + PROTECTION FROM COLORLESS (CR 105.2c, 702.16b — Giver of Runes): a source with no colour, when its colours are known.
+  if ((sourceColors.length || sourceColorsKnown) && protectionApplies(permanentProtectionColors(state, perm.id), sourceColors)) return false;
   // ④-V TARGET SHIELD BY SOURCE COLOUR (Thrun, Breaker of Silence; Gaea's Revenge — CR 702.11d in all but name): the
   // shield refuses a source that is NOT the named colour, colourless included; Thrun's form only against opponents.
   // A path that does not thread `sourceColors` (triggers / abilities) is refused outright — an under-offer, never an
@@ -691,7 +696,7 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceC
     // HEXPROOF FROM <colours> (CR 702.11d/f — Veil of Summer, shelf D18): refuses a source of any named colour. A path that
     // threads no colours can't be told apart from a named-colour source, so it is refused too — an under-offer, as above.
     // The RE-CHECK (`recheck`) reads an empty list as the source's own reading — a colourless source, or an ability source
-    // that has left the battlefield, whose last known colours (CR 608.2b) the engine does not keep — and a shield that can't
+    // that has left the battlefield with no last known colours kept (CR 608.2b; spellEffects.resolutionSource) — and a shield that can't
     // be shown to refuse that source leaves the target legal: an under-offer is safe at the offer, but at resolution the same
     // refusal would fizzle a legal spell.
     if (sh.colors) {
@@ -704,16 +709,27 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceC
 }
 
 /**
- * CR 608.2b — the colours a resolving spell's or ability's SOURCE has for the re-check's protection and colour-shield
- * judgments (CR 702.16b, 702.11d): a spell's own, read off its card exactly as the cast offer reads them (characteristicColors); an
- * ability's, its source permanent's CURRENT colours (layer 5). An ability whose source has left the battlefield is judged
- * by last known information (CR 608.2b) the engine does not keep, so it reads no colour (the layer engine derives a missing
- * permanent as colourless) — and an empty list never makes a target illegal at the re-check (canBeTargetedBy /
- * playerTargetableBy).
+ * CR 608.2b — a resolving spell's or ability's SOURCE as the re-check's protection and colour-shield judgments read it
+ * (CR 702.16b, 702.11d): `{ colors, known }`. (Its creature-ness, for protection from creatures, enumerateTargets reads off the same
+ * record — the re-check's context carries the ability's own.)
+ *   · a spell — its own colours, read off its card exactly as the cast offer reads them (characteristicColors); known.
+ *   · an ability whose source is on the battlefield — its CURRENT colours (layer 5); known.
+ *   · an ability whose source has LEFT the battlefield — its last known information ("If the source of an ability has left the
+ *     zone it was in, its last known information is used during this process", CR 608.2b; CR 113.7a): the record kept for it
+ *     (gameState.departedSourceLki — frozen on the ability as the source left paying its own cost, stamped onto it as it left
+ *     while the ability waited, a dies trigger's look-back, the entering-creature lane's record) — its colours as it last
+ *     existed (a colourless artifact made red is red); known. Executioner's Capsule, sacrificed
+ *     to activate it, is a black source: protection from black gained in response makes its target illegal.
+ *   · nothing kept (a source the engine kept no record of, an ability of a card in a graveyard) — `known: false`, no colour: the
+ *     source is never read as colourless (protection from colorless doesn't refuse it), and an empty list never makes a target
+ *     illegal at the re-check (canBeTargetedBy / playerTargetableBy) — the false-negative side.
  */
-export function resolutionSourceColors(state, stackObject, sourceId) {
-  if (stackObject?.kind === "spell") return characteristicColors(stackObject.source);
-  return permanentColors(state, sourceId);
+export function resolutionSource(state, stackObject, sourceId) {
+  if (stackObject?.kind === "spell") return { colors: characteristicColors(stackObject.source), known: !!stackObject.source };
+  if (sourceId != null && findPermanent(state, sourceId)) return { colors: permanentColors(state, sourceId), known: true };
+  const left = departedSourceLki(state, stackObject?.payload?.params?.context, sourceId);
+  if (left) return { colors: [...left.record.colors], known: true };
+  return { colors: [], known: false };
 }
 
 // ─── Target enumeration ───────────────────────────────────────────────────────
@@ -730,7 +746,7 @@ export function playerTargetableBy(state, playerId, controllerId, sourceColors =
   if (playerHasShroud(state, playerId)) return false;
   // · HEXPROOF FROM <colours> until end of turn (CR 702.11c/d — Veil of Summer, shelf D18): an opponent's source of a named
   //   colour can't target the player; a source whose colours weren't threaded can't be told apart, so it's refused too —
-  //   except at the re-check, where the empty list is the source's own reading (colourless, or unkept last-known colours).
+  //   except at the re-check, where the empty list is the source's own reading (colourless, or a departed source with no record kept).
   //   + P·25 (Dawn's Truce): `colors: null` is plain hexproof until end of turn — every opponent source is refused.
   const hf = state?.players?.[playerId]?.hexproofFrom;
   if (hf && hf.turn === state.turn && playerId !== controllerId
@@ -757,10 +773,18 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   if (!effectNeedsTarget(effect)) return [];
   const restrictions = Array.isArray(effect.restrictions) ? effect.restrictions : [];
   // B7 — the source's creature-ness for "protection from creatures" (CR 702.16b), read layer-aware off the ability's
-  // source permanent when the flush threads one (ctx.sourceId); absent → false (see canBeTargetedBy).
-  const sourceIsCreature = !!(ctx?.sourceId && permanentIsCreature(state, ctx.sourceId));
+  // source permanent when the flush threads one (ctx.sourceId); absent → false (see canBeTargetedBy). A source that has left
+  // the battlefield is read by its last known information (CR 113.7a, 608.2b — gameState.departedSourceLki, off the ability's
+  // context): Mogg Fanatic, sacrificed, was a creature; nothing kept → false.
+  const sourceIsCreature = !!ctx?.sourceId && (findPermanent(state, ctx.sourceId)
+    ? permanentIsCreature(state, ctx.sourceId)
+    : lkiRecordIsCreature(departedSourceLki(state, ctx, ctx.sourceId)?.record));
   const recheck = ctx?.recheck === true;
-  const targetable = (perm, pid) => canBeTargetedBy(state, perm, pid, controllerId, sourceColors, sourceIsCreature, recheck);
+  // The caller holds a definite reading of the source's colours (`ctx.sourceColorsKnown` — a spell's card, a source on the
+  // battlefield, a departed source's last known information): an empty list is then a COLOURLESS source, which protection from
+  // colorless refuses (CR 105.2c, 702.16b). Unset → an empty list is unthreaded colours, never read as colourless.
+  const colorsKnown = ctx?.sourceColorsKnown === true;
+  const targetable = (perm, pid) => canBeTargetedBy(state, perm, pid, controllerId, sourceColors, sourceIsCreature, recheck, colorsKnown);
   const out = [];
   const addCreatures = () => {
     for (const pid of Object.keys(state.players)) {
@@ -1462,6 +1486,9 @@ export function damageDealer(state, source, controller = null) {
     lifelink: has("Lifelink"),
     deathtouch: has("Deathtouch"),
     colors: lk ? permanentColors(state, source.id) : (record?.colors || []),
+    // Whether `colors` is a definite reading (the permanent now, or a record that carries its colours) — so an empty list is a
+    // colourless source that protection from colorless prevents (CR 105.2c, 702.16e); a departed source with no record is not.
+    colorsKnown: !!lk || Array.isArray(record?.colors),
     isCreature: lk ? permanentIsCreature(state, source.id) : (typeof record?.isCreature === "boolean" ? record.isCreature : (record?.types || []).includes("Creature")),
     silenced: source?.id ? attachedDamagePrevention(state, source.id).by === "all" : false,
     // THE SOURCE'S RECORD when it is not on the battlefield (CR 609.7c, 113.7a): a spell's colours and card types, or a departed
@@ -1517,10 +1544,11 @@ export function consultDealt(s, event, dealer, raw, targetKind, targetId) {
     : raw;
 }
 
-/** PROTECTION FROM THE DEALER (CR 702.16e) — damage from a source of a color the creature is protected from, or from a creature
- * source to a creature with protection from creatures, is prevented: the two qualities the combat funnel prevents by. */
+/** PROTECTION FROM THE DEALER (CR 702.16e) — damage from a source of a color the creature is protected from (colorless included —
+ * a source with no colour, when its colours are known: dealer.colorsKnown, CR 105.2c), or from a creature source to a creature with
+ * protection from creatures, is prevented: the qualities the combat funnel prevents by. */
 function protectedFromDealer(s, dealer, permId) {
-  return protectionApplies(permanentProtectionColors(s, permId), dealer.colors)
+  return protectionApplies(permanentProtectionColors(s, permId), dealer.colorsKnown ? dealer.colors : null)
     || (dealer.isCreature && permanentProtectionClasses(s, permId).has("creatures"));
 }
 

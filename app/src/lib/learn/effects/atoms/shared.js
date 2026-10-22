@@ -6,7 +6,7 @@
  * engine, type predicates, and the token descriptor word sets.
  */
 
-import { findPermanent, creaturePower, creatureToughness, opponentsOf } from "../../gameState.js";
+import { findPermanent, creaturePower, creatureToughness, opponentsOf, departedSourceLki } from "../../gameState.js"; // + departedSourceLki: a departed source's last known information, the one reader damageSourceFor and the CR 608.2b re-check share
 import { characteristicTypeLine, characteristicColors } from "../../faceUp.js"; // THE FACE THAT IS UP (CR 712.8a) — a graveyard card's type line and colours for the counts; a spell's colours as a damage source (CR 712.8c)
 import { MASS_WIPE_SCOPES } from "../../targetTypes.js"; // leaf module (pure strings) — no cycle; feeds the atomTargets drift guard below
 import { permanentIsCreature, permanentHasCardType, permanentHasTypeWord, permanentTypes, permanentCreatureTypes, domainCount, partyCount, permIsEveryCreatureType, deriveCharacteristics, permanentManaValue, permanentsShareCreatureType } from "../../layers.js"; // + permanentsShareCreatureType (#684 — Shared Animosity's count) // + permanentHasTypeWord (the type-line audit): a subtype filter reads the permanent as it is now // + permanentHasCardType (#651): the layer-aware, face-up land read of the opponents' nonland set // + deriveCharacteristics (#587): a permanent's copiable values + layer-4 types for the nonland mana-value set // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import) // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
@@ -80,15 +80,13 @@ export function damageSourceFor(state, ctx) {
   const id = ctx?.sourceId ?? null;
   if (id != null && findPermanent(state, id)) return { id };
   if (id == null) return ctx?.spellSource ? { id: null, qualities: ctx.spellSource } : { id: null };
-  const record = (r) => ({ colors: r.colors, types: r.types || [], keywords: r.keywords || [], ...(r.controller ? { controller: r.controller } : {}) });
-  const own = ctx?.abilitySourceLki;
-  if (own?.permanentId === id && Array.isArray(own.colors)) return { id, qualities: record(own) };
-  const sac = state?.sacrificedSelfLki;
-  if (sac?.permanentId === id && Array.isArray(sac.colors)) return { id, qualities: { colors: sac.colors, types: sac.types || [] } };
-  if (ctx?.triggeringPermanentId === id && ctx?.dyingQualities) return { id, qualities: ctx.dyingQualities };
-  const lki = ctx?.triggeringLki;
-  if (lki?.permanentId === id && Array.isArray(lki.colors)) return { id, qualities: record(lki) };
-  return { id };
+  // The record, in the one order the CR 608.2b re-check reads it too (gameState.departedSourceLki).
+  const left = departedSourceLki(state, ctx, id);
+  if (!left) return { id };
+  const r = left.record;
+  if (left.via === "sacrificed") return { id, qualities: { colors: r.colors, types: r.types || [] } };
+  if (left.via === "dying") return { id, qualities: r };
+  return { id, qualities: { colors: r.colors, types: r.types || [], keywords: r.keywords || [], ...(r.controller ? { controller: r.controller } : {}) } };
 }
 
 /**

@@ -1438,7 +1438,9 @@ export function damageResultKeywords(state, permanentId) {
  * check) still has that permanent deal the damage, as it last existed: its lifelink, deathtouch, infect and wither
  * (CR 702.15c, 702.2e, 702.80b), its colours and card types, whether it was a creature, and who controlled it. The record is
  * written onto each ability on the stack whose source is this permanent and whose program has its source deal damage
- * (programHasItsSourceDealDamage), as `params.context.abilitySourceLki`; effects/atoms/shared.damageSourceFor reads it. An
+ * (programHasItsSourceDealDamage) or that has chosen targets (abilityHasChosenTargets — the CR 608.2b re-check judges them by
+ * the source's last known colours and creature-ness, 2026-10-21), as `params.context.abilitySourceLki`;
+ * effects/atoms/shared.damageSourceFor and spellEffects.resolutionSource read it (departedSourceLki). An
  * ability already stamped keeps its record. Called from stampTriggeringLki, so it runs at the same exits. A source that
  * leaves while its own cost is paid — before the ability is on the stack (sacrificed, exiled, or a 0/0 after its last
  * counter is removed) — gets the same record frozen onto the ability by the dispatcher (abilitySourceRecord). Nothing to
@@ -1478,13 +1480,52 @@ export function abilitySourceRecord(state, permanentId) {
     power: isCreature ? creaturePower(lk.permanent, state) : 0,
   };
 }
+/**
+ * A TARGETED ABILITY'S SOURCE (CR 608.2b — "If the source of an ability has left the zone it was in, its last known information
+ * is used during this process"; CR 113.7a): as the ability resolves, the re-check judges its targets against its source's
+ * colours (protection, CR 702.16b; the colour shields) and creature-ness (protection from creatures). An ability that has chosen
+ * targets gets the record too — `targets` the activation's (the dispatcher's freeze) or the stack object's params (this stamp).
+ */
+export function abilityHasChosenTargets(targets) {
+  return Array.isArray(targets) && targets.length > 0;
+}
+
+/**
+ * THE LAST KNOWN INFORMATION OF AN ABILITY'S SOURCE THAT HAS LEFT THE BATTLEFIELD (CR 113.7a, 608.2b, 608.2h) — the one reader, in
+ * one order, for the damage path (effects/atoms/shared.damageSourceFor) and the CR 608.2b re-check (spellEffects.resolutionSource):
+ *   · `ability` — the record on the ability itself (`ctx.abilitySourceLki`: the dispatcher's freeze as the source left paying its own
+ *     cost, or stampAbilitySourceLki as it left while the ability waited on the stack);
+ *   · `sacrificed` — the dispatcher's shared stamp for a source sacrificed to pay its own cost (`state.sacrificedSelfLki`, id-keyed);
+ *   · `dying` — a dies trigger of the permanent itself (`ctx.dyingQualities`, the death look-back);
+ *   · `triggering` — the entering-creature lane's record (`ctx.triggeringLki`) when it names this permanent.
+ * Each answers only for the permanent it was taken from. `{ via, record }`, or null when nothing was kept (the caller can't tell the
+ * source's colours — never read as colourless).
+ */
+export function departedSourceLki(state, ctx, id) {
+  if (id == null) return null;
+  const own = ctx?.abilitySourceLki;
+  if (own?.permanentId === id && Array.isArray(own.colors)) return { via: "ability", record: own };
+  const sac = state?.sacrificedSelfLki;
+  if (sac?.permanentId === id && Array.isArray(sac.colors)) return { via: "sacrificed", record: sac };
+  if (ctx?.triggeringPermanentId === id && ctx?.dyingQualities) return { via: "dying", record: ctx.dyingQualities };
+  const lki = ctx?.triggeringLki;
+  if (lki?.permanentId === id && Array.isArray(lki.colors)) return { via: "triggering", record: lki };
+  return null;
+}
+
+/** Was the departed source a creature as it last existed (a `departedSourceLki` record)? Its own flag, else its card types. */
+export function lkiRecordIsCreature(record) {
+  if (!record) return false;
+  return typeof record.isCreature === "boolean" ? record.isCreature : (record.types || []).includes("Creature");
+}
+
 function stampAbilitySourceLki(state, permanentId) {
   const stack = state.stack || [];
   const pendingTriggers = state.pendingTriggers || [];
   const wants = (o) => {
     const params = o?.payload?.params;
     return params?.sourceId === permanentId && !params.context?.abilitySourceLki
-      && (programHasItsSourceDealDamage(params.program) || programReadsSourcePower(params.program));
+      && (programHasItsSourceDealDamage(params.program) || programReadsSourcePower(params.program) || abilityHasChosenTargets(params.targets));
   };
   const pendingWants = (t) => t?.source?.permanentId === permanentId && !t.context?.abilitySourceLki
     && SOURCE_POWER_CLAUSE_RE.test(String(t.descriptor?.effectClause || ""));

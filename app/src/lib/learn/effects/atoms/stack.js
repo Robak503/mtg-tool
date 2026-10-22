@@ -3,7 +3,7 @@
  * Imports applyControllerRider from removal.js (DAG: removal <- stack) for the soft-counter rider.
  */
 
-import { applyDamageEffect, parseCreatureTargetRestrictions, resolutionSourceColors } from "../../spellEffects.js"; // the SHARED creature-restriction grammar — massFilteredDamageClauseParser's general arm delegates its recipient phrase to it (no new module edge: applyDamageEffect already came from here); + resolutionSourceColors: a copy's own colours for its new-target pick (protection, CR 702.16b)
+import { applyDamageEffect, parseCreatureTargetRestrictions, resolutionSource } from "../../spellEffects.js"; // the SHARED creature-restriction grammar — massFilteredDamageClauseParser's general arm delegates its recipient phrase to it (no new module edge: applyDamageEffect already came from here); + resolutionSource: a copy's own colours for its new-target pick (protection, CR 702.16b; colorless, CR 105.2c)
 import { graveyardExileFor, logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe, commanderCastsFromCommandZone, loseLife } from "../../gameState.js";
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingOptionalExileSelfChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice, setPendingChangeTargetChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard, damageSourceFor } from "./shared.js"; // + damageSourceFor: a spell's or a departed source's colours and types for the source-filtered damage replacements
@@ -1760,7 +1760,8 @@ function newTargetsForCopy(state, controller, copyObj, avoidId) {
   // of its two roles is optional, so the count per atom fixes which roles are filled.)
   const tagged = originals.some((t) => typeof t.atomIndex === "number");
   const slots = (ts) => ts.map((t) => (tagged ? t.atomIndex : "")).sort().join(",");
-  const combos = expandCastChoices(state, controller, params.program, resolutionSourceColors(state, copyObj, null), { kicked: params.kicked === true, xValue: params.xValue });
+  const copySource = resolutionSource(state, copyObj, null); // a copy's own colours — definite, so a colourless copy is refused by protection from colorless (CR 105.2c)
+  const combos = expandCastChoices(state, controller, params.program, copySource.colors, { kicked: params.kicked === true, xValue: params.xValue, ...(copySource.known ? { sourceColorsKnown: true } : {}) });
   const mode = JSON.stringify(params.chosenMode ?? null);
   const fits = combos.filter((c) => JSON.stringify(c.chosenMode ?? null) === mode).map((c) => c.targets)
     .filter((ts) => slots(ts) === slots(originals) && ts.every(sideOk));

@@ -14,9 +14,10 @@
  * the person alike — in response to a red Lightning Bolt, Mother of Runes could give protection from green and the creature died; and a
  * person was never asked.
  *
- * FALSE-NEGATIVE SAFE: a threat is read only where the picked colour really stops it in this engine — never a colourless one
- * (protection from colourless is not enforced), nor an ability whose source has left the battlefield unless all it does is deal
- * damage (the CR 608.2b re-check keeps no last known colours, so Executioner's Capsule's destroy goes through protection from black).
+ * FALSE-NEGATIVE SAFE: a threat is read only where the picked colour really stops it in this engine. Since 2026-10-21 that includes a
+ * colourless one (protection from colorless is enforced — CR 105.2c) and an ability whose source has left the battlefield (the CR 608.2b
+ * re-check reads its last known colours: Executioner's Capsule, sacrificed, is black); a source whose colours the engine can't tell
+ * is still never read (protectionLastKnownColorless.test.js).
  *
  * Engine paths: the activation, cast and resolution through legalChoices + actionDispatcher; the session driver (advanceUntilDecision /
  * applyChoice / applyPendingChoice) for a person's question. Real oracle fixtures (bundled Scryfall via cardIndex.publicCard, read
@@ -171,16 +172,16 @@ describe("the AI's pick reads the threats on the stack (CR 608.2d, 702.16b, 702.
     expect(row).toEqual({ moggGone: true, protection: ["R"], elvesAlive: true });
   });
 
-  it("control: a colourless threat is not read — protection from colourless is not enforced here, so Giver of Runes against Rod of Ruin keeps the board read, as Mother of Runes does", () => {
+  it("⭐ a colourless threat is read where colorless is offered: Giver of Runes against Rod of Ruin grants protection from colorless (CR 105.2c — enforced since 2026-10-21); Mother of Runes, with no colorless to offer, keeps the board read", () => {
     const board = (protector) => duel({ user: [P("rod", ROD_OF_RUIN, "user"), ...lands("um", MOUNTAIN, 3, "user"), P("ub1", { ...GRIZZLY_BEARS, name: "Black Bear", colors: ["B"] }, "user")], ai: [P("prot", protector, "ai"), P("le", LLANOWAR_ELVES, "ai")] });
     const giver = pass(pass(activateAt(pass(activateAt(board(GIVER_OF_RUNES), "user", "rod", "le")), "ai", "prot", "le")));
     const mother = pass(pass(activateAt(pass(activateAt(board(MOTHER_OF_RUNES), "user", "rod", "le")), "ai", "prot", "le")));
     const row = { giver: granted(giver), mother: granted(mother) };
     console.log(`  WITNESS colourless ${JSON.stringify(row)}`);
-    expect(row).toEqual({ giver: ["B"], mother: ["B"] });
+    expect(row).toEqual({ giver: ["C"], mother: ["B"] });
   });
 
-  it("⭐ an ability whose source has left is read only for its damage: the AI holds Mother of Runes against Executioner's Capsule's destroy (protection from black doesn't make its target illegal here), and still answers Mogg Fanatic's ping", () => {
+  it("⭐ an ability whose source has left is read by its last known colours: the AI answers Executioner's Capsule's destroy with Mother of Runes (protection from black makes its target illegal, CR 608.2b), as it answers Mogg Fanatic's ping", () => {
     const capsuleBoard = duel({ user: [P("cap", EXECUTIONERS_CAPSULE, "user"), ...lands("us", SWAMP, 2, "user"), P("ub1", { ...GRIZZLY_BEARS, name: "Black Bear", colors: ["B"] }, "user")], ai: [P("mor", MOTHER_OF_RUNES, "ai"), P("gb", GRIZZLY_BEARS, "ai")] });
     const capsule = pass(activateAt(capsuleBoard, "user", "cap", "gb"));
     const moggBoard = duel({ user: [P("mogg", MOGG_FANATIC, "user"), P("ub1", { ...GRIZZLY_BEARS, name: "Black Bear", colors: ["B"] }, "user")], ai: [P("mor", MOTHER_OF_RUNES, "ai"), P("le", LLANOWAR_ELVES, "ai")] });
@@ -188,7 +189,7 @@ describe("the AI's pick reads the threats on the stack (CR 608.2d, 702.16b, 702.
     const first = (s) => { const a = pickAction(s, "ai", legalActionsForPlayer(s, "ai")); return [a?.kind, a?.permanentId ?? null]; };
     const row = { capsuleGone: !alive(capsule, "cap"), capsule: first(capsule), mogg: first(mogg) };
     console.log(`  WITNESS departed-source ${JSON.stringify(row)}`);
-    expect(row).toEqual({ capsuleGone: true, capsule: ["pass-priority", null], mogg: ["activate-ability", "mor"] });
+    expect(row).toEqual({ capsuleGone: true, capsule: ["activate-ability", "mor"], mogg: ["activate-ability", "mor"] });
   });
 
   it("control: with nothing else on the stack the pick is the board read, unchanged — the most common colour among the opponents' nonland permanents", () => {
@@ -286,7 +287,7 @@ describe("CR 608.2d — a person announces the colour as the grant resolves", ()
     expect({ asked: [asked.decision.kind, asked.decision.sourceName], protection: prot(answered.session.state, "gb") }).toEqual({ asked: ["protection-color", "Benevolent Bodyguard"], protection: ["G"] });
   });
 
-  it("⭐ a person is never told a colour stops what it won't stop here: against the AI's Executioner's Capsule (its source sacrificed — a destroy) and Rod of Ruin (colourless) the question names no threat and marks the board read", () => {
+  it("⭐ a person is told the colour that stops a departed or colourless threat: against the AI's Executioner's Capsule (its source sacrificed — black as it last existed) black is the threat's colour, and against Rod of Ruin (colourless) Giver of Runes' colorless is", () => {
     const blackBear = P("ab1", { ...GRIZZLY_BEARS, name: "Black Bear", colors: ["B"] }, "ai");
     const capsule = pass(act(duel({ humans: ["user"], active: "ai", user: [P("prot", MOTHER_OF_RUNES, "user"), P("gb", GRIZZLY_BEARS, "user")], ai: [P("cap", EXECUTIONERS_CAPSULE, "ai"), ...lands("as", SWAMP, 2, "ai"), blackBear] }),
       "ai", "activate-ability", (a) => a.permanentId === "cap" && targetsIt("gb")(a)));
@@ -295,9 +296,11 @@ describe("CR 608.2d — a person announces the colour as the grant resolves", ()
     const askedCapsule = personActs(capsule, motherAtBears);
     const askedRod = personActs(rod, motherAtBears);
     const row = { capsule: askedCapsule.decision.candidates, rod: askedRod.decision.candidates };
-    console.log(`  WITNESS person-unenforced ${JSON.stringify(row)}`);
-    const boardB = { id: "B", name: "Black", suggested: "board" };
-    expect(row).toEqual({ capsule: [W, U, boardB, { id: "R", name: "Red" }, G], rod: [W, U, boardB, { id: "R", name: "Red" }, G, { id: "C", name: "Colorless" }] });
+    console.log(`  WITNESS person-departed-colourless ${JSON.stringify(row)}`);
+    expect(row).toEqual({
+      capsule: [W, U, { id: "B", name: "Black", threats: ["Executioner's Capsule"], suggested: "threat" }, { id: "R", name: "Red" }, G],
+      rod: [W, U, B, { id: "R", name: "Red" }, G, { id: "C", name: "Colorless", threats: ["Rod of Ruin"], suggested: "threat" }],
+    });
   });
 
   it("⭐ a colour not on offer decides nothing — the question is asked again, the stack untouched; colorless from Mother of Runes too", () => {

@@ -213,7 +213,8 @@ const printedPermanentColors = (perm) => {
  *   1. THE THREATS (2026-10-20): `threats` — the opponents' spells and abilities on the stack that target the protected
  *      permanent or deal damage to it, each `{ colors }` (protectionChoice.protectionThreats reads them; this leaf imports
  *      nothing). The colour the most threats have wins, WUBRG(+C) tiebreak; a colourless threat counts for "C" only when
- *      colourless is an option (Giver) — the engine's reader passes none today, as protection from colourless is not enforced.
+ *      colourless is an option (Giver) — the engine's reader (protectionChoice.protectionThreats) passes them since protection
+ *      from colorless is enforced (2026-10-21, CR 105.2c).
  *      A red Lightning Bolt aimed at the creature makes it red, whatever the board shows.
  *   2. THE BOARD, when no threat has an offered colour: the most-represented color among OPPONENTS' nonland permanents,
  *      WUBRG tiebreak. `colorsOfPermanent(perm)` reads each permanent's colors; the engine's caller passes the layer-aware

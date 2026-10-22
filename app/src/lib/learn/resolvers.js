@@ -578,7 +578,7 @@ export const RESOLVERS = Object.freeze({
     // And a host the Aura may not enchant at all (2026-10-17 — auraEntry.mayBeEnchantedBy, the narrowing every Aura offer now
     // reads through auraSpellHost.enchantableHosts): protection from enchantments (CR 702.16b, 702.16c), "can't be enchanted".
     if (!tgt || layerLandBreaksNonland || !(requiredType.test(tgtType) || layerArtifactHost)
-      || !canBeTargetedBy(state, tgt.permanent, tgt.controller, controller, characteristicColors(card))
+      || !canBeTargetedBy(state, tgt.permanent, tgt.controller, controller, characteristicColors(card), false, false, true) // the Aura's own colours are definite: a colourless Aura is refused by protection from colorless (CR 105.2c)
       || !mayBeEnchantedBy(state, tgt.permanent, tgt.controller, card)) {
       // BESTOW (CR 702.103e, 608.3b): a bestowed Aura spell whose target is illegal as it begins resolving — gone, or no
       // longer targetable — ceases to be bestowed and continues resolving as a CREATURE spell: it enters unattached, a
@@ -681,8 +681,9 @@ export const RESOLVERS = Object.freeze({
     }
     // CR 608.2b — the target must also still be TARGETABLE by this ability: shroud (even on its own controller's creature),
     // hexproof for an Aura moved onto another player's creature, protection from the source's colour. The offer's
-    // canBeTargetedBy, read against the source's CURRENT colours (it is on the battlefield, so they are definite).
-    if (!canBeTargetedBy(state, tgt.permanent, tgt.controller, controller, permanentColors(state, sourceId))) {
+    // canBeTargetedBy, read against the source's CURRENT colours (it is on the battlefield, so they are definite — a colourless
+    // Equipment is refused by protection from colorless, CR 105.2c, 702.16d).
+    if (!canBeTargetedBy(state, tgt.permanent, tgt.controller, controller, permanentColors(state, sourceId), false, false, true)) {
       return logEvent(state, { kind: "spell-fizzle", source: src.permanent.card?.name, reason: "all targets illegal (CR 608.2b)", controller }); // the kind runEffectProgram logs for an ability too
     }
     // CR 301.5c — an Equipment that is a creature RIGHT NOW and has no reconfigure (a crewed Rover Blades paying its own
