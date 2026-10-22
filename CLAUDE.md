@@ -141,7 +141,7 @@ running `.exe`s see the update on their next 24h check. See
 mtg-tool.exe                              ← Rust Tauri shell
 │
 ├─ on launch, spawns →
-│      resources/node/node.exe            ← bundled portable Node 22
+│      resources/node/node.exe            ← bundled portable Node 24
 │      resources/server/server.js         ← bundled Next.js standalone
 │      (listening on 127.0.0.1:3000)
 │
@@ -167,7 +167,7 @@ mtg-tool.exe                              ← Rust Tauri shell
 | Path | Contents | Writable? |
 |---|---|---|
 | `<install>\mtg-tool.exe` | Tauri shell binary | No |
-| `<install>\resources\node\node.exe` | Bundled Node 22 (~79 MB) | No |
+| `<install>\resources\node\node.exe` | Bundled Node 24 (~90 MB) | No |
 | `<install>\resources\server\` | Next.js standalone bundle | No |
 | `<install>\resources\knowledge\mtg-judge\` | Rules codex (CR JSON + RulesGuru cases) | No |
 | `<install>\resources\knowledge\mtg-engine\` | Rule layer markdown (~92 files) | No |
@@ -548,7 +548,7 @@ Now go.
 *Owner: Colton (GitHub: Robak503)*
 *Repo: https://github.com/Robak503/mtg-tool*
 *Hardware: Windows 11, Core Ultra 9, RTX 5080, 32GB RAM (future: Mac mini 48GB)*
-*Built with: Tauri 2, Next.js 15, Rust, Ollama (local), bundled Node 22 LTS, GitHub Actions, gstack, GBrain, Anthropic Claude (fallback)*
+*Built with: Tauri 2, Next.js 15, Rust, Ollama (local), bundled Node 24 LTS, GitHub Actions, gstack, GBrain, Anthropic Claude (fallback)*
 *Instruction set version: 2.0 (Tauri .exe era — 2026-05-28)*
 
 ## Skill routing

@@ -15,7 +15,7 @@ The shipped product is a single `.exe`:
 
 ```
 mtg-tool.exe  (Tauri / Rust shell)
-  spawns ->  bundled Node 22  ->  Next.js standalone server on 127.0.0.1:3000
+  spawns ->  bundled Node 24  ->  Next.js standalone server on 127.0.0.1:3000
   webview ->  loads a placeholder that redirects to the local server once it's up
 ```
 

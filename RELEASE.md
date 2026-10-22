@@ -63,7 +63,13 @@ but everything else does — fine for iterating UI.
    A stale pin is a live user-facing hazard, not hygiene: Cloudflare fingerprints
    the TLS handshake, and the two-year-old pin broke every Moxfield import inside
    the packaged app (2026-08-02, fixed in v0.150.1). Bumping it is a one-line
-   change; the script re-downloads and SHA-verifies automatically.
+   change; the script re-downloads and SHA-verifies automatically. A MAJOR bump
+   (22 → 24 on 2026-10-21) also moves `node-version` in `ci.yml`, `release.yml`
+   (both jobs) and `sync-spellbook.yml`, and is proven before it ships: the suite
+   under the new binary, a Moxfield GET with it through the app's import code
+   (`src/lib/server/deckUrlFetch.js`; `scripts/probe-deck-fetch.mjs` sends the
+   same request), the staged server booted with the staged `node.exe`, and a
+   seeded A/B against the old major (byte-identical games).
 1. Make sure `master` is green and you're on it: `git switch master && git pull`
 2. Leave the committed versions alone: release.yml's "Sync version to tag" step writes the tag's version
    into `app/src-tauri/tauri.conf.json` and `app/package.json` on the runner (the embedded version is
@@ -132,7 +138,7 @@ roll back.
 
 `.github/workflows/release.yml` on push of `v*`:
 
-1. Checkout · Rust stable · Node 22 · `npm ci` in `app/`
+1. Checkout · Rust stable · Node 24 · `npm ci` in `app/`
 2. **Test gate** — the full vitest suite must pass before anything builds
 3. Sync `tauri.conf.json`'s version from the tag
 4. Restore the `refdata-` cache (restore-only — releases never save it)

@@ -6,7 +6,7 @@ repo — it is not open source for redistribution. Issues and pull requests are 
 
 ## Getting set up
 
-You need Node.js 22+ and, for local-model chat, [Ollama](https://ollama.com). Then:
+You need Node.js 24 (what CI runs and the desktop build bundles) and, for local-model chat, [Ollama](https://ollama.com). Then:
 
 ```bash
 cd app

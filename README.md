@@ -19,7 +19,7 @@ goldfish simulation, and (in progress) interactive learn-to-play tutoring.
 
 ## How it ships
 
-The product is a **desktop app**: a Tauri (Rust) shell that bundles its own Node 22
+The product is a **desktop app**: a Tauri (Rust) shell that bundles its own Node 24
 runtime and a Next.js server, so you install a signed `.exe` and open a window — no
 terminal, no separate Node install. It auto-updates from GitHub Releases. Under the
 hood it's a normal Next.js app you can also run in a browser during development.
@@ -45,7 +45,7 @@ See [CLAUDE.md](CLAUDE.md) for the full system architecture and runtime layout.
 ## Develop (browser, fast loop)
 
 Requirements:
-- Node.js 22+ (the desktop build bundles its own Node 22; dev uses your system Node)
+- Node.js 24 (the version CI runs and the desktop build bundles; dev uses your system Node)
 - [Ollama](https://ollama.com) running locally, for local-model chat
 
 Setup:
