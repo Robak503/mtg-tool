@@ -12,6 +12,10 @@
  * NB: this is a NEW route — the default deck-based /api/learn/start path is
  * untouched, so it stays byte-identical (the engine trajectory can't move).
  *
+ * A position one of the engine's guards stops at once (a puzzle captured from a runaway board) ends as any stopped
+ * game does (learnSession.endEngineStoppedGame) and, like an attempt that ends on a later move, is recorded
+ * (learnPersistence.finishGame).
+ *
  * Errors: 400 bad body · 404 no puzzle · 422 corrupt/unmigratable · 500 engine error.
  */
 
@@ -19,13 +23,14 @@ export const runtime = "nodejs";
 
 import { randomUUID } from "node:crypto";
 
-import { advanceUntilDecision } from "../../../../lib/learn/learnSession.js";
+import { advanceUntilDecision, endEngineStoppedGame, filteredDecisionLogTail, isComplete } from "../../../../lib/learn/learnSession.js";
 import { decisionViewForWire } from "../../../../lib/learn/decisionWire.js";
 import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { putSession } from "../../../../lib/server/learnSessionStore.js";
 import { getPuzzle } from "../../../../lib/server/puzzleStore.js";
+import { finishGame } from "../../../../lib/server/learnPersistence.js";
 import { loadPlayHints } from "../../../../lib/server/playHintsLedger.js"; // PLAY-HINTS (2026-08-12) — parked cards get a play identity
 
 export async function POST(request) {
@@ -58,12 +63,13 @@ export async function POST(request) {
 
   let advanced;
   try {
-    advanced = advanceUntilDecision(session, { policy: { playHints: loadPlayHints() || true } });
+    advanced = endEngineStoppedGame(advanceUntilDecision(session, { policy: { playHints: loadPlayHints() || true } }));
   } catch (error) {
     return Response.json({ error: error.message || "Engine error loading the puzzle." }, { status: 500 });
   }
 
   putSession(advanced.session);
+  const saveFailure = isComplete(advanced.session) ? await finishGame(advanced.session) : null;
 
   return Response.json({
     sessionId: advanced.session.id,
@@ -74,8 +80,10 @@ export async function POST(request) {
     turn: advanced.session.state.turn,
     activePlayer: advanced.session.state.activePlayer,
     step: advanced.session.state.step,
+    decisionLogTail: filteredDecisionLogTail(advanced.session),
     table: tableSnapshot(advanced.session.state),
     board: boardSnapshot(advanced.session.state),
     puzzle: { id: loaded.doc.id, goal: loaded.doc.goal, startTurn: loaded.doc.startTurn },
+    ...(saveFailure ? { saveFailure } : {}),
   });
 }

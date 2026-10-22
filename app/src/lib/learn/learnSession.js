@@ -19,10 +19,14 @@
  *       decisionLog appends, returns updated session.
  *
  *   isComplete(session)
- *     → "active" | "user-wins" | "ai-wins" | "abandoned"
+ *     → false while "active" / "mulligan"; true once the status is terminal
+ *       ("user-wins" | "ai-wins" | "draw" | "timeout" | "abandoned" | "engine-stopped")
  *
  *   abandon(session)
  *     → marks status and returns the final session.
+ *
+ *   endEngineStoppedGame({ session, decision })
+ *     → ends a game one of the driver's guards stopped (status "engine-stopped").
  *
  * Pure: no fetches, no React. The /api/learn routes (PR6.3) wrap
  * this; the UI (PR6.4) consumes the routes.
@@ -67,6 +71,7 @@ import { stableActionKey as _stableActionKey } from "./actionKey.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { actionChangedGame } from "./antiLoopLatch.js"; // the anti-loop latch: did an auto-decided non-pass action change the game? (a zero-import leaf)
 import { createLoopWatch } from "./mandatoryLoop.js"; // CR 104.4b / 732.4 — a loop of only mandatory actions is a draw (a zero-import leaf)
+import { engineStopDetail } from "./learnOutcome.js"; // the words for a game a guard stopped (endEngineStoppedGame)
 import { removePlayerFromGame } from "./playerLeavesGame.js"; // CR 800.4a — a player leaving a multiplayer game (the eliminated seat)
 import { checkAllStateBasedActions } from "./sba.js"; // CR 704.3 (B2) — the comprehensive permanent-SBA fixpoint at the priority checkpoint
 import { resolveAtom } from "./effects/effectAtoms.js"; // Arbiter-in-runner: apply a cached verdict's atoms (applyArbiterVerdict)
@@ -1306,15 +1311,26 @@ function pendingEdictModeActions(pc) {
 export const TURN_RAW_TICK_MULTIPLE = 10;
 /** The sizes past which a game is a runaway loop, not a game: objects on the stack, permanents one seat controls. */
 export const RUNAWAY_LIMITS = Object.freeze({ stack: 500, battlefield: 2000 });
-/** "stack (N objects)" / "battlefield (N permanents, <seat>)" when the state is past a limit; null otherwise. */
-export function runawaySize(state, limits = RUNAWAY_LIMITS) {
+/** The ticks one advance may take in all before the driver calls it a loop (the backstop behind the per-turn budget). */
+export const SAFETY_CAP_TICKS = 50000;
+/**
+ * The first size past a limit, as data: { zone: "stack", count, limit } or { zone: "battlefield", count, limit, seat };
+ * null when nothing is past one.
+ */
+export function runawayExcess(state, limits = RUNAWAY_LIMITS) {
   const stackSize = (state?.stack || []).length;
-  if (stackSize > limits.stack) return `stack (${stackSize} objects)`;
+  if (stackSize > limits.stack) return { zone: "stack", count: stackSize, limit: limits.stack };
   for (const [seat, player] of Object.entries(state?.players || {})) {
     const size = (player?.battlefield || []).length;
-    if (size > limits.battlefield) return `battlefield (${size} permanents, ${seat})`;
+    if (size > limits.battlefield) return { zone: "battlefield", count: size, limit: limits.battlefield, seat };
   }
   return null;
+}
+/** "stack (N objects)" / "battlefield (N permanents, <seat>)" when the state is past a limit; null otherwise. */
+export function runawaySize(state, limits = RUNAWAY_LIMITS) {
+  const excess = runawayExcess(state, limits);
+  if (!excess) return null;
+  return excess.zone === "stack" ? `stack (${excess.count} objects)` : `battlefield (${excess.count} permanents, ${excess.seat})`;
 }
 
 /**
@@ -1326,9 +1342,13 @@ export function runawaySize(state, limits = RUNAWAY_LIMITS) {
  *   decision.kind === "ask"   → UI renders the prompt with options
  *   decision.kind === "game-over" → game ended; session.status reflects
  *
- * A safety cap (1000 ticks) protects against engine bugs that could
- * otherwise spin forever. Hitting the cap surfaces an "engine-stuck"
- * decision so the UI can show a meaningful error.
+ * THREE GUARDS stop a game the engine can't finish — the per-turn tick budget ("turn stall"), the runaway size
+ * guard and the safety cap (SAFETY_CAP_TICKS in one advance). Each returns an "engine-stuck" decision on the session
+ * as it stood, still "active", with `guard` naming it: { type: "turn-stall", turn, count, limit } /
+ * { type: "runaway", zone, count, limit, seat? } / { type: "safety-cap", limit }. The driver ends nothing itself —
+ * the self-play harnesses count the decision as their "engine-stuck" result. The Academy ends the game with
+ * endEngineStoppedGame (status "engine-stopped"), so a stopped game is never left to be resumed into its guard again.
+ * `turnTickBudget`, `runawayLimits` and `safetyCap` are injectable for tests; the defaults are the shipped limits.
  *
  * OPT-IN OBSERVER (Learn-to-Play Track-1a): `onTurnStart` is a read-only callback
  * invoked `onTurnStart(state, turnNumber)` once each time the game enters a NEW
@@ -1388,6 +1408,7 @@ export function advanceUntilDecision(
     resolveArbiter = null,
     turnTickBudget = 2000,
     runawayLimits = RUNAWAY_LIMITS,
+    safetyCap = SAFETY_CAP_TICKS, // injectable for tests
     mandatoryLoopLimits = undefined, // mandatoryLoop.MANDATORY_LOOP by default; injectable for tests
   } = {},
 ) {
@@ -1404,7 +1425,7 @@ export function advanceUntilDecision(
   // game ending or the turn limit; an Expert full-game runs to completion in a
   // single call (it never stops for a user decision), so the cap must clear a
   // long game. The anti-loop latch below + the per-turn budget are the primary guards.
-  const SAFETY_CAP = 50000;
+  const SAFETY_CAP = safetyCap;
   // PER-TURN TICK BUDGET (grind server-hang root fix, 2026-07-14). The anti-loop latch
   // (antiLoopLatch.actionChangedGame) only force-passes an action that changes NOTHING — a loop that
   // produces mana/tokens each pass (poolTotal/bfCount move) slips past it and grinds a
@@ -1468,6 +1489,8 @@ export function advanceUntilDecision(
     if ((current.state?.stack || []).length === 0) idleStackTicksThisTurn += 1;
     if (ticksThisTurn > maxTurnTicks) maxTurnTicks = ticksThisTurn;
     if (idleStackTicksThisTurn > turnTickBudget || ticksThisTurn > turnTickBudget * TURN_RAW_TICK_MULTIPLE) {
+      // `guard` counts what tripped: the empty-stack ticks against the budget, else the raw ticks against its ceiling.
+      const idleTripped = idleStackTicksThisTurn > turnTickBudget;
       return {
         session: current,
         decision: {
@@ -1475,6 +1498,12 @@ export function advanceUntilDecision(
           reason: `turn stall (${ticksThisTurn} ticks in a single turn — non-terminating loop)`,
           ticks,
           maxTurnTicks,
+          guard: {
+            type: "turn-stall",
+            turn: curTurnForTicks,
+            count: idleTripped ? idleStackTicksThisTurn : ticksThisTurn,
+            limit: idleTripped ? turnTickBudget : turnTickBudget * TURN_RAW_TICK_MULTIPLE,
+          },
         },
       };
     }
@@ -1482,11 +1511,11 @@ export function advanceUntilDecision(
     // (a token doubler fed by its own tokens) makes every tick slower than the last: at 1,500 permanents and a
     // 700-object stack one decision takes seconds, so 2,000 ticks is hours and the game never returns. Past these
     // sizes the game is not being played any more — end it engine-stuck at once (no winner is made up).
-    const runaway = runawaySize(current.state, runawayLimits);
+    const runaway = runawayExcess(current.state, runawayLimits);
     if (runaway) {
       return {
         session: current,
-        decision: { kind: "engine-stuck", reason: `runaway ${runaway}`, ticks, maxTurnTicks },
+        decision: { kind: "engine-stuck", reason: `runaway ${runawaySize(current.state, runawayLimits)}`, ticks, maxTurnTicks, guard: { type: "runaway", ...runaway } },
       };
     }
     // MANDATORY LOOP (CR 104.4b / 732.4) — "If a loop contains only mandatory actions, the game is a draw." Polyraptor
@@ -2753,6 +2782,7 @@ export function advanceUntilDecision(
       reason: `safety cap (${SAFETY_CAP} ticks) hit`,
       ticks,
       maxTurnTicks,
+      guard: { type: "safety-cap", limit: SAFETY_CAP },
     },
   };
 }
@@ -4600,10 +4630,59 @@ export function abandon(session, reason = "user-abandoned") {
   };
 }
 
+/** The status of a game one of the driver's guards stopped (endEngineStoppedGame). */
+export const ENGINE_STOPPED = "engine-stopped";
+
+/**
+ * End a game one of the driver's three guards stopped (the per-turn tick budget, the runaway size guard, the safety
+ * cap — advanceUntilDecision's `guard`). The driver only reports the stop: its session is still "active", and a game
+ * left that way was autosaved and offered under "Continue a game", where resuming it hit the same guard at once — the
+ * person could not leave it. The Academy's play routes pass every engine result through here, so the game ENDS:
+ *   - status "engine-stopped" (terminal — not "abandoned": the person ended nothing), `endedAt`, and `engineStop`
+ *     { guard, reason, turn, detail, message } for the game's record;
+ *   - a game-log line (decisionLog, the feed and the record read it) with no seat as its actor:
+ *     { kind: "game-stopped", guard, message } — "The engine stopped the game: <which guard, the size>";
+ *   - an engine-log event { kind: "game-stopped", guard, reason } (state.log);
+ *   - the end-of-game decision { kind: "game-over", reason: "engine-stopped", guard, message, detail } — what the
+ *     driver itself answers for that session from then on is { kind: "game-over", reason: "engine-stopped" }.
+ * Anything else — a game in progress, a game already over, an "engine-stuck" no guard raised (the pending-choice
+ * failsafe clears its choice and the game can go on) — comes back untouched (the same object). Pure.
+ */
+export function endEngineStoppedGame(result) {
+  const session = result?.session;
+  const guard = result?.decision?.kind === "engine-stuck" ? result.decision.guard : null;
+  if (!guard?.type || session?.status !== "active") return result;
+  const state = session.state;
+  const detail = engineStopDetail(guard);
+  const message = `The engine stopped the game: ${detail}`;
+  const reason = result.decision.reason;
+  const line = {
+    ts: Date.now(),
+    turn: state.turn,
+    phase: state.phase,
+    step: state.step,
+    actor: null,
+    action: { kind: "game-stopped", guard: guard.type, message },
+    auto: true,
+    reasoning: reason,
+  };
+  return {
+    session: {
+      ...session,
+      state: logEvent(state, { kind: "game-stopped", guard: guard.type, reason }),
+      status: ENGINE_STOPPED,
+      engineStop: { guard: guard.type, reason, turn: state.turn, detail, message },
+      endedAt: new Date().toISOString(),
+      decisionLog: [...(session.decisionLog || []), line],
+    },
+    decision: { kind: "game-over", reason: ENGINE_STOPPED, guard: guard.type, message, detail },
+  };
+}
+
 export function isComplete(session) {
   // "active" = a game in progress; "mulligan" = the pre-game human London phase (also in
   // progress — the game hasn't opened yet). Every OTHER status is terminal (a win/draw/timeout/
-  // abandoned), which is what the routes record + clean up. Excluding "mulligan" is essential:
+  // abandoned/engine-stopped), which is what the routes record + clean up. Excluding "mulligan" is essential:
   // without it the routes would treat a mid-mulligan session as a finished game and delete it.
   return session?.status !== "active" && session?.status !== "mulligan";
 }

@@ -19,12 +19,12 @@
 
 export const runtime = "nodejs";
 
-import { continueFromArbiter, isComplete, filteredDecisionLogTail } from "../../../../lib/learn/learnSession.js";
+import { continueFromArbiter, endEngineStoppedGame, filteredDecisionLogTail } from "../../../../lib/learn/learnSession.js";
 import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
-import { getSession, putSession, deleteSession } from "../../../../lib/server/learnSessionStore.js";
-import { autosaveForPlay, dropFinishedGameSave } from "../../../../lib/server/learnPersistence.js";
+import { getSession, putSession } from "../../../../lib/server/learnSessionStore.js";
+import { persistAfterPlay } from "../../../../lib/server/learnPersistence.js";
 
 export async function POST(request) {
   let body;
@@ -49,7 +49,8 @@ export async function POST(request) {
 
   let result;
   try {
-    result = continueFromArbiter(session);
+    // A game one of the engine's guards stopped ENDS here (status "engine-stopped") — never left active to be resumed into it.
+    result = endEngineStoppedGame(continueFromArbiter(session));
   } catch (error) {
     return Response.json({ error: error.message || "Engine error continuing the game." }, { status: 500 });
   }
@@ -61,14 +62,9 @@ export async function POST(request) {
 
   putSession(stepped);
 
+  // Game over: record kept (this route kept none before 2026-10-22), session freed, save dropped; otherwise autosaved.
   // Never blocks play; a failure is logged and comes back as `saveFailure` (learnPersistence.js).
-  let saveFailure = null;
-  if (isComplete(stepped)) {
-    deleteSession(sessionId);
-    await dropFinishedGameSave(sessionId);
-  } else {
-    saveFailure = await autosaveForPlay(stepped);
-  }
+  const saveFailure = await persistAfterPlay(stepped);
 
   return Response.json({
     sessionId: stepped.id,

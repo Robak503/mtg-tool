@@ -39,10 +39,12 @@ export function recordFromSession(session, logTail) {
     id: session?.id || `rec_${Date.now().toString(36)}`,
     endedAt: new Date().toISOString(),
     source: "academy",
-    status: session?.status ?? null,          // e.g. user-wins / ai-wins / draw
+    status: session?.status ?? null,          // e.g. user-wins / ai-wins / draw / engine-stopped
     difficulty: session?.difficulty ?? null,
     turns: session?.state?.turn ?? null,
     meta,                                      // deck names / seats as the session carried them
+    // A game one of the engine's guards stopped: { guard, reason, turn, detail, message } (learnSession.endEngineStoppedGame).
+    ...(session?.engineStop && typeof session.engineStop === "object" ? { engineStop: session.engineStop } : {}),
     logTail: Array.isArray(logTail) ? logTail.slice(-MAX_LOG_LINES) : [],
   };
 }

@@ -32,7 +32,8 @@ export function LearnLogEntry({ entry, dim = false }) {
   return (
     <div style={{ fontSize: 11, color: "var(--ley-text)", lineHeight: 1.4, padding: "6px 8px", background: "var(--ley-surface-2)", border: "1px solid var(--ley-line)", borderRadius: 4, opacity: dim ? 0.55 : 1 }}>
       <div style={{ color: ACTOR_COLOR(entry.actor), fontWeight: 700, marginBottom: 2 }}>
-        T{entry.turn ?? "?"} · {seatLabel(entry.actor) || "?"}{entry.auto ? " (auto)" : ""}
+        {/* A line no seat took (the engine stopping the game) is headed by its turn alone. */}
+        T{entry.turn ?? "?"}{entry.actor === null ? "" : ` · ${seatLabel(entry.actor) || "?"}${entry.auto ? " (auto)" : ""}`}
       </div>
       <div>{logActionText(action, { seat: entry.actor || undefined })}</div>
     </div>

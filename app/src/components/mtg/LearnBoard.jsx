@@ -251,7 +251,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
   // Game-over result layered as a scrim ON TOP of the final board (LearnView
   // floats the unresolved / error overlays). The board stays mounted underneath.
   const isOver = status === "ended" || decision?.kind === "game-over";
-  const outcome = isOver ? reasonToOutcome(decision?.reason) : null;
+  const outcome = isOver ? reasonToOutcome(decision?.reason, decision) : null; // an engine stop carries what stopped it
 
   const optsForCard = (cardId) => options.filter(o => (o.kind === "cast-spell" || o.kind === "play-land") && o.cardId === cardId);
   // tap-for-mana options for a permanent id (only present in your own main phase asks).
@@ -419,7 +419,9 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
             <div className="lb-zl" style={{ marginBottom: 6 }}>Game Log</div>
             {(logTail || []).slice().reverse().map((e, i) => (
               <div key={`${e.ts}-${i}`} className="lb-ln">
-                <b>{seatLabel(e.actor) || "?"}{e.auto ? " (auto)" : ""}</b> · {logActionText(e.action, { seat: e.actor || undefined })}
+                {/* A line no seat took (the engine stopping the game) reads as its text alone. */}
+                {e.actor === null ? null : <><b>{seatLabel(e.actor) || "?"}{e.auto ? " (auto)" : ""}</b> · </>}
+                {logActionText(e.action, { seat: e.actor || undefined })}
               </div>
             ))}
             {!(logTail || []).length && <div className="lb-ln">No actions yet.</div>}

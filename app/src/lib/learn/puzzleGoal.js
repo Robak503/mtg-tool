@@ -40,7 +40,9 @@ export function puzzleGoalLabel(goal) {
 
 /**
  * Evaluate a puzzle attempt from observable session facts. Returns one of
- * "solved" | "failed" | "pending".
+ * "solved" | "failed" | "pending" | "stopped" — "stopped" when one of the engine's
+ * guards ended the attempt (reason "engine-stopped"): the person neither solved nor
+ * missed it, so no puzzle verdict is shown over the end screen.
  *
  * @param {object} args
  * @param {object} args.goal       the stored goal ({ type })
@@ -53,6 +55,7 @@ export function evaluatePuzzle({ goal, startTurn, status, turn, reason } = {}) {
   const type = (typeof goal === "string" ? goal : goal?.type) || DEFAULT_PUZZLE_GOAL;
   const ended = status === "ended";
   const won = isUserWin(reason);
+  if (ended && reason === "engine-stopped") return "stopped";
 
   if (type === "win-this-turn") {
     // Solved: the user wins, on the SAME turn the puzzle started (startTurn null

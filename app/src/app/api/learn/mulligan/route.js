@@ -26,7 +26,7 @@ export const runtime = "nodejs";
 
 import {
   advanceMulligan,
-  isComplete,
+  endEngineStoppedGame,
   filteredDecisionLogTail,
 } from "../../../../lib/learn/learnSession.js";
 import {
@@ -36,9 +36,8 @@ import {
 import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
-import { getSession, putSession, deleteSession } from "../../../../lib/server/learnSessionStore.js";
-import { autosaveForPlay, recordFinishedGame, dropFinishedGameSave } from "../../../../lib/server/learnPersistence.js";
-import { recordFromSession } from "../../../../lib/server/gameRecordsStore.js";
+import { getSession, putSession } from "../../../../lib/server/learnSessionStore.js";
+import { persistAfterPlay } from "../../../../lib/server/learnPersistence.js";
 
 export async function POST(request) {
   let body;
@@ -66,7 +65,8 @@ export async function POST(request) {
 
   let result;
   try {
-    result = advanceMulligan(session, body?.action || {});
+    // A game one of the engine's guards stopped ENDS here (status "engine-stopped") — never left active to be resumed into it.
+    result = endEngineStoppedGame(advanceMulligan(session, body?.action || {}));
   } catch (error) {
     return Response.json(
       { error: error.message || "Engine error resolving the mulligan." },
@@ -82,14 +82,7 @@ export async function POST(request) {
   // A game can't normally end during the mulligan phase, but keep the completion handling uniform
   // with /choose|/step in case the opened game reaches a terminal on the very first advance.
   // Never blocks play; a failure is logged and comes back as `saveFailure` (learnPersistence.js).
-  let saveFailure;
-  if (isComplete(stepped)) {
-    saveFailure = await recordFinishedGame(recordFromSession(stepped, filteredDecisionLogTail(stepped, 160)));
-    deleteSession(sessionId);
-    await dropFinishedGameSave(sessionId);
-  } else {
-    saveFailure = await autosaveForPlay(stepped);
-  }
+  const saveFailure = await persistAfterPlay(stepped);
 
   // Still in the mulligan phase ⇒ another mulligan ask; otherwise the game has opened and the
   // decision is a normal in-game one (or a terminal), which the standard wire view handles.

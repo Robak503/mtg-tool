@@ -17,7 +17,7 @@ import { seatLine } from "./RecordsView";
 const mono = { fontFamily: "var(--font-mono), monospace" };
 const when = (iso) => (iso ? String(iso).slice(0, 16).replace("T", " ") : "—");
 const statusLabel = (s) =>
-  s === "user-wins" ? "You won" : s === "ai-wins" ? "The engine won" : s === "draw" ? "Draw" : "Unknown result";
+  s === "user-wins" ? "You won" : s === "ai-wins" ? "The engine won" : s === "draw" ? "Draw" : s === "engine-stopped" ? "Stopped (no result)" : "Unknown result";
 const statusColor = (s) =>
   s === "user-wins" ? "var(--ley-green)" : s === "ai-wins" ? "var(--ley-red)" : "var(--ley-text-dim)";
 

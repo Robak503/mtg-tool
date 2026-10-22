@@ -279,7 +279,8 @@ export function observe(state, seat) {
 //   "unresolved"             — an Arbiter ruling to acknowledge (answer ignored).
 //   "game-over"              — terminal; session.status holds the verdict.
 //   "dispatch-error" / "engine-stuck" — surfaced honestly, never swallowed; the session is unchanged
-//                              (pick a different answer) or honestly stuck (stop).
+//                              (pick a different answer) or honestly stuck (stop). A guard's engine-stuck
+//                              names it in `guard` (v1.8.0).
 //
 // VERSIONING: PLAY_API_VERSION is semver. The exported names + decision vocabulary + answer shapes
 // are the contract surface — breaking any of them bumps the MAJOR and is announced on memory/COMMS.md
@@ -342,7 +343,17 @@ export function observe(state, seat) {
 //     protection from that colour stops it in this engine — never a colourless one),
 //     `suggested` ("threat" | "board") the automatic chooser's pick. No decline; a colour not on offer is
 //     asked again. Raised only for a seat in state.humanSeats. A pilot is offered one action per colour.
-export const PLAY_API_VERSION = "1.7.0";
+// 1.8.0 (additive MINOR — the guards' stop, 2026-10-22):
+//   - An "engine-stuck" decision raised by one of the driver's three guards carries `guard`:
+//     { type: "turn-stall", turn, count, limit } | { type: "runaway", zone, count, limit, seat? } |
+//     { type: "safety-cap", limit }. Its `reason` text and the session (still "active") are unchanged, so
+//     nextDecision / act answer exactly as before; an engine-stuck from anything else has no `guard`.
+//   - nextDecision / act thread the optional `safetyCap` driver option (default SAFETY_CAP_TICKS, 50,000 —
+//     the shipped cap; injectable for tests, like `turnTickBudget` and `runawayLimits`).
+//   - session.status gains "engine-stopped": the Academy ends a guard-stopped game with
+//     learnSession.endEngineStoppedGame (the session also carries `engineStop`). Like "abandoned", the driver
+//     never sets it; a session in that status answers { kind: "game-over", reason: "engine-stopped" }.
+export const PLAY_API_VERSION = "1.8.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

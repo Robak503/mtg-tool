@@ -182,6 +182,8 @@ function kindLabel(o, seat) {
     case "cast-from-among-done": return "Done casting from among the exiled cards";
     // A game-log record, not a dispatcher action: the colour a person chose for "protection from the color of your choice".
     case "protection-color-choice": return `Choose protection from ${PROTECTION_COLOR_WORDS[o.color] ?? "a color"}${o.sourceName ? ` (${o.sourceName})` : ""}`;
+    // A game-log record, not a dispatcher action: one of the engine's guards stopped the game (learnSession.endEngineStoppedGame).
+    case "game-stopped": return o.message || "The engine stopped the game";
     default: return null;
   }
 }

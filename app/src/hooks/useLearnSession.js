@@ -42,7 +42,7 @@ const INITIAL_STATE = {
 };
 
 /**
- * The save notice's state after a play response (start / step / choose / continue / mulligan). A response
+ * The save notice's state after a play response (start / step / choose / continue / mulligan / resume). A response
  * carrying `saveFailure` shows it, unless the player dismissed a failure since the last good save (a failing
  * disk would otherwise re-raise it on every move); a response without one means the game was kept, which
  * clears the notice and re-arms it. Pure, so it is tested without React.
@@ -184,7 +184,7 @@ export default function useLearnSession() {
           step: data.step,
           table: data.table || [],
           board: data.board || null,
-          decisionLogTail: [],
+          decisionLogTail: data.decisionLogTail || [], // a game over at once (the engine stopped it) has its log line
           ...nextSaveNotice(INITIAL_STATE, data),
           error: null,
         };
@@ -1746,7 +1746,8 @@ export default function useLearnSession() {
         step: data.step,
         table: data.table || [],
         board: data.board || null,
-        decisionLogTail: [],
+        decisionLogTail: data.decisionLogTail || [], // the game's recent actions — and the log line of a game resume ended
+        ...nextSaveNotice(INITIAL_STATE, data),
         error: null,
       };
       setState(next);
@@ -1841,8 +1842,9 @@ export default function useLearnSession() {
         step: data.step,
         table: data.table || [],
         board: data.board || null,
-        decisionLogTail: [],
+        decisionLogTail: data.decisionLogTail || [],
         puzzle: data.puzzle || null,
+        ...nextSaveNotice(INITIAL_STATE, data),
         error: null,
       };
       setState(next);

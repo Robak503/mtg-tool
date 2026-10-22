@@ -2067,7 +2067,11 @@ Three guards end a
 game `engine-stuck` instead of letting it spin: the 50,000-tick cap, the per-turn
 tick budget (2,000), and the runaway SIZE guard (`RUNAWAY_LIMITS`: more than 500
 objects on the stack or 2,000 permanents under one seat — a board that grows makes
-every tick slower, so a tick count alone never fires in time). One loop is not
+every tick slower, so a tick count alone never fires in time). Each names itself in the
+decision's `guard` (`{ type: "turn-stall" | "runaway" | "safety-cap", … }`) and leaves the
+session `active` — the harnesses count the `engine-stuck` result; the Academy's routes end
+the game with `endEngineStoppedGame` (status `engine-stopped`, a game-log line, a record,
+no save left to resume into the guard, 2026-10-22). One loop is not
 `engine-stuck` at all: a loop of only MANDATORY actions is a **draw** (CR 104.4b /
 732.4 — Polyraptor beside Marauding Raptor). `mandatoryLoop.js` (a leaf) watches
 every tick and is reset by any tick that was not a plain priority pass; it answers

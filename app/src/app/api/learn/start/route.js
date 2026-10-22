@@ -22,13 +22,16 @@
  *   }
  *
  * Response:
- *   { sessionId, decision, status, saveFailure? }
- *   saveFailure ({ kind: "autosave", detail }) is present only when the new game could not be saved
- *   (learnPersistence.js) — play goes on and the Academy shows a notice.
+ *   { sessionId, decision, status, decisionLogTail, saveFailure? }
+ *   saveFailure ({ kind: "autosave" | "game-record", detail }) is present only when the new game could
+ *   not be saved, or a game that ended at once could not be recorded (learnPersistence.js) — play goes
+ *   on and the Academy shows a notice.
  *
  * Where `decision` is the result of advanceUntilDecision — usually
  * an "ask" with prompt + options, or "game-over" if the deck setup
- * was already terminal.
+ * was already terminal, an Expert game played itself out, or one of the
+ * engine's guards stopped the game (status "engine-stopped"). A game over
+ * at once is recorded and not saved, like one that ends on a later move.
  *
  * Errors:
  *   400 — missing/invalid body
@@ -40,6 +43,8 @@ export const runtime = "nodejs";
 import {
   createLearnSession,
   advanceUntilDecision,
+  endEngineStoppedGame,
+  filteredDecisionLogTail,
   mulliganDecision,
 } from "../../../../lib/learn/learnSession.js";
 import {
@@ -50,7 +55,7 @@ import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { putSession } from "../../../../lib/server/learnSessionStore.js";
-import { autosaveForPlay } from "../../../../lib/server/learnPersistence.js";
+import { persistAfterPlay } from "../../../../lib/server/learnPersistence.js";
 import { enrichDeck, enrichDecks } from "../../../../lib/server/learnDeckEnrich.js";
 import { loadPlayHints } from "../../../../lib/server/playHintsLedger.js"; // PLAY-HINTS (2026-08-12) — parked cards get a play identity
 
@@ -145,7 +150,8 @@ export async function POST(request) {
   } else {
     let advanced;
     try {
-      advanced = advanceUntilDecision(session, { policy: { playHints: loadPlayHints() || true } });
+      // A game one of the engine's guards stopped ENDS here (status "engine-stopped") — never saved to be resumed into it.
+      advanced = endEngineStoppedGame(advanceUntilDecision(session, { policy: { playHints: loadPlayHints() || true } }));
     } catch (error) {
       return Response.json(
         { error: error.message || "Engine error advancing to first decision." },
@@ -157,9 +163,10 @@ export async function POST(request) {
   }
 
   putSession(session);
-  // Autosave so the game survives a server restart. Awaited (a small atomic write on a
+  // Autosave so the game survives a server restart — or, when it is already over (an Expert game that played itself
+  // out, a game the engine stopped), keep its record and leave nothing to resume. Awaited (a small atomic write on a
   // user-paced turn), never blocking: a failure is logged and comes back as `saveFailure`.
-  const saveFailure = await autosaveForPlay(session);
+  const saveFailure = await persistAfterPlay(session);
 
   return Response.json({
     sessionId: session.id,
@@ -170,6 +177,7 @@ export async function POST(request) {
     turn: session.state.turn,
     activePlayer: session.state.activePlayer,
     step: session.state.step,
+    decisionLogTail: filteredDecisionLogTail(session),
     table: tableSnapshot(session.state),
     board: boardSnapshot(session.state),
     ...(saveFailure ? { saveFailure } : {}),

@@ -10,7 +10,23 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.7.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.8.0"`
+
+> **v1.8.0 (additive MINOR, 2026-10-22 — the guards' stop):**
+> - An `"engine-stuck"` decision raised by one of the driver's three guards names it in `guard`:
+>   `{ type: "turn-stall", turn, count, limit }` (the per-turn tick budget — `count` / `limit` are the empty-stack
+>   ticks against the budget, or the raw ticks against its ten-budget ceiling), `{ type: "runaway", zone, count, limit,
+>   seat? }` (`zone` `"stack"` | `"battlefield"`, `seat` for a battlefield) or `{ type: "safety-cap", limit }`. The
+>   `reason` text is unchanged and the session is still `"active"` — `nextDecision` / `act` answer exactly as before,
+>   and the self-play result stays `"engine-stuck"`. An engine-stuck from anything else (the pending-choice failsafe,
+>   a step that throws, no legal action) has no `guard`.
+> - `nextDecision` / `act` thread the optional driver option `safetyCap` (default 50,000, `SAFETY_CAP_TICKS` — the
+>   shipped cap), injectable for tests like `turnTickBudget` and `runawayLimits`.
+> - `session.status` gains `"engine-stopped"` (§1.1c), set only by `learnSession.endEngineStoppedGame` — the Academy's
+>   HTTP routes end a guard-stopped game with it. Like `"abandoned"`, the driver never sets it, so no `createGame` /
+>   `nextDecision` / `act` caller sees it unless it hands such a session back in (then: `{ kind: "game-over", reason:
+>   "engine-stopped" }`). Hence MINOR, not the §5 MAJOR for a changed status vocabulary: nothing a driver could
+>   observe before is renamed, removed or re-meant.
 
 > **v1.7.0 (additive MINOR, 2026-10-20 — a new decision kind):**
 > - **`protection-color`** (CR 608.2d, 702.16): the person playing a seat announces the colour of a "protection from the color
@@ -218,7 +234,7 @@ An `ask` decision is `{ kind: "ask", prompt, options, metadata }` with
 
 ### 1.1c `session.status` vocabulary
 
-`"active" | "user-wins" | "ai-wins" | "draw" | "timeout" | "abandoned"`
+`"active" | "user-wins" | "ai-wins" | "draw" | "timeout" | "abandoned" | "engine-stopped"`
 
 - W/L/draw are set by the driver's SBA outcome recorder (the same rules `gameStatus` reads).
 - The turn-limit stalemate exit sets `"draw"` with the clock OFF (legacy, byte-identical) and
@@ -226,9 +242,14 @@ An `ask` decision is `{ kind: "ask", prompt, options, metadata }` with
   (`trainingWeight: 0` downstream; never relabeled as a W/L).
 - `"abandoned"` is set only by `abandon(session)` (the server route's explicit user exit; the
   driver never sets it). `abandonReason` rides the session.
-- **status↔gameStatus:** on `"user-wins"`/`"ai-wins"`/`"draw"` the two agree; `"timeout"` and
-  `"abandoned"` exist ONLY on `session.status` — `gameStatus(state)` (§1.2) never returns
-  them (the turn cap is the loop's concern, and a timed-out game's `state` still reads
+- `"engine-stopped"` (v1.8.0) is set only by `endEngineStoppedGame({ session, decision })` — the
+  Academy routes' end for a game one of the driver's guards stopped (an `"engine-stuck"` decision
+  with `guard`); the driver never sets it. `engineStop` `{ guard, reason, turn, detail, message }`
+  rides the session, and the routes answer `{ kind: "game-over", reason: "engine-stopped", guard,
+  message, detail }`.
+- **status↔gameStatus:** on `"user-wins"`/`"ai-wins"`/`"draw"` the two agree; `"timeout"`,
+  `"abandoned"` and `"engine-stopped"` exist ONLY on `session.status` — `gameStatus(state)` (§1.2)
+  never returns them (the turn cap is the loop's concern, and a timed-out game's `state` still reads
   not-over).
 
 ### 1.2 The pure layer (v0 — unchanged)

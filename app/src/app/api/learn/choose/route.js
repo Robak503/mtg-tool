@@ -22,14 +22,13 @@
 
 export const runtime = "nodejs";
 
-import { applyPendingChoice, isComplete, filteredDecisionLogTail } from "../../../../lib/learn/learnSession.js";
+import { applyPendingChoice, endEngineStoppedGame, filteredDecisionLogTail } from "../../../../lib/learn/learnSession.js";
 import { decisionViewForWire } from "../../../../lib/learn/decisionWire.js";
 import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
-import { getSession, putSession, deleteSession } from "../../../../lib/server/learnSessionStore.js";
-import { autosaveForPlay, recordFinishedGame, dropFinishedGameSave } from "../../../../lib/server/learnPersistence.js";
-import { recordFromSession } from "../../../../lib/server/gameRecordsStore.js";
+import { getSession, putSession } from "../../../../lib/server/learnSessionStore.js";
+import { persistAfterPlay } from "../../../../lib/server/learnPersistence.js";
 import { loadPlayHints } from "../../../../lib/server/playHintsLedger.js"; // PLAY-HINTS (2026-08-12) — parked cards get a play identity
 
 export async function POST(request) {
@@ -55,7 +54,8 @@ export async function POST(request) {
 
   let result;
   try {
-    result = applyPendingChoice(session, body?.choice || {}, { policy: { playHints: loadPlayHints() || true } });
+    // A game one of the engine's guards stopped ENDS here (status "engine-stopped") — never left active to be resumed into it.
+    result = endEngineStoppedGame(applyPendingChoice(session, body?.choice || {}, { policy: { playHints: loadPlayHints() || true } }));
   } catch (error) {
     return Response.json({ error: error.message || "Engine error applying the choice." }, { status: 500 });
   }
@@ -67,17 +67,9 @@ export async function POST(request) {
 
   putSession(stepped);
 
-  // Never blocks play; a failure is logged and comes back as `saveFailure` (learnPersistence.js).
-  let saveFailure;
-  if (isComplete(stepped)) {
-    // The record keeps a FULL narrative tail (up to the store's 160-line cap) for
-    // the P7 replay scrubber — not the 5-entry "recent activity" strip the live feed uses.
-    saveFailure = await recordFinishedGame(recordFromSession(stepped, filteredDecisionLogTail(stepped, 160)));
-    deleteSession(sessionId);
-    await dropFinishedGameSave(sessionId);
-  } else {
-    saveFailure = await autosaveForPlay(stepped);
-  }
+  // Game over: record kept, session freed, save dropped; otherwise autosaved. Never blocks play; a failure is logged
+  // and comes back as `saveFailure` (learnPersistence.js).
+  const saveFailure = await persistAfterPlay(stepped);
 
   return Response.json({
     sessionId: stepped.id,
