@@ -173,6 +173,7 @@ mtg-tool.exe                              ← Rust Tauri shell
 | `<install>\resources\knowledge\mtg-engine\` | Rule layer markdown (~92 files) | No |
 | `<install>\resources\data\` | Bundled reference data snapshot | No |
 | `<install>\resources\scripts\` | Sync scripts (Scryfall, Spellbook, salt) | No |
+| `<install>\resources\licenses\fonts\` | SIL OFL 1.1 license of each bundled UI font (`<family>-OFL.txt`) | No |
 | `<install>\resources\frontend-placeholder\` | Loading screen | No |
 | `%APPDATA%\com.colton.mtg-tool\data\` | User decks, chats, feedback, games | **Yes** |
 | `%APPDATA%\com.colton.mtg-tool\data\.first-launch-marker.json` | Wizard completion sentinel | Yes |

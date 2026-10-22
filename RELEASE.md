@@ -82,7 +82,9 @@ but everything else does — fine for iterating UI.
 4. Wait for CI (~30 min: the two-shard test gate ~10, then the build + reference-data sync ~20)
    (the build makes no font fetch: the four UI fonts are vendored under `app/src/app/fonts/` and loaded with
    `next/font/local`, so the next/font Google Fonts failure that cost v0.164.0 and v0.165.0 a re-run cannot recur,
-   and the build step no longer retries; a failed build is a real failure)
+   and the build step no longer retries; a failed build is a real failure. Each font folder's `OFL.txt` ships in
+   the installer as `resources/licenses/fonts/<family>-OFL.txt`; `prepare-tauri-resources.cjs` fails the build
+   if a font folder lacks its license)
 5. Verify the release page lists the `.exe`, `.exe.sig`, and `latest.json`
 6. Open MTG Tool, click "⟳ Updates" in the header, click "Check for updates"
 7. The "Download & install" button appears; click it; app restarts on

@@ -18,6 +18,7 @@
  *   resources/knowledge/mtg-judge/data/cr/cr_current.json       (CR JSON, knowledge-status + engine)
  *   resources/knowledge/mtg-engine/L*.md, META_*.md             (rules codex)
  *   resources/data/scryfall-bulk/oracle-index.json              (slim 29MB card index)
+ *   resources/licenses/fonts/<family>-OFL.txt                   (SIL OFL 1.1 text of each vendored UI font)
  *   resources/server/                                           (Next.js standalone, populated by copy-tauri-assets.cjs)
  *
  * Total expected: ~10MB for rules codex + ~29MB oracle index + standalone bundle.
@@ -257,7 +258,32 @@ for (const dep of syncScriptDeps) {
   }
 }
 
-// 5. Portable node.exe. Downloaded earlier in the pipeline by
+// 5. Font licenses. The UI typefaces are vendored under src/app/fonts/<family>/ and reach the bundle
+// inside the Next build (resources/server/.next/static/media). SIL OFL 1.1 condition 2 lets them be
+// bundled with software "provided that each copy contains the above copyright notice and this
+// license", so each family's OFL.txt (its copyright line followed by the license) is staged as
+// resources/licenses/fonts/<family>-OFL.txt. A family folder holding a font file without its OFL.txt
+// fails the staging in every mode: the licenses are tracked in git, so no checkout legitimately lacks one.
+console.log("Copying font licenses...");
+const fontsSrc = path.join(APP_ROOT, "src", "app", "fonts");
+const fontLicensesDst = path.join(RESOURCES, "licenses", "fonts");
+const FONT_FILE = /\.(woff2?|ttf|otf)$/i;
+for (const family of fs.readdirSync(fontsSrc, { withFileTypes: true })) {
+  if (!family.isDirectory()) continue;
+  const familyDir = path.join(fontsSrc, family.name);
+  const license = path.join(familyDir, "OFL.txt");
+  if (fs.existsSync(license)) {
+    copyFile(license, path.join(fontLicensesDst, `${family.name}-OFL.txt`));
+    console.log(`  + licenses/fonts/${family.name}-OFL.txt`);
+  } else if (fs.readdirSync(familyDir).some((name) => FONT_FILE.test(name))) {
+    throw new Error(
+      `prepare-tauri-resources: src/app/fonts/${family.name}/ holds a font without its OFL.txt — ` +
+        "the installer must carry each bundled font's license.",
+    );
+  }
+}
+
+// 6. Portable node.exe. Downloaded earlier in the pipeline by
 // scripts/download-portable-node.cjs. Lets the Tauri shell spawn the
 // Next.js server without depending on the user having Node installed.
 const portableNodeSrc = path.join(APP_ROOT, "src-tauri", "node", "node.exe");
@@ -269,7 +295,7 @@ if (fs.existsSync(portableNodeSrc)) {
   console.warn("  (no src-tauri/node/node.exe — run `npm run download:node`)");
 }
 
-// 6. Next.js standalone server (populated by copy-tauri-assets.cjs which
+// 7. Next.js standalone server (populated by copy-tauri-assets.cjs which
 // runs after `next build` in the build:tauri-standalone pipeline).
 const standaloneSrc = path.join(APP_ROOT, ".next", "standalone");
 const standaloneDst = path.join(RESOURCES, "server");
