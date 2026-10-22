@@ -1325,10 +1325,19 @@ player.
   reads the board: a record whose payer the payment taps is lost, never re-pointed at another
   permanent, so a payment the board could make with other payers or with the costed sources in
   another order is a safe miss. A no-{T} line of a permanent already tapped as a payer is still
-  usable (a tapped creature can activate it). Open: `commitPaymentPlan` commits in plan order,
-  so a plan that spends a self-sacrificing no-{T} source (Rith's Attendant's "{1}, Sacrifice",
-  Wild Cantor) before a later tap names it as a payer throws "Permanent … not found" — the board
-  can pay (tap it as the payer first, then sacrifice it); the commit order is what is wrong.
+  usable (a tapped creature can activate it).
+  **A payer is tapped before its sacrifice (2026-10-21).** A plan may spend a self-sacrificing
+  no-{T} source (Rith's Attendant's "{1}, Sacrifice this creature", Wild Cantor, Gold, an Eldrazi
+  Spawn) and name the same permanent as a later tap's payer (Urza, Springleaf Drum, Loam Dryad,
+  Supportive Parents) — the board can pay that: mana abilities are activated in the order the
+  player chooses (CR 601.2g, 605.3a), a tap needs the permanent untapped, a sacrifice only that it
+  is there (CR 701.21a). `commitPaymentPlan` commits the plan's taps in plan order except that
+  such a later tap commits just before the sacrifice (`payersBeforeTheirSacrifice`); a plan with
+  no such pair commits exactly in plan order, and the sacrifice-a-creature taps still commit last.
+  The order is legal for every plan because no tap-other line carries a mana cost (moving one
+  earlier needs no mana), the planner taps each permanent once, and no line that removes its
+  permanent also taps another — both facts of the parsed corpus; a new card that breaks either
+  needs the commit order revisited. The planner and `canAfford` are unchanged.
 
 ### 4.8 Combat, legal choices, the pilot seam
 

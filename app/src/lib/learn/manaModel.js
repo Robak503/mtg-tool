@@ -4929,6 +4929,40 @@ export function commitManaTap(state, playerId, tap, { reserved = null, victimId 
 }
 
 /**
+ * A PAYER IS TAPPED BEFORE ITS SACRIFICE (2026-10-21). The order in which a plan's taps commit, when one of them removes its own
+ * permanent as it pays (a no-{T} self-sacrifice: Rith's Attendant's "{1}, Sacrifice this creature: Add {R}{G}{W}.", Wild Cantor's
+ * "Sacrifice this creature: Add one mana of any color.", Gold, an Eldrazi Spawn) and a LATER tap of the same plan taps that
+ * permanent — as a tap-other payer (Urza, Lord High Artificer's "Tap an untapped artifact you control: Add {U}.", Springleaf Drum,
+ * Loam Dryad, Supportive Parents). Committed in plan order the sacrifice came first and the later tap found no permanent
+ * ("Permanent … not found" — a dispatch error that ends the game). The board can pay: a player activates mana abilities while
+ * paying, in the order they choose (CR 601.2g, 605.3a), each resolving at once (CR 605.3b); a tap needs the permanent untapped
+ * (CR 107.5, 701.26a), a sacrifice only that it is on the battlefield (CR 701.21a). So such a later tap commits just before the
+ * sacrifice; every other tap keeps its plan order, and a plan with no such pair commits exactly in plan order.
+ * The order is legal for every plan the planner makes: a tap-other line has no mana cost of its own (none parsed — no line with a
+ * tap-other cost carries an activation cost), so committing it earlier needs no mana and only makes its own sooner; a permanent is
+ * tapped once per payment (tapSource, `tappedIds`), so tapping it earlier collides with no other tap; and no line that removes its
+ * permanent also taps another (none parsed), so no two moves can require each other. A {T} self-sacrifice (a Treasure) is never
+ * another tap's payer in a plan (that would tap it twice). The sacrifice-a-creature sources still commit after all of these
+ * (commitPaymentPlan), so a victim tapped as a payer is tapped first there too.
+ */
+function payersBeforeTheirSacrifice(taps) {
+  if (!taps.some(leavesAsItPays)) return taps;
+  const out = [];
+  const placed = new Set();
+  taps.forEach((tap, i) => {
+    if (placed.has(i)) return;
+    if (leavesAsItPays(tap)) {
+      for (let j = i + 1; j < taps.length; j++) {
+        if (!placed.has(j) && permanentsItTaps(taps[j]).includes(tap.permanentId)) { out.push(taps[j]); placed.add(j); }
+      }
+    }
+    out.push(tap);
+    placed.add(i);
+  });
+  return out;
+}
+
+/**
  * W1 — THE single payment-plan commit: execute every tap of a `planPayment` plan via `commitManaTap`,
  * then deduct EXACTLY what the plan spent from the topped-up pool. Using the plan's own breakdown (not a
  * second payment heuristic) guarantees the deduction always succeeds — no divergence that could strand a
@@ -4952,9 +4986,11 @@ export function commitPaymentPlan(state, playerId, plan, { reserved = null } = {
   // every sacrifice of its plan a victim the same way, so on a plan made from this board none is left out.
   // + An exile-a-graveyard-card tap (Molt Tender) commits with the other taps, each taking the oldest card the action doesn't need
   // (any card pays it, so taking them in turn is the distinct assignment); the planner counted one card per exile, so none runs dry.
+  // + A PAYER BEFORE ITS SACRIFICE (2026-10-21): among the other taps, one that taps a permanent a no-{T} self-sacrifice of the same
+  // plan removes (Urza tapping the Gold the plan also sacrifices) commits just before that sacrifice (payersBeforeTheirSacrifice).
   const taps = plan?.taps || [];
   const picking = taps.filter(picksSacVictim);
-  for (const tap of picking.length ? taps.filter((t) => !picksSacVictim(t)) : taps) next = commitManaTap(next, playerId, tap, { reserved });
+  for (const tap of payersBeforeTheirSacrifice(picking.length ? taps.filter((t) => !picksSacVictim(t)) : taps)) next = commitManaTap(next, playerId, tap, { reserved });
   if (picking.length) {
     const entries = picking.map((t) => ({ source: t.permanentId, candidates: liveSacVictims(next, playerId, t, reserved).map((p) => p.id) }));
     const { victims, order } = assignSacVictims(entries, { allowSkip: true });
@@ -5041,4 +5077,4 @@ export function payManaCost(state, playerId, cost) {
 }
 
 // Internal exports for tests.
-export const _internals = { parseAddClause, hasHaste, BASIC_LAND_MANA, KNOWN_ROCKS };
+export const _internals = { parseAddClause, hasHaste, BASIC_LAND_MANA, KNOWN_ROCKS, payersBeforeTheirSacrifice };
